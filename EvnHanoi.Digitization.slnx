@@ -8,5 +8,6 @@
     <Project Path="Microservices/EvnHanoi.EquipmentService/EvnHanoi.EquipmentService.csproj" />
     <Project Path="Microservices/EvnHanoi.IdentityService/EvnHanoi.IdentityService.csproj" />
     <Project Path="Microservices/EvnHanoi.NotificationService/EvnHanoi.NotificationService.csproj" />
+    <Project Path="Microservices/EvnHanoi.SyncService/EvnHanoi.SyncService.csproj" />
   </Folder>
 </Solution>

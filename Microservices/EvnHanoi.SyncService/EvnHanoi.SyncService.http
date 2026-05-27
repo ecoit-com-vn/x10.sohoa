@@ -1,0 +1,6 @@
+@EvnHanoi.SyncService_HostAddress = http://localhost:5033
+
+GET {{EvnHanoi.SyncService_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
