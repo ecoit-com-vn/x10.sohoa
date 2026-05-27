@@ -1,0 +1,6 @@
+@EvnHanoi.DigitizationService_HostAddress = http://localhost:5055
+
+GET {{EvnHanoi.DigitizationService_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

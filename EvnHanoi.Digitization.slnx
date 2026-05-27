@@ -4,6 +4,8 @@
     <Project Path="BuildingBlocks/EvnHanoi.Infrastructure/EvnHanoi.Infrastructure.csproj" />
   </Folder>
   <Folder Name="/Microservices/">
+    <Project Path="Microservices/EvnHanoi.DigitizationService/EvnHanoi.DigitizationService.csproj" />
+    <Project Path="Microservices/EvnHanoi.EquipmentService/EvnHanoi.EquipmentService.csproj" />
     <Project Path="Microservices/EvnHanoi.IdentityService/EvnHanoi.IdentityService.csproj" />
   </Folder>
 </Solution>
