@@ -69,6 +69,33 @@ export class AdminLayout {
           routerLink: ['/administration/user-management']
         }
       ]
+    },
+    {
+      label: 'Equipment',
+      icon: 'pi pi-fw pi-box',
+      items: [
+        {
+          label: 'Form Builder',
+          icon: 'pi pi-fw pi-pencil',
+          routerLink: ['/equipment/form-builder']
+        },
+        {
+          label: 'Form Renderer',
+          icon: 'pi pi-fw pi-list',
+          routerLink: ['/equipment/form-renderer']
+        }
+      ]
+    },
+    {
+      label: 'Digitization',
+      icon: 'pi pi-fw pi-cloud-upload',
+      items: [
+        {
+          label: 'OCR Upload',
+          icon: 'pi pi-fw pi-file-arrow-up',
+          routerLink: ['/digitization/ocr-upload']
+        }
+      ]
     }
   ];
 }

@@ -1,0 +1,27 @@
+<p-card [header]="formDefinition?.formName || 'Dynamic Form'">
+  <form *ngIf="dynamicForm && formDefinition" [formGroup]="dynamicForm" (ngSubmit)="onSubmit()">
+    <div class="grid formgrid p-fluid">
+      <div class="col-12 md:col-6 field mb-4" *ngFor="let field of formDefinition.fields">
+        <label [for]="field.name" class="font-bold block mb-2">{{ field.label }} <span *ngIf="field.required" class="text-red-500">*</span></label>
+        
+        <ng-container [ngSwitch]="field.type">
+          <input *ngSwitchCase="'text'" [id]="field.name" type="text" pInputText [formControlName]="field.name" />
+          <p-inputNumber *ngSwitchCase="'number'" [inputId]="field.name" [formControlName]="field.name"></p-inputNumber>
+          <p-datepicker *ngSwitchCase="'date'" [inputId]="field.name" [formControlName]="field.name" dateFormat="dd/mm/yy" appendTo="body"></p-datepicker>
+          <!-- For dropdown, we would normally pass options. Since we don't have them in the simple definition, just rendering a disabled or empty dropdown -->
+          <p-select *ngSwitchCase="'dropdown'" [inputId]="field.name" [formControlName]="field.name" [options]="[]" placeholder="Select" appendTo="body"></p-select>
+          
+          <input *ngSwitchDefault [id]="field.name" type="text" pInputText [formControlName]="field.name" />
+        </ng-container>
+      </div>
+    </div>
+    
+    <div class="flex justify-content-end mt-4">
+      <p-button label="Submit" icon="pi pi-check" type="submit" [disabled]="dynamicForm.invalid"></p-button>
+    </div>
+  </form>
+  
+  <div *ngIf="!formDefinition">
+    <p>No form definition provided.</p>
+  </div>
+</p-card>

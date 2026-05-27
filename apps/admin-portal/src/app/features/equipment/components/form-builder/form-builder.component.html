@@ -1,0 +1,42 @@
+<p-card header="Form Builder">
+  <form [formGroup]="formDefinition" (ngSubmit)="saveForm()">
+    <div class="field mb-4">
+      <label for="formName" class="block mb-2 font-bold">Form Name</label>
+      <input id="formName" type="text" pInputText formControlName="formName" class="w-full" />
+    </div>
+
+    <div class="mb-4">
+      <h3 class="mb-2">Fields</h3>
+      <div formArrayName="fields" class="flex flex-column gap-3">
+        <div *ngFor="let field of fields.controls; let i=index" [formGroupName]="i" class="p-3 border-1 surface-border border-round flex flex-wrap gap-3 align-items-end">
+          <div class="flex-1 min-w-min">
+            <label class="block mb-1">Field Name (Key)</label>
+            <input type="text" pInputText formControlName="name" class="w-full" />
+          </div>
+          <div class="flex-1 min-w-min">
+            <label class="block mb-1">Label</label>
+            <input type="text" pInputText formControlName="label" class="w-full" />
+          </div>
+          <div class="flex-1 min-w-min">
+            <label class="block mb-1">Type</label>
+            <p-select [options]="fieldTypes" formControlName="type" optionLabel="label" optionValue="value" styleClass="w-full" appendTo="body"></p-select>
+          </div>
+          <div class="flex align-items-center mb-2">
+            <p-checkbox formControlName="required" [binary]="true" label="Required"></p-checkbox>
+          </div>
+          <div>
+            <p-button icon="pi pi-trash" severity="danger" (onClick)="removeField(i)"></p-button>
+          </div>
+        </div>
+      </div>
+      
+      <div class="mt-3">
+        <p-button label="Add Field" icon="pi pi-plus" (onClick)="addField()"></p-button>
+      </div>
+    </div>
+
+    <div class="flex justify-content-end mt-4">
+      <p-button label="Save Form" icon="pi pi-save" type="submit" [disabled]="formDefinition.invalid"></p-button>
+    </div>
+  </form>
+</p-card>

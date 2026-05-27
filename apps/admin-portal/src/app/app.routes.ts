@@ -14,6 +14,14 @@ export const appRoutes: Route[] = [
         loadComponent: () => import('./features/administration/user-management').then(m => m.UserManagement)
       },
       {
+        path: 'equipment',
+        loadChildren: () => import('./features/equipment/equipment.routes').then(m => m.EQUIPMENT_ROUTES)
+      },
+      {
+        path: 'digitization',
+        loadChildren: () => import('./features/digitization/digitization.routes').then(m => m.DIGITIZATION_ROUTES)
+      },
+      {
         path: '',
         redirectTo: 'administration/user-management',
         pathMatch: 'full'
