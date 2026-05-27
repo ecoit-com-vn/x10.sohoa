@@ -6,6 +6,7 @@
   "private": true,
   "dependencies": {
     "@angular-devkit/build-angular": "~21.2.0",
+    "@angular/animations": "^21.2.14",
     "@angular/common": "~21.2.0",
     "@angular/compiler": "~21.2.0",
     "@angular/core": "~21.2.0",
@@ -14,6 +15,8 @@
     "@angular/platform-server": "~21.2.0",
     "@angular/router": "~21.2.0",
     "@angular/ssr": "~21.2.0",
+    "@primeng/themes": "^21.0.4",
+    "@primeuix/themes": "^2.0.3",
     "express": "^4.21.2",
     "primeicons": "^7.0.0",
     "primeng": "^21.1.8",
