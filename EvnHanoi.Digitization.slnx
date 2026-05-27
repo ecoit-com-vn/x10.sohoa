@@ -1,0 +1,5 @@
+<Solution>
+  <Folder Name="/BuildingBlocks/">
+    <Project Path="BuildingBlocks/EvnHanoi.Core/EvnHanoi.Core.csproj" />
+  </Folder>
+</Solution>
