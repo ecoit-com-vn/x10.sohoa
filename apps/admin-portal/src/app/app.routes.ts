@@ -22,6 +22,10 @@ export const appRoutes: Route[] = [
         loadChildren: () => import('./features/digitization/digitization.routes').then(m => m.DIGITIZATION_ROUTES)
       },
       {
+        path: 'search',
+        loadChildren: () => import('./features/search/search.routes').then(m => m.SEARCH_ROUTES)
+      },
+      {
         path: '',
         redirectTo: 'administration/user-management',
         pathMatch: 'full'

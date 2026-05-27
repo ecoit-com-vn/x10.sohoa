@@ -4,10 +4,11 @@ import { Toolbar } from 'primeng/toolbar';
 import { Button } from 'primeng/button';
 import { PanelMenu } from 'primeng/panelmenu';
 import { MenuItem } from 'primeng/api';
+import { NotificationBellComponent } from './notification-bell.component';
 
 @Component({
   selector: 'app-admin-layout',
-  imports: [RouterModule, Toolbar, Button, PanelMenu],
+  imports: [RouterModule, Toolbar, Button, PanelMenu, NotificationBellComponent],
   template: `
     <div class="layout-wrapper">
       <div class="layout-header">
@@ -16,7 +17,8 @@ import { MenuItem } from 'primeng/api';
             <h3>EVNHANOI Digitization</h3>
           </ng-template>
           <ng-template #end>
-            <p-button icon="pi pi-user" [rounded]="true" [text]="true" severity="secondary" />
+            <app-notification-bell></app-notification-bell>
+            <p-button icon="pi pi-user" [rounded]="true" [text]="true" severity="secondary" styleClass="ml-2" />
           </ng-template>
         </p-toolbar>
       </div>
@@ -74,6 +76,11 @@ export class AdminLayout {
       label: 'Equipment',
       icon: 'pi pi-fw pi-box',
       items: [
+        {
+          label: 'Equipment Search',
+          icon: 'pi pi-fw pi-search',
+          routerLink: ['/search']
+        },
         {
           label: 'Form Builder',
           icon: 'pi pi-fw pi-pencil',
