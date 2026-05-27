@@ -1,10 +1,37 @@
+using EvnHanoi.DigitizationService.Repositories;
+using EvnHanoi.DigitizationService.Services;
+using EvnHanoi.Infrastructure.Database;
+using EvnHanoi.Infrastructure.Logging;
+using Serilog;
+
 var builder = WebApplication.CreateBuilder(args);
 
+// Configure Serilog
+builder.Host.UseSerilog((context, services, configuration) =>
+{
+    SerilogSetupHelper.ConfigureSerilog(context, configuration);
+});
+
 // Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
+builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
+// DI Configuration
+builder.Services.AddScoped<IMinioStorageService, MinioStorageService>();
+builder.Services.AddScoped<IMessagePublisher, RabbitMqPublisher>();
+builder.Services.AddScoped<IFileAttachmentRepository, FileAttachmentRepository>();
+
 var app = builder.Build();
+
+// Run DbUp Migrations
+try
+{
+    DatabaseMigrationHelper.RunMigrations(app.Configuration);
+}
+catch (Exception ex)
+{
+    Log.Error(ex, "Failed to run database migrations.");
+}
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -13,29 +40,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
-
-app.MapGet("/weatherforecast", () =>
-{
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast");
+app.UseAuthorization();
+app.MapControllers();
 
 app.Run();
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
