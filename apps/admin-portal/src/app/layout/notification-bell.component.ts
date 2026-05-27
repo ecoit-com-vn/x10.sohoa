@@ -2,7 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { BadgeModule } from 'primeng/badge';
 import { ButtonModule } from 'primeng/button';
-import { OverlayPanelModule } from 'primeng/overlaypanel';
+import { PopoverModule } from 'primeng/popover';
 import { MessageService } from 'primeng/api';
 import { ToastModule } from 'primeng/toast';
 import { SignalRService } from '../core/services/signalr.service';
@@ -10,7 +10,7 @@ import { SignalRService } from '../core/services/signalr.service';
 @Component({
   selector: 'app-notification-bell',
   standalone: true,
-  imports: [CommonModule, BadgeModule, ButtonModule, OverlayPanelModule, ToastModule],
+  imports: [CommonModule, BadgeModule, ButtonModule, PopoverModule, ToastModule],
   providers: [MessageService],
   template: `
     <p-toast></p-toast>
@@ -24,7 +24,7 @@ import { SignalRService } from '../core/services/signalr.service';
         <p-badge *ngIf="unreadCount > 0" [value]="unreadCount.toString()" severity="danger" styleClass="notification-badge"></p-badge>
       </p-button>
 
-      <p-overlayPanel #op>
+      <p-popover #op>
         <div class="p-3" style="width: 300px;">
           <h4 class="mb-3">Notifications</h4>
           <div *ngIf="notifications.length === 0" class="text-gray-500">
@@ -38,7 +38,7 @@ import { SignalRService } from '../core/services/signalr.service';
             <p-button label="Clear All" [text]="true" size="small" (onClick)="clearNotifications()"></p-button>
           </div>
         </div>
-      </p-overlayPanel>
+      </p-popover>
     </div>
   `,
   styles: [`
