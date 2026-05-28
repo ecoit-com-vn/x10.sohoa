@@ -12,21 +12,21 @@ using Microsoft.Extensions.Logging;
 namespace EvnHanoi.DigitizationService.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
-    public class FileController : ControllerBase
+    [Route("api/v1/digitization")]
+    public class DigitizationController : ControllerBase
     {
         private readonly IMinioStorageService _minioStorageService;
         private readonly IMessagePublisher _messagePublisher;
         private readonly IFileAttachmentRepository _repository;
-        private readonly ILogger<FileController> _logger;
+        private readonly ILogger<DigitizationController> _logger;
         private readonly string _bucketName;
 
-        public FileController(
+        public DigitizationController(
             IMinioStorageService minioStorageService,
             IMessagePublisher messagePublisher,
             IFileAttachmentRepository repository,
             IConfiguration configuration,
-            ILogger<FileController> logger)
+            ILogger<DigitizationController> logger)
         {
             _minioStorageService = minioStorageService;
             _messagePublisher = messagePublisher;

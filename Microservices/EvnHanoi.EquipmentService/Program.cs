@@ -15,6 +15,8 @@ builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IDossierRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.DossierRepository>();
+builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IEquipmentRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.EquipmentRepository>();
+builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IEquipmentTypeRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.EquipmentTypeRepository>();
 
 var app = builder.Build();
 
