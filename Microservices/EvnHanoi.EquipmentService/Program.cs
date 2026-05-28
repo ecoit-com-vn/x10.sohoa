@@ -17,6 +17,8 @@ builder.Services.AddOpenApi();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IDossierRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.DossierRepository>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IEquipmentRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.EquipmentRepository>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IEquipmentTypeRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.EquipmentTypeRepository>();
+builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IPhysicalStorageRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.PhysicalStorageRepository>();
+builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.ICatalogRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.CatalogRepository>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IElasticsearchService, EvnHanoi.EquipmentService.Infrastructure.Services.ElasticsearchService>();
 builder.Services.AddSingleton<EvnHanoi.EquipmentService.Core.Interfaces.IMessageProducer, EvnHanoi.EquipmentService.Infrastructure.Messaging.RabbitMQProducer>();
 
