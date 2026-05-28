@@ -149,6 +149,22 @@ export class AdminLayout implements OnInit {
           label: 'Tải lên tài liệu OCR',
           icon: 'pi pi-fw pi-file-arrow-up',
           routerLink: ['/digitization/ocr-upload']
+        },
+        {
+          label: 'Quản lý mượn/trả hồ sơ',
+          icon: 'pi pi-fw pi-folder-open',
+          routerLink: ['/workflow/borrow-return']
+        }
+      ]
+    },
+    {
+      label: 'Báo cáo thống kê',
+      icon: 'pi pi-fw pi-chart-bar',
+      items: [
+        {
+          label: 'Xuất báo cáo',
+          icon: 'pi pi-fw pi-file-excel',
+          routerLink: ['/reports']
         }
       ]
     }

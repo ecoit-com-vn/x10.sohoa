@@ -26,6 +26,14 @@ export const appRoutes: Route[] = [
         loadChildren: () => import('./features/search/search.routes').then(m => m.SEARCH_ROUTES)
       },
       {
+        path: 'workflow',
+        loadChildren: () => import('./features/workflow/workflow.routes').then(m => m.WORKFLOW_ROUTES)
+      },
+      {
+        path: 'reports',
+        loadChildren: () => import('./features/reports/reports.routes').then(m => m.REPORTS_ROUTES)
+      },
+      {
         path: '',
         redirectTo: 'administration/user-management',
         pathMatch: 'full'

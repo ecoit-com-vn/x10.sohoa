@@ -1,30 +1,20 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, OnInit } from '@angular/core';
 import { Card } from 'primeng/card';
-import { InputText } from 'primeng/inputtext';
-import { Password } from 'primeng/password';
 import { Button } from 'primeng/button';
-import { Router } from '@angular/router';
+import { Router, ActivatedRoute } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
-import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 
 @Component({
   selector: 'app-login',
-  imports: [Card, InputText, Password, Button, FormsModule, CommonModule],
+  imports: [Card, Button, CommonModule],
   template: `
     <div class="login-wrapper">
       <p-card header="Đăng nhập hệ thống EVNHANOI" [style]="{ width: '400px' }">
         <div style="display: flex; flex-direction: column; gap: 1rem;">
           <div *ngIf="error" style="color: red; font-size: 0.875rem;">{{ error }}</div>
-          <div>
-            <label for="username" style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Tên đăng nhập</label>
-            <input pInputText id="username" [(ngModel)]="username" style="width: 100%" />
-          </div>
-          <div>
-            <label for="password" style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Mật khẩu</label>
-            <p-password id="password" [(ngModel)]="password" [toggleMask]="true" styleClass="w-full" [inputStyle]="{'width':'100%'}" [feedback]="false"></p-password>
-          </div>
-          <p-button label="Đăng nhập" (onClick)="onLogin()" [loading]="loading" styleClass="w-full" [style]="{'width':'100%', 'margin-top':'0.5rem'}"></p-button>
+          
+          <p-button label="Đăng nhập với EVN SSO" (onClick)="onSsoLogin()" [loading]="loading" styleClass="w-full" [style]="{'width':'100%', 'margin-top':'0.5rem', 'background-color': '#005b9f'}"></p-button>
         </div>
       </p-card>
     </div>
@@ -39,28 +29,35 @@ import { CommonModule } from '@angular/common';
     }
   `,
 })
-export class Login {
-  username = '';
-  password = '';
+export class Login implements OnInit {
   loading = false;
   error = '';
   
   private router = inject(Router);
+  private route = inject(ActivatedRoute);
   private http = inject(HttpClient);
   
-  onLogin() {
-    if (!this.username || !this.password) {
-      this.error = 'Vui lòng nhập tên đăng nhập và mật khẩu';
-      return;
-    }
-    
+  ngOnInit() {
+    this.route.queryParams.subscribe(params => {
+      const ticket = params['ticket'];
+      if (ticket) {
+        this.verifySsoTicket(ticket);
+      }
+    });
+  }
+
+  onSsoLogin() {
+    // Redirect to EVN SSO login
+    const appCode = 'SOHOAX10';
+    const redirectUrl = encodeURIComponent(window.location.origin + '/login');
+    window.location.href = `https://sso.evnhanoi.vn//sso/login?appCode=${appCode}&returnUrl=${redirectUrl}`;
+  }
+
+  verifySsoTicket(ticket: string) {
     this.loading = true;
     this.error = '';
     
-    this.http.post('http://localhost:5000/api/v1/auth/login', {
-      username: this.username,
-      password: this.password
-    }).subscribe({
+    this.http.post('http://localhost:5000/api/v1/auth/sso', { ticket }).subscribe({
       next: (res: any) => {
         this.loading = false;
         const token = res.token || res.access_token || res.data?.token || res.data?.access_token;
@@ -73,8 +70,8 @@ export class Login {
       },
       error: (err) => {
         this.loading = false;
-        this.error = 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.';
-        console.error('Login error', err);
+        this.error = 'Đăng nhập SSO thất bại. Vui lòng thử lại.';
+        console.error('SSO Login error', err);
       }
     });
   }
