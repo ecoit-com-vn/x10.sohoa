@@ -21,6 +21,7 @@ builder.Services.AddOpenApi();
 
 // DI Configuration
 builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddSingleton(new Elastic.Clients.Elasticsearch.ElasticsearchClient(new Uri(builder.Configuration["Elasticsearch:Uri"] ?? "http://localhost:9200")));
 
 // 3. Configure JWT Authentication
 var jwtKey = builder.Configuration["Jwt:Key"] ?? "super_secret_key_12345678901234567890";

@@ -25,7 +25,13 @@ public static class SerilogSetupHelper
                 path: "Logs/log-.txt",
                 rollingInterval: RollingInterval.Day,
                 outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj} {Properties:j}{NewLine}{Exception}",
-                retainedFileCountLimit: 30);
+                retainedFileCountLimit: 30)
+            .WriteTo.Elasticsearch(new Serilog.Sinks.Elasticsearch.ElasticsearchSinkOptions(new Uri(context.Configuration["Elasticsearch:Uri"] ?? "http://localhost:9200"))
+            {
+                AutoRegisterTemplate = true,
+                IndexFormat = "audit_logs-{0:yyyy.MM.dd}",
+                AutoRegisterTemplateVersion = Serilog.Sinks.Elasticsearch.AutoRegisterTemplateVersion.ESv8
+            });
 
         // Read overrides or additional settings from appsettings.json if needed
         configuration.ReadFrom.Configuration(context.Configuration);

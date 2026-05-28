@@ -75,6 +75,7 @@ builder.Services.AddQuartz(q =>
 builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
 
 // 6. RabbitMQ Sync Worker
+builder.Services.AddSingleton<EvnHanoi.SyncService.Services.IPmisSyncTriggerService, EvnHanoi.SyncService.Services.PmisSyncTriggerService>();
 builder.Services.AddHostedService<EvnHanoi.SyncService.Workers.EquipmentSyncWorker>();
 builder.Services.AddHostedService<EvnHanoi.SyncService.Workers.PmisSyncWorker>();
 builder.Services.AddHostedService<EvnHanoi.SyncService.Workers.PmisPublisherWorker>();

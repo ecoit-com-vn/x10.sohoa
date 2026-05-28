@@ -11,21 +11,6 @@ builder.Host.UseSerilog((context, services, configuration) =>
 {
     SerilogSetupHelper.ConfigureSerilog(context, configuration);
 });
-
-// Add services to the container.
-builder.Services.AddControllers();
-builder.Services.AddOpenApi();
-
-// DI Configuration
-builder.Services.AddScoped<IMinioStorageService, MinioStorageService>();
-builder.Services.AddScoped<IMessagePublisher, RabbitMqPublisher>();
-builder.Services.AddScoped<IFileAttachmentRepository, FileAttachmentRepository>();
-
-var app = builder.Build();
-
-// Run DbUp Migrations
-try
-{
     DatabaseMigrationHelper.RunMigrations(app.Configuration);
 }
 catch (Exception ex)

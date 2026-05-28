@@ -11,6 +11,7 @@ using Microsoft.Extensions.Logging;
 using Polly;
 using Polly.Retry;
 using RabbitMQ.Client;
+using EvnHanoi.SyncService.Services;
 
 namespace EvnHanoi.SyncService.Workers;
 
@@ -21,17 +22,19 @@ public class PmisSyncWorker : BackgroundService
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly AsyncRetryPolicy _httpRetryPolicy;
     private readonly RetryPolicy _rabbitRetryPolicy;
+    private readonly IPmisSyncTriggerService _triggerService;
     
     private IConnection? _connection;
     private IModel? _channel;
     private readonly string _queueName = "equipment_sync_queue";
     private readonly string _pmisApiUrl = "http://pmis.evn.com.vn/api/equipment/getAll";
 
-    public PmisSyncWorker(ILogger<PmisSyncWorker> logger, IConfiguration configuration, IHttpClientFactory httpClientFactory)
+    public PmisSyncWorker(ILogger<PmisSyncWorker> logger, IConfiguration configuration, IHttpClientFactory httpClientFactory, IPmisSyncTriggerService triggerService)
     {
         _logger = logger;
         _configuration = configuration;
         _httpClientFactory = httpClientFactory;
+        _triggerService = triggerService;
 
         // Tích hợp Polly Retry Policy cho HTTP Client
         _httpRetryPolicy = Policy
@@ -95,7 +98,21 @@ public class PmisSyncWorker : BackgroundService
             }
 
             _logger.LogInformation($"PmisSyncWorker sleeping for {delay.TotalMinutes} minutes before next sync.");
-            await Task.Delay(delay, stoppingToken);
+            
+            try 
+            {
+                var triggerToken = _triggerService.GetTriggerToken();
+                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken, triggerToken);
+                await Task.Delay(delay, linkedCts.Token);
+            }
+            catch (TaskCanceledException)
+            {
+                if (stoppingToken.IsCancellationRequested)
+                {
+                    break;
+                }
+                _logger.LogInformation("PmisSyncWorker was triggered to run immediately.");
+            }
         }
     }
 
