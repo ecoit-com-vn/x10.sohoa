@@ -1,5 +1,61 @@
-/* You can add global styles to this file, and also import other style files */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 @import "primeicons/primeicons.css";
+
+/* Enterprise Light Theme Overrides for PrimeNG */
+:root {
+  --p-font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+  --p-primary-color: #0ea5e9;
+  --p-primary-50: #f0f9ff;
+  --p-primary-100: #e0f2fe;
+  --p-primary-200: #bae6fd;
+  --p-primary-300: #7dd3fc;
+  --p-primary-400: #38bdf8;
+  --p-primary-500: #0ea5e9;
+  --p-primary-600: #0284c7;
+  --p-primary-700: #0369a1;
+  --p-primary-800: #075985;
+  --p-primary-900: #0c4a6e;
+  
+  /* Light Mode (Default) */
+  --p-surface-0: #ffffff;
+  --p-surface-50: #f8fafc;
+  --p-surface-100: #f1f5f9;
+  --p-surface-200: #e2e8f0;
+  --p-surface-300: #cbd5e1;
+  --p-surface-400: #94a3b8;
+  --p-surface-500: #64748b;
+  --p-surface-600: #475569;
+  --p-surface-700: #334155;
+  --p-surface-800: #1e293b;
+  --p-surface-900: #0f172a;
+
+  --p-content-background: var(--p-surface-50);
+  --p-content-border-color: var(--p-surface-200);
+  --p-text-color: var(--p-surface-800);
+  --p-text-muted-color: var(--p-surface-500);
+  
+  --p-border-radius: 12px;
+}
+
+:root.dark-mode {
+  /* Dark Mode (Deep Slate) */
+  --p-surface-0: #0f172a;
+  --p-surface-50: #1e293b;
+  --p-surface-100: #334155;
+  --p-surface-200: #475569;
+  --p-surface-300: #64748b;
+  --p-surface-400: #94a3b8;
+  --p-surface-500: #cbd5e1;
+  --p-surface-600: #e2e8f0;
+  --p-surface-700: #f1f5f9;
+  --p-surface-800: #f8fafc;
+  --p-surface-900: #ffffff;
+
+  --p-content-background: #0b1120;
+  --p-content-border-color: var(--p-surface-100);
+  --p-text-color: var(--p-surface-700);
+  --p-text-muted-color: var(--p-surface-400);
+}
 
 html, body {
   margin: 0;
@@ -8,4 +64,60 @@ html, body {
   font-family: var(--p-font-family);
   background-color: var(--p-content-background);
   color: var(--p-text-color);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Global Component Styling */
+.p-card {
+  border-radius: var(--p-border-radius);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05) !important;
+  border: 1px solid var(--p-surface-100);
+  background: var(--p-surface-0);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.p-button {
+  border-radius: 8px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.3px;
+  box-shadow: 0 2px 4px rgba(14, 165, 233, 0.2) !important;
+}
+
+.p-inputtext, .p-password input {
+  border-radius: 8px !important;
+  padding: 0.75rem 1rem !important;
+  border-color: var(--p-surface-300) !important;
+}
+.p-inputtext:focus, .p-password input:focus {
+  border-color: var(--p-primary-color) !important;
+  box-shadow: 0 0 0 3px var(--p-primary-100) !important;
+}
+
+.p-fileupload {
+  border: 2px dashed var(--p-surface-300);
+  border-radius: var(--p-border-radius);
+  padding: 2rem;
+  background: var(--p-surface-0);
+  text-align: center;
+  transition: border-color 0.3s;
+}
+.p-fileupload:hover {
+  border-color: var(--p-primary-400);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--p-surface-100);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--p-surface-400);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--p-surface-500);
 }

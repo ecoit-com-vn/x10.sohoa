@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, OnInit } from '@angular/core';
 import { RouterModule, Router } from '@angular/router';
 import { Toolbar } from 'primeng/toolbar';
 import { Button } from 'primeng/button';
@@ -12,13 +12,17 @@ import { NotificationBellComponent } from './notification-bell.component';
   template: `
     <div class="layout-wrapper">
       <div class="layout-header">
-        <p-toolbar>
+        <p-toolbar styleClass="border-none border-bottom-1 border-surface-200 shadow-1 px-4 py-3" [style]="{'background-color': 'var(--p-surface-0)'}">
           <ng-template #start>
-            <h3>Hệ thống Số hóa EVNHANOI</h3>
+            <div class="flex align-items-center gap-2">
+              <i class="pi pi-bolt text-primary text-2xl"></i>
+              <h3 class="m-0 text-xl font-semibold text-color">Hệ thống Số hóa EVNHANOI</h3>
+            </div>
           </ng-template>
           <ng-template #end>
+            <p-button [icon]="isDarkMode ? 'pi pi-sun' : 'pi pi-moon'" (onClick)="toggleTheme()" [rounded]="true" [text]="true" severity="secondary" styleClass="mr-2"></p-button>
             <app-notification-bell></app-notification-bell>
-            <p-button icon="pi pi-sign-out" label="Đăng xuất" [rounded]="true" [text]="true" severity="secondary" styleClass="ml-2" (onClick)="logout()" />
+            <p-button icon="pi pi-sign-out" label="Đăng xuất" [rounded]="true" [text]="true" severity="secondary" styleClass="ml-3 font-semibold" (onClick)="logout()" />
           </ng-template>
         </p-toolbar>
       </div>
@@ -47,20 +51,62 @@ import { NotificationBellComponent } from './notification-bell.component';
       overflow: hidden;
     }
     .layout-sidebar {
-      flex: 0 0 250px;
+      flex: 0 0 280px;
       overflow-y: auto;
-      border-right: 1px solid var(--p-content-border-color, #dee2e6);
-      padding: 1rem;
+      border-right: 1px solid var(--p-content-border-color);
+      background-color: var(--p-surface-0);
+      padding: 1.5rem 1rem;
+      box-shadow: 2px 0 8px rgba(0,0,0,0.02);
     }
     .layout-content {
       flex: 1 1 auto;
       overflow-y: auto;
-      padding: 2rem;
+      padding: 2.5rem;
+      background-color: var(--p-surface-50);
+    }
+    
+    ::ng-deep .p-panelmenu .p-panelmenu-header-content {
+      border: none !important;
+      background: transparent !important;
+    }
+    ::ng-deep .p-panelmenu .p-panelmenu-header-action {
+      padding: 1rem 1.25rem !important;
+      border-radius: 8px !important;
+      font-weight: 600 !important;
+      color: var(--p-surface-700) !important;
+    }
+    ::ng-deep .p-panelmenu .p-panelmenu-header-action:hover {
+      background-color: var(--p-primary-50) !important;
+      color: var(--p-primary-600) !important;
     }
   `,
 })
-export class AdminLayout {
+export class AdminLayout implements OnInit {
   private router = inject(Router);
+  isDarkMode = true;
+
+  ngOnInit() {
+    // Check saved theme
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'light') {
+      this.isDarkMode = false;
+      document.documentElement.classList.remove('dark-mode');
+    } else {
+      this.isDarkMode = true;
+      document.documentElement.classList.add('dark-mode');
+    }
+  }
+
+  toggleTheme() {
+    this.isDarkMode = !this.isDarkMode;
+    if (this.isDarkMode) {
+      document.documentElement.classList.add('dark-mode');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark-mode');
+      localStorage.setItem('theme', 'light');
+    }
+  }
 
   items: MenuItem[] = [
     {
