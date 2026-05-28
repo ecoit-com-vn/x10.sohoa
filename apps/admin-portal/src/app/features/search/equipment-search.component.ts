@@ -11,19 +11,19 @@ import { TableModule } from 'primeng/table';
   imports: [CommonModule, FormsModule, InputTextModule, ButtonModule, TableModule],
   template: `
     <div class="equipment-search">
-      <h2>Equipment Search</h2>
+      <h2>Tìm kiếm Thiết bị</h2>
       <div class="search-bar" style="margin-bottom: 20px; display: flex; gap: 10px;">
-        <input pInputText type="text" [(ngModel)]="searchQuery" placeholder="Search for equipment..." style="flex: 1; max-width: 400px;" />
-        <p-button label="Search" icon="pi pi-search" (onClick)="onSearch()"></p-button>
+        <input pInputText type="text" [(ngModel)]="searchQuery" placeholder="Nhập từ khóa tìm kiếm..." style="flex: 1; max-width: 400px;" />
+        <p-button label="Tìm kiếm" icon="pi pi-search" (onClick)="onSearch()"></p-button>
       </div>
 
       <p-table [value]="results" [paginator]="true" [rows]="10" [tableStyle]="{ 'min-width': '50rem' }" [loading]="loading">
         <ng-template pTemplate="header">
           <tr>
-            <th>ID</th>
-            <th>Name</th>
-            <th>Type</th>
-            <th>Status</th>
+            <th>Mã định danh</th>
+            <th>Tên thiết bị</th>
+            <th>Loại thiết bị</th>
+            <th>Trạng thái</th>
           </tr>
         </ng-template>
         <ng-template pTemplate="body" let-item>

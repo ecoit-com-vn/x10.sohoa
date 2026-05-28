@@ -8,17 +8,17 @@ import { Button } from 'primeng/button';
   template: `
     <div class="card">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-        <h2>User Management</h2>
-        <p-button label="Add User" icon="pi pi-plus"></p-button>
+        <h2>Quản lý Người dùng</h2>
+        <p-button label="Thêm mới" icon="pi pi-plus"></p-button>
       </div>
       <p-table [value]="users" [tableStyle]="{ 'min-width': '50rem' }">
         <ng-template #header>
           <tr>
-            <th>Username</th>
-            <th>Full Name</th>
-            <th>Role</th>
-            <th>Status</th>
-            <th>Actions</th>
+            <th>Tên đăng nhập</th>
+            <th>Họ và tên</th>
+            <th>Vai trò</th>
+            <th>Trạng thái</th>
+            <th>Thao tác</th>
           </tr>
         </ng-template>
         <ng-template #body let-user>
@@ -42,7 +42,7 @@ import { Button } from 'primeng/button';
 })
 export class UserManagement {
   users = [
-    { username: 'admin', fullName: 'Administrator', role: 'Admin', status: 'Active' },
-    { username: 'user1', fullName: 'User One', role: 'User', status: 'Active' }
+    { username: 'admin', fullName: 'Quản trị viên', role: 'Admin', status: 'Hoạt động' },
+    { username: 'user1', fullName: 'Người dùng 1', role: 'User', status: 'Hoạt động' }
   ];
 }
