@@ -117,6 +117,16 @@ export class AdminLayout implements OnInit {
           label: 'Quản lý người dùng',
           icon: 'pi pi-fw pi-users',
           routerLink: ['/administration/user-management']
+        },
+        {
+          label: 'Nhật ký thao tác',
+          icon: 'pi pi-fw pi-history',
+          routerLink: ['/administration/audit-log']
+        },
+        {
+          label: 'Cấu hình đồng bộ PMIS',
+          icon: 'pi pi-fw pi-sync',
+          routerLink: ['/administration/sync-config']
         }
       ]
     },
@@ -128,6 +138,11 @@ export class AdminLayout implements OnInit {
           label: 'Tìm kiếm thiết bị',
           icon: 'pi pi-fw pi-search',
           routerLink: ['/search']
+        },
+        {
+          label: 'Quản lý biểu mẫu',
+          icon: 'pi pi-fw pi-file',
+          routerLink: ['/equipment/form-management']
         },
         {
           label: 'Tạo biểu mẫu động',
@@ -151,9 +166,19 @@ export class AdminLayout implements OnInit {
           routerLink: ['/digitization/ocr-upload']
         },
         {
+          label: 'Phân bổ nhập liệu OCR',
+          icon: 'pi pi-fw pi-sitemap',
+          routerLink: ['/digitization/ocr-allocation']
+        },
+        {
           label: 'Quản lý mượn/trả hồ sơ',
           icon: 'pi pi-fw pi-folder-open',
           routerLink: ['/workflow/borrow-return']
+        },
+        {
+          label: 'Quy trình duyệt (Builder)',
+          icon: 'pi pi-fw pi-sitemap',
+          routerLink: ['/workflow/builder']
         }
       ]
     },

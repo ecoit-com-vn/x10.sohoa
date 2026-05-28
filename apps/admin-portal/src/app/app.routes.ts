@@ -14,6 +14,14 @@ export const appRoutes: Route[] = [
         loadComponent: () => import('./features/administration/user-management').then(m => m.UserManagement)
       },
       {
+        path: 'administration/audit-log',
+        loadComponent: () => import('./features/administration/audit-log.component').then(m => m.AuditLogComponent)
+      },
+      {
+        path: 'administration/sync-config',
+        loadComponent: () => import('./features/administration/sync-config.component').then(m => m.SyncConfigComponent)
+      },
+      {
         path: 'equipment',
         loadChildren: () => import('./features/equipment/equipment.routes').then(m => m.EQUIPMENT_ROUTES)
       },
