@@ -10,10 +10,12 @@ namespace EvnHanoi.EquipmentService.Controllers;
 public class EquipmentController : ControllerBase
 {
     private readonly IEquipmentRepository _equipmentRepository;
+    private readonly IElasticsearchService _elasticsearchService;
 
-    public EquipmentController(IEquipmentRepository equipmentRepository)
+    public EquipmentController(IEquipmentRepository equipmentRepository, IElasticsearchService elasticsearchService)
     {
         _equipmentRepository = equipmentRepository;
+        _elasticsearchService = elasticsearchService;
     }
 
     [HttpGet]
@@ -21,6 +23,16 @@ public class EquipmentController : ControllerBase
     {
         var equipments = await _equipmentRepository.GetAllAsync();
         return Ok(equipments);
+    }
+
+    [HttpGet("search")]
+    public async Task<IActionResult> Search([FromQuery] string keyword)
+    {
+        if (string.IsNullOrWhiteSpace(keyword))
+            return BadRequest("Keyword is required.");
+
+        var results = await _elasticsearchService.SearchEquipmentsAsync(keyword);
+        return Ok(results);
     }
 
     [HttpGet("{id}")]
