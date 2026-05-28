@@ -11,6 +11,8 @@
     <Project Path="Microservices/EvnHanoi.EquipmentService/EvnHanoi.EquipmentService.csproj" />
     <Project Path="Microservices/EvnHanoi.IdentityService/EvnHanoi.IdentityService.csproj" />
     <Project Path="Microservices/EvnHanoi.NotificationService/EvnHanoi.NotificationService.csproj" />
+    <Project Path="Microservices/EvnHanoi.ReportService/EvnHanoi.ReportService.csproj" />
     <Project Path="Microservices/EvnHanoi.SyncService/EvnHanoi.SyncService.csproj" />
+    <Project Path="Microservices/EvnHanoi.WorkflowService/EvnHanoi.WorkflowService.csproj" />
   </Folder>
 </Solution>
