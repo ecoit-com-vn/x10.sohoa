@@ -1,5 +1,5 @@
-import { Component } from '@angular/core';
-import { RouterModule } from '@angular/router';
+import { Component, inject } from '@angular/core';
+import { RouterModule, Router } from '@angular/router';
 import { Toolbar } from 'primeng/toolbar';
 import { Button } from 'primeng/button';
 import { PanelMenu } from 'primeng/panelmenu';
@@ -14,11 +14,11 @@ import { NotificationBellComponent } from './notification-bell.component';
       <div class="layout-header">
         <p-toolbar>
           <ng-template #start>
-            <h3>EVNHANOI Digitization</h3>
+            <h3>Hệ thống Số hóa EVNHANOI</h3>
           </ng-template>
           <ng-template #end>
             <app-notification-bell></app-notification-bell>
-            <p-button icon="pi pi-user" [rounded]="true" [text]="true" severity="secondary" styleClass="ml-2" />
+            <p-button icon="pi pi-sign-out" label="Đăng xuất" [rounded]="true" [text]="true" severity="secondary" styleClass="ml-2" (onClick)="logout()" />
           </ng-template>
         </p-toolbar>
       </div>
@@ -60,49 +60,56 @@ import { NotificationBellComponent } from './notification-bell.component';
   `,
 })
 export class AdminLayout {
+  private router = inject(Router);
+
   items: MenuItem[] = [
     {
-      label: 'Administration',
+      label: 'Quản trị hệ thống',
       icon: 'pi pi-fw pi-cog',
       items: [
         {
-          label: 'User Management',
+          label: 'Quản lý người dùng',
           icon: 'pi pi-fw pi-users',
           routerLink: ['/administration/user-management']
         }
       ]
     },
     {
-      label: 'Equipment',
+      label: 'Quản lý thiết bị',
       icon: 'pi pi-fw pi-box',
       items: [
         {
-          label: 'Equipment Search',
+          label: 'Tìm kiếm thiết bị',
           icon: 'pi pi-fw pi-search',
           routerLink: ['/search']
         },
         {
-          label: 'Form Builder',
+          label: 'Tạo biểu mẫu động',
           icon: 'pi pi-fw pi-pencil',
           routerLink: ['/equipment/form-builder']
         },
         {
-          label: 'Form Renderer',
+          label: 'Hiển thị biểu mẫu',
           icon: 'pi pi-fw pi-list',
           routerLink: ['/equipment/form-renderer']
         }
       ]
     },
     {
-      label: 'Digitization',
+      label: 'Số hóa dữ liệu',
       icon: 'pi pi-fw pi-cloud-upload',
       items: [
         {
-          label: 'OCR Upload',
+          label: 'Tải lên tài liệu OCR',
           icon: 'pi pi-fw pi-file-arrow-up',
           routerLink: ['/digitization/ocr-upload']
         }
       ]
     }
   ];
+
+  logout() {
+    localStorage.removeItem('token');
+    this.router.navigate(['/login']);
+  }
 }

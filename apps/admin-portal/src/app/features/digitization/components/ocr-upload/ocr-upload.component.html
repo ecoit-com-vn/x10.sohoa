@@ -1,19 +1,21 @@
 <p-toast></p-toast>
-<p-card header="OCR Document Upload">
-  <p>Upload scanned documents or images for OCR extraction.</p>
+<p-card header="Tải lên tài liệu OCR">
+  <p>Tải lên tài liệu quét hoặc hình ảnh để trích xuất OCR.</p>
   
   <p-fileUpload 
     name="ocrFile[]" 
-    url="https://www.primefaces.org/cdn/api/upload.php" 
-    (onUpload)="onUpload($event)" 
+    [customUpload]="true"
+    (uploadHandler)="onUpload($event)" 
     [multiple]="true" 
     accept="image/*,application/pdf" 
     maxFileSize="10000000"
-    [customUpload]="false"
+    chooseLabel="Chọn tệp"
+    uploadLabel="Tải lên"
+    cancelLabel="Hủy"
     styleClass="mt-4">
     
     <ng-template pTemplate="content">
-        <ul *ngIf="false"></ul> <!-- Custom content area if needed -->
+        <ul *ngIf="false"></ul>
     </ng-template>
   </p-fileUpload>
 </p-card>
