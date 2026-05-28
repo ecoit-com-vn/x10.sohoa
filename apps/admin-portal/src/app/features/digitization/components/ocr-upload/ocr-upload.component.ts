@@ -28,7 +28,6 @@ export class OcrUploadComponent {
     this.http.post('http://localhost:5000/api/v1/digitization/upload', formData).subscribe({
       next: () => {
         this.messageService.add({severity: 'info', summary: 'Thành công', detail: 'Đã tải lên tệp để xử lý OCR'});
-        event.options.clear();
       },
       error: (err) => {
         this.messageService.add({severity: 'error', summary: 'Lỗi', detail: 'Tải lên tệp thất bại'});
