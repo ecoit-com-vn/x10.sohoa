@@ -24,4 +24,9 @@ public class NotificationHub : Hub
         _logger.LogInformation("Client disconnected: {ConnectionId}", Context.ConnectionId);
         await base.OnDisconnectedAsync(exception);
     }
+
+    public async Task SendNotification(string message)
+    {
+        await Clients.All.SendAsync("ReceiveNotification", message);
+    }
 }
