@@ -74,6 +74,9 @@ builder.Services.AddQuartz(q =>
 });
 builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
 
+// 6. RabbitMQ Sync Worker
+builder.Services.AddHostedService<EvnHanoi.SyncService.Workers.EquipmentSyncWorker>();
+
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())

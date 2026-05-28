@@ -11,11 +11,13 @@ public class EquipmentController : ControllerBase
 {
     private readonly IEquipmentRepository _equipmentRepository;
     private readonly IElasticsearchService _elasticsearchService;
+    private readonly IMessageProducer _messageProducer;
 
-    public EquipmentController(IEquipmentRepository equipmentRepository, IElasticsearchService elasticsearchService)
+    public EquipmentController(IEquipmentRepository equipmentRepository, IElasticsearchService elasticsearchService, IMessageProducer messageProducer)
     {
         _equipmentRepository = equipmentRepository;
         _elasticsearchService = elasticsearchService;
+        _messageProducer = messageProducer;
     }
 
     [HttpGet]
@@ -84,7 +86,23 @@ public class EquipmentController : ControllerBase
 
         var result = await _equipmentRepository.CreateWithAttributesAsync(equipment, attributes);
         if (result)
+        {
+            // Publish message to RabbitMQ for SyncService
+            var syncMessage = new
+            {
+                Id = equipment.Id,
+                EquipmentTypeId = equipment.EquipmentTypeId,
+                Name = equipment.Name,
+                Code = equipment.Code,
+                SerialNumber = equipment.SerialNumber,
+                CreatedAt = equipment.CreatedAt,
+                CreatedBy = equipment.CreatedBy,
+                DynamicAttributes = dto.DynamicAttributes
+            };
+            _messageProducer.SendMessage(syncMessage, "equipment_sync_queue");
+
             return CreatedAtAction(nameof(GetById), new { id = equipmentId }, equipment);
+        }
 
         return BadRequest("Failed to create equipment.");
     }
