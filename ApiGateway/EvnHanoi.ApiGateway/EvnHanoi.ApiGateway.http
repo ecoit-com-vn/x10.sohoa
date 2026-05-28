@@ -1,0 +1,6 @@
+@EvnHanoi.ApiGateway_HostAddress = http://localhost:5101
+
+GET {{EvnHanoi.ApiGateway_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

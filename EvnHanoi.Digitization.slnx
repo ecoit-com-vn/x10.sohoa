@@ -1,4 +1,7 @@
 <Solution>
+  <Folder Name="/ApiGateway/">
+    <Project Path="ApiGateway/EvnHanoi.ApiGateway/EvnHanoi.ApiGateway.csproj" />
+  </Folder>
   <Folder Name="/BuildingBlocks/">
     <Project Path="BuildingBlocks/EvnHanoi.Core/EvnHanoi.Core.csproj" />
     <Project Path="BuildingBlocks/EvnHanoi.Infrastructure/EvnHanoi.Infrastructure.csproj" />
