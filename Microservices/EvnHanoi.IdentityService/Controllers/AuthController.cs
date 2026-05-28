@@ -26,18 +26,66 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("login")]
-    public async Task<IActionResult> Login([FromBody] LoginRequest request)
+    public async Task<IActionResult> Login([FromQuery] string? ticket, [FromBody] LoginRequest? request)
     {
+        var tokenHandler = new JwtSecurityTokenHandler();
+        var secretKey = _configuration["Jwt:Key"] ?? "super_secret_key_12345678901234567890";
+        var key = Encoding.ASCII.GetBytes(secretKey);
+
+        if (!string.IsNullOrEmpty(ticket))
+        {
+            // Mock SSO Ticket validation
+            var ssoTokenDescriptor = new SecurityTokenDescriptor
+            {
+                Subject = new ClaimsIdentity(new[]
+                {
+                    new Claim(ClaimTypes.NameIdentifier, "9999"),
+                    new Claim(ClaimTypes.Name, "sso_mock_user")
+                }),
+                Expires = DateTime.UtcNow.AddMinutes(60),
+                Issuer = _configuration["Jwt:Issuer"],
+                Audience = _configuration["Jwt:Audience"],
+                SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
+            };
+
+            var ssoAccessToken = tokenHandler.CreateToken(ssoTokenDescriptor);
+            
+            var ssoRefreshDescriptor = new SecurityTokenDescriptor
+            {
+                Subject = new ClaimsIdentity(new[]
+                {
+                    new Claim(ClaimTypes.NameIdentifier, "9999"),
+                    new Claim("TokenType", "Refresh")
+                }),
+                Expires = DateTime.UtcNow.AddDays(7),
+                Issuer = _configuration["Jwt:Issuer"],
+                Audience = _configuration["Jwt:Audience"],
+                SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
+            };
+            
+            var ssoRefreshToken = tokenHandler.CreateToken(ssoRefreshDescriptor);
+
+            // Return EVN SSO JSON format mock
+            return Ok(new 
+            { 
+                access_token = tokenHandler.WriteToken(ssoAccessToken),
+                token_type = "Bearer",
+                expires_in = 3600,
+                refresh_token = tokenHandler.WriteToken(ssoRefreshToken)
+            });
+        }
+
+        if (request == null || string.IsNullOrEmpty(request.Username) || string.IsNullOrEmpty(request.Password))
+        {
+            return BadRequest(new { message = "Username and password are required if not using SSO ticket." });
+        }
+
         var user = await _userRepository.GetUserByUsernameAsync(request.Username);
         
         if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
         {
             return Unauthorized(new { message = "Invalid username or password" });
         }
-
-        var tokenHandler = new JwtSecurityTokenHandler();
-        var secretKey = _configuration["Jwt:Key"] ?? "super_secret_key_12345678901234567890";
-        var key = Encoding.ASCII.GetBytes(secretKey);
 
         var tokenDescriptor = new SecurityTokenDescriptor
         {
