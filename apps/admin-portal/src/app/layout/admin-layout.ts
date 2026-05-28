@@ -158,6 +158,22 @@ export class AdminLayout implements OnInit {
       ]
     },
     {
+      label: 'Lưu trữ Vật lý & OCR',
+      icon: 'pi pi-fw pi-server',
+      items: [
+        {
+          label: 'Quản lý Lưu trữ',
+          icon: 'pi pi-fw pi-table',
+          routerLink: ['/physical-storage']
+        },
+        {
+          label: 'Hiệu đính OCR',
+          icon: 'pi pi-fw pi-file-edit',
+          routerLink: ['/ocr-correction']
+        }
+      ]
+    },
+    {
       label: 'Báo cáo thống kê',
       icon: 'pi pi-fw pi-chart-bar',
       items: [

@@ -34,6 +34,14 @@ export const appRoutes: Route[] = [
         loadChildren: () => import('./features/reports/reports.routes').then(m => m.REPORTS_ROUTES)
       },
       {
+        path: 'physical-storage',
+        loadChildren: () => import('./features/physical-storage/physical-storage.routes').then(m => m.PHYSICAL_STORAGE_ROUTES)
+      },
+      {
+        path: 'ocr-correction',
+        loadChildren: () => import('./features/ocr-correction/ocr-correction.routes').then(m => m.OCR_CORRECTION_ROUTES)
+      },
+      {
         path: '',
         redirectTo: 'administration/user-management',
         pathMatch: 'full'
