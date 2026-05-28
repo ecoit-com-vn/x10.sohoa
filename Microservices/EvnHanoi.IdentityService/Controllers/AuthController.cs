@@ -1,9 +1,11 @@
 using System;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using EvnHanoi.IdentityService.Core.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
@@ -11,7 +13,7 @@ using Microsoft.IdentityModel.Tokens;
 namespace EvnHanoi.IdentityService.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/v1/auth")]
 public class AuthController : ControllerBase
 {
     private readonly IUserRepository _userRepository;
@@ -26,11 +28,9 @@ public class AuthController : ControllerBase
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
-        // Dummy login logic for demonstration
         var user = await _userRepository.GetUserByUsernameAsync(request.Username);
         
-        // In real world, verify password hash
-        if (user == null || user.PasswordHash != request.Password)
+        if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
         {
             return Unauthorized(new { message = "Invalid username or password" });
         }
@@ -44,19 +44,65 @@ public class AuthController : ControllerBase
             Subject = new ClaimsIdentity(new[]
             {
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                new Claim(ClaimTypes.Name, user.Username),
-                // Add roles/units here based on requirements
+                new Claim(ClaimTypes.Name, user.Username)
             }),
-            Expires = DateTime.UtcNow.AddHours(2),
+            Expires = DateTime.UtcNow.AddMinutes(15),
             Issuer = _configuration["Jwt:Issuer"],
             Audience = _configuration["Jwt:Audience"],
             SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
         };
 
-        var token = tokenHandler.CreateToken(tokenDescriptor);
-        var tokenString = tokenHandler.WriteToken(token);
+        var accessToken = tokenHandler.CreateToken(tokenDescriptor);
 
-        return Ok(new { Token = tokenString });
+        var refreshTokenDescriptor = new SecurityTokenDescriptor
+        {
+            Subject = new ClaimsIdentity(new[]
+            {
+                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+                new Claim("TokenType", "Refresh")
+            }),
+            Expires = DateTime.UtcNow.AddDays(7),
+            Issuer = _configuration["Jwt:Issuer"],
+            Audience = _configuration["Jwt:Audience"],
+            SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
+        };
+
+        var refreshToken = tokenHandler.CreateToken(refreshTokenDescriptor);
+
+        return Ok(new 
+        { 
+            AccessToken = tokenHandler.WriteToken(accessToken),
+            RefreshToken = tokenHandler.WriteToken(refreshToken)
+        });
+    }
+
+    [Authorize]
+    [HttpGet("profile")]
+    public async Task<IActionResult> GetProfile()
+    {
+        var username = User.FindFirst(ClaimTypes.Name)?.Value;
+        
+        if (string.IsNullOrEmpty(username)) 
+        {
+            return Unauthorized();
+        }
+
+        var user = await _userRepository.GetUserByUsernameAsync(username);
+        
+        if (user == null)
+        {
+            return NotFound(new { message = "User not found" });
+        }
+
+        return Ok(new 
+        {
+            Id = user.Id,
+            Username = user.Username,
+            FullName = user.FullName,
+            Email = user.Email,
+            UnitId = user.UnitId,
+            IsActive = user.IsActive
+        });
     }
 }
 
@@ -65,3 +111,4 @@ public class LoginRequest
     public string Username { get; set; } = string.Empty;
     public string Password { get; set; } = string.Empty;
 }
+
