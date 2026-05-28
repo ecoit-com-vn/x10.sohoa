@@ -14,4 +14,7 @@ public class Dossier
     
     // Optimistic Locking
     public int Version { get; set; }
+    
+    // Publishing Status
+    public string PublishStatus { get; set; } = "Draft"; // Draft, Pending, Published
 }
