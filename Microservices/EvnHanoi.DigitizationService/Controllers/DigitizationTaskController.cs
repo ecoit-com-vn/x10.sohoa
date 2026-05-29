@@ -54,6 +54,21 @@ namespace EvnHanoi.DigitizationService.Controllers
             }
         }
 
+        [HttpGet]
+        public async Task<IActionResult> GetAllTasks()
+        {
+            try
+            {
+                var tasks = await _taskRepository.GetAllAsync();
+                return Ok(tasks);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while fetching all digitization tasks");
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
         [HttpGet("{id}")]
         public async Task<IActionResult> GetTask(Guid id)
         {

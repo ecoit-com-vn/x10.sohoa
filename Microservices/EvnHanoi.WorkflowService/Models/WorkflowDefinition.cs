@@ -6,9 +6,21 @@ namespace EvnHanoi.WorkflowService.Models
     public class WorkflowDefinition
     {
         public Guid Id { get; set; }
+
+        /// <summary>Loại quy trình theo nghiệp vụ số hóa EVNHANOI</summary>
         public string Name { get; set; } = string.Empty;
+
+        /// <summary>Mô tả chi tiết quy trình</summary>
         public string Description { get; set; } = string.Empty;
+
+        /// <summary>Phiên bản quy trình, ví dụ: 1.0, 1.1, 2.0</summary>
+        public string Version { get; set; } = "1.0";
+
+        /// <summary>Ép buộc kích hoạt – vô hiệu hóa các quy trình cùng loại cũ hơn</summary>
+        public bool ForceActivate { get; set; } = false;
+
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
         public bool IsActive { get; set; } = true;
 
         public ICollection<WorkflowStep> Steps { get; set; } = new List<WorkflowStep>();

@@ -6,123 +6,178 @@ using EvnHanoi.WorkflowService.Models;
 namespace EvnHanoi.WorkflowService.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/v1/workflows")]
     public class WorkflowDefinitionsController : ControllerBase
     {
         private readonly WorkflowDbContext _context;
+        private readonly ILogger<WorkflowDefinitionsController> _logger;
 
-        public WorkflowDefinitionsController(WorkflowDbContext context)
+        public WorkflowDefinitionsController(WorkflowDbContext context, ILogger<WorkflowDefinitionsController> logger)
         {
             _context = context;
+            _logger = logger;
         }
 
+        // ─────────────────────────────────────────────────────────────────────
+        // GET /api/v1/workflows
+        // Lấy danh sách tất cả quy trình (có thể lọc theo tên, trạng thái)
+        // ─────────────────────────────────────────────────────────────────────
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<WorkflowDefinition>>> GetWorkflowDefinitions()
+        public async Task<ActionResult<IEnumerable<WorkflowDefinition>>> GetAll(
+            [FromQuery] string? keyword = null,
+            [FromQuery] bool? isActive = null)
         {
-            return await _context.WorkflowDefinitions.Include(w => w.Steps).ToListAsync();
+            var query = _context.WorkflowDefinitions
+                .Include(w => w.Steps)
+                .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(keyword))
+                query = query.Where(w => w.Name.Contains(keyword) || w.Description.Contains(keyword));
+
+            if (isActive.HasValue)
+                query = query.Where(w => w.IsActive == isActive.Value);
+
+            var result = await query.OrderByDescending(w => w.CreatedAt).ToListAsync();
+            return Ok(result);
         }
 
-        [HttpGet("{id}")]
-        public async Task<ActionResult<WorkflowDefinition>> GetWorkflowDefinition(Guid id)
+        // ─────────────────────────────────────────────────────────────────────
+        // GET /api/v1/workflows/{id}
+        // ─────────────────────────────────────────────────────────────────────
+        [HttpGet("{id:guid}")]
+        public async Task<ActionResult<WorkflowDefinition>> GetById(Guid id)
         {
-            var workflowDefinition = await _context.WorkflowDefinitions
+            var def = await _context.WorkflowDefinitions
+                .Include(w => w.Steps.OrderBy(s => s.Order))
+                .FirstOrDefaultAsync(w => w.Id == id);
+
+            if (def == null)
+                return NotFound(new { Message = $"Không tìm thấy quy trình với ID = {id}" });
+
+            return Ok(def);
+        }
+
+        // ─────────────────────────────────────────────────────────────────────
+        // POST /api/v1/workflows
+        // Tạo mới quy trình
+        // ─────────────────────────────────────────────────────────────────────
+        [HttpPost]
+        public async Task<ActionResult<WorkflowDefinition>> Create([FromBody] WorkflowDefinition dto)
+        {
+            if (string.IsNullOrWhiteSpace(dto.Name))
+                return BadRequest(new { Message = "Loại quy trình không được để trống." });
+
+            // Ép buộc kích hoạt: vô hiệu hóa các quy trình cùng tên đang active
+            if (dto.ForceActivate)
+            {
+                var sameName = await _context.WorkflowDefinitions
+                    .Where(w => w.Name == dto.Name && w.IsActive)
+                    .ToListAsync();
+                sameName.ForEach(w => w.IsActive = false);
+            }
+
+            dto.Id = Guid.NewGuid();
+            dto.CreatedAt = DateTime.UtcNow;
+            dto.UpdatedAt = DateTime.UtcNow;
+
+            if (dto.Steps != null)
+            {
+                foreach (var step in dto.Steps)
+                {
+                    step.Id = Guid.NewGuid();
+                    step.WorkflowDefinitionId = dto.Id;
+                }
+            }
+
+            _context.WorkflowDefinitions.Add(dto);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Quy trình mới được tạo: {Name} v{Version}", dto.Name, dto.Version);
+            return CreatedAtAction(nameof(GetById), new { id = dto.Id }, dto);
+        }
+
+        // ─────────────────────────────────────────────────────────────────────
+        // PUT /api/v1/workflows/{id}
+        // Cập nhật quy trình
+        // ─────────────────────────────────────────────────────────────────────
+        [HttpPut("{id:guid}")]
+        public async Task<IActionResult> Update(Guid id, [FromBody] WorkflowDefinition dto)
+        {
+            var existing = await _context.WorkflowDefinitions
                 .Include(w => w.Steps)
                 .FirstOrDefaultAsync(w => w.Id == id);
 
-            if (workflowDefinition == null)
+            if (existing == null)
+                return NotFound(new { Message = $"Không tìm thấy quy trình với ID = {id}" });
+
+            // Ép buộc kích hoạt khi update
+            if (dto.ForceActivate && dto.IsActive)
             {
-                return NotFound();
+                var sameName = await _context.WorkflowDefinitions
+                    .Where(w => w.Name == dto.Name && w.IsActive && w.Id != id)
+                    .ToListAsync();
+                sameName.ForEach(w => w.IsActive = false);
             }
 
-            return workflowDefinition;
-        }
+            existing.Name        = dto.Name;
+            existing.Description = dto.Description;
+            existing.Version     = dto.Version;
+            existing.ForceActivate = dto.ForceActivate;
+            existing.IsActive    = dto.IsActive;
+            existing.UpdatedAt   = DateTime.UtcNow;
 
-        [HttpPost]
-        public async Task<ActionResult<WorkflowDefinition>> CreateWorkflowDefinition(WorkflowDefinition workflowDefinition)
-        {
-            workflowDefinition.Id = Guid.NewGuid();
-            if (workflowDefinition.Steps != null)
+            // Cập nhật steps: xóa cũ, thêm mới
+            _context.WorkflowSteps.RemoveRange(existing.Steps);
+            existing.Steps.Clear();
+
+            if (dto.Steps != null)
             {
-                foreach (var step in workflowDefinition.Steps)
-                {
-                    step.Id = Guid.NewGuid();
-                    step.WorkflowDefinitionId = workflowDefinition.Id;
-                }
-            }
-
-            _context.WorkflowDefinitions.Add(workflowDefinition);
-            await _context.SaveChangesAsync();
-
-            return CreatedAtAction(nameof(GetWorkflowDefinition), new { id = workflowDefinition.Id }, workflowDefinition);
-        }
-
-        [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateWorkflowDefinition(Guid id, WorkflowDefinition workflowDefinition)
-        {
-            if (id != workflowDefinition.Id)
-            {
-                return BadRequest();
-            }
-
-            var existingDef = await _context.WorkflowDefinitions.Include(w => w.Steps).FirstOrDefaultAsync(w => w.Id == id);
-            if (existingDef == null)
-            {
-                return NotFound();
-            }
-
-            existingDef.Name = workflowDefinition.Name;
-            existingDef.Description = workflowDefinition.Description;
-            existingDef.IsActive = workflowDefinition.IsActive;
-
-            // Simple replace steps
-            _context.WorkflowSteps.RemoveRange(existingDef.Steps);
-            if (workflowDefinition.Steps != null)
-            {
-                foreach (var step in workflowDefinition.Steps)
+                foreach (var step in dto.Steps)
                 {
                     step.Id = Guid.NewGuid();
                     step.WorkflowDefinitionId = id;
-                    existingDef.Steps.Add(step);
+                    existing.Steps.Add(step);
                 }
             }
 
-            try
-            {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!WorkflowDefinitionExists(id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
-            }
-
-            return NoContent();
+            await _context.SaveChangesAsync();
+            _logger.LogInformation("Quy trình cập nhật: {Name} v{Version}", existing.Name, existing.Version);
+            return Ok(existing);
         }
 
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteWorkflowDefinition(Guid id)
+        // ─────────────────────────────────────────────────────────────────────
+        // DELETE /api/v1/workflows/{id}
+        // ─────────────────────────────────────────────────────────────────────
+        [HttpDelete("{id:guid}")]
+        public async Task<IActionResult> Delete(Guid id)
         {
-            var workflowDefinition = await _context.WorkflowDefinitions.FindAsync(id);
-            if (workflowDefinition == null)
-            {
-                return NotFound();
-            }
+            var def = await _context.WorkflowDefinitions.FindAsync(id);
+            if (def == null)
+                return NotFound(new { Message = $"Không tìm thấy quy trình với ID = {id}" });
 
-            _context.WorkflowDefinitions.Remove(workflowDefinition);
+            _context.WorkflowDefinitions.Remove(def);
             await _context.SaveChangesAsync();
 
-            return NoContent();
+            _logger.LogInformation("Quy trình đã xóa: {Name}", def.Name);
+            return Ok(new { Message = $"Đã xóa quy trình: {def.Name}" });
         }
 
-        private bool WorkflowDefinitionExists(Guid id)
+        // ─────────────────────────────────────────────────────────────────────
+        // PATCH /api/v1/workflows/{id}/toggle-status
+        // Bật/tắt trạng thái hoạt động nhanh
+        // ─────────────────────────────────────────────────────────────────────
+        [HttpPatch("{id:guid}/toggle-status")]
+        public async Task<IActionResult> ToggleStatus(Guid id)
         {
-            return _context.WorkflowDefinitions.Any(e => e.Id == id);
+            var def = await _context.WorkflowDefinitions.FindAsync(id);
+            if (def == null)
+                return NotFound(new { Message = $"Không tìm thấy quy trình với ID = {id}" });
+
+            def.IsActive  = !def.IsActive;
+            def.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+
+            return Ok(new { Id = id, IsActive = def.IsActive });
         }
     }
 }

@@ -84,6 +84,22 @@ namespace EvnHanoi.DigitizationService.Repositories
             return await connection.QueryAsync<DigitizationTask>(sql, new { UserId = userId });
         }
 
+        public async Task<IEnumerable<DigitizationTask>> GetAllAsync()
+        {
+            var sql = @"SELECT 
+                ID as Id, 
+                DOSSIER_ID as DossierId, 
+                WORKFLOW_STEP_ID as WorkflowStepId, 
+                ASSIGNED_TO_USER_ID as AssignedToUserId, 
+                STATUS as Status, 
+                CREATED_AT as CreatedAt, 
+                COMPLETED_AT as CompletedAt, 
+                NOTES as Notes 
+                FROM DIGITIZATION_TASK";
+            using var connection = CreateConnection();
+            return await connection.QueryAsync<DigitizationTask>(sql);
+        }
+
         public async Task UpdateAsync(DigitizationTask task)
         {
             var sql = @"

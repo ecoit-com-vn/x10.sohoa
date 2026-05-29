@@ -10,6 +10,7 @@ namespace EvnHanoi.DigitizationService.Repositories
         Task<Guid> CreateAsync(DigitizationTask task);
         Task<DigitizationTask?> GetByIdAsync(Guid id);
         Task<IEnumerable<DigitizationTask>> GetByUserIdAsync(string userId);
+        Task<IEnumerable<DigitizationTask>> GetAllAsync();
         Task UpdateAsync(DigitizationTask task);
     }
 }

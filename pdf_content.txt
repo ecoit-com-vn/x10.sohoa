@@ -1,0 +1,4222 @@
+=== PAGE 1 ===
+1 
+ 
+Phần 2. YÊU CẦU VỀ KỸ THUẬT 
+CHƯƠNG V. YÊU CẦU VỀ KỸ THUẬT 
+ 
+A. GIỚI THIỆU CHUNG 
+I. Giới thiệu chung về dự án: 
+- Tên công trình: Số hóa hồ sơ kỹ thuật của Đường dây và Trạm 
+- Loại, cấp công trình: Công trình phần mềm nội bộ, cơ sở dữ liệu và hạ tầng kỹ 
+thuật công nghệ thông tin, nhóm C 
+- Chủ đầu tư: Tổng công ty điện lực TP Hà Nội 
+- Đại diện chủ đầu tư: Ban QLDA Phát triển Điện lực Hà Nội 
+- Địa điểm triển khai: Tại Tổng công ty Điện lực TP Hà Nội và các Đơn vị thành 
+viên. 
+1. Mục tiêu đầu tư: 
+Xây dựng hệ thống “Số hóa hồ sơ kỹ thuật của Đường dây và Trạm” nhằm đạt được 
+các mục tiêu: 
+- Hình thành cơ sở dữ liệu hồ sơ kỹ thuật tập trung: Chuẩn hóa, số hóa và lưu trữ 
+toàn bộ tài liệu liên quan đến thiết bị, trạm và đường dây điện lực trên địa bàn 
+quản lý của EVNHANOI, bảo đảm dữ liệu thống nhất, có cấu trúc, dễ dàng tích 
+hợp và chia sẻ. 
+- Tăng cường khả năng khai thác, tra cứu: Cho phép cán bộ, nhân viên truy cập 
+nhanh chóng, chính xác thông tin hồ sơ theo từng thiết bị, trạm, đường dây; thay 
+thế phương thức thủ công và hồ sơ giấy bằng công cụ điện tử tiện lợi, tiết kiệm 
+thời gian và chi phí. 
+- Ứng dụng công nghệ hiện đại trong số hóa: Triển khai phần mềm nhận dạng tài 
+liệu bằng OCR và AI, tự động đọc, phân tích, chuẩn hóa thông tin từ file scan, 
+PDF, biên bản thí nghiệm, hồ sơ kỹ thuật,... từ đó giảm thiểu khối lượng nhập liệu 
+thủ công, hạn chế sai sót và nâng cao chất lượng dữ liệu. 
+- Đảm bảo an toàn, bảo mật thông tin: Hệ thống được thiết kế theo đúng tiêu chuẩn 
+pháp luật về an toàn hệ thống thông tin, bảo đảm dữ liệu được quản lý tập trung, 
+lưu trữ lâu dài, an toàn và dễ dàng phục vụ đối soát khi cần. 
+- Tích hợp với các hệ thống hiện có: Liên thông và đồng bộ dữ liệu với phần mềm 
+
+
+=== PAGE 2 ===
+2 
+ 
+PMIS và các hệ thống khác trong EVN (CBM, Thí nghiệm, Kiểm định,...), góp 
+phần xây dựng nền tảng dữ liệu chung, phục vụ hiệu quả công tác quản lý vận 
+hành, phân tích và ra quyết định. 
+- Hiện đại hóa hạ tầng thiết bị phục vụ số hóa: Trang bị máy quét khổ A3 và các 
+thiết bị chuyên dụng cho các đơn vị quản lý vận hành, khắc phục hạn chế hiện tại 
+về thiết bị, đáp ứng yêu cầu số hóa tài liệu khổ lớn (A3 trở lên). 
+- Thực hiện xây dựng cơ sở dữ liệu hồ sơ kỹ thuật điện tử: Tổ chức cơ sở dữ liệu 
+tập trung, phân loại theo thiết bị, trạm, đường dây, hãng sản xuất, năm sản xuất,... 
+bảo đảm tính đồng bộ, đầy đủ và dễ dàng cập nhật. 
+- Phần mềm không chỉ giải quyết tình trạng phân tán, thủ công trong công tác quản 
+lý hồ sơ kỹ thuật mà còn tạo nền tảng dữ liệu số hóa bền vững, góp phần quan 
+trọng vào lộ trình chuyển đổi số toàn diện của EVNHANOI và Tập đoàn Điện lực 
+Việt Nam. 
+2. Hiện trạng: 
+2.1. Hiện trạng về việc cập nhật thông tin lên các phần mềm: 
+ 
+Hiện nay, Tổng công ty Điện lực TP Hà Nội đã triển khai và sử dụng nhiều 
+phần mềm phục vụ cho các nghiệp vụ quản lý kỹ thuật, vận hành và khai thác thiết 
+bị. Các phần mềm này liên quan đến nhiều chủng loại thiết bị, đến từ nhiều hãng sản 
+xuất khác nhau và được vận hành bởi lực lượng nhân sự thuộc nhiều bộ phận. Tuy 
+nhiên, công tác nhập liệu hiện vẫn chủ yếu được thực hiện thủ công. Điều này dẫn 
+đến tình trạng dữ liệu giữa các phần mềm, thậm chí giữa các module trong cùng một 
+phần mềm, chưa đảm bảo tính đồng nhất và xuyên suốt. 
+ 
+Trong thực tế, khi một Máy biến áp mới được trang bị, cán bộ kỹ thuật phải 
+nhập thủ công các thông tin kỹ thuật từ Catalogue do nhà sản xuất hoặc nhà cung cấp 
+cung cấp (dạng file số hoặc bản in) vào module Thiết bị của phần mềm Quản lý kỹ 
+thuật. Đồng thời, thông tin kiểm định từ biên bản xuất xưởng cũng phải được nhập 
+vào module CBM thuộc phần mềm PMIS, hoặc cập nhật vào phần mềm Thí nghiệm, 
+kiểm định. Sau các bước này, hồ sơ bản cứng (hoặc bản số) tiếp tục phải lưu trữ riêng 
+tại hồ sơ của Trạm. 
+ 
+Bên cạnh đó, do sự đa dạng về nhà sản xuất, các tài liệu kỹ thuật thường có 
+định dạng, cấu trúc và ngôn ngữ khác nhau (ví dụ: tiếng Việt, tiếng Anh; ABB, 
+Siemens, Đông Anh...). Sự không đồng nhất này càng làm gia tăng khối lượng công 
+
+
+=== PAGE 3 ===
+3 
+ 
+việc thủ công, tạo nguy cơ sai sót trong quá trình nhập liệu và gây khó khăn cho việc 
+quản lý, khai thác dữ liệu tập trung. 
+ 
+Hiện trạng về việc cập nhật thông tin lên các phần mềm 
+2.2. Hiện trạng Thiết bị và Công nghệ thông tin: 
+ 
+Trong lĩnh vực công nghệ thông tin phục vụ quản lý kỹ thuật và vận hành, 
+EVNHANOI đã triển khai nhiều phần mềm chuyên dụng như PMIS, PMIS-Hạ thế, 
+QRCode, App hiện trường. Các phần mềm này đều hỗ trợ chức năng lưu trữ tệp tin 
+ở nhiều định dạng khác nhau (PDF, hình ảnh…) đồng thời cho phép quản lý, khai 
+thác thông tin thông qua các trường dữ liệu dạng số, góp phần chuẩn hóa và số hóa 
+một phần công tác quản lý hồ sơ kỹ thuật. 
+ 
+Về trang thiết bị, hầu hết các đơn vị trực thuộc đã được trang bị máy quét 
+(scanner) khổ A4, phục vụ việc số hóa và lưu trữ hồ sơ, tài liệu. Tuy nhiên, các thiết 
+bị này chủ yếu đáp ứng nhu cầu cơ bản, còn hạn chế về tốc độ và khả năng xử lý khối 
+lượng tài liệu lớn, đa dạng định dạng, đặc biệt đối với các bản vẽ kỹ thuật, sơ đồ lưới 
+điện hoặc tài liệu khổ lớn hơn A4. 
+2.3. Đánh giá hiện trạng: 
+ 
+Hiện nay, công tác cập nhật và quản lý hồ sơ kỹ thuật vẫn còn nhiều hạn chế. 
+Việc nhập liệu chủ yếu thực hiện thủ công trên một khối lượng lớn tài liệu, liên quan 
+đến nhiều phần mềm và module khác nhau, gây tốn nhiều nhân lực, mất thời gian và 
+dễ phát sinh sai sót. 
+ 
+Đối với tài liệu, một phần đáng kể vẫn đang được lưu trữ dưới dạng hồ sơ giấy 
+truyền thống, tiềm ẩn rủi ro cao về hư hỏng, thất lạc hoặc khó khăn trong việc bảo 
+quản lâu dài. Bên cạnh đó, nhiều hồ sơ đã được số hóa nhưng mới chỉ dừng ở dạng 
+scan hình ảnh (PDF, JPEG,...), khiến việc tìm kiếm, tra cứu, trích xuất thông tin gặp 
+nhiều hạn chế và chưa đáp ứng yêu cầu khai thác dữ liệu hiệu quả. 
+
+
+=== PAGE 4 ===
+4 
+ 
+ 
+Về trang thiết bị phục vụ số hóa, hiện các đơn vị mới được trang bị máy quét 
+khổ A4. Trong khi đó, phần lớn tài liệu kỹ thuật (bản vẽ, sơ đồ lưới điện, hồ sơ thiết 
+kế,...) có khổ A3 trở lên. Sự thiếu đồng bộ và hạn chế về thiết bị này gây nhiều khó 
+khăn cho công tác số hóa toàn diện, dẫn đến tình trạng phải ghép nối thủ công hoặc 
+thu nhỏ bản vẽ, làm ảnh hưởng đến chất lượng và tính chính xác của dữ liệu số hóa. 
+ 
+Những bất cập trên cho thấy hạ tầng công nghệ thông tin và thiết bị hiện tại 
+chưa đáp ứng được yêu cầu quản lý hồ sơ kỹ thuật đồng bộ, hiện đại và lâu dài. Điều 
+này đặt ra sự cần thiết phải triển khai dự án số hóa hồ sơ kỹ thuật một cách toàn diện, 
+chuyên nghiệp và theo chuẩn dữ liệu thống nhất. 
+3. Sự cần thiết phải đầu tư: 
+ 
+Từ thực trạng đã phân tích, có thể thấy rõ rằng công tác quản lý và khai thác 
+hồ sơ kỹ thuật hiện nay còn nhiều bất cập. Do đó, việc đầu tư xây dựng một giải pháp 
+số hóa hồ sơ, hình thành cơ sở dữ liệu tài liệu điện tử tập trung là hết sức cần thiết. 
+Hệ thống này sẽ cho phép người sử dụng tra cứu và khai thác tài liệu nhanh chóng, 
+thuận tiện, không bị giới hạn bởi thời gian, không gian, đồng thời vẫn đảm bảo yêu 
+cầu an toàn, bảo mật và an ninh thông tin. 
+ 
+Thứ nhất, sau khi tài liệu giấy (tài liệu gốc) được số hóa, chúng sẽ tiếp tục 
+được bảo quản theo đúng quy định. Người sử dụng sẽ khai thác dữ liệu từ bản điện 
+tử thay vì sử dụng trực tiếp hồ sơ gốc. Điều này giúp kéo dài tuổi thọ của tài liệu lưu 
+trữ, giảm thiểu hư hỏng trong quá trình sử dụng, đồng thời tiết kiệm đáng kể chi phí, 
+không gian lưu trữ và thời gian quản lý hồ sơ bản cứng. 
+ 
+Thứ hai, việc xây dựng cơ sở dữ liệu số tập trung cho phép đồng bộ và tích 
+hợp thông tin với các hệ thống phần mềm hiện có, đặc biệt là PMIS. Khi đó, dữ liệu 
+sẽ được khai thác hiệu quả, hỗ trợ công tác quản lý, phân tích và thống kê thông tin 
+phục vụ điều hành sản xuất kinh doanh cũng như quản lý vận hành lưới điện. 
+ 
+Thứ ba, hệ thống số hóa sẽ thay thế những thao tác thủ công lặp đi lặp lại bằng 
+quy trình làm việc tự động, hạn chế tối đa phụ thuộc vào giấy tờ và con người. Nhờ 
+vậy, thông tin được cập nhật chính xác, nhanh chóng hơn, khắc phục triệt để tình 
+trạng sai sót do nhập liệu thủ công. 
+ 
+Thứ tư, việc tìm kiếm dữ liệu sẽ trở nên đơn giản, chính xác và nhanh chóng. 
+Người dùng có thể truy vấn thông tin theo từng trạm biến áp, đường dây hoặc thiết 
+bị cụ thể, thay vì phải tra cứu thủ công tại nhiều biên bản, hồ sơ như trước. Trong 
+
+
+=== PAGE 5 ===
+5 
+ 
+trường hợp cần đối soát, tài liệu gốc dưới dạng hình ảnh số hóa vẫn có thể được truy 
+xuất dễ dàng ngay trên phần mềm. 
+ 
+Đồng thời, trong bối cảnh công nghệ trí tuệ nhân tạo (AI) đang phát triển mạnh, 
+đặc biệt trong lĩnh vực nhận dạng ảnh và xử lý ngôn ngữ, việc ứng dụng AI trong dự 
+án sẽ giúp tự động hóa nhiều khâu, chuẩn hóa dữ liệu, giảm thiểu công việc thủ công 
+và hạn chế sai sót. Đây là xu hướng tất yếu trong chuyển đổi số và quản lý hồ sơ kỹ 
+thuật hiện nay. 
+ 
+Do đó, cần thiết phải trang bị một phần mềm số hóa chuyên dụng, với các tính 
+năng nổi bật sau: 
+- Nhận dạng và trích xuất dữ liệu: Đọc thông tin từ các file scan và chuyển đổi thành 
+dữ liệu kỹ thuật điện; sử dụng công nghệ OCR để nhận dạng ký tự từ tài liệu quét 
+ảnh, từ đó nhập dữ liệu có cấu trúc, kiểm tra - đối chiếu dữ liệu đã tạo lập, đồng 
+thời có khả năng xử lý dữ liệu phi cấu trúc. 
+- Quản lý hồ sơ kỹ thuật: Tổ chức và quản lý tài liệu cho từng thiết bị, theo từng 
+trạm biến áp hoặc đường dây, hình thành cơ sở dữ liệu đồng bộ về hồ sơ kỹ thuật 
+và vận hành. 
+- Tích hợp và mở rộng: Kết nối, tích hợp dữ liệu với các phần mềm hiện hữu như 
+PMIS, đồng thời mở rộng khả năng liên kết với các hệ thống khác (CBM, Thí 
+nghiệm, Kiểm định,...), hỗ trợ giám sát, cảnh báo và phân tích thông tin phục vụ 
+công tác quản lý toàn diện. 
+- Ngoài ra trong quá trình triển khai dự án “Số hóa hồ sơ kỹ thuật của Đường dây 
+và Trạm” tại Tổng công ty Điện lực TP Hà Nội (EVNHANOI), việc trang bị thêm 
+máy Scanner khổ A3 chuyên dụng là hết sức cần thiết nhằm đáp ứng yêu cầu số 
+hóa khối lượng lớn hồ sơ kỹ thuật hiện đang lưu trữ dưới dạng giấy khổ lớn như 
+A3, A2, bao gồm bản vẽ sơ đồ nguyên lý, sơ đồ đấu nối, biên bản thí nghiệm và 
+các tài liệu kỹ thuật chi tiết. Các loại tài liệu này không thể quét bằng máy A4 
+thông thường mà cần thiết bị có khả năng xử lý khổ lớn, độ phân giải cao để đảm 
+bảo chất lượng hình ảnh rõ nét, đúng tỷ lệ và phục vụ hiệu quả cho quá trình nhận 
+dạng ký tự (OCR) và bóc tách dữ liệu tự động. Máy Scanner A3 giúp tăng tốc độ 
+quét, xử lý đa dạng các loại tài liệu kỹ thuật, từ đó nâng cao năng suất làm việc, 
+rút ngắn thời gian nhập liệu và đảm bảo tính toàn vẹn, chính xác của dữ liệu đầu 
+vào cho hệ thống phần mềm. Việc đầu tư thiết bị này không chỉ đáp ứng yêu cầu 
+
+
+=== PAGE 6 ===
+6 
+ 
+kỹ thuật trong công tác số hóa mà còn giúp đồng bộ quy trình, tích hợp trực tiếp 
+với phần mềm quản lý hồ sơ kỹ thuật, qua đó bảo đảm chất lượng, tính ổn định và 
+hiệu quả tổng thể của dự án số hóa hồ sơ kỹ thuật của EVNHANOI. 
+ 
+Tóm lại, việc đầu tư dự án số hóa hồ sơ kỹ thuật không chỉ giải quyết triệt để 
+các tồn tại hiện nay mà còn tạo nền tảng dữ liệu đồng bộ, chính xác, phục vụ quản 
+lý, vận hành lưới điện theo hướng hiện đại, an toàn và hiệu quả lâu dài. 
+4. Phạm vi, quy mô dự án: 
+4.1. Tổng quan 
+Dự án “Số hóa hồ sơ kỹ thuật của Đường dây và Trạm” được triển khai với quy mô 
+đầu tư bao gồm cả hạng mục phần mềm, cơ sở dữ liệu, thiết bị số hóa và hạ tầng kỹ 
+thuật, cụ thể: 
+(1) Xây dựng và triển khai phần mềm số hóa, quản lý hồ sơ kỹ thuật tập 
+trung 
+- Phát triển hệ thống phần mềm chuyên dụng, có khả năng số hóa, lưu trữ, quản 
+lý và tra cứu hồ sơ kỹ thuật điện tử cho các trạm và đường dây. 
+- Tích hợp công nghệ OCR, AI để tự động nhận dạng, trích xuất thông tin từ 
+các tài liệu quét (scan), biên bản thí nghiệm, hồ sơ kỹ thuật, catalogue thiết bị. 
+- Thiết kế các phân hệ chức năng: quản lý hồ sơ thiết bị, quản lý trạm/đường 
+dây, tìm kiếm - tra cứu nâng cao, báo cáo - thống kê, quản lý phân quyền, lưu trữ và 
+đối soát dữ liệu. 
+- Đảm bảo khả năng kết nối, liên thông và chia sẻ dữ liệu với các phần mềm 
+hiện có như PMIS, CBM, Thí nghiệm, Kiểm định. 
+(2) Xây dựng cơ sở dữ liệu hồ sơ kỹ thuật điện tử 
+- Tổ chức cơ sở dữ liệu tập trung, phân loại theo thiết bị, trạm, đường dây, hãng 
+sản xuất, năm sản xuất,... bảo đảm tính đồng bộ, đầy đủ và dễ dàng cập nhật. 
+- Lưu trữ dữ liệu trên hệ thống máy chủ đáp ứng tiêu chuẩn an toàn thông tin, 
+bảo mật và dự phòng. 
+(3) Trang bị thiết bị phục vụ số hóa và lưu trữ dữ liệu 
+- Bổ sung máy quét khổ A3 và các thiết bị chuyên dụng để đáp ứng nhu cầu số 
+hóa tài liệu khổ lớn (A3 trở lên) như bản vẽ, sơ đồ kỹ thuật. 
+- Đảm bảo khả năng vận hành ổn định, phục vụ số hóa khối lượng lớn tài liệu 
+trong thời gian dài. 
+
+
+=== PAGE 7 ===
+7 
+ 
+(4) Xây dựng quy trình, tiêu chuẩn và hướng dẫn vận hành 
+- Ban hành bộ quy trình chuẩn về số hóa, quản lý và khai thác hồ sơ kỹ thuật 
+điện tử trong toàn EVNHANOI. 
+- Xây dựng tài liệu hướng dẫn sử dụng phần mềm, quy định về cập nhật, bảo 
+quản, khai thác và chia sẻ dữ liệu. 
+- Tổ chức các lớp đào tạo, tập huấn cho cán bộ kỹ thuật, cán bộ quản lý vận 
+hành và nhân sự liên quan. 
+(5) Quy mô áp dụng 
+- Phạm vi triển khai áp dụng cho toàn bộ hồ sơ kỹ thuật của các trạm biến áp và 
+đường dây do EVNHANOI quản lý. 
+- Quy mô dữ liệu số hóa bao gồm: hồ sơ thiết bị, biên bản nghiệm thu, biên bản 
+kiểm định, hồ sơ thí nghiệm, catalogue thiết bị, bản vẽ kỹ thuật và các loại tài liệu 
+kỹ thuật liên quan khác. 
+- Dữ liệu được cập nhật định kỳ, bảo đảm hệ thống luôn đồng bộ và kịp thời 
+phục vụ công tác quản lý, vận hành. 
+4.2. Nội dung quy mô cụ thể 
+(1) Trang bị thiết bị Quét Công nghệ cao cho các đơn vị có nhu cầu: 17 
+thiết bị, các đơn vị được trang bị là Tổng công ty Điện lực TP Hà Nội, Công ty Lưới 
+điện cao thế TP Hà Nội, Công ty Thí nghiệm điện - Điện lực Hà Nội, Ban Quản lý 
+dự án Lưới điện Hà Nội, Ban Quản lý dự án Phát triển Điện lực Hà Nội, Công ty 
+Điện lực Ba Đình, Công ty Điện lực Hoàn Kiếm, Công ty Điện lực Từ Liêm, Công 
+ty Điện lực Hà Đông, Công ty Điện lực Thanh Trì, Công ty Điện lực Gia Lâm, Công 
+ty Điện lực Đông Anh, Công ty Điện lực Sóc Sơn, Công ty Điện lực Sơn Tây, Công 
+ty Điện lực Thạch Thất, Công ty Điện lực Thường Tín, Công ty Điện lực Ứng Hòa. 
+(2) Trang bị 01 bộ Phần mềm: 
+- Tự động đọc thông tin biên bản thí nghiệm xuất xưởng, định kỳ, sau sửa chữa, 
+CBM, thông tin thuộc tính thiết bị, lý lịch thiết bị, thông số vận hành từ các file scan 
+chuyển hóa thành ngôn ngữ kỹ thuật điện. 
+- Quản lý tài liệu hồ sơ cho từng thiết bị theo từng trạm, đường dây phục vụ tra 
+cứu tài liệu dạng gốc, số hóa thông tin xây dựng Cơ sở dữ liệu số về tài liệu kỹ thuật. 
+- Tích hợp thông tin với các hệ thống khác (phạm vi thông số thiết bị Máy biến 
+áp, Cột Điện, Máy cắt, Dao cách ly, Dao tiếp địa, Thiết bị GIS, HGIS, Cầu dao (LBS, 
+
+
+=== PAGE 8 ===
+8 
+ 
+SOG, DC), Tủ RMU, Recloser trong phần mềm PMIS, có khả năng mở rộng ra các 
+thiết bị và lĩnh vực khác như CBM, Thí nghiệm, Kiểm định). 
+(3) Phạm vi triển khai hệ thống phần mềm 
+- Phạm vi triển khai: Phần mềm được áp dụng tại Tổng công ty và các đơn vị 
+trực thuộc Tổng công ty. 
+- Phạm vi nghiệp vụ quản lý:  
++ Thiết bị cao áp, trung áp gồm các vật tư theo bảng VTTB tại Mục Yêu cầu về 
+thông tin thiết bị quản lý trong phần mềm (Mục II.1.2.3 thuộc Phần B bên 
+dưới); 
++ Quản lý theo từng hồ sơ và thành phần hồ sơ; 
++ Nhận dạng các biên bản thí nghiệm xuất xưởng, định kỳ, sau sửa chữa, CBM, 
+thông tin thuộc tính thiết bị, lý lịch thiết bị, thông số vận hành scan hoặc pdf 
+và trích xuất các nội dung cần thiết để lưu trữ vào hồ sơ số; 
++ Quản lý, tra cứu hồ sơ thiết bị theo từng trạm, đường dây; 
++ Tích hợp thông tin với phần mềm PMIS, hỗ trợ cập nhật thông tin thiết bị; 
++ Báo cáo tổng hợp. 
+- Phạm vi chức năng: 
++ Quản lý thông tin: 
+▪ Nhận diện hình ảnh và thị giác máy tính: Nhận diện ảnh, file pdf chuyển hóa 
+thành thông tin số. 
+▪ Xử lý ngôn ngữ tự nhiên: có khả năng OCR toàn văn của văn bản và tóm tắt 
+nội dung văn bản. 
++ Quản lý tài liệu hồ sơ: 
+▪ Lưu trữ tài liệu: Lưu trữ các tài liệu dạng gốc (ảnh, pdf, scan, word,...) gắn 
+với từng hồ sơ thiết bị, theo từng Trạm/Đường dây 
+▪ Quản lý lịch sử hồ sơ: Theo dõi và quản lý các phiên bản khác nhau của tài 
+liệu theo từng thiết bị. 
++ Tìm kiếm, tra cứu tài liệu: 
+▪ Tìm kiếm và lọc tài liệu: Cung cấp công cụ tìm kiếm mạnh mẽ cho phép người 
+dùng tìm tài liệu dựa trên từ khóa, metadata, ngày tháng, hoặc các thuộc tính khác. 
++ Tích hợp:  
+
+
+=== PAGE 9 ===
+9 
+ 
+▪ Tích hợp dữ liệu với phần mềm quản lý kỹ thuật (PMIS) - rà soát thông tin 
+thiết bị, cảnh báo dữ liệu, có khả năng cập nhật trực tiếp nếu người dùng xác nhận 
+thông tin. 
+4.3. Yêu cầu đối với dự án: 
+4.3.1. Kiến trúc tổng thể của hệ thống 
+ 
+4.3.2. Yêu cầu về kiến trúc hệ thống 
+- Hệ thống được thiết kế theo sơ đồ 7 lớp. 
+- Thiết kế phân lớp giúp cho các thành phần trong hệ thống không bị phụ thuộc vào 
+nhau. 
+- Dễ dàng nâng cấp, nâng cao tính linh hoạt và mở rộng của phần mềm.  
+4.3.3. Yêu cầu về mô hình triển khai 
+- Đảm bảo tốc độ và hiệu quả khai thác: hỗ trợ người dùng tìm kiếm tức thì, thay 
+thế hoàn toàn cách tra cứu thủ công trong biên bản hoặc file scan. 
+- Tương thích và dễ tích hợp với các hệ thống hiện có trong EVNHANOI. 
+- Bảo đảm tính an toàn dữ liệu: hệ thống có khả năng chịu lỗi, bảo mật và dự phòng 
+cao, đáp ứng các quy định về an toàn thông tin theo quy định. 
+
+
+=== PAGE 10 ===
+10 
+ 
+4.3.4. Yêu cầu về cơ sở dữ liệu 
+- Đáp ứng tốc độ truy xuất dữ liệu nhanh, chính xác. 
+- Có cấu trúc dữ liệu chuẩn và thích hợp trong việc lưu trữ và tìm kiếm, đảm bảo 
+các yêu cầu được thực hiện nhanh chóng. 
+- Có sự phân hoạch dữ liệu nhằm xác định rõ dữ liệu của từng đơn vị sử dụng hệ 
+thống, mỗi đơn vị chỉ có thể thực hiện thao tác trên phân vùng dữ liệu của đơn vị 
+mình. 
+4.3.5. Yêu cầu về khả năng tích hợp, chia sẻ dữ liệu, liên kết với ứng dụng khác của 
+đơn vị: Có khả năng kết nối tích hợp với các phần mềm lõi hiện tại cũng như các API 
+quản lý dữ liệu khác. 
+4.3.6. Yêu cầu về an toàn bảo mật và bảo toàn dữ liệu 
+- Hệ thống cần được thiết kế để đảm bảo tính bảo mật về thông tin, ngăn chặn việc 
+truy cập dữ liệu bất hợp pháp.  
+- Hệ thống phải an toàn trước các phương pháp tấn công dữ liệu đã được biết hoặc 
+đưa ra các cảnh báo trước những nguy cơ bị tấn công. 
+- Có khả năng bảo toàn, xác thực, truy vết… 
+- Sao lưu và phục hồi dữ liệu: Hệ thống cần có cơ chế sao lưu dữ liệu thường xuyên 
+đề phòng trường hợp hư hỏng hệ thống thì vẫn có đủ dữ liệu để khôi phục lại hệ 
+thống như trước lúc xảy ra sự cố. Đồng thời hệ thống cũng cần có cơ chế phục hồi 
+nhanh chóng từ các dữ liệu được sao lưu. 
+4.3.7. Yêu cầu về hiệu năng, khả năng chịu tải 
+- Hệ thống có khả năng cho phép người dùng nhập dữ liệu đầu vào một cách nhanh 
+chóng trong các trường hợp cần nhập thông tin theo lô hoặc nhập các nội dung có 
+các trường dữ liệu lặp lại. 
+- Thời gian xử lý tối đa cho một thao tác nghiệp vụ trên phần mềm là 3-5 giây. 
+- Hệ thống có thể đáp ứng một lượng lớn người dùng sử dụng cùng thời điểm sẽ 
+không bị chậm, treo. 
+4.3.8. Yêu cầu về giao tiếp người dùng 
+- Có khả năng thông báo lỗi đến người sử dụng đối với thao tác xóa dữ liệu và khi 
+có lỗi phát sinh. Hỗ trợ cảnh báo người sử dụng khi họ nhập dữ liệu sai hoặc thiếu. 
+- Có khả năng thông báo tình trạng cập nhật dữ liệu thành công hay không thành 
+công tới người dùng mỗi khi người dùng thực hiện xong thao tác cập nhật dữ liệu. 
+
+
+=== PAGE 11 ===
+11 
+ 
+4.3.9. Yêu cầu về quản trị hệ thống 
+- Hệ thống cần cung cấp cơ chế quản trị thuận tiện dễ dàng, có khả năng mềm dẻo 
+khi khai báo các tham số hệ thống, theo dõi được tình trạng về truy cập của người 
+dùng vào các mục tin, tạo lập các tài khoản và phân quyền phù hợp cho từng tài 
+khoản. Có các cơ chế báo cáo về tình trạng hoạt động của hệ thống. 
+- Có cơ chế ghi và lưu lại nhật ký hệ thống, theo dõi các thao tác của người dùng và 
+tình trạng của hệ thống thường xuyên để truy tìm thông tin, đánh giá hệ thống. 
+4.3.10. Xây dựng cơ sở dữ liệu hồ sơ kỹ thuật điện tử:  
+- Tổ chức cơ sở dữ liệu tập trung, phân loại theo thiết bị, trạm, đường dây, hãng sản 
+xuất, năm sản xuất,... bảo đảm tính đồng bộ, đầy đủ và dễ dàng cập nhật.  
+- Lưu trữ dữ liệu trên hệ thống máy chủ đáp ứng tiêu chuẩn an toàn thông tin, bảo 
+mật và dự phòng. 
+4.3.11. Hệ thống hạ tầng CNTT 
+- Trang bị 17 thiết bị máy quét công nghệ cao đáp ứng nhu cầu số hóa tài liệu khổ 
+lớn (A3) như bản vẽ, sơ đồ kỹ thuật cho 17 đơn vị được trang bị là Tổng công ty 
+Điện lực TP Hà Nội, Công ty Lưới điện cao thế TP Hà Nội, Công ty Thí nghiệm điện 
+- Điện lực Hà Nội, Ban Quản lý dự án Lưới điện Hà Nội, Ban Quản lý dự án Phát 
+triển Điện lực Hà Nội, Công ty Điện lực Ba Đình, Công ty Điện lực Hoàn Kiếm, 
+Công ty Điện lực Từ Liêm, Công ty Điện lực Hà Đông, Công ty Điện lực Thanh Trì, 
+Công ty Điện lực Gia Lâm, Công ty Điện lực Đông Anh, Công ty Điện lực Sóc Sơn, 
+Công ty Điện lực Sơn Tây, Công ty Điện lực Thạch Thất, Công ty Điện lực Thường 
+Tín, Công ty Điện lực Ứng Hòa. 
+- Hệ thống phần mềm sẽ được cài đặt trên tài nguyên hạ tầng CNTT được cấp của 
+Trung tâm dữ liệu Tây Hồ, tuân thủ các tiêu chuẩn, chính sách của Trung tâm dữ 
+liệu. 
+4.3.12. Xây dựng các quy trình vận hành và đào tạo hướng dẫn vận hành, quản trị hệ 
+thống 
+- Xây dựng tài liệu hướng dẫn sử dụng phần mềm, hướng dẫn vận hành phần mềm 
+va quy định về cập nhật, khai thác và chia sẻ dữ liệu.  
+- Tổ chức các lớp đào tạo, tập huấn cho cán bộ kỹ thuật, cán bộ quản lý vận hành và 
+nhân sự liên quan. 
+5. Kết quả đầu ra của dự án 
+
+
+=== PAGE 12 ===
+12 
+ 
+Sau khi dự án được triển khai, các kết quả đầu ra chính được xác định gồm: 
+(1) Hệ thống phần mềm quản lý hồ sơ kỹ thuật điện tử tập trung 
+- Xây dựng và đưa vào vận hành hệ thống phần mềm chuyên dụng để quản lý, 
+lưu trữ, tra cứu và khai thác hồ sơ kỹ thuật điện tử của toàn bộ thiết bị, trạm biến áp 
+và đường dây. 
+- Phần mềm có khả năng quản lý dữ liệu theo cấu trúc, hỗ trợ phân quyền truy 
+cập, truy xuất nhanh chóng, đồng thời bảo đảm tính toàn vẹn, an toàn và bảo mật 
+thông tin. 
+- Khả năng tích hợp với các hệ thống hiện có: Liên thông và đồng bộ dữ liệu 
+với phần mềm PMIS và các hệ thống khác trong EVN (CBM, Thí nghiệm, Kiểm 
+định,...), góp phần xây dựng nền tảng dữ liệu chung, phục vụ hiệu quả công tác quản 
+lý vận hành, phân tích và ra quyết định. 
+- Tích hợp công nghệ OCR, AI và các công cụ nhận dạng, chuẩn hóa dữ liệu 
+nhằm giảm thiểu nhập liệu thủ công, hạn chế sai sót và tăng độ chính xác. 
+(2) Cơ sở dữ liệu hồ sơ kỹ thuật đồng bộ, thống nhất 
+- Toàn bộ hồ sơ kỹ thuật hiện đang lưu trữ dưới dạng giấy hoặc file rời rạc (PDF, 
+hình ảnh) được số hóa, chuẩn hóa và lưu trữ tập trung. 
+- Hình thành cơ sở dữ liệu điện tử dùng chung, dễ dàng tích hợp và liên thông 
+với các hệ thống hiện hữu trong EVNHANOI và EVN (PMIS, CBM, Thí nghiệm, 
+Kiểm định,...). 
+- Dữ liệu được phân loại, gắn nhãn, tổ chức khoa học theo trạm, đường dây, loại 
+thiết bị, đảm bảo phục vụ tra cứu nhanh chóng và chính xác. 
+(3) Bộ công cụ khai thác, tra cứu và báo cáo 
+- Hệ thống cung cấp chức năng tìm kiếm thông minh theo nhiều tiêu chí (trạm, 
+đường dây, thiết bị, loại hồ sơ, ngày phát hành, hãng sản xuất,...). 
+- Hỗ trợ tạo báo cáo, thống kê, phân tích dữ liệu kỹ thuật để phục vụ công tác 
+quản lý, vận hành, bảo dưỡng và ra quyết định điều hành. 
+- Cho phép truy xuất hồ sơ gốc dưới dạng hình ảnh hoặc file số hóa khi cần đối 
+soát thực tế. 
+(4) Nâng cấp và trang bị hạ tầng số hóa 
+
+
+=== PAGE 13 ===
+13 
+ 
+- Trang bị máy quét khổ A3 và các thiết bị cần thiết cho các đơn vị quản lý, đáp 
+ứng yêu cầu số hóa khối lượng lớn tài liệu, đặc biệt là các bản vẽ, sơ đồ, hồ sơ kỹ 
+thuật khổ lớn. 
+- Hệ thống máy chủ, lưu trữ và an toàn thông tin được thiết lập đồng bộ, đáp 
+ứng tiêu chuẩn kỹ thuật, bảo đảm khả năng lưu trữ lâu dài và bảo mật dữ liệu. 
+(5) Bộ quy trình, quy định và hướng dẫn sử dụng 
+- Xây dựng tài liệu hướng dẫn sử dụng phần mềm, hướng dẫn vận hành phần 
+mềm va quy định về cập nhật, khai thác và chia sẻ dữ liệu.  
+- Tổ chức các lớp đào tạo, tập huấn cho cán bộ kỹ thuật, cán bộ quản lý vận 
+hành và nhân sự liên quan. 
+- Tạo nền tảng để duy trì và cập nhật cơ sở dữ liệu thường xuyên, bảo đảm dữ 
+liệu luôn đầy đủ, chính xác và kịp thời. 
+(6) Lợi ích đạt được sau khi triển khai 
+- Thay thế phương thức quản lý thủ công, giảm thiểu sử dụng giấy tờ, rút ngắn 
+thời gian xử lý thông tin. 
+- Tăng hiệu quả khai thác hồ sơ kỹ thuật, phục vụ nhanh chóng cho công tác 
+quản lý, vận hành, sửa chữa, kiểm định. 
+- Nâng cao năng lực số hóa và quản trị dữ liệu trong toàn Tổng công ty, phù 
+hợp định hướng chuyển đổi số của EVNHANOI và Tập đoàn Điện lực Việt Nam. 
+II. GÓI THẦU: 
+1. Gói thầu 02: Cung cấp thiết bị phần cứng và hệ thống phần mềm số hóa hồ 
+sơ kỹ thuật của đường dây và trạm biến áp 
+2. Phạm vi gói thầu:  
++ Cung cấp thiết bị phần cứng (17 Máy Scan A3) và Xây dựng hệ thống phần 
+mềm số hóa hồ sơ kỹ thuật của đường dây và trạm biến áp (phần mềm nội bộ, cơ sở 
+dữ liệu).  
++ Dịch vụ liên quan: đào tạo hướng dẫn sử dụng, chuyển giao công nghệ phần 
+mềm nội bộ, CSDL, cụ thể như sau: 
+ 
+ 
+ 
+
+
+=== PAGE 14 ===
+14 
+ 
+ST
+T 
+Mô tả công 
+việc 
+Yêu cầu 
+1 
+Tổ chức đào tạo 
+hướng dẫn sử 
+dụng, chuyển 
+giao công nghệ 
+phần mềm nội 
+bộ, CSDL 
+- Số lớp đào tạo: 04 lớp 
+- Số học viên/1 lớp: 30 người 
+- Số ngày đào tạo/1 lớp: 04 ngày (1 ngày = 2 buổi học (sáng, 
+chiều), mỗi buổi được tính bằng 4 tiết học) 
+- Số giảng viên/1 lớp: 01 người 
+- Số trợ giảng/1 lớp: 01 người 
+- Nhà thầu phải chịu trách nhiệm sắp xếp tổ chức và vận 
+hành lớp học, trong đó bao gồm: 
++ Thuê phòng học (bao gồm hệ thống âm thanh, máy tính, 
+chiếu sáng và băng rôn) 
++ Thù lao cho giảng viên chính/trợ giảng 
++ In tài liệu slide đào tạo, hướng dẫn sử dụng, bài tập thực 
+hành 
++ Nước uống cho học viên và giảng viên. 
+3. Thời gian hoàn thành hợp đồng: 90 ngày 
+B. YÊU CẦU KỸ THUẬT CỦA THIẾT BỊ VÀ HỆ THỐNG PHẦN MỀM 
+I. Yêu cầu kỹ thuật thiết bị phần cứng:  
+1. Bảng Yêu cầu đặc tính kỹ thuật và cam kết Máy Scan A3: 
+STT 
+Mô tả 
+Yêu cầu 
+Đề nghị và 
+cam kết của 
+nhà thầu 
+1 
+Nhà sản xuất  
+Nêu cụ thể 
+ 
+2 
+Nước sản xuất  
+Nêu cụ thể 
+ 
+3 
+Mã hiệu sản 
+phẩm  
+Nêu cụ thể 
+ 
+4 
+Kiểu máy 
+Quét 2 mặt tự động 
+ 
+5 
+ 
+  
+Khổ giấy 
+Tối đa: 304,8 x 431,8 mm; Tối thiểu: 50,8 x 69 
+mm 
+ 
+Kéo giấy dài: ≥ 304,8 x 5.588 mm 
+ 
+Khả năng quét thẻ nhựa chữ nổi, độ dày tối đa ≥ 
+1,4mm 
+ 
+Khả năng quét tài liệu khổ A2 bằng cách gập đôi 
+tài liệu 
+ 
+
+
+=== PAGE 15 ===
+15 
+ 
+STT 
+Mô tả 
+Yêu cầu 
+Đề nghị và 
+cam kết của 
+nhà thầu 
+6 
+Định lượng giấy 27 - 413 g/m2 
+ 
+7 
+Tốc độ quét (A4 
+ngang, 
+quét 
+màu, 300dpi) 
+Một mặt: ≥ 60 ppm,  
+Hai mặt: ≥ 120 ipm 
+ 
+8 
+Khay giấy 
+≥ 100 tờ (A4: 80g/m2) 
+ 
+9 
+Công suất 
+≥ 18000 trang/ngày 
+ 
+10 
+Phát hiện kéo 
+đúp, kẹt giấy 
+Bằng cảm biến siêu âm & Cảm biến giấy & tính 
+năng phát hiện kẹt giấy bằng âm thanh 
+ 
+11 
+Chức 
+năng 
+quản lý máy 
+Đi kèm phần mềm quản lý cấu hình, theo dõi 
+nhiều máy từ xa 
+ 
+12 
+Định dạng file 
+Hỗ trợ các định dạng file: Bitmap, TIFF, Multi-
+TIFF, JPEG, JPEG2000, Searchable PDF, PDF, 
+PDF/A, PNG, RTF, Word, Excel, PowerPoint 
+ 
+13 
+Hỗ trợ Index 
+file 
+XML, CSV, TXT 
+ 
+14 
+Tính năng tách 
+trường văn bản 
+(Metadata 
+fields) 
+≥ 20 trường, hỗ trợ font tiếng Việt, Anh, Hàn 
+Quốc, Nhật Bản, Trung Quốc. Người dùng có thể 
+tự định nghĩa trường văn bản. 
+ 
+15 
+Phương 
+thức 
+tách bộ tài liệu 
+Blank page (single/duplex), Page count, Zonal 
+OCR, Patch code, Barcode (1D/2D), Press Ctrl 
+ 
+16 
+Kết nối 
+Đảm bảo tối thiểu 1 trong các tiêu chí: 
+- Scan to Folder (SMB) 
+- FTP / SFTP 
+- Scan to Network PC 
+- Ethernet 
+ 
+17 
+Chế độ quét 
+Ảnh màu (Color) hoặc thang xám (Grayscale) 
+ 
+18 
+Độ phân giải 
+Tối thiểu 600 dpi 
+ 
+19 
+Khả năng quét 
+tài 
+liệu 
+mỏng/nát 
+Có chức năng Manual Feed hoặc Straight Paper 
+Path 
+ 
+ 
+
+
+=== PAGE 16 ===
+16 
+ 
+Ghi chú: 
+- Nhà thầu phải đệ trình catalogue và tài liệu hướng dẫn vận hành, lắp đặt 
+thiết bị bằng tiếng Anh, tiếng Việt.  
+- Các thông số kỹ thuật phải thể hiện rõ trên Catalogue hoặc trên Website 
+chính thức của thiết bị chào thầu. 
+- Các thiết bị mới 100%, đồng bộ nguyên chiếc, được sản xuất trong vòng 2 
+năm tính đến thời điểm mở thầu. 
+- Tất cả các số liệu trên được xác nhận bởi nhà thầu: 
+ 
+ 
+ 
+ 
+ 
+ 
+CHỨC VỤ NGƯỜI CÓ THẨM QUYỀN 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+(ký tên, đóng dấu) 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+   Họ tên đầy đủ 
+2. Phân bổ và lắp đặt 17 Máy Scan A3: 
+Các thiết bị được phân bổ và lắp đặt như sau: 
+TT 
+Tên Đơn vị 
+Số 
+lượng Đơn vị 
+Vị trí lắp đặt 
+1 Tổng công ty Điện lực TP Hà Nội 
+1 
+Chiếc Ban kỹ thuật 
+2 Công ty Lưới điện cao thế TP Hà Nội 
+1 
+Chiếc Phòng kỹ thuật 
+3 Công ty Thí nghiệm điện - Điện lực Hà Nội 
+1 
+Chiếc Phòng kỹ thuật 
+4 Ban Quản lý dự án Lưới điện Hà Nội 
+1 
+Chiếc Phòng KHVT 
+5 Ban Quản lý dự án Phát triển Điện lực Hà Nội 
+1 
+Chiếc Phòng KHVT 
+6 Công ty Điện lực Ba Đình 
+1 
+Chiếc Phòng kỹ thuật 
+7 Công ty Điện lực Hoàn Kiếm 
+1 
+Chiếc Phòng kỹ thuật 
+8 Công ty Điện lực Từ Liêm 
+1 
+Chiếc Phòng kỹ thuật 
+9 Công ty Điện lực Hà Đông 
+1 
+Chiếc Phòng kỹ thuật 
+10 Công ty Điện lực Thanh Trì 
+1 
+Chiếc Phòng kỹ thuật 
+11 Công ty Điện lực Gia Lâm 
+1 
+Chiếc Phòng kỹ thuật 
+12 Công ty Điện lực Đông Anh 
+1 
+Chiếc Phòng kỹ thuật 
+
+
+=== PAGE 17 ===
+17 
+ 
+TT 
+Tên Đơn vị 
+Số 
+lượng Đơn vị 
+Vị trí lắp đặt 
+13 Công ty Điện lực Sóc Sơn 
+1 
+Chiếc Phòng kỹ thuật 
+14 Công ty Điện lực Sơn Tây 
+1 
+Chiếc Phòng kỹ thuật 
+15 Công ty Điện lực Thạch Thất 
+1 
+Chiếc Phòng kỹ thuật 
+16 Công ty Điện lực Thường Tín 
+1 
+Chiếc Phòng kỹ thuật 
+17 Công ty Điện lực Ứng Hòa 
+1 
+Chiếc Phòng kỹ thuật 
+ 
+ 
+
+
+=== PAGE 18 ===
+18 
+ 
+II. Yêu cầu kỹ thuật Hệ thống phần mềm 
+1. Yêu cầu kỹ thuật cần đáp ứng của phần mềm nội bộ 
+Phần mềm phải có giao diện thân thiện, trực quan, ngôn ngữ hiển thị bằng tiếng 
+Việt và thể hiện rõ nhận diện thương hiệu của EVNHANOI. Việc thiết kế giao diện 
+cần đảm bảo sự trang nhã, thẩm mỹ, dễ sử dụng cho cả cán bộ kỹ thuật lẫn người 
+dùng phổ thông. Hệ thống được phát triển trên nền web, bảo đảm tương thích với các 
+trình duyệt thông dụng và tích hợp với cơ chế SSO (Single Sign On) của Tổng công 
+ty, nhằm quản lý tập trung và thuận tiện tài khoản người dùng. Ngoài ra, các kết nối 
+với hệ thống khác phải thông qua API có cơ chế xác thực, bảo đảm tính an toàn và 
+bảo mật thông tin. 
+1.1. Tên phần mềm 
+Phần mềm Số hóa hồ sơ kỹ thuật của Đường dây và Trạm. 
+1.2. Các thông số chủ yếu 
+1.2.1. Các quy trình nghiệp vụ cần được tin học hóa 
+ 
+Mô hình quy trình tổng thể nghiệp vụ 
+Khi phát sinh hồ sơ, hệ thống thực hiện tích hợp thông tin thiết bị từ PMIS sang 
+hệ thống số hóa hồ sơ kỹ thuật Đường dây và Trạm.  
+Cán bộ thuộc các đơn vị thực hiện cập nhật thành phần của hồ sơ (thí nghiệm 
+
+
+=== PAGE 19 ===
+19 
+ 
+xuất xưởng, Catalogue,...) thực hiện phân loại và lưu trữ bản gốc theo quy định, thực 
+hiện scan đối với các hồ sơ là bản cứng và sử dụng phần mềm để lưu vào CSDL File. 
+Thực hiện cập nhật hồ sơ trong phần mềm 
+Hệ thống tự động thực hiện số hóa từ các bản pdf, ảnh ra thành thông tin số, 
+chuyển hóa ngôn ngữ về tiếng Việt, đưa ra cảnh báo nếu thấy có sai khác về chính tả 
+khi nhận dạng các trường dữ liệu. 
+Hệ thống tự động kiểm tra và so sánh các thông số giữa PMIS và bản số hóa, 
+cảnh báo khi có sai khác. 
+Thông tin thiết bị: sau khi được chuẩn hóa, sẽ được lưu trong CSDL Số, phục 
+vụ công tác tra cứu, tìm kiếm và cung cấp API phục vụ việc tích hợp các hệ 
+thống khác. 
+1.2.2. Các đối tượng tham gia vào quy trình nghiệp vụ và mối liên hệ giữa chúng 
+Cán bộ nhập liệu  
+- Là nhóm người dùng trực tiếp khai thác hệ thống để giám sát, quản lý và đánh 
+giá dữ liệu kỹ thuật liên quan đến đường dây, trạm và thiết bị điện. Họ có quyền kiểm 
+tra, phê duyệt thông tin số hóa, theo dõi tình trạng hồ sơ, đồng thời đưa ra các đề xuất 
+cải tiến quy trình quản lý kỹ thuật. Vai trò của họ bảo đảm tính chính xác, đầy đủ và 
+khoa học của dữ liệu, phục vụ trực tiếp cho công tác vận hành, sửa chữa và đầu tư. 
+Lãnh đạo các đơn vị 
+- Lãnh đạo các công ty điện lực, các phòng/ban chức năng có quyền truy cập hệ 
+thống để giám sát công việc tại đơn vị mình quản lý, theo dõi tình trạng hồ sơ kỹ 
+thuật, các kết quả kiểm tra, thí nghiệm, và tiến độ số hóa. Nhóm này tập trung vào 
+việc đánh giá chất lượng khai thác, phối hợp với cấp quản lý chuyên môn để xử lý 
+sự cố, đồng thời đề xuất nhu cầu bổ sung tài liệu hoặc thiết bị cần cập nhật vào cơ sở 
+dữ liệu số hóa. 
+Lãnh đạo tổng công ty 
+- Lãnh đạo tổng công ty là nhóm người dùng cấp cao nhất, có nhu cầu nắm bắt 
+nhanh tình hình tổng thể về hệ thống kỹ thuật, hiện trạng lưới điện, và các báo cáo 
+quản lý từ dữ liệu số hóa. Họ sử dụng hệ thống để theo dõi các chỉ số vận hành, thống 
+kê, phân tích xu hướng, qua đó hỗ trợ quá trình ra quyết định chiến lược, chỉ đạo điều 
+hành sản xuất - kinh doanh và hoạch định kế hoạch đầu tư. 
+Chuyên viên thuộc các Ban 
+- Chuyên viên thuộc các ban là nhóm sử dụng hệ thống thường xuyên nhất để 
+
+
+=== PAGE 20 ===
+20 
+ 
+tra cứu hồ sơ kỹ thuật, cập nhật dữ liệu số hóa, báo cáo tình trạng thiết bị, thực hiện 
+các tác vụ nhập liệu và kiểm tra thông tin. Họ là người trực tiếp làm việc với phần 
+mềm tại hiện trường hoặc tại văn phòng, giúp hệ thống duy trì tính cập nhật, đồng 
+bộ và đầy đủ. Nhóm này thường được phân quyền hạn chế, chủ yếu tập trung vào 
+nghiệp vụ chuyên môn của từng vị trí. 
+Quản trị hệ thống 
+- Quản trị hệ thống là nhóm người dùng kỹ thuật cao, có trách nhiệm cấu hình, 
+vận hành và duy trì hệ thống phần mềm. Họ quản lý các tài khoản, phân quyền người 
+dùng, giám sát hoạt động của phần mềm, xử lý sự cố kỹ thuật, đồng thời triển khai 
+các bản vá và cập nhật tính năng mới. Ngoài ra, quản trị hệ thống còn thực hiện các 
+biện pháp bảo mật, sao lưu dữ liệu, bảo đảm hệ thống hoạt động ổn định, an toàn và 
+liên tục. 
+Hệ thống khác 
+- Hệ thống PMIS: PMIS được EVN đầu tư xây dựng với mục tiêu ứng dụng 
+công nghệ thông tin vào công tác quản lý kỹ thuật lưới điện, giúp các đơn vị vận 
+hành an toàn, tối ưu, tăng hiệu suất và giảm chi phí. 
+- Hệ thống chữ ký số CA: Ký số chứng thư số nội bộ để ký số với nhiều thể loại 
+văn bản khác nhau trên các phần mềm dùng chung của EVN. 
+- Hệ thống xác thực người dùng tập trung (SSO). 
+1.2.3. Danh sách yêu cầu của người sử dụng 
+a) Yêu cầu chung 
+- Giao diện thiết kế đẹp, trang nhã, ngôn ngữ hiển thị bằng tiếng Việt, dễ dàng 
+nhận biết thương hiệu EVNHANOI, thân thiện và dễ sử dụng với người dùng, được 
+bố trí hợp lý và đảm bảo tính mỹ thuật. 
+- Việc tích hợp với các hệ thống khác phải được thực hiện qua các API, có cơ 
+chế xác thực, bảo đảm tính an toàn, bảo mật thông tin. 
+- Phần mềm xây dựng trên nền web tương thích với các trình duyệt Web thông 
+dụng. 
+- Quản lý tài khoản người dùng phải tích hợp với hệ thống SSO (Single Sign 
+On) của Tổng công ty. 
+b) Yêu cầu về thông tin thiết bị quản lý trong phần mềm 
+- Hệ thống đảm bảo tách được các thông tin thiết bị từ các hồ sơ, cụ thể thông 
+
+
+=== PAGE 21 ===
+21 
+ 
+tin thiết bị như sau: 
+* Lưới điện cao áp: 
+TT 
+Đối tượng 
+Thuộc tính 
+1. 
+Cột điện 
+Hãng SX Nước SX Loại cột Kiểu cột 
+2. 
+Máy biến áp 
+Hãng SX 
+Nước SX 
+Kiểu cách điện 
+Loại máy 
+Nấc phân áp 
+Tần số (Hz) 
+Công suất (kVA) 
+Tổn hao không tải (KW) 
+Tổn hao có tải (KW) (cao/trung/hạ) Điện áp ngắn mạch tính 
+theo % Điện áp định mức các cuộn dây Dòng điện Định mức 
+(A) Dòng không tải (%) Số pha Tổ đấu dây Trọng lượng (kg) 
+Kích thước D, R, C (m) 
+Loại dầu 
+Loại sứ cách điện 
+Trọng lượng dầu (kg) 
+Kiểu làm mát 
+Tiêu chuẩn áp dụng 
+Độ tăng nhiệt độ cực đại lớp dầu trên cùng 
+Độ tăng nhiệt độ cực đại cuộn dây 
+Khả năng quá tải 
+3. 
+Máy cắt 
+Hãng SX 
+Nước SX 
+Điện áp định mức 
+Chủng loại 
+Môi trường dập hồ quang Dòng điện định mức (A) Dòng điện 
+cắt định mức (A) Tỷ số TI đính kèm 
+Khả năng chịu dòng ngắn mạch định mức Điện áp nguồn điều 
+khiển 
+Cách điện trung gian Cơ cấu truyền động Thời gian đóng Thời 
+gian cắt 
+Điện áp chịu đựng xung sét 
+Điện áp chịu đựng xung đóng cắt 
+Tần số 
+
+
+=== PAGE 22 ===
+22 
+ 
+TT 
+Đối tượng 
+Thuộc tính 
+Dòng điện xung (3s) 
+Dòng điện đóng chu kỳ max (MC cao thế) Công nghệ cách 
+điện Chu trình đóng cắt 
+Dòng cắt lệch pha định mức Hệ số dập hồ quang của cực đầu 
+tiên 
+4 
+Dao cách ly 
+Hãng SX 
+Nước SX 
+Chủng loại 
+Kiểu truyền động lưỡi dao 
+Dòng điện định mức (A) 
+Dòng điện cắt định mức (A) 
+Điện áp danh định (KV) 
+Điện áp định mức (kV) 
+Điện áp chịu đựng ở tần số công nghiệp (kV) 
+Dòng điện ngắn mạch định mức (A) 
+Công suất cắt 
+Môi trường cách điện 
+Số pha 
+Số lưỡi tiếp địa 
+Phân loại 
+5 
+Dao tiếp địa 
+Hãng SX 
+Nước SX 
+Loại dao 
+Dòng điện định mức (A) 
+Khả năng chịu dòng ngắn mạch định mức 
+6 
+Biến điện áp 
+Môi trường cách điện Tổ đấu dây Điện áp phía sơ cấp Điện 
+áp phía thứ cấp Công suất đo lường/bảo vệ Cấp chính xác - 
+Cuộn đo lường - Cuộn bảo vệ Số cuộn đo lường Số cuộn bảo 
+vệ 
+7 
+Biến dòng 
+điện 
+Môi trường cách điện 
+Tổ đấu dây 
+Dòng điện phía sơ cấp 
+Dòng định mức cuộn bảo vệ 
+Dòng định mức cuộn đo lường Công suất đo lường/bảo vệ 
+Cấp chính xác - Cuộn đo lường - Cuộn bảo vệ Số cuộn đo 
+lường Số cuộn bảo vệ 
+
+
+=== PAGE 23 ===
+23 
+ 
+TT 
+Đối tượng 
+Thuộc tính 
+8 
+Chống sét van 
+Loại chống sét Điện áp định mức (Ur) Cấp chống sét Dòng 
+phóng định mức Điện áp làm việc liên tục Hạt nổ chống sét 
+Vật liệu vỏ ngoài Môi trường cách điện 
+9 
+Tụ bù 
+Kiểu Tụ 
+Dòng điện làm việc max 
+Điện áp định mức 
+Công suất tụ 
+Điện dung tụ 
+10 
+Bộ GIS 
+Kiểu GIS (Type) 
+Udm (kV) (Rate voltage) 
+Idm - Ngăn (A) 
+Idm - Thanh cái (A) 
+Idm - Thanh liên lạc (A) 
+Inm định mức (kA) 
+Thời gian ngắn mạch định mức (s) 
+Dòng điện đỉnh định mức (kA) 
+Dải nhiệt độ vận hành - Trong nhà (0C) 
+Dải nhiệt độ vận hành - Ngoài trời (0C) Trình tự thao tác 
+Áp suất khí cao (bar) 
+Tụt khí SF6 (bar) Áp suất vận hành nhỏ nhất (bar) 
+11 
+Máy cắt GIS 
+Điện áp định mức (kV) 
+Dòng điện cắt ngắn mạch định mức (kA) Thời gian chịu đựng 
+ngắn mạch định mức (s) Hệ số tắt hồ quang của cực đầu tiên 
+Trình tự thao tác 
+Dòng cắt lệch pha (kA) 
+Kiểu truyền động 
+Serial 
+Năm sản xuất 
+Công suất (W) 
+Điện áp (V) 
+Độ lệch điện áp cho phép theo IEC (%) 
+Dòng tải cực đại (A) 
+Dòng khởi động (A) 
+Áp suất định mức ở 20°C (không tải) 
+Áp suất nhỏ nhất ở 20°C (không tải) (bar) 
+Tụt khí SF6 
+
+
+=== PAGE 24 ===
+24 
+ 
+TT 
+Đối tượng 
+Thuộc tính 
+Khóa thao tác 
+12 
+Biến dòng 
+điện GIS 
+Kiểu (Type) 
+Dòng điện ổn định nhiệt khi ngắn mạch (kA) Dòng điện ổn 
+định động khi ngắn mạch (kA) Tỉ số biến 
+T ải định mức 
+Cấp chính xác các cuộn dây 
+Cấp cách điện Định mức/Chịu đựng NM tần số công 
+nghiệp/chịu đựng xung sét (kV) 
+Dải đo (%) 
+Cấp chính xác (1) 
+Tỉ số biến (1) 
+Công suất định mức (1) (VA) 
+Cấp chính xác (2) 
+Tỉ số biến (2) 
+Công suất định mức (2) (VA) 
+Cấp chính xác (3) 
+Tỉ số biến (3) 
+Công suất định mức (3) 
+Cấp chính xác (4) 
+Tỉ số biến (4) 
+Công suất định mức (4) (VA) 
+Cấp chính xác (5) 
+Tỉ số biến (5) 
+Công suất định mức (5) (VA) 
+13 
+Biến điện áp 
+GIS 
+Kiểu (Type) 
+Cấp cách điện định mức 
+Áp suất khí định mức/cảnh báo/nhỏ nhất (20°C) 
+Tỉ số biến các cuộn dây 
+Cấp chính xác các cuộn dây 
+T ải định mức 
+Cấp chính xác (1) 
+Tỉ số biến (1) 
+Công suất định mức (1) (VA) 
+Cấp chính xác (2) 
+Tỉ số biến (2) 
+Công suất định mức (2) 
+
+
+=== PAGE 25 ===
+25 
+ 
+TT 
+Đối tượng 
+Thuộc tính 
+Cấp chính xác (3) 
+Tỉ số biến (3) 
+Công suất định mức (3) 
+Cấp chính xác (4) 
+Tỉ số biến (4) 
+Công suất định mức (4) 
+Cấp chính xác (5) 
+Tỉ số biến (5) 
+Công suất định mức (5) 
+14 
+Chống sét GIS 
+Kiểu (Type) 
+Điện áp định mức (kV) 
+Điện áp vận hành liên tục 
+Dòng điện phóng danh định (A) Áp suất khí danh định (bar) 
+Cấp phóng điện 
+15 
+Dao cách ly 
+GIS 
+Serial 
+Năm sản xuất 
+Điện áp định mức (kV) 
+Dòng điện định mức (A) 
+Điện áp chịu đựng xung xét định mức (kV) 
+Dòng chịu đựng ngắn mạch định mức (kA) 
+Độ lệch điện áp cho phép (%) 
+Dòng tải lớn nhất (A) 
+Dòng khởi động (A) 
+Độ lệch điện áp cho phép (%) 
+Dòng tải cực đại (dao tiếp địa đang hoạt động) (A) 
+Dòng khởi động (dao tiếp địa đang hoạt động) (A) 
+Dòng tải cực đại (dao tiếp địa tốc độ cao) (A) Dòng khởi động 
+(dao tiếp địa tốc độ cao) (A) 
+16 
+Bộ HGIS 
+Kiểu HGIS 
+Udm (kV) Idm (A) I cắt dm Điện áp thí nghiệm xoay chiều 
+Điện áp xung thí nghiệm 
+Điện áp thí nghiệm chịu đựng tần số công nghiệp (kV) Điện 
+áp chịu đựng xung sét định mức (kV) Dòng điện ngắn mạch 
+định mức (kA) Thời gian chịu đựng ngắn mạch định mức (s) 
+Dòng điện đỉnh chịu đựng (kA) 
+
+
+=== PAGE 26 ===
+26 
+ 
+TT 
+Đối tượng 
+Thuộc tính 
+Cảnh báo áp suất khí SF6 (20°C) (bar) Áp suất khí SF6 định 
+mức (20°C) (bar) Áp suất khí cấm thao tác (20°C) (bar) 
+Nhiệt độ môi trường cao nhất (°C) 
+Nhiệt độ môi trường thấp nhất (°C) 
+17 
+Máy cắt HGIS 
+Kiểu 
+Điện áp định mức 
+Dòng điện cắt ngắn mạch định mức 
+Thời gian chịu đựng ngắn mạch định mức Hệ số tắt hồ quang 
+của cực đầu tiên Trình tự thao tác Dòng cắt lệch pha Kiểu 
+truyền động Công suất (động cơ) (W) Điện áp (động cơ) (V) 
+18 
+Biến dòng 
+điện HGIS 
+Kiểu 
+Dòng điện ổn định nhiệt khi ngắn mạch (kA) 
+Dòng điện ổn định động khi ngắn mạch (kA) 
+Tỉ số biến 
+Tải định mức (VA) 
+Cấp chính xác các cuộn dây 
+Cấp cách điện Định mức/Chịu đựng tần số công nghiệp/chịu 
+đựng xung sét (kV) 
+Dải đo (%) (Measuring range) 
+Cấp chính xác (1) 
+Tỉ số biến (1) 
+Công suất định mức (1) 
+Cấp chính xác (2) 
+Tỉ số biến (2) 
+Công suất định mức (2) 
+Cấp chính xác (3) 
+Tỉ số biến (3) 
+Công suất định mức (3) 
+Cấp chính xác (5) 
+Tỉ số biến (5) 
+Công suất định mức (5) (VA) 
+Cnh xác (4) 
+Tỉ số biến (4) 
+Công suất định mức (4) 
+19 
+Biến điện áp 
+HGIS 
+Kiểu 
+Cấp cách điện định mức 
+
+
+=== PAGE 27 ===
+27 
+ 
+TT 
+Đối tượng 
+Thuộc tính 
+Áp suất khí định mức/cảnh báo/nhỏ nhất (20°C) 
+Tỉ số biến các cuộn dây 
+Cấp chính xác các cuộn dây 
+T ải định mức 
+Cấp chính xác (1) 
+Tỉ số biến (1) 
+Công suất định mức (1) 
+Cấp chính xác (2) 
+Tỉ số biến (2) 
+Công suất định mức (2) 
+Cấp chính xác (3) 
+Tỉ số biến (3) 
+Công suất định mức (3) 
+Cấp chính xác (4) 
+Tỉ số biến (4) 
+Công suất định mức (4) 
+Cấp chính xác (5) 
+Tỉ số biến (5) 
+Công suất định mức (5) (VA) 
+20 
+Dao cách ly 
+HGIS 
+Công suất (động cơ) (W) Điện áp (động cơ) (V) 
+* Lưới điện trung áp: 
+TT 
+Đối tượng 
+Thuộc tính 
+1 
+Cột điện 
+Hãng SX Nước SX Loại cột Kiểu cột 
+2. 
+Máy biến áp 
+Hãng SX 
+Nước SX 
+Kiểu cách điện 
+Loại máy 
+Nấc phân áp 
+Tần số (Hz) 
+Công suất (kVA) 
+Tổn hao không tải Po (W) 
+Tổn hao ngắn mạch Pk (W) 
+Cấp điện áp 
+Idm thứ cấp (A) - TT (Số) 
+
+
+=== PAGE 28 ===
+28 
+ 
+TT 
+Đối tượng 
+Thuộc tính 
+Dòng không tải phần trăm Io% (%) 
+Idm sơ cấp (A) - TT (Số) 
+Số pha 
+Tổ đấu dây 
+Trọng lượng (kg) 
+Kích thước D R C (m) 
+Loại dầu 
+Kiểu làm mát 
+Loại sứ cách điện 
+Tính chất phụ tải Đối tượng cấp điện 
+3. 
+Máy biến áp tự 
+dùng 
+Kiểu máy Công suất (kVA) Phương pháp làm mát Điện áp 
+máy Điện áp danh định Loại dầu Tổ đấu dây Trọng lượng (kg) 
+4 
+Máy cắt 
+Hãng SX Nước SX Kiểu máy cắt 
+Chủng loại 
+Tình trạng giám sát điều khiển 
+Môi trường dập hồ quang 
+Dòng điện định mức (A) 
+Dòng điện cắt định mức (A) 
+Điện áp danh định (kV) 
+Khả năng chịu dòng ngắn mạch định mức (A) 
+Điện áp nguồn điều khiển (V) 
+Thời gian đóng (ms) 
+Thời gian cắt (ms) 
+Khoảng cách rò tối thiểu (mm/kV) 
+5 
+Dao cách ly 
+Hãng SX 
+Nước SX 
+Chủng loại 
+Loại 
+Kiểu truyền động lưỡi dao 
+Dòng điện định mức (A) 
+Điện áp danh định 
+Điện áp định mức 
+Điện áp chịu đựng ở tần số công nghiệp Khả năng chịu dòng 
+ngắn mạch định mức Khoảng cách dòng rò tối thiểu 
+Số lượng Dao tiếp địa 
+Bộ truyền động điện cho Dao chính 
+
+
+=== PAGE 29 ===
+29 
+ 
+TT 
+Đối tượng 
+Thuộc tính 
+Bộ truyền động điện cho Dao TĐ 
+Kiểu cấp nguồn ĐK AC 
+Điện áp định mức cấp nguồn AC 
+Điện áp định mức nguồn điều khiển DC Điện áp định mức 
+nguồn điều khiển AC 
+6 
+Dao tiếp địa 
+Hãng SX 
+Nước SX 
+Loại dao 
+Dòng điện định mức (A) 
+Khả năng chịu dòng ngắn mạch định mức 
+7 
+Cầu dao phụ 
+tải (LBS) 
+Hãng SX Nước SX Loại cầu dao Chủng loại CDPT (LBS) 
+Kiểu truyền động lưỡi dao Môi trường dập hồ quang Dòng 
+điện định mức Dòng điện cắt định mức Điện áp danh định 
+Khả năng chịu dòng ngắn mạch định mức Khoảng cách dòng 
+rò tối thiểu Bộ truyền động điện Kiểu cấp nguồn ĐK AC 
+Điện áp định mức cấp nguồn điều khiển AC Điện áp định mức 
+nguồn điều khiển DC Tình trạng GSĐK 
+Số lượng Biến điện áp chân sứ Số lượng Biến dòng chân sứ 
+8 
+Cầu chì tự rơi 
+(FCO/SI) 
+Hãng SX 
+Nước SX 
+Kiểu FCO 
+Dây chảy 
+Dòng điện làm việc liên tục định mức 
+Dòng cắt ngắn mạch đối xứng định mức 
+Kiểu cách điện 
+Pha 
+9 
+Tủ RMU 
+Hãng SX 
+Nước SX 
+Mã hiệu 
+Loại tủ 
+Điện áp danh định 
+Dòng điện định mức thanh cái 
+Thiết bị kết nối Scada 
+Ắc quy 
+Điện trở sấy 
+Cảm biến nhiệt độ 
+
+
+=== PAGE 30 ===
+30 
+ 
+TT 
+Đối tượng 
+Thuộc tính 
+Đồng hồ báo khí 
+Thiết bị báo sự cố 
+Số ngăn - TT (Số) 
+Khả năng chịu dòng ngắn mạch định mức 
+10 
+Recloser 
+Hãng SX 
+Nước SX 
+Chủng loại 
+Môi trường dập hồ quang 
+Dòng điện định mức (A) 
+Dòng điện cắt định mức (kA) 
+Điện áp danh định 
+Khả năng chịu dòng ngắn mạch định mức Điện áp định mức 
+cấp nguồn điều khiển AC Tình trạng giám sát/điều khiển 
+Số lượng Biến điện áp chân sứ 
+11 
+Tủ nạp 
+Dòng điện định mức 
+Điện áp danh định 
+Chủng loại 
+Điện náp nạp nổi 
+Điện áp nạp cân bằng 
+Điện áp nạp nhanh 
+Dòng điện ra 
+Dòng điện nạp cho ACCU 
+12 
+ACCU 
+Loại ắc quy: Điện áp Dung lượng: Dòng Điện phóng Dòng 
+điện nạp Chủng loại 
+13 
+Rơle 
+Mã hiệu Version 
+ 
+c) Yêu cầu về chức năng phần mềm 
+- Đối với các chức năng tự động, yêu cầu độ chính xác đảm bảo phân tách 
+được từ 90% trở lên. 
+- Đối với chức năng tìm kiếm, yêu cầu đảm bảo tìm kiếm được các hồ sơ tài 
+liệu cần được quản lý theo từng đường dây/TBA và theo dõi được các phiên bản 
+khi cập nhật, thay đổi. 
+- Hệ thống cần tổng hợp được các thông tin số lượng hồ sơ, số phiên bản thay 
+đổi của từng thiết bị theo đường dây/trạm của từng phiên bản. 
+
+
+=== PAGE 31 ===
+31 
+ 
+d) Yêu cầu tính năng theo sơ đồ quy trình tổng thể hệ thống 
+ 
+ 
+e) Yêu cầu tính năng theo chi tiết từng chức năng trong hệ thống: 
+* Quy trình nghiệp vụ khởi tạo đơn vị sử dụng: 
+- Quy trình nghiệp vụ khởi tạo đơn vị sử dụng (ĐVSD) được mô tả theo sơ đồ 
+sau: 
+ 
+
+
+=== PAGE 32 ===
+32 
+ 
+- Mô tả các bước thực hiện trong quy trình nghiệp vụ: 
+Mã bước 
+thực hiện 
+Tên bước 
+Người thực hiện 
+Diễn giải bước thực hiện 
+B01 
+Tạo nhóm quyền 
+Quản trị hệ thống 
+Tạo/thay đổi phân quyền 
+cho ĐVSD 
+B02 
+Tạo đơn vị sử dụng 
+Quản trị hệ thống 
+Tạo đơn vị sử dụng theo nhu 
+cầu 
+B03 
+Gán quyền cho ĐV SD 
+Quản trị hệ thống 
+Gán thay đổi nhóm quyền 
+cho ĐVSD 
+B04 
+Tạo tài khoản Quản trị 
+ĐVSD 
+Quản trị hệ thống 
+Tạo tài khoản Quản trị của 
+đơn vị sử dụng 
+* Quy trình nghiệp vụ khởi tạo người dùng: 
+- Quy trình nghiệp vụ khởi tạo người dùng được mô tả theo sơ đồ sau: 
+ 
+- Mô tả các bước thực hiện trong quy trình nghiệp vụ: 
+Bước thực 
+hiện 
+Tên bước 
+Người thực 
+hiện 
+Diễn giải bước thực hiện 
+B01 
+Tạo nhóm quyền 
+Quản trị 
+Tạo/thay đổi phân quyền theo các 
+vai trò người dùng thuộc ĐVSD 
+B02 
+Tạo người dùng 
+Quản trị 
+Tạo người dùng theo nhu cầu 
+B03 
+Gán 
+quyền cho 
+người dùng 
+Quản trị 
+Gán/thay đổi nhóm quyền cho 
+người dùng theo vai trò 
+
+
+=== PAGE 33 ===
+33 
+ 
+Bước thực 
+hiện 
+Tên bước 
+Người thực 
+hiện 
+Diễn giải bước thực hiện 
+B04 
+Cấu hình duyệt mượn 
+HS 
+Quản trị 
+Cấu hình duyệt mượn HS cho 
+người dùng có vai trò duyệt 
+mượn HS 
+B05 
+Tạo nhóm người dùng 
+Quản trị 
+Tạo/thay đổi nhóm người dùng 
+B06 
+Cấu hình nhóm người 
+dùng 
+Quản trị 
+Cấu hình nhóm người dùng 
+B07 
+Gán người dùng vào 
+nhóm người dùng 
+Quản trị 
+Gán các người dùng vào nhóm 
+người dùng theo nhu cầu 
+* Quy trình nghiệp vụ khai báo danh mục (DM) dùng riêng: 
+- Quy trình nghiệp vụ khai báo DM dùng riêng được mô tả theo sơ đồ sau: 
+ 
+ 
+- Mô tả các bước thực hiện trong quy trình nghiệp vụ: 
+Bước thực 
+hiện 
+Tên bước 
+Người thực 
+hiện 
+Diễn giải bước thực hiện 
+B01 
+Định nghĩa DM dùng 
+riêng 
+Quản trị 
+Thực hiện tạo/thay đổi DM 
+dùng riêng 
+B02 
+Khai báo dữ liệu DM 
+dùng riêng 
+Quản trị 
+Tạo/thay đổi dữ liệu DM dùng 
+riêng 
+* Quy trình nghiệp vụ khởi tạo nơi lưu trữ hồ sơ: 
+- Quy trình nghiệp vụ khởi tạo nơi lưu trữ được mô tả theo sơ đồ sau: 
+ 
+- Mô tả các bước thực hiện trong quy trình nghiệp vụ: 
+
+
+=== PAGE 34 ===
+34 
+ 
+Mã bước 
+thực hiện 
+Tên bước 
+Người thực hiện 
+Diễn giải bước thực hiện 
+B01 
+Tạo kho hồ sơ 
+Quản trị 
+Tạo/thay đổi kho hồ sơ 
+B02 
+Tạo kệ 
+Quản trị 
+Tạo/thay đổi kệ hồ sơ 
+B03 
+Tạo tầng 
+Quản trị 
+Tạo/thay đổi tầng hồ sơ 
+B04 
+Tạo hộp 
+Quản trị 
+Tạo/thay đổi hộp hồ sơ 
+*Quy trình nghiệp vụ khởi tạo loại hồ sơ: 
+- Quy trình nghiệp vụ khởi tạo loại hồ sơ được mô tả theo sơ đồ sau: 
+ 
+- Mô tả các bước thực hiện trong quy trình nghiệp vụ: 
+Mã bước 
+thực hiện 
+Tên bước 
+Người thực 
+hiện 
+Diễn giải bước thực hiện 
+B01 
+Tạo mẫu loại văn bản 
+Quản trị 
+Tạo/thay đổi mẫu loại văn bản 
+B02 
+Tạo loại hồ sơ 
+Quản trị 
+Tạo/thay đổi loại hồ sơ 
+B03 
+Chỉnh sửa template hồ sơ 
+Quản trị 
+Chỉnh sửa thông tin chi tiết, thành 
+phần và thuộc tính của loại hồ sơ. 
+* Quy trình nghiệp vụ nhập hồ sơ - kiểm duyệt hồ sơ: 
+- Quy trình nghiệp vụ nhập hồ sơ - kiểm duyệt hồ sơ được mô tả theo sơ đồ 
+sau: 
+ 
+- Mô tả các bước thực hiện trong quy trình nghiệp vụ: 
+Bước thực 
+hiện 
+Tên bước 
+Người thực 
+hiện 
+Diễn giải bước thực hiện 
+B01 
+Nhập hồ sơ 
+Người nhập 
+liệu 
+Nhập mới HS theo loại HS 
+
+
+=== PAGE 35 ===
+35 
+ 
+Bước thực 
+hiện 
+Tên bước 
+Người thực 
+hiện 
+Diễn giải bước thực hiện 
+B02 
+Kiểm duyệt hồ sơ 
+Người kiểm 
+duyệt 
+Kiểm duyệt hồ sơ đã nhập 
+B03 
+Báo cáo tài liệu không 
+hợp lệ 
+Người kiểm 
+duyệt 
+Báo cáo tài liệu không hợp lệ 
+B04 
+Cập nhật hồ sơ 
+Người nhập 
+liệu 
+Cập nhật hồ sơ 
+B05 
+Xác nhận xuất bản HS 
+Người kiểm 
+duyệt 
+Duyệt xuất bản hồ sơ 
+f) Danh sách yêu cầu chức năng phần mềm 
+- Hệ thống phần mềm phải đáp ứng đầy đủ các chức năng nghiệp vụ theo yêu 
+cầu như sau: 
+STT 
+Mô tả yêu cầu 
+Phân loại 
+1 
+Người dùng có thể thêm mới menu 
+Dữ liệu đầu vào 
+2 
+Người dùng thực hiện chỉnh sửa menu 
+Dữ liệu đầu vào 
+3 
+Người dùng thực hiện xóa menu 
+Dữ liệu đầu vào 
+4 
+Người dùng thực hiện khóa menu 
+Dữ liệu đầu vào 
+5 
+Người dùng có thể thêm mới vai trò  
+Dữ liệu đầu vào 
+6 
+Người dùng thực hiện chỉnh sửa vai trò  
+Dữ liệu đầu vào 
+7 
+Người dùng thực hiện xóa vai trò  
+Dữ liệu đầu vào 
+8 
+Người dùng thực hiện gán vai trò cho người dùng  
+Dữ liệu đầu vào 
+9 
+Người dùng có thể thêm mới nhóm quyền hệ thống 
+Dữ liệu đầu vào 
+10 
+Người dùng thực hiện chỉnh sửa nhóm quyền hệ thống 
+Dữ liệu đầu vào 
+11 
+Người dùng thực hiện xóa nhóm quyền hệ thống. 
+Dữ liệu đầu vào 
+12 
+Người dùng có thể thêm mới nhóm báo cáo hệ thống  
+Dữ liệu đầu vào 
+13 
+Người dùng thực hiện chỉnh sửa nhóm báo cáo hệ thống  
+Dữ liệu đầu vào 
+14 
+Người dùng thực hiện xóa nhóm báo cáo hệ thống  
+Dữ liệu đầu vào 
+15 
+Người dùng thực hiện cấu hình báo cáo hệ thống 
+Dữ liệu đầu vào 
+16 
+Người dùng thực hiện quản lý đơn vị  
+Dữ liệu đầu vào 
+17 
+Người dùng thực hiện xóa đơn vị.  
+  
+18 
+Người dùng nhập tiêu chí tìm kiếm đơn vị  
+Dữ liệu truy vấn 
+19 
+Người dùng có thể thêm mới loại danh mục  
+Dữ liệu đầu vào 
+20 
+Người dùng thực hiện chỉnh sửa loại danh mục  
+Dữ liệu đầu vào 
+21 
+Người dùng thực hiện xóa loại danh mục  
+Dữ liệu đầu vào 
+
+
+=== PAGE 36 ===
+36 
+ 
+22 
+Người dùng nhập tiêu chí tìm kiếm loại danh mục 
+Dữ liệu truy vấn 
+23 
+Người dùng có thể thêm mới danh mục dùng chung 
+Dữ liệu đầu vào 
+24 
+Người dùng thực hiện chỉnh sửa danh mục dùng chung 
+Dữ liệu đầu vào 
+25 
+Người dùng thực hiện xóa danh mục dùng chung 
+Dữ liệu đầu vào 
+26 
+Người dùng nhập tiêu chí tìm kiếm danh mục dùng chung 
+Dữ liệu truy vấn 
+27 
+Người dùng bấm xem chi tiết danh mục dùng chung  
+Dữ liệu đầu ra 
+28 
+Người dùng thực hiện định nghĩa danh mục dùng chung 
+Dữ liệu đầu vào 
+29 
+Người dùng có thể thêm mới danh mục dùng riêng 
+Dữ liệu đầu vào 
+30 
+Người dùng thực hiện chỉnh sửa danh mục dùng riêng  
+Dữ liệu đầu vào 
+31 
+Người dùng thực hiện xóa danh mục dùng riêng 
+Dữ liệu đầu vào 
+32 
+Người dùng nhập tiêu chí tìm kiếm danh mục dùng riêng  
+Dữ liệu truy vấn 
+33 
+Người dùng bấm xem chi tiết danh mục dùng riêng  
+Dữ liệu đầu ra 
+34 
+Người dùng thực hiện định nghĩa danh mục dùng riêng 
+Dữ liệu đầu vào 
+35 
+Người dùng thêm mới cấu hình file tải lên  
+Dữ liệu đầu vào 
+36 
+Người dùng thực hiện chỉnh sửa cấu hình file tải lên  
+Dữ liệu đầu vào 
+37 
+Người dùng thực hiện xóa cấu hình file tải lên  
+Dữ liệu đầu vào 
+38 
+Người dùng nhập tiêu chí tìm kiếm cấu hình file tải lên  
+Dữ liệu truy vấn 
+39 
+Người dùng có thể thêm mới luồng xử lý  
+Dữ liệu đầu vào 
+40 
+Người dùng thực hiện chỉnh sửa luồng xử lý 
+Dữ liệu đầu vào 
+41 
+Người dùng thực hiện xóa luồng xử lý 
+Dữ liệu đầu vào 
+42 
+Người dùng thực hiện khóa luồng xử lý  
+Dữ liệu đầu vào 
+43 
+Người dùng có thể thêm mới bước xử lý 
+Dữ liệu đầu vào 
+44 
+Người dùng thực hiện xóa bước xử lý 
+Dữ liệu đầu vào 
+45 
+Người dùng thực hiện nối các bước xử lý 
+Dữ liệu đầu vào 
+46 
+Người dùng thực hiện thêm mới form 
+Dữ liệu đầu vào 
+47 
+Người dùng thực hiện chỉnh sửa form  
+Dữ liệu đầu vào 
+48 
+Người dùng thực hiện xóa form  
+Dữ liệu đầu vào 
+49 
+Người dùng thêm mới trường dữ liệu 
+Dữ liệu đầu vào 
+50 
+Người dùng thực hiện chỉnh sửa trường dữ liệu 
+Dữ liệu đầu vào 
+51 
+Người dùng thực hiện xóa trường dữ liệu 
+Dữ liệu đầu vào 
+52 
+Người dùng sắp xếp hiển thị trường dữ liệu trên form  
+Dữ liệu đầu ra 
+53 
+Người dùng gửi duyệt form 
+Dữ liệu đầu vào 
+54 
+Người dùng duyệt form 
+Dữ liệu đầu vào 
+55 
+Người dùng có thể thêm mới/ chỉnh sửa nhóm quyền đơn vị 
+Dữ liệu đầu vào 
+56 
+Người dùng thực hiện xóa nhóm quyền đơn vị 
+Dữ liệu đầu vào 
+57 
+Người dùng thực hiện gán nhóm quyền đơn vị cho người dùng 
+Dữ liệu đầu vào 
+
+
+=== PAGE 37 ===
+37 
+ 
+58 
+Người dùng Thêm mới quyền chức năng 
+Dữ liệu đầu vào 
+59 
+Người dùng chỉnh sửa quyền chức năng  
+Dữ liệu đầu vào 
+60 
+Người dùng xóa quyền chức năng  
+Dữ liệu đầu vào 
+61 
+Người dùng Cấu hình nhóm báo cáo đơn vị  
+Dữ liệu đầu vào 
+62 
+Người dùng thực hiện xóa nhóm báo cáo đơn vị.  
+  
+63 
+Người dùng duyệt báo cáo  
+Dữ liệu đầu vào 
+64 
+Người dùng truy cập chức năng quản lý nhật ký thao tác người dùng  Dữ liệu đầu ra 
+65 
+Người dùng chọn đối tượng người dùng  
+Dữ liệu đầu vào 
+66 
+Người dùng thực hiện xóa nhật ký  
+Dữ liệu đầu vào 
+67 
+Người dùng bấm nút xuất Excel nhất ký hệ thống 
+Dữ liệu đầu vào 
+68 
+Người dùng truy cập chức năng quản lý nhật ký hệ thống  
+Dữ liệu đầu vào 
+69 
+Người dùng chọn đối tượng quản lý hồ sơ 
+Dữ liệu đầu ra 
+70 
+Người dùng thực hiện xóa nhật ký quản lý hồ sơ 
+Dữ liệu đầu vào 
+71 
+Người dùng chọn đối tượng quản lý tài liệu  
+Dữ liệu đầu vào 
+72 
+Người dùng thực hiện xóa nhật ký quản lý tài liệu 
+Dữ liệu đầu vào 
+73 
+Người dùng thực hiện thiết lập tham số hệ thống  
+Dữ liệu đầu vào 
+74 
+Người dùng thực hiện chỉnh sửa thiết lập tham số hệ thống  
+Dữ liệu đầu vào 
+75 
+Người dùng thực hiện xóa thiết lập tham số hệ thống  
+Dữ liệu đầu vào 
+76 
+Người dùng bấm nút gửi thông tin  
+Dữ liệu đầu vào 
+77 
+Người dùng thực hiện tìm kiếm nội dung tài liệu đã được số hóa 
+Dữ liệu đầu vào 
+78 
+Người dùng thiết lập tham số đồng bộ dữ liệu 
+Dữ liệu đầu vào 
+79 
+Người dùng chỉnh sửa thiết lập tham số đồng bộ dữ liệu 
+Dữ liệu đầu vào 
+80 
+Người dùng bấm nút đồng bộ người dùng 
+Dữ liệu đầu vào 
+81 
+Người dùng thực hiện chỉnh sửa người dùng  
+Dữ liệu đầu vào 
+82 
+Người dùng thực hiện khóa người dùng  
+Dữ liệu đầu vào 
+83 
+Người dùng Thêm mới nhóm người dùng  
+Dữ liệu đầu vào 
+84 
+Người dùng Chỉnh sửa nhóm người dùng  
+Dữ liệu đầu vào 
+85 
+Người dùng Xóa nhóm người dùng 
+Dữ liệu đầu vào 
+86 
+Người dùng Gán người dùng vào nhóm người dùng 
+Dữ liệu đầu vào 
+87 
+Người dùng có thể thêm mới phân bổ nhập liệu 
+Dữ liệu đầu vào 
+88 
+Người dùng thực hiện chỉnh sửa phân bổ nhập liệu 
+Dữ liệu đầu vào 
+89 
+Người dùng thực hiện xóa phân bổ nhập liệu 
+Dữ liệu đầu vào 
+90 
+Người dùng nhập tên đăng nhập và mật khẩu được cấp 
+Dữ liệu đầu ra 
+91 
+Người dùng bấm nút đăng nhập 
+Dữ liệu đầu vào 
+92 
+Người dùng chọn đăng xuất khỏi hệ thống 
+Dữ liệu đầu vào 
+93 
+Người dùng thực hiện chỉnh sửa thông tin cá nhân  
+Dữ liệu đầu vào 
+
+
+=== PAGE 38 ===
+38 
+ 
+94 
+Người dùng bấm icon thông báo mới 
+Dữ liệu đầu ra 
+95 
+Người dùng thực hiện xóa thông báo  
+Dữ liệu đầu vào 
+96 
+Người dùng có thể thêm mới danh mục loại hồ sơ  
+Dữ liệu truy vấn 
+97 
+Người dùng thực hiện chỉnh sửa danh mục loại hồ sơ  
+Dữ liệu đầu vào 
+98 
+Người dùng thực hiện xóa danh mục loại hồ sơ  
+Dữ liệu đầu vào 
+99 
+Người dùng nhập tiêu chí tìm kiếm danh mục loại hồ sơ  
+Dữ liệu truy vấn 
+100 
+Người dùng thực hiện cấu hình loại hồ sơ  
+Dữ liệu đầu vào 
+101 
+Người dùng thực hiện chỉnh sửa cấu hình loại hồ sơ  
+Dữ liệu đầu vào 
+102 
+Người dùng thực hiện xóa cấu hình loại hồ sơ 
+Dữ liệu đầu vào 
+103 
+Người dùng Sắp xếp trường dữ liệu 
+Dữ liệu đầu ra 
+104 
+Người dùng thêm danh mục chức vụ 
+Dữ liệu đầu vào 
+105 
+Người dùng sửa thông tin danh mục chức vụ 
+Dữ liệu đầu vào 
+106 
+Người dùng thực hiện xóa danh mục chức vụ 
+Dữ liệu đầu vào 
+107 
+Người dùng thực hiện tìm kiếm danh mục chức vụ 
+Dữ liệu truy vấn 
+108 
+Người dùng có thể thêm mới danh mục lĩnh vực 
+Dữ liệu đầu vào 
+109 
+Người dùng thực hiện chỉnh sửa danh mục lĩnh vực 
+Dữ liệu đầu vào 
+110 
+Người dùng thực hiện xóa danh mục lĩnh vực 
+Dữ liệu đầu vào 
+111 
+Người dùng thực hiện thêm mới danh mục Quy trình xử lý 
+Dữ liệu đầu vào 
+112 
+Người dùng thực hiện sửa danh mục Quy trình xử lý 
+Dữ liệu đầu vào 
+113 
+Người dùng thực hiện xóa danh mục Quy trình xử lý 
+Dữ liệu đầu vào 
+114 
+Người dùng thực hiện tìm kiếm danh mục quy trình xử lý 
+Dữ liệu truy vấn 
+115 
+Người dùng thực hiện thêm mới Tình trạng vật lý 
+Dữ liệu đầu vào 
+116 
+Người dùng thực hiện sửa Tình trạng vật lý 
+Dữ liệu đầu vào 
+117 
+Người dùng thực hiện xóa Tình trạng vật lý 
+Dữ liệu đầu vào 
+118 
+Người dùng thực hiện tìm kiếm danh mục tình trạng vật lý 
+Dữ liệu truy vấn 
+119 
+Người dùng có thể thêm mới danh mục kệ hồ sơ 
+Dữ liệu đầu vào 
+120 
+Người dùng thực hiện chỉnh sửa danh mục kệ hồ sơ 
+Dữ liệu đầu vào 
+121 
+Người dùng thực hiện xóa danh mục kệ hồ sơ 
+Dữ liệu đầu vào 
+122 
+Người dùng nhập tiêu chí tìm kiếm danh mục kệ hồ sơ 
+Dữ liệu truy vấn 
+123 
+Người dùng có thể thêm mới danh mục tầng 
+Dữ liệu đầu vào 
+124 
+Người dùng thực hiện chỉnh sửa danh mục tầng 
+Dữ liệu đầu vào 
+125 
+Người dùng thực hiện xóa danh mục tầng 
+Dữ liệu đầu vào 
+126 
+Người dùng có thể thêm mới danh mục hộp hồ sơ 
+Dữ liệu đầu vào 
+127 
+Người dùng thực hiện chỉnh sửa danh mục hộp hồ sơ 
+Dữ liệu đầu vào 
+128 
+Người dùng thực hiện xóa danh mục hộp hồ sơ 
+Dữ liệu đầu vào 
+129 
+Người dùng nhập tiêu chí tìm kiếm danh mục hộp hồ sơ 
+Dữ liệu truy vấn 
+
+
+=== PAGE 39 ===
+39 
+ 
+130 
+Người dùng có thể thêm mới danh mục mẫu loại văn bản 
+Dữ liệu đầu vào 
+131 
+Người dùng thực hiện chỉnh sửa danh mục mẫu loại văn bản 
+Dữ liệu đầu vào 
+132 
+Người dùng thực hiện xóa danh mục mẫu loại văn bản 
+Dữ liệu đầu vào 
+133 
+Người dùng có thể thêm mới danh mục riêng 
+Dữ liệu đầu vào 
+134 
+Người dùng thực hiện chỉnh sửa danh mục riêng 
+Dữ liệu đầu vào 
+135 
+Người dùng thực hiện xóa danh mục riêng 
+Dữ liệu đầu vào 
+136 
+Người dùng nhập tiêu chí tìm kiếm danh mục riêng 
+Dữ liệu truy vấn 
+137 
+Người dùng có thể thêm mới danh mục phông lưu trữ 
+Dữ liệu đầu vào 
+138 
+Người dùng thực hiện chỉnh sửa danh mục phông lưu trữ 
+Dữ liệu đầu vào 
+139 
+Người dùng thực hiện xóa danh mục phông lưu trữ 
+Dữ liệu đầu vào 
+140 
+Người dùng xem danh sách hồ sơ thuộc phông 
+Dữ liệu đầu ra 
+141 
+Người dùng có thể thêm mới danh mục mục lục 
+Dữ liệu đầu vào 
+142 
+Người dùng thực hiện chỉnh sửa danh mục mục lục 
+Dữ liệu đầu vào 
+143 
+Người dùng thực hiện xóa danh mục mục lục 
+Dữ liệu đầu vào 
+144 
+Người dùng nhập tiêu chí tìm kiếm danh mục mục lục 
+Dữ liệu truy vấn 
+145 
+Người dùng có thể thêm mới loại thiết bị lưới điện cao áp 
+Dữ liệu đầu vào 
+146 
+Người dùng thực hiện chỉnh sửa loại thiết bị lưới điện cao áp 
+Dữ liệu đầu vào 
+147 
+Người dùng thực hiện xóa loại thiết bị lưới điện cao áp 
+Dữ liệu đầu vào 
+148 
+Người dùng thực hiện khóa loại thiết bị lưới điện cao áp 
+Dữ liệu đầu vào 
+149 
+Người dùng có thể thêm mới/chỉnh sửa biểu mẫu thông tin thiết bị 
+lưới điện cao áp 
+Dữ liệu đầu vào 
+150 
+Người dùng thực hiện xóa biểu mẫu thông tin thiết bị lưới điện cao 
+áp 
+Dữ liệu đầu vào 
+151 
+Người dùng thực hiện khóa biểu mẫu thông tin thiết bị lưới điện cao 
+áp 
+Dữ liệu đầu vào 
+152 
+Người dùng có thể thêm mới trường mẫu thông tin thiết bị lưới điện 
+cao áp 
+Dữ liệu đầu vào 
+153 
+Người dùng thực hiện chỉnh sửa trường mẫu thông tin thiết bị lưới 
+điện cao áp 
+Dữ liệu đầu vào 
+154 
+Người dùng thực hiện xóa trường mẫu thông tin thiết bị lưới điện 
+cao áp 
+Dữ liệu đầu vào 
+155 
+Người dùng nhập tiêu chí tìm kiếm  
+Dữ liệu truy vấn 
+156 
+Người dùng bấm xem chi tiết trường thông tin thiết bị 
+Dữ liệu đầu ra 
+157 
+Người dùng di chuyển vị trí các trường thông tin 
+Dữ liệu đầu ra 
+158 
+Người dùng bấm nút cập nhật vị trí 
+Dữ liệu đầu vào 
+159 
+Người dùng nhập tiêu chí tìm kiếm biểu mẫu thiết bị lưới điện cao 
+áp 
+Dữ liệu truy vấn 
+160 
+Người dùng bấm xuất biểu mẫu thiết bị lưới điện cao áp 
+Dữ liệu đầu ra 
+161 
+Người dùng truy cập chức năng 
+Dữ liệu đầu vào 
+
+
+=== PAGE 40 ===
+40 
+ 
+162 
+Người dùng thực hiện điều chỉnh biểu mẫu thiết bị 
+Dữ liệu đầu vào 
+163 
+Người dùng bấm xem danh sách phiên bản mẫu thiết bị 
+Dữ liệu đầu ra 
+164 
+Người dùng bấm ngừng hoạt động biểu mẫu thiết bị 
+Dữ liệu đầu vào 
+165 
+Người dùng bấm kích hoạt biểu mẫu thiết bị 
+Dữ liệu truy vấn 
+166 
+Người dùng có thể thêm mới thành phần file đính kèm thiết bị 
+Dữ liệu đầu vào 
+167 
+Người dùng thực hiện chỉnh sửa thành phần file đính kèm thiết bị 
+Dữ liệu đầu vào 
+168 
+Người dùng thực hiện xóa thành phần file đính kèm thiết bị 
+Dữ liệu đầu vào 
+169 
+Người dùng có thể thêm mới loại thiết bị lưới điện trung áp 
+Dữ liệu đầu vào 
+170 
+Người dùng thực hiện chỉnh sửa loại thiết bị lưới điện trung áp 
+Dữ liệu đầu vào 
+171 
+Người dùng thực hiện xóa loại thiết bị lưới điện trung áp 
+Dữ liệu đầu vào 
+172 
+Người dùng thực hiện khóa loại thiết bị lưới điện trung áp 
+Dữ liệu đầu vào 
+173 
+Người dùng có thể thêm mới biểu mẫu thông tin thiết bị lưới điện 
+trung áp 
+Dữ liệu đầu vào 
+174 
+Người dùng thực hiện chỉnh sửa biểu mẫu thông tin thiết bị lưới 
+điện trung áp 
+Dữ liệu đầu vào 
+175 
+Người dùng thực hiện xóa biểu mẫu thông tin thiết bị lưới điện trung 
+áp 
+Dữ liệu đầu vào 
+176 
+Người dùng thực hiện khóa biểu mẫu thông tin thiết bị lưới điện 
+trung áp 
+Dữ liệu truy vấn 
+177 
+Người dùng có thể thêm mới trường mẫu thông tin thiết bị lưới điện 
+trung áp 
+Dữ liệu đầu vào 
+178 
+Người dùng thực hiện chỉnh sửa trường mẫu thông tin thiết bị lưới 
+điện trung áp 
+Dữ liệu đầu vào 
+179 
+Người dùng thực hiện xóa trường mẫu thông tin thiết bị lưới điện 
+trung áp 
+Dữ liệu đầu vào 
+180 
+Người dùng bấm xem chi tiết trường thông tin thiết bị lưới điện 
+trung áp 
+Dữ liệu đầu ra 
+181 
+Người dùng di chuyển vị trí các trường thông tin lưới điện trung áp Dữ liệu đầu ra 
+182 
+Người dùng truy cập chức năng lưới điện trung áp 
+Dữ liệu đầu vào 
+183 
+Người dùng thực hiện điều chỉnh biểu mẫu thiết bị lưới điện trung 
+áp 
+Dữ liệu đầu ra 
+184 
+Người dùng bấm nút Lưu lại 
+Dữ liệu đầu vào 
+185 
+Người dùng bấm xem danh sách phiên bản mẫu thiết bị lưới điện 
+trung áp 
+Dữ liệu đầu ra 
+186 
+Người dùng bấm xuất biểu mẫu thiết bị lưới điện trung áp 
+Dữ liệu đầu ra 
+187 
+Người dùng thực hiện ngừng hoạt đông biểu mẫu thiết bị 
+Dữ liệu đầu vào 
+188 
+Người dùng thực hiện kích hoạt biểu mẫu thiết bị 
+Dữ liệu truy vấn 
+189 
+Người dùng có thể thêm mới thành phần file đính kèm thiết bị lưới 
+điện trung áp 
+Dữ liệu đầu vào 
+190 
+Người dùng thực hiện chỉnh sửa thành phần file đính kèm thiết bị 
+lưới điện trung áp 
+Dữ liệu đầu vào 
+
+
+=== PAGE 41 ===
+41 
+ 
+191 
+Người dùng thực hiện xóa thành phần file đính kèm thiết bị lưới 
+điện trung áp 
+Dữ liệu đầu vào 
+192 
+Người dùng nhập tiêu chí tìm kiếm file đính kèm thiết bị lưới điện 
+trung áp 
+Dữ liệu truy vấn 
+193 
+Người dùng truy cập chức năng quản lý hồ sơ thiết bị đồng bộ 
+Dữ liệu đầu vào 
+194 
+Người dùng bấm nút đồng bộ thiết bị từ kho Pmis 
+Dữ liệu đầu vào 
+195 
+Người dùng thực hiện cập nhật thông tin hồ sơ thiết bị được đồng 
+bộ từ PMIS xuống 
+Dữ liệu đầu vào 
+196 
+Người dùng nhập tiêu chí tìm kiếm 
+Dữ liệu truy vấn 
+197 
+Người dùng có thể thêm mới hồ sơ thiết bị 
+Dữ liệu đầu vào 
+198 
+Người dùng thực hiện chỉnh sửa hồ sơ thiết bị 
+Dữ liệu đầu vào 
+199 
+Người dùng thực hiện xóa hồ sơ thiết bị 
+Dữ liệu đầu vào 
+200 
+Người dùng nhập tiêu chí tìm kiếm hồ sơ thiết bị 
+Dữ liệu truy vấn 
+201 
+Xem chi tiết hồ sơ cần cập nhật 
+Dữ liệu đầu ra 
+202 
+Bổ sung thông tin hồ sơ 
+Dữ liệu đầu vào 
+203 
+Bổ sung thành phần đính kèm 
+Dữ liệu đầu vào 
+204 
+Người dùng chọn bấm tải file thành phần hồ sơ thiết bị 
+Dữ liệu đầu ra 
+205 
+Gửi duyệt hồ sơ 
+Dữ liệu truy vấn 
+206 
+Người dùng bấm xem chi tiết hồ sơ cần cập nhật thành phần hồ sơ 
+Dữ liệu đầu ra 
+207 
+Người dùng chọn xem thành phần hồ sơ 
+Dữ liệu đầu ra 
+208 
+Người dùng thực hiện cập nhật thông tin hồ sơ thiết bị 
+Dữ liệu đầu vào 
+209 
+Người dùng thực hiện cập nhật thành phần file đính kèm hồ sơ thiết 
+bị 
+Dữ liệu đầu vào 
+210 
+Người dùng bấm xem chi tiết hồ sơ cần hoàn thành gửi lãnh đạo 
+Dữ liệu đầu ra 
+211 
+Người dùng Hoàn thành hồ sơ 
+Dữ liệu đầu ra 
+212 
+Người dùng Gửi lãnh đạo duyệt 
+Dữ liệu đầu vào 
+213 
+Người dùng chọn thành phần file đính kèm hồ sơ 
+Dữ liệu đầu vào 
+214 
+Người dùng chọn nút Scan để thực hiện uploadfile 
+Dữ liệu đầu ra 
+215 
+Người dùng nhập tên file sau khi thực hiện scan 
+Dữ liệu đầu vào 
+216 
+Người dùng bấm lưu thông tin upload 
+Dữ liệu đầu vào 
+217 
+Người dùng truy cập chức năng nhập liệu hồ sơ theo phân bổ 
+Dữ liệu đầu vào 
+218 
+Người dùng bấm nhập liệu hồ sơ 
+Dữ liệu đầu ra 
+219 
+Người dùng xem dữ liệu sau OCR 
+Dữ liệu đầu ra 
+220 
+Người dùng bấm lưu thông tin nhập liệu vào hệ thống 
+Dữ liệu đầu vào 
+221 
+Người dùng truy cập chức năng nhập liệu hồ sơ 
+Dữ liệu đầu vào 
+222 
+Người dùng bấm nút xuất mẫu hồ sơ 
+Dữ liệu đầu ra 
+223 
+Người dùng bấm nút import file 
+Dữ liệu đầu ra 
+224 
+Người dùng chọn file cần import 
+Dữ liệu đầu vào 
+
+
+=== PAGE 42 ===
+42 
+ 
+225 
+Người dùng bấm nút thực hiện 
+Dữ liệu đầu vào 
+226 
+Người dùng bấm xem chi tiết hồ sơ 
+Dữ liệu đầu ra 
+227 
+Người dùng bấm xem lịch sử hồ sơ 
+Dữ liệu đầu ra 
+228 
+Người dùng bấm xem chi tiết thông tin lịch sử hồ sơ 
+Dữ liệu đầu ra 
+229 
+Người dùng nhập thông tin tra cứu lịch sử hồ sơ thiết bị 
+Dữ liệu đầu ra 
+230 
+Người dùng bấm xem file đính kèm trong hồ sơ thiết bị đã duyệt 
+Dữ liệu đầu ra 
+231 
+Người dùng cập nhật file đính kèm hồ sơ thiết bị 
+Dữ liệu đầu vào 
+232 
+Người dùng bấm cập nhật thông tin 
+Dữ liệu đầu vào 
+233 
+Người dùng Xem danh sách hồ sơ 
+Dữ liệu đầu ra 
+234 
+Người dùng nhập từ khóa tìm kiếm hồ sơ 
+Dữ liệu truy vấn 
+235 
+Người dùng xem chi tiết hồ sơ đã tìm được 
+Dữ liệu đầu ra 
+236 
+Người dùng gửi ý kiến xử lý hồ sơ 
+Dữ liệu đầu ra 
+237 
+Người dùng tìm kiếm hồ sơ theo nhiều tiêu chí 
+Dữ liệu truy vấn 
+238 
+Người dùng xem chi tiết hồ sơ 
+Dữ liệu đầu ra 
+239 
+Người dùng chọn xuất file 
+Dữ liệu đầu ra 
+240 
+Người dùng thực hiện tra cứu tài liệu 
+Dữ liệu đầu ra 
+241 
+Người dùng xuất file excel danh sách tài liệu theo điều kiện tìm 
+kiếm 
+Dữ liệu đầu ra 
+242 
+Người dùng xem chi tiết thư mục 
+Dữ liệu đầu ra 
+243 
+Người dùng tạo mới thư mục 
+Dữ liệu truy vấn 
+244 
+Người dùng chỉnh sửa thư mục 
+Dữ liệu đầu vào 
+245 
+Người dùng tải xuống thư mục 
+Dữ liệu đầu ra 
+246 
+Người dùng tải file tài liệu 
+Dữ liệu đầu ra 
+247 
+Người dùng thêm mới tài liệu 
+Dữ liệu đầu vào 
+248 
+Người dùng tìm kiếm tài liệu 
+Dữ liệu truy vấn 
+249 
+Người dùng tải lên Phiên bản mới cho tài liệu 
+Dữ liệu đầu ra 
+250 
+Người dùng khôi phục phiên bản cũ của tài liệu 
+Dữ liệu đầu ra 
+251 
+Người dùng xem lịch sử phiên bản tài liệu 
+Dữ liệu đầu ra 
+252 
+Người dùng tải xuống tải liệu phiên bản cũ 
+Dữ liệu đầu vào 
+253 
+Người dùng tìm kiếm tài liệu theo từ khóa 
+Dữ liệu truy vấn 
+254 
+Người dùng tìm kiếm nâng cao theo định dạng tài liệu 
+Dữ liệu truy vấn 
+255 
+Người dùng tìm kiếm theo thư mục 
+Dữ liệu truy vấn 
+256 
+Người dùng tìm kiếm theo tài liệu ký số 
+Dữ liệu đầu ra 
+257 
+Người dùng lựa chọn kiểu hiển thị tài liệu 
+Dữ liệu đầu ra 
+258 
+Người dùng xem danh sách hồ sơ chờ tiếp nhận 
+Dữ liệu đầu ra 
+259 
+Người dùng nhập thông tin tra cứu hồ sơ chờ tiếp nhận 
+Dữ liệu đầu ra 
+
+
+=== PAGE 43 ===
+43 
+ 
+260 
+Người dùng thực hiện tiếp nhận hồ sơ 
+Dữ liệu đầu ra 
+261 
+Người dùng bấm xem chi tiết hồ sơ cần Kiểm tra nhập liệu, biên 
+mục 
+Dữ liệu đầu ra 
+262 
+Người dùng thực hiện Kiểm tra nhập liệu, biên mục 
+Dữ liệu truy vấn 
+263 
+Người dùng bấm lưu thông tin phê duyệt 
+Dữ liệu truy vấn 
+264 
+Người dùng truy cập chức năng quản lý danh sách hồ sơ thiết bị đã 
+xuất bản 
+Dữ liệu đầu ra 
+265 
+Người dùng bấm xem chi tiết hồ sơ đã xuất bản 
+Dữ liệu đầu ra 
+266 
+Người dùng bấm hủy xuất bản hồ sơ 
+Dữ liệu đầu ra 
+267 
+Người dùng xác nhận hủy xuất bản hồ sơ 
+Dữ liệu đầu ra 
+268 
+Người dùng truy cập chức năng quản lý danh sách hồ sơ thiết bị 
+Dữ liệu truy vấn 
+269 
+Người dùng xem hồ sơ chờ kiểm tra nhập liệu, biên mục 
+Dữ liệu đầu ra 
+270 
+Người dùng thực hiện kiểm tra nhập liệu 
+Dữ liệu đầu ra 
+271 
+Người dùng bấm hồ sơ không hợp lệ 
+Dữ liệu đầu ra 
+272 
+Người dùng xem chi tiết hồ sơ chờ phê duyệt 
+Dữ liệu đầu ra 
+273 
+Người dùng xem chi tiết hồ sơ thiết bị cần ký số 
+Dữ liệu đầu ra 
+274 
+Người dùng xem lịch sử xử lý 
+Dữ liệu đầu ra 
+275 
+Người dùng ký số hoàn thành hồ sơ 
+Dữ liệu đầu ra 
+276 
+Người dùng truy cập dashboard 
+Dữ liệu đầu vào 
+277 
+Người dùng truy cập chức năng tra cứu hồ sơ thiết bị 
+Dữ liệu đầu vào 
+278 
+Người dùng tra cứu hồ sơ theo tên thiết bị 
+Dữ liệu đầu vào 
+279 
+Người dùng tra cứu hồ sơ theo vị trí lưu 
+Dữ liệu đầu ra 
+280 
+Người dùng truy cập chức năng tra cứu hồ sơ thiết bị theo đơn vị 
+quản lý 
+Dữ liệu truy vấn 
+281 
+Người dùng tra cứu hồ sơ theo đơn vị quản lý 
+Dữ liệu đầu ra 
+282 
+Người dùng Truy cập báo cáo thống kê hồ sơ nhập liệu theo năm 
+Dữ liệu đầu ra 
+283 
+Người dùng Chọn báo cáo năm 
+Dữ liệu đầu ra 
+284 
+Người dùng Chọn năm báo cáo 
+Dữ liệu đầu ra 
+285 
+Người dùng bấm nút xuất Excel hồ sơ thiết bị theo năm 
+Dữ liệu đầu ra 
+286 
+Người dùng Truy cập báo cáo thống kê hồ sơ nhập liệu theo tháng 
+Dữ liệu đầu ra 
+287 
+Người dùng Chọn báo cáo tháng 
+Dữ liệu đầu ra 
+288 
+Người dùng Chọn tháng báo cáo 
+Dữ liệu đầu ra 
+289 
+Người dùng bấm nút xuất Excel hồ sơ thiết bị theo tháng 
+Dữ liệu đầu ra 
+290 
+Người dùng Truy cập báo cáo thống kê hồ sơ nhập liệu theo lưới 
+điện áp 
+Dữ liệu đầu ra 
+291 
+Người dùng Chọn báo cáo theo lưới điện 
+Dữ liệu truy vấn 
+292 
+Người dùng Chọn lưới điện 
+Dữ liệu đầu ra 
+293 
+Người dùng bấm nút xuất Excel hồ sơ thiết bị theo lưới điện 
+Dữ liệu đầu ra 
+
+
+=== PAGE 44 ===
+44 
+ 
+294 
+Người dùng Truy cập báo cáo hồ sơ theo thiết bị 
+Dữ liệu đầu ra 
+295 
+Người dùng Chọn báo cáo theo thiết bị 
+Dữ liệu truy vấn 
+296 
+Người dùng Chọn thiết bị 
+Dữ liệu đầu ra 
+297 
+Người dùng bấm nút xuất Excel hồ sơ thiết bị theo thiết bị 
+Dữ liệu đầu ra 
+298 
+Người dùng Truy cập báo cáo theo hồ sơ phân bổ 
+Dữ liệu truy vấn 
+299 
+Người dùng Chọn báo cáo theo hồ sơ phân bổ 
+Dữ liệu đầu ra 
+300 
+Người dùng Chọn phân bổ hồ sơ 
+Dữ liệu đầu ra 
+301 
+Người dùng bấm nút xuất Excel hồ sơ thiết bị theo phân bổ hồ sơ 
+Dữ liệu đầu ra 
+302 
+Người dùng Truy cập báo cáo hồ sơ theo loại hồ sơ 
+Dữ liệu truy vấn 
+303 
+Người dùng Chọn báo cáo theo loại hồ sơ 
+Dữ liệu đầu ra 
+304 
+Người dùng Chọn loại hồ sơ 
+Dữ liệu đầu ra 
+305 
+Người dùng bấm nút xuất Excel 
+Dữ liệu đầu ra 
+306 
+Người dùng Truy cập báo cáo hồ sơ theo kệ 
+Dữ liệu truy vấn 
+307 
+Người dùng Chọn báo cáo hồ sơ theo kệ 
+Dữ liệu đầu ra 
+308 
+Người dùng Chọn kệ hồ sơ 
+Dữ liệu đầu ra 
+309 
+Người dùng bấm nút xuất Excel hồ sơ thiết bị theo kệ 
+Dữ liệu đầu ra 
+310 
+Người dùng Truy cập báo cáo hồ sơ theo tầng 
+Dữ liệu truy vấn 
+311 
+Người dùng Chọn báo cáo hồ sơ theo tầng 
+Dữ liệu đầu ra 
+312 
+Người dùng Chọn tầng hồ sơ 
+Dữ liệu đầu ra 
+313 
+Người dùng bấm nút xuất Excel hồ sơ thiết bị theo tầng 
+Dữ liệu đầu ra 
+314 
+Người dùng Truy cập báo cáo hồ sơ theo hộp 
+Dữ liệu truy vấn 
+315 
+Người dùng Chọn báo cáo hồ sơ theo hộp 
+Dữ liệu đầu ra 
+316 
+Người dùng Chọn hộp hồ sơ 
+Dữ liệu đầu ra 
+317 
+Người dùng bấm nút xuất Excel theo hộp 
+Dữ liệu đầu ra 
+318 
+Người dùng Truy cập báo cáo hồ sơ theo loại văn bản 
+Dữ liệu truy vấn 
+319 
+Người dùng Chọn báo cáo hồ sơ theo loại văn bản 
+Dữ liệu đầu ra 
+320 
+Người dùng Chọn loại văn bản hồ sơ 
+Dữ liệu đầu ra 
+321 
+Người dùng bấm nút xuất Excel theo loại văn bản 
+Dữ liệu đầu ra 
+322 
+Người dùng Truy cập hồ sơ thiết bị theo trạm 
+Dữ liệu truy vấn 
+323 
+Người dùng Chọn báo cáo hồ sơ theo trạm 
+Dữ liệu đầu ra 
+324 
+Người dùng Chọn trạm 
+Dữ liệu đầu ra 
+325 
+Người dùng bấm nút xuất Excel hồ sơ thiết bị theo Trạm 
+Dữ liệu đầu ra 
+326 
+Người dùng Truy cập báo cáo hồ sơ thiết bị theo đường dây 
+Dữ liệu truy vấn 
+327 
+Người dùng Chọn báo cáo hồ sơ theo đường dây 
+Dữ liệu đầu ra 
+328 
+Người dùng Chọn đường dây 
+Dữ liệu đầu ra 
+329 
+Người dùng bấm nút xuất Excel hồ sơ thiết bị theo đường dây 
+Dữ liệu đầu ra 
+
+
+=== PAGE 45 ===
+45 
+ 
+330 
+Người dùng Truy cập báo cáo hồ sơ thiết bị theo cán bộ nhập liệu 
+Dữ liệu truy vấn 
+331 
+Người dùng Chọn báo cáo hồ sơ theo cán bộ nhập liệu 
+Dữ liệu đầu ra 
+332 
+Người dùng Chọn cán bộ nhập liệu 
+Dữ liệu đầu ra 
+333 
+Người dùng bấm nút xuất Excel hồ sơ thiết bị theo cán bộ nhập liệu Dữ liệu đầu ra 
+334 
+Người dùng Truy cập báo cáo hồ sơ thiết bị theo năm vận hành 
+Dữ liệu truy vấn 
+335 
+Người dùng Chọn báo cáo hồ sơ theo năm vận hành 
+Dữ liệu đầu ra 
+336 
+Người dùng chọn năm vận hành 
+Dữ liệu đầu ra 
+337 
+Người dùng bấm nút xuất Excel hồ sơ thiết bị theo năm vận hành 
+Dữ liệu đầu ra 
+338 
+Người dùng Truy cập báo cáo hồ sơ thiết bị theo thời gian vận hành Dữ liệu truy vấn 
+339 
+Người dùng Chọn báo cáo hồ sơ theo thời gian vận hành 
+Dữ liệu đầu ra 
+340 
+Người dùng chọn thời gian vận hành 
+Dữ liệu đầu ra 
+341 
+Người dùng bấm nút xuất Excel hồ sơ thiết bị theo thời gian vận 
+hành 
+Dữ liệu đầu ra 
+342 
+Người dùng Truy cập báo cáo hồ sơ thiết bị theo năm sản xuất thiết 
+bị 
+Dữ liệu đầu ra 
+343 
+Người dùng Chọn báo cáo hồ sơ theo năm sản xuất thiết bị 
+Dữ liệu đầu ra 
+344 
+Người dùng chọn năm sản xuất thiết bị 
+Dữ liệu đầu ra 
+345 
+Người dùng bấm nút xuất Excel hồ sơ thiết bị theo năm sản xuất 
+thiết bị 
+Dữ liệu đầu ra 
+346 
+Người dùng Truy cập báo cáo hồ sơ thiết bị theo tình trạng thiết bị 
+Dữ liệu truy vấn 
+347 
+Người dùng Chọn báo cáo hồ sơ theo tình trạng thiết bị 
+Dữ liệu đầu ra 
+348 
+Người dùng chọn tình trạng thiết bị 
+Dữ liệu đầu ra 
+349 
+Người dùng bấm nút xuất Excel hồ sơ thiết bị theo tình trạng thiết 
+bị 
+Dữ liệu đầu ra 
+350 
+Người dùng Truy cập báo cáo hồ sơ thiết bị được tra cứu nhiều nhất Dữ liệu truy vấn 
+351 
+Người dùng Chọn báo cáo hồ sơ được tra cứu nhiều nhất 
+Dữ liệu đầu ra 
+352 
+Người dùng chọn thời gian 
+Dữ liệu đầu ra 
+353 
+Người dùng bấm nút xuất Excel hồ sơ thiết bị theo thời gian 
+Dữ liệu đầu ra 
+354 
+Người dùng Truy cập báo cáo thống kê hồ sơ nhập liệu 
+Dữ liệu truy vấn 
+355 
+Người dùng bấm nút xuất Excel hồ sơ thiết bị theo hồ sơ nhập liệu 
+Dữ liệu đầu ra 
+356 
+Người dùng truy cập chức năng OCR trên hệ thống, chọn hoặc tải 
+lên tệp scan của văn bản hồ sơ để xử lý 
+Dữ liệu đầu ra 
+357 
+Người dùng xác nhận định dạng văn bản đầu vào và lưu tạm thời 
+dữ liệu đầu vào sau khi hệ thống kiểm tra định dạng của tệp văn 
+bản, 
+Dữ liệu đầu vào 
+358 
+Người dùng yêu cầu thực hiện Detection 
+Dữ liệu đầu vào 
+359 
+Người dùng yêu cầu hệ thống lưu kết quả Detection và nhận thông 
+báo số lượng vùng văn bản Detection thành công 
+Dữ liệu đầu vào 
+360 
+Người dùng mở chức năng OCR - bước Recognition trên giao diện 
+hệ thống phần mềm 
+Dữ liệu đầu ra 
+
+
+=== PAGE 46 ===
+46 
+ 
+361 
+Người dùng (tuỳ chọn) chọn ngôn ngữ nhận dạng như Vietnamese, 
+English hoặc Auto để phù hợp với loại tài liệu 
+Dữ liệu đầu vào 
+362 
+Người dùng nhấn nút “Nhận dạng (Recognition)” để bắt đầu quá 
+trình OCR 
+Dữ liệu đầu vào 
+363 
+Người dùng kiểm tra, hiệu chỉnh nội dung nếu cần, sau đó nhấn 
+“Lưu/Kết thúc” để hệ thống lưu kết quả vào CSDL/JSON/CSV theo 
+cấu hình, hoàn tất quy trình Recongnition 
+Dữ liệu đầu vào 
+364 
+Người dùng truy cập chức năng OCR trên giao diện hệ thống phần 
+mềm để thực hiện nhận dạng công thức kỹ thuật 
+Dữ liệu đầu ra 
+365 
+Người dùng chọn hoặc tải tệp văn bản cần xử lý từ thiết bị lưu trữ 
+hoặc danh sách hồ sơ có sẵn 
+Dữ liệu đầu vào 
+366 
+Người dùng nhấn nút OCR để khởi động quá trình xử lý 
+Dữ liệu đầu vào 
+367 
+Người dùng bấm nút xác nhận và lưu kết quả sau khi nhận dạng 
+kiểm tra độ chính xác 
+Dữ liệu đầu vào 
+368 
+Người dùng truy cập chức năng tải file scan hoặc ảnh chụp của văn 
+bản hồ sơ lên hệ thống phần mềm 
+Dữ liệu đầu ra 
+369 
+Người dùng lựa chọn các yêu cầu thực hiện Noise Reduction, bao 
+gồm giảm nhiễu, tăng độ tương phản, loại bỏ bóng mờ và vết lem 
+trên tài liệu 
+Dữ liệu đầu vào 
+370 
+Người dùng nhận được kết quả sau khi hệ thống hoàn tất xử lý và 
+hiển thị bản xem trước kết quả dưới dạng “Ảnh sau xử lý Noise 
+Reduction” 
+Dữ liệu đầu vào 
+371 
+Người dùng xác nhận ảnh đã đạt yêu cầu để tiếp tục quy trình OCR Dữ liệu đầu vào 
+372 
+Người dùng truy cập chức năng tải file scan hoặc ảnh chụp của văn 
+bản hồ sơ lên hệ thống để thực hiện OCR 
+Dữ liệu đầu ra 
+373 
+Người dùng nhấn nút “Thực hiện OCR” để khởi động quá trình 
+phân tích 
+Dữ liệu đầu vào 
+374 
+Người dùng kiểm tra các vùng văn bản sai khác trên hệ thống hiển 
+thị các vùng cảnh báo sai khác trên giao diện xem trước, gồm các 
+trường dữ liệu bị thiếu, thừa hoặc khác định dạng so với mẫu gốc 
+Dữ liệu đầu vào 
+375 
+Người dùng nhấn nút xác nhận và lưu mẫu văn bản mới sau khi 
+hoàn tất 
+Dữ liệu đầu vào 
+376 
+Người dùng truy cập chức năng Quản lý dữ liệu huấn luyện AI-
+OCR trên giao diện hệ thống phần mềm 
+Dữ liệu đầu ra 
+377 
+Người dùng tải lên hoặc liên kết dữ liệu huấn luyện, bao gồm văn 
+bản scan, hình ảnh, file nhãn và metadata mô tả như format cần để 
+huấn luyện AI 
+Dữ liệu đầu vào 
+378 
+Người dùng quản lý, chỉnh sửa hoặc xóa dữ liệu không cần thiết, 
+đồng thời có thể bổ sung thêm dữ liệu mới khi phát sinh trong quá 
+trình vận hành 
+Dữ liệu đầu vào 
+379 
+Người dùng truy cập hệ thống và thực hiện chức năng OCR văn bản 
+hồ sơ để nhận dạng dữ liệu từ tài liệu scan 
+Dữ liệu đầu ra 
+380 
+Người dùng truy cập bảng phân tích lỗi chi tiết trên giao diện phần 
+mềm 
+Dữ liệu đầu vào 
+381 
+Người dùng yêu cầu xuất báo cáo lỗi 
+Dữ liệu đầu ra 
+382 
+Người dùng tiến hành chỉnh sửa các lỗi và nhấn nút xác nhận hoàn 
+tất quá trình xử lý lỗi hoặc cập nhật lại trạng thái tài liệu 
+Dữ liệu đầu vào 
+
+
+=== PAGE 47 ===
+47 
+ 
+383 
+Người dùng truy cập chức năng scan hoặc tải lên văn bản đầu vào 
+để tiến hành OCR 
+Dữ liệu đầu ra 
+384 
+Người dùng lựa chọn hoặc kích hoạt chế độ tự động nhận dạng loại 
+chữ viết, gồm các tùy chọn: Chữ in (Printed), Chữ viết tay 
+(Handwritten) hoặc Hỗn hợp (Mixed) 
+Dữ liệu đầu vào 
+385 
+Người dùng yêu cầu thực hiện OCR văn bản tài liệu, hệ thống ghi 
+nhận và áp dụng mô hình tương ứng để phân tích và trích xuất nội 
+dung phù hợp với đặc tính của từng loại chữ 
+Dữ liệu đầu vào 
+386 
+Người dùng kiểm tra kết quả và xác nhận chuyển và tiếp tục các 
+bước hậu xử lý dữ liệu nếu cần 
+Dữ liệu đầu vào 
+387 
+Người dùng truy cập chức năng scan hoặc tải văn bản hồ sơ cần xác 
+thực lên hệ thống 
+Dữ liệu đầu ra 
+388 
+Người dùng chọn chức năng OCR trên giao diện để khởi động quá 
+trình xử lý nhận dạng 
+Dữ liệu đầu vào 
+389 
+Người dùng yêu cầu tách rieeng phần con dấu và chữ ký 
+Dữ liệu đầu vào 
+390 
+Người dùng kiểm tra, xác nhận độ tin cậy của tài liệu và thực hiện 
+lưu hoặc xuất kết quả xác thực khi hoàn tất 
+Dữ liệu đầu vào 
+391 
+Người dùng hoàn tất quá trình OCR và bật chức năng kiểm tra chính 
+tả trên giao diện hệ thống 
+Dữ liệu đầu ra 
+392 
+Người dùng quan sát và lựa chọn phương án sửa lỗi thủ công hoặc 
+chấp nhận gợi ý thay thế mà hệ thống đề xuất 
+Dữ liệu đầu vào 
+393 
+Người dùng thực hiện chỉnh sửa nội dung trực tiếp trên giao diện 
+văn bản, đảm bảo các lỗi chính tả được sửa đúng và phù hợp với 
+ngữ cảnh 
+Dữ liệu đầu vào 
+394 
+Người dùng xem lại kết quả kiểm tra, xác nhận văn bản đã chính 
+xác và hoàn tất việc hiệu chỉnh 
+Dữ liệu đầu vào 
+395 
+Người dùng truy cập chức năng OCR văn bản hồ sơ trên hệ thống 
+và thực hiện tải lên hoặc scan tài liệu cần nhận dạng 
+Dữ liệu đầu ra 
+396 
+Người dùng thực hiện OCR cho tài liệu để hệ thống nhận dạng toàn 
+bộ dữ liệu trong văn bản 
+Dữ liệu đầu vào 
+397 
+Người dùng xác nhận kết quả OCR đạt yêu cầu và thực hiện lưu 
+hoặc chuyển dữ liệu sang hệ thống nghiệp vụ 
+Dữ liệu đầu vào 
+398 
+Thiết lập API đồng bộ thuộc tính thiết bị lên PMIS  
+Dữ liệu đầu vào 
+399 
+Kiểm tra tính hợp lệ của dữ liệu thuộc tính đồng bộ lên PMIS  
+Dữ liệu truy vấn 
+400 
+Thiết lập API đồng bộ biên bản xuất xưởng lên PMIS 
+Dữ liệu đầu vào 
+401 
+Thiết lập API đồng bộ lý lịch thiết bị lên PMIS  
+Dữ liệu đầu vào 
+402 
+Kiểm tra tính hợp lệ của biên bản xuất xưởng đồng bộ lên PMIS 
+Dữ liệu truy vấn 
+403 
+Thiết lập API đồng bộ thông số vận hành lên PMIS  
+Dữ liệu đầu vào 
+404 
+Thiết lập API đồng bộ CBM lên PMIS  
+Dữ liệu đầu vào 
+405 
+Kiểm tra tính hợp lệ của thông số vận hành đồng bộ lên PMIS 
+Dữ liệu truy vấn 
+406 
+Người dùng truy cập chức năng quản lý lịch sử đồng bộ lên PMIS  Dữ liệu đầu vào 
+407 
+Người dùng tra cứu lịch sử đồng bộ lên PMIS   
+Dữ liệu truy vấn 
+408 
+Thiết lập API đồng bộ thông tin thiết bị từ PMIS  
+Dữ liệu đầu vào 
+
+
+=== PAGE 48 ===
+48 
+ 
+409 
+Kiểm tra tính hợp lệ của thông tin thiết bị đồng bộ từ PMIS 
+Dữ liệu truy vấn 
+410 
+Thiết lập API đồng bộ thông tin trạm biến áp 110-220Kv từ PMIS  Dữ liệu đầu vào 
+411 
+Kiểm tra tính hợp lệ của thông tin trạm biến áp 110-220Kv từ PMIS  Dữ liệu truy vấn 
+412 
+Thiết lập API đồng bộ thông tin đường dây 110-220Kv từ PMIS 
+Dữ liệu đầu vào 
+413 
+Kiểm tra tính hợp lệ của thông tin đường dây 110-220Kv từ PMIS  Dữ liệu truy vấn 
+414 
+Thiết lập API đồng bộ Qrcode VTTB  
+Dữ liệu đầu vào 
+415 
+Kiểm tra tính hợp lệ của Qrcode VTTB  
+Dữ liệu truy vấn 
+416 
+Người dùng truy cập chức năng quản lý lịch sử đồng bộ PMIS 
+xuống  
+Dữ liệu đầu ra 
+417 
+Người dùng tra cứu lịch sử đồng bộ PMIS xuống 
+Dữ liệu truy vấn 
+418 
+Thiết lập API đồng bộ thông tin kí số với hệ thống chữ kí số  
+Dữ liệu đầu vào 
+419 
+Kiểm tra tính hợp lệ của thông tin kí số với hệ thống chữ kí số 
+Dữ liệu truy vấn 
+420 
+Thiết lập API gửi thông tin cho hệ thống chữ kí số 
+Dữ liệu đầu vào 
+421 
+Kiểm tra tính hợp lệ của gửi thông tin cho hệ thống chữ kí số  
+Dữ liệu truy vấn 
+422 
+Thiết lập API chuyển dữ liệu chuẩn của hệ thống kí số sang dạng 
+file pdf  
+Dữ liệu đầu vào 
+423 
+Kiểm tra tính hợp lệ của chuyển dữ liệu chuẩn của hệ thống kí số 
+sang dạng file pdf  
+Dữ liệu truy vấn 
+424 
+Người dùng truy cập chức năng quản lý trao đổi thông tin với hệ 
+thống kí số 
+Dữ liệu đầu ra 
+425 
+Người dùng tra cứu lịch sử trao đổi thông tin với hệ thống kí số 
+Dữ liệu truy vấn 
+426 
+Thiết lập API Tích hợp xác thực người dùng với hệ thống SSO  
+Dữ liệu đầu vào 
+427 
+Kiểm tra tính hợp lệ của thông tin Tích hợp xác thực người dùng 
+với hệ thống SSO   
+Dữ liệu truy vấn 
+428 
+Người dùng truy cập chức năng quản lý lịch sử đồng bộ  
+Dữ liệu đầu ra 
+429 
+Người dùng tra cứu lịch sử đồng bộ dữ liệu  
+Dữ liệu truy vấn 
+1.3. Yêu cầu phi chức năng 
+1.3.1. Yêu cầu cần đáp ứng đối với CSDL 
+CSDL là nền tảng trọng yếu bảo đảm cho hệ thống phần mềm quản lý, khai thác 
+tài liệu số hóa vận hành ổn định, an toàn và hiệu quả. Do đặc thù khối lượng tài liệu 
+kỹ thuật của đường dây và trạm rất lớn, đa dạng định dạng (PDF, ảnh scan, Word, 
+Excel, dữ liệu phi cấu trúc,...), hệ thống CSDL cần đáp ứng các yêu cầu sau: 
+(1) Khả năng mở rộng và hiệu năng cao: CSDL phải có khả năng xử lý tập dữ 
+liệu lớn, hàng triệu bản ghi, với tốc độ truy xuất nhanh, đáp ứng nhu cầu khai thác 
+tức thì từ nhiều người dùng đồng thời. Việc triển khai dạng cluster là cần thiết, cho 
+phép mở rộng quy mô lưu trữ và xử lý mà không làm gián đoạn hệ thống. 
+(2) Hỗ trợ dữ liệu đa dạng: Do hồ sơ kỹ thuật bao gồm nhiều loại tệp (tài liệu 
+
+
+=== PAGE 49 ===
+49 
+ 
+văn bản, bản vẽ, sơ đồ, hình ảnh kỹ thuật), hệ thống CSDL cần hỗ trợ cả dữ liệu có 
+cấu trúc và phi cấu trúc. Ưu tiên Oracle được đề xuất nhờ khả năng lưu trữ linh hoạt, 
+phù hợp cho việc quản lý dữ liệu không đồng nhất. 
+(3) Tính sẵn sàng và ổn định: Hệ thống phải đảm bảo HA – High Availability 
+với cơ chế sao lưu, nhân bản dữ liệu. Giải pháp triển khai phân tán (ghi dữ liệu trên 
+primary, đọc dữ liệu trên secondary) giúp hệ thống luôn duy trì hoạt động ngay cả 
+khi có sự cố. Điều này đặc biệt quan trọng vì hồ sơ kỹ thuật phục vụ cho công tác 
+quản lý, vận hành lưới điện, đòi hỏi tính liên tục và chính xác cao. 
+(4) An toàn và bảo mật dữ liệu: CSDL phải hỗ trợ cơ chế phân quyền, mã hóa 
+dữ liệu, kiểm soát truy cập, ghi log toàn bộ hoạt động. Đây là yêu cầu bắt buộc để 
+tuân thủ các quy định về an toàn thông tin của EVN và tiêu chuẩn ISO 27001:2022. 
+(5) Khả năng tích hợp: CSDL cần hỗ trợ kết nối và trao đổi dữ liệu qua các 
+chuẩn giao tiếp (ODBC/JDBC, API RESTful), bảo đảm tích hợp thuận lợi với các 
+hệ thống hiện có như PMIS, CBM, Thí nghiệm, Kiểm định của Tổng công ty. 
+1.3.2. Yêu cầu về an toàn thông tin 
+Yêu cầu về bảo đảm an toàn thông tin (ATTT) phải được đưa vào tất cả các 
+công đoạn thiết kế, xây dựng, kiểm thử, triển khai và vận hành sử dụng phần mềm. 
+Đồng thời phải có biên bản đánh giá ATTT sau khi kết thúc mỗi công đoạn này. 
+Phần mềm/ứng dụng phải đáp ứng các yêu cầu sau: cấu hình xác thực người sử 
+dụng; giới hạn số lần đăng nhập sai liên tiếp; giới hạn thời gian để chờ đóng phiên 
+kết nối; sử dụng các phương pháp mã hóa thông dụng để mã hóa thông tin xác thực 
+khi sử dụng trên hệ thống hoặc truyền qua mạng; không khuyến khích việc đăng nhập 
+tự động. 
+Thiết lập, phân quyền truy nhập, quản trị, sử dụng tài nguyên khác nhau của 
+phần mềm, ứng dụng với người sử dụng/nhóm người sử dụng có chức năng, yêu cầu 
+nghiệp vụ khác nhau; tách biệt cổng giao tiếp quản trị phần mềm ứng dụng với cổng 
+giao tiếp cung cấp dịch vụ; đóng các cổng giao tiếp không sử dụng 
+Chỉ cho phép sử dụng các giao thức mạng có hỗ trợ chức năng mã hóa thông tin 
+như SSH, SSL, VPN hoặc tương đương khi truy nhập, quản trị phần mềm, ứng dụng 
+từ xa trên môi trường mạng; hạn chế truy cập đến mã nguồn của phần mềm, ứng 
+dụng và phải đặt mã nguồn trong môi trường an toàn do bộ phận chuyên trách công 
+nghệ thông tin quản lý. 
+Ghi và lưu giữ bản ghi nhật ký hệ thống của phần mềm, ứng dụng trong khoảng 
+thời gian tối thiểu 03 tháng với những thông tin cơ bản: thời gian, địa chỉ, tài khoản 
+
+
+=== PAGE 50 ===
+50 
+ 
+(nếu có), nội dung truy nhập và sử dụng phần mềm, ứng dụng; các lỗi phát sinh trong 
+quá trình hoạt động; thông tin đăng nhập khi quản trị. 
+Phần mềm, ứng dụng cần được kiểm tra phát hiện và khắc phục các điểm yếu 
+về an toàn, an ninh thông tin trước khi đưa vào sử dụng và trong quá trình sử dụng. 
+Thực hiện quy trình kiểm soát cài đặt, cập nhật, vá lỗi bảo mật phần mềm, ứng 
+dụng trên các máy chủ, máy tính cá nhân, thiết bị kết nối mạng đang hoạt động thuộc 
+hệ thống mạng nội bộ 
+1.3.3. Các yêu cầu cần đáp ứng về thời gian xử lý, độ phức tạp xử lý của các 
+phần mềm 
+Phần mềm số hóa và quản lý hồ sơ kỹ thuật của Đường dây và Trạm phải đáp 
+ứng yêu cầu cao về tốc độ xử lý dữ liệu, nhằm đảm bảo khả năng khai thác thông tin 
+nhanh chóng, chính xác và ổn định. Hệ thống cần có khả năng xử lý khối lượng lớn 
+tài liệu được quét, nhận dạng và nhập liệu đồng thời từ nhiều đơn vị, mà vẫn duy trì 
+được thời gian phản hồi ngắn. Cụ thể, thời gian phản hồi đối với các tác vụ tìm kiếm, 
+truy xuất và hiển thị hồ sơ không vượt quá vài giây đối với các truy vấn thông thường. 
+Đối với các chức năng tự động như nhận dạng ký tự quang học (OCR), phân 
+tách dữ liệu và chuẩn hóa thông tin, phần mềm cần đảm bảo độ chính xác cao (tối 
+thiểu 90%) và thời gian xử lý trong giới hạn cho phép để không gây gián đoạn quy 
+trình làm việc. Việc xử lý các tác vụ phức tạp như phân loại tài liệu, liên kết dữ liệu 
+đa nguồn hay trích xuất thông tin chuyên sâu phải được tối ưu hóa bằng cách kết hợp 
+các thuật toán tiên tiến và cơ chế xử lý song song, phân tán. 
+Hệ thống cũng cần thiết kế để có thể mở rộng năng lực xử lý khi dung lượng hồ 
+sơ và tần suất khai thác gia tăng. Việc triển khai trên hạ tầng máy chủ ảo hóa, kết 
+hợp công nghệ quản lý container và hệ thống tìm kiếm phân tán (như Elasticsearch) 
+cho phép cân bằng tải, phân bổ tài nguyên hợp lý, hạn chế tối đa độ trễ trong quá 
+trình xử lý. Điều này đảm bảo hệ thống duy trì được hiệu năng ổn định, đáp ứng yêu 
+cầu vận hành liên tục 24/7. 
+Ngoài ra, giải pháp phần mềm cần có khả năng kiểm soát và tối ưu độ phức tạp 
+xử lý nghiệp vụ thông qua kiến trúc nhiều lớp (layered architecture). Việc phân tách 
+rõ ràng các tầng giao diện, dịch vụ, xử lý nghiệp vụ và cơ sở dữ liệu giúp hệ thống 
+dễ dàng bảo trì, nâng cấp và mở rộng, đồng thời giảm thiểu độ phức tạp trong quá 
+trình vận hành. Cách tiếp cận này vừa đảm bảo hiệu suất, vừa nâng cao độ tin cậy và 
+tính bền vững của hệ thống. 
+ 
+
+
+=== PAGE 51 ===
+51 
+ 
+1.3.4. Các yêu cầu về cài đặt, hạ tầng, đường truyền, an toàn vận hành, khai 
+thác sử dụng 
+Các yêu cầu về cài đặt: Hệ thống phần mềm số hóa cần được triển khai trên nền 
+tảng máy chủ có cấu hình cao, đáp ứng đồng thời nhu cầu xử lý dữ liệu lớn, nhận 
+dạng ký tự từ tài liệu quét, và tích hợp nhiều dịch vụ. Việc cài đặt phải đảm bảo đúng 
+chuẩn quy trình kỹ thuật, đồng thời có khả năng kiểm soát phiên bản và vá lỗi bảo 
+mật định kỳ. Các lớp cài đặt phần mềm (Frontend, Backend, Database) phải tách 
+biệt, nhằm đảm bảo tính ổn định và dễ dàng nâng cấp trong tương lai. 
+Các yêu cầu về hạ tầng: Hệ thống hạ tầng CNTT được thiết kế dựa trên mô hình 
+ảo hóa và quản lý container (Kubernetes), giúp tối ưu tài nguyên, tăng khả năng mở 
+rộng và giảm thiểu rủi ro khi có sự cố. Máy chủ phải có khả năng xử lý đa nhiệm với 
+CPU từ 16 - 32 lõi, RAM từ 256GB trở lên, và dung lượng lưu trữ dạng Object 
+Storage hoặc SAN để đáp ứng yêu cầu lưu trữ hàng triệu tài liệu số hóa với độ an 
+toàn cao. Cấu hình hạ tầng phải đồng bộ giữa trung tâm dữ liệu và hệ thống dự phòng 
+nhằm đảm bảo khả năng khôi phục sau thảm họa. 
+Các yêu cầu về đường truyền: Đường truyền mạng phải được thiết kế chuyên 
+dụng, ổn định và có băng thông tối thiểu 1 Gbps, khuyến nghị sử dụng đường truyền 
+10 Gbps để đảm bảo tốc độ truy xuất và đồng bộ dữ liệu giữa các đơn vị trong Tổng 
+công ty. Các giao thức truyền dữ liệu phải được mã hóa (SSL/TLS, SSH, VPN) để 
+ngăn chặn nguy cơ rò rỉ thông tin trong quá trình truyền tải. Đồng thời, hạ tầng mạng 
+cần có hệ thống tường lửa (Firewall) và Reverse Proxy để tăng cường khả năng bảo 
+mật và cân bằng tải. 
+Các yêu cầu về an toàn vận hành: Hệ thống phải tuân thủ chặt chẽ các quy định 
+về an toàn thông tin của EVN (Quyết định số 717/QĐ-EVN, Quyết định số 
+1826/EVN-VTCNTT), đảm bảo việc quản lý truy cập theo phân quyền, giới hạn số 
+lần đăng nhập sai, mã hóa thông tin xác thực và ghi log toàn bộ hoạt động của người 
+dùng. Các bản ghi nhật ký (log) phải được lưu trữ ít nhất 3 tháng để phục vụ công 
+tác giám sát và kiểm tra. Ngoài ra, hệ thống cần được định kỳ kiểm tra ATTT, đánh 
+giá lỗ hổng, và thực hiện diễn tập an toàn mạng để duy trì khả năng chống chịu trước 
+các nguy cơ tấn công. 
+Các yêu cầu về khai thác, sử dụng: Trong quá trình khai thác, hệ thống cần đảm 
+bảo giao diện web thân thiện, dễ sử dụng và tích hợp với hệ thống SSO (Single Sign-
+On) của Tổng công ty để thuận tiện cho người dùng. Hệ thống phải hỗ trợ tra cứu 
+nhanh, xử lý nhiều truy vấn đồng thời mà không làm suy giảm hiệu năng. Ngoài ra, 
+cơ chế sao lưu dữ liệu phải được thiết lập tự động, cho phép phục hồi nhanh chóng 
+
+
+=== PAGE 52 ===
+52 
+ 
+khi có sự cố. Khả năng mở rộng quy mô hệ thống trong tương lai là yêu cầu bắt buộc, 
+để phù hợp với sự gia tăng liên tục của khối lượng hồ sơ kỹ thuật và nhu cầu khai 
+thác dữ liệu. 
+1.3.5. Các ràng buộc đối với hệ thống gồm: ràng buộc môi trường, sự phụ thuộc 
+vào hệ thống nền tảng 
+* Ràng buộc về môi trường triển khai: 
+Hệ thống phần mềm số hóa hồ sơ kỹ thuật được triển khai trong môi trường 
+CNTT của Tổng công ty Điện lực TP. Hà Nội, do đó phải đảm bảo khả năng tương 
+thích với hạ tầng hiện có, bao gồm hệ điều hành máy chủ, hệ thống ảo hóa, nền tảng 
+container và các công cụ giám sát vận hành. Việc triển khai phải phù hợp với mô 
+hình trung tâm dữ liệu (Data Center) hiện tại và có thể mở rộng sang môi trường điện 
+toán đám mây (Cloud) khi cần thiết. Điều này giúp tối ưu chi phí đầu tư ban đầu 
+nhưng đồng thời đặt ra yêu cầu cao về khả năng tương thích, quản lý cấu hình và 
+đồng bộ dữ liệu. 
+Hệ thống cũng bị ràng buộc bởi yêu cầu an toàn thông tin trong môi trường của 
+EVNHANOI, bao gồm tuân thủ tiêu chuẩn ISO/IEC 27001:2022 và các quy định 
+ATTT nội bộ của EVN. Tất cả các hoạt động lưu trữ, xử lý và trao đổi dữ liệu phải 
+được thực hiện trong môi trường bảo mật, có phân vùng mạng (DMZ), firewall và 
+hệ thống IDS/IPS để hạn chế tối đa rủi ro an ninh. 
+* Ràng buộc về sự phụ thuộc vào hệ thống nền tảng: 
+Hệ thống số hóa có sự phụ thuộc trực tiếp vào các nền tảng công nghệ đã được 
+EVN ban hành theo Quyết định số 1826/EVN-VTCNTT ngày 30/12/2022 về danh 
+mục công nghệ dùng chung. Cụ thể: 
+Nền tảng phát triển ứng dụng: sử dụng Java Springboot, hoặc NET Core cho 
+Backend và Angular cho Frontend. Đảm bảo sự đồng bộ, dễ dàng bảo trì và phát triển 
+mở rộng theo lộ trình công nghệ của Tập đoàn. 
+Cơ sở dữ liệu: ưu tiên sử dụng hệ quản trị (Oracle) triển khai dạng cluster. Đây 
+là nền tảng phù hợp cho khối lượng dữ liệu phi cấu trúc lớn nhưng đồng thời cũng 
+tạo ràng buộc khi lựa chọn công cụ quản lý, giám sát và khai thác dữ liệu. 
+Hệ thống tích hợp: phải kết nối, chia sẻ dữ liệu với các phần mềm quản lý hiện 
+có như PMIS, CMIS, ERP và nền tảng tích hợp dùng chung của EVNHANOI. Điều 
+này yêu cầu tuân thủ chuẩn kết nối API, cơ chế xác thực bằng token (JWT), đồng 
+thời đảm bảo không gây xung đột hoặc ảnh hưởng đến vận hành của các hệ thống 
+lõi. 
+
+
+=== PAGE 53 ===
+53 
+ 
+Môi trường triển khai container: hệ thống bắt buộc phải triển khai và quản lý 
+thông qua Kubernetes (K8s) để tận dụng khả năng mở rộng và tự động hóa.  
+1.3.6. Yêu cầu về tính sẵn sàng với IPv6 hoặc giải pháp nâng cấp bảo đảm sẵn 
+sàng với IPv6 nếu hoạt động trên môi trường Internet 
+Yêu cầu về tính sẵn sàng với IPv6 
+Trong bối cảnh Việt Nam đã chính thức công bố kế hoạch chuyển đổi và mở 
+rộng sử dụng địa chỉ IPv6 theo chỉ đạo của Bộ Thông tin và Truyền thông, hệ thống 
+phần mềm quản lý và khai thác hồ sơ kỹ thuật phải được thiết kế đảm bảo sẵn sàng 
+hoạt động trong môi trường IPv6. Việc hỗ trợ IPv6 không chỉ là yêu cầu tuân thủ 
+pháp luật, mà còn giúp đảm bảo tính bền vững và khả năng mở rộng của hệ thống 
+trong dài hạn, tránh tình trạng phụ thuộc vào tài nguyên địa chỉ IPv4 vốn ngày càng 
+khan hiếm. 
+Hệ thống cần bảo đảm các thành phần ứng dụng (Frontend, Backend, Database, 
+Webserver, API Gateway) đều tương thích và có khả năng vận hành ổn định trong 
+môi trường mạng IPv6, bao gồm cả khả năng xử lý kết nối đồng thời từ IPv4 và IPv6 
+(Dual-Stack). Điều này đảm bảo hệ thống vẫn duy trì được hoạt động thông suốt, đáp 
+ứng nhu cầu truy cập từ nhiều môi trường mạng khác nhau. 
+Giải pháp bảo đảm tính sẵn sàng IPv6 
+Để đạt được mục tiêu này, dự án triển khai một số giải pháp kỹ thuật như sau: 
+- Nền tảng hạ tầng: Các máy chủ ứng dụng, cơ sở dữ liệu và hệ thống lưu trữ 
+phải được cài đặt và cấu hình để hỗ trợ IPv6 ngay từ giai đoạn thiết kế. 
+- Webserver Nginx và Kubernetes (K8s): các thành phần này đều hỗ trợ IPv6, 
+cho phép triển khai dịch vụ ứng dụng và container trên cả hai giao thức IPv4/IPv6, 
+đảm bảo tính sẵn sàng và khả năng mở rộng linh hoạt. 
+- Cơ chế kết nối API: hệ thống API phải được xây dựng để sẵn sàng với IPv6, 
+đồng thời hỗ trợ mã hóa SSL/TLS đảm bảo an toàn khi truy cập từ môi trường 
+Internet. 
+- Kiểm thử và giám sát: trong giai đoạn vận hành, hệ thống cần thực hiện kiểm 
+thử định kỳ khả năng tương thích IPv6 và áp dụng các công cụ giám sát lưu lượng 
+nhằm phát hiện, xử lý sự cố kịp thời. 
+1.3.7. Các yêu cầu phi chức năng khác 
+1.3.7.1. Yêu cầu về tích hợp, kết nối và chia sẻ với các hệ thống khác 
+Yêu cầu về tích hợp và kết nối 
+
+
+=== PAGE 54 ===
+54 
+ 
+Phần mềm quản lý và khai thác hồ sơ kỹ thuật số hóa phải được thiết kế theo 
+nguyên tắc mở và linh hoạt, đảm bảo khả năng tích hợp, kết nối và chia sẻ dữ liệu 
+với các hệ thống hiện có và tương lai trong Tổng công ty cũng như Tập đoàn Điện 
+lực Việt Nam. Các hệ thống cần ưu tiên tích hợp bao gồm: 
+- PMIS (Phần mềm Quản lý kỹ thuật): đồng bộ thông tin thiết bị, trạm, đường 
+dây để khai thác dữ liệu trực tiếp mà không phải nhập liệu thủ công. 
+- CBM (Condition Based Maintenance): kết nối thông tin về tình trạng thiết bị 
+để phục vụ công tác bảo dưỡng dựa trên tình trạng. 
+- Phần mềm Thí nghiệm – Kiểm định: chia sẻ dữ liệu từ biên bản kiểm định, thí 
+nghiệm để chuẩn hóa thông tin lưu trữ. 
+- Hệ thống văn phòng điện tử và lưu trữ số: tích hợp để phục vụ công tác quản 
+trị văn bản và hồ sơ điện tử đồng bộ. 
+- Hệ thống phải có API Gateway để kết nối thông suốt, có khả năng kiểm soát, 
+phân quyền và theo dõi truy cập, đồng thời hỗ trợ cả RESTful API và SOAP API để 
+bảo đảm tương thích với nhiều chuẩn khác nhau. 
+Yêu cầu về chia sẻ dữ liệu 
+Phần mềm cần đảm bảo khả năng chia sẻ dữ liệu an toàn, chính xác và theo thời 
+gian thực, với các cơ chế sau: 
+- Phân quyền truy cập: dữ liệu được chia sẻ có kiểm soát, theo từng vai trò và 
+nhu cầu khai thác. 
+- Mã hóa và bảo mật: sử dụng chuẩn SSL/TLS trong quá trình truyền dữ liệu để 
+ngăn ngừa rò rỉ hoặc tấn công. 
+- Chuẩn định dạng dữ liệu: dữ liệu chia sẻ phải tuân thủ các chuẩn XML, JSON 
+hoặc CSV để thuận tiện cho việc tích hợp và xử lý. 
+- Tự động đồng bộ: khi dữ liệu thay đổi trên một hệ thống, các hệ thống liên 
+quan phải được cập nhật tự động, tránh sai lệch và mất đồng bộ. 
+Giải pháp công nghệ áp dụng 
+Để đáp ứng yêu cầu này, dự án đề xuất sử dụng: 
+- Reverse Proxy và API Gateway (Nginx + Kubernetes): che giấu đặc tính hệ 
+thống, điều phối lưu lượng, bảo vệ các API trước tấn công. 
+- Cơ chế kết nối API theo chuẩn EVN (theo QĐ 1290/QĐ-EVN và 555/EVN-
+VTCNTT), kết hợp cơ chế token (JWT) để xác thực và kiểm soát truy cập an toàn. 
+
+
+=== PAGE 55 ===
+55 
+ 
+- Hệ thống giám sát kết nối: ghi log đầy đủ, cảnh báo khi có truy cập bất thường 
+hoặc khi dữ liệu đồng bộ thất bại. 
+1.3.7.2. Yêu cầu môi trường phát triển, nâng cấp, chỉnh sửa phần mềm cần đáp 
+ứng một số yêu cầu cơ bản sau 
+Yêu cầu về môi trường phát triển phần mềm 
+Môi trường phát triển phần mềm phải đảm bảo đầy đủ công cụ, nền tảng và hạ 
+tầng kỹ thuật để hỗ trợ quá trình lập trình, kiểm thử, triển khai và nâng cấp hệ thống. 
+Các thành phần chính bao gồm: 
+- Ngôn ngữ và framework phát triển: sử dụng C# .NET Core cho Backend và 
+Angular (TypeScript) cho Frontend, tuân thủ Quyết định số 1826/EVN-VTCNTT về 
+danh mục ngôn ngữ lập trình, nền tảng dùng chung trong EVN. 
+- Công cụ phát triển: Microsoft Visual Studio, Visual Studio Code, GitLab (hỗ 
+trợ CI/CD), Figma (thiết kế giao diện). Đây là những công cụ phổ biến, mạnh mẽ, có 
+cộng đồng hỗ trợ rộng lớn, giúp tăng tốc độ phát triển và bảo đảm chất lượng mã 
+nguồn. 
+- Cơ sở dữ liệu: môi trường phát triển phải có khả năng tích hợp và thử nghiệm 
+với hệ quản trị CSDL Oracle để mô phỏng việc lưu trữ và truy xuất dữ liệu thực tế. 
+- Hệ điều hành và hạ tầng: sử dụng Ubuntu (Linux) và Windows Server, đảm 
+bảo tương thích đa nền tảng, đồng thời có khả năng triển khai container với 
+Kubernetes (K8s) và webserver Nginx để mô phỏng môi trường vận hành thực tế. 
+Yêu cầu về kiểm thử và an toàn thông tin 
+Môi trường phát triển cần tích hợp các công cụ hỗ trợ: 
+- Kiểm thử đơn vị (Unit Test), kiểm thử tích hợp (Integration Test), kiểm thử 
+hiệu năng (Performance Test): để phát hiện và xử lý lỗi cú pháp, lỗi logic ngay từ 
+giai đoạn phát triển. 
+- Cơ chế giám sát và ghi log: đảm bảo dễ dàng truy vết khi phát sinh sự cố. 
+- Tuân thủ chuẩn bảo mật ISO/IEC 27001:2022 và quy định an toàn thông tin 
+của EVN, bảo đảm dữ liệu trong môi trường phát triển không bị rò rỉ hoặc khai thác 
+trái phép. 
+Yêu cầu về khả năng nâng cấp và mở rộng 
+Môi trường phát triển phải được thiết kế theo hướng mở và linh hoạt, cho phép: 
+- Nhanh chóng nâng cấp khi có phiên bản mới của framework, hệ điều hành 
+
+
+=== PAGE 56 ===
+56 
+ 
+hoặc cơ sở dữ liệu. 
+- Hỗ trợ mở rộng quy mô phát triển khi cần thêm module chức năng. 
+- Dễ dàng tích hợp với các hệ thống khác (PMIS, CBM, Thí nghiệm, Lưu trữ 
+số) trong quá trình thử nghiệm. 
+1.3.7.3. Yêu cầu Kiểm tra, đánh giá an toàn thông tin 
+Căn cứ theo quyết định số 717/QĐ-EVN ngày 31/5/2025 của Tập đoàn điện lực 
+Việt Nam về việc ban hành Quy định Đảm bảo An ninh mạng và An toàn thông tin 
+trong Tập đoàn Điện lực Việt Nam. 
+- Kiểm tra, đánh giá ATTT: Hoạt động kiểm tra đánh giá về ATTT được đơn vị 
+độc lập thực hiện. 
+- Chủ quản HTTT có thẩm quyền yêu cầu kiểm tra, đánh giá đối với các HTTT 
+thuộc thẩm quyền quản lý. 
+- Nội dung, hình thức kiểm tra, đánh giá theo quy định tại Điều 11, Điều 12 
+Thông tư số 12/2022/TT-BTTTT và các Quy định khác về Quản lý, vận hành, đảm 
+bảo an toàn thông tin của EVN. 
+- Nội dung đánh giá ATTT: thực hiện đánh giá các HTTT theo các tiêu 
+chuẩn/khung đánh giá của Việt Nam hoặc các tổ chức ATTT có uy tín trên thế giới. 
+1.4. Yêu cầu về mức độ chịu đựng sai hỏng đối với các lỗi cú pháp lập trình, lỗi 
+lô-gic trong xử lý dữ liệu, lỗi kiểm soát tính đúng đắn của dữ liệu đầu vào: 
+1.4.1. Yêu cầu về khả năng chịu đựng sai hỏng phần mềm 
+Phần mềm quản lý, khai thác hồ sơ kỹ thuật số hóa cần được xây dựng theo 
+hướng an toàn, ổn định và có khả năng chống chịu sai hỏng trong quá trình vận hành. 
+Điều này đặc biệt quan trọng bởi khối lượng dữ liệu kỹ thuật của lưới điện và trạm 
+biến áp là rất lớn, đa dạng định dạng và có tính chính xác cao. Bất kỳ sai sót nào từ 
+lỗi lập trình hay lỗi nhập liệu đều có thể ảnh hưởng trực tiếp đến độ tin cậy của cơ 
+sở dữ liệu và quá trình ra quyết định trong quản lý, vận hành. 
+1.4.2. Yêu cầu xử lý lỗi cú pháp lập trình và lỗi lô-gic 
+Hệ thống cần có khả năng phát hiện sớm và ngăn chặn lỗi cú pháp lập trình, bảo 
+đảm ứng dụng không bị ngừng đột ngột hoặc gây ra sự cố nghiêm trọng. Đối với các 
+lỗi lô-gic trong xử lý dữ liệu (logic error), phần mềm phải được thiết kế với cơ chế 
+kiểm thử, giám sát và ghi log tự động để nhanh chóng xác định nguyên nhân, đưa ra 
+cảnh báo và hạn chế ảnh hưởng đến các chức năng khác. Việc này có thể thực hiện 
+
+
+=== PAGE 57 ===
+57 
+ 
+thông qua cơ chế unit test, integration test và continuous integration (CI/CD) nhằm 
+phát hiện lỗi sớm trong vòng đời phát triển. 
+1.4.3. Yêu cầu kiểm soát tính đúng đắn của dữ liệu đầu vào 
+Dữ liệu kỹ thuật được nhập vào hệ thống có thể đến từ nhiều nguồn khác nhau 
+(Catalogue thiết bị, biên bản kiểm định, dữ liệu thí nghiệm, file scan OCR). Do đó, 
+cần triển khai cơ chế kiểm soát chặt chẽ tính đúng đắn và toàn vẹn của dữ liệu đầu 
+vào, cụ thể: 
+- Xác thực định dạng dữ liệu trước khi nhập (ví dụ: trường ngày tháng, số liệu 
+công suất, điện áp). 
+- Kiểm tra tính hợp lệ và logic (ví dụ: công suất định mức không thể nhỏ hơn 
+công suất vận hành). 
+- Tích hợp các thuật toán AI/OCR để giảm thiểu sai sót trong quá trình số hóa 
+từ tài liệu giấy sang dữ liệu số. 
+- Áp dụng các quy tắc nghiệp vụ (business rules) để cảnh báo khi dữ liệu có dấu 
+hiệu bất thường. 
+1.4.4. Giải pháp công nghệ hỗ trợ 
+Để đáp ứng yêu cầu này, hệ thống được đề xuất sử dụng: 
+- Công nghệ .NET Core và Angular: hỗ trợ tốt trong việc quản lý ngoại lệ 
+(exception handling) và bảo đảm an toàn khi xử lý dữ liệu đầu vào. 
+- Công nghệ nhận dạng và bóc tách thông tin OCR tài liệu. 
+- CSDL Oracle: có khả năng kiểm soát tính toàn vẹn dữ liệu với cơ chế schema 
+validation và replication cluster để tránh mất mát khi có lỗi. 
+- Kubernetes (K8s) và Nginx: đảm bảo môi trường triển khai ổn định, cô lập lỗi 
+và tăng khả năng phục hồi dịch vụ khi một thành phần gặp sự cố. 
+1.5. Yêu cầu về mỹ thuật, kỹ thuật cần đạt được của các giao diện chương trình 
+1.5.1. Yêu cầu về mỹ thuật giao diện chương trình 
+Giao diện phần mềm quản lý, khai thác hồ sơ kỹ thuật số hóa phải đảm bảo tính 
+thân thiện, trực quan và thống nhất, giúp người dùng ở nhiều cấp độ (quản lý, kỹ sư, 
+cán bộ vận hành) dễ dàng tiếp cận và khai thác dữ liệu. Các yếu tố mỹ thuật cần đạt 
+được bao gồm: 
+- Thiết kế tối giản, hiện đại: sử dụng bố cục gọn gàng, màu sắc hài hòa, tương 
+thích với bộ nhận diện thương hiệu EVN/EVNHANOI. 
+
+
+=== PAGE 58 ===
+58 
+ 
+- Khả năng truy cập cao: giao diện cần hỗ trợ tiếng Việt chuẩn, dễ đọc, đồng 
+thời tương thích với các quy định về khả năng tiếp cận thông tin (Accessibility). 
+- Đồng nhất trải nghiệm: tất cả các module, màn hình chức năng phải tuân thủ 
+nguyên tắc thiết kế giao diện thống nhất, giảm thiểu sự phân mảnh và giúp người 
+dùng thao tác nhanh chóng. 
+- Hỗ trợ đa nền tảng: giao diện phải hoạt động tốt trên cả máy tính để bàn, thiết 
+bị di động và máy tính bảng, với thiết kế responsive tự động thích ứng kích thước 
+màn hình. 
+1.5.2. Yêu cầu về kỹ thuật giao diện chương trình 
+Bên cạnh yếu tố thẩm mỹ, giao diện chương trình phải đảm bảo các yêu cầu kỹ 
+thuật: 
+- Khả năng phản hồi nhanh (responsive): giao diện tải nhanh, không giật lag, 
+kể cả khi xử lý lượng dữ liệu lớn. 
+- Tích hợp công nghệ hiện đại: sử dụng Angular (TypeScript) để xây dựng 
+giao diện, kết hợp với HTML5, CSS3 nhằm tận dụng các tính năng nâng cao về đồ 
+họa, tương tác và khả năng mở rộng. 
+- Khả năng tùy biến: cho phép thay đổi bố cục, màu sắc, hoặc cấu hình hiển thị 
+theo nhu cầu của từng đơn vị trong EVNHANOI. 
+- Bảo mật giao diện: cơ chế xác thực, phân quyền hiển thị theo vai trò người 
+dùng, tránh rò rỉ thông tin trên màn hình. 
+- Đa ngôn ngữ: có khả năng mở rộng hỗ trợ tiếng Anh khi cần để phục vụ hợp 
+tác quốc tế hoặc đối chiếu tài liệu gốc từ các hãng thiết bị. 
+2. Các yêu cầu về năng lực của cán bộ tham gia phát triển, nâng cấp, chỉnh sửa 
+phần mềm 
+2.1. Yêu cầu chung về năng lực cán bộ 
+Đội ngũ cán bộ tham gia phát triển, nâng cấp và chỉnh sửa phần mềm phải đảm 
+bảo năng lực chuyên môn, kinh nghiệm thực tiễn và hiểu biết về lĩnh vực điện lực. 
+Đây là yếu tố then chốt để bảo đảm phần mềm số hóa vận hành ổn định, đáp ứng 
+đúng yêu cầu nghiệp vụ quản lý, vận hành lưới điện và trạm biến áp. Nhân sự cần có 
+khả năng phối hợp hiệu quả giữa kiến thức công nghệ thông tin và đặc thù dữ liệu kỹ 
+thuật của ngành điện. 
+2.2. Yêu cầu cụ thể về chuyên môn 
+
+
+=== PAGE 59 ===
+59 
+ 
+Lập trình và phát triển phần mềm: cán bộ cần thành thạo các ngôn ngữ lập trình 
+Java Springboot hoặc C# .NET Core cho Backend; TypeScript/Angular cho 
+Frontend, cùng với các công cụ hỗ trợ như Visual Studio Code, GitLab, Figma, 
+intelij. 
+Cơ sở dữ liệu: am hiểu và ưu tiên có kinh nghiệm triển khai hệ quản trị cơ sở 
+dữ liệu Oracle, nắm vững kỹ năng thiết kế và tối ưu hóa dữ liệu phi cấu trúc, có khả 
+năng xử lý dữ liệu lớn, phân tán. 
+Công nghệ hạ tầng: có kiến thức về Kubernetes (K8s) để quản lý container, 
+Nginx cho webserver, và MinIO cho hệ thống lưu trữ đối tượng. Đồng thời, cán bộ 
+phải có khả năng triển khai, giám sát và bảo mật các hệ thống này. 
+An toàn thông tin: hiểu và áp dụng các tiêu chuẩn bảo mật quốc tế như ISO 
+27001:2022, cũng như các quy định của EVN về an toàn thông tin. Đặc biệt, cần có 
+kinh nghiệm triển khai cơ chế API Gateway, token-based authentication (JWT), 
+SSL/TLS để bảo đảm kết nối và chia sẻ dữ liệu an toàn. 
+2.3. Yêu cầu về kỹ năng bổ trợ 
+Ngoài kiến thức kỹ thuật, cán bộ tham gia cần có: 
+- Kỹ năng phân tích nghiệp vụ: hiểu quy trình quản lý, vận hành kỹ thuật trong 
+ngành điện để chuyển đổi thành yêu cầu phần mềm. 
+- Kỹ năng quản lý dự án CNTT: nắm rõ quy trình phát triển phần mềm theo 
+chuẩn Agile/Scrum, bảo đảm tiến độ, chất lượng và khả năng mở rộng. 
+- Kỹ năng kiểm thử và đảm bảo chất lượng: có khả năng thiết kế test case, thực 
+hiện unit test, integration test, performance test để bảo đảm hệ thống ổn định. 
+- Khả năng đào tạo, chuyển giao: cán bộ phát triển cần có năng lực hướng dẫn, 
+hỗ trợ cán bộ EVNHANOI trong quá trình khai thác và vận hành hệ thống. 
+- Ngoài ra nhà thầu phải huy động các nhân sự hỗ trợ dự án là kỹ sư điện (tốt 
+nghiệp đại học trở lên chuyên ngành kỹ thuật điện). 
+3. Các yêu cầu về đào tạo hướng dẫn sử dụng, quản trị, vận hành 
+* Yêu cầu đào tạo, hướng dẫn sử dụng cho người dùng cuối: 
+Để bảo đảm phần mềm quản lý và khai thác hồ sơ kỹ thuật số hóa được triển 
+khai hiệu quả, cần tổ chức các khóa đào tạo, hướng dẫn sử dụng dành cho cán bộ kỹ 
+thuật, cán bộ quản lý và nhân viên trực tiếp khai thác dữ liệu. Nội dung đào tạo tập 
+trung vào: 
+
+
+=== PAGE 60 ===
+60 
+ 
+- Giới thiệu tổng quan về hệ thống, mục tiêu và lợi ích khi áp dụng. 
+- Hướng dẫn chi tiết các chức năng: tìm kiếm, tra cứu hồ sơ, quản lý tài liệu số 
+hóa, khai thác dữ liệu thống kê. 
+- Thực hành trực tiếp trên hệ thống để cán bộ có thể thành thạo các thao tác cơ 
+bản và nâng cao. 
+- Hướng dẫn quy trình xử lý sự cố thường gặp, cách gửi yêu cầu hỗ trợ kỹ thuật. 
+- Việc đào tạo này giúp cán bộ, nhân viên EVNHANOI chủ động sử dụng hệ 
+thống thay vì phụ thuộc hoàn toàn vào đơn vị phát triển phần mềm, đồng thời góp 
+phần giảm thiểu sai sót trong quá trình nhập liệu và khai thác dữ liệu. 
+* Yêu cầu đào tạo cho cán bộ quản trị và vận hành hệ thống: 
+Bên cạnh người dùng cuối, đội ngũ cán bộ quản trị, vận hành hệ thống CNTT 
+tại EVNHANOI cần được đào tạo chuyên sâu để có khả năng quản lý, duy trì và nâng 
+cấp hệ thống sau khi triển khai. Nội dung đào tạo bao gồm: 
+- Quản trị người dùng, phân quyền truy cập, kiểm soát an toàn thông tin. 
+- Vận hành cơ sở dữ liệu Oracle, hệ thống lưu trữ MinIO, webserver Nginx, 
+container Kubernetes. 
+- Giám sát hệ thống, kiểm soát hiệu năng, xử lý sự cố kỹ thuật và bảo đảm tính 
+sẵn sàng cao. 
+- Thực hành triển khai các bản nâng cấp, chỉnh sửa phần mềm theo quy trình 
+DevOps và CI/CD. 
+Nhờ đó, EVNHANOI có thể tự chủ về vận hành và bảo trì hệ thống, giảm sự 
+phụ thuộc vào nhà thầu bên ngoài và bảo đảm tính bền vững của dự án. 
+* Phương thức và hình thức đào tạo 
+- Đào tạo tập trung: tổ chức các lớp học trực tiếp với sự tham gia của chuyên 
+gia triển khai phần mềm. 
+- Đào tạo trực tuyến (E-learning): xây dựng video hướng dẫn, tài liệu trực tuyến 
+để cán bộ có thể tra cứu lại khi cần. 
+- Đào tạo theo mô hình “train the trainer”: một nhóm cán bộ nòng cốt được đào 
+tạo chuyên sâu để sau đó đào tạo lại cho cán bộ tại các đơn vị trực thuộc. 
+4. Các yêu cầu về công tác nghiệm thu bàn giao, kiểm thử hoặc vận hành thử, 
+bảo hành, bảo trì 
+
+
+=== PAGE 61 ===
+61 
+ 
+4.1. Công tác nghiệm thu bàn giao 
+4.1.1. Các hoạt động cơ bản trong công tác nghiệm thu, bàn giao 
+- Thực hiện vận hành thử trước khi tổ chức nghiệm thu, bàn giao sản phẩm, 
+hạng mục công việc của dự án. 
+- Thực hiện các thủ tục để nghiệm thu, bàn giao sản phẩm, hạng mục công việc 
+của dự án theo quy định. 
+4.1.2. Nghiệm thu, bàn giao sản phẩm, hạng mục công việc hoàn thành của dự 
+án 
+- Sản phẩm hoặc hạng mục công việc của dự án được nghiệm thu, bàn giao để 
+đưa vào sử dụng theo quy định tại Điều 35 Nghị định số 73/2019/NĐ-CP. 
+- Điều kiện để nghiệm thu sản phẩm hoặc hạng mục công việc của dự án 
++ Sản phẩm hoặc hạng mục công việc được hoàn thành đầy đủ về khối lượng, 
+chất lượng, tiến độ, các yêu cầu theo hợp đồng và thiết kế chi tiết được phê duyệt; 
++ Sản phẩm hoặc hạng mục công việc được kiểm thử hoặc vận hành thử đáp 
+ứng yêu cầu chất lượng theo quy định tại Điều 34 Nghị định số 73/2019/NĐ-CP và 
+Điều 9, Thông tư số 16/2024/TT-BTTTT. 
+- Chủ đầu tư và các đơn vị có liên quan thỏa thuận về nội dung nghiệm thu, thời 
+điểm, địa điểm nghiệm thu, bàn giao sau khi đáp ứng các Điều kiện để nghiệm thu 
+sản phẩm hoặc hạng mục công việc của dự án ở trên. Kết quả nghiệm thu, bàn giao 
+được lập thành biên bản theo mẫu mẫu số 6 của Phụ lục I ban hành kèm theo Thông 
+tư số 16/2024/TT-BTTTT. 
+- Sản phẩm hoặc hạng mục công việc của dự án chỉ được bàn giao cho chủ đầu 
+tư sau khi đã nghiệm thu đạt yêu cầu chất lượng. 
+- Nhà thầu triển khai có trách nhiệm bàn giao sản phẩm hoặc hạng mục công 
+việc cho chủ đầu tư, đồng thời phải chuyển giao kèm theo các tài liệu sau: 
++ Hồ sơ hoàn thành sản phẩm hoặc hạng mục công việc của dự án theo danh 
+mục tại Phụ lục III ban hành kèm theo Thông tư số 16/2024/TT-BTTTT; 
++ Bộ chương trình cài đặt phần mềm và mã nguồn của chương trình; 
++ Các tài liệu hướng dẫn sử dụng, quản trị, vận hành; tài liệu phục vụ đào tạo 
+người sử dụng, quản trị, vận hành; tài liệu quy trình bảo trì (nếu có); hướng dẫn về 
+kỹ thuật và tiêu chuẩn, quy chuẩn (nếu có). Nội dung chủ yếu của công tác quản trị, 
+vận hành, bảo trì sản phẩm hoặc hạng mục công việc theo hướng dẫn tại Phụ lục số 
+
+
+=== PAGE 62 ===
+62 
+ 
+12 ban hành kèm theo Thông tư số 18/2024/TT-BTTTT ngày 30/12/2024 của Bộ 
+Thông tin và Truyền thông; 
++ Tài liệu kỹ thuật phục vụ kết nối theo quy định (đối với dự án có kết nối, chia 
+sẻ dữ liệu giữa các bộ, cơ quan trung ương, địa phương); 
++ Các tài liệu của từng giai đoạn trong quá trình xây dựng, phát triển, nâng cấp, 
+mở rộng phần mềm theo nội dung hợp đồng đã ký kết. 
+ Các tài liệu bàn giao quy định như trên phải được xác định rõ trong hợp đồng 
+và là một phần trong sản phẩm của toàn bộ dự án. 
+4.2. Kiểm thử hoặc vận hành thử 
+- Sản phẩm hoặc hạng mục công việc của dự án phải được kiểm thử/vận hành 
+thử tại ít nhất một đơn vị thụ hưởng trước khi nghiệm thu, bàn giao đưa vào khai 
+thác, sử dụng. 
+- Đối với hệ thống hạ tầng kỹ thuật, thiết bị, nhà thầu triển khai chủ trì, phối 
+hợp với chủ đầu tư tổ chức vận hành thử: 
++ Nội dung và trình tự các bước vận hành thử theo hướng dẫn tại Phụ lục số 1 
+của Phụ lục II ban hành kèm Thông tư số 16/2024/TT-BTTTT; 
++ Kết quả vận hành thử được nhà thầu triển khai lập thành báo cáo. 
+- Đối với công tác vận hành thử phần mềm nội bộ, chủ đầu tư phối hợp với nhà 
+thầu triển khai và các bên có liên quan tổ chức vận hành thử: 
++ Nội dung và trình tự các bước vận hành thử theo hướng dẫn tại Phụ lục số 2 
+của Phụ lục II ban hành kèm Thông tư số 16/2024/TT-BTTTT ngày 30/12/2024 của 
+Bộ Thông tin và Truyền thông; 
++ Kết quả vận hành thử được Chủ đầu tư phối hợp với nhà thầu triển khai và 
+các bên có liên quan lập thành báo cáo. 
+- Đối với công tác kiểm thử phần mềm nội bộ, Chủ đầu tư phối hợp với nhà 
+thầu triển khai và các bên có liên quan tổ chức thực hiện kiểm thử: 
++ Nội dung và trình tự các bước kiểm thử theo hướng dẫn tại Phụ lục số 3 của 
+Phụ lục II ban hành kèm Thông tư số 16/2024/TT-BTTTT ngày 30/12/2024 của Bộ 
+Thông tin và Truyền thông (các nội dung kiểm thử bao gồm: Kiểm thử chấp nhận 
+bởi người dùng (UAT); Kiểm thử chấp nhận hoạt động (OAT); Kiểm thử chức năng; 
+Kiểm thử hiệu năng; Kiểm thử an toàn, bảo mật; Kiểm tra về tài liệu vận hành hệ 
+thống); 
+
+
+=== PAGE 63 ===
+63 
+ 
++ Kết quả kiểm thử độc lập được Chủ đầu tư phối hợp với nhà thầu triển khai 
+và các bên có liên quan lập thành báo cáo. 
+4.3. Bảo hành, bảo trì sản phẩm 
+- Thời hạn bảo hành: Tối thiểu 2 năm kể từ ngày hàng hoá được đưa vào sử 
+dụng hoặc tối thiểu 2,5 năm kể từ ngày giao hàng, tùy theo điều kiện nào đến trước. 
+- Nội dung bảo hành bao gồm: 
++ Khắc phục miễn phí các lỗi phát sinh liên quan đến chức năng, bảo mật, cơ 
+sở dữ liệu hoặc khả năng tích hợp. 
++ Đảm bảo phần mềm luôn hoạt động ổn định, không gây gián đoạn đến công 
+tác quản lý kỹ thuật và vận hành lưới điện. 
++ Cập nhật các bản vá bảo mật định kỳ, tuân thủ tiêu chuẩn ISO/IEC 
+27001:2022 và các quy định ATTT của EVN. 
++ Đảm bảo phản hồi và xử lý sự cố trong khung thời gian quy định (SLA), ưu 
+tiên cao đối với các sự cố ảnh hưởng trực tiếp đến khai thác dữ liệu kỹ thuật. 
+- Yêu cầu về bảo trì phần mềm: Bảo trì phần mềm được thực hiện thường 
+xuyên trong suốt vòng đời dự án nhằm duy trì hiệu suất, ổn định và nâng cao tính 
+năng hệ thống. Công tác bảo trì bao gồm: 
++ Bảo trì phòng ngừa: định kỳ kiểm tra hệ thống, phát hiện sớm nguy cơ lỗi và 
+thực hiện tối ưu hóa để nâng cao hiệu suất. 
++ Bảo trì khắc phục: xử lý sự cố phát sinh trong quá trình vận hành (lỗi phần 
+mềm, lỗi kết nối API, lỗi cơ sở dữ liệu). 
++ Bảo trì nâng cấp: cập nhật phiên bản mới của các framework, hệ điều hành 
+(Ubuntu, Windows Server), webserver (Nginx), container (Kubernetes) hoặc cơ sở 
+dữ liệu (Oracle/Couchbase) để bảo đảm hệ thống luôn phù hợp công nghệ mới. 
++ Bảo trì an toàn thông tin: thường xuyên kiểm tra lỗ hổng bảo mật, áp dụng 
+bản vá kịp thời, tích hợp thêm các giải pháp giám sát ATTT nếu cần. 
+- Cơ chế thực hiện bảo hành, bảo trì: 
++ Hỗ trợ kỹ thuật 24/7: cung cấp kênh liên lạc trực tuyến và hotline để tiếp nhận 
+yêu cầu hỗ trợ từ EVNHANOI. 
++ Ghi log và báo cáo định kỳ: hệ thống phải có cơ chế ghi nhận và báo cáo chi 
+tiết các hoạt động bảo trì, giúp minh bạch và dễ kiểm soát. 
++ Đào tạo chuyển giao: trong giai đoạn bảo trì, nhà thầu cần kết hợp đào tạo 
+
+
+=== PAGE 64 ===
+64 
+ 
+cho cán bộ EVNHANOI, từng bước chuyển giao năng lực vận hành và khắc phục sự 
+cố cho nội bộ. 
++ Cam kết SLA (Service Level Agreement): xác định rõ thời gian phản hồi và 
+xử lý sự cố theo từng mức độ (sự cố nghiêm trọng, sự cố trung bình, sự cố nhỏ). 
+4.4. Nâng cấp và hỗ trợ khác 
+- Nâng cấp miễn phí sản phẩm trong thời hạn bảo hành.  
+- Hỗ trợ kỹ thuật sau triển khai, phương thức hỗ trợ: Hỗ trợ từ xa 24/7 hoặc tại 
+chỗ. 
+- Đơn vị cung cấp dịch vụ có đội ngũ hỗ trợ, có số hotline hỗ trợ. 
+5. Phương án đảm bảo an toàn thông tin dự án: 
+* Nguyên tắc chung về đảm bảo an toàn thông tin: 
+Hệ thống Số hóa hồ sơ kỹ thuật của Đường dây và Trạm là nền tảng quản lý, 
+lưu trữ và khai thác khối lượng lớn dữ liệu kỹ thuật quan trọng, liên quan trực tiếp 
+đến công tác vận hành, bảo dưỡng và quản lý thiết bị - trạm biến áp - đường dây điện 
+trong toàn Tổng công ty Điện lực TP Hà Nội. Vì vậy, phương án đảm bảo an toàn 
+thông tin (ATTT) của hệ thống phải được thiết kế và triển khai dựa trên nguyên tắc 
+“toàn diện - đa lớp - chủ động - tuân thủ pháp luật”, bảo đảm hệ thống hoạt động ổn 
+định, dữ liệu được bảo vệ tuyệt đối trước các nguy cơ tấn công và rò rỉ thông tin. 
+Hệ thống tuân thủ nghiêm ngặt các quy định pháp lý hiện hành của Nhà nước, 
+bao gồm Nghị định số 85/2016/NĐ-CP, Thông tư số 12/2022/TT-BTTTT về bảo 
+đảm ATTT theo cấp độ, đồng thời thực hiện đúng các quy định và hướng dẫn nội bộ 
+của Tập đoàn Điện lực Việt Nam (EVN) và Tổng công ty Điện lực TP Hà Nội 
+(EVNHANOI). Cụ thể, hệ thống được triển khai theo Quyết định số 168/QĐ-EVN 
+năm 2023 và Quyết định số 717/QĐ-EVN năm 2025 của EVN về đảm bảo an toàn 
+thông tin và an ninh mạng trong toàn Tập đoàn; đồng thời tuân thủ văn bản số 
+676/QĐ-EVN ngày 28/5/2025, công văn số 5337/EVNHANOI-VTCNTT ngày 
+11/6/2025 và Quyết định số 9038/QĐ-EVNHANOI ngày 16/9/2025 về việc ban hành 
+“Quy định đảm bảo an ninh mạng và an toàn thông tin trong Tổng công ty Điện lực 
+TP Hà Nội”. 
+Việc tuân thủ đồng bộ các quy định này không chỉ đảm bảo hệ thống đạt chuẩn 
+an toàn thông tin theo cấp độ quy định của Nhà nước, mà còn phù hợp với chiến lược 
+chuyển đổi số và an ninh mạng của EVNHANOI, góp phần xây dựng môi trường dữ 
+liệu số hóa tin cậy, bảo mật và bền vững cho toàn Tổng công ty. 
+
+
+=== PAGE 65 ===
+65 
+ 
+* Các biện pháp bảo đảm an toàn thông tin: 
+An toàn trong thiết kế và phát triển phần mềm: 
+- Tuân thủ tiêu chuẩn ISO/IEC 27001:2022 trong việc thiết kế, lập trình, kiểm 
+thử phần mềm. 
+- Áp dụng cơ chế kiểm soát lỗi cú pháp, lỗi logic và xác thực dữ liệu đầu vào 
+nhằm ngăn ngừa rủi ro sai lệch dữ liệu. 
+- Thực hiện kiểm thử bảo mật trước khi nghiệm thu để loại bỏ lỗ hổng có thể bị 
+khai thác. 
+An toàn trong truy cập và phân quyền: 
+- Xây dựng cơ chế xác thực đa yếu tố (MFA) cho tài khoản quản trị. 
+- Áp dụng nguyên tắc phân quyền theo vai trò (RBAC), giới hạn quyền truy cập 
+dữ liệu theo từng nhóm người dùng. 
+- Sử dụng API Gateway kết hợp cơ chế xác thực bằng token (JWT) để kiểm soát 
+truy xuất dữ liệu qua API. 
+An toàn trong lưu trữ và truyền tải dữ liệu: 
+- Tất cả dữ liệu trao đổi trên mạng phải được mã hóa bằng SSL/TLS. 
+- Dữ liệu lưu trữ được bảo vệ thông qua mã hóa ở mức cơ sở dữ liệu (Database 
+Encryption). 
+- Hệ thống lưu trữ MinIO và CSDL Oracle phải triển khai trong môi trường 
+cluster, đảm bảo tính dự phòng và chống mất mát dữ liệu. 
+An toàn vận hành hệ thống: 
+- Các dịch vụ (webserver Nginx, container Kubernetes) được cấu hình bảo mật, 
+hạn chế cổng dịch vụ không cần thiết. 
+- Triển khai Reverse Proxy để che giấu thông tin máy chủ, đồng thời hỗ trợ 
+tường lửa ứng dụng (WAF) chống lại các cuộc tấn công phổ biến (SQL Injection, 
+XSS, DDoS). 
+- Cơ chế giám sát, ghi log và cảnh báo được tích hợp để theo dõi, phát hiện và 
+xử lý sự cố ATTT kịp thời. 
+An toàn trong vận hành mạng và hạ tầng: 
+- Hệ thống sẵn sàng hoạt động trên IPv6, đáp ứng lộ trình chuyển đổi quốc gia. 
+- Đảm bảo kết nối mạng riêng (VPN) an toàn khi cán bộ truy cập từ xa. 
+
+
+=== PAGE 66 ===
+66 
+ 
+- Áp dụng các giải pháp kiểm soát truy cập vật lý tại trung tâm dữ liệu và hệ 
+thống lưu trữ. 
+* Giải pháp công nghệ áp dụng: 
+Để thực hiện phương án ATTT, dự án sử dụng: 
+- Nginx kết hợp SSL/TLS: bảo mật kênh truyền dữ liệu. 
+- Kubernetes (K8s): cô lập container, tăng khả năng phục hồi khi một dịch vụ 
+gặp sự cố. 
+- MinIO với tính năng mã hóa và kiểm soát truy cập: bảo vệ dữ liệu lưu trữ lớn 
+(hình ảnh scan, tài liệu kỹ thuật). 
+- CSDL Oracle: hỗ trợ cơ chế replication và failover, đảm bảo toàn vẹn dữ liệu. 
+- Giải pháp giám sát (Monitoring & Logging): tích hợp để theo dõi ATTT theo 
+thời gian thực, phát hiện bất thường và tự động cảnh báo. 
+* Đề xuất phương án sao lưu, phục hồi dữ liệu (Backup & Recovery) khi 
+vận hành chính thức: 
+Hệ thống Số hóa hồ sơ kỹ thuật của Đường dây và Trạm là nền tảng trọng yếu, 
+quản lý khối lượng lớn dữ liệu kỹ thuật liên quan trực tiếp đến công tác quản lý, vận 
+hành và bảo trì lưới điện của Tổng công ty Điện lực TP Hà Nội (EVNHANOI). Vì 
+vậy, việc thiết kế và vận hành phương án sao lưu, phục hồi dữ liệu (Backup & 
+Recovery) là yêu cầu bắt buộc nhằm bảo đảm tính toàn vẹn, liên tục và sẵn sàng của 
+hệ thống, đồng thời là căn cứ quan trọng để EVNHANOI có cơ sở đề xuất kế hoạch 
+bảo trì, duy trì hạ tầng dữ liệu sau thời gian bảo hành. 
+Nguyên tắc thiết kế phương án sao lưu - phục hồi dữ liệu 
+Phương án sao lưu được thiết kế dựa trên bốn nguyên tắc chính: 
+- Toàn diện: Sao lưu đầy đủ toàn bộ dữ liệu, bao gồm cơ sở dữ liệu Oracle, tệp 
+tài liệu số hóa, cấu hình hệ thống và nhật ký vận hành. 
+- Đa lớp: Áp dụng mô hình sao lưu nhiều tầng (on-site, off-site và cloud) để 
+giảm thiểu rủi ro mất dữ liệu do lỗi phần cứng, sự cố mạng hoặc tấn công mạng. 
+- Tự động - định kỳ: Các quy trình sao lưu được tự động hóa hoàn toàn theo lịch 
+định kỳ, giảm thiểu sai sót do thao tác thủ công. 
+- An toàn - bảo mật: Dữ liệu sao lưu được mã hóa (AES-256), truyền tải qua 
+kênh bảo mật (SSL/TLS) và lưu trữ trong vùng tách biệt có quyền truy cập hạn chế. 
+Kiến trúc và quy trình sao lưu dữ liệu 
+
+
+=== PAGE 67 ===
+67 
+ 
+Hệ thống sử dụng mô hình Backup 3-2-1, bảo đảm độ an toàn và khả năng khôi 
+phục cao: 
+- 3 bản sao dữ liệu được duy trì đồng thời (1 bản dữ liệu gốc, 2 bản sao lưu). 
+- 2 loại thiết bị lưu trữ khác nhau, bao gồm: ổ cứng NAS (Network Attached 
+Storage) tại trung tâm dữ liệu và hệ thống lưu trữ đối tượng MinIO hoặc Cloud 
+Backup. 
+- 1 bản sao lưu lưu trữ tại vị trí vật lý khác (off-site) để phòng ngừa thảm họa 
+(fire, flood, ransomware). 
+- Cấu phần sao lưu: 
++ Cơ sở dữ liệu Oracle: Sao lưu theo hai cấp độ: 
+• Sao lưu toàn bộ (Full Backup) mỗi tuần một lần. 
+• Sao lưu gia tăng (Incremental Backup) mỗi ngày một lần, lưu lại toàn bộ thay 
+đổi từ bản sao lưu gần nhất. 
+• Tích hợp cơ chế RMAN (Recovery Manager) của Oracle để tự động hóa quy 
+trình và kiểm tra tính toàn vẹn của file backup. 
++ Tài liệu số hóa và file hệ thống: Sao lưu đồng bộ bằng công cụ chuyên dụng 
+(rsync, rclone hoặc snapshot trên MinIO) để đảm bảo bản sao cập nhật nhất của dữ 
+liệu được lưu trữ an toàn. 
++ Cấu hình hệ thống và ứng dụng: Các file cấu hình của Nginx, Kubernetes, 
+ứng dụng web và API được sao lưu định kỳ để có thể nhanh chóng khôi phục môi 
+trường vận hành khi cần thiết. 
+Quy trình phục hồi dữ liệu (Data Recovery) 
+Phương án phục hồi được thiết kế nhằm rút ngắn tối đa thời gian gián đoạn 
+(Downtime) trong trường hợp sự cố: 
++ Khi xảy ra sự cố, hệ thống giám sát (monitoring) tự động gửi cảnh báo đến 
+đội kỹ thuật. 
++ Quản trị viên xác định nguyên nhân và lựa chọn kịch bản khôi phục phù hợp: 
++ Khôi phục logic: Khôi phục dữ liệu cụ thể từ bản sao lưu (khi lỗi do người 
+dùng xóa nhầm, hỏng một phần dữ liệu). 
++ Khôi phục toàn hệ thống: Áp dụng khi máy chủ hoặc cụm cơ sở dữ liệu bị lỗi 
+toàn bộ; triển khai phục hồi từ bản sao lưu gần nhất. 
+
+
+=== PAGE 68 ===
+68 
+ 
++ Hệ thống Oracle RMAN cho phép phục hồi đến thời điểm cụ thể (Point-in-
+Time Recovery), đảm bảo khôi phục dữ liệu chính xác đến trước thời điểm sự cố. 
+Sau khi khôi phục, quy trình xác minh tính toàn vẹn dữ liệu (Data Validation) 
+sẽ được thực hiện bằng cách đối chiếu checksum, log và các bản ghi giao dịch. Toàn 
+bộ hoạt động backup & restore được ghi lại và lưu trong nhật ký quản trị để phục vụ 
+kiểm toán, tra soát khi cần. 
+Tần suất và thời điểm sao lưu 
+Loại sao lưu 
+Tần suất 
+Thời điểm thực hiện 
+Thời gian 
+lưu trữ 
+Sao lưu toàn bộ (Full 
+Backup) 
+Hàng 
+tuần 
+Cuối mỗi Chủ nhật (23h00 - 
+02h00) 
+3 tháng 
+Sao 
+lưu 
+gia 
+tăng 
+(Incremental Backup) 
+Hàng 
+ngày 
+23h00 - 00h00 
+30 ngày 
+Sao lưu nhật ký (Log 
+Backup) 
+Mỗi 
+4 
+giờ 
+0h, 4h, 8h, 12h, 16h, 20h 
+7 ngày 
+Sao lưu off-site 
+Hàng 
+tuần 
+Tự động đồng bộ về trung tâm 
+dữ liệu dự phòng 
+6 tháng 
+Tất cả dữ liệu sao lưu được mã hóa và lưu trên hạ tầng bảo mật của 
+EVNHANOI, tuân thủ các quy định nội bộ về ATTT (theo 676/QĐ-EVN, 
+5337/EVNHANOI-VTCNTT, 9038/QĐ-EVNHANOI). 
+Phương án bảo trì và duy trì hoạt động Backup & Recovery 
+Để hệ thống sao lưu - phục hồi luôn sẵn sàng, cần xây dựng kế hoạch bảo trì 
+định kỳ: 
++ Kiểm tra trạng thái thiết bị lưu trữ (ổ cứng, NAS, server backup) mỗi tháng. 
++ Kiểm thử khôi phục ngẫu nhiên (Random Restore Test) ít nhất 1 lần/quý để 
+bảo đảm dữ liệu có thể phục hồi thực tế. 
++ Cập nhật và vá lỗi phần mềm sao lưu, đặc biệt là các bản vá bảo mật của 
+Oracle RMAN và hệ điều hành. 
+- Xây dựng nhật ký vận hành backup để giám sát, thống kê tỉ lệ thành công của 
+các phiên sao lưu và phục hồi.  
+* Đối với phần mềm nội bộ: 
+
+
+=== PAGE 69 ===
+69 
+ 
+- Ngoài các yêu cầu về an toàn thông tin đã nêu ở trên, căn cứ Khoản 8, Điều 9, 
+Thông tư số 12/2022/TT-BTTTT ngày 12/8/2022 của Bộ Thông tin và Truyền thông, 
+hạng mục Phần mềm nội bộ: Phần mềm Số hóa hồ sơ kỹ thuật của Đường dây và 
+Trạm cần đảm bảo các yêu cầu sau: 
++ Phải tuân thủ Khung phát triển phần mềm an toàn do Cục An toàn thông tin - 
+Bộ Thông tin và Truyền thông (nay là Bộ Khoa học và Công nghệ) đã ban hành tại 
+Công văn số 166/BTTTT-CATTT ngày 10/02/2022 của Bộ Thông tin và Truyền 
+thông; 
++ Phải đáp ứng yêu cầu an toàn cơ bản đối với Phần mềm nội bộ được Bộ Thông 
+tin và Truyền thông ban hành tại Quyết định số 742/QĐ-BTTTT ngày 22/4/2022 về 
+ban hành yêu cầu an toàn cơ bản đối với phần mềm nội bộ: cấp độ 2 về ATTT.  
+6. BẢNG CAM KẾT ĐẶC TÍNH KỸ THUẬT CỦA HỆ THỐNG PHẦN MỀM 
+STT 
+Tên công việc 
+Yêu cầu 
+Nhà thầu đề nghị 
+và cam kết 
+ 
+Nhà sản xuất 
+Ghi rõ 
+ 
+ 
+Mã hiệu sản phẩm 
+Ghi rõ 
+ 
+ 
+Năm sản xuất 
+Ghi rõ 
+ 
+I 
+YÊU CẦU CỦA NGƯỜI SỬ DỤNG 
+ 
+ 
+1 
+Yêu cầu chung  
+(chi tiết tại Mục B-II-1.2.3a thuộc Chương V của 
+E-HSMT) 
+Đáp ứng 
+ 
+2 
+Yêu cầu về thông tin thiết bị quản lý trong phần 
+mềm  
+(chi tiết tại Mục B-II-1.2.3b thuộc Chương V của 
+E-HSMT) 
+Đáp ứng 
+ 
+ 
+- Lưới điện cao áp 
+Đáp ứng 
+ 
+ 
+- Lưới điện trung áp 
+Đáp ứng 
+ 
+3 
+Yêu cầu về chức năng phần mềm  
+(chi tiết tại Mục B-II-1.2.3c thuộc Chương V của 
+E-HSMT) 
+Đáp ứng 
+ 
+4 
+Yêu cầu tính năng theo sơ đồ quy trình tổng thể 
+hệ thống  
+(chi tiết tại Mục B-II-1.2.3d thuộc Chương V của 
+E-HSMT) 
+Đáp ứng 
+ 
+5 
+Yêu cầu tính năng theo chi tiết từng chức năng 
+trong hệ thống  
+Đáp ứng 
+ 
+
+
+=== PAGE 70 ===
+70 
+ 
+STT 
+Tên công việc 
+Yêu cầu 
+Nhà thầu đề nghị 
+và cam kết 
+(chi tiết tại Mục B-II-1.2.3e thuộc Chương V của 
+E-HSMT) 
+ 
+- Quy trình nghiệp vụ khởi tạo đơn vị sử dụng 
+Đáp ứng 
+ 
+ 
+- Quy trình nghiệp vụ khởi tạo người dùng 
+Đáp ứng 
+ 
+ 
+- Quy trình nghiệp vụ khai báo danh mục (DM) 
+dùng riêng 
+Đáp ứng 
+ 
+ 
+- Quy trình nghiệp vụ khởi tạo nơi lưu trữ hồ sơ 
+Đáp ứng 
+ 
+ 
+- Quy trình nghiệp vụ khởi tạo loại hồ sơ 
+Đáp ứng 
+ 
+ 
+- Quy trình nghiệp vụ nhập hồ sơ - kiểm duyệt hồ 
+sơ 
+Đáp ứng 
+ 
+6 
+Danh sách yêu cầu chức năng phần mềm  
+(chi tiết tại Mục B-II-1.2.3f thuộc Chương V của 
+E-HSMT) 
+Đáp ứng 
+ 
+II 
+YÊU CẦU PHI CHỨC NĂNG 
+ 
+ 
+1 
+Yêu cầu cần đáp ứng đối với CSDL  
+(chi tiết tại Mục B-II-1.3.1 thuộc Chương V của 
+E-HSMT) 
+Đáp ứng 
+ 
+2 
+Yêu cầu về an toàn thông tin  
+(chi tiết tại Mục B-II-1.3.2 thuộc Chương V của 
+E-HSMT) 
+Đáp ứng 
+ 
+3 
+Các yêu cầu cần đáp ứng về thời gian xử lý, độ 
+phức tạp xử lý của các phần mềm  
+(chi tiết tại Mục B-II-1.3.3 thuộc Chương V của 
+E-HSMT) 
+Đáp ứng 
+ 
+4 
+Các yêu cầu về cài đặt, hạ tầng, đường truyền, an 
+toàn vận hành, khai thác sử dụng 
+ (chi tiết tại Mục B-II-1.3.4 thuộc Chương V của 
+E-HSMT) 
+Đáp ứng 
+ 
+5 
+Yêu cầu tương thích các ràng buộc đối với hệ 
+thống  
+(chi tiết tại Mục B-II-1.3.5 thuộc Chương V của 
+E-HSMT) 
+Đáp ứng 
+ 
+ 
+- Tương thích với hạ tầng hiện có 
+Đáp ứng 
+ 
+ 
+- Phải kết nối, chia sẻ dữ liệu với các phần mềm 
+quản lý hiện có như PMIS, CMIS, ERP và nền 
+tảng tích hợp dùng chung của EVNHANOI 
+Đáp ứng 
+ 
+
+
+=== PAGE 71 ===
+71 
+ 
+STT 
+Tên công việc 
+Yêu cầu 
+Nhà thầu đề nghị 
+và cam kết 
+6 
+Yêu cầu về tính sẵn sàng với IPv6 hoặc giải pháp 
+nâng cấp bảo đảm sẵn sàng với IPv6 nếu hoạt 
+động trên môi trường Internet  
+(chi tiết tại Mục B-II-1.3.6 thuộc Chương V của 
+E-HSMT) 
+Đáp ứng 
+ 
+7 
+Yêu cầu về tích hợp, kết nối và chia sẻ với các hệ 
+thống khác  
+(chi tiết tại Mục B-II-1.3.7.1 thuộc Chương V của 
+E-HSMT) 
+Đáp ứng 
+ 
+ 
+- Yêu cầu về tích hợp và kết nối 
+Đáp ứng 
+ 
+ 
+- Yêu cầu về chia sẻ dữ liệu 
+Đáp ứng 
+ 
+ 
+- Giải pháp công nghệ áp dụng 
+Đáp ứng 
+ 
+8 
+Yêu cầu môi trường phát triển, nâng cấp, chỉnh 
+sửa phần mềm  
+(chi tiết tại Mục B-II-1.3.7.2 thuộc Chương V của 
+E-HSMT) 
+Đáp ứng 
+ 
+ 
+- Yêu cầu về môi trường phát triển phần mềm 
+Đáp ứng 
+ 
+ 
+- Yêu cầu về kiểm thử và an toàn thông tin 
+Đáp ứng 
+ 
+ 
+- Yêu cầu về khả năng nâng cấp và mở rộng 
+Đáp ứng 
+ 
+9 
+Yêu cầu Kiểm tra, đánh giá an toàn thông tin  
+(chi tiết tại Mục B-II-1.3.7.3 thuộc Chương V của 
+E-HSMT) 
+Đáp ứng 
+ 
+III 
+YÊU CẦU KHÁC 
+ 
+ 
+1 
+Yêu cầu về mức độ chịu đựng sai hỏng đối với các 
+lỗi cú pháp lập trình, lỗi lô-gic trong xử lý dữ liệu, 
+lỗi kiểm soát tính đúng đắn của dữ liệu đầu vào  
+(chi tiết tại Mục B-II-1.4 thuộc Chương V của E-
+HSMT) 
+Đáp ứng 
+ 
+ 
+- Yêu cầu về khả năng chịu đựng sai hỏng phần 
+mềm 
+Đáp ứng 
+ 
+ 
+- Yêu cầu xử lý lỗi cú pháp lập trình và lỗi lô-gic 
+Đáp ứng 
+ 
+ 
+- Yêu cầu kiểm soát tính đúng đắn của dữ liệu đầu 
+vào 
+Đáp ứng 
+ 
+2 
+Yêu cầu về mỹ thuật, kỹ thuật cần đạt được của 
+các giao diện chương trình  
+(chi tiết tại Mục B-II-1.5 thuộc Chương V của E-
+HSMT) 
+Đáp ứng 
+ 
+
+
+=== PAGE 72 ===
+72 
+ 
+STT 
+Tên công việc 
+Yêu cầu 
+Nhà thầu đề nghị 
+và cam kết 
+ 
+- Yêu cầu về mỹ thuật giao diện chương trình 
+Đáp ứng 
+ 
+ 
+- Yêu cầu về kỹ thuật giao diện chương trình 
+Đáp ứng 
+ 
+3 
+Các yêu cầu về đào tạo hướng dẫn sử dụng, quản 
+trị, vận hành  
+(chi tiết tại Mục B-II-3 thuộc Chương V của E-
+HSMT) 
+Đáp ứng 
+ 
+ 
+- Yêu cầu đào tạo, hướng dẫn sử dụng cho người 
+dùng cuối 
+Đáp ứng 
+ 
+ 
+- Yêu cầu đào tạo cho cán bộ quản trị và vận hành 
+hệ thống 
+Đáp ứng 
+ 
+ 
+- Yêu cầu về Phương thức và hình thức đào tạo 
+Đáp ứng 
+ 
+4 
+Các yêu cầu về công tác nghiệm thu bàn giao, 
+kiểm thử hoặc vận hành thử, bảo hành, bảo trì  
+(chi tiết tại Mục B-II-4 thuộc Chương V của E-
+HSMT) 
+Đáp ứng 
+ 
+ 
+- Yêu cầu về Công tác nghiệm thu bàn giao 
+Đáp ứng 
+ 
+ 
+- Yêu cầu về Kiểm thử hoặc vận hành thử 
+Đáp ứng 
+ 
+ 
+- Yêu cầu về Bảo hành, bảo trì sản phẩm 
+Đáp ứng 
+ 
+ 
+- Yêu cầu về nâng cấp và hỗ trợ khác 
+Đáp ứng 
+ 
+ 
+- Tất cả các nội dung trên được xác nhận bởi nhà thầu: 
+ 
+ 
+ 
+ 
+ 
+ 
+CHỨC VỤ NGƯỜI CÓ THẨM QUYỀN 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+(ký tên, đóng dấu) 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+   Họ tên đầy đủ 
+ 
+IV. Tiêu chuẩn, quy chuẩn áp dụng: 
+- Thông tư số 12/2022/TT-BTTTT ngày 12/08/2022 của Bộ Thông tin và Truyền 
+thông quy định chi tiết và hướng dẫn một số điều của Nghị định 85/2016/NĐ-CP 
+ngày 01 tháng 7 năm 2016 về bảo đảm an toàn hệ thống thông tin theo cấp độ; 
+- Thông tư số 39/2017/TT-BTTTT ngày 15/12/2017 của Bộ Thông tin và Truyền 
+thông về việc Ban hành "Danh mục tiêu chuẩn kỹ thuật về ứng dụng công nghệ 
+thông tin trong cơ quan nhà nước". 
+
+
+=== PAGE 73 ===
+73 
+ 
+- Thông tư số 41/2017/TT-BTTTT ngày 19/12/2017 của Bộ Thông tin và Truyền 
+thông ban hành quy định sử dụng chữ ký số cho văn bản điện tử trong cơ quan nhà 
+nước. 
+- Quyết định số 742/QĐ-BTTTT ngày 22/4/2022 của Bộ Thông tin và Truyền thông 
+ban hành yêu cầu an toàn cơ bản đối với Phần mềm nội bộ. 
+- Quyết định số 168/QĐ-EVN ngày 23/2/2023 của Tập đoàn Điện lực Việt Nam về 
+việc phê duyệt Đề án "Đảm bảo an toàn thông tin cho hệ thống thông tin của Tập 
+đoàn Điện lực Quốc gia Việt Nam giai đoạn 2023 - 2028”. 
+- Quyết định số 676/QĐ-EVN ngày 28/5/2025 về việc công bố Danh mục giao diện 
+lập trình ứng dụng (API) của Tập đoàn Điện lực Quốc gia Việt Nam (lần 1 năm 
+2025). 
+- Quyết định số 696/QĐ-EVN ngày 30/5/2025 của Tập đoàn Điện lực Việt Nam về 
+việc ban hành Quy định công tác Viễn thông, Công nghệ thông tin và Tự động hóa 
+trong Tập đoàn Điện lực Việt Nam. 
+- Quyết định số 717/QĐ-EVN ngày 31/5/2025 của Tập đoàn Điện lực Việt Nam về 
+việc ban hành Quy định Đảm bảo An ninh mạng và An toàn thông tin trong Tập 
+đoàn Điện lực Việt Nam. 
+- Quyết định số 4032/EVN-KHCNCĐS ngày 23/6/2025 của Tập đoàn Điện lực Việt 
+Nam về việc bảo đảm ANM&ATTT trong quá trình thực hiện ĐTXD các dự án. 
+- TCVN 10539:2014 ISO/IEC 12207:2008 Kỹ thuật hệ thống và phần mềm - Các quá 
+trình vòng đời phần mềm. 
+- TCVN 10540:2014 ISO/IEC 25051:2006: Kỹ thuật phần mềm - Yêu cầu và đánh 
+giá chất lượng sản phẩm phần mềm - Yêu cầu chất lượng và hướng dẫn kiểm tra 
+sản phẩm phần mềm sẵn sàng phổ biến và thương mại hóa. 
+V. Yêu cầu triển khai hệ thống phần mềm: 
+Lộ trình và phương thức tổ chức thực hiện: 
+(1) Giai đoạn chuẩn bị: 
+- Khảo sát hiện trạng hệ thống hồ sơ, tài liệu, thiết bị. 
+- Lập Báo cáo khảo sát 
+- Lập kế hoạch chi tiết, bao gồm phân công nhân sự, tiến độ, phương án số hóa 
+
+
+=== PAGE 74 ===
+74 
+ 
+và triển khai hạ tầng kỹ thuật. 
+- Xây dựng bộ tiêu chuẩn và quy trình số hóa thống nhất (chuẩn định dạng, cấu 
+trúc dữ liệu, bảo mật). 
+(2) Giai đoạn triển khai: 
+- Ứng dụng công nghệ nhận dạng và bóc tách thông tin bằng công nghệ OCR 
+và  các công cụ AI để nhận dạng ký tự, chuẩn hóa dữ liệu số hóa hồ sơ giấy và tài 
+liệu kỹ thuật. 
+- Phát triển, tích hợp phần mềm quản lý hồ sơ số hóa với hệ thống hiện hữu 
+(PMIS, CBM, Thí nghiệm, Kiểm định). 
+- Cài đặt và cấu hình hạ tầng (máy chủ, cơ sở dữ liệu Oracle, hệ thống lưu trữ 
+MinIO, container Kubernetes, webserver Nginx). 
+- Kiểm thử và vận hành thử hệ thống, đánh giá tính ổn định và độ an toàn thông 
+tin. 
+(3) Giai đoạn đào tạo và chuyển giao: 
+- Tổ chức đào tạo người dùng cuối và cán bộ quản trị vận hành. 
+- Chuyển giao quy trình quản lý, khai thác và bảo trì hệ thống. 
+(4) Giai đoạn vận hành chính thức: 
+- Triển khai diện rộng trong toàn EVNHANOI. 
+- Giám sát vận hành, bảo hành và tối ưu hệ thống định kỳ. 
+ 
+
+

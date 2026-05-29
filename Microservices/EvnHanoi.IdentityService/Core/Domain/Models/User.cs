@@ -4,11 +4,14 @@ namespace EvnHanoi.IdentityService.Core.Domain.Models;
 
 public class User
 {
-    public Guid Id { get; set; } = Guid.NewGuid();
+    public long Id { get; set; }
     public string Username { get; set; } = string.Empty;
     public string PasswordHash { get; set; } = string.Empty;
     public string FullName { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
-    public Guid? UnitId { get; set; }
+    public long? UnitId { get; set; }
     public bool IsActive { get; set; } = true;
+    public int AccessFailedCount { get; set; } = 0;
+    public DateTime? LockoutEnd { get; set; }
+    public bool LockoutEnabled { get; set; } = true;
 }

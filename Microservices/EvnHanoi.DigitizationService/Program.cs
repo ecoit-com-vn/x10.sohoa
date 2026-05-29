@@ -1,5 +1,6 @@
 using EvnHanoi.DigitizationService.Repositories;
 using EvnHanoi.DigitizationService.Services;
+using EvnHanoi.DigitizationService.Workers;
 using EvnHanoi.Infrastructure.Database;
 using EvnHanoi.Infrastructure.Logging;
 using Serilog;
@@ -21,6 +22,8 @@ builder.Services.AddScoped<IMinioStorageService, MinioStorageService>();
 builder.Services.AddScoped<IMessagePublisher, RabbitMqPublisher>();
 builder.Services.AddScoped<IFileAttachmentRepository, FileAttachmentRepository>();
 builder.Services.AddScoped<IDigitizationTaskRepository, DigitizationTaskRepository>();
+builder.Services.AddScoped<IOcrTrainingDataRepository, OcrTrainingDataRepository>();
+builder.Services.AddHostedService<OcrTaskConsumer>();
 
 var app = builder.Build();
 

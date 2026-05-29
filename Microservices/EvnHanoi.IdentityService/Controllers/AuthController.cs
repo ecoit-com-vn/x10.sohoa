@@ -1,5 +1,7 @@
 using System;
 using System.IdentityModel.Tokens.Jwt;
+using System.Net.Http;
+using System.Net.Http.Json;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
@@ -34,45 +36,83 @@ public class AuthController : ControllerBase
 
         if (!string.IsNullOrEmpty(ticket))
         {
-            // Mock SSO Ticket validation
-            var ssoTokenDescriptor = new SecurityTokenDescriptor
+            try
             {
-                Subject = new ClaimsIdentity(new[]
+                using var httpClient = new HttpClient();
+                var ssoUrl = $"http://10.9.165.18:3020/sso/serviceValidate?ticket={ticket}&appCode=QRCODE";
+                
+                var response = await httpClient.GetAsync(ssoUrl);
+                if (!response.IsSuccessStatusCode)
                 {
-                    new Claim(ClaimTypes.NameIdentifier, "9999"),
-                    new Claim(ClaimTypes.Name, "sso_mock_user")
-                }),
-                Expires = DateTime.UtcNow.AddMinutes(60),
-                Issuer = _configuration["Jwt:Issuer"],
-                Audience = _configuration["Jwt:Audience"],
-                SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
-            };
+                    return Unauthorized(new { message = "Không thể kết nối đến máy chủ SSO EVNHANOI để xác thực ticket." });
+                }
+                
+                var ssoResult = await response.Content.ReadFromJsonAsync<SsoValidationResponse>();
+                if (ssoResult == null || ssoResult.Status != "SUCCESS" || ssoResult.Data?.Identity == null)
+                {
+                    var errorMsg = ssoResult?.Message ?? "Ticket không chính xác hoặc đã hết hạn.";
+                    return Unauthorized(new { message = $"Xác thực SSO thất bại: {errorMsg}" });
+                }
+                
+                var identity = ssoResult.Data.Identity;
+                var username = !string.IsNullOrEmpty(identity.UsernameLocal) ? identity.UsernameLocal : identity.Username;
+                
+                var ssoUser = await _userRepository.GetUserByUsernameAsync(username);
+                if (ssoUser == null)
+                {
+                    ssoUser = new EvnHanoi.IdentityService.Core.Domain.Models.User
+                    {
+                        Username = username,
+                        FullName = identity.FullName,
+                        Email = identity.Email,
+                        PasswordHash = BCrypt.Net.BCrypt.HashPassword("SsoUserDefaultPassword_123!"),
+                        IsActive = true,
+                        UnitId = string.IsNullOrEmpty(identity.DeptId) ? null : long.Parse(identity.DeptId)
+                    };
+                    
+                    ssoUser.Id = await _userRepository.CreateAsync(ssoUser);
+                }
+                
+                var ssoTokenDescriptor = new SecurityTokenDescriptor
+                {
+                    Subject = new ClaimsIdentity(new[]
+                    {
+                        new Claim(ClaimTypes.NameIdentifier, ssoUser.Id.ToString()),
+                        new Claim(ClaimTypes.Name, ssoUser.Username)
+                    }),
+                    Expires = DateTime.UtcNow.AddMinutes(60),
+                    Issuer = _configuration["Jwt:Issuer"],
+                    Audience = _configuration["Jwt:Audience"],
+                    SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
+                };
 
-            var ssoAccessToken = tokenHandler.CreateToken(ssoTokenDescriptor);
-            
-            var ssoRefreshDescriptor = new SecurityTokenDescriptor
+                var ssoAccessToken = tokenHandler.CreateToken(ssoTokenDescriptor);
+                
+                var ssoRefreshDescriptor = new SecurityTokenDescriptor
+                {
+                    Subject = new ClaimsIdentity(new[]
+                    {
+                        new Claim(ClaimTypes.NameIdentifier, ssoUser.Id.ToString()),
+                        new Claim("TokenType", "Refresh")
+                    }),
+                    Expires = DateTime.UtcNow.AddDays(7),
+                    Issuer = _configuration["Jwt:Issuer"],
+                    Audience = _configuration["Jwt:Audience"],
+                    SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
+                };
+                
+                var ssoRefreshToken = tokenHandler.CreateToken(ssoRefreshDescriptor);
+
+                return Ok(new 
+                { 
+                    AccessToken = tokenHandler.WriteToken(ssoAccessToken),
+                    RefreshToken = tokenHandler.WriteToken(ssoRefreshToken)
+                });
+            }
+            catch (Exception ex)
             {
-                Subject = new ClaimsIdentity(new[]
-                {
-                    new Claim(ClaimTypes.NameIdentifier, "9999"),
-                    new Claim("TokenType", "Refresh")
-                }),
-                Expires = DateTime.UtcNow.AddDays(7),
-                Issuer = _configuration["Jwt:Issuer"],
-                Audience = _configuration["Jwt:Audience"],
-                SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
-            };
-            
-            var ssoRefreshToken = tokenHandler.CreateToken(ssoRefreshDescriptor);
-
-            // Return EVN SSO JSON format mock
-            return Ok(new 
-            { 
-                access_token = tokenHandler.WriteToken(ssoAccessToken),
-                token_type = "Bearer",
-                expires_in = 3600,
-                refresh_token = tokenHandler.WriteToken(ssoRefreshToken)
-            });
+                return StatusCode(500, new { message = $"Lỗi xác thực hệ thống: {ex.Message}" });
+            }
         }
 
         if (request == null || string.IsNullOrEmpty(request.Username) || string.IsNullOrEmpty(request.Password))
@@ -82,9 +122,49 @@ public class AuthController : ControllerBase
 
         var user = await _userRepository.GetUserByUsernameAsync(request.Username);
         
-        if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
+        if (user == null)
         {
             return Unauthorized(new { message = "Invalid username or password" });
+        }
+
+        // Check if account is locked out
+        if (user.LockoutEnabled && user.LockoutEnd.HasValue && user.LockoutEnd.Value > DateTime.UtcNow)
+        {
+            var remainingTime = user.LockoutEnd.Value - DateTime.UtcNow;
+            return StatusCode(423, new 
+            { 
+                message = $"Tài khoản của bạn đã bị khóa do đăng nhập sai nhiều lần. Vui lòng quay lại sau {Math.Ceiling(remainingTime.TotalMinutes)} phút.",
+                lockoutEnd = user.LockoutEnd.Value 
+            });
+        }
+
+        if (!BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
+        {
+            if (user.LockoutEnabled)
+            {
+                user.AccessFailedCount++;
+                if (user.AccessFailedCount >= 5)
+                {
+                    user.LockoutEnd = DateTime.UtcNow.AddMinutes(15);
+                    user.AccessFailedCount = 0; // Reset counter after locking
+                }
+                await _userRepository.UpdateAsync(user);
+            }
+            
+            var remainingAttempts = user.LockoutEnabled ? (5 - user.AccessFailedCount) : 5;
+            var alertMsg = user.AccessFailedCount == 0 
+                ? "Tài khoản của bạn đã bị khóa tạm thời 15 phút." 
+                : $"Tài khoản hoặc mật khẩu không chính xác. Bạn còn {remainingAttempts} lần thử.";
+
+            return Unauthorized(new { message = alertMsg });
+        }
+
+        // Login success, reset counters
+        if (user.AccessFailedCount > 0 || user.LockoutEnd.HasValue)
+        {
+            user.AccessFailedCount = 0;
+            user.LockoutEnd = null;
+            await _userRepository.UpdateAsync(user);
         }
 
         var tokenDescriptor = new SecurityTokenDescriptor
@@ -158,5 +238,30 @@ public class LoginRequest
 {
     public string Username { get; set; } = string.Empty;
     public string Password { get; set; } = string.Empty;
+}
+
+public class SsoValidationResponse
+{
+    public string Code { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+    public string Message { get; set; } = string.Empty;
+    public SsoValidationData? Data { get; set; }
+}
+
+public class SsoValidationData
+{
+    public string ServiceTicket { get; set; } = string.Empty;
+    public SsoIdentity? Identity { get; set; }
+}
+
+public class SsoIdentity
+{
+    public string Username { get; set; } = string.Empty;
+    public string UsernameLocal { get; set; } = string.Empty;
+    public string FullName { get; set; } = string.Empty;
+    public long UserId { get; set; }
+    public string Email { get; set; } = string.Empty;
+    public string Ns_id { get; set; } = string.Empty;
+    public string DeptId { get; set; } = string.Empty;
 }
 

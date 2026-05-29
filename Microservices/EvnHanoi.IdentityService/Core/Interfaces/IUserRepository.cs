@@ -6,5 +6,6 @@ namespace EvnHanoi.IdentityService.Core.Interfaces;
 public interface IUserRepository
 {
     Task<User?> GetUserByUsernameAsync(string username);
-    // Task<IEnumerable<Role>> GetUserRolesAsync(Guid userId);
+    Task UpdateAsync(User user);
+    Task<long> CreateAsync(User user);
 }

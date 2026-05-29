@@ -1,3 +1,6 @@
+using System;
+using System.Text.Json;
+using System.Threading.Tasks;
 using EvnHanoi.EquipmentService.Core.Entities;
 using EvnHanoi.EquipmentService.Core.Interfaces;
 
@@ -12,8 +15,47 @@ public class EavFormTemplateService : IEavFormTemplateService
         _repository = repository;
     }
 
+    private void ValidateSchema(string schema)
+    {
+        if (string.IsNullOrWhiteSpace(schema))
+        {
+            throw new ArgumentException("Cấu trúc Schema không được để trống.");
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(schema);
+        }
+        catch (JsonException ex)
+        {
+            throw new ArgumentException($"Cấu trúc Schema phải là một chuỗi JSON hợp lệ. Chi tiết lỗi: {ex.Message}", ex);
+        }
+    }
+
+    public async Task<EavFormTemplate> CreateFormTemplateAsync(string name, string description, string schema, string createdBy)
+    {
+        ValidateSchema(schema);
+
+        var template = new EavFormTemplate
+        {
+            Id = Guid.NewGuid(),
+            Name = name,
+            Description = description ?? string.Empty,
+            Schema = schema,
+            Version = 1,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow,
+            CreatedBy = createdBy ?? "admin"
+        };
+
+        await _repository.AddAsync(template);
+        return template;
+    }
+
     public async Task<EavFormTemplate> UpdateFormTemplateAsync(Guid id, string newName, string newDescription, string newSchema, string updatedBy)
     {
+        ValidateSchema(newSchema);
+
         var oldTemplate = await _repository.GetByIdAsync(id);
         if (oldTemplate == null)
         {
