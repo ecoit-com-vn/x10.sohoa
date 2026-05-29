@@ -1,0 +1,34 @@
+{
+  "DASHBOARD": {
+    "TITLE": "Tổng quan Hệ thống Số hóa EVNHANOI",
+    "SUBTITLE": "Chào mừng bạn quay lại, admin! Dưới đây là thông số đo lường hiệu suất số hóa và vận hành thời gian thực.",
+    "TOTAL_DOSSIERS": "Tổng hồ sơ số hóa",
+    "PENDING_OCR": "Hồ sơ chờ quét OCR",
+    "COMPLETED_OCR": "Số hóa thành công",
+    "SYSTEM_LOGS": "Nhật ký hệ thống",
+    "RECENT_ACTIVITIES": "Hoạt động gần đây",
+    "SYNC_STATUS": "Trạng thái đồng bộ PMIS"
+  },
+  "NAVBAR": {
+    "HOME": "Trang chủ",
+    "DIGITIZATION": "Quản lý Số hóa",
+    "EQUIPMENTS": "Thiết bị & Lý lịch",
+    "PHYSICAL_STORAGE": "Kho vật lý",
+    "REPORTS": "Thống kê & Báo cáo",
+    "ADMINISTRATION": "Quản trị hệ thống",
+    "AUDIT_LOGS": "Nhật ký thao tác",
+    "SYNC_CONFIG": "Đồng bộ PMIS",
+    "USER_MANAGEMENT": "Người dùng"
+  },
+  "COMMON": {
+    "SEARCH": "Tìm kiếm",
+    "ADD": "Thêm mới",
+    "EDIT": "Chỉnh sửa",
+    "DELETE": "Xóa",
+    "SAVE": "Lưu",
+    "CANCEL": "Hủy bỏ",
+    "EXPORT": "Xuất dữ liệu",
+    "SUCCESS": "Thành công",
+    "ERROR": "Có lỗi xảy ra"
+  }
+}

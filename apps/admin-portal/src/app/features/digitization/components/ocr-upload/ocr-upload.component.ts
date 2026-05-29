@@ -5,6 +5,7 @@ import { CardModule } from 'primeng/card';
 import { MessageService } from 'primeng/api';
 import { ToastModule } from 'primeng/toast';
 import { HttpClient } from '@angular/common/http';
+import { environment } from '../../../../../environments/environment';
 
 @Component({
   selector: 'app-ocr-upload',
@@ -25,7 +26,7 @@ export class OcrUploadComponent {
       formData.append('files', file);
     }
 
-    this.http.post('http://localhost:5000/api/v1/digitization/upload', formData).subscribe({
+    this.http.post(`${environment.apiGatewayUrl}/api/v1/digitization/upload`, formData).subscribe({
       next: () => {
         this.messageService.add({severity: 'info', summary: 'Thành công', detail: 'Đã tải lên tệp để xử lý OCR'});
       },

@@ -10,8 +10,13 @@ export const DIGITIZATION_ROUTES: Routes = [
     loadComponent: () => import('./ocr-allocation.component').then(m => m.OcrAllocationComponent)
   },
   {
+    path: 'ocr-training',
+    loadComponent: () => import('./components/ocr-training/ocr-training.component').then(m => m.OcrTrainingComponent)
+  },
+  {
     path: '',
     redirectTo: 'ocr-upload',
     pathMatch: 'full'
   }
 ];
+

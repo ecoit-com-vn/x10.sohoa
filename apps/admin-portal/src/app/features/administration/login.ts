@@ -4,6 +4,7 @@ import { Button } from 'primeng/button';
 import { Router, ActivatedRoute } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-login',
@@ -38,31 +39,37 @@ export class Login implements OnInit {
   private http = inject(HttpClient);
   
   ngOnInit() {
-    this.route.queryParams.subscribe(params => {
-      const ticket = params['ticket'];
-      if (ticket) {
-        this.verifySsoTicket(ticket);
-      }
-    });
+    if (typeof window !== 'undefined') {
+      this.route.queryParams.subscribe(params => {
+        const ticket = params['ticket'];
+        if (ticket) {
+          this.verifySsoTicket(ticket);
+        }
+      });
+    }
   }
 
   onSsoLogin() {
-    // Redirect to EVN SSO login
-    const appCode = 'SOHOAX10';
-    const redirectUrl = encodeURIComponent(window.location.origin + '/login');
-    window.location.href = `https://sso.evnhanoi.vn//sso/login?appCode=${appCode}&returnUrl=${redirectUrl}`;
+    if (typeof window !== 'undefined') {
+      // Redirect to EVN SSO login
+      const appCode = 'SOHOAX10';
+      const redirectUrl = encodeURIComponent(window.location.origin + '/login');
+      window.location.href = `https://sso.evnhanoi.vn//sso/login?appCode=${appCode}&returnUrl=${redirectUrl}`;
+    }
   }
 
   verifySsoTicket(ticket: string) {
     this.loading = true;
     this.error = '';
     
-    this.http.post('http://localhost:5000/api/v1/auth/sso', { ticket }).subscribe({
+    this.http.post(`${environment.apiGatewayUrl}/api/v1/auth/login?ticket=${ticket}`, {}).subscribe({
       next: (res: any) => {
         this.loading = false;
-        const token = res.token || res.access_token || res.data?.token || res.data?.access_token;
+        const token = res.token || res.access_token || res.AccessToken || res.data?.token || res.data?.access_token;
         if (token) {
-          localStorage.setItem('token', token);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('token', token);
+          }
           this.router.navigate(['/']); // Redirect to AdminLayout
         } else {
           this.error = 'Phản hồi không chứa token đăng nhập';
@@ -70,7 +77,7 @@ export class Login implements OnInit {
       },
       error: (err) => {
         this.loading = false;
-        this.error = 'Đăng nhập SSO thất bại. Vui lòng thử lại.';
+        this.error = 'Đăng nhập SSO thất bại hoặc tài khoản chưa được thiết lập. Vui lòng thử lại.';
         console.error('SSO Login error', err);
       }
     });

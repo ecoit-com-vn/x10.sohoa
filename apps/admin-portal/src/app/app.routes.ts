@@ -10,6 +10,10 @@ export const appRoutes: Route[] = [
     loadComponent: () => import('./layout/admin-layout').then(m => m.AdminLayout),
     children: [
       {
+        path: 'dashboard',
+        loadComponent: () => import('./features/dashboard/dashboard.component').then(m => m.DashboardComponent)
+      },
+      {
         path: 'administration/user-management',
         loadComponent: () => import('./features/administration/user-management').then(m => m.UserManagement)
       },
@@ -51,7 +55,7 @@ export const appRoutes: Route[] = [
       },
       {
         path: '',
-        redirectTo: 'administration/user-management',
+        redirectTo: 'dashboard',
         pathMatch: 'full'
       }
     ]
