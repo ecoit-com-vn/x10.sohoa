@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <Sdk Name="Aspire.AppHost.Sdk" Version="9.0.0" />
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <IsAspireHost>true</IsAspireHost>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.AppHost" Version="9.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\ApiGateway\EvnHanoi.ApiGateway\EvnHanoi.ApiGateway.csproj" />
+    <ProjectReference Include="..\..\Microservices\EvnHanoi.IdentityService\EvnHanoi.IdentityService.csproj" />
+    <ProjectReference Include="..\..\Microservices\EvnHanoi.EquipmentService\EvnHanoi.EquipmentService.csproj" />
+    <ProjectReference Include="..\..\Microservices\EvnHanoi.DigitizationService\EvnHanoi.DigitizationService.csproj" />
+    <ProjectReference Include="..\..\Microservices\EvnHanoi.NotificationService\EvnHanoi.NotificationService.csproj" />
+    <ProjectReference Include="..\..\Microservices\EvnHanoi.SyncService\EvnHanoi.SyncService.csproj" />
+    <ProjectReference Include="..\..\Microservices\EvnHanoi.WorkflowService\EvnHanoi.WorkflowService.csproj" />
+    <ProjectReference Include="..\..\Microservices\EvnHanoi.ReportService\EvnHanoi.ReportService.csproj" />
+  </ItemGroup>
+
+</Project>

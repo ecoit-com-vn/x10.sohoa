@@ -15,4 +15,8 @@
     <Project Path="Microservices/EvnHanoi.SyncService/EvnHanoi.SyncService.csproj" />
     <Project Path="Microservices/EvnHanoi.WorkflowService/EvnHanoi.WorkflowService.csproj" />
   </Folder>
+  <Folder Name="/Aspire/">
+    <Project Path="Aspire/EvnHanoi.AppHost/EvnHanoi.AppHost.csproj" />
+    <Project Path="Aspire/EvnHanoi.ServiceDefaults/EvnHanoi.ServiceDefaults.csproj" />
+  </Folder>
 </Solution>

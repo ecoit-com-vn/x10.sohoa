@@ -9,8 +9,11 @@ using RedLockNet.SERedis.Configuration;
 using Serilog;
 using StackExchange.Redis;
 using Quartz;
+using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.AddServiceDefaults();
 
 // Setup Serilog
 builder.Host.UseSerilog(SerilogSetupHelper.ConfigureSerilog);
@@ -85,7 +88,10 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
+    app.MapScalarApiReference();
 }
+
+app.MapDefaultEndpoints();
 
 app.UseHttpsRedirection();
 app.MapControllers();

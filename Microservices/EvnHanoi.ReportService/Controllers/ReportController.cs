@@ -1,3 +1,4 @@
+// Microservices/EvnHanoi.ReportService/Controllers/ReportController.cs
 using Microsoft.AspNetCore.Mvc;
 using ClosedXML.Excel;
 using System.IO;
@@ -8,6 +9,8 @@ using System.Linq;
 using Microsoft.Extensions.Configuration;
 using Oracle.ManagedDataAccess.Client;
 using Dapper;
+using EvnHanoi.ReportService.Core.Interfaces;
+using EvnHanoi.ReportService.Core.DTOs;
 
 namespace EvnHanoi.ReportService.Controllers
 {
@@ -16,10 +19,12 @@ namespace EvnHanoi.ReportService.Controllers
     public class ReportController : ControllerBase
     {
         private readonly IConfiguration _configuration;
+        private readonly IReportRepository _reportRepository;
 
-        public ReportController(IConfiguration configuration)
+        public ReportController(IConfiguration configuration, IReportRepository reportRepository)
         {
             _configuration = configuration;
+            _reportRepository = reportRepository;
         }
 
         [HttpGet("export")]
@@ -88,6 +93,100 @@ namespace EvnHanoi.ReportService.Controllers
 
             var fileName = $"ThongKeThietBi_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
             return File(content, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
+        }
+
+        [HttpPost("execute/{reportId}")]
+        public async Task<IActionResult> ExecuteReport(long reportId, [FromBody] ExecuteReportRequest request)
+        {
+            var report = await _reportRepository.GetDynamicReportByIdAsync(reportId);
+            if (report == null) return NotFound("Không tìm thấy báo cáo động");
+            
+            try
+            {
+                var data = await _reportRepository.ExecuteDynamicQueryAsync(report.SqlQuery, request.Parameters);
+                return Ok(data);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest($"Lỗi thực thi truy vấn báo cáo: {ex.Message}");
+            }
+        }
+
+        [HttpPost("export/{reportId}")]
+        public async Task<IActionResult> ExportReport(long reportId, [FromBody] ExecuteReportRequest request)
+        {
+            var report = await _reportRepository.GetDynamicReportByIdAsync(reportId);
+            if (report == null) return NotFound("Không tìm thấy báo cáo động");
+            
+            try
+            {
+                var data = (await _reportRepository.ExecuteDynamicQueryAsync(report.SqlQuery, request.Parameters)).ToList();
+                
+                using var workbook = new XLWorkbook();
+                // Sheet name in Excel cannot exceed 31 chars and cannot contain special characters \ / ? * : [ ]
+                var sheetName = report.Name;
+                foreach (char c in new[] { '\\', '/', '?', '*', ':', '[', ']' })
+                {
+                    sheetName = sheetName.Replace(c, '_');
+                }
+                if (sheetName.Length > 30)
+                {
+                    sheetName = sheetName.Substring(0, 30);
+                }
+                
+                var worksheet = workbook.Worksheets.Add(sheetName);
+                
+                if (data.Count == 0)
+                {
+                    worksheet.Cell(1, 1).Value = "Không có dữ liệu phù hợp với bộ lọc";
+                    worksheet.Cell(1, 1).Style.Font.Italic = true;
+                }
+                else
+                {
+                    var headers = data.First().Keys.ToList();
+                    
+                    // Write Header
+                    for (int col = 0; col < headers.Count; col++)
+                    {
+                        worksheet.Cell(1, col + 1).Value = headers[col];
+                    }
+                    
+                    var headerRange = worksheet.Range(1, 1, 1, headers.Count);
+                    headerRange.Style.Font.Bold = true;
+                    headerRange.Style.Fill.BackgroundColor = XLColor.LightGray;
+                    headerRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+                    headerRange.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+                    
+                    // Write Rows
+                    int rowIdx = 2;
+                    foreach (var row in data)
+                    {
+                        for (int col = 0; col < headers.Count; col++)
+                        {
+                            var val = row[headers[col]];
+                            worksheet.Cell(rowIdx, col + 1).SetValue(val != null ? XLCellValue.FromObject(val) : XLCellValue.FromObject(string.Empty));
+                        }
+                        rowIdx++;
+                    }
+                    
+                    var dataRange = worksheet.Range(2, 1, rowIdx - 1, headers.Count);
+                    dataRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+                    dataRange.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+                }
+                
+                worksheet.Columns().AdjustToContents();
+                
+                using var stream = new MemoryStream();
+                workbook.SaveAs(stream);
+                var content = stream.ToArray();
+                
+                var fileName = $"{report.Name.Replace(" ", "_")}_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+                return File(content, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest($"Lỗi xuất báo cáo Excel: {ex.Message}");
+            }
         }
     }
 

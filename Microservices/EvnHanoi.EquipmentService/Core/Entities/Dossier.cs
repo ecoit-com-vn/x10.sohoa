@@ -17,4 +17,5 @@ public class Dossier
     
     // Publishing Status
     public string PublishStatus { get; set; } = "Draft"; // Draft, Pending, Published
+    public long? UnitId { get; set; }
 }

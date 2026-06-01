@@ -14,10 +14,12 @@
     <PackageReference Include="Quartz.Extensions.Hosting" Version="3.18.1" />
     <PackageReference Include="RabbitMQ.Client" Version="6.8.1" />
     <PackageReference Include="RedLock.net" Version="2.3.2" />
+    <PackageReference Include="Scalar.AspNetCore" Version="2.14.14" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\BuildingBlocks\EvnHanoi.Infrastructure\EvnHanoi.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\Aspire\EvnHanoi.ServiceDefaults\EvnHanoi.ServiceDefaults.csproj" />
   </ItemGroup>
 
 </Project>

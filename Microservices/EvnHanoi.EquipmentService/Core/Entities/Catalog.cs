@@ -10,6 +10,7 @@ public class Catalog
     public string CatalogType { get; set; } = "System"; // e.g. System, Custom
     public long? ParentId { get; set; }
     public string? Description { get; set; }
+    public long? UnitId { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public string? CreatedBy { get; set; }
     public DateTime? UpdatedAt { get; set; }

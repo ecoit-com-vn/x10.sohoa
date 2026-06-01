@@ -6,8 +6,11 @@ using EvnHanoi.IdentityService.Infrastructure.Repositories;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
+using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.AddServiceDefaults();
 
 // 1. Configure Serilog
 builder.Host.UseSerilog((context, services, configuration) =>
@@ -21,7 +24,15 @@ builder.Services.AddOpenApi();
 
 // DI Configuration
 builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IRoleRepository, RoleRepository>();
+builder.Services.AddScoped<ISystemParamRepository, SystemParamRepository>();
+builder.Services.AddScoped<IUnitRepository, UnitRepository>();
+builder.Services.AddScoped<IMenuRepository, MenuRepository>();
+builder.Services.AddScoped<IUserGroupRepository, UserGroupRepository>();
+builder.Services.AddScoped<IUserUnitRoleRepository, UserUnitRoleRepository>();
+builder.Services.AddScoped<IUploadConfigRepository, UploadConfigRepository>();
 builder.Services.AddSingleton(new Elastic.Clients.Elasticsearch.ElasticsearchClient(new Uri(builder.Configuration["Elasticsearch:Uri"] ?? "http://localhost:9200")));
+
 
 // 3. Configure JWT Authentication
 var jwtKey = builder.Configuration["Jwt:Key"] ?? "super_secret_key_12345678901234567890";
@@ -57,7 +68,10 @@ catch (Exception ex)
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
+    app.MapScalarApiReference();
 }
+
+app.MapDefaultEndpoints();
 
 app.UseHttpsRedirection();
 

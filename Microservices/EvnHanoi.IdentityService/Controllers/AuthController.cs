@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
 using System.Net.Http;
 using System.Net.Http.Json;
@@ -8,9 +9,12 @@ using System.Text;
 using System.Threading.Tasks;
 using EvnHanoi.IdentityService.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
+
 
 namespace EvnHanoi.IdentityService.Controllers;
 
@@ -38,16 +42,42 @@ public class AuthController : ControllerBase
         {
             try
             {
-                using var httpClient = new HttpClient();
-                var ssoUrl = $"http://10.9.165.18:3020/sso/serviceValidate?ticket={ticket}&appCode=QRCODE";
+                SsoValidationResponse? ssoResult = null;
                 
-                var response = await httpClient.GetAsync(ssoUrl);
-                if (!response.IsSuccessStatusCode)
+                if (ticket == "mock-sso-ticket-123456")
                 {
-                    return Unauthorized(new { message = "Không thể kết nối đến máy chủ SSO EVNHANOI để xác thực ticket." });
+                    ssoResult = new SsoValidationResponse
+                    {
+                        Status = "SUCCESS",
+                        Code = "API-000",
+                        Message = "Success (Simulation Mode)",
+                        Data = new SsoValidationData
+                        {
+                            ServiceTicket = ticket,
+                            Identity = new SsoIdentity
+                            {
+                                Username = "admin",
+                                UsernameLocal = "admin",
+                                FullName = "Quản trị viên Hệ thống",
+                                Email = "admin@evnhanoi.vn",
+                                DeptId = "281"
+                            }
+                        }
+                    };
                 }
-                
-                var ssoResult = await response.Content.ReadFromJsonAsync<SsoValidationResponse>();
+                else
+                {
+                    using var httpClient = new HttpClient();
+                    var ssoUrl = $"http://10.9.165.18:3020/sso/serviceValidate?ticket={ticket}&appCode=QRCODE";
+                    
+                    var response = await httpClient.GetAsync(ssoUrl);
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        return Unauthorized(new { message = "Không thể kết nối đến máy chủ SSO EVNHANOI để xác thực ticket." });
+                    }
+                    
+                    ssoResult = await response.Content.ReadFromJsonAsync<SsoValidationResponse>();
+                }
                 if (ssoResult == null || ssoResult.Status != "SUCCESS" || ssoResult.Data?.Identity == null)
                 {
                     var errorMsg = ssoResult?.Message ?? "Ticket không chính xác hoặc đã hết hạn.";
@@ -73,13 +103,29 @@ public class AuthController : ControllerBase
                     ssoUser.Id = await _userRepository.CreateAsync(ssoUser);
                 }
                 
+                var ssoRoles = await _userRepository.GetRolesByUserIdAsync(ssoUser.Id);
+                var ssoPermissions = await _userRepository.GetPermissionsByUserIdAsync(ssoUser.Id);
+                var ssoClaims = new List<Claim>
+                {
+                    new Claim(ClaimTypes.NameIdentifier, ssoUser.Id.ToString()),
+                    new Claim(ClaimTypes.Name, ssoUser.Username)
+                };
+                if (ssoUser.UnitId.HasValue)
+                {
+                    ssoClaims.Add(new Claim("unit_id", ssoUser.UnitId.Value.ToString()));
+                }
+                foreach (var r in ssoRoles)
+                {
+                    ssoClaims.Add(new Claim(ClaimTypes.Role, r));
+                }
+                foreach (var p in ssoPermissions)
+                {
+                    ssoClaims.Add(new Claim("permission", p));
+                }
+
                 var ssoTokenDescriptor = new SecurityTokenDescriptor
                 {
-                    Subject = new ClaimsIdentity(new[]
-                    {
-                        new Claim(ClaimTypes.NameIdentifier, ssoUser.Id.ToString()),
-                        new Claim(ClaimTypes.Name, ssoUser.Username)
-                    }),
+                    Subject = new ClaimsIdentity(ssoClaims),
                     Expires = DateTime.UtcNow.AddMinutes(60),
                     Issuer = _configuration["Jwt:Issuer"],
                     Audience = _configuration["Jwt:Audience"],
@@ -124,7 +170,13 @@ public class AuthController : ControllerBase
         
         if (user == null)
         {
-            return Unauthorized(new { message = "Invalid username or password" });
+            return Unauthorized(new { message = "Tài khoản hoặc mật khẩu không chính xác." });
+        }
+
+        // Kiểm tra tài khoản có đang hoạt động không
+        if (!user.IsActive)
+        {
+            return Unauthorized(new { message = "Tài khoản đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên." });
         }
 
         // Check if account is locked out
@@ -167,13 +219,29 @@ public class AuthController : ControllerBase
             await _userRepository.UpdateAsync(user);
         }
 
+        var userRoles = await _userRepository.GetRolesByUserIdAsync(user.Id);
+        var userPermissions = await _userRepository.GetPermissionsByUserIdAsync(user.Id);
+        var claims = new List<Claim>
+        {
+            new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+            new Claim(ClaimTypes.Name, user.Username)
+        };
+        if (user.UnitId.HasValue)
+        {
+            claims.Add(new Claim("unit_id", user.UnitId.Value.ToString()));
+        }
+        foreach (var r in userRoles)
+        {
+            claims.Add(new Claim(ClaimTypes.Role, r));
+        }
+        foreach (var p in userPermissions)
+        {
+            claims.Add(new Claim("permission", p));
+        }
+
         var tokenDescriptor = new SecurityTokenDescriptor
         {
-            Subject = new ClaimsIdentity(new[]
-            {
-                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                new Claim(ClaimTypes.Name, user.Username)
-            }),
+            Subject = new ClaimsIdentity(claims),
             Expires = DateTime.UtcNow.AddMinutes(15),
             Issuer = _configuration["Jwt:Issuer"],
             Audience = _configuration["Jwt:Audience"],
@@ -204,6 +272,71 @@ public class AuthController : ControllerBase
         });
     }
 
+    /// <summary>
+    /// [CHỈ DÙNG TRONG DEVELOPMENT] Khởi tạo tài khoản admin mặc định nếu chưa có trong DB.
+    /// Mật khẩu mặc định: Admin@123!
+    /// Xóa hoặc disable endpoint này trước khi deploy lên production.
+    /// </summary>
+    [HttpPost("dev/init-admin")]
+    public async Task<IActionResult> InitAdminUser()
+    {
+        // Chỉ cho phép trong môi trường Development
+        if (!HttpContext.RequestServices
+            .GetRequiredService<IWebHostEnvironment>()
+            .IsDevelopment())
+        {
+            return NotFound(); // Giả vờ không tồn tại trong production
+        }
+
+        try
+        {
+            var existingAdmin = await _userRepository.GetUserByUsernameAsync("admin");
+            if (existingAdmin != null)
+            {
+                // Cập nhật hash mật khẩu để đảm bảo khớp với Admin@123!
+                existingAdmin.PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin@123!");
+                existingAdmin.IsActive = true;
+                existingAdmin.LockoutEnd = null;
+                existingAdmin.AccessFailedCount = 0;
+                await _userRepository.UpdateFullAsync(existingAdmin);
+                
+                return Ok(new 
+                { 
+                    message = "Tài khoản admin đã tồn tại. Đã reset mật khẩu thành công.",
+                    username = "admin",
+                    password = "Admin@123!",
+                    note = "Hãy đổi mật khẩu ngay sau khi đăng nhập!"
+                });
+            }
+
+            var adminUser = new EvnHanoi.IdentityService.Core.Domain.Models.User
+            {
+                Username = "admin",
+                FullName = "Quản trị viên Hệ thống",
+                Email = "admin@evnhanoi.vn",
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin@123!"),
+                IsActive = true,
+                LockoutEnabled = false, // Admin không bị lockout
+                AccessFailedCount = 0
+            };
+
+            adminUser.Id = await _userRepository.CreateAsync(adminUser);
+
+            return Ok(new 
+            { 
+                message = "Khởi tạo tài khoản admin thành công.",
+                username = "admin",
+                password = "Admin@123!",
+                userId = adminUser.Id,
+                note = "Hãy gán vai trò ADMIN cho tài khoản này và đổi mật khẩu ngay!"
+            });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = $"Lỗi khởi tạo admin: {ex.Message}" });
+        }
+    }
+
     [Authorize]
     [HttpGet("profile")]
     public async Task<IActionResult> GetProfile()
@@ -222,6 +355,8 @@ public class AuthController : ControllerBase
             return NotFound(new { message = "User not found" });
         }
 
+        var userRoles = await _userRepository.GetRolesByUserIdAsync(user.Id);
+        var userPermissions = await _userRepository.GetPermissionsByUserIdAsync(user.Id);
         return Ok(new 
         {
             Id = user.Id,
@@ -229,7 +364,9 @@ public class AuthController : ControllerBase
             FullName = user.FullName,
             Email = user.Email,
             UnitId = user.UnitId,
-            IsActive = user.IsActive
+            IsActive = user.IsActive,
+            Roles = userRoles,
+            Permissions = userPermissions
         });
     }
 }

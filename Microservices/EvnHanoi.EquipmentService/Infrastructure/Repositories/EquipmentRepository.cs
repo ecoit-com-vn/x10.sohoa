@@ -26,11 +26,19 @@ public class EquipmentRepository : IEquipmentRepository
         return await connection.QuerySingleOrDefaultAsync<Equipment>(sql, new { Id = id });
     }
 
-    public async Task<IEnumerable<Equipment>> GetAllAsync()
+    public async Task<IEnumerable<Equipment>> GetAllAsync(IEnumerable<long>? unitIds = null)
     {
         using var connection = CreateConnection();
-        var sql = "SELECT * FROM Equipments";
-        return await connection.QueryAsync<Equipment>(sql);
+        if (unitIds == null || !unitIds.Any())
+        {
+            var sql = "SELECT * FROM Equipments";
+            return await connection.QueryAsync<Equipment>(sql);
+        }
+        else
+        {
+            var sql = "SELECT * FROM Equipments WHERE UnitId IN :UnitIds";
+            return await connection.QueryAsync<Equipment>(sql, new { UnitIds = unitIds.ToArray() });
+        }
     }
 
     public async Task<bool> CreateWithAttributesAsync(Equipment equipment, IEnumerable<AttributeValue> attributes)
@@ -41,8 +49,8 @@ public class EquipmentRepository : IEquipmentRepository
 
         try
         {
-            var insertEquipmentSql = @"INSERT INTO Equipments (Id, EquipmentTypeId, Name, Code, SerialNumber, CreatedAt, CreatedBy)
-                                       VALUES (:Id, :EquipmentTypeId, :Name, :Code, :SerialNumber, :CreatedAt, :CreatedBy)";
+            var insertEquipmentSql = @"INSERT INTO Equipments (Id, EquipmentTypeId, Name, Code, SerialNumber, CreatedAt, CreatedBy, UnitId)
+                                       VALUES (:Id, :EquipmentTypeId, :Name, :Code, :SerialNumber, :CreatedAt, :CreatedBy, :UnitId)";
             await connection.ExecuteAsync(insertEquipmentSql, equipment, transaction);
 
             if (attributes != null && attributes.Any())
@@ -69,7 +77,8 @@ public class EquipmentRepository : IEquipmentRepository
                     SET EquipmentTypeId = :EquipmentTypeId,
                         Name = :Name,
                         Code = :Code,
-                        SerialNumber = :SerialNumber
+                        SerialNumber = :SerialNumber,
+                        UnitId = :UnitId
                     WHERE Id = :Id";
         var result = await connection.ExecuteAsync(sql, equipment);
         return result > 0;

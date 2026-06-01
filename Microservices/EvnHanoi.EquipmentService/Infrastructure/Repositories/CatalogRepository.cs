@@ -19,11 +19,16 @@ public class CatalogRepository : ICatalogRepository
 
     private IDbConnection CreateConnection() => new OracleConnection(_connectionString);
 
-    public async Task<IEnumerable<Catalog>> GetAllAsync()
+    public async Task<IEnumerable<Catalog>> GetAllAsync(long? unitId = null)
     {
         using var connection = CreateConnection();
-        var sql = "SELECT * FROM CATALOG ORDER BY CreatedAt DESC";
-        return await connection.QueryAsync<Catalog>(sql);
+        var sql = "SELECT * FROM CATALOG WHERE UnitId IS NULL";
+        if (unitId.HasValue)
+        {
+            sql += " OR UnitId = :UnitId";
+        }
+        sql += " ORDER BY CreatedAt DESC";
+        return await connection.QueryAsync<Catalog>(sql, new { UnitId = unitId });
     }
 
     public async Task<Catalog?> GetByIdAsync(long id)
@@ -37,8 +42,8 @@ public class CatalogRepository : ICatalogRepository
     {
         using var connection = CreateConnection();
         var sql = @"
-            INSERT INTO CATALOG (Code, Name, CatalogType, ParentId, Description, CreatedBy)
-            VALUES (:Code, :Name, :CatalogType, :ParentId, :Description, :CreatedBy)
+            INSERT INTO CATALOG (Code, Name, CatalogType, ParentId, Description, UnitId, CreatedBy)
+            VALUES (:Code, :Name, :CatalogType, :ParentId, :Description, :UnitId, :CreatedBy)
             RETURNING Id INTO :Id";
             
         var parameters = new DynamicParameters(catalog);
@@ -58,6 +63,7 @@ public class CatalogRepository : ICatalogRepository
                 CatalogType = :CatalogType, 
                 ParentId = :ParentId, 
                 Description = :Description, 
+                UnitId = :UnitId, 
                 UpdatedAt = CURRENT_TIMESTAMP, 
                 UpdatedBy = :UpdatedBy
             WHERE Id = :Id";

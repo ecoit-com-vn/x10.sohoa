@@ -1,9 +1,12 @@
 using EvnHanoi.Infrastructure.Database;
 using EvnHanoi.Infrastructure.Logging;
 using Serilog;
+using Scalar.AspNetCore;
 using System;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.AddServiceDefaults();
 
 // 1. Configure Serilog
 builder.Host.UseSerilog((context, services, configuration) =>
@@ -14,6 +17,7 @@ builder.Host.UseSerilog((context, services, configuration) =>
 // 2. Add services to the container
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
+builder.Services.AddScoped<EvnHanoi.ReportService.Core.Interfaces.IReportRepository, EvnHanoi.ReportService.Infrastructure.Repositories.ReportRepository>();
 
 var app = builder.Build();
 
@@ -31,7 +35,10 @@ catch (Exception ex)
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
+    app.MapScalarApiReference();
 }
+
+app.MapDefaultEndpoints();
 
 app.UseHttpsRedirection();
 app.MapControllers();

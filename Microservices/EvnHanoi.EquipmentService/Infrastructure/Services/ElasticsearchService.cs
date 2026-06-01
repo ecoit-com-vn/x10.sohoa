@@ -91,18 +91,32 @@ public class ElasticsearchService : IElasticsearchService
         }
     }
 
-    public async Task<IEnumerable<Equipment>> SearchEquipmentsAsync(string keyword)
+    public async Task<IEnumerable<Equipment>> SearchEquipmentsAsync(string keyword, IEnumerable<long>? unitIds = null)
     {
         var searchResponse = await _elasticClient.SearchAsync<Equipment>(s => s
             .Index(IndexName)
             .Query(q => q
-                .MultiMatch(m => m
-                    .Fields(f => f
-                        .Field(p => p.Name)
-                        .Field(p => p.Code)
-                        .Field(p => p.SerialNumber)
+                .Bool(b => b
+                    .Must(m => m
+                        .MultiMatch(mm => mm
+                            .Fields(f => f
+                                .Field(p => p.Name)
+                                .Field(p => p.Code)
+                                .Field(p => p.SerialNumber)
+                            )
+                            .Query(keyword)
+                        )
                     )
-                    .Query(keyword)
+                    .Filter(f => {
+                        if (unitIds != null && unitIds.Any())
+                        {
+                            return f.Terms(t => t
+                                .Field(p => p.UnitId)
+                                .Terms(unitIds)
+                            );
+                        }
+                        return null;
+                    })
                 )
             )
         );

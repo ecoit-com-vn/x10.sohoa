@@ -8,6 +8,8 @@ using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.AddServiceDefaults();
+
 // Setup Serilog
 builder.Host.UseSerilog(SerilogSetupHelper.ConfigureSerilog);
 
@@ -16,9 +18,18 @@ EvnHanoi.Infrastructure.Database.DatabaseMigrationHelper.RunMigrations(builder.C
 
 builder.Services.AddControllers();
 
-// SignalR with Redis
-builder.Services.AddSignalR()
-    .AddStackExchangeRedis(builder.Configuration.GetConnectionString("Redis") ?? "localhost:6379");
+// SignalR with Redis (Optional in Development)
+var redisConnectionString = builder.Configuration.GetConnectionString("Redis");
+var signalRBuilder = builder.Services.AddSignalR();
+if (!string.IsNullOrEmpty(redisConnectionString))
+{
+    signalRBuilder.AddStackExchangeRedis(redisConnectionString);
+    Log.Information("SignalR is configured with Redis backplane.");
+}
+else
+{
+    Log.Warning("Redis connection string is not configured. SignalR is running in local single-server mode (In-Memory).");
+}
 
 builder.Services.AddSingleton<NotificationDispatcher>();
 
@@ -35,9 +46,11 @@ builder.Services.AddHostedService<EquipmentIndexWorker>();
 
 var app = builder.Build();
 
+app.MapDefaultEndpoints();
+
 app.UseRouting();
 
 app.MapControllers();
-app.MapHub<NotificationHub>("/notificationHub");
+app.MapHub<NotificationHub>("/hubs/notifications");
 
 app.Run();

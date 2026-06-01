@@ -36,8 +36,45 @@ public class UserRepository : IUserRepository
                    LockoutEnd, 
                    LockoutEnabled 
             FROM APP_USER 
-            WHERE UserName = :Username AND IsActive = 1";
+            WHERE UserName = :Username";
         return await connection.QuerySingleOrDefaultAsync<User>(sql, new { Username = username });
+    }
+
+    public async Task<System.Collections.Generic.IEnumerable<User>> GetAllAsync()
+    {
+        using var connection = CreateConnection();
+        var sql = @"
+            SELECT Id, 
+                   UserName AS Username, 
+                   Email, 
+                   FullName, 
+                   PasswordHash, 
+                   IsActive, 
+                   OrganizationUnitId AS UnitId, 
+                   AccessFailedCount, 
+                   LockoutEnd, 
+                   LockoutEnabled 
+            FROM APP_USER";
+        return await connection.QueryAsync<User>(sql);
+    }
+
+    public async Task<User?> GetByIdAsync(long id)
+    {
+        using var connection = CreateConnection();
+        var sql = @"
+            SELECT Id, 
+                   UserName AS Username, 
+                   Email, 
+                   FullName, 
+                   PasswordHash, 
+                   IsActive, 
+                   OrganizationUnitId AS UnitId, 
+                   AccessFailedCount, 
+                   LockoutEnd, 
+                   LockoutEnabled 
+            FROM APP_USER
+            WHERE Id = :Id";
+        return await connection.QuerySingleOrDefaultAsync<User>(sql, new { Id = id });
     }
 
     public async Task UpdateAsync(User user)
@@ -55,6 +92,32 @@ public class UserRepository : IUserRepository
             user.LockoutEnd,
             LockoutEnabled = user.LockoutEnabled ? 1 : 0,
             user.Id
+        });
+    }
+
+    public async Task UpdateFullAsync(User user)
+    {
+        using var connection = CreateConnection();
+        var sql = @"
+            UPDATE APP_USER 
+            SET UserName = :Username,
+                Email = :Email,
+                FullName = :FullName,
+                PasswordHash = :PasswordHash,
+                IsActive = :IsActive,
+                OrganizationUnitId = :UnitId,
+                LockoutEnabled = :LockoutEnabled
+            WHERE Id = :Id";
+        await connection.ExecuteAsync(sql, new 
+        {
+            Username = user.Username,
+            Email = user.Email,
+            FullName = user.FullName,
+            PasswordHash = user.PasswordHash,
+            IsActive = user.IsActive ? 1 : 0,
+            UnitId = user.UnitId,
+            LockoutEnabled = user.LockoutEnabled ? 1 : 0,
+            Id = user.Id
         });
     }
 
@@ -77,5 +140,46 @@ public class UserRepository : IUserRepository
         
         await connection.ExecuteAsync(sql, parameters);
         return parameters.Get<long>("Id");
+    }
+
+    public async Task DeleteAsync(long id)
+    {
+        using var connection = CreateConnection();
+        var sql = "DELETE FROM APP_USER WHERE Id = :Id";
+        await connection.ExecuteAsync(sql, new { Id = id });
+    }
+
+    public async Task<System.Collections.Generic.IEnumerable<string>> GetRolesByUserIdAsync(long userId)
+    {
+        using var connection = CreateConnection();
+        var sql = @"
+            SELECT r.Code 
+            FROM ROLE r
+            WHERE r.Id IN (
+                SELECT RoleId FROM USER_ROLE WHERE UserId = :UserId
+                UNION
+                SELECT ugr.RoleId 
+                FROM USER_GROUP_MEMBER ugm
+                INNER JOIN USER_GROUP_ROLE ugr ON ugm.UserGroupId = ugr.UserGroupId
+                WHERE ugm.UserId = :UserId
+            )";
+        return await connection.QueryAsync<string>(sql, new { UserId = userId });
+    }
+
+    public async Task<System.Collections.Generic.IEnumerable<string>> GetPermissionsByUserIdAsync(long userId)
+    {
+        using var connection = CreateConnection();
+        var sql = @"
+            SELECT DISTINCT rp.PermissionCode
+            FROM ROLE_PERMISSION rp
+            WHERE rp.RoleId IN (
+                SELECT RoleId FROM USER_ROLE WHERE UserId = :UserId
+                UNION
+                SELECT ugr.RoleId 
+                FROM USER_GROUP_MEMBER ugm
+                INNER JOIN USER_GROUP_ROLE ugr ON ugm.UserGroupId = ugr.UserGroupId
+                WHERE ugm.UserId = :UserId
+            )";
+        return await connection.QueryAsync<string>(sql, new { UserId = userId });
     }
 }

@@ -24,9 +24,10 @@ public static class DatabaseMigrationHelper
         // For Oracle, EnsureDatabase.For.OracleDatabase is available if DbUp.Oracle supports it,
         // but typically schemas are pre-created in Oracle. We will just execute scripts.
         var upgrader = DeployChanges.To
-            .OracleDatabase(connectionString, ";")
+            .OracleDatabase(connectionString)
             .WithScriptsEmbeddedInAssembly(Assembly.GetExecutingAssembly())
-            .LogToAutodetectedLog() // or use custom Serilog adapter
+            .WithVariablesDisabled()
+            .LogToConsole() // or use custom Serilog adapter
             .Build();
 
         var result = upgrader.PerformUpgrade();

@@ -60,5 +60,30 @@ namespace EvnHanoi.DigitizationService.Services
                 throw;
             }
         }
+
+        public async Task<Stream> DownloadFileAsync(string bucketName, string objectName)
+        {
+            try
+            {
+                var memoryStream = new MemoryStream();
+                var getObjectArgs = new GetObjectArgs()
+                    .WithBucket(bucketName)
+                    .WithObject(objectName)
+                    .WithCallbackStream(stream =>
+                    {
+                        stream.CopyTo(memoryStream);
+                    });
+
+                await _minioClient.GetObjectAsync(getObjectArgs);
+                memoryStream.Position = 0;
+                return memoryStream;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error downloading file {ObjectName} from bucket {BucketName}", objectName, bucketName);
+                throw;
+            }
+        }
     }
 }
+

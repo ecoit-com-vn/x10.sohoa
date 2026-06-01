@@ -6,7 +6,7 @@ using EvnHanoi.WorkflowService.Models;
 namespace EvnHanoi.WorkflowService.Controllers
 {
     [ApiController]
-    [Route("api/v1/workflows")]
+    [Route("api/WorkflowDefinitions")]
     public class WorkflowDefinitionsController : ControllerBase
     {
         private readonly WorkflowDbContext _context;

@@ -1,11 +1,14 @@
 using EvnHanoi.Infrastructure.Database;
 using EvnHanoi.Infrastructure.Logging;
 using Serilog;
+using Scalar.AspNetCore;
 using EvnHanoi.WorkflowService.Data;
 using Microsoft.EntityFrameworkCore;
 using System;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.AddServiceDefaults();
 
 // 1. Configure Serilog
 builder.Host.UseSerilog((context, services, configuration) =>
@@ -25,7 +28,7 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddDbContext<WorkflowDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseOracle(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 var app = builder.Build();
 
@@ -43,7 +46,10 @@ catch (Exception ex)
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
+    app.MapScalarApiReference();
 }
+
+app.MapDefaultEndpoints();
 
 app.UseHttpsRedirection();
 app.UseCors();
