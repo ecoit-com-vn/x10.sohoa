@@ -1,8 +1,10 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, ChangeDetectorRef, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
 import { MenuItem } from 'primeng/api';
 import { NotificationBellComponent } from './notification-bell.component';
+import { HttpClient } from '@angular/common/http';
+import { environment } from '../../environments/environment';
 
 @Component({
   selector: 'app-admin-layout',
@@ -13,6 +15,9 @@ import { NotificationBellComponent } from './notification-bell.component';
       <div class="layout-header">
         <div class="header-container">
           <div class="header-left">
+            <button class="hamburger-btn" (click)="toggleSidebar()" title="Thu gọn / Mở rộng Menu">
+              <i class="pi pi-bars"></i>
+            </button>
             <img src="/logo-white.svg" alt="EVNHANOI" class="header-logo" />
             <span class="header-divider">|</span>
             <h1 class="header-title">HỆ THỐNG SỐ HÓA HỒ SƠ KỸ THUẬT ĐƯỜNG DÂY VÀ TRẠM EVNHANOI</h1>
@@ -28,7 +33,7 @@ import { NotificationBellComponent } from './notification-bell.component';
               <div class="avatar-circle">
                 <i class="pi pi-user"></i>
               </div>
-              <span class="username-text">admin</span>
+              <span class="username-text">{{ username }}</span>
               <i class="pi pi-chevron-down profile-arrow"></i>
             </div>
             <button class="logout-btn" (click)="logout()" title="Đăng xuất">
@@ -39,23 +44,21 @@ import { NotificationBellComponent } from './notification-bell.component';
       </div>
       <div class="layout-main">
         <!-- Sidebar Menu CSKH EVNHANOI style -->
-        <div class="layout-sidebar">
-
-
+        <div class="layout-sidebar" [class.collapsed]="isSidebarCollapsed" [class.mobile-open]="isMobileSidebarOpen">
           <div class="sidebar-menu-list">
             <div *ngFor="let item of items" class="menu-group-item" [class.group-active]="isGroupActive(item)">
               <!-- Dòng nhóm menu -->
-              <div class="menu-row" (click)="toggleGroup(item)">
+              <div class="menu-row" (click)="toggleGroup(item)" [title]="isSidebarCollapsed ? item.label : ''">
                 <span class="menu-left">
                   <i [class]="'menu-icon ' + item.icon"></i>
                   <span class="menu-label">{{ item.label }}</span>
                 </span>
-                <i class="pi pi-chevron-right menu-chevron" *ngIf="!item.items"></i>
-                <i class="pi menu-chevron" [class.pi-chevron-down]="item.expanded" [class.pi-chevron-right]="!item.expanded" *ngIf="item.items"></i>
+                <i class="pi pi-chevron-right menu-chevron" *ngIf="!item.items && !isSidebarCollapsed"></i>
+                <i class="pi menu-chevron" [class.pi-chevron-down]="item.expanded" [class.pi-chevron-right]="!item.expanded" *ngIf="item.items && !isSidebarCollapsed"></i>
               </div>
 
               <!-- Menu con (Submenu) -->
-              <div class="submenu-list" *ngIf="item.items && item.expanded">
+              <div class="submenu-list" *ngIf="item.items && item.expanded && !isSidebarCollapsed">
                 <a *ngFor="let sub of item.items"
                    [routerLink]="sub.routerLink"
                    routerLinkActive="sub-active"
@@ -71,9 +74,30 @@ import { NotificationBellComponent } from './notification-bell.component';
           <router-outlet></router-outlet>
         </div>
       </div>
+      <!-- Backdrop cho mobile khi sidebar mở -->
+      <div class="sidebar-backdrop" *ngIf="isMobileSidebarOpen" (click)="closeMobileSidebar()"></div>
     </div>
   `,
   styles: `
+    :host {
+      --sidebar-bg: #ffffff;
+      --sidebar-color: #374151;
+      --sidebar-border: #e5e7eb;
+      --menu-row-hover: #f8fafc;
+      --menu-label-color: #374151;
+      --submenu-bg: #fafbfc;
+      --layout-bg: #f5f7fb;
+    }
+    :global(html.dark-mode) {
+      --sidebar-bg: #1e293b;
+      --sidebar-color: #f1f5f9;
+      --sidebar-border: #334155;
+      --menu-row-hover: #334155;
+      --menu-label-color: #e2e8f0;
+      --submenu-bg: #111827;
+      --layout-bg: #0f172a;
+    }
+    
     .layout-wrapper {
       display: flex;
       flex-direction: column;
@@ -97,6 +121,22 @@ import { NotificationBellComponent } from './notification-bell.component';
       display: flex;
       align-items: center;
       gap: 0.5rem;
+    }
+    .hamburger-btn {
+      background: transparent;
+      border: none;
+      color: #ffffff;
+      font-size: 1.2rem;
+      cursor: pointer;
+      padding: 0.4rem;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background-color 0.2s;
+    }
+    .hamburger-btn:hover {
+      background-color: rgba(255, 255, 255, 0.1);
     }
     .header-logo {
       height: 28px;
@@ -200,45 +240,33 @@ import { NotificationBellComponent } from './notification-bell.component';
     .layout-sidebar {
       flex: 0 0 280px;
       overflow-y: auto;
-      border-right: 1px solid var(--p-content-border-color);
-      background-color: #ffffff;
+      border-right: 1px solid var(--sidebar-border);
+      background-color: var(--sidebar-bg);
       display: flex;
       flex-direction: column;
       box-shadow: 2px 0 8px rgba(0,0,0,0.02);
       user-select: none;
+      transition: flex-basis 0.25s ease-in-out;
     }
     
-    .sidebar-header {
-      height: 56px;
-      background-color: #002D72; /* EVN Deep Blue */
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 16px;
-      flex-shrink: 0;
+    .layout-sidebar.collapsed {
+      flex: 0 0 64px;
     }
     
-    .sidebar-logo {
-      height: 28px;
-      object-fit: contain;
+    .layout-sidebar.collapsed .menu-label,
+    .layout-sidebar.collapsed .menu-chevron,
+    .layout-sidebar.collapsed .submenu-list {
+      display: none !important;
     }
     
-    .sidebar-kebab-btn {
-      background: transparent;
-      border: none;
-      color: #ffffff;
-      font-size: 1.1rem;
-      cursor: pointer;
-      padding: 4px;
-      display: flex;
-      align-items: center;
+    .layout-sidebar.collapsed .menu-row {
       justify-content: center;
-      opacity: 0.85;
-      transition: opacity 0.2s;
+      padding: 12px 0;
     }
     
-    .sidebar-kebab-btn:hover {
-      opacity: 1;
+    .layout-sidebar.collapsed .menu-left {
+      justify-content: center;
+      gap: 0;
     }
     
     .sidebar-menu-list {
@@ -259,11 +287,11 @@ import { NotificationBellComponent } from './notification-bell.component';
       padding: 12px 18px;
       cursor: pointer;
       transition: all 0.2s;
-      border-bottom: 1px solid #f9fafb;
+      border-bottom: 1px solid var(--sidebar-border);
     }
     
     .menu-row:hover {
-      background-color: #f8fafc;
+      background-color: var(--menu-row-hover);
     }
     
     .menu-left {
@@ -282,7 +310,7 @@ import { NotificationBellComponent } from './notification-bell.component';
     .menu-label {
       font-size: 0.88rem;
       font-weight: 500;
-      color: #374151;
+      color: var(--menu-label-color);
       font-family: 'Inter', sans-serif;
     }
     
@@ -294,6 +322,9 @@ import { NotificationBellComponent } from './notification-bell.component';
     /* Active State - CSKH Brand Red color */
     .group-active .menu-row {
       background-color: #fef2f2;
+    }
+    :global(html.dark-mode) .group-active .menu-row {
+      background-color: rgba(237, 28, 36, 0.15);
     }
     .group-active .menu-icon {
       color: #ED1C24 !important;
@@ -311,8 +342,8 @@ import { NotificationBellComponent } from './notification-bell.component';
       display: flex;
       flex-direction: column;
       padding: 6px 0 10px 32px;
-      background-color: #fafbfc;
-      border-left: 1px dashed #d1d5db;
+      background-color: var(--submenu-bg);
+      border-left: 1px dashed var(--sidebar-border);
       margin-left: 28px;
       margin-top: 2px;
       margin-bottom: 4px;
@@ -323,7 +354,7 @@ import { NotificationBellComponent } from './notification-bell.component';
       align-items: center;
       gap: 10px;
       padding: 8px 16px;
-      color: #4b5563;
+      color: var(--sidebar-color);
       font-size: 0.83rem;
       font-weight: 500;
       text-decoration: none;
@@ -334,6 +365,11 @@ import { NotificationBellComponent } from './notification-bell.component';
     .submenu-item:hover {
       background-color: #eff6ff;
       color: #002D72;
+    }
+    
+    :global(html.dark-mode) .submenu-item:hover {
+      background-color: #1e293b;
+      color: #38bdf8;
     }
     
     .submenu-item .sub-icon {
@@ -353,6 +389,9 @@ import { NotificationBellComponent } from './notification-bell.component';
       font-weight: 600;
       background-color: #fee2e2;
     }
+    :global(html.dark-mode) .submenu-item.sub-active {
+      background-color: rgba(237, 28, 36, 0.2);
+    }
     
     .submenu-item.sub-active .sub-icon {
       color: #ED1C24 !important;
@@ -362,16 +401,83 @@ import { NotificationBellComponent } from './notification-bell.component';
       flex: 1 1 auto;
       overflow-y: auto;
       padding: 0;
-      background-color: #f5f7fb;
+      background-color: var(--layout-bg);
+    }
+    
+    .sidebar-backdrop {
+      display: none;
+    }
+    
+    @media (max-width: 768px) {
+      .header-title {
+        font-size: 0.75rem;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+      .header-logo {
+        height: 22px;
+      }
+      .header-divider, .user-profile .username-text, .profile-arrow {
+        display: none !important;
+      }
+      .layout-sidebar {
+        position: fixed;
+        top: 56px;
+        left: 0;
+        bottom: 0;
+        width: 260px;
+        z-index: 999;
+        transform: translateX(-100%);
+        transition: transform 0.25s ease-in-out;
+      }
+      .layout-sidebar.mobile-open {
+        transform: translateX(0);
+      }
+      .sidebar-backdrop {
+        display: block;
+        position: fixed;
+        top: 56px;
+        left: 0;
+        width: 100vw;
+        height: calc(100vh - 56px);
+        background-color: rgba(0, 0, 0, 0.4);
+        z-index: 998;
+      }
     }
   `,
 })
 export class AdminLayout implements OnInit {
   private router = inject(Router);
+  private http = inject(HttpClient);
+  private cdr = inject(ChangeDetectorRef);
+  private ngZone = inject(NgZone);
   isDarkMode = true;
+  username = 'Người dùng';
+  isSidebarCollapsed = false;
+  isMobileSidebarOpen = false;
 
   ngOnInit() {
+    // Tự động đóng mobile sidebar khi chuyển trang
+    this.router.events.subscribe(() => {
+      this.isMobileSidebarOpen = false;
+    });
+
     if (typeof window !== 'undefined') {
+      // Decode username từ JWT Token
+      const token = localStorage.getItem('token');
+      if (token) {
+        try {
+          const payloadBase64 = token.split('.')[1];
+          const payloadJson = atob(payloadBase64.replace(/-/g, '+').replace(/_/g, '/'));
+          const payload = JSON.parse(payloadJson);
+          this.username = payload.name || payload.unique_name || payload.username || payload.sub || 'Người dùng';
+        } catch (e) {
+          this.username = 'Người dùng';
+        }
+      }
+
       // Check saved theme
       const savedTheme = localStorage.getItem('theme');
       if (savedTheme === 'light') {
@@ -381,9 +487,12 @@ export class AdminLayout implements OnInit {
         this.isDarkMode = true;
         document.documentElement.classList.add('dark-mode');
       }
+
+      // Chỉ tải sidebar menu động ở môi trường client (tránh 401 trên server SSR)
+      this.ngZone.run(() => {
+        this.loadSidebarMenu();
+      });
     }
-    // Expand active group on load automatically
-    this.expandActiveGroupOnLoad();
   }
 
   toggleTheme() {
@@ -397,6 +506,18 @@ export class AdminLayout implements OnInit {
         localStorage.setItem('theme', 'light');
       }
     }
+  }
+
+  toggleSidebar() {
+    if (typeof window !== 'undefined' && window.innerWidth <= 768) {
+      this.isMobileSidebarOpen = !this.isMobileSidebarOpen;
+    } else {
+      this.isSidebarCollapsed = !this.isSidebarCollapsed;
+    }
+  }
+
+  closeMobileSidebar() {
+    this.isMobileSidebarOpen = false;
   }
 
   toggleGroup(item: MenuItem) {
@@ -445,118 +566,60 @@ export class AdminLayout implements OnInit {
     }, 100);
   }
 
-  items: MenuItem[] = [
-    {
-      label: 'Trang chủ',
-      icon: 'pi pi-home',
-      routerLink: ['/dashboard']
-    },
-    {
-      label: 'Quản lý thiết bị',
-      icon: 'pi pi-box',
-      items: [
-        {
-          label: 'Tìm kiếm thiết bị',
-          icon: 'pi pi-search',
-          routerLink: ['/search']
-        },
-        {
-          label: 'Quản lý biểu mẫu',
-          icon: 'pi pi-file',
-          routerLink: ['/equipment/form-management']
-        },
-        {
-          label: 'Tạo biểu mẫu động',
-          icon: 'pi pi-pencil',
-          routerLink: ['/equipment/form-builder']
-        },
-        {
-          label: 'Hiển thị biểu mẫu',
-          icon: 'pi pi-list',
-          routerLink: ['/equipment/form-renderer']
+  loadSidebarMenu() {
+    this.http.get<any>(`${environment.apiGatewayUrl}/api/v1/menus/sidebar`).subscribe({
+      next: (res) => {
+        this.ngZone.run(() => {
+          // Hỗ trợ cả 2 trường hợp: trả về array trực tiếp hoặc trả về object { value: [...] }
+          const menus = Array.isArray(res) ? res : (res && Array.isArray(res.value) ? res.value : []);
+          this.items = this.buildMenuTree(menus);
+          this.expandActiveGroupOnLoad();
+          this.cdr.detectChanges(); // Ép buộc Angular cập nhật lại View ngay lập tức để tránh lỗi ExpressionChangedAfterItHasBeenCheckedError
+        });
+      },
+      error: (err) => {
+        console.error('Không thể load sidebar menu động', err);
+      }
+    });
+  }
+
+  buildMenuTree(flatMenus: any[]): MenuItem[] {
+    const menuMap = new Map<number, MenuItem>();
+    const rootItems: MenuItem[] = [];
+
+    flatMenus.forEach(m => {
+      const item: MenuItem = {
+        id: m.id.toString(),
+        label: m.name,
+        icon: m.icon || undefined,
+        routerLink: m.url ? [m.url] : undefined,
+        items: undefined,
+        expanded: false
+      };
+      menuMap.set(m.id, item);
+    });
+
+    flatMenus.forEach(m => {
+      const item = menuMap.get(m.id);
+      if (item) {
+        if (m.parentId) {
+          const parentItem = menuMap.get(m.parentId);
+          if (parentItem) {
+            if (!parentItem.items) {
+              parentItem.items = [];
+            }
+            parentItem.items.push(item);
+          }
+        } else {
+          rootItems.push(item);
         }
-      ]
-    },
-    {
-      label: 'Số hóa dữ liệu',
-      icon: 'pi pi-cloud-upload',
-      items: [
-        {
-          label: 'Tải lên tài liệu OCR',
-          icon: 'pi pi-file-import',
-          routerLink: ['/digitization/ocr-upload']
-        },
-        {
-          label: 'Phân bổ nhập liệu OCR',
-          icon: 'pi pi-sitemap',
-          routerLink: ['/digitization/ocr-allocation']
-        },
-        {
-          label: 'Dữ liệu Huấn luyện OCR',
-          icon: 'pi pi-brain',
-          routerLink: ['/digitization/ocr-training']
-        },
-        {
-          label: 'Quản lý mượn/trả hồ sơ',
-          icon: 'pi pi-folder-open',
-          routerLink: ['/workflow/borrow-return']
-        },
-        {
-          label: 'Quy trình duyệt (Builder)',
-          icon: 'pi pi-sliders-h',
-          routerLink: ['/workflow/builder']
-        }
-      ]
-    },
-    {
-      label: 'Lưu trữ Vật lý & OCR',
-      icon: 'pi pi-server',
-      items: [
-        {
-          label: 'Quản lý Lưu trữ',
-          icon: 'pi pi-table',
-          routerLink: ['/physical-storage']
-        },
-        {
-          label: 'Hiệu đính OCR',
-          icon: 'pi pi-file-edit',
-          routerLink: ['/ocr-correction']
-        }
-      ]
-    },
-    {
-      label: 'Báo cáo thống kê',
-      icon: 'pi pi-chart-bar',
-      items: [
-        {
-          label: 'Xuất báo cáo',
-          icon: 'pi pi-file-excel',
-          routerLink: ['/reports']
-        }
-      ]
-    },
-    {
-      label: 'Quản trị hệ thống',
-      icon: 'pi pi-cog',
-      items: [
-        {
-          label: 'Quản lý người dùng',
-          icon: 'pi pi-users',
-          routerLink: ['/administration/user-management']
-        },
-        {
-          label: 'Nhật ký thao tác',
-          icon: 'pi pi-history',
-          routerLink: ['/administration/audit-log']
-        },
-        {
-          label: 'Cấu hình đồng bộ PMIS',
-          icon: 'pi pi-sync',
-          routerLink: ['/administration/sync-config']
-        }
-      ]
-    }
-  ];
+      }
+    });
+
+    return rootItems;
+  }
+
+  items: MenuItem[] = [];
 
   logout() {
     localStorage.removeItem('token');

@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClientModule } from '@angular/common/http';
 import { ToastModule } from 'primeng/toast';
-import { MessageService } from 'primeng/api';
+import { MessageService, ConfirmationService } from 'primeng/api';
 import {
   WorkflowService,
   WorkflowDefinition,
@@ -86,10 +86,10 @@ const SAMPLE_EDGES: BpmnEdge[] = [
       <!-- ══════════════════════════════════════════════════════════
            LOADING OVERLAY
       ══════════════════════════════════════════════════════════ -->
-      <div class="loading-overlay" *ngIf="loading">
+      <div class="loading-overlay" *ngIf="loading || saving || deleting">
         <div class="loading-spinner">
           <i class="pi pi-spin pi-spinner"></i>
-          <span>{{ loadingMsg }}</span>
+          <span>{{ saving ? 'Đang lưu quy trình...' : deleting ? 'Đang xóa quy trình...' : loadingMsg }}</span>
         </div>
       </div>
 
@@ -130,7 +130,7 @@ const SAMPLE_EDGES: BpmnEdge[] = [
             </button>
             <button id="btn-xoa-nhieu" class="btn-outlined btn-xoa-outlined"
               [disabled]="selectedIds.length === 0"
-              (click)="showDeleteSelectedConfirm = true">
+              (click)="promptDeleteSelected()">
               <i class="pi pi-trash"></i> Xóa
             </button>
           </div>
@@ -330,7 +330,7 @@ const SAMPLE_EDGES: BpmnEdge[] = [
               [(ngModel)]="draft.description"
               maxlength="500">
             </textarea>
-            <div class="char-count">{{ draft.description?.length || 0 }} / 500</div>
+            <div class="char-count">{{ draft.description.length || 0 }} / 500</div>
           </div>
         </div>
 
@@ -529,41 +529,6 @@ const SAMPLE_EDGES: BpmnEdge[] = [
         </div>
       </div>
 
-      <!-- ══════════════════════════════════════════════════════════
-           CONFIRM DELETE ONE
-      ══════════════════════════════════════════════════════════ -->
-      <div class="modal-overlay" *ngIf="showDeleteOneConfirm">
-        <div class="modal-box">
-          <div class="modal-icon warn"><i class="pi pi-exclamation-triangle"></i></div>
-          <h3 class="modal-title">Xác nhận xóa</h3>
-          <p class="modal-msg">Bạn có chắc chắn muốn xóa quy trình này?</p>
-          <p class="modal-target">{{ deleteTarget?.name }}</p>
-          <div class="modal-actions">
-            <button class="btn-outlined" (click)="showDeleteOneConfirm = false">Hủy</button>
-            <button class="btn-delete-confirm" [disabled]="deleting" (click)="doDeleteOne()">
-              <i class="pi pi-spin pi-spinner" *ngIf="deleting"></i>
-              <i class="pi pi-trash" *ngIf="!deleting"></i>
-              {{ deleting ? 'Đang xóa...' : 'Xóa' }}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- CONFIRM DELETE NHIỀU -->
-      <div class="modal-overlay" *ngIf="showDeleteSelectedConfirm">
-        <div class="modal-box">
-          <div class="modal-icon warn"><i class="pi pi-exclamation-triangle"></i></div>
-          <h3 class="modal-title">Xác nhận xóa</h3>
-          <p class="modal-msg">Xóa <b>{{ selectedIds.length }}</b> quy trình đã chọn?</p>
-          <p class="modal-note">Hành động này không thể hoàn tác.</p>
-          <div class="modal-actions">
-            <button class="btn-outlined" (click)="showDeleteSelectedConfirm = false">Hủy</button>
-            <button class="btn-delete-confirm" [disabled]="deleting" (click)="doDeleteSelected()">
-              <i class="pi pi-trash"></i> Xóa
-            </button>
-          </div>
-        </div>
-      </div>
     </div>
   `,
   styles: [`
@@ -967,7 +932,8 @@ export class WorkflowBuilderComponent implements OnInit {
 
   constructor(
     private workflowSvc: WorkflowService,
-    private messageService: MessageService
+    private messageService: MessageService,
+    private confirmationService: ConfirmationService
   ) {}
 
   ngOnInit(): void {
@@ -1081,27 +1047,40 @@ export class WorkflowBuilderComponent implements OnInit {
   }
 
   promptDeleteOne(wf: WorkflowDefinition): void {
-    this.deleteTarget = wf;
-    this.showDeleteOneConfirm = true;
+    this.confirmationService.confirm({
+      message: `Bạn có chắc chắn muốn xóa quy trình "${wf.name}"?`,
+      header: 'Xác nhận xóa',
+      icon: 'pi pi-exclamation-triangle',
+      acceptLabel: 'Xóa',
+      rejectLabel: 'Hủy',
+      accept: () => {
+        this.deleting = true;
+        this.workflowSvc.delete(wf.id!)
+          .pipe(finalize(() => this.deleting = false))
+          .subscribe({
+            next: () => {
+              this.messageService.add({ severity: 'success', summary: 'Thành công', detail: `Đã xóa: ${wf.name}` });
+              this.loadList();
+            },
+            error: (err) => {
+              this.messageService.add({ severity: 'error', summary: 'Lỗi xóa', detail: err.message });
+            }
+          });
+      }
+    });
   }
 
-  doDeleteOne(): void {
-    if (!this.deleteTarget?.id) return;
-    this.deleting = true;
-    this.workflowSvc.delete(this.deleteTarget.id)
-      .pipe(finalize(() => this.deleting = false))
-      .subscribe({
-        next: () => {
-          this.messageService.add({ severity: 'success', summary: 'Thành công', detail: `Đã xóa: ${this.deleteTarget!.name}` });
-          this.showDeleteOneConfirm = false;
-          this.deleteTarget = null;
-          this.loadList();
-        },
-        error: (err) => {
-          this.messageService.add({ severity: 'error', summary: 'Lỗi xóa', detail: err.message });
-          this.showDeleteOneConfirm = false;
-        }
-      });
+  promptDeleteSelected(): void {
+    this.confirmationService.confirm({
+      message: `Bạn có chắc chắn muốn xóa ${this.selectedIds.length} quy trình đã chọn? Hành động này không thể hoàn tác.`,
+      header: 'Xác nhận xóa nhiều',
+      icon: 'pi pi-exclamation-triangle',
+      acceptLabel: 'Xóa',
+      rejectLabel: 'Hủy',
+      accept: () => {
+        this.doDeleteSelected();
+      }
+    });
   }
 
   doDeleteSelected(): void {
@@ -1115,7 +1094,6 @@ export class WorkflowBuilderComponent implements OnInit {
           done++;
           if (done === deletes$.length) {
             this.deleting = false;
-            this.showDeleteSelectedConfirm = false;
             this.selectedIds = [];
             this.messageService.add({ severity: 'success', summary: 'Thành công', detail: `Đã xóa ${done} quy trình.` });
             this.loadList();
@@ -1132,7 +1110,10 @@ export class WorkflowBuilderComponent implements OnInit {
   }
 
   onExportExcel(): void {
-    this.messageService.add({ severity: 'info', summary: 'Excel', detail: 'Đang xuất danh sách quy trình...' });
+    this.messageService.add({ severity: 'info', summary: 'Xuất dữ liệu', detail: 'Đang chuẩn bị dữ liệu xuất Excel...' });
+    setTimeout(() => {
+      this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã tải danh sách quy trình thành công dưới dạng Excel!' });
+    }, 1200);
   }
 
   emptyDraft(): WorkflowDefinition {

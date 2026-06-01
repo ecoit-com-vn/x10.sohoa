@@ -3,7 +3,9 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
+import { HttpClient } from '@angular/common/http';
 import { DigitizationTaskService } from '../../core/services/digitization-task.service';
+import { environment } from '../../../environments/environment';
 
 interface DocumentTask {
   id: string;
@@ -61,82 +63,130 @@ interface DocumentTask {
               </tr>
             </thead>
             <tbody>
-              <tr *ngIf="loading">
-                <td colspan="6" class="skeleton-row">
-                  <div class="skeleton-bar"></div>
-                  <div class="skeleton-bar short"></div>
-                </td>
-              </tr>
-              <tr *ngFor="let task of tasks; let i = index">
-                <td><code class="text-muted">{{ task.dossierId }}</code></td>
-                <td><b class="wf-name-link" (click)="viewDoc(task)">{{ task.name }}</b></td>
-                <td style="text-align: center;">{{ task.pages }}</td>
-                <td class="col-tt">
-                  <span class="status-pill"
-                    [class.status-inactive]="task.status === 'Chờ phân công'"
-                    [class.status-pending]="task.status === 'Đang xử lý'"
-                    [class.status-active]="task.status === 'Hoàn thành'">
-                    <i class="pi pi-clock"></i>
-                    {{ task.status }}
-                  </span>
-                </td>
-                <td>
-                  <select class="wf-select w-full" [(ngModel)]="task.assignee" style="height: 32px; padding: 2px 8px;" [disabled]="task.status === 'Hoàn thành'">
-                    <option [value]="null" disabled>-- Chọn người phụ trách --</option>
-                    <option *ngFor="let u of users" [value]="u.code">{{ u.name }}</option>
-                  </select>
-                </td>
-                <td class="col-hd">
-                  <button class="btn-tim btn-small" (click)="assignTask(task)" style="height: 32px; padding: 0 10px;" [disabled]="task.status === 'Hoàn thành'">
-                    <i class="pi pi-check"></i> Lưu
-                  </button>
-                </td>
-              </tr>
-              <tr *ngIf="tasks.length === 0 && !loading">
-                <td colspan="6" class="empty-row">
-                  <i class="pi pi-inbox"></i>
-                  <div>Chưa có tài liệu nào cần phân công.</div>
-                </td>
-              </tr>
+              <!-- skeleton loading rows -->
+              <ng-container *ngIf="loading">
+                <tr *ngFor="let item of [1, 2, 3]">
+                  <td><div class="skeleton-shimmer" style="height: 16px; width: 80px; border-radius: 4px;"></div></td>
+                  <td><div class="skeleton-shimmer" style="height: 16px; width: 250px; border-radius: 4px;"></div></td>
+                  <td><div class="skeleton-shimmer" style="height: 16px; width: 40px; border-radius: 4px; margin: auto;"></div></td>
+                  <td class="col-tt"><div class="skeleton-shimmer" style="height: 24px; width: 100px; border-radius: 12px;"></div></td>
+                  <td><div class="skeleton-shimmer" style="height: 32px; width: 100%; border-radius: 4px;"></div></td>
+                  <td class="col-hd"><div class="skeleton-shimmer" style="height: 32px; width: 60px; border-radius: 4px;"></div></td>
+                </tr>
+              </ng-container>
+
+              <ng-container *ngIf="!loading">
+                <tr *ngFor="let task of paginatedTasks; let i = index">
+                  <td><code class="text-muted">{{ task.dossierId }}</code></td>
+                  <td><b class="wf-name-link" (click)="viewDoc(task)">{{ task.name }}</b></td>
+                  <td style="text-align: center;">{{ task.pages }}</td>
+                  <td class="col-tt">
+                    <span class="status-pill"
+                      [class.status-inactive]="task.status === 'Chờ phân công'"
+                      [class.status-pending]="task.status === 'Đang xử lý'"
+                      [class.status-active]="task.status === 'Hoàn thành'">
+                      <i class="pi pi-clock"></i>
+                      {{ task.status }}
+                    </span>
+                  </td>
+                  <td>
+                    <select class="wf-select w-full" [(ngModel)]="task.assignee" style="height: 32px; padding: 2px 8px;" [disabled]="task.status === 'Hoàn thành'">
+                      <option [value]="null" disabled>-- Chọn người phụ trách --</option>
+                      <option *ngFor="let u of users" [value]="u.code">{{ u.name }}</option>
+                    </select>
+                  </td>
+                  <td class="col-hd">
+                    <button class="btn-tim btn-small" (click)="assignTask(task)" style="height: 32px; padding: 0 10px;" [disabled]="task.status === 'Hoàn thành'">
+                      <i class="pi pi-check"></i> Lưu
+                    </button>
+                  </td>
+                </tr>
+                <tr *ngIf="tasks.length === 0">
+                  <td colspan="6" class="empty-row">
+                    <i class="pi pi-inbox"></i>
+                    <div>Chưa có tài liệu nào cần phân công.</div>
+                  </td>
+                </tr>
+              </ng-container>
             </tbody>
           </table>
         </div>
 
         <!-- Footer -->
-        <div class="table-footer" *ngIf="tasks.length > 0">
+        <div class="table-footer" *ngIf="tasks.length > 0 && !loading">
           <span class="record-count">Tổng số: <b>{{ tasks.length }}</b> bản ghi.</span>
           <div class="pagination">
-            <button class="page-btn" disabled><i class="pi pi-chevron-left"></i></button>
-            <span class="page-current">1</span>
-            <button class="page-btn" disabled><i class="pi pi-chevron-right"></i></button>
-            <select class="page-size-sel">
-              <option>10 / trang</option>
-              <option>20 / trang</option>
-              <option>50 / trang</option>
+            <button class="page-btn" (click)="prevPage()" [disabled]="currentPage === 1">
+              <i class="pi pi-chevron-left"></i>
+            </button>
+            <span class="page-current">Trang {{ currentPage }} / {{ totalPages || 1 }}</span>
+            <button class="page-btn" (click)="nextPage()" [disabled]="currentPage >= totalPages">
+              <i class="pi pi-chevron-right"></i>
+            </button>
+            <select class="page-size-sel" [value]="pageSize" (change)="onPageSizeChange($event)">
+              <option [value]="10">10 / trang</option>
+              <option [value]="20">20 / trang</option>
+              <option [value]="50">50 / trang</option>
             </select>
           </div>
         </div>
 
       </div>
     </div>
+  `,
+  styles: `
+    @keyframes shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+    .skeleton-shimmer {
+      background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+    }
+    :global(html.dark-mode) .skeleton-shimmer {
+      background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+      background-size: 200% 100%;
+    }
   `
 })
 export class OcrAllocationComponent implements OnInit {
   tasks: DocumentTask[] = [];
   loading = false;
 
-  users = [
-    { name: 'Nguyễn Văn An (Kỹ sư)', code: 'nguyen.van.an' },
-    { name: 'Trần Thị Bích (Điều độ viên)', code: 'tran.thi.bich' },
-    { name: 'Lê Văn Cường (Chuyên viên)', code: 'le.van.cuong' },
-    { name: 'Quản trị viên (Admin)', code: 'admin' }
-  ];
+  users: any[] = [];
+  
+  currentPage = 1;
+  pageSize = 10;
 
   private digitizationTaskService = inject(DigitizationTaskService);
   private messageService = inject(MessageService);
+  private http = inject(HttpClient);
 
   ngOnInit() {
+    this.loadUsers();
     this.loadTasks();
+  }
+
+  loadUsers() {
+    this.http.get<any[]>(`${environment.apiGatewayUrl}/api/v1/users`).subscribe({
+      next: (data) => {
+        this.users = data.map(u => ({
+          name: `${u.fullName} (${u.username})`,
+          code: u.username
+        }));
+        if (this.users.length === 0) {
+          this.users = [
+            { name: 'Quản trị viên (Admin)', code: 'admin' }
+          ];
+        }
+      },
+      error: () => {
+        this.users = [
+          { name: 'Quản trị viên (Admin)', code: 'admin' }
+        ];
+      }
+    });
   }
 
   loadTasks() {
@@ -152,6 +202,7 @@ export class OcrAllocationComponent implements OnInit {
           assignee: item.assignedToUserId || null
         }));
         this.loading = false;
+        this.currentPage = 1;
       },
       error: (err) => {
         console.error('Error loading digitization tasks', err);
@@ -170,6 +221,32 @@ export class OcrAllocationComponent implements OnInit {
     if (status === 'Pending') return 'Đang xử lý';
     if (status === 'Completed') return 'Hoàn thành';
     return status;
+  }
+
+  get paginatedTasks(): DocumentTask[] {
+    const startIndex = (this.currentPage - 1) * this.pageSize;
+    return this.tasks.slice(startIndex, startIndex + this.pageSize);
+  }
+
+  get totalPages(): number {
+    return Math.ceil(this.tasks.length / this.pageSize);
+  }
+
+  nextPage() {
+    if (this.currentPage < this.totalPages) {
+      this.currentPage++;
+    }
+  }
+
+  prevPage() {
+    if (this.currentPage > 1) {
+      this.currentPage--;
+    }
+  }
+
+  onPageSizeChange(event: any) {
+    this.pageSize = Number(event.target.value);
+    this.currentPage = 1;
   }
 
   assignTask(task: DocumentTask) {
@@ -229,6 +306,10 @@ export class OcrAllocationComponent implements OnInit {
   }
 
   viewDoc(task: DocumentTask) {
-    alert(`Xem chi tiết tài liệu: ${task.name}`);
+    this.messageService.add({
+      severity: 'info',
+      summary: 'Xem chi tiết',
+      detail: `Đang mở tài liệu: ${task.name}`
+    });
   }
 }

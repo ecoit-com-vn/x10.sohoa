@@ -14,9 +14,14 @@ export const DIGITIZATION_ROUTES: Routes = [
     loadComponent: () => import('./components/ocr-training/ocr-training.component').then(m => m.OcrTrainingComponent)
   },
   {
+    path: 'virtual-folders',
+    loadComponent: () => import('./components/virtual-folders/virtual-folders.component').then(m => m.VirtualFoldersComponent)
+  },
+  {
     path: '',
     redirectTo: 'ocr-upload',
     pathMatch: 'full'
   }
 ];
+
 

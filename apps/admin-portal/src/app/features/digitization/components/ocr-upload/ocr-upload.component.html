@@ -28,18 +28,17 @@
         [customUpload]="true"
         (uploadHandler)="onUpload($event)" 
         [multiple]="true" 
-        accept="image/*,application/pdf" 
-        maxFileSize="20000000"
+        [accept]="acceptTypes" 
         chooseLabel="Chọn tài liệu..."
         uploadLabel="Bắt đầu OCR"
         cancelLabel="Hủy bỏ"
         styleClass="mt-2">
         
         <ng-template pTemplate="content">
-            <div class="text-center py-3 text-secondary" *ngIf="true">
+            <div class="text-center py-3 text-secondary">
               <i class="pi pi-cloud-upload" style="font-size: 2.5rem; color: #002D72;"></i>
               <p class="mt-2 font-bold" style="color: #374151;">Nhấp để duyệt file hoặc kéo thả tài liệu vào đây</p>
-              <span class="text-xs text-muted">Hỗ trợ PDF và ảnh dung lượng tối đa 20MB / tệp tin</span>
+              <span class="text-xs text-muted">Hỗ trợ các định dạng ({{ allowedExtensions.toUpperCase() }}) dung lượng tối đa {{ maxFileSizeMb }}MB / tệp tin</span>
             </div>
         </ng-template>
       </p-fileUpload>

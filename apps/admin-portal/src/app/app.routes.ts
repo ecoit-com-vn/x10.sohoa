@@ -1,4 +1,5 @@
 import { Route } from '@angular/router';
+import { authGuard } from './core/guards/auth.guard';
 
 export const appRoutes: Route[] = [
   {
@@ -8,6 +9,7 @@ export const appRoutes: Route[] = [
   {
     path: '',
     loadComponent: () => import('./layout/admin-layout').then(m => m.AdminLayout),
+    canActivate: [authGuard],
     children: [
       {
         path: 'dashboard',
@@ -18,6 +20,30 @@ export const appRoutes: Route[] = [
         loadComponent: () => import('./features/administration/user-management').then(m => m.UserManagement)
       },
       {
+        path: 'administration/menu-management',
+        loadComponent: () => import('./features/administration/menu-management.component').then(m => m.MenuManagement)
+      },
+      {
+        path: 'administration/user-groups',
+        loadComponent: () => import('./features/administration/user-group.component').then(m => m.UserGroupComponent)
+      },
+      {
+        path: 'administration/upload-configuration',
+        loadComponent: () => import('./features/administration/upload-config.component').then(m => m.UploadConfigComponent)
+      },
+      {
+        path: 'administration/role-management',
+        loadComponent: () => import('./features/administration/role-management.component').then(m => m.RoleManagement)
+      },
+      {
+        path: 'administration/system-param',
+        loadComponent: () => import('./features/administration/system-param.component').then(m => m.SystemParam)
+      },
+      {
+        path: 'administration/organization-settings',
+        loadComponent: () => import('./features/administration/organization-settings.component').then(m => m.OrganizationSettings)
+      },
+      {
         path: 'administration/audit-log',
         loadComponent: () => import('./features/administration/audit-log.component').then(m => m.AuditLogComponent)
       },
@@ -26,9 +52,14 @@ export const appRoutes: Route[] = [
         loadComponent: () => import('./features/administration/sync-config.component').then(m => m.SyncConfigComponent)
       },
       {
+        path: 'catalog',
+        loadChildren: () => import('./features/catalog/catalog.routes').then(m => m.CATALOG_ROUTES)
+      },
+      {
         path: 'equipment',
         loadChildren: () => import('./features/equipment/equipment.routes').then(m => m.EQUIPMENT_ROUTES)
       },
+
       {
         path: 'digitization',
         loadChildren: () => import('./features/digitization/digitization.routes').then(m => m.DIGITIZATION_ROUTES)
@@ -54,6 +85,10 @@ export const appRoutes: Route[] = [
         loadChildren: () => import('./features/ocr-correction/ocr-correction.routes').then(m => m.OCR_CORRECTION_ROUTES)
       },
       {
+        path: 'error',
+        loadComponent: () => import('./features/error/global-error.component').then(m => m.GlobalErrorComponent)
+      },
+      {
         path: '',
         redirectTo: 'dashboard',
         pathMatch: 'full'
@@ -62,6 +97,6 @@ export const appRoutes: Route[] = [
   },
   {
     path: '**',
-    redirectTo: ''
+    redirectTo: 'error'
   }
 ];

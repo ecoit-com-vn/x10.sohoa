@@ -48,77 +48,108 @@ import { environment } from '../../../environments/environment';
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let req of requests; let i = index">
-                <td><code>{{ req.id }}</code></td>
-                <td><b class="wf-name-link">{{ req.requester || '—' }}</b></td>
-                <td>{{ req.recordName || '—' }}</td>
-                <td>{{ req.createdAt | date:'dd/MM/yyyy HH:mm' }}</td>
-                <td class="col-tt">
-                  <span class="status-pill"
-                    [class.status-pending]="req.status === 'PENDING'"
-                    [class.status-active]="req.status === 'APPROVED' || req.status === 'BORROWED' || req.status === 'RETURNED'"
-                    [class.status-inactive]="req.status === 'REJECTED'">
-                    <i class="pi pi-clock"></i>
-                    {{ getStatusLabel(req.status) }}
-                  </span>
-                </td>
-                <td class="col-hd">
-                  <ng-container *ngIf="req.status === 'PENDING'">
-                    <button class="act-btn act-edit" (click)="updateStatus(req.id, 'APPROVED')" title="Duyệt yêu cầu">
-                      <i class="pi pi-check"></i>
-                    </button>
-                  </ng-container>
-                  <ng-container *ngIf="req.status === 'APPROVED'">
-                    <button class="act-btn act-edit" (click)="updateStatus(req.id, 'BORROWED')" title="Đã cho mượn">
-                      <i class="pi pi-folder-open"></i>
-                    </button>
-                  </ng-container>
-                  <ng-container *ngIf="req.status === 'BORROWED'">
-                    <button class="act-btn act-edit" (click)="updateStatus(req.id, 'RETURNED')" title="Đã trả hồ sơ">
-                      <i class="pi pi-replay"></i>
-                    </button>
-                  </ng-container>
-                  <span *ngIf="req.status === 'RETURNED' || req.status === 'REJECTED'" class="text-muted">—</span>
-                </td>
-              </tr>
-              <tr *ngIf="requests.length === 0 && !loading">
-                <td colspan="6" class="empty-row">
-                  <i class="pi pi-inbox"></i>
-                  <div>Chưa có yêu cầu mượn/trả hồ sơ nào được gửi lên.</div>
-                </td>
-              </tr>
-              <tr *ngIf="loading">
-                <td colspan="6" class="skeleton-row">
-                  <div class="skeleton-bar"></div>
-                  <div class="skeleton-bar short"></div>
-                </td>
-              </tr>
+              <!-- skeleton loading rows -->
+              <ng-container *ngIf="loading">
+                <tr *ngFor="let item of [1, 2, 3]">
+                  <td><div class="skeleton-shimmer" style="height: 16px; width: 120px; border-radius: 4px;"></div></td>
+                  <td><div class="skeleton-shimmer" style="height: 16px; width: 150px; border-radius: 4px;"></div></td>
+                  <td><div class="skeleton-shimmer" style="height: 16px; width: 100px; border-radius: 4px;"></div></td>
+                  <td><div class="skeleton-shimmer" style="height: 16px; width: 140px; border-radius: 4px;"></div></td>
+                  <td class="col-tt"><div class="skeleton-shimmer" style="height: 24px; width: 100px; border-radius: 12px;"></div></td>
+                  <td class="col-hd"><div class="skeleton-shimmer" style="height: 32px; width: 42px; border-radius: 4px; margin: auto;"></div></td>
+                </tr>
+              </ng-container>
+
+              <ng-container *ngIf="!loading">
+                <tr *ngFor="let req of paginatedRequests; let i = index">
+                  <td><code>{{ req.id }}</code></td>
+                  <td><b class="wf-name-link">{{ req.requester || '—' }}</b></td>
+                  <td>{{ req.recordName || '—' }}</td>
+                  <td>{{ req.createdAt | date:'dd/MM/yyyy HH:mm' }}</td>
+                  <td class="col-tt">
+                    <span class="status-pill"
+                      [class.status-pending]="req.status === 'PENDING'"
+                      [class.status-active]="req.status === 'APPROVED' || req.status === 'BORROWED' || req.status === 'RETURNED'"
+                      [class.status-inactive]="req.status === 'REJECTED'">
+                      <i class="pi pi-clock"></i>
+                      {{ getStatusLabel(req.status) }}
+                    </span>
+                  </td>
+                  <td class="col-hd">
+                    <ng-container *ngIf="req.status === 'PENDING'">
+                      <button class="act-btn act-edit" (click)="updateStatus(req.id, 'APPROVED')" title="Duyệt yêu cầu">
+                        <i class="pi pi-check"></i>
+                      </button>
+                    </ng-container>
+                    <ng-container *ngIf="req.status === 'APPROVED'">
+                      <button class="act-btn act-edit" (click)="updateStatus(req.id, 'BORROWED')" title="Đã cho mượn">
+                        <i class="pi pi-folder-open"></i>
+                      </button>
+                    </ng-container>
+                    <ng-container *ngIf="req.status === 'BORROWED'">
+                      <button class="act-btn act-edit" (click)="updateStatus(req.id, 'RETURNED')" title="Đã trả hồ sơ">
+                        <i class="pi pi-replay"></i>
+                      </button>
+                    </ng-container>
+                    <span *ngIf="req.status === 'RETURNED' || req.status === 'REJECTED'" class="text-muted">—</span>
+                  </td>
+                </tr>
+                <tr *ngIf="requests.length === 0">
+                  <td colspan="6" class="empty-row">
+                    <i class="pi pi-inbox"></i>
+                    <div>Chưa có yêu cầu mượn/trả hồ sơ nào được gửi lên.</div>
+                  </td>
+                </tr>
+              </ng-container>
             </tbody>
           </table>
         </div>
 
         <!-- Footer -->
-        <div class="table-footer" *ngIf="requests.length > 0">
+        <div class="table-footer" *ngIf="requests.length > 0 && !loading">
           <span class="record-count">Tổng số: <b>{{ requests.length }}</b> bản ghi.</span>
           <div class="pagination">
-            <button class="page-btn" disabled><i class="pi pi-chevron-left"></i></button>
-            <span class="page-current">1</span>
-            <button class="page-btn" disabled><i class="pi pi-chevron-right"></i></button>
-            <select class="page-size-sel">
-              <option>10 / trang</option>
-              <option>20 / trang</option>
-              <option>50 / trang</option>
+            <button class="page-btn" (click)="prevPage()" [disabled]="currentPage === 1">
+              <i class="pi pi-chevron-left"></i>
+            </button>
+            <span class="page-current">Trang {{ currentPage }} / {{ totalPages || 1 }}</span>
+            <button class="page-btn" (click)="nextPage()" [disabled]="currentPage >= totalPages">
+              <i class="pi pi-chevron-right"></i>
+            </button>
+            <select class="page-size-sel" [value]="pageSize" (change)="onPageSizeChange($event)">
+              <option [value]="10">10 / trang</option>
+              <option [value]="20">20 / trang</option>
+              <option [value]="50">50 / trang</option>
             </select>
           </div>
         </div>
 
       </div>
     </div>
+  `,
+  styles: `
+    @keyframes shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+    .skeleton-shimmer {
+      background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+    }
+    :global(html.dark-mode) .skeleton-shimmer {
+      background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+      background-size: 200% 100%;
+    }
   `
 })
 export class BorrowReturnComponent implements OnInit {
   requests: any[] = [];
   loading = false;
+  
+  currentPage = 1;
+  pageSize = 10;
+
   private http = inject(HttpClient);
   private messageService = inject(MessageService);
   private apiUrl = `${environment.apiGatewayUrl}/api/v1/workflows`;
@@ -131,7 +162,6 @@ export class BorrowReturnComponent implements OnInit {
     this.loading = true;
     this.http.get<any[]>(this.apiUrl).subscribe({
       next: (data) => {
-        // Map backend BorrowRecord objects to UI requests model
         this.requests = (data || []).map(item => ({
           id: item.id,
           requester: item.requesterId || 'Chuyên viên kỹ thuật',
@@ -140,6 +170,7 @@ export class BorrowReturnComponent implements OnInit {
           status: this.mapBackendState(item.state)
         }));
         this.loading = false;
+        this.currentPage = 1;
       },
       error: (err) => {
         console.error('Error loading requests via API', err);
@@ -155,7 +186,6 @@ export class BorrowReturnComponent implements OnInit {
   }
 
   mapBackendState(state: any): string {
-    // Backend enum: Requested=0, Approved=1, Borrowed=2, Returned=3
     switch (state) {
       case 0:
       case 'Requested':
@@ -181,6 +211,32 @@ export class BorrowReturnComponent implements OnInit {
       case 'RETURNED': return 3;
       default: return 0;
     }
+  }
+
+  get paginatedRequests(): any[] {
+    const startIndex = (this.currentPage - 1) * this.pageSize;
+    return this.requests.slice(startIndex, startIndex + this.pageSize);
+  }
+
+  get totalPages(): number {
+    return Math.ceil(this.requests.length / this.pageSize);
+  }
+
+  nextPage() {
+    if (this.currentPage < this.totalPages) {
+      this.currentPage++;
+    }
+  }
+
+  prevPage() {
+    if (this.currentPage > 1) {
+      this.currentPage--;
+    }
+  }
+
+  onPageSizeChange(event: any) {
+    this.pageSize = Number(event.target.value);
+    this.currentPage = 1;
   }
 
   updateStatus(id: string, status: string) {

@@ -26,16 +26,16 @@ import { SignalRService } from '../core/services/signalr.service';
 
       <p-popover #op>
         <div class="p-3" style="width: 300px;">
-          <h4 class="mb-3">Notifications</h4>
+          <h4 class="mb-3">Thông báo</h4>
           <div *ngIf="notifications.length === 0" class="text-gray-500">
-            No new notifications.
+            Không có thông báo mới.
           </div>
           <div *ngFor="let notif of notifications" class="notification-item p-2 mb-2 border-round surface-100">
             <strong>{{ notif.summary }}</strong>
             <p class="m-0 text-sm">{{ notif.detail }}</p>
           </div>
           <div *ngIf="notifications.length > 0" class="mt-3 text-right">
-            <p-button label="Clear All" [text]="true" size="small" (onClick)="clearNotifications()"></p-button>
+            <p-button label="Xóa tất cả" [text]="true" size="small" (onClick)="clearNotifications()"></p-button>
           </div>
         </div>
       </p-popover>

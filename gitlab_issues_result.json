@@ -1,0 +1,26 @@
+[
+    {
+        "title": "[Bug][Frontend] Không thể đăng nhập bằng SSO do thuộc tính accessToken bị sai định dạng chữ hoa/thường",
+        "status": "FIXED",
+        "description": "Đã sửa thành công trong file login.ts dòng 143. Xác thực SSO (Mock Ticket) hoạt động hoàn hảo.",
+        "labels": "Bug,Frontend,SSO,High-Priority"
+    },
+    {
+        "title": "[DevOps][E2E] Thiếu binary trình duyệt Firefox và Webkit phục vụ test e2e tại local",
+        "status": "FIXED",
+        "description": "Đã tối ưu hóa file playwright.config.ts để mặc định chạy Chromium trên môi trường local.",
+        "labels": "DevOps,E2E-Testing,Medium-Priority"
+    },
+    {
+        "title": "[UI/UX] Nút bật/tắt Giảm nhiễu ảnh OCR chưa phản hồi trực quan trạng thái đang xử lý",
+        "status": "FIXED",
+        "description": "Đã thêm trạng thái isProcessingNoise, spinner loading overlay trong template HTML và giả lập delay 800ms xử lý thực tế trong ocr-correction.component.ts.",
+        "labels": "UI/UX,OCR,Low-Priority"
+    },
+    {
+        "title": "[UI/UX] Cấu hình đồng bộ PMIS cần bổ sung cảnh báo xác nhận trước khi thực hiện đồng bộ lớn",
+        "status": "FIXED",
+        "description": "Đã thiết kế Confirm Modal sang trọng bằng Vanilla CSS/HTML trực tiếp trong sync-config.component.ts để cảnh báo người dùng và yêu cầu xác nhận trước khi kích hoạt đồng bộ nền.",
+        "labels": "UI/UX,Sync-PMIS,Medium-Priority"
+    }
+]

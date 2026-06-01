@@ -1,0 +1,196 @@
+// E:\ecoit\sohoax10\sohoa.frontend\apps\admin-portal\src\app\features\reports\report-group-manager.component.ts
+import { Component, OnInit, Output, EventEmitter, inject } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { HttpClient } from '@angular/common/http';
+import { DialogModule } from 'primeng/dialog';
+import { MessageService } from 'primeng/api';
+import { environment } from '../../../environments/environment';
+
+export interface ReportGroup {
+  id?: number;
+  name: string;
+  sortOrder: number;
+  description?: string;
+  dynamicReports?: any[];
+}
+
+@Component({
+  selector: 'app-report-group-manager',
+  standalone: true,
+  imports: [
+    CommonModule,
+    FormsModule,
+    DialogModule
+  ],
+  template: `
+    <div>
+      <div class="list-toolbar mb-4">
+        <div class="toolbar-left">
+          <h3 class="text-base font-bold m-0" style="color: #002D72;">Quản lý Nhóm Báo cáo</h3>
+        </div>
+        <div class="toolbar-right">
+          <button class="btn-green btn-small" (click)="showCreateDialog()">
+            <i class="pi pi-plus mr-1"></i> Thêm Nhóm Mới
+          </button>
+        </div>
+      </div>
+
+      <div class="wf-table-wrap">
+        <table class="wf-table">
+          <thead>
+            <tr>
+              <th style="width: 80px;" class="text-center">ID</th>
+              <th>Tên nhóm</th>
+              <th style="width: 150px;" class="text-center">Thứ tự sắp xếp</th>
+              <th>Mô tả</th>
+              <th style="width: 150px;" class="text-center">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let group of groups">
+              <td class="text-center text-muted">{{ group.id }}</td>
+              <td><b class="wf-name-link" (click)="showEditDialog(group)">{{ group.name }}</b></td>
+              <td class="text-center">{{ group.sortOrder }}</td>
+              <td class="text-muted">{{ group.description || 'Không có mô tả' }}</td>
+              <td class="text-center">
+                <button class="act-btn act-edit mr-2" (click)="showEditDialog(group)" title="Chỉnh sửa">
+                  <i class="pi pi-pencil"></i>
+                </button>
+                <button class="act-btn act-delete" (click)="deleteGroup(group)" title="Xóa">
+                  <i class="pi pi-trash"></i>
+                </button>
+              </td>
+            </tr>
+            <tr *ngIf="groups.length === 0">
+              <td colspan="5" class="empty-row text-center py-4 text-muted">
+                <i class="pi pi-inbox block text-2xl mb-2"></i>
+                Không có nhóm báo cáo nào.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Dialog CRUD -->
+      <p-dialog [(visible)]="displayDialog" [header]="dialogTitle" [modal]="true" [style]="{width: '450px'}" styleClass="evn-dialog-custom">
+        <div style="display: flex; flex-direction: column; gap: 14px; padding-top: 10px;">
+          <div class="form-group">
+            <label class="form-label">Tên nhóm <span class="required">*</span></label>
+            <input type="text" class="wf-input w-full" [(ngModel)]="currentGroup.name" required placeholder="Nhập tên nhóm báo cáo..." />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Thứ tự sắp xếp</label>
+            <input type="number" class="wf-input w-full" [(ngModel)]="currentGroup.sortOrder" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Mô tả</label>
+            <textarea class="wf-input w-full" [(ngModel)]="currentGroup.description" rows="3" placeholder="Nhập mô tả nhóm..."></textarea>
+          </div>
+        </div>
+
+        <ng-template #footer>
+          <div class="flex gap-2 justify-end pt-3" style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9;">
+            <button class="btn-outlined btn-small" (click)="hideDialog()">Hủy</button>
+            <button class="btn-save btn-small" [disabled]="!currentGroup.name" (click)="saveGroup()">Lưu</button>
+          </div>
+        </ng-template>
+      </p-dialog>
+    </div>
+  `
+})
+export class ReportGroupManagerComponent implements OnInit {
+  @Output() groupChanged = new EventEmitter<void>();
+
+  groups: ReportGroup[] = [];
+  displayDialog = false;
+  dialogTitle = '';
+  currentGroup: ReportGroup = { name: '', sortOrder: 0 };
+  isEdit = false;
+
+  private http = inject(HttpClient);
+  private messageService = inject(MessageService);
+  private apiUrl = `${environment.apiGatewayUrl}/api/v1/report-groups`;
+
+  ngOnInit(): void {
+    this.loadGroups();
+  }
+
+  loadGroups() {
+    this.http.get<ReportGroup[]>(this.apiUrl).subscribe({
+      next: (data) => {
+        this.groups = data;
+      },
+      error: (err) => {
+        console.error('Load report groups error', err);
+        this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể tải danh sách nhóm báo cáo' });
+      }
+    });
+  }
+
+  showCreateDialog() {
+    this.isEdit = false;
+    this.dialogTitle = 'Thêm Nhóm Báo cáo';
+    this.currentGroup = { name: '', sortOrder: this.groups.length + 1, description: '' };
+    this.displayDialog = true;
+  }
+
+  showEditDialog(group: ReportGroup) {
+    this.isEdit = true;
+    this.dialogTitle = 'Sửa Nhóm Báo cáo';
+    this.currentGroup = { ...group };
+    this.displayDialog = true;
+  }
+
+  hideDialog() {
+    this.displayDialog = false;
+  }
+
+  saveGroup() {
+    if (!this.currentGroup.name) return;
+
+    if (this.isEdit) {
+      this.http.put(`${this.apiUrl}/${this.currentGroup.id}`, this.currentGroup).subscribe({
+        next: () => {
+          this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã cập nhật nhóm báo cáo' });
+          this.loadGroups();
+          this.groupChanged.emit();
+          this.displayDialog = false;
+        },
+        error: (err) => {
+          console.error(err);
+          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Cập nhật thất bại' });
+        }
+      });
+    } else {
+      this.http.post(this.apiUrl, this.currentGroup).subscribe({
+        next: () => {
+          this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã thêm nhóm báo cáo mới' });
+          this.loadGroups();
+          this.groupChanged.emit();
+          this.displayDialog = false;
+        },
+        error: (err) => {
+          console.error(err);
+          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Thêm mới thất bại' });
+        }
+      });
+    }
+  }
+
+  deleteGroup(group: ReportGroup) {
+    if (confirm(`Bạn có chắc chắn muốn xóa nhóm "${group.name}"? Tất cả báo cáo thuộc nhóm này cũng sẽ bị xóa.`)) {
+      this.http.delete(`${this.apiUrl}/${group.id}`).subscribe({
+        next: () => {
+          this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã xóa nhóm báo cáo' });
+          this.loadGroups();
+          this.groupChanged.emit();
+        },
+        error: (err) => {
+          console.error(err);
+          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Xóa thất bại' });
+        }
+      });
+    }
+  }
+}
