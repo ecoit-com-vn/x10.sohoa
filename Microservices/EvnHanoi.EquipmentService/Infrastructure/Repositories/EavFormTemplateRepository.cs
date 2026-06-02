@@ -2,41 +2,42 @@ using System.Data;
 using Dapper;
 using EvnHanoi.EquipmentService.Core.Entities;
 using EvnHanoi.EquipmentService.Core.Interfaces;
-using Microsoft.Extensions.Configuration;
-using Oracle.ManagedDataAccess.Client;
 
 namespace EvnHanoi.EquipmentService.Infrastructure.Repositories;
 
 public class EavFormTemplateRepository : IEavFormTemplateRepository
 {
-    private readonly string _connectionString;
+    private readonly IDbConnection _connection;
 
-    public EavFormTemplateRepository(IConfiguration configuration)
+    public EavFormTemplateRepository(IDbConnection connection)
     {
-        _connectionString = configuration.GetConnectionString("DefaultConnection")
-            ?? throw new ArgumentNullException(nameof(configuration));
+        _connection = connection ?? throw new ArgumentNullException(nameof(connection));
     }
-
-    private IDbConnection CreateConnection() => new OracleConnection(_connectionString);
 
     public async Task<EavFormTemplate?> GetByIdAsync(Guid id)
     {
-        using var connection = CreateConnection();
-        var sql = "SELECT * FROM EavFormTemplates WHERE Id = :Id";
-        return await connection.QuerySingleOrDefaultAsync<EavFormTemplate>(sql, new { Id = id });
+        var sql = $"SELECT * FROM {nameof(EavFormTemplate)}s WHERE {nameof(EavFormTemplate.Id)} = :Id";
+        return await _connection.QuerySingleOrDefaultAsync<EavFormTemplate>(sql, new { Id = id });
     }
 
     public async Task<IEnumerable<EavFormTemplate>> GetAllActiveAsync()
     {
-        using var connection = CreateConnection();
-        var sql = "SELECT * FROM EavFormTemplates WHERE IsActive = 1";
-        return await connection.QueryAsync<EavFormTemplate>(sql);
+        var sql = $"SELECT * FROM {nameof(EavFormTemplate)}s WHERE {nameof(EavFormTemplate.IsActive)} = 1";
+        return await _connection.QueryAsync<EavFormTemplate>(sql);
     }
 
     public async Task AddAsync(EavFormTemplate template)
     {
-        using var connection = CreateConnection();
-        var sql = @"INSERT INTO EavFormTemplates (Id, Name, Description, Schema, Version, IsActive, CreatedAt, CreatedBy)
+        var sql = $@"INSERT INTO {nameof(EavFormTemplate)}s (
+                        {nameof(EavFormTemplate.Id)}, 
+                        {nameof(EavFormTemplate.Name)}, 
+                        {nameof(EavFormTemplate.Description)}, 
+                        {nameof(EavFormTemplate.Schema)}, 
+                        {nameof(EavFormTemplate.Version)}, 
+                        {nameof(EavFormTemplate.IsActive)}, 
+                        {nameof(EavFormTemplate.CreatedAt)}, 
+                        {nameof(EavFormTemplate.CreatedBy)}
+                    )
                     VALUES (:Id, :Name, :Description, :Schema, :Version, :IsActive, :CreatedAt, :CreatedBy)";
         
         var param = new
@@ -51,19 +52,18 @@ public class EavFormTemplateRepository : IEavFormTemplateRepository
             template.CreatedBy
         };
 
-        await connection.ExecuteAsync(sql, param);
+        await _connection.ExecuteAsync(sql, param);
     }
 
     public async Task UpdateAsync(EavFormTemplate template)
     {
-        using var connection = CreateConnection();
-        var sql = @"UPDATE EavFormTemplates
-                    SET Name = :Name,
-                        Description = :Description,
-                        Schema = :Schema,
-                        Version = :Version,
-                        IsActive = :IsActive
-                    WHERE Id = :Id";
+        var sql = $@"UPDATE {nameof(EavFormTemplate)}s
+                    SET {nameof(EavFormTemplate.Name)} = :Name,
+                        {nameof(EavFormTemplate.Description)} = :Description,
+                        {nameof(EavFormTemplate.Schema)} = :Schema,
+                        {nameof(EavFormTemplate.Version)} = :Version,
+                        {nameof(EavFormTemplate.IsActive)} = :IsActive
+                    WHERE {nameof(EavFormTemplate.Id)} = :Id";
         
         var param = new
         {
@@ -75,6 +75,6 @@ public class EavFormTemplateRepository : IEavFormTemplateRepository
             IsActive = template.IsActive ? 1 : 0
         };
 
-        await connection.ExecuteAsync(sql, param);
+        await _connection.ExecuteAsync(sql, param);
     }
 }

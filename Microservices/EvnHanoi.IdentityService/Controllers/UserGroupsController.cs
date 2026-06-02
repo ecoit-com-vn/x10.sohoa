@@ -75,7 +75,7 @@ public class UserGroupsController : ControllerBase
     }
 
     [HttpPost("{id}/members")]
-    public async Task<IActionResult> AssignMembers(long id, [FromBody] List<long> userIds)
+    public async Task<IActionResult> AssignMembers(long id, [FromBody] List<string> userIds)
     {
         if (userIds == null) return BadRequest(new { message = "Danh sách thành viên không hợp lệ." });
         var success = await _userGroupRepository.AssignMembersAsync(id, userIds);

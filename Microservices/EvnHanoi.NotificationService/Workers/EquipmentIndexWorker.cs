@@ -20,33 +20,27 @@ public class EquipmentIndexWorker : BackgroundService
     private readonly ElasticsearchClient _elasticClient;
     private readonly IConfiguration _configuration;
     private readonly NotificationDispatcher _notificationDispatcher;
-    private IConnection? _connection;
+    private readonly IConnection _connection;
     private IChannel? _channel;
 
     public EquipmentIndexWorker(
         ILogger<EquipmentIndexWorker> logger, 
         ElasticsearchClient elasticClient, 
         IConfiguration configuration,
-        NotificationDispatcher notificationDispatcher)
+        NotificationDispatcher notificationDispatcher,
+        IConnection connection)
     {
         _logger = logger;
         _elasticClient = elasticClient;
         _configuration = configuration;
         _notificationDispatcher = notificationDispatcher;
+        _connection = connection;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var factory = new ConnectionFactory()
-        {
-            HostName = _configuration["RabbitMQ:HostName"] ?? "localhost",
-            UserName = _configuration["RabbitMQ:UserName"] ?? "guest",
-            Password = _configuration["RabbitMQ:Password"] ?? "guest"
-        };
-
         try
         {
-            _connection = await factory.CreateConnectionAsync(stoppingToken);
             _channel = await _connection.CreateChannelAsync(cancellationToken: stoppingToken);
             
             var queueName = "equipment_sync_queue";
@@ -111,7 +105,6 @@ public class EquipmentIndexWorker : BackgroundService
     public override async Task StopAsync(CancellationToken cancellationToken)
     {
         if (_channel is not null) await _channel.CloseAsync(cancellationToken: cancellationToken);
-        if (_connection is not null) await _connection.CloseAsync(cancellationToken: cancellationToken);
         await base.StopAsync(cancellationToken);
     }
 }

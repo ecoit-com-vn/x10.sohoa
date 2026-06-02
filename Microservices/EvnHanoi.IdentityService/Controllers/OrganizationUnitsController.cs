@@ -9,9 +9,9 @@ namespace EvnHanoi.IdentityService.Controllers;
 [Route("api/v1/organization-units")]
 public class OrganizationUnitsController : ControllerBase
 {
-    private readonly IUnitRepository _unitRepository;
+    private readonly IOrganizationUnitRepository _unitRepository;
 
-    public OrganizationUnitsController(IUnitRepository unitRepository)
+    public OrganizationUnitsController(IOrganizationUnitRepository unitRepository)
     {
         _unitRepository = unitRepository;
     }
@@ -32,7 +32,7 @@ public class OrganizationUnitsController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<IActionResult> Create([FromBody] Unit unit)
+    public async Task<IActionResult> Create([FromBody] OrganizationUnit unit)
     {
         if (string.IsNullOrWhiteSpace(unit.Code) || string.IsNullOrWhiteSpace(unit.Name))
         {
@@ -44,7 +44,7 @@ public class OrganizationUnitsController : ControllerBase
     }
 
     [HttpPut("{id}")]
-    public async Task<IActionResult> Update(long id, [FromBody] Unit unit)
+    public async Task<IActionResult> Update(long id, [FromBody] OrganizationUnit unit)
     {
         if (id != unit.Id) return BadRequest(new { message = "ID không trùng khớp." });
         if (string.IsNullOrWhiteSpace(unit.Code) || string.IsNullOrWhiteSpace(unit.Name))

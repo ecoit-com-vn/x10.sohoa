@@ -10,32 +10,21 @@ namespace EvnHanoi.DigitizationService.Services
 {
     public class RabbitMqPublisher : IMessagePublisher
     {
-        private readonly string _hostname;
-        private readonly string _username;
-        private readonly string _password;
+        private readonly IConnection _connection;
         private readonly ILogger<RabbitMqPublisher> _logger;
 
-        public RabbitMqPublisher(IConfiguration configuration, ILogger<RabbitMqPublisher> logger)
+        public RabbitMqPublisher(IConnection connection, ILogger<RabbitMqPublisher> logger)
         {
+            _connection = connection;
             _logger = logger;
-            _hostname = configuration["RabbitMQ:HostName"] ?? "localhost";
-            _username = configuration["RabbitMQ:UserName"] ?? "guest";
-            _password = configuration["RabbitMQ:Password"] ?? "guest";
         }
 
         public async Task PublishMessageAsync<T>(T message, string exchange, string routingKey)
         {
             try
             {
-                var factory = new ConnectionFactory
-                {
-                    HostName = _hostname,
-                    UserName = _username,
-                    Password = _password
-                };
-
-                using var connection = await factory.CreateConnectionAsync();
-                using var channel = await connection.CreateChannelAsync();
+                // Create a lightweight channel for publishing, reusing the shared TCP connection
+                using var channel = await _connection.CreateChannelAsync();
 
                 // Ensure the exchange exists
                 await channel.ExchangeDeclareAsync(exchange: exchange, type: ExchangeType.Topic, durable: true);

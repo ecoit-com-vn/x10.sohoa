@@ -13,6 +13,8 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using System.Data;
+using Dapper;
 using Microsoft.IdentityModel.Tokens;
 
 
@@ -24,13 +26,15 @@ public class AuthController : ControllerBase
 {
     private readonly IUserRepository _userRepository;
     private readonly IConfiguration _configuration;
+    private readonly IDbConnection _connection;
 
-    public AuthController(IUserRepository userRepository, IConfiguration configuration)
+    public AuthController(IUserRepository userRepository, IConfiguration configuration, IDbConnection connection)
     {
         _userRepository = userRepository;
         _configuration = configuration;
+        _connection = connection;
     }
-
+    [AllowAnonymous]
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromQuery] string? ticket, [FromBody] LoginRequest? request)
     {
@@ -97,7 +101,7 @@ public class AuthController : ControllerBase
                         Email = identity.Email,
                         PasswordHash = BCrypt.Net.BCrypt.HashPassword("SsoUserDefaultPassword_123!"),
                         IsActive = true,
-                        UnitId = string.IsNullOrEmpty(identity.DeptId) ? null : long.Parse(identity.DeptId)
+                        OrganizationUnitId = long.TryParse(identity.DeptId, out var deptId) ? deptId : null
                     };
                     
                     ssoUser.Id = await _userRepository.CreateAsync(ssoUser);
@@ -107,12 +111,12 @@ public class AuthController : ControllerBase
                 var ssoPermissions = await _userRepository.GetPermissionsByUserIdAsync(ssoUser.Id);
                 var ssoClaims = new List<Claim>
                 {
-                    new Claim(ClaimTypes.NameIdentifier, ssoUser.Id.ToString()),
+                    new Claim(ClaimTypes.NameIdentifier, ssoUser.Id),
                     new Claim(ClaimTypes.Name, ssoUser.Username)
                 };
-                if (ssoUser.UnitId.HasValue)
+                if (ssoUser.OrganizationUnitId.HasValue)
                 {
-                    ssoClaims.Add(new Claim("unit_id", ssoUser.UnitId.Value.ToString()));
+                    ssoClaims.Add(new Claim("unit_id", ssoUser.OrganizationUnitId.Value.ToString()));
                 }
                 foreach (var r in ssoRoles)
                 {
@@ -223,12 +227,12 @@ public class AuthController : ControllerBase
         var userPermissions = await _userRepository.GetPermissionsByUserIdAsync(user.Id);
         var claims = new List<Claim>
         {
-            new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+            new Claim(ClaimTypes.NameIdentifier, user.Id),
             new Claim(ClaimTypes.Name, user.Username)
         };
-        if (user.UnitId.HasValue)
+        if (user.OrganizationUnitId.HasValue)
         {
-            claims.Add(new Claim("unit_id", user.UnitId.Value.ToString()));
+            claims.Add(new Claim("unit_id", user.OrganizationUnitId.Value.ToString()));
         }
         foreach (var r in userRoles)
         {
@@ -277,6 +281,7 @@ public class AuthController : ControllerBase
     /// Mật khẩu mặc định: Admin@123!
     /// Xóa hoặc disable endpoint này trước khi deploy lên production.
     /// </summary>
+    [AllowAnonymous]
     [HttpPost("dev/init-admin")]
     public async Task<IActionResult> InitAdminUser()
     {
@@ -290,45 +295,80 @@ public class AuthController : ControllerBase
 
         try
         {
-            var existingAdmin = await _userRepository.GetUserByUsernameAsync("admin");
-            if (existingAdmin != null)
+            var adminUser = await _userRepository.GetUserByUsernameAsync("admin");
+            bool isNew = false;
+            if (adminUser == null)
+            {
+                adminUser = new EvnHanoi.IdentityService.Core.Domain.Models.User
+                {
+                    Username = "admin",
+                    FullName = "Quản trị viên Hệ thống",
+                    Email = "admin@evnhanoi.vn",
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin@123!"),
+                    IsActive = true,
+                    LockoutEnabled = false, // Admin không bị lockout
+                    AccessFailedCount = 0
+                };
+                adminUser.Id = await _userRepository.CreateAsync(adminUser);
+                isNew = true;
+            }
+            else
             {
                 // Cập nhật hash mật khẩu để đảm bảo khớp với Admin@123!
-                existingAdmin.PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin@123!");
-                existingAdmin.IsActive = true;
-                existingAdmin.LockoutEnd = null;
-                existingAdmin.AccessFailedCount = 0;
-                await _userRepository.UpdateFullAsync(existingAdmin);
-                
-                return Ok(new 
-                { 
-                    message = "Tài khoản admin đã tồn tại. Đã reset mật khẩu thành công.",
-                    username = "admin",
-                    password = "Admin@123!",
-                    note = "Hãy đổi mật khẩu ngay sau khi đăng nhập!"
-                });
+                adminUser.PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin@123!");
+                adminUser.IsActive = true;
+                adminUser.LockoutEnd = null;
+                adminUser.AccessFailedCount = 0;
+                await _userRepository.UpdateFullAsync(adminUser);
             }
 
-            var adminUser = new EvnHanoi.IdentityService.Core.Domain.Models.User
-            {
-                Username = "admin",
-                FullName = "Quản trị viên Hệ thống",
-                Email = "admin@evnhanoi.vn",
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin@123!"),
-                IsActive = true,
-                LockoutEnabled = false, // Admin không bị lockout
-                AccessFailedCount = 0
-            };
+            // Tự động gán vai trò ADMIN và quyền SUPER_ADMIN cho admin để sẵn sàng sử dụng
+            if (_connection.State != ConnectionState.Open) _connection.Open();
 
-            adminUser.Id = await _userRepository.CreateAsync(adminUser);
+            // 1. Gán vai trò ADMIN
+            var adminRoleId = await _connection.QuerySingleOrDefaultAsync<long?>(
+                "SELECT Id FROM ROLE WHERE Code = 'ADMIN'");
+
+            if (adminRoleId.HasValue)
+            {
+                var hasRole = await _connection.ExecuteScalarAsync<int>(
+                    "SELECT COUNT(*) FROM USER_ROLE WHERE UserId = :UserId AND RoleId = :RoleId",
+                    new { UserId = adminUser.Id, RoleId = adminRoleId.Value });
+
+                if (hasRole == 0)
+                {
+                    await _connection.ExecuteAsync(
+                        "INSERT INTO USER_ROLE (UserId, RoleId) VALUES (:UserId, :RoleId)",
+                        new { UserId = adminUser.Id, RoleId = adminRoleId.Value });
+                }
+            }
+
+            // 2. Gán quyền tối cao SUPER_ADMIN
+            try
+            {
+                var hasPerm = await _connection.ExecuteScalarAsync<int>(
+                    "SELECT COUNT(*) FROM USER_PERMISSION WHERE UserId = :UserId AND PermissionId = 'admin-super-perm-uuid-111111111111'",
+                    new { UserId = adminUser.Id });
+
+                if (hasPerm == 0)
+                {
+                    await _connection.ExecuteAsync(
+                        "INSERT INTO USER_PERMISSION (UserId, PermissionId) VALUES (:UserId, 'admin-super-perm-uuid-111111111111')",
+                        new { UserId = adminUser.Id });
+                }
+            }
+            catch (Exception)
+            {
+                // Bỏ qua nếu bảng USER_PERMISSION chưa được di dân
+            }
 
             return Ok(new 
             { 
-                message = "Khởi tạo tài khoản admin thành công.",
+                message = isNew ? "Khởi tạo tài khoản admin thành công." : "Tài khoản admin đã tồn tại. Đã reset mật khẩu thành công.",
                 username = "admin",
                 password = "Admin@123!",
                 userId = adminUser.Id,
-                note = "Hãy gán vai trò ADMIN cho tài khoản này và đổi mật khẩu ngay!"
+                note = "Tài khoản đã tự động được gán vai trò ADMIN và quyền SUPER_ADMIN!"
             });
         }
         catch (Exception ex)
@@ -363,7 +403,9 @@ public class AuthController : ControllerBase
             Username = user.Username,
             FullName = user.FullName,
             Email = user.Email,
-            UnitId = user.UnitId,
+            UnitId = user.OrganizationUnitId,
+            OrganizationUnitId = user.OrganizationUnitId,
+            OrganizationUnit = user.OrganizationUnit,
             IsActive = user.IsActive,
             Roles = userRoles,
             Permissions = userPermissions

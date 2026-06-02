@@ -1,0 +1,356 @@
+using System;
+using System.Collections.Generic;
+using System.Data;
+using System.Linq;
+using System.Threading.Tasks;
+using Dapper;
+using EvnHanoi.IdentityService.Core.Domain.Models;
+using EvnHanoi.IdentityService.Core.Interfaces;
+
+namespace EvnHanoi.IdentityService.Infrastructure.Repositories;
+
+public class PermissionRepository : IPermissionRepository
+{
+    private readonly IDbConnection _connection;
+
+    public PermissionRepository(IDbConnection connection)
+    {
+        _connection = connection;
+    }
+
+    public async Task<IEnumerable<Permission>> GetAllPermissionsAsync()
+    {
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+        var sql = $@"
+            SELECT {nameof(Permission.Id)}, 
+                   {nameof(Permission.Code)}, 
+                   {nameof(Permission.Name)}, 
+                   {nameof(Permission.Description)}, 
+                   {nameof(Permission.IsActive)}, 
+                   {nameof(Permission.CreatedAt)}, 
+                   {nameof(Permission.CreatedBy)}, 
+                   {nameof(Permission.UpdatedAt)}, 
+                   {nameof(Permission.UpdatedBy)} 
+            FROM PERMISSION 
+            ORDER BY {nameof(Permission.Code)}";
+        var permissions = (await _connection.QueryAsync<Permission>(sql)).ToList();
+
+        var sqlDetails = $@"
+            SELECT {nameof(PermissionDetail.Id)}, 
+                   {nameof(PermissionDetail.PermissionId)}, 
+                   {nameof(PermissionDetail.ControllerName)}, 
+                   {nameof(PermissionDetail.ActionName)} 
+            FROM PERMISSION_DETAIL";
+        var details = await _connection.QueryAsync<PermissionDetail>(sqlDetails);
+
+        foreach (var p in permissions)
+        {
+            p.Details = details.Where(d => d.PermissionId == p.Id).ToList();
+        }
+
+        return permissions;
+    }
+
+    public async Task<Permission?> GetPermissionByIdAsync(string id)
+    {
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+        var sql = $@"
+            SELECT {nameof(Permission.Id)}, 
+                   {nameof(Permission.Code)}, 
+                   {nameof(Permission.Name)}, 
+                   {nameof(Permission.Description)}, 
+                   {nameof(Permission.IsActive)}, 
+                   {nameof(Permission.CreatedAt)}, 
+                   {nameof(Permission.CreatedBy)}, 
+                   {nameof(Permission.UpdatedAt)}, 
+                   {nameof(Permission.UpdatedBy)} 
+            FROM PERMISSION 
+            WHERE {nameof(Permission.Id)} = :Id";
+        var p = await _connection.QuerySingleOrDefaultAsync<Permission>(sql, new { Id = id });
+        if (p != null)
+        {
+            var sqlDetails = $@"
+                SELECT {nameof(PermissionDetail.Id)}, 
+                       {nameof(PermissionDetail.PermissionId)}, 
+                       {nameof(PermissionDetail.ControllerName)}, 
+                       {nameof(PermissionDetail.ActionName)} 
+                FROM PERMISSION_DETAIL 
+                WHERE {nameof(PermissionDetail.PermissionId)} = :PermissionId";
+            var details = await _connection.QueryAsync<PermissionDetail>(sqlDetails, new { PermissionId = id });
+            p.Details = details.ToList();
+        }
+
+        return p;
+    }
+
+    public async Task<string> CreatePermissionAsync(Permission permission, IEnumerable<PermissionDetail> details)
+    {
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+        using var transaction = _connection.BeginTransaction();
+        try
+        {
+            var permId = string.IsNullOrEmpty(permission.Id) ? Guid.CreateVersion7().ToString() : permission.Id;
+            permission.Id = permId;
+
+            var sqlPerm = $@"
+                INSERT INTO PERMISSION (
+                    {nameof(Permission.Id)}, 
+                    {nameof(Permission.Code)}, 
+                    {nameof(Permission.Name)}, 
+                    {nameof(Permission.Description)}, 
+                    {nameof(Permission.IsActive)}, 
+                    {nameof(Permission.CreatedBy)}
+                )
+                VALUES (:Id, :Code, :Name, :Description, :IsActive, :CreatedBy)";
+
+            await _connection.ExecuteAsync(sqlPerm, new
+            {
+                permission.Id,
+                permission.Code,
+                permission.Name,
+                permission.Description,
+                IsActive = permission.IsActive ? 1 : 0,
+                permission.CreatedBy
+            }, transaction);
+
+            var sqlDetail = $@"
+                INSERT INTO PERMISSION_DETAIL (
+                    {nameof(PermissionDetail.Id)}, 
+                    {nameof(PermissionDetail.PermissionId)}, 
+                    {nameof(PermissionDetail.ControllerName)}, 
+                    {nameof(PermissionDetail.ActionName)}
+                )
+                VALUES (:Id, :PermissionId, :ControllerName, :ActionName)";
+
+            foreach (var d in details)
+            {
+                var detailId = Guid.CreateVersion7().ToString();
+                await _connection.ExecuteAsync(sqlDetail, new
+                {
+                    Id = detailId,
+                    PermissionId = permId,
+                    d.ControllerName,
+                    d.ActionName
+                }, transaction);
+            }
+
+            transaction.Commit();
+            return permId;
+        }
+        catch
+        {
+            transaction.Rollback();
+            throw;
+        }
+    }
+
+    public async Task<bool> UpdatePermissionAsync(Permission permission, IEnumerable<PermissionDetail> details)
+    {
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+        using var transaction = _connection.BeginTransaction();
+        try
+        {
+            var sqlPerm = $@"
+                UPDATE PERMISSION 
+                SET {nameof(Permission.Code)} = :Code, 
+                    {nameof(Permission.Name)} = :Name, 
+                    {nameof(Permission.Description)} = :Description, 
+                    {nameof(Permission.IsActive)} = :IsActive, 
+                    {nameof(Permission.UpdatedAt)} = CURRENT_TIMESTAMP, 
+                    {nameof(Permission.UpdatedBy)} = :UpdatedBy 
+                WHERE {nameof(Permission.Id)} = :Id";
+
+            var affected = await _connection.ExecuteAsync(sqlPerm, new
+            {
+                permission.Code,
+                permission.Name,
+                permission.Description,
+                IsActive = permission.IsActive ? 1 : 0,
+                permission.UpdatedBy,
+                permission.Id
+            }, transaction);
+
+            if (affected == 0)
+            {
+                transaction.Rollback();
+                return false;
+            }
+
+            // Clear old details
+            await _connection.ExecuteAsync($@"
+                DELETE FROM PERMISSION_DETAIL 
+                WHERE {nameof(PermissionDetail.PermissionId)} = :PermissionId", 
+                new { PermissionId = permission.Id }, 
+                transaction);
+
+            // Insert new details
+            var sqlDetail = $@"
+                INSERT INTO PERMISSION_DETAIL (
+                    {nameof(PermissionDetail.Id)}, 
+                    {nameof(PermissionDetail.PermissionId)}, 
+                    {nameof(PermissionDetail.ControllerName)}, 
+                    {nameof(PermissionDetail.ActionName)}
+                )
+                VALUES (:Id, :PermissionId, :ControllerName, :ActionName)";
+
+            foreach (var d in details)
+            {
+                var detailId = Guid.CreateVersion7().ToString();
+                await _connection.ExecuteAsync(sqlDetail, new
+                {
+                    Id = detailId,
+                    PermissionId = permission.Id,
+                    d.ControllerName,
+                    d.ActionName
+                }, transaction);
+            }
+
+            transaction.Commit();
+            return true;
+        }
+        catch
+        {
+            transaction.Rollback();
+            throw;
+        }
+    }
+
+    public async Task<bool> DeletePermissionAsync(string id)
+    {
+        var sql = $"DELETE FROM PERMISSION WHERE {nameof(Permission.Id)} = :Id";
+        var affected = await _connection.ExecuteAsync(sql, new { Id = id });
+        return affected > 0;
+    }
+
+    public async Task<bool> AssignPermissionsToUserAsync(string userId, IEnumerable<string> permissionIds)
+    {
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+        using var transaction = _connection.BeginTransaction();
+        try
+        {
+            await _connection.ExecuteAsync($@"
+                DELETE FROM USER_PERMISSION 
+                WHERE {nameof(UserPermission.UserId)} = :UserId", 
+                new { UserId = userId }, 
+                transaction);
+
+            var sql = $@"
+                INSERT INTO USER_PERMISSION (
+                    {nameof(UserPermission.UserId)}, 
+                    {nameof(UserPermission.PermissionId)}
+                ) 
+                VALUES (:UserId, :PermissionId)";
+
+            foreach (var permId in permissionIds)
+            {
+                await _connection.ExecuteAsync(sql, new { UserId = userId, PermissionId = permId }, transaction);
+            }
+
+            transaction.Commit();
+            return true;
+        }
+        catch
+        {
+            transaction.Rollback();
+            throw;
+        }
+    }
+
+    public async Task<bool> AssignPermissionsToUserGroupAsync(long userGroupId, IEnumerable<string> permissionIds)
+    {
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+        using var transaction = _connection.BeginTransaction();
+        try
+        {
+            await _connection.ExecuteAsync($@"
+                DELETE FROM USER_GROUP_PERMISSION 
+                WHERE {nameof(UserGroupPermission.UserGroupId)} = :UserGroupId", 
+                new { UserGroupId = userGroupId }, 
+                transaction);
+
+            var sql = $@"
+                INSERT INTO USER_GROUP_PERMISSION (
+                    {nameof(UserGroupPermission.UserGroupId)}, 
+                    {nameof(UserGroupPermission.PermissionId)}
+                ) 
+                VALUES (:UserGroupId, :PermissionId)";
+
+            foreach (var permId in permissionIds)
+            {
+                await _connection.ExecuteAsync(sql, new { UserGroupId = userGroupId, PermissionId = permId }, transaction);
+            }
+
+            transaction.Commit();
+            return true;
+        }
+        catch
+        {
+            transaction.Rollback();
+            throw;
+        }
+    }
+
+    public async Task<IEnumerable<PermissionDetail>> GetAllowedActionsForUserAsync(string userId)
+    {
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+        var sql = $@"
+            SELECT pd.{nameof(PermissionDetail.Id)}, 
+                   pd.{nameof(PermissionDetail.PermissionId)}, 
+                   pd.{nameof(PermissionDetail.ControllerName)}, 
+                   pd.{nameof(PermissionDetail.ActionName)}
+            FROM PERMISSION_DETAIL pd
+            INNER JOIN PERMISSION p ON pd.{nameof(PermissionDetail.PermissionId)} = p.{nameof(Permission.Id)}
+            WHERE p.{nameof(Permission.IsActive)} = 1 AND pd.{nameof(PermissionDetail.PermissionId)} IN (
+                -- 1. Quyền trực tiếp
+                SELECT {nameof(UserPermission.PermissionId)} 
+                FROM USER_PERMISSION 
+                WHERE {nameof(UserPermission.UserId)} = :UserId
+                
+                UNION
+                
+                -- 2. Quyền qua Nhóm người dùng
+                SELECT ugp.{nameof(UserGroupPermission.PermissionId)} 
+                FROM USER_GROUP_PERMISSION ugp
+                INNER JOIN USER_GROUP_MEMBER ugm ON ugp.{nameof(UserGroupPermission.UserGroupId)} = ugm.UserGroupId
+                WHERE ugm.UserId = :UserId
+                
+                UNION
+                
+                -- 3. Quyền từ Roles gán trực tiếp cho User
+                SELECT rp.PermissionId
+                FROM ROLE_PERMISSION rp
+                INNER JOIN USER_ROLE ur ON rp.RoleId = ur.RoleId
+                WHERE ur.UserId = :UserId
+                
+                UNION
+                
+                -- 4. Quyền từ Roles gán qua Nhóm người dùng
+                SELECT rp.PermissionId
+                FROM ROLE_PERMISSION rp
+                INNER JOIN USER_GROUP_ROLE ugr ON rp.RoleId = ugr.RoleId
+                INNER JOIN USER_GROUP_MEMBER ugm ON ugr.UserGroupId = ugm.UserGroupId
+                WHERE ugm.UserId = :UserId
+            )";
+        return await _connection.QueryAsync<PermissionDetail>(sql, new { UserId = userId });
+    }
+
+    public async Task<IEnumerable<string>> GetPermissionsByUserIdAsync(string userId)
+    {
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+        var sql = $@"
+            SELECT {nameof(UserPermission.PermissionId)} 
+            FROM USER_PERMISSION 
+            WHERE {nameof(UserPermission.UserId)} = :UserId";
+        return await _connection.QueryAsync<string>(sql, new { UserId = userId });
+    }
+
+    public async Task<IEnumerable<string>> GetPermissionsByUserGroupIdAsync(long userGroupId)
+    {
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+        var sql = $@"
+            SELECT {nameof(UserGroupPermission.PermissionId)} 
+            FROM USER_GROUP_PERMISSION 
+            WHERE {nameof(UserGroupPermission.UserGroupId)} = :UserGroupId";
+        return await _connection.QueryAsync<string>(sql, new { UserGroupId = userGroupId });
+    }
+}

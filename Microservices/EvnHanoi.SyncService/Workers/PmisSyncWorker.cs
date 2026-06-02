@@ -1,4 +1,3 @@
-// E:\ecoit\sohoax10\sohoa.backend\Microservices\EvnHanoi.SyncService\Workers\PmisSyncWorker.cs
 using System;
 using System.Net.Http;
 using System.Text;
@@ -22,27 +21,28 @@ public class PmisSyncWorker : BackgroundService
     private readonly IConfiguration _configuration;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly AsyncRetryPolicy _httpRetryPolicy;
-    private readonly RetryPolicy _rabbitRetryPolicy;
     private readonly IPmisSyncTriggerService _triggerService;
 
     // Lấy URL từ cấu hình - không hardcode
     private readonly string? _pmisApiUrl;
     private readonly bool _pmisEnabled;
 
-    private IConnection? _connection;
-    private IModel? _channel;
+    private readonly IConnection _connection;
+    private IChannel? _channel;
     private readonly string _queueName = "equipment_sync_queue";
 
     public PmisSyncWorker(
         ILogger<PmisSyncWorker> logger,
         IConfiguration configuration,
         IHttpClientFactory httpClientFactory,
-        IPmisSyncTriggerService triggerService)
+        IPmisSyncTriggerService triggerService,
+        IConnection connection)
     {
         _logger = logger;
         _configuration = configuration;
         _httpClientFactory = httpClientFactory;
         _triggerService = triggerService;
+        _connection = connection;
 
         // Lấy URL PMIS từ cấu hình, không cấu hình thì disable worker
         _pmisApiUrl = _configuration["Pmis:ApiUrl"];
@@ -66,65 +66,40 @@ public class PmisSyncWorker : BackgroundService
                         "PMIS Sync HTTP call failed. Retry {RetryCount} after {Seconds}s. Error: {Error}",
                         retryCount, timeSpan.TotalSeconds, exception.Message);
                 });
-
-        // Polly Retry Policy cho RabbitMQ
-        _rabbitRetryPolicy = Policy
-            .Handle<Exception>()
-            .WaitAndRetry(5, retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)),
-                (exception, timeSpan, retryCount, context) =>
-                {
-                    _logger.LogWarning(
-                        "RabbitMQ Connection failed in PMIS Sync. Retry {RetryCount} after {Seconds}s. Error: {Error}",
-                        retryCount, timeSpan.TotalSeconds, exception.Message);
-                });
     }
 
-    public override Task StartAsync(CancellationToken cancellationToken)
+    public override async Task StartAsync(CancellationToken cancellationToken)
     {
         // Chỉ khởi tạo RabbitMQ nếu PMIS được bật
         if (_pmisEnabled)
         {
-            TryInitializeRabbitMQ();
+            await TryInitializeRabbitMQAsync(cancellationToken);
         }
-        return base.StartAsync(cancellationToken);
+        await base.StartAsync(cancellationToken);
     }
 
     /// <summary>
-    /// Khởi tạo kết nối RabbitMQ. Nếu thất bại chỉ log lỗi, không crash service.
+    /// Khởi tạo kênh RabbitMQ từ kết nối dùng chung.
     /// </summary>
-    private void TryInitializeRabbitMQ()
+    private async Task TryInitializeRabbitMQAsync(CancellationToken cancellationToken)
     {
         try
         {
-            _rabbitRetryPolicy.Execute(() =>
-            {
-                var factory = new ConnectionFactory
-                {
-                    HostName = _configuration["RabbitMQ:Host"] ?? "localhost",
-                    UserName = _configuration["RabbitMQ:Username"] ?? "guest",
-                    Password = _configuration["RabbitMQ:Password"] ?? "guest",
-                    Port = int.TryParse(_configuration["RabbitMQ:Port"], out var port) ? port : 5672
-                };
+            _channel = await _connection.CreateChannelAsync(cancellationToken: cancellationToken);
+            await _channel.QueueDeclareAsync(
+                queue: _queueName,
+                durable: true,
+                exclusive: false,
+                autoDelete: false,
+                arguments: null,
+                cancellationToken: cancellationToken);
 
-                _connection = factory.CreateConnection();
-                _channel = _connection.CreateModel();
-                _channel.QueueDeclare(
-                    queue: _queueName,
-                    durable: true,
-                    exclusive: false,
-                    autoDelete: false,
-                    arguments: null);
-
-                _logger.LogInformation(
-                    "PmisSyncWorker: Khởi tạo kết nối RabbitMQ thành công. Queue: {Queue}", _queueName);
-            });
+            _logger.LogInformation(
+                "PmisSyncWorker: Khởi tạo kênh RabbitMQ thành công. Queue: {Queue}", _queueName);
         }
         catch (Exception ex)
         {
-            // Không crash service khi RabbitMQ chưa sẵn sàng
-            _logger.LogError(ex,
-                "PmisSyncWorker: Không thể kết nối RabbitMQ sau nhiều lần thử. " +
-                "Worker sẽ bỏ qua bước push message cho đến khi kết nối được khôi phục.");
+            _logger.LogError(ex, "PmisSyncWorker: Không thể khởi tạo kênh RabbitMQ từ kết nối dùng chung.");
         }
     }
 
@@ -232,7 +207,7 @@ public class PmisSyncWorker : BackgroundService
             if (_channel == null || !_channel.IsOpen)
             {
                 _logger.LogWarning("PmisSyncWorker: Kênh RabbitMQ đóng. Thử khởi tạo lại...");
-                TryInitializeRabbitMQ();
+                await TryInitializeRabbitMQAsync(cancellationToken);
             }
 
             if (_channel == null || !_channel.IsOpen)
@@ -248,11 +223,13 @@ public class PmisSyncWorker : BackgroundService
                 var messageString = JsonSerializer.Serialize(equipment);
                 var body = Encoding.UTF8.GetBytes(messageString);
 
-                _channel.BasicPublish(
+                await _channel.BasicPublishAsync(
                     exchange: string.Empty,
                     routingKey: _queueName,
-                    basicProperties: null,
-                    body: body);
+                    mandatory: false,
+                    basicProperties: new BasicProperties(),
+                    body: body,
+                    cancellationToken: cancellationToken);
             }
 
             _logger.LogInformation(
@@ -267,17 +244,19 @@ public class PmisSyncWorker : BackgroundService
         }
     }
 
-    public override Task StopAsync(CancellationToken cancellationToken)
+    public override async Task StopAsync(CancellationToken cancellationToken)
     {
         try
         {
-            _channel?.Close();
-            _connection?.Close();
+            if (_channel != null)
+            {
+                await _channel.CloseAsync(cancellationToken: cancellationToken);
+            }
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "PmisSyncWorker: Lỗi khi đóng kết nối RabbitMQ.");
+            _logger.LogWarning(ex, "PmisSyncWorker: Lỗi khi đóng kênh RabbitMQ.");
         }
-        return base.StopAsync(cancellationToken);
+        await base.StopAsync(cancellationToken);
     }
 }

@@ -2,8 +2,6 @@
 using Dapper;
 using EvnHanoi.ReportService.Core.Entities;
 using EvnHanoi.ReportService.Core.Interfaces;
-using Microsoft.Extensions.Configuration;
-using Oracle.ManagedDataAccess.Client;
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -14,29 +12,22 @@ namespace EvnHanoi.ReportService.Infrastructure.Repositories
 {
     public class ReportRepository : IReportRepository
     {
-        private readonly IConfiguration _configuration;
+        private readonly IDbConnection _connection;
 
-        public ReportRepository(IConfiguration configuration)
+        public ReportRepository(IDbConnection connection)
         {
-            _configuration = configuration;
-        }
-
-        private IDbConnection GetConnection()
-        {
-            var connectionString = _configuration.GetConnectionString("DefaultConnection");
-            return new OracleConnection(connectionString);
+            _connection = connection ?? throw new ArgumentNullException(nameof(connection));
         }
 
         // --- REPORT GROUP ---
         
         public async Task<IEnumerable<ReportGroup>> GetReportGroupsAsync()
         {
-            using var connection = GetConnection();
-            var sqlGroup = "SELECT Id, Name, SortOrder, Description, CreatedAt, CreatedBy, UpdatedAt, UpdatedBy FROM REPORT_GROUPS ORDER BY SortOrder, Name";
-            var sqlReport = "SELECT Id, GroupId, Name, SqlQuery, ParametersJson, AllowedRoles, IsActive, CreatedAt, CreatedBy, UpdatedAt, UpdatedBy FROM DYNAMIC_REPORTS ORDER BY Name";
+            var sqlGroup = $"SELECT {nameof(ReportGroup.Id)}, {nameof(ReportGroup.Name)}, {nameof(ReportGroup.SortOrder)}, {nameof(ReportGroup.Description)}, {nameof(ReportGroup.CreatedAt)}, {nameof(ReportGroup.CreatedBy)}, {nameof(ReportGroup.UpdatedAt)}, {nameof(ReportGroup.UpdatedBy)} FROM REPORT_GROUPS ORDER BY {nameof(ReportGroup.SortOrder)}, {nameof(ReportGroup.Name)}";
+            var sqlReport = $"SELECT {nameof(DynamicReport.Id)}, {nameof(DynamicReport.GroupId)}, {nameof(DynamicReport.Name)}, {nameof(DynamicReport.SqlQuery)}, {nameof(DynamicReport.ParametersJson)}, {nameof(DynamicReport.AllowedRoles)}, {nameof(DynamicReport.IsActive)}, {nameof(DynamicReport.CreatedAt)}, {nameof(DynamicReport.CreatedBy)}, {nameof(DynamicReport.UpdatedAt)}, {nameof(DynamicReport.UpdatedBy)} FROM DYNAMIC_REPORTS ORDER BY {nameof(DynamicReport.Name)}";
             
-            var groups = (await connection.QueryAsync<ReportGroup>(sqlGroup)).ToList();
-            var reports = (await connection.QueryAsync<DynamicReport>(sqlReport)).ToList();
+            var groups = (await _connection.QueryAsync<ReportGroup>(sqlGroup)).ToList();
+            var reports = (await _connection.QueryAsync<DynamicReport>(sqlReport)).ToList();
             
             foreach (var group in groups)
             {
@@ -48,14 +39,13 @@ namespace EvnHanoi.ReportService.Infrastructure.Repositories
 
         public async Task<ReportGroup?> GetReportGroupByIdAsync(long id)
         {
-            using var connection = GetConnection();
-            var sqlGroup = "SELECT Id, Name, SortOrder, Description, CreatedAt, CreatedBy, UpdatedAt, UpdatedBy FROM REPORT_GROUPS WHERE Id = :Id";
-            var sqlReport = "SELECT Id, GroupId, Name, SqlQuery, ParametersJson, AllowedRoles, IsActive, CreatedAt, CreatedBy, UpdatedAt, UpdatedBy FROM DYNAMIC_REPORTS WHERE GroupId = :GroupId ORDER BY Name";
+            var sqlGroup = $"SELECT {nameof(ReportGroup.Id)}, {nameof(ReportGroup.Name)}, {nameof(ReportGroup.SortOrder)}, {nameof(ReportGroup.Description)}, {nameof(ReportGroup.CreatedAt)}, {nameof(ReportGroup.CreatedBy)}, {nameof(ReportGroup.UpdatedAt)}, {nameof(ReportGroup.UpdatedBy)} FROM REPORT_GROUPS WHERE {nameof(ReportGroup.Id)} = :Id";
+            var sqlReport = $"SELECT {nameof(DynamicReport.Id)}, {nameof(DynamicReport.GroupId)}, {nameof(DynamicReport.Name)}, {nameof(DynamicReport.SqlQuery)}, {nameof(DynamicReport.ParametersJson)}, {nameof(DynamicReport.AllowedRoles)}, {nameof(DynamicReport.IsActive)}, {nameof(DynamicReport.CreatedAt)}, {nameof(DynamicReport.CreatedBy)}, {nameof(DynamicReport.UpdatedAt)}, {nameof(DynamicReport.UpdatedBy)} FROM DYNAMIC_REPORTS WHERE {nameof(DynamicReport.GroupId)} = :GroupId ORDER BY {nameof(DynamicReport.Name)}";
             
-            var group = await connection.QueryFirstOrDefaultAsync<ReportGroup>(sqlGroup, new { Id = id });
+            var group = await _connection.QueryFirstOrDefaultAsync<ReportGroup>(sqlGroup, new { Id = id });
             if (group != null)
             {
-                var reports = await connection.QueryAsync<DynamicReport>(sqlReport, new { GroupId = id });
+                var reports = await _connection.QueryAsync<DynamicReport>(sqlReport, new { GroupId = id });
                 group.DynamicReports = reports.ToList();
             }
             
@@ -64,8 +54,14 @@ namespace EvnHanoi.ReportService.Infrastructure.Repositories
 
         public async Task<long> CreateReportGroupAsync(ReportGroup group)
         {
-            using var connection = GetConnection();
-            var sql = "INSERT INTO REPORT_GROUPS (Name, SortOrder, Description, CreatedBy) VALUES (:Name, :SortOrder, :Description, :CreatedBy) RETURNING Id INTO :Id";
+            var sql = $@"INSERT INTO REPORT_GROUPS (
+                            {nameof(ReportGroup.Name)}, 
+                            {nameof(ReportGroup.SortOrder)}, 
+                            {nameof(ReportGroup.Description)}, 
+                            {nameof(ReportGroup.CreatedBy)}
+                        ) 
+                        VALUES (:Name, :SortOrder, :Description, :CreatedBy) 
+                        RETURNING {nameof(ReportGroup.Id)} INTO :Id";
             
             var p = new DynamicParameters();
             p.Add("Name", group.Name);
@@ -74,23 +70,22 @@ namespace EvnHanoi.ReportService.Infrastructure.Repositories
             p.Add("CreatedBy", group.CreatedBy);
             p.Add("Id", dbType: DbType.Int64, direction: ParameterDirection.Output);
             
-            await connection.ExecuteAsync(sql, p);
+            await _connection.ExecuteAsync(sql, p);
             return p.Get<long>("Id");
         }
 
         public async Task<bool> UpdateReportGroupAsync(ReportGroup group)
         {
-            using var connection = GetConnection();
-            var sql = @"
+            var sql = $@"
                 UPDATE REPORT_GROUPS 
-                SET Name = :Name, 
-                    SortOrder = :SortOrder, 
-                    Description = :Description, 
-                    UpdatedAt = :UpdatedAt, 
-                    UpdatedBy = :UpdatedBy 
-                WHERE Id = :Id";
+                SET {nameof(ReportGroup.Name)} = :Name, 
+                    {nameof(ReportGroup.SortOrder)} = :SortOrder, 
+                    {nameof(ReportGroup.Description)} = :Description, 
+                    {nameof(ReportGroup.UpdatedAt)} = :UpdatedAt, 
+                    {nameof(ReportGroup.UpdatedBy)} = :UpdatedBy 
+                WHERE {nameof(ReportGroup.Id)} = :Id";
             
-            var rows = await connection.ExecuteAsync(sql, new
+            var rows = await _connection.ExecuteAsync(sql, new
             {
                 group.Name,
                 group.SortOrder,
@@ -104,9 +99,8 @@ namespace EvnHanoi.ReportService.Infrastructure.Repositories
 
         public async Task<bool> DeleteReportGroupAsync(long id)
         {
-            using var connection = GetConnection();
-            var sql = "DELETE FROM REPORT_GROUPS WHERE Id = :Id";
-            var rows = await connection.ExecuteAsync(sql, new { Id = id });
+            var sql = $"DELETE FROM REPORT_GROUPS WHERE {nameof(ReportGroup.Id)} = :Id";
+            var rows = await _connection.ExecuteAsync(sql, new { Id = id });
             return rows > 0;
         }
 
@@ -114,25 +108,30 @@ namespace EvnHanoi.ReportService.Infrastructure.Repositories
 
         public async Task<IEnumerable<DynamicReport>> GetDynamicReportsByGroupIdAsync(long groupId)
         {
-            using var connection = GetConnection();
-            var sql = "SELECT Id, GroupId, Name, SqlQuery, ParametersJson, AllowedRoles, IsActive, CreatedAt, CreatedBy, UpdatedAt, UpdatedBy FROM DYNAMIC_REPORTS WHERE GroupId = :GroupId ORDER BY Name";
-            return await connection.QueryAsync<DynamicReport>(sql, new { GroupId = groupId });
+            var sql = $"SELECT {nameof(DynamicReport.Id)}, {nameof(DynamicReport.GroupId)}, {nameof(DynamicReport.Name)}, {nameof(DynamicReport.SqlQuery)}, {nameof(DynamicReport.ParametersJson)}, {nameof(DynamicReport.AllowedRoles)}, {nameof(DynamicReport.IsActive)}, {nameof(DynamicReport.CreatedAt)}, {nameof(DynamicReport.CreatedBy)}, {nameof(DynamicReport.UpdatedAt)}, {nameof(DynamicReport.UpdatedBy)} FROM DYNAMIC_REPORTS WHERE {nameof(DynamicReport.GroupId)} = :GroupId ORDER BY {nameof(DynamicReport.Name)}";
+            return await _connection.QueryAsync<DynamicReport>(sql, new { GroupId = groupId });
         }
 
         public async Task<DynamicReport?> GetDynamicReportByIdAsync(long id)
         {
-            using var connection = GetConnection();
-            var sql = "SELECT Id, GroupId, Name, SqlQuery, ParametersJson, AllowedRoles, IsActive, CreatedAt, CreatedBy, UpdatedAt, UpdatedBy FROM DYNAMIC_REPORTS WHERE Id = :Id";
-            return await connection.QueryFirstOrDefaultAsync<DynamicReport>(sql, new { Id = id });
+            var sql = $"SELECT {nameof(DynamicReport.Id)}, {nameof(DynamicReport.GroupId)}, {nameof(DynamicReport.Name)}, {nameof(DynamicReport.SqlQuery)}, {nameof(DynamicReport.ParametersJson)}, {nameof(DynamicReport.AllowedRoles)}, {nameof(DynamicReport.IsActive)}, {nameof(DynamicReport.CreatedAt)}, {nameof(DynamicReport.CreatedBy)}, {nameof(DynamicReport.UpdatedAt)}, {nameof(DynamicReport.UpdatedBy)} FROM DYNAMIC_REPORTS WHERE {nameof(DynamicReport.Id)} = :Id";
+            return await _connection.QueryFirstOrDefaultAsync<DynamicReport>(sql, new { Id = id });
         }
 
         public async Task<long> CreateDynamicReportAsync(DynamicReport report)
         {
-            using var connection = GetConnection();
-            var sql = @"
-                INSERT INTO DYNAMIC_REPORTS (GroupId, Name, SqlQuery, ParametersJson, AllowedRoles, IsActive, CreatedBy) 
+            var sql = $@"
+                INSERT INTO DYNAMIC_REPORTS (
+                    {nameof(DynamicReport.GroupId)}, 
+                    {nameof(DynamicReport.Name)}, 
+                    {nameof(DynamicReport.SqlQuery)}, 
+                    {nameof(DynamicReport.ParametersJson)}, 
+                    {nameof(DynamicReport.AllowedRoles)}, 
+                    {nameof(DynamicReport.IsActive)}, 
+                    {nameof(DynamicReport.CreatedBy)}
+                ) 
                 VALUES (:GroupId, :Name, :SqlQuery, :ParametersJson, :AllowedRoles, :IsActive, :CreatedBy) 
-                RETURNING Id INTO :Id";
+                RETURNING {nameof(DynamicReport.Id)} INTO :Id";
             
             var p = new DynamicParameters();
             p.Add("GroupId", report.GroupId);
@@ -144,26 +143,25 @@ namespace EvnHanoi.ReportService.Infrastructure.Repositories
             p.Add("CreatedBy", report.CreatedBy);
             p.Add("Id", dbType: DbType.Int64, direction: ParameterDirection.Output);
             
-            await connection.ExecuteAsync(sql, p);
+            await _connection.ExecuteAsync(sql, p);
             return p.Get<long>("Id");
         }
 
         public async Task<bool> UpdateDynamicReportAsync(DynamicReport report)
         {
-            using var connection = GetConnection();
-            var sql = @"
+            var sql = $@"
                 UPDATE DYNAMIC_REPORTS 
-                SET GroupId = :GroupId, 
-                    Name = :Name, 
-                    SqlQuery = :SqlQuery, 
-                    ParametersJson = :ParametersJson, 
-                    AllowedRoles = :AllowedRoles, 
-                    IsActive = :IsActive, 
-                    UpdatedAt = :UpdatedAt, 
-                    UpdatedBy = :UpdatedBy 
-                WHERE Id = :Id";
+                SET {nameof(DynamicReport.GroupId)} = :GroupId, 
+                    {nameof(DynamicReport.Name)} = :Name, 
+                    {nameof(DynamicReport.SqlQuery)} = :SqlQuery, 
+                    {nameof(DynamicReport.ParametersJson)} = :ParametersJson, 
+                    {nameof(DynamicReport.AllowedRoles)} = :AllowedRoles, 
+                    {nameof(DynamicReport.IsActive)} = :IsActive, 
+                    {nameof(DynamicReport.UpdatedAt)} = :UpdatedAt, 
+                    {nameof(DynamicReport.UpdatedBy)} = :UpdatedBy 
+                WHERE {nameof(DynamicReport.Id)} = :Id";
             
-            var rows = await connection.ExecuteAsync(sql, new
+            var rows = await _connection.ExecuteAsync(sql, new
             {
                 report.GroupId,
                 report.Name,
@@ -180,9 +178,8 @@ namespace EvnHanoi.ReportService.Infrastructure.Repositories
 
         public async Task<bool> DeleteDynamicReportAsync(long id)
         {
-            using var connection = GetConnection();
-            var sql = "DELETE FROM DYNAMIC_REPORTS WHERE Id = :Id";
-            var rows = await connection.ExecuteAsync(sql, new { Id = id });
+            var sql = $"DELETE FROM DYNAMIC_REPORTS WHERE {nameof(DynamicReport.Id)} = :Id";
+            var rows = await _connection.ExecuteAsync(sql, new { Id = id });
             return rows > 0;
         }
 
@@ -190,7 +187,6 @@ namespace EvnHanoi.ReportService.Infrastructure.Repositories
 
         public async Task<IEnumerable<IDictionary<string, object>>> ExecuteDynamicQueryAsync(string sql, Dictionary<string, object>? parameters)
         {
-            using var connection = GetConnection();
             var dynamicParameters = new DynamicParameters();
             
             if (parameters != null)
@@ -225,7 +221,7 @@ namespace EvnHanoi.ReportService.Infrastructure.Repositories
                 }
             }
             
-            var result = await connection.QueryAsync(sql, dynamicParameters);
+            var result = await _connection.QueryAsync(sql, dynamicParameters);
             
             var list = new List<IDictionary<string, object>>();
             foreach (var row in result)

@@ -19,17 +19,17 @@ public class EquipmentSyncWorker : BackgroundService
 {
     private readonly ILogger<EquipmentSyncWorker> _logger;
     private readonly IConfiguration _configuration;
-    private IConnection? _connection;
-    private IModel? _channel;
+    private readonly IConnection _connection;
+    private IChannel? _channel;
     private IElasticClient _elasticClient;
     private readonly AsyncRetryPolicy _esRetryPolicy;
-    private readonly RetryPolicy _rabbitRetryPolicy;
     private readonly string _queueName = "equipment_sync_queue";
 
-    public EquipmentSyncWorker(ILogger<EquipmentSyncWorker> logger, IConfiguration configuration)
+    public EquipmentSyncWorker(ILogger<EquipmentSyncWorker> logger, IConfiguration configuration, IConnection connection)
     {
         _logger = logger;
         _configuration = configuration;
+        _connection = connection;
 
         // Configure Elasticsearch Client
         var esUrl = _configuration["Elasticsearch:Uri"] ?? "http://localhost:9200";
@@ -45,49 +45,27 @@ public class EquipmentSyncWorker : BackgroundService
                 {
                     _logger.LogWarning($"ES Push failed. Retry {retryCount} after {timeSpan.TotalSeconds}s. Error: {exception.Message}");
                 });
-
-        // Polly for RabbitMQ connection
-        _rabbitRetryPolicy = Polly.Policy
-            .Handle<Exception>()
-            .WaitAndRetry(5, retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)),
-                (exception, timeSpan, retryCount, context) =>
-                {
-                    _logger.LogWarning($"RabbitMQ Connection failed. Retry {retryCount} after {timeSpan.TotalSeconds}s. Error: {exception.Message}");
-                });
     }
 
-    public override Task StartAsync(CancellationToken cancellationToken)
+    public override async Task StartAsync(CancellationToken cancellationToken)
     {
-        InitializeRabbitMQ();
-        return base.StartAsync(cancellationToken);
+        await InitializeRabbitMQAsync(cancellationToken);
+        await base.StartAsync(cancellationToken);
     }
 
-    private void InitializeRabbitMQ()
+    private async Task InitializeRabbitMQAsync(CancellationToken cancellationToken)
     {
-        _rabbitRetryPolicy.Execute(() =>
-        {
-            var factory = new ConnectionFactory
-            {
-                HostName = _configuration["RabbitMQ:Host"] ?? "localhost",
-                UserName = _configuration["RabbitMQ:Username"] ?? "guest",
-                Password = _configuration["RabbitMQ:Password"] ?? "guest",
-                Port = int.TryParse(_configuration["RabbitMQ:Port"], out var port) ? port : 5672
-            };
-
-            _connection = factory.CreateConnection();
-            _channel = _connection.CreateModel();
-            
-            _channel.QueueDeclare(queue: _queueName, durable: true, exclusive: false, autoDelete: false, arguments: null);
-            _logger.LogInformation($"Listening to RabbitMQ queue: {_queueName}");
-        });
+        _channel = await _connection.CreateChannelAsync(cancellationToken: cancellationToken);
+        await _channel.QueueDeclareAsync(queue: _queueName, durable: true, exclusive: false, autoDelete: false, arguments: null, cancellationToken: cancellationToken);
+        _logger.LogInformation($"Listening to RabbitMQ queue: {_queueName}");
     }
 
-    protected override Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        if (_channel == null) return Task.CompletedTask;
+        if (_channel == null) return;
 
-        var consumer = new EventingBasicConsumer(_channel);
-        consumer.Received += async (model, ea) =>
+        var consumer = new AsyncEventingBasicConsumer(_channel);
+        consumer.ReceivedAsync += async (model, ea) =>
         {
             var body = ea.Body.ToArray();
             var messageString = Encoding.UTF8.GetString(body);
@@ -99,19 +77,18 @@ public class EquipmentSyncWorker : BackgroundService
                 if (equipment != null)
                 {
                     await SyncToElasticsearchAsync(equipment, stoppingToken);
-                    _channel.BasicAck(deliveryTag: ea.DeliveryTag, multiple: false);
+                    await _channel.BasicAckAsync(deliveryTag: ea.DeliveryTag, multiple: false, cancellationToken: stoppingToken);
                     _logger.LogInformation($"Successfully synced Equipment {equipment.Id} to ES.");
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error processing message from RabbitMQ");
-                _channel.BasicNack(deliveryTag: ea.DeliveryTag, multiple: false, requeue: true);
+                await _channel.BasicNackAsync(deliveryTag: ea.DeliveryTag, multiple: false, requeue: true, cancellationToken: stoppingToken);
             }
         };
 
-        _channel.BasicConsume(queue: _queueName, autoAck: false, consumer: consumer);
-        return Task.CompletedTask;
+        await _channel.BasicConsumeAsync(queue: _queueName, autoAck: false, consumer: consumer, cancellationToken: stoppingToken);
     }
 
     private async Task SyncToElasticsearchAsync(EquipmentSyncMessage equipment, CancellationToken cancellationToken)
@@ -126,10 +103,12 @@ public class EquipmentSyncWorker : BackgroundService
         });
     }
 
-    public override Task StopAsync(CancellationToken cancellationToken)
+    public override async Task StopAsync(CancellationToken cancellationToken)
     {
-        _channel?.Close();
-        _connection?.Close();
-        return base.StopAsync(cancellationToken);
+        if (_channel != null)
+        {
+            await _channel.CloseAsync(cancellationToken: cancellationToken);
+        }
+        await base.StopAsync(cancellationToken);
     }
 }

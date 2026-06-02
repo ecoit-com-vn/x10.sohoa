@@ -7,6 +7,8 @@ using EvnHanoi.IdentityService.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
+using EvnHanoi.IdentityService.Infrastructure.Security;
+
 namespace EvnHanoi.IdentityService.Controllers;
 
 [ApiController]
@@ -29,6 +31,7 @@ public class MenusController : ControllerBase
 
     [HttpGet("sidebar")]
     [Authorize]
+    [BypassDynamicPermission]
     public async Task<IActionResult> GetSidebar()
     {
         var permissionClaims = User.FindAll("permission");

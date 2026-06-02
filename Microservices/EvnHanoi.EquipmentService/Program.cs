@@ -5,6 +5,7 @@ using Scalar.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using RabbitMQ.Client;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,6 +21,17 @@ builder.Host.UseSerilog((context, services, configuration) =>
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
+var rabbitFactory = new ConnectionFactory
+{
+    HostName = builder.Configuration["RabbitMQ:Host"] ?? "localhost",
+    UserName = builder.Configuration["RabbitMQ:Username"] ?? "guest",
+    Password = builder.Configuration["RabbitMQ:Password"] ?? "guest",
+    Port = int.TryParse(builder.Configuration["RabbitMQ:Port"], out var port) ? port : 5672
+};
+var rabbitConnection = await rabbitFactory.CreateConnectionAsync();
+builder.Services.AddSingleton<IConnection>(rabbitConnection);
+
+builder.Services.AddDapperInfrastructure(builder.Configuration);
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IDossierRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.DossierRepository>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IEquipmentRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.EquipmentRepository>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IEquipmentTypeRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.EquipmentTypeRepository>();
@@ -80,8 +92,12 @@ if (app.Environment.IsDevelopment())
 
 app.MapDefaultEndpoints();
 
-app.UseHttpsRedirection();
-
+// Chỉ bật chuyển hướng HTTPS khi KHÔNG chạy trong môi trường Aspire 
+// Hoặc chỉ bật khi đã lên Production thực tế.
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 app.UseAuthentication();
 app.UseAuthorization();
 

@@ -2,7 +2,7 @@ using System;
 
 namespace EvnHanoi.IdentityService.Core.Domain.Models;
 
-public class Unit
+public class OrganizationUnit
 {
     public long Id { get; set; }
     public string Code { get; set; } = string.Empty;
@@ -10,4 +10,3 @@ public class Unit
     public long? ParentId { get; set; }
     public string Description { get; set; } = string.Empty;
 }
-

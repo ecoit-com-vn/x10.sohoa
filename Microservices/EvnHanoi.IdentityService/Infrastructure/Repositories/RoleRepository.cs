@@ -6,44 +6,55 @@ using System.Threading.Tasks;
 using Dapper;
 using EvnHanoi.IdentityService.Core.Domain.Models;
 using EvnHanoi.IdentityService.Core.Interfaces;
-using Oracle.ManagedDataAccess.Client;
-using Microsoft.Extensions.Configuration;
 
 namespace EvnHanoi.IdentityService.Infrastructure.Repositories;
 
 public class RoleRepository : IRoleRepository
 {
-    private readonly string _connectionString;
+    private readonly IDbConnection _connection;
 
-    public RoleRepository(IConfiguration configuration)
+    public RoleRepository(IDbConnection connection)
     {
-        _connectionString = configuration.GetConnectionString("DefaultConnection") 
-            ?? throw new ArgumentNullException(nameof(configuration));
+        _connection = connection;
     }
-
-    private IDbConnection CreateConnection() => new OracleConnection(_connectionString);
 
     public async Task<IEnumerable<Role>> GetAllAsync()
     {
-        using var connection = CreateConnection();
-        var sql = "SELECT Id, Code, Name, Description FROM ROLE ORDER BY Id";
-        return await connection.QueryAsync<Role>(sql);
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+        var sql = $@"
+            SELECT {nameof(Role.Id)}, 
+                   {nameof(Role.Code)}, 
+                   {nameof(Role.Name)}, 
+                   {nameof(Role.Description)} 
+            FROM ROLE 
+            ORDER BY {nameof(Role.Id)}";
+        return await _connection.QueryAsync<Role>(sql);
     }
 
     public async Task<Role?> GetByIdAsync(long id)
     {
-        using var connection = CreateConnection();
-        var sql = "SELECT Id, Code, Name, Description FROM ROLE WHERE Id = :Id";
-        return await connection.QuerySingleOrDefaultAsync<Role>(sql, new { Id = id });
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+        var sql = $@"
+            SELECT {nameof(Role.Id)}, 
+                   {nameof(Role.Code)}, 
+                   {nameof(Role.Name)}, 
+                   {nameof(Role.Description)} 
+            FROM ROLE 
+            WHERE {nameof(Role.Id)} = :Id";
+        return await _connection.QuerySingleOrDefaultAsync<Role>(sql, new { Id = id });
     }
 
     public async Task<long> CreateAsync(Role role)
     {
-        using var connection = CreateConnection();
-        var sql = @"
-            INSERT INTO ROLE (Code, Name, Description)
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+        var sql = $@"
+            INSERT INTO ROLE (
+                {nameof(Role.Code)}, 
+                {nameof(Role.Name)}, 
+                {nameof(Role.Description)}
+            )
             VALUES (:Code, :Name, :Description)
-            RETURNING Id INTO :Id";
+            RETURNING {nameof(Role.Id)} INTO :Id";
             
         var parameters = new DynamicParameters();
         parameters.Add("Code", role.Code);
@@ -51,20 +62,20 @@ public class RoleRepository : IRoleRepository
         parameters.Add("Description", role.Description);
         parameters.Add("Id", dbType: DbType.Int64, direction: ParameterDirection.Output);
         
-        await connection.ExecuteAsync(sql, parameters);
+        await _connection.ExecuteAsync(sql, parameters);
         return parameters.Get<long>("Id");
     }
 
     public async Task<bool> UpdateAsync(Role role)
     {
-        using var connection = CreateConnection();
-        var sql = @"
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+        var sql = $@"
             UPDATE ROLE 
-            SET Code = :Code, 
-                Name = :Name, 
-                Description = :Description 
-            WHERE Id = :Id";
-        var affected = await connection.ExecuteAsync(sql, new 
+            SET {nameof(Role.Code)} = :Code, 
+                {nameof(Role.Name)} = :Name, 
+                {nameof(Role.Description)} = :Description 
+            WHERE {nameof(Role.Id)} = :Id";
+        var affected = await _connection.ExecuteAsync(sql, new 
         {
             role.Code,
             role.Name,
@@ -76,43 +87,59 @@ public class RoleRepository : IRoleRepository
 
     public async Task<bool> DeleteAsync(long id)
     {
-        using var connection = CreateConnection();
-        var sql = "DELETE FROM ROLE WHERE Id = :Id";
-        var affected = await connection.ExecuteAsync(sql, new { Id = id });
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+        var sql = $"DELETE FROM ROLE WHERE {nameof(Role.Id)} = :Id";
+        var affected = await _connection.ExecuteAsync(sql, new { Id = id });
         return affected > 0;
     }
 
     public async Task<IEnumerable<string>> GetPermissionsByRoleIdAsync(long roleId)
     {
-        using var connection = CreateConnection();
-        var sql = "SELECT PermissionCode FROM ROLE_PERMISSION WHERE RoleId = :RoleId";
-        return await connection.QueryAsync<string>(sql, new { RoleId = roleId });
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+        var sql = @"
+            SELECT p.Code 
+            FROM ROLE_PERMISSION rp
+            INNER JOIN PERMISSION p ON rp.PermissionId = p.Id
+            WHERE rp.RoleId = :RoleId";
+        return await _connection.QueryAsync<string>(sql, new { RoleId = roleId });
     }
 
     public async Task<bool> AssignPermissionsToRoleAsync(long roleId, IEnumerable<string> permissionCodes)
     {
-        using var connection = CreateConnection();
-        if (connection.State != ConnectionState.Open) connection.Open();
-        using var transaction = connection.BeginTransaction();
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+        using var transaction = _connection.BeginTransaction();
         try
         {
             // Clear existing permissions
-            await connection.ExecuteAsync(
+            await _connection.ExecuteAsync(
                 "DELETE FROM ROLE_PERMISSION WHERE RoleId = :RoleId", 
                 new { RoleId = roleId }, 
                 transaction);
 
-            // Insert new permissions
-            var sql = "INSERT INTO ROLE_PERMISSION (Id, RoleId, PermissionCode) VALUES (:Id, :RoleId, :PermissionCode)";
+            // Fetch active permissions to get ID from Code
+            var permissions = await _connection.QueryAsync<Permission>(
+                "SELECT Id, Code FROM PERMISSION WHERE IsActive = 1", 
+                transaction: transaction);
+            
+            var codeToIdMap = permissions.ToDictionary(p => p.Code, p => p.Id, StringComparer.OrdinalIgnoreCase);
+
+            // Insert new permissions mapping
+            var sql = @"
+                INSERT INTO ROLE_PERMISSION (Id, RoleId, PermissionId) 
+                VALUES (:Id, :RoleId, :PermissionId)";
+                
             foreach (var code in permissionCodes)
             {
-                var id = Guid.NewGuid().ToString(); // UUID
-                await connection.ExecuteAsync(sql, new 
+                if (codeToIdMap.TryGetValue(code, out var permissionId))
                 {
-                    Id = id,
-                    RoleId = roleId,
-                    PermissionCode = code
-                }, transaction);
+                    var id = Guid.NewGuid().ToString(); // UUID
+                    await _connection.ExecuteAsync(sql, new 
+                    {
+                        Id = id,
+                        RoleId = roleId,
+                        PermissionId = permissionId
+                    }, transaction);
+                }
             }
 
             transaction.Commit();

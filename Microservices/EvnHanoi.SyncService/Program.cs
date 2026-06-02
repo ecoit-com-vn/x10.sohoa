@@ -10,6 +10,7 @@ using Serilog;
 using StackExchange.Redis;
 using Quartz;
 using Scalar.AspNetCore;
+using RabbitMQ.Client;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -77,7 +78,17 @@ builder.Services.AddQuartz(q =>
 });
 builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
 
-// 6. RabbitMQ Sync Worker
+// 6. RabbitMQ Connection & Workers
+var rabbitFactory = new ConnectionFactory
+{
+    HostName = builder.Configuration["RabbitMQ:Host"] ?? "localhost",
+    UserName = builder.Configuration["RabbitMQ:Username"] ?? "guest",
+    Password = builder.Configuration["RabbitMQ:Password"] ?? "guest",
+    Port = int.TryParse(builder.Configuration["RabbitMQ:Port"], out var port) ? port : 5672
+};
+var rabbitConnection = await rabbitFactory.CreateConnectionAsync();
+builder.Services.AddSingleton<IConnection>(rabbitConnection);
+
 builder.Services.AddSingleton<EvnHanoi.SyncService.Services.IPmisSyncTriggerService, EvnHanoi.SyncService.Services.PmisSyncTriggerService>();
 builder.Services.AddHostedService<EvnHanoi.SyncService.Workers.EquipmentSyncWorker>();
 builder.Services.AddHostedService<EvnHanoi.SyncService.Workers.PmisSyncWorker>();
@@ -93,7 +104,12 @@ if (app.Environment.IsDevelopment())
 
 app.MapDefaultEndpoints();
 
-app.UseHttpsRedirection();
+// Chỉ bật chuyển hướng HTTPS khi KHÔNG chạy trong môi trường Aspire 
+// Hoặc chỉ bật khi đã lên Production thực tế.
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 app.MapControllers();
 
 app.Lifetime.ApplicationStopping.Register(() => {

@@ -2,179 +2,209 @@ using System.Data;
 using Dapper;
 using EvnHanoi.EquipmentService.Core.Entities;
 using EvnHanoi.EquipmentService.Core.Interfaces;
-using Microsoft.Extensions.Configuration;
-using Oracle.ManagedDataAccess.Client;
 
 namespace EvnHanoi.EquipmentService.Infrastructure.Repositories;
 
 public class PhysicalStorageRepository : IPhysicalStorageRepository
 {
-    private readonly string _connectionString;
+    private readonly IDbConnection _connection;
 
-    public PhysicalStorageRepository(IConfiguration configuration)
+    public PhysicalStorageRepository(IDbConnection connection)
     {
-        _connectionString = configuration.GetConnectionString("DefaultConnection") 
-            ?? throw new ArgumentNullException(nameof(configuration));
+        _connection = connection ?? throw new ArgumentNullException(nameof(connection));
     }
-
-    private IDbConnection CreateConnection() => new OracleConnection(_connectionString);
 
     // Fonds
     public async Task<IEnumerable<PhysicalFonds>> GetAllFondsAsync()
     {
-        using var connection = CreateConnection();
-        return await connection.QueryAsync<PhysicalFonds>("SELECT * FROM PHYSICAL_FONDS ORDER BY Id");
+        return await _connection.QueryAsync<PhysicalFonds>(
+            $"SELECT * FROM PHYSICAL_FONDS ORDER BY {nameof(PhysicalFonds.Id)}");
     }
 
     public async Task<PhysicalFonds?> GetFondsByIdAsync(long id)
     {
-        using var connection = CreateConnection();
-        return await connection.QuerySingleOrDefaultAsync<PhysicalFonds>(
-            "SELECT * FROM PHYSICAL_FONDS WHERE Id = :Id", new { Id = id });
+        return await _connection.QuerySingleOrDefaultAsync<PhysicalFonds>(
+            $"SELECT * FROM PHYSICAL_FONDS WHERE {nameof(PhysicalFonds.Id)} = :Id", new { Id = id });
     }
 
     public async Task<long> CreateFondsAsync(PhysicalFonds fonds)
     {
-        using var connection = CreateConnection();
-        var sql = @"INSERT INTO PHYSICAL_FONDS (Code, Name, Description, CreatedBy) 
-                    VALUES (:Code, :Name, :Description, :CreatedBy) RETURNING Id INTO :Id";
+        var sql = $@"INSERT INTO PHYSICAL_FONDS (
+                        {nameof(PhysicalFonds.Code)}, 
+                        {nameof(PhysicalFonds.Name)}, 
+                        {nameof(PhysicalFonds.Description)}, 
+                        {nameof(PhysicalFonds.CreatedBy)}
+                    ) 
+                    VALUES (:Code, :Name, :Description, :CreatedBy) 
+                    RETURNING {nameof(PhysicalFonds.Id)} INTO :Id";
         var parameters = new DynamicParameters(fonds);
         parameters.Add("Id", dbType: DbType.Int64, direction: ParameterDirection.Output);
-        await connection.ExecuteAsync(sql, parameters);
+        await _connection.ExecuteAsync(sql, parameters);
         return parameters.Get<long>("Id");
     }
 
     public async Task<bool> UpdateFondsAsync(PhysicalFonds fonds)
     {
-        using var connection = CreateConnection();
-        var sql = @"UPDATE PHYSICAL_FONDS SET Code = :Code, Name = :Name, Description = :Description, 
-                    UpdatedAt = CURRENT_TIMESTAMP, UpdatedBy = :UpdatedBy WHERE Id = :Id";
-        return await connection.ExecuteAsync(sql, fonds) > 0;
+        var sql = $@"UPDATE PHYSICAL_FONDS SET 
+                        {nameof(PhysicalFonds.Code)} = :Code, 
+                        {nameof(PhysicalFonds.Name)} = :Name, 
+                        {nameof(PhysicalFonds.Description)} = :Description, 
+                        {nameof(PhysicalFonds.UpdatedAt)} = CURRENT_TIMESTAMP, 
+                        {nameof(PhysicalFonds.UpdatedBy)} = :UpdatedBy 
+                    WHERE {nameof(PhysicalFonds.Id)} = :Id";
+        return await _connection.ExecuteAsync(sql, fonds) > 0;
     }
 
     public async Task<bool> DeleteFondsAsync(long id)
     {
-        using var connection = CreateConnection();
-        return await connection.ExecuteAsync("DELETE FROM PHYSICAL_FONDS WHERE Id = :Id", new { Id = id }) > 0;
+        return await _connection.ExecuteAsync(
+            $"DELETE FROM PHYSICAL_FONDS WHERE {nameof(PhysicalFonds.Id)} = :Id", new { Id = id }) > 0;
     }
 
     // Shelf
     public async Task<IEnumerable<PhysicalShelf>> GetShelvesByFondsIdAsync(long fondsId)
     {
-        using var connection = CreateConnection();
-        return await connection.QueryAsync<PhysicalShelf>(
-            "SELECT * FROM PHYSICAL_SHELF WHERE FondsId = :FondsId ORDER BY Id", new { FondsId = fondsId });
+        return await _connection.QueryAsync<PhysicalShelf>(
+            $"SELECT * FROM PHYSICAL_SHELF WHERE {nameof(PhysicalShelf.FondsId)} = :FondsId ORDER BY {nameof(PhysicalShelf.Id)}", new { FondsId = fondsId });
     }
 
     public async Task<PhysicalShelf?> GetShelfByIdAsync(long id)
     {
-        using var connection = CreateConnection();
-        return await connection.QuerySingleOrDefaultAsync<PhysicalShelf>(
-            "SELECT * FROM PHYSICAL_SHELF WHERE Id = :Id", new { Id = id });
+        return await _connection.QuerySingleOrDefaultAsync<PhysicalShelf>(
+            $"SELECT * FROM PHYSICAL_SHELF WHERE {nameof(PhysicalShelf.Id)} = :Id", new { Id = id });
     }
 
     public async Task<long> CreateShelfAsync(PhysicalShelf shelf)
     {
-        using var connection = CreateConnection();
-        var sql = @"INSERT INTO PHYSICAL_SHELF (FondsId, Code, Name, Description, CreatedBy) 
-                    VALUES (:FondsId, :Code, :Name, :Description, :CreatedBy) RETURNING Id INTO :Id";
+        var sql = $@"INSERT INTO PHYSICAL_SHELF (
+                        {nameof(PhysicalShelf.FondsId)}, 
+                        {nameof(PhysicalShelf.Code)}, 
+                        {nameof(PhysicalShelf.Name)}, 
+                        {nameof(PhysicalShelf.Description)}, 
+                        {nameof(PhysicalShelf.CreatedBy)}
+                    ) 
+                    VALUES (:FondsId, :Code, :Name, :Description, :CreatedBy) 
+                    RETURNING {nameof(PhysicalShelf.Id)} INTO :Id";
         var parameters = new DynamicParameters(shelf);
         parameters.Add("Id", dbType: DbType.Int64, direction: ParameterDirection.Output);
-        await connection.ExecuteAsync(sql, parameters);
+        await _connection.ExecuteAsync(sql, parameters);
         return parameters.Get<long>("Id");
     }
 
     public async Task<bool> UpdateShelfAsync(PhysicalShelf shelf)
     {
-        using var connection = CreateConnection();
-        var sql = @"UPDATE PHYSICAL_SHELF SET FondsId = :FondsId, Code = :Code, Name = :Name, Description = :Description, 
-                    UpdatedAt = CURRENT_TIMESTAMP, UpdatedBy = :UpdatedBy WHERE Id = :Id";
-        return await connection.ExecuteAsync(sql, shelf) > 0;
+        var sql = $@"UPDATE PHYSICAL_SHELF SET 
+                        {nameof(PhysicalShelf.FondsId)} = :FondsId, 
+                        {nameof(PhysicalShelf.Code)} = :Code, 
+                        {nameof(PhysicalShelf.Name)} = :Name, 
+                        {nameof(PhysicalShelf.Description)} = :Description, 
+                        {nameof(PhysicalShelf.UpdatedAt)} = CURRENT_TIMESTAMP, 
+                        {nameof(PhysicalShelf.UpdatedBy)} = :UpdatedBy 
+                    WHERE {nameof(PhysicalShelf.Id)} = :Id";
+        return await _connection.ExecuteAsync(sql, shelf) > 0;
     }
 
     public async Task<bool> DeleteShelfAsync(long id)
     {
-        using var connection = CreateConnection();
-        return await connection.ExecuteAsync("DELETE FROM PHYSICAL_SHELF WHERE Id = :Id", new { Id = id }) > 0;
+        return await _connection.ExecuteAsync(
+            $"DELETE FROM PHYSICAL_SHELF WHERE {nameof(PhysicalShelf.Id)} = :Id", new { Id = id }) > 0;
     }
 
     // Floor
     public async Task<IEnumerable<PhysicalFloor>> GetFloorsByShelfIdAsync(long shelfId)
     {
-        using var connection = CreateConnection();
-        return await connection.QueryAsync<PhysicalFloor>(
-            "SELECT * FROM PHYSICAL_FLOOR WHERE ShelfId = :ShelfId ORDER BY Id", new { ShelfId = shelfId });
+        return await _connection.QueryAsync<PhysicalFloor>(
+            $"SELECT * FROM PHYSICAL_FLOOR WHERE {nameof(PhysicalFloor.ShelfId)} = :ShelfId ORDER BY {nameof(PhysicalFloor.Id)}", new { ShelfId = shelfId });
     }
 
     public async Task<PhysicalFloor?> GetFloorByIdAsync(long id)
     {
-        using var connection = CreateConnection();
-        return await connection.QuerySingleOrDefaultAsync<PhysicalFloor>(
-            "SELECT * FROM PHYSICAL_FLOOR WHERE Id = :Id", new { Id = id });
+        return await _connection.QuerySingleOrDefaultAsync<PhysicalFloor>(
+            $"SELECT * FROM PHYSICAL_FLOOR WHERE {nameof(PhysicalFloor.Id)} = :Id", new { Id = id });
     }
 
     public async Task<long> CreateFloorAsync(PhysicalFloor floor)
     {
-        using var connection = CreateConnection();
-        var sql = @"INSERT INTO PHYSICAL_FLOOR (ShelfId, Code, Name, Description, CreatedBy) 
-                    VALUES (:ShelfId, :Code, :Name, :Description, :CreatedBy) RETURNING Id INTO :Id";
+        var sql = $@"INSERT INTO PHYSICAL_FLOOR (
+                        {nameof(PhysicalFloor.ShelfId)}, 
+                        {nameof(PhysicalFloor.Code)}, 
+                        {nameof(PhysicalFloor.Name)}, 
+                        {nameof(PhysicalFloor.Description)}, 
+                        {nameof(PhysicalFloor.CreatedBy)}
+                    ) 
+                    VALUES (:ShelfId, :Code, :Name, :Description, :CreatedBy) 
+                    RETURNING {nameof(PhysicalFloor.Id)} INTO :Id";
         var parameters = new DynamicParameters(floor);
         parameters.Add("Id", dbType: DbType.Int64, direction: ParameterDirection.Output);
-        await connection.ExecuteAsync(sql, parameters);
+        await _connection.ExecuteAsync(sql, parameters);
         return parameters.Get<long>("Id");
     }
 
     public async Task<bool> UpdateFloorAsync(PhysicalFloor floor)
     {
-        using var connection = CreateConnection();
-        var sql = @"UPDATE PHYSICAL_FLOOR SET ShelfId = :ShelfId, Code = :Code, Name = :Name, Description = :Description, 
-                    UpdatedAt = CURRENT_TIMESTAMP, UpdatedBy = :UpdatedBy WHERE Id = :Id";
-        return await connection.ExecuteAsync(sql, floor) > 0;
+        var sql = $@"UPDATE PHYSICAL_FLOOR SET 
+                        {nameof(PhysicalFloor.ShelfId)} = :ShelfId, 
+                        {nameof(PhysicalFloor.Code)} = :Code, 
+                        {nameof(PhysicalFloor.Name)} = :Name, 
+                        {nameof(PhysicalFloor.Description)} = :Description, 
+                        {nameof(PhysicalFloor.UpdatedAt)} = CURRENT_TIMESTAMP, 
+                        {nameof(PhysicalFloor.UpdatedBy)} = :UpdatedBy 
+                    WHERE {nameof(PhysicalFloor.Id)} = :Id";
+        return await _connection.ExecuteAsync(sql, floor) > 0;
     }
 
     public async Task<bool> DeleteFloorAsync(long id)
     {
-        using var connection = CreateConnection();
-        return await connection.ExecuteAsync("DELETE FROM PHYSICAL_FLOOR WHERE Id = :Id", new { Id = id }) > 0;
+        return await _connection.ExecuteAsync(
+            $"DELETE FROM PHYSICAL_FLOOR WHERE {nameof(PhysicalFloor.Id)} = :Id", new { Id = id }) > 0;
     }
 
     // Box
     public async Task<IEnumerable<PhysicalBox>> GetBoxesByFloorIdAsync(long floorId)
     {
-        using var connection = CreateConnection();
-        return await connection.QueryAsync<PhysicalBox>(
-            "SELECT * FROM PHYSICAL_BOX WHERE FloorId = :FloorId ORDER BY Id", new { FloorId = floorId });
+        return await _connection.QueryAsync<PhysicalBox>(
+            $"SELECT * FROM PHYSICAL_BOX WHERE {nameof(PhysicalBox.FloorId)} = :FloorId ORDER BY {nameof(PhysicalBox.Id)}", new { FloorId = floorId });
     }
 
     public async Task<PhysicalBox?> GetBoxByIdAsync(long id)
     {
-        using var connection = CreateConnection();
-        return await connection.QuerySingleOrDefaultAsync<PhysicalBox>(
-            "SELECT * FROM PHYSICAL_BOX WHERE Id = :Id", new { Id = id });
+        return await _connection.QuerySingleOrDefaultAsync<PhysicalBox>(
+            $"SELECT * FROM PHYSICAL_BOX WHERE {nameof(PhysicalBox.Id)} = :Id", new { Id = id });
     }
 
     public async Task<long> CreateBoxAsync(PhysicalBox box)
     {
-        using var connection = CreateConnection();
-        var sql = @"INSERT INTO PHYSICAL_BOX (FloorId, Code, Name, Description, CreatedBy) 
-                    VALUES (:FloorId, :Code, :Name, :Description, :CreatedBy) RETURNING Id INTO :Id";
+        var sql = $@"INSERT INTO PHYSICAL_BOX (
+                        {nameof(PhysicalBox.FloorId)}, 
+                        {nameof(PhysicalBox.Code)}, 
+                        {nameof(PhysicalBox.Name)}, 
+                        {nameof(PhysicalBox.Description)}, 
+                        {nameof(PhysicalBox.CreatedBy)}
+                    ) 
+                    VALUES (:FloorId, :Code, :Name, :Description, :CreatedBy) 
+                    RETURNING {nameof(PhysicalBox.Id)} INTO :Id";
         var parameters = new DynamicParameters(box);
         parameters.Add("Id", dbType: DbType.Int64, direction: ParameterDirection.Output);
-        await connection.ExecuteAsync(sql, parameters);
+        await _connection.ExecuteAsync(sql, parameters);
         return parameters.Get<long>("Id");
     }
 
     public async Task<bool> UpdateBoxAsync(PhysicalBox box)
     {
-        using var connection = CreateConnection();
-        var sql = @"UPDATE PHYSICAL_BOX SET FloorId = :FloorId, Code = :Code, Name = :Name, Description = :Description, 
-                    UpdatedAt = CURRENT_TIMESTAMP, UpdatedBy = :UpdatedBy WHERE Id = :Id";
-        return await connection.ExecuteAsync(sql, box) > 0;
+        var sql = $@"UPDATE PHYSICAL_BOX SET 
+                        {nameof(PhysicalBox.FloorId)} = :FloorId, 
+                        {nameof(PhysicalBox.Code)} = :Code, 
+                        {nameof(PhysicalBox.Name)} = :Name, 
+                        {nameof(PhysicalBox.Description)} = :Description, 
+                        {nameof(PhysicalBox.UpdatedAt)} = CURRENT_TIMESTAMP, 
+                        {nameof(PhysicalBox.UpdatedBy)} = :UpdatedBy 
+                    WHERE {nameof(PhysicalBox.Id)} = :Id";
+        return await _connection.ExecuteAsync(sql, box) > 0;
     }
 
     public async Task<bool> DeleteBoxAsync(long id)
     {
-        using var connection = CreateConnection();
-        return await connection.ExecuteAsync("DELETE FROM PHYSICAL_BOX WHERE Id = :Id", new { Id = id }) > 0;
+        return await _connection.ExecuteAsync(
+            $"DELETE FROM PHYSICAL_BOX WHERE {nameof(PhysicalBox.Id)} = :Id", new { Id = id }) > 0;
     }
 }

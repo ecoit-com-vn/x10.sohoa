@@ -51,7 +51,12 @@ if (app.Environment.IsDevelopment())
 
 app.MapDefaultEndpoints();
 
-app.UseHttpsRedirection();
+// Chỉ bật chuyển hướng HTTPS khi KHÔNG chạy trong môi trường Aspire 
+// Hoặc chỉ bật khi đã lên Production thực tế.
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 app.UseCors();
 app.MapControllers();
 

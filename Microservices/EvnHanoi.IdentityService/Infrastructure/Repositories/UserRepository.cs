@@ -1,92 +1,137 @@
 using System;
 using System.Data;
+using System.Linq;
 using System.Threading.Tasks;
+using System.Collections.Generic;
 using Dapper;
 using EvnHanoi.IdentityService.Core.Domain.Models;
 using EvnHanoi.IdentityService.Core.Interfaces;
-using Oracle.ManagedDataAccess.Client;
-using Microsoft.Extensions.Configuration;
+using EvnHanoi.Infrastructure.Database;
 
 namespace EvnHanoi.IdentityService.Infrastructure.Repositories;
 
 public class UserRepository : IUserRepository
 {
-    private readonly string _connectionString;
+    private readonly IDbConnection _connection;
 
-    public UserRepository(IConfiguration configuration)
+    public UserRepository(IDbConnection connection)
     {
-        _connectionString = configuration.GetConnectionString("DefaultConnection") 
-            ?? throw new ArgumentNullException(nameof(configuration));
+        _connection = connection;
     }
-
-    private IDbConnection CreateConnection() => new OracleConnection(_connectionString);
 
     public async Task<User?> GetUserByUsernameAsync(string username)
     {
-        using var connection = CreateConnection();
-        var sql = @"
-            SELECT Id, 
-                   UserName AS Username, 
-                   Email, 
-                   FullName, 
-                   PasswordHash, 
-                   IsActive, 
-                   OrganizationUnitId AS UnitId, 
-                   AccessFailedCount, 
-                   LockoutEnd, 
-                   LockoutEnabled 
-            FROM APP_USER 
-            WHERE UserName = :Username";
-        return await connection.QuerySingleOrDefaultAsync<User>(sql, new { Username = username });
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+        var sql = $@"
+            SELECT u.{nameof(User.Id)}, 
+                   u.UserName AS {nameof(User.Username)}, 
+                   u.{nameof(User.Email)}, 
+                   u.{nameof(User.FullName)}, 
+                   u.{nameof(User.PasswordHash)}, 
+                   u.{nameof(User.IsActive)}, 
+                   u.{nameof(User.OrganizationUnitId)}, 
+                   u.{nameof(User.AccessFailedCount)}, 
+                   u.{nameof(User.LockoutEnd)}, 
+                   u.{nameof(User.LockoutEnabled)},
+                   o.{nameof(OrganizationUnit.Id)}, 
+                   o.{nameof(OrganizationUnit.Code)}, 
+                   o.{nameof(OrganizationUnit.Name)}, 
+                   o.{nameof(OrganizationUnit.ParentId)}, 
+                   o.{nameof(OrganizationUnit.Description)}
+            FROM APP_USER u
+            LEFT JOIN ORGANIZATION_UNIT o ON u.{nameof(User.OrganizationUnitId)} = o.{nameof(OrganizationUnit.Id)}
+            WHERE u.UserName = :Username";
+            
+        var result = await _connection.QueryAsync<User, OrganizationUnit, User>(
+            sql, 
+            (user, unit) => {
+                user.OrganizationUnit = unit;
+                return user;
+            }, 
+            new { Username = username },
+            splitOn: "Id"
+        );
+        return result.FirstOrDefault();
     }
 
-    public async Task<System.Collections.Generic.IEnumerable<User>> GetAllAsync()
+    public async Task<IEnumerable<User>> GetAllAsync()
     {
-        using var connection = CreateConnection();
-        var sql = @"
-            SELECT Id, 
-                   UserName AS Username, 
-                   Email, 
-                   FullName, 
-                   PasswordHash, 
-                   IsActive, 
-                   OrganizationUnitId AS UnitId, 
-                   AccessFailedCount, 
-                   LockoutEnd, 
-                   LockoutEnabled 
-            FROM APP_USER";
-        return await connection.QueryAsync<User>(sql);
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+        var sql = $@"
+            SELECT u.{nameof(User.Id)}, 
+                   u.UserName AS {nameof(User.Username)}, 
+                   u.{nameof(User.Email)}, 
+                   u.{nameof(User.FullName)}, 
+                   u.{nameof(User.PasswordHash)}, 
+                   u.{nameof(User.IsActive)}, 
+                   u.{nameof(User.OrganizationUnitId)}, 
+                   u.{nameof(User.AccessFailedCount)}, 
+                   u.{nameof(User.LockoutEnd)}, 
+                   u.{nameof(User.LockoutEnabled)},
+                   o.{nameof(OrganizationUnit.Id)}, 
+                   o.{nameof(OrganizationUnit.Code)}, 
+                   o.{nameof(OrganizationUnit.Name)}, 
+                   o.{nameof(OrganizationUnit.ParentId)}, 
+                   o.{nameof(OrganizationUnit.Description)}
+            FROM APP_USER u
+            LEFT JOIN ORGANIZATION_UNIT o ON u.{nameof(User.OrganizationUnitId)} = o.{nameof(OrganizationUnit.Id)}";
+            
+        return await _connection.QueryAsync<User, OrganizationUnit, User>(
+            sql, 
+            (user, unit) => {
+                user.OrganizationUnit = unit;
+                return user;
+            }, 
+            splitOn: "Id"
+        );
     }
 
-    public async Task<User?> GetByIdAsync(long id)
+    public async Task<User?> GetByIdAsync(string id)
     {
-        using var connection = CreateConnection();
-        var sql = @"
-            SELECT Id, 
-                   UserName AS Username, 
-                   Email, 
-                   FullName, 
-                   PasswordHash, 
-                   IsActive, 
-                   OrganizationUnitId AS UnitId, 
-                   AccessFailedCount, 
-                   LockoutEnd, 
-                   LockoutEnabled 
-            FROM APP_USER
-            WHERE Id = :Id";
-        return await connection.QuerySingleOrDefaultAsync<User>(sql, new { Id = id });
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+        var sql = $@"
+            SELECT u.{nameof(User.Id)}, 
+                   u.UserName AS {nameof(User.Username)}, 
+                   u.{nameof(User.Email)}, 
+                   u.{nameof(User.FullName)}, 
+                   u.{nameof(User.PasswordHash)}, 
+                   u.{nameof(User.IsActive)}, 
+                   u.{nameof(User.OrganizationUnitId)}, 
+                   u.{nameof(User.AccessFailedCount)}, 
+                   u.{nameof(User.LockoutEnd)}, 
+                   u.{nameof(User.LockoutEnabled)},
+                   o.{nameof(OrganizationUnit.Id)}, 
+                   o.{nameof(OrganizationUnit.Code)}, 
+                   o.{nameof(OrganizationUnit.Name)}, 
+                   o.{nameof(OrganizationUnit.ParentId)}, 
+                   o.{nameof(OrganizationUnit.Description)}
+            FROM APP_USER u
+            LEFT JOIN ORGANIZATION_UNIT o ON u.{nameof(User.OrganizationUnitId)} = o.{nameof(OrganizationUnit.Id)}
+            WHERE u.{nameof(User.Id)} = :Id";
+            
+        var result = await _connection.QueryAsync<User, OrganizationUnit, User>(
+            sql, 
+            (user, unit) => {
+                user.OrganizationUnit = unit;
+                return user;
+            }, 
+            new { Id = id },
+            splitOn: "Id"
+        );
+        return result.FirstOrDefault();
     }
 
     public async Task UpdateAsync(User user)
     {
-        using var connection = CreateConnection();
-        var sql = @"
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+        var sql = $@"
             UPDATE APP_USER 
-            SET AccessFailedCount = :AccessFailedCount, 
-                LockoutEnd = :LockoutEnd, 
-                LockoutEnabled = :LockoutEnabled 
-            WHERE Id = :Id";
-        await connection.ExecuteAsync(sql, new 
+            SET {nameof(User.AccessFailedCount)} = :AccessFailedCount, 
+                {nameof(User.LockoutEnd)} = :LockoutEnd, 
+                {nameof(User.LockoutEnabled)} = :LockoutEnabled 
+            WHERE {nameof(User.Id)} = :Id";
+            
+        await _connection.ExecuteAsync(sql, new 
         {
             user.AccessFailedCount,
             user.LockoutEnd,
@@ -97,61 +142,77 @@ public class UserRepository : IUserRepository
 
     public async Task UpdateFullAsync(User user)
     {
-        using var connection = CreateConnection();
-        var sql = @"
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+        var sql = $@"
             UPDATE APP_USER 
             SET UserName = :Username,
-                Email = :Email,
-                FullName = :FullName,
-                PasswordHash = :PasswordHash,
-                IsActive = :IsActive,
-                OrganizationUnitId = :UnitId,
-                LockoutEnabled = :LockoutEnabled
-            WHERE Id = :Id";
-        await connection.ExecuteAsync(sql, new 
+                {nameof(User.Email)} = :Email,
+                {nameof(User.FullName)} = :FullName,
+                {nameof(User.PasswordHash)} = :PasswordHash,
+                {nameof(User.IsActive)} = :IsActive,
+                {nameof(User.OrganizationUnitId)} = :OrganizationUnitId,
+                {nameof(User.LockoutEnabled)} = :LockoutEnabled
+            WHERE {nameof(User.Id)} = :Id";
+            
+        await _connection.ExecuteAsync(sql, new 
         {
             Username = user.Username,
-            Email = user.Email,
-            FullName = user.FullName,
-            PasswordHash = user.PasswordHash,
+            user.Email,
+            user.FullName,
+            user.PasswordHash,
             IsActive = user.IsActive ? 1 : 0,
-            UnitId = user.UnitId,
+            user.OrganizationUnitId,
             LockoutEnabled = user.LockoutEnabled ? 1 : 0,
-            Id = user.Id
+            user.Id
         });
     }
 
-    public async Task<long> CreateAsync(User user)
+    public async Task<string> CreateAsync(User user)
     {
-        using var connection = CreateConnection();
-        var sql = @"
-            INSERT INTO APP_USER (UserName, Email, FullName, PasswordHash, IsActive, OrganizationUnitId)
-            VALUES (:Username, :Email, :FullName, :PasswordHash, :IsActive, :UnitId)
-            RETURNING Id INTO :Id";
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+        if (string.IsNullOrEmpty(user.Id))
+        {
+            user.Id = UuidHelper.NewUuid();
+        }
+        var sql = $@"
+            INSERT INTO APP_USER (
+                {nameof(User.Id)}, 
+                UserName, 
+                {nameof(User.Email)}, 
+                {nameof(User.FullName)}, 
+                {nameof(User.PasswordHash)}, 
+                {nameof(User.IsActive)}, 
+                {nameof(User.OrganizationUnitId)},
+                {nameof(User.AccessFailedCount)},
+                {nameof(User.LockoutEnabled)}
+            )
+            VALUES (:Id, :Username, :Email, :FullName, :PasswordHash, :IsActive, :OrganizationUnitId, :AccessFailedCount, :LockoutEnabled)";
             
-        var parameters = new DynamicParameters();
-        parameters.Add("Username", user.Username);
-        parameters.Add("Email", user.Email);
-        parameters.Add("FullName", user.FullName);
-        parameters.Add("PasswordHash", user.PasswordHash);
-        parameters.Add("IsActive", user.IsActive ? 1 : 0);
-        parameters.Add("UnitId", user.UnitId);
-        parameters.Add("Id", dbType: DbType.Int64, direction: ParameterDirection.Output);
-        
-        await connection.ExecuteAsync(sql, parameters);
-        return parameters.Get<long>("Id");
+        await _connection.ExecuteAsync(sql, new
+        {
+            user.Id,
+            Username = user.Username,
+            user.Email,
+            user.FullName,
+            user.PasswordHash,
+            IsActive = user.IsActive ? 1 : 0,
+            user.OrganizationUnitId,
+            user.AccessFailedCount,
+            LockoutEnabled = user.LockoutEnabled ? 1 : 0
+        });
+        return user.Id;
     }
 
-    public async Task DeleteAsync(long id)
+    public async Task DeleteAsync(string id)
     {
-        using var connection = CreateConnection();
-        var sql = "DELETE FROM APP_USER WHERE Id = :Id";
-        await connection.ExecuteAsync(sql, new { Id = id });
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+        var sql = $"DELETE FROM APP_USER WHERE {nameof(User.Id)} = :Id";
+        await _connection.ExecuteAsync(sql, new { Id = id });
     }
 
-    public async Task<System.Collections.Generic.IEnumerable<string>> GetRolesByUserIdAsync(long userId)
+    public async Task<IEnumerable<string>> GetRolesByUserIdAsync(string userId)
     {
-        using var connection = CreateConnection();
+        if (_connection.State != ConnectionState.Open) _connection.Open();
         var sql = @"
             SELECT r.Code 
             FROM ROLE r
@@ -163,23 +224,44 @@ public class UserRepository : IUserRepository
                 INNER JOIN USER_GROUP_ROLE ugr ON ugm.UserGroupId = ugr.UserGroupId
                 WHERE ugm.UserId = :UserId
             )";
-        return await connection.QueryAsync<string>(sql, new { UserId = userId });
+        return await _connection.QueryAsync<string>(sql, new { UserId = userId });
     }
 
-    public async Task<System.Collections.Generic.IEnumerable<string>> GetPermissionsByUserIdAsync(long userId)
+    public async Task<IEnumerable<string>> GetPermissionsByUserIdAsync(string userId)
     {
-        using var connection = CreateConnection();
+        if (_connection.State != ConnectionState.Open) _connection.Open();
         var sql = @"
-            SELECT DISTINCT rp.PermissionCode
-            FROM ROLE_PERMISSION rp
-            WHERE rp.RoleId IN (
-                SELECT RoleId FROM USER_ROLE WHERE UserId = :UserId
+            SELECT DISTINCT p.Code
+            FROM PERMISSION p
+            WHERE p.IsActive = 1 AND p.Id IN (
+                -- 1. Quyền gán trực tiếp cho User
+                SELECT PermissionId FROM USER_PERMISSION WHERE UserId = :UserId
+                
                 UNION
-                SELECT ugr.RoleId 
-                FROM USER_GROUP_MEMBER ugm
-                INNER JOIN USER_GROUP_ROLE ugr ON ugm.UserGroupId = ugr.UserGroupId
+                
+                -- 2. Quyền gán qua Nhóm người dùng (User Group)
+                SELECT ugp.PermissionId 
+                FROM USER_GROUP_PERMISSION ugp
+                INNER JOIN USER_GROUP_MEMBER ugm ON ugp.UserGroupId = ugm.UserGroupId
+                WHERE ugm.UserId = :UserId
+                
+                UNION
+                
+                -- 3. Quyền từ các Roles gán trực tiếp cho User
+                SELECT rp.PermissionId
+                FROM ROLE_PERMISSION rp
+                INNER JOIN USER_ROLE ur ON rp.RoleId = ur.RoleId
+                WHERE ur.UserId = :UserId
+                
+                UNION
+                
+                -- 4. Quyền từ các Roles gán qua Nhóm người dùng
+                SELECT rp.PermissionId
+                FROM ROLE_PERMISSION rp
+                INNER JOIN USER_GROUP_ROLE ugr ON rp.RoleId = ugr.RoleId
+                INNER JOIN USER_GROUP_MEMBER ugm ON ugr.UserGroupId = ugm.UserGroupId
                 WHERE ugm.UserId = :UserId
             )";
-        return await connection.QueryAsync<string>(sql, new { UserId = userId });
+        return await _connection.QueryAsync<string>(sql, new { UserId = userId });
     }
 }

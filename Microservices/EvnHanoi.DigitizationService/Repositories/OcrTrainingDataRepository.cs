@@ -6,37 +6,31 @@ using System.Threading.Tasks;
 using Dapper;
 using EvnHanoi.DigitizationService.Models;
 using EvnHanoi.DigitizationService.Models.Dto;
-using Microsoft.Extensions.Configuration;
-using Oracle.ManagedDataAccess.Client;
 
 namespace EvnHanoi.DigitizationService.Repositories
 {
     public class OcrTrainingDataRepository : IOcrTrainingDataRepository
     {
-        private readonly string _connectionString;
+        private readonly IDbConnection _connection;
 
-        public OcrTrainingDataRepository(IConfiguration configuration)
+        public OcrTrainingDataRepository(IDbConnection connection)
         {
-            _connectionString = configuration.GetConnectionString("DefaultConnection")
-                ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
+            _connection = connection ?? throw new ArgumentNullException(nameof(connection));
         }
-
-        private IDbConnection CreateConnection() => new OracleConnection(_connectionString);
 
         public async Task<long> CreateAsync(OcrTrainingData data)
         {
-            const string sql = @"
+            var sql = $@"
                 INSERT INTO OCR_TRAINING_DATA (
                     FILE_NAME, FILE_PATH, BUCKET_NAME, CONTENT_TYPE, FILE_SIZE,
                     DOCUMENT_TYPE, LABEL_TEXT, QUALITY_SCORE, TRAINING_STATUS,
                     IS_VERIFIED, NOTES, UPLOADED_AT, UPLOADED_BY, CREATED_AT, UPDATED_AT
                 ) VALUES (
-                    :FileName, :FilePath, :BucketName, :ContentType, :FileSize,
-                    :DocumentType, :LabelText, :QualityScore, :TrainingStatus,
-                    :IsVerifiedNum, :Notes, :UploadedAt, :UploadedBy, :CreatedAt, :UpdatedAt
+                    :{nameof(OcrTrainingData.FileName)}, :{nameof(OcrTrainingData.FilePath)}, :{nameof(OcrTrainingData.BucketName)}, :{nameof(OcrTrainingData.ContentType)}, :{nameof(OcrTrainingData.FileSize)},
+                    :{nameof(OcrTrainingData.DocumentType)}, :{nameof(OcrTrainingData.LabelText)}, :{nameof(OcrTrainingData.QualityScore)}, :{nameof(OcrTrainingData.TrainingStatus)},
+                    :IsVerifiedNum, :{nameof(OcrTrainingData.Notes)}, :{nameof(OcrTrainingData.UploadedAt)}, :{nameof(OcrTrainingData.UploadedBy)}, :{nameof(OcrTrainingData.CreatedAt)}, :{nameof(OcrTrainingData.UpdatedAt)}
                 ) RETURNING ID INTO :Id";
 
-            using var connection = CreateConnection();
             var parameters = new DynamicParameters();
             parameters.Add("FileName", data.FileName);
             parameters.Add("FilePath", data.FilePath);
@@ -55,27 +49,26 @@ namespace EvnHanoi.DigitizationService.Repositories
             parameters.Add("UpdatedAt", data.UpdatedAt);
             parameters.Add("Id", dbType: DbType.Int64, direction: ParameterDirection.Output);
 
-            await connection.ExecuteAsync(sql, parameters);
+            await _connection.ExecuteAsync(sql, parameters);
             return parameters.Get<long>("Id");
         }
 
         public async Task<OcrTrainingData?> GetByIdAsync(long id)
         {
-            const string sql = @"
-                SELECT ID AS Id, FILE_NAME AS FileName, FILE_PATH AS FilePath,
-                       BUCKET_NAME AS BucketName, CONTENT_TYPE AS ContentType,
-                       FILE_SIZE AS FileSize, DOCUMENT_TYPE AS DocumentType,
-                       LABEL_TEXT AS LabelText, QUALITY_SCORE AS QualityScore,
-                       TRAINING_STATUS AS TrainingStatus,
-                       CASE IS_VERIFIED WHEN 1 THEN 1 ELSE 0 END AS IsVerified,
-                       VERIFIED_BY AS VerifiedBy, VERIFIED_AT AS VerifiedAt,
-                       NOTES AS Notes, UPLOADED_AT AS UploadedAt,
-                       UPLOADED_BY AS UploadedBy, CREATED_AT AS CreatedAt,
-                       UPDATED_AT AS UpdatedAt
+            var sql = $@"
+                SELECT ID AS {nameof(OcrTrainingData.Id)}, FILE_NAME AS {nameof(OcrTrainingData.FileName)}, FILE_PATH AS {nameof(OcrTrainingData.FilePath)},
+                       BUCKET_NAME AS {nameof(OcrTrainingData.BucketName)}, CONTENT_TYPE AS {nameof(OcrTrainingData.ContentType)},
+                       FILE_SIZE AS {nameof(OcrTrainingData.FileSize)}, DOCUMENT_TYPE AS {nameof(OcrTrainingData.DocumentType)},
+                       LABEL_TEXT AS {nameof(OcrTrainingData.LabelText)}, QUALITY_SCORE AS {nameof(OcrTrainingData.QualityScore)},
+                       TRAINING_STATUS AS {nameof(OcrTrainingData.TrainingStatus)},
+                       CASE IS_VERIFIED WHEN 1 THEN 1 ELSE 0 END AS {nameof(OcrTrainingData.IsVerified)},
+                       VERIFIED_BY AS {nameof(OcrTrainingData.VerifiedBy)}, VERIFIED_AT AS {nameof(OcrTrainingData.VerifiedAt)},
+                       NOTES AS {nameof(OcrTrainingData.Notes)}, UPLOADED_AT AS {nameof(OcrTrainingData.UploadedAt)},
+                       UPLOADED_BY AS {nameof(OcrTrainingData.UploadedBy)}, CREATED_AT AS {nameof(OcrTrainingData.CreatedAt)},
+                       UPDATED_AT AS {nameof(OcrTrainingData.UpdatedAt)}
                 FROM OCR_TRAINING_DATA WHERE ID = :Id";
 
-            using var connection = CreateConnection();
-            return await connection.QuerySingleOrDefaultAsync<OcrTrainingData>(sql, new { Id = id });
+            return await _connection.QuerySingleOrDefaultAsync<OcrTrainingData>(sql, new { Id = id });
         }
 
         public async Task<PagedResult<OcrTrainingDataSummaryDto>> GetPagedAsync(
@@ -110,12 +103,12 @@ namespace EvnHanoi.DigitizationService.Repositories
 
             var dataSql = $@"
                 SELECT * FROM (
-                    SELECT ID AS Id, FILE_NAME AS FileName, CONTENT_TYPE AS ContentType,
-                           FILE_SIZE AS FileSize, DOCUMENT_TYPE AS DocumentType,
-                           TRAINING_STATUS AS TrainingStatus,
-                           CASE IS_VERIFIED WHEN 1 THEN 1 ELSE 0 END AS IsVerified,
-                           QUALITY_SCORE AS QualityScore,
-                           UPLOADED_BY AS UploadedBy, UPLOADED_AT AS UploadedAt,
+                    SELECT ID AS {nameof(OcrTrainingData.Id)}, FILE_NAME AS {nameof(OcrTrainingData.FileName)}, CONTENT_TYPE AS {nameof(OcrTrainingData.ContentType)},
+                           FILE_SIZE AS {nameof(OcrTrainingData.FileSize)}, DOCUMENT_TYPE AS {nameof(OcrTrainingData.DocumentType)},
+                           TRAINING_STATUS AS {nameof(OcrTrainingData.TrainingStatus)},
+                           CASE IS_VERIFIED WHEN 1 THEN 1 ELSE 0 END AS {nameof(OcrTrainingData.IsVerified)},
+                           QUALITY_SCORE AS {nameof(OcrTrainingData.QualityScore)},
+                           UPLOADED_BY AS {nameof(OcrTrainingData.UploadedBy)}, UPLOADED_AT AS {nameof(OcrTrainingData.UploadedAt)},
                            ROW_NUMBER() OVER (ORDER BY UPLOADED_AT DESC) AS RN
                     FROM OCR_TRAINING_DATA {whereClause}
                 ) WHERE RN > :Offset AND RN <= :OffsetPlusSize";
@@ -123,9 +116,8 @@ namespace EvnHanoi.DigitizationService.Repositories
             parameters.Add("Offset", offset);
             parameters.Add("OffsetPlusSize", offset + pageSize);
 
-            using var connection = CreateConnection();
-            var totalCount = await connection.ExecuteScalarAsync<int>(countSql, parameters);
-            var items = (await connection.QueryAsync<OcrTrainingDataSummaryDto>(dataSql, parameters)).ToList();
+            var totalCount = await _connection.ExecuteScalarAsync<int>(countSql, parameters);
+            var items = (await _connection.QueryAsync<OcrTrainingDataSummaryDto>(dataSql, parameters)).ToList();
 
             return new PagedResult<OcrTrainingDataSummaryDto>
             {
@@ -138,21 +130,20 @@ namespace EvnHanoi.DigitizationService.Repositories
 
         public async Task UpdateAsync(OcrTrainingData data)
         {
-            const string sql = @"
+            var sql = $@"
                 UPDATE OCR_TRAINING_DATA SET
-                    DOCUMENT_TYPE = :DocumentType,
-                    LABEL_TEXT = :LabelText,
-                    QUALITY_SCORE = :QualityScore,
-                    TRAINING_STATUS = :TrainingStatus,
+                    DOCUMENT_TYPE = :{nameof(OcrTrainingData.DocumentType)},
+                    LABEL_TEXT = :{nameof(OcrTrainingData.LabelText)},
+                    QUALITY_SCORE = :{nameof(OcrTrainingData.QualityScore)},
+                    TRAINING_STATUS = :{nameof(OcrTrainingData.TrainingStatus)},
                     IS_VERIFIED = :IsVerifiedNum,
-                    VERIFIED_BY = :VerifiedBy,
-                    VERIFIED_AT = :VerifiedAt,
-                    NOTES = :Notes,
-                    UPDATED_AT = :UpdatedAt
-                WHERE ID = :Id";
+                    VERIFIED_BY = :{nameof(OcrTrainingData.VerifiedBy)},
+                    VERIFIED_AT = :{nameof(OcrTrainingData.VerifiedAt)},
+                    NOTES = :{nameof(OcrTrainingData.Notes)},
+                    UPDATED_AT = :{nameof(OcrTrainingData.UpdatedAt)}
+                WHERE ID = :{nameof(OcrTrainingData.Id)}";
 
-            using var connection = CreateConnection();
-            await connection.ExecuteAsync(sql, new
+            await _connection.ExecuteAsync(sql, new
             {
                 data.DocumentType,
                 data.LabelText,
@@ -170,15 +161,14 @@ namespace EvnHanoi.DigitizationService.Repositories
         public async Task UpdateLabelAsync(long id, string? labelText, string documentType,
             string trainingStatus, decimal? qualityScore, string? notes)
         {
-            const string sql = @"
+            var sql = $@"
                 UPDATE OCR_TRAINING_DATA SET
                     LABEL_TEXT = :LabelText, DOCUMENT_TYPE = :DocumentType,
                     TRAINING_STATUS = :TrainingStatus, QUALITY_SCORE = :QualityScore,
                     NOTES = :Notes, UPDATED_AT = :UpdatedAt
                 WHERE ID = :Id";
 
-            using var connection = CreateConnection();
-            await connection.ExecuteAsync(sql, new
+            await _connection.ExecuteAsync(sql, new
             {
                 LabelText = labelText,
                 DocumentType = documentType,
@@ -192,7 +182,7 @@ namespace EvnHanoi.DigitizationService.Repositories
 
         public async Task VerifyAsync(long id, bool isVerified, string verifiedBy, string? notes)
         {
-            const string sql = @"
+            var sql = $@"
                 UPDATE OCR_TRAINING_DATA SET
                     IS_VERIFIED = :IsVerifiedNum,
                     VERIFIED_BY = :VerifiedBy,
@@ -202,8 +192,7 @@ namespace EvnHanoi.DigitizationService.Repositories
                     UPDATED_AT = :UpdatedAt
                 WHERE ID = :Id";
 
-            using var connection = CreateConnection();
-            await connection.ExecuteAsync(sql, new
+            await _connection.ExecuteAsync(sql, new
             {
                 IsVerifiedNum = isVerified ? 1 : 0,
                 VerifiedBy = verifiedBy,
@@ -217,16 +206,14 @@ namespace EvnHanoi.DigitizationService.Repositories
 
         public async Task DeleteAsync(long id)
         {
-            const string sql = "DELETE FROM OCR_TRAINING_DATA WHERE ID = :Id";
-            using var connection = CreateConnection();
-            await connection.ExecuteAsync(sql, new { Id = id });
+            var sql = "DELETE FROM OCR_TRAINING_DATA WHERE ID = :Id";
+            await _connection.ExecuteAsync(sql, new { Id = id });
         }
 
         public async Task<int> GetCountByStatusAsync(string status)
         {
-            const string sql = "SELECT COUNT(*) FROM OCR_TRAINING_DATA WHERE TRAINING_STATUS = :Status";
-            using var connection = CreateConnection();
-            return await connection.ExecuteScalarAsync<int>(sql, new { Status = status });
+            var sql = "SELECT COUNT(*) FROM OCR_TRAINING_DATA WHERE TRAINING_STATUS = :Status";
+            return await _connection.ExecuteScalarAsync<int>(sql, new { Status = status });
         }
     }
 }

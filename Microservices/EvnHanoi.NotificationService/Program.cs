@@ -5,6 +5,7 @@ using EvnHanoi.NotificationService.Workers;
 using Elastic.Clients.Elasticsearch;
 using Elastic.Transport;
 using Serilog;
+using RabbitMQ.Client;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,6 +16,16 @@ builder.Host.UseSerilog(SerilogSetupHelper.ConfigureSerilog);
 
 // Setup DbUp
 EvnHanoi.Infrastructure.Database.DatabaseMigrationHelper.RunMigrations(builder.Configuration);
+
+var rabbitFactory = new ConnectionFactory
+{
+    HostName = builder.Configuration["RabbitMQ:Host"] ?? "localhost",
+    UserName = builder.Configuration["RabbitMQ:Username"] ?? "guest",
+    Password = builder.Configuration["RabbitMQ:Password"] ?? "guest",
+    Port = int.TryParse(builder.Configuration["RabbitMQ:Port"], out var port) ? port : 5672
+};
+var rabbitConnection = await rabbitFactory.CreateConnectionAsync();
+builder.Services.AddSingleton<IConnection>(rabbitConnection);
 
 builder.Services.AddControllers();
 

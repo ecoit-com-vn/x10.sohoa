@@ -2,9 +2,10 @@ using System;
 
 namespace EvnHanoi.IdentityService.Core.Domain.Models;
 
-public class RolePermission
+public class PermissionDetail
 {
     public string Id { get; set; } = string.Empty;
-    public long RoleId { get; set; }
     public string PermissionId { get; set; } = string.Empty;
+    public string ControllerName { get; set; } = string.Empty;
+    public string ActionName { get; set; } = string.Empty;
 }

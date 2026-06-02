@@ -4,6 +4,7 @@ using ClosedXML.Excel;
 using System.IO;
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Threading.Tasks;
 using System.Linq;
 using Microsoft.Extensions.Configuration;
@@ -18,12 +19,12 @@ namespace EvnHanoi.ReportService.Controllers
     [Route("api/v1/reports")]
     public class ReportController : ControllerBase
     {
-        private readonly IConfiguration _configuration;
+        private readonly IDbConnection _connection;
         private readonly IReportRepository _reportRepository;
 
-        public ReportController(IConfiguration configuration, IReportRepository reportRepository)
+        public ReportController(IDbConnection connection, IReportRepository reportRepository)
         {
-            _configuration = configuration;
+            _connection = connection;
             _reportRepository = reportRepository;
         }
 
@@ -39,29 +40,24 @@ namespace EvnHanoi.ReportService.Controllers
                 new ReportStat { Station = "Trạm 110kV Đống Đa (Mẫu)", Count = 180 },
             };
 
-            // Attempt to query live database using Dapper
-            var connectionString = _configuration.GetConnectionString("DefaultConnection");
-            if (!string.IsNullOrWhiteSpace(connectionString))
+            // Attempt to query live database using Dapper with injected connection
+            try
             {
-                try
+                var sql = $@"
+                    SELECT et.Name AS {nameof(ReportStat.Station)}, COUNT(e.Id) AS {nameof(ReportStat.Count)} 
+                    FROM Equipments e
+                    JOIN EquipmentTypes et ON e.EquipmentTypeId = et.Id
+                    GROUP BY et.Name";
+                
+                var dbStats = await _connection.QueryAsync<ReportStat>(sql);
+                if (dbStats != null && dbStats.Any())
                 {
-                    using var connection = new OracleConnection(connectionString);
-                    var sql = @"
-                        SELECT et.Name AS Station, COUNT(e.Id) AS Count 
-                        FROM Equipments e
-                        JOIN EquipmentTypes et ON e.EquipmentTypeId = et.Id
-                        GROUP BY et.Name";
-                    
-                    var dbStats = await connection.QueryAsync<ReportStat>(sql);
-                    if (dbStats != null && dbStats.Any())
-                    {
-                        stats = dbStats.ToList();
-                    }
+                    stats = dbStats.ToList();
                 }
-                catch (Exception)
-                {
-                    // Degrade gracefully to mock stats if database is not reachable or tables empty
-                }
+            }
+            catch (Exception)
+            {
+                // Degrade gracefully to mock stats if database is not reachable or tables empty
             }
 
             using var workbook = new XLWorkbook();

@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Threading.Tasks;
 using EvnHanoi.EquipmentService.Core.Interfaces;
 using RabbitMQ.Client;
 
@@ -7,31 +8,23 @@ namespace EvnHanoi.EquipmentService.Infrastructure.Messaging;
 
 public class RabbitMQProducer : IMessageProducer
 {
-    private readonly IConfiguration _configuration;
+    private readonly IConnection _connection;
 
-    public RabbitMQProducer(IConfiguration configuration)
+    public RabbitMQProducer(IConnection connection)
     {
-        _configuration = configuration;
+        _connection = connection;
     }
 
-    public void SendMessage<T>(T message, string queueName)
+    public async Task SendMessageAsync<T>(T message, string queueName)
     {
-        var factory = new ConnectionFactory
-        {
-            HostName = _configuration["RabbitMQ:Host"] ?? "localhost",
-            UserName = _configuration["RabbitMQ:Username"] ?? "guest",
-            Password = _configuration["RabbitMQ:Password"] ?? "guest",
-            Port = int.TryParse(_configuration["RabbitMQ:Port"], out var port) ? port : 5672
-        };
+        // Create a lightweight virtual channel, reusing the shared TCP connection
+        using var channel = await _connection.CreateChannelAsync();
 
-        using var connection = factory.CreateConnection();
-        using var channel = connection.CreateModel();
-
-        channel.QueueDeclare(queue: queueName, durable: true, exclusive: false, autoDelete: false, arguments: null);
+        await channel.QueueDeclareAsync(queue: queueName, durable: true, exclusive: false, autoDelete: false, arguments: null);
 
         var json = JsonSerializer.Serialize(message);
         var body = Encoding.UTF8.GetBytes(json);
 
-        channel.BasicPublish(exchange: "", routingKey: queueName, basicProperties: null, body: body);
+        await channel.BasicPublishAsync(exchange: "", routingKey: queueName, mandatory: false, basicProperties: new BasicProperties(), body: body);
     }
 }

@@ -2,79 +2,79 @@ using System.Data;
 using Dapper;
 using EvnHanoi.EquipmentService.Core.Entities;
 using EvnHanoi.EquipmentService.Core.Interfaces;
-using Microsoft.Extensions.Configuration;
-using Oracle.ManagedDataAccess.Client;
 
 namespace EvnHanoi.EquipmentService.Infrastructure.Repositories;
 
 public class EquipmentTypeRepository : IEquipmentTypeRepository
 {
-    private readonly string _connectionString;
+    private readonly IDbConnection _connection;
 
-    public EquipmentTypeRepository(IConfiguration configuration)
+    public EquipmentTypeRepository(IDbConnection connection)
     {
-        _connectionString = configuration.GetConnectionString("DefaultConnection")
-            ?? throw new ArgumentNullException(nameof(configuration));
+        _connection = connection ?? throw new ArgumentNullException(nameof(connection));
     }
-
-    private IDbConnection CreateConnection() => new OracleConnection(_connectionString);
 
     public async Task<EquipmentType?> GetByIdAsync(Guid id)
     {
-        using var connection = CreateConnection();
-        var sql = "SELECT * FROM EquipmentTypes WHERE Id = :Id";
-        return await connection.QuerySingleOrDefaultAsync<EquipmentType>(sql, new { Id = id });
+        var sql = $"SELECT * FROM {nameof(EquipmentType)}s WHERE {nameof(EquipmentType.Id)} = :Id";
+        return await _connection.QuerySingleOrDefaultAsync<EquipmentType>(sql, new { Id = id });
     }
 
     public async Task<IEnumerable<EquipmentType>> GetAllAsync()
     {
-        using var connection = CreateConnection();
-        var sql = "SELECT * FROM EquipmentTypes";
-        return await connection.QueryAsync<EquipmentType>(sql);
+        var sql = $"SELECT * FROM {nameof(EquipmentType)}s";
+        return await _connection.QueryAsync<EquipmentType>(sql);
     }
 
     public async Task<bool> CreateAsync(EquipmentType type)
     {
-        using var connection = CreateConnection();
-        var sql = @"INSERT INTO EquipmentTypes (Id, Name, Code, Description)
+        var sql = $@"INSERT INTO {nameof(EquipmentType)}s (
+                        {nameof(EquipmentType.Id)}, 
+                        {nameof(EquipmentType.Name)}, 
+                        {nameof(EquipmentType.Code)}, 
+                        {nameof(EquipmentType.Description)}
+                    )
                     VALUES (:Id, :Name, :Code, :Description)";
-        var result = await connection.ExecuteAsync(sql, type);
+        var result = await _connection.ExecuteAsync(sql, type);
         return result > 0;
     }
 
     public async Task<bool> UpdateAsync(EquipmentType type)
     {
-        using var connection = CreateConnection();
-        var sql = @"UPDATE EquipmentTypes 
-                    SET Name = :Name,
-                        Code = :Code,
-                        Description = :Description
-                    WHERE Id = :Id";
-        var result = await connection.ExecuteAsync(sql, type);
+        var sql = $@"UPDATE {nameof(EquipmentType)}s 
+                    SET {nameof(EquipmentType.Name)} = :Name,
+                        {nameof(EquipmentType.Code)} = :Code,
+                        {nameof(EquipmentType.Description)} = :Description
+                    WHERE {nameof(EquipmentType.Id)} = :Id";
+        var result = await _connection.ExecuteAsync(sql, type);
         return result > 0;
     }
 
     public async Task<bool> DeleteAsync(Guid id)
     {
-        using var connection = CreateConnection();
-        var sql = "DELETE FROM EquipmentTypes WHERE Id = :Id";
-        var result = await connection.ExecuteAsync(sql, new { Id = id });
+        var sql = $"DELETE FROM {nameof(EquipmentType)}s WHERE {nameof(EquipmentType.Id)} = :Id";
+        var result = await _connection.ExecuteAsync(sql, new { Id = id });
         return result > 0;
     }
 
     public async Task<IEnumerable<AttributeDefinition>> GetAttributeDefinitionsAsync(Guid equipmentTypeId)
     {
-        using var connection = CreateConnection();
-        var sql = "SELECT * FROM AttributeDefinitions WHERE EquipmentTypeId = :EquipmentTypeId";
-        return await connection.QueryAsync<AttributeDefinition>(sql, new { EquipmentTypeId = equipmentTypeId });
+        var sql = $"SELECT * FROM {nameof(AttributeDefinition)}s WHERE {nameof(AttributeDefinition.EquipmentTypeId)} = :EquipmentTypeId";
+        return await _connection.QueryAsync<AttributeDefinition>(sql, new { EquipmentTypeId = equipmentTypeId });
     }
 
     public async Task<bool> AddAttributeDefinitionAsync(AttributeDefinition attributeDefinition)
     {
-        using var connection = CreateConnection();
-        var sql = @"INSERT INTO AttributeDefinitions (Id, EquipmentTypeId, Name, Code, DataType, IsRequired)
+        var sql = $@"INSERT INTO {nameof(AttributeDefinition)}s (
+                        {nameof(AttributeDefinition.Id)}, 
+                        {nameof(AttributeDefinition.EquipmentTypeId)}, 
+                        {nameof(AttributeDefinition.Name)}, 
+                        {nameof(AttributeDefinition.Code)}, 
+                        {nameof(AttributeDefinition.DataType)}, 
+                        {nameof(AttributeDefinition.IsRequired)}
+                    )
                     VALUES (:Id, :EquipmentTypeId, :Name, :Code, :DataType, :IsRequired)";
-        var result = await connection.ExecuteAsync(sql, attributeDefinition);
+        var result = await _connection.ExecuteAsync(sql, attributeDefinition);
         return result > 0;
     }
 }

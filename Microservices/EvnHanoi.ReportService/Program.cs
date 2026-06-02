@@ -17,6 +17,7 @@ builder.Host.UseSerilog((context, services, configuration) =>
 // 2. Add services to the container
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
+builder.Services.AddDapperInfrastructure(builder.Configuration);
 builder.Services.AddScoped<EvnHanoi.ReportService.Core.Interfaces.IReportRepository, EvnHanoi.ReportService.Infrastructure.Repositories.ReportRepository>();
 
 var app = builder.Build();
@@ -40,7 +41,12 @@ if (app.Environment.IsDevelopment())
 
 app.MapDefaultEndpoints();
 
-app.UseHttpsRedirection();
+// Chỉ bật chuyển hướng HTTPS khi KHÔNG chạy trong môi trường Aspire 
+// Hoặc chỉ bật khi đã lên Production thực tế.
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 app.MapControllers();
 
 app.Run();

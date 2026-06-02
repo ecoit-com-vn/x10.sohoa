@@ -1,4 +1,3 @@
-// E:\ecoit\sohoax10\sohoa.backend\Microservices\EvnHanoi.IdentityService\Infrastructure\Repositories\UserGroupRepository.cs
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -6,44 +5,55 @@ using System.Threading.Tasks;
 using Dapper;
 using EvnHanoi.IdentityService.Core.Domain.Models;
 using EvnHanoi.IdentityService.Core.Interfaces;
-using Oracle.ManagedDataAccess.Client;
-using Microsoft.Extensions.Configuration;
 
 namespace EvnHanoi.IdentityService.Infrastructure.Repositories;
 
 public class UserGroupRepository : IUserGroupRepository
 {
-    private readonly string _connectionString;
+    private readonly IDbConnection _connection;
 
-    public UserGroupRepository(IConfiguration configuration)
+    public UserGroupRepository(IDbConnection connection)
     {
-        _connectionString = configuration.GetConnectionString("DefaultConnection") 
-            ?? throw new ArgumentNullException(nameof(configuration));
+        _connection = connection;
     }
-
-    private IDbConnection CreateConnection() => new OracleConnection(_connectionString);
 
     public async Task<IEnumerable<UserGroup>> GetAllAsync()
     {
-        using var connection = CreateConnection();
-        var sql = "SELECT Id, Name, Description, IsActive FROM USER_GROUP ORDER BY Id";
-        return await connection.QueryAsync<UserGroup>(sql);
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+        var sql = $@"
+            SELECT {nameof(UserGroup.Id)}, 
+                   {nameof(UserGroup.Name)}, 
+                   {nameof(UserGroup.Description)}, 
+                   {nameof(UserGroup.IsActive)} 
+            FROM USER_GROUP 
+            ORDER BY {nameof(UserGroup.Id)}";
+        return await _connection.QueryAsync<UserGroup>(sql);
     }
 
     public async Task<UserGroup?> GetByIdAsync(long id)
     {
-        using var connection = CreateConnection();
-        var sql = "SELECT Id, Name, Description, IsActive FROM USER_GROUP WHERE Id = :Id";
-        return await connection.QuerySingleOrDefaultAsync<UserGroup>(sql, new { Id = id });
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+        var sql = $@"
+            SELECT {nameof(UserGroup.Id)}, 
+                   {nameof(UserGroup.Name)}, 
+                   {nameof(UserGroup.Description)}, 
+                   {nameof(UserGroup.IsActive)} 
+            FROM USER_GROUP 
+            WHERE {nameof(UserGroup.Id)} = :Id";
+        return await _connection.QuerySingleOrDefaultAsync<UserGroup>(sql, new { Id = id });
     }
 
     public async Task<long> CreateAsync(UserGroup group)
     {
-        using var connection = CreateConnection();
-        var sql = @"
-            INSERT INTO USER_GROUP (Name, Description, IsActive)
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+        var sql = $@"
+            INSERT INTO USER_GROUP (
+                {nameof(UserGroup.Name)}, 
+                {nameof(UserGroup.Description)}, 
+                {nameof(UserGroup.IsActive)}
+            )
             VALUES (:Name, :Description, :IsActive)
-            RETURNING Id INTO :Id";
+            RETURNING {nameof(UserGroup.Id)} INTO :Id";
             
         var parameters = new DynamicParameters();
         parameters.Add("Name", group.Name);
@@ -51,20 +61,20 @@ public class UserGroupRepository : IUserGroupRepository
         parameters.Add("IsActive", group.IsActive ? 1 : 0);
         parameters.Add("Id", dbType: DbType.Int64, direction: ParameterDirection.Output);
         
-        await connection.ExecuteAsync(sql, parameters);
+        await _connection.ExecuteAsync(sql, parameters);
         return parameters.Get<long>("Id");
     }
 
     public async Task<bool> UpdateAsync(UserGroup group)
     {
-        using var connection = CreateConnection();
-        var sql = @"
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+        var sql = $@"
             UPDATE USER_GROUP 
-            SET Name = :Name, 
-                Description = :Description, 
-                IsActive = :IsActive 
-            WHERE Id = :Id";
-        var affected = await connection.ExecuteAsync(sql, new 
+            SET {nameof(UserGroup.Name)} = :Name, 
+                {nameof(UserGroup.Description)} = :Description, 
+                {nameof(UserGroup.IsActive)} = :IsActive 
+            WHERE {nameof(UserGroup.Id)} = :Id";
+        var affected = await _connection.ExecuteAsync(sql, new 
         {
             group.Name,
             group.Description,
@@ -76,32 +86,51 @@ public class UserGroupRepository : IUserGroupRepository
 
     public async Task<bool> DeleteAsync(long id)
     {
-        using var connection = CreateConnection();
-        var sql = "DELETE FROM USER_GROUP WHERE Id = :Id";
-        var affected = await connection.ExecuteAsync(sql, new { Id = id });
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+        var sql = $"DELETE FROM USER_GROUP WHERE {nameof(UserGroup.Id)} = :Id";
+        var affected = await _connection.ExecuteAsync(sql, new { Id = id });
         return affected > 0;
     }
 
     public async Task<IEnumerable<User>> GetMembersAsync(long groupId)
     {
-        using var connection = CreateConnection();
-        var sql = @"
-            SELECT u.Id, u.UserName AS Username, u.Email, u.FullName, u.IsActive, u.OrganizationUnitId AS UnitId 
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+        var sql = $@"
+            SELECT u.{nameof(User.Id)}, 
+                   u.UserName AS {nameof(User.Username)}, 
+                   u.{nameof(User.Email)}, 
+                   u.{nameof(User.FullName)}, 
+                   u.{nameof(User.IsActive)}, 
+                   u.{nameof(User.OrganizationUnitId)},
+                   o.{nameof(OrganizationUnit.Id)}, 
+                   o.{nameof(OrganizationUnit.Code)}, 
+                   o.{nameof(OrganizationUnit.Name)}, 
+                   o.{nameof(OrganizationUnit.ParentId)}, 
+                   o.{nameof(OrganizationUnit.Description)}
             FROM APP_USER u
             INNER JOIN USER_GROUP_MEMBER ugm ON u.Id = ugm.UserId
+            LEFT JOIN ORGANIZATION_UNIT o ON u.{nameof(User.OrganizationUnitId)} = o.{nameof(OrganizationUnit.Id)}
             WHERE ugm.UserGroupId = :GroupId";
-        return await connection.QueryAsync<User>(sql, new { GroupId = groupId });
+            
+        return await _connection.QueryAsync<User, OrganizationUnit, User>(
+            sql, 
+            (user, unit) => {
+                user.OrganizationUnit = unit;
+                return user;
+            },
+            new { GroupId = groupId },
+            splitOn: "Id"
+        );
     }
 
-    public async Task<bool> AssignMembersAsync(long groupId, IEnumerable<long> userIds)
+    public async Task<bool> AssignMembersAsync(long groupId, IEnumerable<string> userIds)
     {
-        using var connection = CreateConnection();
-        if (connection.State != ConnectionState.Open) connection.Open();
-        using var transaction = connection.BeginTransaction();
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+        using var transaction = _connection.BeginTransaction();
         try
         {
             // Xóa danh sách thành viên cũ
-            await connection.ExecuteAsync(
+            await _connection.ExecuteAsync(
                 "DELETE FROM USER_GROUP_MEMBER WHERE UserGroupId = :GroupId", 
                 new { GroupId = groupId }, 
                 transaction);
@@ -110,7 +139,7 @@ public class UserGroupRepository : IUserGroupRepository
             var sql = "INSERT INTO USER_GROUP_MEMBER (UserGroupId, UserId) VALUES (:GroupId, :UserId)";
             foreach (var userId in userIds)
             {
-                await connection.ExecuteAsync(sql, new { GroupId = groupId, UserId = userId }, transaction);
+                await _connection.ExecuteAsync(sql, new { GroupId = groupId, UserId = userId }, transaction);
             }
 
             transaction.Commit();
@@ -125,24 +154,26 @@ public class UserGroupRepository : IUserGroupRepository
 
     public async Task<IEnumerable<Role>> GetRolesAsync(long groupId)
     {
-        using var connection = CreateConnection();
-        var sql = @"
-            SELECT r.Id, r.Code, r.Name, r.Description
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+        var sql = $@"
+            SELECT r.{nameof(Role.Id)}, 
+                   r.{nameof(Role.Code)}, 
+                   r.{nameof(Role.Name)}, 
+                   r.{nameof(Role.Description)}
             FROM ROLE r
             INNER JOIN USER_GROUP_ROLE ugr ON r.Id = ugr.RoleId
             WHERE ugr.UserGroupId = :GroupId";
-        return await connection.QueryAsync<Role>(sql, new { GroupId = groupId });
+        return await _connection.QueryAsync<Role>(sql, new { GroupId = groupId });
     }
 
     public async Task<bool> AssignRolesAsync(long groupId, IEnumerable<long> roleIds)
     {
-        using var connection = CreateConnection();
-        if (connection.State != ConnectionState.Open) connection.Open();
-        using var transaction = connection.BeginTransaction();
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+        using var transaction = _connection.BeginTransaction();
         try
         {
             // Xóa vai trò cũ của nhóm
-            await connection.ExecuteAsync(
+            await _connection.ExecuteAsync(
                 "DELETE FROM USER_GROUP_ROLE WHERE UserGroupId = :GroupId", 
                 new { GroupId = groupId }, 
                 transaction);
@@ -151,7 +182,7 @@ public class UserGroupRepository : IUserGroupRepository
             var sql = "INSERT INTO USER_GROUP_ROLE (UserGroupId, RoleId) VALUES (:GroupId, :RoleId)";
             foreach (var roleId in roleIds)
             {
-                await connection.ExecuteAsync(sql, new { GroupId = groupId, RoleId = roleId }, transaction);
+                await _connection.ExecuteAsync(sql, new { GroupId = groupId, RoleId = roleId }, transaction);
             }
 
             transaction.Commit();

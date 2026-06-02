@@ -20,31 +20,25 @@ namespace EvnHanoi.DigitizationService.Workers
         private readonly ILogger<OcrTaskConsumer> _logger;
         private readonly IConfiguration _configuration;
         private readonly IServiceProvider _serviceProvider;
-        private IConnection? _connection;
+        private readonly IConnection _connection;
         private IChannel? _channel;
 
         public OcrTaskConsumer(
             ILogger<OcrTaskConsumer> logger,
             IConfiguration configuration,
-            IServiceProvider serviceProvider)
+            IServiceProvider serviceProvider,
+            IConnection connection)
         {
             _logger = logger;
             _configuration = configuration;
             _serviceProvider = serviceProvider;
+            _connection = connection;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            var factory = new ConnectionFactory()
-            {
-                HostName = _configuration["RabbitMQ:HostName"] ?? "localhost",
-                UserName = _configuration["RabbitMQ:UserName"] ?? "guest",
-                Password = _configuration["RabbitMQ:Password"] ?? "guest"
-            };
-
             try
             {
-                _connection = await factory.CreateConnectionAsync(stoppingToken);
                 _channel = await _connection.CreateChannelAsync(cancellationToken: stoppingToken);
 
                 var exchangeName = "digitization.topic";
@@ -116,7 +110,6 @@ namespace EvnHanoi.DigitizationService.Workers
         public override async Task StopAsync(CancellationToken cancellationToken)
         {
             if (_channel is not null) await _channel.CloseAsync(cancellationToken: cancellationToken);
-            if (_connection is not null) await _connection.CloseAsync(cancellationToken: cancellationToken);
             await base.StopAsync(cancellationToken);
         }
     }

@@ -26,7 +26,7 @@ public class UsersController : ControllerBase
     }
 
     [HttpGet("{id}")]
-    public async Task<IActionResult> GetById(long id)
+    public async Task<IActionResult> GetById(string id)
     {
         var result = await _userRepository.GetByIdAsync(id);
         if (result == null) return NotFound(new { message = "Không tìm thấy người dùng này." });
@@ -40,8 +40,12 @@ public class UsersController : ControllerBase
         {
             return BadRequest(new { message = "Tên đăng nhập và Họ tên là bắt buộc." });
         }
+        if (!user.OrganizationUnitId.HasValue || user.OrganizationUnitId.Value <= 0)
+        {
+            return BadRequest(new { message = "Người dùng phải thuộc một đơn vị thành viên hợp lệ." });
+        }
         
-        // Hash a default password or empty password if not supplied
+        // Hash a default password or empty password if not supplied                
         user.PasswordHash = BCrypt.Net.BCrypt.HashPassword("DefaultUserPassword_123!");
         user.IsActive = true;
         
@@ -51,12 +55,16 @@ public class UsersController : ControllerBase
     }
 
     [HttpPut("{id}")]
-    public async Task<IActionResult> Update(long id, [FromBody] User user)
+    public async Task<IActionResult> Update(string id, [FromBody] User user)
     {
         if (id != user.Id) return BadRequest(new { message = "ID không trùng khớp." });
         if (string.IsNullOrWhiteSpace(user.Username) || string.IsNullOrWhiteSpace(user.FullName))
         {
             return BadRequest(new { message = "Tên đăng nhập và Họ tên là bắt buộc." });
+        }
+        if (!user.OrganizationUnitId.HasValue || user.OrganizationUnitId.Value <= 0)
+        {
+            return BadRequest(new { message = "Người dùng phải thuộc một đơn vị thành viên hợp lệ." });
         }
 
         var existing = await _userRepository.GetByIdAsync(id);
@@ -68,7 +76,7 @@ public class UsersController : ControllerBase
     }
 
     [HttpDelete("{id}")]
-    public async Task<IActionResult> Delete(long id)
+    public async Task<IActionResult> Delete(string id)
     {
         var existing = await _userRepository.GetByIdAsync(id);
         if (existing == null) return NotFound(new { message = "Không tìm thấy người dùng cần xóa." });

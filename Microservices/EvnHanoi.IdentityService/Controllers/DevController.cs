@@ -1,4 +1,3 @@
-// E:\ecoit\sohoax10\sohoa.backend\Microservices\EvnHanoi.IdentityService\Controllers\DevController.cs
 // [CHỈ DÙNG TRONG DEVELOPMENT] Controller seed dữ liệu khởi tạo hệ thống.
 // Xóa hoặc disable controller này trước khi deploy lên production.
 
@@ -11,25 +10,23 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Oracle.ManagedDataAccess.Client;
+using Microsoft.AspNetCore.Authorization;
 
 namespace EvnHanoi.IdentityService.Controllers;
 
 [ApiController]
 [Route("api/v1/dev")]
+[AllowAnonymous]
 public class DevController : ControllerBase
 {
     private readonly IConfiguration _configuration;
-    private readonly string _connectionString;
+    private readonly IDbConnection _connection;
 
-    public DevController(IConfiguration configuration)
+    public DevController(IConfiguration configuration, IDbConnection connection)
     {
         _configuration = configuration;
-        _connectionString = configuration.GetConnectionString("DefaultConnection")
-            ?? throw new ArgumentNullException("ConnectionString DefaultConnection không được cấu hình.");
+        _connection = connection;
     }
-
-    private IDbConnection CreateConnection() => new OracleConnection(_connectionString);
 
     /// <summary>
     /// Seed toàn bộ dữ liệu ban đầu: Role ADMIN + Permissions + Gán cho user admin.
@@ -48,16 +45,15 @@ public class DevController : ControllerBase
 
         var results = new List<string>();
 
-        using var connection = CreateConnection();
-        connection.Open();
-        using var transaction = connection.BeginTransaction();
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+        using var transaction = _connection.BeginTransaction();
 
         try
         {
             // =============================================
             // 1. Tạo Role ADMIN nếu chưa có
             // =============================================
-            var adminRoleId = await connection.QuerySingleOrDefaultAsync<long?>(
+            var adminRoleId = await _connection.QuerySingleOrDefaultAsync<long?>(
                 "SELECT Id FROM ROLE WHERE Code = 'ADMIN'",
                 transaction: transaction);
 
@@ -70,7 +66,7 @@ public class DevController : ControllerBase
 
                 var roleParams = new DynamicParameters();
                 roleParams.Add("Id", dbType: DbType.Int64, direction: ParameterDirection.Output);
-                await connection.ExecuteAsync(insertRoleSql, roleParams, transaction);
+                await _connection.ExecuteAsync(insertRoleSql, roleParams, transaction);
                 adminRoleId = roleParams.Get<long>("Id");
                 results.Add($"✅ Tạo Role ADMIN (Id={adminRoleId}) thành công.");
             }
@@ -82,7 +78,7 @@ public class DevController : ControllerBase
             // =============================================
             // 2. Tạo Role USER nếu chưa có
             // =============================================
-            var userRoleId = await connection.QuerySingleOrDefaultAsync<long?>(
+            var userRoleId = await _connection.QuerySingleOrDefaultAsync<long?>(
                 "SELECT Id FROM ROLE WHERE Code = 'USER'",
                 transaction: transaction);
 
@@ -95,7 +91,7 @@ public class DevController : ControllerBase
 
                 var userRoleParams = new DynamicParameters();
                 userRoleParams.Add("Id", dbType: DbType.Int64, direction: ParameterDirection.Output);
-                await connection.ExecuteAsync(insertUserRoleSql, userRoleParams, transaction);
+                await _connection.ExecuteAsync(insertUserRoleSql, userRoleParams, transaction);
                 results.Add($"✅ Tạo Role USER (Id={userRoleParams.Get<long>("Id")}) thành công.");
             }
             else
@@ -106,7 +102,7 @@ public class DevController : ControllerBase
             // =============================================
             // 3. Gán tất cả Permissions cho Role ADMIN
             // =============================================
-            await connection.ExecuteAsync(
+            await _connection.ExecuteAsync(
                 "DELETE FROM ROLE_PERMISSION WHERE RoleId = :RoleId",
                 new { RoleId = adminRoleId },
                 transaction);
@@ -122,26 +118,39 @@ public class DevController : ControllerBase
                 "REPORT_VIEW", "REPORT_MANAGE", "REPORT_EXPORT"
             };
 
-            var insertPermSql = "INSERT INTO ROLE_PERMISSION (Id, RoleId, PermissionCode) VALUES (:Id, :RoleId, :PermissionCode)";
-            foreach (var perm in allPermissions)
+            // Truy vấn danh sách Permission active để lấy ID tương ứng với Code
+            var permissions = await _connection.QueryAsync<(string Id, string Code)>(
+                "SELECT Id, Code FROM PERMISSION WHERE IsActive = 1", 
+                transaction: transaction);
+            
+            var codeToIdMap = permissions.ToDictionary(p => p.Code, p => p.Id, StringComparer.OrdinalIgnoreCase);
+
+            var insertPermSql = "INSERT INTO ROLE_PERMISSION (Id, RoleId, PermissionId) VALUES (:Id, :RoleId, :PermissionId)";
+            int insertCount = 0;
+            foreach (var code in allPermissions)
             {
-                await connection.ExecuteAsync(insertPermSql, new
+                if (codeToIdMap.TryGetValue(code, out var permissionId))
                 {
-                    Id = Guid.NewGuid().ToString(),
-                    RoleId = adminRoleId,
-                    PermissionCode = perm
-                }, transaction);
+                    var id = Guid.NewGuid().ToString();
+                    await _connection.ExecuteAsync(insertPermSql, new
+                    {
+                        Id = id,
+                        RoleId = adminRoleId,
+                        PermissionId = permissionId
+                    }, transaction);
+                    insertCount++;
+                }
             }
-            results.Add($"✅ Gán {allPermissions.Length} quyền cho Role ADMIN thành công.");
+            results.Add($"✅ Gán {insertCount} trên tổng số {allPermissions.Length} quyền cho Role ADMIN thành công.");
 
             // =============================================
-            // 4. Lấy userId của admin
+            // 4. Lấy userId của admin (Kiểu chuỗi UUID v7)
             // =============================================
-            var adminUserId = await connection.QuerySingleOrDefaultAsync<long?>(
+            var adminUserId = await _connection.QuerySingleOrDefaultAsync<string>(
                 "SELECT Id FROM APP_USER WHERE UserName = 'admin'",
                 transaction: transaction);
 
-            if (adminUserId == null)
+            if (string.IsNullOrEmpty(adminUserId))
             {
                 results.Add("⚠️ Chưa tìm thấy user 'admin'. Hãy gọi POST /api/v1/auth/dev/init-admin trước.");
             }
@@ -150,14 +159,14 @@ public class DevController : ControllerBase
                 // =============================================
                 // 5. Gán Role ADMIN cho user admin
                 // =============================================
-                var existingUserRole = await connection.QuerySingleOrDefaultAsync<long?>(
+                var existingUserRole = await _connection.QuerySingleOrDefaultAsync<string>(
                     "SELECT UserId FROM USER_ROLE WHERE UserId = :UserId AND RoleId = :RoleId",
                     new { UserId = adminUserId, RoleId = adminRoleId },
                     transaction);
 
-                if (existingUserRole == null)
+                if (string.IsNullOrEmpty(existingUserRole))
                 {
-                    await connection.ExecuteAsync(
+                    await _connection.ExecuteAsync(
                         "INSERT INTO USER_ROLE (UserId, RoleId) VALUES (:UserId, :RoleId)",
                         new { UserId = adminUserId, RoleId = adminRoleId },
                         transaction);
@@ -172,7 +181,7 @@ public class DevController : ControllerBase
             // =============================================
             // 6. Seed đầy đủ hệ thống Menu động (APP_MENU)
             // =============================================
-            await connection.ExecuteAsync("DELETE FROM APP_MENU", transaction: transaction);
+            await _connection.ExecuteAsync("DELETE FROM APP_MENU", transaction: transaction);
             results.Add("🗑️ Đã dọn dẹp bảng APP_MENU cũ để seed lại.");
 
             var insertMenuSql = @"
@@ -219,7 +228,7 @@ public class DevController : ControllerBase
 
             foreach (var menu in menuSeeds)
             {
-                await connection.ExecuteAsync(insertMenuSql, menu, transaction);
+                await _connection.ExecuteAsync(insertMenuSql, menu, transaction);
             }
             results.Add($"✅ Khởi tạo thành công {menuSeeds.Length} Menu chức năng.");
 

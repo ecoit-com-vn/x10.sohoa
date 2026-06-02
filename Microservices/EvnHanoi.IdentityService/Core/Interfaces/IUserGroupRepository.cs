@@ -14,7 +14,7 @@ public interface IUserGroupRepository
     Task<bool> DeleteAsync(long id);
     
     Task<IEnumerable<User>> GetMembersAsync(long groupId);
-    Task<bool> AssignMembersAsync(long groupId, IEnumerable<long> userIds);
+    Task<bool> AssignMembersAsync(long groupId, IEnumerable<string> userIds);
     
     Task<IEnumerable<Role>> GetRolesAsync(long groupId);
     Task<bool> AssignRolesAsync(long groupId, IEnumerable<long> roleIds);

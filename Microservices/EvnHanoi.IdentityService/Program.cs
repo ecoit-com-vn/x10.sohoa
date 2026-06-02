@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using EvnHanoi.Infrastructure.Database;
 using EvnHanoi.Infrastructure.Logging;
 using EvnHanoi.IdentityService.Core.Interfaces;
@@ -19,18 +19,24 @@ builder.Host.UseSerilog((context, services, configuration) =>
 });
 
 // 2. Add services to the container
-builder.Services.AddControllers();
+builder.Services.AddMemoryCache();
+builder.Services.AddControllers(options =>
+{
+    options.Filters.Add<EvnHanoi.IdentityService.Infrastructure.Security.DynamicPermissionFilter>();
+});
 builder.Services.AddOpenApi();
 
 // DI Configuration
+builder.Services.AddDapperInfrastructure(builder.Configuration);
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IRoleRepository, RoleRepository>();
 builder.Services.AddScoped<ISystemParamRepository, SystemParamRepository>();
-builder.Services.AddScoped<IUnitRepository, UnitRepository>();
+builder.Services.AddScoped<IOrganizationUnitRepository, OrganizationUnitRepository>();
 builder.Services.AddScoped<IMenuRepository, MenuRepository>();
 builder.Services.AddScoped<IUserGroupRepository, UserGroupRepository>();
 builder.Services.AddScoped<IUserUnitRoleRepository, UserUnitRoleRepository>();
 builder.Services.AddScoped<IUploadConfigRepository, UploadConfigRepository>();
+builder.Services.AddScoped<IPermissionRepository, PermissionRepository>();
 builder.Services.AddSingleton(new Elastic.Clients.Elasticsearch.ElasticsearchClient(new Uri(builder.Configuration["Elasticsearch:Uri"] ?? "http://localhost:9200")));
 
 
@@ -73,7 +79,12 @@ if (app.Environment.IsDevelopment())
 
 app.MapDefaultEndpoints();
 
-app.UseHttpsRedirection();
+// Chỉ bật chuyển hướng HTTPS khi KHÔNG chạy trong môi trường Aspire 
+// Hoặc chỉ bật khi đã lên Production thực tế.
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 
 app.UseAuthentication();
 app.UseAuthorization();

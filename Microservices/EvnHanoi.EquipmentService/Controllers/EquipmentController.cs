@@ -147,7 +147,7 @@ public class EquipmentController : ControllerBase
                 UnitId = equipment.UnitId,
                 DynamicAttributes = dto.DynamicAttributes
             };
-            _messageProducer.SendMessage(syncMessage, "equipment_sync_queue");
+            await _messageProducer.SendMessageAsync(syncMessage, "equipment_sync_queue");
 
             return CreatedAtAction(nameof(GetById), new { id = equipmentId }, equipment);
         }
@@ -401,7 +401,7 @@ public class EquipmentController : ControllerBase
                         UnitId = equipment.UnitId,
                         DynamicAttributes = dynamicAttributes
                     };
-                    _messageProducer.SendMessage(syncMessage, "equipment_sync_queue");
+                    await _messageProducer.SendMessageAsync(syncMessage, "equipment_sync_queue");
                 }
                 else
                 {
