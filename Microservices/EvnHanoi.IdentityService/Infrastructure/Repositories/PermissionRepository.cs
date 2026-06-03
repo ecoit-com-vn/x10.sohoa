@@ -353,4 +353,42 @@ public class PermissionRepository : IPermissionRepository
             WHERE {nameof(UserGroupPermission.UserGroupId)} = :UserGroupId";
         return await _connection.QueryAsync<string>(sql, new { UserGroupId = userGroupId });
     }
+
+    public async Task<IEnumerable<string>> GetPermissionCodesByUserIdAsync(string userId)
+    {
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+        var sql = @"
+            SELECT DISTINCT p.Code
+            FROM PERMISSION p
+            WHERE p.IsActive = 1 AND p.Id IN (
+                -- 1. Quyền gán trực tiếp cho User
+                SELECT PermissionId FROM USER_PERMISSION WHERE UserId = :UserId
+                
+                UNION
+                
+                -- 2. Quyền gán qua Nhóm người dùng (User Group)
+                SELECT ugp.PermissionId 
+                FROM USER_GROUP_PERMISSION ugp
+                INNER JOIN USER_GROUP_MEMBER ugm ON ugp.UserGroupId = ugm.UserGroupId
+                WHERE ugm.UserId = :UserId
+                
+                UNION
+                
+                -- 3. Quyền từ các Roles gán trực tiếp cho User
+                SELECT rp.PermissionId
+                FROM ROLE_PERMISSION rp
+                INNER JOIN USER_ROLE ur ON rp.RoleId = ur.RoleId
+                WHERE ur.UserId = :UserId
+                
+                UNION
+                
+                -- 4. Quyền từ các Roles gán qua Nhóm người dùng
+                SELECT rp.PermissionId
+                FROM ROLE_PERMISSION rp
+                INNER JOIN USER_GROUP_ROLE ugr ON rp.RoleId = ugr.RoleId
+                INNER JOIN USER_GROUP_MEMBER ugm ON ugr.UserGroupId = ugm.UserGroupId
+                WHERE ugm.UserId = :UserId
+            )";
+        return await _connection.QueryAsync<string>(sql, new { UserId = userId });
+    }
 }

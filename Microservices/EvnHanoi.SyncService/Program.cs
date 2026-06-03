@@ -1,5 +1,6 @@
 using EvnHanoi.Infrastructure.Database;
 using EvnHanoi.Infrastructure.Logging;
+using EvnHanoi.Infrastructure.Security;
 using EvnHanoi.SyncService.Schedulers;
 using Polly;
 using Polly.Extensions.Http;
@@ -93,6 +94,7 @@ builder.Services.AddSingleton<EvnHanoi.SyncService.Services.IPmisSyncTriggerServ
 builder.Services.AddHostedService<EvnHanoi.SyncService.Workers.EquipmentSyncWorker>();
 builder.Services.AddHostedService<EvnHanoi.SyncService.Workers.PmisSyncWorker>();
 builder.Services.AddHostedService<EvnHanoi.SyncService.Workers.PmisPublisherWorker>();
+builder.Services.AddPermissionDiscovery("SyncService");
 
 var app = builder.Build();
 

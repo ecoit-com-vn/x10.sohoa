@@ -121,10 +121,12 @@ public class DynamicPermissionFilter : IAsyncActionFilter
                 cacheKey, allowedActions?.Count() ?? 0);
         }
 
-        // Authorize if any PermissionDetail matches the Controller & Action (or wildcard "*")
+        // Authorize if any PermissionDetail matches the Controller & Action (exact, wildcard *, or prefix wildcard like Get*)
         var isAuthorized = allowedActions != null && allowedActions.Any(pd =>
             pd.ControllerName.Equals(controllerName, StringComparison.OrdinalIgnoreCase) &&
-            (pd.ActionName.Equals(actionName, StringComparison.OrdinalIgnoreCase) || pd.ActionName == "*"));
+            (pd.ActionName == "*" || 
+             pd.ActionName.Equals(actionName, StringComparison.OrdinalIgnoreCase) ||
+             (pd.ActionName.EndsWith("*") && actionName.StartsWith(pd.ActionName.TrimEnd('*'), StringComparison.OrdinalIgnoreCase))));
 
         if (!isAuthorized)
         {

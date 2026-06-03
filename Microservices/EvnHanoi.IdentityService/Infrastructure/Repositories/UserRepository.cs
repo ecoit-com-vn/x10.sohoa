@@ -13,10 +13,12 @@ namespace EvnHanoi.IdentityService.Infrastructure.Repositories;
 public class UserRepository : IUserRepository
 {
     private readonly IDbConnection _connection;
+    private readonly IPermissionRepository _permissionRepository;
 
-    public UserRepository(IDbConnection connection)
+    public UserRepository(IDbConnection connection, IPermissionRepository permissionRepository)
     {
         _connection = connection;
+        _permissionRepository = permissionRepository;
     }
 
     public async Task<User?> GetUserByUsernameAsync(string username)
@@ -229,39 +231,42 @@ public class UserRepository : IUserRepository
 
     public async Task<IEnumerable<string>> GetPermissionsByUserIdAsync(string userId)
     {
+        return await _permissionRepository.GetPermissionCodesByUserIdAsync(userId);
+    }
+
+    public async Task<IEnumerable<long>> GetDirectRoleIdsByUserIdAsync(string userId)
+    {
         if (_connection.State != ConnectionState.Open) _connection.Open();
-        var sql = @"
-            SELECT DISTINCT p.Code
-            FROM PERMISSION p
-            WHERE p.IsActive = 1 AND p.Id IN (
-                -- 1. Quyền gán trực tiếp cho User
-                SELECT PermissionId FROM USER_PERMISSION WHERE UserId = :UserId
-                
-                UNION
-                
-                -- 2. Quyền gán qua Nhóm người dùng (User Group)
-                SELECT ugp.PermissionId 
-                FROM USER_GROUP_PERMISSION ugp
-                INNER JOIN USER_GROUP_MEMBER ugm ON ugp.UserGroupId = ugm.UserGroupId
-                WHERE ugm.UserId = :UserId
-                
-                UNION
-                
-                -- 3. Quyền từ các Roles gán trực tiếp cho User
-                SELECT rp.PermissionId
-                FROM ROLE_PERMISSION rp
-                INNER JOIN USER_ROLE ur ON rp.RoleId = ur.RoleId
-                WHERE ur.UserId = :UserId
-                
-                UNION
-                
-                -- 4. Quyền từ các Roles gán qua Nhóm người dùng
-                SELECT rp.PermissionId
-                FROM ROLE_PERMISSION rp
-                INNER JOIN USER_GROUP_ROLE ugr ON rp.RoleId = ugr.RoleId
-                INNER JOIN USER_GROUP_MEMBER ugm ON ugr.UserGroupId = ugm.UserGroupId
-                WHERE ugm.UserId = :UserId
-            )";
-        return await _connection.QueryAsync<string>(sql, new { UserId = userId });
+        var sql = "SELECT RoleId FROM USER_ROLE WHERE UserId = :UserId";
+        return await _connection.QueryAsync<long>(sql, new { UserId = userId });
+    }
+
+    public async Task<bool> AssignRolesToUserAsync(string userId, IEnumerable<long> roleIds)
+    {
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+        using var transaction = _connection.BeginTransaction();
+        try
+        {
+            // Clear existing roles mapping
+            await _connection.ExecuteAsync(
+                "DELETE FROM USER_ROLE WHERE UserId = :UserId", 
+                new { UserId = userId }, 
+                transaction);
+
+            // Insert new roles mapping
+            var sql = "INSERT INTO USER_ROLE (UserId, RoleId) VALUES (:UserId, :RoleId)";
+            foreach (var roleId in roleIds)
+            {
+                await _connection.ExecuteAsync(sql, new { UserId = userId, RoleId = roleId }, transaction);
+            }
+
+            transaction.Commit();
+            return true;
+        }
+        catch
+        {
+            transaction.Rollback();
+            throw;
+        }
     }
 }

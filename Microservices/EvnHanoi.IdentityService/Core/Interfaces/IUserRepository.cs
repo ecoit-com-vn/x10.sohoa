@@ -15,4 +15,6 @@ public interface IUserRepository
     Task DeleteAsync(string id);
     Task<IEnumerable<string>> GetRolesByUserIdAsync(string userId);
     Task<IEnumerable<string>> GetPermissionsByUserIdAsync(string userId);
+    Task<IEnumerable<long>> GetDirectRoleIdsByUserIdAsync(string userId);
+    Task<bool> AssignRolesToUserAsync(string userId, IEnumerable<long> roleIds);
 }

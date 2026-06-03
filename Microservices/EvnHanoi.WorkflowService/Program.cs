@@ -1,5 +1,6 @@
 using EvnHanoi.Infrastructure.Database;
 using EvnHanoi.Infrastructure.Logging;
+using EvnHanoi.Infrastructure.Security;
 using Serilog;
 using Scalar.AspNetCore;
 using EvnHanoi.WorkflowService.Data;
@@ -29,6 +30,7 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddDbContext<WorkflowDbContext>(options =>
     options.UseOracle(builder.Configuration.GetConnectionString("DefaultConnection")));
+builder.Services.AddPermissionDiscovery("WorkflowService");
 
 var app = builder.Build();
 

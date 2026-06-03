@@ -1,4 +1,5 @@
 using EvnHanoi.Infrastructure.Logging;
+using EvnHanoi.Infrastructure.Security;
 using EvnHanoi.NotificationService.Hubs;
 using EvnHanoi.NotificationService.Services;
 using EvnHanoi.NotificationService.Workers;
@@ -43,6 +44,7 @@ else
 }
 
 builder.Services.AddSingleton<NotificationDispatcher>();
+builder.Services.AddPermissionDiscovery("NotificationService");
 
 // Elasticsearch setup
 var esUri = builder.Configuration["Elasticsearch:Uri"] ?? "http://localhost:9200";

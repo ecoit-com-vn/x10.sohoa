@@ -119,42 +119,56 @@ public class MenuRepository : IMenuRepository
     public async Task<IEnumerable<Menu>> GetMenusByUserPermissionsAsync(IEnumerable<string> permissionCodes)
     {
         if (_connection.State != ConnectionState.Open) _connection.Open();
-        // Nếu user có phân quyền, lấy các menu có PermissionCode nằm trong danh sách hoặc null.
-        // Ngược lại chỉ lấy menu có PermissionCode null.
-        var pList = new List<string>(permissionCodes ?? Array.Empty<string>());
+
+        // 1. Lấy toàn bộ các menu đang hoạt động trong hệ thống
+        var sql = $@"
+            SELECT {nameof(Menu.Id)}, 
+                   {nameof(Menu.Name)}, 
+                   {nameof(Menu.Url)}, 
+                   {nameof(Menu.Icon)}, 
+                   {nameof(Menu.ParentId)}, 
+                   {nameof(Menu.SortOrder)}, 
+                   {nameof(Menu.IsActive)}, 
+                   {nameof(Menu.PermissionCode)} 
+            FROM APP_MENU 
+            WHERE {nameof(Menu.IsActive)} = 1";
         
-        string sql;
-        if (pList.Count > 0)
+        var allActiveMenus = (await _connection.QueryAsync<Menu>(sql)).ToList();
+
+        var pList = new HashSet<string>(permissionCodes ?? Array.Empty<string>(), StringComparer.OrdinalIgnoreCase);
+
+        // 2. Xác định các menu được cấp quyền trực tiếp (hoặc không yêu cầu quyền)
+        var allowedMenus = allActiveMenus
+            .Where(m => string.IsNullOrEmpty(m.PermissionCode) || pList.Contains(m.PermissionCode))
+            .ToDictionary(m => m.Id);
+
+        // 3. Với mỗi menu con được phép truy cập, truy vết ngược lên để tự động hiển thị menu cha
+        var resultDict = new Dictionary<long, Menu>(allowedMenus);
+        var activeMenusById = allActiveMenus.ToDictionary(m => m.Id);
+
+        foreach (var menu in allowedMenus.Values)
         {
-            sql = $@"
-                SELECT {nameof(Menu.Id)}, 
-                       {nameof(Menu.Name)}, 
-                       {nameof(Menu.Url)}, 
-                       {nameof(Menu.Icon)}, 
-                       {nameof(Menu.ParentId)}, 
-                       {nameof(Menu.SortOrder)}, 
-                       {nameof(Menu.IsActive)}, 
-                       {nameof(Menu.PermissionCode)} 
-                FROM APP_MENU 
-                WHERE {nameof(Menu.IsActive)} = 1 AND ({nameof(Menu.PermissionCode)} IS NULL OR {nameof(Menu.PermissionCode)} IN :Permissions)
-                ORDER BY {nameof(Menu.SortOrder)}, {nameof(Menu.Name)}";
-            return await _connection.QueryAsync<Menu>(sql, new { Permissions = pList });
+            var current = menu;
+            while (current.ParentId.HasValue)
+            {
+                if (activeMenusById.TryGetValue(current.ParentId.Value, out var parent))
+                {
+                    if (!resultDict.ContainsKey(parent.Id))
+                    {
+                        resultDict.Add(parent.Id, parent);
+                    }
+                    current = parent;
+                }
+                else
+                {
+                    break;
+                }
+            }
         }
-        else
-        {
-            sql = $@"
-                SELECT {nameof(Menu.Id)}, 
-                       {nameof(Menu.Name)}, 
-                       {nameof(Menu.Url)}, 
-                       {nameof(Menu.Icon)}, 
-                       {nameof(Menu.ParentId)}, 
-                       {nameof(Menu.SortOrder)}, 
-                       {nameof(Menu.IsActive)}, 
-                       {nameof(Menu.PermissionCode)} 
-                FROM APP_MENU 
-                WHERE {nameof(Menu.IsActive)} = 1 AND {nameof(Menu.PermissionCode)} IS NULL
-                ORDER BY {nameof(Menu.SortOrder)}, {nameof(Menu.Name)}";
-            return await _connection.QueryAsync<Menu>(sql);
-        }
+
+        // 4. Sắp xếp lại danh sách kết quả theo SortOrder và Tên để trả về Frontend
+        return resultDict.Values
+            .OrderBy(m => m.SortOrder)
+            .ThenBy(m => m.Name);
     }
 }

@@ -21,11 +21,16 @@ public class DevController : ControllerBase
 {
     private readonly IConfiguration _configuration;
     private readonly IDbConnection _connection;
+    private readonly EvnHanoi.IdentityService.Infrastructure.Security.DynamicSeederService _seederService;
 
-    public DevController(IConfiguration configuration, IDbConnection connection)
+    public DevController(
+        IConfiguration configuration, 
+        IDbConnection connection, 
+        EvnHanoi.IdentityService.Infrastructure.Security.DynamicSeederService seederService)
     {
         _configuration = configuration;
         _connection = connection;
+        _seederService = seederService;
     }
 
     /// <summary>
@@ -109,9 +114,15 @@ public class DevController : ControllerBase
 
             var allPermissions = new[]
             {
-                "VIEW_DASHBOARD", "USER_MANAGE", "ROLE_MANAGE", "PERMISSION_MANAGE",
-                "SYSTEM_PARAM_MANAGE", "ORGANIZATION_MANAGE", "CATALOG_MANAGE",
-                "MENU_MANAGE", "USER_GROUP_MANAGE", "UPLOAD_CONFIG_MANAGE",
+                "VIEW_DASHBOARD", 
+                "USER_VIEW", "USER_MANAGE", 
+                "ROLE_VIEW", "ROLE_MANAGE", "PERMISSION_MANAGE",
+                "SYSTEM_PARAM_VIEW", "SYSTEM_PARAM_MANAGE", 
+                "ORGANIZATION_VIEW", "ORGANIZATION_MANAGE", 
+                "CATALOG_VIEW", "CATALOG_MANAGE",
+                "MENU_VIEW", "MENU_MANAGE", 
+                "USER_GROUP_VIEW", "USER_GROUP_MANAGE", 
+                "UPLOAD_CONFIG_VIEW", "UPLOAD_CONFIG_MANAGE",
                 "AUDIT_LOG_VIEW", "AUDIT_LOG_DELETE",
                 "EQUIPMENT_VIEW", "EQUIPMENT_MANAGE",
                 "DIGITIZATION_VIEW", "DIGITIZATION_MANAGE",
@@ -192,34 +203,34 @@ public class DevController : ControllerBase
             {
                 new { Id = 1, Name = "Bảng điều khiển", Url = "/dashboard", Icon = "pi pi-home", ParentId = (int?)null, SortOrder = 1, IsActive = 1, PermissionCode = "VIEW_DASHBOARD" },
                 
-                new { Id = 2, Name = "Quản trị hệ thống", Url = (string)null, Icon = "pi pi-cog", ParentId = (int?)null, SortOrder = 2, IsActive = 1, PermissionCode = "USER_MANAGE" },
-                new { Id = 3, Name = "Người dùng", Url = "/administration/user-management", Icon = "pi pi-users", ParentId = (int?)2, SortOrder = 1, IsActive = 1, PermissionCode = "USER_MANAGE" },
-                new { Id = 4, Name = "Vai trò & Quyền", Url = "/administration/role-management", Icon = "pi pi-key", ParentId = (int?)2, SortOrder = 2, IsActive = 1, PermissionCode = "ROLE_MANAGE" },
-                new { Id = 5, Name = "Cấu hình Menu", Url = "/administration/menu-management", Icon = "pi pi-list", ParentId = (int?)2, SortOrder = 3, IsActive = 1, PermissionCode = "MENU_MANAGE" },
-                new { Id = 6, Name = "Nhóm người dùng", Url = "/administration/user-groups", Icon = "pi pi-user-plus", ParentId = (int?)2, SortOrder = 4, IsActive = 1, PermissionCode = "USER_GROUP_MANAGE" },
-                new { Id = 7, Name = "Cấu hình Upload", Url = "/administration/upload-configuration", Icon = "pi pi-upload", ParentId = (int?)2, SortOrder = 5, IsActive = 1, PermissionCode = "UPLOAD_CONFIG_MANAGE" },
-                new { Id = 8, Name = "Cơ cấu tổ chức", Url = "/administration/organization-settings", Icon = "pi pi-sitemap", ParentId = (int?)2, SortOrder = 6, IsActive = 1, PermissionCode = "ORGANIZATION_MANAGE" },
+                new { Id = 2, Name = "Quản trị hệ thống", Url = (string)null, Icon = "pi pi-cog", ParentId = (int?)null, SortOrder = 2, IsActive = 1, PermissionCode = "USER_VIEW" },
+                new { Id = 3, Name = "Người dùng", Url = "/administration/user-management", Icon = "pi pi-users", ParentId = (int?)2, SortOrder = 1, IsActive = 1, PermissionCode = "USER_VIEW" },
+                new { Id = 4, Name = "Vai trò & Quyền", Url = "/administration/role-management", Icon = "pi pi-key", ParentId = (int?)2, SortOrder = 2, IsActive = 1, PermissionCode = "ROLE_VIEW" },
+                new { Id = 5, Name = "Cấu hình Menu", Url = "/administration/menu-management", Icon = "pi pi-list", ParentId = (int?)2, SortOrder = 3, IsActive = 1, PermissionCode = "MENU_VIEW" },
+                new { Id = 6, Name = "Nhóm người dùng", Url = "/administration/user-groups", Icon = "pi pi-user-plus", ParentId = (int?)2, SortOrder = 4, IsActive = 1, PermissionCode = "USER_GROUP_VIEW" },
+                new { Id = 7, Name = "Cấu hình Upload", Url = "/administration/upload-configuration", Icon = "pi pi-upload", ParentId = (int?)2, SortOrder = 5, IsActive = 1, PermissionCode = "UPLOAD_CONFIG_VIEW" },
+                new { Id = 8, Name = "Cơ cấu tổ chức", Url = "/administration/organization-settings", Icon = "pi pi-sitemap", ParentId = (int?)2, SortOrder = 6, IsActive = 1, PermissionCode = "ORGANIZATION_VIEW" },
                 new { Id = 9, Name = "Nhật ký hệ thống", Url = "/administration/audit-log", Icon = "pi pi-history", ParentId = (int?)2, SortOrder = 7, IsActive = 1, PermissionCode = "AUDIT_LOG_VIEW" },
 
-                new { Id = 10, Name = "Danh mục hệ thống", Url = (string)null, Icon = "pi pi-folder-open", ParentId = (int?)null, SortOrder = 3, IsActive = 1, PermissionCode = "CATALOG_MANAGE" },
-                new { Id = 11, Name = "Đơn vị tính", Url = "/catalog/unit-of-measurement", Icon = "pi pi-tag", ParentId = (int?)10, SortOrder = 1, IsActive = 1, PermissionCode = "CATALOG_MANAGE" },
+                new { Id = 10, Name = "Danh mục hệ thống", Url = (string)null, Icon = "pi pi-folder-open", ParentId = (int?)null, SortOrder = 3, IsActive = 1, PermissionCode = "CATALOG_VIEW" },
+                new { Id = 11, Name = "Đơn vị tính", Url = "/catalog/unit-of-measurement", Icon = "pi pi-tag", ParentId = (int?)10, SortOrder = 1, IsActive = 1, PermissionCode = "CATALOG_VIEW" },
 
                 new { Id = 12, Name = "Hồ sơ & Thiết bị", Url = (string)null, Icon = "pi pi-file", ParentId = (int?)null, SortOrder = 4, IsActive = 1, PermissionCode = "EQUIPMENT_VIEW" },
-                new { Id = 13, Name = "Quản lý thông số EAV", Url = "/equipment/form-management", Icon = "pi pi-sliders-h", ParentId = (int?)12, SortOrder = 1, IsActive = 1, PermissionCode = "EQUIPMENT_MANAGE" },
+                new { Id = 13, Name = "Quản lý thông số EAV", Url = "/equipment/form-management", Icon = "pi pi-sliders-h", ParentId = (int?)12, SortOrder = 1, IsActive = 1, PermissionCode = "EQUIPMENT_VIEW" },
 
                 new { Id = 14, Name = "Số hóa hồ sơ", Url = (string)null, Icon = "pi pi-cloud-upload", ParentId = (int?)null, SortOrder = 5, IsActive = 1, PermissionCode = "DIGITIZATION_VIEW" },
-                new { Id = 15, Name = "Tải lên & Nhận dạng OCR", Url = "/digitization/ocr-upload", Icon = "pi pi-upload", ParentId = (int?)14, SortOrder = 1, IsActive = 1, PermissionCode = "DIGITIZATION_MANAGE" },
+                new { Id = 15, Name = "Tải lên & Nhận dạng OCR", Url = "/digitization/ocr-upload", Icon = "pi pi-upload", ParentId = (int?)14, SortOrder = 1, IsActive = 1, PermissionCode = "DIGITIZATION_VIEW" },
                 new { Id = 16, Name = "Thư mục ảo (Explorer)", Url = "/digitization/virtual-folders", Icon = "pi pi-folder", ParentId = (int?)14, SortOrder = 2, IsActive = 1, PermissionCode = "DIGITIZATION_VIEW" },
-                new { Id = 17, Name = "Phân bổ hồ sơ số hóa", Url = "/digitization/ocr-allocation", Icon = "pi pi-share-alt", ParentId = (int?)14, SortOrder = 3, IsActive = 1, PermissionCode = "DIGITIZATION_MANAGE" },
-                new { Id = 18, Name = "Dữ liệu huấn luyện AI", Url = "/digitization/ocr-training", Icon = "pi pi-cog", ParentId = (int?)14, SortOrder = 4, IsActive = 1, PermissionCode = "DIGITIZATION_MANAGE" },
+                new { Id = 17, Name = "Phân bổ hồ sơ số hóa", Url = "/digitization/ocr-allocation", Icon = "pi pi-share-alt", ParentId = (int?)14, SortOrder = 3, IsActive = 1, PermissionCode = "DIGITIZATION_VIEW" },
+                new { Id = 18, Name = "Dữ liệu huấn luyện AI", Url = "/digitization/ocr-training", Icon = "pi pi-cog", ParentId = (int?)14, SortOrder = 4, IsActive = 1, PermissionCode = "DIGITIZATION_VIEW" },
 
-                new { Id = 19, Name = "Hiệu đính OCR", Url = "/ocr-correction", Icon = "pi pi-check-square", ParentId = (int?)null, SortOrder = 6, IsActive = 1, PermissionCode = "DIGITIZATION_MANAGE" },
+                new { Id = 19, Name = "Hiệu đính OCR", Url = "/ocr-correction", Icon = "pi pi-check-square", ParentId = (int?)null, SortOrder = 6, IsActive = 1, PermissionCode = "DIGITIZATION_VIEW" },
                 
                 new { Id = 20, Name = "Tra cứu hồ sơ thiết bị", Url = "/search", Icon = "pi pi-search", ParentId = (int?)null, SortOrder = 7, IsActive = 1, PermissionCode = "EQUIPMENT_VIEW" },
 
                 new { Id = 21, Name = "Mượn trả hồ sơ", Url = (string)null, Icon = "pi pi-envelope", ParentId = (int?)null, SortOrder = 8, IsActive = 1, PermissionCode = "EQUIPMENT_VIEW" },
                 new { Id = 22, Name = "Yêu cầu mượn trả", Url = "/workflow/borrow-return", Icon = "pi pi-send", ParentId = (int?)21, SortOrder = 1, IsActive = 1, PermissionCode = "EQUIPMENT_VIEW" },
-                new { Id = 23, Name = "Thiết lập quy trình duyệt", Url = "/workflow/builder", Icon = "pi pi-chart-line", ParentId = (int?)21, SortOrder = 2, IsActive = 1, PermissionCode = "ROLE_MANAGE" },
+                new { Id = 23, Name = "Thiết lập quy trình duyệt", Url = "/workflow/builder", Icon = "pi pi-chart-line", ParentId = (int?)21, SortOrder = 2, IsActive = 1, PermissionCode = "ROLE_VIEW" },
 
                 new { Id = 24, Name = "Báo cáo & Thống kê", Url = "/reports", Icon = "pi pi-chart-bar", ParentId = (int?)null, SortOrder = 9, IsActive = 1, PermissionCode = "REPORT_VIEW" },
                 
@@ -250,6 +261,65 @@ public class DevController : ControllerBase
         {
             transaction.Rollback();
             return StatusCode(500, new { message = $"Lỗi seed dữ liệu: {ex.Message}" });
+        }
+    }
+
+    /// <summary>
+    /// Quét toàn bộ controllers/actions hệ thống để tự động sinh danh mục phân quyền CRUD+
+    /// </summary>
+    [HttpPost("scan-and-seed-permissions")]
+    public async Task<IActionResult> ScanAndSeedPermissions()
+    {
+        // Chỉ cho phép trong môi trường Development
+        if (!HttpContext.RequestServices
+            .GetRequiredService<IWebHostEnvironment>()
+            .IsDevelopment())
+        {
+            return NotFound();
+        }
+
+        try
+        {
+            var logs = await _seederService.ScanAndSeedPermissionsAsync();
+
+            // Gán tất cả Permissions active cho Role ADMIN tự động
+            if (_connection.State != ConnectionState.Open) _connection.Open();
+            var adminRoleId = await _connection.QuerySingleOrDefaultAsync<long?>(
+                "SELECT Id FROM ROLE WHERE Code = 'ADMIN'");
+            if (adminRoleId.HasValue)
+            {
+                await _connection.ExecuteAsync(
+                    "DELETE FROM ROLE_PERMISSION WHERE RoleId = :RoleId",
+                    new { RoleId = adminRoleId.Value });
+
+                var permissions = await _connection.QueryAsync<string>(
+                    "SELECT Id FROM PERMISSION WHERE IsActive = 1");
+
+                var insertPermSql = "INSERT INTO ROLE_PERMISSION (Id, RoleId, PermissionId) VALUES (:Id, :RoleId, :PermissionId)";
+                int insertCount = 0;
+                foreach (var permId in permissions)
+                {
+                    var id = Guid.NewGuid().ToString();
+                    await _connection.ExecuteAsync(insertPermSql, new
+                    {
+                        Id = id,
+                        RoleId = adminRoleId.Value,
+                        PermissionId = permId
+                    });
+                    insertCount++;
+                }
+                logs.Add($"✅ Tự động liên kết gán {insertCount} quyền mới quét được cho vai trò ADMIN thành công.");
+            }
+
+            return Ok(new
+            {
+                message = "Quét tự động và seed phân quyền hoàn tất thành công!",
+                logs
+            });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = $"Lỗi quét và seed phân quyền: {ex.Message}" });
         }
     }
 }

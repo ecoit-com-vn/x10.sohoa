@@ -1,5 +1,6 @@
 using EvnHanoi.Infrastructure.Database;
 using EvnHanoi.Infrastructure.Logging;
+using EvnHanoi.Infrastructure.Security;
 using Serilog;
 using Scalar.AspNetCore;
 using System;
@@ -19,6 +20,7 @@ builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 builder.Services.AddDapperInfrastructure(builder.Configuration);
 builder.Services.AddScoped<EvnHanoi.ReportService.Core.Interfaces.IReportRepository, EvnHanoi.ReportService.Infrastructure.Repositories.ReportRepository>();
+builder.Services.AddPermissionDiscovery("ReportService");
 
 var app = builder.Build();
 

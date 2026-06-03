@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 using EvnHanoi.Infrastructure.Database;
 using EvnHanoi.Infrastructure.Logging;
 using EvnHanoi.IdentityService.Core.Interfaces;
@@ -37,7 +37,20 @@ builder.Services.AddScoped<IUserGroupRepository, UserGroupRepository>();
 builder.Services.AddScoped<IUserUnitRoleRepository, UserUnitRoleRepository>();
 builder.Services.AddScoped<IUploadConfigRepository, UploadConfigRepository>();
 builder.Services.AddScoped<IPermissionRepository, PermissionRepository>();
+builder.Services.AddScoped<EvnHanoi.IdentityService.Infrastructure.Security.DynamicSeederService>();
 builder.Services.AddSingleton(new Elastic.Clients.Elasticsearch.ElasticsearchClient(new Uri(builder.Configuration["Elasticsearch:Uri"] ?? "http://localhost:9200")));
+
+// RabbitMQ Configuration & Consumer Registration
+var rabbitFactory = new RabbitMQ.Client.ConnectionFactory
+{
+    HostName = builder.Configuration["RabbitMQ:Host"] ?? "localhost",
+    UserName = builder.Configuration["RabbitMQ:Username"] ?? "guest",
+    Password = builder.Configuration["RabbitMQ:Password"] ?? "guest",
+    Port = int.TryParse(builder.Configuration["RabbitMQ:Port"], out var port) ? port : 5672
+};
+var rabbitConnection = await rabbitFactory.CreateConnectionAsync();
+builder.Services.AddSingleton<RabbitMQ.Client.IConnection>(rabbitConnection);
+builder.Services.AddHostedService<EvnHanoi.IdentityService.Infrastructure.Security.PermissionRegistrationConsumer>();
 
 
 // 3. Configure JWT Authentication

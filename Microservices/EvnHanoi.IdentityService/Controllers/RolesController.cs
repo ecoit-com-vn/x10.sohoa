@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using EvnHanoi.IdentityService.Core.Domain.Models;
 using EvnHanoi.IdentityService.Core.Interfaces;
@@ -13,10 +14,12 @@ namespace EvnHanoi.IdentityService.Controllers;
 public class RolesController : ControllerBase
 {
     private readonly IRoleRepository _roleRepository;
+    private readonly IPermissionRepository _permissionRepository;
 
-    public RolesController(IRoleRepository roleRepository)
+    public RolesController(IRoleRepository roleRepository, IPermissionRepository permissionRepository)
     {
         _roleRepository = roleRepository;
+        _permissionRepository = permissionRepository;
     }
 
     [HttpGet]
@@ -86,25 +89,19 @@ public class RolesController : ControllerBase
         return Ok(new { message = "Gán quyền cho vai trò thành công." });
     }
 
-    // Lấy toàn bộ danh sách quyền trong hệ thống
+    // Lấy toàn bộ danh sách quyền động trong hệ thống từ Repository của Permission
     [HttpGet("permissions/all")]
-    public IActionResult GetAllPermissions()
+    public async Task<IActionResult> GetAllPermissions()
     {
-        var systemPermissions = new List<object>
-        {
-            new { Code = "VIEW_DASHBOARD", Name = "Xem bảng điều khiển", Description = "Xem giao diện thống kê, tổng quan hệ thống." },
-            new { Code = "USER_MANAGE", Name = "Quản lý người dùng", Description = "Thêm, sửa, khóa tài khoản người dùng." },
-            new { Code = "ROLE_MANAGE", Name = "Quản lý nhóm quyền", Description = "Xem danh sách và thay đổi vai trò (Role)." },
-            new { Code = "PERMISSION_MANAGE", Name = "Phân quyền vai trò", Description = "Gán quyền thao tác cụ thể cho từng vai trò." },
-            new { Code = "SYSTEM_PARAM_MANAGE", Name = "Quản lý cấu hình tham số", Description = "Xem và sửa đổi các tham số cài đặt hệ thống." },
-            new { Code = "ORGANIZATION_MANAGE", Name = "Cài đặt tổ chức", Description = "Quản lý sơ đồ phòng ban, đơn vị thành viên." },
-            new { Code = "CATALOG_MANAGE", Name = "Quản lý danh mục đơn vị", Description = "Quản lý danh mục đơn vị tính và các danh mục khác." },
-            new { Code = "MENU_MANAGE", Name = "Quản lý Menu", Description = "Xem, thêm, sửa, xóa cấu hình Menu động." },
-            new { Code = "USER_GROUP_MANAGE", Name = "Quản lý nhóm người dùng", Description = "Xem, thêm, sửa, xóa các nhóm người dùng (User Group)." },
-            new { Code = "UPLOAD_CONFIG_MANAGE", Name = "Cấu hình upload file", Description = "Xem và sửa đổi các quy định về định dạng, dung lượng file tải lên." },
-            new { Code = "AUDIT_LOG_VIEW", Name = "Xem nhật ký hệ thống", Description = "Xem danh sách nhật ký thao tác bảo mật hệ thống." },
-            new { Code = "AUDIT_LOG_DELETE", Name = "Xóa nhật ký hệ thống", Description = "Thực hiện xóa/dọn dẹp nhật ký hệ thống một cách an toàn." }
-        };
-        return Ok(systemPermissions);
+        var permissions = await _permissionRepository.GetAllPermissionsAsync();
+        var result = permissions
+            .Where(p => p.IsActive)
+            .Select(p => new
+            {
+                p.Code,
+                p.Name,
+                p.Description
+            });
+        return Ok(result);
     }
 }

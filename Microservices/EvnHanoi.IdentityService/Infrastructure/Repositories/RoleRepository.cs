@@ -12,10 +12,12 @@ namespace EvnHanoi.IdentityService.Infrastructure.Repositories;
 public class RoleRepository : IRoleRepository
 {
     private readonly IDbConnection _connection;
+    private readonly IPermissionRepository _permissionRepository;
 
-    public RoleRepository(IDbConnection connection)
+    public RoleRepository(IDbConnection connection, IPermissionRepository permissionRepository)
     {
         _connection = connection;
+        _permissionRepository = permissionRepository;
     }
 
     public async Task<IEnumerable<Role>> GetAllAsync()
@@ -106,6 +108,12 @@ public class RoleRepository : IRoleRepository
 
     public async Task<bool> AssignPermissionsToRoleAsync(long roleId, IEnumerable<string> permissionCodes)
     {
+        // Fetch active permissions to get ID from Code via IPermissionRepository
+        var permissions = await _permissionRepository.GetAllPermissionsAsync();
+        var codeToIdMap = permissions
+            .Where(p => p.IsActive)
+            .ToDictionary(p => p.Code, p => p.Id, StringComparer.OrdinalIgnoreCase);
+
         if (_connection.State != ConnectionState.Open) _connection.Open();
         using var transaction = _connection.BeginTransaction();
         try
@@ -115,13 +123,6 @@ public class RoleRepository : IRoleRepository
                 "DELETE FROM ROLE_PERMISSION WHERE RoleId = :RoleId", 
                 new { RoleId = roleId }, 
                 transaction);
-
-            // Fetch active permissions to get ID from Code
-            var permissions = await _connection.QueryAsync<Permission>(
-                "SELECT Id, Code FROM PERMISSION WHERE IsActive = 1", 
-                transaction: transaction);
-            
-            var codeToIdMap = permissions.ToDictionary(p => p.Code, p => p.Id, StringComparer.OrdinalIgnoreCase);
 
             // Insert new permissions mapping
             var sql = @"

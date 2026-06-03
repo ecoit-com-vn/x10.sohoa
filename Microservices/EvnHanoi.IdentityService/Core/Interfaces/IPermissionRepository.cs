@@ -18,4 +18,5 @@ public interface IPermissionRepository
     Task<IEnumerable<PermissionDetail>> GetAllowedActionsForUserAsync(string userId);
     Task<IEnumerable<string>> GetPermissionsByUserIdAsync(string userId);
     Task<IEnumerable<string>> GetPermissionsByUserGroupIdAsync(long userGroupId);
+    Task<IEnumerable<string>> GetPermissionCodesByUserIdAsync(string userId);
 }

@@ -1,5 +1,6 @@
 using EvnHanoi.Infrastructure.Database;
 using EvnHanoi.Infrastructure.Logging;
+using EvnHanoi.Infrastructure.Security;
 using Serilog;
 using Scalar.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -41,6 +42,7 @@ builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IEavFormTem
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IEavFormTemplateService, EvnHanoi.EquipmentService.Core.Services.EavFormTemplateService>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IElasticsearchService, EvnHanoi.EquipmentService.Infrastructure.Services.ElasticsearchService>();
 builder.Services.AddSingleton<EvnHanoi.EquipmentService.Core.Interfaces.IMessageProducer, EvnHanoi.EquipmentService.Infrastructure.Messaging.RabbitMQProducer>();
+builder.Services.AddPermissionDiscovery("EquipmentService");
 
 // 3. Configure JWT Authentication
 var jwtKey = builder.Configuration["Jwt:Key"] ?? "super_secret_key_12345678901234567890";

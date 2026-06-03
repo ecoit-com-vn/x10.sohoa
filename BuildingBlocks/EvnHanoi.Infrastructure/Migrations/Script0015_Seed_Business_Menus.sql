@@ -11,7 +11,7 @@ VALUES (11, 'Số hóa Hồ sơ', '/digitization', 'pi pi-cloud-upload', NULL, 4
 
 -- 3. Phân hệ Hiệu đính AI-OCR
 INSERT INTO APP_MENU (Id, Name, Url, Icon, ParentId, SortOrder, IsActive, PermissionCode)
-VALUES (12, 'Hiệu đính AI-OCR', '/ocr-correction', 'pi pi-eye', NULL, 5, 1, 'DIGITIZATION_MANAGE');
+VALUES (12, 'Hiệu đính AI-OCR', '/ocr-correction', 'pi pi-eye', NULL, 5, 1, 'DIGITIZATION_VIEW');
 
 -- 4. Phân hệ Kệ lưu trữ (Shelf)
 INSERT INTO APP_MENU (Id, Name, Url, Icon, ParentId, SortOrder, IsActive, PermissionCode)
@@ -19,7 +19,7 @@ VALUES (13, 'Kệ lưu trữ (Shelf)', '/physical-storage', 'pi pi-database', NU
 
 -- 5. Phân hệ Danh mục dùng chung (Catalog)
 INSERT INTO APP_MENU (Id, Name, Url, Icon, ParentId, SortOrder, IsActive, PermissionCode)
-VALUES (14, 'Danh mục dùng chung', '/catalog', 'pi pi-bookmark', NULL, 7, 1, 'CATALOG_MANAGE');
+VALUES (14, 'Danh mục dùng chung', '/catalog', 'pi pi-bookmark', NULL, 7, 1, 'CATALOG_VIEW');
 
 -- 6. Phân hệ Báo cáo & Thống kê
 INSERT INTO APP_MENU (Id, Name, Url, Icon, ParentId, SortOrder, IsActive, PermissionCode)

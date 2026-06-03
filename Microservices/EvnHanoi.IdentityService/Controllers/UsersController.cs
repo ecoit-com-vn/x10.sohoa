@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using EvnHanoi.IdentityService.Core.Domain.Models;
 using EvnHanoi.IdentityService.Core.Interfaces;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace EvnHanoi.IdentityService.Controllers;
 
@@ -12,10 +13,14 @@ namespace EvnHanoi.IdentityService.Controllers;
 public class UsersController : ControllerBase
 {
     private readonly IUserRepository _userRepository;
+    private readonly IPermissionRepository _permissionRepository;
+    private readonly IMemoryCache _cache;
 
-    public UsersController(IUserRepository userRepository)
+    public UsersController(IUserRepository userRepository, IPermissionRepository permissionRepository, IMemoryCache cache)
     {
         _userRepository = userRepository;
+        _permissionRepository = permissionRepository;
+        _cache = cache;
     }
 
     [HttpGet]
@@ -83,5 +88,47 @@ public class UsersController : ControllerBase
         
         await _userRepository.DeleteAsync(id);
         return NoContent();
+    }
+
+    [HttpGet("{userId}/permissions")]
+    public async Task<IActionResult> GetPermissions(string userId)
+    {
+        var result = await _permissionRepository.GetPermissionsByUserIdAsync(userId);
+        return Ok(result);
+    }
+
+    [HttpPost("{userId}/permissions")]
+    public async Task<IActionResult> SavePermissions(string userId, [FromBody] List<string> permissionIds)
+    {
+        if (permissionIds == null) return BadRequest(new { message = "Danh sách quyền không hợp lệ." });
+        
+        var success = await _permissionRepository.AssignPermissionsToUserAsync(userId, permissionIds);
+        if (!success) return BadRequest(new { message = "Không thể gán quyền cho người dùng." });
+
+        // Xóa cache quyền của người dùng để thay đổi có hiệu lực ngay lập tức
+        _cache.Remove($"UserPerms_{userId}");
+
+        return Ok(new { message = "Gán quyền trực tiếp cho người dùng thành công!" });
+     }
+
+    [HttpGet("{userId}/roles")]
+    public async Task<IActionResult> GetRoles(string userId)
+    {
+        var result = await _userRepository.GetDirectRoleIdsByUserIdAsync(userId);
+        return Ok(result);
+    }
+
+    [HttpPost("{userId}/roles")]
+    public async Task<IActionResult> AssignRoles(string userId, [FromBody] List<long> roleIds)
+    {
+        if (roleIds == null) return BadRequest(new { message = "Danh sách vai trò không hợp lệ." });
+        
+        var success = await _userRepository.AssignRolesToUserAsync(userId, roleIds);
+        if (!success) return BadRequest(new { message = "Không thể gán vai trò cho người dùng." });
+
+        // Xóa cache quyền của người dùng để thay đổi có hiệu lực ngay lập tức
+        _cache.Remove($"UserPerms_{userId}");
+
+        return Ok(new { message = "Gán vai trò trực tiếp cho người dùng thành công!" });
     }
 }

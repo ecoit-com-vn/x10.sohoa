@@ -3,6 +3,7 @@ using EvnHanoi.DigitizationService.Services;
 using EvnHanoi.DigitizationService.Workers;
 using EvnHanoi.Infrastructure.Database;
 using EvnHanoi.Infrastructure.Logging;
+using EvnHanoi.Infrastructure.Security;
 using Serilog;
 using Scalar.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -43,6 +44,7 @@ builder.Services.AddScoped<IDigitizationTaskRepository, DigitizationTaskReposito
 builder.Services.AddScoped<IOcrTrainingDataRepository, OcrTrainingDataRepository>();
 builder.Services.AddScoped<IVirtualFolderRepository, VirtualFolderRepository>();
 builder.Services.AddHostedService<OcrTaskConsumer>();
+builder.Services.AddPermissionDiscovery("DigitizationService");
 
 // Configure JWT Authentication
 var jwtKey = builder.Configuration["Jwt:Key"] ?? "super_secret_key_12345678901234567890";
