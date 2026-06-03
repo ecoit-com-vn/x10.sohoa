@@ -69,7 +69,7 @@ var app = builder.Build();
 // Run DbUp Migrations
 try
 {
-    DatabaseMigrationHelper.RunMigrations(app.Configuration);
+    DatabaseMigrationHelper.RunMigrations(app.Configuration, "DigitizationService", runSeeds: app.Environment.IsDevelopment());
 }
 catch (Exception ex)
 {

@@ -1,0 +1,20 @@
+{
+  "projectPath": ".",
+  "outputPath": "aspirate-output",
+  "namespace": "SoHoaX10",
+  "containerImageTags": [
+    "latest"
+  ],
+  "containerBuilder": "docker",
+  "outputFormat": "kustomize",
+  "skipFinalKustomizeGeneration": false,
+  "privateRegistryEmail": "aspir8@aka.ms",
+  "includeDashboard": true,
+  "useCustomNamespace": true,
+  "secrets": {
+    "salt": "pn/r1tQpQ4vG4eN4",
+    "hash": "iv1Dzp0qBOWpVaWusVOzQuCH8qShMVt\u002BOqVnnngqCAU=",
+    "secrets": {}
+  },
+  "processAllComponents": true
+}

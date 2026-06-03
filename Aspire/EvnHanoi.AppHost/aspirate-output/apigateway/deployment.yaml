@@ -1,0 +1,35 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: apigateway
+  labels:
+    app: apigateway
+spec:
+  minReadySeconds: 60
+  replicas: 1
+  selector:
+    matchLabels:
+      app: apigateway
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: apigateway
+    spec:
+      containers:
+      - name: apigateway
+        image: apigateway:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 8080
+        - name: https
+          containerPort: 8443
+        - name: gateway-http
+          containerPort: 8000
+        envFrom:
+        - configMapRef:
+            name: apigateway-env
+      terminationGracePeriodSeconds: 180

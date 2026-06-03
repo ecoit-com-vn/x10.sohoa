@@ -1,0 +1,33 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reportservice
+  labels:
+    app: reportservice
+spec:
+  minReadySeconds: 60
+  replicas: 1
+  selector:
+    matchLabels:
+      app: reportservice
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: reportservice
+    spec:
+      containers:
+      - name: reportservice
+        image: reportservice:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 8080
+        - name: https
+          containerPort: 8443
+        envFrom:
+        - configMapRef:
+            name: reportservice-env
+      terminationGracePeriodSeconds: 180

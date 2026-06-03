@@ -1,0 +1,18 @@
+namespace: sohoax10
+
+resources:
+- identityservice
+- equipmentservice
+- digitizationservice
+- notificationservice
+- syncservice
+- workflowservice
+- reportservice
+- apigateway
+- namespace.yaml
+- dashboard.yaml
+
+generatorOptions:
+  disableNameSuffixHash: true
+
+

@@ -9,7 +9,7 @@ namespace EvnHanoi.Infrastructure.Database;
 
 public static class DatabaseMigrationHelper
 {
-    public static bool RunMigrations(IConfiguration configuration, string connectionStringName = "DefaultConnection")
+    public static bool RunMigrations(IConfiguration configuration, string serviceFolder, bool runSeeds = false, string connectionStringName = "DefaultConnection")
     {
         var connectionString = configuration.GetConnectionString(connectionStringName);
 
@@ -19,26 +19,52 @@ public static class DatabaseMigrationHelper
             return false;
         }
 
-        Log.Information("Starting Database Migration for {ConnectionStringName}...", connectionStringName);
+        Log.Information("Starting Database Migration for {ServiceFolder} ({ConnectionStringName})...", serviceFolder, connectionStringName);
 
-        // For Oracle, EnsureDatabase.For.OracleDatabase is available if DbUp.Oracle supports it,
-        // but typically schemas are pre-created in Oracle. We will just execute scripts.
-        var upgrader = DeployChanges.To
+        // Run schema migrations for the service folder
+        var schemaUpgrader = DeployChanges.To
             .OracleDatabase(connectionString)
-            .WithScriptsEmbeddedInAssembly(Assembly.GetExecutingAssembly())
+            .WithScriptsEmbeddedInAssembly(
+                Assembly.GetExecutingAssembly(),
+                name => name.Contains($".Migrations.{serviceFolder}."))
             .WithVariablesDisabled()
-            .LogToConsole() // or use custom Serilog adapter
+            .LogToConsole()
             .Build();
 
-        var result = upgrader.PerformUpgrade();
+        var schemaResult = schemaUpgrader.PerformUpgrade();
 
-        if (!result.Successful)
+        if (!schemaResult.Successful)
         {
-            Log.Error(result.Error, "Database migration failed!");
+            Log.Error(schemaResult.Error, "Database schema migration for {ServiceFolder} failed!", serviceFolder);
             return false;
         }
 
-        Log.Information("Database migration completed successfully!");
+        Log.Information("Database schema migration for {ServiceFolder} completed successfully!", serviceFolder);
+
+        // If runSeeds is enabled, run seeds migrations from the Seeds folder
+        if (runSeeds)
+        {
+            Log.Information("Starting Seed Migrations for {ServiceFolder}...", serviceFolder);
+            var seedUpgrader = DeployChanges.To
+                .OracleDatabase(connectionString)
+                .WithScriptsEmbeddedInAssembly(
+                    Assembly.GetExecutingAssembly(),
+                    name => name.Contains(".Migrations.Seeds.") && name.Contains($".{serviceFolder}."))
+                .WithVariablesDisabled()
+                .LogToConsole()
+                .Build();
+
+            var seedResult = seedUpgrader.PerformUpgrade();
+
+            if (!seedResult.Successful)
+            {
+                Log.Error(seedResult.Error, "Database seed migration for {ServiceFolder} failed!", serviceFolder);
+                return false;
+            }
+
+            Log.Information("Database seed migration for {ServiceFolder} completed successfully!", serviceFolder);
+        }
+
         return true;
     }
 }

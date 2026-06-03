@@ -1,0 +1,33 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: identityservice
+  labels:
+    app: identityservice
+spec:
+  minReadySeconds: 60
+  replicas: 1
+  selector:
+    matchLabels:
+      app: identityservice
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: identityservice
+    spec:
+      containers:
+      - name: identityservice
+        image: identityservice:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 8080
+        - name: https
+          containerPort: 8443
+        envFrom:
+        - configMapRef:
+            name: identityservice-env
+      terminationGracePeriodSeconds: 180

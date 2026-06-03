@@ -76,7 +76,7 @@ var app = builder.Build();
 // 4. Run DbUp Migrations
 try
 {
-    DatabaseMigrationHelper.RunMigrations(app.Configuration);
+    DatabaseMigrationHelper.RunMigrations(app.Configuration, "IdentityService", runSeeds: app.Environment.IsDevelopment());
 }
 catch (Exception ex)
 {

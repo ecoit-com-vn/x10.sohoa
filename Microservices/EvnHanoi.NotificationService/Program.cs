@@ -16,7 +16,7 @@ builder.AddServiceDefaults();
 builder.Host.UseSerilog(SerilogSetupHelper.ConfigureSerilog);
 
 // Setup DbUp
-EvnHanoi.Infrastructure.Database.DatabaseMigrationHelper.RunMigrations(builder.Configuration);
+EvnHanoi.Infrastructure.Database.DatabaseMigrationHelper.RunMigrations(builder.Configuration, "NotificationService");
 
 var rabbitFactory = new ConnectionFactory
 {

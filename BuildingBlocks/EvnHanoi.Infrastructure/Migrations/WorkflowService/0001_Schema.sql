@@ -1,7 +1,5 @@
--- Script0007: Tạo các bảng quản lý Quy trình (BPMN), Các bước duyệt (Workflow Steps) và Phiếu Mượn trả hồ sơ
--- Ngày tạo: 2026-05-29
+-- Consolidated Workflow Service Schema
 
--- 1. Bảng WORKFLOW_DEFINITIONS
 CREATE TABLE WorkflowDefinitions (
     Id             VARCHAR2(36)   NOT NULL PRIMARY KEY,
     Name           VARCHAR2(255)  NOT NULL,
@@ -13,7 +11,6 @@ CREATE TABLE WorkflowDefinitions (
     IsActive       NUMBER(1)      DEFAULT 1 NOT NULL
 );
 
--- 2. Bảng WORKFLOW_STEPS
 CREATE TABLE WorkflowSteps (
     Id                    VARCHAR2(36)   NOT NULL PRIMARY KEY,
     WorkflowDefinitionId  VARCHAR2(36)   NOT NULL,
@@ -24,7 +21,6 @@ CREATE TABLE WorkflowSteps (
     CONSTRAINT fk_wfstep_wfdef FOREIGN KEY (WorkflowDefinitionId) REFERENCES WorkflowDefinitions(Id) ON DELETE CASCADE
 );
 
--- 3. Bảng BORROW_RECORDS (Tương thích với BorrowRecord model của WorkflowService)
 CREATE TABLE BorrowRecords (
     Id            VARCHAR2(36)   NOT NULL PRIMARY KEY,
     DossierId     VARCHAR2(50)   NOT NULL,

@@ -295,26 +295,60 @@ public class AuthController : ControllerBase
 
         try
         {
+            if (_connection.State != ConnectionState.Open) _connection.Open();
+
+            // 1. Đảm bảo Role ADMIN và OPERATOR tồn tại
+            var adminRoleId = await _connection.QuerySingleOrDefaultAsync<long?>(
+                "SELECT Id FROM ROLE WHERE Code = 'ADMIN'");
+
+            if (!adminRoleId.HasValue)
+            {
+                var insertRoleSql = @"
+                    INSERT INTO ROLE (Code, Name, Description, CreatedBy)
+                    VALUES ('ADMIN', 'Quản trị viên hệ thống', 'Tài khoản có toàn quyền trên hệ thống', 'SYSTEM')
+                    RETURNING Id INTO :Id";
+                var roleParams = new DynamicParameters();
+                roleParams.Add("Id", dbType: DbType.Int64, direction: ParameterDirection.Output);
+                await _connection.ExecuteAsync(insertRoleSql, roleParams);
+                adminRoleId = roleParams.Get<long>("Id");
+            }
+
+            var operatorRoleId = await _connection.QuerySingleOrDefaultAsync<long?>(
+                "SELECT Id FROM ROLE WHERE Code = 'OPERATOR'");
+
+            if (!operatorRoleId.HasValue)
+            {
+                var insertRoleSql = @"
+                    INSERT INTO ROLE (Code, Name, Description, CreatedBy)
+                    VALUES ('OPERATOR', 'Nhân viên vận hành', 'Tài khoản nhân viên vận hành hệ thống', 'SYSTEM')
+                    RETURNING Id INTO :Id";
+                var roleParams = new DynamicParameters();
+                roleParams.Add("Id", dbType: DbType.Int64, direction: ParameterDirection.Output);
+                await _connection.ExecuteAsync(insertRoleSql, roleParams);
+                operatorRoleId = roleParams.Get<long>("Id");
+            }
+
+            // 2. Đảm bảo APP_USER 'admin' và 'operator' tồn tại
             var adminUser = await _userRepository.GetUserByUsernameAsync("admin");
-            bool isNew = false;
+            bool isAdminNew = false;
             if (adminUser == null)
             {
                 adminUser = new EvnHanoi.IdentityService.Core.Domain.Models.User
                 {
+                    Id = "018fc1e0-0000-0000-0000-000000000000",
                     Username = "admin",
                     FullName = "Quản trị viên Hệ thống",
                     Email = "admin@evnhanoi.vn",
                     PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin@123!"),
                     IsActive = true,
-                    LockoutEnabled = false, // Admin không bị lockout
+                    LockoutEnabled = false,
                     AccessFailedCount = 0
                 };
-                adminUser.Id = await _userRepository.CreateAsync(adminUser);
-                isNew = true;
+                await _userRepository.CreateAsync(adminUser);
+                isAdminNew = true;
             }
             else
             {
-                // Cập nhật hash mật khẩu để đảm bảo khớp với Admin@123!
                 adminUser.PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin@123!");
                 adminUser.IsActive = true;
                 adminUser.LockoutEnd = null;
@@ -322,49 +356,81 @@ public class AuthController : ControllerBase
                 await _userRepository.UpdateFullAsync(adminUser);
             }
 
-            // Tự động gán vai trò ADMIN và quyền SUPER_ADMIN cho admin để sẵn sàng sử dụng
-            if (_connection.State != ConnectionState.Open) _connection.Open();
-
-            // 1. Gán vai trò ADMIN
-            var adminRoleId = await _connection.QuerySingleOrDefaultAsync<long?>(
-                "SELECT Id FROM ROLE WHERE Code = 'ADMIN'");
-
-            if (adminRoleId.HasValue)
+            var operatorUser = await _userRepository.GetUserByUsernameAsync("operator");
+            if (operatorUser == null)
             {
-                var hasRole = await _connection.ExecuteScalarAsync<int>(
-                    "SELECT COUNT(*) FROM USER_ROLE WHERE UserId = :UserId AND RoleId = :RoleId",
+                operatorUser = new EvnHanoi.IdentityService.Core.Domain.Models.User
+                {
+                    Id = "018fc1e0-0000-0000-0000-000000000001",
+                    Username = "operator",
+                    FullName = "Nhân viên Vận hành",
+                    Email = "operator@evnhanoi.vn",
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin@123!"),
+                    IsActive = true,
+                    LockoutEnabled = true,
+                    AccessFailedCount = 0
+                };
+                await _userRepository.CreateAsync(operatorUser);
+            }
+            else
+            {
+                operatorUser.PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin@123!");
+                operatorUser.IsActive = true;
+                operatorUser.LockoutEnd = null;
+                operatorUser.AccessFailedCount = 0;
+                await _userRepository.UpdateFullAsync(operatorUser);
+            }
+
+            // 3. Gán Role cho Admin
+            var hasAdminRole = await _connection.ExecuteScalarAsync<int>(
+                "SELECT COUNT(*) FROM USER_ROLE WHERE UserId = :UserId AND RoleId = :RoleId",
+                new { UserId = adminUser.Id, RoleId = adminRoleId.Value });
+
+            if (hasAdminRole == 0)
+            {
+                await _connection.ExecuteAsync(
+                    "INSERT INTO USER_ROLE (UserId, RoleId) VALUES (:UserId, :RoleId)",
                     new { UserId = adminUser.Id, RoleId = adminRoleId.Value });
-
-                if (hasRole == 0)
-                {
-                    await _connection.ExecuteAsync(
-                        "INSERT INTO USER_ROLE (UserId, RoleId) VALUES (:UserId, :RoleId)",
-                        new { UserId = adminUser.Id, RoleId = adminRoleId.Value });
-                }
             }
 
-            // 2. Gán quyền tối cao SUPER_ADMIN
-            try
+            // 4. Gán Role cho Operator
+            var hasOperatorRole = await _connection.ExecuteScalarAsync<int>(
+                "SELECT COUNT(*) FROM USER_ROLE WHERE UserId = :UserId AND RoleId = :RoleId",
+                new { UserId = operatorUser.Id, RoleId = operatorRoleId.Value });
+
+            if (hasOperatorRole == 0)
             {
-                var hasPerm = await _connection.ExecuteScalarAsync<int>(
-                    "SELECT COUNT(*) FROM USER_PERMISSION WHERE UserId = :UserId AND PermissionId = 'admin-super-perm-uuid-111111111111'",
+                await _connection.ExecuteAsync(
+                    "INSERT INTO USER_ROLE (UserId, RoleId) VALUES (:UserId, :RoleId)",
+                    new { UserId = operatorUser.Id, RoleId = operatorRoleId.Value });
+            }
+
+            // 5. Đảm bảo Quyền SUPER_ADMIN tồn tại và gán cho Admin
+            var hasSuperAdminPerm = await _connection.ExecuteScalarAsync<int>(
+                "SELECT COUNT(*) FROM PERMISSION WHERE Code = 'SUPER_ADMIN'");
+
+            if (hasSuperAdminPerm == 0)
+            {
+                await _connection.ExecuteAsync(
+                    "INSERT INTO PERMISSION (Id, Code, Name, Description, IsActive, CreatedBy) VALUES ('admin-super-perm-uuid-111111111111', 'SUPER_ADMIN', 'Toàn quyền Hệ thống', 'Quyền quản trị tối cao', 1, 'SYSTEM')");
+                await _connection.ExecuteAsync(
+                    "INSERT INTO PERMISSION_DETAIL (Id, PermissionId, ControllerName, ActionName) VALUES ('admin-super-detail-uuid-111111111111', 'admin-super-perm-uuid-111111111111', '*', '*')");
+            }
+
+            var hasUserPerm = await _connection.ExecuteScalarAsync<int>(
+                "SELECT COUNT(*) FROM USER_PERMISSION WHERE UserId = :UserId AND PermissionId = 'admin-super-perm-uuid-111111111111'",
+                new { UserId = adminUser.Id });
+
+            if (hasUserPerm == 0)
+            {
+                await _connection.ExecuteAsync(
+                    "INSERT INTO USER_PERMISSION (UserId, PermissionId) VALUES (:UserId, 'admin-super-perm-uuid-111111111111')",
                     new { UserId = adminUser.Id });
-
-                if (hasPerm == 0)
-                {
-                    await _connection.ExecuteAsync(
-                        "INSERT INTO USER_PERMISSION (UserId, PermissionId) VALUES (:UserId, 'admin-super-perm-uuid-111111111111')",
-                        new { UserId = adminUser.Id });
-                }
-            }
-            catch (Exception)
-            {
-                // Bỏ qua nếu bảng USER_PERMISSION chưa được di dân
             }
 
             return Ok(new 
             { 
-                message = isNew ? "Khởi tạo tài khoản admin thành công." : "Tài khoản admin đã tồn tại. Đã reset mật khẩu thành công.",
+                message = isAdminNew ? "Khởi tạo tài khoản admin thành công." : "Tài khoản admin đã tồn tại. Đã reset mật khẩu thành công.",
                 username = "admin",
                 password = "Admin@123!",
                 userId = adminUser.Id,

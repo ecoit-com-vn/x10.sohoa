@@ -24,7 +24,7 @@ builder.Services.AddOpenApi();
 builder.Services.AddControllers();
 
 // Run DbUp Migrations
-DatabaseMigrationHelper.RunMigrations(builder.Configuration);
+DatabaseMigrationHelper.RunMigrations(builder.Configuration, "SyncService");
 
 // 1. Configure Redis and RedLock
 var redisEndpoints = new List<RedLockMultiplexer>

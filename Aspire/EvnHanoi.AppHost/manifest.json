@@ -1,0 +1,210 @@
+{
+  "$schema": "https://json.schemastore.org/aspire-8.0.json",
+  "resources": {
+    "identityservice": {
+      "type": "project.v0",
+      "path": "../../Microservices/EvnHanoi.IdentityService/EvnHanoi.IdentityService.csproj",
+      "env": {
+        "OTEL_DOTNET_EXPERIMENTAL_OTLP_EMIT_EXCEPTION_LOG_ATTRIBUTES": "true",
+        "OTEL_DOTNET_EXPERIMENTAL_OTLP_EMIT_EVENT_LOG_ATTRIBUTES": "true",
+        "OTEL_DOTNET_EXPERIMENTAL_OTLP_RETRY": "in_memory",
+        "ASPNETCORE_FORWARDEDHEADERS_ENABLED": "true",
+        "HTTP_PORTS": "{identityservice.bindings.http.targetPort}"
+      },
+      "bindings": {
+        "http": {
+          "scheme": "http",
+          "protocol": "tcp",
+          "transport": "http"
+        },
+        "https": {
+          "scheme": "https",
+          "protocol": "tcp",
+          "transport": "http"
+        }
+      }
+    },
+    "equipmentservice": {
+      "type": "project.v0",
+      "path": "../../Microservices/EvnHanoi.EquipmentService/EvnHanoi.EquipmentService.csproj",
+      "env": {
+        "OTEL_DOTNET_EXPERIMENTAL_OTLP_EMIT_EXCEPTION_LOG_ATTRIBUTES": "true",
+        "OTEL_DOTNET_EXPERIMENTAL_OTLP_EMIT_EVENT_LOG_ATTRIBUTES": "true",
+        "OTEL_DOTNET_EXPERIMENTAL_OTLP_RETRY": "in_memory",
+        "ASPNETCORE_FORWARDEDHEADERS_ENABLED": "true",
+        "HTTP_PORTS": "{equipmentservice.bindings.http.targetPort}"
+      },
+      "bindings": {
+        "http": {
+          "scheme": "http",
+          "protocol": "tcp",
+          "transport": "http"
+        },
+        "https": {
+          "scheme": "https",
+          "protocol": "tcp",
+          "transport": "http"
+        }
+      }
+    },
+    "digitizationservice": {
+      "type": "project.v0",
+      "path": "../../Microservices/EvnHanoi.DigitizationService/EvnHanoi.DigitizationService.csproj",
+      "env": {
+        "OTEL_DOTNET_EXPERIMENTAL_OTLP_EMIT_EXCEPTION_LOG_ATTRIBUTES": "true",
+        "OTEL_DOTNET_EXPERIMENTAL_OTLP_EMIT_EVENT_LOG_ATTRIBUTES": "true",
+        "OTEL_DOTNET_EXPERIMENTAL_OTLP_RETRY": "in_memory",
+        "ASPNETCORE_FORWARDEDHEADERS_ENABLED": "true",
+        "HTTP_PORTS": "{digitizationservice.bindings.http.targetPort}"
+      },
+      "bindings": {
+        "http": {
+          "scheme": "http",
+          "protocol": "tcp",
+          "transport": "http"
+        },
+        "https": {
+          "scheme": "https",
+          "protocol": "tcp",
+          "transport": "http"
+        }
+      }
+    },
+    "notificationservice": {
+      "type": "project.v0",
+      "path": "../../Microservices/EvnHanoi.NotificationService/EvnHanoi.NotificationService.csproj",
+      "env": {
+        "OTEL_DOTNET_EXPERIMENTAL_OTLP_EMIT_EXCEPTION_LOG_ATTRIBUTES": "true",
+        "OTEL_DOTNET_EXPERIMENTAL_OTLP_EMIT_EVENT_LOG_ATTRIBUTES": "true",
+        "OTEL_DOTNET_EXPERIMENTAL_OTLP_RETRY": "in_memory",
+        "ASPNETCORE_FORWARDEDHEADERS_ENABLED": "true",
+        "HTTP_PORTS": "{notificationservice.bindings.http.targetPort}"
+      },
+      "bindings": {
+        "http": {
+          "scheme": "http",
+          "protocol": "tcp",
+          "transport": "http"
+        },
+        "https": {
+          "scheme": "https",
+          "protocol": "tcp",
+          "transport": "http"
+        }
+      }
+    },
+    "syncservice": {
+      "type": "project.v0",
+      "path": "../../Microservices/EvnHanoi.SyncService/EvnHanoi.SyncService.csproj",
+      "env": {
+        "OTEL_DOTNET_EXPERIMENTAL_OTLP_EMIT_EXCEPTION_LOG_ATTRIBUTES": "true",
+        "OTEL_DOTNET_EXPERIMENTAL_OTLP_EMIT_EVENT_LOG_ATTRIBUTES": "true",
+        "OTEL_DOTNET_EXPERIMENTAL_OTLP_RETRY": "in_memory",
+        "ASPNETCORE_FORWARDEDHEADERS_ENABLED": "true",
+        "HTTP_PORTS": "{syncservice.bindings.http.targetPort}"
+      },
+      "bindings": {
+        "http": {
+          "scheme": "http",
+          "protocol": "tcp",
+          "transport": "http"
+        },
+        "https": {
+          "scheme": "https",
+          "protocol": "tcp",
+          "transport": "http"
+        }
+      }
+    },
+    "workflowservice": {
+      "type": "project.v0",
+      "path": "../../Microservices/EvnHanoi.WorkflowService/EvnHanoi.WorkflowService.csproj",
+      "env": {
+        "OTEL_DOTNET_EXPERIMENTAL_OTLP_EMIT_EXCEPTION_LOG_ATTRIBUTES": "true",
+        "OTEL_DOTNET_EXPERIMENTAL_OTLP_EMIT_EVENT_LOG_ATTRIBUTES": "true",
+        "OTEL_DOTNET_EXPERIMENTAL_OTLP_RETRY": "in_memory",
+        "ASPNETCORE_FORWARDEDHEADERS_ENABLED": "true",
+        "HTTP_PORTS": "{workflowservice.bindings.http.targetPort}"
+      },
+      "bindings": {
+        "http": {
+          "scheme": "http",
+          "protocol": "tcp",
+          "transport": "http"
+        },
+        "https": {
+          "scheme": "https",
+          "protocol": "tcp",
+          "transport": "http"
+        }
+      }
+    },
+    "reportservice": {
+      "type": "project.v0",
+      "path": "../../Microservices/EvnHanoi.ReportService/EvnHanoi.ReportService.csproj",
+      "env": {
+        "OTEL_DOTNET_EXPERIMENTAL_OTLP_EMIT_EXCEPTION_LOG_ATTRIBUTES": "true",
+        "OTEL_DOTNET_EXPERIMENTAL_OTLP_EMIT_EVENT_LOG_ATTRIBUTES": "true",
+        "OTEL_DOTNET_EXPERIMENTAL_OTLP_RETRY": "in_memory",
+        "ASPNETCORE_FORWARDEDHEADERS_ENABLED": "true",
+        "HTTP_PORTS": "{reportservice.bindings.http.targetPort}"
+      },
+      "bindings": {
+        "http": {
+          "scheme": "http",
+          "protocol": "tcp",
+          "transport": "http"
+        },
+        "https": {
+          "scheme": "https",
+          "protocol": "tcp",
+          "transport": "http"
+        }
+      }
+    },
+    "apigateway": {
+      "type": "project.v0",
+      "path": "../../ApiGateway/EvnHanoi.ApiGateway/EvnHanoi.ApiGateway.csproj",
+      "env": {
+        "OTEL_DOTNET_EXPERIMENTAL_OTLP_EMIT_EXCEPTION_LOG_ATTRIBUTES": "true",
+        "OTEL_DOTNET_EXPERIMENTAL_OTLP_EMIT_EVENT_LOG_ATTRIBUTES": "true",
+        "OTEL_DOTNET_EXPERIMENTAL_OTLP_RETRY": "in_memory",
+        "ASPNETCORE_FORWARDEDHEADERS_ENABLED": "true",
+        "HTTP_PORTS": "{apigateway.bindings.http.targetPort};{apigateway.bindings.gateway-http.targetPort}",
+        "services__identityservice__http__0": "{identityservice.bindings.http.url}",
+        "services__identityservice__https__0": "{identityservice.bindings.https.url}",
+        "services__equipmentservice__http__0": "{equipmentservice.bindings.http.url}",
+        "services__equipmentservice__https__0": "{equipmentservice.bindings.https.url}",
+        "services__digitizationservice__http__0": "{digitizationservice.bindings.http.url}",
+        "services__digitizationservice__https__0": "{digitizationservice.bindings.https.url}",
+        "services__notificationservice__http__0": "{notificationservice.bindings.http.url}",
+        "services__notificationservice__https__0": "{notificationservice.bindings.https.url}",
+        "services__syncservice__http__0": "{syncservice.bindings.http.url}",
+        "services__syncservice__https__0": "{syncservice.bindings.https.url}",
+        "services__workflowservice__http__0": "{workflowservice.bindings.http.url}",
+        "services__workflowservice__https__0": "{workflowservice.bindings.https.url}",
+        "services__reportservice__http__0": "{reportservice.bindings.http.url}",
+        "services__reportservice__https__0": "{reportservice.bindings.https.url}"
+      },
+      "bindings": {
+        "http": {
+          "scheme": "http",
+          "protocol": "tcp",
+          "transport": "http"
+        },
+        "https": {
+          "scheme": "https",
+          "protocol": "tcp",
+          "transport": "http"
+        },
+        "gateway-http": {
+          "scheme": "http",
+          "protocol": "tcp",
+          "transport": "http",
+          "port": 5000,
+          "targetPort": 8000
+        }
+      }
+    }
+  }
+}
