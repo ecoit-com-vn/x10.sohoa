@@ -1,0 +1,27 @@
+<div class="login-wrapper">
+  <p-card header="Đăng nhập hệ thống EVNHANOI" [style]="{ width: '400px' }">
+    <div style="display: flex; flex-direction: column; gap: 1rem;">
+      <div *ngIf="error" style="color: red; font-size: 0.875rem; text-align: center;">{{ error }}</div>
+      
+      <p-button label="Đăng nhập với EVN SSO" (onClick)="onSsoLogin()" [loading]="loading" styleClass="w-full" [style]="{'width':'100%', 'background-color': '#005b9f'}"></p-button>
+
+      <div style="text-align: center; border-bottom: 1px solid #f1f5f9; line-height: 0.1em; margin: 10px 0 20px;">
+        <span style="background:#fff; padding:0 10px; color: #9ca3af; font-size: 0.75rem;">HOẶC ĐĂNG NHẬP HỆ THỐNG</span>
+      </div>
+
+      <form (submit)="onLocalLogin($event)" style="display: flex; flex-direction: column; gap: 0.75rem;">
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <label style="font-size: 0.875rem; font-weight: 600; color: #4b5563;">Tài khoản</label>
+          <input type="text" [(ngModel)]="username" name="username" placeholder="Tên đăng nhập..." required style="height: 38px; border: 1px solid #d1d5db; border-radius: 4px; padding: 0 10px; outline: none; font-size: 0.875rem;" />
+        </div>
+        
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <label style="font-size: 0.875rem; font-weight: 600; color: #4b5563;">Mật khẩu</label>
+          <input type="password" [(ngModel)]="password" name="password" placeholder="Mật khẩu..." required style="height: 38px; border: 1px solid #d1d5db; border-radius: 4px; padding: 0 10px; outline: none; font-size: 0.875rem;" />
+        </div>
+        
+        <p-button label="Đăng nhập bằng tài khoản" type="submit" [loading]="localLoading" styleClass="w-full" [style]="{'width':'100%', 'margin-top':'0.5rem', 'background-color': '#475569'}"></p-button>
+      </form>
+    </div>
+  </p-card>
+</div>

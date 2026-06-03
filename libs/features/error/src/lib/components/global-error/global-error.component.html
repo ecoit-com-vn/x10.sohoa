@@ -1,0 +1,21 @@
+
+    <div class="error-container">
+      <div class="error-card">
+        <div class="error-icon">
+          <i class="pi" [ngClass]="errorIcon"></i>
+        </div>
+        <h1 class="error-code">{{ errorCode }}</h1>
+        <h2 class="error-title">{{ errorTitle }}</h2>
+        <p class="error-message">{{ errorMessage }}</p>
+        
+        <div class="error-actions">
+          <button class="btn-primary" (click)="goHome()">
+            <i class="pi pi-home mr-1"></i> Quay về Trang chủ
+          </button>
+          <button class="btn-outlined" (click)="goBack()">
+            <i class="pi pi-arrow-left mr-1"></i> Trở về trang trước
+          </button>
+        </div>
+      </div>
+    </div>
+  

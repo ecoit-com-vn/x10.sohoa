@@ -1,0 +1,157 @@
+<div class="wf-page">
+  <p-toast></p-toast>
+  <div class="wf-card">
+    <!-- Breadcrumb -->
+    <div class="breadcrumb">
+      <i class="pi pi-home bc-icon"></i>
+      <span class="bc-text">Trang chủ</span>
+      <span class="bc-sep">/</span>
+      <span class="bc-text">Quản trị hệ thống</span>
+      <span class="bc-sep">/</span>
+      <span class="bc-current">Quản lý Menu</span>
+    </div>
+
+    <p class="text-muted mb-4">
+      Thiết lập sơ đồ Menu chức năng hiển thị tại Sidebar của người dùng theo quyền hạn cụ thể.
+    </p>
+
+    <!-- Toolbar -->
+    <div class="list-toolbar">
+      <div class="toolbar-left">
+        <input type="text" class="wf-search-input"
+          placeholder="Tìm nhanh menu..."
+          [ngModel]="searchKeyword()"
+          (ngModelChange)="searchKeyword.set($event)" />
+        <button class="btn-tim" (click)="onSearch()">
+          <i class="pi pi-search"></i> Tìm
+        </button>
+      </div>
+      <div class="toolbar-right">
+        <button class="btn-green" (click)="onAddNew()">
+          <i class="pi pi-plus"></i> Thêm menu mới
+        </button>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="wf-table-wrap">
+      <table class="wf-table">
+        <thead>
+          <tr>
+            <th style="width: 80px;">STT</th>
+            <th>Tên hiển thị (Name)</th>
+            <th>Đường dẫn (URL)</th>
+            <th>Biểu tượng (Icon)</th>
+            <th>Quyền yêu cầu (Permission)</th>
+            <th style="width: 100px;">Thứ tự</th>
+            <th class="col-hd">Thao tác</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- skeleton loading rows -->
+          <ng-container *ngIf="loading()">
+            <tr *ngFor="let item of [1, 2, 3, 4]">
+              <td class="col-stt"><div class="skeleton-shimmer" style="height: 16px; width: 24px; border-radius: 4px;"></div></td>
+              <td><div class="skeleton-shimmer" style="height: 16px; width: 150px; border-radius: 4px;"></div></td>
+              <td><div class="skeleton-shimmer" style="height: 16px; width: 120px; border-radius: 4px;"></div></td>
+              <td><div class="skeleton-shimmer" style="height: 16px; width: 60px; border-radius: 4px;"></div></td>
+              <td><div class="skeleton-shimmer" style="height: 16px; width: 100px; border-radius: 4px;"></div></td>
+              <td><div class="skeleton-shimmer" style="height: 16px; width: 40px; border-radius: 4px;"></div></td>
+              <td class="col-hd"><div class="skeleton-shimmer" style="height: 24px; width: 60px; border-radius: 4px;"></div></td>
+            </tr>
+          </ng-container>
+
+          <ng-container *ngIf="!loading()">
+            <tr *ngFor="let m of filteredMenus(); let i = index">
+              <td class="col-stt text-muted">{{ i + 1 }}</td>
+              <td>
+                <div [style.padding-left.px]="getIndentLevel(m) * 20" style="display: flex; align-items: center; gap: 8px;">
+                  <i [class]="m.icon ? m.icon : 'pi pi-folder'" style="color: #002D72;"></i>
+                  <b class="wf-name-link" (click)="onEdit(m)">{{ m.name }}</b>
+                </div>
+              </td>
+              <td><code>{{ m.url || '-' }}</code></td>
+              <td>
+                <span *ngIf="m.icon"><i [class]="m.icon"></i> <code>{{ m.icon }}</code></span>
+                <span *ngIf="!m.icon" class="text-muted">-</span>
+              </td>
+              <td>
+                <span class="status-pill status-active" *ngIf="m.permission" style="background-color: #eff6ff; color: #1e40af; border-color: #bfdbfe;">
+                  {{ m.permission }}
+                </span>
+                <span class="text-muted" *ngIf="!m.permission">Không yêu cầu</span>
+              </td>
+              <td>{{ m.orderNum }}</td>
+              <td class="col-hd">
+                <button class="act-btn act-edit" (click)="onEdit(m)" title="Chỉnh sửa"><i class="pi pi-pencil"></i></button>
+                <button class="act-btn act-delete" (click)="onDelete(m)" title="Xóa"><i class="pi pi-trash"></i></button>
+              </td>
+            </tr>
+            <tr *ngIf="filteredMenus().length === 0">
+              <td colspan="7" class="empty-row">
+                <i class="pi pi-inbox"></i>
+                <div>Không tìm thấy menu nào phù hợp.</div>
+              </td>
+            </tr>
+          </ng-container>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Footer -->
+    <div class="table-footer">
+      <span class="record-count">Tổng số: <b>{{ menus().length }}</b> menu.</span>
+    </div>
+  </div>
+</div>
+
+<!-- Dialog Thêm/Sửa Menu -->
+<p-dialog [visible]="displayDialog()" (visibleChange)="displayDialog.set($event)" [header]="dialogHeader()" [modal]="true" [style]="{ width: '450px' }" styleClass="evn-dialog-custom">
+  <div style="display: flex; flex-direction: column; gap: 14px; padding-top: 10px;">
+    <div class="form-group">
+      <label class="form-label">Tên menu <span class="required">*</span></label>
+      <input type="text" class="wf-input w-full" [(ngModel)]="currentMenu().name" placeholder="Ví dụ: Quản lý thiết bị..." />
+    </div>
+    
+    <div class="form-group">
+      <label class="form-label">Đường dẫn (URL)</label>
+      <input type="text" class="wf-input w-full" [(ngModel)]="currentMenu().url" placeholder="Ví dụ: /search, /catalog/units..." />
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Biểu tượng (Icon class PrimeNG)</label>
+      <input type="text" class="wf-input w-full" [(ngModel)]="currentMenu().icon" placeholder="Ví dụ: pi pi-cog, pi pi-user..." />
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Quyền hạn yêu cầu</label>
+      <select class="wf-select w-full" [(ngModel)]="currentMenu().permission">
+        <option [value]="null">-- Không yêu cầu (Cho phép tất cả) --</option>
+        <option *ngFor="let p of permissions()" [value]="p.code">{{ p.name }} ({{ p.code }})</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Menu cấp trên</label>
+      <select class="wf-select w-full" [(ngModel)]="currentMenu().parentId">
+        <option [value]="null">-- Menu gốc --</option>
+        <option *ngFor="let m of getEligibleParents(currentMenu().id)" [value]="m.id">{{ m.name }}</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Thứ tự sắp xếp</label>
+      <input type="number" class="wf-input w-full" [(ngModel)]="currentMenu().orderNum" />
+    </div>
+  </div>
+  
+  <ng-template #footer>
+    <div class="flex gap-2 justify-content-end pt-3" style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9;">
+      <button class="btn-outlined btn-small" (click)="displayDialog.set(false)" [disabled]="saving()">Hủy</button>
+      <button class="btn-save btn-small" (click)="onSaveMenu()" [disabled]="saving()">
+        <i class="pi pi-spin pi-spinner" *ngIf="saving()" style="margin-right: 4px;"></i>
+        Lưu
+      </button>
+    </div>
+  </ng-template>
+</p-dialog>

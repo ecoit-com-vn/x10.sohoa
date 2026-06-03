@@ -1,0 +1,377 @@
+:host {
+  --sidebar-bg: #ffffff;
+  --sidebar-color: #374151;
+  --sidebar-border: #e5e7eb;
+  --menu-row-hover: #f8fafc;
+  --menu-label-color: #374151;
+  --submenu-bg: #fafbfc;
+  --layout-bg: #f5f7fb;
+}
+:global(html.dark-mode) {
+  --sidebar-bg: #1e293b;
+  --sidebar-color: #f1f5f9;
+  --sidebar-border: #334155;
+  --menu-row-hover: #334155;
+  --menu-label-color: #e2e8f0;
+  --submenu-bg: #111827;
+  --layout-bg: #0f172a;
+}
+
+.layout-wrapper {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+.layout-header {
+  flex: 0 0 auto;
+}
+.header-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 56px;
+  background-color: #002D72; /* EVN Deep Blue */
+  color: #ffffff;
+  padding: 0 1.25rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  border-bottom: 2px solid #FF6B00; /* Orange border */
+}
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.hamburger-btn {
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 0.4rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s;
+}
+.hamburger-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+.header-logo {
+  height: 28px;
+  object-fit: contain;
+}
+.header-divider {
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 1.2rem;
+  font-weight: 300;
+  margin: 0 0.5rem;
+  display: inline-block;
+}
+.header-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #ffffff;
+  margin: 0;
+  letter-spacing: 0.5px;
+  font-family: 'Inter', sans-serif;
+}
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.theme-toggle-btn {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 1.15rem;
+  cursor: pointer;
+  padding: 0.4rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s, color 0.2s;
+}
+.theme-toggle-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+.header-bell-wrapper {
+  color: #ffffff !important;
+}
+.user-profile {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+.user-profile:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+.avatar-circle {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  color: #ffffff;
+}
+.username-text {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+.profile-arrow {
+  font-size: 0.75rem;
+  opacity: 0.8;
+}
+.logout-btn {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 1.15rem;
+  cursor: pointer;
+  padding: 0.4rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s, color 0.2s;
+}
+.logout-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #ff4d4d;
+}
+.layout-main {
+  display: flex;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+/* Sidebar CSKH EVNHANOI styling */
+.layout-sidebar {
+  flex: 0 0 280px;
+  overflow-y: auto;
+  border-right: 1px solid var(--sidebar-border);
+  background-color: var(--sidebar-bg);
+  display: flex;
+  flex-direction: column;
+  box-shadow: 2px 0 8px rgba(0,0,0,0.02);
+  user-select: none;
+  transition: flex-basis 0.25s ease-in-out;
+  
+  &.collapsed {
+    flex: 0 0 64px;
+    
+    .menu-label,
+    .menu-chevron,
+    .submenu-list {
+      display: none !important;
+    }
+    
+    .menu-row {
+      justify-content: center;
+      padding: 12px 0;
+    }
+    
+    .menu-left {
+      justify-content: center;
+      gap: 0;
+    }
+  }
+}
+
+.sidebar-menu-list {
+  padding: 8px 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.menu-group-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.menu-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border-bottom: 1px solid var(--sidebar-border);
+  
+  &:hover {
+    background-color: var(--menu-row-hover);
+  }
+}
+
+.menu-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.menu-icon {
+  color: #002D72;
+  font-size: 1.1rem;
+  width: 20px;
+  text-align: center;
+}
+
+.menu-label {
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--menu-label-color);
+  font-family: 'Inter', sans-serif;
+}
+
+.menu-chevron {
+  color: #002D72;
+  font-size: 0.75rem;
+}
+
+/* Active State - CSKH Brand Red color */
+.group-active {
+  .menu-row {
+    background-color: #fef2f2;
+  }
+  
+  .menu-icon {
+    color: #ED1C24 !important;
+  }
+  
+  .menu-label {
+    color: #ED1C24 !important;
+    font-weight: 600;
+  }
+  
+  .menu-chevron {
+    color: #ED1C24 !important;
+  }
+}
+
+:global(html.dark-mode) {
+  .group-active .menu-row {
+    background-color: rgba(237, 28, 36, 0.15);
+  }
+}
+
+/* Submenu styling */
+.submenu-list {
+  display: flex;
+  flex-direction: column;
+  padding: 6px 0 10px 32px;
+  background-color: var(--submenu-bg);
+  border-left: 1px dashed var(--sidebar-border);
+  margin-left: 28px;
+  margin-top: 2px;
+  margin-bottom: 4px;
+}
+
+.submenu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  color: var(--sidebar-color);
+  font-size: 0.83rem;
+  font-weight: 500;
+  text-decoration: none;
+  border-radius: 4px;
+  transition: all 0.15s;
+  
+  &:hover {
+    background-color: #eff6ff;
+    color: #002D72;
+    
+    .sub-icon {
+      color: #002D72;
+    }
+  }
+  
+  .sub-icon {
+    font-size: 0.78rem;
+    color: #9ca3af;
+    width: 14px;
+    text-align: center;
+  }
+  
+  &.sub-active {
+    color: #ED1C24 !important;
+    font-weight: 600;
+    background-color: #fee2e2;
+    
+    .sub-icon {
+      color: #ED1C24 !important;
+    }
+  }
+}
+
+:global(html.dark-mode) {
+  .submenu-item:hover {
+    background-color: #1e293b;
+    color: #38bdf8;
+  }
+  .submenu-item.sub-active {
+    background-color: rgba(237, 28, 36, 0.2);
+  }
+}
+
+.layout-content {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 0;
+  background-color: var(--layout-bg);
+}
+
+.sidebar-backdrop {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .header-title {
+    font-size: 0.75rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .header-logo {
+    height: 22px;
+  }
+  .header-divider, .user-profile .username-text, .profile-arrow {
+    display: none !important;
+  }
+  .layout-sidebar {
+    position: fixed;
+    top: 56px;
+    left: 0;
+    bottom: 0;
+    width: 260px;
+    z-index: 999;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease-in-out;
+    
+    &.mobile-open {
+      transform: translateX(0);
+    }
+  }
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    top: 56px;
+    left: 0;
+    width: 100vw;
+    height: calc(100vh - 56px);
+    background-color: rgba(0, 0, 0, 0.4);
+    z-index: 998;
+  }
+}

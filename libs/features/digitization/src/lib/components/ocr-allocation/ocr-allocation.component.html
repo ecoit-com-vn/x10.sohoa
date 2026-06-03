@@ -1,0 +1,112 @@
+    <div class="wf-page">
+      <p-toast></p-toast>
+      <div class="wf-card">
+        
+        <!-- Breadcrumb -->
+        <div class="breadcrumb">
+          <i class="pi pi-home bc-icon"></i>
+          <span class="bc-text">Trang chủ</span>
+          <span class="bc-sep">/</span>
+          <span class="bc-text">Số hóa dữ liệu</span>
+          <span class="bc-sep">/</span>
+          <span class="bc-current">Phân bổ nhập liệu OCR</span>
+        </div>
+
+        <div class="edit-header">
+          <h2 class="edit-title">Phân bổ công việc nhập liệu OCR</h2>
+          <div class="edit-actions">
+            <button class="btn-green" (click)="onAutoAssign()" [disabled]="loading()">
+              <i class="pi pi-bolt"></i> Tự động phân bổ
+            </button>
+          </div>
+        </div>
+
+        <p class="text-muted mb-4">
+          Quản lý và phân công các tài liệu cần nhận dạng ký tự quang học (OCR) hoặc hiệu đính kết quả sau OCR cho các kiểm soát viên và nhân viên kỹ thuật.
+        </p>
+
+        <!-- Table -->
+        <div class="wf-table-wrap">
+          <table class="wf-table">
+            <thead>
+              <tr>
+                <th style="width: 120px;">Mã tài liệu</th>
+                <th>Tên tài liệu số hóa</th>
+                <th style="width: 100px; text-align: center;">Số trang</th>
+                <th class="col-tt">Trạng thái</th>
+                <th style="width: 250px;">Người phụ trách</th>
+                <th class="col-hd">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- skeleton loading rows -->
+              <ng-container *ngIf="loading()">
+                <tr *ngFor="let item of [1, 2, 3]">
+                  <td><div class="skeleton-shimmer" style="height: 16px; width: 80px; border-radius: 4px;"></div></td>
+                  <td><div class="skeleton-shimmer" style="height: 16px; width: 250px; border-radius: 4px;"></div></td>
+                  <td><div class="skeleton-shimmer" style="height: 16px; width: 40px; border-radius: 4px; margin: auto;"></div></td>
+                  <td class="col-tt"><div class="skeleton-shimmer" style="height: 24px; width: 100px; border-radius: 12px;"></div></td>
+                  <td><div class="skeleton-shimmer" style="height: 32px; width: 100%; border-radius: 4px;"></div></td>
+                  <td class="col-hd"><div class="skeleton-shimmer" style="height: 32px; width: 60px; border-radius: 4px;"></div></td>
+                </tr>
+              </ng-container>
+
+              <ng-container *ngIf="!loading()">
+                <tr *ngFor="let task of paginatedTasks(); let i = index">
+                  <td><code class="text-muted">{{ task.dossierId }}</code></td>
+                  <td><b class="wf-name-link" (click)="viewDoc(task)">{{ task.name }}</b></td>
+                  <td style="text-align: center;">{{ task.pages }}</td>
+                  <td class="col-tt">
+                    <span class="status-pill"
+                      [class.status-inactive]="task.status === 'Chờ phân công'"
+                      [class.status-pending]="task.status === 'Đang xử lý'"
+                      [class.status-active]="task.status === 'Hoàn thành'">
+                      <i class="pi pi-clock"></i>
+                      {{ task.status }}
+                    </span>
+                  </td>
+                  <td>
+                    <select class="wf-select w-full" [(ngModel)]="task.assignee" style="height: 32px; padding: 2px 8px;" [disabled]="task.status === 'Hoàn thành'">
+                      <option [value]="null" disabled>-- Chọn người phụ trách --</option>
+                      <option *ngFor="let u of users()" [value]="u.code">{{ u.name }}</option>
+                    </select>
+                  </td>
+                  <td class="col-hd">
+                    <button class="btn-tim btn-small" (click)="assignTask(task)" style="height: 32px; padding: 0 10px;" [disabled]="task.status === 'Hoàn thành'">
+                      <i class="pi pi-check"></i> Lưu
+                    </button>
+                  </td>
+                </tr>
+                <tr *ngIf="tasks().length === 0">
+                  <td colspan="6" class="empty-row">
+                    <i class="pi pi-inbox"></i>
+                    <div>Chưa có tài liệu nào cần phân công.</div>
+                  </td>
+                </tr>
+              </ng-container>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Footer -->
+        <div class="table-footer" *ngIf="tasks().length > 0 && !loading()">
+          <span class="record-count">Tổng số: <b>{{ tasks().length }}</b> bản ghi.</span>
+          <div class="pagination">
+            <button class="page-btn" (click)="prevPage()" [disabled]="currentPage() === 1">
+              <i class="pi pi-chevron-left"></i>
+            </button>
+            <span class="page-current">Trang {{ currentPage() }} / {{ totalPages() || 1 }}</span>
+            <button class="page-btn" (click)="nextPage()" [disabled]="currentPage() >= totalPages()">
+              <i class="pi pi-chevron-right"></i>
+            </button>
+            <select class="page-size-sel" [value]="pageSize()" (change)="onPageSizeChange($event)">
+              <option [value]="10">10 / trang</option>
+              <option [value]="20">20 / trang</option>
+              <option [value]="50">50 / trang</option>
+            </select>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  

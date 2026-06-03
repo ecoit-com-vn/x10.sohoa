@@ -1,0 +1,8 @@
+import { Route } from '@angular/router';
+
+export const CATALOG_ROUTES: Route[] = [
+  {
+    path: 'unit-of-measurement',
+    loadComponent: () => import('./components/unit-of-measurement/unit-of-measurement.component').then(m => m.UnitOfMeasurement)
+  }
+];

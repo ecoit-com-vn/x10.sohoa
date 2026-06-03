@@ -1,0 +1,452 @@
+
+    <div class="wf-page">
+      <p-toast></p-toast>
+
+      <!-- ══════════════════════════════════════════════════════════
+           LOADING OVERLAY
+      ══════════════════════════════════════════════════════════ -->
+      <div class="loading-overlay" *ngIf="loading || saving || deleting">
+        <div class="loading-spinner">
+          <i class="pi pi-spin pi-spinner"></i>
+          <span>{{ saving ? 'Đang lưu quy trình...' : deleting ? 'Đang xóa quy trình...' : loadingMsg }}</span>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════════════════════════
+           VIEW: DANH SÁCH QUY TRÌNH
+      ══════════════════════════════════════════════════════════ -->
+      <div *ngIf="viewMode === 'list'" class="wf-card">
+
+        <div class="breadcrumb">
+          <i class="pi pi-home bc-icon"></i>
+          <span class="bc-text">Trang chủ</span>
+          <span class="bc-sep">/</span>
+          <span class="bc-current">Cài đặt quy trình</span>
+        </div>
+
+        <!-- Toolbar -->
+        <div class="list-toolbar">
+          <div class="toolbar-left">
+            <input id="wf-search" type="text" class="wf-search-input"
+              placeholder="Tìm kiếm theo tên, mô tả..."
+              [(ngModel)]="searchKeyword"
+              (keyup.enter)="loadList()" />
+            <button id="btn-tim" class="btn-tim" (click)="loadList()">
+              <i class="pi pi-search"></i> Tìm
+            </button>
+          </div>
+          <div class="toolbar-right">
+            <button id="btn-loc" class="btn-outlined"
+              [class.btn-filter-active]="showFilter"
+              (click)="showFilter = !showFilter">
+              <i class="pi pi-filter"></i> Lọc
+            </button>
+            <button id="btn-them" class="btn-green" (click)="onAddNew()">
+              <i class="pi pi-plus"></i> Thêm
+            </button>
+            <button id="btn-excel" class="btn-excel" (click)="onExportExcel()">
+              <i class="pi pi-file-excel"></i> Excel
+            </button>
+            <button id="btn-xoa-nhieu" class="btn-outlined btn-xoa-outlined"
+              [disabled]="selectedIds.length === 0"
+              (click)="promptDeleteSelected()">
+              <i class="pi pi-trash"></i> Xóa
+            </button>
+          </div>
+        </div>
+
+        <!-- Filter row -->
+        <div class="filter-row" *ngIf="showFilter">
+          <select class="wf-select" [(ngModel)]="filterIsActive" (change)="loadList()">
+            <option value="">-- Tất cả trạng thái --</option>
+            <option value="true">Đang hoạt động</option>
+            <option value="false">Ngưng hoạt động</option>
+          </select>
+          <button class="btn-outlined btn-small" (click)="resetFilter()">
+            <i class="pi pi-times"></i> Xóa lọc
+          </button>
+        </div>
+
+        <!-- Error banner -->
+        <div class="error-banner" *ngIf="listError">
+          <i class="pi pi-exclamation-circle"></i> {{ listError }}
+          <button class="btn-retry" (click)="loadList()">Thử lại</button>
+        </div>
+
+        <!-- Table -->
+        <div class="wf-table-wrap">
+          <table class="wf-table" id="wf-table">
+            <thead>
+              <tr>
+                <th class="col-chk">
+                  <input type="checkbox"
+                    [checked]="isAllSelected()"
+                    (change)="toggleSelectAll($event)" />
+                </th>
+                <th class="col-stt">STT</th>
+                <th class="col-loai">Loại quy trình</th>
+                <th class="col-mota">Mô tả</th>
+                <th class="col-phien">Phiên bản</th>
+                <th class="col-tt">Trạng thái</th>
+                <th class="col-hd">Hành động</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Skeleton rows khi đang tải -->
+              <tr *ngIf="loading && workflows.length === 0" class="skeleton-row">
+                <td colspan="7">
+                  <div class="skeleton-bar"></div>
+                  <div class="skeleton-bar short"></div>
+                </td>
+              </tr>
+
+              <tr *ngFor="let wf of workflows; let i = index"
+                [class.row-selected]="isSelected(wf.id!)">
+                <td class="col-chk">
+                  <input type="checkbox"
+                    [checked]="isSelected(wf.id!)"
+                    (change)="toggleSelect(wf.id!)" />
+                </td>
+                <td class="col-stt text-muted">{{ i + 1 }}</td>
+                <td class="col-loai">
+                  <span class="wf-name-link" (click)="onEdit(wf)">{{ wf.name }}</span>
+                </td>
+                <td class="col-mota">
+                  <span class="mota-text" [title]="wf.description">{{ truncate(wf.description, 60) || '—' }}</span>
+                </td>
+                <td class="col-phien">{{ wf.version }}</td>
+                <td class="col-tt">
+                  <span class="status-pill"
+                    [class.status-active]="wf.isActive"
+                    [class.status-inactive]="!wf.isActive">
+                    <i class="pi pi-clock"></i>
+                    {{ wf.isActive ? 'Đang hoạt động' : 'Ngưng hoạt động' }}
+                  </span>
+                </td>
+                <td class="col-hd">
+                  <button class="act-btn act-edit" (click)="onEdit(wf)" title="Sửa quy trình">
+                    <i class="pi pi-pencil"></i>
+                  </button>
+                  <button class="act-btn act-delete" (click)="promptDeleteOne(wf)" title="Xóa quy trình">
+                    <i class="pi pi-trash"></i>
+                  </button>
+                </td>
+              </tr>
+
+              <tr *ngIf="!loading && workflows.length === 0 && !listError">
+                <td colspan="7" class="empty-row">
+                  <i class="pi pi-inbox"></i>
+                  <div>Chưa có quy trình nào. Nhấn <b>Thêm</b> để tạo mới.</div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Footer -->
+        <div class="table-footer">
+          <span class="record-count">Tổng số: <b>{{ workflows.length }}</b> bản ghi.</span>
+          <div class="pagination">
+            <button class="page-btn" disabled><i class="pi pi-chevron-left"></i></button>
+            <span class="page-current">1</span>
+            <button class="page-btn" disabled><i class="pi pi-chevron-right"></i></button>
+            <select class="page-size-sel">
+              <option>10 / trang</option>
+              <option>20 / trang</option>
+              <option>50 / trang</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════════════════════════
+           VIEW: FORM SỬA / THÊM MỚI
+      ══════════════════════════════════════════════════════════ -->
+      <div *ngIf="viewMode === 'edit'" class="wf-card">
+
+        <div class="breadcrumb">
+          <i class="pi pi-home bc-icon"></i>
+          <span class="bc-link" (click)="onBackToList()">Trang chủ</span>
+          <span class="bc-sep">/</span>
+          <span class="bc-link" (click)="onBackToList()">Cài đặt quy trình</span>
+          <span class="bc-sep">/</span>
+          <span class="bc-current">{{ isEditMode ? 'Sửa quy trình' : 'Thêm mới' }}</span>
+        </div>
+
+        <div class="edit-header">
+          <h2 class="edit-title">{{ isEditMode ? 'Sửa quy trình' : 'Thêm mới quy trình' }}</h2>
+          <div class="edit-actions">
+            <button id="btn-quaylai" class="btn-back" (click)="onBackToList()">
+              <i class="pi pi-arrow-left"></i> Quay lại
+            </button>
+            <button id="btn-luu" class="btn-save"
+              [disabled]="saving"
+              (click)="onSave()">
+              <i class="pi pi-spin pi-spinner" *ngIf="saving"></i>
+              <i class="pi pi-save" *ngIf="!saving"></i>
+              {{ saving ? 'Đang lưu...' : 'Lưu' }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tab-bar">
+          <button class="tab-item" id="tab-general"
+            [class.tab-active]="activeTab === 'general'"
+            (click)="activeTab = 'general'">
+            Thông tin chung
+          </button>
+          <button class="tab-item" id="tab-design"
+            [class.tab-active]="activeTab === 'design'"
+            (click)="activeTab = 'design'">
+            Thiết kế quy trình
+          </button>
+        </div>
+
+        <!-- ── TAB 1: THÔNG TIN CHUNG ──────────────────────────── -->
+        <div *ngIf="activeTab === 'general'" class="tab-content">
+          <div class="form-grid-3">
+            <div class="form-group">
+              <label class="form-label">Loại quy trình <span class="required">*</span></label>
+              <select class="wf-select w-full" [(ngModel)]="draft.name" id="sel-loai">
+                <option value="" disabled>-- Chọn loại quy trình --</option>
+                <option *ngFor="let opt of loaiOptions" [value]="opt">{{ opt }}</option>
+              </select>
+              <div class="field-error" *ngIf="formSubmitted && !draft.name">
+                Vui lòng chọn loại quy trình.
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Trạng thái <span class="required">*</span></label>
+              <select class="wf-select w-full" [(ngModel)]="draft.isActive" id="sel-trangthai">
+                <option [ngValue]="true">Đang hoạt động</option>
+                <option [ngValue]="false">Ngưng hoạt động</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Phiên bản</label>
+              <input id="inp-phienban" type="text" class="wf-input w-full phienban-input"
+                [(ngModel)]="draft.version"
+                placeholder="1.0" />
+            </div>
+          </div>
+
+          <div class="epbuoc-box">
+            <label class="epbuoc-wrap" for="chk-epbuoc">
+              <input type="checkbox" id="chk-epbuoc" class="epbuoc-cb"
+                [(ngModel)]="draft.forceActivate" />
+              <span class="epbuoc-label">Ép buộc kích hoạt</span>
+            </label>
+            <div class="epbuoc-note">
+              Nếu chọn, các quy trình cũ cùng loại sẽ bị vô hiệu hóa tự động.
+            </div>
+          </div>
+
+          <div class="form-group mt-4">
+            <label class="form-label">Mô tả</label>
+            <textarea id="ta-mota" class="wf-textarea" rows="5"
+              placeholder="Nhập mô tả quy trình (tối đa 500 ký tự)"
+              [(ngModel)]="draft.description"
+              maxlength="500">
+            </textarea>
+            <div class="char-count">{{ draft.description.length || 0 }} / 500</div>
+          </div>
+        </div>
+
+        <!-- ── TAB 2: THIẾT KẾ QUY TRÌNH (BPMN) ──────────────── -->
+        <div *ngIf="activeTab === 'design'" class="tab-content bpmn-section">
+
+          <div class="bpmn-workspace">
+            <!-- Toolbox -->
+            <div class="bpmn-toolbox">
+              <button class="tool-btn" title="Phóng to" (click)="onZoom(0.15)">
+                <i class="pi pi-search-plus"></i>
+              </button>
+              <button class="tool-btn" title="Thu nhỏ" (click)="onZoom(-0.15)">
+                <i class="pi pi-search-minus"></i>
+              </button>
+              <div class="tool-sep"></div>
+              <button class="tool-btn" title="Chọn / Di chuyển"
+                [class.tool-active]="activeTool === 'select'"
+                (click)="activeTool = 'select'">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M3 3l7 18 4-8 8-4L3 3z"/>
+                </svg>
+              </button>
+              <div class="tool-sep"></div>
+              <button class="tool-btn" title="Thêm: Sự kiện Bắt đầu" (click)="addNode('start')">
+                <svg width="14" height="14" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#22c55e"/></svg>
+              </button>
+              <button class="tool-btn" title="Thêm: Công việc / Bước xử lý" (click)="addNode('task')">
+                <svg width="18" height="13" viewBox="0 0 24 18"><rect x="1" y="1" width="22" height="16" rx="2" fill="none" stroke="#3b82f6" stroke-width="2"/></svg>
+              </button>
+              <button class="tool-btn" title="Thêm: Cổng điều kiện" (click)="addNode('gateway')">
+                <svg width="16" height="16" viewBox="0 0 24 24"><polygon points="12,2 22,12 12,22 2,12" fill="none" stroke="#f59e0b" stroke-width="2"/></svg>
+              </button>
+              <button class="tool-btn" title="Thêm: Sự kiện Kết thúc" (click)="addNode('end')">
+                <svg width="14" height="14" viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="10" fill="none" stroke="#ef4444" stroke-width="2.5"/>
+                  <circle cx="12" cy="12" r="6" fill="#ef4444"/>
+                </svg>
+              </button>
+              <div class="tool-sep"></div>
+              <button class="tool-btn tool-reset" title="Đặt lại sơ đồ mẫu" (click)="resetDiagram()">
+                <i class="pi pi-refresh"></i>
+              </button>
+            </div>
+
+            <!-- Canvas -->
+            <div class="bpmn-viewport"
+              (mousemove)="onMouseMove($event)"
+              (mouseup)="onMouseUp()">
+
+              <!-- Properties panel -->
+              <div class="prop-panel" *ngIf="selectedNode">
+                <div class="prop-header">
+                  <span>Thuộc tính phần tử</span>
+                  <button class="prop-close" (click)="selectedNode = null">
+                    <i class="pi pi-times"></i>
+                  </button>
+                </div>
+                <div class="prop-body">
+                  <div class="prop-row">
+                    <label>Tên bước</label>
+                    <input type="text" class="prop-input" [(ngModel)]="selectedNode.label" />
+                  </div>
+                  <div class="prop-row" *ngIf="selectedNode.type === 'task'">
+                    <label>Thứ tự bước</label>
+                    <input type="number" class="prop-input" [(ngModel)]="selectedNode.stepNum" min="1" />
+                  </div>
+                  <div class="prop-row" *ngIf="selectedNode.type === 'task'">
+                    <label>Vai trò phụ trách</label>
+                    <input type="text" class="prop-input"
+                      [ngModel]="selectedNode.stepRef?.requiredRole"
+                      (ngModelChange)="updateStepRef(selectedNode, 'requiredRole', $event)"
+                      placeholder="Ví dụ: KiemSoatVien, GiamDoc..." />
+                  </div>
+                  <div class="prop-row" *ngIf="selectedNode.type === 'task'">
+                    <label>Loại hành động</label>
+                    <select class="prop-select"
+                      [ngModel]="selectedNode.stepRef?.actionType"
+                      (ngModelChange)="updateStepRef(selectedNode, 'actionType', $event)">
+                      <option value="Scan">Quét tài liệu</option>
+                      <option value="DataEntry">Nhập liệu</option>
+                      <option value="Review">Kiểm soát</option>
+                      <option value="Approve">Phê duyệt</option>
+                    </select>
+                  </div>
+                  <div class="prop-type-row">
+                    <span class="prop-type-badge prop-type-{{selectedNode.type}}">
+                      {{ getTypeLabel(selectedNode.type) }}
+                    </span>
+                  </div>
+                </div>
+                <div class="prop-footer">
+                  <button class="prop-btn-close" (click)="selectedNode = null">Đóng</button>
+                  <button class="prop-btn-del" (click)="deleteNode(selectedNode)">
+                    <i class="pi pi-trash"></i> Xóa
+                  </button>
+                </div>
+              </div>
+
+              <!-- Hint -->
+              <div class="canvas-hint">
+                <i class="pi pi-info-circle"></i>
+                Kéo thả để di chuyển. Click để chỉnh sửa. Dữ liệu sơ đồ được lưu cùng quy trình.
+              </div>
+
+              <!-- SVG BPMN diagram -->
+              <svg class="bpmn-svg"
+                [attr.width]="svgW"
+                [attr.height]="svgH"
+                [style.transform]="'scale('+scale+')'">
+
+                <defs>
+                  <marker id="arr" markerWidth="9" markerHeight="6" refX="8" refY="3" orient="auto">
+                    <polygon points="0 0, 9 3, 0 6" fill="#6b7280"/>
+                  </marker>
+                  <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+                    <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#e5e7eb" stroke-width="0.5"/>
+                  </pattern>
+                </defs>
+
+                <rect width="100%" height="100%" fill="url(#grid)"/>
+
+                <!-- Edges -->
+                <g *ngFor="let edge of bpmnEdges">
+                  <path [attr.d]="buildPath(edge)" fill="none"
+                    stroke="#6b7280" stroke-width="1.5" marker-end="url(#arr)"/>
+                  <text *ngIf="edge.label"
+                    [attr.x]="edgeLabelX(edge)" [attr.y]="edgeLabelY(edge)"
+                    font-size="10" fill="#6b7280" font-weight="600" text-anchor="middle">
+                    {{ edge.label }}
+                  </text>
+                </g>
+
+                <!-- Nodes -->
+                <g *ngFor="let node of bpmnNodes"
+                  [attr.transform]="'translate('+node.x+','+node.y+')'"
+                  [class.node-sel]="selectedNode === node"
+                  style="cursor:move"
+                  (mousedown)="onNodeDown($event, node)"
+                  (click)="selectedNode = node; $event.stopPropagation()">
+
+                  <!-- START -->
+                  <ng-container *ngIf="node.type === 'start'">
+                    <circle cx="18" cy="18" r="18" fill="#22c55e" opacity="0.18"/>
+                    <circle cx="18" cy="18" r="13" fill="#22c55e"/>
+                    <text x="18" y="46" font-size="10" fill="#374151" text-anchor="middle" font-family="Inter,sans-serif">{{ node.label }}</text>
+                  </ng-container>
+
+                  <!-- TASK -->
+                  <ng-container *ngIf="node.type === 'task'">
+                    <rect x="0" y="0" width="122" height="48" rx="4"
+                      [attr.fill]="selectedNode === node ? '#eff6ff' : '#fff'"
+                      [attr.stroke]="selectedNode === node ? '#3b82f6' : '#9ca3af'"
+                      stroke-width="1.5"/>
+                    <circle cx="13" cy="13" r="9"
+                      [attr.fill]="selectedNode === node ? '#3b82f6' : '#002D72'"/>
+                    <text x="13" y="17" font-size="9" fill="#fff" text-anchor="middle" font-weight="bold">
+                      {{ node.stepNum }}
+                    </text>
+                    <text x="63" y="20" font-size="10" fill="#1e293b" text-anchor="middle"
+                      font-family="Inter,sans-serif" font-weight="500">
+                      <tspan *ngFor="let ln of splitLabel(node.label); let li = index"
+                        x="63" [attr.dy]="li === 0 ? '0' : '13'">{{ ln }}</tspan>
+                    </text>
+                  </ng-container>
+
+                  <!-- GATEWAY -->
+                  <ng-container *ngIf="node.type === 'gateway'">
+                    <polygon points="22,0 44,22 22,44 0,22"
+                      [attr.fill]="selectedNode === node ? '#fffbeb' : '#fff'"
+                      [attr.stroke]="selectedNode === node ? '#f59e0b' : '#9ca3af'"
+                      stroke-width="1.5"/>
+                    <text x="22" y="27" font-size="14" fill="#6b7280" text-anchor="middle">✕</text>
+                  </ng-container>
+
+                  <!-- END -->
+                  <ng-container *ngIf="node.type === 'end'">
+                    <circle cx="18" cy="18" r="18" fill="#ef4444" opacity="0.15"/>
+                    <circle cx="18" cy="18" r="13" fill="none" stroke="#ef4444" stroke-width="3"/>
+                    <circle cx="18" cy="18" r="7" fill="#ef4444"/>
+                    <text x="18" y="46" font-size="10" fill="#374151" text-anchor="middle" font-family="Inter,sans-serif">{{ node.label }}</text>
+                  </ng-container>
+                </g>
+
+              </svg>
+            </div>
+          </div>
+
+          <!-- Legend -->
+          <div class="bpmn-legend">
+            <span class="legend-item"><svg width="14" height="14"><circle cx="7" cy="7" r="7" fill="#22c55e"/></svg> Bắt đầu</span>
+            <span class="legend-item"><svg width="22" height="14"><rect x="0" y="1" width="22" height="12" rx="2" fill="none" stroke="#3b82f6" stroke-width="1.5"/></svg> Công việc</span>
+            <span class="legend-item"><svg width="16" height="16"><polygon points="8,0 16,8 8,16 0,8" fill="none" stroke="#f59e0b" stroke-width="1.5"/></svg> Cổng ĐK</span>
+            <span class="legend-item"><svg width="14" height="14"><circle cx="7" cy="7" r="6" fill="none" stroke="#ef4444" stroke-width="2"/><circle cx="7" cy="7" r="3" fill="#ef4444"/></svg> Kết thúc</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  

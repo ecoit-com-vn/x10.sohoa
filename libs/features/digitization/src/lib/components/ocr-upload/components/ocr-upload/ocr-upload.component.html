@@ -1,0 +1,48 @@
+<p-toast></p-toast>
+
+<div class="wf-page">
+  <div class="wf-card">
+    
+    <!-- Breadcrumb -->
+    <div class="breadcrumb">
+      <i class="pi pi-home bc-icon"></i>
+      <span class="bc-text">Trang chủ</span>
+      <span class="bc-sep">/</span>
+      <span class="bc-text">Số hóa dữ liệu</span>
+      <span class="bc-sep">/</span>
+      <span class="bc-current">Tải lên tài liệu OCR</span>
+    </div>
+
+    <div class="edit-header">
+      <h2 class="edit-title">Tải lên tài liệu xử lý OCR</h2>
+    </div>
+
+    <p class="text-muted mb-4">
+      Hệ thống hỗ trợ tải lên hàng loạt các tài liệu kỹ thuật số hóa dưới dạng hình ảnh (JPEG, PNG, TIFF) hoặc tài liệu PDF để tự động trích xuất nội dung văn bản thông qua động cơ trí tuệ nhân tạo AI-OCR.
+    </p>
+
+    <!-- File Upload Component styled premium -->
+    <div class="p-4" style="background: #fafafa; border: 2px dashed #002D72; border-radius: 8px; margin-top: 15px;">
+      <p-fileUpload 
+        name="ocrFile[]" 
+        [customUpload]="true"
+        (uploadHandler)="onUpload($event)" 
+        [multiple]="true" 
+        [accept]="acceptTypes()" 
+        chooseLabel="Chọn tài liệu..."
+        uploadLabel="Bắt đầu OCR"
+        cancelLabel="Hủy bỏ"
+        styleClass="mt-2">
+        
+        <ng-template pTemplate="content">
+            <div class="text-center py-3 text-secondary">
+              <i class="pi pi-cloud-upload" style="font-size: 2.5rem; color: #002D72;"></i>
+              <p class="mt-2 font-bold" style="color: #374151;">Nhấp để duyệt file hoặc kéo thả tài liệu vào đây</p>
+              <span class="text-xs text-muted">Hỗ trợ các định dạng ({{ allowedExtensions().toUpperCase() }}) dung lượng tối đa {{ maxFileSizeMb() }}MB / tệp tin</span>
+            </div>
+        </ng-template>
+      </p-fileUpload>
+    </div>
+
+  </div>
+</div>

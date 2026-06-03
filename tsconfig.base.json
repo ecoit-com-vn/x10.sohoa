@@ -10,10 +10,59 @@
     "importHelpers": true,
     "target": "es2015",
     "module": "esnext",
-    "lib": ["es2020", "dom"],
+    "lib": [
+      "es2020",
+      "dom"
+    ],
     "skipLibCheck": true,
     "skipDefaultLibCheck": true,
-    "paths": {}
+    "paths": {
+      "@sohoa.frontend/shared/core": [
+        "./libs/shared/core/src/index.ts"
+      ],
+      "@sohoa.frontend/shared/layout": [
+        "./libs/shared/layout/src/index.ts"
+      ],
+      "@sohoa.frontend/features/administration": [
+        "./libs/features/administration/src/index.ts"
+      ],
+      "@sohoa.frontend/features/catalog": [
+        "./libs/features/catalog/src/index.ts"
+      ],
+      "@sohoa.frontend/features/dashboard": [
+        "./libs/features/dashboard/src/index.ts"
+      ],
+      "@sohoa.frontend/features/equipment": [
+        "./libs/features/equipment/src/index.ts"
+      ],
+      "@sohoa.frontend/features/error": [
+        "./libs/features/error/src/index.ts"
+      ],
+      "@sohoa.frontend/features/ocr-correction": [
+        "./libs/features/ocr-correction/src/index.ts"
+      ],
+      "@sohoa.frontend/features/physical-storage": [
+        "./libs/features/physical-storage/src/index.ts"
+      ],
+      "@sohoa.frontend/features/reports": [
+        "./libs/features/reports/src/index.ts"
+      ],
+      "@sohoa.frontend/features/search": [
+        "./libs/features/search/src/index.ts"
+      ],
+      "@sohoa.frontend/features/workflow": [
+        "./libs/features/workflow/src/index.ts"
+      ],
+      "@sohoa.frontend/features/digitization": [
+        "./libs/features/digitization/src/index.ts"
+      ],
+      "@env/environment": [
+        "./apps/admin-portal/src/environments/environment.ts"
+      ]
+    }
   },
-  "exclude": ["node_modules", "tmp"]
+  "exclude": [
+    "node_modules",
+    "tmp"
+  ]
 }

@@ -1,0 +1,128 @@
+<div class="wf-page">
+  <p-toast></p-toast>
+  <div class="wf-card">
+    
+    <!-- Breadcrumb -->
+    <div class="breadcrumb">
+      <i class="pi pi-home bc-icon"></i>
+      <span class="bc-text">Trang chủ</span>
+      <span class="bc-sep">/</span>
+      <span class="bc-text">Quản trị hệ thống</span>
+      <span class="bc-sep">/</span>
+      <span class="bc-current">Nhật ký thao tác (Audit Log)</span>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="list-toolbar">
+      <div class="toolbar-left">
+        <input type="text" class="wf-search-input"
+          placeholder="Tìm kiếm nhật ký, hành động, người dùng..."
+          [ngModel]="searchTerm()"
+          (ngModelChange)="searchTerm.set($event)" />
+        <button class="btn-tim" (click)="onSearch()">
+          <i class="pi pi-search"></i> Tìm
+        </button>
+      </div>
+      <div class="toolbar-right" style="display: flex; gap: 8px;">
+        <button class="btn-tim" style="background-color: #dc2626; border-color: #dc2626;" (click)="onOpenDeleteDialog()" *ngIf="hasDeletePermission()">
+          <i class="pi pi-trash"></i> Xóa nhật ký an toàn
+        </button>
+        <button class="btn-excel" (click)="exportExcel()" [disabled]="loading()">
+          <i class="pi pi-file-excel"></i> Xuất Excel
+        </button>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="wf-table-wrap">
+      <table class="wf-table">
+        <thead>
+          <tr>
+            <th style="width: 200px;">Mã nhật ký</th>
+            <th>Hành động</th>
+            <th>Người dùng</th>
+            <th>Thời gian</th>
+            <th>Chi tiết thao tác</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- skeleton loading rows -->
+          <ng-container *ngIf="loading()">
+            <tr *ngFor="let item of [1, 2, 3, 4, 5]">
+              <td><div class="skeleton-shimmer" style="height: 16px; width: 120px; border-radius: 4px;"></div></td>
+              <td><div class="skeleton-shimmer" style="height: 16px; width: 150px; border-radius: 4px;"></div></td>
+              <td><div class="skeleton-shimmer" style="height: 16px; width: 100px; border-radius: 4px;"></div></td>
+              <td><div class="skeleton-shimmer" style="height: 16px; width: 140px; border-radius: 4px;"></div></td>
+              <td><div class="skeleton-shimmer" style="height: 16px; width: 250px; border-radius: 4px;"></div></td>
+            </tr>
+          </ng-container>
+
+          <ng-container *ngIf="!loading()">
+            <tr *ngFor="let log of paginatedLogs">
+              <td><code class="text-muted">{{ log.id }}</code></td>
+              <td><b>{{ log.action }}</b></td>
+              <td>
+                <span class="wf-name-link">{{ log.user }}</span>
+              </td>
+              <td>{{ log.timestamp }}</td>
+              <td class="mota-text">{{ log.details }}</td>
+            </tr>
+            <tr *ngIf="filteredLogs().length === 0">
+              <td colspan="5" class="empty-row">
+                <i class="pi pi-inbox"></i>
+                <div>Không tìm thấy lịch sử thao tác nào.</div>
+              </td>
+            </tr>
+          </ng-container>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Footer -->
+    <div class="table-footer" *ngIf="filteredLogs().length > 0 && !loading()">
+      <span class="record-count">Tổng số: <b>{{ filteredLogs().length }}</b> bản ghi.</span>
+      <div class="pagination">
+        <button class="page-btn" (click)="prevPage()" [disabled]="currentPage === 1">
+          <i class="pi pi-chevron-left"></i>
+        </button>
+        <span class="page-current">Trang {{ currentPage }} / {{ totalPages || 1 }}</span>
+        <button class="page-btn" (click)="nextPage()" [disabled]="currentPage >= totalPages">
+          <i class="pi pi-chevron-right"></i>
+        </button>
+        <select class="page-size-sel" [value]="pageSize" (change)="onPageSizeChange($event)">
+          <option [value]="10">10 / trang</option>
+          <option [value]="20">20 / trang</option>
+          <option [value]="50">50 / trang</option>
+        </select>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Dialog Xóa Nhật ký An toàn -->
+<p-dialog [visible]="displayDeleteDialog()" (visibleChange)="displayDeleteDialog.set($event)" header="Xóa nhật ký hệ thống an toàn" [modal]="true" [style]="{ width: '450px' }" styleClass="evn-dialog-custom">
+  <div style="display: flex; flex-direction: column; gap: 14px; padding-top: 10px;">
+    <div style="background-color: #fee2e2; color: #991b1b; padding: 10px; border-radius: 6px; border: 1px solid #fca5a5; font-size: 0.85rem;">
+      <i class="pi pi-exclamation-triangle mr-1"></i>
+      <b>Chú ý:</b> Mọi thao tác xóa nhật ký hệ thống đều được lưu lại vĩnh viễn vào nhật ký bảo mật bất biến của máy chủ để phục vụ công tác thanh kiểm tra.
+    </div>
+    <div class="form-group">
+      <label class="form-label" style="font-weight: 600;">Từ ngày <span class="required">*</span></label>
+      <input type="date" class="wf-input w-full" [(ngModel)]="deleteParams.fromDate" [disabled]="deleting()" />
+    </div>
+    <div class="form-group">
+      <label class="form-label" style="font-weight: 600;">Đến ngày <span class="required">*</span></label>
+      <input type="date" class="wf-input w-full" [(ngModel)]="deleteParams.toDate" [disabled]="deleting()" />
+    </div>
+  </div>
+  <ng-template #footer>
+    <div class="flex gap-2 justify-content-end pt-3" style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9;">
+      <button class="btn-outlined btn-small" (click)="displayDeleteDialog.set(false)" [disabled]="deleting()">Hủy</button>
+      <button class="btn-save btn-small" style="background-color: #dc2626; color: #fff; border-color: #dc2626;" (click)="onConfirmDelete()" [disabled]="deleting()">
+        <i class="pi pi-spin pi-spinner" *ngIf="deleting()" style="margin-right: 4px;"></i>
+        Xác nhận xóa
+      </button>
+    </div>
+  </ng-template>
+</p-dialog>

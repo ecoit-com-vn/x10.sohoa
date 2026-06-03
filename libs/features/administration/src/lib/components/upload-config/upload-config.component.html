@@ -1,0 +1,124 @@
+<div class="wf-page">
+  <p-toast></p-toast>
+  <div class="wf-card">
+    <!-- Breadcrumb -->
+    <div class="breadcrumb">
+      <i class="pi pi-home bc-icon"></i>
+      <span class="bc-text">Trang chủ</span>
+      <span class="bc-sep">/</span>
+      <span class="bc-text">Quản trị hệ thống</span>
+      <span class="bc-sep">/</span>
+      <span class="bc-current">Cấu hình File đính kèm</span>
+    </div>
+
+    <p class="text-muted mb-4">
+      Cấu hình động cho các loại file đính kèm được phép tải lên hệ thống (định dạng tệp tin và dung lượng tối đa) theo từng phân hệ.
+    </p>
+
+    <!-- Toolbar -->
+    <div class="list-toolbar">
+      <div class="toolbar-left">
+        <input type="text" class="wf-search-input"
+          placeholder="Tìm theo phân hệ..."
+          [ngModel]="searchKeyword()"
+          (ngModelChange)="searchKeyword.set($event)" />
+        <button class="btn-tim" (click)="onSearch()">
+          <i class="pi pi-search"></i> Tìm
+        </button>
+      </div>
+      <div class="toolbar-right">
+        <button class="btn-green" (click)="onAddNew()">
+          <i class="pi pi-plus"></i> Thêm cấu hình mới
+        </button>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="wf-table-wrap">
+      <table class="wf-table">
+        <thead>
+          <tr>
+            <th style="width: 80px;">STT</th>
+            <th>Mã phân hệ (Module Code)</th>
+            <th>Định dạng được phép</th>
+            <th>Dung lượng tối đa (MB)</th>
+            <th class="col-hd">Thao tác</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- skeleton loading rows -->
+          <ng-container *ngIf="loading()">
+            <tr *ngFor="let item of [1, 2, 3]">
+              <td class="col-stt"><div class="skeleton-shimmer" style="height: 16px; width: 24px; border-radius: 4px;"></div></td>
+              <td><div class="skeleton-shimmer" style="height: 16px; width: 120px; border-radius: 4px;"></div></td>
+              <td><div class="skeleton-shimmer" style="height: 16px; width: 200px; border-radius: 4px;"></div></td>
+              <td><div class="skeleton-shimmer" style="height: 16px; width: 60px; border-radius: 4px;"></div></td>
+              <td class="col-hd"><div class="skeleton-shimmer" style="height: 24px; width: 60px; border-radius: 4px;"></div></td>
+            </tr>
+          </ng-container>
+
+          <ng-container *ngIf="!loading()">
+            <tr *ngFor="let c of computedFilteredConfigs(); let i = index">
+              <td class="col-stt text-muted">{{ i + 1 }}</td>
+              <td><b>{{ c.moduleCode }}</b></td>
+              <td>
+                <span *ngFor="let ext of splitExtensions(c.allowedExtensions)" 
+                      class="status-pill status-active" 
+                      style="background-color: #f1f5f9; color: #334155; border-color: #cbd5e1; margin-right: 4px; font-size: 0.78rem;">
+                  {{ ext }}
+                </span>
+              </td>
+              <td><b class="text-orange" style="color: #FF6B00;">{{ c.maxFileSizeMb }} MB</b></td>
+              <td class="col-hd">
+                <button class="act-btn act-edit" (click)="onEdit(c)" title="Chỉnh sửa"><i class="pi pi-pencil"></i></button>
+                <button class="act-btn act-delete" (click)="onDelete(c)" title="Xóa"><i class="pi pi-trash"></i></button>
+              </td>
+            </tr>
+            <tr *ngIf="computedFilteredConfigs().length === 0">
+              <td colspan="5" class="empty-row">
+                <i class="pi pi-inbox"></i>
+                <div>Không tìm thấy cấu hình nào phù hợp.</div>
+              </td>
+            </tr>
+          </ng-container>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Footer -->
+    <div class="table-footer">
+      <span class="record-count">Tổng số: <b>{{ configs().length }}</b> phân hệ đã cấu hình.</span>
+    </div>
+  </div>
+</div>
+
+<!-- Dialog Thêm/Sửa Cấu hình -->
+<p-dialog [visible]="displayDialog()" (visibleChange)="displayDialog.set($event)" [header]="dialogHeader()" [modal]="true" [style]="{ width: '450px' }" styleClass="evn-dialog-custom">
+  <div style="display: flex; flex-direction: column; gap: 14px; padding-top: 10px;">
+    <div class="form-group">
+      <label class="form-label">Mã phân hệ <span class="required">*</span></label>
+      <input type="text" class="wf-input w-full" [(ngModel)]="currentConfig().moduleCode" placeholder="Ví dụ: THIET_BI, OCR, HO_SO..." [disabled]="isEdit() || saving()" />
+    </div>
+    
+    <div class="form-group">
+      <label class="form-label">Định dạng file được phép (Phân tách bằng dấu phẩy) <span class="required">*</span></label>
+      <input type="text" class="wf-input w-full" [(ngModel)]="currentConfig().allowedExtensions" placeholder="Ví dụ: pdf,docx,xlsx,jpg" [disabled]="saving()" />
+      <small class="text-muted" style="font-size: 0.75rem;">Chỉ nhập phần mở rộng của file, không chứa dấu chấm.</small>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Dung lượng tối đa của một file (MB) <span class="required">*</span></label>
+      <input type="number" class="wf-input w-full" [(ngModel)]="currentConfig().maxFileSizeMb" min="1" [disabled]="saving()" />
+    </div>
+  </div>
+  
+  <ng-template #footer>
+    <div class="flex gap-2 justify-content-end pt-3" style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9;">
+      <button class="btn-outlined btn-small" (click)="displayDialog.set(false)" [disabled]="saving()">Hủy</button>
+      <button class="btn-save btn-small" (click)="onSaveConfig()" [disabled]="saving()">
+        <i class="pi pi-spin pi-spinner" *ngIf="saving()" style="margin-right: 4px;"></i>
+        Lưu
+      </button>
+    </div>
+  </ng-template>
+</p-dialog>

@@ -1,0 +1,182 @@
+
+    .form-builder-wrapper {
+      display: flex;
+      flex-direction: column;
+      height: calc(100vh - 120px);
+      gap: 1.5rem;
+    }
+    .builder-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background-color: white;
+      padding: 1rem 1.5rem;
+      border-radius: 12px;
+      border: 1px solid #e2e8f0;
+    }
+    .builder-main-layout {
+      display: grid;
+      grid-template-columns: 280px 1fr 300px;
+      gap: 1.5rem;
+      flex: 1;
+      min-height: 0;
+    }
+    .toolbox-column {
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .toolbox-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-height: calc(100vh - 300px);
+      overflow-y: auto;
+    }
+    .toolbox-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: 1px solid #cbd5e1;
+      background-color: #f8fafc;
+      cursor: grab;
+      transition: all 0.2s ease-in-out;
+      user-select: none;
+    }
+    .toolbox-item:hover {
+      border-color: #002D72;
+      background-color: rgba(0, 45, 114, 0.05);
+      transform: translateY(-2px);
+    }
+    .item-icon-wrapper {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      background-color: white;
+      border: 1px solid #cbd5e1;
+      color: #002D72;
+    }
+    .item-text {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+    }
+    .canvas-column {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      overflow-y: auto;
+    }
+    .general-info-card {
+      background-color: white;
+      border-radius: 12px;
+      border: 1px solid #e2e8f0;
+    }
+    .form-title-input {
+      font-size: 1.15rem;
+      font-weight: 700;
+      border: none !important;
+      border-bottom: 2px dashed #cbd5e1 !important;
+      border-radius: 0;
+      background: transparent;
+      padding: 6px 0;
+    }
+    .form-title-input:focus {
+      border-color: #002D72 !important;
+      box-shadow: none !important;
+    }
+    .canvas-workspace {
+      background-color: white;
+      border-radius: 12px;
+      border: 1px solid #e2e8f0;
+      flex: 1;
+      min-height: 400px;
+    }
+    .canvas-field-card {
+      background-color: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 14px;
+      position: relative;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .canvas-field-card.width-100 {
+      width: 100%;
+    }
+    .canvas-field-card.width-50 {
+      width: calc(50% - 7px);
+    }
+    .canvas-field-card.selected {
+      border-color: #002D72;
+      background-color: rgba(0, 45, 114, 0.02);
+      box-shadow: 0 0 0 2px rgba(0, 45, 114, 0.15);
+    }
+    .canvas-field-card.selected::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 4px;
+      background-color: #002D72;
+      border-radius: 8px 0 0 8px;
+    }
+    .drag-handle-indicator {
+      cursor: move;
+      color: #94a3b8;
+      margin-right: 6px;
+    }
+    .field-preview-body {
+      pointer-events: none;
+    }
+    .preview-input {
+      background-color: white !important;
+      border: 1px solid #cbd5e1 !important;
+      opacity: 0.85;
+    }
+    .properties-column {
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    ::ng-deep .btn-evn-blue {
+      background-color: #002D72 !important;
+      border-color: #002D72 !important;
+      color: white !important;
+    }
+    ::ng-deep .btn-evn-blue:hover {
+      background-color: #001e4e !important;
+      border-color: #001e4e !important;
+    }
+    .text-danger {
+      color: #ef4444;
+      margin-left: 2px;
+    }
+    .json-preview-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(0, 0, 0, 0.4);
+      backdrop-filter: blur(2px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1200;
+    }
+    .json-preview-modal {
+      width: 500px;
+      background: white;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+  

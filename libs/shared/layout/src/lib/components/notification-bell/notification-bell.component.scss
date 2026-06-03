@@ -1,0 +1,16 @@
+.notification-container {
+  position: relative;
+  display: inline-block;
+}
+::ng-deep .notification-badge {
+  position: absolute !important;
+  top: -5px;
+  right: -5px;
+}
+.notification-item {
+  border-bottom: 1px solid #dee2e6;
+  
+  &:last-child {
+    border-bottom: none;
+  }
+}

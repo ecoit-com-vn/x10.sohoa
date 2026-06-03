@@ -1,0 +1,251 @@
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.skeleton-shimmer {
+  background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+:global(html.dark-mode) .skeleton-shimmer {
+  background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+  background-size: 200% 100%;
+}
+
+/* Custom styles for user direct permission dialog */
+:host ::ng-deep {
+  .evn-dialog-custom {
+    .p-dialog-header {
+      background-color: #ffffff;
+      border-bottom: 1px solid #e2e8f0;
+      padding: 18px 24px;
+      
+      .p-dialog-title {
+        color: #002D72 !important; /* Bold branding deep blue */
+        font-weight: 700 !important;
+        font-size: 1.15rem !important;
+      }
+      
+      .p-dialog-header-icon {
+        color: #64748b;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        transition: all 0.2s ease;
+        
+        &:hover {
+          background-color: #f1f5f9;
+          color: #0f172a;
+        }
+      }
+    }
+    
+    .p-dialog-content {
+      padding: 16px 24px;
+    }
+
+    .p-dialog-footer {
+      border-top: 1px solid #e2e8f0;
+      padding: 14px 24px;
+      background: #f8fafc;
+    }
+  }
+}
+
+.dialog-permissions-body {
+  padding-top: 4px;
+}
+
+.dialog-subtitle {
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+/* Scrollable Container with custom scrollbar */
+.permissions-scroll-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-height: 520px;
+  overflow-y: auto;
+  padding-right: 8px;
+  margin-right: -8px;
+
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  &::-webkit-scrollbar-track {
+    background: #f8fafc;
+    border-radius: 8px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 8px;
+    transition: background 0.15s ease;
+    
+    &:hover {
+      background: #94a3b8;
+    }
+  }
+}
+
+/* Parent Menu styling */
+.parent-menu-section {
+  flex-shrink: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+  background-color: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02), 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+
+  &:hover {
+    border-color: #cbd5e1;
+  }
+}
+
+.parent-menu-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background-color: #f8fafc;
+  cursor: pointer;
+  border-bottom: 1px solid #e2e8f0;
+  user-select: none;
+  transition: background-color 0.15s ease;
+
+  &:hover {
+    background-color: #f1f5f9;
+  }
+
+  .header-title-wrap {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .header-icon {
+    color: #002D72;
+    font-size: 1.1rem;
+  }
+
+  .header-text {
+    font-weight: 700;
+    color: #002D72;
+    font-size: 0.9rem;
+  }
+
+  .chevron-icon {
+    color: #64748b;
+    font-size: 0.85rem;
+    transition: transform 0.2s ease;
+  }
+}
+
+.parent-menu-body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background-color: #ffffff;
+}
+
+/* Submenu Section */
+.submenu-section {
+  border-left: 3px solid #0284c7;
+  padding-left: 14px;
+  margin-bottom: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  .submenu-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .submenu-icon {
+    color: #0284c7;
+    font-size: 0.95rem;
+  }
+
+  .submenu-title {
+    font-weight: 600;
+    color: #0f172a;
+    font-size: 0.875rem;
+  }
+}
+
+/* Grid layout for checkbox permission items */
+.permissions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 10px;
+  width: 100%;
+}
+
+/* Checkbox item cards */
+.permission-checkbox-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background-color: #f8fafc;
+  transition: all 0.15s ease;
+
+  &:hover {
+    border-color: #cbd5e1;
+    background-color: #f1f5f9;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+  }
+
+  .perm-checkbox {
+    margin-top: 3px;
+    width: 16px;
+    height: 16px;
+    accent-color: #002D72;
+    cursor: pointer;
+  }
+
+  .perm-label-wrap {
+    display: flex;
+    flex-direction: column;
+    cursor: pointer;
+    flex: 1;
+  }
+
+  .perm-name {
+    font-weight: 600;
+    color: #0f172a;
+    margin: 0;
+    cursor: pointer;
+    font-size: 0.85rem;
+    line-height: 1.25;
+  }
+
+  .perm-desc {
+    font-size: 0.75rem;
+    color: #64748b;
+    margin-top: 3px;
+    line-height: 1.35;
+  }
+}
+
+.no-perms-hint {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  font-style: italic;
+  grid-column: 1 / -1;
+}
+
+.dialog-footer-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+

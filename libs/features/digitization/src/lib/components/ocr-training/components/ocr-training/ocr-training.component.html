@@ -1,0 +1,393 @@
+
+    <div class="ocr-training-page p-4">
+      <p-toast></p-toast>
+
+      <!-- ═══════════════════════════════════════════════════════════════════
+           BREADCRUMB
+      ═══════════════════════════════════════════════════════════════════ -->
+      <div class="breadcrumb mb-3">
+        <span class="bc-item">Trang chủ</span>
+        <span class="bc-sep">›</span>
+        <span class="bc-item">Số hóa hồ sơ</span>
+        <span class="bc-sep">›</span>
+        <span class="bc-item active">Dữ liệu Huấn luyện OCR</span>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════════════
+           STATISTICS CARDS
+      ═══════════════════════════════════════════════════════════════════ -->
+      <div class="stats-grid mb-4" *ngIf="statistics">
+        <div class="stat-card total">
+          <div class="stat-icon"><i class="pi pi-database"></i></div>
+          <div class="stat-info">
+            <div class="stat-value">{{ statistics.total }}</div>
+            <div class="stat-label">Tổng số bản ghi</div>
+          </div>
+        </div>
+        <div class="stat-card pending">
+          <div class="stat-icon"><i class="pi pi-clock"></i></div>
+          <div class="stat-info">
+            <div class="stat-value">{{ statistics.pending }}</div>
+            <div class="stat-label">Chờ gán nhãn</div>
+          </div>
+        </div>
+        <div class="stat-card labeled">
+          <div class="stat-icon"><i class="pi pi-tag"></i></div>
+          <div class="stat-info">
+            <div class="stat-value">{{ statistics.labeled }}</div>
+            <div class="stat-label">Đã gán nhãn</div>
+          </div>
+        </div>
+        <div class="stat-card verified">
+          <div class="stat-icon"><i class="pi pi-check-circle"></i></div>
+          <div class="stat-info">
+            <div class="stat-value">{{ statistics.verified }}</div>
+            <div class="stat-label">Đã xác nhận</div>
+          </div>
+        </div>
+        <div class="stat-card rejected">
+          <div class="stat-icon"><i class="pi pi-times-circle"></i></div>
+          <div class="stat-info">
+            <div class="stat-value">{{ statistics.rejected }}</div>
+            <div class="stat-label">Từ chối</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════════════
+           MAIN CARD
+      ═══════════════════════════════════════════════════════════════════ -->
+      <div class="main-card">
+        <!-- Toolbar -->
+        <div class="toolbar mb-3">
+          <div class="toolbar-left">
+            <input
+              type="text"
+              class="search-input"
+              placeholder="Tìm kiếm tên file, người upload..."
+              [(ngModel)]="keyword"
+              (keyup.enter)="loadData()"
+            />
+            <button class="btn-search" (click)="loadData()">
+              <i class="pi pi-search"></i> Tìm
+            </button>
+            <select class="filter-select" [(ngModel)]="filterDocType" (change)="loadData()">
+              <option value="">-- Loại tài liệu --</option>
+              <option value="SoDoLuoi">Sơ đồ lưới</option>
+              <option value="SoDoTram">Sơ đồ trạm</option>
+              <option value="BanVeKyThuat">Bản vẽ kỹ thuật</option>
+              <option value="KetQuaKiemTra">Kết quả kiểm tra</option>
+              <option value="Other">Khác</option>
+            </select>
+            <select class="filter-select" [(ngModel)]="filterStatus" (change)="loadData()">
+              <option value="">-- Trạng thái --</option>
+              <option value="Pending">Chờ gán nhãn</option>
+              <option value="Labeled">Đã gán nhãn</option>
+              <option value="Verified">Đã xác nhận</option>
+              <option value="Rejected">Từ chối</option>
+            </select>
+          </div>
+          <div class="toolbar-right">
+            <button class="btn-upload" (click)="showUploadDialog = true">
+              <i class="pi pi-upload"></i> Upload dữ liệu
+            </button>
+            <button class="btn-refresh" (click)="loadData(); loadStatistics()">
+              <i class="pi pi-refresh"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Data Table -->
+        <div class="table-wrapper">
+          <table class="evn-table">
+            <thead>
+              <tr>
+                <th class="col-num">STT</th>
+                <th>Tên file</th>
+                <th>Loại tài liệu</th>
+                <th>Kích thước</th>
+                <th>Chất lượng</th>
+                <th>Trạng thái</th>
+                <th>Xác nhận</th>
+                <th>Người upload</th>
+                <th>Ngày upload</th>
+                <th class="col-actions">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngIf="loading">
+                <td colspan="10" class="loading-cell">
+                  <i class="pi pi-spin pi-spinner"></i> Đang tải dữ liệu...
+                </td>
+              </tr>
+              <tr *ngIf="!loading && items.length === 0">
+                <td colspan="10" class="empty-cell">
+                  <i class="pi pi-inbox"></i>
+                  <div>Chưa có dữ liệu huấn luyện. Hãy upload file đầu tiên!</div>
+                </td>
+              </tr>
+              <tr *ngFor="let item of items; let i = index" [class.row-verified]="item.isVerified">
+                <td class="text-center">{{ (page - 1) * pageSize + i + 1 }}</td>
+                <td>
+                  <div class="file-info">
+                    <i class="pi" [class.pi-image]="isImage(item.contentType)" [class.pi-file-pdf]="isPdf(item.contentType)" [class.pi-file]="!isImage(item.contentType) && !isPdf(item.contentType)"></i>
+                    <span class="file-name" [title]="item.fileName">{{ truncate(item.fileName, 35) }}</span>
+                  </div>
+                </td>
+                <td><span class="doc-type-badge">{{ getDocTypeLabel(item.documentType) }}</span></td>
+                <td>{{ formatFileSize(item.fileSize) }}</td>
+                <td>
+                  <div *ngIf="item.qualityScore !== null" class="quality-bar-wrap">
+                    <div class="quality-bar" [style.width.%]="item.qualityScore" [class.q-good]="item.qualityScore >= 70" [class.q-medium]="item.qualityScore >= 40 && item.qualityScore < 70" [class.q-poor]="item.qualityScore < 40"></div>
+                    <span class="quality-label">{{ item.qualityScore }}%</span>
+                  </div>
+                  <span *ngIf="item.qualityScore === null" class="text-muted">—</span>
+                </td>
+                <td><span class="status-pill" [class]="'status-' + item.trainingStatus.toLowerCase()">{{ getStatusLabel(item.trainingStatus) }}</span></td>
+                <td>
+                  <i class="pi" [class.pi-check-circle]="item.isVerified" [class.pi-minus-circle]="!item.isVerified" [class.verified-icon]="item.isVerified" [class.unverified-icon]="!item.isVerified"></i>
+                </td>
+                <td>{{ item.uploadedBy }}</td>
+                <td>{{ formatDate(item.uploadedAt) }}</td>
+                <td>
+                  <div class="action-buttons">
+                    <button class="btn-act btn-label" (click)="openLabelDialog(item)" pTooltip="Gán nhãn / chỉnh sửa" tooltipPosition="top">
+                      <i class="pi pi-pencil"></i>
+                    </button>
+                    <button class="btn-act btn-verify" (click)="openVerifyDialog(item)" pTooltip="Xác nhận chất lượng" tooltipPosition="top">
+                      <i class="pi pi-shield"></i>
+                    </button>
+                    <button class="btn-act btn-delete" (click)="confirmDelete(item)" pTooltip="Xóa bản ghi" tooltipPosition="top">
+                      <i class="pi pi-trash"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Pagination -->
+        <div class="pagination-bar" *ngIf="totalCount > 0">
+          <span class="page-info">Hiển thị {{ (page - 1) * pageSize + 1 }}–{{ Math.min(page * pageSize, totalCount) }} / {{ totalCount }} bản ghi</span>
+          <div class="page-controls">
+            <button class="page-btn" [disabled]="page === 1" (click)="goPage(1)"><i class="pi pi-angle-double-left"></i></button>
+            <button class="page-btn" [disabled]="page === 1" (click)="goPage(page - 1)"><i class="pi pi-angle-left"></i></button>
+            <span class="page-num">Trang {{ page }} / {{ totalPages }}</span>
+            <button class="page-btn" [disabled]="page >= totalPages" (click)="goPage(page + 1)"><i class="pi pi-angle-right"></i></button>
+            <button class="page-btn" [disabled]="page >= totalPages" (click)="goPage(totalPages)"><i class="pi pi-angle-double-right"></i></button>
+            <select class="page-size-select" [(ngModel)]="pageSize" (change)="onPageSizeChange()">
+              <option value="10">10 / trang</option>
+              <option value="20">20 / trang</option>
+              <option value="50">50 / trang</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════════════
+           UPLOAD DIALOG
+      ═══════════════════════════════════════════════════════════════════ -->
+      <p-dialog
+        header="Upload dữ liệu huấn luyện OCR"
+        [(visible)]="showUploadDialog"
+        [modal]="true"
+        [style]="{width: '560px'}"
+        [closable]="true"
+        styleClass="evn-dialog">
+
+        <div class="dialog-body">
+          <!-- Drop Zone -->
+          <div class="drop-zone"
+            (dragover)="$event.preventDefault()"
+            (drop)="onFileDrop($event)"
+            (click)="fileInput.click()">
+            <i class="pi pi-cloud-upload dz-icon"></i>
+            <div class="dz-text">
+              <strong>Kéo thả file vào đây</strong> hoặc nhấn để chọn file
+            </div>
+            <div class="dz-hint">Hỗ trợ: JPEG, PNG, TIFF, BMP, PDF (tối đa 50MB)</div>
+            <input #fileInput type="file" hidden accept=".jpg,.jpeg,.png,.tiff,.tif,.bmp,.pdf" (change)="onFileSelect($event)" />
+          </div>
+
+          <!-- Selected file preview -->
+          <div class="selected-file" *ngIf="selectedFile">
+            <i class="pi pi-file-pdf" *ngIf="isPdf(selectedFile.type)"></i>
+            <i class="pi pi-image" *ngIf="isImage(selectedFile.type)"></i>
+            <span class="sf-name">{{ selectedFile.name }}</span>
+            <span class="sf-size">({{ formatFileSize(selectedFile.size) }})</span>
+            <button class="sf-remove" (click)="selectedFile = null"><i class="pi pi-times"></i></button>
+          </div>
+
+          <!-- Form fields -->
+          <div class="form-row">
+            <label>Loại tài liệu <span class="required">*</span></label>
+            <select class="filter-select w-full" [(ngModel)]="uploadForm.documentType">
+              <option value="SoDoLuoi">Sơ đồ lưới</option>
+              <option value="SoDoTram">Sơ đồ trạm</option>
+              <option value="BanVeKyThuat">Bản vẽ kỹ thuật</option>
+              <option value="KetQuaKiemTra">Kết quả kiểm tra</option>
+              <option value="Other">Khác</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>Văn bản nhãn (Ground Truth)</label>
+            <textarea class="label-textarea" rows="4" [(ngModel)]="uploadForm.labelText"
+              placeholder="Nhập văn bản chính xác của tài liệu để huấn luyện OCR (nếu có)..."></textarea>
+          </div>
+          <div class="form-row">
+            <label>Ghi chú</label>
+            <input type="text" class="search-input w-full" [(ngModel)]="uploadForm.notes" placeholder="Ghi chú bổ sung..." />
+          </div>
+          <div class="form-row">
+            <label>Người upload</label>
+            <input type="text" class="search-input w-full" [(ngModel)]="uploadForm.uploadedBy" placeholder="Tên tài khoản..." />
+          </div>
+
+          <!-- Progress bar -->
+          <div class="upload-progress" *ngIf="uploading">
+            <div class="progress-track">
+              <div class="progress-fill" [style.width.%]="uploadProgress"></div>
+            </div>
+            <span class="progress-text">Đang upload... {{ uploadProgress }}%</span>
+          </div>
+        </div>
+
+        <ng-template pTemplate="footer">
+          <button class="btn-cancel" (click)="showUploadDialog = false; resetUpload()">Hủy</button>
+          <button class="btn-upload" [disabled]="!selectedFile || uploading" (click)="doUpload()">
+            <i class="pi pi-upload"></i> {{ uploading ? 'Đang upload...' : 'Upload ngay' }}
+          </button>
+        </ng-template>
+      </p-dialog>
+
+      <!-- ═══════════════════════════════════════════════════════════════════
+           LABEL DIALOG
+      ═══════════════════════════════════════════════════════════════════ -->
+      <p-dialog
+        header="Gán nhãn dữ liệu huấn luyện"
+        [(visible)]="showLabelDialog"
+        [modal]="true"
+        [style]="{width: '600px'}"
+        styleClass="evn-dialog">
+
+        <div class="dialog-body" *ngIf="selectedItem">
+          <div class="detail-info-row">
+            <span class="detail-label">File:</span>
+            <span class="detail-value"><i class="pi pi-file mr-1"></i> {{ selectedItem.fileName }}</span>
+          </div>
+          <div class="form-row">
+            <label>Loại tài liệu <span class="required">*</span></label>
+            <select class="filter-select w-full" [(ngModel)]="labelForm.documentType">
+              <option value="SoDoLuoi">Sơ đồ lưới</option>
+              <option value="SoDoTram">Sơ đồ trạm</option>
+              <option value="BanVeKyThuat">Bản vẽ kỹ thuật</option>
+              <option value="KetQuaKiemTra">Kết quả kiểm tra</option>
+              <option value="Other">Khác</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>Trạng thái</label>
+            <select class="filter-select w-full" [(ngModel)]="labelForm.trainingStatus">
+              <option value="Pending">Chờ gán nhãn</option>
+              <option value="Labeled">Đã gán nhãn</option>
+              <option value="Rejected">Từ chối</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>Điểm chất lượng ảnh (0–100)</label>
+            <input type="number" min="0" max="100" class="search-input w-full" [(ngModel)]="labelForm.qualityScore" placeholder="Ví dụ: 85" />
+          </div>
+          <div class="form-row">
+            <label>Văn bản nhãn (Ground Truth) <span class="required">*</span></label>
+            <textarea class="label-textarea" rows="6" [(ngModel)]="labelForm.labelText"
+              placeholder="Nhập văn bản chính xác được nhận dạng từ ảnh, dùng làm dữ liệu huấn luyện OCR..."></textarea>
+          </div>
+          <div class="form-row">
+            <label>Ghi chú</label>
+            <input type="text" class="search-input w-full" [(ngModel)]="labelForm.notes" placeholder="Ghi chú bổ sung..." />
+          </div>
+        </div>
+
+        <ng-template pTemplate="footer">
+          <button class="btn-cancel" (click)="showLabelDialog = false">Hủy</button>
+          <button class="btn-upload" (click)="saveLabel()">
+            <i class="pi pi-save"></i> Lưu nhãn
+          </button>
+        </ng-template>
+      </p-dialog>
+
+      <!-- ═══════════════════════════════════════════════════════════════════
+           VERIFY DIALOG
+      ═══════════════════════════════════════════════════════════════════ -->
+      <p-dialog
+        header="Xác nhận chất lượng dữ liệu"
+        [(visible)]="showVerifyDialog"
+        [modal]="true"
+        [style]="{width: '480px'}"
+        styleClass="evn-dialog">
+
+        <div class="dialog-body" *ngIf="selectedItem">
+          <div class="detail-info-row">
+            <span class="detail-label">File:</span>
+            <span class="detail-value">{{ selectedItem.fileName }}</span>
+          </div>
+          <div class="verify-options">
+            <div class="verify-option" [class.selected]="verifyForm.isVerified === true" (click)="verifyForm.isVerified = true">
+              <i class="pi pi-check-circle verify-ok"></i>
+              <div>
+                <strong>Xác nhận (Verified)</strong>
+                <p>Dữ liệu đạt chất lượng, dùng để huấn luyện mô hình OCR.</p>
+              </div>
+            </div>
+            <div class="verify-option" [class.selected]="verifyForm.isVerified === false" (click)="verifyForm.isVerified = false">
+              <i class="pi pi-times-circle verify-bad"></i>
+              <div>
+                <strong>Từ chối (Rejected)</strong>
+                <p>Dữ liệu không đạt chất lượng, loại khỏi tập huấn luyện.</p>
+              </div>
+            </div>
+          </div>
+          <div class="form-row mt-3">
+            <label>Người xác nhận <span class="required">*</span></label>
+            <input type="text" class="search-input w-full" [(ngModel)]="verifyForm.verifiedBy" placeholder="Họ tên chuyên gia xác nhận..." />
+          </div>
+          <div class="form-row">
+            <label>Lý do / Ghi chú</label>
+            <textarea class="label-textarea" rows="3" [(ngModel)]="verifyForm.notes" placeholder="Ghi chú lý do xác nhận hoặc từ chối..."></textarea>
+          </div>
+        </div>
+
+        <ng-template pTemplate="footer">
+          <button class="btn-cancel" (click)="showVerifyDialog = false">Hủy</button>
+          <button class="btn-upload" (click)="saveVerify()">
+            <i class="pi pi-shield"></i> Xác nhận
+          </button>
+        </ng-template>
+      </p-dialog>
+
+      <!-- DELETE CONFIRM DIALOG -->
+      <p-dialog
+        header="Xác nhận xóa"
+        [(visible)]="showDeleteDialog"
+        [modal]="true"
+        [style]="{width: '400px'}"
+        styleClass="evn-dialog">
+        <div class="dialog-body">
+          <div class="delete-warning">
+            <i class="pi pi-exclamation-triangle warn-icon"></i>
+            <p>Bạn có chắc chắn muốn xóa bản ghi dữ liệu huấn luyện này không?</p>
+            <p class="delete-file-name" *ngIf="selectedItem">{{ selectedItem.fileName }}</p>
+            <p class="warn-note">Hành động này không thể hoàn tác.</p>
+          </div>
+        </div>
+        <ng-template pTemplate="footer">
+          <button class="btn-cancel" (click)="showDeleteDialog = false">Hủy</button>
+          <button class="btn-delete-confirm" (click)="doDelete()">
+            <i class="pi pi-trash"></i> Xóa
+          </button>
+        </ng-template>
+      </p-dialog>
+
+    </div>
+  

@@ -1,0 +1,324 @@
+<div class="wf-page">
+  <p-toast></p-toast>
+  <div class="wf-card">
+    
+    <!-- Breadcrumb -->
+    <div class="breadcrumb">
+      <i class="pi pi-home bc-icon"></i>
+      <span class="bc-text">Trang chủ</span>
+      <span class="bc-sep">/</span>
+      <span class="bc-text">Quản trị hệ thống</span>
+      <span class="bc-sep">/</span>
+      <span class="bc-current">Quản lý người dùng</span>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="list-toolbar">
+      <div class="toolbar-left">
+        <input type="text" class="wf-search-input"
+          placeholder="Tìm kiếm tài khoản, tên..."
+          [ngModel]="searchKeyword()"
+          (ngModelChange)="searchKeyword.set($event)" />
+        <button class="btn-tim" (click)="onSearch()">
+          <i class="pi pi-search"></i> Tìm
+        </button>
+      </div>
+      <div class="toolbar-right" style="display: flex; gap: 8px;">
+        <button *ngIf="authService.hasPermission('USER_EXPORT')" class="btn-outlined" (click)="onExportExcel()" title="Xuất Excel" [disabled]="loading()">
+          <i class="pi pi-file-excel"></i> Xuất Excel
+        </button>
+        <button *ngIf="authService.hasPermission('USER_CREATE')" class="btn-green" (click)="onAddNew()">
+          <i class="pi pi-plus"></i> Thêm mới
+        </button>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="wf-table-wrap">
+      <table class="wf-table">
+        <thead>
+          <tr>
+            <th class="col-stt">STT</th>
+            <th>Tên đăng nhập</th>
+            <th>Họ và tên</th>
+            <th>Đơn vị thành viên</th>
+            <th>Email</th>
+            <th class="col-tt">Trạng thái</th>
+            <th class="col-hd">Thao tác</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- skeleton loading rows -->
+          <ng-container *ngIf="loading()">
+            <tr *ngFor="let item of [1, 2, 3, 4, 5]">
+              <td class="col-stt"><div class="skeleton-shimmer" style="height: 16px; width: 24px; border-radius: 4px;"></div></td>
+              <td><div class="skeleton-shimmer" style="height: 16px; width: 120px; border-radius: 4px;"></div></td>
+              <td><div class="skeleton-shimmer" style="height: 16px; width: 150px; border-radius: 4px;"></div></td>
+              <td><div class="skeleton-shimmer" style="height: 16px; width: 130px; border-radius: 4px;"></div></td>
+              <td><div class="skeleton-shimmer" style="height: 16px; width: 180px; border-radius: 4px;"></div></td>
+              <td class="col-tt"><div class="skeleton-shimmer" style="height: 24px; width: 80px; border-radius: 12px;"></div></td>
+              <td class="col-hd"><div class="skeleton-shimmer" style="height: 24px; width: 60px; border-radius: 4px;"></div></td>
+            </tr>
+          </ng-container>
+
+          <ng-container *ngIf="!loading()">
+            <tr *ngFor="let user of filteredUsers(); let i = index">
+              <td class="col-stt text-muted">{{ i + 1 }}</td>
+              <td><b class="wf-name-link" (click)="onEdit(user)">{{ user.username }}</b></td>
+              <td>{{ user.fullName }}</td>
+              <td><b>{{ user.organizationUnit?.name || getUnitLabel(user.organizationUnitId) }}</b></td>
+              <td><span class="text-muted">{{ user.email }}</span></td>
+              <td class="col-tt">
+                <span class="status-pill"
+                  [class.status-active]="user.isActive"
+                  [class.status-inactive]="!user.isActive">
+                  <i class="pi pi-clock"></i>
+                  {{ user.isActive ? 'Hoạt động' : 'Ngưng hoạt động' }}
+                </span>
+              </td>
+              <td class="col-hd">
+                <button *ngIf="authService.hasPermission('USER_MANAGE')" class="act-btn act-edit" (click)="onManageUnitRoles(user)" title="Quyền theo đơn vị" style="background-color: #fef3c7; color: #d97706; border-color: #fde68a; margin-right: 4px;">
+                  <i class="pi pi-sitemap"></i>
+                </button>
+                <button *ngIf="authService.hasPermission('USER_MANAGE')" class="act-btn act-edit" (click)="onManageRoles(user)" title="Gán vai trò trực tiếp" style="background-color: #f0fdf4; color: #16a34a; border-color: #bbf7d0; margin-right: 4px;">
+                  <i class="pi pi-shield"></i>
+                </button>
+                <button *ngIf="authService.hasPermission('USER_MANAGE') || authService.hasPermission('PERMISSION_MANAGE')" class="act-btn act-edit" (click)="onManagePermissions(user)" title="Phân quyền trực tiếp" style="background-color: #e0f2fe; color: #0284c7; border-color: #bae6fd; margin-right: 4px;">
+                  <i class="pi pi-key"></i>
+                </button>
+                <button *ngIf="authService.hasPermission('USER_EDIT')" class="act-btn act-edit" (click)="onEdit(user)" title="Chỉnh sửa">
+                  <i class="pi pi-pencil"></i>
+                </button>
+                <button *ngIf="authService.hasPermission('USER_DELETE')" class="act-btn act-delete" (click)="onDelete(user)" title="Xóa">
+                  <i class="pi pi-trash"></i>
+                </button>
+              </td>
+            </tr>
+            <tr *ngIf="filteredUsers().length === 0">
+              <td colspan="7" class="empty-row">
+                <i class="pi pi-inbox"></i>
+                <div>Không tìm thấy người dùng phù hợp.</div>
+              </td>
+            </tr>
+          </ng-container>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Footer -->
+    <div class="table-footer">
+      <span class="record-count">Tổng số: <b>{{ filteredUsers().length }}</b> người dùng.</span>
+    </div>
+
+  </div>
+</div>
+
+<!-- Dialog Thêm/Sửa Người dùng -->
+<p-dialog [visible]="displayDialog()" (visibleChange)="displayDialog.set($event)" [header]="dialogHeader()" [modal]="true" [style]="{ width: '450px' }" styleClass="evn-dialog-custom">
+  <div style="display: flex; flex-direction: column; gap: 14px; padding-top: 10px;">
+    <div class="form-group">
+      <label class="form-label">Tên đăng nhập <span class="required">*</span></label>
+      <input type="text" class="wf-input w-full" [(ngModel)]="currentUser().username" placeholder="Nhập username..." [disabled]="isEdit()" />
+    </div>
+    
+    <div class="form-group">
+      <label class="form-label">Họ và tên <span class="required">*</span></label>
+      <input type="text" class="wf-input w-full" [(ngModel)]="currentUser().fullName" placeholder="Nhập họ và tên..." />
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Đơn vị thành viên <span class="required">*</span></label>
+      <select class="wf-select w-full" [(ngModel)]="currentUser().organizationUnitId" style="height: 38px;">
+        <option [value]="null">-- Chọn Đơn vị --</option>
+        <option *ngFor="let u of organizationUnits()" [value]="u.id">{{ u.name }}</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Email</label>
+      <input type="email" class="wf-input w-full" [(ngModel)]="currentUser().email" placeholder="example@evnhanoi.vn" />
+    </div>
+    
+    <div class="form-group" style="display: flex; align-items: center; gap: 10px; padding-top: 5px;">
+      <input type="checkbox" id="isActiveCheck" [(ngModel)]="currentUser().isActive" style="scale: 1.2; cursor: pointer;" />
+      <label for="isActiveCheck" style="font-weight: 600; cursor: pointer; margin: 0;">Trạng thái hoạt động</label>
+    </div>
+  </div>
+  
+  <ng-template #footer>
+    <div class="flex gap-2 justify-content-end pt-3" style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9;">
+      <button class="btn-outlined btn-small" (click)="displayDialog.set(false)" [disabled]="saving()">Hủy</button>
+      <button class="btn-save btn-small" (click)="onSaveUser()" [disabled]="saving()">
+        <i class="pi pi-spin pi-spinner" *ngIf="saving()" style="margin-right: 4px;"></i>
+        Lưu
+      </button>
+    </div>
+  </ng-template>
+</p-dialog>
+
+<!-- Dialog Quyền theo Đơn vị -->
+<p-dialog [visible]="displayUnitRoleDialog()" (visibleChange)="displayUnitRoleDialog.set($event)" [header]="unitRoleDialogHeader()" [modal]="true" [style]="{ width: '650px' }" styleClass="evn-dialog-custom">
+  <div style="display: flex; flex-direction: column; gap: 14px; padding-top: 10px;">
+    <p class="text-muted" style="font-size: 0.85rem;">Phân quyền vai trò cụ thể cho từng Đơn vị thành viên của người dùng:</p>
+    
+    <!-- Form thêm mới quyền đơn vị -->
+    <div style="display: flex; gap: 8px; align-items: flex-end; background-color: #f8fafc; padding: 12px; border-radius: 6px; border: 1px solid #e2e8f0;">
+      <div class="form-group" style="flex: 1; margin: 0;">
+        <label class="form-label" style="font-size: 0.8rem; font-weight: 600;">Chọn Đơn vị</label>
+        <select class="wf-select w-full" [(ngModel)]="newUnitRole().unitId" style="height: 38px;">
+          <option [value]="null">-- Chọn Đơn vị --</option>
+          <option *ngFor="let u of organizationUnits()" [value]="u.id">{{ u.name }}</option>
+        </select>
+      </div>
+      <div class="form-group" style="flex: 1; margin: 0;">
+        <label class="form-label" style="font-size: 0.8rem; font-weight: 600;">Chọn Vai trò</label>
+        <select class="wf-select w-full" [(ngModel)]="newUnitRole().roleId" style="height: 38px;">
+          <option [value]="null">-- Chọn Vai trò --</option>
+          <option *ngFor="let r of systemRoles()" [value]="r.id">{{ r.name }}</option>
+        </select>
+      </div>
+      <button class="btn-green btn-small" (click)="onAddUnitRole()" style="height: 38px;">
+        Thêm
+      </button>
+    </div>
+
+    <!-- Bảng danh sách quyền đơn vị hiện có -->
+    <div class="wf-table-wrap" style="max-height: 250px; overflow-y: auto;">
+      <table class="wf-table" style="font-size: 0.85rem;">
+        <thead>
+          <tr>
+            <th style="width: 50px;">STT</th>
+            <th>Đơn vị thành viên</th>
+            <th>Vai trò được gán</th>
+            <th style="width: 80px;">Thao tác</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let ur of assignedUnitRoles(); let idx = index">
+            <td>{{ idx + 1 }}</td>
+            <td><b>{{ getUnitLabel(ur.unitId) }}</b></td>
+            <td><span class="status-pill status-active" style="background-color: #eff6ff; color: #1e40af; border-color: #bfdbfe;">{{ getRoleLabel(ur.roleId) }}</span></td>
+            <td>
+              <button class="act-btn act-delete" (click)="onRemoveUnitRole(idx)" title="Xóa quyền này">
+                <i class="pi pi-trash"></i>
+              </button>
+            </td>
+          </tr>
+          <tr *ngIf="assignedUnitRoles().length === 0">
+            <td colspan="4" class="empty-row" style="padding: 20px;">Chưa cấu hình quyền theo đơn vị.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  
+  <ng-template #footer>
+    <div class="flex gap-2 justify-content-end pt-3" style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9;">
+      <button class="btn-outlined btn-small" (click)="displayUnitRoleDialog.set(false)" [disabled]="savingUnitRoles()">Hủy</button>
+      <button class="btn-save btn-small" (click)="onSaveUnitRoles()" [disabled]="savingUnitRoles()">
+        <i class="pi pi-spin pi-spinner" *ngIf="savingUnitRoles()" style="margin-right: 4px;"></i>
+        Lưu thay đổi
+      </button>
+    </div>
+  </ng-template>
+</p-dialog>
+
+<!-- Dialog Phân quyền trực tiếp -->
+<p-dialog [visible]="displayPermissionDialog()" (visibleChange)="displayPermissionDialog.set($event)" [header]="permissionDialogHeader()" [modal]="true" [style]="{ width: '850px', 'max-width': '95vw' }" styleClass="evn-dialog-custom">
+  <div class="dialog-permissions-body">
+    <p class="text-muted mb-3 dialog-subtitle">Chọn các quyền được gán trực tiếp cho người dùng này (USER_PERMISSION):</p>
+    
+    <div class="permissions-scroll-container">
+      
+      <!-- Loop through each parent menu group -->
+      <div *ngFor="let parent of menuPermissionTree()" class="parent-menu-section">
+        
+        <!-- Parent menu header -->
+        <div (click)="toggleParentMenu(parent)" class="parent-menu-header">
+          <div class="header-title-wrap">
+            <i [class]="parent.icon || 'pi pi-folder'" class="header-icon"></i>
+            <span class="header-text">{{ parent.name }}</span>
+          </div>
+          <i class="pi chevron-icon" [class.pi-chevron-down]="parent.expanded" [class.pi-chevron-right]="!parent.expanded"></i>
+        </div>
+
+        <!-- Parent menu body -->
+        <div *ngIf="parent.expanded" class="parent-menu-body">
+          
+          <!-- Direct parent permissions (if any) -->
+          <div *ngIf="parent.permissions && parent.permissions.length > 0" class="permissions-grid">
+            <div *ngFor="let perm of parent.permissions" class="permission-checkbox-item">
+              <input type="checkbox" [id]="perm.code" [checked]="isPermissionChecked(perm.code)" (change)="togglePermission(perm.code)" [disabled]="savingPermissions()" class="perm-checkbox" />
+              <div class="perm-label-wrap" (click)="!savingPermissions() && togglePermission(perm.code)">
+                <label [for]="perm.code" class="perm-name">{{ perm.name }}</label>
+                <span class="perm-desc">{{ perm.description }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Child menus -->
+          <div *ngFor="let sub of parent.subMenus" class="submenu-section">
+            <div class="submenu-header">
+              <i [class]="sub.icon || 'pi pi-file'" class="submenu-icon"></i>
+              <span class="submenu-title">{{ sub.name }}</span>
+            </div>
+
+            <!-- Permissions under child menu -->
+            <div class="permissions-grid">
+              <div *ngFor="let perm of sub.permissions" class="permission-checkbox-item">
+                <input type="checkbox" [id]="perm.code" [checked]="isPermissionChecked(perm.code)" (change)="togglePermission(perm.code)" [disabled]="savingPermissions()" class="perm-checkbox" />
+                <div class="perm-label-wrap" (click)="!savingPermissions() && togglePermission(perm.code)">
+                  <label [for]="perm.code" class="perm-name">{{ perm.name }}</label>
+                  <span class="perm-desc">{{ perm.description }}</span>
+                </div>
+              </div>
+              <div *ngIf="sub.permissions.length === 0" class="no-perms-hint">Chưa cấu hình quyền chi tiết cho chức năng này.</div>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+  
+  <ng-template #footer>
+    <div class="dialog-footer-actions">
+      <button class="btn-outlined btn-small" (click)="displayPermissionDialog.set(false)" [disabled]="savingPermissions()">Hủy</button>
+      <button class="btn-save btn-small" (click)="onSavePermissions()" [disabled]="savingPermissions()">
+        <i class="pi pi-spin pi-spinner" *ngIf="savingPermissions()" style="margin-right: 4px;"></i>
+        <i class="pi pi-check-circle mr-1" *ngIf="!savingPermissions()"></i> Lưu phân quyền
+      </button>
+    </div>
+  </ng-template>
+</p-dialog>
+
+<!-- Dialog Gán vai trò trực tiếp -->
+<p-dialog [visible]="displayRoleDialog()" (visibleChange)="displayRoleDialog.set($event)" [header]="roleDialogHeader()" [modal]="true" [style]="{ width: '500px' }" styleClass="evn-dialog-custom">
+  <div style="display: flex; flex-direction: column; gap: 14px; padding-top: 10px;">
+    <p class="text-muted" style="font-size: 0.85rem; margin-bottom: 5px;">Chọn các vai trò gán trực tiếp cho người dùng này:</p>
+    
+    <div class="permissions-scroll-container" style="max-height: 380px;">
+      <div class="permissions-grid" style="grid-template-columns: 1fr; gap: 10px;">
+        <div *ngFor="let r of systemRoles()" class="permission-checkbox-item" style="cursor: pointer;" (click)="toggleRole(r.id)">
+          <input type="checkbox" [id]="'role_' + r.id" [checked]="isRoleChecked(r.id)" (click)="$event.stopPropagation(); toggleRole(r.id)" class="perm-checkbox" />
+          <div class="perm-label-wrap">
+            <label [for]="'role_' + r.id" class="perm-name">{{ r.name }}</label>
+            <span class="perm-desc"><code>{{ r.code }}</code> - {{ r.description }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <ng-template #footer>
+    <div class="dialog-footer-actions">
+      <button class="btn-outlined btn-small" (click)="displayRoleDialog.set(false)" [disabled]="savingRoles()">Hủy</button>
+      <button class="btn-save btn-small" (click)="onSaveRoles()" [disabled]="savingRoles()">
+        <i class="pi pi-spin pi-spinner" *ngIf="savingRoles()" style="margin-right: 4px;"></i>
+        <i class="pi pi-check-circle mr-1" *ngIf="!savingRoles()"></i> Lưu vai trò
+      </button>
+    </div>
+  </ng-template>
+</p-dialog>

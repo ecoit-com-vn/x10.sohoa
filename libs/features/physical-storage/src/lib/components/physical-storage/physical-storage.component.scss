@@ -1,0 +1,48 @@
+
+    /* Tabs custom overrides to look like modern GENCO1 */
+    ::ng-deep .tab-bar-custom {
+      display: flex;
+      border-bottom: 2px solid #e2e8f0 !important;
+      margin-bottom: 20px !important;
+      background: transparent !important;
+    }
+    ::ng-deep .tab-item-custom {
+      padding: 12px 20px !important;
+      background: none !important;
+      border: none !important;
+      font-size: 0.88rem !important;
+      color: #6b7280 !important;
+      cursor: pointer !important;
+      font-weight: 500 !important;
+      transition: all 0.15s !important;
+      border-bottom: 2px solid transparent !important;
+      margin-bottom: -2px !important;
+    }
+    ::ng-deep .tab-item-custom:hover {
+      color: #002D72 !important;
+    }
+    ::ng-deep .p-tab-active {
+      color: #002D72 !important;
+      border-bottom: 2px solid #002D72 !important;
+      font-weight: 600 !important;
+    }
+    ::ng-deep .tab-panels-custom {
+      background: transparent !important;
+      padding: 0 !important;
+      border: none !important;
+    }
+    @keyframes shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+    .skeleton-shimmer {
+      background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+      width: 100%;
+    }
+    :global(html.dark-mode) .skeleton-shimmer {
+      background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+      background-size: 200% 100%;
+    }
+  

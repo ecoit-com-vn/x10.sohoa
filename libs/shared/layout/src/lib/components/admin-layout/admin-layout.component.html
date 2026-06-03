@@ -1,0 +1,66 @@
+<div class="layout-wrapper">
+  <div class="layout-header">
+    <div class="header-container">
+      <div class="header-left">
+        <button class="hamburger-btn" (click)="toggleSidebar()" title="Thu gọn / Mở rộng Menu">
+          <i class="pi pi-bars"></i>
+        </button>
+        <img src="/logo-white.svg" alt="EVNHANOI" class="header-logo" />
+        <span class="header-divider">|</span>
+        <h1 class="header-title">HỆ THỐNG SỐ HÓA HỒ SƠ KỸ THUẬT ĐƯỜNG DÂY VÀ TRẠM EVNHANOI</h1>
+      </div>
+      <div class="header-right">
+        <button class="theme-toggle-btn" (click)="toggleTheme()" [title]="isDarkMode ? 'Bật chế độ sáng' : 'Bật chế độ tối'">
+          <i [class]="isDarkMode ? 'pi pi-sun' : 'pi pi-moon'"></i>
+        </button>
+        <div class="header-bell-wrapper">
+          <app-notification-bell></app-notification-bell>
+        </div>
+        <div class="user-profile">
+          <div class="avatar-circle">
+            <i class="pi pi-user"></i>
+          </div>
+          <span class="username-text">{{ username }}</span>
+          <i class="pi pi-chevron-down profile-arrow"></i>
+        </div>
+        <button class="logout-btn" (click)="logout()" title="Đăng xuất">
+          <i class="pi pi-sign-out"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+  <div class="layout-main">
+    <!-- Sidebar Menu CSKH EVNHANOI style -->
+    <div class="layout-sidebar" [class.collapsed]="isSidebarCollapsed" [class.mobile-open]="isMobileSidebarOpen">
+      <div class="sidebar-menu-list">
+        <div *ngFor="let item of items" class="menu-group-item" [class.group-active]="isGroupActive(item)">
+          <!-- Dòng nhóm menu -->
+          <div class="menu-row" (click)="toggleGroup(item)" [title]="isSidebarCollapsed ? item.label : ''">
+            <span class="menu-left">
+              <i [class]="'menu-icon ' + item.icon"></i>
+              <span class="menu-label">{{ item.label }}</span>
+            </span>
+            <i class="pi pi-chevron-right menu-chevron" *ngIf="!item.items && !isSidebarCollapsed"></i>
+            <i class="pi menu-chevron" [class.pi-chevron-down]="item.expanded" [class.pi-chevron-right]="!item.expanded" *ngIf="item.items && !isSidebarCollapsed"></i>
+          </div>
+
+          <!-- Menu con (Submenu) -->
+          <div class="submenu-list" *ngIf="item.items && item.expanded && !isSidebarCollapsed">
+            <a *ngFor="let sub of item.items"
+               [routerLink]="sub.routerLink"
+               routerLinkActive="sub-active"
+               class="submenu-item">
+              <i [class]="'sub-icon ' + sub.icon"></i>
+              <span class="sub-label">{{ sub.label }}</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="layout-content">
+      <router-outlet></router-outlet>
+    </div>
+  </div>
+  <!-- Backdrop cho mobile khi sidebar mở -->
+  <div class="sidebar-backdrop" *ngIf="isMobileSidebarOpen" (click)="closeMobileSidebar()"></div>
+</div>

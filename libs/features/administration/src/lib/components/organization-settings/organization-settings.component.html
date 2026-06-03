@@ -1,0 +1,140 @@
+<div class="wf-page">
+  <p-toast></p-toast>
+  <div class="wf-card">
+    
+    <!-- Breadcrumb -->
+    <div class="breadcrumb">
+      <i class="pi pi-home bc-icon"></i>
+      <span class="bc-text">Trang chủ</span>
+      <span class="bc-sep">/</span>
+      <span class="bc-text">Quản trị hệ thống</span>
+      <span class="bc-sep">/</span>
+      <span class="bc-current">Cài đặt tổ chức</span>
+    </div>
+
+    <p class="text-muted mb-4">
+      Quản lý sơ đồ cơ cấu tổ chức cây phòng ban, đơn vị trực thuộc EVNHANOI để phân cấp quản lý và phân quyền bảo mật truy cập dữ liệu thiết bị, hồ sơ số hóa.
+    </p>
+
+    <!-- Toolbar -->
+    <div class="list-toolbar">
+      <div class="toolbar-left">
+        <input type="text" class="wf-search-input"
+          placeholder="Tìm nhanh đơn vị..."
+          [ngModel]="searchKeyword()"
+          (ngModelChange)="searchKeyword.set($event)" />
+        <button class="btn-tim" (click)="onSearch()">
+          <i class="pi pi-search"></i> Tìm
+        </button>
+      </div>
+      <div class="toolbar-right">
+        <button class="btn-green" (click)="onAddNew()">
+          <i class="pi pi-plus"></i> Thêm đơn vị mới
+        </button>
+      </div>
+    </div>
+
+    <!-- Tree List Table -->
+    <div class="wf-table-wrap">
+      <table class="wf-table">
+        <thead>
+          <tr>
+            <th style="width: 100px;">STT</th>
+            <th>Mã đơn vị (Code)</th>
+            <th>Cơ cấu Tổ chức / Phòng ban (Name)</th>
+            <th>Thuộc đơn vị cấp trên (Parent Unit)</th>
+            <th>Mô tả</th>
+            <th class="col-hd">Thao tác</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- skeleton loading rows -->
+          <ng-container *ngIf="loading()">
+            <tr *ngFor="let item of [1, 2, 3, 4]">
+              <td class="col-stt"><div class="skeleton-shimmer" style="height: 16px; width: 24px; border-radius: 4px;"></div></td>
+              <td><div class="skeleton-shimmer" style="height: 16px; width: 100px; border-radius: 4px;"></div></td>
+              <td><div class="skeleton-shimmer" style="height: 16px; width: 200px; border-radius: 4px;"></div></td>
+              <td><div class="skeleton-shimmer" style="height: 24px; width: 120px; border-radius: 12px;"></div></td>
+              <td><div class="skeleton-shimmer" style="height: 16px; width: 180px; border-radius: 4px;"></div></td>
+              <td class="col-hd"><div class="skeleton-shimmer" style="height: 24px; width: 60px; border-radius: 4px;"></div></td>
+            </tr>
+          </ng-container>
+
+          <ng-container *ngIf="!loading()">
+            <tr *ngFor="let unit of filteredUnits(); let i = index">
+              <td class="col-stt text-muted">{{ i + 1 }}</td>
+              <td><code>{{ unit.code }}</code></td>
+              <td>
+                <div [style.padding-left.px]="getIndentLevel(unit) * 20" style="display: flex; align-items: center; gap: 8px;">
+                  <i class="pi" [class.pi-building]="getIndentLevel(unit) === 0" [class.pi-users]="getIndentLevel(unit) > 0" style="color: #002D72;"></i>
+                  <b class="wf-name-link" (click)="onEdit(unit)">{{ unit.name }}</b>
+                </div>
+              </td>
+              <td>
+                <span class="status-pill status-pending" *ngIf="unit.parentId" style="background-color: #f1f5f9; color: #0f172a; border-color: #cbd5e1;">
+                  {{ getUnitName(unit.parentId) }}
+                </span>
+                <span class="text-muted" *ngIf="!unit.parentId" style="font-size: 0.8rem;">[Đơn vị gốc]</span>
+              </td>
+              <td><span class="text-muted" style="font-size: 0.82rem;">{{ unit.description }}</span></td>
+              <td class="col-hd">
+                <button class="act-btn act-edit" (click)="onEdit(unit)" title="Chỉnh sửa"><i class="pi pi-pencil"></i></button>
+                <button class="act-btn act-delete" (click)="onDelete(unit)" title="Xóa"><i class="pi pi-trash"></i></button>
+              </td>
+            </tr>
+            <tr *ngIf="filteredUnits().length === 0">
+              <td colspan="6" class="empty-row">
+                <i class="pi pi-inbox"></i>
+                <div>Không tìm thấy đơn vị nào phù hợp.</div>
+              </td>
+            </tr>
+          </ng-container>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Footer -->
+    <div class="table-footer">
+      <span class="record-count">Tổng số: <b>{{ units().length }}</b> phòng ban / đơn vị trực thuộc.</span>
+    </div>
+
+  </div>
+</div>
+
+<!-- Dialog Thêm/Sửa Đơn vị Tổ chức -->
+<p-dialog [visible]="displayDialog()" (visibleChange)="displayDialog.set($event)" [header]="dialogHeader()" [modal]="true" [style]="{ width: '450px' }" styleClass="evn-dialog-custom">
+  <div style="display: flex; flex-direction: column; gap: 14px; padding-top: 10px;">
+    <div class="form-group">
+      <label class="form-label">Mã phòng ban / đơn vị <span class="required">*</span></label>
+      <input type="text" class="wf-input w-full" [(ngModel)]="currentUnit().code" placeholder="Ví dụ: P_KTDY, CT_DLDONGANH..." [disabled]="saving()" />
+    </div>
+    
+    <div class="form-group">
+      <label class="form-label">Tên phòng ban / đơn vị <span class="required">*</span></label>
+      <input type="text" class="wf-input w-full" [(ngModel)]="currentUnit().name" placeholder="Ví dụ: Phòng Kỹ thuật dây, Công ty Điện lực..." [disabled]="saving()" />
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Thuộc đơn vị cấp trên (Parent Unit)</label>
+      <select class="wf-select w-full" [(ngModel)]="currentUnit().parentId" [disabled]="saving()">
+        <option [value]="null">-- Chọn đơn vị gốc / cấp trên --</option>
+        <option *ngFor="let u of getEligibleParents(currentUnit().id)" [value]="u.id">{{ u.name }} ({{ u.code }})</option>
+      </select>
+    </div>
+    
+    <div class="form-group">
+      <label class="form-label">Mô tả chi tiết</label>
+      <textarea class="wf-textarea w-full" rows="3" [(ngModel)]="currentUnit().description" placeholder="Ghi chú chi tiết phòng ban này..." [disabled]="saving()"></textarea>
+    </div>
+  </div>
+  
+  <ng-template #footer>
+    <div class="flex gap-2 justify-content-end pt-3" style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9;">
+      <button class="btn-outlined btn-small" (click)="displayDialog.set(false)" [disabled]="saving()">Hủy</button>
+      <button class="btn-save btn-small" (click)="onSaveUnit()" [disabled]="saving()">
+        <i class="pi pi-spin pi-spinner" *ngIf="saving()" style="margin-right: 4px;"></i>
+        Lưu
+      </button>
+    </div>
+  </ng-template>
+</p-dialog>
