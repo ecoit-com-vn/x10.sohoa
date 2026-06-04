@@ -52,6 +52,10 @@ export const appRoutes: Route[] = [
         loadComponent: () => import('@sohoa.frontend/features/administration').then(m => m.SyncConfigComponent)
       },
       {
+        path: 'administration/workflow-builder',
+        loadComponent: () => import('@sohoa.frontend/features/workflow').then(m => m.WorkflowBuilderComponent)
+      },
+      {
         path: 'catalog',
         loadChildren: () => import('@sohoa.frontend/features/catalog').then(m => m.CATALOG_ROUTES)
       },

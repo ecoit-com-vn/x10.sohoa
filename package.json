@@ -18,6 +18,7 @@
     "@microsoft/signalr": "^10.0.0",
     "@primeng/themes": "^21.0.4",
     "@primeuix/themes": "^2.0.3",
+    "bpmn-js": "^18.16.1",
     "express": "^4.21.2",
     "primeicons": "^7.0.0",
     "primeng": "^21.1.8",

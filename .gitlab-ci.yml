@@ -1,0 +1,35 @@
+stages:
+  - build
+  - deploy
+
+variables:
+  REGISTRY: "harbor.ecoit.vn/sohoa"
+  FRONTEND_IMAGE_PATH: "registry.gitlab.com/evnhanoi/sohoa-frontend:latest"
+
+default:
+  tags:
+    - ubuntu-runner
+
+frontend-build:
+  stage: build
+  image: docker:latest
+  script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $REGISTRY
+    - docker build -t $REGISTRY/frontend:$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA -t $REGISTRY/frontend:latest -f Dockerfile .
+    - docker push $REGISTRY/frontend:$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA
+    - docker push $REGISTRY/frontend:latest
+
+frontend-deploy:
+  stage: deploy
+  image:
+    name: line/kubectl-kustomize:latest
+    entrypoint: [""]
+  before_script:
+    - mkdir -p ~/.kube
+    - if [ -f "$KUBERNETES_KUBE_CONFIG" ]; then cp "$KUBERNETES_KUBE_CONFIG" ~/.kube/config; else echo "$KUBERNETES_KUBE_CONFIG" > ~/.kube/config; fi
+    - chmod 600 ~/.kube/config
+  script:
+    # Thay đổi placeholder image trong deploy manifest với image tag vừa build
+    - sed -i "s|image:\s*$FRONTEND_IMAGE_PATH|image: $REGISTRY/frontend:$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA|g" deploy/k8s-deploy.yaml
+    - kubectl apply -f deploy/k8s-deploy.yaml
+    - kubectl rollout status deployment/sohoa-frontend -n sohoa-dev --timeout=150s

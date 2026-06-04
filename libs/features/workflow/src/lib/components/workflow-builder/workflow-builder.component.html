@@ -204,7 +204,7 @@
         </div>
 
         <!-- ── TAB 1: THÔNG TIN CHUNG ──────────────────────────── -->
-        <div *ngIf="activeTab === 'general'" class="tab-content">
+        <div [hidden]="activeTab !== 'general'" class="tab-content">
           <div class="form-grid-3">
             <div class="form-group">
               <label class="form-label">Loại quy trình <span class="required">*</span></label>
@@ -254,199 +254,64 @@
         </div>
 
         <!-- ── TAB 2: THIẾT KẾ QUY TRÌNH (BPMN) ──────────────── -->
-        <div *ngIf="activeTab === 'design'" class="tab-content bpmn-section">
-
+        <div [hidden]="activeTab !== 'design'" class="tab-content bpmn-section">
           <div class="bpmn-workspace">
-            <!-- Toolbox -->
-            <div class="bpmn-toolbox">
-              <button class="tool-btn" title="Phóng to" (click)="onZoom(0.15)">
-                <i class="pi pi-search-plus"></i>
+            <!-- Canvas container for Bpmn.io Modeler -->
+            <div id="canvas" class="bpmn-canvas"></div>
+
+            <!-- Properties panel -->
+            <div class="prop-panel" *ngIf="selectedElementProps">
+              <div class="prop-header">
+                <span>Thuộc tính phần tử</span>
+                <button class="prop-close" (click)="selectedBpmnElement = null; selectedElementProps = null">
+                  <i class="pi pi-times"></i>
+                </button>
+              </div>
+              <div class="prop-body">
+                <div class="prop-row">
+                  <label>Tên phần tử</label>
+                  <input type="text" class="prop-input" [value]="selectedElementProps.name" (input)="updateElementProperty('name', $event)" />
+                </div>
+                <div class="prop-row" *ngIf="selectedElementProps.type === 'bpmn:Task' || selectedElementProps.type === 'bpmn:UserTask'">
+                  <label>Thứ tự bước</label>
+                  <input type="number" class="prop-input" [value]="selectedElementProps.stepNum" (input)="updateElementProperty('stepNum', $event)" min="1" />
+                </div>
+                <div class="prop-row" *ngIf="selectedElementProps.type === 'bpmn:Task' || selectedElementProps.type === 'bpmn:UserTask'">
+                  <label>Vai trò phụ trách</label>
+                  <input type="text" class="prop-input" [value]="selectedElementProps.requiredRole" (input)="updateElementProperty('requiredRole', $event)" placeholder="Ví dụ: KiemSoatVien, GiamDoc..." />
+                </div>
+                <div class="prop-row" *ngIf="selectedElementProps.type === 'bpmn:Task' || selectedElementProps.type === 'bpmn:UserTask'">
+                  <label>Loại hành động</label>
+                  <select class="prop-select" [value]="selectedElementProps.actionType" (change)="updateElementProperty('actionType', $event)">
+                    <option value="Scan">Quét tài liệu</option>
+                    <option value="DataEntry">Nhập liệu</option>
+                    <option value="Review">Kiểm soát</option>
+                    <option value="Approve">Phê duyệt</option>
+                  </select>
+                </div>
+                <div class="prop-type-row">
+                  <span class="prop-type-badge prop-type-task">
+                    {{ selectedElementProps.type }}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Controls overlay -->
+            <div class="canvas-controls">
+              <button class="control-btn" title="Phóng to" (click)="onZoom(0.15)">
+                <i class="pi pi-plus"></i>
               </button>
-              <button class="tool-btn" title="Thu nhỏ" (click)="onZoom(-0.15)">
-                <i class="pi pi-search-minus"></i>
+              <button class="control-btn" title="Thu nhỏ" (click)="onZoom(-0.15)">
+                <i class="pi pi-minus"></i>
               </button>
-              <div class="tool-sep"></div>
-              <button class="tool-btn" title="Chọn / Di chuyển"
-                [class.tool-active]="activeTool === 'select'"
-                (click)="activeTool = 'select'">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M3 3l7 18 4-8 8-4L3 3z"/>
-                </svg>
-              </button>
-              <div class="tool-sep"></div>
-              <button class="tool-btn" title="Thêm: Sự kiện Bắt đầu" (click)="addNode('start')">
-                <svg width="14" height="14" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#22c55e"/></svg>
-              </button>
-              <button class="tool-btn" title="Thêm: Công việc / Bước xử lý" (click)="addNode('task')">
-                <svg width="18" height="13" viewBox="0 0 24 18"><rect x="1" y="1" width="22" height="16" rx="2" fill="none" stroke="#3b82f6" stroke-width="2"/></svg>
-              </button>
-              <button class="tool-btn" title="Thêm: Cổng điều kiện" (click)="addNode('gateway')">
-                <svg width="16" height="16" viewBox="0 0 24 24"><polygon points="12,2 22,12 12,22 2,12" fill="none" stroke="#f59e0b" stroke-width="2"/></svg>
-              </button>
-              <button class="tool-btn" title="Thêm: Sự kiện Kết thúc" (click)="addNode('end')">
-                <svg width="14" height="14" viewBox="0 0 24 24">
-                  <circle cx="12" cy="12" r="10" fill="none" stroke="#ef4444" stroke-width="2.5"/>
-                  <circle cx="12" cy="12" r="6" fill="#ef4444"/>
-                </svg>
-              </button>
-              <div class="tool-sep"></div>
-              <button class="tool-btn tool-reset" title="Đặt lại sơ đồ mẫu" (click)="resetDiagram()">
+              <button class="control-btn" title="Vừa màn hình" (click)="onZoom(0)">
                 <i class="pi pi-refresh"></i>
               </button>
             </div>
-
-            <!-- Canvas -->
-            <div class="bpmn-viewport"
-              (mousemove)="onMouseMove($event)"
-              (mouseup)="onMouseUp()">
-
-              <!-- Properties panel -->
-              <div class="prop-panel" *ngIf="selectedNode">
-                <div class="prop-header">
-                  <span>Thuộc tính phần tử</span>
-                  <button class="prop-close" (click)="selectedNode = null">
-                    <i class="pi pi-times"></i>
-                  </button>
-                </div>
-                <div class="prop-body">
-                  <div class="prop-row">
-                    <label>Tên bước</label>
-                    <input type="text" class="prop-input" [(ngModel)]="selectedNode.label" />
-                  </div>
-                  <div class="prop-row" *ngIf="selectedNode.type === 'task'">
-                    <label>Thứ tự bước</label>
-                    <input type="number" class="prop-input" [(ngModel)]="selectedNode.stepNum" min="1" />
-                  </div>
-                  <div class="prop-row" *ngIf="selectedNode.type === 'task'">
-                    <label>Vai trò phụ trách</label>
-                    <input type="text" class="prop-input"
-                      [ngModel]="selectedNode.stepRef?.requiredRole"
-                      (ngModelChange)="updateStepRef(selectedNode, 'requiredRole', $event)"
-                      placeholder="Ví dụ: KiemSoatVien, GiamDoc..." />
-                  </div>
-                  <div class="prop-row" *ngIf="selectedNode.type === 'task'">
-                    <label>Loại hành động</label>
-                    <select class="prop-select"
-                      [ngModel]="selectedNode.stepRef?.actionType"
-                      (ngModelChange)="updateStepRef(selectedNode, 'actionType', $event)">
-                      <option value="Scan">Quét tài liệu</option>
-                      <option value="DataEntry">Nhập liệu</option>
-                      <option value="Review">Kiểm soát</option>
-                      <option value="Approve">Phê duyệt</option>
-                    </select>
-                  </div>
-                  <div class="prop-type-row">
-                    <span class="prop-type-badge prop-type-{{selectedNode.type}}">
-                      {{ getTypeLabel(selectedNode.type) }}
-                    </span>
-                  </div>
-                </div>
-                <div class="prop-footer">
-                  <button class="prop-btn-close" (click)="selectedNode = null">Đóng</button>
-                  <button class="prop-btn-del" (click)="deleteNode(selectedNode)">
-                    <i class="pi pi-trash"></i> Xóa
-                  </button>
-                </div>
-              </div>
-
-              <!-- Hint -->
-              <div class="canvas-hint">
-                <i class="pi pi-info-circle"></i>
-                Kéo thả để di chuyển. Click để chỉnh sửa. Dữ liệu sơ đồ được lưu cùng quy trình.
-              </div>
-
-              <!-- SVG BPMN diagram -->
-              <svg class="bpmn-svg"
-                [attr.width]="svgW"
-                [attr.height]="svgH"
-                [style.transform]="'scale('+scale+')'">
-
-                <defs>
-                  <marker id="arr" markerWidth="9" markerHeight="6" refX="8" refY="3" orient="auto">
-                    <polygon points="0 0, 9 3, 0 6" fill="#6b7280"/>
-                  </marker>
-                  <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
-                    <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#e5e7eb" stroke-width="0.5"/>
-                  </pattern>
-                </defs>
-
-                <rect width="100%" height="100%" fill="url(#grid)"/>
-
-                <!-- Edges -->
-                <g *ngFor="let edge of bpmnEdges">
-                  <path [attr.d]="buildPath(edge)" fill="none"
-                    stroke="#6b7280" stroke-width="1.5" marker-end="url(#arr)"/>
-                  <text *ngIf="edge.label"
-                    [attr.x]="edgeLabelX(edge)" [attr.y]="edgeLabelY(edge)"
-                    font-size="10" fill="#6b7280" font-weight="600" text-anchor="middle">
-                    {{ edge.label }}
-                  </text>
-                </g>
-
-                <!-- Nodes -->
-                <g *ngFor="let node of bpmnNodes"
-                  [attr.transform]="'translate('+node.x+','+node.y+')'"
-                  [class.node-sel]="selectedNode === node"
-                  style="cursor:move"
-                  (mousedown)="onNodeDown($event, node)"
-                  (click)="selectedNode = node; $event.stopPropagation()">
-
-                  <!-- START -->
-                  <ng-container *ngIf="node.type === 'start'">
-                    <circle cx="18" cy="18" r="18" fill="#22c55e" opacity="0.18"/>
-                    <circle cx="18" cy="18" r="13" fill="#22c55e"/>
-                    <text x="18" y="46" font-size="10" fill="#374151" text-anchor="middle" font-family="Inter,sans-serif">{{ node.label }}</text>
-                  </ng-container>
-
-                  <!-- TASK -->
-                  <ng-container *ngIf="node.type === 'task'">
-                    <rect x="0" y="0" width="122" height="48" rx="4"
-                      [attr.fill]="selectedNode === node ? '#eff6ff' : '#fff'"
-                      [attr.stroke]="selectedNode === node ? '#3b82f6' : '#9ca3af'"
-                      stroke-width="1.5"/>
-                    <circle cx="13" cy="13" r="9"
-                      [attr.fill]="selectedNode === node ? '#3b82f6' : '#002D72'"/>
-                    <text x="13" y="17" font-size="9" fill="#fff" text-anchor="middle" font-weight="bold">
-                      {{ node.stepNum }}
-                    </text>
-                    <text x="63" y="20" font-size="10" fill="#1e293b" text-anchor="middle"
-                      font-family="Inter,sans-serif" font-weight="500">
-                      <tspan *ngFor="let ln of splitLabel(node.label); let li = index"
-                        x="63" [attr.dy]="li === 0 ? '0' : '13'">{{ ln }}</tspan>
-                    </text>
-                  </ng-container>
-
-                  <!-- GATEWAY -->
-                  <ng-container *ngIf="node.type === 'gateway'">
-                    <polygon points="22,0 44,22 22,44 0,22"
-                      [attr.fill]="selectedNode === node ? '#fffbeb' : '#fff'"
-                      [attr.stroke]="selectedNode === node ? '#f59e0b' : '#9ca3af'"
-                      stroke-width="1.5"/>
-                    <text x="22" y="27" font-size="14" fill="#6b7280" text-anchor="middle">✕</text>
-                  </ng-container>
-
-                  <!-- END -->
-                  <ng-container *ngIf="node.type === 'end'">
-                    <circle cx="18" cy="18" r="18" fill="#ef4444" opacity="0.15"/>
-                    <circle cx="18" cy="18" r="13" fill="none" stroke="#ef4444" stroke-width="3"/>
-                    <circle cx="18" cy="18" r="7" fill="#ef4444"/>
-                    <text x="18" y="46" font-size="10" fill="#374151" text-anchor="middle" font-family="Inter,sans-serif">{{ node.label }}</text>
-                  </ng-container>
-                </g>
-
-              </svg>
-            </div>
-          </div>
-
-          <!-- Legend -->
-          <div class="bpmn-legend">
-            <span class="legend-item"><svg width="14" height="14"><circle cx="7" cy="7" r="7" fill="#22c55e"/></svg> Bắt đầu</span>
-            <span class="legend-item"><svg width="22" height="14"><rect x="0" y="1" width="22" height="12" rx="2" fill="none" stroke="#3b82f6" stroke-width="1.5"/></svg> Công việc</span>
-            <span class="legend-item"><svg width="16" height="16"><polygon points="8,0 16,8 8,16 0,8" fill="none" stroke="#f59e0b" stroke-width="1.5"/></svg> Cổng ĐK</span>
-            <span class="legend-item"><svg width="14" height="14"><circle cx="7" cy="7" r="6" fill="none" stroke="#ef4444" stroke-width="2"/><circle cx="7" cy="7" r="3" fill="#ef4444"/></svg> Kết thúc</span>
           </div>
         </div>
-      </div>
 
+      </div>
     </div>
   

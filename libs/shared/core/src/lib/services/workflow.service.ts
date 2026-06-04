@@ -24,6 +24,7 @@ export interface WorkflowDefinition {
   isActive: boolean;       // Trạng thái
   createdAt?: string;
   updatedAt?: string;
+  bpmnXml?: string;
   steps: WorkflowStep[];
 }
 

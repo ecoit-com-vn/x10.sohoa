@@ -236,37 +236,30 @@
     .epbuoc-label { font-size: 0.875rem; font-weight: 600; color: #1e293b; }
     .epbuoc-note { font-size: 0.78rem; color: #6b7280; margin-left: 22px; }
     /* ─── BPMN Designer ────────────────────────────────────────── */
+    @import 'bpmn-js/dist/assets/diagram-js.css';
+    @import 'bpmn-js/dist/assets/bpmn-js.css';
+    @import 'bpmn-js/dist/assets/bpmn-font/css/bpmn-embedded.css';
+
     .bpmn-section { padding-top: 0; }
     .bpmn-workspace {
       display: flex; border: 1px solid #e5e7eb; border-radius: 8px;
-      overflow: hidden; height: 480px;
+      overflow: hidden; height: 520px; position: relative;
     }
-    .bpmn-toolbox {
-      display: flex; flex-direction: column; align-items: center;
-      gap: 4px; padding: 10px 7px; background: #f8fafc;
-      border-right: 1px solid #e5e7eb; min-width: 46px;
+    .bpmn-canvas {
+      flex: 1;
+      height: 100%;
+      background: #fafafa;
     }
-    .tool-btn {
-      width: 32px; height: 32px; border: 1px solid #e5e7eb; border-radius: 5px;
-      background: #fff; cursor: pointer; display: flex; align-items: center;
-      justify-content: center; font-size: 0.85rem; color: #374151; transition: all .15s;
-    }
-    .tool-btn:hover { background: #eff6ff; border-color: #93c5fd; color: #2563eb; }
-    .tool-btn.tool-active { background: #002D72; border-color: #002D72; color: #fff; }
-    .tool-btn.tool-reset:hover { background: #fef2f2; border-color: #fecaca; color: #dc2626; }
-    .tool-sep { width: 26px; height: 1px; background: #e5e7eb; margin: 3px 0; }
-    .bpmn-viewport { flex: 1; overflow: auto; background: #fafafa; position: relative; }
-    .bpmn-svg { transform-origin: top left; display: block; user-select: none; }
     /* Property panel */
     .prop-panel {
-      position: absolute; top: 10px; right: 10px; z-index: 10;
-      width: 215px; background: #fff; border: 1px solid #e5e7eb;
+      position: absolute; top: 15px; right: 15px; z-index: 100;
+      width: 250px; background: #fff; border: 1px solid #e5e7eb;
       border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,.12);
     }
     .prop-header {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 9px 12px; border-bottom: 1px solid #f1f5f9;
-      font-size: 0.83rem; font-weight: 600; color: #1e293b;
+      padding: 10px 14px; border-bottom: 1px solid #f1f5f9;
+      font-size: 0.85rem; font-weight: 600; color: #1e293b;
     }
     .prop-close {
       width: 22px; height: 22px; border: none; background: none; cursor: pointer;
@@ -274,56 +267,44 @@
       justify-content: center; font-size: 0.8rem; transition: all .15s;
     }
     .prop-close:hover { background: #f1f5f9; color: #374151; }
-    .prop-body { padding: 10px 12px; display: flex; flex-direction: column; gap: 9px; }
-    .prop-row { display: flex; flex-direction: column; gap: 3px; }
+    .prop-body { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+    .prop-row { display: flex; flex-direction: column; gap: 4px; }
     .prop-row label { font-size: 0.75rem; color: #6b7280; font-weight: 500; }
     .prop-input {
-      height: 30px; padding: 0 8px; width: 100%;
-      border: 1px solid #d1d5db; border-radius: 4px; font-size: 0.82rem; outline: none;
+      height: 32px; padding: 0 10px; width: 100%;
+      border: 1px solid #d1d5db; border-radius: 5px; font-size: 0.82rem; outline: none;
+      transition: border-color 0.2s;
     }
     .prop-input:focus { border-color: #002D72; }
     .prop-select {
-      height: 30px; padding: 0 6px; width: 100%;
-      border: 1px solid #d1d5db; border-radius: 4px; font-size: 0.82rem; outline: none;
-      background: #fff;
+      height: 32px; padding: 0 8px; width: 100%;
+      border: 1px solid #d1d5db; border-radius: 5px; font-size: 0.82rem; outline: none;
+      background: #fff; transition: border-color 0.2s;
     }
-    .prop-type-row { margin-top: 2px; }
+    .prop-select:focus { border-color: #002D72; }
+    .prop-type-row { margin-top: 4px; }
     .prop-type-badge {
       display: inline-block; padding: 2px 8px; border-radius: 10px;
       font-size: 0.72rem; font-weight: 600;
+      background: #eff6ff; color: #1e40af; border: 1px solid #dbeafe;
     }
-    .prop-type-task    { background: #dbeafe; color: #1e40af; }
-    .prop-type-gateway { background: #fef3c7; color: #92400e; }
-    .prop-type-start   { background: #dcfce7; color: #15803d; }
-    .prop-type-end     { background: #fee2e2; color: #991b1b; }
-    .prop-footer {
-      display: flex; gap: 6px; padding: 8px 12px; border-top: 1px solid #f1f5f9;
+
+    /* Controls overlay */
+    .canvas-controls {
+      position: absolute; bottom: 20px; left: 20px; z-index: 100;
+      display: flex; gap: 8px; background: #fff; padding: 6px;
+      border: 1px solid #e5e7eb; border-radius: 6px;
+      box-shadow: 0 2px 10px rgba(0,0,0,.08);
     }
-    .prop-btn-close {
-      flex: 1; height: 28px; background: #f3f4f6; border: 1px solid #e5e7eb;
-      border-radius: 4px; font-size: 0.8rem; cursor: pointer; transition: all .15s;
+    .control-btn {
+      width: 32px; height: 32px; border: 1px solid #e5e7eb; border-radius: 4px;
+      background: #fff; cursor: pointer; display: flex; align-items: center;
+      justify-content: center; color: #4b5563; font-size: 0.85rem;
+      transition: all .2s;
     }
-    .prop-btn-close:hover { background: #e5e7eb; }
-    .prop-btn-del {
-      height: 28px; padding: 0 10px; background: #fef2f2; color: #dc2626;
-      border: 1px solid #fecaca; border-radius: 4px; font-size: 0.8rem;
-      cursor: pointer; display: flex; align-items: center; gap: 4px; transition: all .15s;
+    .control-btn:hover {
+      background: #f3f4f6; color: #002D72; border-color: #002D72;
     }
-    .prop-btn-del:hover { background: #fee2e2; }
-    .canvas-hint {
-      position: absolute; top: 8px; left: 10px; z-index: 5;
-      background: rgba(255,255,255,.9); padding: 5px 10px; border-radius: 5px;
-      font-size: 0.75rem; color: #6b7280; border: 1px solid #e5e7eb; pointer-events: none;
-    }
-    .node-sel rect, .node-sel circle, .node-sel polygon {
-      filter: drop-shadow(0 0 4px rgba(59,130,246,.5));
-    }
-    .bpmn-legend {
-      display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
-      padding: 10px 14px; background: #f8fafc; border: 1px solid #e5e7eb;
-      border-radius: 6px; margin-top: 10px;
-    }
-    .legend-item { display: flex; align-items: center; gap: 7px; font-size: 0.78rem; color: #374151; }
     /* ─── Modals ───────────────────────────────────────────────── */
     .modal-overlay {
       position: fixed; inset: 0; background: rgba(0,0,0,.45);
