@@ -44,6 +44,7 @@ npx nx g @nx/angular:app demo
 
 To generate a new library, use:
 
+
 ```sh
 npx nx g @nx/angular:lib mylib
 ```
