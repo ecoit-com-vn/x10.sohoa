@@ -124,6 +124,7 @@ namespace EvnHanoi.WorkflowService.Controllers
             existing.Version     = dto.Version;
             existing.ForceActivate = dto.ForceActivate;
             existing.IsActive    = dto.IsActive;
+            existing.BpmnXml     = dto.BpmnXml;
             existing.UpdatedAt   = DateTime.UtcNow;
 
             // Cập nhật steps: xóa cũ, thêm mới

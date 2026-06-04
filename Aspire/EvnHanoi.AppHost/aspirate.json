@@ -1,8 +1,8 @@
 {
   "TemplatePath": null,
   "ContainerSettings": {
-    "Registry": null,
-    "RepositoryPrefix": null,
+    "Registry": "harbor.ecoit.vn",
+    "RepositoryPrefix": "x10",
     "Tags": [
       "latest"
     ],

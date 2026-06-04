@@ -108,4 +108,68 @@ INSERT INTO APP_MENU (Id, Name, Url, Icon, ParentId, SortOrder, IsActive, Permis
 SELECT 9, 'Nhật ký hệ thống', '/administration/audit-log', 'pi pi-history', 2, 7, 1, 'AUDIT_LOG_VIEW' FROM DUAL
 WHERE NOT EXISTS (SELECT 1 FROM APP_MENU WHERE Id = 9);
 
+INSERT INTO APP_MENU (Id, Name, Url, Icon, ParentId, SortOrder, IsActive, PermissionCode)
+SELECT 10, 'Danh mục hệ thống', NULL, 'pi pi-folder-open', NULL, 3, 1, 'CATALOG_VIEW' FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM APP_MENU WHERE Id = 10);
+
+INSERT INTO APP_MENU (Id, Name, Url, Icon, ParentId, SortOrder, IsActive, PermissionCode)
+SELECT 11, 'Đơn vị tính', '/catalog/unit-of-measurement', 'pi pi-tag', 10, 1, 1, 'CATALOG_VIEW' FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM APP_MENU WHERE Id = 11);
+
+INSERT INTO APP_MENU (Id, Name, Url, Icon, ParentId, SortOrder, IsActive, PermissionCode)
+SELECT 12, 'Hồ sơ & Thiết bị', NULL, 'pi pi-file', NULL, 4, 1, 'EQUIPMENT_VIEW' FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM APP_MENU WHERE Id = 12);
+
+INSERT INTO APP_MENU (Id, Name, Url, Icon, ParentId, SortOrder, IsActive, PermissionCode)
+SELECT 13, 'Quản lý thông số EAV', '/equipment/form-management', 'pi pi-sliders-h', 12, 1, 1, 'EQUIPMENT_VIEW' FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM APP_MENU WHERE Id = 13);
+
+INSERT INTO APP_MENU (Id, Name, Url, Icon, ParentId, SortOrder, IsActive, PermissionCode)
+SELECT 14, 'Số hóa hồ sơ', NULL, 'pi pi-cloud-upload', NULL, 5, 1, 'DIGITIZATION_VIEW' FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM APP_MENU WHERE Id = 14);
+
+INSERT INTO APP_MENU (Id, Name, Url, Icon, ParentId, SortOrder, IsActive, PermissionCode)
+SELECT 15, 'Tải lên & Nhận dạng OCR', '/digitization/ocr-upload', 'pi pi-upload', 14, 1, 1, 'DIGITIZATION_VIEW' FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM APP_MENU WHERE Id = 15);
+
+INSERT INTO APP_MENU (Id, Name, Url, Icon, ParentId, SortOrder, IsActive, PermissionCode)
+SELECT 16, 'Thư mục ảo (Explorer)', '/digitization/virtual-folders', 'pi pi-folder', 14, 2, 1, 'DIGITIZATION_VIEW' FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM APP_MENU WHERE Id = 16);
+
+INSERT INTO APP_MENU (Id, Name, Url, Icon, ParentId, SortOrder, IsActive, PermissionCode)
+SELECT 17, 'Phân bổ hồ sơ số hóa', '/digitization/ocr-allocation', 'pi pi-share-alt', 14, 3, 1, 'DIGITIZATION_VIEW' FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM APP_MENU WHERE Id = 17);
+
+INSERT INTO APP_MENU (Id, Name, Url, Icon, ParentId, SortOrder, IsActive, PermissionCode)
+SELECT 18, 'Dữ liệu huấn luyện AI', '/digitization/ocr-training', 'pi pi-cog', 14, 4, 1, 'DIGITIZATION_VIEW' FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM APP_MENU WHERE Id = 18);
+
+INSERT INTO APP_MENU (Id, Name, Url, Icon, ParentId, SortOrder, IsActive, PermissionCode)
+SELECT 19, 'Hiệu đính OCR', '/ocr-correction', 'pi pi-check-square', NULL, 6, 1, 'DIGITIZATION_VIEW' FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM APP_MENU WHERE Id = 19);
+
+INSERT INTO APP_MENU (Id, Name, Url, Icon, ParentId, SortOrder, IsActive, PermissionCode)
+SELECT 20, 'Tra cứu hồ sơ thiết bị', '/search', 'pi pi-search', NULL, 7, 1, 'EQUIPMENT_VIEW' FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM APP_MENU WHERE Id = 20);
+
+INSERT INTO APP_MENU (Id, Name, Url, Icon, ParentId, SortOrder, IsActive, PermissionCode)
+SELECT 21, 'Mượn trả hồ sơ', NULL, 'pi pi-envelope', NULL, 8, 1, 'EQUIPMENT_VIEW' FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM APP_MENU WHERE Id = 21);
+
+INSERT INTO APP_MENU (Id, Name, Url, Icon, ParentId, SortOrder, IsActive, PermissionCode)
+SELECT 22, 'Yêu cầu mượn trả', '/workflow/borrow-return', 'pi pi-send', 21, 1, 1, 'EQUIPMENT_VIEW' FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM APP_MENU WHERE Id = 22);
+
+INSERT INTO APP_MENU (Id, Name, Url, Icon, ParentId, SortOrder, IsActive, PermissionCode)
+SELECT 23, 'Cài đặt quy trình', '/administration/workflow-builder', 'pi pi-sitemap', 2, 8, 1, 'ROLE_VIEW' FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM APP_MENU WHERE Id = 23);
+
+INSERT INTO APP_MENU (Id, Name, Url, Icon, ParentId, SortOrder, IsActive, PermissionCode)
+SELECT 24, 'Báo cáo & Thống kê', '/reports', 'pi pi-chart-bar', NULL, 9, 1, 'REPORT_VIEW' FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM APP_MENU WHERE Id = 24);
+
+INSERT INTO APP_MENU (Id, Name, Url, Icon, ParentId, SortOrder, IsActive, PermissionCode)
+SELECT 25, 'Kho lưu trữ vật lý', '/physical-storage', 'pi pi-box', NULL, 10, 1, 'EQUIPMENT_VIEW' FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM APP_MENU WHERE Id = 25);
+
 COMMIT;

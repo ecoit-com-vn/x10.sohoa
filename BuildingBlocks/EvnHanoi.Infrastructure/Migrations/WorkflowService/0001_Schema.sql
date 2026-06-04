@@ -8,7 +8,8 @@ CREATE TABLE WorkflowDefinitions (
     ForceActivate  NUMBER(1)      DEFAULT 0 NOT NULL,
     CreatedAt      TIMESTAMP      DEFAULT SYSTIMESTAMP NOT NULL,
     UpdatedAt      TIMESTAMP      DEFAULT SYSTIMESTAMP NOT NULL,
-    IsActive       NUMBER(1)      DEFAULT 1 NOT NULL
+    IsActive       NUMBER(1)      DEFAULT 1 NOT NULL,
+    BpmnXml        CLOB           NULL
 );
 
 CREATE TABLE WorkflowSteps (

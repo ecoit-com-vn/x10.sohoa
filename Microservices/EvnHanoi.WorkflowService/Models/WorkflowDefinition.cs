@@ -23,6 +23,9 @@ namespace EvnHanoi.WorkflowService.Models
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
         public bool IsActive { get; set; } = true;
 
+        /// <summary>Định nghĩa sơ đồ quy trình dạng BPMN 2.0 XML</summary>
+        public string? BpmnXml { get; set; } = string.Empty;
+
         public ICollection<WorkflowStep> Steps { get; set; } = new List<WorkflowStep>();
     }
 }

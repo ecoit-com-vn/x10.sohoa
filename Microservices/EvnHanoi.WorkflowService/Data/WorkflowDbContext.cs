@@ -42,6 +42,7 @@ namespace EvnHanoi.WorkflowService.Data
                 entity.Property(e => e.CreatedAt).HasColumnName("CREATEDAT");
                 entity.Property(e => e.UpdatedAt).HasColumnName("UPDATEDAT");
                 entity.Property(e => e.IsActive).HasColumnName("ISACTIVE");
+                entity.Property(e => e.BpmnXml).HasColumnName("BPMNXML");
                 entity.HasMany(w => w.Steps)
                       .WithOne(s => s.WorkflowDefinition)
                       .HasForeignKey(s => s.WorkflowDefinitionId)

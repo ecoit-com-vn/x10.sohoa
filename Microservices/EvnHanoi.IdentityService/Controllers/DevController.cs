@@ -304,7 +304,7 @@ public class DevController : ControllerBase
 
                 new { Id = 21, Name = "Mượn trả hồ sơ", Url = (string?)null, Icon = "pi pi-envelope", ParentId = (int?)null, SortOrder = 8, IsActive = 1, PermissionCode = "EQUIPMENT_VIEW" },
                 new { Id = 22, Name = "Yêu cầu mượn trả", Url = (string?)"/workflow/borrow-return", Icon = "pi pi-send", ParentId = (int?)21, SortOrder = 1, IsActive = 1, PermissionCode = "EQUIPMENT_VIEW" },
-                new { Id = 23, Name = "Thiết lập quy trình duyệt", Url = (string?)"/workflow/builder", Icon = "pi pi-chart-line", ParentId = (int?)21, SortOrder = 2, IsActive = 1, PermissionCode = "ROLE_VIEW" },
+                new { Id = 23, Name = "Cài đặt quy trình", Url = (string?)"/administration/workflow-builder", Icon = "pi pi-sitemap", ParentId = (int?)2, SortOrder = 8, IsActive = 1, PermissionCode = "ROLE_VIEW" },
 
                 new { Id = 24, Name = "Báo cáo & Thống kê", Url = (string?)"/reports", Icon = "pi pi-chart-bar", ParentId = (int?)null, SortOrder = 9, IsActive = 1, PermissionCode = "REPORT_VIEW" },
                 
