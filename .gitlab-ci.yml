@@ -8,7 +8,7 @@ variables:
 
 default:
   tags:
-    - sohoa-x10-dev-runner
+    - x10-runner
 
 frontend-build:
   stage: build
