@@ -29,6 +29,6 @@ frontend-deploy:
     - if [ -f "$KUBERNETES_KUBE_CONFIG" ]; then cp "$KUBERNETES_KUBE_CONFIG" ~/.kube/config; else echo "$KUBERNETES_KUBE_CONFIG" > ~/.kube/config; fi
     - chmod 600 ~/.kube/config
   script:
-    - sed -i "s|image:\s*$FRONTEND_IMAGE_PATH|image: $REGISTRY/frontend:$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA|g" deploy/k8s-deploy.yaml
+    - 'sed -i "s|image:\s*$FRONTEND_IMAGE_PATH|image: $REGISTRY/frontend:$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA|g" deploy/k8s-deploy.yaml'
     - kubectl apply -f deploy/k8s-deploy.yaml
     - kubectl rollout status deployment/sohoa-frontend -n x10 --timeout=150s
