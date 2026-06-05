@@ -4,11 +4,11 @@ stages:
   - deploy
 
 variables:
-  REGISTRY: "harbor.ecoit.vn/sohoa"
+  REGISTRY: "harbor.ecoit.vn"
 
 default:
   tags:
-    - ubuntu-runner
+    - x10-runner
 
 backend-test:
   stage: test
@@ -20,15 +20,11 @@ backend-build:
   stage: build
   image: mcr.microsoft.com/dotnet/sdk:10.0
   before_script:
-    # Cài đặt docker-cli trong container dotnet để có thể giao tiếp với Docker daemon của host Ubuntu
     - apt-get update && apt-get install -y docker.io
   script:
-    # Cài đặt Aspirate CLI
     - dotnet tool install -g Aspirate
     - export PATH="$PATH:$HOME/.dotnet/tools"
-    # Đăng nhập vào Harbor registry
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $REGISTRY
-    # Build và push microservices images sử dụng Aspirate
     - cd Aspire/EvnHanoi.AppHost
     - aspirate build --non-interactive
 
@@ -38,12 +34,10 @@ backend-deploy:
     name: line/kubectl-kustomize:latest
     entrypoint: [""]
   before_script:
-    # Cấu hình kubeconfig từ biến bí mật GitLab Settings
     - mkdir -p ~/.kube
     - if [ -f "$KUBERNETES_KUBE_CONFIG" ]; then cp "$KUBERNETES_KUBE_CONFIG" ~/.kube/config; else echo "$KUBERNETES_KUBE_CONFIG" > ~/.kube/config; fi
     - chmod 600 ~/.kube/config
   script:
     - kubectl cluster-info
-    # Triển khai các manifests được sinh ra tự động bởi Aspirate
-    - cd Aspire/EvnHanoi.AppHost/aspirate-output
-    - kubectl apply -f . --recursive
+    - cd Aspire/EvnHanoi.AppHost/overlays/production
+    - kubectl apply -k .

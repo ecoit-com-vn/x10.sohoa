@@ -1,0 +1,5 @@
+resources:
+- ../../aspirate-output
+
+patches:
+- path: patch-secrets.yaml
