@@ -9,7 +9,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install npm dependencies (including devDependencies for build tools like Nx)
-RUN npm ci
+RUN npm install
 
 # Copy all application code
 COPY . .
@@ -29,7 +29,7 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/package*.json ./
 
 # Install only production dependencies to keep the image lightweight
-RUN npm ci --omit=dev
+RUN npm install --omit=dev
 
 # Set production environment variables
 ENV NODE_ENV=production
