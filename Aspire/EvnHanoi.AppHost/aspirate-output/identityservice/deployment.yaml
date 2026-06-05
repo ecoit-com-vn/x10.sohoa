@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
       - name: identityservice
-        image: identityservice:latest
+        image: harbor.ecoit.vn/x10/backend/identityservice:latest
         imagePullPolicy: IfNotPresent
         ports:
         - name: http

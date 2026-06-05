@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
       - name: digitizationservice
-        image: digitizationservice:latest
+        image: harbor.ecoit.vn/x10/backend/digitizationservice:latest
         imagePullPolicy: IfNotPresent
         ports:
         - name: http

@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
       - name: workflowservice
-        image: workflowservice:latest
+        image: harbor.ecoit.vn/x10/backend/workflowservice:latest
         imagePullPolicy: IfNotPresent
         ports:
         - name: http

@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
       - name: notificationservice
-        image: notificationservice:latest
+        image: harbor.ecoit.vn/x10/backend/notificationservice:latest
         imagePullPolicy: IfNotPresent
         ports:
         - name: http

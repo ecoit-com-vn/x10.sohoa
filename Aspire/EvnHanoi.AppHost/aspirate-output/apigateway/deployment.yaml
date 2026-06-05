@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
       - name: apigateway
-        image: apigateway:latest
+        image: harbor.ecoit.vn/x10/backend/apigateway:latest
         imagePullPolicy: IfNotPresent
         ports:
         - name: http

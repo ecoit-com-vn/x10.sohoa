@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
       - name: reportservice
-        image: reportservice:latest
+        image: harbor.ecoit.vn/x10/backend/reportservice:latest
         imagePullPolicy: IfNotPresent
         ports:
         - name: http

@@ -2,7 +2,7 @@
   "TemplatePath": null,
   "ContainerSettings": {
     "Registry": "harbor.ecoit.vn",
-    "RepositoryPrefix": "x10",
+    "RepositoryPrefix": "x10/backend",
     "Tags": [
       "latest"
     ],

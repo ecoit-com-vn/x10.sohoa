@@ -1,15 +1,19 @@
 {
   "projectPath": ".",
   "outputPath": "aspirate-output",
+  "namespace": "x10",
   "containerRegistry": "harbor.ecoit.vn",
   "containerImageTags": [
     "latest"
   ],
+  "imagePullPolicy": "IfNotPresent",
   "containerBuilder": "docker",
-  "containerRepositoryPrefix": "x10",
+  "containerRepositoryPrefix": "x10/backend",
   "outputFormat": "kustomize",
+  "disableSecrets": true,
   "privateRegistryEmail": "aspir8@aka.ms",
   "includeDashboard": true,
+  "useCustomNamespace": true,
   "secrets": {
     "salt": "pn/r1tQpQ4vG4eN4",
     "hash": "iv1Dzp0qBOWpVaWusVOzQuCH8qShMVt\u002BOqVnnngqCAU=",
