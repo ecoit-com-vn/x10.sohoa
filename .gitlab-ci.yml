@@ -14,7 +14,7 @@ backend-test:
   stage: test
   image: mcr.microsoft.com/dotnet/sdk:10.0
   script:
-    - dotnet test sohoa.backend.sln --configuration Release
+    - dotnet test EvnHanoi.Digitization.slnx --configuration Release
 
 backend-build:
   stage: build
