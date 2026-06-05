@@ -4,7 +4,7 @@ stages:
 
 variables:
   REGISTRY: "harbor.ecoit.vn/sohoa"
-  FRONTEND_IMAGE_PATH: "registry.gitlab.com/evnhanoi/sohoa-frontend:latest"
+  FRONTEND_IMAGE_PATH: "git.ecoit.com.vn/evnhanoi/x10/sohoa.frontend:latest"
 
 default:
   tags:
