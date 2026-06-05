@@ -1,5 +1,5 @@
 export const environment = {
   production: true,
-  apiGatewayUrl: 'https://api.evnhanoi-sohoa.vn',
-  workflowServiceUrl: 'https://api.evnhanoi-sohoa.vn',
+  apiGatewayUrl: 'http://qlshx10.ecoit.com.vn',
+  workflowServiceUrl: 'http://qlshx10.ecoit.com.vn',
 };
