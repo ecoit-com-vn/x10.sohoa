@@ -55,10 +55,11 @@ metadata:
   labels:
     app: sohoa-frontend
 spec:
-  type: ClusterIP
+  type: NodePort
   ports:
   - port: 80
     targetPort: 4000
+    nodePort: 30080
     protocol: TCP
     name: http
   selector:
@@ -74,6 +75,7 @@ metadata:
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
     nginx.ingress.kubernetes.io/proxy-body-size: "100m"
 spec:
+  ingressClassName: nginx
   rules:
   - http:
       paths:
