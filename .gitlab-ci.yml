@@ -20,7 +20,13 @@ backend-build:
   stage: build
   image: mcr.microsoft.com/dotnet/sdk:10.0
   before_script:
-    - apt-get update && apt-get install -y docker.io
+    - apt-get update && apt-get install -y docker.io curl dnsutils
+    - echo "=== DNS Check ==="
+    - nslookup harbor.ecoit.vn || echo "dns lookup failed"
+    - echo "=== Ping Check ==="
+    - ping -c 3 harbor.ecoit.vn || echo "ping failed"
+    - echo "=== HTTPS Check ==="
+    - curl -Iv https://harbor.ecoit.vn/v2/ || echo "curl failed"
   script:
     - dotnet tool install -g Aspirate
     - export PATH="$PATH:$HOME/.dotnet/tools"
