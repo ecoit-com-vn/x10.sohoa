@@ -13,6 +13,11 @@ public static class DatabaseMigrationHelper
     {
         var connectionString = configuration.GetConnectionString(connectionStringName);
 
+        if (configuration.GetValue<bool>("DbUp:RunSeeds"))
+        {
+            runSeeds = true;
+        }
+
         if (string.IsNullOrWhiteSpace(connectionString))
         {
             Log.Error("Database connection string '{ConnectionStringName}' is not found.", connectionStringName);
