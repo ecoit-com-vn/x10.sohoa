@@ -1,7 +1,7 @@
 export const environment = {
   production: false,
   // URL của API Gateway (YARP) - chạy local port 5000
-  apiGatewayUrl: 'http://localhost:5000',
+  apiGatewayUrl: '',
   // URL trực tiếp WorkflowService nếu bypass gateway
-  workflowServiceUrl: 'http://localhost:5007',
+  workflowServiceUrl: '',
 };
