@@ -26,7 +26,11 @@ backend-build:
     - export PATH="$PATH:$HOME/.dotnet/tools"
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $REGISTRY
     - cd Aspire/EvnHanoi.AppHost
-    - aspirate build --container-registry "" --non-interactive
+    - sed -i 's/"containerRegistry": "harbor.ecoit.vn"/"containerRegistry": ""/g' aspirate-state.json
+    - sed -i 's/"Registry": "harbor.ecoit.vn"/"Registry": ""/g' aspirate.json
+    - aspirate build --non-interactive
+    - sed -i 's/"containerRegistry": ""/"containerRegistry": "harbor.ecoit.vn"/g' aspirate-state.json
+    - sed -i 's/"Registry": ""/"Registry": "harbor.ecoit.vn"/g' aspirate.json
     - for service in identityservice equipmentservice digitizationservice notificationservice syncservice workflowservice reportservice apigateway; do
         docker tag x10/backend/${service}:latest harbor.ecoit.vn/x10/backend/${service}:latest;
         docker push harbor.ecoit.vn/x10/backend/${service}:latest;
