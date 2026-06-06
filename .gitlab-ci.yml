@@ -17,6 +17,8 @@ default:
 frontend-build:
   stage: build
   image: docker:latest
+  environment:
+    name: $CI_COMMIT_BRANCH
   script:
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $REGISTRY
     - docker build -t $REGISTRY/$CI_PROJECT_PATH:$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA -t $REGISTRY/$CI_PROJECT_PATH:latest -f Dockerfile .
