@@ -6,6 +6,7 @@ import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { MessageService } from 'primeng/api';
 import { HttpClient, HttpClientModule } from '@angular/common/http';
 import { environment } from '@env/environment';
+import { AuthService } from '@sohoa.frontend/shared/core';
 
 @Component({
   selector: 'app-sync-config',
@@ -38,6 +39,7 @@ export class SyncConfigComponent implements OnInit {
 
   private http = inject(HttpClient);
   private messageService = inject(MessageService);
+  public authService = inject(AuthService);
 
   ngOnInit() {
     this.loadConfig();

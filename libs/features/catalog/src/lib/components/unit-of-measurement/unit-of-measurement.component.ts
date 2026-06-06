@@ -24,7 +24,7 @@ export class UnitOfMeasurement implements OnInit {
   isPrivate = signal<boolean>(false);
   currentItem = signal<any>({});
 
-  private apiUrl = `${environment.apiGatewayUrl}/api/Catalog`;
+  private apiUrl = `${environment.apiGatewayUrl}/api/catalog`;
 
   // Computed signal for filteredUoms
   filteredUoms = computed(() => {

@@ -64,7 +64,10 @@
           <ng-container *ngIf="!loading()">
             <tr *ngFor="let user of filteredUsers(); let i = index">
               <td class="col-stt text-muted">{{ i + 1 }}</td>
-              <td><b class="wf-name-link" (click)="onEdit(user)">{{ user.username }}</b></td>
+              <td>
+                <b *ngIf="authService.hasPermission('USER_EDIT')" class="wf-name-link" (click)="onEdit(user)">{{ user.username }}</b>
+                <span *ngIf="!authService.hasPermission('USER_EDIT')">{{ user.username }}</span>
+              </td>
               <td>{{ user.fullName }}</td>
               <td><b>{{ user.organizationUnit?.name || getUnitLabel(user.organizationUnitId) }}</b></td>
               <td><span class="text-muted">{{ user.email }}</span></td>

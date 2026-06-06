@@ -44,7 +44,7 @@
                 </td>
                 <td><span class="text-muted" style="font-size: 0.82rem;">{{ param.description }}</span></td>
                 <td class="col-hd">
-                  <button class="act-btn act-edit" (click)="onEdit(param)" title="Chỉnh sửa cấu hình">
+                  <button *ngIf="authService.hasPermission('SYSTEM_PARAM_EDIT')" class="act-btn act-edit" (click)="onEdit(param)" title="Chỉnh sửa cấu hình">
                     <i class="pi pi-pencil"></i>
                   </button>
                 </td>

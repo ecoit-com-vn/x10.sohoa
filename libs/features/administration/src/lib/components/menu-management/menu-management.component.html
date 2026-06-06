@@ -27,7 +27,7 @@
         </button>
       </div>
       <div class="toolbar-right">
-        <button class="btn-green" (click)="onAddNew()">
+        <button *ngIf="authService.hasPermission('MENU_CREATE')" class="btn-green" (click)="onAddNew()">
           <i class="pi pi-plus"></i> Thêm menu mới
         </button>
       </div>
@@ -67,7 +67,8 @@
               <td>
                 <div [style.padding-left.px]="getIndentLevel(m) * 20" style="display: flex; align-items: center; gap: 8px;">
                   <i [class]="m.icon ? m.icon : 'pi pi-folder'" style="color: #002D72;"></i>
-                  <b class="wf-name-link" (click)="onEdit(m)">{{ m.name }}</b>
+                  <b *ngIf="authService.hasPermission('MENU_EDIT')" class="wf-name-link" (click)="onEdit(m)">{{ m.name }}</b>
+                  <span *ngIf="!authService.hasPermission('MENU_EDIT')">{{ m.name }}</span>
                 </div>
               </td>
               <td><code>{{ m.url || '-' }}</code></td>
@@ -83,8 +84,8 @@
               </td>
               <td>{{ m.orderNum }}</td>
               <td class="col-hd">
-                <button class="act-btn act-edit" (click)="onEdit(m)" title="Chỉnh sửa"><i class="pi pi-pencil"></i></button>
-                <button class="act-btn act-delete" (click)="onDelete(m)" title="Xóa"><i class="pi pi-trash"></i></button>
+                <button *ngIf="authService.hasPermission('MENU_EDIT')" class="act-btn act-edit" (click)="onEdit(m)" title="Chỉnh sửa"><i class="pi pi-pencil"></i></button>
+                <button *ngIf="authService.hasPermission('MENU_DELETE')" class="act-btn act-delete" (click)="onDelete(m)" title="Xóa"><i class="pi pi-trash"></i></button>
               </td>
             </tr>
             <tr *ngIf="filteredMenus().length === 0">

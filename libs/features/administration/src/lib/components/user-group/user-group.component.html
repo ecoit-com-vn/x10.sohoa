@@ -27,7 +27,7 @@
         </button>
       </div>
       <div class="toolbar-right">
-        <button class="btn-green" (click)="onAddNew()">
+        <button *ngIf="authService.hasPermission('USER_GROUP_CREATE')" class="btn-green" (click)="onAddNew()">
           <i class="pi pi-plus"></i> Thêm nhóm mới
         </button>
       </div>
@@ -58,20 +58,23 @@
           <ng-container *ngIf="!loading()">
             <tr *ngFor="let g of filteredGroups(); let i = index">
               <td class="col-stt text-muted">{{ i + 1 }}</td>
-              <td><b class="wf-name-link" (click)="onEdit(g)">{{ g.name }}</b></td>
+              <td>
+                <b *ngIf="authService.hasPermission('USER_GROUP_EDIT')" class="wf-name-link" (click)="onEdit(g)">{{ g.name }}</b>
+                <span *ngIf="!authService.hasPermission('USER_GROUP_EDIT')">{{ g.name }}</span>
+              </td>
               <td><span class="text-muted">{{ g.description || '-' }}</span></td>
               <td class="col-hd">
-                <button class="btn-outlined btn-small mr-1" (click)="onManageMembers(g)" title="Thành viên">
+                <button *ngIf="authService.hasPermission('USER_GROUP_MANAGE')" class="btn-outlined btn-small mr-1" (click)="onManageMembers(g)" title="Thành viên">
                   <i class="pi pi-users mr-1"></i> Thành viên
                 </button>
-                <button class="btn-outlined btn-small mr-1" (click)="onManageRoles(g)" title="Vai trò">
+                <button *ngIf="authService.hasPermission('USER_GROUP_MANAGE')" class="btn-outlined btn-small mr-1" (click)="onManageRoles(g)" title="Vai trò">
                   <i class="pi pi-shield mr-1"></i> Vai trò
                 </button>
-                <button class="btn-outlined btn-small mr-1" (click)="onManagePermissions(g)" title="Quyền trực tiếp" style="background-color: #e0f2fe; color: #0284c7; border-color: #bae6fd;">
+                <button *ngIf="authService.hasPermission('USER_GROUP_MANAGE')" class="btn-outlined btn-small mr-1" (click)="onManagePermissions(g)" title="Quyền trực tiếp" style="background-color: #e0f2fe; color: #0284c7; border-color: #bae6fd;">
                   <i class="pi pi-key mr-1"></i> Quyền trực tiếp
                 </button>
-                <button class="act-btn act-edit" (click)="onEdit(g)" title="Chỉnh sửa"><i class="pi pi-pencil"></i></button>
-                <button class="act-btn act-delete" (click)="onDelete(g)" title="Xóa"><i class="pi pi-trash"></i></button>
+                <button *ngIf="authService.hasPermission('USER_GROUP_EDIT')" class="act-btn act-edit" (click)="onEdit(g)" title="Chỉnh sửa"><i class="pi pi-pencil"></i></button>
+                <button *ngIf="authService.hasPermission('USER_GROUP_DELETE')" class="act-btn act-delete" (click)="onDelete(g)" title="Xóa"><i class="pi pi-trash"></i></button>
               </td>
             </tr>
             <tr *ngIf="filteredGroups().length === 0">

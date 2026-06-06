@@ -26,7 +26,7 @@ export class RoleManagement implements OnInit {
   isEdit = signal<boolean>(false);
   currentRole = signal<any>({});
 
-  displayPermissionDialog = signal<boolean>(false);
+  isAssigningPermissions = signal<boolean>(false);
   permissionDialogHeader = signal<string>('');
   activeRoleForPermission = signal<any>(null);
   systemPermissions = signal<any[]>([]);
@@ -83,7 +83,7 @@ export class RoleManagement implements OnInit {
   }
 
   loadMenus() {
-    this.http.get<any>(`${environment.apiGatewayUrl}/api/v1/menus`).subscribe({
+    this.http.get<any>(`${environment.apiGatewayUrl}/api/v1/menus/lookup`).subscribe({
       next: (res) => {
         this.menus.set(Array.isArray(res) ? res : (res && Array.isArray(res.value) ? res.value : []));
         this.updateTree();
@@ -95,7 +95,7 @@ export class RoleManagement implements OnInit {
   }
 
   loadSystemPermissions() {
-    this.http.get<any>(`${this.apiUrl}/permissions/all`).subscribe({
+    this.http.get<any>(`${environment.apiGatewayUrl}/api/v1/permissions/lookup`).subscribe({
       next: (res) => {
         this.systemPermissions.set(Array.isArray(res) ? res : (res && Array.isArray(res.value) ? res.value : []));
         this.updateTree();
@@ -313,7 +313,7 @@ export class RoleManagement implements OnInit {
       next: (res) => {
         const list = Array.isArray(res) ? res : (res && Array.isArray(res.value) ? res.value : []);
         this.selectedPermissionCodes.set(list);
-        this.displayPermissionDialog.set(true);
+        this.isAssigningPermissions.set(true);
       },
       error: (err) => {
         this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể tải quyền đã gán.' });
@@ -348,7 +348,7 @@ export class RoleManagement implements OnInit {
       .subscribe({
         next: () => {
           this.messageService.add({ severity: 'success', summary: 'Phân quyền thành công', detail: 'Đã lưu thay đổi phân quyền hệ thống!' });
-          this.displayPermissionDialog.set(false);
+          this.isAssigningPermissions.set(false);
         },
         error: (err) => {
           this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Lưu phân quyền vai trò thất bại.' });

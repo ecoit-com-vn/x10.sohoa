@@ -7,6 +7,7 @@ import { ToastModule } from 'primeng/toast';
 import { MessageService, ConfirmationService } from 'primeng/api';
 import { environment } from '@env/environment';
 import { finalize } from 'rxjs';
+import { AuthService } from '@sohoa.frontend/shared/core';
 
 @Component({
   selector: 'app-organization-settings',
@@ -47,7 +48,8 @@ export class OrganizationSettings implements OnInit {
   constructor(
     private http: HttpClient,
     private messageService: MessageService,
-    private confirmationService: ConfirmationService
+    private confirmationService: ConfirmationService,
+    public authService: AuthService
   ) {}
 
   ngOnInit() {

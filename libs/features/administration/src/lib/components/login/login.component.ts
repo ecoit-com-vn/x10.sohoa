@@ -1,6 +1,4 @@
 import { Component, inject, OnInit } from '@angular/core';
-import { Card } from 'primeng/card';
-import { Button } from 'primeng/button';
 import { Router, ActivatedRoute } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -9,7 +7,7 @@ import { AuthService } from '@sohoa.frontend/shared/core';
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [Card, Button, CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './login.component.html',
   styleUrl: './login.component.scss'
 })
@@ -19,6 +17,7 @@ export class Login implements OnInit {
   error = '';
   username = '';
   password = '';
+  showPassword = false;
   
   private router = inject(Router);
   private route = inject(ActivatedRoute);

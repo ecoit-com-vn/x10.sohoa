@@ -27,7 +27,7 @@
         </button>
       </div>
       <div class="toolbar-right">
-        <button class="btn-green" (click)="onAddNew()">
+        <button *ngIf="authService.hasPermission('UPLOAD_CONFIG_CREATE')" class="btn-green" (click)="onAddNew()">
           <i class="pi pi-plus"></i> Thêm cấu hình mới
         </button>
       </div>
@@ -70,8 +70,8 @@
               </td>
               <td><b class="text-orange" style="color: #FF6B00;">{{ c.maxFileSizeMb }} MB</b></td>
               <td class="col-hd">
-                <button class="act-btn act-edit" (click)="onEdit(c)" title="Chỉnh sửa"><i class="pi pi-pencil"></i></button>
-                <button class="act-btn act-delete" (click)="onDelete(c)" title="Xóa"><i class="pi pi-trash"></i></button>
+                <button *ngIf="authService.hasPermission('UPLOAD_CONFIG_EDIT')" class="act-btn act-edit" (click)="onEdit(c)" title="Chỉnh sửa"><i class="pi pi-pencil"></i></button>
+                <button *ngIf="authService.hasPermission('UPLOAD_CONFIG_DELETE')" class="act-btn act-delete" (click)="onDelete(c)" title="Xóa"><i class="pi pi-trash"></i></button>
               </td>
             </tr>
             <tr *ngIf="computedFilteredConfigs().length === 0">

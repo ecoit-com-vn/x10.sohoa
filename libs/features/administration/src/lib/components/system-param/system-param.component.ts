@@ -6,6 +6,7 @@ import { DialogModule } from 'primeng/dialog';
 import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
 import { environment } from '@env/environment';
+import { AuthService } from '@sohoa.frontend/shared/core';
 
 @Component({
   selector: 'app-system-param',
@@ -22,7 +23,11 @@ export class SystemParam implements OnInit {
 
   private apiUrl = `${environment.apiGatewayUrl}/api/v1/system-params`;
 
-  constructor(private http: HttpClient, private messageService: MessageService) {}
+  constructor(
+    private http: HttpClient,
+    private messageService: MessageService,
+    public authService: AuthService
+  ) {}
 
   ngOnInit() {
     this.loadParams();

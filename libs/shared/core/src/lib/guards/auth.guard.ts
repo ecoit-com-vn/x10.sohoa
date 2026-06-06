@@ -16,7 +16,7 @@ export const authGuard: CanActivateFn = () => {
   const token = authService.getToken();
 
   if (token) {
-    authService.loadPermissionsFromToken();
+    authService.loadPermissions();
     return true;
   }
 

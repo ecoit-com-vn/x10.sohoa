@@ -7,6 +7,7 @@ import { HttpClient, HttpClientModule } from '@angular/common/http';
 import { DialogModule } from 'primeng/dialog';
 import { environment } from '@env/environment';
 import { finalize } from 'rxjs';
+import { AuthService } from '@sohoa.frontend/shared/core';
 
 interface AuditLog {
   id: string;
@@ -34,6 +35,7 @@ export class AuditLogComponent implements OnInit {
 
   private http = inject(HttpClient);
   private messageService = inject(MessageService);
+  public authService = inject(AuthService);
 
   // computed signal for filteredLogs
   filteredLogs = computed(() => {
@@ -125,24 +127,7 @@ export class AuditLogComponent implements OnInit {
   deleteParams = { fromDate: '', toDate: '' };
 
   hasDeletePermission(): boolean {
-    if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('token');
-      if (token) {
-        try {
-          const payloadBase64 = token.split('.')[1];
-          const payloadJson = atob(payloadBase64.replace(/-/g, '+').replace(/_/g, '/'));
-          const payload = JSON.parse(payloadJson);
-          const permissions = payload.permission || [];
-          const roles = payload.role || [];
-          const hasPerm = permissions.includes('AUDIT_LOG_DELETE');
-          const hasRole = Array.isArray(roles) ? roles.includes('ADMIN') : roles === 'ADMIN';
-          return hasPerm || hasRole;
-        } catch (e) {
-          return false;
-        }
-      }
-    }
-    return false;
+    return this.authService.hasPermission('AUDIT_LOG_DELETE');
   }
 
   onOpenDeleteDialog() {

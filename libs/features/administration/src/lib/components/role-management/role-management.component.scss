@@ -248,4 +248,13 @@
       display: flex;
       justify-content: flex-end;
       gap: 8px;
+    }
+
+    /* Action buttons row alignment */
+    .action-buttons-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: nowrap;
+      white-space: nowrap;
     }

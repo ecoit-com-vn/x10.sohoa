@@ -31,11 +31,11 @@ export class UserService {
   }
 
   getOrganizationUnits(): Observable<any[]> {
-    return this.http.get<any[]>(`${this.base}/organization-units`);
+    return this.http.get<any[]>(`${this.base}/organization-units/lookup`);
   }
 
   getSystemRoles(): Observable<any[]> {
-    return this.http.get<any[]>(`${this.base}/roles`);
+    return this.http.get<any[]>(`${this.base}/roles/lookup`);
   }
 
   getUserUnitRoles(userId: string): Observable<any[]> {
@@ -55,11 +55,11 @@ export class UserService {
   }
 
   getSystemPermissions(): Observable<any[]> {
-    return this.http.get<any[]>(`${this.base}/roles/permissions/all`);
+    return this.http.get<any[]>(`${this.base}/permissions/lookup`);
   }
 
   getMenus(): Observable<any[]> {
-    return this.http.get<any[]>(`${this.base}/menus`);
+    return this.http.get<any[]>(`${this.base}/menus/lookup`);
   }
 
   getUserRoles(userId: string): Observable<number[]> {

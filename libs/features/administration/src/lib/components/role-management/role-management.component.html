@@ -1,6 +1,6 @@
 <div class="wf-page">
   <p-toast></p-toast>
-  <div class="wf-card">
+  <div class="wf-card" *ngIf="!isAssigningPermissions()">
     
     <!-- Breadcrumb -->
     <div class="breadcrumb">
@@ -61,18 +61,23 @@
             <tr *ngFor="let role of filteredRoles(); let i = index">
               <td class="col-stt text-muted">{{ i + 1 }}</td>
               <td><code>{{ role.code }}</code></td>
-              <td><b class="wf-name-link" (click)="onEdit(role)">{{ role.name }}</b></td>
+              <td>
+                <b *ngIf="authService.hasPermission('ROLE_EDIT')" class="wf-name-link" (click)="onEdit(role)">{{ role.name }}</b>
+                <span *ngIf="!authService.hasPermission('ROLE_EDIT')">{{ role.name }}</span>
+              </td>
               <td><span class="text-muted">{{ role.description }}</span></td>
               <td class="col-hd">
-                <button *ngIf="authService.hasPermission('ROLE_MANAGE') || authService.hasPermission('PERMISSION_MANAGE')" class="btn-outlined btn-small mr-1" (click)="onAssignPermissions(role)" title="Phân quyền">
-                  <i class="pi pi-shield mr-1"></i> Phân quyền
-                </button>
-                <button *ngIf="authService.hasPermission('ROLE_EDIT')" class="act-btn act-edit" (click)="onEdit(role)" title="Chỉnh sửa">
-                  <i class="pi pi-pencil"></i>
-                </button>
-                <button *ngIf="authService.hasPermission('ROLE_DELETE')" class="act-btn act-delete" (click)="onDelete(role)" title="Xóa">
-                  <i class="pi pi-trash"></i>
-                </button>
+                <div class="action-buttons-group">
+                  <button *ngIf="authService.hasPermission('ROLE_MANAGE') || authService.hasPermission('PERMISSION_MANAGE')" class="act-btn act-assign" (click)="onAssignPermissions(role)" title="Phân quyền">
+                    <i class="pi pi-shield"></i>
+                  </button>
+                  <button *ngIf="authService.hasPermission('ROLE_EDIT')" class="act-btn act-edit" (click)="onEdit(role)" title="Chỉnh sửa">
+                    <i class="pi pi-pencil"></i>
+                  </button>
+                  <button *ngIf="authService.hasPermission('ROLE_DELETE')" class="act-btn act-delete" (click)="onDelete(role)" title="Xóa">
+                    <i class="pi pi-trash"></i>
+                  </button>
+                </div>
               </td>
             </tr>
             <tr *ngIf="filteredRoles().length === 0">
@@ -91,6 +96,91 @@
       <span class="record-count">Tổng số: <b>{{ filteredRoles().length }}</b> nhóm quyền.</span>
     </div>
 
+  </div>
+
+  <!-- View Phân Quyền Trực Tiếp (Inline Permissions Assignment) -->
+  <div class="wf-card" *ngIf="isAssigningPermissions()">
+    
+    <!-- Breadcrumb -->
+    <div class="breadcrumb">
+      <i class="pi pi-home bc-icon"></i>
+      <span class="bc-text">Trang chủ</span>
+      <span class="bc-sep">/</span>
+      <span class="bc-text">Quản trị hệ thống</span>
+      <span class="bc-sep">/</span>
+      <span class="bc-text wf-name-link" (click)="isAssigningPermissions.set(false)" style="cursor: pointer; color: #0284c7;">Quản lý nhóm quyền</span>
+      <span class="bc-sep">/</span>
+      <span class="bc-current">Phân quyền chi tiết</span>
+    </div>
+
+    <div class="flex align-items-center justify-content-between mb-3" style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #e2e8f0; padding-bottom: 14px; margin-bottom: 16px;">
+      <h3 style="color: #002D72; font-weight: 700; margin: 0; font-size: 1.15rem;">{{ permissionDialogHeader() }}</h3>
+      <div class="dialog-footer-actions">
+        <button class="btn-outlined btn-small" (click)="isAssigningPermissions.set(false)" [disabled]="savingPermissions()">Hủy quay lại</button>
+        <button class="btn-save btn-small" (click)="onSavePermissions()" [disabled]="savingPermissions()">
+          <i class="pi pi-spin pi-spinner" *ngIf="savingPermissions()" style="margin-right: 4px;"></i>
+          <i class="pi pi-check-circle mr-1" *ngIf="!savingPermissions()"></i> Lưu cấu hình
+        </button>
+      </div>
+    </div>
+
+    <div class="dialog-permissions-body">
+      <p class="text-muted mb-4 dialog-subtitle">Chọn các quyền hạn cụ thể cấp cho nhóm quyền này, sau đó click nút <b>Lưu cấu hình</b> để xác nhận:</p>
+      
+      <div class="permissions-scroll-container" style="max-height: calc(100vh - 280px);">
+        
+        <!-- Loop through each parent menu group -->
+        <div *ngFor="let parent of menuPermissionTree()" class="parent-menu-section">
+          
+          <!-- Parent menu header -->
+          <div (click)="toggleParentMenu(parent)" class="parent-menu-header">
+            <div class="header-title-wrap">
+              <i [class]="parent.icon || 'pi pi-folder'" class="header-icon"></i>
+              <span class="header-text">{{ parent.name }}</span>
+            </div>
+            <i class="pi chevron-icon" [class.pi-chevron-down]="parent.expanded" [class.pi-chevron-right]="!parent.expanded"></i>
+          </div>
+
+          <!-- Parent menu body -->
+          <div *ngIf="parent.expanded" class="parent-menu-body">
+            
+            <!-- Direct parent permissions (if any) -->
+            <div *ngIf="parent.permissions && parent.permissions.length > 0" class="permissions-grid">
+              <div *ngFor="let perm of parent.permissions" class="permission-checkbox-item">
+                <input type="checkbox" [id]="perm.code" [checked]="isPermissionChecked(perm.code)" (change)="togglePermission(perm.code)" [disabled]="savingPermissions()" class="perm-checkbox" />
+                <label [for]="perm.code" class="perm-label-wrap">
+                  <span class="perm-name">{{ perm.name }}</span>
+                  <span class="perm-desc">{{ perm.description }}</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Child menus -->
+            <div *ngFor="let sub of parent.subMenus" class="submenu-section">
+              <div class="submenu-header">
+                <i [class]="sub.icon || 'pi pi-file'" class="submenu-icon"></i>
+                <span class="submenu-title">{{ sub.name }}</span>
+              </div>
+
+              <!-- Permissions under child menu -->
+              <div class="permissions-grid">
+                <div *ngFor="let perm of sub.permissions" class="permission-checkbox-item">
+                  <input type="checkbox" [id]="perm.code" [checked]="isPermissionChecked(perm.code)" (change)="togglePermission(perm.code)" [disabled]="savingPermissions()" class="perm-checkbox" />
+                  <label [for]="perm.code" class="perm-label-wrap">
+                    <span class="perm-name">{{ perm.name }}</span>
+                    <span class="perm-desc">{{ perm.description }}</span>
+                  </label>
+                </div>
+                <div *ngIf="sub.permissions.length === 0" class="no-perms-hint">Chưa cấu hình quyền chi tiết cho chức năng này.</div>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+    </div>
   </div>
 </div>
 
@@ -119,77 +209,6 @@
       <button class="btn-save btn-small" (click)="onSaveRole()" [disabled]="saving()">
         <i class="pi pi-spin pi-spinner" *ngIf="saving()" style="margin-right: 4px;"></i>
         Lưu
-      </button>
-    </div>
-  </ng-template>
-</p-dialog>
-
-<!-- Dialog Phân Quyền (Permissions assignment) -->
-<p-dialog [visible]="displayPermissionDialog()" (visibleChange)="displayPermissionDialog.set($event)" [header]="permissionDialogHeader()" [modal]="true" [style]="{ width: '850px', 'max-width': '95vw' }" styleClass="evn-dialog-custom">
-  <div class="dialog-permissions-body">
-    <p class="text-muted mb-3 dialog-subtitle">Chọn các quyền hạn cụ thể cấp cho nhóm quyền này:</p>
-    
-    <div class="permissions-scroll-container">
-      
-      <!-- Loop through each parent menu group -->
-      <div *ngFor="let parent of menuPermissionTree()" class="parent-menu-section">
-        
-        <!-- Parent menu header -->
-        <div (click)="toggleParentMenu(parent)" class="parent-menu-header">
-          <div class="header-title-wrap">
-            <i [class]="parent.icon || 'pi pi-folder'" class="header-icon"></i>
-            <span class="header-text">{{ parent.name }}</span>
-          </div>
-          <i class="pi chevron-icon" [class.pi-chevron-down]="parent.expanded" [class.pi-chevron-right]="!parent.expanded"></i>
-        </div>
-
-        <!-- Parent menu body -->
-        <div *ngIf="parent.expanded" class="parent-menu-body">
-          
-          <!-- Direct parent permissions (if any) -->
-          <div *ngIf="parent.permissions && parent.permissions.length > 0" class="permissions-grid">
-            <div *ngFor="let perm of parent.permissions" class="permission-checkbox-item">
-              <input type="checkbox" [id]="perm.code" [checked]="isPermissionChecked(perm.code)" (change)="togglePermission(perm.code)" [disabled]="savingPermissions()" class="perm-checkbox" />
-              <div class="perm-label-wrap" (click)="!savingPermissions() && togglePermission(perm.code)">
-                <label [for]="perm.code" class="perm-name">{{ perm.name }}</label>
-                <span class="perm-desc">{{ perm.description }}</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Child menus -->
-          <div *ngFor="let sub of parent.subMenus" class="submenu-section">
-            <div class="submenu-header">
-              <i [class]="sub.icon || 'pi pi-file'" class="submenu-icon"></i>
-              <span class="submenu-title">{{ sub.name }}</span>
-            </div>
-
-            <!-- Permissions under child menu -->
-            <div class="permissions-grid">
-              <div *ngFor="let perm of sub.permissions" class="permission-checkbox-item">
-                <input type="checkbox" [id]="perm.code" [checked]="isPermissionChecked(perm.code)" (change)="togglePermission(perm.code)" [disabled]="savingPermissions()" class="perm-checkbox" />
-                <div class="perm-label-wrap" (click)="!savingPermissions() && togglePermission(perm.code)">
-                  <label [for]="perm.code" class="perm-name">{{ perm.name }}</label>
-                  <span class="perm-desc">{{ perm.description }}</span>
-                </div>
-              </div>
-              <div *ngIf="sub.permissions.length === 0" class="no-perms-hint">Chưa cấu hình quyền chi tiết cho chức năng này.</div>
-            </div>
-          </div>
-
-        </div>
-
-      </div>
-
-    </div>
-  </div>
-  
-  <ng-template #footer>
-    <div class="dialog-footer-actions">
-      <button class="btn-outlined btn-small" (click)="displayPermissionDialog.set(false)" [disabled]="savingPermissions()">Hủy</button>
-      <button class="btn-save btn-small" (click)="onSavePermissions()" [disabled]="savingPermissions()">
-        <i class="pi pi-spin pi-spinner" *ngIf="savingPermissions()" style="margin-right: 4px;"></i>
-        <i class="pi pi-check-circle mr-1" *ngIf="!savingPermissions()"></i> Xác nhận lưu
       </button>
     </div>
   </ng-template>

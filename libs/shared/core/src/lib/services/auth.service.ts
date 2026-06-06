@@ -33,13 +33,23 @@ export class AuthService {
       return null;
     }
   }
+  getPermissions(): Observable<string[]> {
+    return this.http.get<string[]>(`${this.base}/permissions`);
+  }
 
-  loadPermissionsFromToken(): void {
+  loadPermissions(): void {
     const token = this.getToken();
     if (token) {
-      const payload = this.decodeTokenPayload(token);
-      const perms = payload?.permissionCodes || payload?.permissions || payload?.permission || [];
-      this.currentUserPermissions.set(Array.isArray(perms) ? perms : [perms]);
+      if (this.currentUserPermissions().length === 0) {
+        this.getPermissions().subscribe({
+          next: (perms) => {
+            this.currentUserPermissions.set(perms || []);
+          },
+          error: () => {
+            this.currentUserPermissions.set([]);
+          }
+        });
+      }
     } else {
       this.currentUserPermissions.set([]);
     }

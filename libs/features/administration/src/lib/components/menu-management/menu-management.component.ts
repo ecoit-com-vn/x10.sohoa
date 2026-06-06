@@ -1,4 +1,3 @@
-// E:\ecoit\sohoax10\sohoa.frontend\apps\admin-portal\src\app\features\administration\menu-management.component.ts
 import { Component, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -8,6 +7,7 @@ import { ToastModule } from 'primeng/toast';
 import { MessageService, ConfirmationService } from 'primeng/api';
 import { environment } from '@env/environment';
 import { finalize } from 'rxjs';
+import { AuthService } from '@sohoa.frontend/shared/core';
 
 @Component({
   selector: 'app-menu-management',
@@ -49,7 +49,8 @@ export class MenuManagement implements OnInit {
   constructor(
     private http: HttpClient,
     private messageService: MessageService,
-    private confirmationService: ConfirmationService
+    private confirmationService: ConfirmationService,
+    public authService: AuthService
   ) {}
 
   ngOnInit() {

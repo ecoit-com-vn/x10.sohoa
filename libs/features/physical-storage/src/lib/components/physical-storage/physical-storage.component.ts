@@ -37,7 +37,7 @@ export class PhysicalStorageComponent implements OnInit {
   loading = false;
   saving = false;
 
-  private apiUrl = `${environment.apiGatewayUrl}/api/PhysicalStorage`;
+  private apiUrl = `${environment.apiGatewayUrl}/api/physicalstorage`;
 
   constructor(
     private http: HttpClient,

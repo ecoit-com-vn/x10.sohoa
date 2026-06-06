@@ -9,6 +9,7 @@ import { PickListModule } from 'primeng/picklist';
 import { MessageService, ConfirmationService } from 'primeng/api';
 import { environment } from '@env/environment';
 import { finalize } from 'rxjs';
+import { AuthService } from '@sohoa.frontend/shared/core';
 
 @Component({
   selector: 'app-user-group',
@@ -72,7 +73,8 @@ export class UserGroupComponent implements OnInit {
   constructor(
     private http: HttpClient,
     private messageService: MessageService,
-    private confirmationService: ConfirmationService
+    private confirmationService: ConfirmationService,
+    public authService: AuthService
   ) {}
 
   ngOnInit() {
@@ -177,7 +179,7 @@ export class UserGroupComponent implements OnInit {
     this.targetUsers.set([]);
 
     // Load tất cả người dùng
-    this.http.get<any[]>(`${environment.apiGatewayUrl}/api/v1/users`).subscribe({
+    this.http.get<any[]>(`${environment.apiGatewayUrl}/api/v1/users/lookup`).subscribe({
       next: (allUsers) => {
         // Load thành viên của nhóm
         this.http.get<any[]>(`${this.apiUrl}/${group.id}/members`).subscribe({
@@ -224,7 +226,7 @@ export class UserGroupComponent implements OnInit {
     this.targetRoles.set([]);
 
     // Load tất cả vai trò
-    this.http.get<any[]>(`${environment.apiGatewayUrl}/api/v1/roles`).subscribe({
+    this.http.get<any[]>(`${environment.apiGatewayUrl}/api/v1/roles/lookup`).subscribe({
       next: (allRoles) => {
         // Load vai trò của nhóm
         this.http.get<any[]>(`${this.apiUrl}/${group.id}/roles`).subscribe({
@@ -265,7 +267,7 @@ export class UserGroupComponent implements OnInit {
   }
 
   loadSystemPermissions() {
-    this.http.get<any>(`${environment.apiGatewayUrl}/api/v1/roles/permissions/all`).subscribe({
+    this.http.get<any>(`${environment.apiGatewayUrl}/api/v1/permissions/lookup`).subscribe({
       next: (res: any) => {
         this.systemPermissions.set(Array.isArray(res) ? res : (res && Array.isArray(res.value) ? res.value : []));
       },

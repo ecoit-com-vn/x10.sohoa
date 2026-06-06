@@ -49,7 +49,7 @@ export class EquipmentSearchComponent implements OnInit {
   }
 
   loadEquipmentTypes() {
-    this.http.get<any[]>(`${environment.apiGatewayUrl}/api/EquipmentType`).subscribe({
+    this.http.get<any[]>(`${environment.apiGatewayUrl}/api/equipmenttype`).subscribe({
       next: (res) => {
         this.equipmentTypes = res || [];
       },
@@ -73,7 +73,7 @@ export class EquipmentSearchComponent implements OnInit {
       this.messageService.add({ severity: 'warn', summary: 'Cảnh báo', detail: 'Vui lòng chọn loại thiết bị.' });
       return;
     }
-    const url = `${environment.apiGatewayUrl}/api/Equipment/import-template/${this.selectedTypeIdForTemplate}`;
+    const url = `${environment.apiGatewayUrl}/api/equipment/import-template/${this.selectedTypeIdForTemplate}`;
     this.http.get(url, { responseType: 'blob' }).subscribe({
       next: (blob) => {
         const urlObj = window.URL.createObjectURL(blob);
@@ -123,7 +123,7 @@ export class EquipmentSearchComponent implements OnInit {
 
     this.importing = true;
     this.importResult = null;
-    const url = `${environment.apiGatewayUrl}/api/Equipment/import?equipmentTypeId=${this.selectedTypeIdForImport}`;
+    const url = `${environment.apiGatewayUrl}/api/equipment/import?equipmentTypeId=${this.selectedTypeIdForImport}`;
     
     this.http.post<any>(url, formData).subscribe({
       next: (res) => {

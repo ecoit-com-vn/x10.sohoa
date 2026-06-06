@@ -28,7 +28,7 @@
         </button>
       </div>
       <div class="toolbar-right">
-        <button class="btn-green" (click)="onAddNew()">
+        <button *ngIf="authService.hasPermission('ORGANIZATION_CREATE')" class="btn-green" (click)="onAddNew()">
           <i class="pi pi-plus"></i> Thêm đơn vị mới
         </button>
       </div>
@@ -67,7 +67,8 @@
               <td>
                 <div [style.padding-left.px]="getIndentLevel(unit) * 20" style="display: flex; align-items: center; gap: 8px;">
                   <i class="pi" [class.pi-building]="getIndentLevel(unit) === 0" [class.pi-users]="getIndentLevel(unit) > 0" style="color: #002D72;"></i>
-                  <b class="wf-name-link" (click)="onEdit(unit)">{{ unit.name }}</b>
+                  <b *ngIf="authService.hasPermission('ORGANIZATION_EDIT')" class="wf-name-link" (click)="onEdit(unit)">{{ unit.name }}</b>
+                  <span *ngIf="!authService.hasPermission('ORGANIZATION_EDIT')">{{ unit.name }}</span>
                 </div>
               </td>
               <td>
@@ -78,8 +79,8 @@
               </td>
               <td><span class="text-muted" style="font-size: 0.82rem;">{{ unit.description }}</span></td>
               <td class="col-hd">
-                <button class="act-btn act-edit" (click)="onEdit(unit)" title="Chỉnh sửa"><i class="pi pi-pencil"></i></button>
-                <button class="act-btn act-delete" (click)="onDelete(unit)" title="Xóa"><i class="pi pi-trash"></i></button>
+                <button *ngIf="authService.hasPermission('ORGANIZATION_EDIT')" class="act-btn act-edit" (click)="onEdit(unit)" title="Chỉnh sửa"><i class="pi pi-pencil"></i></button>
+                <button *ngIf="authService.hasPermission('ORGANIZATION_DELETE')" class="act-btn act-delete" (click)="onDelete(unit)" title="Xóa"><i class="pi pi-trash"></i></button>
               </td>
             </tr>
             <tr *ngIf="filteredUnits().length === 0">
