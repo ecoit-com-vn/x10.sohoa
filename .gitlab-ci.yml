@@ -7,8 +7,7 @@ stages:
   - deploy
 
 variables:
-  REGISTRY: "$REGISTRY"
-  FRONTEND_IMAGE_PATH: "$REGISTRY/$CI_PROJECT_PATH:$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA"
+  REGISTRY: "harbor.ecoit.vn"
 
 default:
   tags:
@@ -23,6 +22,7 @@ frontend-build:
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $REGISTRY
     - docker build -t $REGISTRY/$CI_PROJECT_PATH:$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA -t $REGISTRY/$CI_PROJECT_PATH:latest -f Dockerfile .
     - docker push $REGISTRY/$CI_PROJECT_PATH:$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA
+    - docker push $REGISTRY/$CI_PROJECT_PATH:latest
     
 frontend-deploy:
   stage: deploy
@@ -36,6 +36,6 @@ frontend-deploy:
     - if [ -f "$KUBERNETES_KUBE_CONFIG" ]; then cp "$KUBERNETES_KUBE_CONFIG" ~/.kube/config; else echo "$KUBERNETES_KUBE_CONFIG" > ~/.kube/config; fi
     - chmod 600 ~/.kube/config
   script:
-    - 'sed -i "s|image:\s*$FRONTEND_IMAGE_PATH|image: $REGISTRY/$CI_PROJECT_PATH:$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA|g" deploy/k8s-deploy.yaml'
+    - 'sed -i "s|image:\s*$REGISTRY/$CI_PROJECT_PATH:latest|image: $REGISTRY/$CI_PROJECT_PATH:$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA|g" deploy/k8s-deploy.yaml'
     - kubectl apply -f deploy/k8s-deploy.yaml
     - kubectl rollout status deployment/sohoa-frontend -n x10 --timeout=150s
