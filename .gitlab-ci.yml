@@ -27,6 +27,8 @@ frontend-build:
 
 frontend-deploy:
   stage: deploy
+  environment:
+    name: $CI_COMMIT_BRANCH
   image:
     name: line/kubectl-kustomize:latest
     entrypoint: [""]
