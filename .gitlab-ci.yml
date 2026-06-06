@@ -6,9 +6,6 @@ stages:
   - build
   - deploy
 
-variables:
-  REGISTRY: "harbor.ecoit.vn"
-
 default:
   tags:
     - x10-runner
