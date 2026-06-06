@@ -7,8 +7,8 @@ stages:
   - deploy
 
 variables:
-  REGISTRY: "harbor.ecoit.vn"
-  FRONTEND_IMAGE_PATH: "harbor.ecoit.vn/x10/sohoa.frontend:latest"
+  REGISTRY: "$REGISTRY"
+  FRONTEND_IMAGE_PATH: "$REGISTRY/$CI_PROJECT_PATH:latest"
 
 default:
   tags:

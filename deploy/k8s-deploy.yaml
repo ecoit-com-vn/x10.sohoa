@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: frontend
-        image: git.ecoit.com.vn/evnhanoi/x10/sohoa.frontend:latest
+        image: harbor.ecoit.vn/x10/sohoa.frontend:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 4000
