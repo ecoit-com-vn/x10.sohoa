@@ -1,6 +1,9 @@
+using System.Linq;
 using System.Threading.Tasks;
 using EvnHanoi.IdentityService.Core.Domain.Models;
 using EvnHanoi.IdentityService.Core.Interfaces;
+using EvnHanoi.IdentityService.Infrastructure.Security;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EvnHanoi.IdentityService.Controllers;
@@ -14,6 +17,16 @@ public class OrganizationUnitsController : ControllerBase
     public OrganizationUnitsController(IOrganizationUnitRepository unitRepository)
     {
         _unitRepository = unitRepository;
+    }
+
+    [HttpGet("lookup")]
+    [Authorize]
+    [BypassDynamicPermission]
+    public async Task<IActionResult> GetLookup()
+    {
+        var units = await _unitRepository.GetAllAsync();
+        var result = units.Select(u => new { u.Id, u.Code, u.Name, u.ParentId });
+        return Ok(result);
     }
 
     [HttpGet]

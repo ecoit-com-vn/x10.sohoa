@@ -1,8 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using EvnHanoi.IdentityService.Core.Domain.Models;
 using EvnHanoi.IdentityService.Core.Interfaces;
+using EvnHanoi.IdentityService.Infrastructure.Security;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
 
@@ -21,6 +24,16 @@ public class UsersController : ControllerBase
         _userRepository = userRepository;
         _permissionRepository = permissionRepository;
         _cache = cache;
+    }
+
+    [HttpGet("lookup")]
+    [Authorize]
+    [BypassDynamicPermission]
+    public async Task<IActionResult> GetLookup()
+    {
+        var users = await _userRepository.GetAllAsync();
+        var result = users.Select(u => new { u.Id, u.Username, u.FullName });
+        return Ok(result);
     }
 
     [HttpGet]

@@ -1,5 +1,6 @@
 // E:\ecoit\sohoax10\sohoa.backend\Microservices\EvnHanoi.IdentityService\Controllers\MenusController.cs
 using System.Collections.Generic;
+using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using EvnHanoi.IdentityService.Core.Domain.Models;
@@ -16,10 +17,22 @@ namespace EvnHanoi.IdentityService.Controllers;
 public class MenusController : ControllerBase
 {
     private readonly IMenuRepository _menuRepository;
+    private readonly IUserRepository _userRepository;
 
-    public MenusController(IMenuRepository menuRepository)
+    public MenusController(IMenuRepository menuRepository, IUserRepository userRepository)
     {
         _menuRepository = menuRepository;
+        _userRepository = userRepository;
+    }
+
+    [HttpGet("lookup")]
+    [Authorize]
+    [BypassDynamicPermission]
+    public async Task<IActionResult> GetLookup()
+    {
+        var menus = await _menuRepository.GetAllAsync();
+        var result = menus.Select(m => new { m.Id, m.Name, m.Url, m.Icon, m.ParentId, m.SortOrder, m.IsActive });
+        return Ok(result);
     }
 
     [HttpGet]
@@ -34,13 +47,13 @@ public class MenusController : ControllerBase
     [BypassDynamicPermission]
     public async Task<IActionResult> GetSidebar()
     {
-        var permissionClaims = User.FindAll("permission");
-        var permissions = new List<string>();
-        foreach (var claim in permissionClaims)
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userId))
         {
-            permissions.Add(claim.Value);
+            return Unauthorized();
         }
 
+        var permissions = await _userRepository.GetPermissionsByUserIdAsync(userId);
         var result = await _menuRepository.GetMenusByUserPermissionsAsync(permissions);
         return Ok(result);
     }

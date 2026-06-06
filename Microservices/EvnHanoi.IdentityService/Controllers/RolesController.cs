@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using EvnHanoi.IdentityService.Core.Domain.Models;
 using EvnHanoi.IdentityService.Core.Interfaces;
+using EvnHanoi.IdentityService.Infrastructure.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -20,6 +21,16 @@ public class RolesController : ControllerBase
     {
         _roleRepository = roleRepository;
         _permissionRepository = permissionRepository;
+    }
+
+    [HttpGet("lookup")]
+    [Authorize]
+    [BypassDynamicPermission]
+    public async Task<IActionResult> GetLookup()
+    {
+        var roles = await _roleRepository.GetAllAsync();
+        var result = roles.Select(r => new { r.Id, r.Code, r.Name });
+        return Ok(result);
     }
 
     [HttpGet]

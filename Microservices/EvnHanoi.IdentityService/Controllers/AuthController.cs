@@ -16,6 +16,7 @@ using Microsoft.Extensions.DependencyInjection;
 using System.Data;
 using Dapper;
 using Microsoft.IdentityModel.Tokens;
+using EvnHanoi.IdentityService.Infrastructure.Security;
 
 
 namespace EvnHanoi.IdentityService.Controllers;
@@ -108,7 +109,6 @@ public class AuthController : ControllerBase
                 }
                 
                 var ssoRoles = await _userRepository.GetRolesByUserIdAsync(ssoUser.Id);
-                var ssoPermissions = await _userRepository.GetPermissionsByUserIdAsync(ssoUser.Id);
                 var ssoClaims = new List<Claim>
                 {
                     new Claim(ClaimTypes.NameIdentifier, ssoUser.Id),
@@ -121,10 +121,6 @@ public class AuthController : ControllerBase
                 foreach (var r in ssoRoles)
                 {
                     ssoClaims.Add(new Claim(ClaimTypes.Role, r));
-                }
-                foreach (var p in ssoPermissions)
-                {
-                    ssoClaims.Add(new Claim("permission", p));
                 }
 
                 var ssoTokenDescriptor = new SecurityTokenDescriptor
@@ -193,7 +189,7 @@ public class AuthController : ControllerBase
                 lockoutEnd = user.LockoutEnd.Value 
             });
         }
-
+        string logs = BCrypt.Net.BCrypt.HashPassword(request.Password);
         if (!BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
         {
             if (user.LockoutEnabled)
@@ -224,7 +220,6 @@ public class AuthController : ControllerBase
         }
 
         var userRoles = await _userRepository.GetRolesByUserIdAsync(user.Id);
-        var userPermissions = await _userRepository.GetPermissionsByUserIdAsync(user.Id);
         var claims = new List<Claim>
         {
             new Claim(ClaimTypes.NameIdentifier, user.Id),
@@ -237,10 +232,6 @@ public class AuthController : ControllerBase
         foreach (var r in userRoles)
         {
             claims.Add(new Claim(ClaimTypes.Role, r));
-        }
-        foreach (var p in userPermissions)
-        {
-            claims.Add(new Claim("permission", p));
         }
 
         var tokenDescriptor = new SecurityTokenDescriptor
@@ -476,6 +467,21 @@ public class AuthController : ControllerBase
             Roles = userRoles,
             Permissions = userPermissions
         });
+    }
+
+    [Authorize]
+    [BypassDynamicPermission]
+    [HttpGet("permissions")]
+    public async Task<IActionResult> GetPermissions()
+    {
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized();
+        }
+
+        var permissions = await _userRepository.GetPermissionsByUserIdAsync(userId);
+        return Ok(permissions);
     }
 }
 

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using EvnHanoi.IdentityService.Core.Domain.Models;
 using EvnHanoi.IdentityService.Core.Interfaces;
+using EvnHanoi.IdentityService.Infrastructure.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ApiExplorer;
@@ -27,6 +28,18 @@ public class PermissionsController : ControllerBase
         _permissionRepository = permissionRepository;
         _apiExplorer = apiExplorer;
         _cache = cache;
+    }
+
+    [HttpGet("lookup")]
+    [Authorize]
+    [BypassDynamicPermission]
+    public async Task<IActionResult> GetLookup()
+    {
+        var permissions = await _permissionRepository.GetAllPermissionsAsync();
+        var result = permissions
+            .Where(p => p.IsActive)
+            .Select(p => new { p.Id, p.Code, p.Name, p.Description });
+        return Ok(result);
     }
 
     [HttpGet]
