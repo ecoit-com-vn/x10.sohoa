@@ -1,14 +1,14 @@
 workflow:
   rules:
     - if: '$CI_COMMIT_BRANCH == "staging"'
-    
+
 stages:
   - build
   - deploy
 
 variables:
-  REGISTRY: "harbor.ecoit.vn/sohoa"
-  FRONTEND_IMAGE_PATH: "git.ecoit.com.vn/evnhanoi/x10/sohoa.frontend:latest"
+  REGISTRY: "harbor.ecoit.vn"
+  FRONTEND_IMAGE_PATH: "harbor.ecoit.vn/x10/sohoa.frontend:latest"
 
 default:
   tags:
