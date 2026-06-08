@@ -23,6 +23,8 @@ backend-test:
 backend-build:
   stage: build
   image: mcr.microsoft.com/dotnet/sdk:10.0
+  environment:
+    name: $CI_COMMIT_BRANCH
   before_script:
     - apt-get update && apt-get install -y docker.io
   script:
@@ -50,6 +52,8 @@ backend-deploy:
   image:
     name: line/kubectl-kustomize:latest
     entrypoint: [""]
+  environment:
+    name: $CI_COMMIT_BRANCH
   before_script:
     - mkdir -p ~/.kube
     - if [ -f "$KUBERNETES_KUBE_CONFIG" ]; then cp "$KUBERNETES_KUBE_CONFIG" ~/.kube/config; else echo "$KUBERNETES_KUBE_CONFIG" > ~/.kube/config; fi
