@@ -6,7 +6,7 @@
   "containerImageTags": [
     "latest"
   ],
-  "imagePullPolicy": "IfNotPresent",
+  "imagePullPolicy": "Always",
   "containerBuilder": "docker",
   "containerRepositoryPrefix": "x10/backend",
   "outputFormat": "kustomize",

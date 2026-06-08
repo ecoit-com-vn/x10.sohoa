@@ -62,3 +62,7 @@ backend-deploy:
     - kubectl cluster-info
     - cd Aspire/EvnHanoi.AppHost/overlays/production
     - kubectl apply -k .
+    - |
+      for service in identityservice equipmentservice digitizationservice notificationservice syncservice workflowservice reportservice apigateway; do
+        kubectl rollout restart deployment/${service} -n x10
+      done
