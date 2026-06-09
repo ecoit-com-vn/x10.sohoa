@@ -7,6 +7,11 @@ using Elastic.Clients.Elasticsearch;
 using Elastic.Transport;
 using Serilog;
 using RabbitMQ.Client;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
+using System.Net.Http;
+using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -29,6 +34,7 @@ var rabbitConnection = await rabbitFactory.CreateConnectionAsync();
 builder.Services.AddSingleton<IConnection>(rabbitConnection);
 
 builder.Services.AddControllers();
+builder.Services.AddOpenApi();
 
 // SignalR with Redis (Optional in Development)
 var redisConnectionString = builder.Configuration.GetConnectionString("Redis");
@@ -45,6 +51,8 @@ else
 
 builder.Services.AddSingleton<NotificationDispatcher>();
 builder.Services.AddPermissionDiscovery("NotificationService");
+builder.Services.AddScoped<EvnHanoi.NotificationService.Repositories.IAuditLogRepository, EvnHanoi.NotificationService.Repositories.AuditLogRepository>();
+builder.Services.AddScoped<EvnHanoi.NotificationService.Services.IAuditLogService, EvnHanoi.NotificationService.Services.AuditLogService>();
 
 // Elasticsearch setup
 var esUri = builder.Configuration["Elasticsearch:Uri"] ?? "http://localhost:9200";
@@ -55,13 +63,47 @@ builder.Services.AddSingleton(new ElasticsearchClient(esSettings));
 builder.Services.AddHostedService<ElasticsearchSetupService>();
 
 // Worker
+// Configure JWT Authentication
+var jwtKey = builder.Configuration["Jwt:Key"] ?? "super_secret_key_12345678901234567890";
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = builder.Configuration["Jwt:Issuer"],
+            ValidAudience = builder.Configuration["Jwt:Audience"],
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
+        };
+    });
+builder.Services.AddAuthorization();
+
+// Configure HttpClient for IdentityService communication
+builder.Services.AddHttpClient("IdentityService", client =>
+{
+    var identityUrl = builder.Configuration["Services:IdentityService"] ?? "http://identityservice";
+    client.BaseAddress = new Uri(identityUrl);
+});
+
 builder.Services.AddHostedService<EquipmentIndexWorker>();
 
 var app = builder.Build();
 
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi();
+    app.MapScalarApiReference();
+}
+
 app.MapDefaultEndpoints();
 
 app.UseRouting();
+
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapControllers();
 app.MapHub<NotificationHub>("/hubs/notifications");
