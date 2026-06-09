@@ -204,7 +204,7 @@ export class RoleManagement implements OnInit {
       case 'UPLOAD_CONFIG': return '/administration/upload-configuration';
       case 'ORGANIZATION': return '/administration/organization-settings';
       case 'AUDIT_LOG': return '/administration/audit-log';
-      case 'CATALOG': return '/catalog/unit-of-measurement';
+      case 'CATALOG': return '/catalog/fond';
       case 'EAV_FORM_TEMPLATE':
       case 'EQUIPMENT_TYPE':
       case 'EQUIPMENT': return '/equipment/form-management';

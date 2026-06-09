@@ -1,0 +1,216 @@
+<div class="wf-page">
+  <p-toast></p-toast>
+  <div class="wf-card">
+    
+    <!-- Breadcrumb -->
+    <div class="breadcrumb">
+      <i class="pi pi-home bc-icon"></i>
+      <span class="bc-text">Trang chủ</span>
+      <span class="bc-sep">/</span>
+      <span class="bc-text">Hệ thống Danh mục</span>
+      <span class="bc-sep">/</span>
+      <span class="bc-text" [class.bc-current]="currentView() === 'list'" (click)="currentView() !== 'list' && currentView.set('list')" [class.bc-link]="currentView() !== 'list'">{{ catalogTitle() }}</span>
+      <span class="bc-sep" *ngIf="currentView() !== 'list'">/</span>
+      <span class="bc-current" *ngIf="currentView() === 'add'">Thêm mới</span>
+      <span class="bc-current" *ngIf="currentView() === 'edit'">Chỉnh sửa</span>
+    </div>
+
+    <!-- MÀN HÌNH DANH SÁCH -->
+    <div *ngIf="currentView() === 'list'" class="animate-fade-in">
+      <p class="text-muted mb-4">
+        Quản lý danh mục <b>{{ catalogTitle() }}</b> dùng cho hồ sơ kỹ thuật số hóa của toàn hệ thống EVNHANOI.
+      </p>
+
+      <!-- Toolbar -->
+      <div class="list-toolbar">
+        <div class="toolbar-left" style="display: flex; gap: 8px; align-items: center;">
+          <!-- Keyword input -->
+          <input type="text" class="wf-search-input"
+            placeholder="Tìm theo mã hoặc tên..."
+            [ngModel]="searchKeyword()"
+            (ngModelChange)="searchKeyword.set($event)"
+            (keyup.enter)="onSearch()" />
+          
+          <!-- Status Dropdown Filter -->
+          <select class="wf-input" style="height: 38px; width: 140px; padding: 0 10px; border-radius: 6px;"
+            [ngModel]="searchStatus()"
+            (ngModelChange)="searchStatus.set($event); onSearch()">
+            <option value="">-- Trạng thái --</option>
+            <option value="1">Hoạt động (Active)</option>
+            <option value="0">Bị khóa (Locked)</option>
+          </select>
+
+          <button class="btn-tim" (click)="onSearch()">
+            <i class="pi pi-search"></i> Tìm
+          </button>
+          
+          <button class="btn-outlined" style="height: 38px;" (click)="onResetSearch()">
+            Làm mới
+          </button>
+        </div>
+        
+        <div class="toolbar-right" *ngIf="canCreate()">
+          <button class="btn-green" (click)="onAddNew()">
+            <i class="pi pi-plus"></i> Thêm mới
+          </button>
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="wf-table-wrap">
+        <table class="wf-table">
+          <thead>
+            <tr>
+              <th class="col-stt">STT</th>
+              <th>Mã danh mục</th>
+              <th>Tên danh mục</th>
+              <th *ngIf="hasParent()">Danh mục cha</th>
+              <th style="width: 100px; text-align: center;">Thứ tự</th>
+              <th>Trạng thái</th>
+              <th>Đơn vị riêng</th>
+              <th>Mô tả</th>
+              <th class="col-hd">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let item of items(); let i = index">
+              <td class="col-stt text-muted">{{ i + 1 }}</td>
+              <td><code>{{ item.code }}</code></td>
+              <td>
+                <span *ngIf="canEdit(); else viewOnlyName">
+                  <b class="wf-name-link" (click)="onEdit(item)">{{ item.name }}</b>
+                </span>
+                <ng-template #viewOnlyName>
+                  <b>{{ item.name }}</b>
+                </ng-template>
+              </td>
+              <td *ngIf="hasParent()">
+                <span class="text-primary font-semibold" *ngIf="item.parentId">
+                  {{ getParentName(item.parentId) || 'ID: ' + item.parentId }}
+                </span>
+                <span class="text-muted italic" *ngIf="!item.parentId">-</span>
+              </td>
+              <td style="text-align: center;">{{ item.priority }}</td>
+              <td>
+                <span *ngIf="item.status === 1" class="status-pill status-active" 
+                  style="background-color: #ecfdf5; color: #065f46; border-color: #a7f3d0;">
+                  Hoạt động
+                </span>
+                <span *ngIf="item.status === 0" class="status-pill status-locked" 
+                  style="background-color: #f3f4f6; color: #374151; border-color: #d1d5db;">
+                  Bị khóa
+                </span>
+              </td>
+              <td>
+                <span *ngIf="item.unitId" class="status-pill" 
+                  style="background-color: #fef3c7; color: #92400e; border-color: #fde68a;">
+                  Dùng riêng ĐV
+                </span>
+                <span *ngIf="!item.unitId" class="text-muted italic">-</span>
+              </td>
+              <td><span class="text-muted" style="font-size: 0.82rem;">{{ item.description || '-' }}</span></td>
+              <td class="col-hd">
+                <!-- Lock/Unlock button -->
+                <button *ngIf="canManage()" 
+                  class="act-btn" 
+                  [ngClass]="item.status === 1 ? 'act-delete' : 'act-edit'"
+                  style="border-color: transparent; margin-right: 4px;"
+                  [title]="item.status === 1 ? 'Khóa danh mục' : 'Mở khóa danh mục'" 
+                  (click)="onToggleStatus(item)">
+                  <i class="pi" [ngClass]="item.status === 1 ? 'pi-lock' : 'pi-lock-open'"></i>
+                </button>
+
+                <!-- Edit button -->
+                <button *ngIf="canEdit()" class="act-btn act-edit" (click)="onEdit(item)" title="Chỉnh sửa">
+                  <i class="pi pi-pencil"></i>
+                </button>
+
+                <!-- Delete button -->
+                <button *ngIf="canDelete()" class="act-btn act-delete" (click)="onDelete(item)" title="Xóa">
+                  <i class="pi pi-trash"></i>
+                </button>
+              </td>
+            </tr>
+            <tr *ngIf="items().length === 0">
+              <td [attr.colspan]="hasParent() ? 9 : 8" class="empty-row">
+                <i class="pi pi-inbox"></i>
+                <div>Không tìm thấy dữ liệu danh mục nào.</div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Footer -->
+      <div class="table-footer">
+        <span class="record-count">Tổng số: <b>{{ items().length }}</b> bản ghi.</span>
+      </div>
+    </div>
+
+    <!-- MÀN HÌNH THÊM MỚI / CHỈNH SỬA -->
+    <div *ngIf="currentView() === 'add' || currentView() === 'edit'" class="animate-fade-in">
+      <div class="edit-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <button class="btn-outlined btn-small" (click)="currentView.set('list')" title="Quay lại danh sách">
+            <i class="pi pi-arrow-left"></i>
+          </button>
+          <h3 class="edit-title">
+            {{ currentView() === 'add' ? 'Thêm mới ' + catalogTitle() : 'Chỉnh sửa ' + catalogTitle() }}
+          </h3>
+        </div>
+      </div>
+
+      <div style="max-width: 600px; display: flex; flex-direction: column; gap: 16px; padding: 10px 0;">
+        <div class="form-group">
+          <label class="form-label">Mã danh mục <span class="required">*</span></label>
+          <input type="text" class="wf-input w-full" [(ngModel)]="currentItem().code" 
+            placeholder="Ví dụ: CODE_01, LOAI_A..." [disabled]="currentView() === 'edit'" />
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">Tên danh mục <span class="required">*</span></label>
+          <input type="text" class="wf-input w-full" [(ngModel)]="currentItem().name" 
+            placeholder="Nhập tên hiển thị..." />
+        </div>
+
+        <!-- Priority field -->
+        <div class="form-group">
+          <label class="form-label">Thứ tự ưu tiên</label>
+          <input type="number" class="wf-input w-full" [(ngModel)]="currentItem().priority" 
+            placeholder="Mặc định: 1" min="1" />
+        </div>
+
+        <!-- Parent drop-down for hierarchical catalogs -->
+        <div class="form-group" *ngIf="hasParent()">
+          <label class="form-label">Danh mục cha</label>
+          <p-select [options]="parentsList()" [(ngModel)]="currentItem().parentId" 
+            optionLabel="name" optionValue="id" [showClear]="true" placeholder="-- Chọn danh mục cha (không bắt buộc) --"
+            [style]="{'width':'100%', 'height':'38px', 'line-height':'24px', 'border':'1px solid #cbd5e1', 'border-radius':'6px'}">
+          </p-select>
+        </div>
+        
+        <div class="form-group" style="display: flex; align-items: center; gap: 8px; padding-top: 5px;">
+          <input type="checkbox" id="chkPrivate" [ngModel]="isPrivate()" (ngModelChange)="isPrivate.set($event)" style="scale: 1.1; cursor: pointer;" />
+          <label for="chkPrivate" style="font-size: 0.9rem; font-weight: 600; cursor: pointer; user-select: none; margin: 0;">
+            Dùng riêng cho đơn vị của tôi
+          </label>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Mô tả chi tiết</label>
+          <textarea class="wf-textarea w-full" rows="3" [(ngModel)]="currentItem().description" 
+            placeholder="Mô tả phạm vi áp dụng, thông tin chi tiết..."></textarea>
+        </div>
+
+        <div class="flex gap-2 justify-content-start pt-3" style="display: flex; justify-content: flex-start; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 18px; margin-top: 10px;">
+          <button class="btn-outlined btn-small" (click)="currentView.set('list')" [disabled]="isSaving()">Hủy</button>
+          <button class="btn-save btn-small" (click)="onSaveItem()" [disabled]="isSaving()">
+            <i class="pi pi-spin pi-spinner" *ngIf="isSaving()" style="margin-right: 4px;"></i>
+            Lưu
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>

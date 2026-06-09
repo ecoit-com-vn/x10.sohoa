@@ -21,7 +21,10 @@ export const appConfig: ApplicationConfig = {
     ConfirmationService,
     providePrimeNG({
         theme: {
-            preset: Aura
+            preset: Aura,
+            options: {
+                darkModeSelector: '.dark-mode'
+            }
         }
     }),
     { provide: APP_CONFIG, useValue: environment }

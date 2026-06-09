@@ -1,0 +1,299 @@
+import { Component, OnInit, signal, computed, inject, effect } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { HttpClient } from '@angular/common/http';
+import { ActivatedRoute } from '@angular/router';
+import { ToastModule } from 'primeng/toast';
+import { SelectModule } from 'primeng/select';
+import { MessageService } from 'primeng/api';
+import { environment } from '@env/environment';
+import { AuthService } from '@sohoa.frontend/shared/core';
+
+@Component({
+  selector: 'app-catalog-list',
+  standalone: true,
+  imports: [CommonModule, FormsModule, ToastModule, SelectModule],
+  providers: [MessageService],
+  templateUrl: './catalog-list.component.html'
+})
+export class CatalogListComponent implements OnInit {
+  private http = inject(HttpClient);
+  private route = inject(ActivatedRoute);
+  private authService = inject(AuthService);
+  private messageService = inject(MessageService);
+
+  // Catalog configuration from route data
+  catalogType = signal<string>('');
+  catalogTitle = signal<string>('');
+
+  items = signal<any[]>([]);
+  parentsList = signal<any[]>([]);
+  searchKeyword = signal<string>('');
+  searchStatus = signal<string>(''); // '', '1', '0'
+
+  currentView = signal<'list' | 'add' | 'edit'>('list');
+  currentItem = signal<any>({});
+  isPrivate = signal<boolean>(false);
+  isSaving = signal<boolean>(false);
+
+  catalogTypes = signal<any[]>([]);
+
+  private apiUrl = `${environment.apiGatewayUrl}/api/catalog`;
+
+  // Check if this catalog type supports hierarchy (Parent-Child)
+  hasParent = computed(() => {
+    const type = this.catalogType();
+    const typeObj = this.catalogTypes().find(t => t.code === type);
+    return typeObj ? typeObj.hasParent === 1 : false;
+  });
+
+  // Fine-grained permission computed signals
+  canCreate = computed(() => this.authService.hasPermission('CATALOG_CREATE'));
+  canEdit = computed(() => this.authService.hasPermission('CATALOG_EDIT'));
+  canDelete = computed(() => this.authService.hasPermission('CATALOG_DELETE'));
+  canManage = computed(() => this.authService.hasPermission('CATALOG_MANAGE'));
+
+  constructor() {
+    // Listen to changes in route data to reload catalog configurations
+    this.route.data.subscribe(data => {
+      this.catalogType.set(data['type'] || '');
+      this.catalogTitle.set(data['title'] || 'Danh mục');
+      this.currentView.set('list');
+      this.searchKeyword.set('');
+      this.searchStatus.set('');
+      
+      // Load types first if not loaded, then load items
+      if (this.catalogTypes().length === 0) {
+        this.loadCatalogTypes(() => this.loadItems());
+      } else {
+        this.loadItems();
+      }
+    });
+  }
+
+  ngOnInit() {
+    this.authService.loadPermissions();
+    if (this.catalogTypes().length === 0) {
+      this.loadCatalogTypes();
+    }
+  }
+
+  loadCatalogTypes(callback?: () => void) {
+    this.http.get<any[]>(`${this.apiUrl}/types`).subscribe({
+      next: (types) => {
+        this.catalogTypes.set(types || []);
+        if (callback) callback();
+      },
+      error: (err) => {
+        console.error('Không thể tải danh sách loại danh mục từ BE.', err);
+        if (callback) callback();
+      }
+    });
+  }
+
+  loadItems() {
+    const type = this.catalogType();
+    if (!type) return;
+
+    let url = `${this.apiUrl}?catalogType=${type}`;
+    if (this.searchKeyword().trim()) {
+      url += `&keyword=${encodeURIComponent(this.searchKeyword().trim())}`;
+    }
+    if (this.searchStatus()) {
+      url += `&status=${this.searchStatus()}`;
+    }
+
+    this.http.get<any[]>(url).subscribe({
+      next: (data) => {
+        this.items.set(data || []);
+      },
+      error: (err) => {
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Lỗi tải dữ liệu',
+          detail: 'Không thể tải danh sách danh mục.'
+        });
+      }
+    });
+  }
+
+  getParentName(parentId: number): string {
+    const parent = this.items().find(item => item.id === parentId);
+    return parent ? parent.name : '';
+  }
+
+  loadParentsList(excludeId?: number) {
+    const type = this.catalogType();
+    // Fetch only active items (status = 1) of the same catalog type
+    this.http.get<any[]>(`${this.apiUrl}?catalogType=${type}&status=1`).subscribe({
+      next: (data) => {
+        let list = data || [];
+        if (excludeId) {
+          list = list.filter(item => item.id !== excludeId);
+        }
+        this.parentsList.set(list);
+      },
+      error: () => {
+        this.parentsList.set([]);
+      }
+    });
+  }
+
+  onSearch() {
+    this.loadItems();
+  }
+
+  onResetSearch() {
+    this.searchKeyword.set('');
+    this.searchStatus.set('');
+    this.loadItems();
+  }
+
+  onAddNew() {
+    if (!this.canCreate()) return;
+    this.isPrivate.set(false);
+    this.currentItem.set({
+      code: '',
+      name: '',
+      catalogType: this.catalogType(),
+      parentId: null,
+      description: '',
+      priority: 1,
+      status: 1,
+      unitId: null
+    });
+    if (this.hasParent()) {
+      this.loadParentsList();
+    }
+    this.currentView.set('add');
+  }
+
+  onEdit(item: any) {
+    if (!this.canEdit()) return;
+    this.isPrivate.set(!!item.unitId);
+    this.currentItem.set({ ...item });
+    if (this.hasParent()) {
+      this.loadParentsList(item.id);
+    }
+    this.currentView.set('edit');
+  }
+
+  onSaveItem() {
+    const itemDraft = this.currentItem();
+    if (!itemDraft.code || !itemDraft.name) {
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Thiếu thông tin',
+        detail: 'Vui lòng nhập Mã và Tên danh mục.'
+      });
+      return;
+    }
+
+    if (itemDraft.priority === undefined || itemDraft.priority === null) {
+      itemDraft.priority = 1;
+    }
+
+    itemDraft.unitId = this.isPrivate() ? -1 : null;
+    this.isSaving.set(true);
+
+    if (this.currentView() === 'edit') {
+      this.http.put(`${this.apiUrl}/${itemDraft.id}`, itemDraft).subscribe({
+        next: () => {
+          this.isSaving.set(false);
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Cập nhật',
+            detail: 'Cập nhật danh mục thành công!'
+          });
+          this.loadItems();
+          this.currentView.set('list');
+        },
+        error: (err) => {
+          this.isSaving.set(false);
+          const errorMsg = err.error?.message || 'Không thể cập nhật danh mục.';
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi cập nhật',
+            detail: errorMsg
+          });
+        }
+      });
+    } else {
+      this.http.post<any>(this.apiUrl, itemDraft).subscribe({
+        next: () => {
+          this.isSaving.set(false);
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Thêm mới',
+            detail: 'Thêm mới danh mục thành công!'
+          });
+          this.loadItems();
+          this.currentView.set('list');
+        },
+        error: (err) => {
+          this.isSaving.set(false);
+          const errorMsg = err.error?.message || 'Thêm mới danh mục thất bại.';
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi thêm mới',
+            detail: errorMsg
+          });
+        }
+      });
+    }
+  }
+
+  onDelete(item: any) {
+    if (!this.canDelete()) return;
+    if (confirm(`Bạn có chắc chắn muốn xóa danh mục ${item.name} (${item.code})?`)) {
+      this.http.delete(`${this.apiUrl}/${item.id}`).subscribe({
+        next: () => {
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Xóa thành công',
+            detail: 'Đã xóa danh mục thành công!'
+          });
+          this.loadItems();
+        },
+        error: (err) => {
+          const errorMsg = err.error?.message || 'Xóa danh mục thất bại.';
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi xóa',
+            detail: errorMsg
+          });
+        }
+      });
+    }
+  }
+
+  onToggleStatus(item: any) {
+    if (!this.canManage()) return;
+    const isLocking = item.status === 1;
+    const confirmMsg = isLocking 
+      ? `Bạn có chắc muốn KHÓA danh mục ${item.name} (${item.code})?`
+      : `Bạn có chắc muốn MỞ KHÓA danh mục ${item.name} (${item.code})?`;
+
+    if (confirm(confirmMsg)) {
+      const action = isLocking ? 'lock' : 'unlock';
+      this.http.post(`${this.apiUrl}/${item.id}/${action}`, {}).subscribe({
+        next: (res: any) => {
+          this.messageService.add({
+            severity: 'success',
+            summary: isLocking ? 'Đã khóa' : 'Đã mở khóa',
+            detail: res.message || 'Thay đổi trạng thái danh mục thành công!'
+          });
+          this.loadItems();
+        },
+        error: (err) => {
+          const errorMsg = err.error?.message || 'Không thể thay đổi trạng thái danh mục.';
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi thao tác',
+            detail: errorMsg
+          });
+        }
+      });
+    }
+  }
+}
