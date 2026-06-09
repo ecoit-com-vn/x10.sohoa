@@ -22,7 +22,7 @@ export class MenuManagement implements OnInit {
   searchKeyword = signal<string>('');
   permissions = signal<any[]>([]);
 
-  displayDialog = signal<boolean>(false);
+  currentView = signal<'list' | 'add' | 'edit'>('list');
   dialogHeader = signal<string>('');
   isEdit = signal<boolean>(false);
   currentMenu = signal<any>({});
@@ -134,17 +134,25 @@ export class MenuManagement implements OnInit {
   }
 
   onAddNew() {
+    if (!this.authService.hasPermission('MENU_CREATE')) {
+      this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền thêm mới menu.' });
+      return;
+    }
     this.isEdit.set(false);
     this.currentMenu.set({ name: '', url: '', icon: '', permission: null, parentId: null, orderNum: 0 });
     this.dialogHeader.set('Thêm mới Menu');
-    this.displayDialog.set(true);
+    this.currentView.set('add');
   }
 
   onEdit(menu: any) {
+    if (!this.authService.hasPermission('MENU_EDIT')) {
+      this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền chỉnh sửa menu.' });
+      return;
+    }
     this.isEdit.set(true);
     this.currentMenu.set({ ...menu });
     this.dialogHeader.set('Chỉnh sửa Menu');
-    this.displayDialog.set(true);
+    this.currentView.set('edit');
   }
 
   onSaveMenu() {
@@ -173,7 +181,7 @@ export class MenuManagement implements OnInit {
           next: () => {
             this.messageService.add({ severity: 'success', summary: 'Cập nhật', detail: 'Cập nhật menu thành công!' });
             this.loadMenus();
-            this.displayDialog.set(false);
+            this.currentView.set('list');
           },
           error: (err) => {
             this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể cập nhật menu.' });
@@ -186,7 +194,7 @@ export class MenuManagement implements OnInit {
           next: () => {
             this.messageService.add({ severity: 'success', summary: 'Thêm mới', detail: 'Thêm mới menu thành công!' });
             this.loadMenus();
-            this.displayDialog.set(false);
+            this.currentView.set('list');
           },
           error: (err) => {
             this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể thêm mới menu.' });

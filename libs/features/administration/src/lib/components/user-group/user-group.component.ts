@@ -23,7 +23,7 @@ export class UserGroupComponent implements OnInit {
   groups = signal<any[]>([]);
   searchKeyword = signal<string>('');
 
-  displayDialog = signal<boolean>(false);
+  currentView = signal<'list' | 'add' | 'edit' | 'member' | 'role' | 'permission'>('list');
   dialogHeader = signal<string>('');
   isEdit = signal<boolean>(false);
   currentGroup = signal<any>({});
@@ -32,7 +32,6 @@ export class UserGroupComponent implements OnInit {
   saving = signal<boolean>(false);
 
   // Thành viên
-  displayMemberDialog = signal<boolean>(false);
   memberDialogHeader = signal<string>('');
   activeGroupForMember = signal<any>(null);
   sourceUsers = signal<any[]>([]);
@@ -40,7 +39,6 @@ export class UserGroupComponent implements OnInit {
   savingMembers = signal<boolean>(false);
 
   // Vai trò
-  displayRoleDialog = signal<boolean>(false);
   roleDialogHeader = signal<string>('');
   activeGroupForRole = signal<any>(null);
   sourceRoles = signal<any[]>([]);
@@ -48,7 +46,6 @@ export class UserGroupComponent implements OnInit {
   savingRoles = signal<boolean>(false);
 
   // Quyền trực tiếp nhóm
-  displayPermissionDialog = signal<boolean>(false);
   permissionDialogHeader = signal<string>('');
   activeGroupForPermission = signal<any>(null);
   systemPermissions = signal<any[]>([]);
@@ -70,12 +67,29 @@ export class UserGroupComponent implements OnInit {
     );
   });
 
+  activeDropdownGroupId = signal<string | null>(null);
+
   constructor(
     private http: HttpClient,
     private messageService: MessageService,
     private confirmationService: ConfirmationService,
     public authService: AuthService
-  ) {}
+  ) {
+    if (typeof window !== 'undefined') {
+      window.addEventListener('click', () => {
+        this.activeDropdownGroupId.set(null);
+      });
+    }
+  }
+
+  toggleDropdown(groupId: string, event: Event) {
+    event.stopPropagation();
+    if (this.activeDropdownGroupId() === groupId) {
+      this.activeDropdownGroupId.set(null);
+    } else {
+      this.activeDropdownGroupId.set(groupId);
+    }
+  }
 
   ngOnInit() {
     this.loadGroups();
@@ -101,17 +115,25 @@ export class UserGroupComponent implements OnInit {
   }
 
   onAddNew() {
+    if (!this.authService.hasPermission('USER_GROUP_CREATE')) {
+      this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền thêm mới nhóm người dùng.' });
+      return;
+    }
     this.isEdit.set(false);
     this.currentGroup.set({ name: '', description: '' });
     this.dialogHeader.set('Thêm mới nhóm người dùng');
-    this.displayDialog.set(true);
+    this.currentView.set('add');
   }
 
   onEdit(group: any) {
+    if (!this.authService.hasPermission('USER_GROUP_EDIT')) {
+      this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền chỉnh sửa nhóm người dùng.' });
+      return;
+    }
     this.isEdit.set(true);
     this.currentGroup.set({ ...group });
     this.dialogHeader.set('Chỉnh sửa nhóm người dùng');
-    this.displayDialog.set(true);
+    this.currentView.set('edit');
   }
 
   onSaveGroup() {
@@ -129,7 +151,7 @@ export class UserGroupComponent implements OnInit {
           next: () => {
             this.messageService.add({ severity: 'success', summary: 'Cập nhật', detail: 'Cập nhật nhóm thành công!' });
             this.loadGroups();
-            this.displayDialog.set(false);
+            this.currentView.set('list');
           },
           error: (err) => {
             this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể cập nhật nhóm.' });
@@ -142,7 +164,7 @@ export class UserGroupComponent implements OnInit {
           next: () => {
             this.messageService.add({ severity: 'success', summary: 'Thêm mới', detail: 'Thêm mới nhóm thành công!' });
             this.loadGroups();
-            this.displayDialog.set(false);
+            this.currentView.set('list');
           },
           error: (err) => {
             this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể tạo nhóm mới.' });
@@ -173,11 +195,15 @@ export class UserGroupComponent implements OnInit {
   }
 
   onManageMembers(group: any) {
+    if (!this.authService.hasPermission('USER_GROUP_MANAGE')) {
+      this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền quản lý thành viên nhóm này.' });
+      return;
+    }
     this.activeGroupForMember.set(group);
     this.memberDialogHeader.set(`Quản lý thành viên nhóm: ${group.name}`);
     this.sourceUsers.set([]);
     this.targetUsers.set([]);
-
+ 
     // Load tất cả người dùng
     this.http.get<any[]>(`${environment.apiGatewayUrl}/api/v1/users/lookup`).subscribe({
       next: (allUsers) => {
@@ -187,7 +213,7 @@ export class UserGroupComponent implements OnInit {
             const memberIds = new Set(members.map(m => m.id));
             this.targetUsers.set((allUsers || []).filter(u => memberIds.has(u.id)));
             this.sourceUsers.set((allUsers || []).filter(u => !memberIds.has(u.id)));
-            this.displayMemberDialog.set(true);
+            this.currentView.set('member');
           },
           error: () => {
             this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể tải thành viên nhóm.' });
@@ -211,7 +237,7 @@ export class UserGroupComponent implements OnInit {
       .subscribe({
         next: () => {
           this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã lưu thay đổi thành viên nhóm!' });
-          this.displayMemberDialog.set(false);
+          this.currentView.set('list');
         },
         error: () => {
           this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Lưu thay đổi thành viên nhóm thất bại.' });
@@ -220,6 +246,10 @@ export class UserGroupComponent implements OnInit {
   }
 
   onManageRoles(group: any) {
+    if (!this.authService.hasPermission('USER_GROUP_MANAGE')) {
+      this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền quản lý vai trò nhóm này.' });
+      return;
+    }
     this.activeGroupForRole.set(group);
     this.roleDialogHeader.set(`Quản lý vai trò nhóm: ${group.name}`);
     this.sourceRoles.set([]);
@@ -234,7 +264,7 @@ export class UserGroupComponent implements OnInit {
             const roleIds = new Set(roles.map(r => r.id));
             this.targetRoles.set((allRoles || []).filter(r => roleIds.has(r.id)));
             this.sourceRoles.set((allRoles || []).filter(r => !roleIds.has(r.id)));
-            this.displayRoleDialog.set(true);
+            this.currentView.set('role');
           },
           error: () => {
             this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể tải vai trò của nhóm.' });
@@ -258,7 +288,7 @@ export class UserGroupComponent implements OnInit {
       .subscribe({
         next: () => {
           this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã lưu thay đổi vai trò của nhóm!' });
-          this.displayRoleDialog.set(false);
+          this.currentView.set('list');
         },
         error: () => {
           this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Lưu thay đổi vai trò nhóm thất bại.' });
@@ -278,6 +308,10 @@ export class UserGroupComponent implements OnInit {
   }
 
   onManagePermissions(group: any) {
+    if (!this.authService.hasPermission('USER_GROUP_MANAGE')) {
+      this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền gán quyền nhóm người dùng này.' });
+      return;
+    }
     this.activeGroupForPermission.set(group);
     this.permissionDialogHeader.set(`Phân quyền trực tiếp cho nhóm: ${group?.name || ''}`);
     this.selectedPermissionCodes.set([]);
@@ -286,7 +320,7 @@ export class UserGroupComponent implements OnInit {
       next: (res: any) => {
         const list = Array.isArray(res) ? res : (res && Array.isArray(res.value) ? res.value : []);
         this.selectedPermissionCodes.set(list);
-        this.displayPermissionDialog.set(true);
+        this.currentView.set('permission');
       },
       error: () => {
         this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể tải danh sách quyền nhóm đã gán.' });
@@ -321,7 +355,7 @@ export class UserGroupComponent implements OnInit {
       .subscribe({
         next: () => {
           this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã lưu thay đổi phân quyền trực tiếp cho nhóm người dùng!' });
-          this.displayPermissionDialog.set(false);
+          this.currentView.set('list');
         },
         error: () => {
           this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Lưu thay đổi phân quyền trực tiếp thất bại.' });

@@ -21,7 +21,7 @@ export class OrganizationSettings implements OnInit {
   units = signal<any[]>([]);
   searchKeyword = signal<string>('');
 
-  displayDialog = signal<boolean>(false);
+  currentView = signal<'list' | 'add' | 'edit'>('list');
   dialogHeader = signal<string>('');
   isEdit = signal<boolean>(false);
   currentUnit = signal<any>({});
@@ -139,17 +139,25 @@ export class OrganizationSettings implements OnInit {
   }
 
   onAddNew() {
+    if (!this.authService.hasPermission('ORGANIZATION_CREATE')) {
+      this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền thêm mới đơn vị phòng ban.' });
+      return;
+    }
     this.isEdit.set(false);
     this.currentUnit.set({ code: '', name: '', parentId: null, description: '' });
     this.dialogHeader.set('Thêm mới đơn vị phòng ban');
-    this.displayDialog.set(true);
+    this.currentView.set('add');
   }
 
   onEdit(unit: any) {
+    if (!this.authService.hasPermission('ORGANIZATION_EDIT')) {
+      this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền chỉnh sửa đơn vị phòng ban.' });
+      return;
+    }
     this.isEdit.set(true);
     this.currentUnit.set({ ...unit });
     this.dialogHeader.set('Chỉnh sửa đơn vị phòng ban');
-    this.displayDialog.set(true);
+    this.currentView.set('edit');
   }
 
   onSaveUnit() {
@@ -174,7 +182,7 @@ export class OrganizationSettings implements OnInit {
           next: () => {
             this.messageService.add({ severity: 'success', summary: 'Cập nhật', detail: 'Đã cập nhật thông tin phòng ban thành công!' });
             this.loadUnits();
-            this.displayDialog.set(false);
+            this.currentView.set('list');
           },
           error: (err) => {
             this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể chỉnh sửa đơn vị.' });
@@ -187,7 +195,7 @@ export class OrganizationSettings implements OnInit {
           next: (created) => {
             this.messageService.add({ severity: 'success', summary: 'Thêm mới', detail: 'Tạo đơn vị phòng ban mới thành công!' });
             this.loadUnits();
-            this.displayDialog.set(false);
+            this.currentView.set('list');
           },
           error: (err) => {
             this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể thêm mới đơn vị.' });

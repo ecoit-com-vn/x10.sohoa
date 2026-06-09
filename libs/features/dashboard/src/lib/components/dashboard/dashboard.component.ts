@@ -147,7 +147,7 @@ export class DashboardComponent implements OnInit {
     });
 
     // 4. Tải danh sách thao tác (Audit Logs) thực tế
-    this.http.get<any>(`${environment.apiGatewayUrl}/api/v1/audit-logs?page=1&pageSize=5`).subscribe({
+    this.http.get<any>(`${environment.apiGatewayUrl}/api/v1/audit-logs/recent`).subscribe({
       next: (res) => {
         const logs = res.logs || [];
         if (logs.length > 0) {

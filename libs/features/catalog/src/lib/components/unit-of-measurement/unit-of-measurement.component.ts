@@ -18,7 +18,7 @@ export class UnitOfMeasurement implements OnInit {
   uoms = signal<any[]>([]);
   searchKeyword = signal<string>('');
 
-  displayDialog = signal<boolean>(false);
+  currentView = signal<'list' | 'add' | 'edit'>('list');
   dialogHeader = signal<string>('');
   isEdit = signal<boolean>(false);
   isPrivate = signal<boolean>(false);
@@ -67,7 +67,7 @@ export class UnitOfMeasurement implements OnInit {
     this.isPrivate.set(false);
     this.currentItem.set({ code: '', name: '', catalogType: 'UnitOfMeasure', parentId: null, description: '', unitId: null });
     this.dialogHeader.set('Thêm mới đơn vị tính');
-    this.displayDialog.set(true);
+    this.currentView.set('add');
   }
 
   onEdit(item: any) {
@@ -75,7 +75,7 @@ export class UnitOfMeasurement implements OnInit {
     this.isPrivate.set(!!item.unitId);
     this.currentItem.set({ ...item });
     this.dialogHeader.set('Chỉnh sửa đơn vị tính');
-    this.displayDialog.set(true);
+    this.currentView.set('edit');
   }
 
   onSaveItem() {
@@ -92,7 +92,7 @@ export class UnitOfMeasurement implements OnInit {
         next: () => {
           this.messageService.add({ severity: 'success', summary: 'Cập nhật', detail: 'Cập nhật đơn vị tính thành công!' });
           this.loadUoms();
-          this.displayDialog.set(false);
+          this.currentView.set('list');
         },
         error: (err) => {
           this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể cập nhật đơn vị tính.' });
@@ -103,7 +103,7 @@ export class UnitOfMeasurement implements OnInit {
         next: (created) => {
           this.messageService.add({ severity: 'success', summary: 'Thêm mới', detail: 'Thêm đơn vị tính mới thành công!' });
           this.loadUoms();
-          this.displayDialog.set(false);
+          this.currentView.set('list');
         },
         error: (err) => {
           this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Thêm đơn vị tính mới thất bại.' });

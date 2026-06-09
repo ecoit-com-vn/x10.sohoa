@@ -40,7 +40,7 @@ export class WorkflowService {
   private http = inject(HttpClient);
   private config = inject(APP_CONFIG);
   private get BASE() {
-    return `${this.config.apiGatewayUrl}/api/v1/workflows`;
+    return `${this.config.apiGatewayUrl}/api/workflowdefinitions`;
   }
 
   /** Lấy danh sách quy trình, có thể lọc theo từ khóa và trạng thái */

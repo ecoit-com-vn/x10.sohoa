@@ -20,7 +20,7 @@ export class UserManagement implements OnInit {
   users = signal<any[]>([]);
   searchKeyword = signal<string>('');
 
-  displayDialog = signal<boolean>(false);
+  currentView = signal<'list' | 'add' | 'edit' | 'unit-role' | 'permission' | 'role'>('list');
   dialogHeader = signal<string>('');
   isEdit = signal<boolean>(false);
   currentUser = signal<any>({});
@@ -32,7 +32,6 @@ export class UserManagement implements OnInit {
   organizationUnits = signal<any[]>([]);
   systemRoles = signal<any[]>([]);
   
-  displayUnitRoleDialog = signal<boolean>(false);
   unitRoleDialogHeader = signal<string>('');
   activeUserForUnitRole = signal<any>(null);
   assignedUnitRoles = signal<any[]>([]);
@@ -40,7 +39,6 @@ export class UserManagement implements OnInit {
   savingUnitRoles = signal<boolean>(false);
 
   // Quyền trực tiếp
-  displayPermissionDialog = signal<boolean>(false);
   permissionDialogHeader = signal<string>('');
   activeUserForPermission = signal<any>(null);
   systemPermissions = signal<any[]>([]);
@@ -51,11 +49,29 @@ export class UserManagement implements OnInit {
   menuPermissionTree = signal<any[]>([]);
 
   // Vai trò trực tiếp
-  displayRoleDialog = signal<boolean>(false);
   roleDialogHeader = signal<string>('');
   activeUserForRole = signal<any>(null);
   selectedRoleIds = signal<number[]>([]);
   savingRoles = signal<boolean>(false);
+
+  activeDropdownUserId = signal<string | null>(null);
+
+  constructor() {
+    if (typeof window !== 'undefined') {
+      window.addEventListener('click', () => {
+        this.activeDropdownUserId.set(null);
+      });
+    }
+  }
+
+  toggleDropdown(userId: string, event: Event) {
+    event.stopPropagation();
+    if (this.activeDropdownUserId() === userId) {
+      this.activeDropdownUserId.set(null);
+    } else {
+      this.activeDropdownUserId.set(userId);
+    }
+  }
 
   private userService = inject(UserService);
   private messageService = inject(MessageService);
@@ -144,17 +160,25 @@ export class UserManagement implements OnInit {
   }
 
   onAddNew() {
+    if (!this.authService.hasPermission('USER_CREATE')) {
+      this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền thêm mới người dùng.' });
+      return;
+    }
     this.isEdit.set(false);
     this.currentUser.set({ username: '', fullName: '', email: '', organizationUnitId: null, isActive: true });
     this.dialogHeader.set('Thêm mới tài khoản');
-    this.displayDialog.set(true);
+    this.currentView.set('add');
   }
 
   onEdit(user: any) {
+    if (!this.authService.hasPermission('USER_EDIT')) {
+      this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền chỉnh sửa thông tin người dùng.' });
+      return;
+    }
     this.isEdit.set(true);
     this.currentUser.set({ ...user });
     this.dialogHeader.set('Chỉnh sửa tài khoản');
-    this.displayDialog.set(true);
+    this.currentView.set('edit');
   }
 
   onSaveUser() {
@@ -173,7 +197,7 @@ export class UserManagement implements OnInit {
         next: () => {
           this.messageService.add({ severity: 'success', summary: 'Cập nhật', detail: 'Cập nhật tài khoản thành công!' });
           this.loadUsers();
-          this.displayDialog.set(false);
+          this.currentView.set('list');
           this.saving.set(false);
         },
         error: (err) => {
@@ -186,7 +210,7 @@ export class UserManagement implements OnInit {
         next: () => {
           this.messageService.add({ severity: 'success', summary: 'Thêm mới', detail: 'Tạo tài khoản mới thành công!' });
           this.loadUsers();
-          this.displayDialog.set(false);
+          this.currentView.set('list');
           this.saving.set(false);
         },
         error: (err) => {
@@ -219,6 +243,10 @@ export class UserManagement implements OnInit {
   }
 
   onManageUnitRoles(user: any) {
+    if (!this.authService.hasPermission('USER_MANAGE')) {
+      this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền quản lý quyền theo đơn vị.' });
+      return;
+    }
     this.activeUserForUnitRole.set(user);
     this.unitRoleDialogHeader.set(`Phân quyền theo đơn vị cho: ${user?.username || ''}`);
     this.assignedUnitRoles.set([]);
@@ -229,7 +257,7 @@ export class UserManagement implements OnInit {
       next: (res: any) => {
         const list = Array.isArray(res) ? res : (res && Array.isArray(res.value) ? res.value : []);
         this.assignedUnitRoles.set(list);
-        this.displayUnitRoleDialog.set(true);
+        this.currentView.set('unit-role');
       },
       error: () => {
         this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể tải quyền theo đơn vị của người dùng.' });
@@ -280,7 +308,7 @@ export class UserManagement implements OnInit {
     this.userService.saveUserUnitRoles(activeUser.id, this.assignedUnitRoles()).subscribe({
       next: () => {
         this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Cập nhật phân quyền theo đơn vị thành công!' });
-        this.displayUnitRoleDialog.set(false);
+        this.currentView.set('list');
         this.savingUnitRoles.set(false);
       },
       error: () => {
@@ -452,6 +480,10 @@ export class UserManagement implements OnInit {
   }
 
   onManagePermissions(user: any) {
+    if (!this.authService.hasPermission('USER_MANAGE') && !this.authService.hasPermission('PERMISSION_MANAGE')) {
+      this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền phân quyền trực tiếp.' });
+      return;
+    }
     this.activeUserForPermission.set(user);
     this.permissionDialogHeader.set(`Phân quyền trực tiếp cho tài khoản: ${user?.username || ''}`);
     this.selectedPermissionCodes.set([]);
@@ -460,7 +492,7 @@ export class UserManagement implements OnInit {
       next: (res: any) => {
         const list = Array.isArray(res) ? res : (res && Array.isArray(res.value) ? res.value : []);
         this.selectedPermissionCodes.set(list);
-        this.displayPermissionDialog.set(true);
+        this.currentView.set('permission');
       },
       error: () => {
         this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể tải danh sách quyền trực tiếp đã gán.' });
@@ -495,7 +527,7 @@ export class UserManagement implements OnInit {
       .subscribe({
         next: () => {
           this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã lưu thay đổi phân quyền trực tiếp cho người dùng!' });
-          this.displayPermissionDialog.set(false);
+          this.currentView.set('list');
         },
         error: () => {
           this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Lưu thay đổi phân quyền trực tiếp thất bại.' });
@@ -504,6 +536,10 @@ export class UserManagement implements OnInit {
   }
 
   onManageRoles(user: any) {
+    if (!this.authService.hasPermission('USER_MANAGE')) {
+      this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền gán vai trò trực tiếp.' });
+      return;
+    }
     this.activeUserForRole.set(user);
     this.roleDialogHeader.set(`Gán vai trò trực tiếp cho tài khoản: ${user?.username || ''}`);
     this.selectedRoleIds.set([]);
@@ -512,7 +548,7 @@ export class UserManagement implements OnInit {
       next: (res: any) => {
         const list = Array.isArray(res) ? res : (res && Array.isArray(res.value) ? res.value : []);
         this.selectedRoleIds.set(list);
-        this.displayRoleDialog.set(true);
+        this.currentView.set('role');
       },
       error: () => {
         this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể tải danh sách vai trò trực tiếp đã gán.' });
@@ -547,7 +583,7 @@ export class UserManagement implements OnInit {
       .subscribe({
         next: () => {
           this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã lưu vai trò trực tiếp cho người dùng thành công!' });
-          this.displayRoleDialog.set(false);
+          this.currentView.set('list');
         },
         error: () => {
           this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Lưu thay đổi vai trò trực tiếp thất bại.' });

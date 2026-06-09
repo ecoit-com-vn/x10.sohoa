@@ -1,28 +1,19 @@
-import { Component, OnInit, ViewChild, ElementRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, ViewChild, ElementRef, inject, PLATFORM_ID, ChangeDetectorRef } from '@angular/core';
+import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClientModule } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { ToastModule } from 'primeng/toast';
 import { MessageService, ConfirmationService } from 'primeng/api';
 import {
   WorkflowService,
   WorkflowDefinition,
-  WorkflowStep
+  WorkflowStep,
+  AuthService
 } from '@sohoa.frontend/shared/core';
 import { finalize } from 'rxjs/operators';
+import { environment } from '@env/environment';
 
-// ─── Danh mục loại quy trình theo nghiệp vụ số hóa EVNHANOI ─────────────────
 
-const LOAI_QUY_TRINH_OPTIONS = [
-  'Quy trình số hóa hồ sơ đường dây',
-  'Quy trình số hóa hồ sơ trạm biến áp',
-  'Quy trình phê duyệt tài liệu số hóa',
-  'Quy trình kiểm soát chất lượng OCR',
-  'Quy trình mượn/trả hồ sơ kỹ thuật',
-  'Quy trình bàn giao hồ sơ kỹ thuật',
-  'Quy trình hiệu đính tài liệu số hóa',
-  'Quy trình cấp mã hồ sơ số hóa',
-];
 
 const DEFAULT_BPMN_XML = `<?xml version="1.0" encoding="UTF-8"?>
 <bpmn:definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" id="Definitions_1" targetNamespace="http://bpmn.io/schema/bpmn">
@@ -43,18 +34,40 @@ const DEFAULT_BPMN_XML = `<?xml version="1.0" encoding="UTF-8"?>
 @Component({
   selector: 'app-workflow-builder',
   standalone: true,
-  imports: [CommonModule, FormsModule, HttpClientModule, ToastModule],
+  imports: [CommonModule, FormsModule, ToastModule],
   providers: [MessageService],
   templateUrl: './workflow-builder.component.html',
   styleUrl: './workflow-builder.component.scss'
 })
 export class WorkflowBuilderComponent implements OnInit {
 
+  // ─── Platform check ────────────────────────────────────────────────────────
+  private platformId = inject(PLATFORM_ID);
+  private http = inject(HttpClient);
+  private cdr = inject(ChangeDetectorRef);
+
   // ─── View state ─────────────────────────────────────────────────────────────
   viewMode: 'list' | 'edit' = 'list';
   activeTab: 'general' | 'design' = 'general';
   isEditMode = false;
   formSubmitted = false;
+
+  selectTab(tab: 'general' | 'design'): void {
+    this.activeTab = tab;
+    if (tab === 'design') {
+      setTimeout(() => {
+        if (this.bpmnModeler) {
+          try {
+            const canvas = this.bpmnModeler.get('canvas');
+            canvas.resized();
+            canvas.zoom('fit-viewport');
+          } catch (e) {
+            console.error('Error resizing BPMN canvas:', e);
+          }
+        }
+      }, 50);
+    }
+  }
 
   // ─── Loading / error state ──────────────────────────────────────────────────
   loading = false;
@@ -69,7 +82,7 @@ export class WorkflowBuilderComponent implements OnInit {
   filterIsActive = '';
 
   // ─── Data ───────────────────────────────────────────────────────────────────
-  loaiOptions = LOAI_QUY_TRINH_OPTIONS;
+  loaiOptions: string[] = [];
   workflows: WorkflowDefinition[] = [];
   selectedIds: string[] = [];
 
@@ -89,11 +102,53 @@ export class WorkflowBuilderComponent implements OnInit {
   constructor(
     private workflowSvc: WorkflowService,
     private messageService: MessageService,
-    private confirmationService: ConfirmationService
+    private confirmationService: ConfirmationService,
+    public authService: AuthService
   ) {}
 
   ngOnInit(): void {
-    this.loadList();
+    if (isPlatformBrowser(this.platformId)) {
+      this.loadList();
+      this.loadRoles();
+      this.loadWorkflowTypes();
+    }
+  }
+
+  rolesList: any[] = [];
+
+  loadRoles(): void {
+    const apiUrl = `${environment.apiGatewayUrl}/api/v1/roles/lookup`;
+    this.http.get<any>(apiUrl).subscribe({
+      next: (res) => {
+        this.rolesList = Array.isArray(res) ? res : (res && Array.isArray(res.value) ? res.value : []);
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error('Failed to load roles list:', err);
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  loadWorkflowTypes(): void {
+    const apiUrl = `${environment.apiGatewayUrl}/api/workflowdefinitions/get-workflow-type`;
+    this.http.get<any>(apiUrl).subscribe({
+      next: (res) => {
+        this.loaiOptions = Array.isArray(res)
+          ? res
+          : (res && Array.isArray(res.value)
+            ? res.value
+            : (res && Array.isArray(res.data)
+              ? res.data
+              : []));
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error('Failed to load workflow types, leaving it empty as requested:', err);
+        this.loaiOptions = [];
+        this.cdr.detectChanges();
+      }
+    });
   }
 
   // ─── List: load from API ────────────────────────────────────────────────────
@@ -102,20 +157,32 @@ export class WorkflowBuilderComponent implements OnInit {
     this.loading = true;
     this.loadingMsg = 'Đang tải danh sách quy trình...';
     this.listError = '';
+    this.cdr.detectChanges();
 
     const isActive = this.filterIsActive === 'true'  ? true
                    : this.filterIsActive === 'false' ? false
                    : undefined;
 
     this.workflowSvc.getAll(this.searchKeyword || undefined, isActive)
-      .pipe(finalize(() => this.loading = false))
+      .pipe(finalize(() => {
+        this.loading = false;
+        this.cdr.detectChanges();
+      }))
       .subscribe({
-        next: (data) => {
-          this.workflows = data;
+        next: (data: any) => {
+          this.workflows = Array.isArray(data)
+            ? data
+            : (data && Array.isArray(data.value)
+              ? data.value
+              : (data && Array.isArray(data.data)
+                ? data.data
+                : []));
           this.selectedIds = [];
+          this.cdr.detectChanges();
         },
         error: (err) => {
           this.listError = `Không thể tải danh sách: ${err.message}`;
+          this.cdr.detectChanges();
         }
       });
   }
@@ -130,8 +197,8 @@ export class WorkflowBuilderComponent implements OnInit {
 
   isSelected(id: string): boolean { return this.selectedIds.includes(id); }
   isAllSelected(): boolean {
-    return this.workflows.length > 0 &&
-           this.workflows.every(w => this.selectedIds.includes(w.id!));
+    return (this.workflows || []).length > 0 &&
+           (this.workflows || []).every(w => this.selectedIds.includes(w.id!));
   }
   toggleSelect(id: string): void {
     const i = this.selectedIds.indexOf(id);
@@ -139,13 +206,17 @@ export class WorkflowBuilderComponent implements OnInit {
   }
   toggleSelectAll(e: Event): void {
     this.selectedIds = (e.target as HTMLInputElement).checked
-      ? this.workflows.map(w => w.id!)
+      ? (this.workflows || []).map(w => w.id!)
       : [];
   }
 
   // ─── CRUD actions ──────────────────────────────────────────────────────────
 
   onAddNew(): void {
+    if (!this.authService.hasPermission('WORKFLOW_CREATE')) {
+      this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền thêm mới quy trình.' });
+      return;
+    }
     this.isEditMode = false;
     this.formSubmitted = false;
     this.draft = this.emptyDraft();
@@ -156,10 +227,18 @@ export class WorkflowBuilderComponent implements OnInit {
   }
 
   onEdit(wf: WorkflowDefinition): void {
+    if (!this.authService.hasPermission('WORKFLOW_EDIT')) {
+      this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền chỉnh sửa quy trình.' });
+      return;
+    }
     this.loading = true;
     this.loadingMsg = 'Đang tải chi tiết quy trình...';
+    this.cdr.detectChanges();
     this.workflowSvc.getById(wf.id!)
-      .pipe(finalize(() => this.loading = false))
+      .pipe(finalize(() => {
+        this.loading = false;
+        this.cdr.detectChanges();
+      }))
       .subscribe({
         next: (detail) => {
           this.isEditMode = true;
@@ -168,14 +247,21 @@ export class WorkflowBuilderComponent implements OnInit {
           this.activeTab = 'general';
           this.viewMode = 'edit';
           setTimeout(() => this.initModeler(), 50);
+          this.cdr.detectChanges();
         },
         error: (err) => {
           this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: err.message });
+          this.cdr.detectChanges();
         }
       });
   }
 
   async onSave() {
+    const hasPerm = this.isEditMode ? this.authService.hasPermission('WORKFLOW_EDIT') : this.authService.hasPermission('WORKFLOW_CREATE');
+    if (!hasPerm) {
+      this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền lưu quy trình.' });
+      return;
+    }
     this.formSubmitted = true;
     if (!this.draft.name) return;
 
@@ -215,6 +301,10 @@ export class WorkflowBuilderComponent implements OnInit {
   }
 
   promptDeleteOne(wf: WorkflowDefinition): void {
+    if (!this.authService.hasPermission('WORKFLOW_DELETE')) {
+      this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền xóa quy trình.' });
+      return;
+    }
     this.confirmationService.confirm({
       message: `Bạn có chắc chắn muốn xóa quy trình "${wf.name}"?`,
       header: 'Xác nhận xóa',
@@ -239,6 +329,10 @@ export class WorkflowBuilderComponent implements OnInit {
   }
 
   promptDeleteSelected(): void {
+    if (!this.authService.hasPermission('WORKFLOW_DELETE')) {
+      this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền xóa quy trình.' });
+      return;
+    }
     this.confirmationService.confirm({
       message: `Bạn có chắc chắn muốn xóa ${this.selectedIds.length} quy trình đã chọn? Hành động này không thể hoàn tác.`,
       header: 'Xác nhận xóa nhiều',
@@ -252,6 +346,10 @@ export class WorkflowBuilderComponent implements OnInit {
   }
 
   doDeleteSelected(): void {
+    if (!this.authService.hasPermission('WORKFLOW_DELETE')) {
+      this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền xóa quy trình.' });
+      return;
+    }
     if (!this.selectedIds.length) return;
     this.deleting = true;
     const deletes$ = this.selectedIds.map(id => this.workflowSvc.delete(id));
@@ -314,23 +412,41 @@ export class WorkflowBuilderComponent implements OnInit {
         if (newSelection && newSelection.length === 1) {
           const element = newSelection[0];
           this.selectedBpmnElement = element;
+          
+          let condition = '';
+          if (element.type === 'bpmn:SequenceFlow') {
+            const condExp = element.businessObject.conditionExpression;
+            condition = condExp ? (condExp.body || '') : '';
+          }
+
           this.selectedElementProps = {
             id: element.id,
             type: element.type,
             name: element.businessObject.name || '',
             stepNum: element.businessObject.$attrs['stepNum'] || '',
             requiredRole: element.businessObject.$attrs['requiredRole'] || '',
-            actionType: element.businessObject.$attrs['actionType'] || 'Approve'
+            actionType: element.businessObject.$attrs['actionType'] || 'Approve',
+            condition: condition
           };
         } else {
           this.selectedBpmnElement = null;
           this.selectedElementProps = null;
         }
+        this.cdr.detectChanges();
+      });
+
+      this.bpmnModeler.on('element.dblclick', 10000, (event: any) => {
+        const element = event.element;
+        if (element && (element.type === 'bpmn:Task' || element.type === 'bpmn:UserTask')) {
+          this.openStepConfig(element);
+          return false;
+        }
+        return;
       });
 
       const xml = this.draft.bpmnXml || DEFAULT_BPMN_XML;
       await this.bpmnModeler.importXML(xml);
-      this.bpmnModeler.get('canvas').zoom('fit-viewport');
+      // Viewport zoom will be handled when the tab is switched to 'design' and container is visible.
     } catch (err: any) {
       this.messageService.add({
         severity: 'error',
@@ -349,6 +465,19 @@ export class WorkflowBuilderComponent implements OnInit {
     }
   }
 
+  openStepConfig(element: any) {
+    this.selectedBpmnElement = element;
+    this.selectedElementProps = {
+      id: element.id,
+      type: element.type,
+      name: element.businessObject.name || '',
+      stepNum: element.businessObject.$attrs['stepNum'] || '',
+      requiredRole: element.businessObject.$attrs['requiredRole'] || '',
+      actionType: element.businessObject.$attrs['actionType'] || 'Approve'
+    };
+    this.cdr.detectChanges();
+  }
+
   updateElementProperty(prop: string, event: any) {
     if (!this.selectedBpmnElement || !this.selectedElementProps) return;
     const value = event?.target ? event.target.value : event;
@@ -357,12 +486,56 @@ export class WorkflowBuilderComponent implements OnInit {
     if (prop === 'name') {
       modeling.updateProperties(this.selectedBpmnElement, { name: value });
       this.selectedElementProps.name = value;
+    } else if (prop === 'condition') {
+      const bpmnFactory = this.bpmnModeler.get('bpmnFactory');
+      let conditionExpression = undefined;
+      if (value) {
+        conditionExpression = bpmnFactory.create('bpmn:FormalExpression', {
+          body: value
+        });
+      }
+      modeling.updateProperties(this.selectedBpmnElement, {
+        conditionExpression: conditionExpression
+      });
+      this.selectedElementProps.condition = value;
     } else {
       const attrs: any = {};
       attrs[prop] = value;
       modeling.updateProperties(this.selectedBpmnElement, attrs);
       this.selectedElementProps[prop] = value;
     }
+    this.cdr.detectChanges();
+  }
+
+  isRoleSelected(roleCode: string): boolean {
+    if (!this.selectedElementProps?.requiredRole) return false;
+    const roles = this.selectedElementProps.requiredRole.split(',').map((r: string) => r.trim());
+    return roles.includes(roleCode);
+  }
+
+  toggleRoleSelection(roleCode: string, event: any): void {
+    if (!this.selectedBpmnElement || !this.selectedElementProps) return;
+    const checked = event.target.checked;
+    let roles = this.selectedElementProps.requiredRole
+      ? this.selectedElementProps.requiredRole.split(',').map((r: string) => r.trim()).filter((r: string) => r)
+      : [];
+
+    if (checked) {
+      if (!roles.includes(roleCode)) {
+        roles.push(roleCode);
+      }
+    } else {
+      roles = roles.filter((r: string) => r !== roleCode);
+    }
+
+    const newValue = roles.join(',');
+    this.selectedElementProps.requiredRole = newValue;
+
+    const modeling = this.bpmnModeler.get('modeling');
+    modeling.updateProperties(this.selectedBpmnElement, {
+      requiredRole: newValue
+    });
+    this.cdr.detectChanges();
   }
 
   bpmnElementsToSteps(): WorkflowStep[] {

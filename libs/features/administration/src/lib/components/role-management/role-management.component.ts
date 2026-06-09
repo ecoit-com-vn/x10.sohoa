@@ -21,12 +21,11 @@ export class RoleManagement implements OnInit {
   roles = signal<any[]>([]);
   searchKeyword = signal<string>('');
   
-  displayDialog = signal<boolean>(false);
+  currentView = signal<'list' | 'add' | 'edit' | 'permission'>('list');
   dialogHeader = signal<string>('');
   isEdit = signal<boolean>(false);
   currentRole = signal<any>({});
 
-  isAssigningPermissions = signal<boolean>(false);
   permissionDialogHeader = signal<string>('');
   activeRoleForPermission = signal<any>(null);
   systemPermissions = signal<any[]>([]);
@@ -232,17 +231,25 @@ export class RoleManagement implements OnInit {
   }
 
   onAddNew() {
+    if (!this.authService.hasPermission('ROLE_CREATE')) {
+      this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền thêm mới nhóm quyền.' });
+      return;
+    }
     this.isEdit.set(false);
     this.currentRole.set({ code: '', name: '', description: '' });
-    this.dialogHeader.set('Thêm mới vai trò');
-    this.displayDialog.set(true);
+    this.dialogHeader.set('Thêm mới nhóm quyền');
+    this.currentView.set('add');
   }
 
   onEdit(role: any) {
+    if (!this.authService.hasPermission('ROLE_EDIT')) {
+      this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền chỉnh sửa nhóm quyền.' });
+      return;
+    }
     this.isEdit.set(true);
     this.currentRole.set({ ...role });
-    this.dialogHeader.set('Chỉnh sửa vai trò');
-    this.displayDialog.set(true);
+    this.dialogHeader.set('Chỉnh sửa nhóm quyền');
+    this.currentView.set('edit');
   }
 
   onSaveRole() {
@@ -258,12 +265,12 @@ export class RoleManagement implements OnInit {
         .pipe(finalize(() => this.saving.set(false)))
         .subscribe({
           next: () => {
-            this.messageService.add({ severity: 'success', summary: 'Cập nhật', detail: 'Cập nhật thông tin vai trò thành công!' });
+            this.messageService.add({ severity: 'success', summary: 'Cập nhật', detail: 'Cập nhật thông tin nhóm quyền thành công!' });
             this.loadRoles();
-            this.displayDialog.set(false);
+            this.currentView.set('list');
           },
           error: (err) => {
-            this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Cập nhật vai trò thất bại.' });
+            this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Cập nhật nhóm quyền thất bại.' });
           }
         });
     } else {
@@ -271,12 +278,12 @@ export class RoleManagement implements OnInit {
         .pipe(finalize(() => this.saving.set(false)))
         .subscribe({
           next: (created) => {
-            this.messageService.add({ severity: 'success', summary: 'Thêm mới', detail: 'Tạo vai trò mới thành công!' });
+            this.messageService.add({ severity: 'success', summary: 'Thêm mới', detail: 'Tạo nhóm quyền mới thành công!' });
             this.loadRoles();
-            this.displayDialog.set(false);
+            this.currentView.set('list');
           },
           error: (err) => {
-            this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Tạo vai trò thất bại.' });
+            this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Tạo nhóm quyền thất bại.' });
           }
         });
     }
@@ -304,8 +311,12 @@ export class RoleManagement implements OnInit {
   }
 
   onAssignPermissions(role: any) {
+    if (!this.authService.hasPermission('ROLE_MANAGE') && !this.authService.hasPermission('PERMISSION_MANAGE')) {
+      this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền cấu hình nhóm quyền này.' });
+      return;
+    }
     this.activeRoleForPermission.set(role);
-    this.permissionDialogHeader.set(`Phân quyền vai trò: ${role.name}`);
+    this.permissionDialogHeader.set(`Phân quyền nhóm: ${role.name}`);
     this.selectedPermissionCodes.set([]);
     
     // Load existing permissions of role
@@ -313,7 +324,7 @@ export class RoleManagement implements OnInit {
       next: (res) => {
         const list = Array.isArray(res) ? res : (res && Array.isArray(res.value) ? res.value : []);
         this.selectedPermissionCodes.set(list);
-        this.isAssigningPermissions.set(true);
+        this.currentView.set('permission');
       },
       error: (err) => {
         this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể tải quyền đã gán.' });
@@ -348,7 +359,7 @@ export class RoleManagement implements OnInit {
       .subscribe({
         next: () => {
           this.messageService.add({ severity: 'success', summary: 'Phân quyền thành công', detail: 'Đã lưu thay đổi phân quyền hệ thống!' });
-          this.isAssigningPermissions.set(false);
+          this.currentView.set('list');
         },
         error: (err) => {
           this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Lưu phân quyền vai trò thất bại.' });
