@@ -19,7 +19,11 @@ builder.Host.UseSerilog((context, services, configuration) =>
 });
 
 // 2. Add services to the container
-builder.Services.AddControllers();
+builder.Services.AddMemoryCache();
+builder.Services.AddControllers(options =>
+{
+    options.Filters.Add<EvnHanoi.Infrastructure.Security.DynamicPermissionFilter>();
+});
 builder.Services.AddOpenApi();
 
 var rabbitFactory = new ConnectionFactory
@@ -43,6 +47,10 @@ builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IEavFormTem
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IElasticsearchService, EvnHanoi.EquipmentService.Infrastructure.Services.ElasticsearchService>();
 builder.Services.AddSingleton<EvnHanoi.EquipmentService.Core.Interfaces.IMessageProducer, EvnHanoi.EquipmentService.Infrastructure.Messaging.RabbitMQProducer>();
 builder.Services.AddPermissionDiscovery("EquipmentService");
+builder.Services.AddHttpClient("IdentityService", client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["Services:IdentityService"] ?? "http://identityservice");
+});
 
 // 3. Configure JWT Authentication
 var jwtKey = builder.Configuration["Jwt:Key"] ?? "super_secret_key_12345678901234567890";

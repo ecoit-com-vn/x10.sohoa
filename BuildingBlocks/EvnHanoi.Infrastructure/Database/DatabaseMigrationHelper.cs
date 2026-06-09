@@ -28,8 +28,8 @@ public static class DatabaseMigrationHelper
 
         // Run schema migrations for the service folder
         var schemaUpgrader = DeployChanges.To
-            .OracleDatabase(connectionString)
-            .WithScriptsEmbeddedInAssembly(
+            .OracleDatabaseWithSemicolonDelimiter(connectionString)
+            .WithScriptsAndCodeEmbeddedInAssembly(
                 Assembly.GetExecutingAssembly(),
                 name => name.Contains($".Migrations.{serviceFolder}."))
             .WithVariablesDisabled()
@@ -51,8 +51,8 @@ public static class DatabaseMigrationHelper
         {
             Log.Information("Starting Seed Migrations for {ServiceFolder}...", serviceFolder);
             var seedUpgrader = DeployChanges.To
-                .OracleDatabase(connectionString)
-                .WithScriptsEmbeddedInAssembly(
+                .OracleDatabaseWithSemicolonDelimiter(connectionString)
+                .WithScriptsAndCodeEmbeddedInAssembly(
                     Assembly.GetExecutingAssembly(),
                     name => name.Contains(".Migrations.Seeds.") && name.Contains($".{serviceFolder}."))
                 .WithVariablesDisabled()

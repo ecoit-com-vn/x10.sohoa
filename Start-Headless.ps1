@@ -12,7 +12,7 @@ $services = @(
 
 Write-Host "Khởi động các Microservices chạy ngầm (Headless)..." -ForegroundColor Green
 
-$logDir = "C:\Users\tanha\.gemini\antigravity\brain\5d189adb-710f-4faa-ae60-0bb80be31bb6\scratch\logs"
+$logDir = "C:\Users\admin\.gemini\antigravity\brain\abdf2f2a-4e9c-4f2f-a0e1-676681d799ba\scratch\logs"
 if (-not (Test-Path $logDir)) {
     New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 }
