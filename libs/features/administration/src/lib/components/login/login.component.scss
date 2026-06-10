@@ -111,37 +111,15 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
   margin-bottom: 16px;
+  width: 100%;
 }
 
-.brand-logo-img {
-  width: 56px;
-  height: 56px;
+.brand-logo-img-large {
+  height: 64px;
+  max-width: 100%;
   object-fit: contain;
-  mix-blend-mode: multiply;
-  border: none !important;
-  outline: none !important;
-  box-shadow: none !important;
-  clip-path: inset(1.5px);
-}
-
-.brand-name {
-  font-size: 32px;
-  font-weight: 900;
-  margin: 0;
-  letter-spacing: -0.5px;
-  font-family: 'Outfit', 'Inter', sans-serif;
-  
-  .text-blue {
-    color: #002D72;
-    font-weight: 900;
-  }
-  .text-red {
-    color: #d92128;
-    font-weight: 900;
-    font-style: italic;
-  }
+  display: block;
 }
 
 /* App Title */
