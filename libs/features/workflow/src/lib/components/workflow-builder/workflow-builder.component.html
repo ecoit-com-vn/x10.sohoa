@@ -41,7 +41,7 @@
               (click)="showFilter = !showFilter">
               <i class="pi pi-filter"></i> Lọc
             </button>
-            <button id="btn-them" class="btn-green" (click)="onAddNew()">
+            <button id="btn-them" class="btn-green" (click)="onAddNew()" *ngIf="authService.hasPermission('WORKFLOW_CREATE')">
               <i class="pi pi-plus"></i> Thêm
             </button>
             <button id="btn-excel" class="btn-excel" (click)="onExportExcel()">
@@ -49,7 +49,8 @@
             </button>
             <button id="btn-xoa-nhieu" class="btn-outlined btn-xoa-outlined"
               [disabled]="selectedIds.length === 0"
-              (click)="promptDeleteSelected()">
+              (click)="promptDeleteSelected()"
+              *ngIf="authService.hasPermission('WORKFLOW_DELETE')">
               <i class="pi pi-trash"></i> Xóa
             </button>
           </div>
@@ -109,7 +110,8 @@
                 </td>
                 <td class="col-stt text-muted">{{ i + 1 }}</td>
                 <td class="col-loai">
-                  <span class="wf-name-link" (click)="onEdit(wf)">{{ wf.name }}</span>
+                  <span class="wf-name-link" *ngIf="authService.hasPermission('WORKFLOW_EDIT')" (click)="onEdit(wf)">{{ wf.name }}</span>
+                  <span *ngIf="!authService.hasPermission('WORKFLOW_EDIT')">{{ wf.name }}</span>
                 </td>
                 <td class="col-mota">
                   <span class="mota-text" [title]="wf.description">{{ truncate(wf.description, 60) || '—' }}</span>
@@ -124,12 +126,13 @@
                   </span>
                 </td>
                 <td class="col-hd">
-                  <button class="act-btn act-edit" (click)="onEdit(wf)" title="Sửa quy trình">
+                  <button class="act-btn act-edit" (click)="onEdit(wf)" title="Sửa quy trình" *ngIf="authService.hasPermission('WORKFLOW_EDIT')">
                     <i class="pi pi-pencil"></i>
                   </button>
-                  <button class="act-btn act-delete" (click)="promptDeleteOne(wf)" title="Xóa quy trình">
+                  <button class="act-btn act-delete" (click)="promptDeleteOne(wf)" title="Xóa quy trình" *ngIf="authService.hasPermission('WORKFLOW_DELETE')">
                     <i class="pi pi-trash"></i>
                   </button>
+                  <span *ngIf="!authService.hasPermission('WORKFLOW_EDIT') && !authService.hasPermission('WORKFLOW_DELETE')" class="text-muted">—</span>
                 </td>
               </tr>
 
@@ -193,14 +196,15 @@
         <div class="tab-bar">
           <button class="tab-item" id="tab-general"
             [class.tab-active]="activeTab === 'general'"
-            (click)="activeTab = 'general'">
-            Thông tin chung
+            (click)="selectTab('general')">
+            Thông tin quy trình
           </button>
           <button class="tab-item" id="tab-design"
             [class.tab-active]="activeTab === 'design'"
-            (click)="activeTab = 'design'">
+            (click)="selectTab('design')">
             Thiết kế quy trình
           </button>
+
         </div>
 
         <!-- ── TAB 1: THÔNG TIN CHUNG ──────────────────────────── -->
@@ -269,16 +273,26 @@
               </div>
               <div class="prop-body">
                 <div class="prop-row">
-                  <label>Tên phần tử</label>
-                  <input type="text" class="prop-input" [value]="selectedElementProps.name" (input)="updateElementProperty('name', $event)" />
+                  <label>{{ selectedElementProps.type === 'bpmn:SequenceFlow' ? 'Nhãn đường đi' : 'Tên phần tử' }}</label>
+                  <input type="text" class="prop-input" [value]="selectedElementProps.name" (input)="updateElementProperty('name', $event)" placeholder="Ví dụ: Đồng ý, Từ chối,..." />
                 </div>
+                
+                <!-- Task / UserTask Specific -->
                 <div class="prop-row" *ngIf="selectedElementProps.type === 'bpmn:Task' || selectedElementProps.type === 'bpmn:UserTask'">
                   <label>Thứ tự bước</label>
                   <input type="number" class="prop-input" [value]="selectedElementProps.stepNum" (input)="updateElementProperty('stepNum', $event)" min="1" />
                 </div>
                 <div class="prop-row" *ngIf="selectedElementProps.type === 'bpmn:Task' || selectedElementProps.type === 'bpmn:UserTask'">
                   <label>Vai trò phụ trách</label>
-                  <input type="text" class="prop-input" [value]="selectedElementProps.requiredRole" (input)="updateElementProperty('requiredRole', $event)" placeholder="Ví dụ: KiemSoatVien, GiamDoc..." />
+                  <div class="role-checkbox-list">
+                    <label *ngFor="let role of rolesList" class="role-checkbox-item">
+                      <input type="checkbox" 
+                        [checked]="isRoleSelected(role.code)" 
+                        (change)="toggleRoleSelection(role.code, $event)" />
+                      <span>{{ role.name }}</span>
+                    </label>
+                    <div *ngIf="rolesList.length === 0" class="no-roles-text">Không có vai trò nào.</div>
+                  </div>
                 </div>
                 <div class="prop-row" *ngIf="selectedElementProps.type === 'bpmn:Task' || selectedElementProps.type === 'bpmn:UserTask'">
                   <label>Loại hành động</label>
@@ -289,6 +303,20 @@
                     <option value="Approve">Phê duyệt</option>
                   </select>
                 </div>
+
+                <!-- SequenceFlow Condition Specific -->
+                <div class="prop-row" *ngIf="selectedElementProps.type === 'bpmn:SequenceFlow'">
+                  <label>Điều kiện chuyển tiếp</label>
+                  <input type="text" class="prop-input" [value]="selectedElementProps.condition" (input)="updateElementProperty('condition', $event)" placeholder="Ví dụ: status == 'Approve'" />
+                  <div class="prop-help-text">Đặt điều kiện khi đi ra từ Gateway phân nhánh.</div>
+                </div>
+
+                <!-- Gateway Selection Hint -->
+                <div class="prop-help-box" *ngIf="selectedElementProps.type.includes('Gateway')">
+                  <i class="pi pi-info-circle"></i>
+                  <span>Hãy chọn các <b>đường mũi tên đi ra</b> từ Gateway này để cấu hình điều kiện chuyển tiếp cho từng nhánh.</span>
+                </div>
+
                 <div class="prop-type-row">
                   <span class="prop-type-badge prop-type-task">
                     {{ selectedElementProps.type }}
@@ -311,6 +339,8 @@
             </div>
           </div>
         </div>
+
+
 
       </div>
     </div>

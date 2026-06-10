@@ -1,6 +1,6 @@
 <div class="wf-page">
   <p-toast></p-toast>
-  <div class="wf-card" *ngIf="!isAssigningPermissions()">
+  <div class="wf-card">
     
     <!-- Breadcrumb -->
     <div class="breadcrumb">
@@ -9,207 +9,215 @@
       <span class="bc-sep">/</span>
       <span class="bc-text">Quản trị hệ thống</span>
       <span class="bc-sep">/</span>
-      <span class="bc-current">Quản lý nhóm quyền</span>
+      <span class="bc-text" [class.bc-current]="currentView() === 'list'" (click)="currentView() !== 'list' && currentView.set('list')" [class.bc-link]="currentView() !== 'list'">Quản lý nhóm quyền</span>
+      <span class="bc-sep" *ngIf="currentView() !== 'list'">/</span>
+      <span class="bc-current" *ngIf="currentView() === 'add'">Thêm nhóm quyền mới</span>
+      <span class="bc-current" *ngIf="currentView() === 'edit'">Chỉnh sửa nhóm quyền</span>
+      <span class="bc-current" *ngIf="currentView() === 'permission'">Phân quyền chi tiết</span>
     </div>
 
-    <p class="text-muted mb-4">
-      Thiết lập các nhóm quyền (vai trò) hệ thống và cấu hình gán quyền chi tiết cho từng nhóm để kiểm soát truy cập và bảo mật.
-    </p>
+    <!-- MÀN HÌNH DANH SÁCH -->
+    <div *ngIf="currentView() === 'list'" class="animate-fade-in">
+      <p class="text-muted mb-4">
+        Thiết lập các nhóm quyền (vai trò) hệ thống và cấu hình gán quyền chi tiết cho từng nhóm để kiểm soát truy cập và bảo mật.
+      </p>
 
-    <!-- Toolbar -->
-    <div class="list-toolbar">
-      <div class="toolbar-left">
-        <input type="text" class="wf-search-input"
-          placeholder="Tìm kiếm vai trò..."
-          [ngModel]="searchKeyword()"
-          (ngModelChange)="searchKeyword.set($event)" />
-        <button class="btn-tim" (click)="onSearch()">
-          <i class="pi pi-search"></i> Tìm
-        </button>
-      </div>      <div class="toolbar-right">
-        <button *ngIf="authService.hasPermission('ROLE_CREATE')" class="btn-green" (click)="onAddNew()">
-          <i class="pi pi-plus"></i> Thêm nhóm mới
-        </button>
+      <!-- Toolbar -->
+      <div class="list-toolbar">
+        <div class="toolbar-left">
+          <input type="text" class="wf-search-input"
+            placeholder="Tìm kiếm vai trò..."
+            [ngModel]="searchKeyword()"
+            (ngModelChange)="searchKeyword.set($event)" />
+          <button class="btn-tim" (click)="onSearch()">
+            <i class="pi pi-search"></i> Tìm
+          </button>
+        </div>
+        <div class="toolbar-right">
+          <button *ngIf="authService.hasPermission('ROLE_CREATE')" class="btn-green" (click)="onAddNew()">
+            <i class="pi pi-plus"></i> Thêm nhóm mới
+          </button>
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="wf-table-wrap">
+        <table class="wf-table">
+          <thead>
+            <tr>
+              <th class="col-stt">STT</th>
+              <th>Mã vai trò (Code)</th>
+              <th>Tên vai trò (Name)</th>
+              <th>Mô tả</th>
+              <th class="col-hd" style="width: 250px;">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- skeleton loading rows -->
+            <ng-container *ngIf="loading()">
+              <tr *ngFor="let item of [1, 2, 3, 4]">
+                <td class="col-stt"><div class="skeleton-shimmer" style="height: 16px; width: 24px; border-radius: 4px;"></div></td>
+                <td><div class="skeleton-shimmer" style="height: 16px; width: 100px; border-radius: 4px;"></div></td>
+                <td><div class="skeleton-shimmer" style="height: 16px; width: 150px; border-radius: 4px;"></div></td>
+                <td><div class="skeleton-shimmer" style="height: 16px; width: 200px; border-radius: 4px;"></div></td>
+                <td class="col-hd"><div class="skeleton-shimmer" style="height: 24px; width: 180px; border-radius: 4px;"></div></td>
+              </tr>
+            </ng-container>
+
+            <ng-container *ngIf="!loading()">
+              <tr *ngFor="let role of filteredRoles(); let i = index">
+                <td class="col-stt text-muted">{{ i + 1 }}</td>
+                <td><code>{{ role.code }}</code></td>
+                <td>
+                  <b *ngIf="authService.hasPermission('ROLE_EDIT')" class="wf-name-link" (click)="onEdit(role)">{{ role.name }}</b>
+                  <span *ngIf="!authService.hasPermission('ROLE_EDIT')">{{ role.name }}</span>
+                </td>
+                <td><span class="text-muted">{{ role.description }}</span></td>
+                <td class="col-hd">
+                  <div class="action-buttons-group">
+                    <button *ngIf="authService.hasPermission('ROLE_MANAGE') || authService.hasPermission('PERMISSION_MANAGE')" class="act-btn act-assign" (click)="onAssignPermissions(role)" title="Phân quyền">
+                      <i class="pi pi-shield"></i>
+                    </button>
+                    <button *ngIf="authService.hasPermission('ROLE_EDIT')" class="act-btn act-edit" (click)="onEdit(role)" title="Chỉnh sửa">
+                      <i class="pi pi-pencil"></i>
+                    </button>
+                    <button *ngIf="authService.hasPermission('ROLE_DELETE')" class="act-btn act-delete" (click)="onDelete(role)" title="Xóa">
+                      <i class="pi pi-trash"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              <tr *ngIf="filteredRoles().length === 0">
+                <td colspan="5" class="empty-row">
+                  <i class="pi pi-inbox"></i>
+                  <div>Không tìm thấy nhóm quyền phù hợp.</div>
+                </td>
+              </tr>
+            </ng-container>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Footer -->
+      <div class="table-footer">
+        <span class="record-count">Tổng số: <b>{{ filteredRoles().length }}</b> nhóm quyền.</span>
       </div>
     </div>
 
-    <!-- Table -->
-    <div class="wf-table-wrap">
-      <table class="wf-table">
-        <thead>
-          <tr>
-            <th class="col-stt">STT</th>
-            <th>Mã vai trò (Code)</th>
-            <th>Tên vai trò (Name)</th>
-            <th>Mô tả</th>
-            <th class="col-hd" style="width: 250px;">Thao tác</th>
-          </tr>
-        </thead>
-        <tbody>
-          <!-- skeleton loading rows -->
-          <ng-container *ngIf="loading()">
-            <tr *ngFor="let item of [1, 2, 3, 4]">
-              <td class="col-stt"><div class="skeleton-shimmer" style="height: 16px; width: 24px; border-radius: 4px;"></div></td>
-              <td><div class="skeleton-shimmer" style="height: 16px; width: 100px; border-radius: 4px;"></div></td>
-              <td><div class="skeleton-shimmer" style="height: 16px; width: 150px; border-radius: 4px;"></div></td>
-              <td><div class="skeleton-shimmer" style="height: 16px; width: 200px; border-radius: 4px;"></div></td>
-              <td class="col-hd"><div class="skeleton-shimmer" style="height: 24px; width: 180px; border-radius: 4px;"></div></td>
-            </tr>
-          </ng-container>
-
-          <ng-container *ngIf="!loading()">
-            <tr *ngFor="let role of filteredRoles(); let i = index">
-              <td class="col-stt text-muted">{{ i + 1 }}</td>
-              <td><code>{{ role.code }}</code></td>
-              <td>
-                <b *ngIf="authService.hasPermission('ROLE_EDIT')" class="wf-name-link" (click)="onEdit(role)">{{ role.name }}</b>
-                <span *ngIf="!authService.hasPermission('ROLE_EDIT')">{{ role.name }}</span>
-              </td>
-              <td><span class="text-muted">{{ role.description }}</span></td>
-              <td class="col-hd">
-                <div class="action-buttons-group">
-                  <button *ngIf="authService.hasPermission('ROLE_MANAGE') || authService.hasPermission('PERMISSION_MANAGE')" class="act-btn act-assign" (click)="onAssignPermissions(role)" title="Phân quyền">
-                    <i class="pi pi-shield"></i>
-                  </button>
-                  <button *ngIf="authService.hasPermission('ROLE_EDIT')" class="act-btn act-edit" (click)="onEdit(role)" title="Chỉnh sửa">
-                    <i class="pi pi-pencil"></i>
-                  </button>
-                  <button *ngIf="authService.hasPermission('ROLE_DELETE')" class="act-btn act-delete" (click)="onDelete(role)" title="Xóa">
-                    <i class="pi pi-trash"></i>
-                  </button>
-                </div>
-              </td>
-            </tr>
-            <tr *ngIf="filteredRoles().length === 0">
-              <td colspan="5" class="empty-row">
-                <i class="pi pi-inbox"></i>
-                <div>Không tìm thấy nhóm quyền phù hợp.</div>
-              </td>
-            </tr>
-          </ng-container>
-        </tbody>
-      </table>
-    </div>
-
-    <!-- Footer -->
-    <div class="table-footer">
-      <span class="record-count">Tổng số: <b>{{ filteredRoles().length }}</b> nhóm quyền.</span>
-    </div>
-
-  </div>
-
-  <!-- View Phân Quyền Trực Tiếp (Inline Permissions Assignment) -->
-  <div class="wf-card" *ngIf="isAssigningPermissions()">
-    
-    <!-- Breadcrumb -->
-    <div class="breadcrumb">
-      <i class="pi pi-home bc-icon"></i>
-      <span class="bc-text">Trang chủ</span>
-      <span class="bc-sep">/</span>
-      <span class="bc-text">Quản trị hệ thống</span>
-      <span class="bc-sep">/</span>
-      <span class="bc-text wf-name-link" (click)="isAssigningPermissions.set(false)" style="cursor: pointer; color: #0284c7;">Quản lý nhóm quyền</span>
-      <span class="bc-sep">/</span>
-      <span class="bc-current">Phân quyền chi tiết</span>
-    </div>
-
-    <div class="flex align-items-center justify-content-between mb-3" style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #e2e8f0; padding-bottom: 14px; margin-bottom: 16px;">
-      <h3 style="color: #002D72; font-weight: 700; margin: 0; font-size: 1.15rem;">{{ permissionDialogHeader() }}</h3>
-      <div class="dialog-footer-actions">
-        <button class="btn-outlined btn-small" (click)="isAssigningPermissions.set(false)" [disabled]="savingPermissions()">Hủy quay lại</button>
-        <button class="btn-save btn-small" (click)="onSavePermissions()" [disabled]="savingPermissions()">
-          <i class="pi pi-spin pi-spinner" *ngIf="savingPermissions()" style="margin-right: 4px;"></i>
-          <i class="pi pi-check-circle mr-1" *ngIf="!savingPermissions()"></i> Lưu cấu hình
-        </button>
+    <!-- MÀN HÌNH THÊM MỚI / CHỈNH SỬA -->
+    <div *ngIf="currentView() === 'add' || currentView() === 'edit'" class="animate-fade-in">
+      <div class="edit-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <button class="btn-outlined btn-small" (click)="currentView.set('list')" title="Quay lại danh sách" [disabled]="saving()">
+            <i class="pi pi-arrow-left"></i>
+          </button>
+          <h3 class="edit-title">{{ dialogHeader() }}</h3>
+        </div>
       </div>
-    </div>
 
-    <div class="dialog-permissions-body">
-      <p class="text-muted mb-4 dialog-subtitle">Chọn các quyền hạn cụ thể cấp cho nhóm quyền này, sau đó click nút <b>Lưu cấu hình</b> để xác nhận:</p>
-      
-      <div class="permissions-scroll-container" style="max-height: calc(100vh - 280px);">
+      <div style="max-width: 600px; display: flex; flex-direction: column; gap: 16px; padding: 10px 0;">
+        <div class="form-group">
+          <label class="form-label">Mã nhóm quyền <span class="required">*</span></label>
+          <input type="text" class="wf-input w-full" [(ngModel)]="currentRole().code" placeholder="Ví dụ: QUAN_TRI, CAN_BO..." [disabled]="isEdit() || saving()" />
+        </div>
         
-        <!-- Loop through each parent menu group -->
-        <div *ngFor="let parent of menuPermissionTree()" class="parent-menu-section">
+        <div class="form-group">
+          <label class="form-label">Tên nhóm quyền <span class="required">*</span></label>
+          <input type="text" class="wf-input w-full" [(ngModel)]="currentRole().name" placeholder="Ví dụ: Quản trị viên hệ thống..." [disabled]="saving()" />
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">Mô tả chi tiết</label>
+          <textarea class="wf-textarea w-full" rows="3" [(ngModel)]="currentRole().description" placeholder="Ghi chú về phạm vi của vai trò này..." [disabled]="saving()"></textarea>
+        </div>
+
+        <div class="flex gap-2 justify-content-start pt-3" style="display: flex; justify-content: flex-start; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 18px; margin-top: 10px;">
+          <button class="btn-outlined btn-small" (click)="currentView.set('list')" [disabled]="saving()">Hủy</button>
+          <button class="btn-save btn-small" (click)="onSaveRole()" [disabled]="saving()">
+            <i class="pi pi-spin pi-spinner" *ngIf="saving()" style="margin-right: 4px;"></i>
+            Lưu
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MÀN HÌNH PHÂN QUYỀN CHI TIẾT -->
+    <div *ngIf="currentView() === 'permission'" class="animate-fade-in">
+      <div class="edit-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <button class="btn-outlined btn-small" (click)="currentView.set('list')" title="Quay lại danh sách" [disabled]="savingPermissions()">
+            <i class="pi pi-arrow-left"></i>
+          </button>
+          <h3 class="edit-title">{{ permissionDialogHeader() }}</h3>
+        </div>
+      </div>
+
+      <div class="dialog-permissions-body">
+        <p class="text-muted mb-4 dialog-subtitle" style="font-size: 0.85rem; margin: 0 0 16px 0;">Chọn các quyền hạn cụ thể cấp cho nhóm quyền này, sau đó click nút <b>Lưu cấu hình</b> để xác nhận:</p>
+        
+        <div class="permissions-scroll-container" style="max-height: calc(100vh - 280px); margin-bottom: 20px;">
           
-          <!-- Parent menu header -->
-          <div (click)="toggleParentMenu(parent)" class="parent-menu-header">
-            <div class="header-title-wrap">
-              <i [class]="parent.icon || 'pi pi-folder'" class="header-icon"></i>
-              <span class="header-text">{{ parent.name }}</span>
-            </div>
-            <i class="pi chevron-icon" [class.pi-chevron-down]="parent.expanded" [class.pi-chevron-right]="!parent.expanded"></i>
-          </div>
-
-          <!-- Parent menu body -->
-          <div *ngIf="parent.expanded" class="parent-menu-body">
+          <!-- Loop through each parent menu group -->
+          <div *ngFor="let parent of menuPermissionTree()" class="parent-menu-section" style="margin-bottom: 12px;">
             
-            <!-- Direct parent permissions (if any) -->
-            <div *ngIf="parent.permissions && parent.permissions.length > 0" class="permissions-grid">
-              <div *ngFor="let perm of parent.permissions" class="permission-checkbox-item">
-                <input type="checkbox" [id]="perm.code" [checked]="isPermissionChecked(perm.code)" (change)="togglePermission(perm.code)" [disabled]="savingPermissions()" class="perm-checkbox" />
-                <label [for]="perm.code" class="perm-label-wrap">
-                  <span class="perm-name">{{ perm.name }}</span>
-                  <span class="perm-desc">{{ perm.description }}</span>
-                </label>
+            <!-- Parent menu header -->
+            <div (click)="toggleParentMenu(parent)" class="parent-menu-header">
+              <div class="header-title-wrap">
+                <i [class]="parent.icon || 'pi pi-folder'" class="header-icon"></i>
+                <span class="header-text">{{ parent.name }}</span>
               </div>
+              <i class="pi chevron-icon" [class.pi-chevron-down]="parent.expanded" [class.pi-chevron-right]="!parent.expanded"></i>
             </div>
 
-            <!-- Child menus -->
-            <div *ngFor="let sub of parent.subMenus" class="submenu-section">
-              <div class="submenu-header">
-                <i [class]="sub.icon || 'pi pi-file'" class="submenu-icon"></i>
-                <span class="submenu-title">{{ sub.name }}</span>
-              </div>
-
-              <!-- Permissions under child menu -->
-              <div class="permissions-grid">
-                <div *ngFor="let perm of sub.permissions" class="permission-checkbox-item">
+            <!-- Parent menu body -->
+            <div *ngIf="parent.expanded" class="parent-menu-body">
+              
+              <!-- Direct parent permissions (if any) -->
+              <div *ngIf="parent.permissions && parent.permissions.length > 0" class="permissions-grid">
+                <div *ngFor="let perm of parent.permissions" class="permission-checkbox-item">
                   <input type="checkbox" [id]="perm.code" [checked]="isPermissionChecked(perm.code)" (change)="togglePermission(perm.code)" [disabled]="savingPermissions()" class="perm-checkbox" />
-                  <label [for]="perm.code" class="perm-label-wrap">
+                  <label [for]="perm.code" class="perm-label-wrap" (click)="!savingPermissions() && togglePermission(perm.code)">
                     <span class="perm-name">{{ perm.name }}</span>
                     <span class="perm-desc">{{ perm.description }}</span>
                   </label>
                 </div>
-                <div *ngIf="sub.permissions.length === 0" class="no-perms-hint">Chưa cấu hình quyền chi tiết cho chức năng này.</div>
               </div>
+
+              <!-- Child menus -->
+              <div *ngFor="let sub of parent.subMenus" class="submenu-section">
+                <div class="submenu-header">
+                  <i [class]="sub.icon || 'pi pi-file'" class="submenu-icon"></i>
+                  <span class="submenu-title">{{ sub.name }}</span>
+                </div>
+
+                <!-- Permissions under child menu -->
+                <div class="permissions-grid">
+                  <div *ngFor="let perm of sub.permissions" class="permission-checkbox-item">
+                    <input type="checkbox" [id]="perm.code" [checked]="isPermissionChecked(perm.code)" (change)="togglePermission(perm.code)" [disabled]="savingPermissions()" class="perm-checkbox" />
+                    <label [for]="perm.code" class="perm-label-wrap" (click)="!savingPermissions() && togglePermission(perm.code)">
+                      <span class="perm-name">{{ perm.name }}</span>
+                      <span class="perm-desc">{{ perm.description }}</span>
+                    </label>
+                  </div>
+                  <div *ngIf="sub.permissions.length === 0" class="no-perms-hint">Chưa cấu hình quyền chi tiết cho chức năng này.</div>
+                </div>
+              </div>
+
             </div>
 
           </div>
 
         </div>
 
+        <div style="display: flex; justify-content: flex-start; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 18px; margin-top: 10px;">
+          <button class="btn-outlined btn-small" (click)="currentView.set('list')" [disabled]="savingPermissions()">Hủy</button>
+          <button class="btn-save btn-small" (click)="onSavePermissions()" [disabled]="savingPermissions()">
+            <i class="pi pi-spin pi-spinner" *ngIf="savingPermissions()" style="margin-right: 4px;"></i>
+            Lưu cấu hình
+          </button>
+        </div>
       </div>
     </div>
+
   </div>
 </div>
-
-<!-- Dialog Thêm/Sửa Nhóm Quyền -->
-<p-dialog [visible]="displayDialog()" (visibleChange)="displayDialog.set($event)" [header]="dialogHeader()" [modal]="true" [style]="{ width: '450px' }" styleClass="evn-dialog-custom">
-  <div style="display: flex; flex-direction: column; gap: 14px; padding-top: 10px;">
-    <div class="form-group">
-      <label class="form-label">Mã nhóm quyền <span class="required">*</span></label>
-      <input type="text" class="wf-input w-full" [(ngModel)]="currentRole().code" placeholder="Ví dụ: QUAN_TRI, CAN_BO..." [disabled]="isEdit() || saving()" />
-    </div>
-    
-    <div class="form-group">
-      <label class="form-label">Tên nhóm quyền <span class="required">*</span></label>
-      <input type="text" class="wf-input w-full" [(ngModel)]="currentRole().name" placeholder="Ví dụ: Quản trị viên hệ thống..." [disabled]="saving()" />
-    </div>
-    
-    <div class="form-group">
-      <label class="form-label">Mô tả chi tiết</label>
-      <textarea class="wf-textarea w-full" rows="3" [(ngModel)]="currentRole().description" placeholder="Ghi chú về phạm vi của vai trò này..." [disabled]="saving()"></textarea>
-    </div>
-  </div>
-  
-  <ng-template #footer>
-    <div class="flex gap-2 justify-content-end pt-3" style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9;">
-      <button class="btn-outlined btn-small" (click)="displayDialog.set(false)" [disabled]="saving()">Hủy</button>
-      <button class="btn-save btn-small" (click)="onSaveRole()" [disabled]="saving()">
-        <i class="pi pi-spin pi-spinner" *ngIf="saving()" style="margin-right: 4px;"></i>
-        Lưu
-      </button>
-    </div>
-  </ng-template>
-</p-dialog>
