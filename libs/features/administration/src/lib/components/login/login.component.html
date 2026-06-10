@@ -9,19 +9,16 @@
 
   <!-- Right Section Content (Illustration) -->
   <div class="login-illustration-section">
-    <img src="/login_illustration.png" alt="EVN NPT Security Illustration" class="illustration-img" />
+    <img src="/login_illustration.png" alt="EVN HaNoi Security Illustration" class="illustration-img" />
   </div>
 
   <!-- Login Card Floating on Left side -->
   <div class="login-card-container">
     <div class="login-card shadow-4">
-      
-      <!-- Brand Logo EVN NPT -->
+
+      <!-- Brand Logo EVN HaNoi -->
       <div class="brand-logo-wrapper">
-        <img src="/assets/logo/logo.png" alt="EVN NPT Logo" class="brand-logo-img" />
-        <h1 class="brand-name">
-          <span class="text-blue">EVN</span><span class="text-red">NPT</span>
-        </h1>
+        <img src="/assets/logo/logoevnhanoi.jpg" alt="EVN HaNoi Logo" class="brand-logo-img-large" />
       </div>
 
       <!-- App Title -->
@@ -40,7 +37,8 @@
           <label class="form-label">Tên đăng nhập<span class="text-danger">*</span></label>
           <div class="input-wrapper">
             <i class="pi pi-user input-icon"></i>
-            <input type="text" [(ngModel)]="username" name="username" placeholder="Nhập tên đăng nhập..." required autocomplete="username" />
+            <input type="text" [(ngModel)]="username" name="username" placeholder="Nhập tên đăng nhập..." required
+              autocomplete="username" />
           </div>
         </div>
 
@@ -49,8 +47,10 @@
           <label class="form-label">Mật khẩu<span class="text-danger">*</span></label>
           <div class="input-wrapper">
             <i class="pi pi-lock input-icon"></i>
-            <input [type]="showPassword ? 'text' : 'password'" [(ngModel)]="password" name="password" placeholder="Nhập mật khẩu..." required autocomplete="current-password" />
-            <i class="pi password-toggle-icon" [class.pi-eye]="!showPassword" [class.pi-eye-slash]="showPassword" (click)="showPassword = !showPassword"></i>
+            <input [type]="showPassword ? 'text' : 'password'" [(ngModel)]="password" name="password"
+              placeholder="Nhập mật khẩu..." required autocomplete="current-password" />
+            <i class="pi password-toggle-icon" [class.pi-eye]="!showPassword" [class.pi-eye-slash]="showPassword"
+              (click)="showPassword = !showPassword"></i>
           </div>
         </div>
 
