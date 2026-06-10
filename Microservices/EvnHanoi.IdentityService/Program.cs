@@ -38,7 +38,6 @@ builder.Services.AddScoped<IUserUnitRoleRepository, UserUnitRoleRepository>();
 builder.Services.AddScoped<IUploadConfigRepository, UploadConfigRepository>();
 builder.Services.AddScoped<IPermissionRepository, PermissionRepository>();
 builder.Services.AddScoped<EvnHanoi.IdentityService.Infrastructure.Security.DynamicSeederService>();
-builder.Services.AddSingleton(new Elastic.Clients.Elasticsearch.ElasticsearchClient(new Uri(builder.Configuration["Elasticsearch:Uri"] ?? "http://localhost:9200")));
 
 // RabbitMQ Configuration & Consumer Registration
 var rabbitFactory = new RabbitMQ.Client.ConnectionFactory

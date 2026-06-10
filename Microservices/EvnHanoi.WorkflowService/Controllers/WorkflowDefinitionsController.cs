@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using EvnHanoi.WorkflowService.Data;
 using EvnHanoi.WorkflowService.Models;
+using EvnHanoi.WorkflowService.Enums;
 
 namespace EvnHanoi.WorkflowService.Controllers
 {
@@ -179,6 +180,12 @@ namespace EvnHanoi.WorkflowService.Controllers
             await _context.SaveChangesAsync();
 
             return Ok(new { Id = id, IsActive = def.IsActive });
+        }
+
+        [HttpGet("get-workflow-type")]
+        public ActionResult<IEnumerable<string>> GetWorkflowTypes()
+        {
+            return Ok(WorkflowTypeExtensions.GetDescriptions());
         }
     }
 }
