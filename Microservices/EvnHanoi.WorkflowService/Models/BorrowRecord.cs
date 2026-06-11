@@ -12,6 +12,8 @@ namespace EvnHanoi.WorkflowService.Models
         public DateTime? ApprovedDate { get; set; }
         public DateTime? BorrowedDate { get; set; }
         public DateTime? ReturnedDate { get; set; }
+        public Guid? WorkflowInstanceId { get; set; }
+        public string? WorkflowStatusName { get; set; }
         public BorrowState State { get; set; }
     }
 }
