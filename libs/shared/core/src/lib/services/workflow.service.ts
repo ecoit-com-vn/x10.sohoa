@@ -82,6 +82,62 @@ export class WorkflowService {
       .pipe(catchError(this.handleError));
   }
 
+  private get EXEC_BASE() {
+    return `${this.config.apiGatewayUrl}/api/v1/workflows`;
+  }
+
+  /** Gửi hồ sơ/yêu cầu vào quy trình */
+  submitWorkflow(definitionId: string, dossierId: string, entityType: string = 'BorrowRecord'): Observable<any> {
+    let params = new HttpParams()
+      .set('definitionId', definitionId)
+      .set('dossierId', dossierId)
+      .set('entityType', entityType);
+    return this.http.post<any>(`${this.EXEC_BASE}/submit`, null, { params })
+      .pipe(catchError(this.handleError));
+  }
+
+  /** Lấy danh sách nhiệm vụ cần làm của tôi */
+  getMyTasks(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.EXEC_BASE}/tasks/my-tasks`)
+      .pipe(catchError(this.handleError));
+  }
+
+  /** Phê duyệt nhiệm vụ */
+  approveTask(taskId: string, comment?: string): Observable<any> {
+    const headers = { 'Content-Type': 'application/json' };
+    const body = comment !== undefined && comment !== null ? JSON.stringify(comment) : '""';
+    return this.http.post<any>(`${this.EXEC_BASE}/tasks/${taskId}/approve`, body, { headers })
+      .pipe(catchError(this.handleError));
+  }
+
+  /** Từ chối / Trả lại nhiệm vụ */
+  rejectTask(taskId: string, comment?: string): Observable<any> {
+    const headers = { 'Content-Type': 'application/json' };
+    const body = comment !== undefined && comment !== null ? JSON.stringify(comment) : '""';
+    return this.http.post<any>(`${this.EXEC_BASE}/tasks/${taskId}/reject`, body, { headers })
+      .pipe(catchError(this.handleError));
+  }
+
+  /** Chuyển bước quy trình động dựa trên sơ đồ BPMN */
+  moveWorkflow(dossierId: string, nextNodeId: string, actionLabel: string, comment?: string): Observable<any> {
+    const body = { dossierId, nextNodeId, actionLabel, comment };
+    return this.http.post<any>(`${this.EXEC_BASE}/move`, body)
+      .pipe(catchError(this.handleError));
+  }
+
+  /** Lấy lịch sử phê duyệt của Instance */
+  getWorkflowHistory(instanceId: string): Observable<any[]> {
+    return this.http.get<any[]>(`${this.EXEC_BASE}/instances/${instanceId}/history`)
+      .pipe(catchError(this.handleError));
+  }
+
+  /** Lấy instance hiện tại của target entity */
+  getInstanceByEntity(entityId: string, entityType: string = 'BorrowRecord'): Observable<any> {
+    let params = new HttpParams().set('entityType', entityType);
+    return this.http.get<any>(`${this.EXEC_BASE}/instances/entity/${entityId}`, { params })
+      .pipe(catchError(this.handleError));
+  }
+
   private handleError(error: any): Observable<never> {
     const msg = error?.error?.message || error?.message || 'Lỗi không xác định từ máy chủ.';
     return throwError(() => new Error(msg));

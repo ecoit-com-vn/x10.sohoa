@@ -33,6 +33,15 @@ export class AuthService {
       return null;
     }
   }
+
+  getUserRoles(): string[] {
+    const token = this.getToken();
+    if (!token) return [];
+    const payload = this.decodeTokenPayload(token);
+    if (!payload) return [];
+    const roles = payload['role'] || payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] || [];
+    return Array.isArray(roles) ? roles : [roles];
+  }
   getPermissions(): Observable<string[]> {
     return this.http.get<string[]>(`${this.base}/permissions`);
   }

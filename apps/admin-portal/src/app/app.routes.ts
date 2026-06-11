@@ -76,6 +76,10 @@ export const appRoutes: Route[] = [
         loadChildren: () => import('@sohoa.frontend/features/workflow').then(m => m.WORKFLOW_ROUTES)
       },
       {
+        path: 'borrow-records',
+        loadComponent: () => import('@sohoa.frontend/features/workflow').then(m => m.BorrowReturnComponent)
+      },
+      {
         path: 'reports',
         loadChildren: () => import('@sohoa.frontend/features/reports').then(m => m.REPORTS_ROUTES)
       },

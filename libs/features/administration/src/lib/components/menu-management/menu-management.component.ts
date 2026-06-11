@@ -1,13 +1,11 @@
-import { Component, OnInit, signal, computed } from '@angular/core';
+import { Component, OnInit, signal, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
 import { DialogModule } from 'primeng/dialog';
 import { ToastModule } from 'primeng/toast';
 import { MessageService, ConfirmationService } from 'primeng/api';
-import { environment } from '@env/environment';
 import { finalize } from 'rxjs';
-import { AuthService } from '@sohoa.frontend/shared/core';
+import { AuthService, MenuService } from '@sohoa.frontend/shared/core';
 
 @Component({
   selector: 'app-menu-management',
@@ -30,7 +28,10 @@ export class MenuManagement implements OnInit {
   loading = signal<boolean>(false);
   saving = signal<boolean>(false);
 
-  private apiUrl = `${environment.apiGatewayUrl}/api/v1/menus`;
+  private menuService = inject(MenuService);
+  private messageService = inject(MessageService);
+  private confirmationService = inject(ConfirmationService);
+  public authService = inject(AuthService);
 
   // Computed signal for filteredMenus
   filteredMenus = computed(() => {
@@ -46,13 +47,6 @@ export class MenuManagement implements OnInit {
     );
   });
 
-  constructor(
-    private http: HttpClient,
-    private messageService: MessageService,
-    private confirmationService: ConfirmationService,
-    public authService: AuthService
-  ) {}
-
   ngOnInit() {
     this.loadMenus();
     this.loadPermissions();
@@ -60,7 +54,7 @@ export class MenuManagement implements OnInit {
 
   loadMenus() {
     this.loading.set(true);
-    this.http.get<any>(this.apiUrl)
+    this.menuService.getMenus()
       .pipe(finalize(() => this.loading.set(false)))
       .subscribe({
         next: (res) => {
@@ -73,7 +67,7 @@ export class MenuManagement implements OnInit {
   }
 
   loadPermissions() {
-    this.http.get<any>(`${environment.apiGatewayUrl}/api/v1/roles/permissions/all`).subscribe({
+    this.menuService.getPermissions().subscribe({
       next: (res) => {
         this.permissions.set(Array.isArray(res) ? res : (res && Array.isArray(res.value) ? res.value : []));
       },
@@ -175,7 +169,7 @@ export class MenuManagement implements OnInit {
     }
 
     if (this.isEdit()) {
-      this.http.put(`${this.apiUrl}/${menuDraft.id}`, menuDraft)
+      this.menuService.updateMenu(menuDraft.id, menuDraft)
         .pipe(finalize(() => this.saving.set(false)))
         .subscribe({
           next: () => {
@@ -188,7 +182,7 @@ export class MenuManagement implements OnInit {
           }
         });
     } else {
-      this.http.post(this.apiUrl, menuDraft)
+      this.menuService.createMenu(menuDraft)
         .pipe(finalize(() => this.saving.set(false)))
         .subscribe({
           next: () => {
@@ -217,7 +211,7 @@ export class MenuManagement implements OnInit {
       acceptLabel: 'Đồng ý',
       rejectLabel: 'Hủy',
       accept: () => {
-        this.http.delete(`${this.apiUrl}/${menu.id}`).subscribe({
+        this.menuService.deleteMenu(menu.id).subscribe({
           next: () => {
             this.messageService.add({ severity: 'success', summary: 'Xóa thành công', detail: 'Đã xóa Menu thành công!' });
             this.loadMenus();
