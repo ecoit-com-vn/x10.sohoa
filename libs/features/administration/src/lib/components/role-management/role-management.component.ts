@@ -117,7 +117,7 @@ export class RoleManagement implements OnInit {
     const unmappedPerms: any[] = [];
 
     permissions.forEach(p => {
-      const targetUrl = this.getMenuTargetForPermission(p.code);
+      const targetUrl = this.getMenuTargetForPermissionDynamic(p.code, menusList);
       if (targetUrl) {
         if (!permGroups.has(targetUrl)) {
           permGroups.set(targetUrl, []);
@@ -190,6 +190,26 @@ export class RoleManagement implements OnInit {
     this.menuPermissionTree.set([...this.menuPermissionTree()]);
   }
 
+  getMenuTargetForPermissionDynamic(code: string, menusList: any[]): string {
+    const parts = code.split('_');
+    if (parts.length < 2) return '';
+    const prefix = parts.slice(0, parts.length - 1).join('_');
+
+    const matchingMenu = menusList.find(m => {
+      if (!m.permissionCode) return false;
+      const mParts = m.permissionCode.split('_');
+      if (mParts.length < 2) return false;
+      const mPrefix = mParts.slice(0, mParts.length - 1).join('_');
+      return mPrefix === prefix;
+    });
+
+    if (matchingMenu) {
+      return matchingMenu.url || '';
+    }
+
+    return this.getMenuTargetForPermission(code);
+  }
+
   getMenuTargetForPermission(code: string): string {
     const parts = code.split('_');
     if (parts.length < 2) return '';
@@ -214,6 +234,7 @@ export class RoleManagement implements OnInit {
       case 'DIGITIZATION': return '/ocr-correction';
       case 'WORKFLOW':
       case 'WORKFLOW_DEFINITION': return '/workflow/borrow-return';
+      case 'BORROW_RECORD': return '/borrow-records';
       case 'REPORT':
       case 'DYNAMIC_REPORT':
       case 'REPORT_GROUP': return '/reports';

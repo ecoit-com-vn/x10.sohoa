@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { BorrowReturnComponent } from './components/borrow-return/borrow-return.component';
+import { BorrowReturnComponent } from './feature/borrow-return/borrow-return.component';
 
 export const WORKFLOW_ROUTES: Routes = [
   {
@@ -8,7 +8,7 @@ export const WORKFLOW_ROUTES: Routes = [
   },
   {
     path: 'builder',
-    loadComponent: () => import('./components/workflow-builder/workflow-builder.component').then(m => m.WorkflowBuilderComponent)
+    loadComponent: () => import('./feature/workflow-builder/workflow-builder.component').then(m => m.WorkflowBuilderComponent)
   },
   {
     path: '',

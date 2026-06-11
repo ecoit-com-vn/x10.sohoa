@@ -1,13 +1,12 @@
-import { Component, OnInit, signal, computed, inject, effect } from '@angular/core';
+import { Component, OnInit, signal, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute } from '@angular/router';
 import { ToastModule } from 'primeng/toast';
 import { SelectModule } from 'primeng/select';
 import { MessageService } from 'primeng/api';
-import { environment } from '@env/environment';
 import { AuthService } from '@sohoa.frontend/shared/core';
+import { CatalogService } from '../../data-access/catalog.service';
 
 @Component({
   selector: 'app-catalog-list',
@@ -17,7 +16,7 @@ import { AuthService } from '@sohoa.frontend/shared/core';
   templateUrl: './catalog-list.component.html'
 })
 export class CatalogListComponent implements OnInit {
-  private http = inject(HttpClient);
+  private catalogService = inject(CatalogService);
   private route = inject(ActivatedRoute);
   private authService = inject(AuthService);
   private messageService = inject(MessageService);
@@ -37,8 +36,6 @@ export class CatalogListComponent implements OnInit {
   isSaving = signal<boolean>(false);
 
   catalogTypes = signal<any[]>([]);
-
-  private apiUrl = `${environment.apiGatewayUrl}/api/catalog`;
 
   // Check if this catalog type supports hierarchy (Parent-Child)
   hasParent = computed(() => {
@@ -79,7 +76,7 @@ export class CatalogListComponent implements OnInit {
   }
 
   loadCatalogTypes(callback?: () => void) {
-    this.http.get<any[]>(`${this.apiUrl}/types`).subscribe({
+    this.catalogService.getCatalogTypes().subscribe({
       next: (types) => {
         this.catalogTypes.set(types || []);
         if (callback) callback();
@@ -95,15 +92,7 @@ export class CatalogListComponent implements OnInit {
     const type = this.catalogType();
     if (!type) return;
 
-    let url = `${this.apiUrl}?catalogType=${type}`;
-    if (this.searchKeyword().trim()) {
-      url += `&keyword=${encodeURIComponent(this.searchKeyword().trim())}`;
-    }
-    if (this.searchStatus()) {
-      url += `&status=${this.searchStatus()}`;
-    }
-
-    this.http.get<any[]>(url).subscribe({
+    this.catalogService.getItems(type, this.searchKeyword(), this.searchStatus()).subscribe({
       next: (data) => {
         this.items.set(data || []);
       },
@@ -125,7 +114,7 @@ export class CatalogListComponent implements OnInit {
   loadParentsList(excludeId?: number) {
     const type = this.catalogType();
     // Fetch only active items (status = 1) of the same catalog type
-    this.http.get<any[]>(`${this.apiUrl}?catalogType=${type}&status=1`).subscribe({
+    this.catalogService.getItems(type, undefined, '1').subscribe({
       next: (data) => {
         let list = data || [];
         if (excludeId) {
@@ -197,7 +186,7 @@ export class CatalogListComponent implements OnInit {
     this.isSaving.set(true);
 
     if (this.currentView() === 'edit') {
-      this.http.put(`${this.apiUrl}/${itemDraft.id}`, itemDraft).subscribe({
+      this.catalogService.updateItem(itemDraft.id, itemDraft).subscribe({
         next: () => {
           this.isSaving.set(false);
           this.messageService.add({
@@ -219,7 +208,7 @@ export class CatalogListComponent implements OnInit {
         }
       });
     } else {
-      this.http.post<any>(this.apiUrl, itemDraft).subscribe({
+      this.catalogService.createItem(itemDraft).subscribe({
         next: () => {
           this.isSaving.set(false);
           this.messageService.add({
@@ -246,7 +235,7 @@ export class CatalogListComponent implements OnInit {
   onDelete(item: any) {
     if (!this.canDelete()) return;
     if (confirm(`Bạn có chắc chắn muốn xóa danh mục ${item.name} (${item.code})?`)) {
-      this.http.delete(`${this.apiUrl}/${item.id}`).subscribe({
+      this.catalogService.deleteItem(item.id).subscribe({
         next: () => {
           this.messageService.add({
             severity: 'success',
@@ -275,8 +264,7 @@ export class CatalogListComponent implements OnInit {
       : `Bạn có chắc muốn MỞ KHÓA danh mục ${item.name} (${item.code})?`;
 
     if (confirm(confirmMsg)) {
-      const action = isLocking ? 'lock' : 'unlock';
-      this.http.post(`${this.apiUrl}/${item.id}/${action}`, {}).subscribe({
+      this.catalogService.toggleStatus(item.id, isLocking).subscribe({
         next: (res: any) => {
           this.messageService.add({
             severity: 'success',

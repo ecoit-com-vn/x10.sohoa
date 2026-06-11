@@ -256,6 +256,111 @@ export class WorkflowBuilderComponent implements OnInit {
       });
   }
 
+  validateBpmnXml(xmlString: string): string[] {
+    const errors: string[] = [];
+    if (!xmlString) {
+      errors.push('Cấu hình XML quy trình trống.');
+      return errors;
+    }
+
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(xmlString, 'application/xml');
+
+      const getElementsByLocalName = (localName: string): Element[] => {
+        const result: Element[] = [];
+        const allElements = doc.getElementsByTagName('*');
+        for (let i = 0; i < allElements.length; i++) {
+          if (allElements[i].localName === localName) {
+            result.push(allElements[i]);
+          }
+        }
+        return result;
+      };
+
+      // 1. Phải có duy nhất 1 Start Event
+      const startEvents = getElementsByLocalName('startEvent');
+      if (startEvents.length === 0) {
+        errors.push('Quy trình phải có điểm bắt đầu (Start Event).');
+      } else if (startEvents.length > 1) {
+        errors.push('Quy trình chỉ được phép có duy nhất 1 điểm bắt đầu (Start Event).');
+      }
+
+      // 2. Phải có ít nhất 1 End Event
+      const endEvents = getElementsByLocalName('endEvent');
+      if (endEvents.length === 0) {
+        errors.push('Quy trình phải có ít nhất 1 điểm kết thúc (End Event).');
+      }
+
+      // Find all sequence flows to map connections
+      const sequenceFlows = getElementsByLocalName('sequenceFlow');
+      const incomingMap = new Map<string, number>();
+      const outgoingMap = new Map<string, number>();
+
+      sequenceFlows.forEach(flow => {
+        const sourceRef = flow.getAttribute('sourceRef');
+        const targetRef = flow.getAttribute('targetRef');
+        if (sourceRef) {
+          outgoingMap.set(sourceRef, (outgoingMap.get(sourceRef) || 0) + 1);
+        }
+        if (targetRef) {
+          incomingMap.set(targetRef, (incomingMap.get(targetRef) || 0) + 1);
+        }
+      });
+
+      // Types of nodes to validate connection (Task/Gateway)
+      // Rule 3: Tất cả các Node (Task/Gateway) phải được kết nối: Không được phép có Node nằm "bơ vơ" không có mũi tên đi vào (incoming) hoặc đi ra (outgoing).
+      const taskTypes = [
+        'task', 'userTask', 'serviceTask', 'scriptTask', 
+        'sendTask', 'receiveTask', 'manualTask', 'businessRuleTask', 'callActivity'
+      ];
+      const gatewayTypes = [
+        'exclusiveGateway', 'parallelGateway', 'inclusiveGateway', 'eventBasedGateway', 'complexGateway'
+      ];
+      const nodeTypes = [...taskTypes, ...gatewayTypes];
+
+      nodeTypes.forEach(type => {
+        const nodes = getElementsByLocalName(type);
+        nodes.forEach(node => {
+          const id = node.getAttribute('id');
+          if (id) {
+            const name = node.getAttribute('name') || id;
+            const incomingCount = incomingMap.get(id) || 0;
+            const outgoingCount = outgoingMap.get(id) || 0;
+
+            if (incomingCount === 0 && outgoingCount === 0) {
+              errors.push(`Node '${name}' hoàn toàn không được kết nối (không có mũi tên đi vào và đi ra).`);
+            } else if (incomingCount === 0) {
+              errors.push(`Node '${name}' không có mũi tên đi vào (incoming).`);
+            } else if (outgoingCount === 0) {
+              errors.push(`Node '${name}' không có mũi tên đi ra (outgoing).`);
+            }
+          }
+        });
+      });
+
+      // Rule 4: Exclusive Gateway phải có đúng đường ra (tối đa 2 outgoing)
+      const exclusiveGateways = getElementsByLocalName('exclusiveGateway');
+      exclusiveGateways.forEach(gw => {
+        const id = gw.getAttribute('id');
+        if (id) {
+          const name = gw.getAttribute('name') || id;
+          const outgoingCount = outgoingMap.get(id) || 0;
+          if (outgoingCount === 0) {
+            errors.push(`Exclusive Gateway '${name}' phải có đường ra.`);
+          } else if (outgoingCount > 2) {
+            errors.push(`Exclusive Gateway '${name}' chỉ được phép có tối đa 2 đường ra.`);
+          }
+        }
+      });
+
+    } catch (e: any) {
+      errors.push('Định dạng XML không hợp lệ: ' + e.message);
+    }
+
+    return errors;
+  }
+
   async onSave() {
     const hasPerm = this.isEditMode ? this.authService.hasPermission('WORKFLOW_EDIT') : this.authService.hasPermission('WORKFLOW_CREATE');
     if (!hasPerm) {
@@ -277,6 +382,16 @@ export class WorkflowBuilderComponent implements OnInit {
         this.messageService.add({ severity: 'error', summary: 'Lỗi xuất XML', detail: err.message });
         return;
       }
+    }
+
+    // Validate XML in Frontend
+    const xmlErrors = this.validateBpmnXml(this.draft.bpmnXml || '');
+    if (xmlErrors.length > 0) {
+      this.saving = false;
+      xmlErrors.forEach(err => {
+        this.messageService.add({ severity: 'error', summary: 'Lỗi sơ đồ quy trình', detail: err, life: 10000 });
+      });
+      return;
     }
 
     const op$ = this.isEditMode
@@ -404,6 +519,27 @@ export class WorkflowBuilderComponent implements OnInit {
         container: '#canvas',
         keyboard: {
           bindTo: window
+        }
+      });
+
+      // Set default connection name when sequence flows are created from Gateway
+      const eventBus = this.bpmnModeler.get('eventBus');
+      eventBus.on('commandStack.connection.create.postExecuted', (event: any) => {
+        const context = event.context;
+        const connection = context.connection;
+        if (connection && connection.type === 'bpmn:SequenceFlow') {
+          const source = connection.source;
+          if (source && source.type && source.type.includes('Gateway')) {
+            const outgoingFlows = (source.outgoing || []).filter((flow: any) => flow.type === 'bpmn:SequenceFlow');
+            if (!connection.businessObject.name) {
+              const modeling = this.bpmnModeler.get('modeling');
+              if (outgoingFlows.length === 1) {
+                modeling.updateProperties(connection, { name: 'Duyệt' });
+              } else if (outgoingFlows.length === 2) {
+                modeling.updateProperties(connection, { name: 'Từ chối' });
+              }
+            }
+          }
         }
       });
 
