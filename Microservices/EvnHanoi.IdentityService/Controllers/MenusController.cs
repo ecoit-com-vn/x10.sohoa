@@ -31,7 +31,7 @@ public class MenusController : ControllerBase
     public async Task<IActionResult> GetLookup()
     {
         var menus = await _menuRepository.GetAllAsync();
-        var result = menus.Select(m => new { m.Id, m.Name, m.Url, m.Icon, m.ParentId, m.SortOrder, m.IsActive });
+        var result = menus.Select(m => new { m.Id, m.Name, m.Url, m.Icon, m.ParentId, m.SortOrder, m.IsActive, m.PermissionCode });
         return Ok(result);
     }
 

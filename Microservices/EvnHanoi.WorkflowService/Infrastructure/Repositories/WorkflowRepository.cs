@@ -1,0 +1,684 @@
+using EvnHanoi.WorkflowService.Core.Interfaces;
+using EvnHanoi.WorkflowService.Models;
+using System;
+using System.Collections.Generic;
+using System.Data;
+using System.Linq;
+using System.Threading.Tasks;
+using Dapper;
+
+namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
+{
+    public class WorkflowRepository : IWorkflowRepository
+    {
+        private readonly IDbConnection _connection;
+
+        public WorkflowRepository(IDbConnection connection)
+        {
+            _connection = connection ?? throw new ArgumentNullException(nameof(connection));
+        }
+
+        public async Task<IEnumerable<WorkflowDefinition>> GetAllDefinitionsAsync(string? keyword, bool? isActive)
+        {
+            if (_connection.State != ConnectionState.Open) _connection.Open();
+            var sql = $@"SELECT {nameof(WorkflowDefinition.Id)}, 
+                                {nameof(WorkflowDefinition.Name)}, 
+                                {nameof(WorkflowDefinition.Description)}, 
+                                {nameof(WorkflowDefinition.Version)}, 
+                                {nameof(WorkflowDefinition.ForceActivate)}, 
+                                {nameof(WorkflowDefinition.CreatedAt)}, 
+                                {nameof(WorkflowDefinition.UpdatedAt)}, 
+                                {nameof(WorkflowDefinition.IsActive)}, 
+                                {nameof(WorkflowDefinition.BpmnXml)} 
+                        FROM WORKFLOWDEFINITIONS WHERE 1=1";
+            var parameters = new DynamicParameters();
+            if (!string.IsNullOrWhiteSpace(keyword))
+            {
+                sql += $@" AND ({nameof(WorkflowDefinition.Name)} LIKE :Keyword OR {nameof(WorkflowDefinition.Description)} LIKE :Keyword)";
+                parameters.Add("Keyword", $"%{keyword}%");
+            }
+            if (isActive.HasValue)
+            {
+                sql += $@" AND {nameof(WorkflowDefinition.IsActive)} = :IsActive";
+                parameters.Add("IsActive", isActive.Value ? 1 : 0);
+            }
+            sql += $@" ORDER BY {nameof(WorkflowDefinition.CreatedAt)} DESC";
+
+            var definitions = await _connection.QueryAsync<WorkflowDefinition>(sql, parameters);
+            var result = definitions.ToList();
+            foreach (var def in result)
+            {
+                var sqlSteps = $@"SELECT {nameof(WorkflowStep.Id)}, 
+                                         {nameof(WorkflowStep.WorkflowDefinitionId)}, 
+                                         {nameof(WorkflowStep.StepName)}, 
+                                         ""{nameof(WorkflowStep.Order)}"", 
+                                         {nameof(WorkflowStep.RequiredRole)}, 
+                                         {nameof(WorkflowStep.ActionType)} 
+                                  FROM WORKFLOWSTEPS 
+                                  WHERE {nameof(WorkflowStep.WorkflowDefinitionId)} = :Id 
+                                  ORDER BY ""{nameof(WorkflowStep.Order)}""";
+                var steps = await _connection.QueryAsync<WorkflowStep>(sqlSteps, new { Id = def.Id.ToString() });
+                def.Steps = steps.ToList();
+                foreach (var step in def.Steps)
+                {
+                    step.WorkflowDefinition = def;
+                }
+            }
+            return result;
+        }
+
+        public async Task<WorkflowDefinition?> GetDefinitionByIdAsync(Guid id)
+        {
+            if (_connection.State != ConnectionState.Open) _connection.Open();
+            var sqlDef = $@"SELECT {nameof(WorkflowDefinition.Id)}, 
+                                   {nameof(WorkflowDefinition.Name)}, 
+                                   {nameof(WorkflowDefinition.Description)}, 
+                                   {nameof(WorkflowDefinition.Version)}, 
+                                   {nameof(WorkflowDefinition.ForceActivate)}, 
+                                   {nameof(WorkflowDefinition.CreatedAt)}, 
+                                   {nameof(WorkflowDefinition.UpdatedAt)}, 
+                                   {nameof(WorkflowDefinition.IsActive)}, 
+                                   {nameof(WorkflowDefinition.BpmnXml)} 
+                           FROM WORKFLOWDEFINITIONS WHERE {nameof(WorkflowDefinition.Id)} = :Id";
+            var def = await _connection.QuerySingleOrDefaultAsync<WorkflowDefinition>(sqlDef, new { Id = id.ToString() });
+            if (def == null) return null;
+
+            var sqlSteps = $@"SELECT {nameof(WorkflowStep.Id)}, 
+                                     {nameof(WorkflowStep.WorkflowDefinitionId)}, 
+                                     {nameof(WorkflowStep.StepName)}, 
+                                     ""{nameof(WorkflowStep.Order)}"", 
+                                     {nameof(WorkflowStep.RequiredRole)}, 
+                                     {nameof(WorkflowStep.ActionType)} 
+                              FROM WORKFLOWSTEPS 
+                              WHERE {nameof(WorkflowStep.WorkflowDefinitionId)} = :Id 
+                              ORDER BY ""{nameof(WorkflowStep.Order)}""";
+            var steps = await _connection.QueryAsync<WorkflowStep>(sqlSteps, new { Id = id.ToString() });
+            def.Steps = steps.ToList();
+            foreach (var step in def.Steps)
+            {
+                step.WorkflowDefinition = def;
+            }
+            return def;
+        }
+
+        public async Task<WorkflowStep?> GetStepByIdAsync(Guid id)
+        {
+            if (_connection.State != ConnectionState.Open) _connection.Open();
+            var sql = $@"SELECT {nameof(WorkflowStep.Id)}, 
+                                {nameof(WorkflowStep.WorkflowDefinitionId)}, 
+                                {nameof(WorkflowStep.StepName)}, 
+                                ""{nameof(WorkflowStep.Order)}"", 
+                                {nameof(WorkflowStep.RequiredRole)}, 
+                                {nameof(WorkflowStep.ActionType)} 
+                        FROM WORKFLOWSTEPS WHERE {nameof(WorkflowStep.Id)} = :Id";
+            return await _connection.QuerySingleOrDefaultAsync<WorkflowStep>(sql, new { Id = id.ToString() });
+        }
+
+        public async Task<bool> CreateDefinitionAsync(WorkflowDefinition definition)
+        {
+            if (_connection.State != ConnectionState.Open) _connection.Open();
+            using var transaction = _connection.BeginTransaction();
+            try
+            {
+                if (definition.Id == Guid.Empty)
+                {
+                    definition.Id = Guid.CreateVersion7();
+                }
+                var now = DateTime.UtcNow;
+                definition.CreatedAt = DateTime.SpecifyKind(now, DateTimeKind.Unspecified);
+                definition.UpdatedAt = DateTime.SpecifyKind(now, DateTimeKind.Unspecified);
+                if (definition.ForceActivate)
+                {
+                    var sqlDeactivate = $@"UPDATE WORKFLOWDEFINITIONS 
+                                           SET {nameof(WorkflowDefinition.IsActive)} = 0 
+                                           WHERE {nameof(WorkflowDefinition.Name)} = :Name AND {nameof(WorkflowDefinition.IsActive)} = 1";
+                    await _connection.ExecuteAsync(sqlDeactivate, new { Name = definition.Name }, transaction);
+                }
+
+                var sqlInsertDef = $@"INSERT INTO WORKFLOWDEFINITIONS (
+                                        {nameof(WorkflowDefinition.Id)}, 
+                                        {nameof(WorkflowDefinition.Name)}, 
+                                        {nameof(WorkflowDefinition.Description)}, 
+                                        {nameof(WorkflowDefinition.Version)}, 
+                                        {nameof(WorkflowDefinition.ForceActivate)}, 
+                                        {nameof(WorkflowDefinition.CreatedAt)}, 
+                                        {nameof(WorkflowDefinition.UpdatedAt)}, 
+                                        {nameof(WorkflowDefinition.IsActive)}, 
+                                        {nameof(WorkflowDefinition.BpmnXml)}
+                                     )
+                                     VALUES (:Id, :Name, :Description, :Version, :ForceActivate, :CreatedAt, :UpdatedAt, :IsActive, :BpmnXml)";
+
+                var parameters = new DynamicParameters();
+                parameters.Add("Id", definition.Id.ToString());
+                parameters.Add("Name", string.IsNullOrEmpty(definition.Name) ? null : definition.Name);
+                parameters.Add("Description", string.IsNullOrEmpty(definition.Description) ? null : definition.Description);
+                parameters.Add("Version", string.IsNullOrEmpty(definition.Version) ? null : definition.Version);
+                parameters.Add("ForceActivate", definition.ForceActivate ? 1 : 0);
+                parameters.Add("CreatedAt", definition.CreatedAt);
+                parameters.Add("UpdatedAt", definition.UpdatedAt);
+                parameters.Add("IsActive", definition.IsActive ? 1 : 0);
+                parameters.Add("BpmnXml", string.IsNullOrEmpty(definition.BpmnXml) ? null : definition.BpmnXml);
+
+                await _connection.ExecuteAsync(sqlInsertDef, parameters, transaction);
+
+                if (definition.Steps != null && definition.Steps.Count > 0)
+                {
+                    var sqlInsertStep = $@"INSERT INTO WORKFLOWSTEPS (
+                                            {nameof(WorkflowStep.Id)}, 
+                                            {nameof(WorkflowStep.WorkflowDefinitionId)}, 
+                                            {nameof(WorkflowStep.StepName)}, 
+                                            ""{nameof(WorkflowStep.Order)}"", 
+                                            {nameof(WorkflowStep.RequiredRole)}, 
+                                            {nameof(WorkflowStep.ActionType)}
+                                         )
+                                         VALUES (:Id, :WorkflowDefinitionId, :StepName, :OrderVal, :RequiredRole, :ActionType)";
+                    foreach (var step in definition.Steps)
+                    {
+                        if (step.Id == Guid.Empty)
+                        {
+                            step.Id = Guid.CreateVersion7();
+                        }
+                        step.WorkflowDefinitionId = definition.Id;
+
+                        var stepParams = new DynamicParameters();
+                        stepParams.Add("Id", step.Id.ToString());
+                        stepParams.Add("WorkflowDefinitionId", step.WorkflowDefinitionId.ToString());
+                        stepParams.Add("StepName", string.IsNullOrEmpty(step.StepName) ? null : step.StepName);
+                        stepParams.Add("OrderVal", step.Order);
+                        stepParams.Add("RequiredRole", string.IsNullOrEmpty(step.RequiredRole) ? null : step.RequiredRole);
+                        stepParams.Add("ActionType", string.IsNullOrEmpty(step.ActionType) ? null : step.ActionType);
+
+                        await _connection.ExecuteAsync(sqlInsertStep, stepParams, transaction);
+                    }
+                }
+
+                transaction.Commit();
+                return true;
+            }
+            catch
+            {
+                transaction.Rollback();
+                throw;
+            }
+        }
+
+        public async Task<bool> UpdateDefinitionAsync(Guid id, WorkflowDefinition definition)
+        {
+            if (_connection.State != ConnectionState.Open) _connection.Open();
+            using var transaction = _connection.BeginTransaction();
+            try
+            {
+                definition.UpdatedAt = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified);
+                if (definition.ForceActivate && definition.IsActive)
+                {
+                    var sqlDeactivate = $@"UPDATE WORKFLOWDEFINITIONS 
+                                           SET {nameof(WorkflowDefinition.IsActive)} = 0 
+                                           WHERE {nameof(WorkflowDefinition.Name)} = :Name AND {nameof(WorkflowDefinition.IsActive)} = 1 AND {nameof(WorkflowDefinition.Id)} != :Id";
+                    await _connection.ExecuteAsync(sqlDeactivate, new { Name = definition.Name, Id = id.ToString() }, transaction);
+                }
+
+                var sqlUpdateDef = $@"UPDATE WORKFLOWDEFINITIONS
+                                     SET {nameof(WorkflowDefinition.Name)} = :Name, 
+                                         {nameof(WorkflowDefinition.Description)} = :Description, 
+                                         {nameof(WorkflowDefinition.Version)} = :Version,
+                                         {nameof(WorkflowDefinition.ForceActivate)} = :ForceActivate, 
+                                         {nameof(WorkflowDefinition.IsActive)} = :IsActive, 
+                                         {nameof(WorkflowDefinition.BpmnXml)} = :BpmnXml, 
+                                         {nameof(WorkflowDefinition.UpdatedAt)} = :UpdatedAt
+                                     WHERE {nameof(WorkflowDefinition.Id)} = :Id";
+                var defParams = new DynamicParameters();
+                defParams.Add("Name", string.IsNullOrEmpty(definition.Name) ? null : definition.Name);
+                defParams.Add("Description", string.IsNullOrEmpty(definition.Description) ? null : definition.Description);
+                defParams.Add("Version", string.IsNullOrEmpty(definition.Version) ? null : definition.Version);
+                defParams.Add("ForceActivate", definition.ForceActivate ? 1 : 0);
+                defParams.Add("IsActive", definition.IsActive ? 1 : 0);
+                defParams.Add("BpmnXml", string.IsNullOrEmpty(definition.BpmnXml) ? null : definition.BpmnXml);
+                defParams.Add("UpdatedAt", definition.UpdatedAt);
+                defParams.Add("Id", id.ToString());
+
+                await _connection.ExecuteAsync(sqlUpdateDef, defParams, transaction);
+
+                // Fetch existing steps
+                var sqlGetExistingSteps = $@"SELECT {nameof(WorkflowStep.Id)} 
+                                             FROM WORKFLOWSTEPS 
+                                             WHERE {nameof(WorkflowStep.WorkflowDefinitionId)} = :Id";
+                var existingStepIds = (await _connection.QueryAsync<Guid>(sqlGetExistingSteps, new { Id = id.ToString() }, transaction)).ToHashSet();
+
+                var incomingSteps = definition.Steps ?? new List<WorkflowStep>();
+                var incomingStepIds = incomingSteps.Where(s => s.Id != Guid.Empty).Select(s => s.Id).ToHashSet();
+
+                // 1. Delete steps that are not in incoming list
+                var stepIdsToDelete = existingStepIds.Where(eid => !incomingStepIds.Contains(eid)).ToList();
+                if (stepIdsToDelete.Any())
+                {
+                    var sqlDeleteStep = $@"DELETE FROM WORKFLOWSTEPS WHERE {nameof(WorkflowStep.Id)} = :Id";
+                    foreach (var deleteId in stepIdsToDelete)
+                    {
+                        await _connection.ExecuteAsync(sqlDeleteStep, new { Id = deleteId.ToString() }, transaction);
+                    }
+                }
+
+                // 2. Insert or Update incoming steps
+                var sqlInsertStep = $@"INSERT INTO WORKFLOWSTEPS (
+                                        {nameof(WorkflowStep.Id)}, 
+                                        {nameof(WorkflowStep.WorkflowDefinitionId)}, 
+                                        {nameof(WorkflowStep.StepName)}, 
+                                        ""{nameof(WorkflowStep.Order)}"", 
+                                        {nameof(WorkflowStep.RequiredRole)}, 
+                                        {nameof(WorkflowStep.ActionType)}
+                                     )
+                                     VALUES (:Id, :WorkflowDefinitionId, :StepName, :OrderVal, :RequiredRole, :ActionType)";
+
+                var sqlUpdateStep = $@"UPDATE WORKFLOWSTEPS 
+                                      SET {nameof(WorkflowStep.StepName)} = :StepName, 
+                                          ""{nameof(WorkflowStep.Order)}"" = :OrderVal, 
+                                          {nameof(WorkflowStep.RequiredRole)} = :RequiredRole, 
+                                          {nameof(WorkflowStep.ActionType)} = :ActionType 
+                                      WHERE {nameof(WorkflowStep.Id)} = :Id";
+
+                foreach (var step in incomingSteps)
+                {
+                    var stepParams = new DynamicParameters();
+                    stepParams.Add("StepName", string.IsNullOrEmpty(step.StepName) ? null : step.StepName);
+                    stepParams.Add("OrderVal", step.Order);
+                    stepParams.Add("RequiredRole", string.IsNullOrEmpty(step.RequiredRole) ? null : step.RequiredRole);
+                    stepParams.Add("ActionType", string.IsNullOrEmpty(step.ActionType) ? null : step.ActionType);
+
+                    if (step.Id != Guid.Empty && existingStepIds.Contains(step.Id))
+                    {
+                        // Update existing step
+                        stepParams.Add("Id", step.Id.ToString());
+                        await _connection.ExecuteAsync(sqlUpdateStep, stepParams, transaction);
+                    }
+                    else
+                    {
+                        // Insert new step
+                        if (step.Id == Guid.Empty)
+                        {
+                            step.Id = Guid.CreateVersion7();
+                        }
+                        stepParams.Add("Id", step.Id.ToString());
+                        stepParams.Add("WorkflowDefinitionId", id.ToString());
+                        await _connection.ExecuteAsync(sqlInsertStep, stepParams, transaction);
+                    }
+                }
+
+                transaction.Commit();
+                return true;
+            }
+            catch
+            {
+                transaction.Rollback();
+                throw;
+            }
+        }
+
+        public async Task<bool> DeleteDefinitionAsync(Guid id)
+        {
+            if (_connection.State != ConnectionState.Open) _connection.Open();
+            using var transaction = _connection.BeginTransaction();
+            try
+            {
+                var sqlDeleteSteps = $@"DELETE FROM WORKFLOWSTEPS WHERE {nameof(WorkflowStep.WorkflowDefinitionId)} = :Id";
+                await _connection.ExecuteAsync(sqlDeleteSteps, new { Id = id.ToString() }, transaction);
+
+                var sqlDeleteDef = $@"DELETE FROM WORKFLOWDEFINITIONS WHERE {nameof(WorkflowDefinition.Id)} = :Id";
+                var affected = await _connection.ExecuteAsync(sqlDeleteDef, new { Id = id.ToString() }, transaction);
+
+                transaction.Commit();
+                return affected > 0;
+            }
+            catch
+            {
+                transaction.Rollback();
+                throw;
+            }
+        }
+
+        public async Task<bool?> ToggleDefinitionStatusAsync(Guid id)
+        {
+            if (_connection.State != ConnectionState.Open) _connection.Open();
+            var sqlSelect = $@"SELECT {nameof(WorkflowDefinition.IsActive)} FROM WORKFLOWDEFINITIONS WHERE {nameof(WorkflowDefinition.Id)} = :Id";
+            var currentStatus = await _connection.QuerySingleOrDefaultAsync<int?>(sqlSelect, new { Id = id.ToString() });
+            if (!currentStatus.HasValue) return null;
+
+            var newStatus = currentStatus.Value == 1 ? 0 : 1;
+            var sqlUpdate = $@"UPDATE WORKFLOWDEFINITIONS SET {nameof(WorkflowDefinition.IsActive)} = :IsActive, {nameof(WorkflowDefinition.UpdatedAt)} = :UpdatedAt WHERE {nameof(WorkflowDefinition.Id)} = :Id";
+            await _connection.ExecuteAsync(sqlUpdate, new { IsActive = newStatus, UpdatedAt = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified), Id = id.ToString() });
+            return newStatus == 1;
+        }
+
+        public async Task<WorkflowInstance?> GetInstanceByEntityAsync(string entityId, string entityType)
+        {
+            if (_connection.State != ConnectionState.Open) _connection.Open();
+            var sql = $@"SELECT {nameof(WorkflowInstance.Id)}, 
+                                {nameof(WorkflowInstance.WorkflowDefinitionId)}, 
+                                {nameof(WorkflowInstance.TargetEntityId)}, 
+                                {nameof(WorkflowInstance.TargetEntityType)}, 
+                                {nameof(WorkflowInstance.Status)}, 
+                                {nameof(WorkflowInstance.CurrentStepOrder)}, 
+                                {nameof(WorkflowInstance.CurrentNodeId)}, 
+                                {nameof(WorkflowInstance.CurrentNodeName)}, 
+                                {nameof(WorkflowInstance.CreatedAt)}, 
+                                {nameof(WorkflowInstance.UpdatedAt)}
+                        FROM WORKFLOWINSTANCES
+                        WHERE {nameof(WorkflowInstance.TargetEntityId)} = :EntityId AND {nameof(WorkflowInstance.TargetEntityType)} = :EntityType
+                        ORDER BY {nameof(WorkflowInstance.CreatedAt)} DESC";
+            var instance = await _connection.QueryFirstOrDefaultAsync<WorkflowInstance>(sql, new { EntityId = entityId, EntityType = entityType });
+            if (instance == null) return null;
+
+            instance.WorkflowDefinition = await GetDefinitionByIdAsync(instance.WorkflowDefinitionId);
+
+            var sqlTasks = $@"SELECT {nameof(WorkflowTask.Id)}, 
+                                     {nameof(WorkflowTask.WorkflowInstanceId)}, 
+                                     {nameof(WorkflowTask.StepId)}, 
+                                     {nameof(WorkflowTask.StepName)}, 
+                                     {nameof(WorkflowTask.AssignedRole)}, 
+                                     {nameof(WorkflowTask.AssigneeUserId)}, 
+                                     {nameof(WorkflowTask.Status)}, 
+                                     {nameof(WorkflowTask.CreatedAt)}, 
+                                     {nameof(WorkflowTask.CompletedAt)}
+                             FROM WORKFLOWTASKS
+                             WHERE {nameof(WorkflowTask.WorkflowInstanceId)} = :InstanceId";
+            var tasks = await _connection.QueryAsync<WorkflowTask>(sqlTasks, new { InstanceId = instance.Id.ToString() });
+            instance.Tasks = tasks.ToList();
+            foreach (var task in instance.Tasks)
+            {
+                task.WorkflowInstance = instance;
+                if (instance.WorkflowDefinition != null)
+                {
+                    task.Step = instance.WorkflowDefinition.Steps.FirstOrDefault(s => s.Id == task.StepId);
+                }
+            }
+            return instance;
+        }
+
+        public async Task<WorkflowInstance?> GetInstanceByIdAsync(Guid instanceId)
+        {
+            if (_connection.State != ConnectionState.Open) _connection.Open();
+            var sql = $@"SELECT {nameof(WorkflowInstance.Id)}, 
+                                {nameof(WorkflowInstance.WorkflowDefinitionId)}, 
+                                {nameof(WorkflowInstance.TargetEntityId)}, 
+                                {nameof(WorkflowInstance.TargetEntityType)}, 
+                                {nameof(WorkflowInstance.Status)}, 
+                                {nameof(WorkflowInstance.CurrentStepOrder)}, 
+                                {nameof(WorkflowInstance.CurrentNodeId)}, 
+                                {nameof(WorkflowInstance.CurrentNodeName)}, 
+                                {nameof(WorkflowInstance.CreatedAt)}, 
+                                {nameof(WorkflowInstance.UpdatedAt)}
+                        FROM WORKFLOWINSTANCES
+                        WHERE {nameof(WorkflowInstance.Id)} = :Id";
+            var instance = await _connection.QuerySingleOrDefaultAsync<WorkflowInstance>(sql, new { Id = instanceId.ToString() });
+            if (instance == null) return null;
+
+            instance.WorkflowDefinition = await GetDefinitionByIdAsync(instance.WorkflowDefinitionId);
+
+            var sqlTasks = $@"SELECT {nameof(WorkflowTask.Id)}, 
+                                     {nameof(WorkflowTask.WorkflowInstanceId)}, 
+                                     {nameof(WorkflowTask.StepId)}, 
+                                     {nameof(WorkflowTask.StepName)}, 
+                                     {nameof(WorkflowTask.AssignedRole)}, 
+                                     {nameof(WorkflowTask.AssigneeUserId)}, 
+                                     {nameof(WorkflowTask.Status)}, 
+                                     {nameof(WorkflowTask.CreatedAt)}, 
+                                     {nameof(WorkflowTask.CompletedAt)}
+                             FROM WORKFLOWTASKS
+                             WHERE {nameof(WorkflowTask.WorkflowInstanceId)} = :InstanceId";
+            var tasks = await _connection.QueryAsync<WorkflowTask>(sqlTasks, new { InstanceId = instance.Id.ToString() });
+            instance.Tasks = tasks.ToList();
+            foreach (var task in instance.Tasks)
+            {
+                task.WorkflowInstance = instance;
+                if (instance.WorkflowDefinition != null)
+                {
+                    task.Step = instance.WorkflowDefinition.Steps.FirstOrDefault(s => s.Id == task.StepId);
+                }
+            }
+            return instance;
+        }
+
+        public async Task<bool> CreateInstanceAsync(WorkflowInstance instance)
+        {
+            if (_connection.State != ConnectionState.Open) _connection.Open();
+            var now = DateTime.UtcNow;
+            instance.CreatedAt = DateTime.SpecifyKind(now, DateTimeKind.Unspecified);
+            instance.UpdatedAt = DateTime.SpecifyKind(now, DateTimeKind.Unspecified);
+            var sql = $@"INSERT INTO WORKFLOWINSTANCES (
+                            {nameof(WorkflowInstance.Id)}, 
+                            {nameof(WorkflowInstance.WorkflowDefinitionId)}, 
+                            {nameof(WorkflowInstance.TargetEntityId)}, 
+                            {nameof(WorkflowInstance.TargetEntityType)}, 
+                            {nameof(WorkflowInstance.Status)}, 
+                            {nameof(WorkflowInstance.CurrentStepOrder)}, 
+                            {nameof(WorkflowInstance.CurrentNodeId)}, 
+                            {nameof(WorkflowInstance.CurrentNodeName)}, 
+                            {nameof(WorkflowInstance.CreatedAt)}, 
+                            {nameof(WorkflowInstance.UpdatedAt)}
+                        )
+                        VALUES (:Id, :WorkflowDefinitionId, :TargetEntityId, :TargetEntityType, :Status, :CurrentStepOrder, :CurrentNodeId, :CurrentNodeName, :CreatedAt, :UpdatedAt)";
+            var parameters = new DynamicParameters();
+            parameters.Add("Id", instance.Id.ToString());
+            parameters.Add("WorkflowDefinitionId", instance.WorkflowDefinitionId.ToString());
+            parameters.Add("TargetEntityId", string.IsNullOrEmpty(instance.TargetEntityId) ? null : instance.TargetEntityId);
+            parameters.Add("TargetEntityType", string.IsNullOrEmpty(instance.TargetEntityType) ? null : instance.TargetEntityType);
+            parameters.Add("Status", string.IsNullOrEmpty(instance.Status) ? null : instance.Status);
+            parameters.Add("CurrentStepOrder", instance.CurrentStepOrder);
+            parameters.Add("CurrentNodeId", string.IsNullOrEmpty(instance.CurrentNodeId) ? null : instance.CurrentNodeId);
+            parameters.Add("CurrentNodeName", string.IsNullOrEmpty(instance.CurrentNodeName) ? null : instance.CurrentNodeName);
+            parameters.Add("CreatedAt", instance.CreatedAt);
+            parameters.Add("UpdatedAt", instance.UpdatedAt);
+
+            var affected = await _connection.ExecuteAsync(sql, parameters);
+            return affected > 0;
+        }
+
+        public async Task<bool> UpdateInstanceAsync(WorkflowInstance instance)
+        {
+            if (_connection.State != ConnectionState.Open) _connection.Open();
+            instance.CreatedAt = DateTime.SpecifyKind(instance.CreatedAt, DateTimeKind.Unspecified);
+            instance.UpdatedAt = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified);
+            var sql = $@"UPDATE WORKFLOWINSTANCES
+                        SET {nameof(WorkflowInstance.WorkflowDefinitionId)} = :WorkflowDefinitionId, 
+                            {nameof(WorkflowInstance.TargetEntityId)} = :TargetEntityId, 
+                            {nameof(WorkflowInstance.TargetEntityType)} = :TargetEntityType,
+                            {nameof(WorkflowInstance.Status)} = :Status, 
+                            {nameof(WorkflowInstance.CurrentStepOrder)} = :CurrentStepOrder, 
+                            {nameof(WorkflowInstance.CurrentNodeId)} = :CurrentNodeId, 
+                            {nameof(WorkflowInstance.CurrentNodeName)} = :CurrentNodeName, 
+                            {nameof(WorkflowInstance.CreatedAt)} = :CreatedAt, 
+                            {nameof(WorkflowInstance.UpdatedAt)} = :UpdatedAt
+                        WHERE {nameof(WorkflowInstance.Id)} = :Id";
+            var parameters = new DynamicParameters();
+            parameters.Add("WorkflowDefinitionId", instance.WorkflowDefinitionId.ToString());
+            parameters.Add("TargetEntityId", string.IsNullOrEmpty(instance.TargetEntityId) ? null : instance.TargetEntityId);
+            parameters.Add("TargetEntityType", string.IsNullOrEmpty(instance.TargetEntityType) ? null : instance.TargetEntityType);
+            parameters.Add("Status", string.IsNullOrEmpty(instance.Status) ? null : instance.Status);
+            parameters.Add("CurrentStepOrder", instance.CurrentStepOrder);
+            parameters.Add("CurrentNodeId", string.IsNullOrEmpty(instance.CurrentNodeId) ? null : instance.CurrentNodeId);
+            parameters.Add("CurrentNodeName", string.IsNullOrEmpty(instance.CurrentNodeName) ? null : instance.CurrentNodeName);
+            parameters.Add("CreatedAt", instance.CreatedAt);
+            parameters.Add("UpdatedAt", instance.UpdatedAt);
+            parameters.Add("Id", instance.Id.ToString());
+
+            var affected = await _connection.ExecuteAsync(sql, parameters);
+            return affected > 0;
+        }
+
+        public async Task<WorkflowTask?> GetTaskByIdAsync(Guid id)
+        {
+            if (_connection.State != ConnectionState.Open) _connection.Open();
+            var sql = $@"SELECT {nameof(WorkflowTask.Id)}, 
+                                {nameof(WorkflowTask.WorkflowInstanceId)}, 
+                                {nameof(WorkflowTask.StepId)}, 
+                                {nameof(WorkflowTask.StepName)}, 
+                                {nameof(WorkflowTask.AssignedRole)}, 
+                                {nameof(WorkflowTask.AssigneeUserId)}, 
+                                {nameof(WorkflowTask.Status)}, 
+                                {nameof(WorkflowTask.CreatedAt)}, 
+                                {nameof(WorkflowTask.CompletedAt)}
+                        FROM WORKFLOWTASKS
+                        WHERE {nameof(WorkflowTask.Id)} = :Id";
+            var task = await _connection.QuerySingleOrDefaultAsync<WorkflowTask>(sql, new { Id = id.ToString() });
+            if (task == null) return null;
+
+            task.WorkflowInstance = await GetInstanceByIdAsync(task.WorkflowInstanceId);
+            if (task.WorkflowInstance?.WorkflowDefinition != null)
+            {
+                task.Step = task.WorkflowInstance.WorkflowDefinition.Steps.FirstOrDefault(s => s.Id == task.StepId);
+            }
+            return task;
+        }
+
+        public async Task<IEnumerable<WorkflowTask>> GetPendingTasksByRolesAsync(List<string> roles, bool isAdmin)
+        {
+            if (_connection.State != ConnectionState.Open) _connection.Open();
+            var sql = $@"SELECT {nameof(WorkflowTask.Id)}, 
+                                {nameof(WorkflowTask.WorkflowInstanceId)}, 
+                                {nameof(WorkflowTask.StepId)}, 
+                                {nameof(WorkflowTask.StepName)}, 
+                                {nameof(WorkflowTask.AssignedRole)}, 
+                                {nameof(WorkflowTask.AssigneeUserId)}, 
+                                {nameof(WorkflowTask.Status)}, 
+                                {nameof(WorkflowTask.CreatedAt)}, 
+                                {nameof(WorkflowTask.CompletedAt)}
+                        FROM WORKFLOWTASKS
+                        WHERE {nameof(WorkflowTask.Status)} = 'Pending'";
+
+            var parameters = new DynamicParameters();
+            if (!isAdmin)
+            {
+                if (roles == null || roles.Count == 0)
+                {
+                    return new List<WorkflowTask>();
+                }
+                sql += $@" AND {nameof(WorkflowTask.AssignedRole)} IN :Roles";
+                parameters.Add("Roles", roles);
+            }
+
+            sql += $@" ORDER BY {nameof(WorkflowTask.CreatedAt)} DESC";
+
+            var tasks = await _connection.QueryAsync<WorkflowTask>(sql, parameters);
+            var result = tasks.ToList();
+
+            foreach (var task in result)
+            {
+                task.WorkflowInstance = await GetInstanceByIdAsync(task.WorkflowInstanceId);
+                if (task.WorkflowInstance?.WorkflowDefinition != null)
+                {
+                    task.Step = task.WorkflowInstance.WorkflowDefinition.Steps.FirstOrDefault(s => s.Id == task.StepId);
+                }
+            }
+            return result;
+        }
+
+        public async Task<bool> CreateTaskAsync(WorkflowTask task)
+        {
+            if (_connection.State != ConnectionState.Open) _connection.Open();
+            task.CreatedAt = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified);
+            if (task.CompletedAt.HasValue) task.CompletedAt = DateTime.SpecifyKind(task.CompletedAt.Value, DateTimeKind.Unspecified);
+            var sql = $@"INSERT INTO WORKFLOWTASKS (
+                            {nameof(WorkflowTask.Id)}, 
+                            {nameof(WorkflowTask.WorkflowInstanceId)}, 
+                            {nameof(WorkflowTask.StepId)}, 
+                            {nameof(WorkflowTask.StepName)}, 
+                            {nameof(WorkflowTask.AssignedRole)}, 
+                            {nameof(WorkflowTask.AssigneeUserId)}, 
+                            {nameof(WorkflowTask.Status)}, 
+                            {nameof(WorkflowTask.CreatedAt)}, 
+                            {nameof(WorkflowTask.CompletedAt)}
+                        )
+                        VALUES (:Id, :WorkflowInstanceId, :StepId, :StepName, :AssignedRole, :AssigneeUserId, :Status, :CreatedAt, :CompletedAt)";
+            var parameters = new DynamicParameters();
+            parameters.Add("Id", task.Id.ToString());
+            parameters.Add("WorkflowInstanceId", task.WorkflowInstanceId.ToString());
+            parameters.Add("StepId", task.StepId.ToString());
+            parameters.Add("StepName", string.IsNullOrEmpty(task.StepName) ? null : task.StepName);
+            parameters.Add("AssignedRole", string.IsNullOrEmpty(task.AssignedRole) ? null : task.AssignedRole);
+            parameters.Add("AssigneeUserId", string.IsNullOrEmpty(task.AssigneeUserId) ? null : task.AssigneeUserId);
+            parameters.Add("Status", string.IsNullOrEmpty(task.Status) ? null : task.Status);
+            parameters.Add("CreatedAt", task.CreatedAt);
+            parameters.Add("CompletedAt", task.CompletedAt);
+
+            var affected = await _connection.ExecuteAsync(sql, parameters);
+            return affected > 0;
+        }
+
+        public async Task<bool> UpdateTaskAsync(WorkflowTask task)
+        {
+            if (_connection.State != ConnectionState.Open) _connection.Open();
+            task.CreatedAt = DateTime.SpecifyKind(task.CreatedAt, DateTimeKind.Unspecified);
+            if (task.CompletedAt.HasValue) task.CompletedAt = DateTime.SpecifyKind(task.CompletedAt.Value, DateTimeKind.Unspecified);
+            var sql = $@"UPDATE WORKFLOWTASKS
+                        SET {nameof(WorkflowTask.WorkflowInstanceId)} = :WorkflowInstanceId, 
+                            {nameof(WorkflowTask.StepId)} = :StepId, 
+                            {nameof(WorkflowTask.StepName)} = :StepName,
+                            {nameof(WorkflowTask.AssignedRole)} = :AssignedRole, 
+                            {nameof(WorkflowTask.AssigneeUserId)} = :AssigneeUserId, 
+                            {nameof(WorkflowTask.Status)} = :Status,
+                            {nameof(WorkflowTask.CreatedAt)} = :CreatedAt, 
+                            {nameof(WorkflowTask.CompletedAt)} = :CompletedAt
+                        WHERE {nameof(WorkflowTask.Id)} = :Id";
+            var parameters = new DynamicParameters();
+            parameters.Add("WorkflowInstanceId", task.WorkflowInstanceId.ToString());
+            parameters.Add("StepId", task.StepId.ToString());
+            parameters.Add("StepName", string.IsNullOrEmpty(task.StepName) ? null : task.StepName);
+            parameters.Add("AssignedRole", string.IsNullOrEmpty(task.AssignedRole) ? null : task.AssignedRole);
+            parameters.Add("AssigneeUserId", string.IsNullOrEmpty(task.AssigneeUserId) ? null : task.AssigneeUserId);
+            parameters.Add("Status", string.IsNullOrEmpty(task.Status) ? null : task.Status);
+            parameters.Add("CreatedAt", task.CreatedAt);
+            parameters.Add("CompletedAt", task.CompletedAt);
+            parameters.Add("Id", task.Id.ToString());
+
+            var affected = await _connection.ExecuteAsync(sql, parameters);
+            return affected > 0;
+        }
+
+        public async Task<IEnumerable<WorkflowHistory>> GetHistoryByInstanceIdAsync(Guid instanceId)
+        {
+            if (_connection.State != ConnectionState.Open) _connection.Open();
+            var sql = $@"SELECT Id, 
+                                WorkflowInstanceId, 
+                                StepName, 
+                                ""ACTION"" AS ""Action"", 
+                                ActionByUserId, 
+                                ""Comment"", 
+                                ActionDate
+                        FROM WORKFLOWHISTORY
+                        WHERE WorkflowInstanceId = :InstanceId
+                        ORDER BY ActionDate ASC";
+            return await _connection.QueryAsync<WorkflowHistory>(sql, new { InstanceId = instanceId.ToString() });
+        }
+
+        public async Task<bool> AddHistoryAsync(WorkflowHistory history)
+        {
+            if (_connection.State != ConnectionState.Open) _connection.Open();
+            history.ActionDate = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified);
+            var sql = $@"INSERT INTO WORKFLOWHISTORY (
+                            Id, 
+                            WorkflowInstanceId, 
+                            StepName, 
+                            ""ACTION"", 
+                            ActionByUserId, 
+                            ""Comment"", 
+                            ActionDate
+                        )
+                        VALUES (:Id, :WorkflowInstanceId, :StepName, :ActionVal, :ActionByUserId, :CommentVal, :ActionDate)";
+            var parameters = new DynamicParameters();
+            parameters.Add("Id", history.Id.ToString());
+            parameters.Add("WorkflowInstanceId", history.WorkflowInstanceId.ToString());
+            parameters.Add("StepName", string.IsNullOrEmpty(history.StepName) ? null : history.StepName);
+            parameters.Add("ActionVal", string.IsNullOrEmpty(history.Action) ? null : history.Action);
+            parameters.Add("ActionByUserId", string.IsNullOrEmpty(history.ActionByUserId) ? null : history.ActionByUserId);
+            parameters.Add("CommentVal", string.IsNullOrEmpty(history.Comment) ? null : history.Comment);
+            parameters.Add("ActionDate", history.ActionDate);
+
+            var affected = await _connection.ExecuteAsync(sql, parameters);
+            return affected > 0;
+        }
+
+        public Task<bool> SaveChangesAsync()
+        {
+            return Task.FromResult(true);
+        }
+    }
+}

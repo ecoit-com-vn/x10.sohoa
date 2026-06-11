@@ -1,26 +1,37 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using EvnHanoi.WorkflowService.Data;
+using EvnHanoi.WorkflowService.Core.Interfaces;
 using EvnHanoi.WorkflowService.Models;
 using EvnHanoi.WorkflowService.Enums;
+using Microsoft.AspNetCore.Authorization;
+using EvnHanoi.Infrastructure.Security;
+using Microsoft.Extensions.Logging;
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace EvnHanoi.WorkflowService.Controllers
 {
+    [Authorize]
     [ApiController]
     [Route("api/WorkflowDefinitions")]
     public class WorkflowDefinitionsController : ControllerBase
     {
-        private readonly WorkflowDbContext _context;
+        private readonly IWorkflowRepository _workflowRepository;
+        private readonly IBpmnValidatorService _bpmnValidatorService;
         private readonly ILogger<WorkflowDefinitionsController> _logger;
 
-        public WorkflowDefinitionsController(WorkflowDbContext context, ILogger<WorkflowDefinitionsController> logger)
+        public WorkflowDefinitionsController(
+            IWorkflowRepository workflowRepository, 
+            IBpmnValidatorService bpmnValidatorService,
+            ILogger<WorkflowDefinitionsController> logger)
         {
-            _context = context;
-            _logger = logger;
+            _workflowRepository = workflowRepository ?? throw new ArgumentNullException(nameof(workflowRepository));
+            _bpmnValidatorService = bpmnValidatorService ?? throw new ArgumentNullException(nameof(bpmnValidatorService));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
         // ─────────────────────────────────────────────────────────────────────
-        // GET /api/v1/workflows
+        // GET /api/v1/workflows (routed via ApiGateway, path in controller is api/WorkflowDefinitions)
         // Lấy danh sách tất cả quy trình (có thể lọc theo tên, trạng thái)
         // ─────────────────────────────────────────────────────────────────────
         [HttpGet]
@@ -28,17 +39,7 @@ namespace EvnHanoi.WorkflowService.Controllers
             [FromQuery] string? keyword = null,
             [FromQuery] bool? isActive = null)
         {
-            var query = _context.WorkflowDefinitions
-                .Include(w => w.Steps)
-                .AsQueryable();
-
-            if (!string.IsNullOrWhiteSpace(keyword))
-                query = query.Where(w => w.Name.Contains(keyword) || w.Description.Contains(keyword));
-
-            if (isActive.HasValue)
-                query = query.Where(w => w.IsActive == isActive.Value);
-
-            var result = await query.OrderByDescending(w => w.CreatedAt).ToListAsync();
+            var result = await _workflowRepository.GetAllDefinitionsAsync(keyword, isActive);
             return Ok(result);
         }
 
@@ -48,9 +49,7 @@ namespace EvnHanoi.WorkflowService.Controllers
         [HttpGet("{id:guid}")]
         public async Task<ActionResult<WorkflowDefinition>> GetById(Guid id)
         {
-            var def = await _context.WorkflowDefinitions
-                .Include(w => w.Steps.OrderBy(s => s.Order))
-                .FirstOrDefaultAsync(w => w.Id == id);
+            var def = await _workflowRepository.GetDefinitionByIdAsync(id);
 
             if (def == null)
                 return NotFound(new { Message = $"Không tìm thấy quy trình với ID = {id}" });
@@ -68,16 +67,13 @@ namespace EvnHanoi.WorkflowService.Controllers
             if (string.IsNullOrWhiteSpace(dto.Name))
                 return BadRequest(new { Message = "Loại quy trình không được để trống." });
 
-            // Ép buộc kích hoạt: vô hiệu hóa các quy trình cùng tên đang active
-            if (dto.ForceActivate)
+            var xmlErrors = _bpmnValidatorService.Validate(dto.BpmnXml);
+            if (xmlErrors.Any())
             {
-                var sameName = await _context.WorkflowDefinitions
-                    .Where(w => w.Name == dto.Name && w.IsActive)
-                    .ToListAsync();
-                sameName.ForEach(w => w.IsActive = false);
+                return BadRequest(new { Message = "Sơ đồ quy trình không hợp lệ: " + string.Join("; ", xmlErrors), Errors = xmlErrors });
             }
 
-            dto.Id = Guid.NewGuid();
+            dto.Id = Guid.CreateVersion7();
             dto.CreatedAt = DateTime.UtcNow;
             dto.UpdatedAt = DateTime.UtcNow;
 
@@ -85,13 +81,16 @@ namespace EvnHanoi.WorkflowService.Controllers
             {
                 foreach (var step in dto.Steps)
                 {
-                    step.Id = Guid.NewGuid();
+                    step.Id = Guid.CreateVersion7();
                     step.WorkflowDefinitionId = dto.Id;
                 }
             }
 
-            _context.WorkflowDefinitions.Add(dto);
-            await _context.SaveChangesAsync();
+            var success = await _workflowRepository.CreateDefinitionAsync(dto);
+            if (!success)
+            {
+                return BadRequest(new { Message = "Không thể tạo quy trình." });
+            }
 
             _logger.LogInformation("Quy trình mới được tạo: {Name} v{Version}", dto.Name, dto.Version);
             return CreatedAtAction(nameof(GetById), new { id = dto.Id }, dto);
@@ -104,47 +103,36 @@ namespace EvnHanoi.WorkflowService.Controllers
         [HttpPut("{id:guid}")]
         public async Task<IActionResult> Update(Guid id, [FromBody] WorkflowDefinition dto)
         {
-            var existing = await _context.WorkflowDefinitions
-                .Include(w => w.Steps)
-                .FirstOrDefaultAsync(w => w.Id == id);
+            var existing = await _workflowRepository.GetDefinitionByIdAsync(id);
 
             if (existing == null)
                 return NotFound(new { Message = $"Không tìm thấy quy trình với ID = {id}" });
 
-            // Ép buộc kích hoạt khi update
-            if (dto.ForceActivate && dto.IsActive)
+            var xmlErrors = _bpmnValidatorService.Validate(dto.BpmnXml);
+            if (xmlErrors.Any())
             {
-                var sameName = await _context.WorkflowDefinitions
-                    .Where(w => w.Name == dto.Name && w.IsActive && w.Id != id)
-                    .ToListAsync();
-                sameName.ForEach(w => w.IsActive = false);
+                return BadRequest(new { Message = "Sơ đồ quy trình không hợp lệ: " + string.Join("; ", xmlErrors), Errors = xmlErrors });
             }
 
-            existing.Name        = dto.Name;
-            existing.Description = dto.Description;
-            existing.Version     = dto.Version;
-            existing.ForceActivate = dto.ForceActivate;
-            existing.IsActive    = dto.IsActive;
-            existing.BpmnXml     = dto.BpmnXml;
-            existing.UpdatedAt   = DateTime.UtcNow;
-
-            // Cập nhật steps: xóa cũ, thêm mới
-            _context.WorkflowSteps.RemoveRange(existing.Steps);
-            existing.Steps.Clear();
+            dto.UpdatedAt = DateTime.UtcNow;
 
             if (dto.Steps != null)
             {
                 foreach (var step in dto.Steps)
                 {
-                    step.Id = Guid.NewGuid();
                     step.WorkflowDefinitionId = id;
-                    existing.Steps.Add(step);
                 }
             }
 
-            await _context.SaveChangesAsync();
-            _logger.LogInformation("Quy trình cập nhật: {Name} v{Version}", existing.Name, existing.Version);
-            return Ok(existing);
+            var success = await _workflowRepository.UpdateDefinitionAsync(id, dto);
+            if (!success)
+            {
+                return BadRequest(new { Message = "Không thể cập nhật quy trình." });
+            }
+
+            _logger.LogInformation("Quy trình cập nhật: {Name} v{Version}", dto.Name, dto.Version);
+            var updated = await _workflowRepository.GetDefinitionByIdAsync(id);
+            return Ok(updated);
         }
 
         // ─────────────────────────────────────────────────────────────────────
@@ -153,12 +141,15 @@ namespace EvnHanoi.WorkflowService.Controllers
         [HttpDelete("{id:guid}")]
         public async Task<IActionResult> Delete(Guid id)
         {
-            var def = await _context.WorkflowDefinitions.FindAsync(id);
+            var def = await _workflowRepository.GetDefinitionByIdAsync(id);
             if (def == null)
                 return NotFound(new { Message = $"Không tìm thấy quy trình với ID = {id}" });
 
-            _context.WorkflowDefinitions.Remove(def);
-            await _context.SaveChangesAsync();
+            var success = await _workflowRepository.DeleteDefinitionAsync(id);
+            if (!success)
+            {
+                return BadRequest(new { Message = "Không thể xóa quy trình." });
+            }
 
             _logger.LogInformation("Quy trình đã xóa: {Name}", def.Name);
             return Ok(new { Message = $"Đã xóa quy trình: {def.Name}" });
@@ -171,18 +162,15 @@ namespace EvnHanoi.WorkflowService.Controllers
         [HttpPatch("{id:guid}/toggle-status")]
         public async Task<IActionResult> ToggleStatus(Guid id)
         {
-            var def = await _context.WorkflowDefinitions.FindAsync(id);
-            if (def == null)
+            var newStatus = await _workflowRepository.ToggleDefinitionStatusAsync(id);
+            if (!newStatus.HasValue)
                 return NotFound(new { Message = $"Không tìm thấy quy trình với ID = {id}" });
 
-            def.IsActive  = !def.IsActive;
-            def.UpdatedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
-
-            return Ok(new { Id = id, IsActive = def.IsActive });
+            return Ok(new { Id = id, IsActive = newStatus.Value });
         }
 
         [HttpGet("get-workflow-type")]
+        [BypassDynamicPermission]
         public ActionResult<IEnumerable<string>> GetWorkflowTypes()
         {
             return Ok(WorkflowTypeExtensions.GetDescriptions());
