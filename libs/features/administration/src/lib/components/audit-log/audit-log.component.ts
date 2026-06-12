@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ToastModule } from 'primeng/toast';
@@ -32,6 +32,15 @@ export class AuditLogComponent implements OnInit {
   
   currentPage = 1;
   pageSize = 10;
+  totalCount = signal<number>(0);
+
+  constructor() {
+    effect(() => {
+      const kw = this.searchTerm();
+      this.currentPage = 1;
+      this.loadAuditLogs();
+    }, { allowSignalWrites: true });
+  }
 
   private http = inject(HttpClient);
   private messageService = inject(MessageService);
@@ -39,17 +48,7 @@ export class AuditLogComponent implements OnInit {
 
   // computed signal for filteredLogs
   filteredLogs = computed(() => {
-    const term = this.searchTerm().toLowerCase().trim();
-    const allLogs = this.logs() || [];
-    if (!term) {
-      return [...allLogs];
-    }
-    return allLogs.filter(log => 
-      (log.action?.toLowerCase().includes(term) ?? false) ||
-      (log.user?.toLowerCase().includes(term) ?? false) ||
-      (log.details?.toLowerCase().includes(term) ?? false) ||
-      (log.id?.toLowerCase().includes(term) ?? false)
-    );
+    return this.logs();
   });
 
   ngOnInit() {
@@ -58,11 +57,11 @@ export class AuditLogComponent implements OnInit {
 
   loadAuditLogs() {
     this.loading.set(true);
-    this.http.get<any>(`${environment.apiGatewayUrl}/api/v1/audit-logs?page=1&pageSize=50`)
+    this.http.get<any>(`${environment.apiGatewayUrl}/api/v1/audit-logs?page=${this.currentPage}&pageSize=${this.pageSize}&keyword=${this.searchTerm() || ''}`)
       .pipe(finalize(() => this.loading.set(false)))
       .subscribe({
         next: (res) => {
-          const backendLogs = res?.logs || res || [];
+          const backendLogs = res?.items || [];
           this.logs.set(Array.isArray(backendLogs) ? backendLogs.map((item: any, idx: number) => ({
             id: item.id || `AL-${1001 + idx}`,
             action: item.action || 'USER_ACTION',
@@ -70,7 +69,7 @@ export class AuditLogComponent implements OnInit {
             timestamp: new Date(item['@timestamp'] || item.timestamp || Date.now()).toLocaleString('vi-VN'),
             details: item.details || item.message || JSON.stringify(item)
           })) : []);
-          this.currentPage = 1;
+          this.totalCount.set(res?.totalCount || 0);
         },
         error: (err) => {
           console.error('Error loading audit logs', err);
@@ -80,6 +79,7 @@ export class AuditLogComponent implements OnInit {
             detail: 'Không thể kết nối đến máy chủ để tải lịch sử thao tác hệ thống.' 
           });
           this.logs.set([]);
+          this.totalCount.set(0);
         }
       });
   }
@@ -89,29 +89,39 @@ export class AuditLogComponent implements OnInit {
   }
 
   get paginatedLogs(): AuditLog[] {
-    const startIndex = (this.currentPage - 1) * this.pageSize;
-    return this.filteredLogs().slice(startIndex, startIndex + this.pageSize);
+    return this.logs();
   }
 
   get totalPages(): number {
-    return Math.ceil(this.filteredLogs().length / this.pageSize);
+    return Math.ceil(this.totalCount() / this.pageSize);
   }
 
   nextPage() {
     if (this.currentPage < this.totalPages) {
       this.currentPage++;
+      this.loadAuditLogs();
     }
   }
 
   prevPage() {
     if (this.currentPage > 1) {
       this.currentPage--;
+      this.loadAuditLogs();
+    }
+  }
+
+  goToPage(page: any) {
+    const p = Number(page);
+    if (p >= 1 && p <= this.totalPages) {
+      this.currentPage = p;
+      this.loadAuditLogs();
     }
   }
 
   onPageSizeChange(event: any) {
     this.pageSize = Number(event.target.value);
     this.currentPage = 1;
+    this.loadAuditLogs();
   }
 
   exportExcel() {

@@ -24,8 +24,8 @@ export class DigitizationTaskService {
     return `${this.config.apiGatewayUrl}/api/v1/digitization-task`;
   }
 
-  getTasks(): Observable<DigitizationTask[]> {
-    return this.http.get<DigitizationTask[]>(this.apiUrl);
+  getTasks(page: number, pageSize: number, keyword?: string): Observable<any> {
+    return this.http.get<any>(`${this.apiUrl}?page=${page}&pageSize=${pageSize}&keyword=${keyword || ''}`);
   }
 
   assignTask(dossierId: string, assignedToUserId: string, notes: string = ''): Observable<any> {

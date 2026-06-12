@@ -1,19 +1,20 @@
 <div class="wf-page">
   <p-toast></p-toast>
+  
+  <!-- Breadcrumb (Isolated above card) -->
+  <div class="breadcrumb">
+    <i class="pi pi-home bc-icon"></i>
+    <span class="bc-text">Trang chủ</span>
+    <span class="bc-sep">/</span>
+    <span class="bc-text">Thu thập & xử lý</span>
+    <span class="bc-sep">/</span>
+    <span class="bc-current">Quản lý Mượn/Trả hồ sơ</span>
+  </div>
+
   <div class="wf-card">
     
-    <!-- Breadcrumb -->
-    <div class="breadcrumb">
-      <i class="pi pi-home bc-icon"></i>
-      <span class="bc-text">Trang chủ</span>
-      <span class="bc-sep">/</span>
-      <span class="bc-text">Thu thập & xử lý</span>
-      <span class="bc-sep">/</span>
-      <span class="bc-current">Quản lý Mượn/Trả hồ sơ</span>
-    </div>
-
     <div class="edit-header">
-      <h2 class="edit-title" style="color: #002D72;">Quản lý Yêu cầu Mượn/Trả hồ sơ kỹ thuật</h2>
+      <h2 class="edit-title" style="color: #002D72; margin: 0;">Quản lý Yêu cầu Mượn/Trả hồ sơ kỹ thuật</h2>
     </div>
 
     <p class="text-muted mb-4">
@@ -76,11 +77,13 @@
                   </td>
                   <td><code>{{ task.assignedRole }}</code></td>
                   <td>{{ task.createdAt | date:'dd/MM/yyyy HH:mm' }}</td>
-                  <td class="col-hd" style="display: flex; gap: 8px; justify-content: center; align-items: center; border-bottom: none; height: 100%;">
-                    <!-- Clicking "Xử lý" opens the new detail view child tab directly -->
-                    <button class="btn-icon-only btn-approve" (click)="openDetailDialog({ id: task.targetEntityId, recordName: task.targetDetails || task.targetEntityId })" title="Xử lý / Chi tiết">
-                      <i class="pi pi-pencil"></i>
-                    </button>
+                  <td class="col-hd">
+                    <div class="action-buttons-group">
+                      <!-- Clicking "Xử lý" opens the new detail view child tab directly -->
+                      <button class="act-btn act-edit" (click)="openDetailDialog({ id: task.targetEntityId, recordName: task.targetDetails || task.targetEntityId })" title="Xử lý / Chi tiết">
+                        <i class="pi pi-pencil"></i>
+                      </button>
+                    </div>
                   </td>
                 </tr>
                 <tr *ngIf="myTasks().length === 0">
@@ -100,9 +103,12 @@
       <!-- TAB 2: SỔ THEO DÕI MƯỢN TRẢ -->
       <!-- ───────────────────────────────────────────────────────────────── -->
       <div *ngIf="activeTab() === 'records'">
-        <!-- Button to create request -->
-        <div class="table-actions" style="margin-bottom: 16px; display: flex; justify-content: flex-end;">
-          <button class="btn-sm-action btn-submit-wf" (click)="openCreateView()" style="padding: 10px 18px;">
+        <!-- Search and Button to create request -->
+        <div class="table-actions" style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; gap: 16px;">
+          <div class="search-box" style="display: flex; gap: 8px; max-width: 300px; width: 100%;">
+            <input type="text" class="wf-input" [ngModel]="searchKeyword()" (ngModelChange)="searchKeyword.set($event)" placeholder="Tìm kiếm nhanh..." style="flex: 1; padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px;" />
+          </div>
+          <button class="btn-green btn-small" (click)="openCreateView()">
             <i class="pi pi-plus" style="margin-right: 6px;"></i> Tạo đơn mượn trả
           </button>
         </div>
@@ -165,10 +171,10 @@
                     </div>
                   </td>
                   <td class="col-hd">
-                    <div style="display: flex; gap: 8px; justify-content: center; align-items: center;">
+                    <div class="action-buttons-group">
                       <!-- Chi tiết button -->
-                      <button class="btn-sm-action btn-history" (click)="openDetailDialog(req)">
-                        <i class="pi pi-eye"></i> Chi tiết
+                      <button class="act-btn act-assign" (click)="openDetailDialog(req)" title="Xem chi tiết" style="background-color: #eff6ff; color: #1d4ed8; border-color: #bfdbfe;">
+                        <i class="pi pi-eye"></i>
                       </button>
 
                       <!-- Các trạng thái sau duyệt (giao và nhận trả trực tiếp) -->
@@ -197,8 +203,8 @@
         </div>
 
         <!-- Footer phân trang -->
-        <div class="table-footer" *ngIf="requests().length > 0 && !loading()">
-          <span class="record-count">Tổng số: <b>{{ requests().length }}</b> bản ghi.</span>
+        <div class="table-footer" *ngIf="totalCount() > 0 && !loading()">
+          <span class="record-count">Tổng số: <b>{{ totalCount() }}</b> bản ghi.</span>
           <div class="pagination">
             <button class="page-btn" (click)="prevPage()" [disabled]="currentPage() === 1">
               <i class="pi pi-chevron-left"></i>
@@ -207,7 +213,11 @@
             <button class="page-btn" (click)="nextPage()" [disabled]="currentPage() >= totalPages()">
               <i class="pi pi-chevron-right"></i>
             </button>
-            <select class="page-size-sel" [value]="pageSize()" (change)="onPageSizeChange($event)">
+            <span style="margin-left: 10px; display: inline-flex; align-items: center; gap: 5px; font-size: 0.8rem; color: #6b7280;">
+              Đi tới trang:
+              <input type="number" class="page-jump-input" [value]="currentPage()" (change)="goToPage($any($event.target).value)" style="width: 50px; height: 28px; text-align: center; border: 1px solid #e5e7eb; border-radius: 4px; padding: 0 4px;" [min]="1" [max]="totalPages() || 1" />
+            </span>
+            <select class="page-size-sel" [ngModel]="pageSize()" (change)="onPageSizeChange($event)">
               <option [value]="10">10 / trang</option>
               <option [value]="20">20 / trang</option>
               <option [value]="50">50 / trang</option>
@@ -222,7 +232,7 @@
       <div class="create-view-container" style="animation: fadeIn 0.2s ease;">
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; border-bottom: 1px solid #e2e8f0; padding-bottom: 12px;">
           <h3 style="margin: 0; color: #002D72; font-size: 18px; font-weight: 700;">Tạo mới Đơn mượn trả hồ sơ</h3>
-          <button class="btn-sm-action btn-history" (click)="closeCreateView()">
+          <button class="btn-cancel btn-small" (click)="closeCreateView()">
             <i class="pi pi-arrow-left" style="margin-right: 6px;"></i> Quay lại danh sách
           </button>
         </div>
@@ -250,10 +260,10 @@
           </div>
 
           <div style="display: flex; gap: 12px; justify-content: flex-end;">
-            <button class="btn-sm-action btn-history" (click)="closeCreateView()" style="padding: 10px 20px;">Hủy bỏ</button>
-            <button class="btn-sm-action btn-submit-wf" [disabled]="creatingRequest()" (click)="createRequest()" style="padding: 10px 24px;">
-              <i class="pi pi-check" *ngIf="!creatingRequest()" style="margin-right: 6px;"></i>
+            <button class="btn-cancel btn-small" (click)="closeCreateView()">Hủy bỏ</button>
+            <button class="btn-save btn-small" [disabled]="creatingRequest()" (click)="createRequest()">
               <i class="pi pi-spin pi-spinner" *ngIf="creatingRequest()" style="margin-right: 6px;"></i>
+              <i class="pi pi-check" *ngIf="!creatingRequest()" style="margin-right: 6px;"></i>
               Gửi yêu cầu mượn
             </button>
           </div>
@@ -266,7 +276,7 @@
       <div class="detail-view-container" style="animation: fadeIn 0.2s ease;">
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; border-bottom: 1px solid #e2e8f0; padding-bottom: 12px;">
           <h3 style="margin: 0; color: #002D72; font-size: 18px; font-weight: 700;">Chi tiết Yêu cầu Mượn/Trả - {{ activeDetailRecord()?.dossierTitle || activeDetailRecord()?.recordName }}</h3>
-          <button class="btn-sm-action btn-back" (click)="closeDetailDialog()">
+          <button class="btn-cancel btn-small" (click)="closeDetailDialog()">
             <i class="pi pi-arrow-left" style="margin-right: 6px;"></i> Quay lại danh sách
           </button>
         </div>
@@ -356,9 +366,10 @@
 
                     <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 16px;">
                       <button *ngFor="let btn of detailDynamicButtons()"
-                              class="btn-sm-action"
-                              [class.btn-reject]="btn.label === 'Từ chối' || btn.label.includes('Từ chối')"
-                              [class.btn-approve]="btn.label !== 'Từ chối' && !btn.label.includes('Từ chối')"
+                              class="btn-small"
+                              [class.btn-cancel]="btn.label === 'Từ chối' || btn.label.includes('Từ chối') || btn.label === 'Hủy' || btn.label.includes('Hủy')"
+                              [class.btn-save]="btn.label === 'Đồng ý' || btn.label.includes('Đồng ý') || btn.label === 'Phê duyệt' || btn.label.includes('Phê duyệt') || btn.label === 'Xác nhận' || btn.label.includes('Xác nhận')"
+                              [class.btn-green]="btn.label !== 'Từ chối' && !btn.label.includes('Từ chối') && btn.label !== 'Đồng ý' && !btn.label.includes('Đồng ý') && btn.label !== 'Phê duyệt' && !btn.label.includes('Phê duyệt') && btn.label !== 'Xác nhận' && !btn.label.includes('Xác nhận')"
                               [disabled]="detailActionSubmitting()"
                               (click)="submitDetailMoveAction(btn.targetNodeId, btn.label)"
                               style="padding: 10px 20px; font-size: 13px;">
@@ -411,3 +422,6 @@
 
       </div>
     </ng-container>
+
+  </div>
+</div>

@@ -86,6 +86,47 @@ export class WorkflowBuilderComponent implements OnInit {
   workflows: WorkflowDefinition[] = [];
   selectedIds: string[] = [];
 
+  // Pagination
+  currentPage = 1;
+  pageSize = 10;
+  totalCount = 0;
+
+  get paginatedWorkflows(): WorkflowDefinition[] {
+    return this.workflows;
+  }
+
+  get totalPages(): number {
+    return Math.ceil(this.totalCount / this.pageSize);
+  }
+
+  nextPage() {
+    if (this.currentPage < this.totalPages) {
+      this.currentPage++;
+      this.loadList();
+    }
+  }
+
+  prevPage() {
+    if (this.currentPage > 1) {
+      this.currentPage--;
+      this.loadList();
+    }
+  }
+
+  goToPage(page: any) {
+    const p = Number(page);
+    if (p >= 1 && p <= this.totalPages) {
+      this.currentPage = p;
+      this.loadList();
+    }
+  }
+
+  onPageSizeChange(event: any) {
+    this.pageSize = Number(event.target.value);
+    this.currentPage = 1;
+    this.loadList();
+  }
+
   // ─── Edit draft ─────────────────────────────────────────────────────────────
   draft: WorkflowDefinition = this.emptyDraft();
 
@@ -120,7 +161,7 @@ export class WorkflowBuilderComponent implements OnInit {
     const apiUrl = `${environment.apiGatewayUrl}/api/v1/roles/lookup`;
     this.http.get<any>(apiUrl).subscribe({
       next: (res) => {
-        this.rolesList = Array.isArray(res) ? res : (res && Array.isArray(res.value) ? res.value : []);
+        this.rolesList = Array.isArray(res) ? res : (res && Array.isArray(res.items) ? res.items : (res && Array.isArray(res.value) ? res.value : []));
         this.cdr.detectChanges();
       },
       error: (err) => {
@@ -136,11 +177,13 @@ export class WorkflowBuilderComponent implements OnInit {
       next: (res) => {
         this.loaiOptions = Array.isArray(res)
           ? res
-          : (res && Array.isArray(res.value)
-            ? res.value
-            : (res && Array.isArray(res.data)
-              ? res.data
-              : []));
+          : (res && Array.isArray(res.items)
+            ? res.items
+            : (res && Array.isArray(res.value)
+              ? res.value
+              : (res && Array.isArray(res.data)
+                ? res.data
+                : [])));
         this.cdr.detectChanges();
       },
       error: (err) => {
@@ -153,35 +196,35 @@ export class WorkflowBuilderComponent implements OnInit {
 
   // ─── List: load from API ────────────────────────────────────────────────────
 
-  loadList(): void {
+  loadList(resetPage = false): void {
     this.loading = true;
     this.loadingMsg = 'Đang tải danh sách quy trình...';
     this.listError = '';
+    if (resetPage) {
+      this.currentPage = 1;
+    }
     this.cdr.detectChanges();
 
     const isActive = this.filterIsActive === 'true'  ? true
                    : this.filterIsActive === 'false' ? false
                    : undefined;
 
-    this.workflowSvc.getAll(this.searchKeyword || undefined, isActive)
+    this.workflowSvc.getAll(this.currentPage, this.pageSize, this.searchKeyword || undefined, isActive)
       .pipe(finalize(() => {
         this.loading = false;
         this.cdr.detectChanges();
       }))
       .subscribe({
-        next: (data: any) => {
-          this.workflows = Array.isArray(data)
-            ? data
-            : (data && Array.isArray(data.value)
-              ? data.value
-              : (data && Array.isArray(data.data)
-                ? data.data
-                : []));
+        next: (res: any) => {
+          this.workflows = res?.items || [];
+          this.totalCount = res?.totalCount || 0;
           this.selectedIds = [];
           this.cdr.detectChanges();
         },
         error: (err) => {
           this.listError = `Không thể tải danh sách: ${err.message}`;
+          this.workflows = [];
+          this.totalCount = 0;
           this.cdr.detectChanges();
         }
       });
@@ -190,6 +233,7 @@ export class WorkflowBuilderComponent implements OnInit {
   resetFilter(): void {
     this.filterIsActive = '';
     this.searchKeyword = '';
+    this.currentPage = 1;
     this.loadList();
   }
 

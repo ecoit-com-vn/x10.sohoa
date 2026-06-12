@@ -1,4 +1,4 @@
-import { Component, OnInit, signal, computed } from '@angular/core';
+import { Component, OnInit, signal, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -20,6 +20,7 @@ import { AuthService } from '@sohoa.frontend/shared/core';
 export class RoleManagement implements OnInit {
   roles = signal<any[]>([]);
   searchKeyword = signal<string>('');
+  totalCount = signal<number>(0);
   
   currentView = signal<'list' | 'add' | 'edit' | 'permission'>('list');
   dialogHeader = signal<string>('');
@@ -35,6 +36,32 @@ export class RoleManagement implements OnInit {
   saving = signal<boolean>(false);
   savingPermissions = signal<boolean>(false);
 
+  // Pagination
+  currentPage = signal<number>(1);
+  pageSize = signal<number>(10);
+
+  // Form Validation
+  formSubmitted = signal<boolean>(false);
+  serverErrors = signal<any>({});
+  codeError = computed(() => {
+    if (this.formSubmitted() && !this.currentRole().code) return 'Mã vai trò là bắt buộc';
+    return this.serverErrors().code || this.serverErrors().Code || '';
+  });
+  nameError = computed(() => {
+    if (this.formSubmitted() && !this.currentRole().name) return 'Tên vai trò là bắt buộc';
+    return this.serverErrors().name || this.serverErrors().Name || '';
+  });
+
+  onFieldChange(field: string) {
+    this.serverErrors.update(errs => {
+      const copy = { ...errs };
+      delete copy[field];
+      const capitalized = field.charAt(0).toUpperCase() + field.slice(1);
+      delete copy[capitalized];
+      return copy;
+    });
+  }
+
   menus = signal<any[]>([]);
   menuPermissionTree = signal<any[]>([]);
 
@@ -42,24 +69,60 @@ export class RoleManagement implements OnInit {
 
   // Computed signal for filteredRoles
   filteredRoles = computed(() => {
-    const kw = this.searchKeyword().toLowerCase().trim();
-    const allRoles = this.roles() || [];
-    if (!kw) {
-      return [...allRoles];
-    }
-    return allRoles.filter(r => 
-      (r.code?.toLowerCase().includes(kw) ?? false) || 
-      (r.name?.toLowerCase().includes(kw) ?? false) || 
-      (r.description?.toLowerCase().includes(kw) ?? false)
-    );
+    return this.roles();
   });
+
+  // Paginated roles
+  paginatedRoles = computed(() => {
+    return this.roles();
+  });
+
+  totalPages = computed(() => {
+    return Math.ceil(this.totalCount() / this.pageSize());
+  });
+
+  nextPage() {
+    if (this.currentPage() < this.totalPages()) {
+      this.currentPage.update(p => p + 1);
+    }
+  }
+
+  prevPage() {
+    if (this.currentPage() > 1) {
+      this.currentPage.update(p => p - 1);
+    }
+  }
+
+  goToPage(page: any) {
+    const p = Number(page);
+    if (p >= 1 && p <= this.totalPages()) {
+      this.currentPage.set(p);
+    }
+  }
+
+  onPageSizeChange(event: any) {
+    this.pageSize.set(Number(event.target.value));
+    this.currentPage.set(1);
+  }
 
   constructor(
     private http: HttpClient,
     private messageService: MessageService,
     private confirmationService: ConfirmationService,
     public authService: AuthService
-  ) {}
+  ) {
+    effect(() => {
+      const kw = this.searchKeyword();
+      this.currentPage.set(1);
+    }, { allowSignalWrites: true });
+
+    effect(() => {
+      const page = this.currentPage();
+      const size = this.pageSize();
+      const kw = this.searchKeyword();
+      this.loadRoles();
+    }, { allowSignalWrites: true });
+  }
 
   ngOnInit() {
     this.loadRoles();
@@ -69,14 +132,18 @@ export class RoleManagement implements OnInit {
 
   loadRoles() {
     this.loading.set(true);
-    this.http.get<any>(this.apiUrl)
+    this.http.get<any>(`${this.apiUrl}?page=${this.currentPage()}&pageSize=${this.pageSize()}&keyword=${this.searchKeyword() || ''}`)
       .pipe(finalize(() => this.loading.set(false)))
       .subscribe({
         next: (res) => {
-          this.roles.set(Array.isArray(res) ? res : (res && Array.isArray(res.value) ? res.value : []));
+          const list = res?.items || [];
+          this.roles.set(list);
+          this.totalCount.set(res?.totalCount || 0);
         },
         error: (err) => {
           this.messageService.add({ severity: 'error', summary: 'Lỗi tải dữ liệu', detail: 'Không thể tải danh sách nhóm quyền.' });
+          this.roles.set([]);
+          this.totalCount.set(0);
         }
       });
   }
@@ -84,7 +151,7 @@ export class RoleManagement implements OnInit {
   loadMenus() {
     this.http.get<any>(`${environment.apiGatewayUrl}/api/v1/menus/lookup`).subscribe({
       next: (res) => {
-        this.menus.set(Array.isArray(res) ? res : (res && Array.isArray(res.value) ? res.value : []));
+        this.menus.set(Array.isArray(res) ? res : (res && Array.isArray(res.items) ? res.items : (res && Array.isArray(res.value) ? res.value : [])));
         this.updateTree();
       },
       error: (err) => {
@@ -96,7 +163,7 @@ export class RoleManagement implements OnInit {
   loadSystemPermissions() {
     this.http.get<any>(`${environment.apiGatewayUrl}/api/v1/permissions/lookup`).subscribe({
       next: (res) => {
-        this.systemPermissions.set(Array.isArray(res) ? res : (res && Array.isArray(res.value) ? res.value : []));
+        this.systemPermissions.set(Array.isArray(res) ? res : (res && Array.isArray(res.items) ? res.items : (res && Array.isArray(res.value) ? res.value : [])));
         this.updateTree();
       },
       error: (err) => {
@@ -248,7 +315,6 @@ export class RoleManagement implements OnInit {
   }
 
   onSearch() {
-    // Tự động thông qua computed
   }
 
   onAddNew() {
@@ -258,6 +324,8 @@ export class RoleManagement implements OnInit {
     }
     this.isEdit.set(false);
     this.currentRole.set({ code: '', name: '', description: '' });
+    this.formSubmitted.set(false);
+    this.serverErrors.set({});
     this.dialogHeader.set('Thêm mới nhóm quyền');
     this.currentView.set('add');
   }
@@ -269,17 +337,20 @@ export class RoleManagement implements OnInit {
     }
     this.isEdit.set(true);
     this.currentRole.set({ ...role });
+    this.formSubmitted.set(false);
+    this.serverErrors.set({});
     this.dialogHeader.set('Chỉnh sửa nhóm quyền');
     this.currentView.set('edit');
   }
 
   onSaveRole() {
-    const roleDraft = this.currentRole();
-    if (!roleDraft.code || !roleDraft.name) {
-      this.messageService.add({ severity: 'error', summary: 'Thiếu thông tin', detail: 'Vui lòng nhập Mã và Tên vai trò.' });
+    this.formSubmitted.set(true);
+    this.serverErrors.set({});
+    if (this.codeError() || this.nameError()) {
       return;
     }
 
+    const roleDraft = this.currentRole();
     this.saving.set(true);
     if (this.isEdit()) {
       this.http.put(`${this.apiUrl}/${roleDraft.id}`, roleDraft)
@@ -291,7 +362,24 @@ export class RoleManagement implements OnInit {
             this.currentView.set('list');
           },
           error: (err) => {
-            this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Cập nhật nhóm quyền thất bại.' });
+            let errorsObj = {};
+            if (err?.error) {
+              if (typeof err.error === 'object') {
+                errorsObj = err.error.errors || err.error;
+              } else if (typeof err.error === 'string') {
+                try {
+                  const parsed = JSON.parse(err.error);
+                  errorsObj = parsed.errors || parsed;
+                } catch (e) {
+                  // ignore
+                }
+              }
+            } else if (err?.errors) {
+              errorsObj = err.errors;
+            }
+            this.serverErrors.set(errorsObj);
+            const detailMsg = err?.error?.message || err?.message || 'Cập nhật nhóm quyền thất bại.';
+            this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: detailMsg });
           }
         });
     } else {
@@ -304,7 +392,24 @@ export class RoleManagement implements OnInit {
             this.currentView.set('list');
           },
           error: (err) => {
-            this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Tạo nhóm quyền thất bại.' });
+            let errorsObj = {};
+            if (err?.error) {
+              if (typeof err.error === 'object') {
+                errorsObj = err.error.errors || err.error;
+              } else if (typeof err.error === 'string') {
+                try {
+                  const parsed = JSON.parse(err.error);
+                  errorsObj = parsed.errors || parsed;
+                } catch (e) {
+                  // ignore
+                }
+              }
+            } else if (err?.errors) {
+              errorsObj = err.errors;
+            }
+            this.serverErrors.set(errorsObj);
+            const detailMsg = err?.error?.message || err?.message || 'Tạo nhóm quyền thất bại.';
+            this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: detailMsg });
           }
         });
     }
@@ -343,7 +448,7 @@ export class RoleManagement implements OnInit {
     // Load existing permissions of role
     this.http.get<any>(`${this.apiUrl}/${role.id}/permissions`).subscribe({
       next: (res) => {
-        const list = Array.isArray(res) ? res : (res && Array.isArray(res.value) ? res.value : []);
+        const list = Array.isArray(res) ? res : (res && Array.isArray(res.items) ? res.items : (res && Array.isArray(res.value) ? res.value : []));
         this.selectedPermissionCodes.set(list);
         this.currentView.set('permission');
       },

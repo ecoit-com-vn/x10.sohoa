@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ToastModule } from 'primeng/toast';
@@ -32,6 +32,8 @@ export class OcrAllocationComponent implements OnInit {
   
   currentPage = signal<number>(1);
   pageSize = signal<number>(10);
+  totalCount = signal<number>(0);
+  searchKeyword = signal<string>('');
 
   private digitizationTaskService = inject(DigitizationTaskService);
   private messageService = inject(MessageService);
@@ -45,7 +47,8 @@ export class OcrAllocationComponent implements OnInit {
   loadUsers() {
     this.http.get<any[]>(`${environment.apiGatewayUrl}/api/v1/users`).subscribe({
       next: (data) => {
-        this.users.set((data || []).map(u => ({
+        const userList = Array.isArray(data) ? data : (data && Array.isArray((data as any).items) ? (data as any).items : (data && Array.isArray((data as any).value) ? (data as any).value : []));
+        this.users.set(userList.map((u: any) => ({
           name: `${u?.fullName || ''} (${u?.username || ''})`,
           code: u?.username || ''
         })));
@@ -63,13 +66,28 @@ export class OcrAllocationComponent implements OnInit {
     });
   }
 
+  constructor() {
+    effect(() => {
+      const kw = this.searchKeyword();
+      this.currentPage.set(1);
+    }, { allowSignalWrites: true });
+
+    effect(() => {
+      const page = this.currentPage();
+      const size = this.pageSize();
+      const kw = this.searchKeyword();
+      this.loadTasks();
+    }, { allowSignalWrites: true });
+  }
+
   loadTasks() {
     this.loading.set(true);
-    this.digitizationTaskService.getTasks()
+    this.digitizationTaskService.getTasks(this.currentPage(), this.pageSize(), this.searchKeyword())
       .pipe(finalize(() => this.loading.set(false)))
       .subscribe({
-        next: (data) => {
-          this.tasks.set((data || []).map(item => ({
+        next: (res) => {
+          const list = res?.items || [];
+          this.tasks.set(list.map((item: any) => ({
             id: item.id,
             dossierId: item.dossierId,
             name: `Hồ sơ bản vẽ kỹ thuật thiết bị đường dây #${item.dossierId}`,
@@ -77,7 +95,7 @@ export class OcrAllocationComponent implements OnInit {
             status: this.mapBackendStatus(item.status, item.assignedToUserId),
             assignee: item.assignedToUserId || null
           })));
-          this.currentPage.set(1);
+          this.totalCount.set(res?.totalCount || 0);
         },
         error: (err) => {
           console.error('Error loading digitization tasks', err);
@@ -87,6 +105,7 @@ export class OcrAllocationComponent implements OnInit {
             detail: 'Không thể tải danh sách công việc phân bổ từ máy chủ.'
           });
           this.tasks.set([]);
+          this.totalCount.set(0);
         }
       });
   }
@@ -99,12 +118,11 @@ export class OcrAllocationComponent implements OnInit {
   }
 
   paginatedTasks = computed(() => {
-    const startIndex = (this.currentPage() - 1) * this.pageSize();
-    return this.tasks().slice(startIndex, startIndex + this.pageSize());
+    return this.tasks();
   });
 
   totalPages = computed(() => {
-    return Math.ceil(this.tasks().length / this.pageSize());
+    return Math.ceil(this.totalCount() / this.pageSize());
   });
 
   nextPage() {
@@ -116,6 +134,13 @@ export class OcrAllocationComponent implements OnInit {
   prevPage() {
     if (this.currentPage() > 1) {
       this.currentPage.update(p => p - 1);
+    }
+  }
+
+  goToPage(page: any) {
+    const p = Number(page);
+    if (p >= 1 && p <= this.totalPages()) {
+      this.currentPage.set(p);
     }
   }
 

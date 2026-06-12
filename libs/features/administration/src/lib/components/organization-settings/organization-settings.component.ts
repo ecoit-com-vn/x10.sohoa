@@ -29,6 +29,28 @@ export class OrganizationSettings implements OnInit {
   loading = signal<boolean>(false);
   saving = signal<boolean>(false);
 
+  // Form Validation
+  formSubmitted = signal<boolean>(false);
+  serverErrors = signal<any>({});
+  codeError = computed(() => {
+    if (this.formSubmitted() && !this.currentUnit().code) return 'Mã phòng ban là bắt buộc';
+    return this.serverErrors().code || this.serverErrors().Code || '';
+  });
+  nameError = computed(() => {
+    if (this.formSubmitted() && !this.currentUnit().name) return 'Tên phòng ban là bắt buộc';
+    return this.serverErrors().name || this.serverErrors().Name || '';
+  });
+
+  onFieldChange(field: string) {
+    this.serverErrors.update(errs => {
+      const copy = { ...errs };
+      delete copy[field];
+      const capitalized = field.charAt(0).toUpperCase() + field.slice(1);
+      delete copy[capitalized];
+      return copy;
+    });
+  }
+
   private apiUrl = `${environment.apiGatewayUrl}/api/v1/organization-units`;
 
   // Computed signal for filteredUnits
@@ -62,7 +84,7 @@ export class OrganizationSettings implements OnInit {
       .pipe(finalize(() => this.loading.set(false)))
       .subscribe({
         next: (data) => {
-          this.units.set(data || []);
+          this.units.set(Array.isArray(data) ? data : (data && Array.isArray((data as any).items) ? (data as any).items : (data && Array.isArray((data as any).value) ? (data as any).value : [])));
         },
         error: (err) => {
           this.messageService.add({ severity: 'error', summary: 'Lỗi tải dữ liệu', detail: 'Không thể tải sơ đồ cây tổ chức.' });
@@ -71,7 +93,6 @@ export class OrganizationSettings implements OnInit {
   }
 
   onSearch() {
-    // Tự động thông qua computed
   }
 
   // Thuật toán DFS xây dựng danh sách phẳng thụt lề
@@ -145,6 +166,8 @@ export class OrganizationSettings implements OnInit {
     }
     this.isEdit.set(false);
     this.currentUnit.set({ code: '', name: '', parentId: null, description: '' });
+    this.formSubmitted.set(false);
+    this.serverErrors.set({});
     this.dialogHeader.set('Thêm mới đơn vị phòng ban');
     this.currentView.set('add');
   }
@@ -156,16 +179,20 @@ export class OrganizationSettings implements OnInit {
     }
     this.isEdit.set(true);
     this.currentUnit.set({ ...unit });
+    this.formSubmitted.set(false);
+    this.serverErrors.set({});
     this.dialogHeader.set('Chỉnh sửa đơn vị phòng ban');
     this.currentView.set('edit');
   }
 
   onSaveUnit() {
-    const unitDraft = this.currentUnit();
-    if (!unitDraft.code || !unitDraft.name) {
-      this.messageService.add({ severity: 'error', summary: 'Thiếu thông tin', detail: 'Vui lòng nhập Mã và Tên đơn vị.' });
+    this.formSubmitted.set(true);
+    this.serverErrors.set({});
+    if (this.codeError() || this.nameError()) {
       return;
     }
+
+    const unitDraft = this.currentUnit();
 
     this.saving.set(true);
     // Đảm bảo parentId là null hoặc số
@@ -185,7 +212,24 @@ export class OrganizationSettings implements OnInit {
             this.currentView.set('list');
           },
           error: (err) => {
-            this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể chỉnh sửa đơn vị.' });
+            let errorsObj = {};
+            if (err?.error) {
+              if (typeof err.error === 'object') {
+                errorsObj = err.error.errors || err.error;
+              } else if (typeof err.error === 'string') {
+                try {
+                  const parsed = JSON.parse(err.error);
+                  errorsObj = parsed.errors || parsed;
+                } catch (e) {
+                  // ignore
+                }
+              }
+            } else if (err?.errors) {
+              errorsObj = err.errors;
+            }
+            this.serverErrors.set(errorsObj);
+            const detailMsg = err?.error?.message || err?.message || 'Không thể chỉnh sửa đơn vị.';
+            this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: detailMsg });
           }
         });
     } else {
@@ -198,7 +242,24 @@ export class OrganizationSettings implements OnInit {
             this.currentView.set('list');
           },
           error: (err) => {
-            this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể thêm mới đơn vị.' });
+            let errorsObj = {};
+            if (err?.error) {
+              if (typeof err.error === 'object') {
+                errorsObj = err.error.errors || err.error;
+              } else if (typeof err.error === 'string') {
+                try {
+                  const parsed = JSON.parse(err.error);
+                  errorsObj = parsed.errors || parsed;
+                } catch (e) {
+                  // ignore
+                }
+              }
+            } else if (err?.errors) {
+              errorsObj = err.errors;
+            }
+            this.serverErrors.set(errorsObj);
+            const detailMsg = err?.error?.message || err?.message || 'Không thể thêm mới đơn vị.';
+            this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: detailMsg });
           }
         });
     }

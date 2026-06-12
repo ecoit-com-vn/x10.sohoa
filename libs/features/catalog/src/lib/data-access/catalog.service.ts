@@ -18,8 +18,11 @@ export class CatalogService {
     return this.http.get<any[]>(`${this.base}/types`);
   }
 
-  getItems(catalogType: string, keyword?: string, status?: string): Observable<any[]> {
-    let params = new HttpParams().set('catalogType', catalogType);
+  getItems(catalogType: string, page: number, pageSize: number, keyword?: string, status?: string): Observable<any> {
+    let params = new HttpParams()
+      .set('catalogType', catalogType)
+      .set('page', page.toString())
+      .set('pageSize', pageSize.toString());
     
     if (keyword && keyword.trim()) {
       params = params.set('keyword', keyword.trim());
@@ -28,7 +31,7 @@ export class CatalogService {
       params = params.set('status', status);
     }
     
-    return this.http.get<any[]>(this.base, { params });
+    return this.http.get<any>(this.base, { params });
   }
 
   createItem(item: any): Observable<any> {

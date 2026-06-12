@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DialogModule } from 'primeng/dialog';
@@ -19,6 +19,7 @@ import { AuthService } from '@sohoa.frontend/shared/core';
 export class UserManagement implements OnInit {
   users = signal<any[]>([]);
   searchKeyword = signal<string>('');
+  totalCount = signal<number>(0);
 
   currentView = signal<'list' | 'add' | 'edit' | 'unit-role' | 'permission' | 'role'>('list');
   dialogHeader = signal<string>('');
@@ -27,6 +28,39 @@ export class UserManagement implements OnInit {
   
   loading = signal<boolean>(false);
   saving = signal<boolean>(false);
+
+  // Pagination
+  currentPage = signal<number>(1);
+  pageSize = signal<number>(10);
+
+  // Form validation
+  formSubmitted = signal<boolean>(false);
+  serverErrors = signal<any>({});
+  usernameError = computed(() => {
+    if (this.formSubmitted() && !this.currentUser().username) return 'Tên đăng nhập là bắt buộc';
+    return this.serverErrors().username || this.serverErrors().Username || '';
+  });
+  fullNameError = computed(() => {
+    if (this.formSubmitted() && !this.currentUser().fullName) return 'Họ và tên là bắt buộc';
+    return this.serverErrors().fullName || this.serverErrors().FullName || '';
+  });
+  unitError = computed(() => {
+    if (this.formSubmitted() && (!this.currentUser().organizationUnitId || this.currentUser().organizationUnitId === 'null' || this.currentUser().organizationUnitId === null)) return 'Đơn vị thành viên là bắt buộc';
+    return this.serverErrors().organizationUnitId || this.serverErrors().OrganizationUnitId || '';
+  });
+  emailError = computed(() => {
+    return this.serverErrors().email || this.serverErrors().Email || '';
+  });
+
+  onFieldChange(field: string) {
+    this.serverErrors.update(errs => {
+      const copy = { ...errs };
+      delete copy[field];
+      const capitalized = field.charAt(0).toUpperCase() + field.slice(1);
+      delete copy[capitalized];
+      return copy;
+    });
+  }
 
   // Quyền theo đơn vị
   organizationUnits = signal<any[]>([]);
@@ -57,6 +91,18 @@ export class UserManagement implements OnInit {
   activeDropdownUserId = signal<string | null>(null);
 
   constructor() {
+    effect(() => {
+      const kw = this.searchKeyword();
+      this.currentPage.set(1);
+    }, { allowSignalWrites: true });
+
+    effect(() => {
+      const page = this.currentPage();
+      const size = this.pageSize();
+      const kw = this.searchKeyword();
+      this.loadUsers();
+    }, { allowSignalWrites: true });
+
     if (typeof window !== 'undefined') {
       window.addEventListener('click', () => {
         this.activeDropdownUserId.set(null);
@@ -80,17 +126,41 @@ export class UserManagement implements OnInit {
 
   // computed signal for filteredUsers
   filteredUsers = computed(() => {
-    const kw = this.searchKeyword().toLowerCase().trim();
-    const allUsers = this.users() || [];
-    if (!kw) {
-      return [...allUsers];
-    }
-    return allUsers.filter(u =>
-      (u?.username?.toLowerCase().includes(kw) ?? false) ||
-      (u?.fullName?.toLowerCase().includes(kw) ?? false) ||
-      (u?.email?.toLowerCase().includes(kw) ?? false)
-    );
+    return this.users();
   });
+
+  // Paginated users
+  paginatedUsers = computed(() => {
+    return this.users();
+  });
+
+  totalPages = computed(() => {
+    return Math.ceil(this.totalCount() / this.pageSize());
+  });
+
+  nextPage() {
+    if (this.currentPage() < this.totalPages()) {
+      this.currentPage.update(p => p + 1);
+    }
+  }
+
+  prevPage() {
+    if (this.currentPage() > 1) {
+      this.currentPage.update(p => p - 1);
+    }
+  }
+
+  goToPage(page: any) {
+    const p = Number(page);
+    if (p >= 1 && p <= this.totalPages()) {
+      this.currentPage.set(p);
+    }
+  }
+
+  onPageSizeChange(event: any) {
+    this.pageSize.set(Number(event.target.value));
+    this.currentPage.set(1);
+  }
 
   ngOnInit() {
     this.loadUsers();
@@ -102,7 +172,7 @@ export class UserManagement implements OnInit {
 
   loadUsers() {
     this.loading.set(true);
-    this.userService.getUsers()
+    this.userService.getUsers(this.currentPage(), this.pageSize(), this.searchKeyword())
       .pipe(
         finalize(() => {
           this.loading.set(false);
@@ -110,12 +180,14 @@ export class UserManagement implements OnInit {
       )
       .subscribe({
         next: (res: any) => {
-          const list = Array.isArray(res) ? res : (res && Array.isArray(res.value) ? res.value : []);
+          const list = res?.items || [];
           this.users.set(list);
+          this.totalCount.set(res?.totalCount || 0);
         },
         error: (err) => {
           this.messageService.add({ severity: 'error', summary: 'Lỗi tải dữ liệu', detail: 'Không thể tải danh sách tài khoản.' });
           this.users.set([]);
+          this.totalCount.set(0);
         }
       });
   }
@@ -123,7 +195,7 @@ export class UserManagement implements OnInit {
   loadOrganizationUnits() {
     this.userService.getOrganizationUnits().subscribe({
       next: (res: any) => {
-        const list = Array.isArray(res) ? res : (res && Array.isArray(res.value) ? res.value : []);
+        const list = Array.isArray(res) ? res : (res && Array.isArray(res.items) ? res.items : (res && Array.isArray(res.value) ? res.value : []));
         this.organizationUnits.set(list);
       },
       error: () => {
@@ -135,7 +207,7 @@ export class UserManagement implements OnInit {
   loadSystemRoles() {
     this.userService.getSystemRoles().subscribe({
       next: (res: any) => {
-        const list = Array.isArray(res) ? res : (res && Array.isArray(res.value) ? res.value : []);
+        const list = Array.isArray(res) ? res : (res && Array.isArray(res.items) ? res.items : (res && Array.isArray(res.value) ? res.value : []));
         this.systemRoles.set(list);
       },
       error: () => {
@@ -155,8 +227,6 @@ export class UserManagement implements OnInit {
   }
 
   onSearch() {
-    // Với computed, filteredUsers tự động cập nhật phản ứng khi searchKeyword() thay đổi
-    // Hàm này giữ lại để tương thích với nút click Tìm kiếm trong giao diện cũ nếu cần
   }
 
   onAddNew() {
@@ -166,6 +236,8 @@ export class UserManagement implements OnInit {
     }
     this.isEdit.set(false);
     this.currentUser.set({ username: '', fullName: '', email: '', organizationUnitId: null, isActive: true });
+    this.formSubmitted.set(false);
+    this.serverErrors.set({});
     this.dialogHeader.set('Thêm mới tài khoản');
     this.currentView.set('add');
   }
@@ -177,18 +249,20 @@ export class UserManagement implements OnInit {
     }
     this.isEdit.set(true);
     this.currentUser.set({ ...user });
+    this.formSubmitted.set(false);
+    this.serverErrors.set({});
     this.dialogHeader.set('Chỉnh sửa tài khoản');
     this.currentView.set('edit');
   }
 
   onSaveUser() {
-    const userDraft = this.currentUser();
-    if (!userDraft.username || !userDraft.fullName || !userDraft.organizationUnitId || userDraft.organizationUnitId === 'null') {
-      this.messageService.add({ severity: 'error', summary: 'Thiếu thông tin', detail: 'Vui lòng nhập đầy đủ Tên đăng nhập, Họ tên và Đơn vị thành viên.' });
+    this.formSubmitted.set(true);
+    this.serverErrors.set({});
+    if (this.usernameError() || this.fullNameError() || this.unitError()) {
       return;
     }
 
-    // Convert to number before sending to backend
+    const userDraft = { ...this.currentUser() };
     userDraft.organizationUnitId = Number(userDraft.organizationUnitId);
 
     this.saving.set(true);
@@ -202,7 +276,24 @@ export class UserManagement implements OnInit {
         },
         error: (err) => {
           this.saving.set(false);
-          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể cập nhật thông tin tài khoản.' });
+          let errorsObj = {};
+          if (err?.error) {
+            if (typeof err.error === 'object') {
+              errorsObj = err.error.errors || err.error;
+            } else if (typeof err.error === 'string') {
+              try {
+                const parsed = JSON.parse(err.error);
+                errorsObj = parsed.errors || parsed;
+              } catch (e) {
+                // ignore
+              }
+            }
+          } else if (err?.errors) {
+            errorsObj = err.errors;
+          }
+          this.serverErrors.set(errorsObj);
+          const detailMsg = err?.error?.message || err?.message || 'Không thể cập nhật thông tin tài khoản.';
+          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: detailMsg });
         }
       });
     } else {
@@ -215,7 +306,24 @@ export class UserManagement implements OnInit {
         },
         error: (err) => {
           this.saving.set(false);
-          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể tạo tài khoản mới.' });
+          let errorsObj = {};
+          if (err?.error) {
+            if (typeof err.error === 'object') {
+              errorsObj = err.error.errors || err.error;
+            } else if (typeof err.error === 'string') {
+              try {
+                const parsed = JSON.parse(err.error);
+                errorsObj = parsed.errors || parsed;
+              } catch (e) {
+                // ignore
+              }
+            }
+          } else if (err?.errors) {
+            errorsObj = err.errors;
+          }
+          this.serverErrors.set(errorsObj);
+          const detailMsg = err?.error?.message || err?.message || 'Không thể tạo tài khoản mới.';
+          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: detailMsg });
         }
       });
     }
@@ -255,7 +363,7 @@ export class UserManagement implements OnInit {
     // Tải danh sách quyền đơn vị của user
     this.userService.getUserUnitRoles(user.id).subscribe({
       next: (res: any) => {
-        const list = Array.isArray(res) ? res : (res && Array.isArray(res.value) ? res.value : []);
+        const list = Array.isArray(res) ? res : (res && Array.isArray(res.items) ? res.items : (res && Array.isArray(res.value) ? res.value : []));
         this.assignedUnitRoles.set(list);
         this.currentView.set('unit-role');
       },
@@ -337,7 +445,7 @@ export class UserManagement implements OnInit {
   loadSystemPermissions() {
     this.userService.getSystemPermissions().subscribe({
       next: (res: any) => {
-        this.systemPermissions.set(Array.isArray(res) ? res : (res && Array.isArray(res.value) ? res.value : []));
+        this.systemPermissions.set(Array.isArray(res) ? res : (res && Array.isArray(res.items) ? res.items : (res && Array.isArray(res.value) ? res.value : [])));
         this.updateTree();
       },
       error: (err) => {
@@ -349,7 +457,7 @@ export class UserManagement implements OnInit {
   loadMenus() {
     this.userService.getMenus().subscribe({
       next: (res: any) => {
-        this.menus.set(Array.isArray(res) ? res : (res && Array.isArray(res.value) ? res.value : []));
+        this.menus.set(Array.isArray(res) ? res : (res && Array.isArray(res.items) ? res.items : (res && Array.isArray(res.value) ? res.value : [])));
         this.updateTree();
       },
       error: (err) => {
@@ -511,7 +619,7 @@ export class UserManagement implements OnInit {
     
     this.userService.getUserPermissions(user.id).subscribe({
       next: (res: any) => {
-        const list = Array.isArray(res) ? res : (res && Array.isArray(res.value) ? res.value : []);
+        const list = Array.isArray(res) ? res : (res && Array.isArray(res.items) ? res.items : (res && Array.isArray(res.value) ? res.value : []));
         this.selectedPermissionCodes.set(list);
         this.currentView.set('permission');
       },
@@ -567,7 +675,7 @@ export class UserManagement implements OnInit {
     
     this.userService.getUserRoles(user.id).subscribe({
       next: (res: any) => {
-        const list = Array.isArray(res) ? res : (res && Array.isArray(res.value) ? res.value : []);
+        const list = Array.isArray(res) ? res : (res && Array.isArray(res.items) ? res.items : (res && Array.isArray(res.value) ? res.value : []));
         this.selectedRoleIds.set(list);
         this.currentView.set('role');
       },

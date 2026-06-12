@@ -192,6 +192,14 @@ export class EquipmentSearchComponent implements OnInit {
     }
   }
 
+  goToPage(page: any) {
+    const p = Number(page);
+    if (p >= 1 && p <= this.totalPages) {
+      this.currentPage = p;
+      this.onSearch();
+    }
+  }
+
   onPageSizeChange(event: any) {
     this.pageSize = Number(event.target.value);
     this.currentPage = 1;

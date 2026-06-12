@@ -44,11 +44,13 @@ export class WorkflowService {
   }
 
   /** Lấy danh sách quy trình, có thể lọc theo từ khóa và trạng thái */
-  getAll(keyword?: string, isActive?: boolean): Observable<WorkflowDefinition[]> {
-    let params = new HttpParams();
+  getAll(page: number, pageSize: number, keyword?: string, isActive?: boolean): Observable<any> {
+    let params = new HttpParams()
+      .set('page', page.toString())
+      .set('pageSize', pageSize.toString());
     if (keyword)              params = params.set('keyword', keyword);
     if (isActive !== undefined) params = params.set('isActive', String(isActive));
-    return this.http.get<WorkflowDefinition[]>(this.BASE, { params })
+    return this.http.get<any>(this.BASE, { params })
       .pipe(catchError(this.handleError));
   }
 

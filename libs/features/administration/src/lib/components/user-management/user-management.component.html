@@ -1,23 +1,18 @@
 <div class="wf-page">
   <p-toast></p-toast>
+  
+  <!-- Breadcrumb (Isolated above card) -->
+  <div class="breadcrumb">
+    <i class="pi pi-home bc-icon"></i>
+    <span class="bc-text">Trang chủ</span>
+    <span class="bc-sep">/</span>
+    <span class="bc-text">Quản trị hệ thống</span>
+    <span class="bc-sep">/</span>
+    <span class="bc-current">Quản lý người dùng</span>
+  </div>
+
   <div class="wf-card">
     
-    <!-- Breadcrumb -->
-    <div class="breadcrumb">
-      <i class="pi pi-home bc-icon"></i>
-      <span class="bc-text">Trang chủ</span>
-      <span class="bc-sep">/</span>
-      <span class="bc-text">Quản trị hệ thống</span>
-      <span class="bc-sep">/</span>
-      <span class="bc-text" [class.bc-current]="currentView() === 'list'" (click)="currentView() !== 'list' && currentView.set('list')" [class.bc-link]="currentView() !== 'list'">Quản lý người dùng</span>
-      <span class="bc-sep" *ngIf="currentView() !== 'list'">/</span>
-      <span class="bc-current" *ngIf="currentView() === 'add'">Thêm người dùng mới</span>
-      <span class="bc-current" *ngIf="currentView() === 'edit'">Chỉnh sửa người dùng</span>
-      <span class="bc-current" *ngIf="currentView() === 'unit-role'">Quyền theo đơn vị</span>
-      <span class="bc-current" *ngIf="currentView() === 'permission'">Phân quyền trực tiếp</span>
-      <span class="bc-current" *ngIf="currentView() === 'role'">Gán vai trò trực tiếp</span>
-    </div>
-
     <!-- MÀN HÌNH DANH SÁCH -->
     <div *ngIf="currentView() === 'list'" class="animate-fade-in">
       <!-- Toolbar -->
@@ -70,8 +65,8 @@
             </ng-container>
 
             <ng-container *ngIf="!loading()">
-              <tr *ngFor="let user of filteredUsers(); let i = index">
-                <td class="col-stt text-muted">{{ i + 1 }}</td>
+              <tr *ngFor="let user of paginatedUsers(); let i = index">
+                <td class="col-stt text-muted">{{ (currentPage() - 1) * pageSize() + i + 1 }}</td>
                 <td>
                   <b *ngIf="authService.hasPermission('USER_EDIT')" class="wf-name-link" (click)="onEdit(user)">{{ user.username }}</b>
                   <span *ngIf="!authService.hasPermission('USER_EDIT')">{{ user.username }}</span>
@@ -129,61 +124,76 @@
         </table>
       </div>
 
-      <!-- Footer -->
-      <div class="table-footer">
-        <span class="record-count">Tổng số: <b>{{ filteredUsers().length }}</b> người dùng.</span>
+      <!-- Footer with Pagination -->
+      <div class="table-footer" *ngIf="filteredUsers().length > 0 && !loading()">
+        <span class="record-count">Tổng số: <b>{{ totalCount() }}</b> người dùng.</span>
+        <div class="pagination">
+          <button class="page-btn" (click)="prevPage()" [disabled]="currentPage() === 1">
+            <i class="pi pi-chevron-left"></i>
+          </button>
+          <span class="page-current">Trang {{ currentPage() }} / {{ totalPages() || 1 }}</span>
+          <button class="page-btn" (click)="nextPage()" [disabled]="currentPage() >= totalPages()">
+            <i class="pi pi-chevron-right"></i>
+          </button>
+          <span style="margin-left: 10px; display: inline-flex; align-items: center; gap: 5px; font-size: 0.8rem; color: #6b7280;">
+            Đi tới trang:
+            <input type="number" class="page-jump-input" [value]="currentPage()" (change)="goToPage($any($event.target).value)" style="width: 50px; height: 28px; text-align: center; border: 1px solid #e5e7eb; border-radius: 4px; padding: 0 4px;" [min]="1" [max]="totalPages() || 1" />
+          </span>
+          <select class="page-size-sel" [ngModel]="pageSize()" (change)="onPageSizeChange($event)">
+            <option [value]="10">10 / trang</option>
+            <option [value]="20">20 / trang</option>
+            <option [value]="50">50 / trang</option>
+          </select>
+        </div>
       </div>
     </div>
 
-    <!-- MÀN HÌNH THÊM MỚI / CHỈNH SỬA -->
-    <div *ngIf="currentView() === 'add' || currentView() === 'edit'" class="animate-fade-in">
-      <div class="edit-header">
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <button class="btn-outlined btn-small" (click)="currentView.set('list')" title="Quay lại danh sách" [disabled]="saving()">
-            <i class="pi pi-arrow-left"></i>
-          </button>
-          <h3 class="edit-title">{{ dialogHeader() }}</h3>
-        </div>
-      </div>
-
-      <div style="max-width: 600px; display: flex; flex-direction: column; gap: 16px; padding: 10px 0;">
+    <!-- Dialog Thêm/Sửa Người dùng -->
+    <p-dialog [visible]="currentView() === 'add' || currentView() === 'edit'" (visibleChange)="$event ? null : currentView.set('list')" [header]="dialogHeader()" [modal]="true" [style]="{ width: '500px' }" styleClass="evn-dialog-custom">
+      <div style="display: flex; flex-direction: column; gap: 16px; padding: 10px 0;">
         <div class="form-group">
           <label class="form-label">Tên đăng nhập <span class="required">*</span></label>
-          <input type="text" class="wf-input w-full" [(ngModel)]="currentUser().username" placeholder="Nhập username..." [disabled]="isEdit() || saving()" />
+          <input type="text" class="wf-input w-full" [(ngModel)]="currentUser().username" (ngModelChange)="onFieldChange('username')" placeholder="Nhập username..." [disabled]="isEdit() || saving()" />
+          <span class="field-error" *ngIf="usernameError()">{{ usernameError() }}</span>
         </div>
         
         <div class="form-group">
           <label class="form-label">Họ và tên <span class="required">*</span></label>
-          <input type="text" class="wf-input w-full" [(ngModel)]="currentUser().fullName" placeholder="Nhập họ và tên..." [disabled]="saving()" />
+          <input type="text" class="wf-input w-full" [(ngModel)]="currentUser().fullName" (ngModelChange)="onFieldChange('fullName')" placeholder="Nhập họ và tên..." [disabled]="saving()" />
+          <span class="field-error" *ngIf="fullNameError()">{{ fullNameError() }}</span>
         </div>
 
         <div class="form-group">
           <label class="form-label">Đơn vị thành viên <span class="required">*</span></label>
-          <select class="wf-select w-full" [(ngModel)]="currentUser().organizationUnitId" style="height: 38px;" [disabled]="saving()">
+          <select class="wf-select w-full" [(ngModel)]="currentUser().organizationUnitId" (ngModelChange)="onFieldChange('organizationUnitId')" style="height: 38px;" [disabled]="saving()">
             <option [value]="null">-- Chọn Đơn vị --</option>
             <option *ngFor="let u of organizationUnits()" [value]="u.id">{{ u.name }}</option>
           </select>
+          <span class="field-error" *ngIf="unitError()">{{ unitError() }}</span>
         </div>
 
         <div class="form-group">
           <label class="form-label">Email</label>
-          <input type="email" class="wf-input w-full" [(ngModel)]="currentUser().email" placeholder="example@evnhanoi.vn" [disabled]="saving()" />
+          <input type="email" class="wf-input w-full" [(ngModel)]="currentUser().email" (ngModelChange)="onFieldChange('email')" placeholder="example@evnhanoi.vn" [disabled]="saving()" />
+          <span class="field-error" *ngIf="emailError()">{{ emailError() }}</span>
         </div>
         
         <div class="form-group" style="display: flex; align-items: center; gap: 10px; padding-top: 5px;">
           <input type="checkbox" id="isActiveCheck" [(ngModel)]="currentUser().isActive" style="scale: 1.2; cursor: pointer;" [disabled]="saving()" />
           <label for="isActiveCheck" style="font-weight: 600; cursor: pointer; margin: 0;">Trạng thái hoạt động</label>
         </div>
-
-        <div class="flex gap-2 justify-content-start pt-3" style="display: flex; justify-content: flex-start; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 18px; margin-top: 10px;">
-          <button class="btn-outlined btn-small" (click)="currentView.set('list')" [disabled]="saving()">Hủy</button>
+      </div>
+      <ng-template #footer>
+        <div class="flex gap-2 justify-content-end pt-3" style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+          <button class="btn-cancel btn-small" (click)="currentView.set('list')" [disabled]="saving()"><i class="pi pi-times"></i> Đóng</button>
           <button class="btn-save btn-small" (click)="onSaveUser()" [disabled]="saving()">
             <i class="pi pi-spin pi-spinner" *ngIf="saving()" style="margin-right: 4px;"></i>
+            <i class="pi pi-save" *ngIf="!saving()" style="margin-right: 4px;"></i>
             Lưu
           </button>
         </div>
-      </div>
-    </div>
+      </ng-template>
+    </p-dialog>
 
     <!-- MÀN HÌNH QUYỀN THEO ĐƠN VỊ -->
     <div *ngIf="currentView() === 'unit-role'" class="animate-fade-in">
@@ -250,9 +260,10 @@
         </div>
 
         <div style="display: flex; justify-content: flex-start; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 18px; margin-top: 10px; max-width: 800px;">
-          <button class="btn-outlined btn-small" (click)="currentView.set('list')" [disabled]="savingUnitRoles()">Hủy</button>
+          <button class="btn-cancel btn-small" (click)="currentView.set('list')" [disabled]="savingUnitRoles()"><i class="pi pi-times"></i> Đóng</button>
           <button class="btn-save btn-small" (click)="onSaveUnitRoles()" [disabled]="savingUnitRoles()">
             <i class="pi pi-spin pi-spinner" *ngIf="savingUnitRoles()" style="margin-right: 4px;"></i>
+            <i class="pi pi-save" *ngIf="!savingUnitRoles()" style="margin-right: 4px;"></i>
             Lưu thay đổi
           </button>
         </div>
@@ -328,9 +339,10 @@
         </div>
 
         <div style="display: flex; justify-content: flex-start; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 18px; margin-top: 10px;">
-          <button class="btn-outlined btn-small" (click)="currentView.set('list')" [disabled]="savingPermissions()">Hủy</button>
+          <button class="btn-cancel btn-small" (click)="currentView.set('list')" [disabled]="savingPermissions()"><i class="pi pi-times"></i> Đóng</button>
           <button class="btn-save btn-small" (click)="onSavePermissions()" [disabled]="savingPermissions()">
             <i class="pi pi-spin pi-spinner" *ngIf="savingPermissions()" style="margin-right: 4px;"></i>
+            <i class="pi pi-save" *ngIf="!savingPermissions()" style="margin-right: 4px;"></i>
             Lưu phân quyền
           </button>
         </div>
@@ -364,9 +376,10 @@
         </div>
 
         <div style="display: flex; justify-content: flex-start; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 18px; margin-top: 10px;">
-          <button class="btn-outlined btn-small" (click)="currentView.set('list')" [disabled]="savingRoles()">Hủy</button>
+          <button class="btn-cancel btn-small" (click)="currentView.set('list')" [disabled]="savingRoles()"><i class="pi pi-times"></i> Đóng</button>
           <button class="btn-save btn-small" (click)="onSaveRoles()" [disabled]="savingRoles()">
             <i class="pi pi-spin pi-spinner" *ngIf="savingRoles()" style="margin-right: 4px;"></i>
+            <i class="pi pi-save" *ngIf="!savingRoles()" style="margin-right: 4px;"></i>
             Lưu vai trò
           </button>
         </div>

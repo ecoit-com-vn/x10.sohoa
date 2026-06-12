@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, computed, PLATFORM_ID } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, PLATFORM_ID, effect } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
@@ -26,6 +26,8 @@ export class BorrowReturnComponent implements OnInit {
   loading = signal<boolean>(false);
   currentPage = signal<number>(1);
   pageSize = signal<number>(10);
+  totalCount = signal<number>(0);
+  searchKeyword = signal<string>('');
 
   // Nhiệm vụ chờ xử lý (User Pending Tasks)
   myTasks = signal<any[]>([]);
@@ -70,12 +72,11 @@ export class BorrowReturnComponent implements OnInit {
 
   // Computed signals for pagination
   paginatedRequests = computed(() => {
-    const start = (this.currentPage() - 1) * this.pageSize();
-    return this.requests().slice(start, start + this.pageSize());
+    return this.requests();
   });
 
   totalPages = computed(() => {
-    return Math.ceil(this.requests().length / this.pageSize());
+    return Math.ceil(this.totalCount() / this.pageSize());
   });
 
   ngOnInit() {
@@ -105,7 +106,7 @@ export class BorrowReturnComponent implements OnInit {
       )
       .subscribe({
         next: (tasks) => {
-          this.myTasks.set(tasks || []);
+          this.myTasks.set(Array.isArray(tasks) ? tasks : (tasks && Array.isArray((tasks as any).items) ? (tasks as any).items : (tasks && Array.isArray((tasks as any).value) ? (tasks as any).value : [])));
         },
         error: (err) => {
           console.error('Error loading tasks', err);
@@ -119,18 +120,33 @@ export class BorrowReturnComponent implements OnInit {
       });
   }
 
+  constructor() {
+    effect(() => {
+      const kw = this.searchKeyword();
+      this.currentPage.set(1);
+    }, { allowSignalWrites: true });
+
+    effect(() => {
+      const page = this.currentPage();
+      const size = this.pageSize();
+      const kw = this.searchKeyword();
+      this.loadRequests();
+    }, { allowSignalWrites: true });
+  }
+
   // Tải toàn bộ yêu cầu mượn trả
   loadRequests() {
     this.loading.set(true);
-    this.borrowRecordService.getBorrowRecords()
+    this.borrowRecordService.getBorrowRecords(this.currentPage(), this.pageSize(), this.searchKeyword())
       .pipe(
         finalize(() => {
           this.loading.set(false);
         })
       )
       .subscribe({
-        next: (data) => {
-          const list = (data || []).map(item => ({
+        next: (res) => {
+          const items = res?.items || [];
+          const list = items.map((item: any) => ({
             id: item.id,
             requester: item.requesterId || 'Chuyên viên kỹ thuật',
             recordName: item.dossierId,
@@ -142,7 +158,7 @@ export class BorrowReturnComponent implements OnInit {
             status: this.mapBackendState(item.state)
           }));
           this.requests.set(list);
-          this.currentPage.set(1);
+          this.totalCount.set(res?.totalCount || 0);
         },
         error: (err) => {
           console.error('Error loading requests via API', err);
@@ -152,6 +168,7 @@ export class BorrowReturnComponent implements OnInit {
             detail: 'Không thể kết nối tới máy chủ để tải yêu cầu mượn/trả.'
           });
           this.requests.set([]);
+          this.totalCount.set(0);
         }
       });
   }
@@ -198,7 +215,7 @@ export class BorrowReturnComponent implements OnInit {
     // Tải danh sách người dùng
     this.borrowRecordService.getUsersLookup().subscribe({
       next: (res) => {
-        this.users.set(res || []);
+        this.users.set(Array.isArray(res) ? res : (res && Array.isArray((res as any).items) ? (res as any).items : (res && Array.isArray((res as any).value) ? (res as any).value : [])));
       },
       error: (err) => {
         console.error('Lỗi khi tải danh sách người dùng', err);
@@ -208,7 +225,7 @@ export class BorrowReturnComponent implements OnInit {
     // Tải danh sách hồ sơ kỹ thuật
     this.borrowRecordService.getDossiers().subscribe({
       next: (res) => {
-        this.dossiers.set(res || []);
+        this.dossiers.set(Array.isArray(res) ? res : (res && Array.isArray((res as any).items) ? (res as any).items : (res && Array.isArray((res as any).value) ? (res as any).value : [])));
       },
       error: (err) => {
         console.error('Lỗi khi tải danh sách hồ sơ kỹ thuật', err);
@@ -575,6 +592,13 @@ export class BorrowReturnComponent implements OnInit {
   prevPage() {
     if (this.currentPage() > 1) {
       this.currentPage.update(p => p - 1);
+    }
+  }
+
+  goToPage(page: any) {
+    const p = Number(page);
+    if (p >= 1 && p <= this.totalPages()) {
+      this.currentPage.set(p);
     }
   }
 

@@ -24,13 +24,14 @@
 }
 .layout-header {
   flex: 0 0 auto;
+  background-color: #2543A5;
 }
 .header-container {
   display: flex;
   justify-content: space-between;
   align-items: center;
   height: 56px;
-  background-color: #002D72; /* EVN Deep Blue */
+  background-color: #2543A5; /* Updated to #2543A5 */
   color: #ffffff;
   padding: 0 1.25rem;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
@@ -155,9 +156,8 @@
   overflow: hidden;
 }
 
-/* Sidebar CSKH EVNHANOI styling */
 .layout-sidebar {
-  flex: 0 0 280px;
+  flex: 0 0 240px;
   overflow-y: auto;
   border-right: 1px solid var(--sidebar-border);
   background-color: var(--sidebar-bg);
@@ -220,7 +220,7 @@
 }
 
 .menu-icon {
-  color: #002D72;
+  color: #1a3593;
   font-size: 1.1rem;
   width: 20px;
   text-align: center;
@@ -234,7 +234,7 @@
 }
 
 .menu-chevron {
-  color: #002D72;
+  color: #1a3593;
   font-size: 0.75rem;
 }
 
@@ -290,10 +290,10 @@
   
   &:hover {
     background-color: #eff6ff;
-    color: #002D72;
+    color: #1a3593;
     
     .sub-icon {
-      color: #002D72;
+      color: #1a3593;
     }
   }
   
@@ -355,7 +355,7 @@
     top: 56px;
     left: 0;
     bottom: 0;
-    width: 260px;
+    width: 240px;
     z-index: 999;
     transform: translateX(-100%);
     transition: transform 0.25s ease-in-out;
@@ -373,5 +373,51 @@
     height: calc(100vh - 56px);
     background-color: rgba(0, 0, 0, 0.4);
     z-index: 998;
+  }
+}
+
+/* Glassmorphism Header Search Box */
+.header-search-container {
+  position: relative;
+  width: 240px;
+  margin-left: 1.5rem;
+
+  .header-search-input {
+    width: 100%;
+    height: 32px;
+    padding: 0 10px 0 32px;
+    background: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    border-radius: 6px;
+    color: #374151;
+    font-size: 0.82rem;
+    outline: none;
+    transition: all 0.3s ease;
+
+    &::placeholder {
+      color: #9ca3af;
+    }
+
+    &:focus {
+      background: #ffffff;
+      border-color: #ffffff;
+      box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.2);
+    }
+  }
+
+  .search-icon {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #6b7280;
+    font-size: 0.8rem;
+    pointer-events: none;
+  }
+}
+
+@media (max-width: 992px) {
+  .header-search-container {
+    display: none !important;
   }
 }
