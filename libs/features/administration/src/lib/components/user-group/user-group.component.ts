@@ -1,5 +1,5 @@
 // E:\ecoit\sohoax10\sohoa.frontend\apps\admin-portal\src\app\features\administration\user-group.component.ts
-import { Component, OnInit, signal, computed } from '@angular/core';
+import { Component, OnInit, signal, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -22,6 +22,7 @@ import { AuthService } from '@sohoa.frontend/shared/core';
 export class UserGroupComponent implements OnInit {
   groups = signal<any[]>([]);
   searchKeyword = signal<string>('');
+  totalCount = signal<number>(0);
 
   currentView = signal<'list' | 'add' | 'edit' | 'member' | 'role' | 'permission'>('list');
   dialogHeader = signal<string>('');
@@ -30,6 +31,28 @@ export class UserGroupComponent implements OnInit {
   
   loading = signal<boolean>(false);
   saving = signal<boolean>(false);
+
+  // Pagination
+  currentPage = signal<number>(1);
+  pageSize = signal<number>(10);
+
+  // Form Validation
+  formSubmitted = signal<boolean>(false);
+  serverErrors = signal<any>({});
+  nameError = computed(() => {
+    if (this.formSubmitted() && !this.currentGroup().name) return 'Tên nhóm người dùng là bắt buộc';
+    return this.serverErrors().name || this.serverErrors().Name || '';
+  });
+
+  onFieldChange(field: string) {
+    this.serverErrors.update(errs => {
+      const copy = { ...errs };
+      delete copy[field];
+      const capitalized = field.charAt(0).toUpperCase() + field.slice(1);
+      delete copy[capitalized];
+      return copy;
+    });
+  }
 
   // Thành viên
   memberDialogHeader = signal<string>('');
@@ -56,16 +79,41 @@ export class UserGroupComponent implements OnInit {
 
   // Computed signal for filteredGroups
   filteredGroups = computed(() => {
-    const kw = this.searchKeyword().toLowerCase().trim();
-    const allGroups = this.groups() || [];
-    if (!kw) {
-      return [...allGroups];
-    }
-    return allGroups.filter(g => 
-      (g.name?.toLowerCase().includes(kw) ?? false) || 
-      (g.description?.toLowerCase().includes(kw) ?? false)
-    );
+    return this.groups();
   });
+
+  // Paginated groups
+  paginatedGroups = computed(() => {
+    return this.groups();
+  });
+
+  totalPages = computed(() => {
+    return Math.ceil(this.totalCount() / this.pageSize());
+  });
+
+  nextPage() {
+    if (this.currentPage() < this.totalPages()) {
+      this.currentPage.update(p => p + 1);
+    }
+  }
+
+  prevPage() {
+    if (this.currentPage() > 1) {
+      this.currentPage.update(p => p - 1);
+    }
+  }
+
+  goToPage(page: any) {
+    const p = Number(page);
+    if (p >= 1 && p <= this.totalPages()) {
+      this.currentPage.set(p);
+    }
+  }
+
+  onPageSizeChange(event: any) {
+    this.pageSize.set(Number(event.target.value));
+    this.currentPage.set(1);
+  }
 
   activeDropdownGroupId = signal<string | null>(null);
 
@@ -80,6 +128,17 @@ export class UserGroupComponent implements OnInit {
         this.activeDropdownGroupId.set(null);
       });
     }
+    effect(() => {
+      const kw = this.searchKeyword();
+      this.currentPage.set(1);
+    }, { allowSignalWrites: true });
+
+    effect(() => {
+      const page = this.currentPage();
+      const size = this.pageSize();
+      const kw = this.searchKeyword();
+      this.loadGroups();
+    }, { allowSignalWrites: true });
   }
 
   toggleDropdown(groupId: string, event: Event) {
@@ -98,14 +157,18 @@ export class UserGroupComponent implements OnInit {
 
   loadGroups() {
     this.loading.set(true);
-    this.http.get<any[]>(this.apiUrl)
+    this.http.get<any>(`${this.apiUrl}?page=${this.currentPage()}&pageSize=${this.pageSize()}&keyword=${this.searchKeyword() || ''}`)
       .pipe(finalize(() => this.loading.set(false)))
       .subscribe({
-        next: (data) => {
-          this.groups.set(data || []);
+        next: (res) => {
+          const list = res?.items || [];
+          this.groups.set(list);
+          this.totalCount.set(res?.totalCount || 0);
         },
         error: (err) => {
           this.messageService.add({ severity: 'error', summary: 'Lỗi tải dữ liệu', detail: 'Không thể tải danh sách nhóm.' });
+          this.groups.set([]);
+          this.totalCount.set(0);
         }
       });
   }
@@ -121,6 +184,8 @@ export class UserGroupComponent implements OnInit {
     }
     this.isEdit.set(false);
     this.currentGroup.set({ name: '', description: '' });
+    this.formSubmitted.set(false);
+    this.serverErrors.set({});
     this.dialogHeader.set('Thêm mới nhóm người dùng');
     this.currentView.set('add');
   }
@@ -132,17 +197,20 @@ export class UserGroupComponent implements OnInit {
     }
     this.isEdit.set(true);
     this.currentGroup.set({ ...group });
+    this.formSubmitted.set(false);
+    this.serverErrors.set({});
     this.dialogHeader.set('Chỉnh sửa nhóm người dùng');
     this.currentView.set('edit');
   }
 
   onSaveGroup() {
-    const groupDraft = this.currentGroup();
-    if (!groupDraft.name) {
-      this.messageService.add({ severity: 'error', summary: 'Thiếu thông tin', detail: 'Tên nhóm người dùng là bắt buộc.' });
+    this.formSubmitted.set(true);
+    this.serverErrors.set({});
+    if (this.nameError()) {
       return;
     }
 
+    const groupDraft = this.currentGroup();
     this.saving.set(true);
     if (this.isEdit()) {
       this.http.put(`${this.apiUrl}/${groupDraft.id}`, groupDraft)
@@ -154,7 +222,24 @@ export class UserGroupComponent implements OnInit {
             this.currentView.set('list');
           },
           error: (err) => {
-            this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể cập nhật nhóm.' });
+            let errorsObj = {};
+            if (err?.error) {
+              if (typeof err.error === 'object') {
+                errorsObj = err.error.errors || err.error;
+              } else if (typeof err.error === 'string') {
+                try {
+                  const parsed = JSON.parse(err.error);
+                  errorsObj = parsed.errors || parsed;
+                } catch (e) {
+                  // ignore
+                }
+              }
+            } else if (err?.errors) {
+              errorsObj = err.errors;
+            }
+            this.serverErrors.set(errorsObj);
+            const detailMsg = err?.error?.message || err?.message || 'Không thể cập nhật nhóm.';
+            this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: detailMsg });
           }
         });
     } else {
@@ -167,7 +252,24 @@ export class UserGroupComponent implements OnInit {
             this.currentView.set('list');
           },
           error: (err) => {
-            this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể tạo nhóm mới.' });
+            let errorsObj = {};
+            if (err?.error) {
+              if (typeof err.error === 'object') {
+                errorsObj = err.error.errors || err.error;
+              } else if (typeof err.error === 'string') {
+                try {
+                  const parsed = JSON.parse(err.error);
+                  errorsObj = parsed.errors || parsed;
+                } catch (e) {
+                  // ignore
+                }
+              }
+            } else if (err?.errors) {
+              errorsObj = err.errors;
+            }
+            this.serverErrors.set(errorsObj);
+            const detailMsg = err?.error?.message || err?.message || 'Không thể tạo nhóm mới.';
+            this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: detailMsg });
           }
         });
     }
@@ -210,9 +312,11 @@ export class UserGroupComponent implements OnInit {
         // Load thành viên của nhóm
         this.http.get<any[]>(`${this.apiUrl}/${group.id}/members`).subscribe({
           next: (members) => {
-            const memberIds = new Set(members.map(m => m.id));
-            this.targetUsers.set((allUsers || []).filter(u => memberIds.has(u.id)));
-            this.sourceUsers.set((allUsers || []).filter(u => !memberIds.has(u.id)));
+            const allUsersList = Array.isArray(allUsers) ? allUsers : (allUsers && Array.isArray((allUsers as any).items) ? (allUsers as any).items : (allUsers && Array.isArray((allUsers as any).value) ? (allUsers as any).value : []));
+            const membersList = Array.isArray(members) ? members : (members && Array.isArray((members as any).items) ? (members as any).items : (members && Array.isArray((members as any).value) ? (members as any).value : []));
+            const memberIds = new Set(membersList.map((m: any) => m.id));
+            this.targetUsers.set((allUsersList || []).filter((u: any) => memberIds.has(u.id)));
+            this.sourceUsers.set((allUsersList || []).filter((u: any) => !memberIds.has(u.id)));
             this.currentView.set('member');
           },
           error: () => {
@@ -261,9 +365,11 @@ export class UserGroupComponent implements OnInit {
         // Load vai trò của nhóm
         this.http.get<any[]>(`${this.apiUrl}/${group.id}/roles`).subscribe({
           next: (roles) => {
-            const roleIds = new Set(roles.map(r => r.id));
-            this.targetRoles.set((allRoles || []).filter(r => roleIds.has(r.id)));
-            this.sourceRoles.set((allRoles || []).filter(r => !roleIds.has(r.id)));
+            const allRolesList = Array.isArray(allRoles) ? allRoles : (allRoles && Array.isArray((allRoles as any).items) ? (allRoles as any).items : (allRoles && Array.isArray((allRoles as any).value) ? (allRoles as any).value : []));
+            const rolesList = Array.isArray(roles) ? roles : (roles && Array.isArray((roles as any).items) ? (roles as any).items : (roles && Array.isArray((roles as any).value) ? (roles as any).value : []));
+            const roleIds = new Set(rolesList.map((r: any) => r.id));
+            this.targetRoles.set((allRolesList || []).filter((r: any) => roleIds.has(r.id)));
+            this.sourceRoles.set((allRolesList || []).filter((r: any) => !roleIds.has(r.id)));
             this.currentView.set('role');
           },
           error: () => {
@@ -299,7 +405,7 @@ export class UserGroupComponent implements OnInit {
   loadSystemPermissions() {
     this.http.get<any>(`${environment.apiGatewayUrl}/api/v1/permissions/lookup`).subscribe({
       next: (res: any) => {
-        this.systemPermissions.set(Array.isArray(res) ? res : (res && Array.isArray(res.value) ? res.value : []));
+        this.systemPermissions.set(Array.isArray(res) ? res : (res && Array.isArray(res.items) ? res.items : (res && Array.isArray(res.value) ? res.value : [])));
       },
       error: (err) => {
         console.error('Không thể tải danh sách quyền hệ thống:', err);
@@ -318,7 +424,7 @@ export class UserGroupComponent implements OnInit {
     
     this.http.get<any>(`${this.apiUrl}/${group.id}/permissions`).subscribe({
       next: (res: any) => {
-        const list = Array.isArray(res) ? res : (res && Array.isArray(res.value) ? res.value : []);
+        const list = Array.isArray(res) ? res : (res && Array.isArray(res.items) ? res.items : (res && Array.isArray(res.value) ? res.value : []));
         this.selectedPermissionCodes.set(list);
         this.currentView.set('permission');
       },

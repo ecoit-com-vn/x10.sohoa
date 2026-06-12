@@ -28,6 +28,24 @@ export class MenuManagement implements OnInit {
   loading = signal<boolean>(false);
   saving = signal<boolean>(false);
 
+  // Form Validation
+  formSubmitted = signal<boolean>(false);
+  serverErrors = signal<any>({});
+  nameError = computed(() => {
+    if (this.formSubmitted() && !this.currentMenu().name) return 'Tên menu là bắt buộc';
+    return this.serverErrors().name || this.serverErrors().Name || '';
+  });
+
+  onFieldChange(field: string) {
+    this.serverErrors.update(errs => {
+      const copy = { ...errs };
+      delete copy[field];
+      const capitalized = field.charAt(0).toUpperCase() + field.slice(1);
+      delete copy[capitalized];
+      return copy;
+    });
+  }
+
   private menuService = inject(MenuService);
   private messageService = inject(MessageService);
   private confirmationService = inject(ConfirmationService);
@@ -58,7 +76,7 @@ export class MenuManagement implements OnInit {
       .pipe(finalize(() => this.loading.set(false)))
       .subscribe({
         next: (res) => {
-          this.menus.set(Array.isArray(res) ? res : (res && Array.isArray(res.value) ? res.value : []));
+          this.menus.set(Array.isArray(res) ? res : (res && Array.isArray(res.items) ? res.items : (res && Array.isArray(res.value) ? res.value : [])));
         },
         error: (err) => {
           this.messageService.add({ severity: 'error', summary: 'Lỗi tải dữ liệu', detail: 'Không thể tải danh sách menu.' });
@@ -69,7 +87,7 @@ export class MenuManagement implements OnInit {
   loadPermissions() {
     this.menuService.getPermissions().subscribe({
       next: (res) => {
-        this.permissions.set(Array.isArray(res) ? res : (res && Array.isArray(res.value) ? res.value : []));
+        this.permissions.set(Array.isArray(res) ? res : (res && Array.isArray(res.items) ? res.items : (res && Array.isArray(res.value) ? res.value : [])));
       },
       error: (err) => {
         console.error('Không thể load permissions', err);
@@ -134,6 +152,8 @@ export class MenuManagement implements OnInit {
     }
     this.isEdit.set(false);
     this.currentMenu.set({ name: '', url: '', icon: '', permission: null, parentId: null, orderNum: 0 });
+    this.formSubmitted.set(false);
+    this.serverErrors.set({});
     this.dialogHeader.set('Thêm mới Menu');
     this.currentView.set('add');
   }
@@ -145,16 +165,20 @@ export class MenuManagement implements OnInit {
     }
     this.isEdit.set(true);
     this.currentMenu.set({ ...menu });
+    this.formSubmitted.set(false);
+    this.serverErrors.set({});
     this.dialogHeader.set('Chỉnh sửa Menu');
     this.currentView.set('edit');
   }
 
   onSaveMenu() {
-    const menuDraft = this.currentMenu();
-    if (!menuDraft.name) {
-      this.messageService.add({ severity: 'error', summary: 'Thiếu thông tin', detail: 'Tên Menu là bắt buộc.' });
+    this.formSubmitted.set(true);
+    this.serverErrors.set({});
+    if (this.nameError()) {
       return;
     }
+
+    const menuDraft = this.currentMenu();
 
     this.saving.set(true);
     // Đảm bảo parentId là null hoặc số
@@ -178,7 +202,24 @@ export class MenuManagement implements OnInit {
             this.currentView.set('list');
           },
           error: (err) => {
-            this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể cập nhật menu.' });
+            let errorsObj = {};
+            if (err?.error) {
+              if (typeof err.error === 'object') {
+                errorsObj = err.error.errors || err.error;
+              } else if (typeof err.error === 'string') {
+                try {
+                  const parsed = JSON.parse(err.error);
+                  errorsObj = parsed.errors || parsed;
+                } catch (e) {
+                  // ignore
+                }
+              }
+            } else if (err?.errors) {
+              errorsObj = err.errors;
+            }
+            this.serverErrors.set(errorsObj);
+            const detailMsg = err?.error?.message || err?.message || 'Không thể cập nhật menu.';
+            this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: detailMsg });
           }
         });
     } else {
@@ -191,7 +232,24 @@ export class MenuManagement implements OnInit {
             this.currentView.set('list');
           },
           error: (err) => {
-            this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể thêm mới menu.' });
+            let errorsObj = {};
+            if (err?.error) {
+              if (typeof err.error === 'object') {
+                errorsObj = err.error.errors || err.error;
+              } else if (typeof err.error === 'string') {
+                try {
+                  const parsed = JSON.parse(err.error);
+                  errorsObj = parsed.errors || parsed;
+                } catch (e) {
+                  // ignore
+                }
+              }
+            } else if (err?.errors) {
+              errorsObj = err.errors;
+            }
+            this.serverErrors.set(errorsObj);
+            const detailMsg = err?.error?.message || err?.message || 'Không thể thêm mới menu.';
+            this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: detailMsg });
           }
         });
     }

@@ -20,6 +20,14 @@ export const httpErrorInterceptor: HttpInterceptorFn = (req, next) => {
       } else {
         // Lỗi phía máy chủ
         switch (error.status) {
+          case 400:
+            // Lỗi dữ liệu đầu vào / Validation error
+            messageService.add({
+              severity: 'error',
+              summary: 'Yêu cầu không hợp lệ',
+              detail: error.error?.message || 'Thông tin nhập vào không hợp lệ. Vui lòng kiểm tra lại.'
+            });
+            break;
           case 401:
             // Token hết hạn hoặc không hợp lệ -> Đăng xuất
             if (typeof window !== 'undefined') {

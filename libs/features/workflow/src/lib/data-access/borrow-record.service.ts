@@ -22,8 +22,14 @@ export class BorrowRecordService {
     return `${this.config.apiGatewayUrl}/api/workflowdefinitions`;
   }
 
-  getBorrowRecords(): Observable<any[]> {
-    return this.http.get<any[]>(this.baseBorrow);
+  getBorrowRecords(page: number, pageSize: number, keyword?: string): Observable<any> {
+    let params = new HttpParams()
+      .set('page', page.toString())
+      .set('pageSize', pageSize.toString());
+    if (keyword && keyword.trim()) {
+      params = params.set('keyword', keyword.trim());
+    }
+    return this.http.get<any>(this.baseBorrow, { params });
   }
 
   createBorrowRecord(record: any): Observable<any> {
@@ -56,7 +62,9 @@ export class BorrowRecordService {
   }
 
   getActiveWorkflowDefinitions(): Observable<WorkflowDefinition[]> {
-    const params = new HttpParams().set('isActive', 'true');
+    const params = new HttpParams()
+      .set('isActive', 'true')
+      .set('pageSize', '9999');
     return this.http.get<WorkflowDefinition[]>(this.baseDefinition, { params });
   }
 

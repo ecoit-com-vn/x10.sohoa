@@ -1,23 +1,24 @@
 <div class="wf-page">
   <p-toast></p-toast>
+  
+  <!-- Breadcrumb (Isolated above card) -->
+  <div class="breadcrumb">
+    <i class="pi pi-home bc-icon"></i>
+    <span class="bc-text">Trang chủ</span>
+    <span class="bc-sep">/</span>
+    <span class="bc-text">Quản trị hệ thống</span>
+    <span class="bc-sep">/</span>
+    <span class="bc-text" [class.bc-current]="currentView() === 'list'" (click)="currentView() !== 'list' && currentView.set('list')" [class.bc-link]="currentView() !== 'list'">Quản lý nhóm người dùng</span>
+    <span class="bc-sep" *ngIf="currentView() !== 'list'">/</span>
+    <span class="bc-current" *ngIf="currentView() === 'add'">Thêm nhóm mới</span>
+    <span class="bc-current" *ngIf="currentView() === 'edit'">Chỉnh sửa nhóm</span>
+    <span class="bc-current" *ngIf="currentView() === 'member'">Thành viên nhóm</span>
+    <span class="bc-current" *ngIf="currentView() === 'role'">Vai trò nhóm</span>
+    <span class="bc-current" *ngIf="currentView() === 'permission'">Quyền trực tiếp nhóm</span>
+  </div>
+
   <div class="wf-card">
     
-    <!-- Breadcrumb -->
-    <div class="breadcrumb">
-      <i class="pi pi-home bc-icon"></i>
-      <span class="bc-text">Trang chủ</span>
-      <span class="bc-sep">/</span>
-      <span class="bc-text">Quản trị hệ thống</span>
-      <span class="bc-sep">/</span>
-      <span class="bc-text" [class.bc-current]="currentView() === 'list'" (click)="currentView() !== 'list' && currentView.set('list')" [class.bc-link]="currentView() !== 'list'">Quản lý nhóm người dùng</span>
-      <span class="bc-sep" *ngIf="currentView() !== 'list'">/</span>
-      <span class="bc-current" *ngIf="currentView() === 'add'">Thêm nhóm mới</span>
-      <span class="bc-current" *ngIf="currentView() === 'edit'">Chỉnh sửa nhóm</span>
-      <span class="bc-current" *ngIf="currentView() === 'member'">Thành viên nhóm</span>
-      <span class="bc-current" *ngIf="currentView() === 'role'">Vai trò nhóm</span>
-      <span class="bc-current" *ngIf="currentView() === 'permission'">Quyền trực tiếp nhóm</span>
-    </div>
-
     <!-- MÀN HÌNH DANH SÁCH -->
     <div *ngIf="currentView() === 'list'" class="animate-fade-in">
       <p class="text-muted mb-4">
@@ -65,8 +66,8 @@
             </ng-container>
 
             <ng-container *ngIf="!loading()">
-              <tr *ngFor="let g of filteredGroups(); let i = index">
-                <td class="col-stt text-muted">{{ i + 1 }}</td>
+              <tr *ngFor="let g of paginatedGroups(); let i = index">
+                <td class="col-stt text-muted">{{ (currentPage() - 1) * pageSize() + i + 1 }}</td>
                 <td>
                   <b *ngIf="authService.hasPermission('USER_GROUP_EDIT')" class="wf-name-link" (click)="onEdit(g)">{{ g.name }}</b>
                   <span *ngIf="!authService.hasPermission('USER_GROUP_EDIT')">{{ g.name }}</span>
@@ -85,7 +86,7 @@
                       <button type="button" class="act-btn act-more" (click)="toggleDropdown(g.id, $event)" title="Thao tác khác">
                         <i class="pi pi-ellipsis-h"></i>
                       </button>
-                      <div class="dropdown-actions-menu animate-fade-in" [class.dropdown-upwards]="i >= filteredGroups().length - 2" *ngIf="activeDropdownGroupId() === g.id" (click)="$event.stopPropagation()">
+                      <div class="dropdown-actions-menu animate-fade-in" [class.dropdown-upwards]="i >= paginatedGroups().length - 2" *ngIf="activeDropdownGroupId() === g.id" (click)="$event.stopPropagation()">
                         <button *ngIf="authService.hasPermission('USER_GROUP_MANAGE')" type="button" class="dropdown-item-btn" (click)="onManagePermissions(g); activeDropdownGroupId.set(null)" title="Phân quyền trực tiếp">
                           <i class="pi pi-key color-blue"></i>
                           <span>Phân quyền trực tiếp</span>
@@ -114,43 +115,55 @@
         </table>
       </div>
 
-      <!-- Footer -->
-      <div class="table-footer">
-        <span class="record-count">Tổng số: <b>{{ groups().length }}</b> nhóm.</span>
+      <!-- Footer with Pagination -->
+      <div class="table-footer" *ngIf="filteredGroups().length > 0 && !loading()">
+        <span class="record-count">Tổng số: <b>{{ totalCount() }}</b> nhóm người dùng.</span>
+        <div class="pagination">
+          <button class="page-btn" (click)="prevPage()" [disabled]="currentPage() === 1">
+            <i class="pi pi-chevron-left"></i>
+          </button>
+          <span class="page-current">Trang {{ currentPage() }} / {{ totalPages() || 1 }}</span>
+          <button class="page-btn" (click)="nextPage()" [disabled]="currentPage() >= totalPages()">
+            <i class="pi pi-chevron-right"></i>
+          </button>
+          <span style="margin-left: 10px; display: inline-flex; align-items: center; gap: 5px; font-size: 0.8rem; color: #6b7280;">
+            Đi tới trang:
+            <input type="number" class="page-jump-input" [value]="currentPage()" (change)="goToPage($any($event.target).value)" style="width: 50px; height: 28px; text-align: center; border: 1px solid #e5e7eb; border-radius: 4px; padding: 0 4px;" [min]="1" [max]="totalPages() || 1" />
+          </span>
+          <select class="page-size-sel" [ngModel]="pageSize()" (change)="onPageSizeChange($event)">
+            <option [value]="10">10 / trang</option>
+            <option [value]="20">20 / trang</option>
+            <option [value]="50">50 / trang</option>
+          </select>
+        </div>
       </div>
     </div>
 
-    <!-- MÀN HÌNH THÊM MỚI / CHỈNH SỬA -->
-    <div *ngIf="currentView() === 'add' || currentView() === 'edit'" class="animate-fade-in">
-      <div class="edit-header">
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <button class="btn-outlined btn-small" (click)="currentView.set('list')" title="Quay lại danh sách" [disabled]="saving()">
-            <i class="pi pi-arrow-left"></i>
-          </button>
-          <h3 class="edit-title">{{ dialogHeader() }}</h3>
-        </div>
-      </div>
-
-      <div style="max-width: 600px; display: flex; flex-direction: column; gap: 16px; padding: 10px 0;">
+    <!-- Dialog Thêm/Sửa Nhóm người dùng -->
+    <p-dialog [visible]="currentView() === 'add' || currentView() === 'edit'" (visibleChange)="$event ? null : currentView.set('list')" [header]="dialogHeader()" [modal]="true" [style]="{ width: '500px' }" styleClass="evn-dialog-custom">
+      <div style="display: flex; flex-direction: column; gap: 16px; padding: 10px 0;">
         <div class="form-group">
           <label class="form-label">Tên nhóm <span class="required">*</span></label>
-          <input type="text" class="wf-input w-full" [(ngModel)]="currentGroup().name" placeholder="Nhập tên nhóm..." [disabled]="saving()" />
+          <input type="text" class="wf-input w-full" [(ngModel)]="currentGroup().name" (ngModelChange)="onFieldChange('name')" placeholder="Nhập tên nhóm..." [disabled]="saving()" />
+          <span class="field-error" *ngIf="nameError()">{{ nameError() }}</span>
         </div>
         
         <div class="form-group">
           <label class="form-label">Mô tả chi tiết</label>
           <textarea class="wf-textarea w-full" rows="3" [(ngModel)]="currentGroup().description" placeholder="Nhập mô tả nhóm người dùng..." [disabled]="saving()"></textarea>
         </div>
-
-        <div class="flex gap-2 justify-content-start pt-3" style="display: flex; justify-content: flex-start; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 18px; margin-top: 10px;">
-          <button class="btn-outlined btn-small" (click)="currentView.set('list')" [disabled]="saving()">Hủy</button>
+      </div>
+      <ng-template #footer>
+        <div class="flex gap-2 justify-content-end pt-3" style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+          <button class="btn-cancel btn-small" (click)="currentView.set('list')" [disabled]="saving()"><i class="pi pi-times"></i> Đóng</button>
           <button class="btn-save btn-small" (click)="onSaveGroup()" [disabled]="saving()">
             <i class="pi pi-spin pi-spinner" *ngIf="saving()" style="margin-right: 4px;"></i>
+            <i class="pi pi-save" *ngIf="!saving()" style="margin-right: 4px;"></i>
             Lưu
           </button>
         </div>
-      </div>
-    </div>
+      </ng-template>
+    </p-dialog>
 
     <!-- MÀN HÌNH GÁN THÀNH VIÊN -->
     <div *ngIf="currentView() === 'member'" class="animate-fade-in">
@@ -185,9 +198,10 @@
         </p-pickList>
 
         <div style="display: flex; justify-content: flex-start; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 18px; margin-top: 20px;">
-          <button class="btn-outlined btn-small" (click)="currentView.set('list')" [disabled]="savingMembers()">Hủy</button>
+          <button class="btn-cancel btn-small" (click)="currentView.set('list')" [disabled]="savingMembers()">Hủy</button>
           <button class="btn-save btn-small" (click)="onSaveMembers()" [disabled]="savingMembers()">
             <i class="pi pi-spin pi-spinner" *ngIf="savingMembers()" style="margin-right: 4px;"></i>
+            <i class="pi pi-save" *ngIf="!savingMembers()" style="margin-right: 4px;"></i>
             Lưu thay đổi
           </button>
         </div>
@@ -227,9 +241,10 @@
         </p-pickList>
 
         <div style="display: flex; justify-content: flex-start; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 18px; margin-top: 20px;">
-          <button class="btn-outlined btn-small" (click)="currentView.set('list')" [disabled]="savingRoles()">Hủy</button>
+          <button class="btn-cancel btn-small" (click)="currentView.set('list')" [disabled]="savingRoles()">Hủy</button>
           <button class="btn-save btn-small" (click)="onSaveRoles()" [disabled]="savingRoles()">
             <i class="pi pi-spin pi-spinner" *ngIf="savingRoles()" style="margin-right: 4px;"></i>
+            <i class="pi pi-save" *ngIf="!savingRoles()" style="margin-right: 4px;"></i>
             Lưu thay đổi
           </button>
         </div>
@@ -271,9 +286,10 @@
         </div>
 
         <div style="display: flex; justify-content: flex-start; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 18px; margin-top: 10px;">
-          <button class="btn-outlined btn-small" (click)="currentView.set('list')" [disabled]="savingPermissions()">Hủy</button>
+          <button class="btn-cancel btn-small" (click)="currentView.set('list')" [disabled]="savingPermissions()">Hủy</button>
           <button class="btn-save btn-small" (click)="onSavePermissions()" [disabled]="savingPermissions()">
             <i class="pi pi-spin pi-spinner" *ngIf="savingPermissions()" style="margin-right: 4px;"></i>
+            <i class="pi pi-save" *ngIf="!savingPermissions()" style="margin-right: 4px;"></i>
             Lưu phân quyền
           </button>
         </div>

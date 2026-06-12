@@ -77,7 +77,7 @@ export class VirtualFoldersComponent implements OnInit {
 
     this.http.get<FolderNode[]>(`${this.apiUrl}/tree`, { params }).subscribe({
       next: (data) => {
-        this.folderTree = data || [];
+        this.folderTree = Array.isArray(data) ? data : (data && Array.isArray((data as any).items) ? (data as any).items : (data && Array.isArray((data as any).value) ? (data as any).value : []));
         this.loadingTree = false;
         if (this.selectedFolder) {
           const found = this.findNodeById(this.folderTree, this.selectedFolder.id);
@@ -117,7 +117,7 @@ export class VirtualFoldersComponent implements OnInit {
     this.loadingFiles = true;
     this.http.get<any[]>(`${this.apiUrl}/${folderId}/files`).subscribe({
       next: (data) => {
-        this.files = data || [];
+        this.files = Array.isArray(data) ? data : (data && Array.isArray((data as any).items) ? (data as any).items : (data && Array.isArray((data as any).value) ? (data as any).value : []));
         this.loadingFiles = false;
       },
       error: () => {

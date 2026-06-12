@@ -1,20 +1,18 @@
 <div class="wf-page">
   <p-toast></p-toast>
+  
+  <!-- Breadcrumb (Isolated above card) -->
+  <div class="breadcrumb">
+    <i class="pi pi-home bc-icon"></i>
+    <span class="bc-text">Trang chủ</span>
+    <span class="bc-sep">/</span>
+    <span class="bc-text">Quản trị hệ thống</span>
+    <span class="bc-sep">/</span>
+    <span class="bc-current">Quản lý Menu</span>
+  </div>
+
   <div class="wf-card">
     
-    <!-- Breadcrumb -->
-    <div class="breadcrumb">
-      <i class="pi pi-home bc-icon"></i>
-      <span class="bc-text">Trang chủ</span>
-      <span class="bc-sep">/</span>
-      <span class="bc-text">Quản trị hệ thống</span>
-      <span class="bc-sep">/</span>
-      <span class="bc-text" [class.bc-current]="currentView() === 'list'" (click)="currentView() !== 'list' && currentView.set('list')" [class.bc-link]="currentView() !== 'list'">Quản lý Menu</span>
-      <span class="bc-sep" *ngIf="currentView() !== 'list'">/</span>
-      <span class="bc-current" *ngIf="currentView() === 'add'">Thêm menu mới</span>
-      <span class="bc-current" *ngIf="currentView() === 'edit'">Chỉnh sửa menu</span>
-    </div>
-
     <!-- MÀN HÌNH DANH SÁCH -->
     <div *ngIf="currentView() === 'list'" class="animate-fade-in">
       <p class="text-muted mb-4">
@@ -111,21 +109,13 @@
       </div>
     </div>
 
-    <!-- MÀN HÌNH THÊM MỚI / CHỈNH SỬA -->
-    <div *ngIf="currentView() === 'add' || currentView() === 'edit'" class="animate-fade-in">
-      <div class="edit-header">
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <button class="btn-outlined btn-small" (click)="currentView.set('list')" title="Quay lại danh sách" [disabled]="saving()">
-            <i class="pi pi-arrow-left"></i>
-          </button>
-          <h3 class="edit-title">{{ dialogHeader() }}</h3>
-        </div>
-      </div>
-
-      <div style="max-width: 600px; display: flex; flex-direction: column; gap: 16px; padding: 10px 0;">
+    <!-- Dialog Thêm/Sửa Menu -->
+    <p-dialog [visible]="currentView() === 'add' || currentView() === 'edit'" (visibleChange)="$event ? null : currentView.set('list')" [header]="dialogHeader()" [modal]="true" [style]="{ width: '500px' }" styleClass="evn-dialog-custom">
+      <div style="display: flex; flex-direction: column; gap: 16px; padding: 10px 0;">
         <div class="form-group">
           <label class="form-label">Tên menu <span class="required">*</span></label>
-          <input type="text" class="wf-input w-full" [(ngModel)]="currentMenu().name" placeholder="Ví dụ: Quản lý thiết bị..." [disabled]="saving()" />
+          <input type="text" class="wf-input w-full" [(ngModel)]="currentMenu().name" (ngModelChange)="onFieldChange('name')" placeholder="Ví dụ: Quản lý thiết bị..." [disabled]="saving()" />
+          <span class="field-error" *ngIf="nameError()">{{ nameError() }}</span>
         </div>
         
         <div class="form-group">
@@ -158,16 +148,18 @@
           <label class="form-label">Thứ tự sắp xếp</label>
           <input type="number" class="wf-input w-full" [(ngModel)]="currentMenu().orderNum" [disabled]="saving()" />
         </div>
-
-        <div class="flex gap-2 justify-content-start pt-3" style="display: flex; justify-content: flex-start; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 18px; margin-top: 10px;">
-          <button class="btn-outlined btn-small" (click)="currentView.set('list')" [disabled]="saving()">Hủy</button>
+      </div>
+      <ng-template #footer>
+        <div class="flex gap-2 justify-content-end pt-3" style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+          <button class="btn-cancel btn-small" (click)="currentView.set('list')" [disabled]="saving()"><i class="pi pi-times"></i> Đóng</button>
           <button class="btn-save btn-small" (click)="onSaveMenu()" [disabled]="saving()">
             <i class="pi pi-spin pi-spinner" *ngIf="saving()" style="margin-right: 4px;"></i>
+            <i class="pi pi-save" *ngIf="!saving()" style="margin-right: 4px;"></i>
             Lưu
           </button>
         </div>
-      </div>
-    </div>
+      </ng-template>
+    </p-dialog>
 
   </div>
 </div>

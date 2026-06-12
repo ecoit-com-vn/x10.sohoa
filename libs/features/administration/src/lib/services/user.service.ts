@@ -14,8 +14,8 @@ export class UserService {
     return `${this.config.apiGatewayUrl}/api/v1`;
   }
 
-  getUsers(): Observable<any[]> {
-    return this.http.get<any[]>(`${this.base}/users`);
+  getUsers(page: number, pageSize: number, keyword?: string): Observable<any> {
+    return this.http.get<any>(`${this.base}/users?page=${page}&pageSize=${pageSize}&keyword=${keyword || ''}`);
   }
 
   createUser(user: any): Observable<any> {

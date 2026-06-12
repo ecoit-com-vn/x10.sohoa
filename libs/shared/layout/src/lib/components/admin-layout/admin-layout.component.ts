@@ -137,7 +137,7 @@ export class AdminLayout implements OnInit {
     this.menuService.getSidebarMenu().subscribe({
       next: (res) => {
         this.ngZone.run(() => {
-          const menus = Array.isArray(res) ? res : (res && Array.isArray(res.value) ? res.value : []);
+          const menus = Array.isArray(res) ? res : (res && Array.isArray(res.items) ? res.items : (res && Array.isArray(res.value) ? res.value : []));
           this.items = this.buildMenuTree(menus);
           this.expandActiveGroupOnLoad();
           this.cdr.detectChanges();
