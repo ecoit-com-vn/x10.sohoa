@@ -31,16 +31,23 @@ public class UsersController : ControllerBase
     [BypassDynamicPermission]
     public async Task<IActionResult> GetLookup()
     {
-        var users = await _userRepository.GetAllAsync();
-        var result = users.Select(u => new { u.Id, u.Username, u.FullName });
+        var cacheKey = "UsersLookup";
+        if (!_cache.TryGetValue(cacheKey, out IEnumerable<object>? result))
+        {
+            var users = await _userRepository.GetAllAsync();
+            result = users.Select(u => new { u.Id, u.Username, u.FullName }).ToList();
+            var cacheOptions = new Microsoft.Extensions.Caching.Memory.MemoryCacheEntryOptions()
+                .SetAbsoluteExpiration(TimeSpan.FromMinutes(5));
+            _cache.Set(cacheKey, result, cacheOptions);
+        }
         return Ok(result);
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAll()
+    public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] string? keyword = null)
     {
-        var result = await _userRepository.GetAllAsync();
-        return Ok(result);
+        var (items, totalCount) = await _userRepository.GetPagedAsync(page, pageSize, keyword);
+        return Ok(new { items, totalCount, page, pageSize });
     }
 
     [HttpGet("{id}")]
@@ -54,42 +61,68 @@ public class UsersController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] User user)
     {
-        if (string.IsNullOrWhiteSpace(user.Username) || string.IsNullOrWhiteSpace(user.FullName))
+        // Check duplicate username
+        var existingUser = await _userRepository.GetUserByUsernameAsync(user.Username.Trim());
+        if (existingUser != null)
         {
-            return BadRequest(new { message = "Tên đăng nhập và Họ tên là bắt buộc." });
-        }
-        if (!user.OrganizationUnitId.HasValue || user.OrganizationUnitId.Value <= 0)
-        {
-            return BadRequest(new { message = "Người dùng phải thuộc một đơn vị thành viên hợp lệ." });
+            return BadRequest(new
+            {
+                statusCode = 400,
+                message = "Dữ liệu đầu vào không hợp lệ.",
+                errors = new Dictionary<string, string> { { "username", "Tên đăng nhập đã tồn tại trong hệ thống." } }
+            });
         }
         
-        // Hash a default password or empty password if not supplied                
         user.PasswordHash = BCrypt.Net.BCrypt.HashPassword("DefaultUserPassword_123!");
         user.IsActive = true;
-        
-        var newId = await _userRepository.CreateAsync(user);
-        user.Id = newId;
-        return CreatedAtAction(nameof(GetById), new { id = newId }, user);
+        try
+        {
+            var newId = await _userRepository.CreateAsync(user);
+            user.Id = newId;
+            // Evict cache
+            _cache.Remove("UsersLookup");
+
+            return CreatedAtAction(nameof(GetById), new { id = newId }, user);
+        }
+        catch (Exception)
+        {
+            return StatusCode(500, new { message = "Đã xảy ra lỗi hệ thống không mong muốn." });
+        }
     }
 
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(string id, [FromBody] User user)
     {
-        if (id != user.Id) return BadRequest(new { message = "ID không trùng khớp." });
-        if (string.IsNullOrWhiteSpace(user.Username) || string.IsNullOrWhiteSpace(user.FullName))
+        if (id != user.Id)
         {
-            return BadRequest(new { message = "Tên đăng nhập và Họ tên là bắt buộc." });
-        }
-        if (!user.OrganizationUnitId.HasValue || user.OrganizationUnitId.Value <= 0)
-        {
-            return BadRequest(new { message = "Người dùng phải thuộc một đơn vị thành viên hợp lệ." });
+            return BadRequest(new
+            {
+                statusCode = 400,
+                message = "Dữ liệu đầu vào không hợp lệ.",
+                errors = new Dictionary<string, string> { { "id", "ID không trùng khớp." } }
+            });
         }
 
         var existing = await _userRepository.GetByIdAsync(id);
         if (existing == null) return NotFound(new { message = "Không tìm thấy người dùng cần chỉnh sửa." });
+
+        // Do not allow modifying the username
+        if (!string.Equals(user.Username?.Trim(), existing.Username, StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest(new
+            {
+                statusCode = 400,
+                message = "Dữ liệu đầu vào không hợp lệ.",
+                errors = new Dictionary<string, string> { { "username", "Không được phép thay đổi tên đăng nhập." } }
+            });
+        }
         
         user.PasswordHash = existing.PasswordHash; // Keep existing hash
         await _userRepository.UpdateFullAsync(user);
+
+        // Evict cache
+        _cache.Remove("UsersLookup");
+
         return NoContent();
     }
 
@@ -100,6 +133,10 @@ public class UsersController : ControllerBase
         if (existing == null) return NotFound(new { message = "Không tìm thấy người dùng cần xóa." });
         
         await _userRepository.DeleteAsync(id);
+
+        // Evict cache
+        _cache.Remove("UsersLookup");
+
         return NoContent();
     }
 

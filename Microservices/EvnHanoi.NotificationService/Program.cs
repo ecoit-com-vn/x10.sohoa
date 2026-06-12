@@ -1,5 +1,6 @@
 using EvnHanoi.Infrastructure.Logging;
 using EvnHanoi.Infrastructure.Security;
+using EvnHanoi.Infrastructure.Database;
 using EvnHanoi.NotificationService.Hubs;
 using EvnHanoi.NotificationService.Services;
 using EvnHanoi.NotificationService.Workers;
@@ -30,10 +31,13 @@ var rabbitFactory = new ConnectionFactory
     Password = builder.Configuration["RabbitMQ:Password"] ?? "guest",
     Port = int.TryParse(builder.Configuration["RabbitMQ:Port"], out var port) ? port : 5672
 };
+
 var rabbitConnection = await rabbitFactory.CreateConnectionAsync();
 builder.Services.AddSingleton<IConnection>(rabbitConnection);
 
 builder.Services.AddControllers();
+builder.Services.AddStructuredValidationErrors();
+builder.Services.AddDapperInfrastructure(builder.Configuration);
 builder.Services.AddOpenApi();
 
 // SignalR with Redis (Optional in Development)

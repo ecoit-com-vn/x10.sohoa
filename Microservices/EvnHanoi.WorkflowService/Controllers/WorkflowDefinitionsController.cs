@@ -35,12 +35,14 @@ namespace EvnHanoi.WorkflowService.Controllers
         // Lấy danh sách tất cả quy trình (có thể lọc theo tên, trạng thái)
         // ─────────────────────────────────────────────────────────────────────
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<WorkflowDefinition>>> GetAll(
+        public async Task<IActionResult> GetAll(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10,
             [FromQuery] string? keyword = null,
             [FromQuery] bool? isActive = null)
         {
-            var result = await _workflowRepository.GetAllDefinitionsAsync(keyword, isActive);
-            return Ok(result);
+            var (items, totalCount) = await _workflowRepository.GetPagedDefinitionsAsync(page, pageSize, keyword, isActive);
+            return Ok(new { items, totalCount, page, pageSize });
         }
 
         // ─────────────────────────────────────────────────────────────────────

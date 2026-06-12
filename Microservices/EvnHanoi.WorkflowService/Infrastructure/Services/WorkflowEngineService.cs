@@ -542,6 +542,130 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
             return instance;
         }
 
+        public async Task<WorkflowInstance> MoveWithValidationAsync(
+            string targetEntityId, 
+            string nextNodeId, 
+            string userId, 
+            List<string> userRoles, 
+            bool isAdmin, 
+            string actionLabel, 
+            string? comment = null)
+        {
+            var instance = await _workflowRepository.GetInstanceByEntityAsync(targetEntityId, "BorrowRecord");
+            if (instance == null)
+            {
+                throw new KeyNotFoundException("Không tìm thấy phiên chạy quy trình cho hồ sơ này.");
+            }
+
+            if (instance.Status != "Running")
+            {
+                throw new InvalidOperationException("Quy trình đã kết thúc hoặc bị hủy.");
+            }
+
+            var currentTask = instance.Tasks.FirstOrDefault(t => t.Status == "Pending");
+            if (currentTask == null)
+            {
+                throw new InvalidOperationException("Không tìm thấy nhiệm vụ đang chờ phê duyệt.");
+            }
+
+            // 1. Role Check
+            if (!isAdmin)
+            {
+                if (!string.IsNullOrEmpty(currentTask.AssignedRole))
+                {
+                    var hasRole = userRoles.Any(r => r.Equals(currentTask.AssignedRole, StringComparison.OrdinalIgnoreCase));
+                    if (!hasRole)
+                    {
+                        throw new ArgumentException($"Người dùng không có vai trò '{currentTask.AssignedRole}' cần thiết cho bước này.");
+                    }
+                }
+            }
+
+            var definition = instance.WorkflowDefinition;
+            if (definition == null || string.IsNullOrEmpty(definition.BpmnXml))
+            {
+                throw new InvalidOperationException("Quy trình chưa cấu hình sơ đồ BPMN XML.");
+            }
+
+            // 2. BPMN XML Path Validation
+            XDocument xmlDoc = XDocument.Parse(definition.BpmnXml);
+            var sourceNodeId = instance.CurrentNodeId ?? string.Empty;
+            
+            var isFallback = nextNodeId.Equals("approve", StringComparison.OrdinalIgnoreCase) || 
+                             nextNodeId.Equals("reject", StringComparison.OrdinalIgnoreCase);
+                             
+            if (!isFallback && !string.IsNullOrEmpty(sourceNodeId))
+            {
+                var isValidPath = IsValidBpmnPath(xmlDoc, sourceNodeId, nextNodeId);
+                if (!isValidPath)
+                {
+                    throw new ArgumentException($"Chuyển bước không hợp lệ: Không có đường đi từ node hiện tại '{sourceNodeId}' đến '{nextNodeId}' trong sơ đồ BPMN.");
+                }
+            }
+
+            // 3. Perform movement via MoveAsync
+            return await MoveAsync(targetEntityId, nextNodeId, userId, actionLabel, comment);
+        }
+
+        private bool IsValidBpmnPath(XDocument xmlDoc, string sourceNodeId, string targetNodeId)
+        {
+            if (string.IsNullOrEmpty(sourceNodeId) || string.IsNullOrEmpty(targetNodeId))
+                return false;
+
+            if (sourceNodeId == targetNodeId)
+                return true;
+
+            XNamespace bpmn = "http://www.omg.org/spec/BPMN/20100524/MODEL";
+            var process = xmlDoc.Descendants(bpmn + "process").FirstOrDefault();
+            if (process == null) return false;
+
+            var flows = process.Elements(bpmn + "sequenceFlow")
+                .Select(f => new { 
+                    Source = f.Attribute("sourceRef")?.Value, 
+                    Target = f.Attribute("targetRef")?.Value 
+                })
+                .Where(f => !string.IsNullOrEmpty(f.Source) && !string.IsNullOrEmpty(f.Target))
+                .GroupBy(f => f.Source!)
+                .ToDictionary(g => g.Key, g => g.Select(x => x.Target!).ToList());
+
+            var elementTypes = process.Elements()
+                .Where(e => e.Attribute("id")?.Value != null)
+                .ToDictionary(e => e.Attribute("id")!.Value, e => e.Name.LocalName);
+
+            var visited = new HashSet<string>();
+            var queue = new Queue<string>();
+            queue.Enqueue(sourceNodeId);
+            visited.Add(sourceNodeId);
+
+            while (queue.Count > 0)
+            {
+                var current = queue.Dequeue();
+                if (current == targetNodeId)
+                    return true;
+
+                if (flows.TryGetValue(current, out var nextNodes))
+                {
+                    foreach (var next in nextNodes)
+                     {
+                         if (!visited.Contains(next))
+                         {
+                             var isTarget = next == targetNodeId;
+                             elementTypes.TryGetValue(next, out var type);
+                             var isGateway = type != null && type.Contains("Gateway", StringComparison.OrdinalIgnoreCase);
+
+                             if (isTarget || isGateway)
+                             {
+                                 visited.Add(next);
+                                 queue.Enqueue(next);
+                             }
+                         }
+                     }
+                }
+            }
+
+            return false;
+        }
+
         public async Task<IEnumerable<object>> GetMyTasksAsync(List<string> userRoles, bool isAdmin)
         {
             var tasks = await _workflowRepository.GetPendingTasksByRolesAsync(userRoles, isAdmin);

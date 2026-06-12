@@ -23,6 +23,7 @@ builder.Host.UseSerilog((context, services, configuration) =>
 
 // Add services to the container.
 builder.Services.AddControllers();
+builder.Services.AddStructuredValidationErrors();
 builder.Services.AddOpenApi();
 
 // DI Configuration

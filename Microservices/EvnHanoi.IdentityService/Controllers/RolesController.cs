@@ -7,6 +7,7 @@ using EvnHanoi.IdentityService.Core.Interfaces;
 using EvnHanoi.IdentityService.Infrastructure.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace EvnHanoi.IdentityService.Controllers;
 
@@ -16,11 +17,16 @@ public class RolesController : ControllerBase
 {
     private readonly IRoleRepository _roleRepository;
     private readonly IPermissionRepository _permissionRepository;
+    private readonly IMemoryCache _cache;
 
-    public RolesController(IRoleRepository roleRepository, IPermissionRepository permissionRepository)
+    public RolesController(
+        IRoleRepository roleRepository, 
+        IPermissionRepository permissionRepository,
+        IMemoryCache cache)
     {
         _roleRepository = roleRepository;
         _permissionRepository = permissionRepository;
+        _cache = cache;
     }
 
     [HttpGet("lookup")]
@@ -28,16 +34,23 @@ public class RolesController : ControllerBase
     [BypassDynamicPermission]
     public async Task<IActionResult> GetLookup()
     {
-        var roles = await _roleRepository.GetAllAsync();
-        var result = roles.Select(r => new { r.Id, r.Code, r.Name });
+        var cacheKey = "RolesLookup";
+        if (!_cache.TryGetValue(cacheKey, out IEnumerable<object>? result))
+        {
+            var roles = await _roleRepository.GetAllAsync();
+            result = roles.Select(r => new { r.Id, r.Code, r.Name }).ToList();
+            var cacheOptions = new Microsoft.Extensions.Caching.Memory.MemoryCacheEntryOptions()
+                .SetAbsoluteExpiration(TimeSpan.FromMinutes(5));
+            _cache.Set(cacheKey, result, cacheOptions);
+        }
         return Ok(result);
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAll()
+    public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] string? keyword = null)
     {
-        var result = await _roleRepository.GetAllAsync();
-        return Ok(result);
+        var (items, totalCount) = await _roleRepository.GetPagedAsync(page, pageSize, keyword);
+        return Ok(new { items, totalCount, page, pageSize });
     }
 
     [HttpGet("{id}")]
@@ -57,6 +70,10 @@ public class RolesController : ControllerBase
         }
         var newId = await _roleRepository.CreateAsync(role);
         role.Id = newId;
+
+        // Evict cache
+        _cache.Remove("RolesLookup");
+
         return CreatedAtAction(nameof(GetById), new { id = newId }, role);
     }
 
@@ -71,6 +88,10 @@ public class RolesController : ControllerBase
 
         var success = await _roleRepository.UpdateAsync(role);
         if (!success) return NotFound(new { message = "Không tìm thấy vai trò cần chỉnh sửa." });
+
+        // Evict cache
+        _cache.Remove("RolesLookup");
+
         return NoContent();
     }
 
@@ -79,6 +100,10 @@ public class RolesController : ControllerBase
     {
         var success = await _roleRepository.DeleteAsync(id);
         if (!success) return NotFound(new { message = "Không tìm thấy vai trò cần xóa." });
+
+        // Evict cache
+        _cache.Remove("RolesLookup");
+
         return NoContent();
     }
 

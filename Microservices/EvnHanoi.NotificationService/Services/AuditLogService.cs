@@ -21,9 +21,9 @@ namespace EvnHanoi.NotificationService.Services
             _httpClientFactory = httpClientFactory;
         }
 
-        public async Task<(long Total, IEnumerable<dynamic> Logs)> GetAuditLogsAsync(int page, int pageSize)
+        public async Task<(long Total, IEnumerable<dynamic> Logs)> GetAuditLogsAsync(int page, int pageSize, string? keyword = null)
         {
-            return await _auditLogRepository.GetAuditLogsAsync(page, pageSize);
+            return await _auditLogRepository.GetAuditLogsAsync(page, pageSize, keyword);
         }
 
         public async Task<IEnumerable<dynamic>> GetRecentAuditLogsAsync(int count)

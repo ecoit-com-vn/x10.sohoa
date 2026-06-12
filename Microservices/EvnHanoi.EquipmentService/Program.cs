@@ -24,6 +24,7 @@ builder.Services.AddControllers(options =>
 {
     options.Filters.Add<EvnHanoi.Infrastructure.Security.DynamicPermissionFilter>();
 });
+builder.Services.AddStructuredValidationErrors();
 builder.Services.AddOpenApi();
 
 var rabbitFactory = new ConnectionFactory

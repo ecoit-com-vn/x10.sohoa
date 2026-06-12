@@ -11,6 +11,7 @@ namespace EvnHanoi.DigitizationService.Repositories
         Task<DigitizationTask?> GetByIdAsync(Guid id);
         Task<IEnumerable<DigitizationTask>> GetByUserIdAsync(string userId);
         Task<IEnumerable<DigitizationTask>> GetAllAsync();
+        Task<(IEnumerable<DigitizationTask> Items, int TotalCount)> GetPagedAsync(int page, int pageSize, string? keyword = null);
         Task UpdateAsync(DigitizationTask task);
     }
 }

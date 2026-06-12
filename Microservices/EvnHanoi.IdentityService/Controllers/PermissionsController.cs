@@ -35,10 +35,18 @@ public class PermissionsController : ControllerBase
     [BypassDynamicPermission]
     public async Task<IActionResult> GetLookup()
     {
-        var permissions = await _permissionRepository.GetAllPermissionsAsync();
-        var result = permissions
-            .Where(p => p.IsActive)
-            .Select(p => new { p.Id, p.Code, p.Name, p.Description });
+        var cacheKey = "PermissionsLookup";
+        if (!_cache.TryGetValue(cacheKey, out IEnumerable<object>? result))
+        {
+            var permissions = await _permissionRepository.GetAllPermissionsAsync();
+            result = permissions
+                .Where(p => p.IsActive)
+                .Select(p => new { p.Id, p.Code, p.Name, p.Description })
+                .ToList();
+            var cacheOptions = new MemoryCacheEntryOptions()
+                .SetAbsoluteExpiration(TimeSpan.FromMinutes(5));
+            _cache.Set(cacheKey, result, cacheOptions);
+        }
         return Ok(result);
     }
 
@@ -74,6 +82,8 @@ public class PermissionsController : ControllerBase
         var newId = await _permissionRepository.CreatePermissionAsync(permission, permission.Details ?? new List<PermissionDetail>());
         permission.Id = newId;
 
+        _cache.Remove("PermissionsLookup");
+
         return CreatedAtAction(nameof(GetById), new { id = newId }, permission);
     }
 
@@ -97,10 +107,7 @@ public class PermissionsController : ControllerBase
         var success = await _permissionRepository.UpdatePermissionAsync(permission, permission.Details ?? new List<PermissionDetail>());
         if (!success) return BadRequest(new { message = "Không thể cập nhật quyền." });
 
-        // Evict caches of all users to ensure instant permission updates
-        // In a production system, we could clear specific user keys, or clear cache globally if simple.
-        // For simplicity, we evict cache by letting it expire, or we can clear all keys by resetting cache or letting user's individual key evict on next request
-        // To be fast, let's evict the user-specific keys if we know them, or we can just advise users that permission updates sync instantly (or evict cache).
+        _cache.Remove("PermissionsLookup");
         
         return NoContent();
     }
@@ -113,6 +120,8 @@ public class PermissionsController : ControllerBase
 
         var success = await _permissionRepository.DeletePermissionAsync(id);
         if (!success) return BadRequest(new { message = "Không thể xóa quyền." });
+
+        _cache.Remove("PermissionsLookup");
 
         return NoContent();
     }

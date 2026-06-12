@@ -9,6 +9,7 @@ namespace EvnHanoi.WorkflowService.Core.Interfaces
     {
         // Definitions & Steps
         Task<IEnumerable<WorkflowDefinition>> GetAllDefinitionsAsync(string? keyword, bool? isActive);
+        Task<(IEnumerable<WorkflowDefinition> Items, int TotalCount)> GetPagedDefinitionsAsync(int page, int pageSize, string? keyword = null, bool? isActive = null);
         Task<WorkflowDefinition?> GetDefinitionByIdAsync(Guid id);
         Task<WorkflowStep?> GetStepByIdAsync(Guid id);
         Task<bool> CreateDefinitionAsync(WorkflowDefinition definition);

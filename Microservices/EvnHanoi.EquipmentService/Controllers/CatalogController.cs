@@ -51,7 +51,12 @@ public class CatalogController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAll([FromQuery] string? catalogType = null, [FromQuery] string? keyword = null, [FromQuery] int? status = null)
+    public async Task<IActionResult> GetAll(
+        [FromQuery] int page = 1, 
+        [FromQuery] int pageSize = 10, 
+        [FromQuery] string? catalogType = null, 
+        [FromQuery] string? keyword = null, 
+        [FromQuery] int? status = null)
     {
         long? unitId = null;
         var unitIdClaim = User.FindFirst("unit_id")?.Value;
@@ -60,8 +65,8 @@ public class CatalogController : ControllerBase
             unitId = parsedUnitId;
         }
 
-        var result = await _catalogRepository.GetAllAsync(catalogType, keyword, status, unitId);
-        return Ok(result);
+        var (items, totalCount) = await _catalogRepository.GetPagedAsync(page, pageSize, catalogType, keyword, status, unitId);
+        return Ok(new { items, totalCount, page, pageSize });
     }
 
     [HttpGet("{id}")]

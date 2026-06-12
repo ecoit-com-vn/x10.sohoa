@@ -67,6 +67,71 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
             return result;
         }
 
+        public async Task<(IEnumerable<WorkflowDefinition> Items, int TotalCount)> GetPagedDefinitionsAsync(int page, int pageSize, string? keyword = null, bool? isActive = null)
+        {
+            if (_connection.State != ConnectionState.Open) _connection.Open();
+            
+            var filterSql = " WHERE 1=1";
+            var parameters = new DynamicParameters();
+            if (!string.IsNullOrWhiteSpace(keyword))
+            {
+                filterSql += $@" AND ({nameof(WorkflowDefinition.Name)} LIKE :Keyword OR {nameof(WorkflowDefinition.Description)} LIKE :Keyword)";
+                parameters.Add("Keyword", $"%{keyword}%");
+            }
+            if (isActive.HasValue)
+            {
+                filterSql += $@" AND {nameof(WorkflowDefinition.IsActive)} = :IsActive";
+                parameters.Add("IsActive", isActive.Value ? 1 : 0);
+            }
+            
+            var countSql = $@"SELECT COUNT(*) FROM WORKFLOWDEFINITIONS {filterSql}";
+            
+            var offset = (page - 1) * pageSize;
+            var pagedSql = $@"
+                SELECT * FROM (
+                    SELECT w.{nameof(WorkflowDefinition.Id)}, 
+                           w.{nameof(WorkflowDefinition.Name)}, 
+                           w.{nameof(WorkflowDefinition.Description)}, 
+                           w.{nameof(WorkflowDefinition.Version)}, 
+                           w.{nameof(WorkflowDefinition.ForceActivate)}, 
+                           w.{nameof(WorkflowDefinition.CreatedAt)}, 
+                           w.{nameof(WorkflowDefinition.UpdatedAt)}, 
+                           w.{nameof(WorkflowDefinition.IsActive)}, 
+                           w.{nameof(WorkflowDefinition.BpmnXml)},
+                           ROW_NUMBER() OVER (ORDER BY w.{nameof(WorkflowDefinition.CreatedAt)} DESC) AS RN
+                    FROM WORKFLOWDEFINITIONS w
+                    {filterSql}
+                ) WHERE RN > :Offset AND RN <= :OffsetPlusSize";
+                
+            parameters.Add("Offset", offset);
+            parameters.Add("OffsetPlusSize", offset + pageSize);
+            
+            var totalCount = await _connection.ExecuteScalarAsync<int>(countSql, parameters);
+            var items = await _connection.QueryAsync<WorkflowDefinition>(pagedSql, parameters);
+            var resultList = items.ToList();
+            
+            foreach (var def in resultList)
+            {
+                var sqlSteps = $@"SELECT {nameof(WorkflowStep.Id)}, 
+                                         {nameof(WorkflowStep.WorkflowDefinitionId)}, 
+                                         {nameof(WorkflowStep.StepName)}, 
+                                         ""{nameof(WorkflowStep.Order)}"", 
+                                         {nameof(WorkflowStep.RequiredRole)}, 
+                                         {nameof(WorkflowStep.ActionType)} 
+                                  FROM WORKFLOWSTEPS 
+                                  WHERE {nameof(WorkflowStep.WorkflowDefinitionId)} = :Id 
+                                  ORDER BY ""{nameof(WorkflowStep.Order)}""";
+                var steps = await _connection.QueryAsync<WorkflowStep>(sqlSteps, new { Id = def.Id.ToString() });
+                def.Steps = steps.ToList();
+                foreach (var step in def.Steps)
+                {
+                    step.WorkflowDefinition = def;
+                }
+            }
+            
+            return (resultList, totalCount);
+        }
+
         public async Task<WorkflowDefinition?> GetDefinitionByIdAsync(Guid id)
         {
             if (_connection.State != ConnectionState.Open) _connection.Open();

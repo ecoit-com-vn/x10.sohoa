@@ -35,6 +35,48 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
             return await _connection.QueryAsync<BorrowRecord>(sql);
         }
 
+        public async Task<(IEnumerable<BorrowRecord> Items, int TotalCount)> GetPagedAsync(int page, int pageSize, string? keyword = null)
+        {
+            if (_connection.State != ConnectionState.Open) _connection.Open();
+            
+            var whereClause = "";
+            var parameters = new DynamicParameters();
+            if (!string.IsNullOrWhiteSpace(keyword))
+            {
+                whereClause = "WHERE (UPPER(b.DossierId) LIKE UPPER(:Keyword) OR UPPER(b.RequesterId) LIKE UPPER(:Keyword) OR UPPER(b.Reason) LIKE UPPER(:Keyword))";
+                parameters.Add("Keyword", $"%{keyword}%");
+            }
+            
+            var countSql = $"SELECT COUNT(*) FROM BORROWRECORDS b {whereClause}";
+            var offset = (page - 1) * pageSize;
+            
+            var sql = $@"
+                SELECT * FROM (
+                    SELECT b.{nameof(BorrowRecord.Id)}, 
+                           b.{nameof(BorrowRecord.DossierId)}, 
+                           b.{nameof(BorrowRecord.RequesterId)}, 
+                           b.{nameof(BorrowRecord.Reason)}, 
+                           b.{nameof(BorrowRecord.State)}, 
+                           b.{nameof(BorrowRecord.RequestDate)}, 
+                           b.{nameof(BorrowRecord.ApprovedDate)}, 
+                           b.{nameof(BorrowRecord.BorrowedDate)}, 
+                           b.{nameof(BorrowRecord.ReturnedDate)},
+                           b.{nameof(BorrowRecord.WorkflowInstanceId)},
+                           b.{nameof(BorrowRecord.WorkflowStatusName)},
+                           ROW_NUMBER() OVER (ORDER BY b.{nameof(BorrowRecord.RequestDate)} DESC) AS RN
+                    FROM BORROWRECORDS b
+                    {whereClause}
+                ) WHERE RN > :Offset AND RN <= :OffsetPlusSize";
+                
+            parameters.Add("Offset", offset);
+            parameters.Add("OffsetPlusSize", offset + pageSize);
+            
+            var totalCount = await _connection.ExecuteScalarAsync<int>(countSql, parameters);
+            var items = await _connection.QueryAsync<BorrowRecord>(sql, parameters);
+            
+            return (items, totalCount);
+        }
+
         public async Task<BorrowRecord?> GetByIdAsync(Guid id)
         {
             if (_connection.State != ConnectionState.Open) _connection.Open();
