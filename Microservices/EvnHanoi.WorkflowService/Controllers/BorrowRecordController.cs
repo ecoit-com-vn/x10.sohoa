@@ -23,10 +23,10 @@ namespace EvnHanoi.WorkflowService.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<BorrowRecord>>> GetAll()
+        public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] string? keyword = null)
         {
-            var records = await _borrowService.GetAllAsync();
-            return Ok(records);
+            var (items, totalCount) = await _borrowService.GetPagedAsync(page, pageSize, keyword);
+            return Ok(new { items, totalCount, page, pageSize });
         }
 
         [HttpGet("{id:guid}")]
@@ -96,6 +96,55 @@ namespace EvnHanoi.WorkflowService.Controllers
             catch (KeyNotFoundException ex)
             {
                 return NotFound(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpPost("{id:guid}/move")]
+        public async Task<IActionResult> MoveWorkflowWithValidation(Guid id, [FromBody] MoveWorkflowRequest request)
+        {
+            if (request == null) return BadRequest("Dữ liệu không hợp lệ.");
+
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.Identity?.Name ?? "admin";
+            var userRoles = User.Claims
+                .Where(c => c.Type == ClaimTypes.Role)
+                .Select(c => c.Value)
+                .ToList();
+            var isAdmin = User.IsInRole("ADMIN") || userRoles.Contains("ADMIN");
+
+            try
+            {
+                var instance = await _borrowService.MoveWorkflowWithValidationAsync(
+                    id,
+                    request.DossierId,
+                    request.NextNodeId,
+                    userId,
+                    userRoles,
+                    isAdmin,
+                    request.ActionLabel,
+                    request.Comment);
+
+                return Ok(new
+                {
+                    Success = true,
+                    Message = "Chuyển bước quy trình mượn trả thành công.",
+                    Status = instance.Status
+                });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return StatusCode(403, new { message = ex.Message });
             }
             catch (InvalidOperationException ex)
             {

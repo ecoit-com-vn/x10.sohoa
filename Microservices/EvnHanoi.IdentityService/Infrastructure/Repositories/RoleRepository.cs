@@ -33,6 +33,41 @@ public class RoleRepository : IRoleRepository
         return await _connection.QueryAsync<Role>(sql);
     }
 
+    public async Task<(IEnumerable<Role> Items, int TotalCount)> GetPagedAsync(int page, int pageSize, string? keyword = null)
+    {
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+        
+        var whereClause = "";
+        var parameters = new DynamicParameters();
+        if (!string.IsNullOrWhiteSpace(keyword))
+        {
+            whereClause = "WHERE (UPPER(r.Code) LIKE UPPER(:Keyword) OR UPPER(r.Name) LIKE UPPER(:Keyword) OR UPPER(r.Description) LIKE UPPER(:Keyword))";
+            parameters.Add("Keyword", $"%{keyword}%");
+        }
+        
+        var countSql = $"SELECT COUNT(*) FROM ROLE r {whereClause}";
+        var offset = (page - 1) * pageSize;
+        
+        var sql = $@"
+            SELECT * FROM (
+                SELECT r.{nameof(Role.Id)}, 
+                       r.{nameof(Role.Code)}, 
+                       r.{nameof(Role.Name)}, 
+                       r.{nameof(Role.Description)},
+                       ROW_NUMBER() OVER (ORDER BY r.{nameof(Role.Id)} ASC) AS RN
+                FROM ROLE r
+                {whereClause}
+            ) WHERE RN > :Offset AND RN <= :OffsetPlusSize";
+            
+        parameters.Add("Offset", offset);
+        parameters.Add("OffsetPlusSize", offset + pageSize);
+        
+        var totalCount = await _connection.ExecuteScalarAsync<int>(countSql, parameters);
+        var items = await _connection.QueryAsync<Role>(sql, parameters);
+        
+        return (items, totalCount);
+    }
+
     public async Task<Role?> GetByIdAsync(long id)
     {
         if (_connection.State != ConnectionState.Open) _connection.Open();

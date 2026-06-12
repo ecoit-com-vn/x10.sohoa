@@ -8,6 +8,8 @@ using Microsoft.IdentityModel.Tokens;
 using Serilog;
 using Scalar.AspNetCore;
 
+using EvnHanoi.Infrastructure.Security;
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
@@ -24,6 +26,7 @@ builder.Services.AddControllers(options =>
 {
     options.Filters.Add<EvnHanoi.IdentityService.Infrastructure.Security.DynamicPermissionFilter>();
 });
+builder.Services.AddStructuredValidationErrors();
 builder.Services.AddOpenApi();
 
 // DI Configuration

@@ -89,6 +89,46 @@ namespace EvnHanoi.DigitizationService.Repositories
             return await _connection.QueryAsync<DigitizationTask>(sql);
         }
 
+        public async Task<(IEnumerable<DigitizationTask> Items, int TotalCount)> GetPagedAsync(int page, int pageSize, string? keyword = null)
+        {
+            if (_connection.State != ConnectionState.Open) _connection.Open();
+            
+            var whereClause = "";
+            var parameters = new DynamicParameters();
+            if (!string.IsNullOrWhiteSpace(keyword))
+            {
+                whereClause = "WHERE (UPPER(DOSSIER_ID) LIKE UPPER(:Keyword) OR UPPER(NOTES) LIKE UPPER(:Keyword) OR UPPER(ASSIGNED_TO_USER_ID) LIKE UPPER(:Keyword))";
+                parameters.Add("Keyword", $"%{keyword}%");
+            }
+            
+            var countSql = $"SELECT COUNT(*) FROM DIGITIZATION_TASK {whereClause}";
+            var offset = (page - 1) * pageSize;
+            
+            var sql = $@"
+                SELECT * FROM (
+                    SELECT 
+                        ID as {nameof(DigitizationTask.Id)}, 
+                        DOSSIER_ID as {nameof(DigitizationTask.DossierId)}, 
+                        WORKFLOW_STEP_ID as {nameof(DigitizationTask.WorkflowStepId)}, 
+                        ASSIGNED_TO_USER_ID as {nameof(DigitizationTask.AssignedToUserId)}, 
+                        STATUS as {nameof(DigitizationTask.Status)}, 
+                        CREATED_AT as {nameof(DigitizationTask.CreatedAt)}, 
+                        COMPLETED_AT as {nameof(DigitizationTask.CompletedAt)}, 
+                        NOTES as {nameof(DigitizationTask.Notes)},
+                        ROW_NUMBER() OVER (ORDER BY CREATED_AT DESC) AS RN
+                    FROM DIGITIZATION_TASK
+                    {whereClause}
+                ) WHERE RN > :Offset AND RN <= :OffsetPlusSize";
+                
+            parameters.Add("Offset", offset);
+            parameters.Add("OffsetPlusSize", offset + pageSize);
+            
+            var totalCount = await _connection.ExecuteScalarAsync<int>(countSql, parameters);
+            var items = await _connection.QueryAsync<DigitizationTask>(sql, parameters);
+            
+            return (items, totalCount);
+        }
+
         public async Task UpdateAsync(DigitizationTask task)
         {
             var sql = $@"

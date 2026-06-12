@@ -7,6 +7,7 @@ namespace EvnHanoi.IdentityService.Core.Interfaces;
 public interface IRoleRepository
 {
     Task<IEnumerable<Role>> GetAllAsync();
+    Task<(IEnumerable<Role> Items, int TotalCount)> GetPagedAsync(int page, int pageSize, string? keyword = null);
     Task<Role?> GetByIdAsync(long id);
     Task<long> CreateAsync(Role role);
     Task<bool> UpdateAsync(Role role);

@@ -45,7 +45,7 @@ namespace EvnHanoi.NotificationService.Controllers
 
         [HttpGet]
         [Authorize]
-        public async Task<IActionResult> GetAuditLogs([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+        public async Task<IActionResult> GetAuditLogs([FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] string? keyword = null)
         {
             var authHeader = Request.Headers["Authorization"].ToString();
             if (!await _auditLogService.CheckPermissionAsync(authHeader, User, "AUDIT_LOG_VIEW"))
@@ -55,11 +55,13 @@ namespace EvnHanoi.NotificationService.Controllers
 
             try
             {
-                var (total, logs) = await _auditLogService.GetAuditLogsAsync(page, pageSize);
+                var (total, logs) = await _auditLogService.GetAuditLogsAsync(page, pageSize, keyword);
                 return Ok(new
                 {
-                    Total = total,
-                    Logs = logs
+                    items = logs,
+                    totalCount = total,
+                    page,
+                    pageSize
                 });
             }
             catch (Exception ex)

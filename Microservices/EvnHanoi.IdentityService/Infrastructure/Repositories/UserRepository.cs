@@ -88,6 +88,63 @@ public class UserRepository : IUserRepository
         );
     }
 
+    public async Task<(IEnumerable<User> Items, int TotalCount)> GetPagedAsync(int page, int pageSize, string? keyword = null)
+    {
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+        
+        var whereClause = "";
+        var parameters = new DynamicParameters();
+        if (!string.IsNullOrWhiteSpace(keyword))
+        {
+            whereClause = "WHERE (UPPER(u.UserName) LIKE UPPER(:Keyword) OR UPPER(u.FullName) LIKE UPPER(:Keyword) OR UPPER(u.Email) LIKE UPPER(:Keyword))";
+            parameters.Add("Keyword", $"%{keyword}%");
+        }
+        
+        var countSql = $"SELECT COUNT(*) FROM APP_USER u LEFT JOIN ORGANIZATION_UNIT o ON u.OrganizationUnitId = o.Id {whereClause}";
+        var offset = (page - 1) * pageSize;
+        
+        var sql = $@"
+            SELECT Id, Username, Email, FullName, PasswordHash, IsActive, OrganizationUnitId, AccessFailedCount, LockoutEnd, LockoutEnabled,
+                   OrgId AS Id, Code, Name, ParentId, Description
+            FROM (
+                SELECT u.Id AS Id, 
+                       u.UserName AS Username, 
+                       u.Email AS Email, 
+                       u.FullName AS FullName, 
+                       u.PasswordHash AS PasswordHash, 
+                       u.IsActive AS IsActive, 
+                       u.OrganizationUnitId AS OrganizationUnitId, 
+                       u.AccessFailedCount AS AccessFailedCount, 
+                       u.LockoutEnd AS LockoutEnd, 
+                       u.LockoutEnabled AS LockoutEnabled,
+                       o.Id AS OrgId, 
+                       o.Code AS Code, 
+                       o.Name AS Name, 
+                       o.ParentId AS ParentId, 
+                       o.Description AS Description,
+                       ROW_NUMBER() OVER (ORDER BY u.UserName ASC) AS RN
+                FROM APP_USER u
+                LEFT JOIN ORGANIZATION_UNIT o ON u.OrganizationUnitId = o.Id
+                {whereClause}
+            ) WHERE RN > :Offset AND RN <= :OffsetPlusSize";
+            
+        parameters.Add("Offset", offset);
+        parameters.Add("OffsetPlusSize", offset + pageSize);
+        
+        var totalCount = await _connection.ExecuteScalarAsync<int>(countSql, parameters);
+        var items = await _connection.QueryAsync<User, OrganizationUnit, User>(
+            sql, 
+            (user, unit) => {
+                user.OrganizationUnit = unit;
+                return user;
+            },
+            parameters,
+            splitOn: "Id"
+        );
+        
+        return (items, totalCount);
+    }
+
     public async Task<User?> GetByIdAsync(string id)
     {
         if (_connection.State != ConnectionState.Open) _connection.Open();

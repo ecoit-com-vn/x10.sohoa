@@ -52,6 +52,55 @@ public class CatalogRepository : ICatalogRepository
         });
     }
 
+    public async Task<(IEnumerable<Catalog> Items, int TotalCount)> GetPagedAsync(int page, int pageSize, string? catalogType = null, string? keyword = null, int? status = null, long? unitId = null)
+    {
+        var filterSql = $" WHERE ({nameof(Catalog.UnitId)} IS NULL";
+        if (unitId.HasValue)
+        {
+            filterSql += $" OR {nameof(Catalog.UnitId)} = :UnitId";
+        }
+        filterSql += ")";
+
+        if (!string.IsNullOrEmpty(catalogType))
+        {
+            filterSql += $" AND {nameof(Catalog.CatalogType)} = :CatalogType";
+        }
+
+        if (!string.IsNullOrEmpty(keyword))
+        {
+            filterSql += $" AND (LOWER({nameof(Catalog.Code)}) LIKE :Keyword OR LOWER({nameof(Catalog.Name)}) LIKE :Keyword)";
+        }
+
+        if (status.HasValue)
+        {
+            filterSql += $" AND {nameof(Catalog.Status)} = :Status";
+        }
+
+        var countSql = $"SELECT COUNT(*) FROM {nameof(Catalog)} {filterSql}";
+        
+        var offset = (page - 1) * pageSize;
+        var pagedSql = $@"
+            SELECT * FROM (
+                SELECT c.*, ROW_NUMBER() OVER (ORDER BY c.Priority ASC, c.CreatedAt DESC) AS RN
+                FROM {nameof(Catalog)} c
+                {filterSql}
+            ) WHERE RN > :Offset AND RN <= :OffsetPlusSize";
+
+        var keywordParam = !string.IsNullOrEmpty(keyword) ? $"%{keyword.ToLower()}%" : null;
+        var parameters = new DynamicParameters();
+        parameters.Add("UnitId", unitId);
+        parameters.Add("CatalogType", catalogType);
+        parameters.Add("Keyword", keywordParam);
+        parameters.Add("Status", status);
+        parameters.Add("Offset", offset);
+        parameters.Add("OffsetPlusSize", offset + pageSize);
+
+        var totalCount = await _connection.ExecuteScalarAsync<int>(countSql, parameters);
+        var items = await _connection.QueryAsync<Catalog>(pagedSql, parameters);
+
+        return (items, totalCount);
+    }
+
     public async Task<Catalog?> GetByIdAsync(long id)
     {
         var sql = $"SELECT * FROM {nameof(Catalog)} WHERE {nameof(Catalog.Id)} = :Id";

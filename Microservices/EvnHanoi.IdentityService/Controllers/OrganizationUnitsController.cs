@@ -1,10 +1,13 @@
+using System;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Collections.Generic;
 using EvnHanoi.IdentityService.Core.Domain.Models;
 using EvnHanoi.IdentityService.Core.Interfaces;
 using EvnHanoi.IdentityService.Infrastructure.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace EvnHanoi.IdentityService.Controllers;
 
@@ -13,10 +16,12 @@ namespace EvnHanoi.IdentityService.Controllers;
 public class OrganizationUnitsController : ControllerBase
 {
     private readonly IOrganizationUnitRepository _unitRepository;
+    private readonly IMemoryCache _cache;
 
-    public OrganizationUnitsController(IOrganizationUnitRepository unitRepository)
+    public OrganizationUnitsController(IOrganizationUnitRepository unitRepository, IMemoryCache cache)
     {
         _unitRepository = unitRepository;
+        _cache = cache;
     }
 
     [HttpGet("lookup")]
@@ -24,8 +29,15 @@ public class OrganizationUnitsController : ControllerBase
     [BypassDynamicPermission]
     public async Task<IActionResult> GetLookup()
     {
-        var units = await _unitRepository.GetAllAsync();
-        var result = units.Select(u => new { u.Id, u.Code, u.Name, u.ParentId });
+        var cacheKey = "OrganizationUnitsLookup";
+        if (!_cache.TryGetValue(cacheKey, out IEnumerable<object>? result))
+        {
+            var units = await _unitRepository.GetAllAsync();
+            result = units.Select(u => new { u.Id, u.Code, u.Name, u.ParentId }).ToList();
+            var cacheOptions = new MemoryCacheEntryOptions()
+                .SetAbsoluteExpiration(TimeSpan.FromMinutes(5));
+            _cache.Set(cacheKey, result, cacheOptions);
+        }
         return Ok(result);
     }
 
@@ -53,6 +65,9 @@ public class OrganizationUnitsController : ControllerBase
         }
         var newId = await _unitRepository.CreateAsync(unit);
         unit.Id = newId;
+
+        _cache.Remove("OrganizationUnitsLookup");
+
         return CreatedAtAction(nameof(GetById), new { id = newId }, unit);
     }
 
@@ -67,6 +82,9 @@ public class OrganizationUnitsController : ControllerBase
 
         var success = await _unitRepository.UpdateAsync(unit);
         if (!success) return NotFound(new { message = "Không tìm thấy đơn vị cần chỉnh sửa." });
+
+        _cache.Remove("OrganizationUnitsLookup");
+
         return NoContent();
     }
 
@@ -75,6 +93,9 @@ public class OrganizationUnitsController : ControllerBase
     {
         var success = await _unitRepository.DeleteAsync(id);
         if (!success) return NotFound(new { message = "Không tìm thấy đơn vị cần xóa." });
+
+        _cache.Remove("OrganizationUnitsLookup");
+
         return NoContent();
     }
 }

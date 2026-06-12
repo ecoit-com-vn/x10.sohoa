@@ -30,6 +30,41 @@ public class UserGroupRepository : IUserGroupRepository
         return await _connection.QueryAsync<UserGroup>(sql);
     }
 
+    public async Task<(IEnumerable<UserGroup> Items, int TotalCount)> GetPagedAsync(int page, int pageSize, string? keyword = null)
+    {
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+        
+        var whereClause = "";
+        var parameters = new DynamicParameters();
+        if (!string.IsNullOrWhiteSpace(keyword))
+        {
+            whereClause = "WHERE (UPPER(ug.Name) LIKE UPPER(:Keyword) OR UPPER(ug.Description) LIKE UPPER(:Keyword))";
+            parameters.Add("Keyword", $"%{keyword}%");
+        }
+        
+        var countSql = $"SELECT COUNT(*) FROM USER_GROUP ug {whereClause}";
+        var offset = (page - 1) * pageSize;
+        
+        var sql = $@"
+            SELECT * FROM (
+                SELECT ug.{nameof(UserGroup.Id)}, 
+                       ug.{nameof(UserGroup.Name)}, 
+                       ug.{nameof(UserGroup.Description)}, 
+                       ug.{nameof(UserGroup.IsActive)},
+                       ROW_NUMBER() OVER (ORDER BY ug.{nameof(UserGroup.Id)} ASC) AS RN
+                FROM USER_GROUP ug
+                {whereClause}
+            ) WHERE RN > :Offset AND RN <= :OffsetPlusSize";
+            
+        parameters.Add("Offset", offset);
+        parameters.Add("OffsetPlusSize", offset + pageSize);
+        
+        var totalCount = await _connection.ExecuteScalarAsync<int>(countSql, parameters);
+        var items = await _connection.QueryAsync<UserGroup>(sql, parameters);
+        
+        return (items, totalCount);
+    }
+
     public async Task<UserGroup?> GetByIdAsync(long id)
     {
         if (_connection.State != ConnectionState.Open) _connection.Open();

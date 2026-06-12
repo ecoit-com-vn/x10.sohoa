@@ -9,6 +9,7 @@ namespace EvnHanoi.DigitizationService.Controllers
 {
     [ApiController]
     [Route("api/v1/digitization-task")]
+    [Route("api/v1/digitization-tasks")]
     public class DigitizationTaskController : ControllerBase
     {
         private readonly IDigitizationTaskRepository _taskRepository;
@@ -55,12 +56,12 @@ namespace EvnHanoi.DigitizationService.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAllTasks()
+        public async Task<IActionResult> GetAllTasks([FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] string? keyword = null)
         {
             try
             {
-                var tasks = await _taskRepository.GetAllAsync();
-                return Ok(tasks);
+                var (items, totalCount) = await _taskRepository.GetPagedAsync(page, pageSize, keyword);
+                return Ok(new { items, totalCount, page, pageSize });
             }
             catch (Exception ex)
             {

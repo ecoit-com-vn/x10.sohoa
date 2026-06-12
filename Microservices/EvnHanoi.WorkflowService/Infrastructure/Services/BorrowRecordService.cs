@@ -109,9 +109,19 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
             return await _borrowRepository.UpdateAsync(record);
         }
 
+        public async Task<(IEnumerable<BorrowRecord> Items, int TotalCount)> GetPagedAsync(int page, int pageSize, string? keyword = null)
+        {
+            return await _borrowRepository.GetPagedAsync(page, pageSize, keyword);
+        }
+
         public async Task<WorkflowInstance> MoveWorkflowAsync(string dossierId, string nextNodeId, string userId, string actionLabel, string? comment)
         {
             return await _workflowEngine.MoveAsync(dossierId, nextNodeId, userId, actionLabel, comment);
+        }
+
+        public async Task<WorkflowInstance> MoveWorkflowWithValidationAsync(Guid id, string dossierId, string nextNodeId, string userId, List<string> userRoles, bool isAdmin, string actionLabel, string? comment)
+        {
+            return await _workflowEngine.MoveWithValidationAsync(id.ToString(), nextNodeId, userId, userRoles, isAdmin, actionLabel, comment);
         }
 
         public async Task<IEnumerable<object>> GetMyTasksAsync(List<string> userRoles, bool isAdmin)

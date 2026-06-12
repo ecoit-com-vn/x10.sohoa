@@ -16,21 +16,30 @@ namespace EvnHanoi.NotificationService.Repositories
             _elasticsearchClient = elasticsearchClient;
         }
 
-        public async Task<(long Total, IEnumerable<dynamic> Logs)> GetAuditLogsAsync(int page, int pageSize)
+        public async Task<(long Total, IEnumerable<dynamic> Logs)> GetAuditLogsAsync(int page, int pageSize, string? keyword = null)
         {
             var response = await _elasticsearchClient.SearchAsync<dynamic>(s => s
                 .Indices("audit_logs-*")
                 .From((page - 1) * pageSize)
                 .Size(pageSize)
                 .Query(q => q
-                    .Bool(b => b
-                        .MustNot(mn => mn
+                    .Bool(b => {
+                        b.MustNot(mn => mn
                             .Term(t => t
                                 .Field("isDeleted")
                                 .Value(true)
                             )
-                        )
-                    )
+                        );
+                        if (!string.IsNullOrWhiteSpace(keyword))
+                        {
+                            b.Must(m => m
+                                .MultiMatch(mm => mm
+                                    .Query(keyword)
+                                    .Fields(new[] { "action", "userName", "details" })
+                                )
+                            );
+                        }
+                    })
                 )
                 .Sort(sort => sort.Field("@timestamp", f => f.Order(SortOrder.Desc)))
             );
