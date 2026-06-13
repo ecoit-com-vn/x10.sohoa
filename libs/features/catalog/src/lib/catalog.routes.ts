@@ -2,21 +2,6 @@ import { Route } from '@angular/router';
 
 export const CATALOG_ROUTES: Route[] = [
   {
-    path: 'fond',
-    loadComponent: () => import('./feature/catalog-list/catalog-list.component').then(m => m.CatalogListComponent),
-    data: { type: 'PHONG', title: 'Phông' }
-  },
-  {
-    path: 'dossier-toc',
-    loadComponent: () => import('./feature/catalog-list/catalog-list.component').then(m => m.CatalogListComponent),
-    data: { type: 'MUC_LUC', title: 'Mục lục hồ sơ' }
-  },
-  {
-    path: 'dossier-type',
-    loadComponent: () => import('./feature/catalog-list/catalog-list.component').then(m => m.CatalogListComponent),
-    data: { type: 'LOAI_HO_SO', title: 'Loại hồ sơ' }
-  },
-  {
     path: 'shelf',
     loadComponent: () => import('./feature/catalog-list/catalog-list.component').then(m => m.CatalogListComponent),
     data: { type: 'KE', title: 'Kệ hồ sơ' }
@@ -45,5 +30,15 @@ export const CATALOG_ROUTES: Route[] = [
     path: 'physical-status',
     loadComponent: () => import('./feature/catalog-list/catalog-list.component').then(m => m.CatalogListComponent),
     data: { type: 'TINH_TRANG_VAT_LY', title: 'Tình trạng vật lý' }
+  },
+  {
+    path: 'shared',
+    loadComponent: () => import('./feature/catalog/catalog.component').then(m => m.CatalogComponent),
+    data: { isPrivate: false, title: 'Danh mục dùng chung' }
+  },
+  {
+    path: 'private',
+    loadComponent: () => import('./feature/catalog/catalog.component').then(m => m.CatalogComponent),
+    data: { isPrivate: true, title: 'Danh mục riêng' }
   }
 ];

@@ -263,7 +263,7 @@ export class CatalogListComponent implements OnInit {
     this.isSaving.set(true);
 
     if (this.currentView() === 'edit') {
-      this.catalogService.updateItem(itemDraft.id, itemDraft).subscribe({
+      this.catalogService.updateItem(itemDraft.id, itemDraft, this.catalogType()).subscribe({
         next: () => {
           this.isSaving.set(false);
           this.messageService.add({
@@ -301,7 +301,7 @@ export class CatalogListComponent implements OnInit {
         }
       });
     } else {
-      this.catalogService.createItem(itemDraft).subscribe({
+      this.catalogService.createItem(itemDraft, this.catalogType()).subscribe({
         next: () => {
           this.isSaving.set(false);
           this.messageService.add({
@@ -344,7 +344,7 @@ export class CatalogListComponent implements OnInit {
   onDelete(item: any) {
     if (!this.canDelete()) return;
     if (confirm(`Bạn có chắc chắn muốn xóa danh mục ${item.name} (${item.code})?`)) {
-      this.catalogService.deleteItem(item.id).subscribe({
+      this.catalogService.deleteItem(item.id, this.catalogType()).subscribe({
         next: () => {
           this.messageService.add({
             severity: 'success',
@@ -373,7 +373,7 @@ export class CatalogListComponent implements OnInit {
       : `Bạn có chắc muốn MỞ KHÓA danh mục ${item.name} (${item.code})?`;
 
     if (confirm(confirmMsg)) {
-      this.catalogService.toggleStatus(item.id, isLocking).subscribe({
+      this.catalogService.toggleStatus(item.id, isLocking, this.catalogType()).subscribe({
         next: (res: any) => {
           this.messageService.add({
             severity: 'success',
