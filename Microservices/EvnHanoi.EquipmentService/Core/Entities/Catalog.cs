@@ -7,7 +7,12 @@ public class Catalog
     public long Id { get; set; }
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
-    public string CatalogType { get; set; } = "System"; // e.g. System, Custom
+
+    /// <summary>
+    /// FK tới CATALOG_TYPE.Id (thay thế chuỗi CatalogType cũ)
+    /// </summary>
+    public long CatalogTypeId { get; set; }
+
     public long? ParentId { get; set; }
     public string? Description { get; set; }
     public long? UnitId { get; set; }

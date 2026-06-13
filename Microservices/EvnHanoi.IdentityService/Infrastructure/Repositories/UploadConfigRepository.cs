@@ -21,13 +21,17 @@ public class UploadConfigRepository : IUploadConfigRepository
     {
         if (_connection.State != ConnectionState.Open) _connection.Open();
         var sql = $@"
-            SELECT {nameof(UploadConfig.Id)}, 
-                   {nameof(UploadConfig.ModuleCode)}, 
-                   {nameof(UploadConfig.AllowedExtensions)}, 
-                   {nameof(UploadConfig.MaxSizeMb)}, 
-                   {nameof(UploadConfig.Description)} 
-            FROM UPLOAD_CONFIG 
-            ORDER BY {nameof(UploadConfig.Id)}";
+            SELECT u.{nameof(UploadConfig.Id)}, 
+                   u.{nameof(UploadConfig.Name)}, 
+                   u.{nameof(UploadConfig.AllowedExtensions)}, 
+                   u.{nameof(UploadConfig.MaxSizeMb)}, 
+                   u.{nameof(UploadConfig.Description)}, 
+                   u.{nameof(UploadConfig.OrganizationUnitId)}, 
+                   u.{nameof(UploadConfig.IsActive)}, 
+                   o.{nameof(OrganizationUnit.Name)} AS {nameof(UploadConfig.OrganizationUnitName)}
+            FROM UPLOAD_CONFIG u
+            LEFT JOIN ORGANIZATION_UNIT o ON u.{nameof(UploadConfig.OrganizationUnitId)} = o.{nameof(OrganizationUnit.Id)}
+            ORDER BY u.{nameof(UploadConfig.Id)}";
         return await _connection.QueryAsync<UploadConfig>(sql);
     }
 
@@ -35,28 +39,18 @@ public class UploadConfigRepository : IUploadConfigRepository
     {
         if (_connection.State != ConnectionState.Open) _connection.Open();
         var sql = $@"
-            SELECT {nameof(UploadConfig.Id)}, 
-                   {nameof(UploadConfig.ModuleCode)}, 
-                   {nameof(UploadConfig.AllowedExtensions)}, 
-                   {nameof(UploadConfig.MaxSizeMb)}, 
-                   {nameof(UploadConfig.Description)} 
-            FROM UPLOAD_CONFIG 
-            WHERE {nameof(UploadConfig.Id)} = :Id";
+            SELECT u.{nameof(UploadConfig.Id)}, 
+                   u.{nameof(UploadConfig.Name)}, 
+                   u.{nameof(UploadConfig.AllowedExtensions)}, 
+                   u.{nameof(UploadConfig.MaxSizeMb)}, 
+                   u.{nameof(UploadConfig.Description)}, 
+                   u.{nameof(UploadConfig.OrganizationUnitId)}, 
+                   u.{nameof(UploadConfig.IsActive)}, 
+                   o.{nameof(OrganizationUnit.Name)} AS {nameof(UploadConfig.OrganizationUnitName)}
+            FROM UPLOAD_CONFIG u
+            LEFT JOIN ORGANIZATION_UNIT o ON u.{nameof(UploadConfig.OrganizationUnitId)} = o.{nameof(OrganizationUnit.Id)}
+            WHERE u.{nameof(UploadConfig.Id)} = :Id";
         return await _connection.QuerySingleOrDefaultAsync<UploadConfig>(sql, new { Id = id });
-    }
-
-    public async Task<UploadConfig?> GetByModuleCodeAsync(string moduleCode)
-    {
-        if (_connection.State != ConnectionState.Open) _connection.Open();
-        var sql = $@"
-            SELECT {nameof(UploadConfig.Id)}, 
-                   {nameof(UploadConfig.ModuleCode)}, 
-                   {nameof(UploadConfig.AllowedExtensions)}, 
-                   {nameof(UploadConfig.MaxSizeMb)}, 
-                   {nameof(UploadConfig.Description)} 
-            FROM UPLOAD_CONFIG 
-            WHERE {nameof(UploadConfig.ModuleCode)} = :ModuleCode";
-        return await _connection.QuerySingleOrDefaultAsync<UploadConfig>(sql, new { ModuleCode = moduleCode });
     }
 
     public async Task<long> CreateAsync(UploadConfig config)
@@ -64,19 +58,23 @@ public class UploadConfigRepository : IUploadConfigRepository
         if (_connection.State != ConnectionState.Open) _connection.Open();
         var sql = $@"
             INSERT INTO UPLOAD_CONFIG (
-                {nameof(UploadConfig.ModuleCode)}, 
+                {nameof(UploadConfig.Name)}, 
                 {nameof(UploadConfig.AllowedExtensions)}, 
                 {nameof(UploadConfig.MaxSizeMb)}, 
-                {nameof(UploadConfig.Description)}
+                {nameof(UploadConfig.Description)},
+                {nameof(UploadConfig.OrganizationUnitId)},
+                {nameof(UploadConfig.IsActive)}
             )
-            VALUES (:ModuleCode, :AllowedExtensions, :MaxSizeMb, :Description)
+            VALUES (:Name, :AllowedExtensions, :MaxSizeMb, :Description, :OrganizationUnitId, :IsActive)
             RETURNING {nameof(UploadConfig.Id)} INTO :Id";
             
         var parameters = new DynamicParameters();
-        parameters.Add("ModuleCode", config.ModuleCode);
+        parameters.Add("Name", config.Name);
         parameters.Add("AllowedExtensions", config.AllowedExtensions);
         parameters.Add("MaxSizeMb", config.MaxSizeMb);
         parameters.Add("Description", config.Description);
+        parameters.Add("OrganizationUnitId", config.OrganizationUnitId);
+        parameters.Add("IsActive", config.IsActive ? 1 : 0);
         parameters.Add("Id", dbType: DbType.Int64, direction: ParameterDirection.Output);
         
         await _connection.ExecuteAsync(sql, parameters);
@@ -88,17 +86,21 @@ public class UploadConfigRepository : IUploadConfigRepository
         if (_connection.State != ConnectionState.Open) _connection.Open();
         var sql = $@"
             UPDATE UPLOAD_CONFIG 
-            SET {nameof(UploadConfig.ModuleCode)} = :ModuleCode, 
+            SET {nameof(UploadConfig.Name)} = :Name, 
                 {nameof(UploadConfig.AllowedExtensions)} = :AllowedExtensions, 
                 {nameof(UploadConfig.MaxSizeMb)} = :MaxSizeMb, 
-                {nameof(UploadConfig.Description)} = :Description 
+                {nameof(UploadConfig.Description)} = :Description,
+                {nameof(UploadConfig.OrganizationUnitId)} = :OrganizationUnitId,
+                {nameof(UploadConfig.IsActive)} = :IsActive
             WHERE {nameof(UploadConfig.Id)} = :Id";
         var affected = await _connection.ExecuteAsync(sql, new 
         {
-            config.ModuleCode,
+            config.Name,
             config.AllowedExtensions,
             config.MaxSizeMb,
             config.Description,
+            config.OrganizationUnitId,
+            IsActive = config.IsActive ? 1 : 0,
             config.Id
         });
         return affected > 0;

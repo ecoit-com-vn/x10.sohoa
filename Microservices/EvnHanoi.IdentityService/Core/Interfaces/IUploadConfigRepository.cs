@@ -1,4 +1,3 @@
-// E:\ecoit\sohoax10\sohoa.backend\Microservices\EvnHanoi.IdentityService\Core\Interfaces\IUploadConfigRepository.cs
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using EvnHanoi.IdentityService.Core.Domain.Models;
@@ -9,7 +8,6 @@ public interface IUploadConfigRepository
 {
     Task<IEnumerable<UploadConfig>> GetAllAsync();
     Task<UploadConfig?> GetByIdAsync(long id);
-    Task<UploadConfig?> GetByModuleCodeAsync(string moduleCode);
     Task<long> CreateAsync(UploadConfig config);
     Task<bool> UpdateAsync(UploadConfig config);
     Task<bool> DeleteAsync(long id);

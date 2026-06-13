@@ -1,4 +1,4 @@
-// E:\ecoit\sohoax10\sohoa.backend\Microservices\EvnHanoi.IdentityService\Controllers\UploadConfigsController.cs
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using EvnHanoi.IdentityService.Core.Domain.Models;
 using EvnHanoi.IdentityService.Core.Interfaces;
@@ -24,14 +24,6 @@ public class UploadConfigsController : ControllerBase
         return Ok(result);
     }
 
-    [HttpGet("module/{moduleCode}")]
-    public async Task<IActionResult> GetByModuleCode(string moduleCode)
-    {
-        var result = await _uploadConfigRepository.GetByModuleCodeAsync(moduleCode);
-        if (result == null) return NotFound(new { message = $"Không tìm thấy cấu hình upload cho module {moduleCode}." });
-        return Ok(result);
-    }
-
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(long id)
     {
@@ -43,10 +35,22 @@ public class UploadConfigsController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] UploadConfig config)
     {
-        if (string.IsNullOrWhiteSpace(config.ModuleCode) || string.IsNullOrWhiteSpace(config.AllowedExtensions))
+        if (string.IsNullOrWhiteSpace(config.Name) || string.IsNullOrWhiteSpace(config.AllowedExtensions))
         {
-            return BadRequest(new { message = "Mã module và Định dạng file được phép là bắt buộc." });
+            var errors = new Dictionary<string, string>();
+            if (string.IsNullOrWhiteSpace(config.Name))
+                errors.Add("name", "Tên cấu hình là bắt buộc.");
+            if (string.IsNullOrWhiteSpace(config.AllowedExtensions))
+                errors.Add("allowedExtensions", "Định dạng file được phép là bắt buộc.");
+
+            return BadRequest(new
+            {
+                statusCode = 400,
+                message = "Dữ liệu đầu vào không hợp lệ.",
+                errors = errors
+            });
         }
+
         var newId = await _uploadConfigRepository.CreateAsync(config);
         config.Id = newId;
         return CreatedAtAction(nameof(GetById), new { id = newId }, config);
@@ -55,10 +59,30 @@ public class UploadConfigsController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(long id, [FromBody] UploadConfig config)
     {
-        if (id != config.Id) return BadRequest(new { message = "ID không trùng khớp." });
-        if (string.IsNullOrWhiteSpace(config.ModuleCode) || string.IsNullOrWhiteSpace(config.AllowedExtensions))
+        if (id != config.Id)
         {
-            return BadRequest(new { message = "Mã module và Định dạng file được phép là bắt buộc." });
+            return BadRequest(new
+            {
+                statusCode = 400,
+                message = "Dữ liệu đầu vào không hợp lệ.",
+                errors = new Dictionary<string, string> { { "id", "ID không trùng khớp." } }
+            });
+        }
+
+        if (string.IsNullOrWhiteSpace(config.Name) || string.IsNullOrWhiteSpace(config.AllowedExtensions))
+        {
+            var errors = new Dictionary<string, string>();
+            if (string.IsNullOrWhiteSpace(config.Name))
+                errors.Add("name", "Tên cấu hình là bắt buộc.");
+            if (string.IsNullOrWhiteSpace(config.AllowedExtensions))
+                errors.Add("allowedExtensions", "Định dạng file được phép là bắt buộc.");
+
+            return BadRequest(new
+            {
+                statusCode = 400,
+                message = "Dữ liệu đầu vào không hợp lệ.",
+                errors = errors
+            });
         }
 
         var success = await _uploadConfigRepository.UpdateAsync(config);

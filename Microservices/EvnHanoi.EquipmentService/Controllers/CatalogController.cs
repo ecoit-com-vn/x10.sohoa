@@ -18,6 +18,9 @@ public class CatalogController : ControllerBase
         _catalogRepository = catalogRepository;
     }
 
+    // ─── CATALOG TYPE endpoints ──────────────────────────────
+
+    /// <summary>Danh sách tất cả loại danh mục (dùng cho dropdown).</summary>
     [HttpGet("types")]
     [BypassDynamicPermission]
     public async Task<IActionResult> GetCatalogTypes()
@@ -26,6 +29,7 @@ public class CatalogController : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>Lookup alias — giống GetCatalogTypes, dùng cho lookup dropdown.</summary>
     [HttpGet("types/lookup")]
     [BypassDynamicPermission]
     public async Task<IActionResult> LookupCatalogTypes()
@@ -34,42 +38,52 @@ public class CatalogController : ControllerBase
         return Ok(result);
     }
 
-    [HttpGet("lookup")]
+    /// <summary>Lấy 1 CatalogType theo Id.</summary>
+    [HttpGet("types/{id:long}")]
     [BypassDynamicPermission]
-    public async Task<IActionResult> Lookup([FromQuery] string? catalogType = null, [FromQuery] string? keyword = null)
+    public async Task<IActionResult> GetCatalogTypeById(long id)
     {
-        long? unitId = null;
-        var unitIdClaim = User.FindFirst("unit_id")?.Value;
-        if (long.TryParse(unitIdClaim, out var parsedUnitId))
-        {
-            unitId = parsedUnitId;
-        }
-
-        // Lookup only retrieves Active (status = 1) items
-        var result = await _catalogRepository.GetAllAsync(catalogType, keyword, 1, unitId);
+        var result = await _catalogRepository.GetCatalogTypeByIdAsync(id);
+        if (result == null) return NotFound();
         return Ok(result);
     }
 
+    // ─── CATALOG endpoints ───────────────────────────────────
+
+    /// <summary>
+    /// Lookup danh mục đang Active — lọc theo catalogTypeId.
+    /// Query param: catalogTypeId (long), keyword (string)
+    /// </summary>
+    [HttpGet("lookup")]
+    [BypassDynamicPermission]
+    public async Task<IActionResult> Lookup(
+        [FromQuery] long? catalogTypeId = null,
+        [FromQuery] string? keyword = null)
+    {
+        long? unitId = GetUnitIdFromClaims();
+        var result = await _catalogRepository.GetAllAsync(catalogTypeId, keyword, 1, unitId);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Danh sách danh mục có phân trang.
+    /// Query params: page, pageSize, catalogTypeId (long), keyword, status
+    /// </summary>
     [HttpGet]
     public async Task<IActionResult> GetAll(
-        [FromQuery] int page = 1, 
-        [FromQuery] int pageSize = 10, 
-        [FromQuery] string? catalogType = null, 
-        [FromQuery] string? keyword = null, 
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10,
+        [FromQuery] long? catalogTypeId = null,
+        [FromQuery] string? keyword = null,
         [FromQuery] int? status = null)
     {
-        long? unitId = null;
-        var unitIdClaim = User.FindFirst("unit_id")?.Value;
-        if (long.TryParse(unitIdClaim, out var parsedUnitId))
-        {
-            unitId = parsedUnitId;
-        }
-
-        var (items, totalCount) = await _catalogRepository.GetPagedAsync(page, pageSize, catalogType, keyword, status, unitId);
+        long? unitId = GetUnitIdFromClaims();
+        var (items, totalCount) = await _catalogRepository.GetPagedAsync(page, pageSize, catalogTypeId, keyword, status, unitId);
         return Ok(new { items, totalCount, page, pageSize });
     }
 
-    [HttpGet("{id}")]
+    /// <summary>Lấy 1 danh mục theo Id.</summary>
+    [HttpGet("{id:long}")]
     public async Task<IActionResult> GetById(long id)
     {
         var result = await _catalogRepository.GetByIdAsync(id);
@@ -77,69 +91,62 @@ public class CatalogController : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>Tạo mới danh mục. Body phải có CatalogTypeId (long).</summary>
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] Catalog catalog)
     {
         if (string.IsNullOrWhiteSpace(catalog.Code) || string.IsNullOrWhiteSpace(catalog.Name))
-        {
             return BadRequest(new { message = "Mã danh mục và Tên danh mục là bắt buộc." });
-        }
 
-        // Kiểm tra trùng mã trong cùng nhóm CatalogType
-        var existing = await _catalogRepository.GetByCodeAsync(catalog.CatalogType, catalog.Code);
+        if (catalog.CatalogTypeId <= 0)
+            return BadRequest(new { message = "CatalogTypeId không hợp lệ." });
+
+        // Xác minh CatalogTypeId tồn tại
+        var catalogType = await _catalogRepository.GetCatalogTypeByIdAsync(catalog.CatalogTypeId);
+        if (catalogType == null)
+            return BadRequest(new { message = $"Loại danh mục với Id '{catalog.CatalogTypeId}' không tồn tại." });
+
+        // Kiểm tra trùng mã trong cùng nhóm CatalogTypeId
+        var existing = await _catalogRepository.GetByCodeAsync(catalog.CatalogTypeId, catalog.Code);
         if (existing != null)
-        {
-            return BadRequest(new { message = $"Mã danh mục '{catalog.Code}' đã tồn tại trong nhóm '{catalog.CatalogType}'." });
-        }
+            return BadRequest(new { message = $"Mã danh mục '{catalog.Code}' đã tồn tại trong nhóm '{catalogType.Name}'." });
 
-        var unitIdClaim = User.FindFirst("unit_id")?.Value;
-        if (catalog.UnitId.HasValue && long.TryParse(unitIdClaim, out var unitId))
-        {
-            catalog.UnitId = unitId;
-        }
-        else
-        {
-            catalog.UnitId = null;
-        }
-
+        catalog.UnitId = catalog.UnitId.HasValue ? GetUnitIdFromClaims() : null;
         catalog.CreatedBy = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value ?? "system";
         catalog.CreatedAt = DateTime.UtcNow;
 
         var id = await _catalogRepository.CreateAsync(catalog);
         catalog.Id = id;
-        return CreatedAtAction(nameof(GetById), new { id = id }, catalog);
+        return CreatedAtAction(nameof(GetById), new { id }, catalog);
     }
 
-    [HttpPut("{id}")]
+    /// <summary>Cập nhật danh mục. Body phải có CatalogTypeId (long).</summary>
+    [HttpPut("{id:long}")]
     public async Task<IActionResult> Update(long id, [FromBody] Catalog catalog)
     {
-        if (id != catalog.Id) return BadRequest(new { message = "ID không trùng khớp." });
+        if (id != catalog.Id)
+            return BadRequest(new { message = "ID không trùng khớp." });
 
         if (string.IsNullOrWhiteSpace(catalog.Code) || string.IsNullOrWhiteSpace(catalog.Name))
-        {
             return BadRequest(new { message = "Mã danh mục và Tên danh mục là bắt buộc." });
-        }
 
-        // Kiểm tra trùng mã đối với bản ghi khác
-        var existing = await _catalogRepository.GetByCodeAsync(catalog.CatalogType, catalog.Code);
+        if (catalog.CatalogTypeId <= 0)
+            return BadRequest(new { message = "CatalogTypeId không hợp lệ." });
+
+        // Xác minh CatalogTypeId tồn tại
+        var catalogType = await _catalogRepository.GetCatalogTypeByIdAsync(catalog.CatalogTypeId);
+        if (catalogType == null)
+            return BadRequest(new { message = $"Loại danh mục với Id '{catalog.CatalogTypeId}' không tồn tại." });
+
+        // Kiểm tra trùng mã với bản ghi khác trong cùng nhóm
+        var existing = await _catalogRepository.GetByCodeAsync(catalog.CatalogTypeId, catalog.Code);
         if (existing != null && existing.Id != id)
-        {
-            return BadRequest(new { message = $"Mã danh mục '{catalog.Code}' đã được sử dụng bởi bản ghi khác trong nhóm '{catalog.CatalogType}'." });
-        }
+            return BadRequest(new { message = $"Mã danh mục '{catalog.Code}' đã được sử dụng bởi bản ghi khác trong nhóm '{catalogType.Name}'." });
 
         var dbCatalog = await _catalogRepository.GetByIdAsync(id);
         if (dbCatalog == null) return NotFound();
 
-        var unitIdClaim = User.FindFirst("unit_id")?.Value;
-        if (catalog.UnitId.HasValue && long.TryParse(unitIdClaim, out var unitId))
-        {
-            catalog.UnitId = unitId;
-        }
-        else
-        {
-            catalog.UnitId = null;
-        }
-
+        catalog.UnitId = catalog.UnitId.HasValue ? GetUnitIdFromClaims() : null;
         catalog.UpdatedBy = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value ?? "system";
 
         var success = await _catalogRepository.UpdateAsync(catalog);
@@ -147,27 +154,26 @@ public class CatalogController : ControllerBase
         return NoContent();
     }
 
-    [HttpDelete("{id}")]
+    /// <summary>Xóa danh mục (kiểm tra không có con).</summary>
+    [HttpDelete("{id:long}")]
     public async Task<IActionResult> Delete(long id)
     {
-        // Kiểm tra xem danh mục có danh mục con (parent_id) nào tham chiếu tới không
         if (await _catalogRepository.HasChildrenAsync(id))
-        {
             return BadRequest(new { message = "Không thể xóa danh mục này vì đang có các danh mục con tham chiếu tới." });
-        }
 
         var success = await _catalogRepository.DeleteAsync(id);
         if (!success) return NotFound();
         return NoContent();
     }
 
-    [HttpPost("{id}/lock")]
+    /// <summary>Khóa danh mục (Status = 0).</summary>
+    [HttpPost("{id:long}/lock")]
     public async Task<IActionResult> Lock(long id)
     {
         var catalog = await _catalogRepository.GetByIdAsync(id);
         if (catalog == null) return NotFound();
 
-        catalog.Status = 0; // Locked
+        catalog.Status = 0;
         catalog.UpdatedBy = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value ?? "system";
 
         var success = await _catalogRepository.UpdateAsync(catalog);
@@ -176,13 +182,14 @@ public class CatalogController : ControllerBase
         return Ok(new { message = "Đã khóa danh mục thành công.", status = 0 });
     }
 
-    [HttpPost("{id}/unlock")]
+    /// <summary>Mở khóa danh mục (Status = 1).</summary>
+    [HttpPost("{id:long}/unlock")]
     public async Task<IActionResult> Unlock(long id)
     {
         var catalog = await _catalogRepository.GetByIdAsync(id);
         if (catalog == null) return NotFound();
 
-        catalog.Status = 1; // Active
+        catalog.Status = 1;
         catalog.UpdatedBy = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value ?? "system";
 
         var success = await _catalogRepository.UpdateAsync(catalog);
@@ -190,5 +197,12 @@ public class CatalogController : ControllerBase
 
         return Ok(new { message = "Đã mở khóa danh mục thành công.", status = 1 });
     }
-}
 
+    // ─── Helpers ─────────────────────────────────────────────
+
+    private long? GetUnitIdFromClaims()
+    {
+        var claim = User.FindFirst("unit_id")?.Value;
+        return long.TryParse(claim, out var unitId) ? unitId : null;
+    }
+}
