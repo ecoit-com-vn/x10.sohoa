@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { DialogModule } from 'primeng/dialog';
 import { ToastModule } from 'primeng/toast';
-import { MessageService, ConfirmationService } from 'primeng/api';
+import { MessageService } from 'primeng/api';
 import { environment } from '@env/environment';
 import { finalize } from 'rxjs';
 import { AuthService } from '@sohoa.frontend/shared/core';
@@ -21,11 +21,18 @@ export class UploadConfigComponent implements OnInit {
   configs = signal<any[]>([]);
   filteredConfigs = signal<any[]>([]); // computed instead
   searchKeyword = signal<string>('');
+  searchUnitId = signal<number | null>(null);
+  orgUnits = signal<any[]>([]);
 
   displayDialog = signal<boolean>(false);
   dialogHeader = signal<string>('');
   isEdit = signal<boolean>(false);
   currentConfig = signal<any>({});
+
+  // Custom inline delete confirm dialog
+  showDeleteConfirm = signal<boolean>(false);
+  deleteTarget = signal<any>(null);
+  deleting = signal<boolean>(false);
   
   loading = signal<boolean>(false);
   saving = signal<boolean>(false);
@@ -35,25 +42,30 @@ export class UploadConfigComponent implements OnInit {
   // Computed signal for filteredConfigs
   computedFilteredConfigs = computed(() => {
     const kw = this.searchKeyword().toLowerCase().trim();
+    const unitId = this.searchUnitId();
     const allConfigs = this.configs() || [];
-    if (!kw) {
-      return [...allConfigs];
-    }
-    return allConfigs.filter(c => 
-      (c.moduleCode?.toLowerCase().includes(kw) ?? false) || 
-      (c.allowedExtensions?.toLowerCase().includes(kw) ?? false)
-    );
+    
+    return allConfigs.filter(c => {
+      const matchesKeyword = !kw || 
+        (c.name?.toLowerCase().includes(kw) ?? false) || 
+        (c.allowedExtensions?.toLowerCase().includes(kw) ?? false);
+        
+      const matchesUnit = unitId === null || unitId === undefined || String(unitId) === 'null' || String(unitId) === '' ||
+        c.organizationUnitId === Number(unitId);
+        
+      return matchesKeyword && matchesUnit;
+    });
   });
 
   constructor(
     private http: HttpClient,
     private messageService: MessageService,
-    private confirmationService: ConfirmationService,
     public authService: AuthService
   ) {}
 
   ngOnInit() {
     this.loadConfigs();
+    this.loadOrgUnits();
   }
 
   loadConfigs() {
@@ -70,6 +82,18 @@ export class UploadConfigComponent implements OnInit {
       });
   }
 
+  loadOrgUnits() {
+    const orgUnitsUrl = `${environment.apiGatewayUrl}/api/v1/organization-units/lookup`;
+    this.http.get<any[]>(orgUnitsUrl).subscribe({
+      next: (data) => {
+        this.orgUnits.set(data || []);
+      },
+      error: (err) => {
+        this.messageService.add({ severity: 'error', summary: 'Lỗi tải đơn vị', detail: 'Không thể tải danh sách đơn vị.' });
+      }
+    });
+  }
+
   onSearch() {
     // Tự động thông qua computed
   }
@@ -81,7 +105,13 @@ export class UploadConfigComponent implements OnInit {
 
   onAddNew() {
     this.isEdit.set(false);
-    this.currentConfig.set({ moduleCode: '', allowedExtensions: 'pdf,docx,xlsx,jpg,png', maxFileSizeMb: 10 });
+    this.currentConfig.set({ 
+      name: '', 
+      allowedExtensions: 'pdf,docx,xlsx,jpg,png', 
+      maxFileSizeMb: 10, 
+      organizationUnitId: null, 
+      isActive: true 
+    });
     this.dialogHeader.set('Thêm mới cấu hình Upload');
     this.displayDialog.set(true);
   }
@@ -95,7 +125,7 @@ export class UploadConfigComponent implements OnInit {
 
   onSaveConfig() {
     const configDraft = this.currentConfig();
-    if (!configDraft.moduleCode || !configDraft.allowedExtensions || !configDraft.maxFileSizeMb) {
+    if (!configDraft.name || !configDraft.allowedExtensions || !configDraft.maxFileSizeMb) {
       this.messageService.add({ severity: 'error', summary: 'Thiếu thông tin', detail: 'Vui lòng nhập đầy đủ thông tin bắt buộc.' });
       return;
     }
@@ -103,6 +133,12 @@ export class UploadConfigComponent implements OnInit {
     if (configDraft.maxFileSizeMb <= 0) {
       this.messageService.add({ severity: 'error', summary: 'Giá trị không hợp lệ', detail: 'Dung lượng tối đa phải lớn hơn 0 MB.' });
       return;
+    }
+
+    if (configDraft.organizationUnitId === 'null' || configDraft.organizationUnitId === '') {
+      configDraft.organizationUnitId = null;
+    } else if (configDraft.organizationUnitId !== null && configDraft.organizationUnitId !== undefined) {
+      configDraft.organizationUnitId = Number(configDraft.organizationUnitId);
     }
 
     this.saving.set(true);
@@ -136,23 +172,32 @@ export class UploadConfigComponent implements OnInit {
   }
 
   onDelete(config: any) {
-    this.confirmationService.confirm({
-      message: `Bạn có chắc chắn muốn xóa cấu hình cho phân hệ ${config.moduleCode}?`,
-      header: 'Xác nhận xóa',
-      icon: 'pi pi-exclamation-triangle',
-      acceptLabel: 'Đồng ý',
-      rejectLabel: 'Hủy',
-      accept: () => {
-        this.http.delete(`${this.apiUrl}/${config.id}`).subscribe({
-          next: () => {
-            this.messageService.add({ severity: 'success', summary: 'Xóa thành công', detail: 'Đã xóa cấu hình thành công!' });
-            this.loadConfigs();
-          },
-          error: (err) => {
-            this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể xóa cấu hình này.' });
-          }
-        });
-      }
-    });
+    this.deleteTarget.set(config);
+    this.showDeleteConfirm.set(true);
+  }
+
+  onConfirmDelete() {
+    const config = this.deleteTarget();
+    if (!config) return;
+    this.deleting.set(true);
+    this.http.delete(`${this.apiUrl}/${config.id}`)
+      .pipe(finalize(() => this.deleting.set(false)))
+      .subscribe({
+        next: () => {
+          this.messageService.add({ severity: 'success', summary: 'Xóa thành công', detail: `Đã xóa cấu hình "${config.name}" thành công!` });
+          this.showDeleteConfirm.set(false);
+          this.deleteTarget.set(null);
+          this.loadConfigs();
+        },
+        error: () => {
+          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể xóa cấu hình này.' });
+          this.showDeleteConfirm.set(false);
+        }
+      });
+  }
+
+  onCancelDelete() {
+    this.showDeleteConfirm.set(false);
+    this.deleteTarget.set(null);
   }
 }

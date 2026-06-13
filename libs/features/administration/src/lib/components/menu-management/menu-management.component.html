@@ -14,7 +14,7 @@
   <div class="wf-card">
     
     <!-- MÀN HÌNH DANH SÁCH -->
-    <div *ngIf="currentView() === 'list'" class="animate-fade-in">
+    <div *ngIf="currentView() === 'list' || currentView() === 'add' || currentView() === 'edit'" class="animate-fade-in">
       <p class="text-muted mb-4">
         Thiết lập sơ đồ Menu chức năng hiển thị tại Sidebar của người dùng theo quyền hạn cụ thể.
       </p>

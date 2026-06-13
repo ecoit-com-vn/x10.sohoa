@@ -14,6 +14,10 @@ export class UserService {
     return `${this.config.apiGatewayUrl}/api/v1`;
   }
 
+  private get catalogBase() {
+    return `${this.config.apiGatewayUrl}/api/catalog`;
+  }
+
   getUsers(page: number, pageSize: number, keyword?: string): Observable<any> {
     return this.http.get<any>(`${this.base}/users?page=${page}&pageSize=${pageSize}&keyword=${keyword || ''}`);
   }
@@ -69,4 +73,17 @@ export class UserService {
   saveUserRoles(userId: string, roleIds: number[]): Observable<any> {
     return this.http.post<any>(`${this.base}/users/${userId}/roles`, roleIds);
   }
+
+  // ── Catalog (EquipmentService) ─────────────────────────────────────────────
+
+  /** Lấy danh sách tất cả loại danh mục (để tìm ID của loại "Chức vụ") */
+  getCatalogTypes(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.catalogBase}/types/lookup`);
+  }
+
+  /** Lấy danh sách catalog đang Active theo loại — dùng cho dropdown Chức vụ */
+  getPositions(catalogTypeId: number): Observable<any[]> {
+    return this.http.get<any[]>(`${this.catalogBase}/lookup?catalogTypeId=${catalogTypeId}`);
+  }
 }
+

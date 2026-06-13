@@ -20,7 +20,7 @@
   <div class="wf-card">
     
     <!-- MÀN HÌNH DANH SÁCH -->
-    <div *ngIf="currentView() === 'list'" class="animate-fade-in">
+    <div *ngIf="currentView() === 'list' || currentView() === 'add' || currentView() === 'edit'" class="animate-fade-in">
       <p class="text-muted mb-4">
         Quản lý các nhóm người dùng (User Group) giúp gán nhanh vai trò/quyền hạn cho nhiều tài khoản cùng lúc.
       </p>
@@ -51,7 +51,7 @@
               <th style="width: 80px;">STT</th>
               <th>Tên nhóm người dùng</th>
               <th>Mô tả</th>
-              <th class="col-hd" style="width: 320px;">Thao tác</th>
+              <th class="col-hd">Thao tác</th>
             </tr>
           </thead>
           <tbody>
@@ -160,6 +160,40 @@
             <i class="pi pi-spin pi-spinner" *ngIf="saving()" style="margin-right: 4px;"></i>
             <i class="pi pi-save" *ngIf="!saving()" style="margin-right: 4px;"></i>
             Lưu
+          </button>
+        </div>
+      </ng-template>
+    </p-dialog>
+
+    <!-- Dialog Xác nhận Xóa Nhóm người dùng -->
+    <p-dialog
+      [visible]="showDeleteConfirm()"
+      (visibleChange)="$event ? null : onCancelDelete()"
+      header="Xác nhận xóa nhóm người dùng"
+      [modal]="true"
+      [style]="{ width: '420px' }"
+      styleClass="evn-dialog-custom"
+      appendTo="body"
+      [closable]="!deleting()">
+      <div style="padding: 8px 0 16px 0; display: flex; align-items: flex-start; gap: 12px;">
+        <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #f59e0b; margin-top: 2px; flex-shrink: 0;"></i>
+        <div>
+          <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b; font-size: 0.95rem;">Bạn có chắc chắn muốn xóa nhóm người dùng này?</p>
+          <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
+            Nhóm người dùng <b style="color: #1e293b;">{{ deleteTarget()?.name }}</b> sẽ bị xóa vĩnh viễn khỏi hệ thống.
+          </p>
+        </div>
+      </div>
+      <ng-template #footer>
+        <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+          <button class="btn-cancel btn-small" (click)="onCancelDelete()" [disabled]="deleting()">
+            <i class="pi pi-times"></i> Hủy
+          </button>
+          <button class="btn-save btn-small" (click)="onConfirmDelete()" [disabled]="deleting()"
+                  style="background-color: #dc2626; border-color: #dc2626;">
+            <i class="pi pi-spin pi-spinner" *ngIf="deleting()" style="margin-right: 4px;"></i>
+            <i class="pi pi-trash" *ngIf="!deleting()" style="margin-right: 4px;"></i>
+            Xóa
           </button>
         </div>
       </ng-template>

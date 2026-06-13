@@ -52,6 +52,7 @@
   }
 }
 
+
 .dialog-permissions-body {
   padding-top: 4px;
 }
@@ -249,109 +250,242 @@
   gap: 8px;
 }
 
-/* Action buttons alignment and dropdown actions menu styling */
-.action-buttons-group {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: nowrap;
-  white-space: nowrap;
-}
 
-.dropdown-actions-container {
+
+// ── Org-unit Tree Picker ───────────────────────────────────────────────────
+.org-tree-picker {
   position: relative;
-  display: inline-block;
-}
-
-.dropdown-actions-menu {
-  position: absolute;
-  right: 0;
-  top: 100%;
-  margin-top: 4px;
-  background-color: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
-  z-index: 100;
-  display: flex;
-  flex-direction: column;
-  padding: 6px;
-  min-width: 190px;
-
-  &.dropdown-upwards {
-    top: auto;
-    bottom: 100%;
-    margin-top: 0;
-    margin-bottom: 4px;
-  }
-}
-
-.dropdown-item-btn {
-  display: flex;
-  align-items: center;
-  gap: 10px;
   width: 100%;
-  border: none;
-  background: transparent;
-  padding: 8px 12px;
-  font-size: 0.825rem;
-  font-weight: 600;
-  color: #334155;
-  text-align: left;
-  cursor: pointer;
-  border-radius: 6px;
-  transition: all 0.15s ease;
-  white-space: nowrap;
 
-  &:hover {
-    background-color: #f1f5f9;
-    color: #0f172a;
+  &.disabled {
+    opacity: 0.6;
+    pointer-events: none;
   }
 
-  i {
-    font-size: 0.9rem;
-    width: 16px;
-    text-align: center;
-    line-height: 1;
-    margin-right: 2px;
+  .org-tree-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 0 12px;
+    height: 38px;
+    cursor: pointer;
+    background: #fff;
+    font-size: 0.875rem;
+    color: #94a3b8;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    user-select: none;
+
+    &.has-value {
+      color: #1e293b;
+    }
+
+    &:hover, &.open {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+    }
+
+    .org-tree-selected-label {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+    }
+
+    .pi-chevron-down, .pi-chevron-up {
+      font-size: 0.75rem;
+      color: #6b7280;
+      flex-shrink: 0;
+      margin-left: 8px;
+      transition: transform 0.2s;
+    }
   }
 
-  .color-blue {
-    color: #0284c7;
-  }
-  
-  .color-teal {
-    color: #0d9488;
+  .org-tree-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    background: #fff;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+    max-height: 240px;
+    overflow-y: auto;
+    animation: fadeInDown 0.15s ease;
+
+    .org-tree-empty {
+      padding: 16px;
+      text-align: center;
+      color: #94a3b8;
+      font-size: 0.82rem;
+    }
   }
 
-  .color-red {
-    color: #dc2626;
+  .org-tree-node {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 7px 8px;
+    cursor: pointer;
+    border-radius: 4px;
+    margin: 1px 4px;
+    transition: background-color 0.15s;
+
+    &:hover {
+      background-color: #f0f9ff;
+    }
+
+    &.selected {
+      background-color: #eff6ff;
+
+      .org-tree-node-label {
+        color: #1d4ed8;
+        font-weight: 600;
+      }
+    }
+
+    .org-tree-expand-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      border: none;
+      background: #f1f5f9;
+      border-radius: 4px;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background-color 0.15s;
+
+      &:hover {
+        background: #dbeafe;
+      }
+
+      .pi {
+        font-size: 0.6rem;
+        color: #475569;
+      }
+    }
+
+    .org-tree-node-spacer {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      flex-shrink: 0;
+    }
+
+    .org-tree-node-label {
+      font-size: 0.85rem;
+      color: #374151;
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
   }
 }
 
-.act-btn.act-more {
-  color: #64748b;
-  border-color: #e2e8f0;
-  
-  &:hover {
-    background-color: #f1f5f9;
-    border-color: #94a3b8;
-    color: #0f172a;
-  }
-}
+// ── Roles Dropdown (multi-select dropdown) ───────────────────────────────────
+.roles-dropdown-container {
+  position: relative;
+  width: 100%;
 
-.animate-fade-in {
-  animation: dropdownFadeIn 0.18s ease-out;
-}
-
-@keyframes dropdownFadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
+  &.disabled {
+    opacity: 0.6;
+    pointer-events: none;
   }
-  to {
-    opacity: 1;
-    transform: translateY(0);
+
+  .roles-dropdown-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 0 12px;
+    height: 38px;
+    cursor: pointer;
+    background: #fff;
+    font-size: 0.875rem;
+    color: #94a3b8;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    user-select: none;
+
+    &.has-value {
+      color: #1e293b;
+    }
+
+    &:hover, &.open {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+    }
+
+    .roles-dropdown-label {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+    }
+
+    .pi-chevron-down, .pi-chevron-up {
+      font-size: 0.75rem;
+      color: #6b7280;
+      flex-shrink: 0;
+      margin-left: 8px;
+    }
+  }
+
+  .roles-dropdown-menu {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    background: #fff;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+    max-height: 200px;
+    overflow-y: auto;
+    animation: fadeInDown 0.15s ease;
+    padding: 4px 0;
+
+    .roles-dropdown-empty {
+      padding: 12px 16px;
+      text-align: center;
+      color: #94a3b8;
+      font-size: 0.82rem;
+    }
+  }
+
+  .roles-dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    color: #374151;
+    transition: background-color 0.15s;
+
+    input[type="checkbox"] {
+      cursor: pointer;
+      accent-color: #2563eb;
+      width: 14px;
+      height: 14px;
+    }
+
+    &:hover {
+      background-color: #f0f9ff;
+    }
+
+    &.checked {
+      background-color: #eff6ff;
+      color: #1d4ed8;
+      font-weight: 600;
+    }
   }
 }
 

@@ -470,6 +470,8 @@ export class WorkflowBuilderComponent implements OnInit {
       icon: 'pi pi-exclamation-triangle',
       acceptLabel: 'Xóa',
       rejectLabel: 'Hủy',
+      acceptButtonStyleClass: 'btn-save',
+      rejectButtonStyleClass: 'btn-cancel',
       accept: () => {
         this.deleting = true;
         this.workflowSvc.delete(wf.id!)
@@ -498,6 +500,8 @@ export class WorkflowBuilderComponent implements OnInit {
       icon: 'pi pi-exclamation-triangle',
       acceptLabel: 'Xóa',
       rejectLabel: 'Hủy',
+      acceptButtonStyleClass: 'btn-save',
+      rejectButtonStyleClass: 'btn-cancel',
       accept: () => {
         this.doDeleteSelected();
       }

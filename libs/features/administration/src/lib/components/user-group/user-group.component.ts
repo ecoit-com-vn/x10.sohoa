@@ -275,25 +275,38 @@ export class UserGroupComponent implements OnInit {
     }
   }
 
+  showDeleteConfirm = signal<boolean>(false);
+  deleteTarget = signal<any>(null);
+  deleting = signal<boolean>(false);
+
   onDelete(group: any) {
-    this.confirmationService.confirm({
-      message: `Bạn có chắc chắn muốn xóa nhóm người dùng ${group.name}?`,
-      header: 'Xác nhận xóa',
-      icon: 'pi pi-exclamation-triangle',
-      acceptLabel: 'Đồng ý',
-      rejectLabel: 'Hủy',
-      accept: () => {
-        this.http.delete(`${this.apiUrl}/${group.id}`).subscribe({
-          next: () => {
-            this.messageService.add({ severity: 'success', summary: 'Xóa thành công', detail: 'Đã xóa nhóm người dùng thành công!' });
-            this.loadGroups();
-          },
-          error: (err) => {
-            this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Xóa nhóm người dùng thất bại.' });
-          }
-        });
-      }
-    });
+    this.deleteTarget.set(group);
+    this.showDeleteConfirm.set(true);
+  }
+
+  onConfirmDelete() {
+    const group = this.deleteTarget();
+    if (!group) return;
+    this.deleting.set(true);
+    this.http.delete(`${this.apiUrl}/${group.id}`)
+      .pipe(finalize(() => this.deleting.set(false)))
+      .subscribe({
+        next: () => {
+          this.messageService.add({ severity: 'success', summary: 'Xóa thành công', detail: `Đã xóa nhóm người dùng "${group.name}" thành công!` });
+          this.showDeleteConfirm.set(false);
+          this.deleteTarget.set(null);
+          this.loadGroups();
+        },
+        error: () => {
+          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Xóa nhóm người dùng thất bại.' });
+          this.showDeleteConfirm.set(false);
+        }
+      });
+  }
+
+  onCancelDelete() {
+    this.showDeleteConfirm.set(false);
+    this.deleteTarget.set(null);
   }
 
   onManageMembers(group: any) {

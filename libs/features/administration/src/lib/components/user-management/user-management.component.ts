@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DialogModule } from 'primeng/dialog';
 import { ToastModule } from 'primeng/toast';
-import { MessageService, ConfirmationService } from 'primeng/api';
+import { MessageService } from 'primeng/api';
 import { UserService } from '../../services/user.service';
 import { finalize } from 'rxjs';
 import { AuthService } from '@sohoa.frontend/shared/core';
@@ -12,7 +12,7 @@ import { AuthService } from '@sohoa.frontend/shared/core';
   selector: 'app-user-management',
   standalone: true,
   imports: [CommonModule, FormsModule, DialogModule, ToastModule],
-  providers: [MessageService, ConfirmationService],
+  providers: [MessageService],
   templateUrl: './user-management.component.html',
   styleUrl: './user-management.component.scss'
 })
@@ -48,6 +48,10 @@ export class UserManagement implements OnInit {
     if (this.formSubmitted() && (!this.currentUser().organizationUnitId || this.currentUser().organizationUnitId === 'null' || this.currentUser().organizationUnitId === null)) return 'Đơn vị thành viên là bắt buộc';
     return this.serverErrors().organizationUnitId || this.serverErrors().OrganizationUnitId || '';
   });
+  positionError = computed(() => {
+    if (this.formSubmitted() && (!this.currentUser().positionId || this.currentUser().positionId === null)) return 'Chức vụ là bắt buộc';
+    return '';
+  });
   emailError = computed(() => {
     return this.serverErrors().email || this.serverErrors().Email || '';
   });
@@ -65,6 +69,34 @@ export class UserManagement implements OnInit {
   // Quyền theo đơn vị
   organizationUnits = signal<any[]>([]);
   systemRoles = signal<any[]>([]);
+
+  // Danh mục chức vụ (từ EquipmentService Catalog)
+  positions = signal<any[]>([]);
+  positionCatalogTypeId = signal<number | null>(null); // ID của CatalogType "CHUC_VU"
+
+  // Org-unit tree picker
+  orgUnitTree = computed(() => this.buildOrgTree(this.organizationUnits()));
+  expandedUnitNodes = signal<Set<number>>(new Set<number>());
+  orgTreePickerOpen = signal<boolean>(false);
+
+  // Vai trò trong form add/edit (chọn nhiều)
+  selectedRoleIdsInForm = signal<number[]>([]);
+  rolesDropdownOpen = signal<boolean>(false);
+  selectedRolesLabel = computed(() => {
+    const selectedIds = this.selectedRoleIdsInForm();
+    if (selectedIds.length === 0) return '-- Chọn vai trò --';
+    const names = this.systemRoles()
+      .filter(r => selectedIds.includes(r.id))
+      .map(r => r.name);
+    if (names.length === 0) return '-- Chọn vai trò --';
+    if (names.length <= 2) return names.join(', ');
+    return `Đã chọn ${names.length} vai trò`;
+  });
+
+  // Inline delete confirm
+  showDeleteConfirm = signal<boolean>(false);
+  deleteTarget = signal<any>(null);
+  deleting = signal<boolean>(false);
   
   unitRoleDialogHeader = signal<string>('');
   activeUserForUnitRole = signal<any>(null);
@@ -106,6 +138,8 @@ export class UserManagement implements OnInit {
     if (typeof window !== 'undefined') {
       window.addEventListener('click', () => {
         this.activeDropdownUserId.set(null);
+        this.orgTreePickerOpen.set(false);
+        this.rolesDropdownOpen.set(false);
       });
     }
   }
@@ -121,7 +155,6 @@ export class UserManagement implements OnInit {
 
   private userService = inject(UserService);
   private messageService = inject(MessageService);
-  private confirmationService = inject(ConfirmationService);
   public authService = inject(AuthService);
 
   // computed signal for filteredUsers
@@ -168,6 +201,7 @@ export class UserManagement implements OnInit {
     this.loadSystemRoles();
     this.loadSystemPermissions();
     this.loadMenus();
+    this.loadPositions();
   }
 
   loadUsers() {
@@ -216,14 +250,109 @@ export class UserManagement implements OnInit {
     });
   }
 
-  getUnitLabel(unitId: number): string {
-    const u = (this.organizationUnits() || []).find(x => x.id === unitId);
+  loadPositions() {
+    // Bước 1: Lấy danh sách catalog types, tìm loại có Code = 'CHUC_VU'
+    this.userService.getCatalogTypes().subscribe({
+      next: (types: any[]) => {
+        const chucVuType = types.find(t => t.code === 'CHUC_VU' || t.Code === 'CHUC_VU');
+        if (chucVuType) {
+          const typeId = chucVuType.id || chucVuType.Id;
+          this.positionCatalogTypeId.set(typeId);
+          // Bước 2: Lấy các catalog items của loại này
+          this.userService.getPositions(typeId).subscribe({
+            next: (items: any[]) => this.positions.set(items || []),
+            error: () => this.positions.set([])
+          });
+        }
+      },
+      error: () => {} // Không bắt lỗi nếu EquipmentService chưa khởi động
+    });
+  }
+
+  getUnitLabel(unitId: number | null | undefined): string {
+    if (!unitId) return '';
+    const u = (this.organizationUnits() || []).find(x => x.id == unitId);
     return u ? u.name : `Đơn vị #${unitId}`;
   }
 
   getRoleLabel(roleId: number): string {
     const r = (this.systemRoles() || []).find(x => x.id === roleId);
     return r ? r.name : `Vai trò #${roleId}`;
+  }
+
+  getPositionLabel(positionId: number | null | undefined): string {
+    if (!positionId) return '';
+    const p = (this.positions() || []).find(x => x.id == positionId);
+    return p ? p.name : `Chức vụ #${positionId}`;
+  }
+
+  // ── Org-unit Tree methods ─────────────────────────────────────────────────
+  buildOrgTree(units: any[]): any[] {
+    const map = new Map<number, any>();
+    const roots: any[] = [];
+    units.forEach(u => map.set(u.id, { ...u, children: [] }));
+    map.forEach(node => {
+      if (node.parentId && map.has(node.parentId)) {
+        map.get(node.parentId)!.children.push(node);
+      } else {
+        roots.push(node);
+      }
+    });
+    return roots;
+  }
+
+  toggleUnitNode(unitId: number, event?: Event) {
+    if (event) event.stopPropagation();
+    const current = new Set(this.expandedUnitNodes());
+    if (current.has(unitId)) {
+      current.delete(unitId);
+    } else {
+      current.add(unitId);
+    }
+    this.expandedUnitNodes.set(current);
+  }
+
+  isNodeExpanded(unitId: number): boolean {
+    return this.expandedUnitNodes().has(unitId);
+  }
+
+  selectOrgUnit(unitId: number) {
+    this.currentUser.update(u => ({ ...u, organizationUnitId: unitId }));
+    this.orgTreePickerOpen.set(false);
+    this.onFieldChange('organizationUnitId');
+  }
+
+  toggleOrgTreePicker(event?: Event) {
+    if (event) event.stopPropagation();
+    this.orgTreePickerOpen.update(v => !v);
+    this.rolesDropdownOpen.set(false);
+  }
+
+  toggleRolesDropdown(event?: Event) {
+    if (event) event.stopPropagation();
+    this.rolesDropdownOpen.update(v => !v);
+    this.orgTreePickerOpen.set(false);
+  }
+
+  closeOrgTreePicker() {
+    this.orgTreePickerOpen.set(false);
+  }
+
+  // ── Vai trò trong form ───────────────────────────────────────────────────
+  toggleRoleInForm(roleId: number) {
+    this.selectedRoleIdsInForm.update(prev => {
+      const idx = prev.indexOf(roleId);
+      if (idx > -1) {
+        const copy = [...prev];
+        copy.splice(idx, 1);
+        return copy;
+      }
+      return [...prev, roleId];
+    });
+  }
+
+  isRoleSelectedInForm(roleId: number): boolean {
+    return this.selectedRoleIdsInForm().includes(roleId);
   }
 
   onSearch() {
@@ -235,7 +364,10 @@ export class UserManagement implements OnInit {
       return;
     }
     this.isEdit.set(false);
-    this.currentUser.set({ username: '', fullName: '', email: '', organizationUnitId: null, isActive: true });
+    this.currentUser.set({ username: '', fullName: '', email: '', organizationUnitId: null, positionId: null, positionName: '', isActive: true });
+    this.selectedRoleIdsInForm.set([]);
+    this.orgTreePickerOpen.set(false);
+    this.rolesDropdownOpen.set(false);
     this.formSubmitted.set(false);
     this.serverErrors.set({});
     this.dialogHeader.set('Thêm mới tài khoản');
@@ -251,6 +383,16 @@ export class UserManagement implements OnInit {
     this.currentUser.set({ ...user });
     this.formSubmitted.set(false);
     this.serverErrors.set({});
+    this.orgTreePickerOpen.set(false);
+    this.rolesDropdownOpen.set(false);
+    // Load roles hiện tại của user vào form
+    this.userService.getUserRoles(user.id).subscribe({
+      next: (ids: any) => {
+        const list = Array.isArray(ids) ? ids : [];
+        this.selectedRoleIdsInForm.set(list.map((x: any) => Number(x)));
+      },
+      error: () => this.selectedRoleIdsInForm.set([])
+    });
     this.dialogHeader.set('Chỉnh sửa tài khoản');
     this.currentView.set('edit');
   }
@@ -258,17 +400,22 @@ export class UserManagement implements OnInit {
   onSaveUser() {
     this.formSubmitted.set(true);
     this.serverErrors.set({});
-    if (this.usernameError() || this.fullNameError() || this.unitError()) {
+    if (this.usernameError() || this.fullNameError() || this.unitError() || this.positionError()) {
       return;
     }
 
     const userDraft = { ...this.currentUser() };
     userDraft.organizationUnitId = Number(userDraft.organizationUnitId);
+    // Điền positionName dựa vào positionId được chọn
+    const selectedPosition = (this.positions() || []).find(p => p.id == userDraft.positionId);
+    userDraft.positionName = selectedPosition ? selectedPosition.name : null;
 
     this.saving.set(true);
     if (this.isEdit()) {
       this.userService.updateUser(userDraft.id, userDraft).subscribe({
         next: () => {
+          // Lưu vai trò được chọn trong form sau khi update
+          this.userService.saveUserRoles(userDraft.id, this.selectedRoleIdsInForm()).subscribe();
           this.messageService.add({ severity: 'success', summary: 'Cập nhật', detail: 'Cập nhật tài khoản thành công!' });
           this.loadUsers();
           this.currentView.set('list');
@@ -298,7 +445,12 @@ export class UserManagement implements OnInit {
       });
     } else {
       this.userService.createUser(userDraft).subscribe({
-        next: () => {
+        next: (res: any) => {
+          const newUserId = res?.id || res?.Id;
+          // Nếu có vai trò được chọn trong form, gán vai trò sau khi tạo user
+          if (newUserId && this.selectedRoleIdsInForm().length > 0) {
+            this.userService.saveUserRoles(newUserId, this.selectedRoleIdsInForm()).subscribe();
+          }
           this.messageService.add({ severity: 'success', summary: 'Thêm mới', detail: 'Tạo tài khoản mới thành công!' });
           this.loadUsers();
           this.currentView.set('list');
@@ -330,24 +482,33 @@ export class UserManagement implements OnInit {
   }
 
   onDelete(user: any) {
-    this.confirmationService.confirm({
-      message: `Bạn có chắc chắn muốn xóa tài khoản ${user?.username || ''}?`,
-      header: 'Xác nhận xóa',
-      icon: 'pi pi-exclamation-triangle',
-      acceptLabel: 'Đồng ý',
-      rejectLabel: 'Hủy',
-      accept: () => {
-        this.userService.deleteUser(user.id).subscribe({
-          next: () => {
-            this.messageService.add({ severity: 'success', summary: 'Xóa thành công', detail: 'Đã xóa tài khoản thành công!' });
-            this.loadUsers();
-          },
-          error: (err) => {
-            this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Xóa tài khoản thất bại.' });
-          }
-        });
-      }
-    });
+    this.deleteTarget.set(user);
+    this.showDeleteConfirm.set(true);
+  }
+
+  onConfirmDelete() {
+    const user = this.deleteTarget();
+    if (!user) return;
+    this.deleting.set(true);
+    this.userService.deleteUser(user.id)
+      .pipe(finalize(() => this.deleting.set(false)))
+      .subscribe({
+        next: () => {
+          this.messageService.add({ severity: 'success', summary: 'Xóa thành công', detail: `Đã xóa tài khoản "${user.username}" thành công!` });
+          this.showDeleteConfirm.set(false);
+          this.deleteTarget.set(null);
+          this.loadUsers();
+        },
+        error: () => {
+          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Xóa tài khoản thất bại.' });
+          this.showDeleteConfirm.set(false);
+        }
+      });
+  }
+
+  onCancelDelete() {
+    this.showDeleteConfirm.set(false);
+    this.deleteTarget.set(null);
   }
 
   onManageUnitRoles(user: any) {
