@@ -14,13 +14,42 @@ export class CatalogService {
     return `${this.config.apiGatewayUrl}/api/catalog`;
   }
 
+  private getBase(type?: string) {
+    if (type === 'CHUC_VU') return `${this.config.apiGatewayUrl}/api/catalog/position`;
+    if (type === 'LINH_VUC') return `${this.config.apiGatewayUrl}/api/catalog/domain`;
+    if (type === 'TINH_TRANG_VAT_LY') return `${this.config.apiGatewayUrl}/api/catalog/physical-status`;
+    return `${this.config.apiGatewayUrl}/api/catalog`;
+  }
+
   getCatalogTypes(): Observable<any[]> {
     return this.http.get<any[]>(`${this.base}/types`);
   }
 
   getItems(catalogType: string, page: number, pageSize: number, keyword?: string, status?: string): Observable<any> {
+    const isMappedType = ['CHUC_VU', 'LINH_VUC', 'TINH_TRANG_VAT_LY'].includes(catalogType);
+    const base = this.getBase(catalogType);
+    
     let params = new HttpParams()
-      .set('catalogType', catalogType)
+      .set('page', page.toString())
+      .set('pageSize', pageSize.toString());
+    
+    if (!isMappedType) {
+      params = params.set('catalogType', catalogType);
+    }
+    
+    if (keyword && keyword.trim()) {
+      params = params.set('keyword', keyword.trim());
+    }
+    if (status) {
+      params = params.set('status', status);
+    }
+    
+    return this.http.get<any>(base, { params });
+  }
+
+  getItemsByTypeId(catalogTypeId: number, page: number, pageSize: number, keyword?: string, status?: string): Observable<any> {
+    let params = new HttpParams()
+      .set('catalogTypeId', catalogTypeId.toString())
       .set('page', page.toString())
       .set('pageSize', pageSize.toString());
     
@@ -34,20 +63,57 @@ export class CatalogService {
     return this.http.get<any>(this.base, { params });
   }
 
-  createItem(item: any): Observable<any> {
-    return this.http.post<any>(this.base, item);
+  createItem(item: any, type?: string): Observable<any> {
+    const base = this.getBase(type || item.catalogType);
+    return this.http.post<any>(base, item);
   }
 
-  updateItem(id: number | string, item: any): Observable<any> {
-    return this.http.put<any>(`${this.base}/${id}`, item);
+  updateItem(id: number | string, item: any, type?: string): Observable<any> {
+    const base = this.getBase(type || item.catalogType);
+    return this.http.put<any>(`${base}/${id}`, item);
   }
 
-  deleteItem(id: number | string): Observable<any> {
-    return this.http.delete<any>(`${this.base}/${id}`);
+  deleteItem(id: number | string, type?: string): Observable<any> {
+    const base = this.getBase(type);
+    return this.http.delete<any>(`${base}/${id}`);
   }
 
-  toggleStatus(id: number | string, isLocking: boolean): Observable<any> {
+  toggleStatus(id: number | string, isLocking: boolean, type?: string): Observable<any> {
+    const base = this.getBase(type);
     const action = isLocking ? 'lock' : 'unlock';
-    return this.http.post<any>(`${this.base}/${id}/${action}`, {});
+    return this.http.post<any>(`${base}/${id}/${action}`, {});
+  }
+
+  getSharedCatalogTypes(keyword?: string, status?: string, isPrivate: boolean = false): Observable<any[]> {
+    let params = new HttpParams();
+    if (keyword && keyword.trim()) {
+      params = params.set('keyword', keyword.trim());
+    }
+    if (status) {
+      params = params.set('status', status);
+    }
+    const suffix = isPrivate ? 'private' : 'shared';
+    return this.http.get<any[]>(`${this.base}/${suffix}`, { params });
+  }
+
+  createCatalogType(type: any, isPrivate: boolean = false): Observable<any> {
+    const suffix = isPrivate ? 'private' : 'shared';
+    return this.http.post<any>(`${this.base}/${suffix}`, type);
+  }
+
+  updateCatalogType(id: number | string, type: any, isPrivate: boolean = false): Observable<any> {
+    const suffix = isPrivate ? 'private' : 'shared';
+    return this.http.put<any>(`${this.base}/${suffix}/${id}`, type);
+  }
+
+  deleteCatalogType(id: number | string, isPrivate: boolean = false): Observable<any> {
+    const suffix = isPrivate ? 'private' : 'shared';
+    return this.http.delete<any>(`${this.base}/${suffix}/${id}`);
+  }
+
+  toggleCatalogTypeStatus(id: number | string, isLocking: boolean, isPrivate: boolean = false): Observable<any> {
+    const action = isLocking ? 'lock' : 'unlock';
+    const suffix = isPrivate ? 'private' : 'shared';
+    return this.http.post<any>(`${this.base}/${suffix}/${id}/${action}`, {});
   }
 }
