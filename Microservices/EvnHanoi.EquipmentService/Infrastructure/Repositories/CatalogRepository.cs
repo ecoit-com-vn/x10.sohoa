@@ -215,4 +215,115 @@ public class CatalogRepository : ICatalogRepository
         var sql = $"SELECT * FROM CATALOG_TYPE WHERE {nameof(CatalogType.Id)} = :Id";
         return await _connection.QuerySingleOrDefaultAsync<CatalogType>(sql, new { Id = id });
     }
+
+    public async Task<IEnumerable<CatalogType>> GetCatalogTypesFilteredAsync(bool isPrivate, string? keyword = null, int? status = null)
+    {
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+
+        var sql = $@"SELECT * FROM CATALOG_TYPE 
+                     WHERE {nameof(CatalogType.IsPrivate)} = :IsPrivate";
+
+        if (!string.IsNullOrEmpty(keyword))
+            sql += $" AND LOWER({nameof(CatalogType.Name)}) LIKE :Keyword";
+
+        if (status.HasValue)
+            sql += $" AND {nameof(CatalogType.Status)} = :Status";
+
+        sql += $" ORDER BY {nameof(CatalogType.Name)} ASC";
+
+        var keywordParam = !string.IsNullOrEmpty(keyword) ? $"%{keyword.ToLower()}%" : null;
+
+        return await _connection.QueryAsync<CatalogType>(sql, new
+        {
+            IsPrivate = isPrivate ? 1 : 0,
+            Keyword = keywordParam,
+            Status = status
+        });
+    }
+
+    public async Task<CatalogType?> GetCatalogTypeByIdFilteredAsync(long id, bool isPrivate)
+    {
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+
+        var sql = $@"SELECT * FROM CATALOG_TYPE 
+                     WHERE {nameof(CatalogType.Id)} = :Id AND {nameof(CatalogType.IsPrivate)} = :IsPrivate";
+        return await _connection.QuerySingleOrDefaultAsync<CatalogType>(sql, new { Id = id, IsPrivate = isPrivate ? 1 : 0 });
+    }
+
+    public async Task<long> CreateCatalogTypeAsync(CatalogType catalogType)
+    {
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+
+        var sql = $@"
+            INSERT INTO CATALOG_TYPE (
+                {nameof(CatalogType.Id)},
+                {nameof(CatalogType.Code)},
+                {nameof(CatalogType.Name)},
+                {nameof(CatalogType.HasParent)},
+                {nameof(CatalogType.Description)},
+                {nameof(CatalogType.IsPrivate)},
+                {nameof(CatalogType.Status)},
+                {nameof(CatalogType.CreatedBy)}
+            )
+            VALUES (SEQ_CATALOG_TYPE_ID.NEXTVAL, :Code, :Name, :HasParent, :Description, :IsPrivate, :Status, :CreatedBy)
+            RETURNING {nameof(CatalogType.Id)} INTO :Id";
+
+        var parameters = new DynamicParameters();
+        parameters.Add("Code", catalogType.Code);
+        parameters.Add("Name", catalogType.Name);
+        parameters.Add("HasParent", catalogType.HasParent);
+        parameters.Add("Description", catalogType.Description);
+        parameters.Add("IsPrivate", catalogType.IsPrivate ? 1 : 0);
+        parameters.Add("Status", catalogType.Status);
+        parameters.Add("CreatedBy", catalogType.CreatedBy ?? "system");
+        parameters.Add("Id", dbType: DbType.Int64, direction: ParameterDirection.Output);
+
+        await _connection.ExecuteAsync(sql, parameters);
+        return parameters.Get<long>("Id");
+    }
+
+    public async Task<bool> UpdateCatalogTypeAsync(CatalogType catalogType)
+    {
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+
+        var sql = $@"
+            UPDATE CATALOG_TYPE SET
+                {nameof(CatalogType.Code)}        = :Code,
+                {nameof(CatalogType.Name)}        = :Name,
+                {nameof(CatalogType.HasParent)}   = :HasParent,
+                {nameof(CatalogType.Description)} = :Description,
+                {nameof(CatalogType.IsPrivate)}   = :IsPrivate,
+                {nameof(CatalogType.Status)}      = :Status
+            WHERE {nameof(CatalogType.Id)} = :Id";
+
+        var affected = await _connection.ExecuteAsync(sql, new
+        {
+            catalogType.Code,
+            catalogType.Name,
+            catalogType.HasParent,
+            catalogType.Description,
+            IsPrivate = catalogType.IsPrivate ? 1 : 0,
+            catalogType.Status,
+            catalogType.Id
+        });
+        return affected > 0;
+    }
+
+    public async Task<bool> DeleteCatalogTypeAsync(long id)
+    {
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+
+        var sql = "DELETE FROM CATALOG_TYPE WHERE Id = :Id";
+        var affected = await _connection.ExecuteAsync(sql, new { Id = id });
+        return affected > 0;
+    }
+
+    public async Task<bool> CatalogTypeHasCatalogsAsync(long id)
+    {
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+
+        var sql = $"SELECT COUNT(1) FROM CATALOG WHERE {nameof(Catalog.CatalogTypeId)} = :CatalogTypeId";
+        var count = await _connection.ExecuteScalarAsync<int>(sql, new { CatalogTypeId = id });
+        return count > 0;
+    }
 }
