@@ -12,16 +12,23 @@
     </div>
 
     <p class="text-muted mb-4">
-      Cấu hình động cho các loại file đính kèm được phép tải lên hệ thống (định dạng tệp tin và dung lượng tối đa) theo từng phân hệ.
+      Cấu hình động cho các loại file đính kèm được phép tải lên hệ thống (tên cấu hình, đơn vị liên kết, định dạng tệp tin, dung lượng tối đa và trạng thái hoạt động).
     </p>
 
     <!-- Toolbar -->
     <div class="list-toolbar">
       <div class="toolbar-left">
         <input type="text" class="wf-search-input"
-          placeholder="Tìm theo phân hệ..."
+          placeholder="Tìm theo tên cấu hình..."
           [ngModel]="searchKeyword()"
           (ngModelChange)="searchKeyword.set($event)" />
+        <select class="wf-select" 
+          style="min-width: 220px; height: 38px; padding: 0 12px; border: 1px solid #cbd5e1; border-radius: 6px; background-color: #fff; font-size: 0.875rem; color: #334155; cursor: pointer; outline: none;"
+          [ngModel]="searchUnitId()" 
+          (ngModelChange)="searchUnitId.set($event)">
+          <option [value]="null">-- Tất cả đơn vị --</option>
+          <option *ngFor="let org of orgUnits()" [value]="org.id">{{ org.name }}</option>
+        </select>
         <button class="btn-tim" (click)="onSearch()">
           <i class="pi pi-search"></i> Tìm
         </button>
@@ -39,9 +46,11 @@
         <thead>
           <tr>
             <th style="width: 80px;">STT</th>
-            <th>Mã phân hệ (Module Code)</th>
+            <th>Tên cấu hình</th>
+            <th>Đơn vị liên kết</th>
             <th>Định dạng được phép</th>
             <th>Dung lượng tối đa (MB)</th>
+            <th>Trạng thái</th>
             <th class="col-hd">Thao tác</th>
           </tr>
         </thead>
@@ -50,9 +59,11 @@
           <ng-container *ngIf="loading()">
             <tr *ngFor="let item of [1, 2, 3]">
               <td class="col-stt"><div class="skeleton-shimmer" style="height: 16px; width: 24px; border-radius: 4px;"></div></td>
-              <td><div class="skeleton-shimmer" style="height: 16px; width: 120px; border-radius: 4px;"></div></td>
-              <td><div class="skeleton-shimmer" style="height: 16px; width: 200px; border-radius: 4px;"></div></td>
+              <td><div class="skeleton-shimmer" style="height: 16px; width: 150px; border-radius: 4px;"></div></td>
+              <td><div class="skeleton-shimmer" style="height: 16px; width: 150px; border-radius: 4px;"></div></td>
+              <td><div class="skeleton-shimmer" style="height: 16px; width: 150px; border-radius: 4px;"></div></td>
               <td><div class="skeleton-shimmer" style="height: 16px; width: 60px; border-radius: 4px;"></div></td>
+              <td><div class="skeleton-shimmer" style="height: 16px; width: 80px; border-radius: 4px;"></div></td>
               <td class="col-hd"><div class="skeleton-shimmer" style="height: 24px; width: 60px; border-radius: 4px;"></div></td>
             </tr>
           </ng-container>
@@ -60,7 +71,15 @@
           <ng-container *ngIf="!loading()">
             <tr *ngFor="let c of computedFilteredConfigs(); let i = index">
               <td class="col-stt text-muted">{{ i + 1 }}</td>
-              <td><b>{{ c.moduleCode }}</b></td>
+              <td><b>{{ c.name }}</b></td>
+              <td>
+                <span *ngIf="c.organizationUnitId; else allUnits" class="unit-tag" style="background-color: #e0f2fe; color: #0369a1; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 500;">
+                  {{ c.organizationUnitName }}
+                </span>
+                <ng-template #allUnits>
+                  <span class="text-muted" style="font-style: italic; font-size: 0.8rem;">Tất cả đơn vị</span>
+                </ng-template>
+              </td>
               <td>
                 <span *ngFor="let ext of splitExtensions(c.allowedExtensions)" 
                       class="status-pill status-active" 
@@ -69,13 +88,19 @@
                 </span>
               </td>
               <td><b class="text-orange" style="color: #FF6B00;">{{ c.maxFileSizeMb }} MB</b></td>
+              <td>
+                <span [class]="c.isActive ? 'status-pill status-active' : 'status-pill status-inactive'"
+                      [style]="c.isActive ? 'background-color: #dcfce7; color: #15803d; border-color: #bbf7d0;' : 'background-color: #fee2e2; color: #b91c1c; border-color: #fca5a5;'">
+                  {{ c.isActive ? 'Hoạt động' : 'Tạm dừng' }}
+                </span>
+              </td>
               <td class="col-hd">
                 <button *ngIf="authService.hasPermission('UPLOAD_CONFIG_EDIT')" class="act-btn act-edit" (click)="onEdit(c)" title="Chỉnh sửa"><i class="pi pi-pencil"></i></button>
                 <button *ngIf="authService.hasPermission('UPLOAD_CONFIG_DELETE')" class="act-btn act-delete" (click)="onDelete(c)" title="Xóa"><i class="pi pi-trash"></i></button>
               </td>
             </tr>
             <tr *ngIf="computedFilteredConfigs().length === 0">
-              <td colspan="5" class="empty-row">
+              <td colspan="7" class="empty-row">
                 <i class="pi pi-inbox"></i>
                 <div>Không tìm thấy cấu hình nào phù hợp.</div>
               </td>
@@ -87,7 +112,7 @@
 
     <!-- Footer -->
     <div class="table-footer">
-      <span class="record-count">Tổng số: <b>{{ configs().length }}</b> phân hệ đã cấu hình.</span>
+      <span class="record-count">Tổng số: <b>{{ configs().length }}</b> cấu hình.</span>
     </div>
   </div>
 </div>
@@ -96,8 +121,18 @@
 <p-dialog [visible]="displayDialog()" (visibleChange)="displayDialog.set($event)" [header]="dialogHeader()" [modal]="true" [style]="{ width: '450px' }" styleClass="evn-dialog-custom">
   <div style="display: flex; flex-direction: column; gap: 14px; padding-top: 10px;">
     <div class="form-group">
-      <label class="form-label">Mã phân hệ <span class="required">*</span></label>
-      <input type="text" class="wf-input w-full" [(ngModel)]="currentConfig().moduleCode" placeholder="Ví dụ: THIET_BI, OCR, HO_SO..." [disabled]="isEdit() || saving()" />
+      <label class="form-label">Tên cấu hình <span class="required">*</span></label>
+      <input type="text" class="wf-input w-full" [(ngModel)]="currentConfig().name" placeholder="Ví dụ: Cấu hình tài liệu, Cấu hình hình ảnh..." [disabled]="saving()" />
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Đơn vị liên kết</label>
+      <select class="wf-select w-full" 
+        style="height: 38px; padding: 0 12px; border: 1px solid #cbd5e1; border-radius: 6px; background-color: #fff; font-size: 0.875rem; color: #334155; outline: none; box-sizing: border-box;"
+        [(ngModel)]="currentConfig().organizationUnitId" [disabled]="saving()">
+        <option [ngValue]="null">-- Tất cả đơn vị (Chung) --</option>
+        <option *ngFor="let org of orgUnits()" [ngValue]="org.id">{{ org.name }}</option>
+      </select>
     </div>
     
     <div class="form-group">
@@ -110,6 +145,16 @@
       <label class="form-label">Dung lượng tối đa của một file (MB) <span class="required">*</span></label>
       <input type="number" class="wf-input w-full" [(ngModel)]="currentConfig().maxFileSizeMb" min="1" [disabled]="saving()" />
     </div>
+
+    <div class="form-group">
+      <label class="form-label">Trạng thái hoạt động</label>
+      <select class="wf-select w-full" 
+        style="height: 38px; padding: 0 12px; border: 1px solid #cbd5e1; border-radius: 6px; background-color: #fff; font-size: 0.875rem; color: #334155; outline: none; box-sizing: border-box;"
+        [(ngModel)]="currentConfig().isActive" [disabled]="saving()">
+        <option [ngValue]="true">Hoạt động</option>
+        <option [ngValue]="false">Tạm dừng</option>
+      </select>
+    </div>
   </div>
   
   <ng-template #footer>
@@ -118,6 +163,40 @@
       <button class="btn-save btn-small" (click)="onSaveConfig()" [disabled]="saving()">
         <i class="pi pi-spin pi-spinner" *ngIf="saving()" style="margin-right: 4px;"></i>
         Lưu
+      </button>
+    </div>
+  </ng-template>
+</p-dialog>
+
+<!-- Dialog Xác nhận Xóa -->
+<p-dialog 
+  [visible]="showDeleteConfirm()" 
+  (visibleChange)="$event ? null : onCancelDelete()" 
+  header="Xác nhận xóa" 
+  [modal]="true" 
+  [style]="{ width: '420px' }" 
+  styleClass="evn-dialog-custom"
+  [closable]="!deleting()">
+  <div style="padding: 8px 0 16px 0; display: flex; flex-direction: column; gap: 12px;">
+    <div style="display: flex; align-items: flex-start; gap: 12px;">
+      <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #f59e0b; margin-top: 2px; flex-shrink: 0;"></i>
+      <div>
+        <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b; font-size: 0.95rem;">Bạn có chắc chắn muốn xóa cấu hình này?</p>
+        <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
+          Cấu hình <b style="color: #1e293b;">{{ deleteTarget()?.name }}</b> sẽ bị xóa vĩnh viễn và không thể khôi phục.
+        </p>
+      </div>
+    </div>
+  </div>
+  <ng-template #footer>
+    <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+      <button class="btn-cancel btn-small" (click)="onCancelDelete()" [disabled]="deleting()">
+        <i class="pi pi-times"></i> Hủy
+      </button>
+      <button class="btn-save btn-small" (click)="onConfirmDelete()" [disabled]="deleting()" style="background-color: #dc2626; border-color: #dc2626;">
+        <i class="pi pi-spin pi-spinner" *ngIf="deleting()" style="margin-right: 4px;"></i>
+        <i class="pi pi-trash" *ngIf="!deleting()" style="margin-right: 4px;"></i>
+        Xóa
       </button>
     </div>
   </ng-template>

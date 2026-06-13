@@ -191,6 +191,8 @@ export class PhysicalStorageComponent implements OnInit {
       icon: 'pi pi-exclamation-triangle',
       acceptLabel: 'Đồng ý',
       rejectLabel: 'Hủy',
+      acceptButtonStyleClass: 'btn-save',
+      rejectButtonStyleClass: 'btn-cancel',
       accept: () => {
         let deleteUrl = '';
         switch (type) {

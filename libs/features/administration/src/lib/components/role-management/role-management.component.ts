@@ -422,6 +422,8 @@ export class RoleManagement implements OnInit {
       icon: 'pi pi-exclamation-triangle',
       acceptLabel: 'Đồng ý',
       rejectLabel: 'Hủy',
+      acceptButtonStyleClass: 'btn-save',
+      rejectButtonStyleClass: 'btn-cancel',
       accept: () => {
         this.http.delete(`${this.apiUrl}/${role.id}`).subscribe({
           next: () => {
