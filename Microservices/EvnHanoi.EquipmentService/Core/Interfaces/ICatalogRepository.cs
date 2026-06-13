@@ -15,4 +15,10 @@ public interface ICatalogRepository
     Task<IEnumerable<CatalogType>> GetCatalogTypesAsync();
     Task<CatalogType?> GetCatalogTypeByCodeAsync(string code);
     Task<CatalogType?> GetCatalogTypeByIdAsync(long id);
+    Task<IEnumerable<CatalogType>> GetCatalogTypesFilteredAsync(bool isPrivate, string? keyword = null, int? status = null);
+    Task<CatalogType?> GetCatalogTypeByIdFilteredAsync(long id, bool isPrivate);
+    Task<long> CreateCatalogTypeAsync(CatalogType catalogType);
+    Task<bool> UpdateCatalogTypeAsync(CatalogType catalogType);
+    Task<bool> DeleteCatalogTypeAsync(long id);
+    Task<bool> CatalogTypeHasCatalogsAsync(long id);
 }
