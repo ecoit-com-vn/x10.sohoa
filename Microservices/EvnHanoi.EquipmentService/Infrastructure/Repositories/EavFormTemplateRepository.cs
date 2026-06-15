@@ -17,7 +17,7 @@ public class EavFormTemplateRepository : IEavFormTemplateRepository
     public async Task<EavFormTemplate?> GetByIdAsync(Guid id)
     {
         var sql = $"SELECT * FROM {nameof(EavFormTemplate)}s WHERE {nameof(EavFormTemplate.Id)} = :Id";
-        return await _connection.QuerySingleOrDefaultAsync<EavFormTemplate>(sql, new { Id = id });
+        return await _connection.QuerySingleOrDefaultAsync<EavFormTemplate>(sql, new { Id = id.ToString() });
     }
 
     public async Task<IEnumerable<EavFormTemplate>> GetAllActiveAsync()
@@ -29,23 +29,29 @@ public class EavFormTemplateRepository : IEavFormTemplateRepository
     public async Task AddAsync(EavFormTemplate template)
     {
         var sql = $@"INSERT INTO {nameof(EavFormTemplate)}s (
-                        {nameof(EavFormTemplate.Id)}, 
-                        {nameof(EavFormTemplate.Name)}, 
-                        {nameof(EavFormTemplate.Description)}, 
-                        {nameof(EavFormTemplate.Schema)}, 
-                        {nameof(EavFormTemplate.Version)}, 
-                        {nameof(EavFormTemplate.IsActive)}, 
-                        {nameof(EavFormTemplate.CreatedAt)}, 
-                        {nameof(EavFormTemplate.CreatedBy)}
-                    )
-                    VALUES (:Id, :Name, :Description, :Schema, :Version, :IsActive, :CreatedAt, :CreatedBy)";
-        
+                    {nameof(EavFormTemplate.Id)}, 
+                    {nameof(EavFormTemplate.Name)}, 
+                    {nameof(EavFormTemplate.Code)}, 
+                    {nameof(EavFormTemplate.Category)}, 
+                    {nameof(EavFormTemplate.Description)}, 
+                    {nameof(EavFormTemplate.DescriptionInfo)}, 
+                    {nameof(EavFormTemplate.FormSchema)}, 
+                    {nameof(EavFormTemplate.Version)}, 
+                    {nameof(EavFormTemplate.IsActive)}, 
+                    {nameof(EavFormTemplate.CreatedAt)}, 
+                    {nameof(EavFormTemplate.CreatedBy)}
+                )
+                VALUES (:Id, :Name, :Code, :Category, :Description, :DescriptionInfo, :FormSchema, :Version, :IsActive, :CreatedAt, :CreatedBy)";
+
         var param = new
         {
-            template.Id,
+            Id = template.Id.ToString(),
             template.Name,
+            template.Code,
+            template.Category,
             template.Description,
-            template.Schema,
+            template.DescriptionInfo,
+            template.FormSchema,
             template.Version,
             IsActive = template.IsActive ? 1 : 0,
             template.CreatedAt,
@@ -59,20 +65,26 @@ public class EavFormTemplateRepository : IEavFormTemplateRepository
     {
         var sql = $@"UPDATE {nameof(EavFormTemplate)}s
                     SET {nameof(EavFormTemplate.Name)} = :Name,
+                        {nameof(EavFormTemplate.Code)} = :Code,
+                        {nameof(EavFormTemplate.Category)} = :Category,
                         {nameof(EavFormTemplate.Description)} = :Description,
-                        {nameof(EavFormTemplate.Schema)} = :Schema,
+                        {nameof(EavFormTemplate.DescriptionInfo)} = :DescriptionInfo,
+                        {nameof(EavFormTemplate.FormSchema)} = :FormSchema,
                         {nameof(EavFormTemplate.Version)} = :Version,
                         {nameof(EavFormTemplate.IsActive)} = :IsActive
                     WHERE {nameof(EavFormTemplate.Id)} = :Id";
         
         var param = new
         {
-            template.Id,
             template.Name,
+            template.Code,
+            template.Category,
             template.Description,
-            template.Schema,
+            template.DescriptionInfo,
+            template.FormSchema,
             template.Version,
-            IsActive = template.IsActive ? 1 : 0
+            IsActive = template.IsActive ? 1 : 0,
+            Id = template.Id.ToString()
         };
 
         await _connection.ExecuteAsync(sql, param);

@@ -68,8 +68,10 @@ CREATE TABLE CATALOG (
 CREATE TABLE EavFormTemplates (
     Id           VARCHAR2(36)  NOT NULL PRIMARY KEY,
     Name         VARCHAR2(255) NOT NULL,
+    Code         VARCHAR2(50)  NULL,
+    Category     VARCHAR2(50)  NULL,
     Description  VARCHAR2(1000) NULL,
-    "Schema"     CLOB          NOT NULL,
+    FormSchema   CLOB          NOT NULL,
     Version      NUMBER        DEFAULT 1 NOT NULL,
     IsActive     NUMBER(1)     DEFAULT 1 NOT NULL,
     CreatedAt    TIMESTAMP     DEFAULT CURRENT_TIMESTAMP NOT NULL,

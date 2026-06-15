@@ -4,10 +4,12 @@ public class EavFormTemplate
 {
     public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;
+    public string Code { get; set; } = string.Empty;
+    public string Category { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
+    public string DescriptionInfo { get; set; } = string.Empty;
     
-    // JSON schema or fields definition
-    public string Schema { get; set; } = string.Empty;
+    public string FormSchema { get; set; } = string.Empty;
 
     public int Version { get; set; } = 1;
     public bool IsActive { get; set; } = true;
