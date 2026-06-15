@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using EvnHanoi.EquipmentService.Core.Entities;
 using EvnHanoi.EquipmentService.Core.Interfaces;
+using EvnHanoi.Infrastructure.Database;
 
 namespace EvnHanoi.EquipmentService.Core.Services;
 
@@ -15,16 +16,16 @@ public class EavFormTemplateService : IEavFormTemplateService
         _repository = repository;
     }
 
-    private void ValidateSchema(string schema)
+    private void ValidateFormSchema(string formSchema)
     {
-        if (string.IsNullOrWhiteSpace(schema))
+        if (string.IsNullOrWhiteSpace(formSchema))
         {
             throw new ArgumentException("Cấu trúc Schema không được để trống.");
         }
 
         try
         {
-            using var doc = JsonDocument.Parse(schema);
+            using var doc = JsonDocument.Parse(formSchema);
         }
         catch (JsonException ex)
         {
@@ -32,16 +33,19 @@ public class EavFormTemplateService : IEavFormTemplateService
         }
     }
 
-    public async Task<EavFormTemplate> CreateFormTemplateAsync(string name, string description, string schema, string createdBy)
+    public async Task<EavFormTemplate> CreateFormTemplateAsync(string name, string code, string category, string description, string descriptionInfo, string formSchema, string createdBy)
     {
-        ValidateSchema(schema);
+        ValidateFormSchema(formSchema);
 
         var template = new EavFormTemplate
         {
-            Id = Guid.NewGuid(),
+            Id = Guid.Parse(UuidHelper.NewUuid()),
             Name = name,
+            Code = code,
+            Category = category,
             Description = description ?? string.Empty,
-            Schema = schema,
+            DescriptionInfo = descriptionInfo ?? string.Empty,
+            FormSchema = formSchema,
             Version = 1,
             IsActive = true,
             CreatedAt = DateTime.UtcNow,
@@ -52,9 +56,9 @@ public class EavFormTemplateService : IEavFormTemplateService
         return template;
     }
 
-    public async Task<EavFormTemplate> UpdateFormTemplateAsync(Guid id, string newName, string newDescription, string newSchema, string updatedBy)
+    public async Task<EavFormTemplate> UpdateFormTemplateAsync(Guid id, string newName, string newCode, string newCategory, string newDescription, string newDescriptionInfo, string newFormSchema, string updatedBy)
     {
-        ValidateSchema(newSchema);
+        ValidateFormSchema(newFormSchema);
 
         var oldTemplate = await _repository.GetByIdAsync(id);
         if (oldTemplate == null)
@@ -69,10 +73,13 @@ public class EavFormTemplateService : IEavFormTemplateService
         // Tạo bản mới Version+1
         var newTemplate = new EavFormTemplate
         {
-            Id = Guid.NewGuid(),
+            Id = Guid.Parse(UuidHelper.NewUuid()),
             Name = newName,
+            Code = newCode,
+            Category = newCategory,
             Description = newDescription,
-            Schema = newSchema,
+            DescriptionInfo = newDescriptionInfo,
+            FormSchema = newFormSchema,
             Version = oldTemplate.Version + 1,
             IsActive = true,
             CreatedAt = DateTime.UtcNow,

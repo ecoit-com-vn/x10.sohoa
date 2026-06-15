@@ -44,16 +44,16 @@ FROM DUAL
 WHERE NOT EXISTS (SELECT 1 FROM DYNAMIC_REPORTS WHERE Name = 'Danh sách thiết bị chi tiết');
 
 -- Seed EquipmentTypes
-INSERT INTO EquipmentTypes (Id, Name, Code, Description, CreatedAt, UpdatedAt)
-SELECT '019eb000-0000-7000-8000-000000000001', 'Thiết bị đo lường', 'TB_DO_LUONG', 'Các thiết bị đo lường kiểm thử dòng điện', SYSTIMESTAMP, SYSTIMESTAMP FROM DUAL
+INSERT INTO EquipmentTypes (Id, Name, Code, Description, CreatedAt, UpdatedAt, GridTypeId, SortOrder, IsActive)
+SELECT '019eb000-0000-7000-8000-000000000001', 'Thiết bị đo lường', 'TB_DO_LUONG', 'Các thiết bị đo lường kiểm thử dòng điện', SYSTIMESTAMP, SYSTIMESTAMP, 1, 1, 1 FROM DUAL
 WHERE NOT EXISTS (SELECT 1 FROM EquipmentTypes WHERE Id = '019eb000-0000-7000-8000-000000000001');
 
-INSERT INTO EquipmentTypes (Id, Name, Code, Description, CreatedAt, UpdatedAt)
-SELECT '019eb000-0000-7000-8000-000000000002', 'Máy biến áp lực', 'MBI_AP_LUC', 'Các máy biến áp công suất lớn trong trạm', SYSTIMESTAMP, SYSTIMESTAMP FROM DUAL
+INSERT INTO EquipmentTypes (Id, Name, Code, Description, CreatedAt, UpdatedAt, GridTypeId, SortOrder, IsActive)
+SELECT '019eb000-0000-7000-8000-000000000002', 'Máy biến áp lực', 'MBI_AP_LUC', 'Các máy biến áp công suất lớn trong trạm', SYSTIMESTAMP, SYSTIMESTAMP, 1, 2, 1 FROM DUAL
 WHERE NOT EXISTS (SELECT 1 FROM EquipmentTypes WHERE Id = '019eb000-0000-7000-8000-000000000002');
 
-INSERT INTO EquipmentTypes (Id, Name, Code, Description, CreatedAt, UpdatedAt)
-SELECT '019eb000-0000-7000-8000-000000000003', 'Thiết bị đóng cắt', 'TB_DONG_CAT', 'Máy cắt, cầu dao cách ly, tủ trung thế', SYSTIMESTAMP, SYSTIMESTAMP FROM DUAL
+INSERT INTO EquipmentTypes (Id, Name, Code, Description, CreatedAt, UpdatedAt, GridTypeId, SortOrder, IsActive)
+SELECT '019eb000-0000-7000-8000-000000000003', 'Thiết bị đóng cắt', 'TB_DONG_CAT', 'Máy cắt, cầu dao cách ly, tủ trung thế', SYSTIMESTAMP, SYSTIMESTAMP, 1, 3, 1 FROM DUAL
 WHERE NOT EXISTS (SELECT 1 FROM EquipmentTypes WHERE Id = '019eb000-0000-7000-8000-000000000003');
 
 -- Seed Equipments

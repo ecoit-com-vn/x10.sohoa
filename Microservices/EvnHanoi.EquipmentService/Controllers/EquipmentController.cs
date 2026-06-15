@@ -1,18 +1,15 @@
 using EvnHanoi.EquipmentService.Core.DTOs;
 using EvnHanoi.EquipmentService.Core.Entities;
 using EvnHanoi.EquipmentService.Core.Interfaces;
-using Microsoft.AspNetCore.Http;
+using EvnHanoi.Infrastructure.Security;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using ClosedXML.Excel;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Text.RegularExpressions;
-using System.Threading.Tasks;
-using System.Text.Json;
 using System.Security.Claims;
-using Microsoft.AspNetCore.Authorization;
+using System.Text.Json;
+using System.Threading.Tasks;
 
 namespace EvnHanoi.EquipmentService.Controllers;
 
@@ -22,78 +19,67 @@ namespace EvnHanoi.EquipmentService.Controllers;
 public class EquipmentController : ControllerBase
 {
     private readonly IEquipmentRepository _equipmentRepository;
-    private readonly IElasticsearchService _elasticsearchService;
-    private readonly IMessageProducer _messageProducer;
     private readonly IEquipmentTypeRepository _equipmentTypeRepository;
+    private readonly IMessageProducer _messageProducer;
 
     public EquipmentController(
         IEquipmentRepository equipmentRepository, 
-        IElasticsearchService elasticsearchService, 
-        IMessageProducer messageProducer,
-        IEquipmentTypeRepository equipmentTypeRepository)
+        IEquipmentTypeRepository equipmentTypeRepository,
+        IMessageProducer messageProducer)
     {
         _equipmentRepository = equipmentRepository;
-        _elasticsearchService = elasticsearchService;
-        _messageProducer = messageProducer;
         _equipmentTypeRepository = equipmentTypeRepository;
+        _messageProducer = messageProducer;
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAll()
+    public async Task<IActionResult> Get(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10,
+        [FromQuery] string? code = null,
+        [FromQuery] string? name = null,
+        [FromQuery] long? unitId = null,
+        [FromQuery] Guid? infrastructureId = null,
+        [FromQuery] int? gridTypeId = null,
+        [FromQuery] Guid? equipmentTypeId = null,
+        [FromQuery] bool? isActive = null)
     {
-        var unitIds = GetAuthorizedUnitIds();
-        if (unitIds != null && !unitIds.Any())
+        var allowedUnitIds = await GetAllowedUnitIdsAsync();
+        if (allowedUnitIds != null)
         {
-            return Ok(new List<Equipment>());
+            if (unitId.HasValue && !allowedUnitIds.Contains(unitId.Value))
+            {
+                return Ok(new { items = new List<EquipmentDto>(), totalCount = 0, page, pageSize });
+            }
         }
 
-        var equipments = await _equipmentRepository.GetAllAsync(unitIds);
-        return Ok(equipments);
-    }
+        var (items, totalCount) = await _equipmentRepository.GetPagedAsync(
+            page, 
+            pageSize, 
+            code, 
+            name, 
+            unitId, 
+            infrastructureId, 
+            gridTypeId, 
+            equipmentTypeId, 
+            isActive, 
+            allowedUnitIds);
 
-    [HttpGet("search")]
-    public async Task<IActionResult> Search([FromQuery] string keyword)
-    {
-        if (string.IsNullOrWhiteSpace(keyword))
-            return BadRequest("Keyword is required.");
-
-        var unitIds = GetAuthorizedUnitIds();
-        if (unitIds != null && !unitIds.Any())
-        {
-            return Ok(new List<Equipment>());
-        }
-
-        var results = await _elasticsearchService.SearchEquipmentsAsync(keyword, unitIds);
-        return Ok(results);
+        return Ok(new { items, totalCount, page, pageSize });
     }
 
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(Guid id)
     {
-        var equipment = await _equipmentRepository.GetByIdAsync(id);
-        if (equipment == null)
+        var dto = await _equipmentRepository.GetDtoByIdAsync(id);
+        if (dto == null)
             return NotFound();
 
-        var unitIds = GetAuthorizedUnitIds();
-        if (unitIds != null && (!equipment.UnitId.HasValue || !unitIds.Contains(equipment.UnitId.Value)))
+        var allowedUnitIds = await GetAllowedUnitIdsAsync();
+        if (allowedUnitIds != null && (!dto.UnitId.HasValue || !allowedUnitIds.Contains(dto.UnitId.Value)))
         {
             return Forbid();
         }
-
-        var attributes = await _equipmentRepository.GetAttributesAsync(id);
-        
-        var dto = new EquipmentDto
-        {
-            Id = equipment.Id,
-            EquipmentTypeId = equipment.EquipmentTypeId,
-            Name = equipment.Name,
-            Code = equipment.Code,
-            SerialNumber = equipment.SerialNumber,
-            CreatedAt = equipment.CreatedAt,
-            CreatedBy = equipment.CreatedBy,
-            UnitId = equipment.UnitId,
-            DynamicAttributes = attributes.ToDictionary(a => a.AttributeDefinitionId, a => a.Value)
-        };
 
         return Ok(dto);
     }
@@ -101,12 +87,18 @@ public class EquipmentController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] EquipmentCreateDto dto)
     {
-        var unitIds = GetAuthorizedUnitIds();
-        if (unitIds != null)
+        if (string.IsNullOrWhiteSpace(dto.Code) || string.IsNullOrWhiteSpace(dto.Name))
+            return BadRequest(new { message = "Mã và Tên thiết bị là bắt buộc." });
+
+        if (dto.EquipmentTypeId == Guid.Empty)
+            return BadRequest(new { message = "Loại thiết bị không hợp lệ." });
+
+        var allowedUnitIds = await GetAllowedUnitIdsAsync();
+        if (allowedUnitIds != null)
         {
-            if (!dto.UnitId.HasValue || !unitIds.Contains(dto.UnitId.Value))
+            if (!dto.UnitId.HasValue || !allowedUnitIds.Contains(dto.UnitId.Value))
             {
-                return BadRequest("Bạn không có quyền quản lý dữ liệu của đơn vị được chọn.");
+                return BadRequest(new { message = "Bạn không có quyền quản lý dữ liệu của đơn vị được chọn." });
             }
         }
 
@@ -115,88 +107,117 @@ public class EquipmentController : ControllerBase
         {
             Id = equipmentId,
             EquipmentTypeId = dto.EquipmentTypeId,
-            Name = dto.Name,
-            Code = dto.Code,
-            SerialNumber = dto.SerialNumber,
+            Name = dto.Name.Trim(),
+            Code = dto.Code.Trim(),
+            SerialNumber = dto.SerialNumber?.Trim() ?? string.Empty,
+            InfrastructureId = dto.InfrastructureId,
+            CountryId = dto.CountryId,
+            IsActive = dto.IsActive,
+            UnitId = dto.UnitId,
             CreatedAt = DateTime.UtcNow,
-            CreatedBy = dto.CreatedBy,
-            UnitId = dto.UnitId
+            CreatedBy = User.FindFirst(ClaimTypes.Name)?.Value ?? User.Identity?.Name ?? "system"
         };
 
-        var attributes = dto.DynamicAttributes.Select(kvp => new AttributeValue
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!string.IsNullOrEmpty(userId) && Guid.TryParse(userId, out var creatorGuid))
         {
-            Id = Guid.NewGuid(),
-            EquipmentId = equipmentId,
-            AttributeDefinitionId = kvp.Key,
-            Value = kvp.Value
-        }).ToList();
-
-        var result = await _equipmentRepository.CreateWithAttributesAsync(equipment, attributes);
-        if (result)
-        {
-            // Publish message to RabbitMQ for SyncService
-            var syncMessage = new
-            {
-                Id = equipment.Id,
-                EquipmentTypeId = equipment.EquipmentTypeId,
-                Name = equipment.Name,
-                Code = equipment.Code,
-                SerialNumber = equipment.SerialNumber,
-                CreatedAt = equipment.CreatedAt,
-                CreatedBy = equipment.CreatedBy,
-                UnitId = equipment.UnitId,
-                DynamicAttributes = dto.DynamicAttributes
-            };
-            await _messageProducer.SendMessageAsync(syncMessage, "equipment_sync_queue");
-
-            return CreatedAtAction(nameof(GetById), new { id = equipmentId }, equipment);
+            equipment.CreatorId = creatorGuid;
         }
 
-        return BadRequest("Failed to create equipment.");
+        var result = await _equipmentRepository.CreateAsync(equipment);
+        if (result)
+        {
+            try
+            {
+                var syncMessage = new
+                {
+                    Id = equipment.Id,
+                    EquipmentTypeId = equipment.EquipmentTypeId,
+                    Name = equipment.Name,
+                    Code = equipment.Code,
+                    SerialNumber = equipment.SerialNumber,
+                    CreatedAt = equipment.CreatedAt,
+                    CreatedBy = equipment.CreatedBy,
+                    UnitId = equipment.UnitId
+                };
+                await _messageProducer.SendMessageAsync(syncMessage, "equipment_sync_queue");
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "Failed to publish sync message for equipment creation.");
+            }
+
+            var createdDto = await _equipmentRepository.GetDtoByIdAsync(equipmentId);
+            return CreatedAtAction(nameof(GetById), new { id = equipmentId }, createdDto);
+        }
+
+        return BadRequest(new { message = "Không thể tạo thiết bị mới." });
     }
 
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(Guid id, [FromBody] EquipmentUpdateDto dto)
     {
+        if (string.IsNullOrWhiteSpace(dto.Code) || string.IsNullOrWhiteSpace(dto.Name))
+            return BadRequest(new { message = "Mã và Tên thiết bị là bắt buộc." });
+
+        if (dto.EquipmentTypeId == Guid.Empty)
+            return BadRequest(new { message = "Loại thiết bị không hợp lệ." });
+
         var existing = await _equipmentRepository.GetByIdAsync(id);
         if (existing == null)
             return NotFound();
 
-        var unitIds = GetAuthorizedUnitIds();
-        if (unitIds != null)
+        var allowedUnitIds = await GetAllowedUnitIdsAsync();
+        if (allowedUnitIds != null)
         {
-            if (!existing.UnitId.HasValue || !unitIds.Contains(existing.UnitId.Value))
+            if (!existing.UnitId.HasValue || !allowedUnitIds.Contains(existing.UnitId.Value))
             {
                 return Forbid();
             }
-            if (!dto.UnitId.HasValue || !unitIds.Contains(dto.UnitId.Value))
+            if (!dto.UnitId.HasValue || !allowedUnitIds.Contains(dto.UnitId.Value))
             {
-                return BadRequest("Bạn không có quyền quản lý dữ liệu của đơn vị mới được chọn.");
+                return BadRequest(new { message = "Bạn không có quyền quản lý dữ liệu của đơn vị mới được chọn." });
             }
         }
 
         existing.EquipmentTypeId = dto.EquipmentTypeId;
-        existing.Name = dto.Name;
-        existing.Code = dto.Code;
-        existing.SerialNumber = dto.SerialNumber;
+        existing.Name = dto.Name.Trim();
+        existing.Code = dto.Code.Trim();
+        existing.SerialNumber = dto.SerialNumber?.Trim() ?? string.Empty;
+        existing.InfrastructureId = dto.InfrastructureId;
+        existing.CountryId = dto.CountryId;
         existing.UnitId = dto.UnitId;
+        existing.IsActive = dto.IsActive;
+        existing.ModifiedBy = User.FindFirst(ClaimTypes.Name)?.Value ?? User.Identity?.Name ?? "system";
+        existing.ModifiedDate = DateTime.UtcNow;
 
-        var updateBase = await _equipmentRepository.UpdateAsync(existing);
-        
-        var attributes = dto.DynamicAttributes.Select(kvp => new AttributeValue
+        var result = await _equipmentRepository.UpdateAsync(existing);
+        if (result)
         {
-            Id = Guid.NewGuid(),
-            EquipmentId = id,
-            AttributeDefinitionId = kvp.Key,
-            Value = kvp.Value
-        }).ToList();
+            try
+            {
+                var syncMessage = new
+                {
+                    Id = existing.Id,
+                    EquipmentTypeId = existing.EquipmentTypeId,
+                    Name = existing.Name,
+                    Code = existing.Code,
+                    SerialNumber = existing.SerialNumber,
+                    CreatedAt = existing.CreatedAt,
+                    CreatedBy = existing.CreatedBy,
+                    UnitId = existing.UnitId
+                };
+                await _messageProducer.SendMessageAsync(syncMessage, "equipment_sync_queue");
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "Failed to publish sync message for equipment update.");
+            }
 
-        var updateAttributes = await _equipmentRepository.UpdateAttributesAsync(id, attributes);
-
-        if (updateBase && updateAttributes)
             return NoContent();
+        }
 
-        return BadRequest("Failed to update equipment.");
+        return BadRequest(new { message = "Không thể cập nhật thiết bị." });
     }
 
     [HttpDelete("{id}")]
@@ -206,220 +227,134 @@ public class EquipmentController : ControllerBase
         if (existing == null)
             return NotFound();
 
-        var unitIds = GetAuthorizedUnitIds();
-        if (unitIds != null && (!existing.UnitId.HasValue || !unitIds.Contains(existing.UnitId.Value)))
+        var allowedUnitIds = await GetAllowedUnitIdsAsync();
+        if (allowedUnitIds != null && (!existing.UnitId.HasValue || !allowedUnitIds.Contains(existing.UnitId.Value)))
         {
             return Forbid();
         }
 
-        await _equipmentRepository.UpdateAttributesAsync(id, new List<AttributeValue>());
-        
         var result = await _equipmentRepository.DeleteAsync(id);
         if (result)
             return NoContent();
 
-        return BadRequest("Failed to delete equipment.");
+        return BadRequest(new { message = "Không thể xóa thiết bị." });
     }
 
-    [HttpGet("import-template/{equipmentTypeId}")]
-    public async Task<IActionResult> GetImportTemplate(Guid equipmentTypeId)
+    [HttpPost("{id}/lock")]
+    public async Task<IActionResult> Lock(Guid id)
     {
-        var type = await _equipmentTypeRepository.GetByIdAsync(equipmentTypeId);
-        if (type == null) return NotFound("Equipment type not found.");
+        var existing = await _equipmentRepository.GetByIdAsync(id);
+        if (existing == null)
+            return NotFound();
 
-        var attributes = await _equipmentTypeRepository.GetAttributeDefinitionsAsync(equipmentTypeId);
-
-        using var workbook = new XLWorkbook();
-        var worksheet = workbook.Worksheets.Add("Import Template");
-
-        // Set Headers
-        worksheet.Cell(1, 1).Value = "Mã thiết bị (Code) *";
-        worksheet.Cell(1, 2).Value = "Tên thiết bị (Name) *";
-        worksheet.Cell(1, 3).Value = "Số Serial (SerialNumber)";
-
-        var colIndex = 4;
-        foreach (var attr in attributes)
+        var allowedUnitIds = await GetAllowedUnitIdsAsync();
+        if (allowedUnitIds != null && (!existing.UnitId.HasValue || !allowedUnitIds.Contains(existing.UnitId.Value)))
         {
-            var header = $"{attr.Name} ({attr.Code})";
-            if (attr.IsRequired)
-            {
-                header += " *";
-            }
-            worksheet.Cell(1, colIndex).Value = header;
-            colIndex++;
+            return Forbid();
         }
 
-        // Style header row
-        var headerRow = worksheet.Row(1);
-        headerRow.Style.Font.Bold = true;
-        headerRow.Style.Fill.BackgroundColor = XLColor.LightGray;
+        existing.IsActive = false;
+        existing.ModifiedBy = User.FindFirst(ClaimTypes.Name)?.Value ?? User.Identity?.Name ?? "system";
+        existing.ModifiedDate = DateTime.UtcNow;
 
-        worksheet.Columns().AdjustToContents();
+        var result = await _equipmentRepository.UpdateAsync(existing);
+        if (result)
+            return Ok(new { message = "Đã khóa thiết bị thành công." });
 
-        using var stream = new MemoryStream();
-        workbook.SaveAs(stream);
-        var content = stream.ToArray();
-
-        return File(content, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"Import_Template_{type.Code}.xlsx");
+        return BadRequest(new { message = "Không thể khóa thiết bị." });
     }
 
-    [HttpPost("import")]
-    public async Task<IActionResult> ImportEquipment([FromQuery] Guid equipmentTypeId, IFormFile file)
+    [HttpPost("{id}/unlock")]
+    public async Task<IActionResult> Unlock(Guid id)
     {
-        if (file == null || file.Length == 0)
-            return BadRequest("No file uploaded.");
+        var existing = await _equipmentRepository.GetByIdAsync(id);
+        if (existing == null)
+            return NotFound();
 
-        var type = await _equipmentTypeRepository.GetByIdAsync(equipmentTypeId);
-        if (type == null) return BadRequest("Invalid Equipment Type.");
-
-        var attributeDefs = (await _equipmentTypeRepository.GetAttributeDefinitionsAsync(equipmentTypeId)).ToList();
-
-        using var stream = file.OpenReadStream();
-        using var workbook = new XLWorkbook(stream);
-        var worksheet = workbook.Worksheets.FirstOrDefault();
-        if (worksheet == null) return BadRequest("Workbook is empty.");
-
-        var lastRow = worksheet.LastRowUsed()?.RowNumber() ?? 1;
-        var lastCol = worksheet.LastColumnUsed()?.ColumnNumber() ?? 3;
-
-        // Parse headers from row 1
-        var attributeColMap = new Dictionary<int, AttributeDefinition>();
-        for (int col = 4; col <= lastCol; col++)
+        var allowedUnitIds = await GetAllowedUnitIdsAsync();
+        if (allowedUnitIds != null && (!existing.UnitId.HasValue || !allowedUnitIds.Contains(existing.UnitId.Value)))
         {
-            var headerVal = worksheet.Cell(1, col).GetString();
-            if (string.IsNullOrEmpty(headerVal)) continue;
+            return Forbid();
+        }
 
-            // Extract code inside brackets, e.g. "Tên thuộc tính (Mã thuộc tính)"
-            var match = Regex.Match(headerVal, @"\(([^)]+)\)");
-            if (match.Success)
+        existing.IsActive = true;
+        existing.ModifiedBy = User.FindFirst(ClaimTypes.Name)?.Value ?? User.Identity?.Name ?? "system";
+        existing.ModifiedDate = DateTime.UtcNow;
+
+        var result = await _equipmentRepository.UpdateAsync(existing);
+        if (result)
+            return Ok(new { message = "Đã mở khóa thiết bị thành công." });
+
+        return BadRequest(new { message = "Không thể mở khóa thiết bị." });
+    }
+
+    [HttpGet("lookup")]
+    [BypassDynamicPermission]
+    public async Task<IActionResult> GetLookup()
+    {
+        var isAdmin = User.IsInRole("ADMIN") || User.Claims.Any(c => c.Type == ClaimTypes.Role && c.Value == "ADMIN");
+        long? startUnitId = null;
+        if (!isAdmin)
+        {
+            var unitIdClaim = User.FindFirst("unit_id")?.Value;
+            if (!string.IsNullOrEmpty(unitIdClaim) && long.TryParse(unitIdClaim, out var userUnitId))
             {
-                var code = match.Groups[1].Value.Trim();
-                var def = attributeDefs.FirstOrDefault(a => a.Code.Equals(code, StringComparison.OrdinalIgnoreCase));
-                if (def != null)
+                startUnitId = userUnitId;
+            }
+            else
+            {
+                var fallbackUnitIds = GetAuthorizedUnitIds();
+                if (fallbackUnitIds != null && fallbackUnitIds.Any())
                 {
-                    attributeColMap.Add(col, def);
+                    startUnitId = fallbackUnitIds.First();
                 }
             }
         }
 
-        var successCount = 0;
-        var errors = new List<string>();
-
-        for (int row = 2; row <= lastRow; row++)
-        {
-            var code = worksheet.Cell(row, 1).GetString()?.Trim();
-            var name = worksheet.Cell(row, 2).GetString()?.Trim();
-            var serialNumber = worksheet.Cell(row, 3).GetString()?.Trim();
-
-            if (string.IsNullOrEmpty(code) && string.IsNullOrEmpty(name))
-            {
-                continue; // Bỏ qua dòng trống
-            }
-
-            if (string.IsNullOrEmpty(code))
-            {
-                errors.Add($"Dòng {row}: Mã thiết bị không được để trống.");
-                continue;
-            }
-
-            if (string.IsNullOrEmpty(name))
-            {
-                errors.Add($"Dòng {row}: Tên thiết bị không được để trống.");
-                continue;
-            }
-
-            var equipmentId = Guid.NewGuid();
-            var equipment = new Equipment
-            {
-                Id = equipmentId,
-                EquipmentTypeId = equipmentTypeId,
-                Name = name,
-                Code = code,
-                SerialNumber = serialNumber,
-                CreatedAt = DateTime.UtcNow,
-                CreatedBy = User.Identity?.Name ?? "System",
-                UnitId = null
-            };
-
-            var unitIds = GetAuthorizedUnitIds();
-            if (unitIds != null && unitIds.Any())
-            {
-                equipment.UnitId = unitIds.First();
-            }
-
-            var dynamicAttributes = new Dictionary<Guid, string>();
-            var attributeValues = new List<AttributeValue>();
-            var rowHasError = false;
-
-            // Read EAV values
-            foreach (var col in attributeColMap.Keys)
-            {
-                var def = attributeColMap[col];
-                var cellVal = worksheet.Cell(row, col).GetString()?.Trim();
-
-                if (def.IsRequired && string.IsNullOrEmpty(cellVal))
-                {
-                    errors.Add($"Dòng {row}: Thuộc tính '{def.Name}' là bắt buộc.");
-                    rowHasError = true;
-                    break;
-                }
-
-                if (!string.IsNullOrEmpty(cellVal))
-                {
-                    attributeValues.Add(new AttributeValue
-                    {
-                        Id = Guid.NewGuid(),
-                        EquipmentId = equipmentId,
-                        AttributeDefinitionId = def.Id,
-                        Value = cellVal
-                    });
-
-                    // Add to dictionary for elastic sync
-                    dynamicAttributes.Add(def.Id, cellVal);
-                }
-            }
-
-            if (rowHasError) continue;
-
-            try
-            {
-                var result = await _equipmentRepository.CreateWithAttributesAsync(equipment, attributeValues);
-                if (result)
-                {
-                    successCount++;
-
-                    // Sync to Elasticsearch
-                    var syncMessage = new
-                    {
-                        Id = equipment.Id,
-                        EquipmentTypeId = equipment.EquipmentTypeId,
-                        Name = equipment.Name,
-                        Code = equipment.Code,
-                        SerialNumber = equipment.SerialNumber,
-                        CreatedAt = equipment.CreatedAt,
-                        CreatedBy = equipment.CreatedBy,
-                        UnitId = equipment.UnitId,
-                        DynamicAttributes = dynamicAttributes
-                    };
-                    await _messageProducer.SendMessageAsync(syncMessage, "equipment_sync_queue");
-                }
-                else
-                {
-                    errors.Add($"Dòng {row}: Không thể tạo thiết bị vào cơ sở dữ liệu.");
-                }
-            }
-            catch (Exception ex)
-            {
-                errors.Add($"Dòng {row}: Lỗi khi lưu vào DB ({ex.Message}).");
-            }
-        }
+        var organizationUnits = await _equipmentRepository.GetOrganizationUnitsHierarchicalAsync(startUnitId);
+        var infrastructures = await _equipmentRepository.GetInfrastructuresLookupAsync();
+        var gridTypes = await _equipmentTypeRepository.GetGridTypesAsync();
+        var equipmentTypes = await _equipmentRepository.GetEquipmentTypesLookupAsync();
+        var countries = await _equipmentRepository.GetCountriesAsync();
 
         return Ok(new
         {
-            Message = $"Nhập dữ liệu hoàn tất. Thành công: {successCount} dòng.",
-            SuccessCount = successCount,
-            Errors = errors
+            organizationUnits,
+            infrastructures,
+            gridTypes,
+            equipmentTypes,
+            countries
         });
+    }
+
+    private async Task<List<long>?> GetAllowedUnitIdsAsync()
+    {
+        var isAdmin = User.IsInRole("ADMIN") || User.Claims.Any(c => c.Type == ClaimTypes.Role && c.Value == "ADMIN");
+        if (isAdmin)
+        {
+            return null;
+        }
+
+        var unitIdClaim = User.FindFirst("unit_id")?.Value;
+        if (!string.IsNullOrEmpty(unitIdClaim) && long.TryParse(unitIdClaim, out var userUnitId))
+        {
+            var allowedUnits = await _equipmentRepository.GetOrganizationUnitsHierarchicalAsync(userUnitId);
+            return allowedUnits.Select(u => u.Id).ToList();
+        }
+
+        var fallbackUnitIds = GetAuthorizedUnitIds();
+        if (fallbackUnitIds != null && fallbackUnitIds.Any())
+        {
+            var list = new List<long>();
+            foreach (var fId in fallbackUnitIds)
+            {
+                var units = await _equipmentRepository.GetOrganizationUnitsHierarchicalAsync(fId);
+                list.AddRange(units.Select(u => u.Id));
+            }
+            return list.Distinct().ToList();
+        }
+
+        return new List<long> { -1 };
     }
 
     private List<long>? GetAuthorizedUnitIds()
@@ -459,4 +394,3 @@ public class EquipmentController : ControllerBase
         public string RoleName { get; set; } = string.Empty;
     }
 }
-
