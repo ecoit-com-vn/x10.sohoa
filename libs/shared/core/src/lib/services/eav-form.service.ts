@@ -6,8 +6,11 @@ import { APP_CONFIG } from '../config/app-config.token';
 export interface EavFormTemplate {
   id: string;
   name: string;
+  code: string;
+  category: string;
   description: string;
-  schema: string; // JSON schema stringified
+  descriptionInfo: string;
+  formSchema: string; // JSON schema stringified
   version: number;
   isActive: boolean;
   createdAt: string;
@@ -32,25 +35,35 @@ export class EavFormService {
     return this.http.get<EavFormTemplate>(`${this.apiUrl}/${id}`);
   }
 
-  createTemplate(name: string, description: string, schema: string, createdBy: string = 'admin'): Observable<EavFormTemplate> {
+  createTemplate(name: string, code: string, category: string, description: string, descriptionInfo: string, formSchema: string, createdBy: string = 'admin'): Observable<EavFormTemplate> {
     return this.http.post<EavFormTemplate>(this.apiUrl, {
       name,
+      code,
+      category,
       description,
-      schema,
+      descriptionInfo,
+      formSchema,
       createdBy
     });
   }
 
-  updateTemplate(id: string, name: string, description: string, schema: string, updatedBy: string = 'admin'): Observable<EavFormTemplate> {
+  updateTemplate(id: string, name: string, code: string, category: string, description: string, descriptionInfo: string, formSchema: string, updatedBy: string = 'admin'): Observable<EavFormTemplate> {
     return this.http.put<EavFormTemplate>(`${this.apiUrl}/${id}`, {
       name,
+      code,
+      category,
       description,
-      schema,
+      descriptionInfo,
+      formSchema,
       updatedBy
     });
   }
 
   deleteTemplate(id: string): Observable<void> {
     return this.http.delete<void>(`${this.apiUrl}/${id}`);
+  }
+
+  getCatalogTypes(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.config.apiGatewayUrl}/api/catalog/types`);
   }
 }

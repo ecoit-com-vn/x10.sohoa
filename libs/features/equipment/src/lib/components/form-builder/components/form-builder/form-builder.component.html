@@ -116,7 +116,7 @@
                   <input *ngIf="field.type === 'date'" type="date" pInputText class="w-full preview-input" disabled />
                   
                   <p-select *ngIf="field.type === 'dropdown'" 
-                            [options]="field.options || []" 
+                            [options]="field.dataSourceType === 'catalog' ? ['(Dữ liệu liên kết từ danh mục: ' + field.catalogType + ')'] : (field.options || [])" 
                             [placeholder]="field.placeholder || 'Chọn giá trị...'"
                             styleClass="w-full preview-input" 
                             disabled>
@@ -126,7 +126,12 @@
 
                   <div *ngIf="field.type === 'checkbox'" class="flex items-center gap-2 py-2">
                     <input type="checkbox" disabled />
-                    <span class="text-sm">{{ field.placeholder || 'Đồng ý / Xác nhận' }}</span>
+                    <span class="text-sm">
+                      {{ field.placeholder || 'Đồng ý / Xác nhận' }}
+                      <span *ngIf="field.dataSourceType === 'catalog'" class="text-xs text-primary font-bold ml-1">
+                        (Liên kết danh mục: {{ field.catalogType }})
+                      </span>
+                    </span>
                   </div>
                 </div>
 
@@ -188,8 +193,21 @@
               <label for="prop-required" class="font-bold text-sm cursor-pointer select-none">Bắt buộc phải điền (Required)</label>
             </div>
 
-            <!-- Options builder for Dropdown/Select field types -->
-            <div *ngIf="fields[selectedFieldIndex].type === 'dropdown'" class="dropdown-options-builder">
+            <!-- Data Source Configuration for Dropdown or Checkbox -->
+            <div *ngIf="fields[selectedFieldIndex].type === 'dropdown' || fields[selectedFieldIndex].type === 'checkbox'" class="field mb-3 mt-3">
+              <label class="block font-bold text-xs text-secondary mb-1">Nguồn dữ liệu (Data Source)</label>
+              <p-select [options]="[{label: 'Tự nhập thủ công (Manual)', value: 'manual'}, {label: 'Danh mục hệ thống (Catalog)', value: 'catalog'}]" 
+                        [(ngModel)]="fields[selectedFieldIndex].dataSourceType" 
+                        optionLabel="label" 
+                        optionValue="value" 
+                        styleClass="w-full p-inputtext-sm"
+                        (onChange)="onDataSourceTypeChange(fields[selectedFieldIndex])"
+                        appendTo="body">
+              </p-select>
+            </div>
+
+            <!-- Manual options (if dataSourceType === 'manual' and type is dropdown) -->
+            <div *ngIf="fields[selectedFieldIndex].type === 'dropdown' && fields[selectedFieldIndex].dataSourceType !== 'catalog'" class="dropdown-options-builder mt-3">
               <div class="property-section-title font-bold text-xs uppercase mb-3 flex justify-between items-center">
                 <span>Các mục lựa chọn</span>
                 <p-button label="Thêm" icon="pi pi-plus" size="small" [text]="true" (onClick)="addOption()"></p-button>
@@ -201,6 +219,19 @@
                   <p-button icon="pi pi-times" severity="danger" [rounded]="true" [text]="true" size="small" (onClick)="removeOption(oIdx)"></p-button>
                 </div>
               </div>
+            </div>
+
+            <!-- Catalog Selector (if dataSourceType === 'catalog') -->
+            <div *ngIf="(fields[selectedFieldIndex].type === 'dropdown' || fields[selectedFieldIndex].type === 'checkbox') && fields[selectedFieldIndex].dataSourceType === 'catalog'" class="field mb-3 mt-3">
+              <label class="block font-bold text-xs text-secondary mb-1">Chọn danh mục hệ thống</label>
+              <p-select [options]="catalogTypes" 
+                        [(ngModel)]="fields[selectedFieldIndex].catalogType" 
+                        optionLabel="name" 
+                        optionValue="code" 
+                        placeholder="-- Chọn loại danh mục --"
+                        styleClass="w-full p-inputtext-sm" 
+                        appendTo="body">
+              </p-select>
             </div>
           </div>
         </p-card>
