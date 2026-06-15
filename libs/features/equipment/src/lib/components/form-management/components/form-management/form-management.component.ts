@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ToastModule } from 'primeng/toast';
@@ -9,6 +9,7 @@ import { Select } from 'primeng/select';
 import { CheckboxModule } from 'primeng/checkbox';
 import { CardModule } from 'primeng/card';
 import { TextareaModule } from 'primeng/textarea';
+import { Paginator } from 'primeng/paginator';
 import { EavFormService, EavFormTemplate } from '@sohoa.frontend/shared/core';
 import { finalize } from 'rxjs';
 
@@ -22,13 +23,15 @@ interface FormField {
   options?: string[];
   helpText?: string;
   width: number;
+  dataSourceType?: 'manual' | 'catalog';
+  catalogType?: string;
+  description?: string;
 }
 
 interface ToolboxItem {
   type: string;
   label: string;
   icon: string;
-  description: string;
 }
 
 @Component({
@@ -43,7 +46,8 @@ interface ToolboxItem {
     Select,
     CheckboxModule,
     CardModule,
-    TextareaModule
+    TextareaModule,
+    Paginator
   ],
   providers: [MessageService],
   templateUrl: './form-management.component.html',
@@ -63,10 +67,36 @@ export class FormManagementComponent implements OnInit {
   // Active builder/preview states
   templateId = signal<string | null>(null);
   formName = signal<string>('');
+  formCode = signal<string>('');
+  formCategory = signal<string>('');
   formDescription = signal<string>('');
+  formDescriptionInfo = signal<string>('');
   fields = signal<FormField[]>([]);
   selectedFieldIndex = signal<number | null>(null);
   showJson = signal<boolean>(false);
+
+  // Pagination states
+  first = signal<number>(0);
+  rows = signal<number>(10);
+
+  constructor() {
+    effect(() => {
+      this.searchKeyword();
+      this.first.set(0);
+    });
+  }
+
+  categories = [
+    { code: 'MAY_BIEN_AP', name: 'Máy biến áp' },
+    { code: 'MAY_CAT', name: 'Máy cắt' },
+    { code: 'DAO_CACH_LY', name: 'Dao cách ly' },
+    { code: 'BIEN_DIEN_AP', name: 'Biến điện áp (TU)' },
+    { code: 'BIEN_DONG_DIEN', name: 'Biến dòng điện (TI)' },
+    { code: 'CAP_DIEN_LUC', name: 'Cáp điện lực' },
+    { code: 'TU_TRUNG_THE', name: 'Tủ trung thế' },
+    { code: 'THIET_BI_DO_LUONG', name: 'Thiết bị đo lường' },
+    { code: 'KHAC', name: 'Hạng mục khác' }
+  ];
 
   // Simulation Preview values
   simulatedValues = signal<{ [key: string]: any }>({});
@@ -77,12 +107,12 @@ export class FormManagementComponent implements OnInit {
 
   // Toolbox configuration
   toolboxItems: ToolboxItem[] = [
-    { type: 'text', label: 'Trường Văn bản (Text)', icon: 'pi-align-left', description: 'Tên thiết bị, số seri, hãng sản xuất...' },
-    { type: 'number', label: 'Số liệu kỹ thuật (Number)', icon: 'pi-percentage', description: 'Điện áp định mức, công suất, dòng điện...' },
-    { type: 'date', label: 'Ngày kiểm định (Date)', icon: 'pi-calendar', description: 'Ngày đưa vào vận hành, ngày thí nghiệm...' },
-    { type: 'dropdown', label: 'Danh sách Lựa chọn (Dropdown)', icon: 'pi-chevron-down', description: 'Loại cách điện, cấp điện áp...' },
-    { type: 'textarea', label: 'Mô tả / Ghi chú (Textarea)', icon: 'pi-align-justify', description: 'Tình trạng kỹ thuật, ghi chú khác...' },
-    { type: 'checkbox', label: 'Hộp kiểm xác nhận (Checkbox)', icon: 'pi-check-square', description: 'Đã nghiệm thu, đạt tiêu chuẩn...' }
+    { type: 'text', label: 'Trường Văn bản (Text)', icon: 'pi-align-left' },
+    { type: 'number', label: 'Số liệu kỹ thuật (Number)', icon: 'pi-percentage' },
+    { type: 'date', label: 'Ngày kiểm định (Date)', icon: 'pi-calendar' },
+    { type: 'dropdown', label: 'Danh sách Lựa chọn (Dropdown)', icon: 'pi-chevron-down' },
+    { type: 'textarea', label: 'Mô tả / Ghi chú (Textarea)', icon: 'pi-align-justify' },
+    { type: 'checkbox', label: 'Hộp kiểm xác nhận (Checkbox)', icon: 'pi-check-square' }
   ];
 
   private eavFormService = inject(EavFormService);
@@ -96,12 +126,45 @@ export class FormManagementComponent implements OnInit {
     }
     return allForms.filter(f =>
       (f.name?.toLowerCase().includes(keyword) ?? false) ||
+      (f.code?.toLowerCase().includes(keyword) ?? false) ||
       (f.id?.toLowerCase().includes(keyword) ?? false)
     );
   });
 
+  paginatedForms = computed(() => {
+    const start = this.first();
+    const end = start + this.rows();
+    return this.filteredForms().slice(start, end);
+  });
+
+  onPageChange(event: any) {
+    this.first.set(event.first);
+    this.rows.set(event.rows);
+  }
+
+  catalogTypes = signal<any[]>([]);
+
+  loadCatalogTypes() {
+    this.eavFormService.getCatalogTypes().subscribe({
+      next: (types) => {
+        this.catalogTypes.set(types || []);
+      },
+      error: (err) => {
+        console.error('Failed to load catalog types', err);
+        this.catalogTypes.set([
+          { code: 'HANG_SAN_XUAT', name: 'Hãng sản xuất' },
+          { code: 'CAP_DIEN_AP', name: 'Cấp điện áp' },
+          { code: 'TINH_TRANG_VH', name: 'Tình trạng vận hành' },
+          { code: 'DON_VI', name: 'Đơn vị quản lý' },
+          { code: 'CHUC_VU', name: 'Chức vụ' }
+        ]);
+      }
+    });
+  }
+
   ngOnInit() {
     this.loadForms();
+    this.loadCatalogTypes();
   }
 
   loadForms() {
@@ -139,29 +202,13 @@ export class FormManagementComponent implements OnInit {
     this.viewState.set('add');
     this.isEditMode.set(false);
     this.detailTitle.set('Thêm mới Biểu mẫu thuộc tính thiết bị');
-    this.formName.set('Biểu mẫu thiết bị mới');
-    this.formDescription.set('Định nghĩa thông số kỹ thuật EAV cho thiết bị điện');
-    this.fields.set([
-      {
-        id: 'f_1',
-        name: 'ten_thiet_bi',
-        label: 'Tên thiết bị kỹ thuật',
-        type: 'text',
-        placeholder: 'Nhập tên thiết bị...',
-        required: true,
-        width: 100
-      },
-      {
-        id: 'f_2',
-        name: 'dien_ap_dinh_muc',
-        label: 'Điện áp định mức (kV)',
-        type: 'number',
-        placeholder: 'Ví dụ: 110, 220, 500...',
-        required: true,
-        width: 50
-      }
-    ]);
-    this.selectedFieldIndex.set(0);
+    this.formName.set('');
+    this.formCode.set('');
+    this.formCategory.set('');
+    this.formDescription.set('');
+    this.formDescriptionInfo.set('');
+    this.fields.set([]);
+    this.selectedFieldIndex.set(null);
     this.showJson.set(false);
   }
 
@@ -171,11 +218,14 @@ export class FormManagementComponent implements OnInit {
     this.templateId.set(form.id);
     this.detailTitle.set(`Chỉnh sửa cấu hình Biểu mẫu: ${form.name}`);
     this.formName.set(form.name);
+    this.formCode.set(form.code || '');
+    this.formCategory.set(form.category || '');
     this.formDescription.set(form.description);
+    this.formDescriptionInfo.set(form.descriptionInfo || '');
     this.showJson.set(false);
 
     try {
-      const parsedFields = JSON.parse(form.schema) || [];
+      const parsedFields = JSON.parse(form.formSchema) || [];
       this.fields.set(parsedFields);
       this.selectedFieldIndex.set(parsedFields.length > 0 ? 0 : null);
     } catch (e) {
@@ -190,12 +240,15 @@ export class FormManagementComponent implements OnInit {
     this.templateId.set(form.id);
     this.detailTitle.set(`Xem trước Biểu mẫu: ${form.name}`);
     this.formName.set(form.name);
+    this.formCode.set(form.code || '');
+    this.formCategory.set(form.category || '');
     this.formDescription.set(form.description);
+    this.formDescriptionInfo.set(form.descriptionInfo || '');
     
     const initialSimulated: { [key: string]: any } = {};
 
     try {
-      const parsedFields = JSON.parse(form.schema) || [];
+      const parsedFields = JSON.parse(form.formSchema) || [];
       this.fields.set(parsedFields);
       // Initialize simulated checkboxes to false
       parsedFields.forEach((f: FormField) => {
@@ -342,8 +395,32 @@ export class FormManagementComponent implements OnInit {
       placeholder: 'Nhập giá trị...',
       required: false,
       options,
-      width: 100
+      width: 100,
+      dataSourceType: 'manual'
     };
+  }
+
+  onDataSourceTypeChange(newType: 'manual' | 'catalog') {
+    const idx = this.selectedFieldIndex();
+    if (idx !== null) {
+      this.fields.update(currentFields => {
+        const updated = [...currentFields];
+        const updatedField = { ...updated[idx], dataSourceType: newType };
+        if (newType === 'catalog') {
+          updatedField.options = [];
+          if (!updatedField.catalogType && this.catalogTypes().length > 0) {
+            updatedField.catalogType = this.catalogTypes()[0].code;
+          }
+        } else {
+          if (!updatedField.options || updatedField.options.length === 0) {
+            updatedField.options = ['Lựa chọn A', 'Lựa chọn B'];
+          }
+          updatedField.catalogType = undefined;
+        }
+        updated[idx] = updatedField;
+        return updated;
+      });
+    }
   }
 
   selectField(index: number) {
@@ -459,8 +536,19 @@ export class FormManagementComponent implements OnInit {
 
   saveForm() {
     const fName = this.formName().trim();
+    const fCode = this.formCode().trim();
+    const fCategory = this.formCategory().trim();
+
     if (!fName) {
       this.messageService.add({ severity: 'warn', summary: 'Thiếu thông tin', detail: 'Vui lòng nhập tên biểu mẫu.' });
+      return;
+    }
+    if (!fCode) {
+      this.messageService.add({ severity: 'warn', summary: 'Thiếu thông tin', detail: 'Vui lòng nhập mã biểu mẫu.' });
+      return;
+    }
+    if (!fCategory) {
+      this.messageService.add({ severity: 'warn', summary: 'Thiếu thông tin', detail: 'Vui lòng chọn hạng mục áp dụng.' });
       return;
     }
 
@@ -472,11 +560,12 @@ export class FormManagementComponent implements OnInit {
 
     const schemaStr = JSON.stringify(currentFields);
     const desc = this.formDescription();
+    const fDescInfo = this.formDescriptionInfo();
     const isEdit = this.isEditMode();
     const tId = this.templateId();
     
     if (isEdit && tId) {
-      this.eavFormService.updateTemplate(tId, fName, desc, schemaStr).subscribe({
+      this.eavFormService.updateTemplate(tId, fName, fCode, fCategory, desc, fDescInfo, schemaStr).subscribe({
         next: () => {
           this.messageService.add({
             severity: 'success',
@@ -496,7 +585,7 @@ export class FormManagementComponent implements OnInit {
         }
       });
     } else {
-      this.eavFormService.createTemplate(fName, desc, schemaStr).subscribe({
+      this.eavFormService.createTemplate(fName, fCode, fCategory, desc, fDescInfo, schemaStr).subscribe({
         next: () => {
           this.messageService.add({
             severity: 'success',
@@ -545,5 +634,10 @@ export class FormManagementComponent implements OnInit {
         detail: 'Dữ liệu nhập liệu mô phỏng hoàn toàn đạt chuẩn cấu trúc!'
       });
     }
+  }
+
+  getCategoryName(code: string): string {
+    const cat = this.categories.find(c => c.code === code);
+    return cat ? cat.name : code || '(Chưa chọn)';
   }
 }
