@@ -40,5 +40,19 @@ export const CATALOG_ROUTES: Route[] = [
     path: 'private',
     loadComponent: () => import('./feature/catalog/catalog.component').then(m => m.CatalogComponent),
     data: { isPrivate: true, title: 'Danh mục riêng' }
+  },
+  {
+    path: 'dossier-type',
+    loadComponent: () => import('./feature/dossier-type/dossier-type.component').then(m => m.DossierTypeComponent)
+  },
+  {
+    path: 'substation',
+    loadComponent: () => import('./feature/infrastructure/infrastructure.component').then(m => m.InfrastructureComponent),
+    data: { infraTypeId: 1, title: 'Danh mục trạm biến áp' }
+  },
+  {
+    path: 'transmission-line',
+    loadComponent: () => import('./feature/infrastructure/infrastructure.component').then(m => m.InfrastructureComponent),
+    data: { infraTypeId: 2, title: 'Danh mục đường dây' }
   }
 ];
