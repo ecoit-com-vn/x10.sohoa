@@ -1,18 +1,54 @@
+    .wf-page {
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+      background-color: #f8fafc;
+      min-height: 100vh;
+    }
+
+    .breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.875rem;
+      color: #64748b;
+      margin-bottom: 1.25rem;
+      padding-top: 0.5rem;
+    }
+    .bc-sep {
+      color: #cbd5e1;
+    }
+    .bc-current {
+      color: #002D72;
+      font-weight: 600;
+    }
+
+    .wf-card {
+      background-color: white;
+      border-radius: 12px;
+      border: 1px solid #e2e8f0;
+      padding: 1.75rem;
+      box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px 0 rgba(0, 0, 0, 0.03);
+      position: relative;
+    }
 
     .form-builder-wrapper {
       display: flex;
       flex-direction: column;
       height: calc(100vh - 120px);
       gap: 1.5rem;
+      padding-top: 0.5rem;
     }
     .builder-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
       background-color: white;
-      padding: 1rem 1.5rem;
+      padding: 1.25rem 1.75rem;
       border-radius: 12px;
       border: 1px solid #e2e8f0;
+      box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
     }
     .builder-main-layout {
       display: grid;
@@ -76,6 +112,13 @@
       background-color: white;
       border-radius: 12px;
       border: 1px solid #e2e8f0;
+      padding: 1.75rem;
+      box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
     }
     .form-title-input {
       font-size: 1.15rem;
@@ -178,5 +221,192 @@
       display: flex;
       flex-direction: column;
       overflow: hidden;
+    }
+
+    // Modern styling for EAV Form Builder Card headers & section titles
+    ::ng-deep .p-card .p-card-body {
+      padding: 1.5rem !important;
+    }
+    ::ng-deep .p-card .p-card-title {
+      margin-top: 0.25rem !important;
+      margin-bottom: 1.25rem !important;
+      font-size: 1.15rem !important;
+      font-weight: 700 !important;
+      color: #002D72 !important;
+    }
+
+    .property-section-title {
+      margin-top: 1.25rem !important;
+      margin-bottom: 0.75rem !important;
+      padding-bottom: 6px !important;
+      border-bottom: 1px solid #cbd5e1 !important;
+      color: #002D72 !important;
+      font-size: 0.75rem !important;
+      font-weight: 700 !important;
+      text-transform: uppercase !important;
+      letter-spacing: 0.05em !important;
+    }
+
+    // Modern Table action buttons styling
+    .act-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      border: 1px solid #cbd5e1;
+      background-color: white;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      color: #64748b;
+      margin-right: 6px;
+      vertical-align: middle;
+
+      i {
+        font-size: 0.95rem;
+      }
+
+      &:hover {
+        background-color: #f1f5f9;
+        transform: translateY(-1px);
+      }
+      
+      &:active {
+        transform: translateY(0);
+      }
+    }
+
+    .act-preview {
+      color: #0d9488 !important;
+      border-color: #ccfbf1 !important;
+      background-color: #f0fdfa !important;
+
+      &:hover {
+        background-color: #ccfbf1 !important;
+        color: #0f766e !important;
+        box-shadow: 0 2px 4px rgba(13, 148, 136, 0.15);
+      }
+    }
+
+    .act-edit {
+      color: #002D72 !important;
+      border-color: #dbeafe !important;
+      background-color: #eff6ff !important;
+
+      &:hover {
+        background-color: #dbeafe !important;
+        color: #001e4e !important;
+        box-shadow: 0 2px 4px rgba(0, 45, 114, 0.15);
+      }
+    }
+
+    .act-delete {
+      color: #ef4444 !important;
+      border-color: #fee2e2 !important;
+      background-color: #fef2f2 !important;
+
+      &:hover {
+        background-color: #fee2e2 !important;
+        color: #b91c1c !important;
+        box-shadow: 0 2px 4px rgba(239, 68, 68, 0.15);
+      }
+    }
+
+    // Force table body cell text to black, except status-pill
+    .wf-table tbody tr td {
+      color: #000000 !important;
+      
+      code, b, a, span:not(.status-pill):not(.pi) {
+        color: #000000 !important;
+      }
+      
+      .wf-name-link {
+        color: #000000 !important;
+        &:hover {
+          color: #002D72 !important;
+          text-decoration: underline !important;
+        }
+      }
+    }
+
+    // Paginator layout
+    .table-footer-paginator {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 1.25rem;
+      padding-top: 1rem;
+      border-top: 1px solid #e2e8f0;
+      
+      .record-count {
+        font-size: 0.875rem;
+        color: #374151;
+        font-weight: 500;
+        b {
+          color: #000000 !important;
+        }
+      }
+
+      ::ng-deep .p-paginator {
+        background: transparent !important;
+        border: none !important;
+        padding: 0 !important;
+        
+        .p-paginator-page,
+        .p-paginator-first,
+        .p-paginator-prev,
+        .p-paginator-next,
+        .p-paginator-last,
+        .p-paginator-rpp-select {
+          color: #374151 !important;
+          border-radius: 6px;
+          border: 1px solid #e2e8f0;
+          background-color: white;
+          font-weight: 500;
+          transition: all 0.2s ease;
+          
+          &:hover:not(.p-disabled) {
+            background-color: #f1f5f9 !important;
+            border-color: #cbd5e1 !important;
+            color: #000000 !important;
+          }
+          
+          &.p-highlight {
+            background-color: #002D72 !important;
+            border-color: #002D72 !important;
+            color: white !important;
+          }
+        }
+      }
+    }
+
+    // Beautiful Blurry Loading Overlay
+    .loading-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(255, 255, 255, 0.7);
+      backdrop-filter: blur(1.5px);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 12px;
+    }
+    .loading-content {
+      display: flex;
+      align-items: center;
+      padding: 1.25rem 2rem;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      border: 1px solid #e2e8f0;
+      
+      span {
+        color: #002D72 !important;
+      }
     }
   

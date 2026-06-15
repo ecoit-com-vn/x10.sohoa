@@ -61,7 +61,7 @@ export class MenuManagement implements OnInit {
     return allMenus.filter(m => 
       (m.name?.toLowerCase().includes(kw) ?? false) || 
       (m.url?.toLowerCase().includes(kw) ?? false) ||
-      (m.permission?.toLowerCase().includes(kw) ?? false)
+      (m.permissionCode?.toLowerCase().includes(kw) ?? false)
     );
   });
 
@@ -103,13 +103,13 @@ export class MenuManagement implements OnInit {
     const result: any[] = [];
     const menusSafe = this.menus() || [];
     const rootNodes = menusSafe.filter(m => !m.parentId);
-    // Sắp xếp theo orderNum
-    rootNodes.sort((a, b) => a.orderNum - b.orderNum);
+    // Sắp xếp theo sortOrder
+    rootNodes.sort((a, b) => a.sortOrder - b.sortOrder);
     
     const visit = (node: any) => {
       result.push(node);
       const children = menusSafe.filter(m => m.parentId === node.id);
-      children.sort((a, b) => a.orderNum - b.orderNum);
+      children.sort((a, b) => a.sortOrder - b.sortOrder);
       children.forEach(visit);
     };
 
@@ -151,7 +151,7 @@ export class MenuManagement implements OnInit {
       return;
     }
     this.isEdit.set(false);
-    this.currentMenu.set({ name: '', url: '', icon: '', permission: null, parentId: null, orderNum: 0 });
+    this.currentMenu.set({ name: '', url: '', icon: '', permissionCode: null, parentId: null, sortOrder: 0 });
     this.formSubmitted.set(false);
     this.serverErrors.set({});
     this.dialogHeader.set('Thêm mới Menu');
@@ -188,8 +188,8 @@ export class MenuManagement implements OnInit {
       menuDraft.parentId = Number(menuDraft.parentId);
     }
 
-    if (menuDraft.permission === 'null' || menuDraft.permission === '') {
-      menuDraft.permission = null;
+    if (menuDraft.permissionCode === 'null' || menuDraft.permissionCode === '') {
+      menuDraft.permissionCode = null;
     }
 
     if (this.isEdit()) {

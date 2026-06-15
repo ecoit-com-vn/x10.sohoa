@@ -1,0 +1,463 @@
+<div class="wf-page">
+  <p-toast></p-toast>
+  
+  <!-- Breadcrumb -->
+  <div class="breadcrumb">
+    <i class="pi pi-home bc-icon"></i>
+    <span class="bc-text" style="cursor: pointer;" (click)="goBack()">Trang chủ</span>
+    <span class="bc-sep">/</span>
+    <span class="bc-text" style="cursor: pointer;" (click)="goBack()">Quản lý thiết bị</span>
+    <span class="bc-sep">/</span>
+    <span class="bc-text bc-current" [class.bc-current]="currentView() === 'list'" (click)="currentView() !== 'list' && goBack()" [class.bc-link]="currentView() !== 'list'">Danh sách thiết bị</span>
+    <span class="bc-sep" *ngIf="currentView() !== 'list'">/</span>
+    <span class="bc-current" *ngIf="currentView() === 'add'">Thêm mới</span>
+    <span class="bc-current" *ngIf="currentView() === 'edit'">Chỉnh sửa</span>
+  </div>
+
+  <div class="wf-card">
+    
+    <!-- ==================== VIEW 1: MÀN HÌNH DANH SÁCH ==================== -->
+    <div *ngIf="currentView() === 'list'" class="animate-fade-in">
+      <p class="text-muted mb-4">
+        Quản lý thông tin thiết bị kỹ thuật điện, cấu hình kết nối trạm biến áp, đường dây và nước sản xuất.
+      </p>
+
+      <!-- Toolbar Tìm kiếm & Thao tác -->
+      <div class="list-toolbar" style="margin-bottom: 20px; display: flex; flex-direction: column; gap: 12px; background: #f8fafc; padding: 16px; border-radius: 8px; border: 1px solid #e2e8f0;">
+        <!-- Hàng 1: Các bộ lọc danh mục và đơn vị (Cascade) -->
+        <div style="display: flex; gap: 12px; flex-wrap: wrap; width: 100%;">
+          <!-- Lọc theo Đơn vị quản lý (Tree Picker) -->
+          <div class="org-tree-picker" style="flex: 1.5; min-width: 250px;">
+            <div class="org-tree-trigger" (click)="toggleSearchOrgTree($event)"
+                 [class.has-value]="searchUnitId()"
+                 [class.open]="searchOrgTreeOpen()">
+              <span class="org-tree-selected-label">
+                <i class="pi pi-building" style="margin-right: 6px; color: #6b7280;"></i>
+                {{ getUnitLabel(searchUnitId()) || '-- Đơn vị quản lý --' }}
+              </span>
+              <i class="pi pi-times" *ngIf="searchUnitId()" (click)="clearSearchOrgUnit($event)" style="font-size: 0.75rem; color: #94a3b8; margin-right: 4px; cursor: pointer;"></i>
+              <i class="pi" [class.pi-chevron-down]="!searchOrgTreeOpen()" [class.pi-chevron-up]="searchOrgTreeOpen()"></i>
+            </div>
+            
+            <div class="org-tree-dropdown" *ngIf="searchOrgTreeOpen()" (click)="$event.stopPropagation()">
+              <ng-container *ngFor="let node of orgUnitTree()">
+                <ng-container *ngTemplateOutlet="searchOrgTreeNode; context: { $implicit: node, depth: 0 }"></ng-container>
+              </ng-container>
+              <div *ngIf="orgUnitTree().length === 0" class="org-tree-empty">Chưa có đơn vị nào.</div>
+            </div>
+          </div>
+
+          <!-- Lọc theo Trạm / Đường dây (cascade theo đơn vị) -->
+          <div style="flex: 1.5; min-width: 250px;">
+            <select class="wf-input" style="height: 38px; width: 100%; padding: 0 10px; border-radius: 6px; background-color: #ffffff !important; color: #374151 !important;"
+              [ngModel]="searchInfrastructureId()"
+              (ngModelChange)="searchInfrastructureId.set($event); onSearch()"
+              [disabled]="!searchUnitId()">
+              <option value="">{{ searchUnitId() ? '-- Chọn Trạm / Đường dây --' : '-- Vui lòng chọn Đơn vị quản lý --' }}</option>
+              <option *ngFor="let inf of searchInfrastructures()" [value]="inf.id">{{ inf.name }}</option>
+            </select>
+          </div>
+
+          <!-- Lọc theo Loại lưới điện -->
+          <div style="flex: 1; min-width: 150px;">
+            <select class="wf-input" style="height: 38px; width: 100%; padding: 0 10px; border-radius: 6px; background-color: #ffffff !important; color: #374151 !important;"
+              [ngModel]="searchGridTypeId()"
+              (ngModelChange)="searchGridTypeId.set($event); searchEquipmentTypeId.set(''); onSearch()">
+              <option value="">-- Lưới điện --</option>
+              <option *ngFor="let gt of gridTypes()" [value]="gt.id">{{ gt.name }}</option>
+            </select>
+          </div>
+
+          <!-- Lọc theo Loại thiết bị (cascade theo lưới điện) -->
+          <div style="flex: 1.5; min-width: 200px;">
+            <select class="wf-input" style="height: 38px; width: 100%; padding: 0 10px; border-radius: 6px; background-color: #ffffff !important; color: #374151 !important;"
+              [ngModel]="searchEquipmentTypeId()"
+              (ngModelChange)="searchEquipmentTypeId.set($event); onSearch()"
+              [disabled]="!searchGridTypeId()">
+              <option value="">{{ searchGridTypeId() ? '-- Chọn Loại thiết bị --' : '-- Vui lòng chọn Loại lưới điện --' }}</option>
+              <option *ngFor="let et of searchEquipmentTypes()" [value]="et.id">{{ et.name }}</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Hàng 2: Tìm kiếm nhanh, Trạng thái & Các nút thao tác -->
+        <div style="display: flex; gap: 12px; flex-wrap: wrap; width: 100%; align-items: center;">
+          <!-- Tìm kiếm theo mã/tên -->
+          <div style="flex: 2; min-width: 250px;">
+            <input type="text" class="wf-search-input" style="width: 100%; height: 38px;"
+              placeholder="Mã / Tên thiết bị..."
+              [ngModel]="searchName()"
+              (ngModelChange)="searchName.set($event)"
+              (keyup.enter)="onSearch()" />
+          </div>
+
+          <!-- Dropdown Trạng thái -->
+          <div style="flex: 1; min-width: 150px;">
+            <select class="wf-input" style="height: 38px; width: 100%; padding: 0 10px; border-radius: 6px; background-color: #ffffff !important; color: #374151 !important;"
+              [ngModel]="searchStatus()"
+              (ngModelChange)="searchStatus.set($event); onSearch()">
+              <option value="">-- Trạng thái --</option>
+              <option value="1">Hoạt động</option>
+              <option value="0">Bị khóa</option>
+            </select>
+          </div>
+
+          <!-- Tìm & Làm mới -->
+          <div style="display: flex; gap: 8px;">
+            <button class="btn-tim" (click)="onSearch()" style="height: 38px;">
+              <i class="pi pi-search"></i> Tìm
+            </button>
+            <button class="btn-outlined" style="height: 38px;" (click)="onResetSearch()">
+              Làm mới
+            </button>
+          </div>
+
+          <!-- Thêm mới -->
+          <div style="margin-left: auto;" *ngIf="canCreate()">
+            <button class="btn-green" (click)="onAddNew()" style="background-color: #3BA962; border-color: #3BA962; height: 38px;">
+              <i class="pi pi-plus"></i> Thêm mới
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bảng Grid dữ liệu -->
+      <div class="wf-table-wrap">
+        <table class="wf-table">
+          <thead>
+            <tr>
+              <th class="col-stt">STT</th>
+              <th>Mã thiết bị</th>
+              <th>Tên thiết bị</th>
+              <th>Loại thiết bị</th>
+              <th>Trạm / Đường dây</th>
+              <th>Đơn vị quản lý</th>
+              <th>Nước sản xuất</th>
+              <th>Người tạo</th>
+              <th style="width: 110px; text-align: center;">Trạng thái</th>
+              <th class="col-hd">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let item of paginatedItems(); let i = index">
+              <td class="col-stt text-muted">{{ (currentPage() - 1) * pageSize() + i + 1 }}</td>
+              <td><code>{{ item.code }}</code></td>
+              <td>
+                <span *ngIf="canEdit(); else viewOnlyName">
+                  <b class="wf-name-link" (click)="onEdit(item)">{{ item.name }}</b>
+                </span>
+                <ng-template #viewOnlyName>
+                  <b>{{ item.name }}</b>
+                </ng-template>
+              </td>
+              <td>
+                <span class="font-semibold" style="color: #1a3593;">{{ item.equipmentTypeName }}</span>
+                <span class="text-xs text-muted block">Lưới: {{ item.gridTypeName }}</span>
+              </td>
+              <td>{{ item.infrastructureName }}</td>
+              <td>{{ item.unitName }}</td>
+              <td>{{ item.countryName || '---' }}</td>
+              <td>
+                <span *ngIf="item.creator" [title]="'ID: ' + item.creator.id">
+                  {{ item.creator.name }} ({{ item.creator.username }})
+                </span>
+                <span class="text-muted italic" *ngIf="!item.creator">{{ item.createdBy || 'System' }}</span>
+              </td>
+              <td style="text-align: center;">
+                <span *ngIf="item.isActive === 1 || item.isActive === true" class="status-pill status-active"
+                  style="background-color: #ecfdf5; color: #065f46; border-color: #a7f3d0;">
+                  Hoạt động
+                </span>
+                <span *ngIf="item.isActive === 0 || item.isActive === false" class="status-pill status-locked"
+                  style="background-color: #f3f4f6; color: #374151; border-color: #d1d5db;">
+                  Bị khóa
+                </span>
+              </td>
+              <td class="col-hd">
+                <div class="action-buttons-group" style="display: flex; gap: 4px;">
+                  <!-- Lock/Unlock action -->
+                  <button *ngIf="canManage()" 
+                    class="act-btn" 
+                    [ngClass]="(item.isActive === 1 || item.isActive === true) ? 'act-delete' : 'act-edit'"
+                    [title]="(item.isActive === 1 || item.isActive === true) ? 'Khóa thiết bị' : 'Mở khóa thiết bị'" 
+                    (click)="onToggleStatus(item)">
+                    <i class="pi" [ngClass]="(item.isActive === 1 || item.isActive === true) ? 'pi-lock' : 'pi-lock-open'"></i>
+                  </button>
+
+                  <!-- Edit action -->
+                  <button *ngIf="canEdit()" class="act-btn act-edit" (click)="onEdit(item)" title="Chỉnh sửa">
+                    <i class="pi pi-pencil"></i>
+                  </button>
+
+                  <!-- Delete action -->
+                  <button *ngIf="canDelete()" class="act-btn act-delete" (click)="onDelete(item)" title="Xóa">
+                    <i class="pi pi-trash"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+            <tr *ngIf="items().length === 0">
+              <td colspan="10" class="empty-row">
+                <i class="pi pi-inbox"></i>
+                <div>Không tìm thấy thiết bị nào phù hợp.</div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Phân trang -->
+      <div class="table-footer" *ngIf="items().length > 0">
+        <span class="record-count">Tổng số: <b>{{ totalCount() }}</b> bản ghi.</span>
+        <div class="pagination">
+          <button class="page-btn" (click)="prevPage()" [disabled]="currentPage() === 1">
+            <i class="pi pi-chevron-left"></i>
+          </button>
+          <span class="page-current">Trang {{ currentPage() }} / {{ totalPages() || 1 }}</span>
+          <button class="page-btn" (click)="nextPage()" [disabled]="currentPage() >= totalPages()">
+            <i class="pi pi-chevron-right"></i>
+          </button>
+          <span style="margin-left: 10px; display: inline-flex; align-items: center; gap: 5px; font-size: 0.8rem; color: #6b7280;">
+            Đi tới trang:
+            <input type="number" class="page-jump-input" [value]="currentPage()" (change)="goToPage($any($event.target).value)" style="width: 50px; height: 28px; text-align: center; border: 1px solid #e5e7eb; border-radius: 4px; padding: 0 4px;" [min]="1" [max]="totalPages() || 1" />
+          </span>
+          <select class="page-size-sel" [ngModel]="pageSize()" (change)="onPageSizeChange($event)">
+            <option [value]="10">10 / trang</option>
+            <option [value]="20">20 / trang</option>
+            <option [value]="50">50 / trang</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== VIEW 2: MÀN HÌNH THÊM MỚI / CHỈNH SỬA (SUB-VIEW KHÔNG POPUP) ==================== -->
+    <div *ngIf="currentView() === 'add' || currentView() === 'edit'" class="animate-fade-in sub-view-container">
+      <div class="sub-view-header" style="border-bottom: 2px solid #FF6B00; padding-bottom: 10px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+        <h3 style="color: #002D72; margin: 0; font-size: 1.25rem; font-weight: 700;">
+          {{ currentView() === 'add' ? 'Thêm mới Thiết bị kỹ thuật' : 'Chỉnh sửa cấu hình Thiết bị' }}
+        </h3>
+        <button class="btn-outlined btn-small" (click)="goBack()">
+          <i class="pi pi-arrow-left"></i> Quay lại danh sách
+        </button>
+      </div>
+
+      <!-- Form chi tiết -->
+      <div class="grid-form-layout" style="display: flex; flex-direction: column; gap: 18px; max-width: 800px; margin: 0 auto; width: 100%;">
+        
+        <div class="form-group-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+          <!-- Đơn vị quản lý (Tree Picker) -->
+          <div class="form-group">
+            <label class="form-label" style="font-weight: 600; margin-bottom: 6px; display: block; color: #374151;">Đơn vị quản lý <span class="required" style="color: #ef4444;">*</span></label>
+            
+            <div class="org-tree-picker" [class.disabled]="isSaving()">
+              <div class="org-tree-trigger" (click)="!isSaving() && toggleFormOrgTree($event)"
+                   [class.has-value]="currentItem().unitId"
+                   [class.open]="formOrgTreeOpen()">
+                <span class="org-tree-selected-label">
+                  <i class="pi pi-building" style="margin-right: 6px; color: #6b7280;"></i>
+                  {{ getUnitLabel(currentItem().unitId) || '-- Chọn đơn vị quản lý --' }}
+                </span>
+                <i class="pi" [class.pi-chevron-down]="!formOrgTreeOpen()" [class.pi-chevron-up]="formOrgTreeOpen()"></i>
+              </div>
+              
+              <div class="org-tree-dropdown" *ngIf="formOrgTreeOpen()" (click)="$event.stopPropagation()">
+                <ng-container *ngFor="let node of orgUnitTree()">
+                  <ng-container *ngTemplateOutlet="formOrgTreeNode; context: { $implicit: node, depth: 0 }"></ng-container>
+                </ng-container>
+                <div *ngIf="orgUnitTree().length === 0" class="org-tree-empty">Chưa có đơn vị nào.</div>
+              </div>
+            </div>
+            
+            <span class="field-error" *ngIf="unitError()" style="color: #ef4444; font-size: 0.8rem; margin-top: 4px; display: block;">{{ unitError() }}</span>
+          </div>
+
+          <!-- Loại lưới điện -->
+          <div class="form-group">
+            <label class="form-label" style="font-weight: 600; margin-bottom: 6px; display: block; color: #374151;">Loại lưới điện <span class="required" style="color: #ef4444;">*</span></label>
+            <p-select [options]="gridTypes()" [(ngModel)]="currentItem().gridTypeId" 
+              (ngModelChange)="currentItem().equipmentTypeId = null; onFieldChange('gridTypeId')"
+              optionLabel="name" optionValue="id" placeholder="-- Chọn loại lưới điện --"
+              [disabled]="isSaving()"
+              [style]="{'width':'100%', 'height':'38px', 'line-height':'24px', 'border':'1px solid #cbd5e1', 'border-radius':'6px', 'background-color':'#ffffff', 'color':'#374151'}">
+            </p-select>
+            <span class="field-error" *ngIf="gridTypeError()" style="color: #ef4444; font-size: 0.8rem; margin-top: 4px; display: block;">{{ gridTypeError() }}</span>
+          </div>
+        </div>
+
+        <div class="form-group-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+          <!-- Trạm / Đường dây (Cascade) -->
+          <div class="form-group">
+            <label class="form-label" style="font-weight: 600; margin-bottom: 6px; display: block; color: #374151;">Trạm / Đường dây <span class="required" style="color: #ef4444;">*</span></label>
+            <p-select [options]="formInfrastructures()" [(ngModel)]="currentItem().infrastructureId" 
+              (ngModelChange)="onFieldChange('infrastructureId')"
+              optionLabel="name" optionValue="id" [placeholder]="currentItem().unitId ? '-- Chọn Trạm / Đường dây --' : '-- Vui lòng chọn Đơn vị quản lý --'"
+              [disabled]="!currentItem().unitId || isSaving()"
+              [style]="{'width':'100%', 'height':'38px', 'line-height':'24px', 'border':'1px solid #cbd5e1', 'border-radius':'6px', 'background-color':'#ffffff', 'color':'#374151'}">
+            </p-select>
+            <span class="field-error" *ngIf="infrastructureError()" style="color: #ef4444; font-size: 0.8rem; margin-top: 4px; display: block;">{{ infrastructureError() }}</span>
+          </div>
+
+          <!-- Loại thiết bị (Cascade) -->
+          <div class="form-group">
+            <label class="form-label" style="font-weight: 600; margin-bottom: 6px; display: block; color: #374151;">Loại thiết bị <span class="required" style="color: #ef4444;">*</span></label>
+            <p-select [options]="formEquipmentTypes()" [(ngModel)]="currentItem().equipmentTypeId" 
+              (ngModelChange)="onFieldChange('equipmentTypeId')"
+              optionLabel="name" optionValue="id" [placeholder]="currentItem().gridTypeId ? '-- Chọn loại thiết bị --' : '-- Vui lòng chọn Loại lưới điện --'"
+              [disabled]="!currentItem().gridTypeId || isSaving()"
+              [style]="{'width':'100%', 'height':'38px', 'line-height':'24px', 'border':'1px solid #cbd5e1', 'border-radius':'6px', 'background-color':'#ffffff', 'color':'#374151'}">
+            </p-select>
+            <span class="field-error" *ngIf="equipmentTypeError()" style="color: #ef4444; font-size: 0.8rem; margin-top: 4px; display: block;">{{ equipmentTypeError() }}</span>
+          </div>
+        </div>
+
+        <div class="form-group-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+          <!-- Mã thiết bị -->
+          <div class="form-group">
+            <label class="form-label" style="font-weight: 600; margin-bottom: 6px; display: block; color: #374151;">Mã thiết bị <span class="required" style="color: #ef4444;">*</span></label>
+            <input type="text" class="wf-input w-full" [(ngModel)]="currentItem().code" 
+              (ngModelChange)="onFieldChange('code')"
+              placeholder="Nhập mã thiết bị..." [disabled]="currentView() === 'edit' || isSaving()" 
+              style="background-color: #ffffff !important; color: #374151 !important;" />
+            <span class="field-error" *ngIf="codeError()" style="color: #ef4444; font-size: 0.8rem; margin-top: 4px; display: block;">{{ codeError() }}</span>
+          </div>
+
+          <!-- Tên thiết bị -->
+          <div class="form-group">
+            <label class="form-label" style="font-weight: 600; margin-bottom: 6px; display: block; color: #374151;">Tên thiết bị <span class="required" style="color: #ef4444;">*</span></label>
+            <input type="text" class="wf-input w-full" [(ngModel)]="currentItem().name" 
+              (ngModelChange)="onFieldChange('name')"
+              placeholder="Nhập tên thiết bị kỹ thuật..." [disabled]="isSaving()"
+              style="background-color: #ffffff !important; color: #374151 !important;" />
+            <span class="field-error" *ngIf="nameError()" style="color: #ef4444; font-size: 0.8rem; margin-top: 4px; display: block;">{{ nameError() }}</span>
+          </div>
+        </div>
+
+        <div class="form-group-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+          <!-- Nước sản xuất (Không bắt buộc) -->
+          <div class="form-group">
+            <label class="form-label" style="font-weight: 600; margin-bottom: 6px; display: block; color: #374151;">Nước sản xuất</label>
+            <p-select [options]="countries()" [(ngModel)]="currentItem().countryId" 
+              optionLabel="name" optionValue="id" placeholder="-- Chọn nước sản xuất (Tùy chọn) --"
+              [disabled]="isSaving()"
+              [style]="{'width':'100%', 'height':'38px', 'line-height':'24px', 'border':'1px solid #cbd5e1', 'border-radius':'6px', 'background-color':'#ffffff', 'color':'#374151'}">
+            </p-select>
+          </div>
+
+          <!-- Số Serial (SerialNumber) -->
+          <div class="form-group">
+            <label class="form-label" style="font-weight: 600; margin-bottom: 6px; display: block; color: #374151;">Số Serial (SerialNumber)</label>
+            <input type="text" class="wf-input w-full" [(ngModel)]="currentItem().serialNumber" 
+              placeholder="Nhập số Serial..." [disabled]="isSaving()"
+              style="background-color: #ffffff !important; color: #374151 !important;" />
+          </div>
+        </div>
+
+        <!-- Trạng thái Kích hoạt & Người tạo -->
+        <div class="form-group-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: center;">
+          <!-- Checkbox Kích hoạt -->
+          <div class="form-group" style="display: flex; align-items: center; gap: 8px; padding-top: 10px;">
+            <input type="checkbox" id="chkActive" [ngModel]="currentItem().isActive" (ngModelChange)="currentItem().isActive = $event" style="scale: 1.2; cursor: pointer;" [disabled]="isSaving()" />
+            <label for="chkActive" style="font-size: 0.95rem; font-weight: 600; cursor: pointer; user-select: none; margin: 0; color: #374151;">
+              Kích hoạt hoạt động (Active)
+            </label>
+          </div>
+
+          <!-- Thông tin người tạo (Nếu sửa) -->
+          <div class="form-group" *ngIf="currentView() === 'edit' && currentItem().creator">
+            <div style="background-color: #f8fafc; padding: 8px 12px; border-radius: 6px; border: 1px solid #e2e8f0; font-size: 0.85rem; color: #64748b;">
+              <i class="pi pi-user mr-1"></i> Người tạo: 
+              <b style="color: #374151;">{{ currentItem().creator.name }} ({{ currentItem().creator.username }})</b>
+            </div>
+          </div>
+        </div>
+
+        <!-- Nút Thao tác -->
+        <div class="form-actions" style="margin-top: 20px; padding-top: 16px; border-top: 1px solid #e2e8f0; display: flex; gap: 10px; justify-content: flex-end;">
+          <button class="btn-cancel" (click)="goBack()" [disabled]="isSaving()">
+            <i class="pi pi-times"></i> Hủy bỏ
+          </button>
+          <button class="btn-save" (click)="onSaveItem()" [disabled]="isSaving()" style="background-color: #4790e9; border-color: #4790e9;">
+            <i class="pi pi-spin pi-spinner" *ngIf="isSaving()" style="margin-right: 4px;"></i>
+            <i class="pi pi-save" *ngIf="!isSaving()" style="margin-right: 4px;"></i>
+            Lưu dữ liệu
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Recursive templates for Unit Tree Picker (Search filter) -->
+  <ng-template #searchOrgTreeNode let-node let-depth="depth">
+    <div class="org-tree-node" [style.padding-left.px]="depth * 14 + 8"
+         [class.selected]="searchUnitId() == node.id">
+      <button type="button" class="org-tree-expand-btn"
+              *ngIf="node.children && node.children.length > 0"
+              (click)="toggleSearchUnitNode(node.id, $event)">
+        <i class="pi" [class.pi-chevron-right]="!isSearchNodeExpanded(node.id)"
+           [class.pi-chevron-down]="isSearchNodeExpanded(node.id)"></i>
+      </button>
+      <span class="org-tree-node-spacer" *ngIf="!node.children || node.children.length === 0"></span>
+      <span class="org-tree-node-label" (click)="selectSearchOrgUnit(node.id)">{{ node.name }}</span>
+    </div>
+    <div *ngIf="isSearchNodeExpanded(node.id) && node.children && node.children.length > 0">
+      <ng-container *ngFor="let child of node.children">
+        <ng-container *ngTemplateOutlet="searchOrgTreeNode; context: { $implicit: child, depth: depth + 1 }"></ng-container>
+      </ng-container>
+    </div>
+  </ng-template>
+
+  <!-- Recursive templates for Unit Tree Picker (Form select) -->
+  <ng-template #formOrgTreeNode let-node let-depth="depth">
+    <div class="org-tree-node" [style.padding-left.px]="depth * 14 + 8"
+         [class.selected]="currentItem().unitId == node.id">
+      <button type="button" class="org-tree-expand-btn"
+              *ngIf="node.children && node.children.length > 0"
+              (click)="toggleFormUnitNode(node.id, $event)">
+        <i class="pi" [class.pi-chevron-right]="!isFormNodeExpanded(node.id)"
+           [class.pi-chevron-down]="isFormNodeExpanded(node.id)"></i>
+      </button>
+      <span class="org-tree-node-spacer" *ngIf="!node.children || node.children.length === 0"></span>
+      <span class="org-tree-node-label" (click)="selectFormOrgUnit(node.id)">{{ node.name }}</span>
+    </div>
+    <div *ngIf="isFormNodeExpanded(node.id) && node.children && node.children.length > 0">
+      <ng-container *ngFor="let child of node.children">
+        <ng-container *ngTemplateOutlet="formOrgTreeNode; context: { $implicit: child, depth: depth + 1 }"></ng-container>
+      </ng-container>
+    </div>
+  </ng-template>
+
+  <!-- ==================== DIALOG XÁC NHẬN XÓA (CUSTOM INLINE SIGNAL) ==================== -->
+  <p-dialog
+    [visible]="showDeleteConfirm()"
+    (visibleChange)="$event ? null : onCancelDelete()"
+    header="Xác nhận xóa"
+    [modal]="true"
+    [style]="{ width: '420px' }"
+    styleClass="evn-dialog-custom"
+    [closable]="!deleting()">
+    <div style="display: flex; align-items: flex-start; gap: 12px; padding: 8px 0 16px;">
+      <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #f59e0b;"></i>
+      <div>
+        <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">Bạn có chắc chắn muốn xóa?</p>
+        <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
+          Thiết bị <b style="color: #1e293b;">{{ deleteTarget()?.name }}</b> sẽ bị xóa vĩnh viễn khỏi hệ thống.
+        </p>
+      </div>
+    </div>
+    <ng-template #footer>
+      <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+        <button class="btn-cancel btn-small" (click)="onCancelDelete()" [disabled]="deleting()">
+          <i class="pi pi-times"></i> Hủy
+        </button>
+        <button class="btn-save btn-small" (click)="onConfirmDelete()" [disabled]="deleting()"
+                style="background-color: #dc2626; border-color: #dc2626;">
+          <i class="pi pi-spin pi-spinner" *ngIf="deleting()"></i>
+          <i class="pi pi-trash" *ngIf="!deleting()"></i>
+          Xóa
+        </button>
+      </div>
+    </ng-template>
+  </p-dialog>
+</div>

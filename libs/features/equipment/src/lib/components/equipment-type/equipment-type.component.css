@@ -1,0 +1,37 @@
+.sub-view-container {
+  padding: 5px;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.wf-name-link {
+  color: #1a3593;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.wf-name-link:hover {
+  text-decoration: underline;
+  color: #001e4e;
+}
+
+.form-group-row {
+  margin-bottom: 5px;
+}
+
+.field-error {
+  font-weight: 500;
+}

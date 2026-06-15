@@ -81,12 +81,12 @@
                   <span *ngIf="!m.icon" class="text-muted">-</span>
                 </td>
                 <td>
-                  <span class="status-pill status-active" *ngIf="m.permission" style="background-color: #eff6ff; color: #1e40af; border-color: #bfdbfe;">
-                    {{ m.permission }}
+                  <span class="status-pill status-active" *ngIf="m.permissionCode" style="background-color: #eff6ff; color: #1e40af; border-color: #bfdbfe;">
+                    {{ m.permissionCode }}
                   </span>
-                  <span class="text-muted" *ngIf="!m.permission">Không yêu cầu</span>
+                  <span class="text-muted" *ngIf="!m.permissionCode">Không yêu cầu</span>
                 </td>
-                <td>{{ m.orderNum }}</td>
+                <td>{{ m.sortOrder }}</td>
                 <td class="col-hd">
                   <button *ngIf="authService.hasPermission('MENU_EDIT')" class="act-btn act-edit" (click)="onEdit(m)" title="Chỉnh sửa"><i class="pi pi-pencil"></i></button>
                   <button *ngIf="authService.hasPermission('MENU_DELETE')" class="act-btn act-delete" (click)="onDelete(m)" title="Xóa"><i class="pi pi-trash"></i></button>
@@ -130,7 +130,7 @@
 
         <div class="form-group">
           <label class="form-label">Quyền hạn yêu cầu</label>
-          <select class="wf-select w-full" [(ngModel)]="currentMenu().permission" [disabled]="saving()">
+          <select class="wf-select w-full" [(ngModel)]="currentMenu().permissionCode" [disabled]="saving()">
             <option [value]="null">-- Không yêu cầu (Cho phép tất cả) --</option>
             <option *ngFor="let p of permissions()" [value]="p.code">{{ p.name }} ({{ p.code }})</option>
           </select>
@@ -146,7 +146,7 @@
 
         <div class="form-group">
           <label class="form-label">Thứ tự sắp xếp</label>
-          <input type="number" class="wf-input w-full" [(ngModel)]="currentMenu().orderNum" [disabled]="saving()" />
+          <input type="number" class="wf-input w-full" [(ngModel)]="currentMenu().sortOrder" [disabled]="saving()" />
         </div>
       </div>
       <ng-template #footer>

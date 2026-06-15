@@ -1,0 +1,292 @@
+<div class="wf-page">
+  <p-toast></p-toast>
+  
+  <!-- Breadcrumb -->
+  <div class="breadcrumb">
+    <i class="pi pi-home bc-icon"></i>
+    <span class="bc-text">Trang chủ</span>
+    <span class="bc-sep">/</span>
+    <span class="bc-text">Hệ thống Danh mục</span>
+    <span class="bc-sep">/</span>
+    <span class="bc-text bc-current" [class.bc-current]="currentView() === 'list'" (click)="currentView() !== 'list' && currentView.set('list')" [class.bc-link]="currentView() !== 'list'">{{ pageTitle() }}</span>
+    <span class="bc-sep" *ngIf="currentView() !== 'list'">/</span>
+    <span class="bc-current" *ngIf="currentView() === 'add'">Thêm mới</span>
+    <span class="bc-current" *ngIf="currentView() === 'edit'">Chỉnh sửa</span>
+  </div>
+
+  <div class="wf-card">
+    
+    <!-- MÀN HÌNH DANH SÁCH -->
+    <div *ngIf="currentView() === 'list' || currentView() === 'add' || currentView() === 'edit'" class="animate-fade-in">
+      <p class="text-muted mb-4">
+        Quản lý danh sách <b>{{ pageTitle() }}</b> trong hệ thống.
+      </p>
+
+      <!-- Toolbar -->
+      <div class="list-toolbar">
+        <div class="toolbar-left" style="display: flex; gap: 8px; align-items: center;">
+          <!-- Keyword input -->
+          <input type="text" class="wf-search-input"
+            placeholder="Tìm theo mã hoặc tên..."
+            [ngModel]="searchKeyword()"
+            (ngModelChange)="searchKeyword.set($event)"
+            (keyup.enter)="onSearch()" />
+          
+          <!-- Status Filter -->
+          <select class="wf-input" style="height: 38px; width: 140px; padding: 0 10px; border-radius: 6px;"
+            [ngModel]="searchStatus()"
+            (ngModelChange)="searchStatus.set($event); onSearch()">
+            <option value="">-- Trạng thái --</option>
+            <option value="1">Hoạt động (Active)</option>
+            <option value="0">Bị khóa (Locked)</option>
+          </select>
+
+          <button class="btn-tim" (click)="onSearch()">
+            <i class="pi pi-search"></i> Tìm
+          </button>
+          
+          <button class="btn-outlined" style="height: 38px;" (click)="onResetSearch()">
+            Làm mới
+          </button>
+        </div>
+        
+        <div class="toolbar-right" *ngIf="canCreate()">
+          <button class="btn-green" (click)="onAddNew()">
+            <i class="pi pi-plus"></i> Thêm mới
+          </button>
+        </div>
+      </div>
+
+      <!-- Table Grid -->
+      <div class="wf-table-wrap">
+        <table class="wf-table">
+          <thead>
+            <tr>
+              <th class="col-stt">STT</th>
+              <th>Mã</th>
+              <th>Tên</th>
+              <th>Địa chỉ</th>
+              <th>Đơn vị quản lý</th>
+              <th>Trạng thái</th>
+              <th class="col-hd">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let item of paginatedItems(); let i = index">
+              <td class="col-stt text-muted">{{ (currentPage() - 1) * pageSize() + i + 1 }}</td>
+              <td><code>{{ item.code }}</code></td>
+              <td>
+                <span *ngIf="canEdit(); else viewOnlyName">
+                  <b class="wf-name-link" (click)="onEdit(item)">{{ item.name }}</b>
+                </span>
+                <ng-template #viewOnlyName>
+                  <b>{{ item.name }}</b>
+                </ng-template>
+              </td>
+              <td>{{ item.address || '-' }}</td>
+              <td>
+                <span class="text-primary font-semibold" *ngIf="item.organization">
+                  {{ item.organization.name }}
+                </span>
+                <span class="text-muted italic" *ngIf="!item.organization">Chưa phân bổ</span>
+              </td>
+              <td>
+                <span *ngIf="item.isActive === 1 || item.isActive === true" class="status-pill status-active" 
+                  style="background-color: #ecfdf5; color: #065f46; border-color: #a7f3d0;">
+                  Hoạt động
+                </span>
+                <span *ngIf="item.isActive === 0 || item.isActive === false" class="status-pill status-locked" 
+                  style="background-color: #f3f4f6; color: #374151; border-color: #d1d5db;">
+                  Bị khóa
+                </span>
+              </td>
+              <td class="col-hd">
+                <div class="action-buttons-group">
+                  <!-- Lock/Unlock action -->
+                  <button *ngIf="canManage()" 
+                    class="act-btn" 
+                    [ngClass]="(item.isActive === 1 || item.isActive === true) ? 'act-delete' : 'act-edit'"
+                    [title]="(item.isActive === 1 || item.isActive === true) ? 'Khóa bản ghi' : 'Mở khóa bản ghi'" 
+                    (click)="onToggleStatus(item)">
+                    <i class="pi" [ngClass]="(item.isActive === 1 || item.isActive === true) ? 'pi-lock' : 'pi-lock-open'"></i>
+                  </button>
+
+                  <!-- Edit action -->
+                  <button *ngIf="canEdit()" class="act-btn act-edit" (click)="onEdit(item)" title="Chỉnh sửa">
+                    <i class="pi pi-pencil"></i>
+                  </button>
+
+                  <!-- Delete action -->
+                  <button *ngIf="canDelete()" class="act-btn act-delete" (click)="onDelete(item)" title="Xóa">
+                    <i class="pi pi-trash"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+            <tr *ngIf="items().length === 0">
+              <td colspan="7" class="empty-row">
+                <i class="pi pi-inbox"></i>
+                <div>Không tìm thấy bản ghi nào.</div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Footer with Pagination -->
+      <div class="table-footer" *ngIf="items().length > 0">
+        <span class="record-count">Tổng số: <b>{{ totalCount() }}</b> bản ghi.</span>
+        <div class="pagination">
+          <button class="page-btn" (click)="prevPage()" [disabled]="currentPage() === 1">
+            <i class="pi pi-chevron-left"></i>
+          </button>
+          <span class="page-current">Trang {{ currentPage() }} / {{ totalPages() || 1 }}</span>
+          <button class="page-btn" (click)="nextPage()" [disabled]="currentPage() >= totalPages()">
+            <i class="pi pi-chevron-right"></i>
+          </button>
+          <span style="margin-left: 10px; display: inline-flex; align-items: center; gap: 5px; font-size: 0.8rem; color: #6b7280;">
+            Đi tới trang:
+            <input type="number" class="page-jump-input" [value]="currentPage()" (change)="goToPage($any($event.target).value)" style="width: 50px; height: 28px; text-align: center; border: 1px solid #e5e7eb; border-radius: 4px; padding: 0 4px;" [min]="1" [max]="totalPages() || 1" />
+          </span>
+          <select class="page-size-sel" [ngModel]="pageSize()" (change)="onPageSizeChange($event)">
+            <option [value]="10">10 / trang</option>
+            <option [value]="20">20 / trang</option>
+            <option [value]="50">50 / trang</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dialog Thêm/Sửa -->
+    <p-dialog [visible]="currentView() === 'add' || currentView() === 'edit'" (visibleChange)="$event ? null : currentView.set('list')" [header]="currentView() === 'add' ? ('Thêm mới ' + (infraTypeId() === 1 ? 'Trạm biến áp' : 'Đường dây')) : ('Chỉnh sửa ' + (infraTypeId() === 1 ? 'Trạm biến áp' : 'Đường dây'))" [modal]="true" [style]="{ width: '500px' }" styleClass="evn-dialog-custom">
+      <div style="display: flex; flex-direction: column; gap: 16px; padding: 10px 0;">
+        
+        <div class="form-group">
+          <label class="form-label">Mã <span class="required">*</span></label>
+          <input type="text" class="wf-input w-full" [(ngModel)]="currentItem().code" 
+            (ngModelChange)="onFieldChange('code')"
+            placeholder="Ví dụ: TBA_01, DD_110KV..." [disabled]="currentView() === 'edit' || isSaving()" />
+          <span class="field-error" *ngIf="codeError()">{{ codeError() }}</span>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">Tên <span class="required">*</span></label>
+          <input type="text" class="wf-input w-full" [(ngModel)]="currentItem().name" 
+            (ngModelChange)="onFieldChange('name')"
+            placeholder="Nhập tên hiển thị..." [disabled]="isSaving()" />
+          <span class="field-error" *ngIf="nameError()">{{ nameError() }}</span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Địa chỉ</label>
+          <input type="text" class="wf-input w-full" [(ngModel)]="currentItem().address" 
+            placeholder="Nhập địa chỉ..." [disabled]="isSaving()" />
+        </div>
+
+        <!-- Đơn vị quản lý — Tree Picker -->
+        <div class="form-group">
+          <label class="form-label">Đơn vị quản lý</label>
+          <div class="org-tree-picker" [class.disabled]="isSaving()">
+            <!-- Thanh hiển thị đơn vị đã chọn -->
+            <div class="org-tree-trigger" (click)="!isSaving() && toggleOrgTreePicker($event)"
+                 [class.has-value]="currentItem().unitId"
+                 [class.open]="orgTreePickerOpen()">
+              <span class="org-tree-selected-label">
+                <i class="pi pi-building" style="margin-right: 6px; color: #6b7280;"></i>
+                {{ getUnitLabel(currentItem().unitId) || '-- Chọn đơn vị quản lý --' }}
+              </span>
+              <span style="display: flex; align-items: center; gap: 8px;">
+                <i class="pi pi-times-circle clear-btn" *ngIf="currentItem().unitId && !isSaving()" (click)="clearOrgUnit($event)" style="color: #94a3b8; font-size: 0.95rem; cursor: pointer; transition: color 0.15s;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#94a3b8'"></i>
+                <i class="pi" [class.pi-chevron-down]="!orgTreePickerOpen()" [class.pi-chevron-up]="orgTreePickerOpen()"></i>
+              </span>
+            </div>
+            <!-- Tree dropdown -->
+            <div class="org-tree-dropdown" *ngIf="orgTreePickerOpen()" (click)="$event.stopPropagation()">
+              <ng-container *ngFor="let node of orgUnitTree()">
+                <ng-container *ngTemplateOutlet="orgTreeNode; context: { $implicit: node, depth: 0 }"></ng-container>
+              </ng-container>
+              <div *ngIf="orgUnitTree().length === 0" class="org-tree-empty">Chưa có đơn vị nào.</div>
+            </div>
+          </div>
+          <!-- Template cây node (đệ quy) -->
+          <ng-template #orgTreeNode let-node let-depth="depth">
+            <div class="org-tree-node" [style.padding-left.px]="depth * 18 + 8"
+                 [class.selected]="currentItem().unitId == node.id">
+              <!-- Nút mở rộng nếu có con -->
+              <button type="button" class="org-tree-expand-btn"
+                      *ngIf="node.children && node.children.length > 0"
+                      (click)="toggleUnitNode(node.id, $event)">
+                <i class="pi" [class.pi-chevron-right]="!isNodeExpanded(node.id)"
+                   [class.pi-chevron-down]="isNodeExpanded(node.id)"></i>
+              </button>
+              <span class="org-tree-node-spacer" *ngIf="!node.children || node.children.length === 0"></span>
+              <!-- Nhãn đơn vị — click để chọn -->
+              <span class="org-tree-node-label" (click)="selectOrgUnit(node.id)">
+                <i class="pi pi-building" style="margin-right: 5px; font-size: 0.8rem; color: #6b7280;"></i>
+                {{ node.name }}
+              </span>
+            </div>
+            <!-- Cây con — chỉ hiện khi mở rộng -->
+            <ng-container *ngIf="isNodeExpanded(node.id) && node.children?.length">
+              <ng-container *ngFor="let child of node.children">
+                <ng-container *ngTemplateOutlet="orgTreeNode; context: { $implicit: child, depth: depth + 1 }"></ng-container>
+              </ng-container>
+            </ng-container>
+          </ng-template>
+        </div>
+        
+        <div class="form-group" style="display: flex; align-items: center; gap: 8px; padding-top: 5px;">
+          <input type="checkbox" id="chkActive" [ngModel]="currentItem().isActive" (ngModelChange)="currentItem().isActive = $event" style="scale: 1.1; cursor: pointer;" [disabled]="isSaving()" />
+          <label for="chkActive" style="font-size: 0.9rem; font-weight: 600; cursor: pointer; user-select: none; margin: 0;">
+            Kích hoạt sử dụng
+          </label>
+        </div>
+
+      </div>
+      <ng-template #footer>
+        <div class="flex gap-2 justify-content-end pt-3" style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+          <button class="btn-cancel btn-small" (click)="currentView.set('list')" [disabled]="isSaving()"><i class="pi pi-times"></i> Đóng</button>
+          <button class="btn-save btn-small" (click)="onSaveItem()" [disabled]="isSaving()">
+            <i class="pi pi-spin pi-spinner" *ngIf="isSaving()" style="margin-right: 4px;"></i>
+            <i class="pi pi-save" *ngIf="!isSaving()" style="margin-right: 4px;"></i>
+            Lưu
+          </button>
+        </div>
+      </ng-template>
+    </p-dialog>
+
+    <!-- Dialog Xác nhận Xóa -->
+    <p-dialog
+      [visible]="showDeleteConfirm()"
+      (visibleChange)="$event ? null : onCancelDelete()"
+      header="Xác nhận xóa"
+      [modal]="true"
+      [style]="{ width: '420px' }"
+      styleClass="evn-dialog-custom"
+      [closable]="!deleting()">
+      <div style="display: flex; align-items: flex-start; gap: 12px; padding: 8px 0 16px;">
+        <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #f59e0b;"></i>
+        <div>
+          <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">Bạn có chắc chắn muốn xóa?</p>
+          <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
+            Bản ghi <b style="color: #1e293b;">{{ deleteTarget()?.name }}</b> sẽ bị xóa vĩnh viễn.
+          </p>
+        </div>
+      </div>
+      <ng-template #footer>
+        <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+          <button class="btn-cancel btn-small" (click)="onCancelDelete()" [disabled]="deleting()">
+            <i class="pi pi-times"></i> Hủy
+          </button>
+          <button class="btn-save btn-small" (click)="onConfirmDelete()" [disabled]="deleting()"
+                  style="background-color: #dc2626; border-color: #dc2626;">
+            <i class="pi pi-spin pi-spinner" *ngIf="deleting()"></i>
+            <i class="pi pi-trash" *ngIf="!deleting()"></i>
+            Xóa
+          </button>
+        </div>
+      </ng-template>
+    </p-dialog>
+
+  </div>
+</div>

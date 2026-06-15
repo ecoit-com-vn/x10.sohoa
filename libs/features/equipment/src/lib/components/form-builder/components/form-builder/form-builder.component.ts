@@ -23,6 +23,8 @@ interface FormField {
   options?: string[]; // for dropdown/select type
   helpText?: string;
   width: number; // grid width percentage (50% or 100%)
+  dataSourceType?: 'manual' | 'catalog';
+  catalogType?: string;
 }
 
 interface ToolboxItem {
@@ -55,8 +57,8 @@ export class FormBuilderComponent implements OnInit {
   templateId: string | null = null;
   loading = false;
 
-  formName: string = 'Biểu mẫu thiết bị mới';
-  formDescription: string = 'Định nghĩa các thông số kỹ thuật số hóa thiết bị';
+  formName: string = '';
+  formDescription: string = '';
   showJson: boolean = false;
   
   fields: FormField[] = [];
@@ -89,6 +91,7 @@ export class FormBuilderComponent implements OnInit {
   private messageService = inject(MessageService);
 
   ngOnInit() {
+    this.loadCatalogTypes();
     this.route.queryParams.subscribe(params => {
       if (params['id']) {
         this.templateId = params['id'];
@@ -106,7 +109,7 @@ export class FormBuilderComponent implements OnInit {
         this.formName = data.name;
         this.formDescription = data.description;
         try {
-          this.fields = JSON.parse(data.schema) || [];
+          this.fields = JSON.parse(data.formSchema) || [];
           if (this.fields.length > 0) {
             this.selectedFieldIndex = 0;
           }
@@ -128,37 +131,31 @@ export class FormBuilderComponent implements OnInit {
     });
   }
 
-  loadDefaultFields() {
-    this.fields = [
-      {
-        id: 'f_' + Date.now() + '_1',
-        name: 'ten_thiet_bi',
-        label: 'Tên thiết bị',
-        type: 'text',
-        placeholder: 'Nhập tên thiết bị...',
-        required: true,
-        width: 100
+  catalogTypes: any[] = [];
+
+  loadCatalogTypes() {
+    this.eavFormService.getCatalogTypes().subscribe({
+      next: (types) => {
+        this.catalogTypes = types || [];
       },
-      {
-        id: 'f_' + Date.now() + '_2',
-        name: 'dien_ap_dinh_muc',
-        label: 'Điện áp định mức (kV)',
-        type: 'number',
-        placeholder: 'Ví dụ: 110, 220...',
-        required: true,
-        width: 50
-      },
-      {
-        id: 'f_' + Date.now() + '_3',
-        name: 'cap_dien_ap',
-        label: 'Cấp điện áp',
-        type: 'dropdown',
-        required: true,
-        options: ['110kV', '220kV', '500kV', 'Trung thế'],
-        width: 50
+      error: (err) => {
+        console.error('Failed to load catalog types', err);
+        this.catalogTypes = [
+          { code: 'HANG_SAN_XUAT', name: 'Hãng sản xuất' },
+          { code: 'CAP_DIEN_AP', name: 'Cấp điện áp' },
+          { code: 'TINH_TRANG_VH', name: 'Tình trạng vận hành' },
+          { code: 'DON_VI', name: 'Đơn vị quản lý' },
+          { code: 'CHUC_VU', name: 'Chức vụ' }
+        ];
       }
-    ];
-    this.selectedFieldIndex = 0;
+    });
+  }
+
+  loadDefaultFields() {
+    this.fields = [];
+    this.selectedFieldIndex = null;
+    this.formName = '';
+    this.formDescription = '';
   }
 
   // --- HTML5 Drag & Drop for Toolbox -> Canvas ---
@@ -270,8 +267,23 @@ export class FormBuilderComponent implements OnInit {
       placeholder: 'Nhập giá trị...',
       required: false,
       options,
-      width: 100
+      width: 100,
+      dataSourceType: 'manual'
     };
+  }
+
+  onDataSourceTypeChange(field: FormField) {
+    if (field.dataSourceType === 'catalog') {
+      field.options = [];
+      if (!field.catalogType && this.catalogTypes.length > 0) {
+        field.catalogType = this.catalogTypes[0].code;
+      }
+    } else {
+      if (!field.options || field.options.length === 0) {
+        field.options = ['Lựa chọn 1', 'Lựa chọn 2'];
+      }
+      field.catalogType = undefined;
+    }
   }
 
   selectField(index: number) {
@@ -343,7 +355,7 @@ export class FormBuilderComponent implements OnInit {
     
     if (this.templateId) {
       // Upgrade existing version
-      this.eavFormService.updateTemplate(this.templateId, this.formName, this.formDescription, schemaStr).subscribe({
+      this.eavFormService.updateTemplate(this.templateId, this.formName, '', '', this.formDescription, '', schemaStr).subscribe({
         next: () => {
           this.messageService.add({
             severity: 'success',
@@ -365,7 +377,7 @@ export class FormBuilderComponent implements OnInit {
       });
     } else {
       // Create new template
-      this.eavFormService.createTemplate(this.formName, this.formDescription, schemaStr).subscribe({
+      this.eavFormService.createTemplate(this.formName, '', '', this.formDescription, '', schemaStr).subscribe({
         next: () => {
           this.messageService.add({
             severity: 'success',
