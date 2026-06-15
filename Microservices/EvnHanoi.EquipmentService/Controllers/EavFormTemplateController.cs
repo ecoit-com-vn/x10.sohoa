@@ -42,21 +42,24 @@ public class EavFormTemplateController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<EavFormTemplate>> Create([FromBody] CreateEavFormTemplateRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.Schema))
+        if (string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.FormSchema) || string.IsNullOrWhiteSpace(request.Code) || string.IsNullOrWhiteSpace(request.Category))
         {
-            return BadRequest("Tên biểu mẫu và cấu trúc Schema không được để trống.");
+            return BadRequest("Tên biểu mẫu, mã biểu mẫu, hạng mục áp dụng và cấu trúc Schema không được để trống.");
         }
 
         try
         {
             var template = await _service.CreateFormTemplateAsync(
                 request.Name,
+                request.Code,
+                request.Category,
                 request.Description ?? string.Empty,
-                request.Schema,
+                request.DescriptionInfo ?? string.Empty,
+                request.FormSchema,
                 request.CreatedBy ?? "admin"
             );
 
-            return CreatedAtAction(nameof(GetById), new { id = template.Id }, template);
+            return CreatedAtAction(nameof(GetById), new { id = template.Id.ToString() }, template);
         }
         catch (ArgumentException ex)
         {
@@ -71,9 +74,9 @@ public class EavFormTemplateController : ControllerBase
     [HttpPut("{id:guid}")]
     public async Task<ActionResult<EavFormTemplate>> UpgradeVersion(Guid id, [FromBody] UpgradeEavFormTemplateRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.Schema))
+        if (string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.FormSchema) || string.IsNullOrWhiteSpace(request.Code) || string.IsNullOrWhiteSpace(request.Category))
         {
-            return BadRequest("Tên biểu mẫu và cấu trúc Schema không được để trống.");
+            return BadRequest("Tên biểu mẫu, mã biểu mẫu, hạng mục áp dụng và cấu trúc Schema không được để trống.");
         }
 
         try
@@ -82,8 +85,11 @@ public class EavFormTemplateController : ControllerBase
             var newTemplate = await _service.UpdateFormTemplateAsync(
                 id, 
                 request.Name, 
+                request.Code,
+                request.Category,
                 request.Description ?? string.Empty, 
-                request.Schema, 
+                request.DescriptionInfo ?? string.Empty, 
+                request.FormSchema, 
                 updatedBy);
 
             return Ok(newTemplate);
@@ -114,15 +120,21 @@ public class EavFormTemplateController : ControllerBase
 public class CreateEavFormTemplateRequest
 {
     public string Name { get; set; } = string.Empty;
+    public string Code { get; set; } = string.Empty;
+    public string Category { get; set; } = string.Empty;
     public string? Description { get; set; }
-    public string Schema { get; set; } = string.Empty;
+    public string? DescriptionInfo { get; set; }
+    public string FormSchema { get; set; } = string.Empty;
     public string? CreatedBy { get; set; }
 }
 
 public class UpgradeEavFormTemplateRequest
 {
     public string Name { get; set; } = string.Empty;
+    public string Code { get; set; } = string.Empty;
+    public string Category { get; set; } = string.Empty;
     public string? Description { get; set; }
-    public string Schema { get; set; } = string.Empty;
+    public string? DescriptionInfo { get; set; }
+    public string FormSchema { get; set; } = string.Empty;
     public string? UpdatedBy { get; set; }
 }
