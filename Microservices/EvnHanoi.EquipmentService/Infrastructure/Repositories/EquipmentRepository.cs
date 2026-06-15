@@ -1,7 +1,13 @@
+using System;
+using System.Collections.Generic;
 using System.Data;
+using System.Linq;
+using System.Threading.Tasks;
 using Dapper;
 using EvnHanoi.EquipmentService.Core.Entities;
+using EvnHanoi.EquipmentService.Core.DTOs;
 using EvnHanoi.EquipmentService.Core.Interfaces;
+using InfrastructureEntity = EvnHanoi.EquipmentService.Core.Entities.Infrastructure;
 
 namespace EvnHanoi.EquipmentService.Infrastructure.Repositories;
 
@@ -16,22 +22,251 @@ public class EquipmentRepository : IEquipmentRepository
 
     public async Task<Equipment?> GetByIdAsync(Guid id)
     {
-        var sql = $"SELECT * FROM {nameof(Equipment)}s WHERE {nameof(Equipment.Id)} = :Id";
-        return await _connection.QuerySingleOrDefaultAsync<Equipment>(sql, new { Id = id });
+        if (_connection.State != ConnectionState.Open) 
+            _connection.Open();
+
+        var sql = $@"SELECT Id, 
+                            EquipmentTypeId, 
+                            Name, 
+                            Code, 
+                            SerialNumber, 
+                            INFRASTRUCTURE_ID as {nameof(Equipment.InfrastructureId)}, 
+                            COUNTRY_ID as {nameof(Equipment.CountryId)}, 
+                            IS_ACTIVE as {nameof(Equipment.IsActive)}, 
+                            CreatorId as {nameof(Equipment.CreatorId)}, 
+                            CreatedBy, 
+                            CreatedAt, 
+                            ModifiedBy as {nameof(Equipment.ModifiedBy)}, 
+                            ModifiedDate as {nameof(Equipment.ModifiedDate)}, 
+                            IsDeleted as {nameof(Equipment.IsDeleted)}, 
+                            UnitId as {nameof(Equipment.UnitId)}
+                     FROM EQUIPMENTS 
+                     WHERE Id = :Id AND IsDeleted = 0";
+        return await _connection.QuerySingleOrDefaultAsync<Equipment>(sql, new { Id = id.ToString() });
+    }
+
+    public async Task<EquipmentDto?> GetDtoByIdAsync(Guid id)
+    {
+        if (_connection.State != ConnectionState.Open) 
+            _connection.Open();
+
+        var sql = $@"SELECT e.Id AS {nameof(EquipmentDto.Id)},
+                            e.Name AS {nameof(EquipmentDto.Name)},
+                            e.Code AS {nameof(EquipmentDto.Code)},
+                            e.SerialNumber AS {nameof(EquipmentDto.SerialNumber)},
+                            e.EquipmentTypeId AS {nameof(EquipmentDto.EquipmentTypeId)},
+                            e.INFRASTRUCTURE_ID AS {nameof(EquipmentDto.InfrastructureId)},
+                            e.COUNTRY_ID AS {nameof(EquipmentDto.CountryId)},
+                            e.IS_ACTIVE AS {nameof(EquipmentDto.IsActive)},
+                            e.CreatedBy AS {nameof(EquipmentDto.CreatedBy)},
+                            e.CreatedAt AS {nameof(EquipmentDto.CreatedAt)},
+                            e.ModifiedBy AS {nameof(EquipmentDto.ModifiedBy)},
+                            e.ModifiedDate AS {nameof(EquipmentDto.ModifiedDate)},
+                            et.Name AS {nameof(EquipmentDto.EquipmentTypeName)},
+                            et.Code AS {nameof(EquipmentDto.EquipmentTypeCode)},
+                            et.GridTypeId AS {nameof(EquipmentDto.GridTypeId)},
+                            gt.Name AS {nameof(EquipmentDto.GridTypeName)},
+                            inf.Name AS {nameof(EquipmentDto.InfrastructureName)},
+                            inf.Code AS {nameof(EquipmentDto.InfrastructureCode)},
+                            e.UnitId AS {nameof(EquipmentDto.UnitId)},
+                            u.Name AS {nameof(EquipmentDto.UnitName)},
+                            c.Name AS {nameof(EquipmentDto.CountryName)},
+                            c.Code AS {nameof(EquipmentDto.CountryCode)},
+                            usr.Id AS CreatorId,
+                            usr.UserName AS Username,
+                            usr.FullName AS Name
+                     FROM EQUIPMENTS e
+                     LEFT JOIN EquipmentTypes et ON e.EquipmentTypeId = et.Id
+                     LEFT JOIN GridTypes gt ON et.GridTypeId = gt.Id
+                     LEFT JOIN INFRASTRUCTURE inf ON e.INFRASTRUCTURE_ID = inf.Id
+                     LEFT JOIN ORGANIZATION_UNIT u ON e.UnitId = u.Id
+                     LEFT JOIN COUNTRIES c ON e.COUNTRY_ID = c.Id
+                     LEFT JOIN APP_USER usr ON e.CreatorId = usr.Id
+                     WHERE e.Id = :Id AND e.IsDeleted = 0";
+
+        var result = await _connection.QueryAsync<EquipmentDto, CreatorInfoDto, EquipmentDto>(
+            sql, 
+            (eq, creator) => {
+                if (creator != null && creator.Id != Guid.Empty) {
+                    eq.Creator = creator;
+                }
+                return eq;
+            },
+            new { Id = id.ToString() },
+            splitOn: "CreatorId"
+        );
+        return result.FirstOrDefault();
     }
 
     public async Task<IEnumerable<Equipment>> GetAllAsync(IEnumerable<long>? unitIds = null)
     {
+        if (_connection.State != ConnectionState.Open) 
+            _connection.Open();
+
         if (unitIds == null || !unitIds.Any())
         {
-            var sql = $"SELECT * FROM {nameof(Equipment)}s";
+            var sql = $@"SELECT Id, 
+                                EquipmentTypeId, 
+                                Name, 
+                                Code, 
+                                SerialNumber, 
+                                INFRASTRUCTURE_ID as {nameof(Equipment.InfrastructureId)}, 
+                                COUNTRY_ID as {nameof(Equipment.CountryId)}, 
+                                IS_ACTIVE as {nameof(Equipment.IsActive)}, 
+                                CreatorId as {nameof(Equipment.CreatorId)}, 
+                                CreatedBy, 
+                                CreatedAt, 
+                                ModifiedBy as {nameof(Equipment.ModifiedBy)}, 
+                                ModifiedDate as {nameof(Equipment.ModifiedDate)}, 
+                                IsDeleted as {nameof(Equipment.IsDeleted)}, 
+                                UnitId as {nameof(Equipment.UnitId)}
+                         FROM EQUIPMENTS WHERE IsDeleted = 0";
             return await _connection.QueryAsync<Equipment>(sql);
         }
         else
         {
-            var sql = $"SELECT * FROM {nameof(Equipment)}s WHERE {nameof(Equipment.UnitId)} IN :UnitIds";
+            var sql = $@"SELECT Id, 
+                                EquipmentTypeId, 
+                                Name, 
+                                Code, 
+                                SerialNumber, 
+                                INFRASTRUCTURE_ID as {nameof(Equipment.InfrastructureId)}, 
+                                COUNTRY_ID as {nameof(Equipment.CountryId)}, 
+                                IS_ACTIVE as {nameof(Equipment.IsActive)}, 
+                                CreatorId as {nameof(Equipment.CreatorId)}, 
+                                CreatedBy, 
+                                CreatedAt, 
+                                ModifiedBy as {nameof(Equipment.ModifiedBy)}, 
+                                ModifiedDate as {nameof(Equipment.ModifiedDate)}, 
+                                IsDeleted as {nameof(Equipment.IsDeleted)}, 
+                                UnitId as {nameof(Equipment.UnitId)}
+                         FROM EQUIPMENTS 
+                         WHERE UnitId IN :UnitIds AND IsDeleted = 0";
             return await _connection.QueryAsync<Equipment>(sql, new { UnitIds = unitIds.ToArray() });
         }
+    }
+
+    public async Task<(IEnumerable<EquipmentDto> Items, int TotalCount)> GetPagedAsync(
+        int page, 
+        int pageSize, 
+        string? code, 
+        string? name, 
+        long? unitId, 
+        Guid? infrastructureId, 
+        int? gridTypeId, 
+        Guid? equipmentTypeId, 
+        bool? isActive, 
+        IEnumerable<long>? authorizedUnitIds)
+    {
+        if (_connection.State != ConnectionState.Open) 
+            _connection.Open();
+
+        var sqlBase = @"FROM EQUIPMENTS e
+                        LEFT JOIN EquipmentTypes et ON e.EquipmentTypeId = et.Id
+                        LEFT JOIN GridTypes gt ON et.GridTypeId = gt.Id
+                        LEFT JOIN INFRASTRUCTURE inf ON e.INFRASTRUCTURE_ID = inf.Id
+                        LEFT JOIN ORGANIZATION_UNIT u ON e.UnitId = u.Id
+                        LEFT JOIN COUNTRIES c ON e.COUNTRY_ID = c.Id
+                        LEFT JOIN APP_USER usr ON e.CreatorId = usr.Id
+                        WHERE e.IsDeleted = 0";
+
+        var parameters = new DynamicParameters();
+
+        if (!string.IsNullOrEmpty(code))
+        {
+            sqlBase += " AND LOWER(e.Code) LIKE :Code";
+            parameters.Add("Code", $"%{code.ToLower().Trim()}%");
+        }
+
+        if (!string.IsNullOrEmpty(name))
+        {
+            sqlBase += " AND LOWER(e.Name) LIKE :Name";
+            parameters.Add("Name", $"%{name.ToLower().Trim()}%");
+        }
+
+        if (unitId.HasValue)
+        {
+            sqlBase += " AND e.UnitId = :UnitId";
+            parameters.Add("UnitId", unitId.Value);
+        }
+        else if (authorizedUnitIds != null && authorizedUnitIds.Any())
+        {
+            sqlBase += " AND e.UnitId IN :AuthorizedUnitIds";
+            parameters.Add("AuthorizedUnitIds", authorizedUnitIds.ToArray());
+        }
+
+        if (infrastructureId.HasValue)
+        {
+            sqlBase += " AND e.INFRASTRUCTURE_ID = :InfrastructureId";
+            parameters.Add("InfrastructureId", infrastructureId.Value.ToString());
+        }
+
+        if (gridTypeId.HasValue)
+        {
+            sqlBase += " AND et.GridTypeId = :GridTypeId";
+            parameters.Add("GridTypeId", gridTypeId.Value);
+        }
+
+        if (equipmentTypeId.HasValue)
+        {
+            sqlBase += " AND e.EquipmentTypeId = :EquipmentTypeId";
+            parameters.Add("EquipmentTypeId", equipmentTypeId.Value.ToString());
+        }
+
+        if (isActive.HasValue)
+        {
+            sqlBase += " AND e.IS_ACTIVE = :IsActive";
+            parameters.Add("IsActive", isActive.Value ? 1 : 0);
+        }
+
+        var countSql = $"SELECT COUNT(1) {sqlBase}";
+        var totalCount = await _connection.ExecuteScalarAsync<int>(countSql, parameters);
+
+        var selectSql = $@"SELECT e.Id AS {nameof(EquipmentDto.Id)},
+                                   e.Name AS {nameof(EquipmentDto.Name)},
+                                   e.Code AS {nameof(EquipmentDto.Code)},
+                                   e.SerialNumber AS {nameof(EquipmentDto.SerialNumber)},
+                                   e.EquipmentTypeId AS {nameof(EquipmentDto.EquipmentTypeId)},
+                                   e.INFRASTRUCTURE_ID AS {nameof(EquipmentDto.InfrastructureId)},
+                                   e.COUNTRY_ID AS {nameof(EquipmentDto.CountryId)},
+                                   e.IS_ACTIVE AS {nameof(EquipmentDto.IsActive)},
+                                   e.CreatedBy AS {nameof(EquipmentDto.CreatedBy)},
+                                   e.CreatedAt AS {nameof(EquipmentDto.CreatedAt)},
+                                   e.ModifiedBy AS {nameof(EquipmentDto.ModifiedBy)},
+                                   e.ModifiedDate AS {nameof(EquipmentDto.ModifiedDate)},
+                                   et.Name AS {nameof(EquipmentDto.EquipmentTypeName)},
+                                   et.Code AS {nameof(EquipmentDto.EquipmentTypeCode)},
+                                   et.GridTypeId AS {nameof(EquipmentDto.GridTypeId)},
+                                   gt.Name AS {nameof(EquipmentDto.GridTypeName)},
+                                   inf.Name AS {nameof(EquipmentDto.InfrastructureName)},
+                                   inf.Code AS {nameof(EquipmentDto.InfrastructureCode)},
+                                   e.UnitId AS {nameof(EquipmentDto.UnitId)},
+                                   u.Name AS {nameof(EquipmentDto.UnitName)},
+                                   c.Name AS {nameof(EquipmentDto.CountryName)},
+                                   c.Code AS {nameof(EquipmentDto.CountryCode)},
+                                   usr.Id AS CreatorId,
+                                   usr.UserName AS Username,
+                                   usr.FullName AS Name
+                            {sqlBase}
+                            ORDER BY e.CreatedAt DESC, e.Code ASC
+                            OFFSET :Offset ROWS FETCH NEXT :PageSize ROWS ONLY";
+
+        parameters.Add("Offset", (page - 1) * pageSize);
+        parameters.Add("PageSize", pageSize);
+
+        var items = await _connection.QueryAsync<EquipmentDto, CreatorInfoDto, EquipmentDto>(
+            selectSql,
+            (eq, creator) => {
+                if (creator != null && creator.Id != Guid.Empty) {
+                    eq.Creator = creator;
+                }
+                return eq;
+            },
+            parameters,
+            splitOn: "CreatorId"
+        );
+
+        return (items, totalCount);
     }
 
     public async Task<bool> CreateWithAttributesAsync(Equipment equipment, IEnumerable<AttributeValue> attributes)
@@ -44,29 +279,72 @@ public class EquipmentRepository : IEquipmentRepository
 
         try
         {
-            var insertEquipmentSql = $@"INSERT INTO {nameof(Equipment)}s (
-                                           {nameof(Equipment.Id)}, 
-                                           {nameof(Equipment.EquipmentTypeId)}, 
-                                           {nameof(Equipment.Name)}, 
-                                           {nameof(Equipment.Code)}, 
-                                           {nameof(Equipment.SerialNumber)}, 
-                                           {nameof(Equipment.CreatedAt)}, 
-                                           {nameof(Equipment.CreatedBy)}, 
-                                           {nameof(Equipment.UnitId)}
+            var insertEquipmentSql = $@"INSERT INTO EQUIPMENTS (
+                                           Id, 
+                                           EquipmentTypeId, 
+                                           Name, 
+                                           Code, 
+                                           SerialNumber, 
+                                           INFRASTRUCTURE_ID, 
+                                           COUNTRY_ID, 
+                                           IS_ACTIVE, 
+                                           CreatorId, 
+                                           CreatedBy, 
+                                           CreatedAt, 
+                                           IsDeleted,
+                                           UnitId
                                        )
-                                       VALUES (:Id, :EquipmentTypeId, :Name, :Code, :SerialNumber, :CreatedAt, :CreatedBy, :UnitId)";
-            await _connection.ExecuteAsync(insertEquipmentSql, equipment, transaction);
+                                       VALUES (
+                                           :Id, 
+                                           :EquipmentTypeId, 
+                                           :Name, 
+                                           :Code, 
+                                           :SerialNumber, 
+                                           :InfrastructureId, 
+                                           :CountryId, 
+                                           :IsActive, 
+                                           :CreatorId, 
+                                           :CreatedBy, 
+                                           :CreatedAt, 
+                                           0,
+                                           :UnitId
+                                       )";
+
+            var param = new
+            {
+                Id = equipment.Id.ToString(),
+                EquipmentTypeId = equipment.EquipmentTypeId.ToString(),
+                equipment.Name,
+                equipment.Code,
+                equipment.SerialNumber,
+                InfrastructureId = equipment.InfrastructureId?.ToString(),
+                CountryId = equipment.CountryId?.ToString(),
+                IsActive = equipment.IsActive ? 1 : 0,
+                CreatorId = equipment.CreatorId?.ToString(),
+                equipment.CreatedBy,
+                equipment.CreatedAt,
+                equipment.UnitId
+            };
+
+            await _connection.ExecuteAsync(insertEquipmentSql, param, transaction);
 
             if (attributes != null && attributes.Any())
             {
-                var insertAttributeSql = $@"INSERT INTO {nameof(AttributeValue)}s (
-                                               {nameof(AttributeValue.Id)}, 
-                                               {nameof(AttributeValue.EquipmentId)}, 
-                                               {nameof(AttributeValue.AttributeDefinitionId)}, 
-                                               {nameof(AttributeValue.Value)}
+                var insertAttributeSql = $@"INSERT INTO AttributeValues (
+                                               Id, 
+                                               EquipmentId, 
+                                               AttributeDefinitionId, 
+                                               Value
                                            )
                                            VALUES (:Id, :EquipmentId, :AttributeDefinitionId, :Value)";
-                await _connection.ExecuteAsync(insertAttributeSql, attributes, transaction);
+                var attrParams = attributes.Select(a => new
+                {
+                    Id = a.Id.ToString(),
+                    EquipmentId = a.EquipmentId.ToString(),
+                    AttributeDefinitionId = a.AttributeDefinitionId.ToString(),
+                    a.Value
+                });
+                await _connection.ExecuteAsync(insertAttributeSql, attrParams, transaction);
             }
 
             transaction.Commit();
@@ -79,16 +357,96 @@ public class EquipmentRepository : IEquipmentRepository
         }
     }
 
+    public async Task<bool> CreateAsync(Equipment equipment)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        var sql = $@"INSERT INTO EQUIPMENTS (
+                        Id, 
+                        EquipmentTypeId, 
+                        Name, 
+                        Code, 
+                        SerialNumber, 
+                        INFRASTRUCTURE_ID, 
+                        COUNTRY_ID, 
+                        IS_ACTIVE, 
+                        CreatorId, 
+                        CreatedBy, 
+                        CreatedAt, 
+                        IsDeleted,
+                        UnitId
+                    )
+                    VALUES (
+                        :Id, 
+                        :EquipmentTypeId, 
+                        :Name, 
+                        :Code, 
+                        :SerialNumber, 
+                        :InfrastructureId, 
+                        :CountryId, 
+                        :IsActive, 
+                        :CreatorId, 
+                        :CreatedBy, 
+                        :CreatedAt, 
+                        0,
+                        :UnitId
+                    )";
+
+        var param = new
+        {
+            Id = equipment.Id.ToString(),
+            EquipmentTypeId = equipment.EquipmentTypeId.ToString(),
+            equipment.Name,
+            equipment.Code,
+            equipment.SerialNumber,
+            InfrastructureId = equipment.InfrastructureId?.ToString(),
+            CountryId = equipment.CountryId?.ToString(),
+            IsActive = equipment.IsActive ? 1 : 0,
+            CreatorId = equipment.CreatorId?.ToString(),
+            equipment.CreatedBy,
+            equipment.CreatedAt,
+            equipment.UnitId
+        };
+
+        var result = await _connection.ExecuteAsync(sql, param);
+        return result > 0;
+    }
+
     public async Task<bool> UpdateAsync(Equipment equipment)
     {
-        var sql = $@"UPDATE {nameof(Equipment)}s 
-                    SET {nameof(Equipment.EquipmentTypeId)} = :EquipmentTypeId,
-                        {nameof(Equipment.Name)} = :Name,
-                        {nameof(Equipment.Code)} = :Code,
-                        {nameof(Equipment.SerialNumber)} = :SerialNumber,
-                        {nameof(Equipment.UnitId)} = :UnitId
-                    WHERE {nameof(Equipment.Id)} = :Id";
-        var result = await _connection.ExecuteAsync(sql, equipment);
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        var sql = $@"UPDATE EQUIPMENTS 
+                    SET EquipmentTypeId = :EquipmentTypeId,
+                        Name = :Name,
+                        Code = :Code,
+                        SerialNumber = :SerialNumber,
+                        INFRASTRUCTURE_ID = :InfrastructureId,
+                        COUNTRY_ID = :CountryId,
+                        IS_ACTIVE = :IsActive,
+                        ModifiedBy = :ModifiedBy,
+                        ModifiedDate = :ModifiedDate,
+                        UnitId = :UnitId
+                    WHERE Id = :Id AND IsDeleted = 0";
+
+        var param = new
+        {
+            Id = equipment.Id.ToString(),
+            EquipmentTypeId = equipment.EquipmentTypeId.ToString(),
+            equipment.Name,
+            equipment.Code,
+            equipment.SerialNumber,
+            InfrastructureId = equipment.InfrastructureId?.ToString(),
+            CountryId = equipment.CountryId?.ToString(),
+            IsActive = equipment.IsActive ? 1 : 0,
+            equipment.ModifiedBy,
+            ModifiedDate = DateTime.UtcNow,
+            equipment.UnitId
+        };
+
+        var result = await _connection.ExecuteAsync(sql, param);
         return result > 0;
     }
 
@@ -101,19 +459,26 @@ public class EquipmentRepository : IEquipmentRepository
         using var transaction = _connection.BeginTransaction();
         try
         {
-            var deleteSql = $"DELETE FROM {nameof(AttributeValue)}s WHERE {nameof(AttributeValue.EquipmentId)} = :EquipmentId";
-            await _connection.ExecuteAsync(deleteSql, new { EquipmentId = equipmentId }, transaction);
+            var deleteSql = "DELETE FROM AttributeValues WHERE EquipmentId = :EquipmentId";
+            await _connection.ExecuteAsync(deleteSql, new { EquipmentId = equipmentId.ToString() }, transaction);
 
             if (attributes != null && attributes.Any())
             {
-                var insertSql = $@"INSERT INTO {nameof(AttributeValue)}s (
-                                      {nameof(AttributeValue.Id)}, 
-                                      {nameof(AttributeValue.EquipmentId)}, 
-                                      {nameof(AttributeValue.AttributeDefinitionId)}, 
-                                      {nameof(AttributeValue.Value)}
+                var insertSql = $@"INSERT INTO AttributeValues (
+                                      Id, 
+                                      EquipmentId, 
+                                      AttributeDefinitionId, 
+                                      Value
                                   )
                                   VALUES (:Id, :EquipmentId, :AttributeDefinitionId, :Value)";
-                await _connection.ExecuteAsync(insertSql, attributes, transaction);
+                var attrParams = attributes.Select(a => new
+                {
+                    Id = a.Id.ToString(),
+                    EquipmentId = a.EquipmentId.ToString(),
+                    AttributeDefinitionId = a.AttributeDefinitionId.ToString(),
+                    a.Value
+                });
+                await _connection.ExecuteAsync(insertSql, attrParams, transaction);
             }
             transaction.Commit();
             return true;
@@ -127,14 +492,75 @@ public class EquipmentRepository : IEquipmentRepository
 
     public async Task<bool> DeleteAsync(Guid id)
     {
-        var sql = $"DELETE FROM {nameof(Equipment)}s WHERE {nameof(Equipment.Id)} = :Id";
-        var result = await _connection.ExecuteAsync(sql, new { Id = id });
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        var sql = "UPDATE EQUIPMENTS SET IsDeleted = 1, ModifiedDate = :ModifiedDate WHERE Id = :Id";
+        var result = await _connection.ExecuteAsync(sql, new { Id = id.ToString(), ModifiedDate = DateTime.UtcNow });
         return result > 0;
     }
 
     public async Task<IEnumerable<AttributeValue>> GetAttributesAsync(Guid equipmentId)
     {
-        var sql = $"SELECT * FROM {nameof(AttributeValue)}s WHERE {nameof(AttributeValue.EquipmentId)} = :EquipmentId";
-        return await _connection.QueryAsync<AttributeValue>(sql, new { EquipmentId = equipmentId });
+        if (_connection.State != ConnectionState.Open) 
+            _connection.Open();
+
+        var sql = "SELECT * FROM AttributeValues WHERE EquipmentId = :EquipmentId";
+        return await _connection.QueryAsync<AttributeValue>(sql, new { EquipmentId = equipmentId.ToString() });
+    }
+
+    // Lookups
+    public async Task<IEnumerable<Country>> GetCountriesAsync()
+    {
+        if (_connection.State != ConnectionState.Open) 
+            _connection.Open();
+
+        var sql = "SELECT ID, CODE, NAME FROM COUNTRIES ORDER BY NAME ASC";
+        return await _connection.QueryAsync<Country>(sql);
+    }
+
+    public async Task<IEnumerable<OrganizationDto>> GetOrganizationUnitsHierarchicalAsync(long? startUnitId)
+    {
+        if (_connection.State != ConnectionState.Open) 
+            _connection.Open();
+
+        if (startUnitId.HasValue)
+        {
+            var sql = @"SELECT Id, Code, Name, ParentId 
+                        FROM ORGANIZATION_UNIT
+                        START WITH Id = :StartUnitId
+                        CONNECT BY PRIOR Id = ParentId";
+            return await _connection.QueryAsync<OrganizationDto>(sql, new { StartUnitId = startUnitId.Value });
+        }
+        else
+        {
+            var sql = "SELECT Id, Code, Name, ParentId FROM ORGANIZATION_UNIT ORDER BY Name ASC";
+            return await _connection.QueryAsync<OrganizationDto>(sql);
+        }
+    }
+
+    public async Task<IEnumerable<InfrastructureEntity>> GetInfrastructuresLookupAsync()
+    {
+        if (_connection.State != ConnectionState.Open) 
+            _connection.Open();
+
+        var sql = @"SELECT ID, CODE, NAME, INFRA_TYPE_ID as InfraTypeId, UNIT_ID as UnitId, IS_ACTIVE as IsActive 
+                    FROM INFRASTRUCTURE 
+                    WHERE IsDeleted = 0 
+                    ORDER BY NAME ASC";
+        return await _connection.QueryAsync<InfrastructureEntity>(sql);
+    }
+
+    public async Task<IEnumerable<EquipmentTypeDto>> GetEquipmentTypesLookupAsync()
+    {
+        if (_connection.State != ConnectionState.Open) 
+            _connection.Open();
+
+        var sql = @"SELECT et.Id, et.Code, et.Name, et.GridTypeId, gt.Name as GridTypeName, et.IsActive 
+                    FROM EquipmentTypes et
+                    LEFT JOIN GridTypes gt ON et.GridTypeId = gt.Id
+                    WHERE et.IsDeleted = 0 
+                    ORDER BY et.Name ASC";
+        return await _connection.QueryAsync<EquipmentTypeDto>(sql);
     }
 }
