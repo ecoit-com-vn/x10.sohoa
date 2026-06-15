@@ -1,3 +1,4 @@
+// e:/ecoit/sohoax10/sohoa.backend/Microservices/EvnHanoi.DigitizationService/Workers/ExtractionWorker.cs
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -9,22 +10,23 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Net.Http;
 using EvnHanoi.DigitizationService.Models;
 using EvnHanoi.DigitizationService.Repositories;
-using EvnHanoi.DigitizationService.Services;
 
 namespace EvnHanoi.DigitizationService.Workers
 {
-    public class OcrTaskConsumer : BackgroundService
+    public class ExtractionWorker : BackgroundService
     {
-        private readonly ILogger<OcrTaskConsumer> _logger;
+        private readonly ILogger<ExtractionWorker> _logger;
         private readonly IConfiguration _configuration;
         private readonly IServiceProvider _serviceProvider;
         private readonly IConnection _connection;
         private IChannel? _channel;
+        private readonly string _llmServerUrl;
 
-        public OcrTaskConsumer(
-            ILogger<OcrTaskConsumer> logger,
+        public ExtractionWorker(
+            ILogger<ExtractionWorker> logger,
             IConfiguration configuration,
             IServiceProvider serviceProvider,
             IConnection connection)
@@ -33,6 +35,7 @@ namespace EvnHanoi.DigitizationService.Workers
             _configuration = configuration;
             _serviceProvider = serviceProvider;
             _connection = connection;
+            _llmServerUrl = _configuration["AIModelServers:LlmServerUrl"] ?? "http://localhost:8080";
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -42,10 +45,9 @@ namespace EvnHanoi.DigitizationService.Workers
                 _channel = await _connection.CreateChannelAsync(cancellationToken: stoppingToken);
 
                 var exchangeName = "digitization.topic";
-                var queueName = "ocr_task_queue";
-                var routingKey = "ocr.process.task";
+                var queueName = "extraction_task_queue";
+                var routingKey = "extraction.process.task";
 
-                // Declare Exchange and Queue
                 await _channel.ExchangeDeclareAsync(exchange: exchangeName, type: ExchangeType.Topic, durable: true, autoDelete: false, arguments: null, cancellationToken: stoppingToken);
                 await _channel.QueueDeclareAsync(queue: queueName, durable: true, exclusive: false, autoDelete: false, arguments: null, cancellationToken: stoppingToken);
                 await _channel.QueueBindAsync(queue: queueName, exchange: exchangeName, routingKey: routingKey, cancellationToken: stoppingToken);
@@ -55,7 +57,7 @@ namespace EvnHanoi.DigitizationService.Workers
                 {
                     var body = ea.Body.ToArray();
                     var messageText = Encoding.UTF8.GetString(body);
-                    _logger.LogInformation("Received OCR task message: {Message}", messageText);
+                    _logger.LogInformation("Nhận yêu cầu Extraction: {Message}", messageText);
 
                     try
                     {
@@ -64,32 +66,52 @@ namespace EvnHanoi.DigitizationService.Workers
                         {
                             using var scope = _serviceProvider.CreateScope();
                             var repository = scope.ServiceProvider.GetRequiredService<IFileAttachmentRepository>();
+                            var httpClientFactory = scope.ServiceProvider.GetRequiredService<IHttpClientFactory>();
 
-                            // 1. Update status to Processing
-                            await repository.UpdateStatusAsync(taskMsg.FileId, "Processing");
-                            _logger.LogInformation("Updated FileAttachment {FileId} status to Processing.", taskMsg.FileId);
+                            // 1. Cập nhật trạng thái
+                            await repository.UpdateStatusAsync(taskMsg.FileId, "Extracting");
+                            _logger.LogInformation("Đã cập nhật trạng thái FileAttachment {FileId} thành Extracting.", taskMsg.FileId);
 
-                            // 2. Simulated OCR Workload
-                            _logger.LogInformation("Downloading scan document from MinIO bucket {BucketName}: {FilePath}", taskMsg.BucketName, taskMsg.FilePath);
-                            await Task.Delay(3000, stoppingToken); // Simulate OCR OCR processing latencies
-                            _logger.LogInformation("AI OCR parsed document text successfully for FileId {FileId}.", taskMsg.FileId);
+                            // 2. Gọi llm_server để lấy kết quả (Giả lập gọi HTTP API)
+                            var httpClient = httpClientFactory.CreateClient("LlmClient");
+                            httpClient.BaseAddress = new Uri(_llmServerUrl);
 
-                            // 3. Update status to Completed
+                            var payload = new 
+                            { 
+                                prompt = "Extract information from this OCR text...",
+                                max_tokens = 512
+                            };
+                            var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+
+                            try
+                            {
+                                // var response = await httpClient.PostAsync("/completion", content, stoppingToken);
+                                // response.EnsureSuccessStatusCode();
+                                // var result = await response.Content.ReadAsStringAsync();
+                                
+                                await Task.Delay(2000, stoppingToken);
+                                _logger.LogInformation("Gọi llm_server thành công cho FileId {FileId}", taskMsg.FileId);
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogWarning(ex, "Không thể kết nối đến llm_server.");
+                            }
+
+                            // 3. Cập nhật trạng thái sau khi lưu DB
                             await repository.UpdateStatusAsync(taskMsg.FileId, "Completed");
-                            _logger.LogInformation("AI OCR completed. Updated FileAttachment {FileId} status to Completed.", taskMsg.FileId);
+                            _logger.LogInformation("AI Extraction đã xong. Cập nhật trạng thái FileAttachment {FileId} thành Completed.", taskMsg.FileId);
 
-                            // 4. Acknowledge message
                             await _channel.BasicAckAsync(ea.DeliveryTag, false);
                         }
                         else
                         {
-                            _logger.LogWarning("Null task message parsed. Dropping message.");
+                            _logger.LogWarning("Message parse ra null. Bỏ qua.");
                             await _channel.BasicAckAsync(ea.DeliveryTag, false);
                         }
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "Error processing OCR task.");
+                        _logger.LogError(ex, "Lỗi khi xử lý Extraction task.");
                         await _channel.BasicNackAsync(ea.DeliveryTag, false, true);
                     }
                 };
@@ -103,7 +125,7 @@ namespace EvnHanoi.DigitizationService.Workers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to connect or consume OCR tasks from RabbitMQ.");
+                _logger.LogError(ex, "Lỗi kết nối hoặc consume Extraction tasks từ RabbitMQ.");
             }
         }
 
