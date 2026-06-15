@@ -44,7 +44,13 @@ builder.Services.AddScoped<IFileAttachmentRepository, FileAttachmentRepository>(
 builder.Services.AddScoped<IDigitizationTaskRepository, DigitizationTaskRepository>();
 builder.Services.AddScoped<IOcrTrainingDataRepository, OcrTrainingDataRepository>();
 builder.Services.AddScoped<IVirtualFolderRepository, VirtualFolderRepository>();
-builder.Services.AddHostedService<OcrTaskConsumer>();
+
+builder.Services.AddHttpClient("OcrVlClient");
+builder.Services.AddHttpClient("LlmClient");
+
+builder.Services.AddHostedService<OcrWorker>();
+builder.Services.AddHostedService<ExtractionWorker>();
+
 builder.Services.AddPermissionDiscovery("DigitizationService");
 
 // Configure JWT Authentication
