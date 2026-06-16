@@ -5,6 +5,21 @@
       gap: 1.5rem;
       background-color: #f8fafc;
       min-height: 100vh;
+      &.builder-mode {
+        height: 100%;
+        min-height: 0;
+        padding: 12px 16px 0 16px !important;
+        gap: 0;
+        overflow: hidden;
+      }
+    }
+
+    .builder-view-container {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      min-height: 0;
+      flex: 1;
     }
 
     .breadcrumb {
@@ -15,6 +30,10 @@
       color: #64748b;
       margin-bottom: 1.25rem;
       padding-top: 0.5rem;
+      .builder-mode & {
+        margin-bottom: 0.5rem;
+        padding-top: 0;
+      }
     }
     .bc-sep {
       color: #cbd5e1;
@@ -36,19 +55,31 @@
     .form-builder-wrapper {
       display: flex;
       flex-direction: column;
-      height: calc(100vh - 120px);
-      gap: 1.5rem;
-      padding-top: 0.5rem;
+      flex: 1;
+      min-height: 0;
+      gap: 0.75rem;
+      padding-bottom: 12px;
     }
     .builder-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
       background-color: white;
-      padding: 1.25rem 1.75rem;
+      padding: 0.75rem;
       border-radius: 12px;
       border: 1px solid #e2e8f0;
-      box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+      box-shadow: 0 4px 12px rgba(0, 45, 114, 0.04);
+    }
+    .builder-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #002D72;
+      margin: 0 0 0.25rem 0;
+    }
+    .builder-subtitle {
+      font-size: 0.8rem;
+      color: #64748b;
+      margin: 0;
     }
     .builder-main-layout {
       display: grid;
@@ -58,6 +89,7 @@
       min-height: 0;
     }
     .toolbox-column {
+      height: 100%;
       min-height: 0;
       display: flex;
       flex-direction: column;
@@ -66,8 +98,9 @@
       display: flex;
       flex-direction: column;
       gap: 10px;
-      max-height: calc(100vh - 300px);
+      flex: 1;
       overflow-y: auto;
+      padding-right: 4px;
     }
     .toolbox-item {
       display: flex;
@@ -103,17 +136,18 @@
       flex: 1;
     }
     .canvas-column {
+      height: 100%;
       display: flex;
       flex-direction: column;
+      gap: 1.25rem;
       min-height: 0;
-      overflow-y: auto;
     }
     .general-info-card {
       background-color: white;
       border-radius: 12px;
       border: 1px solid #e2e8f0;
-      padding: 1.75rem;
-      box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+      padding: 0.75rem;
+      box-shadow: 0 4px 12px rgba(0, 45, 114, 0.04);
     }
     .form-group {
       display: flex;
@@ -121,24 +155,29 @@
       gap: 0.5rem;
     }
     .form-title-input {
-      font-size: 1.15rem;
-      font-weight: 700;
-      border: none !important;
-      border-bottom: 2px dashed #cbd5e1 !important;
-      border-radius: 0;
-      background: transparent;
-      padding: 6px 0;
+      font-size: 0.95rem;
+      font-weight: 500;
+      border: 1px solid #cbd5e1 !important;
+      border-radius: 6px !important;
+      background: #ffffff !important;
+      padding: 8px 12px !important;
+      transition: all 0.2s ease-in-out;
+      color: #1f2937;
     }
     .form-title-input:focus {
       border-color: #002D72 !important;
-      box-shadow: none !important;
+      box-shadow: 0 0 0 2px rgba(0, 45, 114, 0.15) !important;
+      outline: none !important;
     }
     .canvas-workspace {
       background-color: white;
       border-radius: 12px;
       border: 1px solid #e2e8f0;
+      padding: 0.75rem;
+      box-shadow: 0 4px 12px rgba(0, 45, 114, 0.04);
       flex: 1;
-      min-height: 400px;
+      min-height: 0;
+      overflow-y: auto;
     }
     .canvas-field-card {
       background-color: #f8fafc;
@@ -184,9 +223,18 @@
       opacity: 0.85;
     }
     .properties-column {
+      height: 100%;
       min-height: 0;
       display: flex;
       flex-direction: column;
+    }
+    .properties-form {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      flex: 1;
+      overflow-y: auto;
+      padding-right: 4px;
     }
     ::ng-deep .btn-evn-blue {
       background-color: #002D72 !important;
@@ -224,26 +272,127 @@
     }
 
     // Modern styling for EAV Form Builder Card headers & section titles
-    ::ng-deep .p-card .p-card-body {
-      padding: 1.5rem !important;
+     ::ng-deep .p-card {
+      background-color: white !important;
+      border-radius: 12px !important;
+      border: 1px solid #e2e8f0 !important;
+      box-shadow: 0 4px 12px rgba(0, 45, 114, 0.04) !important;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+
+      .p-card-body {
+        padding: 0.75rem !important;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+      }
+      .p-card-content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        padding: 0 !important;
+      }
     }
     ::ng-deep .p-card .p-card-title {
-      margin-top: 0.25rem !important;
-      margin-bottom: 1.25rem !important;
-      font-size: 1.15rem !important;
+      margin-top: 0 !important;
+      font-size: 16px !important;
       font-weight: 700 !important;
       color: #002D72 !important;
+      border-bottom: 1px solid #e2e8f0;
+      padding-bottom: 0.75rem;
+    }
+
+    .workspace-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #e2e8f0;
+      padding-bottom: 0.75rem;
+      margin-bottom: 1rem;
+    }
+    .workspace-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #002D72;
+      letter-spacing: 0.05em;
+    }
+    .badge-field-count {
+      background-color: #002D72 !important;
+      color: white !important;
+      padding: 0.25rem 0.5rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .empty-workspace-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 4rem 0;
+      border: 2px dashed #cbd5e1;
+      border-radius: 8px;
+      color: #64748b;
+      background-color: #f8fafc;
+      margin-top: 1rem;
+      width: 100%;
+      
+      .empty-icon {
+        font-size: 2.5rem;
+        color: #94a3b8;
+        margin-bottom: 0.75rem;
+      }
+      .empty-title {
+        font-size: 1rem;
+        font-weight: 600;
+        color: #374151;
+        margin: 0;
+      }
+      .empty-subtitle {
+        font-size: 0.75rem;
+        color: #64748b;
+        margin: 0.25rem 0 0 0;
+      }
+    }
+
+    .empty-properties-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 180px;
+      border: 2px dashed #cbd5e1;
+      border-radius: 8px;
+      color: #64748b;
+      padding: 1.25rem;
+      text-align: center;
+      background-color: #f8fafc;
+      width: 100%;
+      
+      .empty-icon {
+        font-size: 2rem;
+        color: #94a3b8;
+        margin-bottom: 0.5rem;
+      }
+      .empty-text {
+        font-size: 0.8rem;
+        margin: 0;
+        color: #64748b;
+      }
     }
 
     .property-section-title {
-      margin-top: 1.25rem !important;
-      margin-bottom: 0.75rem !important;
+      margin-bottom: 7px !important;
       padding-bottom: 6px !important;
       border-bottom: 1px solid #cbd5e1 !important;
       color: #002D72 !important;
-      font-size: 0.75rem !important;
+      font-size: 14px !important;
       font-weight: 700 !important;
-      text-transform: uppercase !important;
       letter-spacing: 0.05em !important;
     }
 
@@ -409,4 +558,58 @@
         color: #002D72 !important;
       }
     }
-  
+
+  .preview-card {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+      height: calc(100% - 36px);
+      margin-bottom: 12px;
+      
+      .builder-header {
+        flex: 0 0 auto;
+        border: none;
+        box-shadow: none;
+        padding: 0 0 12px 0;
+        border-bottom: 1px solid #e2e8f0;
+        border-radius: 0;
+        margin-bottom: 1rem !important;
+      }
+      
+      .preview-body-card {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+      }
+    }
+  .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      white-space: nowrap;
+      
+      i {
+        font-size: 0.75rem;
+      }
+    }
+    .status-draft    { background: #e2e8f0 !important; color: #334155 !important; }
+    .status-pending  { background: #fef3c7 !important; color: #b45309 !important; }
+    .status-approved { background: #d1fae5 !important; color: #065f46 !important; }
+    .status-rejected { background: #fee2e2 !important; color: #991b1b !important; }
+
+    .act-submit {
+      color: #d97706 !important;
+      border-color: #fef3c7 !important;
+      background-color: #fffbef !important;
+
+      &:hover {
+        background-color: #fef3c7 !important;
+        color: #b45309 !important;
+        box-shadow: 0 2px 4px rgba(217, 119, 6, 0.15);
+      }
+    }
