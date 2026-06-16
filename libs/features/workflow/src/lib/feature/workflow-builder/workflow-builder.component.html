@@ -303,7 +303,22 @@
                 <option value="DataEntry">Nhập liệu</option>
                 <option value="Review">Kiểm soát</option>
                 <option value="Approve">Phê duyệt</option>
+                <option value="AiAssist">AI hỗ trợ</option>
               </select>
+            </div>
+
+            <div class="prop-row" *ngIf="selectedElementProps.type === 'bpmn:Task' || selectedElementProps.type === 'bpmn:UserTask'">
+              <label>Cấu hình bổ sung</label>
+              <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
+                <label class="role-checkbox-item" style="cursor: pointer;">
+                  <input type="checkbox" [checked]="selectedElementProps.allowEdit" (change)="updateElementCheckboxProperty('allowEdit', $event)" />
+                  <span>Cho phép sửa</span>
+                </label>
+                <label class="role-checkbox-item" style="cursor: pointer;">
+                  <input type="checkbox" [checked]="selectedElementProps.requireSignature" (change)="updateElementCheckboxProperty('requireSignature', $event)" />
+                  <span>Ký số</span>
+                </label>
+              </div>
             </div>
 
             <!-- SequenceFlow Condition Specific -->
