@@ -39,9 +39,10 @@ public class EavFormTemplateRepository : IEavFormTemplateRepository
                     {nameof(EavFormTemplate.Version)}, 
                     {nameof(EavFormTemplate.IsActive)}, 
                     {nameof(EavFormTemplate.CreatedAt)}, 
-                    {nameof(EavFormTemplate.CreatedBy)}
+                    {nameof(EavFormTemplate.CreatedBy)},
+                    {nameof(EavFormTemplate.Status)}
                 )
-                VALUES (:Id, :Name, :Code, :Category, :Description, :DescriptionInfo, :FormSchema, :Version, :IsActive, :CreatedAt, :CreatedBy)";
+                VALUES (:Id, :Name, :Code, :Category, :Description, :DescriptionInfo, :FormSchema, :Version, :IsActive, :CreatedAt, :CreatedBy, :Status)";
 
         var param = new
         {
@@ -55,7 +56,8 @@ public class EavFormTemplateRepository : IEavFormTemplateRepository
             template.Version,
             IsActive = template.IsActive ? 1 : 0,
             template.CreatedAt,
-            template.CreatedBy
+            template.CreatedBy,
+            template.Status
         };
 
         await _connection.ExecuteAsync(sql, param);
@@ -71,7 +73,8 @@ public class EavFormTemplateRepository : IEavFormTemplateRepository
                         {nameof(EavFormTemplate.DescriptionInfo)} = :DescriptionInfo,
                         {nameof(EavFormTemplate.FormSchema)} = :FormSchema,
                         {nameof(EavFormTemplate.Version)} = :Version,
-                        {nameof(EavFormTemplate.IsActive)} = :IsActive
+                        {nameof(EavFormTemplate.IsActive)} = :IsActive,
+                        {nameof(EavFormTemplate.Status)} = :Status
                     WHERE {nameof(EavFormTemplate.Id)} = :Id";
         
         var param = new
@@ -84,6 +87,7 @@ public class EavFormTemplateRepository : IEavFormTemplateRepository
             template.FormSchema,
             template.Version,
             IsActive = template.IsActive ? 1 : 0,
+            template.Status,
             Id = template.Id.ToString()
         };
 

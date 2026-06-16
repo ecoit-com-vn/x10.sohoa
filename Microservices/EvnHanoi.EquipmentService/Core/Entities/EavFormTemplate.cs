@@ -16,4 +16,5 @@ public class EavFormTemplate
 
     public DateTime CreatedAt { get; set; }
     public string CreatedBy { get; set; } = string.Empty;
+    public string Status { get; set; } = "Tạo mới";
 }
