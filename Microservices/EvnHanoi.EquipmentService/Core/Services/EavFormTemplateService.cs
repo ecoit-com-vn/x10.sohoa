@@ -49,7 +49,8 @@ public class EavFormTemplateService : IEavFormTemplateService
             Version = 1,
             IsActive = true,
             CreatedAt = DateTime.UtcNow,
-            CreatedBy = createdBy ?? "admin"
+            CreatedBy = createdBy ?? "admin",
+            Status = "Tạo mới"
         };
 
         await _repository.AddAsync(template);
@@ -83,7 +84,8 @@ public class EavFormTemplateService : IEavFormTemplateService
             Version = oldTemplate.Version + 1,
             IsActive = true,
             CreatedAt = DateTime.UtcNow,
-            CreatedBy = updatedBy
+            CreatedBy = updatedBy,
+            Status = "Tạo mới"
         };
 
         await _repository.AddAsync(newTemplate);
