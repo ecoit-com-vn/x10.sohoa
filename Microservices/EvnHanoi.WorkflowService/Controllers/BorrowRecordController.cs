@@ -23,9 +23,9 @@ namespace EvnHanoi.WorkflowService.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] string? keyword = null)
+        public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] string? keyword = null, [FromQuery] BorrowState? state = null)
         {
-            var (items, totalCount) = await _borrowService.GetPagedAsync(page, pageSize, keyword);
+            var (items, totalCount) = await _borrowService.GetPagedAsync(page, pageSize, keyword, state);
             return Ok(new { items, totalCount, page, pageSize });
         }
 
@@ -84,7 +84,8 @@ namespace EvnHanoi.WorkflowService.Controllers
                     request.NextNodeId,
                     userId,
                     request.ActionLabel,
-                    request.Comment);
+                    request.Comment,
+                    request.NextAssigneeUserId);
 
                 return Ok(new
                 {
@@ -125,7 +126,8 @@ namespace EvnHanoi.WorkflowService.Controllers
                     userRoles,
                     isAdmin,
                     request.ActionLabel,
-                    request.Comment);
+                    request.Comment,
+                    request.NextAssigneeUserId);
 
                 return Ok(new
                 {
@@ -160,8 +162,9 @@ namespace EvnHanoi.WorkflowService.Controllers
                 .Select(c => c.Value)
                 .ToList();
 
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.Identity?.Name ?? "admin";
             var isAdmin = User.IsInRole("ADMIN") || userRoles.Contains("ADMIN");
-            var tasks = await _borrowService.GetMyTasksAsync(userRoles, isAdmin);
+            var tasks = await _borrowService.GetMyTasksAsync(userRoles, isAdmin, userId);
             return Ok(tasks);
         }
 

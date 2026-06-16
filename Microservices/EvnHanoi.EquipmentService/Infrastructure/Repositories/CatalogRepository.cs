@@ -27,7 +27,8 @@ public class CatalogRepository : ICatalogRepository
         if (_connection.State != ConnectionState.Open) _connection.Open();
 
         var sql = $@"SELECT * FROM {nameof(Catalog)}
-                     WHERE ({nameof(Catalog.UnitId)} IS NULL";
+                     WHERE {nameof(Catalog.IsDeleted)} = 0
+                       AND ({nameof(Catalog.UnitId)} IS NULL";
 
         if (unitId.HasValue)
             sql += $" OR {nameof(Catalog.UnitId)} = :UnitId";
@@ -65,7 +66,7 @@ public class CatalogRepository : ICatalogRepository
     {
         if (_connection.State != ConnectionState.Open) _connection.Open();
 
-        var filterSql = $" WHERE ({nameof(Catalog.UnitId)} IS NULL";
+        var filterSql = $" WHERE {nameof(Catalog.IsDeleted)} = 0 AND ({nameof(Catalog.UnitId)} IS NULL";
         if (unitId.HasValue)
             filterSql += $" OR {nameof(Catalog.UnitId)} = :UnitId";
         filterSql += ")";
@@ -108,7 +109,7 @@ public class CatalogRepository : ICatalogRepository
     {
         if (_connection.State != ConnectionState.Open) _connection.Open();
 
-        var sql = $"SELECT * FROM {nameof(Catalog)} WHERE {nameof(Catalog.Id)} = :Id";
+        var sql = $"SELECT * FROM {nameof(Catalog)} WHERE {nameof(Catalog.Id)} = :Id AND {nameof(Catalog.IsDeleted)} = 0";
         return await _connection.QuerySingleOrDefaultAsync<Catalog>(sql, new { Id = id });
     }
 
@@ -118,7 +119,8 @@ public class CatalogRepository : ICatalogRepository
 
         var sql = $@"SELECT * FROM {nameof(Catalog)}
                      WHERE {nameof(Catalog.CatalogTypeId)} = :CatalogTypeId
-                       AND {nameof(Catalog.Code)} = :Code";
+                       AND {nameof(Catalog.Code)} = :Code
+                       AND {nameof(Catalog.IsDeleted)} = 0";
         return await _connection.QuerySingleOrDefaultAsync<Catalog>(sql, new { CatalogTypeId = catalogTypeId, Code = code });
     }
 
@@ -126,7 +128,7 @@ public class CatalogRepository : ICatalogRepository
     {
         if (_connection.State != ConnectionState.Open) _connection.Open();
 
-        var sql = $"SELECT COUNT(1) FROM {nameof(Catalog)} WHERE {nameof(Catalog.ParentId)} = :Id";
+        var sql = $"SELECT COUNT(1) FROM {nameof(Catalog)} WHERE {nameof(Catalog.ParentId)} = :Id AND {nameof(Catalog.IsDeleted)} = 0";
         var count = await _connection.ExecuteScalarAsync<int>(sql, new { Id = id });
         return count > 0;
     }
@@ -179,12 +181,16 @@ public class CatalogRepository : ICatalogRepository
         return affected > 0;
     }
 
-    public async Task<bool> DeleteAsync(long id)
+    public async Task<bool> DeleteAsync(long id, string updatedBy)
     {
         if (_connection.State != ConnectionState.Open) _connection.Open();
 
-        var sql = $"DELETE FROM {nameof(Catalog)} WHERE {nameof(Catalog.Id)} = :Id";
-        var affected = await _connection.ExecuteAsync(sql, new { Id = id });
+        var sql = $@"UPDATE {nameof(Catalog)} 
+                     SET {nameof(Catalog.IsDeleted)} = 1,
+                         {nameof(Catalog.UpdatedAt)} = CURRENT_TIMESTAMP,
+                         {nameof(Catalog.UpdatedBy)} = :UpdatedBy
+                     WHERE {nameof(Catalog.Id)} = :Id";
+        var affected = await _connection.ExecuteAsync(sql, new { Id = id, UpdatedBy = updatedBy });
         return affected > 0;
     }
 
@@ -196,7 +202,7 @@ public class CatalogRepository : ICatalogRepository
     {
         if (_connection.State != ConnectionState.Open) _connection.Open();
 
-        var sql = $"SELECT * FROM CATALOG_TYPE ORDER BY {nameof(CatalogType.Name)} ASC";
+        var sql = $"SELECT * FROM CATALOG_TYPE WHERE {nameof(CatalogType.IsDeleted)} = 0 ORDER BY {nameof(CatalogType.Name)} ASC";
         return await _connection.QueryAsync<CatalogType>(sql);
     }
 
@@ -204,7 +210,7 @@ public class CatalogRepository : ICatalogRepository
     {
         if (_connection.State != ConnectionState.Open) _connection.Open();
 
-        var sql = $"SELECT * FROM CATALOG_TYPE WHERE {nameof(CatalogType.Code)} = :Code";
+        var sql = $"SELECT * FROM CATALOG_TYPE WHERE {nameof(CatalogType.Code)} = :Code AND {nameof(CatalogType.IsDeleted)} = 0";
         return await _connection.QuerySingleOrDefaultAsync<CatalogType>(sql, new { Code = code });
     }
 
@@ -212,7 +218,7 @@ public class CatalogRepository : ICatalogRepository
     {
         if (_connection.State != ConnectionState.Open) _connection.Open();
 
-        var sql = $"SELECT * FROM CATALOG_TYPE WHERE {nameof(CatalogType.Id)} = :Id";
+        var sql = $"SELECT * FROM CATALOG_TYPE WHERE {nameof(CatalogType.Id)} = :Id AND {nameof(CatalogType.IsDeleted)} = 0";
         return await _connection.QuerySingleOrDefaultAsync<CatalogType>(sql, new { Id = id });
     }
 
@@ -221,7 +227,8 @@ public class CatalogRepository : ICatalogRepository
         if (_connection.State != ConnectionState.Open) _connection.Open();
 
         var sql = $@"SELECT * FROM CATALOG_TYPE 
-                     WHERE {nameof(CatalogType.IsPrivate)} = :IsPrivate";
+                     WHERE {nameof(CatalogType.IsDeleted)} = 0
+                       AND {nameof(CatalogType.IsPrivate)} = :IsPrivate";
 
         if (!string.IsNullOrEmpty(keyword))
             sql += $" AND LOWER({nameof(CatalogType.Name)}) LIKE :Keyword";
@@ -229,7 +236,7 @@ public class CatalogRepository : ICatalogRepository
         if (status.HasValue)
             sql += $" AND {nameof(CatalogType.Status)} = :Status";
 
-        sql += $" ORDER BY {nameof(CatalogType.Name)} ASC";
+        sql += $" ORDER BY {nameof(CatalogType.Status)} DESC, {nameof(CatalogType.CreatedAt)} DESC";
 
         var keywordParam = !string.IsNullOrEmpty(keyword) ? $"%{keyword.ToLower()}%" : null;
 
@@ -246,7 +253,9 @@ public class CatalogRepository : ICatalogRepository
         if (_connection.State != ConnectionState.Open) _connection.Open();
 
         var sql = $@"SELECT * FROM CATALOG_TYPE 
-                     WHERE {nameof(CatalogType.Id)} = :Id AND {nameof(CatalogType.IsPrivate)} = :IsPrivate";
+                     WHERE {nameof(CatalogType.Id)} = :Id 
+                       AND {nameof(CatalogType.IsPrivate)} = :IsPrivate
+                       AND {nameof(CatalogType.IsDeleted)} = 0";
         return await _connection.QuerySingleOrDefaultAsync<CatalogType>(sql, new { Id = id, IsPrivate = isPrivate ? 1 : 0 });
     }
 
@@ -309,12 +318,28 @@ public class CatalogRepository : ICatalogRepository
         return affected > 0;
     }
 
-    public async Task<bool> DeleteCatalogTypeAsync(long id)
+    public async Task<bool> DeleteCatalogTypeAsync(long id, string updatedBy)
     {
         if (_connection.State != ConnectionState.Open) _connection.Open();
 
-        var sql = "DELETE FROM CATALOG_TYPE WHERE Id = :Id";
-        var affected = await _connection.ExecuteAsync(sql, new { Id = id });
+        var sql = $@"UPDATE CATALOG_TYPE 
+                     SET {nameof(CatalogType.IsDeleted)} = 1,
+                         {nameof(CatalogType.UpdatedAt)} = CURRENT_TIMESTAMP,
+                         {nameof(CatalogType.UpdatedBy)} = :UpdatedBy
+                     WHERE {nameof(CatalogType.Id)} = :Id";
+        var affected = await _connection.ExecuteAsync(sql, new { Id = id, UpdatedBy = updatedBy });
+        
+        if (affected > 0)
+        {
+            // Also soft delete all catalogs belonging to this catalog type
+            var sqlCatalogs = $@"UPDATE {nameof(Catalog)}
+                                 SET {nameof(Catalog.IsDeleted)} = 1,
+                                     {nameof(Catalog.UpdatedAt)} = CURRENT_TIMESTAMP,
+                                     {nameof(Catalog.UpdatedBy)} = :UpdatedBy
+                                 WHERE {nameof(Catalog.CatalogTypeId)} = :CatalogTypeId";
+            await _connection.ExecuteAsync(sqlCatalogs, new { CatalogTypeId = id, UpdatedBy = updatedBy });
+        }
+        
         return affected > 0;
     }
 
@@ -322,7 +347,7 @@ public class CatalogRepository : ICatalogRepository
     {
         if (_connection.State != ConnectionState.Open) _connection.Open();
 
-        var sql = $"SELECT COUNT(1) FROM CATALOG WHERE {nameof(Catalog.CatalogTypeId)} = :CatalogTypeId";
+        var sql = $"SELECT COUNT(1) FROM CATALOG WHERE {nameof(Catalog.CatalogTypeId)} = :CatalogTypeId AND {nameof(Catalog.IsDeleted)} = 0";
         var count = await _connection.ExecuteScalarAsync<int>(sql, new { CatalogTypeId = id });
         return count > 0;
     }

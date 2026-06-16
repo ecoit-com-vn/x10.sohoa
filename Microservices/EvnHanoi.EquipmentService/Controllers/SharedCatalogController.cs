@@ -85,10 +85,8 @@ public class SharedCatalogController : ControllerBase
         var dbType = await _catalogRepository.GetCatalogTypeByIdFilteredAsync(id, false);
         if (dbType == null) return NotFound();
 
-        if (await _catalogRepository.CatalogTypeHasCatalogsAsync(id))
-            return BadRequest(new { message = "Không thể xóa loại danh mục này vì đang có các danh mục thuộc loại này." });
-
-        var success = await _catalogRepository.DeleteCatalogTypeAsync(id);
+        var username = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value ?? "system";
+        var success = await _catalogRepository.DeleteCatalogTypeAsync(id, username);
         if (!success) return NotFound();
         return NoContent();
     }
@@ -103,7 +101,7 @@ public class SharedCatalogController : ControllerBase
         var success = await _catalogRepository.UpdateCatalogTypeAsync(dbType);
         if (!success) return StatusCode(500, new { message = "Không thể cập nhật trạng thái loại danh mục." });
 
-        return Ok(new { message = "Đã khóa loại danh mục thành công.", status = 0 });
+        return Ok(new { message = "Ngừng hoạt động loại danh mục thành công.", status = 0 });
     }
 
     [HttpPost("{id:long}/unlock")]
@@ -116,6 +114,6 @@ public class SharedCatalogController : ControllerBase
         var success = await _catalogRepository.UpdateCatalogTypeAsync(dbType);
         if (!success) return StatusCode(500, new { message = "Không thể cập nhật trạng thái loại danh mục." });
 
-        return Ok(new { message = "Đã mở khóa loại danh mục thành công.", status = 1 });
+        return Ok(new { message = "Kích hoạt loại danh mục thành công.", status = 1 });
     }
 }

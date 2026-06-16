@@ -266,7 +266,7 @@ public class PermissionDiscoveryService : BackgroundService
         string actLower = actionName.ToLowerInvariant();
 
         // 0. MANAGE (Explicit management actions like assignment/grant/revoke)
-        if (actLower.Contains("assign") || actLower.Contains("grant") || actLower.Contains("revoke") || actLower.Contains("move"))
+        if (actLower.Contains("assign") || actLower.Contains("grant") || actLower.Contains("revoke") || actLower.Contains("move") || actLower.Contains("lock") )
         {
             return "MANAGE";
         }

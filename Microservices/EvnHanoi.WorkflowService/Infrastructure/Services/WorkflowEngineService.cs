@@ -129,6 +129,7 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
                 StepId = firstStep.Id,
                 StepName = firstStep.StepName,
                 AssignedRole = firstStep.RequiredRole,
+                AssigneeUserId = userId,
                 Status = "Pending",
                 CreatedAt = DateTime.UtcNow
             };
@@ -160,7 +161,7 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
             return instance;
         }
 
-        public async Task<WorkflowTask> ApproveAsync(Guid taskId, string userId, string? comment = null)
+        public async Task<WorkflowTask> ApproveAsync(Guid taskId, string userId, string? comment = null, string? nextAssigneeUserId = null)
         {
             var task = await _workflowRepository.GetTaskByIdAsync(taskId);
             if (task == null)
@@ -228,6 +229,7 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
                     StepId = nextStep.Id,
                     StepName = nextStep.StepName,
                     AssignedRole = nextStep.RequiredRole,
+                    AssigneeUserId = nextAssigneeUserId,
                     Status = "Pending",
                     CreatedAt = DateTime.UtcNow
                 };
@@ -340,6 +342,10 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
                     StepId = prevStep.Id,
                     StepName = prevStep.StepName,
                     AssignedRole = prevStep.RequiredRole,
+                    AssigneeUserId = instance.Tasks
+                        .Where(t => t.StepId == prevStep.Id)
+                        .OrderByDescending(t => t.CreatedAt)
+                        .FirstOrDefault()?.AssigneeUserId,
                     Status = "Pending",
                     CreatedAt = DateTime.UtcNow
                 };
@@ -384,7 +390,7 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
             return prevTask;
         }
 
-        public async Task<WorkflowInstance> MoveAsync(string targetEntityId, string nextNodeId, string userId, string actionLabel, string? comment = null)
+        public async Task<WorkflowInstance> MoveAsync(string targetEntityId, string nextNodeId, string userId, string actionLabel, string? comment = null, string? nextAssigneeUserId = null)
         {
             var instance = await _workflowRepository.GetInstanceByEntityAsync(targetEntityId, "BorrowRecord");
             if (instance == null)
@@ -433,7 +439,7 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
                     currentTask.AssigneeUserId = null;
                     await _workflowRepository.UpdateTaskAsync(currentTask);
 
-                    var completedTask = await ApproveAsync(currentTask.Id, userId, comment);
+                    var completedTask = await ApproveAsync(currentTask.Id, userId, comment, nextAssigneeUserId);
                     return completedTask.WorkflowInstance ?? instance;
                 }
                 if (nextNodeId.Equals("reject", StringComparison.OrdinalIgnoreCase))
@@ -503,6 +509,20 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
                 instance.UpdatedAt = DateTime.UtcNow;
                 await _workflowRepository.UpdateInstanceAsync(instance);
 
+                string? assigneeUserId = null;
+                if (action == "Reject")
+                {
+                    var lastTaskForStep = instance.Tasks
+                        .Where(t => t.StepId == stepId || t.StepName.Equals(nextStepName, StringComparison.OrdinalIgnoreCase))
+                        .OrderByDescending(t => t.CreatedAt)
+                        .FirstOrDefault();
+                    assigneeUserId = lastTaskForStep?.AssigneeUserId;
+                }
+                else
+                {
+                    assigneeUserId = nextAssigneeUserId;
+                }
+
                 var nextTask = new WorkflowTask
                 {
                     Id = Guid.NewGuid(),
@@ -510,6 +530,7 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
                     StepId = stepId,
                     StepName = nextStepName,
                     AssignedRole = requiredRole,
+                    AssigneeUserId = assigneeUserId,
                     Status = "Pending",
                     CreatedAt = DateTime.UtcNow
                 };
@@ -549,7 +570,8 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
             List<string> userRoles, 
             bool isAdmin, 
             string actionLabel, 
-            string? comment = null)
+            string? comment = null,
+            string? nextAssigneeUserId = null)
         {
             var instance = await _workflowRepository.GetInstanceByEntityAsync(targetEntityId, "BorrowRecord");
             if (instance == null)
@@ -604,7 +626,7 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
             }
 
             // 3. Perform movement via MoveAsync
-            return await MoveAsync(targetEntityId, nextNodeId, userId, actionLabel, comment);
+            return await MoveAsync(targetEntityId, nextNodeId, userId, actionLabel, comment, nextAssigneeUserId);
         }
 
         private bool IsValidBpmnPath(XDocument xmlDoc, string sourceNodeId, string targetNodeId)
@@ -666,9 +688,9 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
             return false;
         }
 
-        public async Task<IEnumerable<object>> GetMyTasksAsync(List<string> userRoles, bool isAdmin)
+        public async Task<IEnumerable<object>> GetMyTasksAsync(List<string> userRoles, bool isAdmin, string userId)
         {
-            var tasks = await _workflowRepository.GetPendingTasksByRolesAsync(userRoles, isAdmin);
+            var tasks = await _workflowRepository.GetPendingTasksByRolesAsync(userRoles, isAdmin, userId);
             var result = new List<object>();
 
             foreach (var task in tasks)

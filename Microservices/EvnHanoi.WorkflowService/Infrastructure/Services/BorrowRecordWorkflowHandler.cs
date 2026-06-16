@@ -8,12 +8,14 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
     public class BorrowRecordWorkflowHandler : IWorkflowIntegrationHandler
     {
         private readonly IBorrowRecordRepository _borrowRepository;
+        private readonly IWorkflowRepository _workflowRepository;
 
         public string EntityType => "BorrowRecord";
 
-        public BorrowRecordWorkflowHandler(IBorrowRecordRepository borrowRepository)
+        public BorrowRecordWorkflowHandler(IBorrowRecordRepository borrowRepository, IWorkflowRepository workflowRepository)
         {
             _borrowRepository = borrowRepository ?? throw new ArgumentNullException(nameof(borrowRepository));
+            _workflowRepository = workflowRepository ?? throw new ArgumentNullException(nameof(workflowRepository));
         }
 
         public Task OnWorkflowStartedAsync(string entityId, Guid instanceId)
@@ -43,7 +45,7 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
                 var br = await _borrowRepository.GetByIdAsync(brId);
                 if (br != null)
                 {
-                    br.State = BorrowState.Requested; // Keep it as requested, but instance status is Terminated
+                    br.State = BorrowState.Returned; // Set to Returned on rejection
                     await _borrowRepository.UpdateAsync(br);
                 }
             }
@@ -58,6 +60,21 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
                 {
                     br.WorkflowInstanceId = instanceId;
                     br.WorkflowStatusName = statusName;
+
+                    if (statusName.Equals("Cán bộ tạo đơn mượn hồ sơ", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var history = await _workflowRepository.GetHistoryByInstanceIdAsync(instanceId);
+                        var lastAction = history.OrderByDescending(h => h.ActionDate).FirstOrDefault();
+                        if (lastAction != null && lastAction.Action.Equals("Reject", StringComparison.OrdinalIgnoreCase))
+                        {
+                            br.State = BorrowState.Returned;
+                        }
+                    }
+                    else if (br.State == BorrowState.Returned)
+                    {
+                        br.State = BorrowState.Requested;
+                    }
+
                     await _borrowRepository.UpdateAsync(br);
                 }
             }

@@ -11,7 +11,7 @@ public interface ICatalogRepository
     Task<bool> HasChildrenAsync(long id);
     Task<long> CreateAsync(Catalog catalog);
     Task<bool> UpdateAsync(Catalog catalog);
-    Task<bool> DeleteAsync(long id);
+    Task<bool> DeleteAsync(long id, string updatedBy);
     Task<IEnumerable<CatalogType>> GetCatalogTypesAsync();
     Task<CatalogType?> GetCatalogTypeByCodeAsync(string code);
     Task<CatalogType?> GetCatalogTypeByIdAsync(long id);
@@ -19,6 +19,6 @@ public interface ICatalogRepository
     Task<CatalogType?> GetCatalogTypeByIdFilteredAsync(long id, bool isPrivate);
     Task<long> CreateCatalogTypeAsync(CatalogType catalogType);
     Task<bool> UpdateCatalogTypeAsync(CatalogType catalogType);
-    Task<bool> DeleteCatalogTypeAsync(long id);
+    Task<bool> DeleteCatalogTypeAsync(long id, string updatedBy);
     Task<bool> CatalogTypeHasCatalogsAsync(long id);
 }

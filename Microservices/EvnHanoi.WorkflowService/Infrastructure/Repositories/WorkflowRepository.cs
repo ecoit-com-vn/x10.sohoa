@@ -21,28 +21,37 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
         public async Task<IEnumerable<WorkflowDefinition>> GetAllDefinitionsAsync(string? keyword, bool? isActive)
         {
             if (_connection.State != ConnectionState.Open) _connection.Open();
-            var sql = $@"SELECT {nameof(WorkflowDefinition.Id)}, 
-                                {nameof(WorkflowDefinition.Name)}, 
-                                {nameof(WorkflowDefinition.Description)}, 
-                                {nameof(WorkflowDefinition.Version)}, 
-                                {nameof(WorkflowDefinition.ForceActivate)}, 
-                                {nameof(WorkflowDefinition.CreatedAt)}, 
-                                {nameof(WorkflowDefinition.UpdatedAt)}, 
-                                {nameof(WorkflowDefinition.IsActive)}, 
-                                {nameof(WorkflowDefinition.BpmnXml)} 
-                        FROM WORKFLOWDEFINITIONS WHERE 1=1";
+            var sql = $@"SELECT wd.{nameof(WorkflowDefinition.Id)}, 
+                                wd.{nameof(WorkflowDefinition.Name)}, 
+                                wd.{nameof(WorkflowDefinition.Description)}, 
+                                wd.{nameof(WorkflowDefinition.Version)}, 
+                                wd.{nameof(WorkflowDefinition.ForceActivate)}, 
+                                wd.{nameof(WorkflowDefinition.CreatedAt)}, 
+                                wd.{nameof(WorkflowDefinition.UpdatedAt)}, 
+                                wd.{nameof(WorkflowDefinition.CreatedBy)}, 
+                                u1.UserName AS {nameof(WorkflowDefinition.CreatedByUsername)}, 
+                                u1.FullName AS {nameof(WorkflowDefinition.CreatedByFullName)}, 
+                                wd.{nameof(WorkflowDefinition.UpdatedBy)}, 
+                                u2.UserName AS {nameof(WorkflowDefinition.UpdatedByUsername)}, 
+                                u2.FullName AS {nameof(WorkflowDefinition.UpdatedByFullName)}, 
+                                wd.{nameof(WorkflowDefinition.IsActive)}, 
+                                wd.{nameof(WorkflowDefinition.BpmnXml)} 
+                        FROM WORKFLOWDEFINITIONS wd
+                        LEFT JOIN APP_USER u1 ON wd.CreatedBy = u1.Id
+                        LEFT JOIN APP_USER u2 ON wd.UpdatedBy = u2.Id
+                        WHERE 1=1";
             var parameters = new DynamicParameters();
             if (!string.IsNullOrWhiteSpace(keyword))
             {
-                sql += $@" AND ({nameof(WorkflowDefinition.Name)} LIKE :Keyword OR {nameof(WorkflowDefinition.Description)} LIKE :Keyword)";
+                sql += $@" AND (wd.{nameof(WorkflowDefinition.Name)} LIKE :Keyword OR wd.{nameof(WorkflowDefinition.Description)} LIKE :Keyword)";
                 parameters.Add("Keyword", $"%{keyword}%");
             }
             if (isActive.HasValue)
             {
-                sql += $@" AND {nameof(WorkflowDefinition.IsActive)} = :IsActive";
+                sql += $@" AND wd.{nameof(WorkflowDefinition.IsActive)} = :IsActive";
                 parameters.Add("IsActive", isActive.Value ? 1 : 0);
             }
-            sql += $@" ORDER BY {nameof(WorkflowDefinition.CreatedAt)} DESC";
+            sql += $@" ORDER BY wd.{nameof(WorkflowDefinition.CreatedAt)} DESC";
 
             var definitions = await _connection.QueryAsync<WorkflowDefinition>(sql, parameters);
             var result = definitions.ToList();
@@ -53,7 +62,58 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
                                          {nameof(WorkflowStep.StepName)}, 
                                          ""{nameof(WorkflowStep.Order)}"", 
                                          {nameof(WorkflowStep.RequiredRole)}, 
-                                         {nameof(WorkflowStep.ActionType)} 
+                                         {nameof(WorkflowStep.ActionType)},
+                                         {nameof(WorkflowStep.AllowEdit)},
+                                         {nameof(WorkflowStep.RequireSignature)} 
+                                  FROM WORKFLOWSTEPS 
+                                  WHERE {nameof(WorkflowStep.WorkflowDefinitionId)} = :Id 
+                                  ORDER BY ""{nameof(WorkflowStep.Order)}""";
+                var steps = await _connection.QueryAsync<WorkflowStep>(sqlSteps, new { Id = def.Id.ToString() });
+                def.Steps = steps.ToList();
+                foreach (var step in def.Steps)
+                {
+                    step.WorkflowDefinition = def;
+                }
+            }
+            return result;
+        }
+
+        public async Task<IEnumerable<WorkflowDefinition>> GetDefinitionsByNameAsync(string name)
+        {
+            if (_connection.State != ConnectionState.Open) _connection.Open();
+            var sql = $@"SELECT wd.{nameof(WorkflowDefinition.Id)}, 
+                                wd.{nameof(WorkflowDefinition.Name)}, 
+                                wd.{nameof(WorkflowDefinition.Description)}, 
+                                wd.{nameof(WorkflowDefinition.Version)}, 
+                                wd.{nameof(WorkflowDefinition.ForceActivate)}, 
+                                wd.{nameof(WorkflowDefinition.CreatedAt)}, 
+                                wd.{nameof(WorkflowDefinition.UpdatedAt)}, 
+                                wd.{nameof(WorkflowDefinition.CreatedBy)}, 
+                                u1.UserName AS {nameof(WorkflowDefinition.CreatedByUsername)}, 
+                                u1.FullName AS {nameof(WorkflowDefinition.CreatedByFullName)}, 
+                                wd.{nameof(WorkflowDefinition.UpdatedBy)}, 
+                                u2.UserName AS {nameof(WorkflowDefinition.UpdatedByUsername)}, 
+                                u2.FullName AS {nameof(WorkflowDefinition.UpdatedByFullName)}, 
+                                wd.{nameof(WorkflowDefinition.IsActive)}, 
+                                wd.{nameof(WorkflowDefinition.BpmnXml)} 
+                        FROM WORKFLOWDEFINITIONS wd
+                        LEFT JOIN APP_USER u1 ON wd.CreatedBy = u1.Id
+                        LEFT JOIN APP_USER u2 ON wd.UpdatedBy = u2.Id
+                        WHERE wd.{nameof(WorkflowDefinition.Name)} = :Name
+                        ORDER BY wd.{nameof(WorkflowDefinition.CreatedAt)} DESC";
+            
+            var definitions = await _connection.QueryAsync<WorkflowDefinition>(sql, new { Name = name });
+            var result = definitions.ToList();
+            foreach (var def in result)
+            {
+                var sqlSteps = $@"SELECT {nameof(WorkflowStep.Id)}, 
+                                         {nameof(WorkflowStep.WorkflowDefinitionId)}, 
+                                         {nameof(WorkflowStep.StepName)}, 
+                                         ""{nameof(WorkflowStep.Order)}"", 
+                                         {nameof(WorkflowStep.RequiredRole)}, 
+                                         {nameof(WorkflowStep.ActionType)},
+                                         {nameof(WorkflowStep.AllowEdit)},
+                                         {nameof(WorkflowStep.RequireSignature)} 
                                   FROM WORKFLOWSTEPS 
                                   WHERE {nameof(WorkflowStep.WorkflowDefinitionId)} = :Id 
                                   ORDER BY ""{nameof(WorkflowStep.Order)}""";
@@ -75,16 +135,16 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
             var parameters = new DynamicParameters();
             if (!string.IsNullOrWhiteSpace(keyword))
             {
-                filterSql += $@" AND ({nameof(WorkflowDefinition.Name)} LIKE :Keyword OR {nameof(WorkflowDefinition.Description)} LIKE :Keyword)";
+                filterSql += $@" AND (w.{nameof(WorkflowDefinition.Name)} LIKE :Keyword OR w.{nameof(WorkflowDefinition.Description)} LIKE :Keyword)";
                 parameters.Add("Keyword", $"%{keyword}%");
             }
             if (isActive.HasValue)
             {
-                filterSql += $@" AND {nameof(WorkflowDefinition.IsActive)} = :IsActive";
+                filterSql += $@" AND w.{nameof(WorkflowDefinition.IsActive)} = :IsActive";
                 parameters.Add("IsActive", isActive.Value ? 1 : 0);
             }
             
-            var countSql = $@"SELECT COUNT(*) FROM WORKFLOWDEFINITIONS {filterSql}";
+            var countSql = $@"SELECT COUNT(*) FROM WORKFLOWDEFINITIONS w {filterSql}";
             
             var offset = (page - 1) * pageSize;
             var pagedSql = $@"
@@ -96,10 +156,18 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
                            w.{nameof(WorkflowDefinition.ForceActivate)}, 
                            w.{nameof(WorkflowDefinition.CreatedAt)}, 
                            w.{nameof(WorkflowDefinition.UpdatedAt)}, 
+                           w.{nameof(WorkflowDefinition.CreatedBy)}, 
+                           u1.UserName AS {nameof(WorkflowDefinition.CreatedByUsername)}, 
+                           u1.FullName AS {nameof(WorkflowDefinition.CreatedByFullName)}, 
+                           w.{nameof(WorkflowDefinition.UpdatedBy)}, 
+                           u2.UserName AS {nameof(WorkflowDefinition.UpdatedByUsername)}, 
+                           u2.FullName AS {nameof(WorkflowDefinition.UpdatedByFullName)}, 
                            w.{nameof(WorkflowDefinition.IsActive)}, 
                            w.{nameof(WorkflowDefinition.BpmnXml)},
                            ROW_NUMBER() OVER (ORDER BY w.{nameof(WorkflowDefinition.CreatedAt)} DESC) AS RN
                     FROM WORKFLOWDEFINITIONS w
+                    LEFT JOIN APP_USER u1 ON w.CreatedBy = u1.Id
+                    LEFT JOIN APP_USER u2 ON w.UpdatedBy = u2.Id
                     {filterSql}
                 ) WHERE RN > :Offset AND RN <= :OffsetPlusSize";
                 
@@ -117,7 +185,9 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
                                          {nameof(WorkflowStep.StepName)}, 
                                          ""{nameof(WorkflowStep.Order)}"", 
                                          {nameof(WorkflowStep.RequiredRole)}, 
-                                         {nameof(WorkflowStep.ActionType)} 
+                                         {nameof(WorkflowStep.ActionType)},
+                                         {nameof(WorkflowStep.AllowEdit)},
+                                         {nameof(WorkflowStep.RequireSignature)} 
                                   FROM WORKFLOWSTEPS 
                                   WHERE {nameof(WorkflowStep.WorkflowDefinitionId)} = :Id 
                                   ORDER BY ""{nameof(WorkflowStep.Order)}""";
@@ -135,16 +205,25 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
         public async Task<WorkflowDefinition?> GetDefinitionByIdAsync(Guid id)
         {
             if (_connection.State != ConnectionState.Open) _connection.Open();
-            var sqlDef = $@"SELECT {nameof(WorkflowDefinition.Id)}, 
-                                   {nameof(WorkflowDefinition.Name)}, 
-                                   {nameof(WorkflowDefinition.Description)}, 
-                                   {nameof(WorkflowDefinition.Version)}, 
-                                   {nameof(WorkflowDefinition.ForceActivate)}, 
-                                   {nameof(WorkflowDefinition.CreatedAt)}, 
-                                   {nameof(WorkflowDefinition.UpdatedAt)}, 
-                                   {nameof(WorkflowDefinition.IsActive)}, 
-                                   {nameof(WorkflowDefinition.BpmnXml)} 
-                           FROM WORKFLOWDEFINITIONS WHERE {nameof(WorkflowDefinition.Id)} = :Id";
+            var sqlDef = $@"SELECT wd.{nameof(WorkflowDefinition.Id)}, 
+                                   wd.{nameof(WorkflowDefinition.Name)}, 
+                                   wd.{nameof(WorkflowDefinition.Description)}, 
+                                   wd.{nameof(WorkflowDefinition.Version)}, 
+                                   wd.{nameof(WorkflowDefinition.ForceActivate)}, 
+                                   wd.{nameof(WorkflowDefinition.CreatedAt)}, 
+                                   wd.{nameof(WorkflowDefinition.UpdatedAt)}, 
+                                   wd.{nameof(WorkflowDefinition.CreatedBy)}, 
+                                   u1.UserName AS {nameof(WorkflowDefinition.CreatedByUsername)}, 
+                                   u1.FullName AS {nameof(WorkflowDefinition.CreatedByFullName)}, 
+                                   wd.{nameof(WorkflowDefinition.UpdatedBy)}, 
+                                   u2.UserName AS {nameof(WorkflowDefinition.UpdatedByUsername)}, 
+                                   u2.FullName AS {nameof(WorkflowDefinition.UpdatedByFullName)}, 
+                                   wd.{nameof(WorkflowDefinition.IsActive)}, 
+                                   wd.{nameof(WorkflowDefinition.BpmnXml)} 
+                           FROM WORKFLOWDEFINITIONS wd
+                           LEFT JOIN APP_USER u1 ON wd.CreatedBy = u1.Id
+                           LEFT JOIN APP_USER u2 ON wd.UpdatedBy = u2.Id
+                           WHERE wd.{nameof(WorkflowDefinition.Id)} = :Id";
             var def = await _connection.QuerySingleOrDefaultAsync<WorkflowDefinition>(sqlDef, new { Id = id.ToString() });
             if (def == null) return null;
 
@@ -153,7 +232,9 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
                                      {nameof(WorkflowStep.StepName)}, 
                                      ""{nameof(WorkflowStep.Order)}"", 
                                      {nameof(WorkflowStep.RequiredRole)}, 
-                                     {nameof(WorkflowStep.ActionType)} 
+                                     {nameof(WorkflowStep.ActionType)},
+                                     {nameof(WorkflowStep.AllowEdit)},
+                                     {nameof(WorkflowStep.RequireSignature)} 
                               FROM WORKFLOWSTEPS 
                               WHERE {nameof(WorkflowStep.WorkflowDefinitionId)} = :Id 
                               ORDER BY ""{nameof(WorkflowStep.Order)}""";
@@ -174,7 +255,9 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
                                 {nameof(WorkflowStep.StepName)}, 
                                 ""{nameof(WorkflowStep.Order)}"", 
                                 {nameof(WorkflowStep.RequiredRole)}, 
-                                {nameof(WorkflowStep.ActionType)} 
+                                {nameof(WorkflowStep.ActionType)},
+                                {nameof(WorkflowStep.AllowEdit)},
+                                {nameof(WorkflowStep.RequireSignature)} 
                         FROM WORKFLOWSTEPS WHERE {nameof(WorkflowStep.Id)} = :Id";
             return await _connection.QuerySingleOrDefaultAsync<WorkflowStep>(sql, new { Id = id.ToString() });
         }
@@ -196,8 +279,47 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
                 {
                     var sqlDeactivate = $@"UPDATE WORKFLOWDEFINITIONS 
                                            SET {nameof(WorkflowDefinition.IsActive)} = 0 
-                                           WHERE {nameof(WorkflowDefinition.Name)} = :Name AND {nameof(WorkflowDefinition.IsActive)} = 1";
-                    await _connection.ExecuteAsync(sqlDeactivate, new { Name = definition.Name }, transaction);
+                                           WHERE {nameof(WorkflowDefinition.Name)} = :Name AND {nameof(WorkflowDefinition.IsActive)} = 1 AND Id != :Id";
+                    await _connection.ExecuteAsync(sqlDeactivate, new { Name = definition.Name, Id = definition.Id.ToString() }, transaction);
+
+                    var sqlGetOldDefs = @"SELECT Id FROM WORKFLOWDEFINITIONS WHERE Name = :Name AND Id != :Id";
+                    var oldDefIds = (await _connection.QueryAsync<string>(sqlGetOldDefs, new { Name = definition.Name, Id = definition.Id.ToString() }, transaction)).ToList();
+
+                    if (oldDefIds.Any())
+                    {
+                        var sqlGetInstances = @"SELECT Id, WorkflowDefinitionId FROM WORKFLOWINSTANCES WHERE Status = 'Running' AND WorkflowDefinitionId IN :OldIds";
+                        var instances = (await _connection.QueryAsync<WorkflowInstance>(sqlGetInstances, new { OldIds = oldDefIds }, transaction)).ToList();
+
+                        if (instances.Any())
+                        {
+                            var sqlUpdateInstanceDef = "UPDATE WORKFLOWINSTANCES SET WorkflowDefinitionId = :NewId WHERE Id = :Id";
+                            foreach (var inst in instances)
+                            {
+                                await _connection.ExecuteAsync(sqlUpdateInstanceDef, new { NewId = definition.Id.ToString(), Id = inst.Id.ToString() }, transaction);
+
+                                var sqlGetPendingTasks = "SELECT Id, StepId, StepName FROM WORKFLOWTASKS WHERE WorkflowInstanceId = :InstanceId AND Status = 'Pending'";
+                                var pendingTasks = (await _connection.QueryAsync<WorkflowTask>(sqlGetPendingTasks, new { InstanceId = inst.Id.ToString() }, transaction)).ToList();
+
+                                foreach (var task in pendingTasks)
+                                {
+                                    var sqlGetOldStep = "SELECT StepName, \"Order\" FROM WORKFLOWSTEPS WHERE Id = :StepId";
+                                    var oldStep = await _connection.QuerySingleOrDefaultAsync<WorkflowStep>(sqlGetOldStep, new { StepId = task.StepId.ToString() }, transaction);
+                                    if (oldStep != null)
+                                    {
+                                        var matchedNewStep = definition.Steps.FirstOrDefault(s => 
+                                            s.StepName.Equals(oldStep.StepName, StringComparison.OrdinalIgnoreCase) || 
+                                            s.Order == oldStep.Order);
+
+                                        if (matchedNewStep != null)
+                                        {
+                                            var sqlUpdateTaskStep = "UPDATE WORKFLOWTASKS SET StepId = :NewStepId, StepName = :NewStepName WHERE Id = :TaskId";
+                                            await _connection.ExecuteAsync(sqlUpdateTaskStep, new { NewStepId = matchedNewStep.Id.ToString(), NewStepName = matchedNewStep.StepName, TaskId = task.Id.ToString() }, transaction);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
 
                 var sqlInsertDef = $@"INSERT INTO WORKFLOWDEFINITIONS (
@@ -208,10 +330,12 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
                                         {nameof(WorkflowDefinition.ForceActivate)}, 
                                         {nameof(WorkflowDefinition.CreatedAt)}, 
                                         {nameof(WorkflowDefinition.UpdatedAt)}, 
+                                        {nameof(WorkflowDefinition.CreatedBy)}, 
+                                        {nameof(WorkflowDefinition.UpdatedBy)}, 
                                         {nameof(WorkflowDefinition.IsActive)}, 
                                         {nameof(WorkflowDefinition.BpmnXml)}
                                      )
-                                     VALUES (:Id, :Name, :Description, :Version, :ForceActivate, :CreatedAt, :UpdatedAt, :IsActive, :BpmnXml)";
+                                     VALUES (:Id, :Name, :Description, :Version, :ForceActivate, :CreatedAt, :UpdatedAt, :CreatedBy, :UpdatedBy, :IsActive, :BpmnXml)";
 
                 var parameters = new DynamicParameters();
                 parameters.Add("Id", definition.Id.ToString());
@@ -221,6 +345,8 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
                 parameters.Add("ForceActivate", definition.ForceActivate ? 1 : 0);
                 parameters.Add("CreatedAt", definition.CreatedAt);
                 parameters.Add("UpdatedAt", definition.UpdatedAt);
+                parameters.Add("CreatedBy", string.IsNullOrEmpty(definition.CreatedBy) ? "System" : definition.CreatedBy);
+                parameters.Add("UpdatedBy", string.IsNullOrEmpty(definition.UpdatedBy) ? "System" : definition.UpdatedBy);
                 parameters.Add("IsActive", definition.IsActive ? 1 : 0);
                 parameters.Add("BpmnXml", string.IsNullOrEmpty(definition.BpmnXml) ? null : definition.BpmnXml);
 
@@ -234,9 +360,11 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
                                             {nameof(WorkflowStep.StepName)}, 
                                             ""{nameof(WorkflowStep.Order)}"", 
                                             {nameof(WorkflowStep.RequiredRole)}, 
-                                            {nameof(WorkflowStep.ActionType)}
+                                            {nameof(WorkflowStep.ActionType)},
+                                            {nameof(WorkflowStep.AllowEdit)},
+                                            {nameof(WorkflowStep.RequireSignature)}
                                          )
-                                         VALUES (:Id, :WorkflowDefinitionId, :StepName, :OrderVal, :RequiredRole, :ActionType)";
+                                         VALUES (:Id, :WorkflowDefinitionId, :StepName, :OrderVal, :RequiredRole, :ActionType, :AllowEdit, :RequireSignature)";
                     foreach (var step in definition.Steps)
                     {
                         if (step.Id == Guid.Empty)
@@ -252,6 +380,8 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
                         stepParams.Add("OrderVal", step.Order);
                         stepParams.Add("RequiredRole", string.IsNullOrEmpty(step.RequiredRole) ? null : step.RequiredRole);
                         stepParams.Add("ActionType", string.IsNullOrEmpty(step.ActionType) ? null : step.ActionType);
+                        stepParams.Add("AllowEdit", step.AllowEdit ? 1 : 0);
+                        stepParams.Add("RequireSignature", step.RequireSignature ? 1 : 0);
 
                         await _connection.ExecuteAsync(sqlInsertStep, stepParams, transaction);
                     }
@@ -280,6 +410,45 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
                                            SET {nameof(WorkflowDefinition.IsActive)} = 0 
                                            WHERE {nameof(WorkflowDefinition.Name)} = :Name AND {nameof(WorkflowDefinition.IsActive)} = 1 AND {nameof(WorkflowDefinition.Id)} != :Id";
                     await _connection.ExecuteAsync(sqlDeactivate, new { Name = definition.Name, Id = id.ToString() }, transaction);
+
+                    var sqlGetOldDefs = @"SELECT Id FROM WORKFLOWDEFINITIONS WHERE Name = :Name AND Id != :Id";
+                    var oldDefIds = (await _connection.QueryAsync<string>(sqlGetOldDefs, new { Name = definition.Name, Id = id.ToString() }, transaction)).ToList();
+
+                    if (oldDefIds.Any())
+                    {
+                        var sqlGetInstances = @"SELECT Id, WorkflowDefinitionId FROM WORKFLOWINSTANCES WHERE Status = 'Running' AND WorkflowDefinitionId IN :OldIds";
+                        var instances = (await _connection.QueryAsync<WorkflowInstance>(sqlGetInstances, new { OldIds = oldDefIds }, transaction)).ToList();
+
+                        if (instances.Any())
+                        {
+                            var sqlUpdateInstanceDef = "UPDATE WORKFLOWINSTANCES SET WorkflowDefinitionId = :NewId WHERE Id = :Id";
+                            foreach (var inst in instances)
+                            {
+                                await _connection.ExecuteAsync(sqlUpdateInstanceDef, new { NewId = id.ToString(), Id = inst.Id.ToString() }, transaction);
+
+                                var sqlGetPendingTasks = "SELECT Id, StepId, StepName FROM WORKFLOWTASKS WHERE WorkflowInstanceId = :InstanceId AND Status = 'Pending'";
+                                var pendingTasks = (await _connection.QueryAsync<WorkflowTask>(sqlGetPendingTasks, new { InstanceId = inst.Id.ToString() }, transaction)).ToList();
+
+                                foreach (var task in pendingTasks)
+                                {
+                                    var sqlGetOldStep = "SELECT StepName, \"Order\" FROM WORKFLOWSTEPS WHERE Id = :StepId";
+                                    var oldStep = await _connection.QuerySingleOrDefaultAsync<WorkflowStep>(sqlGetOldStep, new { StepId = task.StepId.ToString() }, transaction);
+                                    if (oldStep != null)
+                                    {
+                                        var matchedNewStep = definition.Steps.FirstOrDefault(s => 
+                                            s.StepName.Equals(oldStep.StepName, StringComparison.OrdinalIgnoreCase) || 
+                                            s.Order == oldStep.Order);
+
+                                        if (matchedNewStep != null)
+                                        {
+                                            var sqlUpdateTaskStep = "UPDATE WORKFLOWTASKS SET StepId = :NewStepId, StepName = :NewStepName WHERE Id = :TaskId";
+                                            await _connection.ExecuteAsync(sqlUpdateTaskStep, new { NewStepId = matchedNewStep.Id.ToString(), NewStepName = matchedNewStep.StepName, TaskId = task.Id.ToString() }, transaction);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
 
                 var sqlUpdateDef = $@"UPDATE WORKFLOWDEFINITIONS
@@ -289,7 +458,8 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
                                          {nameof(WorkflowDefinition.ForceActivate)} = :ForceActivate, 
                                          {nameof(WorkflowDefinition.IsActive)} = :IsActive, 
                                          {nameof(WorkflowDefinition.BpmnXml)} = :BpmnXml, 
-                                         {nameof(WorkflowDefinition.UpdatedAt)} = :UpdatedAt
+                                         {nameof(WorkflowDefinition.UpdatedAt)} = :UpdatedAt,
+                                         {nameof(WorkflowDefinition.UpdatedBy)} = :UpdatedBy
                                      WHERE {nameof(WorkflowDefinition.Id)} = :Id";
                 var defParams = new DynamicParameters();
                 defParams.Add("Name", string.IsNullOrEmpty(definition.Name) ? null : definition.Name);
@@ -299,6 +469,7 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
                 defParams.Add("IsActive", definition.IsActive ? 1 : 0);
                 defParams.Add("BpmnXml", string.IsNullOrEmpty(definition.BpmnXml) ? null : definition.BpmnXml);
                 defParams.Add("UpdatedAt", definition.UpdatedAt);
+                defParams.Add("UpdatedBy", string.IsNullOrEmpty(definition.UpdatedBy) ? "System" : definition.UpdatedBy);
                 defParams.Add("Id", id.ToString());
 
                 await _connection.ExecuteAsync(sqlUpdateDef, defParams, transaction);
@@ -330,15 +501,19 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
                                         {nameof(WorkflowStep.StepName)}, 
                                         ""{nameof(WorkflowStep.Order)}"", 
                                         {nameof(WorkflowStep.RequiredRole)}, 
-                                        {nameof(WorkflowStep.ActionType)}
+                                        {nameof(WorkflowStep.ActionType)},
+                                        {nameof(WorkflowStep.AllowEdit)},
+                                        {nameof(WorkflowStep.RequireSignature)}
                                      )
-                                     VALUES (:Id, :WorkflowDefinitionId, :StepName, :OrderVal, :RequiredRole, :ActionType)";
+                                     VALUES (:Id, :WorkflowDefinitionId, :StepName, :OrderVal, :RequiredRole, :ActionType, :AllowEdit, :RequireSignature)";
 
                 var sqlUpdateStep = $@"UPDATE WORKFLOWSTEPS 
                                       SET {nameof(WorkflowStep.StepName)} = :StepName, 
                                           ""{nameof(WorkflowStep.Order)}"" = :OrderVal, 
                                           {nameof(WorkflowStep.RequiredRole)} = :RequiredRole, 
-                                          {nameof(WorkflowStep.ActionType)} = :ActionType 
+                                          {nameof(WorkflowStep.ActionType)} = :ActionType,
+                                          {nameof(WorkflowStep.AllowEdit)} = :AllowEdit,
+                                          {nameof(WorkflowStep.RequireSignature)} = :RequireSignature 
                                       WHERE {nameof(WorkflowStep.Id)} = :Id";
 
                 foreach (var step in incomingSteps)
@@ -348,6 +523,8 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
                     stepParams.Add("OrderVal", step.Order);
                     stepParams.Add("RequiredRole", string.IsNullOrEmpty(step.RequiredRole) ? null : step.RequiredRole);
                     stepParams.Add("ActionType", string.IsNullOrEmpty(step.ActionType) ? null : step.ActionType);
+                    stepParams.Add("AllowEdit", step.AllowEdit ? 1 : 0);
+                    stepParams.Add("RequireSignature", step.RequireSignature ? 1 : 0);
 
                     if (step.Id != Guid.Empty && existingStepIds.Contains(step.Id))
                     {
@@ -594,7 +771,7 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
             return task;
         }
 
-        public async Task<IEnumerable<WorkflowTask>> GetPendingTasksByRolesAsync(List<string> roles, bool isAdmin)
+        public async Task<IEnumerable<WorkflowTask>> GetPendingTasksByRolesAsync(List<string> roles, bool isAdmin, string userId)
         {
             if (_connection.State != ConnectionState.Open) _connection.Open();
             var sql = $@"SELECT {nameof(WorkflowTask.Id)}, 
@@ -614,10 +791,14 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
             {
                 if (roles == null || roles.Count == 0)
                 {
-                    return new List<WorkflowTask>();
+                    sql += $@" AND {nameof(WorkflowTask.AssigneeUserId)} = :AssigneeUserId";
                 }
-                sql += $@" AND {nameof(WorkflowTask.AssignedRole)} IN :Roles";
-                parameters.Add("Roles", roles);
+                else
+                {
+                    sql += $@" AND ({nameof(WorkflowTask.AssigneeUserId)} = :AssigneeUserId OR ({nameof(WorkflowTask.AssigneeUserId)} IS NULL AND {nameof(WorkflowTask.AssignedRole)} IN :Roles))";
+                    parameters.Add("Roles", roles);
+                }
+                parameters.Add("AssigneeUserId", userId);
             }
 
             sql += $@" ORDER BY {nameof(WorkflowTask.CreatedAt)} DESC";
@@ -701,16 +882,19 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
         public async Task<IEnumerable<WorkflowHistory>> GetHistoryByInstanceIdAsync(Guid instanceId)
         {
             if (_connection.State != ConnectionState.Open) _connection.Open();
-            var sql = $@"SELECT Id, 
-                                WorkflowInstanceId, 
-                                StepName, 
-                                ""ACTION"" AS ""Action"", 
-                                ActionByUserId, 
-                                ""Comment"", 
-                                ActionDate
-                        FROM WORKFLOWHISTORY
-                        WHERE WorkflowInstanceId = :InstanceId
-                        ORDER BY ActionDate ASC";
+            var sql = $@"SELECT h.Id, 
+                                h.WorkflowInstanceId, 
+                                h.StepName, 
+                                h.""ACTION"" AS ""Action"", 
+                                h.ActionByUserId, 
+                                u.UserName AS ActionByUsername,
+                                u.FullName AS ActionByFullName,
+                                h.""Comment"", 
+                                h.ActionDate
+                        FROM WORKFLOWHISTORY h
+                        LEFT JOIN APP_USER u ON h.ActionByUserId = u.Id
+                        WHERE h.WorkflowInstanceId = :InstanceId
+                        ORDER BY h.ActionDate ASC";
             return await _connection.QueryAsync<WorkflowHistory>(sql, new { InstanceId = instanceId.ToString() });
         }
 

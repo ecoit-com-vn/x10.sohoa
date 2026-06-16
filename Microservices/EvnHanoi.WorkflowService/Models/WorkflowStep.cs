@@ -11,6 +11,8 @@ namespace EvnHanoi.WorkflowService.Models
         public int Order { get; set; }
         public string RequiredRole { get; set; } = string.Empty;
         public string ActionType { get; set; } = string.Empty; // e.g., "Scan", "DataEntry", "Approve"
+        public bool AllowEdit { get; set; }
+        public bool RequireSignature { get; set; }
 
         [JsonIgnore]
         public WorkflowDefinition? WorkflowDefinition { get; set; }
