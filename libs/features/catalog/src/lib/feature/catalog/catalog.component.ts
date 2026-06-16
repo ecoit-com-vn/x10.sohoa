@@ -133,12 +133,34 @@ export class CatalogComponent implements OnInit {
   loadCatalogTypes(callback?: () => void) {
     this.catalogService.getSharedCatalogTypes(this.typeSearchKeyword(), undefined, this.isPrivate()).subscribe({
       next: (res: any) => {
-        this.types.set(Array.isArray(res) ? res : []);
+        const list = Array.isArray(res) ? res : [];
+        this.types.set(list);
+        
+        if (list.length > 0) {
+          const currentId = this.selectedTypeId();
+          const stillExists = currentId !== null && list.some(t => t.id === currentId);
+          if (!stillExists) {
+            this.onSelectType(list[0]);
+          }
+        } else {
+          this.selectedTypeId.set(null);
+          this.selectedTypeCode.set('');
+          this.selectedTypeName.set('');
+          this.selectedTypeHasParent.set(0);
+          this.items.set([]);
+          this.totalCount.set(0);
+        }
         if (callback) callback();
       },
       error: (err) => {
         console.error('Không thể tải danh sách loại danh mục.', err);
         this.types.set([]);
+        this.selectedTypeId.set(null);
+        this.selectedTypeCode.set('');
+        this.selectedTypeName.set('');
+        this.selectedTypeHasParent.set(0);
+        this.items.set([]);
+        this.totalCount.set(0);
         if (callback) callback();
       }
     });
@@ -237,6 +259,7 @@ export class CatalogComponent implements OnInit {
             detail: 'Thêm mới loại danh mục thành công!'
           });
           this.showTypeDialog.set(false);
+          this.selectedTypeId.set(null);
           this.loadCatalogTypes();
         },
         error: (err) => {
@@ -279,7 +302,7 @@ export class CatalogComponent implements OnInit {
       next: (res: any) => {
         this.messageService.add({
           severity: 'success',
-          summary: isLocking ? 'Đã khóa' : 'Đã mở khóa',
+          summary: isLocking ? 'Ngừng hoạt động' : 'Kích hoạt',
           detail: res.message || 'Thay đổi trạng thái loại danh mục thành công!'
         });
         this.loadCatalogTypes();
@@ -527,7 +550,7 @@ export class CatalogComponent implements OnInit {
       next: (res: any) => {
         this.messageService.add({
           severity: 'success',
-          summary: isLocking ? 'Đã khóa' : 'Đã mở khóa',
+          summary: isLocking ? 'Ngừng hoạt động' : 'Kích hoạt',
           detail: res.message || 'Thay đổi trạng thái danh mục thành công!'
         });
         this.loadCatalogs();

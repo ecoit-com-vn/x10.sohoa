@@ -12,7 +12,9 @@ export interface WorkflowStep {
   stepName: string;
   order: number;
   requiredRole: string;
-  actionType: string; // 'Scan' | 'DataEntry' | 'Approve' | 'Review'
+  actionType: string; // 'Scan' | 'DataEntry' | 'Approve' | 'Review' | 'AiAssist'
+  allowEdit?: boolean;
+  requireSignature?: boolean;
 }
 
 export interface WorkflowDefinition {

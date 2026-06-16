@@ -52,10 +52,10 @@
           </div>
 
           <!-- Bottom Row: Code and Actions -->
-          <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;" (click)="$event.stopPropagation()">
+          <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
             <span class="type-item-code" style="font-size: 0.75rem; color: #64748b;">Mã: <code>{{ type.code }}</code></span>
             
-            <div class="type-item-actions" style="display: flex; gap: 4px;">
+            <div class="type-item-actions" style="display: flex; gap: 4px;" (click)="$event.stopPropagation()">
               <!-- Edit button -->
               <button *ngIf="canEditType()" class="act-btn act-edit" (click)="onEditType(type)" title="Sửa loại danh mục" style="width: 26px; height: 26px; font-size: 0.75rem;">
                 <i class="pi pi-pencil"></i>
@@ -65,7 +65,7 @@
               <button *ngIf="canManageType()" 
                 class="act-btn" 
                 [ngClass]="type.status === 1 ? 'act-delete' : 'act-edit'"
-                [title]="type.status === 1 ? 'Khóa loại danh mục' : 'Mở khóa loại danh mục'" 
+                [title]="type.status === 1 ? 'Ngừng hoạt động' : 'Kích hoạt'" 
                 (click)="onToggleTypeStatus(type)"
                 style="width: 26px; height: 26px; font-size: 0.75rem;">
                 <i class="pi" [ngClass]="type.status === 1 ? 'pi-lock' : 'pi-lock-open'"></i>
@@ -181,7 +181,7 @@
                     <button *ngIf="canManageCatalog()" 
                       class="act-btn" 
                       [ngClass]="item.status === 1 ? 'act-delete' : 'act-edit'"
-                      [title]="item.status === 1 ? 'Khóa danh mục' : 'Mở khóa danh mục'" 
+                      [title]="item.status === 1 ? 'Ngừng hoạt động' : 'Kích hoạt'" 
                       (click)="onToggleCatalogStatus(item)">
                       <i class="pi" [ngClass]="item.status === 1 ? 'pi-lock' : 'pi-lock-open'"></i>
                     </button>
@@ -271,17 +271,17 @@
         <span class="field-error" *ngIf="typeNameError()">{{ typeNameError() }}</span>
       </div>
 
+      <div class="form-group">
+        <label class="form-label">Mô tả</label>
+        <textarea class="wf-textarea w-full" rows="3" [(ngModel)]="currentTypeItem().description" 
+          placeholder="Nhập mô tả loại danh mục..." [disabled]="typeSaving()"></textarea>
+      </div>
+
       <div class="form-group" style="display: flex; align-items: center; gap: 8px; padding-top: 5px;">
         <input type="checkbox" id="chkHasParent" [ngModel]="currentTypeItem().hasParent === 1" (ngModelChange)="currentTypeItem().hasParent = $event ? 1 : 0" style="scale: 1.1; cursor: pointer;" [disabled]="typeSaving()" />
         <label for="chkHasParent" style="font-size: 0.9rem; font-weight: 600; cursor: pointer; user-select: none; margin: 0; color: #334155;">
           Hỗ trợ cấp cha - con (Hierarchy)
         </label>
-      </div>
-
-      <div class="form-group">
-        <label class="form-label">Mô tả</label>
-        <textarea class="wf-textarea w-full" rows="3" [(ngModel)]="currentTypeItem().description" 
-          placeholder="Nhập mô tả loại danh mục..." [disabled]="typeSaving()"></textarea>
       </div>
     </div>
     
