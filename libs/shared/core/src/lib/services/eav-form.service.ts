@@ -15,6 +15,7 @@ export interface EavFormTemplate {
   isActive: boolean;
   createdAt: string;
   createdBy: string;
+  status?: string;
 }
 
 @Injectable({
@@ -61,6 +62,18 @@ export class EavFormService {
 
   deleteTemplate(id: string): Observable<void> {
     return this.http.delete<void>(`${this.apiUrl}/${id}`);
+  }
+
+  submitTemplate(id: string): Observable<EavFormTemplate> {
+    return this.http.put<EavFormTemplate>(`${this.apiUrl}/${id}/submit`, {});
+  }
+
+  approveTemplate(id: string): Observable<EavFormTemplate> {
+    return this.http.put<EavFormTemplate>(`${this.apiUrl}/${id}/approve`, {});
+  }
+
+  rejectTemplate(id: string): Observable<EavFormTemplate> {
+    return this.http.put<EavFormTemplate>(`${this.apiUrl}/${id}/reject`, {});
   }
 
   getCatalogTypes(): Observable<any[]> {
