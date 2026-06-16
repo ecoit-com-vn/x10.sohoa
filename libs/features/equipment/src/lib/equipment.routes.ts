@@ -14,6 +14,10 @@ export const EQUIPMENT_ROUTES: Routes = [
     loadComponent: () => import('./components/form-management/components/form-management/form-management.component').then(m => m.FormManagementComponent)
   },
   {
+    path: 'form-approval',
+    loadComponent: () => import('./components/form-approval/form-approval.component').then(m => m.FormApprovalComponent)
+  },
+  {
     path: 'form-builder',
     redirectTo: 'form-management',
     pathMatch: 'full'

@@ -1,5 +1,5 @@
 
-    <div class="wf-page">
+    <div class="wf-page" [class.builder-mode]="viewState() !== 'list'">
       <p-toast></p-toast>
       
       <!-- ────────────────── VIEW 1: DANH SÁCH BIỂU MẪU ────────────────── -->
@@ -54,6 +54,7 @@
                 <th>Tên biểu mẫu thuộc tính thiết bị</th>
                 <th>Hạng mục áp dụng</th>
                 <th style="width: 100px; text-align: center;">Phiên bản</th>
+                <th>Người tạo</th>
                 <th class="col-tt">Trạng thái</th>
                 <th>Cập nhật lần cuối</th>
                 <th class="col-hd" style="width: 250px;">Thao tác</th>
@@ -61,7 +62,7 @@
             </thead>
             <tbody>
               <tr *ngIf="loading()">
-                <td colspan="7" class="skeleton-row" style="padding: 30px; text-align: center;">
+                <td colspan="8" class="skeleton-row" style="padding: 30px; text-align: center;">
                   <i class="pi pi-spin pi-spinner mr-2" style="font-size: 1.5rem; color: #002D72;"></i>
                   <span>Đang tải danh sách biểu mẫu...</span>
                 </td>
@@ -75,12 +76,20 @@
                   </span>
                 </td>
                 <td style="text-align: center; font-family: monospace; font-weight: bold; color: #000000;">v{{ form.version }}.0</td>
+                <td style="color: #000000;">{{ form.createdBy || 'admin' }}</td>
                 <td class="col-tt">
                   <span class="status-pill"
-                    [class.status-active]="form.isActive"
-                    [class.status-inactive]="!form.isActive">
-                    <i class="pi pi-clock"></i>
-                    {{ form.isActive ? 'Đang hoạt động' : 'Ngưng hoạt động' }}
+                    [class.status-draft]="form.status === 'Tạo mới' || !form.status"
+                    [class.status-pending]="form.status === 'Chờ duyệt'"
+                    [class.status-approved]="form.status === 'Hoàn thành'"
+                    [class.status-rejected]="form.status === 'Từ chối'">
+                    <i class="pi" [ngClass]="{
+                      'pi-info-circle': form.status === 'Tạo mới' || !form.status,
+                      'pi-clock': form.status === 'Chờ duyệt',
+                      'pi-check-circle': form.status === 'Hoàn thành',
+                      'pi-times-circle': form.status === 'Từ chối'
+                    }"></i>
+                    {{ form.status || 'Tạo mới' }}
                   </span>
                 </td>
                 <td style="color: #000000;">{{ form.createdAt | date:'dd/MM/yyyy HH:mm' }}</td>
@@ -91,6 +100,12 @@
                   <button class="act-btn act-edit" (click)="onEdit(form)" title="Chỉnh sửa">
                     <i class="pi pi-pencil"></i>
                   </button>
+                  <button class="act-btn act-submit" 
+                    *ngIf="form.status === 'Tạo mới' || !form.status || form.status === 'Từ chối'"
+                    (click)="submitForm(form)" 
+                    title="Gửi duyệt">
+                    <i class="pi pi-send"></i>
+                  </button>
                   <button class="act-btn act-delete" 
                     *ngIf="form.isActive"
                     (click)="deactivateForm(form)" 
@@ -100,7 +115,7 @@
                 </td>
               </tr>
               <tr *ngIf="filteredForms().length === 0 && !loading()">
-                <td colspan="7" class="empty-row">
+                <td colspan="8" class="empty-row">
                   <i class="pi pi-inbox"></i>
                   <div>Chưa có biểu mẫu động nào. Nhấp tạo biểu mẫu để thiết lập!</div>
                 </td>
@@ -122,8 +137,7 @@
         </div>
       </div>
 
-      <!-- ────────────────── VIEW 2: CHI TIẾT BIỂU MẪU (THÊM / SỬA / XEM) ────────────────── -->
-      <div *ngIf="viewState() !== 'list'">
+      <div *ngIf="viewState() !== 'list'" class="builder-view-container">
         <!-- Breadcrumb -->
         <div class="breadcrumb">
           <i class="pi pi-home bc-icon"></i>
@@ -137,17 +151,17 @@
         <!-- Builder & Editor Workspace -->
         <div class="form-builder-wrapper" *ngIf="viewState() === 'add' || viewState() === 'edit'">
           <!-- Top Header Bar -->
-          <div class="builder-header shadow-1">
+          <div class="builder-header">
             <div class="header-left">
               <div>
-                <h2 class="m-0 text-lg font-bold" style="color: #002D72;">{{ detailTitle() }}</h2>
-                <p class="m-0 text-xs text-muted">Kéo thả các trường thông tin kỹ thuật để thiết lập biểu mẫu chuẩn hóa</p>
+                <h2 class="builder-title">{{ detailTitle() }}</h2>
+                <p class="builder-subtitle text-sm">Kéo thả các trường thông tin kỹ thuật để thiết lập biểu mẫu chuẩn hóa</p>
               </div>
             </div>
             <div class="header-right" style="display: flex; gap: 8px;">
-              <p-button label="Quay lại" icon="pi pi-arrow-left" severity="secondary" [rounded]="true" (onClick)="goToList()"></p-button>
-              <p-button label="Xem JSON" icon="pi pi-code" severity="secondary" [rounded]="true" (onClick)="showJson.set(!showJson())"></p-button>
-              <p-button [label]="isEditMode() ? 'Cập nhật cấu hình' : 'Lưu biểu mẫu'" icon="pi pi-save" [rounded]="true" styleClass="btn-evn-blue" (onClick)="saveForm()"></p-button>
+              <p-button label="Quay lại" icon="pi pi-arrow-left" severity="secondary" size="small" [rounded]="true" (onClick)="goToList()"></p-button>
+              <p-button label="Xem JSON" icon="pi pi-code" severity="secondary" size="small" [rounded]="true" (onClick)="showJson.set(!showJson())"></p-button>
+              <p-button [label]="isEditMode() ? 'Cập nhật cấu hình' : 'Lưu biểu mẫu'" icon="pi pi-save" size="small" [rounded]="true" styleClass="btn-evn-blue" (onClick)="saveForm()"></p-button>
             </div>
           </div>
 
@@ -155,9 +169,9 @@
             <!-- Left Column: Toolbox -->
             <div class="toolbox-column">
               <p-card header="Thành phần biểu mẫu" styleClass="card-custom">
-                <p class="text-xs text-muted mb-4">Nhấp hoặc kéo thả các loại trường dưới đây vào vùng thiết kế.</p>
+                <p class="text-sm text-muted mt-0 mb-2">Nhấp hoặc kéo thả các loại trường dưới đây vào vùng thiết kế.</p>
                 
-                <div class="toolbox-list">
+                <div class="toolbox-list pt-2">
                   <div *ngFor="let item of toolboxItems" 
                        class="toolbox-item" 
                        draggable="true" 
@@ -177,20 +191,20 @@
             <!-- Center Column: Canvas Workspace -->
             <div class="canvas-column" (dragover)="onDragOver($event)" (drop)="onDrop($event)">
               <!-- General Info Card -->
-              <div class="general-info-card card p-4 mb-4">
+              <div class="general-info-card card">
                 <div style="display: flex; gap: 16px;" class="mb-3">
                   <div class="form-group" style="flex: 1;">
-                    <label class="block text-xs font-bold text-muted uppercase tracking-wider mb-2">Mã biểu mẫu <span class="required">*</span></label>
+                    <label class="block text-sm font-bold text-muted tracking-wider">Mã biểu mẫu <span class="required">*</span></label>
                     <input type="text" pInputText [ngModel]="formCode()" (ngModelChange)="formCode.set($event)" class="w-full form-title-input" placeholder="Ví dụ: BM_MBA_01..." />
                   </div>
                   <div class="form-group" style="flex: 1;">
-                    <label class="block text-xs font-bold text-muted uppercase tracking-wider mb-2">Tên biểu mẫu kỹ thuật <span class="required">*</span></label>
+                    <label class="block text-sm font-bold text-muted tracking-wider">Tên biểu mẫu kỹ thuật <span class="required">*</span></label>
                     <input type="text" pInputText [ngModel]="formName()" (ngModelChange)="formName.set($event)" class="w-full form-title-input" placeholder="Nhập tên biểu mẫu..." />
                   </div>
                 </div>
                 <div style="display: flex; gap: 16px;">
                   <div class="form-group" style="flex: 1;">
-                    <label class="block text-xs font-bold text-muted uppercase tracking-wider mb-2">Hạng mục áp dụng <span class="required">*</span></label>
+                    <label class="block text-sm font-bold text-muted tracking-wider">Hạng mục áp dụng <span class="required">*</span></label>
                     <p-select [options]="categories" 
                               [ngModel]="formCategory()" 
                               (ngModelChange)="formCategory.set($event)"
@@ -202,23 +216,23 @@
                     </p-select>
                   </div>
                   <div class="form-group" style="flex: 1;">
-                    <label class="block text-xs font-bold text-muted uppercase tracking-wider mb-2">Mô tả thông tin</label>
-                    <input type="text" pInputText [ngModel]="formDescriptionInfo()" (ngModelChange)="formDescriptionInfo.set($event)" class="w-full form-title-input" placeholder="Nhập mô tả thông tin..." />
+                    <label class="block text-sm font-bold text-muted tracking-wider">Mô tả thông tin</label>
+                    <textarea pTextarea [ngModel]="formDescriptionInfo()" (ngModelChange)="formDescriptionInfo.set($event)" class="w-full form-title-input" rows="2" placeholder="Nhập mô tả thông tin..."></textarea>
                   </div>
                 </div>
               </div>
 
               <!-- Main Fields Area -->
-              <div class="canvas-workspace card p-4">
-                <div class="workspace-header mb-3 flex justify-between items-center" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px;">
-                  <span class="font-bold text-sm text-muted uppercase tracking-wider">Khu vực thiết kế giao diện (Vùng kéo thả)</span>
-                  <span class="badge" style="background: #002D72; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem;">{{ fields().length }} trường</span>
+              <div class="canvas-workspace">
+                <div class="workspace-header">
+                  <span class="workspace-title">Khu vực thiết kế giao diện (vùng kéo thả)</span>
+                  <span class="badge badge-field-count">{{ fields().length }} trường</span>
                 </div>
 
-                <div *ngIf="fields().length === 0" class="empty-workspace-state" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 0; border: 2px dashed #cbd5e1; border-radius: 8px;">
-                  <i class="pi pi-clone text-4xl mb-3 text-muted"></i>
-                  <p class="font-bold text-lg m-0">Vùng thiết kế đang trống</p>
-                  <p class="text-xs text-muted mt-1">Kéo thả các trường từ cột trái vào đây, hoặc click trực tiếp để thêm mới.</p>
+                <div *ngIf="fields().length === 0" class="empty-workspace-state">
+                  <i class="pi pi-clone empty-icon"></i>
+                  <p class="empty-title">Vùng thiết kế đang trống</p>
+                  <p class="empty-subtitle">Kéo thả các trường từ cột trái vào đây, hoặc click trực tiếp để thêm mới.</p>
                 </div>
 
                 <div class="fields-list-container" *ngIf="fields().length > 0" style="display: flex; flex-wrap: wrap; gap: 14px;">
@@ -235,7 +249,7 @@
                     
                     <div class="field-card-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; margin-bottom: 8px;">
                       <span class="drag-handle-indicator"><i class="pi pi-ellipsis-v"></i><i class="pi pi-ellipsis-v"></i></span>
-                      <span class="field-type-badge text-xs uppercase font-bold" style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">{{ field.type }}</span>
+                      <span class="field-type-badge text-sm font-bold" style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">{{ field.type }}</span>
                       <div class="field-actions" style="display: flex; gap: 4px;">
                         <button class="act-btn act-edit" (click)="cloneField(i, $event)" title="Nhân bản" style="border: none; padding: 4px 6px;"><i class="pi pi-copy"></i></button>
                         <button class="act-btn act-delete" (click)="removeField(i, $event)" title="Xóa" style="border: none; padding: 4px 6px;"><i class="pi pi-trash"></i></button>
@@ -277,39 +291,39 @@
             <!-- Right Column: Properties Configuration -->
             <div class="properties-column">
               <p-card header="Thuộc tính cấu hình" styleClass="card-custom">
-                <div *ngIf="selectedFieldIndex() === null" class="empty-properties-state" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 200px; border: 2px dashed #cbd5e1; border-radius: 8px; color: #64748b; padding: 20px; text-align: center;">
-                  <i class="pi pi-cog text-3xl mb-2"></i>
-                  <p class="text-sm m-0">Chọn một trường trong vùng thiết kế để cấu hình chi tiết.</p>
+                <div *ngIf="selectedFieldIndex() === null" class="empty-properties-state">
+                  <i class="pi pi-cog empty-icon"></i>
+                  <p class="empty-text">Chọn một trường trong vùng thiết kế để cấu hình chi tiết.</p>
                 </div>
 
-                <div *ngIf="selectedFieldIndex() !== null" class="properties-form" style="display: flex; flex-direction: column; gap: 14px;">
+                <div *ngIf="selectedFieldIndex() !== null" class="properties-form">
                   <div class="property-section-title">Thông tin cơ bản</div>
                   
-                  <div class="field">
-                    <label class="block font-bold text-xs text-muted mb-1">Nhãn hiển thị (Label)</label>
+                  <div class="field mb-2">
+                    <label class="block font-bold text-sm text-muted mb-1">Nhãn hiển thị (Label)</label>
                     <input type="text" pInputText [ngModel]="fields()[selectedFieldIndex()!].label" (ngModelChange)="updateSelectedField('label', $event)" class="w-full p-inputtext-sm" />
                   </div>
 
-                  <div class="field">
-                    <label class="block font-bold text-xs text-muted mb-1">Mã trường kỹ thuật (Key/Name)</label>
+                  <div class="field mb-2">
+                    <label class="block font-bold text-sm text-muted mb-1">Mã trường kỹ thuật (Key/Name)</label>
                     <input type="text" pInputText [ngModel]="fields()[selectedFieldIndex()!].name" (ngModelChange)="updateSelectedField('name', $event)" class="w-full p-inputtext-sm" />
                   </div>
 
-                  <div class="field" *ngIf="fields()[selectedFieldIndex()!].type !== 'checkbox'">
-                    <label class="block font-bold text-xs text-muted mb-1">Gợi ý nhập liệu (Placeholder)</label>
+                  <div class="field mb-2" *ngIf="fields()[selectedFieldIndex()!].type !== 'checkbox'">
+                    <label class="block font-bold text-sm text-muted mb-1">Gợi ý nhập liệu (Placeholder)</label>
                     <input type="text" pInputText [ngModel]="fields()[selectedFieldIndex()!].placeholder" (ngModelChange)="updateSelectedField('placeholder', $event)" class="w-full p-inputtext-sm" />
                   </div>
 
 
-                  <div class="field">
-                    <label class="block font-bold text-xs text-muted mb-1">Mô tả thông tin trường (Description)</label>
-                    <input type="text" pInputText [ngModel]="fields()[selectedFieldIndex()!].description" (ngModelChange)="updateSelectedField('description', $event)" class="w-full p-inputtext-sm" placeholder="Mô tả thông tin cho trường này..." />
+                  <div class="field mb-2">
+                    <label class="block font-bold text-sm text-muted mb-1">Mô tả thông tin trường (Description)</label>
+                    <textarea pTextarea [ngModel]="fields()[selectedFieldIndex()!].description" (ngModelChange)="updateSelectedField('description', $event)" class="w-full p-inputtext-sm" rows="3" placeholder="Mô tả thông tin cho trường này..."></textarea>
                   </div>
 
                   <div class="property-section-title">Trình bày & Ràng buộc</div>
 
-                  <div class="field">
-                    <label class="block font-bold text-xs text-muted mb-1">Độ rộng hiển thị (Width)</label>
+                  <div class="field mb-2">
+                    <label class="block font-bold text-sm text-muted mb-1">Độ rộng hiển thị (Width)</label>
                     <p-select [options]="[{label: 'Chiều rộng đầy đủ (100%)', value: 100}, {label: 'Một nửa cột (50%)', value: 50}]" 
                               [ngModel]="fields()[selectedFieldIndex()!].width" 
                               (ngModelChange)="updateSelectedField('width', $event)"
@@ -320,14 +334,14 @@
                     </p-select>
                   </div>
 
-                  <div class="field" style="display: flex; align-items: center; gap: 8px; margin-top: 10px;">
+                  <div class="field mb-2" style="display: flex; align-items: center; gap: 8px; margin-top: 10px;">
                     <p-checkbox [ngModel]="fields()[selectedFieldIndex()!].required" (ngModelChange)="updateSelectedField('required', $event)" [binary]="true" id="prop-required"></p-checkbox>
                     <label for="prop-required" class="font-bold text-sm cursor-pointer select-none">Bắt buộc nhập (Required)</label>
                   </div>
 
                   <!-- Data Source Selector for Dropdown -->
-                  <div *ngIf="fields()[selectedFieldIndex()!].type === 'dropdown'" class="field" style="margin-top: 10px;">
-                    <label class="block font-bold text-xs text-muted mb-1">Nguồn dữ liệu (Data Source)</label>
+                  <div *ngIf="fields()[selectedFieldIndex()!].type === 'dropdown'" class="field mb-0">
+                    <label class="block font-bold text-sm text-muted mb-1">Nguồn dữ liệu (Data Source)</label>
                     <p-select [options]="[{label: 'Tự nhập thủ công (Manual)', value: 'manual'}, {label: 'Danh mục hệ thống (Catalog)', value: 'catalog'}]" 
                               [ngModel]="fields()[selectedFieldIndex()!].dataSourceType || 'manual'" 
                               (ngModelChange)="onDataSourceTypeChange($event)"
@@ -339,23 +353,23 @@
                   </div>
 
                   <!-- Options builder for Dropdown -->
-                  <div *ngIf="fields()[selectedFieldIndex()!].type === 'dropdown' && fields()[selectedFieldIndex()!].dataSourceType !== 'catalog'" class="dropdown-options-builder" style="margin-top: 10px;">
+                  <div *ngIf="fields()[selectedFieldIndex()!].type === 'dropdown' && fields()[selectedFieldIndex()!].dataSourceType !== 'catalog'" class="dropdown-options-builder">
                     <div class="property-section-title flex justify-between items-center" style="display: flex; justify-content: space-between; align-items: center;">
                       <span>Các lựa chọn</span>
-                      <p-button label="Thêm" icon="pi pi-plus" size="small" [text]="true" (onClick)="addOption()"></p-button>
+                      <p-button label="Thêm" icon="pi pi-plus" [text]="true" (onClick)="addOption()"></p-button>
                     </div>
 
                     <div class="options-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 150px; overflow-y: auto;">
                       <div *ngFor="let opt of fields()[selectedFieldIndex()!].options; let oIdx = index; trackBy: trackByFn" style="display: flex; gap: 6px; align-items: center;">
                         <input type="text" pInputText [ngModel]="fields()[selectedFieldIndex()!].options![oIdx]" (ngModelChange)="updateSelectedFieldOption(oIdx, $event)" class="w-full p-inputtext-sm" />
-                        <p-button icon="pi pi-times" severity="danger" [rounded]="true" [text]="true" size="small" (onClick)="removeOption(oIdx)"></p-button>
+                        <p-button icon="pi pi-times" severity="danger" [rounded]="true" [text]="true" (onClick)="removeOption(oIdx)"></p-button>
                       </div>
                     </div>
                   </div>
 
                   <!-- Catalog Selector -->
                   <div *ngIf="fields()[selectedFieldIndex()!].type === 'dropdown' && fields()[selectedFieldIndex()!].dataSourceType === 'catalog'" class="field" style="margin-top: 10px;">
-                    <label class="block font-bold text-xs text-muted mb-1">Chọn danh mục hệ thống</label>
+                    <label class="block font-bold text-sm text-muted mb-1">Chọn danh mục hệ thống</label>
                     <p-select [options]="catalogTypes()" 
                               [ngModel]="fields()[selectedFieldIndex()!].catalogType" 
                               (ngModelChange)="updateSelectedField('catalogType', $event)"
@@ -373,12 +387,12 @@
         </div>
 
         <!-- Render & Preview Workspace -->
-        <div class="wf-card" *ngIf="viewState() === 'preview'">
-          <div class="builder-header shadow-1" style="display: flex; justify-content: space-between; align-items: center; background: white; padding: 16px; border-radius: 8px; margin-bottom: 16px; border: 1px solid #e2e8f0;">
+        <div class="wf-card preview-card" *ngIf="viewState() === 'preview'">
+          <div class="builder-header" style="margin-bottom: 1.25rem;">
             <div class="header-left">
               <div>
-                <h2 class="m-0 text-lg font-bold" style="color: #002D72;">{{ detailTitle() }}</h2>
-                <p class="m-0 text-xs text-muted">{{ formDescription() || 'Biểu mẫu thuộc tính EAV dành cho thiết bị số hóa EVNHANOI.' }}</p>
+                <h2 class="builder-title">{{ detailTitle() }}</h2>
+                <p class="builder-subtitle">{{ formDescriptionInfo() || formDescription() || 'Biểu mẫu thuộc tính EAV dành cho thiết bị số hóa EVNHANOI.' }}</p>
               </div>
             </div>
             <div class="header-right">
@@ -387,7 +401,7 @@
           </div>
 
           <!-- Beautiful Interactive rendered fields -->
-          <div class="card p-5" style="background: white; border-radius: 12px; border: 1px solid #e2e8f0;">
+          <div class="card p-5 preview-body-card" style="background: white; border-radius: 12px; border: 1px solid #e2e8f0;">
             <h3 class="font-bold text-lg mb-4" style="color: #002D72; border-bottom: 2px solid #FF6B00; padding-bottom: 8px; display: inline-block;">Thông số kỹ thuật thiết bị</h3>
             
             <div style="display: flex; flex-wrap: wrap; gap: 20px;">

@@ -636,6 +636,30 @@ export class FormManagementComponent implements OnInit {
     }
   }
 
+   submitForm(form: EavFormTemplate) {
+    if (confirm(`Bạn có chắc chắn muốn gửi duyệt biểu mẫu: ${form.name}?`)) {
+      this.loading.set(true);
+      this.eavFormService.submitTemplate(form.id).subscribe({
+        next: () => {
+          this.messageService.add({ 
+            severity: 'success', 
+            summary: 'Thành công', 
+            detail: `Gửi duyệt biểu mẫu thành công!` 
+          });
+          this.loadForms();
+        },
+        error: (err) => {
+          this.loading.set(false);
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi',
+            detail: err?.error?.Message || 'Không thể gửi duyệt biểu mẫu.'
+          });
+        }
+      });
+    }
+  }
+
   getCategoryName(code: string): string {
     const cat = this.categories.find(c => c.code === code);
     return cat ? cat.name : code || '(Chưa chọn)';
