@@ -10,16 +10,16 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
     public class BorrowRecordService : IBorrowRecordService
     {
         private readonly IBorrowRecordRepository _borrowRepository;
-        private readonly IWorkflowRepository _workflowRepository;
+        private readonly IWorkflowDefinitionService _workflowDefinitionService;
         private readonly IWorkflowEngineService _workflowEngine;
 
         public BorrowRecordService(
             IBorrowRecordRepository borrowRepository,
-            IWorkflowRepository workflowRepository,
+            IWorkflowDefinitionService workflowDefinitionService,
             IWorkflowEngineService workflowEngine)
         {
             _borrowRepository = borrowRepository ?? throw new ArgumentNullException(nameof(borrowRepository));
-            _workflowRepository = workflowRepository ?? throw new ArgumentNullException(nameof(workflowRepository));
+            _workflowDefinitionService = workflowDefinitionService ?? throw new ArgumentNullException(nameof(workflowDefinitionService));
             _workflowEngine = workflowEngine ?? throw new ArgumentNullException(nameof(workflowEngine));
         }
 
@@ -40,10 +40,8 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
             record.Id = Guid.NewGuid();
             record.RequestDate = DateTime.UtcNow;
 
-            // Automatically find active workflow for "Quy trình mượn/trả hồ sơ kỹ thuật"
-            var activeDefs = await _workflowRepository.GetAllDefinitionsAsync("Quy trình mượn/trả hồ sơ kỹ thuật", true);
-            var activeDef = activeDefs.FirstOrDefault(d => 
-                d.Name.Equals("Quy trình mượn/trả hồ sơ kỹ thuật", StringComparison.OrdinalIgnoreCase) && d.IsActive);
+            // Automatically find active workflow for "Quy trình mượn/trả hồ sơ kỹ thuật" using the definition service
+            var activeDef = await _workflowDefinitionService.GetLatestActiveDefinitionByNameAsync("Quy trình mượn/trả hồ sơ kỹ thuật");
 
             if (activeDef != null)
             {
@@ -109,24 +107,24 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
             return await _borrowRepository.UpdateAsync(record);
         }
 
-        public async Task<(IEnumerable<BorrowRecord> Items, int TotalCount)> GetPagedAsync(int page, int pageSize, string? keyword = null)
+        public async Task<(IEnumerable<BorrowRecord> Items, int TotalCount)> GetPagedAsync(int page, int pageSize, string? keyword = null, BorrowState? state = null)
         {
-            return await _borrowRepository.GetPagedAsync(page, pageSize, keyword);
+            return await _borrowRepository.GetPagedAsync(page, pageSize, keyword, state);
         }
 
-        public async Task<WorkflowInstance> MoveWorkflowAsync(string dossierId, string nextNodeId, string userId, string actionLabel, string? comment)
+        public async Task<WorkflowInstance> MoveWorkflowAsync(string dossierId, string nextNodeId, string userId, string actionLabel, string? comment, string? nextAssigneeUserId = null)
         {
-            return await _workflowEngine.MoveAsync(dossierId, nextNodeId, userId, actionLabel, comment);
+            return await _workflowEngine.MoveAsync(dossierId, nextNodeId, userId, actionLabel, comment, nextAssigneeUserId);
         }
 
-        public async Task<WorkflowInstance> MoveWorkflowWithValidationAsync(Guid id, string dossierId, string nextNodeId, string userId, List<string> userRoles, bool isAdmin, string actionLabel, string? comment)
+        public async Task<WorkflowInstance> MoveWorkflowWithValidationAsync(Guid id, string dossierId, string nextNodeId, string userId, List<string> userRoles, bool isAdmin, string actionLabel, string? comment, string? nextAssigneeUserId = null)
         {
-            return await _workflowEngine.MoveWithValidationAsync(id.ToString(), nextNodeId, userId, userRoles, isAdmin, actionLabel, comment);
+            return await _workflowEngine.MoveWithValidationAsync(id.ToString(), nextNodeId, userId, userRoles, isAdmin, actionLabel, comment, nextAssigneeUserId);
         }
 
-        public async Task<IEnumerable<object>> GetMyTasksAsync(List<string> userRoles, bool isAdmin)
+        public async Task<IEnumerable<object>> GetMyTasksAsync(List<string> userRoles, bool isAdmin, string userId)
         {
-            return await _workflowEngine.GetMyTasksAsync(userRoles, isAdmin);
+            return await _workflowEngine.GetMyTasksAsync(userRoles, isAdmin, userId);
         }
 
         public async Task<IEnumerable<WorkflowHistory>> GetWorkflowHistoryAsync(Guid borrowRecordId)
@@ -146,7 +144,7 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
 
         public async Task<WorkflowDefinition?> GetWorkflowDefinitionAsync(Guid definitionId)
         {
-            return await _workflowRepository.GetDefinitionByIdAsync(definitionId);
+            return await _workflowDefinitionService.GetDefinitionByIdAsync(definitionId);
         }
     }
 }

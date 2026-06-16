@@ -50,13 +50,13 @@ namespace EvnHanoi.WorkflowService.Controllers
 
 
         [HttpPost("tasks/{taskId:guid}/approve")]
-        public async Task<IActionResult> ApproveTask(Guid taskId, [FromBody] string? comment = null)
+        public async Task<IActionResult> ApproveTask(Guid taskId, [FromBody] ApproveTaskRequest request)
         {
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.Identity?.Name ?? "admin";
 
             try
             {
-                var task = await _workflowEngine.ApproveAsync(taskId, userId, comment);
+                var task = await _workflowEngine.ApproveAsync(taskId, userId, request.Comment, request.NextAssigneeUserId);
                 return Ok(new
                 {
                     Success = true,
@@ -109,7 +109,7 @@ namespace EvnHanoi.WorkflowService.Controllers
 
             try
             {
-                var instance = await _workflowEngine.MoveAsync(request.DossierId, request.NextNodeId, userId, request.ActionLabel, request.Comment);
+                var instance = await _workflowEngine.MoveAsync(request.DossierId, request.NextNodeId, userId, request.ActionLabel, request.Comment, request.NextAssigneeUserId);
                 return Ok(new
                 {
                     Success = true,
@@ -128,11 +128,18 @@ namespace EvnHanoi.WorkflowService.Controllers
         }
     }
 
+    public class ApproveTaskRequest
+    {
+        public string? Comment { get; set; }
+        public string? NextAssigneeUserId { get; set; }
+    }
+
     public class MoveWorkflowRequest
     {
         public string DossierId { get; set; } = string.Empty;
         public string NextNodeId { get; set; } = string.Empty;
         public string ActionLabel { get; set; } = string.Empty;
         public string? Comment { get; set; }
+        public string? NextAssigneeUserId { get; set; }
     }
 }

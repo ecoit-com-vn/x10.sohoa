@@ -18,15 +18,18 @@ namespace EvnHanoi.WorkflowService.Controllers
     {
         private readonly IWorkflowRepository _workflowRepository;
         private readonly IBpmnValidatorService _bpmnValidatorService;
+        private readonly IWorkflowDefinitionService _workflowDefinitionService;
         private readonly ILogger<WorkflowDefinitionsController> _logger;
 
         public WorkflowDefinitionsController(
             IWorkflowRepository workflowRepository, 
             IBpmnValidatorService bpmnValidatorService,
+            IWorkflowDefinitionService workflowDefinitionService,
             ILogger<WorkflowDefinitionsController> logger)
         {
             _workflowRepository = workflowRepository ?? throw new ArgumentNullException(nameof(workflowRepository));
             _bpmnValidatorService = bpmnValidatorService ?? throw new ArgumentNullException(nameof(bpmnValidatorService));
+            _workflowDefinitionService = workflowDefinitionService ?? throw new ArgumentNullException(nameof(workflowDefinitionService));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
@@ -79,6 +82,10 @@ namespace EvnHanoi.WorkflowService.Controllers
             dto.CreatedAt = DateTime.UtcNow;
             dto.UpdatedAt = DateTime.UtcNow;
 
+            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? User.Identity?.Name ?? "admin";
+            dto.CreatedBy = userId;
+            dto.UpdatedBy = userId;
+
             if (dto.Steps != null)
             {
                 foreach (var step in dto.Steps)
@@ -105,36 +112,27 @@ namespace EvnHanoi.WorkflowService.Controllers
         [HttpPut("{id:guid}")]
         public async Task<IActionResult> Update(Guid id, [FromBody] WorkflowDefinition dto)
         {
-            var existing = await _workflowRepository.GetDefinitionByIdAsync(id);
-
-            if (existing == null)
-                return NotFound(new { Message = $"Không tìm thấy quy trình với ID = {id}" });
-
             var xmlErrors = _bpmnValidatorService.Validate(dto.BpmnXml);
             if (xmlErrors.Any())
             {
                 return BadRequest(new { Message = "Sơ đồ quy trình không hợp lệ: " + string.Join("; ", xmlErrors), Errors = xmlErrors });
             }
 
-            dto.UpdatedAt = DateTime.UtcNow;
-
-            if (dto.Steps != null)
+            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? User.Identity?.Name ?? "admin";
+            
+            try
             {
-                foreach (var step in dto.Steps)
+                var updated = await _workflowDefinitionService.UpdateDefinitionWithVersioningAsync(id, dto, userId);
+                if (updated == null)
                 {
-                    step.WorkflowDefinitionId = id;
+                    return NotFound(new { Message = $"Không tìm thấy quy trình với ID = {id}" });
                 }
+                return Ok(updated);
             }
-
-            var success = await _workflowRepository.UpdateDefinitionAsync(id, dto);
-            if (!success)
+            catch (InvalidOperationException ex)
             {
-                return BadRequest(new { Message = "Không thể cập nhật quy trình." });
+                return BadRequest(new { Message = ex.Message });
             }
-
-            _logger.LogInformation("Quy trình cập nhật: {Name} v{Version}", dto.Name, dto.Version);
-            var updated = await _workflowRepository.GetDefinitionByIdAsync(id);
-            return Ok(updated);
         }
 
         // ─────────────────────────────────────────────────────────────────────
@@ -176,6 +174,17 @@ namespace EvnHanoi.WorkflowService.Controllers
         public ActionResult<IEnumerable<string>> GetWorkflowTypes()
         {
             return Ok(WorkflowTypeExtensions.GetDescriptions());
+        }
+
+        [HttpGet("versions/{name}")]
+        [BypassDynamicPermission]
+        public async Task<IActionResult> GetVersions(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                return BadRequest(new { Message = "Tên quy trình không được để trống." });
+
+            var versions = await _workflowRepository.GetDefinitionsByNameAsync(name);
+            return Ok(versions);
         }
     }
 }
