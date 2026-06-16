@@ -96,7 +96,7 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
             }
             else if (record.State == BorrowState.Borrowed && newState == BorrowState.Returned)
             {
-                record.State = BorrowState.Returned;
+                record.State = BorrowState.Approved;
                 record.ReturnedDate = DateTime.UtcNow;
             }
             else
