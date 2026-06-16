@@ -53,7 +53,9 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
                                          {nameof(WorkflowStep.StepName)}, 
                                          ""{nameof(WorkflowStep.Order)}"", 
                                          {nameof(WorkflowStep.RequiredRole)}, 
-                                         {nameof(WorkflowStep.ActionType)} 
+                                         {nameof(WorkflowStep.ActionType)},
+                                         {nameof(WorkflowStep.AllowEdit)},
+                                         {nameof(WorkflowStep.RequireSignature)} 
                                   FROM WORKFLOWSTEPS 
                                   WHERE {nameof(WorkflowStep.WorkflowDefinitionId)} = :Id 
                                   ORDER BY ""{nameof(WorkflowStep.Order)}""";
@@ -117,7 +119,9 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
                                          {nameof(WorkflowStep.StepName)}, 
                                          ""{nameof(WorkflowStep.Order)}"", 
                                          {nameof(WorkflowStep.RequiredRole)}, 
-                                         {nameof(WorkflowStep.ActionType)} 
+                                         {nameof(WorkflowStep.ActionType)},
+                                         {nameof(WorkflowStep.AllowEdit)},
+                                         {nameof(WorkflowStep.RequireSignature)} 
                                   FROM WORKFLOWSTEPS 
                                   WHERE {nameof(WorkflowStep.WorkflowDefinitionId)} = :Id 
                                   ORDER BY ""{nameof(WorkflowStep.Order)}""";
@@ -153,7 +157,9 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
                                      {nameof(WorkflowStep.StepName)}, 
                                      ""{nameof(WorkflowStep.Order)}"", 
                                      {nameof(WorkflowStep.RequiredRole)}, 
-                                     {nameof(WorkflowStep.ActionType)} 
+                                     {nameof(WorkflowStep.ActionType)},
+                                     {nameof(WorkflowStep.AllowEdit)},
+                                     {nameof(WorkflowStep.RequireSignature)} 
                               FROM WORKFLOWSTEPS 
                               WHERE {nameof(WorkflowStep.WorkflowDefinitionId)} = :Id 
                               ORDER BY ""{nameof(WorkflowStep.Order)}""";
@@ -174,7 +180,9 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
                                 {nameof(WorkflowStep.StepName)}, 
                                 ""{nameof(WorkflowStep.Order)}"", 
                                 {nameof(WorkflowStep.RequiredRole)}, 
-                                {nameof(WorkflowStep.ActionType)} 
+                                {nameof(WorkflowStep.ActionType)},
+                                {nameof(WorkflowStep.AllowEdit)},
+                                {nameof(WorkflowStep.RequireSignature)} 
                         FROM WORKFLOWSTEPS WHERE {nameof(WorkflowStep.Id)} = :Id";
             return await _connection.QuerySingleOrDefaultAsync<WorkflowStep>(sql, new { Id = id.ToString() });
         }
@@ -234,9 +242,11 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
                                             {nameof(WorkflowStep.StepName)}, 
                                             ""{nameof(WorkflowStep.Order)}"", 
                                             {nameof(WorkflowStep.RequiredRole)}, 
-                                            {nameof(WorkflowStep.ActionType)}
+                                            {nameof(WorkflowStep.ActionType)},
+                                            {nameof(WorkflowStep.AllowEdit)},
+                                            {nameof(WorkflowStep.RequireSignature)}
                                          )
-                                         VALUES (:Id, :WorkflowDefinitionId, :StepName, :OrderVal, :RequiredRole, :ActionType)";
+                                         VALUES (:Id, :WorkflowDefinitionId, :StepName, :OrderVal, :RequiredRole, :ActionType, :AllowEdit, :RequireSignature)";
                     foreach (var step in definition.Steps)
                     {
                         if (step.Id == Guid.Empty)
@@ -252,6 +262,8 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
                         stepParams.Add("OrderVal", step.Order);
                         stepParams.Add("RequiredRole", string.IsNullOrEmpty(step.RequiredRole) ? null : step.RequiredRole);
                         stepParams.Add("ActionType", string.IsNullOrEmpty(step.ActionType) ? null : step.ActionType);
+                        stepParams.Add("AllowEdit", step.AllowEdit ? 1 : 0);
+                        stepParams.Add("RequireSignature", step.RequireSignature ? 1 : 0);
 
                         await _connection.ExecuteAsync(sqlInsertStep, stepParams, transaction);
                     }
@@ -330,15 +342,19 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
                                         {nameof(WorkflowStep.StepName)}, 
                                         ""{nameof(WorkflowStep.Order)}"", 
                                         {nameof(WorkflowStep.RequiredRole)}, 
-                                        {nameof(WorkflowStep.ActionType)}
+                                        {nameof(WorkflowStep.ActionType)},
+                                        {nameof(WorkflowStep.AllowEdit)},
+                                        {nameof(WorkflowStep.RequireSignature)}
                                      )
-                                     VALUES (:Id, :WorkflowDefinitionId, :StepName, :OrderVal, :RequiredRole, :ActionType)";
+                                     VALUES (:Id, :WorkflowDefinitionId, :StepName, :OrderVal, :RequiredRole, :ActionType, :AllowEdit, :RequireSignature)";
 
                 var sqlUpdateStep = $@"UPDATE WORKFLOWSTEPS 
                                       SET {nameof(WorkflowStep.StepName)} = :StepName, 
                                           ""{nameof(WorkflowStep.Order)}"" = :OrderVal, 
                                           {nameof(WorkflowStep.RequiredRole)} = :RequiredRole, 
-                                          {nameof(WorkflowStep.ActionType)} = :ActionType 
+                                          {nameof(WorkflowStep.ActionType)} = :ActionType,
+                                          {nameof(WorkflowStep.AllowEdit)} = :AllowEdit,
+                                          {nameof(WorkflowStep.RequireSignature)} = :RequireSignature 
                                       WHERE {nameof(WorkflowStep.Id)} = :Id";
 
                 foreach (var step in incomingSteps)
@@ -348,6 +364,8 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
                     stepParams.Add("OrderVal", step.Order);
                     stepParams.Add("RequiredRole", string.IsNullOrEmpty(step.RequiredRole) ? null : step.RequiredRole);
                     stepParams.Add("ActionType", string.IsNullOrEmpty(step.ActionType) ? null : step.ActionType);
+                    stepParams.Add("AllowEdit", step.AllowEdit ? 1 : 0);
+                    stepParams.Add("RequireSignature", step.RequireSignature ? 1 : 0);
 
                     if (step.Id != Guid.Empty && existingStepIds.Contains(step.Id))
                     {

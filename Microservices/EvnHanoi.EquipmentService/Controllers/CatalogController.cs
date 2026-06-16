@@ -161,7 +161,8 @@ public class CatalogController : ControllerBase
         if (await _catalogRepository.HasChildrenAsync(id))
             return BadRequest(new { message = "Không thể xóa danh mục này vì đang có các danh mục con tham chiếu tới." });
 
-        var success = await _catalogRepository.DeleteAsync(id);
+        var username = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value ?? "system";
+        var success = await _catalogRepository.DeleteAsync(id, username);
         if (!success) return NotFound();
         return NoContent();
     }
@@ -179,7 +180,7 @@ public class CatalogController : ControllerBase
         var success = await _catalogRepository.UpdateAsync(catalog);
         if (!success) return StatusCode(500, new { message = "Không thể cập nhật trạng thái danh mục." });
 
-        return Ok(new { message = "Đã khóa danh mục thành công.", status = 0 });
+        return Ok(new { message = "Ngừng hoạt động danh mục thành công.", status = 0 });
     }
 
     /// <summary>Mở khóa danh mục (Status = 1).</summary>
@@ -195,7 +196,7 @@ public class CatalogController : ControllerBase
         var success = await _catalogRepository.UpdateAsync(catalog);
         if (!success) return StatusCode(500, new { message = "Không thể cập nhật trạng thái danh mục." });
 
-        return Ok(new { message = "Đã mở khóa danh mục thành công.", status = 1 });
+        return Ok(new { message = "Kích hoạt danh mục thành công.", status = 1 });
     }
 
     // ─── Helpers ─────────────────────────────────────────────
