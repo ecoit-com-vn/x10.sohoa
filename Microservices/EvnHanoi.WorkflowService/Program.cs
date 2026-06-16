@@ -54,6 +54,7 @@ builder.Services.AddScoped<IWorkflowRepository, WorkflowRepository>();
 builder.Services.AddScoped<IWorkflowEngineService, WorkflowEngineService>();
 builder.Services.AddScoped<IWorkflowIntegrationHandler, BorrowRecordWorkflowHandler>();
 builder.Services.AddScoped<IBpmnValidatorService, BpmnValidatorService>();
+builder.Services.AddScoped<IWorkflowDefinitionService, WorkflowDefinitionService>();
 
 // Configure JWT Authentication
 var jwtKey = builder.Configuration["Jwt:Key"] ?? "super_secret_key_12345678901234567890";

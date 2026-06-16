@@ -34,8 +34,14 @@ public class UsersController : ControllerBase
         var cacheKey = "UsersLookup";
         if (!_cache.TryGetValue(cacheKey, out IEnumerable<object>? result))
         {
-            var users = await _userRepository.GetAllAsync();
-            result = users.Select(u => new { u.Id, u.Username, u.FullName }).ToList();
+            var users = (await _userRepository.GetAllAsync()).ToList();
+            var list = new List<object>();
+            foreach (var u in users)
+            {
+                var roles = await _userRepository.GetRolesByUserIdAsync(u.Id);
+                list.Add(new { u.Id, u.Username, u.FullName, Roles = roles });
+            }
+            result = list;
             var cacheOptions = new Microsoft.Extensions.Caching.Memory.MemoryCacheEntryOptions()
                 .SetAbsoluteExpiration(TimeSpan.FromMinutes(5));
             _cache.Set(cacheKey, result, cacheOptions);

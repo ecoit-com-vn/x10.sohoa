@@ -35,17 +35,24 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
             return await _connection.QueryAsync<BorrowRecord>(sql);
         }
 
-        public async Task<(IEnumerable<BorrowRecord> Items, int TotalCount)> GetPagedAsync(int page, int pageSize, string? keyword = null)
+        public async Task<(IEnumerable<BorrowRecord> Items, int TotalCount)> GetPagedAsync(int page, int pageSize, string? keyword = null, BorrowState? state = null)
         {
             if (_connection.State != ConnectionState.Open) _connection.Open();
             
-            var whereClause = "";
+            var conditions = new List<string>();
             var parameters = new DynamicParameters();
             if (!string.IsNullOrWhiteSpace(keyword))
             {
-                whereClause = "WHERE (UPPER(b.DossierId) LIKE UPPER(:Keyword) OR UPPER(b.RequesterId) LIKE UPPER(:Keyword) OR UPPER(b.Reason) LIKE UPPER(:Keyword))";
+                conditions.Add("(UPPER(b.DossierId) LIKE UPPER(:Keyword) OR UPPER(b.RequesterId) LIKE UPPER(:Keyword) OR UPPER(b.Reason) LIKE UPPER(:Keyword))");
                 parameters.Add("Keyword", $"%{keyword}%");
             }
+            if (state.HasValue)
+            {
+                conditions.Add("b.State = :State");
+                parameters.Add("State", state.Value.ToString());
+            }
+            
+            var whereClause = conditions.Any() ? "WHERE " + string.Join(" AND ", conditions) : "";
             
             var countSql = $"SELECT COUNT(*) FROM BORROWRECORDS b {whereClause}";
             var offset = (page - 1) * pageSize;
