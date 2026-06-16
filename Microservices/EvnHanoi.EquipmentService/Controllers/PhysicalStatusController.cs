@@ -120,7 +120,8 @@ public class PhysicalStatusController : ControllerBase
         if (await _catalogRepository.HasChildrenAsync(id))
             return BadRequest(new { message = "Không thể xóa danh mục này vì đang có các danh mục con tham chiếu tới." });
 
-        var success = await _catalogRepository.DeleteAsync(id);
+        var username = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value ?? "system";
+        var success = await _catalogRepository.DeleteAsync(id, username);
         if (!success) return NotFound();
         return NoContent();
     }
