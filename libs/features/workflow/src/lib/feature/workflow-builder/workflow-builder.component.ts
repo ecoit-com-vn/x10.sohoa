@@ -48,11 +48,11 @@ export class WorkflowBuilderComponent implements OnInit {
 
   // ─── View state ─────────────────────────────────────────────────────────────
   viewMode: 'list' | 'edit' = 'list';
-  activeTab: 'general' | 'design' = 'general';
+  activeTab: 'general' | 'design' | 'history' = 'general';
   isEditMode = false;
   formSubmitted = false;
 
-  selectTab(tab: 'general' | 'design'): void {
+  selectTab(tab: 'general' | 'design' | 'history'): void {
     this.activeTab = tab;
     if (tab === 'design') {
       setTimeout(() => {
@@ -66,6 +66,8 @@ export class WorkflowBuilderComponent implements OnInit {
           }
         }
       }, 50);
+    } else if (tab === 'history') {
+      this.loadVersions();
     }
   }
 
@@ -85,6 +87,33 @@ export class WorkflowBuilderComponent implements OnInit {
   loaiOptions: string[] = [];
   workflows: WorkflowDefinition[] = [];
   selectedIds: string[] = [];
+  versionsList: WorkflowDefinition[] = [];
+  loadingHistory = false;
+
+  loadVersions(): void {
+    if (!this.draft.name) {
+      this.versionsList = [];
+      return;
+    }
+    this.loadingHistory = true;
+    this.cdr.detectChanges();
+    this.workflowSvc.getVersions(this.draft.name)
+      .pipe(finalize(() => {
+        this.loadingHistory = false;
+        this.cdr.detectChanges();
+      }))
+      .subscribe({
+        next: (list) => {
+          this.versionsList = list || [];
+          this.cdr.detectChanges();
+        },
+        error: (err) => {
+          this.messageService.add({ severity: 'error', summary: 'Lỗi tải lịch sử phiên bản', detail: err.message });
+          this.versionsList = [];
+          this.cdr.detectChanges();
+        }
+      });
+  }
 
   // Pagination
   currentPage = 1;
@@ -610,6 +639,8 @@ export class WorkflowBuilderComponent implements OnInit {
             stepNum: element.businessObject.$attrs['stepNum'] || '',
             requiredRole: element.businessObject.$attrs['requiredRole'] || '',
             actionType: element.businessObject.$attrs['actionType'] || 'Approve',
+            allowEdit: element.businessObject.$attrs['allowEdit'] === 'true' || element.businessObject.$attrs['allowEdit'] === true,
+            requireSignature: element.businessObject.$attrs['requireSignature'] === 'true' || element.businessObject.$attrs['requireSignature'] === true,
             condition: condition
           };
         } else {
@@ -657,7 +688,9 @@ export class WorkflowBuilderComponent implements OnInit {
       name: element.businessObject.name || '',
       stepNum: element.businessObject.$attrs['stepNum'] || '',
       requiredRole: element.businessObject.$attrs['requiredRole'] || '',
-      actionType: element.businessObject.$attrs['actionType'] || 'Approve'
+      actionType: element.businessObject.$attrs['actionType'] || 'Approve',
+      allowEdit: element.businessObject.$attrs['allowEdit'] === 'true' || element.businessObject.$attrs['allowEdit'] === true,
+      requireSignature: element.businessObject.$attrs['requireSignature'] === 'true' || element.businessObject.$attrs['requireSignature'] === true
     };
     this.cdr.detectChanges();
   }
@@ -688,6 +721,18 @@ export class WorkflowBuilderComponent implements OnInit {
       modeling.updateProperties(this.selectedBpmnElement, attrs);
       this.selectedElementProps[prop] = value;
     }
+    this.cdr.detectChanges();
+  }
+
+  updateElementCheckboxProperty(prop: string, event: any) {
+    if (!this.selectedBpmnElement || !this.selectedElementProps) return;
+    const value = event.target.checked;
+    const modeling = this.bpmnModeler.get('modeling');
+
+    const attrs: any = {};
+    attrs[prop] = value;
+    modeling.updateProperties(this.selectedBpmnElement, attrs);
+    this.selectedElementProps[prop] = value;
     this.cdr.detectChanges();
   }
 
@@ -736,7 +781,9 @@ export class WorkflowBuilderComponent implements OnInit {
         stepName: bo.name || 'Bước mới',
         order: stepNum,
         requiredRole: bo.$attrs['requiredRole'] || '',
-        actionType: bo.$attrs['actionType'] || 'Approve'
+        actionType: bo.$attrs['actionType'] || 'Approve',
+        allowEdit: bo.$attrs['allowEdit'] === 'true' || bo.$attrs['allowEdit'] === true,
+        requireSignature: bo.$attrs['requireSignature'] === 'true' || bo.$attrs['requireSignature'] === true
       };
     }).sort((a: any, b: any) => a.order - b.order);
   }

@@ -207,6 +207,11 @@
         (click)="selectTab('design')">
         Thiết kế quy trình
       </button>
+      <button class="tab-item" id="tab-history" *ngIf="isEditMode"
+        [class.tab-active]="activeTab === 'history'"
+        (click)="selectTab('history')">
+        Lịch sử phiên bản
+      </button>
     </div>
 
     <!-- ── TAB 1: THÔNG TIN CHUNG ──────────────────────────── -->
@@ -257,6 +262,24 @@
         </textarea>
         <div class="char-count">{{ draft.description.length || 0 }} / 500</div>
       </div>
+
+      <!-- Audit info (Edit mode only) -->
+      <div class="audit-info-grid" *ngIf="isEditMode" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; padding: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 0.8rem; color: #4b5563;">
+        <div>
+          <span style="font-weight: 600;">Người tạo:</span> 
+          <span [title]="draft.createdByUsername ? 'Tên đăng nhập: ' + draft.createdByUsername : ''">
+            {{ draft.createdByFullName || draft.createdByUsername || draft.createdBy || 'Hệ thống' }}
+          </span>
+          <span style="margin-left: 8px; font-weight: 600;">Ngày tạo:</span> {{ draft.createdAt | date:'dd/MM/yyyy HH:mm' }}
+        </div>
+        <div>
+          <span style="font-weight: 600;">Người cập nhật:</span> 
+          <span [title]="draft.updatedByUsername ? 'Tên đăng nhập: ' + draft.updatedByUsername : ''">
+            {{ draft.updatedByFullName || draft.updatedByUsername || draft.updatedBy || 'Hệ thống' }}
+          </span>
+          <span style="margin-left: 8px; font-weight: 600;">Ngày cập nhật:</span> {{ draft.updatedAt | date:'dd/MM/yyyy HH:mm' }}
+        </div>
+      </div>
     </div>
 
     <!-- ── TAB 2: THIẾT KẾ QUY TRÌNH (BPMN) ──────────────── -->
@@ -303,7 +326,22 @@
                 <option value="DataEntry">Nhập liệu</option>
                 <option value="Review">Kiểm soát</option>
                 <option value="Approve">Phê duyệt</option>
+                <option value="AiAssist">AI hỗ trợ</option>
               </select>
+            </div>
+
+            <div class="prop-row" *ngIf="selectedElementProps.type === 'bpmn:Task' || selectedElementProps.type === 'bpmn:UserTask'">
+              <label>Cấu hình bổ sung</label>
+              <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
+                <label class="role-checkbox-item" style="cursor: pointer;">
+                  <input type="checkbox" [checked]="selectedElementProps.allowEdit" (change)="updateElementCheckboxProperty('allowEdit', $event)" />
+                  <span>Cho phép sửa</span>
+                </label>
+                <label class="role-checkbox-item" style="cursor: pointer;">
+                  <input type="checkbox" [checked]="selectedElementProps.requireSignature" (change)="updateElementCheckboxProperty('requireSignature', $event)" />
+                  <span>Ký số</span>
+                </label>
+              </div>
             </div>
 
             <!-- SequenceFlow Condition Specific -->
@@ -339,6 +377,68 @@
             <i class="pi pi-refresh"></i>
           </button>
         </div>
+      </div>
+    </div>
+
+    <!-- ── TAB 3: LỊCH SỬ PHIÊN BẢN ──────────────────────── -->
+    <div [hidden]="activeTab !== 'history'" class="tab-content">
+      <div class="loading-history-spinner" *ngIf="loadingHistory" style="text-align: center; padding: 30px; color: #4b5563;">
+        <i class="pi pi-spin pi-spinner" style="font-size: 2rem; margin-bottom: 8px;"></i>
+        <div>Đang tải lịch sử phiên bản...</div>
+      </div>
+
+      <div class="wf-table-wrap" *ngIf="!loadingHistory">
+        <table class="wf-table">
+          <thead>
+            <tr>
+              <th class="col-stt" style="width: 60px;">STT</th>
+              <th class="col-phien" style="width: 100px;">Phiên bản</th>
+              <th class="col-mota">Mô tả</th>
+              <th style="width: 150px;">Trạng thái</th>
+              <th>Người tạo</th>
+              <th>Ngày tạo</th>
+              <th>Người cập nhật</th>
+              <th>Ngày cập nhật</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let ver of versionsList; let idx = index">
+              <td class="text-muted">{{ idx + 1 }}</td>
+              <td>
+                <span style="font-weight: 600; color: #3b82f6;">{{ ver.version }}</span>
+              </td>
+              <td>
+                <span class="mota-text" [title]="ver.description">{{ ver.description || '—' }}</span>
+              </td>
+              <td>
+                <span class="status-pill"
+                  [class.status-active]="ver.isActive"
+                  [class.status-inactive]="!ver.isActive">
+                  {{ ver.isActive ? 'Đang hoạt động' : 'Ngưng hoạt động' }}
+                </span>
+              </td>
+              <td>
+                <span [title]="ver.createdByUsername ? 'Tên đăng nhập: ' + ver.createdByUsername : ''">
+                  {{ ver.createdByFullName || ver.createdByUsername || ver.createdBy || 'Hệ thống' }}
+                </span>
+              </td>
+              <td class="text-muted">{{ ver.createdAt | date:'dd/MM/yyyy HH:mm' }}</td>
+              <td>
+                <span [title]="ver.updatedByUsername ? 'Tên đăng nhập: ' + ver.updatedByUsername : ''">
+                  {{ ver.updatedByFullName || ver.updatedByUsername || ver.updatedBy || 'Hệ thống' }}
+                </span>
+              </td>
+              <td class="text-muted">{{ ver.updatedAt | date:'dd/MM/yyyy HH:mm' }}</td>
+            </tr>
+
+            <tr *ngIf="versionsList.length === 0">
+              <td colspan="8" class="empty-row" style="text-align: center; padding: 24px; color: #9ca3af;">
+                <i class="pi pi-inbox" style="font-size: 2rem; margin-bottom: 8px;"></i>
+                <div>Không tìm thấy phiên bản nào khác.</div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
 

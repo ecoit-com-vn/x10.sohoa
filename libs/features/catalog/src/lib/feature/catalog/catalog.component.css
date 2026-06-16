@@ -60,6 +60,10 @@
   transition: all 0.2s ease-in-out;
   position: relative;
   background-color: #ffffff;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
 }
 
 .type-item-card:hover {

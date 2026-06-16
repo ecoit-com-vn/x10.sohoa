@@ -12,7 +12,9 @@ export interface WorkflowStep {
   stepName: string;
   order: number;
   requiredRole: string;
-  actionType: string; // 'Scan' | 'DataEntry' | 'Approve' | 'Review'
+  actionType: string; // 'Scan' | 'DataEntry' | 'Approve' | 'Review' | 'AiAssist'
+  allowEdit?: boolean;
+  requireSignature?: boolean;
 }
 
 export interface WorkflowDefinition {
@@ -24,6 +26,12 @@ export interface WorkflowDefinition {
   isActive: boolean;       // Trạng thái
   createdAt?: string;
   updatedAt?: string;
+  createdBy?: string;
+  createdByUsername?: string;
+  createdByFullName?: string;
+  updatedBy?: string;
+  updatedByUsername?: string;
+  updatedByFullName?: string;
   bpmnXml?: string;
   steps: WorkflowStep[];
 }
@@ -48,7 +56,7 @@ export class WorkflowService {
     let params = new HttpParams()
       .set('page', page.toString())
       .set('pageSize', pageSize.toString());
-    if (keyword)              params = params.set('keyword', keyword);
+    if (keyword) params = params.set('keyword', keyword);
     if (isActive !== undefined) params = params.set('isActive', String(isActive));
     return this.http.get<any>(this.BASE, { params })
       .pipe(catchError(this.handleError));
@@ -84,6 +92,12 @@ export class WorkflowService {
       .pipe(catchError(this.handleError));
   }
 
+  /** Lấy lịch sử tất cả phiên bản của một quy trình theo tên */
+  getVersions(name: string): Observable<WorkflowDefinition[]> {
+    return this.http.get<WorkflowDefinition[]>(`${this.BASE}/versions/${encodeURIComponent(name)}`)
+      .pipe(catchError(this.handleError));
+  }
+
   private get EXEC_BASE() {
     return `${this.config.apiGatewayUrl}/api/v1/workflows`;
   }
@@ -105,9 +119,9 @@ export class WorkflowService {
   }
 
   /** Phê duyệt nhiệm vụ */
-  approveTask(taskId: string, comment?: string): Observable<any> {
+  approveTask(taskId: string, comment?: string, nextAssigneeUserId?: string): Observable<any> {
     const headers = { 'Content-Type': 'application/json' };
-    const body = comment !== undefined && comment !== null ? JSON.stringify(comment) : '""';
+    const body = { comment, nextAssigneeUserId };
     return this.http.post<any>(`${this.EXEC_BASE}/tasks/${taskId}/approve`, body, { headers })
       .pipe(catchError(this.handleError));
   }
@@ -121,8 +135,8 @@ export class WorkflowService {
   }
 
   /** Chuyển bước quy trình động dựa trên sơ đồ BPMN */
-  moveWorkflow(dossierId: string, nextNodeId: string, actionLabel: string, comment?: string): Observable<any> {
-    const body = { dossierId, nextNodeId, actionLabel, comment };
+  moveWorkflow(dossierId: string, nextNodeId: string, actionLabel: string, comment?: string, nextAssigneeUserId?: string): Observable<any> {
+    const body = { dossierId, nextNodeId, actionLabel, comment, nextAssigneeUserId };
     return this.http.post<any>(`${this.EXEC_BASE}/move`, body)
       .pipe(catchError(this.handleError));
   }
