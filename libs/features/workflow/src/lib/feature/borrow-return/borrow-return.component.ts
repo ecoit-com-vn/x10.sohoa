@@ -28,6 +28,7 @@ export class BorrowReturnComponent implements OnInit {
   pageSize = signal<number>(10);
   totalCount = signal<number>(0);
   searchKeyword = signal<string>('');
+  filterState = signal<string>('');
 
   // Nhiệm vụ chờ xử lý (User Pending Tasks)
   myTasks = signal<any[]>([]);
@@ -53,7 +54,7 @@ export class BorrowReturnComponent implements OnInit {
   // 2. Detail view: Chi tiết yêu cầu mượn trả & Quy trình
   activeDetailRecord = signal<any>(null);
 
-  detailActiveTab = signal<'info' | 'workflow'>('info');
+  detailActiveTab = signal<'info' | 'workflow' | 'history'>('info');
   loadingBpmn = signal<boolean>(false);
   detailWorkflowXml = signal<string>('');
   detailCurrentNodeId = signal<string>('');
@@ -62,6 +63,23 @@ export class BorrowReturnComponent implements OnInit {
   detailActionComment = signal<string>('');
   detailActionSubmitting = signal<boolean>(false);
   detailDynamicButtons = signal<any[]>([]);
+  selectedNextUserId = signal<string>('');
+
+  hasForwardActionWithUserRequirement = computed(() => {
+    return this.detailDynamicButtons().some(btn => btn.requiresUser && btn.label !== 'Từ chối' && !btn.label.includes('Từ chối') && btn.label !== 'Hủy' && !btn.label.includes('Hủy'));
+  });
+
+  filteredNextUsers = computed(() => {
+    const forwardBtn = this.detailDynamicButtons().find(btn => btn.requiresUser && btn.label !== 'Từ chối' && !btn.label.includes('Từ chối') && btn.label !== 'Hủy' && !btn.label.includes('Hủy'));
+    if (!forwardBtn || !forwardBtn.requiredRole) {
+      return this.users();
+    }
+    const roles = forwardBtn.requiredRole.split(',').map((r: string) => r.trim().toUpperCase());
+    return this.users().filter(u => {
+      const userRoles = (u.roles || u.Roles || []).map((r: string) => r.toUpperCase());
+      return userRoles.some((r: string) => roles.includes(r));
+    });
+  });
 
   // bpmn-js Viewer instance
   private bpmnViewer: any = null;
@@ -123,6 +141,7 @@ export class BorrowReturnComponent implements OnInit {
   constructor() {
     effect(() => {
       const kw = this.searchKeyword();
+      const state = this.filterState();
       this.currentPage.set(1);
     }, { allowSignalWrites: true });
 
@@ -130,6 +149,7 @@ export class BorrowReturnComponent implements OnInit {
       const page = this.currentPage();
       const size = this.pageSize();
       const kw = this.searchKeyword();
+      const state = this.filterState();
       this.loadRequests();
     }, { allowSignalWrites: true });
   }
@@ -137,7 +157,7 @@ export class BorrowReturnComponent implements OnInit {
   // Tải toàn bộ yêu cầu mượn trả
   loadRequests() {
     this.loading.set(true);
-    this.borrowRecordService.getBorrowRecords(this.currentPage(), this.pageSize(), this.searchKeyword())
+    this.borrowRecordService.getBorrowRecords(this.currentPage(), this.pageSize(), this.searchKeyword(), this.filterState())
       .pipe(
         finalize(() => {
           this.loading.set(false);
@@ -288,6 +308,7 @@ export class BorrowReturnComponent implements OnInit {
     this.detailCurrentNodeId.set('');
     this.detailDynamicButtons.set([]);
     this.detailActionComment.set('Đồng ý phê duyệt.');
+    this.selectedNextUserId.set('');
     this.currentSubView.set('detail');
 
     this.loadingBpmn.set(true);
@@ -364,7 +385,7 @@ export class BorrowReturnComponent implements OnInit {
     this.activeDetailRecord.set(null);
   }
 
-  selectDetailTab(tab: 'info' | 'workflow') {
+  selectDetailTab(tab: 'info' | 'workflow' | 'history') {
     this.detailActiveTab.set(tab);
     if (tab === 'workflow') {
       setTimeout(() => {
@@ -443,7 +464,7 @@ export class BorrowReturnComponent implements OnInit {
       }
 
       if (!currentTaskElement) {
-        this.detailDynamicButtons.set([{ label: 'Xác nhận', targetNodeId: 'approve' }]);
+        this.detailDynamicButtons.set([{ label: 'Xác nhận', targetNodeId: 'approve', requiresUser: false }]);
         return;
       }
 
@@ -451,13 +472,13 @@ export class BorrowReturnComponent implements OnInit {
       const sequenceFlows = getElementsByLocalName('sequenceFlow');
       const outgoingFlow = sequenceFlows.find(f => f.getAttribute('sourceRef') === currentTaskId);
       if (!outgoingFlow) {
-        this.detailDynamicButtons.set([{ label: 'Xác nhận', targetNodeId: 'approve' }]);
+        this.detailDynamicButtons.set([{ label: 'Xác nhận', targetNodeId: 'approve', requiresUser: false }]);
         return;
       }
 
       const targetRef = outgoingFlow.getAttribute('targetRef');
       if (!targetRef) {
-        this.detailDynamicButtons.set([{ label: 'Xác nhận', targetNodeId: 'approve' }]);
+        this.detailDynamicButtons.set([{ label: 'Xác nhận', targetNodeId: 'approve', requiresUser: false }]);
         return;
       }
 
@@ -471,9 +492,33 @@ export class BorrowReturnComponent implements OnInit {
       }
 
       if (!targetElement) {
-        this.detailDynamicButtons.set([{ label: 'Xác nhận', targetNodeId: 'approve' }]);
+        this.detailDynamicButtons.set([{ label: 'Xác nhận', targetNodeId: 'approve', requiresUser: false }]);
         return;
       }
+
+      const isElementATask = (id: string): boolean => {
+        for (let i = 0; i < allElements.length; i++) {
+          if (allElements[i].getAttribute('id') === id) {
+            const ln = allElements[i].localName;
+            return ln === 'task' || ln === 'userTask';
+          }
+        }
+        return false;
+      };
+
+      const getRequiredRoleForElement = (id: string): string => {
+        for (let i = 0; i < allElements.length; i++) {
+          if (allElements[i].getAttribute('id') === id) {
+            return allElements[i].getAttribute('requiredRole') || '';
+          }
+        }
+        return '';
+      };
+
+      const isRejectionLabel = (label: string): boolean => {
+        const lower = label.toLowerCase();
+        return lower.includes('từ chối') || lower.includes('hủy') || lower.includes('reject') || lower.includes('cancel');
+      };
 
       // Check if this step is an approval step
       const pendingTask = this.detailPendingTask();
@@ -486,15 +531,24 @@ export class BorrowReturnComponent implements OnInit {
         // Automatically generate a single "Tiếp tục" button
         if (targetElement.localName.includes('Gateway')) {
           const gatewayFlows = sequenceFlows.filter(f => f.getAttribute('sourceRef') === targetRef);
-          const firstTarget = gatewayFlows.length > 0 ? gatewayFlows[0].getAttribute('targetRef') || '' : '';
+          const approveFlow = gatewayFlows.find(f => {
+            const name = f.getAttribute('name') || '';
+            return !isRejectionLabel(name);
+          }) || (gatewayFlows.length > 0 ? gatewayFlows[0] : null);
+
+          const firstTarget = approveFlow ? approveFlow.getAttribute('targetRef') || '' : '';
           this.detailDynamicButtons.set([{
             label: 'Tiếp tục',
-            targetNodeId: firstTarget
+            targetNodeId: firstTarget,
+            requiresUser: isElementATask(firstTarget),
+            requiredRole: getRequiredRoleForElement(firstTarget)
           }]);
         } else {
           this.detailDynamicButtons.set([{
             label: 'Tiếp tục',
-            targetNodeId: targetRef
+            targetNodeId: targetRef,
+            requiresUser: isElementATask(targetRef),
+            requiredRole: getRequiredRoleForElement(targetRef)
           }]);
         }
         return;
@@ -503,26 +557,50 @@ export class BorrowReturnComponent implements OnInit {
       // Nếu target tiếp theo là Gateway => sinh ra các nút rẽ nhánh
       if (targetElement.localName.includes('Gateway')) {
         const gatewayFlows = sequenceFlows.filter(f => f.getAttribute('sourceRef') === targetRef);
-        this.detailDynamicButtons.set(gatewayFlows.map(flow => ({
-          label: flow.getAttribute('name') || 'Tiếp tục',
-          targetNodeId: flow.getAttribute('targetRef') || ''
-        })));
+        this.detailDynamicButtons.set(gatewayFlows.map(flow => {
+          const flowTargetRef = flow.getAttribute('targetRef') || '';
+          const label = flow.getAttribute('name') || 'Tiếp tục';
+          const isReject = isRejectionLabel(label);
+          return {
+            label: label,
+            targetNodeId: flowTargetRef,
+            requiresUser: !isReject && isElementATask(flowTargetRef),
+            requiredRole: isReject ? '' : getRequiredRoleForElement(flowTargetRef)
+          };
+        }));
       } else {
         // Chỉ đi tiếp bình thường hoặc kết thúc
+        const isEnd = targetElement.localName === 'endEvent';
         this.detailDynamicButtons.set([{
-          label: targetElement.localName === 'endEvent' ? 'Hoàn thành' : 'Chuyển tiếp',
-          targetNodeId: targetRef
+          label: isEnd ? 'Hoàn thành' : 'Chuyển tiếp',
+          targetNodeId: targetRef,
+          requiresUser: !isEnd && isElementATask(targetRef),
+          requiredRole: isEnd ? '' : getRequiredRoleForElement(targetRef)
         }]);
       }
     } catch (err) {
       console.error('Error parsing dynamic transition buttons', err);
-      this.detailDynamicButtons.set([{ label: 'Duyệt', targetNodeId: 'approve' }, { label: 'Từ chối', targetNodeId: 'reject' }]);
+      this.detailDynamicButtons.set([
+        { label: 'Duyệt', targetNodeId: 'approve', requiresUser: true, requiredRole: '' }, 
+        { label: 'Từ chối', targetNodeId: 'reject', requiresUser: false, requiredRole: '' }
+      ]);
     }
   }
 
-  submitDetailMoveAction(targetNodeId: string, actionLabel: string) {
+  submitDetailMoveAction(targetNodeId: string, actionLabel: string, requiresUser?: boolean) {
     const record = this.activeDetailRecord();
     if (!record) return;
+
+    const isCancel = actionLabel === 'Từ chối' || actionLabel.includes('Từ chối') || actionLabel === 'Hủy' || actionLabel.includes('Hủy');
+
+    if (requiresUser && !isCancel && !this.selectedNextUserId()) {
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Lỗi',
+        detail: 'Vui lòng chọn người xử lý ở bước tiếp theo.'
+      });
+      return;
+    }
 
     this.detailActionSubmitting.set(true);
 
@@ -530,7 +608,8 @@ export class BorrowReturnComponent implements OnInit {
       record.id,
       targetNodeId,
       actionLabel,
-      this.detailActionComment()
+      this.detailActionComment(),
+      (!isCancel && requiresUser) ? this.selectedNextUserId() : undefined
     )
     .pipe(finalize(() => this.detailActionSubmitting.set(false)))
     .subscribe({

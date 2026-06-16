@@ -105,8 +105,15 @@
       <div *ngIf="activeTab() === 'records'">
         <!-- Search and Button to create request -->
         <div class="table-actions" style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; gap: 16px;">
-          <div class="search-box" style="display: flex; gap: 8px; max-width: 300px; width: 100%;">
-            <input type="text" class="wf-input" [ngModel]="searchKeyword()" (ngModelChange)="searchKeyword.set($event)" placeholder="Tìm kiếm nhanh..." style="flex: 1; padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px;" />
+          <div class="search-box" style="display: flex; gap: 8px; max-width: 650px; width: 100%;">
+            <input type="text" class="wf-input" [ngModel]="searchKeyword()" (ngModelChange)="searchKeyword.set($event)" placeholder="Tìm kiếm nhanh..." style="flex: 2; padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px;" />
+            <select class="wf-input" [ngModel]="filterState()" (ngModelChange)="filterState.set($event)" style="flex: 1.2; min-width: 220px; padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; background-color: #ffffff;">
+              <option value="">-- Tất cả trạng thái --</option>
+              <option value="0">Yêu cầu mượn (Requested)</option>
+              <option value="1">Đã phê duyệt (Approved)</option>
+              <option value="2">Đang mượn (Borrowed)</option>
+              <option value="3">Đã trả (Returned)</option>
+            </select>
           </div>
           <button class="btn-green btn-small" (click)="openCreateView()">
             <i class="pi pi-plus" style="margin-right: 6px;"></i> Tạo đơn mượn trả
@@ -289,38 +296,62 @@
           <button class="detail-tab-btn" [class.active]="detailActiveTab() === 'workflow'" (click)="selectDetailTab('workflow')">
             <i class="pi pi-sitemap" style="margin-right: 6px;"></i> Quy trình xử lý
           </button>
+          <button class="detail-tab-btn" [class.active]="detailActiveTab() === 'history'" (click)="selectDetailTab('history')">
+            <i class="pi pi-history" style="margin-right: 6px;"></i> Lịch sử xử lý
+          </button>
         </div>
 
         <div class="detail-content-body" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
           <!-- Loader while fetching details -->
           <div *ngIf="loadingBpmn()" style="text-align: center; padding: 40px 0;">
             <i class="pi pi-spin pi-spinner" style="font-size: 32px; color: #002D72;"></i>
-            <div style="margin-top: 12px; color: #64748b; font-size: 14px;">Đang tải thông tin chi tiết và quy trình...</div>
+            <div style="margin-top: 12px; color: #64748b; font-size: 14px;">Đang tải thông tin chi tiết...</div>
           </div>
 
           <ng-container *ngIf="!loadingBpmn()">
             <!-- TAB 1: THÔNG TIN CHUNG -->
             <div *ngIf="detailActiveTab() === 'info'" style="animation: fadeIn 0.15s ease;">
-              <div class="detail-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
-                <div>
-                  <p style="margin: 8px 0; font-size: 14px;"><span style="color: #64748b; font-weight: 500;">Mã yêu cầu:</span> <code style="font-size: 13px; background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">{{ activeDetailRecord()?.id }}</code></p>
-                  <p style="margin: 8px 0; font-size: 14px;"><span style="color: #64748b; font-weight: 500;">Người mượn:</span> <b>{{ activeDetailRecord()?.requesterName }}</b> (Tài khoản: <code>{{ activeDetailRecord()?.requesterId }}</code>)</p>
-                  <p style="margin: 8px 0; font-size: 14px;"><span style="color: #64748b; font-weight: 500;">Hồ sơ kỹ thuật:</span> <b>{{ activeDetailRecord()?.dossierTitle }}</b> (Mã: <code>{{ activeDetailRecord()?.dossierId }}</code>)</p>
-                  <p style="margin: 8px 0; font-size: 14px;"><span style="color: #64748b; font-weight: 500;">Ngày yêu cầu:</span> {{ activeDetailRecord()?.createdAt | date:'dd/MM/yyyy HH:mm:ss' }}</p>
+              <div class="detail-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 16px;">
+                <div style="display: flex; flex-direction: column; gap: 16px;">
+                  <div>
+                    <span style="color: #64748b; font-weight: 500; font-size: 13px; display: block; margin-bottom: 4px;">Mã yêu cầu</span>
+                    <code style="font-size: 13px; background: #f1f5f9; padding: 4px 8px; border-radius: 4px; border: 1px solid #e2e8f0;">{{ activeDetailRecord()?.id }}</code>
+                  </div>
+                  <div>
+                    <span style="color: #64748b; font-weight: 500; font-size: 13px; display: block; margin-bottom: 4px;">Người mượn</span>
+                    <span style="font-size: 14px; color: #1e293b;"><b>{{ activeDetailRecord()?.requesterName }}</b> (Tài khoản: <code>{{ activeDetailRecord()?.requesterId }}</code>)</span>
+                  </div>
+                  <div>
+                    <span style="color: #64748b; font-weight: 500; font-size: 13px; display: block; margin-bottom: 4px;">Hồ sơ kỹ thuật</span>
+                    <span style="font-size: 14px; color: #1e293b;"><b>{{ activeDetailRecord()?.dossierTitle }}</b> (Mã: <code>{{ activeDetailRecord()?.dossierId }}</code>)</span>
+                  </div>
+                  <div>
+                    <span style="color: #64748b; font-weight: 500; font-size: 13px; display: block; margin-bottom: 4px;">Ngày yêu cầu</span>
+                    <span style="font-size: 14px; color: #1e293b;">{{ activeDetailRecord()?.createdAt | date:'dd/MM/yyyy HH:mm:ss' }}</span>
+                  </div>
                 </div>
-                <div>
-                  <p style="margin: 8px 0; font-size: 14px; display: flex; align-items: center; gap: 8px;">
-                    <span style="color: #64748b; font-weight: 500;">Trạng thái:</span> 
-                    <span class="status-pill"
+                <div style="display: flex; flex-direction: column; gap: 16px;">
+                  <div>
+                    <span style="color: #64748b; font-weight: 500; font-size: 13px; display: block; margin-bottom: 4px;">Trạng thái</span>
+                    <span class="status-pill" style="display: inline-flex;"
                       [class.status-pending]="activeDetailRecord()?.status === 'PENDING'"
                       [class.status-active]="activeDetailRecord()?.status === 'APPROVED' || activeDetailRecord()?.status === 'BORROWED' || activeDetailRecord()?.status === 'RETURNED'"
                       [class.status-inactive]="activeDetailRecord()?.status === 'REJECTED'">
                       {{ getStatusLabel(activeDetailRecord()?.status) }}
                     </span>
-                  </p>
-                  <p style="margin: 8px 0; font-size: 14px;" *ngIf="activeDetailRecord()?.approvedDate"><span style="color: #64748b; font-weight: 500;">Ngày duyệt:</span> {{ activeDetailRecord()?.approvedDate | date:'dd/MM/yyyy HH:mm:ss' }}</p>
-                  <p style="margin: 8px 0; font-size: 14px;" *ngIf="activeDetailRecord()?.borrowedDate"><span style="color: #64748b; font-weight: 500;">Ngày giao hồ sơ:</span> {{ activeDetailRecord()?.borrowedDate | date:'dd/MM/yyyy HH:mm:ss' }}</p>
-                  <p style="margin: 8px 0; font-size: 14px;" *ngIf="activeDetailRecord()?.returnedDate"><span style="color: #64748b; font-weight: 500;">Ngày trả hồ sơ:</span> {{ activeDetailRecord()?.returnedDate | date:'dd/MM/yyyy HH:mm:ss' }}</p>
+                  </div>
+                  <div *ngIf="activeDetailRecord()?.approvedDate">
+                    <span style="color: #64748b; font-weight: 500; font-size: 13px; display: block; margin-bottom: 4px;">Ngày duyệt</span>
+                    <span style="font-size: 14px; color: #1e293b;">{{ activeDetailRecord()?.approvedDate | date:'dd/MM/yyyy HH:mm:ss' }}</span>
+                  </div>
+                  <div *ngIf="activeDetailRecord()?.borrowedDate">
+                    <span style="color: #64748b; font-weight: 500; font-size: 13px; display: block; margin-bottom: 4px;">Ngày giao hồ sơ</span>
+                    <span style="font-size: 14px; color: #1e293b;">{{ activeDetailRecord()?.borrowedDate | date:'dd/MM/yyyy HH:mm:ss' }}</span>
+                  </div>
+                  <div *ngIf="activeDetailRecord()?.returnedDate">
+                    <span style="color: #64748b; font-weight: 500; font-size: 13px; display: block; margin-bottom: 4px;">Ngày trả hồ sơ</span>
+                    <span style="font-size: 14px; color: #1e293b;">{{ activeDetailRecord()?.returnedDate | date:'dd/MM/yyyy HH:mm:ss' }}</span>
+                  </div>
                 </div>
               </div>
               <div style="margin-top: 24px; padding: 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;">
@@ -359,6 +390,17 @@
                   
                   <!-- Check user role permission to draw action controls -->
                   <div *ngIf="isUserAuthorizedForDetailAction">
+                    <!-- Dropdown to select next user -->
+                    <div class="form-group" *ngIf="hasForwardActionWithUserRequirement()" style="margin-top: 12px; margin-bottom: 16px; animation: fadeIn 0.15s ease;">
+                      <label style="font-weight: 600; display: block; margin-bottom: 6px; font-size: 13px; color: #334155;">
+                        <span style="color: #ef4444; margin-right: 4px;">*</span>Người xử lý bước tiếp theo:
+                      </label>
+                      <select class="wf-input" [ngModel]="selectedNextUserId()" (ngModelChange)="selectedNextUserId.set($event)" style="width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; background-color: #ffffff; color: #334155; box-shadow: inset 0 1px 2px rgba(0,0,0,0.05);">
+                        <option value="" disabled selected>-- Chọn người xử lý tiếp theo --</option>
+                        <option *ngFor="let u of filteredNextUsers()" [value]="u.id">{{ u.fullName }} ({{ u.username }})</option>
+                      </select>
+                    </div>
+
                     <div class="form-group" style="margin-top: 12px;">
                       <label style="font-weight: 600; display: block; margin-bottom: 6px; font-size: 13px; color: #334155;">Ý kiến xử lý / Nội dung phản hồi:</label>
                       <textarea class="wf-textarea" rows="3" [ngModel]="detailActionComment()" (ngModelChange)="detailActionComment.set($event)" placeholder="Nhập ý kiến xử lý quy trình..." style="width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; box-shadow: inset 0 1px 2px rgba(0,0,0,0.05);"></textarea>
@@ -371,7 +413,7 @@
                               [class.btn-save]="btn.label === 'Đồng ý' || btn.label.includes('Đồng ý') || btn.label === 'Phê duyệt' || btn.label.includes('Phê duyệt') || btn.label === 'Xác nhận' || btn.label.includes('Xác nhận')"
                               [class.btn-green]="btn.label !== 'Từ chối' && !btn.label.includes('Từ chối') && btn.label !== 'Đồng ý' && !btn.label.includes('Đồng ý') && btn.label !== 'Phê duyệt' && !btn.label.includes('Phê duyệt') && btn.label !== 'Xác nhận' && !btn.label.includes('Xác nhận')"
                               [disabled]="detailActionSubmitting()"
-                              (click)="submitDetailMoveAction(btn.targetNodeId, btn.label)"
+                              (click)="submitDetailMoveAction(btn.targetNodeId, btn.label, btn.requiresUser)"
                               style="padding: 10px 20px; font-size: 13px;">
                         <i class="pi"
                            [class.pi-spin]="detailActionSubmitting()"
@@ -390,10 +432,14 @@
                 </div>
               </div>
 
-              <!-- History Timeline -->
-              <div *ngIf="detailHistoryLogs().length > 0" style="margin-top: 24px; border-top: 1px solid #e2e8f0; padding-top: 20px;">
-                <h4 style="margin: 0 0 12px 0; color: #1e293b; font-size: 14px; font-weight: 600;"><i class="pi pi-history"></i> Lịch sử xử lý luồng duyệt</h4>
-                <div class="wf-timeline" style="max-height: 250px; overflow-y: auto;">
+            </div>
+
+            <!-- TAB 3: LỊCH SỬ XỬ LÝ -->
+            <div *ngIf="detailActiveTab() === 'history'" style="animation: fadeIn 0.15s ease;">
+              <h4 style="margin: 0 0 16px 0; color: #1e293b; font-size: 14px; font-weight: 600;"><i class="pi pi-history" style="color: #002D72; margin-right: 6px;"></i> Lịch sử xử lý luồng duyệt</h4>
+              
+              <div class="wf-timeline-wrapper" *ngIf="detailHistoryLogs().length > 0">
+                <div class="wf-timeline">
                   <div class="timeline-item" *ngFor="let log of detailHistoryLogs()">
                     <div class="timeline-badge"
                          [class.badge-submit]="log.action === 'Submit'"
@@ -410,11 +456,19 @@
                         </span>
                         <span class="timeline-time">{{ log.actionDate | date:'dd/MM/yyyy HH:mm:ss' }}</span>
                       </div>
-                      <div class="timeline-user">Thực hiện bởi: {{ log.actionByUserId }}</div>
+                      <div class="timeline-user">
+                        Thực hiện bởi: 
+                        <b>{{ log.actionByUsername && log.actionByFullName ? log.actionByUsername + ' - ' + log.actionByFullName : (log.actionByUsername || log.actionByUserId || 'Hệ thống') }}</b>
+                      </div>
                       <div class="timeline-comment" *ngIf="log.comment"><b>Ý kiến:</b> {{ log.comment }}</div>
                     </div>
                   </div>
                 </div>
+              </div>
+
+              <div *ngIf="detailHistoryLogs().length === 0" style="text-align: center; padding: 40px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; color: #64748b;">
+                <i class="pi pi-history" style="font-size: 28px; margin-bottom: 12px; color: #94a3b8;"></i>
+                <p style="margin: 0; font-weight: 500;">Chưa có lịch sử xử lý quy trình nào.</p>
               </div>
             </div>
           </ng-container>

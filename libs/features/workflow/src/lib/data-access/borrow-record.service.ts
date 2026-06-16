@@ -22,12 +22,15 @@ export class BorrowRecordService {
     return `${this.config.apiGatewayUrl}/api/workflowdefinitions`;
   }
 
-  getBorrowRecords(page: number, pageSize: number, keyword?: string): Observable<any> {
+  getBorrowRecords(page: number, pageSize: number, keyword?: string, state?: string): Observable<any> {
     let params = new HttpParams()
       .set('page', page.toString())
       .set('pageSize', pageSize.toString());
     if (keyword && keyword.trim()) {
       params = params.set('keyword', keyword.trim());
+    }
+    if (state !== undefined && state !== null && state !== '') {
+      params = params.set('state', state);
     }
     return this.http.get<any>(this.baseBorrow, { params });
   }
@@ -80,8 +83,8 @@ export class BorrowRecordService {
     return this.http.get<WorkflowDefinition>(`${this.baseBorrow}/get-workflow-definition/${id}`);
   }
 
-  moveWorkflow(dossierId: string, nextNodeId: string, actionLabel: string, comment?: string): Observable<any> {
-    const body = { dossierId, nextNodeId, actionLabel, comment };
+  moveWorkflow(dossierId: string, nextNodeId: string, actionLabel: string, comment?: string, nextAssigneeUserId?: string): Observable<any> {
+    const body = { dossierId, nextNodeId, actionLabel, comment, nextAssigneeUserId };
     return this.http.post<any>(`${this.baseBorrow}/move`, body);
   }
 
