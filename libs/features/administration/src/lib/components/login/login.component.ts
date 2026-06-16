@@ -18,6 +18,7 @@ export class Login implements OnInit {
   username = '';
   password = '';
   showPassword = false;
+  rememberMe = false;
   
   private router = inject(Router);
   private route = inject(ActivatedRoute);
@@ -25,6 +26,13 @@ export class Login implements OnInit {
   
   ngOnInit() {
     if (typeof window !== 'undefined') {
+      const savedUsername = localStorage.getItem('rememberedUsername');
+      const savedRememberMe = localStorage.getItem('rememberMe');
+      if (savedRememberMe === 'true' && savedUsername) {
+        this.username = savedUsername;
+        this.rememberMe = true;
+      }
+
       this.route.queryParams.subscribe(params => {
         const ticket = params['ticket'];
         if (ticket) {
@@ -60,6 +68,13 @@ export class Login implements OnInit {
             localStorage.setItem('token', token);
             if (refreshToken) {
               localStorage.setItem('refreshToken', refreshToken);
+            }
+            if (this.rememberMe) {
+              localStorage.setItem('rememberedUsername', this.username);
+              localStorage.setItem('rememberMe', 'true');
+            } else {
+              localStorage.removeItem('rememberedUsername');
+              localStorage.removeItem('rememberMe');
             }
           }
           this.router.navigate(['/']);
