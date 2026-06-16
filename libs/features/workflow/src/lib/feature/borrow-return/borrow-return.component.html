@@ -112,7 +112,7 @@
               <option value="0">Yêu cầu mượn (Requested)</option>
               <option value="1">Đã phê duyệt (Approved)</option>
               <option value="2">Đang mượn (Borrowed)</option>
-              <option value="3">Đã trả (Returned)</option>
+              <option value="3">Bị trả lại (Returned)</option>
             </select>
           </div>
           <button class="btn-green btn-small" (click)="openCreateView()">
@@ -161,8 +161,8 @@
                     <!-- Trạng thái chung -->
                     <span class="status-pill"
                       [class.status-pending]="req.status === 'PENDING'"
-                      [class.status-active]="req.status === 'APPROVED' || req.status === 'BORROWED' || req.status === 'RETURNED'"
-                      [class.status-inactive]="req.status === 'REJECTED'">
+                      [class.status-active]="req.status === 'APPROVED' || req.status === 'BORROWED'"
+                      [class.status-inactive]="req.status === 'REJECTED' || req.status === 'RETURNED'">
                       <i class="pi pi-info-circle" style="font-size: 11px; margin-right: 4px;"></i>
                       {{ getStatusLabel(req.status) }}
                     </span>
@@ -335,8 +335,8 @@
                     <span style="color: #64748b; font-weight: 500; font-size: 13px; display: block; margin-bottom: 4px;">Trạng thái</span>
                     <span class="status-pill" style="display: inline-flex;"
                       [class.status-pending]="activeDetailRecord()?.status === 'PENDING'"
-                      [class.status-active]="activeDetailRecord()?.status === 'APPROVED' || activeDetailRecord()?.status === 'BORROWED' || activeDetailRecord()?.status === 'RETURNED'"
-                      [class.status-inactive]="activeDetailRecord()?.status === 'REJECTED'">
+                      [class.status-active]="activeDetailRecord()?.status === 'APPROVED' || activeDetailRecord()?.status === 'BORROWED'"
+                      [class.status-inactive]="activeDetailRecord()?.status === 'REJECTED' || activeDetailRecord()?.status === 'RETURNED'">
                       {{ getStatusLabel(activeDetailRecord()?.status) }}
                     </span>
                   </div>

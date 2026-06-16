@@ -714,7 +714,7 @@ export class BorrowReturnComponent implements OnInit {
       case 'PENDING': return 'Chờ phê duyệt';
       case 'APPROVED': return 'Đã duyệt';
       case 'BORROWED': return 'Đang mượn';
-      case 'RETURNED': return 'Đã trả';
+      case 'RETURNED': return 'Bị trả lại';
       case 'REJECTED': return 'Từ chối';
       default: return status;
     }
