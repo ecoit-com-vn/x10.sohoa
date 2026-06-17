@@ -1,0 +1,148 @@
+<div class="wf-page">
+  <p-toast></p-toast>
+  
+  <div class="wf-card">
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" *ngIf="loading()">
+      <div class="loading-content">
+        <i class="pi pi-spin pi-spinner text-4xl mr-3" style="color: #002D72;"></i>
+        <span class="text-base font-semibold" style="color: #002D72;">Đang tải danh sách biểu mẫu...</span>
+      </div>
+    </div>
+
+    <!-- Breadcrumb -->
+    <div class="breadcrumb">
+      <i class="pi pi-home bc-icon"></i>
+      <span class="bc-text">Trang chủ</span>
+      <span class="bc-sep">/</span>
+      <span class="bc-text">Quản lý thiết bị</span>
+      <span class="bc-sep">/</span>
+      <span class="bc-current">Quản lý biểu mẫu</span>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="list-toolbar">
+      <div class="toolbar-left">
+        <input type="text" class="wf-search-input"
+          placeholder="Tìm kiếm biểu mẫu..."
+          [ngModel]="searchKeyword()"
+          (ngModelChange)="searchKeyword.set($event)"
+          (keyup.enter)="onSearch()" />
+        <button class="btn-tim" (click)="onSearch()">
+          <i class="pi pi-search"></i> Tìm
+        </button>
+      </div>
+      <div class="toolbar-right">
+        <button class="btn-save btn-green" (click)="onAddNew()">
+          <i class="pi pi-plus"></i> Tạo biểu mẫu
+        </button>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="wf-table-wrap">
+      <table class="wf-table">
+        <thead>
+          <tr>
+            <th style="width: 150px;">Mã biểu mẫu</th>
+            <th>Tên biểu mẫu thuộc tính thiết bị</th>
+            <th>Loại thiết bị</th>
+            <th style="width: 100px; text-align: center;">Phiên bản</th>
+            <th>Người tạo</th>
+            <th class="col-tt">Trạng thái</th>
+            <th>Cập nhật lần cuối</th>
+            <th class="col-hd" style="width: 200px;">Thao tác</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngIf="loading() && filteredForms().length === 0">
+            <td colspan="8" class="skeleton-row" style="padding: 30px; text-align: center;">
+              <i class="pi pi-spin pi-spinner mr-2" style="font-size: 1.5rem; color: #002D72;"></i>
+              <span>Đang tải danh sách biểu mẫu...</span>
+            </td>
+          </tr>
+          
+          <tr *ngFor="let form of paginatedForms(); let i = index">
+            <td><code style="font-weight: bold; color: #000000;">{{ form.code || '(Chưa có)' }}</code></td>
+            <td><b class="wf-name-link" style="color: #000000;" (click)="onEdit(form)">{{ form.name }}</b></td>
+            <td>
+              <span class="badge" style="background: #f1f5f9; color: #000000; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;">
+                {{ getCategoryName(form.category) }}
+              </span>
+            </td>
+            <td style="text-align: center; font-family: monospace; font-weight: bold; color: #000000;">v{{ form.version }}.0</td>
+            <td style="color: #000000;">{{ form.createdBy || 'admin' }}</td>
+            <td class="col-tt">
+              <span class="status-pill"
+                [class.status-active]="form.isActive"
+                [class.status-inactive]="!form.isActive">
+                <i class="pi" [ngClass]="form.isActive ? 'pi-check-circle' : 'pi-times-circle'"></i>
+                {{ form.isActive ? 'Đang hoạt động' : 'Ngưng hoạt động' }}
+              </span>
+            </td>
+            <td style="color: #000000;">{{ form.createdAt | date:'dd/MM/yyyy HH:mm' }}</td>
+            <td class="col-hd">
+              <button class="act-btn act-edit" (click)="onEdit(form)" title="Chỉnh sửa">
+                <i class="pi pi-pencil"></i>
+              </button>
+              <button class="act-btn act-delete" 
+                *ngIf="form.isActive"
+                (click)="deactivateForm(form)" 
+                title="Vô hiệu hóa">
+                <i class="pi pi-times-circle"></i>
+              </button>
+            </td>
+          </tr>
+          <tr *ngIf="filteredForms().length === 0 && !loading()">
+            <td colspan="8" class="empty-row">
+              <i class="pi pi-inbox"></i>
+              <div>Chưa có biểu mẫu động nào. Nhấp tạo biểu mẫu để thiết lập!</div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Footer / Paginator -->
+    <div class="table-footer-paginator" *ngIf="filteredForms().length > 0">
+      <span class="record-count">Tổng số: <b>{{ filteredForms().length }}</b> bản ghi.</span>
+      <p-paginator 
+        [first]="first()" 
+        [rows]="rows()" 
+        [totalRecords]="filteredForms().length" 
+        [rowsPerPageOptions]="[5, 10, 20, 50]" 
+        (onPageChange)="onPageChange($event)">
+      </p-paginator>
+    </div>
+  </div>
+
+  <!-- ==================== DIALOG XÁC NHẬN VÔ HIỆU HÓA ==================== -->
+  <p-dialog
+    [visible]="showConfirmDelete()"
+    (visibleChange)="$event ? null : showConfirmDelete.set(false)"
+    header="Xác nhận vô hiệu hóa"
+    [modal]="true"
+    [style]="{ width: '420px' }"
+    styleClass="evn-dialog-custom"
+    [closable]="true">
+    <div style="display: flex; align-items: flex-start; gap: 12px; padding: 8px 0 16px;">
+      <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #f59e0b;"></i>
+      <div>
+        <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">Bạn có chắc chắn muốn vô hiệu hóa?</p>
+        <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
+          Biểu mẫu <b style="color: #1e293b;">{{ targetForm?.name }}</b> sẽ bị vô hiệu hóa trong hệ thống.
+        </p>
+      </div>
+    </div>
+    <ng-template #footer>
+      <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+        <button class="btn-cancel btn-small" (click)="showConfirmDelete.set(false)">
+          <i class="pi pi-times"></i> Hủy
+        </button>
+        <button class="btn-save btn-small" (click)="onConfirmDelete()" style="background-color: #dc2626; border-color: #dc2626;">
+          <i class="pi pi-check"></i> Xác nhận
+        </button>
+      </div>
+    </ng-template>
+  </p-dialog>
+</div>

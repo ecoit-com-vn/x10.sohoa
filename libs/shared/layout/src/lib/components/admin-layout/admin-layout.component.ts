@@ -153,7 +153,40 @@ export class AdminLayout implements OnInit {
     const menuMap = new Map<number, MenuItem>();
     const rootItems: MenuItem[] = [];
 
-    flatMenus.forEach(m => {
+    // Make a mutable copy of flatMenus to allow injection
+    const menusCopy = [...flatMenus];
+
+    // Inject "Phê duyệt biểu mẫu" adjacent to "Quản lý form" if missing
+    const hasApprovalMenu = menusCopy.some(m => m.url === '/equipment/form-approval');
+    if (!hasApprovalMenu) {
+      const formMgmtMenu = menusCopy.find(m => m.url === '/equipment/form-management');
+      if (formMgmtMenu) {
+        menusCopy.push({
+          id: 999999,
+          name: 'Phê duyệt biểu mẫu',
+          icon: 'pi pi-check-square',
+          url: '/equipment/form-approval',
+          parentId: formMgmtMenu.parentId
+        });
+      }
+    }
+
+    // Inject "Quản lý biểu mẫu" adjacent to "Quản lý form" if missing
+    const hasTemplateMenu = menusCopy.some(m => m.url === '/equipment/form-template');
+    if (!hasTemplateMenu) {
+      const formMgmtMenu = menusCopy.find(m => m.url === '/equipment/form-management');
+      if (formMgmtMenu) {
+        menusCopy.push({
+          id: 999998,
+          name: 'Quản lý biểu mẫu',
+          icon: 'pi pi-file',
+          url: '/equipment/form-template',
+          parentId: formMgmtMenu.parentId
+        });
+      }
+    }
+
+    menusCopy.forEach(m => {
       const item: MenuItem = {
         id: m.id.toString(),
         label: m.name,
@@ -165,7 +198,7 @@ export class AdminLayout implements OnInit {
       menuMap.set(m.id, item);
     });
 
-    flatMenus.forEach(m => {
+    menusCopy.forEach(m => {
       const item = menuMap.get(m.id);
       if (item) {
         if (m.parentId) {

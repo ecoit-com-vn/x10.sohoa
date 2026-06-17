@@ -11,12 +11,19 @@ export const EQUIPMENT_ROUTES: Routes = [
   },
   {
     path: 'form-management',
-    loadComponent: () => import('./components/form-management/components/form-management/form-management.component').then(m => m.FormManagementComponent)
+    loadComponent: () => import('./components/form-management/form-management.component').then(m => m.FormManagementComponent)
+  },
+  {
+    path: 'form-approval',
+    loadComponent: () => import('./components/form-approval/form-approval.component').then(m => m.FormApprovalComponent)
   },
   {
     path: 'form-builder',
-    redirectTo: 'form-management',
-    pathMatch: 'full'
+    loadComponent: () => import('./components/form-builder/form-builder.component').then(m => m.FormBuilderComponent)
+  },
+  {
+    path: 'form-template',
+    loadComponent: () => import('./components/form-template/form-template.component').then(m => m.FormTemplateComponent)
   },
   {
     path: 'form-renderer',

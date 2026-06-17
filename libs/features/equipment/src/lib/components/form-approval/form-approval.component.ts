@@ -1,0 +1,304 @@
+import { Component, OnInit, inject, signal, computed, effect } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { ToastModule } from 'primeng/toast';
+import { MessageService } from 'primeng/api';
+import { ButtonModule } from 'primeng/button';
+import { InputTextModule } from 'primeng/inputtext';
+import { Select } from 'primeng/select';
+import { CheckboxModule } from 'primeng/checkbox';
+import { CardModule } from 'primeng/card';
+import { TextareaModule } from 'primeng/textarea';
+import { Paginator } from 'primeng/paginator';
+import { EavFormService, EavFormTemplate } from '@sohoa.frontend/shared/core';
+import { finalize } from 'rxjs';
+import { Dialog } from 'primeng/dialog';
+
+interface FormField {
+  id: string;
+  name: string;
+  label: string;
+  type: string;
+  placeholder?: string;
+  required: boolean;
+  options?: string[];
+  helpText?: string;
+  width: number;
+  dataSourceType?: 'manual' | 'catalog';
+  catalogType?: string;
+  description?: string;
+}
+
+@Component({
+  selector: 'app-form-approval',
+  standalone: true,
+  imports: [
+    CommonModule, 
+    FormsModule, 
+    ToastModule, 
+    ButtonModule,
+    InputTextModule,
+    Select,
+    CheckboxModule,
+    CardModule,
+    TextareaModule,
+    Paginator,
+    Dialog
+  ],
+  providers: [MessageService],
+  templateUrl: './form-approval.component.html',
+  styleUrl: './form-approval.component.scss'
+})
+export class FormApprovalComponent implements OnInit {
+  // Confirm dialog state variables
+  showConfirmApprove = signal<boolean>(false);
+  showConfirmReject = signal<boolean>(false);
+  targetForm: EavFormTemplate | null = null;
+
+  viewState = signal<'list' | 'preview'>('list');
+  loading = signal<boolean>(false);
+  forms = signal<EavFormTemplate[]>([]);
+  pendingCount = computed(() => this.forms().filter(f => f.status === 'Chờ duyệt').length);
+  searchKeyword = signal<string>('');
+  activeTab = signal<'pending' | 'history'>('pending');
+  selectedForm = signal<EavFormTemplate | null>(null);
+
+  // Preview properties
+  fields = signal<FormField[]>([]);
+  simulatedValues = signal<{ [key: string]: any }>({});
+
+  // Pagination
+  first = signal<number>(0);
+  rows = signal<number>(10);
+
+  categories = [
+    { code: 'MAY_BIEN_AP', name: 'Máy biến áp' },
+    { code: 'MAY_CAT', name: 'Máy cắt' },
+    { code: 'DAO_CACH_LY', name: 'Dao cách ly' },
+    { code: 'BIEN_DIEN_AP', name: 'Biến điện áp (TU)' },
+    { code: 'BIEN_DONG_DIEN', name: 'Biến dòng điện (TI)' },
+    { code: 'CAP_DIEN_LUC', name: 'Cáp điện lực' },
+    { code: 'TU_TRUNG_THE', name: 'Tủ trung thế' },
+    { code: 'THIET_BI_DO_LUONG', name: 'Thiết bị đo lường' },
+    { code: 'KHAC', name: 'Hạng mục khác' }
+  ];
+
+  private eavFormService = inject(EavFormService);
+  private messageService = inject(MessageService);
+
+  constructor() {
+    effect(() => {
+      this.searchKeyword();
+      this.activeTab();
+      this.first.set(0);
+    });
+  }
+
+
+
+  ngOnInit() {
+    this.loadForms();
+  }
+
+  loadForms() {
+    this.loading.set(true);
+    this.eavFormService.getTemplates()
+      .pipe(finalize(() => this.loading.set(false)))
+      .subscribe({
+        next: (data) => {
+          this.forms.set(data || []);
+        },
+        error: (err) => {
+          console.error('Error loading forms', err);
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi tải dữ liệu',
+            detail: 'Không thể kết nối đến API Gateway để tải biểu mẫu.'
+          });
+          this.forms.set([]);
+        }
+      });
+  }
+
+  filteredForms = computed(() => {
+    const keyword = this.searchKeyword().trim().toLowerCase();
+    const tab = this.activeTab();
+    let list = this.forms();
+
+    // Filter by tab
+    if (tab === 'pending') {
+      list = list.filter(f => f.status === 'Chờ duyệt');
+    } else {
+      list = list.filter(f => f.status === 'Hoàn thành' || f.status === 'Từ chối');
+    }
+
+    // Filter by keyword
+    if (keyword) {
+      list = list.filter(f =>
+        (f.name?.toLowerCase().includes(keyword) ?? false) ||
+        (f.code?.toLowerCase().includes(keyword) ?? false) ||
+        (f.id?.toLowerCase().includes(keyword) ?? false)
+      );
+    }
+    return list;
+  });
+
+  paginatedForms = computed(() => {
+    const start = this.first();
+    const end = start + this.rows();
+    return this.filteredForms().slice(start, end);
+  });
+
+  onPageChange(event: any) {
+    this.first.set(event.first);
+    this.rows.set(event.rows);
+  }
+
+  onSearch() {
+    // Handled reactively by computed filteredForms
+  }
+
+  switchTab(tab: 'pending' | 'history') {
+    this.activeTab.set(tab);
+  }
+
+  onPreview(form: EavFormTemplate) {
+    this.selectedForm.set(form);
+    this.viewState.set('preview');
+    
+    try {
+      const parsedFields = JSON.parse(form.formSchema) || [];
+      this.fields.set(parsedFields);
+      
+      const initialSimulated: { [key: string]: any } = {};
+      parsedFields.forEach((f: FormField) => {
+        if (f.type === 'checkbox') {
+          initialSimulated[f.name] = false;
+        } else {
+          initialSimulated[f.name] = '';
+        }
+      });
+      this.simulatedValues.set(initialSimulated);
+    } catch (e) {
+      console.error('Failed to parse form schema', e);
+      this.fields.set([]);
+      this.simulatedValues.set({});
+    }
+  }
+
+  goToList() {
+    this.viewState.set('list');
+    this.selectedForm.set(null);
+    this.fields.set([]);
+    this.simulatedValues.set({});
+  }
+
+  approveForm(form: EavFormTemplate) {
+    this.targetForm = form;
+    this.showConfirmApprove.set(true);
+  }
+
+  rejectForm(form: EavFormTemplate) {
+    this.targetForm = form;
+    this.showConfirmReject.set(true);
+  }
+
+  onConfirmApprove() {
+    if (!this.targetForm) return;
+    const form = this.targetForm;
+    this.loading.set(true);
+    this.eavFormService.approveTemplate(form.id)
+      .subscribe({
+        next: () => {
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Thành công',
+            detail: `Đã duyệt biểu mẫu "${form.name}" thành công!`
+          });
+          this.showConfirmApprove.set(false);
+          this.targetForm = null;
+          this.loadForms();
+          this.goToList();
+        },
+        error: (err) => {
+          this.loading.set(false);
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi',
+            detail: err?.error?.Message || 'Không thể phê duyệt biểu mẫu.'
+          });
+          this.showConfirmApprove.set(false);
+          this.targetForm = null;
+        }
+      });
+  }
+
+  onConfirmReject() {
+    if (!this.targetForm) return;
+    const form = this.targetForm;
+    this.loading.set(true);
+    this.eavFormService.rejectTemplate(form.id)
+      .subscribe({
+        next: () => {
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Từ chối thành công',
+            detail: `Đã từ chối biểu mẫu "${form.name}".`
+          });
+          this.showConfirmReject.set(false);
+          this.targetForm = null;
+          this.loadForms();
+          this.goToList();
+        },
+        error: (err) => {
+          this.loading.set(false);
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi',
+            detail: err?.error?.Message || 'Không thể từ chối biểu mẫu.'
+          });
+          this.showConfirmReject.set(false);
+          this.targetForm = null;
+        }
+      });
+  }
+
+  getCategoryName(code: string): string {
+    const cat = this.categories.find(c => c.code === code);
+    return cat ? cat.name : code || '(Chưa chọn)';
+  }
+
+  updateSimulatedValue(name: string, value: any) {
+    this.simulatedValues.update(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  }
+
+  onSimulateSubmit() {
+    const missingFields: string[] = [];
+    const vals = this.simulatedValues();
+    this.fields().forEach(f => {
+      if (f.required) {
+        const val = vals[f.name];
+        if (val === undefined || val === null || val === '') {
+          missingFields.push(f.label);
+        }
+      }
+    });
+
+    if (missingFields.length > 0) {
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Kiểm nghiệm lỗi',
+        detail: `Vui lòng điền các trường bắt buộc: ${missingFields.join(', ')}`
+      });
+    } else {
+      this.messageService.add({
+        severity: 'success',
+        summary: 'Kiểm nghiệm thành công',
+        detail: 'Cơ cấu dữ liệu mô phỏng hoàn toàn chính xác!'
+      });
+    }
+  }
+}
