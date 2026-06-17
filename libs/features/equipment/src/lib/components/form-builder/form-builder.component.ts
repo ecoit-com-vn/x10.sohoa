@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, computed, effect } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ToastModule } from 'primeng/toast';
@@ -9,9 +9,9 @@ import { Select } from 'primeng/select';
 import { CheckboxModule } from 'primeng/checkbox';
 import { CardModule } from 'primeng/card';
 import { TextareaModule } from 'primeng/textarea';
-import { Paginator } from 'primeng/paginator';
-import { EavFormService, EavFormTemplate } from '@sohoa.frontend/shared/core';
-import { finalize } from 'rxjs';
+import { ActivatedRoute, Router } from '@angular/router';
+import { FormTemplateService, EavFormTemplate } from '../../data-access/form-template.service';
+import { EquipmentTypeService } from '../../data-access/equipment-type.service';
 
 interface FormField {
   id: string;
@@ -35,7 +35,7 @@ interface ToolboxItem {
 }
 
 @Component({
-  selector: 'app-form-management',
+  selector: 'app-form-builder',
   standalone: true,
   imports: [
     CommonModule, 
@@ -46,26 +46,23 @@ interface ToolboxItem {
     Select,
     CheckboxModule,
     CardModule,
-    TextareaModule,
-    Paginator
+    TextareaModule
   ],
   providers: [MessageService],
-  templateUrl: './form-management.component.html',
-  styleUrl: './form-management.component.scss'
+  templateUrl: './form-builder.component.html',
+  styleUrl: './form-builder.component.scss'
 })
-export class FormManagementComponent implements OnInit {
-  // Navigation & States
-  viewState = signal<'list' | 'add' | 'edit' | 'preview'>('list');
-  detailTitle = signal<string>('');
+export class FormBuilderComponent implements OnInit {
+  private route = inject(ActivatedRoute);
+  private router = inject(Router);
+  private formTemplateService = inject(FormTemplateService);
+  private equipmentTypeService = inject(EquipmentTypeService);
+  private messageService = inject(MessageService);
+
+  templateId = signal<string | null>(null);
   isEditMode = signal<boolean>(false);
-  
-  // Forms list state
-  forms = signal<EavFormTemplate[]>([]);
-  searchKeyword = signal<string>('');
   loading = signal<boolean>(false);
 
-  // Active builder/preview states
-  templateId = signal<string | null>(null);
   formName = signal<string>('');
   formCode = signal<string>('');
   formCategory = signal<string>('');
@@ -75,16 +72,8 @@ export class FormManagementComponent implements OnInit {
   selectedFieldIndex = signal<number | null>(null);
   showJson = signal<boolean>(false);
 
-  // Pagination states
-  first = signal<number>(0);
-  rows = signal<number>(10);
-
-  constructor() {
-    effect(() => {
-      this.searchKeyword();
-      this.first.set(0);
-    });
-  }
+  equipmentTypeId = signal<string>('');
+  equipmentTypes = signal<any[]>([]);
 
   categories = [
     { code: 'MAY_BIEN_AP', name: 'Máy biến áp' },
@@ -98,14 +87,6 @@ export class FormManagementComponent implements OnInit {
     { code: 'KHAC', name: 'Hạng mục khác' }
   ];
 
-  // Simulation Preview values
-  simulatedValues = signal<{ [key: string]: any }>({});
-
-  // Drag & drop status
-  draggedType: string | null = null;
-  draggedIndex: number | null = null;
-
-  // Toolbox configuration
   toolboxItems: ToolboxItem[] = [
     { type: 'text', label: 'Trường Văn bản (Text)', icon: 'pi-align-left' },
     { type: 'number', label: 'Số liệu kỹ thuật (Number)', icon: 'pi-percentage' },
@@ -115,37 +96,91 @@ export class FormManagementComponent implements OnInit {
     { type: 'checkbox', label: 'Hộp kiểm xác nhận (Checkbox)', icon: 'pi-check-square' }
   ];
 
-  private eavFormService = inject(EavFormService);
-  private messageService = inject(MessageService);
-
-  filteredForms = computed(() => {
-    const keyword = this.searchKeyword().trim().toLowerCase();
-    const allForms = this.forms();
-    if (!keyword) {
-      return allForms;
-    }
-    return allForms.filter(f =>
-      (f.name?.toLowerCase().includes(keyword) ?? false) ||
-      (f.code?.toLowerCase().includes(keyword) ?? false) ||
-      (f.id?.toLowerCase().includes(keyword) ?? false)
-    );
-  });
-
-  paginatedForms = computed(() => {
-    const start = this.first();
-    const end = start + this.rows();
-    return this.filteredForms().slice(start, end);
-  });
-
-  onPageChange(event: any) {
-    this.first.set(event.first);
-    this.rows.set(event.rows);
-  }
-
+  draggedType: string | null = null;
+  draggedIndex: number | null = null;
   catalogTypes = signal<any[]>([]);
 
+  ngOnInit() {
+    this.loadCatalogTypes();
+    this.loadEquipmentTypes();
+    this.route.queryParams.subscribe(params => {
+      if (params['id']) {
+        const id = params['id'];
+        this.templateId.set(id);
+        this.isEditMode.set(true);
+        this.loadTemplate(id);
+      } else {
+        this.isEditMode.set(false);
+        this.templateId.set(null);
+        this.resetForm();
+      }
+    });
+  }
+
+  loadEquipmentTypes() {
+    this.equipmentTypeService.getEquipmentTypes(1, 1000, undefined, undefined, undefined, true).subscribe({
+      next: (res) => {
+        if (res && res.items) {
+          this.equipmentTypes.set(res.items);
+          // Backwards compatibility mapping if template is already loaded but equipmentTypeId is empty
+          if (!this.equipmentTypeId() && this.formCategory()) {
+            const matched = res.items.find((t: any) => t.code === this.formCategory());
+            if (matched) {
+              this.equipmentTypeId.set(matched.id);
+            }
+          }
+        }
+      },
+      error: (err) => {
+        console.error('Failed to load equipment types', err);
+      }
+    });
+  }
+
+  loadTemplate(id: string) {
+    this.loading.set(true);
+    this.formTemplateService.getTemplateById(id).subscribe({
+      next: (form) => {
+        this.formName.set(form.name);
+        this.formCode.set(form.code || '');
+        this.formCategory.set(form.category || '');
+        this.formDescription.set(form.description || '');
+        this.formDescriptionInfo.set(form.descriptionInfo || '');
+        this.equipmentTypeId.set(form.equipmentTypeId || '');
+        
+        // Backwards compatibility mapping if equipment types are already loaded
+        if (!form.equipmentTypeId && form.category && this.equipmentTypes().length > 0) {
+          const matched = this.equipmentTypes().find(t => t.code === form.category);
+          if (matched) {
+            this.equipmentTypeId.set(matched.id);
+          }
+        }
+
+        try {
+          const parsedFields = JSON.parse(form.formSchema) || [];
+          this.fields.set(parsedFields);
+          this.selectedFieldIndex.set(parsedFields.length > 0 ? 0 : null);
+        } catch (e) {
+          console.error('Failed to parse form schema', e);
+          this.fields.set([]);
+          this.selectedFieldIndex.set(null);
+        }
+        this.loading.set(false);
+      },
+      error: (err) => {
+        console.error('Failed to load template', err);
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Lỗi',
+          detail: 'Không thể tải chi tiết cấu hình form.'
+        });
+        this.loading.set(false);
+      }
+    });
+  }
+
   loadCatalogTypes() {
-    this.eavFormService.getCatalogTypes().subscribe({
+    this.formTemplateService.getCatalogTypes().subscribe({
       next: (types) => {
         this.catalogTypes.set(types || []);
       },
@@ -162,128 +197,20 @@ export class FormManagementComponent implements OnInit {
     });
   }
 
-  ngOnInit() {
-    this.loadForms();
-    this.loadCatalogTypes();
-  }
-
-  loadForms() {
-    this.loading.set(true);
-    this.eavFormService.getTemplates()
-      .pipe(finalize(() => this.loading.set(false)))
-      .subscribe({
-        next: (data) => {
-          this.forms.set(data || []);
-        },
-        error: (err) => {
-          console.error('Error loading forms', err);
-          this.messageService.add({
-            severity: 'error',
-            summary: 'Lỗi tải dữ liệu',
-            detail: 'Không thể kết nối đến API Gateway để tải biểu mẫu.'
-          });
-          this.forms.set([]);
-        }
-      });
-  }
-
-  onSearch() {
-    // Search is handled reactively by computed signal filteredForms
-  }
-
-  goToList() {
-    this.viewState.set('list');
-    this.templateId.set(null);
-    this.loadForms();
-  }
-
-  // --- ACTIONS ---
-  onAddNew() {
-    this.viewState.set('add');
-    this.isEditMode.set(false);
-    this.detailTitle.set('Thêm mới Biểu mẫu thuộc tính thiết bị');
+  resetForm() {
     this.formName.set('');
     this.formCode.set('');
     this.formCategory.set('');
     this.formDescription.set('');
     this.formDescriptionInfo.set('');
+    this.equipmentTypeId.set('');
     this.fields.set([]);
     this.selectedFieldIndex.set(null);
     this.showJson.set(false);
   }
 
-  onEdit(form: EavFormTemplate) {
-    this.viewState.set('edit');
-    this.isEditMode.set(true);
-    this.templateId.set(form.id);
-    this.detailTitle.set(`Chỉnh sửa cấu hình Biểu mẫu: ${form.name}`);
-    this.formName.set(form.name);
-    this.formCode.set(form.code || '');
-    this.formCategory.set(form.category || '');
-    this.formDescription.set(form.description);
-    this.formDescriptionInfo.set(form.descriptionInfo || '');
-    this.showJson.set(false);
-
-    try {
-      const parsedFields = JSON.parse(form.formSchema) || [];
-      this.fields.set(parsedFields);
-      this.selectedFieldIndex.set(parsedFields.length > 0 ? 0 : null);
-    } catch (e) {
-      console.error('Failed to parse form schema', e);
-      this.fields.set([]);
-      this.selectedFieldIndex.set(null);
-    }
-  }
-
-  onPreview(form: EavFormTemplate) {
-    this.viewState.set('preview');
-    this.templateId.set(form.id);
-    this.detailTitle.set(`Xem trước Biểu mẫu: ${form.name}`);
-    this.formName.set(form.name);
-    this.formCode.set(form.code || '');
-    this.formCategory.set(form.category || '');
-    this.formDescription.set(form.description);
-    this.formDescriptionInfo.set(form.descriptionInfo || '');
-    
-    const initialSimulated: { [key: string]: any } = {};
-
-    try {
-      const parsedFields = JSON.parse(form.formSchema) || [];
-      this.fields.set(parsedFields);
-      // Initialize simulated checkboxes to false
-      parsedFields.forEach((f: FormField) => {
-        if (f.type === 'checkbox') {
-          initialSimulated[f.name] = false;
-        } else {
-          initialSimulated[f.name] = '';
-        }
-      });
-    } catch {
-      this.fields.set([]);
-    }
-    this.simulatedValues.set(initialSimulated);
-  }
-
-  deactivateForm(form: EavFormTemplate) {
-    if (confirm(`Bạn có chắc chắn muốn vô hiệu hóa biểu mẫu: ${form.name}?`)) {
-      this.eavFormService.deleteTemplate(form.id).subscribe({
-        next: () => {
-          this.messageService.add({ 
-            severity: 'success', 
-            summary: 'Thành công', 
-            detail: `Đã vô hiệu hóa biểu mẫu thành công!` 
-          });
-          this.loadForms();
-        },
-        error: () => {
-          this.messageService.add({
-            severity: 'error',
-            summary: 'Lỗi',
-            detail: 'Không thể vô hiệu hóa biểu mẫu.'
-          });
-        }
-      });
-    }
+  goToList() {
+    this.router.navigate(['/equipment/form-template']);
   }
 
   // --- HTML5 Drag & Drop ---
@@ -527,34 +454,36 @@ export class FormManagementComponent implements OnInit {
     }
   }
 
-  updateSimulatedValue(name: string, value: any) {
-    this.simulatedValues.update(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  }
-
   saveForm() {
     const fName = this.formName().trim();
     const fCode = this.formCode().trim();
-    const fCategory = this.formCategory().trim();
+    const eqTypeId = this.equipmentTypeId();
 
     if (!fName) {
-      this.messageService.add({ severity: 'warn', summary: 'Thiếu thông tin', detail: 'Vui lòng nhập tên biểu mẫu.' });
+      this.messageService.add({ severity: 'warn', summary: 'Thiếu thông tin', detail: 'Vui lòng nhập tên form.' });
       return;
     }
     if (!fCode) {
-      this.messageService.add({ severity: 'warn', summary: 'Thiếu thông tin', detail: 'Vui lòng nhập mã biểu mẫu.' });
+      this.messageService.add({ severity: 'warn', summary: 'Thiếu thông tin', detail: 'Vui lòng nhập mã form.' });
       return;
     }
+    if (!eqTypeId) {
+      this.messageService.add({ severity: 'warn', summary: 'Thiếu thông tin', detail: 'Vui lòng chọn loại thiết bị.' });
+      return;
+    }
+
+    // Resolve the category code from the selected equipment type ID
+    const selectedEqType = this.equipmentTypes().find(t => t.id === eqTypeId);
+    const fCategory = selectedEqType ? selectedEqType.code : '';
+
     if (!fCategory) {
-      this.messageService.add({ severity: 'warn', summary: 'Thiếu thông tin', detail: 'Vui lòng chọn hạng mục áp dụng.' });
+      this.messageService.add({ severity: 'warn', summary: 'Thiếu thông tin', detail: 'Vui lòng chọn loại thiết bị hợp lệ.' });
       return;
     }
 
     const currentFields = this.fields();
     if (currentFields.length === 0) {
-      this.messageService.add({ severity: 'warn', summary: 'Thiếu thông tin', detail: 'Vui lòng thêm ít nhất một trường vào biểu mẫu.' });
+      this.messageService.add({ severity: 'warn', summary: 'Thiếu thông tin', detail: 'Vui lòng thêm ít nhất một trường vào form.' });
       return;
     }
 
@@ -565,12 +494,12 @@ export class FormManagementComponent implements OnInit {
     const tId = this.templateId();
     
     if (isEdit && tId) {
-      this.eavFormService.updateTemplate(tId, fName, fCode, fCategory, desc, fDescInfo, schemaStr).subscribe({
+      this.formTemplateService.updateTemplate(tId, fName, fCode, fCategory, desc, fDescInfo, schemaStr, 'admin', eqTypeId).subscribe({
         next: () => {
           this.messageService.add({
             severity: 'success',
             summary: 'Thành công',
-            detail: 'Đã cập nhật cấu hình biểu mẫu EAV thành công!'
+            detail: 'Đã cập nhật cấu hình form EAV thành công!'
           });
           setTimeout(() => {
             this.goToList();
@@ -580,17 +509,17 @@ export class FormManagementComponent implements OnInit {
           this.messageService.add({
             severity: 'error',
             summary: 'Lỗi',
-            detail: 'Không thể nâng cấp cấu hình biểu mẫu.'
+            detail: 'Không thể nâng cấp cấu hình form.'
           });
         }
       });
     } else {
-      this.eavFormService.createTemplate(fName, fCode, fCategory, desc, fDescInfo, schemaStr).subscribe({
+      this.formTemplateService.createTemplate(fName, fCode, fCategory, desc, fDescInfo, schemaStr, 'admin', eqTypeId).subscribe({
         next: () => {
           this.messageService.add({
             severity: 'success',
             summary: 'Thành công',
-            detail: 'Đã lưu biểu mẫu động mới thành công!'
+            detail: 'Đã lưu form động mới thành công!'
           });
           setTimeout(() => {
             this.goToList();
@@ -600,68 +529,10 @@ export class FormManagementComponent implements OnInit {
           this.messageService.add({
             severity: 'error',
             summary: 'Lỗi',
-            detail: 'Không thể tạo mới biểu mẫu.'
+            detail: 'Không thể tạo mới form.'
           });
         }
       });
     }
-  }
-
-  // --- PREVIEW SIMULATOR ACTION ---
-  onSimulateSubmit() {
-    // Check required fields
-    const missingFields: string[] = [];
-    const vals = this.simulatedValues();
-    this.fields().forEach(f => {
-      if (f.required) {
-        const val = vals[f.name];
-        if (val === undefined || val === null || val === '') {
-          missingFields.push(f.label);
-        }
-      }
-    });
-
-    if (missingFields.length > 0) {
-      this.messageService.add({
-        severity: 'error',
-        summary: 'Kiểm nghiệm lỗi',
-        detail: `Vui lòng điền các trường bắt buộc: ${missingFields.join(', ')}`
-      });
-    } else {
-      this.messageService.add({
-        severity: 'success',
-        summary: 'Kiểm nghiệm thành công',
-        detail: 'Dữ liệu nhập liệu mô phỏng hoàn toàn đạt chuẩn cấu trúc!'
-      });
-    }
-  }
-
-   submitForm(form: EavFormTemplate) {
-    if (confirm(`Bạn có chắc chắn muốn gửi duyệt biểu mẫu: ${form.name}?`)) {
-      this.loading.set(true);
-      this.eavFormService.submitTemplate(form.id).subscribe({
-        next: () => {
-          this.messageService.add({ 
-            severity: 'success', 
-            summary: 'Thành công', 
-            detail: `Gửi duyệt biểu mẫu thành công!` 
-          });
-          this.loadForms();
-        },
-        error: (err) => {
-          this.loading.set(false);
-          this.messageService.add({
-            severity: 'error',
-            summary: 'Lỗi',
-            detail: err?.error?.Message || 'Không thể gửi duyệt biểu mẫu.'
-          });
-        }
-      });
-    }
-  }
-
-  getCategoryName(code: string): string {
-    const cat = this.categories.find(c => c.code === code);
-    return cat ? cat.name : code || '(Chưa chọn)';
   }
 }
