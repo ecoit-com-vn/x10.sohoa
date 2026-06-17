@@ -5,7 +5,7 @@ namespace EvnHanoi.EquipmentService.Core.Interfaces;
 public interface IEavFormTemplateRepository
 {
     Task<EavFormTemplate?> GetByIdAsync(Guid id);
-    Task<IEnumerable<EavFormTemplate>> GetAllActiveAsync();
+    Task<IEnumerable<EavFormTemplate>> GetAllActiveAsync(string? formType = null);
     Task AddAsync(EavFormTemplate template);
     Task UpdateAsync(EavFormTemplate template);
 }

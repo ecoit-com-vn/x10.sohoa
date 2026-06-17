@@ -10,7 +10,7 @@ public interface IEquipmentTypeRepository
 {
     Task<EquipmentTypeDto?> GetByIdAsync(Guid id);
     Task<IEnumerable<EquipmentType>> GetAllAsync();
-    Task<(IEnumerable<EquipmentTypeDto> Items, int TotalCount)> GetPagedAsync(int page, int pageSize, string? code, string? name, int? gridTypeId, bool? isActive);
+    Task<(IEnumerable<EquipmentTypeDto> Items, int TotalCount)> GetPagedAsync(int page, int pageSize, string? code, string? name, int? gridTypeId);
     Task<IEnumerable<GridType>> GetGridTypesAsync();
     Task<bool> CreateAsync(EquipmentType type);
     Task<bool> UpdateAsync(EquipmentType type);
