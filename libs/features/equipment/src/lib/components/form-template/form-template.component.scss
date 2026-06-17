@@ -1,0 +1,243 @@
+.wf-page {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  background-color: #f8fafc;
+  min-height: 100vh;
+}
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.875rem;
+  color: #64748b;
+  margin-bottom: 1.25rem;
+  padding-top: 0.5rem;
+}
+.bc-sep {
+  color: #cbd5e1;
+}
+.bc-text {
+  color: #64748b;
+}
+.bc-current {
+  color: #002D72;
+  font-weight: 600;
+}
+
+.wf-card {
+  background-color: white;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  padding: 1.75rem;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px 0 rgba(0, 0, 0, 0.03);
+  position: relative;
+}
+
+::ng-deep .btn-evn-blue {
+  background-color: #002D72 !important;
+  border-color: #002D72 !important;
+  color: white !important;
+}
+::ng-deep .btn-evn-blue:hover {
+  background-color: #001e4e !important;
+  border-color: #001e4e !important;
+}
+
+.btn-tim, .btn-green {
+  height: 38px !important;
+  padding: 0 16px !important;
+  font-size: 0.9rem !important;
+  border-radius: 6px !important;
+}
+.btn-green {
+  background-color: #10b981 !important;
+  border-color: #10b981 !important;
+  color: white !important;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  border: none;
+  font-weight: 600;
+
+  &:hover {
+    background-color: #059669 !important;
+  }
+}
+
+.text-danger {
+  color: #ef4444;
+  margin-left: 2px;
+}
+
+// Modern Table action buttons styling
+.act-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background-color: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #64748b;
+  margin-right: 6px;
+  vertical-align: middle;
+
+  i {
+    font-size: 0.95rem;
+  }
+
+  &:hover {
+    background-color: #f1f5f9;
+    transform: translateY(-1px);
+  }
+  
+  &:active {
+    transform: translateY(0);
+  }
+}
+
+.act-edit {
+  color: #002D72 !important;
+  border-color: #dbeafe !important;
+  background-color: #eff6ff !important;
+
+  &:hover {
+    background-color: #dbeafe !important;
+    color: #001e4e !important;
+    box-shadow: 0 2px 4px rgba(0, 45, 114, 0.15);
+  }
+}
+
+.act-delete {
+  color: #ef4444 !important;
+  border-color: #fee2e2 !important;
+  background-color: #fef2f2 !important;
+
+  &:hover {
+    background-color: #fee2e2 !important;
+    color: #b91c1c !important;
+    box-shadow: 0 2px 4px rgba(239, 68, 68, 0.15);
+  }
+}
+
+// Force table body cell text to black, except status-pill
+.wf-table tbody tr td {
+  color: #000000 !important;
+  
+  code, b, a, span:not(.status-pill):not(.pi) {
+    color: #000000 !important;
+  }
+  
+  .wf-name-link {
+    color: #000000 !important;
+    cursor: pointer;
+    &:hover {
+      color: #002D72 !important;
+      text-decoration: underline !important;
+    }
+  }
+}
+
+// Paginator layout
+.table-footer-paginator {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e2e8f0;
+  
+  .record-count {
+    font-size: 0.875rem;
+    color: #374151;
+    font-weight: 500;
+    b {
+      color: #000000 !important;
+    }
+  }
+
+  ::ng-deep .p-paginator {
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    
+    .p-paginator-page,
+    .p-paginator-first,
+    .p-paginator-prev,
+    .p-paginator-next,
+    .p-paginator-last,
+    .p-paginator-rpp-select {
+      color: #374151 !important;
+      border-radius: 6px;
+      border: 1px solid #e2e8f0;
+      background-color: white;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      
+      &:hover:not(.p-disabled) {
+        background-color: #f1f5f9 !important;
+        border-color: #cbd5e1 !important;
+        color: #000000 !important;
+      }
+      
+      &.p-highlight {
+        background-color: #002D72 !important;
+        border-color: #002D72 !important;
+        color: white !important;
+      }
+    }
+  }
+}
+
+// Beautiful Blurry Loading Overlay
+.loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(1.5px);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+}
+.loading-content {
+  display: flex;
+  align-items: center;
+  padding: 1.25rem 2rem;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e2e8f0;
+  
+  span {
+    color: #002D72 !important;
+  }
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+  
+  i {
+    font-size: 0.75rem;
+  }
+}
+.status-active    { background: #d1fae5 !important; color: #065f46 !important; }
+.status-inactive  { background: #fee2e2 !important; color: #991b1b !important; }
