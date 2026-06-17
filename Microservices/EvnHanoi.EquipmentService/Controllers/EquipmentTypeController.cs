@@ -28,13 +28,14 @@ public class EquipmentTypeController : ControllerBase
         [FromQuery] int? pageSize = null,
         [FromQuery] string? code = null,
         [FromQuery] string? name = null,
-        [FromQuery] int? gridTypeId = null)
+        [FromQuery] int? gridTypeId = null,
+        [FromQuery] bool? isActive = null)
     {
         if (page.HasValue || pageSize.HasValue)
         {
             var p = page ?? 1;
             var ps = pageSize ?? 10;
-            var (items, totalCount) = await _repository.GetPagedAsync(p, ps, code, name, gridTypeId);
+            var (items, totalCount) = await _repository.GetPagedAsync(p, ps, code, name, gridTypeId, isActive);
             return Ok(new { items, totalCount, page = p, pageSize = ps });
         }
         else

@@ -30,6 +30,7 @@ public class EquipmentTypeRepository : IEquipmentTypeRepository
                             et.Description AS {nameof(EquipmentTypeDto.Description)},
                             et.GridTypeId AS {nameof(EquipmentTypeDto.GridTypeId)},
                             et.SortOrder AS {nameof(EquipmentTypeDto.SortOrder)},
+                            et.IsActive AS {nameof(EquipmentTypeDto.IsActive)},
                             et.CreatedBy AS {nameof(EquipmentTypeDto.CreatedBy)},
                             et.CreatedAt AS {nameof(EquipmentTypeDto.CreatedAt)},
                             et.ModifiedBy AS {nameof(EquipmentTypeDto.ModifiedBy)},
@@ -71,7 +72,8 @@ public class EquipmentTypeRepository : IEquipmentTypeRepository
         int pageSize, 
         string? code, 
         string? name, 
-        int? gridTypeId)
+        int? gridTypeId, 
+        bool? isActive)
     {
         if (_connection.State != ConnectionState.Open) 
             _connection.Open();
@@ -101,6 +103,12 @@ public class EquipmentTypeRepository : IEquipmentTypeRepository
             parameters.Add("GridTypeId", gridTypeId.Value);
         }
 
+        if (isActive.HasValue)
+        {
+            sqlBase += " AND et.IsActive = :IsActive";
+            parameters.Add("IsActive", isActive.Value ? 1 : 0);
+        }
+
         var countSql = $"SELECT COUNT(1) {sqlBase}";
         var totalCount = await _connection.ExecuteScalarAsync<int>(countSql, parameters);
 
@@ -110,6 +118,7 @@ public class EquipmentTypeRepository : IEquipmentTypeRepository
                                    et.Description AS {nameof(EquipmentTypeDto.Description)},
                                    et.GridTypeId AS {nameof(EquipmentTypeDto.GridTypeId)},
                                    et.SortOrder AS {nameof(EquipmentTypeDto.SortOrder)},
+                                   et.IsActive AS {nameof(EquipmentTypeDto.IsActive)},
                                    et.CreatedBy AS {nameof(EquipmentTypeDto.CreatedBy)},
                                    et.CreatedAt AS {nameof(EquipmentTypeDto.CreatedAt)},
                                    et.ModifiedBy AS {nameof(EquipmentTypeDto.ModifiedBy)},
