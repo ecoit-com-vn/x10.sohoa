@@ -48,6 +48,16 @@ public class CatalogController : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>Lấy 1 CatalogType theo Code.</summary>
+    [HttpGet("types/code/{code}")]
+    [BypassDynamicPermission]
+    public async Task<IActionResult> GetCatalogTypeByCode(string code)
+    {
+        var result = await _catalogRepository.GetCatalogTypeByCodeAsync(code);
+        if (result == null) return NotFound(new { message = $"Không tìm thấy loại danh mục với mã = {code}" });
+        return Ok(result);
+    }
+
     // ─── CATALOG endpoints ───────────────────────────────────
 
     /// <summary>
