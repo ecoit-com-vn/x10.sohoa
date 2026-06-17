@@ -81,6 +81,7 @@ public class EquipmentTypeDto
     public int GridTypeId { get; set; }
     public string GridTypeName { get; set; } = string.Empty;
     public int? SortOrder { get; set; }
+    public bool IsActive { get; set; }
     public CreatorInfoDto? Creator { get; set; }
     
     // Audit logs
