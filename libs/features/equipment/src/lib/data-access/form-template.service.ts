@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { APP_CONFIG } from '../config/app-config.token';
+import { APP_CONFIG } from '@sohoa.frontend/shared/core';
 
 export interface EavFormTemplate {
   id: string;
@@ -16,17 +16,19 @@ export interface EavFormTemplate {
   createdAt: string;
   createdBy: string;
   status?: string;
+  equipmentTypeId?: string;
   formType?: string;
 }
 
 @Injectable({
   providedIn: 'root'
 })
-export class EavFormService {
+export class FormTemplateService {
   private http = inject(HttpClient);
   private config = inject(APP_CONFIG);
+
   private get apiUrl() {
-    return `${this.config.apiGatewayUrl}/api/v1/eav-form-templates`;
+    return `${this.config.apiGatewayUrl}/api/v1/form-templates`;
   }
 
   getTemplates(): Observable<EavFormTemplate[]> {
@@ -37,7 +39,16 @@ export class EavFormService {
     return this.http.get<EavFormTemplate>(`${this.apiUrl}/${id}`);
   }
 
-  createTemplate(name: string, code: string, category: string, description: string, descriptionInfo: string, formSchema: string, createdBy: string = 'admin'): Observable<EavFormTemplate> {
+  createTemplate(
+    name: string, 
+    code: string, 
+    category: string, 
+    description: string, 
+    descriptionInfo: string, 
+    formSchema: string, 
+    createdBy: string = 'admin',
+    equipmentTypeId?: string
+  ): Observable<EavFormTemplate> {
     return this.http.post<EavFormTemplate>(this.apiUrl, {
       name,
       code,
@@ -45,11 +56,22 @@ export class EavFormService {
       description,
       descriptionInfo,
       formSchema,
-      createdBy
+      createdBy,
+      equipmentTypeId
     });
   }
 
-  updateTemplate(id: string, name: string, code: string, category: string, description: string, descriptionInfo: string, formSchema: string, updatedBy: string = 'admin'): Observable<EavFormTemplate> {
+  updateTemplate(
+    id: string, 
+    name: string, 
+    code: string, 
+    category: string, 
+    description: string, 
+    descriptionInfo: string, 
+    formSchema: string, 
+    updatedBy: string = 'admin',
+    equipmentTypeId?: string
+  ): Observable<EavFormTemplate> {
     return this.http.put<EavFormTemplate>(`${this.apiUrl}/${id}`, {
       name,
       code,
@@ -57,24 +79,13 @@ export class EavFormService {
       description,
       descriptionInfo,
       formSchema,
-      updatedBy
+      updatedBy,
+      equipmentTypeId
     });
   }
 
   deleteTemplate(id: string): Observable<void> {
     return this.http.delete<void>(`${this.apiUrl}/${id}`);
-  }
-
-  submitTemplate(id: string): Observable<EavFormTemplate> {
-    return this.http.put<EavFormTemplate>(`${this.apiUrl}/${id}/submit`, {});
-  }
-
-  approveTemplate(id: string): Observable<EavFormTemplate> {
-    return this.http.put<EavFormTemplate>(`${this.apiUrl}/${id}/approve`, {});
-  }
-
-  rejectTemplate(id: string): Observable<EavFormTemplate> {
-    return this.http.put<EavFormTemplate>(`${this.apiUrl}/${id}/reject`, {});
   }
 
   getCatalogTypes(): Observable<any[]> {

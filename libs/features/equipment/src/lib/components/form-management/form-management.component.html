@@ -17,20 +17,16 @@
           <i class="pi pi-home bc-icon"></i>
           <span class="bc-text">Trang chủ</span>
           <span class="bc-sep">/</span>
-          <span class="bc-text">Quản trị hệ thống</span>
+          <span class="bc-text">Quản lý form</span>
           <span class="bc-sep">/</span>
-          <span class="bc-current">Quản lý biểu mẫu</span>
+          <span class="bc-current">Cấu hình form</span>
         </div>
-
-        <p class="text-muted mb-4">
-          Quản lý danh sách các biểu mẫu cấu hình thuộc tính EAV động cho thiết bị kỹ thuật điện của EVNHANOI.
-        </p>
 
         <!-- Toolbar -->
         <div class="list-toolbar">
           <div class="toolbar-left">
             <input type="text" class="wf-search-input"
-              placeholder="Tìm kiếm biểu mẫu..."
+              placeholder="Tìm kiếm form..."
               [ngModel]="searchKeyword()"
               (ngModelChange)="searchKeyword.set($event)"
               (keyup.enter)="onSearch()" />
@@ -40,7 +36,7 @@
           </div>
           <div class="toolbar-right">
             <button class="btn-green" (click)="onAddNew()">
-              <i class="pi pi-plus"></i> Tạo biểu mẫu mới
+              <i class="pi pi-plus"></i> Tạo form mới
             </button>
           </div>
         </div>
@@ -50,8 +46,8 @@
           <table class="wf-table">
             <thead>
               <tr>
-                <th style="width: 150px;">Mã biểu mẫu</th>
-                <th>Tên biểu mẫu thuộc tính thiết bị</th>
+                <th style="width: 150px;">Mã form</th>
+                <th>Tên form</th>
                 <th>Hạng mục áp dụng</th>
                 <th style="width: 100px; text-align: center;">Phiên bản</th>
                 <th>Người tạo</th>
@@ -107,7 +103,7 @@
                     <i class="pi pi-send"></i>
                   </button>
                   <button class="act-btn act-delete" 
-                    *ngIf="form.isActive"
+                    *ngIf="form.isActive && (form.status === 'Tạo mới' || !form.status)"
                     (click)="deactivateForm(form)" 
                     title="Vô hiệu hóa">
                     <i class="pi pi-times-circle"></i>
@@ -155,20 +151,19 @@
             <div class="header-left">
               <div>
                 <h2 class="builder-title">{{ detailTitle() }}</h2>
-                <p class="builder-subtitle text-sm">Kéo thả các trường thông tin kỹ thuật để thiết lập biểu mẫu chuẩn hóa</p>
               </div>
             </div>
             <div class="header-right" style="display: flex; gap: 8px;">
               <p-button label="Quay lại" icon="pi pi-arrow-left" severity="secondary" size="small" [rounded]="true" (onClick)="goToList()"></p-button>
               <p-button label="Xem JSON" icon="pi pi-code" severity="secondary" size="small" [rounded]="true" (onClick)="showJson.set(!showJson())"></p-button>
-              <p-button [label]="isEditMode() ? 'Cập nhật cấu hình' : 'Lưu biểu mẫu'" icon="pi pi-save" size="small" [rounded]="true" styleClass="btn-evn-blue" (onClick)="saveForm()"></p-button>
+              <p-button [label]="isEditMode() ? 'Cập nhật cấu hình' : 'Lưu form'" icon="pi pi-save" size="small" [rounded]="true" styleClass="btn-evn-blue" (onClick)="saveForm()"></p-button>
             </div>
           </div>
 
           <div class="builder-main-layout">
             <!-- Left Column: Toolbox -->
             <div class="toolbox-column">
-              <p-card header="Thành phần biểu mẫu" styleClass="card-custom">
+              <p-card header="Thành phần form" styleClass="card-custom">
                 <p class="text-sm text-muted mt-0 mb-2">Nhấp hoặc kéo thả các loại trường dưới đây vào vùng thiết kế.</p>
                 
                 <div class="toolbox-list pt-2">
@@ -194,18 +189,18 @@
               <div class="general-info-card card">
                 <div style="display: flex; gap: 16px;" class="mb-3">
                   <div class="form-group" style="flex: 1;">
-                    <label class="block text-sm font-bold text-muted tracking-wider">Mã biểu mẫu <span class="required">*</span></label>
-                    <input type="text" pInputText [ngModel]="formCode()" (ngModelChange)="formCode.set($event)" class="w-full form-title-input" placeholder="Ví dụ: BM_MBA_01..." />
+                    <label class="block text-sm font-bold text-muted tracking-wider">Mã form<span class="required">*</span></label>
+                    <input type="text" pInputText [ngModel]="formCode()" (ngModelChange)="formCode.set($event)" class="w-full form-title-input" placeholder="Nhập mã form..." />
                   </div>
                   <div class="form-group" style="flex: 1;">
-                    <label class="block text-sm font-bold text-muted tracking-wider">Tên biểu mẫu kỹ thuật <span class="required">*</span></label>
-                    <input type="text" pInputText [ngModel]="formName()" (ngModelChange)="formName.set($event)" class="w-full form-title-input" placeholder="Nhập tên biểu mẫu..." />
+                    <label class="block text-sm font-bold text-muted tracking-wider">Tên form<span class="required">*</span></label>
+                    <input type="text" pInputText [ngModel]="formName()" (ngModelChange)="formName.set($event)" class="w-full form-title-input" placeholder="Nhập tên form..." />
                   </div>
                 </div>
                 <div style="display: flex; gap: 16px;">
                   <div class="form-group" style="flex: 1;">
                     <label class="block text-sm font-bold text-muted tracking-wider">Hạng mục áp dụng <span class="required">*</span></label>
-                    <p-select [options]="categories" 
+                    <p-select [options]="categories()" 
                               [ngModel]="formCategory()" 
                               (ngModelChange)="formCategory.set($event)"
                               optionLabel="name" 
@@ -458,3 +453,63 @@
         <pre class="json-content" style="background: #f8fafc; padding: 10px; border-radius: 6px; font-family: monospace; font-size: 0.8rem; overflow: auto; max-height: 400px; border: 1px solid #e2e8f0;">{{ { name: formName(), description: formDescription(), fields: fields() } | json }}</pre>
       </div>
     </div>
+
+    <!-- ==================== DIALOG XÁC NHẬN VÔ HIỆU HÓA ==================== -->
+    <p-dialog
+      [visible]="showConfirmDelete()"
+      (visibleChange)="$event ? null : showConfirmDelete.set(false)"
+      header="Xác nhận vô hiệu hóa"
+      [modal]="true"
+      [style]="{ width: '420px' }"
+      styleClass="evn-dialog-custom"
+      [closable]="true">
+      <div style="display: flex; align-items: flex-start; gap: 12px; padding: 8px 0 16px;">
+        <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #f59e0b;"></i>
+        <div>
+          <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">Bạn có chắc chắn muốn vô hiệu hóa?</p>
+          <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
+            Biểu mẫu <b style="color: #1e293b;">{{ targetForm?.name }}</b> sẽ bị vô hiệu hóa trong hệ thống.
+          </p>
+        </div>
+      </div>
+      <ng-template #footer>
+        <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+          <button class="btn-cancel btn-small" (click)="showConfirmDelete.set(false)">
+            <i class="pi pi-times"></i> Hủy
+          </button>
+          <button class="btn-save btn-small" (click)="onConfirmDelete()" style="background-color: #dc2626; border-color: #dc2626;">
+            <i class="pi pi-check"></i> Xác nhận
+          </button>
+        </div>
+      </ng-template>
+    </p-dialog>
+
+    <!-- ==================== DIALOG XÁC NHẬN GỬI DUYỆT ==================== -->
+    <p-dialog
+      [visible]="showConfirmSubmit()"
+      (visibleChange)="$event ? null : showConfirmSubmit.set(false)"
+      header="Xác nhận gửi duyệt"
+      [modal]="true"
+      [style]="{ width: '420px' }"
+      styleClass="evn-dialog-custom"
+      [closable]="true">
+      <div style="display: flex; align-items: flex-start; gap: 12px; padding: 8px 0 16px;">
+        <i class="pi pi-question-circle" style="font-size: 1.8rem; color: #3b82f6;"></i>
+        <div>
+          <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">Bạn có chắc chắn muốn gửi duyệt?</p>
+          <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
+            Biểu mẫu <b style="color: #1e293b;">{{ targetForm?.name }}</b> sẽ được gửi để phê duyệt và không thể chỉnh sửa trong quá trình chờ duyệt.
+          </p>
+        </div>
+      </div>
+      <ng-template #footer>
+        <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+          <button class="btn-cancel btn-small" (click)="showConfirmSubmit.set(false)">
+            <i class="pi pi-times"></i> Hủy
+          </button>
+          <button class="btn-save btn-small" (click)="onConfirmSubmit()">
+            <i class="pi pi-check"></i> Gửi duyệt
+          </button>
+        </div>
+      </ng-template>
+    </p-dialog>
