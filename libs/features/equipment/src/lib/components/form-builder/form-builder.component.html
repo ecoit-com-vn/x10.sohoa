@@ -9,9 +9,9 @@
       <span class="bc-sep">/</span>
       <span class="bc-text">Quản lý thiết bị</span>
       <span class="bc-sep">/</span>
-      <span class="bc-text" (click)="goToList()" style="cursor: pointer;">Quản lý form</span>
+      <span class="bc-text" (click)="goToList()" style="cursor: pointer;">Quản lý biểu mẫu</span>
       <span class="bc-sep">/</span>
-      <span class="bc-current">{{ isEditMode() ? 'Cấu hình form' : 'Thêm mới form' }}</span>
+      <span class="bc-current">{{ isEditMode() ? 'Cấu hình biểu mẫu' : 'Thêm mới biểu mẫu' }}</span>
     </div>
 
     <!-- Builder & Editor Workspace -->
@@ -20,7 +20,7 @@
       <div class="builder-header">
         <div class="header-left">
           <div>
-            <h2 class="builder-title">{{ isEditMode() ? 'Chỉnh sửa cấu hình form: ' + formName() : 'Thêm mới form thuộc tính thiết bị' }}</h2>
+            <h2 class="builder-title">{{ isEditMode() ? 'Chỉnh sửa cấu hình biểu mẫu: ' + formName() : 'Thêm mới biểu mẫu' }}</h2>
           </div>
         </div>
         <div class="header-right" style="display: flex; gap: 8px;">
@@ -33,7 +33,7 @@
       <div class="builder-main-layout">
         <!-- Left Column: Toolbox -->
         <div class="toolbox-column">
-          <p-card header="Thành phần form" styleClass="card-custom">
+          <p-card header="Thành phần biểu mẫu" styleClass="card-custom">
             <p class="text-sm text-muted mt-2 mb-3">Nhấp hoặc kéo thả các loại trường dưới đây vào vùng thiết kế.</p>
             
             <div class="toolbox-list">
@@ -59,11 +59,11 @@
           <div class="general-info-card card">
             <div style="display: flex; gap: 16px;" class="mb-3">
               <div class="form-group" style="flex: 1;">
-                <label class="block text-sm font-bold text-muted tracking-wider">Mã form <span class="required">*</span></label>
+                <label class="block text-sm font-bold text-muted tracking-wider">Mã biểu mẫu <span class="required">*</span></label>
                 <input type="text" pInputText [ngModel]="formCode()" (ngModelChange)="formCode.set($event)" class="w-full form-title-input" placeholder="Ví dụ: BM_MBA_01..." />
               </div>
               <div class="form-group" style="flex: 1;">
-                <label class="block text-sm font-bold text-muted tracking-wider">Tên form kỹ thuật <span class="required">*</span></label>
+                <label class="block text-sm font-bold text-muted tracking-wider">Tên biểu mẫu <span class="required">*</span></label>
                 <input type="text" pInputText [ngModel]="formName()" (ngModelChange)="formName.set($event)" class="w-full form-title-input" placeholder="Nhập tên form..." />
               </div>
             </div>
