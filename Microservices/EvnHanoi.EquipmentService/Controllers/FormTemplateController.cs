@@ -8,13 +8,13 @@ using Microsoft.AspNetCore.Mvc;
 namespace EvnHanoi.EquipmentService.Controllers;
 
 [ApiController]
-[Route("api/v1/eav-form-templates")]
-public class EavFormTemplateController : ControllerBase
+[Route("api/v1/form-templates")]
+public class FormTemplateController : ControllerBase
 {
     private readonly IEavFormTemplateRepository _repository;
     private readonly IEavFormTemplateService _service;
 
-    public EavFormTemplateController(
+    public FormTemplateController(
         IEavFormTemplateRepository repository,
         IEavFormTemplateService service)
     {
@@ -25,7 +25,7 @@ public class EavFormTemplateController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<EavFormTemplate>>> GetAllActive()
     {
-        var templates = await _repository.GetAllActiveAsync("FORM");
+        var templates = await _repository.GetAllActiveAsync("TEMPLATE");
         return Ok(templates);
     }
 
@@ -58,7 +58,7 @@ public class EavFormTemplateController : ControllerBase
                 request.FormSchema,
                 request.CreatedBy ?? "admin",
                 request.EquipmentTypeId,
-                "FORM"
+                "TEMPLATE"
             );
 
             return CreatedAtAction(nameof(GetById), new { id = template.Id.ToString() }, template);
@@ -94,7 +94,7 @@ public class EavFormTemplateController : ControllerBase
                 request.FormSchema, 
                 updatedBy,
                 request.EquipmentTypeId,
-                "FORM");
+                "TEMPLATE");
 
             return Ok(newTemplate);
         }
@@ -119,79 +119,4 @@ public class EavFormTemplateController : ControllerBase
         await _repository.UpdateAsync(existing);
         return NoContent();
     }
-
-    [HttpPut("{id:guid}/submit")]
-    public async Task<IActionResult> Submit(Guid id)
-    {
-        var existing = await _repository.GetByIdAsync(id);
-        if (existing == null)
-            return NotFound(new { Message = $"Không tìm thấy biểu mẫu với ID = {id}" });
-
-        if (existing.Status != "Tạo mới" && existing.Status != "Từ chối" && !string.IsNullOrEmpty(existing.Status))
-        {
-            return BadRequest(new { Message = "Chỉ biểu mẫu ở trạng thái 'Tạo mới' hoặc 'Từ chối' mới được gửi duyệt." });
-        }
-
-        existing.Status = "Chờ duyệt";
-        await _repository.UpdateAsync(existing);
-        return Ok(existing);
-    }
-
-    [HttpPut("{id:guid}/approve")]
-    public async Task<IActionResult> Approve(Guid id)
-    {
-        var existing = await _repository.GetByIdAsync(id);
-        if (existing == null)
-            return NotFound(new { Message = $"Không tìm thấy biểu mẫu với ID = {id}" });
-
-        if (existing.Status != "Chờ duyệt")
-        {
-            return BadRequest(new { Message = "Chỉ biểu mẫu ở trạng thái 'Chờ duyệt' mới được phê duyệt." });
-        }
-
-        existing.Status = "Hoàn thành";
-        await _repository.UpdateAsync(existing);
-        return Ok(existing);
-    }
-
-    [HttpPut("{id:guid}/reject")]
-    public async Task<IActionResult> Reject(Guid id)
-    {
-        var existing = await _repository.GetByIdAsync(id);
-        if (existing == null)
-            return NotFound(new { Message = $"Không tìm thấy biểu mẫu với ID = {id}" });
-
-        if (existing.Status != "Chờ duyệt")
-        {
-            return BadRequest(new { Message = "Chỉ biểu mẫu ở trạng thái 'Chờ duyệt' mới được từ chối." });
-        }
-
-        existing.Status = "Từ chối";
-        await _repository.UpdateAsync(existing);
-        return Ok(existing);
-    }
-}
-
-public class CreateEavFormTemplateRequest
-{
-    public string Name { get; set; } = string.Empty;
-    public string Code { get; set; } = string.Empty;
-    public string Category { get; set; } = string.Empty;
-    public string? Description { get; set; }
-    public string? DescriptionInfo { get; set; }
-    public string FormSchema { get; set; } = string.Empty;
-    public string? CreatedBy { get; set; }
-    public Guid? EquipmentTypeId { get; set; }
-}
-
-public class UpgradeEavFormTemplateRequest
-{
-    public string Name { get; set; } = string.Empty;
-    public string Code { get; set; } = string.Empty;
-    public string Category { get; set; } = string.Empty;
-    public string? Description { get; set; }
-    public string? DescriptionInfo { get; set; }
-    public string FormSchema { get; set; } = string.Empty;
-    public string? UpdatedBy { get; set; }
-    public Guid? EquipmentTypeId { get; set; }
 }

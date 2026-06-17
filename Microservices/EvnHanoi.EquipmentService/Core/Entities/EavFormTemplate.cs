@@ -11,10 +11,13 @@ public class EavFormTemplate
     
     public string FormSchema { get; set; } = string.Empty;
 
+    public Guid? EquipmentTypeId { get; set; }
+
     public int Version { get; set; } = 1;
     public bool IsActive { get; set; } = true;
 
     public DateTime CreatedAt { get; set; }
     public string CreatedBy { get; set; } = string.Empty;
     public string Status { get; set; } = "Tạo mới";
+    public string FormType { get; set; } = "FORM";
 }

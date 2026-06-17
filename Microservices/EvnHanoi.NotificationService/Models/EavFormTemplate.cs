@@ -10,4 +10,5 @@ public class EavFormTemplate
     public int Version { get; set; }
     public bool IsActive { get; set; }
     public string Status { get; set; } = "Tạo mới";
+    public string FormType { get; set; } = "FORM";
 }
