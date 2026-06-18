@@ -14,12 +14,12 @@ export class CatalogService {
   }
 
   private getBase(type?: string) {
-    if (type === 'KE') return `${this.config.apiGatewayUrl}/api/catalog/shelf`;
-    if (type === 'TANG') return `${this.config.apiGatewayUrl}/api/catalog/floor`;
-    if (type === 'HOP') return `${this.config.apiGatewayUrl}/api/catalog/box`;
-    if (type === 'CHUC_VU') return `${this.config.apiGatewayUrl}/api/catalog/position`;
-    if (type === 'LINH_VUC') return `${this.config.apiGatewayUrl}/api/catalog/domain`;
-    if (type === 'TINH_TRANG_VAT_LY') return `${this.config.apiGatewayUrl}/api/catalog/physical-status`;
+    if (type === 'KE') return `/api/catalog/shelf`;
+    if (type === 'TANG') return `/api/catalog/floor`;
+    if (type === 'HOP') return `/api/catalog/box`;
+    if (type === 'CHUC_VU') return `/api/catalog/position`;
+    if (type === 'LINH_VUC') return `/api/catalog/domain`;
+    if (type === 'TINH_TRANG_VAT_LY') return `/api/catalog/physical-status`;
     return `/api/catalog`;
   }
 
