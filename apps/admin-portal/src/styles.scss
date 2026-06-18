@@ -1,9 +1,31 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 @import "primeicons/primeicons.css";
-@import "primeflex/primeflex.css";
-@import 'bpmn-js/dist/assets/diagram-js.css';
-@import 'bpmn-js/dist/assets/bpmn-js.css';
-@import 'bpmn-js/dist/assets/bpmn-font/css/bpmn-embedded.css';
+
+/* ── PrimeFlex minimal shim (thay thế ~10 class thực sự dùng trong dự án) ── */
+.p-0  { padding: 0 !important; }
+.p-1  { padding: 0.25rem !important; }
+.p-2  { padding: 0.5rem !important; }
+.p-3  { padding: 1rem !important; }
+.p-4  { padding: 1.5rem !important; }
+.mt-2 { margin-top: 0.5rem !important; }
+.mt-4 { margin-top: 1rem !important; }
+.mb-2 { margin-bottom: 0.5rem !important; }
+.mb-4 { margin-bottom: 1rem !important; }
+.surface-100  { background-color: var(--p-surface-100, #f1f5f9) !important; }
+.surface-200  { background-color: var(--p-surface-200, #e2e8f0) !important; }
+.border-round { border-radius: 6px !important; }
+.shadow-4     { box-shadow: 0 8px 24px rgba(0,0,0,.12) !important; }
+.card         { background: var(--p-surface-0, #ffffff); border-radius: 6px; padding: 1.25rem; box-shadow: 0 2px 8px rgba(0,0,0,.06); }
+.font-bold    { font-weight: 700 !important; }
+.text-xs      { font-size: 0.75rem !important; }
+.flex         { display: flex !important; }
+.flex-1       { flex: 1 1 0% !important; }
+.items-center { align-items: center !important; }
+.gap-2        { gap: 0.5rem !important; }
+.gap-4        { gap: 1rem !important; }
+.w-full       { width: 100% !important; }
+.hidden       { display: none !important; }
+/* ─────────────────────────────────────────────────────────────────────────── */
 
 /* Enterprise Light Theme Overrides for PrimeNG */
 :root {
