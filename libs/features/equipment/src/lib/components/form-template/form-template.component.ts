@@ -179,11 +179,11 @@ export class FormTemplateComponent implements OnInit {
 
   getCategoryName(code: string): string {
     const eqType = this.equipmentTypes().find(t => t.code === code || t.id === code);
-    return eqType ? eqType.name : code || '(Chưa chọn)';
+    return eqType ? eqType.name : code || '';
   }
 
   getGridTypeName(gridTypeId?: number): string {
-    if (!gridTypeId) return '(Chưa chọn)';
+    if (!gridTypeId) return '';
     const gt = this.gridTypes().find(g => g.id === gridTypeId);
     return gt ? gt.name : `Loại ${gridTypeId}`;
   }
