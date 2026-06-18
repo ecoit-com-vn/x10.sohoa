@@ -15,10 +15,14 @@ namespace EvnHanoi.EquipmentService.Controllers;
 public class DossierTypeController : ControllerBase
 {
     private readonly IDossierTypeRepository _dossierTypeRepository;
+    private readonly IDossierTypeService _dossierTypeService;
 
-    public DossierTypeController(IDossierTypeRepository dossierTypeRepository)
+    public DossierTypeController(
+        IDossierTypeRepository dossierTypeRepository,
+        IDossierTypeService dossierTypeService)
     {
         _dossierTypeRepository = dossierTypeRepository;
+        _dossierTypeService = dossierTypeService;
     }
 
     [HttpGet("lookup")]
@@ -156,4 +160,37 @@ public class DossierTypeController : ControllerBase
 
         return Ok(new { message = "Đã mở khóa loại hồ sơ thành công.", status = 1 });
     }
+
+    [HttpPut("{id:guid}/update-eav")]
+    public async Task<IActionResult> UpdateEav(Guid id, [FromBody] UpdateEavRequest request)
+    {
+        var updatedBy = User.FindFirst(ClaimTypes.Name)?.Value ?? "system";
+        var result = await _dossierTypeService.UpdateEavAsync(
+            id,
+            request.FormId,
+            request.Name,
+            request.Code,
+            request.Category,
+            request.Description,
+            request.DescriptionInfo,
+            request.FormSchema,
+            updatedBy
+        );
+
+        if (result == null)
+            return BadRequest(new { message = "Không thể cập nhật cấu hình biểu mẫu EAV cho loại hồ sơ." });
+
+        return Ok(result);
+    }
+}
+
+public class UpdateEavRequest
+{
+    public Guid? FormId { get; set; }
+    public string? Name { get; set; }
+    public string? Code { get; set; }
+    public string? Category { get; set; }
+    public string? Description { get; set; }
+    public string? DescriptionInfo { get; set; }
+    public string? FormSchema { get; set; }
 }

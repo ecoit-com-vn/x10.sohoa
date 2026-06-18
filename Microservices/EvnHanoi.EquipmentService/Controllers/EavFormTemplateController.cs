@@ -5,6 +5,8 @@ using EvnHanoi.EquipmentService.Core.Entities;
 using EvnHanoi.EquipmentService.Core.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
+using EvnHanoi.Infrastructure.Security;
+
 namespace EvnHanoi.EquipmentService.Controllers;
 
 [ApiController]
@@ -22,6 +24,14 @@ public class EavFormTemplateController : ControllerBase
         _service = service;
     }
 
+    [HttpGet("lookup")]
+    [BypassDynamicPermission]
+    public async Task<ActionResult<IEnumerable<EavFormTemplate>>> Lookup()
+    {
+        var templates = await _repository.GetAllActiveAsync();
+        return Ok(templates);
+    }
+
     [HttpGet]
     public async Task<ActionResult<IEnumerable<EavFormTemplate>>> GetAllActive()
     {
@@ -31,6 +41,21 @@ public class EavFormTemplateController : ControllerBase
 
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<EavFormTemplate>> GetById(Guid id)
+    {
+        var template = await _repository.GetByIdAsync(id);
+        if (template == null)
+            return NotFound(new { Message = $"Không tìm thấy biểu mẫu với ID = {id}" });
+
+        return Ok(template);
+    }
+
+    /// <summary>
+    /// Lấy biểu mẫu EAV để gen trường nhập liệu trên màn hình tạo/sửa hồ sơ.
+    /// Bypass DynamicPermission để màn hình tạo hồ sơ luôn truy cập được.
+    /// </summary>
+    [HttpGet("{id:guid}/get-form")]
+    [BypassDynamicPermission]
+    public async Task<ActionResult<EavFormTemplate>> GetFormForInput(Guid id)
     {
         var template = await _repository.GetByIdAsync(id);
         if (template == null)

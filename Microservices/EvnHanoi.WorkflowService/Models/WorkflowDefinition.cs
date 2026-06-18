@@ -10,6 +10,13 @@ namespace EvnHanoi.WorkflowService.Models
         /// <summary>Loại quy trình theo nghiệp vụ số hóa EVNHANOI</summary>
         public string Name { get; set; } = string.Empty;
 
+        /// <summary>
+        /// Phân loại quy trình theo description của enum WorkflowType,
+        /// ví dụ: "Quy trình số hóa hồ sơ", "Quy trình mượn/trả hồ sơ kỹ thuật".
+        /// WorkflowEngine dùng để tự tìm definition phù hợp khi submit.
+        /// </summary>
+        public string EntityType { get; set; } = string.Empty;
+
         /// <summary>Mô tả chi tiết quy trình</summary>
         public string Description { get; set; } = string.Empty;
 
