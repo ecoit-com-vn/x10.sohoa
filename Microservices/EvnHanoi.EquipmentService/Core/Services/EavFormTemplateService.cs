@@ -33,7 +33,7 @@ public class EavFormTemplateService : IEavFormTemplateService
         }
     }
 
-    public async Task<EavFormTemplate> CreateFormTemplateAsync(string name, string code, string category, string description, string descriptionInfo, string formSchema, string createdBy, Guid? equipmentTypeId = null, string formType = "FORM")
+    public async Task<EavFormTemplate> CreateFormTemplateAsync(string name, string code, string category, string description, string descriptionInfo, string formSchema, string createdBy, Guid? equipmentTypeId = null, string formType = "FORM", int? gridTypeId = null)
     {
         ValidateFormSchema(formSchema);
 
@@ -47,6 +47,7 @@ public class EavFormTemplateService : IEavFormTemplateService
             DescriptionInfo = descriptionInfo ?? string.Empty,
             FormSchema = formSchema,
             EquipmentTypeId = equipmentTypeId,
+            GridTypeId = gridTypeId,
             Version = 1,
             IsActive = true,
             CreatedAt = DateTime.UtcNow,
@@ -59,7 +60,7 @@ public class EavFormTemplateService : IEavFormTemplateService
         return template;
     }
 
-    public async Task<EavFormTemplate> UpdateFormTemplateAsync(Guid id, string newName, string newCode, string newCategory, string newDescription, string newDescriptionInfo, string newFormSchema, string updatedBy, Guid? equipmentTypeId = null, string formType = "FORM")
+    public async Task<EavFormTemplate> UpdateFormTemplateAsync(Guid id, string newName, string newCode, string newCategory, string newDescription, string newDescriptionInfo, string newFormSchema, string updatedBy, Guid? equipmentTypeId = null, string formType = "FORM", int? gridTypeId = null)
     {
         ValidateFormSchema(newFormSchema);
 
@@ -84,6 +85,7 @@ public class EavFormTemplateService : IEavFormTemplateService
             DescriptionInfo = newDescriptionInfo,
             FormSchema = newFormSchema,
             EquipmentTypeId = equipmentTypeId,
+            GridTypeId = gridTypeId,
             Version = oldTemplate.Version + 1,
             IsActive = true,
             CreatedAt = DateTime.UtcNow,

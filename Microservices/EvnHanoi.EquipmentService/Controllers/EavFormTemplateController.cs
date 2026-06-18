@@ -83,7 +83,8 @@ public class EavFormTemplateController : ControllerBase
                 request.FormSchema,
                 request.CreatedBy ?? "admin",
                 request.EquipmentTypeId,
-                "FORM"
+                "FORM",
+                request.GridTypeId
             );
 
             return CreatedAtAction(nameof(GetById), new { id = template.Id.ToString() }, template);
@@ -119,7 +120,8 @@ public class EavFormTemplateController : ControllerBase
                 request.FormSchema, 
                 updatedBy,
                 request.EquipmentTypeId,
-                "FORM");
+                "FORM",
+                request.GridTypeId);
 
             return Ok(newTemplate);
         }
@@ -207,6 +209,7 @@ public class CreateEavFormTemplateRequest
     public string FormSchema { get; set; } = string.Empty;
     public string? CreatedBy { get; set; }
     public Guid? EquipmentTypeId { get; set; }
+    public int? GridTypeId { get; set; }
 }
 
 public class UpgradeEavFormTemplateRequest
@@ -219,4 +222,5 @@ public class UpgradeEavFormTemplateRequest
     public string FormSchema { get; set; } = string.Empty;
     public string? UpdatedBy { get; set; }
     public Guid? EquipmentTypeId { get; set; }
+    public int? GridTypeId { get; set; }
 }
