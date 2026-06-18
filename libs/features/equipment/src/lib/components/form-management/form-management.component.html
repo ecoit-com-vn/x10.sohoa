@@ -156,7 +156,7 @@
             <div class="header-right" style="display: flex; gap: 8px;">
               <p-button label="Quay lại" icon="pi pi-arrow-left" severity="secondary" size="small" [rounded]="true" (onClick)="goToList()"></p-button>
               <p-button label="Xem JSON" icon="pi pi-code" severity="secondary" size="small" [rounded]="true" (onClick)="showJson.set(!showJson())"></p-button>
-              <p-button [label]="isEditMode() ? 'Cập nhật cấu hình' : 'Lưu form'" icon="pi pi-save" size="small" [rounded]="true" styleClass="btn-evn-blue" (onClick)="saveForm()"></p-button>
+              <p-button [label]="isEditMode() ? 'Cập nhật cấu hình' : 'Lưu form'" icon="pi pi-save" size="small" [rounded]="true" (onClick)="saveForm()"></p-button>
             </div>
           </div>
 
@@ -197,7 +197,7 @@
                     <input type="text" pInputText [ngModel]="formName()" (ngModelChange)="formName.set($event)" class="w-full form-title-input" placeholder="Nhập tên form..." />
                   </div>
                 </div>
-                <div style="display: flex; gap: 16px;">
+                <div style="display: flex; gap: 16px;" class="mb-3">
                   <div class="form-group" style="flex: 1;">
                     <label class="block text-sm font-bold text-muted tracking-wider">Hạng mục áp dụng <span class="required">*</span></label>
                     <p-select [options]="categories()" 
@@ -210,6 +210,8 @@
                               appendTo="body">
                     </p-select>
                   </div>
+                </div>
+                <div style="display: flex; gap: 16px;">
                   <div class="form-group" style="flex: 1;">
                     <label class="block text-sm font-bold text-muted tracking-wider">Mô tả thông tin</label>
                     <textarea pTextarea [ngModel]="formDescriptionInfo()" (ngModelChange)="formDescriptionInfo.set($event)" class="w-full form-title-input" rows="2" placeholder="Nhập mô tả thông tin..."></textarea>

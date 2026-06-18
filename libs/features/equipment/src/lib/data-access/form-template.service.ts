@@ -1,5 +1,6 @@
 import { Injectable, inject } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Observable, shareReplay } from 'rxjs';
+import { tap } from 'rxjs/operators';
 import { ApiService } from '@sohoa.frontend/shared/core';
 
 export interface EavFormTemplate {
@@ -17,6 +18,8 @@ export interface EavFormTemplate {
   status?: string;
   equipmentTypeId?: string;
   formType?: string;
+  gridTypeId?: number;
+  gridTypeName?: string;
 }
 
 @Injectable({
@@ -24,13 +27,19 @@ export interface EavFormTemplate {
 })
 export class FormTemplateService {
   private api = inject(ApiService);
+  private templates$: Observable<EavFormTemplate[]> | null = null;
 
   private get apiUrl() {
     return `/api/v1/form-templates`;
   }
 
   getTemplates(): Observable<EavFormTemplate[]> {
-    return this.api.get<EavFormTemplate[]>(this.apiUrl);
+    if (!this.templates$) {
+      this.templates$ = this.api.get<EavFormTemplate[]>(this.apiUrl).pipe(
+        shareReplay(1)
+      );
+    }
+    return this.templates$;
   }
 
   getTemplateById(id: string): Observable<EavFormTemplate> {
@@ -45,7 +54,8 @@ export class FormTemplateService {
     descriptionInfo: string, 
     formSchema: string, 
     createdBy: string = 'admin',
-    equipmentTypeId?: string
+    equipmentTypeId?: string,
+    gridTypeId?: number
   ): Observable<EavFormTemplate> {
     return this.api.post<EavFormTemplate>(this.apiUrl, {
       name,
@@ -55,8 +65,11 @@ export class FormTemplateService {
       descriptionInfo,
       formSchema,
       createdBy,
-      equipmentTypeId
-    });
+      equipmentTypeId,
+      gridTypeId
+    }).pipe(
+      tap(() => this.templates$ = null)
+    );
   }
 
   updateTemplate(
@@ -68,7 +81,8 @@ export class FormTemplateService {
     descriptionInfo: string, 
     formSchema: string, 
     updatedBy: string = 'admin',
-    equipmentTypeId?: string
+    equipmentTypeId?: string,
+    gridTypeId?: number
   ): Observable<EavFormTemplate> {
     return this.api.put<EavFormTemplate>(`${this.apiUrl}/${id}`, {
       name,
@@ -78,12 +92,17 @@ export class FormTemplateService {
       descriptionInfo,
       formSchema,
       updatedBy,
-      equipmentTypeId
-    });
+      equipmentTypeId,
+      gridTypeId
+    }).pipe(
+      tap(() => this.templates$ = null)
+    );
   }
 
   deleteTemplate(id: string): Observable<void> {
-    return this.api.delete<void>(`${this.apiUrl}/${id}`);
+    return this.api.delete<void>(`${this.apiUrl}/${id}`).pipe(
+      tap(() => this.templates$ = null)
+    );
   }
 
   getCatalogTypes(): Observable<any[]> {

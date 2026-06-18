@@ -16,6 +16,8 @@ export interface EavFormTemplate {
   createdBy: string;
   status?: string;
   formType?: string;
+  gridTypeId?: number;
+  gridTypeName?: string;
 }
 
 @Injectable({
@@ -36,7 +38,7 @@ export class EavFormService {
     return this.api.get<EavFormTemplate>(`${this.apiUrl}/${id}`);
   }
 
-  createTemplate(name: string, code: string, category: string, description: string, descriptionInfo: string, formSchema: string, createdBy: string = 'admin'): Observable<EavFormTemplate> {
+  createTemplate(name: string, code: string, category: string, description: string, descriptionInfo: string, formSchema: string, createdBy: string = 'admin', gridTypeId?: number): Observable<EavFormTemplate> {
     return this.api.post<EavFormTemplate>(this.apiUrl, {
       name,
       code,
@@ -44,11 +46,12 @@ export class EavFormService {
       description,
       descriptionInfo,
       formSchema,
-      createdBy
+      createdBy,
+      gridTypeId
     });
   }
 
-  updateTemplate(id: string, name: string, code: string, category: string, description: string, descriptionInfo: string, formSchema: string, updatedBy: string = 'admin'): Observable<EavFormTemplate> {
+  updateTemplate(id: string, name: string, code: string, category: string, description: string, descriptionInfo: string, formSchema: string, updatedBy: string = 'admin', gridTypeId?: number): Observable<EavFormTemplate> {
     return this.api.put<EavFormTemplate>(`${this.apiUrl}/${id}`, {
       name,
       code,
@@ -56,7 +59,8 @@ export class EavFormService {
       description,
       descriptionInfo,
       formSchema,
-      updatedBy
+      updatedBy,
+      gridTypeId
     });
   }
 

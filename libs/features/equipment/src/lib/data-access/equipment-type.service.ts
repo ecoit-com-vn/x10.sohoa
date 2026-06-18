@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpParams } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, shareReplay } from 'rxjs';
 import { ApiService } from '@sohoa.frontend/shared/core';
 
 @Injectable({
@@ -8,6 +8,7 @@ import { ApiService } from '@sohoa.frontend/shared/core';
 })
 export class EquipmentTypeService {
   private api = inject(ApiService);
+  private gridTypes$: Observable<any[]> | null = null;
 
   private get base() {
     return `/api/equipmenttype`;
@@ -63,6 +64,11 @@ export class EquipmentTypeService {
   }
 
   getGridTypesLookup(): Observable<any[]> {
-    return this.api.get<any[]>(`${this.base}/grid-types/lookup`);
+    if (!this.gridTypes$) {
+      this.gridTypes$ = this.api.get<any[]>(`${this.base}/grid-types/lookup`).pipe(
+        shareReplay(1)
+      );
+    }
+    return this.gridTypes$;
   }
 }
