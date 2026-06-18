@@ -24,10 +24,10 @@ export class DashboardComponent implements OnInit {
   private http = inject(HttpClient);
 
   loading = false;
-  totalEquipment = 3248; 
-  totalOcrDocs = 12854; 
-  pendingOcrCount = 184; 
-  ocrAccuracy = 96.8; 
+  totalEquipment = 3248;
+  totalOcrDocs = 12854;
+  pendingOcrCount = 184;
+  ocrAccuracy = 96.8;
 
   weeklyData = [
     { day: 'T6 (22/5)', value: 120, percent: 45 },
@@ -61,7 +61,7 @@ export class DashboardComponent implements OnInit {
           this.username = 'Người dùng';
         }
       }
-      
+
       // Chỉ tải dữ liệu Dashboard trên môi trường client (nơi có localStorage chứa token JWT) để tránh lỗi 401 Unauthorized trong SSR
       this.loadDashboardData();
     }
@@ -76,7 +76,7 @@ export class DashboardComponent implements OnInit {
         if (stats) {
           this.pendingOcrCount = stats.pending || stats.Pending || 0;
           this.totalOcrDocs = stats.total || stats.Total || 0;
-          
+
           const total = stats.total || stats.Total || 1;
           const verified = stats.verified || stats.Verified || 0;
           this.ocrAccuracy = Number(((verified / total) * 100).toFixed(1)) || 96.8;
@@ -91,7 +91,7 @@ export class DashboardComponent implements OnInit {
       next: (equipments) => {
         if (equipments && equipments.length > 0) {
           this.totalEquipment = equipments.length;
-          
+
           // Tính toán phân bổ theo loại thiết bị
           this.http.get<any[]>(`${environment.apiGatewayUrl}/api/v1/equipmenttype`).subscribe({
             next: (types) => {
