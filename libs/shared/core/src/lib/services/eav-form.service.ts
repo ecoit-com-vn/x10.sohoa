@@ -25,7 +25,7 @@ export interface EavFormTemplate {
 })
 export class EavFormService {
   private api = inject(ApiService);
-  
+
   private get apiUrl() {
     return `/api/v1/eav-form-templates`;
   }

@@ -274,8 +274,8 @@
           <!-- Loại lưới điện -->
           <div class="form-group">
             <label class="form-label" style="font-weight: 600; margin-bottom: 6px; display: block; color: #374151;">Loại lưới điện <span class="required" style="color: #ef4444;">*</span></label>
-            <p-select [options]="gridTypes()" [(ngModel)]="currentItem().gridTypeId" 
-              (ngModelChange)="currentItem().equipmentTypeId = null; onFieldChange('gridTypeId')"
+            <p-select [options]="gridTypes()" [ngModel]="currentItem().gridTypeId" 
+              (ngModelChange)="onGridTypeChange($event)"
               optionLabel="name" optionValue="id" placeholder="-- Chọn loại lưới điện --"
               [disabled]="isSaving()"
               [style]="{'width':'100%', 'height':'38px', 'line-height':'24px', 'border':'1px solid #cbd5e1', 'border-radius':'6px', 'background-color':'#ffffff', 'color':'#374151'}">

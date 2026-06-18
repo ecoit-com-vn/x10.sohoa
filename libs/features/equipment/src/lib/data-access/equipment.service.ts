@@ -1,16 +1,17 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpParams } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { ApiService } from '@sohoa.frontend/shared/core';
+import { APP_CONFIG } from '@sohoa.frontend/shared/core';
 
 @Injectable({
   providedIn: 'root'
 })
 export class EquipmentService {
-  private api = inject(ApiService);
+  private http = inject(HttpClient);
+  private config = inject(APP_CONFIG);
 
   private get base() {
-    return `/api/equipment`;
+    return `${this.config.apiGatewayUrl}/api/v1/equipment`;
   }
 
   getEquipments(
@@ -50,31 +51,51 @@ export class EquipmentService {
       params = params.set('isActive', isActive.toString());
     }
 
-    return this.api.get<any>(this.base, { params });
+    return this.http.get<any>(this.base, { params });
   }
 
   getById(id: string): Observable<any> {
-    return this.api.get<any>(`${this.base}/${id}`);
+    return this.http.get<any>(`${this.base}/${id}`);
   }
 
   create(item: any): Observable<any> {
-    return this.api.post<any>(this.base, item);
+    return this.http.post<any>(this.base, item);
   }
 
   update(id: string, item: any): Observable<any> {
-    return this.api.put<any>(`${this.base}/${id}`, item);
+    return this.http.put<any>(`${this.base}/${id}`, item);
   }
 
   delete(id: string): Observable<any> {
-    return this.api.delete<any>(`${this.base}/${id}`);
+    return this.http.delete<any>(`${this.base}/${id}`);
   }
 
   toggleStatus(id: string, isLocking: boolean): Observable<any> {
     const action = isLocking ? 'lock' : 'unlock';
-    return this.api.post<any>(`${this.base}/${id}/${action}`, {});
+    return this.http.post<any>(`${this.base}/${id}/${action}`, {});
   }
 
   getLookup(): Observable<any> {
-    return this.api.get<any>(`${this.base}/lookup`);
+    return this.http.get<any>(`${this.base}/lookup`);
+  }
+
+  getOrganizationUnits(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.base}/get-organization-units`);
+  }
+
+  getInfrastructures(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.base}/get-infrastructures`);
+  }
+
+  getGridTypes(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.base}/get-grid-types`);
+  }
+
+  getEquipmentTypes(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.base}/get-equipment-types`);
+  }
+
+  getCountries(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.base}/get-countries`);
   }
 }

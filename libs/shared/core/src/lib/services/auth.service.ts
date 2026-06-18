@@ -1,17 +1,19 @@
 import { Injectable, inject, signal } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { ApiService } from './api.service';
+import { APP_CONFIG } from '../config/app-config.token';
 
 @Injectable({
   providedIn: 'root'
 })
 export class AuthService {
-  private api = inject(ApiService);
+  private http = inject(HttpClient);
+  private config = inject(APP_CONFIG);
 
   currentUserPermissions = signal<string[]>([]);
 
   private get base() {
-    return `/api/v1/auth`;
+    return `${this.config.apiGatewayUrl}/api/v1/auth`;
   }
 
   private decodeTokenPayload(token: string): any {
@@ -41,7 +43,7 @@ export class AuthService {
     return Array.isArray(roles) ? roles : [roles];
   }
   getPermissions(): Observable<string[]> {
-    return this.api.get<string[]>(`${this.base}/permissions`);
+    return this.http.get<string[]>(`${this.base}/permissions`);
   }
 
   loadPermissions(): void {
@@ -67,14 +69,14 @@ export class AuthService {
   }
 
   loginLocal(username: string, password: string): Observable<any> {
-    return this.api.post<any>(`${this.base}/login`, {
+    return this.http.post<any>(`${this.base}/login`, {
       username,
       password
     });
   }
 
   verifySsoTicket(ticket: string): Observable<any> {
-    return this.api.post<any>(`${this.base}/login?ticket=${ticket}`, {});
+    return this.http.post<any>(`${this.base}/login?ticket=${ticket}`, {});
   }
 
   redirectToSso(): void {

@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { Observable, shareReplay } from 'rxjs';
+import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import { ApiService } from '@sohoa.frontend/shared/core';
 
@@ -35,9 +35,7 @@ export class FormTemplateService {
 
   getTemplates(): Observable<EavFormTemplate[]> {
     if (!this.templates$) {
-      this.templates$ = this.api.get<EavFormTemplate[]>(this.apiUrl).pipe(
-        shareReplay(1)
-      );
+      this.templates$ = this.api.get<EavFormTemplate[]>(this.apiUrl)
     }
     return this.templates$;
   }
@@ -47,12 +45,12 @@ export class FormTemplateService {
   }
 
   createTemplate(
-    name: string, 
-    code: string, 
-    category: string, 
-    description: string, 
-    descriptionInfo: string, 
-    formSchema: string, 
+    name: string,
+    code: string,
+    category: string,
+    description: string,
+    descriptionInfo: string,
+    formSchema: string,
     createdBy: string = 'admin',
     equipmentTypeId?: string,
     gridTypeId?: number
@@ -73,13 +71,13 @@ export class FormTemplateService {
   }
 
   updateTemplate(
-    id: string, 
-    name: string, 
-    code: string, 
-    category: string, 
-    description: string, 
-    descriptionInfo: string, 
-    formSchema: string, 
+    id: string,
+    name: string,
+    code: string,
+    category: string,
+    description: string,
+    descriptionInfo: string,
+    formSchema: string,
     updatedBy: string = 'admin',
     equipmentTypeId?: string,
     gridTypeId?: number

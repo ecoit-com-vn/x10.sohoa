@@ -1,8 +1,8 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpParams } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
 import { catchError } from 'rxjs/operators';
-import { ApiService } from './api.service';
+import { APP_CONFIG } from '../config/app-config.token';
 
 // ─── Models khớp với backend WorkflowDefinition ──────────────────────────────
 
@@ -45,10 +45,10 @@ export interface ToggleStatusResponse {
 
 @Injectable({ providedIn: 'root' })
 export class WorkflowService {
-  private api = inject(ApiService);
-  
+  private http = inject(HttpClient);
+  private config = inject(APP_CONFIG);
   private get BASE() {
-    return `/api/workflowdefinitions`;
+    return `${this.config.apiGatewayUrl}/api/workflowdefinitions`;
   }
 
   /** Lấy danh sách quy trình, có thể lọc theo từ khóa và trạng thái */
@@ -58,48 +58,48 @@ export class WorkflowService {
       .set('pageSize', pageSize.toString());
     if (keyword) params = params.set('keyword', keyword);
     if (isActive !== undefined) params = params.set('isActive', String(isActive));
-    return this.api.get<any>(this.BASE, { params })
+    return this.http.get<any>(this.BASE, { params })
       .pipe(catchError(this.handleError));
   }
 
   /** Lấy chi tiết một quy trình theo ID */
   getById(id: string): Observable<WorkflowDefinition> {
-    return this.api.get<WorkflowDefinition>(`${this.BASE}/${id}`)
+    return this.http.get<WorkflowDefinition>(`${this.BASE}/${id}`)
       .pipe(catchError(this.handleError));
   }
 
   /** Tạo mới quy trình */
   create(dto: WorkflowDefinition): Observable<WorkflowDefinition> {
-    return this.api.post<WorkflowDefinition>(this.BASE, dto)
+    return this.http.post<WorkflowDefinition>(this.BASE, dto)
       .pipe(catchError(this.handleError));
   }
 
   /** Cập nhật quy trình */
   update(id: string, dto: WorkflowDefinition): Observable<WorkflowDefinition> {
-    return this.api.put<WorkflowDefinition>(`${this.BASE}/${id}`, dto)
+    return this.http.put<WorkflowDefinition>(`${this.BASE}/${id}`, dto)
       .pipe(catchError(this.handleError));
   }
 
   /** Xóa quy trình */
   delete(id: string): Observable<{ message: string }> {
-    return this.api.delete<{ message: string }>(`${this.BASE}/${id}`)
+    return this.http.delete<{ message: string }>(`${this.BASE}/${id}`)
       .pipe(catchError(this.handleError));
   }
 
   /** Bật/tắt trạng thái nhanh */
   toggleStatus(id: string): Observable<ToggleStatusResponse> {
-    return this.api.patch<ToggleStatusResponse>(`${this.BASE}/${id}/toggle-status`, {})
+    return this.http.patch<ToggleStatusResponse>(`${this.BASE}/${id}/toggle-status`, {})
       .pipe(catchError(this.handleError));
   }
 
   /** Lấy lịch sử tất cả phiên bản của một quy trình theo tên */
   getVersions(name: string): Observable<WorkflowDefinition[]> {
-    return this.api.get<WorkflowDefinition[]>(`${this.BASE}/versions/${encodeURIComponent(name)}`)
+    return this.http.get<WorkflowDefinition[]>(`${this.BASE}/versions/${encodeURIComponent(name)}`)
       .pipe(catchError(this.handleError));
   }
 
   private get EXEC_BASE() {
-    return `/api/v1/workflows`;
+    return `${this.config.apiGatewayUrl}/api/v1/workflows`;
   }
 
   /** Gửi hồ sơ/yêu cầu vào quy trình */
@@ -108,13 +108,13 @@ export class WorkflowService {
       .set('definitionId', definitionId)
       .set('dossierId', dossierId)
       .set('entityType', entityType);
-    return this.api.post<any>(`${this.EXEC_BASE}/submit`, null, { params })
+    return this.http.post<any>(`${this.EXEC_BASE}/submit`, null, { params })
       .pipe(catchError(this.handleError));
   }
 
   /** Lấy danh sách nhiệm vụ cần làm của tôi */
   getMyTasks(): Observable<any[]> {
-    return this.api.get<any[]>(`${this.EXEC_BASE}/tasks/my-tasks`)
+    return this.http.get<any[]>(`${this.EXEC_BASE}/tasks/my-tasks`)
       .pipe(catchError(this.handleError));
   }
 
@@ -122,7 +122,7 @@ export class WorkflowService {
   approveTask(taskId: string, comment?: string, nextAssigneeUserId?: string): Observable<any> {
     const headers = { 'Content-Type': 'application/json' };
     const body = { comment, nextAssigneeUserId };
-    return this.api.post<any>(`${this.EXEC_BASE}/tasks/${taskId}/approve`, body, { headers })
+    return this.http.post<any>(`${this.EXEC_BASE}/tasks/${taskId}/approve`, body, { headers })
       .pipe(catchError(this.handleError));
   }
 
@@ -130,27 +130,27 @@ export class WorkflowService {
   rejectTask(taskId: string, comment?: string): Observable<any> {
     const headers = { 'Content-Type': 'application/json' };
     const body = comment !== undefined && comment !== null ? JSON.stringify(comment) : '""';
-    return this.api.post<any>(`${this.EXEC_BASE}/tasks/${taskId}/reject`, body, { headers })
+    return this.http.post<any>(`${this.EXEC_BASE}/tasks/${taskId}/reject`, body, { headers })
       .pipe(catchError(this.handleError));
   }
 
   /** Chuyển bước quy trình động dựa trên sơ đồ BPMN */
   moveWorkflow(dossierId: string, nextNodeId: string, actionLabel: string, comment?: string, nextAssigneeUserId?: string): Observable<any> {
     const body = { dossierId, nextNodeId, actionLabel, comment, nextAssigneeUserId };
-    return this.api.post<any>(`${this.EXEC_BASE}/move`, body)
+    return this.http.post<any>(`${this.EXEC_BASE}/move`, body)
       .pipe(catchError(this.handleError));
   }
 
   /** Lấy lịch sử phê duyệt của Instance */
   getWorkflowHistory(instanceId: string): Observable<any[]> {
-    return this.api.get<any[]>(`${this.EXEC_BASE}/instances/${instanceId}/history`)
+    return this.http.get<any[]>(`${this.EXEC_BASE}/instances/${instanceId}/history`)
       .pipe(catchError(this.handleError));
   }
 
   /** Lấy instance hiện tại của target entity */
   getInstanceByEntity(entityId: string, entityType: string = 'BorrowRecord'): Observable<any> {
     let params = new HttpParams().set('entityType', entityType);
-    return this.api.get<any>(`${this.EXEC_BASE}/instances/entity/${entityId}`, { params })
+    return this.http.get<any>(`${this.EXEC_BASE}/instances/entity/${entityId}`, { params })
       .pipe(catchError(this.handleError));
   }
 

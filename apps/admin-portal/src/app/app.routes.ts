@@ -92,6 +92,10 @@ export const appRoutes: Route[] = [
         loadChildren: () => import('@sohoa.frontend/features/ocr-correction').then(m => m.OCR_CORRECTION_ROUTES)
       },
       {
+        path: 'dossier-management',
+        loadChildren: () => import('@sohoa.frontend/features/dossier-management').then(m => m.DOSSIER_MANAGEMENT_ROUTES)
+      },
+      {
         path: 'error',
         loadComponent: () => import('@sohoa.frontend/features/error').then(m => m.GlobalErrorComponent)
       },
