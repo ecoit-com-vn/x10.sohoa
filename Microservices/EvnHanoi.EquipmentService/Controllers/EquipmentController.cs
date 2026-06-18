@@ -68,6 +68,17 @@ public class EquipmentController : ControllerBase
         return Ok(new { items, totalCount, page, pageSize });
     }
 
+    [HttpGet("check-code")]
+    public async Task<IActionResult> CheckCode([FromQuery] string code, [FromQuery] Guid? excludeId = null)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+            return BadRequest(new { message = "Mã thiết bị không được để trống." });
+
+        var existing = await _equipmentRepository.GetByCodeAsync(code);
+        var exists = existing != null && (!excludeId.HasValue || existing.Id != excludeId.Value);
+        return Ok(new { exists });
+    }
+
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(Guid id)
     {
@@ -100,6 +111,14 @@ public class EquipmentController : ControllerBase
             {
                 return BadRequest(new { message = "Bạn không có quyền quản lý dữ liệu của đơn vị được chọn." });
             }
+        }
+
+        var trimmedCode = dto.Code.Trim();
+        var existingByCode = await _equipmentRepository.GetByCodeAsync(trimmedCode);
+        if (existingByCode != null)
+        {
+            var duplicateMessage = $"Mã thiết bị '{trimmedCode}' đã tồn tại trong hệ thống.";
+            return BadRequest(new { message = duplicateMessage, code = duplicateMessage });
         }
 
         var equipmentId = Guid.NewGuid();
@@ -178,6 +197,14 @@ public class EquipmentController : ControllerBase
             {
                 return BadRequest(new { message = "Bạn không có quyền quản lý dữ liệu của đơn vị mới được chọn." });
             }
+        }
+
+        var trimmedCode = dto.Code.Trim();
+        var existingByCode = await _equipmentRepository.GetByCodeAsync(trimmedCode);
+        if (existingByCode != null && existingByCode.Id != id)
+        {
+            var duplicateMessage = $"Mã thiết bị '{trimmedCode}' đã được sử dụng bởi bản ghi khác.";
+            return BadRequest(new { message = duplicateMessage, code = duplicateMessage });
         }
 
         existing.EquipmentTypeId = dto.EquipmentTypeId;

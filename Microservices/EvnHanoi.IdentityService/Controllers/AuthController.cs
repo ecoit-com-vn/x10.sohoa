@@ -237,7 +237,7 @@ public class AuthController : ControllerBase
         var tokenDescriptor = new SecurityTokenDescriptor
         {
             Subject = new ClaimsIdentity(claims),
-            Expires = DateTime.UtcNow.AddMinutes(30),
+            Expires = DateTime.UtcNow.AddMinutes(60),
             Issuer = _configuration["Jwt:Issuer"],
             Audience = _configuration["Jwt:Audience"],
             SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
@@ -262,6 +262,99 @@ public class AuthController : ControllerBase
 
         return Ok(new 
         { 
+            AccessToken = tokenHandler.WriteToken(accessToken),
+            RefreshToken = tokenHandler.WriteToken(refreshToken)
+        });
+    }
+
+    [AllowAnonymous]
+    [HttpPost("refresh")]
+    public async Task<IActionResult> Refresh([FromBody] RefreshRequest? request)
+    {
+        if (request == null || string.IsNullOrEmpty(request.RefreshToken))
+        {
+            return BadRequest(new { message = "Refresh token là bắt buộc." });
+        }
+
+        var tokenHandler = new JwtSecurityTokenHandler();
+        var secretKey = _configuration["Jwt:Key"] ?? "super_secret_key_12345678901234567890";
+        var key = Encoding.ASCII.GetBytes(secretKey);
+
+        ClaimsPrincipal principal;
+        try
+        {
+            principal = tokenHandler.ValidateToken(request.RefreshToken, new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidateAudience = true,
+                ValidateLifetime = true,
+                ValidateIssuerSigningKey = true,
+                ValidIssuer = _configuration["Jwt:Issuer"],
+                ValidAudience = _configuration["Jwt:Audience"],
+                IssuerSigningKey = new SymmetricSecurityKey(key)
+            }, out _);
+        }
+        catch
+        {
+            return Unauthorized(new { message = "Refresh token không hợp lệ hoặc đã hết hạn." });
+        }
+
+        if (principal.FindFirst("TokenType")?.Value != "Refresh")
+        {
+            return Unauthorized(new { message = "Refresh token không hợp lệ." });
+        }
+
+        var userId = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized(new { message = "Refresh token không hợp lệ." });
+        }
+
+        var user = await _userRepository.GetByIdAsync(userId);
+        if (user == null || !user.IsActive)
+        {
+            return Unauthorized(new { message = "Tài khoản không tồn tại hoặc đã bị vô hiệu hóa." });
+        }
+
+        var userRoles = await _userRepository.GetRolesByUserIdAsync(user.Id);
+        var claims = new List<Claim>
+        {
+            new Claim(ClaimTypes.NameIdentifier, user.Id),
+            new Claim(ClaimTypes.Name, user.Username)
+        };
+        if (user.OrganizationUnitId.HasValue)
+        {
+            claims.Add(new Claim("unit_id", user.OrganizationUnitId.Value.ToString()));
+        }
+        foreach (var r in userRoles)
+        {
+            claims.Add(new Claim(ClaimTypes.Role, r));
+        }
+
+        var accessToken = tokenHandler.CreateToken(new SecurityTokenDescriptor
+        {
+            Subject = new ClaimsIdentity(claims),
+            Expires = DateTime.UtcNow.AddMinutes(60),
+            Issuer = _configuration["Jwt:Issuer"],
+            Audience = _configuration["Jwt:Audience"],
+            SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
+        });
+
+        var refreshToken = tokenHandler.CreateToken(new SecurityTokenDescriptor
+        {
+            Subject = new ClaimsIdentity(new[]
+            {
+                new Claim(ClaimTypes.NameIdentifier, user.Id),
+                new Claim("TokenType", "Refresh")
+            }),
+            Expires = DateTime.UtcNow.AddDays(7),
+            Issuer = _configuration["Jwt:Issuer"],
+            Audience = _configuration["Jwt:Audience"],
+            SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
+        });
+
+        return Ok(new
+        {
             AccessToken = tokenHandler.WriteToken(accessToken),
             RefreshToken = tokenHandler.WriteToken(refreshToken)
         });
@@ -489,6 +582,11 @@ public class LoginRequest
 {
     public string Username { get; set; } = string.Empty;
     public string Password { get; set; } = string.Empty;
+}
+
+public class RefreshRequest
+{
+    public string RefreshToken { get; set; } = string.Empty;
 }
 
 public class SsoValidationResponse
