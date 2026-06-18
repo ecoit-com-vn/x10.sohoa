@@ -2,13 +2,14 @@ import { Component, OnInit, signal, computed, inject, Output, EventEmitter } fro
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ToastModule } from 'primeng/toast';
+import { DialogModule } from 'primeng/dialog';
 import { MessageService } from 'primeng/api';
 import { DossierManagementService } from '../../data-access/dossier-management.service';
 
 @Component({
   selector: 'app-dossier-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule],
+  imports: [CommonModule, FormsModule, ToastModule, DialogModule],
   template: `
     <div class="wf-card">
       <!-- Header -->
@@ -119,7 +120,7 @@ import { DossierManagementService } from '../../data-access/dossier-management.s
                   <button *ngIf="item.status === 'Draft' || item.status === 'Returned'" (click)="onEdit(item.id)" class="act-btn act-edit" title="Sửa thông tin">
                     <i class="pi pi-pencil"></i>
                   </button>
-                  <button *ngIf="item.status === 'Draft' || item.status === 'Returned'" (click)="onDelete(item)" class="act-btn act-delete" title="Xóa">
+                  <button *ngIf="item.status === 'Draft' || !item.workflowInstanceId" (click)="onDelete(item)" class="act-btn act-delete" title="Xóa">
                     <i class="pi pi-trash"></i>
                   </button>
                 </div>
@@ -144,6 +145,39 @@ import { DossierManagementService } from '../../data-access/dossier-management.s
         </div>
       </div>
     </div>
+
+    <!-- Dialog Xác nhận Xóa hồ sơ -->
+    <p-dialog
+      [visible]="showDeleteConfirm()"
+      (visibleChange)="$event ? null : onCancelDelete()"
+      header="Xác nhận xóa hồ sơ"
+      [modal]="true"
+      [style]="{ width: '420px' }"
+      styleClass="evn-dialog-custom"
+      [closable]="!deleting()">
+      <div style="display: flex; align-items: flex-start; gap: 12px; padding: 8px 0 16px;">
+        <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #f59e0b;"></i>
+        <div>
+          <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">Bạn có chắc chắn muốn xóa?</p>
+          <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
+            Hồ sơ loại <b style="color: #1e293b;">{{ deleteTarget()?.dossierTypeName }}</b> sẽ bị xóa vĩnh viễn và không thể khôi phục.
+          </p>
+        </div>
+      </div>
+      <ng-template #footer>
+        <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+          <button class="btn-cancel btn-small" (click)="onCancelDelete()" [disabled]="deleting()">
+            <i class="pi pi-times"></i> Hủy
+          </button>
+          <button class="btn-save btn-small" (click)="onConfirmDelete()" [disabled]="deleting()"
+                  style="background-color: #dc2626; border-color: #dc2626;">
+            <i class="pi pi-spin pi-spinner" *ngIf="deleting()"></i>
+            <i class="pi pi-trash" *ngIf="!deleting()"></i>
+            Xóa
+          </button>
+        </div>
+      </ng-template>
+    </p-dialog>
   `,
   styles: []
 })
@@ -170,6 +204,11 @@ export class DossierListComponent implements OnInit {
 
   gridTypes = signal<any[]>([]);
   infrastructures = signal<any[]>([]);
+
+  // Delete confirmation signals
+  showDeleteConfirm = signal<boolean>(false);
+  deleteTarget = signal<any>(null);
+  deleting = signal<boolean>(false);
 
   totalPages = computed(() => Math.ceil(this.totalCount() / this.pageSize()));
 
@@ -232,17 +271,33 @@ export class DossierListComponent implements OnInit {
   }
 
   onDelete(item: any) {
-    if (confirm(`Bạn có chắc chắn muốn xóa hồ sơ này?`)) {
-      this.service.deleteDossier(item.id).subscribe({
-        next: () => {
-          this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã xóa hồ sơ' });
-          this.loadData();
-        },
-        error: (err) => {
-          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: err.error?.message || 'Không thể xóa hồ sơ' });
-        }
-      });
-    }
+    this.deleteTarget.set(item);
+    this.showDeleteConfirm.set(true);
+  }
+
+  onConfirmDelete() {
+    const item = this.deleteTarget();
+    if (!item) return;
+    this.deleting.set(true);
+    this.service.deleteDossier(item.id).subscribe({
+      next: () => {
+        this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã xóa hồ sơ' });
+        this.showDeleteConfirm.set(false);
+        this.deleteTarget.set(null);
+        this.deleting.set(false);
+        this.loadData();
+      },
+      error: (err) => {
+        this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: err.error?.message || 'Không thể xóa hồ sơ' });
+        this.deleting.set(false);
+        this.showDeleteConfirm.set(false);
+      }
+    });
+  }
+
+  onCancelDelete() {
+    this.showDeleteConfirm.set(false);
+    this.deleteTarget.set(null);
   }
 
   getGridTypeName(id: number | null): string {

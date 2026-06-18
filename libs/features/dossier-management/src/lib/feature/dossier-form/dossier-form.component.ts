@@ -6,15 +6,30 @@ import { MessageService } from 'primeng/api';
 import { DialogModule } from 'primeng/dialog';
 import { DossierManagementService } from '../../data-access/dossier-management.service';
 
-/** Một field trong FormSchema của EAV template */
+/** Một field trong FormSchema của EAV template.
+ *  Backend có thể trả về `key`, `name`, hoặc `id` làm định danh —
+ *  sau khi parse ta chuẩn hoá về `key` để dùng thống nhất trong template.
+ */
 interface EavField {
+  /** Định danh duy nhất cho field (đã chuẩn hoá từ name/id). */
   key: string;
+  /** Tên gốc từ backend (name hoặc id). */
+  name?: string;
+  id?: string;
   label: string;
   type: 'text' | 'number' | 'date' | 'textarea' | 'select' | 'checkbox';
   required?: boolean;
   placeholder?: string;
   options?: { label: string; value: string }[];
   unit?: string;
+}
+
+/** Chuẩn hoá một raw field object từ backend sang EavField với key hợp lệ. */
+function normalizeField(raw: any): EavField {
+  return {
+    ...raw,
+    key: (raw.key || raw.name || raw.id || '').toString()
+  };
 }
 
 @Component({
@@ -146,45 +161,49 @@ interface EavField {
 
               <ng-container [ngSwitch]="field.type">
                 <input *ngSwitchCase="'text'" type="text" class="wf-input w-full"
+                       autocomplete="off"
+                       [name]="'dyn_' + field.key"
                        [placeholder]="field.placeholder || ''"
-                       [value]="formData[field.key] ?? ''"
-                       (input)="setField(field.key, $event)">
+                       [(ngModel)]="formData[field.key]">
 
                 <div *ngSwitchCase="'number'" style="display: flex; gap: 6px; align-items: center;">
                   <input type="number" class="wf-input" style="flex: 1;"
+                         autocomplete="off"
+                         [name]="'dyn_' + field.key"
                          [placeholder]="field.placeholder || ''"
-                         [value]="formData[field.key] ?? ''"
-                         (input)="setFieldNumber(field.key, $event)">
+                         [(ngModel)]="formData[field.key]">
                   <span *ngIf="field.unit" style="font-size: 0.85rem; color: #6b7280; white-space: nowrap;">{{ field.unit }}</span>
                 </div>
 
                 <input *ngSwitchCase="'date'" type="date" class="wf-input w-full"
-                       [value]="formData[field.key] ?? ''"
-                       (input)="setField(field.key, $event)">
+                       [name]="'dyn_' + field.key"
+                       [(ngModel)]="formData[field.key]">
 
                 <textarea *ngSwitchCase="'textarea'" class="wf-textarea w-full" rows="3"
+                          autocomplete="off"
+                          [name]="'dyn_' + field.key"
                           [placeholder]="field.placeholder || ''"
-                          [value]="formData[field.key] ?? ''"
-                          (input)="setField(field.key, $event)"></textarea>
+                          [(ngModel)]="formData[field.key]"></textarea>
 
                 <select *ngSwitchCase="'select'" class="wf-select w-full"
-                        (change)="setField(field.key, $event)">
+                        [name]="'dyn_' + field.key"
+                        [(ngModel)]="formData[field.key]">
                   <option value="">-- Chọn --</option>
-                  <option *ngFor="let opt of field.options" [value]="opt.value"
-                          [selected]="formData[field.key] === opt.value">{{ opt.label }}</option>
+                  <option *ngFor="let opt of field.options" [value]="opt.value">{{ opt.label }}</option>
                 </select>
 
                 <label *ngSwitchCase="'checkbox'" style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin-top: 4px;">
                   <input type="checkbox"
-                         [checked]="formData[field.key]"
-                         (change)="setCheckbox(field.key, $event)"
+                         [name]="'dyn_' + field.key"
+                         [(ngModel)]="formData[field.key]"
                          style="width: 16px; height: 16px; accent-color: #002D72; cursor: pointer;">
                   <span style="font-size: 0.9rem;">{{ field.placeholder || field.label }}</span>
                 </label>
 
                 <input *ngSwitchDefault type="text" class="wf-input w-full"
-                       [value]="formData[field.key] ?? ''"
-                       (input)="setField(field.key, $event)">
+                       autocomplete="off"
+                       [name]="'dyn_' + field.key"
+                       [(ngModel)]="formData[field.key]">
               </ng-container>
             </div>
           </ng-container>
@@ -383,8 +402,9 @@ export class DossierFormComponent implements OnInit {
         }
 
         try {
-          const fields: EavField[] = JSON.parse(template.formSchema);
-          this.dynamicFields.set(Array.isArray(fields) ? fields : []);
+          const raw = JSON.parse(template.formSchema);
+          const fields: EavField[] = Array.isArray(raw) ? raw.map(normalizeField) : [];
+          this.dynamicFields.set(fields);
 
           // Điền lại dữ liệu nếu đang ở edit mode
           if (existingFormDataJson) {
@@ -496,20 +516,6 @@ export class DossierFormComponent implements OnInit {
   removeEquipment(eq: any) {
     const eqId = eq.equipmentId || eq.id;
     this.selectedEquipments.set(this.selectedEquipments().filter(s => (s.equipmentId || s.id) !== eqId));
-  }
-
-  /** Helpers cho event-based binding — tránh ngModel bleeding trong *ngFor+*ngSwitch */
-  setField(key: string, event: Event) {
-    this.formData[key] = (event.target as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement).value;
-  }
-
-  setFieldNumber(key: string, event: Event) {
-    const raw = (event.target as HTMLInputElement).value;
-    this.formData[key] = raw === '' ? null : Number(raw);
-  }
-
-  setCheckbox(key: string, event: Event) {
-    this.formData[key] = (event.target as HTMLInputElement).checked;
   }
 
   trackByFieldKey(_index: number, field: EavField): string {

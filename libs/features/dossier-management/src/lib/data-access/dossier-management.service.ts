@@ -132,8 +132,9 @@ export class DossierManagementService {
       switchMap(instance => {
         if (!instance) return of({ instance: null, definition: null, history: [] });
 
-        const def$ = instance.workflowDefinitionId
-          ? this.getWorkflowDefinition(instance.workflowDefinitionId).pipe(catchError(() => of(null)))
+        const definitionId = instance.workflowDefinitionId ?? instance.WorkflowDefinitionId;
+        const def$ = definitionId
+          ? this.getWorkflowDefinition(definitionId).pipe(catchError(() => of(null)))
           : of(null);
 
         const history$ = this.getWorkflowHistory(id).pipe(catchError(() => of([])));
@@ -186,6 +187,12 @@ export class DossierManagementService {
 
   getCatalogsByType(catalogTypeCode: string): Observable<any[]> {
     return this.http.get<any[]>(`${this.config.apiGatewayUrl}/api/v1/lookup/catalogs?type=${catalogTypeCode}`);
+  }
+
+  getUsersLookup(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.config.apiGatewayUrl}/api/v1/users/lookup`).pipe(
+      catchError(() => of([]))
+    );
   }
 
   /**
