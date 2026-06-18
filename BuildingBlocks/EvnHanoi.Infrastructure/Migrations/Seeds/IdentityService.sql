@@ -173,3 +173,4 @@ SELECT 25, 'Kho lưu trữ vật lý', '/physical-storage', 'pi pi-box', NULL, 1
 WHERE NOT EXISTS (SELECT 1 FROM APP_MENU WHERE Id = 25);
 
 COMMIT;
+

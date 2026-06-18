@@ -8,6 +8,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
@@ -51,13 +52,26 @@ public class DynamicPermissionFilter : IAsyncActionFilter
             return;
         }
 
-        // Bypass checks if action/controller is decorated with [BypassDynamicPermission]
-        if (context.ActionDescriptor.EndpointMetadata.Any(em => em is BypassDynamicPermissionAttribute) ||
-            context.ActionDescriptor.EndpointMetadata.Any(em => em.GetType().Name == "BypassDynamicPermissionAttribute"))
+        // Bypass checks if action/controller is decorated with [BypassDynamicPermission] or [WorkflowEngineApi]
+        if (context.ActionDescriptor.EndpointMetadata.Any(em => em is BypassDynamicPermissionAttribute or WorkflowEngineApiAttribute) ||
+            context.ActionDescriptor.EndpointMetadata.Any(em => em.GetType().Name is "BypassDynamicPermissionAttribute" or "WorkflowEngineApiAttribute"))
         {
-            Log.Information("Shared DynamicPermissionFilter: Bypassing dynamic permission check due to BypassDynamicPermissionAttribute");
+            Log.Information("Shared DynamicPermissionFilter: Bypassing dynamic permission check due to bypass/workflow-engine attribute");
             await next();
             return;
+        }
+
+        if (context.ActionDescriptor is ControllerActionDescriptor controllerAction)
+        {
+            var controllerType = controllerAction.ControllerTypeInfo.AsType();
+            if (Attribute.IsDefined(controllerType, typeof(WorkflowEngineApiAttribute), inherit: true) ||
+                Attribute.IsDefined(controllerType, typeof(BypassDynamicPermissionAttribute), inherit: true))
+            {
+                Log.Information("Shared DynamicPermissionFilter: Bypassing dynamic permission check for workflow/bypass controller {Controller}",
+                    controllerAction.ControllerName);
+                await next();
+                return;
+            }
         }
 
         var user = context.HttpContext.User;

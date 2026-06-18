@@ -158,7 +158,8 @@ public class PermissionDiscoveryService : BackgroundService
             if (controllerType != null)
             {
                 if (controllerType.GetCustomAttribute<BypassPermissionScanAttribute>() != null ||
-                    controllerType.GetCustomAttribute("BypassDynamicPermissionAttribute") != null)
+                    controllerType.GetCustomAttribute("BypassDynamicPermissionAttribute") != null ||
+                    controllerType.GetCustomAttribute("WorkflowEngineApiAttribute") != null)
                 {
                     _logger.LogInformation("🚫 Bỏ qua quét phân quyền cho Controller '{ControllerName}' do có attribute bỏ qua.", controllerName);
                     continue;
@@ -183,7 +184,8 @@ public class PermissionDiscoveryService : BackgroundService
                 if (methodInfo != null)
                 {
                     if (methodInfo.GetCustomAttribute<BypassPermissionScanAttribute>() != null ||
-                        methodInfo.GetCustomAttribute("BypassDynamicPermissionAttribute") != null)
+                        methodInfo.GetCustomAttribute("BypassDynamicPermissionAttribute") != null ||
+                        methodInfo.GetCustomAttribute("WorkflowEngineApiAttribute") != null)
                     {
                         _logger.LogDebug("🚫 Bỏ qua quét Action '{ControllerName}.{ActionName}' do có attribute bỏ qua.", controllerName, actionName);
                         continue;
