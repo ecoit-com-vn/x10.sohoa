@@ -1,6 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, of, throwError } from 'rxjs';
+import { catchError, finalize, map, shareReplay, tap } from 'rxjs/operators';
 import { APP_CONFIG } from '../config/app-config.token';
 
 @Injectable({
@@ -11,6 +12,7 @@ export class AuthService {
   private config = inject(APP_CONFIG);
 
   currentUserPermissions = signal<string[]>([]);
+  private refreshInFlight: Observable<string> | null = null;
 
   private get base() {
     return `${this.config.apiGatewayUrl}/api/v1/auth`;
@@ -32,6 +34,77 @@ export class AuthService {
     } catch {
       return null;
     }
+  }
+
+  isTokenExpired(token?: string | null, bufferSeconds = 60): boolean {
+    const value = token ?? this.getToken();
+    if (!value) return true;
+    const payload = this.decodeTokenPayload(value);
+    if (!payload?.exp) return true;
+    const expiresAtMs = payload.exp * 1000;
+    return Date.now() >= expiresAtMs - bufferSeconds * 1000;
+  }
+
+  getRefreshToken(): string | null {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('refreshToken');
+    }
+    return null;
+  }
+
+  private storeTokens(accessToken: string, refreshToken?: string | null): void {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem('token', accessToken);
+    if (refreshToken) {
+      localStorage.setItem('refreshToken', refreshToken);
+    }
+  }
+
+  refreshAccessToken(): Observable<string> {
+    const refreshToken = this.getRefreshToken();
+    if (!refreshToken) {
+      return throwError(() => new Error('No refresh token'));
+    }
+
+    if (this.refreshInFlight) {
+      return this.refreshInFlight;
+    }
+
+    this.refreshInFlight = this.http.post<any>(`${this.base}/refresh`, { refreshToken }).pipe(
+      map((res) => {
+        const accessToken = res.AccessToken || res.accessToken || res.access_token;
+        const newRefreshToken = res.RefreshToken || res.refreshToken || res.refresh_token;
+        if (!accessToken) {
+          throw new Error('Refresh response missing access token');
+        }
+        this.storeTokens(accessToken, newRefreshToken ?? refreshToken);
+        return accessToken as string;
+      }),
+      catchError((err) => {
+        this.logout();
+        return throwError(() => err);
+      }),
+      finalize(() => {
+        this.refreshInFlight = null;
+      }),
+      shareReplay(1)
+    );
+
+    return this.refreshInFlight;
+  }
+
+  ensureValidToken(): Observable<boolean> {
+    const token = this.getToken();
+    if (!token) {
+      return of(false);
+    }
+    if (!this.isTokenExpired(token)) {
+      return of(true);
+    }
+    return this.refreshAccessToken().pipe(
+      map(() => true),
+      catchError(() => of(false))
+    );
   }
 
   getUserRoles(): string[] {

@@ -8,7 +8,7 @@ import { MessageService, ConfirmationService } from 'primeng/api';
 import Aura from '@primeuix/themes/aura';
 
 import { appRoutes } from './app.routes';
-import { authInterceptor, httpErrorInterceptor, APP_CONFIG } from '@sohoa.frontend/shared/core';
+import { authInterceptor, authRefreshInterceptor, httpErrorInterceptor, APP_CONFIG } from '@sohoa.frontend/shared/core';
 import { environment } from '../environments/environment';
 
 export const appConfig: ApplicationConfig = {
@@ -16,7 +16,7 @@ export const appConfig: ApplicationConfig = {
     provideBrowserGlobalErrorListeners(),
     provideRouter(appRoutes),
     provideAnimationsAsync(),
-    provideHttpClient(withInterceptors([authInterceptor, httpErrorInterceptor]), withFetch()),
+    provideHttpClient(withInterceptors([authInterceptor, authRefreshInterceptor, httpErrorInterceptor]), withFetch()),
     MessageService,
     ConfirmationService,
     providePrimeNG({
