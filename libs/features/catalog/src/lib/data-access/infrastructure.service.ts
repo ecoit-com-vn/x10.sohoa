@@ -1,22 +1,21 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { APP_CONFIG } from '@sohoa.frontend/shared/core';
+import { ApiService } from '@sohoa.frontend/shared/core';
 
 @Injectable({
   providedIn: 'root'
 })
 export class InfrastructureService {
-  private http = inject(HttpClient);
-  private config = inject(APP_CONFIG);
+  private api = inject(ApiService);
 
   private getBaseUrl(infraTypeId: number) {
     const segment = infraTypeId === 1 ? 'substation' : 'transmission-line';
-    return `${this.config.apiGatewayUrl}/api/catalog/${segment}`;
+    return `/api/catalog/${segment}`;
   }
 
   private get unitsBase() {
-    return `${this.config.apiGatewayUrl}/api/v1/organization-units`;
+    return `/api/v1/organization-units`;
   }
 
   getInfrastructures(
@@ -37,31 +36,31 @@ export class InfrastructureService {
       params = params.set('status', status);
     }
 
-    return this.http.get<any>(this.getBaseUrl(infraTypeId), { params });
+    return this.api.get<any>(this.getBaseUrl(infraTypeId), { params });
   }
 
   getInfrastructureById(infraTypeId: number, id: string): Observable<any> {
-    return this.http.get<any>(`${this.getBaseUrl(infraTypeId)}/${id}`);
+    return this.api.get<any>(`${this.getBaseUrl(infraTypeId)}/${id}`);
   }
 
   createInfrastructure(infraTypeId: number, item: any): Observable<any> {
-    return this.http.post<any>(this.getBaseUrl(infraTypeId), item);
+    return this.api.post<any>(this.getBaseUrl(infraTypeId), item);
   }
 
   updateInfrastructure(infraTypeId: number, id: string, item: any): Observable<any> {
-    return this.http.put<any>(`${this.getBaseUrl(infraTypeId)}/${id}`, item);
+    return this.api.put<any>(`${this.getBaseUrl(infraTypeId)}/${id}`, item);
   }
 
   deleteInfrastructure(infraTypeId: number, id: string): Observable<any> {
-    return this.http.delete<any>(`${this.getBaseUrl(infraTypeId)}/${id}`);
+    return this.api.delete<any>(`${this.getBaseUrl(infraTypeId)}/${id}`);
   }
 
   toggleStatus(infraTypeId: number, id: string, isLocking: boolean): Observable<any> {
     const action = isLocking ? 'lock' : 'unlock';
-    return this.http.post<any>(`${this.getBaseUrl(infraTypeId)}/${id}/${action}`, {});
+    return this.api.post<any>(`${this.getBaseUrl(infraTypeId)}/${id}/${action}`, {});
   }
 
   getOrganizationUnits(): Observable<any[]> {
-    return this.http.get<any[]>(this.unitsBase);
+    return this.api.get<any[]>(this.unitsBase);
   }
 }

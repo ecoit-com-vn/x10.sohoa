@@ -1,7 +1,6 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { APP_CONFIG } from '../config/app-config.token';
+import { ApiService } from './api.service';
 
 export interface DigitizationTask {
   id: string; // Guid
@@ -18,21 +17,21 @@ export interface DigitizationTask {
   providedIn: 'root'
 })
 export class DigitizationTaskService {
-  private http = inject(HttpClient);
-  private config = inject(APP_CONFIG);
+  private api = inject(ApiService);
+  
   private get apiUrl() {
-    return `${this.config.apiGatewayUrl}/api/v1/digitization-task`;
+    return `/api/v1/digitization-task`;
   }
 
   getTasks(page: number, pageSize: number, keyword?: string): Observable<any> {
-    return this.http.get<any>(`${this.apiUrl}?page=${page}&pageSize=${pageSize}&keyword=${keyword || ''}`);
+    return this.api.get<any>(`${this.apiUrl}?page=${page}&pageSize=${pageSize}&keyword=${keyword || ''}`);
   }
 
   assignTask(dossierId: string, assignedToUserId: string, notes: string = ''): Observable<any> {
     // Standard OCR Verification Step constant Guid
     const defaultWorkflowStepId = 'c8b671a2-2b36-4cbf-8bc9-93e18a93cb34';
     
-    return this.http.post<any>(`${this.apiUrl}/assign`, {
+    return this.api.post<any>(`${this.apiUrl}/assign`, {
       dossierId,
       workflowStepId: defaultWorkflowStepId,
       assignedToUserId,
@@ -41,7 +40,7 @@ export class DigitizationTaskService {
   }
 
   updateTaskStatus(id: string, status: string, notes?: string): Observable<void> {
-    return this.http.put<void>(`${this.apiUrl}/${id}/status`, {
+    return this.api.put<void>(`${this.apiUrl}/${id}/status`, {
       status,
       notes
     });
