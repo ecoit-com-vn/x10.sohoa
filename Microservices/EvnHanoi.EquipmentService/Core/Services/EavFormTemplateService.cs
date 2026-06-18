@@ -33,7 +33,7 @@ public class EavFormTemplateService : IEavFormTemplateService
         }
     }
 
-    public async Task<EavFormTemplate> CreateFormTemplateAsync(string name, string code, string category, string description, string descriptionInfo, string formSchema, string createdBy)
+    public async Task<EavFormTemplate> CreateFormTemplateAsync(string name, string code, string category, string description, string descriptionInfo, string formSchema, string createdBy, Guid? equipmentTypeId = null, string formType = "FORM")
     {
         ValidateFormSchema(formSchema);
 
@@ -46,17 +46,20 @@ public class EavFormTemplateService : IEavFormTemplateService
             Description = description ?? string.Empty,
             DescriptionInfo = descriptionInfo ?? string.Empty,
             FormSchema = formSchema,
+            EquipmentTypeId = equipmentTypeId,
             Version = 1,
             IsActive = true,
             CreatedAt = DateTime.UtcNow,
-            CreatedBy = createdBy ?? "admin"
+            CreatedBy = createdBy ?? "admin",
+            Status = "Tạo mới",
+            FormType = formType
         };
 
         await _repository.AddAsync(template);
         return template;
     }
 
-    public async Task<EavFormTemplate> UpdateFormTemplateAsync(Guid id, string newName, string newCode, string newCategory, string newDescription, string newDescriptionInfo, string newFormSchema, string updatedBy)
+    public async Task<EavFormTemplate> UpdateFormTemplateAsync(Guid id, string newName, string newCode, string newCategory, string newDescription, string newDescriptionInfo, string newFormSchema, string updatedBy, Guid? equipmentTypeId = null, string formType = "FORM")
     {
         ValidateFormSchema(newFormSchema);
 
@@ -80,10 +83,13 @@ public class EavFormTemplateService : IEavFormTemplateService
             Description = newDescription,
             DescriptionInfo = newDescriptionInfo,
             FormSchema = newFormSchema,
+            EquipmentTypeId = equipmentTypeId,
             Version = oldTemplate.Version + 1,
             IsActive = true,
             CreatedAt = DateTime.UtcNow,
-            CreatedBy = updatedBy
+            CreatedBy = updatedBy,
+            Status = "Tạo mới",
+            FormType = formType
         };
 
         await _repository.AddAsync(newTemplate);
