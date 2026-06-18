@@ -15,7 +15,7 @@ namespace EvnHanoi.EquipmentService.Controllers;
 
 [Authorize]
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/v1/[controller]")]
 public class EquipmentController : ControllerBase
 {
     private readonly IEquipmentRepository _equipmentRepository;
@@ -325,6 +325,65 @@ public class EquipmentController : ControllerBase
             equipmentTypes,
             countries
         });
+    }
+
+    [HttpGet("get-organization-units")]
+    [BypassDynamicPermission]
+    public async Task<IActionResult> GetOrganizationUnits()
+    {
+        var isAdmin = User.IsInRole("ADMIN") || User.Claims.Any(c => c.Type == ClaimTypes.Role && c.Value == "ADMIN");
+        long? startUnitId = null;
+        if (!isAdmin)
+        {
+            var unitIdClaim = User.FindFirst("unit_id")?.Value;
+            if (!string.IsNullOrEmpty(unitIdClaim) && long.TryParse(unitIdClaim, out var userUnitId))
+            {
+                startUnitId = userUnitId;
+            }
+            else
+            {
+                var fallbackUnitIds = GetAuthorizedUnitIds();
+                if (fallbackUnitIds != null && fallbackUnitIds.Any())
+                {
+                    startUnitId = fallbackUnitIds.First();
+                }
+            }
+        }
+
+        var data = await _equipmentRepository.GetOrganizationUnitsHierarchicalAsync(startUnitId);
+        return Ok(data);
+    }
+
+    [HttpGet("get-infrastructures")]
+    [BypassDynamicPermission]
+    public async Task<IActionResult> GetInfrastructures()
+    {
+        var data = await _equipmentRepository.GetInfrastructuresLookupAsync();
+        return Ok(data);
+    }
+
+    [HttpGet("get-grid-types")]
+    [BypassDynamicPermission]
+    public async Task<IActionResult> GetGridTypes()
+    {
+        var data = await _equipmentTypeRepository.GetGridTypesAsync();
+        return Ok(data);
+    }
+
+    [HttpGet("get-equipment-types")]
+    [BypassDynamicPermission]
+    public async Task<IActionResult> GetEquipmentTypes()
+    {
+        var data = await _equipmentRepository.GetEquipmentTypesLookupAsync();
+        return Ok(data);
+    }
+
+    [HttpGet("get-countries")]
+    [BypassDynamicPermission]
+    public async Task<IActionResult> GetCountries()
+    {
+        var data = await _equipmentRepository.GetCountriesAsync();
+        return Ok(data);
     }
 
     private async Task<List<long>?> GetAllowedUnitIdsAsync()

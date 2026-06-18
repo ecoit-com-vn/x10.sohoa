@@ -10,6 +10,12 @@ namespace EvnHanoi.WorkflowService.Models
         /// <summary>Loại quy trình theo nghiệp vụ số hóa EVNHANOI</summary>
         public string Name { get; set; } = string.Empty;
 
+        /// <summary>
+        /// Loại entity mà quy trình này áp dụng, ví dụ: "Dossier", "BorrowRecord".
+        /// WorkflowEngine dùng để tự động tìm definition phù hợp khi submit.
+        /// </summary>
+        public string EntityType { get; set; } = string.Empty;
+
         /// <summary>Mô tả chi tiết quy trình</summary>
         public string Description { get; set; } = string.Empty;
 

@@ -12,7 +12,7 @@ namespace EvnHanoi.EquipmentService.Controllers;
 
 [Authorize]
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/v1/[controller]")]
 public class EquipmentTypeController : ControllerBase
 {
     private readonly IEquipmentTypeRepository _repository;

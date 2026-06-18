@@ -1,0 +1,163 @@
+using EvnHanoi.EquipmentService.Core.Entities;
+
+namespace EvnHanoi.EquipmentService.Core.DTOs;
+
+// ===== DOSSIER SET DTOs =====
+
+public class DossierSetDto
+{
+    public Guid Id { get; set; }
+    public string Code { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public long? UnitId { get; set; }
+    public string? CreatedBy { get; set; }
+    public DateTime CreatedDate { get; set; }
+}
+
+public class DossierSetCreateDto
+{
+    public string Code { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public long? UnitId { get; set; }
+}
+
+public class DossierSetUpdateDto
+{
+    public string Code { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public long? UnitId { get; set; }
+}
+
+// ===== DOSSIER DTOs =====
+
+/// <summary>
+/// DTO dùng cho danh sách hồ sơ — bao gồm catalog columns loại BHS + trạm/đường dây
+/// </summary>
+public class DossierListItemDto
+{
+    public Guid Id { get; set; }
+    public int? GridTypeId { get; set; }
+    public string? GridTypeName { get; set; }
+    public Guid? InfrastructureId { get; set; }
+    public string? InfrastructureName { get; set; }
+    public string? InfrastructureCode { get; set; }
+    public Guid? DossierSetId { get; set; }
+    public string? DossierSetName { get; set; }
+    public Guid DossierTypeId { get; set; }
+    public string? DossierTypeName { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public string? WorkflowStatusName { get; set; }
+    public int DocumentCount { get; set; }
+    public string? CreatorName { get; set; }
+    public DateTime CreatedDate { get; set; }
+    /// <summary>
+    /// Dữ liệu catalog động theo BHS — key=CatalogType.Code, value=catalog value
+    /// </summary>
+    public Dictionary<string, string> CatalogData { get; set; } = new();
+}
+
+/// <summary>
+/// DTO chi tiết hồ sơ — bao gồm FormDataJson và danh sách thiết bị
+/// </summary>
+public class DossierDetailDto
+{
+    public Guid Id { get; set; }
+    public int? GridTypeId { get; set; }
+    public string? GridTypeName { get; set; }
+    public Guid? InfrastructureId { get; set; }
+    public string? InfrastructureName { get; set; }
+    public string? InfrastructureCode { get; set; }
+    public Guid? DossierSetId { get; set; }
+    public string? DossierSetName { get; set; }
+    public Guid DossierTypeId { get; set; }
+    public string? DossierTypeName { get; set; }
+    public string? FormDataJson { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public Guid? WorkflowInstanceId { get; set; }
+    public string? WorkflowStatusName { get; set; }
+    public int RowVersion { get; set; }
+    public CreatorInfoDto? Creator { get; set; }
+    public List<DossierEquipmentDto> Equipments { get; set; } = new();
+    public string? CreatedBy { get; set; }
+    public DateTime CreatedDate { get; set; }
+    public string? ModifiedBy { get; set; }
+    public DateTime? ModifiedDate { get; set; }
+}
+
+/// <summary>
+/// DTO tạo mới hồ sơ
+/// </summary>
+public class DossierCreateDto
+{
+    public int? GridTypeId { get; set; }
+    public Guid? InfrastructureId { get; set; }
+    public Guid? DossierSetId { get; set; }
+    public Guid DossierTypeId { get; set; }
+    public List<Guid> EquipmentIds { get; set; } = new();
+}
+
+/// <summary>
+/// DTO chỉnh sửa hồ sơ (thông tin cơ bản, không bao gồm FormDataJson)
+/// </summary>
+public class DossierUpdateDto
+{
+    public int? GridTypeId { get; set; }
+    public Guid? InfrastructureId { get; set; }
+    public Guid? DossierSetId { get; set; }
+    public Guid DossierTypeId { get; set; }
+    public List<Guid> EquipmentIds { get; set; } = new();
+    public int RowVersion { get; set; }
+}
+
+/// <summary>
+/// DTO lưu FormDataJson (Tab thông tin chi tiết hồ sơ)
+/// </summary>
+public class DossierSaveFormDataDto
+{
+    public string FormDataJson { get; set; } = string.Empty;
+    public string? ChangeNote { get; set; }
+    public int RowVersion { get; set; }
+}
+
+// ===== EQUIPMENT IN DOSSIER =====
+
+public class DossierEquipmentDto
+{
+    public Guid EquipmentId { get; set; }
+    public string? EquipmentCode { get; set; }
+    public string? EquipmentName { get; set; }
+    public string? SerialNumber { get; set; }
+    public string? EquipmentTypeName { get; set; }
+    public string? InfrastructureName { get; set; }
+}
+
+public class AddDossierEquipmentDto
+{
+    public Guid EquipmentId { get; set; }
+}
+
+// ===== DOSSIER VERSION =====
+
+public class DossierVersionDto
+{
+    public Guid Id { get; set; }
+    public Guid DossierId { get; set; }
+    public int VersionNumber { get; set; }
+    public string? FormDataJson { get; set; }
+    public string? ChangeNote { get; set; }
+    public string? CreatedBy { get; set; }
+    public DateTime CreatedDate { get; set; }
+}
+
+// ===== FILTER / QUERY =====
+
+public class DossierFilterDto
+{
+    public string? Keyword { get; set; }
+    public Guid? InfrastructureId { get; set; }
+    public int? GridTypeId { get; set; }
+    public long? UnitId { get; set; }
+    public string? Status { get; set; }
+    public int Page { get; set; } = 1;
+    public int PageSize { get; set; } = 10;
+}

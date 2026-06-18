@@ -39,6 +39,8 @@ builder.Services.AddSingleton<IConnection>(rabbitConnection);
 
 builder.Services.AddDapperInfrastructure(builder.Configuration);
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IDossierRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.DossierRepository>();
+builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IDossierSetRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.DossierSetRepository>();
+builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IDossierService, EvnHanoi.EquipmentService.Core.Services.DossierService>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IEquipmentRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.EquipmentRepository>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IEquipmentTypeRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.EquipmentTypeRepository>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IPhysicalStorageRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.PhysicalStorageRepository>();
@@ -47,13 +49,22 @@ builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IEavFormTem
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IDossierTypeRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.DossierTypeRepository>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IInfrastructureRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.InfrastructureRepository>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IEavFormTemplateService, EvnHanoi.EquipmentService.Core.Services.EavFormTemplateService>();
+builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IDossierTypeService, EvnHanoi.EquipmentService.Core.Services.DossierTypeService>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IElasticsearchService, EvnHanoi.EquipmentService.Infrastructure.Services.ElasticsearchService>();
 builder.Services.AddSingleton<EvnHanoi.EquipmentService.Core.Interfaces.IMessageProducer, EvnHanoi.EquipmentService.Infrastructure.Messaging.RabbitMQProducer>();
 builder.Services.AddPermissionDiscovery("EquipmentService");
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddTransient<EvnHanoi.Infrastructure.Security.TokenRelayHandler>();
+
 builder.Services.AddHttpClient("IdentityService", client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["Services:IdentityService"] ?? "http://identityservice");
 });
+
+builder.Services.AddHttpClient("WorkflowService", client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["Services:WorkflowService"] ?? "http://workflowservice");
+}).AddHttpMessageHandler<EvnHanoi.Infrastructure.Security.TokenRelayHandler>();
 
 // 3. Configure JWT Authentication
 var jwtKey = builder.Configuration["Jwt:Key"] ?? "super_secret_key_12345678901234567890";

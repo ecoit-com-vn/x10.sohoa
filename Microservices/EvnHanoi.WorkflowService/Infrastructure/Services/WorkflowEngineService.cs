@@ -161,6 +161,16 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
             return instance;
         }
 
+        public async Task<WorkflowInstance> SubmitByEntityTypeAsync(string targetEntityId, string entityType, string userId)
+        {
+            var definition = await _workflowRepository.GetActiveDefinitionByEntityTypeAsync(entityType)
+                ?? throw new KeyNotFoundException(
+                    $"Không tìm thấy quy trình đang hoạt động cho loại đối tượng '{entityType}'. " +
+                    "Hãy tạo WorkflowDefinition với EntityType tương ứng và bật trạng thái Active.");
+
+            return await SubmitAsync(definition.Id, targetEntityId, entityType, userId);
+        }
+
         public async Task<WorkflowTask> ApproveAsync(Guid taskId, string userId, string? comment = null, string? nextAssigneeUserId = null)
         {
             var task = await _workflowRepository.GetTaskByIdAsync(taskId);

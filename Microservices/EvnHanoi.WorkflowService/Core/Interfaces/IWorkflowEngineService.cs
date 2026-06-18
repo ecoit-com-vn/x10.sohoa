@@ -8,6 +8,12 @@ namespace EvnHanoi.WorkflowService.Core.Interfaces
     public interface IWorkflowEngineService
     {
         Task<WorkflowInstance> SubmitAsync(Guid definitionId, string targetEntityId, string targetEntityType, string userId);
+
+        /// <summary>
+        /// Tự động tìm WorkflowDefinition đang active cho <paramref name="entityType"/>
+        /// rồi khởi chạy instance — không cần caller biết definitionId.
+        /// </summary>
+        Task<WorkflowInstance> SubmitByEntityTypeAsync(string targetEntityId, string entityType, string userId);
         Task<WorkflowTask> ApproveAsync(Guid taskId, string userId, string? comment = null, string? nextAssigneeUserId = null);
         Task<WorkflowTask?> RejectAsync(Guid taskId, string userId, string? comment = null);
         Task<WorkflowInstance> MoveAsync(string targetEntityId, string nextNodeId, string userId, string actionLabel, string? comment = null, string? nextAssigneeUserId = null);
