@@ -11,7 +11,7 @@ export class EquipmentService {
   private config = inject(APP_CONFIG);
 
   private get base() {
-    return `${this.config.apiGatewayUrl}/api/equipment`;
+    return `${this.config.apiGatewayUrl}/api/v1/equipment`;
   }
 
   getEquipments(
@@ -77,5 +77,25 @@ export class EquipmentService {
 
   getLookup(): Observable<any> {
     return this.http.get<any>(`${this.base}/lookup`);
+  }
+
+  getOrganizationUnits(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.base}/get-organization-units`);
+  }
+
+  getInfrastructures(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.base}/get-infrastructures`);
+  }
+
+  getGridTypes(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.base}/get-grid-types`);
+  }
+
+  getEquipmentTypes(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.base}/get-equipment-types`);
+  }
+
+  getCountries(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.base}/get-countries`);
   }
 }

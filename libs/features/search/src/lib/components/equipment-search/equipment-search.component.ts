@@ -49,7 +49,7 @@ export class EquipmentSearchComponent implements OnInit {
   }
 
   loadEquipmentTypes() {
-    this.http.get<any[]>(`${environment.apiGatewayUrl}/api/equipmenttype`).subscribe({
+    this.http.get<any[]>(`${environment.apiGatewayUrl}/api/v1/equipmenttype`).subscribe({
       next: (res) => {
         this.equipmentTypes = res || [];
       },

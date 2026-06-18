@@ -87,13 +87,13 @@ export class DashboardComponent implements OnInit {
     });
 
     // 2. Tải danh sách thiết bị để tính toán phân bổ và tổng số thiết bị
-    this.http.get<any[]>(`${environment.apiGatewayUrl}/api/equipment`).subscribe({
+    this.http.get<any[]>(`${environment.apiGatewayUrl}/api/v1/equipment`).subscribe({
       next: (equipments) => {
         if (equipments && equipments.length > 0) {
           this.totalEquipment = equipments.length;
           
           // Tính toán phân bổ theo loại thiết bị
-          this.http.get<any[]>(`${environment.apiGatewayUrl}/api/equipmenttype`).subscribe({
+          this.http.get<any[]>(`${environment.apiGatewayUrl}/api/v1/equipmenttype`).subscribe({
             next: (types) => {
               const typeMap = new Map<string, string>();
               types.forEach(t => typeMap.set(t.id, t.name));

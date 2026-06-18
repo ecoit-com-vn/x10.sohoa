@@ -11,7 +11,7 @@ export class EquipmentTypeService {
   private config = inject(APP_CONFIG);
 
   private get base() {
-    return `${this.config.apiGatewayUrl}/api/equipmenttype`;
+    return `${this.config.apiGatewayUrl}/api/v1/equipmenttype`;
   }
 
   getEquipmentTypes(
