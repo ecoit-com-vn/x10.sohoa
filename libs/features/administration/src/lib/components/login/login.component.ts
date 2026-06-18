@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, afterNextRender } from '@angular/core';
 import { Router, ActivatedRoute } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -23,16 +23,20 @@ export class Login implements OnInit {
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private authService = inject(AuthService);
-  
-  ngOnInit() {
-    if (typeof window !== 'undefined') {
+
+  constructor() {
+    afterNextRender(() => {
       const savedUsername = localStorage.getItem('rememberedUsername');
       const savedRememberMe = localStorage.getItem('rememberMe');
       if (savedRememberMe === 'true' && savedUsername) {
         this.username = savedUsername;
         this.rememberMe = true;
       }
-
+    });
+  }
+  
+  ngOnInit() {
+    if (typeof window !== 'undefined') {
       this.route.queryParams.subscribe(params => {
         const ticket = params['ticket'];
         if (ticket) {
@@ -42,7 +46,19 @@ export class Login implements OnInit {
     }
   }
 
+  private persistRememberMe(): void {
+    if (typeof window === 'undefined') return;
+    if (this.rememberMe && this.username.trim()) {
+      localStorage.setItem('rememberedUsername', this.username.trim());
+      localStorage.setItem('rememberMe', 'true');
+    } else {
+      localStorage.removeItem('rememberedUsername');
+      localStorage.removeItem('rememberMe');
+    }
+  }
+
   onSsoLogin() {
+    this.persistRememberMe();
     this.authService.redirectToSso();
   }
 
@@ -69,13 +85,7 @@ export class Login implements OnInit {
             if (refreshToken) {
               localStorage.setItem('refreshToken', refreshToken);
             }
-            if (this.rememberMe) {
-              localStorage.setItem('rememberedUsername', this.username);
-              localStorage.setItem('rememberMe', 'true');
-            } else {
-              localStorage.removeItem('rememberedUsername');
-              localStorage.removeItem('rememberMe');
-            }
+            this.persistRememberMe();
           }
           this.router.navigate(['/']);
         } else {
@@ -109,11 +119,15 @@ export class Login implements OnInit {
       next: (res: any) => {
         this.loading = false;
         const token = res.accessToken || res.AccessToken || res.access_token || res.token || res.data?.token || res.data?.access_token;
+        const refreshToken = res.RefreshToken || res.refreshToken || res.refresh_token;
         if (token) {
           if (typeof window !== 'undefined') {
             localStorage.setItem('token', token);
+            if (refreshToken) {
+              localStorage.setItem('refreshToken', refreshToken);
+            }
           }
-          this.router.navigate(['/']); // Redirect to AdminLayout
+          this.router.navigate(['/']);
         } else {
           this.error = 'Phản hồi không chứa token đăng nhập';
         }

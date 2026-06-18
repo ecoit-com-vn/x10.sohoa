@@ -7,3 +7,4 @@ export * from './lib/components/equipment-type/equipment-type.component';
 export * from './lib/components/equipment/equipment.component';
 export * from './lib/data-access/equipment-type.service';
 export * from './lib/data-access/equipment.service';
+export * from './lib/models/creator-info.model';

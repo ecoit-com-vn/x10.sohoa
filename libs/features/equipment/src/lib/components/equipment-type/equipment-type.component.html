@@ -109,7 +109,7 @@
                 <span *ngIf="item.creator" [title]="'ID: ' + item.creator.id">
                   {{ item.creator.name }} ({{ item.creator.username }})
                 </span>
-                <span class="text-muted italic" *ngIf="!item.creator">System</span>
+                <span class="text-muted italic" *ngIf="!item.creator">{{ item.createdBy || 'System' }}</span>
               </td>
               <td>
                 <span *ngIf="item.isActive === 1 || item.isActive === true" class="status-pill status-active"
