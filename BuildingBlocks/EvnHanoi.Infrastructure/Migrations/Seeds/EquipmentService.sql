@@ -69,18 +69,9 @@ INSERT INTO Equipments (Id, EquipmentTypeId, Name, Code, SerialNumber, UnitId, C
 SELECT '019eb100-0000-7000-8000-000000000003', '019eb000-0000-7000-8000-000000000003', 'Tủ điện đóng cắt RM6 Schneider', 'RM6-SCH', 'SN-SCH-44219', 1, SYSTIMESTAMP, 'admin', 1 FROM DUAL
 WHERE NOT EXISTS (SELECT 1 FROM Equipments WHERE Id = '019eb100-0000-7000-8000-000000000003');
 
--- Seed Dossiers
-INSERT INTO Dossiers (Id, EquipmentId, Title, Description, Status, Version, UnitId, CreatedAt, CreatedBy, RowVersion)
-SELECT '019eb200-0000-7000-8000-000000000001', '019eb100-0000-7000-8000-000000000001', 'Hồ sơ kiểm định Đồng hồ Fluke 179', 'Tài liệu hướng dẫn sử dụng và chứng nhận kiểm định hiệu chuẩn', 'Active', 1, 1, SYSTIMESTAMP, 'admin', 1 FROM DUAL
-WHERE NOT EXISTS (SELECT 1 FROM Dossiers WHERE Id = '019eb200-0000-7000-8000-000000000001');
-
-INSERT INTO Dossiers (Id, EquipmentId, Title, Description, Status, Version, UnitId, CreatedAt, CreatedBy, RowVersion)
-SELECT '019eb200-0000-7000-8000-000000000002', '019eb100-0000-7000-8000-000000000002', 'Hồ sơ lý lịch Máy biến áp ABB 63MVA', 'Lý lịch vận hành, nhật ký thí nghiệm định kỳ, sự cố máy biến áp', 'Active', 1, 1, SYSTIMESTAMP, 'admin', 1 FROM DUAL
-WHERE NOT EXISTS (SELECT 1 FROM Dossiers WHERE Id = '019eb200-0000-7000-8000-000000000002');
-
-INSERT INTO Dossiers (Id, EquipmentId, Title, Description, Status, Version, UnitId, CreatedAt, CreatedBy, RowVersion)
-SELECT '019eb200-0000-7000-8000-000000000003', '019eb100-0000-7000-8000-000000000003', 'Hồ sơ thiết kế Tủ RM6 Schneider', 'Bản vẽ kỹ thuật đấu nối mạch nhị thứ và sơ đồ tủ đóng cắt RM6', 'Active', 1, 1, SYSTIMESTAMP, 'admin', 1 FROM DUAL
-WHERE NOT EXISTS (SELECT 1 FROM Dossiers WHERE Id = '019eb200-0000-7000-8000-000000000003');
+-- Seed Dossiers đã bị xóa — Schema bảng DOSSIERS đã được thiết kế lại (Migration0009)
+-- Dữ liệu mẫu hồ sơ sẽ được tạo thủ công qua UI sau khi deploy
 
 COMMIT;
+
 

@@ -5,6 +5,8 @@ using EvnHanoi.EquipmentService.Core.Entities;
 using EvnHanoi.EquipmentService.Core.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
+using EvnHanoi.Infrastructure.Security;
+
 namespace EvnHanoi.EquipmentService.Controllers;
 
 [ApiController]
@@ -22,6 +24,14 @@ public class EavFormTemplateController : ControllerBase
         _service = service;
     }
 
+    [HttpGet("lookup")]
+    [BypassDynamicPermission]
+    public async Task<ActionResult<IEnumerable<EavFormTemplate>>> Lookup()
+    {
+        var templates = await _repository.GetAllActiveAsync();
+        return Ok(templates);
+    }
+
     [HttpGet]
     public async Task<ActionResult<IEnumerable<EavFormTemplate>>> GetAllActive()
     {
@@ -31,6 +41,21 @@ public class EavFormTemplateController : ControllerBase
 
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<EavFormTemplate>> GetById(Guid id)
+    {
+        var template = await _repository.GetByIdAsync(id);
+        if (template == null)
+            return NotFound(new { Message = $"Không tìm thấy biểu mẫu với ID = {id}" });
+
+        return Ok(template);
+    }
+
+    /// <summary>
+    /// Lấy biểu mẫu EAV để gen trường nhập liệu trên màn hình tạo/sửa hồ sơ.
+    /// Bypass DynamicPermission để màn hình tạo hồ sơ luôn truy cập được.
+    /// </summary>
+    [HttpGet("{id:guid}/get-form")]
+    [BypassDynamicPermission]
+    public async Task<ActionResult<EavFormTemplate>> GetFormForInput(Guid id)
     {
         var template = await _repository.GetByIdAsync(id);
         if (template == null)
@@ -58,7 +83,8 @@ public class EavFormTemplateController : ControllerBase
                 request.FormSchema,
                 request.CreatedBy ?? "admin",
                 request.EquipmentTypeId,
-                "FORM"
+                "FORM",
+                request.GridTypeId
             );
 
             return CreatedAtAction(nameof(GetById), new { id = template.Id.ToString() }, template);
@@ -94,7 +120,8 @@ public class EavFormTemplateController : ControllerBase
                 request.FormSchema, 
                 updatedBy,
                 request.EquipmentTypeId,
-                "FORM");
+                "FORM",
+                request.GridTypeId);
 
             return Ok(newTemplate);
         }
@@ -182,6 +209,7 @@ public class CreateEavFormTemplateRequest
     public string FormSchema { get; set; } = string.Empty;
     public string? CreatedBy { get; set; }
     public Guid? EquipmentTypeId { get; set; }
+    public int? GridTypeId { get; set; }
 }
 
 public class UpgradeEavFormTemplateRequest
@@ -194,4 +222,5 @@ public class UpgradeEavFormTemplateRequest
     public string FormSchema { get; set; } = string.Empty;
     public string? UpdatedBy { get; set; }
     public Guid? EquipmentTypeId { get; set; }
+    public int? GridTypeId { get; set; }
 }

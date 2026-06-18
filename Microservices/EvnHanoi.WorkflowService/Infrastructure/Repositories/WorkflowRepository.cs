@@ -127,6 +127,47 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
             return result;
         }
 
+        public async Task<WorkflowDefinition?> GetActiveDefinitionByEntityTypeAsync(string entityType)
+        {
+            if (_connection.State != ConnectionState.Open) _connection.Open();
+            var sql = $@"SELECT wd.{nameof(WorkflowDefinition.Id)},
+                                wd.{nameof(WorkflowDefinition.Name)},
+                                wd.{nameof(WorkflowDefinition.Description)},
+                                wd.{nameof(WorkflowDefinition.Version)},
+                                wd.{nameof(WorkflowDefinition.EntityType)},
+                                wd.{nameof(WorkflowDefinition.ForceActivate)},
+                                wd.{nameof(WorkflowDefinition.CreatedAt)},
+                                wd.{nameof(WorkflowDefinition.UpdatedAt)},
+                                wd.{nameof(WorkflowDefinition.CreatedBy)},
+                                wd.{nameof(WorkflowDefinition.UpdatedBy)},
+                                wd.{nameof(WorkflowDefinition.IsActive)},
+                                wd.{nameof(WorkflowDefinition.BpmnXml)}
+                        FROM WORKFLOWDEFINITIONS wd
+                        WHERE wd.{nameof(WorkflowDefinition.EntityType)} = :EntityType
+                          AND wd.{nameof(WorkflowDefinition.IsActive)} = 1
+                        ORDER BY wd.{nameof(WorkflowDefinition.CreatedAt)} DESC
+                        FETCH FIRST 1 ROWS ONLY";
+
+            var def = await _connection.QueryFirstOrDefaultAsync<WorkflowDefinition>(sql, new { EntityType = entityType });
+            if (def == null) return null;
+
+            var sqlSteps = $@"SELECT {nameof(WorkflowStep.Id)},
+                                     {nameof(WorkflowStep.WorkflowDefinitionId)},
+                                     {nameof(WorkflowStep.StepName)},
+                                     ""{nameof(WorkflowStep.Order)}"",
+                                     {nameof(WorkflowStep.RequiredRole)},
+                                     {nameof(WorkflowStep.ActionType)},
+                                     {nameof(WorkflowStep.AllowEdit)},
+                                     {nameof(WorkflowStep.RequireSignature)}
+                              FROM WORKFLOWSTEPS
+                              WHERE {nameof(WorkflowStep.WorkflowDefinitionId)} = :Id
+                              ORDER BY ""{nameof(WorkflowStep.Order)}""";
+            var steps = await _connection.QueryAsync<WorkflowStep>(sqlSteps, new { Id = def.Id.ToString() });
+            def.Steps = steps.ToList();
+            foreach (var step in def.Steps) step.WorkflowDefinition = def;
+            return def;
+        }
+
         public async Task<(IEnumerable<WorkflowDefinition> Items, int TotalCount)> GetPagedDefinitionsAsync(int page, int pageSize, string? keyword = null, bool? isActive = null)
         {
             if (_connection.State != ConnectionState.Open) _connection.Open();
