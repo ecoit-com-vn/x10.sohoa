@@ -11,4 +11,6 @@ public class EavFormTemplate
     public bool IsActive { get; set; }
     public string Status { get; set; } = "Tạo mới";
     public string FormType { get; set; } = "FORM";
+    public int? GridTypeId { get; set; }
+    public string? GridTypeName { get; set; }
 }

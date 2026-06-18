@@ -12,6 +12,8 @@ public class EavFormTemplate
     public string FormSchema { get; set; } = string.Empty;
 
     public Guid? EquipmentTypeId { get; set; }
+    public int? GridTypeId { get; set; }
+    public string? GridTypeName { get; set; }
 
     public int Version { get; set; } = 1;
     public bool IsActive { get; set; } = true;
