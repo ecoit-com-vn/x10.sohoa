@@ -1,25 +1,25 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { APP_CONFIG } from '@sohoa.frontend/shared/core';
+import { ApiService } from '@sohoa.frontend/shared/core';
 
 @Injectable({
   providedIn: 'root'
 })
 export class EquipmentTypeService {
-  private http = inject(HttpClient);
-  private config = inject(APP_CONFIG);
+  private api = inject(ApiService);
+  private gridTypes$: Observable<any[]> | null = null;
 
   private get base() {
-    return `${this.config.apiGatewayUrl}/api/v1/equipmenttype`;
+    return `/api/equipmenttype`;
   }
 
   getEquipmentTypes(
-    page: number, 
-    pageSize: number, 
-    code?: string, 
-    name?: string, 
-    gridTypeId?: number, 
+    page: number,
+    pageSize: number,
+    code?: string,
+    name?: string,
+    gridTypeId?: number,
     isActive?: boolean
   ): Observable<any> {
     let params = new HttpParams()
@@ -39,31 +39,34 @@ export class EquipmentTypeService {
       params = params.set('isActive', isActive.toString());
     }
 
-    return this.http.get<any>(this.base, { params });
+    return this.api.get<any>(this.base, { params });
   }
 
   getById(id: string): Observable<any> {
-    return this.http.get<any>(`${this.base}/${id}`);
+    return this.api.get<any>(`${this.base}/${id}`);
   }
 
   create(item: any): Observable<any> {
-    return this.http.post<any>(this.base, item);
+    return this.api.post<any>(this.base, item);
   }
 
   update(id: string, item: any): Observable<any> {
-    return this.http.put<any>(`${this.base}/${id}`, item);
+    return this.api.put<any>(`${this.base}/${id}`, item);
   }
 
   delete(id: string): Observable<any> {
-    return this.http.delete<any>(`${this.base}/${id}`);
+    return this.api.delete<any>(`${this.base}/${id}`);
   }
 
   toggleStatus(id: string, isLocking: boolean): Observable<any> {
     const action = isLocking ? 'lock' : 'unlock';
-    return this.http.post<any>(`${this.base}/${id}/${action}`, {});
+    return this.api.post<any>(`${this.base}/${id}/${action}`, {});
   }
 
   getGridTypesLookup(): Observable<any[]> {
-    return this.http.get<any[]>(`${this.base}/grid-types/lookup`);
+    if (!this.gridTypes$) {
+      this.gridTypes$ = this.api.get<any[]>(`${this.base}/grid-types/lookup`)
+    }
+    return this.gridTypes$;
   }
 }

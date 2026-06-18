@@ -52,7 +52,7 @@ export class FormTemplateComponent implements OnInit {
 
   equipmentTypes = signal<any[]>([]);
 
-  categories = signal<any[]>([]);
+  gridTypes = signal<any[]>([]);
 
   filteredForms = computed(() => {
     const keyword = this.searchKeyword().trim().toLowerCase();
@@ -82,29 +82,11 @@ export class FormTemplateComponent implements OnInit {
 
   ngOnInit() {
     this.loadEquipmentTypes();
+    this.loadGridTypes();
     this.loadForms();
-    this.loadHmadCategories();
   }
 
-  loadHmadCategories() {
-    this.formTemplateService.getCatalogTypeByCode('HMAD').subscribe({
-      next: (catalogType) => {
-        if (catalogType && catalogType.id) {
-          this.formTemplateService.getCatalogsLookup(catalogType.id).subscribe({
-            next: (catalogs) => {
-              this.categories.set(catalogs || []);
-            },
-            error: (err) => {
-              console.error('Failed to load catalogs for HMAD', err);
-            }
-          });
-        }
-      },
-      error: (err) => {
-        console.error('Failed to load CatalogType HMAD', err);
-      }
-    });
-  }
+
 
   loadEquipmentTypes() {
     this.equipmentTypeService.getEquipmentTypes(1, 1000, undefined, undefined, undefined, true).subscribe({
@@ -115,6 +97,17 @@ export class FormTemplateComponent implements OnInit {
       },
       error: (err) => {
         console.error('Failed to load equipment types', err);
+      }
+    });
+  }
+
+  loadGridTypes() {
+    this.equipmentTypeService.getGridTypesLookup().subscribe({
+      next: (types) => {
+        this.gridTypes.set(types || []);
+      },
+      error: (err) => {
+        console.error('Failed to load grid types', err);
       }
     });
   }
@@ -186,10 +179,12 @@ export class FormTemplateComponent implements OnInit {
 
   getCategoryName(code: string): string {
     const eqType = this.equipmentTypes().find(t => t.code === code || t.id === code);
-    if (eqType) {
-      return eqType.name;
-    }
-    const cat = this.categories().find(c => c.code === code);
-    return cat ? cat.name : code || '(Chưa chọn)';
+    return eqType ? eqType.name : code || '(Chưa chọn)';
+  }
+
+  getGridTypeName(gridTypeId?: number): string {
+    if (!gridTypeId) return '(Chưa chọn)';
+    const gt = this.gridTypes().find(g => g.id === gridTypeId);
+    return gt ? gt.name : `Loại ${gridTypeId}`;
   }
 }

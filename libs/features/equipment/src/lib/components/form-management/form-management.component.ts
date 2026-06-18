@@ -13,6 +13,7 @@ import { Paginator } from 'primeng/paginator';
 import { EavFormService, EavFormTemplate } from '@sohoa.frontend/shared/core';
 import { finalize } from 'rxjs';
 import { Dialog } from 'primeng/dialog';
+import { EquipmentTypeService } from '../../data-access/equipment-type.service';
 
 interface FormField {
   id: string;
@@ -113,6 +114,7 @@ export class FormManagementComponent implements OnInit {
   ];
 
   private eavFormService = inject(EavFormService);
+  private equipmentTypeService = inject(EquipmentTypeService);
   private messageService = inject(MessageService);
 
   filteredForms = computed(() => {
@@ -359,46 +361,14 @@ export class FormManagementComponent implements OnInit {
 
   createDefaultField(type: string): FormField {
     const id = 'f_' + Math.random().toString(36).substring(2, 9);
-    let label = 'Trường mới';
-    let name = 'truong_moi';
-    let options: string[] | undefined = undefined;
-
-    switch (type) {
-      case 'text':
-        label = 'Trường Văn bản';
-        name = 'truong_van_ban';
-        break;
-      case 'number':
-        label = 'Thông số kỹ thuật';
-        name = 'thong_so_ky_thuat';
-        break; 
-      case 'date':
-        label = 'Ngày tháng';
-        name = 'ngay_thang';
-        break;
-      case 'dropdown':
-        label = 'Danh mục lựa chọn';
-        name = 'danh_muc_lua_chon';
-        options = ['Lựa chọn A', 'Lựa chọn B'];
-        break;
-      case 'textarea':
-        label = 'Đoạn mô tả ngắn';
-        name = 'doan_mo_ta';
-        break;
-      case 'checkbox':
-        label = 'Xác nhận kiểm tra';
-        name = 'xac_nhan_kiem_tra';
-        break;
-    }
-
     return {
       id,
-      name: name + '_' + Math.floor(Math.random() * 1000),
-      label,
+      name: '',
+      label: '',
       type,
-      placeholder: 'Nhập giá trị...',
+      placeholder: '',
       required: false,
-      options,
+      options: type === 'dropdown' ? [] : undefined,
       width: 100,
       dataSourceType: 'manual'
     };
@@ -569,7 +539,7 @@ export class FormManagementComponent implements OnInit {
     const tId = this.templateId();
     
     if (isEdit && tId) {
-      this.eavFormService.updateTemplate(tId, fName, fCode, fCategory, desc, fDescInfo, schemaStr).subscribe({
+      this.eavFormService.updateTemplate(tId, fName, fCode, fCategory, desc, fDescInfo, schemaStr, 'admin', undefined).subscribe({
         next: () => {
           this.messageService.add({
             severity: 'success',
@@ -589,7 +559,7 @@ export class FormManagementComponent implements OnInit {
         }
       });
     } else {
-      this.eavFormService.createTemplate(fName, fCode, fCategory, desc, fDescInfo, schemaStr).subscribe({
+      this.eavFormService.createTemplate(fName, fCode, fCategory, desc, fDescInfo, schemaStr, 'admin', undefined).subscribe({
         next: () => {
           this.messageService.add({
             severity: 'success',

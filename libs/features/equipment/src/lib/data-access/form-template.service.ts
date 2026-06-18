@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { APP_CONFIG } from '@sohoa.frontend/shared/core';
+import { tap } from 'rxjs/operators';
+import { ApiService } from '@sohoa.frontend/shared/core';
 
 export interface EavFormTemplate {
   id: string;
@@ -18,38 +18,44 @@ export interface EavFormTemplate {
   status?: string;
   equipmentTypeId?: string;
   formType?: string;
+  gridTypeId?: number;
+  gridTypeName?: string;
 }
 
 @Injectable({
   providedIn: 'root'
 })
 export class FormTemplateService {
-  private http = inject(HttpClient);
-  private config = inject(APP_CONFIG);
+  private api = inject(ApiService);
+  private templates$: Observable<EavFormTemplate[]> | null = null;
 
   private get apiUrl() {
-    return `${this.config.apiGatewayUrl}/api/v1/form-templates`;
+    return `/api/v1/form-templates`;
   }
 
   getTemplates(): Observable<EavFormTemplate[]> {
-    return this.http.get<EavFormTemplate[]>(this.apiUrl);
+    if (!this.templates$) {
+      this.templates$ = this.api.get<EavFormTemplate[]>(this.apiUrl)
+    }
+    return this.templates$;
   }
 
   getTemplateById(id: string): Observable<EavFormTemplate> {
-    return this.http.get<EavFormTemplate>(`${this.apiUrl}/${id}`);
+    return this.api.get<EavFormTemplate>(`${this.apiUrl}/${id}`);
   }
 
   createTemplate(
-    name: string, 
-    code: string, 
-    category: string, 
-    description: string, 
-    descriptionInfo: string, 
-    formSchema: string, 
+    name: string,
+    code: string,
+    category: string,
+    description: string,
+    descriptionInfo: string,
+    formSchema: string,
     createdBy: string = 'admin',
-    equipmentTypeId?: string
+    equipmentTypeId?: string,
+    gridTypeId?: number
   ): Observable<EavFormTemplate> {
-    return this.http.post<EavFormTemplate>(this.apiUrl, {
+    return this.api.post<EavFormTemplate>(this.apiUrl, {
       name,
       code,
       category,
@@ -57,22 +63,26 @@ export class FormTemplateService {
       descriptionInfo,
       formSchema,
       createdBy,
-      equipmentTypeId
-    });
+      equipmentTypeId,
+      gridTypeId
+    }).pipe(
+      tap(() => this.templates$ = null)
+    );
   }
 
   updateTemplate(
-    id: string, 
-    name: string, 
-    code: string, 
-    category: string, 
-    description: string, 
-    descriptionInfo: string, 
-    formSchema: string, 
+    id: string,
+    name: string,
+    code: string,
+    category: string,
+    description: string,
+    descriptionInfo: string,
+    formSchema: string,
     updatedBy: string = 'admin',
-    equipmentTypeId?: string
+    equipmentTypeId?: string,
+    gridTypeId?: number
   ): Observable<EavFormTemplate> {
-    return this.http.put<EavFormTemplate>(`${this.apiUrl}/${id}`, {
+    return this.api.put<EavFormTemplate>(`${this.apiUrl}/${id}`, {
       name,
       code,
       category,
@@ -80,23 +90,28 @@ export class FormTemplateService {
       descriptionInfo,
       formSchema,
       updatedBy,
-      equipmentTypeId
-    });
+      equipmentTypeId,
+      gridTypeId
+    }).pipe(
+      tap(() => this.templates$ = null)
+    );
   }
 
   deleteTemplate(id: string): Observable<void> {
-    return this.http.delete<void>(`${this.apiUrl}/${id}`);
+    return this.api.delete<void>(`${this.apiUrl}/${id}`).pipe(
+      tap(() => this.templates$ = null)
+    );
   }
 
   getCatalogTypes(): Observable<any[]> {
-    return this.http.get<any[]>(`${this.config.apiGatewayUrl}/api/catalog/types`);
+    return this.api.get<any[]>('/api/catalog/types');
   }
 
   getCatalogTypeByCode(code: string): Observable<any> {
-    return this.http.get<any>(`${this.config.apiGatewayUrl}/api/Catalog/types/code/${code}`);
+    return this.api.get<any>(`/api/Catalog/types/code/${code}`);
   }
 
   getCatalogsLookup(catalogTypeId: number): Observable<any[]> {
-    return this.http.get<any[]>(`${this.config.apiGatewayUrl}/api/Catalog/lookup?catalogTypeId=${catalogTypeId}`);
+    return this.api.get<any[]>(`/api/Catalog/lookup?catalogTypeId=${catalogTypeId}`);
   }
 }
