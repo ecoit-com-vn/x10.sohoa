@@ -65,13 +65,6 @@ public class EquipmentDto
     public Dictionary<Guid, string> DynamicAttributes { get; set; } = new();
 }
 
-public class CreatorInfoDto
-{
-    public Guid Id { get; set; }
-    public string Username { get; set; } = string.Empty;
-    public string Name { get; set; } = string.Empty;
-}
-
 public class EquipmentTypeDto
 {
     public Guid Id { get; set; }

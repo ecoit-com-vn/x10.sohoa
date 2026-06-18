@@ -38,18 +38,16 @@ public class EquipmentTypeRepository : IEquipmentTypeRepository
                             gt.Name AS {nameof(EquipmentTypeDto.GridTypeName)},
                             u.Id AS CreatorId,
                             u.UserName AS Username,
-                            u.FullName AS Name
+                            u.FullName AS FullName
                      FROM EquipmentTypes et
                      LEFT JOIN GridTypes gt ON et.GridTypeId = gt.Id
                      LEFT JOIN APP_USER u ON et.CreatorId = u.Id
                      WHERE et.Id = :Id AND et.IsDeleted = 0";
 
-        var result = await _connection.QueryAsync<EquipmentTypeDto, CreatorInfoDto, EquipmentTypeDto>(
+        var result = await _connection.QueryAsync<EquipmentTypeDto, CreatorInfoRow, EquipmentTypeDto>(
             sql, 
-            (eqType, creator) => {
-                if (creator != null && creator.Id != Guid.Empty) {
-                    eqType.Creator = creator;
-                }
+            (eqType, creatorRow) => {
+                eqType.Creator = creatorRow?.ToDto();
                 return eqType;
             },
             new { Id = id.ToString() },
@@ -126,7 +124,7 @@ public class EquipmentTypeRepository : IEquipmentTypeRepository
                                    gt.Name AS {nameof(EquipmentTypeDto.GridTypeName)},
                                    u.Id AS CreatorId,
                                    u.UserName AS Username,
-                                   u.FullName AS Name
+                                   u.FullName AS FullName
                             {sqlBase}
                             ORDER BY et.SortOrder ASC, et.Code ASC, et.CreatedAt DESC
                             OFFSET :Offset ROWS FETCH NEXT :PageSize ROWS ONLY";
@@ -134,12 +132,10 @@ public class EquipmentTypeRepository : IEquipmentTypeRepository
         parameters.Add("Offset", (page - 1) * pageSize);
         parameters.Add("PageSize", pageSize);
 
-        var items = await _connection.QueryAsync<EquipmentTypeDto, CreatorInfoDto, EquipmentTypeDto>(
+        var items = await _connection.QueryAsync<EquipmentTypeDto, CreatorInfoRow, EquipmentTypeDto>(
             selectSql,
-            (eqType, creator) => {
-                if (creator != null && creator.Id != Guid.Empty) {
-                    eqType.Creator = creator;
-                }
+            (eqType, creatorRow) => {
+                eqType.Creator = creatorRow?.ToDto();
                 return eqType;
             },
             parameters,
