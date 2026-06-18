@@ -64,20 +64,16 @@
           </tr>
           
           <tr *ngFor="let form of paginatedForms(); let i = index">
-            <td><code style="font-weight: bold; color: #000000;">{{ form.code || '(Chưa có)' }}</code></td>
-            <td><b class="wf-name-link" style="color: #000000;" (click)="onEdit(form)">{{ form.name }}</b></td>
+            <td>{{ form.code }}</td>
+            <td>{{ form.name }}</td>
             <td>
-              <span class="badge" style="background: #e0f2fe; color: #0369a1; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;">
-                {{ form.gridTypeName || getGridTypeName(form.gridTypeId) }}
-              </span>
+              {{ form.gridTypeName || getGridTypeName(form.gridTypeId) }}
             </td>
             <td>
-              <span class="badge" style="background: #f1f5f9; color: #000000; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;">
-                {{ getCategoryName(form.category) }}
-              </span>
+              {{ getCategoryName(form.category) }}
             </td>
-            <td style="text-align: center; font-family: monospace; font-weight: bold; color: #000000;">v{{ form.version }}.0</td>
-            <td style="color: #000000;">{{ form.createdBy || 'admin' }}</td>
+            <td>v{{ form.version }}.0</td>
+            <td>{{ form.createdBy }}</td>
             <td class="col-tt">
               <span class="status-pill"
                 [class.status-active]="form.isActive"

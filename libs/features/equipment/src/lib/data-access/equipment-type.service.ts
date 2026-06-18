@@ -11,7 +11,7 @@ export class EquipmentTypeService {
   private gridTypes$: Observable<any[]> | null = null;
 
   private get base() {
-    return `/api/equipmenttype`;
+    return `/api/v1/equipmenttype`;
   }
 
   getEquipmentTypes(
