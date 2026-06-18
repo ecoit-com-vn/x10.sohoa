@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ToastModule } from 'primeng/toast';
@@ -71,9 +71,18 @@ export class FormBuilderComponent implements OnInit {
   fields = signal<FormField[]>([]);
   selectedFieldIndex = signal<number | null>(null);
   showJson = signal<boolean>(false);
-
+  gridTypes = signal<any[]>([]);
+  selectedGridTypeId = signal<number | null>(null);
   equipmentTypeId = signal<string>('');
   equipmentTypes = signal<any[]>([]);
+
+  filteredEquipmentTypes = computed(() => {
+    const gridId = this.selectedGridTypeId();
+    if (!gridId) {
+      return [];
+    }
+    return this.equipmentTypes().filter(et => et.gridTypeId === Number(gridId));
+  });
 
   categories = [
     { code: 'MAY_BIEN_AP', name: 'Máy biến áp' },
@@ -102,6 +111,7 @@ export class FormBuilderComponent implements OnInit {
 
   ngOnInit() {
     this.loadCatalogTypes();
+    this.loadGridTypes();
     this.loadEquipmentTypes();
     this.route.queryParams.subscribe(params => {
       if (params['id']) {
@@ -147,6 +157,9 @@ export class FormBuilderComponent implements OnInit {
         this.formDescription.set(form.description || '');
         this.formDescriptionInfo.set(form.descriptionInfo || '');
         this.equipmentTypeId.set(form.equipmentTypeId || '');
+        
+        // Load gridTypeId if available, else fall back to equipment type mapping
+        this.selectedGridTypeId.set(form.gridTypeId || null);
         
         // Backwards compatibility mapping if equipment types are already loaded
         if (!form.equipmentTypeId && form.category && this.equipmentTypes().length > 0) {
@@ -207,6 +220,7 @@ export class FormBuilderComponent implements OnInit {
     this.fields.set([]);
     this.selectedFieldIndex.set(null);
     this.showJson.set(false);
+    this.selectedGridTypeId.set(null);
   }
 
   goToList() {
@@ -282,46 +296,14 @@ export class FormBuilderComponent implements OnInit {
 
   createDefaultField(type: string): FormField {
     const id = 'f_' + Math.random().toString(36).substring(2, 9);
-    let label = 'Trường mới';
-    let name = 'truong_moi';
-    let options: string[] | undefined = undefined;
-
-    switch (type) {
-      case 'text':
-        label = 'Trường Văn bản';
-        name = 'truong_van_ban';
-        break;
-      case 'number':
-        label = 'Thông số kỹ thuật';
-        name = 'thong_so_ky_thuat';
-        break;
-      case 'date':
-        label = 'Ngày tháng';
-        name = 'ngay_thang';
-        break;
-      case 'dropdown':
-        label = 'Danh mục lựa chọn';
-        name = 'danh_muc_lua_chon';
-        options = ['Lựa chọn A', 'Lựa chọn B'];
-        break;
-      case 'textarea':
-        label = 'Đoạn mô tả ngắn';
-        name = 'doan_mo_ta';
-        break;
-      case 'checkbox':
-        label = 'Xác nhận kiểm tra';
-        name = 'xac_nhan_kiem_tra';
-        break;
-    }
-
     return {
       id,
-      name: name + '_' + Math.floor(Math.random() * 1000),
-      label,
+      name: '',
+      label: '',
       type,
-      placeholder: 'Nhập giá trị...',
+      placeholder: '',
       required: false,
-      options,
+      options: type === 'dropdown' ? [] : undefined,
       width: 100,
       dataSourceType: 'manual'
     };
@@ -458,6 +440,7 @@ export class FormBuilderComponent implements OnInit {
     const fName = this.formName().trim();
     const fCode = this.formCode().trim();
     const eqTypeId = this.equipmentTypeId();
+    const gridId = this.selectedGridTypeId();
 
     if (!fName) {
       this.messageService.add({ severity: 'warn', summary: 'Thiếu thông tin', detail: 'Vui lòng nhập tên form.' });
@@ -465,6 +448,10 @@ export class FormBuilderComponent implements OnInit {
     }
     if (!fCode) {
       this.messageService.add({ severity: 'warn', summary: 'Thiếu thông tin', detail: 'Vui lòng nhập mã form.' });
+      return;
+    }
+    if (!gridId) {
+      this.messageService.add({ severity: 'warn', summary: 'Thiếu thông tin', detail: 'Vui lòng chọn loại lưới điện.' });
       return;
     }
     if (!eqTypeId) {
@@ -494,7 +481,7 @@ export class FormBuilderComponent implements OnInit {
     const tId = this.templateId();
     
     if (isEdit && tId) {
-      this.formTemplateService.updateTemplate(tId, fName, fCode, fCategory, desc, fDescInfo, schemaStr, 'admin', eqTypeId).subscribe({
+      this.formTemplateService.updateTemplate(tId, fName, fCode, fCategory, desc, fDescInfo, schemaStr, 'admin', eqTypeId, gridId || undefined).subscribe({
         next: () => {
           this.messageService.add({
             severity: 'success',
@@ -514,7 +501,7 @@ export class FormBuilderComponent implements OnInit {
         }
       });
     } else {
-      this.formTemplateService.createTemplate(fName, fCode, fCategory, desc, fDescInfo, schemaStr, 'admin', eqTypeId).subscribe({
+      this.formTemplateService.createTemplate(fName, fCode, fCategory, desc, fDescInfo, schemaStr, 'admin', eqTypeId, gridId || undefined).subscribe({
         next: () => {
           this.messageService.add({
             severity: 'success',
@@ -535,4 +522,16 @@ export class FormBuilderComponent implements OnInit {
       });
     }
   }
+
+  loadGridTypes() {
+    this.equipmentTypeService.getGridTypesLookup().subscribe({
+      next: (types) => {
+        this.gridTypes.set(types || []);
+      },
+      error: (err) => {
+        console.error('Failed to load grid types', err);
+      }
+    });
+  }
+
 }

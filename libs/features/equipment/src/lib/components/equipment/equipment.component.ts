@@ -7,6 +7,7 @@ import { DialogModule } from 'primeng/dialog';
 import { MessageService } from 'primeng/api';
 import { AuthService } from '@sohoa.frontend/shared/core';
 import { EquipmentService } from '../../data-access/equipment.service';
+import { forkJoin } from 'rxjs';
 import { finalize } from 'rxjs/operators';
 
 @Component({
@@ -173,18 +174,22 @@ export class EquipmentComponent implements OnInit {
   }
 
   loadLookupData() {
-    this.equipmentService.getLookup().subscribe({
+    forkJoin({
+      organizationUnits: this.equipmentService.getOrganizationUnits(),
+      infrastructures: this.equipmentService.getInfrastructures(),
+      gridTypes: this.equipmentService.getGridTypes(),
+      equipmentTypes: this.equipmentService.getEquipmentTypes(),
+      countries: this.equipmentService.getCountries()
+    }).subscribe({
       next: (data) => {
-        if (data) {
-          this.organizationUnits.set(Array.isArray(data.organizationUnits) ? data.organizationUnits : []);
-          this.infrastructures.set(Array.isArray(data.infrastructures) ? data.infrastructures : []);
-          this.gridTypes.set(Array.isArray(data.gridTypes) ? data.gridTypes : []);
-          this.equipmentTypes.set(Array.isArray(data.equipmentTypes) ? data.equipmentTypes : []);
-          this.countries.set(Array.isArray(data.countries) ? data.countries : []);
-        }
+        this.organizationUnits.set(Array.isArray(data.organizationUnits) ? data.organizationUnits : []);
+        this.infrastructures.set(Array.isArray(data.infrastructures) ? data.infrastructures : []);
+        this.gridTypes.set(Array.isArray(data.gridTypes) ? data.gridTypes : []);
+        this.equipmentTypes.set(Array.isArray(data.equipmentTypes) ? data.equipmentTypes : []);
+        this.countries.set(Array.isArray(data.countries) ? data.countries : []);
       },
       error: () => {
-        console.error('Không thể tải dữ liệu danh mục lookup');
+        console.error('Không thể tải dữ liệu danh mục');
       }
     });
   }
@@ -309,6 +314,11 @@ export class EquipmentComponent implements OnInit {
     }));
     this.formOrgTreeOpen.set(false);
     this.onFieldChange('unitId');
+  }
+
+  onGridTypeChange(value: any) {
+    this.currentItem.update(item => ({ ...item, gridTypeId: value, equipmentTypeId: null }));
+    this.onFieldChange('gridTypeId');
   }
 
   onSearch() {

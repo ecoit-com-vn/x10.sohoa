@@ -57,4 +57,12 @@ export class DossierTypeService {
   getEavFormTemplates(): Observable<any[]> {
     return this.http.get<any[]>(this.formTemplatesBase);
   }
+
+  getEavFormTemplatesLookup(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.formTemplatesBase}/lookup`);
+  }
+
+  updateEav(id: string, formPayload: any): Observable<any> {
+    return this.http.put<any>(`${this.base}/${id}/update-eav`, formPayload);
+  }
 }

@@ -46,6 +46,7 @@
           <tr>
             <th style="width: 150px;">Mã biểu mẫu</th>
             <th>Tên biểu mẫu thuộc tính thiết bị</th>
+            <th>Loại lưới điện</th>
             <th>Loại thiết bị</th>
             <th style="width: 100px; text-align: center;">Phiên bản</th>
             <th>Người tạo</th>
@@ -56,7 +57,7 @@
         </thead>
         <tbody>
           <tr *ngIf="loading() && filteredForms().length === 0">
-            <td colspan="8" class="skeleton-row" style="padding: 30px; text-align: center;">
+            <td colspan="9" class="skeleton-row" style="padding: 30px; text-align: center;">
               <i class="pi pi-spin pi-spinner mr-2" style="font-size: 1.5rem; color: #002D72;"></i>
               <span>Đang tải danh sách biểu mẫu...</span>
             </td>
@@ -65,6 +66,11 @@
           <tr *ngFor="let form of paginatedForms(); let i = index">
             <td><code style="font-weight: bold; color: #000000;">{{ form.code || '(Chưa có)' }}</code></td>
             <td><b class="wf-name-link" style="color: #000000;" (click)="onEdit(form)">{{ form.name }}</b></td>
+            <td>
+              <span class="badge" style="background: #e0f2fe; color: #0369a1; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;">
+                {{ form.gridTypeName || getGridTypeName(form.gridTypeId) }}
+              </span>
+            </td>
             <td>
               <span class="badge" style="background: #f1f5f9; color: #000000; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;">
                 {{ getCategoryName(form.category) }}
@@ -94,7 +100,7 @@
             </td>
           </tr>
           <tr *ngIf="filteredForms().length === 0 && !loading()">
-            <td colspan="8" class="empty-row">
+            <td colspan="9" class="empty-row">
               <i class="pi pi-inbox"></i>
               <div>Chưa có biểu mẫu động nào. Nhấp tạo biểu mẫu để thiết lập!</div>
             </td>
