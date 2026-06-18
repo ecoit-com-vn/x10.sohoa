@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using EvnHanoi.WorkflowService.Core.Interfaces;
 using EvnHanoi.WorkflowService.Models;
+using EvnHanoi.Infrastructure.Security;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -10,16 +11,26 @@ using Microsoft.AspNetCore.Authorization;
 
 namespace EvnHanoi.WorkflowService.Controllers
 {
+    /// <summary>
+    /// API engine quy trình — không có menu/ma trận quyền động riêng.
+    /// Phân quyền: JWT bắt buộc + kiểm tra vai trò/task trong WorkflowEngineService.
+    /// FE/domain service (Dossier, BorrowRecord) kiểm tra quyền nghiệp vụ trước khi gọi relay.
+    /// </summary>
     [Authorize]
+    [WorkflowEngineApi]
     [ApiController]
     [Route("api/v1/workflows")]
     public class WorkflowController : ControllerBase
     {
         private readonly IWorkflowEngineService _workflowEngine;
+        private readonly IWorkflowDefinitionService _workflowDefinitionService;
 
-        public WorkflowController(IWorkflowEngineService workflowEngine)
+        public WorkflowController(
+            IWorkflowEngineService workflowEngine,
+            IWorkflowDefinitionService workflowDefinitionService)
         {
             _workflowEngine = workflowEngine ?? throw new ArgumentNullException(nameof(workflowEngine));
+            _workflowDefinitionService = workflowDefinitionService ?? throw new ArgumentNullException(nameof(workflowDefinitionService));
         }
 
         [HttpGet("get-workflow-by-entity/{entityId}")]
@@ -36,10 +47,19 @@ namespace EvnHanoi.WorkflowService.Controllers
             }
         }
 
+        [HttpGet("get-workflow-definition/{definitionId:guid}")]
+        public async Task<IActionResult> GetWorkflowDefinition(Guid definitionId)
+        {
+            var definition = await _workflowDefinitionService.GetDefinitionByIdAsync(definitionId);
+            if (definition == null)
+                return NotFound(new { message = $"Không tìm thấy workflow definition với ID = {definitionId}." });
+
+            return Ok(definition);
+        }
+
         /// <summary>
-        /// Gửi duyệt — Token Relay: DossierService đính kèm JWT của user gốc,
-        /// WorkflowEngine tự tìm definition active theo EntityType.
-        /// Không cần truyền definitionId từ phía client.
+        /// Khởi chạy quy trình — thường được gọi qua Token Relay từ domain service
+        /// sau khi domain controller đã kiểm tra quyền (vd: DOSSIER_CREATE).
         /// </summary>
         [HttpPost("submit")]
         public async Task<IActionResult> SubmitToWorkflow([FromBody] SubmitWorkflowRequest request)
@@ -51,6 +71,7 @@ namespace EvnHanoi.WorkflowService.Controllers
                 var instance = await _workflowEngine.SubmitByEntityTypeAsync(
                     request.EntityId,
                     request.EntityType,
+                    request.TargetEntityType ?? request.EntityType,
                     userId);
 
                 return Ok(new
@@ -79,7 +100,8 @@ namespace EvnHanoi.WorkflowService.Controllers
                 .Where(c => c.Type == ClaimTypes.Role)
                 .Select(c => c.Value)
                 .ToList();
-            var isAdmin = roles.Contains("Admin", StringComparer.OrdinalIgnoreCase);
+            var isAdmin = roles.Any(r => r.Equals("ADMIN", StringComparison.OrdinalIgnoreCase)
+                                      || r.Equals("Admin", StringComparison.OrdinalIgnoreCase));
 
             var tasks = await _workflowEngine.GetMyTasksAsync(roles, isAdmin, userId);
             return Ok(tasks);
@@ -90,18 +112,14 @@ namespace EvnHanoi.WorkflowService.Controllers
         {
             try
             {
-                var status = await _workflowEngine.GetInstanceStatusByEntityAsync(entityId, entityType);
-                if (status == null)
-                    return NotFound(new { message = $"Không tìm thấy quy trình cho đối tượng {entityId}." });
-
-                return Ok(status);
+                var history = await _workflowEngine.GetHistoryByEntityAsync(entityId, entityType);
+                return Ok(history);
             }
             catch (KeyNotFoundException ex)
             {
                 return NotFound(new { message = ex.Message });
             }
         }
-
 
         [HttpPost("tasks/{taskId:guid}/approve")]
         public async Task<IActionResult> ApproveTask(Guid taskId, [FromBody] ApproveTaskRequest request)
@@ -155,15 +173,35 @@ namespace EvnHanoi.WorkflowService.Controllers
             }
         }
 
-
+        /// <summary>
+        /// Chuyển bước — kiểm tra vai trò BPMN và đường đi hợp lệ trước khi thực thi.
+        /// </summary>
         [HttpPost("move")]
         public async Task<IActionResult> MoveWorkflow([FromBody] MoveWorkflowRequest request)
         {
+            if (request == null) return BadRequest(new { message = "Dữ liệu không hợp lệ." });
+
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.Identity?.Name ?? "admin";
+            var roles = User.Claims
+                .Where(c => c.Type == ClaimTypes.Role)
+                .Select(c => c.Value)
+                .ToList();
+            var isAdmin = roles.Any(r => r.Equals("ADMIN", StringComparison.OrdinalIgnoreCase)
+                                      || r.Equals("Admin", StringComparison.OrdinalIgnoreCase));
 
             try
             {
-                var instance = await _workflowEngine.MoveAsync(request.DossierId, request.NextNodeId, userId, request.ActionLabel, request.Comment, request.NextAssigneeUserId);
+                var instance = await _workflowEngine.MoveWithValidationAsync(
+                    request.DossierId,
+                    request.NextNodeId,
+                    userId,
+                    roles,
+                    isAdmin,
+                    request.ActionLabel,
+                    request.Comment,
+                    request.NextAssigneeUserId,
+                    request.EntityType ?? "BorrowRecord");
+
                 return Ok(new
                 {
                     Success = true,
@@ -175,6 +213,14 @@ namespace EvnHanoi.WorkflowService.Controllers
             {
                 return NotFound(new { message = ex.Message });
             }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return StatusCode(403, new { message = ex.Message });
+            }
             catch (InvalidOperationException ex)
             {
                 return BadRequest(new { message = ex.Message });
@@ -185,7 +231,19 @@ namespace EvnHanoi.WorkflowService.Controllers
     public class SubmitWorkflowRequest
     {
         public string EntityId { get; set; } = string.Empty;
-        public string EntityType { get; set; } = "Dossier";
+
+        /// <summary>
+        /// Description của enum WorkflowType — dùng để TÌM WorkflowDefinition phù hợp.
+        /// Ví dụ: "Quy trình số hóa hồ sơ".
+        /// </summary>
+        public string EntityType { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Loại entity thực sự — gắn vào WorkflowInstance.TargetEntityType để query sau.
+        /// Ví dụ: "Dossier", "BorrowRecord".
+        /// Nếu null → dùng EntityType làm fallback.
+        /// </summary>
+        public string? TargetEntityType { get; set; }
     }
 
     public class ApproveTaskRequest
@@ -201,5 +259,7 @@ namespace EvnHanoi.WorkflowService.Controllers
         public string ActionLabel { get; set; } = string.Empty;
         public string? Comment { get; set; }
         public string? NextAssigneeUserId { get; set; }
+        /// <summary>TargetEntityType của WorkflowInstance (vd: "Dossier", "BorrowRecord"). Mặc định "BorrowRecord".</summary>
+        public string? EntityType { get; set; }
     }
 }

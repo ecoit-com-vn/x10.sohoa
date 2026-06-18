@@ -13,7 +13,10 @@ namespace EvnHanoi.WorkflowService.Core.Interfaces
         Task<(IEnumerable<WorkflowDefinition> Items, int TotalCount)> GetPagedDefinitionsAsync(int page, int pageSize, string? keyword = null, bool? isActive = null);
         Task<WorkflowDefinition?> GetDefinitionByIdAsync(Guid id);
 
-        /// <summary>Lấy definition đang active cho một loại entity (dùng bởi Token Relay submit).</summary>
+        /// <summary>
+        /// Lấy definition đang active theo EntityType — giá trị là description của enum WorkflowType,
+        /// ví dụ: "Quy trình số hóa hồ sơ".
+        /// </summary>
         Task<WorkflowDefinition?> GetActiveDefinitionByEntityTypeAsync(string entityType);
         Task<WorkflowStep?> GetStepByIdAsync(Guid id);
         Task<bool> CreateDefinitionAsync(WorkflowDefinition definition);

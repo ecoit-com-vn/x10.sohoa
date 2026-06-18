@@ -161,15 +161,18 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
             return instance;
         }
 
-        public async Task<WorkflowInstance> SubmitByEntityTypeAsync(string targetEntityId, string entityType, string userId)
+        public async Task<WorkflowInstance> SubmitByEntityTypeAsync(string targetEntityId, string entityType, string targetEntityType, string userId)
         {
             var definition = await _workflowRepository.GetActiveDefinitionByEntityTypeAsync(entityType)
                 ?? throw new KeyNotFoundException(
-                    $"Không tìm thấy quy trình đang hoạt động cho loại đối tượng '{entityType}'. " +
+                    $"Không tìm thấy quy trình đang hoạt động cho '{entityType}'. " +
                     "Hãy tạo WorkflowDefinition với EntityType tương ứng và bật trạng thái Active.");
 
-            return await SubmitAsync(definition.Id, targetEntityId, entityType, userId);
+            // targetEntityType (vd: "Dossier") gắn vào instance để query sau,
+            // entityType (vd: "Quy trình số hóa hồ sơ") chỉ dùng tìm definition.
+            return await SubmitAsync(definition.Id, targetEntityId, targetEntityType, userId);
         }
+
 
         public async Task<WorkflowTask> ApproveAsync(Guid taskId, string userId, string? comment = null, string? nextAssigneeUserId = null)
         {
@@ -400,9 +403,9 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
             return prevTask;
         }
 
-        public async Task<WorkflowInstance> MoveAsync(string targetEntityId, string nextNodeId, string userId, string actionLabel, string? comment = null, string? nextAssigneeUserId = null)
+        public async Task<WorkflowInstance> MoveAsync(string targetEntityId, string nextNodeId, string userId, string actionLabel, string? comment = null, string? nextAssigneeUserId = null, string entityType = "BorrowRecord")
         {
-            var instance = await _workflowRepository.GetInstanceByEntityAsync(targetEntityId, "BorrowRecord");
+            var instance = await _workflowRepository.GetInstanceByEntityAsync(targetEntityId, entityType);
             if (instance == null)
             {
                 throw new KeyNotFoundException("Không tìm thấy phiên chạy quy trình cho hồ sơ này.");
@@ -581,9 +584,10 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
             bool isAdmin, 
             string actionLabel, 
             string? comment = null,
-            string? nextAssigneeUserId = null)
+            string? nextAssigneeUserId = null,
+            string entityType = "BorrowRecord")
         {
-            var instance = await _workflowRepository.GetInstanceByEntityAsync(targetEntityId, "BorrowRecord");
+            var instance = await _workflowRepository.GetInstanceByEntityAsync(targetEntityId, entityType);
             if (instance == null)
             {
                 throw new KeyNotFoundException("Không tìm thấy phiên chạy quy trình cho hồ sơ này.");
@@ -636,7 +640,7 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
             }
 
             // 3. Perform movement via MoveAsync
-            return await MoveAsync(targetEntityId, nextNodeId, userId, actionLabel, comment, nextAssigneeUserId);
+            return await MoveAsync(targetEntityId, nextNodeId, userId, actionLabel, comment, nextAssigneeUserId, entityType);
         }
 
         private bool IsValidBpmnPath(XDocument xmlDoc, string sourceNodeId, string targetNodeId)
@@ -745,6 +749,13 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
             return await _workflowRepository.GetHistoryByInstanceIdAsync(instanceId);
         }
 
+        public async Task<IEnumerable<WorkflowHistory>> GetHistoryByEntityAsync(string entityId, string entityType)
+        {
+            var instance = await _workflowRepository.GetInstanceByEntityAsync(entityId, entityType);
+            if (instance == null) return Enumerable.Empty<WorkflowHistory>();
+            return await _workflowRepository.GetHistoryByInstanceIdAsync(instance.Id);
+        }
+
         public async Task<object> GetInstanceStatusByEntityAsync(string entityId, string entityType)
         {
             var instance = await _workflowRepository.GetInstanceByEntityAsync(entityId, entityType);
@@ -752,6 +763,11 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
             {
                 throw new KeyNotFoundException("Không tìm thấy phiên chạy quy trình cho hồ sơ/yêu cầu này.");
             }
+
+            var pendingTask = instance.Tasks.FirstOrDefault(t => t.Status == "Pending");
+            var currentStep = pendingTask?.Step
+                ?? instance.WorkflowDefinition?.Steps.FirstOrDefault(s => s.Order == instance.CurrentStepOrder);
+            var currentStepAllowEdit = instance.Status == "Running" && (currentStep?.AllowEdit ?? false);
 
             return new
             {
@@ -761,6 +777,8 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
                 DefinitionName = instance.WorkflowDefinition?.Name ?? "",
                 Status = instance.Status,
                 CurrentStepOrder = instance.CurrentStepOrder,
+                CurrentStepName = instance.CurrentNodeName ?? currentStep?.StepName ?? "",
+                CurrentStepAllowEdit = currentStepAllowEdit,
                 CreatedAt = instance.CreatedAt,
                 UpdatedAt = instance.UpdatedAt,
                 PendingTasks = instance.Tasks.Where(t => t.Status == "Pending").Select(t => new {
@@ -768,6 +786,7 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
                     t.StepName,
                     t.AssignedRole,
                     ActionType = t.Step?.ActionType ?? "",
+                    AllowEdit = t.Step?.AllowEdit ?? false,
                     t.CreatedAt
                 })
             };

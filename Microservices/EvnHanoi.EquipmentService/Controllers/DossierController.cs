@@ -119,6 +119,10 @@ public class DossierController : ControllerBase
         {
             return NotFound(new { message = ex.Message });
         }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
         catch (Exception ex) when (ex.Message.Contains("Concurrency"))
         {
             return Conflict(new { message = ex.Message });
@@ -180,6 +184,10 @@ public class DossierController : ControllerBase
         catch (KeyNotFoundException ex)
         {
             return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
         }
         catch (Exception ex) when (ex.Message.Contains("Concurrency"))
         {
@@ -248,7 +256,6 @@ public class DossierController : ControllerBase
     }
 
     [HttpGet("{id:guid}/get-workflow-by-entity")]
-    [BypassDynamicPermission]
     public async Task<IActionResult> GetWorkflowByEntity(Guid id)
     {
         var result = await _dossierService.GetWorkflowStatusByEntityAsync(id.ToString());
@@ -256,7 +263,6 @@ public class DossierController : ControllerBase
     }
 
     [HttpGet("{id:guid}/get-workflow-history")]
-    [BypassDynamicPermission]
     public async Task<IActionResult> GetWorkflowHistory(Guid id)
     {
         var history = await _dossierService.GetWorkflowHistoryAsync(id);
@@ -264,7 +270,6 @@ public class DossierController : ControllerBase
     }
 
     [HttpGet("get-workflow-definition/{definitionId:guid}")]
-    [BypassDynamicPermission]
     public async Task<IActionResult> GetWorkflowDefinition(Guid definitionId)
     {
         var def = await _dossierService.GetWorkflowDefinitionAsync(definitionId);

@@ -85,7 +85,7 @@ public class DossierDetailDto
 }
 
 /// <summary>
-/// DTO tạo mới hồ sơ
+/// DTO tạo mới hồ sơ — bao gồm cả FormDataJson từ biểu mẫu động EAV
 /// </summary>
 public class DossierCreateDto
 {
@@ -94,10 +94,12 @@ public class DossierCreateDto
     public Guid? DossierSetId { get; set; }
     public Guid DossierTypeId { get; set; }
     public List<Guid> EquipmentIds { get; set; } = new();
+    /// <summary>Dữ liệu form động (JSON) từ EAV template, lưu cùng lúc với tạo hồ sơ.</summary>
+    public string? FormDataJson { get; set; }
 }
 
 /// <summary>
-/// DTO chỉnh sửa hồ sơ (thông tin cơ bản, không bao gồm FormDataJson)
+/// DTO chỉnh sửa hồ sơ — bao gồm cả FormDataJson từ biểu mẫu động EAV
 /// </summary>
 public class DossierUpdateDto
 {
@@ -107,6 +109,8 @@ public class DossierUpdateDto
     public Guid DossierTypeId { get; set; }
     public List<Guid> EquipmentIds { get; set; } = new();
     public int RowVersion { get; set; }
+    /// <summary>Dữ liệu form động (JSON) từ EAV template, lưu cùng lúc với cập nhật hồ sơ.</summary>
+    public string? FormDataJson { get; set; }
 }
 
 /// <summary>

@@ -1,4 +1,4 @@
-﻿using System.Data;
+using System.Data;
 using Dapper;
 using EvnHanoi.EquipmentService.Core.DTOs;
 using EvnHanoi.EquipmentService.Core.Entities;
@@ -245,6 +245,7 @@ public class DossierRepository : IDossierRepository
                             {nameof(Dossier.InfrastructureId)} = :InfrastructureId,
                             {nameof(Dossier.DossierSetId)} = :DossierSetId,
                             {nameof(Dossier.DossierTypeId)} = :DossierTypeId,
+                            {nameof(Dossier.FormDataJson)} = :FormDataJson,
                             {nameof(Dossier.ModifiedBy)} = :ModifiedBy,
                             {nameof(Dossier.ModifiedDate)} = :ModifiedDate,
                             {nameof(Dossier.RowVersion)} = {nameof(Dossier.RowVersion)} + 1
@@ -258,6 +259,7 @@ public class DossierRepository : IDossierRepository
                 InfrastructureId = dossier.InfrastructureId?.ToString(),
                 DossierSetId = dossier.DossierSetId?.ToString(),
                 DossierTypeId = dossier.DossierTypeId.ToString(),
+                dossier.FormDataJson,
                 dossier.ModifiedBy,
                 dossier.ModifiedDate,
                 dossier.RowVersion

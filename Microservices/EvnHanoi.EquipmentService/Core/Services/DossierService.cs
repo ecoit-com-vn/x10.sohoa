@@ -3,6 +3,7 @@ using EvnHanoi.EquipmentService.Core.Entities;
 using EvnHanoi.EquipmentService.Core.Interfaces;
 using EvnHanoi.Infrastructure.Database;
 using System.Net.Http.Json;
+using System.Text.Json;
 using InfrastructureEntity = EvnHanoi.EquipmentService.Core.Entities.Infrastructure;
 using GridTypeEntity = EvnHanoi.EquipmentService.Core.Entities.GridType;
 
@@ -65,6 +66,7 @@ public class DossierService : IDossierService
             InfrastructureId = dto.InfrastructureId,
             DossierSetId = dto.DossierSetId,
             DossierTypeId = dto.DossierTypeId,
+            FormDataJson = dto.FormDataJson,
             Status = DossierStatus.Draft,
             RowVersion = 1,
             CreatorId = string.IsNullOrEmpty(userId) ? null : Guid.TryParse(userId, out var uid) ? uid : null,
@@ -75,7 +77,23 @@ public class DossierService : IDossierService
             IsDeleted = false
         };
 
-        return await _dossierRepository.CreateAsync(dossier, dto.EquipmentIds);
+        var newId = await _dossierRepository.CreateAsync(dossier, dto.EquipmentIds);
+
+        // Tạo phiên bản khởi đầu (v1) ngay khi hồ sơ được tạo mới
+        if (!string.IsNullOrEmpty(dto.FormDataJson))
+        {
+            var firstVersion = new DossierVersion
+            {
+                DossierId = newId,
+                FormDataJson = dto.FormDataJson,
+                ChangeNote = "Khởi tạo hồ sơ",
+                CreatedBy = userName,
+                CreatedDate = DateTime.UtcNow
+            };
+            await _dossierRepository.CreateVersionAsync(firstVersion);
+        }
+
+        return newId;
     }
 
     public async Task<bool> UpdateAsync(Guid id, DossierUpdateDto dto, string userId)
@@ -83,10 +101,14 @@ public class DossierService : IDossierService
         var existing = await _dossierRepository.GetByIdAsync(id);
         if (existing == null) throw new KeyNotFoundException($"Không tìm thấy hồ sơ với ID = {id}");
 
+        if (!string.IsNullOrEmpty(dto.FormDataJson))
+            await EnsureCanEditFormDataAsync(existing);
+
         existing.GridTypeId = dto.GridTypeId;
         existing.InfrastructureId = dto.InfrastructureId;
         existing.DossierSetId = dto.DossierSetId;
         existing.DossierTypeId = dto.DossierTypeId;
+        existing.FormDataJson = dto.FormDataJson ?? existing.FormDataJson;
         existing.ModifiedBy = userId;
         existing.ModifiedDate = DateTime.UtcNow;
         existing.RowVersion = dto.RowVersion;
@@ -99,8 +121,10 @@ public class DossierService : IDossierService
         var existing = await _dossierRepository.GetByIdAsync(id);
         if (existing == null) throw new KeyNotFoundException($"Không tìm thấy hồ sơ với ID = {id}");
 
-        if (existing.Status != DossierStatus.Draft && existing.Status != DossierStatus.Returned)
-            throw new InvalidOperationException("Chỉ có thể xóa hồ sơ ở trạng thái Nháp hoặc Trả lại.");
+        var isDraft = existing.Status == DossierStatus.Draft;
+        var notInWorkflow = !existing.WorkflowInstanceId.HasValue;
+        if (!isDraft && !notInWorkflow)
+            throw new InvalidOperationException("Chỉ có thể xóa hồ sơ ở trạng thái Nháp hoặc chưa đưa vào quy trình phê duyệt.");
 
         return await _dossierRepository.SoftDeleteAsync(id, userId);
     }
@@ -111,6 +135,8 @@ public class DossierService : IDossierService
     {
         var existing = await _dossierRepository.GetByIdAsync(id);
         if (existing == null) throw new KeyNotFoundException($"Không tìm thấy hồ sơ với ID = {id}");
+
+        await EnsureCanEditFormDataAsync(existing);
 
         // Cập nhật FormDataJson với Optimistic Locking
         await _dossierRepository.UpdateFormDataAsync(id, dto.FormDataJson, dto.RowVersion, userId);
@@ -171,7 +197,10 @@ public class DossierService : IDossierService
         var submitResponse = await client.PostAsJsonAsync("api/v1/workflows/submit", new
         {
             EntityId = id.ToString(),
-            EntityType = "Dossier"
+            // EntityType = description của enum WorkflowType → tìm đúng WorkflowDefinition
+            EntityType = "Quy trình số hóa hồ sơ",
+            // TargetEntityType → gắn vào WorkflowInstance để query lại sau (GET by entity)
+            TargetEntityType = "Dossier"
         });
 
         if (!submitResponse.IsSuccessStatusCode)
@@ -181,11 +210,12 @@ public class DossierService : IDossierService
         }
 
         var instance = await submitResponse.Content.ReadFromJsonAsync<WorkflowInstanceRef>();
-        if (instance == null) throw new InvalidOperationException("Không nhận được kết quả khởi tạo quy trình.");
+        if (instance == null || instance.InstanceId == Guid.Empty)
+            throw new InvalidOperationException("Không nhận được instanceId hợp lệ từ WorkflowService.");
 
         await _dossierRepository.UpdateWorkflowAsync(
             id,
-            instance.Id,
+            instance.InstanceId,
             instance.Status ?? "Đang xử lý",
             DossierStatus.PendingApproval,
             userId);
@@ -202,7 +232,8 @@ public class DossierService : IDossierService
             NextNodeId = nextNodeId,
             ActionLabel = actionLabel,
             Comment = comment,
-            NextAssigneeUserId = nextAssigneeUserId
+            NextAssigneeUserId = nextAssigneeUserId,
+            EntityType = "Dossier"
         });
 
         if (!response.IsSuccessStatusCode)
@@ -224,15 +255,21 @@ public class DossierService : IDossierService
 
     public async Task<IEnumerable<object>> GetWorkflowHistoryAsync(Guid dossierId)
     {
-        var dossier = await _dossierRepository.GetByIdAsync(dossierId);
-        if (dossier == null || !dossier.WorkflowInstanceId.HasValue)
-            return Enumerable.Empty<object>();
-
         var client = _httpClientFactory.CreateClient("WorkflowService");
-        var response = await client.GetAsync($"api/v1/workflows/get-workflow-history/{dossierId}");
+        // WorkflowController.GetWorkflowHistory trả về IEnumerable<WorkflowHistory> (array JSON)
+        var response = await client.GetAsync($"api/v1/workflows/get-workflow-history/{dossierId}?entityType=Dossier");
         if (!response.IsSuccessStatusCode) return Enumerable.Empty<object>();
 
-        return await response.Content.ReadFromJsonAsync<IEnumerable<object>>() ?? Enumerable.Empty<object>();
+        var content = await response.Content.ReadAsStringAsync();
+        if (string.IsNullOrWhiteSpace(content)) return Enumerable.Empty<object>();
+
+        using var doc = JsonDocument.Parse(content);
+        var root = doc.RootElement;
+
+        if (root.ValueKind == JsonValueKind.Array)
+            return root.Deserialize<IEnumerable<object>>() ?? Enumerable.Empty<object>();
+
+        return Enumerable.Empty<object>();
     }
 
     public async Task<object?> GetWorkflowDefinitionAsync(Guid definitionId)
@@ -250,14 +287,52 @@ public class DossierService : IDossierService
         if (!response.IsSuccessStatusCode) return Enumerable.Empty<object>();
         return await response.Content.ReadFromJsonAsync<IEnumerable<object>>() ?? Enumerable.Empty<object>();
     }
+
+    /// <summary>
+    /// Kiểm tra quyền sửa dữ liệu hồ sơ:
+    /// - Chưa vào workflow: chỉ Draft hoặc Returned.
+    /// - Đã vào workflow: bước hiện tại phải có AllowEdit = true và instance đang Running.
+    /// </summary>
+    private async Task EnsureCanEditFormDataAsync(Dossier dossier)
+    {
+        if (!dossier.WorkflowInstanceId.HasValue)
+        {
+            if (dossier.Status != DossierStatus.Draft && dossier.Status != DossierStatus.Returned)
+                throw new InvalidOperationException("Không thể chỉnh sửa dữ liệu hồ sơ ở trạng thái hiện tại.");
+            return;
+        }
+
+        var client = _httpClientFactory.CreateClient("WorkflowService");
+        var response = await client.GetAsync($"api/v1/workflows/get-workflow-by-entity/{dossier.Id}?entityType=Dossier");
+        if (!response.IsSuccessStatusCode)
+            throw new InvalidOperationException("Không thể xác minh quyền chỉnh sửa theo quy trình phê duyệt.");
+
+        var content = await response.Content.ReadAsStringAsync();
+        using var doc = JsonDocument.Parse(content);
+        var root = doc.RootElement;
+
+        var status = root.TryGetProperty("status", out var statusEl) ? statusEl.GetString()
+            : root.TryGetProperty("Status", out statusEl) ? statusEl.GetString() : null;
+
+        if (!string.Equals(status, "Running", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Quy trình phê duyệt đã kết thúc, không thể chỉnh sửa dữ liệu hồ sơ.");
+
+        var allowEdit = (root.TryGetProperty("currentStepAllowEdit", out var ae) && ae.ValueKind == JsonValueKind.True)
+            || (root.TryGetProperty("CurrentStepAllowEdit", out ae) && ae.ValueKind == JsonValueKind.True);
+
+        if (!allowEdit)
+            throw new InvalidOperationException("Bước hiện tại của quy trình không cho phép chỉnh sửa dữ liệu hồ sơ.");
+    }
 }
 
 /// <summary>
-/// Lightweight reference model cho kết quả khởi tạo WorkflowInstance từ WorkflowService
+/// Maps response của POST api/v1/workflows/submit:
+/// { "success", "message", "instanceId", "status" }
 /// </summary>
 internal class WorkflowInstanceRef
 {
-    public Guid Id { get; set; }
+    /// <summary>InstanceId từ response body (camelCase: instanceId)</summary>
+    public Guid InstanceId { get; set; }
     public string? Status { get; set; }
     public string? CurrentNodeId { get; set; }
 }
