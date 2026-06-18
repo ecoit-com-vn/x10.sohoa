@@ -18,21 +18,6 @@
           {
             "glob": "**/*",
             "input": "apps/admin-portal/public"
-          },
-          {
-            "glob": "diagram-js.css",
-            "input": "node_modules/bpmn-js/dist/assets",
-            "output": "bpmn-js/dist/assets"
-          },
-          {
-            "glob": "bpmn-js.css",
-            "input": "node_modules/bpmn-js/dist/assets",
-            "output": "bpmn-js/dist/assets"
-          },
-          {
-            "glob": "**/*",
-            "input": "node_modules/bpmn-js/dist/assets/bpmn-font",
-            "output": "bpmn-js/dist/assets/bpmn-font"
           }
         ],
         "styles": ["apps/admin-portal/src/styles.scss"],
@@ -53,8 +38,8 @@
           "budgets": [
             {
               "type": "initial",
-              "maximumWarning": "500kb",
-              "maximumError": "1mb"
+              "maximumWarning": "1.5mb",
+              "maximumError": "2mb"
             },
             {
               "type": "anyComponentStyle",

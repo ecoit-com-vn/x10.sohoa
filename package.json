@@ -21,6 +21,7 @@
     "@primeuix/themes": "^2.0.3",
     "bpmn-js": "^18.16.1",
     "express": "^4.21.2",
+    "primeflex": "^4.0.0",
     "primeicons": "^7.0.0",
     "primeng": "^21.1.8",
     "rxjs": "~7.8.0"
