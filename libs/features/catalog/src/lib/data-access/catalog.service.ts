@@ -14,9 +14,12 @@ export class CatalogService {
   }
 
   private getBase(type?: string) {
-    if (type === 'CHUC_VU') return `/api/catalog/position`;
-    if (type === 'LINH_VUC') return `/api/catalog/domain`;
-    if (type === 'TINH_TRANG_VAT_LY') return `/api/catalog/physical-status`;
+    if (type === 'KE') return `${this.config.apiGatewayUrl}/api/catalog/shelf`;
+    if (type === 'TANG') return `${this.config.apiGatewayUrl}/api/catalog/floor`;
+    if (type === 'HOP') return `${this.config.apiGatewayUrl}/api/catalog/box`;
+    if (type === 'CHUC_VU') return `${this.config.apiGatewayUrl}/api/catalog/position`;
+    if (type === 'LINH_VUC') return `${this.config.apiGatewayUrl}/api/catalog/domain`;
+    if (type === 'TINH_TRANG_VAT_LY') return `${this.config.apiGatewayUrl}/api/catalog/physical-status`;
     return `/api/catalog`;
   }
 
@@ -25,24 +28,24 @@ export class CatalogService {
   }
 
   getItems(catalogType: string, page: number, pageSize: number, keyword?: string, status?: string): Observable<any> {
-    const isMappedType = ['CHUC_VU', 'LINH_VUC', 'TINH_TRANG_VAT_LY'].includes(catalogType);
+    const isMappedType = ['KE', 'TANG', 'HOP', 'CHUC_VU', 'LINH_VUC', 'TINH_TRANG_VAT_LY'].includes(catalogType);
     const base = this.getBase(catalogType);
-    
+
     let params = new HttpParams()
       .set('page', page.toString())
       .set('pageSize', pageSize.toString());
-    
+
     if (!isMappedType) {
       params = params.set('catalogType', catalogType);
     }
-    
+
     if (keyword && keyword.trim()) {
       params = params.set('keyword', keyword.trim());
     }
     if (status) {
       params = params.set('status', status);
     }
-    
+
     return this.api.get<any>(base, { params });
   }
 
@@ -51,14 +54,14 @@ export class CatalogService {
       .set('catalogTypeId', catalogTypeId.toString())
       .set('page', page.toString())
       .set('pageSize', pageSize.toString());
-    
+
     if (keyword && keyword.trim()) {
       params = params.set('keyword', keyword.trim());
     }
     if (status) {
       params = params.set('status', status);
     }
-    
+
     return this.api.get<any>(this.base, { params });
   }
 
