@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using RabbitMQ.Client;
+using Nest;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -38,7 +39,15 @@ var rabbitConnection = await rabbitFactory.CreateConnectionAsync();
 builder.Services.AddSingleton<IConnection>(rabbitConnection);
 
 builder.Services.AddDapperInfrastructure(builder.Configuration);
+
+var elasticsearchUrl = builder.Configuration["Elasticsearch:Url"]
+    ?? builder.Configuration["Elasticsearch:Uri"]
+    ?? "http://localhost:9200";
+builder.Services.AddSingleton<IElasticClient>(_ =>
+    new ElasticClient(new ConnectionSettings(new Uri(elasticsearchUrl)).DefaultDisableIdInference()));
+
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IDossierRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.DossierRepository>();
+builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IDossierSearchRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.DossierSearchRepository>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IDossierSetRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.DossierSetRepository>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IDossierService, EvnHanoi.EquipmentService.Core.Services.DossierService>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IEquipmentRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.EquipmentRepository>();

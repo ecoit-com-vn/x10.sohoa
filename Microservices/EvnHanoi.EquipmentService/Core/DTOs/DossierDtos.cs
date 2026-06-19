@@ -51,7 +51,7 @@ public class DossierListItemDto
     public string? CreatorName { get; set; }
     public DateTime CreatedDate { get; set; }
     /// <summary>
-    /// Dữ liệu catalog động theo BHS — key=CatalogType.Code, value=catalog value
+    /// Dữ liệu catalog động theo BHS — key = catalog.Name (trùng key FormDataJson), value = giá trị từ JSON
     /// </summary>
     public Dictionary<string, string> CatalogData { get; set; } = new();
 }
@@ -161,6 +161,8 @@ public class DossierFilterDto
     public Guid? InfrastructureId { get; set; }
     public int? GridTypeId { get; set; }
     public long? UnitId { get; set; }
+    /// <summary>Đơn vị + đơn vị con — do service resolve từ UnitId trước khi query ES.</summary>
+    public IReadOnlyList<long>? UnitScopeIds { get; set; }
     public string? Status { get; set; }
     public int Page { get; set; } = 1;
     public int PageSize { get; set; } = 10;

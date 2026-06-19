@@ -2,6 +2,7 @@ using EvnHanoi.EquipmentService.Core.DTOs;
 using EvnHanoi.EquipmentService.Core.Entities;
 using EvnHanoi.EquipmentService.Core.Interfaces;
 using EvnHanoi.Infrastructure.Database;
+using EvnHanoi.Infrastructure.Messaging;
 using System.Net.Http.Json;
 using System.Text.Json;
 using InfrastructureEntity = EvnHanoi.EquipmentService.Core.Entities.Infrastructure;
@@ -17,14 +18,23 @@ namespace EvnHanoi.EquipmentService.Core.Services;
 public class DossierService : IDossierService
 {
     private readonly IDossierRepository _dossierRepository;
+    private readonly IDossierSearchRepository _dossierSearchRepository;
+    private readonly IEquipmentRepository _equipmentRepository;
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IMessageProducer _messageProducer;
 
     public DossierService(
-        IDossierRepository dossierRepository, 
-        IHttpClientFactory httpClientFactory)
+        IDossierRepository dossierRepository,
+        IDossierSearchRepository dossierSearchRepository,
+        IEquipmentRepository equipmentRepository,
+        IHttpClientFactory httpClientFactory,
+        IMessageProducer messageProducer)
     {
         _dossierRepository = dossierRepository ?? throw new ArgumentNullException(nameof(dossierRepository));
+        _dossierSearchRepository = dossierSearchRepository ?? throw new ArgumentNullException(nameof(dossierSearchRepository));
+        _equipmentRepository = equipmentRepository ?? throw new ArgumentNullException(nameof(equipmentRepository));
         _httpClientFactory = httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory));
+        _messageProducer = messageProducer ?? throw new ArgumentNullException(nameof(messageProducer));
     }
 
     // ====loookup ====
@@ -49,7 +59,13 @@ public class DossierService : IDossierService
 
     public async Task<(IEnumerable<DossierListItemDto> Items, int TotalCount)> GetPagedAsync(DossierFilterDto filter)
     {
-        return await _dossierRepository.GetPagedAsync(filter);
+        if (filter.UnitId.HasValue)
+        {
+            var units = await _equipmentRepository.GetOrganizationUnitsHierarchicalAsync(filter.UnitId);
+            filter.UnitScopeIds = units.Select(u => u.Id).Distinct().ToList();
+        }
+
+        return await _dossierSearchRepository.GetPagedAsync(filter);
     }
 
     public async Task<DossierDetailDto?> GetDetailByIdAsync(Guid id)
@@ -93,6 +109,7 @@ public class DossierService : IDossierService
             await _dossierRepository.CreateVersionAsync(firstVersion);
         }
 
+        await PublishDossierChangedAsync(newId, DossierChangedActions.Created);
         return newId;
     }
 
@@ -113,7 +130,10 @@ public class DossierService : IDossierService
         existing.ModifiedDate = DateTime.UtcNow;
         existing.RowVersion = dto.RowVersion;
 
-        return await _dossierRepository.UpdateAsync(existing, dto.EquipmentIds);
+        var updated = await _dossierRepository.UpdateAsync(existing, dto.EquipmentIds);
+        if (updated)
+            await PublishDossierChangedAsync(id, DossierChangedActions.Updated);
+        return updated;
     }
 
     public async Task<bool> DeleteAsync(Guid id, string userId)
@@ -126,7 +146,10 @@ public class DossierService : IDossierService
         if (!isDraft && !notInWorkflow)
             throw new InvalidOperationException("Chỉ có thể xóa hồ sơ ở trạng thái Nháp hoặc chưa đưa vào quy trình phê duyệt.");
 
-        return await _dossierRepository.SoftDeleteAsync(id, userId);
+        var deleted = await _dossierRepository.SoftDeleteAsync(id, userId);
+        if (deleted)
+            await PublishDossierChangedAsync(id, DossierChangedActions.Deleted);
+        return deleted;
     }
 
     // ===== FORM DATA + VERSIONING =====
@@ -152,6 +175,7 @@ public class DossierService : IDossierService
         };
         await _dossierRepository.CreateVersionAsync(version);
 
+        await PublishDossierChangedAsync(id, DossierChangedActions.FormDataSaved);
         return await _dossierRepository.GetDetailByIdAsync(id);
     }
 
@@ -169,12 +193,18 @@ public class DossierService : IDossierService
 
     public async Task<bool> AddEquipmentAsync(Guid id, Guid equipmentId)
     {
-        return await _dossierRepository.AddEquipmentAsync(id, equipmentId);
+        var added = await _dossierRepository.AddEquipmentAsync(id, equipmentId);
+        if (added)
+            await PublishDossierChangedAsync(id, DossierChangedActions.Updated);
+        return added;
     }
 
     public async Task<bool> RemoveEquipmentAsync(Guid id, Guid equipmentId)
     {
-        return await _dossierRepository.RemoveEquipmentAsync(id, equipmentId);
+        var removed = await _dossierRepository.RemoveEquipmentAsync(id, equipmentId);
+        if (removed)
+            await PublishDossierChangedAsync(id, DossierChangedActions.Updated);
+        return removed;
     }
 
     // ===== WORKFLOW OPERATIONS (gọi qua HTTP tới WorkflowService) =====
@@ -220,6 +250,7 @@ public class DossierService : IDossierService
             DossierStatus.PendingApproval,
             userId);
 
+        await PublishDossierChangedAsync(id, DossierChangedActions.WorkflowChanged);
         return await _dossierRepository.GetDetailByIdAsync(id);
     }
 
@@ -322,6 +353,17 @@ public class DossierService : IDossierService
 
         if (!allowEdit)
             throw new InvalidOperationException("Bước hiện tại của quy trình không cho phép chỉnh sửa dữ liệu hồ sơ.");
+    }
+
+    private async Task PublishDossierChangedAsync(Guid dossierId, string action)
+    {
+        var evt = new DossierChangedEvent(
+            dossierId.ToString(),
+            action,
+            UuidHelper.NewUuid(),
+            DateTime.UtcNow);
+
+        await _messageProducer.SendMessageAsync(evt, DossierMessaging.IndexQueue);
     }
 }
 

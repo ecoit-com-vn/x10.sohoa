@@ -57,9 +57,14 @@ builder.Services.AddSingleton<NotificationDispatcher>();
 builder.Services.AddPermissionDiscovery("NotificationService");
 builder.Services.AddScoped<EvnHanoi.NotificationService.Repositories.IAuditLogRepository, EvnHanoi.NotificationService.Repositories.AuditLogRepository>();
 builder.Services.AddScoped<EvnHanoi.NotificationService.Services.IAuditLogService, EvnHanoi.NotificationService.Services.AuditLogService>();
+builder.Services.AddScoped<EvnHanoi.NotificationService.Repositories.IDossierEnrichmentRepository, EvnHanoi.NotificationService.Repositories.DossierEnrichmentRepository>();
+builder.Services.AddScoped<EvnHanoi.NotificationService.Services.IDossierDocumentBuilder, EvnHanoi.NotificationService.Services.DossierDocumentBuilder>();
+
+builder.Services.AddScoped<EvnHanoi.NotificationService.Repositories.IDossierSearchRepository, EvnHanoi.NotificationService.Repositories.DossierSearchRepository>();
+builder.Services.AddScoped<EvnHanoi.NotificationService.Services.IDossierSearchService, EvnHanoi.NotificationService.Services.DossierSearchService>();
 
 // Elasticsearch setup
-var esUri = builder.Configuration["Elasticsearch:Uri"] ?? "http://localhost:9200";
+var esUri = builder.Configuration["Elasticsearch:Url"] ?? "http://localhost:9200";
 var esSettings = new ElasticsearchClientSettings(new Uri(esUri))
     .DefaultIndex("equipments");
 builder.Services.AddSingleton(new ElasticsearchClient(esSettings));
@@ -93,6 +98,7 @@ builder.Services.AddHttpClient("IdentityService", client =>
 });
 
 builder.Services.AddHostedService<EquipmentIndexWorker>();
+builder.Services.AddHostedService<DossierIndexWorker>();
 
 var app = builder.Build();
 
