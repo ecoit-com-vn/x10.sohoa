@@ -13,7 +13,7 @@ export interface EavField {
 
 export function normalizeField(raw: Record<string, unknown>): EavField {
   return {
-    ...(raw as EavField),
+    ...(raw as unknown as EavField),
     key: String(raw['key'] ?? raw['name'] ?? raw['id'] ?? ''),
   };
 }
