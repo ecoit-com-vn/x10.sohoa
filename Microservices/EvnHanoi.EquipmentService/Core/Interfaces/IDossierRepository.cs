@@ -10,7 +10,8 @@ public interface IDossierRepository
     Task<IEnumerable<GridType>> GetGridTypesLookupAsync();
     Task<IEnumerable<DossierType>> GetDossierTypesLookupAsync();
 
-    // Danh sách có phân trang và filter
+    // Danh sách có phân trang và filter — đã chuyển sang Elasticsearch (DossierSearchRepository).
+    [Obsolete("Dùng IDossierSearchRepository qua DossierService.GetPagedAsync.")]
     Task<(IEnumerable<DossierListItemDto> Items, int TotalCount)> GetPagedAsync(DossierFilterDto filter);
 
     // Chi tiết

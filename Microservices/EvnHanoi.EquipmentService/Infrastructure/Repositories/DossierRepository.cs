@@ -55,72 +55,10 @@ public class DossierRepository : IDossierRepository
     }
 
 
-    public async Task<(IEnumerable<DossierListItemDto> Items, int TotalCount)> GetPagedAsync(DossierFilterDto filter)
-    {
-        if (_connection.State != ConnectionState.Open)
-            _connection.Open();
-        var parameters = new DynamicParameters();
-        var sqlBase = $@"FROM DOSSIERS d
-                         LEFT JOIN INFRASTRUCTURE i ON d.{nameof(Dossier.InfrastructureId)} = i.ID
-                         LEFT JOIN DOSSIER_TYPES dt ON d.{nameof(Dossier.DossierTypeId)} = dt.ID
-                         LEFT JOIN DOSSIER_SETS ds ON d.{nameof(Dossier.DossierSetId)} = ds.ID
-                         WHERE d.{nameof(Dossier.IsDeleted)} = 0";
-        // Filter theo keyword (tìm trong FormDataJson)
-        if (!string.IsNullOrWhiteSpace(filter.Keyword))
-        {
-            sqlBase += $" AND UPPER(d.{nameof(Dossier.FormDataJson)}) LIKE :Keyword";
-            parameters.Add("Keyword", $"%{filter.Keyword.ToUpper().Trim()}%");
-        }
-        // Filter theo trạm
-        if (filter.InfrastructureId.HasValue)
-        {
-            sqlBase += $" AND d.{nameof(Dossier.InfrastructureId)} = :InfrastructureId";
-            parameters.Add("InfrastructureId", filter.InfrastructureId.Value.ToString());
-        }
-        // Filter theo loại lưới điện
-        if (filter.GridTypeId.HasValue)
-        {
-            sqlBase += $" AND d.{nameof(Dossier.GridTypeId)} = :GridTypeId";
-            parameters.Add("GridTypeId", filter.GridTypeId.Value);
-        }
-        // Filter theo unit (bao gồm unit con — sử dụng CONNECT BY nếu Oracle, hoặc chỉ đơn giản là UnitId)
-        // Note: Đây là filter cơ bản; nếu cần phân cấp unit thì mở rộng thêm subquery sau
-        if (filter.UnitId.HasValue)
-        {
-            sqlBase += " AND i.UNIT_ID = :UnitId";
-            parameters.Add("UnitId", filter.UnitId.Value);
-        }
-        // Filter theo trạng thái
-        if (!string.IsNullOrWhiteSpace(filter.Status))
-        {
-            sqlBase += $" AND d.{nameof(Dossier.Status)} = :Status";
-            parameters.Add("Status", filter.Status);
-        }
-        var countSql = $"SELECT COUNT(1) {sqlBase}";
-        var totalCount = await _connection.ExecuteScalarAsync<int>(countSql, parameters);
-        var selectSql = $@"SELECT
-                            d.{nameof(Dossier.Id)},
-                            d.{nameof(Dossier.GridTypeId)},
-                            d.{nameof(Dossier.InfrastructureId)},
-                            i.NAME as {nameof(DossierListItemDto.InfrastructureName)},
-                            i.CODE as {nameof(DossierListItemDto.InfrastructureCode)},
-                            d.{nameof(Dossier.DossierSetId)},
-                            ds.NAME as {nameof(DossierListItemDto.DossierSetName)},
-                            d.{nameof(Dossier.DossierTypeId)},
-                            dt.NAME as {nameof(DossierListItemDto.DossierTypeName)},
-                            d.{nameof(Dossier.Status)},
-                            d.{nameof(Dossier.WorkflowStatusName)},
-                            d.{nameof(Dossier.CreatorName)},
-                            d.{nameof(Dossier.CreatedDate)},
-                            0 as {nameof(DossierListItemDto.DocumentCount)}
-                         {sqlBase}
-                         ORDER BY d.{nameof(Dossier.CreatedDate)} DESC
-                         OFFSET :Offset ROWS FETCH NEXT :PageSize ROWS ONLY";
-        parameters.Add("Offset", (filter.Page - 1) * filter.PageSize);
-        parameters.Add("PageSize", filter.PageSize);
-        var items = await _connection.QueryAsync<DossierListItemDto>(selectSql, parameters);
-        return (items, totalCount);
-    }
+    [Obsolete("Dùng IDossierSearchRepository qua DossierService.GetPagedAsync.")]
+    public Task<(IEnumerable<DossierListItemDto> Items, int TotalCount)> GetPagedAsync(DossierFilterDto filter)
+        => throw new NotSupportedException("Danh sách hồ sơ đã chuyển sang Elasticsearch. Gọi DossierService.GetPagedAsync.");
+
     public async Task<DossierDetailDto?> GetDetailByIdAsync(Guid id)
     {
         if (_connection.State != ConnectionState.Open)
