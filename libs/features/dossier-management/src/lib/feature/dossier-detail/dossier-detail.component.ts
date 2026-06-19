@@ -4,27 +4,15 @@ import { FormsModule } from '@angular/forms';
 import { ToastModule } from 'primeng/toast';
 import { DialogModule } from 'primeng/dialog';
 import { MessageService } from 'primeng/api';
+import { catchError, finalize, of, switchMap } from 'rxjs';
 import { DossierManagementService } from '../../data-access/dossier-management.service';
 import { AuthService } from '@sohoa.frontend/shared/core';
-
-interface EavField {
-  /** Định danh duy nhất (đã chuẩn hoá từ key/name/id của backend). */
-  key: string;
-  name?: string;
-  id?: string;
-  label: string;
-  type: 'text' | 'number' | 'date' | 'textarea' | 'select' | 'checkbox';
-  required?: boolean;
-  placeholder?: string;
-  options?: { label: string; value: string }[];
-  unit?: string;
-}
-
-/** Chuẩn hoá raw field từ backend: đảm bảo field.key luôn có giá trị.
- *  Backend trả về { id, name, ... } — Oracle map key = name hoặc id. */
-function normalizeField(raw: any): EavField {
-  return { ...raw, key: (raw.key || raw.name || raw.id || '').toString() };
-}
+import {
+  EavField,
+  normalizeField,
+  pickFormDataForSchema,
+  serializeFormDataForSchema,
+} from '../../utils/dossier-form-schema.util';
 
 /** Parse allowEdit từ API — tránh !!\"false\" === true */
 function readAllowEdit(value: unknown): boolean | null {
@@ -680,121 +668,153 @@ export class DossierDetailComponent implements OnInit {
 
   loadDetail() {
     this.loading.set(true);
-    this.service.getDossierById(this.dossierId).subscribe({
+    this.service.getDossierById(this.dossierId).pipe(
+      finalize(() => this.loading.set(false))
+    ).subscribe({
       next: (res) => {
-        this.dossier.set(res);
-
-        // Parse dữ liệu form đã lưu vào detailFormData
         try {
-          this.detailFormData = res.formDataJson ? JSON.parse(res.formDataJson) : {};
-        } catch {
-          this.detailFormData = {};
-        }
+          this.dossier.set(res);
 
-        // Load Form Template based on DossierTypeId
-        if (res.dossierTypeId) {
-          this.loadFormTemplate(res.dossierTypeId);
-        } else {
-          this.loading.set(false);
-        }
+          try {
+            this.detailFormData = res.formDataJson
+              ? (JSON.parse(res.formDataJson) as Record<string, unknown>)
+              : {};
+          } catch {
+            this.detailFormData = {};
+          }
 
-        // Load Workflow data
-        this.loadWorkflow();
+          if (res.dossierTypeId) {
+            this.loadFormTemplate(res.dossierTypeId);
+          }
+
+          // Workflow tải nền — không chặn overlay chính
+          this.loadWorkflow();
+        } catch (err) {
+          console.error('loadDetail processing error', err);
+        }
       },
       error: () => {
         this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể tải chi tiết hồ sơ' });
-        this.loading.set(false);
       }
     });
   }
 
   loadFormTemplate(dossierTypeId: string) {
     this.loadingType.set(true);
-    this.service.getDossierTypeLookup().subscribe({
-      next: (types) => {
-        const found = types.find((t: any) => t.id === dossierTypeId);
+    this.service.getDossierTypeLookup().pipe(
+      catchError(() => of([] as any[])),
+      switchMap((types) => {
+        const found = Array.isArray(types) ? types.find((t: any) => t.id === dossierTypeId) : undefined;
         const formId: string | null = found?.formId ?? null;
 
         if (!formId) {
           this.formTemplate.set(null);
           this.dynamicFields.set([]);
-          this.loadingType.set(false);
+          return of(null);
+        }
+
+        return this.service.getFormTemplate(formId);
+      }),
+      finalize(() => this.loadingType.set(false))
+    ).subscribe({
+      next: (template) => {
+        if (!template) {
+          this.formTemplate.set(null);
+          this.dynamicFields.set([]);
           return;
         }
 
-        this.service.getFormTemplate(formId).subscribe({
-          next: (template) => {
-            this.formTemplate.set(template);
-            if (template?.formSchema) {
-              try {
-                const raw = JSON.parse(template.formSchema);
-                const fields: EavField[] = Array.isArray(raw) ? raw.map(normalizeField) : [];
-                this.dynamicFields.set(fields);
-              } catch {
-                this.dynamicFields.set([]);
-              }
-            } else {
-              this.dynamicFields.set([]);
-            }
-            this.loadingType.set(false);
-          },
-          error: () => {
-            this.formTemplate.set(null);
+        this.formTemplate.set(template);
+        if (template.formSchema) {
+          try {
+            const raw = JSON.parse(template.formSchema);
+            const fields: EavField[] = Array.isArray(raw) ? raw.map((f) => normalizeField(f)) : [];
+            this.dynamicFields.set(fields);
+            this.detailFormData = pickFormDataForSchema(fields, this.detailFormData);
+          } catch {
             this.dynamicFields.set([]);
-            this.loadingType.set(false);
           }
-        });
+        } else {
+          this.dynamicFields.set([]);
+        }
       },
       error: () => {
-        this.loadingType.set(false);
+        this.formTemplate.set(null);
+        this.dynamicFields.set([]);
       }
     });
   }
 
+  /** Gán state workflow từ response getWorkflowDetail — tách riêng để bọc try/catch an toàn */
+  private applyWorkflowDetailState(res: any): void {
+    this.workflowDetail.set(res);
+
+    if (!res?.instance) {
+      this.detailWorkflowXml.set('');
+      this.detailHistoryLogs.set(Array.isArray(res?.history) ? res.history : []);
+      this.detailPendingTask.set(null);
+      this.detailCurrentNodeId.set('');
+      return;
+    }
+
+    const instance = res.instance;
+    const pendingList = Array.isArray(instance.pendingTasks)
+      ? instance.pendingTasks
+      : Array.isArray(instance.PendingTasks)
+        ? instance.PendingTasks
+        : [];
+    const pending = pendingList.length > 0 ? pendingList[0] : null;
+    this.detailPendingTask.set(pending);
+    this.detailCurrentNodeId.set(pickFirst(instance.currentNodeId, instance.CurrentNodeId) || '');
+    this.detailHistoryLogs.set(Array.isArray(res.history) ? res.history : []);
+
+    const bpmnXml = res.definition?.bpmnXml ?? res.definition?.BpmnXml;
+    if (bpmnXml) {
+      this.detailWorkflowXml.set(bpmnXml);
+      if (pending) {
+        const stepName = pickFirst(pending.stepName, pending.StepName) ?? '';
+        const nodeId = pickFirst(instance.currentNodeId, instance.CurrentNodeId);
+        this.parseDynamicButtons(bpmnXml, stepName, nodeId);
+      }
+    } else {
+      this.detailWorkflowXml.set('');
+    }
+  }
+
   loadWorkflow() {
     this.loadingBpmn.set(true);
-    this.service.getWorkflowDetail(this.dossierId).subscribe({
+    this.service.getWorkflowDetail(this.dossierId).pipe(
+      finalize(() => this.loadingBpmn.set(false))
+    ).subscribe({
       next: (res) => {
-        this.workflowDetail.set(res);
-
-        if (res?.instance) {
-          const instance = res.instance;
-          const pendingList = instance.pendingTasks ?? instance.PendingTasks ?? [];
-          const pending = pendingList.length > 0 ? pendingList[0] : null;
-          this.detailPendingTask.set(pending);
-          this.detailCurrentNodeId.set(pickFirst(instance.currentNodeId, instance.CurrentNodeId) || '');
-          this.detailHistoryLogs.set(res.history || []);
-
-          if (res.definition?.bpmnXml) {
-            this.detailWorkflowXml.set(res.definition.bpmnXml);
-            if (pending) {
-              this.parseDynamicButtons(res.definition.bpmnXml, pending.stepName, instance.currentNodeId);
-            }
-          }
-        } else {
-          this.detailWorkflowXml.set('');
-          this.detailHistoryLogs.set(res?.history || []);
+        try {
+          this.applyWorkflowDetailState(res);
+        } catch (err) {
+          console.error('applyWorkflowDetailState error', err);
         }
 
-        // Nhiệm vụ của user hiện tại
-        this.service.getMyTasks().subscribe({
-          next: (tasks) => {
-            const task = tasks.find((t: any) => t.targetEntityId === this.dossierId);
-            this.myTask.set(task || null);
-          },
-          error: () => this.myTask.set(null),
-          complete: () => {
-            this.loading.set(false);
-            this.loadingBpmn.set(false);
-          }
+        this.service.getUsersLookup().subscribe({
+          next: (users) => this.users.set(Array.isArray(users) ? users : []),
+          error: () => this.users.set([])
         });
 
-        // Users for next-assignee dropdown
-        this.service.getUsersLookup().subscribe((users: any[]) => this.users.set(users));
+        this.service.getMyTasks().subscribe({
+          next: (tasks) => {
+            const list = Array.isArray(tasks) ? tasks : [];
+            const task = list.find((t: any) =>
+              (t.targetEntityId ?? t.TargetEntityId) === this.dossierId
+            );
+            this.myTask.set(task ?? null);
+          },
+          error: () => this.myTask.set(null)
+        });
       },
       error: () => {
-        this.loading.set(false);
-        this.loadingBpmn.set(false);
+        this.messageService.add({
+          severity: 'warn',
+          summary: 'Cảnh báo',
+          detail: 'Không thể tải thông tin quy trình'
+        });
       }
     });
   }
@@ -972,7 +992,7 @@ export class DossierDetailComponent implements OnInit {
   saveFormData() {
     this.savingForm.set(true);
     this.service.saveFormData(this.dossierId, {
-      formDataJson: JSON.stringify(this.detailFormData),
+      formDataJson: serializeFormDataForSchema(this.dynamicFields(), this.detailFormData),
       rowVersion: this.dossier()?.rowVersion,
       changeNote: 'Cập nhật dữ liệu từ giao diện chi tiết'
     }).subscribe({
@@ -1037,12 +1057,13 @@ export class DossierDetailComponent implements OnInit {
 
   loadVersions() {
     this.loadingVersions.set(true);
-    this.service.getVersions(this.dossierId).subscribe({
+    this.service.getVersions(this.dossierId).pipe(
+      catchError(() => of([] as any[])),
+      finalize(() => this.loadingVersions.set(false))
+    ).subscribe({
       next: (res) => {
-        this.versions.set(res || []);
-        this.loadingVersions.set(false);
-      },
-      error: () => this.loadingVersions.set(false)
+        this.versions.set(Array.isArray(res) ? res : []);
+      }
     });
   }
 

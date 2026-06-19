@@ -5,32 +5,12 @@ import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
 import { DialogModule } from 'primeng/dialog';
 import { DossierManagementService } from '../../data-access/dossier-management.service';
-
-/** Một field trong FormSchema của EAV template.
- *  Backend có thể trả về `key`, `name`, hoặc `id` làm định danh —
- *  sau khi parse ta chuẩn hoá về `key` để dùng thống nhất trong template.
- */
-interface EavField {
-  /** Định danh duy nhất cho field (đã chuẩn hoá từ name/id). */
-  key: string;
-  /** Tên gốc từ backend (name hoặc id). */
-  name?: string;
-  id?: string;
-  label: string;
-  type: 'text' | 'number' | 'date' | 'textarea' | 'select' | 'checkbox';
-  required?: boolean;
-  placeholder?: string;
-  options?: { label: string; value: string }[];
-  unit?: string;
-}
-
-/** Chuẩn hoá một raw field object từ backend sang EavField với key hợp lệ. */
-function normalizeField(raw: any): EavField {
-  return {
-    ...raw,
-    key: (raw.key || raw.name || raw.id || '').toString()
-  };
-}
+import {
+  EavField,
+  normalizeField,
+  pickFormDataForSchema,
+  serializeFormDataForSchema,
+} from '../../utils/dossier-form-schema.util';
 
 @Component({
   selector: 'app-dossier-form',
@@ -403,14 +383,13 @@ export class DossierFormComponent implements OnInit {
 
         try {
           const raw = JSON.parse(template.formSchema);
-          const fields: EavField[] = Array.isArray(raw) ? raw.map(normalizeField) : [];
+          const fields: EavField[] = Array.isArray(raw) ? raw.map((f) => normalizeField(f)) : [];
           this.dynamicFields.set(fields);
 
-          // Điền lại dữ liệu nếu đang ở edit mode
           if (existingFormDataJson) {
             try {
-              const saved = JSON.parse(existingFormDataJson);
-              this.formData = { ...saved };
+              const saved = JSON.parse(existingFormDataJson) as Record<string, unknown>;
+              this.formData = pickFormDataForSchema(fields, saved);
             } catch { /* bỏ qua nếu JSON lỗi */ }
           }
         } catch {
@@ -439,7 +418,9 @@ export class DossierFormComponent implements OnInit {
     const dto = {
       ...this.dossier,
       equipmentIds: this.selectedEquipments().map(e => e.equipmentId || e.id),
-      formDataJson: this.dynamicFields().length > 0 ? JSON.stringify(this.formData) : undefined
+      formDataJson: this.dynamicFields().length > 0
+        ? serializeFormDataForSchema(this.dynamicFields(), this.formData)
+        : undefined
     };
 
     const req$ = this.isEditMode()
