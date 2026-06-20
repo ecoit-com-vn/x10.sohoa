@@ -197,13 +197,13 @@ namespace EvnHanoi.DigitizationService.Workers
                                 await publisher.PublishMessageAsync(progressMsg, "digitization.topic", "ocr.process.progress");
                             }
 
-                            // 4. Lưu PDF 2 lớp và Upload lên MinIO
-                            string outFileName = $"ocr_{taskMsg.FileId}_{Path.GetFileName(taskMsg.FilePath)}";
+                            // 4. Lưu PDF 2 lớp và Upload lên MinIO (ghi đè file gốc để tiết kiệm dung lượng)
+                            string outFileName = taskMsg.FilePath;
                             using var finalPdfStream = new MemoryStream();
                             outPdfDoc.Save(finalPdfStream, false);
                             finalPdfStream.Position = 0;
                             
-                            _logger.LogInformation("Đang upload PDF 2 lớp {FileName} lên MinIO", outFileName);
+                            _logger.LogInformation("Đang upload (ghi đè) PDF 2 lớp {FileName} lên MinIO", outFileName);
                             await minioService.UploadFileAsync(taskMsg.BucketName, outFileName, finalPdfStream, "application/pdf");
 
                             // 5. Cập nhật trạng thái DB
