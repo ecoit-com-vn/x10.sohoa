@@ -8,6 +8,8 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using RabbitMQ.Client;
 using Nest;
+using Minio;
+using EvnHanoi.EquipmentService.Core.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,6 +23,7 @@ builder.Host.UseSerilog((context, services, configuration) =>
 
 // 2. Add services to the container
 builder.Services.AddMemoryCache();
+builder.Services.AddDistributedMemoryCache();
 builder.Services.AddControllers(options =>
 {
     options.Filters.Add<EvnHanoi.Infrastructure.Security.DynamicPermissionFilter>();
@@ -50,6 +53,27 @@ builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IDossierRep
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IDossierSearchRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.DossierSearchRepository>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IDossierSetRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.DossierSetRepository>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IDossierService, EvnHanoi.EquipmentService.Core.Services.DossierService>();
+builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IDocumentRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.DocumentRepository>();
+builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Services.IDocumentManagementService, EvnHanoi.EquipmentService.Core.Services.DocumentManagementService>();
+builder.Services.AddSingleton<IMinioClient>(sp =>
+{
+    var config = sp.GetRequiredService<IConfiguration>();
+    var endpoint = config["MinIO:Endpoint"] ?? config["Minio:Endpoint"] ?? "localhost:9000";
+    var accessKey = config["MinIO:AccessKey"] ?? config["Minio:AccessKey"] ?? "minioadmin";
+    var secretKey = config["MinIO:SecretKey"] ?? config["Minio:SecretKey"] ?? "minioadmin";
+    var useSslConfig = config["MinIO:UseSSL"] ?? config["Minio:UseSSL"];
+    var useSsl = !string.IsNullOrEmpty(useSslConfig) && bool.Parse(useSslConfig);
+
+    return new MinioClient()
+        .WithEndpoint(endpoint)
+        .WithCredentials(accessKey, secretKey)
+        .WithSSL(useSsl)
+        .Build();
+});
+builder.Services.AddScoped<IFileUploadService, FileUploadService>();
+builder.Services.AddScoped<IFileStorageService, FileStorageService>();
+builder.Services.AddScoped<IClamAvService, ClamAvService>();
+builder.Services.AddScoped<IMimeTypeValidationService, MimeTypeValidationService>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IEquipmentRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.EquipmentRepository>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IEquipmentTypeRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.EquipmentTypeRepository>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IPhysicalStorageRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.PhysicalStorageRepository>();
