@@ -96,6 +96,10 @@ export const appRoutes: Route[] = [
         loadChildren: () => import('@sohoa.frontend/features/dossier-management').then(m => m.DOSSIER_MANAGEMENT_ROUTES)
       },
       {
+        path: 'documents',
+        loadChildren: () => import('@sohoa.frontend/features/document-management').then(m => m.DOCUMENT_MANAGEMENT_ROUTES)
+      },
+      {
         path: 'error',
         loadComponent: () => import('@sohoa.frontend/features/error').then(m => m.GlobalErrorComponent)
       },

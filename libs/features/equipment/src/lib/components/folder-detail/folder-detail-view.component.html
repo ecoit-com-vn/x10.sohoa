@@ -1,0 +1,62 @@
+<div class="folder-detail-view">
+  <!-- Page Header -->
+  <div class="wf-page-header">
+    <div class="header-content">
+      <h2 class="page-title">
+        <i class="pi pi-folder-open"></i>
+        Chi tiết thư mục
+      </h2>
+      <p class="page-subtitle">Quản lý tệp và phiên bản trong thư mục</p>
+    </div>
+
+    <!-- Tabs -->
+    <div class="view-tabs">
+      <button
+        (click)="currentView.set('files')"
+        [class.tab-active]="currentView() === 'files'"
+        class="tab-btn"
+      >
+        <i class="pi pi-list"></i>
+        Danh sách tệp
+      </button>
+      <button
+        (click)="currentView.set('upload')"
+        [class.tab-active]="currentView() === 'upload'"
+        class="tab-btn"
+      >
+        <i class="pi pi-cloud-upload"></i>
+        Tải lên
+      </button>
+    </div>
+  </div>
+
+  <!-- Content Area -->
+  <div class="folder-detail-content">
+    <!-- Files Tab -->
+    <div class="tab-pane" *ngIf="currentView() === 'files'" [@fadeIn]>
+      <app-file-list
+        [folderId]="folderId()"
+        [key]="refreshTrigger()"
+      ></app-file-list>
+    </div>
+
+    <!-- Upload Tab -->
+    <div class="tab-pane" *ngIf="currentView() === 'upload'" [@fadeIn]>
+      <div class="upload-section">
+        <h3 class="section-title">Tải lên tệp mới</h3>
+        <p class="section-subtitle">
+          Kéo thả hoặc chọn tệp để tải lên. Hỗ trợ tệp tối đa 500MB.
+        </p>
+
+        <app-file-upload-zone
+          [folderId]="folderId()"
+          (fileUploaded)="onFileUploaded($event)"
+          (uploadError)="onUploadError($event)"
+        ></app-file-upload-zone>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Messages -->
+  <p-toast></p-toast>
+</div>

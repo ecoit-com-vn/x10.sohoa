@@ -1,0 +1,149 @@
+<div class="file-list-container">
+  <!-- Header -->
+  <div class="list-toolbar">
+    <div class="toolbar-left">
+      <h3 class="list-title">Tệp và Phiên bản</h3>
+    </div>
+  </div>
+
+  <!-- Search Bar -->
+  <div class="search-section">
+    <i class="pi pi-search"></i>
+    <input
+      type="text"
+      placeholder="Tìm kiếm tệp..."
+      [(ngModel)]="searchKeyword()"
+      class="wf-search-input"
+    />
+  </div>
+
+  <!-- Files Table -->
+  <div class="wf-table-wrap" [class.loading]="isLoading()">
+    <p-table
+      [value]="filteredFiles()"
+      [scrollable]="true"
+      scrollHeight="400px"
+      [paginator]="true"
+      [rows]="pageSize()"
+      [totalRecords]="totalCount()"
+      [loading]="isLoading()"
+      (onLazyLoad)="onPageChange($event)"
+      [lazy]="true"
+      responsiveLayout="scroll"
+      styleClass="wf-table"
+    >
+      <!-- STT Column -->
+      <p-column header="STT" field="stt" [style]="{ width: '50px' }" styleClass="col-stt">
+        <ng-template #header>
+          <span class="column-header">STT</span>
+        </ng-template>
+        <ng-template let-rowIndex="rowIndex" #body>
+          <span>{{ (page() - 1) * pageSize() + rowIndex + 1 }}</span>
+        </ng-template>
+      </p-column>
+
+      <!-- File Name Column -->
+      <p-column header="Tên tệp" field="fileName" styleClass="col-hd">
+        <ng-template #header>
+          <span class="column-header">Tên tệp</span>
+        </ng-template>
+        <ng-template let-row="rowData" #body>
+          <div class="file-name-cell">
+            <i class="pi" [ngClass]="getFileIcon(row.fileName)"></i>
+            <span [title]="row.fileName">{{ row.fileName }}</span>
+          </div>
+        </ng-template>
+      </p-column>
+
+      <!-- Version Column -->
+      <p-column header="Phiên bản" field="versionNumber" [style]="{ width: '80px' }" styleClass="col-tt">
+        <ng-template #header>
+          <span class="column-header">Phiên bản</span>
+        </ng-template>
+        <ng-template let-row="rowData" #body>
+          <span class="version-badge">v{{ row.versionNumber }}</span>
+        </ng-template>
+      </p-column>
+
+      <!-- Size Column -->
+      <p-column header="Kích thước" field="fileSize" [style]="{ width: '100px' }" styleClass="col-tt">
+        <ng-template #header>
+          <span class="column-header">Kích thước</span>
+        </ng-template>
+        <ng-template let-row="rowData" #body>
+          <span>{{ formatFileSize(row.fileSize) }}</span>
+        </ng-template>
+      </p-column>
+
+      <!-- Created Date Column -->
+      <p-column header="Ngày tạo" field="createdDate" [style]="{ width: '150px' }" styleClass="col-tt">
+        <ng-template #header>
+          <span class="column-header">Ngày tạo</span>
+        </ng-template>
+        <ng-template let-row="rowData" #body>
+          <span [title]="row.createdDate">{{ formatDate(row.createdDate) }}</span>
+        </ng-template>
+      </p-column>
+
+      <!-- Created By Column -->
+      <p-column header="Tạo bởi" field="createdBy" [style]="{ width: '120px' }" styleClass="col-tt">
+        <ng-template #header>
+          <span class="column-header">Tạo bởi</span>
+        </ng-template>
+        <ng-template let-row="rowData" #body>
+          <span [title]="row.createdBy || 'N/A'">{{ row.createdBy || '-' }}</span>
+        </ng-template>
+      </p-column>
+
+      <!-- Action Column -->
+      <p-column [style]="{ width: '100px' }" styleClass="col-chk">
+        <ng-template #header>
+          <span class="column-header">Hành động</span>
+        </ng-template>
+        <ng-template let-row="rowData" #body>
+          <div class="action-buttons">
+            <button
+              (click)="downloadFile(row)"
+              [disabled]="isDownloadingFile(row.id)"
+              class="act-btn act-download"
+              pTooltip="Tải về"
+              tooltipPosition="top"
+              title="Tải về"
+            >
+              <i class="pi" [ngClass]="isDownloadingFile(row.id) ? 'pi-spin pi-spinner' : 'pi-download'"></i>
+            </button>
+            <button
+              (click)="deleteFile(row)"
+              class="act-btn act-delete"
+              pTooltip="Xóa"
+              tooltipPosition="top"
+              title="Xóa"
+            >
+              <i class="pi pi-trash"></i>
+            </button>
+          </div>
+        </ng-template>
+      </p-column>
+
+      <!-- Empty State -->
+      <ng-template #emptymessage>
+        <tr>
+          <td colspan="7" class="empty-row">
+            <p class="empty-text">Chưa có tệp nào trong thư mục này</p>
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </div>
+
+  <!-- Loading Skeleton -->
+  <div class="skeleton-loader" *ngIf="isLoading()">
+    <div class="skeleton-bar" *ngFor="let item of [1, 2, 3]"></div>
+  </div>
+
+  <!-- Confirm Dialog -->
+  <p-confirmDialog></p-confirmDialog>
+
+  <!-- Toast Messages -->
+  <p-toast></p-toast>
+</div>
