@@ -29,8 +29,9 @@ services:
     image: rabbitmq:3-management-alpine
     container_name: evnhanoi_rabbitmq
     environment:
-      - RABBITMQ_DEFAULT_USER=admin
-      - RABBITMQ_DEFAULT_PASS=admin123
+      - RABBITMQ_DEFAULT_USER=orcadmin
+      - RABBITMQ_DEFAULT_PASS=orcpassword123
+      - RABBITMQ_DEFAULT_VHOST=/orc
     ports:
       - "5672:5672"
       - "15672:15672"
@@ -59,8 +60,8 @@ services:
     image: minio/minio
     container_name: evnhanoi_minio
     environment:
-      - MINIO_ROOT_USER=admin
-      - MINIO_ROOT_PASSWORD=admin123456
+      - MINIO_ROOT_USER=orcminio
+      - MINIO_ROOT_PASSWORD=orcminiopassword123
     command: server /data --console-address ":9001"
     ports:
       - "9000:9000"

@@ -11,6 +11,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Net.Http;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Collections.Generic;
@@ -110,7 +111,17 @@ namespace EvnHanoi.DigitizationService.Workers
                                     }
                                 }
                                 string fieldsStr = string.Join("\n", fieldsList);
-                                systemPrompt = $@"Bạn là chuyên gia trích xuất dữ liệu JSON. Chỉ trả về chuỗi JSON duy nhất, định dạng mảng hoặc object tùy nội dung, không thêm giải thích hoặc định dạng markdown. Trích xuất các trường thông tin sau:
+                                systemPrompt = $@"Bạn là một chuyên gia phân tích và trích xuất dữ liệu tài liệu kỹ thuật ngành điện lực Việt Nam.
+Nhiệm vụ của bạn là đọc kỹ văn bản OCR và trích xuất CHÍNH XÁC các trường thông tin được yêu cầu dưới định dạng JSON object.
+
+NGUYÊN TẮC QUAN TRỌNG:
+1. TRÍCH XUẤT CHÍNH XÁC từng từ từ văn bản, KHÔNG ĐƯỢC suy đoán, tóm tắt hay tự bịa ra thông tin.
+2. NẾU KHÔNG TÌM THẤY thông tin cho một trường, bắt buộc trả về giá trị null cho trường đó, tuyệt đối không điền 'Không có' hay 'N/A'.
+3. PHÂN BIỆT RÕ các chủ thể: 'Customer/Chủ đầu tư' và 'Nhà thầu/Nhà sản xuất/Đơn vị cung cấp'.
+4. ĐỐI VỚI DẤU THẬP PHÂN: Giữ nguyên định dạng gốc trong văn bản (ví dụ: 22/0,4kV).
+5. CHỈ TRẢ VỀ một chuỗi JSON duy nhất, định dạng object. KHÔNG thêm bất kỳ lời giải thích, mở bài hay markdown nào khác.
+
+CÁC TRƯỜNG CẦN TRÍCH XUẤT:
 {fieldsStr}";
                             }
                             else
@@ -119,78 +130,102 @@ namespace EvnHanoi.DigitizationService.Workers
                                 systemPrompt = @"Bạn là chuyên gia trích xuất dữ liệu. Hãy đọc văn bản và trích xuất thông tin dưới dạng JSON. Chỉ trả về chuỗi JSON duy nhất, không thêm giải thích.";
                             }
 
-                            var finalResults = new List<object>();
-
                             // 5. Mở PDF bằng PdfPig và trích xuất từng trang
+                            var tasks = new List<Task<object>>();
+                            List<object> finalResults = new List<object>();
+                            
                             using (var document = UglyToad.PdfPig.PdfDocument.Open(msPdf))
                             {
                                 int totalPages = document.NumberOfPages;
                                 _logger.LogInformation("PDF có {TotalPages} trang. Bắt đầu đọc text và gửi lên LLM.", totalPages);
 
+                                // Sử dụng SemaphoreSlim để giới hạn số lượng request đồng thời gửi lên LLM Server (Max 2 concurrent)
+                                // Tránh việc LLM bị quá tải và gây ra timeout khi tài liệu có quá nhiều trang.
+                                using var semaphore = new SemaphoreSlim(2, 2);
+
                                 for (int i = 1; i <= totalPages; i++)
                                 {
                                     var page = document.GetPage(i);
                                     string pageText = page.Text;
+                                    int pageNum = i;
 
                                     if (string.IsNullOrWhiteSpace(pageText))
                                     {
-                                        _logger.LogInformation("Trang {Page} không có text.", i);
+                                        _logger.LogInformation("Trang {Page} không có text.", pageNum);
                                         continue;
                                     }
 
-                                    _logger.LogInformation("Đang gửi văn bản OCR trang {Page}/{TotalPages} tới llm_server...", i, totalPages);
-                                    
-                                    string prompt = $"{systemPrompt}\n\nVĂN BẢN OCR:\n{pageText}";
-
-                                    var payload = new 
-                                    { 
-                                        messages = new[] { new { role = "user", content = prompt } },
-                                        temperature = 0.0,
-                                        max_tokens = 2000
-                                    };
-                                    var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
-
-                                    try
+                                    // Local function to handle each page asynchronously
+                                    async Task<object> ProcessPageAsync()
                                     {
-                                        var response = await httpClient.PostAsync("/v1/chat/completions", content, stoppingToken);
-                                        response.EnsureSuccessStatusCode();
-                                        var resultStr = await response.Content.ReadAsStringAsync(stoppingToken);
-                                        
-                                        var jsonNode = System.Text.Json.Nodes.JsonNode.Parse(resultStr);
-                                        var extractedJson = jsonNode?["choices"]?[0]?["message"]?["content"]?.GetValue<string>();
-                                        
-                                        try 
+                                        await semaphore.WaitAsync(stoppingToken);
+                                        try
                                         {
-                                            if (!string.IsNullOrEmpty(extractedJson))
-                                            {
-                                                if (extractedJson.StartsWith("```json"))
-                                                {
-                                                    extractedJson = extractedJson.Substring(7);
-                                                    if (extractedJson.EndsWith("```")) extractedJson = extractedJson.Substring(0, extractedJson.Length - 3);
-                                                }
-                                                else if (extractedJson.StartsWith("```"))
-                                                {
-                                                    extractedJson = extractedJson.Substring(3);
-                                                    if (extractedJson.EndsWith("```")) extractedJson = extractedJson.Substring(0, extractedJson.Length - 3);
-                                                }
+                                            _logger.LogInformation("Đang gửi văn bản OCR trang {Page}/{TotalPages} tới llm_server...", pageNum, totalPages);
+                                            
+                                            string prompt = $"{systemPrompt}\n\nVĂN BẢN OCR:\n{pageText}";
 
-                                                var parsedJson = System.Text.Json.Nodes.JsonNode.Parse(extractedJson.Trim());
-                                                finalResults.Add(new { page = i, data = parsedJson });
+                                            var payload = new 
+                                            { 
+                                                messages = new[] { new { role = "user", content = prompt } },
+                                                temperature = 0.0,
+                                                max_tokens = 2000
+                                            };
+                                            var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+
+                                            var sw = Stopwatch.StartNew();
+                                            var response = await httpClient.PostAsync("/v1/chat/completions", content, stoppingToken);
+                                            response.EnsureSuccessStatusCode();
+                                            var resultStr = await response.Content.ReadAsStringAsync(stoppingToken);
+                                            sw.Stop();
+                                            
+                                            var jsonNode = System.Text.Json.Nodes.JsonNode.Parse(resultStr);
+                                            var extractedJson = jsonNode?["choices"]?[0]?["message"]?["content"]?.GetValue<string>();
+                                            
+                                            try 
+                                            {
+                                                if (!string.IsNullOrEmpty(extractedJson))
+                                                {
+                                                    if (extractedJson.StartsWith("```json"))
+                                                    {
+                                                        extractedJson = extractedJson.Substring(7);
+                                                        if (extractedJson.EndsWith("```")) extractedJson = extractedJson.Substring(0, extractedJson.Length - 3);
+                                                    }
+                                                    else if (extractedJson.StartsWith("```"))
+                                                    {
+                                                        extractedJson = extractedJson.Substring(3);
+                                                        if (extractedJson.EndsWith("```")) extractedJson = extractedJson.Substring(0, extractedJson.Length - 3);
+                                                    }
+
+                                                    var parsedJson = System.Text.Json.Nodes.JsonNode.Parse(extractedJson.Trim());
+                                                    _logger.LogInformation("[ĐO ĐẠC] Trang {Page} hoàn thành Trích xuất sau {ElapsedMs} ms.", pageNum, sw.ElapsedMilliseconds);
+                                                    return new { page = pageNum, data = parsedJson };
+                                                }
+                                                return new { page = pageNum, data_text = extractedJson };
+                                            }
+                                            catch 
+                                            {
+                                                _logger.LogInformation("[ĐO ĐẠC] Trang {Page} hoàn thành Trích xuất (Raw Text) sau {ElapsedMs} ms.", pageNum, sw.ElapsedMilliseconds);
+                                                return new { page = pageNum, data_text = extractedJson };
                                             }
                                         }
-                                        catch 
+                                        catch (Exception ex)
                                         {
-                                            finalResults.Add(new { page = i, data_text = extractedJson });
+                                            _logger.LogWarning(ex, "Lỗi khi gọi llm_server cho trang {Page}.", pageNum);
+                                            return new { page = pageNum, error = ex.Message };
                                         }
-                                        
-                                        _logger.LogInformation("Hoàn thành Trích xuất trang {Page}.", i);
+                                        finally
+                                        {
+                                            semaphore.Release();
+                                        }
                                     }
-                                    catch (Exception ex)
-                                    {
-                                        _logger.LogWarning(ex, "Lỗi khi gọi llm_server cho trang {Page}.", i);
-                                        finalResults.Add(new { page = i, error = ex.Message });
-                                    }
+
+                                    tasks.Add(ProcessPageAsync());
                                 }
+                                
+                                // Đợi tất cả các task hoàn thành TRƯỚC KHI kết thúc using block (để tránh bị dispose semaphore sớm)
+                                var resultsArray = await Task.WhenAll(tasks);
+                                finalResults = resultsArray.Where(r => r != null).OrderBy(r => ((dynamic)r).page).ToList();
                             }
 
                             // 6. Lưu file JSON tổng hợp lên MinIO
