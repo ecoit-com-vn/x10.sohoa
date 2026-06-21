@@ -5,7 +5,7 @@ namespace EvnHanoi.DigitizationService.Repositories
 {
     public interface IFileAttachmentRepository
     {
-        Task<int> CreateAsync(FileAttachment fileAttachment);
-        Task UpdateStatusAsync(int id, string status);
+        Task<Guid> CreateAsync(FileAttachment fileAttachment);
+        Task UpdateStatusAsync(Guid id, string status);
     }
 }

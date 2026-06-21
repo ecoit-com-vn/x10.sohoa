@@ -73,6 +73,7 @@ namespace EvnHanoi.DigitizationService.Workers
                             var repository = scope.ServiceProvider.GetRequiredService<IFileAttachmentRepository>();
                             var minioService = scope.ServiceProvider.GetRequiredService<IMinioStorageService>();
                             var httpClientFactory = scope.ServiceProvider.GetRequiredService<IHttpClientFactory>();
+                            var publisher = scope.ServiceProvider.GetRequiredService<IMessagePublisher>();
 
                             // 1. Cập nhật trạng thái DB
                             try {
@@ -142,6 +143,7 @@ CÁC TRƯỜNG CẦN TRÍCH XUẤT:
                                 // Sử dụng SemaphoreSlim để giới hạn số lượng request đồng thời gửi lên LLM Server (Max 2 concurrent)
                                 // Tránh việc LLM bị quá tải và gây ra timeout khi tài liệu có quá nhiều trang.
                                 using var semaphore = new SemaphoreSlim(2, 2);
+                                int completedPages = 0;
 
                                 for (int i = 1; i <= totalPages; i++)
                                 {
@@ -217,6 +219,16 @@ CÁC TRƯỜNG CẦN TRÍCH XUẤT:
                                         finally
                                         {
                                             semaphore.Release();
+                                            int currentCompleted = Interlocked.Increment(ref completedPages);
+                                            var progressMsg = new
+                                            {
+                                                FileId = taskMsg.FileId,
+                                                Action = "extraction.process.progress",
+                                                CurrentPage = currentCompleted,
+                                                TotalPages = totalPages,
+                                                Progress = (int)Math.Round((double)currentCompleted / totalPages * 100)
+                                            };
+                                            await publisher.PublishMessageAsync(progressMsg, "digitization.topic", "extraction.process.progress");
                                         }
                                     }
 

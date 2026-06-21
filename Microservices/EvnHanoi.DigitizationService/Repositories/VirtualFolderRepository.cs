@@ -75,13 +75,13 @@ namespace EvnHanoi.DigitizationService.Repositories
             return affected > 0;
         }
 
-        public async Task AddDocumentToFolderAsync(long folderId, int documentId)
+        public async Task AddDocumentToFolderAsync(long folderId, Guid documentId)
         {
             var sql = "INSERT INTO FOLDER_DOCUMENTS (FolderId, DocumentId) VALUES (:FolderId, :DocumentId)";
             await _connection.ExecuteAsync(sql, new { FolderId = folderId, DocumentId = documentId });
         }
 
-        public async Task RemoveDocumentFromFolderAsync(long folderId, int documentId)
+        public async Task RemoveDocumentFromFolderAsync(long folderId, Guid documentId)
         {
             var sql = "DELETE FROM FOLDER_DOCUMENTS WHERE FolderId = :FolderId AND DocumentId = :DocumentId";
             await _connection.ExecuteAsync(sql, new { FolderId = folderId, DocumentId = documentId });
