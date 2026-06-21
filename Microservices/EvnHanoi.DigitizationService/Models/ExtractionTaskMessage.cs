@@ -4,7 +4,7 @@ namespace EvnHanoi.DigitizationService.Models
 {
     public class ExtractionTaskMessage
     {
-        public int FileId { get; set; }
+        public Guid FileId { get; set; }
         public string FilePath { get; set; }
         public string BucketName { get; set; }
         

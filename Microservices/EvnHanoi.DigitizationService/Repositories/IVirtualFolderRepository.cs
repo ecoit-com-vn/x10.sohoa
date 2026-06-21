@@ -11,8 +11,8 @@ namespace EvnHanoi.DigitizationService.Repositories
         Task<long> CreateAsync(VirtualFolder folder);
         Task<bool> UpdateAsync(VirtualFolder folder);
         Task<bool> DeleteAsync(long id);
-        Task AddDocumentToFolderAsync(long folderId, int documentId);
-        Task RemoveDocumentFromFolderAsync(long folderId, int documentId);
+        Task AddDocumentToFolderAsync(long folderId, Guid documentId);
+        Task RemoveDocumentFromFolderAsync(long folderId, Guid documentId);
         Task<IEnumerable<FileAttachment>> GetDocumentsInFolderAsync(long folderId);
         Task<IEnumerable<VirtualFolder>> GetChildFoldersAsync(long parentId);
     }

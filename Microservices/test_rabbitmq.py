@@ -6,9 +6,10 @@ channel = connection.channel()
 
 messages = [
     {
-        "FileId": 1,
+        "FileId": "70eb14b5-65fc-42de-8b2b-586717eb4132",
         "FilePath": "0001.pdf",
         "BucketName": "orc",
+        "ProcessOption": "OcrAndExtract",
         "Forms": [
             {
                 "FormId": "form-1",
@@ -23,9 +24,10 @@ messages = [
         ]
     },
     {
-        "FileId": 2,
+        "FileId": "1b9a9d28-765f-4a0f-90e6-a05e2ed37eb1",
         "FilePath": "0002.pdf",
         "BucketName": "orc",
+        "ProcessOption": "ExtractOnly",
         "Forms": [
             {
                 "FormId": "form-1",

@@ -105,6 +105,21 @@ namespace EvnHanoi.DigitizationService.Workers
                             var httpClientFactory = scope.ServiceProvider.GetRequiredService<IHttpClientFactory>();
                             var publisher = scope.ServiceProvider.GetRequiredService<IMessagePublisher>();
 
+                            if (taskMsg.ProcessOption == "ExtractOnly")
+                            {
+                                _logger.LogInformation("Task yêu cầu ExtractOnly, bỏ qua OCR, chuyển thẳng sang Extraction.");
+                                var extractMsg = new ExtractionTaskMessage
+                                {
+                                    FileId = taskMsg.FileId,
+                                    FilePath = taskMsg.FilePath,
+                                    BucketName = taskMsg.BucketName,
+                                    Forms = taskMsg.Forms ?? new List<ExtractionForm>()
+                                };
+                                await publisher.PublishMessageAsync(extractMsg, "digitization.topic", "extraction.process.task");
+                                await _channel.BasicAckAsync(ea.DeliveryTag, false);
+                                return;
+                            }
+
                             // 1. Cập nhật trạng thái
                             try {
                                 await repository.UpdateStatusAsync(taskMsg.FileId, "Processing");
