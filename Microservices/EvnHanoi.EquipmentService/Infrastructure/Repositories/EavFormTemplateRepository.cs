@@ -45,6 +45,7 @@ public class EavFormTemplateRepository : IEavFormTemplateRepository
                     {nameof(EavFormTemplate.Category)}, 
                     {nameof(EavFormTemplate.Description)}, 
                     {nameof(EavFormTemplate.DescriptionInfo)}, 
+                    {nameof(EavFormTemplate.ExtractionProcess)}, 
                     {nameof(EavFormTemplate.FormSchema)}, 
                     {nameof(EavFormTemplate.EquipmentTypeId)},
                     {nameof(EavFormTemplate.GridTypeId)},
@@ -55,7 +56,7 @@ public class EavFormTemplateRepository : IEavFormTemplateRepository
                     {nameof(EavFormTemplate.Status)},
                     {nameof(EavFormTemplate.FormType)}
                 )
-                VALUES (:Id, :Name, :Code, :Category, :Description, :DescriptionInfo, :FormSchema, :EquipmentTypeId, :GridTypeId, :Version, :IsActive, :CreatedAt, :CreatedBy, :Status, :FormType)";
+                VALUES (:Id, :Name, :Code, :Category, :Description, :DescriptionInfo, :ExtractionProcess, :FormSchema, :EquipmentTypeId, :GridTypeId, :Version, :IsActive, :CreatedAt, :CreatedBy, :Status, :FormType)";
 
         var param = new
         {
@@ -65,6 +66,7 @@ public class EavFormTemplateRepository : IEavFormTemplateRepository
             template.Category,
             template.Description,
             template.DescriptionInfo,
+            template.ExtractionProcess,
             template.FormSchema,
             EquipmentTypeId = template.EquipmentTypeId?.ToString(),
             template.GridTypeId,
@@ -87,6 +89,7 @@ public class EavFormTemplateRepository : IEavFormTemplateRepository
                         {nameof(EavFormTemplate.Category)} = :Category,
                         {nameof(EavFormTemplate.Description)} = :Description,
                         {nameof(EavFormTemplate.DescriptionInfo)} = :DescriptionInfo,
+                        {nameof(EavFormTemplate.ExtractionProcess)} = :ExtractionProcess,
                         {nameof(EavFormTemplate.FormSchema)} = :FormSchema,
                         {nameof(EavFormTemplate.EquipmentTypeId)} = :EquipmentTypeId,
                         {nameof(EavFormTemplate.GridTypeId)} = :GridTypeId,
@@ -103,6 +106,7 @@ public class EavFormTemplateRepository : IEavFormTemplateRepository
             template.Category,
             template.Description,
             template.DescriptionInfo,
+            template.ExtractionProcess,
             template.FormSchema,
             EquipmentTypeId = template.EquipmentTypeId?.ToString(),
             template.GridTypeId,
