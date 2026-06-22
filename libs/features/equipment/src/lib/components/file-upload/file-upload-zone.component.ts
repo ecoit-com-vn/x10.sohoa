@@ -13,7 +13,7 @@ import { FormsModule } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
 import { ProgressBarModule } from 'primeng/progressbar';
 import { MessageService } from 'primeng/api';
-import { FileUploadService, UploadProgress, extractApiErrorMessage } from '../../data-access/file-upload.service';
+import { FileUploadService, UploadProgress, FileUploadResponse, extractApiErrorMessage } from '../../data-access/file-upload.service';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 
@@ -23,6 +23,11 @@ interface UploadItem {
   progress: UploadProgress;
   error?: string;
 }
+
+export type FileUploadHandler = (
+  file: File,
+  onProgress?: (progress: UploadProgress) => void
+) => Promise<FileUploadResponse>;
 
 @Component({
   selector: 'app-file-upload-zone',
@@ -37,7 +42,9 @@ export class FileUploadZoneComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
 
   // Inputs
-  folderId = input.required<string>();
+  folderId = input<string>('');
+  /** Khi set, bỏ qua folderId và gọi handler tùy chỉnh (vd. upload hồ sơ). */
+  uploadHandler = input<FileUploadHandler | null>(null);
   maxFileSize = input<number>(500 * 1024 * 1024); // 500MB default
   allowedExtensions = input<string[]>([
     '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
@@ -116,7 +123,17 @@ export class FileUploadZoneComponent implements OnInit, OnDestroy {
    */
   private handleFiles(fileList: FileList) {
     const currentUploads = this.uploads();
+    const handler = this.uploadHandler();
     const folderId = this.folderId();
+
+    if (!handler && !folderId) {
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Lỗi cấu hình',
+        detail: 'Thiếu folderId hoặc uploadHandler',
+      });
+      return;
+    }
 
     for (let i = 0; i < fileList.length; i++) {
       const file = fileList[i];
@@ -154,7 +171,7 @@ export class FileUploadZoneComponent implements OnInit, OnDestroy {
       this.uploads.set(new Map(currentUploads));
 
       // Start upload
-      this.startUpload(uploadId, file, folderId);
+      this.startUpload(uploadId, file, folderId, handler);
     }
   }
 
@@ -185,15 +202,18 @@ export class FileUploadZoneComponent implements OnInit, OnDestroy {
   /**
    * Start file upload
    */
-  private async startUpload(uploadId: string, file: File, folderId: string) {
+  private async startUpload(
+    uploadId: string,
+    file: File,
+    folderId: string,
+    handler: FileUploadHandler | null
+  ) {
     try {
-      const result = await this.fileUploadService.uploadFile(
-        file,
-        folderId,
-        (progress: UploadProgress) => {
-          this.updateProgress(uploadId, progress);
-        }
-      );
+      const onProgress = (progress: UploadProgress) => this.updateProgress(uploadId, progress);
+
+      const result = handler
+        ? await handler(file, onProgress)
+        : await this.fileUploadService.uploadFile(file, folderId, onProgress);
 
       // Success
       this.updateProgress(uploadId, {

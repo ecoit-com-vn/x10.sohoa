@@ -1,0 +1,223 @@
+<p-dialog
+  [visible]="visible"
+  (visibleChange)="visibleChange.emit($event)"
+  (onShow)="onShow()"
+  [header]="phase() === 'pick' ? 'Chọn tài liệu từ thư mục' : 'Thêm tài liệu vào hồ sơ'"
+  [modal]="true"
+  [style]="{ width: '920px', maxWidth: '95vw' }"
+  styleClass="evn-dialog-custom dossier-folder-picker-dialog"
+  [closable]="!moving()"
+  [draggable]="false"
+>
+  <div class="picker-layout" *ngIf="phase() === 'pick'; else configureTpl">
+    <aside class="picker-sidebar">
+      <input
+        type="text"
+        class="wf-search-input folder-search"
+        placeholder="Tìm thư mục..."
+        [ngModel]="folderSearch()"
+        (ngModelChange)="folderSearch.set($event)"
+      />
+
+      <div class="folder-tree-panel" *ngIf="!loadingTree(); else treeLoading">
+        <div *ngIf="filteredFolderTree().length === 0" class="empty-hint">Không có thư mục</div>
+        <ng-container *ngTemplateOutlet="folderTreeTpl; context: { $implicit: filteredFolderTree() }"></ng-container>
+      </div>
+
+      <ng-template #treeLoading>
+        <div class="empty-hint"><i class="pi pi-spin pi-spinner"></i> Đang tải...</div>
+      </ng-template>
+
+      <ng-template #folderTreeTpl let-folders>
+        <div *ngFor="let folder of folders; trackBy: trackByFolderId" class="folder-node">
+          <button
+            type="button"
+            class="folder-row"
+            [class.active]="selectedFolder()?.id === folder.id"
+            (click)="toggleFolderExpand(folder, $event)"
+            [title]="folder.name"
+          >
+            <i
+              class="pi"
+              [ngClass]="folder.children?.length ? (expandedFolders().has(folder.id) ? 'pi-chevron-down' : 'pi-chevron-right') : 'pi-minus'"
+              style="font-size: 0.7rem; width: 12px;"
+            ></i>
+            <i class="pi pi-folder"></i>
+            <span>{{ folder.name }}</span>
+          </button>
+          <div
+            *ngIf="folder.children?.length && expandedFolders().has(folder.id)"
+            class="folder-children"
+          >
+            <ng-container *ngTemplateOutlet="folderTreeTpl; context: { $implicit: folder.children }"></ng-container>
+          </div>
+        </div>
+      </ng-template>
+    </aside>
+
+    <section class="picker-main">
+      <div class="picker-toolbar">
+        <span class="folder-label" [title]="selectedFolder()?.name || ''">
+          {{ selectedFolder()?.name || 'Chưa chọn thư mục' }}
+        </span>
+        <input
+          type="text"
+          class="wf-search-input"
+          placeholder="Tìm tài liệu..."
+          [ngModel]="docSearch()"
+          (ngModelChange)="onDocSearchChange($event)"
+        />
+      </div>
+
+      <div class="wf-table-wrap" [class.loading]="loadingDocuments()">
+        <table class="wf-table">
+          <thead>
+            <tr>
+              <th class="col-chk">
+                <input
+                  type="checkbox"
+                  [checked]="allPageSelected()"
+                  (change)="toggleSelectAll($event)"
+                  [disabled]="loadingDocuments() || documents().length === 0"
+                />
+              </th>
+              <th class="col-stt">STT</th>
+              <th>Tên tài liệu</th>
+              <th style="width: 100px;">Kích thước</th>
+              <th style="width: 130px;">Ngày tạo</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngIf="loadingDocuments()">
+              <td colspan="5" class="empty-row">
+                <i class="pi pi-spin pi-spinner"></i>
+                <div>Đang tải...</div>
+              </td>
+            </tr>
+            <tr
+              *ngFor="let doc of documents(); let i = index; trackBy: trackByDocumentId"
+              [hidden]="loadingDocuments()"
+              (click)="toggleSelect(doc, $event)"
+              class="doc-row"
+              [class.selected]="isSelected(doc.id)"
+            >
+              <td class="col-chk" (click)="$event.stopPropagation()">
+                <input type="checkbox" [checked]="isSelected(doc.id)" (change)="toggleSelect(doc, $event)" />
+              </td>
+              <td class="col-stt text-muted">{{ (page() - 1) * pageSize() + i + 1 }}</td>
+              <td>
+                <div class="doc-name-cell">
+                  <i class="pi" [ngClass]="fileIcon(doc.name)"></i>
+                  <span [title]="doc.name">{{ doc.name }}</span>
+                </div>
+              </td>
+              <td>{{ formatSize(doc.fileSize) }}</td>
+              <td>{{ formatDate(doc.createdDate) }}</td>
+            </tr>
+            <tr *ngIf="!loadingDocuments() && documents().length === 0">
+              <td colspan="5" class="empty-row">
+                <i class="pi pi-inbox"></i>
+                <div>Thư mục này chưa có tài liệu.</div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="table-footer" *ngIf="totalDocuments() > 0">
+        <span class="record-count">Đã chọn: <b>{{ selectedCount() }}</b></span>
+        <div class="pagination">
+          <button class="page-btn" (click)="prevPage()" [disabled]="page() === 1">
+            <i class="pi pi-chevron-left"></i>
+          </button>
+          <span class="page-current">Trang {{ page() }} / {{ totalPages() || 1 }}</span>
+          <button class="page-btn" (click)="nextPage()" [disabled]="page() >= totalPages()">
+            <i class="pi pi-chevron-right"></i>
+          </button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <ng-template #configureTpl>
+    <div class="configure-steps">
+      <section class="configure-step">
+        <h4 class="step-title">Bước 1 — Loại văn bản <span class="required">*</span></h4>
+        <select
+          class="wf-select w-full"
+          [ngModel]="selectedDocumentTypeId()"
+          (ngModelChange)="selectedDocumentTypeId.set($event)"
+          [disabled]="loadingDocTypes() || moving()"
+        >
+          <option value="">-- Chọn loại văn bản --</option>
+          <option *ngFor="let dt of documentTypes()" [value]="dt.id">
+            {{ dt.name }}<ng-container *ngIf="dt.code"> ({{ dt.code }})</ng-container>
+          </option>
+        </select>
+        <p class="step-note" *ngIf="loadingDocTypes()"><i class="pi pi-spin pi-spinner"></i> Đang tải danh mục...</p>
+        <p class="step-note" *ngIf="selectedDocumentType()?.formName">
+          Form EAV: {{ selectedDocumentType()?.formName }}
+        </p>
+      </section>
+
+      <section class="configure-step">
+        <h4 class="step-title">Bước 2 — Xử lý OCR &amp; bóc tách</h4>
+        <div class="ocr-options">
+          <label class="ocr-option">
+            <input type="radio" name="folderOcrMode" value="none" [(ngModel)]="ocrMode" />
+            <span>Không xử lý OCR</span>
+          </label>
+          <label class="ocr-option" [class.disabled]="!hasDocumentTypeForm()">
+            <input
+              type="radio"
+              name="folderOcrMode"
+              value="OcrAndExtract"
+              [(ngModel)]="ocrMode"
+              [disabled]="!hasDocumentTypeForm()"
+            />
+            <span>OCR + bóc tách dữ liệu</span>
+          </label>
+          <label class="ocr-option" [class.disabled]="!hasDocumentTypeForm()">
+            <input
+              type="radio"
+              name="folderOcrMode"
+              value="ExtractOnly"
+              [(ngModel)]="ocrMode"
+              [disabled]="!hasDocumentTypeForm()"
+            />
+            <span>Chỉ bóc tách dữ liệu (PDF đã có lớp text)</span>
+          </label>
+        </div>
+        <p class="step-note ocr-warn" *ngIf="selectedDocumentTypeId() && !hasDocumentTypeForm()">
+          Loại văn bản chưa gắn biểu mẫu EAV — không thể bóc tách.
+        </p>
+        <p class="step-note">Sẽ chuyển {{ selectedCount() }} tài liệu đã chọn vào hồ sơ.</p>
+      </section>
+    </div>
+  </ng-template>
+
+  <ng-template #footer>
+    <ng-container *ngIf="phase() === 'pick'; else configureFooter">
+      <p-button label="Hủy" severity="secondary" size="small" (onClick)="close()" [disabled]="moving()"></p-button>
+      <p-button
+        [label]="selectedCount() > 0 ? 'Tiếp tục (' + selectedCount() + ')' : 'Tiếp tục'"
+        size="small"
+        icon="pi pi-arrow-right"
+        iconPos="right"
+        (onClick)="goToConfigure()"
+        [disabled]="moving() || selectedCount() === 0"
+      ></p-button>
+    </ng-container>
+    <ng-template #configureFooter>
+      <p-button label="Quay lại" severity="secondary" size="small" (onClick)="backToPick()" [disabled]="moving()"></p-button>
+      <p-button
+        label="Thêm vào hồ sơ"
+        size="small"
+        icon="pi pi-check"
+        (onClick)="confirmMove()"
+        [disabled]="moving() || !selectedDocumentTypeId()"
+        [loading]="moving()"
+      ></p-button>
+    </ng-template>
+  </ng-template>
+</p-dialog>

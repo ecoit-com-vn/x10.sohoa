@@ -1,16 +1,21 @@
-import { Component, OnInit, signal, computed, inject, Output, EventEmitter, Input, PLATFORM_ID } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, computed, inject, Output, EventEmitter, Input, PLATFORM_ID } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ToastModule } from 'primeng/toast';
 import { DialogModule } from 'primeng/dialog';
 import { MessageService } from 'primeng/api';
-import { catchError, finalize, of, switchMap } from 'rxjs';
+import { catchError, finalize, of, switchMap, takeUntil, Subject } from 'rxjs';
 import { DossierManagementService } from '../../data-access/dossier-management.service';
+import { DossierDocumentsTabComponent } from '../dossier-documents/dossier-documents-tab.component';
 import { AuthService } from '@sohoa.frontend/shared/core';
 import {
   EavField,
+  guidsEqual,
+  normalizeDossierDetail,
   normalizeField,
+  parseFormDataJson,
   pickFormDataForSchema,
+  readFormSchemaJson,
   serializeFormDataForSchema,
 } from '../../utils/dossier-form-schema.util';
 
@@ -93,7 +98,7 @@ function resolveCurrentStepAllowEdit(workflowDetail: any): boolean {
 @Component({
   selector: 'app-dossier-detail',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule, DialogModule],
+  imports: [CommonModule, FormsModule, ToastModule, DialogModule, DossierDocumentsTabComponent],
   template: `
     <div class="wf-card" style="position: relative;">
       <!-- Header -->
@@ -105,12 +110,12 @@ function resolveCurrentStepAllowEdit(workflowDetail: any): boolean {
           <div>
             <h2 class="edit-title">Chi tiết Hồ sơ</h2>
             <div style="display: flex; flex-wrap: wrap; gap: 16px; margin-top: 8px; font-size: 0.83rem;">
-              <span class="text-muted"><i class="pi pi-tag" style="margin-right: 4px;"></i> Loại hồ sơ: <b style="color: #374151;">{{ dossier()?.dossierTypeName }}</b></span>
-              <span class="text-muted"><i class="pi pi-map-marker" style="margin-right: 4px;"></i> Trạm/ĐZ: <b style="color: #374151;">{{ dossier()?.infrastructureName || '-' }}</b></span>
+              <span class="text-muted"><i class="pi pi-tag" style="margin-right: 4px;"></i> Loại hồ sơ: <b style="color: #374151;">{{ dossierMeta()?.dossierTypeName || '-' }}</b></span>
+              <span class="text-muted"><i class="pi pi-map-marker" style="margin-right: 4px;"></i> Trạm/ĐZ: <b style="color: #374151;">{{ dossierMeta()?.infrastructureName || '-' }}</b></span>
               <span class="text-muted" style="display: inline-flex; align-items: center; gap: 6px;">
                 Trạng thái:
-                <span class="status-pill" [ngStyle]="getStatusStyle(dossier()?.status)">
-                  {{ getStatusText(dossier()?.status) }}
+                <span class="status-pill" [ngStyle]="getStatusStyle(dossierMeta()?.status)">
+                  {{ getStatusText(dossierMeta()?.status) }}
                 </span>
               </span>
             </div>
@@ -268,9 +273,13 @@ function resolveCurrentStepAllowEdit(workflowDetail: any): boolean {
         </div>
 
         <!-- ═══ Tab: Tài liệu ═══ -->
-        <div *ngIf="activeTab() === 'documents'" style="padding: 40px; text-align: center; color: #9ca3af;">
-          <i class="pi pi-cloud-upload" style="font-size: 2.5rem; display: block; margin-bottom: 12px; color: #cbd5e1;"></i>
-          <p style="margin: 0;">Tính năng đính kèm file số hóa (pdf, docx) đang được cập nhật.</p>
+        <div *ngIf="activeTab() === 'documents'">
+          <app-dossier-documents-tab
+            [dossierId]="dossierId"
+            [canEdit]="canEditFormData()"
+            [hasFormTemplate]="!!dossierMeta()?.formId"
+            [formId]="dossierMeta()?.formId ?? null"
+          ></app-dossier-documents-tab>
         </div>
 
         <!-- ═══ Tab: Lịch sử phiên bản ═══ -->
@@ -292,6 +301,10 @@ function resolveCurrentStepAllowEdit(workflowDetail: any): boolean {
             <div style="padding: 12px 16px;">
               <div *ngIf="v.changeNote" style="font-size: 0.85rem; color: #374151; margin-bottom: 8px;">
                 <i class="pi pi-comment" style="margin-right: 4px; color: #6b7280;"></i>{{ v.changeNote }}
+              </div>
+              <div *ngIf="v.documentsSnapshotJson" style="font-size: 0.82rem; color: #475569; margin-bottom: 8px;">
+                <i class="pi pi-paperclip" style="margin-right: 4px; color: #6b7280;"></i>
+                <span>Tài liệu tại thời điểm này: {{ parseDocumentSnapshotCount(v.documentsSnapshotJson) }}</span>
               </div>
               <details style="cursor: pointer;">
                 <summary style="font-size: 0.8rem; color: #6b7280;">Xem dữ liệu JSON</summary>
@@ -569,7 +582,7 @@ function resolveCurrentStepAllowEdit(workflowDetail: any): boolean {
     }
   `]
 })
-export class DossierDetailComponent implements OnInit {
+export class DossierDetailComponent implements OnInit, OnDestroy {
   @Input() dossierId!: string;
   @Output() cancel = new EventEmitter<void>();
 
@@ -577,18 +590,21 @@ export class DossierDetailComponent implements OnInit {
   private service = inject(DossierManagementService);
   private authService = inject(AuthService);
   private messageService = inject(MessageService);
+  private destroy$ = new Subject<void>();
 
   loading = signal<boolean>(true);
   submitting = signal<boolean>(false);
   activeTab = signal<'info' | 'documents' | 'versions' | 'workflow'>('info');
 
   dossier = signal<any>(null);
+  dossierMeta = computed(() => normalizeDossierDetail(this.dossier()));
 
   // EAV Form
   loadingType = signal<boolean>(false);
   formTemplate = signal<any>(null);
   dynamicFields = signal<EavField[]>([]);
   detailFormData: Record<string, any> = {};
+  private pendingFormData: Record<string, unknown> = {};
   savingForm = signal<boolean>(false);
 
   // Phiên bản
@@ -666,78 +682,104 @@ export class DossierDetailComponent implements OnInit {
     this.loadDetail();
   }
 
+  ngOnDestroy() {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
   loadDetail() {
     this.loading.set(true);
+    this.loadingType.set(true);
+
     this.service.getDossierById(this.dossierId).pipe(
-      finalize(() => this.loading.set(false))
-    ).subscribe({
-      next: (res) => {
-        try {
-          this.dossier.set(res);
-
-          try {
-            this.detailFormData = res.formDataJson
-              ? (JSON.parse(res.formDataJson) as Record<string, unknown>)
-              : {};
-          } catch {
-            this.detailFormData = {};
-          }
-
-          if (res.dossierTypeId) {
-            this.loadFormTemplate(res.dossierTypeId);
-          }
-
-          // Workflow tải nền — không chặn overlay chính
-          this.loadWorkflow();
-        } catch (err) {
-          console.error('loadDetail processing error', err);
+      switchMap((res) => {
+        const meta = normalizeDossierDetail(res);
+        if (!meta) {
+          throw new Error('Invalid dossier response');
         }
+
+        this.dossier.set(res);
+        this.pendingFormData = parseFormDataJson(meta.formDataJson);
+        this.detailFormData = { ...this.pendingFormData };
+
+        return this.resolveFormTemplate(meta.formId, meta.dossierTypeId);
+      }),
+      takeUntil(this.destroy$),
+      finalize(() => {
+        this.loading.set(false);
+        this.loadingType.set(false);
+      })
+    ).subscribe({
+      next: (template) => {
+        this.applyFormTemplate(template);
+        this.loadWorkflow();
       },
       error: () => {
         this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể tải chi tiết hồ sơ' });
+        this.dynamicFields.set([]);
       }
     });
   }
 
-  loadFormTemplate(dossierTypeId: string) {
-    this.loadingType.set(true);
-    this.service.getDossierTypeLookup().pipe(
+  /** Ưu tiên formId từ detail API; fallback lookup loại hồ sơ. */
+  private resolveFormTemplate(formId: string | null, dossierTypeId: string) {
+    if (formId) {
+      return this.service.getFormTemplate(formId);
+    }
+
+    if (!dossierTypeId) {
+      return of(null);
+    }
+
+    return this.service.getDossierTypeLookup().pipe(
       catchError(() => of([] as any[])),
       switchMap((types) => {
-        const found = Array.isArray(types) ? types.find((t: any) => t.id === dossierTypeId) : undefined;
-        const formId: string | null = found?.formId ?? null;
-
-        if (!formId) {
-          this.formTemplate.set(null);
-          this.dynamicFields.set([]);
+        const found = Array.isArray(types)
+          ? types.find((t: any) => guidsEqual(t.id ?? t.Id, dossierTypeId))
+          : undefined;
+        const resolvedFormId = found?.formId ?? found?.FormId ?? null;
+        if (!resolvedFormId) {
           return of(null);
         }
+        return this.service.getFormTemplate(resolvedFormId);
+      })
+    );
+  }
 
-        return this.service.getFormTemplate(formId);
-      }),
-      finalize(() => this.loadingType.set(false))
+  private applyFormTemplate(template: any) {
+    if (!template) {
+      this.formTemplate.set(null);
+      this.dynamicFields.set([]);
+      this.detailFormData = { ...this.pendingFormData };
+      return;
+    }
+
+    this.formTemplate.set(template);
+    const schemaJson = readFormSchemaJson(template);
+    if (!schemaJson) {
+      this.dynamicFields.set([]);
+      this.detailFormData = { ...this.pendingFormData };
+      return;
+    }
+
+    try {
+      const raw = JSON.parse(schemaJson);
+      const fields: EavField[] = Array.isArray(raw) ? raw.map((f) => normalizeField(f)) : [];
+      this.dynamicFields.set(fields);
+      this.detailFormData = pickFormDataForSchema(fields, this.pendingFormData);
+    } catch {
+      this.dynamicFields.set([]);
+      this.detailFormData = { ...this.pendingFormData };
+    }
+  }
+
+  loadFormTemplate(dossierTypeId: string, formId?: string | null) {
+    this.loadingType.set(true);
+    this.resolveFormTemplate(formId ?? null, dossierTypeId).pipe(
+      finalize(() => this.loadingType.set(false)),
+      takeUntil(this.destroy$)
     ).subscribe({
-      next: (template) => {
-        if (!template) {
-          this.formTemplate.set(null);
-          this.dynamicFields.set([]);
-          return;
-        }
-
-        this.formTemplate.set(template);
-        if (template.formSchema) {
-          try {
-            const raw = JSON.parse(template.formSchema);
-            const fields: EavField[] = Array.isArray(raw) ? raw.map((f) => normalizeField(f)) : [];
-            this.dynamicFields.set(fields);
-            this.detailFormData = pickFormDataForSchema(fields, this.detailFormData);
-          } catch {
-            this.dynamicFields.set([]);
-          }
-        } else {
-          this.dynamicFields.set([]);
-        }
-      },
+      next: (template) => this.applyFormTemplate(template),
       error: () => {
         this.formTemplate.set(null);
         this.dynamicFields.set([]);
@@ -998,7 +1040,14 @@ export class DossierDetailComponent implements OnInit {
     }).subscribe({
       next: (res) => {
         this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã lưu dữ liệu' });
-        if (res?.data) this.dossier.set(res.data);
+        if (res?.data) {
+          this.dossier.set(res.data);
+          const meta = normalizeDossierDetail(res.data);
+          if (meta) {
+            this.pendingFormData = parseFormDataJson(meta.formDataJson);
+            this.detailFormData = pickFormDataForSchema(this.dynamicFields(), this.pendingFormData);
+          }
+        }
         this.savingForm.set(false);
       },
       error: (err) => {
@@ -1069,6 +1118,17 @@ export class DossierDetailComponent implements OnInit {
 
   trackByFieldKey(_index: number, field: EavField): string {
     return field.key;
+  }
+
+  parseDocumentSnapshotCount(json?: string | null): string {
+    if (!json?.trim()) return '0 tài liệu';
+    try {
+      const arr = JSON.parse(json) as unknown[];
+      const count = Array.isArray(arr) ? arr.length : 0;
+      return `${count} tài liệu`;
+    } catch {
+      return '—';
+    }
   }
 
   getStatusText(status?: string): string {

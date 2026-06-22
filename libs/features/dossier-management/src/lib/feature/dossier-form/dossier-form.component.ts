@@ -5,17 +5,22 @@ import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
 import { DialogModule } from 'primeng/dialog';
 import { DossierManagementService } from '../../data-access/dossier-management.service';
+import { DossierDocumentsTabComponent } from '../dossier-documents/dossier-documents-tab.component';
 import {
   EavField,
+  guidsEqual,
   normalizeField,
+  parseFormDataJson,
   pickFormDataForSchema,
+  readFormSchemaJson,
   serializeFormDataForSchema,
 } from '../../utils/dossier-form-schema.util';
+import { forkJoin } from 'rxjs';
 
 @Component({
   selector: 'app-dossier-form',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule, DialogModule],
+  imports: [CommonModule, FormsModule, ToastModule, DialogModule, DossierDocumentsTabComponent],
   template: `
     <div class="wf-card" style="position: relative;">
       <!-- Header -->
@@ -36,6 +41,19 @@ import {
         </div>
       </div>
 
+      <!-- Tabs — chỉ hiện khi sửa hồ sơ -->
+      <div class="tab-bar" *ngIf="isEditMode()">
+        <button class="tab-item" [class.tab-active]="activeTab() === 'info'" (click)="activeTab.set('info')">
+          <i class="pi pi-info-circle" style="margin-right: 6px;"></i>
+          Thông tin hồ sơ
+        </button>
+        <button class="tab-item" [class.tab-active]="activeTab() === 'documents'" (click)="activeTab.set('documents')">
+          <i class="pi pi-file" style="margin-right: 6px;"></i>
+          Tài liệu đính kèm
+        </button>
+      </div>
+
+      <div *ngIf="!isEditMode() || activeTab() === 'info'">
       <!-- Thông tin vị trí + Thiết bị liên quan -->
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;">
 
@@ -202,6 +220,17 @@ import {
         <i class="pi pi-exclamation-triangle"></i>
         Biểu mẫu cho loại hồ sơ này chưa có trường thông tin nào. Liên hệ quản trị viên để cấu hình.
       </div>
+      </div>
+
+      <!-- Tab Tài liệu đính kèm (chỉ khi sửa) -->
+      <div *ngIf="isEditMode() && activeTab() === 'documents'">
+        <app-dossier-documents-tab
+          [dossierId]="dossierId!"
+          [canEdit]="true"
+          [hasFormTemplate]="!!selectedFormId()"
+          [formId]="selectedFormId()"
+        ></app-dossier-documents-tab>
+      </div>
 
       <!-- Loading Overlay -->
       <div *ngIf="loading()" style="position: absolute; inset: 0; background: rgba(255,255,255,0.6); display: flex; align-items: center; justify-content: center; z-index: 50; border-radius: 12px;">
@@ -255,6 +284,7 @@ import {
   `,
   styles: [`
     .w-full { width: 100%; }
+    .tab-bar { margin-bottom: 16px; }
   `]
 })
 export class DossierFormComponent implements OnInit {
@@ -266,6 +296,7 @@ export class DossierFormComponent implements OnInit {
   private messageService = inject(MessageService);
 
   isEditMode = computed(() => !!this.dossierId);
+  activeTab = signal<'info' | 'documents'>('info');
   loading = signal<boolean>(false);
   isSaving = signal<boolean>(false);
   loadingForm = signal<boolean>(false);
@@ -322,22 +353,30 @@ export class DossierFormComponent implements OnInit {
 
   loadDossierDetail(id: string) {
     this.loading.set(true);
-    this.service.getDossierById(id).subscribe({
-      next: (res) => {
+    forkJoin({
+      detail: this.service.getDossierById(id),
+      types: this.service.getDossierTypeLookup(),
+    }).subscribe({
+      next: ({ detail: res, types }) => {
+        if (types?.length) {
+          this.dossierTypes.set(types);
+        }
         if (res) {
           this.dossier = {
-            id: res.id,
-            dossierTypeId: res.dossierTypeId,
-            gridTypeId: res.gridTypeId,
-            infrastructureId: res.infrastructureId,
-            dossierSetId: res.dossierSetId,
-            rowVersion: res.rowVersion
+            id: res.id ?? res.Id,
+            dossierTypeId: res.dossierTypeId ?? res.DossierTypeId,
+            gridTypeId: res.gridTypeId ?? res.GridTypeId,
+            infrastructureId: res.infrastructureId ?? res.InfrastructureId,
+            dossierSetId: res.dossierSetId ?? res.DossierSetId,
+            rowVersion: res.rowVersion ?? res.RowVersion,
           };
-          this.selectedEquipments.set(res.equipments || []);
+          this.selectedEquipments.set(res.equipments ?? res.Equipments ?? []);
 
-          // Load form và điền dữ liệu đã lưu
-          if (res.dossierTypeId) {
-            this.loadFormForType(res.dossierTypeId, res.formDataJson);
+          const typeId = res.dossierTypeId ?? res.DossierTypeId;
+          const formId = res.formId ?? res.FormId;
+          const formDataJson = res.formDataJson ?? res.FormDataJson;
+          if (typeId) {
+            this.loadFormForType(typeId, formDataJson, formId);
           }
         }
         this.loading.set(false);
@@ -360,38 +399,36 @@ export class DossierFormComponent implements OnInit {
   }
 
   /** Tìm formId từ dossierType rồi gọi API lấy form template */
-  private loadFormForType(typeId: string, existingFormDataJson?: string) {
-    const found = this.dossierTypes().find(t => t.id === typeId);
-    const formId: string | null = found?.formId ?? null;
+  private loadFormForType(typeId: string, existingFormDataJson?: string, formIdFromDetail?: string | null) {
+    const resolvedFormId = formIdFromDetail
+      ?? this.dossierTypes().find((t) => guidsEqual(t.id ?? t.Id, typeId))?.formId
+      ?? this.dossierTypes().find((t) => guidsEqual(t.id ?? t.Id, typeId))?.FormId
+      ?? null;
 
-    if (!formId) {
+    if (!resolvedFormId) {
       this.selectedFormId.set('');
       this.dynamicFields.set([]);
       return;
     }
 
-    this.selectedFormId.set(formId);
+    this.selectedFormId.set(resolvedFormId);
     this.loadingForm.set(true);
+    const savedData = parseFormDataJson(existingFormDataJson);
 
-    this.service.getFormTemplate(formId).subscribe({
+    this.service.getFormTemplate(resolvedFormId).subscribe({
       next: (template) => {
         this.loadingForm.set(false);
-        if (!template?.formSchema) {
+        const schemaJson = readFormSchemaJson(template);
+        if (!schemaJson) {
           this.dynamicFields.set([]);
           return;
         }
 
         try {
-          const raw = JSON.parse(template.formSchema);
+          const raw = JSON.parse(schemaJson);
           const fields: EavField[] = Array.isArray(raw) ? raw.map((f) => normalizeField(f)) : [];
           this.dynamicFields.set(fields);
-
-          if (existingFormDataJson) {
-            try {
-              const saved = JSON.parse(existingFormDataJson) as Record<string, unknown>;
-              this.formData = pickFormDataForSchema(fields, saved);
-            } catch { /* bỏ qua nếu JSON lỗi */ }
-          }
+          this.formData = pickFormDataForSchema(fields, savedData);
         } catch {
           this.dynamicFields.set([]);
           this.messageService.add({ severity: 'warn', summary: 'Cảnh báo', detail: 'Không thể đọc cấu trúc biểu mẫu' });

@@ -1,0 +1,162 @@
+.picker-layout {
+  display: flex;
+  gap: 16px;
+  min-height: 420px;
+}
+
+.picker-sidebar {
+  width: 260px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-right: 1px solid #e5e7eb;
+  padding-right: 12px;
+}
+
+.folder-search {
+  width: 100%;
+}
+
+.folder-tree-panel {
+  flex: 1;
+  overflow-y: auto;
+  max-height: 380px;
+}
+
+.folder-node {
+  margin-bottom: 2px;
+}
+
+.folder-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: #374151;
+  text-align: left;
+
+  span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &.active {
+    background: #eff6ff;
+    color: #2563eb;
+    font-weight: 600;
+  }
+
+  &:hover {
+    background: #f3f4f6;
+  }
+}
+
+.folder-children {
+  margin-left: 16px;
+  border-left: 1px dotted #d1d5db;
+  padding-left: 4px;
+}
+
+.picker-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.picker-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.folder-label {
+  font-weight: 600;
+  color: #374151;
+  font-size: 0.875rem;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.doc-row {
+  cursor: pointer;
+
+  &.selected {
+    background: #f0f9ff;
+  }
+}
+
+.doc-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+
+  span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .pi {
+    color: #3b82f6;
+    flex-shrink: 0;
+  }
+}
+
+.empty-hint {
+  color: #9ca3af;
+  font-size: 0.85rem;
+  padding: 12px 4px;
+}
+
+.configure-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 4px 0;
+}
+
+.configure-step .step-title {
+  margin: 0 0 10px;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.step-note {
+  margin: 8px 0 0;
+  font-size: 0.85rem;
+  color: #6b7280;
+
+  &.ocr-warn {
+    color: #b45309;
+  }
+}
+
+.ocr-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ocr-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.875rem;
+
+  &.disabled {
+    opacity: 0.55;
+  }
+}
