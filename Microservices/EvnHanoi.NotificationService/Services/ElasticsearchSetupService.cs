@@ -1,17 +1,15 @@
-using System;
 using System.Data;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using Dapper;
 using Elastic.Clients.Elasticsearch;
 using Elastic.Clients.Elasticsearch.IndexManagement;
 using Elastic.Clients.Elasticsearch.Mapping;
 using Elastic.Clients.Elasticsearch.Analysis;
+using EvnHanoi.Infrastructure.Messaging;
+using EvnHanoi.NotificationService.Models;
+using EvnHanoi.NotificationService.Repositories;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using EvnHanoi.NotificationService.Models;
 
 namespace EvnHanoi.NotificationService.Services;
 
@@ -39,29 +37,20 @@ public class ElasticsearchSetupService : IHostedService
             await EnsureIndexExistsAsync("equipments", new Properties
             {
                 { "id", new KeywordProperty() },
-                { "name", new TextProperty { Analyzer = "vn_analyzer" } },
+                { "name", new TextProperty { Analyzer = VietnameseAnalysisSetup.AnalyzerName, SearchAnalyzer = VietnameseAnalysisSetup.SearchAnalyzerName } },
                 { "code", new KeywordProperty() },
-                { "description", new TextProperty { Analyzer = "vn_analyzer" } },
+                { "description", new TextProperty { Analyzer = VietnameseAnalysisSetup.AnalyzerName, SearchAnalyzer = VietnameseAnalysisSetup.SearchAnalyzerName } },
                 { "type", new KeywordProperty() },
                 { "status", new KeywordProperty() }
             }, cancellationToken);
 
-            await EnsureIndexExistsAsync("dossiers", new Properties
-            {
-                { "id", new KeywordProperty() },
-                { "equipmentId", new KeywordProperty() },
-                { "title", new TextProperty { Analyzer = "vn_analyzer" } },
-                { "description", new TextProperty { Analyzer = "vn_analyzer" } },
-                { "status", new KeywordProperty() },
-                { "publishStatus", new KeywordProperty() },
-                { "unitId", new LongNumberProperty() }
-            }, cancellationToken);
+            await DossierIndexSetup.EnsureIndexExistsAsync(_client, _logger, cancellationToken);
 
             await EnsureIndexExistsAsync("eavformtemplates", new Properties
             {
                 { "id", new KeywordProperty() },
-                { "name", new TextProperty { Analyzer = "vn_analyzer" } },
-                { "description", new TextProperty { Analyzer = "vn_analyzer" } },
+                { "name", new TextProperty { Analyzer = VietnameseAnalysisSetup.AnalyzerName, SearchAnalyzer = VietnameseAnalysisSetup.SearchAnalyzerName } },
+                { "description", new TextProperty { Analyzer = VietnameseAnalysisSetup.AnalyzerName, SearchAnalyzer = VietnameseAnalysisSetup.SearchAnalyzerName } },
                 { "version", new IntegerNumberProperty() },
                 { "isActive", new BooleanProperty() }
             }, cancellationToken);
@@ -84,17 +73,7 @@ public class ElasticsearchSetupService : IHostedService
 
             var createResponse = await _client.Indices.CreateAsync(indexName, c => c
                 .Settings(s => s
-                    .Analysis(a => a
-                        .TokenFilters(tf => tf
-                            .Synonym("vn_synonym", sy => sy.Synonyms(new[] { "trạm, trạm biến áp", "máy, máy biến áp" }))
-                        )
-                        .Analyzers(an => an
-                            .Custom("vn_analyzer", ca => ca
-                                .Tokenizer("standard")
-                                .Filter(new[] { "lowercase", "vn_synonym", "icu_folding" })
-                            )
-                        )
-                    )
+                    .Analysis(VietnameseAnalysisSetup.Configure)
                 )
                 .Mappings(m => m.Properties(properties))
             , cancellationToken);
@@ -105,7 +84,22 @@ public class ElasticsearchSetupService : IHostedService
             }
             else
             {
-                _logger.LogError("Failed to create index {IndexName}: {Error}", indexName, createResponse.DebugInformation);
+                _logger.LogWarning(
+                    "Failed to create index {IndexName} with vi_tokenizer, retrying with standard tokenizer + asciifolding. Error: {Error}",
+                    indexName,
+                    createResponse.DebugInformation);
+
+                var fallbackResponse = await _client.Indices.CreateAsync(indexName, c => c
+                    .Settings(s => s
+                        .Analysis(VietnameseAnalysisSetup.ConfigureStandardTokenizer)
+                    )
+                    .Mappings(m => m.Properties(properties))
+                , cancellationToken);
+
+                if (fallbackResponse.IsValidResponse)
+                    _logger.LogInformation("Index {IndexName} created with standard tokenizer + asciifolding.", indexName);
+                else
+                    _logger.LogError("Failed to create index {IndexName}: {Error}", indexName, fallbackResponse.DebugInformation);
             }
         }
         else
@@ -142,21 +136,33 @@ public class ElasticsearchSetupService : IHostedService
             _logger.LogError(ex, "Error syncing Equipments table.");
         }
 
-        // Sync Dossiers
+        // Sync Dossiers → dossier_index
         try
         {
-            var dossiers = await dbConnection.QueryAsync<Dossier>(
-                "SELECT Id, EquipmentId, Title, Description, Status, Status AS PublishStatus, UnitId FROM Dossiers");
-            _logger.LogInformation("Syncing {Count} dossiers to Elasticsearch...", dossiers.Count());
-            foreach (var ds in dossiers)
+            var enrichmentRepository = scope.ServiceProvider.GetRequiredService<IDossierEnrichmentRepository>();
+            var documentBuilder = scope.ServiceProvider.GetRequiredService<IDossierDocumentBuilder>();
+            var bhsCatalogs = await enrichmentRepository.GetBhsCatalogDefinitionsAsync();
+            var dossierIds = (await enrichmentRepository.GetAllIdsAsync()).ToList();
+
+            _logger.LogInformation("Syncing {Count} dossiers to {IndexName}...", dossierIds.Count, DossierMessaging.IndexName);
+            foreach (var dossierId in dossierIds)
             {
                 if (cancellationToken.IsCancellationRequested) break;
-                await _client.IndexAsync(ds, idx => idx.Index("dossiers").Id(ds.Id), cancellationToken);
+
+                var data = await enrichmentRepository.GetByIdAsync(dossierId);
+                if (data is null) continue;
+
+                var equipments = await enrichmentRepository.GetEquipmentsAsync(dossierId);
+                var document = documentBuilder.Build(data, bhsCatalogs, equipments);
+                await _client.IndexAsync(
+                    document,
+                    idx => idx.Index(DossierMessaging.IndexName).Id(document.Id),
+                    cancellationToken);
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error syncing Dossiers table.");
+            _logger.LogError(ex, "Error syncing DOSSIERS to dossier_index.");
         }
 
         // Sync EavFormTemplates

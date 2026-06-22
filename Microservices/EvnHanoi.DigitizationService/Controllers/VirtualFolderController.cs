@@ -256,7 +256,7 @@ namespace EvnHanoi.DigitizationService.Controllers
         }
 
         [HttpDelete("{id}/files/{fileId}")]
-        public async Task<IActionResult> RemoveFileFromFolder(long id, int fileId)
+        public async Task<IActionResult> RemoveFileFromFolder(long id, Guid fileId)
         {
             try
             {

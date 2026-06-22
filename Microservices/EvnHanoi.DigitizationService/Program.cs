@@ -30,6 +30,7 @@ builder.Services.AddOpenApi();
 var rabbitFactory = new ConnectionFactory
 {
     HostName = builder.Configuration["RabbitMQ:Host"] ?? "localhost",
+    VirtualHost = builder.Configuration["RabbitMQ:VirtualHost"] ?? "/",
     UserName = builder.Configuration["RabbitMQ:Username"] ?? "guest",
     Password = builder.Configuration["RabbitMQ:Password"] ?? "guest",
     Port = int.TryParse(builder.Configuration["RabbitMQ:Port"], out var port) ? port : 5672

@@ -15,24 +15,28 @@ namespace EvnHanoi.DigitizationService.Repositories
             _connection = connection ?? throw new ArgumentNullException(nameof(connection));
         }
 
-        public async Task<int> CreateAsync(FileAttachment fileAttachment)
+        public async Task<Guid> CreateAsync(FileAttachment fileAttachment)
         {
+            if (fileAttachment.Id == Guid.Empty)
+            {
+                fileAttachment.Id = Guid.NewGuid();
+            }
+
             var sql = $@"
                 INSERT INTO FILE_ATTACHMENT (
-                    FILE_NAME, FILE_PATH, CONTENT_TYPE, FILE_SIZE, UPLOADED_AT, UPLOADED_BY, STATUS
+                    ID, FILE_NAME, FILE_PATH, CONTENT_TYPE, FILE_SIZE, UPLOADED_AT, UPLOADED_BY, STATUS
                 ) VALUES (
-                    :{nameof(FileAttachment.FileName)}, :{nameof(FileAttachment.FilePath)}, :{nameof(FileAttachment.ContentType)}, :{nameof(FileAttachment.FileSize)}, :{nameof(FileAttachment.UploadedAt)}, :{nameof(FileAttachment.UploadedBy)}, :{nameof(FileAttachment.Status)}
-                ) RETURNING ID INTO :Id";
+                    :{nameof(FileAttachment.Id)}, :{nameof(FileAttachment.FileName)}, :{nameof(FileAttachment.FilePath)}, :{nameof(FileAttachment.ContentType)}, :{nameof(FileAttachment.FileSize)}, :{nameof(FileAttachment.UploadedAt)}, :{nameof(FileAttachment.UploadedBy)}, :{nameof(FileAttachment.Status)}
+                )";
 
             var parameters = new DynamicParameters(fileAttachment);
-            parameters.Add("Id", dbType: DbType.Int32, direction: ParameterDirection.Output);
             
             await _connection.ExecuteAsync(sql, parameters);
             
-            return parameters.Get<int>("Id");
+            return fileAttachment.Id;
         }
 
-        public async Task UpdateStatusAsync(int id, string status)
+        public async Task UpdateStatusAsync(Guid id, string status)
         {
             var sql = $"UPDATE FILE_ATTACHMENT SET STATUS = :Status WHERE ID = :Id";
             await _connection.ExecuteAsync(sql, new { Id = id, Status = status });

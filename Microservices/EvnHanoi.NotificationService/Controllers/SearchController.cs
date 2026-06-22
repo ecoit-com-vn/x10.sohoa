@@ -1,11 +1,10 @@
-using System;
 using System.Data;
-using System.Linq;
-using System.Threading.Tasks;
-using System.Collections.Generic;
 using Dapper;
 using Elastic.Clients.Elasticsearch;
+using EvnHanoi.Infrastructure.Messaging;
 using EvnHanoi.NotificationService.Models;
+using EvnHanoi.NotificationService.Repositories;
+using EvnHanoi.NotificationService.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
@@ -19,16 +18,44 @@ public class SearchController : ControllerBase
 {
     private readonly ElasticsearchClient _elasticClient;
     private readonly IDbConnection _dbConnection;
+    private readonly IDossierSearchService _dossierSearchService;
     private readonly ILogger<SearchController> _logger;
 
     public SearchController(
         ElasticsearchClient elasticClient,
         IDbConnection dbConnection,
+        IDossierSearchService dossierSearchService,
         ILogger<SearchController> logger)
     {
         _elasticClient = elasticClient;
         _dbConnection = dbConnection;
+        _dossierSearchService = dossierSearchService;
         _logger = logger;
+    }
+
+    [HttpGet("dossiers")]
+    public async Task<IActionResult> SearchDossiers(
+        [FromQuery] string? keyword,
+        [FromQuery] Guid? infrastructureId,
+        [FromQuery] int? gridTypeId,
+        [FromQuery] long? unitId,
+        [FromQuery] string? status,
+        [FromQuery] int page = 1, 
+        [FromQuery] int pageSize = 10)
+    {
+        var filter = new DossierFilterDto
+        {
+            Keyword = keyword,
+            InfrastructureId = infrastructureId,
+            GridTypeId = gridTypeId,
+            UnitId = unitId,
+            Status = status,
+            Page = page,
+            PageSize = pageSize
+        };
+
+        var (items, totalCount) = await _dossierSearchService.GetPagedAsync(filter);
+        return Ok(new { items, totalCount, page, pageSize });
     }
 
     [HttpGet("global")]
@@ -48,7 +75,6 @@ public class SearchController : ControllerBase
 
         var lowerQuery = query.ToLower();
 
-        // 1. Query Elasticsearch for Equipments
         var eqResults = new List<object>();
         try
         {
@@ -75,24 +101,23 @@ public class SearchController : ControllerBase
             _logger.LogError(ex, "Error searching equipments in Elasticsearch.");
         }
 
-        // 2. Query Elasticsearch for Dossiers
         var dsResults = new List<object>();
         try
         {
-            var dsResponse = await _elasticClient.SearchAsync<Dossier>(s => s
-                .Index("dossiers")
-                .Query(q => q
-                    .MultiMatch(mm => mm
-                        .Query(query)
-                        .Fields(new[] { "title", "description" })
-                    )
-                )
+            var dsResponse = await _elasticClient.SearchAsync<DossierEsDocument>(s => s
+                .Indices(DossierMessaging.IndexName)
                 .Size(20)
+                .Query(q => { DossierSearchRepository.ConfigureQuery(q, new DossierFilterDto { Keyword = query }, query); })
             );
             if (dsResponse.IsValidResponse)
             {
                 dsResults = dsResponse.Documents
-                    .Select(d => new { id = d.Id, name = d.Title, link = $"/dossiers/{d.Id}" })
+                    .Select(d => new
+                    {
+                        id = d.Id,
+                        name = BuildDossierDisplayName(d),
+                        link = $"/dossiers/{d.Id}"
+                    })
                     .Cast<object>()
                     .ToList();
             }
@@ -102,7 +127,6 @@ public class SearchController : ControllerBase
             _logger.LogError(ex, "Error searching dossiers in Elasticsearch.");
         }
 
-        // 3. Query Elasticsearch for Templates
         var tmplResults = new List<object>();
         try
         {
@@ -129,20 +153,19 @@ public class SearchController : ControllerBase
             _logger.LogError(ex, "Error searching eavformtemplates in Elasticsearch.");
         }
 
-        // 4. Query Oracle Database for Organization Units
         var unitResults = new List<object>();
         try
         {
             if (_dbConnection.State != ConnectionState.Open) _dbConnection.Open();
-            var unitsSql = @"
+            const string unitsSql = @"
                 SELECT Id, Name 
                 FROM ORGANIZATION_UNIT 
                 WHERE LOWER(Code) LIKE :Query 
                    OR LOWER(Name) LIKE :Query 
                    OR LOWER(Description) LIKE :Query";
-            
+
             var dbUnits = await _dbConnection.QueryAsync<(long Id, string Name)>(
-                unitsSql, 
+                unitsSql,
                 new { Query = $"%{lowerQuery}%" });
 
             unitResults = dbUnits
@@ -155,19 +178,18 @@ public class SearchController : ControllerBase
             _logger.LogError(ex, "Error searching organization units in Oracle DB.");
         }
 
-        // 5. Query Oracle Database for Workflow Definitions
         var workflowResults = new List<object>();
         try
         {
             if (_dbConnection.State != ConnectionState.Open) _dbConnection.Open();
-            var workflowsSql = @"
+            const string workflowsSql = @"
                 SELECT Id, Name 
                 FROM WORKFLOWDEFINITIONS 
                 WHERE LOWER(Name) LIKE :Query 
                    OR LOWER(Description) LIKE :Query";
 
             var dbWorkflows = await _dbConnection.QueryAsync<(string Id, string Name)>(
-                workflowsSql, 
+                workflowsSql,
                 new { Query = $"%{lowerQuery}%" });
 
             workflowResults = dbWorkflows
@@ -188,5 +210,16 @@ public class SearchController : ControllerBase
             organizationUnits = unitResults,
             workflowDefinitions = workflowResults
         });
+    }
+
+    private static string BuildDossierDisplayName(DossierEsDocument doc)
+    {
+        if (!string.IsNullOrWhiteSpace(doc.InfrastructureName) && !string.IsNullOrWhiteSpace(doc.DossierTypeName))
+            return $"{doc.InfrastructureName} — {doc.DossierTypeName}";
+        if (!string.IsNullOrWhiteSpace(doc.InfrastructureName))
+            return doc.InfrastructureName;
+        if (!string.IsNullOrWhiteSpace(doc.DossierTypeName))
+            return doc.DossierTypeName;
+        return doc.Id;
     }
 }

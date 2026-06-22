@@ -45,6 +45,24 @@ public class EquipmentRepository : IEquipmentRepository
         return await _connection.QuerySingleOrDefaultAsync<Equipment>(sql, new { Id = id.ToString() });
     }
 
+    public async Task<Equipment?> GetByCodeAsync(string code)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+            return null;
+
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        // UNIQUE trên cột Code áp dụng toàn bộ bảng EQUIPMENTS (kể cả bản ghi soft-delete).
+        var sql = $@"SELECT Id, Code
+                     FROM EQUIPMENTS
+                     WHERE Code = :Code";
+
+        return await _connection.QuerySingleOrDefaultAsync<Equipment>(
+            sql,
+            new { Code = code.Trim() });
+    }
+
     public async Task<EquipmentDto?> GetDtoByIdAsync(Guid id)
     {
         if (_connection.State != ConnectionState.Open) 
@@ -74,7 +92,7 @@ public class EquipmentRepository : IEquipmentRepository
                             c.Code AS {nameof(EquipmentDto.CountryCode)},
                             usr.Id AS CreatorId,
                             usr.UserName AS Username,
-                            usr.FullName AS Name
+                            usr.FullName AS FullName
                      FROM EQUIPMENTS e
                      LEFT JOIN EquipmentTypes et ON e.EquipmentTypeId = et.Id
                      LEFT JOIN GridTypes gt ON et.GridTypeId = gt.Id
@@ -84,12 +102,10 @@ public class EquipmentRepository : IEquipmentRepository
                      LEFT JOIN APP_USER usr ON e.CreatorId = usr.Id
                      WHERE e.Id = :Id AND e.IsDeleted = 0";
 
-        var result = await _connection.QueryAsync<EquipmentDto, CreatorInfoDto, EquipmentDto>(
+        var result = await _connection.QueryAsync<EquipmentDto, CreatorInfoRow, EquipmentDto>(
             sql, 
-            (eq, creator) => {
-                if (creator != null && creator.Id != Guid.Empty) {
-                    eq.Creator = creator;
-                }
+            (eq, creatorRow) => {
+                eq.Creator = creatorRow?.ToDto();
                 return eq;
             },
             new { Id = id.ToString() },
@@ -246,7 +262,7 @@ public class EquipmentRepository : IEquipmentRepository
                                    c.Code AS {nameof(EquipmentDto.CountryCode)},
                                    usr.Id AS CreatorId,
                                    usr.UserName AS Username,
-                                   usr.FullName AS Name
+                                   usr.FullName AS FullName
                             {sqlBase}
                             ORDER BY e.CreatedAt DESC, e.Code ASC
                             OFFSET :Offset ROWS FETCH NEXT :PageSize ROWS ONLY";
@@ -254,12 +270,10 @@ public class EquipmentRepository : IEquipmentRepository
         parameters.Add("Offset", (page - 1) * pageSize);
         parameters.Add("PageSize", pageSize);
 
-        var items = await _connection.QueryAsync<EquipmentDto, CreatorInfoDto, EquipmentDto>(
+        var items = await _connection.QueryAsync<EquipmentDto, CreatorInfoRow, EquipmentDto>(
             selectSql,
-            (eq, creator) => {
-                if (creator != null && creator.Id != Guid.Empty) {
-                    eq.Creator = creator;
-                }
+            (eq, creatorRow) => {
+                eq.Creator = creatorRow?.ToDto();
                 return eq;
             },
             parameters,

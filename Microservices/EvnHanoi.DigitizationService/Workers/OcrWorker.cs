@@ -5,19 +5,52 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
+using System.Text.Json.Serialization;
+using PdfDocument = PdfSharpCore.Pdf.PdfDocument;
+using PdfPage = PdfSharpCore.Pdf.PdfPage;
 using System;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Net.Http;
+using System.Diagnostics;
 using System.IO;
+using System.Collections.Generic;
+using System.Linq;
 using EvnHanoi.DigitizationService.Models;
 using EvnHanoi.DigitizationService.Repositories;
 using EvnHanoi.DigitizationService.Services;
+using PdfSharpCore.Pdf;
+using PdfSharpCore.Drawing;
 
 namespace EvnHanoi.DigitizationService.Workers
 {
+    /// <summary>
+    /// DTO nhận kết quả OCR [{text, box, confidence}] từ ocr_vl_server.
+    /// </summary>
+    public class TextBoxResponse
+    {
+        [JsonPropertyName("text")]
+        public string Text { get; set; } = "";
+
+        [JsonPropertyName("box")]
+        public List<float> Box { get; set; } = new();
+
+        [JsonPropertyName("confidence")]
+        public float Confidence { get; set; }
+    }
+
+    /// <summary>
+    /// Worker tiêu thụ message từ RabbitMQ queue "ocr_task_queue".
+    /// 
+    /// Luồng xử lý:
+    ///   1. Tải PDF từ MinIO
+    ///   2. Render từng trang PDF → JPEG (150 DPI)
+    ///   3. Gửi 1 POST /ocr_page đến ocr_vl_server → nhận [{text, box}]
+    ///   4. Vẽ text ẩn (invisible layer) lên ảnh PDF tạo PDF 2 lớp
+    ///   5. Upload PDF 2 lớp lên MinIO, publish ExtractionTask
+    /// </summary>
     public class OcrWorker : BackgroundService
     {
         private readonly ILogger<OcrWorker> _logger;
@@ -37,7 +70,7 @@ namespace EvnHanoi.DigitizationService.Workers
             _configuration = configuration;
             _serviceProvider = serviceProvider;
             _connection = connection;
-            _ocrVlServerUrl = _configuration["AIModelServers:OcrVlServerUrl"] ?? "http://localhost:8090";
+            _ocrVlServerUrl = _configuration["AIModelServers:OcrVlServerUrl"] ?? "http://ocr3.ecoit.asia";
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -70,50 +103,175 @@ namespace EvnHanoi.DigitizationService.Workers
                             var repository = scope.ServiceProvider.GetRequiredService<IFileAttachmentRepository>();
                             var minioService = scope.ServiceProvider.GetRequiredService<IMinioStorageService>();
                             var httpClientFactory = scope.ServiceProvider.GetRequiredService<IHttpClientFactory>();
+                            var publisher = scope.ServiceProvider.GetRequiredService<IMessagePublisher>();
+
+                            if (taskMsg.ProcessOption == "ExtractOnly")
+                            {
+                                _logger.LogInformation("Task yêu cầu ExtractOnly, bỏ qua OCR, chuyển thẳng sang Extraction.");
+                                var extractMsg = new ExtractionTaskMessage
+                                {
+                                    FileId = taskMsg.FileId,
+                                    FilePath = taskMsg.FilePath,
+                                    BucketName = taskMsg.BucketName,
+                                    Form = taskMsg.Form
+                                };
+                                await publisher.PublishMessageAsync(extractMsg, "digitization.topic", "extraction.process.task");
+                                await _channel.BasicAckAsync(ea.DeliveryTag, false);
+                                return;
+                            }
 
                             // 1. Cập nhật trạng thái
-                            await repository.UpdateStatusAsync(taskMsg.FileId, "Processing");
-                            _logger.LogInformation("Đã cập nhật trạng thái FileAttachment {FileId} thành Processing.", taskMsg.FileId);
+                            try {
+                                await repository.UpdateStatusAsync(taskMsg.FileId, "Processing");
+                                _logger.LogInformation("Đã cập nhật trạng thái FileAttachment {FileId} thành Processing.", taskMsg.FileId);
+                            } catch (Exception ex) {
+                                _logger.LogWarning("Bỏ qua lỗi DB khi update trạng thái: {Message}", ex.Message);
+                            }
 
-                            // 2. Tải file từ MinIO
+                            // 2. Tải file PDF từ MinIO
                             _logger.LogInformation("Tải file {FilePath} từ bucket {BucketName}", taskMsg.FilePath, taskMsg.BucketName);
                             using var fileStream = await minioService.DownloadFileAsync(taskMsg.BucketName, taskMsg.FilePath);
-                            
-                            // 3. Gọi ocr_vl_server để lấy kết quả (Giả lập gọi HTTP API)
-                            var httpClient = httpClientFactory.CreateClient("OcrVlClient");
-                            httpClient.BaseAddress = new Uri(_ocrVlServerUrl);
 
-                            // Gửi file bytes dạng multipart
-                            try
+                            using var msPdf = new MemoryStream();
+                            await fileStream.CopyToAsync(msPdf, stoppingToken);
+                            byte[] pdfBytes = msPdf.ToArray();
+
+                            int pageCount = PDFtoImage.Conversion.GetPageCount(pdfBytes);
+                            _logger.LogInformation("PDF có {PageCount} trang. Bắt đầu xử lý từng trang.", pageCount);
+
+                            // HttpClient không timeout — ocr_vl_server có thể mất vài giây
+                            var httpClient = httpClientFactory.CreateClient("NoTimeout");
+                            httpClient.Timeout = Timeout.InfiniteTimeSpan;
+
+                            // Tạo PDF 2 lớp output
+                            using var outPdfDoc = new PdfDocument();
+                            // Brush gần trong suốt để text ẩn nhưng vẫn searchable
+                            XBrush transparentBrush = new XSolidBrush(XColor.FromArgb(1, 0, 0, 0));
+
+                            for (int i = 0; i < pageCount; i++)
                             {
-                                // var multipart = new MultipartFormDataContent();
-                                // multipart.Add(new StreamContent(fileStream), "file", taskMsg.FilePath);
-                                // var response = await httpClient.PostAsync("/completion", multipart, stoppingToken);
-                                // response.EnsureSuccessStatusCode();
-                                // var ocrResultText = await response.Content.ReadAsStringAsync();
-                                
-                                await Task.Delay(2000, stoppingToken);
-                                _logger.LogInformation("Gọi ocr_vl_server thành công cho FileId {FileId}", taskMsg.FileId);
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.LogWarning(ex, "Không thể kết nối đến ocr_vl_server.");
+                                _logger.LogInformation("Đang xử lý trang {Page}/{TotalPages}...", i + 1, pageCount);
+
+                                // 3. Render trang PDF → JPEG (150 DPI)
+                                using var imgStream = new MemoryStream();
+                                var renderOptions = new PDFtoImage.RenderOptions { Dpi = 150 };
+                                PDFtoImage.Conversion.SaveJpeg(imgStream, pdfBytes, password: null, page: i, options: renderOptions);
+                                byte[] pageImageBytes = imgStream.ToArray();
+
+                                List<TextBoxResponse> ocrResults = new();
+                                var sw = Stopwatch.StartNew();
+
+                                try
+                                {
+                                    // 4. Gửi ảnh toàn trang lên ocr_vl_server → nhận [{text, box, confidence}]
+                                    //    Server thực hiện: PaddleOCR detect + 1 LLM call "OCR:"
+                                    using var multipart = new MultipartFormDataContent();
+                                    var imageContent = new ByteArrayContent(pageImageBytes);
+                                    imageContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/jpeg");
+                                    multipart.Add(imageContent, "file", $"page_{i + 1}.jpg");
+
+                                    string ocrPageUrl = $"{_ocrVlServerUrl.TrimEnd('/')}/ocr_page";
+                                    _logger.LogInformation("Gửi trang {Page} lên {Url}", i + 1, ocrPageUrl);
+
+                                    var response = await httpClient.PostAsync(ocrPageUrl, multipart, stoppingToken);
+
+                                    if (response.IsSuccessStatusCode)
+                                    {
+                                        var respStr = await response.Content.ReadAsStringAsync(stoppingToken);
+                                        var boxes = JsonSerializer.Deserialize<List<TextBoxResponse>>(respStr,
+                                            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                                        if (boxes != null)
+                                            ocrResults = boxes;
+                                    }
+                                    else
+                                    {
+                                        _logger.LogWarning("ocr_vl_server trả về lỗi {StatusCode} cho trang {Page}", response.StatusCode, i + 1);
+                                    }
+
+                                    sw.Stop();
+                                    _logger.LogInformation("[ĐO ĐẠC] Trang {Page} hoàn thành OCR sau {ElapsedMs} ms. Nhận về {Count} box text.",
+                                        i + 1, sw.ElapsedMilliseconds, ocrResults.Count);
+                                }
+                                catch (Exception ex)
+                                {
+                                    _logger.LogWarning(ex, "Lỗi khi gọi ocr_vl_server cho trang {Page}.", i + 1);
+                                }
+
+                                // 5. Tạo trang PDF 2 lớp: ảnh gốc + text ẩn
+                                PdfPage newPage = outPdfDoc.AddPage();
+                                using XGraphics gfx = XGraphics.FromPdfPage(newPage);
+
+                                using var memStreamImg = new MemoryStream(pageImageBytes);
+                                using XImage xImage = XImage.FromStream(() => memStreamImg);
+
+                                // Quy đổi pixel → point (72pt = 1 inch; 150 DPI → scale = 72/150)
+                                double scale = 72.0 / 150.0;
+                                double imgWidthPx  = xImage.PixelWidth;
+                                double imgHeightPx = xImage.PixelHeight;
+                                newPage.Width  = imgWidthPx  * scale;
+                                newPage.Height = imgHeightPx * scale;
+                                gfx.DrawImage(xImage, 0, 0, newPage.Width, newPage.Height);
+
+                                // Vẽ text ẩn (invisible text layer) theo từng bounding box
+                                foreach (var boxData in ocrResults)
+                                {
+                                    if (boxData.Box == null || boxData.Box.Count != 4) continue;
+                                    if (string.IsNullOrWhiteSpace(boxData.Text)) continue;
+
+                                    double x0 = boxData.Box[0] * scale;
+                                    double y0 = boxData.Box[1] * scale;
+                                    double x1 = boxData.Box[2] * scale;
+                                    double y1 = boxData.Box[3] * scale;
+
+                                    double w = Math.Max(x1 - x0, 10 * scale);
+                                    double h = Math.Max(y1 - y0, 6 * scale);
+
+                                    // Font size tương ứng với chiều cao box (0.75 * h)
+                                    double fontSize = Math.Max(4, h * 0.75);
+                                    XFont font = new XFont("Arial", fontSize, XFontStyle.Regular);
+
+                                    XRect rect = new XRect(x0, y0, w, h);
+                                    gfx.DrawString(boxData.Text, font, transparentBrush, rect, XStringFormats.TopLeft);
+                                }
+
+                                // Báo cáo tiến trình per-page
+                                var progressMsg = new
+                                {
+                                    FileId = taskMsg.FileId,
+                                    Action = "ocr.process.progress",
+                                    CurrentPage = i + 1,
+                                    TotalPages = pageCount,
+                                    Progress = (int)Math.Round((double)(i + 1) / pageCount * 100)
+                                };
+                                await publisher.PublishMessageAsync(progressMsg, "digitization.topic", "ocr.process.progress");
                             }
 
-                            // 4. Cập nhật trạng thái
-                            await repository.UpdateStatusAsync(taskMsg.FileId, "OcrCompleted");
-                            _logger.LogInformation("AI OCR đã xong. Cập nhật trạng thái FileAttachment {FileId} thành OcrCompleted.", taskMsg.FileId);
+                            // 6. Upload PDF 2 lớp lên MinIO (ghi đè file gốc)
+                            string outFileName = taskMsg.FilePath;
+                            using var finalPdfStream = new MemoryStream();
+                            outPdfDoc.Save(finalPdfStream, false);
+                            finalPdfStream.Position = 0;
 
-                            // 5. Publish message tới extraction_task_queue
-                            var publisher = scope.ServiceProvider.GetRequiredService<IMessagePublisher>();
-                            var extractionMessage = new 
+                            _logger.LogInformation("Đang upload (ghi đè) PDF 2 lớp {FileName} lên MinIO", outFileName);
+                            await minioService.UploadFileAsync(taskMsg.BucketName, outFileName, finalPdfStream, "application/pdf");
+
+                            // 7. Cập nhật trạng thái DB
+                            try {
+                                await repository.UpdateStatusAsync(taskMsg.FileId, "OcrCompleted");
+                                _logger.LogInformation("OCR hoàn tất. Cập nhật trạng thái FileAttachment {FileId} thành OcrCompleted.", taskMsg.FileId);
+                            } catch (Exception ex) {
+                                _logger.LogWarning("Bỏ qua lỗi DB khi update trạng thái: {Message}", ex.Message);
+                            }
+
+                            // 8. Publish ExtractionTaskMessage → ExtractionWorker
+                            var extractionTask = new ExtractionTaskMessage
                             {
                                 FileId = taskMsg.FileId,
-                                FilePath = taskMsg.FilePath,
+                                FilePath = outFileName,
                                 BucketName = taskMsg.BucketName,
-                                Action = "extraction.process.task"
+                                Form = taskMsg.Form
                             };
-                            await publisher.PublishMessageAsync(extractionMessage, "digitization.topic", "extraction.process.task");
+                            await publisher.PublishMessageAsync(extractionTask, "digitization.topic", "extraction.process.task");
 
                             await _channel.BasicAckAsync(ea.DeliveryTag, false);
                         }
