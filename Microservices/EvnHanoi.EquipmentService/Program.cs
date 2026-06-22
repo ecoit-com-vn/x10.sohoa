@@ -1,5 +1,6 @@
 using EvnHanoi.Infrastructure.Database;
 using EvnHanoi.Infrastructure.Logging;
+using EvnHanoi.Infrastructure.Messaging;
 using EvnHanoi.Infrastructure.Security;
 using Serilog;
 using Scalar.AspNetCore;
@@ -34,12 +35,14 @@ builder.Services.AddOpenApi();
 var rabbitFactory = new ConnectionFactory
 {
     HostName = builder.Configuration["RabbitMQ:Host"] ?? "localhost",
+    VirtualHost = builder.Configuration["RabbitMQ:VirtualHost"] ?? "/",
     UserName = builder.Configuration["RabbitMQ:Username"] ?? "guest",
     Password = builder.Configuration["RabbitMQ:Password"] ?? "guest",
     Port = int.TryParse(builder.Configuration["RabbitMQ:Port"], out var port) ? port : 5672
 };
 var rabbitConnection = await rabbitFactory.CreateConnectionAsync();
 builder.Services.AddSingleton<IConnection>(rabbitConnection);
+builder.Services.AddHostedService<DigitizationMessagingTopologyInitializer>();
 
 builder.Services.AddDapperInfrastructure(builder.Configuration);
 
@@ -72,6 +75,11 @@ builder.Services.AddSingleton<IMinioClient>(sp =>
 });
 builder.Services.AddScoped<IFileUploadService, FileUploadService>();
 builder.Services.AddScoped<IFileStorageService, FileStorageService>();
+builder.Services.AddScoped<IFileDownloadTokenService, FileDownloadTokenService>();
+builder.Services.AddScoped<IDossierDocumentService, DossierDocumentService>();
+builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IDocumentDigitizationRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.DocumentDigitizationRepository>();
+builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IDocumentDigitizationService, DocumentDigitizationService>();
+builder.Services.AddHostedService<EvnHanoi.EquipmentService.Infrastructure.Messaging.DocumentDigitizationConsumer>();
 builder.Services.AddScoped<IClamAvService, ClamAvService>();
 builder.Services.AddScoped<IMimeTypeValidationService, MimeTypeValidationService>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IEquipmentRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.EquipmentRepository>();
@@ -80,6 +88,7 @@ builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IPhysicalSt
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.ICatalogRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.CatalogRepository>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IEavFormTemplateRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.EavFormTemplateRepository>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IDossierTypeRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.DossierTypeRepository>();
+builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IDocumentTypeRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.DocumentTypeRepository>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IInfrastructureRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.InfrastructureRepository>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IEavFormTemplateService, EvnHanoi.EquipmentService.Core.Services.EavFormTemplateService>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IDossierTypeService, EvnHanoi.EquipmentService.Core.Services.DossierTypeService>();
@@ -98,6 +107,14 @@ builder.Services.AddHttpClient("WorkflowService", client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["Services:WorkflowService"] ?? "http://workflowservice");
 }).AddHttpMessageHandler<EvnHanoi.Infrastructure.Security.TokenRelayHandler>();
+
+builder.Services.AddHttpClient("NotificationService", client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["Services:NotificationService"] ?? "http://notificationservice");
+});
+
+builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IDigitizationProgressNotifier,
+    EvnHanoi.EquipmentService.Infrastructure.Notifications.HttpDigitizationProgressNotifier>();
 
 // 3. Configure JWT Authentication
 var jwtKey = builder.Configuration["Jwt:Key"] ?? "super_secret_key_12345678901234567890";

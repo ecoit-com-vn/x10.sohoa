@@ -61,8 +61,11 @@ public class FileDownloadController : ControllerBase
 
             await _cache.RemoveAsync(cacheKey, cancellationToken);
 
-            _logger.LogInformation("Streaming file: {FilePath}", tokenMetadata.FilePath);
-            var fileStream = await _fileStorageService.DownloadFileAsync(tokenMetadata.FilePath, cancellationToken);
+            _logger.LogInformation("Streaming file: {Bucket}/{FilePath}", tokenMetadata.BucketName, tokenMetadata.FilePath);
+            var fileStream = await _fileStorageService.DownloadFileAsync(
+                tokenMetadata.FilePath,
+                tokenMetadata.BucketName,
+                cancellationToken);
 
             return File(fileStream, tokenMetadata.MimeType, tokenMetadata.FileName);
         }

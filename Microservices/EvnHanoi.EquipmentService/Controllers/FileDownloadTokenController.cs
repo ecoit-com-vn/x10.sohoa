@@ -1,16 +1,14 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
-using System.Text.Json;
-using Microsoft.Extensions.Caching.Distributed;
-using EvnHanoi.EquipmentService.Core.DTOs;
 using EvnHanoi.EquipmentService.Core.Interfaces;
+using EvnHanoi.EquipmentService.Core.Services;
 using EvnHanoi.Infrastructure.Security;
 
 namespace EvnHanoi.EquipmentService.Controllers;
 
 /// <summary>
-/// API tạo download token cho file (EquipmentService)
+/// API tạo download token cho file trong kho thư mục (EquipmentService)
 /// </summary>
 [Authorize]
 [ApiController]
@@ -18,19 +16,16 @@ namespace EvnHanoi.EquipmentService.Controllers;
 public class FileDownloadTokenController : ControllerBase
 {
     private readonly IDocumentRepository _documentRepository;
-    private readonly IDistributedCache _cache;
-    private readonly IConfiguration _config;
+    private readonly IFileDownloadTokenService _downloadTokenService;
     private readonly ILogger<FileDownloadTokenController> _logger;
 
     public FileDownloadTokenController(
         IDocumentRepository documentRepository,
-        IDistributedCache cache,
-        IConfiguration config,
+        IFileDownloadTokenService downloadTokenService,
         ILogger<FileDownloadTokenController> logger)
     {
         _documentRepository = documentRepository ?? throw new ArgumentNullException(nameof(documentRepository));
-        _cache = cache ?? throw new ArgumentNullException(nameof(cache));
-        _config = config ?? throw new ArgumentNullException(nameof(config));
+        _downloadTokenService = downloadTokenService ?? throw new ArgumentNullException(nameof(downloadTokenService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -45,7 +40,7 @@ public class FileDownloadTokenController : ControllerBase
     }
 
     /// <summary>
-    /// Tạo download token cho file version
+    /// Tạo download token cho file version trong kho thư mục
     /// </summary>
     [HttpGet("{versionId:guid}/download-url")]
     [BypassDynamicPermission]
@@ -55,23 +50,17 @@ public class FileDownloadTokenController : ControllerBase
     {
         try
         {
-            // Get document version
             var version = await _documentRepository.GetDocumentVersionByIdAsync(versionId);
             if (version == null)
                 return NotFound("Phiên bản tài liệu không tồn tại");
 
-            if (version.IsDeleted)
-                return NotFound("Phiên bản tài liệu đã bị xóa");
-
-            // Get document to check folder and permission
             var document = await _documentRepository.GetDocumentByIdAsync(version.DocumentId);
             if (document == null)
                 return NotFound("Tài liệu không tồn tại");
 
-            if (document.IsDeleted)
-                return NotFound("Tài liệu đã bị xóa");
+            if (document.DossierId.HasValue)
+                return BadRequest(new { code = "INVALID_SCOPE", message = "Tài liệu thuộc hồ sơ — dùng API download của hồ sơ." });
 
-            // Check permission theo đơn vị thư mục
             var userUnitId = GetUserUnitId();
             if (userUnitId == 0)
                 return Unauthorized(new { code = "UNAUTHORIZED", message = "Không thể xác định đơn vị của người dùng" });
@@ -89,36 +78,17 @@ public class FileDownloadTokenController : ControllerBase
             if (string.IsNullOrEmpty(version.FilePath))
                 return BadRequest(new { code = "VALIDATION_ERROR", message = "Tài liệu không có file" });
 
-            // Generate one-time token
-            var token = Guid.NewGuid().ToString("N");
-            var ttlSeconds = _config.GetValue<int>("FileDownload:OneTimeTokenTTLSeconds", 60);
+            var result = await _downloadTokenService.CreateTokenAsync(
+                version.FilePath,
+                document.Name,
+                version.MimeType ?? "application/octet-stream",
+                cancellationToken: cancellationToken);
 
-            // Store token metadata in Redis
-            var tokenMetadata = new DownloadTokenMetadata
-            {
-                FilePath = version.FilePath,
-                BucketName = _config["MinIO:DocumentBucketName"] ?? "documents",
-                FileName = document.Name,
-                MimeType = version.MimeType ?? "application/octet-stream"
-            };
-
-            var cacheKey = $"download:token:{token}";
-            var cacheOptions = new DistributedCacheEntryOptions
-            {
-                AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(ttlSeconds)
-            };
-
-            var tokenJson = JsonSerializer.Serialize(tokenMetadata);
-            await _cache.SetStringAsync(cacheKey, tokenJson, cacheOptions, cancellationToken);
-
-            _logger.LogInformation("Generated download token for document {DocumentId}, version {VersionId}, user {UserId}",
+            _logger.LogInformation(
+                "Generated folder download token for document {DocumentId}, version {VersionId}, user {UserId}",
                 document.Id, versionId, UserId);
 
-            return Ok(new DownloadTokenResponse
-            {
-                Token = token,
-                ExpiresInSeconds = ttlSeconds
-            });
+            return Ok(result);
         }
         catch (Exception ex)
         {
@@ -126,15 +96,4 @@ public class FileDownloadTokenController : ControllerBase
             return StatusCode(500, new { code = "TOKEN_ERROR", message = ex.Message });
         }
     }
-}
-
-/// <summary>
-/// Metadata cho download token (lưu trong Redis)
-/// </summary>
-public class DownloadTokenMetadata
-{
-    public string FilePath { get; set; } = string.Empty;
-    public string BucketName { get; set; } = string.Empty;
-    public string FileName { get; set; } = string.Empty;
-    public string MimeType { get; set; } = string.Empty;
 }

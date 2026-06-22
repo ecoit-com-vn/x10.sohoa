@@ -48,11 +48,39 @@ public class DocumentListItemDto
     public Guid? FolderId { get; set; }
     public Guid? DossierId { get; set; }
     public string? CreatedBy { get; set; }
+    public string? CreatedByName { get; set; }
     public DateTime CreatedDate { get; set; }
     public long FileSize { get; set; }
     public string? MimeType { get; set; }
     public Guid? LatestVersionId { get; set; }
     public bool IsDeleted { get; set; }
+    public Guid? DocumentTypeId { get; set; }
+    public string? DocumentTypeName { get; set; }
+
+    /// <summary>Tiến trình OCR/extraction — chỉ populate khi list theo hồ sơ.</summary>
+    public DocumentOcrProgressSummaryDto? OcrProgress { get; set; }
+    public DocumentExtractionResultSummaryDto? ExtractionResult { get; set; }
+}
+
+/// <summary>Tóm tắt OCR trên danh sách tài liệu (không kèm FORM_JSON).</summary>
+public class DocumentOcrProgressSummaryDto
+{
+    public Guid Id { get; set; }
+    public Guid DocumentVersionId { get; set; }
+    public string Phase { get; set; } = string.Empty;
+    public int CurrentPage { get; set; }
+    public int TotalPages { get; set; }
+    public int Progress { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public string? ProcessOption { get; set; }
+}
+
+/// <summary>Tóm tắt kết quả bóc tách trên danh sách (không kèm RESULT_JSON).</summary>
+public class DocumentExtractionResultSummaryDto
+{
+    public Guid Id { get; set; }
+    public Guid DocumentVersionId { get; set; }
+    public string Status { get; set; } = string.Empty;
 }
 
 /// <summary>

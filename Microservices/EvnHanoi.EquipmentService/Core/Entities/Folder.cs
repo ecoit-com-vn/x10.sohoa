@@ -30,7 +30,8 @@ public class Document
     public string Name { get; set; } = string.Empty;
     public Guid? FolderId { get; set; }
     public Guid? DossierId { get; set; }
-    
+    public Guid? DocumentTypeId { get; set; }
+
     // Status tracking (Active, Deleted)
     public string Status { get; set; } = "Active";
 
@@ -39,6 +40,7 @@ public class Document
 
     // Audit fields
     public string? CreatedBy { get; set; }
+    public string? CreatorName { get; set; }
     public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
     public string? ModifiedBy { get; set; }
     public DateTime? ModifiedDate { get; set; }

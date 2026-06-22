@@ -9,10 +9,12 @@ namespace EvnHanoi.DigitizationService.Models
         public string BucketName { get; set; }
         public string ExtractPrompt { get; set; }
 
-        /// <summary>
-        /// Danh sách các form cần bóc tách. Mỗi form tương ứng với một đối tượng được bóc tách từ PDF.
+        /// <summary>Danh sách các form cần bóc tách. Mỗi form tương ứng với một đối tượng được bóc tách từ PDF.
         /// </summary>
-        public ExtractionForm Form { get; set; } 
+        public ExtractionForm Form { get; set; }
+
+        /// <summary>Snapshot đầy đủ EAV FormSchema JSON — tham chiếu khi bóc tách.</summary>
+        public string FormSchemaJson { get; set; }
     }
 
     public class ExtractionForm

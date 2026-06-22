@@ -44,7 +44,8 @@ public class UploadSession
 {
     public Guid Id { get; set; }
     public string UploadId { get; set; } = string.Empty;  // Unique token for this upload session
-    public Guid FolderId { get; set; }
+    public Guid? FolderId { get; set; }
+    public Guid? DossierId { get; set; }
     public string FileName { get; set; } = string.Empty;
     public int TotalChunks { get; set; }
     public int CompletedChunks { get; set; } = 0;

@@ -251,12 +251,15 @@ public class DocumentRepository : IDocumentRepository
                 d.NAME,
                 d.FOLDER_ID AS FolderId,
                 d.DOSSIER_ID AS DossierId,
+                d.DOCUMENT_TYPE_ID AS DocumentTypeId,
+                dt.NAME AS DocumentTypeName,
                 d.CREATED_BY AS CreatedBy,
                 d.CREATED_DATE AS CreatedDate,
                 NVL(latest.FILE_SIZE, 0) AS FileSize,
                 latest.MIME_TYPE AS MimeType,
                 latest.LATEST_VERSION_ID AS LatestVersionId
             FROM DOCUMENTS d
+            LEFT JOIN DOCUMENT_TYPES dt ON dt.ID = d.DOCUMENT_TYPE_ID AND dt.IsDeleted = 0
             LEFT JOIN (
                 SELECT dv.DOCUMENT_ID, dv.ID AS LATEST_VERSION_ID, dv.FILE_SIZE, dv.MIME_TYPE
                 FROM DOCUMENT_VERSIONS dv
@@ -288,8 +291,10 @@ public class DocumentRepository : IDocumentRepository
                 NAME,
                 FOLDER_ID,
                 DOSSIER_ID,
+                DOCUMENT_TYPE_ID,
                 ROW_VERSION,
                 CREATED_BY,
+                CREATOR_NAME,
                 CREATED_DATE,
                 IS_DELETED
             ) VALUES (
@@ -297,8 +302,10 @@ public class DocumentRepository : IDocumentRepository
                 :Name,
                 :FolderId,
                 :DossierId,
+                :DocumentTypeId,
                 1,
                 :CreatedBy,
+                :CreatorName,
                 SYSTIMESTAMP,
                 0
             )";
@@ -309,7 +316,9 @@ public class DocumentRepository : IDocumentRepository
             document.Name,
             FolderId = document.FolderId?.ToString(),
             DossierId = document.DossierId?.ToString(),
-            document.CreatedBy
+            DocumentTypeId = document.DocumentTypeId?.ToString(),
+            document.CreatedBy,
+            document.CreatorName
         });
 
         return id;
@@ -478,6 +487,7 @@ public class DocumentRepository : IDocumentRepository
                 ID,
                 UPLOAD_ID,
                 FOLDER_ID,
+                DOSSIER_ID,
                 FILE_NAME,
                 TOTAL_CHUNKS,
                 COMPLETED_CHUNKS,
@@ -490,6 +500,7 @@ public class DocumentRepository : IDocumentRepository
                 :Id,
                 :UploadId,
                 :FolderId,
+                :DossierId,
                 :FileName,
                 :TotalChunks,
                 :CompletedChunks,
@@ -504,7 +515,8 @@ public class DocumentRepository : IDocumentRepository
         {
             Id = id.ToString(),
             session.UploadId,
-            FolderId = session.FolderId.ToString(),
+            FolderId = session.FolderId?.ToString(),
+            DossierId = session.DossierId?.ToString(),
             session.FileName,
             session.TotalChunks,
             session.CompletedChunks,
@@ -526,6 +538,7 @@ public class DocumentRepository : IDocumentRepository
                 ID,
                 UPLOAD_ID AS UploadId,
                 FOLDER_ID AS FolderId,
+                DOSSIER_ID AS DossierId,
                 FILE_NAME AS FileName,
                 TOTAL_CHUNKS AS TotalChunks,
                 COMPLETED_CHUNKS AS CompletedChunks,
@@ -606,5 +619,302 @@ public class DocumentRepository : IDocumentRepository
               AND IS_DELETED = 0";
 
         return await _connection.ExecuteAsync(sql);
+    }
+
+    public async Task<(IEnumerable<DocumentListItemDto> Items, int TotalCount)> GetDocumentsByDossierAsync(
+        Guid dossierId,
+        DossierDocumentFilterDto filter)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        var aliasedWhere = "d.IS_DELETED = 0 AND d.DOSSIER_ID = :DossierId";
+        if (!string.IsNullOrWhiteSpace(filter.Keyword))
+            aliasedWhere += " AND d.NAME LIKE :Keyword";
+
+        var countSql = $"SELECT COUNT(*) FROM DOCUMENTS d WHERE {aliasedWhere}";
+        var totalCount = await _connection.ExecuteScalarAsync<int>(countSql, new
+        {
+            DossierId = dossierId.ToString(),
+            Keyword = $"%{filter.Keyword}%"
+        });
+
+        var offset = (filter.Page - 1) * filter.PageSize;
+        var listSql = $@"
+            SELECT 
+                d.ID,
+                d.NAME,
+                d.FOLDER_ID AS FolderId,
+                d.DOSSIER_ID AS DossierId,
+                d.DOCUMENT_TYPE_ID AS DocumentTypeId,
+                dt.NAME AS DocumentTypeName,
+                d.CREATED_BY AS CreatedBy,
+                NVL(d.CREATOR_NAME, cu.FullName) AS CreatedByName,
+                d.CREATED_DATE AS CreatedDate,
+                NVL(latest.FILE_SIZE, 0) AS FileSize,
+                latest.MIME_TYPE AS MimeType,
+                latest.LATEST_VERSION_ID AS LatestVersionId,
+                ocr.ID AS OcrProgressId,
+                ocr.DOCUMENT_VERSION_ID AS OcrDocumentVersionId,
+                ocr.PHASE AS OcrPhase,
+                ocr.CURRENT_PAGE AS OcrCurrentPage,
+                ocr.TOTAL_PAGES AS OcrTotalPages,
+                ocr.PROGRESS AS OcrProgress,
+                ocr.STATUS AS OcrStatus,
+                ocr.PROCESS_OPTION AS OcrProcessOption,
+                ext.ID AS ExtractionResultId,
+                ext.DOCUMENT_VERSION_ID AS ExtractionDocumentVersionId,
+                ext.STATUS AS ExtractionStatus
+            FROM DOCUMENTS d
+            LEFT JOIN APP_USER cu ON cu.Id = d.CREATED_BY
+            LEFT JOIN DOCUMENT_TYPES dt ON dt.ID = d.DOCUMENT_TYPE_ID AND dt.IsDeleted = 0
+            LEFT JOIN (
+                SELECT dv.DOCUMENT_ID, dv.ID AS LATEST_VERSION_ID, dv.FILE_SIZE, dv.MIME_TYPE
+                FROM DOCUMENT_VERSIONS dv
+                INNER JOIN (
+                    SELECT DOCUMENT_ID, MAX(VERSION_NUMBER) AS MAX_VER
+                    FROM DOCUMENT_VERSIONS
+                    WHERE IS_DELETED = 0
+                    GROUP BY DOCUMENT_ID
+                ) mx ON mx.DOCUMENT_ID = dv.DOCUMENT_ID AND mx.MAX_VER = dv.VERSION_NUMBER
+                WHERE dv.IS_DELETED = 0
+            ) latest ON latest.DOCUMENT_ID = d.ID
+            LEFT JOIN (
+                SELECT ID, DOCUMENT_VERSION_ID, PHASE, CURRENT_PAGE, TOTAL_PAGES, PROGRESS, STATUS, PROCESS_OPTION
+                FROM (
+                    SELECT p.ID, p.DOCUMENT_VERSION_ID, p.PHASE, p.CURRENT_PAGE, p.TOTAL_PAGES, p.PROGRESS,
+                           p.STATUS, p.PROCESS_OPTION,
+                           ROW_NUMBER() OVER (PARTITION BY p.DOCUMENT_VERSION_ID ORDER BY p.CREATED_DATE DESC) AS RN
+                    FROM DOCUMENT_OCR_PROGRESS p
+                    WHERE p.IS_DELETED = 0
+                ) ranked WHERE RN = 1
+            ) ocr ON ocr.DOCUMENT_VERSION_ID = latest.LATEST_VERSION_ID
+            LEFT JOIN (
+                SELECT ID, DOCUMENT_VERSION_ID, STATUS
+                FROM (
+                    SELECT e.ID, e.DOCUMENT_VERSION_ID, e.STATUS,
+                           ROW_NUMBER() OVER (PARTITION BY e.DOCUMENT_VERSION_ID ORDER BY e.CREATED_DATE DESC) AS RN
+                    FROM DOCUMENT_EXTRACTION_RESULTS e
+                    WHERE e.IS_DELETED = 0
+                ) ranked WHERE RN = 1
+            ) ext ON ext.DOCUMENT_VERSION_ID = latest.LATEST_VERSION_ID
+            WHERE {aliasedWhere}
+            ORDER BY d.CREATED_DATE DESC, d.NAME ASC
+            OFFSET :Offset ROWS
+            FETCH NEXT :PageSize ROWS ONLY";
+
+        var rows = await _connection.QueryAsync<DossierDocumentListRow>(listSql, new
+        {
+            DossierId = dossierId.ToString(),
+            Keyword = $"%{filter.Keyword}%",
+            Offset = offset,
+            PageSize = filter.PageSize
+        });
+
+        var items = rows.Select(MapDossierDocumentListRow);
+        return (items, totalCount);
+    }
+
+    private static DocumentListItemDto MapDossierDocumentListRow(DossierDocumentListRow row)
+    {
+        var item = new DocumentListItemDto
+        {
+            Id = Guid.Parse(row.Id),
+            Name = row.Name,
+            FolderId = string.IsNullOrEmpty(row.FolderId) ? null : Guid.Parse(row.FolderId),
+            DossierId = string.IsNullOrEmpty(row.DossierId) ? null : Guid.Parse(row.DossierId),
+            CreatedBy = row.CreatedBy,
+            CreatedByName = row.CreatedByName,
+            CreatedDate = row.CreatedDate,
+            FileSize = row.FileSize,
+            MimeType = row.MimeType,
+            LatestVersionId = string.IsNullOrEmpty(row.LatestVersionId) ? null : Guid.Parse(row.LatestVersionId),
+            DocumentTypeId = string.IsNullOrEmpty(row.DocumentTypeId) ? null : Guid.Parse(row.DocumentTypeId),
+            DocumentTypeName = row.DocumentTypeName,
+        };
+
+        if (!string.IsNullOrEmpty(row.OcrProgressId))
+        {
+            item.OcrProgress = new DocumentOcrProgressSummaryDto
+            {
+                Id = Guid.Parse(row.OcrProgressId),
+                DocumentVersionId = Guid.Parse(row.OcrDocumentVersionId!),
+                Phase = row.OcrPhase ?? "ocr",
+                CurrentPage = row.OcrCurrentPage,
+                TotalPages = row.OcrTotalPages,
+                Progress = row.OcrProgress,
+                Status = row.OcrStatus ?? string.Empty,
+                ProcessOption = row.OcrProcessOption
+            };
+        }
+
+        if (!string.IsNullOrEmpty(row.ExtractionResultId))
+        {
+            item.ExtractionResult = new DocumentExtractionResultSummaryDto
+            {
+                Id = Guid.Parse(row.ExtractionResultId),
+                DocumentVersionId = Guid.Parse(row.ExtractionDocumentVersionId!),
+                Status = row.ExtractionStatus ?? string.Empty
+            };
+        }
+
+        return item;
+    }
+
+    private sealed class DossierDocumentListRow
+    {
+        public string Id { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string? FolderId { get; set; }
+        public string? DossierId { get; set; }
+        public string? CreatedBy { get; set; }
+        public string? CreatedByName { get; set; }
+        public DateTime CreatedDate { get; set; }
+        public long FileSize { get; set; }
+        public string? MimeType { get; set; }
+        public string? LatestVersionId { get; set; }
+        public string? DocumentTypeId { get; set; }
+        public string? DocumentTypeName { get; set; }
+        public string? OcrProgressId { get; set; }
+        public string? OcrDocumentVersionId { get; set; }
+        public string? OcrPhase { get; set; }
+        public int OcrCurrentPage { get; set; }
+        public int OcrTotalPages { get; set; }
+        public int OcrProgress { get; set; }
+        public string? OcrStatus { get; set; }
+        public string? OcrProcessOption { get; set; }
+        public string? ExtractionResultId { get; set; }
+        public string? ExtractionDocumentVersionId { get; set; }
+        public string? ExtractionStatus { get; set; }
+    }
+
+    public async Task<bool> AssignDocumentToDossierAsync(Guid documentId, Guid dossierId, Guid documentTypeId, string modifiedBy)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        const string sql = @"
+            UPDATE DOCUMENTS
+            SET FOLDER_ID = NULL,
+                DOSSIER_ID = :DossierId,
+                DOCUMENT_TYPE_ID = :DocumentTypeId,
+                MODIFIED_BY = :ModifiedBy,
+                MODIFIED_DATE = SYSTIMESTAMP,
+                ROW_VERSION = ROW_VERSION + 1
+            WHERE ID = :Id
+              AND IS_DELETED = 0
+              AND FOLDER_ID IS NOT NULL
+              AND DOSSIER_ID IS NULL";
+
+        var rows = await _connection.ExecuteAsync(sql, new
+        {
+            Id = documentId.ToString(),
+            DossierId = dossierId.ToString(),
+            DocumentTypeId = documentTypeId.ToString(),
+            ModifiedBy = modifiedBy
+        });
+        return rows > 0;
+    }
+
+    public async Task<bool> UpdateDocumentVersionFilePathAsync(Guid versionId, string filePath, string modifiedBy)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        const string sql = @"
+            UPDATE DOCUMENT_VERSIONS
+            SET FILE_PATH = :FilePath
+            WHERE ID = :Id AND IS_DELETED = 0";
+
+        var rows = await _connection.ExecuteAsync(sql, new
+        {
+            Id = versionId.ToString(),
+            FilePath = filePath
+        });
+        return rows > 0;
+    }
+
+    public async Task<bool> SoftDeleteDocumentVersionsAsync(Guid documentId, string modifiedBy)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        const string sql = @"
+            UPDATE DOCUMENT_VERSIONS
+            SET IS_DELETED = 1
+            WHERE DOCUMENT_ID = :DocumentId AND IS_DELETED = 0";
+
+        var rows = await _connection.ExecuteAsync(sql, new
+        {
+            DocumentId = documentId.ToString()
+        });
+        return rows > 0;
+    }
+
+    public async Task<string?> GetOrganizationUnitCodeAsync(long unitId)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        const string sql = "SELECT CODE FROM ORGANIZATION_UNIT WHERE ID = :UnitId";
+        return await _connection.QuerySingleOrDefaultAsync<string?>(sql, new { UnitId = unitId });
+    }
+
+    public async Task<bool> DocumentBelongsToDossierAsync(Guid documentId, Guid dossierId)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        const string sql = @"
+            SELECT COUNT(1) FROM DOCUMENTS
+            WHERE ID = :Id AND DOSSIER_ID = :DossierId AND IS_DELETED = 0";
+        var count = await _connection.ExecuteScalarAsync<int>(sql, new
+        {
+            Id = documentId.ToString(),
+            DossierId = dossierId.ToString()
+        });
+        return count > 0;
+    }
+
+    public async Task<bool> VersionBelongsToDossierAsync(Guid versionId, Guid dossierId)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        const string sql = @"
+            SELECT COUNT(1)
+            FROM DOCUMENT_VERSIONS dv
+            INNER JOIN DOCUMENTS d ON d.ID = dv.DOCUMENT_ID
+            WHERE dv.ID = :VersionId
+              AND d.DOSSIER_ID = :DossierId
+              AND dv.IS_DELETED = 0
+              AND d.IS_DELETED = 0";
+        var count = await _connection.ExecuteScalarAsync<int>(sql, new
+        {
+            VersionId = versionId.ToString(),
+            DossierId = dossierId.ToString()
+        });
+        return count > 0;
+    }
+
+    public async Task<Guid?> GetDossierIdByVersionIdAsync(Guid versionId)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        const string sql = @"
+            SELECT d.DOSSIER_ID
+            FROM DOCUMENT_VERSIONS dv
+            INNER JOIN DOCUMENTS d ON d.ID = dv.DOCUMENT_ID
+            WHERE dv.ID = :VersionId
+              AND dv.IS_DELETED = 0
+              AND d.IS_DELETED = 0";
+
+        var dossierId = await _connection.QuerySingleOrDefaultAsync<string?>(sql, new
+        {
+            VersionId = versionId.ToString()
+        });
+
+        return string.IsNullOrWhiteSpace(dossierId) ? null : Guid.Parse(dossierId);
     }
 }

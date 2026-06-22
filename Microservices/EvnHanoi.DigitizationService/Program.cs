@@ -3,6 +3,7 @@ using EvnHanoi.DigitizationService.Services;
 using EvnHanoi.DigitizationService.Workers;
 using EvnHanoi.Infrastructure.Database;
 using EvnHanoi.Infrastructure.Logging;
+using EvnHanoi.Infrastructure.Messaging;
 using EvnHanoi.Infrastructure.Security;
 using Serilog;
 using Scalar.AspNetCore;
@@ -37,6 +38,7 @@ var rabbitFactory = new ConnectionFactory
 };
 var rabbitConnection = await rabbitFactory.CreateConnectionAsync();
 builder.Services.AddSingleton<IConnection>(rabbitConnection);
+builder.Services.AddHostedService<DigitizationMessagingTopologyInitializer>();
 
 builder.Services.AddDapperInfrastructure(builder.Configuration);
 builder.Services.AddScoped<IMinioStorageService, MinioStorageService>();

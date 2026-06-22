@@ -19,6 +19,7 @@ public class DossierService : IDossierService
 {
     private readonly IDossierRepository _dossierRepository;
     private readonly IDossierSearchRepository _dossierSearchRepository;
+    private readonly IDocumentRepository _documentRepository;
     private readonly IEquipmentRepository _equipmentRepository;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IMessageProducer _messageProducer;
@@ -26,12 +27,14 @@ public class DossierService : IDossierService
     public DossierService(
         IDossierRepository dossierRepository,
         IDossierSearchRepository dossierSearchRepository,
+        IDocumentRepository documentRepository,
         IEquipmentRepository equipmentRepository,
         IHttpClientFactory httpClientFactory,
         IMessageProducer messageProducer)
     {
         _dossierRepository = dossierRepository ?? throw new ArgumentNullException(nameof(dossierRepository));
         _dossierSearchRepository = dossierSearchRepository ?? throw new ArgumentNullException(nameof(dossierSearchRepository));
+        _documentRepository = documentRepository ?? throw new ArgumentNullException(nameof(documentRepository));
         _equipmentRepository = equipmentRepository ?? throw new ArgumentNullException(nameof(equipmentRepository));
         _httpClientFactory = httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory));
         _messageProducer = messageProducer ?? throw new ArgumentNullException(nameof(messageProducer));
@@ -182,6 +185,45 @@ public class DossierService : IDossierService
     public async Task<IEnumerable<DossierVersionDto>> GetVersionsAsync(Guid id)
     {
         return await _dossierRepository.GetVersionsAsync(id);
+    }
+
+    public async Task EnsureCanEditFormDataAsync(Guid dossierId)
+    {
+        var existing = await _dossierRepository.GetByIdAsync(dossierId);
+        if (existing == null)
+            throw new KeyNotFoundException($"Không tìm thấy hồ sơ với ID = {dossierId}");
+        await EnsureCanEditFormDataAsync(existing);
+    }
+
+    public async Task RecordDocumentListChangeAsync(Guid dossierId, string changeNote, string userId)
+    {
+        var existing = await _dossierRepository.GetByIdAsync(dossierId);
+        if (existing == null)
+            throw new KeyNotFoundException($"Không tìm thấy hồ sơ với ID = {dossierId}");
+
+        var filter = new DossierDocumentFilterDto { Page = 1, PageSize = 1000 };
+        var (items, _) = await _documentRepository.GetDocumentsByDossierAsync(dossierId, filter);
+        var snapshot = System.Text.Json.JsonSerializer.Serialize(
+            items.Select(d => new DossierDocumentSnapshotItemDto
+            {
+                Id = d.Id,
+                Name = d.Name,
+                FileSize = d.FileSize,
+                MimeType = d.MimeType,
+                LatestVersionId = d.LatestVersionId
+            }));
+
+        var version = new DossierVersion
+        {
+            DossierId = dossierId,
+            FormDataJson = existing.FormDataJson,
+            DocumentsSnapshotJson = snapshot,
+            ChangeNote = changeNote,
+            CreatedBy = userId,
+            CreatedDate = DateTime.UtcNow
+        };
+        await _dossierRepository.CreateVersionAsync(version);
+        await PublishDossierChangedAsync(dossierId, DossierChangedActions.Updated);
     }
 
     // ===== EQUIPMENT MANAGEMENT =====

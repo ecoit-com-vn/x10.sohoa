@@ -92,7 +92,7 @@ namespace EvnHanoi.DigitizationService.Workers
                 {
                     var body = ea.Body.ToArray();
                     var messageText = Encoding.UTF8.GetString(body);
-                    _logger.LogInformation("Nhận yêu cầu OCR: {Message}", messageText);
+                    //_logger.LogInformation("Nhận yêu cầu OCR: {Message}", messageText);
 
                     try
                     {
@@ -113,7 +113,9 @@ namespace EvnHanoi.DigitizationService.Workers
                                     FileId = taskMsg.FileId,
                                     FilePath = taskMsg.FilePath,
                                     BucketName = taskMsg.BucketName,
-                                    Form = taskMsg.Form
+                                    ExtractPrompt = taskMsg.ExtractPrompt,
+                                    Form = taskMsg.Form,
+                                    FormSchemaJson = taskMsg.FormSchemaJson
                                 };
                                 await publisher.PublishMessageAsync(extractMsg, "digitization.topic", "extraction.process.task");
                                 await _channel.BasicAckAsync(ea.DeliveryTag, false);
@@ -122,7 +124,7 @@ namespace EvnHanoi.DigitizationService.Workers
 
                             // 1. Cập nhật trạng thái
                             try {
-                                await repository.UpdateStatusAsync(taskMsg.FileId, "Processing");
+                                //await repository.UpdateStatusAsync(taskMsg.FileId, "Processing");
                                 _logger.LogInformation("Đã cập nhật trạng thái FileAttachment {FileId} thành Processing.", taskMsg.FileId);
                             } catch (Exception ex) {
                                 _logger.LogWarning("Bỏ qua lỗi DB khi update trạng thái: {Message}", ex.Message);
@@ -269,7 +271,9 @@ namespace EvnHanoi.DigitizationService.Workers
                                 FileId = taskMsg.FileId,
                                 FilePath = outFileName,
                                 BucketName = taskMsg.BucketName,
-                                Form = taskMsg.Form
+                                ExtractPrompt = taskMsg.ExtractPrompt,
+                                Form = taskMsg.Form,
+                                FormSchemaJson = taskMsg.FormSchemaJson
                             };
                             await publisher.PublishMessageAsync(extractionTask, "digitization.topic", "extraction.process.task");
 

@@ -31,4 +31,14 @@ public interface IDocumentRepository
     Task<bool> UpdateUploadSessionAsync(UploadSession session);
     Task<bool> CompleteUploadSessionAsync(string uploadId, string modifiedBy);
     Task<int> DeleteExpiredUploadSessionsAsync();
+
+    // Dossier document operations
+    Task<(IEnumerable<DocumentListItemDto> Items, int TotalCount)> GetDocumentsByDossierAsync(Guid dossierId, DossierDocumentFilterDto filter);
+    Task<bool> AssignDocumentToDossierAsync(Guid documentId, Guid dossierId, Guid documentTypeId, string modifiedBy);
+    Task<bool> UpdateDocumentVersionFilePathAsync(Guid versionId, string filePath, string modifiedBy);
+    Task<bool> SoftDeleteDocumentVersionsAsync(Guid documentId, string modifiedBy);
+    Task<string?> GetOrganizationUnitCodeAsync(long unitId);
+    Task<bool> DocumentBelongsToDossierAsync(Guid documentId, Guid dossierId);
+    Task<bool> VersionBelongsToDossierAsync(Guid versionId, Guid dossierId);
+    Task<Guid?> GetDossierIdByVersionIdAsync(Guid versionId);
 }

@@ -9,6 +9,8 @@ public class DossierVersion
     public Guid DossierId { get; set; }
     public int VersionNumber { get; set; }
     public string? FormDataJson { get; set; }
+    /// <summary>Snapshot danh sách tài liệu tại thời điểm ghi version.</summary>
+    public string? DocumentsSnapshotJson { get; set; }
     public string? ChangeNote { get; set; }
     public string? CreatedBy { get; set; }
     public DateTime CreatedDate { get; set; } = DateTime.UtcNow;

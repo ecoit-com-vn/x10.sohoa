@@ -48,6 +48,7 @@ public record CompleteChunkedUploadRequest
 {
     public string UploadId { get; set; } = string.Empty;
     public List<UploadChunkRequest> Parts { get; set; } = new();
+    public Guid? DocumentTypeId { get; set; }
 }
 
 /// <summary>

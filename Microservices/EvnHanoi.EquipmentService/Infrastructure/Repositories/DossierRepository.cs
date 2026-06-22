@@ -73,6 +73,7 @@ public class DossierRepository : IDossierRepository
                         ds.NAME as {nameof(DossierDetailDto.DossierSetName)},
                         d.{nameof(Dossier.DossierTypeId)},
                         dt.NAME as {nameof(DossierDetailDto.DossierTypeName)},
+                        dt.FORM_ID as {nameof(DossierDetailDto.FormId)},
                         d.{nameof(Dossier.FormDataJson)},
                         d.{nameof(Dossier.Status)},
                         d.{nameof(Dossier.WorkflowInstanceId)},
@@ -346,16 +347,18 @@ public class DossierRepository : IDossierRepository
                         {nameof(DossierVersion.DossierId)},
                         {nameof(DossierVersion.VersionNumber)},
                         {nameof(DossierVersion.FormDataJson)},
+                        {nameof(DossierVersion.DocumentsSnapshotJson)},
                         {nameof(DossierVersion.ChangeNote)},
                         {nameof(DossierVersion.CreatedBy)},
                         {nameof(DossierVersion.CreatedDate)}
-                    ) VALUES (:Id, :DossierId, :VersionNumber, :FormDataJson, :ChangeNote, :CreatedBy, :CreatedDate)";
+                    ) VALUES (:Id, :DossierId, :VersionNumber, :FormDataJson, :DocumentsSnapshotJson, :ChangeNote, :CreatedBy, :CreatedDate)";
         await _connection.ExecuteAsync(sql, new
         {
             Id = version.Id.ToString(),
             DossierId = version.DossierId.ToString(),
             version.VersionNumber,
             version.FormDataJson,
+            version.DocumentsSnapshotJson,
             version.ChangeNote,
             version.CreatedBy,
             version.CreatedDate
@@ -371,6 +374,7 @@ public class DossierRepository : IDossierRepository
                         {nameof(DossierVersion.DossierId)},
                         {nameof(DossierVersion.VersionNumber)},
                         {nameof(DossierVersion.FormDataJson)},
+                        {nameof(DossierVersion.DocumentsSnapshotJson)},
                         {nameof(DossierVersion.ChangeNote)},
                         {nameof(DossierVersion.CreatedBy)},
                         {nameof(DossierVersion.CreatedDate)}

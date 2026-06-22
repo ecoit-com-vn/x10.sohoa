@@ -116,6 +116,8 @@ public class PermissionDiscoveryService : BackgroundService
             { "EquipmentType", "Loại thiết bị" },
             { "PhysicalStorage", "Kho lưu trữ vật lý" },
             { "EavFormTemplate", "Mẫu thuộc tính EAV" },
+            { "DossierType", "Loại hồ sơ" },
+            { "DocumentType", "Loại văn bản" },
             { "Digitization", "Số hóa hồ sơ" },
             { "DigitizationTask", "Nhiệm vụ số hóa" },
             { "OcrTrainingData", "Dữ liệu huấn luyện AI" },
