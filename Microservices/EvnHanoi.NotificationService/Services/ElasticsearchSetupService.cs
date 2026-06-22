@@ -163,7 +163,7 @@ public class ElasticsearchSetupService : IHostedService
         try
         {
             var templates = await dbConnection.QueryAsync<EavFormTemplate>(
-                "SELECT Id, Name, Description, Version, IsActive, GridTypeId FROM EavFormTemplates");
+                "SELECT Id, Name, Description, Version, IsActive, GridTypeId, ExtractionProcess FROM EavFormTemplates");
             _logger.LogInformation("Syncing {Count} templates to Elasticsearch...", templates.Count());
             foreach (var tmpl in templates)
             {

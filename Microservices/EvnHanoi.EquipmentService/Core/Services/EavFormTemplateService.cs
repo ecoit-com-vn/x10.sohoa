@@ -33,7 +33,7 @@ public class EavFormTemplateService : IEavFormTemplateService
         }
     }
 
-    public async Task<EavFormTemplate> CreateFormTemplateAsync(string name, string code, string category, string description, string descriptionInfo, string formSchema, string createdBy, Guid? equipmentTypeId = null, string formType = "FORM", int? gridTypeId = null)
+    public async Task<EavFormTemplate> CreateFormTemplateAsync(string name, string code, string category, string description, string descriptionInfo, string formSchema, string createdBy, Guid? equipmentTypeId = null, string formType = "FORM", int? gridTypeId = null, string? extractionProcess = null)
     {
         ValidateFormSchema(formSchema);
 
@@ -45,6 +45,7 @@ public class EavFormTemplateService : IEavFormTemplateService
             Category = category,
             Description = description ?? string.Empty,
             DescriptionInfo = descriptionInfo ?? string.Empty,
+            ExtractionProcess = extractionProcess,
             FormSchema = formSchema,
             EquipmentTypeId = equipmentTypeId,
             GridTypeId = gridTypeId,
@@ -60,7 +61,7 @@ public class EavFormTemplateService : IEavFormTemplateService
         return template;
     }
 
-    public async Task<EavFormTemplate> UpdateFormTemplateAsync(Guid id, string newName, string newCode, string newCategory, string newDescription, string newDescriptionInfo, string newFormSchema, string updatedBy, Guid? equipmentTypeId = null, string formType = "FORM", int? gridTypeId = null)
+    public async Task<EavFormTemplate> UpdateFormTemplateAsync(Guid id, string newName, string newCode, string newCategory, string newDescription, string newDescriptionInfo, string newFormSchema, string updatedBy, Guid? equipmentTypeId = null, string formType = "FORM", int? gridTypeId = null, string? extractionProcess = null)
     {
         ValidateFormSchema(newFormSchema);
 
@@ -83,6 +84,7 @@ public class EavFormTemplateService : IEavFormTemplateService
             Category = newCategory,
             Description = newDescription,
             DescriptionInfo = newDescriptionInfo,
+            ExtractionProcess = extractionProcess,
             FormSchema = newFormSchema,
             EquipmentTypeId = equipmentTypeId,
             GridTypeId = gridTypeId,

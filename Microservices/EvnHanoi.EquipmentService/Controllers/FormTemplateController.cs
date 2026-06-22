@@ -59,7 +59,8 @@ public class FormTemplateController : ControllerBase
                 request.CreatedBy ?? "admin",
                 request.EquipmentTypeId,
                 "TEMPLATE",
-                request.GridTypeId
+                request.GridTypeId,
+                request.ExtractionProcess
             );
 
             return CreatedAtAction(nameof(GetById), new { id = template.Id.ToString() }, template);
@@ -96,7 +97,8 @@ public class FormTemplateController : ControllerBase
                 updatedBy,
                 request.EquipmentTypeId,
                 "TEMPLATE",
-                request.GridTypeId);
+                request.GridTypeId,
+                request.ExtractionProcess);
 
             return Ok(newTemplate);
         }
