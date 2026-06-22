@@ -63,6 +63,11 @@ export class EquipmentTypeComponent implements OnInit {
   deleteTarget = signal<any>(null);
   deleting = signal<boolean>(false);
 
+  // Lock/Unlock Confirmation Dialog Signals
+  showStatusConfirm = signal<boolean>(false);
+  statusTarget = signal<any>(null);
+  togglingStatus = signal<boolean>(false);
+
   // Pagination Computeds
   paginatedItems = computed(() => {
     return this.items();
@@ -261,24 +266,43 @@ export class EquipmentTypeComponent implements OnInit {
   }
 
   onToggleStatus(item: any) {
+    this.statusTarget.set(item);
+    this.showStatusConfirm.set(true);
+  }
+
+  onConfirmToggleStatus() {
+    const item = this.statusTarget();
+    if (!item) return;
+
     const isLocking = item.isActive === 1 || item.isActive === true;
-    this.equipmentTypeService.toggleStatus(item.id, isLocking).subscribe({
-      next: (res) => {
-        this.messageService.add({
-          severity: 'success',
-          summary: 'Thành công',
-          detail: res.message || (isLocking ? 'Khóa thành công!' : 'Mở khóa thành công!')
-        });
-        this.loadItems();
-      },
-      error: (err) => {
-        this.messageService.add({
-          severity: 'error',
-          summary: 'Lỗi',
-          detail: err?.error?.message || 'Không thể cập nhật trạng thái loại thiết bị.'
-        });
-      }
-    });
+    this.togglingStatus.set(true);
+    this.equipmentTypeService.toggleStatus(item.id, isLocking)
+      .pipe(finalize(() => this.togglingStatus.set(false)))
+      .subscribe({
+        next: (res) => {
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Thành công',
+            detail: res.message || (isLocking ? 'Khóa loại thiết bị thành công!' : 'Mở khóa loại thiết bị thành công!')
+          });
+          this.showStatusConfirm.set(false);
+          this.statusTarget.set(null);
+          this.loadItems();
+        },
+        error: (err) => {
+          this.showStatusConfirm.set(false);
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi',
+            detail: err?.error?.message || 'Không thể cập nhật trạng thái loại thiết bị.'
+          });
+        }
+      });
+  }
+
+  onCancelToggleStatus() {
+    this.showStatusConfirm.set(false);
+    this.statusTarget.set(null);
   }
 
   // Custom Delete Confirm Logic

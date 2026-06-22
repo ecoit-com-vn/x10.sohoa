@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { APP_CONFIG } from '@sohoa.frontend/shared/core';
 
 @Injectable({
@@ -56,6 +57,16 @@ export class EquipmentService {
 
   getById(id: string): Observable<any> {
     return this.http.get<any>(`${this.base}/${id}`);
+  }
+
+  checkCodeExists(code: string, excludeId?: string): Observable<boolean> {
+    let params = new HttpParams().set('code', code.trim());
+    if (excludeId?.trim()) {
+      params = params.set('excludeId', excludeId.trim());
+    }
+    return this.http.get<{ exists: boolean }>(`${this.base}/check-code`, { params }).pipe(
+      map(res => !!res?.exists)
+    );
   }
 
   create(item: any): Observable<any> {

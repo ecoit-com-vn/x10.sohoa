@@ -3,6 +3,15 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, switchMap, forkJoin, of, catchError, map } from 'rxjs';
 import { APP_CONFIG } from '@sohoa.frontend/shared/core';
 
+export interface BhsCatalogColumn {
+  /** Key hiển thị — trùng catalog.Name, map vào catalogData */
+  key: string;
+  /** Key trong FormDataJson — catalog.Code (EAV field key) */
+  code: string;
+  label: string;
+  priority: number;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -14,11 +23,19 @@ export class DossierManagementService {
     return `${this.config.apiGatewayUrl}/api/v1/dossiers`;
   }
 
+  private get searchBase() {
+    return `${this.config.apiGatewayUrl}/api/v1/search/dossiers`;
+  }
+
+  private get catalogBase() {
+    return `${this.config.apiGatewayUrl}/api/catalog`;
+  }
+
   private get dossierSetBase() {
     return `${this.config.apiGatewayUrl}/api/v1/dossier-sets`;
   }
 
-  // ===== DANH SÁCH =====
+  // ===== DANH SÁCH (ES qua NotificationService) =====
 
   getDossiers(filter: {
     keyword?: string;
@@ -39,7 +56,28 @@ export class DossierManagementService {
     if (filter.unitId != null) params = params.set('unitId', filter.unitId.toString());
     if (filter.status) params = params.set('status', filter.status);
 
-    return this.http.get<any>(this.base, { params });
+    return this.http.get<any>(this.searchBase, { params });
+  }
+
+  /** Cột động danh sách — catalog thuộc catalogType.Code = BHS, sắp theo priority */
+  getBhsCatalogColumns(): Observable<BhsCatalogColumn[]> {
+    return this.http.get<any>(`${this.catalogBase}/types/code/BHS`).pipe(
+      switchMap((type) => {
+        if (!type?.id) return of([]);
+        const params = new HttpParams().set('catalogTypeId', String(type.id));
+        return this.http.get<any[]>(`${this.catalogBase}/lookup`, { params });
+      }),
+      map((catalogs) => (catalogs ?? [])
+        .filter((c) => c.status === 1 || c.status === undefined)
+        .sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0))
+        .map((c) => ({
+          key: c.name,
+          code: c.code,
+          label: c.name,
+          priority: c.priority ?? 0,
+        }))),
+      catchError(() => of([]))
+    );
   }
 
   // ===== CHI TIẾT =====
@@ -186,7 +224,10 @@ export class DossierManagementService {
   }
 
   getCatalogsByType(catalogTypeCode: string): Observable<any[]> {
-    return this.http.get<any[]>(`${this.config.apiGatewayUrl}/api/v1/lookup/catalogs?type=${catalogTypeCode}`);
+    if (catalogTypeCode === 'BHS') {
+      return this.getBhsCatalogColumns();
+    }
+    return this.http.get<any[]>(`${this.catalogBase}/lookup`).pipe(catchError(() => of([])));
   }
 
   getUsersLookup(): Observable<any[]> {

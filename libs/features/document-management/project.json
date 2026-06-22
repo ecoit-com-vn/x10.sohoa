@@ -1,0 +1,9 @@
+{
+  "name": "document-management",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "libs/features/document-management/src",
+  "prefix": "app",
+  "targets": {},
+  "tags": ["type:feature", "scope:document-management"]
+}
