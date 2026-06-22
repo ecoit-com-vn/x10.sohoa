@@ -1,0 +1,27 @@
+<div>
+  <label class="label-input" *ngIf="showLabel">
+    <span *ngIf="showLabel"> {{ label }}</span>
+    <span *ngIf="checkRequire()" class="p-errors" style="color: red; margin-left: 3px">*</span></label
+  >
+  <p-inputMask
+    #inputMask
+    [autoClear]="false"
+    styleClass="w-full"
+    (onBlur)="onTouched()"
+    (onInput)="onInput($event)"
+    [formControl]="control"
+    mask="9999999999"
+    [ngClass]="{ 'ng-invalid ng-dirty': errors, readonly: readonly }"
+    [placeholder]="placeholder"
+    [readonly]="readonly"
+    [slotChar]="''"
+  ></p-inputMask>
+  <div class="relative b-errors">
+    <ng-container *ngIf="errors">
+      <small class="p-error error-msg block fadeinup animation-duration-300">
+        <span class="block">{{ displayedErrorMessage }}</span>
+      </small>
+    </ng-container>
+  </div>
+</div>
+

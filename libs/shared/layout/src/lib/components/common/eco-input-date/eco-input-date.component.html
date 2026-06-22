@@ -1,0 +1,39 @@
+<div>
+  <label class="label-input" *ngIf="showLabel">
+    <span *ngIf="showLabel"> {{ label }}</span>
+    <span *ngIf="checkRequire()" class="p-errors" style="color: red; margin-left: 3px">*</span></label
+  >
+  <p-datepicker
+    #calendar
+    styleClass="w-full"
+    (keydown.space)="$event.preventDefault()"
+    (onBlur)="onTouched(); onBlur($event)"
+    (onInput)="onInput($event)"
+    [dateFormat]="dateFormat"
+    [firstDayOfWeek]="1"
+    [formControl]="control"
+    [keepInvalid]="true"
+    [maxDate]="maxDate"
+    [minDate]="minDate"
+    [ngClass]="{ 'ng-invalid ng-dirty': errors, readonly: readonly }"
+    [readonlyInput]="readonly"
+    [selectionMode]="selectionMode"
+    [showIcon]="!readonly"
+    [showOnFocus]="true"
+    [timeOnly]="false"
+    [view]="view"
+    [showTime]="showTime"
+    [readonlyInput]="true"
+    [showClear]="!!control.value"
+    icon="pi pi-calendar"
+    appendTo="body"
+  >
+  </p-datepicker>
+  <div class="relative b-errors">
+    <ng-container *ngIf="errors">
+      <small class="p-error error-msg block fadeinup animation-duration-300">
+        <span class="block">{{ displayedErrorMessage }}</span>
+      </small>
+    </ng-container>
+  </div>
+</div>

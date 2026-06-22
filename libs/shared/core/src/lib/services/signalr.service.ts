@@ -18,6 +18,11 @@ export class SignalRService {
   constructor() { }
 
   public startConnection(): void {
+    if (this.hubConnection && this.hubConnection.state !== signalR.HubConnectionState.Disconnected) {
+      console.log('SignalR connection is already active or connecting. State: ' + this.hubConnection.state);
+      return;
+    }
+
     this.hubConnection = new signalR.HubConnectionBuilder()
       .withUrl(`${this.config.apiGatewayUrl}/hubs/notifications`)
       .withAutomaticReconnect()

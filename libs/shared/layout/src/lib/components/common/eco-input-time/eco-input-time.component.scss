@@ -1,0 +1,56 @@
+:host {
+  ::ng-deep {
+    .p-overlaypanel {
+      box-shadow:
+        0 5px 5px -3px rgba(0, 0, 0, 0.2),
+        0 8px 10px 1px rgba(0, 0, 0, 0.14),
+        0 3px 14px 2px rgba(0, 0, 0, 0.12);
+    }
+
+    .p-inputtext {
+      cursor: default;
+    }
+  }
+}
+
+.p-error {
+  top: 0;
+  left: 0;
+  width: 100%;
+}
+
+.b-errors {
+  height: 0;
+}
+
+.selected {
+  background: var(--p-primary-50, #eff6ff);
+  font-weight: 500;
+}
+
+.time-picker-container {
+  width: 124px;
+  height: 220px;
+
+  .item {
+    -webkit-border-radius: 2px;
+    -moz-border-radius: 2px;
+    border-radius: 2px;
+    text-align: center;
+    padding: 8px;
+    cursor: pointer;
+
+    &:hover {
+      background: var(--p-primary-50, #eff6ff);
+    }
+  }
+}
+
+.input-icon {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 18px;
+  color: var(--p-text-color, #374151);
+}

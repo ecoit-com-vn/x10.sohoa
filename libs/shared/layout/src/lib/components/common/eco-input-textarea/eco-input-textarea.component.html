@@ -1,0 +1,34 @@
+<div>
+  <label class="label-input" *ngIf="showLabel">
+    <span *ngIf="showLabel"> {{ label }}</span>
+    <span
+      *ngIf="checkRequire()"
+      class="p-errors"
+      style="color: red; margin-left: 3px"
+      >*</span
+    ></label
+  >
+  <textarea
+    pTextarea
+    class="w-full"
+    [formControl]="control"
+    [readonly]="readonly"
+    [rows]="rows"
+    [disabled]="disabled"
+    [autoResize]="autoResize"
+    [attr.maxlength]="maxLength"
+    (blur)="onTouched()"
+    [ngClass]="{ 'ng-invalid ng-dirty': errors, readonly: readonly }"
+    style="min-height: 2.5rem"
+  ></textarea>
+
+  <div class="relative b-errors">
+    <ng-container *ngIf="errors">
+      <small class="p-error error-msg block fadeinup animation-duration-300">
+        <span class="block">{{
+          displayedErrorMessage
+        }}</span>
+      </small>
+    </ng-container>
+  </div>
+</div>

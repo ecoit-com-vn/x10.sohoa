@@ -1,0 +1,21 @@
+.p-error {
+  top: 0;
+  left: 0;
+  width: 100%;
+}
+
+.b-errors {
+  height: 0px;
+}
+
+.group-radio-item {
+  display: flex;
+  gap: 8px;
+  flex: 1 1 auto;
+}
+
+.input-radio {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}

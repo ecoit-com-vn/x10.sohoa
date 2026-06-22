@@ -10,6 +10,7 @@ export interface EavFormTemplate {
   category: string;
   description: string;
   descriptionInfo: string;
+  extractionProcess?: string;
   formSchema: string; // JSON schema stringified
   version: number;
   isActive: boolean;
@@ -53,7 +54,8 @@ export class FormTemplateService {
     formSchema: string,
     createdBy: string = 'admin',
     equipmentTypeId?: string,
-    gridTypeId?: number
+    gridTypeId?: number,
+    extractionProcess?: string
   ): Observable<EavFormTemplate> {
     return this.api.post<EavFormTemplate>(this.apiUrl, {
       name,
@@ -61,6 +63,7 @@ export class FormTemplateService {
       category,
       description,
       descriptionInfo,
+      extractionProcess,
       formSchema,
       createdBy,
       equipmentTypeId,
@@ -80,7 +83,8 @@ export class FormTemplateService {
     formSchema: string,
     updatedBy: string = 'admin',
     equipmentTypeId?: string,
-    gridTypeId?: number
+    gridTypeId?: number,
+    extractionProcess?: string
   ): Observable<EavFormTemplate> {
     return this.api.put<EavFormTemplate>(`${this.apiUrl}/${id}`, {
       name,
@@ -88,6 +92,7 @@ export class FormTemplateService {
       category,
       description,
       descriptionInfo,
+      extractionProcess,
       formSchema,
       updatedBy,
       equipmentTypeId,

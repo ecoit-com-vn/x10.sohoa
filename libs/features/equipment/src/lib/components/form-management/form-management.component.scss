@@ -173,7 +173,7 @@
       background-color: white;
       border-radius: 12px;
       border: 1px solid #e2e8f0;
-      padding: 0.75rem;
+      padding: 0.75rem 0.75rem 2.75rem 0.75rem;
       box-shadow: 0 4px 12px rgba(0, 45, 114, 0.04);
       flex: 1;
       min-height: 0;
@@ -394,36 +394,6 @@
       font-size: 14px !important;
       font-weight: 700 !important;
       letter-spacing: 0.05em !important;
-    }
-
-    // Modern Table action buttons styling
-    .act-btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 32px;
-      height: 32px;
-      border-radius: 6px;
-      border: 1px solid #cbd5e1;
-      background-color: white;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      color: #64748b;
-      margin-right: 6px;
-      vertical-align: middle;
-
-      i {
-        font-size: 0.95rem;
-      }
-
-      &:hover {
-        background-color: #f1f5f9;
-        transform: translateY(-1px);
-      }
-      
-      &:active {
-        transform: translateY(0);
-      }
     }
 
     .act-preview {

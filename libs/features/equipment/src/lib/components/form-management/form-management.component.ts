@@ -10,7 +10,7 @@ import { CheckboxModule } from 'primeng/checkbox';
 import { CardModule } from 'primeng/card';
 import { TextareaModule } from 'primeng/textarea';
 import { Paginator } from 'primeng/paginator';
-import { EavFormService, EavFormTemplate } from '@sohoa.frontend/shared/core';
+import { EavFormService, EavFormTemplate, LoadingService } from '@sohoa.frontend/shared/core';
 import { finalize } from 'rxjs';
 import { Dialog } from 'primeng/dialog';
 import { EquipmentTypeService } from '../../data-access/equipment-type.service';
@@ -57,6 +57,7 @@ interface ToolboxItem {
   styleUrl: './form-management.component.scss'
 })
 export class FormManagementComponent implements OnInit {
+  private loadingService = inject(LoadingService);
   // Confirm dialog state variables
   showConfirmDelete = signal<boolean>(false);
   showConfirmSubmit = signal<boolean>(false);
@@ -79,6 +80,7 @@ export class FormManagementComponent implements OnInit {
   formCategory = signal<string>('');
   formDescription = signal<string>('');
   formDescriptionInfo = signal<string>('');
+  extractionProcess = signal<string>('');
   fields = signal<FormField[]>([]);
   selectedFieldIndex = signal<number | null>(null);
   showJson = signal<boolean>(false);
@@ -188,9 +190,9 @@ export class FormManagementComponent implements OnInit {
   }
 
   loadForms() {
-    this.loading.set(true);
+    this.loadingService.show();
     this.eavFormService.getTemplates()
-      .pipe(finalize(() => this.loading.set(false)))
+      .pipe(finalize(() => this.loadingService.hide()))
       .subscribe({
         next: (data) => {
           this.forms.set(data || []);
@@ -228,6 +230,7 @@ export class FormManagementComponent implements OnInit {
     this.formCategory.set('');
     this.formDescription.set('');
     this.formDescriptionInfo.set('');
+    this.extractionProcess.set('');
     this.fields.set([]);
     this.selectedFieldIndex.set(null);
     this.showJson.set(false);
@@ -244,6 +247,7 @@ export class FormManagementComponent implements OnInit {
     this.formCategory.set(form.category || '');
     this.formDescription.set(form.description);
     this.formDescriptionInfo.set(form.descriptionInfo || '');
+    this.extractionProcess.set(form.extractionProcess || '');
     this.showJson.set(false);
 
     try {
@@ -267,6 +271,7 @@ export class FormManagementComponent implements OnInit {
     this.formCategory.set(form.category || '');
     this.formDescription.set(form.description);
     this.formDescriptionInfo.set(form.descriptionInfo || '');
+    this.extractionProcess.set(form.extractionProcess || '');
     
     const initialSimulated: { [key: string]: any } = {};
 
@@ -535,49 +540,55 @@ export class FormManagementComponent implements OnInit {
     const schemaStr = JSON.stringify(currentFields);
     const desc = this.formDescription();
     const fDescInfo = this.formDescriptionInfo();
+    const extractProc = this.extractionProcess();
     const isEdit = this.isEditMode();
     const tId = this.templateId();
     
+    this.loadingService.show();
     if (isEdit && tId) {
-      this.eavFormService.updateTemplate(tId, fName, fCode, fCategory, desc, fDescInfo, schemaStr, 'admin', undefined).subscribe({
-        next: () => {
-          this.messageService.add({
-            severity: 'success',
-            summary: 'Thành công',
-            detail: 'Đã cập nhật cấu hình biểu mẫu EAV thành công!'
-          });
-          setTimeout(() => {
-            this.goToList();
-          }, 800);
-        },
-        error: () => {
-          this.messageService.add({
-            severity: 'error',
-            summary: 'Lỗi',
-            detail: 'Không thể nâng cấp cấu hình biểu mẫu.'
-          });
-        }
-      });
+      this.eavFormService.updateTemplate(tId, fName, fCode, fCategory, desc, fDescInfo, schemaStr, 'admin', undefined, extractProc)
+        .pipe(finalize(() => this.loadingService.hide()))
+        .subscribe({
+          next: () => {
+            this.messageService.add({
+              severity: 'success',
+              summary: 'Thành công',
+              detail: 'Đã cập nhật cấu hình biểu mẫu EAV thành công!'
+            });
+            setTimeout(() => {
+              this.goToList();
+            }, 800);
+          },
+          error: () => {
+            this.messageService.add({
+              severity: 'error',
+              summary: 'Lỗi',
+              detail: 'Không thể nâng cấp cấu hình biểu mẫu.'
+            });
+          }
+        });
     } else {
-      this.eavFormService.createTemplate(fName, fCode, fCategory, desc, fDescInfo, schemaStr, 'admin', undefined).subscribe({
-        next: () => {
-          this.messageService.add({
-            severity: 'success',
-            summary: 'Thành công',
-            detail: 'Đã lưu biểu mẫu động mới thành công!'
-          });
-          setTimeout(() => {
-            this.goToList();
-          }, 800);
-        },
-        error: () => {
-          this.messageService.add({
-            severity: 'error',
-            summary: 'Lỗi',
-            detail: 'Không thể tạo mới biểu mẫu.'
-          });
-        }
-      });
+      this.eavFormService.createTemplate(fName, fCode, fCategory, desc, fDescInfo, schemaStr, 'admin', undefined, extractProc)
+        .pipe(finalize(() => this.loadingService.hide()))
+        .subscribe({
+          next: () => {
+            this.messageService.add({
+              severity: 'success',
+              summary: 'Thành công',
+              detail: 'Đã lưu biểu mẫu động mới thành công!'
+            });
+            setTimeout(() => {
+              this.goToList();
+            }, 800);
+          },
+          error: () => {
+            this.messageService.add({
+              severity: 'error',
+              summary: 'Lỗi',
+              detail: 'Không thể tạo mới biểu mẫu.'
+            });
+          }
+        });
     }
   }
 
@@ -617,54 +628,58 @@ export class FormManagementComponent implements OnInit {
 
   onConfirmDelete() {
     if (!this.targetForm) return;
-    this.eavFormService.deleteTemplate(this.targetForm.id).subscribe({
-      next: () => {
-        this.messageService.add({ 
-          severity: 'success', 
-          summary: 'Thành công', 
-          detail: `Đã vô hiệu hóa biểu mẫu thành công!` 
-        });
-        this.showConfirmDelete.set(false);
-        this.targetForm = null;
-        this.loadForms();
-      },
-      error: () => {
-        this.messageService.add({
-          severity: 'error',
-          summary: 'Lỗi',
-          detail: 'Không thể vô hiệu hóa biểu mẫu.'
-        });
-        this.showConfirmDelete.set(false);
-        this.targetForm = null;
-      }
-    });
+    this.loadingService.show();
+    this.eavFormService.deleteTemplate(this.targetForm.id)
+      .pipe(finalize(() => this.loadingService.hide()))
+      .subscribe({
+        next: () => {
+          this.messageService.add({ 
+            severity: 'success', 
+            summary: 'Thành công', 
+            detail: `Đã vô hiệu hóa biểu mẫu thành công!` 
+          });
+          this.showConfirmDelete.set(false);
+          this.targetForm = null;
+          this.loadForms();
+        },
+        error: () => {
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi',
+            detail: 'Không thể vô hiệu hóa biểu mẫu.'
+          });
+          this.showConfirmDelete.set(false);
+          this.targetForm = null;
+        }
+      });
   }
 
   onConfirmSubmit() {
     if (!this.targetForm) return;
-    this.loading.set(true);
-    this.eavFormService.submitTemplate(this.targetForm.id).subscribe({
-      next: () => {
-        this.messageService.add({ 
-          severity: 'success', 
-          summary: 'Thành công', 
-          detail: `Gửi duyệt biểu mẫu thành công!` 
-        });
-        this.showConfirmSubmit.set(false);
-        this.targetForm = null;
-        this.loadForms();
-      },
-      error: (err) => {
-        this.loading.set(false);
-        this.messageService.add({
-          severity: 'error',
-          summary: 'Lỗi',
-          detail: err?.error?.Message || 'Không thể gửi duyệt biểu mẫu.'
-        });
-        this.showConfirmSubmit.set(false);
-        this.targetForm = null;
-      }
-    });
+    this.loadingService.show();
+    this.eavFormService.submitTemplate(this.targetForm.id)
+      .pipe(finalize(() => this.loadingService.hide()))
+      .subscribe({
+        next: () => {
+          this.messageService.add({ 
+            severity: 'success', 
+            summary: 'Thành công', 
+            detail: `Gửi duyệt biểu mẫu thành công!` 
+          });
+          this.showConfirmSubmit.set(false);
+          this.targetForm = null;
+          this.loadForms();
+        },
+        error: (err) => {
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi',
+            detail: err?.error?.Message || 'Không thể gửi duyệt biểu mẫu.'
+          });
+          this.showConfirmSubmit.set(false);
+          this.targetForm = null;
+        }
+      });
   }
 
   getCategoryName(code: string): string {
