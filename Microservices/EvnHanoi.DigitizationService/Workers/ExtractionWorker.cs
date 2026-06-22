@@ -76,17 +76,20 @@ namespace EvnHanoi.DigitizationService.Workers
                             var publisher = scope.ServiceProvider.GetRequiredService<IMessagePublisher>();
 
                             // 1. Cập nhật trạng thái DB
-                            try {
+                            try
+                            {
                                 await repository.UpdateStatusAsync(taskMsg.FileId, "Extracting");
                                 _logger.LogInformation("Đã cập nhật trạng thái FileAttachment {FileId} thành Extracting.", taskMsg.FileId);
-                            } catch (Exception ex) {
+                            }
+                            catch (Exception ex)
+                            {
                                 _logger.LogWarning("Bỏ qua lỗi DB khi update trạng thái: {Message}", ex.Message);
                             }
 
                             // 2. Tải file PDF 2 lớp từ MinIO
                             _logger.LogInformation("Tải file PDF {FilePath} từ bucket {BucketName}", taskMsg.FilePath, taskMsg.BucketName);
                             using var fileStream = await minioService.DownloadFileAsync(taskMsg.BucketName, taskMsg.FilePath);
-                            
+
                             using var msPdf = new MemoryStream();
                             await fileStream.CopyToAsync(msPdf, stoppingToken);
                             msPdf.Position = 0;
@@ -98,29 +101,28 @@ namespace EvnHanoi.DigitizationService.Workers
 
                             // 4. Build Prompt từ Forms
                             string systemPrompt = "";
-                            if (taskMsg.Forms != null && taskMsg.Forms.Count > 0)
+                            if (taskMsg.Form != null)
                             {
                                 var fieldsList = new List<string>();
-                                foreach (var form in taskMsg.Forms)
+                                if (taskMsg.Form.Fields != null)
                                 {
-                                    if (form.Fields != null)
+                                    foreach (var field in taskMsg.Form.Fields)
                                     {
-                                        foreach (var field in form.Fields)
-                                        {
-                                            fieldsList.Add($"- {field.FieldName}: {field.Description}");
-                                        }
+                                        fieldsList.Add($"- {field.FieldName}: {field.Description}");
                                     }
                                 }
                                 string fieldsStr = string.Join("\n", fieldsList);
+
+                                // 4.PHÂN BIỆT RÕ các chủ thể: 'Customer/Chủ đầu tư' và 'Nhà thầu/Nhà sản xuất/Đơn vị cung cấp'.
+                                // 5.ĐỐI VỚI DẤU THẬP PHÂN: Giữ nguyên định dạng gốc trong văn bản(ví dụ: 22 / 0,4kV).
                                 systemPrompt = $@"Bạn là một chuyên gia phân tích và trích xuất dữ liệu tài liệu kỹ thuật ngành điện lực Việt Nam.
 Nhiệm vụ của bạn là đọc kỹ văn bản OCR và trích xuất CHÍNH XÁC các trường thông tin được yêu cầu dưới định dạng JSON object.
 
 NGUYÊN TẮC QUAN TRỌNG:
 1. TRÍCH XUẤT CHÍNH XÁC từng từ từ văn bản, KHÔNG ĐƯỢC suy đoán, tóm tắt hay tự bịa ra thông tin.
 2. NẾU KHÔNG TÌM THẤY thông tin cho một trường, bắt buộc trả về giá trị null cho trường đó, tuyệt đối không điền 'Không có' hay 'N/A'.
-3. PHÂN BIỆT RÕ các chủ thể: 'Customer/Chủ đầu tư' và 'Nhà thầu/Nhà sản xuất/Đơn vị cung cấp'.
-4. ĐỐI VỚI DẤU THẬP PHÂN: Giữ nguyên định dạng gốc trong văn bản (ví dụ: 22/0,4kV).
-5. CHỈ TRẢ VỀ một chuỗi JSON duy nhất, định dạng object. KHÔNG thêm bất kỳ lời giải thích, mở bài hay markdown nào khác.
+3. CHỈ TRẢ VỀ một chuỗi JSON duy nhất, định dạng object. KHÔNG thêm bất kỳ lời giải thích, mở bài hay markdown nào khác.
+{taskMsg.ExtractPrompt}
 
 CÁC TRƯỜNG CẦN TRÍCH XUẤT:
 {fieldsStr}";
@@ -134,7 +136,7 @@ CÁC TRƯỜNG CẦN TRÍCH XUẤT:
                             // 5. Mở PDF bằng PdfPig và trích xuất từng trang
                             var tasks = new List<Task<object>>();
                             List<object> finalResults = new List<object>();
-                            
+
                             using (var document = UglyToad.PdfPig.PdfDocument.Open(msPdf))
                             {
                                 int totalPages = document.NumberOfPages;
@@ -164,11 +166,11 @@ CÁC TRƯỜNG CẦN TRÍCH XUẤT:
                                         try
                                         {
                                             _logger.LogInformation("Đang gửi văn bản OCR trang {Page}/{TotalPages} tới llm_server...", pageNum, totalPages);
-                                            
+
                                             string prompt = $"{systemPrompt}\n\nVĂN BẢN OCR:\n{pageText}";
 
-                                            var payload = new 
-                                            { 
+                                            var payload = new
+                                            {
                                                 messages = new[] { new { role = "user", content = prompt } },
                                                 temperature = 0.0,
                                                 max_tokens = 2000
@@ -180,11 +182,11 @@ CÁC TRƯỜNG CẦN TRÍCH XUẤT:
                                             response.EnsureSuccessStatusCode();
                                             var resultStr = await response.Content.ReadAsStringAsync(stoppingToken);
                                             sw.Stop();
-                                            
+
                                             var jsonNode = System.Text.Json.Nodes.JsonNode.Parse(resultStr);
                                             var extractedJson = jsonNode?["choices"]?[0]?["message"]?["content"]?.GetValue<string>();
-                                            
-                                            try 
+
+                                            try
                                             {
                                                 if (!string.IsNullOrEmpty(extractedJson))
                                                 {
@@ -205,7 +207,7 @@ CÁC TRƯỜNG CẦN TRÍCH XUẤT:
                                                 }
                                                 return new { page = pageNum, data_text = extractedJson };
                                             }
-                                            catch 
+                                            catch
                                             {
                                                 _logger.LogInformation("[ĐO ĐẠC] Trang {Page} hoàn thành Trích xuất (Raw Text) sau {ElapsedMs} ms.", pageNum, sw.ElapsedMilliseconds);
                                                 return new { page = pageNum, data_text = extractedJson };
@@ -234,7 +236,7 @@ CÁC TRƯỜNG CẦN TRÍCH XUẤT:
 
                                     tasks.Add(ProcessPageAsync());
                                 }
-                                
+
                                 // Đợi tất cả các task hoàn thành TRƯỚC KHI kết thúc using block (để tránh bị dispose semaphore sớm)
                                 var resultsArray = await Task.WhenAll(tasks);
                                 finalResults = resultsArray.Where(r => r != null).OrderBy(r => ((dynamic)r).page).ToList();
@@ -245,20 +247,24 @@ CÁC TRƯỜNG CẦN TRÍCH XUẤT:
                             _logger.LogInformation("Kết quả trích xuất JSON cho {FileId}:\n{FinalJson}", taskMsg.FileId, finalJsonString);
 
                             using var resultStream = new MemoryStream(Encoding.UTF8.GetBytes(finalJsonString));
-                            var resultFileName = $"extraction_result_{taskMsg.FileId}.json";
+                            string directory = Path.GetDirectoryName(taskMsg.FilePath)?.Replace("\\", "/") ?? string.Empty;
+                            var resultFileName = string.IsNullOrEmpty(directory) 
+                                ? $"extraction_result_{taskMsg.FileId}.json" 
+                                : $"{directory}/extraction_result_{taskMsg.FileId}.json";
                             await minioService.UploadFileAsync(taskMsg.BucketName, resultFileName, resultStream, "application/json");
                             _logger.LogInformation("Đã lưu kết quả gộp vào MinIO: {FileName} tại bucket {BucketName}", resultFileName, taskMsg.BucketName);
 
-                            // 7. Cập nhật trạng thái sau khi lưu DB
-                            try {
-                                await repository.UpdateStatusAsync(taskMsg.FileId, "Completed");
-                                _logger.LogInformation("AI Extraction đã xong. Cập nhật trạng thái FileAttachment {FileId} thành Completed.", taskMsg.FileId);
-                            } catch (Exception ex) {
-                                _logger.LogWarning("Bỏ qua lỗi DB khi update trạng thái: {Message}", ex.Message);
-                            }
-
-                            // Nếu cần publish kết quả sang queue khác (ví dụ cho hệ thống Core lưu DB), thì gọi publisher ở đây
-                            // await publisher.PublishMessageAsync(finalResults, "digitization.topic", "extraction.completed");
+                            // 7. Gửi bản tin báo hoàn thành (Completed) lên RabbitMQ
+                            var completedMsg = new
+                            {
+                                FileId = taskMsg.FileId,
+                                Action = "extraction.process.completed",
+                                ResultFile = resultFileName,
+                                BucketName = taskMsg.BucketName,
+                                Status = "Success"
+                            };
+                            await publisher.PublishMessageAsync(completedMsg, "digitization.topic", "extraction.process.completed");
+                            _logger.LogInformation("Đã gửi bản tin hoàn thành lên RabbitMQ (Routing key: extraction.process.completed).");
 
                             await _channel.BasicAckAsync(ea.DeliveryTag, false);
                         }

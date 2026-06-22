@@ -9,6 +9,6 @@ namespace EvnHanoi.DigitizationService.Models
         public string BucketName { get; set; }
         public string Action { get; set; } = "ocr.process.task";
         public string ProcessOption { get; set; } = "OcrAndExtract"; // "OcrAndExtract" or "ExtractOnly"
-        public List<ExtractionForm> Forms { get; set; } = new List<ExtractionForm>();
+        public ExtractionForm Form { get; set; }
     }
 }

@@ -113,7 +113,7 @@ namespace EvnHanoi.DigitizationService.Workers
                                     FileId = taskMsg.FileId,
                                     FilePath = taskMsg.FilePath,
                                     BucketName = taskMsg.BucketName,
-                                    Forms = taskMsg.Forms ?? new List<ExtractionForm>()
+                                    Form = taskMsg.Form
                                 };
                                 await publisher.PublishMessageAsync(extractMsg, "digitization.topic", "extraction.process.task");
                                 await _channel.BasicAckAsync(ea.DeliveryTag, false);
@@ -269,7 +269,7 @@ namespace EvnHanoi.DigitizationService.Workers
                                 FileId = taskMsg.FileId,
                                 FilePath = outFileName,
                                 BucketName = taskMsg.BucketName,
-                                Forms = taskMsg.Forms ?? new List<ExtractionForm>()
+                                Form = taskMsg.Form
                             };
                             await publisher.PublishMessageAsync(extractionTask, "digitization.topic", "extraction.process.task");
 
