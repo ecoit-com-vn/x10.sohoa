@@ -276,7 +276,7 @@ public class FileStorageService : IFileStorageService
     {
         var safeName = SanitizeFileName(fileName);
         var safeUnitCode = SanitizeUnitCode(unitCode);
-        var datePrefix = DateTime.UtcNow.ToString("yyyy/MM/dd");
+        var datePrefix = DateTime.UtcNow.ToString("yyyy/MM");
         var fileGuid = Guid.NewGuid();
         return $"{safeUnitCode}/{datePrefix}/{folderId}/{fileGuid}_{safeName}";
     }
@@ -284,7 +284,7 @@ public class FileStorageService : IFileStorageService
     private static string BuildChunkObjectKey(string unitCode, string uploadId, int chunkNumber)
     {
         var safeUnitCode = SanitizeUnitCode(unitCode);
-        var datePrefix = DateTime.UtcNow.ToString("yyyy/MM/dd");
+        var datePrefix = DateTime.UtcNow.ToString("yyyy/MM");
         return $"{safeUnitCode}/{datePrefix}/sessions/{uploadId}/{chunkNumber}.dat";
     }
 
