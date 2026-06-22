@@ -7,11 +7,12 @@ namespace EvnHanoi.DigitizationService.Models
         public Guid FileId { get; set; }
         public string FilePath { get; set; }
         public string BucketName { get; set; }
-        
+        public string ExtractPrompt { get; set; }
+
         /// <summary>
         /// Danh sách các form cần bóc tách. Mỗi form tương ứng với một đối tượng được bóc tách từ PDF.
         /// </summary>
-        public List<ExtractionForm> Forms { get; set; } = new List<ExtractionForm>();
+        public ExtractionForm Form { get; set; } 
     }
 
     public class ExtractionForm
