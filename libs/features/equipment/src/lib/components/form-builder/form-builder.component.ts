@@ -68,6 +68,7 @@ export class FormBuilderComponent implements OnInit {
   formCategory = signal<string>('');
   formDescription = signal<string>('');
   formDescriptionInfo = signal<string>('');
+  extractionProcess = signal<string>('');
   fields = signal<FormField[]>([]);
   selectedFieldIndex = signal<number | null>(null);
   showJson = signal<boolean>(false);
@@ -156,6 +157,7 @@ export class FormBuilderComponent implements OnInit {
         this.formCategory.set(form.category || '');
         this.formDescription.set(form.description || '');
         this.formDescriptionInfo.set(form.descriptionInfo || '');
+        this.extractionProcess.set(form.extractionProcess || '');
         this.equipmentTypeId.set(form.equipmentTypeId || '');
         
         // Load gridTypeId if available, else fall back to equipment type mapping
@@ -216,6 +218,7 @@ export class FormBuilderComponent implements OnInit {
     this.formCategory.set('');
     this.formDescription.set('');
     this.formDescriptionInfo.set('');
+    this.extractionProcess.set('');
     this.equipmentTypeId.set('');
     this.fields.set([]);
     this.selectedFieldIndex.set(null);
@@ -477,11 +480,12 @@ export class FormBuilderComponent implements OnInit {
     const schemaStr = JSON.stringify(currentFields);
     const desc = this.formDescription();
     const fDescInfo = this.formDescriptionInfo();
+    const extractProc = this.extractionProcess();
     const isEdit = this.isEditMode();
     const tId = this.templateId();
     
     if (isEdit && tId) {
-      this.formTemplateService.updateTemplate(tId, fName, fCode, fCategory, desc, fDescInfo, schemaStr, 'admin', eqTypeId, gridId || undefined).subscribe({
+      this.formTemplateService.updateTemplate(tId, fName, fCode, fCategory, desc, fDescInfo, schemaStr, 'admin', eqTypeId, gridId || undefined, extractProc).subscribe({
         next: () => {
           this.messageService.add({
             severity: 'success',
@@ -501,7 +505,7 @@ export class FormBuilderComponent implements OnInit {
         }
       });
     } else {
-      this.formTemplateService.createTemplate(fName, fCode, fCategory, desc, fDescInfo, schemaStr, 'admin', eqTypeId, gridId || undefined).subscribe({
+      this.formTemplateService.createTemplate(fName, fCode, fCategory, desc, fDescInfo, schemaStr, 'admin', eqTypeId, gridId || undefined, extractProc).subscribe({
         next: () => {
           this.messageService.add({
             severity: 'success',

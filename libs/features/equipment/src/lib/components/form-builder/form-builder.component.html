@@ -92,13 +92,19 @@
                 </p-select>
               </div>
             </div>
-            <div style="display: flex; gap: 16px;">
+            <div style="display: flex; gap: 16px;" class="mb-3">
               <div class="form-group" style="flex: 1;">
                 <label class="block text-sm font-bold text-muted tracking-wider">Mô tả thông tin</label>
                 <textarea pTextarea [ngModel]="formDescriptionInfo()" (ngModelChange)="formDescriptionInfo.set($event)"
                   class="w-full form-title-input" rows="2" placeholder="Nhập mô tả thông tin..."></textarea>
               </div>
             </div>
+            <div style="display: flex; gap: 16px;">
+                  <div class="form-group" style="flex: 1;">
+                    <label class="block text-sm font-bold text-muted tracking-wider">Quy trình bóc tách thông tin</label>
+                    <textarea pTextarea [ngModel]="extractionProcess()" (ngModelChange)="extractionProcess.set($event)" class="w-full form-title-input" rows="2" placeholder="Nhập quy trình bóc tách thông tin..."></textarea>
+                  </div>
+                </div>
           </div>
 
           <!-- Main Fields Area -->

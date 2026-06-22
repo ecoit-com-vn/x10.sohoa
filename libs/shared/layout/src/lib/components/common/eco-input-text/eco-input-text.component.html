@@ -1,0 +1,46 @@
+<div>
+  <label class="label-input" *ngIf="showLabel">
+    <span *ngIf="showLabel"> {{ label }}</span>
+    <span
+      *ngIf="checkRequire()"
+      class="p-errors"
+      style="color: red; margin-left: 3px"
+      >*</span
+    ></label
+  >
+  @if (searchIcon) {
+  <p-iconField [iconPosition]="positionIcon">
+    <p-inputIcon
+      (click)="clickSearch()"
+      [styleClass]="customIcon + ' ' + color"
+    />
+    <ng-container *ngTemplateOutlet="inputText"></ng-container>
+  </p-iconField>
+  } @else {
+  <ng-container *ngTemplateOutlet="inputText"></ng-container>
+  }
+  <div class="relative b-errors mt-1">
+    <ng-container *ngIf="errors">
+      <small class="p-error error-msg block fadeinup animation-duration-300">
+        <span class="block">{{ displayedErrorMessage }}</span>
+      </small>
+    </ng-container>
+  </div>
+</div>
+
+<ng-template #inputText>
+  <input
+    class="w-full"
+    (blur)="onTouched(); trimData()"
+    (input)="onInput($event)"
+    (keyup.enter)="handleEnter()"
+    [formControl]="control"
+    [ngClass]="{ 'ng-invalid ng-dirty': errors, readonly: readonly }"
+    [readOnly]="readonly"
+    [placeholder]="placeholder"
+    [type]="type"
+    [attr.pattern]="pattern || null"
+    [attr.maxlength]="maxLength || null"
+    pInputText
+  />
+</ng-template>

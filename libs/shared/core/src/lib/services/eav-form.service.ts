@@ -9,6 +9,7 @@ export interface EavFormTemplate {
   category: string;
   description: string;
   descriptionInfo: string;
+  extractionProcess?: string;
   formSchema: string; // JSON schema stringified
   version: number;
   isActive: boolean;
@@ -38,26 +39,28 @@ export class EavFormService {
     return this.api.get<EavFormTemplate>(`${this.apiUrl}/${id}`);
   }
 
-  createTemplate(name: string, code: string, category: string, description: string, descriptionInfo: string, formSchema: string, createdBy: string = 'admin', gridTypeId?: number): Observable<EavFormTemplate> {
+  createTemplate(name: string, code: string, category: string, description: string, descriptionInfo: string, formSchema: string, createdBy: string = 'admin', gridTypeId?: number, extractionProcess?: string): Observable<EavFormTemplate> {
     return this.api.post<EavFormTemplate>(this.apiUrl, {
       name,
       code,
       category,
       description,
       descriptionInfo,
+      extractionProcess,
       formSchema,
       createdBy,
       gridTypeId
     });
   }
 
-  updateTemplate(id: string, name: string, code: string, category: string, description: string, descriptionInfo: string, formSchema: string, updatedBy: string = 'admin', gridTypeId?: number): Observable<EavFormTemplate> {
+  updateTemplate(id: string, name: string, code: string, category: string, description: string, descriptionInfo: string, formSchema: string, updatedBy: string = 'admin', gridTypeId?: number, extractionProcess?: string): Observable<EavFormTemplate> {
     return this.api.put<EavFormTemplate>(`${this.apiUrl}/${id}`, {
       name,
       code,
       category,
       description,
       descriptionInfo,
+      extractionProcess,
       formSchema,
       updatedBy,
       gridTypeId

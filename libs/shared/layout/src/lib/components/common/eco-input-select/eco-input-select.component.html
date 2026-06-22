@@ -1,0 +1,89 @@
+<span *ngIf="showTextValue" class="readonly-view">
+  <div *ngIf="showLabel" class="readonly-label">{{ label }}</div>
+  <div *ngIf="options && control.value !== null && control.value !== undefined; else empty" class="readonly-content">
+    @if (isArray(getOptionsLabel(control.value))) {
+      @for (item of getOptionsLabel(control.value); track item) {
+        <span class="p-badge p-badge-info mr-1" style="background: #e0f2fe; color: #0369a1; padding: 2px 6px; border-radius: 4px; font-size: 0.85rem; margin-right: 4px;">{{ item }}</span>
+      }
+    } @else {
+      {{ getOptionsLabel(control.value) }}
+    }
+  </div>
+  <ng-template #empty class="readonly-content">---</ng-template>
+</span>
+
+<div *ngIf="!showTextValue">
+  <label class="label-input" *ngIf="showLabel">
+    <span> {{ label }}</span>
+    <span *ngIf="checkRequire()" class="p-errors" style="color: red; margin-left: 3px">*</span></label
+  >
+  <p-select
+    (onChange)="emitChange($event)"
+    styleClass="w-full"
+    *ngIf="!multiSelect"
+    [filter]="filter"
+    [formControl]="control"
+    [placeholder]="placeholder"
+    [ngClass]="{ 'ng-invalid ng-dirty': errors, readonly: readonly }"
+    [optionDisabled]="optionDisabled"
+    [optionLabel]="optionLabel"
+    [optionValue]="optionValue"
+    [options]="options"
+    [readonly]="readonly"
+    [resetFilterOnHide]="true"
+    [scrollHeight]="scrollHeight"
+    [showClear]="!readonly && showClear"
+    [tooltip]="tooltip"
+    [virtualScroll]="virtualScroll"
+    [loading]="inputLoading"
+    [placeholder]="placeholder"
+    appendTo="body">
+    <ng-template let-item pTemplate="item">
+      {{ item[optionLabel] }}
+    </ng-template>
+    <ng-template let-item pTemplate="selectedItem">
+      {{ item[optionLabel] }}
+    </ng-template>
+  </p-select>
+  <p-multiSelect
+    styleClass="w-full"
+    (onChange)="emitChange($event)"
+    *ngIf="multiSelect"
+    [display]="display"
+    [dropdownIcon]="dropdownIcon"
+    [filter]="filter"
+    [formControl]="control"
+    [placeholder]="placeholder"
+    [ngClass]="{ 'ng-invalid ng-dirty': errors, readonly: readonly}"
+    [optionDisabled]="optionDisabled"
+    [optionLabel]="optionLabel"
+    [optionValue]="optionValue"
+    [options]="options"
+    [panelStyleClass]="multiselectPanelClass"
+    [readonly]="readonly"
+    [scrollHeight]="scrollHeight"
+    [tooltip]="tooltip"
+    [virtualScroll]="virtualScroll"
+    [maxSelectedLabels]="options.length - 1"
+    [displaySelectedLabel]="true"
+    [loading]="inputLoading"
+    [selectedItemsLabel]="'Tất cả'"
+    appendTo="body">
+    <ng-template let-item pTemplate="item">
+      {{ item[optionLabel] }}
+    </ng-template>
+    <ng-template let-item pTemplate="selectedItem">
+      {{ item[optionLabel] }}
+    </ng-template>
+    <ng-template let-item pTemplate="selectedItems">
+      {{ getValue(control) }}
+    </ng-template>
+  </p-multiSelect>
+  <div class="relative b-errors">
+    <ng-container *ngIf="errors">
+      <small class="p-error error-msg block fadeinup animation-duration-300">
+        <span class="block">{{ displayedErrorMessage }}</span>
+      </small>
+    </ng-container>
+  </div>
+</div>

@@ -1,0 +1,17 @@
+<div>
+  <label class="label-input" *ngIf="showLabel">
+    <span *ngIf="showLabel"> {{ label }}</span>
+    <!--    <span *ngIf="checkRequire()" class="p-errors" style="color: red; margin-left: 3px">*</span>-->
+  </label>
+  <div class="file-input">
+    <button [disabled]="disabled" type="button" pButton class="btn-upload" icon="pi pi-file-arrow-up"
+            (click)="chooseFile(inputFile)"></button>
+    <input style="display: none" [multiple]="multiple" #inputFile type="file" [(ngModel)]="value" (change)="onChangeInput($event)">
+    <div class="file-content">
+      @for (file of files; track file; let index = $index) {
+        <p-chip label="{{file.FileName}}" (onRemove)="onRemoveFile(index)" [removable]="true"/>
+      }
+    </div>
+  </div>
+
+</div>

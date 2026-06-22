@@ -1,0 +1,15 @@
+<div>
+    <div style="display: inline-flex; align-items: center; gap: 6px;">
+      <p-checkbox [(ngModel)]="value" (onChange)="onCheckboxChange($event)" [binary]="true"
+        [ngClass]="{ readonly: readonly }" [readonly]="readonly" [disabled]="disabled" inputId="cb_input">
+      </p-checkbox>
+      <label for="cb_input" style="cursor: pointer;">{{ label }}</label>
+    </div>
+  <div class="relative b-errors">
+    <ng-container *ngIf="errors">
+      <small class="p-error error-msg block fadeinup animation-duration-300">
+        <span class="block">{{ getError().key }}</span>
+      </small>
+    </ng-container>
+  </div>
+</div>
