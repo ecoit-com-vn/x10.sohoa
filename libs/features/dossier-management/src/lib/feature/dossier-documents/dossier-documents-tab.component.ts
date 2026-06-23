@@ -34,12 +34,16 @@ import {
   getDocumentFileIcon,
 } from '../../utils/document-display.util';
 import {
-  getExtractionColumnState,
+  getExtractionBarPercent,
   getOcrBarPercent,
   getRetryProcessOption,
   isActiveDigitizationStatus,
   isOcrBarActive,
   isOcrBarFailed,
+  isOcrComplete,
+  isExtractionComplete,
+  isExtractionFailed,
+  shouldShowExtractionProgress,
   canEditDossierDocument,
   canRetryDigitization,
   isRetryingDigitization,
@@ -113,7 +117,11 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy {
   getOcrBarPercent = getOcrBarPercent;
   isOcrBarActive = isOcrBarActive;
   isOcrBarFailed = isOcrBarFailed;
-  getExtractionColumnState = getExtractionColumnState;
+  isOcrComplete = isOcrComplete;
+  getExtractionBarPercent = getExtractionBarPercent;
+  isExtractionComplete = isExtractionComplete;
+  isExtractionFailed = isExtractionFailed;
+  shouldShowExtractionProgress = shouldShowExtractionProgress;
   canRetryDigitization = canRetryDigitization;
   isRetryingDigitization = isRetryingDigitization;
 

@@ -110,6 +110,56 @@ export function isOcrBarActive(ocr: DocumentOcrProgress | undefined | null): boo
   return !!ocr && (ocr.status === 'Pending' || ocr.status === 'Running');
 }
 
+export function isOcrComplete(ocr: DocumentOcrProgress | undefined | null): boolean {
+  if (!ocr) return false;
+  if (ocr.status === 'Failed' && (ocr.phase ?? 'ocr') === 'ocr') return false;
+  return (
+    ocr.status === 'OcrCompleted' ||
+    ocr.status === 'Extracting' ||
+    ocr.status === 'Completed' ||
+    (ocr.status === 'Failed' && ocr.phase === 'extraction')
+  );
+}
+
+export function isExtractionComplete(doc: DossierDocumentItem): boolean {
+  const ext = doc.extractionResult;
+  const ocr = doc.ocrProgress;
+  return ext?.status === 'Completed' || ocr?.status === 'Completed';
+}
+
+export function isExtractionFailed(doc: DossierDocumentItem): boolean {
+  const ext = doc.extractionResult;
+  const ocr = doc.ocrProgress;
+  return ext?.status === 'Failed' || (!!ocr && ocr.status === 'Failed' && ocr.phase === 'extraction');
+}
+
+/** Phần trăm thanh tiến độ bóc tách (0–100); null nếu chưa bắt đầu hoặc đã kết thúc. */
+export function getExtractionBarPercent(doc: DossierDocumentItem): number | null {
+  const ocr = doc.ocrProgress;
+  const ext = doc.extractionResult;
+
+  if (!ocr && !ext) return null;
+  if (isExtractionComplete(doc) || isExtractionFailed(doc)) return null;
+
+  if (ocr?.status === 'Extracting') {
+    return Math.min(100, Math.max(0, ocr.progress ?? 0));
+  }
+
+  if (ext?.status === 'Pending' || ext?.status === 'Running' || ext?.status === 'Extracting') {
+    return Math.min(100, Math.max(0, ocr?.progress ?? 0));
+  }
+
+  if (ocr?.status === 'OcrCompleted') return 0;
+
+  if (ocr && !isOcrComplete(ocr)) return null;
+
+  return null;
+}
+
+export function shouldShowExtractionProgress(doc: DossierDocumentItem): boolean {
+  return getExtractionBarPercent(doc) !== null || isExtractionComplete(doc) || isExtractionFailed(doc);
+}
+
 /** Cho phép mở màn sửa tài liệu (xem file + form). */
 export function canEditDossierDocument(doc: {
   ocrProgress?: { status?: string } | null;
