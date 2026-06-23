@@ -8,6 +8,7 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
     {
         public override void SetValue(IDbDataParameter parameter, Guid value)
         {
+            parameter.DbType = DbType.AnsiString;
             parameter.Value = value.ToString();
         }
 
