@@ -185,10 +185,13 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
             return (resultList, totalCount);
         }
 
-        public async Task<WorkflowDefinition?> GetDefinitionByIdAsync(Guid id)
+        public async Task<WorkflowDefinition?> GetDefinitionByIdAsync(Guid id, bool includeBpmnXml = true)
         {
             if (_connection.State != ConnectionState.Open) _connection.Open();
-            var sqlDef = $@"SELECT wd.{nameof(WorkflowDefinition.Id)}, 
+            
+            var bpmnSelect = includeBpmnXml ? $", wd.{nameof(WorkflowDefinition.BpmnXml)}" : "";
+            
+            var sqlDef = $@"SELECT wd.{nameof(WorkflowDefinition.Id)},
                                    wd.{nameof(WorkflowDefinition.Name)}, 
                                    wd.{nameof(WorkflowDefinition.Description)}, 
                                    wd.{nameof(WorkflowDefinition.Version)}, 
@@ -201,8 +204,7 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
                                    wd.{nameof(WorkflowDefinition.UpdatedBy)}, 
                                    u2.UserName AS {nameof(WorkflowDefinition.UpdatedByUsername)}, 
                                    u2.FullName AS {nameof(WorkflowDefinition.UpdatedByFullName)}, 
-                                   wd.{nameof(WorkflowDefinition.IsActive)}, 
-                                   wd.{nameof(WorkflowDefinition.BpmnXml)} 
+                                   wd.{nameof(WorkflowDefinition.IsActive)}{bpmnSelect} 
                            FROM WORKFLOWDEFINITIONS wd
                            LEFT JOIN APP_USER u1 ON wd.CreatedBy = u1.Id
                            LEFT JOIN APP_USER u2 ON wd.UpdatedBy = u2.Id
@@ -573,7 +575,7 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
             return newStatus == 1;
         }
 
-        public async Task<WorkflowInstance?> GetInstanceByEntityAsync(string entityId, string entityType)
+        public async Task<WorkflowInstance?> GetInstanceByEntityAsync(string entityId, string entityType, bool includeBpmnXml = true)
         {
             if (_connection.State != ConnectionState.Open) _connection.Open();
             var sql = $@"SELECT {nameof(WorkflowInstance.Id)}, 
@@ -592,7 +594,7 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
             var instance = await _connection.QueryFirstOrDefaultAsync<WorkflowInstance>(sql, new { EntityId = entityId, EntityType = entityType });
             if (instance == null) return null;
 
-            instance.WorkflowDefinition = await GetDefinitionByIdAsync(instance.WorkflowDefinitionId);
+            instance.WorkflowDefinition = await GetDefinitionByIdAsync(instance.WorkflowDefinitionId, includeBpmnXml);
 
             var sqlTasks = $@"SELECT {nameof(WorkflowTask.Id)}, 
                                      {nameof(WorkflowTask.WorkflowInstanceId)}, 
