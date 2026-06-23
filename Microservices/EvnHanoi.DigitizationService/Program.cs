@@ -48,8 +48,53 @@ builder.Services.AddScoped<IDigitizationTaskRepository, DigitizationTaskReposito
 builder.Services.AddScoped<IOcrTrainingDataRepository, OcrTrainingDataRepository>();
 builder.Services.AddScoped<IVirtualFolderRepository, VirtualFolderRepository>();
 
-builder.Services.AddHttpClient("OcrVlClient");
-builder.Services.AddHttpClient("LlmClient");
+builder.Services.AddHttpClient("OcrVlClient", client => 
+{
+    client.Timeout = Timeout.InfiniteTimeSpan;
+})
+.ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+{
+    PooledConnectionLifetime = TimeSpan.FromMinutes(15),
+    KeepAlivePingDelay = TimeSpan.FromSeconds(30),
+    KeepAlivePingTimeout = TimeSpan.FromSeconds(15)
+})
+.AddStandardResilienceHandler(options => 
+{
+    options.AttemptTimeout.Timeout = TimeSpan.FromHours(1);
+    options.TotalRequestTimeout.Timeout = TimeSpan.FromHours(1);
+});
+
+builder.Services.AddHttpClient("LlmClient", client => 
+{
+    client.Timeout = Timeout.InfiniteTimeSpan;
+})
+.ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+{
+    PooledConnectionLifetime = TimeSpan.FromMinutes(15),
+    KeepAlivePingDelay = TimeSpan.FromSeconds(30),
+    KeepAlivePingTimeout = TimeSpan.FromSeconds(15)
+})
+.AddStandardResilienceHandler(options => 
+{
+    options.AttemptTimeout.Timeout = TimeSpan.FromHours(1);
+    options.TotalRequestTimeout.Timeout = TimeSpan.FromHours(1);
+});
+
+builder.Services.AddHttpClient("NoTimeout", client => 
+{
+    client.Timeout = Timeout.InfiniteTimeSpan;
+})
+.ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+{
+    PooledConnectionLifetime = TimeSpan.FromMinutes(15),
+    KeepAlivePingDelay = TimeSpan.FromSeconds(30),
+    KeepAlivePingTimeout = TimeSpan.FromSeconds(15)
+})
+.AddStandardResilienceHandler(options => 
+{
+    options.AttemptTimeout.Timeout = TimeSpan.FromHours(1);
+    options.TotalRequestTimeout.Timeout = TimeSpan.FromHours(1);
+});
 
 builder.Services.AddHostedService<OcrWorker>();
 builder.Services.AddHostedService<ExtractionWorker>();
