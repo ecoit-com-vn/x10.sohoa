@@ -68,19 +68,13 @@ export function formatDigitizationProgress(progress: DocumentOcrProgress | undef
   return `${progress.progress}%`;
 }
 
-/** Phần trăm thanh tiến độ OCR (0–100). */
+/** Phần trăm thanh tiến độ OCR (0–100). Chỉ tính khi phase = ocr. */
 export function getOcrBarPercent(ocr: DocumentOcrProgress | undefined | null): number | null {
   if (!ocr) return null;
+  if (isOcrComplete(ocr)) return null;
   if (ocr.status === 'Failed' && (ocr.phase ?? 'ocr') === 'ocr') return 0;
-  if (
-    ocr.status === 'OcrCompleted' ||
-    ocr.status === 'Extracting' ||
-    ocr.status === 'Completed' ||
-    (ocr.status === 'Failed' && ocr.phase === 'extraction')
-  ) {
-    return 100;
-  }
   if (ocr.status === 'Pending' || ocr.status === 'Running') {
+    if ((ocr.phase ?? 'ocr') !== 'ocr') return null;
     return Math.min(100, Math.max(0, ocr.progress ?? 0));
   }
   return null;
@@ -141,23 +135,31 @@ export function getExtractionBarPercent(doc: DossierDocumentItem): number | null
   if (!ocr && !ext) return null;
   if (isExtractionComplete(doc) || isExtractionFailed(doc)) return null;
 
-  if (ocr?.status === 'Extracting') {
+  // OCR chưa xong — cột bóc tách không chạy % (tránh mirror ocr.progress khi ext = Pending)
+  if (ocr && !isOcrComplete(ocr)) return null;
+
+  // OCR xong, chờ worker bóc tách
+  if (ocr?.status === 'OcrCompleted' || (ext?.status === 'Pending' && (ocr?.phase ?? 'ocr') !== 'extraction')) {
+    return 0;
+  }
+
+  // Đang bóc tách — progress chỉ có ý nghĩa ở phase extraction
+  if (ocr?.status === 'Extracting' || ocr?.phase === 'extraction') {
     return Math.min(100, Math.max(0, ocr.progress ?? 0));
   }
 
-  if (ext?.status === 'Pending' || ext?.status === 'Running' || ext?.status === 'Extracting') {
+  if (ext?.status === 'Running' || ext?.status === 'Extracting') {
     return Math.min(100, Math.max(0, ocr?.progress ?? 0));
   }
-
-  if (ocr?.status === 'OcrCompleted') return 0;
-
-  if (ocr && !isOcrComplete(ocr)) return null;
 
   return null;
 }
 
 export function shouldShowExtractionProgress(doc: DossierDocumentItem): boolean {
-  return getExtractionBarPercent(doc) !== null || isExtractionComplete(doc) || isExtractionFailed(doc);
+  if (isExtractionComplete(doc) || isExtractionFailed(doc)) return true;
+  const ocr = doc.ocrProgress;
+  if (!ocr) return !!doc.extractionResult;
+  return isOcrComplete(ocr);
 }
 
 /** Cho phép mở màn sửa tài liệu (xem file + form). */
@@ -178,9 +180,30 @@ export function canEditDossierDocument(doc: {
 export function canRetryDigitization(doc: DossierDocumentItem): boolean {
   const ocr = doc.ocrProgress;
   const ext = doc.extractionResult;
-  if (ocr?.status === 'Failed') return true;
+  if (isActiveDigitizationStatus(ocr?.status)) return false;
+  if (ocr?.status === 'Failed' && (ocr.phase ?? 'ocr') === 'ocr') return true;
+  if (ext?.status === 'Failed' && ocr?.status !== 'Failed') return false;
   if (ext?.status === 'Failed') return true;
   return false;
+}
+
+/** Cho phép bóc tách lại (OCR đã xong, không đang xử lý). Form EAV được load mới trên server. */
+export function canReExtract(doc: DossierDocumentItem): boolean {
+  const ocr = doc.ocrProgress;
+  if (!ocr) return false;
+  if (isActiveDigitizationStatus(ocr.status)) return false;
+  if (ocr.status === 'Failed' && (ocr.phase ?? 'ocr') === 'ocr') return false;
+  return (
+    ocr.status === 'OcrCompleted' ||
+    ocr.status === 'Completed' ||
+    (ocr.status === 'Failed' && ocr.phase === 'extraction') ||
+    doc.extractionResult?.status === 'Completed' ||
+    doc.extractionResult?.status === 'Failed'
+  );
+}
+
+export function isReExtracting(docId: string, reExtractingIds: Set<string>): boolean {
+  return reExtractingIds.has(docId);
 }
 
 export function isRetryingDigitization(docId: string, retryingIds: Set<string>): boolean {

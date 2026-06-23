@@ -156,8 +156,12 @@ export class DossierManagementService {
     );
   }
 
-  getMyTasks(): Observable<any[]> {
-    return this.http.get<any[]>(`${this.base}/get-my-tasks`).pipe(
+  getMyTasks(instanceId?: string | null): Observable<any[]> {
+    let params = new HttpParams();
+    if (instanceId?.trim()) {
+      params = params.set('instanceId', instanceId.trim());
+    }
+    return this.http.get<any[]>(`${this.base}/get-my-tasks`, { params }).pipe(
       catchError(() => of([]))
     );
   }

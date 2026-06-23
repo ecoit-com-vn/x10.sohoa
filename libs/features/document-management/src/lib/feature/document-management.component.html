@@ -494,7 +494,14 @@
         </button>
       </div>
 
+      <app-scanner-panel
+        (fileReady)="onScannedFile($event)"
+      ></app-scanner-panel>
+
+      <p class="upload-scan-divider">— hoặc upload file từ máy tính —</p>
+
       <app-file-upload-zone
+        #uploadZone
         [folderId]="selectedFolder()?.id || ''"
         [maxFileSize]="500000000"
         (fileUploaded)="onFileUploaded($event)"

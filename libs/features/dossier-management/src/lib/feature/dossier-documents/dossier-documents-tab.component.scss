@@ -58,15 +58,25 @@
     color: #d97706;
   }
 
+  &.act-reextract:hover:not(:disabled) i {
+    color: #7c3aed;
+  }
+
   &.act-edit:hover:not(:disabled) i {
     color: #2563eb;
   }
 }
 
+.col-digitization {
+  text-align: center;
+  vertical-align: middle;
+}
+
 .digitization-progress-cell {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
+  width: 120px;
   min-height: 15px;
 }
 

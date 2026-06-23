@@ -136,3 +136,9 @@
   color: white !important;
 }
 
+.upload-scan-divider {
+  margin: 16px 0;
+  text-align: center;
+  font-size: 0.8rem;
+  color: #64748b;
+}

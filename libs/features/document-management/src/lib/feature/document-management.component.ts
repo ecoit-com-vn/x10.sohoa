@@ -16,7 +16,7 @@ import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { DialogModule } from 'primeng/dialog';
 import { PaginatorModule } from 'primeng/paginator';
-import { FileUploadZoneComponent, FileDownloadService } from '@sohoa.frontend/features/equipment';
+import { FileUploadZoneComponent, FileDownloadService, ScannerPanelComponent, UPLOAD_SOURCE } from '@sohoa.frontend/features/equipment';
 import { DocumentManagementService } from '../data-access/document-management.service';
 import {
   FolderNode,
@@ -46,6 +46,7 @@ type ViewMode = 'list' | 'add_folder' | 'edit_folder' | 'upload';
     DialogModule,
     PaginatorModule,
     FileUploadZoneComponent,
+    ScannerPanelComponent,
   ],
   templateUrl: './document-management.component.html',
   styleUrl: './document-management.component.css',
@@ -56,6 +57,9 @@ export class DocumentManagementComponent implements OnInit {
   private fileDownloadService = inject(FileDownloadService);
 
   @ViewChild('folderNameInput') folderNameInput?: ElementRef<HTMLInputElement>;
+  @ViewChild('uploadZone') uploadZone?: FileUploadZoneComponent;
+
+  readonly UPLOAD_SOURCE = UPLOAD_SOURCE;
 
   // ===== SIGNALS =====
   currentView = signal<ViewMode>('list');
@@ -220,6 +224,10 @@ export class DocumentManagementComponent implements OnInit {
     });
     this.currentView.set('list');
     this.loadDocuments();
+  }
+
+  onScannedFile(file: File): void {
+    this.uploadZone?.ingestFile(file, UPLOAD_SOURCE.SCAN);
   }
 
   onUploadError(event: { fileName: string; error: string }) {
