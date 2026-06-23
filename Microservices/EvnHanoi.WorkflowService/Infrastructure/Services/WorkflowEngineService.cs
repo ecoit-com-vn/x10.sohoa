@@ -787,14 +787,14 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
 
         public async Task<IEnumerable<WorkflowHistory>> GetHistoryByEntityAsync(string entityId, string entityType)
         {
-            var instance = await _workflowRepository.GetInstanceByEntityAsync(entityId, entityType);
+            var instance = await _workflowRepository.GetInstanceByEntityAsync(entityId, entityType, false);
             if (instance == null) return Enumerable.Empty<WorkflowHistory>();
             return await _workflowRepository.GetHistoryByInstanceIdAsync(instance.Id);
         }
 
         public async Task<object> GetInstanceStatusByEntityAsync(string entityId, string entityType)
         {
-            var instance = await _workflowRepository.GetInstanceByEntityAsync(entityId, entityType);
+            var instance = await _workflowRepository.GetInstanceByEntityAsync(entityId, entityType, false);
             if (instance == null)
             {
                 throw new KeyNotFoundException("Không tìm thấy phiên chạy quy trình cho hồ sơ/yêu cầu này.");
