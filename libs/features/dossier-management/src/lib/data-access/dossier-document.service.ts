@@ -411,6 +411,13 @@ export class DossierDocumentService {
     return this.submitDigitization(dossierId, versionId, { processOption });
   }
 
+  reExtractDigitization(dossierId: string, versionId: string): Observable<DocumentOcrProgress> {
+    return this.http.post<DocumentOcrProgress>(
+      `${this.dossierBase(dossierId)}/${versionId}/digitization/re-extract`,
+      {}
+    );
+  }
+
   getDigitizationProgress(dossierId: string, versionId: string): Observable<DocumentOcrProgress> {
     return this.http.get<DocumentOcrProgress>(
       `${this.dossierBase(dossierId)}/${versionId}/digitization/progress`

@@ -14,6 +14,7 @@ import { ButtonModule } from 'primeng/button';
 import { ProgressBarModule } from 'primeng/progressbar';
 import { MessageService } from 'primeng/api';
 import { FileUploadService, UploadProgress, FileUploadResponse, extractApiErrorMessage } from '../../data-access/file-upload.service';
+import { UPLOAD_SOURCE, UploadSource } from '../../constants/upload-source.constants';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 
@@ -22,6 +23,7 @@ interface UploadItem {
   file: File;
   progress: UploadProgress;
   error?: string;
+  uploadSource?: UploadSource;
 }
 
 export type FileUploadHandler = (
@@ -45,6 +47,12 @@ export class FileUploadZoneComponent implements OnInit, OnDestroy {
   folderId = input<string>('');
   /** Khi set, bỏ qua folderId và gọi handler tùy chỉnh (vd. upload hồ sơ). */
   uploadHandler = input<FileUploadHandler | null>(null);
+  /** Ẩn vùng kéo-thả (dùng kèm scanner panel). */
+  hideDropZone = input<boolean>(false);
+  /** Nguồn upload ghi vào DB khi upload qua folderId (mặc định Web). */
+  uploadSource = input<UploadSource>(UPLOAD_SOURCE.WEB);
+  /** Giữ file đã upload trong danh sách (không tự ẩn sau vài giây). */
+  keepCompletedUploads = input<boolean>(false);
   maxFileSize = input<number>(500 * 1024 * 1024); // 500MB default
   allowedExtensions = input<string[]>([
     '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
@@ -119,9 +127,18 @@ export class FileUploadZoneComponent implements OnInit, OnDestroy {
   }
 
   /**
+   * Đẩy file vào pipeline upload (dùng sau khi quét từ EcoScanner).
+   */
+  ingestFile(file: File, source?: UploadSource): void {
+    const dataTransfer = new DataTransfer();
+    dataTransfer.items.add(file);
+    this.handleFiles(dataTransfer.files, source);
+  }
+
+  /**
    * Process selected/dropped files
    */
-  private handleFiles(fileList: FileList) {
+  private handleFiles(fileList: FileList, ingestSource?: UploadSource) {
     const currentUploads = this.uploads();
     const handler = this.uploadHandler();
     const folderId = this.folderId();
@@ -164,14 +181,15 @@ export class FileUploadZoneComponent implements OnInit, OnDestroy {
           uploadedBytes: 0,
           totalBytes: file.size,
           status: 'pending'
-        }
+        },
+        uploadSource: ingestSource,
       };
 
       currentUploads.set(uploadId, uploadItem);
       this.uploads.set(new Map(currentUploads));
 
       // Start upload
-      this.startUpload(uploadId, file, folderId, handler);
+      this.startUpload(uploadId, file, folderId, handler, uploadItem.uploadSource);
     }
   }
 
@@ -206,14 +224,16 @@ export class FileUploadZoneComponent implements OnInit, OnDestroy {
     uploadId: string,
     file: File,
     folderId: string,
-    handler: FileUploadHandler | null
+    handler: FileUploadHandler | null,
+    itemUploadSource?: UploadSource,
   ) {
     try {
       const onProgress = (progress: UploadProgress) => this.updateProgress(uploadId, progress);
+      const folderUploadSource = itemUploadSource ?? this.uploadSource();
 
       const result = handler
         ? await handler(file, onProgress)
-        : await this.fileUploadService.uploadFile(file, folderId, onProgress);
+        : await this.fileUploadService.uploadFile(file, folderId, onProgress, folderUploadSource);
 
       // Success
       this.updateProgress(uploadId, {
@@ -235,12 +255,13 @@ export class FileUploadZoneComponent implements OnInit, OnDestroy {
         fileName: file.name
       });
 
-      // Auto-remove after 3 seconds
-      setTimeout(() => {
-        const current = this.uploads();
-        current.delete(uploadId);
-        this.uploads.set(new Map(current));
-      }, 3000);
+      if (!this.keepCompletedUploads()) {
+        setTimeout(() => {
+          const current = this.uploads();
+          current.delete(uploadId);
+          this.uploads.set(new Map(current));
+        }, 3000);
+      }
     } catch (error: unknown) {
       const errorMsg = extractApiErrorMessage(error);
       this.updateProgress(uploadId, {
@@ -276,6 +297,11 @@ export class FileUploadZoneComponent implements OnInit, OnDestroy {
       current.set(uploadId, item);
       this.uploads.set(new Map(current));
     }
+  }
+
+  /** Xóa toàn bộ mục upload (dùng khi đóng/mở lại dialog). */
+  clearUploads(): void {
+    this.uploads.set(new Map());
   }
 
   /**

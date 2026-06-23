@@ -1,6 +1,7 @@
 <div class="file-upload-zone">
   <!-- Drop Zone -->
   <div
+    *ngIf="!hideDropZone()"
     class="drop-zone"
     [class.drag-over]="isDragOver()"
     (dragover)="onDragOver($event)"

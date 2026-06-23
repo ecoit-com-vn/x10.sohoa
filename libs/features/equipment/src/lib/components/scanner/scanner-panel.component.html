@@ -1,0 +1,34 @@
+<div class="scanner-panel">
+  <div class="scanner-actions">
+    <button
+      type="button"
+      class="btn-green btn-small"
+      [disabled]="disabled() || scanning()"
+      (click)="startScan()"
+    >
+      <i class="pi" [ngClass]="scanning() ? 'pi-spin pi-spinner' : 'pi-print'"></i>
+      {{ scanning() ? 'Đang quét...' : 'Quét tài liệu (PDF)' }}
+    </button>
+    <button
+      type="button"
+      class="btn-outlined btn-small"
+      *ngIf="scanning()"
+      (click)="cancelScan()"
+    >
+      <i class="pi pi-times"></i> Hủy
+    </button>
+  </div>
+
+  <p class="scanner-status">
+    <i class="pi pi-info-circle"></i>
+    {{ statusMessage() }}
+  </p>
+  <p class="scanner-hint">
+    Cần cài và chạy <strong>EcoScanner</strong> trên máy tính. Hệ thống kết nối qua WebSocket localhost.
+  </p>
+
+  <div class="scanner-preview" *ngIf="previewUrl()">
+    <iframe *ngIf="previewKind() === 'pdf'" [src]="safePreviewUrl()" title="Xem trước PDF quét"></iframe>
+    <img *ngIf="previewKind() === 'image'" [src]="previewUrl()" alt="Xem trước ảnh quét" />
+  </div>
+</div>

@@ -16,7 +16,12 @@ import { ButtonModule } from 'primeng/button';
 import { MessageService } from 'primeng/api';
 import { finalize, forkJoin, of } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
-import { FileUploadZoneComponent, FileUploadHandler } from '@sohoa.frontend/features/equipment';
+import {
+  FileUploadZoneComponent,
+  FileUploadHandler,
+  ScannerPanelComponent,
+  UPLOAD_SOURCE,
+} from '@sohoa.frontend/features/equipment';
 import {
   DossierDocumentService,
   DocumentTypeLookupItem,
@@ -32,7 +37,7 @@ interface UploadedFileItem {
 @Component({
   selector: 'app-dossier-direct-upload-dialog',
   standalone: true,
-  imports: [CommonModule, FormsModule, DialogModule, ButtonModule, FileUploadZoneComponent],
+  imports: [CommonModule, FormsModule, DialogModule, ButtonModule, FileUploadZoneComponent, ScannerPanelComponent],
   templateUrl: './dossier-direct-upload-dialog.component.html',
   styleUrl: './dossier-direct-upload-dialog.component.scss',
 })
@@ -65,6 +70,9 @@ export class DossierDirectUploadDialogComponent implements OnInit {
   hasDocumentTypeForm = computed(() => !!this.selectedDocumentType()?.formId);
   canUpload = computed(() => !!this.selectedDocumentTypeId());
   uploadedCount = computed(() => this.uploadedFiles().length);
+  isScanMode = computed(() => this.uploadSource === UPLOAD_SOURCE.SCAN);
+
+  readonly UPLOAD_SOURCE = UPLOAD_SOURCE;
 
   uploadHandler: FileUploadHandler = (file, onProgress) => {
     const documentTypeId = this.selectedDocumentTypeId();
@@ -122,8 +130,13 @@ export class DossierDirectUploadDialogComponent implements OnInit {
     });
   }
 
+  onScannedFile(file: File): void {
+    this.uploadZone?.ingestFile(file);
+  }
+
   onShow(): void {
     this.uploadedFiles.set([]);
+    this.uploadZone?.clearUploads();
     this.ocrMode = 'none';
     this.submitting.set(false);
     this.selectedDocumentTypeId.set('');

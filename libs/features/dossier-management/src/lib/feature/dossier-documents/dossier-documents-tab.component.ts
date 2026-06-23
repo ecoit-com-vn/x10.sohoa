@@ -46,6 +46,8 @@ import {
   shouldShowExtractionProgress,
   canEditDossierDocument,
   canRetryDigitization,
+  canReExtract,
+  isReExtracting,
   isRetryingDigitization,
 } from '../../utils/dossier-digitization.util';
 import { DossierUploadMenuComponent, DossierUploadAction } from '../../components/dossier-upload-menu/dossier-upload-menu.component';
@@ -76,6 +78,7 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
   private search$ = new Subject<string>();
   private signalRConnected = false;
+  private lastProgressEventAt = 0;
   private lastSignalRDossierId: string | null = null;
 
   @Input({ required: true }) dossierId!: string;
@@ -92,6 +95,7 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy {
   searchKeyword = signal('');
   downloadingIds = signal<Set<string>>(new Set());
   retryingIds = signal<Set<string>>(new Set());
+  reExtractingIds = signal<Set<string>>(new Set());
 
   showDeleteConfirm = signal(false);
   deleteTarget = signal<DossierDocumentItem | null>(null);
@@ -123,6 +127,8 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy {
   isExtractionFailed = isExtractionFailed;
   shouldShowExtractionProgress = shouldShowExtractionProgress;
   canRetryDigitization = canRetryDigitization;
+  canReExtract = canReExtract;
+  isReExtracting = isReExtracting;
   isRetryingDigitization = isRetryingDigitization;
 
   constructor() {
@@ -144,16 +150,21 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy {
       });
 
     this.setupDigitizationSignalR();
+    this.signalRService.startConnection();
 
-    interval(15000)
+    interval(5000)
       .pipe(
         takeUntil(this.destroy$),
-        filter(() =>
-          !!this.dossierId &&
-          this.hasActiveDigitization() &&
-          !this.loading() &&
-          !this.signalRConnected
-        )
+        filter(() => {
+          if (!this.dossierId || !this.hasActiveDigitization() || this.loading()) {
+            return false;
+          }
+          const recentlyViaSignalR =
+            this.signalRConnected &&
+            this.lastProgressEventAt > 0 &&
+            Date.now() - this.lastProgressEventAt < 12000;
+          return !recentlyViaSignalR;
+        })
       )
       .subscribe(() => this.loadDocuments(true));
   }
@@ -178,16 +189,25 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy {
     }
     try {
       await this.signalRService.ensureConnection();
-      await this.signalRService.joinDossierGroup(dossierId);
-      this.signalRConnected = this.signalRService.isConnected();
-      this.lastSignalRDossierId = dossierId;
+      const joined = await this.signalRService.joinDossierGroup(dossierId);
+      if (joined) {
+        this.lastSignalRDossierId = dossierId;
+      }
     } catch {
-      this.signalRConnected = false;
+      // fallback polling sẽ cập nhật
     }
   }
 
   private applyDigitizationProgress(event: DigitizationProgressEvent): void {
-    if (!event.dossierId || event.dossierId !== this.dossierId) return;
+    if (
+      !event.dossierId ||
+      event.dossierId.toLowerCase() !== this.dossierId.toLowerCase()
+    ) {
+      return;
+    }
+
+    this.signalRConnected = true;
+    this.lastProgressEventAt = Date.now();
 
     const versionKey = event.documentVersionId.toLowerCase();
     this.documents.update((docs) =>
@@ -449,6 +469,39 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy {
             severity: 'error',
             summary: 'Lỗi',
             detail: err?.error?.message || 'Không thể gửi xử lý lại',
+          });
+        },
+      });
+  }
+
+  onReExtract(doc: DossierDocumentItem): void {
+    if (!doc.latestVersionId || !this.canEdit) return;
+
+    const ids = new Set(this.reExtractingIds());
+    ids.add(doc.id);
+    this.reExtractingIds.set(ids);
+
+    this.documentService
+      .reExtractDigitization(this.dossierId, doc.latestVersionId)
+      .pipe(finalize(() => {
+        const next = new Set(this.reExtractingIds());
+        next.delete(doc.id);
+        this.reExtractingIds.set(next);
+      }))
+      .subscribe({
+        next: () => {
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Đã gửi bóc tách lại',
+            detail: `"${doc.name}" đang được bóc tách lại với biểu mẫu mới nhất`,
+          });
+          this.loadDocuments(true);
+        },
+        error: (err) => {
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi',
+            detail: err?.error?.message || 'Không thể gửi bóc tách lại',
           });
         },
       });
