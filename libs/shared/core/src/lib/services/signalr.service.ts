@@ -38,35 +38,52 @@ export class SignalRService {
     return isPlatformBrowser(this.platformId);
   }
 
+  private normalizeDossierId(dossierId: string): string {
+    return dossierId?.trim().toLowerCase() ?? '';
+  }
+
   public isConnected(): boolean {
     return this.isBrowser && this.hubConnection?.state === signalR.HubConnectionState.Connected;
   }
 
-  public ensureConnection(): Promise<void> {
-    if (!this.isBrowser) {
-      return Promise.resolve();
-    }
+  public async ensureConnection(): Promise<void> {
+    if (!this.isBrowser) return;
+
     if (this.hubConnection?.state === signalR.HubConnectionState.Connected) {
-      return Promise.resolve();
+      return;
     }
+
     if (this.startPromise) {
-      return this.startPromise;
+      await this.startPromise;
+      return;
     }
+
     this.startConnection();
-    return this.startPromise ?? Promise.resolve();
+    if (this.startPromise) {
+      await this.startPromise;
+    }
   }
 
   public startConnection(): void {
-    if (!this.isBrowser) {
+    if (!this.isBrowser) return;
+
+    if (this.hubConnection?.state === signalR.HubConnectionState.Connected) {
       return;
     }
-    if (this.hubConnection && this.hubConnection.state !== signalR.HubConnectionState.Disconnected) {
+
+    if (
+      this.hubConnection &&
+      this.hubConnection.state === signalR.HubConnectionState.Connecting
+    ) {
       return;
     }
 
     this.hubConnection = new signalR.HubConnectionBuilder()
-      .withUrl(`${this.config.apiGatewayUrl}/hubs/notifications`)
-      .withAutomaticReconnect()
+      .withUrl(`${this.config.apiGatewayUrl}/hubs/notifications`, {
+        transport: signalR.HttpTransportType.WebSockets | signalR.HttpTransportType.LongPolling,
+      })
+      .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
+      .configureLogging(signalR.LogLevel.Information)
       .build();
 
     this.registerListeners();
@@ -74,9 +91,10 @@ export class SignalRService {
     this.startPromise = this.zone.run(async () => {
       try {
         await this.hubConnection!.start();
-        console.log('SignalR connected to /hubs/notifications');
+        console.log('[SignalR] Connected to /hubs/notifications');
+        await this.rejoinDossierGroups();
       } catch (err) {
-        console.error('Error while starting SignalR connection: ' + err);
+        console.error('[SignalR] Connection failed:', err);
         this.hubConnection = undefined;
         this.listenersRegistered = false;
       } finally {
@@ -100,34 +118,76 @@ export class SignalRService {
     this.hubConnection.on('ReceiveDigitizationProgress', (payload: unknown) => {
       const event = this.normalizeDigitizationProgress(payload);
       if (event) {
+        console.debug('[SignalR] ReceiveDigitizationProgress', event);
         this.zone.run(() => this.digitizationProgressSubject.next(event));
+      } else {
+        console.warn('[SignalR] Invalid digitization progress payload', payload);
       }
+    });
+
+    this.hubConnection.onreconnected(async () => {
+      console.log('[SignalR] Reconnected — rejoin dossier groups');
+      await this.rejoinDossierGroups();
+    });
+
+    this.hubConnection.onclose((err) => {
+      if (err) {
+        console.warn('[SignalR] Connection closed:', err);
+      }
+      this.listenersRegistered = false;
     });
   }
 
-  public async joinDossierGroup(dossierId: string): Promise<void> {
-    if (!this.isBrowser || !dossierId?.trim()) return;
+  public async joinDossierGroup(dossierId: string): Promise<boolean> {
+    const normalizedId = this.normalizeDossierId(dossierId);
+    if (!this.isBrowser || !normalizedId) return false;
+
     await this.ensureConnection();
-    if (!this.hubConnection || !this.isConnected() || this.joinedDossierGroups.has(dossierId)) return;
-    try {
-      await this.hubConnection.invoke('JoinDossier', dossierId);
-      this.joinedDossierGroups.add(dossierId);
-    } catch (err) {
-      console.warn('SignalR JoinDossier failed:', err);
+    if (!this.hubConnection || !this.isConnected()) {
+      console.warn('[SignalR] Cannot join dossier group — hub not connected');
+      return false;
+    }
+
+    if (this.joinedDossierGroups.has(normalizedId)) return true;
+
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        await this.hubConnection.invoke('JoinDossier', normalizedId);
+        this.joinedDossierGroups.add(normalizedId);
+        console.log('[SignalR] Joined dossier group', normalizedId);
+        return true;
+      } catch (err) {
+        console.warn(`[SignalR] JoinDossier attempt ${attempt} failed:`, err);
+        if (attempt < 3) {
+          await new Promise((r) => setTimeout(r, 500 * attempt));
+          await this.ensureConnection();
+        }
+      }
+    }
+
+    return false;
+  }
+
+  private async rejoinDossierGroups(): Promise<void> {
+    const groups = [...this.joinedDossierGroups];
+    this.joinedDossierGroups.clear();
+    for (const id of groups) {
+      await this.joinDossierGroup(id);
     }
   }
 
   public async leaveDossierGroup(dossierId: string): Promise<void> {
-    if (!this.isBrowser || !dossierId?.trim() || !this.hubConnection) return;
-    if (!this.joinedDossierGroups.has(dossierId)) return;
+    const normalizedId = this.normalizeDossierId(dossierId);
+    if (!this.isBrowser || !normalizedId || !this.hubConnection) return;
+    if (!this.joinedDossierGroups.has(normalizedId)) return;
     try {
       if (this.hubConnection.state === signalR.HubConnectionState.Connected) {
-        await this.hubConnection.invoke('LeaveDossier', dossierId);
+        await this.hubConnection.invoke('LeaveDossier', normalizedId);
       }
     } catch (err) {
-      console.warn('SignalR LeaveDossier failed:', err);
+      console.warn('[SignalR] LeaveDossier failed:', err);
     } finally {
-      this.joinedDossierGroups.delete(dossierId);
+      this.joinedDossierGroups.delete(normalizedId);
     }
   }
 
@@ -151,9 +211,9 @@ export class SignalRService {
     if (!dossierId || !documentVersionId) return null;
 
     return {
-      dossierId,
+      dossierId: dossierId.toLowerCase(),
       documentId: read('documentId', 'DocumentId') ?? '',
-      documentVersionId,
+      documentVersionId: documentVersionId.toLowerCase(),
       phase: read('phase', 'Phase') ?? 'ocr',
       status: read('status', 'Status') ?? '',
       progress: Number(read('progress', 'Progress') ?? 0),

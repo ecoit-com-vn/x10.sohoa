@@ -840,13 +840,22 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
           error: () => this.users.set([])
         });
 
-        this.service.getMyTasks().subscribe({
+        const instanceId = pickFirst(
+          res?.instance?.instanceId,
+          res?.instance?.InstanceId,
+          res?.instance?.id,
+          res?.instance?.Id
+        );
+
+        if (!instanceId) {
+          this.myTask.set(null);
+          return;
+        }
+
+        this.service.getMyTasks(String(instanceId)).subscribe({
           next: (tasks) => {
             const list = Array.isArray(tasks) ? tasks : [];
-            const task = list.find((t: any) =>
-              (t.targetEntityId ?? t.TargetEntityId) === this.dossierId
-            );
-            this.myTask.set(task ?? null);
+            this.myTask.set(list[0] ?? null);
           },
           error: () => this.myTask.set(null)
         });

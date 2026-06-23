@@ -30,8 +30,8 @@
           <th class="col-stt">STT</th>
           <th>Tên tài liệu</th>
           <th style="width: 110px;">Kích thước</th>
-          <th style="width: 130px;">OCR</th>
-          <th style="width: 130px;">Bóc tách</th>
+          <th class="col-digitization" style="width: 130px;">OCR</th>
+          <th class="col-digitization" style="width: 130px;">Bóc tách</th>
           <th style="width: 150px;">Ngày tạo</th>
           <th style="width: 120px;">Người tạo</th>
           <th class="col-hd">Thao tác</th>
@@ -61,7 +61,7 @@
             </div>
           </td>
           <td>{{ formatSize(doc.fileSize) }}</td>
-          <td>
+          <td class="col-digitization">
             <ng-container *ngIf="getOcrProgress(doc) as ocr; else noOcr">
               <div class="digitization-progress-cell">
                 <i
@@ -91,7 +91,7 @@
               <span class="text-muted">—</span>
             </ng-template>
           </td>
-          <td>
+          <td class="col-digitization">
             <ng-container *ngIf="shouldShowExtractionProgress(doc); else noExtraction">
               <div class="digitization-progress-cell">
                 <i
@@ -140,6 +140,18 @@
                 <i
                   class="pi"
                   [ngClass]="isDownloading(doc.id) ? 'pi-spin pi-spinner' : 'pi-download'"
+                ></i>
+              </button>
+              <button
+                *ngIf="canReExtract(doc) && canEdit"
+                class="act-btn act-reextract"
+                title="Bóc tách lại (tải biểu mẫu mới)"
+                [disabled]="isReExtracting(doc.id, reExtractingIds())"
+                (click)="onReExtract(doc)"
+              >
+                <i
+                  class="pi"
+                  [ngClass]="isReExtracting(doc.id, reExtractingIds()) ? 'pi-spin pi-spinner' : 'pi-sync'"
                 ></i>
               </button>
               <button

@@ -6,14 +6,18 @@ import {
   inject,
   input,
   effect,
-  OnDestroy
+  OnDestroy,
+  ViewChild,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
 import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
-import { FileUploadZoneComponent, FileListComponent } from '@sohoa.frontend/features/equipment';
+import { FileUploadZoneComponent } from '../file-upload/file-upload-zone.component';
+import { FileListComponent } from '../file-list/file-list.component';
+import { ScannerPanelComponent } from '../scanner/scanner-panel.component';
+import { UPLOAD_SOURCE } from '../../constants/upload-source.constants';
 import { Subject } from 'rxjs';
 
 @Component({
@@ -25,7 +29,8 @@ import { Subject } from 'rxjs';
     ButtonModule,
     ToastModule,
     FileUploadZoneComponent,
-    FileListComponent
+    FileListComponent,
+    ScannerPanelComponent,
   ],
   providers: [MessageService],
   templateUrl: './folder-detail-view.component.html',
@@ -35,10 +40,10 @@ export class FolderDetailViewComponent implements OnInit, OnDestroy {
   private messageService = inject(MessageService);
   private destroy$ = new Subject<void>();
 
+  @ViewChild('uploadZone') uploadZone?: FileUploadZoneComponent;
+
   // Inputs
   folderId = input<string>('');
-
-  // State
   currentView = signal<'upload' | 'files'>('files');
   refreshTrigger = signal<number>(0);
 
@@ -85,5 +90,9 @@ export class FolderDetailViewComponent implements OnInit, OnDestroy {
       detail: `${event.fileName}: ${event.error}`,
       life: 5000
     });
+  }
+
+  onScannedFile(file: File): void {
+    this.uploadZone?.ingestFile(file, UPLOAD_SOURCE.SCAN);
   }
 }

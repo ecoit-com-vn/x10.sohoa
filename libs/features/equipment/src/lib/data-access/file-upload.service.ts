@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Observable, Subject, firstValueFrom } from 'rxjs';
 import { ApiService } from '@sohoa.frontend/shared/core';
+import { UPLOAD_SOURCE, UploadSource } from '../constants/upload-source.constants';
 
 export interface ApiErrorBody {
   code?: string;
@@ -85,10 +86,12 @@ export class FileUploadService {
   uploadFileDirect(
     file: File,
     folderId: string,
+    uploadSource: UploadSource = UPLOAD_SOURCE.WEB,
   ): Observable<FileUploadResponse> {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('folderId', folderId);
+    formData.append('uploadSource', String(uploadSource));
 
     return this.api.post<FileUploadResponse>(
       `${this.base}/upload`,
@@ -150,7 +153,8 @@ export class FileUploadService {
   async uploadFile(
     file: File,
     folderId: string,
-    onProgress?: (progress: UploadProgress) => void
+    onProgress?: (progress: UploadProgress) => void,
+    uploadSource: UploadSource = UPLOAD_SOURCE.WEB,
   ): Promise<FileUploadResponse> {
     const uploadId = this.generateUploadId();
     const progress$ = new Subject<UploadProgress>();
@@ -171,9 +175,9 @@ export class FileUploadService {
 
       // Choose strategy
       if (file.size <= this.DIRECT_UPLOAD_THRESHOLD) {
-        return await firstValueFrom(this.uploadFileDirect(file, folderId));
+        return await firstValueFrom(this.uploadFileDirect(file, folderId, uploadSource));
       } else {
-        return await this.uploadChunked(file, folderId, uploadId, progress$);
+        return await this.uploadChunked(file, folderId, uploadId, progress$, uploadSource);
       }
     } catch (error: unknown) {
       const errorMsg = extractApiErrorMessage(error);
@@ -198,7 +202,8 @@ export class FileUploadService {
     file: File,
     folderId: string,
     uploadId: string,
-    progress$: Subject<UploadProgress>
+    progress$: Subject<UploadProgress>,
+    uploadSource: UploadSource = UPLOAD_SOURCE.WEB,
   ): Promise<FileUploadResponse> {
     // Phase 1: Initiate
     const initResponse = await firstValueFrom(
