@@ -40,7 +40,7 @@ public class SearchController : ControllerBase
         [FromQuery] int? gridTypeId,
         [FromQuery] long? unitId,
         [FromQuery] string? status,
-        [FromQuery] int page = 1,
+        [FromQuery] int page = 1, 
         [FromQuery] int pageSize = 10)
     {
         var filter = new DossierFilterDto

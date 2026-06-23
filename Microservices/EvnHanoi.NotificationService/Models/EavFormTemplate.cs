@@ -13,4 +13,5 @@ public class EavFormTemplate
     public string FormType { get; set; } = "FORM";
     public int? GridTypeId { get; set; }
     public string? GridTypeName { get; set; }
+    public string? ExtractionProcess { get; set; }
 }

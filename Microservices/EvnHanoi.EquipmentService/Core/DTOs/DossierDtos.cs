@@ -71,6 +71,8 @@ public class DossierDetailDto
     public string? DossierSetName { get; set; }
     public Guid DossierTypeId { get; set; }
     public string? DossierTypeName { get; set; }
+    /// <summary>Form EAV gắn với loại hồ sơ — dùng gen trường động không cần gọi lookup.</summary>
+    public Guid? FormId { get; set; }
     public string? FormDataJson { get; set; }
     public string Status { get; set; } = string.Empty;
     public Guid? WorkflowInstanceId { get; set; }
@@ -148,6 +150,7 @@ public class DossierVersionDto
     public Guid DossierId { get; set; }
     public int VersionNumber { get; set; }
     public string? FormDataJson { get; set; }
+    public string? DocumentsSnapshotJson { get; set; }
     public string? ChangeNote { get; set; }
     public string? CreatedBy { get; set; }
     public DateTime CreatedDate { get; set; }

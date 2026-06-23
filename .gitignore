@@ -483,11 +483,3 @@ $RECYCLE.BIN/
 
 # Docker Data Volumes
 /docker-data/
-#local environment files
-Microservices/EvnHanoi.DigitizationService/appsettings.Development.json
-Microservices/EvnHanoi.EquipmentService/appsettings.Development.json
-Microservices/EvnHanoi.IdentityService/appsettings.Development.json
-Microservices/EvnHanoi.NotificationService/appsettings.Development.json
-Microservices/EvnHanoi.ReportService/appsettings.Development.json
-Microservices/EvnHanoi.SyncService/appsettings.Development.json
-Microservices/EvnHanoi.WorkflowService/appsettings.Development.json

@@ -21,8 +21,19 @@ public static class Extensions
 
         builder.Services.ConfigureHttpClientDefaults(http =>
         {
-            // Turn on resilience by default
-            http.AddStandardResilienceHandler();
+            // Tăng timeout cho LLM inference dài (chạy CPU có thể mất vài phút mỗi trang)
+            // Lưu ý: SamplingDuration của CircuitBreaker phải >= 2 × AttemptTimeout
+            http.AddStandardResilienceHandler(options =>
+            {
+                // Timeout mỗi lần thử: 10 phút (đủ cho LLM inference trên CPU)
+                options.AttemptTimeout.Timeout = TimeSpan.FromMinutes(10);
+                // Tổng timeout toàn bộ request (bao gồm retry): 22 phút
+                options.TotalRequestTimeout.Timeout = TimeSpan.FromMinutes(22);
+                // SamplingDuration phải >= 2 × AttemptTimeout = 20 phút → đặt 21 phút
+                options.CircuitBreaker.SamplingDuration = TimeSpan.FromMinutes(21);
+                // BreakDuration: thời gian mở circuit breaker khi lỗi
+                options.CircuitBreaker.BreakDuration = TimeSpan.FromSeconds(30);
+            });
 
             // Turn on service discovery by default
             http.AddServiceDiscovery();

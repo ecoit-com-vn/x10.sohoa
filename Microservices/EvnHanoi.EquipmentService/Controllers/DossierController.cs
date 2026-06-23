@@ -1,8 +1,9 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
-using EvnHanoi.EquipmentService.Core.DTOs;
 using EvnHanoi.EquipmentService.Core.Interfaces;
+using EvnHanoi.EquipmentService.Core.DTOs;
+using EvnHanoi.EquipmentService.Core.Services;
 using EvnHanoi.Infrastructure.Security;
 
 namespace EvnHanoi.EquipmentService.Controllers;
@@ -10,13 +11,20 @@ namespace EvnHanoi.EquipmentService.Controllers;
 [Authorize]
 [ApiController]
 [Route("api/v1/dossiers")]
-public class DossierController : ControllerBase
+public partial class DossierController : ControllerBase
 {
     private readonly IDossierService _dossierService;
+    private readonly IDossierDocumentService _dossierDocumentService;
+    private readonly IDocumentDigitizationService _documentDigitizationService;
 
-    public DossierController(IDossierService dossierService)
+    public DossierController(
+        IDossierService dossierService,
+        IDossierDocumentService dossierDocumentService,
+        IDocumentDigitizationService documentDigitizationService)
     {
         _dossierService = dossierService ?? throw new ArgumentNullException(nameof(dossierService));
+        _dossierDocumentService = dossierDocumentService ?? throw new ArgumentNullException(nameof(dossierDocumentService));
+        _documentDigitizationService = documentDigitizationService ?? throw new ArgumentNullException(nameof(documentDigitizationService));
     }
 
     private string UserId => User.FindFirst(ClaimTypes.NameIdentifier)?.Value

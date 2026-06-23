@@ -36,4 +36,8 @@ public interface IDossierService
     Task<IEnumerable<object>> GetWorkflowHistoryAsync(Guid dossierId);
     Task<object?> GetWorkflowDefinitionAsync(Guid definitionId);
     Task<IEnumerable<object>> GetMyTasksAsync(List<string> userRoles, bool isAdmin, string userId);
+
+    // Document tab helpers
+    Task RecordDocumentListChangeAsync(Guid dossierId, string changeNote, string userId);
+    Task EnsureCanEditFormDataAsync(Guid dossierId);
 }

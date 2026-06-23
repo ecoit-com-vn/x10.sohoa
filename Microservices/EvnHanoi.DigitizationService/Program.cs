@@ -3,6 +3,7 @@ using EvnHanoi.DigitizationService.Services;
 using EvnHanoi.DigitizationService.Workers;
 using EvnHanoi.Infrastructure.Database;
 using EvnHanoi.Infrastructure.Logging;
+using EvnHanoi.Infrastructure.Messaging;
 using EvnHanoi.Infrastructure.Security;
 using Serilog;
 using Scalar.AspNetCore;
@@ -30,12 +31,14 @@ builder.Services.AddOpenApi();
 var rabbitFactory = new ConnectionFactory
 {
     HostName = builder.Configuration["RabbitMQ:Host"] ?? "localhost",
+    VirtualHost = builder.Configuration["RabbitMQ:VirtualHost"] ?? "/",
     UserName = builder.Configuration["RabbitMQ:Username"] ?? "guest",
     Password = builder.Configuration["RabbitMQ:Password"] ?? "guest",
     Port = int.TryParse(builder.Configuration["RabbitMQ:Port"], out var port) ? port : 5672
 };
 var rabbitConnection = await rabbitFactory.CreateConnectionAsync();
 builder.Services.AddSingleton<IConnection>(rabbitConnection);
+builder.Services.AddHostedService<DigitizationMessagingTopologyInitializer>();
 
 builder.Services.AddDapperInfrastructure(builder.Configuration);
 builder.Services.AddScoped<IMinioStorageService, MinioStorageService>();

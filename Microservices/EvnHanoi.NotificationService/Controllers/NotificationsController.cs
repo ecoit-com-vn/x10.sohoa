@@ -1,4 +1,5 @@
 using EvnHanoi.NotificationService.Hubs;
+using EvnHanoi.NotificationService.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using System.Text.Json;
@@ -14,6 +15,18 @@ public class NotificationsController : ControllerBase
     public NotificationsController(IHubContext<NotificationHub> hubContext)
     {
         _hubContext = hubContext;
+    }
+
+    /// <summary>EquipmentService gọi sau khi cập nhật progress từ RabbitMQ.</summary>
+    [HttpPost("digitization-progress")]
+    public async Task<IActionResult> PushDigitizationProgress([FromBody] DigitizationProgressPushDto message)
+    {
+        if (message.DossierId == Guid.Empty || message.DocumentVersionId == Guid.Empty)
+            return BadRequest(new { message = "DossierId và DocumentVersionId là bắt buộc." });
+
+        var group = NotificationHub.BuildDossierGroup(message.DossierId.ToString());
+        await _hubContext.Clients.Group(group).SendAsync("ReceiveDigitizationProgress", message);
+        return Ok(new { success = true });
     }
 
     [HttpPost("push")]
