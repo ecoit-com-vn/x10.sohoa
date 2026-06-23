@@ -20,6 +20,7 @@ public class DocumentDigitizationService : IDocumentDigitizationService
     private readonly IFileStorageService _fileStorageService;
     private readonly IMessageProducer _messageProducer;
     private readonly IDigitizationProgressNotifier _progressNotifier;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<DocumentDigitizationService> _logger;
 
     public DocumentDigitizationService(
@@ -31,6 +32,7 @@ public class DocumentDigitizationService : IDocumentDigitizationService
         IFileStorageService fileStorageService,
         IMessageProducer messageProducer,
         IDigitizationProgressNotifier progressNotifier,
+        IServiceScopeFactory scopeFactory,
         ILogger<DocumentDigitizationService> logger)
     {
         _repository = repository;
@@ -41,6 +43,7 @@ public class DocumentDigitizationService : IDocumentDigitizationService
         _fileStorageService = fileStorageService;
         _messageProducer = messageProducer;
         _progressNotifier = progressNotifier;
+        _scopeFactory = scopeFactory;
         _logger = logger;
     }
 
@@ -80,7 +83,7 @@ public class DocumentDigitizationService : IDocumentDigitizationService
             FormId = formContext.FormId,
             FormName = formContext.FormName,
             FormSchemaJson = formContext.FormSchemaJson
-        }, userId);
+        }, userId, dossierId);
     }
 
     public async Task<DocumentOcrProgressDto> ReExtractForDossierDocumentAsync(
@@ -170,7 +173,7 @@ public class DocumentDigitizationService : IDocumentDigitizationService
         };
 
         await _messageProducer.PublishToExchangeAsync(message, DigitizationExchange, ExtractionTaskRoutingKey);
-        await PublishProgressNotificationAsync(progress);
+        NotifyProgressInBackground(dossierId, progress);
 
         _logger.LogInformation(
             "Đã gửi bóc tách lại version {VersionId}, document {DocumentId}, form {FormId}",
@@ -237,7 +240,8 @@ public class DocumentDigitizationService : IDocumentDigitizationService
 
     public async Task<DocumentOcrProgressDto> SubmitOcrJobAsync(
         SubmitDocumentDigitizationRequest request,
-        string userId)
+        string userId,
+        Guid? dossierId = null)
     {
         if (string.IsNullOrWhiteSpace(request.FormSchemaJson))
             throw new ArgumentException("FormSchemaJson không được để trống — cần schema EAV để bóc tách.");
@@ -296,7 +300,7 @@ public class DocumentDigitizationService : IDocumentDigitizationService
         progress.ModifiedBy = userId;
         progress.ModifiedDate = DateTime.UtcNow;
         await _repository.UpdateProgressAsync(progress);
-        await PublishProgressNotificationAsync(progress);
+        NotifyProgressInBackground(dossierId, progress);
 
         _logger.LogInformation(
             "Đã gửi OCR task version {VersionId}, document {DocumentId}, form {FormId}",
@@ -386,6 +390,63 @@ public class DocumentDigitizationService : IDocumentDigitizationService
             await PublishProgressNotificationAsync(progress, result.Status);
     }
 
+    private void NotifyProgressInBackground(Guid? dossierId, DocumentOcrProgress progress, string? extractionStatus = null)
+    {
+        var capturedDossierId = dossierId;
+        var capturedProgress = new DocumentOcrProgress
+        {
+            DocumentId = progress.DocumentId,
+            DocumentVersionId = progress.DocumentVersionId,
+            Phase = progress.Phase,
+            Status = progress.Status,
+            Progress = progress.Progress,
+            CurrentPage = progress.CurrentPage,
+            TotalPages = progress.TotalPages
+        };
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var documentRepository = scope.ServiceProvider.GetRequiredService<IDocumentRepository>();
+                var notifier = scope.ServiceProvider.GetRequiredService<IDigitizationProgressNotifier>();
+                var logger = scope.ServiceProvider.GetRequiredService<ILogger<DocumentDigitizationService>>();
+
+                var resolvedDossierId = capturedDossierId
+                    ?? await documentRepository.GetDossierIdByVersionIdAsync(capturedProgress.DocumentVersionId);
+                if (!resolvedDossierId.HasValue)
+                {
+                    logger.LogWarning(
+                        "Không tìm thấy dossier cho version {VersionId} — bỏ qua push SignalR",
+                        capturedProgress.DocumentVersionId);
+                    return;
+                }
+
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+                await notifier.NotifyAsync(new DigitizationProgressPushDto
+                {
+                    DossierId = resolvedDossierId.Value,
+                    DocumentId = capturedProgress.DocumentId,
+                    DocumentVersionId = capturedProgress.DocumentVersionId,
+                    Phase = capturedProgress.Phase,
+                    Status = capturedProgress.Status,
+                    Progress = capturedProgress.Progress,
+                    CurrentPage = capturedProgress.CurrentPage,
+                    TotalPages = capturedProgress.TotalPages,
+                    ExtractionStatus = extractionStatus
+                }, cts.Token);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "Không push được SignalR progress (background) cho version {VersionId}",
+                    capturedProgress.DocumentVersionId);
+            }
+        });
+    }
+
     private async Task PublishProgressNotificationAsync(DocumentOcrProgress progress, string? extractionStatus = null)
     {
         try
@@ -399,6 +460,7 @@ public class DocumentDigitizationService : IDocumentDigitizationService
                 return;
             }
 
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
             await _progressNotifier.NotifyAsync(new DigitizationProgressPushDto
             {
                 DossierId = dossierId.Value,
@@ -410,7 +472,7 @@ public class DocumentDigitizationService : IDocumentDigitizationService
                 CurrentPage = progress.CurrentPage,
                 TotalPages = progress.TotalPages,
                 ExtractionStatus = extractionStatus
-            });
+            }, cts.Token);
         }
         catch (Exception ex)
         {

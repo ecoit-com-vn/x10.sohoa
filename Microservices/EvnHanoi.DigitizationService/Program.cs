@@ -62,6 +62,9 @@ builder.Services.AddHttpClient("OcrVlClient", client =>
 {
     options.AttemptTimeout.Timeout = TimeSpan.FromHours(1);
     options.TotalRequestTimeout.Timeout = TimeSpan.FromHours(1);
+    // SamplingDuration phải >= 2 × AttemptTimeout
+    options.CircuitBreaker.SamplingDuration = TimeSpan.FromHours(2);
+    options.CircuitBreaker.BreakDuration = TimeSpan.FromSeconds(30);
 });
 
 builder.Services.AddHttpClient("LlmClient", client => 
@@ -78,6 +81,8 @@ builder.Services.AddHttpClient("LlmClient", client =>
 {
     options.AttemptTimeout.Timeout = TimeSpan.FromHours(1);
     options.TotalRequestTimeout.Timeout = TimeSpan.FromHours(1);
+    options.CircuitBreaker.SamplingDuration = TimeSpan.FromHours(2);
+    options.CircuitBreaker.BreakDuration = TimeSpan.FromSeconds(30);
 });
 
 builder.Services.AddHttpClient("NoTimeout", client => 
@@ -94,6 +99,8 @@ builder.Services.AddHttpClient("NoTimeout", client =>
 {
     options.AttemptTimeout.Timeout = TimeSpan.FromHours(1);
     options.TotalRequestTimeout.Timeout = TimeSpan.FromHours(1);
+    options.CircuitBreaker.SamplingDuration = TimeSpan.FromHours(2);
+    options.CircuitBreaker.BreakDuration = TimeSpan.FromSeconds(30);
 });
 
 builder.Services.AddHostedService<OcrWorker>();

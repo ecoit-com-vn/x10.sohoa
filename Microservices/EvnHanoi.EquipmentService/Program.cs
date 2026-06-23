@@ -111,6 +111,7 @@ builder.Services.AddHttpClient("WorkflowService", client =>
 builder.Services.AddHttpClient("NotificationService", client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["Services:NotificationService"] ?? "http://notificationservice");
+    client.Timeout = TimeSpan.FromSeconds(10);
 });
 
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IDigitizationProgressNotifier,
