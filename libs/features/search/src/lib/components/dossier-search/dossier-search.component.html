@@ -1,0 +1,301 @@
+<div class="wf-page document-management-page">
+  <p-toast></p-toast>
+
+  <!-- Breadcrumb -->
+  <div class="breadcrumb">
+    <i class="bc-icon pi pi-home"></i>
+    <span class="bc-text">Home</span>
+    <span class="bc-sep">/</span>
+    <span class="bc-text">Tra cứu tìm kiếm</span>
+    <span class="bc-sep">/</span>
+    <span class="bc-current">Tìm kiếm hồ sơ trong kho</span>
+  </div>
+
+  <!-- TWO SEPARATE CARDS -->
+  <div style="display: flex; gap: 16px; height: 100%;">
+    <!-- LEFT CARD: Folder Tree -->
+    <div class="wf-card" style="width: 380px; overflow-y: auto;">
+      <!-- Header with colored background -->
+      <div
+        style="
+          background-color: #3b82f6;
+          color: white;
+          padding: 8px 12px;
+          border-radius: 6px;
+          margin-bottom: 12px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+        "
+      >
+        <div style="display: flex; align-items: center; gap: 8px; flex: 1;">
+          <i class="pi pi-fw pi-folder" style="font-size: 1.1rem;"></i>
+          <strong style="font-size: 0.95rem;">KHO HỒ SƠ</strong>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 12px;">
+        <input
+          type="text"
+          class="wf-search-input"
+          placeholder="Tìm thư mục..."
+          style="width: 100%; padding: 6px 8px; font-size: 0.85rem;"
+        />
+      </div>
+
+      <!-- Folder tree (simplified list view) -->
+      <div *ngIf="!loadingTree(); else loadingTreeSpinner">
+        <div *ngIf="folderTree().length === 0" style="color: #999; font-size: 0.85rem;">
+          Chưa có thư mục nào
+        </div>
+
+        <!-- Recursive tree rendering -->
+        <ng-container *ngTemplateOutlet="folderTreeTemplate; context: { $implicit: folderTree() }"></ng-container>
+      </div>
+
+      <!-- Template để render cây thư mục (recursive) -->
+      <ng-template #folderTreeTemplate let-folders>
+        <div *ngFor="let folder of folders; trackBy: trackByFolderId">
+          <!-- Folder row -->
+          <div
+            style="
+              display: flex;
+              align-items: center;
+              position: relative;
+            "
+          >
+            <!-- Connector space (for tree lines) -->
+            <div
+              style="
+                width: 16px;
+                height: 28px;
+                flex-shrink: 0;
+                position: relative;
+              "
+            >
+              <!-- Horizontal dotted line only -->
+              <div
+                style="
+                  position: absolute;
+                  left: 50%;
+                  top: 50%;
+                  width: 50%;
+                  height: 1px;
+                  border-top: 1px dotted #d1d5db;
+                  transform: translateY(-50%);
+                "
+              ></div>
+            </div>
+
+            <!-- Folder name button -->
+            <button
+              (click)="toggleFolderExpand(folder, $event)"
+              style="
+                flex: 1;
+                text-align: left;
+                padding: 6px 8px;
+                border: none;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                border-radius: 4px;
+                margin-bottom: 2px;
+                font-size: 0.9rem;
+                background-color: transparent;
+                color: #374151;
+                min-width: 0;
+              "
+              [style.font-weight]="selectedFolder()?.id === folder.id ? 'bold' : 'normal'"
+              [title]="folder.name"
+            >
+              <i class="pi pi-folder" style="font-size: 1rem; flex-shrink: 0;"></i>
+              <span
+                style="
+                  white-space: nowrap;
+                  overflow: hidden;
+                  text-overflow: ellipsis;
+                "
+                [style.color]="selectedFolder()?.id === folder.id ? '#3b82f6' : '#374151'"
+              >
+                {{ folder.name }}
+              </span>
+            </button>
+          </div>
+
+          <!-- Children (recursive) -->
+          <div
+            *ngIf="folder.children && folder.children.length > 0 && expandedFolders().has(folder.id)"
+            style="
+              margin-left: 24px;
+              border-left: 1px dotted #d1d5db;
+              padding-left: 0;
+            "
+          >
+            <ng-container *ngTemplateOutlet="folderTreeTemplate; context: { $implicit: folder.children }"></ng-container>
+          </div>
+        </div>
+      </ng-template>
+
+      <ng-template #loadingTreeSpinner>
+        <div style="text-align: center; color: #999;">
+          <i class="pi pi-spin pi-spinner" style="font-size: 1.2rem;"></i>
+          <p style="margin-top: 8px; font-size: 0.85rem;">Đang tải...</p>
+        </div>
+      </ng-template>
+    </div>
+
+    <!-- RIGHT CARD: List View -->
+    <div class="wf-card document-right-panel" style="flex: 1; overflow-y: auto;">
+      <!-- Breadcrumb path (clickable) -->
+      <div style="margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #e5e7eb;">
+        <div style="display: flex; align-items: center; gap: 4px; flex-wrap: wrap;">
+          <span
+            style="
+              font-weight: bold;
+              color: #6b7280;
+              font-size: 0.9rem;
+            "
+          >
+            Vị trí:
+          </span>
+          <ng-container *ngIf="breadcrumbPath().length > 0; else emptyBreadcrumb">
+            <button
+              *ngFor="let folder of breadcrumbPath(); let isLast = last"
+              (click)="selectFolder(folder)"
+              style="
+                background: none;
+                border: none;
+                padding: 0;
+                cursor: pointer;
+                font-size: 0.9rem;
+                display: flex;
+                align-items: center;
+                gap: 4px;
+              "
+              [style.font-weight]="selectedFolder()?.id === folder.id ? 'bold' : 'normal'"
+              [style.color]="selectedFolder()?.id === folder.id ? '#3b82f6' : '#6b7280'"
+            >
+              {{ folder.name }}
+              <span *ngIf="!isLast" style="color: #9ca3af;">/</span>
+            </button>
+          </ng-container>
+          <ng-template #emptyBreadcrumb>
+            <span style="font-weight: bold; color: #3b82f6; font-size: 0.9rem;">
+              Kho tài liệu thiết bị
+            </span>
+          </ng-template>
+        </div>
+      </div>
+
+      <!-- Document list table -->
+      <div class="wf-table-wrap" [class.loading]="loadingDocuments()">
+        <table class="wf-table">
+          <thead>
+            <tr>
+              <th class="col-stt">STT</th>
+              <th>Tên tài liệu</th>
+              <th style="width: 110px;">Kích thước</th>
+              <th style="width: 150px;">Ngày tạo</th>
+              <th style="width: 120px;">Người tạo</th>
+              <th class="col-hd">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngIf="loadingDocuments()">
+              <td colspan="6" class="empty-row">
+                <i class="pi pi-spin pi-spinner"></i>
+                <div>Đang tải danh sách tài liệu...</div>
+              </td>
+            </tr>
+            <tr
+              *ngFor="let doc of documents(); let i = index; trackBy: trackByDocumentId"
+              [hidden]="loadingDocuments()"
+            >
+              <td class="col-stt text-muted">{{ first() + i + 1 }}</td>
+              <td>
+                <div style="display: flex; align-items: center; gap: 8px; min-width: 0;">
+                  <i class="pi" [ngClass]="getFileIcon(doc.name)" style="color: #3b82f6; flex-shrink: 0;"></i>
+                  <span
+                    style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"
+                    [title]="doc.name"
+                  >
+                    {{ doc.name }}
+                  </span>
+                </div>
+              </td>
+              <td>{{ formatFileSize(doc.fileSize) }}</td>
+              <td>{{ formatDate(doc.createdDate) }}</td>
+              <td>
+                <span
+                  style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: inline-block; max-width: 110px;"
+                  [title]="doc.createdByName || '-'"
+                >
+                  {{ doc.createdByName || '-' }}
+                </span>
+              </td>
+              <td class="col-hd">
+                <div class="action-buttons-group">
+                  <button
+                    class="act-btn"
+                    title="Xem chi tiết tài liệu"
+                    [disabled]="!doc.latestVersionId"
+                    (click)="onViewDocument(doc)"
+                    style="margin-right: 4px;"
+                  >
+                    <i class="pi pi-eye"></i>
+                  </button>
+                  <button
+                    class="act-btn act-download"
+                    title="Tải tài liệu"
+                    [disabled]="!doc.latestVersionId || isDownloadingDocument(doc.id)"
+                    (click)="onDownloadDocument(doc)"
+                  >
+                    <i
+                      class="pi"
+                      [ngClass]="isDownloadingDocument(doc.id) ? 'pi-spin pi-spinner' : 'pi-download'"
+                    ></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+            <tr *ngIf="!loadingDocuments() && documents().length === 0">
+              <td colspan="6" class="empty-row">
+                <i class="pi pi-inbox"></i>
+                <div *ngIf="!selectedFolder() || !isSelectableFolder(selectedFolder()!.id)">Vui lòng chọn hộp hồ sơ để xem danh sách tài liệu.</div>
+                <div *ngIf="selectedFolder() && isSelectableFolder(selectedFolder()!.id)">Không có tài liệu nào trong hộp hồ sơ này.</div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Footer / Paginator -->
+      <div class="table-footer-paginator" *ngIf="totalDocuments() > 0">
+        <span class="record-count">Tổng số: <b>{{ totalDocuments() }}</b> tài liệu.</span>
+        <p-paginator 
+            [first]="first()" 
+            [rows]="rows()" 
+            [totalRecords]="totalDocuments()" 
+            [rowsPerPageOptions]="[5, 10, 20, 50]" 
+            (onPageChange)="onPageChange($event)">
+        </p-paginator>
+      </div>
+    </div>
+  </div>
+
+  <app-dossier-document-edit-dialog
+    *ngIf="showViewDocument() && viewTarget()?.latestVersionId as versionId"
+    [dossierId]="viewTarget()?.dossierId ?? ''"
+    [versionId]="versionId"
+    [documentName]="viewTarget()?.name ?? ''"
+    [mimeType]="viewTarget()?.mimeType ?? null"
+    [documentTypeId]="viewTarget()?.documentTypeId ?? null"
+    [formId]="null"
+    [canEdit]="false"
+    [totalPagesHint]="viewTarget()?.ocrProgress?.totalPages ?? 0"
+    [visible]="showViewDocument()"
+    (visibleChange)="showViewDocument.set($event)"
+  ></app-dossier-document-edit-dialog>
+</div>
