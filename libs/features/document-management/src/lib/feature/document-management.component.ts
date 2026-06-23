@@ -63,8 +63,10 @@ export class DocumentManagementComponent implements OnInit {
   flatFolderList = signal<FolderNode[]>([]); // Keep flat list for breadcrumb/search
   selectedFolder = signal<FolderNode | null>(null);
   documents = signal<Document[]>([]);
-  page = signal(1);
-  pageSize = signal(10);
+  first = signal(0);
+  rows = signal(10);
+  page = computed(() => Math.floor(this.first() / this.rows()) + 1);
+  pageSize = computed(() => this.rows());
   totalDocuments = signal(0);
   loadingTree = signal(false);
   loadingDocuments = signal(false);
@@ -156,7 +158,7 @@ export class DocumentManagementComponent implements OnInit {
 
   selectFolder(folder: FolderNode) {
     this.selectedFolder.set(folder);
-    this.page.set(1);
+    this.first.set(0);
     this.loadDocuments();
   }
 
@@ -366,37 +368,8 @@ export class DocumentManagementComponent implements OnInit {
   }
 
   onPageChange(event: any) {
-    this.page.set(event.page + 1);
-    this.pageSize.set(event.rows);
-    this.loadDocuments();
-  }
-
-  prevPage() {
-    if (this.page() > 1) {
-      this.page.update(p => p - 1);
-      this.loadDocuments();
-    }
-  }
-
-  nextPage() {
-    if (this.page() < this.totalPages()) {
-      this.page.update(p => p + 1);
-      this.loadDocuments();
-    }
-  }
-
-  goToPage(page: number | string) {
-    const p = Number(page);
-    if (p >= 1 && p <= this.totalPages()) {
-      this.page.set(p);
-      this.loadDocuments();
-    }
-  }
-
-  onPageSizeChange(event: Event) {
-    const value = Number((event.target as HTMLSelectElement).value);
-    this.pageSize.set(value);
-    this.page.set(1);
+    this.first.set(event.first);
+    this.rows.set(event.rows);
     this.loadDocuments();
   }
 

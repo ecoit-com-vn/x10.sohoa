@@ -144,6 +144,8 @@
   flex-direction: column;
   gap: 1.25rem;
   min-height: 0;
+  overflow-y: auto;
+  padding-right: 6px;
 }
 .general-info-card {
   background-color: white;
@@ -176,11 +178,11 @@
   background-color: white;
   border-radius: 12px;
   border: 1px solid #e2e8f0;
-  padding: 0.75rem;
+  padding: 0.75rem 0.75rem 2.75rem 0.75rem;
   box-shadow: 0 4px 12px rgba(0, 45, 114, 0.04);
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
+  flex-shrink: 0;
+  height: auto;
+  overflow-y: visible;
 }
 .canvas-field-card {
   background-color: #f8fafc;
@@ -237,14 +239,17 @@
     flex-direction: column;
     min-height: 0;
   }
+
+  ::ng-deep .p-card-content {
+    overflow-y: auto;
+    padding-right: 4px !important;
+  }
 }
 .properties-form {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  flex: 1;
-  overflow-y: auto;
-  padding-right: 4px;
+  overflow-y: visible;
 }
 ::ng-deep .btn-evn-blue {
   background-color: #002D72 !important;
