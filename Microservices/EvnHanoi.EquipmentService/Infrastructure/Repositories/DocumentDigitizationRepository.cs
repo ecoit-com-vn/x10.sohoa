@@ -103,6 +103,8 @@ public class DocumentDigitizationRepository : IDocumentDigitizationRepository
                 TOTAL_PAGES = :TotalPages,
                 PROGRESS = :Progress,
                 STATUS = :Status,
+                PROCESS_OPTION = :ProcessOption,
+                FORM_JSON = :FormJson,
                 ERROR_MESSAGE = :ErrorMessage,
                 MODIFIED_BY = :ModifiedBy,
                 MODIFIED_DATE = :ModifiedDate
@@ -117,6 +119,8 @@ public class DocumentDigitizationRepository : IDocumentDigitizationRepository
             progress.TotalPages,
             progress.Progress,
             progress.Status,
+            progress.ProcessOption,
+            progress.FormJson,
             progress.ErrorMessage,
             progress.ModifiedBy,
             ModifiedDate = progress.ModifiedDate ?? DateTime.UtcNow
@@ -189,6 +193,7 @@ public class DocumentDigitizationRepository : IDocumentDigitizationRepository
                 RESULT_JSON = :ResultJson,
                 RESULT_FILE_PATH = :ResultFilePath,
                 BUCKET_NAME = :BucketName,
+                FORM_JSON = :FormJson,
                 MERGED_DATA_JSON = :MergedDataJson,
                 ERROR_MESSAGE = :ErrorMessage,
                 MODIFIED_BY = :ModifiedBy,
@@ -202,6 +207,7 @@ public class DocumentDigitizationRepository : IDocumentDigitizationRepository
             result.ResultJson,
             result.ResultFilePath,
             result.BucketName,
+            result.FormJson,
             result.MergedDataJson,
             result.ErrorMessage,
             result.ModifiedBy,

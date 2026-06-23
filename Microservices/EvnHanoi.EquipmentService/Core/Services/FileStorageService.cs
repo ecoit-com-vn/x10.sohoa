@@ -1,6 +1,6 @@
 using Minio;
 using Minio.DataModel.Args;
-using System.Text;
+using EvnHanoi.Infrastructure.Utils;
 
 namespace EvnHanoi.EquipmentService.Core.Services;
 
@@ -33,9 +33,9 @@ public interface IFileStorageService
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Merge chunks thành file hoàn chỉnh
+    /// Merge chunks thành file hoàn chỉnh — trả về object key và kích thước file.
     /// </summary>
-    Task<string> MergeChunksAsync(
+    Task<(string ObjectKey, long Size)> MergeChunksAsync(
         string uploadId,
         int totalChunks,
         string unitCode,
@@ -71,7 +71,7 @@ public interface IFileStorageService
         Guid dossierId,
         CancellationToken cancellationToken = default);
 
-    Task<string> MergeChunksToDossierAsync(
+    Task<(string ObjectKey, long Size)> MergeChunksToDossierAsync(
         string uploadId,
         int totalChunks,
         string unitCode,
@@ -192,7 +192,7 @@ public class FileStorageService : IFileStorageService
         }
     }
 
-    public async Task<string> MergeChunksAsync(
+    public async Task<(string ObjectKey, long Size)> MergeChunksAsync(
         string uploadId,
         int totalChunks,
         string unitCode,
@@ -200,23 +200,10 @@ public class FileStorageService : IFileStorageService
         string fileName,
         CancellationToken cancellationToken = default)
     {
-        try
-        {
-            // Note: MinIO MultipartUpload merge happens automatically when upload completes
-            // Placeholder path theo mã đơn vị + thư mục cho bản ghi DB
-            var objectKey = BuildDocumentObjectKey(unitCode, folderId, fileName);
-
-            _logger.LogInformation(
-                "Merged {TotalChunks} chunks for session {UploadId} -> {ObjectKey}",
-                totalChunks, uploadId, objectKey);
-
-            return objectKey;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to merge chunks for session {UploadId}", uploadId);
-            throw;
-        }
+        var objectKey = BuildDocumentObjectKey(unitCode, folderId, fileName);
+        var size = await MergeUploadChunksAsync(
+            uploadId, totalChunks, unitCode, objectKey, _documentBucket, cancellationToken);
+        return (objectKey, size);
     }
 
     public async Task<Stream> DownloadFileAsync(
@@ -332,7 +319,7 @@ public class FileStorageService : IFileStorageService
         return objectKey;
     }
 
-    public Task<string> MergeChunksToDossierAsync(
+    public async Task<(string ObjectKey, long Size)> MergeChunksToDossierAsync(
         string uploadId,
         int totalChunks,
         string unitCode,
@@ -341,10 +328,44 @@ public class FileStorageService : IFileStorageService
         CancellationToken cancellationToken = default)
     {
         var objectKey = BuildDossierObjectKey(unitCode, dossierId, fileName);
+        var size = await MergeUploadChunksAsync(
+            uploadId, totalChunks, unitCode, objectKey, _dossierBucket, cancellationToken);
+        return (objectKey, size);
+    }
+
+    private async Task<long> MergeUploadChunksAsync(
+        string uploadId,
+        int totalChunks,
+        string unitCode,
+        string destinationObjectKey,
+        string destinationBucket,
+        CancellationToken cancellationToken)
+    {
+        await EnsureBucketAsync(destinationBucket, cancellationToken);
+
+        await using var mergedStream = new MemoryStream();
+        for (var chunkNumber = 1; chunkNumber <= totalChunks; chunkNumber++)
+        {
+            var chunkObjectKey = BuildChunkObjectKey(unitCode, uploadId, chunkNumber);
+            await using var chunkStream = await DownloadFileAsync(chunkObjectKey, _sessionBucket, cancellationToken);
+            await chunkStream.CopyToAsync(mergedStream, cancellationToken);
+        }
+
+        mergedStream.Position = 0;
+
+        var putArgs = new PutObjectArgs()
+            .WithBucket(destinationBucket)
+            .WithObject(destinationObjectKey)
+            .WithStreamData(mergedStream)
+            .WithObjectSize(mergedStream.Length)
+            .WithContentType("application/octet-stream");
+
+        await _minioClient.PutObjectAsync(putArgs, cancellationToken);
         _logger.LogInformation(
-            "Merged {TotalChunks} chunks for dossier session {UploadId} -> {ObjectKey}",
-            totalChunks, uploadId, objectKey);
-        return Task.FromResult(objectKey);
+            "Merged {TotalChunks} upload chunks session {UploadId} -> {Bucket}/{ObjectKey} ({Size} bytes)",
+            totalChunks, uploadId, destinationBucket, destinationObjectKey, mergedStream.Length);
+
+        return mergedStream.Length;
     }
 
     public async Task<string> CopyFileAsync(
@@ -429,15 +450,6 @@ public class FileStorageService : IFileStorageService
         return code.Replace('/', '_').Replace('\\', '_');
     }
 
-    private static string SanitizeFileName(string fileName)
-    {
-        var name = Path.GetFileName(fileName.Trim());
-        if (string.IsNullOrWhiteSpace(name))
-            return "file.bin";
-
-        foreach (var invalidChar in Path.GetInvalidFileNameChars())
-            name = name.Replace(invalidChar, '_');
-
-        return name.Replace('/', '_').Replace('\\', '_');
-    }
+    private static string SanitizeFileName(string fileName) =>
+        FileNameHelper.ToMinioObjectFileName(fileName);
 }

@@ -1,5 +1,4 @@
-using System;
-using System.IO;
+using EvnHanoi.Infrastructure.Utils;
 using System.Threading.Tasks;
 using EvnHanoi.DigitizationService.Models;
 using EvnHanoi.DigitizationService.Repositories;
@@ -43,7 +42,7 @@ namespace EvnHanoi.DigitizationService.Controllers
 
             try
             {
-                var objectName = $"{Guid.NewGuid()}_{file.FileName}";
+                var objectName = $"{Guid.NewGuid()}_{FileNameHelper.ToMinioObjectFileName(file.FileName)}";
                 
                 // 1. Upload to MinIO
                 using var stream = file.OpenReadStream();

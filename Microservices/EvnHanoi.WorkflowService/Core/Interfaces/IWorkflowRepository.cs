@@ -11,7 +11,7 @@ namespace EvnHanoi.WorkflowService.Core.Interfaces
         Task<IEnumerable<WorkflowDefinition>> GetAllDefinitionsAsync(string? keyword, bool? isActive);
         Task<IEnumerable<WorkflowDefinition>> GetDefinitionsByNameAsync(string name);
         Task<(IEnumerable<WorkflowDefinition> Items, int TotalCount)> GetPagedDefinitionsAsync(int page, int pageSize, string? keyword = null, bool? isActive = null);
-        Task<WorkflowDefinition?> GetDefinitionByIdAsync(Guid id);
+        Task<WorkflowDefinition?> GetDefinitionByIdAsync(Guid id, bool includeBpmnXml = true);
 
         /// <summary>
         /// Lấy definition đang active theo EntityType — giá trị là description của enum WorkflowType,
@@ -25,14 +25,14 @@ namespace EvnHanoi.WorkflowService.Core.Interfaces
         Task<bool?> ToggleDefinitionStatusAsync(Guid id);
         
         // Instances
-        Task<WorkflowInstance?> GetInstanceByEntityAsync(string entityId, string entityType);
+        Task<WorkflowInstance?> GetInstanceByEntityAsync(string entityId, string entityType, bool includeBpmnXml = true);
         Task<WorkflowInstance?> GetInstanceByIdAsync(Guid instanceId);
         Task<bool> CreateInstanceAsync(WorkflowInstance instance);
         Task<bool> UpdateInstanceAsync(WorkflowInstance instance);
         
         // Tasks
         Task<WorkflowTask?> GetTaskByIdAsync(Guid id);
-        Task<IEnumerable<WorkflowTask>> GetPendingTasksByRolesAsync(List<string> roles, bool isAdmin, string userId);
+        Task<IEnumerable<WorkflowTask>> GetPendingTasksByRolesAsync(List<string> roles, bool isAdmin, string userId, Guid? workflowInstanceId = null);
         Task<bool> CreateTaskAsync(WorkflowTask task);
         Task<bool> UpdateTaskAsync(WorkflowTask task);
         

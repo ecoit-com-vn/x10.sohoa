@@ -40,17 +40,20 @@ builder.Services.AddStructuredValidationErrors();
 builder.Services.AddDapperInfrastructure(builder.Configuration);
 builder.Services.AddOpenApi();
 
-// SignalR with Redis (Optional in Development)
+// SignalR with Redis backplane (bắt buộc khi chạy nhiều replica NotificationService)
 var redisConnectionString = builder.Configuration.GetConnectionString("Redis");
+if (!string.IsNullOrWhiteSpace(redisConnectionString) && !redisConnectionString.Contains(':'))
+    redisConnectionString = $"{redisConnectionString.Trim()}:6379";
+
 var signalRBuilder = builder.Services.AddSignalR();
 if (!string.IsNullOrEmpty(redisConnectionString))
 {
     signalRBuilder.AddStackExchangeRedis(redisConnectionString);
-    Log.Information("SignalR is configured with Redis backplane.");
+    Log.Information("SignalR configured with Redis backplane: {Redis}", redisConnectionString);
 }
 else
 {
-    Log.Warning("Redis connection string is not configured. SignalR is running in local single-server mode (In-Memory).");
+    Log.Warning("Redis connection string is not configured. SignalR runs in-memory (single instance only).");
 }
 
 builder.Services.AddSingleton<NotificationDispatcher>();

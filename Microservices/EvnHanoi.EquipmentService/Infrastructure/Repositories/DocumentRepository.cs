@@ -917,4 +917,152 @@ public class DocumentRepository : IDocumentRepository
 
         return string.IsNullOrWhiteSpace(dossierId) ? null : Guid.Parse(dossierId);
     }
+
+    public async Task<UnitQueryDto?> GetUnitInfoAsync(long unitId)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        const string unitSql = "SELECT Name, Code FROM ORGANIZATION_UNIT WHERE Id = :UnitId";
+        return await _connection.QuerySingleOrDefaultAsync<UnitQueryDto>(unitSql, new { UnitId = unitId });
+    }
+
+    public async Task<IEnumerable<DossierTypeQueryDto>> GetActiveDossierTypesWithGridTypeAsync()
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        const string dossierTypeSql = @"
+            SELECT dt.ID as Id, dt.NAME as Name, dt.CODE as Code, f.GridTypeId
+            FROM DOSSIER_TYPES dt
+            LEFT JOIN EavFormTemplates f ON dt.FORM_ID = f.Id
+            WHERE dt.IsDeleted = 0 AND dt.IS_ACTIVE = 1
+            ORDER BY dt.PIORITY ASC, dt.NAME ASC";
+
+        return await _connection.QueryAsync<DossierTypeQueryDto>(dossierTypeSql);
+    }
+
+    public async Task<IEnumerable<InfrastructureQueryDto>> GetActiveInfrastructuresByUnitAsync(long unitId)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        const string infrastructureSql = @"
+            SELECT ID as Id, NAME as Name, CODE as Code, INFRA_TYPE_ID as InfraTypeId
+            FROM INFRASTRUCTURE
+            WHERE IsDeleted = 0 AND IS_ACTIVE = 1 AND INFRA_TYPE_ID IN (1, 2) AND UNIT_ID = :UnitId
+            ORDER BY NAME ASC";
+
+        return await _connection.QueryAsync<InfrastructureQueryDto>(infrastructureSql, new { UnitId = unitId });
+    }
+
+    public async Task<IEnumerable<ActiveDossierQueryDto>> GetActiveDossiersByUnitAsync(long unitId)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        const string sql = @"
+            SELECT 
+                d.ID as Id, 
+                d.InfrastructureId as InfrastructureId, 
+                d.DossierTypeId as DossierTypeId, 
+                d.DossierSetId as DossierSetId, 
+                d.FormDataJson as FormDataJson,
+                dt.NAME as DossierTypeName, 
+                ds.NAME as DossierSetName,
+                f.GridTypeId as GridTypeId
+            FROM DOSSIERS d
+            INNER JOIN INFRASTRUCTURE i ON d.InfrastructureId = i.ID
+            LEFT JOIN DOSSIER_TYPES dt ON d.DossierTypeId = dt.ID
+            LEFT JOIN DOSSIER_SETS ds ON d.DossierSetId = ds.ID
+            LEFT JOIN EavFormTemplates f ON dt.FORM_ID = f.Id
+            WHERE d.ISDELETED = 0 
+              AND i.UNIT_ID = :UnitId 
+              AND i.IsDeleted = 0 
+              AND i.IS_ACTIVE = 1";
+
+        return await _connection.QueryAsync<ActiveDossierQueryDto>(sql, new { UnitId = unitId });
+    }
+
+
+    public async Task<(IEnumerable<DocumentListItemDto> Items, int TotalCount)> GetDossierCatalogDocumentsAsync(
+        long unitId, 
+        string? infrastructureId, 
+        string? dossierTypeId, 
+        string? keyword, 
+        int page, 
+        int pageSize)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        var parameters = new DynamicParameters();
+        parameters.Add("UnitId", unitId);
+        parameters.Add("InfrastructureId", infrastructureId);
+        parameters.Add("Offset", (page - 1) * pageSize);
+        parameters.Add("PageSize", pageSize);
+
+        var whereClause = "dos.IsDeleted = 0 AND d.IS_DELETED = 0 AND i.UNIT_ID = :UnitId AND dos.InfrastructureId = :InfrastructureId";
+
+        if (!string.IsNullOrWhiteSpace(dossierTypeId))
+        {
+            whereClause += " AND dos.DossierTypeId = :DossierTypeId";
+            parameters.Add("DossierTypeId", dossierTypeId);
+        }
+
+        if (!string.IsNullOrWhiteSpace(keyword))
+        {
+            whereClause += " AND LOWER(d.NAME) LIKE :Keyword";
+            parameters.Add("Keyword", $"%{keyword.ToLower().Trim()}%");
+        }
+
+        var countSql = $@"
+            SELECT COUNT(1)
+            FROM DOCUMENTS d
+            JOIN DOSSIERS dos ON d.DOSSIER_ID = dos.ID
+            JOIN INFRASTRUCTURE i ON dos.InfrastructureId = i.ID
+            WHERE {whereClause}";
+
+        var countResult = await _connection.ExecuteScalarAsync(countSql, parameters);
+        var totalCount = countResult != null && countResult != DBNull.Value ? Convert.ToInt32(countResult) : 0;
+
+        if (totalCount == 0)
+        {
+            return (Enumerable.Empty<DocumentListItemDto>(), 0);
+        }
+
+        var listSql = $@"
+            SELECT 
+                d.ID,
+                d.NAME,
+                d.FOLDER_ID AS FolderId,
+                d.DOSSIER_ID AS DossierId,
+                d.CREATED_BY AS CreatedBy,
+                d.CREATED_DATE AS CreatedDate,
+                NVL(latest.FILE_SIZE, 0) AS FileSize,
+                latest.MIME_TYPE AS MimeType,
+                latest.LATEST_VERSION_ID AS LatestVersionId
+            FROM DOCUMENTS d
+            JOIN DOSSIERS dos ON d.DOSSIER_ID = dos.ID
+            JOIN INFRASTRUCTURE i ON dos.InfrastructureId = i.ID
+            LEFT JOIN (
+                SELECT dv.DOCUMENT_ID, dv.ID AS LATEST_VERSION_ID, dv.FILE_SIZE, dv.MIME_TYPE
+                FROM DOCUMENT_VERSIONS dv
+                INNER JOIN (
+                    SELECT DOCUMENT_ID, MAX(VERSION_NUMBER) AS MAX_VER
+                    FROM DOCUMENT_VERSIONS
+                    WHERE IS_DELETED = 0
+                    GROUP BY DOCUMENT_ID
+                ) mx ON mx.DOCUMENT_ID = dv.DOCUMENT_ID AND mx.MAX_VER = dv.VERSION_NUMBER
+                WHERE dv.IS_DELETED = 0
+            ) latest ON latest.DOCUMENT_ID = d.ID
+            WHERE {whereClause}
+            ORDER BY d.CREATED_DATE DESC, d.NAME ASC
+            OFFSET :Offset ROWS
+            FETCH NEXT :PageSize ROWS ONLY";
+
+        var items = await _connection.QueryAsync<DocumentListItemDto>(listSql, parameters);
+
+        return (items, totalCount);
+    }
 }
