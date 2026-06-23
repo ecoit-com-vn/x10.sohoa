@@ -357,7 +357,7 @@
                       <p-button label="Thêm" icon="pi pi-plus" [text]="true" (onClick)="addOption()"></p-button>
                     </div>
 
-                    <div class="options-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 150px; overflow-y: auto;">
+                    <div class="options-list" style="display: flex; flex-direction: column; gap: 8px;">
                       <div *ngFor="let opt of fields()[selectedFieldIndex()!].options; let oIdx = index; trackBy: trackByFn" style="display: flex; gap: 6px; align-items: center;">
                         <input type="text" pInputText [ngModel]="fields()[selectedFieldIndex()!].options![oIdx]" (ngModelChange)="updateSelectedFieldOption(oIdx, $event)" class="w-full p-inputtext-sm" />
                         <p-button icon="pi pi-times" severity="danger" [rounded]="true" [text]="true" (onClick)="removeOption(oIdx)"></p-button>

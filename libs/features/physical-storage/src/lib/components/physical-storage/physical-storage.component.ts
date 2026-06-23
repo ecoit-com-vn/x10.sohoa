@@ -33,7 +33,8 @@ export class PhysicalStorageComponent implements OnInit {
   currentType = '';
   currentData: any = {};
   isEdit = false;
-  
+  activeTab = 0;
+
   loading = false;
   saving = false;
 
@@ -43,7 +44,7 @@ export class PhysicalStorageComponent implements OnInit {
     private http: HttpClient,
     private messageService: MessageService,
     private confirmationService: ConfirmationService
-  ) {}
+  ) { }
 
   ngOnInit() {
     this.loadAllData();
@@ -62,6 +63,26 @@ export class PhysicalStorageComponent implements OnInit {
   getFloorName(id: number): string {
     const floor = this.floors.find(f => f.id === id);
     return floor ? floor.name : `Tầng #${id}`;
+  }
+
+  get activeTabLabel(): string {
+    switch (this.activeTab) {
+      case 0: return 'Thêm kệ mới';
+      case 1: return 'Thêm tầng mới';
+      case 2: return 'Thêm hộp mới';
+      case 3: return 'Thêm danh mục mới';
+      default: return 'Thêm mới';
+    }
+  }
+
+  get activeTabAction(): string {
+    switch (this.activeTab) {
+      case 0: return 'shelf';
+      case 1: return 'floor';
+      case 2: return 'box';
+      case 3: return 'category';
+      default: return 'shelf';
+    }
   }
 
   loadAllData() {
