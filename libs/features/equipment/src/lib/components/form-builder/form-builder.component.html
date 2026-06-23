@@ -189,8 +189,6 @@
             </div>
 
             <div *ngIf="selectedFieldIndex() !== null" class="properties-form">
-              <div class="property-section-title m-0">Thông tin cơ bản</div>
-
               <div class="field mb-2">
                 <label class="block font-bold text-sm text-muted mb-1">Nhãn hiển thị (Label)</label>
                 <input type="text" pInputText [ngModel]="fields()[selectedFieldIndex()!].label"
@@ -215,8 +213,6 @@
                   (ngModelChange)="updateSelectedField('description', $event)" class="w-full p-inputtext-sm" rows="3"
                   placeholder="Mô tả thông tin cho trường này..."></textarea>
               </div>
-
-              <div class="property-section-title">Trình bày & Ràng buộc</div>
 
               <div class="field mb-2">
                 <label class="block font-bold text-sm text-muted mb-1">Độ rộng hiển thị (Width)</label>
@@ -258,7 +254,7 @@
                 </div>
 
                 <div class="options-list"
-                  style="display: flex; flex-direction: column; gap: 8px; max-height: 150px; overflow-y: auto;">
+                  style="display: flex; flex-direction: column; gap: 8px;">
                   <div *ngFor="let opt of fields()[selectedFieldIndex()!].options; let oIdx = index; trackBy: trackByFn"
                     style="display: flex; gap: 6px; align-items: center;">
                     <input type="text" pInputText [ngModel]="fields()[selectedFieldIndex()!].options![oIdx]"

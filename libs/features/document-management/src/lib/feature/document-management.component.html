@@ -332,7 +332,7 @@
                 *ngFor="let doc of documents(); let i = index; trackBy: trackByDocumentId"
                 [hidden]="loadingDocuments()"
               >
-                <td class="col-stt text-muted">{{ (page() - 1) * pageSize() + i + 1 }}</td>
+                <td class="col-stt text-muted">{{ first() + i + 1 }}</td>
                 <td>
                   <div style="display: flex; align-items: center; gap: 8px; min-width: 0;">
                     <i class="pi" [ngClass]="getFileIcon(doc.name)" style="color: #3b82f6; flex-shrink: 0;"></i>
@@ -387,38 +387,16 @@
           </table>
         </div>
 
-        <div class="table-footer" *ngIf="totalDocuments() > 0">
-          <span class="record-count">
-            Tổng số: <b>{{ totalDocuments() }}</b> tài liệu.
-          </span>
-          <div class="pagination">
-            <button class="page-btn" (click)="prevPage()" [disabled]="page() === 1">
-              <i class="pi pi-chevron-left"></i>
-            </button>
-            <span class="page-current">Trang {{ page() }} / {{ totalPages() || 1 }}</span>
-            <button class="page-btn" (click)="nextPage()" [disabled]="page() >= totalPages()">
-              <i class="pi pi-chevron-right"></i>
-            </button>
-            <span
-              style="margin-left: 10px; display: inline-flex; align-items: center; gap: 5px; font-size: 0.8rem; color: #6b7280;"
-            >
-              Đi tới trang:
-              <input
-                type="number"
-                class="page-jump-input"
-                [value]="page()"
-                (change)="goToPage($any($event.target).value)"
-                style="width: 50px; height: 28px; text-align: center; border: 1px solid #e5e7eb; border-radius: 4px; padding: 0 4px;"
-                [min]="1"
-                [max]="totalPages() || 1"
-              />
-            </span>
-            <select class="page-size-sel" [ngModel]="pageSize()" (change)="onPageSizeChange($event)">
-              <option [value]="10">10 / trang</option>
-              <option [value]="20">20 / trang</option>
-              <option [value]="50">50 / trang</option>
-            </select>
-          </div>
+        <!-- Footer / Paginator -->
+        <div class="table-footer-paginator" *ngIf="totalDocuments() > 0">
+          <span class="record-count">Tổng số: <b>{{ totalDocuments() }}</b> tài liệu.</span>
+          <p-paginator 
+              [first]="first()" 
+              [rows]="rows()" 
+              [totalRecords]="totalDocuments()" 
+              [rowsPerPageOptions]="[5, 10, 20, 50]" 
+              (onPageChange)="onPageChange($event)">
+          </p-paginator>
         </div>
       </ng-container>
 

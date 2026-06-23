@@ -73,6 +73,69 @@
   font-size: 56px;
 }
 
+/* Paginator layout */
+.table-footer-paginator {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.table-footer-paginator .record-count {
+  font-size: 0.875rem;
+  color: #374151;
+  font-weight: 500;
+}
+
+.table-footer-paginator .record-count b {
+  color: #000000 !important;
+}
+
+/* PrimeNG paginator overrides */
+::ng-deep .table-footer-paginator .p-paginator {
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+}
+
+::ng-deep .table-footer-paginator .p-paginator .p-paginator-page,
+::ng-deep .table-footer-paginator .p-paginator .p-paginator-first,
+::ng-deep .table-footer-paginator .p-paginator .p-paginator-prev,
+::ng-deep .table-footer-paginator .p-paginator .p-paginator-next,
+::ng-deep .table-footer-paginator .p-paginator .p-paginator-last,
+::ng-deep .table-footer-paginator .p-paginator .p-paginator-rpp-select {
+  color: #374151 !important;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  background-color: white;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  padding: 0 8px;
+  min-width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+::ng-deep .table-footer-paginator .p-paginator .p-paginator-page:hover:not(.p-disabled),
+::ng-deep .table-footer-paginator .p-paginator .p-paginator-first:hover:not(.p-disabled),
+::ng-deep .table-footer-paginator .p-paginator .p-paginator-prev:hover:not(.p-disabled),
+::ng-deep .table-footer-paginator .p-paginator .p-paginator-next:hover:not(.p-disabled),
+::ng-deep .table-footer-paginator .p-paginator .p-paginator-last:hover:not(.p-disabled) {
+  background-color: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+  color: #000000 !important;
+}
+
+::ng-deep .table-footer-paginator .p-paginator .p-paginator-page.p-highlight {
+  background-color: #002D72 !important;
+  border-color: #002D72 !important;
+  color: white !important;
+}
+
 .upload-scan-divider {
   margin: 16px 0;
   text-align: center;

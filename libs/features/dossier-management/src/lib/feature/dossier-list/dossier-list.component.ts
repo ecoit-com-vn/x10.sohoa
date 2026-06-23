@@ -28,14 +28,6 @@ import { BhsCatalogColumn, DossierManagementService } from '../../data-access/do
 
       <div class="edit-header">
 
-        <div>
-
-          <h2 class="edit-title">Quản lý Hồ sơ Thiết bị</h2>
-
-          <p class="text-muted" style="font-size: 0.83rem; margin: 4px 0 0 0;">Quản lý danh sách hồ sơ, cập nhật thông tin và theo dõi quy trình duyệt</p>
-
-        </div>
-
         <div class="edit-actions">
 
           <button (click)="onCreateNew()" class="btn-green">
