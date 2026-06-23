@@ -1,0 +1,7 @@
+<div>
+  <ul class="navi_list">
+    <li *ngFor="let item of breadcrumbItems; let i = index" [attr.key]="i">
+      <a [routerLink]="item.link">{{ item.label }}</a>
+    </li>
+  </ul>
+</div>

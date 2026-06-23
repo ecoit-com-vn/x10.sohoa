@@ -70,7 +70,7 @@
   font-size: 1.25rem;
   font-weight: 700;
   color: #002D72;
-  margin: 0 0 0.5rem 0;
+  margin: 0;
 }
 .builder-subtitle {
   font-size: 0.8rem;
@@ -410,34 +410,6 @@
 }
 
 // Modern Table action buttons styling
-.act-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
-  border: 1px solid #cbd5e1;
-  background-color: white;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  color: #64748b;
-  margin-right: 6px;
-  vertical-align: middle;
-
-  i {
-    font-size: 0.95rem;
-  }
-
-  &:hover {
-    background-color: #f1f5f9;
-    transform: translateY(-1px);
-  }
-  
-  &:active {
-    transform: translateY(0);
-  }
-}
 
 .act-edit {
   color: #002D72 !important;

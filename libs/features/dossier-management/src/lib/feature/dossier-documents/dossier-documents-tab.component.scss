@@ -1,0 +1,150 @@
+.dossier-documents-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.readonly-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  color: #64748b;
+  font-size: 0.83rem;
+
+  .pi-lock {
+    color: #94a3b8;
+  }
+}
+
+.action-buttons-group {
+  display: flex;
+  gap: 4px;
+  justify-content: center;
+}
+
+.act-btn {
+  width: 28px;
+  height: 28px;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  &.act-download:hover:not(:disabled) i {
+    color: #3b82f6;
+  }
+
+  &.act-delete:hover:not(:disabled) i {
+    color: #ef4444;
+  }
+
+  &.act-result:hover:not(:disabled) i {
+    color: #059669;
+  }
+
+  &.act-retry:hover:not(:disabled) i {
+    color: #d97706;
+  }
+
+  &.act-reextract:hover:not(:disabled) i {
+    color: #7c3aed;
+  }
+
+  &.act-edit:hover:not(:disabled) i {
+    color: #2563eb;
+  }
+}
+
+.col-digitization {
+  text-align: center;
+  vertical-align: middle;
+}
+
+.digitization-progress-cell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 120px;
+  min-height: 15px;
+}
+
+.digitization-bar-wrap {
+  position: relative;
+  width: 120px;
+  height: 15px;
+  background: #e5e7eb;
+  border-radius: 999px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.digitization-bar-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  height: 100%;
+  background: #22c55e;
+  border-radius: 999px;
+  transition: width 0.3s ease;
+  min-width: 0;
+}
+
+.digitization-bar-fill.digitization-bar-active {
+  background: #3b82f6;
+}
+
+.digitization-bar-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: #1f2937;
+  line-height: 1;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.digitization-done-icon {
+  font-size: 1.1rem;
+  color: #22c55e;
+}
+
+.digitization-failed-icon {
+  font-size: 1.1rem;
+  color: #ef4444;
+}
+
+.result-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #64748b;
+  padding: 12px 0;
+}
+
+.result-json {
+  margin: 0;
+  max-height: 420px;
+  overflow: auto;
+  font-size: 0.78rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

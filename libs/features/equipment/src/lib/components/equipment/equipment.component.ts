@@ -7,7 +7,8 @@ import { DialogModule } from 'primeng/dialog';
 import { MessageService } from 'primeng/api';
 import { AuthService } from '@sohoa.frontend/shared/core';
 import { EquipmentService } from '../../data-access/equipment.service';
-import { finalize } from 'rxjs/operators';
+import { EMPTY, forkJoin, of } from 'rxjs';
+import { catchError, finalize, switchMap } from 'rxjs/operators';
 
 @Component({
   selector: 'app-equipment-list',
@@ -59,7 +60,7 @@ export class EquipmentComponent implements OnInit {
   searchEquipmentTypes = computed(() => {
     const gtId = this.searchGridTypeId();
     if (!gtId) return [];
-    return this.equipmentTypes().filter(et => et.gridTypeId === Number(gtId));
+    return this.equipmentTypes().filter(et => this.matchesGridTypeId(et, gtId));
   });
 
   // Cascading lists for Form
@@ -72,7 +73,20 @@ export class EquipmentComponent implements OnInit {
   formEquipmentTypes = computed(() => {
     const gtId = this.currentItem().gridTypeId;
     if (!gtId) return [];
-    return this.equipmentTypes().filter(et => et.gridTypeId === Number(gtId));
+    const selectedId = this.currentItem().equipmentTypeId;
+    return this.equipmentTypes().filter(et => {
+      if (!this.matchesGridTypeId(et, gtId)) return false;
+      const isActive = et.isActive === true || et.isActive === 1;
+      const isSelected = !!selectedId && String(et.id) === String(selectedId);
+      return isActive || isSelected;
+    });
+  });
+
+  /** Buộc p-select render lại khi đổi lưới điện hoặc danh mục loại thiết bị vừa tải xong */
+  equipmentTypeSelectKey = computed(() => {
+    const gtId = this.currentItem().gridTypeId;
+    if (!gtId) return 'none';
+    return `${gtId}-${this.equipmentTypes().length}`;
   });
 
   // State lists
@@ -173,20 +187,33 @@ export class EquipmentComponent implements OnInit {
   }
 
   loadLookupData() {
-    this.equipmentService.getLookup().subscribe({
+    forkJoin({
+      organizationUnits: this.equipmentService.getOrganizationUnits().pipe(catchError(() => of([]))),
+      infrastructures: this.equipmentService.getInfrastructures().pipe(catchError(() => of([]))),
+      gridTypes: this.equipmentService.getGridTypes().pipe(catchError(() => of([]))),
+      equipmentTypes: this.equipmentService.getEquipmentTypes().pipe(catchError(() => of([]))),
+      countries: this.equipmentService.getCountries().pipe(catchError(() => of([])))
+    }).subscribe({
       next: (data) => {
-        if (data) {
-          this.organizationUnits.set(Array.isArray(data.organizationUnits) ? data.organizationUnits : []);
-          this.infrastructures.set(Array.isArray(data.infrastructures) ? data.infrastructures : []);
-          this.gridTypes.set(Array.isArray(data.gridTypes) ? data.gridTypes : []);
-          this.equipmentTypes.set(Array.isArray(data.equipmentTypes) ? data.equipmentTypes : []);
-          this.countries.set(Array.isArray(data.countries) ? data.countries : []);
-        }
+        this.organizationUnits.set(Array.isArray(data.organizationUnits) ? data.organizationUnits : []);
+        this.infrastructures.set(Array.isArray(data.infrastructures) ? data.infrastructures : []);
+        this.gridTypes.set(Array.isArray(data.gridTypes) ? data.gridTypes : []);
+        this.equipmentTypes.set(Array.isArray(data.equipmentTypes) ? data.equipmentTypes : []);
+        this.countries.set(Array.isArray(data.countries) ? data.countries : []);
       },
       error: () => {
-        console.error('Không thể tải dữ liệu danh mục lookup');
+        console.error('Không thể tải dữ liệu danh mục');
       }
     });
+  }
+
+  private matchesGridTypeId(item: any, gridTypeId: any): boolean {
+    if (gridTypeId == null || gridTypeId === '') return false;
+    const selectedGridType = Number(gridTypeId);
+    const itemGridType = Number(item?.gridTypeId ?? item?.GridTypeId);
+    return !Number.isNaN(selectedGridType)
+      && !Number.isNaN(itemGridType)
+      && itemGridType === selectedGridType;
   }
 
   loadItems() {
@@ -311,6 +338,17 @@ export class EquipmentComponent implements OnInit {
     this.onFieldChange('unitId');
   }
 
+  onGridTypeChange(value: any) {
+    this.currentItem.update(item => ({ ...item, gridTypeId: value, equipmentTypeId: null }));
+    this.onFieldChange('gridTypeId');
+    this.onFieldChange('equipmentTypeId');
+  }
+
+  onEquipmentTypeChange(value: any) {
+    this.currentItem.update(item => ({ ...item, equipmentTypeId: value }));
+    this.onFieldChange('equipmentTypeId');
+  }
+
   onSearch() {
     this.currentPage.set(1);
     this.loadItems();
@@ -399,47 +437,68 @@ export class EquipmentComponent implements OnInit {
       isActive: item.isActive === true || item.isActive === 1
     };
 
-    const request$ = this.currentView() === 'add'
-      ? this.equipmentService.create(payload)
-      : this.equipmentService.update(item.id, payload);
+    const isAdd = this.currentView() === 'add';
+    const excludeId = isAdd ? undefined : item.id;
 
-    request$.pipe(
+    this.equipmentService.checkCodeExists(payload.code, excludeId).pipe(
+      switchMap(exists => {
+        if (exists) {
+          const duplicateMessage = isAdd
+            ? `Mã thiết bị '${payload.code}' đã tồn tại trong hệ thống.`
+            : `Mã thiết bị '${payload.code}' đã được sử dụng bởi bản ghi khác.`;
+          this.serverErrors.set({ code: duplicateMessage });
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi',
+            detail: duplicateMessage
+          });
+          return EMPTY;
+        }
+
+        return isAdd
+          ? this.equipmentService.create(payload)
+          : this.equipmentService.update(item.id, payload);
+      }),
       finalize(() => this.isSaving.set(false))
     ).subscribe({
       next: () => {
         this.messageService.add({
           severity: 'success',
           summary: 'Thành công',
-          detail: this.currentView() === 'add' ? 'Đã thêm mới thiết bị thành công!' : 'Đã cập nhật thiết bị thành công!'
+          detail: isAdd ? 'Đã thêm mới thiết bị thành công!' : 'Đã cập nhật thiết bị thành công!'
         });
         this.currentView.set('list');
         this.loadItems();
       },
       error: (err) => {
-        let errorsObj = {};
-        if (err?.error) {
-          if (typeof err.error === 'object') {
-            errorsObj = err.error.errors || err.error;
-          } else if (typeof err.error === 'string') {
-            try {
-              const parsed = JSON.parse(err.error);
-              errorsObj = parsed.errors || parsed;
-            } catch (e) {
-              // Ignore
-            }
-          }
-        } else if (err?.errors) {
-          errorsObj = err.errors;
-        }
-        this.serverErrors.set(errorsObj);
-        
-        const errMsg = err?.error?.message || 'Có lỗi xảy ra khi lưu thông tin thiết bị.';
-        this.messageService.add({
-          severity: 'error',
-          summary: 'Lỗi',
-          detail: errMsg
-        });
+        this.handleSaveError(err);
       }
+    });
+  }
+
+  private handleSaveError(err: any) {
+    let errorsObj = {};
+    if (err?.error) {
+      if (typeof err.error === 'object') {
+        errorsObj = err.error.errors || err.error;
+      } else if (typeof err.error === 'string') {
+        try {
+          const parsed = JSON.parse(err.error);
+          errorsObj = parsed.errors || parsed;
+        } catch (e) {
+          // Ignore
+        }
+      }
+    } else if (err?.errors) {
+      errorsObj = err.errors;
+    }
+    this.serverErrors.set(errorsObj);
+
+    const errMsg = err?.error?.message || 'Có lỗi xảy ra khi lưu thông tin thiết bị.';
+    this.messageService.add({
+      severity: 'error',
+      summary: 'Lỗi',
+      detail: errMsg
     });
   }
 

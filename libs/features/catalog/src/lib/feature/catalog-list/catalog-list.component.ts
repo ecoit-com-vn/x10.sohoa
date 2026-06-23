@@ -39,6 +39,16 @@ export class CatalogListComponent implements OnInit {
 
   catalogTypes = signal<any[]>([]);
 
+  // Delete confirmation
+  showDeleteConfirm = signal<boolean>(false);
+  deleteTarget = signal<any>(null);
+  deleting = signal<boolean>(false);
+
+  // Lock/Unlock confirmation
+  showStatusConfirm = signal<boolean>(false);
+  statusTarget = signal<any>(null);
+  togglingStatus = signal<boolean>(false);
+
   // Pagination
   currentPage = signal<number>(1);
   pageSize = signal<number>(10);
@@ -105,11 +115,25 @@ export class CatalogListComponent implements OnInit {
     this.currentPage.set(1);
   }
 
+  // Map catalogType → permission prefix (mỗi controller riêng = 1 nhóm quyền riêng)
+  private readonly PERMISSION_PREFIX_MAP: Record<string, string> = {
+    KE: 'SHELF',
+    TANG: 'FLOOR',
+    HOP: 'BOX',
+    CHUC_VU: 'POSITION',
+    LINH_VUC: 'DOMAIN',
+    TINH_TRANG_VAT_LY: 'PHYSICAL_STATUS',
+  };
+
+  permissionPrefix = computed(() =>
+    this.PERMISSION_PREFIX_MAP[this.catalogType()] ?? 'CATALOG'
+  );
+
   // Fine-grained permission computed signals
-  canCreate = computed(() => this.authService.hasPermission('CATALOG_CREATE'));
-  canEdit = computed(() => this.authService.hasPermission('CATALOG_EDIT'));
-  canDelete = computed(() => this.authService.hasPermission('CATALOG_DELETE'));
-  canManage = computed(() => this.authService.hasPermission('CATALOG_MANAGE'));
+  canCreate = computed(() => this.authService.hasPermission(`${this.permissionPrefix()}_CREATE`));
+  canEdit = computed(() => this.authService.hasPermission(`${this.permissionPrefix()}_EDIT`));
+  canDelete = computed(() => this.authService.hasPermission(`${this.permissionPrefix()}_DELETE`));
+  canManage = computed(() => this.authService.hasPermission(`${this.permissionPrefix()}_MANAGE`));
 
   constructor() {
     // Listen to changes in route data to reload catalog configurations
@@ -343,54 +367,70 @@ export class CatalogListComponent implements OnInit {
 
   onDelete(item: any) {
     if (!this.canDelete()) return;
-    if (confirm(`Bạn có chắc chắn muốn xóa danh mục ${item.name} (${item.code})?`)) {
-      this.catalogService.deleteItem(item.id, this.catalogType()).subscribe({
-        next: () => {
-          this.messageService.add({
-            severity: 'success',
-            summary: 'Xóa thành công',
-            detail: 'Đã xóa danh mục thành công!'
-          });
-          this.loadItems();
-        },
-        error: (err) => {
-          const errorMsg = err.error?.message || 'Xóa danh mục thất bại.';
-          this.messageService.add({
-            severity: 'error',
-            summary: 'Lỗi xóa',
-            detail: errorMsg
-          });
-        }
-      });
-    }
+    this.deleteTarget.set(item);
+    this.showDeleteConfirm.set(true);
+  }
+
+  onConfirmDelete() {
+    const item = this.deleteTarget();
+    if (!item) return;
+    this.deleting.set(true);
+    this.catalogService.deleteItem(item.id, this.catalogType()).subscribe({
+      next: () => {
+        this.deleting.set(false);
+        this.showDeleteConfirm.set(false);
+        this.deleteTarget.set(null);
+        this.messageService.add({ severity: 'success', summary: 'Xóa thành công', detail: `Đã xóa "${item.name}" thành công!` });
+        this.loadItems();
+      },
+      error: (err) => {
+        this.deleting.set(false);
+        this.showDeleteConfirm.set(false);
+        const errorMsg = err.error?.message || 'Xóa danh mục thất bại.';
+        this.messageService.add({ severity: 'error', summary: 'Lỗi xóa', detail: errorMsg });
+      }
+    });
+  }
+
+  onCancelDelete() {
+    this.showDeleteConfirm.set(false);
+    this.deleteTarget.set(null);
   }
 
   onToggleStatus(item: any) {
     if (!this.canManage()) return;
-    const isLocking = item.status === 1;
-    const confirmMsg = isLocking 
-      ? `Bạn có chắc muốn KHÓA danh mục ${item.name} (${item.code})?`
-      : `Bạn có chắc muốn MỞ KHÓA danh mục ${item.name} (${item.code})?`;
+    this.statusTarget.set(item);
+    this.showStatusConfirm.set(true);
+  }
 
-    if (confirm(confirmMsg)) {
-      this.catalogService.toggleStatus(item.id, isLocking, this.catalogType()).subscribe({
-        next: (res: any) => {
-          this.messageService.add({
-            severity: 'success',
-            summary: isLocking ? 'Đã khóa' : 'Đã mở khóa',
-            detail: res.message || 'Thay đổi trạng thái danh mục thành công!'
-          });
-          this.loadItems();
-        },
-        error: (err) => {
-          const errorMsg = err.error?.message || 'Không thể thay đổi trạng thái danh mục.';
-          this.messageService.add({
-            severity: 'error',
-            summary: 'Lỗi thao tác',
-            detail: errorMsg
-          });
-        }
-      });
-    }
+  onConfirmToggleStatus() {
+    const item = this.statusTarget();
+    if (!item) return;
+    const isLocking = item.status === 1;
+    this.togglingStatus.set(true);
+    this.catalogService.toggleStatus(item.id, isLocking, this.catalogType()).subscribe({
+      next: (res: any) => {
+        this.togglingStatus.set(false);
+        this.showStatusConfirm.set(false);
+        this.statusTarget.set(null);
+        this.messageService.add({
+          severity: 'success',
+          summary: isLocking ? 'Đã khóa' : 'Đã mở khóa',
+          detail: res.message || 'Thay đổi trạng thái danh mục thành công!'
+        });
+        this.loadItems();
+      },
+      error: (err) => {
+        this.togglingStatus.set(false);
+        this.showStatusConfirm.set(false);
+        const errorMsg = err.error?.message || 'Không thể thay đổi trạng thái danh mục.';
+        this.messageService.add({ severity: 'error', summary: 'Lỗi thao tác', detail: errorMsg });
+      }
+    });
+  }
+
+  onCancelToggleStatus() {
+    this.showStatusConfirm.set(false);
+    this.statusTarget.set(null);
   }
 }

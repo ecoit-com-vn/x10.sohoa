@@ -14,6 +14,7 @@ import { Router } from '@angular/router';
 import { FormTemplateService, EavFormTemplate } from '../../data-access/form-template.service';
 import { EquipmentTypeService } from '../../data-access/equipment-type.service';
 import { finalize } from 'rxjs';
+import { LoadingService } from '@sohoa.frontend/shared/core';
 
 @Component({
   selector: 'app-form-template',
@@ -35,6 +36,7 @@ import { finalize } from 'rxjs';
   styleUrl: './form-template.component.scss'
 })
 export class FormTemplateComponent implements OnInit {
+  private loadingService = inject(LoadingService);
   private router = inject(Router);
   private formTemplateService = inject(FormTemplateService);
   private equipmentTypeService = inject(EquipmentTypeService);
@@ -52,7 +54,7 @@ export class FormTemplateComponent implements OnInit {
 
   equipmentTypes = signal<any[]>([]);
 
-  categories = signal<any[]>([]);
+  gridTypes = signal<any[]>([]);
 
   filteredForms = computed(() => {
     const keyword = this.searchKeyword().trim().toLowerCase();
@@ -82,29 +84,11 @@ export class FormTemplateComponent implements OnInit {
 
   ngOnInit() {
     this.loadEquipmentTypes();
+    this.loadGridTypes();
     this.loadForms();
-    this.loadHmadCategories();
   }
 
-  loadHmadCategories() {
-    this.formTemplateService.getCatalogTypeByCode('HMAD').subscribe({
-      next: (catalogType) => {
-        if (catalogType && catalogType.id) {
-          this.formTemplateService.getCatalogsLookup(catalogType.id).subscribe({
-            next: (catalogs) => {
-              this.categories.set(catalogs || []);
-            },
-            error: (err) => {
-              console.error('Failed to load catalogs for HMAD', err);
-            }
-          });
-        }
-      },
-      error: (err) => {
-        console.error('Failed to load CatalogType HMAD', err);
-      }
-    });
-  }
+
 
   loadEquipmentTypes() {
     this.equipmentTypeService.getEquipmentTypes(1, 1000, undefined, undefined, undefined, true).subscribe({
@@ -119,10 +103,21 @@ export class FormTemplateComponent implements OnInit {
     });
   }
 
+  loadGridTypes() {
+    this.equipmentTypeService.getGridTypesLookup().subscribe({
+      next: (types) => {
+        this.gridTypes.set(types || []);
+      },
+      error: (err) => {
+        console.error('Failed to load grid types', err);
+      }
+    });
+  }
+
   loadForms() {
-    this.loading.set(true);
+    this.loadingService.show();
     this.formTemplateService.getTemplates()
-      .pipe(finalize(() => this.loading.set(false)))
+      .pipe(finalize(() => this.loadingService.hide()))
       .subscribe({
         next: (data) => {
           this.forms.set(data || []);
@@ -161,35 +156,40 @@ export class FormTemplateComponent implements OnInit {
 
   onConfirmDelete() {
     if (!this.targetForm) return;
-    this.formTemplateService.deleteTemplate(this.targetForm.id).subscribe({
-      next: () => {
-        this.messageService.add({ 
-          severity: 'success', 
-          summary: 'Thành công', 
-          detail: `Đã vô hiệu hóa biểu mẫu thành công!` 
-        });
-        this.showConfirmDelete.set(false);
-        this.targetForm = null;
-        this.loadForms();
-      },
-      error: () => {
-        this.messageService.add({
-          severity: 'error',
-          summary: 'Lỗi',
-          detail: 'Không thể vô hiệu hóa biểu mẫu.'
-        });
-        this.showConfirmDelete.set(false);
-        this.targetForm = null;
-      }
-    });
+    this.loadingService.show();
+    this.formTemplateService.deleteTemplate(this.targetForm.id)
+      .pipe(finalize(() => this.loadingService.hide()))
+      .subscribe({
+        next: () => {
+          this.messageService.add({ 
+            severity: 'success', 
+            summary: 'Thành công', 
+            detail: `Đã vô hiệu hóa biểu mẫu thành công!` 
+          });
+          this.showConfirmDelete.set(false);
+          this.targetForm = null;
+          this.loadForms();
+        },
+        error: () => {
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi',
+            detail: 'Không thể vô hiệu hóa biểu mẫu.'
+          });
+          this.showConfirmDelete.set(false);
+          this.targetForm = null;
+        }
+      });
   }
 
   getCategoryName(code: string): string {
     const eqType = this.equipmentTypes().find(t => t.code === code || t.id === code);
-    if (eqType) {
-      return eqType.name;
-    }
-    const cat = this.categories().find(c => c.code === code);
-    return cat ? cat.name : code || '(Chưa chọn)';
+    return eqType ? eqType.name : code || '';
+  }
+
+  getGridTypeName(gridTypeId?: number): string {
+    if (!gridTypeId) return '';
+    const gt = this.gridTypes().find(g => g.id === gridTypeId);
+    return gt ? gt.name : `Loại ${gridTypeId}`;
   }
 }

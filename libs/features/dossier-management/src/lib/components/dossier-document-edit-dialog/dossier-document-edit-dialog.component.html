@@ -1,0 +1,109 @@
+<p-dialog
+  [visible]="visible"
+  (visibleChange)="visibleChange.emit($event)"
+  (onShow)="onShow()"
+  (onHide)="onHide()"
+  [header]="'Sửa tài liệu — ' + (documentName || 'Tài liệu')"
+  [modal]="true"
+  [style]="{ width: '1100px', maxWidth: '98vw' }"
+  styleClass="evn-dialog-custom dossier-document-edit-dialog"
+  [closable]="!saving()"
+  [draggable]="false"
+>
+  <div *ngIf="loading()" class="edit-loading">
+    <i class="pi pi-spin pi-spinner"></i>
+    Đang tải tài liệu...
+  </div>
+
+  <div class="edit-split" *ngIf="!loading()">
+    <section class="preview-pane">
+      <div class="pane-title">Bản scan / file gốc</div>
+      <div class="preview-toolbar" *ngIf="isPdf() && totalPages() > 1">
+        <button type="button" class="page-btn" (click)="prevPage()" [disabled]="currentPage() <= 1">
+          <i class="pi pi-chevron-left"></i>
+        </button>
+        <span>Trang {{ currentPage() }} / {{ totalPages() }}</span>
+        <button type="button" class="page-btn" (click)="nextPage()" [disabled]="currentPage() >= totalPages()">
+          <i class="pi pi-chevron-right"></i>
+        </button>
+      </div>
+      <div class="preview-body">
+        <ng-container *ngIf="previewUrl(); else noPreview">
+          <iframe *ngIf="isPdf()" class="preview-frame" [src]="previewSrc()" title="Xem trước PDF"></iframe>
+          <img *ngIf="isImage()" class="preview-image" [src]="previewSrc()" [alt]="documentName" />
+          <iframe *ngIf="!isPdf() && !isImage()" class="preview-frame" [src]="previewSrc()" title="Xem trước"></iframe>
+        </ng-container>
+        <ng-template #noPreview>
+          <div class="preview-empty">Không có bản xem trước</div>
+        </ng-template>
+      </div>
+    </section>
+
+    <section class="form-pane">
+      <div class="pane-title">Thông tin tài liệu</div>
+      <p class="confirm-intro">
+        Các trường được sinh theo biểu mẫu loại văn bản. Dữ liệu bóc tách (nếu có) được điền sẵn — bạn có thể chỉnh sửa trước khi lưu vào hồ sơ.
+      </p>
+
+      <div *ngIf="fields().length === 0" class="empty-fields">
+        Không có trường form để hiển thị.
+      </div>
+
+      <div class="confirm-form-grid" *ngIf="fields().length > 0">
+        <div
+          class="confirm-field"
+          *ngFor="let field of fields()"
+          [class.no-value]="!draftData()[field.key] && draftData()[field.key] !== false"
+        >
+          <label class="form-label">{{ field.label }}</label>
+
+          <ng-container [ngSwitch]="field.type">
+            <textarea
+              *ngSwitchCase="'textarea'"
+              class="wf-textarea w-full"
+              rows="2"
+              [ngModel]="draftData()[field.key] ?? ''"
+              (ngModelChange)="setDraftFieldValue(field.key, $event)"
+            ></textarea>
+            <select
+              *ngSwitchCase="'select'"
+              class="wf-select w-full"
+              [ngModel]="draftData()[field.key] ?? ''"
+              (ngModelChange)="setDraftFieldValue(field.key, $event)"
+            >
+              <option value="">-- Chọn --</option>
+              <option *ngFor="let opt of field.options" [ngValue]="opt.value">{{ opt.label }}</option>
+            </select>
+            <label *ngSwitchCase="'checkbox'" class="checkbox-row">
+              <input
+                type="checkbox"
+                [checked]="!!draftData()[field.key]"
+                (change)="setDraftCheckbox(field.key, $event)"
+              />
+              {{ field.placeholder || field.label }}
+            </label>
+            <input
+              *ngSwitchDefault
+              [type]="field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : 'text'"
+              class="wf-input w-full"
+              [ngModel]="draftData()[field.key] ?? ''"
+              (ngModelChange)="setDraftFieldValue(field.key, $event)"
+            />
+          </ng-container>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <ng-template #footer>
+    <p-button label="Hủy" severity="secondary" size="small" (onClick)="close()" [disabled]="saving()"></p-button>
+    <p-button
+      label="Lưu vào hồ sơ"
+      size="small"
+      icon="pi pi-save"
+      (onClick)="confirmApply()"
+      [disabled]="loading() || saving() || !canEdit || fields().length === 0"
+      [loading]="saving()"
+    ></p-button>
+  </ng-template>
+</p-dialog>

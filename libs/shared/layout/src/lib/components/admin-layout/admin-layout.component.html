@@ -1,3 +1,4 @@
+<app-loading *ngIf="loadingService.loading$ | async"></app-loading>
 <div class="layout-wrapper">
   <div class="layout-header">
     <div class="header-container">
@@ -44,8 +45,10 @@
               <i [class]="'menu-icon ' + item.icon"></i>
               <span class="menu-label">{{ item.label }}</span>
             </span>
-            <i class="pi pi-chevron-right menu-chevron" *ngIf="!item.items && !isSidebarCollapsed"></i>
-            <i class="pi menu-chevron" [class.pi-chevron-down]="item.expanded" [class.pi-chevron-right]="!item.expanded" *ngIf="item.items && !isSidebarCollapsed"></i>
+            <i class="pi menu-chevron" 
+               [class.pi-chevron-down]="item.items && item.items.length > 0 && item.expanded" 
+               [class.pi-chevron-right]="!(item.items && item.items.length > 0 && item.expanded)" 
+               *ngIf="((item.items && item.items.length > 0) || (item.routerLink && item.routerLink[0] === '/dashboard')) && !isSidebarCollapsed"></i>
           </div>
 
           <!-- Menu con (Submenu) -->
@@ -54,7 +57,7 @@
                [routerLink]="sub.routerLink"
                routerLinkActive="sub-active"
                class="submenu-item">
-              <i [class]="'sub-icon ' + sub.icon"></i>
+              <span class="sub-dot"></span>
               <span class="sub-label">{{ sub.label }}</span>
             </a>
           </div>

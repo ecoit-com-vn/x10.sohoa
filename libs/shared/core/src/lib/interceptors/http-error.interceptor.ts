@@ -4,6 +4,10 @@ import { Router } from '@angular/router';
 import { catchError, throwError } from 'rxjs';
 import { MessageService } from 'primeng/api';
 
+function isAuthEndpoint(url: string): boolean {
+  return url.includes('/auth/login') || url.includes('/auth/refresh');
+}
+
 export const httpErrorInterceptor: HttpInterceptorFn = (req, next) => {
   const router = inject(Router);
   const messageService = inject(MessageService);
@@ -11,17 +15,14 @@ export const httpErrorInterceptor: HttpInterceptorFn = (req, next) => {
   return next(req).pipe(
     catchError((error: HttpErrorResponse) => {
       if (typeof ErrorEvent !== 'undefined' && error.error instanceof ErrorEvent) {
-        // Lỗi phía client
         messageService.add({
           severity: 'error',
           summary: 'Lỗi ứng dụng',
           detail: error.error.message
         });
       } else {
-        // Lỗi phía máy chủ
         switch (error.status) {
           case 400:
-            // Lỗi dữ liệu đầu vào / Validation error
             messageService.add({
               severity: 'error',
               summary: 'Yêu cầu không hợp lệ',
@@ -29,16 +30,18 @@ export const httpErrorInterceptor: HttpInterceptorFn = (req, next) => {
             });
             break;
           case 401:
-            // Token hết hạn hoặc không hợp lệ -> Đăng xuất
-            if (typeof window !== 'undefined') {
-              localStorage.removeItem('token');
+            if (!isAuthEndpoint(req.url)) {
+              if (typeof window !== 'undefined') {
+                localStorage.removeItem('token');
+                localStorage.removeItem('refreshToken');
+              }
+              router.navigate(['/login']);
+              messageService.add({
+                severity: 'error',
+                summary: 'Phiên làm việc hết hạn',
+                detail: 'Vui lòng đăng nhập lại.'
+              });
             }
-            router.navigate(['/login']);
-            messageService.add({
-              severity: 'error',
-              summary: 'Phiên làm việc hết hạn',
-              detail: 'Vui lòng đăng nhập lại.'
-            });
             break;
           case 403:
             messageService.add({

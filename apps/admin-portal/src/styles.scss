@@ -1,31 +1,9 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 @import "primeicons/primeicons.css";
-
-/* ── PrimeFlex minimal shim (thay thế ~10 class thực sự dùng trong dự án) ── */
-.p-0  { padding: 0 !important; }
-.p-1  { padding: 0.25rem !important; }
-.p-2  { padding: 0.5rem !important; }
-.p-3  { padding: 1rem !important; }
-.p-4  { padding: 1.5rem !important; }
-.mt-2 { margin-top: 0.5rem !important; }
-.mt-4 { margin-top: 1rem !important; }
-.mb-2 { margin-bottom: 0.5rem !important; }
-.mb-4 { margin-bottom: 1rem !important; }
-.surface-100  { background-color: var(--p-surface-100, #f1f5f9) !important; }
-.surface-200  { background-color: var(--p-surface-200, #e2e8f0) !important; }
-.border-round { border-radius: 6px !important; }
-.shadow-4     { box-shadow: 0 8px 24px rgba(0,0,0,.12) !important; }
-.card         { background: var(--p-surface-0, #ffffff); border-radius: 6px; padding: 1.25rem; box-shadow: 0 2px 8px rgba(0,0,0,.06); }
-.font-bold    { font-weight: 700 !important; }
-.text-xs      { font-size: 0.75rem !important; }
-.flex         { display: flex !important; }
-.flex-1       { flex: 1 1 0% !important; }
-.items-center { align-items: center !important; }
-.gap-2        { gap: 0.5rem !important; }
-.gap-4        { gap: 1rem !important; }
-.w-full       { width: 100% !important; }
-.hidden       { display: none !important; }
-/* ─────────────────────────────────────────────────────────────────────────── */
+@import "primeflex/primeflex.css";
+@import 'bpmn-js/dist/assets/diagram-js.css';
+@import 'bpmn-js/dist/assets/bpmn-js.css';
+@import 'bpmn-js/dist/assets/bpmn-font/css/bpmn-embedded.css';
 
 /* Enterprise Light Theme Overrides for PrimeNG */
 :root {
@@ -59,7 +37,7 @@
 
   --p-content-background: var(--p-surface-50);
   --p-content-border-color: var(--p-surface-200);
-  --p-text-color: var(--p-surface-800);
+  --p-text-color: #22313F;
   --p-text-muted-color: var(--p-surface-500);
   
   --p-border-radius: 12px;
@@ -168,7 +146,7 @@ html, body {
   background: var(--p-surface-0, #ffffff);
   border-radius: 12px;
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 16px -6px rgba(0, 0, 0, 0.05);
-  padding: 24px;
+  padding: 0.75rem;
   margin-bottom: 20px;
   border: 1px solid var(--p-content-border-color, rgba(226, 232, 240, 0.8));
   transition: box-shadow 0.3s ease, transform 0.3s ease;
@@ -545,7 +523,7 @@ html, body {
 }
 
 
-.text-muted { color: #9ca3af; }
+.text-muted { color: #22313F; }
 .wf-name-link { color: #002D72; font-weight: 500; cursor: pointer; text-decoration: none; }
 .wf-name-link:hover { text-decoration: underline; color: #FF6B00; }
 .mota-text { color: #6b7280; }
@@ -570,8 +548,8 @@ html, body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 32px;
-  width: 32px; /* square icon-only */
+  height: 23px;
+  width: 23px; /* square icon-only */
   border-radius: 6px;
   cursor: pointer;
   background-color: #ffffff;

@@ -18,9 +18,6 @@
     
     <!-- ==================== VIEW 1: MÀN HÌNH DANH SÁCH ==================== -->
     <div *ngIf="currentView() === 'list'" class="animate-fade-in">
-      <p class="text-muted mb-4">
-        Quản lý thông tin thiết bị kỹ thuật điện, cấu hình kết nối trạm biến áp, đường dây và nước sản xuất.
-      </p>
 
       <!-- Toolbar Tìm kiếm & Thao tác -->
       <div class="list-toolbar" style="margin-bottom: 20px; display: flex; flex-direction: column; gap: 12px; background: #f8fafc; padding: 16px; border-radius: 8px; border: 1px solid #e2e8f0;">
@@ -274,8 +271,8 @@
           <!-- Loại lưới điện -->
           <div class="form-group">
             <label class="form-label" style="font-weight: 600; margin-bottom: 6px; display: block; color: #374151;">Loại lưới điện <span class="required" style="color: #ef4444;">*</span></label>
-            <p-select [options]="gridTypes()" [(ngModel)]="currentItem().gridTypeId" 
-              (ngModelChange)="currentItem().equipmentTypeId = null; onFieldChange('gridTypeId')"
+            <p-select [options]="gridTypes()" [ngModel]="currentItem().gridTypeId" 
+              (ngModelChange)="onGridTypeChange($event)"
               optionLabel="name" optionValue="id" placeholder="-- Chọn loại lưới điện --"
               [disabled]="isSaving()"
               [style]="{'width':'100%', 'height':'38px', 'line-height':'24px', 'border':'1px solid #cbd5e1', 'border-radius':'6px', 'background-color':'#ffffff', 'color':'#374151'}">
@@ -300,12 +297,17 @@
           <!-- Loại thiết bị (Cascade) -->
           <div class="form-group">
             <label class="form-label" style="font-weight: 600; margin-bottom: 6px; display: block; color: #374151;">Loại thiết bị <span class="required" style="color: #ef4444;">*</span></label>
-            <p-select [options]="formEquipmentTypes()" [(ngModel)]="currentItem().equipmentTypeId" 
-              (ngModelChange)="onFieldChange('equipmentTypeId')"
-              optionLabel="name" optionValue="id" [placeholder]="currentItem().gridTypeId ? '-- Chọn loại thiết bị --' : '-- Vui lòng chọn Loại lưới điện --'"
-              [disabled]="!currentItem().gridTypeId || isSaving()"
-              [style]="{'width':'100%', 'height':'38px', 'line-height':'24px', 'border':'1px solid #cbd5e1', 'border-radius':'6px', 'background-color':'#ffffff', 'color':'#374151'}">
-            </p-select>
+            <ng-container [ngSwitch]="equipmentTypeSelectKey()">
+              <p-select *ngSwitchDefault
+                [options]="formEquipmentTypes()"
+                [ngModel]="currentItem().equipmentTypeId"
+                (ngModelChange)="onEquipmentTypeChange($event)"
+                optionLabel="name" optionValue="id"
+                [placeholder]="currentItem().gridTypeId ? '-- Chọn loại thiết bị --' : '-- Vui lòng chọn Loại lưới điện --'"
+                [disabled]="!currentItem().gridTypeId || isSaving()"
+                [style]="{'width':'100%', 'height':'38px', 'line-height':'24px', 'border':'1px solid #cbd5e1', 'border-radius':'6px', 'background-color':'#ffffff', 'color':'#374151'}">
+              </p-select>
+            </ng-container>
             <span class="field-error" *ngIf="equipmentTypeError()" style="color: #ef4444; font-size: 0.8rem; margin-top: 4px; display: block;">{{ equipmentTypeError() }}</span>
           </div>
         </div>

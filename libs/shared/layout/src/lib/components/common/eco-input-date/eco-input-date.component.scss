@@ -1,0 +1,27 @@
+.p-error {
+  top: 0;
+  left: 0;
+  width: 100%;
+}
+
+.b-errors {
+  height: 0px;
+}
+
+:host {
+  ::ng-deep {
+    .p-calendar {
+      .p-inputtext {
+        //border-right: none;
+        cursor: pointer;
+      }
+
+      .p-button.p-button-icon-only {
+        padding: 0;
+        //background: none;
+        //border-color: #d1d5db;
+        //border-left: none;
+      }
+    }
+  }
+}

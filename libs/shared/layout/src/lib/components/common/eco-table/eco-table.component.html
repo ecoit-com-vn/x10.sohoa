@@ -1,0 +1,478 @@
+<div class="table-container">
+  <app-loading *ngIf="loading" style="position: absolute"></app-loading>
+  <div class="table-body">
+    <ng-container *ngIf="!treeTable; else treeTableMode">
+      <p-table
+        class="table-fixed-header"
+        #table
+        (selectionChange)="onSelectionChange($event)"
+        [frozenValue]="frozenValue"
+        [rowHover]="true"
+        [rowTrackBy]="trackByBody"
+        [scrollable]="scrollable"
+        [(selection)]="selectedItems"
+        [selectionMode]="selectionMode"
+        [value]="dataTable?.content || []"
+        [virtualScroll]="virtualScroll"
+        [virtualScrollItemSize]="34"
+        [paginator]="paginator"
+        [first]="0"
+        [rows]="pageConfig.size"
+        [lazy]="true"
+        [totalRecords]="pageConfig.totalRecords"
+        (onPage)="pageChange($event)"
+        [pageLinks]="6"
+        [showCurrentPageReport]="true"
+        [currentPageReportTemplate]="currentPageReportTemplate"
+        [rowsPerPageOptions]="[10, 20, 50, 100]"
+        responsiveLayout="scroll"
+        scrollHeight="800px"
+      >
+        <!--      TABLE HEADER-->
+        <ng-template pTemplate="header">
+          <ng-container *ngIf="showHeader">
+            <tr>
+              <th
+                *ngIf="selectionMode === SelectionMode.Checkbox"
+                class="column-orderNum"
+              >
+                <p-tableHeaderCheckbox></p-tableHeaderCheckbox>
+              </th>
+
+              <th *ngIf="showOrderNumber" scope="col" class="column-orderNum">
+                {{ "table.index" }}
+              </th>
+              <ng-container *ngFor="let col of columns; trackBy: trackByHeader">
+                <th
+                  *ngIf="col.visible"
+                  [ngStyle]="{
+                    'min-width': col.width,
+                    'text-wrap': 'nowrap',
+                  }"
+                  [ngClass]="{
+                    'column-action': col.type === ColumnDataType.Action,
+                  }"
+                  [class]="col.class ?? ''"
+                  scope="col"
+                >
+                  {{ col.headerName || '' }}
+                </th>
+              </ng-container>
+            </tr>
+          </ng-container>
+        </ng-template>
+        <!--      TABLE BODY-->
+
+        <ng-template let-i="rowIndex" let-row pTemplate="frozenbody">
+          <tr
+            (click)="doClickRow($event, row)"
+            (dblclick)="doDblClickRow($event, row)"
+            [class.active-row]="itemFocus === row"
+          >
+            <!-- <td
+              *ngIf="selectionMode === SelectionMode.Single"
+              class="column-orderNum"
+            >
+              <p-tableRadioButton [value]="row"></p-tableRadioButton>
+            </td> -->
+            <td
+              *ngIf="selectionMode === SelectionMode.Checkbox"
+              class="column-orderNum"
+            >
+              <p-tableCheckbox
+                [value]="row"
+                (click)="onCheckboxClick($event)"
+              ></p-tableCheckbox>
+            </td>
+            <td *ngIf="showOrderNumber" class="column-orderNum">{{ i + 1 }}</td>
+            <ng-container *ngFor="let col of columns; trackBy: trackByBody">
+              <td
+                *ngIf="col.visible"
+                [ngStyle]="{
+                  'min-width': col.width,
+                }"
+                [class]="col.class ?? ''"
+                [ngClass]="{
+                  'column-number': col.type === ColumnDataType.Number,
+                  'column-action': col.type === ColumnDataType.Action,
+                }"
+              >
+                <ng-container *ngIf="col.tdTemplate; else noTemp">
+                  <ng-container
+                    *ngTemplateOutlet="
+                      col.tdTemplate;
+                      context: { item: row, index: i }
+                    "
+                  >
+                  </ng-container>
+                </ng-container>
+                <ng-template #noTemp>
+                  <ng-container *ngIf="col.type === columnDataType.Action">
+                    <ng-container
+                      *ngTemplateOutlet="tdAction; context: { item: row }"
+                    ></ng-container>
+                  </ng-container>
+                  <ng-container
+                    *ngIf="
+                      col.columnActions &&
+                      col.columnActions.length > 0 &&
+                      col.type !== columnDataType.Action
+                    "
+                  >
+                    <ng-container
+                      *ngTemplateOutlet="
+                        tdColumnAction;
+                        context: { item: row, column: col }
+                      "
+                    ></ng-container>
+                  </ng-container>
+                  <ng-container
+                    *ngIf="
+                      col.type !== columnDataType.Action &&
+                      !col.tdTemplate &&
+                      (!col.columnActions || col.columnActions.length === 0)
+                    "
+                  >
+                    <ng-container *ngIf="col.type; else noPipe">
+                      <span
+                        class="text-truncate"
+                        [title]="
+                          row | tableFieldPipe: col.fieldName | map: col.type
+                        "
+                        >{{
+                          row | tableFieldPipe: col.fieldName | map: col.type
+                        }}</span
+                      >
+                    </ng-container>
+                    <ng-template #noPipe>
+                      <ng-container
+                        ><span
+                          class="text-truncate"
+                          [title]="row | tableFieldPipe: col.fieldName"
+                          >{{ row | tableFieldPipe: col.fieldName }}</span
+                        >
+                      </ng-container>
+                    </ng-template>
+                  </ng-container>
+                </ng-template>
+              </td>
+            </ng-container>
+          </tr>
+        </ng-template>
+        <ng-template let-i="rowIndex" let-row pTemplate="body">
+          <tr
+            (click)="doClickRow($event, row)"
+            (dblclick)="doDblClickRow($event, row)"
+            [class.active-row]="itemFocus === row"
+            [pSelectableRow]="row"
+          >
+            <!-- <td
+              *ngIf="selectionMode === SelectionMode.Single"
+              class="column-orderNum"
+            >
+              <p-tableRadioButton [value]="row"></p-tableRadioButton>
+            </td> -->
+            <td
+              *ngIf="selectionMode === SelectionMode.Checkbox"
+              class="column-orderNum"
+            >
+              <p-tableCheckbox
+                [value]="row"
+                (click)="onCheckboxClick($event)"
+              ></p-tableCheckbox>
+            </td>
+            <td *ngIf="showOrderNumber" class="column-orderNum">{{ i + 1 }}</td>
+
+            <ng-container *ngFor="let col of columns; trackBy: trackByBody">
+              <td
+                *ngIf="col.visible"
+                [ngStyle]="{
+                  'max-width': col.width,
+                }"
+                [class]="col.class ?? 'ellipsis-cell'"
+                [ngClass]="{
+                  'column-number': col.type === ColumnDataType.Number,
+                  'column-action': col.type === ColumnDataType.Action,
+                }"
+              >
+                <ng-container *ngIf="col.tdTemplate; else noTemp">
+                  <ng-container
+                    *ngTemplateOutlet="
+                      col.tdTemplate;
+                      context: { item: row, index: i }
+                    "
+                  >
+                  </ng-container>
+                </ng-container>
+                <ng-template #noTemp>
+                  <ng-container *ngIf="col.type === columnDataType.Action">
+                    <ng-container
+                      *ngTemplateOutlet="
+                        col.tdTemplate ?? tdAction;
+                        context: { item: row }
+                      "
+                    ></ng-container>
+                  </ng-container>
+                  <ng-container
+                    *ngIf="
+                      col.columnActions &&
+                      col.columnActions.length > 0 &&
+                      col.type !== columnDataType.Action
+                    "
+                  >
+                    <ng-container
+                      *ngTemplateOutlet="
+                        tdColumnAction;
+                        context: { item: row, column: col }
+                      "
+                    ></ng-container>
+                  </ng-container>
+                  <ng-container
+                    *ngIf="
+                      col.type !== columnDataType.Action &&
+                      !col.tdTemplate &&
+                      (!col.columnActions || col.columnActions.length === 0)
+                    "
+                  >
+                    <ng-container *ngIf="col.type; else noPipe">
+                      <span
+                        class="text-truncate"
+                        [title]="
+                          row | tableFieldPipe: col.fieldName | map: col.type
+                        "
+                        >{{
+                          row | tableFieldPipe: col.fieldName | map: col.type
+                        }}</span
+                      >
+                    </ng-container>
+                    <ng-template #noPipe>
+                      <ng-container
+                        ><span
+                          class="text-truncate"
+                          [title]="row | tableFieldPipe: col.fieldName"
+                          >{{ row | tableFieldPipe: col.fieldName }}</span
+                        >
+                      </ng-container>
+                    </ng-template>
+                  </ng-container>
+                </ng-template>
+              </td>
+            </ng-container>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="loadingbody">
+          <tr style="height: 46px">
+            <td class="column-orderNum">
+              <p-skeleton />
+            </td>
+            <td *ngIf="selectionMode === SelectionMode.Single">
+              <p-skeleton />
+            </td>
+            <td *ngIf="selectionMode === SelectionMode.Checkbox">
+              <p-skeleton />
+            </td>
+            <ng-container *ngFor="let col of columns">
+              <td
+                *ngIf="col.visible"
+                [ngStyle]="{
+                  'min-width': col.width,
+                }"
+              >
+                <p-skeleton [ngStyle]="{ width: col.width }" />
+              </td>
+            </ng-container>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="footer">
+          <ng-container *ngTemplateOutlet="footerTable!"></ng-container>
+        </ng-template>
+      </p-table>
+    </ng-container>
+  </div>
+</div>
+
+<!-- TABLE TREE -->
+<ng-template #treeTableMode>
+  <p-treeTable [columns]="columns" [value]="dataTree" [loading]="loading">
+    <!-- Header -->
+    <ng-template pTemplate="header">
+      <tr>
+        <ng-container *ngFor="let col of columns; trackBy: trackByHeader">
+          <th
+            *ngIf="col.visible"
+            [style.width]="col.width"
+            [ngClass]="{ 'column-action': col.type === ColumnDataType.Action }"
+            [class]="col.class ?? ''"
+            scope="col"
+          >
+            {{ col.headerName || '' }}
+          </th>
+        </ng-container>
+      </tr>
+    </ng-template>
+
+    <!-- Body -->
+    <ng-template pTemplate="body" let-rowNode let-columns="columns">
+      <tr
+        (click)="doClickRowTree(rowNode)"
+        (dblclick)="doDblClickRowTree(rowNode)"
+      >
+        <ng-container *ngFor="let col of columns">
+          <td
+            *ngIf="col.visible"
+            [style.min-width]="col.width"
+            [class]="col.class"
+            [ngClass]="{
+              'column-number': col.type === ColumnDataType.Number,
+              'column-action': col.type === ColumnDataType.Action,
+            }"
+          >
+            <ng-container *ngIf="col === columns[0]">
+              <p-treeTableToggler [rowNode]="rowNode"></p-treeTableToggler>
+            </ng-container>
+
+            <ng-container *ngIf="col.tdTemplate; else defaultCell">
+              <ng-container
+                *ngTemplateOutlet="
+                  col.tdTemplate;
+                  context: { item: rowNode.node.data }
+                "
+              ></ng-container>
+            </ng-container>
+
+            <ng-template #defaultCell>
+              <ng-container *ngIf="col.type === columnDataType.Action">
+                <ng-container
+                  *ngTemplateOutlet="
+                    tdActionTree;
+                    context: { rowNode: rowNode }
+                  "
+                ></ng-container>
+              </ng-container>
+
+              <ng-container
+                *ngIf="
+                  col.type !== columnDataType.Action &&
+                  (!col.columnActions || col.columnActions.length === 0)
+                "
+              >
+                <span
+                  class="text-truncate"
+                  [title]="
+                    rowNode.node.data
+                      | tableFieldPipe: col.fieldName
+                      | map: col.type
+                  "
+                >
+                  {{
+                    rowNode.node.data
+                      | tableFieldPipe: col.fieldName
+                      | map: col.type
+                  }}
+                </span>
+              </ng-container>
+            </ng-template>
+          </td>
+        </ng-container>
+      </tr>
+    </ng-template>
+  </p-treeTable>
+</ng-template>
+
+<ng-template #tdAction let-itemRow="item">
+  @if (getActionsItem(itemRow); as options) {
+    @if (!isMobile) {
+      <div class="flex justify-content-center" [class.hidden]="isMobile">
+        @for (opt of options; track opt; let i = $index) {
+          <i
+            class="action-icon {{ opt.icon }} {{ opt.class }}"
+            pTooltip="{{ opt.label }}"
+            tooltipPosition="top"
+            (click)="opt.func?.(itemRow); $event.stopPropagation()"
+          ></i>
+        }
+      </div>
+    }
+    @if (isMobile) {
+      @if (options.length > 0) {
+        <span
+          (click)="menu.toggle($event)"
+          (keyup.escape)="menu.hide()"
+          class="action-icon"
+        >
+          <i class="pi pi-ellipsis-h"></i>
+        </span>
+      }
+    }
+    <p-menu
+      #menu
+      [model]="toMenuItems(options, itemRow)"
+      [popup]="true"
+      appendTo="body"
+    >
+      <ng-template pTemplate="item" let-item>
+        <a class="flex align-items-center p-menuitem-link">
+          @if (item.icon) {
+            <i class="{{ item.icon }}"></i>
+          }
+          <span class="ml-2">{{ item.label }}</span>
+        </a>
+      </ng-template>
+    </p-menu>
+  }
+</ng-template>
+
+<ng-template #tdActionTree let-rowNode="rowNode">
+  @if (getActionsItem(rowNode.node.data); as options) {
+    @if (!isMobile) {
+      <div class="flex justify-content-center">
+        @for (opt of options; track opt) {
+          <i
+            class="action-icon {{ opt.icon || 'pi pi-ellipsis-h' }} {{ opt.class
+            }}"
+            pTooltip="{{ opt.label }}"
+            tooltipPosition="top"
+            (click)="opt.func?.(rowNode.node.data); $event.stopPropagation()"
+          ></i>
+        }
+      </div>
+    }
+
+    @if (isMobile && options.length > 0) {
+      <span (click)="menuTree.toggle($event)" (keyup.escape)="menuTree.hide()">
+        <i class="pi pi-ellipsis-h"></i>
+      </span>
+    }
+
+    <p-menu
+      #menuTree
+      [model]="toMenuItems(options, rowNode.node.data)"
+      [popup]="true"
+      appendTo="body"
+    >
+      <ng-template pTemplate="item" let-item>
+        <a class="flex align-items-center p-menuitem-link">
+          @if (item.icon) {
+            <i class="{{ item.icon }}"></i>
+          }
+          <span class="ml-2">{{ item.label }}</span>
+        </a>
+      </ng-template>
+    </p-menu>
+  }
+</ng-template>
+
+<ng-template #tdColumnAction let-itemRow="item" let-col="column">
+  @if (getColumnActions(itemRow, col); as options) {
+    @if (options.length > 0) {
+      <button
+        type="button"
+        class="p-button p-button-text"
+        (click)="options[0].command()"
+      >
+        <i *ngIf="options[0].icon" class="{{ options[0].icon }}"></i>
+        <span class="ml-1">{{ options[0].label }}</span>
+      </button>
+    }
+  }
+</ng-template>

@@ -48,7 +48,7 @@ export class BorrowRecordService {
   }
 
   getDossiers(): Observable<any[]> {
-    return this.http.get<any[]>(`${this.config.apiGatewayUrl}/api/equipment/dossiers`);
+    return this.http.get<any[]>(`${this.config.apiGatewayUrl}/api/v1/equipment/dossiers`);
   }
 
   updateState(id: string, state: number): Observable<any> {
