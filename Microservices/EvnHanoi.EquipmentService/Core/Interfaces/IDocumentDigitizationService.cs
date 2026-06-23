@@ -4,7 +4,7 @@ namespace EvnHanoi.EquipmentService.Core.Interfaces;
 
 public interface IDocumentDigitizationService
 {
-    Task<DocumentOcrProgressDto> SubmitOcrJobAsync(SubmitDocumentDigitizationRequest request, string userId);
+    Task<DocumentOcrProgressDto> SubmitOcrJobAsync(SubmitDocumentDigitizationRequest request, string userId, Guid? dossierId = null);
     Task<DocumentOcrProgressDto> SubmitForDossierDocumentAsync(
         Guid dossierId,
         Guid documentVersionId,

@@ -122,6 +122,7 @@ NGUYÊN TẮC QUAN TRỌNG:
 1. TRÍCH XUẤT CHÍNH XÁC từng từ từ văn bản, KHÔNG ĐƯỢC suy đoán, tóm tắt hay tự bịa ra thông tin.
 2. NẾU KHÔNG TÌM THẤY thông tin cho một trường, bắt buộc trả về giá trị null cho trường đó, tuyệt đối không điền 'Không có' hay 'N/A'.
 3. CHỈ TRẢ VỀ một chuỗi JSON duy nhất, định dạng object. KHÔNG thêm bất kỳ lời giải thích, mở bài hay markdown nào khác.
+4. Format JSON phải tuân thủ nghiêm ngặt theo cấu trúc đã cho, với tên trường chính xác như yêu cầu. KHÔNG được thêm bớt hay đổi tên trường.
 {taskMsg.ExtractPrompt}
 
 CÁC TRƯỜNG CẦN TRÍCH XUẤT:
