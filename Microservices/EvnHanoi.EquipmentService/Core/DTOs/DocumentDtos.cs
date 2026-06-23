@@ -133,3 +133,53 @@ public class DocumentFilterDto
     public int Page { get; set; } = 1;
     public int PageSize { get; set; } = 10;
 }
+
+// ===== DOSSIER CATALOG TREE DTOs =====
+
+public class FolderCatalogNodeDto
+{
+    public string Id { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string? ParentId { get; set; }
+    public long UnitId { get; set; }
+    public string UnitCode { get; set; } = string.Empty;
+    public string? CreatedBy { get; set; }
+    public DateTime CreatedDate { get; set; }
+    public string? ModifiedBy { get; set; }
+    public DateTime? ModifiedDate { get; set; }
+}
+
+public class UnitQueryDto
+{
+    public string Name { get; set; } = string.Empty;
+    public string Code { get; set; } = string.Empty;
+}
+
+public class DossierTypeQueryDto
+{
+    public string Id { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string Code { get; set; } = string.Empty;
+    public int? GridTypeId { get; set; }
+}
+
+public class InfrastructureQueryDto
+{
+    public string Id { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string Code { get; set; } = string.Empty;
+    public int InfraTypeId { get; set; }
+}
+
+public class ActiveDossierQueryDto
+{
+    public string Id { get; set; } = string.Empty;
+    public string? InfrastructureId { get; set; }
+    public string DossierTypeId { get; set; } = string.Empty;
+    public string? DossierSetId { get; set; }
+    public string? FormDataJson { get; set; }
+    public string DossierTypeName { get; set; } = string.Empty;
+    public string? DossierSetName { get; set; }
+    public int? GridTypeId { get; set; }
+}
+

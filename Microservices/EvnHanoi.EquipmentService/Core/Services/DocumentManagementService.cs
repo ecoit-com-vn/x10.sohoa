@@ -1,3 +1,4 @@
+using System.Text.Json;
 using EvnHanoi.EquipmentService.Core.DTOs;
 using EvnHanoi.EquipmentService.Core.Entities;
 using EvnHanoi.EquipmentService.Core.Interfaces;
@@ -25,6 +26,15 @@ public interface IDocumentManagementService
 
     // Document Version operations
     Task<IEnumerable<DocumentVersionDto>> GetDocumentVersionsAsync(Guid documentId);
+
+    // Dossier Catalog tree operations
+    Task<IEnumerable<FolderCatalogNodeDto>> GetDossierCatalogTreeAsync(long unitId);
+    Task<(IEnumerable<DocumentListItemDto> Items, int TotalCount)> GetDossierCatalogDocumentsAsync(
+        long unitId, 
+        string? folderId, 
+        string? keyword, 
+        int page, 
+        int pageSize);
 }
 
 public class DocumentManagementService : IDocumentManagementService
@@ -179,5 +189,314 @@ public class DocumentManagementService : IDocumentManagementService
     public async Task<IEnumerable<DocumentVersionDto>> GetDocumentVersionsAsync(Guid documentId)
     {
         return await _documentRepository.GetDocumentVersionsAsync(documentId);
+    }
+
+    // ===== DOSSIER CATALOG TREE OPERATIONS =====
+
+    private string GetDossierDisplayName(string? formDataJson, string dossierTypeName, string dossierSetName, string dossierId)
+    {
+        string? name = null;
+        string? code = null;
+
+        if (!string.IsNullOrEmpty(formDataJson))
+        {
+            try
+            {
+                using (var doc = JsonDocument.Parse(formDataJson))
+                {
+                    var root = doc.RootElement;
+                    if (root.ValueKind == JsonValueKind.Object)
+                    {
+                        if (root.TryGetProperty("NAME", out var pName)) name = pName.GetString();
+                        else if (root.TryGetProperty("name", out pName)) name = pName.GetString();
+                        else if (root.TryGetProperty("Dossier_Name", out pName)) name = pName.GetString();
+                        else if (root.TryGetProperty("dossier_name", out pName)) name = pName.GetString();
+
+                        if (root.TryGetProperty("CODE", out var pCode)) code = pCode.GetString();
+                        else if (root.TryGetProperty("code", out pCode)) code = pCode.GetString();
+                        else if (root.TryGetProperty("Dossier_Code", out pCode)) code = pCode.GetString();
+                        else if (root.TryGetProperty("dossier_code", out pCode)) code = pCode.GetString();
+                    }
+                }
+            }
+            catch
+            {
+                // Ignore JSON parsing errors
+            }
+        }
+
+        name = name?.Trim();
+        code = code?.Trim();
+
+        if (!string.IsNullOrEmpty(name) && !string.IsNullOrEmpty(code))
+        {
+            return $"{name} ({code})";
+        }
+        else if (!string.IsNullOrEmpty(name))
+        {
+            return name;
+        }
+        else if (!string.IsNullOrEmpty(code))
+        {
+            return $"{dossierTypeName} - {code}";
+        }
+
+        string suffix = dossierId.Length >= 8 ? dossierId.Substring(0, 8) : dossierId;
+        return $"{dossierTypeName} ({suffix})";
+    }
+
+    public async Task<IEnumerable<FolderCatalogNodeDto>> GetDossierCatalogTreeAsync(long unitId)
+    {
+        // 1. Get Unit Info
+        var unitInfo = await _documentRepository.GetUnitInfoAsync(unitId);
+        if (unitInfo == null || string.IsNullOrEmpty(unitInfo.Name))
+        {
+            throw new InvalidOperationException("Không tìm thấy thông tin đơn vị trong hệ thống");
+        }
+
+        // 2. Query Infrastructures (both Substations (1) and Power lines (2))
+        var infrastructures = await _documentRepository.GetActiveInfrastructuresByUnitAsync(unitId);
+
+        // 3. Query active dossiers for this unit
+        var dossiers = await _documentRepository.GetActiveDossiersByUnitAsync(unitId);
+
+        var nodes = new List<FolderCatalogNodeDto>();
+        var unitCode = unitInfo.Code ?? string.Empty;
+
+        // Cấp 1 (Root - Fix cứng): Trạm biến áp & Đường dây
+        nodes.Add(new FolderCatalogNodeDto
+        {
+            Id = "root-tba",
+            Name = "Trạm biến áp",
+            ParentId = null,
+            UnitId = unitId,
+            UnitCode = unitCode,
+            CreatedDate = DateTime.UtcNow
+        });
+
+        nodes.Add(new FolderCatalogNodeDto
+        {
+            Id = "root-dd",
+            Name = "Đường dây",
+            ParentId = null,
+            UnitId = unitId,
+            UnitCode = unitCode,
+            CreatedDate = DateTime.UtcNow
+        });
+
+        // Cấp 2 under Trạm biến áp: Lưới điện cao áp & Lưới điện trung áp
+        nodes.Add(new FolderCatalogNodeDto
+        {
+            Id = "tba-cao-ap",
+            Name = "Lưới điện cao áp",
+            ParentId = "root-tba",
+            UnitId = unitId,
+            UnitCode = unitCode,
+            CreatedDate = DateTime.UtcNow
+        });
+
+        nodes.Add(new FolderCatalogNodeDto
+        {
+            Id = "tba-trung-ap",
+            Name = "Lưới điện trung áp",
+            ParentId = "root-tba",
+            UnitId = unitId,
+            UnitCode = unitCode,
+            CreatedDate = DateTime.UtcNow
+        });
+
+        // Cấp 2 under Đường dây: Lưới điện cao áp & Lưới điện trung áp
+        nodes.Add(new FolderCatalogNodeDto
+        {
+            Id = "dd-cao-ap",
+            Name = "Lưới điện cao áp",
+            ParentId = "root-dd",
+            UnitId = unitId,
+            UnitCode = unitCode,
+            CreatedDate = DateTime.UtcNow
+        });
+
+        nodes.Add(new FolderCatalogNodeDto
+        {
+            Id = "dd-trung-ap",
+            Name = "Lưới điện trung áp",
+            ParentId = "root-dd",
+            UnitId = unitId,
+            UnitCode = unitCode,
+            CreatedDate = DateTime.UtcNow
+        });
+
+        // Tách biệt Substations (type = 1) và Power Lines (type = 2)
+        var substations = infrastructures.Where(x => x.InfraTypeId == 1);
+        var powerLines = infrastructures.Where(x => x.InfraTypeId == 2);
+
+        // 1. Mapping Trạm biến áp (4 cấp)
+        foreach (var sub in substations)
+        {
+            bool isHighVoltageSub = (sub.Name != null && (sub.Name.Contains("110") || sub.Name.Contains("220") || sub.Name.Contains("500")))
+                                    || (sub.Code != null && (sub.Code.Contains("110") || sub.Code.Contains("220") || sub.Code.Contains("500")));
+
+            if (isHighVoltageSub)
+            {
+                // Cấp 3 under tba-cao-ap
+                var subNodeId = $"tba-cao-ap_{sub.Id}";
+                nodes.Add(new FolderCatalogNodeDto
+                {
+                    Id = subNodeId,
+                    Name = $"{sub.Name} ({sub.Code})",
+                    ParentId = "tba-cao-ap",
+                    UnitId = unitId,
+                    UnitCode = unitCode,
+                    CreatedDate = DateTime.UtcNow
+                });
+
+                // Cấp 4 (Lá) under this Substation: các hồ sơ Cao áp của Trạm biến áp này (GridTypeId == 1 hoặc null)
+                var subDossiers = dossiers.Where(d => string.Equals(d.InfrastructureId, sub.Id, StringComparison.OrdinalIgnoreCase) && (d.GridTypeId == 1 || d.GridTypeId == null));
+                foreach (var d in subDossiers)
+                {
+                    var dossierName = GetDossierDisplayName(d.FormDataJson, d.DossierTypeName, d.DossierSetName ?? "", d.Id);
+                    nodes.Add(new FolderCatalogNodeDto
+                    {
+                        Id = $"dossier_{d.Id}",
+                        Name = dossierName,
+                        ParentId = subNodeId,
+                        UnitId = unitId,
+                        UnitCode = unitCode,
+                        CreatedDate = DateTime.UtcNow
+                    });
+                }
+            }
+            else
+            {
+                // Cấp 3 under tba-trung-ap
+                var subNodeId = $"tba-trung-ap_{sub.Id}";
+                nodes.Add(new FolderCatalogNodeDto
+                {
+                    Id = subNodeId,
+                    Name = $"{sub.Name} ({sub.Code})",
+                    ParentId = "tba-trung-ap",
+                    UnitId = unitId,
+                    UnitCode = unitCode,
+                    CreatedDate = DateTime.UtcNow
+                });
+
+                // Cấp 4 (Lá) under this Substation: các hồ sơ Trung áp của Trạm biến áp này (GridTypeId != 1 hoặc null)
+                var subDossiers = dossiers.Where(d => string.Equals(d.InfrastructureId, sub.Id, StringComparison.OrdinalIgnoreCase) && (d.GridTypeId != 1 || d.GridTypeId == null));
+                foreach (var d in subDossiers)
+                {
+                    var dossierName = GetDossierDisplayName(d.FormDataJson, d.DossierTypeName, d.DossierSetName ?? "", d.Id);
+                    nodes.Add(new FolderCatalogNodeDto
+                    {
+                        Id = $"dossier_{d.Id}",
+                        Name = dossierName,
+                        ParentId = subNodeId,
+                        UnitId = unitId,
+                        UnitCode = unitCode,
+                        CreatedDate = DateTime.UtcNow
+                    });
+                }
+            }
+        }
+
+        // 2. Mapping Đường dây (4 cấp)
+        foreach (var infra in powerLines)
+        {
+            bool isHighVoltageInfra = (infra.Name != null && (infra.Name.Contains("110") || infra.Name.Contains("220") || infra.Name.Contains("500")))
+                                      || (infra.Code != null && (infra.Code.Contains("110") || infra.Code.Contains("220") || infra.Code.Contains("500")));
+
+            if (isHighVoltageInfra)
+            {
+                // Cấp 3 under dd-cao-ap
+                var lineNodeId = $"dd-cao-ap_{infra.Id}";
+                nodes.Add(new FolderCatalogNodeDto
+                {
+                    Id = lineNodeId,
+                    Name = $"{infra.Name} ({infra.Code})",
+                    ParentId = "dd-cao-ap",
+                    UnitId = unitId,
+                    UnitCode = unitCode,
+                    CreatedDate = DateTime.UtcNow
+                });
+
+                // Cấp 4 (Lá) under this Power Line: các hồ sơ Cao áp của Đường dây này
+                var lineDossiers = dossiers.Where(d => string.Equals(d.InfrastructureId, infra.Id, StringComparison.OrdinalIgnoreCase) && (d.GridTypeId == 1 || d.GridTypeId == null));
+                foreach (var d in lineDossiers)
+                {
+                    var dossierName = GetDossierDisplayName(d.FormDataJson, d.DossierTypeName, d.DossierSetName ?? "", d.Id);
+                    nodes.Add(new FolderCatalogNodeDto
+                    {
+                        Id = $"dossier_{d.Id}",
+                        Name = dossierName,
+                        ParentId = lineNodeId,
+                        UnitId = unitId,
+                        UnitCode = unitCode,
+                        CreatedDate = DateTime.UtcNow
+                    });
+                }
+            }
+            else
+            {
+                // Cấp 3 under dd-trung-ap
+                var lineNodeId = $"dd-trung-ap_{infra.Id}";
+                nodes.Add(new FolderCatalogNodeDto
+                {
+                    Id = lineNodeId,
+                    Name = $"{infra.Name} ({infra.Code})",
+                    ParentId = "dd-trung-ap",
+                    UnitId = unitId,
+                    UnitCode = unitCode,
+                    CreatedDate = DateTime.UtcNow
+                });
+
+                // Cấp 4 (Lá) under this Power Line: các hồ sơ Trung áp của Đường dây này
+                var lineDossiers = dossiers.Where(d => string.Equals(d.InfrastructureId, infra.Id, StringComparison.OrdinalIgnoreCase) && (d.GridTypeId != 1 || d.GridTypeId == null));
+                foreach (var d in lineDossiers)
+                {
+                    var dossierName = GetDossierDisplayName(d.FormDataJson, d.DossierTypeName, d.DossierSetName ?? "", d.Id);
+                    nodes.Add(new FolderCatalogNodeDto
+                    {
+                        Id = $"dossier_{d.Id}",
+                        Name = dossierName,
+                        ParentId = lineNodeId,
+                        UnitId = unitId,
+                        UnitCode = unitCode,
+                        CreatedDate = DateTime.UtcNow
+                    });
+                }
+            }
+        }
+
+        return nodes;
+    }
+
+    public async Task<(IEnumerable<DocumentListItemDto> Items, int TotalCount)> GetDossierCatalogDocumentsAsync(
+        long unitId, 
+        string? folderId, 
+        string? keyword, 
+        int page, 
+        int pageSize)
+    {
+        if (string.IsNullOrWhiteSpace(folderId))
+        {
+            return (Enumerable.Empty<DocumentListItemDto>(), 0);
+        }
+
+        // Only Level 4 dossier nodes are selectable and return documents
+        if (folderId.StartsWith("dossier_", StringComparison.OrdinalIgnoreCase))
+        {
+            var dossierIdStr = folderId.Substring("dossier_".Length);
+            if (Guid.TryParse(dossierIdStr, out var dossierId))
+            {
+                var dossierFilter = new DossierDocumentFilterDto
+                {
+                    Keyword = keyword,
+                    Page = page,
+                    PageSize = pageSize
+                };
+                return await _documentRepository.GetDocumentsByDossierAsync(dossierId, dossierFilter);
+            }
+        }
+
+        return (Enumerable.Empty<DocumentListItemDto>(), 0);
     }
 }

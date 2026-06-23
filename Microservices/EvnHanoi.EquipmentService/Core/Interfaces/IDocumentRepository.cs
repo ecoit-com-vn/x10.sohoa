@@ -41,4 +41,17 @@ public interface IDocumentRepository
     Task<bool> DocumentBelongsToDossierAsync(Guid documentId, Guid dossierId);
     Task<bool> VersionBelongsToDossierAsync(Guid versionId, Guid dossierId);
     Task<Guid?> GetDossierIdByVersionIdAsync(Guid versionId);
+
+    // Dossier Catalog tree queries
+    Task<UnitQueryDto?> GetUnitInfoAsync(long unitId);
+    Task<IEnumerable<DossierTypeQueryDto>> GetActiveDossierTypesWithGridTypeAsync();
+    Task<IEnumerable<InfrastructureQueryDto>> GetActiveInfrastructuresByUnitAsync(long unitId);
+    Task<IEnumerable<ActiveDossierQueryDto>> GetActiveDossiersByUnitAsync(long unitId);
+    Task<(IEnumerable<DocumentListItemDto> Items, int TotalCount)> GetDossierCatalogDocumentsAsync(
+        long unitId, 
+        string? infrastructureId, 
+        string? dossierTypeId, 
+        string? keyword, 
+        int page, 
+        int pageSize);
 }
