@@ -27,7 +27,7 @@ messages = [
         "FileId": "1b9a9d28-765f-4a0f-90e6-a05e2ed37eb1",
         "FilePath": "0002.pdf",
         "BucketName": "orc",
-        "ProcessOption": "ExtractOnly",
+        "ProcessOption": "OcrAndExtract",
         "Forms": [
             {
                 "FormId": "form-1",
