@@ -136,7 +136,6 @@ export class DossierDirectUploadDialogComponent implements OnInit {
 
   onShow(): void {
     this.uploadedFiles.set([]);
-    this.uploadZone?.clearUploads();
     this.ocrMode = 'none';
     this.submitting.set(false);
     this.selectedDocumentTypeId.set('');
