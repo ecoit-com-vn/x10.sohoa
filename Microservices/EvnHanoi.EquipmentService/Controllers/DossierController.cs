@@ -286,14 +286,14 @@ public partial class DossierController : ControllerBase
     }
 
     [HttpGet("get-my-tasks")]
-    public async Task<IActionResult> GetMyTasks()
+    public async Task<IActionResult> GetMyTasks([FromQuery] Guid? instanceId = null)
     {
         var userRoles = User.Claims
             .Where(c => c.Type == ClaimTypes.Role)
             .Select(c => c.Value)
             .ToList();
         var isAdmin = User.IsInRole("ADMIN") || userRoles.Contains("ADMIN");
-        var tasks = await _dossierService.GetMyTasksAsync(userRoles, isAdmin, UserId);
+        var tasks = await _dossierService.GetMyTasksAsync(userRoles, isAdmin, UserId, instanceId);
         return Ok(tasks);
     }
 }

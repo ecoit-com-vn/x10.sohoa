@@ -12,5 +12,6 @@ namespace EvnHanoi.WorkflowService.Core.Interfaces
         Task<BorrowRecord?> GetByIdAsync(Guid id);
         Task<bool> CreateAsync(BorrowRecord record);
         Task<bool> UpdateAsync(BorrowRecord record);
+        Task<IEnumerable<BorrowRecord>> GetSummaryByIdsAsync(IEnumerable<Guid> ids);
     }
 }

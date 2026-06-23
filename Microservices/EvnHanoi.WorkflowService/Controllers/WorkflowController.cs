@@ -93,7 +93,7 @@ namespace EvnHanoi.WorkflowService.Controllers
         }
 
         [HttpGet("get-my-tasks")]
-        public async Task<IActionResult> GetMyTasks()
+        public async Task<IActionResult> GetMyTasks([FromQuery] Guid? instanceId = null)
         {
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.Identity?.Name ?? "admin";
             var roles = User.Claims
@@ -103,7 +103,7 @@ namespace EvnHanoi.WorkflowService.Controllers
             var isAdmin = roles.Any(r => r.Equals("ADMIN", StringComparison.OrdinalIgnoreCase)
                                       || r.Equals("Admin", StringComparison.OrdinalIgnoreCase));
 
-            var tasks = await _workflowEngine.GetMyTasksAsync(roles, isAdmin, userId);
+            var tasks = await _workflowEngine.GetMyTasksAsync(roles, isAdmin, userId, instanceId);
             return Ok(tasks);
         }
 

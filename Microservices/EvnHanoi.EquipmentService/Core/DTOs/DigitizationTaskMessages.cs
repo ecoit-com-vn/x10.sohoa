@@ -30,6 +30,16 @@ public class DigitizationExtractionFormField
     public string Description { get; set; } = string.Empty;
 }
 
+public class ExtractionTaskPublishMessage
+{
+    public Guid FileId { get; set; }
+    public string FilePath { get; set; } = string.Empty;
+    public string BucketName { get; set; } = string.Empty;
+    public string? ExtractPrompt { get; set; }
+    public DigitizationExtractionForm? Form { get; set; }
+    public string? FormSchemaJson { get; set; }
+}
+
 /// <summary>ocr.process.progress / extraction.process.progress</summary>
 public class DigitizationProgressMessage
 {

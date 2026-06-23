@@ -1,5 +1,6 @@
 using EvnHanoi.NotificationService.Hubs;
 using EvnHanoi.NotificationService.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using System.Text.Json;
@@ -11,13 +12,18 @@ namespace EvnHanoi.NotificationService.Controllers;
 public class NotificationsController : ControllerBase
 {
     private readonly IHubContext<NotificationHub> _hubContext;
+    private readonly ILogger<NotificationsController> _logger;
 
-    public NotificationsController(IHubContext<NotificationHub> hubContext)
+    public NotificationsController(
+        IHubContext<NotificationHub> hubContext,
+        ILogger<NotificationsController> logger)
     {
         _hubContext = hubContext;
+        _logger = logger;
     }
 
     /// <summary>EquipmentService gọi sau khi cập nhật progress từ RabbitMQ.</summary>
+    [AllowAnonymous]
     [HttpPost("digitization-progress")]
     public async Task<IActionResult> PushDigitizationProgress([FromBody] DigitizationProgressPushDto message)
     {
@@ -26,7 +32,13 @@ public class NotificationsController : ControllerBase
 
         var group = NotificationHub.BuildDossierGroup(message.DossierId.ToString());
         await _hubContext.Clients.Group(group).SendAsync("ReceiveDigitizationProgress", message);
-        return Ok(new { success = true });
+        _logger.LogInformation(
+            "Pushed digitization progress to {Group}: version {VersionId}, phase {Phase}, progress {Progress}%",
+            group,
+            message.DocumentVersionId,
+            message.Phase,
+            message.Progress);
+        return Ok(new { success = true, group });
     }
 
     [HttpPost("push")]

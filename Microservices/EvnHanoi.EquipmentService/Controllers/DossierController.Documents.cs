@@ -289,6 +289,30 @@ public partial class DossierController
         }
     }
 
+    /// <summary>Bóc tách lại — gửi thẳng ExtractionWorker, form EAV luôn load mới.</summary>
+    [HttpPost("{id:guid}/documents/{versionId:guid}/digitization/re-extract")]
+    public async Task<IActionResult> ReExtractDocument(
+        Guid id,
+        Guid versionId)
+    {
+        try
+        {
+            var result = await _documentDigitizationService.ReExtractForDossierDocumentAsync(
+                id,
+                versionId,
+                UserId);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
     [HttpGet("{id:guid}/documents/{versionId:guid}/digitization/progress")]
     [BypassDynamicPermission]
     public async Task<IActionResult> GetDocumentDigitizationProgress(Guid id, Guid versionId)

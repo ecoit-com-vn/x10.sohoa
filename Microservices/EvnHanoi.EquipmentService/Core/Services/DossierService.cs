@@ -353,10 +353,14 @@ public class DossierService : IDossierService
         return await response.Content.ReadFromJsonAsync<object>();
     }
 
-    public async Task<IEnumerable<object>> GetMyTasksAsync(List<string> userRoles, bool isAdmin, string userId)
+    public async Task<IEnumerable<object>> GetMyTasksAsync(List<string> userRoles, bool isAdmin, string userId, Guid? workflowInstanceId = null)
     {
         var client = _httpClientFactory.CreateClient("WorkflowService");
-        var response = await client.GetAsync("api/v1/workflows/get-my-tasks");
+        var url = "api/v1/workflows/get-my-tasks";
+        if (workflowInstanceId.HasValue)
+            url += $"?instanceId={workflowInstanceId.Value}";
+
+        var response = await client.GetAsync(url);
         if (!response.IsSuccessStatusCode) return Enumerable.Empty<object>();
         return await response.Content.ReadFromJsonAsync<IEnumerable<object>>() ?? Enumerable.Empty<object>();
     }

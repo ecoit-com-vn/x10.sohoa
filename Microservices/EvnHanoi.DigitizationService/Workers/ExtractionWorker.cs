@@ -113,8 +113,8 @@ namespace EvnHanoi.DigitizationService.Workers
                                 }
                                 string fieldsStr = string.Join("\n", fieldsList);
 
-                                // 4.PHÂN BIỆT RÕ các chủ thể: 'Customer/Chủ đầu tư' và 'Nhà thầu/Nhà sản xuất/Đơn vị cung cấp'.
-                                // 5.ĐỐI VỚI DẤU THẬP PHÂN: Giữ nguyên định dạng gốc trong văn bản(ví dụ: 22 / 0,4kV).
+                                /// 4.PHÂN BIỆT RÕ các chủ thể: 'Customer/Chủ đầu tư' và 'Nhà thầu/Nhà sản xuất/Đơn vị cung cấp'.
+                                /// 5.ĐỐI VỚI DẤU THẬP PHÂN: Giữ nguyên định dạng gốc trong văn bản(ví dụ: 22 / 0,4kV).
                                 systemPrompt = $@"Bạn là một chuyên gia phân tích và trích xuất dữ liệu tài liệu kỹ thuật ngành điện lực Việt Nam.
 Nhiệm vụ của bạn là đọc kỹ văn bản OCR và trích xuất CHÍNH XÁC các trường thông tin được yêu cầu dưới định dạng JSON object.
 
@@ -144,7 +144,7 @@ CÁC TRƯỜNG CẦN TRÍCH XUẤT:
 
                                 // Sử dụng SemaphoreSlim để giới hạn số lượng request đồng thời gửi lên LLM Server (Max 2 concurrent)
                                 // Tránh việc LLM bị quá tải và gây ra timeout khi tài liệu có quá nhiều trang.
-                                using var semaphore = new SemaphoreSlim(2, 2);
+                                using var semaphore = new SemaphoreSlim(1, 1);
                                 int completedPages = 0;
 
                                 for (int i = 1; i <= totalPages; i++)

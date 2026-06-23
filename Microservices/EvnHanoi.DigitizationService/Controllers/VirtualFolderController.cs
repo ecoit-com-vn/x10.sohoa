@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using EvnHanoi.DigitizationService.Models;
 using EvnHanoi.DigitizationService.Repositories;
 using EvnHanoi.DigitizationService.Services;
+using EvnHanoi.Infrastructure.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -220,7 +221,7 @@ namespace EvnHanoi.DigitizationService.Controllers
                 {
                     if (file.Length == 0) continue;
 
-                    var objectName = $"{Guid.NewGuid()}_{file.FileName}";
+                    var objectName = $"{Guid.NewGuid()}_{FileNameHelper.ToMinioObjectFileName(file.FileName)}";
                     
                     // 1. Upload to MinIO
                     using var stream = file.OpenReadStream();

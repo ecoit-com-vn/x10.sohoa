@@ -1,6 +1,8 @@
 using EvnHanoi.WorkflowService.Core.Interfaces;
 using EvnHanoi.WorkflowService.Models;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace EvnHanoi.WorkflowService.Infrastructure.Services
@@ -91,6 +93,33 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
                 }
             }
             return "Yêu cầu mượn/trả hồ sơ";
+        }
+
+        public async Task<IReadOnlyDictionary<string, string>> GetEntityDetailsBatchAsync(IReadOnlyCollection<string> entityIds)
+        {
+            var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            if (entityIds.Count == 0) return result;
+
+            var guidIds = entityIds
+                .Select(id => Guid.TryParse(id, out var parsed) ? parsed : Guid.Empty)
+                .Where(id => id != Guid.Empty)
+                .Distinct()
+                .ToList();
+
+            var records = guidIds.Count > 0
+                ? (await _borrowRepository.GetSummaryByIdsAsync(guidIds)).ToList()
+                : new List<BorrowRecord>();
+
+            var byId = records.ToDictionary(r => r.Id.ToString(), StringComparer.OrdinalIgnoreCase);
+            foreach (var entityId in entityIds.Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                if (byId.TryGetValue(entityId, out var br))
+                    result[entityId] = $"Mượn hồ sơ: {br.DossierId} - Lý do: {br.Reason}";
+                else
+                    result[entityId] = "Yêu cầu mượn/trả hồ sơ";
+            }
+
+            return result;
         }
     }
 }
