@@ -144,7 +144,7 @@ CÁC TRƯỜNG CẦN TRÍCH XUẤT:
 
                                 // Sử dụng SemaphoreSlim để giới hạn số lượng request đồng thời gửi lên LLM Server (Max 2 concurrent)
                                 // Tránh việc LLM bị quá tải và gây ra timeout khi tài liệu có quá nhiều trang.
-                                using var semaphore = new SemaphoreSlim(2, 2);
+                                using var semaphore = new SemaphoreSlim(1, 1);
                                 int completedPages = 0;
 
                                 for (int i = 1; i <= totalPages; i++)
