@@ -1,0 +1,55 @@
+<div>
+  <label class="label-input" *ngIf="showLabel">
+    <span *ngIf="showLabel"> {{ label }}</span>
+    <span *ngIf="checkRequire()" class="p-errors" style="color: red; margin-left: 3px">*</span></label
+  >
+  <p-inputMask
+    styleClass="w-full"
+    (click)="!control.disabled && op.show($event);!control.disabled && onClick($event)"
+    (keyup)="onKeyUp($event)"
+    (onBlur)="onTouched(); onBlur()"
+    (onInput)="onInput($event)"
+    (onKeydown)="onKeyDown($event)"
+    [autoClear]="false"
+    [formControl]="control"
+    [ngClass]="{ 'ng-invalid ng-dirty': errors, readonly: readonly }"
+    [placeholder]="placeholder"
+    [readonly]="readonly"
+    [unmask]="true"
+    mask="{{ '99' + separator + '99' }}"
+    slotChar="-"></p-inputMask>
+  <div class="relative b-errors">
+    <ng-container *ngIf="errors">
+      <small class="p-error error-msg block fadeinup animation-duration-300">
+        <span class="block">{{ getError().key }}</span>
+      </small>
+    </ng-container>
+  </div>
+</div>
+
+<p-popover #op (onShow)="onPickerShow()" appendTo="body">
+  <ng-template pTemplate>
+    <div class="time-picker-container">
+      <div class="grid h-full">
+        <div class="col-6 h-full overflow-auto">
+          <div
+            (click)="setHour(hourItem)"
+            *ngFor="let hourItem of hours"
+            [ngClass]="{ selected: +hourItem === hour }"
+            class="item" id="hour-{{hourItem}}">
+            {{ hourItem }}
+          </div>
+        </div>
+        <div class="col-6 h-full overflow-auto">
+          <div
+            (click)="setMinute(minuteItem)"
+            *ngFor="let minuteItem of minutes"
+            [ngClass]="{ selected: +minuteItem === minute }"
+            class="item" id="minute-{{minuteItem}}">
+            {{ minuteItem }}
+          </div>
+        </div>
+      </div>
+    </div>
+  </ng-template>
+</p-popover>

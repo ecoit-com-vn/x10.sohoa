@@ -3,16 +3,18 @@ import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
 import { MenuItem } from 'primeng/api';
 import { NotificationBellComponent } from '../notification-bell/notification-bell.component';
-import { AuthService, MenuService } from '@sohoa.frontend/shared/core';
+import { AuthService, MenuService, LoadingService } from '@sohoa.frontend/shared/core';
+import { LoadingComponent } from '../common/loading/loading.component';
 
 @Component({
   selector: 'app-admin-layout',
   standalone: true,
-  imports: [CommonModule, RouterModule, NotificationBellComponent],
+  imports: [CommonModule, RouterModule, NotificationBellComponent, LoadingComponent],
   templateUrl: './admin-layout.component.html',
   styleUrl: './admin-layout.component.scss'
 })
 export class AdminLayout implements OnInit {
+  public loadingService = inject(LoadingService);
   private router = inject(Router);
   private authService = inject(AuthService);
   private menuService = inject(MenuService);

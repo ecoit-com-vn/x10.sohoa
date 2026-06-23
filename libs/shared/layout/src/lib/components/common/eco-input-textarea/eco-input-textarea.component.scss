@@ -1,0 +1,34 @@
+.p-error {
+  top: 0;
+  left: 0;
+  width: 100%;
+}
+
+.b-errors {
+  height: 0px;
+}
+
+.readonly-view .readonly-content {
+  padding: 4px 0 0 0;
+}
+
+// textarea {
+//   resize: none;
+// }
+
+p-textarea.one-line {
+  textarea {
+    min-height: 2.5rem;
+  }
+}
+
+::ng-deep textarea.p-inputtextarea {
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    sans-serif,
+    "Apple Color Emoji",
+    "Segoe UI Emoji",
+    Segoe UI Symbol,
+    "Noto Color Emoji";
+}

@@ -46,6 +46,10 @@ export const CATALOG_ROUTES: Route[] = [
     loadComponent: () => import('./feature/dossier-type/dossier-type.component').then(m => m.DossierTypeComponent)
   },
   {
+    path: 'document-type',
+    loadComponent: () => import('./feature/document-type/document-type.component').then(m => m.DocumentTypeComponent)
+  },
+  {
     path: 'substation',
     loadComponent: () => import('./feature/infrastructure/infrastructure.component').then(m => m.InfrastructureComponent),
     data: { infraTypeId: 1, title: 'Danh mục trạm biến áp' }

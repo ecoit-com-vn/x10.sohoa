@@ -1,0 +1,46 @@
+.navi_list {
+    margin-top: 0;
+    display: flex;
+    padding-left: 0;
+    margin-bottom: 10px;
+    li {
+        position: relative;
+        margin-right: 25px;
+        font-size: 14px;
+        font-weight: bold;
+        color: #595959;
+        list-style: none;
+
+        &::after {
+            position: absolute;
+            top: 0;
+            right: -16px;
+            content: "›";
+        }
+
+        &:last-child {
+            margin-right: 0;
+            a{
+                color: #1a3593!important;
+            }
+            
+            &::after {
+                display: none;
+            }
+        }
+
+        a {
+            display: inline-block;
+            transition: 0.2s;
+            text-decoration: none; 
+            color: #595959;
+
+            &:hover {
+                color: #1a3593;
+            }
+        }
+    }
+}
+
+
+  

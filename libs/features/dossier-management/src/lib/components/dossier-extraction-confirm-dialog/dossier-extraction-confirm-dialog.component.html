@@ -1,0 +1,114 @@
+<p-dialog
+  [visible]="visible"
+  (visibleChange)="visibleChange.emit($event)"
+  (onShow)="onShow()"
+  [header]="'Xác nhận bóc tách — ' + (documentName || 'Tài liệu')"
+  [modal]="true"
+  [style]="{ width: '760px', maxWidth: '95vw' }"
+  styleClass="evn-dialog-custom"
+  [closable]="!saving()"
+  [draggable]="false"
+>
+  <div *ngIf="loading()" class="confirm-loading">
+    <i class="pi pi-spin pi-spinner"></i>
+    Đang tải kết quả bóc tách...
+  </div>
+
+  <ng-container *ngIf="!loading()">
+    <p class="confirm-intro">
+      Kiểm tra và chỉnh sửa các trường được OCR đề xuất, sau đó áp dụng vào biểu mẫu hồ sơ.
+    </p>
+
+    <div class="apply-mode-row">
+      <label class="mode-option">
+        <input type="radio" name="applyMode" value="fillEmpty" [(ngModel)]="applyMode" />
+        Chỉ điền trường đang trống
+      </label>
+      <label class="mode-option">
+        <input type="radio" name="applyMode" value="overwrite" [(ngModel)]="applyMode" />
+        Ghi đè cả trường đã có dữ liệu
+      </label>
+    </div>
+
+    <div class="selection-toolbar" *ngIf="selectableFields().length > 0">
+      <span>{{ selectedKeys().size }} / {{ selectableFields().length }} trường được chọn</span>
+      <div class="selection-actions">
+        <button type="button" class="btn-small btn-outlined" (click)="selectAll()">Chọn tất cả</button>
+        <button type="button" class="btn-small btn-outlined" (click)="clearSelection()">Bỏ chọn</button>
+      </div>
+    </div>
+
+    <div *ngIf="fields().length === 0" class="empty-fields">
+      Không có trường form để hiển thị.
+    </div>
+
+    <div class="confirm-form-grid" *ngIf="fields().length > 0">
+      <div
+        class="confirm-field"
+        *ngFor="let field of fields()"
+        [class.no-value]="!draftData()[field.key] && draftData()[field.key] !== false"
+      >
+        <div class="field-head">
+          <p-checkbox
+            [binary]="true"
+            [ngModel]="isSelected(field.key)"
+            (ngModelChange)="toggleField(field.key, $event)"
+            [disabled]="!hasExtractedValue(draftData()[field.key])"
+          ></p-checkbox>
+          <label class="form-label">{{ field.label }}</label>
+        </div>
+
+        <div class="current-value" *ngIf="currentFormData()[field.key] !== undefined && currentFormData()[field.key] !== ''">
+          <span class="meta-label">Hiện tại:</span>
+          {{ displayValue(currentFormData()[field.key]) }}
+        </div>
+
+        <ng-container [ngSwitch]="field.type">
+          <textarea
+            *ngSwitchCase="'textarea'"
+            class="wf-textarea w-full"
+            rows="2"
+            [ngModel]="draftData()[field.key] ?? ''"
+            (ngModelChange)="setDraftFieldValue(field.key, $event)"
+          ></textarea>
+          <select
+            *ngSwitchCase="'select'"
+            class="wf-select w-full"
+            [ngModel]="draftData()[field.key] ?? ''"
+            (ngModelChange)="setDraftFieldValue(field.key, $event)"
+          >
+            <option value="">-- Chọn --</option>
+            <option *ngFor="let opt of field.options" [ngValue]="opt.value">{{ opt.label }}</option>
+          </select>
+          <label *ngSwitchCase="'checkbox'" class="checkbox-row">
+            <input
+              type="checkbox"
+              [checked]="!!draftData()[field.key]"
+              (change)="setDraftCheckbox(field.key, $event)"
+            />
+            {{ field.placeholder || field.label }}
+          </label>
+          <input
+            *ngSwitchDefault
+            [type]="field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : 'text'"
+            class="wf-input w-full"
+            [ngModel]="draftData()[field.key] ?? ''"
+            (ngModelChange)="setDraftFieldValue(field.key, $event)"
+          />
+        </ng-container>
+      </div>
+    </div>
+  </ng-container>
+
+  <ng-template #footer>
+    <p-button label="Hủy" severity="secondary" size="small" (onClick)="close()" [disabled]="saving()"></p-button>
+    <p-button
+      label="Áp dụng vào hồ sơ"
+      size="small"
+      icon="pi pi-check"
+      (onClick)="confirmApply()"
+      [disabled]="loading() || saving() || !canEdit || selectedKeys().size === 0"
+      [loading]="saving()"
+    ></p-button>
+  </ng-template>
+</p-dialog>

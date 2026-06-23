@@ -1,0 +1,27 @@
+<div class="upload-menu-wrap" (click)="$event.stopPropagation()">
+  <p-button
+    label="Thêm tài liệu"
+    icon="pi pi-plus"
+    size="small"
+    [disabled]="disabled()"
+    (onClick)="toggleMenu($event)"
+  ></p-button>
+
+  <div class="upload-menu-dropdown" *ngIf="menuOpen()">
+    <button type="button" class="upload-menu-item" (click)="selectAction('folder')">
+      <i class="pi pi-folder-open"></i>
+      <span>Chọn từ thư mục</span>
+    </button>
+    <button type="button" class="upload-menu-item" (click)="selectAction('direct')">
+      <i class="pi pi-upload"></i>
+      <span>Upload trực tiếp</span>
+    </button>
+    <div class="upload-menu-divider"></div>
+    <button type="button" class="upload-menu-item disabled" disabled title="Tính năng sắp có">
+      <i class="pi pi-print"></i>
+      <span>Upload từ máy scan</span>
+    </button>
+  </div>
+</div>
+
+<div class="upload-menu-backdrop" *ngIf="menuOpen()" (click)="onDocumentClick()"></div>

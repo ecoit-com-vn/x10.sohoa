@@ -1,0 +1,79 @@
+<p-treeTable
+  [value]="data"
+  [loading]="loading"
+  rowHover="true"
+>
+  <!-- HEADER -->
+  <ng-template pTemplate="header">
+    <tr>
+      <th *ngIf="showOrder">STT</th>
+
+      <ng-container *ngFor="let col of columns">
+        <th *ngIf="col.visible"
+            [ngStyle]="{ 'min-width': col.width }"
+            [class]="col.class">
+          {{ col.headerName || '' }}
+        </th>
+      </ng-container>
+    </tr>
+  </ng-template>
+
+  <!-- BODY -->
+  <ng-template pTemplate="body" let-rowNode let-rowData="rowData" let-index="rowIndex" let-i="rowIndex">
+    <tr [ttRow]="rowNode"
+        (click)="onRowClick($event, rowNode)"
+        (dblclick)="onRowDblClick($event, rowNode)">
+
+      <!-- Cột số thứ tự -->
+      <td *ngIf="showOrder">{{ getRowIndex(rowNode) }}</td>
+
+      <!-- Lặp qua các cột -->
+      <ng-container *ngFor="let col of columns">
+        <td *ngIf="col.visible"
+            [ngStyle]="{ 'min-width': col.width }"
+            [class]="col.class">
+
+          <!-- Nếu có template tùy chỉnh -->
+          <ng-container *ngIf="col.tdTemplate; else noTemp">
+            <ng-container
+              *ngTemplateOutlet="col.tdTemplate; context:{ item:rowData, index:index }">
+            </ng-container>
+          </ng-container>
+
+          <!-- Nếu không có template -->
+          <ng-template #noTemp>
+            <!-- Cột actions -->
+            <ng-container *ngIf="col.type === columnDataType.Action">
+              <ng-container *ngTemplateOutlet="tdAction; context:{ item: rowData }"></ng-container>
+            </ng-container>
+
+            <!-- Cột thường -->
+            <ng-container *ngIf="col.type !== columnDataType.Action">
+              <!-- Nếu là cột name thì thêm toggler -->
+              <ng-container *ngIf="col.fieldName === 'name'; else normalCell">
+                <p-treeTableToggler [rowNode]="rowNode"></p-treeTableToggler>
+                <span>{{ getFieldValue(rowData, col.fieldName) }}</span>
+              </ng-container>
+              <ng-template #normalCell>
+                <span>{{ getFieldValue(rowData, col.fieldName) }}</span>
+              </ng-template>
+            </ng-container>
+          </ng-template>
+
+        </td>
+      </ng-container>
+    </tr>
+  </ng-template>
+
+
+</p-treeTable>
+
+<!-- TEMPLATE ACTION -->
+<ng-template #tdAction let-item="item">
+  <p-menu #menu [popup]="true" [model]="getActionsItem(item)" styleClass="action-menu"></p-menu>
+
+  <i class="pi pi-ellipsis-v"
+     style="cursor:pointer"
+     (click)="menu.toggle($event)">
+  </i>
+</ng-template>

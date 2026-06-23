@@ -1,0 +1,11 @@
+:host ::ng-deep .p-treetable {
+  width: 100%;
+}
+
+.text-truncate {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

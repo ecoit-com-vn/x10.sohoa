@@ -14,6 +14,7 @@ import { Router } from '@angular/router';
 import { FormTemplateService, EavFormTemplate } from '../../data-access/form-template.service';
 import { EquipmentTypeService } from '../../data-access/equipment-type.service';
 import { finalize } from 'rxjs';
+import { LoadingService } from '@sohoa.frontend/shared/core';
 
 @Component({
   selector: 'app-form-template',
@@ -35,6 +36,7 @@ import { finalize } from 'rxjs';
   styleUrl: './form-template.component.scss'
 })
 export class FormTemplateComponent implements OnInit {
+  private loadingService = inject(LoadingService);
   private router = inject(Router);
   private formTemplateService = inject(FormTemplateService);
   private equipmentTypeService = inject(EquipmentTypeService);
@@ -113,9 +115,9 @@ export class FormTemplateComponent implements OnInit {
   }
 
   loadForms() {
-    this.loading.set(true);
+    this.loadingService.show();
     this.formTemplateService.getTemplates()
-      .pipe(finalize(() => this.loading.set(false)))
+      .pipe(finalize(() => this.loadingService.hide()))
       .subscribe({
         next: (data) => {
           this.forms.set(data || []);
@@ -154,27 +156,30 @@ export class FormTemplateComponent implements OnInit {
 
   onConfirmDelete() {
     if (!this.targetForm) return;
-    this.formTemplateService.deleteTemplate(this.targetForm.id).subscribe({
-      next: () => {
-        this.messageService.add({ 
-          severity: 'success', 
-          summary: 'Thành công', 
-          detail: `Đã vô hiệu hóa biểu mẫu thành công!` 
-        });
-        this.showConfirmDelete.set(false);
-        this.targetForm = null;
-        this.loadForms();
-      },
-      error: () => {
-        this.messageService.add({
-          severity: 'error',
-          summary: 'Lỗi',
-          detail: 'Không thể vô hiệu hóa biểu mẫu.'
-        });
-        this.showConfirmDelete.set(false);
-        this.targetForm = null;
-      }
-    });
+    this.loadingService.show();
+    this.formTemplateService.deleteTemplate(this.targetForm.id)
+      .pipe(finalize(() => this.loadingService.hide()))
+      .subscribe({
+        next: () => {
+          this.messageService.add({ 
+            severity: 'success', 
+            summary: 'Thành công', 
+            detail: `Đã vô hiệu hóa biểu mẫu thành công!` 
+          });
+          this.showConfirmDelete.set(false);
+          this.targetForm = null;
+          this.loadForms();
+        },
+        error: () => {
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi',
+            detail: 'Không thể vô hiệu hóa biểu mẫu.'
+          });
+          this.showConfirmDelete.set(false);
+          this.targetForm = null;
+        }
+      });
   }
 
   getCategoryName(code: string): string {
