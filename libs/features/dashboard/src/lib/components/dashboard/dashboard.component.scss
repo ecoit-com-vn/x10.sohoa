@@ -106,18 +106,78 @@
     .text-bluemr { color: #002D72; margin-right: 8px; }
     .text-orangemr { color: #FF6B00; margin-right: 8px; }
     .text-greenmr { color: #22c55e; margin-right: 8px; }
+
+    .chart-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .chart-period-button {
+      min-height: 28px;
+      padding: 0 12px;
+      border: 1px solid #e2e8f0;
+      border-radius: 5px;
+      background: #f8fafc;
+      color: #334155;
+      font-size: 0.72rem;
+      font-weight: 500;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+
+    .chart-period-button:hover {
+      background: #f1f5f9;
+    }
     
     /* Chart Styles */
     .chart-container {
-      height: 250px;
+      height: 270px;
       display: flex;
       flex-direction: column;
       justify-content: flex-end;
       position: relative;
     }
+
+    .chart-main {
+      display: flex;
+      gap: 8px;
+      align-items: flex-end;
+    }
+
+    .chart-y-axis {
+      width: 42px;
+      height: 200px;
+      flex-shrink: 0;
+      position: relative;
+      padding-bottom: 26px;
+      box-sizing: border-box;
+    }
+
+    .chart-y-axis-title {
+      position: absolute;
+      top: -38px;
+      left: 0;
+      white-space: nowrap;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: #475569;
+    }
+
+    .chart-y-axis-labels {
+      height: 160px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: flex-end;
+      font-size: 0.7rem;
+      color: #64748b;
+    }
     
     .bar-chart-y {
       height: 200px;
+      flex: 1;
       display: flex;
       justify-content: space-around;
       align-items: flex-end;
@@ -125,6 +185,16 @@
       position: relative;
       padding: 0 10px;
     }
+
+    .chart-plot-area {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 160px;
+      pointer-events: none;
+    }
+
     .chart-grid-line {
       position: absolute;
       left: 0;
@@ -139,28 +209,36 @@
       flex-direction: column;
       align-items: center;
       z-index: 2;
-      width: 40px;
+      width: 52px;
     }
     .chart-bar-wrap {
       height: 160px;
-      width: 20px;
-      background-color: #f1f5f9;
-      border-radius: 4px 4px 0 0;
+      width: 34px;
       display: flex;
+      gap: 4px;
       align-items: flex-end;
+      justify-content: center;
       position: relative;
     }
     
     .chart-bar {
-      width: 100%;
-      background-color: #002D72;
+      width: 15px;
       border-radius: 4px 4px 0 0;
       cursor: pointer;
       position: relative;
-      transition: height 0.6s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.2s;
+      transition: height 0.6s cubic-bezier(0.4, 0, 0.2, 1), filter 0.2s;
     }
-    .chart-bar:hover {
+
+    .chart-bar-blue {
+      background-color: #002D72;
+    }
+
+    .chart-bar-orange {
       background-color: #FF6B00;
+    }
+
+    .chart-bar:hover {
+      filter: brightness(1.12);
     }
     
     .bar-tooltip {
@@ -212,72 +290,109 @@
       color: #4b5563;
     }
     
-    /* Donut chart simulation */
+    /* Category statistics */
+    .status-card {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .category-title {
+      gap: 9px;
+      margin-bottom: 28px;
+    }
+
+    .category-title-icon {
+      width: 24px;
+      height: 24px;
+      border-radius: 5px;
+      background: #fff0e5;
+      color: #f97316;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .category-title-icon i {
+      font-size: 0.8rem;
+    }
+
+    .category-statistics {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
     .ratio-bar-list {
       display: flex;
       flex-direction: column;
-      gap: 14px;
-      padding-top: 8px;
+      gap: 25px;
     }
+
     .ratio-item {
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 9px;
     }
+
     .ratio-header {
       display: flex;
       justify-content: space-between;
-      align-items: center;
+      align-items: flex-start;
       font-size: 0.8rem;
     }
+
     .ratio-name {
-      font-weight: 500;
+      font-weight: 600;
       color: #374151;
+    }
+
+    .ratio-value-group {
       display: flex;
-      align-items: center;
-      gap: 8px;
+      flex-direction: column;
+      align-items: flex-end;
+      line-height: 1.15;
     }
-    .ratio-color-indicator {
-      width: 10px;
-      height: 10px;
-      border-radius: 3px;
-      display: inline-block;
+
+    .ratio-value {
+      font-size: 0.8rem;
+      font-weight: 700;
     }
-    .ratio-val {
-      color: #6b7280;
+
+    .ratio-value-group small {
+      margin-top: 3px;
+      color: #9ca3af;
+      font-size: 0.65rem;
     }
+
     .ratio-track {
-      height: 8px;
-      background-color: #f1f5f9;
+      height: 6px;
+      background-color: #f3f4f6;
       border-radius: 10px;
       overflow: hidden;
     }
+
     .ratio-fill {
       height: 100%;
       border-radius: 10px;
       transition: width 0.8s ease-out;
     }
-    
-    .dashboard-brief-stats {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 12px;
-      border-top: 1px solid #f1f5f9;
-      padding-top: 16px;
+
+    .category-detail-button {
+      width: 100%;
+      min-height: 35px;
+      margin-top: auto;
+      border: 1px solid #d9dee7;
+      border-radius: 4px;
+      background: #fff;
+      color: #374151;
+      font-size: 0.76rem;
+      font-weight: 600;
+      cursor: pointer;
     }
-    .brief-stat-box {
-      text-align: center;
-      display: flex;
-      flex-direction: column;
-      gap: 3px;
-    }
-    .brief-stat-num {
-      font-size: 0.98rem;
-      font-weight: 700;
-    }
-    .brief-stat-label {
-      font-size: 0.72rem;
-      color: #9ca3af;
+
+    .category-detail-button:hover {
+      background: #f8fafc;
     }
     
     /* General styles */
@@ -288,4 +403,97 @@
       flex-wrap: wrap;
       gap: 10px;
     }
-  
+
+    .latest-dossier-card {
+      padding: 0;
+      overflow: hidden;
+    }
+
+    .latest-dossier-card .section-header-flex {
+      padding: 14px 18px 0;
+    }
+
+    .latest-dossier-card .wf-table-wrap {
+      margin-bottom: 0;
+    }
+
+    .latest-dossier-table {
+      table-layout: fixed;
+    }
+
+    .latest-dossier-table th:nth-child(1) { width: 13%; }
+    .latest-dossier-table th:nth-child(2) { width: 26%; }
+    .latest-dossier-table th:nth-child(3) { width: 18%; }
+    .latest-dossier-table th:nth-child(4) { width: 17%; }
+    .latest-dossier-table th:nth-child(5) { width: 15%; }
+    .latest-dossier-table th:nth-child(6) { width: 11%; }
+
+    .latest-dossier-table th {
+      height: 46px;
+      padding: 0 18px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: #667085;
+      white-space: nowrap;
+    }
+
+    .latest-dossier-table td {
+      height: 48px;
+      padding: 0 18px;
+      color: #536070;
+      font-size: 0.75rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .dossier-code {
+      color: #1769e0;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .latest-dossier-footer {
+      min-height: 42px;
+      padding: 8px 18px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: #9ca3af;
+      font-size: 0.66rem;
+      font-style: italic;
+    }
+
+    .latest-dossier-pagination {
+      display: flex;
+      gap: 7px;
+    }
+
+    .latest-dossier-pagination button {
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      border: 1px solid #dfe4ea;
+      border-radius: 4px;
+      background: #fff;
+      color: #667085;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    .latest-dossier-pagination button:disabled {
+      background: #f8fafc;
+      color: #cbd5e1;
+      cursor: default;
+    }
+
+    .latest-dossier-pagination button:not(:disabled):hover {
+      background: #f8fafc;
+    }
+
+    .latest-dossier-pagination i {
+      font-size: 0.68rem;
+    }
