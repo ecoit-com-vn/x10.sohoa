@@ -51,8 +51,6 @@ export class FileUploadZoneComponent implements OnInit, OnDestroy {
   hideDropZone = input<boolean>(false);
   /** Nguồn upload ghi vào DB khi upload qua folderId (mặc định Web). */
   uploadSource = input<UploadSource>(UPLOAD_SOURCE.WEB);
-  /** Giữ file đã upload trong danh sách (không tự ẩn sau vài giây). */
-  keepCompletedUploads = input<boolean>(false);
   maxFileSize = input<number>(500 * 1024 * 1024); // 500MB default
   allowedExtensions = input<string[]>([
     '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
@@ -255,13 +253,11 @@ export class FileUploadZoneComponent implements OnInit, OnDestroy {
         fileName: file.name
       });
 
-      if (!this.keepCompletedUploads()) {
-        setTimeout(() => {
-          const current = this.uploads();
-          current.delete(uploadId);
-          this.uploads.set(new Map(current));
-        }, 3000);
-      }
+      setTimeout(() => {
+        const current = this.uploads();
+        current.delete(uploadId);
+        this.uploads.set(new Map(current));
+      }, 3000);
     } catch (error: unknown) {
       const errorMsg = extractApiErrorMessage(error);
       this.updateProgress(uploadId, {
@@ -297,11 +293,6 @@ export class FileUploadZoneComponent implements OnInit, OnDestroy {
       current.set(uploadId, item);
       this.uploads.set(new Map(current));
     }
-  }
-
-  /** Xóa toàn bộ mục upload (dùng khi đóng/mở lại dialog). */
-  clearUploads(): void {
-    this.uploads.set(new Map());
   }
 
   /**

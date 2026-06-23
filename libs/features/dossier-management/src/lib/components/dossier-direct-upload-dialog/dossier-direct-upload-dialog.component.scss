@@ -100,60 +100,6 @@
   margin: 0 0 10px;
 }
 
-.uploaded-summary {
-  margin-top: 12px;
-  padding: 12px;
-  background: #ecfdf5;
-  border: 1px solid #a7f3d0;
-  border-radius: 8px;
-
-  .summary-title {
-    margin: 0 0 8px;
-    color: #047857;
-  }
-}
-
-.uploaded-file-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-
-  li {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 12px;
-    font-size: 0.8rem;
-    padding: 6px 8px;
-    background: #fff;
-    border: 1px solid #d1fae5;
-    border-radius: 6px;
-  }
-
-  .file-name {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    color: #374151;
-  }
-
-  .file-status {
-    flex-shrink: 0;
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    color: #047857;
-    font-weight: 500;
-  }
-}
-
 .scan-divider,
 .scan-fallback {
   text-align: center;
