@@ -59,6 +59,7 @@ public class DocumentDigitizationService : IDocumentDigitizationService
             throw new InvalidOperationException("Tài liệu chưa có file để xử lý OCR.");
 
         var formSchemaJson = request.FormSchemaJson?.Trim();
+        var extractPrompt = request.ExtractPrompt?.Trim();
         string formId = dossier.FormId?.ToString() ?? string.Empty;
         string formName = dossier.DossierTypeName ?? "Hồ sơ";
 
@@ -73,18 +74,22 @@ public class DocumentDigitizationService : IDocumentDigitizationService
             }
         }
 
+        EavFormTemplate? template = null;
+        if (Guid.TryParse(formId, out var parsedFormId))
+            template = await _formTemplateRepository.GetByIdAsync(parsedFormId);
+
         if (string.IsNullOrWhiteSpace(formSchemaJson))
         {
-            if (string.IsNullOrWhiteSpace(formId) || !Guid.TryParse(formId, out var parsedFormId))
+            if (template == null)
                 throw new InvalidOperationException("Loại văn bản chưa gắn form EAV — không thể bóc tách.");
-
-            var template = await _formTemplateRepository.GetByIdAsync(parsedFormId)
-                ?? throw new InvalidOperationException("Không tìm thấy form EAV của loại văn bản.");
 
             formSchemaJson = template.FormSchema;
             formId = template.Id.ToString();
             formName = template.Name;
         }
+
+        if (string.IsNullOrWhiteSpace(extractPrompt) && !string.IsNullOrWhiteSpace(template?.ExtractionProcess))
+            extractPrompt = template.ExtractionProcess.Trim();
 
         return await SubmitOcrJobAsync(new SubmitDocumentDigitizationRequest
         {
@@ -93,7 +98,7 @@ public class DocumentDigitizationService : IDocumentDigitizationService
             FilePath = version.FilePath,
             BucketName = _fileStorageService.DossierBucketName,
             ProcessOption = request.ProcessOption,
-            ExtractPrompt = request.ExtractPrompt,
+            ExtractPrompt = extractPrompt,
             FormId = formId,
             FormName = formName,
             FormSchemaJson = formSchemaJson

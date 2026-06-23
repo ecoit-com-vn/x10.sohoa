@@ -69,6 +69,7 @@ public class SubmitDossierDocumentDigitizationRequest
 {
     /// <summary>OcrAndExtract | ExtractOnly</summary>
     public string ProcessOption { get; set; } = "OcrAndExtract";
+    /// <summary>Tùy chọn — nếu bỏ trống lấy từ EavFormTemplate.ExtractionProcess của form loại văn bản.</summary>
     public string? ExtractPrompt { get; set; }
     /// <summary>Tùy chọn — nếu bỏ trống sẽ lấy từ form EAV của loại hồ sơ.</summary>
     public string? FormSchemaJson { get; set; }
