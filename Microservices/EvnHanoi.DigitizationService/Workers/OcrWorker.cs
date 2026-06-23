@@ -122,15 +122,7 @@ namespace EvnHanoi.DigitizationService.Workers
                                 return;
                             }
 
-                            // 1. Cập nhật trạng thái
-                            try {
-                                //await repository.UpdateStatusAsync(taskMsg.FileId, "Processing");
-                                _logger.LogInformation("Đã cập nhật trạng thái FileAttachment {FileId} thành Processing.", taskMsg.FileId);
-                            } catch (Exception ex) {
-                                _logger.LogWarning("Bỏ qua lỗi DB khi update trạng thái: {Message}", ex.Message);
-                            }
-
-                            // 2. Tải file PDF từ MinIO
+                            // 1. Tải file PDF từ MinIO
                             _logger.LogInformation("Tải file {FilePath} từ bucket {BucketName}", taskMsg.FilePath, taskMsg.BucketName);
                             using var fileStream = await minioService.DownloadFileAsync(taskMsg.BucketName, taskMsg.FilePath);
 
@@ -154,7 +146,7 @@ namespace EvnHanoi.DigitizationService.Workers
                             {
                                 _logger.LogInformation("Đang xử lý trang {Page}/{TotalPages}...", i + 1, pageCount);
 
-                                // 3. Render trang PDF → JPEG (150 DPI)
+                                // 2. Render trang PDF → JPEG (150 DPI)
                                 using var imgStream = new MemoryStream();
                                 var renderOptions = new PDFtoImage.RenderOptions { Dpi = 150 };
                                 PDFtoImage.Conversion.SaveJpeg(imgStream, pdfBytes, password: null, page: i, options: renderOptions);
@@ -165,7 +157,7 @@ namespace EvnHanoi.DigitizationService.Workers
 
                                 try
                                 {
-                                    // 4. Gửi ảnh toàn trang lên ocr_vl_server → nhận [{text, box, confidence}]
+                                    // 3. Gửi ảnh toàn trang lên ocr_vl_server → nhận [{text, box, confidence}]
                                     //    Server thực hiện: PaddleOCR detect + 1 LLM call "OCR:"
                                     using var multipart = new MultipartFormDataContent();
                                     var imageContent = new ByteArrayContent(pageImageBytes);
@@ -199,7 +191,7 @@ namespace EvnHanoi.DigitizationService.Workers
                                     _logger.LogWarning(ex, "Lỗi khi gọi ocr_vl_server cho trang {Page}.", i + 1);
                                 }
 
-                                // 5. Tạo trang PDF 2 lớp: ảnh gốc + text ẩn
+                                // 4. Tạo trang PDF 2 lớp: ảnh gốc + text ẩn
                                 PdfPage newPage = outPdfDoc.AddPage();
                                 using XGraphics gfx = XGraphics.FromPdfPage(newPage);
 
@@ -248,7 +240,7 @@ namespace EvnHanoi.DigitizationService.Workers
                                 await publisher.PublishMessageAsync(progressMsg, "digitization.topic", "ocr.process.progress");
                             }
 
-                            // 6. Upload PDF 2 lớp lên MinIO (ghi đè file gốc)
+                            // 5. Upload PDF 2 lớp lên MinIO (ghi đè file gốc)
                             string outFileName = taskMsg.FilePath;
                             using var finalPdfStream = new MemoryStream();
                             outPdfDoc.Save(finalPdfStream, false);
@@ -257,15 +249,7 @@ namespace EvnHanoi.DigitizationService.Workers
                             _logger.LogInformation("Đang upload (ghi đè) PDF 2 lớp {FileName} lên MinIO", outFileName);
                             await minioService.UploadFileAsync(taskMsg.BucketName, outFileName, finalPdfStream, "application/pdf");
 
-                            // 7. Cập nhật trạng thái DB
-                            try {
-                                await repository.UpdateStatusAsync(taskMsg.FileId, "OcrCompleted");
-                                _logger.LogInformation("OCR hoàn tất. Cập nhật trạng thái FileAttachment {FileId} thành OcrCompleted.", taskMsg.FileId);
-                            } catch (Exception ex) {
-                                _logger.LogWarning("Bỏ qua lỗi DB khi update trạng thái: {Message}", ex.Message);
-                            }
-
-                            // 8. Publish ExtractionTaskMessage → ExtractionWorker
+                            // 6. Publish ExtractionTaskMessage → ExtractionWorker
                             var extractionTask = new ExtractionTaskMessage
                             {
                                 FileId = taskMsg.FileId,
