@@ -3,7 +3,7 @@
   (visibleChange)="visibleChange.emit($event)"
   (onShow)="onShow()"
   (onHide)="onHide()"
-  [header]="'Sửa tài liệu — ' + (documentName || 'Tài liệu')"
+  [header]="(canEdit ? 'Sửa tài liệu — ' : 'Chi tiết tài liệu — ') + (documentName || 'Tài liệu')"
   [modal]="true"
   [style]="{ width: '1100px', maxWidth: '98vw' }"
   styleClass="evn-dialog-custom dossier-document-edit-dialog"
@@ -64,12 +64,14 @@
               rows="2"
               [ngModel]="draftData()[field.key] ?? ''"
               (ngModelChange)="setDraftFieldValue(field.key, $event)"
+              [disabled]="!canEdit"
             ></textarea>
             <select
               *ngSwitchCase="'select'"
               class="wf-select w-full"
               [ngModel]="draftData()[field.key] ?? ''"
               (ngModelChange)="setDraftFieldValue(field.key, $event)"
+              [disabled]="!canEdit"
             >
               <option value="">-- Chọn --</option>
               <option *ngFor="let opt of field.options" [ngValue]="opt.value">{{ opt.label }}</option>
@@ -79,6 +81,7 @@
                 type="checkbox"
                 [checked]="!!draftData()[field.key]"
                 (change)="setDraftCheckbox(field.key, $event)"
+                [disabled]="!canEdit"
               />
               {{ field.placeholder || field.label }}
             </label>
@@ -88,6 +91,7 @@
               class="wf-input w-full"
               [ngModel]="draftData()[field.key] ?? ''"
               (ngModelChange)="setDraftFieldValue(field.key, $event)"
+              [disabled]="!canEdit"
             />
           </ng-container>
         </div>
@@ -96,13 +100,14 @@
   </div>
 
   <ng-template #footer>
-    <p-button label="Hủy" severity="secondary" size="small" (onClick)="close()" [disabled]="saving()"></p-button>
+    <p-button [label]="canEdit ? 'Hủy' : 'Đóng'" severity="secondary" size="small" (onClick)="close()" [disabled]="saving()"></p-button>
     <p-button
+      *ngIf="canEdit"
       label="Lưu vào hồ sơ"
       size="small"
       icon="pi pi-save"
       (onClick)="confirmApply()"
-      [disabled]="loading() || saving() || !canEdit || fields().length === 0"
+      [disabled]="loading() || saving() || fields().length === 0"
       [loading]="saving()"
     ></p-button>
   </ng-template>
