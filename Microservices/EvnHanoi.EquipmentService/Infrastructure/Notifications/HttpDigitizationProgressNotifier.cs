@@ -27,13 +27,22 @@ public class HttpDigitizationProgressNotifier : IDigitizationProgressNotifier
                 payload,
                 cancellationToken);
 
-            if (!response.IsSuccessStatusCode)
+            if (response.IsSuccessStatusCode)
             {
-                _logger.LogWarning(
-                    "Push digitization progress failed: {StatusCode} version {VersionId}",
-                    response.StatusCode,
-                    payload.DocumentVersionId);
+                _logger.LogDebug(
+                    "Pushed digitization progress OK: dossier {DossierId}, version {VersionId}, {Progress}%",
+                    payload.DossierId,
+                    payload.DocumentVersionId,
+                    payload.Progress);
+                return;
             }
+
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            _logger.LogWarning(
+                "Push digitization progress failed: {StatusCode} version {VersionId}, body: {Body}",
+                response.StatusCode,
+                payload.DocumentVersionId,
+                body);
         }
         catch (Exception ex)
         {

@@ -702,25 +702,22 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
             return false;
         }
 
-        public async Task<IEnumerable<object>> GetMyTasksAsync(List<string> userRoles, bool isAdmin, string userId)
+        public async Task<IEnumerable<object>> GetMyTasksAsync(List<string> userRoles, bool isAdmin, string userId, Guid? workflowInstanceId = null)
         {
-            var tasks = await _workflowRepository.GetPendingTasksByRolesAsync(userRoles, isAdmin, userId);
+            var tasks = (await _workflowRepository.GetPendingTasksByRolesAsync(userRoles, isAdmin, userId, workflowInstanceId)).ToList();
+            var includeEntityDetails = !workflowInstanceId.HasValue;
+            var entityDetailsLookup = await BuildEntityDetailsLookupAsync(tasks, includeEntityDetails);
             var result = new List<object>();
 
             foreach (var task in tasks)
             {
                 string targetDetails = "";
-                if (task.WorkflowInstance != null)
+                if (includeEntityDetails && task.WorkflowInstance != null)
                 {
-                    var handler = GetHandler(task.WorkflowInstance.TargetEntityType);
-                    if (handler != null)
-                    {
-                        targetDetails = await handler.GetEntityDetailsAsync(task.WorkflowInstance.TargetEntityId);
-                    }
-                    else
-                    {
-                        targetDetails = $"{task.WorkflowInstance.TargetEntityType}: {task.WorkflowInstance.TargetEntityId}";
-                    }
+                    var entityType = task.WorkflowInstance.TargetEntityType;
+                    var entityId = task.WorkflowInstance.TargetEntityId;
+                    if (!entityDetailsLookup.TryGetValue((entityType, entityId), out targetDetails!))
+                        targetDetails = $"{entityType}: {entityId}";
                 }
 
                 result.Add(new
@@ -742,6 +739,45 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
             }
 
             return result;
+        }
+
+        private async Task<IReadOnlyDictionary<(string EntityType, string EntityId), string>> BuildEntityDetailsLookupAsync(
+            IReadOnlyList<WorkflowTask> tasks,
+            bool includeEntityDetails)
+        {
+            var lookup = new Dictionary<(string EntityType, string EntityId), string>();
+            if (!includeEntityDetails || tasks.Count == 0) return lookup;
+
+            var grouped = tasks
+                .Where(t => t.WorkflowInstance != null)
+                .GroupBy(t => t.WorkflowInstance!.TargetEntityType, StringComparer.OrdinalIgnoreCase);
+
+            foreach (var group in grouped)
+            {
+                var entityType = group.Key;
+                var entityIds = group
+                    .Select(t => t.WorkflowInstance!.TargetEntityId)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                var handler = GetHandler(entityType);
+                if (handler == null)
+                {
+                    foreach (var entityId in entityIds)
+                        lookup[(entityType, entityId)] = $"{entityType}: {entityId}";
+                    continue;
+                }
+
+                var batchDetails = await handler.GetEntityDetailsBatchAsync(entityIds);
+                foreach (var entityId in entityIds)
+                {
+                    lookup[(entityType, entityId)] = batchDetails.TryGetValue(entityId, out var detail)
+                        ? detail
+                        : $"{entityType}: {entityId}";
+                }
+            }
+
+            return lookup;
         }
 
         public async Task<IEnumerable<WorkflowHistory>> GetHistoryAsync(Guid instanceId)

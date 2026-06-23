@@ -28,18 +28,21 @@ public class NotificationHub : Hub
     public async Task JoinDossier(string dossierId)
     {
         if (string.IsNullOrWhiteSpace(dossierId)) return;
-        await Groups.AddToGroupAsync(Context.ConnectionId, BuildDossierGroup(dossierId));
-        _logger.LogDebug("Client {ConnectionId} joined dossier group {DossierId}", Context.ConnectionId, dossierId);
+        var group = BuildDossierGroup(dossierId);
+        await Groups.AddToGroupAsync(Context.ConnectionId, group);
+        _logger.LogInformation("Client {ConnectionId} joined group {Group}", Context.ConnectionId, group);
     }
 
     public async Task LeaveDossier(string dossierId)
     {
         if (string.IsNullOrWhiteSpace(dossierId)) return;
-        await Groups.RemoveFromGroupAsync(Context.ConnectionId, BuildDossierGroup(dossierId));
-        _logger.LogDebug("Client {ConnectionId} left dossier group {DossierId}", Context.ConnectionId, dossierId);
+        var group = BuildDossierGroup(dossierId);
+        await Groups.RemoveFromGroupAsync(Context.ConnectionId, group);
+        _logger.LogDebug("Client {ConnectionId} left group {Group}", Context.ConnectionId, group);
     }
 
-    internal static string BuildDossierGroup(string dossierId) => $"dossier-{dossierId.Trim()}";
+    internal static string BuildDossierGroup(string dossierId) =>
+        $"dossier-{dossierId.Trim().ToLowerInvariant()}";
 
     public async Task SendNotification(string message)
     {

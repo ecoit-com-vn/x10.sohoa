@@ -10,6 +10,7 @@ public class DocumentDigitizationService : IDocumentDigitizationService
 {
     private const string DigitizationExchange = "digitization.topic";
     private const string OcrTaskRoutingKey = "ocr.process.task";
+    private const string ExtractionTaskRoutingKey = "extraction.process.task";
 
     private readonly IDocumentDigitizationRepository _repository;
     private readonly IDocumentRepository _documentRepository;
@@ -18,6 +19,7 @@ public class DocumentDigitizationService : IDocumentDigitizationService
     private readonly IEavFormTemplateRepository _formTemplateRepository;
     private readonly IFileStorageService _fileStorageService;
     private readonly IMessageProducer _messageProducer;
+    private readonly IDigitizationProgressNotifier _progressNotifier;
     private readonly ILogger<DocumentDigitizationService> _logger;
 
     public DocumentDigitizationService(
@@ -28,6 +30,7 @@ public class DocumentDigitizationService : IDocumentDigitizationService
         IEavFormTemplateRepository formTemplateRepository,
         IFileStorageService fileStorageService,
         IMessageProducer messageProducer,
+        IDigitizationProgressNotifier progressNotifier,
         ILogger<DocumentDigitizationService> logger)
     {
         _repository = repository;
@@ -37,6 +40,7 @@ public class DocumentDigitizationService : IDocumentDigitizationService
         _formTemplateRepository = formTemplateRepository;
         _fileStorageService = fileStorageService;
         _messageProducer = messageProducer;
+        _progressNotifier = progressNotifier;
         _logger = logger;
     }
 
@@ -58,12 +62,142 @@ public class DocumentDigitizationService : IDocumentDigitizationService
         if (string.IsNullOrEmpty(version.FilePath))
             throw new InvalidOperationException("Tài liệu chưa có file để xử lý OCR.");
 
-        var formSchemaJson = request.FormSchemaJson?.Trim();
-        var extractPrompt = request.ExtractPrompt?.Trim();
+        var formContext = await ResolveFormContextAsync(
+            dossier,
+            version.DocumentId,
+            request.FormSchemaJson?.Trim(),
+            request.ExtractPrompt?.Trim(),
+            forceReloadFromTemplate: false);
+
+        return await SubmitOcrJobAsync(new SubmitDocumentDigitizationRequest
+        {
+            DocumentId = version.DocumentId,
+            DocumentVersionId = documentVersionId,
+            FilePath = version.FilePath,
+            BucketName = _fileStorageService.DossierBucketName,
+            ProcessOption = request.ProcessOption,
+            ExtractPrompt = formContext.ExtractPrompt,
+            FormId = formContext.FormId,
+            FormName = formContext.FormName,
+            FormSchemaJson = formContext.FormSchemaJson
+        }, userId);
+    }
+
+    public async Task<DocumentOcrProgressDto> ReExtractForDossierDocumentAsync(
+        Guid dossierId,
+        Guid documentVersionId,
+        string userId)
+    {
+        var dossier = await _dossierService.GetDetailByIdAsync(dossierId)
+            ?? throw new KeyNotFoundException("Không tìm thấy hồ sơ.");
+
+        if (!await _documentRepository.VersionBelongsToDossierAsync(documentVersionId, dossierId))
+            throw new KeyNotFoundException("Phiên bản tài liệu không thuộc hồ sơ này.");
+
+        var version = await _documentRepository.GetDocumentVersionByIdAsync(documentVersionId)
+            ?? throw new KeyNotFoundException("Phiên bản tài liệu không tồn tại.");
+
+        if (string.IsNullOrEmpty(version.FilePath))
+            throw new InvalidOperationException("Tài liệu chưa có file để bóc tách.");
+
+        var progress = await _repository.GetProgressByVersionIdAsync(documentVersionId)
+            ?? throw new InvalidOperationException("Tài liệu chưa qua OCR — không thể bóc tách lại.");
+
+        if (progress.Status is "Running" or "Extracting" or "Pending")
+            throw new InvalidOperationException("Tài liệu đang được xử lý — vui lòng đợi hoàn tất.");
+
+        if (!IsOcrPhaseComplete(progress))
+            throw new InvalidOperationException("OCR chưa hoàn thành — không thể bóc tách lại.");
+
+        var formContext = await ResolveFormContextAsync(
+            dossier,
+            version.DocumentId,
+            formSchemaJsonOverride: null,
+            extractPromptOverride: null,
+            forceReloadFromTemplate: true);
+
+        var form = BuildExtractionForm(formContext.FormId, formContext.FormName, formContext.FormSchemaJson);
+
+        progress.Phase = "extraction";
+        progress.Action = ExtractionTaskRoutingKey;
+        progress.Status = "Extracting";
+        progress.Progress = 0;
+        progress.CurrentPage = 0;
+        progress.TotalPages = 0;
+        progress.ProcessOption = "ExtractOnly";
+        progress.FormJson = formContext.FormSchemaJson;
+        progress.ModifiedBy = userId;
+        progress.ModifiedDate = DateTime.UtcNow;
+        await _repository.UpdateProgressAsync(progress);
+
+        var extractionResult = await _repository.GetExtractionResultByVersionIdAsync(documentVersionId);
+        if (extractionResult == null)
+        {
+            extractionResult = new DocumentExtractionResult
+            {
+                DocumentId = version.DocumentId,
+                DocumentVersionId = documentVersionId,
+                OcrProgressId = progress.Id,
+                Status = "Pending",
+                FormJson = formContext.FormSchemaJson,
+                BucketName = _fileStorageService.DossierBucketName,
+                CreatedBy = userId,
+                CreatedDate = DateTime.UtcNow
+            };
+            await _repository.CreateExtractionResultAsync(extractionResult);
+        }
+        else
+        {
+            extractionResult.Status = "Pending";
+            extractionResult.ResultJson = null;
+            extractionResult.ResultFilePath = null;
+            extractionResult.MergedDataJson = null;
+            extractionResult.ErrorMessage = null;
+            extractionResult.FormJson = formContext.FormSchemaJson;
+            extractionResult.ModifiedBy = userId;
+            extractionResult.ModifiedDate = DateTime.UtcNow;
+            await _repository.UpdateExtractionResultAsync(extractionResult);
+        }
+
+        var message = new ExtractionTaskPublishMessage
+        {
+            FileId = documentVersionId,
+            FilePath = version.FilePath,
+            BucketName = _fileStorageService.DossierBucketName,
+            ExtractPrompt = formContext.ExtractPrompt,
+            Form = form,
+            FormSchemaJson = formContext.FormSchemaJson
+        };
+
+        await _messageProducer.PublishToExchangeAsync(message, DigitizationExchange, ExtractionTaskRoutingKey);
+        await PublishProgressNotificationAsync(progress);
+
+        _logger.LogInformation(
+            "Đã gửi bóc tách lại version {VersionId}, document {DocumentId}, form {FormId}",
+            documentVersionId, version.DocumentId, formContext.FormId);
+
+        return MapProgress(progress);
+    }
+
+    private sealed record DigitizationFormContext(
+        string FormId,
+        string FormName,
+        string FormSchemaJson,
+        string? ExtractPrompt);
+
+    private async Task<DigitizationFormContext> ResolveFormContextAsync(
+        DossierDetailDto dossier,
+        Guid documentId,
+        string? formSchemaJsonOverride,
+        string? extractPromptOverride,
+        bool forceReloadFromTemplate)
+    {
         string formId = dossier.FormId?.ToString() ?? string.Empty;
         string formName = dossier.DossierTypeName ?? "Hồ sơ";
+        var formSchemaJson = forceReloadFromTemplate ? null : formSchemaJsonOverride?.Trim();
+        var extractPrompt = extractPromptOverride?.Trim();
 
-        var documentMeta = await _documentRepository.GetDocumentByIdAsync(version.DocumentId);
+        var documentMeta = await _documentRepository.GetDocumentByIdAsync(documentId);
         if (documentMeta?.DocumentTypeId.HasValue == true)
         {
             var docType = await _documentTypeRepository.GetByIdAsync(documentMeta.DocumentTypeId.Value);
@@ -78,7 +212,7 @@ public class DocumentDigitizationService : IDocumentDigitizationService
         if (Guid.TryParse(formId, out var parsedFormId))
             template = await _formTemplateRepository.GetByIdAsync(parsedFormId);
 
-        if (string.IsNullOrWhiteSpace(formSchemaJson))
+        if (forceReloadFromTemplate || string.IsNullOrWhiteSpace(formSchemaJson))
         {
             if (template == null)
                 throw new InvalidOperationException("Loại văn bản chưa gắn form EAV — không thể bóc tách.");
@@ -88,22 +222,18 @@ public class DocumentDigitizationService : IDocumentDigitizationService
             formName = template.Name;
         }
 
-        if (string.IsNullOrWhiteSpace(extractPrompt) && !string.IsNullOrWhiteSpace(template?.ExtractionProcess))
-            extractPrompt = template.ExtractionProcess.Trim();
-
-        return await SubmitOcrJobAsync(new SubmitDocumentDigitizationRequest
+        if (forceReloadFromTemplate || string.IsNullOrWhiteSpace(extractPrompt))
         {
-            DocumentId = version.DocumentId,
-            DocumentVersionId = documentVersionId,
-            FilePath = version.FilePath,
-            BucketName = _fileStorageService.DossierBucketName,
-            ProcessOption = request.ProcessOption,
-            ExtractPrompt = extractPrompt,
-            FormId = formId,
-            FormName = formName,
-            FormSchemaJson = formSchemaJson
-        }, userId);
+            if (!string.IsNullOrWhiteSpace(template?.ExtractionProcess))
+                extractPrompt = template.ExtractionProcess.Trim();
+        }
+
+        return new DigitizationFormContext(formId, formName, formSchemaJson!, extractPrompt);
     }
+
+    private static bool IsOcrPhaseComplete(DocumentOcrProgress progress) =>
+        progress.Status is "OcrCompleted" or "Completed" or "Extracting"
+        || (progress.Status == "Failed" && progress.Phase == "extraction");
 
     public async Task<DocumentOcrProgressDto> SubmitOcrJobAsync(
         SubmitDocumentDigitizationRequest request,
@@ -166,6 +296,7 @@ public class DocumentDigitizationService : IDocumentDigitizationService
         progress.ModifiedBy = userId;
         progress.ModifiedDate = DateTime.UtcNow;
         await _repository.UpdateProgressAsync(progress);
+        await PublishProgressNotificationAsync(progress);
 
         _logger.LogInformation(
             "Đã gửi OCR task version {VersionId}, document {DocumentId}, form {FormId}",
@@ -201,6 +332,7 @@ public class DocumentDigitizationService : IDocumentDigitizationService
         }
 
         await _repository.UpdateProgressAsync(progress);
+        await PublishProgressNotificationAsync(progress);
     }
 
     public async Task HandleExtractionCompletedAsync(DigitizationExtractionCompletedMessage message)
@@ -250,6 +382,43 @@ public class DocumentDigitizationService : IDocumentDigitizationService
         result.MergedDataJson = ExtractionResultMerger.MergePageResults(result.ResultJson);
 
         await _repository.UpdateExtractionResultAsync(result);
+        if (progress != null)
+            await PublishProgressNotificationAsync(progress, result.Status);
+    }
+
+    private async Task PublishProgressNotificationAsync(DocumentOcrProgress progress, string? extractionStatus = null)
+    {
+        try
+        {
+            var dossierId = await _documentRepository.GetDossierIdByVersionIdAsync(progress.DocumentVersionId);
+            if (!dossierId.HasValue)
+            {
+                _logger.LogWarning(
+                    "Không tìm thấy dossier cho version {VersionId} — bỏ qua push SignalR",
+                    progress.DocumentVersionId);
+                return;
+            }
+
+            await _progressNotifier.NotifyAsync(new DigitizationProgressPushDto
+            {
+                DossierId = dossierId.Value,
+                DocumentId = progress.DocumentId,
+                DocumentVersionId = progress.DocumentVersionId,
+                Phase = progress.Phase,
+                Status = progress.Status,
+                Progress = progress.Progress,
+                CurrentPage = progress.CurrentPage,
+                TotalPages = progress.TotalPages,
+                ExtractionStatus = extractionStatus
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "Không push được SignalR progress cho version {VersionId}",
+                progress.DocumentVersionId);
+        }
     }
 
     public async Task<DocumentOcrProgressDto?> GetProgressForDossierAsync(Guid dossierId, Guid documentVersionId)

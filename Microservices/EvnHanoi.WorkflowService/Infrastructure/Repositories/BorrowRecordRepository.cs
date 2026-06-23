@@ -2,6 +2,7 @@ using EvnHanoi.WorkflowService.Core.Interfaces;
 using EvnHanoi.WorkflowService.Models;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Data;
 using System.Threading.Tasks;
 using Dapper;
@@ -101,6 +102,25 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
                         FROM BORROWRECORDS 
                         WHERE {nameof(BorrowRecord.Id)} = :Id";
             return await _connection.QuerySingleOrDefaultAsync<BorrowRecord>(sql, new { Id = id.ToString() });
+        }
+
+        public async Task<IEnumerable<BorrowRecord>> GetSummaryByIdsAsync(IEnumerable<Guid> ids)
+        {
+            if (_connection.State != ConnectionState.Open) _connection.Open();
+
+            var idList = ids
+                .Where(id => id != Guid.Empty)
+                .Select(id => id.ToString())
+                .Distinct()
+                .ToList();
+            if (idList.Count == 0) return Enumerable.Empty<BorrowRecord>();
+
+            var sql = $@"SELECT {nameof(BorrowRecord.Id)},
+                                {nameof(BorrowRecord.DossierId)},
+                                {nameof(BorrowRecord.Reason)}
+                        FROM BORROWRECORDS
+                        WHERE {nameof(BorrowRecord.Id)} IN :Ids";
+            return await _connection.QueryAsync<BorrowRecord>(sql, new { Ids = idList });
         }
 
         public async Task<bool> CreateAsync(BorrowRecord record)

@@ -5,6 +5,7 @@ using EvnHanoi.DigitizationService.Models;
 using EvnHanoi.DigitizationService.Models.Dto;
 using EvnHanoi.DigitizationService.Repositories;
 using EvnHanoi.DigitizationService.Services;
+using EvnHanoi.Infrastructure.Utils;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
@@ -96,7 +97,7 @@ namespace EvnHanoi.DigitizationService.Controllers
 
             try
             {
-                var objectName = $"training/{DateTime.UtcNow:yyyy/MM/dd}/{Guid.NewGuid()}_{request.File.FileName}";
+                var objectName = $"training/{DateTime.UtcNow:yyyy/MM/dd}/{Guid.NewGuid()}_{FileNameHelper.ToMinioObjectFileName(request.File.FileName)}";
 
                 using var stream = request.File.OpenReadStream();
                 var filePath = await _minioStorageService.UploadFileAsync(
