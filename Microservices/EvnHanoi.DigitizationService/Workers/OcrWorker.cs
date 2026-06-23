@@ -189,6 +189,8 @@ namespace EvnHanoi.DigitizationService.Workers
                                 catch (Exception ex)
                                 {
                                     _logger.LogWarning(ex, "Lỗi khi gọi ocr_vl_server cho trang {Page}.", i + 1);
+                                    await _channel.BasicNackAsync(ea.DeliveryTag, false, true);
+                                    return;
                                 }
 
                                 // 4. Tạo trang PDF 2 lớp: ảnh gốc + text ẩn
