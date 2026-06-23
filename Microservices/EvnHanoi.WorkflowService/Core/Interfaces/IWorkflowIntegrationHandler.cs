@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace EvnHanoi.WorkflowService.Core.Interfaces
@@ -11,5 +12,6 @@ namespace EvnHanoi.WorkflowService.Core.Interfaces
         Task OnWorkflowRejectedAsync(string entityId, Guid instanceId);
         Task OnWorkflowStateChangedAsync(string entityId, Guid instanceId, string statusName);
         Task<string> GetEntityDetailsAsync(string entityId);
+        Task<IReadOnlyDictionary<string, string>> GetEntityDetailsBatchAsync(IReadOnlyCollection<string> entityIds);
     }
 }

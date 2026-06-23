@@ -10,6 +10,11 @@ public interface IDocumentDigitizationService
         Guid documentVersionId,
         SubmitDossierDocumentDigitizationRequest request,
         string userId);
+    /// <summary>Bóc tách lại — gửi thẳng ExtractionWorker, form EAV luôn load mới từ DB.</summary>
+    Task<DocumentOcrProgressDto> ReExtractForDossierDocumentAsync(
+        Guid dossierId,
+        Guid documentVersionId,
+        string userId);
     Task HandleProgressMessageAsync(DigitizationProgressMessage message);
     Task HandleExtractionCompletedAsync(DigitizationExtractionCompletedMessage message);
     Task<DocumentOcrProgressDto?> GetProgressByVersionIdAsync(Guid documentVersionId);

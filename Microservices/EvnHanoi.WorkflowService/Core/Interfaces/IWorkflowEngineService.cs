@@ -19,7 +19,7 @@ namespace EvnHanoi.WorkflowService.Core.Interfaces
         Task<WorkflowTask?> RejectAsync(Guid taskId, string userId, string? comment = null);
         Task<WorkflowInstance> MoveAsync(string targetEntityId, string nextNodeId, string userId, string actionLabel, string? comment = null, string? nextAssigneeUserId = null, string entityType = "BorrowRecord");
         Task<WorkflowInstance> MoveWithValidationAsync(string targetEntityId, string nextNodeId, string userId, List<string> userRoles, bool isAdmin, string actionLabel, string? comment = null, string? nextAssigneeUserId = null, string entityType = "BorrowRecord");
-        Task<IEnumerable<object>> GetMyTasksAsync(List<string> userRoles, bool isAdmin, string userId);
+        Task<IEnumerable<object>> GetMyTasksAsync(List<string> userRoles, bool isAdmin, string userId, Guid? workflowInstanceId = null);
         Task<IEnumerable<WorkflowHistory>> GetHistoryAsync(Guid instanceId);
         Task<IEnumerable<WorkflowHistory>> GetHistoryByEntityAsync(string entityId, string entityType);
         Task<object> GetInstanceStatusByEntityAsync(string entityId, string entityType);

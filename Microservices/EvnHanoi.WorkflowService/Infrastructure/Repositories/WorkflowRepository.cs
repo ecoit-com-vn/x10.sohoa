@@ -55,26 +55,7 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
 
             var definitions = await _connection.QueryAsync<WorkflowDefinition>(sql, parameters);
             var result = definitions.ToList();
-            foreach (var def in result)
-            {
-                var sqlSteps = $@"SELECT {nameof(WorkflowStep.Id)}, 
-                                         {nameof(WorkflowStep.WorkflowDefinitionId)}, 
-                                         {nameof(WorkflowStep.StepName)}, 
-                                         ""{nameof(WorkflowStep.Order)}"", 
-                                         {nameof(WorkflowStep.RequiredRole)}, 
-                                         {nameof(WorkflowStep.ActionType)},
-                                         {nameof(WorkflowStep.AllowEdit)},
-                                         {nameof(WorkflowStep.RequireSignature)} 
-                                  FROM WORKFLOWSTEPS 
-                                  WHERE {nameof(WorkflowStep.WorkflowDefinitionId)} = :Id 
-                                  ORDER BY ""{nameof(WorkflowStep.Order)}""";
-                var steps = await _connection.QueryAsync<WorkflowStep>(sqlSteps, new { Id = def.Id.ToString() });
-                def.Steps = steps.ToList();
-                foreach (var step in def.Steps)
-                {
-                    step.WorkflowDefinition = def;
-                }
-            }
+            await AttachStepsToDefinitionsAsync(result);
             return result;
         }
 
@@ -104,26 +85,7 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
             
             var definitions = await _connection.QueryAsync<WorkflowDefinition>(sql, new { Name = name });
             var result = definitions.ToList();
-            foreach (var def in result)
-            {
-                var sqlSteps = $@"SELECT {nameof(WorkflowStep.Id)}, 
-                                         {nameof(WorkflowStep.WorkflowDefinitionId)}, 
-                                         {nameof(WorkflowStep.StepName)}, 
-                                         ""{nameof(WorkflowStep.Order)}"", 
-                                         {nameof(WorkflowStep.RequiredRole)}, 
-                                         {nameof(WorkflowStep.ActionType)},
-                                         {nameof(WorkflowStep.AllowEdit)},
-                                         {nameof(WorkflowStep.RequireSignature)} 
-                                  FROM WORKFLOWSTEPS 
-                                  WHERE {nameof(WorkflowStep.WorkflowDefinitionId)} = :Id 
-                                  ORDER BY ""{nameof(WorkflowStep.Order)}""";
-                var steps = await _connection.QueryAsync<WorkflowStep>(sqlSteps, new { Id = def.Id.ToString() });
-                def.Steps = steps.ToList();
-                foreach (var step in def.Steps)
-                {
-                    step.WorkflowDefinition = def;
-                }
-            }
+            await AttachStepsToDefinitionsAsync(result);
             return result;
         }
 
@@ -218,27 +180,7 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
             var totalCount = await _connection.ExecuteScalarAsync<int>(countSql, parameters);
             var items = await _connection.QueryAsync<WorkflowDefinition>(pagedSql, parameters);
             var resultList = items.ToList();
-            
-            foreach (var def in resultList)
-            {
-                var sqlSteps = $@"SELECT {nameof(WorkflowStep.Id)}, 
-                                         {nameof(WorkflowStep.WorkflowDefinitionId)}, 
-                                         {nameof(WorkflowStep.StepName)}, 
-                                         ""{nameof(WorkflowStep.Order)}"", 
-                                         {nameof(WorkflowStep.RequiredRole)}, 
-                                         {nameof(WorkflowStep.ActionType)},
-                                         {nameof(WorkflowStep.AllowEdit)},
-                                         {nameof(WorkflowStep.RequireSignature)} 
-                                  FROM WORKFLOWSTEPS 
-                                  WHERE {nameof(WorkflowStep.WorkflowDefinitionId)} = :Id 
-                                  ORDER BY ""{nameof(WorkflowStep.Order)}""";
-                var steps = await _connection.QueryAsync<WorkflowStep>(sqlSteps, new { Id = def.Id.ToString() });
-                def.Steps = steps.ToList();
-                foreach (var step in def.Steps)
-                {
-                    step.WorkflowDefinition = def;
-                }
-            }
+            await AttachStepsToDefinitionsAsync(resultList);
             
             return (resultList, totalCount);
         }
@@ -812,50 +754,61 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
             return task;
         }
 
-        public async Task<IEnumerable<WorkflowTask>> GetPendingTasksByRolesAsync(List<string> roles, bool isAdmin, string userId)
+        public async Task<IEnumerable<WorkflowTask>> GetPendingTasksByRolesAsync(List<string> roles, bool isAdmin, string userId, Guid? workflowInstanceId = null)
         {
             if (_connection.State != ConnectionState.Open) _connection.Open();
-            var sql = $@"SELECT {nameof(WorkflowTask.Id)}, 
-                                {nameof(WorkflowTask.WorkflowInstanceId)}, 
-                                {nameof(WorkflowTask.StepId)}, 
-                                {nameof(WorkflowTask.StepName)}, 
-                                {nameof(WorkflowTask.AssignedRole)}, 
-                                {nameof(WorkflowTask.AssigneeUserId)}, 
-                                {nameof(WorkflowTask.Status)}, 
-                                {nameof(WorkflowTask.CreatedAt)}, 
-                                {nameof(WorkflowTask.CompletedAt)}
-                        FROM WORKFLOWTASKS
-                        WHERE {nameof(WorkflowTask.Status)} = 'Pending'";
+
+            var sql = $@"SELECT
+                                t.{nameof(WorkflowTask.Id)},
+                                t.{nameof(WorkflowTask.WorkflowInstanceId)},
+                                t.{nameof(WorkflowTask.StepId)},
+                                t.{nameof(WorkflowTask.StepName)},
+                                t.{nameof(WorkflowTask.AssignedRole)},
+                                t.{nameof(WorkflowTask.AssigneeUserId)},
+                                t.{nameof(WorkflowTask.Status)},
+                                t.{nameof(WorkflowTask.CreatedAt)},
+                                t.{nameof(WorkflowTask.CompletedAt)},
+                                wi.{nameof(WorkflowInstance.WorkflowDefinitionId)} AS InstanceDefinitionId,
+                                wi.{nameof(WorkflowInstance.TargetEntityId)} AS TargetEntityId,
+                                wi.{nameof(WorkflowInstance.TargetEntityType)} AS TargetEntityType,
+                                wi.{nameof(WorkflowInstance.Status)} AS InstanceStatus,
+                                wd.{nameof(WorkflowDefinition.Name)} AS DefinitionName,
+                                ws.{nameof(WorkflowStep.ActionType)} AS StepActionType,
+                                ws.{nameof(WorkflowStep.RequiredRole)} AS StepRequiredRole,
+                                ws.""{nameof(WorkflowStep.Order)}"" AS StepOrder,
+                                ws.{nameof(WorkflowStep.AllowEdit)} AS StepAllowEdit,
+                                ws.{nameof(WorkflowStep.RequireSignature)} AS StepRequireSignature
+                        FROM WORKFLOWTASKS t
+                        INNER JOIN WORKFLOWINSTANCES wi ON t.{nameof(WorkflowTask.WorkflowInstanceId)} = wi.{nameof(WorkflowInstance.Id)}
+                        LEFT JOIN WORKFLOWDEFINITIONS wd ON wi.{nameof(WorkflowInstance.WorkflowDefinitionId)} = wd.{nameof(WorkflowDefinition.Id)}
+                        LEFT JOIN WORKFLOWSTEPS ws ON t.{nameof(WorkflowTask.StepId)} = ws.{nameof(WorkflowStep.Id)}
+                        WHERE t.{nameof(WorkflowTask.Status)} = 'Pending'";
 
             var parameters = new DynamicParameters();
+            if (workflowInstanceId.HasValue)
+            {
+                sql += $@" AND t.{nameof(WorkflowTask.WorkflowInstanceId)} = :WorkflowInstanceId";
+                parameters.Add("WorkflowInstanceId", workflowInstanceId.Value.ToString());
+            }
+
             if (!isAdmin)
             {
                 if (roles == null || roles.Count == 0)
                 {
-                    sql += $@" AND {nameof(WorkflowTask.AssigneeUserId)} = :AssigneeUserId";
+                    sql += $@" AND t.{nameof(WorkflowTask.AssigneeUserId)} = :AssigneeUserId";
                 }
                 else
                 {
-                    sql += $@" AND ({nameof(WorkflowTask.AssigneeUserId)} = :AssigneeUserId OR ({nameof(WorkflowTask.AssigneeUserId)} IS NULL AND {nameof(WorkflowTask.AssignedRole)} IN :Roles))";
+                    sql += $@" AND (t.{nameof(WorkflowTask.AssigneeUserId)} = :AssigneeUserId OR (t.{nameof(WorkflowTask.AssigneeUserId)} IS NULL AND t.{nameof(WorkflowTask.AssignedRole)} IN :Roles))";
                     parameters.Add("Roles", roles);
                 }
                 parameters.Add("AssigneeUserId", userId);
             }
 
-            sql += $@" ORDER BY {nameof(WorkflowTask.CreatedAt)} DESC";
+            sql += $@" ORDER BY t.{nameof(WorkflowTask.CreatedAt)} DESC";
 
-            var tasks = await _connection.QueryAsync<WorkflowTask>(sql, parameters);
-            var result = tasks.ToList();
-
-            foreach (var task in result)
-            {
-                task.WorkflowInstance = await GetInstanceByIdAsync(task.WorkflowInstanceId);
-                if (task.WorkflowInstance?.WorkflowDefinition != null)
-                {
-                    task.Step = task.WorkflowInstance.WorkflowDefinition.Steps.FirstOrDefault(s => s.Id == task.StepId);
-                }
-            }
-            return result;
+            var rows = await _connection.QueryAsync<PendingWorkflowTaskRow>(sql, parameters);
+            return rows.Select(MapPendingTaskRow).ToList();
         }
 
         public async Task<bool> CreateTaskAsync(WorkflowTask task)
@@ -969,6 +922,111 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
         public Task<bool> SaveChangesAsync()
         {
             return Task.FromResult(true);
+        }
+
+        private async Task AttachStepsToDefinitionsAsync(IList<WorkflowDefinition> definitions)
+        {
+            if (definitions.Count == 0) return;
+
+            var definitionIds = definitions.Select(d => d.Id.ToString()).Distinct().ToList();
+            var sqlSteps = $@"SELECT {nameof(WorkflowStep.Id)},
+                                     {nameof(WorkflowStep.WorkflowDefinitionId)},
+                                     {nameof(WorkflowStep.StepName)},
+                                     ""{nameof(WorkflowStep.Order)}"",
+                                     {nameof(WorkflowStep.RequiredRole)},
+                                     {nameof(WorkflowStep.ActionType)},
+                                     {nameof(WorkflowStep.AllowEdit)},
+                                     {nameof(WorkflowStep.RequireSignature)}
+                              FROM WORKFLOWSTEPS
+                              WHERE {nameof(WorkflowStep.WorkflowDefinitionId)} IN :DefinitionIds
+                              ORDER BY {nameof(WorkflowStep.WorkflowDefinitionId)}, ""{nameof(WorkflowStep.Order)}""";
+
+            var allSteps = (await _connection.QueryAsync<WorkflowStep>(sqlSteps, new { DefinitionIds = definitionIds })).ToList();
+            var stepsByDefinitionId = allSteps.GroupBy(s => s.WorkflowDefinitionId).ToDictionary(g => g.Key, g => g.ToList());
+
+            foreach (var definition in definitions)
+            {
+                if (stepsByDefinitionId.TryGetValue(definition.Id, out var steps))
+                {
+                    definition.Steps = steps;
+                    foreach (var step in steps)
+                        step.WorkflowDefinition = definition;
+                }
+                else
+                {
+                    definition.Steps = new List<WorkflowStep>();
+                }
+            }
+        }
+
+        private static WorkflowTask MapPendingTaskRow(PendingWorkflowTaskRow row)
+        {
+            var definition = new WorkflowDefinition
+            {
+                Id = row.InstanceDefinitionId,
+                Name = row.DefinitionName ?? string.Empty,
+            };
+
+            var instance = new WorkflowInstance
+            {
+                Id = row.WorkflowInstanceId,
+                WorkflowDefinitionId = row.InstanceDefinitionId,
+                TargetEntityId = row.TargetEntityId,
+                TargetEntityType = row.TargetEntityType,
+                Status = row.InstanceStatus,
+                WorkflowDefinition = definition,
+            };
+
+            var step = new WorkflowStep
+            {
+                Id = row.StepId,
+                WorkflowDefinitionId = row.InstanceDefinitionId,
+                StepName = row.StepName,
+                ActionType = row.StepActionType ?? string.Empty,
+                RequiredRole = row.StepRequiredRole ?? row.AssignedRole,
+                Order = row.StepOrder,
+                AllowEdit = row.StepAllowEdit,
+                RequireSignature = row.StepRequireSignature,
+                WorkflowDefinition = definition,
+            };
+
+            return new WorkflowTask
+            {
+                Id = row.Id,
+                WorkflowInstanceId = row.WorkflowInstanceId,
+                StepId = row.StepId,
+                StepName = row.StepName,
+                AssignedRole = row.AssignedRole,
+                AssigneeUserId = row.AssigneeUserId,
+                Status = row.Status,
+                CreatedAt = row.CreatedAt,
+                CompletedAt = row.CompletedAt,
+                WorkflowInstance = instance,
+                Step = step,
+            };
+        }
+
+        private sealed class PendingWorkflowTaskRow
+        {
+            public Guid Id { get; set; }
+            public Guid WorkflowInstanceId { get; set; }
+            public Guid StepId { get; set; }
+            public string StepName { get; set; } = string.Empty;
+            public string AssignedRole { get; set; } = string.Empty;
+            public string? AssigneeUserId { get; set; }
+            public string Status { get; set; } = string.Empty;
+            public DateTime CreatedAt { get; set; }
+            public DateTime? CompletedAt { get; set; }
+            public Guid InstanceDefinitionId { get; set; }
+            public string TargetEntityId { get; set; } = string.Empty;
+            public string TargetEntityType { get; set; } = string.Empty;
+            public string InstanceStatus { get; set; } = string.Empty;
+            public string? DefinitionName { get; set; }
+            public string? StepActionType { get; set; }
+            public string? StepRequiredRole { get; set; }
+            public int StepOrder { get; set; }
+            public bool StepAllowEdit { get; set; }
+            public bool StepRequireSignature { get; set; }
         }
     }
 }

@@ -336,7 +336,7 @@ public class FileUploadService : IFileUploadService
                 throw new InvalidOperationException("Thư mục của upload session không tồn tại");
 
             // ===== MERGE CHUNKS (theo đơn vị + thư mục) =====
-            var mergedPath = await _fileStorageService.MergeChunksAsync(
+            var (mergedPath, mergedSize) = await _fileStorageService.MergeChunksAsync(
                 uploadId,
                 session.TotalChunks,
                 ResolveUnitCode(folder),
@@ -362,7 +362,7 @@ public class FileUploadService : IFileUploadService
                 VersionNumber = 1,
                 UploadSource = 1,  // 1 = Folder upload
                 FilePath = mergedPath,
-                FileSize = 0,  // Would need to calculate from chunks
+                FileSize = mergedSize,
                 MimeType = "application/octet-stream",
                 UploadSessionId = session.Id,
                 ChunksCount = session.TotalChunks,
@@ -529,7 +529,7 @@ public class FileUploadService : IFileUploadService
             throw new InvalidOperationException($"Thiếu chunks. Cần {session.TotalChunks}, nhận được {request.Parts.Count}");
 
         var unitCode = await ResolveUnitCodeFromUserAsync(userUnitId);
-        var mergedPath = await _fileStorageService.MergeChunksToDossierAsync(
+        var (mergedPath, mergedSize) = await _fileStorageService.MergeChunksToDossierAsync(
             uploadId, session.TotalChunks, unitCode, dossierId, session.FileName, cancellationToken);
 
         var document = new Document
@@ -549,7 +549,7 @@ public class FileUploadService : IFileUploadService
             VersionNumber = 1,
             UploadSource = 3,
             FilePath = mergedPath,
-            FileSize = 0,
+            FileSize = mergedSize,
             MimeType = "application/octet-stream",
             UploadSessionId = session.Id,
             ChunksCount = session.TotalChunks,

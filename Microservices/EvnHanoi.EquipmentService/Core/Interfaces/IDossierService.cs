@@ -35,7 +35,7 @@ public interface IDossierService
     Task<object?> GetWorkflowStatusByEntityAsync(string entityId);
     Task<IEnumerable<object>> GetWorkflowHistoryAsync(Guid dossierId);
     Task<object?> GetWorkflowDefinitionAsync(Guid definitionId);
-    Task<IEnumerable<object>> GetMyTasksAsync(List<string> userRoles, bool isAdmin, string userId);
+    Task<IEnumerable<object>> GetMyTasksAsync(List<string> userRoles, bool isAdmin, string userId, Guid? workflowInstanceId = null);
 
     // Document tab helpers
     Task RecordDocumentListChangeAsync(Guid dossierId, string changeNote, string userId);

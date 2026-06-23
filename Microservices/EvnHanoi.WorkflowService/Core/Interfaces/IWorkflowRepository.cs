@@ -32,7 +32,7 @@ namespace EvnHanoi.WorkflowService.Core.Interfaces
         
         // Tasks
         Task<WorkflowTask?> GetTaskByIdAsync(Guid id);
-        Task<IEnumerable<WorkflowTask>> GetPendingTasksByRolesAsync(List<string> roles, bool isAdmin, string userId);
+        Task<IEnumerable<WorkflowTask>> GetPendingTasksByRolesAsync(List<string> roles, bool isAdmin, string userId, Guid? workflowInstanceId = null);
         Task<bool> CreateTaskAsync(WorkflowTask task);
         Task<bool> UpdateTaskAsync(WorkflowTask task);
         
