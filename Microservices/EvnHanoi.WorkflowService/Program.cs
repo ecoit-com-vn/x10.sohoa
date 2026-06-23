@@ -16,6 +16,9 @@ var builder = WebApplication.CreateBuilder(args);
 // Register Dapper Type Handler for Guid conversion from string columns
 Dapper.SqlMapper.AddTypeHandler(new EvnHanoi.WorkflowService.Infrastructure.Repositories.GuidTypeHandler());
 
+// Map string to DbType.AnsiString globally in Dapper to prevent Oracle Implicit Type Conversion (VARCHAR2 vs NVARCHAR2) causing index suppression
+Dapper.SqlMapper.AddTypeMap(typeof(string), System.Data.DbType.AnsiString);
+
 builder.AddServiceDefaults();
 
 // 1. Configure Serilog
