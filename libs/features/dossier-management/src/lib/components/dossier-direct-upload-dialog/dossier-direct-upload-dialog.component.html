@@ -1,13 +1,15 @@
 <p-dialog
   [visible]="visible"
-  (visibleChange)="visibleChange.emit($event)"
+  (visibleChange)="onVisibleChange($event)"
   (onShow)="onShow()"
   [header]="dialogTitle"
   [modal]="true"
-  [style]="{ width: '640px', maxWidth: '95vw' }"
-  styleClass="evn-dialog-custom"
+  appendTo="body"
+  [style]="dialogWidthStyle"
+  [styleClass]="dialogStyleClass"
   [closable]="!submitting()"
   [draggable]="false"
+  [blockScroll]="true"
 >
   <div class="upload-steps">
     <section class="upload-step">
@@ -75,37 +77,43 @@
     <section class="upload-step">
       <h4 class="step-title">
         Bước 3 —
-        <ng-container *ngIf="isScanMode()">Quét &amp; upload file</ng-container>
-        <ng-container *ngIf="!isScanMode()">Upload file</ng-container>
+        <ng-container *ngIf="isScanMode">Quét tài liệu</ng-container>
+        <ng-container *ngIf="!isScanMode">Upload file</ng-container>
       </h4>
 
       <div *ngIf="!canUpload()" class="upload-blocked">
         <i class="pi pi-info-circle"></i>
-        Chọn loại văn bản ở bước 1 trước khi {{ isScanMode() ? 'quét' : 'upload' }} file.
+        Chọn loại văn bản ở bước 1 trước khi {{ isScanMode ? 'quét' : 'upload' }} file.
       </div>
 
       <ng-container *ngIf="canUpload()">
         <app-scanner-panel
-          *ngIf="isScanMode()"
+          #scannerPanel
+          *ngIf="isScanMode"
           [disabled]="submitting()"
           (fileReady)="onScannedFile($event)"
+          (scanningChange)="onScanInProgress($event)"
         ></app-scanner-panel>
 
-        <p class="ocr-note scan-divider" *ngIf="isScanMode()">— hoặc upload file đã có —</p>
-
         <app-file-upload-zone
+          *ngIf="!isScanMode"
           #uploadZone
           [uploadHandler]="uploadHandler"
-          [hideDropZone]="false"
           [maxFileSize]="524288000"
           (fileUploaded)="onFileUploaded($event)"
           (uploadError)="onUploadError($event)"
         ></app-file-upload-zone>
 
-        <p class="ocr-note scan-fallback" *ngIf="isScanMode()">
-          <i class="pi pi-upload"></i>
-          Hoặc chọn file PDF đã quét sẵn từ máy tính ở vùng upload phía trên.
-        </p>
+        <app-file-upload-zone
+          *ngIf="isScanMode"
+          #uploadZone
+          class="scan-upload-hidden"
+          [uploadHandler]="uploadHandler"
+          [hideDropZone]="true"
+          [maxFileSize]="524288000"
+          (fileUploaded)="onFileUploaded($event)"
+          (uploadError)="onUploadError($event)"
+        ></app-file-upload-zone>
       </ng-container>
     </section>
   </div>

@@ -826,6 +826,64 @@ td:has(.act-btn) {
 }
 
 /* Global styling for non-modal dialogs (.evn-dialog-no-modal) */
+.p-dialog-mask,
+.p-overlay-mask {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.evn-dialog-custom.p-dialog {
+  margin: 0 !important;
+  max-height: 90vh;
+  border-radius: 12px !important;
+  box-shadow: 0 20px 60px rgba(15, 23, 42, 0.18), 0 4px 16px rgba(15, 23, 42, 0.1) !important;
+
+  .p-dialog-header {
+    background-color: var(--p-surface-0, #ffffff) !important;
+    border-bottom: 1px solid var(--p-content-border-color, #e2e8f0) !important;
+    padding: 18px 24px !important;
+    border-radius: 12px 12px 0 0 !important;
+
+    .p-dialog-title {
+      color: var(--p-evn-blue, #002D72) !important;
+      font-weight: 700 !important;
+      font-size: 1.15rem !important;
+    }
+
+    .p-dialog-header-icon {
+      color: var(--p-text-muted-color, #64748b) !important;
+      width: 32px !important;
+      height: 32px !important;
+      border-radius: 50% !important;
+      transition: all 0.2s ease !important;
+
+      &:hover {
+        background-color: var(--p-surface-100, #f1f5f9) !important;
+        color: var(--p-text-color, #0f172a) !important;
+      }
+    }
+  }
+
+  .p-dialog-content {
+    padding: 16px 24px !important;
+    overflow-y: auto;
+  }
+
+  .p-dialog-footer {
+    border-top: 1px solid var(--p-content-border-color, #e2e8f0) !important;
+    padding: 14px 24px !important;
+    background: var(--p-surface-50, #f8fafc) !important;
+    border-radius: 0 0 12px 12px !important;
+  }
+}
+
+/* Dialog quét tài liệu — tab Tài liệu hồ sơ & Kho TL (căn giữa viewport, thu gọn) */
+.dossier-scan-upload-dialog.p-dialog {
+  width: min(560px, 95vw) !important;
+  max-height: min(90vh, 720px) !important;
+}
+
 .evn-dialog-no-modal.p-dialog {
   box-shadow: 0 20px 60px rgba(15, 23, 42, 0.22), 0 4px 16px rgba(15, 23, 42, 0.12) !important;
   border: 1px solid var(--p-content-border-color, #e2e8f0) !important;

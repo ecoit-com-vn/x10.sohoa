@@ -105,3 +105,7 @@
   text-align: center;
   color: #64748b;
 }
+
+:host ::ng-deep .scan-upload-hidden {
+  display: none;
+}

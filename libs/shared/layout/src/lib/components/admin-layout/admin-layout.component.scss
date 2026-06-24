@@ -193,6 +193,17 @@
   flex-direction: column;
 }
 
+.sidebar-menu-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px 12px;
+  color: var(--sidebar-color);
+  font-size: 0.85rem;
+  opacity: 0.85;
+}
+
 .menu-group-item {
   display: flex;
   flex-direction: column;

@@ -100,6 +100,10 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy {
   showDeleteConfirm = signal(false);
   deleteTarget = signal<DossierDocumentItem | null>(null);
 
+  showReExtractConfirm = signal(false);
+  reExtractTarget = signal<DossierDocumentItem | null>(null);
+  reExtractSubmitting = signal(false);
+
   showFolderPicker = signal(false);
   showDirectUpload = signal(false);
   uploadSource = signal(3);
@@ -427,7 +431,7 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy {
       this.showDirectUpload.set(true);
     } else if (action === 'scan') {
       this.uploadSource.set(2);
-      this.uploadDialogTitle.set('Scan tài liệu vào hồ sơ');
+      this.uploadDialogTitle.set('Quét tài liệu vào hồ sơ');
       this.showDirectUpload.set(true);
     }
   }
@@ -476,18 +480,35 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy {
 
   onReExtract(doc: DossierDocumentItem): void {
     if (!doc.latestVersionId || !this.canEdit) return;
+    this.reExtractTarget.set(doc);
+    this.showReExtractConfirm.set(true);
+  }
+
+  cancelReExtract(): void {
+    if (this.reExtractSubmitting()) return;
+    this.showReExtractConfirm.set(false);
+    this.reExtractTarget.set(null);
+  }
+
+  confirmReExtract(): void {
+    const doc = this.reExtractTarget();
+    if (!doc?.latestVersionId || !this.canEdit || this.reExtractSubmitting()) return;
 
     const ids = new Set(this.reExtractingIds());
     ids.add(doc.id);
     this.reExtractingIds.set(ids);
+    this.reExtractSubmitting.set(true);
 
     this.documentService
       .reExtractDigitization(this.dossierId, doc.latestVersionId)
-      .pipe(finalize(() => {
-        const next = new Set(this.reExtractingIds());
-        next.delete(doc.id);
-        this.reExtractingIds.set(next);
-      }))
+      .pipe(
+        finalize(() => {
+          this.reExtractSubmitting.set(false);
+          const next = new Set(this.reExtractingIds());
+          next.delete(doc.id);
+          this.reExtractingIds.set(next);
+        })
+      )
       .subscribe({
         next: () => {
           this.messageService.add({
@@ -495,6 +516,8 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy {
             summary: 'Đã gửi bóc tách lại',
             detail: `"${doc.name}" đang được bóc tách lại với biểu mẫu mới nhất`,
           });
+          this.showReExtractConfirm.set(false);
+          this.reExtractTarget.set(null);
           this.loadDocuments(true);
         },
         error: (err) => {
