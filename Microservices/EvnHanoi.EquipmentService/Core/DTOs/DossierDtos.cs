@@ -170,3 +170,28 @@ public class DossierFilterDto
     public int Page { get; set; } = 1;
     public int PageSize { get; set; } = 10;
 }
+
+public class DossierWorkflowStatusDto
+{
+    public Guid InstanceId { get; set; }
+    public Guid WorkflowDefinitionId { get; set; }
+    public string? CurrentNodeId { get; set; }
+    public string DefinitionName { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+    public int CurrentStepOrder { get; set; }
+    public string CurrentStepName { get; set; } = string.Empty;
+    public bool CurrentStepAllowEdit { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+    public List<DossierWorkflowPendingTaskDto> PendingTasks { get; set; } = new();
+}
+
+public class DossierWorkflowPendingTaskDto
+{
+    public Guid Id { get; set; }
+    public string StepName { get; set; } = string.Empty;
+    public string AssignedRole { get; set; } = string.Empty;
+    public string ActionType { get; set; } = string.Empty;
+    public bool AllowEdit { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
