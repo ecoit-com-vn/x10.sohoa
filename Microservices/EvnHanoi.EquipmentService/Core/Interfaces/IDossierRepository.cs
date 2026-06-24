@@ -34,6 +34,7 @@ public interface IDossierRepository
     // Versions
     Task<int> CreateVersionAsync(DossierVersion version);
     Task<IEnumerable<DossierVersionDto>> GetVersionsAsync(Guid dossierId);
+    Task<DossierWorkflowStatusDto?> GetWorkflowStatusByEntityAsync(string entityId);
 
     // Form data
     Task<bool> UpdateFormDataAsync(Guid id, string formDataJson, int expectedRowVersion, string modifiedBy);
