@@ -4,33 +4,38 @@
   display: block;
 }
 
-/* Overlay chỉ phủ vùng wf-page của màn Kho tài liệu thiết bị */
+/* Overlay fullscreen — căn giữa popup trên viewport (kể cả chế độ quét) */
 .document-management-page {
   position: relative;
 }
 
 .upload-overlay {
-  position: absolute;
+  position: fixed;
   inset: 0;
-  z-index: 50;
+  z-index: 1100;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: rgba(255, 255, 255, 0.4);
+  background: rgba(15, 23, 42, 0.35);
   backdrop-filter: blur(3px);
   -webkit-backdrop-filter: blur(3px);
-  border-radius: 0;
 }
 
 .upload-modal-panel {
-  width: 92%;
-  max-width: 860px;
-  max-height: 90vh;
+  width: 100%;
+  max-width: 640px;
+  max-height: min(90vh, 720px);
   overflow-y: auto;
   padding: 24px 28px;
+  margin: auto;
   box-shadow: 0 12px 40px rgba(15, 23, 42, 0.18);
   background: #fff;
+  border-radius: 12px;
+}
+
+.upload-modal-panel--scan {
+  max-width: 560px;
 }
 
 .upload-modal-header {
@@ -141,4 +146,8 @@
   text-align: center;
   font-size: 0.8rem;
   color: #64748b;
+}
+
+:host ::ng-deep .scan-upload-hidden {
+  display: none;
 }

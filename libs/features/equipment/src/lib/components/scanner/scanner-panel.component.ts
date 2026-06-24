@@ -5,6 +5,7 @@ import {
   input,
   output,
   signal,
+  NgZone,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
@@ -28,6 +29,7 @@ export class ScannerPanelComponent implements OnDestroy {
   private ecoScanner = inject(EcoScannerService);
   private messageService = inject(MessageService);
   private sanitizer = inject(DomSanitizer);
+  private ngZone = inject(NgZone);
 
   disabled = input(false);
   format = input<ScanFormat>('pdf');
@@ -36,6 +38,7 @@ export class ScannerPanelComponent implements OnDestroy {
   /** Phát ra từng file sau khi quét xong (mode 'm' có thể nhiều lần). */
   fileReady = output<File>();
   scanStateChange = output<ScanProgress>();
+  scanningChange = output<boolean>();
 
   scanning = signal(false);
   statusMessage = signal('Sẵn sàng quét tài liệu');
@@ -45,20 +48,27 @@ export class ScannerPanelComponent implements OnDestroy {
 
   ngOnDestroy(): void {
     this.revokePreview();
-    this.ecoScanner.cancelActiveScan();
+    if (this.scanning()) {
+      this.ecoScanner.cancelActiveScan();
+    }
+  }
+
+  isScanning(): boolean {
+    return this.scanning();
   }
 
   async startScan(): Promise<void> {
     if (this.disabled() || this.scanning()) return;
 
     this.scanning.set(true);
+    this.scanningChange.emit(true);
     this.revokePreview();
     this.statusMessage.set('Đang kết nối tới dịch vụ scan...');
 
     try {
       const files = await this.ecoScanner.scan(
         { format: this.format(), mode: this.mode() },
-        (progress) => this.onProgress(progress)
+        (progress) => this.scheduleProgressUpdate(progress)
       );
 
       for (const file of files) {
@@ -66,35 +76,47 @@ export class ScannerPanelComponent implements OnDestroy {
         this.fileReady.emit(file);
       }
 
-      this.messageService.add({
+      this.scheduleToast({
         severity: 'success',
         summary: 'Quét thành công',
         detail: files.length === 1 ? files[0].name : `Đã quét ${files.length} file`,
       });
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Quét tài liệu thất bại';
-      this.statusMessage.set(message);
-      this.messageService.add({
-        severity: 'error',
-        summary: 'Lỗi quét',
-        detail: message,
-      });
+      this.scheduleProgressUpdate({ phase: 'error', message });
+      if (!message.includes('Đã hủy')) {
+        this.scheduleToast({
+          severity: 'error',
+          summary: 'Lỗi quét',
+          detail: message,
+        });
+      }
     } finally {
       this.scanning.set(false);
+      this.scanningChange.emit(false);
     }
   }
 
   cancelScan(): void {
     this.ecoScanner.cancelActiveScan();
     this.scanning.set(false);
+    this.scanningChange.emit(false);
     this.statusMessage.set('Đã hủy quét');
   }
 
-  private onProgress(progress: ScanProgress): void {
-    if (progress.message) {
-      this.statusMessage.set(progress.message);
-    }
-    this.scanStateChange.emit(progress);
+  private scheduleProgressUpdate(progress: ScanProgress): void {
+    this.ngZone.run(() => {
+      if (progress.message) {
+        this.statusMessage.set(progress.message);
+      }
+      this.scanStateChange.emit(progress);
+    });
+  }
+
+  private scheduleToast(message: { severity: 'success' | 'error'; summary: string; detail: string }): void {
+    queueMicrotask(() => {
+      this.ngZone.run(() => this.messageService.add(message));
+    });
   }
 
   private showPreview(file: File): void {

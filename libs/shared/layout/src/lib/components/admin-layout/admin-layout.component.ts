@@ -1,7 +1,16 @@
-import { Component, inject, OnInit, ChangeDetectorRef, NgZone } from '@angular/core';
+import {
+  Component,
+  inject,
+  OnInit,
+  signal,
+  DestroyRef,
+  afterNextRender,
+} from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
 import { MenuItem } from 'primeng/api';
+import { retry, timer } from 'rxjs';
 import { NotificationBellComponent } from '../notification-bell/notification-bell.component';
 import { AuthService, MenuService, LoadingService } from '@sohoa.frontend/shared/core';
 import { LoadingComponent } from '../common/loading/loading.component';
@@ -11,57 +20,63 @@ import { LoadingComponent } from '../common/loading/loading.component';
   standalone: true,
   imports: [CommonModule, RouterModule, NotificationBellComponent, LoadingComponent],
   templateUrl: './admin-layout.component.html',
-  styleUrl: './admin-layout.component.scss'
+  styleUrl: './admin-layout.component.scss',
 })
 export class AdminLayout implements OnInit {
   public loadingService = inject(LoadingService);
   private router = inject(Router);
   private authService = inject(AuthService);
   private menuService = inject(MenuService);
-  private cdr = inject(ChangeDetectorRef);
-  private ngZone = inject(NgZone);
+  private destroyRef = inject(DestroyRef);
 
   isDarkMode = true;
   username = 'Người dùng';
   isSidebarCollapsed = false;
   isMobileSidebarOpen = false;
-  items: MenuItem[] = [];
+
+  /** Signal tránh NG0100 khi menu API trả về sau vòng CD đầu. */
+  items = signal<MenuItem[]>([]);
+  menuLoaded = signal(false);
+
+  constructor() {
+    afterNextRender(() => {
+      this.loadSidebarMenu();
+    });
+  }
 
   ngOnInit() {
-    // Tự động đóng mobile sidebar khi chuyển trang
-    this.router.events.subscribe(() => {
+    this.router.events.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
       this.isMobileSidebarOpen = false;
     });
 
-    if (typeof window !== 'undefined') {
-      // Decode username từ JWT Token
-      const token = this.authService.getToken();
-      if (token) {
-        try {
-          const payloadBase64 = token.split('.')[1];
-          const payloadJson = atob(payloadBase64.replace(/-/g, '+').replace(/_/g, '/'));
-          const payload = JSON.parse(payloadJson);
-          this.username = payload.name || payload.unique_name || payload.username || payload.sub || 'Người dùng';
-        } catch (e) {
-          this.username = 'Người dùng';
-        }
-      }
-
-      // Check saved theme
-      const savedTheme = localStorage.getItem('theme');
-      if (savedTheme === 'light') {
-        this.isDarkMode = false;
-        document.documentElement.classList.remove('dark-mode');
-      } else {
-        this.isDarkMode = true;
-        document.documentElement.classList.add('dark-mode');
-      }
-
-      // Chỉ tải sidebar menu động ở môi trường client (tránh 401 trên server SSR)
-      this.ngZone.run(() => {
-        this.loadSidebarMenu();
-      });
+    if (typeof window === 'undefined') {
+      return;
     }
+
+    const token = this.authService.getToken();
+    if (token) {
+      try {
+        const payloadBase64 = token.split('.')[1];
+        const payloadJson = atob(payloadBase64.replace(/-/g, '+').replace(/_/g, '/'));
+        const payload = JSON.parse(payloadJson);
+        this.username = payload.name || payload.unique_name || payload.username || payload.sub || 'Người dùng';
+      } catch {
+        this.username = 'Người dùng';
+      }
+    }
+
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'light') {
+      this.isDarkMode = false;
+      document.documentElement.classList.remove('dark-mode');
+    } else {
+      this.isDarkMode = true;
+      document.documentElement.classList.add('dark-mode');
+    }
+  }
+
+  trackByMenuId(_index: number, item: MenuItem): string {
+    return String(item.id ?? item.label ?? _index);
   }
 
   toggleTheme() {
@@ -91,7 +106,14 @@ export class AdminLayout implements OnInit {
 
   toggleGroup(item: MenuItem) {
     if (item.items) {
-      item.expanded = !item.expanded;
+      const targetId = String(item.id ?? '');
+      this.items.update((list) =>
+        list.map((group) =>
+          String(group.id ?? '') === targetId
+            ? { ...group, expanded: !group.expanded }
+            : group
+        )
+      );
     } else if (item.routerLink) {
       this.router.navigate(item.routerLink);
     }
@@ -104,7 +126,7 @@ export class AdminLayout implements OnInit {
       return currentUrl === link || currentUrl.startsWith(link + '/');
     }
     if (group.items) {
-      return group.items.some(sub => {
+      return group.items.some((sub) => {
         if (sub.routerLink) {
           const subLink = sub.routerLink.join('/');
           return currentUrl === subLink || currentUrl.startsWith(subLink + '/');
@@ -115,107 +137,105 @@ export class AdminLayout implements OnInit {
     return false;
   }
 
-  expandActiveGroupOnLoad() {
-    setTimeout(() => {
-      const currentUrl = this.router.url || '';
-      this.items.forEach(group => {
-        if (group.items) {
-          const isActive = group.items.some(sub => {
-            if (sub.routerLink) {
-              const subLink = sub.routerLink.join('/');
-              return currentUrl === subLink || currentUrl.startsWith(subLink + '/');
-            }
-            return false;
-          });
-          if (isActive) {
-            group.expanded = true;
-          }
-        }
-      });
-    }, 100);
-  }
-
   loadSidebarMenu() {
-    this.menuService.getSidebarMenu().subscribe({
-      next: (res) => {
-        this.ngZone.run(() => {
-          const menus = Array.isArray(res) ? res : (res && Array.isArray(res.items) ? res.items : (res && Array.isArray(res.value) ? res.value : []));
-          this.items = this.buildMenuTree(menus);
-          this.expandActiveGroupOnLoad();
-          this.cdr.detectChanges();
-        });
-      },
-      error: (err) => {
-        console.error('Không thể load sidebar menu động', err);
-      }
-    });
+    this.menuService
+      .getSidebarMenu()
+      .pipe(
+        retry({ count: 2, delay: (_err, retryCount) => timer(300 * retryCount) }),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe({
+        next: (res) => {
+          const menus = Array.isArray(res)
+            ? res
+            : res && Array.isArray(res.items)
+              ? res.items
+              : res && Array.isArray(res.value)
+                ? res.value
+                : [];
+          this.items.set(this.buildMenuTree(menus, this.router.url || ''));
+          this.menuLoaded.set(true);
+        },
+        error: (err) => {
+          console.error('Không thể load sidebar menu động', err);
+          this.menuLoaded.set(true);
+        },
+      });
   }
 
-  buildMenuTree(flatMenus: any[]): MenuItem[] {
+  buildMenuTree(flatMenus: any[], currentUrl: string): MenuItem[] {
     const menuMap = new Map<number, MenuItem>();
     const rootItems: MenuItem[] = [];
-
-    // Make a mutable copy of flatMenus to allow injection
     const menusCopy = [...flatMenus];
 
-    // Inject "Phê duyệt biểu mẫu" adjacent to "Quản lý form" if missing
-    const hasApprovalMenu = menusCopy.some(m => m.url === '/equipment/form-approval');
+    const hasApprovalMenu = menusCopy.some((m) => m.url === '/equipment/form-approval');
     if (!hasApprovalMenu) {
-      const formMgmtMenu = menusCopy.find(m => m.url === '/equipment/form-management');
+      const formMgmtMenu = menusCopy.find((m) => m.url === '/equipment/form-management');
       if (formMgmtMenu) {
         menusCopy.push({
           id: 999999,
           name: 'Phê duyệt biểu mẫu',
           icon: 'pi pi-check-square',
           url: '/equipment/form-approval',
-          parentId: formMgmtMenu.parentId
+          parentId: formMgmtMenu.parentId,
         });
       }
     }
 
-    // Inject "Quản lý biểu mẫu" adjacent to "Quản lý form" if missing
-    const hasTemplateMenu = menusCopy.some(m => m.url === '/equipment/form-template');
+    const hasTemplateMenu = menusCopy.some((m) => m.url === '/equipment/form-template');
     if (!hasTemplateMenu) {
-      const formMgmtMenu = menusCopy.find(m => m.url === '/equipment/form-management');
+      const formMgmtMenu = menusCopy.find((m) => m.url === '/equipment/form-management');
       if (formMgmtMenu) {
         menusCopy.push({
           id: 999998,
           name: 'Quản lý biểu mẫu',
           icon: 'pi pi-file',
           url: '/equipment/form-template',
-          parentId: formMgmtMenu.parentId
+          parentId: formMgmtMenu.parentId,
         });
       }
     }
 
-    menusCopy.forEach(m => {
+    menusCopy.forEach((m) => {
       const item: MenuItem = {
         id: m.id.toString(),
         label: m.name,
         icon: m.icon || undefined,
         routerLink: m.url ? [m.url] : undefined,
         items: undefined,
-        expanded: false
+        expanded: false,
       };
       menuMap.set(m.id, item);
     });
 
-    menusCopy.forEach(m => {
+    menusCopy.forEach((m) => {
       const item = menuMap.get(m.id);
-      if (item) {
-        if (m.parentId) {
-          const parentItem = menuMap.get(m.parentId);
-          if (parentItem) {
-            if (!parentItem.items) {
-              parentItem.items = [];
-            }
-            parentItem.items.push(item);
+      if (!item) return;
+
+      if (m.parentId) {
+        const parentItem = menuMap.get(m.parentId);
+        if (parentItem) {
+          if (!parentItem.items) {
+            parentItem.items = [];
           }
-        } else {
-          rootItems.push(item);
+          parentItem.items.push(item);
         }
+      } else {
+        rootItems.push(item);
       }
     });
+
+    for (const group of rootItems) {
+      if (!group.items?.length) continue;
+      const isActive = group.items.some((sub) => {
+        if (!sub.routerLink) return false;
+        const subLink = sub.routerLink.join('/');
+        return currentUrl === subLink || currentUrl.startsWith(subLink + '/');
+      });
+      if (isActive) {
+        group.expanded = true;
+      }
+    }
 
     return rootItems;
   }

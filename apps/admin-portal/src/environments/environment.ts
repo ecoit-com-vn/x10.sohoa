@@ -5,4 +5,5 @@ export const environment = {
   // URL trực tiếp WorkflowService nếu bypass gateway
   workflowServiceUrl: '',
   ecoScannerWsUrl: 'ws://127.0.0.1:8282',
+  ecoScannerDebug: true,
 };

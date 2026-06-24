@@ -243,6 +243,58 @@
   </ng-template>
 </p-dialog>
 
+<p-dialog
+  [visible]="showReExtractConfirm()"
+  (visibleChange)="$event ? null : cancelReExtract()"
+  header="Xác nhận bóc tách lại"
+  [modal]="true"
+  appendTo="body"
+  [style]="{ width: '420px' }"
+  styleClass="evn-dialog-custom"
+  [closable]="!reExtractSubmitting()"
+>
+  <div style="display: flex; align-items: flex-start; gap: 12px; padding: 8px 0 16px;">
+    <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #f59e0b;"></i>
+    <div>
+      <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">
+        Bạn có chắc chắn muốn bóc tách lại?
+      </p>
+      <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
+        Tài liệu <b style="color: #1e293b;">{{ reExtractTarget()?.name }}</b> sẽ được bóc tách lại
+        theo biểu mẫu EAV mới nhất. Dữ liệu bóc tách hiện tại có thể thay đổi sau khi xử lý xong.
+      </p>
+    </div>
+  </div>
+  <ng-template #footer>
+    <div
+      style="
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        border-top: 1px solid #f1f5f9;
+        padding-top: 12px;
+      "
+    >
+      <button
+        class="btn-cancel btn-small"
+        (click)="cancelReExtract()"
+        [disabled]="reExtractSubmitting()"
+      >
+        <i class="pi pi-times"></i> Hủy
+      </button>
+      <button
+        class="btn-green btn-small"
+        (click)="confirmReExtract()"
+        [disabled]="reExtractSubmitting()"
+      >
+        <i class="pi pi-spin pi-spinner" *ngIf="reExtractSubmitting()"></i>
+        <i class="pi pi-sync" *ngIf="!reExtractSubmitting()"></i>
+        Bóc tách lại
+      </button>
+    </div>
+  </ng-template>
+</p-dialog>
+
 <app-dossier-document-edit-dialog
   *ngIf="editTarget()?.latestVersionId as versionId"
   [dossierId]="dossierId"

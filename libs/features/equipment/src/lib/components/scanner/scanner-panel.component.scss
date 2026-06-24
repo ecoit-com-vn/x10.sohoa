@@ -26,6 +26,13 @@
   color: #64748b;
 }
 
+.scanner-waiting {
+  color: #b45309;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .scanner-preview {
   border: 1px solid #e2e8f0;
   border-radius: 8px;
