@@ -19,6 +19,7 @@ public interface IFileUploadService
         string mimeType,
         long fileSize,
         Guid folderId,
+        int uploadSource,
         string userId,
         long userUnitId,
         CancellationToken cancellationToken);
@@ -123,6 +124,7 @@ public class FileUploadService : IFileUploadService
         string mimeType,
         long fileSize,
         Guid folderId,
+        int uploadSource,
         string userId,
         long userUnitId,
         CancellationToken cancellationToken)
@@ -180,7 +182,7 @@ public class FileUploadService : IFileUploadService
             {
                 DocumentId = documentId,
                 VersionNumber = 1,
-                UploadSource = 1,  // 1 = Folder upload
+                UploadSource = uploadSource,
                 FilePath = minioPath,
                 FileSize = fileSize,
                 MimeType = mimeType,
