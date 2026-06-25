@@ -320,10 +320,7 @@ public class DossierService : IDossierService
 
     public async Task<object?> GetWorkflowStatusByEntityAsync(string entityId)
     {
-        var client = _httpClientFactory.CreateClient("WorkflowService");
-        var response = await client.GetAsync($"api/v1/workflows/get-workflow-by-entity/{entityId}?entityType=Dossier");
-        if (!response.IsSuccessStatusCode) return null;
-        return await response.Content.ReadFromJsonAsync<object>();
+        return await _dossierRepository.GetWorkflowStatusByEntityAsync(entityId);
     }
 
     public async Task<IEnumerable<object>> GetWorkflowHistoryAsync(Guid dossierId)
@@ -379,25 +376,14 @@ public class DossierService : IDossierService
             return;
         }
 
-        var client = _httpClientFactory.CreateClient("WorkflowService");
-        var response = await client.GetAsync($"api/v1/workflows/get-workflow-by-entity/{dossier.Id}?entityType=Dossier");
-        if (!response.IsSuccessStatusCode)
+        var statusDto = await _dossierRepository.GetWorkflowStatusByEntityAsync(dossier.Id.ToString());
+        if (statusDto == null)
             throw new InvalidOperationException("Không thể xác minh quyền chỉnh sửa theo quy trình phê duyệt.");
 
-        var content = await response.Content.ReadAsStringAsync();
-        using var doc = JsonDocument.Parse(content);
-        var root = doc.RootElement;
-
-        var status = root.TryGetProperty("status", out var statusEl) ? statusEl.GetString()
-            : root.TryGetProperty("Status", out statusEl) ? statusEl.GetString() : null;
-
-        if (!string.Equals(status, "Running", StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(statusDto.Status, "Running", StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("Quy trình phê duyệt đã kết thúc, không thể chỉnh sửa dữ liệu hồ sơ.");
 
-        var allowEdit = (root.TryGetProperty("currentStepAllowEdit", out var ae) && ae.ValueKind == JsonValueKind.True)
-            || (root.TryGetProperty("CurrentStepAllowEdit", out ae) && ae.ValueKind == JsonValueKind.True);
-
-        if (!allowEdit)
+        if (!statusDto.CurrentStepAllowEdit)
             throw new InvalidOperationException("Bước hiện tại của quy trình không cho phép chỉnh sửa dữ liệu hồ sơ.");
     }
 

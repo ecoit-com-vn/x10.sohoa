@@ -383,4 +383,89 @@ public class DossierRepository : IDossierRepository
                      ORDER BY {nameof(DossierVersion.VersionNumber)} DESC";
         return await _connection.QueryAsync<DossierVersionDto>(sql, new { DossierId = dossierId.ToString() });
     }
+
+    public async Task<DossierWorkflowStatusDto?> GetWorkflowStatusByEntityAsync(string entityId)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        // Query 1: Get latest workflow instance and JOIN with definition name
+        var sqlInstance = @"SELECT wi.ID, wi.WORKFLOWDEFINITIONID, wi.TARGETENTITYID, wi.TARGETENTITYTYPE, 
+                                   wi.STATUS, wi.CURRENTSTEPORDER, wi.CURRENTNODEID, wi.CURRENTNODENAME, 
+                                   wi.CREATEDAT, wi.UPDATEDAT, wd.NAME as DefinitionName
+                            FROM WORKFLOWINSTANCES wi
+                            LEFT JOIN WORKFLOWDEFINITIONS wd ON wi.WORKFLOWDEFINITIONID = wd.ID
+                            WHERE wi.TARGETENTITYID = :EntityId AND wi.TARGETENTITYTYPE = 'Dossier'
+                            ORDER BY wi.CREATEDAT DESC";
+        
+        var instance = await _connection.QueryFirstOrDefaultAsync<dynamic>(sqlInstance, new { EntityId = entityId });
+        if (instance == null) return null;
+
+        string instanceId = instance.ID.ToString();
+        string workflowDefId = instance.WORKFLOWDEFINITIONID.ToString();
+        string definitionName = instance.DEFINITIONNAME?.ToString() ?? string.Empty;
+
+        // Query 2: Get all steps of this definition in one roundtrip
+        var sqlSteps = @"SELECT Id, StepName, ""Order"", RequiredRole, ActionType, AllowEdit, RequireSignature 
+                         FROM WORKFLOWSTEPS 
+                         WHERE WorkflowDefinitionId = :Id 
+                         ORDER BY ""Order""";
+        var steps = (await _connection.QueryAsync<dynamic>(sqlSteps, new { Id = workflowDefId })).ToList();
+
+        // Query 3: Get all tasks of this instance in one roundtrip
+        var sqlTasks = @"SELECT Id, StepId, StepName, AssignedRole, AssigneeUserId, Status, CreatedAt 
+                         FROM WORKFLOWTASKS 
+                         WHERE WorkflowInstanceId = :InstanceId";
+        var tasks = (await _connection.QueryAsync<dynamic>(sqlTasks, new { InstanceId = instanceId })).ToList();
+
+        // Process steps & tasks in-memory to prevent N+1 queries
+        var pendingTasks = tasks.Where(t => t.STATUS == "Pending").ToList();
+        var firstPendingTask = pendingTasks.FirstOrDefault();
+        
+        dynamic currentStep = null;
+        if (firstPendingTask != null)
+        {
+            string firstPendingStepId = firstPendingTask.STEPID?.ToString();
+            currentStep = steps.FirstOrDefault(s => s.ID?.ToString() == firstPendingStepId);
+        }
+        else
+        {
+            int currentStepOrder = Convert.ToInt32(instance.CURRENTSTEPORDER);
+            currentStep = steps.FirstOrDefault(s => Convert.ToInt32(s.Order) == currentStepOrder);
+        }
+
+        bool currentStepAllowEdit = instance.STATUS == "Running" && currentStep != null && Convert.ToInt32(currentStep.AllowEdit) == 1;
+
+        var dto = new DossierWorkflowStatusDto
+        {
+            InstanceId = Guid.Parse(instanceId),
+            WorkflowDefinitionId = Guid.Parse(workflowDefId),
+            CurrentNodeId = instance.CURRENTNODEID?.ToString(),
+            DefinitionName = definitionName,
+            Status = instance.STATUS?.ToString() ?? string.Empty,
+            CurrentStepOrder = Convert.ToInt32(instance.CURRENTSTEPORDER),
+            CurrentStepName = instance.CURRENTNODENAME?.ToString() ?? currentStep?.STEPNAME?.ToString() ?? string.Empty,
+            CurrentStepAllowEdit = currentStepAllowEdit,
+            CreatedAt = Convert.ToDateTime(instance.CREATEDAT),
+            UpdatedAt = Convert.ToDateTime(instance.UPDATEDAT)
+        };
+
+        foreach (var t in pendingTasks)
+        {
+            string tStepId = t.STEPID?.ToString();
+            var stepOfTask = steps.FirstOrDefault(s => s.ID?.ToString() == tStepId);
+            
+            dto.PendingTasks.Add(new DossierWorkflowPendingTaskDto
+            {
+                Id = Guid.Parse(t.ID.ToString()),
+                StepName = t.STEPNAME?.ToString() ?? string.Empty,
+                AssignedRole = t.ASSIGNEDROLE?.ToString() ?? string.Empty,
+                ActionType = stepOfTask?.ACTIONTYPE?.ToString() ?? string.Empty,
+                AllowEdit = stepOfTask != null && Convert.ToInt32(stepOfTask.AllowEdit) == 1,
+                CreatedAt = Convert.ToDateTime(t.CREATEDAT)
+            });
+        }
+
+        return dto;
+    }
 }

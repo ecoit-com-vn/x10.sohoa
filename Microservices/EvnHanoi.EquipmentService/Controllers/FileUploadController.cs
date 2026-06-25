@@ -38,7 +38,8 @@ public class FileUploadController : ControllerBase
     public async Task<IActionResult> DirectUploadFile(
         [FromForm] IFormFile file,
         [FromForm] Guid folderId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        [FromForm] int uploadSource = 3)
     {
         try
         {
@@ -58,6 +59,7 @@ public class FileUploadController : ControllerBase
                     file.ContentType,
                     file.Length,
                     folderId,
+                    uploadSource,
                     UserId,
                     userUnitId,
                     cancellationToken);

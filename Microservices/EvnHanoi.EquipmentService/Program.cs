@@ -46,6 +46,9 @@ builder.Services.AddHostedService<DigitizationMessagingTopologyInitializer>();
 
 builder.Services.AddDapperInfrastructure(builder.Configuration);
 
+// Map string to DbType.AnsiString globally in Dapper to prevent Oracle Implicit Type Conversion (VARCHAR2 vs NVARCHAR2) causing index suppression
+Dapper.SqlMapper.AddTypeMap(typeof(string), System.Data.DbType.AnsiString);
+
 var elasticsearchUrl = builder.Configuration["Elasticsearch:Url"]
     ?? builder.Configuration["Elasticsearch:Uri"]
     ?? "http://localhost:9200";
@@ -111,6 +114,7 @@ builder.Services.AddHttpClient("WorkflowService", client =>
 builder.Services.AddHttpClient("NotificationService", client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["Services:NotificationService"] ?? "http://notificationservice");
+    client.Timeout = TimeSpan.FromSeconds(10);
 });
 
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IDigitizationProgressNotifier,
