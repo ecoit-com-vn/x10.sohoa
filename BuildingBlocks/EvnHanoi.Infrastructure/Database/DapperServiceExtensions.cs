@@ -18,10 +18,26 @@ public static class DapperServiceExtensions
 
         services.AddScoped<IDbConnection>(sp =>
         {
-            var connectionString = configuration.GetConnectionString("DefaultConnection");
+            var connectionString = EnsureConnectionPooling(configuration.GetConnectionString("DefaultConnection"));
             return new OracleConnection(connectionString);
         });
         return services;
+    }
+
+    private static string EnsureConnectionPooling(string? connectionString)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString))
+            return string.Empty;
+
+        var builder = new OracleConnectionStringBuilder(connectionString);
+        if (!builder.Pooling)
+        {
+            builder.Pooling = true;
+            if (builder.MinPoolSize <= 0) builder.MinPoolSize = 5;
+            if (builder.MaxPoolSize <= 0) builder.MaxPoolSize = 50;
+        }
+
+        return builder.ConnectionString;
     }
 
     private static void RegisterTypeHandlers()

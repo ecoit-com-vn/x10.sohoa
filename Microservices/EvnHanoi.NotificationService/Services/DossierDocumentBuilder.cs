@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using EvnHanoi.Infrastructure.Messaging;
 using EvnHanoi.NotificationService.Models;
 
 namespace EvnHanoi.NotificationService.Services;
@@ -23,7 +24,7 @@ public class DossierDocumentBuilder : IDossierDocumentBuilder
 
         return new DossierEsDocument
         {
-            Id = data.Id,
+            Id = DossierIndexIdNormalizer.Normalize(data.Id),
             GridTypeId = data.GridTypeId,
             GridTypeName = data.GridTypeName,
             InfrastructureId = data.InfrastructureId,
@@ -36,13 +37,24 @@ public class DossierDocumentBuilder : IDossierDocumentBuilder
             DossierTypeName = data.DossierTypeName,
             Status = data.Status,
             WorkflowStatusName = data.WorkflowStatusName,
-            WorkflowInstanceId = data.WorkflowInstanceId,
-            CreatorId = data.CreatorId,
+            WorkflowInstanceId = DossierIndexIdNormalizer.NormalizeOrNull(data.WorkflowInstanceId),
+            WorkflowInstanceStatus = data.WorkflowInstanceStatus,
+            CreatorId = DossierIndexIdNormalizer.NormalizeOrNull(data.CreatorId),
             CreatorUsername = data.CreatorUsername,
             CreatorName = data.CreatorName,
             CreatedDate = data.CreatedDate,
             ModifiedDate = data.ModifiedDate,
-            DocumentCount = 0,
+            DocumentCount = data.DocumentCount,
+            PendingAssignedRoles = data.PendingAssignedRoles
+                .Where(r => !string.IsNullOrWhiteSpace(r))
+                .ToList(),
+            PendingAssigneeUserId = DossierIndexIdNormalizer.NormalizeOrNull(data.PendingAssigneeUserId),
+            WorkflowParticipantUserIds = data.WorkflowParticipantUserIds
+                .Select(id => DossierIndexIdNormalizer.Normalize(id))
+                .Where(id => !string.IsNullOrEmpty(id))
+                .Distinct(StringComparer.Ordinal)
+                .ToList(),
+            CurrentStepAllowEdit = data.CurrentStepAllowEdit,
             CurrentVersionNumber = data.CurrentVersionNumber,
             IsDeleted = data.IsDeleted,
             CatalogFields = catalogFields,

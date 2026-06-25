@@ -1,3 +1,4 @@
+using EvnHanoi.Infrastructure.Enums;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -39,40 +40,29 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
 
             record.Id = Guid.NewGuid();
             record.RequestDate = DateTime.UtcNow;
+            record.State = BorrowState.Requested;
 
-            // Automatically find active workflow for "Quy trình mượn/trả hồ sơ kỹ thuật" using the definition service
-            var activeDef = await _workflowDefinitionService.GetLatestActiveDefinitionByNameAsync("Quy trình mượn/trả hồ sơ kỹ thuật");
+            var success = await _borrowRepository.CreateAsync(record);
+            if (!success)
+                throw new InvalidOperationException("Không thể lưu yêu cầu mượn/trả hồ sơ.");
 
-            if (activeDef != null)
+            try
             {
-                record.State = BorrowState.Requested;
-                
-                // Save borrow record first
-                var success = await _borrowRepository.CreateAsync(record);
-                if (!success)
-                {
-                    throw new InvalidOperationException("Không thể lưu yêu cầu mượn/trả hồ sơ.");
-                }
-
-                // Submit to workflow engine
-                await _workflowEngine.SubmitAsync(activeDef.Id, record.Id.ToString(), "BorrowRecord", userId);
+                await _workflowEngine.SubmitByEntityTypeAsync(
+                    record.Id.ToString(),
+                    EntityType.BorrowRecord.Code,
+                    userId);
             }
-            else
+            catch (KeyNotFoundException)
             {
-                // Fallback: approve immediately
                 record.State = BorrowState.Approved;
                 record.ApprovedDate = DateTime.UtcNow;
-                
-                // Append system note to reason
+
                 var note = " (Tự động duyệt - Chưa cấu hình quy trình phê duyệt)";
                 record.Reason = string.IsNullOrEmpty(record.Reason) ? note : record.Reason + note;
-                
-                // Save borrow record
-                var success = await _borrowRepository.CreateAsync(record);
-                if (!success)
-                {
-                    throw new InvalidOperationException("Không thể lưu yêu cầu mượn/trả hồ sơ.");
-                }
+
+                if (!await _borrowRepository.UpdateAsync(record))
+                    throw new InvalidOperationException("Không thể cập nhật yêu cầu mượn/trả hồ sơ.");
             }
 
             return record;

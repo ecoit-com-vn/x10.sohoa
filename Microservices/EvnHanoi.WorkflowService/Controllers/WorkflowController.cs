@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using EvnHanoi.WorkflowService.Core.Interfaces;
 using EvnHanoi.WorkflowService.Models;
 using EvnHanoi.Infrastructure.Security;
+using EvnHanoi.Infrastructure.Enums;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -68,12 +69,13 @@ namespace EvnHanoi.WorkflowService.Controllers
 
             try
             {
+            if (EntityType.TryGetByCode(request.EntityType) == null)
+                return BadRequest(new { message = $"EntityType không hợp lệ: '{request.EntityType}'." });
+
                 var instance = await _workflowEngine.SubmitByEntityTypeAsync(
                     request.EntityId,
                     request.EntityType,
-                    request.TargetEntityType ?? request.EntityType,
                     userId);
-
                 return Ok(new
                 {
                     Success = true,
@@ -232,18 +234,8 @@ namespace EvnHanoi.WorkflowService.Controllers
     {
         public string EntityId { get; set; } = string.Empty;
 
-        /// <summary>
-        /// Description của enum WorkflowType — dùng để TÌM WorkflowDefinition phù hợp.
-        /// Ví dụ: "Quy trình số hóa hồ sơ".
-        /// </summary>
+        /// <summary>Code EntityType — Dossier, BorrowRecord.</summary>
         public string EntityType { get; set; } = string.Empty;
-
-        /// <summary>
-        /// Loại entity thực sự — gắn vào WorkflowInstance.TargetEntityType để query sau.
-        /// Ví dụ: "Dossier", "BorrowRecord".
-        /// Nếu null → dùng EntityType làm fallback.
-        /// </summary>
-        public string? TargetEntityType { get; set; }
     }
 
     public class ApproveTaskRequest
@@ -259,7 +251,7 @@ namespace EvnHanoi.WorkflowService.Controllers
         public string ActionLabel { get; set; } = string.Empty;
         public string? Comment { get; set; }
         public string? NextAssigneeUserId { get; set; }
-        /// <summary>TargetEntityType của WorkflowInstance (vd: "Dossier", "BorrowRecord"). Mặc định "BorrowRecord".</summary>
+        /// <summary>EntityType của WorkflowInstance — mặc định BorrowRecord.</summary>
         public string? EntityType { get; set; }
     }
 }
