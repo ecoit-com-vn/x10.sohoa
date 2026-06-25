@@ -6,6 +6,8 @@ import { MessageService } from 'primeng/api';
 import { DialogModule } from 'primeng/dialog';
 import { DossierManagementService } from '../../data-access/dossier-management.service';
 import { DossierDocumentsTabComponent } from '../dossier-documents/dossier-documents-tab.component';
+import { DossierVersionsTabComponent } from '../dossier-versions-tab/dossier-versions-tab.component';
+import { DossierWorkflowTabComponent } from '../dossier-workflow-tab/dossier-workflow-tab.component';
 import {
   EavField,
   guidsEqual,
@@ -20,7 +22,7 @@ import { forkJoin } from 'rxjs';
 @Component({
   selector: 'app-dossier-form',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule, DialogModule, DossierDocumentsTabComponent],
+  imports: [CommonModule, FormsModule, ToastModule, DialogModule, DossierDocumentsTabComponent, DossierVersionsTabComponent, DossierWorkflowTabComponent],
   template: `
     <div class="wf-card" style="position: relative;">
       <!-- Header -->
@@ -50,6 +52,14 @@ import { forkJoin } from 'rxjs';
         <button class="tab-item" [class.tab-active]="activeTab() === 'documents'" (click)="activeTab.set('documents')">
           <i class="pi pi-file" style="margin-right: 6px;"></i>
           Tài liệu đính kèm
+        </button>
+        <button class="tab-item" [class.tab-active]="activeTab() === 'versions'" (click)="activeTab.set('versions')">
+          <i class="pi pi-history" style="margin-right: 6px;"></i>
+          Lịch sử phiên bản
+        </button>
+        <button class="tab-item" [class.tab-active]="activeTab() === 'workflow'" (click)="activeTab.set('workflow')">
+          <i class="pi pi-sitemap" style="margin-right: 6px;"></i>
+          Quy trình & Lịch sử
         </button>
       </div>
 
@@ -232,6 +242,14 @@ import { forkJoin } from 'rxjs';
         ></app-dossier-documents-tab>
       </div>
 
+      <div *ngIf="isEditMode() && activeTab() === 'versions'">
+        <app-dossier-versions-tab [dossierId]="dossierId!" />
+      </div>
+
+      <div *ngIf="isEditMode() && activeTab() === 'workflow'">
+        <app-dossier-workflow-tab [dossierId]="dossierId!" />
+      </div>
+
       <!-- Loading Overlay -->
       <div *ngIf="loading()" style="position: absolute; inset: 0; background: rgba(255,255,255,0.6); display: flex; align-items: center; justify-content: center; z-index: 50; border-radius: 12px;">
         <i class="pi pi-spin pi-spinner" style="font-size: 2rem; color: #002D72;"></i>
@@ -296,7 +314,7 @@ export class DossierFormComponent implements OnInit {
   private messageService = inject(MessageService);
 
   isEditMode = computed(() => !!this.dossierId);
-  activeTab = signal<'info' | 'documents'>('info');
+  activeTab = signal<'info' | 'documents' | 'versions' | 'workflow'>('info');
   loading = signal<boolean>(false);
   isSaving = signal<boolean>(false);
   loadingForm = signal<boolean>(false);

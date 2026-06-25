@@ -11,8 +11,24 @@ import { DialogModule } from 'primeng/dialog';
 import { MessageService } from 'primeng/api';
 
 import { BhsCatalogColumn, DossierManagementService } from '../../data-access/dossier-management.service';
+import {
+  DossierListTab,
+  DossierTabCounts,
+  getDossierStatusLabel,
+  getDossierStatusPillClass,
+  getDossierWorkflowStepSubtitle,
+} from '../../utils/dossier-status.util';
 
-
+function normalizeTabCounts(raw: unknown): DossierTabCounts {
+  const source = (raw ?? {}) as Record<string, unknown>;
+  return {
+    draft: Number(source['draft'] ?? source['Draft'] ?? 0),
+    pendingAction: Number(source['pendingAction'] ?? source['PendingAction'] ?? 0),
+    inProgress: Number(source['inProgress'] ?? source['InProgress'] ?? 0),
+    completed: Number(source['completed'] ?? source['Completed'] ?? 0),
+    returned: Number(source['returned'] ?? source['Returned'] ?? 0),
+  };
+}
 
 @Component({
 
@@ -26,18 +42,27 @@ import { BhsCatalogColumn, DossierManagementService } from '../../data-access/do
 
     <div class="wf-card">
 
-      <div class="edit-header">
-
-        <div class="edit-actions">
-
-          <button (click)="onCreateNew()" class="btn-green">
-
-            <i class="pi pi-plus"></i> Tạo hồ sơ mới
-
-          </button>
-
-        </div>
-
+      <div class="tab-bar">
+        <button type="button" class="tab-item" [class.tab-active]="activeTab() === 'draft'" (click)="selectTab('draft')">
+          Nháp
+          <span class="tab-badge" *ngIf="tabCounts()?.draft">{{ tabCounts()!.draft }}</span>
+        </button>
+        <button type="button" class="tab-item" [class.tab-active]="activeTab() === 'pending-action'" (click)="selectTab('pending-action')">
+          Chờ xử lý
+          <span class="tab-badge" *ngIf="tabCounts()?.pendingAction">{{ tabCounts()!.pendingAction }}</span>
+        </button>
+        <button type="button" class="tab-item" [class.tab-active]="activeTab() === 'in-progress'" (click)="selectTab('in-progress')">
+          Đang xử lý
+          <span class="tab-badge" *ngIf="tabCounts()?.inProgress">{{ tabCounts()!.inProgress }}</span>
+        </button>
+        <button type="button" class="tab-item" [class.tab-active]="activeTab() === 'completed'" (click)="selectTab('completed')">
+          Hoàn thành
+          <span class="tab-badge" *ngIf="tabCounts()?.completed">{{ tabCounts()!.completed }}</span>
+        </button>
+        <button type="button" class="tab-item" [class.tab-active]="activeTab() === 'returned'" (click)="selectTab('returned')">
+          Trả lại
+          <span class="tab-badge" *ngIf="tabCounts()?.returned">{{ tabCounts()!.returned }}</span>
+        </button>
       </div>
 
 
@@ -56,11 +81,11 @@ import { BhsCatalogColumn, DossierManagementService } from '../../data-access/do
 
             [(ngModel)]="searchKeyword"
 
-            (keyup.enter)="loadData()"
+            (keyup.enter)="onSearch()"
 
           />
 
-          <select class="wf-select" [(ngModel)]="filterGridTypeId" (change)="loadData()">
+          <select class="wf-select" [(ngModel)]="filterGridTypeId" (change)="onSearch()">
 
             <option [ngValue]="null">-- Tất cả loại lưới điện --</option>
 
@@ -68,7 +93,7 @@ import { BhsCatalogColumn, DossierManagementService } from '../../data-access/do
 
           </select>
 
-          <select class="wf-select" [(ngModel)]="filterInfrastructureId" (change)="loadData()">
+          <select class="wf-select" [(ngModel)]="filterInfrastructureId" (change)="onSearch()">
 
             <option [ngValue]="null">-- Tất cả trạm/đường dây --</option>
 
@@ -76,9 +101,19 @@ import { BhsCatalogColumn, DossierManagementService } from '../../data-access/do
 
           </select>
 
-          <button (click)="loadData()" class="btn-tim">
+          <button (click)="onSearch()" class="btn-tim">
 
             <i class="pi pi-search"></i> Tìm
+
+          </button>
+
+        </div>
+
+        <div class="toolbar-right" *ngIf="activeTab() === 'draft'">
+
+          <button (click)="onCreateNew()" class="btn-green">
+
+            <i class="pi pi-plus"></i> Tạo hồ sơ mới
 
           </button>
 
@@ -104,6 +139,8 @@ import { BhsCatalogColumn, DossierManagementService } from '../../data-access/do
 
               <th>Số lượng tài liệu</th>
 
+              <th>Trạng thái duyệt</th>
+
               <th class="col-hd">Thao tác</th>
 
             </tr>
@@ -123,6 +160,8 @@ import { BhsCatalogColumn, DossierManagementService } from '../../data-access/do
                 <td><div class="skeleton-bar"></div></td>
 
                 <td><div class="skeleton-bar short"></div></td>
+
+                <td><div class="skeleton-bar"></div></td>
 
                 <td class="col-hd"><div class="skeleton-bar short" style="margin-left: auto; width: 70px;"></div></td>
 
@@ -154,7 +193,7 @@ import { BhsCatalogColumn, DossierManagementService } from '../../data-access/do
 
                 <td *ngFor="let col of bhsColumns(); let first = first">
 
-                  <b *ngIf="first" class="wf-name-link" (click)="onViewDetail(item.id)">{{ getCatalogValue(item, col) }}</b>
+                  <b *ngIf="first" class="wf-name-link" (click)="onRowPrimaryAction(item)">{{ getCatalogValue(item, col) }}</b>
 
                   <span *ngIf="!first">{{ getCatalogValue(item, col) }}</span>
 
@@ -170,6 +209,16 @@ import { BhsCatalogColumn, DossierManagementService } from '../../data-access/do
 
                 <td class="text-center">{{ item.documentCount ?? 0 }}</td>
 
+                <td>
+                  <span [class]="getDossierStatusPillClass(item.status)">
+                    {{ getDossierStatusLabel(item.status) }}
+                  </span>
+                  <div class="text-muted" style="font-size: 0.75rem; margin-top: 2px;"
+                       *ngIf="getDossierWorkflowStepSubtitle(item.status, item.workflowStepName ?? item.workflowStatusName) as step">
+                    {{ step }}
+                  </div>
+                </td>
+
                 <td class="col-hd">
 
                   <div class="action-buttons-group">
@@ -180,7 +229,7 @@ import { BhsCatalogColumn, DossierManagementService } from '../../data-access/do
 
                     </button>
 
-                    <button *ngIf="item.status === 'Draft' || item.status === 'Returned'" (click)="onEdit(item.id)" class="act-btn act-edit" title="Sửa thông tin">
+                    <button *ngIf="canEditItem(item)" (click)="onEdit(item.id)" class="act-btn act-edit" title="Sửa thông tin">
 
                       <i class="pi pi-pencil"></i>
 
@@ -300,7 +349,27 @@ import { BhsCatalogColumn, DossierManagementService } from '../../data-access/do
 
   `,
 
-  styles: []
+  styles: [`
+    .tab-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 5px;
+      margin-left: 6px;
+      border-radius: 999px;
+      background: #e2e8f0;
+      color: #475569;
+      font-size: 0.72rem;
+      font-weight: 600;
+      line-height: 1;
+    }
+    .tab-item.tab-active .tab-badge {
+      background: #dbeafe;
+      color: #1d4ed8;
+    }
+  `]
 
 })
 
@@ -348,6 +417,10 @@ export class DossierListComponent implements OnInit {
 
   bhsColumns = signal<BhsCatalogColumn[]>([]);
 
+  activeTab = signal<DossierListTab>('draft');
+
+  tabCounts = signal<DossierTabCounts | null>(null);
+
 
 
   showDeleteConfirm = signal<boolean>(false);
@@ -360,7 +433,13 @@ export class DossierListComponent implements OnInit {
 
   totalPages = computed(() => Math.ceil(this.totalCount() / this.pageSize()));
 
-  tableColSpan = computed(() => this.bhsColumns().length + 4);
+  tableColSpan = computed(() => this.bhsColumns().length + 5);
+
+  getDossierStatusPillClass = getDossierStatusPillClass;
+
+  getDossierStatusLabel = getDossierStatusLabel;
+
+  getDossierWorkflowStepSubtitle = getDossierWorkflowStepSubtitle;
 
 
 
@@ -390,7 +469,63 @@ export class DossierListComponent implements OnInit {
 
     this.loadLookups();
 
+    this.refreshList();
+
+  }
+
+
+
+  selectTab(tab: DossierListTab) {
+
+    if (this.activeTab() === tab) return;
+
+    this.activeTab.set(tab);
+
+    this.currentPage.set(1);
+
     this.loadData();
+
+  }
+
+
+
+  onSearch() {
+
+    this.currentPage.set(1);
+
+    this.refreshList();
+
+  }
+
+
+
+  refreshList() {
+
+    this.loadTabCounts();
+
+    this.loadData();
+
+  }
+
+
+
+  loadTabCounts() {
+
+    this.service.getDossierTabCounts({
+
+      keyword: this.searchKeyword(),
+
+      gridTypeId: this.filterGridTypeId() !== null ? this.filterGridTypeId()! : undefined,
+
+      infrastructureId: this.filterInfrastructureId() || undefined,
+
+    }).subscribe({
+
+      next: (counts) => this.tabCounts.set(normalizeTabCounts(counts)),
+
+      error: () => console.error('Failed to load dossier tab counts')
+
+    });
 
   }
 
@@ -429,8 +564,11 @@ export class DossierListComponent implements OnInit {
   loadData() {
 
     this.loading.set(true);
+    this.items.set([]);
 
     const filter = {
+
+      tab: this.activeTab(),
 
       keyword: this.searchKeyword(),
 
@@ -449,11 +587,8 @@ export class DossierListComponent implements OnInit {
     this.service.getDossiers(filter).subscribe({
 
       next: (res) => {
-
         this.items.set(res.items || []);
-
         this.totalCount.set(res.totalCount || 0);
-
         this.loading.set(false);
 
       },
@@ -514,6 +649,40 @@ export class DossierListComponent implements OnInit {
 
 
 
+  onRowPrimaryAction(item: { id: string; status?: string; Status?: string }) {
+
+    if (this.canEditItem(item)) {
+
+      this.onEdit(item.id);
+
+      return;
+
+    }
+
+    this.onViewDetail(item.id);
+
+  }
+
+
+
+  canEditItem(item: { status?: string; Status?: string; currentStepAllowEdit?: boolean; CurrentStepAllowEdit?: boolean }): boolean {
+
+    if (this.activeTab() === 'draft') return true;
+
+    const status = item.status ?? item.Status;
+
+    if (status === 'Draft' || status === 'Returned') return true;
+
+    const stepAllowEdit = item.currentStepAllowEdit ?? item.CurrentStepAllowEdit;
+
+    if (this.activeTab() === 'pending-action' && stepAllowEdit) return true;
+
+    return false;
+
+  }
+
+
+
   onEdit(id: string) {
 
     this.edit.emit(id);
@@ -552,7 +721,7 @@ export class DossierListComponent implements OnInit {
 
         this.deleting.set(false);
 
-        this.loadData();
+        this.refreshList();
 
       },
 

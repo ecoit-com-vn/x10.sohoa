@@ -84,7 +84,7 @@ export class WorkflowBuilderComponent implements OnInit {
   filterIsActive = '';
 
   // ─── Data ───────────────────────────────────────────────────────────────────
-  loaiOptions: string[] = [];
+  loaiOptions: { id: number; code: string; name: string }[] = [];
   workflows: WorkflowDefinition[] = [];
   selectedIds: string[] = [];
   versionsList: WorkflowDefinition[] = [];
@@ -204,7 +204,7 @@ export class WorkflowBuilderComponent implements OnInit {
     const apiUrl = `${environment.apiGatewayUrl}/api/workflowdefinitions/get-workflow-type`;
     this.http.get<any>(apiUrl).subscribe({
       next: (res) => {
-        this.loaiOptions = Array.isArray(res)
+        const raw = Array.isArray(res)
           ? res
           : (res && Array.isArray(res.items)
             ? res.items
@@ -213,6 +213,16 @@ export class WorkflowBuilderComponent implements OnInit {
               : (res && Array.isArray(res.data)
                 ? res.data
                 : [])));
+        this.loaiOptions = raw
+          .map((item: string | { id?: number; code?: string; name?: string }) => {
+            if (typeof item === 'string') return { id: 0, code: item, name: item };
+            return {
+              id: item.id ?? 0,
+              code: item.code ?? '',
+              name: item.name ?? item.code ?? '',
+            };
+          })
+          .filter((opt: { id: number; code: string; name: string }) => !!opt.code);
         this.cdr.detectChanges();
       },
       error: (err) => {
@@ -441,7 +451,10 @@ export class WorkflowBuilderComponent implements OnInit {
       return;
     }
     this.formSubmitted = true;
-    if (!this.draft.name) return;
+    if (!this.draft.entityType) return;
+
+    const selectedType = this.loaiOptions.find(o => o.code === this.draft.entityType);
+    this.draft.name = selectedType?.name ?? this.draft.entityType;
 
     this.saving = true;
 
@@ -576,7 +589,7 @@ export class WorkflowBuilderComponent implements OnInit {
   }
 
   emptyDraft(): WorkflowDefinition {
-    return { name: '', description: '', version: '1.0', forceActivate: false, isActive: true, steps: [] };
+    return { name: '', entityType: '', description: '', version: '1.0', forceActivate: false, isActive: true, steps: [] };
   }
 
   truncate(text: string, max: number): string {

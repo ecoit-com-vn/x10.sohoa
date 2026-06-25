@@ -303,11 +303,8 @@ export class EcoScannerService {
       };
 
       socket.onerror = () => {
-        fail(
-          socket,
-          'Không thể kết nối đến EcoScanner. Hãy chắc chắn phần mềm EcoScanner đang chạy trên máy của bạn.',
-          false
-        );
+        const hint = this.buildConnectionErrorHint();
+        fail(socket, hint, false);
       };
     });
   }
@@ -321,6 +318,39 @@ export class EcoScannerService {
     if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
       socket.close();
     }
+  }
+
+  private buildConnectionErrorHint(): string {
+    const base =
+      'Không thể kết nối WebSocket tới EcoScanner (ws://127.0.0.1:8282). ' +
+      'EcoScanner phải đang chạy trên máy tính đang mở trình duyệt (127.0.0.1 = localhost của máy client, không phải server web).';
+
+    if (typeof window === 'undefined') {
+      return base;
+    }
+
+    const host = window.location.hostname;
+    const isLocalPortal =
+      host === 'localhost' || host === '127.0.0.1' || host === '[::1]';
+    const isSecure = window.location.protocol === 'https:';
+
+    if (!isLocalPortal && isSecure) {
+      return (
+        base +
+        ' Trang đang chạy HTTPS — trình duyệt có thể chặn ws:// (Mixed Content). Xem docs/SCAN_WEB_INTEGRATION.md mục 6–7.'
+      );
+    }
+
+    if (!isLocalPortal) {
+      return (
+        base +
+        ' Trang đang mở từ domain ' +
+        host +
+        ' — Chrome/Edge có thể chặn WebSocket tới localhost (Local Network Access). Thử cấp quyền Local network trong Site settings, policy IT, hoặc mở portal qua localhost khi dev.'
+      );
+    }
+
+    return base + ' Kiểm tra EcoScanner đã bật, cổng 8282 không bị firewall chặn.';
   }
 
   private bufferToFile(data: ArrayBuffer, format: ScanFormat, index: number): File {

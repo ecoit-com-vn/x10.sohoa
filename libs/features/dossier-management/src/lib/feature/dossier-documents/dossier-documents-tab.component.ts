@@ -296,7 +296,7 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy {
   canEditDocument = canEditDossierDocument;
 
   onEditDocument(doc: DossierDocumentItem): void {
-    if (!doc.latestVersionId) return;
+    if (!this.canEdit || !doc.latestVersionId) return;
     this.editTarget.set(doc);
     this.showEditDocument.set(true);
   }
