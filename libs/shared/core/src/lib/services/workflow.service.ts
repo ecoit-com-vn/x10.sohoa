@@ -19,8 +19,9 @@ export interface WorkflowStep {
 
 export interface WorkflowDefinition {
   id?: string;
-  name: string;            // Loại quy trình
-  description: string;     // Mô tả
+  name: string;
+  entityType?: string;
+  description: string;
   version: string;         // Phiên bản
   forceActivate: boolean;  // Ép buộc kích hoạt
   isActive: boolean;       // Trạng thái
