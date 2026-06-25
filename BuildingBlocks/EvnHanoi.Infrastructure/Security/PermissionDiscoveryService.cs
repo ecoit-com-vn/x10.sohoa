@@ -242,6 +242,7 @@ public class PermissionDiscoveryService : BackgroundService
             "AuditLog" => "AUDIT_LOG",
             "Signatures" => "SIGNATURE",
             "WorkflowDefinitions" => "WORKFLOW_DEFINITION",
+            "DossierWorkflow" => "DOSSIER",
             _ => ToSnakeCase(controllerKey)
         };
     }

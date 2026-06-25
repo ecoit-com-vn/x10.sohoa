@@ -136,33 +136,14 @@ public class ElasticsearchSetupService : IHostedService
             _logger.LogError(ex, "Error syncing Equipments table.");
         }
 
-        // Sync Dossiers → dossier_index
+        // Dossier: chỉ bootstrap khi index rỗng (fresh deploy). Cập nhật hàng ngày qua RabbitMQ / reindex nội bộ.
         try
         {
-            var enrichmentRepository = scope.ServiceProvider.GetRequiredService<IDossierEnrichmentRepository>();
-            var documentBuilder = scope.ServiceProvider.GetRequiredService<IDossierDocumentBuilder>();
-            var bhsCatalogs = await enrichmentRepository.GetBhsCatalogDefinitionsAsync();
-            var dossierIds = (await enrichmentRepository.GetAllIdsAsync()).ToList();
-
-            _logger.LogInformation("Syncing {Count} dossiers to {IndexName}...", dossierIds.Count, DossierMessaging.IndexName);
-            foreach (var dossierId in dossierIds)
-            {
-                if (cancellationToken.IsCancellationRequested) break;
-
-                var data = await enrichmentRepository.GetByIdAsync(dossierId);
-                if (data is null) continue;
-
-                var equipments = await enrichmentRepository.GetEquipmentsAsync(dossierId);
-                var document = documentBuilder.Build(data, bhsCatalogs, equipments);
-                await _client.IndexAsync(
-                    document,
-                    idx => idx.Index(DossierMessaging.IndexName).Id(document.Id),
-                    cancellationToken);
-            }
+            await BootstrapDossierIndexIfEmptyAsync(scope, cancellationToken);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error syncing DOSSIERS to dossier_index.");
+            _logger.LogError(ex, "Error bootstrapping dossier_index.");
         }
 
         // Sync EavFormTemplates
@@ -183,6 +164,59 @@ public class ElasticsearchSetupService : IHostedService
         }
 
         _logger.LogInformation("Database synchronization to Elasticsearch completed.");
+    }
+
+    private async Task BootstrapDossierIndexIfEmptyAsync(IServiceScope scope, CancellationToken cancellationToken)
+    {
+        var countResponse = await _client.CountAsync<DossierEsDocument>(
+            c => c.Indices(DossierMessaging.IndexName),
+            cancellationToken);
+
+        if (!countResponse.IsValidResponse)
+        {
+            _logger.LogWarning(
+                "Could not count {IndexName} — skipping dossier bootstrap. Error: {Error}",
+                DossierMessaging.IndexName,
+                countResponse.DebugInformation);
+            return;
+        }
+
+        if (countResponse.Count > 0)
+        {
+            _logger.LogInformation(
+                "{IndexName} already has {Count} document(s) — skipping startup dossier sync (use RabbitMQ or internal reindex).",
+                DossierMessaging.IndexName,
+                countResponse.Count);
+            return;
+        }
+
+        var enrichmentRepository = scope.ServiceProvider.GetRequiredService<IDossierEnrichmentRepository>();
+        var indexer = scope.ServiceProvider.GetRequiredService<IDossierIndexer>();
+
+        var deletedIds = (await enrichmentRepository.GetSoftDeletedIdsAsync()).ToList();
+        if (deletedIds.Count > 0)
+        {
+            _logger.LogInformation(
+                "Purging {Count} soft-deleted dossiers from empty {IndexName} bootstrap...",
+                deletedIds.Count,
+                DossierMessaging.IndexName);
+            foreach (var dossierId in deletedIds)
+            {
+                if (cancellationToken.IsCancellationRequested) break;
+                await indexer.DeleteByIdAsync(dossierId, cancellationToken);
+            }
+        }
+
+        var dossierIds = (await enrichmentRepository.GetAllIdsAsync()).ToList();
+        _logger.LogInformation(
+            "Bootstrapping {Count} active dossiers into empty {IndexName}...",
+            dossierIds.Count,
+            DossierMessaging.IndexName);
+        foreach (var dossierId in dossierIds)
+        {
+            if (cancellationToken.IsCancellationRequested) break;
+            await indexer.IndexByIdAsync(dossierId, cancellationToken);
+        }
     }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;

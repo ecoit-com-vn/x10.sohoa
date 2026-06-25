@@ -5,4 +5,5 @@ namespace EvnHanoi.NotificationService.Services;
 public interface IDossierSearchService
 {
     Task<(IEnumerable<DossierListItemDto> Items, int TotalCount)> GetPagedAsync(DossierFilterDto filter);
+    Task<DossierTabCountsDto> GetTabCountsAsync(DossierFilterDto filter);
 }

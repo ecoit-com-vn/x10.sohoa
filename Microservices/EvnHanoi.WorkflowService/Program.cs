@@ -51,11 +51,21 @@ builder.Services.AddHttpClient("IdentityService", client =>
     client.BaseAddress = new Uri(builder.Configuration["Services:IdentityService"] ?? "http://identityservice");
 });
 
+// HttpClient gọi EquipmentService để đồng bộ trạng thái hồ sơ (API nội bộ, kèm shared-secret).
+builder.Services.AddHttpClient("EquipmentService", client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["Services:EquipmentService"] ?? "http://equipmentservice");
+    client.Timeout = TimeSpan.FromSeconds(30);
+    client.DefaultRequestHeaders.Add("X-Internal-Token", builder.Configuration["Internal:Token"] ?? "");
+});
+
 builder.Services.AddScoped<IBorrowRecordRepository, BorrowRecordRepository>();
 builder.Services.AddScoped<IBorrowRecordService, BorrowRecordService>();
 builder.Services.AddScoped<IWorkflowRepository, WorkflowRepository>();
+builder.Services.AddScoped<WorkflowDefinitionCacheService>();
 builder.Services.AddScoped<IWorkflowEngineService, WorkflowEngineService>();
 builder.Services.AddScoped<IWorkflowIntegrationHandler, BorrowRecordWorkflowHandler>();
+builder.Services.AddScoped<IWorkflowIntegrationHandler, DossierWorkflowHandler>();
 builder.Services.AddScoped<IBpmnValidatorService, BpmnValidatorService>();
 builder.Services.AddScoped<IWorkflowDefinitionService, WorkflowDefinitionService>();
 

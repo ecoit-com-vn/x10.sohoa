@@ -18,6 +18,7 @@ public static class DossierIndexSetup
         if (existsResponse.Exists)
         {
             logger.LogInformation("Index {IndexName} already exists.", indexName);
+            await EnsureMappingUpdatedAsync(client, logger, cancellationToken);
             return;
         }
 
@@ -91,12 +92,17 @@ public static class DossierIndexSetup
             { "status", new KeywordProperty() },
             { "workflowStatusName", new KeywordProperty() },
             { "workflowInstanceId", new KeywordProperty() },
+            { "workflowInstanceStatus", new KeywordProperty() },
             { "creatorId", new KeywordProperty() },
             { "creatorUsername", new KeywordProperty() },
             { "creatorName", textField },
             { "createdDate", new DateProperty() },
             { "modifiedDate", new DateProperty() },
             { "documentCount", new IntegerNumberProperty() },
+            { "pendingAssignedRoles", new KeywordProperty() },
+            { "pendingAssigneeUserId", new KeywordProperty() },
+            { "workflowParticipantUserIds", new KeywordProperty() },
+            { "currentStepAllowEdit", new BooleanProperty() },
             { "currentVersionNumber", new IntegerNumberProperty() },
             { "isDeleted", new BooleanProperty() },
             {
@@ -136,5 +142,30 @@ public static class DossierIndexSetup
                 }
             }
         };
+    }
+
+    private static async Task EnsureMappingUpdatedAsync(
+        ElasticsearchClient client,
+        ILogger logger,
+        CancellationToken cancellationToken)
+    {
+        var indexName = DossierMessaging.IndexName;
+        var response = await client.Indices.PutMappingAsync(indexName, m => m
+            .Properties(new Properties
+            {
+                { "pendingAssignedRoles", new KeywordProperty() },
+                { "pendingAssigneeUserId", new KeywordProperty() },
+                { "workflowParticipantUserIds", new KeywordProperty() },
+                { "currentStepAllowEdit", new BooleanProperty() },
+                { "workflowInstanceStatus", new KeywordProperty() },
+            }), cancellationToken);
+
+        if (response.IsValidResponse)
+            logger.LogInformation("Updated mapping for {IndexName} (pending inbox fields).", indexName);
+        else
+            logger.LogWarning(
+                "Could not update mapping for {IndexName}: {Error}",
+                indexName,
+                response.DebugInformation);
     }
 }

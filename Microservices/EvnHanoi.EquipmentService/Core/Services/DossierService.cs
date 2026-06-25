@@ -3,8 +3,9 @@ using EvnHanoi.EquipmentService.Core.Entities;
 using EvnHanoi.EquipmentService.Core.Interfaces;
 using EvnHanoi.Infrastructure.Database;
 using EvnHanoi.Infrastructure.Messaging;
-using System.Net.Http.Json;
-using System.Text.Json;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using System.Net.Http;
 using InfrastructureEntity = EvnHanoi.EquipmentService.Core.Entities.Infrastructure;
 using GridTypeEntity = EvnHanoi.EquipmentService.Core.Entities.GridType;
 
@@ -21,23 +22,29 @@ public class DossierService : IDossierService
     private readonly IDossierSearchRepository _dossierSearchRepository;
     private readonly IDocumentRepository _documentRepository;
     private readonly IEquipmentRepository _equipmentRepository;
-    private readonly IHttpClientFactory _httpClientFactory;
     private readonly IMessageProducer _messageProducer;
+    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IConfiguration _configuration;
+    private readonly ILogger<DossierService> _logger;
 
     public DossierService(
         IDossierRepository dossierRepository,
         IDossierSearchRepository dossierSearchRepository,
         IDocumentRepository documentRepository,
         IEquipmentRepository equipmentRepository,
+        IMessageProducer messageProducer,
         IHttpClientFactory httpClientFactory,
-        IMessageProducer messageProducer)
+        IConfiguration configuration,
+        ILogger<DossierService> logger)
     {
         _dossierRepository = dossierRepository ?? throw new ArgumentNullException(nameof(dossierRepository));
         _dossierSearchRepository = dossierSearchRepository ?? throw new ArgumentNullException(nameof(dossierSearchRepository));
         _documentRepository = documentRepository ?? throw new ArgumentNullException(nameof(documentRepository));
         _equipmentRepository = equipmentRepository ?? throw new ArgumentNullException(nameof(equipmentRepository));
-        _httpClientFactory = httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory));
         _messageProducer = messageProducer ?? throw new ArgumentNullException(nameof(messageProducer));
+        _httpClientFactory = httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory));
+        _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     // ====loookup ====
@@ -56,7 +63,47 @@ public class DossierService : IDossierService
         return await _dossierRepository.GetDossierTypesLookupAsync();
     }
 
+    public async Task<(IEnumerable<EquipmentLookupItemDto> Items, int TotalCount)> GetEquipmentLookupAsync(
+        EquipmentLookupFilterDto filter,
+        bool isAdmin,
+        long? userUnitId,
+        IReadOnlyList<long>? fallbackUnitIds)
+    {
+        if (filter.Page < 1) filter.Page = 1;
+        if (filter.PageSize < 1) filter.PageSize = 10;
+        if (filter.PageSize > 100) filter.PageSize = 100;
 
+        List<long>? allowedUnitIds = null;
+        if (!isAdmin)
+        {
+            if (userUnitId.HasValue)
+            {
+                var units = await _equipmentRepository.GetOrganizationUnitsHierarchicalAsync(userUnitId);
+                allowedUnitIds = units.Select(u => u.Id).ToList();
+            }
+            else if (fallbackUnitIds != null && fallbackUnitIds.Count > 0)
+            {
+                var list = new List<long>();
+                foreach (var fId in fallbackUnitIds)
+                {
+                    var units = await _equipmentRepository.GetOrganizationUnitsHierarchicalAsync(fId);
+                    list.AddRange(units.Select(u => u.Id));
+                }
+                allowedUnitIds = list.Distinct().ToList();
+            }
+            else
+            {
+                allowedUnitIds = new List<long> { -1 };
+            }
+
+            if (filter.UnitId.HasValue && !allowedUnitIds.Contains(filter.UnitId.Value))
+            {
+                return (Enumerable.Empty<EquipmentLookupItemDto>(), 0);
+            }
+        }
+
+        return await _equipmentRepository.GetLookupPagedAsync(filter, allowedUnitIds);
+    }
 
     // ===== CRUD =====
 
@@ -151,7 +198,22 @@ public class DossierService : IDossierService
 
         var deleted = await _dossierRepository.SoftDeleteAsync(id, userId);
         if (deleted)
-            await PublishDossierChangedAsync(id, DossierChangedActions.Deleted);
+        {
+            var synced = await TrySyncDeleteFromEsAsync(id);
+            var queued = await TryPublishDossierChangedAsync(id, DossierChangedActions.Deleted);
+            if (!synced && !queued)
+            {
+                _logger.LogError(
+                    "Dossier {DossierId} đã xóa mềm Oracle nhưng không đồng bộ được Elasticsearch.",
+                    id);
+            }
+            else if (!synced)
+            {
+                _logger.LogWarning(
+                    "Dossier {DossierId}: sync ES delete thất bại, đã đưa vào hàng đợi RabbitMQ.",
+                    id);
+            }
+        }
         return deleted;
     }
 
@@ -249,117 +311,133 @@ public class DossierService : IDossierService
         return removed;
     }
 
-    // ===== WORKFLOW OPERATIONS (gọi qua HTTP tới WorkflowService) =====
+    // ===== WORKFLOW SYNC (nhận đồng bộ từ WorkflowService qua API nội bộ) =====
 
     /// <summary>
-    /// Gửi duyệt hồ sơ — chỉ khi Status = Draft hoặc Returned.
-    /// Token Relay: JWT của user được tự động đính kèm bởi TokenRelayHandler.
-    /// WorkflowService tự tìm definition active theo EntityType = "Dossier".
+    /// Cập nhật trạng thái workflow của hồ sơ theo dữ liệu do WorkflowService đẩy về.
+    /// WorkflowService là bên SỞ HỮU logic suy ra DossierStatus; ES chỉ ghi nhận.
     /// </summary>
-    public async Task<DossierDetailDto?> SubmitForApprovalAsync(Guid id, string userId)
+    public async Task UpdateWorkflowStateInternalAsync(Guid id, UpdateInternalWorkflowStateDto dto)
     {
         var existing = await _dossierRepository.GetByIdAsync(id);
         if (existing == null) throw new KeyNotFoundException($"Không tìm thấy hồ sơ với ID = {id}");
 
-        if (existing.Status != DossierStatus.Draft && existing.Status != DossierStatus.Returned)
-            throw new InvalidOperationException("Chỉ có thể gửi duyệt hồ sơ ở trạng thái Nháp hoặc Trả lại.");
+        var status = string.IsNullOrWhiteSpace(dto.DossierStatus) ? existing.Status : dto.DossierStatus;
+        var statusName = dto.WorkflowStatusName ?? existing.WorkflowStatusName ?? string.Empty;
 
-        var client = _httpClientFactory.CreateClient("WorkflowService");
+        await _dossierRepository.UpdateWorkflowAsync(id, dto.WorkflowInstanceId, statusName, status, "system");
 
-        var submitResponse = await client.PostAsJsonAsync("api/v1/workflows/submit", new
+        var synced = await TrySyncReindexAsync(id);
+        var queued = synced
+            ? false
+            : await TryPublishDossierChangedAsync(id, DossierChangedActions.WorkflowChanged);
+
+        if (!synced && !queued)
         {
-            EntityId = id.ToString(),
-            // EntityType = description của enum WorkflowType → tìm đúng WorkflowDefinition
-            EntityType = "Quy trình số hóa hồ sơ",
-            // TargetEntityType → gắn vào WorkflowInstance để query lại sau (GET by entity)
-            TargetEntityType = "Dossier"
-        });
-
-        if (!submitResponse.IsSuccessStatusCode)
-        {
-            var errorBody = await submitResponse.Content.ReadAsStringAsync();
-            throw new InvalidOperationException($"Gửi duyệt quy trình thất bại: {errorBody}");
+            throw new InvalidOperationException(
+                "Đã cập nhật trạng thái hồ sơ trong Oracle nhưng không thể đồng bộ Elasticsearch. Vui lòng thử lại.");
         }
 
-        var instance = await submitResponse.Content.ReadFromJsonAsync<WorkflowInstanceRef>();
-        if (instance == null || instance.InstanceId == Guid.Empty)
-            throw new InvalidOperationException("Không nhận được instanceId hợp lệ từ WorkflowService.");
-
-        await _dossierRepository.UpdateWorkflowAsync(
-            id,
-            instance.InstanceId,
-            instance.Status ?? "Đang xử lý",
-            DossierStatus.PendingApproval,
-            userId);
-
-        await PublishDossierChangedAsync(id, DossierChangedActions.WorkflowChanged);
-        return await _dossierRepository.GetDetailByIdAsync(id);
-    }
-
-    public async Task<object?> MoveWorkflowAsync(string dossierId, string nextNodeId, string userId, string actionLabel, string? comment, string? nextAssigneeUserId = null)
-    {
-        var client = _httpClientFactory.CreateClient("WorkflowService");
-        var response = await client.PostAsJsonAsync("api/v1/workflows/move", new
+        if (!synced)
         {
-            DossierId = dossierId,
-            NextNodeId = nextNodeId,
-            ActionLabel = actionLabel,
-            Comment = comment,
-            NextAssigneeUserId = nextAssigneeUserId,
-            EntityType = "Dossier"
-        });
-
-        if (!response.IsSuccessStatusCode)
-        {
-            var error = await response.Content.ReadAsStringAsync();
-            throw new InvalidOperationException($"Chuyển bước quy trình thất bại: {error}");
+            _logger.LogWarning(
+                "Dossier {DossierId}: sync reindex thất bại, đã đưa vào hàng đợi RabbitMQ dossier_index_queue.",
+                id);
         }
-
-        return await response.Content.ReadFromJsonAsync<object>();
     }
 
-    public async Task<object?> GetWorkflowStatusByEntityAsync(string entityId)
+    private async Task<bool> TryPublishDossierChangedAsync(Guid dossierId, string action)
     {
-        return await _dossierRepository.GetWorkflowStatusByEntityAsync(entityId);
+        try
+        {
+            await PublishDossierChangedAsync(dossierId, action);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Không thể publish sự kiện index hồ sơ {DossierId} vào RabbitMQ.", dossierId);
+            return false;
+        }
     }
 
-    public async Task<IEnumerable<object>> GetWorkflowHistoryAsync(Guid dossierId)
+    private async Task<bool> TrySyncDeleteFromEsAsync(Guid dossierId)
     {
-        var client = _httpClientFactory.CreateClient("WorkflowService");
-        // WorkflowController.GetWorkflowHistory trả về IEnumerable<WorkflowHistory> (array JSON)
-        var response = await client.GetAsync($"api/v1/workflows/get-workflow-history/{dossierId}?entityType=Dossier");
-        if (!response.IsSuccessStatusCode) return Enumerable.Empty<object>();
+        try
+        {
+            var client = _httpClientFactory.CreateClient("NotificationService");
+            using var request = new HttpRequestMessage(
+                HttpMethod.Delete,
+                $"internal/v1/dossiers/{dossierId}");
+            var token = _configuration["Internal:Token"];
+            if (string.IsNullOrEmpty(token))
+            {
+                _logger.LogError(
+                    "Internal:Token chưa cấu hình — không thể gọi xóa ES đồng bộ cho hồ sơ {DossierId}.",
+                    dossierId);
+                return false;
+            }
 
-        var content = await response.Content.ReadAsStringAsync();
-        if (string.IsNullOrWhiteSpace(content)) return Enumerable.Empty<object>();
+            request.Headers.Add("X-Internal-Token", token);
 
-        using var doc = JsonDocument.Parse(content);
-        var root = doc.RootElement;
+            var response = await client.SendAsync(request);
+            if (!response.IsSuccessStatusCode)
+            {
+                var body = await response.Content.ReadAsStringAsync();
+                _logger.LogError(
+                    "Sync delete dossier {DossierId} from ES failed ({StatusCode}): {Body}",
+                    dossierId,
+                    (int)response.StatusCode,
+                    body);
+                return false;
+            }
 
-        if (root.ValueKind == JsonValueKind.Array)
-            return root.Deserialize<IEnumerable<object>>() ?? Enumerable.Empty<object>();
-
-        return Enumerable.Empty<object>();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Sync delete dossier {DossierId} from ES failed.", dossierId);
+            return false;
+        }
     }
 
-    public async Task<object?> GetWorkflowDefinitionAsync(Guid definitionId)
+    private async Task<bool> TrySyncReindexAsync(Guid dossierId)
     {
-        var client = _httpClientFactory.CreateClient("WorkflowService");
-        var response = await client.GetAsync($"api/v1/workflows/get-workflow-definition/{definitionId}");
-        if (!response.IsSuccessStatusCode) return null;
-        return await response.Content.ReadFromJsonAsync<object>();
-    }
+        try
+        {
+            var client = _httpClientFactory.CreateClient("NotificationService");
+            using var request = new HttpRequestMessage(
+                HttpMethod.Post,
+                $"internal/v1/dossiers/{dossierId}/reindex");
+            var token = _configuration["Internal:Token"];
+            if (string.IsNullOrEmpty(token))
+            {
+                _logger.LogError(
+                    "Internal:Token chưa cấu hình — không thể gọi reindex đồng bộ cho hồ sơ {DossierId}.",
+                    dossierId);
+                return false;
+            }
 
-    public async Task<IEnumerable<object>> GetMyTasksAsync(List<string> userRoles, bool isAdmin, string userId, Guid? workflowInstanceId = null)
-    {
-        var client = _httpClientFactory.CreateClient("WorkflowService");
-        var url = "api/v1/workflows/get-my-tasks";
-        if (workflowInstanceId.HasValue)
-            url += $"?instanceId={workflowInstanceId.Value}";
+            request.Headers.Add("X-Internal-Token", token);
 
-        var response = await client.GetAsync(url);
-        if (!response.IsSuccessStatusCode) return Enumerable.Empty<object>();
-        return await response.Content.ReadFromJsonAsync<IEnumerable<object>>() ?? Enumerable.Empty<object>();
+            var response = await client.SendAsync(request);
+            if (!response.IsSuccessStatusCode)
+            {
+                var body = await response.Content.ReadAsStringAsync();
+                _logger.LogError(
+                    "Sync reindex dossier {DossierId} failed ({StatusCode}): {Body}",
+                    dossierId,
+                    (int)response.StatusCode,
+                    body);
+                return false;
+            }
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Sync reindex dossier {DossierId} failed.", dossierId);
+            return false;
+        }
     }
 
     /// <summary>
@@ -390,23 +468,11 @@ public class DossierService : IDossierService
     private async Task PublishDossierChangedAsync(Guid dossierId, string action)
     {
         var evt = new DossierChangedEvent(
-            dossierId.ToString(),
+            DossierIndexIdNormalizer.Normalize(dossierId.ToString()),
             action,
             UuidHelper.NewUuid(),
             DateTime.UtcNow);
 
         await _messageProducer.SendMessageAsync(evt, DossierMessaging.IndexQueue);
     }
-}
-
-/// <summary>
-/// Maps response của POST api/v1/workflows/submit:
-/// { "success", "message", "instanceId", "status" }
-/// </summary>
-internal class WorkflowInstanceRef
-{
-    /// <summary>InstanceId từ response body (camelCase: instanceId)</summary>
-    public Guid InstanceId { get; set; }
-    public string? Status { get; set; }
-    public string? CurrentNodeId { get; set; }
 }

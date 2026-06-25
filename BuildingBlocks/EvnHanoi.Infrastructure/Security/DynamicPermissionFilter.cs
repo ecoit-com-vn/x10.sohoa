@@ -194,6 +194,7 @@ public class DynamicPermissionFilter : IAsyncActionFilter
             "AuditLog" => "AUDIT_LOG",
             "Signatures" => "SIGNATURE",
             "WorkflowDefinitions" => "WORKFLOW_DEFINITION",
+            "DossierWorkflow" => "DOSSIER",
             _ => ToSnakeCase(controllerKey)
         };
     }
