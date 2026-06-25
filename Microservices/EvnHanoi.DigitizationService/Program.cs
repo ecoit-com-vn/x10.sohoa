@@ -14,6 +14,9 @@ using RabbitMQ.Client;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Register custom font resolver for PdfSharpCore
+PdfSharpCore.Fonts.GlobalFontSettings.FontResolver = new EvnHanoi.DigitizationService.Helpers.CustomFontResolver();
+
 builder.AddServiceDefaults();
 
 // Configure Serilog

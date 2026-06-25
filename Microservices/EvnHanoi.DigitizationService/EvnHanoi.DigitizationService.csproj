@@ -24,4 +24,10 @@
     <ProjectReference Include="..\..\Aspire\EvnHanoi.ServiceDefaults\EvnHanoi.ServiceDefaults.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="Fonts\OpenSans-Regular.ttf" />
+    <EmbeddedResource Include="Fonts\OpenSans-Bold.ttf" />
+    <EmbeddedResource Include="Fonts\OpenSans-Italic.ttf" />
+  </ItemGroup>
+
 </Project>
