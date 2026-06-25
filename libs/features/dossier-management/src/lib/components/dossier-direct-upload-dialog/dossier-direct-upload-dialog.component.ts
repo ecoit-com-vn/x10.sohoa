@@ -46,6 +46,7 @@ export class DossierDirectUploadDialogComponent implements OnInit {
   private messageService = inject(MessageService);
 
   @ViewChild(FileUploadZoneComponent) uploadZone?: FileUploadZoneComponent;
+  @ViewChild('scannerPanel') scannerPanel?: ScannerPanelComponent;
 
   @Input({ required: true }) dossierId!: string;
   @Input() visible = false;
@@ -61,6 +62,7 @@ export class DossierDirectUploadDialogComponent implements OnInit {
   selectedDocumentTypeId = signal('');
   uploadedFiles = signal<UploadedFileItem[]>([]);
   submitting = signal(false);
+  scanInProgress = signal(false);
   ocrMode: OcrMode = 'none';
 
   selectedDocumentType = computed(() =>
@@ -70,9 +72,24 @@ export class DossierDirectUploadDialogComponent implements OnInit {
   hasDocumentTypeForm = computed(() => !!this.selectedDocumentType()?.formId);
   canUpload = computed(() => !!this.selectedDocumentTypeId());
   uploadedCount = computed(() => this.uploadedFiles().length);
-  isScanMode = computed(() => this.uploadSource === UPLOAD_SOURCE.SCAN);
 
   readonly UPLOAD_SOURCE = UPLOAD_SOURCE;
+
+  get isScanMode(): boolean {
+    return this.uploadSource === UPLOAD_SOURCE.SCAN;
+  }
+
+  get dialogWidthStyle(): Record<string, string> {
+    return this.isScanMode
+      ? { width: '560px', maxWidth: '95vw' }
+      : { width: '640px', maxWidth: '95vw' };
+  }
+
+  get dialogStyleClass(): string {
+    return this.isScanMode
+      ? 'evn-dialog-custom dossier-scan-upload-dialog'
+      : 'evn-dialog-custom';
+  }
 
   uploadHandler: FileUploadHandler = (file, onProgress) => {
     const documentTypeId = this.selectedDocumentTypeId();
@@ -94,7 +111,31 @@ export class DossierDirectUploadDialogComponent implements OnInit {
 
   close(): void {
     if (this.submitting()) return;
+    if (this.isScanningActive()) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Đang quét',
+        detail: 'Vui lòng hoàn tất hoặc hủy quét trên EcoScanner trước khi đóng',
+      });
+      return;
+    }
     this.visibleChange.emit(false);
+  }
+
+  onVisibleChange(visible: boolean): void {
+    if (visible) {
+      this.visibleChange.emit(true);
+      return;
+    }
+    this.close();
+  }
+
+  onScanInProgress(inProgress: boolean): void {
+    this.scanInProgress.set(inProgress);
+  }
+
+  private isScanningActive(): boolean {
+    return this.scanInProgress() || !!this.scannerPanel?.isScanning();
   }
 
   private loadDocumentTypes(): void {
@@ -138,6 +179,7 @@ export class DossierDirectUploadDialogComponent implements OnInit {
     this.uploadedFiles.set([]);
     this.ocrMode = 'none';
     this.submitting.set(false);
+    this.scanInProgress.set(false);
     this.selectedDocumentTypeId.set('');
     if (this.documentTypes().length === 0) {
       this.loadDocumentTypes();

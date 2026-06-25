@@ -23,8 +23,12 @@
     <i class="pi pi-info-circle"></i>
     {{ statusMessage() }}
   </p>
-  <p class="scanner-hint">
-    Cần cài và chạy <strong>EcoScanner</strong> trên máy tính. Hệ thống kết nối qua WebSocket localhost.
+  <p class="scanner-hint" *ngIf="!scanning()">
+    Sau khi bấm quét, cửa sổ <strong>EcoScanner</strong> sẽ mở — chọn máy scan và bấm <strong>Quét</strong> (không bấm Hủy).
+  </p>
+  <p class="scanner-hint scanner-waiting" *ngIf="scanning()">
+    <i class="pi pi-spin pi-spinner"></i>
+    Đang chờ bạn quét trên cửa sổ <strong>EcoScanner</strong>. Không đóng popup web trong lúc này.
   </p>
 
   <div class="scanner-preview" *ngIf="previewUrl()">

@@ -38,7 +38,8 @@
     <!-- Sidebar Menu CSKH EVNHANOI style -->
     <div class="layout-sidebar" [class.collapsed]="isSidebarCollapsed" [class.mobile-open]="isMobileSidebarOpen">
       <div class="sidebar-menu-list">
-        <div *ngFor="let item of items" class="menu-group-item" [class.group-active]="isGroupActive(item)">
+        <ng-container *ngIf="items().length > 0; else sidebarMenuLoading">
+        <div *ngFor="let item of items(); trackBy: trackByMenuId" class="menu-group-item" [class.group-active]="isGroupActive(item)">
           <!-- Dòng nhóm menu -->
           <div class="menu-row" (click)="toggleGroup(item)" [title]="isSidebarCollapsed ? item.label : ''">
             <span class="menu-left">
@@ -62,6 +63,13 @@
             </a>
           </div>
         </div>
+        </ng-container>
+        <ng-template #sidebarMenuLoading>
+          <div class="sidebar-menu-loading" *ngIf="!menuLoaded()">
+            <i class="pi pi-spin pi-spinner"></i>
+            <span>Đang tải menu...</span>
+          </div>
+        </ng-template>
       </div>
     </div>
     <div class="layout-content">

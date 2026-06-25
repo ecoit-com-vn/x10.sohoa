@@ -129,6 +129,7 @@
             </button>
             <div style="border-top: 1px solid #e5e7eb;"></div>
             <button
+              (click)="onScanDocuments()"
               style="
                 width: 100%;
                 text-align: left;
@@ -139,14 +140,12 @@
                 display: flex;
                 align-items: center;
                 gap: 8px;
-                color: #9ca3af;
+                color: #374151;
                 font-size: 0.9rem;
               "
-              disabled
-              title="Tính năng sẽ được thêm sau"
             >
-              <i class="pi pi-image"></i>
-              <span>Scan tài liệu</span>
+              <i class="pi pi-print"></i>
+              <span>Upload từ máy scan</span>
             </button>
           </div>
         </div>
@@ -433,17 +432,23 @@
   <div
     *ngIf="currentView() === 'upload'"
     class="upload-overlay"
-    (click)="currentView.set('list')"
+    (click)="closeUploadModal()"
   >
-    <div class="upload-modal-panel wf-card" (click)="$event.stopPropagation()">
+    <div
+      class="upload-modal-panel wf-card"
+      [class.upload-modal-panel--scan]="uploadMode() === 'scan'"
+      (click)="$event.stopPropagation()"
+    >
       <div class="upload-modal-header">
         <h3>
-          Upload tài liệu vào: <strong>{{ selectedFolder()?.name }}</strong>
+          <ng-container *ngIf="uploadMode() === 'scan'">Quét tài liệu vào:</ng-container>
+          <ng-container *ngIf="uploadMode() === 'web'">Upload tài liệu vào:</ng-container>
+          <strong>{{ selectedFolder()?.name }}</strong>
         </h3>
         <button
           type="button"
           class="upload-modal-close"
-          (click)="currentView.set('list')"
+          (click)="closeUploadModal()"
           title="Đóng"
         >
           <i class="pi pi-times"></i>
@@ -451,13 +456,26 @@
       </div>
 
       <app-scanner-panel
+        #scannerPanel
+        *ngIf="uploadMode() === 'scan'"
         (fileReady)="onScannedFile($event)"
+        (scanningChange)="onScanInProgress($event)"
       ></app-scanner-panel>
 
-      <p class="upload-scan-divider">— hoặc upload file từ máy tính —</p>
-
       <app-file-upload-zone
+        *ngIf="uploadMode() === 'web'"
+        [folderId]="selectedFolder()?.id || ''"
+        [maxFileSize]="500000000"
+        (fileUploaded)="onFileUploaded($event)"
+        (uploadError)="onUploadError($event)"
+      ></app-file-upload-zone>
+
+      <!-- Pipeline upload ẩn khi quét — không hiển thị UI kéo-thả -->
+      <app-file-upload-zone
+        *ngIf="uploadMode() === 'scan'"
         #uploadZone
+        class="scan-upload-hidden"
+        [hideDropZone]="true"
         [folderId]="selectedFolder()?.id || ''"
         [maxFileSize]="500000000"
         (fileUploaded)="onFileUploaded($event)"
@@ -467,7 +485,7 @@
       <div class="upload-modal-footer">
         <button
           type="button"
-          (click)="currentView.set('list')"
+          (click)="closeUploadModal()"
           class="btn-cancel btn-small"
         >
           <i class="pi pi-arrow-left"></i> Quay lại

@@ -33,6 +33,7 @@ import {
 } from '../utils/folder-tree.util';
 
 type ViewMode = 'list' | 'add_folder' | 'edit_folder' | 'upload';
+type FolderUploadMode = 'web' | 'scan';
 
 @Component({
   selector: 'app-document-management',
@@ -58,11 +59,14 @@ export class DocumentManagementComponent implements OnInit {
 
   @ViewChild('folderNameInput') folderNameInput?: ElementRef<HTMLInputElement>;
   @ViewChild('uploadZone') uploadZone?: FileUploadZoneComponent;
+  @ViewChild('scannerPanel') scannerPanel?: ScannerPanelComponent;
 
   readonly UPLOAD_SOURCE = UPLOAD_SOURCE;
+  scanInProgress = signal(false);
 
   // ===== SIGNALS =====
   currentView = signal<ViewMode>('list');
+  uploadMode = signal<FolderUploadMode>('web');
   folderTree = signal<FolderNode[]>([]);
   flatFolderList = signal<FolderNode[]>([]); // Keep flat list for breadcrumb/search
   selectedFolder = signal<FolderNode | null>(null);
@@ -191,8 +195,27 @@ export class DocumentManagementComponent implements OnInit {
   }
 
   onUploadDocuments() {
+    if (!this.ensureFolderSelectedForUpload()) return;
+    this.uploadMode.set('web');
     this.currentView.set('upload');
     this.showFolderMenu.set(false);
+  }
+
+  onScanDocuments() {
+    if (!this.ensureFolderSelectedForUpload()) return;
+    this.uploadMode.set('scan');
+    this.currentView.set('upload');
+    this.showFolderMenu.set(false);
+  }
+
+  private ensureFolderSelectedForUpload(): boolean {
+    if (this.selectedFolder()?.id) return true;
+    this.messageService.add({
+      severity: 'warn',
+      summary: 'Cảnh báo',
+      detail: 'Vui lòng chọn thư mục trước khi upload hoặc quét tài liệu',
+    });
+    return false;
   }
 
   onDownloadFolder() {
@@ -226,6 +249,22 @@ export class DocumentManagementComponent implements OnInit {
 
   onScannedFile(file: File): void {
     this.uploadZone?.ingestFile(file, UPLOAD_SOURCE.SCAN);
+  }
+
+  onScanInProgress(inProgress: boolean): void {
+    this.scanInProgress.set(inProgress);
+  }
+
+  closeUploadModal(): void {
+    if (this.scanInProgress()) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Đang quét',
+        detail: 'Vui lòng hoàn tất hoặc hủy quét trên EcoScanner trước khi đóng',
+      });
+      return;
+    }
+    this.currentView.set('list');
   }
 
   onUploadError(event: { fileName: string; error: string }) {
