@@ -278,9 +278,10 @@ import { forkJoin } from 'rxjs';
               <td colspan="4" class="empty-cell"><i class="pi pi-spin pi-spinner"></i> Đang tìm...</td>
             </tr>
             <ng-container *ngFor="let eq of equipmentSearchResults()">
-              <tr style="cursor: pointer;" (click)="toggleEquipmentSelection(eq)">
+              <tr style="cursor: pointer;" (click)="toggleDialogEquipmentSelection(eq)">
                 <td class="col-chk">
-                  <input type="checkbox" [checked]="isEquipmentSelected(eq)" (change)="toggleEquipmentSelection(eq)"
+                  <input type="checkbox" [checked]="isDialogEquipmentSelected(eq)" (click)="$event.stopPropagation()"
+                         (change)="toggleDialogEquipmentSelection(eq)"
                          style="width: 15px; height: 15px; accent-color: #002D72; cursor: pointer;">
                 </td>
                 <td>{{ eq.code }}</td>
@@ -296,7 +297,8 @@ import { forkJoin } from 'rxjs';
       </div>
 
       <ng-template pTemplate="footer">
-        <button class="btn-cancel btn-small" (click)="showEquipmentDialog = false"><i class="pi pi-times"></i> Đóng</button>
+        <button class="btn-cancel btn-small" (click)="closeEquipmentDialog()"><i class="pi pi-times"></i> Đóng</button>
+        <button class="btn-save btn-small" (click)="confirmEquipmentSelection()"><i class="pi pi-check"></i> Lưu</button>
       </ng-template>
     </p-dialog>
   `,
@@ -350,6 +352,8 @@ export class DossierFormComponent implements OnInit {
   equipmentKeyword = '';
   equipmentSearchResults = signal<any[]>([]);
   searchingEquipments = signal<boolean>(false);
+  /** Lựa chọn tạm trong popup — chỉ áp dụng vào hồ sơ khi bấm Lưu. */
+  dialogSelectedEquipments = signal<any[]>([]);
 
   ngOnInit() {
     this.loadLookups();
@@ -502,9 +506,20 @@ export class DossierFormComponent implements OnInit {
   // ===== Equipment Logic =====
 
   openAddEquipmentDialog() {
+    this.dialogSelectedEquipments.set(this.selectedEquipments().map(eq => ({ ...eq })));
     this.showEquipmentDialog = true;
     this.equipmentKeyword = '';
     this.searchEquipments();
+  }
+
+  closeEquipmentDialog() {
+    this.showEquipmentDialog = false;
+    this.dialogSelectedEquipments.set([]);
+  }
+
+  confirmEquipmentSelection() {
+    this.selectedEquipments.set(this.dialogSelectedEquipments().map(eq => ({ ...eq })));
+    this.closeEquipmentDialog();
   }
 
   searchEquipments() {
@@ -525,12 +540,12 @@ export class DossierFormComponent implements OnInit {
     });
   }
 
-  isEquipmentSelected(eq: any): boolean {
-    return this.selectedEquipments().some(s => (s.equipmentId || s.id) === eq.id);
+  isDialogEquipmentSelected(eq: any): boolean {
+    return this.dialogSelectedEquipments().some(s => (s.equipmentId || s.id) === eq.id);
   }
 
-  toggleEquipmentSelection(eq: any) {
-    const currentList = [...this.selectedEquipments()];
+  toggleDialogEquipmentSelection(eq: any) {
+    const currentList = [...this.dialogSelectedEquipments()];
     const index = currentList.findIndex(s => (s.equipmentId || s.id) === eq.id);
 
     if (index >= 0) {
@@ -546,7 +561,7 @@ export class DossierFormComponent implements OnInit {
         infrastructureName: eq.infrastructureName
       });
     }
-    this.selectedEquipments.set(currentList);
+    this.dialogSelectedEquipments.set(currentList);
   }
 
   removeEquipment(eq: any) {
