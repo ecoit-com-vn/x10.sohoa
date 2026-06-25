@@ -6,6 +6,8 @@ import { MessageService } from 'primeng/api';
 import { DialogModule } from 'primeng/dialog';
 import { DossierManagementService } from '../../data-access/dossier-management.service';
 import { DossierDocumentsTabComponent } from '../dossier-documents/dossier-documents-tab.component';
+import { DossierVersionsTabComponent } from '../dossier-versions-tab/dossier-versions-tab.component';
+import { DossierWorkflowTabComponent } from '../dossier-workflow-tab/dossier-workflow-tab.component';
 import {
   EavField,
   guidsEqual,
@@ -20,7 +22,7 @@ import { forkJoin } from 'rxjs';
 @Component({
   selector: 'app-dossier-form',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule, DialogModule, DossierDocumentsTabComponent],
+  imports: [CommonModule, FormsModule, ToastModule, DialogModule, DossierDocumentsTabComponent, DossierVersionsTabComponent, DossierWorkflowTabComponent],
   template: `
     <div class="wf-card" style="position: relative;">
       <!-- Header -->
@@ -50,6 +52,14 @@ import { forkJoin } from 'rxjs';
         <button class="tab-item" [class.tab-active]="activeTab() === 'documents'" (click)="activeTab.set('documents')">
           <i class="pi pi-file" style="margin-right: 6px;"></i>
           Tài liệu đính kèm
+        </button>
+        <button class="tab-item" [class.tab-active]="activeTab() === 'versions'" (click)="activeTab.set('versions')">
+          <i class="pi pi-history" style="margin-right: 6px;"></i>
+          Lịch sử phiên bản
+        </button>
+        <button class="tab-item" [class.tab-active]="activeTab() === 'workflow'" (click)="activeTab.set('workflow')">
+          <i class="pi pi-sitemap" style="margin-right: 6px;"></i>
+          Quy trình & Lịch sử
         </button>
       </div>
 
@@ -232,6 +242,14 @@ import { forkJoin } from 'rxjs';
         ></app-dossier-documents-tab>
       </div>
 
+      <div *ngIf="isEditMode() && activeTab() === 'versions'">
+        <app-dossier-versions-tab [dossierId]="dossierId!" />
+      </div>
+
+      <div *ngIf="isEditMode() && activeTab() === 'workflow'">
+        <app-dossier-workflow-tab [dossierId]="dossierId!" />
+      </div>
+
       <!-- Loading Overlay -->
       <div *ngIf="loading()" style="position: absolute; inset: 0; background: rgba(255,255,255,0.6); display: flex; align-items: center; justify-content: center; z-index: 50; border-radius: 12px;">
         <i class="pi pi-spin pi-spinner" style="font-size: 2rem; color: #002D72;"></i>
@@ -260,9 +278,10 @@ import { forkJoin } from 'rxjs';
               <td colspan="4" class="empty-cell"><i class="pi pi-spin pi-spinner"></i> Đang tìm...</td>
             </tr>
             <ng-container *ngFor="let eq of equipmentSearchResults()">
-              <tr style="cursor: pointer;" (click)="toggleEquipmentSelection(eq)">
+              <tr style="cursor: pointer;" (click)="toggleDialogEquipmentSelection(eq)">
                 <td class="col-chk">
-                  <input type="checkbox" [checked]="isEquipmentSelected(eq)" (change)="toggleEquipmentSelection(eq)"
+                  <input type="checkbox" [checked]="isDialogEquipmentSelected(eq)" (click)="$event.stopPropagation()"
+                         (change)="toggleDialogEquipmentSelection(eq)"
                          style="width: 15px; height: 15px; accent-color: #002D72; cursor: pointer;">
                 </td>
                 <td>{{ eq.code }}</td>
@@ -278,7 +297,8 @@ import { forkJoin } from 'rxjs';
       </div>
 
       <ng-template pTemplate="footer">
-        <button class="btn-cancel btn-small" (click)="showEquipmentDialog = false"><i class="pi pi-times"></i> Đóng</button>
+        <button class="btn-cancel btn-small" (click)="closeEquipmentDialog()"><i class="pi pi-times"></i> Đóng</button>
+        <button class="btn-save btn-small" (click)="confirmEquipmentSelection()"><i class="pi pi-check"></i> Lưu</button>
       </ng-template>
     </p-dialog>
   `,
@@ -296,7 +316,7 @@ export class DossierFormComponent implements OnInit {
   private messageService = inject(MessageService);
 
   isEditMode = computed(() => !!this.dossierId);
-  activeTab = signal<'info' | 'documents'>('info');
+  activeTab = signal<'info' | 'documents' | 'versions' | 'workflow'>('info');
   loading = signal<boolean>(false);
   isSaving = signal<boolean>(false);
   loadingForm = signal<boolean>(false);
@@ -332,6 +352,8 @@ export class DossierFormComponent implements OnInit {
   equipmentKeyword = '';
   equipmentSearchResults = signal<any[]>([]);
   searchingEquipments = signal<boolean>(false);
+  /** Lựa chọn tạm trong popup — chỉ áp dụng vào hồ sơ khi bấm Lưu. */
+  dialogSelectedEquipments = signal<any[]>([]);
 
   ngOnInit() {
     this.loadLookups();
@@ -484,9 +506,20 @@ export class DossierFormComponent implements OnInit {
   // ===== Equipment Logic =====
 
   openAddEquipmentDialog() {
+    this.dialogSelectedEquipments.set(this.selectedEquipments().map(eq => ({ ...eq })));
     this.showEquipmentDialog = true;
     this.equipmentKeyword = '';
     this.searchEquipments();
+  }
+
+  closeEquipmentDialog() {
+    this.showEquipmentDialog = false;
+    this.dialogSelectedEquipments.set([]);
+  }
+
+  confirmEquipmentSelection() {
+    this.selectedEquipments.set(this.dialogSelectedEquipments().map(eq => ({ ...eq })));
+    this.closeEquipmentDialog();
   }
 
   searchEquipments() {
@@ -507,12 +540,12 @@ export class DossierFormComponent implements OnInit {
     });
   }
 
-  isEquipmentSelected(eq: any): boolean {
-    return this.selectedEquipments().some(s => (s.equipmentId || s.id) === eq.id);
+  isDialogEquipmentSelected(eq: any): boolean {
+    return this.dialogSelectedEquipments().some(s => (s.equipmentId || s.id) === eq.id);
   }
 
-  toggleEquipmentSelection(eq: any) {
-    const currentList = [...this.selectedEquipments()];
+  toggleDialogEquipmentSelection(eq: any) {
+    const currentList = [...this.dialogSelectedEquipments()];
     const index = currentList.findIndex(s => (s.equipmentId || s.id) === eq.id);
 
     if (index >= 0) {
@@ -528,7 +561,7 @@ export class DossierFormComponent implements OnInit {
         infrastructureName: eq.infrastructureName
       });
     }
-    this.selectedEquipments.set(currentList);
+    this.dialogSelectedEquipments.set(currentList);
   }
 
   removeEquipment(eq: any) {

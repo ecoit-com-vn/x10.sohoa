@@ -219,11 +219,11 @@
       <div class="form-grid-3">
         <div class="form-group">
           <label class="form-label">Loại quy trình <span class="required">*</span></label>
-          <select class="wf-select w-full" [(ngModel)]="draft.name" id="sel-loai">
+          <select class="wf-select w-full" [(ngModel)]="draft.entityType" id="sel-loai">
             <option value="" disabled>-- Chọn loại quy trình --</option>
-            <option *ngFor="let opt of loaiOptions" [value]="opt">{{ opt }}</option>
+            <option *ngFor="let opt of loaiOptions" [value]="opt.code">{{ opt.name }}</option>
           </select>
-          <div class="field-error" *ngIf="formSubmitted && !draft.name">
+          <div class="field-error" *ngIf="formSubmitted && !draft.entityType">
             Vui lòng chọn loại quy trình.
           </div>
         </div>

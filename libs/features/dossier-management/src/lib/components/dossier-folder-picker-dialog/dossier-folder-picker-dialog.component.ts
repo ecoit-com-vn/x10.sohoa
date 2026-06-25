@@ -3,7 +3,6 @@ import {
   Input,
   Output,
   EventEmitter,
-  OnInit,
   inject,
   signal,
   computed,
@@ -40,7 +39,7 @@ type PickerPhase = 'pick' | 'configure';
   templateUrl: './dossier-folder-picker-dialog.component.html',
   styleUrl: './dossier-folder-picker-dialog.component.scss',
 })
-export class DossierFolderPickerDialogComponent implements OnInit {
+export class DossierFolderPickerDialogComponent {
   private documentService = inject(DocumentManagementService);
   private dossierDocumentService = inject(DossierDocumentService);
   private messageService = inject(MessageService);
@@ -95,10 +94,6 @@ export class DossierFolderPickerDialogComponent implements OnInit {
   formatSize = formatDocumentFileSize;
   formatDate = formatDocumentDate;
   fileIcon = getDocumentFileIcon;
-
-  ngOnInit(): void {
-    this.loadFolderTree();
-  }
 
   onShow(): void {
     this.phase.set('pick');

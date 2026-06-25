@@ -228,9 +228,39 @@ export function applyExtractionToFormData(
 }
 
 export function displayFieldValue(value: unknown): string {
-  if (value === null || value === undefined) return '—';
+  if (value === null || value === undefined || value === '') return '—';
   if (typeof value === 'boolean') return value ? 'Có' : 'Không';
   return String(value);
+}
+
+/** Hiển thị giá trị trường EAV — màn xem read-only (tên trường : giá trị). */
+export function formatFieldDisplayValue(field: EavField, value: unknown): string {
+  if (value === null || value === undefined || value === '') return '—';
+
+  if (field.type === 'checkbox') {
+    return value === true || value === 'true' || value === 1 || value === '1' ? 'Có' : 'Không';
+  }
+
+  if (field.type === 'select') {
+    const str = String(value);
+    const opt = field.options?.find((o) => o.value === str);
+    return opt?.label ?? str;
+  }
+
+  if (field.type === 'date') {
+    const text = String(value);
+    const d = new Date(text);
+    if (!Number.isNaN(d.getTime())) {
+      return d.toLocaleDateString('vi-VN');
+    }
+    return text;
+  }
+
+  if (field.type === 'number' && field.unit) {
+    return `${value} ${field.unit}`;
+  }
+
+  return displayFieldValue(value);
 }
 
 export function hasExtractedValue(value: unknown): boolean {
