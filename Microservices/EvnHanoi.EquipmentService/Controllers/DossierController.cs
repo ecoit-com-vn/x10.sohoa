@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
+using System.Text.Json;
 using EvnHanoi.EquipmentService.Core.Interfaces;
 using EvnHanoi.EquipmentService.Core.DTOs;
 using EvnHanoi.EquipmentService.Core.Services;
@@ -90,6 +91,52 @@ public partial class DossierController : ControllerBase
         return Ok(items);
     }
 
+    [HttpGet("equipment/lookup")]
+    [BypassDynamicPermission]
+    public async Task<IActionResult> GetEquipmentLookup(
+        [FromQuery] string? keyword,
+        [FromQuery] string? code,
+        [FromQuery] string? name,
+        [FromQuery] Guid? infrastructureId,
+        [FromQuery] int? gridTypeId,
+        [FromQuery] long? unitId,
+        [FromQuery] bool? isActive = true,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10)
+    {
+        var filter = new EquipmentLookupFilterDto
+        {
+            Keyword = keyword,
+            Code = code,
+            Name = name,
+            InfrastructureId = infrastructureId,
+            GridTypeId = gridTypeId,
+            UnitId = unitId,
+            IsActive = isActive,
+            Page = page,
+            PageSize = pageSize
+        };
+
+        var isAdmin = User.IsInRole("ADMIN") || User.Claims.Any(c => c.Type == ClaimTypes.Role && c.Value == "ADMIN");
+        long? userUnitId = null;
+        if (!isAdmin)
+        {
+            var unitIdClaim = User.FindFirst("unit_id")?.Value;
+            if (!string.IsNullOrEmpty(unitIdClaim) && long.TryParse(unitIdClaim, out var parsedUnitId))
+            {
+                userUnitId = parsedUnitId;
+            }
+        }
+
+        var (items, totalCount) = await _dossierService.GetEquipmentLookupAsync(
+            filter,
+            isAdmin,
+            userUnitId,
+            GetAuthorizedUnitIds());
+
+        return Ok(new { items, totalCount, page = filter.Page, pageSize = filter.PageSize });
+    }
+
     // ===== CHI TIẾT =====
 
     [HttpGet("{id:guid}")]
@@ -157,25 +204,10 @@ public partial class DossierController : ControllerBase
         }
     }
 
-    // ===== GỬI DUYỆT =====
-
-    [HttpPost("{id:guid}/submit")]
-    public async Task<IActionResult> Submit(Guid id)
-    {
-        try
-        {
-            var result = await _dossierService.SubmitForApprovalAsync(id, UserId);
-            return Ok(new { success = true, message = "Gửi duyệt hồ sơ thành công.", data = result });
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new { message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
-    }
+    // ===== GỬI DUYỆT / WORKFLOW =====
+    // Đã chuyển sang WorkflowService: POST/GET /api/v1/dossiers-workflow/*
+    // (submit, move, get-workflow-by-entity, get-workflow-history,
+    //  get-workflow-definition, get-my-tasks).
 
     // ===== LƯU FORM DATA =====
 
@@ -238,71 +270,40 @@ public partial class DossierController : ControllerBase
         return result ? NoContent() : NotFound(new { message = "Không tìm thấy thiết bị trong hồ sơ." });
     }
 
-    // ===== WORKFLOW =====
-
-    [HttpPost("{id:guid}/move")]
-    public async Task<IActionResult> MoveWorkflow(Guid id, [FromBody] MoveWorkflowDossierRequest request)
+    private List<long>? GetAuthorizedUnitIds()
     {
-        if (request == null) return BadRequest(new { message = "Dữ liệu không hợp lệ." });
+        var isAdmin = User.IsInRole("ADMIN") || User.Claims.Any(c => c.Type == ClaimTypes.Role && c.Value == "ADMIN");
+        if (isAdmin)
+        {
+            return null;
+        }
+
+        var unitRolesClaim = User.FindFirst("unit_roles")?.Value;
+        if (string.IsNullOrEmpty(unitRolesClaim))
+        {
+            return new List<long>();
+        }
 
         try
         {
-            var result = await _dossierService.MoveWorkflowAsync(
-                id.ToString(),
-                request.NextNodeId,
-                UserId,
-                request.ActionLabel,
-                request.Comment,
-                request.NextAssigneeUserId);
+            var unitRoles = JsonSerializer.Deserialize<List<UnitRoleDto>>(unitRolesClaim, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
 
-            return Ok(new { success = true, data = result });
+            return unitRoles?.Select(ur => ur.UnitId).Distinct().ToList() ?? new List<long>();
         }
-        catch (InvalidOperationException ex)
+        catch
         {
-            return BadRequest(new { message = ex.Message });
+            return new List<long>();
         }
     }
 
-    [HttpGet("{id:guid}/get-workflow-by-entity")]
-    public async Task<IActionResult> GetWorkflowByEntity(Guid id)
+    private class UnitRoleDto
     {
-        var result = await _dossierService.GetWorkflowStatusByEntityAsync(id.ToString());
-        return Ok(result);
+        public long UnitId { get; set; }
+        public long RoleId { get; set; }
+        public string RoleCode { get; set; } = string.Empty;
+        public string RoleName { get; set; } = string.Empty;
     }
-
-    [HttpGet("{id:guid}/get-workflow-history")]
-    public async Task<IActionResult> GetWorkflowHistory(Guid id)
-    {
-        var history = await _dossierService.GetWorkflowHistoryAsync(id);
-        return Ok(history);
-    }
-
-    [HttpGet("get-workflow-definition/{definitionId:guid}")]
-    public async Task<IActionResult> GetWorkflowDefinition(Guid definitionId)
-    {
-        var def = await _dossierService.GetWorkflowDefinitionAsync(definitionId);
-        if (def == null) return NotFound(new { message = $"Không tìm thấy định nghĩa quy trình với ID = {definitionId}" });
-        return Ok(def);
-    }
-
-    [HttpGet("get-my-tasks")]
-    public async Task<IActionResult> GetMyTasks([FromQuery] Guid? instanceId = null)
-    {
-        var userRoles = User.Claims
-            .Where(c => c.Type == ClaimTypes.Role)
-            .Select(c => c.Value)
-            .ToList();
-        var isAdmin = User.IsInRole("ADMIN") || userRoles.Contains("ADMIN");
-        var tasks = await _dossierService.GetMyTasksAsync(userRoles, isAdmin, UserId, instanceId);
-        return Ok(tasks);
-    }
-}
-
-/// <summary>Request model cho chuyển bước workflow</summary>
-public class MoveWorkflowDossierRequest
-{
-    public string NextNodeId { get; set; } = string.Empty;
-    public string ActionLabel { get; set; } = string.Empty;
-    public string? Comment { get; set; }
-    public string? NextAssigneeUserId { get; set; }
 }

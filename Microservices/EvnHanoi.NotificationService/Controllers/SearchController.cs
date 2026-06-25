@@ -1,12 +1,16 @@
 using System.Data;
+using System.Security.Claims;
 using Dapper;
 using Elastic.Clients.Elasticsearch;
+using Elastic.Clients.Elasticsearch.QueryDsl;
 using EvnHanoi.Infrastructure.Messaging;
 using EvnHanoi.NotificationService.Models;
 using EvnHanoi.NotificationService.Repositories;
 using EvnHanoi.NotificationService.Services;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 namespace EvnHanoi.NotificationService.Controllers;
@@ -39,24 +43,156 @@ public class SearchController : ControllerBase
         [FromQuery] Guid? infrastructureId,
         [FromQuery] int? gridTypeId,
         [FromQuery] long? unitId,
+        [FromQuery] string? tab,
         [FromQuery] string? status,
         [FromQuery] int page = 1, 
         [FromQuery] int pageSize = 10)
     {
+        var roles = GetUserRoles();
+        var userId = GetUserId();
         var filter = new DossierFilterDto
         {
             Keyword = keyword,
             InfrastructureId = infrastructureId,
             GridTypeId = gridTypeId,
             UnitId = unitId,
+            Tab = NormalizeTabParameter(tab, status),
             Status = status,
+            UserId = userId,
+            UserRoles = roles,
+            IsAdmin = IsAdmin(roles),
             Page = page,
             PageSize = pageSize
         };
 
+        var effectiveTab = DossierTabEsQuery.ResolveTabSlug(filter) ?? tab;
+        if (string.Equals(effectiveTab, DossierListTabs.PendingAction, StringComparison.OrdinalIgnoreCase))
+        {
+            if (userId is null)
+            {
+                _logger.LogWarning(
+                    "Dossier pending-action: JWT hợp lệ nhưng không có claim userId (GUID). Claim types: {ClaimTypes}",
+                    string.Join(", ", User.Claims.Select(c => c.Type)));
+            }
+            else
+            {
+                var variants = DossierIndexIdNormalizer.GetGuidTermVariants(userId);
+                _logger.LogInformation(
+                    "Dossier pending-action: userId={UserId} variants=[{Variants}] roles={RoleCount}",
+                    userId,
+                    string.Join(", ", variants),
+                    roles.Count);
+            }
+        }
+
         var (items, totalCount) = await _dossierSearchService.GetPagedAsync(filter);
+
+        _logger.LogInformation(
+            "Dossier search tab={Tab} userId={UserId} roles={RoleCount} page={Page} total={Total}",
+            effectiveTab ?? "(none)",
+            userId ?? "(null)",
+            roles.Count,
+            page,
+            totalCount);
+
         return Ok(new { items, totalCount, page, pageSize });
     }
+
+    [HttpGet("dossiers/tab-counts")]
+    public async Task<IActionResult> GetDossierTabCounts(
+        [FromQuery] string? keyword,
+        [FromQuery] Guid? infrastructureId,
+        [FromQuery] int? gridTypeId,
+        [FromQuery] long? unitId)
+    {
+        var roles = GetUserRoles();
+        var filter = new DossierFilterDto
+        {
+            Keyword = keyword,
+            InfrastructureId = infrastructureId,
+            GridTypeId = gridTypeId,
+            UnitId = unitId,
+            UserId = GetUserId(),
+            UserRoles = roles,
+            IsAdmin = IsAdmin(roles)
+        };
+
+        var counts = await _dossierSearchService.GetTabCountsAsync(filter);
+        return Ok(counts);
+    }
+
+    /// <summary>
+    /// [Development] So sánh JWT userId vs ES pendingAssigneeUserId — gọi khi tab Chờ xử lý trống mà ES có dữ liệu.
+    /// </summary>
+    [HttpGet("dossiers/diag/inbox")]
+    public async Task<IActionResult> DiagnosePendingInbox([FromServices] IWebHostEnvironment env)
+    {
+        if (!env.IsDevelopment())
+            return NotFound();
+
+        var userId = GetUserId();
+        var roles = GetUserRoles();
+        var variants = userId is not null
+            ? DossierIndexIdNormalizer.GetGuidTermVariants(userId).ToList()
+            : new List<string>();
+
+        var pendingFilter = new DossierFilterDto
+        {
+            Tab = DossierListTabs.PendingAction,
+            UserId = userId,
+            UserRoles = roles,
+            IsAdmin = IsAdmin(roles),
+            Page = 1,
+            PageSize = 5
+        };
+        var (items, tabTotal) = await _dossierSearchService.GetPagedAsync(pendingFilter);
+
+        long assigneeOnlyTotal = 0;
+        if (variants.Count > 0)
+        {
+            var countResponse = await _elasticClient.CountAsync<DossierEsDocument>(c => c
+                .Indices(DossierMessaging.IndexName)
+                .Query(q => q.Bool(b =>
+                {
+                    b.MustNot(mn => mn.Term(t => t.Field(DossierEsFieldNames.IsDeleted).Value(true)));
+                    b.Filter(f => f.Terms(t => t
+                        .Field(DossierEsFieldNames.Status)
+                        .Terms(new TermsQueryField(
+                            DossierTabEsQuery.InPipelineStatuses.Select(FieldValue.String).ToArray()))));
+                    b.Filter(f => f.Terms(t => t
+                        .Field(DossierEsFieldNames.PendingAssigneeUserId)
+                        .Terms(new TermsQueryField(variants.Select(FieldValue.String).ToArray()))));
+                })));
+
+            if (countResponse.IsValidResponse)
+                assigneeOnlyTotal = countResponse.Count;
+        }
+
+        return Ok(new
+        {
+            elasticsearchNote = "Service dùng ES URL từ config Elasticsearch:Url hoặc Uri",
+            userId,
+            userIdVariants = variants,
+            roles,
+            pendingTabApiTotal = tabTotal,
+            esAssigneeOnlyCount = assigneeOnlyTotal,
+            sampleFromApi = items.Select(i => new
+            {
+                i.Id,
+                i.Status,
+                i.PendingAssigneeUserId
+            }),
+            jwtClaims = User.Claims.Select(c => new { c.Type, c.Value })
+        });
+    }
+
+    private string? GetUserId() => JwtUserClaimResolver.ResolveUserId(User);
+
+    private List<string> GetUserRoles() =>
+        JwtUserClaimResolver.ResolveRoles(User).ToList();
+
+    private static bool IsAdmin(IReadOnlyList<string> roles) =>
+        roles.Any(r => r.Equals("ADMIN", StringComparison.OrdinalIgnoreCase));
 
     [HttpGet("global")]
     public async Task<IActionResult> GlobalSearch([FromQuery] string query)
@@ -210,6 +346,17 @@ public class SearchController : ControllerBase
             organizationUnits = unitResults,
             workflowDefinitions = workflowResults
         });
+    }
+
+    private static string? NormalizeTabParameter(string? tab, string? status)
+    {
+        var resolved = DossierTabEsQuery.ResolveTabSlug(new DossierFilterDto
+        {
+            Tab = tab?.Trim(),
+            Status = status?.Trim()
+        });
+
+        return resolved ?? tab?.Trim();
     }
 
     private static string BuildDossierDisplayName(DossierEsDocument doc)

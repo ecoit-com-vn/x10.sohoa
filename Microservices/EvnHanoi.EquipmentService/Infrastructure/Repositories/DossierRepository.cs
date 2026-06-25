@@ -390,12 +390,12 @@ public class DossierRepository : IDossierRepository
             _connection.Open();
 
         // Query 1: Get latest workflow instance and JOIN with definition name
-        var sqlInstance = @"SELECT wi.ID, wi.WORKFLOWDEFINITIONID, wi.TARGETENTITYID, wi.TARGETENTITYTYPE, 
+        var sqlInstance = @"SELECT wi.ID, wi.WORKFLOWDEFINITIONID, wi.TARGETENTITYID, wi.ENTITYTYPE, 
                                    wi.STATUS, wi.CURRENTSTEPORDER, wi.CURRENTNODEID, wi.CURRENTNODENAME, 
                                    wi.CREATEDAT, wi.UPDATEDAT, wd.NAME as DefinitionName
                             FROM WORKFLOWINSTANCES wi
                             LEFT JOIN WORKFLOWDEFINITIONS wd ON wi.WORKFLOWDEFINITIONID = wd.ID
-                            WHERE wi.TARGETENTITYID = :EntityId AND wi.TARGETENTITYTYPE = 'Dossier'
+                            WHERE wi.TARGETENTITYID = :EntityId AND wi.ENTITYTYPE = 'Dossier'
                             ORDER BY wi.CREATEDAT DESC";
         
         var instance = await _connection.QueryFirstOrDefaultAsync<dynamic>(sqlInstance, new { EntityId = entityId });

@@ -1,5 +1,7 @@
+using EvnHanoi.Infrastructure.Enums;
 using EvnHanoi.WorkflowService.Core.Interfaces;
 using EvnHanoi.WorkflowService.Models;
+using Microsoft.Extensions.Caching.Memory;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,11 +14,19 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
     {
         private readonly IWorkflowRepository _workflowRepository;
         private readonly IEnumerable<IWorkflowIntegrationHandler> _handlers;
+        private readonly WorkflowDefinitionCacheService _definitionCache;
+        private readonly IMemoryCache _memoryCache;
 
-        public WorkflowEngineService(IWorkflowRepository workflowRepository, IEnumerable<IWorkflowIntegrationHandler> handlers)
+        public WorkflowEngineService(
+            IWorkflowRepository workflowRepository,
+            IEnumerable<IWorkflowIntegrationHandler> handlers,
+            WorkflowDefinitionCacheService definitionCache,
+            IMemoryCache memoryCache)
         {
             _workflowRepository = workflowRepository ?? throw new ArgumentNullException(nameof(workflowRepository));
             _handlers = handlers ?? throw new ArgumentNullException(nameof(handlers));
+            _definitionCache = definitionCache ?? throw new ArgumentNullException(nameof(definitionCache));
+            _memoryCache = memoryCache ?? throw new ArgumentNullException(nameof(memoryCache));
         }
 
         private IWorkflowIntegrationHandler? GetHandler(string entityType)
@@ -24,95 +34,54 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
             return _handlers.FirstOrDefault(h => h.EntityType.Equals(entityType, StringComparison.OrdinalIgnoreCase));
         }
 
-        public async Task<WorkflowInstance> SubmitAsync(Guid definitionId, string targetEntityId, string targetEntityType, string userId)
+        public Task<WorkflowInstance> SubmitByEntityTypeAsync(string entityId, string entityType, string userId)
         {
-            var definition = await _workflowRepository.GetDefinitionByIdAsync(definitionId);
-            if (definition == null)
-            {
-                throw new KeyNotFoundException("Không tìm thấy định nghĩa quy trình BPMN.");
-            }
+            var item = EntityType.RequireByCode(entityType);
+
+            return SubmitInternalAsync(
+                async () =>
+                {
+                    var definition = await _definitionCache.GetActiveDefinitionByEntityTypeAsync(item.Code);
+                    if (definition == null)
+                        throw new KeyNotFoundException(
+                            $"Không tìm thấy quy trình đang hoạt động cho EntityType '{item.Code}'. " +
+                            "Hãy tạo WorkflowDefinition với EntityType tương ứng và bật trạng thái Active.");
+                    return definition;
+                },
+                entityId,
+                item.Code,
+                userId);
+        }
+
+        private async Task<WorkflowInstance> SubmitInternalAsync(
+            Func<Task<WorkflowDefinition>> loadDefinition,
+            string entityId,
+            string entityType,
+            string userId)
+        {
+            var definition = await loadDefinition();
 
             var steps = definition.Steps.OrderBy(s => s.Order).ToList();
             if (steps.Count == 0)
-            {
                 throw new InvalidOperationException("Quy trình chưa cấu hình bất kỳ bước duyệt nào.");
-            }
 
-            var activeInstance = await _workflowRepository.GetInstanceByEntityAsync(targetEntityId, targetEntityType);
-            if (activeInstance != null && activeInstance.Status == "Running")
-            {
+            if (await _workflowRepository.ExistsRunningInstanceAsync(entityId, entityType))
                 throw new InvalidOperationException("Hồ sơ/yêu cầu này đang trong một quy trình phê duyệt khác.");
-            }
 
-            string? currentNodeId = null;
-            string? currentNodeName = null;
-
-            if (!string.IsNullOrEmpty(definition.BpmnXml))
-            {
-                try
-                {
-                    XDocument xmlDoc = XDocument.Parse(definition.BpmnXml);
-                    XNamespace bpmn = "http://www.omg.org/spec/BPMN/20100524/MODEL";
-                    var process = xmlDoc.Descendants(bpmn + "process").FirstOrDefault();
-                    if (process != null)
-                    {
-                        var startEvent = process.Elements(bpmn + "startEvent").FirstOrDefault();
-                        if (startEvent != null)
-                        {
-                            var startEventId = startEvent.Attribute("id")?.Value;
-                            var outgoingFlow = process.Elements(bpmn + "sequenceFlow")
-                                .FirstOrDefault(f => f.Attribute("sourceRef")?.Value == startEventId);
-                            if (outgoingFlow != null)
-                            {
-                                var nextId = outgoingFlow.Attribute("targetRef")?.Value;
-                                if (!string.IsNullOrEmpty(nextId))
-                                {
-                                    var nextNode = process.Elements().FirstOrDefault(e => e.Attribute("id")?.Value == nextId);
-                                    if (nextNode != null)
-                                    {
-                                        if (nextNode.Name.LocalName.Contains("Gateway"))
-                                        {
-                                            var gwFlow = process.Elements(bpmn + "sequenceFlow")
-                                                .FirstOrDefault(f => f.Attribute("sourceRef")?.Value == nextId);
-                                            if (gwFlow != null)
-                                            {
-                                                var targetTaskId = gwFlow.Attribute("targetRef")?.Value;
-                                                if (!string.IsNullOrEmpty(targetTaskId))
-                                                {
-                                                    var targetTask = process.Elements().FirstOrDefault(e => e.Attribute("id")?.Value == targetTaskId);
-                                                    if (targetTask != null)
-                                                    {
-                                                        currentNodeId = targetTaskId;
-                                                        currentNodeName = targetTask.Attribute("name")?.Value;
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        else
-                                        {
-                                            currentNodeId = nextId;
-                                            currentNodeName = nextNode.Attribute("name")?.Value;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                catch { }
-            }
-
-            if (string.IsNullOrEmpty(currentNodeName))
-            {
-                currentNodeName = steps[0].StepName;
-            }
+            var firstNode = BpmnFirstNodeResolver.Resolve(definition, _memoryCache);
+            var currentNodeId = firstNode.NodeId;
+            var firstStep = steps[0];
+            var currentNodeName = WorkflowDisplayNameHelper.Resolve(
+                firstStep.StepName,
+                firstNode.NodeName,
+                currentNodeId);
 
             var instance = new WorkflowInstance
             {
                 Id = Guid.NewGuid(),
-                WorkflowDefinitionId = definitionId,
-                TargetEntityId = targetEntityId,
-                TargetEntityType = targetEntityType,
+                WorkflowDefinitionId = definition.Id,
+                TargetEntityId = entityId,
+                EntityType = entityType,
                 Status = "Running",
                 CurrentStepOrder = steps[0].Order,
                 CurrentNodeId = currentNodeId,
@@ -121,7 +90,6 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
                 UpdatedAt = DateTime.UtcNow
             };
 
-            var firstStep = steps[0];
             var task = new WorkflowTask
             {
                 Id = Guid.NewGuid(),
@@ -129,7 +97,7 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
                 StepId = firstStep.Id,
                 StepName = firstStep.StepName,
                 AssignedRole = firstStep.RequiredRole,
-                AssigneeUserId = userId,
+                AssigneeUserId = ShouldAssignSubmitterAsFirstStepAssignee(firstStep) ? userId : null,
                 Status = "Pending",
                 CreatedAt = DateTime.UtcNow
             };
@@ -141,36 +109,17 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
                 StepName = "Bắt đầu quy trình",
                 Action = "Submit",
                 ActionByUserId = userId,
-                Comment = $"Khởi tạo quy trình '{definition.Name}' cho đối tượng {targetEntityId}.",
+                Comment = $"Khởi tạo quy trình '{definition.Name}' cho đối tượng {entityId}.",
                 ActionDate = DateTime.UtcNow
             };
 
-            await _workflowRepository.CreateInstanceAsync(instance);
-            await _workflowRepository.CreateTaskAsync(task);
-            await _workflowRepository.AddHistoryAsync(history);
+            await _workflowRepository.CreateSubmitBatchAsync(instance, task, history);
 
-            // Trigger integration handler started hook
-            var handler = GetHandler(targetEntityType);
+            var handler = GetHandler(entityType);
             if (handler != null)
-            {
-                await handler.OnWorkflowStartedAsync(targetEntityId, instance.Id);
-                await handler.OnWorkflowStateChangedAsync(targetEntityId, instance.Id, instance.CurrentNodeName);
-            }
+                await handler.OnWorkflowStartedAsync(entityId, instance.Id);
 
-            await _workflowRepository.SaveChangesAsync();
             return instance;
-        }
-
-        public async Task<WorkflowInstance> SubmitByEntityTypeAsync(string targetEntityId, string entityType, string targetEntityType, string userId)
-        {
-            var definition = await _workflowRepository.GetActiveDefinitionByEntityTypeAsync(entityType)
-                ?? throw new KeyNotFoundException(
-                    $"Không tìm thấy quy trình đang hoạt động cho '{entityType}'. " +
-                    "Hãy tạo WorkflowDefinition với EntityType tương ứng và bật trạng thái Active.");
-
-            // targetEntityType (vd: "Dossier") gắn vào instance để query sau,
-            // entityType (vd: "Quy trình số hóa hồ sơ") chỉ dùng tìm definition.
-            return await SubmitAsync(definition.Id, targetEntityId, targetEntityType, userId);
         }
 
 
@@ -235,6 +184,9 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
                 instance.UpdatedAt = DateTime.UtcNow;
                 await _workflowRepository.UpdateInstanceAsync(instance);
 
+                if (string.IsNullOrWhiteSpace(nextAssigneeUserId))
+                    throw new ArgumentException("Vui lòng chọn người xử lý bước tiếp theo.");
+
                 nextTask = new WorkflowTask
                 {
                     Id = Guid.NewGuid(),
@@ -242,17 +194,12 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
                     StepId = nextStep.Id,
                     StepName = nextStep.StepName,
                     AssignedRole = nextStep.RequiredRole,
-                    AssigneeUserId = nextAssigneeUserId,
+                    AssigneeUserId = nextAssigneeUserId.Trim(),
                     Status = "Pending",
                     CreatedAt = DateTime.UtcNow
                 };
-                await _workflowRepository.CreateTaskAsync(nextTask);
-
-                var handler = GetHandler(instance.TargetEntityType);
-                if (handler != null)
-                {
-                    await handler.OnWorkflowStateChangedAsync(instance.TargetEntityId, instance.Id, nextStep.StepName);
-                }
+                if (!await _workflowRepository.CreateTaskAsync(nextTask))
+                    throw new InvalidOperationException("Không thể tạo nhiệm vụ bước tiếp theo.");
             }
             else
             {
@@ -261,14 +208,6 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
                 instance.CurrentNodeName = "Hoàn thành";
                 instance.UpdatedAt = DateTime.UtcNow;
                 await _workflowRepository.UpdateInstanceAsync(instance);
-
-                // Trigger integration handler completed hook
-                var handler = GetHandler(instance.TargetEntityType);
-                if (handler != null)
-                {
-                    await handler.OnWorkflowCompletedAsync(instance.TargetEntityId, instance.Id);
-                    await handler.OnWorkflowStateChangedAsync(instance.TargetEntityId, instance.Id, "Hoàn thành");
-                }
             }
 
             var history = new WorkflowHistory
@@ -281,9 +220,21 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
                 Comment = comment ?? "Đã phê duyệt.",
                 ActionDate = DateTime.UtcNow
             };
-            await _workflowRepository.AddHistoryAsync(history);
+            if (!await _workflowRepository.AddHistoryAsync(history))
+                throw new InvalidOperationException("Không thể ghi lịch sử phê duyệt.");
 
-            await _workflowRepository.SaveChangesAsync();
+            var handler = GetHandler(instance.EntityType);
+            if (handler != null)
+            {
+                if (nextTask != null)
+                    await handler.OnWorkflowStateChangedAsync(instance.TargetEntityId, instance.Id, nextTask.StepName);
+                else
+                {
+                    await handler.OnWorkflowCompletedAsync(instance.TargetEntityId, instance.Id);
+                    await handler.OnWorkflowStateChangedAsync(instance.TargetEntityId, instance.Id, "Hoàn thành");
+                }
+            }
+
             return task;
         }
 
@@ -302,7 +253,7 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
 
             task.Status = "Returned";
             task.CompletedAt = DateTime.UtcNow;
-            task.AssigneeUserId = userId;
+            // Giữ AssigneeUserId inbox — actor nằm ở history ActionByUserId.
             await _workflowRepository.UpdateTaskAsync(task);
 
             var instance = task.WorkflowInstance;
@@ -348,6 +299,12 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
                 instance.UpdatedAt = DateTime.UtcNow;
                 await _workflowRepository.UpdateInstanceAsync(instance);
 
+                var returnAssigneeUserId = await ResolveReturnStepAssigneeAsync(
+                    instance.Id,
+                    instance.Tasks,
+                    prevStep,
+                    prevStep.StepName);
+
                 prevTask = new WorkflowTask
                 {
                     Id = Guid.NewGuid(),
@@ -355,20 +312,12 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
                     StepId = prevStep.Id,
                     StepName = prevStep.StepName,
                     AssignedRole = prevStep.RequiredRole,
-                    AssigneeUserId = instance.Tasks
-                        .Where(t => t.StepId == prevStep.Id)
-                        .OrderByDescending(t => t.CreatedAt)
-                        .FirstOrDefault()?.AssigneeUserId,
+                    AssigneeUserId = returnAssigneeUserId,
                     Status = "Pending",
                     CreatedAt = DateTime.UtcNow
                 };
-                await _workflowRepository.CreateTaskAsync(prevTask);
-
-                var handler = GetHandler(instance.TargetEntityType);
-                if (handler != null)
-                {
-                    await handler.OnWorkflowStateChangedAsync(instance.TargetEntityId, instance.Id, prevStep.StepName);
-                }
+                if (!await _workflowRepository.CreateTaskAsync(prevTask))
+                    throw new InvalidOperationException("Không thể tạo nhiệm vụ trả về bước trước.");
             }
             else
             {
@@ -377,14 +326,6 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
                 instance.CurrentNodeName = "Đã từ chối";
                 instance.UpdatedAt = DateTime.UtcNow;
                 await _workflowRepository.UpdateInstanceAsync(instance);
-
-                // Trigger integration handler rejected/terminated hook
-                var handler = GetHandler(instance.TargetEntityType);
-                if (handler != null)
-                {
-                    await handler.OnWorkflowRejectedAsync(instance.TargetEntityId, instance.Id);
-                    await handler.OnWorkflowStateChangedAsync(instance.TargetEntityId, instance.Id, "Đã từ chối");
-                }
             }
 
             var history = new WorkflowHistory
@@ -397,50 +338,68 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
                 Comment = comment ?? "Bị từ chối / trả lại.",
                 ActionDate = DateTime.UtcNow
             };
-            await _workflowRepository.AddHistoryAsync(history);
+            if (!await _workflowRepository.AddHistoryAsync(history))
+                throw new InvalidOperationException("Không thể ghi lịch sử từ chối.");
 
-            await _workflowRepository.SaveChangesAsync();
+            var handler = GetHandler(instance.EntityType);
+            if (handler != null)
+            {
+                if (currentStepIndex > 0)
+                {
+                    var prevStep = steps[currentStepIndex - 1];
+                    await handler.OnWorkflowStateChangedAsync(instance.TargetEntityId, instance.Id, prevStep.StepName);
+                }
+                else
+                {
+                    await handler.OnWorkflowRejectedAsync(instance.TargetEntityId, instance.Id);
+                    await handler.OnWorkflowStateChangedAsync(instance.TargetEntityId, instance.Id, "Đã từ chối");
+                }
+            }
+
             return prevTask;
         }
 
         public async Task<WorkflowInstance> MoveAsync(string targetEntityId, string nextNodeId, string userId, string actionLabel, string? comment = null, string? nextAssigneeUserId = null, string entityType = "BorrowRecord")
         {
+            var instance = await GetRunningMoveContextAsync(targetEntityId, entityType);
+            return await MoveCoreAsync(instance, nextNodeId, userId, actionLabel, comment, nextAssigneeUserId, preParsedXml: null);
+        }
+
+        private async Task<WorkflowInstance> GetRunningMoveContextAsync(string targetEntityId, string entityType)
+        {
             var instance = await _workflowRepository.GetInstanceByEntityAsync(targetEntityId, entityType);
             if (instance == null)
-            {
                 throw new KeyNotFoundException("Không tìm thấy phiên chạy quy trình cho hồ sơ này.");
-            }
 
             if (instance.Status != "Running")
-            {
                 throw new InvalidOperationException("Quy trình đã kết thúc hoặc bị hủy.");
-            }
 
-            var currentTask = instance.Tasks.FirstOrDefault(t => t.Status == "Pending");
-            if (currentTask == null)
-            {
+            if (instance.Tasks.All(t => t.Status != "Pending"))
                 throw new InvalidOperationException("Không tìm thấy nhiệm vụ đang chờ phê duyệt.");
-            }
 
-            string action = (actionLabel.Equals("Từ chối", StringComparison.OrdinalIgnoreCase) || actionLabel.Equals("reject", StringComparison.OrdinalIgnoreCase)) ? "Reject" : "Approve";
-            currentTask.Status = action == "Reject" ? "Returned" : "Completed";
-            currentTask.CompletedAt = DateTime.UtcNow;
-            currentTask.AssigneeUserId = userId;
-            await _workflowRepository.UpdateTaskAsync(currentTask);
+            return instance;
+        }
 
-            var definition = instance.WorkflowDefinition;
-            if (definition == null || string.IsNullOrEmpty(definition.BpmnXml))
-            {
+        private async Task<WorkflowInstance> MoveCoreAsync(
+            WorkflowInstance instance,
+            string nextNodeId,
+            string userId,
+            string actionLabel,
+            string? comment,
+            string? nextAssigneeUserId,
+            XDocument? preParsedXml)
+        {
+            var currentTask = instance.Tasks.First(t => t.Status == "Pending");
+
+            var definition = instance.WorkflowDefinition
+                ?? throw new InvalidOperationException("Quy trình chưa cấu hình sơ đồ BPMN XML.");
+            if (string.IsNullOrEmpty(definition.BpmnXml))
                 throw new InvalidOperationException("Quy trình chưa cấu hình sơ đồ BPMN XML.");
-            }
 
-            XDocument xmlDoc = XDocument.Parse(definition.BpmnXml);
+            var xmlDoc = preParsedXml ?? XDocument.Parse(definition.BpmnXml);
             XNamespace bpmn = "http://www.omg.org/spec/BPMN/20100524/MODEL";
-            var process = xmlDoc.Descendants(bpmn + "process").FirstOrDefault();
-            if (process == null)
-            {
-                throw new InvalidOperationException("Thẻ process không tồn tại trong cấu hình XML.");
-            }
+            var process = xmlDoc.Descendants(bpmn + "process").FirstOrDefault()
+                ?? throw new InvalidOperationException("Thẻ process không tồn tại trong cấu hình XML.");
 
             var nextNode = process.Elements().FirstOrDefault(e => e.Attribute("id")?.Value == nextNodeId);
             if (nextNode == null)
@@ -470,14 +429,21 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
             }
 
             var nextType = nextNode.Name.LocalName;
+            var isReject = IsRejectAction(actionLabel);
+            var action = isReject ? "Reject" : "Approve";
+
+            currentTask.Status = isReject ? "Returned" : "Completed";
+            currentTask.CompletedAt = DateTime.UtcNow;
+            // Reject: giữ assignee inbox cũ (THU_KHO…) — người từ chối ghi trong history.
+            if (!isReject)
+                currentTask.AssigneeUserId = userId;
 
             if (nextType == "endEvent")
             {
-                instance.Status = action == "Reject" ? "Terminated" : "Completed";
+                instance.Status = isReject ? "Terminated" : "Completed";
                 instance.CurrentNodeId = nextNodeId;
-                instance.CurrentNodeName = action == "Reject" ? "Đã từ chối" : "Hoàn thành";
+                instance.CurrentNodeName = isReject ? "Đã từ chối" : "Hoàn thành";
                 instance.UpdatedAt = DateTime.UtcNow;
-                await _workflowRepository.UpdateInstanceAsync(instance);
 
                 var endHistory = new WorkflowHistory
                 {
@@ -486,54 +452,51 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
                     StepName = currentTask.StepName,
                     Action = action,
                     ActionByUserId = userId,
-                    Comment = comment ?? (action == "Reject" ? "Từ chối và kết thúc quy trình." : "Phê duyệt bước cuối. Kết thúc quy trình."),
+                    Comment = comment ?? (isReject ? "Từ chối và kết thúc quy trình." : "Phê duyệt bước cuối. Kết thúc quy trình."),
                     ActionDate = DateTime.UtcNow
                 };
-                await _workflowRepository.AddHistoryAsync(endHistory);
 
-                var handler = GetHandler(instance.TargetEntityType);
+                await _workflowRepository.ExecuteMoveBatchAsync(currentTask, instance, null, endHistory);
+
+                var handler = GetHandler(instance.EntityType);
                 if (handler != null)
                 {
-                    if (action == "Reject")
-                    {
+                    if (isReject)
                         await handler.OnWorkflowRejectedAsync(instance.TargetEntityId, instance.Id);
-                    }
                     else
-                    {
                         await handler.OnWorkflowCompletedAsync(instance.TargetEntityId, instance.Id);
-                    }
                     await handler.OnWorkflowStateChangedAsync(instance.TargetEntityId, instance.Id, instance.CurrentNodeName);
                 }
             }
             else if (nextType == "task" || nextType == "userTask")
             {
                 var nextStepName = nextNode.Attribute("name")?.Value ?? nextNodeId;
-                var requiredRole = nextNode.Attribute("requiredRole")?.Value ?? string.Empty;
+                var targetStep = FindStepByName(definition, nextStepName);
+                var stepId = targetStep?.Id ?? Guid.Empty;
+                var requiredRole = !string.IsNullOrWhiteSpace(targetStep?.RequiredRole)
+                    ? targetStep!.RequiredRole
+                    : (nextNode.Attribute("requiredRole")?.Value ?? string.Empty);
 
-                var matchedStep = definition.Steps.FirstOrDefault(s => s.StepName.Equals(nextStepName, StringComparison.OrdinalIgnoreCase));
-                var stepId = matchedStep?.Id ?? Guid.Empty;
+                if (targetStep != null)
+                    instance.CurrentStepOrder = targetStep.Order;
 
-                if (matchedStep != null)
-                {
-                    instance.CurrentStepOrder = matchedStep.Order;
-                }
+                // Instance luôn Running khi chuyển sang bước task (Pending chỉ ở WORKFLOWTASKS).
+                instance.Status = "Running";
                 instance.CurrentNodeId = nextNodeId;
                 instance.CurrentNodeName = nextStepName;
                 instance.UpdatedAt = DateTime.UtcNow;
-                await _workflowRepository.UpdateInstanceAsync(instance);
 
-                string? assigneeUserId = null;
-                if (action == "Reject")
+                string? assigneeUserId;
+                if (isReject)
                 {
-                    var lastTaskForStep = instance.Tasks
-                        .Where(t => t.StepId == stepId || t.StepName.Equals(nextStepName, StringComparison.OrdinalIgnoreCase))
-                        .OrderByDescending(t => t.CreatedAt)
-                        .FirstOrDefault();
-                    assigneeUserId = lastTaskForStep?.AssigneeUserId;
+                    assigneeUserId = await ResolveReturnStepAssigneeAsync(
+                        instance.Id, instance.Tasks, targetStep, nextStepName);
                 }
                 else
                 {
-                    assigneeUserId = nextAssigneeUserId;
+                    if (string.IsNullOrWhiteSpace(nextAssigneeUserId))
+                        throw new ArgumentException("Vui lòng chọn người xử lý bước tiếp theo.");
+                    assigneeUserId = nextAssigneeUserId.Trim();
                 }
 
                 var nextTask = new WorkflowTask
@@ -541,13 +504,12 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
                     Id = Guid.NewGuid(),
                     WorkflowInstanceId = instance.Id,
                     StepId = stepId,
-                    StepName = nextStepName,
+                    StepName = targetStep?.StepName ?? nextStepName,
                     AssignedRole = requiredRole,
                     AssigneeUserId = assigneeUserId,
                     Status = "Pending",
                     CreatedAt = DateTime.UtcNow
                 };
-                await _workflowRepository.CreateTaskAsync(nextTask);
 
                 var moveHistory = new WorkflowHistory
                 {
@@ -556,23 +518,24 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
                     StepName = currentTask.StepName,
                     Action = action,
                     ActionByUserId = userId,
-                    Comment = comment ?? (action == "Reject" ? $"Yêu cầu làm lại, trả về bước '{nextStepName}'." : $"Chuyển tiếp bước duyệt đến '{nextStepName}'."),
+                    Comment = comment ?? (isReject
+                        ? $"Yêu cầu làm lại, trả về bước '{nextStepName}'."
+                        : $"Chuyển tiếp bước duyệt đến '{nextStepName}'."),
                     ActionDate = DateTime.UtcNow
                 };
-                await _workflowRepository.AddHistoryAsync(moveHistory);
 
-                var handler = GetHandler(instance.TargetEntityType);
+                await _workflowRepository.ExecuteMoveBatchAsync(currentTask, instance, nextTask, moveHistory);
+                instance.Tasks.Add(nextTask);
+
+                var handler = GetHandler(instance.EntityType);
                 if (handler != null)
-                {
                     await handler.OnWorkflowStateChangedAsync(instance.TargetEntityId, instance.Id, nextStepName);
-                }
             }
             else
             {
                 throw new InvalidOperationException($"Loại phần tử tiếp theo '{nextType}' không được hỗ trợ trong việc chuyển bước.");
             }
 
-            await _workflowRepository.SaveChangesAsync();
             return instance;
         }
 
@@ -587,60 +550,35 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
             string? nextAssigneeUserId = null,
             string entityType = "BorrowRecord")
         {
-            var instance = await _workflowRepository.GetInstanceByEntityAsync(targetEntityId, entityType);
-            if (instance == null)
-            {
-                throw new KeyNotFoundException("Không tìm thấy phiên chạy quy trình cho hồ sơ này.");
-            }
+            var instance = await GetRunningMoveContextAsync(targetEntityId, entityType);
+            var currentTask = instance.Tasks.First(t => t.Status == "Pending");
 
-            if (instance.Status != "Running")
+            if (!isAdmin && !string.IsNullOrEmpty(currentTask.AssignedRole))
             {
-                throw new InvalidOperationException("Quy trình đã kết thúc hoặc bị hủy.");
-            }
-
-            var currentTask = instance.Tasks.FirstOrDefault(t => t.Status == "Pending");
-            if (currentTask == null)
-            {
-                throw new InvalidOperationException("Không tìm thấy nhiệm vụ đang chờ phê duyệt.");
-            }
-
-            // 1. Role Check
-            if (!isAdmin)
-            {
-                if (!string.IsNullOrEmpty(currentTask.AssignedRole))
-                {
-                    var hasRole = userRoles.Any(r => r.Equals(currentTask.AssignedRole, StringComparison.OrdinalIgnoreCase));
-                    if (!hasRole)
-                    {
-                        throw new ArgumentException($"Người dùng không có vai trò '{currentTask.AssignedRole}' cần thiết cho bước này.");
-                    }
-                }
+                var hasRole = userRoles.Any(r => r.Equals(currentTask.AssignedRole, StringComparison.OrdinalIgnoreCase));
+                if (!hasRole)
+                    throw new ArgumentException($"Người dùng không có vai trò '{currentTask.AssignedRole}' cần thiết cho bước này.");
             }
 
             var definition = instance.WorkflowDefinition;
             if (definition == null || string.IsNullOrEmpty(definition.BpmnXml))
-            {
                 throw new InvalidOperationException("Quy trình chưa cấu hình sơ đồ BPMN XML.");
-            }
 
-            // 2. BPMN XML Path Validation
-            XDocument xmlDoc = XDocument.Parse(definition.BpmnXml);
+            var xmlDoc = XDocument.Parse(definition.BpmnXml);
             var sourceNodeId = instance.CurrentNodeId ?? string.Empty;
-            
-            var isFallback = nextNodeId.Equals("approve", StringComparison.OrdinalIgnoreCase) || 
+
+            var isFallback = nextNodeId.Equals("approve", StringComparison.OrdinalIgnoreCase) ||
                              nextNodeId.Equals("reject", StringComparison.OrdinalIgnoreCase);
-                             
+
             if (!isFallback && !string.IsNullOrEmpty(sourceNodeId))
             {
-                var isValidPath = IsValidBpmnPath(xmlDoc, sourceNodeId, nextNodeId);
-                if (!isValidPath)
+                if (!IsValidBpmnPath(xmlDoc, sourceNodeId, nextNodeId))
                 {
                     throw new ArgumentException($"Chuyển bước không hợp lệ: Không có đường đi từ node hiện tại '{sourceNodeId}' đến '{nextNodeId}' trong sơ đồ BPMN.");
                 }
             }
 
-            // 3. Perform movement via MoveAsync
-            return await MoveAsync(targetEntityId, nextNodeId, userId, actionLabel, comment, nextAssigneeUserId, entityType);
+            return await MoveCoreAsync(instance, nextNodeId, userId, actionLabel, comment, nextAssigneeUserId, xmlDoc);
         }
 
         private bool IsValidBpmnPath(XDocument xmlDoc, string sourceNodeId, string targetNodeId)
@@ -714,7 +652,7 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
                 string targetDetails = "";
                 if (includeEntityDetails && task.WorkflowInstance != null)
                 {
-                    var entityType = task.WorkflowInstance.TargetEntityType;
+                    var entityType = task.WorkflowInstance.EntityType;
                     var entityId = task.WorkflowInstance.TargetEntityId;
                     if (!entityDetailsLookup.TryGetValue((entityType, entityId), out targetDetails!))
                         targetDetails = $"{entityType}: {entityId}";
@@ -727,7 +665,7 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
                     DefinitionId = task.WorkflowInstance?.WorkflowDefinitionId,
                     DefinitionName = task.WorkflowInstance?.WorkflowDefinition?.Name ?? "",
                     TargetEntityId = task.WorkflowInstance?.TargetEntityId ?? "",
-                    TargetEntityType = task.WorkflowInstance?.TargetEntityType ?? "",
+                    EntityType = task.WorkflowInstance?.EntityType ?? "",
                     TargetDetails = targetDetails,
                     StepId = task.StepId,
                     StepName = task.StepName,
@@ -750,7 +688,7 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
 
             var grouped = tasks
                 .Where(t => t.WorkflowInstance != null)
-                .GroupBy(t => t.WorkflowInstance!.TargetEntityType, StringComparer.OrdinalIgnoreCase);
+                .GroupBy(t => t.WorkflowInstance!.EntityType, StringComparer.OrdinalIgnoreCase);
 
             foreach (var group in grouped)
             {
@@ -826,6 +764,69 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
                     t.CreatedAt
                 })
             };
+        }
+
+        /// <summary>Khớp FE isRejectLabel.</summary>
+        private static bool IsRejectAction(string? actionLabel)
+        {
+            if (string.IsNullOrWhiteSpace(actionLabel))
+                return false;
+
+            var l = actionLabel.Trim().ToLowerInvariant();
+            return l.Contains("từ chối")
+                || l.Contains("hủy")
+                || l.Contains("reject")
+                || l.Contains("cancel")
+                || l.Contains("trả lại");
+        }
+
+        private static WorkflowStep? FindStepByName(WorkflowDefinition definition, string stepName) =>
+            definition.Steps.FirstOrDefault(s =>
+                s.StepName.Equals(stepName, StringComparison.OrdinalIgnoreCase));
+
+        /// <summary>
+        /// Chỉ dùng khi trả lại (reject): suy assignee bước trước từ task/history — không thay chọn người trên FE.
+        /// </summary>
+        private async Task<string?> ResolveReturnStepAssigneeAsync(
+            Guid instanceId,
+            IEnumerable<WorkflowTask> tasks,
+            WorkflowStep? targetStep,
+            string stepName)
+        {
+            var stepId = targetStep?.Id ?? Guid.Empty;
+            var fromPriorTask = tasks
+                .Where(t => (stepId != Guid.Empty && t.StepId == stepId)
+                    || t.StepName.Equals(stepName, StringComparison.OrdinalIgnoreCase))
+                .Where(t => !t.Status.Equals("Pending", StringComparison.OrdinalIgnoreCase)
+                    && !string.IsNullOrWhiteSpace(t.AssigneeUserId))
+                .OrderByDescending(t => t.CreatedAt)
+                .Select(t => t.AssigneeUserId)
+                .FirstOrDefault();
+            if (!string.IsNullOrWhiteSpace(fromPriorTask))
+                return fromPriorTask;
+
+            var fromDb = await _workflowRepository.GetPriorStepAssigneeAsync(instanceId, stepId, stepName);
+            if (!string.IsNullOrWhiteSpace(fromDb))
+                return fromDb;
+
+            var history = await _workflowRepository.GetHistoryByInstanceIdAsync(instanceId);
+            return history
+                .Where(h => h.Action.Equals("Submit", StringComparison.OrdinalIgnoreCase)
+                    && !string.IsNullOrWhiteSpace(h.ActionByUserId))
+                .OrderBy(h => h.ActionDate)
+                .Select(h => h.ActionByUserId)
+                .FirstOrDefault();
+        }
+
+        /// <summary>
+        /// Bước đầu AllowEdit → gán người submit; bước role pool → chỉ AssignedRole (ES inbox theo role).
+        /// </summary>
+        private static bool ShouldAssignSubmitterAsFirstStepAssignee(WorkflowStep step)
+        {
+            if (step.AllowEdit)
+                return true;
+
+            return string.IsNullOrWhiteSpace(step.RequiredRole);
         }
     }
 }

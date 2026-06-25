@@ -12,6 +12,11 @@ public interface IDossierService
     Task<IEnumerable<GridTypeEntity>> GetGridTypesLookupAsync();
     Task<IEnumerable<InfrastructureEntity>> GetInfrastructuresLookupAsync();
     Task<IEnumerable<DossierType>> GetDossierTypesLookupAsync();
+    Task<(IEnumerable<EquipmentLookupItemDto> Items, int TotalCount)> GetEquipmentLookupAsync(
+        EquipmentLookupFilterDto filter,
+        bool isAdmin,
+        long? userUnitId,
+        IReadOnlyList<long>? fallbackUnitIds);
 
     // CRUD cơ bản
     Task<(IEnumerable<DossierListItemDto> Items, int TotalCount)> GetPagedAsync(DossierFilterDto filter);
@@ -29,13 +34,9 @@ public interface IDossierService
     Task<bool> AddEquipmentAsync(Guid id, Guid equipmentId);
     Task<bool> RemoveEquipmentAsync(Guid id, Guid equipmentId);
 
-    // Workflow operations (gọi qua HTTP tới WorkflowService)
-    Task<DossierDetailDto?> SubmitForApprovalAsync(Guid id, string userId);
-    Task<object?> MoveWorkflowAsync(string dossierId, string nextNodeId, string userId, string actionLabel, string? comment, string? nextAssigneeUserId = null);
-    Task<object?> GetWorkflowStatusByEntityAsync(string entityId);
-    Task<IEnumerable<object>> GetWorkflowHistoryAsync(Guid dossierId);
-    Task<object?> GetWorkflowDefinitionAsync(Guid definitionId);
-    Task<IEnumerable<object>> GetMyTasksAsync(List<string> userRoles, bool isAdmin, string userId, Guid? workflowInstanceId = null);
+    // Workflow đã chuyển sang WorkflowService (DossierWorkflowController).
+    // ES chỉ còn nhận đồng bộ trạng thái qua API nội bộ (không expose ra Gateway).
+    Task UpdateWorkflowStateInternalAsync(Guid id, UpdateInternalWorkflowStateDto dto);
 
     // Document tab helpers
     Task RecordDocumentListChangeAsync(Guid dossierId, string changeNote, string userId);

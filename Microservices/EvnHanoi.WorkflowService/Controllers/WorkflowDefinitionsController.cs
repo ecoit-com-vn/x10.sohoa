@@ -1,7 +1,8 @@
+using EvnHanoi.Infrastructure.Enums;
 using Microsoft.AspNetCore.Mvc;
 using EvnHanoi.WorkflowService.Core.Interfaces;
 using EvnHanoi.WorkflowService.Models;
-using EvnHanoi.WorkflowService.Enums;
+using EvnHanoi.WorkflowService.Infrastructure.Services;
 using Microsoft.AspNetCore.Authorization;
 using EvnHanoi.Infrastructure.Security;
 using Microsoft.Extensions.Logging;
@@ -20,17 +21,20 @@ namespace EvnHanoi.WorkflowService.Controllers
         private readonly IBpmnValidatorService _bpmnValidatorService;
         private readonly IWorkflowDefinitionService _workflowDefinitionService;
         private readonly ILogger<WorkflowDefinitionsController> _logger;
+        private readonly WorkflowDefinitionCacheService _definitionCache;
 
         public WorkflowDefinitionsController(
             IWorkflowRepository workflowRepository, 
             IBpmnValidatorService bpmnValidatorService,
             IWorkflowDefinitionService workflowDefinitionService,
-            ILogger<WorkflowDefinitionsController> logger)
+            ILogger<WorkflowDefinitionsController> logger,
+            WorkflowDefinitionCacheService definitionCache)
         {
             _workflowRepository = workflowRepository ?? throw new ArgumentNullException(nameof(workflowRepository));
             _bpmnValidatorService = bpmnValidatorService ?? throw new ArgumentNullException(nameof(bpmnValidatorService));
             _workflowDefinitionService = workflowDefinitionService ?? throw new ArgumentNullException(nameof(workflowDefinitionService));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _definitionCache = definitionCache ?? throw new ArgumentNullException(nameof(definitionCache));
         }
 
         // ─────────────────────────────────────────────────────────────────────
@@ -86,6 +90,15 @@ namespace EvnHanoi.WorkflowService.Controllers
             dto.CreatedBy = userId;
             dto.UpdatedBy = userId;
 
+            try
+            {
+                NormalizeEntityType(dto);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+
             if (dto.Steps != null)
             {
                 foreach (var step in dto.Steps)
@@ -119,6 +132,8 @@ namespace EvnHanoi.WorkflowService.Controllers
             }
 
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? User.Identity?.Name ?? "admin";
+
+            NormalizeEntityType(dto);
             
             try
             {
@@ -166,14 +181,30 @@ namespace EvnHanoi.WorkflowService.Controllers
             if (!newStatus.HasValue)
                 return NotFound(new { Message = $"Không tìm thấy quy trình với ID = {id}" });
 
+            var def = await _workflowRepository.GetDefinitionByIdAsync(id, includeBpmnXml: false);
+            if (def != null && !string.IsNullOrWhiteSpace(def.EntityType))
+                _definitionCache.InvalidateActiveDefinition(def.EntityType);
+
             return Ok(new { Id = id, IsActive = newStatus.Value });
+        }
+
+        private static void NormalizeEntityType(WorkflowDefinition dto)
+        {
+            if (string.IsNullOrWhiteSpace(dto.EntityType))
+                throw new InvalidOperationException("EntityType không được để trống.");
+
+            var item = EntityType.RequireByCode(dto.EntityType);
+            dto.EntityType = item.Code;
         }
 
         [HttpGet("get-workflow-type")]
         [BypassDynamicPermission]
-        public ActionResult<IEnumerable<string>> GetWorkflowTypes()
+        public ActionResult<IEnumerable<object>> GetWorkflowTypes()
         {
-            return Ok(WorkflowTypeExtensions.GetDescriptions());
+            var items = EntityType.GetAll()
+                .Select(x => new { x.Id, x.Code, x.Name })
+                .ToList();
+            return Ok(items);
         }
 
         [HttpGet("versions/{name}")]

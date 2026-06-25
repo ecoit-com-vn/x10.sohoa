@@ -21,24 +21,40 @@ public class DossierSearchService : IDossierSearchService
         _dbConnection = dbConnection;
     }
 
-    public async Task<(IEnumerable<DossierListItemDto> Items, int TotalCount)> GetPagedAsync(DossierFilterDto filter)
+    public Task<(IEnumerable<DossierListItemDto> Items, int TotalCount)> GetPagedAsync(DossierFilterDto filter) =>
+        SearchAsync(filter);
+
+    public Task<DossierTabCountsDto> GetTabCountsAsync(DossierFilterDto filter) =>
+        ResolveUnitScopeAndSearchCountsAsync(filter);
+
+    private async Task<(IEnumerable<DossierListItemDto> Items, int TotalCount)> SearchAsync(DossierFilterDto filter)
     {
-        if (filter.UnitId.HasValue)
-        {
-            if (_dbConnection.State != ConnectionState.Open)
-                _dbConnection.Open();
-
-            const string sql = @"
-                SELECT Id
-                FROM ORGANIZATION_UNIT
-                START WITH Id = :StartUnitId
-                CONNECT BY PRIOR Id = ParentId";
-
-            var unitIds = await _dbConnection.QueryAsync<long>(sql, new { StartUnitId = filter.UnitId.Value });
-            filter.UnitScopeIds = unitIds.Distinct().ToList();
-        }
-
+        await ApplyUnitScopeAsync(filter);
         var bhsCatalogs = (await _enrichmentRepository.GetBhsCatalogDefinitionsAsync()).ToList();
         return await _searchRepository.GetPagedAsync(filter, bhsCatalogs);
+    }
+
+    private async Task<DossierTabCountsDto> ResolveUnitScopeAndSearchCountsAsync(DossierFilterDto filter)
+    {
+        await ApplyUnitScopeAsync(filter);
+        return await _searchRepository.GetTabCountsAsync(filter);
+    }
+
+    private async Task ApplyUnitScopeAsync(DossierFilterDto filter)
+    {
+        if (!filter.UnitId.HasValue)
+            return;
+
+        if (_dbConnection.State != ConnectionState.Open)
+            _dbConnection.Open();
+
+        const string sql = @"
+            SELECT Id
+            FROM ORGANIZATION_UNIT
+            START WITH Id = :StartUnitId
+            CONNECT BY PRIOR Id = ParentId";
+
+        var unitIds = await _dbConnection.QueryAsync<long>(sql, new { StartUnitId = filter.UnitId.Value });
+        filter.UnitScopeIds = unitIds.Distinct().ToList();
     }
 }

@@ -283,6 +283,88 @@ public class EquipmentRepository : IEquipmentRepository
         return (items, totalCount);
     }
 
+    public async Task<(IEnumerable<EquipmentLookupItemDto> Items, int TotalCount)> GetLookupPagedAsync(
+        EquipmentLookupFilterDto filter,
+        IEnumerable<long>? authorizedUnitIds)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        if (filter.Page < 1) filter.Page = 1;
+        if (filter.PageSize < 1) filter.PageSize = 10;
+
+        var sqlBase = @"FROM EQUIPMENTS e
+                        LEFT JOIN EquipmentTypes et ON e.EquipmentTypeId = et.Id
+                        LEFT JOIN INFRASTRUCTURE inf ON e.INFRASTRUCTURE_ID = inf.Id
+                        WHERE e.IsDeleted = 0";
+
+        var parameters = new DynamicParameters();
+
+        if (!string.IsNullOrWhiteSpace(filter.Keyword))
+        {
+            sqlBase += " AND (LOWER(e.Code) LIKE :Keyword OR LOWER(e.Name) LIKE :Keyword)";
+            parameters.Add("Keyword", $"%{filter.Keyword.ToLower().Trim()}%");
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.Code))
+        {
+            sqlBase += " AND LOWER(e.Code) LIKE :Code";
+            parameters.Add("Code", $"%{filter.Code.ToLower().Trim()}%");
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.Name))
+        {
+            sqlBase += " AND LOWER(e.Name) LIKE :Name";
+            parameters.Add("Name", $"%{filter.Name.ToLower().Trim()}%");
+        }
+
+        if (filter.UnitId.HasValue)
+        {
+            sqlBase += " AND e.UnitId = :UnitId";
+            parameters.Add("UnitId", filter.UnitId.Value);
+        }
+        else if (authorizedUnitIds != null && authorizedUnitIds.Any())
+        {
+            sqlBase += " AND e.UnitId IN :AuthorizedUnitIds";
+            parameters.Add("AuthorizedUnitIds", authorizedUnitIds.ToArray());
+        }
+
+        if (filter.InfrastructureId.HasValue)
+        {
+            sqlBase += " AND e.INFRASTRUCTURE_ID = :InfrastructureId";
+            parameters.Add("InfrastructureId", filter.InfrastructureId.Value.ToString());
+        }
+
+        if (filter.GridTypeId.HasValue)
+        {
+            sqlBase += " AND et.GridTypeId = :GridTypeId";
+            parameters.Add("GridTypeId", filter.GridTypeId.Value);
+        }
+
+        if (filter.IsActive.HasValue)
+        {
+            sqlBase += " AND e.IS_ACTIVE = :IsActive";
+            parameters.Add("IsActive", filter.IsActive.Value ? 1 : 0);
+        }
+
+        var countSql = $"SELECT COUNT(1) {sqlBase}";
+        var totalCount = await _connection.ExecuteScalarAsync<int>(countSql, parameters);
+
+        var selectSql = $@"SELECT e.Id AS {nameof(EquipmentLookupItemDto.Id)},
+                                   e.Code AS {nameof(EquipmentLookupItemDto.Code)},
+                                   e.Name AS {nameof(EquipmentLookupItemDto.Name)},
+                                   inf.Name AS {nameof(EquipmentLookupItemDto.InfrastructureName)}
+                            {sqlBase}
+                            ORDER BY e.Code ASC
+                            OFFSET :Offset ROWS FETCH NEXT :PageSize ROWS ONLY";
+
+        parameters.Add("Offset", (filter.Page - 1) * filter.PageSize);
+        parameters.Add("PageSize", filter.PageSize);
+
+        var items = await _connection.QueryAsync<EquipmentLookupItemDto>(selectSql, parameters);
+        return (items, totalCount);
+    }
+
     public async Task<bool> CreateWithAttributesAsync(Equipment equipment, IEnumerable<AttributeValue> attributes)
     {
         if (_connection.State != ConnectionState.Open)
