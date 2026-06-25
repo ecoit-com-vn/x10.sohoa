@@ -338,7 +338,7 @@ public class DocumentManagementService : IDocumentManagementService
 
             if (isHighVoltageSub)
             {
-                // Cấp 3 under tba-cao-ap
+                // Cấp 3 
                 var subNodeId = $"tba-cao-ap_{sub.Id}";
                 nodes.Add(new FolderCatalogNodeDto
                 {
@@ -350,15 +350,19 @@ public class DocumentManagementService : IDocumentManagementService
                     CreatedDate = DateTime.UtcNow
                 });
 
-                // Cấp 4 (Lá) under this Substation: các hồ sơ Cao áp của Trạm biến áp này (GridTypeId == 1 hoặc null)
+                // Cấp 4 
                 var subDossiers = dossiers.Where(d => string.Equals(d.InfrastructureId, sub.Id, StringComparison.OrdinalIgnoreCase) && (d.GridTypeId == 1 || d.GridTypeId == null));
-                foreach (var d in subDossiers)
+                var dossierGroups = subDossiers
+                    .GroupBy(d => new { d.DossierTypeId, d.DossierTypeName })
+                    .OrderBy(g => g.Key.DossierTypeName);
+
+                foreach (var g in dossierGroups)
                 {
-                    var dossierName = GetDossierDisplayName(d.FormDataJson, d.DossierTypeName, d.DossierSetName ?? "", d.Id);
+                    if (string.IsNullOrEmpty(g.Key.DossierTypeId)) continue;
                     nodes.Add(new FolderCatalogNodeDto
                     {
-                        Id = $"dossier_{d.Id}",
-                        Name = dossierName,
+                        Id = $"type_{subNodeId}_{g.Key.DossierTypeId}",
+                        Name = $"{g.Key.DossierTypeName}",
                         ParentId = subNodeId,
                         UnitId = unitId,
                         UnitCode = unitCode,
@@ -368,7 +372,7 @@ public class DocumentManagementService : IDocumentManagementService
             }
             else
             {
-                // Cấp 3 under tba-trung-ap
+                // Cấp 3 
                 var subNodeId = $"tba-trung-ap_{sub.Id}";
                 nodes.Add(new FolderCatalogNodeDto
                 {
@@ -380,15 +384,19 @@ public class DocumentManagementService : IDocumentManagementService
                     CreatedDate = DateTime.UtcNow
                 });
 
-                // Cấp 4 (Lá) under this Substation: các hồ sơ Trung áp của Trạm biến áp này (GridTypeId != 1 hoặc null)
+                // Cấp 4 
                 var subDossiers = dossiers.Where(d => string.Equals(d.InfrastructureId, sub.Id, StringComparison.OrdinalIgnoreCase) && (d.GridTypeId != 1 || d.GridTypeId == null));
-                foreach (var d in subDossiers)
+                var dossierGroups = subDossiers
+                    .GroupBy(d => new { d.DossierTypeId, d.DossierTypeName })
+                    .OrderBy(g => g.Key.DossierTypeName);
+
+                foreach (var g in dossierGroups)
                 {
-                    var dossierName = GetDossierDisplayName(d.FormDataJson, d.DossierTypeName, d.DossierSetName ?? "", d.Id);
+                    if (string.IsNullOrEmpty(g.Key.DossierTypeId)) continue;
                     nodes.Add(new FolderCatalogNodeDto
                     {
-                        Id = $"dossier_{d.Id}",
-                        Name = dossierName,
+                        Id = $"type_{subNodeId}_{g.Key.DossierTypeId}",
+                        Name = $"{g.Key.DossierTypeName}",
                         ParentId = subNodeId,
                         UnitId = unitId,
                         UnitCode = unitCode,
@@ -406,7 +414,7 @@ public class DocumentManagementService : IDocumentManagementService
 
             if (isHighVoltageInfra)
             {
-                // Cấp 3 under dd-cao-ap
+                // Cấp 3 
                 var lineNodeId = $"dd-cao-ap_{infra.Id}";
                 nodes.Add(new FolderCatalogNodeDto
                 {
@@ -418,15 +426,19 @@ public class DocumentManagementService : IDocumentManagementService
                     CreatedDate = DateTime.UtcNow
                 });
 
-                // Cấp 4 (Lá) under this Power Line: các hồ sơ Cao áp của Đường dây này
+                // Cấp 4 
                 var lineDossiers = dossiers.Where(d => string.Equals(d.InfrastructureId, infra.Id, StringComparison.OrdinalIgnoreCase) && (d.GridTypeId == 1 || d.GridTypeId == null));
-                foreach (var d in lineDossiers)
+                var dossierGroups = lineDossiers
+                    .GroupBy(d => new { d.DossierTypeId, d.DossierTypeName })
+                    .OrderBy(g => g.Key.DossierTypeName);
+
+                foreach (var g in dossierGroups)
                 {
-                    var dossierName = GetDossierDisplayName(d.FormDataJson, d.DossierTypeName, d.DossierSetName ?? "", d.Id);
+                    if (string.IsNullOrEmpty(g.Key.DossierTypeId)) continue;
                     nodes.Add(new FolderCatalogNodeDto
                     {
-                        Id = $"dossier_{d.Id}",
-                        Name = dossierName,
+                        Id = $"type_{lineNodeId}_{g.Key.DossierTypeId}",
+                        Name = $"{g.Key.DossierTypeName}",
                         ParentId = lineNodeId,
                         UnitId = unitId,
                         UnitCode = unitCode,
@@ -436,7 +448,7 @@ public class DocumentManagementService : IDocumentManagementService
             }
             else
             {
-                // Cấp 3 under dd-trung-ap
+                // Cấp 3
                 var lineNodeId = $"dd-trung-ap_{infra.Id}";
                 nodes.Add(new FolderCatalogNodeDto
                 {
@@ -448,15 +460,19 @@ public class DocumentManagementService : IDocumentManagementService
                     CreatedDate = DateTime.UtcNow
                 });
 
-                // Cấp 4 (Lá) under this Power Line: các hồ sơ Trung áp của Đường dây này
+                // Cấp 4 
                 var lineDossiers = dossiers.Where(d => string.Equals(d.InfrastructureId, infra.Id, StringComparison.OrdinalIgnoreCase) && (d.GridTypeId != 1 || d.GridTypeId == null));
-                foreach (var d in lineDossiers)
+                var dossierGroups = lineDossiers
+                    .GroupBy(d => new { d.DossierTypeId, d.DossierTypeName })
+                    .OrderBy(g => g.Key.DossierTypeName);
+
+                foreach (var g in dossierGroups)
                 {
-                    var dossierName = GetDossierDisplayName(d.FormDataJson, d.DossierTypeName, d.DossierSetName ?? "", d.Id);
+                    if (string.IsNullOrEmpty(g.Key.DossierTypeId)) continue;
                     nodes.Add(new FolderCatalogNodeDto
                     {
-                        Id = $"dossier_{d.Id}",
-                        Name = dossierName,
+                        Id = $"type_{lineNodeId}_{g.Key.DossierTypeId}",
+                        Name = $"{g.Key.DossierTypeName}",
                         ParentId = lineNodeId,
                         UnitId = unitId,
                         UnitCode = unitCode,

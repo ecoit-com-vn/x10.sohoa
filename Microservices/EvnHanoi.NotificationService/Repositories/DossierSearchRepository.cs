@@ -56,24 +56,35 @@ public class DossierSearchRepository : IDossierSearchRepository
         {
             b.MustNot(mn => mn.Term(t => t.Field(f => f.IsDeleted).Value(true)));
 
+            var filters = new List<Action<QueryDescriptor<DossierEsDocument>>>();
+
             if (filter.GridTypeId.HasValue)
-                b.Filter(f => f.Term(t => t.Field(doc => doc.GridTypeId).Value(filter.GridTypeId.Value)));
+                filters.Add(f => f.Term(t => t.Field(doc => doc.GridTypeId).Value(filter.GridTypeId.Value)));
 
             if (filter.InfrastructureId.HasValue)
             {
                 var infraId = filter.InfrastructureId.Value.ToString();
-                b.Filter(f => f.Term(t => t.Field(doc => doc.InfrastructureId).Value(infraId)));
+                filters.Add(f => f.Term(t => t.Field(doc => doc.InfrastructureId).Value(infraId)));
+            }
+
+            if (filter.DossierTypeId.HasValue)
+            {
+                var dossierTypeId = filter.DossierTypeId.Value.ToString();
+                filters.Add(f => f.Term(t => t.Field(doc => doc.DossierTypeId).Value(dossierTypeId)));
             }
 
             if (filter.UnitScopeIds is { Count: > 0 })
             {
-                b.Filter(f => f.Terms(t => t
+                filters.Add(f => f.Terms(t => t
                     .Field(doc => doc.UnitId)
                     .Terms(new TermsQueryField(filter.UnitScopeIds.Select(FieldValue.Long).ToArray()))));
             }
 
             if (!string.IsNullOrWhiteSpace(filter.Status))
-                b.Filter(f => f.Term(t => t.Field(doc => doc.Status).Value(filter.Status)));
+                filters.Add(f => f.Term(t => t.Field(doc => doc.Status).Value(filter.Status)));
+
+            if (filters.Count > 0)
+                b.Filter(filters.ToArray());
 
             if (!string.IsNullOrWhiteSpace(keyword))
             {

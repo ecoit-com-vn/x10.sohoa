@@ -48,6 +48,7 @@ public partial class DossierController : ControllerBase
         [FromQuery] int? gridTypeId,
         [FromQuery] long? unitId,
         [FromQuery] string? status,
+        [FromQuery] Guid? dossierTypeId,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10)
     {
@@ -58,6 +59,7 @@ public partial class DossierController : ControllerBase
             GridTypeId = gridTypeId,
             UnitId = unitId,
             Status = status,
+            DossierTypeId = dossierTypeId,
             Page = page,
             PageSize = pageSize
         };

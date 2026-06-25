@@ -79,7 +79,7 @@ public class UsersController : ControllerBase
             });
         }
         
-        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword("DefaultUserPassword_123!");
+        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin@123!");
         user.IsActive = true;
         try
         {
