@@ -168,74 +168,33 @@
         </div>
 
         <!-- Recursive tree rendering -->
-        <ng-container *ngTemplateOutlet="folderTreeTemplate; context: { $implicit: folderTree() }"></ng-container>
+        <ng-container *ngTemplateOutlet="folderTreeTemplate; context: { $implicit: folderTree(), isRoot: true }"></ng-container>
       </div>
 
       <!-- Template để render cây thư mục (recursive) -->
-      <ng-template #folderTreeTemplate let-folders>
-        <div *ngFor="let folder of folders; trackBy: trackByFolderId">
+      <ng-template #folderTreeTemplate let-folders let-isRoot="isRoot">
+        <div *ngFor="let folder of folders; first as isFirst; last as isLast; trackBy: trackByFolderId" [class.first-node]="isFirst" [class.last-node]="isLast">
           <!-- Folder row -->
-          <div
-            style="
-              display: flex;
-              align-items: center;
-              position: relative;
-            "
-          >
+          <div class="folder-row">
             <!-- Connector space (for tree lines) -->
-            <div
-              style="
-                width: 16px;
-                height: 28px;
-                flex-shrink: 0;
-                position: relative;
-              "
-            >
-              <!-- Horizontal dotted line only (nối tới folder icon) -->
-              <div
-                style="
-                  position: absolute;
-                  left: 50%;
-                  top: 50%;
-                  width: 50%;
-                  height: 1px;
-                  border-top: 1px dotted #d1d5db;
-                  transform: translateY(-50%);
-                "
-              ></div>
+            <div class="connector-space" *ngIf="!isRoot">
+              <!-- Horizontal dotted line only -->
+              <div class="connector-line"></div>
             </div>
 
             <!-- Folder name button -->
             <button
               (click)="toggleFolderExpand(folder, $event)"
-              style="
-                flex: 1;
-                text-align: left;
-                padding: 6px 8px;
-                border: none;
-                cursor: pointer;
-                display: flex;
-                align-items: center;
-                gap: 6px;
-                border-radius: 4px;
-                margin-bottom: 2px;
-                font-size: 0.9rem;
-                background-color: transparent;
-                color: #374151;
-                min-width: 0;
-              "
-              [style.font-weight]="selectedFolder()?.id === folder.id ? 'bold' : 'normal'"
+              class="folder-tree-btn"
+              [class.active]="selectedFolder()?.id === folder.id"
+              [class.root-node]="isRoot"
               [title]="folder.name"
             >
-              <i class="pi pi-folder" style="font-size: 1rem; flex-shrink: 0;"></i>
-              <span
-                style="
-                  white-space: nowrap;
-                  overflow: hidden;
-                  text-overflow: ellipsis;
-                "
-                [style.color]="selectedFolder()?.id === folder.id ? '#3b82f6' : '#374151'"
-              >
+              <i
+                class="pi"
+                [ngClass]="((folder.children && folder.children.length > 0) ? expandedFolders().has(folder.id) : selectedFolder()?.id === folder.id) ? 'pi-folder-open' : 'pi-folder'"
+              ></i>
+              <span class="folder-name-text">
                 {{ folder.name }}
               </span>
             </button>
@@ -244,13 +203,10 @@
           <!-- Children (recursive) -->
           <div
             *ngIf="folder.children && folder.children.length > 0 && expandedFolders().has(folder.id)"
-            style="
-              margin-left: 24px;
-              border-left: 1px dotted #d1d5db;
-              padding-left: 0;
-            "
+            class="folder-children-wrapper"
+            [class.root-children]="isRoot"
           >
-            <ng-container *ngTemplateOutlet="folderTreeTemplate; context: { $implicit: folder.children }"></ng-container>
+            <ng-container *ngTemplateOutlet="folderTreeTemplate; context: { $implicit: folder.children, isRoot: false }"></ng-container>
           </div>
         </div>
       </ng-template>

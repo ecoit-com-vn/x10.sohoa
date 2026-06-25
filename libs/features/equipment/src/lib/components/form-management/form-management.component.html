@@ -1,19 +1,7 @@
 
-    <div class="wf-page" [class.builder-mode]="viewState() !== 'list'">
+    <div class="wf-page" >
       <p-toast></p-toast>
-      
-      <!-- ────────────────── VIEW 1: DANH SÁCH BIỂU MẪU ────────────────── -->
-      <div class="wf-card" *ngIf="viewState() === 'list'">
-        <!-- Loading Overlay -->
-        <div class="loading-overlay" *ngIf="loading()">
-          <div class="loading-content">
-            <i class="pi pi-spin pi-spinner text-4xl mr-3" style="color: #002D72;"></i>
-            <span class="text-base font-semibold" style="color: #002D72;">Đang tải danh sách biểu mẫu...</span>
-          </div>
-        </div>
-
-        <!-- Breadcrumb -->
-        <div class="breadcrumb">
+       <div class="breadcrumb">
           <i class="pi pi-home bc-icon"></i>
           <span class="bc-text">Trang chủ</span>
           <span class="bc-sep">/</span>
@@ -21,8 +9,14 @@
           <span class="bc-sep">/</span>
           <span class="bc-current">Cấu hình form</span>
         </div>
-
-        <!-- Toolbar -->
+      <div class="wf-card">
+        <!-- Loading Overlay -->
+        <div class="loading-overlay" *ngIf="loading()">
+          <div class="loading-content">
+            <i class="pi pi-spin pi-spinner text-4xl mr-3" style="color: #002D72;"></i>
+            <span class="text-base font-semibold" style="color: #002D72;">Đang tải danh sách biểu mẫu...</span>
+          </div>
+        </div>
         <div class="list-toolbar">
           <div class="toolbar-left">
             <input type="text" class="wf-search-input"

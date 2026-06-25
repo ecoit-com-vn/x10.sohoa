@@ -6,11 +6,6 @@
       min-height: 100vh;
     }
 
-    /* ─── Breadcrumb ──────────────────────────────────────────────── */
-    .breadcrumb { display: flex; align-items: center; gap: 6px; font-size: 0.82rem; color: #6b7280; }
-    .bc-sep { color: #9ca3af; }
-    .bc-item.active { color: #002D72; font-weight: 600; }
-
     /* ─── Stats Cards ──────────────────────────────────────────────── */
     .stats-grid {
       display: grid;

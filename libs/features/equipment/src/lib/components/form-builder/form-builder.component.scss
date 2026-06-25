@@ -23,31 +23,6 @@
   flex: 1;
 }
 
-.breadcrumb {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.875rem;
-  color: #64748b;
-  margin-bottom: 1.25rem;
-  padding-top: 0.5rem;
-  
-  .builder-mode & {
-    margin-bottom: 0.5rem;
-    padding-top: 0;
-  }
-}
-.bc-sep {
-  color: #cbd5e1;
-}
-.bc-text {
-  color: #64748b;
-}
-.bc-current {
-  color: #002D72;
-  font-weight: 600;
-}
-
 .form-builder-wrapper {
   display: flex;
   flex-direction: column;

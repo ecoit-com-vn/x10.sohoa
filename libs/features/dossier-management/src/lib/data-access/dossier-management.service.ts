@@ -43,6 +43,7 @@ export class DossierManagementService {
     gridTypeId?: number;
     unitId?: number;
     status?: string;
+    dossierTypeId?: string;
     page: number;
     pageSize: number;
   }): Observable<any> {
@@ -55,6 +56,7 @@ export class DossierManagementService {
     if (filter.gridTypeId != null) params = params.set('gridTypeId', filter.gridTypeId.toString());
     if (filter.unitId != null) params = params.set('unitId', filter.unitId.toString());
     if (filter.status) params = params.set('status', filter.status);
+    if (filter.dossierTypeId) params = params.set('dossierTypeId', filter.dossierTypeId);
 
     return this.http.get<any>(this.searchBase, { params });
   }
