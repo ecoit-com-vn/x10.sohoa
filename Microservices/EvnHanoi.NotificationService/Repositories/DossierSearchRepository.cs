@@ -148,6 +148,8 @@ public class DossierSearchRepository : IDossierSearchRepository
             b.MustNot(mn => mn.Term(t => t.Field(DossierEsFieldNames.IsDeleted).Value(true)));
             EnforceTabStatusMust(b, filter);
 
+            var filters = new List<Action<QueryDescriptor<DossierEsDocument>>>();
+
             if (filter.GridTypeId.HasValue)
                 b.Filter(f => f.Term(t => t.Field(DossierEsFieldNames.GridTypeId).Value(filter.GridTypeId.Value)));
 
@@ -157,6 +159,12 @@ public class DossierSearchRepository : IDossierSearchRepository
                 b.Filter(f => f.Terms(t => t
                     .Field(DossierEsFieldNames.InfrastructureId)
                     .Terms(new TermsQueryField(infraVariants.Select(FieldValue.String).ToArray()))));
+            }
+
+            if (filter.DossierTypeId.HasValue)
+            {
+                var dossierTypeId = filter.DossierTypeId.Value.ToString();
+                filters.Add(f => f.Term(t => t.Field(doc => doc.DossierTypeId).Value(dossierTypeId)));
             }
 
             if (filter.UnitScopeIds is { Count: > 0 })

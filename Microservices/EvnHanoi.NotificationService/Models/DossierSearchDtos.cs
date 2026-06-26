@@ -56,6 +56,7 @@ public class DossierFilterDto
     public string? UserId { get; set; }
     public IReadOnlyList<string>? UserRoles { get; set; }
     public bool IsAdmin { get; set; }
+    public Guid? DossierTypeId { get; set; }
     public int Page { get; set; } = 1;
     public int PageSize { get; set; } = 10;
 }

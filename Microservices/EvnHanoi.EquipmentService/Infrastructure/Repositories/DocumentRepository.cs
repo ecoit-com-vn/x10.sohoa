@@ -950,7 +950,13 @@ public class DocumentRepository : IDocumentRepository
         const string infrastructureSql = @"
             SELECT ID as Id, NAME as Name, CODE as Code, INFRA_TYPE_ID as InfraTypeId
             FROM INFRASTRUCTURE
-            WHERE IsDeleted = 0 AND IS_ACTIVE = 1 AND INFRA_TYPE_ID IN (1, 2) AND UNIT_ID = :UnitId
+            WHERE IsDeleted = 0 AND IS_ACTIVE = 1 AND INFRA_TYPE_ID IN (1, 2) 
+              AND UNIT_ID IN (
+                  SELECT Id 
+                  FROM ORGANIZATION_UNIT
+                  START WITH Id = :UnitId
+                  CONNECT BY PRIOR Id = ParentId
+              )
             ORDER BY NAME ASC";
 
         return await _connection.QueryAsync<InfrastructureQueryDto>(infrastructureSql, new { UnitId = unitId });
@@ -977,7 +983,12 @@ public class DocumentRepository : IDocumentRepository
             LEFT JOIN DOSSIER_SETS ds ON d.DossierSetId = ds.ID
             LEFT JOIN EavFormTemplates f ON dt.FORM_ID = f.Id
             WHERE d.ISDELETED = 0 
-              AND i.UNIT_ID = :UnitId 
+              AND i.UNIT_ID IN (
+                  SELECT Id 
+                  FROM ORGANIZATION_UNIT
+                  START WITH Id = :UnitId
+                  CONNECT BY PRIOR Id = ParentId
+              )
               AND i.IsDeleted = 0 
               AND i.IS_ACTIVE = 1";
 

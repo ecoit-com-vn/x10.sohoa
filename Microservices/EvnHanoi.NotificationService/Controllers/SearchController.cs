@@ -45,7 +45,8 @@ public class SearchController : ControllerBase
         [FromQuery] long? unitId,
         [FromQuery] string? tab,
         [FromQuery] string? status,
-        [FromQuery] int page = 1, 
+        [FromQuery] Guid? dossierTypeId,
+        [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10)
     {
         var roles = GetUserRoles();
@@ -58,6 +59,7 @@ public class SearchController : ControllerBase
             UnitId = unitId,
             Tab = NormalizeTabParameter(tab, status),
             Status = status,
+            DossierTypeId = dossierTypeId,
             UserId = userId,
             UserRoles = roles,
             IsAdmin = IsAdmin(roles),
