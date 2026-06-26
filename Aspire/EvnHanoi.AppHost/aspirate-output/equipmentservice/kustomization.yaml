@@ -16,4 +16,7 @@ configMapGenerator:
     - OTEL_EXPORTER_OTLP_ENDPOINT=http://aspire-dashboard:18889
     - OTEL_SERVICE_NAME=equipmentservice
     - ASPNETCORE_URLS=http://+:8080;
+    - Services__WorkflowService=http://workflowservice:8080
+    - Services__NotificationService=http://notificationservice:8080
+    - Services__IdentityService=http://identityservice:8080
 

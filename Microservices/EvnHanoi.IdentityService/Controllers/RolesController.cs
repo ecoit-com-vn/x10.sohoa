@@ -125,6 +125,16 @@ public class RolesController : ControllerBase
         return Ok(new { message = "Gán quyền cho vai trò thành công." });
     }
 
+    [HttpGet("{id}/users")]
+    public async Task<IActionResult> GetAssignedUsers(long id, [FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] string? keyword = null)
+    {
+        var role = await _roleRepository.GetByIdAsync(id);
+        if (role == null) return NotFound(new { message = "Không tìm thấy vai trò này." });
+
+        var (items, totalCount) = await _roleRepository.GetUsersByRoleIdPagedAsync(id, page, pageSize, keyword);
+        return Ok(new { items, totalCount, page, pageSize });
+    }
+
     // Lấy toàn bộ danh sách quyền động trong hệ thống từ Repository của Permission
     [HttpGet("permissions/all")]
     public async Task<IActionResult> GetAllPermissions()
