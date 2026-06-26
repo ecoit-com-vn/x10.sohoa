@@ -1,0 +1,229 @@
+<div class="wf-page">
+    <p-toast></p-toast>
+    <div class="list-toolbar">
+        <div class="toolbar-left">
+            <div class="breadcrumb">
+                <i class="pi pi-home bc-icon"></i>
+                <span class="bc-text">Trang chủ</span>
+                <span class="bc-sep">/</span>
+                <span class="bc-text">Quản lý thiết bị</span>
+                <span class="bc-sep">/</span>
+                <span class="bc-current">Biểu mẫu hoàn thành</span>
+            </div>
+        </div>
+    </div>
+    <div class="wf-card">
+        <div class="list-toolbar">
+            <div class="toolbar-left">
+                <input type="text" class="wf-search-input" placeholder="Tìm kiếm form..." [ngModel]="searchKeyword()"
+                    (ngModelChange)="searchKeyword.set($event)" (keyup.enter)="onSearch()" />
+                <button class="btn-tim" (click)="onSearch()">
+                    <i class="pi pi-search"></i> Tìm
+                </button>
+            </div>
+        </div>
+        <div class="loading-overlay" *ngIf="loading()">
+            <div class="loading-content">
+                <i class="pi pi-spin pi-spinner text-4xl mr-3"></i>
+                <span class="text-base font-semibold">Đang tải danh sách biểu mẫu hoàn
+                    thành...</span>
+            </div>
+        </div>
+
+        <div class="wf-table-wrap">
+            <table class="wf-table">
+                <thead>
+                    <tr>
+                        <th class="col-code">Mã biểu mẫu</th>
+                        <th>Tên biểu mẫu</th>
+                        <th class="col-version">Phiên bản</th>
+                        <th>Người tạo</th>
+                        <th>Cập nhật lần cuối</th>
+                        <th class="col-tt">Trạng thái</th>
+                        <th class="col-actions">Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr *ngIf="loading() && filteredForms().length === 0">
+                        <td colspan="7" class="skeleton-row">
+                            <i class="pi pi-spin pi-spinner mr-2"></i>
+                            <span>Đang tải danh sách biểu mẫu...</span>
+                        </td>
+                    </tr>
+
+                    <tr *ngFor="let form of paginatedForms(); let i = index">
+                        <td><code>{{ form.code || '(Không có mã)' }}</code></td>
+                        <td>{{ form.name }}</td>
+                        <td class="col-version">v{{ form.version }}.0</td>
+                        <td>{{ form.createdBy }}</td>
+                        <td>{{ form.createdAt | date:'dd/MM/yyyy HH:mm' }}</td>
+                        <td class="col-tt">
+                            <span class="status-pill" [class.status-approved]="form.status === 'Hoàn thành'"
+                                [class.status-locked]="isFormLocked(form)">
+                                {{ isFormLocked(form) ? 'Khóa' : 'Hoàn thành' }}
+                            </span>
+                        </td>
+                        <td class="col-actions">
+                            <button class="act-btn act-view" (click)="viewFormDetail(form)"
+                                title="Xem chi tiết biểu mẫu">
+                                <i class="pi pi-eye icon-view"></i>
+                            </button>
+                            <button class="act-btn act-lock" *ngIf="!isFormLocked(form)" (click)="lockForm(form)"
+                                title="Khóa biểu mẫu">
+                                <i class="pi pi-lock-open icon-lock-open"></i>
+                            </button>
+                            <button class="act-btn act-unlock" *ngIf="isFormLocked(form)" (click)="unlockForm(form)"
+                                title="Mở khóa biểu mẫu">
+                                <i class="pi pi-lock icon-lock"></i>
+                            </button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="table-footer-paginator" *ngIf="filteredForms().length > 0">
+            <span class="record-count">Tổng số: <b>{{ filteredForms().length }}</b> bản ghi.</span>
+            <p-paginator [first]="first()" [rows]="rows()" [totalRecords]="filteredForms().length"
+                [rowsPerPageOptions]="[5, 10, 20, 50]" (onPageChange)="onPageChange($event)">
+            </p-paginator>
+        </div>
+    </div>
+
+    <p-dialog [visible]="showFormDetail()" (visibleChange)="$event ? null : showFormDetail.set(false)"
+        header="Chi tiết biểu mẫu" [modal]="true" [style]="{ width: '900px', maxHeight: '90vh' }"
+        styleClass="evn-dialog-custom" [closable]="true">
+        <div *ngIf="selectedForm" class="detail-content">
+            <!-- Thông tin cơ bản của form -->
+            <div class="form-info-section">
+                <h4 class="section-title">Thông tin biểu mẫu</h4>
+                <div class="info-grid">
+                    <div class="info-field">
+                        <p class="info-label">Mã biểu mẫu</p>
+                        <p class="info-value"><code>{{ selectedForm.code }}</code></p>
+                    </div>
+                    <div class="info-field">
+                        <p class="info-label">Tên biểu mẫu</p>
+                        <p class="info-value">{{ selectedForm.name }}</p>
+                    </div>
+                    <div class="info-field">
+                        <p class="info-label">Phiên bản</p>
+                        <p class="info-value">v{{ selectedForm.version }}.0</p>
+                    </div>
+                    <div class="info-field">
+                        <p class="info-label">Người tạo</p>
+                        <p class="info-value">{{ selectedForm.createdBy }}</p>
+                    </div>
+                    <div class="info-field">
+                        <p class="info-label">Ngày tạo</p>
+                        <p class="info-value">{{ selectedForm.createdAt | date:'dd/MM/yyyy HH:mm' }}</p>
+                    </div>
+                    <div class="info-field">
+                        <p class="info-label">Trạng thái</p>
+                        <p class="info-value">{{ isFormLocked(selectedForm) ? 'Khóa' : 'Hoàn thành' }}</p>
+                    </div>
+                </div>
+                <div class="info-field info-field-full">
+                    <p class="info-label">Mô tả</p>
+                    <p class="info-value">{{ selectedForm.description || '(Không có mô tả)' }}</p>
+                </div>
+            </div>
+
+            <!-- Divider -->
+            <hr class="divider">
+
+            <!-- Cấu hình biểu mẫu -->
+            <div class="fields-section">
+                <h4 class="section-title">Cấu hình form</h4>
+                <div *ngIf="formFields().length === 0" class="empty-fields-state">
+                    <i class="pi pi-inbox"></i>
+                    <p>Form chưa có cấu hình trường nào.</p>
+                </div>
+
+                <div *ngIf="formFields().length > 0" class="config-preview-card">
+                    <div class="config-summary">
+                        <div class="config-chip">
+                            <i class="pi pi-list"></i>
+                            <span>Số trường: {{ formFields().length }}</span>
+                        </div>
+                    </div>
+
+                    <div class="rendered-fields">
+                        <div *ngFor="let field of formFields()" class="rendered-field">
+                            <label class="rendered-field-label">{{ field.label || field.name || 'Trường' }}</label>
+
+                            <ng-container [ngSwitch]="getFieldType(field)">
+                                <input *ngSwitchCase="'text'" type="text" pInputText
+                                    [placeholder]="field.placeholder || 'Nhập giá trị'" class="field-input" disabled />
+                                <input *ngSwitchCase="'number'" type="number" pInputText
+                                    [placeholder]="field.placeholder || 'Nhập số'" class="field-input" disabled />
+                                <textarea *ngSwitchCase="'textarea'" pInputTextarea
+                                    [placeholder]="field.placeholder || 'Nhập nội dung'" class="field-input" rows="3"
+                                    disabled></textarea>
+                                <select *ngSwitchCase="'dropdown'" class="field-input field-select" disabled>
+                                    <option *ngFor="let option of getDropdownOptions(field)" [value]="option">
+                                        {{ option }}
+                                    </option>
+                                </select>
+                                <label *ngSwitchCase="'checkbox'" class="checkbox-row">
+                                    <input type="checkbox" disabled />
+                                    <span>{{ field.label || field.name || 'Checkbox' }}</span>
+                                </label>
+                                <input *ngSwitchDefault type="text" pInputText
+                                    [placeholder]="field.placeholder || 'Nhập giá trị'" class="field-input" disabled />
+                            </ng-container>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </p-dialog>
+
+    <p-dialog [visible]="showConfirmLock()" (visibleChange)="$event ? null : showConfirmLock.set(false)"
+        header="Xác nhận khóa biểu mẫu" [modal]="true" [style]="{ width: '420px' }" styleClass="evn-dialog-custom"
+        [closable]="true">
+        <div class="confirm-dialog-content">
+            <i class="pi pi-lock-open confirm-icon confirm-icon-lock-open"></i>
+            <div>
+                <p class="confirm-dialog-title">Bạn có chắc chắn muốn khóa?</p>
+                <p class="confirm-dialog-message">
+                    Biểu mẫu <b class="confirm-target-name">{{ targetForm?.name }}</b> sẽ bị khóa không thể chỉnh sửa.
+                </p>
+            </div>
+        </div>
+        <ng-template #footer>
+            <div class="confirm-dialog-footer">
+                <button class="btn-small btn-cancel" (click)="showConfirmLock.set(false)">
+                    <i class="pi pi-times"></i> Hủy
+                </button>
+                <button class="btn-small btn-confirm btn-confirm-lock" (click)="onConfirmLock()">
+                    <i class="pi pi-check"></i> Xác nhận
+                </button>
+            </div>
+        </ng-template>
+    </p-dialog>
+
+    <p-dialog [visible]="showConfirmUnlock()" (visibleChange)="$event ? null : showConfirmUnlock.set(false)"
+        header="Xác nhận mở khóa biểu mẫu" [modal]="true" [style]="{ width: '420px' }" styleClass="evn-dialog-custom"
+        [closable]="true">
+        <div class="confirm-dialog-content">
+            <i class="pi pi-lock confirm-icon confirm-icon-lock"></i>
+            <div>
+                <p class="confirm-dialog-title">Bạn có chắc chắn muốn mở khóa?</p>
+                <p class="confirm-dialog-message">
+                    Biểu mẫu <b class="confirm-target-name">{{ targetForm?.name }}</b> sẽ được mở khóa để chỉnh sửa.
+                </p>
+            </div>
+        </div>
+        <ng-template #footer>
+            <div class="confirm-dialog-footer">
+                <button class="btn-small btn-cancel" (click)="showConfirmUnlock.set(false)">
+                    <i class="pi pi-times"></i> Hủy
+                </button>
+                <button class="btn-small btn-confirm btn-confirm-unlock" (click)="onConfirmUnlock()">
+                    <i class="pi pi-check"></i> Xác nhận
+                </button>
+            </div>
+        </ng-template>
+    </p-dialog>
+</div>

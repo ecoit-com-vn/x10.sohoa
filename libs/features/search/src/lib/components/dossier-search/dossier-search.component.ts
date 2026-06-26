@@ -1,6 +1,7 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { MessageService } from 'primeng/api';
 import { TableModule } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
@@ -16,9 +17,11 @@ import {
   findBreadcrumbPath,
   getBreadcrumbLabel,
 } from '../../utils/folder-tree.util';
-
+import { of, switchMap, finalize, catchError, Observable } from 'rxjs';
 
 import { DossierDocumentEditDialogComponent, DossierManagementService, BhsCatalogColumn } from '@sohoa.frontend/features/dossier-management';
+import { DossierDocumentService } from '../../../../../dossier-management/src/lib/data-access/dossier-document.service';
+import { EavField, normalizeField, readFormSchemaJson, parseFormDataJson, normalizeDossierDetail } from '../../../../../dossier-management/src/lib/utils/dossier-form-schema.util';
 import { HttpClient } from '@angular/common/http';
 import { AuthService, APP_CONFIG } from '@sohoa.frontend/shared/core';
 
@@ -40,7 +43,7 @@ import { AuthService, APP_CONFIG } from '@sohoa.frontend/shared/core';
   templateUrl: './dossier-search.component.html',
   styleUrl: './dossier-search.component.scss',
 })
-export class DossierSearchComponent implements OnInit {
+export class DossierSearchComponent implements OnInit, OnDestroy {
   private documentService = inject(DocumentManagementService);
   private messageService = inject(MessageService);
   private fileDownloadService = inject(FileDownloadService);
@@ -48,6 +51,44 @@ export class DossierSearchComponent implements OnInit {
   private http = inject(HttpClient);
   private config = inject(APP_CONFIG);
   private dossierService = inject(DossierManagementService);
+  private dossierDocumentService = inject(DossierDocumentService);
+  private sanitizer = inject(DomSanitizer);
+
+  // ===== NEW SIGNALS FOR 2-TAB DETAIL & PREVIEW =====
+  activeDetailTab = signal<'info' | 'documents'>('info');
+  relatedEquipments = signal<any[]>([]);
+  loadingEquipments = signal<boolean>(false);
+  dynamicFields = signal<EavField[]>([]);
+  detailFormData = signal<Record<string, any>>({});
+  loadingForm = signal<boolean>(false);
+  selectedDocument = signal<any | null>(null);
+  previewUrl = signal<string | null>(null);
+  loadingPreview = signal<boolean>(false);
+  gridTypes = signal<any[]>([]);
+
+  isPdf = computed(() => {
+    const doc = this.selectedDocument();
+    if (!doc) return false;
+    const name = doc.name || '';
+    const ext = name.split('.').pop()?.toLowerCase() ?? '';
+    const mime = doc.mimeType || '';
+    return mime.includes('pdf') || ext === 'pdf';
+  });
+
+  isImage = computed(() => {
+    const doc = this.selectedDocument();
+    if (!doc) return false;
+    const name = doc.name || '';
+    const ext = name.split('.').pop()?.toLowerCase() ?? '';
+    const mime = doc.mimeType || '';
+    return mime.startsWith('image/') || ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(ext);
+  });
+
+  previewSrc = computed(() => {
+    const base = this.previewUrl();
+    if (!base) return '';
+    return this.sanitizer.bypassSecurityTrustResourceUrl(base);
+  });
 
   // ===== SIGNALS =====
   folderTree = signal<FolderNode[]>([]);
@@ -112,6 +153,14 @@ export class DossierSearchComponent implements OnInit {
       next: (cols) => this.dossierBhsColumns.set(cols),
       error: () => console.error('Failed to load BHS catalog columns'),
     });
+    this.dossierService.getGridTypeLookup().subscribe({
+      next: (types) => this.gridTypes.set(types || []),
+      error: () => console.error('Failed to load grid types'),
+    });
+  }
+
+  ngOnDestroy() {
+    this.cleanupPreview();
   }
 
   private selectDefaultFolder(flatList: FolderNode[]) {
@@ -283,8 +332,156 @@ export class DossierSearchComponent implements OnInit {
   }
 
   onViewDossierDetail(item: any) {
-    this.selectedDossier.set(item);
-    this.loadDossierDocuments(item.id);
+    this.cleanupPreview();
+    this.selectedDossier.set(null);
+    this.selectedDocument.set(null);
+    this.relatedEquipments.set([]);
+    this.dynamicFields.set([]);
+    this.detailFormData.set({});
+    this.activeDetailTab.set('info');
+
+    this.loadingForm.set(true);
+    this.dossierService.getDossierById(item.id).pipe(
+      switchMap((fullDossier) => {
+        const normalized = normalizeDossierDetail(fullDossier);
+        this.selectedDossier.set(normalized || fullDossier);
+
+        this.loadDossierDocuments(item.id);
+        this.loadRelatedEquipments(item.id);
+
+        if (normalized) {
+          const parsedData = parseFormDataJson(normalized.formDataJson);
+          this.detailFormData.set(parsedData);
+          return this.resolveFormTemplate(normalized.formId, normalized.dossierTypeId);
+        }
+        return of(null);
+      }),
+      finalize(() => this.loadingForm.set(false))
+    ).subscribe({
+      next: (template) => {
+        this.applyFormTemplate(template);
+      },
+      error: (err) => {
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Lỗi',
+          detail: 'Không thể tải chi tiết dữ liệu hồ sơ',
+        });
+        console.error(err);
+      }
+    });
+  }
+
+  getGridTypeName(gridTypeId: number | null): string {
+    if (gridTypeId == null) return '-';
+    const found = this.gridTypes().find(t => t.id === gridTypeId);
+    return found ? found.name : `Lưới điện ${gridTypeId}`;
+  }
+
+  private resolveFormTemplate(formId: string | null, dossierTypeId: string): Observable<any> {
+    if (formId) {
+      return this.dossierService.getFormTemplate(formId);
+    }
+
+    if (!dossierTypeId) {
+      return of(null);
+    }
+
+    return this.dossierService.getDossierTypeLookup().pipe(
+      catchError(() => of([] as any[])),
+      switchMap((types) => {
+        const found = Array.isArray(types)
+          ? types.find((t: any) => {
+              const aId = t.id ?? t.Id;
+              return aId && dossierTypeId && String(aId).toLowerCase() === String(dossierTypeId).toLowerCase();
+            })
+          : undefined;
+        const resolvedFormId = found?.formId ?? found?.FormId ?? null;
+        if (!resolvedFormId) {
+          return of(null);
+        }
+        return this.dossierService.getFormTemplate(resolvedFormId);
+      })
+    );
+  }
+
+  private applyFormTemplate(template: any) {
+    if (!template) {
+      this.dynamicFields.set([]);
+      return;
+    }
+
+    const schemaJson = readFormSchemaJson(template);
+    if (!schemaJson) {
+      this.dynamicFields.set([]);
+      return;
+    }
+
+    try {
+      const raw = JSON.parse(schemaJson);
+      const fields: EavField[] = Array.isArray(raw) ? raw.map((f) => normalizeField(f)) : [];
+      this.dynamicFields.set(fields);
+    } catch {
+      this.dynamicFields.set([]);
+    }
+  }
+
+  loadRelatedEquipments(dossierId: string) {
+    this.loadingEquipments.set(true);
+    this.dossierService.getEquipments(dossierId).pipe(
+      finalize(() => this.loadingEquipments.set(false))
+    ).subscribe({
+      next: (eqs) => {
+        this.relatedEquipments.set(eqs || []);
+      },
+      error: (err) => {
+        console.error('Failed to load related equipments', err);
+        this.relatedEquipments.set([]);
+      }
+    });
+  }
+
+  cleanupPreview(): void {
+    const url = this.previewUrl();
+    if (url) {
+      this.dossierDocumentService.revokePreviewBlobUrl(url);
+      this.previewUrl.set(null);
+    }
+  }
+
+  onViewDocumentDetail(doc: any) {
+    this.cleanupPreview();
+    this.selectedDocument.set(doc);
+    if (!doc.latestVersionId) {
+      return;
+    }
+
+    const dossierId = doc.dossierId || this.selectedDossier()?.id;
+    if (!dossierId) {
+      return;
+    }
+
+    this.loadingPreview.set(true);
+    this.dossierDocumentService.getPreviewBlobUrl(dossierId, doc.latestVersionId)
+      .then((url: string) => {
+        this.previewUrl.set(url);
+      })
+      .catch((err: any) => {
+        console.error(err);
+        this.messageService.add({
+          severity: 'warn',
+          summary: 'Xem trước',
+          detail: 'Không thể tải bản xem trước tài liệu',
+        });
+      })
+      .finally(() => {
+        this.loadingPreview.set(false);
+      });
+  }
+
+  onCloseDocumentDetail() {
+    this.cleanupPreview();
+    this.selectedDocument.set(null);
   }
 
   loadDossierDocuments(dossierId: string) {

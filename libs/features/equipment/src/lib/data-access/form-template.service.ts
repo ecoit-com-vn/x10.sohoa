@@ -14,6 +14,7 @@ export interface EavFormTemplate {
   formSchema: string; // JSON schema stringified
   version: number;
   isActive: boolean;
+  isLocked?: boolean;
   createdAt: string;
   createdBy: string;
   status?: string;
@@ -34,9 +35,12 @@ export class FormTemplateService {
     return `/api/v1/form-templates`;
   }
 
-  getTemplates(): Observable<EavFormTemplate[]> {
-    if (!this.templates$) {
-      this.templates$ = this.api.get<EavFormTemplate[]>(this.apiUrl)
+  getTemplates(keyword?: string): Observable<EavFormTemplate[]> {
+    if (!this.templates$ || keyword) {
+      const options = keyword
+        ? { params: { keyword: keyword.trim() } }
+        : undefined;
+      this.templates$ = this.api.get<EavFormTemplate[]>(this.apiUrl, options);
     }
     return this.templates$;
   }
@@ -116,7 +120,19 @@ export class FormTemplateService {
     return this.api.get<any>(`/api/Catalog/types/code/${code}`);
   }
 
-  getCatalogsLookup(catalogTypeId: number): Observable<any[]> {
-    return this.api.get<any[]>(`/api/Catalog/lookup?catalogTypeId=${catalogTypeId}`);
+  lockTemplate(id: string): Observable<any> {
+    return this.api.post<any>(`${this.apiUrl}/${id}/lock`, {}).pipe(
+      tap(() => this.templates$ = null)
+    );
+  }
+
+  unlockTemplate(id: string): Observable<any> {
+    return this.api.post<any>(`${this.apiUrl}/${id}/unlock`, {}).pipe(
+      tap(() => this.templates$ = null)
+    );
+  }
+
+  getTemplateVersions(code: string): Observable<EavFormTemplate[]> {
+    return this.api.get<EavFormTemplate[]>(`${this.apiUrl}/code/${code}/versions`);
   }
 }
