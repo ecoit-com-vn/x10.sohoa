@@ -17,6 +17,7 @@ public class DossierEnrichmentData
     public string Status { get; set; } = string.Empty;
     public string? WorkflowStatusName { get; set; }
     public string? WorkflowInstanceId { get; set; }
+    public string? WorkflowInstanceStatus { get; set; }
     public string? CreatorId { get; set; }
     public string? CreatorUsername { get; set; }
     public string? CreatorName { get; set; }
@@ -24,6 +25,11 @@ public class DossierEnrichmentData
     public DateTime? ModifiedDate { get; set; }
     public int CurrentVersionNumber { get; set; }
     public bool IsDeleted { get; set; }
+    public int DocumentCount { get; set; }
+    public List<string> PendingAssignedRoles { get; set; } = new();
+    public string? PendingAssigneeUserId { get; set; }
+    public List<string> WorkflowParticipantUserIds { get; set; } = new();
+    public bool CurrentStepAllowEdit { get; set; }
 }
 
 public class BhsCatalogDefinition

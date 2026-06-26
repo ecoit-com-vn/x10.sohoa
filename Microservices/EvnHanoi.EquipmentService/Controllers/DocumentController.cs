@@ -39,9 +39,11 @@ public class DocumentController : ControllerBase
     // ===== FOLDER ENDPOINTS =====
 
     /// <summary>
-    /// Lấy cây thư mục của unit hiện tại
+    /// Lấy cây thư mục của unit hiện tại (dùng chọn tài liệu từ kho khi gắn vào hồ sơ).
+    /// Bypass quyền DOCUMENT_* — vẫn giới hạn theo unit_id trong JWT.
     /// </summary>
     [HttpGet("folders/tree")]
+    [BypassDynamicPermission]
     public async Task<IActionResult> GetFolderTree()
     {
         var unitId = GetUserUnitId();
@@ -132,9 +134,11 @@ public class DocumentController : ControllerBase
     // ===== DOCUMENT ENDPOINTS =====
 
     /// <summary>
-    /// Lấy danh sách tài liệu trong một thư mục (có phân trang)
+    /// Lấy danh sách tài liệu trong một thư mục (có phân trang).
+    /// Bypass quyền DOCUMENT_* khi duyệt kho để chọn tài liệu gắn hồ sơ.
     /// </summary>
     [HttpGet("list")]
+    [BypassDynamicPermission]
     public async Task<IActionResult> GetDocumentsList(
         [FromQuery] Guid? folderId,
         [FromQuery] string? keyword,

@@ -142,6 +142,34 @@ public class AddDossierEquipmentDto
     public Guid EquipmentId { get; set; }
 }
 
+/// <summary>
+/// Thiết bị lookup cho popup gắn thiết bị vào hồ sơ — chỉ trường hiển thị cơ bản.
+/// </summary>
+public class EquipmentLookupItemDto
+{
+    public Guid Id { get; set; }
+    public string Code { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string? InfrastructureName { get; set; }
+}
+
+/// <summary>
+/// Bộ lọc lookup thiết bị cho màn tạo/sửa hồ sơ.
+/// </summary>
+public class EquipmentLookupFilterDto
+{
+    /// <summary>Tìm gộp theo mã hoặc tên thiết bị.</summary>
+    public string? Keyword { get; set; }
+    public string? Code { get; set; }
+    public string? Name { get; set; }
+    public Guid? InfrastructureId { get; set; }
+    public int? GridTypeId { get; set; }
+    public long? UnitId { get; set; }
+    public bool? IsActive { get; set; } = true;
+    public int Page { get; set; } = 1;
+    public int PageSize { get; set; } = 10;
+}
+
 // ===== DOSSIER VERSION =====
 
 public class DossierVersionDto
@@ -195,4 +223,20 @@ public class DossierWorkflowPendingTaskDto
     public string ActionType { get; set; } = string.Empty;
     public bool AllowEdit { get; set; }
     public DateTime CreatedAt { get; set; }
+}
+
+/// <summary>
+/// Payload đồng bộ trạng thái workflow từ WorkflowService về EquipmentService (API nội bộ).
+/// WorkflowService tự suy ra DossierStatus rồi đẩy về đây.
+/// </summary>
+public class UpdateInternalWorkflowStateDto
+{
+    /// <summary>Id của WorkflowInstance vừa thay đổi.</summary>
+    public Guid WorkflowInstanceId { get; set; }
+
+    /// <summary>Tên trạng thái/bước hiển thị (gán vào Dossier.WorkflowStatusName).</summary>
+    public string? WorkflowStatusName { get; set; }
+
+    /// <summary>Trạng thái nghiệp vụ do WS suy ra: Draft | PendingApproval | InProgress | Returned | Approved.</summary>
+    public string DossierStatus { get; set; } = string.Empty;
 }

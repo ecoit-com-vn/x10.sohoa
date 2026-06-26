@@ -18,6 +18,12 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
 
+var internalToken = builder.Configuration["Internal:Token"];
+if (string.IsNullOrWhiteSpace(internalToken))
+{
+    Log.Warning("Internal:Token chưa cấu hình — POST internal/v1/dossiers/{{id}}/reindex sẽ trả 503.");
+}
+
 // Setup Serilog
 builder.Host.UseSerilog(SerilogSetupHelper.ConfigureSerilog);
 
@@ -57,17 +63,22 @@ else
 }
 
 builder.Services.AddSingleton<NotificationDispatcher>();
+builder.Services.AddMemoryCache();
 builder.Services.AddPermissionDiscovery("NotificationService");
 builder.Services.AddScoped<EvnHanoi.NotificationService.Repositories.IAuditLogRepository, EvnHanoi.NotificationService.Repositories.AuditLogRepository>();
 builder.Services.AddScoped<EvnHanoi.NotificationService.Services.IAuditLogService, EvnHanoi.NotificationService.Services.AuditLogService>();
 builder.Services.AddScoped<EvnHanoi.NotificationService.Repositories.IDossierEnrichmentRepository, EvnHanoi.NotificationService.Repositories.DossierEnrichmentRepository>();
 builder.Services.AddScoped<EvnHanoi.NotificationService.Services.IDossierDocumentBuilder, EvnHanoi.NotificationService.Services.DossierDocumentBuilder>();
+builder.Services.AddScoped<EvnHanoi.NotificationService.Services.IDossierIndexer, EvnHanoi.NotificationService.Services.DossierIndexer>();
 
 builder.Services.AddScoped<EvnHanoi.NotificationService.Repositories.IDossierSearchRepository, EvnHanoi.NotificationService.Repositories.DossierSearchRepository>();
 builder.Services.AddScoped<EvnHanoi.NotificationService.Services.IDossierSearchService, EvnHanoi.NotificationService.Services.DossierSearchService>();
 
-// Elasticsearch setup
-var esUri = builder.Configuration["Elasticsearch:Url"] ?? "http://localhost:9200";
+// Elasticsearch setup — hỗ trợ cả key Url (Development) và Uri (appsettings gốc)
+var esUri = builder.Configuration["Elasticsearch:Url"]
+            ?? builder.Configuration["Elasticsearch:Uri"]
+            ?? "http://localhost:9200";
+Log.Information("NotificationService Elasticsearch: {ElasticsearchUrl}", esUri);
 var esSettings = new ElasticsearchClientSettings(new Uri(esUri))
     .DefaultIndex("equipments");
 builder.Services.AddSingleton(new ElasticsearchClient(esSettings));
@@ -80,6 +91,8 @@ var jwtKey = builder.Configuration["Jwt:Key"] ?? "super_secret_key_1234567890123
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
+        // Map sub/nameid → ClaimTypes để FindFirst(NameIdentifier) ổn định trên mọi phiên bản .NET.
+        options.MapInboundClaims = true;
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,

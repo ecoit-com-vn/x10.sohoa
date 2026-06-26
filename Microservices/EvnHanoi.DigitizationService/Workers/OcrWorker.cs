@@ -18,6 +18,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using EvnHanoi.DigitizationService.Models;
 using EvnHanoi.DigitizationService.Repositories;
 using EvnHanoi.DigitizationService.Services;
@@ -226,11 +227,71 @@ namespace EvnHanoi.DigitizationService.Workers
 
                                     // Font size tương ứng với chiều cao box (0.75 * h)
                                     double fontSize = Math.Max(4, h * 0.75);
-                                    XFont font = new XFont("Arial", fontSize, XFontStyle.Regular);
+                                    XFont font = new XFont("Open Sans", fontSize, XFontStyle.Regular);
 
                                     XRect rect = new XRect(x0, y0, w, h);
                                     gfx.DrawString(boxData.Text, font, transparentBrush, rect, XStringFormats.TopLeft);
                                 }
+
+                                // Sinh Markdown cho page
+                                var mdLines = new List<string>();
+                                if (ocrResults.Any())
+                                {
+                                    // Nhóm các box có y0 chênh lệch <= 10px thành cùng một dòng
+                                    double yTolerance = 10.0;
+                                    var lines = new List<List<TextBoxResponse>>();
+                                    
+                                    var sortedByY = ocrResults.Where(b => b.Box != null && b.Box.Count == 4 && !string.IsNullOrWhiteSpace(b.Text))
+                                                              .OrderBy(b => b.Box[1]).ToList();
+                                                              
+                                    foreach (var box in sortedByY)
+                                    {
+                                        bool added = false;
+                                        foreach (var line in lines)
+                                        {
+                                            double avgY = line.Average(b => b.Box[1]);
+                                            if (Math.Abs(box.Box[1] - avgY) <= yTolerance)
+                                            {
+                                                line.Add(box);
+                                                added = true;
+                                                break;
+                                            }
+                                        }
+                                        if (!added)
+                                        {
+                                            lines.Add(new List<TextBoxResponse> { box });
+                                        }
+                                    }
+                                    
+                                    foreach (var line in lines)
+                                    {
+                                        var sortedByX = line.OrderBy(b => b.Box[0]).ToList();
+                                        
+                                        var lineParts = new List<string>();
+                                        foreach (var box in sortedByX)
+                                        {
+                                            string cleanText = Regex.Replace(box.Text, @"[ \t]{2,}", " ");
+                                            cleanText = Regex.Replace(cleanText, @"\r\n|\r|\n", " ");
+                                            lineParts.Add(cleanText.Trim());
+                                        }
+                                        mdLines.Add(string.Join(" ", lineParts));
+                                    }
+                                }
+
+                                string pageMarkdown = string.Join("\n", mdLines);
+                                pageMarkdown = Regex.Replace(pageMarkdown, @"\n{3,}", "\n\n"); // Max 2 newlines
+
+                                // Upload Markdown file
+                                string baseFilePath = taskMsg.FilePath;
+                                if (baseFilePath.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    baseFilePath = baseFilePath.Substring(0, baseFilePath.Length - 4);
+                                }
+                                string mdFileName = $"{baseFilePath}_page_{i + 1}.md";
+
+                                using var mdStream = new MemoryStream(Encoding.UTF8.GetBytes(pageMarkdown));
+                                await minioService.UploadFileAsync(taskMsg.BucketName, mdFileName, mdStream, "text/markdown");
+                                _logger.LogInformation("Đã upload file markdown cho trang {Page}: {FileName}", i + 1, mdFileName);
 
                                 // Báo cáo tiến trình per-page
                                 var progressMsg = new

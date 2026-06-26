@@ -18,7 +18,6 @@ public class DossierIndexWorker : BackgroundService
     private readonly ElasticsearchClient _elasticClient;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IConnection _connection;
-    private readonly SemaphoreSlim _processingLock = new(1, 1);
     private IChannel? _channel;
 
     public DossierIndexWorker(
@@ -51,7 +50,6 @@ public class DossierIndexWorker : BackgroundService
             var consumer = new AsyncEventingBasicConsumer(_channel);
             consumer.ReceivedAsync += async (_, ea) =>
             {
-                await _processingLock.WaitAsync(stoppingToken);
                 try
                 {
                     var body = ea.Body.ToArray();
@@ -71,7 +69,9 @@ public class DossierIndexWorker : BackgroundService
                             return;
                         }
 
-                        var indexed = await IndexDossierAsync(evt.DossierId, stoppingToken);
+                        var indexed = evt.Action.Equals(DossierChangedActions.Deleted, StringComparison.OrdinalIgnoreCase)
+                            ? await DeleteDossierAsync(evt.DossierId, stoppingToken)
+                            : await IndexDossierAsync(evt.DossierId, stoppingToken);
                         if (indexed)
                             await _channel!.BasicAckAsync(ea.DeliveryTag, false, CancellationToken.None);
                         else
@@ -90,9 +90,9 @@ public class DossierIndexWorker : BackgroundService
                         }
                     }
                 }
-                finally
+                catch (Exception ex)
                 {
-                    _processingLock.Release();
+                    _logger.LogError(ex, "Unexpected error in dossier index consumer.");
                 }
             };
 
@@ -114,58 +114,21 @@ public class DossierIndexWorker : BackgroundService
     internal async Task<bool> IndexDossierAsync(string dossierId, CancellationToken cancellationToken)
     {
         using var scope = _scopeFactory.CreateScope();
-        var enrichmentRepository = scope.ServiceProvider.GetRequiredService<IDossierEnrichmentRepository>();
-        var documentBuilder = scope.ServiceProvider.GetRequiredService<IDossierDocumentBuilder>();
+        var indexer = scope.ServiceProvider.GetRequiredService<IDossierIndexer>();
+        return await indexer.IndexByIdAsync(dossierId, cancellationToken);
+    }
 
-        var data = await enrichmentRepository.GetByIdAsync(dossierId);
-        if (data is null)
-        {
-            _logger.LogWarning("Dossier {DossierId} not found in Oracle. Skipping index.", dossierId);
-            return true;
-        }
-
-        var bhsCatalogs = await enrichmentRepository.GetBhsCatalogDefinitionsAsync();
-        var equipments = await enrichmentRepository.GetEquipmentsAsync(dossierId);
-        var document = documentBuilder.Build(data, bhsCatalogs, equipments);
-
-        var response = await _elasticClient.IndexAsync(
-            document,
-            idx => idx.Index(DossierMessaging.IndexName).Id(document.Id),
-            cancellationToken);
-
-        if (!response.IsValidResponse &&
-            response.ElasticsearchServerError?.Error?.Type == "index_not_found_exception")
-        {
-            _logger.LogWarning("Index {IndexName} missing, creating now...", DossierMessaging.IndexName);
-            await DossierIndexSetup.EnsureIndexExistsAsync(_elasticClient, _logger, cancellationToken);
-            response = await _elasticClient.IndexAsync(
-                document,
-                idx => idx.Index(DossierMessaging.IndexName).Id(document.Id),
-                cancellationToken);
-        }
-
-        if (!response.IsValidResponse)
-        {
-            _logger.LogError(
-                "Failed to index dossier {DossierId}: {Error}",
-                dossierId,
-                response.DebugInformation);
-            return false;
-        }
-
-        _logger.LogInformation(
-            "Indexed dossier {DossierId} to {IndexName} (isDeleted={IsDeleted}).",
-            dossierId,
-            DossierMessaging.IndexName,
-            document.IsDeleted);
-        return true;
+    internal async Task<bool> DeleteDossierAsync(string dossierId, CancellationToken cancellationToken)
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var indexer = scope.ServiceProvider.GetRequiredService<IDossierIndexer>();
+        return await indexer.DeleteByIdAsync(dossierId, cancellationToken);
     }
 
     public override async Task StopAsync(CancellationToken cancellationToken)
     {
         if (_channel is not null)
             await _channel.CloseAsync(cancellationToken: cancellationToken);
-        _processingLock.Dispose();
         await base.StopAsync(cancellationToken);
     }
 }

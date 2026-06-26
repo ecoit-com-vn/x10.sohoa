@@ -122,6 +122,7 @@ public class PermissionRegistrationConsumer : BackgroundService
             }
 
             int permissionInserted = 0;
+            int permissionUpdated = 0;
             int detailInserted = 0;
             int roleMapped = 0;
 
@@ -145,11 +146,18 @@ public class PermissionRegistrationConsumer : BackgroundService
                 }
                 else
                 {
-                    // Lấy ID thực tế từ database
                     permId = await connection.QuerySingleAsync<string>(
                         "SELECT Id FROM PERMISSION WHERE Code = :Code", 
                         new { Code = permDto.Code }, 
                         transaction: transaction);
+
+                    await connection.ExecuteAsync(@"
+                        UPDATE PERMISSION
+                        SET Name = :Name, Description = :Description
+                        WHERE Code = :Code",
+                        new { Code = permDto.Code, Name = permDto.Name, Description = permDto.Description },
+                        transaction: transaction);
+                    permissionUpdated++;
                 }
 
                 // 2. Đồng bộ PERMISSION_DETAIL
@@ -197,9 +205,10 @@ public class PermissionRegistrationConsumer : BackgroundService
 
             _logger.LogInformation("✅ Đồng bộ thành công dịch vụ '{ServiceName}': " +
                                 "Đã chèn {PermCount} quyền PERMISSION mới, " +
+                                "cập nhật {UpdatedCount} quyền PERMISSION, " +
                                 "{DetailCount} chi tiết PERMISSION_DETAIL, " +
                                 "gán {RoleCount} quyền mới cho ADMIN.",
-                message.ServiceName, permissionInserted, detailInserted, roleMapped);
+                message.ServiceName, permissionInserted, permissionUpdated, detailInserted, roleMapped);
         }
         catch (Exception ex)
         {

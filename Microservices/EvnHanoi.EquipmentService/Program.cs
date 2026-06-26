@@ -109,12 +109,13 @@ builder.Services.AddHttpClient("IdentityService", client =>
 builder.Services.AddHttpClient("WorkflowService", client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["Services:WorkflowService"] ?? "http://workflowservice");
+    client.Timeout = TimeSpan.FromSeconds(30);
 }).AddHttpMessageHandler<EvnHanoi.Infrastructure.Security.TokenRelayHandler>();
 
 builder.Services.AddHttpClient("NotificationService", client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["Services:NotificationService"] ?? "http://notificationservice");
-    client.Timeout = TimeSpan.FromSeconds(10);
+    client.Timeout = TimeSpan.FromSeconds(30);
 });
 
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IDigitizationProgressNotifier,
