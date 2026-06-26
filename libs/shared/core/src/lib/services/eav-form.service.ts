@@ -13,12 +13,15 @@ export interface EavFormTemplate {
   formSchema: string; // JSON schema stringified
   version: number;
   isActive: boolean;
+  isLocked?: boolean;
   createdAt: string;
   createdBy: string;
   status?: string;
   formType?: string;
   gridTypeId?: number;
   gridTypeName?: string;
+  equipmentTypeId?: string;
+  equipmentTypeName?: string;
 }
 
 @Injectable({
@@ -39,7 +42,7 @@ export class EavFormService {
     return this.api.get<EavFormTemplate>(`${this.apiUrl}/${id}`);
   }
 
-  createTemplate(name: string, code: string, category: string, description: string, descriptionInfo: string, formSchema: string, createdBy: string = 'admin', gridTypeId?: number, extractionProcess?: string): Observable<EavFormTemplate> {
+  createTemplate(name: string, code: string, category: string, description: string, descriptionInfo: string, formSchema: string, createdBy: string = 'admin', gridTypeId?: number, equipmentTypeId?: string, extractionProcess?: string): Observable<EavFormTemplate> {
     return this.api.post<EavFormTemplate>(this.apiUrl, {
       name,
       code,
@@ -49,11 +52,12 @@ export class EavFormService {
       extractionProcess,
       formSchema,
       createdBy,
-      gridTypeId
+      gridTypeId,
+      equipmentTypeId
     });
   }
 
-  updateTemplate(id: string, name: string, code: string, category: string, description: string, descriptionInfo: string, formSchema: string, updatedBy: string = 'admin', gridTypeId?: number, extractionProcess?: string): Observable<EavFormTemplate> {
+  updateTemplate(id: string, name: string, code: string, category: string, description: string, descriptionInfo: string, formSchema: string, updatedBy: string = 'admin', gridTypeId?: number, equipmentTypeId?: string, extractionProcess?: string): Observable<EavFormTemplate> {
     return this.api.put<EavFormTemplate>(`${this.apiUrl}/${id}`, {
       name,
       code,
@@ -63,7 +67,8 @@ export class EavFormService {
       extractionProcess,
       formSchema,
       updatedBy,
-      gridTypeId
+      gridTypeId,
+      equipmentTypeId
     });
   }
 
@@ -81,6 +86,18 @@ export class EavFormService {
 
   rejectTemplate(id: string): Observable<EavFormTemplate> {
     return this.api.put<EavFormTemplate>(`${this.apiUrl}/${id}/reject`, {});
+  }
+
+  lockTemplate(id: string): Observable<any> {
+    return this.api.post<any>(`${this.apiUrl}/${id}/lock`, {});
+  }
+
+  unlockTemplate(id: string): Observable<any> {
+    return this.api.post<any>(`${this.apiUrl}/${id}/unlock`, {});
+  }
+
+  getTemplateVersions(code: string): Observable<EavFormTemplate[]> {
+    return this.api.get<EavFormTemplate[]>(`${this.apiUrl}/code/${code}/versions`);
   }
 
   getCatalogTypes(): Observable<any[]> {

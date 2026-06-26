@@ -150,8 +150,6 @@ export class DocumentManagementComponent implements OnInit {
         const treeStructure = convertFlatToTree(folders);
         this.folderTree.set(treeStructure);
         this.loadingTree.set(false);
-        // Auto-select the first (root) folder
-        this.selectDefaultFolder(folders);
       },
       error: (err) => {
         this.messageService.add({

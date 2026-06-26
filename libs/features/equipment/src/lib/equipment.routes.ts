@@ -2,7 +2,7 @@ import { Routes } from '@angular/router';
 
 export const EQUIPMENT_ROUTES: Routes = [
   {
-    path: 'list',
+    path: 'device-list',
     loadComponent: () => import('./components/equipment/equipment.component').then(m => m.EquipmentComponent)
   },
   {
@@ -24,6 +24,10 @@ export const EQUIPMENT_ROUTES: Routes = [
   {
     path: 'form-template',
     loadComponent: () => import('./components/form-template/form-template.component').then(m => m.FormTemplateComponent)
+  },
+  {
+    path: 'completed-forms',
+    loadComponent: () => import('./components/completed-form-list/completed-form-list.component').then(m => m.CompletedFormListComponent)
   },
   {
     path: 'form-renderer',

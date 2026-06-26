@@ -174,4 +174,13 @@ export class AuthService {
     }
     return null;
   }
+
+  getUserUnitId(): number | null {
+    const token = this.getToken();
+    if (!token) return null;
+    const payload = this.decodeTokenPayload(token);
+    if (!payload) return null;
+    const unitId = payload['unit_id'] || payload['UnitId'] || payload['Unit_Id'];
+    return unitId ? parseInt(unitId, 10) : null;
+  }
 }

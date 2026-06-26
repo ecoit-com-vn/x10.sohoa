@@ -44,6 +44,7 @@
               <th>Cơ cấu Tổ chức / Phòng ban (Name)</th>
               <th>Thuộc đơn vị cấp trên (Parent Unit)</th>
               <th>Mô tả</th>
+              <th>Trạng thái</th>
               <th class="col-hd">Thao tác</th>
             </tr>
           </thead>
@@ -75,9 +76,9 @@
                   <span class="status-pill status-pending" *ngIf="unit.parentId" style="background-color: #f1f5f9; color: #0f172a; border-color: #cbd5e1;">
                     {{ getUnitName(unit.parentId) }}
                   </span>
-                  <span class="text-muted" *ngIf="!unit.parentId" style="font-size: 0.8rem;">[Đơn vị gốc]</span>
                 </td>
                 <td><span class="text-muted" style="font-size: 0.82rem;">{{ unit.description }}</span></td>
+                <td></td>
                 <td class="col-hd">
                   <button *ngIf="authService.hasPermission('ORGANIZATION_EDIT')" class="act-btn act-edit" (click)="onEdit(unit)" title="Chỉnh sửa"><i class="pi pi-pencil"></i></button>
                   <button *ngIf="authService.hasPermission('ORGANIZATION_DELETE')" class="act-btn act-delete" (click)="onDelete(unit)" title="Xóa"><i class="pi pi-trash"></i></button>

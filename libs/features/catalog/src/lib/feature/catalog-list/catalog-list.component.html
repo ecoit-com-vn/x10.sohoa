@@ -34,8 +34,8 @@
             [ngModel]="searchStatus()"
             (ngModelChange)="searchStatus.set($event); onSearch()">
             <option value="">-- Trạng thái --</option>
-            <option value="1">Hoạt động (Active)</option>
-            <option value="0">Bị khóa (Locked)</option>
+            <option value="1">Hoạt động </option>
+            <option value="0">Ngừng hoạt động</option>
           </select>
 
           <button class="btn-tim" (click)="onSearch()">
@@ -65,8 +65,6 @@
               <th *ngIf="hasParent()">Danh mục cha</th>
               <th style="width: 100px; text-align: center;">Thứ tự</th>
               <th>Trạng thái</th>
-              <th>Đơn vị riêng</th>
-              <th>Mô tả</th>
               <th class="col-hd">Thao tác</th>
             </tr>
           </thead>
@@ -95,18 +93,10 @@
                   Hoạt động
                 </span>
                 <span *ngIf="item.status === 0" class="status-pill status-locked" 
-                  style="background-color: #f3f4f6; color: #374151; border-color: #d1d5db;">
-                  Bị khóa
+                  style="background-color: #fef2f2; color: #991b1b; border-color: #fecaca; padding: 2px 8px; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; border: 1px solid;">
+                  Ngừng hoạt động
                 </span>
               </td>
-              <td>
-                <span *ngIf="item.unitId" class="status-pill" 
-                  style="background-color: #fef3c7; color: #92400e; border-color: #fde68a;">
-                  Dùng riêng ĐV
-                </span>
-                <span *ngIf="!item.unitId" class="text-muted italic">-</span>
-              </td>
-              <td><span class="text-muted" style="font-size: 0.82rem;">{{ item.description || '-' }}</span></td>
               <td class="col-hd">
                 <div class="action-buttons-group">
                   <!-- Lock/Unlock button -->

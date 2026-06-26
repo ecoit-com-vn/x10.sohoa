@@ -40,9 +40,9 @@ interface ToolboxItem {
   selector: 'app-form-management',
   standalone: true,
   imports: [
-    CommonModule, 
-    FormsModule, 
-    ToastModule, 
+    CommonModule,
+    FormsModule,
+    ToastModule,
     ButtonModule,
     InputTextModule,
     Select,
@@ -67,7 +67,7 @@ export class FormManagementComponent implements OnInit {
   viewState = signal<'list' | 'add' | 'edit' | 'preview'>('list');
   detailTitle = signal<string>('');
   isEditMode = signal<boolean>(false);
-  
+
   // Forms list state
   forms = signal<EavFormTemplate[]>([]);
   searchKeyword = signal<string>('');
@@ -272,7 +272,7 @@ export class FormManagementComponent implements OnInit {
     this.formDescription.set(form.description);
     this.formDescriptionInfo.set(form.descriptionInfo || '');
     this.extractionProcess.set(form.extractionProcess || '');
-    
+
     const initialSimulated: { [key: string]: any } = {};
 
     try {
@@ -331,7 +331,7 @@ export class FormManagementComponent implements OnInit {
   onCanvasDrop(event: DragEvent, targetIndex: number) {
     event.preventDefault();
     event.stopPropagation();
-    
+
     if (this.draggedType) {
       this.addNewFieldAtIndex(this.draggedType, targetIndex);
       this.draggedType = null;
@@ -543,7 +543,7 @@ export class FormManagementComponent implements OnInit {
     const extractProc = this.extractionProcess();
     const isEdit = this.isEditMode();
     const tId = this.templateId();
-    
+
     this.loadingService.show();
     if (isEdit && tId) {
       this.eavFormService.updateTemplate(tId, fName, fCode, fCategory, desc, fDescInfo, schemaStr, 'admin', undefined, extractProc)
@@ -633,10 +633,10 @@ export class FormManagementComponent implements OnInit {
       .pipe(finalize(() => this.loadingService.hide()))
       .subscribe({
         next: () => {
-          this.messageService.add({ 
-            severity: 'success', 
-            summary: 'Thành công', 
-            detail: `Đã vô hiệu hóa biểu mẫu thành công!` 
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Thành công',
+            detail: `Đã vô hiệu hóa biểu mẫu thành công!`
           });
           this.showConfirmDelete.set(false);
           this.targetForm = null;
@@ -661,10 +661,10 @@ export class FormManagementComponent implements OnInit {
       .pipe(finalize(() => this.loadingService.hide()))
       .subscribe({
         next: () => {
-          this.messageService.add({ 
-            severity: 'success', 
-            summary: 'Thành công', 
-            detail: `Gửi duyệt biểu mẫu thành công!` 
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Thành công',
+            detail: `Gửi duyệt biểu mẫu thành công!`
           });
           this.showConfirmSubmit.set(false);
           this.targetForm = null;
@@ -684,6 +684,6 @@ export class FormManagementComponent implements OnInit {
 
   getCategoryName(code: string): string {
     const cat = this.categories().find(c => c.code === code);
-    return cat ? cat.name : code || '(Chưa chọn)';
+    return cat ? cat.name : code || '';
   }
 }
