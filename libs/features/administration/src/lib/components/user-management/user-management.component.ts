@@ -7,6 +7,7 @@ import { MessageService } from 'primeng/api';
 import { UserService } from '../../services/user.service';
 import { finalize } from 'rxjs';
 import { AuthService } from '@sohoa.frontend/shared/core';
+import { buildMenuPermissionTree as buildMenuPermissionTreeFromLookup } from '../../utils/menu-permission-tree.util';
 
 @Component({
   selector: 'app-user-management',
@@ -634,141 +635,13 @@ export class UserManagement implements OnInit {
   }
 
   buildMenuPermissionTree(menusList: any[], permissions: any[]) {
-    // 1. Group permissions by target menu URL
-    const permGroups = new Map<string, any[]>();
-    const unmappedPerms: any[] = [];
-
-    permissions.forEach(p => {
-      const targetUrl = this.getMenuTargetForPermissionDynamic(p.code, menusList);
-      if (targetUrl) {
-        if (!permGroups.has(targetUrl)) {
-          permGroups.set(targetUrl, []);
-        }
-        permGroups.get(targetUrl)!.push(p);
-      } else {
-        unmappedPerms.push(p);
-      }
-    });
-
-    // 2. Build the tree
-    const parentMenus = menusList.filter(m => !m.parentId && m.isActive);
-    const subMenusList = menusList.filter(m => m.parentId && m.isActive);
-
-    const tree: any[] = [];
-
-    parentMenus.forEach(pm => {
-      const pmSubs = subMenusList.filter(sm => sm.parentId === pm.id);
-      
-      const subNodes: any[] = [];
-      pmSubs.forEach(sm => {
-        const smPerms = permGroups.get(sm.url || '') || [];
-        // Only show submenus that have mapped permissions
-        if (smPerms.length > 0) {
-          subNodes.push({
-            id: sm.id,
-            name: sm.name,
-            url: sm.url,
-            icon: sm.icon,
-            permissions: smPerms
-          });
-        }
-      });
-
-      const directPerms = permGroups.get(pm.url || '') || [];
-
-      // Only display the parent menu card if it contains direct permissions or child menus with permissions
-      if (directPerms.length > 0 || subNodes.length > 0) {
-        tree.push({
-          id: pm.id,
-          name: pm.name,
-          icon: pm.icon,
-          url: pm.url,
-          subMenus: subNodes,
-          permissions: directPerms,
-          expanded: false // Collapsed by default as requested
-        });
-      }
-    });
-
-    // Add unmapped permissions to a special group
-    if (unmappedPerms.length > 0) {
-      tree.push({
-        id: -999,
-        name: 'Hệ thống dùng chung / Quyền khác',
-        icon: 'pi pi-key',
-        url: '',
-        subMenus: [],
-        permissions: unmappedPerms,
-        expanded: false // Collapsed by default as well
-      });
-    }
-
-    this.menuPermissionTree.set(tree);
+    this.menuPermissionTree.set(buildMenuPermissionTreeFromLookup(menusList, permissions));
   }
 
   toggleParentMenu(parent: any) {
     parent.expanded = !parent.expanded;
     // Force signal update by recreating the array reference to trigger UI re-render
     this.menuPermissionTree.set([...this.menuPermissionTree()]);
-  }
-
-  getMenuTargetForPermissionDynamic(code: string, menusList: any[]): string {
-    const parts = code.split('_');
-    if (parts.length < 2) return '';
-    const prefix = parts.slice(0, parts.length - 1).join('_');
-
-    const matchingMenu = menusList.find(m => {
-      if (!m.permissionCode) return false;
-      const mParts = m.permissionCode.split('_');
-      if (mParts.length < 2) return false;
-      const mPrefix = mParts.slice(0, mParts.length - 1).join('_');
-      return mPrefix === prefix;
-    });
-
-    if (matchingMenu) {
-      return matchingMenu.url || '';
-    }
-
-    return this.getMenuTargetForPermission(code);
-  }
-
-  getMenuTargetForPermission(code: string): string {
-    const parts = code.split('_');
-    if (parts.length < 2) return '';
-    const prefix = parts.slice(0, parts.length - 1).join('_');
-    
-    switch(prefix) {
-      case 'USER': return '/administration/user-management';
-      case 'ROLE':
-      case 'PERMISSION': return '/administration/role-management';
-      case 'MENU': return '/administration/menu-management';
-      case 'USER_GROUP': return '/administration/user-groups';
-      case 'UPLOAD_CONFIG': return '/administration/upload-configuration';
-      case 'ORGANIZATION': return '/administration/organization-settings';
-      case 'AUDIT_LOG': return '/administration/audit-log';
-      case 'SHARED_CATALOG': return '/catalog/shared';
-      case 'PRIVATE_CATALOG': return '/catalog/private';
-      case 'CATALOG': return '/catalog/position';
-      case 'EAV_FORM_TEMPLATE':
-      case 'EQUIPMENT_TYPE':
-      case 'EQUIPMENT': return '/equipment/form-management';
-      case 'VIRTUAL_FOLDER': return '/digitization/virtual-folders';
-      case 'OCR_TRAINING_DATA': return '/digitization/ocr-training';
-      case 'DIGITIZATION_TASK': return '/digitization/ocr-upload'; 
-      case 'DIGITIZATION': return '/ocr-correction';
-      case 'WORKFLOW':
-      case 'WORKFLOW_DEFINITION': return '/workflow/borrow-return';
-      case 'BORROW_RECORD': return '/borrow-records';
-      case 'REPORT':
-      case 'DYNAMIC_REPORT':
-      case 'REPORT_GROUP': return '/reports';
-      case 'PHYSICAL_STORAGE': return '/physical-storage';
-      case 'SYNC': return '/administration/sync-config';
-      case 'VIEW':
-        if (code === 'VIEW_DASHBOARD') return '/dashboard';
-        break;
-    }
-    return '';
   }
 
   onManagePermissions(user: any) {

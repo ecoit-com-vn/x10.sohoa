@@ -1,5 +1,5 @@
-import { Component, OnInit, OnDestroy, signal, computed, inject, Output, EventEmitter, Input, PLATFORM_ID } from '@angular/core';
-import { CommonModule, isPlatformBrowser } from '@angular/common';
+import { Component, OnInit, OnDestroy, signal, computed, inject, Output, EventEmitter, Input } from '@angular/core';
+import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ToastModule } from 'primeng/toast';
 import { DialogModule } from 'primeng/dialog';
@@ -7,32 +7,19 @@ import { MessageService } from 'primeng/api';
 import { catchError, finalize, of, switchMap, takeUntil, Subject } from 'rxjs';
 import { DossierManagementService } from '../../data-access/dossier-management.service';
 import { DossierDocumentsTabComponent } from '../dossier-documents/dossier-documents-tab.component';
+import { DossierVersionsTabComponent } from '../dossier-versions-tab/dossier-versions-tab.component';
+import { DossierWorkflowTabComponent } from '../dossier-workflow-tab/dossier-workflow-tab.component';
 import { AuthService } from '@sohoa.frontend/shared/core';
 import {
   EavField,
+  formatFieldDisplayValue,
   guidsEqual,
   normalizeDossierDetail,
   normalizeField,
   parseFormDataJson,
   pickFormDataForSchema,
   readFormSchemaJson,
-  serializeFormDataForSchema,
 } from '../../utils/dossier-form-schema.util';
-
-/** Parse allowEdit từ API — tránh !!\"false\" === true */
-function readAllowEdit(value: unknown): boolean | null {
-  if (value === true || value === 1) return true;
-  if (value === false || value === 0 || value === null || value === undefined) {
-    if (value === false || value === 0) return false;
-    return null;
-  }
-  if (typeof value === 'string') {
-    const v = value.trim().toLowerCase();
-    if (v === 'true' || v === '1') return true;
-    if (v === 'false' || v === '0' || v === '') return false;
-  }
-  return null;
-}
 
 function pickFirst<T>(...values: T[]): T | undefined {
   for (const v of values) {
@@ -41,64 +28,10 @@ function pickFirst<T>(...values: T[]): T | undefined {
   return undefined;
 }
 
-function isDossierInWorkflow(dossier: any, workflowDetail: any): boolean {
-  if (!dossier) return false;
-  if (pickFirst(dossier.workflowInstanceId, dossier.WorkflowInstanceId)) return true;
-  if (workflowDetail?.instance) return true;
-  const status = pickFirst(dossier.status, dossier.Status) as string | undefined;
-  return status === 'PendingApproval' || status === 'Approved';
-}
-
-function findCurrentWorkflowStep(definition: any, instance: any, pending: any): any | null {
-  const steps: any[] = definition?.steps ?? definition?.Steps ?? [];
-  if (!steps.length) return null;
-
-  const pendingName = pickFirst(pending?.stepName, pending?.StepName);
-  const currentName = pickFirst(instance?.currentStepName, instance?.CurrentStepName);
-  const order = pickFirst(instance?.currentStepOrder, instance?.CurrentStepOrder);
-
-  if (pendingName) {
-    const matched = steps.find(s => pickFirst(s.stepName, s.StepName) === pendingName);
-    if (matched) return matched;
-  }
-  if (currentName) {
-    const matched = steps.find(s => pickFirst(s.stepName, s.StepName) === currentName);
-    if (matched) return matched;
-  }
-  if (order != null) {
-    const matched = steps.find(s => pickFirst(s.order, s.Order) === order);
-    if (matched) return matched;
-  }
-  return null;
-}
-
-function resolveCurrentStepAllowEdit(workflowDetail: any): boolean {
-  const instance = workflowDetail?.instance;
-  if (!instance) return false;
-
-  const pendingList = instance.pendingTasks ?? instance.PendingTasks ?? [];
-  const pending = pendingList.length > 0 ? pendingList[0] : null;
-  const definition = workflowDetail?.definition;
-
-  const fromInstance = readAllowEdit(
-    pickFirst(instance.currentStepAllowEdit, instance.CurrentStepAllowEdit)
-  );
-  if (fromInstance !== null) return fromInstance;
-
-  const fromPending = readAllowEdit(pickFirst(pending?.allowEdit, pending?.AllowEdit));
-  if (fromPending !== null) return fromPending;
-
-  const step = findCurrentWorkflowStep(definition, instance, pending);
-  const fromStep = readAllowEdit(pickFirst(step?.allowEdit, step?.AllowEdit));
-  if (fromStep !== null) return fromStep;
-
-  return false;
-}
-
 @Component({
   selector: 'app-dossier-detail',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule, DialogModule, DossierDocumentsTabComponent],
+  imports: [CommonModule, FormsModule, ToastModule, DialogModule, DossierDocumentsTabComponent, DossierVersionsTabComponent, DossierWorkflowTabComponent],
   template: `
     <div class="wf-card" style="position: relative;">
       <!-- Header -->
@@ -122,12 +55,9 @@ function resolveCurrentStepAllowEdit(workflowDetail: any): boolean {
           </div>
         </div>
         <div class="edit-actions">
-          <!-- Lưu dữ liệu: nháp/trả lại hoặc bước WF có allowEdit -->
-          <button *ngIf="activeTab() === 'info' && canEditFormData() && dynamicFields().length > 0"
-                  (click)="saveFormData()" class="btn-save btn-small" [disabled]="savingForm()">
-            <i class="pi pi-save" *ngIf="!savingForm()"></i>
-            <i class="pi pi-spin pi-spinner" *ngIf="savingForm()"></i>
-            Lưu dữ liệu
+          <button *ngIf="canEditDossier()"
+                  (click)="onEdit()" class="btn-save btn-small">
+            <i class="pi pi-pencil"></i> Sửa hồ sơ
           </button>
           <!-- Gửi duyệt -->
           <button *ngIf="dossier()?.status === 'Draft' || dossier()?.status === 'Returned'"
@@ -156,20 +86,17 @@ function resolveCurrentStepAllowEdit(workflowDetail: any): boolean {
 
       <!-- TABS -->
       <div class="tab-bar">
-        <button class="tab-item"
-                [class.tab-active]="activeTab() === 'info'"
-                [class.tab-readonly]="isFormReadOnly()"
-                (click)="activeTab.set('info')">
-          <i class="pi" [class.pi-lock]="isFormReadOnly()" [class.pi-info-circle]="!isFormReadOnly()" style="margin-right: 6px;"></i>
+        <button class="tab-item" [class.tab-active]="activeTab() === 'info'" (click)="activeTab.set('info')">
+          <i class="pi pi-info-circle" style="margin-right: 6px;"></i>
           Dữ liệu Hồ sơ
         </button>
         <button class="tab-item" [class.tab-active]="activeTab() === 'documents'" (click)="activeTab.set('documents')">
           <i class="pi pi-file" style="margin-right: 6px;"></i> Tài liệu đính kèm
         </button>
-        <button class="tab-item" [class.tab-active]="activeTab() === 'versions'" (click)="onOpenVersionsTab()">
+        <button class="tab-item" [class.tab-active]="activeTab() === 'versions'" (click)="activeTab.set('versions')">
           <i class="pi pi-history" style="margin-right: 6px;"></i> Lịch sử phiên bản
         </button>
-        <button class="tab-item" [class.tab-active]="activeTab() === 'workflow'" (click)="onOpenWorkflowTab()">
+        <button class="tab-item" [class.tab-active]="activeTab() === 'workflow'" (click)="activeTab.set('workflow')">
           <i class="pi pi-sitemap" style="margin-right: 6px;"></i> Quy trình & Lịch sử
         </button>
       </div>
@@ -177,229 +104,88 @@ function resolveCurrentStepAllowEdit(workflowDetail: any): boolean {
       <!-- TAB CONTENT -->
       <div class="tab-content">
 
-        <!-- ═══ Tab: Dữ liệu Hồ sơ ═══ -->
-        <div *ngIf="activeTab() === 'info'"
-             class="dossier-info-tab"
-             [class.dossier-info-tab--readonly]="isFormReadOnly()">
-          <!-- Thông báo chỉ xem -->
-          <div *ngIf="isFormReadOnly() && !loadingType() && dynamicFields().length > 0" class="readonly-notice">
-            <i class="pi pi-lock"></i>
-            <span>Chỉ xem — bước quy trình hiện tại không cho phép chỉnh sửa dữ liệu hồ sơ.</span>
-          </div>
-
-          <!-- Loading form -->
+        <!-- ═══ Tab: Dữ liệu Hồ sơ (chỉ xem) ═══ -->
+        <div *ngIf="activeTab() === 'info'" class="dossier-readonly-view">
           <div *ngIf="loadingType()" style="display: flex; align-items: center; gap: 8px; color: #6b7280; padding: 12px 0;">
             <i class="pi pi-spin pi-spinner"></i> Đang tải biểu mẫu...
           </div>
 
-          <!-- Dynamic form fields — event-based, không dùng ngModel để tránh bleeding -->
-          <div *ngIf="!loadingType() && dynamicFields().length > 0"
-               class="dossier-form-grid"
-               [class.dossier-form-grid--readonly]="isFormReadOnly()"
-               style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-            <ng-container *ngFor="let field of dynamicFields(); trackBy: trackByFieldKey">
-              <div class="form-group" [style.grid-column]="field.type === 'textarea' ? '1 / -1' : 'auto'">
-                <label class="form-label">
-                  {{ field.label }}
-                  <span class="required" *ngIf="field.required">*</span>
-                </label>
-                <ng-container [ngSwitch]="field.type">
-                  <input *ngSwitchCase="'text'" type="text" class="wf-input w-full"
-                         [placeholder]="field.placeholder || ''"
-                         [value]="detailFormData[field.key] ?? ''"
-                         [attr.readonly]="isFormReadOnly() ? true : null"
-                         [disabled]="isFormReadOnly()"
-                         (input)="setDetailField(field.key, $event)">
+          <ng-container *ngIf="!loadingType()">
+            <div class="readonly-line">
+              <span class="readonly-label">Loại hồ sơ:</span>
+              <span class="readonly-value">{{ dossierMeta()?.dossierTypeName || '—' }}</span>
+            </div>
+            <div class="readonly-line">
+              <span class="readonly-label">Loại lưới điện:</span>
+              <span class="readonly-value">{{ viewMeta()?.gridTypeName || '—' }}</span>
+            </div>
+            <div class="readonly-line">
+              <span class="readonly-label">Trạm / Đường dây:</span>
+              <span class="readonly-value">
+                {{ viewMeta()?.infrastructureName || '—' }}
+                <span *ngIf="viewMeta()?.infrastructureCode" class="text-muted" style="font-size: 0.85rem;"> ({{ viewMeta()?.infrastructureCode }})</span>
+              </span>
+            </div>
 
-                  <div *ngSwitchCase="'number'" style="display: flex; gap: 6px; align-items: center;">
-                    <input type="number" class="wf-input" style="flex: 1;"
-                           [placeholder]="field.placeholder || ''"
-                           [value]="detailFormData[field.key] ?? ''"
-                           [attr.readonly]="isFormReadOnly() ? true : null"
-                           [disabled]="isFormReadOnly()"
-                           (input)="setDetailFieldNumber(field.key, $event)">
-                    <span *ngIf="field.unit" style="font-size: 0.85rem; color: #6b7280; white-space: nowrap;">{{ field.unit }}</span>
-                  </div>
+            <div *ngFor="let field of dynamicFields(); trackBy: trackByFieldKey" class="readonly-line">
+              <span class="readonly-label">{{ field.label }}:</span>
+              <span class="readonly-value">{{ formatFieldDisplayValue(field, detailFormData[field.key]) }}</span>
+            </div>
 
-                  <input *ngSwitchCase="'date'" type="date" class="wf-input w-full"
-                         [value]="detailFormData[field.key] ?? ''"
-                         [attr.readonly]="isFormReadOnly() ? true : null"
-                         [disabled]="isFormReadOnly()"
-                         (input)="setDetailField(field.key, $event)">
+            <div *ngIf="dynamicFields().length === 0"
+                 style="padding: 24px; text-align: center; color: #9ca3af; background: #f8fafc; border-radius: 8px; border: 1px dashed #e2e8f0; font-size: 0.85rem; margin-top: 8px;">
+              Loại hồ sơ này chưa được cấu hình mẫu dữ liệu động.
+            </div>
 
-                  <textarea *ngSwitchCase="'textarea'" class="wf-textarea w-full" rows="3"
-                            [placeholder]="field.placeholder || ''"
-                            [value]="detailFormData[field.key] ?? ''"
-                            [attr.readonly]="isFormReadOnly() ? true : null"
-                            [disabled]="isFormReadOnly()"
-                            (input)="setDetailField(field.key, $event)"></textarea>
-
-                  <select *ngSwitchCase="'select'" class="wf-select w-full"
-                          [disabled]="isFormReadOnly()"
-                          (change)="setDetailField(field.key, $event)">
-                    <option value="">-- Chọn --</option>
-                    <option *ngFor="let opt of field.options" [value]="opt.value"
-                            [selected]="detailFormData[field.key] === opt.value">{{ opt.label }}</option>
-                  </select>
-
-                  <label *ngSwitchCase="'checkbox'"
-                         [style.cursor]="isFormReadOnly() ? 'not-allowed' : 'pointer'"
-                         style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
-                    <input type="checkbox"
-                           [checked]="detailFormData[field.key]"
-                           [disabled]="isFormReadOnly()"
-                           (change)="setDetailCheckbox(field.key, $event)"
-                           [style.cursor]="isFormReadOnly() ? 'not-allowed' : 'pointer'"
-                           style="width: 16px; height: 16px; accent-color: #002D72;">
-                    <span style="font-size: 0.9rem;">{{ field.placeholder || field.label }}</span>
-                  </label>
-
-                  <input *ngSwitchDefault type="text" class="wf-input w-full"
-                         [value]="detailFormData[field.key] ?? ''"
-                         [attr.readonly]="isFormReadOnly() ? true : null"
-                         [disabled]="isFormReadOnly()"
-                         (input)="setDetailField(field.key, $event)">
-                </ng-container>
+            <div class="equipment-section">
+              <h3 class="equipment-title">Thiết bị liên quan</h3>
+              <div *ngIf="equipments().length === 0" class="equipment-empty">
+                Chưa có thiết bị nào được gắn vào hồ sơ.
               </div>
-            </ng-container>
-          </div>
-
-          <!-- Chưa có biểu mẫu -->
-          <div *ngIf="!loadingType() && dynamicFields().length === 0"
-               style="padding: 32px; text-align: center; color: #9ca3af; background: #f8fafc; border-radius: 8px; border: 1px dashed #e2e8f0; font-size: 0.85rem;">
-            <i class="pi pi-file-edit" style="font-size: 2rem; display: block; margin-bottom: 8px;"></i>
-            Loại hồ sơ này chưa được cấu hình mẫu dữ liệu động.
-          </div>
+              <div *ngIf="equipments().length > 0" class="wf-table-wrap">
+                <table class="wf-table">
+                  <thead>
+                    <tr>
+                      <th class="col-stt">STT</th>
+                      <th>Mã TB</th>
+                      <th>Tên TB</th>
+                      <th>Số serial</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let eq of equipments(); let i = index">
+                      <td class="col-stt text-muted">{{ i + 1 }}</td>
+                      <td>{{ eq.equipmentCode || eq.EquipmentCode || eq.code || '—' }}</td>
+                      <td>{{ eq.equipmentName || eq.EquipmentName || eq.name || '—' }}</td>
+                      <td>{{ eq.serialNumber || eq.SerialNumber || '—' }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </ng-container>
         </div>
 
-        <!-- ═══ Tab: Tài liệu ═══ -->
+        <!-- ═══ Tab: Tài liệu (chỉ xem + tải) ═══ -->
         <div *ngIf="activeTab() === 'documents'">
           <app-dossier-documents-tab
             [dossierId]="dossierId"
-            [canEdit]="canEditFormData()"
+            [canEdit]="canEditDossier()"
             [hasFormTemplate]="!!dossierMeta()?.formId"
             [formId]="dossierMeta()?.formId ?? null"
           ></app-dossier-documents-tab>
         </div>
 
-        <!-- ═══ Tab: Lịch sử phiên bản ═══ -->
-        <div *ngIf="activeTab() === 'versions'" style="display: flex; flex-direction: column; gap: 12px;">
-          <div *ngIf="loadingVersions()" style="display: flex; align-items: center; gap: 8px; color: #6b7280; padding: 12px 0;">
-            <i class="pi pi-spin pi-spinner"></i> Đang tải lịch sử...
-          </div>
-
-          <div *ngIf="!loadingVersions() && versions().length === 0"
-               style="padding: 32px; text-align: center; color: #9ca3af; background: #f8fafc; border-radius: 8px; border: 1px dashed #e2e8f0; font-size: 0.85rem;">
-            Chưa có phiên bản nào được lưu.
-          </div>
-
-          <div *ngFor="let v of versions()" style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
-            <div style="background: #f8fafc; padding: 10px 16px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
-              <span style="font-weight: 600; color: #374151;">Phiên bản #{{ v.versionNumber }}</span>
-              <span style="font-size: 0.78rem; color: #6b7280;">{{ v.createdDate | date:'dd/MM/yyyy HH:mm' }} — {{ v.createdBy }}</span>
-            </div>
-            <div style="padding: 12px 16px;">
-              <div *ngIf="v.changeNote" style="font-size: 0.85rem; color: #374151; margin-bottom: 8px;">
-                <i class="pi pi-comment" style="margin-right: 4px; color: #6b7280;"></i>{{ v.changeNote }}
-              </div>
-              <div *ngIf="v.documentsSnapshotJson" style="font-size: 0.82rem; color: #475569; margin-bottom: 8px;">
-                <i class="pi pi-paperclip" style="margin-right: 4px; color: #6b7280;"></i>
-                <span>Tài liệu tại thời điểm này: {{ parseDocumentSnapshotCount(v.documentsSnapshotJson) }}</span>
-              </div>
-              <details style="cursor: pointer;">
-                <summary style="font-size: 0.8rem; color: #6b7280;">Xem dữ liệu JSON</summary>
-                <pre style="font-size: 0.76rem; background: #f1f5f9; padding: 10px; border-radius: 6px; margin-top: 8px; overflow-x: auto; white-space: pre-wrap; word-break: break-all;">{{ v.formDataJson | json }}</pre>
-              </details>
-            </div>
-          </div>
+        <div *ngIf="activeTab() === 'versions'">
+          <app-dossier-versions-tab [dossierId]="dossierId" />
         </div>
 
-        <!-- ═══ Tab: Quy trình & Lịch sử ═══ -->
-        <div *ngIf="activeTab() === 'workflow'" style="display: flex; flex-direction: column; gap: 20px;">
-
-          <!-- Loading BPMN -->
-          <div *ngIf="loadingBpmn()" style="text-align: center; padding: 40px 0; color: #6b7280;">
-            <i class="pi pi-spin pi-spinner" style="font-size: 2rem; display: block; margin-bottom: 12px; color: #002D72;"></i>
-            Đang tải thông tin quy trình...
-          </div>
-
-          <ng-container *ngIf="!loadingBpmn()">
-
-            <!-- Không có workflow -->
-            <div *ngIf="!detailWorkflowXml()" style="text-align: center; padding: 36px; background: #fffbeb; border: 1px solid #fef3c7; border-radius: 8px; color: #b45309;">
-              <i class="pi pi-exclamation-triangle" style="font-size: 2rem; display: block; margin-bottom: 10px;"></i>
-              <p style="margin: 0; font-weight: 600;">Hồ sơ chưa được đưa vào quy trình phê duyệt</p>
-              <p style="margin: 6px 0 0 0; font-size: 0.83rem;">Nhấn <b>Gửi duyệt</b> để khởi chạy quy trình.</p>
-            </div>
-
-            <!-- BPMN Canvas -->
-            <div *ngIf="detailWorkflowXml()" style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
-              <div style="background: #f8fafc; padding: 10px 16px; border-bottom: 1px solid #e2e8f0; font-weight: 600; color: #374151; display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem;">
-                <span><i class="pi pi-sitemap" style="margin-right: 6px; color: #002D72;"></i>Sơ đồ quy trình</span>
-                <span *ngIf="workflowDetail()?.instance" class="status-pill"
-                      [ngStyle]="{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', fontSize: '0.78rem' }">
-                  {{ workflowDetail()?.instance?.status }}
-                </span>
-              </div>
-              <div style="padding: 12px 16px 4px;">
-                <div id="bpmn-canvas-dossier" style="height: 360px; border: 1px solid #cbd5e1; border-radius: 8px; background: #fafafa; position: relative;"></div>
-                <p style="font-size: 0.75rem; color: #94a3b8; margin: 6px 0 8px 2px;">
-                  <i class="pi pi-info-circle" style="margin-right: 4px;"></i>Nút viền xanh là bước phê duyệt hiện tại.
-                </p>
-              </div>
-            </div>
-
-            <!-- Bước hiện tại info (không có buttons vì đã đưa lên header) -->
-            <div *ngIf="detailWorkflowXml() && detailPendingTask()" style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem;">
-              <span style="color: #1e40af;"><i class="pi pi-spin pi-spinner" style="font-size: 0.75rem; margin-right: 6px;"></i>Đang ở bước: <b>{{ detailPendingTask()?.stepName }}</b></span>
-              <ng-container *ngIf="!isUserAuthorizedForDetailAction">
-                <span style="color: #64748b; font-style: italic; font-size: 0.8rem;">🔒 Không có quyền xử lý bước này</span>
-              </ng-container>
-              <code *ngIf="detailPendingTask()?.assignedRole" style="background: #dbeafe; color: #1e40af; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem;">{{ detailPendingTask()?.assignedRole }}</code>
-            </div>
-
-            <!-- Timeline lịch sử -->
-            <div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;" *ngIf="detailWorkflowXml()">
-              <div style="background: #f8fafc; padding: 10px 16px; border-bottom: 1px solid #e2e8f0; font-weight: 600; color: #374151; font-size: 0.9rem;">
-                <i class="pi pi-history" style="margin-right: 6px; color: #002D72;"></i>Lịch sử xử lý luồng duyệt
-              </div>
-              <div style="padding: 16px;">
-                <div class="wf-timeline-wrapper" *ngIf="detailHistoryLogs().length > 0">
-                  <div class="wf-timeline">
-                    <div class="timeline-item" *ngFor="let h of detailHistoryLogs()">
-                      <div class="timeline-badge"
-                           [class.badge-submit]="h.action === 'Submit'"
-                           [class.badge-approve]="h.action === 'Approve'"
-                           [class.badge-reject]="h.action === 'Reject'">
-                      </div>
-                      <div class="timeline-content">
-                        <div class="timeline-header">
-                          <span class="timeline-title">
-                            {{ h.stepName || h.actionLabel || 'Xử lý' }}
-                            <span style="font-weight: 500; font-size: 11px; margin-left: 6px; color: #94a3b8;">
-                              ({{ h.action === 'Submit' ? 'Khởi tạo' : (h.action === 'Approve' ? 'Duyệt qua' : (h.action === 'Reject' ? 'Trả về' : h.action)) }})
-                            </span>
-                          </span>
-                          <span class="timeline-time">{{ (h.actionDate || h.createdDate) | date:'dd/MM/yyyy HH:mm:ss' }}</span>
-                        </div>
-                        <div class="timeline-user">
-                          Thực hiện bởi:
-                          <b>{{ h.actionByUsername && h.actionByFullName ? h.actionByUsername + ' - ' + h.actionByFullName : (h.actionByUsername || h.actorName || h.actionByUserId || h.actorId || 'Hệ thống') }}</b>
-                        </div>
-                        <div class="timeline-comment" *ngIf="h.comment"><b>Ý kiến:</b> {{ h.comment }}</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div *ngIf="!detailHistoryLogs().length" style="text-align: center; padding: 32px; background: #f8fafc; border-radius: 8px; color: #64748b;">
-                  <i class="pi pi-history" style="font-size: 28px; display: block; margin-bottom: 10px; color: #94a3b8;"></i>
-                  <p style="margin: 0; font-weight: 500;">Chưa có lịch sử xử lý quy trình nào.</p>
-                </div>
-              </div>
-            </div>
-
-          </ng-container>
+        <div *ngIf="activeTab() === 'workflow'">
+          <app-dossier-workflow-tab
+            [dossierId]="dossierId"
+            [refreshToken]="workflowRefreshToken()"
+            canvasId="bpmn-canvas-dossier-view"
+          />
         </div>
 
       </div>
@@ -493,100 +279,59 @@ function resolveCurrentStepAllowEdit(workflowDetail: any): boolean {
     </p-dialog>
   `,
   styles: [`
-    ::ng-deep #bpmn-canvas-dossier .highlight-active-node:not(.djs-connection) .djs-visual > :first-child {
-      fill: #dbeafe !important;
-      stroke: #002D72 !important;
-      stroke-width: 3px !important;
-    }
-    .wf-timeline-wrapper {
-      max-height: 400px; overflow-y: auto; padding: 8px 16px 8px 8px; margin-top: 4px; border-radius: 8px;
-    }
-    .wf-timeline-wrapper::-webkit-scrollbar { width: 6px; }
-    .wf-timeline-wrapper::-webkit-scrollbar-track { background: transparent; }
-    .wf-timeline-wrapper::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
-    .wf-timeline-wrapper::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-    .wf-timeline { display: flex; flex-direction: column; position: relative; padding-left: 24px; }
-    .wf-timeline::before { content: ''; position: absolute; top: 0; bottom: 0; left: 7px; width: 2px; background-color: #e2e8f0; }
-    .timeline-item { position: relative; padding-bottom: 20px; }
-    .timeline-item:last-child { padding-bottom: 0; }
-    .timeline-badge {
-      position: absolute; left: -24px; top: 4px; width: 16px; height: 16px;
-      border-radius: 50%; background-color: #cbd5e1; border: 3px solid white;
-    }
-    .timeline-badge.badge-submit  { background-color: #3b82f6; }
-    .timeline-badge.badge-approve { background-color: #10b981; }
-    .timeline-badge.badge-reject  { background-color: #ef4444; }
-    .timeline-content {
-      background-color: #f8fafc; padding: 10px 14px; border-radius: 8px; border: 1px solid #f1f5f9;
-    }
-    .timeline-header { display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 12px; }
-    .timeline-title  { font-weight: 700; color: #1e293b; }
-    .timeline-time   { color: #94a3b8; }
-    .timeline-user   { font-size: 11px; color: #64748b; font-weight: 600; margin-bottom: 6px; }
-    .timeline-comment {
-      font-size: 12px; font-style: italic; color: #64748b;
-      background-color: #e2e8f0; padding: 6px 10px; border-radius: 4px;
-      margin-top: 6px; border-left: 3px solid #cbd5e1;
-    }
-
-    .tab-item.tab-readonly {
-      color: #94a3b8;
-      opacity: 0.85;
-    }
-    .tab-item.tab-readonly.tab-active {
-      color: #64748b;
-      border-bottom-color: #94a3b8;
-      font-weight: 600;
-    }
-
-    .dossier-info-tab {
+    .dossier-readonly-view {
       display: flex;
       flex-direction: column;
-      gap: 20px;
-      transition: opacity 0.2s ease;
+      padding: 4px 0 8px;
     }
-    .dossier-info-tab--readonly {
-      opacity: 0.72;
-    }
-
-    .readonly-notice {
+    .readonly-line {
       display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 10px 14px;
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      color: #64748b;
-      font-size: 0.83rem;
-    }
-    .readonly-notice .pi-lock {
-      color: #94a3b8;
+      gap: 10px;
+      padding: 11px 0;
+      border-bottom: 1px dotted #d1d5db;
       font-size: 0.9rem;
+      line-height: 1.55;
+      align-items: flex-start;
     }
-
-    .dossier-form-grid--readonly {
-      pointer-events: none;
-      user-select: none;
+    .readonly-label {
+      font-weight: 600;
+      color: #374151;
+      min-width: 200px;
+      flex-shrink: 0;
     }
-    .dossier-form-grid--readonly .wf-input,
-    .dossier-form-grid--readonly .wf-select,
-    .dossier-form-grid--readonly .wf-textarea {
-      background-color: #f1f5f9 !important;
-      color: #64748b !important;
-      cursor: not-allowed !important;
-      border-color: #e2e8f0 !important;
+    .readonly-value {
+      color: #1e293b;
+      flex: 1;
+      white-space: pre-wrap;
+      word-break: break-word;
     }
-    .dossier-form-grid--readonly .form-label {
-      color: #94a3b8;
+    .equipment-section {
+      margin-top: 28px;
+      padding-top: 18px;
+      border-top: 2px solid #e5e7eb;
+    }
+    .equipment-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #002D72;
+      margin: 0 0 12px 0;
+    }
+    .equipment-empty {
+      padding: 20px;
+      background: #f8fafc;
+      border: 1px dashed #e2e8f0;
+      border-radius: 8px;
+      text-align: center;
+      color: #9ca3af;
+      font-size: 0.85rem;
     }
   `]
 })
 export class DossierDetailComponent implements OnInit, OnDestroy {
   @Input() dossierId!: string;
   @Output() cancel = new EventEmitter<void>();
+  @Output() edit = new EventEmitter<void>();
 
-  private platformId = inject(PLATFORM_ID);
   private service = inject(DossierManagementService);
   private authService = inject(AuthService);
   private messageService = inject(MessageService);
@@ -595,9 +340,28 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
   loading = signal<boolean>(true);
   submitting = signal<boolean>(false);
   activeTab = signal<'info' | 'documents' | 'versions' | 'workflow'>('info');
+  workflowRefreshToken = signal(0);
 
   dossier = signal<any>(null);
   dossierMeta = computed(() => normalizeDossierDetail(this.dossier()));
+
+  viewMeta = computed(() => {
+    const d = this.dossier();
+    if (!d) return null;
+    return {
+      gridTypeName: pickFirst(d.gridTypeName, d.GridTypeName) as string | undefined,
+      infrastructureName: pickFirst(d.infrastructureName, d.InfrastructureName) as string | undefined,
+      infrastructureCode: pickFirst(d.infrastructureCode, d.InfrastructureCode) as string | undefined,
+    };
+  });
+
+  equipments = computed(() => {
+    const d = this.dossier();
+    const list = d?.equipments ?? d?.Equipments ?? [];
+    return Array.isArray(list) ? list : [];
+  });
+
+  formatFieldDisplayValue = formatFieldDisplayValue;
 
   // EAV Form
   loadingType = signal<boolean>(false);
@@ -605,11 +369,6 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
   dynamicFields = signal<EavField[]>([]);
   detailFormData: Record<string, any> = {};
   private pendingFormData: Record<string, unknown> = {};
-  savingForm = signal<boolean>(false);
-
-  // Phiên bản
-  versions = signal<any[]>([]);
-  loadingVersions = signal<boolean>(false);
 
   // Submit for approval confirmation
   showSubmitConfirm = signal<boolean>(false);
@@ -623,7 +382,6 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
   detailWorkflowXml = signal<string>('');
   detailCurrentNodeId = signal<string>('');
   detailPendingTask = signal<any>(null);
-  detailHistoryLogs = signal<any[]>([]);
   detailDynamicButtons = signal<any[]>([]);
   detailActionComment = signal<string>('');
   detailActionSubmitting = signal<boolean>(false);
@@ -654,29 +412,10 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
   showActionDialog = signal<boolean>(false);
   pendingActionBtn = signal<any>(null);
 
-  // bpmn-js viewer instance
-  private bpmnViewer: any = null;
-
   get isDraftOrReturned(): boolean {
     const status = this.dossier()?.status;
     return status === 'Draft' || status === 'Returned';
   }
-
-  /** Cho phép sửa dữ liệu form — reactive theo dossier + workflowDetail */
-  canEditFormData = computed(() => {
-    const d = this.dossier();
-    const wf = this.workflowDetail();
-    if (!d) return false;
-
-    if (!isDossierInWorkflow(d, wf)) {
-      const status = pickFirst(d.status, d.Status) as string | undefined;
-      return status === 'Draft' || status === 'Returned';
-    }
-
-    return resolveCurrentStepAllowEdit(wf);
-  });
-
-  isFormReadOnly = computed(() => !this.canEditFormData());
 
   ngOnInit() {
     this.loadDetail();
@@ -793,7 +532,6 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
 
     if (!res?.instance) {
       this.detailWorkflowXml.set('');
-      this.detailHistoryLogs.set(Array.isArray(res?.history) ? res.history : []);
       this.detailPendingTask.set(null);
       this.detailCurrentNodeId.set('');
       return;
@@ -808,7 +546,6 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
     const pending = pendingList.length > 0 ? pendingList[0] : null;
     this.detailPendingTask.set(pending);
     this.detailCurrentNodeId.set(pickFirst(instance.currentNodeId, instance.CurrentNodeId) || '');
-    this.detailHistoryLogs.set(Array.isArray(res.history) ? res.history : []);
 
     const bpmnXml = res.definition?.bpmnXml ?? res.definition?.BpmnXml;
     if (bpmnXml) {
@@ -831,6 +568,7 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
       next: (res) => {
         try {
           this.applyWorkflowDetailState(res);
+          this.workflowRefreshToken.update((v) => v + 1);
         } catch (err) {
           console.error('applyWorkflowDetailState error', err);
         }
@@ -868,38 +606,6 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
         });
       }
     });
-  }
-
-  onOpenWorkflowTab() {
-    this.activeTab.set('workflow');
-    // Re-render BPMN sau khi DOM tab hiện ra
-    setTimeout(() => {
-      const xml = this.detailWorkflowXml();
-      const nodeId = this.detailCurrentNodeId();
-      if (xml) this.initBpmnViewer(xml, nodeId);
-    }, 150);
-  }
-
-  async initBpmnViewer(xml: string, currentNodeId: string) {
-    if (!xml || !isPlatformBrowser(this.platformId)) return;
-
-    if (this.bpmnViewer) {
-      this.bpmnViewer.destroy();
-      this.bpmnViewer = null;
-    }
-
-    try {
-      const Viewer = (await import('bpmn-js/lib/Viewer')).default;
-      this.bpmnViewer = new Viewer({ container: '#bpmn-canvas-dossier' });
-      await this.bpmnViewer.importXML(xml);
-      const canvas = this.bpmnViewer.get('canvas');
-      canvas.zoom('fit-viewport');
-      if (currentNodeId) {
-        canvas.addMarker(currentNodeId, 'highlight-active-node');
-      }
-    } catch (err) {
-      console.error('BPMN render error', err);
-    }
   }
 
   parseDynamicButtons(xml: string, stepName: string, currentNodeId?: string) {
@@ -983,6 +689,22 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
     if (!task) return false;
     const roles = this.authService.getUserRoles?.() ?? [];
     if (roles.includes('ADMIN') || roles.includes('OPERATOR')) return true;
+
+    const assigneeId = task.assigneeUserId ?? task.AssigneeUserId;
+    const token = this.authService.getToken();
+    let currentUserId: string | null = null;
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+        currentUserId = payload.sub
+          ?? payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier']
+          ?? null;
+      } catch { /* ignore */ }
+    }
+
+    if (assigneeId && currentUserId && String(assigneeId) === String(currentUserId)) return true;
+    if (assigneeId) return false;
+
     const taskRoles = task.assignedRole ? task.assignedRole.split(',').map((r: string) => r.trim()) : [];
     return taskRoles.some((r: string) => roles.includes(r));
   }
@@ -1024,13 +746,29 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
       comment: this.detailActionComment(),
       nextAssigneeUserId: (!isCancel && requiresUser) ? this.selectedNextUserId() : undefined
     }).subscribe({
-      next: () => {
+      next: (res) => {
         this.messageService.add({ severity: 'success', summary: 'Thành công', detail: `Đã thực hiện: ${actionLabel}` });
         this.detailActionSubmitting.set(false);
         this.showActionDialog.set(false);
         this.detailActionComment.set('');
         this.selectedNextUserId.set('');
         this.pendingActionBtn.set(null);
+
+        this.detailDynamicButtons.set([]);
+        this.myTask.set(null);
+        if (res?.data?.workflow) {
+          this.applyWorkflowDetailState({
+            instance: res.data.workflow,
+            definition: this.workflowDetail()?.definition ?? null,
+            history: this.workflowDetail()?.history ?? [],
+          });
+        } else {
+          this.detailPendingTask.set(null);
+          this.detailWorkflowXml.set('');
+          this.detailCurrentNodeId.set('');
+        }
+
+        this.workflowRefreshToken.update((v) => v + 1);
         this.loadDetail();
       },
       error: (err: any) => {
@@ -1040,30 +778,22 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
     });
   }
 
-  saveFormData() {
-    this.savingForm.set(true);
-    this.service.saveFormData(this.dossierId, {
-      formDataJson: serializeFormDataForSchema(this.dynamicFields(), this.detailFormData),
-      rowVersion: this.dossier()?.rowVersion,
-      changeNote: 'Cập nhật dữ liệu từ giao diện chi tiết'
-    }).subscribe({
-      next: (res) => {
-        this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã lưu dữ liệu' });
-        if (res?.data) {
-          this.dossier.set(res.data);
-          const meta = normalizeDossierDetail(res.data);
-          if (meta) {
-            this.pendingFormData = parseFormDataJson(meta.formDataJson);
-            this.detailFormData = pickFormDataForSchema(this.dynamicFields(), this.pendingFormData);
-          }
-        }
-        this.savingForm.set(false);
-      },
-      error: (err) => {
-        this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: err.error?.message || 'Không thể lưu dữ liệu' });
-        this.savingForm.set(false);
-      }
-    });
+  canEditDossier(): boolean {
+    const status = this.dossier()?.status ?? this.dossier()?.Status;
+    if (status === 'Draft' || status === 'Returned') return true;
+
+    const instance = this.workflowDetail()?.instance;
+    if (!instance) return false;
+
+    return !!(instance.currentStepAllowEdit ?? instance.CurrentStepAllowEdit);
+  }
+
+  onEdit() {
+    this.edit.emit();
+  }
+
+  onCancel() {
+    this.cancel.emit();
   }
 
   onConfirmSubmit() {
@@ -1072,7 +802,19 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
       next: (res) => {
         this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã gửi duyệt thành công' });
         this.showSubmitConfirm.set(false);
-        this.dossier.set(res.data);
+        const payload = res?.data;
+        if (payload) {
+          this.dossier.update((current) =>
+            current
+              ? {
+                  ...current,
+                  status: payload.dossierStatus ?? current.status,
+                  workflowStatusName: payload.workflowStepName ?? current.workflowStatusName,
+                  workflowInstanceId: payload.instanceId ?? current.workflowInstanceId,
+                }
+              : current
+          );
+        }
         this.submitting.set(false);
         this.loadWorkflow();
       },
@@ -1084,60 +826,8 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
     });
   }
 
-  onCancel() {
-    this.cancel.emit();
-  }
-
-  /** Event-based setters — tránh ngModel bleeding trong *ngFor+*ngSwitch */
-  setDetailField(key: string, event: Event) {
-    if (this.isFormReadOnly()) return;
-    this.detailFormData[key] = (event.target as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement).value;
-  }
-
-  setDetailFieldNumber(key: string, event: Event) {
-    if (this.isFormReadOnly()) return;
-    const raw = (event.target as HTMLInputElement).value;
-    this.detailFormData[key] = raw === '' ? null : Number(raw);
-  }
-
-  setDetailCheckbox(key: string, event: Event) {
-    if (this.isFormReadOnly()) return;
-    this.detailFormData[key] = (event.target as HTMLInputElement).checked;
-  }
-
-  /** Mở tab phiên bản và load dữ liệu nếu chưa có */
-  onOpenVersionsTab() {
-    this.activeTab.set('versions');
-    if (this.versions().length === 0 && !this.loadingVersions()) {
-      this.loadVersions();
-    }
-  }
-
-  loadVersions() {
-    this.loadingVersions.set(true);
-    this.service.getVersions(this.dossierId).pipe(
-      catchError(() => of([] as any[])),
-      finalize(() => this.loadingVersions.set(false))
-    ).subscribe({
-      next: (res) => {
-        this.versions.set(Array.isArray(res) ? res : []);
-      }
-    });
-  }
-
   trackByFieldKey(_index: number, field: EavField): string {
     return field.key;
-  }
-
-  parseDocumentSnapshotCount(json?: string | null): string {
-    if (!json?.trim()) return '0 tài liệu';
-    try {
-      const arr = JSON.parse(json) as unknown[];
-      const count = Array.isArray(arr) ? arr.length : 0;
-      return `${count} tài liệu`;
-    } catch {
-      return '—';
-    }
   }
 
   getStatusText(status?: string): string {

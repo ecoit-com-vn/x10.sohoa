@@ -8,7 +8,12 @@
     <span class="bc-sep">/</span>
     <span class="bc-text">Quản trị hệ thống</span>
     <span class="bc-sep">/</span>
-    <span class="bc-current">Quản lý nhóm quyền</span>
+    <span class="bc-current" *ngIf="currentView() !== 'permission'">Quản lý nhóm quyền</span>
+    <span class="bc-text" *ngIf="currentView() === 'permission'">Quản lý nhóm quyền</span>
+    <ng-container *ngIf="currentView() === 'permission'">
+      <span class="bc-sep">/</span>
+      <span class="bc-current">Phân quyền nhóm quyền</span>
+    </ng-container>
   </div>
 
   <div class="wf-card">
@@ -148,7 +153,7 @@
       </ng-template>
     </p-dialog>
 
-    <!-- MÀN HÌNH PHÂN QUYỀN CHI TIẾT -->
+    <!-- MÀN HÌNH PHÂN QUYỀN -->
     <div *ngIf="currentView() === 'permission'" class="animate-fade-in">
       <div class="edit-header">
         <div style="display: flex; align-items: center; gap: 8px;">
@@ -157,72 +162,198 @@
           </button>
           <h3 class="edit-title">{{ permissionDialogHeader() }}</h3>
         </div>
+        <div class="edit-actions">
+          <button class="btn-cancel btn-small" (click)="currentView.set('list')" [disabled]="savingPermissions()">
+            <i class="pi pi-times"></i> Hủy
+          </button>
+          <button *ngIf="permissionTab() === 'permissions'" class="btn-save btn-small" (click)="onSavePermissions()" [disabled]="savingPermissions()">
+            <i class="pi pi-spin pi-spinner" *ngIf="savingPermissions()"></i>
+            <i class="pi pi-check" *ngIf="!savingPermissions()"></i>
+            Lưu
+          </button>
+          <button class="btn-outlined btn-small" (click)="currentView.set('list')" [disabled]="savingPermissions()">
+            Quay lại
+          </button>
+        </div>
       </div>
 
-      <div class="dialog-permissions-body">
-        <p class="text-muted mb-4 dialog-subtitle" style="font-size: 0.85rem; margin: 0 0 16px 0;">Chọn các quyền hạn cụ thể cấp cho nhóm quyền này, sau đó click nút <b>Lưu cấu hình</b> để xác nhận:</p>
-        
-        <div class="permissions-scroll-container" style="max-height: calc(100vh - 280px); margin-bottom: 20px;">
-          
-          <!-- Loop through each parent menu group -->
-          <div *ngFor="let parent of menuPermissionTree()" class="parent-menu-section" style="margin-bottom: 12px;">
-            
-            <!-- Parent menu header -->
-            <div (click)="toggleParentMenu(parent)" class="parent-menu-header">
-              <div class="header-title-wrap">
-                <i [class]="parent.icon || 'pi pi-folder'" class="header-icon"></i>
-                <span class="header-text">{{ parent.name }}</span>
-              </div>
-              <i class="pi chevron-icon" [class.pi-chevron-down]="parent.expanded" [class.pi-chevron-right]="!parent.expanded"></i>
-            </div>
+      <div class="tab-bar">
+        <button type="button" class="tab-item" [class.tab-active]="permissionTab() === 'permissions'" (click)="switchPermissionTab('permissions')">
+          Phân quyền
+        </button>
+        <button type="button" class="tab-item" [class.tab-active]="permissionTab() === 'accounts'" (click)="switchPermissionTab('accounts')">
+          Danh sách tài khoản
+        </button>
+      </div>
 
-            <!-- Parent menu body -->
-            <div *ngIf="parent.expanded" class="parent-menu-body">
-              
-              <!-- Direct parent permissions (if any) -->
-              <div *ngIf="parent.permissions && parent.permissions.length > 0" class="permissions-grid">
-                <div *ngFor="let perm of parent.permissions" class="permission-checkbox-item">
-                  <input type="checkbox" [id]="perm.code" [checked]="isPermissionChecked(perm.code)" (change)="togglePermission(perm.code)" [disabled]="savingPermissions()" class="perm-checkbox" />
-                  <label [for]="perm.code" class="perm-label-wrap" (click)="!savingPermissions() && togglePermission(perm.code)">
-                    <span class="perm-name">{{ perm.name }}</span>
-                    <span class="perm-desc">{{ perm.description }}</span>
-                  </label>
+      <div *ngIf="permissionTab() === 'permissions'" class="permission-tab-content">
+        <div class="permissions-scroll-container">
+          <div *ngFor="let parent of menuPermissionTree()" class="permission-group-card">
+            <ng-container *ngIf="getParentPermissionCodes(parent) as parentCodes">
+              <div class="permission-group-header" (click)="toggleParentMenu(parent)">
+                <div class="group-header-left">
+                  <i class="pi chevron-icon" [class.pi-angle-up]="parent.expanded" [class.pi-angle-down]="!parent.expanded"></i>
+                  <input
+                    type="checkbox"
+                    class="perm-checkbox group-checkbox"
+                    [checked]="isAllPermissionsChecked(parentCodes)"
+                    [disabled]="savingPermissions() || parentCodes.length === 0"
+                    (click)="$event.stopPropagation()"
+                    (change)="toggleAllPermissions(parentCodes)"
+                  />
+                  <span class="group-title">{{ parent.name }}</span>
                 </div>
               </div>
 
-              <!-- Child menus -->
-              <div *ngFor="let sub of parent.subMenus" class="submenu-section">
-                <div class="submenu-header">
-                  <i [class]="sub.icon || 'pi pi-file'" class="submenu-icon"></i>
-                  <span class="submenu-title">{{ sub.name }}</span>
-                </div>
+              <div *ngIf="parent.expanded" class="permission-group-body">
+                <div class="permission-columns">
+                  <div *ngFor="let sub of parent.subMenus" class="permission-column">
+                    <ng-container *ngIf="getSubmenuPermissionCodes(sub) as subCodes">
+                      <div class="column-header" (click)="toggleSubMenu(sub)">
+                        <div class="column-header-left">
+                          <i class="pi chevron-icon column-chevron" [class.pi-angle-up]="sub.expanded !== false" [class.pi-angle-down]="sub.expanded === false"></i>
+                          <input
+                            type="checkbox"
+                            class="perm-checkbox group-checkbox"
+                            [checked]="isAllPermissionsChecked(subCodes)"
+                            [disabled]="savingPermissions() || subCodes.length === 0"
+                            (click)="$event.stopPropagation()"
+                            (change)="toggleAllPermissions(subCodes)"
+                          />
+                          <span class="column-title">{{ sub.name }}</span>
+                        </div>
+                      </div>
 
-                <!-- Permissions under child menu -->
-                <div class="permissions-grid">
-                  <div *ngFor="let perm of sub.permissions" class="permission-checkbox-item">
-                    <input type="checkbox" [id]="perm.code" [checked]="isPermissionChecked(perm.code)" (change)="togglePermission(perm.code)" [disabled]="savingPermissions()" class="perm-checkbox" />
-                    <label [for]="perm.code" class="perm-label-wrap" (click)="!savingPermissions() && togglePermission(perm.code)">
-                      <span class="perm-name">{{ perm.name }}</span>
-                      <span class="perm-desc">{{ perm.description }}</span>
-                    </label>
+                      <div *ngIf="sub.expanded !== false" class="permission-list">
+                        <label
+                          *ngFor="let perm of sub.permissions"
+                          class="permission-row"
+                          [for]="getPermissionInputId(parent.id, sub.id, perm.code)"
+                        >
+                          <input
+                            type="checkbox"
+                            class="perm-checkbox"
+                            [id]="getPermissionInputId(parent.id, sub.id, perm.code)"
+                            [checked]="isPermissionChecked(perm.code)"
+                            [disabled]="savingPermissions()"
+                            (change)="togglePermission(perm.code)"
+                          />
+                          <span class="perm-name">{{ perm.name }}</span>
+                        </label>
+                        <div *ngIf="sub.permissions.length === 0" class="no-perms-hint">Chưa map quyền cho menu này.</div>
+                      </div>
+                    </ng-container>
                   </div>
-                  <div *ngIf="sub.permissions.length === 0" class="no-perms-hint">Chưa cấu hình quyền chi tiết cho chức năng này.</div>
+
+                  <div *ngIf="parent.permissions?.length" class="permission-column">
+                    <div class="column-header">
+                      <span class="column-title">Quyền khác</span>
+                    </div>
+                    <div class="permission-list">
+                      <label
+                        *ngFor="let perm of parent.permissions"
+                        class="permission-row"
+                        [for]="getPermissionInputId(parent.id, null, perm.code)"
+                      >
+                        <input
+                          type="checkbox"
+                          class="perm-checkbox"
+                          [id]="getPermissionInputId(parent.id, null, perm.code)"
+                          [checked]="isPermissionChecked(perm.code)"
+                          [disabled]="savingPermissions()"
+                          (change)="togglePermission(perm.code)"
+                        />
+                        <span class="perm-name">{{ perm.name }}</span>
+                      </label>
+                    </div>
+                  </div>
                 </div>
               </div>
-
-            </div>
-
+            </ng-container>
           </div>
+        </div>
+      </div>
 
+      <div *ngIf="permissionTab() === 'accounts'" class="accounts-tab-content">
+        <div class="list-toolbar">
+          <div class="toolbar-left">
+            <input
+              type="text"
+              class="wf-search-input"
+              placeholder="Tìm kiếm tài khoản..."
+              [ngModel]="roleUsersKeyword()"
+              (ngModelChange)="roleUsersKeyword.set($event)"
+            />
+            <button class="btn-tim" (click)="onRoleUsersSearch()">
+              <i class="pi pi-search"></i> Tìm
+            </button>
+          </div>
         </div>
 
-        <div style="display: flex; justify-content: flex-start; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 18px; margin-top: 10px;">
-          <button class="btn-cancel btn-small" (click)="currentView.set('list')" [disabled]="savingPermissions()"><i class="pi pi-times"></i> Đóng</button>
-          <button class="btn-save btn-small" (click)="onSavePermissions()" [disabled]="savingPermissions()">
-            <i class="pi pi-spin pi-spinner" *ngIf="savingPermissions()" style="margin-right: 4px;"></i>
-            <i class="pi pi-save" *ngIf="!savingPermissions()" style="margin-right: 4px;"></i>
-            Lưu cấu hình
-          </button>
+        <div class="wf-table-wrap">
+          <table class="wf-table">
+            <thead>
+              <tr>
+                <th class="col-stt">STT</th>
+                <th>Tên đăng nhập</th>
+                <th>Họ và tên</th>
+                <th>Đơn vị thành viên</th>
+                <th>Email</th>
+                <th class="col-tt">Trạng thái</th>
+              </tr>
+            </thead>
+            <tbody>
+              <ng-container *ngIf="roleUsersLoading()">
+                <tr *ngFor="let item of [1, 2, 3, 4]">
+                  <td class="col-stt"><div class="skeleton-shimmer" style="height: 16px; width: 24px; border-radius: 4px;"></div></td>
+                  <td><div class="skeleton-shimmer" style="height: 16px; width: 100px; border-radius: 4px;"></div></td>
+                  <td><div class="skeleton-shimmer" style="height: 16px; width: 150px; border-radius: 4px;"></div></td>
+                  <td><div class="skeleton-shimmer" style="height: 16px; width: 120px; border-radius: 4px;"></div></td>
+                  <td><div class="skeleton-shimmer" style="height: 16px; width: 160px; border-radius: 4px;"></div></td>
+                  <td class="col-tt"><div class="skeleton-shimmer" style="height: 24px; width: 80px; border-radius: 4px;"></div></td>
+                </tr>
+              </ng-container>
+
+              <ng-container *ngIf="!roleUsersLoading()">
+                <tr *ngFor="let user of roleUsers(); let i = index">
+                  <td class="col-stt text-muted">{{ (roleUsersPage() - 1) * roleUsersPageSize() + i + 1 }}</td>
+                  <td>{{ user.username }}</td>
+                  <td>{{ user.fullName }}</td>
+                  <td>{{ user.organizationUnitName || '—' }}</td>
+                  <td>{{ user.email || '—' }}</td>
+                  <td class="col-tt">
+                    <span class="status-pill" [class.status-active]="user.isActive" [class.status-inactive]="!user.isActive">
+                      {{ user.isActive ? 'Hoạt động' : 'Ngưng' }}
+                    </span>
+                  </td>
+                </tr>
+                <tr *ngIf="roleUsers().length === 0">
+                  <td colspan="6" class="empty-row">
+                    <i class="pi pi-inbox"></i>
+                    <div>Chưa có tài khoản nào được gán vai trò này.</div>
+                  </td>
+                </tr>
+              </ng-container>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="table-footer" *ngIf="roleUsersTotal() > 0 && !roleUsersLoading()">
+          <span class="record-count">Tổng số: <b>{{ roleUsersTotal() }}</b> tài khoản.</span>
+          <div class="pagination">
+            <button class="page-btn" (click)="roleUsersPrevPage()" [disabled]="roleUsersPage() === 1">
+              <i class="pi pi-chevron-left"></i>
+            </button>
+            <span class="page-current">Trang {{ roleUsersPage() }} / {{ roleUsersTotalPages() }}</span>
+            <button class="page-btn" (click)="roleUsersNextPage()" [disabled]="roleUsersPage() >= roleUsersTotalPages()">
+              <i class="pi pi-chevron-right"></i>
+            </button>
+            <select class="page-size-sel" [ngModel]="roleUsersPageSize()" (change)="onRoleUsersPageSizeChange($event)">
+              <option [value]="10">10 / trang</option>
+              <option [value]="20">20 / trang</option>
+              <option [value]="50">50 / trang</option>
+            </select>
+          </div>
         </div>
       </div>
     </div>

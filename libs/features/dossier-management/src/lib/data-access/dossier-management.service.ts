@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, switchMap, forkJoin, of, catchError, map } from 'rxjs';
 import { APP_CONFIG } from '@sohoa.frontend/shared/core';
+import { DossierListTab, DossierTabCounts } from '../utils/dossier-status.util';
 
 export interface BhsCatalogColumn {
   /** Key hiển thị — trùng catalog.Name, map vào catalogData */
@@ -23,6 +24,11 @@ export class DossierManagementService {
     return `${this.config.apiGatewayUrl}/api/v1/dossiers`;
   }
 
+  /** Tác vụ workflow hồ sơ đã tách sang WorkflowService */
+  private get workflowBase() {
+    return `${this.config.apiGatewayUrl}/api/v1/dossiers-workflow`;
+  }
+
   private get searchBase() {
     return `${this.config.apiGatewayUrl}/api/v1/search/dossiers`;
   }
@@ -38,6 +44,7 @@ export class DossierManagementService {
   // ===== DANH SÁCH (ES qua NotificationService) =====
 
   getDossiers(filter: {
+    tab?: DossierListTab;
     keyword?: string;
     infrastructureId?: string;
     gridTypeId?: number;
@@ -51,6 +58,7 @@ export class DossierManagementService {
       .set('page', filter.page.toString())
       .set('pageSize', filter.pageSize.toString());
 
+    if (filter.tab) params = params.set('tab', filter.tab);
     if (filter.keyword?.trim()) params = params.set('keyword', filter.keyword.trim());
     if (filter.infrastructureId) params = params.set('infrastructureId', filter.infrastructureId);
     if (filter.gridTypeId != null) params = params.set('gridTypeId', filter.gridTypeId.toString());
@@ -59,6 +67,21 @@ export class DossierManagementService {
     if (filter.dossierTypeId) params = params.set('dossierTypeId', filter.dossierTypeId);
 
     return this.http.get<any>(this.searchBase, { params });
+  }
+
+  getDossierTabCounts(filter?: {
+    keyword?: string;
+    infrastructureId?: string;
+    gridTypeId?: number;
+    unitId?: number;
+  }): Observable<DossierTabCounts> {
+    let params = new HttpParams();
+    if (filter?.keyword?.trim()) params = params.set('keyword', filter.keyword.trim());
+    if (filter?.infrastructureId) params = params.set('infrastructureId', filter.infrastructureId);
+    if (filter?.gridTypeId != null) params = params.set('gridTypeId', filter.gridTypeId.toString());
+    if (filter?.unitId != null) params = params.set('unitId', filter.unitId.toString());
+
+    return this.http.get<DossierTabCounts>(`${this.searchBase}/tab-counts`, { params });
   }
 
   /** Cột động danh sách — catalog thuộc catalogType.Code = BHS, sắp theo priority */
@@ -105,7 +128,7 @@ export class DossierManagementService {
   // ===== GỬI DUYỆT =====
 
   submitForApproval(id: string): Observable<any> {
-    return this.http.post<any>(`${this.base}/${id}/submit`, {});
+    return this.http.post<any>(`${this.workflowBase}/${id}/submit`, {});
   }
 
   // ===== FORM DATA =====
@@ -137,23 +160,23 @@ export class DossierManagementService {
   // ===== WORKFLOW =====
 
   moveWorkflow(id: string, request: { nextNodeId: string; actionLabel: string; comment?: string; nextAssigneeUserId?: string }): Observable<any> {
-    return this.http.post<any>(`${this.base}/${id}/move`, request);
+    return this.http.post<any>(`${this.workflowBase}/${id}/move`, request);
   }
 
   getWorkflowByEntity(id: string): Observable<any> {
-    return this.http.get<any>(`${this.base}/${id}/get-workflow-by-entity`).pipe(
+    return this.http.get<any>(`${this.workflowBase}/${id}/get-workflow-by-entity`).pipe(
       catchError(() => of(null))
     );
   }
 
   getWorkflowHistory(id: string): Observable<any[]> {
-    return this.http.get<any[]>(`${this.base}/${id}/get-workflow-history`).pipe(
+    return this.http.get<any[]>(`${this.workflowBase}/${id}/get-workflow-history`).pipe(
       catchError(() => of([]))
     );
   }
 
   getWorkflowDefinition(definitionId: string): Observable<any> {
-    return this.http.get<any>(`${this.base}/get-workflow-definition/${definitionId}`).pipe(
+    return this.http.get<any>(`${this.workflowBase}/get-workflow-definition/${definitionId}`).pipe(
       catchError(() => of(null))
     );
   }
@@ -163,7 +186,7 @@ export class DossierManagementService {
     if (instanceId?.trim()) {
       params = params.set('instanceId', instanceId.trim());
     }
-    return this.http.get<any[]>(`${this.base}/get-my-tasks`, { params }).pipe(
+    return this.http.get<any[]>(`${this.workflowBase}/get-my-tasks`, { params }).pipe(
       catchError(() => of([]))
     );
   }
@@ -218,15 +241,18 @@ export class DossierManagementService {
     return this.http.get<any[]>(`${this.config.apiGatewayUrl}/api/v1/dossiers/dossier-type/lookup`);
   }
 
-  getEquipmentLookup(params?: { infrastructureId?: string; gridTypeId?: number; keyword?: string; page?: number; pageSize?: number }): Observable<any> {
+  getEquipmentLookup(params?: { infrastructureId?: string; gridTypeId?: number; keyword?: string; code?: string; name?: string; unitId?: number; isActive?: boolean; page?: number; pageSize?: number }): Observable<any> {
     let httpParams = new HttpParams();
     if (params?.infrastructureId) httpParams = httpParams.set('infrastructureId', params.infrastructureId);
     if (params?.gridTypeId != null) httpParams = httpParams.set('gridTypeId', params.gridTypeId.toString());
-    // EquipmentController lọc theo `name` (và `code`), không có tham số `keyword`
-    if (params?.keyword?.trim()) httpParams = httpParams.set('name', params.keyword.trim());
+    if (params?.keyword?.trim()) httpParams = httpParams.set('keyword', params.keyword.trim());
+    if (params?.code?.trim()) httpParams = httpParams.set('code', params.code.trim());
+    if (params?.name?.trim()) httpParams = httpParams.set('name', params.name.trim());
+    if (params?.unitId != null) httpParams = httpParams.set('unitId', params.unitId.toString());
+    if (params?.isActive != null) httpParams = httpParams.set('isActive', params.isActive.toString());
     httpParams = httpParams.set('page', (params?.page ?? 1).toString());
     httpParams = httpParams.set('pageSize', (params?.pageSize ?? 10).toString());
-    return this.http.get<any>(`${this.config.apiGatewayUrl}/api/v1/equipment`, { params: httpParams });
+    return this.http.get<any>(`${this.base}/equipment/lookup`, { params: httpParams });
   }
 
   getCatalogsByType(catalogTypeCode: string): Observable<any[]> {

@@ -3,9 +3,101 @@
       0% { background-position: -200% 0; }
       100% { background-position: 200% 0; }
     }
+
     .skeleton-shimmer {
       background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
       background-size: 200% 100%;
       animation: shimmer 1.5s infinite;
     }
-  
+
+    .menu-name-cell {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .menu-item-icon {
+      color: #002D72;
+    }
+
+    .chevron-icon {
+      color: #64748b;
+      font-size: 0.85rem;
+      width: 14px;
+      flex-shrink: 0;
+    }
+
+    .chevron-placeholder {
+      display: inline-block;
+      width: 14px;
+      flex-shrink: 0;
+    }
+
+    .menu-row-parent {
+      background: #ffffff;
+
+      &.menu-row-expandable {
+        cursor: pointer;
+
+        &:hover {
+          background: #f8fafc;
+        }
+      }
+    }
+
+    .menu-row-child {
+      background: #fbfdff;
+
+      td {
+        border-top: 1px dashed #e2e8f0;
+      }
+    }
+
+    .menu-perm-pill {
+      background-color: #eff6ff;
+      color: #1e40af;
+      border-color: #bfdbfe;
+      font-size: 0.75rem;
+    }
+
+    .field-hint {
+      display: block;
+      margin-top: 6px;
+      color: #64748b;
+      font-size: 0.78rem;
+      line-height: 1.4;
+    }
+
+    .dialog-footer-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      border-top: 1px solid #f1f5f9;
+      padding-top: 12px;
+    }
+
+    :host ::ng-deep {
+      .evn-dialog-custom {
+        .p-dialog-header {
+          background-color: #ffffff;
+          border-bottom: 1px solid #e2e8f0;
+          padding: 18px 24px;
+
+          .p-dialog-title {
+            color: #002D72 !important;
+            font-weight: 700 !important;
+            font-size: 1.15rem !important;
+          }
+        }
+
+        .p-dialog-content {
+          padding: 16px 24px;
+        }
+
+        .p-dialog-footer {
+          border-top: 1px solid #e2e8f0;
+          padding: 14px 24px;
+          background: #f8fafc;
+        }
+      }
+    }

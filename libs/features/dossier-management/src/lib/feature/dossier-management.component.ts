@@ -44,6 +44,7 @@ import { DossierDetailComponent } from './dossier-detail/dossier-detail.componen
         *ngIf="currentView() === 'detail' && selectedDossierId()"
         [dossierId]="selectedDossierId()!"
         (cancel)="onBackToList()"
+        (edit)="onEdit(selectedDossierId()!)"
       ></app-dossier-detail>
     </div>
   `,
