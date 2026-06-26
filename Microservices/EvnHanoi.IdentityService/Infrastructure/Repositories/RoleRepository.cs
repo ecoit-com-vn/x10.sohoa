@@ -187,4 +187,58 @@ public class RoleRepository : IRoleRepository
             throw;
         }
     }
+
+    public async Task<(IEnumerable<RoleAssignedUserListItem> Items, int TotalCount)> GetUsersByRoleIdPagedAsync(
+        long roleId, int page, int pageSize, string? keyword = null)
+    {
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+
+        var parameters = new DynamicParameters();
+        parameters.Add("RoleId", roleId);
+
+        var keywordFilter = "";
+        if (!string.IsNullOrWhiteSpace(keyword))
+        {
+            keywordFilter = @" AND (
+                UPPER(u.UserName) LIKE UPPER(:Keyword)
+                OR UPPER(u.FullName) LIKE UPPER(:Keyword)
+                OR UPPER(u.Email) LIKE UPPER(:Keyword)
+            )";
+            parameters.Add("Keyword", $"%{keyword.Trim()}%");
+        }
+
+        var baseFrom = $@"
+            FROM APP_USER u
+            LEFT JOIN ORGANIZATION_UNIT o ON u.OrganizationUnitId = o.Id
+            WHERE (
+                EXISTS (SELECT 1 FROM USER_ROLE ur WHERE ur.UserId = u.Id AND ur.RoleId = :RoleId)
+                OR EXISTS (
+                    SELECT 1 FROM USER_GROUP_MEMBER ugm
+                    INNER JOIN USER_GROUP_ROLE ugr ON ugm.UserGroupId = ugr.UserGroupId
+                    WHERE ugm.UserId = u.Id AND ugr.RoleId = :RoleId
+                )
+            ){keywordFilter}";
+
+        var countSql = $"SELECT COUNT(DISTINCT u.Id) {baseFrom}";
+        var totalCount = await _connection.ExecuteScalarAsync<int>(countSql, parameters);
+
+        var offset = (page - 1) * pageSize;
+        parameters.Add("Skip", offset);
+        parameters.Add("Take", pageSize);
+
+        var sql = $@"
+            SELECT DISTINCT
+                u.Id AS {nameof(RoleAssignedUserListItem.Id)},
+                u.UserName AS {nameof(RoleAssignedUserListItem.Username)},
+                u.FullName AS {nameof(RoleAssignedUserListItem.FullName)},
+                u.Email AS {nameof(RoleAssignedUserListItem.Email)},
+                u.IsActive AS {nameof(RoleAssignedUserListItem.IsActive)},
+                o.Name AS {nameof(RoleAssignedUserListItem.OrganizationUnitName)}
+            {baseFrom}
+            ORDER BY u.FullName, u.UserName
+            OFFSET :Skip ROWS FETCH NEXT :Take ROWS ONLY";
+
+        var items = await _connection.QueryAsync<RoleAssignedUserListItem>(sql, parameters);
+        return (items, totalCount);
+    }
 }
