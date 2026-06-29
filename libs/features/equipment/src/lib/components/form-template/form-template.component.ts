@@ -10,6 +10,7 @@ import { CardModule } from 'primeng/card';
 import { TextareaModule } from 'primeng/textarea';
 import { Paginator } from 'primeng/paginator';
 import { Dialog } from 'primeng/dialog';
+import { Select } from 'primeng/select';
 import { Router } from '@angular/router';
 import { FormTemplateService, EavFormTemplate } from '../../data-access/form-template.service';
 import { EquipmentTypeService } from '../../data-access/equipment-type.service';
@@ -50,26 +51,59 @@ export class FormTemplateComponent implements OnInit {
 
   forms = signal<EavFormTemplate[]>([]);
   searchKeyword = signal<string>('');
+  selectedGridTypeId = signal<number | null>(null);
+  selectedEquipmentTypeId = signal<string>('');
+  selectedStatus = signal<boolean | null>(null);
+
+  viewState = signal<'list' | 'detail'>('list');
+  showVersionsDialog = signal<boolean>(false);
+  selectedTemplate = signal<EavFormTemplate | null>(null);
+  versionList = signal<EavFormTemplate[]>([]);
+
   loading = signal<boolean>(false);
 
   first = signal<number>(0);
   rows = signal<number>(10);
 
   equipmentTypes = signal<any[]>([]);
-
   gridTypes = signal<any[]>([]);
 
   filteredForms = computed(() => {
+    let result = this.forms();
+
     const keyword = this.searchKeyword().trim().toLowerCase();
-    const allForms = this.forms();
-    if (!keyword) {
-      return allForms;
+    if (keyword) {
+      result = result.filter(f =>
+        (f.name?.toLowerCase().includes(keyword) ?? false) ||
+        (f.code?.toLowerCase().includes(keyword) ?? false) ||
+        (f.id?.toLowerCase().includes(keyword) ?? false)
+      );
     }
-    return allForms.filter(f =>
-      (f.name?.toLowerCase().includes(keyword) ?? false) ||
-      (f.code?.toLowerCase().includes(keyword) ?? false) ||
-      (f.id?.toLowerCase().includes(keyword) ?? false)
-    );
+
+    const gridId = this.selectedGridTypeId();
+    if (gridId !== null && gridId !== undefined && gridId.toString() !== '' && gridId.toString() !== 'null') {
+      const targetGridId = Number(gridId);
+      result = result.filter(f => Number(f.gridTypeId) === targetGridId);
+    }
+
+    const eqTypeId = this.selectedEquipmentTypeId();
+    if (eqTypeId && eqTypeId !== 'null') {
+      result = result.filter(f => f.category === eqTypeId);
+    }
+
+    const status = this.selectedStatus();
+    if (status !== null && status !== undefined && status.toString() !== '' && status.toString() !== 'null') {
+      const statusBool = status.toString() === 'true';
+      result = result.filter(f => f.isActive === statusBool);
+    }
+
+    result = [...result].sort((a, b) => {
+      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return timeB - timeA;
+    });
+
+    return result;
   });
 
   paginatedForms = computed(() => {
@@ -78,11 +112,26 @@ export class FormTemplateComponent implements OnInit {
     return this.filteredForms().slice(start, end);
   });
 
+  detailFields = computed(() => {
+    const template = this.selectedTemplate();
+    if (!template || !template.formSchema) return [];
+    try {
+      const parsed = JSON.parse(template.formSchema);
+      return Array.isArray(parsed) ? parsed : (parsed.fields && Array.isArray(parsed.fields) ? parsed.fields : []);
+    } catch (e) {
+      console.error('Failed to parse form schema', e);
+      return [];
+    }
+  });
+
   constructor() {
     effect(() => {
       this.searchKeyword();
+      this.selectedGridTypeId();
+      this.selectedEquipmentTypeId();
+      this.selectedStatus();
       this.first.set(0);
-    });
+    }, { allowSignalWrites: true });
   }
 
   ngOnInit() {
@@ -262,5 +311,86 @@ export class FormTemplateComponent implements OnInit {
     if (!gridTypeId) return '';
     const gt = this.gridTypes().find(g => g.id === gridTypeId);
     return gt ? gt.name : `Loại ${gridTypeId}`;
+  }
+
+  viewDetails(form: EavFormTemplate) {
+    this.selectedTemplate.set(form);
+    this.viewState.set('detail');
+  }
+
+  goToList() {
+    this.viewState.set('list');
+    this.selectedTemplate.set(null);
+  }
+
+  viewVersions(form: EavFormTemplate) {
+    this.loadingService.show();
+    this.formTemplateService.getTemplateVersions(form.code)
+      .pipe(finalize(() => this.loadingService.hide()))
+      .subscribe({
+        next: (versions) => {
+          this.versionList.set(versions || []);
+          this.selectedTemplate.set(form);
+          this.showVersionsDialog.set(true);
+        },
+        error: (err) => {
+          console.error('Failed to load template versions', err);
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi',
+            detail: 'Không thể tải danh sách phiên bản của biểu mẫu.'
+          });
+        }
+      });
+  }
+
+  exportExcel() {
+    this.messageService.add({
+      severity: 'info',
+      summary: 'Xuất dữ liệu',
+      detail: 'Đang chuẩn bị xuất Excel...'
+    });
+
+    const headers = [
+      'Mã biểu mẫu',
+      'Tên biểu mẫu thuộc tính thiết bị',
+      'Loại lưới điện',
+      'Loại thiết bị',
+      'Phiên bản',
+      'Người tạo',
+      'Cập nhật lần cuối',
+      'Trạng thái'
+    ];
+
+    const rows = this.filteredForms().map(form => [
+      form.code,
+      form.name,
+      form.gridTypeName || this.getGridTypeName(form.gridTypeId),
+      this.getCategoryName(form.category),
+      `v${form.version}.0`,
+      form.createdBy,
+      form.createdAt ? new Date(form.createdAt).toLocaleString('vi-VN') : '',
+      form.isActive ? 'Đang hoạt động' : 'Ngưng hoạt động'
+    ]);
+
+    const csvContent = '\uFEFF' + [
+      headers.join(','),
+      ...rows.map(row => row.map(val => `"${(val || '').replace(/"/g, '""')}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `DanhSachBieuMau_${new Date().getTime()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    this.messageService.add({
+      severity: 'success',
+      summary: 'Thành công',
+      detail: 'Đã xuất và tải về danh sách biểu mẫu thành công!'
+    });
   }
 }

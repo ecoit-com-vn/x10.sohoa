@@ -1,6 +1,7 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
@@ -11,6 +12,7 @@ import { PaginatorModule } from 'primeng/paginator';
 import { DialogModule } from 'primeng/dialog';
 import { finalize } from 'rxjs';
 import { LoadingService, EavFormService, EavFormTemplate } from '@sohoa.frontend/shared/core';
+import { EquipmentTypeService } from '../../data-access/equipment-type.service';
 
 @Component({
     selector: 'app-completed-form-list',
@@ -34,12 +36,18 @@ export class CompletedFormListComponent implements OnInit {
     private messageService = inject(MessageService);
     private loadingService = inject(LoadingService);
     private eavFormService = inject(EavFormService);
+    private equipmentTypeService = inject(EquipmentTypeService);
+    private router = inject(Router);
 
     showConfirmLock = signal<boolean>(false);
     showConfirmUnlock = signal<boolean>(false);
-    showFormDetail = signal<boolean>(false);
+    showConfirmDelete = signal<boolean>(false);
+    viewState = signal<'list' | 'detail'>('list');
     targetForm: EavFormTemplate | null = null;
     selectedForm: EavFormTemplate | null = null;
+
+    equipmentTypes = signal<any[]>([]);
+    gridTypes = signal<any[]>([]);
 
     forms = signal<EavFormTemplate[]>([]);
     searchKeyword = signal<string>('');
@@ -111,6 +119,8 @@ export class CompletedFormListComponent implements OnInit {
     }
 
     ngOnInit() {
+        this.loadEquipmentTypes();
+        this.loadGridTypes();
         this.loadForms();
     }
 
@@ -248,6 +258,83 @@ export class CompletedFormListComponent implements OnInit {
 
     viewFormDetail(form: EavFormTemplate) {
         this.selectedForm = form;
-        this.showFormDetail.set(true);
+        this.viewState.set('detail');
+    }
+
+    goToList() {
+        this.viewState.set('list');
+        this.selectedForm = null;
+    }
+
+    loadEquipmentTypes() {
+        this.equipmentTypeService.getEquipmentTypes(1, 1000, undefined, undefined, undefined, true).subscribe({
+            next: (res) => {
+                if (res && res.items) {
+                    this.equipmentTypes.set(res.items);
+                }
+            },
+            error: (err) => {
+                console.error('Failed to load equipment types', err);
+            }
+        });
+    }
+
+    loadGridTypes() {
+        this.equipmentTypeService.getGridTypesLookup().subscribe({
+            next: (types) => {
+                this.gridTypes.set(types || []);
+            },
+            error: (err) => {
+                console.error('Failed to load grid types', err);
+            }
+        });
+    }
+
+    getCategoryName(code: string): string {
+        const eqType = this.equipmentTypes().find(t => t.code === code || t.id === code);
+        return eqType ? eqType.name : code || '';
+    }
+
+    getGridTypeName(gridTypeId?: number): string {
+        if (!gridTypeId) return '';
+        const gt = this.gridTypes().find(g => g.id === gridTypeId);
+        return gt ? gt.name : `Loại ${gridTypeId}`;
+    }
+
+    onEdit(form: EavFormTemplate) {
+        this.router.navigate(['/equipment/form-builder'], { queryParams: { id: form.id } });
+    }
+
+    deactivateForm(form: EavFormTemplate) {
+        this.targetForm = form;
+        this.showConfirmDelete.set(true);
+    }
+
+    onConfirmDelete() {
+        if (!this.targetForm) return;
+        this.loadingService.show();
+        this.eavFormService.deleteTemplate(this.targetForm.id)
+            .pipe(finalize(() => this.loadingService.hide()))
+            .subscribe({
+                next: () => {
+                    this.messageService.add({
+                        severity: 'success',
+                        summary: 'Thành công',
+                        detail: 'Đã vô hiệu hóa form thành công!'
+                    });
+                    this.showConfirmDelete.set(false);
+                    this.targetForm = null;
+                    this.loadForms();
+                },
+                error: () => {
+                    this.messageService.add({
+                        severity: 'error',
+                        summary: 'Lỗi',
+                        detail: 'Không thể vô hiệu hóa form.'
+                    });
+                    this.showConfirmDelete.set(false);
+                    this.targetForm = null;
+                }
+            });
     }
 }

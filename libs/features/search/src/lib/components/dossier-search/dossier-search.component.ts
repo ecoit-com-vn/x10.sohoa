@@ -308,7 +308,7 @@ export class DossierSearchComponent implements OnInit, OnDestroy {
 
     console.log('[DEBUG] sending filter to API:', filter);
 
-    this.dossierService.getDossiers(filter).subscribe({
+    this.dossierService.getCatalogDossiers(filter).subscribe({
       next: (response) => {
         this.dossiersList.set(response.items || []);
         this.totalDossiersList.set(response.totalCount || 0);

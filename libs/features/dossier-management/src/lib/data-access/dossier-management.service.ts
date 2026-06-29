@@ -69,6 +69,26 @@ export class DossierManagementService {
     return this.http.get<any>(this.searchBase, { params });
   }
 
+  getCatalogDossiers(filter: {
+    keyword?: string;
+    infrastructureId?: string;
+    unitId?: number;
+    dossierTypeId?: string;
+    page: number;
+    pageSize: number;
+  }): Observable<any> {
+    let params = new HttpParams()
+      .set('page', filter.page.toString())
+      .set('pageSize', filter.pageSize.toString());
+
+    if (filter.keyword?.trim()) params = params.set('keyword', filter.keyword.trim());
+    if (filter.infrastructureId) params = params.set('infrastructureId', filter.infrastructureId);
+    if (filter.unitId != null) params = params.set('unitId', filter.unitId.toString());
+    if (filter.dossierTypeId) params = params.set('dossierTypeId', filter.dossierTypeId);
+
+    return this.http.get<any>(`${this.base}/catalog`, { params });
+  }
+
   getDossierTabCounts(filter?: {
     keyword?: string;
     infrastructureId?: string;
