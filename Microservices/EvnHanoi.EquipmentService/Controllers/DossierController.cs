@@ -49,6 +49,7 @@ public partial class DossierController : ControllerBase
         [FromQuery] int? gridTypeId,
         [FromQuery] long? unitId,
         [FromQuery] string? status,
+        [FromQuery] Guid? dossierTypeId,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10)
     {
@@ -59,6 +60,7 @@ public partial class DossierController : ControllerBase
             GridTypeId = gridTypeId,
             UnitId = unitId,
             Status = status,
+            DossierTypeId = dossierTypeId,
             Page = page,
             PageSize = pageSize
         };
@@ -193,6 +195,25 @@ public partial class DossierController : ControllerBase
         {
             await _dossierService.DeleteAsync(id, UserId);
             return NoContent();
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpPut("{id:guid}/complete-input")]
+    public async Task<IActionResult> CompleteInput(Guid id)
+    {
+        try
+        {
+            var success = await _dossierService.CompleteInputAsync(id, UserId);
+            if (!success) return BadRequest(new { message = "Không thể cập nhật trạng thái hồ sơ." });
+            return Ok(new { success = true, message = "Xác nhận hoàn thành nhập liệu thành công." });
         }
         catch (KeyNotFoundException ex)
         {

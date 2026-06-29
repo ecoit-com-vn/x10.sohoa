@@ -51,20 +51,31 @@ public class DossierSearchRepository : IDossierSearchRepository
         {
             b.MustNot(mn => mn.Term(t => t.Field(f => f.IsDeleted).Value(true)));
 
+            var filters = new List<QueryContainer>();
+
             if (filter.GridTypeId.HasValue)
-                b.Filter(f => f.Term(t => t.Field(doc => doc.GridTypeId).Value(filter.GridTypeId.Value)));
+                filters.Add(q.Term(t => t.Field(doc => doc.GridTypeId).Value(filter.GridTypeId.Value)));
 
             if (filter.InfrastructureId.HasValue)
             {
                 var infraId = filter.InfrastructureId.Value.ToString();
-                b.Filter(f => f.Term(t => t.Field(doc => doc.InfrastructureId).Value(infraId)));
+                filters.Add(q.Term(t => t.Field(doc => doc.InfrastructureId).Value(infraId)));
+            }
+
+            if (filter.DossierTypeId.HasValue)
+            {
+                var dossierTypeId = filter.DossierTypeId.Value.ToString();
+                filters.Add(q.Term(t => t.Field(doc => doc.DossierTypeId).Value(dossierTypeId)));
             }
 
             if (filter.UnitScopeIds is { Count: > 0 })
-                b.Filter(f => f.Terms(t => t.Field(doc => doc.UnitId).Terms(filter.UnitScopeIds)));
+                filters.Add(q.Terms(t => t.Field(doc => doc.UnitId).Terms(filter.UnitScopeIds)));
 
             if (!string.IsNullOrWhiteSpace(filter.Status))
-                b.Filter(f => f.Term(t => t.Field(doc => doc.Status).Value(filter.Status)));
+                filters.Add(q.Term(t => t.Field(doc => doc.Status).Value(filter.Status)));
+
+            if (filters.Count > 0)
+                b.Filter(filters.ToArray());
 
             if (!string.IsNullOrWhiteSpace(keyword))
             {
@@ -128,7 +139,12 @@ public class DossierSearchRepository : IDossierSearchRepository
             Status = doc.Status,
             WorkflowStatusName = doc.WorkflowStatusName,
             DocumentCount = doc.DocumentCount,
-            CreatorName = doc.CreatorName,
+            Creator = new CreatorInfoDto
+            {
+                Id = doc.CreatorId ?? string.Empty,
+                Username = doc.CreatorUsername ?? string.Empty,
+                Name = doc.CreatorName ?? string.Empty
+            },
             CreatedDate = doc.CreatedDate,
             CatalogData = doc.CatalogFields
                 .OrderBy(c => c.SortOrder)

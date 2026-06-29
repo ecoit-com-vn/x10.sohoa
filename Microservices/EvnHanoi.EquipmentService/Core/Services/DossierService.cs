@@ -133,7 +133,7 @@ public class DossierService : IDossierService
             DossierSetId = dto.DossierSetId,
             DossierTypeId = dto.DossierTypeId,
             FormDataJson = dto.FormDataJson,
-            Status = DossierStatus.Draft,
+            Status = DossierStatus.New,
             RowVersion = 1,
             CreatorId = string.IsNullOrEmpty(userId) ? null : Guid.TryParse(userId, out var uid) ? uid : null,
             CreatorUsername = userName,
@@ -191,10 +191,10 @@ public class DossierService : IDossierService
         var existing = await _dossierRepository.GetByIdAsync(id);
         if (existing == null) throw new KeyNotFoundException($"Không tìm thấy hồ sơ với ID = {id}");
 
-        var isDraft = existing.Status == DossierStatus.Draft;
+        var isDraft = existing.Status == DossierStatus.New || existing.Status == DossierStatus.CompletedInput;
         var notInWorkflow = !existing.WorkflowInstanceId.HasValue;
         if (!isDraft && !notInWorkflow)
-            throw new InvalidOperationException("Chỉ có thể xóa hồ sơ ở trạng thái Nháp hoặc chưa đưa vào quy trình phê duyệt.");
+            throw new InvalidOperationException("Chỉ có thể xóa hồ sơ ở trạng thái Tạo mới, Hoàn thành nhập liệu hoặc chưa đưa vào quy trình phê duyệt.");
 
         var deleted = await _dossierRepository.SoftDeleteAsync(id, userId);
         if (deleted)
@@ -215,6 +215,21 @@ public class DossierService : IDossierService
             }
         }
         return deleted;
+    }
+    public async Task<bool> CompleteInputAsync(Guid id, string userId)
+    {
+        var existing = await _dossierRepository.GetByIdAsync(id);
+        if (existing == null) throw new KeyNotFoundException($"Không tìm thấy hồ sơ với ID = {id}");
+
+        if (existing.Status != DossierStatus.New)
+            throw new InvalidOperationException("Chỉ hồ sơ ở trạng thái 'Tạo mới' mới được phép xác nhận hoàn thành nhập liệu.");
+
+        var success = await _dossierRepository.UpdateStatusAsync(id, DossierStatus.CompletedInput, userId);
+        if (success)
+        {
+            await PublishDossierChangedAsync(id, DossierChangedActions.Updated);
+        }
+        return success;
     }
 
     // ===== FORM DATA + VERSIONING =====
@@ -326,6 +341,39 @@ public class DossierService : IDossierService
         var statusName = dto.WorkflowStatusName ?? existing.WorkflowStatusName ?? string.Empty;
 
         await _dossierRepository.UpdateWorkflowAsync(id, dto.WorkflowInstanceId, statusName, status, "system");
+
+        // WF đã hoàn thành (Approved) → xóa WORKFLOW_TASKS_ACTIVE; chỉ lưu khi còn bước đang chạy
+        var persistActiveTask = !string.Equals(status, "Approved", StringComparison.OrdinalIgnoreCase)
+            && !string.IsNullOrWhiteSpace(dto.CurrentStepId);
+
+        if (persistActiveTask)
+        {
+            var assignees = dto.CurrentAssignees != null && dto.CurrentAssignees.Any()
+                ? string.Join(",", dto.CurrentAssignees)
+                : string.Empty;
+
+            var actionsJson = dto.AvailableActions != null && dto.AvailableActions.Any()
+                ? System.Text.Json.JsonSerializer.Serialize(dto.AvailableActions)
+                : "[]";
+
+            await _dossierRepository.SaveActiveWorkflowTaskAsync(
+                id,
+                dto.CurrentStepId!,
+                statusName,
+                assignees,
+                actionsJson,
+                "system");
+        }
+        else
+        {
+            await _dossierRepository.SaveActiveWorkflowTaskAsync(
+                id,
+                string.Empty,
+                statusName,
+                string.Empty,
+                "[]",
+                "system");
+        }
 
         var synced = await TrySyncReindexAsync(id);
         var queued = synced
@@ -449,7 +497,7 @@ public class DossierService : IDossierService
     {
         if (!dossier.WorkflowInstanceId.HasValue)
         {
-            if (dossier.Status != DossierStatus.Draft && dossier.Status != DossierStatus.Returned)
+            if (dossier.Status != DossierStatus.New && dossier.Status != DossierStatus.CompletedInput && dossier.Status != DossierStatus.Returned)
                 throw new InvalidOperationException("Không thể chỉnh sửa dữ liệu hồ sơ ở trạng thái hiện tại.");
             return;
         }

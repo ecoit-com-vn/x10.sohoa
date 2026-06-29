@@ -52,20 +52,35 @@ public class DossierSearchRepository : IDossierSearchRepository
     {
         var keyword = filter.Keyword?.Trim();
         var counts = new DossierTabCountsDto();
+        var scope = DossierMenuScopes.Normalize(filter.MenuScope);
 
-        var draftFilter = CloneForTab(filter, DossierListTabs.Draft);
-        var pendingFilter = CloneForTab(filter, DossierListTabs.PendingAction);
-        var inProgressFilter = CloneForTab(filter, DossierListTabs.InProgress);
-        var completedFilter = CloneForTab(filter, DossierListTabs.Completed);
-        var returnedFilter = CloneForTab(filter, DossierListTabs.Returned);
+        if (DossierMenuScopes.IsCreator(scope))
+        {
+            counts.Draft = await CountAsync(CloneForTab(filter, DossierListTabs.Draft), keyword);
+            counts.PendingAction = 0;
+            counts.InProgress = await CountAsync(CloneForTab(filter, DossierListTabs.InProgress), keyword);
+            counts.Completed = await CountAsync(CloneForTab(filter, DossierListTabs.Completed), keyword);
+            counts.Returned = await CountAsync(CloneForTab(filter, DossierListTabs.Returned), keyword);
+            return counts;
+        }
+
+        if (DossierMenuScopes.IsApprover(scope))
+        {
+            counts.Draft = 0;
+            counts.PendingAction = await CountAsync(CloneForTab(filter, DossierListTabs.PendingAction), keyword);
+            counts.InProgress = await CountAsync(CloneForTab(filter, DossierListTabs.InProgress), keyword);
+            counts.Completed = await CountAsync(CloneForTab(filter, DossierListTabs.Completed), keyword);
+            counts.Returned = 0;
+            return counts;
+        }
 
         var tasks = new[]
         {
-            CountAsync(draftFilter, keyword),
-            CountAsync(pendingFilter, keyword),
-            CountAsync(inProgressFilter, keyword),
-            CountAsync(completedFilter, keyword),
-            CountAsync(returnedFilter, keyword),
+            CountAsync(CloneForTab(filter, DossierListTabs.Draft), keyword),
+            CountAsync(CloneForTab(filter, DossierListTabs.PendingAction), keyword),
+            CountAsync(CloneForTab(filter, DossierListTabs.InProgress), keyword),
+            CountAsync(CloneForTab(filter, DossierListTabs.Completed), keyword),
+            CountAsync(CloneForTab(filter, DossierListTabs.Returned), keyword),
         };
 
         var results = await Task.WhenAll(tasks);
@@ -103,6 +118,16 @@ public class DossierSearchRepository : IDossierSearchRepository
         List<DossierListItemDto> items,
         DossierFilterDto filter)
     {
+        var tabSlug = DossierTabEsQuery.ResolveTabSlug(filter);
+        if (tabSlug == DossierListTabs.Draft)
+        {
+            return items
+                .Where(item => string.Equals(item.Status, "Draft", StringComparison.Ordinal) ||
+                               string.Equals(item.Status, "New", StringComparison.Ordinal) ||
+                               string.Equals(item.Status, "CompletedInput", StringComparison.Ordinal))
+                .ToList();
+        }
+
         var expectedStatus = ResolveExpectedBusinessStatus(filter);
         if (expectedStatus is null)
             return items;
@@ -116,7 +141,6 @@ public class DossierSearchRepository : IDossierSearchRepository
     {
         return DossierTabEsQuery.ResolveTabSlug(filter) switch
         {
-            DossierListTabs.Draft => "Draft",
             DossierListTabs.Completed => "Approved",
             DossierListTabs.Returned => "Returned",
             _ => null
@@ -133,6 +157,7 @@ public class DossierSearchRepository : IDossierSearchRepository
         UserId = source.UserId,
         UserRoles = source.UserRoles,
         IsAdmin = source.IsAdmin,
+        MenuScope = source.MenuScope,
         Tab = tab,
         Page = 1,
         PageSize = 1
@@ -145,33 +170,46 @@ public class DossierSearchRepository : IDossierSearchRepository
     {
         q.Bool(b =>
         {
-            b.MustNot(mn => mn.Term(t => t.Field(DossierEsFieldNames.IsDeleted).Value(true)));
-            EnforceTabStatusMust(b, filter);
+            var mustQueries = new List<Query>();
+            var mustNotQueries = new List<Query>();
+            var filterQueries = new List<Query>();
+
+            mustNotQueries.Add(new QueryDescriptor<DossierEsDocument>().Term(t => t.Field(DossierEsFieldNames.IsDeleted).Value(true)));
+            EnforceTabStatusMust(mustQueries, mustNotQueries, filter);
+
+            var filters = new List<Action<QueryDescriptor<DossierEsDocument>>>();
 
             if (filter.GridTypeId.HasValue)
-                b.Filter(f => f.Term(t => t.Field(DossierEsFieldNames.GridTypeId).Value(filter.GridTypeId.Value)));
+                filterQueries.Add(new QueryDescriptor<DossierEsDocument>().Term(t => t.Field(DossierEsFieldNames.GridTypeId).Value(filter.GridTypeId.Value)));
 
             if (filter.InfrastructureId.HasValue)
             {
                 var infraVariants = DossierIndexIdNormalizer.GetGuidTermVariants(filter.InfrastructureId.Value.ToString());
-                b.Filter(f => f.Terms(t => t
+                filterQueries.Add(new QueryDescriptor<DossierEsDocument>().Terms(t => t
                     .Field(DossierEsFieldNames.InfrastructureId)
                     .Terms(new TermsQueryField(infraVariants.Select(FieldValue.String).ToArray()))));
             }
 
+            if (filter.DossierTypeId.HasValue)
+            {
+                var dossierTypeId = filter.DossierTypeId.Value.ToString();
+                filters.Add(f => f.Term(t => t.Field(doc => doc.DossierTypeId).Value(dossierTypeId)));
+            }
+
             if (filter.UnitScopeIds is { Count: > 0 })
             {
-                b.Filter(f => f.Terms(t => t
+                filterQueries.Add(new QueryDescriptor<DossierEsDocument>().Terms(t => t
                     .Field(DossierEsFieldNames.UnitId)
                     .Terms(new TermsQueryField(filter.UnitScopeIds.Select(FieldValue.Long).ToArray()))));
             }
 
-            ApplyTabOrStatusFilter(b, filter);
-            ApplyVisibilityFilter(b, filter);
+            ApplyTabOrStatusFilter(mustQueries, filterQueries, mustNotQueries, filter);
+            ApplyVisibilityFilter(filterQueries, filter);
 
             if (!string.IsNullOrWhiteSpace(keyword))
             {
-                b.Must(m => m.Bool(bb => bb
+                mustQueries.Add(new QueryDescriptor<DossierEsDocument>().Bool(bb => bb
+                    .MinimumShouldMatch(1)
                     .Should(
                         sh => sh.Nested(n => n
                             .Path(p => p.FormFields)
@@ -193,41 +231,50 @@ public class DossierSearchRepository : IDossierSearchRepository
                         sh => sh.Match(mq => mq.Field(f => f.DossierSetName).Query(keyword)),
                         sh => sh.Match(mq => mq.Field(f => f.DossierTypeName).Query(keyword))
                     )
-                    .MinimumShouldMatch(1)
                 ));
             }
+
+            if (mustQueries.Count > 0)
+                b.Must(mustQueries);
+            if (mustNotQueries.Count > 0)
+                b.MustNot(mustNotQueries);
+            if (filterQueries.Count > 0)
+                b.Filter(filterQueries);
         });
     }
 
     /// <summary>
     /// Ép filter status nghiệp vụ theo tab — Must (không Filter) để tránh bool query ES bị bỏ qua.
     /// </summary>
-    private static void EnforceTabStatusMust(BoolQueryDescriptor<DossierEsDocument> b, DossierFilterDto filter)
+    private static void EnforceTabStatusMust(List<Query> mustQueries, List<Query> mustNotQueries, DossierFilterDto filter)
     {
         switch (DossierTabEsQuery.ResolveTabSlug(filter))
         {
             case DossierListTabs.Draft:
-                b.Must(m => m.Term(t => t.Field(DossierEsFieldNames.Status).Value("Draft")));
-                b.MustNot(mn => mn.Exists(e => e.Field(DossierEsFieldNames.WorkflowInstanceId)));
+                mustQueries.Add(new QueryDescriptor<DossierEsDocument>().Terms(t => t
+                    .Field(DossierEsFieldNames.Status)
+                    .Terms(new TermsQueryField(new[] { "Draft", "New", "CompletedInput" }.Select(FieldValue.String).ToArray()))));
+                mustNotQueries.Add(new QueryDescriptor<DossierEsDocument>().Exists(e => e.Field(DossierEsFieldNames.WorkflowInstanceId)));
                 break;
 
             case DossierListTabs.Completed:
-                b.Must(m => m.Term(t => t.Field(DossierEsFieldNames.Status).Value("Approved")));
-                b.MustNot(mn => mn.Term(t => t
+                mustQueries.Add(new QueryDescriptor<DossierEsDocument>().Term(t => t.Field(DossierEsFieldNames.Status).Value("Approved")));
+                mustNotQueries.Add(new QueryDescriptor<DossierEsDocument>().Term(t => t
                     .Field(DossierEsFieldNames.WorkflowInstanceStatus)
                     .Value("Running")));
                 break;
 
             case DossierListTabs.Returned:
-                b.Must(m => m.Term(t => t.Field(DossierEsFieldNames.Status).Value("Returned")));
-                b.MustNot(mn => mn.Term(t => t
-                    .Field(DossierEsFieldNames.WorkflowInstanceStatus)
-                    .Value("Running")));
+                // WF đang chạy, bị từ chối/trả lại và quay về bước đầu người tạo.
+                mustQueries.Add(new QueryDescriptor<DossierEsDocument>().Term(t => t.Field(DossierEsFieldNames.WorkflowInstanceStatus).Value("Running")));
+                mustQueries.Add(new QueryDescriptor<DossierEsDocument>().Exists(e => e.Field(DossierEsFieldNames.WorkflowInstanceId)));
+                mustQueries.Add(new QueryDescriptor<DossierEsDocument>().Term(t => t.Field(DossierEsFieldNames.IsReturnedToCreatorStep).Value(true)));
+                mustQueries.Add(new QueryDescriptor<DossierEsDocument>().Term(t => t.Field(DossierEsFieldNames.Status).Value("Returned")));
                 break;
 
             case DossierListTabs.InProgress:
             case DossierListTabs.PendingAction:
-                b.Must(m => m.Terms(t => t
+                mustQueries.Add(new QueryDescriptor<DossierEsDocument>().Terms(t => t
                     .Field(DossierEsFieldNames.Status)
                     .Terms(new TermsQueryField(
                         DossierTabEsQuery.InPipelineStatuses.Select(FieldValue.String).ToArray()))));
@@ -235,25 +282,27 @@ public class DossierSearchRepository : IDossierSearchRepository
         }
     }
 
-    private static void ApplyTabOrStatusFilter(BoolQueryDescriptor<DossierEsDocument> b, DossierFilterDto filter)
+    private static void ApplyTabOrStatusFilter(List<Query> mustQueries, List<Query> filterQueries, List<Query> mustNotQueries, DossierFilterDto filter)
     {
         var tabSlug = DossierTabEsQuery.ResolveTabSlug(filter);
         if (tabSlug is not null)
         {
-            ApplyTabSlugFilter(b, tabSlug, filter);
+            ApplyTabSlugFilter(mustQueries, filterQueries, mustNotQueries, tabSlug, filter);
             return;
         }
 
         var esStatus = DossierTabEsQuery.ResolveEsStatusFilter(filter);
         if (esStatus is not null)
-            b.Filter(f => f.Term(t => t.Field(DossierEsFieldNames.Status).Value(esStatus)));
+            filterQueries.Add(new QueryDescriptor<DossierEsDocument>().Term(t => t.Field(DossierEsFieldNames.Status).Value(esStatus)));
     }
 
     /// <summary>
     /// Tab UI (slug) → filter ES. Không bao giờ gửi slug tab vào field status.
     /// </summary>
     private static void ApplyTabSlugFilter(
-        BoolQueryDescriptor<DossierEsDocument> b,
+        List<Query> mustQueries,
+        List<Query> filterQueries,
+        List<Query> mustNotQueries,
         string tabSlug,
         DossierFilterDto filter)
     {
@@ -264,12 +313,14 @@ public class DossierSearchRepository : IDossierSearchRepository
 
             case DossierListTabs.InProgress:
                 // Tab "Đang xử lý" — loại inbox cá nhân (status đã ép ở EnforceTabStatusMust).
-                ApplyActiveWorkflowTabFilter(b);
-                b.MustNot(mn => mn.Bool(bb =>
+                ApplyActiveWorkflowTabFilter(filterQueries, mustNotQueries);
+                
+                var innerBool = new QueryDescriptor<DossierEsDocument>();
+                innerBool.Bool(bb =>
                 {
-                    bb.MinimumShouldMatch(1);
                     ApplyPendingActionInboxMatch(bb, filter);
-                }));
+                });
+                mustNotQueries.Add(innerBool);
                 break;
 
             case DossierListTabs.Completed:
@@ -279,22 +330,22 @@ public class DossierSearchRepository : IDossierSearchRepository
 
             case DossierListTabs.PendingAction:
                 // Status đã ép ở EnforceTabStatusMust — chỉ thêm inbox.
-                ApplyPendingActionInboxClause(b, filter);
+                ApplyPendingActionInboxClause(mustQueries, filterQueries, filter);
                 break;
         }
     }
 
-    private static void ApplyActiveWorkflowTabFilter(BoolQueryDescriptor<DossierEsDocument> b)
+    private static void ApplyActiveWorkflowTabFilter(List<Query> filterQueries, List<Query> mustNotQueries)
     {
-        b.Filter(f => f.Exists(e => e.Field(DossierEsFieldNames.WorkflowInstanceId)));
-        b.MustNot(mn => mn.Term(t => t.Field(DossierEsFieldNames.WorkflowInstanceStatus).Value("Completed")));
-        b.MustNot(mn => mn.Term(t => t.Field(DossierEsFieldNames.WorkflowInstanceStatus).Value("Terminated")));
+        filterQueries.Add(new QueryDescriptor<DossierEsDocument>().Exists(e => e.Field(DossierEsFieldNames.WorkflowInstanceId)));
+        mustNotQueries.Add(new QueryDescriptor<DossierEsDocument>().Term(t => t.Field(DossierEsFieldNames.WorkflowInstanceStatus).Value("Completed")));
+        mustNotQueries.Add(new QueryDescriptor<DossierEsDocument>().Term(t => t.Field(DossierEsFieldNames.WorkflowInstanceStatus).Value("Terminated")));
     }
 
     /// <summary>
     /// Inbox tab Chờ xử lý — ưu tiên filter phẳng (terms) như /diag/inbox; OR role/creator qua Must bool.
     /// </summary>
-    private static void ApplyPendingActionInboxClause(BoolQueryDescriptor<DossierEsDocument> b, DossierFilterDto filter)
+    private static void ApplyPendingActionInboxClause(List<Query> mustQueries, List<Query> filterQueries, DossierFilterDto filter)
     {
         var userId = NormalizeFilterUserId(filter.UserId);
         var roles = filter.UserRoles?
@@ -306,35 +357,37 @@ public class DossierSearchRepository : IDossierSearchRepository
 
         if (!hasUserId && !hasRoles)
         {
-            b.Filter(f => f.Term(t => t.Field(DossierEsFieldNames.Id).Value("__none__")));
+            filterQueries.Add(new QueryDescriptor<DossierEsDocument>().Term(t => t.Field(DossierEsFieldNames.Id).Value("__none__")));
             return;
         }
 
         // userId + roles → Must bool OR (assignee trực tiếp hoặc role pool sau submit/move).
         if (hasUserId && hasRoles)
         {
-            b.Must(m => m.Bool(bb =>
-            {
-                bb.MinimumShouldMatch(1);
-                bb.Should(sh => sh.Terms(t => t
-                    .Field(DossierEsFieldNames.PendingAssigneeUserId)
-                    .Terms(new TermsQueryField(UserIdTermValues(userId!)))));
-                bb.Should(sh => sh.Terms(t => t
-                    .Field(DossierEsFieldNames.PendingAssignedRoles)
-                    .Terms(new TermsQueryField(roles!.Select(FieldValue.String).ToArray()))));
-            }));
+            mustQueries.Add(new QueryDescriptor<DossierEsDocument>().Bool(bb => bb
+                .MinimumShouldMatch(1)
+                .Should(
+                    sh => sh.Terms(t => t
+                        .Field(DossierEsFieldNames.PendingAssigneeUserId)
+                        .Terms(new TermsQueryField(UserIdTermValues(userId!)))),
+                    sh => sh.Terms(t => t
+                        .Field(DossierEsFieldNames.PendingAssignedRoles)
+                        .Terms(new TermsQueryField(roles!.Select(FieldValue.String).ToArray())))
+                )));
             return;
         }
 
         if (hasUserId)
         {
-            b.Filter(f => f.Terms(t => t
+            filterQueries.Add(new QueryDescriptor<DossierEsDocument>().Terms(t => t
                 .Field(DossierEsFieldNames.PendingAssigneeUserId)
                 .Terms(new TermsQueryField(UserIdTermValues(userId!)))));
             return;
         }
 
-        b.Filter(f => f.Bool(bb => ApplyPendingActionRolePoolInbox(bb, roles!)));
+        var rolePoolBool = new QueryDescriptor<DossierEsDocument>();
+        rolePoolBool.Bool(bb => ApplyPendingActionRolePoolInbox(bb, roles!));
+        filterQueries.Add(rolePoolBool);
     }
 
     /// <summary>OR inbox: assignee | role | creator (bước đầu chưa gán).</summary>
@@ -345,24 +398,30 @@ public class DossierSearchRepository : IDossierSearchRepository
     {
         bb.MinimumShouldMatch(1);
 
-        bb.Should(sh => sh.Terms(t => t
+        var shouldQueries = new List<Query>();
+
+        shouldQueries.Add(new QueryDescriptor<DossierEsDocument>().Terms(t => t
             .Field(DossierEsFieldNames.PendingAssigneeUserId)
             .Terms(new TermsQueryField(UserIdTermValues(userId)))));
 
-        bb.Should(sh => sh.Terms(t => t
+        shouldQueries.Add(new QueryDescriptor<DossierEsDocument>().Terms(t => t
             .Field(DossierEsFieldNames.PendingAssignedRoles)
             .Terms(new TermsQueryField(roles.Select(FieldValue.String).ToArray()))));
 
-        bb.Should(sh => sh.Bool(creatorInbox =>
+        var creatorInbox = new QueryDescriptor<DossierEsDocument>();
+        creatorInbox.Bool(cb =>
         {
-            creatorInbox.Must(m => m.Terms(t => t
+            cb.Must(m => m.Terms(t => t
                 .Field(DossierEsFieldNames.CreatorId)
                 .Terms(new TermsQueryField(UserIdTermValues(userId)))));
-            creatorInbox.MustNot(mn => mn.Exists(e => e
+            cb.MustNot(mn => mn.Exists(e => e
                 .Field(DossierEsFieldNames.PendingAssigneeUserId)));
-            creatorInbox.MustNot(mn => mn.Exists(e => e
+            cb.MustNot(mn => mn.Exists(e => e
                 .Field(DossierEsFieldNames.PendingAssignedRoles)));
-        }));
+        });
+        shouldQueries.Add(creatorInbox);
+
+        bb.Should(shouldQueries);
     }
 
     /// <summary>Role pool khi chưa gán cá nhân.</summary>
@@ -396,29 +455,36 @@ public class DossierSearchRepository : IDossierSearchRepository
             return;
         }
 
+        var shouldQueries = new List<Query>();
+
         if (hasUserId)
         {
-            bb.Should(sh => sh.Terms(t => t
+            shouldQueries.Add(new QueryDescriptor<DossierEsDocument>().Terms(t => t
                 .Field(DossierEsFieldNames.PendingAssigneeUserId)
                 .Terms(new TermsQueryField(UserIdTermValues(userId!)))));
-            return;
+        }
+        else if (hasRoles)
+        {
+            var rolePool = new QueryDescriptor<DossierEsDocument>();
+            rolePool.Bool(rolePoolBool =>
+            {
+                rolePoolBool.Must(m => m.Terms(t => t
+                    .Field(DossierEsFieldNames.PendingAssignedRoles)
+                    .Terms(new TermsQueryField(roles!.Select(FieldValue.String).ToArray()))));
+                rolePoolBool.MustNot(mn => mn.Exists(e => e
+                    .Field(DossierEsFieldNames.PendingAssigneeUserId)));
+            });
+            shouldQueries.Add(rolePool);
         }
 
-        bb.Should(sh => sh.Bool(rolePool =>
-        {
-            rolePool.Must(m => m.Terms(t => t
-                .Field(DossierEsFieldNames.PendingAssignedRoles)
-                .Terms(new TermsQueryField(roles!.Select(FieldValue.String).ToArray()))));
-            rolePool.MustNot(mn => mn.Exists(e => e
-                .Field(DossierEsFieldNames.PendingAssigneeUserId)));
-        }));
+        bb.Should(shouldQueries);
     }
 
     /// <summary>
-    /// Phân quyền xem hồ sơ theo tab. ADMIN xem tất cả.
+    /// Phân quyền xem hồ sơ theo tab / menuScope. ADMIN xem tất cả.
     /// Tab pending-action đã có inbox filter riêng — không lặp lại ở đây.
     /// </summary>
-    private static void ApplyVisibilityFilter(BoolQueryDescriptor<DossierEsDocument> b, DossierFilterDto filter)
+    private static void ApplyVisibilityFilter(List<Query> filterQueries, DossierFilterDto filter)
     {
         if (filter.IsAdmin)
             return;
@@ -431,40 +497,96 @@ public class DossierSearchRepository : IDossierSearchRepository
 
         if (string.IsNullOrWhiteSpace(userId) && (roles is null or { Length: 0 }))
         {
-            b.Filter(f => f.Term(t => t.Field(DossierEsFieldNames.Id).Value("__none__")));
+            filterQueries.Add(new QueryDescriptor<DossierEsDocument>().Term(t => t.Field(DossierEsFieldNames.Id).Value("__none__")));
             return;
         }
 
+        var scope = DossierMenuScopes.Normalize(filter.MenuScope);
         var tab = DossierTabEsQuery.ResolveTabSlug(filter) ?? filter.Tab?.Trim().ToLowerInvariant();
+
+        if (DossierMenuScopes.IsCreator(scope))
+        {
+            ApplyCreatorOnlyVisibility(filterQueries, userId);
+            return;
+        }
+
+        if (DossierMenuScopes.IsApprover(scope))
+        {
+            switch (tab)
+            {
+                case DossierListTabs.PendingAction:
+                    // Inbox đã được lọc trong ApplyTabOrStatusFilter.
+                    break;
+                case DossierListTabs.InProgress:
+                case DossierListTabs.Completed:
+                    ApplyParticipantOnlyVisibility(filterQueries, userId);
+                    break;
+                default:
+                    filterQueries.Add(new QueryDescriptor<DossierEsDocument>().Term(t => t.Field(DossierEsFieldNames.Id).Value("__none__")));
+                    break;
+            }
+            return;
+        }
 
         switch (tab)
         {
             case DossierListTabs.Draft:
-                // Tab Nháp: chỉ hồ sơ do user đang đăng nhập tạo (kết hợp status=Draft ở tab filter).
                 if (!string.IsNullOrWhiteSpace(userId))
-                    b.Filter(f => f.Terms(t => t
+                {
+                    filterQueries.Add(new QueryDescriptor<DossierEsDocument>().Terms(t => t
                         .Field(DossierEsFieldNames.CreatorId)
                         .Terms(new TermsQueryField(UserIdTermValues(userId!)))));
+                }
                 break;
 
             case DossierListTabs.PendingAction:
-                // Inbox đã được lọc trong ApplyTabOrStatusFilter — không thêm OR rộng tránh trùng tab khác.
                 break;
 
             case DossierListTabs.InProgress:
-                // Người tạo hoặc đã tham gia WF — không gồm inbox đang chờ xử lý (lọc ở tab filter).
-                b.Filter(f => f.Bool(bb => ApplyCreatorOrParticipantVisibility(bb, userId)));
+                var inProgressBool = new QueryDescriptor<DossierEsDocument>();
+                inProgressBool.Bool(bb => ApplyCreatorOrParticipantVisibility(bb, userId));
+                filterQueries.Add(inProgressBool);
                 break;
 
             case DossierListTabs.Completed:
             case DossierListTabs.Returned:
-                b.Filter(f => f.Bool(bb => ApplyCreatorOrParticipantVisibility(bb, userId)));
+                var creatorOrPartBool = new QueryDescriptor<DossierEsDocument>();
+                creatorOrPartBool.Bool(bb => ApplyCreatorOrParticipantVisibility(bb, userId));
+                filterQueries.Add(creatorOrPartBool);
                 break;
 
             default:
-                b.Filter(f => f.Bool(bb => ApplyPipelineVisibility(bb, userId, roles, includeInbox: true)));
+                var pipelineBool = new QueryDescriptor<DossierEsDocument>();
+                pipelineBool.Bool(bb => ApplyPipelineVisibility(bb, userId, roles, includeInbox: true));
+                filterQueries.Add(pipelineBool);
                 break;
         }
+    }
+
+    private static void ApplyCreatorOnlyVisibility(List<Query> filterQueries, string? userId)
+    {
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            filterQueries.Add(new QueryDescriptor<DossierEsDocument>().Term(t => t.Field(DossierEsFieldNames.Id).Value("__none__")));
+            return;
+        }
+
+        filterQueries.Add(new QueryDescriptor<DossierEsDocument>().Terms(t => t
+            .Field(DossierEsFieldNames.CreatorId)
+            .Terms(new TermsQueryField(UserIdTermValues(userId!)))));
+    }
+
+    private static void ApplyParticipantOnlyVisibility(List<Query> filterQueries, string? userId)
+    {
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            filterQueries.Add(new QueryDescriptor<DossierEsDocument>().Term(t => t.Field(DossierEsFieldNames.Id).Value("__none__")));
+            return;
+        }
+
+        filterQueries.Add(new QueryDescriptor<DossierEsDocument>().Terms(t => t
+            .Field(DossierEsFieldNames.WorkflowParticipantUserIds)
+            .Terms(new TermsQueryField(UserIdTermValues(userId!)))));
     }
 
     private static void ApplyCreatorOrParticipantVisibility(
@@ -479,12 +601,14 @@ public class DossierSearchRepository : IDossierSearchRepository
             return;
         }
 
-        bb.Should(sh => sh.Terms(t => t
-            .Field(DossierEsFieldNames.CreatorId)
-            .Terms(new TermsQueryField(UserIdTermValues(userId!)))));
-        bb.Should(sh => sh.Terms(t => t
-            .Field(DossierEsFieldNames.WorkflowParticipantUserIds)
-            .Terms(new TermsQueryField(UserIdTermValues(userId!)))));
+        bb.Should(
+            sh => sh.Terms(t => t
+                .Field(DossierEsFieldNames.CreatorId)
+                .Terms(new TermsQueryField(UserIdTermValues(userId!)))),
+            sh => sh.Terms(t => t
+                .Field(DossierEsFieldNames.WorkflowParticipantUserIds)
+                .Terms(new TermsQueryField(UserIdTermValues(userId!))))
+        );
     }
 
     private static void ApplyPipelineVisibility(
@@ -495,12 +619,14 @@ public class DossierSearchRepository : IDossierSearchRepository
     {
         bb.MinimumShouldMatch(1);
 
+        var shouldQueries = new List<Query>();
+
         if (!string.IsNullOrWhiteSpace(userId))
         {
-            bb.Should(sh => sh.Terms(t => t
+            shouldQueries.Add(new QueryDescriptor<DossierEsDocument>().Terms(t => t
                 .Field(DossierEsFieldNames.CreatorId)
                 .Terms(new TermsQueryField(UserIdTermValues(userId!)))));
-            bb.Should(sh => sh.Terms(t => t
+            shouldQueries.Add(new QueryDescriptor<DossierEsDocument>().Terms(t => t
                 .Field(DossierEsFieldNames.WorkflowParticipantUserIds)
                 .Terms(new TermsQueryField(UserIdTermValues(userId!)))));
         }
@@ -509,21 +635,23 @@ public class DossierSearchRepository : IDossierSearchRepository
         {
             if (!string.IsNullOrWhiteSpace(userId))
             {
-                bb.Should(sh => sh.Terms(t => t
+                shouldQueries.Add(new QueryDescriptor<DossierEsDocument>().Terms(t => t
                     .Field(DossierEsFieldNames.PendingAssigneeUserId)
                     .Terms(new TermsQueryField(UserIdTermValues(userId!)))));
             }
 
             if (roles is { Length: > 0 })
             {
-                bb.Should(sh => sh.Terms(t => t
+                shouldQueries.Add(new QueryDescriptor<DossierEsDocument>().Terms(t => t
                     .Field(DossierEsFieldNames.PendingAssignedRoles)
                     .Terms(new TermsQueryField(roles.Select(FieldValue.String).ToArray()))));
             }
         }
 
-        if (string.IsNullOrWhiteSpace(userId) && (roles is null or { Length: 0 }))
-            bb.Should(sh => sh.Term(t => t.Field(DossierEsFieldNames.Id).Value("__none__")));
+        if (shouldQueries.Count == 0)
+            shouldQueries.Add(new QueryDescriptor<DossierEsDocument>().Term(t => t.Field(DossierEsFieldNames.Id).Value("__none__")));
+
+        bb.Should(shouldQueries);
     }
 
     private static DossierListItemDto MapToListItem(
@@ -548,12 +676,19 @@ public class DossierSearchRepository : IDossierSearchRepository
             WorkflowInstanceStatus = doc.WorkflowInstanceStatus,
             CurrentStepAllowEdit = doc.CurrentStepAllowEdit,
             DocumentCount = doc.DocumentCount,
-            CreatorId = doc.CreatorId,
-            CreatorName = doc.CreatorName,
+            Creator = new CreatorInfoDto
+            {
+                Id = doc.CreatorId ?? string.Empty,
+                Username = doc.CreatorUsername ?? string.Empty,
+                Name = doc.CreatorName ?? string.Empty
+            },
             PendingAssigneeUserId = doc.PendingAssigneeUserId,
             PendingAssignedRoles = doc.PendingAssignedRoles ?? new List<string>(),
             WorkflowParticipantUserIds = doc.WorkflowParticipantUserIds ?? new List<string>(),
             CreatedDate = doc.CreatedDate,
+            CurrentStepId = doc.CurrentStepId,
+            CurrentAssignees = doc.CurrentAssignees ?? new List<string>(),
+            AvailableActions = doc.AvailableActions ?? new List<WorkflowActionEsDto>(),
             CatalogData = DossierCatalogDataMapper.ToCatalogData(doc.CatalogFields, doc.FormFields, bhsCatalogs)
         };
     }

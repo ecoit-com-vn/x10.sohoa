@@ -12,6 +12,13 @@ public static class DossierListTabs
     public const string Returned = "returned";
 }
 
+public class CreatorInfoDto
+{
+    public string Id { get; set; } = string.Empty;
+    public string Username { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+}
+
 public class DossierListItemDto
 {
     public Guid Id { get; set; }
@@ -31,14 +38,16 @@ public class DossierListItemDto
     public string? WorkflowInstanceStatus { get; set; }
     public bool CurrentStepAllowEdit { get; set; }
     public int DocumentCount { get; set; }
-    public string? CreatorId { get; set; }
-    public string? CreatorName { get; set; }
+    public CreatorInfoDto? Creator { get; set; }
     /// <summary>User được gán xử lý bước Pending hiện tại (inbox tab Chờ xử lý).</summary>
     public string? PendingAssigneeUserId { get; set; }
     public IReadOnlyList<string> PendingAssignedRoles { get; set; } = Array.Empty<string>();
     /// <summary>User đã tham gia WF — dùng tab Đang xử lý / Hoàn thành.</summary>
     public IReadOnlyList<string> WorkflowParticipantUserIds { get; set; } = Array.Empty<string>();
     public DateTime CreatedDate { get; set; }
+    public string? CurrentStepId { get; set; }
+    public IReadOnlyList<string> CurrentAssignees { get; set; } = Array.Empty<string>();
+    public List<WorkflowActionEsDto> AvailableActions { get; set; } = new();
     public Dictionary<string, string> CatalogData { get; set; } = new();
 }
 
@@ -56,6 +65,9 @@ public class DossierFilterDto
     public string? UserId { get; set; }
     public IReadOnlyList<string>? UserRoles { get; set; }
     public bool IsAdmin { get; set; }
+    /// <summary>Phạm vi menu FE: creator | approver</summary>
+    public string? MenuScope { get; set; }
+    public Guid? DossierTypeId { get; set; }
     public int Page { get; set; } = 1;
     public int PageSize { get; set; } = 10;
 }

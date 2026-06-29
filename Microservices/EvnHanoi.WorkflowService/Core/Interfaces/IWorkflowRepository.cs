@@ -29,6 +29,7 @@ namespace EvnHanoi.WorkflowService.Core.Interfaces
         Task<WorkflowInstance?> GetInstanceByIdAsync(Guid instanceId);
         Task<bool> CreateInstanceAsync(WorkflowInstance instance);
         Task<bool> UpdateInstanceAsync(WorkflowInstance instance);
+        Task<bool> DeleteInstancePhysicalAsync(Guid instanceId);
 
         /// <summary>Ghi instance + task + history trong một transaction Oracle.</summary>
         Task CreateSubmitBatchAsync(WorkflowInstance instance, WorkflowTask task, WorkflowHistory history);

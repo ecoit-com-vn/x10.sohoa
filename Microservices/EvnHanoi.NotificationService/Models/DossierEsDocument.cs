@@ -29,9 +29,24 @@ public class DossierEsDocument
     public bool CurrentStepAllowEdit { get; set; }
     public int CurrentVersionNumber { get; set; }
     public bool IsDeleted { get; set; }
+    public string? CurrentStepId { get; set; }
+    public int? CurrentStepOrder { get; set; }
+    public string? WorkflowLastAction { get; set; }
+    public bool IsReturnedToCreatorStep { get; set; }
+    public List<string> CurrentAssignees { get; set; } = new();
+    public List<WorkflowActionEsDto> AvailableActions { get; set; } = new();
     public List<DossierCatalogFieldEs> CatalogFields { get; set; } = new();
     public List<DossierFormFieldEs> FormFields { get; set; } = new();
     public List<DossierEquipmentEs> Equipments { get; set; } = new();
+}
+
+public class WorkflowActionEsDto
+{
+    public string Code { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string NextNodeId { get; set; } = string.Empty;
+    public bool RequiresNextAssignee { get; set; }
+    public string? NextStepRole { get; set; }
 }
 
 public class DossierCatalogFieldEs

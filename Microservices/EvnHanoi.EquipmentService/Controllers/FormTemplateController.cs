@@ -25,7 +25,7 @@ public class FormTemplateController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<EavFormTemplate>>> GetAllActive()
     {
-        var templates = await _repository.GetAllActiveAsync("TEMPLATE");
+        var templates = await _repository.GetAllActiveAsync("TEMPLATE", null);
         return Ok(templates);
     }
 
@@ -122,5 +122,39 @@ public class FormTemplateController : ControllerBase
         existing.IsActive = false;
         await _repository.UpdateAsync(existing);
         return NoContent();
+    }
+
+    [HttpPost("{id:guid}/lock")]
+    public async Task<IActionResult> Lock(Guid id)
+    {
+        var existing = await _repository.GetByIdAsync(id);
+        if (existing == null)
+            return NotFound(new { Message = $"Không tìm thấy biểu mẫu với ID = {id}" });
+
+        existing.IsActive = false;
+        await _repository.UpdateAsync(existing);
+        return Ok(new { Message = "Khóa biểu mẫu thành công." });
+    }
+
+    [HttpPost("{id:guid}/unlock")]
+    public async Task<IActionResult> Unlock(Guid id)
+    {
+        var existing = await _repository.GetByIdAsync(id);
+        if (existing == null)
+            return NotFound(new { Message = $"Không tìm thấy biểu mẫu với ID = {id}" });
+
+        existing.IsActive = true;
+        await _repository.UpdateAsync(existing);
+        return Ok(new { Message = "Mở khóa biểu mẫu thành công." });
+    }
+
+    [HttpGet("code/{code}/versions")]
+    public async Task<ActionResult<IEnumerable<EavFormTemplate>>> GetVersionsByCode(string code)
+    {
+        if (string.IsNullOrEmpty(code))
+            return BadRequest("Mã biểu mẫu không được để trống.");
+
+        var versions = await _repository.GetVersionsByCodeAsync(code);
+        return Ok(versions);
     }
 }

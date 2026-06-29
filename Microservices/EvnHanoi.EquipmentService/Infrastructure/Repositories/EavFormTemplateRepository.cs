@@ -16,24 +16,30 @@ public class EavFormTemplateRepository : IEavFormTemplateRepository
 
     public async Task<EavFormTemplate?> GetByIdAsync(Guid id)
     {
-        var sql = $@"SELECT t.*, gt.Name as {nameof(EavFormTemplate.GridTypeName)} 
+        var sql = $@"SELECT t.*, gt.Name as {nameof(EavFormTemplate.GridTypeName)}, et.Name as {nameof(EavFormTemplate.EquipmentTypeName)} 
                      FROM {nameof(EavFormTemplate)}s t
                      LEFT JOIN GridTypes gt ON t.{nameof(EavFormTemplate.GridTypeId)} = gt.Id
+                     LEFT JOIN EquipmentTypes et ON t.{nameof(EavFormTemplate.EquipmentTypeId)} = et.Id
                      WHERE t.{nameof(EavFormTemplate.Id)} = :Id";
         return await _connection.QuerySingleOrDefaultAsync<EavFormTemplate>(sql, new { Id = id.ToString() });
     }
 
-    public async Task<IEnumerable<EavFormTemplate>> GetAllActiveAsync(string? formType = null)
+    public async Task<IEnumerable<EavFormTemplate>> GetAllActiveAsync(string? formType = null, bool? isActive = true)
     {
-        var sql = $@"SELECT t.*, gt.Name as {nameof(EavFormTemplate.GridTypeName)} 
+        var sql = $@"SELECT t.*, gt.Name as {nameof(EavFormTemplate.GridTypeName)}, et.Name as {nameof(EavFormTemplate.EquipmentTypeName)} 
                      FROM {nameof(EavFormTemplate)}s t
                      LEFT JOIN GridTypes gt ON t.{nameof(EavFormTemplate.GridTypeId)} = gt.Id
-                     WHERE t.{nameof(EavFormTemplate.IsActive)} = 1";
+                     LEFT JOIN EquipmentTypes et ON t.{nameof(EavFormTemplate.EquipmentTypeId)} = et.Id
+                     WHERE 1 = 1";
+        if (isActive.HasValue)
+        {
+            sql += $" AND t.{nameof(EavFormTemplate.IsActive)} = :IsActive";
+        }
         if (!string.IsNullOrEmpty(formType))
         {
             sql += $" AND t.{nameof(EavFormTemplate.FormType)} = :FormType";
         }
-        return await _connection.QueryAsync<EavFormTemplate>(sql, new { FormType = formType });
+        return await _connection.QueryAsync<EavFormTemplate>(sql, new { FormType = formType, IsActive = isActive.HasValue && isActive.Value ? 1 : 0 });
     }
 
     public async Task AddAsync(EavFormTemplate template)
@@ -118,5 +124,16 @@ public class EavFormTemplateRepository : IEavFormTemplateRepository
         };
 
         await _connection.ExecuteAsync(sql, param);
+    }
+
+    public async Task<IEnumerable<EavFormTemplate>> GetVersionsByCodeAsync(string code)
+    {
+        var sql = $@"SELECT t.*, gt.Name as {nameof(EavFormTemplate.GridTypeName)}, et.Name as {nameof(EavFormTemplate.EquipmentTypeName)} 
+                     FROM {nameof(EavFormTemplate)}s t
+                     LEFT JOIN GridTypes gt ON t.{nameof(EavFormTemplate.GridTypeId)} = gt.Id
+                     LEFT JOIN EquipmentTypes et ON t.{nameof(EavFormTemplate.EquipmentTypeId)} = et.Id
+                     WHERE t.{nameof(EavFormTemplate.Code)} = :Code
+                     ORDER BY t.{nameof(EavFormTemplate.Version)} DESC";
+        return await _connection.QueryAsync<EavFormTemplate>(sql, new { Code = code });
     }
 }
