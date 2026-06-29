@@ -3,16 +3,21 @@ import {
   Input,
   OnInit,
   OnDestroy,
+  AfterViewInit,
   inject,
   signal,
   computed,
   effect,
+  ViewChild,
+  ElementRef,
+  HostListener,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DialogModule } from 'primeng/dialog';
 import { ButtonModule } from 'primeng/button';
-import { MessageService } from 'primeng/api';
+import { MessageService, MenuItem } from 'primeng/api';
+import { Menu, MenuModule } from 'primeng/menu';
 import { SignalRService, DigitizationProgressEvent } from '@sohoa.frontend/shared/core';
 import {
   Subject,
@@ -55,6 +60,17 @@ import { DossierFolderPickerDialogComponent } from '../../components/dossier-fol
 import { DossierDirectUploadDialogComponent } from '../../components/dossier-direct-upload-dialog/dossier-direct-upload-dialog.component';
 import { DossierDocumentEditDialogComponent } from '../../components/dossier-document-edit-dialog/dossier-document-edit-dialog.component';
 
+interface DocumentTableAction {
+  key: string;
+  title: string;
+  btnClass: string;
+  iconClasses: string;
+  disabled: boolean;
+  run: (doc: DossierDocumentItem) => void;
+}
+
+const MAX_INLINE_DOCUMENT_ACTIONS = 3;
+
 @Component({
   selector: 'app-dossier-documents-tab',
   standalone: true,
@@ -63,6 +79,7 @@ import { DossierDocumentEditDialogComponent } from '../../components/dossier-doc
     FormsModule,
     DialogModule,
     ButtonModule,
+    MenuModule,
     DossierUploadMenuComponent,
     DossierFolderPickerDialogComponent,
     DossierDirectUploadDialogComponent,
@@ -71,7 +88,12 @@ import { DossierDocumentEditDialogComponent } from '../../components/dossier-doc
   templateUrl: './dossier-documents-tab.component.html',
   styleUrl: './dossier-documents-tab.component.scss',
 })
-export class DossierDocumentsTabComponent implements OnInit, OnDestroy {
+export class DossierDocumentsTabComponent implements OnInit, OnDestroy, AfterViewInit {
+  @ViewChild('docActionMenu') docActionMenu?: Menu;
+  @ViewChild('tableWrap') tableWrap?: ElementRef<HTMLElement>;
+
+  private tableResizeObserver?: ResizeObserver;
+
   private documentService = inject(DossierDocumentService);
   private messageService = inject(MessageService);
   private signalRService = inject(SignalRService);
@@ -111,6 +133,10 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy {
 
   showEditDocument = signal(false);
   editTarget = signal<DossierDocumentItem | null>(null);
+  /** true = sửa tài liệu; false = chỉ xem (kể cả khi tab cho phép sửa hồ sơ). */
+  documentDialogEditable = signal(false);
+  docActionMenuItems = signal<MenuItem[]>([]);
+  hasHorizontalScroll = signal(false);
 
   totalPages = computed(() => {
     const total = this.totalDocuments();
@@ -173,7 +199,18 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy {
       .subscribe(() => this.loadDocuments(true));
   }
 
+  ngAfterViewInit(): void {
+    this.setupHorizontalScrollHint();
+  }
+
+  @HostListener('window:resize')
+  onWindowResize(): void {
+    this.updateHorizontalScrollHint();
+  }
+
   ngOnDestroy(): void {
+    this.tableWrap?.nativeElement?.removeEventListener('scroll', this.onTableWrapScroll);
+    this.tableResizeObserver?.disconnect();
     if (this.lastSignalRDossierId) {
       void this.signalRService.leaveDossierGroup(this.lastSignalRDossierId);
     }
@@ -185,6 +222,34 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy {
     this.signalRService.digitizationProgress$
       .pipe(takeUntil(this.destroy$))
       .subscribe((event) => this.applyDigitizationProgress(event));
+  }
+
+  private setupHorizontalScrollHint(): void {
+    const el = this.tableWrap?.nativeElement;
+    if (!el) return;
+
+    el.addEventListener('scroll', this.onTableWrapScroll, { passive: true });
+    this.updateHorizontalScrollHint();
+
+    if (typeof ResizeObserver === 'undefined') return;
+
+    this.tableResizeObserver?.disconnect();
+    this.tableResizeObserver = new ResizeObserver(() => this.updateHorizontalScrollHint());
+    this.tableResizeObserver.observe(el);
+    const table = el.querySelector('.wf-table');
+    if (table) this.tableResizeObserver.observe(table);
+  }
+
+  private onTableWrapScroll = (): void => {
+    this.updateHorizontalScrollHint();
+  };
+
+  private updateHorizontalScrollHint(): void {
+    const el = this.tableWrap?.nativeElement;
+    if (!el) return;
+    const hasOverflow = el.scrollWidth > el.clientWidth + 1;
+    const atRightEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - 2;
+    this.hasHorizontalScroll.set(hasOverflow && !atRightEnd);
   }
 
   private async switchDossierSignalRGroup(dossierId: string): Promise<void> {
@@ -265,6 +330,10 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy {
         if (!silent) {
           this.loading.set(false);
         }
+        queueMicrotask(() => {
+          this.updateHorizontalScrollHint();
+          setTimeout(() => this.updateHorizontalScrollHint(), 0);
+        });
       }))
       .subscribe({
         next: (res) => {
@@ -295,8 +364,111 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy {
 
   canEditDocument = canEditDossierDocument;
 
+  getDocumentActions(doc: DossierDocumentItem): DocumentTableAction[] {
+    const actions: DocumentTableAction[] = [
+      {
+        key: 'view',
+        title: 'Xem tài liệu',
+        btnClass: 'act-view',
+        iconClasses: 'pi pi-eye',
+        disabled: !doc.latestVersionId,
+        run: (d) => this.onViewDocument(d),
+      },
+      {
+        key: 'download',
+        title: 'Tải tài liệu',
+        btnClass: 'act-download',
+        iconClasses: this.isDownloading(doc.id) ? 'pi pi-spin pi-spinner' : 'pi pi-download',
+        disabled: !doc.latestVersionId || this.isDownloading(doc.id),
+        run: (d) => this.onDownload(d),
+      },
+    ];
+
+    if (this.canEditDocument(doc) && this.canEdit) {
+      actions.push({
+        key: 'edit',
+        title: 'Sửa tài liệu',
+        btnClass: 'act-edit',
+        iconClasses: 'pi pi-pencil',
+        disabled: !doc.latestVersionId,
+        run: (d) => this.onEditDocument(d),
+      });
+    }
+
+    if (this.canReExtract(doc) && this.canEdit) {
+      actions.push({
+        key: 'reextract',
+        title: 'Bóc tách lại (tải biểu mẫu mới)',
+        btnClass: 'act-reextract',
+        iconClasses: this.isReExtracting(doc.id, this.reExtractingIds())
+          ? 'pi pi-spin pi-spinner'
+          : 'pi pi-sync',
+        disabled: this.isReExtracting(doc.id, this.reExtractingIds()),
+        run: (d) => this.onReExtract(d),
+      });
+    }
+
+    if (this.canRetryDigitization(doc) && this.canEdit) {
+      actions.push({
+        key: 'retry',
+        title: 'Xử lý lại OCR/bóc tách',
+        btnClass: 'act-retry',
+        iconClasses: this.isRetryingDigitization(doc.id, this.retryingIds())
+          ? 'pi pi-spin pi-spinner'
+          : 'pi pi-refresh',
+        disabled: this.isRetryingDigitization(doc.id, this.retryingIds()),
+        run: (d) => this.onRetryDigitization(d),
+      });
+    }
+
+    if (this.canEdit) {
+      actions.push({
+        key: 'delete',
+        title: 'Xóa tài liệu',
+        btnClass: 'act-delete',
+        iconClasses: 'pi pi-trash',
+        disabled: false,
+        run: (d) => this.onDelete(d),
+      });
+    }
+
+    return actions;
+  }
+
+  getPrimaryDocumentActions(doc: DossierDocumentItem): DocumentTableAction[] {
+    return this.getDocumentActions(doc).slice(0, MAX_INLINE_DOCUMENT_ACTIONS);
+  }
+
+  getOverflowDocumentActions(doc: DossierDocumentItem): DocumentTableAction[] {
+    return this.getDocumentActions(doc).slice(MAX_INLINE_DOCUMENT_ACTIONS);
+  }
+
+  openDocActionMenu(doc: DossierDocumentItem, event: Event): void {
+    event.stopPropagation();
+    const overflow = this.getOverflowDocumentActions(doc);
+    if (!overflow.length) return;
+
+    this.docActionMenuItems.set(
+      overflow.map((action) => ({
+        label: action.title,
+        icon: action.iconClasses,
+        disabled: action.disabled,
+        command: () => action.run(doc),
+      }))
+    );
+    this.docActionMenu?.toggle(event);
+  }
+
   onEditDocument(doc: DossierDocumentItem): void {
     if (!this.canEdit || !doc.latestVersionId) return;
+    this.documentDialogEditable.set(true);
+    this.editTarget.set(doc);
+    this.showEditDocument.set(true);
+  }
+
+  onViewDocument(doc: DossierDocumentItem): void {
+    if (!doc.latestVersionId) return;
+    this.documentDialogEditable.set(false);
     this.editTarget.set(doc);
     this.showEditDocument.set(true);
   }

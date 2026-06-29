@@ -67,6 +67,19 @@ export type DossierListTab =
   | 'completed'
   | 'returned';
 
+export type DossierMenuScope = 'creator' | 'approver';
+
+export const DOSSIER_CREATOR_TABS: DossierListTab[] = ['draft', 'returned', 'in-progress', 'completed'];
+export const DOSSIER_APPROVER_TABS: DossierListTab[] = ['pending-action', 'in-progress', 'completed'];
+
+export function getDefaultTabForMenuScope(scope: DossierMenuScope): DossierListTab {
+  return scope === 'approver' ? 'pending-action' : 'draft';
+}
+
+export function getTabsForMenuScope(scope: DossierMenuScope): DossierListTab[] {
+  return scope === 'approver' ? DOSSIER_APPROVER_TABS : DOSSIER_CREATOR_TABS;
+}
+
 export interface DossierTabCounts {
   draft: number;
   pendingAction: number;

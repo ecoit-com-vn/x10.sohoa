@@ -5,7 +5,7 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { DialogModule } from 'primeng/dialog';
 import { ButtonModule } from 'primeng/button';
 import { MessageService } from 'primeng/api';
-import { forkJoin, finalize, of, catchError } from 'rxjs';
+import { forkJoin, finalize } from 'rxjs';
 import { DossierDocumentService } from '../../data-access/dossier-document.service';
 import { DossierManagementService } from '../../data-access/dossier-management.service';
 import {
@@ -123,9 +123,7 @@ export class DossierDocumentEditDialogComponent implements OnDestroy {
 
     this.loading.set(true);
     forkJoin({
-      result: this.documentService.getDigitizationResult(this.dossierId, this.versionId).pipe(
-        catchError(() => of(null))
-      ),
+      result: this.documentService.getDigitizationResultOrNull(this.dossierId, this.versionId),
       dossier: this.dossierService.getDossierById(this.dossierId),
     })
       .pipe(finalize(() => this.loading.set(false)))
@@ -142,11 +140,14 @@ export class DossierDocumentEditDialogComponent implements OnDestroy {
           this.loadPreview();
           this.resolveFormAndLoad(result?.mergedDataJson ?? undefined, result?.resultJson ?? undefined);
         },
-        error: () => {
+        error: (err) => {
           this.messageService.add({
             severity: 'error',
             summary: 'Lỗi',
-            detail: 'Không tải được dữ liệu tài liệu',
+            detail: this.documentService.digitizationResultErrorMessage(
+              err,
+              'Không tải được dữ liệu tài liệu'
+            ),
           });
         },
       });

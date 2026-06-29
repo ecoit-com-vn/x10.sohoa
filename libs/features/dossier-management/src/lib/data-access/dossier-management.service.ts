@@ -2,7 +2,25 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, switchMap, forkJoin, of, catchError, map } from 'rxjs';
 import { APP_CONFIG } from '@sohoa.frontend/shared/core';
-import { DossierListTab, DossierTabCounts } from '../utils/dossier-status.util';
+import { DossierListTab, DossierMenuScope, DossierTabCounts } from '../utils/dossier-status.util';
+
+export interface DossierWorkflowAction {
+  code?: string;
+  name: string;
+  nextNodeId: string;
+  requiresNextAssignee?: boolean;
+  nextStepRole?: string | null;
+}
+
+export function normalizeDossierWorkflowAction(raw: Record<string, unknown>): DossierWorkflowAction {
+  return {
+    code: String(raw['code'] ?? raw['Code'] ?? ''),
+    name: String(raw['name'] ?? raw['Name'] ?? ''),
+    nextNodeId: String(raw['nextNodeId'] ?? raw['NextNodeId'] ?? ''),
+    requiresNextAssignee: Boolean(raw['requiresNextAssignee'] ?? raw['RequiresNextAssignee'] ?? false),
+    nextStepRole: (raw['nextStepRole'] ?? raw['NextStepRole'] ?? null) as string | null,
+  };
+}
 
 export interface BhsCatalogColumn {
   /** Key hiển thị — trùng catalog.Name, map vào catalogData */
@@ -44,6 +62,7 @@ export class DossierManagementService {
   // ===== DANH SÁCH (ES qua NotificationService) =====
 
   getDossiers(filter: {
+    menuScope: DossierMenuScope;
     tab?: DossierListTab;
     keyword?: string;
     infrastructureId?: string;
@@ -56,7 +75,8 @@ export class DossierManagementService {
   }): Observable<any> {
     let params = new HttpParams()
       .set('page', filter.page.toString())
-      .set('pageSize', filter.pageSize.toString());
+      .set('pageSize', filter.pageSize.toString())
+      .set('menuScope', filter.menuScope);
 
     if (filter.tab) params = params.set('tab', filter.tab);
     if (filter.keyword?.trim()) params = params.set('keyword', filter.keyword.trim());
@@ -69,17 +89,18 @@ export class DossierManagementService {
     return this.http.get<any>(this.searchBase, { params });
   }
 
-  getDossierTabCounts(filter?: {
+  getDossierTabCounts(filter: {
+    menuScope: DossierMenuScope;
     keyword?: string;
     infrastructureId?: string;
     gridTypeId?: number;
     unitId?: number;
   }): Observable<DossierTabCounts> {
-    let params = new HttpParams();
-    if (filter?.keyword?.trim()) params = params.set('keyword', filter.keyword.trim());
-    if (filter?.infrastructureId) params = params.set('infrastructureId', filter.infrastructureId);
-    if (filter?.gridTypeId != null) params = params.set('gridTypeId', filter.gridTypeId.toString());
-    if (filter?.unitId != null) params = params.set('unitId', filter.unitId.toString());
+    let params = new HttpParams().set('menuScope', filter.menuScope);
+    if (filter.keyword?.trim()) params = params.set('keyword', filter.keyword.trim());
+    if (filter.infrastructureId) params = params.set('infrastructureId', filter.infrastructureId);
+    if (filter.gridTypeId != null) params = params.set('gridTypeId', filter.gridTypeId.toString());
+    if (filter.unitId != null) params = params.set('unitId', filter.unitId.toString());
 
     return this.http.get<DossierTabCounts>(`${this.searchBase}/tab-counts`, { params });
   }
@@ -161,6 +182,11 @@ export class DossierManagementService {
 
   moveWorkflow(id: string, request: { nextNodeId: string; actionLabel: string; comment?: string; nextAssigneeUserId?: string }): Observable<any> {
     return this.http.post<any>(`${this.workflowBase}/${id}/move`, request);
+  }
+
+  /** Gửi duyệt lại từ tab Trả lại — map DOSSIER_CREATE */
+  resubmitWorkflow(id: string, request: { nextNodeId: string; actionLabel: string; comment?: string; nextAssigneeUserId?: string }): Observable<any> {
+    return this.http.post<any>(`${this.workflowBase}/${id}/resubmit`, request);
   }
 
   getWorkflowByEntity(id: string): Observable<any> {
@@ -262,8 +288,12 @@ export class DossierManagementService {
     return this.http.get<any[]>(`${this.catalogBase}/lookup`).pipe(catchError(() => of([])));
   }
 
-  getUsersLookup(): Observable<any[]> {
-    return this.http.get<any[]>(`${this.config.apiGatewayUrl}/api/v1/users/lookup`).pipe(
+  getUsersLookup(role?: string | null): Observable<any[]> {
+    let params = new HttpParams();
+    if (role?.trim()) {
+      params = params.set('role', role.trim());
+    }
+    return this.http.get<any[]>(`${this.config.apiGatewayUrl}/api/v1/users/lookup`, { params }).pipe(
       catchError(() => of([]))
     );
   }
