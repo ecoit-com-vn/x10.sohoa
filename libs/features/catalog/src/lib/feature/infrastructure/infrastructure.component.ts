@@ -31,6 +31,7 @@ export class InfrastructureComponent implements OnInit {
   // States
   items = signal<any[]>([]);
   orgUnits = signal<any[]>([]);
+  gridTypes = signal<any[]>([]);
   searchKeyword = signal<string>('');
   searchStatus = signal<string>(''); // '', '1', '0'
   totalCount = signal<number>(0);
@@ -55,6 +56,11 @@ export class InfrastructureComponent implements OnInit {
   nameError = computed(() => {
     if (this.formSubmitted() && !this.currentItem().name) return 'Tên là bắt buộc';
     return this.serverErrors().name || this.serverErrors().Name || '';
+  });
+
+  gridTypeIdError = computed(() => {
+    if (this.formSubmitted() && !this.currentItem().gridTypeId) return 'Loại lưới điện là bắt buộc';
+    return this.serverErrors().gridTypeId || this.serverErrors().GridTypeId || '';
   });
 
   // Delete Confirmation Dialog Signals
@@ -116,6 +122,7 @@ export class InfrastructureComponent implements OnInit {
   ngOnInit() {
     this.authService.loadPermissions();
     this.loadOrgUnits();
+    this.loadGridTypes();
 
     // Listen to route data changes to adapt dynamically
     this.route.data.subscribe(data => {
@@ -149,6 +156,17 @@ export class InfrastructureComponent implements OnInit {
       },
       error: () => {
         console.error('Không thể tải danh sách đơn vị');
+      }
+    });
+  }
+
+  loadGridTypes() {
+    this.infraService.getGridTypes().subscribe({
+      next: (data) => {
+        this.gridTypes.set(data || []);
+      },
+      error: () => {
+        console.error('Không thể tải danh sách loại lưới điện');
       }
     });
   }
@@ -271,6 +289,7 @@ export class InfrastructureComponent implements OnInit {
       isActive: true,
       infraTypeId: this.infraTypeId(),
       unitId: null,
+      gridTypeId: null,
       address: '',
       organization: null
     });
@@ -292,7 +311,7 @@ export class InfrastructureComponent implements OnInit {
     this.formSubmitted.set(true);
     const item = this.currentItem();
 
-    if (!item.code || !item.name) {
+    if (!item.code || !item.name || !item.gridTypeId) {
       return;
     }
 
@@ -305,6 +324,7 @@ export class InfrastructureComponent implements OnInit {
       address: item.address ? item.address.trim() : null,
       infraTypeId: this.infraTypeId(),
       unitId: item.unitId || null,
+      gridTypeId: item.gridTypeId,
       isActive: item.isActive
     };
 

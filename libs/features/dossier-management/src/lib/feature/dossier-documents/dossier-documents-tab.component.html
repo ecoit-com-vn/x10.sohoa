@@ -282,6 +282,7 @@
   [documentTypeId]="editTarget()?.documentTypeId ?? null"
   [formId]="formId"
   [canEdit]="canEdit && documentDialogEditable()"
+  [hasExtractionResult]="!!editTarget()?.extractionResult"
   [totalPagesHint]="editTarget()?.ocrProgress?.totalPages ?? 0"
   [visible]="showEditDocument()"
   (visibleChange)="showEditDocument.set($event)"

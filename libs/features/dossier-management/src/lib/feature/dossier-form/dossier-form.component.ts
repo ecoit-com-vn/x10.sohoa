@@ -35,6 +35,12 @@ import { forkJoin } from 'rxjs';
         </div>
         <div class="edit-actions">
           <button (click)="onCancel()" class="btn-cancel"><i class="pi pi-times"></i> Hủy</button>
+          <button *ngIf="showCompleteInputButton()"
+                  (click)="onCompleteInput()" class="btn-green btn-small" [disabled]="completingInput()">
+            <i class="pi pi-check" *ngIf="!completingInput()"></i>
+            <i class="pi pi-spin pi-spinner" *ngIf="completingInput()"></i>
+            Hoàn thành nhập liệu
+          </button>
           <button (click)="onSave()" class="btn-save" [disabled]="isSaving() || !isValid()">
             <i class="pi pi-save" *ngIf="!isSaving()"></i>
             <i class="pi pi-spin pi-spinner" *ngIf="isSaving()"></i>
@@ -45,19 +51,19 @@ import { forkJoin } from 'rxjs';
 
       <!-- Tabs — chỉ hiện khi sửa hồ sơ -->
       <div class="tab-bar" *ngIf="isEditMode()">
-        <button class="tab-item" [class.tab-active]="activeTab() === 'info'" (click)="activeTab.set('info')">
+        <button *ngIf="isFormTabVisible('info')" class="tab-item" [class.tab-active]="activeTab() === 'info'" (click)="activeTab.set('info')">
           <i class="pi pi-info-circle" style="margin-right: 6px;"></i>
           Thông tin hồ sơ
         </button>
-        <button class="tab-item" [class.tab-active]="activeTab() === 'documents'" (click)="activeTab.set('documents')">
+        <button *ngIf="isFormTabVisible('documents')" class="tab-item" [class.tab-active]="activeTab() === 'documents'" (click)="activeTab.set('documents')">
           <i class="pi pi-file" style="margin-right: 6px;"></i>
           Tài liệu đính kèm
         </button>
-        <button class="tab-item" [class.tab-active]="activeTab() === 'versions'" (click)="activeTab.set('versions')">
+        <button *ngIf="isFormTabVisible('versions')" class="tab-item" [class.tab-active]="activeTab() === 'versions'" (click)="activeTab.set('versions')">
           <i class="pi pi-history" style="margin-right: 6px;"></i>
           Lịch sử phiên bản
         </button>
-        <button class="tab-item" [class.tab-active]="activeTab() === 'workflow'" (click)="activeTab.set('workflow')">
+        <button *ngIf="isFormTabVisible('workflow')" class="tab-item" [class.tab-active]="activeTab() === 'workflow'" (click)="activeTab.set('workflow')">
           <i class="pi pi-sitemap" style="margin-right: 6px;"></i>
           Quy trình & Lịch sử
         </button>
@@ -73,7 +79,7 @@ import { forkJoin } from 'rxjs';
 
           <div class="form-group">
             <label class="form-label">Loại lưới điện</label>
-            <select class="wf-select w-full" [(ngModel)]="dossier.gridTypeId" (change)="loadInfrastructures()">
+            <select class="wf-select w-full" [(ngModel)]="dossier.gridTypeId" (change)="onGridTypeChange(dossier.gridTypeId)">
               <option [ngValue]="null">-- Chọn loại lưới điện --</option>
               <option *ngFor="let item of gridTypes()" [value]="item.id">{{ item.name }}</option>
             </select>
@@ -83,7 +89,7 @@ import { forkJoin } from 'rxjs';
             <label class="form-label">Trạm / Đường dây</label>
             <select class="wf-select w-full" [(ngModel)]="dossier.infrastructureId">
               <option [ngValue]="null">-- Chọn trạm/đường dây --</option>
-              <option *ngFor="let item of infrastructures()" [value]="item.id">{{ item.name }}</option>
+              <option *ngFor="let item of formInfrastructures()" [value]="item.id">{{ item.name }}</option>
             </select>
           </div>
         </div>
@@ -320,7 +326,10 @@ export class DossierFormComponent implements OnInit {
   activeTab = signal<'info' | 'documents' | 'versions' | 'workflow'>('info');
   loading = signal<boolean>(false);
   isSaving = signal<boolean>(false);
+  completingInput = signal<boolean>(false);
   loadingForm = signal<boolean>(false);
+  dossierStatus = signal<string>('');
+  workflowInstanceId = signal<string | null>(null);
 
   dossier = {
     id: '',
@@ -332,6 +341,16 @@ export class DossierFormComponent implements OnInit {
   };
 
   selectedEquipments = signal<any[]>([]);
+  formGridTypeId = signal<number | null>(null);
+
+  formInfrastructures = computed(() => {
+    const gtId = this.formGridTypeId();
+    if (!gtId) return this.infrastructures(); // Nếu chưa chọn lưới điện, hiển thị tất cả
+    return this.infrastructures().filter(inf => {
+      const itemGridType = Number(inf.gridTypeId ?? inf.GridTypeId);
+      return itemGridType === Number(gtId);
+    });
+  });
 
   // Lookups
   dossierTypes = signal<any[]>([]);
@@ -388,11 +407,14 @@ export class DossierFormComponent implements OnInit {
           this.dossier = {
             id: res.id ?? res.Id,
             dossierTypeId: res.dossierTypeId ?? res.DossierTypeId,
-            gridTypeId: res.gridTypeId ?? res.GridTypeId,
+            gridTypeId: res.gridTypeId != null ? Number(res.gridTypeId ?? res.GridTypeId) : null,
             infrastructureId: res.infrastructureId ?? res.InfrastructureId,
             dossierSetId: res.dossierSetId ?? res.DossierSetId,
             rowVersion: res.rowVersion ?? res.RowVersion,
           };
+          this.dossierStatus.set(String(res.status ?? res.Status ?? ''));
+          this.workflowInstanceId.set(res.workflowInstanceId ?? res.WorkflowInstanceId ?? null);
+          this.formGridTypeId.set(this.dossier.gridTypeId);
           this.selectedEquipments.set(res.equipments ?? res.Equipments ?? []);
 
           const typeId = res.dossierTypeId ?? res.DossierTypeId;
@@ -419,6 +441,21 @@ export class DossierFormComponent implements OnInit {
 
     if (!typeId) return;
     this.loadFormForType(typeId);
+  }
+
+  onGridTypeChange(gtId: any) {
+    const numericId = gtId != null && gtId !== '' ? Number(gtId) : null;
+    this.dossier.gridTypeId = numericId;
+    this.formGridTypeId.set(numericId);
+
+    // Reset trạm nếu trạm cũ không thuộc lưới điện mới
+    if (this.dossier.infrastructureId) {
+      const match = this.infrastructures().find(inf => inf.id === this.dossier.infrastructureId);
+      const itemGridType = match ? Number(match.gridTypeId ?? match.GridTypeId) : null;
+      if (itemGridType !== numericId) {
+        this.dossier.infrastructureId = null;
+      }
+    }
   }
 
   /** Tìm formId từ dossierType rồi gọi API lấy form template */
@@ -468,6 +505,48 @@ export class DossierFormComponent implements OnInit {
     return !!this.dossier.dossierTypeId;
   }
 
+  showCompleteInputButton(): boolean {
+    return this.isEditMode() && this.dossierStatus() === 'New';
+  }
+
+  onCompleteInput(): void {
+    if (!this.dossier.id || this.completingInput()) return;
+
+    this.completingInput.set(true);
+    this.service.completeInput(this.dossier.id).subscribe({
+      next: () => {
+        this.dossierStatus.set('CompletedInput');
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Thành công',
+          detail: 'Đã chuyển trạng thái sang Hoàn thành nhập liệu',
+        });
+        this.completingInput.set(false);
+      },
+      error: (err) => {
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Lỗi',
+          detail: err.error?.message || 'Không thể hoàn thành nhập liệu',
+        });
+        this.completingInput.set(false);
+      },
+    });
+  }
+
+  isFormTabVisible(tab: 'info' | 'documents' | 'versions' | 'workflow'): boolean {
+    switch (tab) {
+      case 'info':
+      case 'documents':
+      case 'versions':
+        return true;
+      case 'workflow':
+        return !!this.workflowInstanceId();
+      default:
+        return false;
+    }
+  }
+
   onSave() {
     if (!this.isValid()) {
       this.messageService.add({ severity: 'warn', summary: 'Cảnh báo', detail: 'Vui lòng chọn loại hồ sơ' });
@@ -477,6 +556,7 @@ export class DossierFormComponent implements OnInit {
     this.isSaving.set(true);
     const dto = {
       ...this.dossier,
+      gridTypeId: this.dossier.gridTypeId != null ? Number(this.dossier.gridTypeId) : null,
       equipmentIds: this.selectedEquipments().map(e => e.equipmentId || e.id),
       formDataJson: this.dynamicFields().length > 0
         ? serializeFormDataForSchema(this.dynamicFields(), this.formData)

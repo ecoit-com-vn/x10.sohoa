@@ -358,6 +358,21 @@ html, body {
 }
 .wf-select.w-full { width: 100%; }
 
+/* Trạng thái hồ sơ — giao diện ô readonly giống wf-select (form cấu hình) */
+.wf-status-field {
+  display: inline-flex;
+  align-items: center;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 5px;
+  font-size: 0.85rem;
+  background: #f8fafc;
+  color: #374151;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
 /* Error banner */
 .error-banner {
   display: flex;

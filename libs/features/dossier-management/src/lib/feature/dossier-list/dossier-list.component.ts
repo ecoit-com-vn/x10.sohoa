@@ -793,47 +793,38 @@ export class DossierListComponent implements OnInit {
     if (roles.includes('ADMIN')) return true;
 
     const status = item.status ?? item.Status;
+
+    if (status === 'Returned') {
+      return this.isCurrentUserCreator(item);
+    }
+
     if (this.activeTab() === 'draft' || status === 'Draft' || status === 'New' || status === 'CompletedInput') {
-      const creatorId = item.creator?.id ?? item.Creator?.Id ?? item.creatorId ?? item.CreatorId;
-      const creatorUsername = item.creator?.username ?? item.Creator?.Username ?? item.creatorUsername ?? item.CreatorUsername ?? item.createdBy ?? item.CreatedBy;
-      
-      const normalizeGuid = (val: any) => val ? String(val).replace(/[-]/g, '').toLowerCase().trim() : '';
-      const normCreatorId = normalizeGuid(creatorId);
-      const normUserId = normalizeGuid(userId);
-      
-      const normCreatorUsername = creatorUsername ? String(creatorUsername).toLowerCase().trim() : '';
-      const normUserUsername = userId ? String(userId).toLowerCase().trim() : '';
-
-      console.log('SOHOA_DEBUG List Draft Edit Check:', {
-        creatorId,
-        normCreatorId,
-        userId,
-        normUserId,
-        creatorUsername,
-        normCreatorUsername,
-        normUserUsername,
-        matchId: normCreatorId !== '' && normCreatorId === normUserId,
-        matchUsername: normCreatorUsername !== '' && normCreatorUsername === normUserUsername
-      });
-
-      return (normCreatorId !== '' && normCreatorId === normUserId) ||
-             (normCreatorUsername !== '' && normCreatorUsername === normUserUsername);
+      return this.isCurrentUserCreator(item);
     }
 
     if (item.currentAssignees && item.currentAssignees.length > 0) {
-      if (status === 'Returned') {
-        return item.currentAssignees.some((assignee: string) => 
-          String(assignee).toLowerCase() === String(userId).toLowerCase()
-        );
-      }
-
-      return item.currentAssignees.some((assignee: string) => 
-        String(assignee).toLowerCase() === String(userId).toLowerCase() || 
-        roles.some(r => String(r).toLowerCase() === String(assignee).toLowerCase())
+      return item.currentAssignees.some((assignee: string) =>
+        String(assignee).toLowerCase() === String(userId).toLowerCase()
       );
     }
 
     return false;
+  }
+
+  private isCurrentUserCreator(item: any): boolean {
+    const userId = this.authService.getUserId();
+    const creatorId = item.creator?.id ?? item.Creator?.Id ?? item.creatorId ?? item.CreatorId;
+    const creatorUsername = item.creator?.username ?? item.Creator?.Username ?? item.creatorUsername ?? item.CreatorUsername ?? item.createdBy ?? item.CreatedBy;
+
+    const normalizeGuid = (val: unknown) => val ? String(val).replace(/-/g, '').toLowerCase().trim() : '';
+    const normCreatorId = normalizeGuid(creatorId);
+    const normUserId = normalizeGuid(userId);
+
+    if (normCreatorId !== '' && normCreatorId === normUserId) return true;
+
+    const normCreatorUsername = creatorUsername ? String(creatorUsername).toLowerCase().trim() : '';
+    const normUserUsername = userId ? String(userId).toLowerCase().trim() : '';
+    return normCreatorUsername !== '' && normCreatorUsername === normUserUsername;
   }
 
   canEditItem(item: any): boolean {
@@ -929,7 +920,7 @@ export class DossierListComponent implements OnInit {
     if (roles.includes('ADMIN')) return true;
 
     const isAssignee = item.currentAssignees.some((assignee: string) =>
-      assignee === userId || roles.includes(assignee)
+      assignee === userId
     );
 
     if (this.isApproverMenu()) {
@@ -937,7 +928,7 @@ export class DossierListComponent implements OnInit {
     }
 
     const status = item.status ?? item.Status;
-    return status === 'Returned' && isAssignee;
+    return status === 'Returned' && (isAssignee || this.isCurrentUserCreator(item));
   }
 
   private shouldUseResubmit(item: any): boolean {

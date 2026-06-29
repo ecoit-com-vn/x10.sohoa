@@ -44,34 +44,35 @@
             </div>
           </div>
 
-          <!-- Lọc theo Trạm / Đường dây (cascade theo đơn vị) -->
-          <div style="flex: 1.5; min-width: 250px;">
-            <select class="wf-input" style="height: 38px; width: 100%; padding: 0 10px; border-radius: 6px; background-color: #ffffff !important; color: #374151 !important;"
-              [ngModel]="searchInfrastructureId()"
-              (ngModelChange)="searchInfrastructureId.set($event); onSearch()"
-              [disabled]="!searchUnitId()">
-              <option value="">{{ searchUnitId() ? '-- Chọn Trạm / Đường dây --' : '-- Vui lòng chọn Đơn vị quản lý --' }}</option>
-              <option *ngFor="let inf of searchInfrastructures()" [value]="inf.id">{{ inf.name }}</option>
-            </select>
-          </div>
-
           <!-- Lọc theo Loại lưới điện -->
           <div style="flex: 1; min-width: 150px;">
             <select class="wf-input" style="height: 38px; width: 100%; padding: 0 10px; border-radius: 6px; background-color: #ffffff !important; color: #374151 !important;"
               [ngModel]="searchGridTypeId()"
-              (ngModelChange)="searchGridTypeId.set($event); searchEquipmentTypeId.set(''); onSearch()">
+              (ngModelChange)="searchGridTypeId.set($event); searchInfrastructureId.set(''); searchEquipmentTypeId.set(''); onSearch()"
+              (focus)="loadGridTypesOnDemand()">
               <option value="">-- Lưới điện --</option>
               <option *ngFor="let gt of gridTypes()" [value]="gt.id">{{ gt.name }}</option>
             </select>
           </div>
 
-          <!-- Lọc theo Loại thiết bị (cascade theo lưới điện) -->
+          <!-- Lọc theo Trạm / Đường dây -->
+          <div style="flex: 1.5; min-width: 250px;">
+            <select class="wf-input" style="height: 38px; width: 100%; padding: 0 10px; border-radius: 6px; background-color: #ffffff !important; color: #374151 !important;"
+              [ngModel]="searchInfrastructureId()"
+              (ngModelChange)="searchInfrastructureId.set($event); onSearch()"
+              (focus)="loadSearchInfrastructuresOnDemand()">
+              <option value="">-- Chọn Trạm / Đường dây --</option>
+              <option *ngFor="let inf of searchInfrastructures()" [value]="inf.id">{{ inf.name }}</option>
+            </select>
+          </div>
+
+          <!-- Lọc theo Loại thiết bị -->
           <div style="flex: 1.5; min-width: 200px;">
             <select class="wf-input" style="height: 38px; width: 100%; padding: 0 10px; border-radius: 6px; background-color: #ffffff !important; color: #374151 !important;"
               [ngModel]="searchEquipmentTypeId()"
               (ngModelChange)="searchEquipmentTypeId.set($event); onSearch()"
-              [disabled]="!searchGridTypeId()">
-              <option value="">{{ searchGridTypeId() ? '-- Chọn Loại thiết bị --' : '-- Vui lòng chọn Loại lưới điện --' }}</option>
+              (focus)="loadEquipmentTypesOnDemand()">
+              <option value="">-- Chọn Loại thiết bị --</option>
               <option *ngFor="let et of searchEquipmentTypes()" [value]="et.id">{{ et.name }}</option>
             </select>
           </div>

@@ -328,7 +328,7 @@ export function formatFieldDisplayValue(field: EavField, value: unknown): string
   return displayFieldValue(value);
 }
 
-/** Draft form tài liệu: ưu tiên dữ liệu đã lưu trên hồ sơ, bóc tách mới chỉ điền chỗ trống. */
+/** Draft form tài liệu: ưu tiên dữ liệu đã lưu theo tài liệu, form hồ sơ chỉ điền chỗ trống. */
 export function buildDocumentDraftFromSources(
   fields: ReadonlyArray<EavField>,
   extractedSource: Record<string, unknown>,
@@ -342,7 +342,7 @@ export function buildDocumentDraftFromSources(
     const key = field.key?.trim();
     if (!key) continue;
 
-    const value = hasExtractedValue(existing[key]) ? existing[key] : extracted[key];
+    const value = hasExtractedValue(extracted[key]) ? extracted[key] : existing[key];
 
     if (field.type === 'checkbox') {
       draft[key] = value ?? false;
