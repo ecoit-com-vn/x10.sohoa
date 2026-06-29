@@ -105,6 +105,24 @@ public static class DossierIndexSetup
             { "currentStepAllowEdit", new BooleanProperty() },
             { "currentVersionNumber", new IntegerNumberProperty() },
             { "isDeleted", new BooleanProperty() },
+            { "currentStepId", new KeywordProperty() },
+            { "currentStepOrder", new IntegerNumberProperty() },
+            { "workflowLastAction", new KeywordProperty() },
+            { "isReturnedToCreatorStep", new BooleanProperty() },
+            { "currentAssignees", new KeywordProperty() },
+            {
+                "availableActions", new NestedProperty
+                {
+                    Properties = new Properties
+                    {
+                        { "code", new KeywordProperty() },
+                        { "name", new KeywordProperty() },
+                        { "nextNodeId", new KeywordProperty() },
+                        { "requiresNextAssignee", new BooleanProperty() },
+                        { "nextStepRole", new KeywordProperty() }
+                    }
+                }
+            },
             {
                 "catalogFields", new NestedProperty
                 {
@@ -158,6 +176,24 @@ public static class DossierIndexSetup
                 { "workflowParticipantUserIds", new KeywordProperty() },
                 { "currentStepAllowEdit", new BooleanProperty() },
                 { "workflowInstanceStatus", new KeywordProperty() },
+                { "currentStepId", new KeywordProperty() },
+                { "currentStepOrder", new IntegerNumberProperty() },
+                { "workflowLastAction", new KeywordProperty() },
+                { "isReturnedToCreatorStep", new BooleanProperty() },
+                { "currentAssignees", new KeywordProperty() },
+                {
+                    "availableActions", new NestedProperty
+                    {
+                        Properties = new Properties
+                        {
+                            { "code", new KeywordProperty() },
+                            { "name", new KeywordProperty() },
+                            { "nextNodeId", new KeywordProperty() },
+                            { "requiresNextAssignee", new BooleanProperty() },
+                            { "nextStepRole", new KeywordProperty() }
+                        }
+                    }
+                },
             }), cancellationToken);
 
         if (response.IsValidResponse)

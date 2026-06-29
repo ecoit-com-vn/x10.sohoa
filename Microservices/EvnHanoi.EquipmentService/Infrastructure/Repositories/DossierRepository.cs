@@ -255,25 +255,31 @@ public class DossierRepository : IDossierRepository
                         d.{nameof(Dossier.WorkflowInstanceId)},
                         d.{nameof(Dossier.WorkflowStatusName)},
                         d.{nameof(Dossier.RowVersion)},
-                        d.{nameof(Dossier.CreatorId)},
-                        d.{nameof(Dossier.CreatorUsername)},
-                        d.{nameof(Dossier.CreatorName)},
                         d.{nameof(Dossier.CreatedBy)},
                         d.{nameof(Dossier.CreatedDate)},
                         d.{nameof(Dossier.ModifiedBy)},
-                        d.{nameof(Dossier.ModifiedDate)}
+                        d.{nameof(Dossier.ModifiedDate)},
+                        d.{nameof(Dossier.CreatorId)} as Id,
+                        d.{nameof(Dossier.CreatorUsername)} as Username,
+                        d.{nameof(Dossier.CreatorName)} as Name
                      FROM DOSSIERS d
                      LEFT JOIN INFRASTRUCTURE i ON d.{nameof(Dossier.InfrastructureId)} = i.ID
                      LEFT JOIN DOSSIER_TYPES dt ON d.{nameof(Dossier.DossierTypeId)} = dt.ID
                      LEFT JOIN DOSSIER_SETS ds ON d.{nameof(Dossier.DossierSetId)} = ds.ID
                      WHERE d.{nameof(Dossier.Id)} = :Id AND d.{nameof(Dossier.IsDeleted)} = 0";
-        var dossier = await _connection.QuerySingleOrDefaultAsync<DossierDetailDto>(sql, new { Id = id.ToString() });
+        var dossierList = await _connection.QueryAsync<DossierDetailDto, CreatorInfoDto, DossierDetailDto>(
+            sql,
+            (dossierDto, creatorDto) =>
+            {
+                dossierDto.Creator = creatorDto;
+                return dossierDto;
+            },
+            new { Id = id.ToString() },
+            splitOn: "Id"
+        );
+        var dossier = dossierList.FirstOrDefault();
         if (dossier == null) return null;
-        // Populate Creator info
-        if (dossier.Creator == null)
-        {
-            // Creator info is embedded in the dossier columns
-        }
+
         // Get equipment list
         dossier.Equipments = (await GetEquipmentsAsync(id)).ToList();
         return dossier;
@@ -421,6 +427,24 @@ public class DossierRepository : IDossierRepository
         });
         return affected > 0;
     }
+    public async Task<bool> UpdateStatusAsync(Guid id, string status, string modifiedBy)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+        var sql = $@"UPDATE DOSSIERS SET
+                        {nameof(Dossier.Status)} = :Status,
+                        {nameof(Dossier.ModifiedBy)} = :ModifiedBy,
+                        {nameof(Dossier.ModifiedDate)} = :ModifiedDate
+                     WHERE {nameof(Dossier.Id)} = :Id AND {nameof(Dossier.IsDeleted)} = 0";
+        var affected = await _connection.ExecuteAsync(sql, new
+        {
+            Id = id.ToString(),
+            Status = status,
+            ModifiedBy = modifiedBy,
+            ModifiedDate = DateTime.UtcNow
+        });
+        return affected > 0;
+    }
     public async Task<bool> UpdateWorkflowAsync(Guid id, Guid workflowInstanceId, string workflowStatusName, string status, string modifiedBy)
     {
         if (_connection.State != ConnectionState.Open)
@@ -442,6 +466,52 @@ public class DossierRepository : IDossierRepository
             ModifiedDate = DateTime.UtcNow
         });
         return affected > 0;
+    }
+    public async Task<bool> SaveActiveWorkflowTaskAsync(Guid dossierId, string stepId, string stepName, string assignees, string actionsJson, string modifiedBy)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        using var transaction = _connection.BeginTransaction();
+        try
+        {
+            var deleteSql = "DELETE FROM WORKFLOW_TASKS_ACTIVE WHERE DOSSIER_ID = :DossierId";
+            await _connection.ExecuteAsync(deleteSql, new { DossierId = dossierId.ToString() }, transaction);
+
+            if (!string.IsNullOrEmpty(stepId) && !string.IsNullOrWhiteSpace(assignees))
+            {
+                var insertSql = @"
+                    INSERT INTO WORKFLOW_TASKS_ACTIVE (
+                        ID, DOSSIER_ID, CURRENT_STEP_ID, CURRENT_STEP_NAME, CURRENT_ASSIGNEES, AVAILABLE_ACTIONS, 
+                        CREATED_BY, CREATED_DATE, LAST_MODIFIED_BY, LAST_MODIFIED_DATE
+                    ) VALUES (
+                        :Id, :DossierId, :CurrentStepId, :CurrentStepName, :CurrentAssignees, :AvailableActions, 
+                        :CreatedBy, :CreatedDate, :LastModifiedBy, :LastModifiedDate
+                    )";
+
+                await _connection.ExecuteAsync(insertSql, new
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    DossierId = dossierId.ToString(),
+                    CurrentStepId = stepId,
+                    CurrentStepName = stepName,
+                    CurrentAssignees = assignees,
+                    AvailableActions = actionsJson,
+                    CreatedBy = modifiedBy,
+                    CreatedDate = DateTime.UtcNow,
+                    LastModifiedBy = modifiedBy,
+                    LastModifiedDate = DateTime.UtcNow
+                }, transaction);
+            }
+
+            transaction.Commit();
+            return true;
+        }
+        catch
+        {
+            transaction.Rollback();
+            throw;
+        }
     }
     public async Task<bool> UpdateFormDataAsync(Guid id, string formDataJson, int expectedRowVersion, string modifiedBy)
     {

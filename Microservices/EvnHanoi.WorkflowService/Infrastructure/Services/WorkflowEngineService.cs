@@ -553,11 +553,19 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
             var instance = await GetRunningMoveContextAsync(targetEntityId, entityType);
             var currentTask = instance.Tasks.First(t => t.Status == "Pending");
 
-            if (!isAdmin && !string.IsNullOrEmpty(currentTask.AssignedRole))
+            if (!isAdmin)
             {
-                var hasRole = userRoles.Any(r => r.Equals(currentTask.AssignedRole, StringComparison.OrdinalIgnoreCase));
-                if (!hasRole)
-                    throw new ArgumentException($"Người dùng không có vai trò '{currentTask.AssignedRole}' cần thiết cho bước này.");
+                if (!string.IsNullOrEmpty(currentTask.AssigneeUserId))
+                {
+                    if (!currentTask.AssigneeUserId.Equals(userId, StringComparison.OrdinalIgnoreCase))
+                        throw new ArgumentException("Nhiệm vụ này đã được chỉ định cho người xử lý khác, cùng vai trò không thể xử lý thay.");
+                }
+                else if (!string.IsNullOrEmpty(currentTask.AssignedRole))
+                {
+                    var hasRole = userRoles.Any(r => r.Equals(currentTask.AssignedRole, StringComparison.OrdinalIgnoreCase));
+                    if (!hasRole)
+                        throw new ArgumentException($"Người dùng không có vai trò '{currentTask.AssignedRole}' cần thiết cho bước này.");
+                }
             }
 
             var definition = instance.WorkflowDefinition;

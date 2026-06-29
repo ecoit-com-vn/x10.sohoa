@@ -73,7 +73,7 @@ public static class DossierTabEsQuery
 
         return value.Trim() switch
         {
-            "Draft" or "PendingApproval" or "InProgress" or "Approved" or "Returned" => true,
+            "Draft" or "New" or "CompletedInput" or "PendingApproval" or "InProgress" or "Approved" or "Returned" => true,
             _ => false
         };
     }

@@ -30,6 +30,13 @@ public class DossierEnrichmentData
     public string? PendingAssigneeUserId { get; set; }
     public List<string> WorkflowParticipantUserIds { get; set; } = new();
     public bool CurrentStepAllowEdit { get; set; }
+    public string? CurrentStepId { get; set; }
+    public int? CurrentStepOrder { get; set; }
+    public string? WorkflowLastAction { get; set; }
+    /// <summary>WF Running + hành động gần nhất Reject + đang ở bước đầu (người tạo).</summary>
+    public bool IsReturnedToCreatorStep { get; set; }
+    public string? CurrentAssignees { get; set; }
+    public string? AvailableActionsJson { get; set; }
 }
 
 public class BhsCatalogDefinition

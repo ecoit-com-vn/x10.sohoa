@@ -19,4 +19,7 @@ public static class DossierEsFieldNames
     public const string PendingAssignedRoles = "pendingAssignedRoles";
     public const string WorkflowParticipantUserIds = "workflowParticipantUserIds";
     public const string CreatedDate = "createdDate";
+    public const string CurrentStepOrder = "currentStepOrder";
+    public const string WorkflowLastAction = "workflowLastAction";
+    public const string IsReturnedToCreatorStep = "isReturnedToCreatorStep";
 }

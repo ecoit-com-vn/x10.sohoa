@@ -48,7 +48,7 @@ public class DossierListItemDto
     public string Status { get; set; } = string.Empty;
     public string? WorkflowStatusName { get; set; }
     public int DocumentCount { get; set; }
-    public string? CreatorName { get; set; }
+    public CreatorInfoDto? Creator { get; set; }
     public DateTime CreatedDate { get; set; }
     /// <summary>
     /// Dữ liệu catalog động theo BHS — key = catalog.Name (trùng key FormDataJson), value = giá trị từ JSON
@@ -239,4 +239,22 @@ public class UpdateInternalWorkflowStateDto
 
     /// <summary>Trạng thái nghiệp vụ do WS suy ra: Draft | PendingApproval | InProgress | Returned | Approved.</summary>
     public string DossierStatus { get; set; } = string.Empty;
+
+    public string? CurrentStepId { get; set; }
+
+    public List<string> CurrentAssignees { get; set; } = new();
+
+    public List<WorkflowActionDto> AvailableActions { get; set; } = new();
 }
+
+public class WorkflowActionDto
+{
+    public string Code { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string NextNodeId { get; set; } = string.Empty;
+    /// <summary>Bước tiếp theo cần chọn người xử lý (userTask, không phải từ chối).</summary>
+    public bool RequiresNextAssignee { get; set; }
+    /// <summary>Role bước tiếp theo (requiredRole trên BPMN / WORKFLOWSTEPS).</summary>
+    public string? NextStepRole { get; set; }
+}
+

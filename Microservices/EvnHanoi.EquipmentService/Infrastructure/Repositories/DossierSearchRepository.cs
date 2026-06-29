@@ -139,7 +139,12 @@ public class DossierSearchRepository : IDossierSearchRepository
             Status = doc.Status,
             WorkflowStatusName = doc.WorkflowStatusName,
             DocumentCount = doc.DocumentCount,
-            CreatorName = doc.CreatorName,
+            Creator = new CreatorInfoDto
+            {
+                Id = doc.CreatorId ?? string.Empty,
+                Username = doc.CreatorUsername ?? string.Empty,
+                Name = doc.CreatorName ?? string.Empty
+            },
             CreatedDate = doc.CreatedDate,
             CatalogData = doc.CatalogFields
                 .OrderBy(c => c.SortOrder)

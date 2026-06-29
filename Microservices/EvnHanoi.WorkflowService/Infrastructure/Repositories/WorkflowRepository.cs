@@ -732,6 +732,36 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
             return affected > 0;
         }
 
+        public async Task<bool> DeleteInstancePhysicalAsync(Guid instanceId)
+        {
+            if (_connection.State != ConnectionState.Open) _connection.Open();
+            using var transaction = _connection.BeginTransaction();
+            try
+            {
+                var idStr = instanceId.ToString();
+                
+                // 1. Xóa history
+                var sqlDeleteHistory = "DELETE FROM WORKFLOWHISTORY WHERE WORKFLOWINSTANCEID = :InstanceId";
+                await _connection.ExecuteAsync(sqlDeleteHistory, new { InstanceId = idStr }, transaction);
+                
+                // 2. Xóa tasks
+                var sqlDeleteTasks = "DELETE FROM WORKFLOWTASKS WHERE WORKFLOWINSTANCEID = :InstanceId";
+                await _connection.ExecuteAsync(sqlDeleteTasks, new { InstanceId = idStr }, transaction);
+                
+                // 3. Xóa instance
+                var sqlDeleteInstance = "DELETE FROM WORKFLOWINSTANCES WHERE ID = :InstanceId";
+                var affected = await _connection.ExecuteAsync(sqlDeleteInstance, new { InstanceId = idStr }, transaction);
+                
+                transaction.Commit();
+                return affected > 0;
+            }
+            catch
+            {
+                transaction.Rollback();
+                throw;
+            }
+        }
+
         public async Task<WorkflowTask?> GetTaskByIdAsync(Guid id)
         {
             if (_connection.State != ConnectionState.Open) _connection.Open();
