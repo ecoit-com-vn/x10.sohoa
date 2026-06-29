@@ -2,6 +2,8 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .readonly-notice {
@@ -23,7 +25,89 @@
 .action-buttons-group {
   display: flex;
   gap: 4px;
-  justify-content: center;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: nowrap;
+}
+
+.dossier-documents-tab .wf-table-wrap {
+  overflow-x: auto;
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  --actions-col-width: 124px;
+}
+
+.dossier-documents-tab .wf-table {
+  width: max-content;
+  min-width: 100%;
+
+  th.col-actions-sticky,
+  td.col-actions-sticky {
+    position: sticky;
+    right: 0;
+    z-index: 4;
+    width: var(--actions-col-width);
+    min-width: var(--actions-col-width);
+    padding: 0;
+    vertical-align: middle;
+    background: #fff;
+    overflow: visible;
+  }
+
+  thead th.col-actions-sticky {
+    background: #f8fafc;
+    z-index: 6;
+  }
+
+  tbody tr:hover td.col-actions-sticky {
+    background: #f8faff;
+  }
+
+  .col-actions-sticky-panel {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    width: 100%;
+    min-height: 100%;
+    padding: 9px 10px 9px 12px;
+    background: #fff;
+    overflow: visible;
+  }
+
+  thead th.col-actions-sticky .col-actions-sticky-panel--head {
+    background: #f8fafc;
+  }
+
+  tbody tr:hover td.col-actions-sticky .col-actions-sticky-panel {
+    background: #f8faff;
+  }
+
+  .col-actions-sticky-panel--head {
+    padding: 10px 10px 10px 12px;
+    font-weight: 600;
+    color: #475569;
+    font-size: 0.82rem;
+  }
+}
+
+.dossier-documents-tab .wf-table-wrap.has-horizontal-scroll {
+  .col-actions-sticky-panel::before {
+    content: '';
+    position: absolute;
+    left: -32px;
+    top: 0;
+    bottom: 0;
+    width: 32px;
+    pointer-events: none;
+    background: linear-gradient(to left, rgba(15, 23, 42, 0.16), rgba(15, 23, 42, 0));
+  }
+
+  .col-actions-sticky-panel {
+    box-shadow: inset 10px 0 12px -10px rgba(15, 23, 42, 0.1);
+  }
 }
 
 .act-btn {
@@ -64,6 +148,14 @@
 
   &.act-edit:hover:not(:disabled) i {
     color: #2563eb;
+  }
+
+  &.act-view:hover:not(:disabled) i {
+    color: #0891b2;
+  }
+
+  &.act-more:hover:not(:disabled) i {
+    color: #64748b;
   }
 }
 

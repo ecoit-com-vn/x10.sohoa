@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable, firstValueFrom, map } from 'rxjs';
+import { HttpClient, HttpParams, HttpErrorResponse } from '@angular/common/http';
+import { Observable, firstValueFrom, map, catchError, throwError, of } from 'rxjs';
 import { APP_CONFIG } from '@sohoa.frontend/shared/core';
 import {
   extractApiErrorMessage,
@@ -428,6 +428,22 @@ export class DossierDocumentService {
     return this.http.get<DocumentExtractionResult>(
       `${this.dossierBase(dossierId)}/${versionId}/digitization/result`
     );
+  }
+
+  /** 404 = chưa có kết quả bóc tách (null); lỗi khác ném lại để caller hiển thị message API. */
+  getDigitizationResultOrNull(dossierId: string, versionId: string): Observable<DocumentExtractionResult | null> {
+    return this.getDigitizationResult(dossierId, versionId).pipe(
+      catchError((error: unknown) => {
+        if (error instanceof HttpErrorResponse && error.status === 404) {
+          return of(null);
+        }
+        return throwError(() => error);
+      })
+    );
+  }
+
+  digitizationResultErrorMessage(error: unknown, fallback = 'Không tải được kết quả bóc tách'): string {
+    return extractApiErrorMessage(error, fallback);
   }
 }
 

@@ -161,10 +161,50 @@ export function pickFormDataForSchema(
 }
 
 export function serializeFormDataForSchema(
-  fields: ReadonlyArray<Pick<EavField, 'key'>>,
+  fields: ReadonlyArray<Pick<EavField, 'key' | 'name' | 'id'>>,
   data: Record<string, unknown> | null | undefined
 ): string {
-  return JSON.stringify(pickFormDataForSchema(fields, data));
+  const source = data ?? {};
+  const result: Record<string, unknown> = {};
+
+  for (const field of fields) {
+    const key = field.key?.trim();
+    if (!key) continue;
+
+    // Giá trị chỉnh sửa luôn ghi theo key chuẩn của schema
+    if (Object.prototype.hasOwnProperty.call(source, key)) {
+      result[key] = source[key];
+      continue;
+    }
+
+    const picked = pickFormDataForSchema([field], source);
+    if (Object.prototype.hasOwnProperty.call(picked, key)) {
+      result[key] = picked[key];
+    }
+  }
+
+  return JSON.stringify(result);
+}
+
+/** Gộp dữ liệu hồ sơ hiện tại + cập nhật từ form tài liệu, serialize theo schema hồ sơ. */
+export function mergeFormDataForSave(
+  persistFields: ReadonlyArray<Pick<EavField, 'key' | 'name' | 'id'>>,
+  currentData: Record<string, unknown>,
+  updates: Record<string, unknown>,
+  updateFields: ReadonlyArray<Pick<EavField, 'key'>>
+): string {
+  const base = pickFormDataForSchema(persistFields, currentData);
+  const merged: Record<string, unknown> = { ...base };
+
+  for (const field of updateFields) {
+    const key = field.key?.trim();
+    if (!key) continue;
+    if (Object.prototype.hasOwnProperty.call(updates, key)) {
+      merged[key] = updates[key];
+    }
+  }
+
+  return serializeFormDataForSchema(persistFields, merged);
 }
 
 /** Parse FormSchema JSON → danh sách field EAV. */
@@ -286,6 +326,32 @@ export function formatFieldDisplayValue(field: EavField, value: unknown): string
   }
 
   return displayFieldValue(value);
+}
+
+/** Draft form tài liệu: ưu tiên dữ liệu đã lưu trên hồ sơ, bóc tách mới chỉ điền chỗ trống. */
+export function buildDocumentDraftFromSources(
+  fields: ReadonlyArray<EavField>,
+  extractedSource: Record<string, unknown>,
+  dossierData: Record<string, unknown>
+): Record<string, unknown> {
+  const extracted = pickFormDataForSchema(fields, extractedSource);
+  const existing = pickFormDataForSchema(fields, dossierData);
+  const draft: Record<string, unknown> = {};
+
+  for (const field of fields) {
+    const key = field.key?.trim();
+    if (!key) continue;
+
+    const value = hasExtractedValue(existing[key]) ? existing[key] : extracted[key];
+
+    if (field.type === 'checkbox') {
+      draft[key] = value ?? false;
+    } else {
+      draft[key] = value ?? '';
+    }
+  }
+
+  return draft;
 }
 
 export function hasExtractedValue(value: unknown): boolean {

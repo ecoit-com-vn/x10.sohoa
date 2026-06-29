@@ -115,6 +115,19 @@ export class AuthService {
     const roles = payload['role'] || payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] || [];
     return Array.isArray(roles) ? roles : [roles];
   }
+  getUserId(): string | null {
+    const token = this.getToken();
+    if (!token) return null;
+    const payload = this.decodeTokenPayload(token);
+    if (!payload) return null;
+    console.log('SOHOA_DEBUG JWT Payload:', payload);
+    return payload['id'] || 
+           payload['nameid'] || 
+           payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'] || 
+           payload['sub'] || 
+           payload['unique_name'] || 
+           null;
+  }
   getPermissions(): Observable<string[]> {
     return this.http.get<string[]>(`${this.base}/permissions`);
   }

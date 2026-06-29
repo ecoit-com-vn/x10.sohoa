@@ -1,4 +1,4 @@
-import { Component, OnInit, signal, computed, inject, Output, EventEmitter } from '@angular/core';
+import { Component, OnInit, signal, computed, inject, Output, EventEmitter, Input } from '@angular/core';
 
 import { CommonModule } from '@angular/common';
 
@@ -8,16 +8,35 @@ import { ToastModule } from 'primeng/toast';
 
 import { DialogModule } from 'primeng/dialog';
 
-import { MessageService } from 'primeng/api';
+import { MenuModule } from 'primeng/menu';
 
-import { BhsCatalogColumn, DossierManagementService } from '../../data-access/dossier-management.service';
+import { MessageService, MenuItem } from 'primeng/api';
+
+import { BhsCatalogColumn, DossierManagementService, DossierWorkflowAction, normalizeDossierWorkflowAction } from '../../data-access/dossier-management.service';
+import { AuthService } from '@sohoa.frontend/shared/core';
+import { isRejectWorkflowLabel, isApproveWorkflowLabel } from '../../utils/dossier-workflow-bpmn.util';
 import {
   DossierListTab,
+  DossierMenuScope,
   DossierTabCounts,
+  getDefaultTabForMenuScope,
   getDossierStatusLabel,
   getDossierStatusPillClass,
   getDossierWorkflowStepSubtitle,
+  getTabsForMenuScope,
 } from '../../utils/dossier-status.util';
+import { catchError, finalize } from 'rxjs';
+
+function tabLabel(tab: DossierListTab): string {
+  const labels: Record<DossierListTab, string> = {
+    draft: 'Tạo mới',
+    'pending-action': 'Chờ xử lý',
+    'in-progress': 'Đang xử lý',
+    completed: 'Hoàn thành',
+    returned: 'Trả lại',
+  };
+  return labels[tab];
+}
 
 function normalizeTabCounts(raw: unknown): DossierTabCounts {
   const source = (raw ?? {}) as Record<string, unknown>;
@@ -36,32 +55,21 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
 
   standalone: true,
 
-  imports: [CommonModule, FormsModule, ToastModule, DialogModule],
+  imports: [CommonModule, FormsModule, ToastModule, DialogModule, MenuModule],
 
   template: `
 
     <div class="wf-card">
 
       <div class="tab-bar">
-        <button type="button" class="tab-item" [class.tab-active]="activeTab() === 'draft'" (click)="selectTab('draft')">
-          Nháp
-          <span class="tab-badge" *ngIf="tabCounts()?.draft">{{ tabCounts()!.draft }}</span>
-        </button>
-        <button type="button" class="tab-item" [class.tab-active]="activeTab() === 'pending-action'" (click)="selectTab('pending-action')">
-          Chờ xử lý
-          <span class="tab-badge" *ngIf="tabCounts()?.pendingAction">{{ tabCounts()!.pendingAction }}</span>
-        </button>
-        <button type="button" class="tab-item" [class.tab-active]="activeTab() === 'in-progress'" (click)="selectTab('in-progress')">
-          Đang xử lý
-          <span class="tab-badge" *ngIf="tabCounts()?.inProgress">{{ tabCounts()!.inProgress }}</span>
-        </button>
-        <button type="button" class="tab-item" [class.tab-active]="activeTab() === 'completed'" (click)="selectTab('completed')">
-          Hoàn thành
-          <span class="tab-badge" *ngIf="tabCounts()?.completed">{{ tabCounts()!.completed }}</span>
-        </button>
-        <button type="button" class="tab-item" [class.tab-active]="activeTab() === 'returned'" (click)="selectTab('returned')">
-          Trả lại
-          <span class="tab-badge" *ngIf="tabCounts()?.returned">{{ tabCounts()!.returned }}</span>
+        <button
+          type="button"
+          class="tab-item"
+          *ngFor="let tab of visibleTabs()"
+          [class.tab-active]="activeTab() === tab"
+          (click)="selectTab(tab)">
+          {{ tabLabel(tab) }}
+          <span class="tab-badge" *ngIf="getTabBadgeCount(tab)">{{ getTabBadgeCount(tab) }}</span>
         </button>
       </div>
 
@@ -109,7 +117,7 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
 
         </div>
 
-        <div class="toolbar-right" *ngIf="activeTab() === 'draft'">
+        <div class="toolbar-right" *ngIf="isCreatorMenu() && activeTab() === 'draft' && authService.hasPermission('DOSSIER_CREATE')">
 
           <button (click)="onCreateNew()" class="btn-green">
 
@@ -235,11 +243,16 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
 
                     </button>
 
-                    <button *ngIf="item.status === 'Draft' || !item.workflowInstanceId" (click)="onDelete(item)" class="act-btn act-delete" title="Xóa">
-
+                    <button *ngIf="isCreatorMenu() && (item.status === 'Draft' || item.status === 'New' || item.status === 'CompletedInput' || !item.workflowInstanceId)" (click)="onDelete(item)" class="act-btn act-delete" title="Xóa">
                       <i class="pi pi-trash"></i>
-
                     </button>
+
+                    <!-- Thao tác nhanh (Quick Actions) dạng dropdown -->
+                    <div *ngIf="checkQuickActionPermission(item)" style="display: inline-flex; justify-content: center; align-items: center;">
+                      <button (click)="openQuickActionMenu($event, item, actionMenu)" class="act-btn act-assign" title="Thao tác nhanh">
+                        <i class="pi pi-chevron-down"></i>
+                      </button>
+                    </div>
 
                   </div>
 
@@ -283,7 +296,7 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
 
     </div>
 
-
+    <p-menu #actionMenu [model]="quickActionMenuItems" [popup]="true" appendTo="body" styleClass="quick-action-menu"></p-menu>
 
     <p-dialog
 
@@ -347,6 +360,56 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
 
     </p-dialog>
 
+    <p-dialog
+      [visible]="showQuickActionDialog()"
+      (visibleChange)="$event ? null : closeQuickActionDialog()"
+      [header]="pendingQuickActionMeta()?.label || pendingQuickAction()?.name || 'Xác nhận'"
+      [modal]="true"
+      [style]="{ width: '460px' }"
+      styleClass="evn-dialog-custom"
+      [closable]="!quickActionSubmitting()">
+      <div *ngIf="quickActionLoading()" style="display: flex; align-items: center; gap: 8px; color: #64748b; padding: 8px 0;">
+        <i class="pi pi-spin pi-spinner"></i> Đang tải thông tin quy trình...
+      </div>
+      <div *ngIf="!quickActionLoading()" style="display: flex; flex-direction: column; gap: 16px; padding: 4px 0 8px;">
+        <div class="form-group" *ngIf="pendingQuickActionMeta()?.requiresUser && !isRejectLabel(pendingQuickActionMeta()?.label)">
+          <label class="form-label">
+            <span class="required">*</span> Người xử lý bước tiếp theo
+          </label>
+          <select class="wf-select w-full"
+                  [ngModel]="selectedNextUserId()"
+                  (ngModelChange)="selectedNextUserId.set($event)">
+            <option value="" disabled selected>-- Chọn người xử lý --</option>
+            <option *ngFor="let u of filteredNextUsers()" [value]="u.id">
+              {{ u.fullName }} ({{ u.username }})
+            </option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Ý kiến xử lý <span style="color: #94a3b8; font-weight: 400;">(tuỳ chọn)</span></label>
+          <textarea class="wf-textarea w-full" rows="3"
+                    [ngModel]="quickActionComment()"
+                    (ngModelChange)="quickActionComment.set($event)"
+                    [placeholder]="isRejectLabel(pendingQuickActionMeta()?.label) ? 'Nhập lý do từ chối / trả lại...' : 'Nhập ý kiến xử lý (nếu có)...'">
+          </textarea>
+        </div>
+      </div>
+      <ng-template #footer>
+        <button class="btn-cancel btn-small" (click)="closeQuickActionDialog()" [disabled]="quickActionSubmitting()">Hủy</button>
+        <button class="btn-small"
+                [class.btn-cancel]="isRejectLabel(pendingQuickActionMeta()?.label)"
+                [class.btn-save]="isApproveLabel(pendingQuickActionMeta()?.label)"
+                [class.btn-green]="!isRejectLabel(pendingQuickActionMeta()?.label) && !isApproveLabel(pendingQuickActionMeta()?.label)"
+                (click)="confirmQuickAction()"
+                [disabled]="quickActionSubmitting() || quickActionLoading()">
+          <i class="pi pi-spin pi-spinner" *ngIf="quickActionSubmitting()"></i>
+          <i class="pi pi-check" *ngIf="!quickActionSubmitting() && !isRejectLabel(pendingQuickActionMeta()?.label)"></i>
+          <i class="pi pi-times" *ngIf="!quickActionSubmitting() && isRejectLabel(pendingQuickActionMeta()?.label)"></i>
+          {{ pendingQuickActionMeta()?.label || pendingQuickAction()?.name }}
+        </button>
+      </ng-template>
+    </p-dialog>
+
   `,
 
   styles: [`
@@ -369,17 +432,52 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
       background: #dbeafe;
       color: #1d4ed8;
     }
+    ::ng-deep .quick-action-reject .p-menuitem-text,
+    ::ng-deep .quick-action-reject .p-menuitem-icon,
+    ::ng-deep .quick-action-reject span,
+    ::ng-deep .quick-action-reject i {
+      color: #ef4444 !important;
+    }
+    ::ng-deep .quick-action-approve .p-menuitem-text,
+    ::ng-deep .quick-action-approve .p-menuitem-icon,
+    ::ng-deep .quick-action-approve span,
+    ::ng-deep .quick-action-approve i {
+      color: #3BA962 !important;
+    }
+    ::ng-deep .quick-action-menu .p-menuitem-link {
+      display: flex !important;
+      justify-content: center !important;
+      align-items: center !important;
+      text-align: center !important;
+      padding: 8px 16px !important;
+    }
+    ::ng-deep .quick-action-menu .p-menuitem-text {
+      flex: none !important;
+      margin-left: 8px !important;
+    }
   `]
 
 })
 
 export class DossierListComponent implements OnInit {
 
+  @Input({ required: true }) set menuScope(value: DossierMenuScope) {
+    this.menuScopeSignal.set(value);
+    this.activeTab.set(getDefaultTabForMenuScope(value));
+  }
+
+  private menuScopeSignal = signal<DossierMenuScope>('creator');
+  visibleTabs = computed(() => getTabsForMenuScope(this.menuScopeSignal()));
+  isCreatorMenu = computed(() => this.menuScopeSignal() === 'creator');
+  isApproverMenu = computed(() => this.menuScopeSignal() === 'approver');
+
+  tabLabel = tabLabel;
+
   private service = inject(DossierManagementService);
 
   private messageService = inject(MessageService);
 
-
+  authService = inject(AuthService);
 
   @Output() viewDetail = new EventEmitter<string>();
 
@@ -421,6 +519,19 @@ export class DossierListComponent implements OnInit {
 
   tabCounts = signal<DossierTabCounts | null>(null);
 
+  getTabBadgeCount(tab: DossierListTab): number {
+    const counts = this.tabCounts();
+    if (!counts) return 0;
+    switch (tab) {
+      case 'draft': return counts.draft;
+      case 'pending-action': return counts.pendingAction;
+      case 'in-progress': return counts.inProgress;
+      case 'completed': return counts.completed;
+      case 'returned': return counts.returned;
+      default: return 0;
+    }
+  }
+
 
 
   showDeleteConfirm = signal<boolean>(false);
@@ -428,6 +539,23 @@ export class DossierListComponent implements OnInit {
   deleteTarget = signal<any>(null);
 
   deleting = signal<boolean>(false);
+
+  showQuickActionDialog = signal<boolean>(false);
+  quickActionLoading = signal<boolean>(false);
+  quickActionSubmitting = signal<boolean>(false);
+  quickActionComment = signal<string>('');
+  selectedNextUserId = signal<string>('');
+  quickActionDossierId = signal<string | null>(null);
+  pendingQuickAction = signal<DossierWorkflowAction | null>(null);
+  pendingQuickActionMeta = signal<{
+    label: string;
+    targetNodeId: string;
+    requiresUser: boolean;
+    requiredRole: string;
+  } | null>(null);
+  users = signal<any[]>([]);
+
+  filteredNextUsers = computed(() => this.users());
 
 
 
@@ -512,13 +640,10 @@ export class DossierListComponent implements OnInit {
   loadTabCounts() {
 
     this.service.getDossierTabCounts({
-
+      menuScope: this.menuScopeSignal(),
       keyword: this.searchKeyword(),
-
       gridTypeId: this.filterGridTypeId() !== null ? this.filterGridTypeId()! : undefined,
-
       infrastructureId: this.filterInfrastructureId() || undefined,
-
     }).subscribe({
 
       next: (counts) => this.tabCounts.set(normalizeTabCounts(counts)),
@@ -567,19 +692,13 @@ export class DossierListComponent implements OnInit {
     this.items.set([]);
 
     const filter = {
-
+      menuScope: this.menuScopeSignal(),
       tab: this.activeTab(),
-
       keyword: this.searchKeyword(),
-
       gridTypeId: this.filterGridTypeId() !== null ? this.filterGridTypeId()! : undefined,
-
       infrastructureId: this.filterInfrastructureId() || undefined,
-
       page: this.currentPage(),
-
       pageSize: this.pageSize()
-
     };
 
 
@@ -665,20 +784,71 @@ export class DossierListComponent implements OnInit {
 
 
 
-  canEditItem(item: { status?: string; Status?: string; currentStepAllowEdit?: boolean; CurrentStepAllowEdit?: boolean }): boolean {
+  isAssignedToCurrentUser(item: any): boolean {
+    if (!item) return false;
+    
+    const userId = this.authService.getUserId();
+    const roles = this.authService.getUserRoles() || [];
 
-    if (this.activeTab() === 'draft') return true;
+    if (roles.includes('ADMIN')) return true;
 
     const status = item.status ?? item.Status;
+    if (this.activeTab() === 'draft' || status === 'Draft' || status === 'New' || status === 'CompletedInput') {
+      const creatorId = item.creator?.id ?? item.Creator?.Id ?? item.creatorId ?? item.CreatorId;
+      const creatorUsername = item.creator?.username ?? item.Creator?.Username ?? item.creatorUsername ?? item.CreatorUsername ?? item.createdBy ?? item.CreatedBy;
+      
+      const normalizeGuid = (val: any) => val ? String(val).replace(/[-]/g, '').toLowerCase().trim() : '';
+      const normCreatorId = normalizeGuid(creatorId);
+      const normUserId = normalizeGuid(userId);
+      
+      const normCreatorUsername = creatorUsername ? String(creatorUsername).toLowerCase().trim() : '';
+      const normUserUsername = userId ? String(userId).toLowerCase().trim() : '';
 
-    if (status === 'Draft' || status === 'Returned') return true;
+      console.log('SOHOA_DEBUG List Draft Edit Check:', {
+        creatorId,
+        normCreatorId,
+        userId,
+        normUserId,
+        creatorUsername,
+        normCreatorUsername,
+        normUserUsername,
+        matchId: normCreatorId !== '' && normCreatorId === normUserId,
+        matchUsername: normCreatorUsername !== '' && normCreatorUsername === normUserUsername
+      });
 
-    const stepAllowEdit = item.currentStepAllowEdit ?? item.CurrentStepAllowEdit;
+      return (normCreatorId !== '' && normCreatorId === normUserId) ||
+             (normCreatorUsername !== '' && normCreatorUsername === normUserUsername);
+    }
 
-    if (this.activeTab() === 'pending-action' && stepAllowEdit) return true;
+    if (item.currentAssignees && item.currentAssignees.length > 0) {
+      if (status === 'Returned') {
+        return item.currentAssignees.some((assignee: string) => 
+          String(assignee).toLowerCase() === String(userId).toLowerCase()
+        );
+      }
+
+      return item.currentAssignees.some((assignee: string) => 
+        String(assignee).toLowerCase() === String(userId).toLowerCase() || 
+        roles.some(r => String(r).toLowerCase() === String(assignee).toLowerCase())
+      );
+    }
 
     return false;
+  }
 
+  canEditItem(item: any): boolean {
+    if (this.isApproverMenu()) return false;
+    if (!this.canMutateDossierOnCreatorMenu()) return false;
+
+    const status = item.status ?? item.Status;
+    const isDraftState = this.activeTab() === 'draft' || status === 'Draft' || status === 'New' || status === 'CompletedInput' || status === 'Returned';
+    const stepAllowEdit = item.currentStepAllowEdit ?? item.CurrentStepAllowEdit;
+    
+    if (isDraftState || stepAllowEdit) {
+      return this.isAssignedToCurrentUser(item);
+    }
+
+    return false;
   }
 
 
@@ -747,6 +917,179 @@ export class DossierListComponent implements OnInit {
 
     this.deleteTarget.set(null);
 
+  }
+
+  checkQuickActionPermission(item: any): boolean {
+    if (!item || !item.availableActions || item.availableActions.length === 0) return false;
+    if (!item.currentAssignees || item.currentAssignees.length === 0) return false;
+
+    const userId = this.authService.getUserId();
+    const roles = this.authService.getUserRoles();
+
+    if (roles.includes('ADMIN')) return true;
+
+    const isAssignee = item.currentAssignees.some((assignee: string) =>
+      assignee === userId || roles.includes(assignee)
+    );
+
+    if (this.isApproverMenu()) {
+      return isAssignee;
+    }
+
+    const status = item.status ?? item.Status;
+    return status === 'Returned' && isAssignee;
+  }
+
+  private shouldUseResubmit(item: any): boolean {
+    if (!this.isCreatorMenu()) return false;
+    const status = item.status ?? item.Status;
+    return status === 'Returned' || this.activeTab() === 'returned';
+  }
+
+  /** Menu quản lý: sửa form/tài liệu cần DOSSIER_EDIT (PUT) hoặc CREATE (nháp mới). */
+  private canMutateDossierOnCreatorMenu(): boolean {
+    if (!this.isCreatorMenu()) return false;
+    return (
+      this.authService.hasPermission('DOSSIER_EDIT') ||
+      this.authService.hasPermission('DOSSIER_CREATE')
+    );
+  }
+
+  onQuickAction(
+    dossierId: string,
+    action: DossierWorkflowAction,
+    meta: { label: string; targetNodeId: string; requiresUser: boolean; requiredRole: string }
+  ) {
+    const isReject = this.isRejectLabel(meta.label);
+    if (meta.requiresUser && !isReject && !this.selectedNextUserId()) {
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Lỗi',
+        detail: 'Vui lòng chọn người xử lý bước tiếp theo.',
+      });
+      return;
+    }
+
+    this.quickActionSubmitting.set(true);
+    const request = {
+      nextNodeId: meta.targetNodeId || action.nextNodeId,
+      actionLabel: meta.label || action.name,
+      comment: this.quickActionComment() || undefined,
+      nextAssigneeUserId: (!isReject && meta.requiresUser) ? this.selectedNextUserId() : undefined,
+    };
+    const targetItem = this.items().find(i => i.id === dossierId);
+    const workflowCall = this.shouldUseResubmit(targetItem ?? { status: this.activeTab() === 'returned' ? 'Returned' : '' })
+      ? this.service.resubmitWorkflow(dossierId, request)
+      : this.service.moveWorkflow(dossierId, request);
+
+    workflowCall.pipe(
+      finalize(() => this.quickActionSubmitting.set(false))
+    ).subscribe({
+      next: () => {
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Thành công',
+          detail: `Thao tác "${meta.label || action.name}" thành công!`,
+        });
+        this.closeQuickActionDialog(true);
+        this.refreshList();
+      },
+      error: (err) => {
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Lỗi',
+          detail: err?.error?.message || 'Không thể thực hiện thao tác nhanh.',
+        });
+      },
+    });
+  }
+
+  openQuickActionDialog(item: any, rawAction: Record<string, unknown>) {
+    const action = normalizeDossierWorkflowAction(rawAction);
+    this.quickActionDossierId.set(item.id);
+    this.pendingQuickAction.set(action);
+    this.pendingQuickActionMeta.set({
+      label: action.name,
+      targetNodeId: action.nextNodeId,
+      requiresUser: !!action.requiresNextAssignee,
+      requiredRole: action.nextStepRole ?? '',
+    });
+    this.quickActionComment.set('');
+    this.selectedNextUserId.set('');
+    this.showQuickActionDialog.set(true);
+
+    if (!action.requiresNextAssignee) {
+      this.users.set([]);
+      this.quickActionLoading.set(false);
+      return;
+    }
+
+    this.quickActionLoading.set(true);
+    this.service.getUsersLookup(action.nextStepRole).pipe(
+      finalize(() => this.quickActionLoading.set(false))
+    ).subscribe({
+      next: (users) => {
+        this.users.set(Array.isArray(users) ? users : []);
+      },
+      error: () => {
+        this.messageService.add({
+          severity: 'warn',
+          summary: 'Cảnh báo',
+          detail: 'Không thể tải danh sách người xử lý.',
+        });
+        this.users.set([]);
+      },
+    });
+  }
+
+  confirmQuickAction() {
+    const dossierId = this.quickActionDossierId();
+    const action = this.pendingQuickAction();
+    const meta = this.pendingQuickActionMeta();
+    if (!dossierId || !action || !meta) return;
+    this.onQuickAction(dossierId, action, meta);
+  }
+
+  closeQuickActionDialog(force = false) {
+    if (!force && this.quickActionSubmitting()) return;
+    this.showQuickActionDialog.set(false);
+    this.quickActionDossierId.set(null);
+    this.pendingQuickAction.set(null);
+    this.pendingQuickActionMeta.set(null);
+    this.quickActionComment.set('');
+    this.selectedNextUserId.set('');
+  }
+
+  isRejectLabel(label?: string | null): boolean {
+    return isRejectWorkflowLabel(label);
+  }
+
+  isApproveLabel(label?: string | null): boolean {
+    return isApproveWorkflowLabel(label);
+  }
+
+  quickActionMenuItems: MenuItem[] = [];
+
+  openQuickActionMenu(event: Event, item: any, menu: any) {
+    event.stopPropagation();
+    if (!item.availableActions || item.availableActions.length === 0) return;
+
+    this.quickActionMenuItems = item.availableActions.map((act: any) => {
+      const isReject = act.code === 'REJECT' || 
+                       act.name.toLowerCase().includes('từ chối') || 
+                       act.name.toLowerCase().includes('trả lại') || 
+                       act.name.toLowerCase().includes('hủy');
+      return {
+        label: act.name,
+        icon: isReject ? 'pi pi-times-circle' : 'pi pi-check-circle',
+        styleClass: isReject ? 'quick-action-reject' : 'quick-action-approve',
+        command: () => {
+          this.openQuickActionDialog(item, act);
+        }
+      };
+    });
+
+    menu.toggle(event);
   }
 
 }

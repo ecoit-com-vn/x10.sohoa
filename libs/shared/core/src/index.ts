@@ -1,5 +1,6 @@
 export * from './lib/config/app-config.token';
 export * from './lib/guards/auth.guard';
+export * from './lib/guards/dossier-menu.guard';
 export * from './lib/interceptors/auth.interceptor';
 export * from './lib/interceptors/auth-refresh.interceptor';
 export * from './lib/interceptors/http-error.interceptor';
