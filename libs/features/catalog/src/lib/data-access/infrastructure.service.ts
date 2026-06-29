@@ -16,7 +16,7 @@ export class InfrastructureService {
   }
 
   private get unitsBase() {
-    return `${this.config.apiGatewayUrl}/api/v1/organization-units`;
+    return `${this.config.apiGatewayUrl}/api/v1/organization-units/lookup`;
   }
 
   getInfrastructures(
@@ -63,5 +63,9 @@ export class InfrastructureService {
 
   getOrganizationUnits(): Observable<any[]> {
     return this.http.get<any[]>(this.unitsBase);
+  }
+
+  getGridTypes(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.config.apiGatewayUrl}/api/v1/dossiers/grid-types/lookup`);
   }
 }

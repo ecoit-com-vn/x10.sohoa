@@ -34,7 +34,7 @@
     <section class="upload-step ocr-step">
       <h4 class="step-title">Bước 2 — Xử lý OCR &amp; bóc tách</h4>
       <p class="ocr-note step-hint">
-        Chọn thao tác hỗ trợ bên dưới. Hệ thống chỉ gửi xử lý khi bạn bấm <strong>Xong</strong> (sau khi file đã upload thành công).
+        Chọn file ở bước 3. File chỉ được thêm vào hồ sơ khi bạn bấm <strong>Xong</strong>.
       </p>
 
       <div class="ocr-options">
@@ -99,8 +99,8 @@
           *ngIf="!isScanMode"
           #uploadZone
           [uploadHandler]="uploadHandler"
+          [deferUpload]="true"
           [maxFileSize]="524288000"
-          (fileUploaded)="onFileUploaded($event)"
           (uploadError)="onUploadError($event)"
         ></app-file-upload-zone>
 
@@ -109,9 +109,9 @@
           #uploadZone
           class="scan-upload-hidden"
           [uploadHandler]="uploadHandler"
+          [deferUpload]="true"
           [hideDropZone]="true"
           [maxFileSize]="524288000"
-          (fileUploaded)="onFileUploaded($event)"
           (uploadError)="onUploadError($event)"
         ></app-file-upload-zone>
       </ng-container>

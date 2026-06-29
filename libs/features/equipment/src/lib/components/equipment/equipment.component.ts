@@ -5,6 +5,7 @@ import { ToastModule } from 'primeng/toast';
 import { SelectModule } from 'primeng/select';
 import { DialogModule } from 'primeng/dialog';
 import { MessageService } from 'primeng/api';
+import { Router, ActivatedRoute } from '@angular/router';
 import { AuthService } from '@sohoa.frontend/shared/core';
 import { EquipmentService } from '../../data-access/equipment.service';
 import { EMPTY, forkJoin, of } from 'rxjs';
@@ -22,6 +23,8 @@ export class EquipmentComponent implements OnInit {
   private equipmentService = inject(EquipmentService);
   private authService = inject(AuthService);
   private messageService = inject(MessageService);
+  private router = inject(Router);
+  private route = inject(ActivatedRoute);
 
   // Lists from lookup
   organizationUnits = signal<any[]>([]);
@@ -53,21 +56,31 @@ export class EquipmentComponent implements OnInit {
   // Cascading lists for Search
   searchInfrastructures = computed(() => {
     const uId = this.searchUnitId();
-    if (!uId) return [];
-    return this.infrastructures().filter(inf => inf.unitId === Number(uId));
+    const gtId = this.searchGridTypeId();
+    return this.infrastructures().filter(inf => {
+      const matchUnit = !uId || inf.unitId === Number(uId);
+      const matchGridType = !gtId || this.matchesGridTypeId(inf, gtId);
+      return matchUnit && matchGridType;
+    });
   });
 
   searchEquipmentTypes = computed(() => {
     const gtId = this.searchGridTypeId();
-    if (!gtId) return [];
-    return this.equipmentTypes().filter(et => this.matchesGridTypeId(et, gtId));
+    return this.equipmentTypes().filter(et => {
+      return !gtId || this.matchesGridTypeId(et, gtId);
+    });
   });
 
   // Cascading lists for Form
   formInfrastructures = computed(() => {
     const uId = this.currentItem().unitId;
+    const gtId = this.currentItem().gridTypeId;
     if (!uId) return [];
-    return this.infrastructures().filter(inf => inf.unitId === Number(uId));
+    return this.infrastructures().filter(inf => {
+      const matchUnit = inf.unitId === Number(uId);
+      const matchGridType = !gtId || this.matchesGridTypeId(inf, gtId);
+      return matchUnit && matchGridType;
+    });
   });
 
   formEquipmentTypes = computed(() => {
@@ -159,7 +172,9 @@ export class EquipmentComponent implements OnInit {
     effect(() => {
       this.currentPage();
       this.pageSize();
-      this.loadItems();
+      if (this.currentView() === 'list') {
+        this.loadItems();
+      }
     }, { allowSignalWrites: true });
 
     if (typeof window !== 'undefined') {
@@ -172,8 +187,64 @@ export class EquipmentComponent implements OnInit {
 
   ngOnInit() {
     this.authService.loadPermissions();
-    this.loadLookupData();
-    this.loadItems();
+    
+    this.route.paramMap.subscribe(params => {
+      const id = params.get('id');
+      const url = this.router.url;
+
+      if (url.includes('/device-list/add')) {
+        this.currentView.set('add');
+        this.currentItem.set({
+          isActive: true,
+          unitId: null,
+          gridTypeId: null,
+          infrastructureId: null,
+          equipmentTypeId: null,
+          countryId: null,
+          code: '',
+          name: '',
+          serialNumber: ''
+        });
+        this.formSubmitted.set(false);
+        this.serverErrors.set({});
+        this.loadLookupData();
+      } else if (id) {
+        this.currentView.set('edit');
+        this.formSubmitted.set(false);
+        this.serverErrors.set({});
+        this.loadLookupData();
+
+        this.equipmentService.getById(id).subscribe({
+          next: (res) => {
+            if (res) {
+              this.currentItem.set({
+                id: res.id,
+                equipmentTypeId: res.equipmentTypeId,
+                name: res.name,
+                code: res.code,
+                serialNumber: res.serialNumber,
+                unitId: res.unitId,
+                infrastructureId: res.infrastructureId,
+                countryId: res.countryId,
+                gridTypeId: res.gridTypeId,
+                isActive: res.isActive === 1 || res.isActive === true
+              });
+            }
+          },
+          error: () => {
+            this.messageService.add({
+              severity: 'error',
+              summary: 'Lỗi',
+              detail: 'Không thể tải chi tiết thiết bị'
+            });
+            this.goBack();
+          }
+        });
+      } else {
+        this.currentView.set('list');
+        this.loadItems();
+      }
+    });
   }
 
   onFieldChange(field: string) {
@@ -269,11 +340,43 @@ export class EquipmentComponent implements OnInit {
     return u ? u.name : `Đơn vị #${unitId}`;
   }
 
+  loadSearchInfrastructuresOnDemand() {
+    if (this.infrastructures().length === 0) {
+      this.equipmentService.getInfrastructures().pipe(catchError(() => of([]))).subscribe(data => {
+        this.infrastructures.set(Array.isArray(data) ? data : []);
+      });
+    }
+  }
+
+  loadGridTypesOnDemand() {
+    if (this.gridTypes().length === 0) {
+      this.equipmentService.getGridTypes().pipe(catchError(() => of([]))).subscribe(data => {
+        this.gridTypes.set(Array.isArray(data) ? data : []);
+      });
+    }
+  }
+
+  loadEquipmentTypesOnDemand() {
+    if (this.equipmentTypes().length === 0) {
+      this.equipmentService.getEquipmentTypes().pipe(catchError(() => of([]))).subscribe(data => {
+        this.equipmentTypes.set(Array.isArray(data) ? data : []);
+      });
+    }
+  }
+
   // Search tree picker actions
   toggleSearchOrgTree(event?: Event) {
     if (event) event.stopPropagation();
-    this.searchOrgTreeOpen.update(v => !v);
-    this.formOrgTreeOpen.set(false);
+    if (this.organizationUnits().length === 0) {
+      this.equipmentService.getOrganizationUnits().pipe(catchError(() => of([]))).subscribe(data => {
+        this.organizationUnits.set(Array.isArray(data) ? data : []);
+        this.searchOrgTreeOpen.update(v => !v);
+        this.formOrgTreeOpen.set(false);
+      });
+    } else {
+      this.searchOrgTreeOpen.update(v => !v);
+      this.formOrgTreeOpen.set(false);
+    }
   }
 
   toggleSearchUnitNode(unitId: number, event?: Event) {
@@ -309,8 +412,16 @@ export class EquipmentComponent implements OnInit {
   // Form tree picker actions
   toggleFormOrgTree(event?: Event) {
     if (event) event.stopPropagation();
-    this.formOrgTreeOpen.update(v => !v);
-    this.searchOrgTreeOpen.set(false);
+    if (this.organizationUnits().length === 0) {
+      this.equipmentService.getOrganizationUnits().pipe(catchError(() => of([]))).subscribe(data => {
+        this.organizationUnits.set(Array.isArray(data) ? data : []);
+        this.formOrgTreeOpen.update(v => !v);
+        this.searchOrgTreeOpen.set(false);
+      });
+    } else {
+      this.formOrgTreeOpen.update(v => !v);
+      this.searchOrgTreeOpen.set(false);
+    }
   }
 
   toggleFormUnitNode(unitId: number, event?: Event) {
@@ -339,9 +450,10 @@ export class EquipmentComponent implements OnInit {
   }
 
   onGridTypeChange(value: any) {
-    this.currentItem.update(item => ({ ...item, gridTypeId: value, equipmentTypeId: null }));
+    this.currentItem.update(item => ({ ...item, gridTypeId: value, equipmentTypeId: null, infrastructureId: null }));
     this.onFieldChange('gridTypeId');
     this.onFieldChange('equipmentTypeId');
+    this.onFieldChange('infrastructureId');
   }
 
   onEquipmentTypeChange(value: any) {
@@ -391,29 +503,11 @@ export class EquipmentComponent implements OnInit {
   }
 
   onAddNew() {
-    this.currentItem.set({
-      isActive: true,
-      unitId: null,
-      gridTypeId: null,
-      infrastructureId: null,
-      equipmentTypeId: null,
-      countryId: null,
-      code: '',
-      name: '',
-      serialNumber: ''
-    });
-    this.formSubmitted.set(false);
-    this.serverErrors.set({});
-    this.currentView.set('add');
-    this.formOrgTreeOpen.set(false);
+    this.router.navigate(['/equipment/device-list/add']);
   }
 
   onEdit(item: any) {
-    this.currentItem.set({ ...item });
-    this.formSubmitted.set(false);
-    this.serverErrors.set({});
-    this.currentView.set('edit');
-    this.formOrgTreeOpen.set(false);
+    this.router.navigate(['/equipment/device-list', item.id]);
   }
 
   onSaveItem() {
@@ -563,6 +657,6 @@ export class EquipmentComponent implements OnInit {
   }
 
   goBack() {
-    this.currentView.set('list');
+    this.router.navigate(['/equipment/device-list']);
   }
 }

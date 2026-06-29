@@ -10,7 +10,7 @@ export const DOSSIER_STATUS_LABELS: Record<string, string> = {
 export function getDossierStatusPillClass(status?: string | null): string {
   switch (status) {
     case 'New':
-      return 'status-pill status-new';
+      return 'wf-status-field';
     case 'CompletedInput':
       return 'status-pill status-completed-input';
     case 'PendingApproval':

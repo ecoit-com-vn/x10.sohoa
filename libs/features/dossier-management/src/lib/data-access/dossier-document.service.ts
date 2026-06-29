@@ -442,6 +442,17 @@ export class DossierDocumentService {
     );
   }
 
+  saveDocumentExtractionData(
+    dossierId: string,
+    versionId: string,
+    mergedDataJson: string
+  ): Observable<DocumentExtractionResult> {
+    return this.http.put<DocumentExtractionResult>(
+      `${this.dossierBase(dossierId)}/${versionId}/digitization/result`,
+      { mergedDataJson }
+    );
+  }
+
   digitizationResultErrorMessage(error: unknown, fallback = 'Không tải được kết quả bóc tách'): string {
     return extractApiErrorMessage(error, fallback);
   }

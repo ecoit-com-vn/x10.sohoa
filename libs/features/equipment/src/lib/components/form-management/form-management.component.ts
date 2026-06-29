@@ -62,6 +62,9 @@ export class FormManagementComponent implements OnInit {
   showConfirmDelete = signal<boolean>(false);
   showConfirmSubmit = signal<boolean>(false);
   targetForm: EavFormTemplate | null = null;
+  showVersionsDialog = signal<boolean>(false);
+  versionList = signal<EavFormTemplate[]>([]);
+  selectedTemplate = signal<EavFormTemplate | null>(null);
 
   // Navigation & States
   viewState = signal<'list' | 'add' | 'edit' | 'preview'>('list');
@@ -122,14 +125,26 @@ export class FormManagementComponent implements OnInit {
   filteredForms = computed(() => {
     const keyword = this.searchKeyword().trim().toLowerCase();
     const allForms = this.forms();
-    if (!keyword) {
-      return allForms;
+
+    // Group forms by code and select the latest version for each unique code
+    const latestFormsMap = new Map<string, EavFormTemplate>();
+    for (const f of allForms) {
+      const code = f.code || '';
+      const existing = latestFormsMap.get(code);
+      if (!existing || f.version > existing.version) {
+        latestFormsMap.set(code, f);
+      }
     }
-    return allForms.filter(f =>
-      (f.name?.toLowerCase().includes(keyword) ?? false) ||
-      (f.code?.toLowerCase().includes(keyword) ?? false) ||
-      (f.id?.toLowerCase().includes(keyword) ?? false)
-    );
+    let result = Array.from(latestFormsMap.values());
+
+    if (keyword) {
+      result = result.filter(f =>
+        (f.name?.toLowerCase().includes(keyword) ?? false) ||
+        (f.code?.toLowerCase().includes(keyword) ?? false) ||
+        (f.id?.toLowerCase().includes(keyword) ?? false)
+      );
+    }
+    return result;
   });
 
   paginatedForms = computed(() => {
@@ -237,6 +252,10 @@ export class FormManagementComponent implements OnInit {
   }
 
   onEdit(form: EavFormTemplate) {
+    if (form.status === 'Chờ duyệt' || form.status === 'Hoàn thành') {
+      this.onPreview(form);
+      return;
+    }
     this.targetForm = form;
     this.viewState.set('edit');
     this.isEditMode.set(true);
@@ -265,7 +284,7 @@ export class FormManagementComponent implements OnInit {
     this.targetForm = form;
     this.viewState.set('preview');
     this.templateId.set(form.id);
-    this.detailTitle.set(`Xem trước Biểu mẫu: ${form.name}`);
+    this.detailTitle.set(`Xem trước form: ${form.name}`);
     this.formName.set(form.name);
     this.formCode.set(form.code || '');
     this.formCategory.set(form.category || '');
@@ -628,6 +647,16 @@ export class FormManagementComponent implements OnInit {
 
   onConfirmDelete() {
     if (!this.targetForm) return;
+    if (this.targetForm.status === 'Chờ duyệt' || this.targetForm.status === 'Hoàn thành') {
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Không được phép',
+        detail: 'Không thể xóa biểu mẫu ở trạng thái Chờ duyệt hoặc Hoàn thành.'
+      });
+      this.showConfirmDelete.set(false);
+      this.targetForm = null;
+      return;
+    }
     this.loadingService.show();
     this.eavFormService.deleteTemplate(this.targetForm.id)
       .pipe(finalize(() => this.loadingService.hide()))
@@ -683,7 +712,28 @@ export class FormManagementComponent implements OnInit {
   }
 
   getCategoryName(code: string): string {
-    const cat = this.categories().find(c => c.code === code);
+    const cat = this.categories().find(c => c.code === code || c.id === code || c.id?.toString() === code?.toString());
     return cat ? cat.name : code || '';
+  }
+
+  viewVersions(form: EavFormTemplate) {
+    this.loadingService.show();
+    this.eavFormService.getTemplateVersions(form.code)
+      .pipe(finalize(() => this.loadingService.hide()))
+      .subscribe({
+        next: (versions) => {
+          this.versionList.set(versions || []);
+          this.selectedTemplate.set(form);
+          this.showVersionsDialog.set(true);
+        },
+        error: (err) => {
+          console.error('Failed to load template versions', err);
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi',
+            detail: 'Không thể tải danh sách phiên bản của biểu mẫu.'
+          });
+        }
+      });
   }
 }

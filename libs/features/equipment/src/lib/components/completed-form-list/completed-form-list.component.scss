@@ -2,14 +2,6 @@
   padding: 24px;
 }
 
-.wf-card {
-  position: relative;
-  background: #fff;
-  border-radius: 16px;
-  padding: 24px;
-  box-shadow: 0 1px 20px rgba(15, 23, 42, 0.08);
-}
-
 .list-toolbar {
   display: flex;
   justify-content: space-between;
@@ -113,31 +105,7 @@
   color: #0369a1;
 }
 
-.act-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  border: none;
-  border-radius: 8px;
-  background: #f8fafc;
-  color: #334155;
-  cursor: pointer;
-  margin-right: 6px;
-}
 
-.act-btn:hover {
-  background: #e2e8f0;
-}
-
-.act-lock {
-  color: #b45309;
-}
-
-.act-unlock {
-  color: #2563eb;
-}
 
 .btn-tim {
   display: inline-flex;
@@ -167,16 +135,56 @@
   color: #475569;
 }
 
-.table-footer-paginator {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 16px;
-}
+    // Paginator layout
+    .table-footer-paginator {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 1.25rem;
+      padding-top: 1rem;
+      border-top: 1px solid #e2e8f0;
+      
+      .record-count {
+        font-size: 0.875rem;
+        color: #374151;
+        font-weight: 500;
+        b {
+          color: #000000 !important;
+        }
+      }
 
-.record-count {
-  color: #475569;
-}
+      ::ng-deep .p-paginator {
+        background: transparent !important;
+        border: none !important;
+        padding: 0 !important;
+        
+        .p-paginator-page,
+        .p-paginator-first,
+        .p-paginator-prev,
+        .p-paginator-next,
+        .p-paginator-last,
+        .p-paginator-rpp-select {
+          color: #374151 !important;
+          border-radius: 6px;
+          border: 1px solid #e2e8f0;
+          background-color: white;
+          font-weight: 500;
+          transition: all 0.2s ease;
+          
+          &:hover:not(.p-disabled) {
+            background-color: #f1f5f9 !important;
+            border-color: #cbd5e1 !important;
+            color: #000000 !important;
+          }
+          
+          &.p-highlight {
+            background-color: #002D72 !important;
+            border-color: #002D72 !important;
+            color: white !important;
+          }
+        }
+      }
+    }
 
 // Loading spinner
 .pi-spin {

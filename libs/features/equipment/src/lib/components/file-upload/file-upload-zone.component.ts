@@ -52,6 +52,8 @@ export class FileUploadZoneComponent implements OnInit, OnDestroy {
   /** Nguồn upload ghi vào DB khi upload qua folderId (mặc định Web). */
   uploadSource = input<UploadSource>(UPLOAD_SOURCE.WEB);
   maxFileSize = input<number>(500 * 1024 * 1024); // 500MB default
+  /** Khi true, chỉ xếp hàng file — upload thật khi gọi flushQueuedUploads(). */
+  deferUpload = input<boolean>(false);
   allowedExtensions = input<string[]>([
     '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
     '.jpg', '.jpeg', '.png', '.gif', '.tiff', '.dwg',
@@ -65,7 +67,13 @@ export class FileUploadZoneComponent implements OnInit, OnDestroy {
   // State
   isDragOver = signal<boolean>(false);
   uploads = signal<Map<string, UploadItem>>(new Map());
-  isUploading = computed(() => Array.from(this.uploads().values()).some(u => u.progress.status === 'uploading'));
+  isUploading = computed(() =>
+    Array.from(this.uploads().values()).some((u) => u.progress.status === 'uploading')
+  );
+
+  hasQueuedUploads = computed(() =>
+    Array.from(this.uploads().values()).some((u) => u.progress.status === 'pending')
+  );
 
   private destroy = new Subject<void>();
 
@@ -186,6 +194,10 @@ export class FileUploadZoneComponent implements OnInit, OnDestroy {
       currentUploads.set(uploadId, uploadItem);
       this.uploads.set(new Map(currentUploads));
 
+      if (this.deferUpload()) {
+        continue;
+      }
+
       // Start upload
       this.startUpload(uploadId, file, folderId, handler, uploadItem.uploadSource);
     }
@@ -293,6 +305,82 @@ export class FileUploadZoneComponent implements OnInit, OnDestroy {
       current.set(uploadId, item);
       this.uploads.set(new Map(current));
     }
+  }
+
+  /**
+   * Upload các file đang xếp hàng (khi deferUpload = true).
+   */
+  async flushQueuedUploads(): Promise<Array<{ response: FileUploadResponse; fileName: string }>> {
+    const handler = this.uploadHandler();
+    const folderId = this.folderId();
+    if (!handler && !folderId) {
+      throw new Error('Thiếu folderId hoặc uploadHandler');
+    }
+
+    const queued = Array.from(this.uploads().values()).filter(
+      (item) => item.progress.status === 'pending'
+    );
+    const results: Array<{ response: FileUploadResponse; fileName: string }> = [];
+
+    for (const item of queued) {
+      try {
+        const onProgress = (progress: UploadProgress) => this.updateProgress(item.id, progress);
+        const folderUploadSource = item.uploadSource ?? this.uploadSource();
+        const result = handler
+          ? await handler(item.file, onProgress)
+          : await this.fileUploadService.uploadFile(
+              item.file,
+              folderId,
+              onProgress,
+              folderUploadSource
+            );
+
+        this.updateProgress(item.id, {
+          uploadId: item.id,
+          progress: 100,
+          uploadedBytes: item.file.size,
+          totalBytes: item.file.size,
+          status: 'completed',
+        });
+
+        this.fileUploaded.emit({
+          documentVersionId: result.documentVersionId,
+          fileName: item.file.name,
+        });
+
+        results.push({ response: result, fileName: item.file.name });
+
+        setTimeout(() => {
+          const current = this.uploads();
+          current.delete(item.id);
+          this.uploads.set(new Map(current));
+        }, 1500);
+      } catch (error: unknown) {
+        const errorMsg = extractApiErrorMessage(error);
+        this.updateProgress(item.id, {
+          uploadId: item.id,
+          progress: 0,
+          uploadedBytes: 0,
+          totalBytes: item.file.size,
+          status: 'error',
+          error: errorMsg,
+        });
+        this.uploadError.emit({ fileName: item.file.name, error: errorMsg });
+        throw error;
+      }
+    }
+
+    return results;
+  }
+
+  clearQueuedUploads(): void {
+    const current = this.uploads();
+    for (const [id, item] of current.entries()) {
+      if (item.progress.status === 'pending') {
+        current.delete(id);
+      }
+    }
+    this.uploads.set(new Map(current));
   }
 
   /**

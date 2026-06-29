@@ -25,7 +25,7 @@ import {
   isRejectWorkflowLabel,
   parseWorkflowActionButtons,
 } from '../../utils/dossier-workflow-bpmn.util';
-import { DossierMenuScope } from '../../utils/dossier-status.util';
+import { DossierMenuScope, getDossierStatusLabel, getDossierStatusPillClass } from '../../utils/dossier-status.util';
 
 function pickFirst<T>(...values: T[]): T | undefined {
   for (const v of values) {
@@ -53,7 +53,7 @@ function pickFirst<T>(...values: T[]): T | undefined {
               <span class="text-muted"><i class="pi pi-map-marker" style="margin-right: 4px;"></i> Trạm/ĐZ: <b style="color: #374151;">{{ dossierMeta()?.infrastructureName || '-' }}</b></span>
               <span class="text-muted" style="display: inline-flex; align-items: center; gap: 6px;">
                 Trạng thái:
-                <span class="status-pill" [ngStyle]="getStatusStyle(dossierMeta()?.status)">
+                <span [class]="getStatusClass(dossierMeta()?.status)">
                   {{ getStatusText(dossierMeta()?.status) }}
                 </span>
               </span>
@@ -99,17 +99,17 @@ function pickFirst<T>(...values: T[]): T | undefined {
 
       <!-- TABS -->
       <div class="tab-bar">
-        <button class="tab-item" [class.tab-active]="activeTab() === 'info'" (click)="activeTab.set('info')">
+        <button *ngIf="isDetailTabVisible('info')" class="tab-item" [class.tab-active]="activeTab() === 'info'" (click)="activeTab.set('info')">
           <i class="pi pi-info-circle" style="margin-right: 6px;"></i>
           Dữ liệu Hồ sơ
         </button>
-        <button class="tab-item" [class.tab-active]="activeTab() === 'documents'" (click)="activeTab.set('documents')">
+        <button *ngIf="isDetailTabVisible('documents')" class="tab-item" [class.tab-active]="activeTab() === 'documents'" (click)="activeTab.set('documents')">
           <i class="pi pi-file" style="margin-right: 6px;"></i> Tài liệu đính kèm
         </button>
-        <button class="tab-item" [class.tab-active]="activeTab() === 'versions'" (click)="activeTab.set('versions')">
+        <button *ngIf="isDetailTabVisible('versions')" class="tab-item" [class.tab-active]="activeTab() === 'versions'" (click)="activeTab.set('versions')">
           <i class="pi pi-history" style="margin-right: 6px;"></i> Lịch sử phiên bản
         </button>
-        <button class="tab-item" [class.tab-active]="activeTab() === 'workflow'" (click)="activeTab.set('workflow')">
+        <button *ngIf="isDetailTabVisible('workflow')" class="tab-item" [class.tab-active]="activeTab() === 'workflow'" (click)="activeTab.set('workflow')">
           <i class="pi pi-sitemap" style="margin-right: 6px;"></i> Quy trình & Lịch sử
         </button>
       </div>
@@ -723,11 +723,9 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
     if (assigneeId) return false;
 
     const status = this.dossier()?.status ?? this.dossier()?.Status;
-    // Trả lại về bước người tạo — chỉ creator được gửi duyệt lại khi task chưa gán cá nhân.
     if (status === 'Returned') return this.isCurrentUserCreator();
 
-    const taskRoles = task.assignedRole ? task.assignedRole.split(',').map((r: string) => r.trim()) : [];
-    return taskRoles.some((r: string) => roles.includes(r));
+    return false;
   }
 
   openActionDialog(btn: any) {
@@ -821,18 +819,6 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
       const normCreatorUsername = creatorUsername ? String(creatorUsername).toLowerCase().trim() : '';
       const normUserUsername = userId ? String(userId).toLowerCase().trim() : '';
 
-      console.log('SOHOA_DEBUG Detail Draft Edit Check:', {
-        creatorId,
-        normCreatorId,
-        userId,
-        normUserId,
-        creatorUsername,
-        normCreatorUsername,
-        normUserUsername,
-        matchId: normCreatorId !== '' && normCreatorId === normUserId,
-        matchUsername: normCreatorUsername !== '' && normCreatorUsername === normUserUsername
-      });
-
       return (normCreatorId !== '' && normCreatorId === normUserId) ||
              (normCreatorUsername !== '' && normCreatorUsername === normUserUsername);
     }
@@ -844,7 +830,7 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
       return this.isCurrentUserCreator();
     }
 
-    // Các trạng thái WF khác: bước hiện tại phải AllowEdit
+    // Các trạng thái WF khác: bước hiện tại phải AllowEdit và user là assignee cụ thể
     if (!this.authService.hasPermission('DOSSIER_EDIT')) {
       return false;
     }
@@ -865,14 +851,8 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
 
     return pendingList.some((task: any) => {
       const assigneeId = task.assigneeUserId ?? task.AssigneeUserId;
-      if (assigneeId) {
-        return String(assigneeId).toLowerCase() === String(userId).toLowerCase();
-      }
-
-      const taskRoles = task.assignedRole 
-        ? String(task.assignedRole).split(',').map((r: string) => r.trim()) 
-        : (task.AssignedRole ? String(task.AssignedRole).split(',').map((r: string) => r.trim()) : []);
-      return taskRoles.some((r: string) => roles.some(ur => String(ur).toLowerCase() === String(r).toLowerCase()));
+      if (!assigneeId) return false;
+      return String(assigneeId).toLowerCase() === String(userId).toLowerCase();
     });
   }
 
@@ -968,26 +948,29 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
   }
 
   getStatusText(status?: string): string {
-    switch (status) {
-      case 'New': return 'Tạo mới';
-      case 'CompletedInput': return 'Hoàn thành nhập liệu';
-      case 'PendingApproval': return 'Chờ phê duyệt';
-      case 'InProgress': return 'Đang xử lý';
-      case 'Returned': return 'Bị trả lại';
-      case 'Approved': return 'Đã phê duyệt';
-      default: return status || '';
-    }
+    return getDossierStatusLabel(status);
   }
 
-  getStatusStyle(status?: string): { [key: string]: string } {
-    switch (status) {
-      case 'New': return { background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0' };
-      case 'CompletedInput': return { background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' };
-      case 'PendingApproval': return { background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' };
-      case 'InProgress': return { background: '#f5f3ff', color: '#6d28d9', border: '1px solid #ddd6fe' };
-      case 'Returned': return { background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca' };
-      case 'Approved': return { background: '#dcfce7', color: '#15803d', border: '1px solid #bbf7d0' };
-      default: return { background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0' };
+  getStatusClass(status?: string): string {
+    return getDossierStatusPillClass(status);
+  }
+
+  isDetailTabVisible(tab: 'info' | 'documents' | 'versions' | 'workflow'): boolean {
+    const d = this.dossier();
+    const wfId = d?.workflowInstanceId ?? d?.WorkflowInstanceId
+      ?? this.workflowDetail()?.instance?.id
+      ?? this.workflowDetail()?.instance?.Id;
+
+    switch (tab) {
+      case 'info':
+      case 'documents':
+        return true;
+      case 'versions':
+        return true;
+      case 'workflow':
+        return !!wfId;
+      default:
+        return false;
     }
   }
 }

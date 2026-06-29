@@ -80,6 +80,14 @@
               <option value="" disabled selected>-- Chọn lựa chọn --</option>
               <option *ngFor="let opt of field.options" [value]="opt">{{ opt }}</option>
             </select>
+
+            <select *ngSwitchCase="'select'" 
+                    [id]="field.name" 
+                    class="wf-select w-full" 
+                    [formControlName]="field.name">
+              <option value="" disabled selected>-- Chọn lựa chọn --</option>
+              <option *ngFor="let opt of field.options" [value]="opt">{{ opt }}</option>
+            </select>
             
             <!-- Textarea Input -->
             <textarea *ngSwitchCase="'textarea'" 

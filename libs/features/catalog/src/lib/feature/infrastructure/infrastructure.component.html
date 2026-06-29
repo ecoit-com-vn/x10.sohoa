@@ -63,6 +63,7 @@
               <th>Mã</th>
               <th>Tên</th>
               <th>Địa chỉ</th>
+              <th>Loại lưới điện</th>
               <th>Đơn vị quản lý</th>
               <th>Trạng thái</th>
               <th class="col-hd">Thao tác</th>
@@ -81,6 +82,14 @@
                 </ng-template>
               </td>
               <td>{{ item.address || '-' }}</td>
+              <td>
+                <span class="status-pill" 
+                  [style.background-color]="item.gridTypeId === 1 ? '#eff6ff' : (item.gridTypeId === 2 ? '#f5f3ff' : '#f9fafb')" 
+                  [style.color]="item.gridTypeId === 1 ? '#1e40af' : (item.gridTypeId === 2 ? '#5b21b6' : '#6b7280')" 
+                  [style.border-color]="item.gridTypeId === 1 ? '#bfdbfe' : (item.gridTypeId === 2 ? '#ddd6fe' : '#e5e7eb')">
+                  {{ item.gridTypeId === 1 ? 'Cao áp' : (item.gridTypeId === 2 ? 'Trung áp' : '-') }}
+                </span>
+              </td>
               <td>
                 <span class="text-primary font-semibold" *ngIf="item.organization">
                   {{ item.organization.name }}
@@ -121,7 +130,7 @@
               </td>
             </tr>
             <tr *ngIf="items().length === 0">
-              <td colspan="7" class="empty-row">
+              <td colspan="8" class="empty-row">
                 <i class="pi pi-inbox"></i>
                 <div>Không tìm thấy bản ghi nào.</div>
               </td>
@@ -178,6 +187,15 @@
           <label class="form-label">Địa chỉ</label>
           <input type="text" class="wf-input w-full" [(ngModel)]="currentItem().address" 
             placeholder="Nhập địa chỉ..." [disabled]="isSaving()" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Loại lưới điện <span class="required">*</span></label>
+          <select class="wf-select w-full" [(ngModel)]="currentItem().gridTypeId" (ngModelChange)="onFieldChange('gridTypeId')" [disabled]="isSaving()">
+            <option [ngValue]="null">-- Chọn loại lưới điện --</option>
+            <option *ngFor="let gt of gridTypes()" [value]="gt.id">{{ gt.name }}</option>
+          </select>
+          <span class="field-error" *ngIf="gridTypeIdError()">{{ gridTypeIdError() }}</span>
         </div>
 
         <!-- Đơn vị quản lý — Tree Picker -->

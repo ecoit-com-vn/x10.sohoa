@@ -6,6 +6,14 @@ export const EQUIPMENT_ROUTES: Routes = [
     loadComponent: () => import('./components/equipment/equipment.component').then(m => m.EquipmentComponent)
   },
   {
+    path: 'device-list/add',
+    loadComponent: () => import('./components/equipment/equipment.component').then(m => m.EquipmentComponent)
+  },
+  {
+    path: 'device-list/:id',
+    loadComponent: () => import('./components/equipment/equipment.component').then(m => m.EquipmentComponent)
+  },
+  {
     path: 'equipment-type',
     loadComponent: () => import('./components/equipment-type/equipment-type.component').then(m => m.EquipmentTypeComponent)
   },

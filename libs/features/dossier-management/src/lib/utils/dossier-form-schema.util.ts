@@ -96,9 +96,34 @@ export function readFormSchemaJson(template: unknown): string | null {
 export function normalizeField(raw: Record<string, unknown>): EavField {
   const key =
     firstNonEmptyString(raw['name'], raw['Name'], raw['key'], raw['Key'], raw['id'], raw['Id']) ?? '';
+  
+  let type = raw['type'] as any;
+  if (type === 'dropdown') {
+    type = 'select';
+  }
+
+  let options = raw['options'] as any;
+  if (Array.isArray(options)) {
+    options = options.map((opt) => {
+      if (opt && typeof opt === 'object') {
+        return {
+          label: String(opt.label || opt.Label || opt.value || opt.Value || ''),
+          value: String(opt.value || opt.Value || opt.label || opt.Label || ''),
+        };
+      } else {
+        return {
+          label: String(opt),
+          value: String(opt),
+        };
+      }
+    });
+  }
+
   return {
     ...(raw as unknown as EavField),
     key,
+    type,
+    options,
   };
 }
 
@@ -303,7 +328,7 @@ export function formatFieldDisplayValue(field: EavField, value: unknown): string
   return displayFieldValue(value);
 }
 
-/** Draft form tài liệu: ưu tiên dữ liệu đã lưu trên hồ sơ, bóc tách mới chỉ điền chỗ trống. */
+/** Draft form tài liệu: ưu tiên dữ liệu đã lưu theo tài liệu, form hồ sơ chỉ điền chỗ trống. */
 export function buildDocumentDraftFromSources(
   fields: ReadonlyArray<EavField>,
   extractedSource: Record<string, unknown>,
@@ -317,7 +342,7 @@ export function buildDocumentDraftFromSources(
     const key = field.key?.trim();
     if (!key) continue;
 
-    const value = hasExtractedValue(existing[key]) ? existing[key] : extracted[key];
+    const value = hasExtractedValue(extracted[key]) ? extracted[key] : existing[key];
 
     if (field.type === 'checkbox') {
       draft[key] = value ?? false;
