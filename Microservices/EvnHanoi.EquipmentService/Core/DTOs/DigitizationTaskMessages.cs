@@ -128,3 +128,9 @@ public class DocumentExtractionResultDto
     public DateTime CreatedDate { get; set; }
     public DateTime? ModifiedDate { get; set; }
 }
+
+/// <summary>Lưu dữ liệu form theo từng tài liệu (mergedDataJson) — không ghi đè formData hồ sơ.</summary>
+public class SaveDocumentExtractionDataRequest
+{
+    public string MergedDataJson { get; set; } = string.Empty;
+}

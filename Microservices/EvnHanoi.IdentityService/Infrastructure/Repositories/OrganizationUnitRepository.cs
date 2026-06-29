@@ -91,6 +91,28 @@ public class OrganizationUnitRepository : IOrganizationUnitRepository
         return affected > 0;
     }
 
+    public async Task<IEnumerable<OrganizationUnit>> GetOrganizationUnitsHierarchicalAsync(long? startUnitId)
+    {
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+
+        if (startUnitId.HasValue)
+        {
+            var sql = $@"SELECT {nameof(OrganizationUnit.Id)}, 
+                               {nameof(OrganizationUnit.Code)}, 
+                               {nameof(OrganizationUnit.Name)}, 
+                               {nameof(OrganizationUnit.ParentId)}, 
+                               {nameof(OrganizationUnit.Description)} 
+                        FROM ORGANIZATION_UNIT
+                        START WITH Id = :StartUnitId
+                        CONNECT BY PRIOR Id = ParentId";
+            return await _connection.QueryAsync<OrganizationUnit>(sql, new { StartUnitId = startUnitId.Value });
+        }
+        else
+        {
+            return await GetAllAsync();
+        }
+    }
+
     public async Task<bool> DeleteAsync(long id)
     {
         if (_connection.State != ConnectionState.Open) _connection.Open();

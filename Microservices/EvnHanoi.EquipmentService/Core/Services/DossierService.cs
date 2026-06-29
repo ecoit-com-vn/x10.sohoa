@@ -118,6 +118,18 @@ public class DossierService : IDossierService
         return await _dossierSearchRepository.GetPagedAsync(filter);
     }
 
+    public async Task<(IEnumerable<DossierListItemDto> Items, int TotalCount)> GetCatalogDossiersAsync(
+        string? keyword,
+        Guid? infrastructureId,
+        Guid? dossierTypeId,
+        long? unitId,
+        int page,
+        int pageSize)
+    {
+        return await _dossierRepository.GetCatalogDossiersAsync(
+            keyword, infrastructureId, dossierTypeId, unitId, page, pageSize);
+    }
+
     public async Task<DossierDetailDto?> GetDetailByIdAsync(Guid id)
     {
         return await _dossierRepository.GetDetailByIdAsync(id);
@@ -495,9 +507,13 @@ public class DossierService : IDossierService
     /// </summary>
     private async Task EnsureCanEditFormDataAsync(Dossier dossier)
     {
+        // Trả lại về bước người tạo — cho phép sửa dù instance WF vẫn đang chạy.
+        if (dossier.Status == DossierStatus.Returned)
+            return;
+
         if (!dossier.WorkflowInstanceId.HasValue)
         {
-            if (dossier.Status != DossierStatus.New && dossier.Status != DossierStatus.CompletedInput && dossier.Status != DossierStatus.Returned)
+            if (dossier.Status != DossierStatus.New && dossier.Status != DossierStatus.CompletedInput)
                 throw new InvalidOperationException("Không thể chỉnh sửa dữ liệu hồ sơ ở trạng thái hiện tại.");
             return;
         }

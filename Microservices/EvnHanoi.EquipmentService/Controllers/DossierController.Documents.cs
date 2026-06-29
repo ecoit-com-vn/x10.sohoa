@@ -45,6 +45,7 @@ public partial class DossierController
     }
 
     [HttpGet("{id:guid}/documents/{versionId:guid}/download-url")]
+    [BypassDynamicPermission]
     public async Task<IActionResult> GetDocumentDownloadUrl(
         Guid id,
         Guid versionId,
@@ -328,6 +329,38 @@ public partial class DossierController
         catch (KeyNotFoundException ex)
         {
             return NotFound(new { message = ex.Message });
+        }
+    }
+
+    [HttpPut("{id:guid}/documents/{versionId:guid}/digitization/result")]
+    public async Task<IActionResult> SaveDocumentDigitizationResult(
+        Guid id,
+        Guid versionId,
+        [FromBody] SaveDocumentExtractionDataRequest request)
+    {
+        if (request == null)
+            return BadRequest(new { message = "Dữ liệu không hợp lệ." });
+
+        try
+        {
+            var result = await _documentDigitizationService.SaveDocumentExtractionDataAsync(
+                id,
+                versionId,
+                request,
+                UserId);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { code = "VALIDATION_ERROR", message = ex.Message });
         }
     }
 
