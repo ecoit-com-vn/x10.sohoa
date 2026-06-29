@@ -15,13 +15,13 @@ import {
   displayFieldValue,
   hasExtractedValue,
   mergeExtractionPageResults,
+  mergeFormDataForSave,
   normalizeDossierDetail,
   parseFormDataJson,
   parseFormSchemaFields,
   parseMergedDataJson,
   pickFormDataForSchema,
   readFormSchemaJson,
-  serializeFormDataForSchema,
 } from '../../utils/dossier-form-schema.util';
 
 @Component({
@@ -74,7 +74,7 @@ export class DossierExtractionConfirmDialogComponent {
 
     this.loading.set(true);
     forkJoin({
-      result: this.documentService.getDigitizationResult(this.dossierId, this.versionId),
+      result: this.documentService.getDigitizationResultOrNull(this.dossierId, this.versionId),
       dossier: this.dossierService.getDossierById(this.dossierId),
     })
       .pipe(finalize(() => this.loading.set(false)))
@@ -83,6 +83,16 @@ export class DossierExtractionConfirmDialogComponent {
           const meta = normalizeDossierDetail(dossier);
           if (!meta) {
             this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không tải được hồ sơ' });
+            return;
+          }
+
+          if (!result) {
+            this.messageService.add({
+              severity: 'warn',
+              summary: 'Chưa có kết quả',
+              detail: 'Tài liệu chưa có kết quả bóc tách.',
+            });
+            this.visibleChange.emit(false);
             return;
           }
 
@@ -110,7 +120,7 @@ export class DossierExtractionConfirmDialogComponent {
           this.messageService.add({
             severity: 'error',
             summary: 'Lỗi',
-            detail: err?.error?.message || 'Không tải được kết quả bóc tách',
+            detail: this.documentService.digitizationResultErrorMessage(err),
           });
         },
       });
@@ -197,7 +207,7 @@ export class DossierExtractionConfirmDialogComponent {
     this.saving.set(true);
     this.dossierService
       .saveFormData(this.dossierId, {
-        formDataJson: serializeFormDataForSchema(fields, nextData),
+        formDataJson: mergeFormDataForSave(fields, this.currentFormData(), nextData, fields),
         rowVersion: this.rowVersion(),
         changeNote: this.documentName
           ? `Áp dụng bóc tách OCR từ tài liệu "${this.documentName}"`
@@ -205,7 +215,12 @@ export class DossierExtractionConfirmDialogComponent {
       })
       .pipe(finalize(() => this.saving.set(false)))
       .subscribe({
-        next: () => {
+        next: (res) => {
+          const updated = normalizeDossierDetail(res?.data ?? res);
+          if (updated) {
+            this.rowVersion.set(updated.rowVersion);
+            this.currentFormData.set(parseFormDataJson(updated.formDataJson));
+          }
           this.messageService.add({
             severity: 'success',
             summary: 'Thành công',

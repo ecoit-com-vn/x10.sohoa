@@ -148,6 +148,131 @@
   color: #64748b;
 }
 
+/* Custom Folder Tree Node styling */
+.folder-tree-btn {
+  flex: 1;
+  text-align: left;
+  padding: 6px 8px;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 4px;
+  margin-bottom: 2px;
+  font-size: 0.9rem;
+  background-color: transparent;
+  color: #374151;
+  min-width: 0;
+  font-weight: normal;
+  transition: all 0.15s ease;
+}
+
+.folder-tree-btn.root-node {
+  font-weight: bold !important;
+  font-size: 0.95rem;
+}
+
+.folder-tree-btn.active {
+  font-weight: bold !important;
+  color: #2563eb !important;
+}
+
+.folder-tree-btn.active .folder-name-text {
+  color: #2563eb !important;
+}
+
+.folder-tree-btn .folder-name-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: inherit;
+  transition: color 0.15s ease;
+}
+
+.folder-tree-btn i {
+  color: #eab308 !important; /* Always yellow like the image */
+  transition: color 0.15s ease;
+  font-size: 20px;
+}
+
+.folder-tree-btn:hover {
+  color: #2563eb !important;
+  background-color: #eff6ff;
+}
+
+.folder-tree-btn:hover .folder-name-text {
+  color: #2563eb !important;
+}
+
+/* Tree layout styles */
+.folder-row {
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+.connector-space {
+  width: 20px;
+  align-self: stretch;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 2;
+}
+
+.connector-space .connector-line {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: calc(100% + 8px);
+  height: 1px;
+  border-top: 1.5px dashed #3b82f6;
+  transform: translateY(-50%);
+}
+
+.last-node > .folder-row > .connector-space::before {
+  content: "";
+  position: absolute;
+  left: -2px;
+  top: 50%;
+  width: 4px;
+  bottom: -2px;
+  background-color: #ffffff;
+  z-index: 3;
+}
+
+.last-node > .folder-children-wrapper::after {
+  content: "";
+  position: absolute;
+  left: -39px;
+  top: 0;
+  width: 8px;
+  height: 100%;
+  background-color: #ffffff;
+  z-index: 3;
+}
+
+.folder-children-wrapper {
+  margin-left: 36px;
+  border-left: 1.5px dashed #3b82f6;
+  padding-left: 0;
+  position: relative;
+}
+
+.folder-children-wrapper.root-children {
+  margin-left: 16px;
+}
+
+.folder-children-wrapper::before {
+  content: "";
+  position: absolute;
+  left: -1.5px;
+  top: -14px;
+  width: 0;
+  height: 14px;
+  border-left: 1.5px dashed #3b82f6;
+}
+
 :host ::ng-deep .scan-upload-hidden {
   display: none;
 }

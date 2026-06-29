@@ -1,18 +1,8 @@
-
-    <div class="wf-page" [class.builder-mode]="viewState() !== 'list'">
-      <p-toast></p-toast>
-      
-      <!-- ────────────────── VIEW 1: DANH SÁCH BIỂU MẪU ────────────────── -->
-      <div class="wf-card" *ngIf="viewState() === 'list'">
-        <!-- Loading Overlay -->
-        <div class="loading-overlay" *ngIf="loading()">
-          <div class="loading-content">
-            <i class="pi pi-spin pi-spinner text-4xl mr-3" style="color: #002D72;"></i>
-            <span class="text-base font-semibold" style="color: #002D72;">Đang tải danh sách biểu mẫu...</span>
-          </div>
-        </div>
-
-        <!-- Breadcrumb -->
+<div class="wf-page">
+  <p-toast></p-toast>
+  <ng-container *ngIf="viewState() === 'list'">
+    <div class="list-toolbar">
+      <div class="toolbar-left">
         <div class="breadcrumb">
           <i class="pi pi-home bc-icon"></i>
           <span class="bc-text">Trang chủ</span>
@@ -21,498 +11,510 @@
           <span class="bc-sep">/</span>
           <span class="bc-current">Cấu hình form</span>
         </div>
-
-        <!-- Toolbar -->
-        <div class="list-toolbar">
-          <div class="toolbar-left">
-            <input type="text" class="wf-search-input"
-              placeholder="Tìm kiếm form..."
-              [ngModel]="searchKeyword()"
-              (ngModelChange)="searchKeyword.set($event)"
-              (keyup.enter)="onSearch()" />
-            <button class="btn-tim" (click)="onSearch()">
-              <i class="pi pi-search"></i> Tìm
-            </button>
-          </div>
-          <div class="toolbar-right">
-            <button class="btn-green" (click)="onAddNew()">
-              <i class="pi pi-plus"></i> Tạo form mới
-            </button>
-          </div>
+      </div>
+      <div class="toolbar-right">
+        <button class="btn-green" (click)="onAddNew()">
+          <i class="pi pi-plus"></i> Tạo form mới
+        </button>
+      </div>
+    </div>
+    <div class="wf-card">
+      <!-- Loading Overlay -->
+      <div class="loading-overlay" *ngIf="loading()">
+        <div class="loading-content">
+          <i class="pi pi-spin pi-spinner text-4xl mr-3" style="color: #002D72;"></i>
+          <span class="text-base font-semibold" style="color: #002D72;">Đang tải danh sách biểu mẫu...</span>
         </div>
-
-        <!-- Table -->
-        <div class="wf-table-wrap">
-          <table class="wf-table">
-            <thead>
-              <tr>
-                <th style="width: 150px;">Mã form</th>
-                <th>Tên form</th>
-                <th>Hạng mục áp dụng</th>
-                <th style="width: 100px; text-align: center;">Phiên bản</th>
-                <th>Người tạo</th>
-                <th class="col-tt">Trạng thái</th>
-                <th>Cập nhật lần cuối</th>
-                <th class="col-hd" style="width: 250px;">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngIf="loading()">
-                <td colspan="8" class="skeleton-row" style="padding: 30px; text-align: center;">
-                  <i class="pi pi-spin pi-spinner mr-2" style="font-size: 1.5rem; color: #002D72;"></i>
-                  <span>Đang tải danh sách biểu mẫu...</span>
-                </td>
-              </tr>
-               <tr *ngFor="let form of paginatedForms(); let i = index">
-                <td><code style="font-weight: bold; color: #000000;">{{ form.code || '(Chưa có)' }}</code></td>
-                <td><b class="wf-name-link" style="color: #000000;" (click)="onEdit(form)">{{ form.name }}</b></td>
-                <td>
-                  <span class="badge" style="background: #f1f5f9; color: #000000; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;">
-                    {{ getCategoryName(form.category) }}
-                  </span>
-                </td>
-                <td style="text-align: center; font-family: monospace; font-weight: bold; color: #000000;">v{{ form.version }}.0</td>
-                <td style="color: #000000;">{{ form.createdBy || 'admin' }}</td>
-                <td class="col-tt">
-                  <span class="status-pill"
-                    [class.status-draft]="form.status === 'Tạo mới' || !form.status"
-                    [class.status-pending]="form.status === 'Chờ duyệt'"
-                    [class.status-approved]="form.status === 'Hoàn thành'"
-                    [class.status-rejected]="form.status === 'Từ chối'">
-                    <i class="pi" [ngClass]="{
-                      'pi-info-circle': form.status === 'Tạo mới' || !form.status,
-                      'pi-clock': form.status === 'Chờ duyệt',
-                      'pi-check-circle': form.status === 'Hoàn thành',
-                      'pi-times-circle': form.status === 'Từ chối'
-                    }"></i>
-                    {{ form.status || 'Tạo mới' }}
-                  </span>
-                </td>
-                <td style="color: #000000;">{{ form.createdAt | date:'dd/MM/yyyy HH:mm' }}</td>
-                <td class="col-hd">
-                  <button class="act-btn act-preview" (click)="onPreview(form)" title="Xem trước">
-                    <i class="pi pi-eye"></i>
-                  </button>
-                  <button class="act-btn act-edit" (click)="onEdit(form)" title="Chỉnh sửa">
-                    <i class="pi pi-pencil"></i>
-                  </button>
-                  <button class="act-btn act-submit" 
-                    *ngIf="form.status === 'Tạo mới' || !form.status || form.status === 'Từ chối'"
-                    (click)="submitForm(form)" 
-                    title="Gửi duyệt">
-                    <i class="pi pi-send"></i>
-                  </button>
-                  <button class="act-btn act-delete" 
-                    *ngIf="form.isActive && (form.status === 'Tạo mới' || !form.status)"
-                    (click)="deactivateForm(form)" 
-                    title="Vô hiệu hóa">
-                    <i class="pi pi-times-circle"></i>
-                  </button>
-                </td>
-              </tr>
-              <tr *ngIf="filteredForms().length === 0 && !loading()">
-                <td colspan="8" class="empty-row">
-                  <i class="pi pi-inbox"></i>
-                  <div>Chưa có biểu mẫu động nào. Nhấp tạo biểu mẫu để thiết lập!</div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Footer / Paginator -->
-        <div class="table-footer-paginator" *ngIf="filteredForms().length > 0">
-          <span class="record-count">Tổng số: <b>{{ filteredForms().length }}</b> bản ghi.</span>
-          <p-paginator 
-              [first]="first()" 
-              [rows]="rows()" 
-              [totalRecords]="filteredForms().length" 
-              [rowsPerPageOptions]="[5, 10, 20, 50]" 
-              (onPageChange)="onPageChange($event)">
-          </p-paginator>
+      </div>
+      <div class="list-toolbar">
+        <div class="toolbar-left">
+          <input type="text" class="wf-search-input" placeholder="Tìm kiếm form..." [ngModel]="searchKeyword()"
+            (ngModelChange)="searchKeyword.set($event)" (keyup.enter)="onSearch()" />
+          <button class="btn-tim" (click)="onSearch()">
+            <i class="pi pi-search"></i> Tìm
+          </button>
         </div>
       </div>
 
-      <div *ngIf="viewState() !== 'list'" class="builder-view-container">
-        <!-- Breadcrumb -->
-        <div class="breadcrumb">
-          <i class="pi pi-home bc-icon"></i>
-          <span class="bc-text" (click)="goToList()" style="cursor: pointer;">Trang chủ</span>
-          <span class="bc-sep">/</span>
-          <span class="bc-text" (click)="goToList()" style="cursor: pointer;">Quản lý biểu mẫu</span>
-          <span class="bc-sep">/</span>
-          <span class="bc-current">{{ detailTitle() }}</span>
-        </div>
+      <!-- Table -->
+      <div class="wf-table-wrap">
+        <table class="wf-table">
+          <thead>
+            <tr>
+              <th style="width: 150px;">Mã form</th>
+              <th>Tên form</th>
+              <th>Hạng mục áp dụng</th>
+              <th style="width: 100px; text-align: center;">Phiên bản</th>
+              <th>Người tạo</th>
+              <th>Cập nhật lần cuối</th>
+              <th class="col-tt">Trạng thái</th>
+              <th class="col-hd" style="width: 250px;">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngIf="loading()">
+              <td colspan="8" class="skeleton-row" style="padding: 30px; text-align: center;">
+                <i class="pi pi-spin pi-spinner mr-2" style="font-size: 1.5rem; color: #002D72;"></i>
+                <span>Đang tải danh sách biểu mẫu...</span>
+              </td>
+            </tr>
+            <tr *ngFor="let form of paginatedForms(); let i = index">
+              <td><code style="font-weight: bold; color: #000000;">{{ form.code || '' }}</code></td>
+              <td><b class="wf-name-link" style="color: #000000;" (click)="onEdit(form)">{{ form.name }}</b></td>
+              <td>
+                <span class="badge"
+                  style="background: #f1f5f9; color: #000000; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;">
+                  {{ getCategoryName(form.category) }}
+                </span>
+              </td>
+              <td style="text-align: center; font-family: monospace; font-weight: bold; color: #000000;">v{{
+                form.version }}.0</td>
+              <td style="color: #000000;">{{ form.createdBy || '' }}</td>
+              <td style="color: #000000;">{{ form.createdAt | date:'dd/MM/yyyy HH:mm' }}</td>
+              <td class="col-tt">
+                <span class="status-pill" [class.status-draft]="form.status === 'Tạo mới' || !form.status"
+                  [class.status-pending]="form.status === 'Chờ duyệt'"
+                  [class.status-approved]="form.status === 'Hoàn thành'"
+                  [class.status-rejected]="form.status === 'Từ chối'">
+                  {{ form.status || 'Tạo mới' }}
+                </span>
+              </td>
+              <td class="col-hd">
+                <button class="act-btn act-preview" (click)="onPreview(form)" title="Xem trước">
+                  <i class="pi pi-eye"></i>
+                </button>
+                <button class="act-btn act-edit" (click)="onEdit(form)" title="Chỉnh sửa">
+                  <i class="pi pi-pencil"></i>
+                </button>
+                <button class="act-btn act-submit"
+                  *ngIf="form.status === 'Tạo mới' || !form.status || form.status === 'Từ chối'"
+                  (click)="submitForm(form)" title="Gửi duyệt">
+                  <i class="pi pi-send"></i>
+                </button>
+                <button class="act-btn act-delete" *ngIf="form.isActive && (form.status === 'Tạo mới' || !form.status)"
+                  (click)="deactivateForm(form)" title="Vô hiệu hóa">
+                  <i class="pi pi-times-circle"></i>
+                </button>
+              </td>
+            </tr>
+            <tr *ngIf="filteredForms().length === 0 && !loading()">
+              <td colspan="8" class="empty-row">
+                <i class="pi pi-inbox"></i>
+                <div>Chưa có biểu mẫu động nào. Nhấp tạo biểu mẫu để thiết lập!</div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
-        <!-- Builder & Editor Workspace -->
-        <div class="form-builder-wrapper" *ngIf="viewState() === 'add' || viewState() === 'edit'">
-          <!-- Top Header Bar -->
-          <div class="builder-header">
-            <div class="header-left">
-              <div>
-                <h2 class="builder-title">{{ detailTitle() }}</h2>
+      <!-- Footer / Paginator -->
+      <div class="table-footer-paginator" *ngIf="filteredForms().length > 0">
+        <span class="record-count">Tổng số: <b>{{ filteredForms().length }}</b> bản ghi.</span>
+        <p-paginator [first]="first()" [rows]="rows()" [totalRecords]="filteredForms().length"
+          [rowsPerPageOptions]="[5, 10, 20, 50]" (onPageChange)="onPageChange($event)">
+        </p-paginator>
+      </div>
+    </div>
+  </ng-container>
+  <div *ngIf="viewState() !== 'list'" class="builder-view-container">
+    <!-- Breadcrumb -->
+    <div class="breadcrumb">
+      <i class="pi pi-home bc-icon"></i>
+      <span class="bc-text" (click)="goToList()" style="cursor: pointer;">Trang chủ</span>
+      <span class="bc-sep">/</span>
+      <span class="bc-text" (click)="goToList()" style="cursor: pointer;">Quản lý biểu mẫu</span>
+      <span class="bc-sep">/</span>
+      <span class="bc-current">{{ detailTitle() }}</span>
+    </div>
+
+    <!-- Builder & Editor Workspace -->
+    <div class="form-builder-wrapper" *ngIf="viewState() === 'add' || viewState() === 'edit'">
+      <!-- Top Header Bar -->
+      <div class="builder-header">
+        <div class="header-left">
+          <div>
+            <h2 class="builder-title">{{ detailTitle() }}</h2>
+          </div>
+        </div>
+        <div class="header-right" style="display: flex; gap: 8px;">
+          <p-button label="Quay lại" icon="pi pi-arrow-left" severity="secondary" size="small" [rounded]="true"
+            (onClick)="goToList()"></p-button>
+          <p-button label="Xem JSON" icon="pi pi-code" severity="secondary" size="small" [rounded]="true"
+            (onClick)="showJson.set(!showJson())"></p-button>
+          <p-button [label]="isEditMode() ? 'Cập nhật cấu hình' : 'Lưu form'" icon="pi pi-save" size="small"
+            [rounded]="true" (onClick)="saveForm()"></p-button>
+        </div>
+      </div>
+
+      <div class="builder-main-layout">
+        <!-- Left Column: Toolbox -->
+        <div class="toolbox-column">
+          <p-card header="Thành phần form" styleClass="card-custom">
+            <p class="text-sm text-muted mt-0 mb-2">Nhấp hoặc kéo thả các loại trường dưới đây vào vùng thiết kế.</p>
+
+            <div class="toolbox-list pt-2">
+              <div *ngFor="let item of toolboxItems" class="toolbox-item" draggable="true"
+                (dragstart)="onToolboxDragStart($event, item.type)" (click)="addNewField(item.type)">
+                <div class="item-icon-wrapper">
+                  <i class="pi" [ngClass]="item.icon"></i>
+                </div>
+                <div class="item-text">
+                  <span class="item-label font-bold text-sm" style="color: #374151;">{{ item.label }}</span>
+                </div>
               </div>
             </div>
-            <div class="header-right" style="display: flex; gap: 8px;">
-              <p-button label="Quay lại" icon="pi pi-arrow-left" severity="secondary" size="small" [rounded]="true" (onClick)="goToList()"></p-button>
-              <p-button label="Xem JSON" icon="pi pi-code" severity="secondary" size="small" [rounded]="true" (onClick)="showJson.set(!showJson())"></p-button>
-              <p-button [label]="isEditMode() ? 'Cập nhật cấu hình' : 'Lưu form'" icon="pi pi-save" size="small" [rounded]="true" (onClick)="saveForm()"></p-button>
+          </p-card>
+        </div>
+
+        <!-- Center Column: Canvas Workspace -->
+        <div class="canvas-column" (dragover)="onDragOver($event)" (drop)="onDrop($event)">
+          <!-- General Info Card -->
+          <div class="general-info-card card">
+            <div style="display: flex; gap: 16px;" class="mb-3">
+              <div class="form-group" style="flex: 1;">
+                <label class="block text-sm font-bold text-muted tracking-wider">Mã form<span
+                    class="required">*</span></label>
+                <input type="text" pInputText [ngModel]="formCode()" (ngModelChange)="formCode.set($event)"
+                  class="w-full form-title-input" placeholder="Nhập mã form..." />
+              </div>
+              <div class="form-group" style="flex: 1;">
+                <label class="block text-sm font-bold text-muted tracking-wider">Tên form<span
+                    class="required">*</span></label>
+                <input type="text" pInputText [ngModel]="formName()" (ngModelChange)="formName.set($event)"
+                  class="w-full form-title-input" placeholder="Nhập tên form..." />
+              </div>
+            </div>
+            <div style="display: flex; gap: 16px;" class="mb-3">
+              <div class="form-group" style="flex: 1;">
+                <label class="block text-sm font-bold text-muted tracking-wider">Hạng mục áp dụng <span
+                    class="required">*</span></label>
+                <p-select [options]="categories()" [ngModel]="formCategory()" (ngModelChange)="formCategory.set($event)"
+                  optionLabel="name" optionValue="code" placeholder="-- Chọn hạng mục áp dụng --" styleClass="w-full"
+                  appendTo="body">
+                </p-select>
+              </div>
+            </div>
+            <div style="display: flex; gap: 16px;" class="mb-3">
+              <div class="form-group" style="flex: 1;">
+                <label class="block text-sm font-bold text-muted tracking-wider">Mô tả thông tin</label>
+                <textarea pTextarea [ngModel]="formDescriptionInfo()" (ngModelChange)="formDescriptionInfo.set($event)"
+                  class="w-full form-title-input" rows="2" placeholder="Nhập mô tả thông tin..."></textarea>
+              </div>
+            </div>
+            <div style="display: flex; gap: 16px;">
+              <div class="form-group" style="flex: 1;">
+                <label class="block text-sm font-bold text-muted tracking-wider">Quy tắc bóc tách thông tin</label>
+                <textarea pTextarea [ngModel]="extractionProcess()" (ngModelChange)="extractionProcess.set($event)"
+                  class="w-full form-title-input" rows="2"
+                  placeholder="Nhập quy trình bóc tách thông tin..."></textarea>
+              </div>
             </div>
           </div>
 
-          <div class="builder-main-layout">
-            <!-- Left Column: Toolbox -->
-            <div class="toolbox-column">
-              <p-card header="Thành phần form" styleClass="card-custom">
-                <p class="text-sm text-muted mt-0 mb-2">Nhấp hoặc kéo thả các loại trường dưới đây vào vùng thiết kế.</p>
-                
-                <div class="toolbox-list pt-2">
-                  <div *ngFor="let item of toolboxItems" 
-                       class="toolbox-item" 
-                       draggable="true" 
-                       (dragstart)="onToolboxDragStart($event, item.type)"
-                       (click)="addNewField(item.type)">
-                    <div class="item-icon-wrapper">
-                      <i class="pi" [ngClass]="item.icon"></i>
-                    </div>
-                    <div class="item-text">
-                      <span class="item-label font-bold text-sm" style="color: #374151;">{{ item.label }}</span>
-                    </div>
-                  </div>
-                </div>
-              </p-card>
+          <!-- Main Fields Area -->
+          <div class="canvas-workspace">
+            <div class="workspace-header">
+              <span class="workspace-title">Khu vực thiết kế giao diện (vùng kéo thả)</span>
+              <span class="badge badge-field-count">{{ fields().length }} trường</span>
             </div>
 
-            <!-- Center Column: Canvas Workspace -->
-            <div class="canvas-column" (dragover)="onDragOver($event)" (drop)="onDrop($event)">
-              <!-- General Info Card -->
-              <div class="general-info-card card">
-                <div style="display: flex; gap: 16px;" class="mb-3">
-                  <div class="form-group" style="flex: 1;">
-                    <label class="block text-sm font-bold text-muted tracking-wider">Mã form<span class="required">*</span></label>
-                    <input type="text" pInputText [ngModel]="formCode()" (ngModelChange)="formCode.set($event)" class="w-full form-title-input" placeholder="Nhập mã form..." />
-                  </div>
-                  <div class="form-group" style="flex: 1;">
-                    <label class="block text-sm font-bold text-muted tracking-wider">Tên form<span class="required">*</span></label>
-                    <input type="text" pInputText [ngModel]="formName()" (ngModelChange)="formName.set($event)" class="w-full form-title-input" placeholder="Nhập tên form..." />
-                  </div>
-                </div>
-                <div style="display: flex; gap: 16px;" class="mb-3">
-                  <div class="form-group" style="flex: 1;">
-                    <label class="block text-sm font-bold text-muted tracking-wider">Hạng mục áp dụng <span class="required">*</span></label>
-                    <p-select [options]="categories()" 
-                              [ngModel]="formCategory()" 
-                              (ngModelChange)="formCategory.set($event)"
-                              optionLabel="name" 
-                              optionValue="code" 
-                              placeholder="-- Chọn hạng mục áp dụng --"
-                              styleClass="w-full"
-                              appendTo="body">
-                    </p-select>
-                  </div>
-                </div>
-                <div style="display: flex; gap: 16px;" class="mb-3">
-                  <div class="form-group" style="flex: 1;">
-                    <label class="block text-sm font-bold text-muted tracking-wider">Mô tả thông tin</label>
-                    <textarea pTextarea [ngModel]="formDescriptionInfo()" (ngModelChange)="formDescriptionInfo.set($event)" class="w-full form-title-input" rows="2" placeholder="Nhập mô tả thông tin..."></textarea>
-                  </div>
-                </div>
-                <div style="display: flex; gap: 16px;">
-                  <div class="form-group" style="flex: 1;">
-                    <label class="block text-sm font-bold text-muted tracking-wider">Quy tắc bóc tách thông tin</label>
-                    <textarea pTextarea [ngModel]="extractionProcess()" (ngModelChange)="extractionProcess.set($event)" class="w-full form-title-input" rows="2" placeholder="Nhập quy trình bóc tách thông tin..."></textarea>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Main Fields Area -->
-              <div class="canvas-workspace">
-                <div class="workspace-header">
-                  <span class="workspace-title">Khu vực thiết kế giao diện (vùng kéo thả)</span>
-                  <span class="badge badge-field-count">{{ fields().length }} trường</span>
-                </div>
-
-                <div *ngIf="fields().length === 0" class="empty-workspace-state">
-                  <i class="pi pi-clone empty-icon"></i>
-                  <p class="empty-title">Vùng thiết kế đang trống</p>
-                  <p class="empty-subtitle">Kéo thả các trường từ cột trái vào đây, hoặc click trực tiếp để thêm mới.</p>
-                </div>
-
-                <div class="fields-list-container" *ngIf="fields().length > 0" style="display: flex; flex-wrap: wrap; gap: 14px;">
-                  <div *ngFor="let field of fields(); let i = index; trackBy: trackByFn" 
-                       class="canvas-field-card"
-                       [class.selected]="selectedFieldIndex() === i"
-                       [class.width-50]="field.width === 50"
-                       [class.width-100]="field.width === 100"
-                       draggable="true"
-                       (dragstart)="onCanvasDragStart($event, i)"
-                       (dragover)="onDragOver($event)"
-                       (drop)="onCanvasDrop($event, i)"
-                       (click)="selectField(i)">
-                    
-                    <div class="field-card-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; margin-bottom: 8px;">
-                      <span class="drag-handle-indicator"><i class="pi pi-ellipsis-v"></i><i class="pi pi-ellipsis-v"></i></span>
-                      <span class="field-type-badge text-sm font-bold" style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">{{ field.type }}</span>
-                      <div class="field-actions" style="display: flex; gap: 4px;">
-                        <button class="act-btn act-edit" (click)="cloneField(i, $event)" title="Nhân bản" style="border: none; padding: 4px 6px;"><i class="pi pi-copy"></i></button>
-                        <button class="act-btn act-delete" (click)="removeField(i, $event)" title="Xóa" style="border: none; padding: 4px 6px;"><i class="pi pi-trash"></i></button>
-                      </div>
-                    </div>
-
-                    <div class="field-preview-body">
-                      <label class="preview-label font-bold text-sm block mb-2" style="color: #002D72;">
-                        {{ field.label || '(Trường chưa đặt tên)' }}
-                        <span *ngIf="field.required" class="text-danger">*</span>
-                      </label>
-
-                      <div class="preview-input-container">
-                        <input *ngIf="field.type === 'text'" type="text" pInputText class="w-full preview-input" [placeholder]="field.placeholder || ''" disabled />
-                        <input *ngIf="field.type === 'number'" type="number" pInputText class="w-full preview-input" [placeholder]="field.placeholder || ''" disabled />
-                        <input *ngIf="field.type === 'date'" type="date" pInputText class="w-full preview-input" disabled />
-                        
-                        <p-select *ngIf="field.type === 'dropdown'" 
-                                  [options]="field.dataSourceType === 'catalog' ? ['(Dữ liệu liên kết từ danh mục: ' + field.catalogType + ')'] : (field.options || [])" 
-                                  [placeholder]="field.placeholder || 'Chọn giá trị...'"
-                                  styleClass="w-full preview-input" 
-                                  disabled>
-                        </p-select>
-
-                        <textarea *ngIf="field.type === 'textarea'" pTextarea class="w-full preview-input" rows="2" [placeholder]="field.placeholder || ''" disabled></textarea>
-
-                        <div *ngIf="field.type === 'checkbox'" class="flex items-center gap-2 py-1" style="display: flex; align-items: center; gap: 8px;">
-                          <input type="checkbox" disabled />
-                          <span class="text-sm">{{ field.placeholder || 'Đồng ý / Xác nhận' }}</span>
-                        </div>
-                      </div>
-
-                    </div>
-                  </div>
-                </div>
-              </div>
+            <div *ngIf="fields().length === 0" class="empty-workspace-state">
+              <i class="pi pi-clone empty-icon"></i>
+              <p class="empty-title">Vùng thiết kế đang trống</p>
+              <p class="empty-subtitle">Kéo thả các trường từ cột trái vào đây, hoặc click trực tiếp để thêm mới.</p>
             </div>
 
-            <!-- Right Column: Properties Configuration -->
-            <div class="properties-column">
-              <p-card header="Thuộc tính cấu hình" styleClass="card-custom">
-                <div *ngIf="selectedFieldIndex() === null" class="empty-properties-state">
-                  <i class="pi pi-cog empty-icon"></i>
-                  <p class="empty-text">Chọn một trường trong vùng thiết kế để cấu hình chi tiết.</p>
+            <div class="fields-list-container" *ngIf="fields().length > 0"
+              style="display: flex; flex-wrap: wrap; gap: 14px;">
+              <div *ngFor="let field of fields(); let i = index; trackBy: trackByFn" class="canvas-field-card"
+                [class.selected]="selectedFieldIndex() === i" [class.width-50]="field.width === 50"
+                [class.width-100]="field.width === 100" draggable="true" (dragstart)="onCanvasDragStart($event, i)"
+                (dragover)="onDragOver($event)" (drop)="onCanvasDrop($event, i)" (click)="selectField(i)">
+
+                <div class="field-card-header"
+                  style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; margin-bottom: 8px;">
+                  <span class="drag-handle-indicator"><i class="pi pi-ellipsis-v"></i><i
+                      class="pi pi-ellipsis-v"></i></span>
+                  <span class="field-type-badge text-sm font-bold"
+                    style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">{{ field.type }}</span>
+                  <div class="field-actions" style="display: flex; gap: 4px;">
+                    <button class="act-btn act-edit" (click)="cloneField(i, $event)" title="Nhân bản"
+                      style="border: none; padding: 4px 6px;"><i class="pi pi-copy"></i></button>
+                    <button class="act-btn act-delete" (click)="removeField(i, $event)" title="Xóa"
+                      style="border: none; padding: 4px 6px;"><i class="pi pi-trash"></i></button>
+                  </div>
                 </div>
 
-                <div *ngIf="selectedFieldIndex() !== null" class="properties-form">
-                  <div class="field mb-2">
-                    <label class="block font-bold text-sm text-muted mb-1">Nhãn hiển thị (Label)</label>
-                    <input type="text" pInputText [ngModel]="fields()[selectedFieldIndex()!].label" (ngModelChange)="updateSelectedField('label', $event)" class="w-full p-inputtext-sm" />
-                  </div>
+                <div class="field-preview-body">
+                  <label class="preview-label font-bold text-sm block mb-2" style="color: #002D72;">
+                    {{ field.label || '(Trường chưa đặt tên)' }}
+                    <span *ngIf="field.required" class="text-danger">*</span>
+                  </label>
 
-                  <div class="field mb-2">
-                    <label class="block font-bold text-sm text-muted mb-1">Mã trường kỹ thuật (Key/Name)</label>
-                    <input type="text" pInputText [ngModel]="fields()[selectedFieldIndex()!].name" (ngModelChange)="updateSelectedField('name', $event)" class="w-full p-inputtext-sm" />
-                  </div>
+                  <div class="preview-input-container">
+                    <input *ngIf="field.type === 'text'" type="text" pInputText class="w-full preview-input"
+                      [placeholder]="field.placeholder || ''" disabled />
+                    <input *ngIf="field.type === 'number'" type="number" pInputText class="w-full preview-input"
+                      [placeholder]="field.placeholder || ''" disabled />
+                    <input *ngIf="field.type === 'date'" type="date" pInputText class="w-full preview-input" disabled />
 
-                  <div class="field mb-2" *ngIf="fields()[selectedFieldIndex()!].type !== 'checkbox'">
-                    <label class="block font-bold text-sm text-muted mb-1">Gợi ý nhập liệu (Placeholder)</label>
-                    <input type="text" pInputText [ngModel]="fields()[selectedFieldIndex()!].placeholder" (ngModelChange)="updateSelectedField('placeholder', $event)" class="w-full p-inputtext-sm" />
-                  </div>
-
-                  <div class="field mb-2">
-                    <label class="block font-bold text-sm text-muted mb-1">Mô tả thông tin trường (Description)</label>
-                    <textarea pTextarea [ngModel]="fields()[selectedFieldIndex()!].description" (ngModelChange)="updateSelectedField('description', $event)" class="w-full p-inputtext-sm" rows="3" placeholder="Mô tả thông tin cho trường này..."></textarea>
-                  </div>
-
-                  <div class="field mb-2">
-                    <label class="block font-bold text-sm text-muted mb-1">Độ rộng hiển thị (Width)</label>
-                    <p-select [options]="[{label: 'Chiều rộng đầy đủ (100%)', value: 100}, {label: 'Một nửa cột (50%)', value: 50}]" 
-                              [ngModel]="fields()[selectedFieldIndex()!].width" 
-                              (ngModelChange)="updateSelectedField('width', $event)"
-                              optionLabel="label" 
-                              optionValue="value" 
-                              styleClass="w-full p-inputtext-sm" 
-                              appendTo="body">
+                    <p-select *ngIf="field.type === 'dropdown'"
+                      [options]="field.dataSourceType === 'catalog' ? ['(Dữ liệu liên kết từ danh mục: ' + field.catalogType + ')'] : (field.options || [])"
+                      [placeholder]="field.placeholder || 'Chọn giá trị...'" styleClass="w-full preview-input" disabled>
                     </p-select>
-                  </div>
 
-                  <div class="field mb-2" style="display: flex; align-items: center; gap: 8px; margin-top: 10px;">
-                    <p-checkbox [ngModel]="fields()[selectedFieldIndex()!].required" (ngModelChange)="updateSelectedField('required', $event)" [binary]="true" id="prop-required"></p-checkbox>
-                    <label for="prop-required" class="font-bold text-sm cursor-pointer select-none">Bắt buộc nhập (Required)</label>
-                  </div>
+                    <textarea *ngIf="field.type === 'textarea'" pTextarea class="w-full preview-input" rows="2"
+                      [placeholder]="field.placeholder || ''" disabled></textarea>
 
-                  <!-- Data Source Selector for Dropdown -->
-                  <div *ngIf="fields()[selectedFieldIndex()!].type === 'dropdown'" class="field mb-0">
-                    <label class="block font-bold text-sm text-muted mb-1">Nguồn dữ liệu (Data Source)</label>
-                    <p-select [options]="[{label: 'Tự nhập thủ công (Manual)', value: 'manual'}, {label: 'Danh mục hệ thống (Catalog)', value: 'catalog'}]" 
-                              [ngModel]="fields()[selectedFieldIndex()!].dataSourceType || 'manual'" 
-                              (ngModelChange)="onDataSourceTypeChange($event)"
-                              optionLabel="label" 
-                              optionValue="value" 
-                              styleClass="w-full p-inputtext-sm" 
-                              appendTo="body">
-                    </p-select>
-                  </div>
-
-                  <!-- Options builder for Dropdown -->
-                  <div *ngIf="fields()[selectedFieldIndex()!].type === 'dropdown' && fields()[selectedFieldIndex()!].dataSourceType !== 'catalog'" class="dropdown-options-builder">
-                    <div class="property-section-title flex justify-between items-center" style="display: flex; justify-content: space-between; align-items: center;">
-                      <span>Các lựa chọn</span>
-                      <p-button label="Thêm" icon="pi pi-plus" [text]="true" (onClick)="addOption()"></p-button>
-                    </div>
-
-                    <div class="options-list" style="display: flex; flex-direction: column; gap: 8px;">
-                      <div *ngFor="let opt of fields()[selectedFieldIndex()!].options; let oIdx = index; trackBy: trackByFn" style="display: flex; gap: 6px; align-items: center;">
-                        <input type="text" pInputText [ngModel]="fields()[selectedFieldIndex()!].options![oIdx]" (ngModelChange)="updateSelectedFieldOption(oIdx, $event)" class="w-full p-inputtext-sm" />
-                        <p-button icon="pi pi-times" severity="danger" [rounded]="true" [text]="true" (onClick)="removeOption(oIdx)"></p-button>
-                      </div>
+                    <div *ngIf="field.type === 'checkbox'" class="flex items-center gap-2 py-1"
+                      style="display: flex; align-items: center; gap: 8px;">
+                      <input type="checkbox" disabled />
+                      <span class="text-sm">{{ field.placeholder || 'Đồng ý / Xác nhận' }}</span>
                     </div>
                   </div>
 
-                  <!-- Catalog Selector -->
-                  <div *ngIf="fields()[selectedFieldIndex()!].type === 'dropdown' && fields()[selectedFieldIndex()!].dataSourceType === 'catalog'" class="field" style="margin-top: 10px;">
-                    <label class="block font-bold text-sm text-muted mb-1">Chọn danh mục hệ thống</label>
-                    <p-select [options]="catalogTypes()" 
-                              [ngModel]="fields()[selectedFieldIndex()!].catalogType" 
-                              (ngModelChange)="updateSelectedField('catalogType', $event)"
-                              optionLabel="name" 
-                              optionValue="code" 
-                              placeholder="-- Chọn loại danh mục --"
-                              styleClass="w-full p-inputtext-sm" 
-                              appendTo="body">
-                    </p-select>
-                  </div>
                 </div>
-              </p-card>
+              </div>
             </div>
           </div>
         </div>
 
-        <!-- Render & Preview Workspace -->
-        <div class="wf-card preview-card" *ngIf="viewState() === 'preview'">
-          <div class="builder-header" style="margin-bottom: 1.25rem;">
-            <div class="header-left">
-              <div>
-                <h2 class="builder-title">{{ detailTitle() }}</h2>
-                <p class="builder-subtitle">{{ formDescriptionInfo() || formDescription() || 'Biểu mẫu thuộc tính EAV dành cho thiết bị số hóa EVNHANOI.' }}</p>
+        <!-- Right Column: Properties Configuration -->
+        <div class="properties-column">
+          <p-card header="Thuộc tính cấu hình" styleClass="card-custom">
+            <div *ngIf="selectedFieldIndex() === null" class="empty-properties-state">
+              <i class="pi pi-cog empty-icon"></i>
+              <p class="empty-text">Chọn một trường trong vùng thiết kế để cấu hình chi tiết.</p>
+            </div>
+
+            <div *ngIf="selectedFieldIndex() !== null" class="properties-form">
+              <div class="field mb-2">
+                <label class="block font-bold text-sm text-muted mb-1">Nhãn hiển thị (Label)</label>
+                <input type="text" pInputText [ngModel]="fields()[selectedFieldIndex()!].label"
+                  (ngModelChange)="updateSelectedField('label', $event)" class="w-full p-inputtext-sm" />
               </div>
-            </div>
-            <div class="header-right">
-              <p-button label="Quay lại danh sách" icon="pi pi-arrow-left" [rounded]="true" styleClass="btn-evn-blue" (onClick)="goToList()"></p-button>
-            </div>
-          </div>
 
-          <!-- Beautiful Interactive rendered fields -->
-          <div class="card p-5 preview-body-card" style="background: white; border-radius: 12px; border: 1px solid #e2e8f0;">
-            <h3 class="font-bold text-lg mb-4" style="color: #002D72; border-bottom: 2px solid #FF6B00; padding-bottom: 8px; display: inline-block;">Thông số kỹ thuật thiết bị</h3>
-            
-            <div style="display: flex; flex-wrap: wrap; gap: 20px;">
-              <div *ngFor="let field of fields()" 
-                   [style.width]="field.width === 50 ? 'calc(50% - 10px)' : '100%'" 
-                   style="display: flex; flex-direction: column; gap: 6px;">
-                
-                <label class="font-semibold text-sm" style="color: #374151;">
-                  {{ field.label }}
-                  <span *ngIf="field.required" class="text-danger">*</span>
-                </label>
+              <div class="field mb-2">
+                <label class="block font-bold text-sm text-muted mb-1">Mã trường kỹ thuật (Key/Name)</label>
+                <input type="text" pInputText [ngModel]="fields()[selectedFieldIndex()!].name"
+                  (ngModelChange)="updateSelectedField('name', $event)" class="w-full p-inputtext-sm" />
+              </div>
 
-                <div>
-                  <input *ngIf="field.type === 'text'" type="text" pInputText class="w-full" [placeholder]="field.placeholder || ''" [ngModel]="simulatedValues()[field.name]" (ngModelChange)="updateSimulatedValue(field.name, $event)" />
-                  <input *ngIf="field.type === 'number'" type="number" pInputText class="w-full" [placeholder]="field.placeholder || ''" [ngModel]="simulatedValues()[field.name]" (ngModelChange)="updateSimulatedValue(field.name, $event)" />
-                  <input *ngIf="field.type === 'date'" type="date" pInputText class="w-full" [ngModel]="simulatedValues()[field.name]" (ngModelChange)="updateSimulatedValue(field.name, $event)" />
-                  
-                  <p-select *ngIf="field.type === 'dropdown'" 
-                            [options]="field.dataSourceType === 'catalog' ? ['(Dữ liệu từ danh mục ' + field.catalogType + ')'] : (field.options || [])" 
-                            [placeholder]="field.placeholder || 'Chọn giá trị...'"
-                            [ngModel]="simulatedValues()[field.name]"
-                            (ngModelChange)="updateSimulatedValue(field.name, $event)"
-                            styleClass="w-full" 
-                            appendTo="body">
-                  </p-select>
+              <div class="field mb-2" *ngIf="fields()[selectedFieldIndex()!].type !== 'checkbox'">
+                <label class="block font-bold text-sm text-muted mb-1">Gợi ý nhập liệu (Placeholder)</label>
+                <input type="text" pInputText [ngModel]="fields()[selectedFieldIndex()!].placeholder"
+                  (ngModelChange)="updateSelectedField('placeholder', $event)" class="w-full p-inputtext-sm" />
+              </div>
 
-                  <textarea *ngIf="field.type === 'textarea'" pTextarea class="w-full" rows="3" [placeholder]="field.placeholder || ''" [ngModel]="simulatedValues()[field.name]" (ngModelChange)="updateSimulatedValue(field.name, $event)"></textarea>
+              <div class="field mb-2">
+                <label class="block font-bold text-sm text-muted mb-1">Mô tả thông tin trường (Description)</label>
+                <textarea pTextarea [ngModel]="fields()[selectedFieldIndex()!].description"
+                  (ngModelChange)="updateSelectedField('description', $event)" class="w-full p-inputtext-sm" rows="3"
+                  placeholder="Mô tả thông tin cho trường này..."></textarea>
+              </div>
 
-                  <div *ngIf="field.type === 'checkbox'" style="display: flex; align-items: center; gap: 8px; padding: 8px 0;">
-                    <input type="checkbox" [id]="'sim_' + field.id" [ngModel]="simulatedValues()[field.name]" (ngModelChange)="updateSimulatedValue(field.name, $event)" style="scale: 1.1; cursor: pointer;" />
-                    <label [for]="'sim_' + field.id" class="text-sm select-none" style="cursor: pointer;">{{ field.placeholder || 'Đồng ý / Xác nhận' }}</label>
-                  </div>
+              <div class="field mb-2">
+                <label class="block font-bold text-sm text-muted mb-1">Độ rộng hiển thị (Width)</label>
+                <p-select
+                  [options]="[{label: 'Chiều rộng đầy đủ (100%)', value: 100}, {label: 'Một nửa cột (50%)', value: 50}]"
+                  [ngModel]="fields()[selectedFieldIndex()!].width"
+                  (ngModelChange)="updateSelectedField('width', $event)" optionLabel="label" optionValue="value"
+                  styleClass="w-full p-inputtext-sm" appendTo="body">
+                </p-select>
+              </div>
+
+              <div class="field mb-2" style="display: flex; align-items: center; gap: 8px; margin-top: 10px;">
+                <p-checkbox [ngModel]="fields()[selectedFieldIndex()!].required"
+                  (ngModelChange)="updateSelectedField('required', $event)" [binary]="true"
+                  id="prop-required"></p-checkbox>
+                <label for="prop-required" class="font-bold text-sm cursor-pointer select-none">Bắt buộc nhập
+                  (Required)</label>
+              </div>
+
+              <!-- Data Source Selector for Dropdown -->
+              <div *ngIf="fields()[selectedFieldIndex()!].type === 'dropdown'" class="field mb-0">
+                <label class="block font-bold text-sm text-muted mb-1">Nguồn dữ liệu (Data Source)</label>
+                <p-select
+                  [options]="[{label: 'Tự nhập thủ công (Manual)', value: 'manual'}, {label: 'Danh mục hệ thống (Catalog)', value: 'catalog'}]"
+                  [ngModel]="fields()[selectedFieldIndex()!].dataSourceType || 'manual'"
+                  (ngModelChange)="onDataSourceTypeChange($event)" optionLabel="label" optionValue="value"
+                  styleClass="w-full p-inputtext-sm" appendTo="body">
+                </p-select>
+              </div>
+
+              <!-- Options builder for Dropdown -->
+              <div
+                *ngIf="fields()[selectedFieldIndex()!].type === 'dropdown' && fields()[selectedFieldIndex()!].dataSourceType !== 'catalog'"
+                class="dropdown-options-builder">
+                <div class="property-section-title flex justify-between items-center"
+                  style="display: flex; justify-content: space-between; align-items: center;">
+                  <span>Các lựa chọn</span>
+                  <p-button label="Thêm" icon="pi pi-plus" [text]="true" (onClick)="addOption()"></p-button>
                 </div>
 
+                <div class="options-list" style="display: flex; flex-direction: column; gap: 8px;">
+                  <div *ngFor="let opt of fields()[selectedFieldIndex()!].options; let oIdx = index; trackBy: trackByFn"
+                    style="display: flex; gap: 6px; align-items: center;">
+                    <input type="text" pInputText [ngModel]="fields()[selectedFieldIndex()!].options![oIdx]"
+                      (ngModelChange)="updateSelectedFieldOption(oIdx, $event)" class="w-full p-inputtext-sm" />
+                    <p-button icon="pi pi-times" severity="danger" [rounded]="true" [text]="true"
+                      (onClick)="removeOption(oIdx)"></p-button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Catalog Selector -->
+              <div
+                *ngIf="fields()[selectedFieldIndex()!].type === 'dropdown' && fields()[selectedFieldIndex()!].dataSourceType === 'catalog'"
+                class="field" style="margin-top: 10px;">
+                <label class="block font-bold text-sm text-muted mb-1">Chọn danh mục hệ thống</label>
+                <p-select [options]="catalogTypes()" [ngModel]="fields()[selectedFieldIndex()!].catalogType"
+                  (ngModelChange)="updateSelectedField('catalogType', $event)" optionLabel="name" optionValue="code"
+                  placeholder="-- Chọn loại danh mục --" styleClass="w-full p-inputtext-sm" appendTo="body">
+                </p-select>
               </div>
             </div>
-
-            <!-- Submit button simulation -->
-            <div style="margin-top: 30px; display: flex; justify-content: flex-end; border-top: 1px solid #e2e8f0; padding-top: 20px;">
-              <p-button label="Kiểm nghiệm nhập liệu (Simulate)" icon="pi pi-check-circle" [rounded]="true" styleClass="btn-evn-blue" (onClick)="onSimulateSubmit()"></p-button>
-            </div>
-          </div>
+          </p-card>
         </div>
       </div>
     </div>
 
-    <!-- JSON Modal/Viewer if clicked -->
-    <div *ngIf="showJson()" class="json-preview-overlay" (click)="showJson.set(false)">
-      <div class="json-preview-modal card p-4 shadow-4" (click)="$event.stopPropagation()">
-        <div class="flex justify-between items-center mb-3" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #cbd5e1; padding-bottom: 10px;">
-          <h3 class="m-0 font-bold" style="color: #002D72;">Cấu trúc JSON Biểu mẫu</h3>
-          <p-button icon="pi pi-times" [rounded]="true" [text]="true" (onClick)="showJson.set(false)"></p-button>
+    <!-- Render & Preview Workspace -->
+    <div class="wf-card preview-card" *ngIf="viewState() === 'preview'">
+      <div class="builder-header" style="margin-bottom: 1.25rem;">
+        <div class="header-left">
+          <div>
+            <h2 class="builder-title">{{ detailTitle() }}</h2>
+            <p class="builder-subtitle">{{ formDescriptionInfo() || formDescription() || 'Biểu mẫu thuộc tính EAV dành
+              cho thiết bị số hóa EVNHANOI.' }}</p>
+          </div>
         </div>
-        <pre class="json-content" style="background: #f8fafc; padding: 10px; border-radius: 6px; font-family: monospace; font-size: 0.8rem; overflow: auto; max-height: 400px; border: 1px solid #e2e8f0;">{{ { name: formName(), description: formDescription(), fields: fields() } | json }}</pre>
+        <div class="header-right">
+          <p-button label="Quay lại danh sách" icon="pi pi-arrow-left" [rounded]="true" styleClass="btn-evn-blue"
+            (onClick)="goToList()"></p-button>
+        </div>
+      </div>
+
+      <!-- Beautiful Interactive rendered fields -->
+      <div class="card p-5 preview-body-card"
+        style="background: white; border-radius: 12px; border: 1px solid #e2e8f0;">
+        <h3 class="font-bold text-lg mb-4"
+          style="color: #002D72; border-bottom: 2px solid #FF6B00; padding-bottom: 8px; display: inline-block;">Thông số
+          kỹ thuật thiết bị</h3>
+
+        <div style="display: flex; flex-wrap: wrap; gap: 20px;">
+          <div *ngFor="let field of fields()" [style.width]="field.width === 50 ? 'calc(50% - 10px)' : '100%'"
+            style="display: flex; flex-direction: column; gap: 6px;">
+
+            <label class="font-semibold text-sm" style="color: #374151;">
+              {{ field.label }}
+              <span *ngIf="field.required" class="text-danger">*</span>
+            </label>
+
+            <div>
+              <input *ngIf="field.type === 'text'" type="text" pInputText class="w-full"
+                [placeholder]="field.placeholder || ''" [ngModel]="simulatedValues()[field.name]"
+                (ngModelChange)="updateSimulatedValue(field.name, $event)" />
+              <input *ngIf="field.type === 'number'" type="number" pInputText class="w-full"
+                [placeholder]="field.placeholder || ''" [ngModel]="simulatedValues()[field.name]"
+                (ngModelChange)="updateSimulatedValue(field.name, $event)" />
+              <input *ngIf="field.type === 'date'" type="date" pInputText class="w-full"
+                [ngModel]="simulatedValues()[field.name]" (ngModelChange)="updateSimulatedValue(field.name, $event)" />
+
+              <p-select *ngIf="field.type === 'dropdown'"
+                [options]="field.dataSourceType === 'catalog' ? ['(Dữ liệu từ danh mục ' + field.catalogType + ')'] : (field.options || [])"
+                [placeholder]="field.placeholder || 'Chọn giá trị...'" [ngModel]="simulatedValues()[field.name]"
+                (ngModelChange)="updateSimulatedValue(field.name, $event)" styleClass="w-full" appendTo="body">
+              </p-select>
+
+              <textarea *ngIf="field.type === 'textarea'" pTextarea class="w-full" rows="3"
+                [placeholder]="field.placeholder || ''" [ngModel]="simulatedValues()[field.name]"
+                (ngModelChange)="updateSimulatedValue(field.name, $event)"></textarea>
+
+              <div *ngIf="field.type === 'checkbox'"
+                style="display: flex; align-items: center; gap: 8px; padding: 8px 0;">
+                <input type="checkbox" [id]="'sim_' + field.id" [ngModel]="simulatedValues()[field.name]"
+                  (ngModelChange)="updateSimulatedValue(field.name, $event)" style="scale: 1.1; cursor: pointer;" />
+                <label [for]="'sim_' + field.id" class="text-sm select-none" style="cursor: pointer;">{{
+                  field.placeholder || 'Đồng ý / Xác nhận' }}</label>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Submit button simulation -->
+        <div
+          style="margin-top: 30px; display: flex; justify-content: flex-end; border-top: 1px solid #e2e8f0; padding-top: 20px;">
+          <p-button label="Kiểm nghiệm nhập liệu (Simulate)" icon="pi pi-check-circle" [rounded]="true"
+            styleClass="btn-evn-blue" (onClick)="onSimulateSubmit()"></p-button>
+        </div>
       </div>
     </div>
+  </div>
+</div>
 
-    <!-- ==================== DIALOG XÁC NHẬN VÔ HIỆU HÓA ==================== -->
-    <p-dialog
-      [visible]="showConfirmDelete()"
-      (visibleChange)="$event ? null : showConfirmDelete.set(false)"
-      header="Xác nhận vô hiệu hóa"
-      [modal]="true"
-      [style]="{ width: '420px' }"
-      styleClass="evn-dialog-custom"
-      [closable]="true">
-      <div style="display: flex; align-items: flex-start; gap: 12px; padding: 8px 0 16px;">
-        <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #f59e0b;"></i>
-        <div>
-          <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">Bạn có chắc chắn muốn vô hiệu hóa?</p>
-          <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
-            Biểu mẫu <b style="color: #1e293b;">{{ targetForm?.name }}</b> sẽ bị vô hiệu hóa trong hệ thống.
-          </p>
-        </div>
-      </div>
-      <ng-template #footer>
-        <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
-          <button class="btn-cancel btn-small" (click)="showConfirmDelete.set(false)">
-            <i class="pi pi-times"></i> Hủy
-          </button>
-          <button class="btn-save btn-small" (click)="onConfirmDelete()" style="background-color: #dc2626; border-color: #dc2626;">
-            <i class="pi pi-check"></i> Xác nhận
-          </button>
-        </div>
-      </ng-template>
-    </p-dialog>
+<!-- JSON Modal/Viewer if clicked -->
+<div *ngIf="showJson()" class="json-preview-overlay" (click)="showJson.set(false)">
+  <div class="json-preview-modal card p-4 shadow-4" (click)="$event.stopPropagation()">
+    <div class="flex justify-between items-center mb-3"
+      style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #cbd5e1; padding-bottom: 10px;">
+      <h3 class="m-0 font-bold" style="color: #002D72;">Cấu trúc JSON Biểu mẫu</h3>
+      <p-button icon="pi pi-times" [rounded]="true" [text]="true" (onClick)="showJson.set(false)"></p-button>
+    </div>
+    <pre class="json-content"
+      style="background: #f8fafc; padding: 10px; border-radius: 6px; font-family: monospace; font-size: 0.8rem; overflow: auto; max-height: 400px; border: 1px solid #e2e8f0;">{{ { name: formName(), description: formDescription(), fields: fields() } | json }}</pre>
+  </div>
+</div>
 
-    <!-- ==================== DIALOG XÁC NHẬN GỬI DUYỆT ==================== -->
-    <p-dialog
-      [visible]="showConfirmSubmit()"
-      (visibleChange)="$event ? null : showConfirmSubmit.set(false)"
-      header="Xác nhận gửi duyệt"
-      [modal]="true"
-      [style]="{ width: '420px' }"
-      styleClass="evn-dialog-custom"
-      [closable]="true">
-      <div style="display: flex; align-items: flex-start; gap: 12px; padding: 8px 0 16px;">
-        <i class="pi pi-question-circle" style="font-size: 1.8rem; color: #3b82f6;"></i>
-        <div>
-          <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">Bạn có chắc chắn muốn gửi duyệt?</p>
-          <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
-            Biểu mẫu <b style="color: #1e293b;">{{ targetForm?.name }}</b> sẽ được gửi để phê duyệt và không thể chỉnh sửa trong quá trình chờ duyệt.
-          </p>
-        </div>
-      </div>
-      <ng-template #footer>
-        <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
-          <button class="btn-cancel btn-small" (click)="showConfirmSubmit.set(false)">
-            <i class="pi pi-times"></i> Hủy
-          </button>
-          <button class="btn-save btn-small" (click)="onConfirmSubmit()">
-            <i class="pi pi-check"></i> Gửi duyệt
-          </button>
-        </div>
-      </ng-template>
-    </p-dialog>
+<!-- ==================== DIALOG XÁC NHẬN VÔ HIỆU HÓA ==================== -->
+<p-dialog [visible]="showConfirmDelete()" (visibleChange)="$event ? null : showConfirmDelete.set(false)"
+  header="Xác nhận vô hiệu hóa" [modal]="true" [style]="{ width: '420px' }" styleClass="evn-dialog-custom"
+  [closable]="true">
+  <div style="display: flex; align-items: flex-start; gap: 12px; padding: 8px 0 16px;">
+    <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #f59e0b;"></i>
+    <div>
+      <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">Bạn có chắc chắn muốn vô hiệu hóa?</p>
+      <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
+        Biểu mẫu <b style="color: #1e293b;">{{ targetForm?.name }}</b> sẽ bị vô hiệu hóa trong hệ thống.
+      </p>
+    </div>
+  </div>
+  <ng-template #footer>
+    <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+      <button class="btn-cancel btn-small" (click)="showConfirmDelete.set(false)">
+        <i class="pi pi-times"></i> Hủy
+      </button>
+      <button class="btn-save btn-small" (click)="onConfirmDelete()"
+        style="background-color: #dc2626; border-color: #dc2626;">
+        <i class="pi pi-check"></i> Xác nhận
+      </button>
+    </div>
+  </ng-template>
+</p-dialog>
+
+<!-- ==================== DIALOG XÁC NHẬN GỬI DUYỆT ==================== -->
+<p-dialog [visible]="showConfirmSubmit()" (visibleChange)="$event ? null : showConfirmSubmit.set(false)"
+  header="Xác nhận gửi duyệt" [modal]="true" [style]="{ width: '420px' }" styleClass="evn-dialog-custom"
+  [closable]="true">
+  <div style="display: flex; align-items: flex-start; gap: 12px; padding: 8px 0 16px;">
+    <i class="pi pi-question-circle" style="font-size: 1.8rem; color: #3b82f6;"></i>
+    <div>
+      <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">Bạn có chắc chắn muốn gửi duyệt?</p>
+      <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
+        Biểu mẫu <b style="color: #1e293b;">{{ targetForm?.name }}</b> sẽ được gửi để phê duyệt và không thể chỉnh sửa
+        trong quá trình chờ duyệt.
+      </p>
+    </div>
+  </div>
+  <ng-template #footer>
+    <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+      <button class="btn-cancel btn-small" (click)="showConfirmSubmit.set(false)">
+        <i class="pi pi-times"></i> Hủy
+      </button>
+      <button class="btn-save btn-small" (click)="onConfirmSubmit()">
+        <i class="pi pi-check"></i> Gửi duyệt
+      </button>
+    </div>
+  </ng-template>
+</p-dialog>

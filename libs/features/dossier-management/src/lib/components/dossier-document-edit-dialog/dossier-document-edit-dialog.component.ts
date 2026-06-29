@@ -5,19 +5,19 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { DialogModule } from 'primeng/dialog';
 import { ButtonModule } from 'primeng/button';
 import { MessageService } from 'primeng/api';
-import { forkJoin, finalize, of, catchError } from 'rxjs';
+import { forkJoin, finalize } from 'rxjs';
 import { DossierDocumentService } from '../../data-access/dossier-document.service';
 import { DossierManagementService } from '../../data-access/dossier-management.service';
 import {
   EavField,
+  buildDocumentDraftFromSources,
   mergeExtractionPageResults,
+  mergeFormDataForSave,
   normalizeDossierDetail,
   parseFormDataJson,
   parseFormSchemaFields,
   parseMergedDataJson,
-  pickFormDataForSchema,
   readFormSchemaJson,
-  serializeFormDataForSchema,
 } from '../../utils/dossier-form-schema.util';
 
 @Component({
@@ -48,6 +48,8 @@ export class DossierDocumentEditDialogComponent implements OnDestroy {
   loading = signal(false);
   saving = signal(false);
   fields = signal<EavField[]>([]);
+  /** Schema form hồ sơ (formId từ loại hồ sơ) — dùng khi serialize /form-data. */
+  dossierFormFields = signal<EavField[]>([]);
   draftData = signal<Record<string, unknown>>({});
   currentFormData = signal<Record<string, unknown>>({});
   rowVersion = signal(0);
@@ -123,9 +125,7 @@ export class DossierDocumentEditDialogComponent implements OnDestroy {
 
     this.loading.set(true);
     forkJoin({
-      result: this.documentService.getDigitizationResult(this.dossierId, this.versionId).pipe(
-        catchError(() => of(null))
-      ),
+      result: this.documentService.getDigitizationResultOrNull(this.dossierId, this.versionId),
       dossier: this.dossierService.getDossierById(this.dossierId),
     })
       .pipe(finalize(() => this.loading.set(false)))
@@ -140,16 +140,35 @@ export class DossierDocumentEditDialogComponent implements OnDestroy {
           this.rowVersion.set(meta.rowVersion);
           this.currentFormData.set(parseFormDataJson(meta.formDataJson));
           this.loadPreview();
+          this.loadDossierFormFields(this.formId ?? meta.formId);
           this.resolveFormAndLoad(result?.mergedDataJson ?? undefined, result?.resultJson ?? undefined);
         },
-        error: () => {
+        error: (err) => {
           this.messageService.add({
             severity: 'error',
             summary: 'Lỗi',
-            detail: 'Không tải được dữ liệu tài liệu',
+            detail: this.documentService.digitizationResultErrorMessage(
+              err,
+              'Không tải được dữ liệu tài liệu'
+            ),
           });
         },
       });
+  }
+
+  private loadDossierFormFields(formId: string | null | undefined): void {
+    if (!formId) {
+      this.dossierFormFields.set([]);
+      return;
+    }
+
+    this.dossierService.getFormTemplate(formId).subscribe({
+      next: (template) => {
+        const schemaJson = readFormSchemaJson(template);
+        this.dossierFormFields.set(parseFormSchemaFields(schemaJson));
+      },
+      error: () => this.dossierFormFields.set([]),
+    });
   }
 
   private resolveFormAndLoad(mergedDataJson?: string, resultJson?: string): void {
@@ -199,7 +218,7 @@ export class DossierDocumentEditDialogComponent implements OnDestroy {
         const schemaJson = readFormSchemaJson(template);
         const parsedFields = parseFormSchemaFields(schemaJson);
         this.fields.set(parsedFields);
-        this.draftData.set(this.buildDraftFromSchema(parsedFields, merged));
+        this.draftData.set(buildDocumentDraftFromSources(parsedFields, merged, this.currentFormData()));
       },
       error: () => {
         this.fields.set([]);
@@ -211,27 +230,6 @@ export class DossierDocumentEditDialogComponent implements OnDestroy {
         });
       },
     });
-  }
-
-  /** Sinh toàn bộ trường form — điền từ bóc tách nếu có, không thì để trống. */
-  private buildDraftFromSchema(
-    fields: EavField[],
-    merged: Record<string, unknown>
-  ): Record<string, unknown> {
-    const extracted = Object.keys(merged).length > 0 ? pickFormDataForSchema(fields, merged) : {};
-    const draft: Record<string, unknown> = {};
-
-    for (const field of fields) {
-      const key = field.key?.trim();
-      if (!key) continue;
-      if (field.type === 'checkbox') {
-        draft[key] = extracted[key] ?? false;
-      } else {
-        draft[key] = extracted[key] ?? '';
-      }
-    }
-
-    return draft;
   }
 
   setDraftFieldValue(key: string, value: unknown): void {
@@ -255,15 +253,27 @@ export class DossierDocumentEditDialogComponent implements OnDestroy {
       return;
     }
 
-    const nextData = { ...this.currentFormData() };
-    for (const field of fields) {
-      nextData[field.key] = this.draftData()[field.key];
+    const allFields = [...this.dossierFormFields(), ...fields];
+    const seen = new Set<string>();
+    const persistFields: EavField[] = [];
+    for (const f of allFields) {
+      if (!seen.has(f.key)) {
+        seen.add(f.key);
+        persistFields.push(f);
+      }
     }
+
+    const formDataJson = mergeFormDataForSave(
+      persistFields,
+      this.currentFormData(),
+      this.draftData(),
+      fields
+    );
 
     this.saving.set(true);
     this.dossierService
       .saveFormData(this.dossierId, {
-        formDataJson: serializeFormDataForSchema(fields, nextData),
+        formDataJson,
         rowVersion: this.rowVersion(),
         changeNote: this.documentName
           ? `Cập nhật từ tài liệu "${this.documentName}"`
@@ -271,7 +281,12 @@ export class DossierDocumentEditDialogComponent implements OnDestroy {
       })
       .pipe(finalize(() => this.saving.set(false)))
       .subscribe({
-        next: () => {
+        next: (res) => {
+          const updated = normalizeDossierDetail(res?.data ?? res);
+          if (updated) {
+            this.rowVersion.set(updated.rowVersion);
+            this.currentFormData.set(parseFormDataJson(updated.formDataJson));
+          }
           this.messageService.add({
             severity: 'success',
             summary: 'Thành công',

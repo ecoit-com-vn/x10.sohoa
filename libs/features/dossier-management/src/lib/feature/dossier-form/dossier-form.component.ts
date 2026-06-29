@@ -239,6 +239,7 @@ import { forkJoin } from 'rxjs';
           [canEdit]="true"
           [hasFormTemplate]="!!selectedFormId()"
           [formId]="selectedFormId()"
+          (formDataSaved)="loadDossierDetail(dossierId!)"
         ></app-dossier-documents-tab>
       </div>
 

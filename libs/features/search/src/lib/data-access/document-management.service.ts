@@ -20,8 +20,9 @@ export class DocumentManagementService {
 
   // ===== FOLDER OPERATIONS =====
 
-  getFolderTree() {
-    return this.http.get<FolderNode[]>(`${this.apiUrl}/tree`);
+  getFolderTree(unitId?: number | null) {
+    const url = unitId ? `${this.apiUrl}/tree?unitId=${unitId}` : `${this.apiUrl}/tree`;
+    return this.http.get<FolderNode[]>(url);
   }
 
   getFolderById(id: string) {
@@ -30,12 +31,13 @@ export class DocumentManagementService {
 
   // ===== DOCUMENT OPERATIONS =====
 
-  getDocuments(filter: DocumentFilter) {
+  getDocuments(filter: DocumentFilter, unitId?: number | null) {
     const params = new URLSearchParams();
     if (filter.folderId) params.append('folderId', filter.folderId);
     if (filter.keyword) params.append('keyword', filter.keyword);
     if (filter.page) params.append('page', filter.page.toString());
     if (filter.pageSize) params.append('pageSize', filter.pageSize.toString());
+    if (unitId) params.append('unitId', unitId.toString());
 
     const queryString = params.toString();
     const url = queryString ? `${this.apiUrl}/documents?${queryString}` : `${this.apiUrl}/documents`;

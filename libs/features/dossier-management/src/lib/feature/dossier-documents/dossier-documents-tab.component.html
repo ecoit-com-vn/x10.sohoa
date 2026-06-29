@@ -23,7 +23,12 @@
     </div>
   </div>
 
-  <div class="wf-table-wrap" [class.loading]="loading()">
+  <div
+    #tableWrap
+    class="wf-table-wrap"
+    [class.loading]="loading()"
+    [class.has-horizontal-scroll]="hasHorizontalScroll()"
+  >
     <table class="wf-table">
       <thead>
         <tr>
@@ -34,7 +39,9 @@
           <th class="col-digitization" style="width: 130px;">Bóc tách</th>
           <th style="width: 150px;">Ngày tạo</th>
           <th style="width: 120px;">Người tạo</th>
-          <th class="col-hd">Thao tác</th>
+          <th class="col-hd col-actions-sticky">
+            <div class="col-actions-sticky-panel col-actions-sticky-panel--head">Thao tác</div>
+          </th>
         </tr>
       </thead>
       <tbody>
@@ -129,59 +136,30 @@
               {{ displayCreatorName(doc) }}
             </span>
           </td>
-          <td class="col-hd">
+          <td class="col-hd col-actions-sticky">
+            <div class="col-actions-sticky-panel">
             <div class="action-buttons-group">
               <button
-                class="act-btn act-download"
-                title="Tải tài liệu"
-                [disabled]="!doc.latestVersionId || isDownloading(doc.id)"
-                (click)="onDownload(doc)"
+                *ngFor="let action of getPrimaryDocumentActions(doc)"
+                type="button"
+                class="act-btn"
+                [ngClass]="action.btnClass"
+                [title]="action.title"
+                [disabled]="action.disabled"
+                (click)="action.run(doc); $event.stopPropagation()"
               >
-                <i
-                  class="pi"
-                  [ngClass]="isDownloading(doc.id) ? 'pi-spin pi-spinner' : 'pi-download'"
-                ></i>
+                <i [ngClass]="action.iconClasses"></i>
               </button>
               <button
-                *ngIf="canReExtract(doc) && canEdit"
-                class="act-btn act-reextract"
-                title="Bóc tách lại (tải biểu mẫu mới)"
-                [disabled]="isReExtracting(doc.id, reExtractingIds())"
-                (click)="onReExtract(doc)"
+                *ngIf="getOverflowDocumentActions(doc).length"
+                type="button"
+                class="act-btn act-more"
+                title="Thao tác khác"
+                (click)="openDocActionMenu(doc, $event)"
               >
-                <i
-                  class="pi"
-                  [ngClass]="isReExtracting(doc.id, reExtractingIds()) ? 'pi-spin pi-spinner' : 'pi-sync'"
-                ></i>
+                <i class="pi pi-ellipsis-h"></i>
               </button>
-              <button
-                *ngIf="canRetryDigitization(doc) && canEdit"
-                class="act-btn act-retry"
-                title="Xử lý lại OCR/bóc tách"
-                [disabled]="isRetryingDigitization(doc.id, retryingIds())"
-                (click)="onRetryDigitization(doc)"
-              >
-                <i
-                  class="pi"
-                  [ngClass]="isRetryingDigitization(doc.id, retryingIds()) ? 'pi-spin pi-spinner' : 'pi-refresh'"
-                ></i>
-              </button>
-              <button
-                *ngIf="canEditDocument(doc) && canEdit"
-                class="act-btn act-edit"
-                title="Sửa tài liệu"
-                (click)="onEditDocument(doc)"
-              >
-                <i class="pi pi-pencil"></i>
-              </button>
-              <button
-                *ngIf="canEdit"
-                class="act-btn act-delete"
-                title="Xóa tài liệu"
-                (click)="onDelete(doc)"
-              >
-                <i class="pi pi-trash"></i>
-              </button>
+            </div>
             </div>
           </td>
         </tr>
@@ -303,7 +281,7 @@
   [mimeType]="editTarget()?.mimeType ?? null"
   [documentTypeId]="editTarget()?.documentTypeId ?? null"
   [formId]="formId"
-  [canEdit]="canEdit"
+  [canEdit]="canEdit && documentDialogEditable()"
   [totalPagesHint]="editTarget()?.ocrProgress?.totalPages ?? 0"
   [visible]="showEditDocument()"
   (visibleChange)="showEditDocument.set($event)"
@@ -327,3 +305,11 @@
   (documentsAdded)="onDocumentsAdded()"
   (digitizationStarted)="onDigitizationStarted()"
 ></app-dossier-direct-upload-dialog>
+
+<p-menu
+  #docActionMenu
+  [model]="docActionMenuItems()"
+  [popup]="true"
+  appendTo="body"
+  styleClass="doc-action-overflow-menu"
+></p-menu>

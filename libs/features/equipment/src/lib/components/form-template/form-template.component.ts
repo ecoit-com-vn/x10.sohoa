@@ -20,9 +20,9 @@ import { LoadingService } from '@sohoa.frontend/shared/core';
   selector: 'app-form-template',
   standalone: true,
   imports: [
-    CommonModule, 
-    FormsModule, 
-    ToastModule, 
+    CommonModule,
+    FormsModule,
+    ToastModule,
     ButtonModule,
     InputTextModule,
     CheckboxModule,
@@ -43,7 +43,10 @@ export class FormTemplateComponent implements OnInit {
   private messageService = inject(MessageService);
 
   showConfirmDelete = signal<boolean>(false);
+  showConfirmLock = signal<boolean>(false);
+  showConfirmUnlock = signal<boolean>(false);
   targetForm: EavFormTemplate | null = null;
+  lockAction = signal<'lock' | 'unlock' | null>(null);
 
   forms = signal<EavFormTemplate[]>([]);
   searchKeyword = signal<string>('');
@@ -139,7 +142,7 @@ export class FormTemplateComponent implements OnInit {
     this.rows.set(event.rows);
   }
 
-  onSearch() {}
+  onSearch() { }
 
   onAddNew() {
     this.router.navigate(['/equipment/form-builder']);
@@ -154,6 +157,74 @@ export class FormTemplateComponent implements OnInit {
     this.showConfirmDelete.set(true);
   }
 
+  lockForm(form: EavFormTemplate) {
+    this.targetForm = form;
+    this.lockAction.set('lock');
+    this.showConfirmLock.set(true);
+  }
+
+  unlockForm(form: EavFormTemplate) {
+    this.targetForm = form;
+    this.lockAction.set('unlock');
+    this.showConfirmUnlock.set(true);
+  }
+
+  onConfirmLock() {
+    if (!this.targetForm) return;
+    this.loadingService.show();
+    this.formTemplateService.lockTemplate(this.targetForm.id)
+      .pipe(finalize(() => this.loadingService.hide()))
+      .subscribe({
+        next: () => {
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Thành công',
+            detail: `Đã khóa biểu mẫu ${this.targetForm?.name} thành công!`
+          });
+          this.showConfirmLock.set(false);
+          this.targetForm = null;
+          this.loadForms();
+        },
+        error: () => {
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi',
+            detail: 'Không thể khóa biểu mẫu.'
+          });
+          this.showConfirmLock.set(false);
+          this.targetForm = null;
+        }
+      });
+  }
+
+  onConfirmUnlock() {
+    if (!this.targetForm) return;
+    this.loadingService.show();
+    this.formTemplateService.unlockTemplate(this.targetForm.id)
+      .pipe(finalize(() => this.loadingService.hide()))
+      .subscribe({
+        next: () => {
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Thành công',
+            detail: `Đã mở khóa biểu mẫu ${this.targetForm?.name} thành công!`
+          });
+          this.showConfirmUnlock.set(false);
+          this.targetForm = null;
+          this.loadForms();
+        },
+        error: () => {
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi',
+            detail: 'Không thể mở khóa biểu mẫu.'
+          });
+          this.showConfirmUnlock.set(false);
+          this.targetForm = null;
+        }
+      });
+  }
+
   onConfirmDelete() {
     if (!this.targetForm) return;
     this.loadingService.show();
@@ -161,10 +232,10 @@ export class FormTemplateComponent implements OnInit {
       .pipe(finalize(() => this.loadingService.hide()))
       .subscribe({
         next: () => {
-          this.messageService.add({ 
-            severity: 'success', 
-            summary: 'Thành công', 
-            detail: `Đã vô hiệu hóa biểu mẫu thành công!` 
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Thành công',
+            detail: `Đã vô hiệu hóa biểu mẫu thành công!`
           });
           this.showConfirmDelete.set(false);
           this.targetForm = null;

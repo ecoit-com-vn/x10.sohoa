@@ -15,37 +15,6 @@
   }
 }
 
-.breadcrumb {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.875rem;
-  color: #64748b;
-  margin-bottom: 1.25rem;
-  padding-top: 0.5rem;
-  
-  .preview-mode & {
-    margin-bottom: 0.5rem;
-    padding-top: 0;
-  }
-}
-.bc-sep {
-  color: #cbd5e1;
-}
-.bc-current {
-  color: #002D72;
-  font-weight: 600;
-}
-
-.wf-card {
-  background-color: white;
-  border-radius: 12px;
-  border: 1px solid #e2e8f0;
-  padding: 1.75rem;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px 0 rgba(0, 0, 0, 0.03);
-  position: relative;
-}
-
 .preview-card {
   display: flex;
   flex-direction: column;

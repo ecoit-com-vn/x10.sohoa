@@ -1,6 +1,13 @@
 <div class="wf-page" [class.preview-mode]="viewState() === 'preview'">
   <p-toast></p-toast>
-  
+  <div class="breadcrumb">
+      <i class="pi pi-home bc-icon"></i>
+      <span class="bc-text">Trang chủ</span>
+      <span class="bc-sep">/</span>
+      <span class="bc-text">Hồ sơ & Thiết bị</span>
+      <span class="bc-sep">/</span>
+      <span class="bc-current">Phê duyệt biểu mẫu</span>
+    </div>
   <div class="wf-card" *ngIf="viewState() === 'list'">
 
     <div class="loading-overlay" *ngIf="loading()">
@@ -8,15 +15,6 @@
         <i class="pi pi-spin pi-spinner text-4xl mr-3" style="color: #002D72;"></i>
         <span class="text-base font-semibold" style="color: #002D72;">Đang xử lý dữ liệu...</span>
       </div>
-    </div>
-
-    <div class="breadcrumb">
-      <i class="pi pi-home bc-icon"></i>
-      <span class="bc-text">Trang chủ</span>
-      <span class="bc-sep">/</span>
-      <span class="bc-text">Hồ sơ & Thiết bị</span>
-      <span class="bc-sep">/</span>
-      <span class="bc-current">Phê duyệt biểu mẫu</span>
     </div>
 
     <div class="approval-tabs mb-4">

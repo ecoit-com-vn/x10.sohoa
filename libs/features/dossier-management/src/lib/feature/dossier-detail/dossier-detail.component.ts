@@ -20,6 +20,12 @@ import {
   pickFormDataForSchema,
   readFormSchemaJson,
 } from '../../utils/dossier-form-schema.util';
+import {
+  isApproveWorkflowLabel,
+  isRejectWorkflowLabel,
+  parseWorkflowActionButtons,
+} from '../../utils/dossier-workflow-bpmn.util';
+import { DossierMenuScope } from '../../utils/dossier-status.util';
 
 function pickFirst<T>(...values: T[]): T | undefined {
   for (const v of values) {
@@ -59,9 +65,16 @@ function pickFirst<T>(...values: T[]): T | undefined {
                   (click)="onEdit()" class="btn-save btn-small">
             <i class="pi pi-pencil"></i> Sửa hồ sơ
           </button>
-          <!-- Gửi duyệt -->
-          <button *ngIf="dossier()?.status === 'Draft' || dossier()?.status === 'Returned'"
-                  (click)="showSubmitConfirm.set(true)" class="btn-green btn-small" [disabled]="submitting()">
+          <!-- Hoàn thành nhập liệu — chỉ khi trạng thái Tạo mới -->
+          <button *ngIf="showCompleteInputButton()"
+                  (click)="onCompleteInput()" class="btn-green btn-small" [disabled]="submitting()">
+            <i class="pi pi-check" *ngIf="!submitting()"></i>
+            <i class="pi pi-spin pi-spinner" *ngIf="submitting()"></i>
+            Hoàn thành nhập liệu
+          </button>
+          <!-- Gửi duyệt — chỉ khi đã Hoàn thành nhập liệu -->
+          <button *ngIf="showSubmitForApprovalButton()"
+                  (click)="openSubmitWorkflowDialog()" class="btn-save btn-small" [disabled]="submitting()">
             <i class="pi pi-send" *ngIf="!submitting()"></i>
             <i class="pi pi-spin pi-spinner" *ngIf="submitting()"></i>
             Gửi duyệt
@@ -112,10 +125,6 @@ function pickFirst<T>(...values: T[]): T | undefined {
 
           <ng-container *ngIf="!loadingType()">
             <div class="readonly-line">
-              <span class="readonly-label">Loại hồ sơ:</span>
-              <span class="readonly-value">{{ dossierMeta()?.dossierTypeName || '—' }}</span>
-            </div>
-            <div class="readonly-line">
               <span class="readonly-label">Loại lưới điện:</span>
               <span class="readonly-value">{{ viewMeta()?.gridTypeName || '—' }}</span>
             </div>
@@ -125,6 +134,10 @@ function pickFirst<T>(...values: T[]): T | undefined {
                 {{ viewMeta()?.infrastructureName || '—' }}
                 <span *ngIf="viewMeta()?.infrastructureCode" class="text-muted" style="font-size: 0.85rem;"> ({{ viewMeta()?.infrastructureCode }})</span>
               </span>
+            </div>
+            <div class="readonly-line">
+              <span class="readonly-label">Loại hồ sơ:</span>
+              <span class="readonly-value">{{ dossierMeta()?.dossierTypeName || '—' }}</span>
             </div>
 
             <div *ngFor="let field of dynamicFields(); trackBy: trackByFieldKey" class="readonly-line">
@@ -166,13 +179,14 @@ function pickFirst<T>(...values: T[]): T | undefined {
           </ng-container>
         </div>
 
-        <!-- ═══ Tab: Tài liệu (chỉ xem + tải) ═══ -->
+        <!-- ═══ Tab: Tài liệu (chỉ xem) ═══ -->
         <div *ngIf="activeTab() === 'documents'">
           <app-dossier-documents-tab
             [dossierId]="dossierId"
             [canEdit]="canEditDossier()"
             [hasFormTemplate]="!!dossierMeta()?.formId"
             [formId]="dossierMeta()?.formId ?? null"
+            (formDataSaved)="loadDetail()"
           ></app-dossier-documents-tab>
         </div>
 
@@ -245,22 +259,35 @@ function pickFirst<T>(...values: T[]): T | undefined {
       </ng-template>
     </p-dialog>
 
-    <!-- Dialog Xác nhận Gửi duyệt -->
+    <!-- Dialog Xác nhận Gửi Duyệt -->
     <p-dialog
       [visible]="showSubmitConfirm()"
       (visibleChange)="$event ? null : showSubmitConfirm.set(false)"
-      header="Xác nhận gửi duyệt"
+      header="Gửi duyệt hồ sơ"
       [modal]="true"
-      [style]="{ width: '420px' }"
+      [style]="{ width: '450px' }"
       styleClass="evn-dialog-custom"
       [closable]="!submitting()">
-      <div style="display: flex; align-items: flex-start; gap: 12px; padding: 8px 0 16px;">
-        <i class="pi pi-send" style="font-size: 1.8rem; color: #3BA962;"></i>
-        <div>
-          <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">Bạn có chắc chắn muốn gửi duyệt?</p>
-          <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
-            Hồ sơ sẽ được chuyển sang trạng thái <b style="color: #1d4ed8;">Chờ phê duyệt</b> và bắt đầu quy trình duyệt. Bạn không thể chỉnh sửa trong thời gian chờ duyệt.
-          </p>
+      <div style="display: flex; flex-direction: column; gap: 16px; padding: 8px 0 16px;">
+        <div style="display: flex; align-items: flex-start; gap: 12px;">
+          <i class="pi pi-send" style="font-size: 1.8rem; color: #1d4ed8;"></i>
+          <div>
+            <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">Xác nhận gửi duyệt hồ sơ lên cấp trên</p>
+            <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
+              Hồ sơ sẽ đi vào quy trình phê duyệt bước: <b style="color: #1e293b;">{{ nextStepInfo()?.stepName || 'Phê duyệt' }}</b>.
+            </p>
+          </div>
+        </div>
+
+        <!-- Chọn người xử lý tiếp theo nếu được yêu cầu -->
+        <div *ngIf="nextStepInfo()?.requiresNextAssignee" class="form-group">
+          <label class="form-label required">Người duyệt tiếp theo ({{ nextStepInfo()?.stepName }})</label>
+          <select class="wf-select" [value]="selectedNextUser()" (change)="onNextUserChange($event)">
+            <option value="">-- Chọn người phê duyệt --</option>
+            <option *ngFor="let u of filteredSubmitNextUsers()" [value]="u.id || u.Id || u.userId || u.username">
+              {{ u.fullName || u.FullName || u.name || u.username }}
+            </option>
+          </select>
         </div>
       </div>
       <ng-template #footer>
@@ -268,11 +295,10 @@ function pickFirst<T>(...values: T[]): T | undefined {
           <button class="btn-cancel btn-small" (click)="showSubmitConfirm.set(false)" [disabled]="submitting()">
             <i class="pi pi-times"></i> Hủy
           </button>
-          <button class="btn-save btn-small" (click)="onConfirmSubmit()" [disabled]="submitting()"
-                  style="background-color: #3BA962; border-color: #3BA962;">
+          <button class="btn-save btn-small" (click)="onConfirmSubmitAndMove()" [disabled]="submitting()">
             <i class="pi pi-spin pi-spinner" *ngIf="submitting()"></i>
-            <i class="pi pi-send" *ngIf="!submitting()"></i>
-            Gửi duyệt
+            <i class="pi pi-check" *ngIf="!submitting()"></i>
+            Xác nhận gửi
           </button>
         </div>
       </ng-template>
@@ -282,21 +308,21 @@ function pickFirst<T>(...values: T[]): T | undefined {
     .dossier-readonly-view {
       display: flex;
       flex-direction: column;
-      padding: 4px 0 8px;
+      padding: 0;
+      gap: 2px;
     }
     .readonly-line {
       display: flex;
-      gap: 10px;
-      padding: 11px 0;
-      border-bottom: 1px dotted #d1d5db;
-      font-size: 0.9rem;
-      line-height: 1.55;
+      gap: 8px;
+      padding: 4px 0;
+      font-size: 0.875rem;
+      line-height: 1.45;
       align-items: flex-start;
     }
     .readonly-label {
       font-weight: 600;
       color: #374151;
-      min-width: 200px;
+      min-width: 180px;
       flex-shrink: 0;
     }
     .readonly-value {
@@ -306,18 +332,17 @@ function pickFirst<T>(...values: T[]): T | undefined {
       word-break: break-word;
     }
     .equipment-section {
-      margin-top: 28px;
-      padding-top: 18px;
-      border-top: 2px solid #e5e7eb;
+      margin-top: 12px;
+      padding-top: 0;
     }
     .equipment-title {
-      font-size: 0.95rem;
+      font-size: 0.9rem;
       font-weight: 700;
       color: #002D72;
-      margin: 0 0 12px 0;
+      margin: 0 0 8px 0;
     }
     .equipment-empty {
-      padding: 20px;
+      padding: 12px;
       background: #f8fafc;
       border: 1px dashed #e2e8f0;
       border-radius: 8px;
@@ -329,6 +354,7 @@ function pickFirst<T>(...values: T[]): T | undefined {
 })
 export class DossierDetailComponent implements OnInit, OnDestroy {
   @Input() dossierId!: string;
+  @Input() menuScope: DossierMenuScope = 'creator';
   @Output() cancel = new EventEmitter<void>();
   @Output() edit = new EventEmitter<void>();
 
@@ -372,6 +398,8 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
 
   // Submit for approval confirmation
   showSubmitConfirm = signal<boolean>(false);
+  nextStepInfo = signal<any>(null);
+  selectedNextUser = signal<string>('');
 
   // Workflow — core
   workflowDetail = signal<any>(null);
@@ -408,13 +436,75 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
     });
   });
 
+  filteredSubmitNextUsers = computed(() => {
+    const info = this.nextStepInfo();
+    if (!info || !info.requiredRole) return [];
+    const roles = info.requiredRole.split(',').map((r: string) => r.trim().toUpperCase());
+    return this.users().filter((u: any) => {
+      const uRoles: string[] = (u.roles || u.Roles || []).map((r: string) => r.toUpperCase());
+      return uRoles.some(r => roles.includes(r));
+    });
+  });
+
   // Dialog xác nhận hành động
   showActionDialog = signal<boolean>(false);
   pendingActionBtn = signal<any>(null);
 
   get isDraftOrReturned(): boolean {
-    const status = this.dossier()?.status;
-    return status === 'Draft' || status === 'Returned';
+    const status = this.dossier()?.status ?? this.dossier()?.Status;
+    return status === 'New' || status === 'CompletedInput' || status === 'Returned';
+  }
+
+  showCompleteInputButton(): boolean {
+    if (this.menuScope !== 'creator') return false;
+    const d = this.dossier();
+    if (!d) return false;
+    const status = d.status ?? d.Status;
+    return status === 'New';
+  }
+
+  showSubmitForApprovalButton(): boolean {
+    if (this.menuScope !== 'creator') return false;
+    const d = this.dossier();
+    if (!d) return false;
+    const status = d.status ?? d.Status;
+    const wfId = d.workflowInstanceId ?? d.WorkflowInstanceId
+      ?? this.workflowDetail()?.instance?.id
+      ?? this.workflowDetail()?.instance?.Id;
+    return status === 'CompletedInput' && !wfId;
+  }
+
+  private getCurrentUserIdFromToken(): string | null {
+    const token = this.authService.getToken();
+    if (!token) return null;
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+      return payload.sub
+        ?? payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier']
+        ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  private isCurrentUserCreator(): boolean {
+    const d = this.dossier();
+    if (!d) return false;
+
+    const userId = this.authService.getUserId();
+    const creatorId = d.creator?.id ?? d.Creator?.Id ?? d.creatorId ?? d.CreatorId;
+    const creatorUsername = d.creator?.username ?? d.Creator?.Username
+      ?? d.createdBy ?? d.CreatedBy ?? d.creatorUsername ?? d.CreatorUsername;
+
+    const normalizeGuid = (val: unknown) => val ? String(val).replace(/-/g, '').toLowerCase().trim() : '';
+    const normCreatorId = normalizeGuid(creatorId);
+    const normUserId = normalizeGuid(userId);
+
+    if (normCreatorId !== '' && normCreatorId === normUserId) return true;
+
+    const normCreatorUsername = creatorUsername ? String(creatorUsername).toLowerCase().trim() : '';
+    const normUserUsername = userId ? String(userId).toLowerCase().trim() : '';
+    return normCreatorUsername !== '' && normCreatorUsername === normUserUsername;
   }
 
   ngOnInit() {
@@ -609,79 +699,15 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
   }
 
   parseDynamicButtons(xml: string, stepName: string, currentNodeId?: string) {
-    try {
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(xml, 'application/xml');
+    this.detailDynamicButtons.set(parseWorkflowActionButtons(xml, stepName, currentNodeId));
+  }
 
-      const byLocalName = (name: string): Element[] => {
-        const res: Element[] = [];
-        const all = doc.getElementsByTagName('*');
-        for (let i = 0; i < all.length; i++) {
-          if (all[i].localName === name) res.push(all[i]);
-        }
-        return res;
-      };
+  isRejectLabel(label: string): boolean {
+    return isRejectWorkflowLabel(label);
+  }
 
-      const allElements = doc.getElementsByTagName('*');
-
-      const getElementById = (id: string): Element | null => {
-        for (let i = 0; i < allElements.length; i++) {
-          if (allElements[i].getAttribute('id') === id) return allElements[i];
-        }
-        return null;
-      };
-
-      const isTask = (id: string) => {
-        const el = getElementById(id);
-        return el ? el.localName === 'task' || el.localName === 'userTask' : false;
-      };
-
-      const getRole = (id: string) => getElementById(id)?.getAttribute('requiredRole') || '';
-
-      const tasks = [...byLocalName('task'), ...byLocalName('userTask')];
-      const seqFlows = byLocalName('sequenceFlow');
-
-      let currentEl = currentNodeId ? tasks.find(t => t.getAttribute('id') === currentNodeId) : null;
-      if (!currentEl) currentEl = tasks.find(t => t.getAttribute('name') === stepName) ?? null;
-
-      if (!currentEl) {
-        this.detailDynamicButtons.set([{ label: 'Xác nhận', targetNodeId: '', requiresUser: false }]);
-        return;
-      }
-
-      const currentId = currentEl.getAttribute('id');
-      const outFlow = seqFlows.find(f => f.getAttribute('sourceRef') === currentId);
-      if (!outFlow) {
-        this.detailDynamicButtons.set([{ label: 'Xác nhận', targetNodeId: '', requiresUser: false }]);
-        return;
-      }
-
-      const targetRef = outFlow.getAttribute('targetRef') || '';
-      const targetEl = getElementById(targetRef);
-      if (!targetEl) {
-        this.detailDynamicButtons.set([{ label: 'Xác nhận', targetNodeId: '', requiresUser: false }]);
-        return;
-      }
-
-      if (targetEl.localName.includes('Gateway')) {
-        const gwFlows = seqFlows.filter(f => f.getAttribute('sourceRef') === targetRef);
-        this.detailDynamicButtons.set(gwFlows.map(flow => {
-          const ftRef = flow.getAttribute('targetRef') || '';
-          const label = flow.getAttribute('name') || 'Tiếp tục';
-          const isReject = this.isRejectLabel(label);
-          return { label, targetNodeId: ftRef, requiresUser: !isReject && isTask(ftRef), requiredRole: isReject ? '' : getRole(ftRef) };
-        }));
-      } else if (targetEl.localName === 'endEvent') {
-        this.detailDynamicButtons.set([{ label: 'Hoàn thành', targetNodeId: targetRef, requiresUser: false, requiredRole: '' }]);
-      } else {
-        this.detailDynamicButtons.set([{ label: 'Chuyển tiếp', targetNodeId: targetRef, requiresUser: isTask(targetRef), requiredRole: getRole(targetRef) }]);
-      }
-    } catch {
-      this.detailDynamicButtons.set([
-        { label: 'Đồng ý', targetNodeId: '', requiresUser: true, requiredRole: '' },
-        { label: 'Từ chối', targetNodeId: '', requiresUser: false, requiredRole: '' }
-      ]);
-    }
+  isApproveLabel(label: string): boolean {
+    return isApproveWorkflowLabel(label);
   }
 
   get isUserAuthorizedForDetailAction(): boolean {
@@ -691,32 +717,17 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
     if (roles.includes('ADMIN') || roles.includes('OPERATOR')) return true;
 
     const assigneeId = task.assigneeUserId ?? task.AssigneeUserId;
-    const token = this.authService.getToken();
-    let currentUserId: string | null = null;
-    if (token) {
-      try {
-        const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
-        currentUserId = payload.sub
-          ?? payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier']
-          ?? null;
-      } catch { /* ignore */ }
-    }
+    const currentUserId = this.getCurrentUserIdFromToken();
 
     if (assigneeId && currentUserId && String(assigneeId) === String(currentUserId)) return true;
     if (assigneeId) return false;
 
+    const status = this.dossier()?.status ?? this.dossier()?.Status;
+    // Trả lại về bước người tạo — chỉ creator được gửi duyệt lại khi task chưa gán cá nhân.
+    if (status === 'Returned') return this.isCurrentUserCreator();
+
     const taskRoles = task.assignedRole ? task.assignedRole.split(',').map((r: string) => r.trim()) : [];
     return taskRoles.some((r: string) => roles.includes(r));
-  }
-
-  isRejectLabel(label: string): boolean {
-    const l = (label || '').toLowerCase();
-    return l.includes('từ chối') || l.includes('hủy') || l.includes('reject') || l.includes('cancel') || l.includes('trả lại');
-  }
-
-  isApproveLabel(label: string): boolean {
-    const l = (label || '').toLowerCase();
-    return l.includes('đồng ý') || l.includes('phê duyệt') || l.includes('xác nhận') || l.includes('approve');
   }
 
   openActionDialog(btn: any) {
@@ -740,12 +751,19 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
     }
 
     this.detailActionSubmitting.set(true);
-    this.service.moveWorkflow(this.dossierId, {
+    const payload = {
       nextNodeId: targetNodeId,
       actionLabel,
       comment: this.detailActionComment(),
       nextAssigneeUserId: (!isCancel && requiresUser) ? this.selectedNextUserId() : undefined
-    }).subscribe({
+    };
+    const status = this.dossier()?.status ?? this.dossier()?.Status;
+    const useResubmit = this.menuScope === 'creator' && status === 'Returned';
+    const workflowCall = useResubmit
+      ? this.service.resubmitWorkflow(this.dossierId, payload)
+      : this.service.moveWorkflow(this.dossierId, payload);
+
+    workflowCall.subscribe({
       next: (res) => {
         this.messageService.add({ severity: 'success', summary: 'Thành công', detail: `Đã thực hiện: ${actionLabel}` });
         this.detailActionSubmitting.set(false);
@@ -779,13 +797,83 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
   }
 
   canEditDossier(): boolean {
-    const status = this.dossier()?.status ?? this.dossier()?.Status;
-    if (status === 'Draft' || status === 'Returned') return true;
+    const d = this.dossier();
+    if (!d) return false;
+
+    const userId = this.authService.getUserId();
+    const roles = this.authService.getUserRoles?.() ?? [];
+
+    if (roles.includes('ADMIN')) return true;
+
+    const status = d.status ?? d.Status;
+    if (status === 'New' || status === 'CompletedInput') {
+      if (this.menuScope !== 'creator') return false;
+      if (!this.authService.hasPermission('DOSSIER_EDIT') && !this.authService.hasPermission('DOSSIER_CREATE')) {
+        return false;
+      }
+      const creatorId = d.creator?.id ?? d.Creator?.Id ?? d.creatorId ?? d.CreatorId;
+      const creatorUsername = d.creator?.username ?? d.Creator?.Username ?? d.createdBy ?? d.CreatedBy ?? d.creatorUsername ?? d.CreatorUsername;
+      
+      const normalizeGuid = (val: any) => val ? String(val).replace(/[-]/g, '').toLowerCase().trim() : '';
+      const normCreatorId = normalizeGuid(creatorId);
+      const normUserId = normalizeGuid(userId);
+      
+      const normCreatorUsername = creatorUsername ? String(creatorUsername).toLowerCase().trim() : '';
+      const normUserUsername = userId ? String(userId).toLowerCase().trim() : '';
+
+      console.log('SOHOA_DEBUG Detail Draft Edit Check:', {
+        creatorId,
+        normCreatorId,
+        userId,
+        normUserId,
+        creatorUsername,
+        normCreatorUsername,
+        normUserUsername,
+        matchId: normCreatorId !== '' && normCreatorId === normUserId,
+        matchUsername: normCreatorUsername !== '' && normCreatorUsername === normUserUsername
+      });
+
+      return (normCreatorId !== '' && normCreatorId === normUserId) ||
+             (normCreatorUsername !== '' && normCreatorUsername === normUserUsername);
+    }
+
+    // Trả lại — cán bộ tạo được sửa trên menu quản lý (không cần cờ AllowEdit)
+    if (status === 'Returned') {
+      if (this.menuScope !== 'creator') return false;
+      if (!this.authService.hasPermission('DOSSIER_EDIT')) return false;
+      return this.isCurrentUserCreator();
+    }
+
+    // Các trạng thái WF khác: bước hiện tại phải AllowEdit
+    if (!this.authService.hasPermission('DOSSIER_EDIT')) {
+      return false;
+    }
 
     const instance = this.workflowDetail()?.instance;
     if (!instance) return false;
 
-    return !!(instance.currentStepAllowEdit ?? instance.CurrentStepAllowEdit);
+    const stepAllowEdit = !!(instance.currentStepAllowEdit ?? instance.CurrentStepAllowEdit);
+    if (!stepAllowEdit) return false;
+
+    const pendingList = Array.isArray(instance.pendingTasks)
+      ? instance.pendingTasks
+      : Array.isArray(instance.PendingTasks)
+        ? instance.PendingTasks
+        : [];
+
+    if (pendingList.length === 0) return false;
+
+    return pendingList.some((task: any) => {
+      const assigneeId = task.assigneeUserId ?? task.AssigneeUserId;
+      if (assigneeId) {
+        return String(assigneeId).toLowerCase() === String(userId).toLowerCase();
+      }
+
+      const taskRoles = task.assignedRole 
+        ? String(task.assignedRole).split(',').map((r: string) => r.trim()) 
+        : (task.AssignedRole ? String(task.AssignedRole).split(',').map((r: string) => r.trim()) : []);
+      return taskRoles.some((r: string) => roles.some(ur => String(ur).toLowerCase() === String(r).toLowerCase()));
+    });
   }
 
   onEdit() {
@@ -796,11 +884,60 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
     this.cancel.emit();
   }
 
-  onConfirmSubmit() {
+  onCompleteInput() {
     this.submitting.set(true);
-    this.service.submitForApproval(this.dossierId).subscribe({
+    this.service.completeInput(this.dossierId).subscribe({
       next: (res) => {
-        this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã gửi duyệt thành công' });
+        this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã hoàn thành nhập liệu thành công' });
+        this.dossier.update((current) =>
+          current ? { ...current, status: 'CompletedInput' } : current
+        );
+        this.submitting.set(false);
+      },
+      error: (err) => {
+        this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: err.error?.message || 'Không thể hoàn thành nhập liệu' });
+        this.submitting.set(false);
+      }
+    });
+  }
+
+  openSubmitWorkflowDialog() {
+    this.submitting.set(true);
+    this.service.getNextStepInfo().subscribe({
+      next: (res) => {
+        this.nextStepInfo.set(res);
+        this.selectedNextUser.set('');
+        this.showSubmitConfirm.set(true);
+        this.submitting.set(false);
+      },
+      error: (err) => {
+        this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: err.error?.message || 'Không thể lấy thông tin bước duyệt tiếp theo.' });
+        this.submitting.set(false);
+      }
+    });
+  }
+
+  onNextUserChange(event: any) {
+    this.selectedNextUser.set(event.target?.value || '');
+  }
+
+  onConfirmSubmitAndMove() {
+    const info = this.nextStepInfo();
+    if (!info) return;
+    if (info.requiresNextAssignee && !this.selectedNextUser()) {
+      this.messageService.add({ severity: 'warn', summary: 'Cảnh báo', detail: 'Vui lòng chọn người duyệt tiếp theo.' });
+      return;
+    }
+
+    this.submitting.set(true);
+    this.service.submitForApproval(this.dossierId, {
+      nextNodeId: info.nextNodeId,
+      actionLabel: 'Trình duyệt',
+      nextAssigneeUserId: this.selectedNextUser() || undefined,
+      comment: 'Kính trình phê duyệt hồ sơ.'
+    }).subscribe({
+      next: (res) => {
+        this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã gửi duyệt hồ sơ thành công' });
         this.showSubmitConfirm.set(false);
         const payload = res?.data;
         if (payload) {
@@ -819,7 +956,7 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
         this.loadWorkflow();
       },
       error: (err) => {
-        this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: err.error?.message || 'Không thể gửi duyệt' });
+        this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: err.error?.message || 'Không thể gửi duyệt hồ sơ' });
         this.showSubmitConfirm.set(false);
         this.submitting.set(false);
       }
@@ -832,8 +969,9 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
 
   getStatusText(status?: string): string {
     switch (status) {
-      case 'Draft': return 'Nháp';
-      case 'PendingApproval': return 'Đang chờ duyệt';
+      case 'New': return 'Tạo mới';
+      case 'CompletedInput': return 'Hoàn thành nhập liệu';
+      case 'PendingApproval': return 'Chờ phê duyệt';
       case 'InProgress': return 'Đang xử lý';
       case 'Returned': return 'Bị trả lại';
       case 'Approved': return 'Đã phê duyệt';
@@ -843,7 +981,8 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
 
   getStatusStyle(status?: string): { [key: string]: string } {
     switch (status) {
-      case 'Draft': return { background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0' };
+      case 'New': return { background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0' };
+      case 'CompletedInput': return { background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' };
       case 'PendingApproval': return { background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' };
       case 'InProgress': return { background: '#f5f3ff', color: '#6d28d9', border: '1px solid #ddd6fe' };
       case 'Returned': return { background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca' };

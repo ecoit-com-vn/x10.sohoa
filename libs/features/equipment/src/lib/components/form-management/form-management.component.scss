@@ -22,36 +22,6 @@
       flex: 1;
     }
 
-    .breadcrumb {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 0.875rem;
-      color: #64748b;
-      margin-bottom: 1.25rem;
-      padding-top: 0.5rem;
-      .builder-mode & {
-        margin-bottom: 0.5rem;
-        padding-top: 0;
-      }
-    }
-    .bc-sep {
-      color: #cbd5e1;
-    }
-    .bc-current {
-      color: #002D72;
-      font-weight: 600;
-    }
-
-    .wf-card {
-      background-color: white;
-      border-radius: 12px;
-      border: 1px solid #e2e8f0;
-      padding: 1.75rem;
-      box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px 0 rgba(0, 0, 0, 0.03);
-      position: relative;
-    }
-
     .form-builder-wrapper {
       display: flex;
       flex-direction: column;
@@ -437,6 +407,30 @@
       }
     }
 
+    .act-lock {
+      color: #f59e0b !important;
+      border-color: #fef3c7 !important;
+      background-color: #fffbeb !important;
+
+      &:hover {
+        background-color: #fef3c7 !important;
+        color: #d97706 !important;
+        box-shadow: 0 2px 4px rgba(245, 158, 11, 0.15);
+      }
+    }
+
+    .act-unlock {
+      color: #3b82f6 !important;
+      border-color: #dbeafe !important;
+      background-color: #eff6ff !important;
+
+      &:hover {
+        background-color: #dbeafe !important;
+        color: #1d4ed8 !important;
+        box-shadow: 0 2px 4px rgba(59, 130, 246, 0.15);
+      }
+    }
+
     // Force table body cell text to black, except status-pill
     .wf-table tbody tr td {
       color: #000000 !important;
@@ -572,7 +566,7 @@
         font-size: 0.75rem;
       }
     }
-    .status-draft    { background: #e2e8f0 !important; color: #334155 !important; }
+    .status-draft    { background: #c0d8ff !important; color: #5182cf !important; }
     .status-pending  { background: #fef3c7 !important; color: #b45309 !important; }
     .status-approved { background: #d1fae5 !important; color: #065f46 !important; }
     .status-rejected { background: #fee2e2 !important; color: #991b1b !important; }

@@ -29,7 +29,7 @@ export class AdminLayout implements OnInit {
   private menuService = inject(MenuService);
   private destroyRef = inject(DestroyRef);
 
-  isDarkMode = true;
+  isDarkMode = false;
   username = 'Người dùng';
   isSidebarCollapsed = false;
   isMobileSidebarOpen = false;
@@ -66,12 +66,12 @@ export class AdminLayout implements OnInit {
     }
 
     const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'light') {
-      this.isDarkMode = false;
-      document.documentElement.classList.remove('dark-mode');
-    } else {
+    if (savedTheme === 'dark') {
       this.isDarkMode = true;
       document.documentElement.classList.add('dark-mode');
+    } else {
+      this.isDarkMode = false;
+      document.documentElement.classList.remove('dark-mode');
     }
   }
 

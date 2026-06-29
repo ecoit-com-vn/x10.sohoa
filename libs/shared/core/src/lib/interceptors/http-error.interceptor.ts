@@ -8,6 +8,19 @@ function isAuthEndpoint(url: string): boolean {
   return url.includes('/auth/login') || url.includes('/auth/refresh');
 }
 
+function readApiErrorMessage(error: HttpErrorResponse, fallback: string): string {
+  const body = error.error;
+  if (typeof body === 'string' && body.trim()) return body.trim();
+  if (body && typeof body === 'object' && typeof body.message === 'string' && body.message.trim()) {
+    return body.message.trim();
+  }
+  return fallback;
+}
+
+function isDigitizationResultEndpoint(error: HttpErrorResponse): boolean {
+  return error.url?.includes('/digitization/result') === true;
+}
+
 export const httpErrorInterceptor: HttpInterceptorFn = (req, next) => {
   const router = inject(Router);
   const messageService = inject(MessageService);
@@ -21,12 +34,16 @@ export const httpErrorInterceptor: HttpInterceptorFn = (req, next) => {
           detail: error.error.message
         });
       } else {
+        if (isDigitizationResultEndpoint(error)) {
+          return throwError(() => error);
+        }
+
         switch (error.status) {
           case 400:
             messageService.add({
               severity: 'error',
               summary: 'Yêu cầu không hợp lệ',
-              detail: error.error?.message || 'Thông tin nhập vào không hợp lệ. Vui lòng kiểm tra lại.'
+              detail: readApiErrorMessage(error, 'Thông tin nhập vào không hợp lệ. Vui lòng kiểm tra lại.')
             });
             break;
           case 401:
@@ -54,14 +71,14 @@ export const httpErrorInterceptor: HttpInterceptorFn = (req, next) => {
             messageService.add({
               severity: 'warn',
               summary: 'Không tìm thấy',
-              detail: 'Tài nguyên được yêu cầu không tồn tại.'
+              detail: readApiErrorMessage(error, 'Tài nguyên được yêu cầu không tồn tại.')
             });
             break;
           case 500:
             messageService.add({
               severity: 'error',
               summary: 'Lỗi hệ thống',
-              detail: 'Lỗi máy chủ nội bộ. Vui lòng thử lại sau.'
+              detail: readApiErrorMessage(error, 'Lỗi máy chủ nội bộ. Vui lòng thử lại sau.')
             });
             break;
           default:
