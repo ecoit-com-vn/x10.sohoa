@@ -507,6 +507,46 @@ public class DocumentDigitizationService : IDocumentDigitizationService
         return await GetExtractionResultByVersionIdAsync(documentVersionId);
     }
 
+    public async Task<DocumentExtractionResultDto> SaveDocumentExtractionDataAsync(
+        Guid dossierId,
+        Guid documentVersionId,
+        SaveDocumentExtractionDataRequest request,
+        string userId)
+    {
+        if (request == null || string.IsNullOrWhiteSpace(request.MergedDataJson))
+            throw new ArgumentException("Dữ liệu form tài liệu không được để trống.");
+
+        await _dossierService.EnsureCanEditFormDataAsync(dossierId);
+        await EnsureVersionInDossierAsync(dossierId, documentVersionId);
+
+        var version = await _documentRepository.GetDocumentVersionByIdAsync(documentVersionId)
+            ?? throw new KeyNotFoundException("Phiên bản tài liệu không tồn tại.");
+
+        var result = await _repository.GetExtractionResultByVersionIdAsync(documentVersionId);
+        if (result == null)
+        {
+            result = new DocumentExtractionResult
+            {
+                DocumentId = version.DocumentId,
+                DocumentVersionId = documentVersionId,
+                Status = "Manual",
+                MergedDataJson = request.MergedDataJson.Trim(),
+                CreatedBy = userId,
+                CreatedDate = DateTime.UtcNow,
+            };
+            await _repository.CreateExtractionResultAsync(result);
+        }
+        else
+        {
+            result.MergedDataJson = request.MergedDataJson.Trim();
+            result.ModifiedBy = userId;
+            result.ModifiedDate = DateTime.UtcNow;
+            await _repository.UpdateExtractionResultAsync(result);
+        }
+
+        return MapResult(result);
+    }
+
     private async Task EnsureVersionInDossierAsync(Guid dossierId, Guid documentVersionId)
     {
         if (!await _documentRepository.VersionBelongsToDossierAsync(documentVersionId, dossierId))

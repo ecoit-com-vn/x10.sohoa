@@ -8,6 +8,11 @@ public class OrganizationDto
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public long? ParentId { get; set; }
+
+    // Map helpers for Dapper matching Oracle SQL select aliases
+    public long OrgId { get => Id; set => Id = value; }
+    public string OrgCode { get => Code; set => Code = value; }
+    public string OrgName { get => Name; set => Name = value; }
 }
 
 public class Infrastructure
@@ -18,6 +23,7 @@ public class Infrastructure
     public string? Address { get; set; }
     public int InfraTypeId { get; set; }
     public long? UnitId { get; set; }
+    public int? GridTypeId { get; set; }
     public bool IsActive { get; set; } = true;
 
     // Join helper fields

@@ -22,5 +22,11 @@ public interface IDocumentDigitizationService
     Task<DocumentOcrProgressDto?> GetProgressForDossierAsync(Guid dossierId, Guid documentVersionId);
     Task<DocumentExtractionResultDto?> GetExtractionResultForDossierAsync(Guid dossierId, Guid documentVersionId);
 
+    Task<DocumentExtractionResultDto> SaveDocumentExtractionDataAsync(
+        Guid dossierId,
+        Guid documentVersionId,
+        SaveDocumentExtractionDataRequest request,
+        string userId);
+
     DigitizationExtractionForm BuildExtractionForm(string formId, string formName, string formSchemaJson);
 }

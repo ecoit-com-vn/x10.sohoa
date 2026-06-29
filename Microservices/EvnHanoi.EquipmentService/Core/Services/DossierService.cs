@@ -495,9 +495,13 @@ public class DossierService : IDossierService
     /// </summary>
     private async Task EnsureCanEditFormDataAsync(Dossier dossier)
     {
+        // Trả lại về bước người tạo — cho phép sửa dù instance WF vẫn đang chạy.
+        if (dossier.Status == DossierStatus.Returned)
+            return;
+
         if (!dossier.WorkflowInstanceId.HasValue)
         {
-            if (dossier.Status != DossierStatus.New && dossier.Status != DossierStatus.CompletedInput && dossier.Status != DossierStatus.Returned)
+            if (dossier.Status != DossierStatus.New && dossier.Status != DossierStatus.CompletedInput)
                 throw new InvalidOperationException("Không thể chỉnh sửa dữ liệu hồ sơ ở trạng thái hiện tại.");
             return;
         }

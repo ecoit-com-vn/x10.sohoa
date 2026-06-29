@@ -640,7 +640,7 @@ public class EquipmentRepository : IEquipmentRepository
         if (_connection.State != ConnectionState.Open) 
             _connection.Open();
 
-        var sql = @"SELECT ID, CODE, NAME, INFRA_TYPE_ID as InfraTypeId, UNIT_ID as UnitId, IS_ACTIVE as IsActive 
+        var sql = @"SELECT ID, CODE, NAME, INFRA_TYPE_ID as InfraTypeId, UNIT_ID as UnitId, GRIDTYPEID as GridTypeId, IS_ACTIVE as IsActive 
                     FROM INFRASTRUCTURE 
                     WHERE IsDeleted = 0 
                     ORDER BY NAME ASC";
