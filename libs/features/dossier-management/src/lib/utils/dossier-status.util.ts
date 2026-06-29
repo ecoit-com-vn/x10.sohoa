@@ -1,6 +1,6 @@
-/** Label hiển thị pill — thống nhất toàn module hồ sơ */
 export const DOSSIER_STATUS_LABELS: Record<string, string> = {
-  Draft: 'Nháp',
+  New: 'Tạo mới',
+  CompletedInput: 'Hoàn thành nhập liệu',
   PendingApproval: 'Chờ duyệt',
   InProgress: 'Đang duyệt',
   Returned: 'Trả lại',
@@ -9,8 +9,10 @@ export const DOSSIER_STATUS_LABELS: Record<string, string> = {
 
 export function getDossierStatusPillClass(status?: string | null): string {
   switch (status) {
-    case 'Draft':
-      return 'status-pill status-inactive';
+    case 'New':
+      return 'status-pill status-new';
+    case 'CompletedInput':
+      return 'status-pill status-completed-input';
     case 'PendingApproval':
     case 'InProgress':
       return 'status-pill status-pending';
@@ -56,7 +58,7 @@ export function getDossierWorkflowStepSubtitle(
 ): string | null {
   const step = workflowStepName?.trim();
   if (!step || isWeakWorkflowStepLabel(step)) return null;
-  if (status === 'Draft' || status === 'Approved') return null;
+  if (status === 'New' || status === 'CompletedInput' || status === 'Approved') return null;
   return step;
 }
 

@@ -62,7 +62,7 @@ export class DossierManagementService {
   // ===== DANH SÁCH (ES qua NotificationService) =====
 
   getDossiers(filter: {
-    menuScope: DossierMenuScope;
+    menuScope?: DossierMenuScope;
     tab?: DossierListTab;
     keyword?: string;
     infrastructureId?: string;
@@ -75,8 +75,9 @@ export class DossierManagementService {
   }): Observable<any> {
     let params = new HttpParams()
       .set('page', filter.page.toString())
-      .set('pageSize', filter.pageSize.toString())
-      .set('menuScope', filter.menuScope);
+      .set('pageSize', filter.pageSize.toString());
+
+    if (filter.menuScope) params = params.set('menuScope', filter.menuScope);
 
     if (filter.tab) params = params.set('tab', filter.tab);
     if (filter.keyword?.trim()) params = params.set('keyword', filter.keyword.trim());
@@ -146,10 +147,18 @@ export class DossierManagementService {
     return this.http.delete<any>(`${this.base}/${id}`);
   }
 
+  completeInput(id: string): Observable<any> {
+    return this.http.put<any>(`${this.base}/${id}/complete-input`, {});
+  }
+
   // ===== GỬI DUYỆT =====
 
-  submitForApproval(id: string): Observable<any> {
-    return this.http.post<any>(`${this.workflowBase}/${id}/submit`, {});
+  submitForApproval(id: string, request: { nextNodeId: string; actionLabel: string; comment?: string; nextAssigneeUserId?: string }): Observable<any> {
+    return this.http.post<any>(`${this.workflowBase}/${id}/submit`, request);
+  }
+
+  getNextStepInfo(): Observable<any> {
+    return this.http.get<any>(`${this.workflowBase}/next-step-info`);
   }
 
   // ===== FORM DATA =====

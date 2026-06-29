@@ -29,7 +29,7 @@ import { catchError, finalize } from 'rxjs';
 
 function tabLabel(tab: DossierListTab): string {
   const labels: Record<DossierListTab, string> = {
-    draft: 'Nháp',
+    draft: 'Tạo mới',
     'pending-action': 'Chờ xử lý',
     'in-progress': 'Đang xử lý',
     completed: 'Hoàn thành',
@@ -243,10 +243,8 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
 
                     </button>
 
-                    <button *ngIf="isCreatorMenu() && (item.status === 'Draft' || !item.workflowInstanceId)" (click)="onDelete(item)" class="act-btn act-delete" title="Xóa">
-
+                    <button *ngIf="isCreatorMenu() && (item.status === 'Draft' || item.status === 'New' || item.status === 'CompletedInput' || !item.workflowInstanceId)" (click)="onDelete(item)" class="act-btn act-delete" title="Xóa">
                       <i class="pi pi-trash"></i>
-
                     </button>
 
                     <!-- Thao tác nhanh (Quick Actions) dạng dropdown -->
@@ -795,7 +793,7 @@ export class DossierListComponent implements OnInit {
     if (roles.includes('ADMIN')) return true;
 
     const status = item.status ?? item.Status;
-    if (this.activeTab() === 'draft' || status === 'Draft') {
+    if (this.activeTab() === 'draft' || status === 'Draft' || status === 'New' || status === 'CompletedInput') {
       const creatorId = item.creator?.id ?? item.Creator?.Id ?? item.creatorId ?? item.CreatorId;
       const creatorUsername = item.creator?.username ?? item.Creator?.Username ?? item.creatorUsername ?? item.CreatorUsername ?? item.createdBy ?? item.CreatedBy;
       
@@ -843,7 +841,7 @@ export class DossierListComponent implements OnInit {
     if (!this.canMutateDossierOnCreatorMenu()) return false;
 
     const status = item.status ?? item.Status;
-    const isDraftState = this.activeTab() === 'draft' || status === 'Draft' || status === 'Returned';
+    const isDraftState = this.activeTab() === 'draft' || status === 'Draft' || status === 'New' || status === 'CompletedInput' || status === 'Returned';
     const stepAllowEdit = item.currentStepAllowEdit ?? item.CurrentStepAllowEdit;
     
     if (isDraftState || stepAllowEdit) {

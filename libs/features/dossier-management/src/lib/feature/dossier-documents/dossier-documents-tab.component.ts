@@ -1,6 +1,8 @@
 import {
   Component,
   Input,
+  Output,
+  EventEmitter,
   OnInit,
   OnDestroy,
   AfterViewInit,
@@ -107,6 +109,7 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, AfterVie
   @Input() canEdit = false;
   @Input() hasFormTemplate = false;
   @Input() formId: string | null = null;
+  @Output() formDataSaved = new EventEmitter<void>();
 
   documents = signal<DossierDocumentItem[]>([]);
   loading = signal(false);
@@ -477,6 +480,7 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, AfterVie
     this.showEditDocument.set(false);
     this.editTarget.set(null);
     this.loadDocuments();
+    this.formDataSaved.emit();
   }
 
   onSearchChange(value: string): void {

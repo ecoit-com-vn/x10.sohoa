@@ -15,13 +15,13 @@ import {
   displayFieldValue,
   hasExtractedValue,
   mergeExtractionPageResults,
+  mergeFormDataForSave,
   normalizeDossierDetail,
   parseFormDataJson,
   parseFormSchemaFields,
   parseMergedDataJson,
   pickFormDataForSchema,
   readFormSchemaJson,
-  serializeFormDataForSchema,
 } from '../../utils/dossier-form-schema.util';
 
 @Component({
@@ -207,7 +207,7 @@ export class DossierExtractionConfirmDialogComponent {
     this.saving.set(true);
     this.dossierService
       .saveFormData(this.dossierId, {
-        formDataJson: serializeFormDataForSchema(fields, nextData),
+        formDataJson: mergeFormDataForSave(fields, this.currentFormData(), nextData, fields),
         rowVersion: this.rowVersion(),
         changeNote: this.documentName
           ? `Áp dụng bóc tách OCR từ tài liệu "${this.documentName}"`
@@ -215,7 +215,12 @@ export class DossierExtractionConfirmDialogComponent {
       })
       .pipe(finalize(() => this.saving.set(false)))
       .subscribe({
-        next: () => {
+        next: (res) => {
+          const updated = normalizeDossierDetail(res?.data ?? res);
+          if (updated) {
+            this.rowVersion.set(updated.rowVersion);
+            this.currentFormData.set(parseFormDataJson(updated.formDataJson));
+          }
           this.messageService.add({
             severity: 'success',
             summary: 'Thành công',
