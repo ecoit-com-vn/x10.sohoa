@@ -9,6 +9,7 @@ public static class DossierEsFieldNames
     public const string Status = "status";
     public const string IsDeleted = "isDeleted";
     public const string GridTypeId = "gridTypeId";
+    public const string DossierTypeId = "dossierTypeId";
     public const string InfrastructureId = "infrastructureId";
     public const string UnitId = "unitId";
     public const string WorkflowInstanceId = "workflowInstanceId";

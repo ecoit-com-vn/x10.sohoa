@@ -118,6 +118,18 @@ public class DossierService : IDossierService
         return await _dossierSearchRepository.GetPagedAsync(filter);
     }
 
+    public async Task<(IEnumerable<DossierListItemDto> Items, int TotalCount)> GetCatalogDossiersAsync(
+        string? keyword,
+        Guid? infrastructureId,
+        Guid? dossierTypeId,
+        long? unitId,
+        int page,
+        int pageSize)
+    {
+        return await _dossierRepository.GetCatalogDossiersAsync(
+            keyword, infrastructureId, dossierTypeId, unitId, page, pageSize);
+    }
+
     public async Task<DossierDetailDto?> GetDetailByIdAsync(Guid id)
     {
         return await _dossierRepository.GetDetailByIdAsync(id);

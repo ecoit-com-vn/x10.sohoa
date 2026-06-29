@@ -14,6 +14,14 @@ public interface IDossierRepository
     [Obsolete("Dùng IDossierSearchRepository qua DossierService.GetPagedAsync.")]
     Task<(IEnumerable<DossierListItemDto> Items, int TotalCount)> GetPagedAsync(DossierFilterDto filter);
 
+    Task<(IEnumerable<DossierListItemDto> Items, int TotalCount)> GetCatalogDossiersAsync(
+        string? keyword,
+        Guid? infrastructureId,
+        Guid? dossierTypeId,
+        long? unitId,
+        int page,
+        int pageSize);
+
     // Chi tiết
     Task<DossierDetailDto?> GetDetailByIdAsync(Guid id);
     Task<Dossier?> GetByIdAsync(Guid id);

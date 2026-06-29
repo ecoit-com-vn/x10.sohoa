@@ -69,6 +69,21 @@ public partial class DossierController : ControllerBase
         return Ok(new { items, totalCount, page, pageSize });
     }
 
+    [HttpGet("catalog")]
+    [BypassDynamicPermission]
+    public async Task<IActionResult> GetCatalogDossiers(
+        [FromQuery] string? keyword,
+        [FromQuery] Guid? infrastructureId,
+        [FromQuery] Guid? dossierTypeId,
+        [FromQuery] long? unitId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10)
+    {
+        var (items, totalCount) = await _dossierService.GetCatalogDossiersAsync(
+            keyword, infrastructureId, dossierTypeId, unitId, page, pageSize);
+        return Ok(new { items, totalCount, page, pageSize });
+    }
+
     [HttpGet("grid-types/lookup")]
     [BypassDynamicPermission]
     public async Task<IActionResult> GetGridTypesLookup()

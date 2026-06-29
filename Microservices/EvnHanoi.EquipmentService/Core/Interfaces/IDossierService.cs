@@ -20,6 +20,13 @@ public interface IDossierService
 
     // CRUD cơ bản
     Task<(IEnumerable<DossierListItemDto> Items, int TotalCount)> GetPagedAsync(DossierFilterDto filter);
+    Task<(IEnumerable<DossierListItemDto> Items, int TotalCount)> GetCatalogDossiersAsync(
+        string? keyword,
+        Guid? infrastructureId,
+        Guid? dossierTypeId,
+        long? unitId,
+        int page,
+        int pageSize);
     Task<DossierDetailDto?> GetDetailByIdAsync(Guid id);
     Task<Guid> CreateAsync(DossierCreateDto dto, string userId, string userName, string userFullName);
     Task<bool> UpdateAsync(Guid id, DossierUpdateDto dto, string userId);
