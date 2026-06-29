@@ -96,9 +96,34 @@ export function readFormSchemaJson(template: unknown): string | null {
 export function normalizeField(raw: Record<string, unknown>): EavField {
   const key =
     firstNonEmptyString(raw['name'], raw['Name'], raw['key'], raw['Key'], raw['id'], raw['Id']) ?? '';
+  
+  let type = raw['type'] as any;
+  if (type === 'dropdown') {
+    type = 'select';
+  }
+
+  let options = raw['options'] as any;
+  if (Array.isArray(options)) {
+    options = options.map((opt) => {
+      if (opt && typeof opt === 'object') {
+        return {
+          label: String(opt.label || opt.Label || opt.value || opt.Value || ''),
+          value: String(opt.value || opt.Value || opt.label || opt.Label || ''),
+        };
+      } else {
+        return {
+          label: String(opt),
+          value: String(opt),
+        };
+      }
+    });
+  }
+
   return {
     ...(raw as unknown as EavField),
     key,
+    type,
+    options,
   };
 }
 

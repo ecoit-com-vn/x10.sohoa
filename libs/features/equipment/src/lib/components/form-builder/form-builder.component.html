@@ -76,7 +76,7 @@
               <div class="form-group" style="flex: 1;">
                 <label class="block text-sm font-bold text-muted tracking-wider">Loại lưới điện <span
                     class="required">*</span></label>
-                <p-select [options]="gridTypes()" [ngModel]="selectedGridTypeId()"
+                <p-select [options]="gridTypes()" [ngModel]="selectedGridTypeId()" []
                   (ngModelChange)="selectedGridTypeId.set($event); equipmentTypeId.set('')" optionLabel="name"
                   optionValue="id" placeholder="-- Chọn loại lưới điện --"
                   appendTo="body">

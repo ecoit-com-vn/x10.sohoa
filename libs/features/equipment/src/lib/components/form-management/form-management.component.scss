@@ -570,15 +570,3 @@
     .status-pending  { background: #fef3c7 !important; color: #b45309 !important; }
     .status-approved { background: #d1fae5 !important; color: #065f46 !important; }
     .status-rejected { background: #fee2e2 !important; color: #991b1b !important; }
-
-    .act-submit {
-      color: #d97706 !important;
-      border-color: #fef3c7 !important;
-      background-color: #fffbef !important;
-
-      &:hover {
-        background-color: #fef3c7 !important;
-        color: #b45309 !important;
-        box-shadow: 0 2px 4px rgba(217, 119, 6, 0.15);
-      }
-    }
