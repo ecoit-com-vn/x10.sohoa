@@ -192,8 +192,10 @@ public class DossierSearchRepository : IDossierSearchRepository
 
             if (filter.DossierTypeId.HasValue)
             {
-                var dossierTypeId = filter.DossierTypeId.Value.ToString();
-                filters.Add(f => f.Term(t => t.Field(doc => doc.DossierTypeId).Value(dossierTypeId)));
+                var dossierTypeVariants = DossierIndexIdNormalizer.GetGuidTermVariants(filter.DossierTypeId.Value.ToString());
+                b.Filter(f => f.Terms(t => t
+                    .Field(DossierEsFieldNames.DossierTypeId)
+                    .Terms(new TermsQueryField(dossierTypeVariants.Select(FieldValue.String).ToArray()))));
             }
 
             if (filter.UnitScopeIds is { Count: > 0 })

@@ -39,6 +39,7 @@ public class EavFormTemplateRepository : IEavFormTemplateRepository
         {
             sql += $" AND t.{nameof(EavFormTemplate.FormType)} = :FormType";
         }
+        sql += $" ORDER BY t.{nameof(EavFormTemplate.CreatedAt)} DESC";
         return await _connection.QueryAsync<EavFormTemplate>(sql, new { FormType = formType, IsActive = isActive.HasValue && isActive.Value ? 1 : 0 });
     }
 
