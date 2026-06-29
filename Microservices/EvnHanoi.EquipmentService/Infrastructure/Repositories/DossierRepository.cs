@@ -216,7 +216,6 @@ public class DossierRepository : IDossierRepository
                 DossierTypeName = d.DOSSIERTYPENAME,
                 Status = d.STATUS ?? string.Empty,
                 WorkflowStatusName = d.WORKFLOWSTATUSNAME,
-                CreatorName = d.CREATORNAME,
                 CreatedDate = d.CREATEDDATE is DateTime dtVal ? dtVal : DateTime.MinValue,
                 DocumentCount = d.DOCUMENTCOUNT == null ? 0 : Convert.ToInt32(d.DOCUMENTCOUNT)
             };
