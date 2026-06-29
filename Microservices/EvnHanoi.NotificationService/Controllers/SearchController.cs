@@ -23,17 +23,20 @@ public class SearchController : ControllerBase
     private readonly ElasticsearchClient _elasticClient;
     private readonly IDbConnection _dbConnection;
     private readonly IDossierSearchService _dossierSearchService;
+    private readonly IDossierMenuScopeValidator _menuScopeValidator;
     private readonly ILogger<SearchController> _logger;
 
     public SearchController(
         ElasticsearchClient elasticClient,
         IDbConnection dbConnection,
         IDossierSearchService dossierSearchService,
+        IDossierMenuScopeValidator menuScopeValidator,
         ILogger<SearchController> logger)
     {
         _elasticClient = elasticClient;
         _dbConnection = dbConnection;
         _dossierSearchService = dossierSearchService;
+        _menuScopeValidator = menuScopeValidator;
         _logger = logger;
     }
 
@@ -45,24 +48,40 @@ public class SearchController : ControllerBase
         [FromQuery] long? unitId,
         [FromQuery] string? tab,
         [FromQuery] string? status,
+        [FromQuery] string? menuScope,
         [FromQuery] Guid? dossierTypeId,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10)
     {
         var roles = GetUserRoles();
         var userId = GetUserId();
+        var isAdmin = IsAdmin(roles);
+        var normalizedTab = NormalizeTabParameter(tab, status);
+
+        var scopeCheck = await _menuScopeValidator.ValidateAsync(
+            menuScope,
+            normalizedTab,
+            userId,
+            Request.Headers.Authorization.ToString(),
+            isAdmin);
+        if (!scopeCheck.Allowed)
+        {
+            return StatusCode(403, new { message = scopeCheck.ErrorMessage });
+        }
+
         var filter = new DossierFilterDto
         {
             Keyword = keyword,
             InfrastructureId = infrastructureId,
             GridTypeId = gridTypeId,
             UnitId = unitId,
-            Tab = NormalizeTabParameter(tab, status),
+            Tab = normalizedTab,
             Status = status,
+            MenuScope = DossierMenuScopes.Normalize(menuScope),
             DossierTypeId = dossierTypeId,
             UserId = userId,
             UserRoles = roles,
-            IsAdmin = IsAdmin(roles),
+            IsAdmin = isAdmin,
             Page = page,
             PageSize = pageSize
         };
@@ -90,8 +109,9 @@ public class SearchController : ControllerBase
         var (items, totalCount) = await _dossierSearchService.GetPagedAsync(filter);
 
         _logger.LogInformation(
-            "Dossier search tab={Tab} userId={UserId} roles={RoleCount} page={Page} total={Total}",
+            "Dossier search tab={Tab} menuScope={MenuScope} userId={UserId} roles={RoleCount} page={Page} total={Total}",
             effectiveTab ?? "(none)",
+            filter.MenuScope ?? "(none)",
             userId ?? "(null)",
             roles.Count,
             page,
@@ -105,18 +125,34 @@ public class SearchController : ControllerBase
         [FromQuery] string? keyword,
         [FromQuery] Guid? infrastructureId,
         [FromQuery] int? gridTypeId,
-        [FromQuery] long? unitId)
+        [FromQuery] long? unitId,
+        [FromQuery] string? menuScope)
     {
         var roles = GetUserRoles();
+        var userId = GetUserId();
+        var isAdmin = IsAdmin(roles);
+
+        var scopeCheck = await _menuScopeValidator.ValidateAsync(
+            menuScope,
+            tab: null,
+            userId,
+            Request.Headers.Authorization.ToString(),
+            isAdmin);
+        if (!scopeCheck.Allowed)
+        {
+            return StatusCode(403, new { message = scopeCheck.ErrorMessage });
+        }
+
         var filter = new DossierFilterDto
         {
             Keyword = keyword,
             InfrastructureId = infrastructureId,
             GridTypeId = gridTypeId,
             UnitId = unitId,
-            UserId = GetUserId(),
+            MenuScope = DossierMenuScopes.Normalize(menuScope),
+            UserId = userId,
             UserRoles = roles,
-            IsAdmin = IsAdmin(roles)
+            IsAdmin = isAdmin
         };
 
         var counts = await _dossierSearchService.GetTabCountsAsync(filter);

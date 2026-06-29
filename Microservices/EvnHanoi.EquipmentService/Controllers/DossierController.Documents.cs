@@ -201,7 +201,7 @@ public partial class DossierController
     }
 
     [HttpPost("{id:guid}/documents/move-from-folder")]
-    public async Task<IActionResult> MoveDocumentsFromFolder(
+    public async Task<IActionResult> UploadDocumentsFromFolder(
         Guid id,
         [FromBody] MoveDocumentsFromFolderRequest request,
         CancellationToken cancellationToken)
@@ -261,7 +261,7 @@ public partial class DossierController
     }
 
     [HttpPost("{id:guid}/documents/{versionId:guid}/digitization")]
-    public async Task<IActionResult> SubmitDocumentDigitization(
+    public async Task<IActionResult> SubmitDocumentOCRDigitization(
         Guid id,
         Guid versionId,
         [FromBody] SubmitDossierDocumentDigitizationRequest? request)
@@ -346,6 +346,18 @@ public partial class DossierController
         catch (KeyNotFoundException ex)
         {
             return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { code = "VALIDATION_ERROR", message = ex.Message });
+        }
+        catch (Exception)
+        {
+            return StatusCode(500, new { message = "Không thể lấy kết quả bóc tách tài liệu." });
         }
     }
 }

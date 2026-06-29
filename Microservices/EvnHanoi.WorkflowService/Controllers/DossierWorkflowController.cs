@@ -73,6 +73,65 @@ public class DossierWorkflowController : ControllerBase
         }
     }
 
+    // ===== GỬI DUYỆT LẠI (POST resubmit => DOSSIER_CREATE) =====
+
+    [HttpPost("{id:guid}/resubmit")]
+    public async Task<IActionResult> Resubmit(Guid id, [FromBody] MoveDossierWorkflowRequest request)
+    {
+        if (request == null) return BadRequest(new { message = "Dữ liệu không hợp lệ." });
+
+        try
+        {
+            var instance = await _workflowEngine.MoveWithValidationAsync(
+                id.ToString(),
+                request.NextNodeId,
+                UserId,
+                UserRoles,
+                IsAdmin,
+                request.ActionLabel,
+                request.Comment,
+                request.NextAssigneeUserId,
+                DossierEntityType);
+
+            object? workflow = null;
+            try
+            {
+                workflow = await _workflowEngine.GetInstanceStatusByEntityAsync(id.ToString(), DossierEntityType);
+            }
+            catch (KeyNotFoundException)
+            {
+            }
+
+            return Ok(new
+            {
+                success = true,
+                message = "Gửi duyệt lại hồ sơ thành công.",
+                data = new
+                {
+                    status = instance.Status,
+                    currentNodeName = instance.CurrentNodeName,
+                    workflow
+                }
+            });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(403, new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
     // ===== CHUYỂN BƯỚC (POST move => DOSSIER_MANAGE) =====
 
     [HttpPost("{id:guid}/move")]

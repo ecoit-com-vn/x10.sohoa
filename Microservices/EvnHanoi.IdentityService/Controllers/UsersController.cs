@@ -29,8 +29,24 @@ public class UsersController : ControllerBase
     [HttpGet("lookup")]
     [Authorize]
     [BypassDynamicPermission]
-    public async Task<IActionResult> GetLookup()
+    public async Task<IActionResult> GetLookup([FromQuery] string? role)
     {
+        if (!string.IsNullOrWhiteSpace(role))
+        {
+            var roleTrim = role.Trim();
+            var users = (await _userRepository.GetAllAsync()).ToList();
+            var filtered = new List<object>();
+            foreach (var u in users)
+            {
+                var roles = await _userRepository.GetRolesByUserIdAsync(u.Id);
+                if (roles.Any(r => string.Equals(r, roleTrim, StringComparison.OrdinalIgnoreCase)))
+                {
+                    filtered.Add(new { u.Id, u.Username, u.FullName, Roles = roles });
+                }
+            }
+            return Ok(filtered);
+        }
+
         var cacheKey = "UsersLookup";
         if (!_cache.TryGetValue(cacheKey, out IEnumerable<object>? result))
         {

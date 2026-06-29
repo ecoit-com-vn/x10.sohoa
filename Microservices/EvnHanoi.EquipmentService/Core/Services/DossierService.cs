@@ -327,6 +327,39 @@ public class DossierService : IDossierService
 
         await _dossierRepository.UpdateWorkflowAsync(id, dto.WorkflowInstanceId, statusName, status, "system");
 
+        // WF đã hoàn thành (Approved) → xóa WORKFLOW_TASKS_ACTIVE; chỉ lưu khi còn bước đang chạy
+        var persistActiveTask = !string.Equals(status, "Approved", StringComparison.OrdinalIgnoreCase)
+            && !string.IsNullOrWhiteSpace(dto.CurrentStepId);
+
+        if (persistActiveTask)
+        {
+            var assignees = dto.CurrentAssignees != null && dto.CurrentAssignees.Any()
+                ? string.Join(",", dto.CurrentAssignees)
+                : string.Empty;
+
+            var actionsJson = dto.AvailableActions != null && dto.AvailableActions.Any()
+                ? System.Text.Json.JsonSerializer.Serialize(dto.AvailableActions)
+                : "[]";
+
+            await _dossierRepository.SaveActiveWorkflowTaskAsync(
+                id,
+                dto.CurrentStepId!,
+                statusName,
+                assignees,
+                actionsJson,
+                "system");
+        }
+        else
+        {
+            await _dossierRepository.SaveActiveWorkflowTaskAsync(
+                id,
+                string.Empty,
+                statusName,
+                string.Empty,
+                "[]",
+                "system");
+        }
+
         var synced = await TrySyncReindexAsync(id);
         var queued = synced
             ? false

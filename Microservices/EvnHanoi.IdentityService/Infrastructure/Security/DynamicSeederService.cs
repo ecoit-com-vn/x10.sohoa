@@ -87,7 +87,8 @@ public class DynamicSeederService
             { "TransmissionLine", "Đường dây truyền tải" },
             { "VirtualFolder", "Thư mục ảo (Explorer)" },
             { "Workflow", "Quy trình hồ sơ" },
-            { "WorkflowDefinitions", "Thiết lập quy trình" }
+            { "WorkflowDefinitions", "Thiết lập quy trình" }, 
+            { "DossierWorkflow", "Phê duyệt hồ sơ"}
         };
 
         var friendlyActionNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
