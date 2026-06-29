@@ -110,7 +110,7 @@ export class DossierManagementService {
     return this.http.get<any>(`${this.base}/catalog`, { params });
   }
 
-  getDossierTabCounts(filter?: {
+  getDossierTabCounts(filter: {
     menuScope: DossierMenuScope;
     keyword?: string;
     infrastructureId?: string;
