@@ -38,7 +38,20 @@ public class DossierMenuScopeValidator : IDossierMenuScopeValidator
     {
         var scope = DossierMenuScopes.Normalize(menuScope);
         if (scope is null)
-            return (false, "Tham số menuScope không hợp lệ (creator | approver).");
+        {
+            // Tra cứu / caller cũ không truyền menuScope — dùng visibility legacy theo tab.
+            if (string.IsNullOrWhiteSpace(userId))
+                return (false, "Không xác định được người dùng từ token.");
+
+            if (isAdmin)
+                return (true, null);
+
+            var legacyPerms = await GetUserPermissionsAsync(userId, authorizationHeader);
+            if (HasAnyPermission(legacyPerms, "DOSSIER_VIEW", "DOSSIER_CREATE", "DOSSIER_MANAGE", "SUPER_ADMIN"))
+                return (true, null);
+
+            return (false, "Không có quyền tra cứu hồ sơ.");
+        }
 
         if (string.IsNullOrWhiteSpace(userId))
             return (false, "Không xác định được người dùng từ token.");

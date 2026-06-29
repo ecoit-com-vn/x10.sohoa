@@ -120,6 +120,18 @@ namespace EvnHanoi.DigitizationService.Workers
                             if (totalPages == 0)
                             {
                                 _logger.LogWarning("Không tìm thấy file Markdown nào cho {FilePath}", taskMsg.FilePath);
+                                // Gửi bản tin thông báo hoàn thành với Status = Failed lên RabbitMQ
+                                var failedCompletedMsg = new
+                                {
+                                    FileId = taskMsg.FileId,
+                                    Action = "extraction.process.completed",
+                                    ResultFile = (string?)null,
+                                    BucketName = taskMsg.BucketName,
+                                    Status = "Failed"
+                                };
+                                await publisher.PublishMessageAsync(failedCompletedMsg, "digitization.topic", "extraction.process.completed");
+                                _logger.LogInformation("Đã gửi bản tin báo lỗi (Failed) cho {FileId} do không có file Markdown.", taskMsg.FileId);
+
                                 // Tự động ack message nếu file không có để tránh kẹt queue
                                 await _channel.BasicAckAsync(ea.DeliveryTag, false);
                                 return;
@@ -275,6 +287,37 @@ CÁC TRƯỜNG CẦN TRÍCH XUẤT:
                             await minioService.UploadFileAsync(taskMsg.BucketName, resultFileName, resultStream, "application/json");
                             _logger.LogInformation("Đã lưu kết quả gộp vào MinIO: {FileName} tại bucket {BucketName}", resultFileName, taskMsg.BucketName);
 
+                            bool allFailed = true;
+                            if (resultsArray.Length > 0)
+                            {
+                                foreach (var r in resultsArray)
+                                {
+                                    if (r != null)
+                                    {
+                                        try
+                                        {
+                                            var errorProp = r.GetType().GetProperty("error");
+                                            if (errorProp == null || errorProp.GetValue(r) == null)
+                                            {
+                                                allFailed = false;
+                                                break;
+                                            }
+                                        }
+                                        catch
+                                        {
+                                            allFailed = false;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                allFailed = true;
+                            }
+
+                            string status = allFailed ? "Failed" : "Success";
+
                             // 7. Gửi bản tin báo hoàn thành (Completed) lên RabbitMQ
                             var completedMsg = new
                             {
@@ -282,10 +325,10 @@ CÁC TRƯỜNG CẦN TRÍCH XUẤT:
                                 Action = "extraction.process.completed",
                                 ResultFile = resultFileName,
                                 BucketName = taskMsg.BucketName,
-                                Status = "Success"
+                                Status = status
                             };
                             await publisher.PublishMessageAsync(completedMsg, "digitization.topic", "extraction.process.completed");
-                            _logger.LogInformation("Đã gửi bản tin hoàn thành lên RabbitMQ (Routing key: extraction.process.completed).");
+                            _logger.LogInformation("Đã gửi bản tin hoàn thành lên RabbitMQ (Routing key: extraction.process.completed) với Status: {Status}.", status);
 
                             await _channel.BasicAckAsync(ea.DeliveryTag, false);
                         }

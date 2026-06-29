@@ -22,6 +22,7 @@ public interface IDossierRepository
     Task<Guid> CreateAsync(Dossier dossier, IEnumerable<Guid> equipmentIds);
     Task<bool> UpdateAsync(Dossier dossier, IEnumerable<Guid> equipmentIds);
     Task<bool> SoftDeleteAsync(Guid id, string modifiedBy);
+    Task<bool> UpdateStatusAsync(Guid id, string status, string modifiedBy);
 
     // Workflow
     Task<bool> UpdateWorkflowAsync(Guid id, Guid workflowInstanceId, string workflowStatusName, string status, string modifiedBy);

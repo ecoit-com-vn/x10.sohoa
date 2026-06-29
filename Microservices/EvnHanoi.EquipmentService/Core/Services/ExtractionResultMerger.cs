@@ -86,4 +86,49 @@ public static class ExtractionResultMerger
             _ => JsonSerializer.Deserialize<object>(element.GetRawText())
         };
     }
+
+    /// <summary>
+    /// Gộp kết quả bóc tách mới với FormDataJson hồ sơ — giá trị người dùng đã lưu được ưu tiên.
+    /// </summary>
+    public static string? MergePreservingExisting(string? freshMergedJson, string? existingFormDataJson)
+    {
+        if (string.IsNullOrWhiteSpace(freshMergedJson))
+            return existingFormDataJson;
+        if (string.IsNullOrWhiteSpace(existingFormDataJson))
+            return freshMergedJson;
+
+        try
+        {
+            using var freshDoc = JsonDocument.Parse(freshMergedJson);
+            using var existingDoc = JsonDocument.Parse(existingFormDataJson);
+
+            if (freshDoc.RootElement.ValueKind != JsonValueKind.Object)
+                return existingFormDataJson;
+
+            var result = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var prop in freshDoc.RootElement.EnumerateObject())
+            {
+                if (!HasMeaningfulValue(prop.Value))
+                    continue;
+                result[prop.Name] = JsonElementToNetValue(prop.Value);
+            }
+
+            if (existingDoc.RootElement.ValueKind == JsonValueKind.Object)
+            {
+                foreach (var prop in existingDoc.RootElement.EnumerateObject())
+                {
+                    if (!HasMeaningfulValue(prop.Value))
+                        continue;
+                    result[prop.Name] = JsonElementToNetValue(prop.Value);
+                }
+            }
+
+            return result.Count == 0 ? null : JsonSerializer.Serialize(result);
+        }
+        catch (JsonException)
+        {
+            return freshMergedJson;
+        }
+    }
 }

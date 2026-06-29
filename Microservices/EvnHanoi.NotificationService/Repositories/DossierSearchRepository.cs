@@ -118,6 +118,16 @@ public class DossierSearchRepository : IDossierSearchRepository
         List<DossierListItemDto> items,
         DossierFilterDto filter)
     {
+        var tabSlug = DossierTabEsQuery.ResolveTabSlug(filter);
+        if (tabSlug == DossierListTabs.Draft)
+        {
+            return items
+                .Where(item => string.Equals(item.Status, "Draft", StringComparison.Ordinal) ||
+                               string.Equals(item.Status, "New", StringComparison.Ordinal) ||
+                               string.Equals(item.Status, "CompletedInput", StringComparison.Ordinal))
+                .ToList();
+        }
+
         var expectedStatus = ResolveExpectedBusinessStatus(filter);
         if (expectedStatus is null)
             return items;
@@ -131,7 +141,6 @@ public class DossierSearchRepository : IDossierSearchRepository
     {
         return DossierTabEsQuery.ResolveTabSlug(filter) switch
         {
-            DossierListTabs.Draft => "Draft",
             DossierListTabs.Completed => "Approved",
             DossierListTabs.Returned => "Returned",
             _ => null
@@ -242,7 +251,9 @@ public class DossierSearchRepository : IDossierSearchRepository
         switch (DossierTabEsQuery.ResolveTabSlug(filter))
         {
             case DossierListTabs.Draft:
-                mustQueries.Add(new QueryDescriptor<DossierEsDocument>().Term(t => t.Field(DossierEsFieldNames.Status).Value("Draft")));
+                mustQueries.Add(new QueryDescriptor<DossierEsDocument>().Terms(t => t
+                    .Field(DossierEsFieldNames.Status)
+                    .Terms(new TermsQueryField(new[] { "Draft", "New", "CompletedInput" }.Select(FieldValue.String).ToArray()))));
                 mustNotQueries.Add(new QueryDescriptor<DossierEsDocument>().Exists(e => e.Field(DossierEsFieldNames.WorkflowInstanceId)));
                 break;
 

@@ -163,8 +163,11 @@ public class DynamicPermissionFilter : IAsyncActionFilter
             }
         }
 
-        // Validate
-        var isAuthorized = allowedPermissions != null && allowedPermissions.Any(p => string.Equals(p, requiredPermission, StringComparison.OrdinalIgnoreCase));
+        // Validate — một số action chấp nhận nhiều mã quyền tương đương
+        var alternatePermissions = GetAlternatePermissions(actionName, requiredPermission);
+        var isAuthorized = allowedPermissions != null && allowedPermissions.Any(p =>
+            string.Equals(p, requiredPermission, StringComparison.OrdinalIgnoreCase) ||
+            alternatePermissions.Any(alt => string.Equals(p, alt, StringComparison.OrdinalIgnoreCase)));
         if (!isAuthorized)
         {
             Log.Warning("Shared DynamicPermissionFilter: Access Denied. User does not have '{RequiredPermission}'", requiredPermission);
@@ -222,13 +225,18 @@ public class DynamicPermissionFilter : IAsyncActionFilter
     {
         string actLower = actionName.ToLowerInvariant();
 
+        if (actLower.Contains("submit") && (actLower.Contains("digitization")))
+        {
+            return "CREATE";
+        }
+
         // 0. MANAGE (Explicit management actions like assignment/grant/revoke)
-        if (actLower.Contains("assign") || actLower.Contains("grant") || actLower.Contains("revoke") || actLower.Contains("move") || actLower.Contains("extract") || actLower.Contains("ocr"))
+        if (actLower.Contains("assign") || actLower.Contains("grant") || actLower.Contains("revoke") || actLower.Contains("move"))
         {
             return "MANAGE";
         }
 
-        if (actLower.Contains("import") || actLower.Contains("upload"))
+        if (actLower.Contains("import") || actLower.Contains("upload") || actLower.Contains("extract") || actLower.Contains("ocr"))
         {
             return "IMPORT";
         }
@@ -264,5 +272,16 @@ public class DynamicPermissionFilter : IAsyncActionFilter
         }
 
         return "MANAGE";
+    }
+
+    private static IReadOnlyList<string> GetAlternatePermissions(string actionName, string requiredPermission)
+    {
+        if (string.Equals(actionName, "SaveFormData", StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(requiredPermission, "DOSSIER_EDIT", StringComparison.OrdinalIgnoreCase))
+        {
+            return new[] { "DOSSIER_CREATE" };
+        }
+
+        return Array.Empty<string>();
     }
 }

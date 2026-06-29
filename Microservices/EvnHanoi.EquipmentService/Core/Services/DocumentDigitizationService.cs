@@ -385,6 +385,18 @@ public class DocumentDigitizationService : IDocumentDigitizationService
 
         result.MergedDataJson = ExtractionResultMerger.MergePageResults(result.ResultJson);
 
+        var dossierId = await _documentRepository.GetDossierIdByVersionIdAsync(message.FileId);
+        if (dossierId.HasValue)
+        {
+            var dossier = await _dossierService.GetDetailByIdAsync(dossierId.Value);
+            if (!string.IsNullOrWhiteSpace(dossier?.FormDataJson))
+            {
+                result.MergedDataJson = ExtractionResultMerger.MergePreservingExisting(
+                    result.MergedDataJson,
+                    dossier.FormDataJson);
+            }
+        }
+
         await _repository.UpdateExtractionResultAsync(result);
         if (progress != null)
             await PublishProgressNotificationAsync(progress, result.Status);

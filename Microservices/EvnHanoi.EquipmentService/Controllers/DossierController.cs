@@ -206,6 +206,25 @@ public partial class DossierController : ControllerBase
         }
     }
 
+    [HttpPut("{id:guid}/complete-input")]
+    public async Task<IActionResult> CompleteInput(Guid id)
+    {
+        try
+        {
+            var success = await _dossierService.CompleteInputAsync(id, UserId);
+            if (!success) return BadRequest(new { message = "Không thể cập nhật trạng thái hồ sơ." });
+            return Ok(new { success = true, message = "Xác nhận hoàn thành nhập liệu thành công." });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
     // ===== GỬI DUYỆT / WORKFLOW =====
     // Đã chuyển sang WorkflowService: POST/GET /api/v1/dossiers-workflow/*
     // (submit, move, get-workflow-by-entity, get-workflow-history,

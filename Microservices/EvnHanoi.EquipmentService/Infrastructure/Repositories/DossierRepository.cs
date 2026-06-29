@@ -251,6 +251,24 @@ public class DossierRepository : IDossierRepository
         });
         return affected > 0;
     }
+    public async Task<bool> UpdateStatusAsync(Guid id, string status, string modifiedBy)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+        var sql = $@"UPDATE DOSSIERS SET
+                        {nameof(Dossier.Status)} = :Status,
+                        {nameof(Dossier.ModifiedBy)} = :ModifiedBy,
+                        {nameof(Dossier.ModifiedDate)} = :ModifiedDate
+                     WHERE {nameof(Dossier.Id)} = :Id AND {nameof(Dossier.IsDeleted)} = 0";
+        var affected = await _connection.ExecuteAsync(sql, new
+        {
+            Id = id.ToString(),
+            Status = status,
+            ModifiedBy = modifiedBy,
+            ModifiedDate = DateTime.UtcNow
+        });
+        return affected > 0;
+    }
     public async Task<bool> UpdateWorkflowAsync(Guid id, Guid workflowInstanceId, string workflowStatusName, string status, string modifiedBy)
     {
         if (_connection.State != ConnectionState.Open)

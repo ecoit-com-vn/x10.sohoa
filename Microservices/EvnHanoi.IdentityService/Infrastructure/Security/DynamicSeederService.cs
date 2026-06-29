@@ -198,6 +198,11 @@ public class DynamicSeederService
     {
         string actLower = actionName.ToLowerInvariant();
 
+        if (actLower.Contains("submit") && (actLower.Contains("digitization")))
+        {
+            return "CREATE";
+        }
+
         // 0. MANAGE (Explicit management actions like assignment/grant/revoke)
         if (actLower.Contains("assign") || actLower.Contains("grant") || actLower.Contains("revoke") || actLower.Contains("move"))
         {
@@ -205,7 +210,7 @@ public class DynamicSeederService
         }
         
         // 1. IMPORT
-        if (actLower.Contains("import") || actLower.Contains("upload"))
+        if (actLower.Contains("import") || actLower.Contains("upload") || actLower.Contains("extract") || actLower.Contains("ocr"))
         {
             return "IMPORT";
         }

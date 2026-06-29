@@ -11,7 +11,7 @@ public class Dossier
     public Guid? DossierSetId { get; set; }
     public Guid DossierTypeId { get; set; }
     public string? FormDataJson { get; set; }
-    public string Status { get; set; } = DossierStatus.Draft;
+    public string Status { get; set; } = DossierStatus.New;
 
     // Workflow integration
     public Guid? WorkflowInstanceId { get; set; }
@@ -35,7 +35,8 @@ public class Dossier
 
 public static class DossierStatus
 {
-    public const string Draft = "Draft";
+    public const string New = "New";
+    public const string CompletedInput = "CompletedInput";
     public const string PendingApproval = "PendingApproval";
     public const string InProgress = "InProgress";
     public const string Returned = "Returned";
