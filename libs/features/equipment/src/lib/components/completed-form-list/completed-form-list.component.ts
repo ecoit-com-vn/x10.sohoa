@@ -48,6 +48,7 @@ export class CompletedFormListComponent implements OnInit {
 
     equipmentTypes = signal<any[]>([]);
     gridTypes = signal<any[]>([]);
+    categories = signal<any[]>([]);
 
     forms = signal<EavFormTemplate[]>([]);
     searchKeyword = signal<string>('');
@@ -59,6 +60,7 @@ export class CompletedFormListComponent implements OnInit {
     filteredForms = computed(() => {
         const keyword = this.searchKeyword().trim().toLowerCase();
         return this.forms()
+            .filter(form => form.isActive)
             .filter(form => form.status === 'Hoàn thành')
             .filter(form => {
                 if (!keyword) {
@@ -121,6 +123,7 @@ export class CompletedFormListComponent implements OnInit {
     ngOnInit() {
         this.loadEquipmentTypes();
         this.loadGridTypes();
+        this.loadHmadCategories();
         this.loadForms();
     }
 
@@ -290,9 +293,29 @@ export class CompletedFormListComponent implements OnInit {
         });
     }
 
+    loadHmadCategories() {
+        this.eavFormService.getCatalogTypeByCode('HMAD').subscribe({
+            next: (catalogType) => {
+                if (catalogType && catalogType.id) {
+                    this.eavFormService.getCatalogsLookup(catalogType.id).subscribe({
+                        next: (catalogs) => {
+                            this.categories.set(catalogs || []);
+                        },
+                        error: (err) => {
+                            console.error('Failed to load catalogs for HMAD', err);
+                        }
+                    });
+                }
+            },
+            error: (err) => {
+                console.error('Failed to load CatalogType HMAD', err);
+            }
+        });
+    }
+
     getCategoryName(code: string): string {
-        const eqType = this.equipmentTypes().find(t => t.code === code || t.id === code);
-        return eqType ? eqType.name : code || '';
+        const cat = this.categories().find(c => c.code === code || c.id === code || c.id?.toString() === code?.toString());
+        return cat ? cat.name : code || '';
     }
 
     getGridTypeName(gridTypeId?: number): string {
@@ -302,7 +325,7 @@ export class CompletedFormListComponent implements OnInit {
     }
 
     onEdit(form: EavFormTemplate) {
-        this.router.navigate(['/equipment/form-builder'], { queryParams: { id: form.id } });
+        this.router.navigate(['/equipment/form-management'], { queryParams: { id: form.id } });
     }
 
     deactivateForm(form: EavFormTemplate) {

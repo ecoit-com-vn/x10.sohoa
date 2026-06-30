@@ -6,7 +6,6 @@
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 16px;
   flex-wrap: wrap;
 }
 
@@ -41,8 +40,6 @@
 
 .wf-table th,
 .wf-table td {
-  padding: 14px 12px;
-  border-bottom: 1px solid #e2e8f0;
   text-align: left;
   vertical-align: middle;
 }
@@ -186,17 +183,8 @@
       }
     }
 
-// Loading spinner
 .pi-spin {
   color: #002d72;
-}
-
-// Breadcrumb styles
-.breadcrumb {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.875rem;
 }
 
 .bc-icon {

@@ -18,11 +18,12 @@ import {
   serializeFormDataForSchema,
 } from '../../utils/dossier-form-schema.util';
 import { forkJoin } from 'rxjs';
+import { DatePickerModule } from 'primeng/datepicker';
 
 @Component({
   selector: 'app-dossier-form',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule, DialogModule, DossierDocumentsTabComponent, DossierVersionsTabComponent, DossierWorkflowTabComponent],
+  imports: [CommonModule, FormsModule, ToastModule, DialogModule, DossierDocumentsTabComponent, DossierVersionsTabComponent, DossierWorkflowTabComponent, DatePickerModule],
   template: `
     <div class="wf-card" style="position: relative;">
       <!-- Header -->
@@ -189,9 +190,16 @@ import { forkJoin } from 'rxjs';
                   <span *ngIf="field.unit" style="font-size: 0.85rem; color: #6b7280; white-space: nowrap;">{{ field.unit }}</span>
                 </div>
 
-                <input *ngSwitchCase="'date'" type="date" class="wf-input w-full"
-                       [name]="'dyn_' + field.key"
-                       [(ngModel)]="formData[field.key]">
+                <p-datepicker *ngSwitchCase="'date'"
+                              [name]="'dyn_' + field.key"
+                              [(ngModel)]="formData[field.key]"
+                              dateFormat="dd/mm/yy"
+                              [showIcon]="true"
+                              icon="pi pi-calendar"
+                              appendTo="body"
+                              styleClass="w-full"
+                              [placeholder]="field.placeholder || 'dd/mm/yyyy'">
+                </p-datepicker>
 
                 <textarea *ngSwitchCase="'textarea'" class="wf-textarea w-full" rows="3"
                           autocomplete="off"
@@ -487,8 +495,18 @@ export class DossierFormComponent implements OnInit {
         try {
           const raw = JSON.parse(schemaJson);
           const fields: EavField[] = Array.isArray(raw) ? raw.map((f) => normalizeField(f)) : [];
-          this.dynamicFields.set(fields);
-          this.formData = pickFormDataForSchema(fields, savedData);
+           this.dynamicFields.set(fields);
+           this.formData = pickFormDataForSchema(fields, savedData);
+           
+           // Convert date field strings to Date objects for p-datepicker compatibility
+           fields.forEach(f => {
+             if (f.type === 'date' && this.formData[f.key]) {
+               const d = new Date(this.formData[f.key]);
+               if (!isNaN(d.getTime())) {
+                 this.formData[f.key] = d;
+               }
+             }
+           });
         } catch {
           this.dynamicFields.set([]);
           this.messageService.add({ severity: 'warn', summary: 'Cảnh báo', detail: 'Không thể đọc cấu trúc biểu mẫu' });

@@ -1,9 +1,6 @@
 <div class="wf-page">
   <p-toast></p-toast>
-  
-  <!-- ==================== LIST VIEW STATE ==================== -->
   <ng-container *ngIf="viewState() === 'list'">
-    <!-- Breadcrumb -->
     <div class="list-toolbar">
       <div class="toolbar-left">
         <div class="breadcrumb">
@@ -26,7 +23,6 @@
     </div>
     
     <div class="wf-card">
-      <!-- Loading Overlay -->
       <div class="loading-overlay" *ngIf="loading()">
         <div class="loading-content">
           <i class="pi pi-spin pi-spinner text-4xl mr-3 evn-spinner-color"></i>
@@ -34,7 +30,6 @@
         </div>
       </div>
 
-      <!-- Toolbar -->
       <div class="template-search-toolbar">
         <div class="search-controls">
           <input type="text" class="wf-search-input search-input-width" placeholder="Tên hoặc mã biểu mẫu..." [ngModel]="searchKeyword()"
@@ -62,7 +57,6 @@
         </div>
       </div>
 
-      <!-- Table -->
       <div class="wf-table-wrap">
         <table class="wf-table">
           <thead>
@@ -237,7 +231,7 @@
                          [placeholder]="field.placeholder || ''" disabled />
 
                   <!-- Date Input -->
-                  <input *ngIf="field.type === 'date'" type="date" pInputText class="preview-form-input"
+                  <input *ngIf="field.type === 'date'" type="text" placeholder="dd/mm/yyyy" pInputText class="preview-form-input"
                          disabled />
 
                   <!-- Dropdown Select -->
