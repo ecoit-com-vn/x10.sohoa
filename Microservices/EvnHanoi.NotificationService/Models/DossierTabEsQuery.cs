@@ -15,7 +15,10 @@ public static class DossierTabEsQuery
         DossierListTabs.PendingAction,
         DossierListTabs.InProgress,
         DossierListTabs.Completed,
-        DossierListTabs.Returned
+        DossierListTabs.Returned,
+        DossierListTabs.PendingPublish,
+        DossierListTabs.Published,
+        DossierListTabs.Unpublished
     ];
 
     /// <summary>
@@ -63,7 +66,10 @@ public static class DossierTabEsQuery
             or DossierListTabs.PendingAction
             or DossierListTabs.InProgress
             or DossierListTabs.Completed
-            or DossierListTabs.Returned;
+            or DossierListTabs.Returned
+            or DossierListTabs.PendingPublish
+            or DossierListTabs.Published
+            or DossierListTabs.Unpublished;
     }
 
     public static bool IsEsBusinessStatus(string? value)

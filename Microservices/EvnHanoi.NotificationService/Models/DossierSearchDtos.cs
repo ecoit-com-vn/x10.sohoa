@@ -10,6 +10,9 @@ public static class DossierListTabs
     public const string InProgress = "in-progress";
     public const string Completed = "completed";
     public const string Returned = "returned";
+    public const string PendingPublish = "pending-publish";
+    public const string Published = "published";
+    public const string Unpublished = "unpublished";
 }
 
 public class CreatorInfoDto
@@ -79,4 +82,7 @@ public class DossierTabCountsDto
     public int InProgress { get; set; }
     public int Completed { get; set; }
     public int Returned { get; set; }
+    public int PendingPublish { get; set; }
+    public int Published { get; set; }
+    public int Unpublished { get; set; }
 }

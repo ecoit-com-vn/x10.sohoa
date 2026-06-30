@@ -37,6 +37,10 @@ public class DossierEnrichmentData
     public bool IsReturnedToCreatorStep { get; set; }
     public string? CurrentAssignees { get; set; }
     public string? AvailableActionsJson { get; set; }
+
+    public int? PublishStatusId { get; set; }
+    public string? PublishStatusCode { get; set; }
+    public string? PublishStatusName { get; set; }
 }
 
 public class BhsCatalogDefinition

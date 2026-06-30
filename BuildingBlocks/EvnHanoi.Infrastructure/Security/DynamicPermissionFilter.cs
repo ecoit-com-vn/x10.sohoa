@@ -4,7 +4,6 @@ using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Security.Claims;
-using System.Text;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -115,9 +114,10 @@ public class DynamicPermissionFilter : IAsyncActionFilter
         }
 
         // Determine required permission code
-        string resourceBase = GetResourceBase(controllerName.Replace("Controller", ""));
-        string category = CategorizeAction(actionName, httpMethod);
-        string requiredPermission = $"{resourceBase}_{category}";
+        string controllerKey = controllerName.Replace("Controller", "", StringComparison.OrdinalIgnoreCase);
+        string resourceBase = PermissionCodeResolver.GetResourceBase(controllerKey);
+        string category = PermissionCodeResolver.CategorizeAction(controllerKey, actionName, httpMethod);
+        string requiredPermission = PermissionCodeResolver.BuildPermissionCode(controllerKey, category, resourceBase);
 
         Log.Information("Shared DynamicPermissionFilter: Mapping request to permission code: '{RequiredPermission}'", requiredPermission);
 
@@ -180,98 +180,6 @@ public class DynamicPermissionFilter : IAsyncActionFilter
 
         Log.Information("Shared DynamicPermissionFilter: Access Granted for {Controller}/{Action}", controllerName, actionName);
         await next();
-    }
-
-    private string GetResourceBase(string controllerKey)
-    {
-        return controllerKey switch
-        {
-            "Menus" => "MENU",
-            "Users" => "USER",
-            "Roles" => "ROLE",
-            "Permissions" => "PERMISSION",
-            "OrganizationUnits" => "ORGANIZATION",
-            "UploadConfigs" => "UPLOAD_CONFIG",
-            "SystemParams" => "SYSTEM_PARAM",
-            "UserGroups" => "USER_GROUP",
-            "AuditLog" => "AUDIT_LOG",
-            "Signatures" => "SIGNATURE",
-            "WorkflowDefinitions" => "WORKFLOW_DEFINITION",
-            "DossierWorkflow" => "DOSSIER",
-            _ => ToSnakeCase(controllerKey)
-        };
-    }
-
-    private static string ToSnakeCase(string input)
-    {
-        if (string.IsNullOrEmpty(input)) return input;
-        var sb = new StringBuilder();
-        for (int i = 0; i < input.Length; i++)
-        {
-            char c = input[i];
-            if (i > 0 && char.IsUpper(c))
-            {
-                if (input[i - 1] != '_' && (!char.IsUpper(input[i - 1]) || (i + 1 < input.Length && char.IsLower(input[i + 1]))))
-                {
-                    sb.Append('_');
-                }
-            }
-            sb.Append(char.ToUpperInvariant(c));
-        }
-        return sb.ToString();
-    }
-
-    private string CategorizeAction(string actionName, string httpMethod)
-    {
-        string actLower = actionName.ToLowerInvariant();
-
-        if (actLower.Contains("submit") && (actLower.Contains("digitization")))
-        {
-            return "CREATE";
-        }
-
-        // 0. MANAGE (Explicit management actions like assignment/grant/revoke)
-        if (actLower.Contains("assign") || actLower.Contains("grant") || actLower.Contains("revoke") || actLower.Contains("move"))
-        {
-            return "MANAGE";
-        }
-
-        if (actLower.Contains("import") || actLower.Contains("upload") || actLower.Contains("extract") || actLower.Contains("ocr"))
-        {
-            return "IMPORT";
-        }
-
-        if (actLower.Contains("export") || actLower.Contains("download"))
-        {
-            return "EXPORT";
-        }
-
-        if (httpMethod.Equals("DELETE", StringComparison.OrdinalIgnoreCase) ||
-            actLower.StartsWith("delete") || actLower.StartsWith("remove") || actLower.StartsWith("destroy"))
-        {
-            return "DELETE";
-        }
-
-        if (httpMethod.Equals("PUT", StringComparison.OrdinalIgnoreCase) ||
-            httpMethod.Equals("PATCH", StringComparison.OrdinalIgnoreCase) ||
-            actLower.StartsWith("update") || actLower.StartsWith("edit") || actLower.StartsWith("save") || actLower.StartsWith("patch"))
-        {
-            return "EDIT";
-        }
-
-        if (httpMethod.Equals("POST", StringComparison.OrdinalIgnoreCase) ||
-            actLower.StartsWith("create") || actLower.StartsWith("add") || actLower.StartsWith("insert"))
-        {
-            return "CREATE";
-        }
-
-        if (httpMethod.Equals("GET", StringComparison.OrdinalIgnoreCase) ||
-            actLower.StartsWith("get") || actLower.StartsWith("find") || actLower.StartsWith("search") || actLower.StartsWith("load"))
-        {
-            return "VIEW";
-        }
-
-        return "MANAGE";
     }
 
     private static IReadOnlyList<string> GetAlternatePermissions(string actionName, string requiredPermission)

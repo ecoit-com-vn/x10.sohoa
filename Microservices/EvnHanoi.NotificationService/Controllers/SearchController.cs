@@ -4,6 +4,7 @@ using Dapper;
 using Elastic.Clients.Elasticsearch;
 using Elastic.Clients.Elasticsearch.QueryDsl;
 using EvnHanoi.Infrastructure.Messaging;
+using EvnHanoi.Infrastructure.Security;
 using EvnHanoi.NotificationService.Models;
 using EvnHanoi.NotificationService.Repositories;
 using EvnHanoi.NotificationService.Services;
@@ -17,6 +18,7 @@ namespace EvnHanoi.NotificationService.Controllers;
 
 [Authorize]
 [ApiController]
+[BypassDynamicPermission]
 [Route("api/v1/search")]
 public class SearchController : ControllerBase
 {
@@ -69,12 +71,22 @@ public class SearchController : ControllerBase
             return StatusCode(403, new { message = scopeCheck.ErrorMessage });
         }
 
+        var effectiveUnitId = unitId;
+        if (DossierMenuScopes.IsPublisher(menuScope))
+        {
+            var tokenUnitId = JwtUserClaimResolver.ResolveUnitId(User);
+            if (tokenUnitId.HasValue)
+            {
+                effectiveUnitId = tokenUnitId.Value;
+            }
+        }
+
         var filter = new DossierFilterDto
         {
             Keyword = keyword,
             InfrastructureId = infrastructureId,
             GridTypeId = gridTypeId,
-            UnitId = unitId,
+            UnitId = effectiveUnitId,
             Tab = normalizedTab,
             Status = status,
             MenuScope = DossierMenuScopes.Normalize(menuScope),
@@ -143,12 +155,22 @@ public class SearchController : ControllerBase
             return StatusCode(403, new { message = scopeCheck.ErrorMessage });
         }
 
+        var effectiveUnitId = unitId;
+        if (DossierMenuScopes.IsPublisher(menuScope))
+        {
+            var tokenUnitId = JwtUserClaimResolver.ResolveUnitId(User);
+            if (tokenUnitId.HasValue)
+            {
+                effectiveUnitId = tokenUnitId.Value;
+            }
+        }
+
         var filter = new DossierFilterDto
         {
             Keyword = keyword,
             InfrastructureId = infrastructureId,
             GridTypeId = gridTypeId,
-            UnitId = unitId,
+            UnitId = effectiveUnitId,
             MenuScope = DossierMenuScopes.Normalize(menuScope),
             UserId = userId,
             UserRoles = roles,

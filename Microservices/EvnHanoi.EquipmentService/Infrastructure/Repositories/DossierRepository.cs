@@ -137,6 +137,7 @@ public class DossierRepository : IDossierRepository
                          LEFT JOIN INFRASTRUCTURE i ON d.{nameof(Dossier.InfrastructureId)} = i.ID
                          LEFT JOIN DOSSIER_TYPES dt ON d.{nameof(Dossier.DossierTypeId)} = dt.ID
                          LEFT JOIN DOSSIER_SETS ds ON d.{nameof(Dossier.DossierSetId)} = ds.ID
+                         LEFT JOIN PUBLISH_STATUSES ps ON d.PUBLISHSTATUSID = ps.ID
                          WHERE d.{nameof(Dossier.IsDeleted)} = 0";
 
         if (infrastructureId.HasValue)
@@ -191,6 +192,9 @@ public class DossierRepository : IDossierRepository
                             d.{nameof(Dossier.CreatorName)},
                             d.{nameof(Dossier.CreatedDate)},
                             d.{nameof(Dossier.FormDataJson)},
+                            d.PUBLISHSTATUSID as PublishStatusId,
+                            ps.CODE as PublishStatusCode,
+                            ps.NAME as PublishStatusName,
                             (SELECT COUNT(1) FROM DOCUMENTS doc WHERE doc.DOSSIER_ID = d.Id AND doc.IS_DELETED = 0) as {nameof(DossierListItemDto.DocumentCount)}
                          {sqlBase}
                          ORDER BY d.{nameof(Dossier.CreatedDate)} DESC
@@ -200,9 +204,8 @@ public class DossierRepository : IDossierRepository
         parameters.Add("PageSize", pageSize);
 
         var rawItems = await _connection.QueryAsync<dynamic>(selectSql, parameters);
-        var mappedItems = rawItems.Select(d =>
-        {
-            var dto = new DossierListItemDto
+        var mappedItems = rawItems.Select(d => (
+            dto: new DossierListItemDto
             {
                 Id = d.ID is string sId && Guid.TryParse(sId, out var gId) ? gId : (d.ID is Guid guidId ? guidId : Guid.Empty),
                 GridTypeId = d.GRIDTYPEID == null ? (int?)null : Convert.ToInt32(d.GRIDTYPEID),
@@ -217,11 +220,13 @@ public class DossierRepository : IDossierRepository
                 Status = d.STATUS ?? string.Empty,
                 WorkflowStatusName = d.WORKFLOWSTATUSNAME,
                 CreatedDate = d.CREATEDDATE is DateTime dtVal ? dtVal : DateTime.MinValue,
-                DocumentCount = d.DOCUMENTCOUNT == null ? 0 : Convert.ToInt32(d.DOCUMENTCOUNT)
-            };
-
-            return (dto, (string?)d.FORMDATAJSON);
-        }).ToList();
+                DocumentCount = d.DOCUMENTCOUNT == null ? 0 : Convert.ToInt32(d.DOCUMENTCOUNT),
+                PublishStatusId = d.PUBLISHSTATUSID == null ? (int?)null : Convert.ToInt32(d.PUBLISHSTATUSID),
+                PublishStatusCode = d.PUBLISHSTATUSCODE,
+                PublishStatusName = d.PUBLISHSTATUSNAME
+            },
+            Item2: d.FORMDATAJSON as string
+        )).ToList();
 
         var bhsCatalogs = await GetBhsCatalogDefinitionsAsync();
         var resultList = new List<DossierListItemDto>();
@@ -258,6 +263,9 @@ public class DossierRepository : IDossierRepository
                         d.{nameof(Dossier.CreatedDate)},
                         d.{nameof(Dossier.ModifiedBy)},
                         d.{nameof(Dossier.ModifiedDate)},
+                        d.PUBLISHSTATUSID as {nameof(DossierDetailDto.PublishStatusId)},
+                        ps.CODE as {nameof(DossierDetailDto.PublishStatusCode)},
+                        ps.NAME as {nameof(DossierDetailDto.PublishStatusName)},
                         d.{nameof(Dossier.CreatorId)} as Id,
                         d.{nameof(Dossier.CreatorUsername)} as Username,
                         d.{nameof(Dossier.CreatorName)} as Name
@@ -265,6 +273,7 @@ public class DossierRepository : IDossierRepository
                      LEFT JOIN INFRASTRUCTURE i ON d.{nameof(Dossier.InfrastructureId)} = i.ID
                      LEFT JOIN DOSSIER_TYPES dt ON d.{nameof(Dossier.DossierTypeId)} = dt.ID
                      LEFT JOIN DOSSIER_SETS ds ON d.{nameof(Dossier.DossierSetId)} = ds.ID
+                     LEFT JOIN PUBLISH_STATUSES ps ON d.PUBLISHSTATUSID = ps.ID
                      WHERE d.{nameof(Dossier.Id)} = :Id AND d.{nameof(Dossier.IsDeleted)} = 0";
         var dossierList = await _connection.QueryAsync<DossierDetailDto, CreatorInfoDto, DossierDetailDto>(
             sql,
@@ -444,7 +453,7 @@ public class DossierRepository : IDossierRepository
         });
         return affected > 0;
     }
-    public async Task<bool> UpdateWorkflowAsync(Guid id, Guid workflowInstanceId, string workflowStatusName, string status, string modifiedBy)
+    public async Task<bool> UpdateWorkflowAsync(Guid id, Guid workflowInstanceId, string workflowStatusName, string status, int? publishStatusId, string modifiedBy)
     {
         if (_connection.State != ConnectionState.Open)
             _connection.Open();
@@ -453,16 +462,41 @@ public class DossierRepository : IDossierRepository
                         {nameof(Dossier.WorkflowStatusName)} = :WorkflowStatusName,
                         {nameof(Dossier.Status)} = :Status,
                         {nameof(Dossier.ModifiedBy)} = :ModifiedBy,
-                        {nameof(Dossier.ModifiedDate)} = :ModifiedDate
-                     WHERE {nameof(Dossier.Id)} = :Id AND {nameof(Dossier.IsDeleted)} = 0";
+                        {nameof(Dossier.ModifiedDate)} = :ModifiedDate";
+        if (publishStatusId.HasValue)
+        {
+            sql += ", PUBLISHSTATUSID = :PublishStatusId";
+        }
+        sql += $" WHERE {nameof(Dossier.Id)} = :Id AND {nameof(Dossier.IsDeleted)} = 0";
+
         var affected = await _connection.ExecuteAsync(sql, new
         {
             Id = id.ToString(),
             WorkflowInstanceId = workflowInstanceId.ToString(),
             WorkflowStatusName = workflowStatusName,
             Status = status,
+            PublishStatusId = publishStatusId,
             ModifiedBy = modifiedBy,
             ModifiedDate = DateTime.UtcNow
+        });
+        return affected > 0;
+    }
+
+    public async Task<bool> UpdatePublishStatusAsync(Guid id, int publishStatusId, string modifiedBy)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+        const string sql = @"UPDATE DOSSIERS SET 
+                               PUBLISHSTATUSID = :PublishStatusId,
+                               ModifiedBy = :ModifiedBy,
+                               ModifiedDate = :ModifiedDate
+                             WHERE Id = :Id AND IsDeleted = 0";
+        var affected = await _connection.ExecuteAsync(sql, new 
+        { 
+            Id = id.ToString(), 
+            PublishStatusId = publishStatusId, 
+            ModifiedBy = modifiedBy, 
+            ModifiedDate = DateTime.UtcNow 
         });
         return affected > 0;
     }

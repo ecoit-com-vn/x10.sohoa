@@ -77,7 +77,10 @@ public class DossierDocumentBuilder : IDossierDocumentBuilder
                 EquipmentCode = e.EquipmentCode,
                 EquipmentName = e.EquipmentName,
                 SerialNumber = e.SerialNumber
-            }).ToList()
+            }).ToList(),
+            PublishStatusId = data.PublishStatusId,
+            PublishStatusCode = data.PublishStatusCode,
+            PublishStatusName = data.PublishStatusName
         };
     }
 

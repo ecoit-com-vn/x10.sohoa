@@ -27,6 +27,10 @@ public class DossierEsDocument
     public List<WorkflowActionEsDto> AvailableActions { get; set; } = new();
     public List<DossierCatalogFieldEs> CatalogFields { get; set; } = new();
     public List<DossierFormFieldEs> FormFields { get; set; } = new();
+
+    public int? PublishStatusId { get; set; }
+    public string? PublishStatusCode { get; set; }
+    public string? PublishStatusName { get; set; }
 }
 
 public class WorkflowActionEsDto
