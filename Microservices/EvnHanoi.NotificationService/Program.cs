@@ -41,7 +41,10 @@ var rabbitFactory = new ConnectionFactory
 var rabbitConnection = await rabbitFactory.CreateConnectionAsync();
 builder.Services.AddSingleton<IConnection>(rabbitConnection);
 
-builder.Services.AddControllers();
+builder.Services.AddControllers(options =>
+{
+    options.Filters.Add<DynamicPermissionFilter>();
+});
 builder.Services.AddStructuredValidationErrors();
 builder.Services.AddDapperInfrastructure(builder.Configuration);
 builder.Services.AddOpenApi();

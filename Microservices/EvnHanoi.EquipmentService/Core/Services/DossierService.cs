@@ -352,7 +352,13 @@ public class DossierService : IDossierService
         var status = string.IsNullOrWhiteSpace(dto.DossierStatus) ? existing.Status : dto.DossierStatus;
         var statusName = dto.WorkflowStatusName ?? existing.WorkflowStatusName ?? string.Empty;
 
-        await _dossierRepository.UpdateWorkflowAsync(id, dto.WorkflowInstanceId, statusName, status, "system");
+        int? publishStatusId = null;
+        if (string.Equals(status, "Approved", StringComparison.OrdinalIgnoreCase) && (!existing.PublishStatusId.HasValue || existing.PublishStatusId == 0))
+        {
+            publishStatusId = 1; // Pending
+        }
+
+        await _dossierRepository.UpdateWorkflowAsync(id, dto.WorkflowInstanceId, statusName, status, publishStatusId, "system");
 
         // WF đã hoàn thành (Approved) → xóa WORKFLOW_TASKS_ACTIVE; chỉ lưu khi còn bước đang chạy
         var persistActiveTask = !string.Equals(status, "Approved", StringComparison.OrdinalIgnoreCase)
@@ -538,5 +544,27 @@ public class DossierService : IDossierService
             DateTime.UtcNow);
 
         await _messageProducer.SendMessageAsync(evt, DossierMessaging.IndexQueue);
+    }
+
+    public async Task<bool> UpdatePublishStatusAsync(Guid id, int publishStatusId, string userId)
+    {
+        var existing = await _dossierRepository.GetByIdAsync(id);
+        if (existing == null) throw new KeyNotFoundException($"Không tìm thấy hồ sơ với ID = {id}");
+
+        if (!string.Equals(existing.Status, "Approved", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("Hồ sơ chưa hoàn thành quy trình phê duyệt, không thể thay đổi trạng thái xuất bản.");
+        }
+
+        var updated = await _dossierRepository.UpdatePublishStatusAsync(id, publishStatusId, userId);
+        if (updated)
+        {
+            var synced = await TrySyncReindexAsync(id);
+            if (!synced)
+            {
+                await TryPublishDossierChangedAsync(id, DossierChangedActions.Updated);
+            }
+        }
+        return updated;
     }
 }

@@ -31,6 +31,9 @@ public class Dossier
     public string? ModifiedBy { get; set; }
     public DateTime? ModifiedDate { get; set; }
     public bool IsDeleted { get; set; } = false;
+
+    // Publish status
+    public int? PublishStatusId { get; set; }
 }
 
 public static class DossierStatus
@@ -41,4 +44,11 @@ public static class DossierStatus
     public const string InProgress = "InProgress";
     public const string Returned = "Returned";
     public const string Approved = "Approved";
+}
+
+public static class DossierPublishStatusConstants
+{
+    public const int Pending = 1;
+    public const int Published = 2;
+    public const int Unpublished = 3;
 }

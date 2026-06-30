@@ -31,9 +31,10 @@ public interface IDossierRepository
     Task<bool> UpdateAsync(Dossier dossier, IEnumerable<Guid> equipmentIds);
     Task<bool> SoftDeleteAsync(Guid id, string modifiedBy);
     Task<bool> UpdateStatusAsync(Guid id, string status, string modifiedBy);
+    Task<bool> UpdatePublishStatusAsync(Guid id, int publishStatusId, string modifiedBy);
 
     // Workflow
-    Task<bool> UpdateWorkflowAsync(Guid id, Guid workflowInstanceId, string workflowStatusName, string status, string modifiedBy);
+    Task<bool> UpdateWorkflowAsync(Guid id, Guid workflowInstanceId, string workflowStatusName, string status, int? publishStatusId, string modifiedBy);
     Task<bool> SaveActiveWorkflowTaskAsync(Guid dossierId, string stepId, string stepName, string assignees, string actionsJson, string modifiedBy);
 
     // Equipments

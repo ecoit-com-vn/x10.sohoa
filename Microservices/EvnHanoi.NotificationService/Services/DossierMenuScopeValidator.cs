@@ -73,6 +73,26 @@ public class DossierMenuScopeValidator : IDossierMenuScopeValidator
             return (false, "Không có quyền truy cập menu quản lý hồ sơ.");
         }
 
+        if (DossierMenuScopes.IsPublisher(scope))
+        {
+            if (tabSlug is not null && 
+                tabSlug != DossierListTabs.PendingPublish && 
+                tabSlug != DossierListTabs.Published && 
+                tabSlug != DossierListTabs.Unpublished)
+            {
+                return (false, "Tab này không áp dụng cho menu xuất bản hồ sơ.");
+            }
+
+            if (isAdmin)
+                return (true, null);
+
+            var perms = await GetUserPermissionsAsync(userId, authorizationHeader);
+            if (HasAnyPermission(perms, "DOSSIER_PUBLISH_VIEW", "DOSSIER_PUBLISH_RELEASE", "SUPER_ADMIN"))
+                return (true, null);
+
+            return (false, "Không có quyền truy cập menu xuất bản hồ sơ.");
+        }
+
         // approver
         if (string.Equals(tabSlug, DossierListTabs.Draft, StringComparison.Ordinal) ||
             string.Equals(tabSlug, DossierListTabs.Returned, StringComparison.Ordinal))

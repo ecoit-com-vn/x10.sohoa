@@ -1,3 +1,4 @@
+using EvnHanoi.Infrastructure.Security;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using System;
@@ -8,6 +9,7 @@ using EvnHanoi.NotificationService.Services;
 namespace EvnHanoi.NotificationService.Controllers
 {
     [ApiController]
+    [BypassDynamicPermission]
     [Route("api/v1/audit-logs")]
     public class AuditLogController : ControllerBase
     {

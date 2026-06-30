@@ -54,6 +54,9 @@ public class DossierListItemDto
     /// Dữ liệu catalog động theo BHS — key = catalog.Name (trùng key FormDataJson), value = giá trị từ JSON
     /// </summary>
     public Dictionary<string, string> CatalogData { get; set; } = new();
+    public int? PublishStatusId { get; set; }
+    public string? PublishStatusCode { get; set; }
+    public string? PublishStatusName { get; set; }
 }
 
 /// <summary>
@@ -84,6 +87,9 @@ public class DossierDetailDto
     public DateTime CreatedDate { get; set; }
     public string? ModifiedBy { get; set; }
     public DateTime? ModifiedDate { get; set; }
+    public int? PublishStatusId { get; set; }
+    public string? PublishStatusCode { get; set; }
+    public string? PublishStatusName { get; set; }
 }
 
 /// <summary>

@@ -22,4 +22,6 @@ public static class DossierEsFieldNames
     public const string CurrentStepOrder = "currentStepOrder";
     public const string WorkflowLastAction = "workflowLastAction";
     public const string IsReturnedToCreatorStep = "isReturnedToCreatorStep";
+    public const string PublishStatusId = "publishStatusId";
+    public const string PublishStatusCode = "publishStatusCode";
 }

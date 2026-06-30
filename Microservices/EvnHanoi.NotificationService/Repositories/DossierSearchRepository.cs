@@ -54,6 +54,14 @@ public class DossierSearchRepository : IDossierSearchRepository
         var counts = new DossierTabCountsDto();
         var scope = DossierMenuScopes.Normalize(filter.MenuScope);
 
+        if (DossierMenuScopes.IsPublisher(scope))
+        {
+            counts.PendingPublish = await CountAsync(CloneForTab(filter, DossierListTabs.PendingPublish), keyword);
+            counts.Published = await CountAsync(CloneForTab(filter, DossierListTabs.Published), keyword);
+            counts.Unpublished = await CountAsync(CloneForTab(filter, DossierListTabs.Unpublished), keyword);
+            return counts;
+        }
+
         if (DossierMenuScopes.IsCreator(scope))
         {
             counts.Draft = await CountAsync(CloneForTab(filter, DossierListTabs.Draft), keyword);
@@ -281,6 +289,25 @@ public class DossierSearchRepository : IDossierSearchRepository
                     .Terms(new TermsQueryField(
                         DossierTabEsQuery.InPipelineStatuses.Select(FieldValue.String).ToArray()))));
                 break;
+
+            case DossierListTabs.PendingPublish:
+                mustQueries.Add(new QueryDescriptor<DossierEsDocument>().Term(t => t.Field(DossierEsFieldNames.Status).Value("Approved")));
+                mustQueries.Add(new QueryDescriptor<DossierEsDocument>().Bool(bb => bb
+                    .MinimumShouldMatch(1)
+                    .Should(
+                        sh => sh.Term(t => t.Field(DossierEsFieldNames.PublishStatusId).Value(1)),
+                        sh => sh.Bool(bNull => bNull.MustNot(mn => mn.Exists(e => e.Field(DossierEsFieldNames.PublishStatusId))))
+                    )
+                ));
+                break;
+
+            case DossierListTabs.Published:
+                mustQueries.Add(new QueryDescriptor<DossierEsDocument>().Term(t => t.Field(DossierEsFieldNames.PublishStatusId).Value(2)));
+                break;
+
+            case DossierListTabs.Unpublished:
+                mustQueries.Add(new QueryDescriptor<DossierEsDocument>().Term(t => t.Field(DossierEsFieldNames.PublishStatusId).Value(3)));
+                break;
         }
     }
 
@@ -327,6 +354,9 @@ public class DossierSearchRepository : IDossierSearchRepository
 
             case DossierListTabs.Completed:
             case DossierListTabs.Returned:
+            case DossierListTabs.PendingPublish:
+            case DossierListTabs.Published:
+            case DossierListTabs.Unpublished:
                 // Status đã ép ở EnforceTabStatusMust.
                 break;
 
@@ -488,7 +518,8 @@ public class DossierSearchRepository : IDossierSearchRepository
     /// </summary>
     private static void ApplyVisibilityFilter(List<Query> filterQueries, DossierFilterDto filter)
     {
-        if (filter.IsAdmin)
+        var scope = DossierMenuScopes.Normalize(filter.MenuScope);
+        if (filter.IsAdmin || DossierMenuScopes.IsPublisher(scope))
             return;
 
         var userId = NormalizeFilterUserId(filter.UserId);
@@ -503,7 +534,6 @@ public class DossierSearchRepository : IDossierSearchRepository
             return;
         }
 
-        var scope = DossierMenuScopes.Normalize(filter.MenuScope);
         var tab = DossierTabEsQuery.ResolveTabSlug(filter) ?? filter.Tab?.Trim().ToLowerInvariant();
 
         if (DossierMenuScopes.IsCreator(scope))
