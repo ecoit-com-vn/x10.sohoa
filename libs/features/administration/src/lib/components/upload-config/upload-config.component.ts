@@ -89,7 +89,7 @@ export class UploadConfigComponent implements OnInit {
         this.orgUnits.set(data || []);
       },
       error: (err) => {
-        this.messageService.add({ severity: 'error', summary: 'Lỗi tải đơn vị', detail: 'Không thể tải danh sách đơn vị.' });
+        this.messageService.add({ severity: 'error'});
       }
     });
   }

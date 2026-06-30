@@ -72,6 +72,7 @@ export class FormManagementComponent implements OnInit {
   detailTitle = signal<string>('');
   isEditMode = signal<boolean>(false);
   isFromCompletedForms = signal<boolean>(false);
+  activeTab = signal<'info' | 'builder'>('info');
 
   // Forms list state
   forms = signal<EavFormTemplate[]>([]);
@@ -89,6 +90,15 @@ export class FormManagementComponent implements OnInit {
   fields = signal<FormField[]>([]);
   selectedFieldIndex = signal<number | null>(null);
   showJson = signal<boolean>(false);
+  fieldSearchQuery = signal<string>('');
+
+  isFieldSearchMatched(field: FormField): boolean {
+    const query = this.fieldSearchQuery().trim().toLowerCase();
+    if (!query) return false;
+    return (field.label || '').toLowerCase().includes(query) || 
+           (field.name || '').toLowerCase().includes(query) || 
+           (field.type || '').toLowerCase().includes(query);
+  }
 
   // Pagination states
   first = signal<number>(0);
@@ -116,6 +126,7 @@ export class FormManagementComponent implements OnInit {
     { type: 'number', label: 'Số liệu kỹ thuật (Number)', icon: 'pi-percentage' },
     { type: 'date', label: 'Ngày kiểm định (Date)', icon: 'pi-calendar' },
     { type: 'dropdown', label: 'Danh sách Lựa chọn (Dropdown)', icon: 'pi-chevron-down' },
+    { type: 'radio', label: 'Lựa chọn duy nhất (Radio)', icon: 'pi-circle-fill' },
     { type: 'textarea', label: 'Mô tả / Ghi chú (Textarea)', icon: 'pi-align-justify' },
     { type: 'checkbox', label: 'Hộp kiểm xác nhận (Checkbox)', icon: 'pi-check-square' }
   ];
@@ -272,10 +283,10 @@ export class FormManagementComponent implements OnInit {
     this.loadForms();
   }
 
-  // --- ACTIONS ---
   onAddNew() {
     this.viewState.set('add');
     this.isEditMode.set(false);
+    this.activeTab.set('info');
     this.detailTitle.set('Thêm mới form');
     this.formName.set('');
     this.formCode.set('');
@@ -286,6 +297,7 @@ export class FormManagementComponent implements OnInit {
     this.fields.set([]);
     this.selectedFieldIndex.set(null);
     this.showJson.set(false);
+    this.fieldSearchQuery.set('');
   }
 
   onEdit(form: EavFormTemplate) {
@@ -296,7 +308,9 @@ export class FormManagementComponent implements OnInit {
     this.targetForm = form;
     this.viewState.set('edit');
     this.isEditMode.set(true);
+    this.activeTab.set('info');
     this.templateId.set(form.id);
+    this.fieldSearchQuery.set('');
     this.detailTitle.set(`Chỉnh sửa cấu hình form: ${form.name}`);
     this.formName.set(form.name);
     this.formCode.set(form.code || '');
@@ -429,7 +443,7 @@ export class FormManagementComponent implements OnInit {
       type,
       placeholder: '',
       required: false,
-      options: type === 'dropdown' ? [] : undefined,
+      options: (type === 'dropdown' || type === 'radio') ? [] : undefined,
       width: 100,
       dataSourceType: 'manual'
     };

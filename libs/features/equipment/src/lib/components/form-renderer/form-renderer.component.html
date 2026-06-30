@@ -93,6 +93,17 @@
               <option *ngFor="let opt of field.options" [value]="opt">{{ opt }}</option>
             </select>
             
+            <!-- Radio Select -->
+            <div *ngSwitchCase="'radio'" style="display: flex; flex-direction: column; gap: 8px; padding: 4px 0;">
+              <label *ngFor="let opt of (field.options || ['Lựa chọn A', 'Lựa chọn B'])" style="display: flex; align-items: center; gap: 8px; font-weight: 500; cursor: pointer; user-select: none;">
+                <input type="radio" 
+                       [name]="field.name" 
+                       [value]="opt" 
+                       [formControlName]="field.name" />
+                <span class="text-sm" style="color: #374151;">{{ opt }}</span>
+              </label>
+            </div>
+
             <!-- Textarea Input -->
             <textarea *ngSwitchCase="'textarea'" 
                       [id]="field.name" 
