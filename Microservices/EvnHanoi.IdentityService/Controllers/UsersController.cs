@@ -66,9 +66,9 @@ public class UsersController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] string? keyword = null)
+    public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] string? keyword = null, [FromQuery] long? organizationUnitId = null, [FromQuery] bool? isActive = null)
     {
-        var (items, totalCount) = await _userRepository.GetPagedAsync(page, pageSize, keyword);
+        var (items, totalCount) = await _userRepository.GetPagedAsync(page, pageSize, keyword, organizationUnitId, isActive);
         return Ok(new { items, totalCount, page, pageSize });
     }
 

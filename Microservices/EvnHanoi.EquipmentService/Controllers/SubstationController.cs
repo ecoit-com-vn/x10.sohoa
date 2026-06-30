@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using System.Security.Claims;
@@ -41,13 +41,24 @@ public class SubstationController : ControllerBase
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10,
         [FromQuery] string? keyword = null,
-        [FromQuery] int? status = null)
+        [FromQuery] int? status = null,
+        [FromQuery] long? unitId = null,
+        [FromQuery] bool? personalOnly = null)
     {
         if (page < 1) page = 1;
         if (pageSize < 1) pageSize = 10;
 
         var allowedUnitIds = await GetAllowedUnitIdsAsync();
-        var (items, totalCount) = await _infrastructureRepository.GetPagedAsync(page, pageSize, INFRA_TYPE_ID, keyword, status, allowedUnitIds);
+        var (items, totalCount) = await _infrastructureRepository.GetPagedAsync(page, pageSize, INFRA_TYPE_ID, keyword, status, allowedUnitIds, unitId);
+
+        // Personal catalog filter
+        if (personalOnly == true)
+        {
+            var username = User.FindFirst(ClaimTypes.Name)?.Value ?? "";
+            items = items.Where(i => i.CreatedBy == username).ToList();
+            totalCount = items.Count();
+        }
+
         return Ok(new { items, totalCount, page, pageSize });
     }
 
