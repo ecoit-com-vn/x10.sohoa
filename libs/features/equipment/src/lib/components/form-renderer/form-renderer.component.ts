@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators, FormsModule } from '@angular/forms';
 import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
+import { DatePickerModule } from 'primeng/datepicker';
 
 export interface FormField {
   name: string;
@@ -22,7 +23,7 @@ export interface FormDefinition {
 @Component({
   selector: 'app-form-renderer',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, FormsModule, ToastModule],
+  imports: [CommonModule, ReactiveFormsModule, FormsModule, ToastModule, DatePickerModule],
   providers: [MessageService],
   templateUrl: './form-renderer.component.html',
   styleUrls: ['./form-renderer.component.scss']

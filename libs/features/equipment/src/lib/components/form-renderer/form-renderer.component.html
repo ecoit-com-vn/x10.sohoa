@@ -66,11 +66,15 @@
                    [formControlName]="field.name" />
             
             <!-- Date Input -->
-            <input *ngSwitchCase="'date'" 
-                   [id]="field.name" 
-                   type="date" 
-                   class="wf-input w-full" 
-                   [formControlName]="field.name" />
+            <p-datepicker *ngSwitchCase="'date'" 
+                            [id]="field.name" 
+                            dateFormat="dd/mm/yy"
+                            [showIcon]="true"
+                            icon="pi pi-calendar"
+                            appendTo="body"
+                            class="w-full"
+                            [placeholder]="field.placeholder || 'dd/mm/yyyy'"
+                            [formControlName]="field.name" />
             
             <!-- Dropdown Select -->
             <select *ngSwitchCase="'dropdown'" 
