@@ -28,14 +28,14 @@ import {
 import { catchError, finalize } from 'rxjs';
 
 function tabLabel(tab: DossierListTab): string {
-  const labels: Record<DossierListTab, string> = {
+  const labels: Partial<Record<DossierListTab, string>> = {
     draft: 'Tạo mới',
     'pending-action': 'Chờ xử lý',
     'in-progress': 'Đang xử lý',
     completed: 'Hoàn thành',
     returned: 'Trả lại',
   };
-  return labels[tab];
+  return labels[tab] ?? '';
 }
 
 function normalizeTabCounts(raw: unknown): DossierTabCounts {

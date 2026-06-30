@@ -1,11 +1,12 @@
 import { Route } from '@angular/router';
-import { dossierApproverMenuGuard, dossierCreatorMenuGuard } from '@sohoa.frontend/shared/core';
+import { dossierApproverMenuGuard, dossierCreatorMenuGuard, dossierPublisherMenuGuard } from '@sohoa.frontend/shared/core';
 
 const loadShell = () =>
   import('./feature/dossier-management.component').then((m) => m.DossierManagementComponent);
 
 const creatorData = { menuScope: 'creator' as const, listTitle: 'Quản lý hồ sơ' };
 const approverData = { menuScope: 'approver' as const, listTitle: 'Phê duyệt hồ sơ' };
+const publisherData = { menuScope: 'publisher' as const, listTitle: 'Xuất bản hồ sơ' };
 
 export const DOSSIER_MANAGEMENT_ROUTES: Route[] = [
   { path: '', redirectTo: 'my-dossiers', pathMatch: 'full' },
@@ -44,5 +45,17 @@ export const DOSSIER_MANAGEMENT_ROUTES: Route[] = [
     loadComponent: loadShell,
     canActivate: [dossierApproverMenuGuard],
     data: approverData,
+  },
+  {
+    path: 'publish',
+    loadComponent: loadShell,
+    canActivate: [dossierPublisherMenuGuard],
+    data: publisherData,
+  },
+  {
+    path: 'publish/:id',
+    loadComponent: loadShell,
+    canActivate: [dossierPublisherMenuGuard],
+    data: publisherData,
   },
 ];

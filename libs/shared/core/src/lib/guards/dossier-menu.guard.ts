@@ -46,3 +46,20 @@ export const dossierApproverMenuGuard: CanActivateFn = () => {
 
   return router.createUrlTree(['/error']);
 };
+
+/** Menu Xuất bản hồ sơ — người phụ trách xuất bản */
+export const dossierPublisherMenuGuard: CanActivateFn = () => {
+  const router = inject(Router);
+  const auth = inject(AuthService);
+  auth.loadPermissions();
+
+  if (
+    auth.hasPermission('SUPER_ADMIN') ||
+    auth.hasPermission('DOSSIER_PUBLISH_VIEW') ||
+    auth.hasPermission('DOSSIER_PUBLISH_RELEASE')
+  ) {
+    return true;
+  }
+
+  return router.createUrlTree(['/error']);
+};

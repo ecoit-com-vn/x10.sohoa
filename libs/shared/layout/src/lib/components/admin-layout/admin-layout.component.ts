@@ -196,6 +196,20 @@ export class AdminLayout implements OnInit {
       }
     }
 
+    const hasPublishMenu = menusCopy.some((m) => m.url === '/dossier-management/publish');
+    if (!hasPublishMenu && (this.authService.hasPermission('SUPER_ADMIN') || this.authService.hasPermission('DOSSIER_PUBLISH_VIEW') || this.authService.hasPermission('DOSSIER_PUBLISH_RELEASE'))) {
+      const dossierMgmtMenu = menusCopy.find((m) => m.url === '/dossier-management/my-dossiers' || m.url === '/dossier-management/approve');
+      if (dossierMgmtMenu) {
+        menusCopy.push({
+          id: 999997,
+          name: 'Xuất bản hồ sơ',
+          icon: 'pi pi-cloud-upload',
+          url: '/dossier-management/publish',
+          parentId: dossierMgmtMenu.parentId,
+        });
+      }
+    }
+
     menusCopy.forEach((m) => {
       const item: MenuItem = {
         id: m.id.toString(),

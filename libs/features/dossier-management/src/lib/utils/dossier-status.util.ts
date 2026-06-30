@@ -67,19 +67,27 @@ export type DossierListTab =
   | 'pending-action'
   | 'in-progress'
   | 'completed'
-  | 'returned';
+  | 'returned'
+  | 'pending-publish'
+  | 'published'
+  | 'unpublished';
 
-export type DossierMenuScope = 'creator' | 'approver';
+export type DossierMenuScope = 'creator' | 'approver' | 'publisher';
 
 export const DOSSIER_CREATOR_TABS: DossierListTab[] = ['draft', 'returned', 'in-progress', 'completed'];
 export const DOSSIER_APPROVER_TABS: DossierListTab[] = ['pending-action', 'in-progress', 'completed'];
+export const DOSSIER_PUBLISHER_TABS: DossierListTab[] = ['pending-publish', 'published', 'unpublished'];
 
 export function getDefaultTabForMenuScope(scope: DossierMenuScope): DossierListTab {
-  return scope === 'approver' ? 'pending-action' : 'draft';
+  if (scope === 'approver') return 'pending-action';
+  if (scope === 'publisher') return 'pending-publish';
+  return 'draft';
 }
 
 export function getTabsForMenuScope(scope: DossierMenuScope): DossierListTab[] {
-  return scope === 'approver' ? DOSSIER_APPROVER_TABS : DOSSIER_CREATOR_TABS;
+  if (scope === 'approver') return DOSSIER_APPROVER_TABS;
+  if (scope === 'publisher') return DOSSIER_PUBLISHER_TABS;
+  return DOSSIER_CREATOR_TABS;
 }
 
 export interface DossierTabCounts {
@@ -88,4 +96,7 @@ export interface DossierTabCounts {
   inProgress: number;
   completed: number;
   returned: number;
+  pendingPublish?: number;
+  published?: number;
+  unpublished?: number;
 }

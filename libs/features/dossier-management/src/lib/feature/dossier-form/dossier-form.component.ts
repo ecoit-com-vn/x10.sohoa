@@ -37,10 +37,16 @@ import { DatePickerModule } from 'primeng/datepicker';
         <div class="edit-actions">
           <button (click)="onCancel()" class="btn-cancel"><i class="pi pi-times"></i> Hủy</button>
           <button *ngIf="showCompleteInputButton()"
-                  (click)="onCompleteInput()" class="btn-green btn-small" [disabled]="completingInput()">
+                  (click)="onCompleteInput()" class="btn-green" [disabled]="completingInput()">
             <i class="pi pi-check" *ngIf="!completingInput()"></i>
             <i class="pi pi-spin pi-spinner" *ngIf="completingInput()"></i>
             Hoàn thành nhập liệu
+          </button>
+          <button *ngIf="showSubmitForApprovalButton()"
+                  (click)="openSubmitWorkflowDialog()" class="btn-save" [disabled]="submitting()">
+            <i class="pi pi-send" *ngIf="!submitting()"></i>
+            <i class="pi pi-spin pi-spinner" *ngIf="submitting()"></i>
+            Gửi duyệt
           </button>
           <button (click)="onSave()" class="btn-save" [disabled]="isSaving() || !isValid()">
             <i class="pi pi-save" *ngIf="!isSaving()"></i>
@@ -271,6 +277,51 @@ import { DatePickerModule } from 'primeng/datepicker';
       </div>
     </div>
 
+    <!-- Dialog Xác nhận Gửi Duyệt -->
+    <p-dialog
+      [visible]="showSubmitConfirm()"
+      (visibleChange)="$event ? null : showSubmitConfirm.set(false)"
+      header="Gửi duyệt hồ sơ"
+      [modal]="true"
+      [style]="{ width: '450px' }"
+      styleClass="evn-dialog-custom"
+      [closable]="!submitting()">
+      <div style="display: flex; flex-direction: column; gap: 16px; padding: 8px 0 16px;">
+        <div style="display: flex; align-items: flex-start; gap: 12px;">
+          <i class="pi pi-send" style="font-size: 1.8rem; color: #1d4ed8;"></i>
+          <div>
+            <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">Xác nhận gửi duyệt hồ sơ lên cấp trên</p>
+            <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
+              Hồ sơ sẽ đi vào quy trình phê duyệt bước: <b style="color: #1e293b;">{{ nextStepInfo()?.stepName || 'Phê duyệt' }}</b>.
+            </p>
+          </div>
+        </div>
+
+        <!-- Chọn người xử lý tiếp theo nếu được yêu cầu -->
+        <div *ngIf="nextStepInfo()?.requiresNextAssignee" class="form-group">
+          <label class="form-label required">Người duyệt tiếp theo ({{ nextStepInfo()?.stepName }})</label>
+          <select class="wf-select" [value]="selectedNextUser()" (change)="onNextUserChange($event)">
+            <option value="">-- Chọn người phê duyệt --</option>
+            <option *ngFor="let u of filteredSubmitNextUsers()" [value]="u.id || u.Id || u.userId || u.username">
+              {{ u.fullName || u.FullName || u.name || u.username }}
+            </option>
+          </select>
+        </div>
+      </div>
+      <ng-template #footer>
+        <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+          <button class="btn-cancel btn-small" (click)="showSubmitConfirm.set(false)" [disabled]="submitting()">
+            <i class="pi pi-times"></i> Hủy
+          </button>
+          <button class="btn-save btn-small" (click)="onConfirmSubmitAndMove()" [disabled]="submitting()">
+            <i class="pi pi-spin pi-spinner" *ngIf="submitting()"></i>
+            <i class="pi pi-check" *ngIf="!submitting()"></i>
+            Xác nhận gửi
+          </button>
+        </div>
+      </ng-template>
+    </p-dialog>
+
     <!-- Dialog Thêm Thiết Bị -->
     <p-dialog [(visible)]="showEquipmentDialog" header="Chọn thiết bị" [modal]="true" [style]="{width: '800px'}" styleClass="evn-dialog-no-modal" appendTo="body">
       <div style="display: flex; gap: 8px; margin-bottom: 16px;">
@@ -339,6 +390,22 @@ export class DossierFormComponent implements OnInit {
   dossierStatus = signal<string>('');
   workflowInstanceId = signal<string | null>(null);
 
+  submitting = signal<boolean>(false);
+  showSubmitConfirm = signal<boolean>(false);
+  nextStepInfo = signal<any>(null);
+  selectedNextUser = signal<string>('');
+  users = signal<any[]>([]);
+
+  filteredSubmitNextUsers = computed(() => {
+    const info = this.nextStepInfo();
+    if (!info || !info.requiredRole) return [];
+    const roles = info.requiredRole.split(',').map((r: string) => r.trim().toUpperCase());
+    return this.users().filter((u: any) => {
+      const uRoles: string[] = (u.roles || u.Roles || []).map((r: string) => r.toUpperCase());
+      return uRoles.some(r => roles.includes(r));
+    });
+  });
+
   dossier = {
     id: '',
     dossierTypeId: '',
@@ -395,6 +462,10 @@ export class DossierFormComponent implements OnInit {
     this.service.getGridTypeLookup().subscribe(res => this.gridTypes.set(res || []));
     this.service.getDossierSets().subscribe(res => this.dossierSets.set(res || []));
     this.loadInfrastructures();
+    this.service.getUsersLookup().subscribe({
+      next: (users) => this.users.set(Array.isArray(users) ? users : []),
+      error: () => this.users.set([])
+    });
   }
 
   loadInfrastructures() {
@@ -525,6 +596,64 @@ export class DossierFormComponent implements OnInit {
 
   showCompleteInputButton(): boolean {
     return this.isEditMode() && this.dossierStatus() === 'New';
+  }
+
+  showSubmitForApprovalButton(): boolean {
+    return this.isEditMode() && this.dossierStatus() === 'CompletedInput' && !this.workflowInstanceId();
+  }
+
+  openSubmitWorkflowDialog() {
+    this.submitting.set(true);
+    this.service.getNextStepInfo().subscribe({
+      next: (res) => {
+        this.nextStepInfo.set(res);
+        this.selectedNextUser.set('');
+        this.showSubmitConfirm.set(true);
+        this.submitting.set(false);
+      },
+      error: (err) => {
+        this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: err.error?.message || 'Không thể lấy thông tin bước duyệt tiếp theo.' });
+        this.submitting.set(false);
+      }
+    });
+  }
+
+  onNextUserChange(event: any) {
+    this.selectedNextUser.set(event.target?.value || '');
+  }
+
+  onConfirmSubmitAndMove() {
+    const info = this.nextStepInfo();
+    if (!info) return;
+    if (info.requiresNextAssignee && !this.selectedNextUser()) {
+      this.messageService.add({ severity: 'warn', summary: 'Cảnh báo', detail: 'Vui lòng chọn người duyệt tiếp theo.' });
+      return;
+    }
+
+    this.submitting.set(true);
+    this.service.submitForApproval(this.dossier.id, {
+      nextNodeId: info.nextNodeId,
+      actionLabel: 'Trình duyệt',
+      nextAssigneeUserId: this.selectedNextUser() || undefined,
+      comment: 'Kính trình phê duyệt hồ sơ.'
+    }).subscribe({
+      next: (res) => {
+        this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã gửi duyệt hồ sơ thành công' });
+        this.showSubmitConfirm.set(false);
+        const payload = res?.data;
+        if (payload) {
+          this.dossierStatus.set(payload.dossierStatus ?? this.dossierStatus());
+          this.workflowInstanceId.set(payload.instanceId ?? this.workflowInstanceId());
+        }
+        this.submitting.set(false);
+        this.saved.emit(this.dossier.id);
+      },
+      error: (err) => {
+        this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: err.error?.message || 'Không thể gửi duyệt hồ sơ' });
+        this.showSubmitConfirm.set(false);
+        this.submitting.set(false);
+      }
+    });
   }
 
   onCompleteInput(): void {
