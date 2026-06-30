@@ -22,6 +22,7 @@ import { AuthService } from '@sohoa.frontend/shared/core';
 export class UserGroupComponent implements OnInit {
   groups = signal<any[]>([]);
   searchKeyword = signal<string>('');
+  searchStatus = signal<string>(''); // '' (All), 'active' (Hoạt động), 'inactive' (Ngưng hoạt động)
   totalCount = signal<number>(0);
 
   currentView = signal<'list' | 'add' | 'edit' | 'member' | 'role' | 'permission'>('list');
@@ -129,14 +130,16 @@ export class UserGroupComponent implements OnInit {
       });
     }
     effect(() => {
-      const kw = this.searchKeyword();
+      this.searchKeyword();
+      this.searchStatus();
       this.currentPage.set(1);
     }, { allowSignalWrites: true });
 
     effect(() => {
       const page = this.currentPage();
       const size = this.pageSize();
-      const kw = this.searchKeyword();
+      this.searchKeyword();
+      this.searchStatus();
       this.loadGroups();
     }, { allowSignalWrites: true });
   }
@@ -157,7 +160,12 @@ export class UserGroupComponent implements OnInit {
 
   loadGroups() {
     this.loading.set(true);
-    this.http.get<any>(`${this.apiUrl}?page=${this.currentPage()}&pageSize=${this.pageSize()}&keyword=${this.searchKeyword() || ''}`)
+    let url = `${this.apiUrl}?page=${this.currentPage()}&pageSize=${this.pageSize()}&keyword=${this.searchKeyword() || ''}`;
+    const statusVal = this.searchStatus();
+    if (statusVal !== '') {
+      url += `&isActive=${statusVal === 'active'}`;
+    }
+    this.http.get<any>(url)
       .pipe(finalize(() => this.loading.set(false)))
       .subscribe({
         next: (res) => {
@@ -183,11 +191,36 @@ export class UserGroupComponent implements OnInit {
       return;
     }
     this.isEdit.set(false);
-    this.currentGroup.set({ name: '', description: '' });
+    this.currentGroup.set({ name: '', description: '', isActive: true });
     this.formSubmitted.set(false);
     this.serverErrors.set({});
     this.dialogHeader.set('Thêm mới nhóm người dùng');
     this.currentView.set('add');
+  }
+
+  toggleGroupStatus(group: any) {
+    if (!this.authService.hasPermission('USER_GROUP_EDIT')) {
+      this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền chỉnh sửa nhóm người dùng.' });
+      return;
+    }
+    const updated = { ...group, isActive: !group.isActive };
+    this.loading.set(true);
+    this.http.put(`${this.apiUrl}/${group.id}`, updated)
+      .pipe(finalize(() => this.loading.set(false)))
+      .subscribe({
+        next: () => {
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Thành công',
+            detail: `${group.isActive ? 'Khóa' : 'Mở khóa'} nhóm người dùng thành công!`
+          });
+          this.loadGroups();
+        },
+        error: (err) => {
+          const detailMsg = err?.error?.message || err?.message || `Không thể ${group.isActive ? 'khóa' : 'mở khóa'} nhóm người dùng.`;
+          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: detailMsg });
+        }
+      });
   }
 
   onEdit(group: any) {

@@ -38,6 +38,10 @@ export const EQUIPMENT_ROUTES: Routes = [
     loadComponent: () => import('./components/completed-form-list/completed-form-list.component').then(m => m.CompletedFormListComponent)
   },
   {
+    path: 'completed-forms/edit',
+    loadComponent: () => import('./components/form-management/form-management.component').then(m => m.FormManagementComponent)
+  },
+  {
     path: 'form-renderer',
     redirectTo: 'form-management',
     pathMatch: 'full'

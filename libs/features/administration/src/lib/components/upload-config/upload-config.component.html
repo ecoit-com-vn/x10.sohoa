@@ -67,13 +67,13 @@
           <ng-container *ngIf="!loading()">
             <tr *ngFor="let c of computedFilteredConfigs(); let i = index">
               <td class="col-stt text-muted">{{ i + 1 }}</td>
-              <td><b>{{ c.name }}</b></td>
+              <td>{{ c.name }}</td>
               <td>
-                <span *ngIf="c.organizationUnitId; else allUnits" class="unit-tag" style="background-color: #e0f2fe; color: #0369a1; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 500;">
+                <span *ngIf="c.organizationUnitId; else allUnits" class="unit-tag">
                   {{ c.organizationUnitName }}
                 </span>
                 <ng-template #allUnits>
-                  <span class="text-muted" style="font-style: italic; font-size: 0.8rem;">Tất cả đơn vị</span>
+                  <span class="text-muted" style="font-size: 0.8rem;">Tất cả đơn vị</span>
                 </ng-template>
               </td>
               <td>
@@ -91,6 +91,8 @@
                 </span>
               </td>
               <td class="col-hd">
+                <button *ngIf="authService.hasPermission('UPLOAD_CONFIG_EDIT') && c.isActive" class="act-btn act-lock" (click)="toggleConfigStatus(c)" title="Khóa cấu hình"><i class="pi pi-lock-open color-red"></i></button>
+                <button *ngIf="authService.hasPermission('UPLOAD_CONFIG_EDIT') && !c.isActive" class="act-btn act-unlock" (click)="toggleConfigStatus(c)" title="Mở khóa cấu hình"><i class="pi pi-lock color-green"></i></button>
                 <button *ngIf="authService.hasPermission('UPLOAD_CONFIG_EDIT')" class="act-btn act-edit" (click)="onEdit(c)" title="Chỉnh sửa"><i class="pi pi-pencil"></i></button>
                 <button *ngIf="authService.hasPermission('UPLOAD_CONFIG_DELETE')" class="act-btn act-delete" (click)="onDelete(c)" title="Xóa"><i class="pi pi-trash"></i></button>
               </td>

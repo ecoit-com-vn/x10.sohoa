@@ -18,8 +18,15 @@ export class UserService {
     return `${this.config.apiGatewayUrl}/api/catalog`;
   }
 
-  getUsers(page: number, pageSize: number, keyword?: string): Observable<any> {
-    return this.http.get<any>(`${this.base}/users?page=${page}&pageSize=${pageSize}&keyword=${keyword || ''}`);
+  getUsers(page: number, pageSize: number, keyword?: string, organizationUnitId?: number | null, isActive?: boolean | null): Observable<any> {
+    let url = `${this.base}/users?page=${page}&pageSize=${pageSize}&keyword=${keyword || ''}`;
+    if (organizationUnitId !== undefined && organizationUnitId !== null && String(organizationUnitId) !== 'null') {
+      url += `&organizationUnitId=${organizationUnitId}`;
+    }
+    if (isActive !== undefined && isActive !== null) {
+      url += `&isActive=${isActive}`;
+    }
+    return this.http.get<any>(url);
   }
 
   createUser(user: any): Observable<any> {

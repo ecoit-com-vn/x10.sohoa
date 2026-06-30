@@ -42,14 +42,17 @@
 .builder-main-layout {
   display: grid;
   grid-template-columns: 280px 1fr 300px;
-  gap: 1.5rem;
+  gap: 1rem;
   flex: 1;
   min-height: 0;
 }
 
 .toolbox-column {
-  height: 100%;
-  min-height: 0;
+  position: sticky !important;
+  top: 1rem !important;
+  max-height: calc(100vh - 120px) !important;
+  height: fit-content !important;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
 }
@@ -107,7 +110,6 @@
   gap: 1.25rem;
   min-height: 0;
   overflow-y: auto;
-  padding-right: 6px;
 }
 
 .general-info-card {
@@ -204,8 +206,11 @@
 }
 
 .properties-column {
-  height: 100%;
-  min-height: 0;
+  position: sticky !important;
+  top: 1rem !important;
+  max-height: calc(100vh - 120px) !important;
+  height: fit-content !important;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
 
@@ -600,4 +605,21 @@
 .status-rejected {
   background: #fee2e2 !important;
   color: #991b1b !important;
+}
+
+.canvas-field-card.search-matched {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.25) !important;
+  background-color: rgba(239, 68, 68, 0.02) !important;
+}
+
+.canvas-field-card.search-matched::before {
+  content: '' !important;
+  position: absolute !important;
+  left: 0 !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  width: 4px !important;
+  background-color: #ef4444 !important;
+  border-radius: 8px 0 0 8px !important;
 }

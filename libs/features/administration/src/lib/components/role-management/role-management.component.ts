@@ -215,11 +215,33 @@ export class RoleManagement implements OnInit {
       return;
     }
     this.isEdit.set(false);
-    this.currentRole.set({ code: '', name: '', description: '' });
+    this.currentRole.set({ code: '', name: '', description: '', isActive: true });
     this.formSubmitted.set(false);
-    this.serverErrors.set({});
-    this.dialogHeader.set('Thêm mới nhóm quyền');
-    this.currentView.set('add');
+  }
+
+  toggleRoleStatus(role: any) {
+    if (!this.authService.hasPermission('ROLE_EDIT')) {
+      this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền chỉnh sửa nhóm quyền.' });
+      return;
+    }
+    const updated = { ...role, isActive: !role.isActive };
+    this.loading.set(true);
+    this.http.put(`${this.apiUrl}/${role.id}`, updated)
+      .pipe(finalize(() => this.loading.set(false)))
+      .subscribe({
+        next: () => {
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Thành công',
+            detail: `${role.isActive ? 'Khóa' : 'Mở khóa'} vai trò thành công!`
+          });
+          this.loadRoles();
+        },
+        error: (err) => {
+          const detailMsg = err?.error?.message || err?.message || `Không thể ${role.isActive ? 'khóa' : 'mở khóa'} vai trò.`;
+          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: detailMsg });
+        }
+      });
   }
 
   onEdit(role: any) {
