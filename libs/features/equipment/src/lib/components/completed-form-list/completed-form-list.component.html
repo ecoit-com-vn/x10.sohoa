@@ -36,36 +36,35 @@
                 <table class="wf-table">
                     <thead>
                         <tr>
-                            <th style="width: 150px;">Mã form</th>
+                            <th>Mã form</th>
                             <th>Tên form</th>
                             <th>Hạng mục áp dụng</th>
-                            <th style="width: 100px; text-align: center;">Phiên bản</th>
+                            <th>Phiên bản</th>
                             <th>Người tạo</th>
                             <th>Cập nhật lần cuối</th>
                             <th class="col-tt">Trạng thái</th>
-                            <th class="col-hd" style="width: 250px;">Thao tác</th>
+                            <th class="col-hd">Thao tác</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr *ngIf="loading() && filteredForms().length === 0">
-                            <td colspan="8" class="skeleton-row" style="padding: 30px; text-align: center;">
+                            <td colspan="8" class="skeleton-row">
                                 <i class="pi pi-spin pi-spinner mr-2" style="font-size: 1.5rem; color: #002D72;"></i>
                                 <span>Đang tải danh sách form...</span>
                             </td>
                         </tr>
 
                         <tr *ngFor="let form of paginatedForms(); let i = index">
-                            <td><code style="font-weight: bold; color: #000000;">{{ form.code || '' }}</code></td>
-                            <td><b class="wf-name-link" style="color: #000000;" (click)="viewFormDetail(form)">{{ form.name }}</b></td>
+                            <td>{{ form.code || '' }}</td>
+                            <td>{{ form.name }}</td>
                             <td>
-                                <span class="badge"
-                                    style="background: #f1f5f9; color: #000000; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;">
+                                <span class="badge">
                                     {{ getCategoryName(form.category) }}
                                 </span>
                             </td>
-                            <td style="text-align: center; font-family: monospace; font-weight: bold; color: #000000;">v{{ form.version }}.0</td>
-                            <td style="color: #000000;">{{ form.createdBy || '' }}</td>
-                            <td style="color: #000000;">{{ form.createdAt | date:'dd/MM/yyyy HH:mm' }}</td>
+                            <td>v{{ form.version }}.0</td>
+                            <td>{{ form.createdBy || '' }}</td>
+                            <td>{{ form.createdAt | date:'dd/MM/yyyy HH:mm' }}</td>
                             <td class="col-tt">
                                 <span class="status-pill" [class.status-approved]="!isFormLocked(form)"
                                     [class.status-locked]="isFormLocked(form)">
