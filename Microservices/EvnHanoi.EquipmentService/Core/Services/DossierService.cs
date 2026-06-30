@@ -49,9 +49,36 @@ public class DossierService : IDossierService
 
     // ====loookup ====
 
-    public async Task<IEnumerable<InfrastructureEntity>> GetInfrastructuresLookupAsync()
+    public async Task<IEnumerable<InfrastructureEntity>> GetInfrastructuresLookupAsync(
+        bool isAdmin,
+        long? userUnitId,
+        IReadOnlyList<long>? fallbackUnitIds)
     {
-        return await _dossierRepository.GetInfrastructuresLookupAsync();
+        List<long>? allowedUnitIds = null;
+        if (!isAdmin)
+        {
+            if (userUnitId.HasValue)
+            {
+                var units = await _equipmentRepository.GetOrganizationUnitsHierarchicalAsync(userUnitId);
+                allowedUnitIds = units.Select(u => u.Id).ToList();
+            }
+            else if (fallbackUnitIds != null && fallbackUnitIds.Count > 0)
+            {
+                var list = new List<long>();
+                foreach (var fId in fallbackUnitIds)
+                {
+                    var units = await _equipmentRepository.GetOrganizationUnitsHierarchicalAsync(fId);
+                    list.AddRange(units.Select(u => u.Id));
+                }
+                allowedUnitIds = list.Distinct().ToList();
+            }
+            else
+            {
+                allowedUnitIds = new List<long> { -1 };
+            }
+        }
+
+        return await _dossierRepository.GetInfrastructuresLookupAsync(allowedUnitIds);
     }
 
     public async Task<IEnumerable<GridTypeEntity>> GetGridTypesLookupAsync()

@@ -17,16 +17,24 @@ public class DossierRepository : IDossierRepository
         _connection = connection ?? throw new ArgumentNullException(nameof(connection));
     }
 
-    public async Task<IEnumerable<InfrastructureEntity>> GetInfrastructuresLookupAsync()
+    public async Task<IEnumerable<InfrastructureEntity>> GetInfrastructuresLookupAsync(IEnumerable<long>? authorizedUnitIds = null)
     {
         if (_connection.State != ConnectionState.Open)
             _connection.Open();
 
         var sql = @"SELECT ID, CODE, NAME, INFRA_TYPE_ID as InfraTypeId, UNIT_ID as UnitId, GRIDTYPEID as GridTypeId, IS_ACTIVE as IsActive 
                     FROM INFRASTRUCTURE 
-                    WHERE IsDeleted = 0 
-                    ORDER BY NAME ASC";
-        return await _connection.QueryAsync<InfrastructureEntity>(sql);
+                    WHERE IsDeleted = 0";
+
+        var parameters = new DynamicParameters();
+        if (authorizedUnitIds != null && authorizedUnitIds.Any())
+        {
+            sql += " AND UNIT_ID IN :AuthorizedUnitIds";
+            parameters.Add("AuthorizedUnitIds", authorizedUnitIds.ToArray());
+        }
+
+        sql += " ORDER BY NAME ASC";
+        return await _connection.QueryAsync<InfrastructureEntity>(sql, parameters);
     }
 
     public async Task<IEnumerable<GridTypeEntity>> GetGridTypesLookupAsync()
