@@ -34,7 +34,83 @@
         </div>
       </div>
 
-      <div class="builder-main-layout">
+      <!-- Tabs Navigation -->
+      <div class="builder-tabs-nav" style="display: flex; gap: 4px; border: 1px solid #e2e8f0; background: #ffffff; border-radius: 6px 6px 0 0;">
+        <button type="button" 
+                class="tab-btn" 
+                [class.active-tab]="activeTab() === 'info'" 
+                (click)="activeTab.set('info')" 
+                style="border: none; border-bottom: 3px solid transparent; background: transparent; font-weight: 600; font-size: 0.9rem; cursor: pointer; color: #64748b; transition: all 0.2s;"
+                [style.border-bottom-color]="activeTab() === 'info' ? '#002D72' : 'transparent'"
+                [style.color]="activeTab() === 'info' ? '#002D72' : '#64748b'">
+          <i class="pi pi-info-circle" style="margin-right: 6px;"></i>Nhập thông tin biểu mẫu
+        </button>
+        <button type="button" 
+                class="tab-btn" 
+                [class.active-tab]="activeTab() === 'builder'" 
+                (click)="activeTab.set('builder')" 
+                style="padding: 10px 16px; border: none; border-bottom: 3px solid transparent; background: transparent; font-weight: 600; font-size: 0.9rem; cursor: pointer; color: #64748b; transition: all 0.2s;"
+                [style.border-bottom-color]="activeTab() === 'builder' ? '#002D72' : 'transparent'"
+                [style.color]="activeTab() === 'builder' ? '#002D72' : '#64748b'">
+          <i class="pi pi-cog" style="margin-right: 6px;"></i>Cấu hình trường nhập liệu
+        </button>
+      </div>
+
+      <!-- Tab 1: Nhập thông tin -->
+      <div *ngIf="activeTab() === 'info'" class="tab-content-info animate-fade-in" style="padding: 0.75rem; background: #ffffff; border-radius: 8px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); border: 1px solid #e2e8f0;">
+        <div class="general-info-card card" style="box-shadow: none; padding: 0; border: none; background: transparent; margin-bottom: 0;">
+          <div style="display: flex; gap: 16px;" class="mb-3">
+            <div class="form-group" style="flex: 1;">
+              <label class="block text-sm font-bold text-muted tracking-wider">Mã biểu mẫu <span
+                  class="required">*</span></label>
+              <input type="text" pInputText [ngModel]="formCode()" (ngModelChange)="formCode.set($event)"
+                class="w-full form-title-input" placeholder="Ví dụ: BM_MBA_01..." />
+            </div>
+            <div class="form-group" style="flex: 1;">
+              <label class="block text-sm font-bold text-muted tracking-wider">Tên biểu mẫu <span
+                  class="required">*</span></label>
+              <input type="text" pInputText [ngModel]="formName()" (ngModelChange)="formName.set($event)"
+                class="w-full form-title-input" placeholder="Nhập tên form..." />
+            </div>
+          </div>
+          <div style="display: flex; gap: 16px;" class="mb-3">
+            <div class="form-group" style="flex: 1;">
+              <label class="block text-sm font-bold text-muted tracking-wider">Loại lưới điện <span
+                  class="required">*</span></label>
+              <p-select [options]="gridTypes()" [ngModel]="selectedGridTypeId()"
+                (ngModelChange)="selectedGridTypeId.set($event); equipmentTypeId.set('')" optionLabel="name"
+                optionValue="id" placeholder="-- Chọn loại lưới điện --"
+                appendTo="body">
+              </p-select>
+            </div>
+            <div class="form-group" style="flex: 1;">
+              <label class="block text-sm font-bold text-muted tracking-wider">Loại thiết bị<span
+                  class="required">*</span></label>
+              <p-select [options]="filteredEquipmentTypes()" [ngModel]="equipmentTypeId()" [filter]="true"
+                (ngModelChange)="equipmentTypeId.set($event)" optionLabel="name" optionValue="id"
+                [placeholder]="selectedGridTypeId() ? '-- Chọn loại thiết bị --' : '-- Vui lòng chọn Loại lưới điện --'"
+                [disabled]="!selectedGridTypeId()" appendTo="body">
+              </p-select>
+            </div>
+          </div>
+          <div style="display: flex; gap: 16px;" class="mb-3">
+            <div class="form-group" style="flex: 1;">
+              <label class="block text-sm font-bold text-muted tracking-wider">Mô tả thông tin</label>
+              <textarea pTextarea [ngModel]="formDescriptionInfo()" (ngModelChange)="formDescriptionInfo.set($event)"
+                class="w-full form-title-input" rows="2" placeholder="Nhập mô tả thông tin..."></textarea>
+            </div>
+          </div>
+          <div style="display: flex; gap: 16px;">
+            <div class="form-group" style="flex: 1;">
+              <label class="block text-sm font-bold text-muted tracking-wider">Quy trình bóc tách thông tin</label>
+              <textarea pTextarea [ngModel]="extractionProcess()" (ngModelChange)="extractionProcess.set($event)" class="w-full form-title-input" rows="2" placeholder="Nhập quy trình bóc tách thông tin..."></textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 2: Cấu hình -->
+      <div class="builder-main-layout animate-fade-in" *ngIf="activeTab() === 'builder'">
         <!-- Left Column: Toolbox -->
         <div class="toolbox-column">
           <p-card header="Thành phần biểu mẫu" styleClass="card-custom">
@@ -56,62 +132,27 @@
 
         <!-- Center Column: Canvas Workspace -->
         <div class="canvas-column" (dragover)="onDragOver($event)" (drop)="onDrop($event)">
-          <!-- General Info Card -->
-          <div class="general-info-card card">
-            <div style="display: flex; gap: 16px;" class="mb-3">
-              <div class="form-group" style="flex: 1;">
-                <label class="block text-sm font-bold text-muted tracking-wider">Mã biểu mẫu <span
-                    class="required">*</span></label>
-                <input type="text" pInputText [ngModel]="formCode()" (ngModelChange)="formCode.set($event)"
-                  class="w-full form-title-input" placeholder="Ví dụ: BM_MBA_01..." />
-              </div>
-              <div class="form-group" style="flex: 1;">
-                <label class="block text-sm font-bold text-muted tracking-wider">Tên biểu mẫu <span
-                    class="required">*</span></label>
-                <input type="text" pInputText [ngModel]="formName()" (ngModelChange)="formName.set($event)"
-                  class="w-full form-title-input" placeholder="Nhập tên form..." />
-              </div>
-            </div>
-            <div style="display: flex; gap: 16px;" class="mb-3">
-              <div class="form-group" style="flex: 1;">
-                <label class="block text-sm font-bold text-muted tracking-wider">Loại lưới điện <span
-                    class="required">*</span></label>
-                <p-select [options]="gridTypes()" [ngModel]="selectedGridTypeId()" []
-                  (ngModelChange)="selectedGridTypeId.set($event); equipmentTypeId.set('')" optionLabel="name"
-                  optionValue="id" placeholder="-- Chọn loại lưới điện --"
-                  appendTo="body">
-                </p-select>
-              </div>
-              <div class="form-group" style="flex: 1;">
-                <label class="block text-sm font-bold text-muted tracking-wider">Loại thiết bị<span
-                    class="required">*</span></label>
-                <p-select [options]="filteredEquipmentTypes()" [ngModel]="equipmentTypeId()"
-                  (ngModelChange)="equipmentTypeId.set($event)" optionLabel="name" optionValue="id"
-                  [placeholder]="selectedGridTypeId() ? '-- Chọn loại thiết bị --' : '-- Vui lòng chọn Loại lưới điện --'"
-                  [disabled]="!selectedGridTypeId()" appendTo="body">
-                </p-select>
-              </div>
-            </div>
-            <div style="display: flex; gap: 16px;" class="mb-3">
-              <div class="form-group" style="flex: 1;">
-                <label class="block text-sm font-bold text-muted tracking-wider">Mô tả thông tin</label>
-                <textarea pTextarea [ngModel]="formDescriptionInfo()" (ngModelChange)="formDescriptionInfo.set($event)"
-                  class="w-full form-title-input" rows="2" placeholder="Nhập mô tả thông tin..."></textarea>
-              </div>
-            </div>
-            <div style="display: flex; gap: 16px;">
-                  <div class="form-group" style="flex: 1;">
-                    <label class="block text-sm font-bold text-muted tracking-wider">Quy trình bóc tách thông tin</label>
-                    <textarea pTextarea [ngModel]="extractionProcess()" (ngModelChange)="extractionProcess.set($event)" class="w-full form-title-input" rows="2" placeholder="Nhập quy trình bóc tách thông tin..."></textarea>
-                  </div>
-                </div>
-          </div>
-
           <!-- Main Fields Area -->
           <div class="canvas-workspace">
-            <div class="workspace-header">
+            <div class="workspace-header" style="display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 12px; flex-wrap: wrap;">
               <span class="workspace-title">Khu vực thiết kế giao diện (vùng kéo thả)</span>
-              <span class="badge badge-field-count">{{ fields().length }} trường</span>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span class="badge badge-field-count" style="margin-right: 8px;">{{ fields().length }} trường</span>
+                <div class="search-fields-container" style="position: relative; display: flex; align-items: center;">
+                  <i class="pi pi-search" style="position: absolute; left: 10px; color: #64748b; font-size: 0.85rem;"></i>
+                  <input type="text" 
+                         [ngModel]="fieldSearchQuery()" 
+                         (ngModelChange)="fieldSearchQuery.set($event)" 
+                         placeholder="Tìm kiếm thành phần..." 
+                         style="padding: 6px 12px 6px 30px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem; width: 220px; outline: none; transition: all 0.2s;"
+                         onfocus="this.style.borderColor='#002D72'; this.style.boxShadow='0 0 0 2px rgba(0,45,114,0.15)'"
+                         onblur="this.style.borderColor='#cbd5e1'; this.style.boxShadow='none'" />
+                  <i class="pi pi-times" 
+                     *ngIf="fieldSearchQuery()" 
+                     (click)="fieldSearchQuery.set('')" 
+                     style="position: absolute; right: 10px; color: #94a3b8; font-size: 0.8rem; cursor: pointer;"></i>
+                </div>
+              </div>
             </div>
 
             <div *ngIf="fields().length === 0" class="empty-workspace-state">
@@ -123,10 +164,10 @@
             <div class="fields-list-container" *ngIf="fields().length > 0"
               style="display: flex; flex-wrap: wrap; gap: 14px;">
               <div *ngFor="let field of fields(); let i = index; trackBy: trackByFn" class="canvas-field-card"
-                [class.selected]="selectedFieldIndex() === i"
-                [style.width]="field.width === 50 ? 'calc(50% - 7px)' : '100%'" draggable="true"
-                (dragstart)="onCanvasDragStart($event, i)" (dragover)="onDragOver($event)"
-                (drop)="onCanvasDrop($event, i)" (click)="selectField(i)">
+                [class.selected]="selectedFieldIndex() === i" [class.width-50]="field.width === 50"
+                [class.width-100]="field.width === 100" [class.search-matched]="isFieldSearchMatched(field)"
+                draggable="true" (dragstart)="onCanvasDragStart($event, i)"
+                (dragover)="onDragOver($event)" (drop)="onCanvasDrop($event, i)" (click)="selectField(i)">
 
                 <div class="field-card-header"
                   style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; margin-bottom: 8px;">
@@ -159,6 +200,14 @@
                       [options]="field.dataSourceType === 'catalog' ? ['(Dữ liệu từ danh mục ' + field.catalogType + ')'] : (field.options || [])"
                       [placeholder]="field.placeholder || 'Chọn giá trị...'" styleClass="w-full preview-input" disabled>
                     </p-select>
+
+                    <div *ngIf="field.type === 'radio'" class="flex flex-column gap-1 py-1" style="display: flex; flex-direction: column; gap: 4px;">
+                      <div *ngFor="let opt of (field.dataSourceType === 'catalog' ? ['(Lựa chọn từ danh mục: ' + field.catalogType + ')'] : (field.options && field.options.length > 0 ? field.options : ['Lựa chọn 1', 'Lựa chọn 2']))" 
+                           style="display: flex; align-items: center; gap: 8px;">
+                        <input type="radio" disabled />
+                        <span class="text-sm select-none">{{ opt }}</span>
+                      </div>
+                    </div>
 
                     <textarea *ngIf="field.type === 'textarea'" pTextarea class="w-full preview-input" rows="2"
                       [placeholder]="field.placeholder || ''" disabled></textarea>
@@ -232,8 +281,8 @@
                   (Required)</label>
               </div>
 
-              <!-- Data Source Selector for Dropdown -->
-              <div *ngIf="fields()[selectedFieldIndex()!].type === 'dropdown'" class="field mb-0">
+              <!-- Data Source Selector for Dropdown & Radio -->
+              <div *ngIf="fields()[selectedFieldIndex()!].type === 'dropdown' || fields()[selectedFieldIndex()!].type === 'radio'" class="field mb-0">
                 <label class="block font-bold text-sm text-muted mb-1">Nguồn dữ liệu (Data Source)</label>
                 <p-select
                   [options]="[{label: 'Tự nhập thủ công (Manual)', value: 'manual'}, {label: 'Danh mục hệ thống (Catalog)', value: 'catalog'}]"
@@ -243,9 +292,9 @@
                 </p-select>
               </div>
 
-              <!-- Options builder for Dropdown -->
+              <!-- Options builder for Dropdown & Radio -->
               <div
-                *ngIf="fields()[selectedFieldIndex()!].type === 'dropdown' && fields()[selectedFieldIndex()!].dataSourceType !== 'catalog'"
+                *ngIf="(fields()[selectedFieldIndex()!].type === 'dropdown' || fields()[selectedFieldIndex()!].type === 'radio') && fields()[selectedFieldIndex()!].dataSourceType !== 'catalog'"
                 class="dropdown-options-builder">
                 <div class="property-section-title flex justify-between items-center"
                   style="display: flex; justify-content: space-between; align-items: center;">
@@ -267,7 +316,7 @@
 
               <!-- Catalog Selector -->
               <div
-                *ngIf="fields()[selectedFieldIndex()!].type === 'dropdown' && fields()[selectedFieldIndex()!].dataSourceType === 'catalog'"
+                *ngIf="(fields()[selectedFieldIndex()!].type === 'dropdown' || fields()[selectedFieldIndex()!].type === 'radio') && fields()[selectedFieldIndex()!].dataSourceType === 'catalog'"
                 class="field" style="margin-top: 10px;">
                 <label class="block font-bold text-sm text-muted mb-1">Chọn danh mục hệ thống</label>
                 <p-select [options]="catalogTypes()" [ngModel]="fields()[selectedFieldIndex()!].catalogType"

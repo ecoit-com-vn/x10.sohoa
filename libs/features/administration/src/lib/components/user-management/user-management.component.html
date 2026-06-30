@@ -22,7 +22,19 @@
             placeholder="Tìm kiếm tài khoản, tên..."
             [ngModel]="searchKeyword()"
             (ngModelChange)="searchKeyword.set($event)" />
-          <button class="btn-tim" (click)="onSearch()">
+          
+          <select class="wf-select" [ngModel]="searchUnitId()" (ngModelChange)="onSearchUnitChange($event)" style="min-width: 180px;">
+            <option [value]="null">-- Tất cả đơn vị --</option>
+            <option *ngFor="let unit of organizationUnits()" [value]="unit.id">{{ unit.name }}</option>
+          </select>
+
+          <select class="wf-select" [ngModel]="searchStatus()" (ngModelChange)="searchStatus.set($event)" style="min-width: 160px;">
+            <option value="">-- Tất cả trạng thái --</option>
+            <option value="active">Hoạt động</option>
+            <option value="inactive">Ngưng hoạt động</option>
+          </select>
+
+          <button class="btn-tim" (click)="loadUsers()">
             <i class="pi pi-search"></i> Tìm
           </button>
         </div>
@@ -72,7 +84,7 @@
                   <span *ngIf="!authService.hasPermission('USER_EDIT')">{{ user.username }}</span>
                 </td>
                 <td>{{ user.fullName }}</td>
-                <td><b>{{ user.organizationUnit?.name || getUnitLabel(user.organizationUnitId) }}</b></td>
+                <td>{{ user.organizationUnit?.name || getUnitLabel(user.organizationUnitId) }}</td>
                 <td><span class="text-muted">{{ user.email }}</span></td>
                 <td class="col-tt">
                   <span class="status-pill"
@@ -103,6 +115,10 @@
                         <button *ngIf="authService.hasPermission('USER_EDIT')" type="button" class="dropdown-item-btn" (click)="onEdit(user); activeDropdownUserId.set(null)" title="Chỉnh sửa">
                           <i class="pi pi-pencil color-teal"></i>
                           <span>Chỉnh sửa</span>
+                        </button>
+                        <button *ngIf="authService.hasPermission('USER_EDIT')" type="button" class="dropdown-item-btn" (click)="toggleUserStatus(user); activeDropdownUserId.set(null)" [title]="user.isActive ? 'Khóa tài khoản' : 'Mở khóa tài khoản'">
+                          <i class="pi" [ngClass]="user.isActive ? 'pi-lock color-red' : 'pi-lock-open color-green'"></i>
+                          <span>{{ user.isActive ? 'Khóa tài khoản' : 'Mở khóa' }}</span>
                         </button>
                         <button *ngIf="authService.hasPermission('USER_DELETE')" type="button" class="dropdown-item-btn" (click)="onDelete(user); activeDropdownUserId.set(null)" title="Xóa">
                           <i class="pi pi-trash color-red"></i>

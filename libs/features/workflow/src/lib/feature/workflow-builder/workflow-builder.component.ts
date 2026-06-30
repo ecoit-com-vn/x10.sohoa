@@ -531,6 +531,29 @@ export class WorkflowBuilderComponent implements OnInit {
     });
   }
 
+  toggleWorkflowStatus(wf: WorkflowDefinition): void {
+    if (!this.authService.hasPermission('WORKFLOW_EDIT')) {
+      this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền thay đổi trạng thái quy trình.' });
+      return;
+    }
+    this.loading = true;
+    this.workflowSvc.toggleStatus(wf.id!)
+      .pipe(finalize(() => this.loading = false))
+      .subscribe({
+        next: (res) => {
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Thành công',
+            detail: `Đã ${res.isActive ? 'kích hoạt / mở khóa' : 'vô hiệu hóa / khóa'} quy trình "${wf.name}" thành công!`
+          });
+          this.loadList();
+        },
+        error: (err) => {
+          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: err.message });
+        }
+      });
+  }
+
   promptDeleteSelected(): void {
     if (!this.authService.hasPermission('WORKFLOW_DELETE')) {
       this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền xóa quy trình.' });

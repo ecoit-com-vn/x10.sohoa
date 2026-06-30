@@ -36,22 +36,22 @@
         <table class="wf-table">
           <thead>
             <tr>
+              <th style="width: 70px; text-align: center;">STT</th>
               <th>Tên hiển thị (Name)</th>
               <th>Đường dẫn (URL)</th>
-              <th>Biểu tượng (Icon)</th>
-              <th>Quyền yêu cầu (Permission)</th>
-              <th style="width: 100px;">Thứ tự</th>
+              <th style="width: 100px; text-align: center;">Thứ tự</th>
+              <th style="width: 150px; text-align: center;">Trạng thái</th>
               <th class="col-hd">Thao tác</th>
             </tr>
           </thead>
           <tbody>
             <ng-container *ngIf="loading()">
               <tr *ngFor="let item of [1, 2, 3, 4]">
+                <td style="text-align: center;"><div class="skeleton-shimmer" style="height: 16px; width: 24px; margin: 0 auto; border-radius: 4px;"></div></td>
                 <td><div class="skeleton-shimmer" style="height: 16px; width: 150px; border-radius: 4px;"></div></td>
                 <td><div class="skeleton-shimmer" style="height: 16px; width: 120px; border-radius: 4px;"></div></td>
-                <td><div class="skeleton-shimmer" style="height: 16px; width: 60px; border-radius: 4px;"></div></td>
-                <td><div class="skeleton-shimmer" style="height: 16px; width: 100px; border-radius: 4px;"></div></td>
-                <td><div class="skeleton-shimmer" style="height: 16px; width: 40px; border-radius: 4px;"></div></td>
+                <td style="text-align: center;"><div class="skeleton-shimmer" style="height: 16px; width: 30px; margin: 0 auto; border-radius: 4px;"></div></td>
+                <td style="text-align: center;"><div class="skeleton-shimmer" style="height: 16px; width: 80px; margin: 0 auto; border-radius: 12px;"></div></td>
                 <td class="col-hd"><div class="skeleton-shimmer" style="height: 24px; width: 60px; border-radius: 4px;"></div></td>
               </tr>
             </ng-container>
@@ -88,6 +88,7 @@
           [class.menu-row-expandable]="node.children.length > 0"
           (click)="level === 0 && onParentRowClick(node)"
         >
+          <td style="text-align: center;" class="text-muted">{{ getGlobalSTT(node) }}</td>
           <td>
             <div class="menu-name-cell" [style.padding-left.px]="level * 20">
               <i
@@ -103,20 +104,23 @@
             </div>
           </td>
           <td><code>{{ node.url || '-' }}</code></td>
-          <td>
-            <span *ngIf="node.icon"><i [class]="node.icon"></i> <code>{{ node.icon }}</code></span>
-            <span *ngIf="!node.icon" class="text-muted">-</span>
-          </td>
-          <td>
-            <span class="status-pill status-active menu-perm-pill" *ngIf="node.permissionCode">
-              {{ node.permissionCode }}
+          <td style="text-align: center;">{{ node.sortOrder }}</td>
+          <td style="text-align: center;">
+            <span class="status-pill"
+              [class.status-active]="node.isActive"
+              [class.status-inactive]="!node.isActive">
+              {{ node.isActive ? 'Hoạt động' : 'Ngưng hoạt động' }}
             </span>
-            <span class="text-muted" *ngIf="!node.permissionCode">Không yêu cầu</span>
           </td>
-          <td>{{ node.sortOrder }}</td>
           <td class="col-hd" (click)="$event.stopPropagation()">
             <button *ngIf="authService.hasPermission('MENU_CREATE')" class="act-btn act-assign" (click)="onAddNew(node.id)" title="Thêm menu con">
               <i class="pi pi-plus"></i>
+            </button>
+            <button *ngIf="authService.hasPermission('MENU_EDIT') && node.isActive" class="act-btn act-lock" (click)="toggleMenuStatus(node)" title="Khóa menu">
+              <i class="pi pi-lock-open color-red"></i>
+            </button>
+            <button *ngIf="authService.hasPermission('MENU_EDIT') && !node.isActive" class="act-btn act-unlock" (click)="toggleMenuStatus(node)" title="Mở khóa menu">
+              <i class="pi pi-lock color-green"></i>
             </button>
             <button *ngIf="authService.hasPermission('MENU_EDIT')" class="act-btn act-edit" (click)="onEdit(node)" title="Chỉnh sửa">
               <i class="pi pi-pencil"></i>
@@ -169,7 +173,7 @@
           <input type="text" class="wf-input w-full" [(ngModel)]="currentMenu().icon" placeholder="Ví dụ: pi pi-cog..." [disabled]="saving()" />
         </div>
 
-        <div class="form-group">
+        <div class="form-group" style="display: none;">
           <label class="form-label">Quyền hạn yêu cầu (VIEW)</label>
           <select class="wf-select w-full" [(ngModel)]="currentMenu().permissionCode" [disabled]="saving()">
             <option [ngValue]="null">-- Không yêu cầu (Cho phép tất cả) --</option>

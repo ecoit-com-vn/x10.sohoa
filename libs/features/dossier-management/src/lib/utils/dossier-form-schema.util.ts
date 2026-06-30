@@ -21,6 +21,9 @@ export interface NormalizedDossierDetail {
   infrastructureId: string | null;
   gridTypeId: number | null;
   status: string;
+  statusId?: number;
+  statusName?: string;
+  statusCode?: string;
   rowVersion: number;
   workflowInstanceId: string | null;
   raw: Record<string, unknown>;
@@ -64,6 +67,9 @@ export function normalizeDossierDetail(raw: unknown): NormalizedDossierDetail | 
     infrastructureId: readApiField<string>(o, 'infrastructureId', 'InfrastructureId') ?? null,
     gridTypeId: readApiField<number>(o, 'gridTypeId', 'GridTypeId') ?? null,
     status: String(readApiField<string>(o, 'status', 'Status') ?? ''),
+    statusId: readApiField<number>(o, 'statusId', 'StatusId'),
+    statusName: readApiField<string>(o, 'statusName', 'StatusName'),
+    statusCode: readApiField<string>(o, 'statusCode', 'StatusCode'),
     rowVersion: Number(readApiField<number>(o, 'rowVersion', 'RowVersion') ?? 0),
     workflowInstanceId: readApiField<string>(o, 'workflowInstanceId', 'WorkflowInstanceId') ?? null,
     raw: o,

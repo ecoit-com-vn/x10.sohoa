@@ -210,11 +210,51 @@ export class MenuManagement implements OnInit {
       return;
     }
     this.isEdit.set(false);
-    this.currentMenu.set({ name: '', url: '', icon: '', permissionCode: null, parentId, sortOrder: 0 });
+    this.currentMenu.set({ name: '', url: '', icon: '', permissionCode: null, parentId, sortOrder: 0, isActive: true });
     this.formSubmitted.set(false);
     this.serverErrors.set({});
     this.dialogHeader.set(parentId ? 'Thêm menu con' : 'Thêm menu gốc');
     this.currentView.set('add');
+  }
+
+  toggleMenuStatus(menu: any) {
+    if (!this.authService.hasPermission('MENU_EDIT')) {
+      this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền chỉnh sửa menu.' });
+      return;
+    }
+    const updated = { ...menu, isActive: !menu.isActive };
+    this.loading.set(true);
+    this.menuService.updateMenu(menu.id, updated)
+      .pipe(finalize(() => this.loading.set(false)))
+      .subscribe({
+        next: () => {
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Thành công',
+            detail: `${menu.isActive ? 'Khóa' : 'Mở khóa'} menu thành công!`
+          });
+          this.loadMenus();
+        },
+        error: (err: any) => {
+          const detailMsg = err?.error?.message || err?.message || `Không thể ${menu.isActive ? 'khóa' : 'mở khóa'} menu.`;
+          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: detailMsg });
+        }
+      });
+  }
+
+  getGlobalSTT(node: any): number {
+    const flatList: any[] = [];
+    const collect = (nodes: any[]) => {
+      nodes.forEach((n) => {
+        flatList.push(n);
+        if (n.children && n.children.length > 0 && this.expandedMenuIds().has(n.id)) {
+          collect(n.children);
+        }
+      });
+    };
+    collect(this.menuTree());
+    const idx = flatList.findIndex(n => n.id === node.id);
+    return idx >= 0 ? idx + 1 : 1;
   }
 
   onEdit(menu: any) {

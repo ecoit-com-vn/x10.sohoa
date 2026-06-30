@@ -53,12 +53,22 @@ export class OrganizationSettings implements OnInit {
 
   private apiUrl = `${environment.apiGatewayUrl}/api/v1/organization-units`;
 
+  searchStatus = signal<string>('');
+
   // Computed signal for filteredUnits
   filteredUnits = computed(() => {
     const kw = this.searchKeyword().toLowerCase().trim();
-    const allUnits = this.units() || [];
+    const statusVal = this.searchStatus();
+    let allUnits = this.units() || [];
+
+    if (statusVal === 'active') {
+      allUnits = allUnits.filter(u => u.isActive);
+    } else if (statusVal === 'inactive') {
+      allUnits = allUnits.filter(u => !u.isActive);
+    }
+
     if (!kw) {
-      return this.buildHierarchicalList();
+      return this.buildHierarchicalList(allUnits);
     }
     return allUnits.filter(u => 
       (u.code?.toLowerCase().includes(kw) ?? false) || 
@@ -96,17 +106,19 @@ export class OrganizationSettings implements OnInit {
   }
 
   // Thuật toán DFS xây dựng danh sách phẳng thụt lề
-  buildHierarchicalList(): any[] {
+  buildHierarchicalList(unitsList: any[] = this.units()): any[] {
     const result: any[] = [];
-    const unitsSafe = this.units() || [];
-    const rootNodes = unitsSafe.filter(u => !u.parentId);
+    const unitsSafe = unitsList || [];
+    const rootNodes = unitsSafe.filter(u => !u.parentId || !unitsSafe.some(parent => parent.id === u.parentId));
     
     const visit = (node: any) => {
       result.push(node);
       const children = unitsSafe.filter(u => u.parentId === node.id);
+      children.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
       children.forEach(visit);
     };
 
+    rootNodes.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
     rootNodes.forEach(visit);
 
     // Thêm các nút bị mồ côi nếu có lỗi dữ liệu để tránh mất bản ghi hiển thị
@@ -165,11 +177,36 @@ export class OrganizationSettings implements OnInit {
       return;
     }
     this.isEdit.set(false);
-    this.currentUnit.set({ code: '', name: '', parentId: null, description: '' });
+    this.currentUnit.set({ code: '', name: '', parentId: null, description: '', identifier: '', sortOrder: 0, isActive: true });
     this.formSubmitted.set(false);
     this.serverErrors.set({});
     this.dialogHeader.set('Thêm mới đơn vị phòng ban');
     this.currentView.set('add');
+  }
+
+  toggleUnitStatus(unit: any) {
+    if (!this.authService.hasPermission('ORGANIZATION_EDIT')) {
+      this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền chỉnh sửa đơn vị phòng ban.' });
+      return;
+    }
+    const updated = { ...unit, isActive: !unit.isActive };
+    this.loading.set(true);
+    this.http.put(`${this.apiUrl}/${unit.id}`, updated)
+      .pipe(finalize(() => this.loading.set(false)))
+      .subscribe({
+        next: () => {
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Thành công',
+            detail: `${unit.isActive ? 'Khóa' : 'Mở khóa'} đơn vị thành công!`
+          });
+          this.loadUnits();
+        },
+        error: (err) => {
+          const detailMsg = err?.error?.message || err?.message || `Không thể ${unit.isActive ? 'khóa' : 'mở khóa'} đơn vị.`;
+          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: detailMsg });
+        }
+      });
   }
 
   onEdit(unit: any) {

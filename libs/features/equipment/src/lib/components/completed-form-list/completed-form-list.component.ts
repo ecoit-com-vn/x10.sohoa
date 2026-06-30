@@ -325,7 +325,7 @@ export class CompletedFormListComponent implements OnInit {
     }
 
     onEdit(form: EavFormTemplate) {
-        this.router.navigate(['/equipment/form-management'], { queryParams: { id: form.id } });
+        this.router.navigate(['/equipment/completed-forms/edit'], { queryParams: { id: form.id } });
     }
 
     deactivateForm(form: EavFormTemplate) {

@@ -48,6 +48,7 @@
               <th>Mã vai trò (Code)</th>
               <th>Tên vai trò (Name)</th>
               <th>Mô tả</th>
+              <th style="width: 150px; text-align: center;">Trạng thái</th>
               <th class="col-hd" style="width: 250px;">Thao tác</th>
             </tr>
           </thead>
@@ -59,6 +60,7 @@
                 <td><div class="skeleton-shimmer" style="height: 16px; width: 100px; border-radius: 4px;"></div></td>
                 <td><div class="skeleton-shimmer" style="height: 16px; width: 150px; border-radius: 4px;"></div></td>
                 <td><div class="skeleton-shimmer" style="height: 16px; width: 200px; border-radius: 4px;"></div></td>
+                <td style="text-align: center;"><div class="skeleton-shimmer" style="height: 16px; width: 80px; margin: 0 auto; border-radius: 12px;"></div></td>
                 <td class="col-hd"><div class="skeleton-shimmer" style="height: 24px; width: 180px; border-radius: 4px;"></div></td>
               </tr>
             </ng-container>
@@ -72,10 +74,23 @@
                   <span *ngIf="!authService.hasPermission('ROLE_EDIT')">{{ role.name }}</span>
                 </td>
                 <td><span class="text-muted">{{ role.description }}</span></td>
+                <td style="text-align: center;">
+                  <span class="status-pill"
+                    [class.status-active]="role.isActive"
+                    [class.status-inactive]="!role.isActive">
+                    {{ role.isActive ? 'Hoạt động' : 'Ngưng hoạt động' }}
+                  </span>
+                </td>
                 <td class="col-hd">
                   <div class="action-buttons-group">
                     <button *ngIf="authService.hasPermission('ROLE_MANAGE') || authService.hasPermission('PERMISSION_MANAGE')" class="act-btn act-assign" (click)="onAssignPermissions(role)" title="Phân quyền">
                       <i class="pi pi-shield"></i>
+                    </button>
+                    <button *ngIf="authService.hasPermission('ROLE_EDIT') && role.isActive" class="act-btn act-lock" (click)="toggleRoleStatus(role)" title="Khóa vai trò">
+                      <i class="pi pi-lock-open color-red"></i>
+                    </button>
+                    <button *ngIf="authService.hasPermission('ROLE_EDIT') && !role.isActive" class="act-btn act-unlock" (click)="toggleRoleStatus(role)" title="Mở khóa vai trò">
+                      <i class="pi pi-lock color-green"></i>
                     </button>
                     <button *ngIf="authService.hasPermission('ROLE_EDIT')" class="act-btn act-edit" (click)="onEdit(role)" title="Chỉnh sửa">
                       <i class="pi pi-pencil"></i>
@@ -87,7 +102,7 @@
                 </td>
               </tr>
               <tr *ngIf="filteredRoles().length === 0">
-                <td colspan="5" class="empty-row">
+                <td colspan="6" class="empty-row">
                   <i class="pi pi-inbox"></i>
                   <div>Không tìm thấy nhóm quyền phù hợp.</div>
                 </td>
