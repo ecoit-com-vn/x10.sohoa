@@ -72,7 +72,7 @@ public class InternalDossierController : ControllerBase
         {
             var dossier = await _dossierService.GetDetailByIdAsync(id);
             if (dossier == null) return NotFound(new { message = "Không tìm thấy hồ sơ." });
-            return Ok(new { status = dossier.Status });
+            return Ok(new { status = dossier.StatusCode, statusId = dossier.StatusId });
         }
         catch (KeyNotFoundException ex)
         {

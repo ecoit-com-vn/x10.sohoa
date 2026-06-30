@@ -13,7 +13,9 @@ public class DossierEsDocument
     public string? DossierSetName { get; set; }
     public string DossierTypeId { get; set; } = string.Empty;
     public string? DossierTypeName { get; set; }
-    public string Status { get; set; } = string.Empty;
+    public int StatusId { get; set; }
+    public string? StatusCode { get; set; }
+    public string? StatusName { get; set; }
     public string? WorkflowStatusName { get; set; }
     public string? WorkflowInstanceId { get; set; }
     public string? WorkflowInstanceStatus { get; set; }

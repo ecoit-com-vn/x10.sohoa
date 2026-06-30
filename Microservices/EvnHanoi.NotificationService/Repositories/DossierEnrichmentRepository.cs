@@ -75,7 +75,9 @@ public class DossierEnrichmentRepository : IDossierEnrichmentRepository
                     d.DossierTypeId,
                     dt.Name AS DossierTypeName,
                     d.FormDataJson,
-                    d.Status,
+                    d.STATUS_ID AS StatusId,
+                    dstat.CODE AS StatusCode,
+                    dstat.NAME AS StatusName,
                     d.WorkflowStatusName,
                     d.WorkflowInstanceId,
                     d.CreatorId,
@@ -107,6 +109,7 @@ public class DossierEnrichmentRepository : IDossierEnrichmentRepository
                 LEFT JOIN DOSSIER_TYPES dt ON d.DossierTypeId = dt.Id
                 LEFT JOIN WORKFLOW_TASKS_ACTIVE wta ON d.Id = wta.DOSSIER_ID
                 LEFT JOIN PUBLISH_STATUSES ps ON d.PUBLISHSTATUSID = ps.ID
+                LEFT JOIN DOSSIER_STATUSES dstat ON d.STATUS_ID = dstat.ID
                 WHERE LOWER(TRIM(d.Id)) = LOWER(TRIM(:DossierId))
                 """;
 

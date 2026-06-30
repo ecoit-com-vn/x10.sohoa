@@ -37,7 +37,9 @@ public class DossierDocumentBuilder : IDossierDocumentBuilder
             DossierSetName = data.DossierSetName,
             DossierTypeId = data.DossierTypeId,
             DossierTypeName = data.DossierTypeName,
-            Status = data.Status,
+            StatusId = data.StatusId,
+            StatusCode = data.StatusCode,
+            StatusName = data.StatusName,
             WorkflowStatusName = data.WorkflowStatusName,
             WorkflowInstanceId = DossierIndexIdNormalizer.NormalizeOrNull(data.WorkflowInstanceId),
             WorkflowInstanceStatus = data.WorkflowInstanceStatus,
@@ -86,7 +88,7 @@ public class DossierDocumentBuilder : IDossierDocumentBuilder
 
     private static bool HasActiveWorkflowTask(DossierEnrichmentData data)
     {
-        if (string.Equals(data.Status, "Approved", StringComparison.OrdinalIgnoreCase))
+        if (data.StatusId == 6) // Approved
             return false;
 
         return string.Equals(data.WorkflowInstanceStatus, "Running", StringComparison.OrdinalIgnoreCase);

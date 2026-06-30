@@ -142,15 +142,15 @@ public class DossierWorkflowController : ControllerBase
         if (request == null) return BadRequest(new { message = "Dữ liệu không hợp lệ." });
 
         // 1. Kiểm tra trạng thái hồ sơ chéo
-        var currentStatus = await GetDossierStatusAsync(id);
-        if (string.IsNullOrEmpty(currentStatus))
+        var dossierDetail = await GetDossierDetailAsync(id);
+        if (dossierDetail == null)
         {
             return BadRequest(new { message = "Không thể kết nối dịch vụ thiết bị để kiểm tra trạng thái hồ sơ." });
         }
 
-        if (!currentStatus.Equals("CompletedInput", StringComparison.OrdinalIgnoreCase))
+        if (dossierDetail.StatusId != 2) // 2 = CompletedInput (Hoàn thành)
         {
-            return BadRequest(new { message = $"Hồ sơ phải ở trạng thái 'Hoàn thành nhập liệu' (CompletedInput) mới được phép gửi duyệt. Trạng thái hiện tại: {currentStatus}" });
+            return BadRequest(new { message = $"Hồ sơ phải ở trạng thái 'Hoàn thành' mới được phép gửi duyệt. Trạng thái hiện tại: {dossierDetail.Status}" });
         }
 
         // 2. Thực thi Submit & Move tuần tự (không dùng TransactionScope để tránh lỗi ODP.NET Ambient Transaction)
@@ -227,7 +227,7 @@ public class DossierWorkflowController : ControllerBase
 
                     var rollbackDto = new
                     {
-                        dossierStatus = "CompletedInput",
+                        dossierStatusId = 2, // CompletedInput (Hoàn thành)
                         workflowInstanceId = (Guid?)null,
                         workflowStepName = (string?)null
                     };
@@ -247,7 +247,7 @@ public class DossierWorkflowController : ControllerBase
         }
     }
 
-    private async Task<string> GetDossierStatusAsync(Guid id)
+    private async Task<DossierDetailResponse?> GetDossierDetailAsync(Guid id)
     {
         try
         {
@@ -262,15 +262,14 @@ public class DossierWorkflowController : ControllerBase
             var response = await client.GetAsync($"internal/v1/dossiers/{id}");
             if (!response.IsSuccessStatusCode)
             {
-                return string.Empty;
+                return null;
             }
 
-            var detail = await response.Content.ReadFromJsonAsync<DossierDetailResponse>();
-            return detail?.Status ?? string.Empty;
+            return await response.Content.ReadFromJsonAsync<DossierDetailResponse>();
         }
         catch
         {
-            return string.Empty;
+            return null;
         }
     }
 
@@ -463,4 +462,5 @@ public class SubmitAndMoveRequest
 public class DossierDetailResponse
 {
     public string Status { get; set; } = string.Empty;
+    public int StatusId { get; set; }
 }

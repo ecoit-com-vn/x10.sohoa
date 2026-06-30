@@ -17,10 +17,10 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
     public class DossierWorkflowHandler : IWorkflowIntegrationHandler
     {
         // Khớp các hằng DossierStatus của EquipmentService.
-        private const string StatusPendingApproval = "PendingApproval";
-        private const string StatusInProgress = "InProgress";
-        private const string StatusReturned = "Returned";
-        private const string StatusApproved = "Approved";
+        private const int StatusPendingApproval = 3;
+        private const int StatusInProgress = 4;
+        private const int StatusReturned = 5;
+        private const int StatusApproved = 6;
 
         private readonly IWorkflowRepository _workflowRepository;
         private readonly IHttpClientFactory _httpClientFactory;
@@ -51,7 +51,7 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
         /// <summary>
         /// Đọc instance + history hiện tại, suy ra DossierStatus và đẩy về EquipmentService.
         /// </summary>
-        private async Task SyncAsync(string entityId, Guid instanceId, string? dossierStatusOverride = null)
+        private async Task SyncAsync(string entityId, Guid instanceId, int? dossierStatusOverride = null)
         {
             if (!Guid.TryParse(entityId, out _)) return;
 
@@ -99,7 +99,7 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
             {
                 WorkflowInstanceId = instanceId,
                 WorkflowStatusName = workflowStatusName,
-                DossierStatus = dossierStatus,
+                DossierStatusId = dossierStatus,
                 CurrentStepId = isRunning ? instance.CurrentNodeId : null,
                 CurrentAssignees = isRunning ? currentAssignees : new(),
                 AvailableActions = isRunning ? availableActions : new()
@@ -251,7 +251,7 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
             return node?.Attribute("requiredRole")?.Value;
         }
 
-        private async Task<string> DeriveDossierStatusAsync(Models.WorkflowInstance instance)
+        private async Task<int> DeriveDossierStatusAsync(Models.WorkflowInstance instance)
         {
             if (string.Equals(instance.Status, "Completed", StringComparison.OrdinalIgnoreCase))
                 return StatusApproved;
@@ -310,7 +310,7 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
         {
             public Guid WorkflowInstanceId { get; set; }
             public string? WorkflowStatusName { get; set; }
-            public string DossierStatus { get; set; } = string.Empty;
+            public int DossierStatusId { get; set; }
             public string? CurrentStepId { get; set; }
             public List<string> CurrentAssignees { get; set; } = new();
             public List<WorkflowActionDto> AvailableActions { get; set; } = new();

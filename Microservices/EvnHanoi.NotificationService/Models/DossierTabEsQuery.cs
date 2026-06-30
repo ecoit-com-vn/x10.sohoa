@@ -6,8 +6,8 @@ namespace EvnHanoi.NotificationService.Models;
 /// </summary>
 public static class DossierTabEsQuery
 {
-    /// <summary>Giá trị <c>status</c> nghiệp vụ trên ES / Oracle DOSSIERS.</summary>
-    public static readonly string[] InPipelineStatuses = ["PendingApproval", "InProgress"];
+    /// <summary>Giá trị <c>status</c> nghiệp vụ trên ES / Oracle DOSSIERS (3 = PendingApproval, 4 = InProgress).</summary>
+    public static readonly int[] InPipelineStatuses = [3, 4];
 
     public static readonly string[] AllTabSlugs =
     [
@@ -22,7 +22,7 @@ public static class DossierTabEsQuery
     ];
 
     /// <summary>
-    /// Tab ưu tiên; nếu client gửi nhầm slug tab vào query param <c>status</c> thì vẫn map đúng.
+    /// Tab ưu tiên; nếu client gửi nhầm slug tab vào query param thì vẫn map đúng.
     /// </summary>
     public static string? ResolveTabSlug(DossierFilterDto filter)
     {
@@ -32,28 +32,19 @@ public static class DossierTabEsQuery
             return IsTabSlug(normalized) ? normalized : null;
         }
 
-        if (string.IsNullOrWhiteSpace(filter.Status))
-            return null;
-
-        var statusParam = filter.Status.Trim();
-        if (IsEsBusinessStatus(statusParam))
-            return null;
-
-        var asTab = statusParam.ToLowerInvariant();
-        return IsTabSlug(asTab) ? asTab : null;
+        return null;
     }
 
     /// <summary>Chỉ dùng khi không có tab — filter trực tiếp theo status nghiệp vụ ES.</summary>
-    public static string? ResolveEsStatusFilter(DossierFilterDto filter)
+    public static int? ResolveEsStatusFilter(DossierFilterDto filter)
     {
         if (ResolveTabSlug(filter) is not null)
             return null;
 
-        if (string.IsNullOrWhiteSpace(filter.Status))
+        if (!filter.StatusId.HasValue || filter.StatusId.Value <= 0)
             return null;
 
-        var status = filter.Status.Trim();
-        return IsEsBusinessStatus(status) ? status : null;
+        return filter.StatusId.Value;
     }
 
     public static bool IsTabSlug(string? value)
@@ -70,17 +61,5 @@ public static class DossierTabEsQuery
             or DossierListTabs.PendingPublish
             or DossierListTabs.Published
             or DossierListTabs.Unpublished;
-    }
-
-    public static bool IsEsBusinessStatus(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-            return false;
-
-        return value.Trim() switch
-        {
-            "Draft" or "New" or "CompletedInput" or "PendingApproval" or "InProgress" or "Approved" or "Returned" => true,
-            _ => false
-        };
     }
 }
