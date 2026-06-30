@@ -23,14 +23,16 @@ public class PrivateCatalogController : ControllerBase
         [FromQuery] string? keyword = null,
         [FromQuery] int? status = null)
     {
-        var result = await _catalogRepository.GetCatalogTypesFilteredAsync(true, keyword, status);
+        var username = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value ?? "system";
+        var result = await _catalogRepository.GetCatalogTypesFilteredAsync(true, keyword, status, username);
         return Ok(result);
     }
 
     [HttpGet("{id:long}")]
     public async Task<IActionResult> GetById(long id)
     {
-        var result = await _catalogRepository.GetCatalogTypeByIdFilteredAsync(id, true);
+        var username = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value ?? "system";
+        var result = await _catalogRepository.GetCatalogTypeByIdFilteredAsync(id, true, username);
         if (result == null) return NotFound();
         return Ok(result);
     }
@@ -64,12 +66,13 @@ public class PrivateCatalogController : ControllerBase
         if (string.IsNullOrWhiteSpace(catalogType.Code) || string.IsNullOrWhiteSpace(catalogType.Name))
             return BadRequest(new { message = "Mã loại danh mục và Tên loại danh mục là bắt buộc." });
 
+        var username = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value ?? "system";
         // Verify if Code already exists on another CatalogType
         var existing = await _catalogRepository.GetCatalogTypeByCodeAsync(catalogType.Code);
         if (existing != null && existing.Id != id)
             return BadRequest(new { message = $"Mã loại danh mục '{catalogType.Code}' đã được sử dụng bởi bản ghi khác." });
 
-        var dbType = await _catalogRepository.GetCatalogTypeByIdFilteredAsync(id, true);
+        var dbType = await _catalogRepository.GetCatalogTypeByIdFilteredAsync(id, true, username);
         if (dbType == null) return NotFound();
 
         catalogType.IsPrivate = true;
@@ -82,10 +85,10 @@ public class PrivateCatalogController : ControllerBase
     [HttpDelete("{id:long}")]
     public async Task<IActionResult> Delete(long id)
     {
-        var dbType = await _catalogRepository.GetCatalogTypeByIdFilteredAsync(id, true);
+        var username = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value ?? "system";
+        var dbType = await _catalogRepository.GetCatalogTypeByIdFilteredAsync(id, true, username);
         if (dbType == null) return NotFound();
 
-        var username = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value ?? "system";
         var success = await _catalogRepository.DeleteCatalogTypeAsync(id, username);
         if (!success) return NotFound();
         return NoContent();
@@ -94,7 +97,8 @@ public class PrivateCatalogController : ControllerBase
     [HttpPost("{id:long}/lock")]
     public async Task<IActionResult> Lock(long id)
     {
-        var dbType = await _catalogRepository.GetCatalogTypeByIdFilteredAsync(id, true);
+        var username = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value ?? "system";
+        var dbType = await _catalogRepository.GetCatalogTypeByIdFilteredAsync(id, true, username);
         if (dbType == null) return NotFound();
 
         dbType.Status = 0;
@@ -107,7 +111,8 @@ public class PrivateCatalogController : ControllerBase
     [HttpPost("{id:long}/unlock")]
     public async Task<IActionResult> Unlock(long id)
     {
-        var dbType = await _catalogRepository.GetCatalogTypeByIdFilteredAsync(id, true);
+        var username = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value ?? "system";
+        var dbType = await _catalogRepository.GetCatalogTypeByIdFilteredAsync(id, true, username);
         if (dbType == null) return NotFound();
 
         dbType.Status = 1;

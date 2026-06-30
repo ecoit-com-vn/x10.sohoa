@@ -27,7 +27,8 @@ public class RoleRepository : IRoleRepository
             SELECT {nameof(Role.Id)}, 
                    {nameof(Role.Code)}, 
                    {nameof(Role.Name)}, 
-                   {nameof(Role.Description)} 
+                   {nameof(Role.Description)},
+                   {nameof(Role.IsActive)}
             FROM ROLE 
             ORDER BY {nameof(Role.Id)}";
         return await _connection.QueryAsync<Role>(sql);
@@ -54,6 +55,7 @@ public class RoleRepository : IRoleRepository
                        r.{nameof(Role.Code)}, 
                        r.{nameof(Role.Name)}, 
                        r.{nameof(Role.Description)},
+                       r.{nameof(Role.IsActive)},
                        ROW_NUMBER() OVER (ORDER BY r.{nameof(Role.Id)} ASC) AS RN
                 FROM ROLE r
                 {whereClause}
@@ -75,7 +77,8 @@ public class RoleRepository : IRoleRepository
             SELECT {nameof(Role.Id)}, 
                    {nameof(Role.Code)}, 
                    {nameof(Role.Name)}, 
-                   {nameof(Role.Description)} 
+                   {nameof(Role.Description)},
+                   {nameof(Role.IsActive)}
             FROM ROLE 
             WHERE {nameof(Role.Id)} = :Id";
         return await _connection.QuerySingleOrDefaultAsync<Role>(sql, new { Id = id });
@@ -88,15 +91,17 @@ public class RoleRepository : IRoleRepository
             INSERT INTO ROLE (
                 {nameof(Role.Code)}, 
                 {nameof(Role.Name)}, 
-                {nameof(Role.Description)}
+                {nameof(Role.Description)},
+                {nameof(Role.IsActive)}
             )
-            VALUES (:Code, :Name, :Description)
+            VALUES (:Code, :Name, :Description, :IsActive)
             RETURNING {nameof(Role.Id)} INTO :Id";
             
         var parameters = new DynamicParameters();
         parameters.Add("Code", role.Code);
         parameters.Add("Name", role.Name);
         parameters.Add("Description", role.Description);
+        parameters.Add("IsActive", role.IsActive ? 1 : 0);
         parameters.Add("Id", dbType: DbType.Int64, direction: ParameterDirection.Output);
         
         await _connection.ExecuteAsync(sql, parameters);
@@ -110,13 +115,15 @@ public class RoleRepository : IRoleRepository
             UPDATE ROLE 
             SET {nameof(Role.Code)} = :Code, 
                 {nameof(Role.Name)} = :Name, 
-                {nameof(Role.Description)} = :Description 
+                {nameof(Role.Description)} = :Description,
+                {nameof(Role.IsActive)} = :IsActive
             WHERE {nameof(Role.Id)} = :Id";
         var affected = await _connection.ExecuteAsync(sql, new 
         {
             role.Code,
             role.Name,
             role.Description,
+            IsActive = role.IsActive ? 1 : 0,
             role.Id
         });
         return affected > 0;

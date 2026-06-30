@@ -92,17 +92,32 @@ public class UserRepository : IUserRepository
         );
     }
 
-    public async Task<(IEnumerable<User> Items, int TotalCount)> GetPagedAsync(int page, int pageSize, string? keyword = null)
+    public async Task<(IEnumerable<User> Items, int TotalCount)> GetPagedAsync(int page, int pageSize, string? keyword = null, long? organizationUnitId = null, bool? isActive = null)
     {
         if (_connection.State != ConnectionState.Open) _connection.Open();
         
-        var whereClause = "";
+        var conditions = new List<string>();
         var parameters = new DynamicParameters();
+        
         if (!string.IsNullOrWhiteSpace(keyword))
         {
-            whereClause = "WHERE (UPPER(u.UserName) LIKE UPPER(:Keyword) OR UPPER(u.FullName) LIKE UPPER(:Keyword) OR UPPER(u.Email) LIKE UPPER(:Keyword))";
+            conditions.Add("(UPPER(u.UserName) LIKE UPPER(:Keyword) OR UPPER(u.FullName) LIKE UPPER(:Keyword) OR UPPER(u.Email) LIKE UPPER(:Keyword))");
             parameters.Add("Keyword", $"%{keyword}%");
         }
+        
+        if (organizationUnitId.HasValue && organizationUnitId.Value > 0)
+        {
+            conditions.Add("u.OrganizationUnitId = :OrganizationUnitId");
+            parameters.Add("OrganizationUnitId", organizationUnitId.Value);
+        }
+        
+        if (isActive.HasValue)
+        {
+            conditions.Add("u.IsActive = :IsActive");
+            parameters.Add("IsActive", isActive.Value ? 1 : 0);
+        }
+        
+        var whereClause = conditions.Count > 0 ? "WHERE " + string.Join(" AND ", conditions) : "";
         
         var countSql = $"SELECT COUNT(*) FROM APP_USER u LEFT JOIN ORGANIZATION_UNIT o ON u.OrganizationUnitId = o.Id {whereClause}";
         var offset = (page - 1) * pageSize;

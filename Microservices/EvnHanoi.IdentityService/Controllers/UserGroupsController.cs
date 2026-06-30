@@ -19,9 +19,9 @@ public class UserGroupsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] string? keyword = null)
+    public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] string? keyword = null, [FromQuery] bool? isActive = null)
     {
-        var (items, totalCount) = await _userGroupRepository.GetPagedAsync(page, pageSize, keyword);
+        var (items, totalCount) = await _userGroupRepository.GetPagedAsync(page, pageSize, keyword, isActive);
         return Ok(new { items, totalCount, page, pageSize });
     }
 
