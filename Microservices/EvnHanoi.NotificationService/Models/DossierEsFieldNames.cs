@@ -7,6 +7,9 @@ public static class DossierEsFieldNames
 {
     public const string Id = "id";
     public const string Status = "status";
+    public const string StatusId = "statusId";
+    public const string StatusCode = "statusCode";
+    public const string StatusName = "statusName";
     public const string IsDeleted = "isDeleted";
     public const string GridTypeId = "gridTypeId";
     public const string DossierTypeId = "dossierTypeId";
@@ -22,4 +25,6 @@ public static class DossierEsFieldNames
     public const string CurrentStepOrder = "currentStepOrder";
     public const string WorkflowLastAction = "workflowLastAction";
     public const string IsReturnedToCreatorStep = "isReturnedToCreatorStep";
+    public const string PublishStatusId = "publishStatusId";
+    public const string PublishStatusCode = "publishStatusCode";
 }

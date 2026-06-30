@@ -85,4 +85,10 @@ public static class JwtUserClaimResolver
                 yield return candidate.Trim();
         }
     }
+
+    public static long? ResolveUnitId(ClaimsPrincipal user)
+    {
+        var claim = user.FindFirst("unit_id")?.Value;
+        return long.TryParse(claim, out var val) ? val : null;
+    }
 }

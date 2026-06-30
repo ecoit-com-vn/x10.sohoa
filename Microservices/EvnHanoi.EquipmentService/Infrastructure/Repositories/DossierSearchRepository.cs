@@ -71,8 +71,8 @@ public class DossierSearchRepository : IDossierSearchRepository
             if (filter.UnitScopeIds is { Count: > 0 })
                 filters.Add(q.Terms(t => t.Field(doc => doc.UnitId).Terms(filter.UnitScopeIds)));
 
-            if (!string.IsNullOrWhiteSpace(filter.Status))
-                filters.Add(q.Term(t => t.Field(doc => doc.Status).Value(filter.Status)));
+            if (filter.StatusId.HasValue && filter.StatusId.Value > 0)
+                filters.Add(q.Term(t => t.Field(doc => doc.StatusId).Value(filter.StatusId.Value)));
 
             if (filters.Count > 0)
                 b.Filter(filters.ToArray());
@@ -136,7 +136,9 @@ public class DossierSearchRepository : IDossierSearchRepository
             DossierSetName = doc.DossierSetName,
             DossierTypeId = Guid.TryParse(doc.DossierTypeId, out var typeId) ? typeId : Guid.Empty,
             DossierTypeName = doc.DossierTypeName,
-            Status = doc.Status,
+            StatusId = doc.StatusId,
+            StatusCode = doc.StatusCode,
+            StatusName = doc.StatusName,
             WorkflowStatusName = doc.WorkflowStatusName,
             DocumentCount = doc.DocumentCount,
             Creator = new CreatorInfoDto

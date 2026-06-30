@@ -1,3 +1,4 @@
+using EvnHanoi.Infrastructure.Security;
 using EvnHanoi.NotificationService.Hubs;
 using EvnHanoi.NotificationService.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -8,6 +9,7 @@ using System.Text.Json;
 namespace EvnHanoi.NotificationService.Controllers;
 
 [ApiController]
+[BypassDynamicPermission]
 [Route("api/v1/[controller]")]
 public class NotificationsController : ControllerBase
 {

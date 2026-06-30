@@ -54,6 +54,14 @@ public class DossierSearchRepository : IDossierSearchRepository
         var counts = new DossierTabCountsDto();
         var scope = DossierMenuScopes.Normalize(filter.MenuScope);
 
+        if (DossierMenuScopes.IsPublisher(scope))
+        {
+            counts.PendingPublish = await CountAsync(CloneForTab(filter, DossierListTabs.PendingPublish), keyword);
+            counts.Published = await CountAsync(CloneForTab(filter, DossierListTabs.Published), keyword);
+            counts.Unpublished = await CountAsync(CloneForTab(filter, DossierListTabs.Unpublished), keyword);
+            return counts;
+        }
+
         if (DossierMenuScopes.IsCreator(scope))
         {
             counts.Draft = await CountAsync(CloneForTab(filter, DossierListTabs.Draft), keyword);
@@ -122,9 +130,7 @@ public class DossierSearchRepository : IDossierSearchRepository
         if (tabSlug == DossierListTabs.Draft)
         {
             return items
-                .Where(item => string.Equals(item.Status, "Draft", StringComparison.Ordinal) ||
-                               string.Equals(item.Status, "New", StringComparison.Ordinal) ||
-                               string.Equals(item.Status, "CompletedInput", StringComparison.Ordinal))
+                .Where(item => item.StatusId == 1 || item.StatusId == 2)
                 .ToList();
         }
 
@@ -133,16 +139,16 @@ public class DossierSearchRepository : IDossierSearchRepository
             return items;
 
         return items
-            .Where(item => string.Equals(item.Status, expectedStatus, StringComparison.Ordinal))
+            .Where(item => item.StatusId == expectedStatus.Value)
             .ToList();
     }
 
-    private static string? ResolveExpectedBusinessStatus(DossierFilterDto filter)
+    private static int? ResolveExpectedBusinessStatus(DossierFilterDto filter)
     {
         return DossierTabEsQuery.ResolveTabSlug(filter) switch
         {
-            DossierListTabs.Completed => "Approved",
-            DossierListTabs.Returned => "Returned",
+            DossierListTabs.Completed => 6, // Approved (Đã duyệt)
+            DossierListTabs.Returned => 5,  // Returned (Trả lại)
             _ => null
         };
     }
@@ -254,13 +260,13 @@ public class DossierSearchRepository : IDossierSearchRepository
         {
             case DossierListTabs.Draft:
                 mustQueries.Add(new QueryDescriptor<DossierEsDocument>().Terms(t => t
-                    .Field(DossierEsFieldNames.Status)
-                    .Terms(new TermsQueryField(new[] { "Draft", "New", "CompletedInput" }.Select(FieldValue.String).ToArray()))));
+                    .Field(DossierEsFieldNames.StatusId)
+                    .Terms(new TermsQueryField(new[] { 1, 2 }.Select(x => (FieldValue)x).ToArray()))));
                 mustNotQueries.Add(new QueryDescriptor<DossierEsDocument>().Exists(e => e.Field(DossierEsFieldNames.WorkflowInstanceId)));
                 break;
 
             case DossierListTabs.Completed:
-                mustQueries.Add(new QueryDescriptor<DossierEsDocument>().Term(t => t.Field(DossierEsFieldNames.Status).Value("Approved")));
+                mustQueries.Add(new QueryDescriptor<DossierEsDocument>().Term(t => t.Field(DossierEsFieldNames.StatusId).Value(6))); // Approved
                 mustNotQueries.Add(new QueryDescriptor<DossierEsDocument>().Term(t => t
                     .Field(DossierEsFieldNames.WorkflowInstanceStatus)
                     .Value("Running")));
@@ -271,15 +277,34 @@ public class DossierSearchRepository : IDossierSearchRepository
                 mustQueries.Add(new QueryDescriptor<DossierEsDocument>().Term(t => t.Field(DossierEsFieldNames.WorkflowInstanceStatus).Value("Running")));
                 mustQueries.Add(new QueryDescriptor<DossierEsDocument>().Exists(e => e.Field(DossierEsFieldNames.WorkflowInstanceId)));
                 mustQueries.Add(new QueryDescriptor<DossierEsDocument>().Term(t => t.Field(DossierEsFieldNames.IsReturnedToCreatorStep).Value(true)));
-                mustQueries.Add(new QueryDescriptor<DossierEsDocument>().Term(t => t.Field(DossierEsFieldNames.Status).Value("Returned")));
+                mustQueries.Add(new QueryDescriptor<DossierEsDocument>().Term(t => t.Field(DossierEsFieldNames.StatusId).Value(5))); // Returned
                 break;
 
             case DossierListTabs.InProgress:
             case DossierListTabs.PendingAction:
                 mustQueries.Add(new QueryDescriptor<DossierEsDocument>().Terms(t => t
-                    .Field(DossierEsFieldNames.Status)
+                    .Field(DossierEsFieldNames.StatusId)
                     .Terms(new TermsQueryField(
-                        DossierTabEsQuery.InPipelineStatuses.Select(FieldValue.String).ToArray()))));
+                        DossierTabEsQuery.InPipelineStatuses.Select(x => (FieldValue)x).ToArray()))));
+                break;
+
+            case DossierListTabs.PendingPublish:
+                mustQueries.Add(new QueryDescriptor<DossierEsDocument>().Term(t => t.Field(DossierEsFieldNames.StatusId).Value(6))); // Approved
+                mustQueries.Add(new QueryDescriptor<DossierEsDocument>().Bool(bb => bb
+                    .MinimumShouldMatch(1)
+                    .Should(
+                        sh => sh.Term(t => t.Field(DossierEsFieldNames.PublishStatusId).Value(1)),
+                        sh => sh.Bool(bNull => bNull.MustNot(mn => mn.Exists(e => e.Field(DossierEsFieldNames.PublishStatusId))))
+                    )
+                ));
+                break;
+
+            case DossierListTabs.Published:
+                mustQueries.Add(new QueryDescriptor<DossierEsDocument>().Term(t => t.Field(DossierEsFieldNames.PublishStatusId).Value(2)));
+                break;
+
+            case DossierListTabs.Unpublished:
+                mustQueries.Add(new QueryDescriptor<DossierEsDocument>().Term(t => t.Field(DossierEsFieldNames.PublishStatusId).Value(3)));
                 break;
         }
     }
@@ -293,9 +318,9 @@ public class DossierSearchRepository : IDossierSearchRepository
             return;
         }
 
-        var esStatus = DossierTabEsQuery.ResolveEsStatusFilter(filter);
-        if (esStatus is not null)
-            filterQueries.Add(new QueryDescriptor<DossierEsDocument>().Term(t => t.Field(DossierEsFieldNames.Status).Value(esStatus)));
+        var esStatusId = DossierTabEsQuery.ResolveEsStatusFilter(filter);
+        if (esStatusId is not null)
+            filterQueries.Add(new QueryDescriptor<DossierEsDocument>().Term(t => t.Field(DossierEsFieldNames.StatusId).Value(esStatusId.Value)));
     }
 
     /// <summary>
@@ -327,6 +352,9 @@ public class DossierSearchRepository : IDossierSearchRepository
 
             case DossierListTabs.Completed:
             case DossierListTabs.Returned:
+            case DossierListTabs.PendingPublish:
+            case DossierListTabs.Published:
+            case DossierListTabs.Unpublished:
                 // Status đã ép ở EnforceTabStatusMust.
                 break;
 
@@ -488,7 +516,8 @@ public class DossierSearchRepository : IDossierSearchRepository
     /// </summary>
     private static void ApplyVisibilityFilter(List<Query> filterQueries, DossierFilterDto filter)
     {
-        if (filter.IsAdmin)
+        var scope = DossierMenuScopes.Normalize(filter.MenuScope);
+        if (filter.IsAdmin || DossierMenuScopes.IsPublisher(scope))
             return;
 
         var userId = NormalizeFilterUserId(filter.UserId);
@@ -503,7 +532,6 @@ public class DossierSearchRepository : IDossierSearchRepository
             return;
         }
 
-        var scope = DossierMenuScopes.Normalize(filter.MenuScope);
         var tab = DossierTabEsQuery.ResolveTabSlug(filter) ?? filter.Tab?.Trim().ToLowerInvariant();
 
         if (DossierMenuScopes.IsCreator(scope))
@@ -672,7 +700,9 @@ public class DossierSearchRepository : IDossierSearchRepository
             DossierSetName = doc.DossierSetName,
             DossierTypeId = Guid.TryParse(doc.DossierTypeId, out var typeId) ? typeId : Guid.Empty,
             DossierTypeName = doc.DossierTypeName,
-            Status = doc.Status,
+            StatusId = doc.StatusId,
+            StatusCode = doc.StatusCode,
+            StatusName = doc.StatusName,
             WorkflowStepName = doc.WorkflowStatusName,
             WorkflowInstanceId = Guid.TryParse(doc.WorkflowInstanceId, out var wfId) ? wfId : null,
             WorkflowInstanceStatus = doc.WorkflowInstanceStatus,

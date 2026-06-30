@@ -145,7 +145,7 @@ public class DossierService : IDossierService
             DossierSetId = dto.DossierSetId,
             DossierTypeId = dto.DossierTypeId,
             FormDataJson = dto.FormDataJson,
-            Status = DossierStatus.New,
+            StatusId = DossierStatusConstants.New,
             RowVersion = 1,
             CreatorId = string.IsNullOrEmpty(userId) ? null : Guid.TryParse(userId, out var uid) ? uid : null,
             CreatorUsername = userName,
@@ -203,7 +203,7 @@ public class DossierService : IDossierService
         var existing = await _dossierRepository.GetByIdAsync(id);
         if (existing == null) throw new KeyNotFoundException($"Không tìm thấy hồ sơ với ID = {id}");
 
-        var isDraft = existing.Status == DossierStatus.New || existing.Status == DossierStatus.CompletedInput;
+        var isDraft = existing.StatusId == DossierStatusConstants.New || existing.StatusId == DossierStatusConstants.CompletedInput;
         var notInWorkflow = !existing.WorkflowInstanceId.HasValue;
         if (!isDraft && !notInWorkflow)
             throw new InvalidOperationException("Chỉ có thể xóa hồ sơ ở trạng thái Tạo mới, Hoàn thành nhập liệu hoặc chưa đưa vào quy trình phê duyệt.");
@@ -211,19 +211,18 @@ public class DossierService : IDossierService
         var deleted = await _dossierRepository.SoftDeleteAsync(id, userId);
         if (deleted)
         {
-            var synced = await TrySyncDeleteFromEsAsync(id);
             var queued = await TryPublishDossierChangedAsync(id, DossierChangedActions.Deleted);
-            if (!synced && !queued)
-            {
-                _logger.LogError(
-                    "Dossier {DossierId} đã xóa mềm Oracle nhưng không đồng bộ được Elasticsearch.",
-                    id);
-            }
-            else if (!synced)
+            if (!queued)
             {
                 _logger.LogWarning(
-                    "Dossier {DossierId}: sync ES delete thất bại, đã đưa vào hàng đợi RabbitMQ.",
+                    "Dossier {DossierId}: không đưa được vào hàng đợi RabbitMQ, thử xóa ES đồng bộ.",
                     id);
+                if (!await TrySyncDeleteFromEsAsync(id))
+                {
+                    _logger.LogError(
+                        "Dossier {DossierId} đã xóa mềm Oracle nhưng không đồng bộ được Elasticsearch.",
+                        id);
+                }
             }
         }
         return deleted;
@@ -233,10 +232,10 @@ public class DossierService : IDossierService
         var existing = await _dossierRepository.GetByIdAsync(id);
         if (existing == null) throw new KeyNotFoundException($"Không tìm thấy hồ sơ với ID = {id}");
 
-        if (existing.Status != DossierStatus.New)
+        if (existing.StatusId != DossierStatusConstants.New)
             throw new InvalidOperationException("Chỉ hồ sơ ở trạng thái 'Tạo mới' mới được phép xác nhận hoàn thành nhập liệu.");
 
-        var success = await _dossierRepository.UpdateStatusAsync(id, DossierStatus.CompletedInput, userId);
+        var success = await _dossierRepository.UpdateStatusAsync(id, DossierStatusConstants.CompletedInput, userId);
         if (success)
         {
             await PublishDossierChangedAsync(id, DossierChangedActions.Updated);
@@ -349,13 +348,19 @@ public class DossierService : IDossierService
         var existing = await _dossierRepository.GetByIdAsync(id);
         if (existing == null) throw new KeyNotFoundException($"Không tìm thấy hồ sơ với ID = {id}");
 
-        var status = string.IsNullOrWhiteSpace(dto.DossierStatus) ? existing.Status : dto.DossierStatus;
+        var statusId = dto.DossierStatusId == 0 ? existing.StatusId : dto.DossierStatusId;
         var statusName = dto.WorkflowStatusName ?? existing.WorkflowStatusName ?? string.Empty;
 
-        await _dossierRepository.UpdateWorkflowAsync(id, dto.WorkflowInstanceId, statusName, status, "system");
+        int? publishStatusId = null;
+        if (statusId == DossierStatusConstants.Approved && (!existing.PublishStatusId.HasValue || existing.PublishStatusId == 0))
+        {
+            publishStatusId = 1; // Pending
+        }
+
+        await _dossierRepository.UpdateWorkflowAsync(id, dto.WorkflowInstanceId, statusName, statusId, publishStatusId, "system");
 
         // WF đã hoàn thành (Approved) → xóa WORKFLOW_TASKS_ACTIVE; chỉ lưu khi còn bước đang chạy
-        var persistActiveTask = !string.Equals(status, "Approved", StringComparison.OrdinalIgnoreCase)
+        var persistActiveTask = statusId != DossierStatusConstants.Approved
             && !string.IsNullOrWhiteSpace(dto.CurrentStepId);
 
         if (persistActiveTask)
@@ -508,12 +513,12 @@ public class DossierService : IDossierService
     private async Task EnsureCanEditFormDataAsync(Dossier dossier)
     {
         // Trả lại về bước người tạo — cho phép sửa dù instance WF vẫn đang chạy.
-        if (dossier.Status == DossierStatus.Returned)
+        if (dossier.StatusId == DossierStatusConstants.Returned)
             return;
 
         if (!dossier.WorkflowInstanceId.HasValue)
         {
-            if (dossier.Status != DossierStatus.New && dossier.Status != DossierStatus.CompletedInput)
+            if (dossier.StatusId != DossierStatusConstants.New && dossier.StatusId != DossierStatusConstants.CompletedInput)
                 throw new InvalidOperationException("Không thể chỉnh sửa dữ liệu hồ sơ ở trạng thái hiện tại.");
             return;
         }
@@ -538,5 +543,27 @@ public class DossierService : IDossierService
             DateTime.UtcNow);
 
         await _messageProducer.SendMessageAsync(evt, DossierMessaging.IndexQueue);
+    }
+
+    public async Task<bool> UpdatePublishStatusAsync(Guid id, int publishStatusId, string userId)
+    {
+        var existing = await _dossierRepository.GetByIdAsync(id);
+        if (existing == null) throw new KeyNotFoundException($"Không tìm thấy hồ sơ với ID = {id}");
+
+        if (existing.StatusId != DossierStatusConstants.Approved)
+        {
+            throw new InvalidOperationException("Hồ sơ chưa hoàn thành quy trình phê duyệt, không thể thay đổi trạng thái xuất bản.");
+        }
+
+        var updated = await _dossierRepository.UpdatePublishStatusAsync(id, publishStatusId, userId);
+        if (updated)
+        {
+            var synced = await TrySyncReindexAsync(id);
+            if (!synced)
+            {
+                await TryPublishDossierChangedAsync(id, DossierChangedActions.Updated);
+            }
+        }
+        return updated;
     }
 }

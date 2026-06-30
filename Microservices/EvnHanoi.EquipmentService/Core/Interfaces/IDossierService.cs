@@ -49,4 +49,5 @@ public interface IDossierService
     // Document tab helpers
     Task RecordDocumentListChangeAsync(Guid dossierId, string changeNote, string userId);
     Task EnsureCanEditFormDataAsync(Guid dossierId);
+    Task<bool> UpdatePublishStatusAsync(Guid id, int publishStatusId, string userId);
 }

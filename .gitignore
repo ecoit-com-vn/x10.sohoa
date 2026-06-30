@@ -483,3 +483,4 @@ $RECYCLE.BIN/
 
 # Docker Data Volumes
 /docker-data/
+/BuildingBlocks/EvnHanoi.Infrastructure/Migrations/EquipmentService/Migration0020_AddPublishStatusToDossiers.cs

@@ -88,7 +88,8 @@ public class DynamicSeederService
             { "VirtualFolder", "Thư mục ảo (Explorer)" },
             { "Workflow", "Quy trình hồ sơ" },
             { "WorkflowDefinitions", "Thiết lập quy trình" }, 
-            { "DossierWorkflow", "Phê duyệt hồ sơ"}
+            { "DossierWorkflow", "Phê duyệt hồ sơ"},
+            { "DossierPublish", "Xuất bản hồ sơ"}
         };
 
         var friendlyActionNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
@@ -99,7 +100,8 @@ public class DynamicSeederService
             { "DELETE", "Xóa" },
             { "IMPORT", "Nhập tệp (Import)" },
             { "EXPORT", "Xuất tệp (Export)" },
-            { "MANAGE", "Quản lý chuyên sâu" }
+            { "MANAGE", "Quản lý chuyên sâu" },
+            { "RELEASE", "Xuất bản" },
         };
 
         int permCount = 0;
@@ -250,7 +252,13 @@ public class DynamicSeederService
             return "VIEW";
         }
 
-        // 7. MANAGE (General fallback)
+        // 7. RELEASE 
+        if (actLower.Contains("publish"))
+        {
+            return "RELEASE";
+        }
+
+        // 8. MANAGE (General fallback)
         return "MANAGE";
     }
 

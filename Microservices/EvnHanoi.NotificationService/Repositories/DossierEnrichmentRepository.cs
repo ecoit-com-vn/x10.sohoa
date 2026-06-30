@@ -62,91 +62,55 @@ public class DossierEnrichmentRepository : IDossierEnrichmentRepository
         {
 
             const string sql = """
-
                 SELECT
-
                     d.Id,
-
                     d.GridTypeId,
-
                     gt.Name AS GridTypeName,
-
                     d.InfrastructureId,
-
                     i.NAME AS InfrastructureName,
-
                     i.CODE AS InfrastructureCode,
-
                     i.UNIT_ID AS UnitId,
-
                     d.DossierSetId,
-
                     ds.Name AS DossierSetName,
-
                     d.DossierTypeId,
-
                     dt.Name AS DossierTypeName,
-
                     d.FormDataJson,
-
-                    d.Status,
-
+                    d.STATUS_ID AS StatusId,
+                    dstat.CODE AS StatusCode,
+                    dstat.NAME AS StatusName,
                     d.WorkflowStatusName,
-
                     d.WorkflowInstanceId,
-
                     d.CreatorId,
-
                     d.CreatorUsername,
-
                     d.CreatorName,
-
                     d.CreatedDate,
-
                     d.ModifiedDate,
-
                     d.IsDeleted,
-
+                    d.PUBLISHSTATUSID AS PublishStatusId,
+                    ps.CODE AS PublishStatusCode,
+                    ps.NAME AS PublishStatusName,
                     COALESCE((
-
                         SELECT MAX(v.VersionNumber)
-
                         FROM DOSSIER_VERSIONS v
-
                         WHERE v.DossierId = d.Id
-
                     ), 0) AS CurrentVersionNumber,
-
                     COALESCE((
-
                         SELECT COUNT(1)
-
                         FROM DOCUMENTS doc
-
                         WHERE doc.DOSSIER_ID = d.Id AND doc.IS_DELETED = 0
-
                     ), 0) AS DocumentCount,
-
                     wta.CURRENT_STEP_ID AS CurrentStepId,
-
                     wta.CURRENT_ASSIGNEES AS CurrentAssignees,
-
                     wta.AVAILABLE_ACTIONS AS AvailableActionsJson
-
                 FROM DOSSIERS d
-
                 LEFT JOIN GridTypes gt ON d.GridTypeId = gt.Id
-
                 LEFT JOIN INFRASTRUCTURE i ON d.InfrastructureId = i.ID
-
                 LEFT JOIN DOSSIER_SETS ds ON d.DossierSetId = ds.Id
-
                 LEFT JOIN DOSSIER_TYPES dt ON d.DossierTypeId = dt.Id
-
                 LEFT JOIN WORKFLOW_TASKS_ACTIVE wta ON d.Id = wta.DOSSIER_ID
-
+                LEFT JOIN PUBLISH_STATUSES ps ON d.PUBLISHSTATUSID = ps.ID
+                LEFT JOIN DOSSIER_STATUSES dstat ON d.STATUS_ID = dstat.ID
                 WHERE LOWER(TRIM(d.Id)) = LOWER(TRIM(:DossierId))
-
                 """;
 
 
