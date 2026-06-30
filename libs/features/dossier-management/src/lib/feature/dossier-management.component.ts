@@ -9,10 +9,9 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { filter } from 'rxjs';
 
 import { DossierListComponent } from './dossier-list/dossier-list.component';
-
 import { DossierFormComponent } from './dossier-form/dossier-form.component';
-
 import { DossierDetailComponent } from './dossier-detail/dossier-detail.component';
+import { DossierPublishComponent } from './dossier-publish/dossier-publish.component';
 
 import { DossierMenuScope } from '../utils/dossier-status.util';
 
@@ -24,7 +23,7 @@ import { DossierMenuScope } from '../utils/dossier-status.util';
 
   standalone: true,
 
-  imports: [CommonModule, DossierListComponent, DossierFormComponent, DossierDetailComponent],
+  imports: [CommonModule, DossierListComponent, DossierFormComponent, DossierDetailComponent, DossierPublishComponent],
 
   template: `
 
@@ -49,18 +48,17 @@ import { DossierMenuScope } from '../utils/dossier-status.util';
 
 
       <app-dossier-list
-
-        *ngIf="currentView() === 'list'"
-
+        *ngIf="currentView() === 'list' && menuScope() !== 'publisher'"
         [menuScope]="menuScope()"
-
         (viewDetail)="onViewDetail($event)"
-
         (edit)="onEdit($event)"
-
         (create)="onCreate()"
-
       ></app-dossier-list>
+
+      <app-dossier-publish
+        *ngIf="currentView() === 'list' && menuScope() === 'publisher'"
+        (viewDetail)="onViewDetail($event)"
+      ></app-dossier-publish>
 
 
 
@@ -169,81 +167,70 @@ export class DossierManagementComponent implements OnInit {
 
 
   private routePrefix(): string {
-
-    return this.menuScope() === 'approver' ? 'approve' : 'my-dossiers';
-
+    const scope = this.menuScope();
+    if (scope === 'approver') return 'approve';
+    if (scope === 'publisher') return 'publish';
+    return 'my-dossiers';
   }
 
 
 
   private syncViewFromRoute(): void {
-
-    const scope = (this.route.snapshot.data['menuScope'] as DossierMenuScope) ?? 'creator';
-
+    const snapshot = this.route.snapshot;
+    const scope = (snapshot.data['menuScope'] as DossierMenuScope) ?? 'creator';
     this.menuScope.set(scope);
-
-    this.listTitle.set((this.route.snapshot.data['listTitle'] as string) ?? 'Quản lý hồ sơ');
-
-
-
-    const segments = this.route.snapshot.url.map((s) => s.path);
+    this.listTitle.set((snapshot.data['listTitle'] as string) ?? 'Quản lý hồ sơ');
 
     const root = this.routePrefix();
+    const routePath = snapshot.routeConfig?.path ?? '';
+    const id = snapshot.paramMap.get('id');
+    const url = this.router.url.split('?')[0];
 
-
-
-    if (segments.length === 1 && segments[0] === root) {
-
+    if (routePath === root || url === `/dossier-management/${root}` || url.endsWith(`/dossier-management/${root}`)) {
       this.selectedDossierId.set(null);
-
       this.currentView.set('list');
-
       return;
-
     }
 
-
-
-    if (scope === 'creator' && segments.length === 2 && segments[0] === root && segments[1] === 'new') {
-
+    if (routePath === `${root}/new` || url.endsWith(`/${root}/new`)) {
       this.selectedDossierId.set(null);
-
       this.currentView.set('form');
-
       return;
-
     }
 
-
-
-    if (scope === 'creator' && segments.length === 3 && segments[0] === root && segments[2] === 'edit') {
-
-      this.selectedDossierId.set(segments[1]);
-
+    if (
+      (routePath === `${root}/:id/edit` || (url.includes(`/${root}/`) && url.endsWith('/edit')))
+      && id
+    ) {
+      this.selectedDossierId.set(id);
       this.currentView.set('form');
-
       return;
-
     }
 
-
-
-    if (segments.length === 2 && segments[0] === root) {
-
-      this.selectedDossierId.set(segments[1]);
-
+    if ((routePath === `${root}/:id` || id) && id) {
+      this.selectedDossierId.set(id);
       this.currentView.set('detail');
-
       return;
-
     }
 
-
+    const urlMatch = url.match(new RegExp(`/${root}/([^/]+)(?:/edit)?$`));
+    if (urlMatch) {
+      const segment = urlMatch[1];
+      if (segment === 'new') {
+        this.selectedDossierId.set(null);
+        this.currentView.set('form');
+      } else if (url.endsWith('/edit')) {
+        this.selectedDossierId.set(segment);
+        this.currentView.set('form');
+      } else {
+        this.selectedDossierId.set(segment);
+        this.currentView.set('detail');
+      }
+      return;
+    }
 
     this.selectedDossierId.set(null);
-
     this.currentView.set('list');
-
   }
 
 

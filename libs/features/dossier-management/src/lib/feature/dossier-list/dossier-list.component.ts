@@ -28,14 +28,14 @@ import {
 import { catchError, finalize } from 'rxjs';
 
 function tabLabel(tab: DossierListTab): string {
-  const labels: Record<DossierListTab, string> = {
+  const labels: Partial<Record<DossierListTab, string>> = {
     draft: 'Tạo mới',
     'pending-action': 'Chờ xử lý',
     'in-progress': 'Đang xử lý',
-    completed: 'Hoàn thành',
+    completed: 'Đã duyệt',
     returned: 'Trả lại',
   };
-  return labels[tab];
+  return labels[tab] ?? '';
 }
 
 function normalizeTabCounts(raw: unknown): DossierTabCounts {
@@ -143,11 +143,11 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
 
               <th *ngFor="let col of bhsColumns()">{{ col.label }}</th>
 
-              <th>Trạm / Đường dây</th>
+              <th style="min-width: 250px; white-space: normal !important;">Trạm / Đường dây</th>
 
-              <th>Số lượng tài liệu</th>
+              <th style="width: 130px; text-align: center; white-space: normal !important;">Số lượng tài liệu</th>
 
-              <th>Trạng thái duyệt</th>
+              <th style="width: 160px; text-align: center; white-space: normal !important;">Trạng thái duyệt</th>
 
               <th class="col-hd">Thao tác</th>
 
@@ -217,12 +217,12 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
 
                 <td class="text-center">{{ item.documentCount ?? 0 }}</td>
 
-                <td>
-                  <span [class]="getDossierStatusPillClass(item.status)">
-                    {{ getDossierStatusLabel(item.status) }}
+                <td class="text-center">
+                  <span [class]="getDossierStatusPillClass(item.statusId)">
+                    {{ getDossierStatusLabel(item.statusId, item.statusName) }}
                   </span>
                   <div class="text-muted" style="font-size: 0.75rem; margin-top: 2px;"
-                       *ngIf="getDossierWorkflowStepSubtitle(item.status, item.workflowStepName ?? item.workflowStatusName) as step">
+                       *ngIf="getDossierWorkflowStepSubtitle(item.statusId, item.workflowStepName ?? item.workflowStatusName) as step">
                     {{ step }}
                   </div>
                 </td>
@@ -243,9 +243,17 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
 
                     </button>
 
-                    <button *ngIf="isCreatorMenu() && (item.status === 'Draft' || item.status === 'New' || item.status === 'CompletedInput' || !item.workflowInstanceId)" (click)="onDelete(item)" class="act-btn act-delete" title="Xóa">
-                      <i class="pi pi-trash"></i>
-                    </button>
+                    <!-- Creator tab draft buttons -->
+                    <ng-container *ngIf="isCreatorMenu() && activeTab() === 'draft'">
+                      <!-- Hoàn thành nhập liệu cho Tạo mới (statusId === 1) -->
+                      <button *ngIf="item.statusId === 1" (click)="onQuickCompleteInput(item)" class="act-btn act-edit" title="Hoàn thành nhập liệu" style="background-color: #f0fdf4; color: #16a34a; border-color: #bbf7d0;">
+                        <i class="pi pi-check-circle"></i>
+                      </button>
+                      <!-- Gửi duyệt cho Hoàn thành (statusId === 2) -->
+                      <button *ngIf="item.statusId === 2" (click)="onQuickSubmitForApproval(item)" class="act-btn act-assign" title="Gửi duyệt" style="background-color: #f0f9ff; color: #0284c7; border-color: #bae6fd;">
+                        <i class="pi pi-send"></i>
+                      </button>
+                    </ng-container>
 
                     <!-- Thao tác nhanh (Quick Actions) dạng dropdown -->
                     <div *ngIf="checkQuickActionPermission(item)" style="display: inline-flex; justify-content: center; align-items: center;">
@@ -253,6 +261,10 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
                         <i class="pi pi-chevron-down"></i>
                       </button>
                     </div>
+
+                    <button *ngIf="isCreatorMenu() && (item.statusId === 1 || item.statusId === 2 || !item.workflowInstanceId)" (click)="onDelete(item)" class="act-btn act-delete" title="Xóa">
+                      <i class="pi pi-trash"></i>
+                    </button>
 
                   </div>
 
@@ -358,6 +370,56 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
 
       </ng-template>
 
+    </p-dialog>
+
+    <!-- Dialog xác nhận hoàn thành nhập liệu nhanh -->
+    <p-dialog [visible]="showQuickCompleteConfirm()" 
+              (visibleChange)="$event ? null : showQuickCompleteConfirm.set(false)"
+              header="Xác nhận hoàn thành" 
+              [modal]="true" 
+              [style]="{ width: '400px' }"
+              styleClass="evn-dialog-no-modal">
+      <div style="padding: 10px 0;">
+        <p>Bạn có chắc chắn muốn hoàn thành nhập liệu cho hồ sơ trạm/đường dây: <b>{{ selectedQuickItem()?.infrastructureName || '-' }}</b>?</p>
+        <p class="text-muted" style="font-size: 0.85rem; margin-top: 5px;">Hành động này sẽ chuyển trạng thái hồ sơ sang "Hoàn thành" để chuẩn bị gửi duyệt.</p>
+      </div>
+      <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px;">
+        <button (click)="showQuickCompleteConfirm.set(false)" class="btn-cancel btn-small" [disabled]="quickActionSubmitting()">Hủy</button>
+        <button (click)="confirmQuickComplete()" class="btn-save btn-small" [disabled]="quickActionSubmitting()">
+          <i class="pi pi-spin pi-spinner" *ngIf="quickActionSubmitting()"></i>
+          Xác nhận
+        </button>
+      </div>
+    </p-dialog>
+
+    <!-- Dialog gửi duyệt nhanh -->
+    <p-dialog [visible]="showQuickSubmitConfirm()" 
+              (visibleChange)="$event ? null : showQuickSubmitConfirm.set(false)"
+              header="Trình duyệt hồ sơ" 
+              [modal]="true" 
+              [style]="{ width: '450px' }"
+              styleClass="evn-dialog-no-modal">
+      <div style="padding: 10px 0;">
+        <p>Gửi duyệt hồ sơ trạm/đường dây: <b>{{ selectedQuickItem()?.infrastructureName || '-' }}</b></p>
+      </div>
+
+      <div class="form-group" *ngIf="quickSubmitNextStepInfo()?.requiresNextAssignee" style="margin-bottom: 16px; display: flex; flex-direction: column; gap: 6px;">
+        <label class="form-label required">Người xử lý tiếp theo</label>
+        <select class="wf-select w-full"
+                [ngModel]="quickSubmitSelectedNextUser()"
+                (ngModelChange)="quickSubmitSelectedNextUser.set($event)">
+          <option value="" disabled selected>-- Chọn người xử lý --</option>
+          <option *ngFor="let u of filteredQuickSubmitNextUsers()" [value]="u.id">{{ u.fullName || u.name }} ({{ u.username }})</option>
+        </select>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px;">
+        <button (click)="showQuickSubmitConfirm.set(false)" class="btn-cancel btn-small" [disabled]="quickActionSubmitting()">Hủy</button>
+        <button (click)="confirmQuickSubmit()" class="btn-save btn-small" [disabled]="quickActionSubmitting() || (quickSubmitNextStepInfo()?.requiresNextAssignee && !quickSubmitSelectedNextUser())">
+          <i class="pi pi-spin pi-spinner" *ngIf="quickActionSubmitting()"></i>
+          Gửi duyệt
+        </button>
+      </div>
     </p-dialog>
 
     <p-dialog
@@ -554,6 +616,22 @@ export class DossierListComponent implements OnInit {
     requiredRole: string;
   } | null>(null);
   users = signal<any[]>([]);
+  showQuickCompleteConfirm = signal<boolean>(false);
+  showQuickSubmitConfirm = signal<boolean>(false);
+  selectedQuickItem = signal<any>(null);
+  quickSubmitNextStepInfo = signal<any>(null);
+  quickSubmitSelectedNextUser = signal<string>('');
+  quickSubmitUsers = signal<any[]>([]);
+  quickSubmitSubmitting = signal<boolean>(false);
+  filteredQuickSubmitNextUsers = computed(() => {
+    const info = this.quickSubmitNextStepInfo();
+    if (!info || !info.requiredRole) return [];
+    const roles = info.requiredRole.split(',').map((r: string) => r.trim().toUpperCase());
+    return this.quickSubmitUsers().filter((u: any) => {
+      const uRoles: string[] = (u.roles || u.Roles || []).map((r: string) => r.toUpperCase());
+      return uRoles.some(r => roles.includes(r));
+    });
+  });
 
   filteredNextUsers = computed(() => this.users());
 
@@ -1081,6 +1159,93 @@ export class DossierListComponent implements OnInit {
     });
 
     menu.toggle(event);
+  }
+
+  onQuickCompleteInput(item: any) {
+    this.selectedQuickItem.set(item);
+    this.showQuickCompleteConfirm.set(true);
+  }
+
+  confirmQuickComplete() {
+    const item = this.selectedQuickItem();
+    if (!item || this.quickActionSubmitting()) return;
+
+    this.quickActionSubmitting.set(true);
+    this.service.completeInput(item.id).subscribe({
+      next: () => {
+        this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã hoàn thành nhập liệu thành công' });
+        this.showQuickCompleteConfirm.set(false);
+        this.quickActionSubmitting.set(false);
+        this.loadData();
+      },
+      error: (err: any) => {
+        this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: err.error?.message || 'Không thể hoàn thành nhập liệu' });
+        this.quickActionSubmitting.set(false);
+      }
+    });
+  }
+
+  onQuickSubmitForApproval(item: any) {
+    this.selectedQuickItem.set(item);
+    this.quickSubmitSubmitting.set(true);
+    this.service.getNextStepInfo().subscribe({
+      next: (res) => {
+        this.quickSubmitNextStepInfo.set(res);
+        this.quickSubmitSelectedNextUser.set('');
+        if (res.requiredRole) {
+          this.service.getUsersLookup(res.requiredRole).subscribe({
+            next: (users) => {
+              this.quickSubmitUsers.set(Array.isArray(users) ? users : []);
+              this.showQuickSubmitConfirm.set(true);
+              this.quickSubmitSubmitting.set(false);
+            },
+            error: () => {
+              this.quickSubmitUsers.set([]);
+              this.showQuickSubmitConfirm.set(true);
+              this.quickSubmitSubmitting.set(false);
+            }
+          });
+        } else {
+          this.quickSubmitUsers.set([]);
+          this.showQuickSubmitConfirm.set(true);
+          this.quickSubmitSubmitting.set(false);
+        }
+      },
+      error: (err: any) => {
+        this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: err.error?.message || 'Không thể lấy thông tin bước duyệt tiếp theo.' });
+        this.quickSubmitSubmitting.set(false);
+      }
+    });
+  }
+
+  confirmQuickSubmit() {
+    const item = this.selectedQuickItem();
+    const info = this.quickSubmitNextStepInfo();
+    if (!item || !info || this.quickActionSubmitting()) return;
+
+    if (info.requiresNextAssignee && !this.quickSubmitSelectedNextUser()) {
+      this.messageService.add({ severity: 'warn', summary: 'Cảnh báo', detail: 'Vui lòng chọn người duyệt tiếp theo.' });
+      return;
+    }
+
+    this.quickActionSubmitting.set(true);
+    this.service.submitForApproval(item.id, {
+      nextNodeId: info.nextNodeId,
+      actionLabel: 'Trình duyệt',
+      nextAssigneeUserId: this.quickSubmitSelectedNextUser() || undefined,
+      comment: 'Kính trình phê duyệt hồ sơ.'
+    }).subscribe({
+      next: () => {
+        this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã gửi duyệt hồ sơ thành công' });
+        this.showQuickSubmitConfirm.set(false);
+        this.quickActionSubmitting.set(false);
+        this.loadData();
+      },
+      error: (err: any) => {
+        this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: err.error?.message || 'Không thể gửi duyệt hồ sơ' });
+        this.quickActionSubmitting.set(false);
+      }
+    });
   }
 
 }

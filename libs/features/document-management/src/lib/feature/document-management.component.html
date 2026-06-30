@@ -304,9 +304,9 @@
                 <td>
                   <span
                     style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: inline-block; max-width: 110px;"
-                    [title]="doc.createdBy || '-'"
+                    [title]="doc.createdByName || doc.createdBy || '-'"
                   >
-                    {{ doc.createdBy || '-' }}
+                    {{ doc.createdByName || doc.createdBy || '-' }}
                   </span>
                 </td>
                 <td class="col-hd">

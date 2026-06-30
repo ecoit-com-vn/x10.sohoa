@@ -19,6 +19,12 @@ import {
 } from '../../utils/dossier-form-schema.util';
 import { forkJoin } from 'rxjs';
 import { DatePickerModule } from 'primeng/datepicker';
+import { AuthService } from '@sohoa.frontend/shared/core';
+import {
+  isApproveWorkflowLabel,
+  isRejectWorkflowLabel,
+  parseWorkflowActionButtons,
+} from '../../utils/dossier-workflow-bpmn.util';
 
 @Component({
   selector: 'app-dossier-form',
@@ -37,11 +43,36 @@ import { DatePickerModule } from 'primeng/datepicker';
         <div class="edit-actions">
           <button (click)="onCancel()" class="btn-cancel"><i class="pi pi-times"></i> Hủy</button>
           <button *ngIf="showCompleteInputButton()"
-                  (click)="onCompleteInput()" class="btn-green btn-small" [disabled]="completingInput()">
+                  (click)="onCompleteInput()" class="btn-green" [disabled]="completingInput()">
             <i class="pi pi-check" *ngIf="!completingInput()"></i>
             <i class="pi pi-spin pi-spinner" *ngIf="completingInput()"></i>
             Hoàn thành nhập liệu
           </button>
+          <button *ngIf="showSubmitForApprovalButton()"
+                  (click)="openSubmitWorkflowDialog()" class="btn-green" [disabled]="submitting()">
+            <i class="pi pi-send" *ngIf="!submitting()"></i>
+            <i class="pi pi-spin pi-spinner" *ngIf="submitting()"></i>
+            Gửi duyệt
+          </button>
+
+          <!-- Workflow action buttons for Returned (statusId = 5) -->
+          <ng-container *ngIf="formPendingTask() && isUserAuthorizedForFormAction">
+            <button *ngFor="let btn of formDynamicButtons()"
+                    class="btn-small"
+                    [style.padding]="'8px 12px'"
+                    [style.border-radius]="'4px'"
+                    [class.btn-cancel]="isRejectLabel(btn.label)"
+                    [class.btn-save]="isApproveLabel(btn.label)"
+                    [class.btn-green]="!isRejectLabel(btn.label) && !isApproveLabel(btn.label)"
+                    (click)="openFormActionDialog(btn)">
+              <i class="pi"
+                 [class.pi-check]="!isRejectLabel(btn.label)"
+                 [class.pi-times]="isRejectLabel(btn.label)"
+                 style="margin-right: 4px;"></i>
+              {{ btn.label }}
+            </button>
+          </ng-container>
+
           <button (click)="onSave()" class="btn-save" [disabled]="isSaving() || !isValid()">
             <i class="pi pi-save" *ngIf="!isSaving()"></i>
             <i class="pi pi-spin pi-spinner" *ngIf="isSaving()"></i>
@@ -271,6 +302,85 @@ import { DatePickerModule } from 'primeng/datepicker';
       </div>
     </div>
 
+    <!-- Dialog Xác nhận Gửi Duyệt -->
+    <p-dialog
+      [visible]="showSubmitConfirm()"
+      (visibleChange)="$event ? null : showSubmitConfirm.set(false)"
+      header="Gửi duyệt hồ sơ"
+      [modal]="true"
+      [style]="{ width: '450px' }"
+      styleClass="evn-dialog-custom"
+      [closable]="!submitting()">
+      <div style="display: flex; flex-direction: column; gap: 16px; padding: 8px 0 16px;">
+        <div style="display: flex; align-items: flex-start; gap: 12px;">
+          <i class="pi pi-send" style="font-size: 1.8rem; color: #1d4ed8;"></i>
+          <div>
+            <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">Xác nhận gửi duyệt hồ sơ lên cấp trên</p>
+            <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
+              Hồ sơ sẽ đi vào quy trình phê duyệt bước: <b style="color: #1e293b;">{{ nextStepInfo()?.stepName || 'Phê duyệt' }}</b>.
+            </p>
+          </div>
+        </div>
+
+        <!-- Chọn người xử lý tiếp theo nếu được yêu cầu -->
+        <div *ngIf="nextStepInfo()?.requiresNextAssignee" class="form-group">
+          <label class="form-label required">Người duyệt tiếp theo ({{ nextStepInfo()?.stepName }})</label>
+          <select class="wf-select" [value]="selectedNextUser()" (change)="onNextUserChange($event)">
+            <option value="">-- Chọn người phê duyệt --</option>
+            <option *ngFor="let u of filteredSubmitNextUsers()" [value]="u.id || u.Id || u.userId || u.username">
+              {{ u.fullName || u.FullName || u.name || u.username }}
+            </option>
+          </select>
+        </div>
+      </div>
+      <ng-template #footer>
+        <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+          <button class="btn-cancel btn-small" (click)="showSubmitConfirm.set(false)" [disabled]="submitting()">
+            <i class="pi pi-times"></i> Hủy
+          </button>
+          <button class="btn-save btn-small" (click)="onConfirmSubmitAndMove()" [disabled]="submitting()">
+            <i class="pi pi-spin pi-spinner" *ngIf="submitting()"></i>
+            <i class="pi pi-check" *ngIf="!submitting()"></i>
+            Xác nhận gửi
+          </button>
+        </div>
+      </ng-template>
+    </p-dialog>
+
+    <!-- Dialog thực hiện hành động workflow cho Form -->
+    <p-dialog [visible]="showFormActionDialog()" 
+              (visibleChange)="$event ? null : showFormActionDialog.set(false)"
+              [header]="'Xác nhận hành động: ' + (pendingActionBtn()?.label || '')" 
+              [modal]="true" 
+              [style]="{ width: '450px' }"
+              styleClass="evn-dialog-no-modal"
+              [closable]="!formActionSubmitting()">
+      <div style="display: flex; flex-direction: column; gap: 16px; padding: 8px 0 16px;">
+        <div class="form-group" style="display: flex; flex-direction: column; gap: 6px;">
+          <label class="form-label required">Ý kiến xử lý</label>
+          <textarea class="wf-textarea" [ngModel]="formActionComment()" (ngModelChange)="formActionComment.set($event)" rows="3" placeholder="Nhập ý kiến xử lý..."></textarea>
+        </div>
+        
+        <div class="form-group" *ngIf="pendingActionBtn()?.requiresUser && !isRejectLabel(pendingActionBtn()?.label || '')" style="display: flex; flex-direction: column; gap: 6px;">
+          <label class="form-label required">Người xử lý tiếp theo</label>
+          <select class="wf-select w-full" [ngModel]="selectedNextUserId()" (ngModelChange)="selectedNextUserId.set($event)">
+            <option value="" disabled selected>-- Chọn người xử lý --</option>
+            <option *ngFor="let u of filteredFormNextUsers()" [value]="u.id">{{ u.fullName || u.name }} ({{ u.username }})</option>
+          </select>
+        </div>
+      </div>
+      <ng-template #footer>
+        <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+          <button (click)="showFormActionDialog.set(false)" class="btn-cancel btn-small" [disabled]="formActionSubmitting()">Hủy</button>
+          <button (click)="confirmFormAction()" class="btn-save btn-small" [disabled]="formActionSubmitting() || (pendingActionBtn()?.requiresUser && !isRejectLabel(pendingActionBtn()?.label || '') && !selectedNextUserId())">
+            <i class="pi pi-spin pi-spinner" *ngIf="formActionSubmitting()"></i>
+            <i class="pi pi-check" *ngIf="!formActionSubmitting()"></i>
+            Đồng ý
+          </button>
+        </div>
+      </ng-template>
+    </p-dialog>
+
     <!-- Dialog Thêm Thiết Bị -->
     <p-dialog [(visible)]="showEquipmentDialog" header="Chọn thiết bị" [modal]="true" [style]="{width: '800px'}" styleClass="evn-dialog-no-modal" appendTo="body">
       <div style="display: flex; gap: 8px; margin-bottom: 16px;">
@@ -329,6 +439,7 @@ export class DossierFormComponent implements OnInit {
 
   private service = inject(DossierManagementService);
   private messageService = inject(MessageService);
+  private authService = inject(AuthService);
 
   isEditMode = computed(() => !!this.dossierId);
   activeTab = signal<'info' | 'documents' | 'versions' | 'workflow'>('info');
@@ -337,7 +448,46 @@ export class DossierFormComponent implements OnInit {
   completingInput = signal<boolean>(false);
   loadingForm = signal<boolean>(false);
   dossierStatus = signal<string>('');
+  dossierStatusId = signal<number>(0);
   workflowInstanceId = signal<string | null>(null);
+
+  // Workflow actions in edit form (Returned statusId = 5)
+  formPendingTask = signal<any>(null);
+  formDynamicButtons = signal<any[]>([]);
+  formWorkflowXml = signal<string>('');
+  formCurrentNodeId = signal<string>('');
+  showFormActionDialog = signal<boolean>(false);
+  pendingActionBtn = signal<any>(null);
+  formActionComment = signal<string>('');
+  selectedNextUserId = signal<string>('');
+  formActionSubmitting = signal<boolean>(false);
+  formWorkflowUsers = signal<any[]>([]);
+
+  filteredFormNextUsers = computed(() => {
+    const btn = this.pendingActionBtn();
+    if (!btn || !btn.requiredRole) return [];
+    const roles = btn.requiredRole.split(',').map((r: string) => r.trim().toUpperCase());
+    return this.formWorkflowUsers().filter((u: any) => {
+      const uRoles: string[] = (u.roles || u.Roles || []).map((r: string) => r.toUpperCase());
+      return uRoles.some(r => roles.includes(r));
+    });
+  });
+
+  submitting = signal<boolean>(false);
+  showSubmitConfirm = signal<boolean>(false);
+  nextStepInfo = signal<any>(null);
+  selectedNextUser = signal<string>('');
+  users = signal<any[]>([]);
+
+  filteredSubmitNextUsers = computed(() => {
+    const info = this.nextStepInfo();
+    if (!info || !info.requiredRole) return [];
+    const roles = info.requiredRole.split(',').map((r: string) => r.trim().toUpperCase());
+    return this.users().filter((u: any) => {
+      const uRoles: string[] = (u.roles || u.Roles || []).map((r: string) => r.toUpperCase());
+      return uRoles.some(r => roles.includes(r));
+    });
+  });
 
   dossier = {
     id: '',
@@ -395,6 +545,10 @@ export class DossierFormComponent implements OnInit {
     this.service.getGridTypeLookup().subscribe(res => this.gridTypes.set(res || []));
     this.service.getDossierSets().subscribe(res => this.dossierSets.set(res || []));
     this.loadInfrastructures();
+    this.service.getUsersLookup().subscribe({
+      next: (users) => this.users.set(Array.isArray(users) ? users : []),
+      error: () => this.users.set([])
+    });
   }
 
   loadInfrastructures() {
@@ -421,7 +575,11 @@ export class DossierFormComponent implements OnInit {
             rowVersion: res.rowVersion ?? res.RowVersion,
           };
           this.dossierStatus.set(String(res.status ?? res.Status ?? ''));
+          this.dossierStatusId.set(Number(res.statusId ?? res.StatusId ?? 0));
           this.workflowInstanceId.set(res.workflowInstanceId ?? res.WorkflowInstanceId ?? null);
+          if (res.workflowInstanceId ?? res.WorkflowInstanceId) {
+            this.loadWorkflow();
+          }
           this.formGridTypeId.set(this.dossier.gridTypeId);
           this.selectedEquipments.set(res.equipments ?? res.Equipments ?? []);
 
@@ -524,7 +682,75 @@ export class DossierFormComponent implements OnInit {
   }
 
   showCompleteInputButton(): boolean {
-    return this.isEditMode() && this.dossierStatus() === 'New';
+    return this.isEditMode() && this.dossierStatusId() === 1;
+  }
+
+  showSubmitForApprovalButton(): boolean {
+    return this.isEditMode() && (this.dossierStatusId() === 2 || this.dossierStatusId() === 5);
+  }
+
+  openSubmitWorkflowDialog() {
+    this.submitting.set(true);
+    this.service.getNextStepInfo().subscribe({
+      next: (res) => {
+        this.nextStepInfo.set(res);
+        this.selectedNextUser.set('');
+        this.showSubmitConfirm.set(true);
+        this.submitting.set(false);
+      },
+      error: (err) => {
+        this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: err.error?.message || 'Không thể lấy thông tin bước duyệt tiếp theo.' });
+        this.submitting.set(false);
+      }
+    });
+  }
+
+  onNextUserChange(event: any) {
+    this.selectedNextUser.set(event.target?.value || '');
+  }
+
+  onConfirmSubmitAndMove() {
+    const info = this.nextStepInfo();
+    if (!info) return;
+    if (info.requiresNextAssignee && !this.selectedNextUser()) {
+      this.messageService.add({ severity: 'warn', summary: 'Cảnh báo', detail: 'Vui lòng chọn người duyệt tiếp theo.' });
+      return;
+    }
+
+    this.submitting.set(true);
+    const isReturned = this.dossierStatusId() === 5;
+    const call$ = isReturned
+      ? this.service.resubmitWorkflow(this.dossier.id, {
+          nextNodeId: info.nextNodeId,
+          actionLabel: 'Trình duyệt',
+          nextAssigneeUserId: this.selectedNextUser() || undefined,
+          comment: 'Kính trình phê duyệt lại hồ sơ.'
+        })
+      : this.service.submitForApproval(this.dossier.id, {
+          nextNodeId: info.nextNodeId,
+          actionLabel: 'Trình duyệt',
+          nextAssigneeUserId: this.selectedNextUser() || undefined,
+          comment: 'Kính trình phê duyệt hồ sơ.'
+        });
+
+    call$.subscribe({
+      next: (res: any) => {
+        this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã gửi duyệt hồ sơ thành công' });
+        this.showSubmitConfirm.set(false);
+        const payload = res?.data;
+        if (payload) {
+          this.dossierStatus.set(payload.dossierStatus ?? this.dossierStatus());
+          this.workflowInstanceId.set(payload.instanceId ?? this.workflowInstanceId());
+        }
+        this.submitting.set(false);
+        this.saved.emit(this.dossier.id);
+      },
+      error: (err: any) => {
+        this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: err.error?.message || 'Không thể gửi duyệt hồ sơ' });
+        this.showSubmitConfirm.set(false);
+        this.submitting.set(false);
+      }
+    });
   }
 
   onCompleteInput(): void {
@@ -541,7 +767,7 @@ export class DossierFormComponent implements OnInit {
         });
         this.completingInput.set(false);
       },
-      error: (err) => {
+      error: (err: any) => {
         this.messageService.add({
           severity: 'error',
           summary: 'Lỗi',
@@ -586,12 +812,12 @@ export class DossierFormComponent implements OnInit {
       : this.service.createDossier(dto);
 
     req$.subscribe({
-      next: (res) => {
+      next: (res: any) => {
         this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã lưu thông tin hồ sơ' });
         this.saved.emit(this.isEditMode() ? this.dossier.id : (res.id || res));
         this.isSaving.set(false);
       },
-      error: (err) => {
+      error: (err: any) => {
         this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: err.error?.message || 'Không thể lưu hồ sơ' });
         this.isSaving.set(false);
       }
@@ -629,11 +855,11 @@ export class DossierFormComponent implements OnInit {
       gridTypeId: this.dossier.gridTypeId || undefined,
       pageSize: 50
     }).subscribe({
-      next: (res) => {
+      next: (res: any) => {
         this.equipmentSearchResults.set(res.items || []);
         this.searchingEquipments.set(false);
       },
-      error: () => {
+      error: (err: any) => {
         this.searchingEquipments.set(false);
       }
     });
@@ -670,5 +896,142 @@ export class DossierFormComponent implements OnInit {
 
   trackByFieldKey(_index: number, field: EavField): string {
     return field.key;
+  }
+
+  loadWorkflow() {
+    if (!this.dossierId) return;
+    this.service.getWorkflowDetail(this.dossierId).subscribe({
+      next: (res: any) => {
+        this.applyWorkflowDetailState(res);
+      }
+    });
+  }
+
+  applyWorkflowDetailState(res: any) {
+    const userId = this.authService.getUserId();
+    const roles = this.authService.getUserRoles?.() ?? [];
+    const isAdmin = roles.includes('ADMIN') || roles.includes('OPERATOR');
+
+    const tasks = res?.history ?? [];
+    const pendingList = tasks.filter((t: any) =>
+      String(t.status ?? t.Status ?? '').toLowerCase() === 'pending'
+    );
+
+    let myTask: any = null;
+    if (pendingList.length > 0) {
+      if (isAdmin || this.dossierStatusId() === 5) {
+        myTask = pendingList[0];
+      } else {
+        myTask = pendingList.find((task: any) => {
+          const assigneeId = task.assigneeUserId ?? task.AssigneeUserId;
+          if (!assigneeId) return false;
+          return String(assigneeId).toLowerCase() === String(userId).toLowerCase();
+        });
+      }
+    }
+
+    this.formPendingTask.set(myTask);
+
+    const xml = res?.definition?.workflowXml ?? res?.definition?.WorkflowXml ?? '';
+    const stepName = myTask?.workflowStatusName ?? myTask?.WorkflowStatusName ?? '';
+    const currentNodeId = myTask?.currentNodeId ?? myTask?.CurrentNodeId ?? '';
+
+    this.formWorkflowXml.set(xml);
+    this.formCurrentNodeId.set(currentNodeId);
+
+    if (myTask && xml) {
+      this.formDynamicButtons.set(parseWorkflowActionButtons(xml, stepName, currentNodeId));
+    } else {
+      this.formDynamicButtons.set([]);
+    }
+  }
+
+  get isUserAuthorizedForFormAction(): boolean {
+    const task = this.formPendingTask();
+    if (!task) return false;
+    const roles = this.authService.getUserRoles?.() ?? [];
+    if (roles.includes('ADMIN') || roles.includes('OPERATOR')) return true;
+
+    const assigneeId = task.assigneeUserId ?? task.AssigneeUserId;
+    const currentUserId = this.authService.getUserId();
+
+    if (assigneeId && currentUserId && String(assigneeId) === String(currentUserId)) return true;
+    if (assigneeId) return false;
+
+    const statusId = this.dossierStatusId();
+    if (statusId === 5) return true; // Returned, creator được phép gửi
+
+    return false;
+  }
+
+  openFormActionDialog(btn: any) {
+    this.pendingActionBtn.set(btn);
+    this.formActionComment.set('');
+    this.selectedNextUserId.set('');
+
+    if (btn.requiresUser && !this.isRejectLabel(btn.label)) {
+      this.service.getUsersLookup(btn.requiredRole).subscribe({
+        next: (users: any) => {
+          this.formWorkflowUsers.set(Array.isArray(users) ? users : []);
+          this.showFormActionDialog.set(true);
+        },
+        error: () => {
+          this.formWorkflowUsers.set([]);
+          this.showFormActionDialog.set(true);
+        }
+      });
+    } else {
+      this.formWorkflowUsers.set([]);
+      this.showFormActionDialog.set(true);
+    }
+  }
+
+  confirmFormAction() {
+    const btn = this.pendingActionBtn();
+    if (!btn || !this.dossierId || this.formActionSubmitting()) return;
+
+    const isCancel = this.isRejectLabel(btn.label);
+    if (btn.requiresUser && !isCancel && !this.selectedNextUserId()) {
+      this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Vui lòng chọn người xử lý bước tiếp theo.' });
+      return;
+    }
+
+    this.formActionSubmitting.set(true);
+    const payload = {
+      nextNodeId: btn.targetNodeId,
+      actionLabel: btn.label,
+      comment: this.formActionComment(),
+      nextAssigneeUserId: (!isCancel && btn.requiresUser) ? this.selectedNextUserId() : undefined
+    };
+
+    const statusId = this.dossierStatusId();
+    const useResubmit = statusId === 5;
+    const workflowCall = useResubmit
+      ? this.service.resubmitWorkflow(this.dossierId, payload)
+      : this.service.moveWorkflow(this.dossierId, payload);
+
+    workflowCall.subscribe({
+      next: () => {
+        this.messageService.add({ severity: 'success', summary: 'Thành công', detail: `Đã thực hiện: ${btn.label}` });
+        this.formActionSubmitting.set(false);
+        this.showFormActionDialog.set(false);
+        this.formActionComment.set('');
+        this.selectedNextUserId.set('');
+        this.pendingActionBtn.set(null);
+        this.onCancel(); // Thoát về danh sách sau khi chuyển tiếp thành công
+      },
+      error: (err: any) => {
+        this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: err.error?.message || 'Không thể thực hiện.' });
+        this.formActionSubmitting.set(false);
+      }
+    });
+  }
+
+  isRejectLabel(label?: string | null): boolean {
+    return isRejectWorkflowLabel(label);
+  }
+
+  isApproveLabel(label?: string | null): boolean {
+    return isApproveWorkflowLabel(label);
   }
 }

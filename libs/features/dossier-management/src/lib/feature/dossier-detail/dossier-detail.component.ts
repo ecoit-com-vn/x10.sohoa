@@ -53,8 +53,8 @@ function pickFirst<T>(...values: T[]): T | undefined {
               <span class="text-muted"><i class="pi pi-map-marker" style="margin-right: 4px;"></i> Trạm/ĐZ: <b style="color: #374151;">{{ dossierMeta()?.infrastructureName || '-' }}</b></span>
               <span class="text-muted" style="display: inline-flex; align-items: center; gap: 6px;">
                 Trạng thái:
-                <span [class]="getStatusClass(dossierMeta()?.status)">
-                  {{ getStatusText(dossierMeta()?.status) }}
+                <span [class]="getStatusClass(dossierMeta()?.statusId)">
+                  {{ getStatusText(dossierMeta()?.statusId, dossierMeta()?.statusName) }}
                 </span>
               </span>
             </div>
@@ -451,27 +451,27 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
   pendingActionBtn = signal<any>(null);
 
   get isDraftOrReturned(): boolean {
-    const status = this.dossier()?.status ?? this.dossier()?.Status;
-    return status === 'New' || status === 'CompletedInput' || status === 'Returned';
+    const statusId = this.dossier()?.statusId ?? this.dossier()?.StatusId;
+    return statusId === 1 || statusId === 2 || statusId === 5;
   }
 
   showCompleteInputButton(): boolean {
     if (this.menuScope !== 'creator') return false;
     const d = this.dossier();
     if (!d) return false;
-    const status = d.status ?? d.Status;
-    return status === 'New';
+    const statusId = d.statusId ?? d.StatusId;
+    return statusId === 1;
   }
 
   showSubmitForApprovalButton(): boolean {
     if (this.menuScope !== 'creator') return false;
     const d = this.dossier();
     if (!d) return false;
-    const status = d.status ?? d.Status;
+    const statusId = d.statusId ?? d.StatusId;
     const wfId = d.workflowInstanceId ?? d.WorkflowInstanceId
       ?? this.workflowDetail()?.instance?.id
       ?? this.workflowDetail()?.instance?.Id;
-    return status === 'CompletedInput' && !wfId;
+    return statusId === 2 && !wfId;
   }
 
   private getCurrentUserIdFromToken(): string | null {
@@ -722,8 +722,8 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
     if (assigneeId && currentUserId && String(assigneeId) === String(currentUserId)) return true;
     if (assigneeId) return false;
 
-    const status = this.dossier()?.status ?? this.dossier()?.Status;
-    if (status === 'Returned') return this.isCurrentUserCreator();
+    const statusId = this.dossier()?.statusId ?? this.dossier()?.StatusId;
+    if (statusId === 5) return this.isCurrentUserCreator();
 
     return false;
   }
@@ -755,8 +755,8 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
       comment: this.detailActionComment(),
       nextAssigneeUserId: (!isCancel && requiresUser) ? this.selectedNextUserId() : undefined
     };
-    const status = this.dossier()?.status ?? this.dossier()?.Status;
-    const useResubmit = this.menuScope === 'creator' && status === 'Returned';
+    const statusId = this.dossier()?.statusId ?? this.dossier()?.StatusId;
+    const useResubmit = this.menuScope === 'creator' && statusId === 5;
     const workflowCall = useResubmit
       ? this.service.resubmitWorkflow(this.dossierId, payload)
       : this.service.moveWorkflow(this.dossierId, payload);
@@ -803,8 +803,8 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
 
     if (roles.includes('ADMIN')) return true;
 
-    const status = d.status ?? d.Status;
-    if (status === 'New' || status === 'CompletedInput') {
+    const statusId = d.statusId ?? d.StatusId;
+    if (statusId === 1 || statusId === 2) {
       if (this.menuScope !== 'creator') return false;
       if (!this.authService.hasPermission('DOSSIER_EDIT') && !this.authService.hasPermission('DOSSIER_CREATE')) {
         return false;
@@ -824,7 +824,7 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
     }
 
     // Trả lại — cán bộ tạo được sửa trên menu quản lý (không cần cờ AllowEdit)
-    if (status === 'Returned') {
+    if (statusId === 5) {
       if (this.menuScope !== 'creator') return false;
       if (!this.authService.hasPermission('DOSSIER_EDIT')) return false;
       return this.isCurrentUserCreator();
@@ -870,7 +870,7 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
       next: (res) => {
         this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã hoàn thành nhập liệu thành công' });
         this.dossier.update((current) =>
-          current ? { ...current, status: 'CompletedInput' } : current
+          current ? { ...current, statusId: 2, statusName: 'Hoàn thành' } : current
         );
         this.submitting.set(false);
       },
@@ -925,7 +925,8 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
             current
               ? {
                   ...current,
-                  status: payload.dossierStatus ?? current.status,
+                  statusId: payload.dossierStatusId ?? current.statusId,
+                  statusName: payload.dossierStatusName ?? current.statusName,
                   workflowStatusName: payload.workflowStepName ?? current.workflowStatusName,
                   workflowInstanceId: payload.instanceId ?? current.workflowInstanceId,
                 }
@@ -947,11 +948,11 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
     return field.key;
   }
 
-  getStatusText(status?: string): string {
-    return getDossierStatusLabel(status);
+  getStatusText(status?: string | number, statusName?: string): string {
+    return getDossierStatusLabel(status, statusName);
   }
 
-  getStatusClass(status?: string): string {
+  getStatusClass(status?: string | number): string {
     return getDossierStatusPillClass(status);
   }
 

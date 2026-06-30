@@ -56,7 +56,7 @@
           <div class="submenu-list" *ngIf="item.items && item.expanded && !isSidebarCollapsed">
             <a *ngFor="let sub of item.items"
                [routerLink]="sub.routerLink"
-               routerLinkActive="sub-active"
+               [class.sub-active]="isSubMenuActive(sub, item.items!)"
                class="submenu-item">
               <span class="sub-dot"></span>
               <span class="sub-label">{{ sub.label }}</span>
