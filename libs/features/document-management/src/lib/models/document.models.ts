@@ -34,6 +34,7 @@ export interface Document {
   folderId: string | null;
   dossierId: string | null;
   createdBy?: string;
+  createdByName?: string;
   createdDate?: Date;
   fileSize?: number;
   mimeType?: string;

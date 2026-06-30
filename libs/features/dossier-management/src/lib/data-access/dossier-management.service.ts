@@ -68,7 +68,7 @@ export class DossierManagementService {
     infrastructureId?: string;
     gridTypeId?: number;
     unitId?: number;
-    status?: string;
+    statusId?: number;
     dossierTypeId?: string;
     page: number;
     pageSize: number;
@@ -84,7 +84,7 @@ export class DossierManagementService {
     if (filter.infrastructureId) params = params.set('infrastructureId', filter.infrastructureId);
     if (filter.gridTypeId != null) params = params.set('gridTypeId', filter.gridTypeId.toString());
     if (filter.unitId != null) params = params.set('unitId', filter.unitId.toString());
-    if (filter.status) params = params.set('status', filter.status);
+    if (filter.statusId != null) params = params.set('statusId', filter.statusId.toString());
     if (filter.dossierTypeId) params = params.set('dossierTypeId', filter.dossierTypeId);
 
     return this.http.get<any>(this.searchBase, { params });

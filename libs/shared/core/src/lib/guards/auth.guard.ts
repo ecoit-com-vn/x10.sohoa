@@ -1,6 +1,7 @@
 import { inject } from '@angular/core';
 import { Router, CanActivateFn } from '@angular/router';
-import { map } from 'rxjs/operators';
+import { of } from 'rxjs';
+import { map, switchMap } from 'rxjs/operators';
 import { AuthService } from '../services/auth.service';
 
 export const authGuard: CanActivateFn = () => {
@@ -16,18 +17,19 @@ export const authGuard: CanActivateFn = () => {
     return router.createUrlTree(['/login']);
   }
 
+  const loadPermsAndReturn = () =>
+    authService.ensurePermissionsLoaded().pipe(map(() => true as const));
+
   if (!authService.isTokenExpired(token)) {
-    authService.loadPermissions();
-    return true;
+    return loadPermsAndReturn();
   }
 
   return authService.ensureValidToken().pipe(
-    map((valid) => {
+    switchMap((valid) => {
       if (valid) {
-        authService.loadPermissions();
-        return true;
+        return loadPermsAndReturn();
       }
-      return router.createUrlTree(['/login']);
+      return of(router.createUrlTree(['/login']));
     })
   );
 };

@@ -556,7 +556,7 @@ html, body {
 .status-active  { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
 .status-inactive{ background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
 .status-pending { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
-.status-new     { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+.status-new, .status-draft { background: #c0d8ff !important; color: #5182cf !important; }
 .status-completed-input { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
 .status-pill .pi { font-size: 0.72rem; }
 
