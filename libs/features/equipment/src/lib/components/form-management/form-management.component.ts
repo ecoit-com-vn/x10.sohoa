@@ -14,6 +14,7 @@ import { EavFormService, EavFormTemplate, LoadingService } from '@sohoa.frontend
 import { finalize } from 'rxjs';
 import { Dialog } from 'primeng/dialog';
 import { EquipmentTypeService } from '../../data-access/equipment-type.service';
+import { ActivatedRoute, Router } from '@angular/router';
 
 interface FormField {
   id: string;
@@ -121,10 +122,12 @@ export class FormManagementComponent implements OnInit {
   private eavFormService = inject(EavFormService);
   private equipmentTypeService = inject(EquipmentTypeService);
   private messageService = inject(MessageService);
+  private route = inject(ActivatedRoute);
+  private router = inject(Router);
 
   filteredForms = computed(() => {
     const keyword = this.searchKeyword().trim().toLowerCase();
-    const allForms = this.forms();
+    const allForms = this.forms().filter(f => f.isActive);
 
     // Group forms by code and select the latest version for each unique code
     const latestFormsMap = new Map<string, EavFormTemplate>();
@@ -199,9 +202,37 @@ export class FormManagementComponent implements OnInit {
   }
 
   ngOnInit() {
-    this.loadForms();
     this.loadCatalogTypes();
     this.loadHmadCategories();
+    this.loadForms();
+
+    this.route.queryParams.subscribe(params => {
+      if (params['id']) {
+        const id = params['id'];
+        this.loadingService.show();
+        this.eavFormService.getTemplates()
+          .pipe(finalize(() => this.loadingService.hide()))
+          .subscribe({
+            next: (data) => {
+              this.forms.set(data || []);
+              const matched = (data || []).find(f => f.id === id);
+              if (matched) {
+                this.onEdit(matched);
+              } else {
+                this.messageService.add({
+                  severity: 'error',
+                  summary: 'Lỗi',
+                  detail: 'Không tìm thấy cấu hình form.'
+                });
+              }
+            },
+            error: (err) => {
+              console.error('Error loading forms', err);
+              this.forms.set([]);
+            }
+          });
+      }
+    });
   }
 
   loadForms() {
@@ -260,7 +291,7 @@ export class FormManagementComponent implements OnInit {
     this.viewState.set('edit');
     this.isEditMode.set(true);
     this.templateId.set(form.id);
-    this.detailTitle.set(`Chỉnh sửa cấu hình Biểu mẫu: ${form.name}`);
+    this.detailTitle.set(`Chỉnh sửa cấu hình form: ${form.name}`);
     this.formName.set(form.name);
     this.formCode.set(form.code || '');
     this.formCategory.set(form.category || '');
@@ -565,7 +596,7 @@ export class FormManagementComponent implements OnInit {
 
     this.loadingService.show();
     if (isEdit && tId) {
-      this.eavFormService.updateTemplate(tId, fName, fCode, fCategory, desc, fDescInfo, schemaStr, 'admin', undefined, extractProc)
+      this.eavFormService.updateTemplate(tId, fName, fCode, fCategory, desc, fDescInfo, schemaStr, 'admin', undefined, undefined, extractProc)
         .pipe(finalize(() => this.loadingService.hide()))
         .subscribe({
           next: () => {
@@ -587,7 +618,7 @@ export class FormManagementComponent implements OnInit {
           }
         });
     } else {
-      this.eavFormService.createTemplate(fName, fCode, fCategory, desc, fDescInfo, schemaStr, 'admin', undefined, extractProc)
+      this.eavFormService.createTemplate(fName, fCode, fCategory, desc, fDescInfo, schemaStr, 'admin', undefined, undefined, extractProc)
         .pipe(finalize(() => this.loadingService.hide()))
         .subscribe({
           next: () => {

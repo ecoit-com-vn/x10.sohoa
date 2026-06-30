@@ -69,7 +69,7 @@ export class FormTemplateComponent implements OnInit {
   gridTypes = signal<any[]>([]);
 
   filteredForms = computed(() => {
-    let result = this.forms();
+    let result = this.forms().filter(f => f.isActive);
 
     const keyword = this.searchKeyword().trim().toLowerCase();
     if (keyword) {

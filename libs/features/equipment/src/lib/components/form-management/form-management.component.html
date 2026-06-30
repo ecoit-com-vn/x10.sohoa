@@ -59,18 +59,17 @@
               </td>
             </tr>
             <tr *ngFor="let form of paginatedForms(); let i = index">
-              <td><code style="font-weight: bold; color: #000000;">{{ form.code || '' }}</code></td>
-              <td><b class="wf-name-link" style="color: #000000;" (click)="form.status === 'Chờ duyệt' || form.status === 'Hoàn thành' ? onPreview(form) : onEdit(form)">{{ form.name }}</b></td>
+              <td>{{ form.code || '' }}</td>
+              <td>{{ form.name }}</td>
               <td>
-                <span class="badge"
-                  style="background: #f1f5f9; color: #000000; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;">
+                <span class="badge">
                   {{ getCategoryName(form.category) }}
                 </span>
               </td>
-              <td style="text-align: center; font-family: monospace; font-weight: bold; color: #000000;">v{{
+              <td>v{{
                 form.version }}.0</td>
-              <td style="color: #000000;">{{ form.createdBy || '' }}</td>
-              <td style="color: #000000;">{{ form.createdAt | date:'dd/MM/yyyy HH:mm' }}</td>
+              <td>{{ form.createdBy || '' }}</td>
+              <td>{{ form.createdAt | date:'dd/MM/yyyy HH:mm' }}</td>
               <td class="col-tt">
                 <span class="status-pill" [class.status-draft]="form.status === 'Tạo mới' || !form.status"
                   [class.status-pending]="form.status === 'Chờ duyệt'"
