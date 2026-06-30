@@ -110,7 +110,8 @@ public class InfrastructureRepository : IInfrastructureRepository
         int infraTypeId, 
         string? keyword, 
         int? status,
-        IEnumerable<long>? unitIds = null)
+        IEnumerable<long>? unitIds = null,
+        long? unitId = null)
     {
         if (_connection.State != ConnectionState.Open) 
             _connection.Open();
@@ -135,7 +136,12 @@ public class InfrastructureRepository : IInfrastructureRepository
             parameters.Add("Status", status.Value);
         }
 
-        if (unitIds != null && unitIds.Any())
+        if (unitId.HasValue && unitId.Value > 0)
+        {
+            sqlBase += $" AND i.UNIT_ID = :UnitId";
+            parameters.Add("UnitId", unitId.Value);
+        }
+        else if (unitIds != null && unitIds.Any())
         {
             sqlBase += $" AND i.UNIT_ID IN :UnitIds";
             parameters.Add("UnitIds", unitIds);

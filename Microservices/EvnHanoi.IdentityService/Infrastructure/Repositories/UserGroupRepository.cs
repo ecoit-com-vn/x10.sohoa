@@ -30,17 +30,26 @@ public class UserGroupRepository : IUserGroupRepository
         return await _connection.QueryAsync<UserGroup>(sql);
     }
 
-    public async Task<(IEnumerable<UserGroup> Items, int TotalCount)> GetPagedAsync(int page, int pageSize, string? keyword = null)
+    public async Task<(IEnumerable<UserGroup> Items, int TotalCount)> GetPagedAsync(int page, int pageSize, string? keyword = null, bool? isActive = null)
     {
         if (_connection.State != ConnectionState.Open) _connection.Open();
         
-        var whereClause = "";
+        var conditions = new List<string>();
         var parameters = new DynamicParameters();
+        
         if (!string.IsNullOrWhiteSpace(keyword))
         {
-            whereClause = "WHERE (UPPER(ug.Name) LIKE UPPER(:Keyword) OR UPPER(ug.Description) LIKE UPPER(:Keyword))";
+            conditions.Add("(UPPER(ug.Name) LIKE UPPER(:Keyword) OR UPPER(ug.Description) LIKE UPPER(:Keyword))");
             parameters.Add("Keyword", $"%{keyword}%");
         }
+        
+        if (isActive.HasValue)
+        {
+            conditions.Add("ug.IsActive = :IsActive");
+            parameters.Add("IsActive", isActive.Value ? 1 : 0);
+        }
+        
+        var whereClause = conditions.Count > 0 ? "WHERE " + string.Join(" AND ", conditions) : "";
         
         var countSql = $"SELECT COUNT(*) FROM USER_GROUP ug {whereClause}";
         var offset = (page - 1) * pageSize;

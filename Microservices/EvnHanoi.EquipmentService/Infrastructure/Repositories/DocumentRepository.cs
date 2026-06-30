@@ -10,6 +10,16 @@ public class DocumentRepository : IDocumentRepository
 {
     private readonly IDbConnection _connection;
 
+    private const string DocumentCreatorJoin =
+        @"LEFT JOIN APP_USER cu ON (
+            LOWER(cu.Id) = LOWER(d.CREATED_BY)
+            OR LOWER(cu.UserName) = LOWER(d.CREATED_BY)
+            OR LOWER(cu.UserName) = LOWER(d.CREATOR_NAME)
+        )";
+
+    private const string DocumentCreatedByNameSelect =
+        "NVL(cu.FullName, NVL(d.CREATOR_NAME, d.CREATED_BY)) AS CreatedByName";
+
     public DocumentRepository(IDbConnection connection)
     {
         _connection = connection ?? throw new ArgumentNullException(nameof(connection));
@@ -211,11 +221,13 @@ public class DocumentRepository : IDocumentRepository
                 d.FOLDER_ID AS FolderId,
                 d.DOSSIER_ID AS DossierId,
                 d.CREATED_BY AS CreatedBy,
+                {DocumentCreatedByNameSelect},
                 d.CREATED_DATE AS CreatedDate,
                 NVL(latest.FILE_SIZE, 0) AS FileSize,
                 latest.MIME_TYPE AS MimeType,
                 latest.LATEST_VERSION_ID AS LatestVersionId
             FROM DOCUMENTS d
+            {DocumentCreatorJoin}
             LEFT JOIN (
                 SELECT dv.DOCUMENT_ID, dv.ID AS LATEST_VERSION_ID, dv.FILE_SIZE, dv.MIME_TYPE
                 FROM DOCUMENT_VERSIONS dv
@@ -254,11 +266,13 @@ public class DocumentRepository : IDocumentRepository
                 d.DOCUMENT_TYPE_ID AS DocumentTypeId,
                 dt.NAME AS DocumentTypeName,
                 d.CREATED_BY AS CreatedBy,
+                {DocumentCreatedByNameSelect},
                 d.CREATED_DATE AS CreatedDate,
                 NVL(latest.FILE_SIZE, 0) AS FileSize,
                 latest.MIME_TYPE AS MimeType,
                 latest.LATEST_VERSION_ID AS LatestVersionId
             FROM DOCUMENTS d
+            {DocumentCreatorJoin}
             LEFT JOIN DOCUMENT_TYPES dt ON dt.ID = d.DOCUMENT_TYPE_ID AND dt.IsDeleted = 0
             LEFT JOIN (
                 SELECT dv.DOCUMENT_ID, dv.ID AS LATEST_VERSION_ID, dv.FILE_SIZE, dv.MIME_TYPE
@@ -649,7 +663,7 @@ public class DocumentRepository : IDocumentRepository
                 d.DOCUMENT_TYPE_ID AS DocumentTypeId,
                 dt.NAME AS DocumentTypeName,
                 d.CREATED_BY AS CreatedBy,
-                NVL(d.CREATOR_NAME, cu.FullName) AS CreatedByName,
+                {DocumentCreatedByNameSelect},
                 d.CREATED_DATE AS CreatedDate,
                 NVL(latest.FILE_SIZE, 0) AS FileSize,
                 latest.MIME_TYPE AS MimeType,
@@ -666,7 +680,7 @@ public class DocumentRepository : IDocumentRepository
                 ext.DOCUMENT_VERSION_ID AS ExtractionDocumentVersionId,
                 ext.STATUS AS ExtractionStatus
             FROM DOCUMENTS d
-            LEFT JOIN APP_USER cu ON cu.Id = d.CREATED_BY
+            {DocumentCreatorJoin}
             LEFT JOIN DOCUMENT_TYPES dt ON dt.ID = d.DOCUMENT_TYPE_ID AND dt.IsDeleted = 0
             LEFT JOIN (
                 SELECT dv.DOCUMENT_ID, dv.ID AS LATEST_VERSION_ID, dv.FILE_SIZE, dv.MIME_TYPE
@@ -1049,6 +1063,7 @@ public class DocumentRepository : IDocumentRepository
                 d.FOLDER_ID AS FolderId,
                 d.DOSSIER_ID AS DossierId,
                 d.CREATED_BY AS CreatedBy,
+                {DocumentCreatedByNameSelect},
                 d.CREATED_DATE AS CreatedDate,
                 NVL(latest.FILE_SIZE, 0) AS FileSize,
                 latest.MIME_TYPE AS MimeType,
@@ -1056,6 +1071,7 @@ public class DocumentRepository : IDocumentRepository
             FROM DOCUMENTS d
             JOIN DOSSIERS dos ON d.DOSSIER_ID = dos.ID
             JOIN INFRASTRUCTURE i ON dos.InfrastructureId = i.ID
+            {DocumentCreatorJoin}
             LEFT JOIN (
                 SELECT dv.DOCUMENT_ID, dv.ID AS LATEST_VERSION_ID, dv.FILE_SIZE, dv.MIME_TYPE
                 FROM DOCUMENT_VERSIONS dv

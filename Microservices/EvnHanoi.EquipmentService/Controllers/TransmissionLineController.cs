@@ -41,13 +41,14 @@ public class TransmissionLineController : ControllerBase
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10,
         [FromQuery] string? keyword = null,
-        [FromQuery] int? status = null)
+        [FromQuery] int? status = null,
+        [FromQuery] long? unitId = null)
     {
         if (page < 1) page = 1;
         if (pageSize < 1) pageSize = 10;
 
         var allowedUnitIds = await GetAllowedUnitIdsAsync();
-        var (items, totalCount) = await _infrastructureRepository.GetPagedAsync(page, pageSize, INFRA_TYPE_ID, keyword, status, allowedUnitIds);
+        var (items, totalCount) = await _infrastructureRepository.GetPagedAsync(page, pageSize, INFRA_TYPE_ID, keyword, status, allowedUnitIds, unitId);
         return Ok(new { items, totalCount, page, pageSize });
     }
 

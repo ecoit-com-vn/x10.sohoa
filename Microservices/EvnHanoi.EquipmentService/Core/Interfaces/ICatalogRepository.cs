@@ -4,8 +4,8 @@ namespace EvnHanoi.EquipmentService.Core.Interfaces;
 
 public interface ICatalogRepository
 {
-    Task<IEnumerable<Catalog>> GetAllAsync(long? catalogTypeId = null, string? keyword = null, int? status = null, long? unitId = null);
-    Task<(IEnumerable<Catalog> Items, int TotalCount)> GetPagedAsync(int page, int pageSize, long? catalogTypeId = null, string? keyword = null, int? status = null, long? unitId = null);
+    Task<IEnumerable<Catalog>> GetAllAsync(long? catalogTypeId = null, string? keyword = null, int? status = null, long? unitId = null, string? username = null);
+    Task<(IEnumerable<Catalog> Items, int TotalCount)> GetPagedAsync(int page, int pageSize, long? catalogTypeId = null, string? keyword = null, int? status = null, long? unitId = null, string? username = null);
     Task<Catalog?> GetByIdAsync(long id);
     Task<Catalog?> GetByCodeAsync(long catalogTypeId, string code);
     Task<bool> HasChildrenAsync(long id);
@@ -15,8 +15,8 @@ public interface ICatalogRepository
     Task<IEnumerable<CatalogType>> GetCatalogTypesAsync();
     Task<CatalogType?> GetCatalogTypeByCodeAsync(string code);
     Task<CatalogType?> GetCatalogTypeByIdAsync(long id);
-    Task<IEnumerable<CatalogType>> GetCatalogTypesFilteredAsync(bool isPrivate, string? keyword = null, int? status = null);
-    Task<CatalogType?> GetCatalogTypeByIdFilteredAsync(long id, bool isPrivate);
+    Task<IEnumerable<CatalogType>> GetCatalogTypesFilteredAsync(bool isPrivate, string? keyword = null, int? status = null, string? username = null);
+    Task<CatalogType?> GetCatalogTypeByIdFilteredAsync(long id, bool isPrivate, string? username = null);
     Task<long> CreateCatalogTypeAsync(CatalogType catalogType);
     Task<bool> UpdateCatalogTypeAsync(CatalogType catalogType);
     Task<bool> DeleteCatalogTypeAsync(long id, string updatedBy);

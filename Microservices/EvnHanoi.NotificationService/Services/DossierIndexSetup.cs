@@ -89,7 +89,9 @@ public static class DossierIndexSetup
             { "dossierSetName", textField },
             { "dossierTypeId", new KeywordProperty() },
             { "dossierTypeName", textField },
-            { "status", new KeywordProperty() },
+            { "statusId", new IntegerNumberProperty() },
+            { "statusCode", new KeywordProperty() },
+            { "statusName", new KeywordProperty() },
             { "workflowStatusName", new KeywordProperty() },
             { "workflowInstanceId", new KeywordProperty() },
             { "workflowInstanceStatus", new KeywordProperty() },
@@ -171,6 +173,9 @@ public static class DossierIndexSetup
         var response = await client.Indices.PutMappingAsync(indexName, m => m
             .Properties(new Properties
             {
+                { "statusId", new IntegerNumberProperty() },
+                { "statusCode", new KeywordProperty() },
+                { "statusName", new KeywordProperty() },
                 { "pendingAssignedRoles", new KeywordProperty() },
                 { "pendingAssigneeUserId", new KeywordProperty() },
                 { "workflowParticipantUserIds", new KeywordProperty() },

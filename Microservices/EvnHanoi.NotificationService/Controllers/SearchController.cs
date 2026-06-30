@@ -49,7 +49,7 @@ public class SearchController : ControllerBase
         [FromQuery] int? gridTypeId,
         [FromQuery] long? unitId,
         [FromQuery] string? tab,
-        [FromQuery] string? status,
+        [FromQuery] int? statusId,
         [FromQuery] string? menuScope,
         [FromQuery] Guid? dossierTypeId,
         [FromQuery] int page = 1,
@@ -58,7 +58,7 @@ public class SearchController : ControllerBase
         var roles = GetUserRoles();
         var userId = GetUserId();
         var isAdmin = IsAdmin(roles);
-        var normalizedTab = NormalizeTabParameter(tab, status);
+        var normalizedTab = NormalizeTabParameter(tab, statusId?.ToString());
 
         var scopeCheck = await _menuScopeValidator.ValidateAsync(
             menuScope,
@@ -88,7 +88,7 @@ public class SearchController : ControllerBase
             GridTypeId = gridTypeId,
             UnitId = effectiveUnitId,
             Tab = normalizedTab,
-            Status = status,
+            StatusId = statusId,
             MenuScope = DossierMenuScopes.Normalize(menuScope),
             DossierTypeId = dossierTypeId,
             UserId = userId,
@@ -216,9 +216,9 @@ public class SearchController : ControllerBase
                 {
                     b.MustNot(mn => mn.Term(t => t.Field(DossierEsFieldNames.IsDeleted).Value(true)));
                     b.Filter(f => f.Terms(t => t
-                        .Field(DossierEsFieldNames.Status)
+                        .Field(DossierEsFieldNames.StatusId)
                         .Terms(new TermsQueryField(
-                            DossierTabEsQuery.InPipelineStatuses.Select(FieldValue.String).ToArray()))));
+                            DossierTabEsQuery.InPipelineStatuses.Select(x => (FieldValue)x).ToArray()))));
                     b.Filter(f => f.Terms(t => t
                         .Field(DossierEsFieldNames.PendingAssigneeUserId)
                         .Terms(new TermsQueryField(variants.Select(FieldValue.String).ToArray()))));
@@ -239,7 +239,9 @@ public class SearchController : ControllerBase
             sampleFromApi = items.Select(i => new
             {
                 i.Id,
-                i.Status,
+                i.StatusId,
+                i.StatusCode,
+                i.StatusName,
                 i.PendingAssigneeUserId
             }),
             jwtClaims = User.Claims.Select(c => new { c.Type, c.Value })
@@ -410,10 +412,14 @@ public class SearchController : ControllerBase
 
     private static string? NormalizeTabParameter(string? tab, string? status)
     {
+        int? statusId = null;
+        if (int.TryParse(status, out var parsed))
+            statusId = parsed;
+
         var resolved = DossierTabEsQuery.ResolveTabSlug(new DossierFilterDto
         {
             Tab = tab?.Trim(),
-            Status = status?.Trim()
+            StatusId = statusId
         });
 
         return resolved ?? tab?.Trim();

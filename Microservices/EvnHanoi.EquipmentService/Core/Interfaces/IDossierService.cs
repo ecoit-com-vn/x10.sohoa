@@ -10,7 +10,10 @@ public interface IDossierService
 {
     //lookup
     Task<IEnumerable<GridTypeEntity>> GetGridTypesLookupAsync();
-    Task<IEnumerable<InfrastructureEntity>> GetInfrastructuresLookupAsync();
+    Task<IEnumerable<InfrastructureEntity>> GetInfrastructuresLookupAsync(
+        bool isAdmin,
+        long? userUnitId,
+        IReadOnlyList<long>? fallbackUnitIds);
     Task<IEnumerable<DossierType>> GetDossierTypesLookupAsync();
     Task<(IEnumerable<EquipmentLookupItemDto> Items, int TotalCount)> GetEquipmentLookupAsync(
         EquipmentLookupFilterDto filter,

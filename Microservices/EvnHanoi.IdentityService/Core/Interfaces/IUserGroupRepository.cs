@@ -8,7 +8,7 @@ namespace EvnHanoi.IdentityService.Core.Interfaces;
 public interface IUserGroupRepository
 {
     Task<IEnumerable<UserGroup>> GetAllAsync();
-    Task<(IEnumerable<UserGroup> Items, int TotalCount)> GetPagedAsync(int page, int pageSize, string? keyword = null);
+    Task<(IEnumerable<UserGroup> Items, int TotalCount)> GetPagedAsync(int page, int pageSize, string? keyword = null, bool? isActive = null);
     Task<UserGroup?> GetByIdAsync(long id);
     Task<long> CreateAsync(UserGroup group);
     Task<bool> UpdateAsync(UserGroup group);

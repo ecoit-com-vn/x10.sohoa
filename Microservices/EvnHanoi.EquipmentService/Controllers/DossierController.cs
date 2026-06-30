@@ -48,7 +48,7 @@ public partial class DossierController : ControllerBase
         [FromQuery] Guid? infrastructureId,
         [FromQuery] int? gridTypeId,
         [FromQuery] long? unitId,
-        [FromQuery] string? status,
+        [FromQuery] int? statusId,
         [FromQuery] Guid? dossierTypeId,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10)
@@ -59,7 +59,7 @@ public partial class DossierController : ControllerBase
             InfrastructureId = infrastructureId,
             GridTypeId = gridTypeId,
             UnitId = unitId,
-            Status = status,
+            StatusId = statusId,
             DossierTypeId = dossierTypeId,
             Page = page,
             PageSize = pageSize
@@ -96,7 +96,21 @@ public partial class DossierController : ControllerBase
     [BypassDynamicPermission]
     public async Task<IActionResult> GetInfrastructuresLookup()
     {
-        var items = await _dossierService.GetInfrastructuresLookupAsync();
+        var isAdmin = User.IsInRole("ADMIN") || User.Claims.Any(c => c.Type == ClaimTypes.Role && c.Value == "ADMIN");
+        long? userUnitId = null;
+        if (!isAdmin)
+        {
+            var unitIdClaim = User.FindFirst("unit_id")?.Value;
+            if (!string.IsNullOrEmpty(unitIdClaim) && long.TryParse(unitIdClaim, out var parsedUnitId))
+            {
+                userUnitId = parsedUnitId;
+            }
+        }
+
+        var items = await _dossierService.GetInfrastructuresLookupAsync(
+            isAdmin,
+            userUnitId,
+            GetAuthorizedUnitIds());
         return Ok(items);
     }
 

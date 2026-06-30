@@ -9,4 +9,5 @@ public class OrganizationUnit
     public string Name { get; set; } = string.Empty;
     public long? ParentId { get; set; }
     public string Description { get; set; } = string.Empty;
+    public bool IsActive { get; set; } = true;
 }

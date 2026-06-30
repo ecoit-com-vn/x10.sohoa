@@ -34,7 +34,9 @@ public class DossierListItemDto
     public string? DossierSetName { get; set; }
     public Guid DossierTypeId { get; set; }
     public string? DossierTypeName { get; set; }
-    public string Status { get; set; } = string.Empty;
+    public int StatusId { get; set; }
+    public string? StatusCode { get; set; }
+    public string? StatusName { get; set; }
     public string? WorkflowStepName { get; set; }
     public Guid? WorkflowInstanceId { get; set; }
     /// <summary>Trạng thái instance WF (Running/Completed…) — đọc từ ES, hỗ trợ debug tab.</summary>
@@ -64,7 +66,7 @@ public class DossierFilterDto
     /// <summary>Tab UI slug — KHÔNG phải giá trị ES status (Draft/InProgress/…).</summary>
     public string? Tab { get; set; }
     /// <summary>Filter trực tiếp field ES status nghiệp vụ — bỏ qua nếu có Tab.</summary>
-    public string? Status { get; set; }
+    public int? StatusId { get; set; }
     public string? UserId { get; set; }
     public IReadOnlyList<string>? UserRoles { get; set; }
     public bool IsAdmin { get; set; }
