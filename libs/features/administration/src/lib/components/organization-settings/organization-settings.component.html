@@ -23,6 +23,13 @@
             placeholder="Tìm nhanh đơn vị..."
             [ngModel]="searchKeyword()"
             (ngModelChange)="searchKeyword.set($event)" />
+          
+          <select class="wf-select" [ngModel]="searchStatus()" (ngModelChange)="searchStatus.set($event)" style="min-width: 160px;">
+            <option value="">-- Tất cả trạng thái --</option>
+            <option value="active">Hoạt động</option>
+            <option value="inactive">Ngưng hoạt động</option>
+          </select>
+
           <button class="btn-tim" (click)="onSearch()">
             <i class="pi pi-search"></i> Tìm
           </button>
@@ -40,9 +47,9 @@
           <thead>
             <tr>
               <th style="width: 100px;">STT</th>
-              <th>Mã đơn vị (Code)</th>
-              <th>Cơ cấu Tổ chức / Phòng ban (Name)</th>
-              <th>Thuộc đơn vị cấp trên (Parent Unit)</th>
+              <th>Mã đơn vị</th>
+              <th>Cơ cấu Tổ chức / Phòng ban</th>
+              <th>Thuộc đơn vị cấp trên</th>
               <th>Mô tả</th>
               <th>Trạng thái</th>
               <th class="col-hd">Thao tác</th>
@@ -73,13 +80,21 @@
                   </div>
                 </td>
                 <td>
-                  <span class="status-pill status-pending" *ngIf="unit.parentId" style="background-color: #f1f5f9; color: #0f172a; border-color: #cbd5e1;">
+                  <span *ngIf="unit.parentId">
                     {{ getUnitName(unit.parentId) }}
                   </span>
                 </td>
                 <td><span class="text-muted" style="font-size: 0.82rem;">{{ unit.description }}</span></td>
-                <td></td>
+                <td>
+                  <span class="status-pill"
+                    [class.status-active]="unit.isActive"
+                    [class.status-inactive]="!unit.isActive">
+                    {{ unit.isActive ? 'Hoạt động' : 'Ngưng hoạt động' }}
+                  </span>
+                </td>
                 <td class="col-hd">
+                  <button *ngIf="authService.hasPermission('ORGANIZATION_EDIT') && unit.isActive" class="act-btn act-lock" (click)="toggleUnitStatus(unit)" title="Khóa đơn vị"><i class="pi pi-lock-open color-red"></i></button>
+                  <button *ngIf="authService.hasPermission('ORGANIZATION_EDIT') && !unit.isActive" class="act-btn act-unlock" (click)="toggleUnitStatus(unit)" title="Mở khóa đơn vị"><i class="pi pi-lock color-green"></i></button>
                   <button *ngIf="authService.hasPermission('ORGANIZATION_EDIT')" class="act-btn act-edit" (click)="onEdit(unit)" title="Chỉnh sửa"><i class="pi pi-pencil"></i></button>
                   <button *ngIf="authService.hasPermission('ORGANIZATION_DELETE')" class="act-btn act-delete" (click)="onDelete(unit)" title="Xóa"><i class="pi pi-trash"></i></button>
                 </td>
@@ -124,6 +139,16 @@
           </select>
         </div>
         
+        <div class="form-group">
+          <label class="form-label">Mã định danh</label>
+          <input type="text" class="wf-input w-full" [(ngModel)]="currentUnit().identifier" placeholder="Ví dụ: MDD01, ORG_ID_02..." [disabled]="saving()" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Thứ tự sắp xếp</label>
+          <input type="number" class="wf-input w-full" [(ngModel)]="currentUnit().sortOrder" placeholder="Ví dụ: 1, 2, 3..." [disabled]="saving()" />
+        </div>
+
         <div class="form-group">
           <label class="form-label">Mô tả chi tiết</label>
           <textarea class="wf-textarea w-full" rows="3" [(ngModel)]="currentUnit().description" placeholder="Ghi chú chi tiết phòng ban này..." [disabled]="saving()"></textarea>

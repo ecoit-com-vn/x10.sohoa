@@ -29,7 +29,14 @@
             placeholder="Tìm kiếm nhóm..."
             [ngModel]="searchKeyword()"
             (ngModelChange)="searchKeyword.set($event)" />
-          <button class="btn-tim" (click)="onSearch()">
+
+          <select class="wf-select" [ngModel]="searchStatus()" (ngModelChange)="searchStatus.set($event)" style="min-width: 160px;">
+            <option value="">-- Tất cả trạng thái --</option>
+            <option value="active">Hoạt động</option>
+            <option value="inactive">Ngưng hoạt động</option>
+          </select>
+
+          <button class="btn-tim" (click)="loadGroups()">
             <i class="pi pi-search"></i> Tìm
           </button>
         </div>
@@ -48,6 +55,7 @@
               <th style="width: 80px;">STT</th>
               <th>Tên nhóm người dùng</th>
               <th>Mô tả</th>
+              <th style="width: 150px; text-align: center;">Trạng thái</th>
               <th class="col-hd">Thao tác</th>
             </tr>
           </thead>
@@ -58,6 +66,7 @@
                 <td class="col-stt"><div class="skeleton-shimmer" style="height: 16px; width: 24px; border-radius: 4px;"></div></td>
                 <td><div class="skeleton-shimmer" style="height: 16px; width: 150px; border-radius: 4px;"></div></td>
                 <td><div class="skeleton-shimmer" style="height: 16px; width: 250px; border-radius: 4px;"></div></td>
+                <td style="text-align: center;"><div class="skeleton-shimmer" style="height: 16px; width: 80px; margin: 0 auto; border-radius: 12px;"></div></td>
                 <td class="col-hd"><div class="skeleton-shimmer" style="height: 24px; width: 200px; border-radius: 4px;"></div></td>
               </tr>
             </ng-container>
@@ -70,6 +79,13 @@
                   <span *ngIf="!authService.hasPermission('USER_GROUP_EDIT')">{{ g.name }}</span>
                 </td>
                 <td><span class="text-muted">{{ g.description || '-' }}</span></td>
+                <td style="text-align: center;">
+                  <span class="status-pill"
+                    [class.status-active]="g.isActive"
+                    [class.status-inactive]="!g.isActive">
+                    {{ g.isActive ? 'Hoạt động' : 'Ngưng hoạt động' }}
+                  </span>
+                </td>
                 <td class="col-hd">
                   <div class="action-buttons-group">
                     <button *ngIf="authService.hasPermission('USER_GROUP_MANAGE')" class="act-btn act-assign" (click)="onManageMembers(g)" title="Thành viên" style="background-color: #eff6ff; color: #1e40af; border-color: #bfdbfe;">
@@ -92,6 +108,10 @@
                           <i class="pi pi-pencil color-teal"></i>
                           <span>Chỉnh sửa</span>
                         </button>
+                        <button *ngIf="authService.hasPermission('USER_GROUP_EDIT')" type="button" class="dropdown-item-btn" (click)="toggleGroupStatus(g); activeDropdownGroupId.set(null)" [title]="g.isActive ? 'Khóa nhóm' : 'Mở khóa nhóm'">
+                          <i class="pi" [ngClass]="g.isActive ? 'pi-lock color-red' : 'pi-lock-open color-green'"></i>
+                          <span>{{ g.isActive ? 'Khóa nhóm' : 'Mở khóa' }}</span>
+                        </button>
                         <button *ngIf="authService.hasPermission('USER_GROUP_DELETE')" type="button" class="dropdown-item-btn" (click)="onDelete(g); activeDropdownGroupId.set(null)" title="Xóa">
                           <i class="pi pi-trash color-red"></i>
                           <span>Xóa</span>
@@ -102,7 +122,7 @@
                 </td>
               </tr>
               <tr *ngIf="filteredGroups().length === 0">
-                <td colspan="4" class="empty-row">
+                <td colspan="5" class="empty-row">
                   <i class="pi pi-inbox"></i>
                   <div>Không tìm thấy nhóm người dùng nào phù hợp.</div>
                 </td>

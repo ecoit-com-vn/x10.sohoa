@@ -116,6 +116,31 @@ export class UploadConfigComponent implements OnInit {
     this.displayDialog.set(true);
   }
 
+  toggleConfigStatus(config: any) {
+    if (!this.authService.hasPermission('UPLOAD_CONFIG_EDIT')) { // fallback check
+      this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền chỉnh sửa cấu hình.' });
+      return;
+    }
+    const updated = { ...config, isActive: !config.isActive };
+    this.loading.set(true);
+    this.http.put(`${this.apiUrl}/${config.id}`, updated)
+      .pipe(finalize(() => this.loading.set(false)))
+      .subscribe({
+        next: () => {
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Thành công',
+            detail: `${config.isActive ? 'Khóa' : 'Mở khóa'} cấu hình upload thành công!`
+          });
+          this.loadConfigs();
+        },
+        error: (err) => {
+          const detailMsg = err?.error?.message || err?.message || `Không thể ${config.isActive ? 'khóa' : 'mở khóa'} cấu hình upload.`;
+          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: detailMsg });
+        }
+      });
+  }
+
   onEdit(config: any) {
     this.isEdit.set(true);
     this.currentConfig.set({ ...config });

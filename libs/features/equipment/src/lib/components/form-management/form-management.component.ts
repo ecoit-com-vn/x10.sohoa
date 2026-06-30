@@ -71,6 +71,7 @@ export class FormManagementComponent implements OnInit {
   viewState = signal<'list' | 'add' | 'edit' | 'preview'>('list');
   detailTitle = signal<string>('');
   isEditMode = signal<boolean>(false);
+  isFromCompletedForms = signal<boolean>(false);
 
   // Forms list state
   forms = signal<EavFormTemplate[]>([]);
@@ -202,6 +203,7 @@ export class FormManagementComponent implements OnInit {
   }
 
   ngOnInit() {
+    this.isFromCompletedForms.set(this.router.url.includes('/completed-forms/edit'));
     this.loadCatalogTypes();
     this.loadHmadCategories();
     this.loadForms();
@@ -260,6 +262,10 @@ export class FormManagementComponent implements OnInit {
   }
 
   goToList() {
+    if (this.isFromCompletedForms()) {
+      this.router.navigate(['/equipment/completed-forms']);
+      return;
+    }
     this.viewState.set('list');
     this.templateId.set(null);
     this.targetForm = null;

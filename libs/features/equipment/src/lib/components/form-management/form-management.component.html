@@ -124,7 +124,7 @@
       <i class="pi pi-home bc-icon"></i>
       <span class="bc-text" (click)="goToList()" style="cursor: pointer;">Trang chủ</span>
       <span class="bc-sep">/</span>
-      <span class="bc-text" (click)="goToList()" style="cursor: pointer;">Quản lý biểu mẫu</span>
+      <span class="bc-text" (click)="goToList()" style="cursor: pointer;">{{ isFromCompletedForms() ? 'Danh sách form hoàn thành' : 'Quản lý biểu mẫu' }}</span>
       <span class="bc-sep">/</span>
       <span class="bc-current">{{ detailTitle() }}</span>
     </div>
