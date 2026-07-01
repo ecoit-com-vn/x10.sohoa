@@ -96,7 +96,21 @@ public partial class DossierController : ControllerBase
     [BypassDynamicPermission]
     public async Task<IActionResult> GetInfrastructuresLookup()
     {
-        var items = await _dossierService.GetInfrastructuresLookupAsync();
+        var isAdmin = User.IsInRole("ADMIN") || User.Claims.Any(c => c.Type == ClaimTypes.Role && c.Value == "ADMIN");
+        long? userUnitId = null;
+        if (!isAdmin)
+        {
+            var unitIdClaim = User.FindFirst("unit_id")?.Value;
+            if (!string.IsNullOrEmpty(unitIdClaim) && long.TryParse(unitIdClaim, out var parsedUnitId))
+            {
+                userUnitId = parsedUnitId;
+            }
+        }
+
+        var items = await _dossierService.GetInfrastructuresLookupAsync(
+            isAdmin,
+            userUnitId,
+            GetAuthorizedUnitIds());
         return Ok(items);
     }
 
