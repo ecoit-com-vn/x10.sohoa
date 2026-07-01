@@ -139,7 +139,7 @@ export class FormManagementComponent implements OnInit {
 
   filteredForms = computed(() => {
     const keyword = this.searchKeyword().trim().toLowerCase();
-    const allForms = this.forms().filter(f => f.isActive);
+    const allForms = this.forms().filter(f => !f.isDeleted);
 
     // Group forms by code and select the latest version for each unique code
     const latestFormsMap = new Map<string, EavFormTemplate>();
@@ -716,7 +716,7 @@ export class FormManagementComponent implements OnInit {
           this.messageService.add({
             severity: 'success',
             summary: 'Thành công',
-            detail: `Đã vô hiệu hóa biểu mẫu thành công!`
+            detail: `Đã xóa biểu mẫu thành công!`
           });
           this.showConfirmDelete.set(false);
           this.targetForm = null;
@@ -726,7 +726,7 @@ export class FormManagementComponent implements OnInit {
           this.messageService.add({
             severity: 'error',
             summary: 'Lỗi',
-            detail: 'Không thể vô hiệu hóa biểu mẫu.'
+            detail: 'Không thể xóa biểu mẫu.'
           });
           this.showConfirmDelete.set(false);
           this.targetForm = null;

@@ -96,7 +96,7 @@
               (ngModelChange)="searchStatus.set($event); onSearch()">
               <option value="">-- Trạng thái --</option>
               <option value="1">Hoạt động</option>
-              <option value="0">Bị khóa</option>
+              <option value="0">Ngừng hoạt động</option>
             </select>
           </div>
 
@@ -168,7 +168,7 @@
                 </span>
                 <span *ngIf="item.isActive === 0 || item.isActive === false" class="status-pill status-locked"
                   style="background-color: #f3f4f6; color: #374151; border-color: #d1d5db;">
-                  Bị khóa
+                  Ngừng hoạt động
                 </span>
               </td>
               <td class="col-hd">

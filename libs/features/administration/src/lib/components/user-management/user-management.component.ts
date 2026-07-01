@@ -100,6 +100,11 @@ export class UserManagement implements OnInit {
   showDeleteConfirm = signal<boolean>(false);
   deleteTarget = signal<any>(null);
   deleting = signal<boolean>(false);
+
+  // Lock/Unlock Confirmation
+  showLockUnlockConfirm = signal<boolean>(false);
+  lockUnlockTarget = signal<any>(null);
+  lockUnlockLoading = signal<boolean>(false);
   
   unitRoleDialogHeader = signal<string>('');
   activeUserForUnitRole = signal<any>(null);
@@ -394,13 +399,25 @@ export class UserManagement implements OnInit {
     this.searchUnitId.set(val && val !== 'null' ? Number(val) : null);
   }
 
-  toggleUserStatus(user: any) {
+  onToggleStatusRequest(user: any) {
+    this.lockUnlockTarget.set(user);
+    this.showLockUnlockConfirm.set(true);
+  }
+
+  onCancelLockUnlock() {
+    this.showLockUnlockConfirm.set(false);
+    this.lockUnlockTarget.set(null);
+  }
+
+  onConfirmLockUnlock() {
+    const user = this.lockUnlockTarget();
+    if (!user) return;
     if (!this.authService.hasPermission('USER_EDIT')) {
       this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền thay đổi trạng thái người dùng.' });
       return;
     }
     const updated = { ...user, isActive: !user.isActive };
-    this.loading.set(true);
+    this.lockUnlockLoading.set(true);
     this.userService.updateUser(user.id, updated).subscribe({
       next: () => {
         this.messageService.add({
@@ -408,10 +425,13 @@ export class UserManagement implements OnInit {
           summary: 'Thành công',
           detail: `${user.isActive ? 'Khóa' : 'Mở khóa'} tài khoản thành công!`
         });
+        this.showLockUnlockConfirm.set(false);
+        this.lockUnlockTarget.set(null);
+        this.lockUnlockLoading.set(false);
         this.loadUsers();
       },
       error: (err) => {
-        this.loading.set(false);
+        this.lockUnlockLoading.set(false);
         const detailMsg = err?.error?.message || err?.message || `Không thể ${user.isActive ? 'khóa' : 'mở khóa'} tài khoản.`;
         this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: detailMsg });
       }
