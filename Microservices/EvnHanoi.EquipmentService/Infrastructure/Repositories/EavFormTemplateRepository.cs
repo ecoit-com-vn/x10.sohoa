@@ -20,7 +20,7 @@ public class EavFormTemplateRepository : IEavFormTemplateRepository
                      FROM {nameof(EavFormTemplate)}s t
                      LEFT JOIN GridTypes gt ON t.{nameof(EavFormTemplate.GridTypeId)} = gt.Id
                      LEFT JOIN EquipmentTypes et ON t.{nameof(EavFormTemplate.EquipmentTypeId)} = et.Id
-                     WHERE t.{nameof(EavFormTemplate.Id)} = :Id";
+                     WHERE t.{nameof(EavFormTemplate.Id)} = :Id AND t.IsDeleted = 0";
         return await _connection.QuerySingleOrDefaultAsync<EavFormTemplate>(sql, new { Id = id.ToString() });
     }
 
@@ -30,7 +30,7 @@ public class EavFormTemplateRepository : IEavFormTemplateRepository
                      FROM {nameof(EavFormTemplate)}s t
                      LEFT JOIN GridTypes gt ON t.{nameof(EavFormTemplate.GridTypeId)} = gt.Id
                      LEFT JOIN EquipmentTypes et ON t.{nameof(EavFormTemplate.EquipmentTypeId)} = et.Id
-                     WHERE 1 = 1";
+                     WHERE t.IsDeleted = 0";
         if (isActive.HasValue)
         {
             sql += $" AND t.{nameof(EavFormTemplate.IsActive)} = :IsActive";
@@ -61,9 +61,10 @@ public class EavFormTemplateRepository : IEavFormTemplateRepository
                     {nameof(EavFormTemplate.CreatedAt)}, 
                     {nameof(EavFormTemplate.CreatedBy)},
                     {nameof(EavFormTemplate.Status)},
-                    {nameof(EavFormTemplate.FormType)}
+                    {nameof(EavFormTemplate.FormType)},
+                    IsDeleted
                 )
-                VALUES (:Id, :Name, :Code, :Category, :Description, :DescriptionInfo, :ExtractionProcess, :FormSchema, :EquipmentTypeId, :GridTypeId, :Version, :IsActive, :CreatedAt, :CreatedBy, :Status, :FormType)";
+                VALUES (:Id, :Name, :Code, :Category, :Description, :DescriptionInfo, :ExtractionProcess, :FormSchema, :EquipmentTypeId, :GridTypeId, :Version, :IsActive, :CreatedAt, :CreatedBy, :Status, :FormType, :IsDeleted)";
 
         var param = new
         {
@@ -82,7 +83,8 @@ public class EavFormTemplateRepository : IEavFormTemplateRepository
             template.CreatedAt,
             template.CreatedBy,
             template.Status,
-            template.FormType
+            template.FormType,
+            IsDeleted = template.IsDeleted ? 1 : 0
         };
 
         await _connection.ExecuteAsync(sql, param);
@@ -91,20 +93,21 @@ public class EavFormTemplateRepository : IEavFormTemplateRepository
     public async Task UpdateAsync(EavFormTemplate template)
     {
         var sql = $@"UPDATE {nameof(EavFormTemplate)}s
-                    SET {nameof(EavFormTemplate.Name)} = :Name,
-                        {nameof(EavFormTemplate.Code)} = :Code,
-                        {nameof(EavFormTemplate.Category)} = :Category,
-                        {nameof(EavFormTemplate.Description)} = :Description,
-                        {nameof(EavFormTemplate.DescriptionInfo)} = :DescriptionInfo,
-                        {nameof(EavFormTemplate.ExtractionProcess)} = :ExtractionProcess,
-                        {nameof(EavFormTemplate.FormSchema)} = :FormSchema,
-                        {nameof(EavFormTemplate.EquipmentTypeId)} = :EquipmentTypeId,
-                        {nameof(EavFormTemplate.GridTypeId)} = :GridTypeId,
-                        {nameof(EavFormTemplate.Version)} = :Version,
-                        {nameof(EavFormTemplate.IsActive)} = :IsActive,
-                        {nameof(EavFormTemplate.Status)} = :Status,
-                        {nameof(EavFormTemplate.FormType)} = :FormType
-                    WHERE {nameof(EavFormTemplate.Id)} = :Id";
+                     SET {nameof(EavFormTemplate.Name)} = :Name,
+                         {nameof(EavFormTemplate.Code)} = :Code,
+                         {nameof(EavFormTemplate.Category)} = :Category,
+                         {nameof(EavFormTemplate.Description)} = :Description,
+                         {nameof(EavFormTemplate.DescriptionInfo)} = :DescriptionInfo,
+                         {nameof(EavFormTemplate.ExtractionProcess)} = :ExtractionProcess,
+                         {nameof(EavFormTemplate.FormSchema)} = :FormSchema,
+                         {nameof(EavFormTemplate.EquipmentTypeId)} = :EquipmentTypeId,
+                         {nameof(EavFormTemplate.GridTypeId)} = :GridTypeId,
+                         {nameof(EavFormTemplate.Version)} = :Version,
+                         {nameof(EavFormTemplate.IsActive)} = :IsActive,
+                         {nameof(EavFormTemplate.Status)} = :Status,
+                         {nameof(EavFormTemplate.FormType)} = :FormType,
+                         IsDeleted = :IsDeleted
+                     WHERE {nameof(EavFormTemplate.Id)} = :Id";
         
         var param = new
         {
@@ -121,6 +124,7 @@ public class EavFormTemplateRepository : IEavFormTemplateRepository
             IsActive = template.IsActive ? 1 : 0,
             template.Status,
             template.FormType,
+            IsDeleted = template.IsDeleted ? 1 : 0,
             Id = template.Id.ToString()
         };
 
@@ -133,7 +137,7 @@ public class EavFormTemplateRepository : IEavFormTemplateRepository
                      FROM {nameof(EavFormTemplate)}s t
                      LEFT JOIN GridTypes gt ON t.{nameof(EavFormTemplate.GridTypeId)} = gt.Id
                      LEFT JOIN EquipmentTypes et ON t.{nameof(EavFormTemplate.EquipmentTypeId)} = et.Id
-                     WHERE t.{nameof(EavFormTemplate.Code)} = :Code
+                     WHERE t.{nameof(EavFormTemplate.Code)} = :Code AND t.IsDeleted = 0
                      ORDER BY t.{nameof(EavFormTemplate.Version)} DESC";
         return await _connection.QueryAsync<EavFormTemplate>(sql, new { Code = code });
     }
