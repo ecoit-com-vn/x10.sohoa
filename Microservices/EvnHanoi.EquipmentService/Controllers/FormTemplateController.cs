@@ -119,8 +119,21 @@ public class FormTemplateController : ControllerBase
         if (existing == null)
             return NotFound(new { Message = $"Không tìm thấy biểu mẫu với ID = {id}" });
 
-        existing.IsActive = false;
-        await _repository.UpdateAsync(existing);
+        if (!string.IsNullOrEmpty(existing.Code))
+        {
+            var versions = await _repository.GetVersionsByCodeAsync(existing.Code);
+            foreach (var version in versions)
+            {
+                version.IsDeleted = true;
+                await _repository.UpdateAsync(version);
+            }
+        }
+        else
+        {
+            existing.IsDeleted = true;
+            await _repository.UpdateAsync(existing);
+        }
+
         return NoContent();
     }
 

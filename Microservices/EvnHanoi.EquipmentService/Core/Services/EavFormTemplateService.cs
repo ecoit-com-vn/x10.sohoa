@@ -92,7 +92,7 @@ public class EavFormTemplateService : IEavFormTemplateService
             IsActive = true,
             CreatedAt = DateTime.UtcNow,
             CreatedBy = updatedBy,
-            Status = "Tạo mới",
+            Status = string.IsNullOrEmpty(oldTemplate.Status) ? "Tạo mới" : oldTemplate.Status,
             FormType = formType
         };
 
