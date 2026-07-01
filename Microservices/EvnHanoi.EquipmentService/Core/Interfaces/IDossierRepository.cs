@@ -22,6 +22,31 @@ public interface IDossierRepository
         int page,
         int pageSize);
 
+    Task<IEnumerable<DossierByEquipmentLookupItemDto>> GetEquipmentLookupInfrastructuresAsync(
+        DossierByEquipmentFilterDto filter,
+        long? unitId);
+
+    Task<IEnumerable<DossierByEquipmentLookupItemDto>> GetEquipmentLookupEquipmentTypesAsync(
+        DossierByEquipmentFilterDto filter,
+        long? unitId);
+
+    Task<IEnumerable<DossierByEquipmentLookupItemDto>> GetEquipmentLookupEquipmentsAsync(
+        DossierByEquipmentFilterDto filter,
+        long? unitId);
+
+    Task<IEnumerable<DossierByEquipmentLookupItemDto>> GetEquipmentLookupDossierTypesAsync(
+        DossierByEquipmentFilterDto filter,
+        long? unitId);
+
+    Task<IEnumerable<BhsCatalogColumnDto>> GetBhsCatalogColumnsAsync();
+
+    Task<bool> IsPublishedDossierAccessibleAsync(Guid dossierId, long? unitId);
+
+    Task<(IEnumerable<DossierListItemDto> Items, int TotalCount, IEnumerable<BhsCatalogColumnDto> Columns)> GetDossiersByEquipmentAsync(
+        Guid equipmentId,
+        int page,
+        int pageSize);
+
     // Chi tiết
     Task<DossierDetailDto?> GetDetailByIdAsync(Guid id);
     Task<Dossier?> GetByIdAsync(Guid id);

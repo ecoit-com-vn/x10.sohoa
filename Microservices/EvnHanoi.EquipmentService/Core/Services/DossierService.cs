@@ -157,6 +157,56 @@ public class DossierService : IDossierService
             keyword, infrastructureId, dossierTypeId, unitId, page, pageSize);
     }
 
+    public Task<IEnumerable<DossierByEquipmentLookupItemDto>> GetEquipmentLookupInfrastructuresAsync(
+        DossierByEquipmentFilterDto filter,
+        bool isAdmin,
+        long? userUnitId) =>
+        _dossierRepository.GetEquipmentLookupInfrastructuresAsync(filter, ResolveUnitScope(isAdmin, userUnitId));
+
+    public Task<IEnumerable<DossierByEquipmentLookupItemDto>> GetEquipmentLookupEquipmentTypesAsync(
+        DossierByEquipmentFilterDto filter,
+        bool isAdmin,
+        long? userUnitId) =>
+        _dossierRepository.GetEquipmentLookupEquipmentTypesAsync(filter, ResolveUnitScope(isAdmin, userUnitId));
+
+    public Task<IEnumerable<DossierByEquipmentLookupItemDto>> GetEquipmentLookupEquipmentsAsync(
+        DossierByEquipmentFilterDto filter,
+        bool isAdmin,
+        long? userUnitId) =>
+        _dossierRepository.GetEquipmentLookupEquipmentsAsync(filter, ResolveUnitScope(isAdmin, userUnitId));
+
+    public Task<IEnumerable<DossierByEquipmentLookupItemDto>> GetEquipmentLookupDossierTypesAsync(
+        DossierByEquipmentFilterDto filter,
+        bool isAdmin,
+        long? userUnitId) =>
+        _dossierRepository.GetEquipmentLookupDossierTypesAsync(filter, ResolveUnitScope(isAdmin, userUnitId));
+
+    public Task<IEnumerable<BhsCatalogColumnDto>> GetBhsCatalogColumnsAsync() =>
+        _dossierRepository.GetBhsCatalogColumnsAsync();
+
+    public async Task<DossierDetailDto?> GetPublishedDetailByIdAsync(Guid id, bool isAdmin, long? userUnitId)
+    {
+        var unitScope = ResolveUnitScope(isAdmin, userUnitId);
+        if (!await _dossierRepository.IsPublishedDossierAccessibleAsync(id, unitScope))
+            return null;
+
+        return await _dossierRepository.GetDetailByIdAsync(id);
+    }
+
+    public Task<bool> IsPublishedDossierAccessibleAsync(Guid id, bool isAdmin, long? userUnitId) =>
+        _dossierRepository.IsPublishedDossierAccessibleAsync(id, ResolveUnitScope(isAdmin, userUnitId));
+
+    private static long? ResolveUnitScope(bool isAdmin, long? userUnitId) =>
+        isAdmin ? null : userUnitId;
+
+    public async Task<(IEnumerable<DossierListItemDto> Items, int TotalCount, IEnumerable<BhsCatalogColumnDto> Columns)> GetDossiersByEquipmentAsync(
+        Guid equipmentId,
+        int page,
+        int pageSize)
+    {
+        return await _dossierRepository.GetDossiersByEquipmentAsync(equipmentId, page, pageSize);
+    }
+
     public async Task<DossierDetailDto?> GetDetailByIdAsync(Guid id)
     {
         return await _dossierRepository.GetDetailByIdAsync(id);

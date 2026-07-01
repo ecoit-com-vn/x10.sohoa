@@ -338,8 +338,9 @@ public class EquipmentController : ControllerBase
             }
         }
 
+        var allowedUnitIdsForInfra = await GetAllowedUnitIdsAsync();
         var organizationUnits = await _equipmentRepository.GetOrganizationUnitsHierarchicalAsync(startUnitId);
-        var infrastructures = await _equipmentRepository.GetInfrastructuresLookupAsync();
+        var infrastructures = await _equipmentRepository.GetInfrastructuresLookupAsync(allowedUnitIdsForInfra);
         var gridTypes = await _equipmentTypeRepository.GetGridTypesAsync();
         var equipmentTypes = await _equipmentRepository.GetEquipmentTypesLookupAsync();
         var countries = await _equipmentRepository.GetCountriesAsync();
@@ -385,7 +386,8 @@ public class EquipmentController : ControllerBase
     [BypassDynamicPermission]
     public async Task<IActionResult> GetInfrastructures()
     {
-        var data = await _equipmentRepository.GetInfrastructuresLookupAsync();
+        var allowedUnitIds = await GetAllowedUnitIdsAsync();
+        var data = await _equipmentRepository.GetInfrastructuresLookupAsync(allowedUnitIds);
         return Ok(data);
     }
 
@@ -479,4 +481,58 @@ public class EquipmentController : ControllerBase
         public string RoleCode { get; set; } = string.Empty;
         public string RoleName { get; set; } = string.Empty;
     }
+
+    [HttpPut("{id}/form-values")]
+    public async Task<IActionResult> UpdateFormValues(Guid id, [FromBody] UpdateFormValuesRequest request)
+    {
+        if (request == null)
+            return BadRequest(new { message = "Dữ liệu không hợp lệ." });
+
+        var existing = await _equipmentRepository.GetByIdAsync(id);
+        if (existing == null)
+            return NotFound();
+
+        var allowedUnitIds = await GetAllowedUnitIdsAsync();
+        if (allowedUnitIds != null && (!existing.UnitId.HasValue || !allowedUnitIds.Contains(existing.UnitId.Value)))
+        {
+            return Forbid();
+        }
+
+        existing.FormValues = request.FormValues;
+        existing.ModifiedBy = User.FindFirst(ClaimTypes.Name)?.Value ?? User.Identity?.Name ?? "system";
+        existing.ModifiedDate = DateTime.UtcNow;
+
+        var result = await _equipmentRepository.UpdateAsync(existing);
+        if (result)
+        {
+            try
+            {
+                var syncMessage = new
+                {
+                    Id = existing.Id,
+                    EquipmentTypeId = existing.EquipmentTypeId,
+                    Name = existing.Name,
+                    Code = existing.Code,
+                    SerialNumber = existing.SerialNumber,
+                    CreatedAt = existing.CreatedAt,
+                    CreatedBy = existing.CreatedBy,
+                    UnitId = existing.UnitId
+                };
+                await _messageProducer.SendMessageAsync(syncMessage, "equipment_sync_queue");
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "Failed to publish sync message for equipment form values update.");
+            }
+
+            return NoContent();
+        }
+
+        return BadRequest(new { message = "Không thể cập nhật thông số thiết bị." });
+    }
+}
+
+public class UpdateFormValuesRequest
+{
+    public string FormValues { get; set; } = string.Empty;
 }

@@ -164,6 +164,12 @@ public class DossierSearchRepository : IDossierSearchRepository
         UserRoles = source.UserRoles,
         IsAdmin = source.IsAdmin,
         MenuScope = source.MenuScope,
+        DossierTypeId = source.DossierTypeId,
+        EquipmentId = source.EquipmentId,
+        EquipmentTypeId = source.EquipmentTypeId,
+        EquipmentScopeIds = source.EquipmentScopeIds,
+        PublishDateFrom = source.PublishDateFrom,
+        PublishDateTo = source.PublishDateTo,
         Tab = tab,
         Page = 1,
         PageSize = 1
@@ -203,6 +209,9 @@ public class DossierSearchRepository : IDossierSearchRepository
                     .Field(DossierEsFieldNames.DossierTypeId)
                     .Terms(new TermsQueryField(dossierTypeVariants.Select(FieldValue.String).ToArray()))));
             }
+
+            ApplyEquipmentFilters(filterQueries, filter);
+            ApplyPublishDateFilters(filterQueries, filter);
 
             if (filter.UnitScopeIds is { Count: > 0 })
             {
@@ -517,7 +526,7 @@ public class DossierSearchRepository : IDossierSearchRepository
     private static void ApplyVisibilityFilter(List<Query> filterQueries, DossierFilterDto filter)
     {
         var scope = DossierMenuScopes.Normalize(filter.MenuScope);
-        if (filter.IsAdmin || DossierMenuScopes.IsPublisher(scope))
+        if (filter.IsAdmin || DossierMenuScopes.IsPublisher(scope) || DossierMenuScopes.IsEquipmentLookup(scope))
             return;
 
         var userId = NormalizeFilterUserId(filter.UserId);
@@ -735,4 +744,64 @@ public class DossierSearchRepository : IDossierSearchRepository
         DossierIndexIdNormalizer.GetGuidTermVariants(userId)
             .Select(FieldValue.String)
             .ToArray();
+
+    private static void ApplyEquipmentFilters(List<Query> filterQueries, DossierFilterDto filter)
+    {
+        if (filter.EquipmentId.HasValue)
+        {
+            var equipmentVariants = DossierIndexIdNormalizer
+                .GetGuidTermVariants(filter.EquipmentId.Value.ToString())
+                .Select(FieldValue.String)
+                .ToArray();
+
+            filterQueries.Add(new QueryDescriptor<DossierEsDocument>().Nested(n => n
+                .Path(p => p.Equipments)
+                .Query(nq => nq.Terms(t => t
+                    .Field(DossierEsFieldNames.EquipmentId)
+                    .Terms(new TermsQueryField(equipmentVariants))))));
+            return;
+        }
+
+        if (filter.EquipmentScopeIds is not { Count: > 0 })
+            return;
+
+        var scopeVariants = filter.EquipmentScopeIds
+            .SelectMany(id => DossierIndexIdNormalizer.GetGuidTermVariants(id))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Select(FieldValue.String)
+            .ToArray();
+
+        if (scopeVariants.Length == 0)
+        {
+            filterQueries.Add(new QueryDescriptor<DossierEsDocument>().Term(t => t
+                .Field(DossierEsFieldNames.Id)
+                .Value("__none__")));
+            return;
+        }
+
+        filterQueries.Add(new QueryDescriptor<DossierEsDocument>().Nested(n => n
+            .Path(p => p.Equipments)
+            .Query(nq => nq.Terms(t => t
+                .Field(DossierEsFieldNames.EquipmentId)
+                .Terms(new TermsQueryField(scopeVariants))))));
+    }
+
+    private static void ApplyPublishDateFilters(List<Query> filterQueries, DossierFilterDto filter)
+    {
+        if (!filter.PublishDateFrom.HasValue && !filter.PublishDateTo.HasValue)
+            return;
+
+        var from = filter.PublishDateFrom?.ToString("yyyy-MM-ddTHH:mm:ssZ");
+        var to = filter.PublishDateTo?.ToString("yyyy-MM-ddTHH:mm:ssZ");
+
+        filterQueries.Add(new QueryDescriptor<DossierEsDocument>().Range(r => r
+            .DateRange(dr =>
+            {
+                dr.Field(DossierEsFieldNames.ModifiedDate);
+                if (from is not null)
+                    dr.Gte(from);
+                if (to is not null)
+                    dr.Lte(to);
+            })));
+    }
 }

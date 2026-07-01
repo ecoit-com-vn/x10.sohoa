@@ -73,6 +73,12 @@ public class DossierFilterDto
     /// <summary>Phạm vi menu FE: creator | approver</summary>
     public string? MenuScope { get; set; }
     public Guid? DossierTypeId { get; set; }
+    public Guid? EquipmentId { get; set; }
+    public Guid? EquipmentTypeId { get; set; }
+    /// <summary>Danh sách equipmentId (resolve từ EquipmentTypeId) — dùng nested ES query.</summary>
+    public IReadOnlyList<string>? EquipmentScopeIds { get; set; }
+    public DateTime? PublishDateFrom { get; set; }
+    public DateTime? PublishDateTo { get; set; }
     public int Page { get; set; } = 1;
     public int PageSize { get; set; } = 10;
 }

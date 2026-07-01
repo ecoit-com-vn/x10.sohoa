@@ -30,6 +30,37 @@ public interface IDossierService
         long? unitId,
         int page,
         int pageSize);
+
+    Task<IEnumerable<DossierByEquipmentLookupItemDto>> GetEquipmentLookupInfrastructuresAsync(
+        DossierByEquipmentFilterDto filter,
+        bool isAdmin,
+        long? userUnitId);
+
+    Task<IEnumerable<DossierByEquipmentLookupItemDto>> GetEquipmentLookupEquipmentTypesAsync(
+        DossierByEquipmentFilterDto filter,
+        bool isAdmin,
+        long? userUnitId);
+
+    Task<IEnumerable<DossierByEquipmentLookupItemDto>> GetEquipmentLookupEquipmentsAsync(
+        DossierByEquipmentFilterDto filter,
+        bool isAdmin,
+        long? userUnitId);
+
+    Task<IEnumerable<DossierByEquipmentLookupItemDto>> GetEquipmentLookupDossierTypesAsync(
+        DossierByEquipmentFilterDto filter,
+        bool isAdmin,
+        long? userUnitId);
+
+    Task<IEnumerable<BhsCatalogColumnDto>> GetBhsCatalogColumnsAsync();
+
+    Task<DossierDetailDto?> GetPublishedDetailByIdAsync(Guid id, bool isAdmin, long? userUnitId);
+
+    Task<bool> IsPublishedDossierAccessibleAsync(Guid id, bool isAdmin, long? userUnitId);
+
+    Task<(IEnumerable<DossierListItemDto> Items, int TotalCount, IEnumerable<BhsCatalogColumnDto> Columns)> GetDossiersByEquipmentAsync(
+        Guid equipmentId,
+        int page,
+        int pageSize);
     Task<DossierDetailDto?> GetDetailByIdAsync(Guid id);
     Task<Guid> CreateAsync(DossierCreateDto dto, string userId, string userName, string userFullName);
     Task<bool> UpdateAsync(Guid id, DossierUpdateDto dto, string userId);

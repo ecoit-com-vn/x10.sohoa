@@ -10,7 +10,7 @@ public class Equipment
     
     public Guid? InfrastructureId { get; set; }
     public Guid? CountryId { get; set; }
-    public bool IsActive { get; set; } = true;
+    public bool IsActive { get; set; } = true; 
     public Guid? CreatorId { get; set; }
     
     // Audit fields
@@ -19,5 +19,6 @@ public class Equipment
     public string? ModifiedBy { get; set; }
     public DateTime? ModifiedDate { get; set; }
     public bool IsDeleted { get; set; }
+    public string? FormValues { get; set; }
     public long? UnitId { get; set; }
 }

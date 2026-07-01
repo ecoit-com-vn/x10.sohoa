@@ -93,6 +93,18 @@ public class DossierMenuScopeValidator : IDossierMenuScopeValidator
             return (false, "Không có quyền truy cập menu xuất bản hồ sơ.");
         }
 
+        if (DossierMenuScopes.IsEquipmentLookup(scope))
+        {
+            if (isAdmin)
+                return (true, null);
+
+            var lookupPerms = await GetUserPermissionsAsync(userId, authorizationHeader);
+            if (HasAnyPermission(lookupPerms, "SEARCH_DOSSIERS_BY_EQUIPMENT_VIEW", "SUPER_ADMIN"))
+                return (true, null);
+
+            return (false, "Không có quyền tra cứu hồ sơ thiết bị.");
+        }
+
         // approver
         if (string.Equals(tabSlug, DossierListTabs.Draft, StringComparison.Ordinal) ||
             string.Equals(tabSlug, DossierListTabs.Returned, StringComparison.Ordinal))
