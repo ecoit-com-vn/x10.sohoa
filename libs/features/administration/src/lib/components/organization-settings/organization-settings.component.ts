@@ -29,6 +29,11 @@ export class OrganizationSettings implements OnInit {
   loading = signal<boolean>(false);
   saving = signal<boolean>(false);
 
+  // Lock/Unlock Confirmation
+  showLockUnlockConfirm = signal<boolean>(false);
+  lockUnlockTarget = signal<any>(null);
+  lockUnlockLoading = signal<boolean>(false);
+
   // Form Validation
   formSubmitted = signal<boolean>(false);
   serverErrors = signal<any>({});
@@ -184,15 +189,27 @@ export class OrganizationSettings implements OnInit {
     this.currentView.set('add');
   }
 
-  toggleUnitStatus(unit: any) {
+  onToggleStatusRequest(unit: any) {
+    this.lockUnlockTarget.set(unit);
+    this.showLockUnlockConfirm.set(true);
+  }
+
+  onCancelLockUnlock() {
+    this.showLockUnlockConfirm.set(false);
+    this.lockUnlockTarget.set(null);
+  }
+
+  onConfirmLockUnlock() {
+    const unit = this.lockUnlockTarget();
+    if (!unit) return;
     if (!this.authService.hasPermission('ORGANIZATION_EDIT')) {
       this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền chỉnh sửa đơn vị phòng ban.' });
       return;
     }
     const updated = { ...unit, isActive: !unit.isActive };
-    this.loading.set(true);
+    this.lockUnlockLoading.set(true);
     this.http.put(`${this.apiUrl}/${unit.id}`, updated)
-      .pipe(finalize(() => this.loading.set(false)))
+      .pipe(finalize(() => this.lockUnlockLoading.set(false)))
       .subscribe({
         next: () => {
           this.messageService.add({
@@ -200,6 +217,8 @@ export class OrganizationSettings implements OnInit {
             summary: 'Thành công',
             detail: `${unit.isActive ? 'Khóa' : 'Mở khóa'} đơn vị thành công!`
           });
+          this.showLockUnlockConfirm.set(false);
+          this.lockUnlockTarget.set(null);
           this.loadUnits();
         },
         error: (err) => {

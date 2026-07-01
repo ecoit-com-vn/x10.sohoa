@@ -46,7 +46,7 @@
             <th>Đơn vị liên kết</th>
             <th>Định dạng được phép</th>
             <th>Dung lượng tối đa (MB)</th>
-            <th>Trạng thái</th>
+            <th class="col-tt">Trạng thái</th>
             <th class="col-hd">Thao tác</th>
           </tr>
         </thead>
@@ -91,8 +91,8 @@
                 </span>
               </td>
               <td class="col-hd">
-                <button *ngIf="authService.hasPermission('UPLOAD_CONFIG_EDIT') && c.isActive" class="act-btn act-lock" (click)="toggleConfigStatus(c)" title="Khóa cấu hình"><i class="pi pi-lock-open color-red"></i></button>
-                <button *ngIf="authService.hasPermission('UPLOAD_CONFIG_EDIT') && !c.isActive" class="act-btn act-unlock" (click)="toggleConfigStatus(c)" title="Mở khóa cấu hình"><i class="pi pi-lock color-green"></i></button>
+                <button *ngIf="authService.hasPermission('UPLOAD_CONFIG_EDIT') && c.isActive" class="act-btn act-lock" (click)="onToggleStatusRequest(c)" title="Khóa cấu hình"><i class="pi pi-lock-open color-red"></i></button>
+                <button *ngIf="authService.hasPermission('UPLOAD_CONFIG_EDIT') && !c.isActive" class="act-btn act-unlock" (click)="onToggleStatusRequest(c)" title="Mở khóa cấu hình"><i class="pi pi-lock color-green"></i></button>
                 <button *ngIf="authService.hasPermission('UPLOAD_CONFIG_EDIT')" class="act-btn act-edit" (click)="onEdit(c)" title="Chỉnh sửa"><i class="pi pi-pencil"></i></button>
                 <button *ngIf="authService.hasPermission('UPLOAD_CONFIG_DELETE')" class="act-btn act-delete" (click)="onDelete(c)" title="Xóa"><i class="pi pi-trash"></i></button>
               </td>
@@ -150,7 +150,7 @@
         style="height: 38px; padding: 0 12px; border: 1px solid #cbd5e1; border-radius: 6px; background-color: #fff; font-size: 0.875rem; color: #334155; outline: none; box-sizing: border-box;"
         [(ngModel)]="currentConfig().isActive" [disabled]="saving()">
         <option [ngValue]="true">Hoạt động</option>
-        <option [ngValue]="false">Tạm dừng</option>
+        <option [ngValue]="false">Ngừng hoạt động</option>
       </select>
     </div>
   </div>
@@ -195,6 +195,45 @@
         <i class="pi pi-spin pi-spinner" *ngIf="deleting()" style="margin-right: 4px;"></i>
         <i class="pi pi-trash" *ngIf="!deleting()" style="margin-right: 4px;"></i>
         Xóa
+      </button>
+    </div>
+  </ng-template>
+</p-dialog>
+
+<!-- Dialog Xác nhận Khóa/Mở khóa -->
+<p-dialog 
+  [visible]="showLockUnlockConfirm()" 
+  (visibleChange)="$event ? null : onCancelLockUnlock()" 
+  [header]="lockUnlockTarget()?.isActive ? 'Xác nhận khóa cấu hình' : 'Xác nhận mở khóa cấu hình'" 
+  [modal]="true" 
+  [style]="{ width: '420px' }" 
+  styleClass="evn-dialog-custom"
+  [closable]="!lockUnlockLoading()">
+  <div style="padding: 8px 0 16px 0; display: flex; flex-direction: column; gap: 12px;">
+    <div style="display: flex; align-items: flex-start; gap: 12px;">
+      <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #f59e0b; margin-top: 2px; flex-shrink: 0;"></i>
+      <div>
+        <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b; font-size: 0.95rem;">
+          {{ lockUnlockTarget()?.isActive ? 'Bạn có chắc muốn khóa cấu hình này?' : 'Bạn có chắc muốn mở khóa cấu hình này?' }}
+        </p>
+        <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
+          Cấu hình <b style="color: #1e293b;">{{ lockUnlockTarget()?.name }}</b> sẽ được 
+          {{ lockUnlockTarget()?.isActive ? 'khóa và tạm dừng' : 'mở khóa và hoạt động trở lại' }}.
+        </p>
+      </div>
+    </div>
+  </div>
+  <ng-template #footer>
+    <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+      <button class="btn-cancel btn-small" (click)="onCancelLockUnlock()" [disabled]="lockUnlockLoading()">
+        <i class="pi pi-times"></i> Hủy
+      </button>
+      <button class="btn-save btn-small" (click)="onConfirmLockUnlock()" [disabled]="lockUnlockLoading()"
+        [style.background-color]="lockUnlockTarget()?.isActive ? '#dc2626' : '#16a34a'"
+        [style.border-color]="lockUnlockTarget()?.isActive ? '#dc2626' : '#16a34a'">
+        <i class="pi pi-spin pi-spinner" *ngIf="lockUnlockLoading()" style="margin-right: 4px;"></i>
+        <i class="pi" [ngClass]="lockUnlockTarget()?.isActive ? 'pi-lock' : 'pi-lock-open'" *ngIf="!lockUnlockLoading()" style="margin-right: 4px;"></i>
+        {{ lockUnlockTarget()?.isActive ? 'Khóa' : 'Mở khóa' }}
       </button>
     </div>
   </ng-template>

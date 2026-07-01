@@ -72,6 +72,16 @@ export class CatalogComponent implements OnInit {
   catalogDeleteTarget = signal<any>(null);
   catalogDeleting = signal<boolean>(false);
 
+  // Lock/Unlock Confirmation for Catalog Type
+  showTypeLockConfirm = signal<boolean>(false);
+  typeLockTarget = signal<any>(null);
+  typeLockLoading = signal<boolean>(false);
+
+  // Lock/Unlock Confirmation for Catalog Item
+  showCatalogLockConfirm = signal<boolean>(false);
+  catalogLockTarget = signal<any>(null);
+  catalogLockLoading = signal<boolean>(false);
+
   // Catalog Type Form Client Validation
   typeCodeError = computed(() => {
     if (this.typeFormSubmitted() && !this.currentTypeItem().code) return 'Mã loại danh mục là bắt buộc';
@@ -295,11 +305,28 @@ export class CatalogComponent implements OnInit {
     });
   }
 
-  onToggleTypeStatus(type: any) {
+  onToggleTypeStatusRequest(type: any) {
     if (!this.canManageType()) return;
+    this.typeLockTarget.set(type);
+    this.showTypeLockConfirm.set(true);
+  }
+
+  onCancelTypeLock() {
+    this.showTypeLockConfirm.set(false);
+    this.typeLockTarget.set(null);
+  }
+
+  onConfirmTypeLock() {
+    const type = this.typeLockTarget();
+    if (!type) return;
+
+    this.typeLockLoading.set(true);
     const isLocking = type.status === 1;
     this.catalogService.toggleCatalogTypeStatus(type.id, isLocking, this.isPrivate()).subscribe({
       next: (res: any) => {
+        this.typeLockLoading.set(false);
+        this.showTypeLockConfirm.set(false);
+        this.typeLockTarget.set(null);
         this.messageService.add({
           severity: 'success',
           summary: isLocking ? 'Ngừng hoạt động' : 'Kích hoạt',
@@ -308,6 +335,9 @@ export class CatalogComponent implements OnInit {
         this.loadCatalogTypes();
       },
       error: (err) => {
+        this.typeLockLoading.set(false);
+        this.showTypeLockConfirm.set(false);
+        this.typeLockTarget.set(null);
         const errorMsg = err.error?.message || 'Không thể thay đổi trạng thái loại danh mục.';
         this.messageService.add({
           severity: 'error',
@@ -543,11 +573,28 @@ export class CatalogComponent implements OnInit {
     });
   }
 
-  onToggleCatalogStatus(catalog: any) {
+  onToggleCatalogStatusRequest(catalog: any) {
     if (!this.canManageCatalog()) return;
+    this.catalogLockTarget.set(catalog);
+    this.showCatalogLockConfirm.set(true);
+  }
+
+  onCancelCatalogLock() {
+    this.showCatalogLockConfirm.set(false);
+    this.catalogLockTarget.set(null);
+  }
+
+  onConfirmCatalogLock() {
+    const catalog = this.catalogLockTarget();
+    if (!catalog) return;
+
+    this.catalogLockLoading.set(true);
     const isLocking = catalog.status === 1;
     this.catalogService.toggleStatus(catalog.id, isLocking).subscribe({
       next: (res: any) => {
+        this.catalogLockLoading.set(false);
+        this.showCatalogLockConfirm.set(false);
+        this.catalogLockTarget.set(null);
         this.messageService.add({
           severity: 'success',
           summary: isLocking ? 'Ngừng hoạt động' : 'Kích hoạt',
@@ -556,6 +603,9 @@ export class CatalogComponent implements OnInit {
         this.loadCatalogs();
       },
       error: (err) => {
+        this.catalogLockLoading.set(false);
+        this.showCatalogLockConfirm.set(false);
+        this.catalogLockTarget.set(null);
         const errorMsg = err.error?.message || 'Không thể thay đổi trạng thái danh mục.';
         this.messageService.add({
           severity: 'error',

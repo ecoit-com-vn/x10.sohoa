@@ -69,7 +69,18 @@ export class FormTemplateComponent implements OnInit {
   gridTypes = signal<any[]>([]);
 
   filteredForms = computed(() => {
-    let result = this.forms().filter(f => f.isActive);
+    const allTemplates = this.forms().filter(f => !f.isDeleted);
+
+    // Group templates by code and select the latest version for each unique code
+    const latestTemplatesMap = new Map<string, EavFormTemplate>();
+    for (const t of allTemplates) {
+      const code = t.code || '';
+      const existing = latestTemplatesMap.get(code);
+      if (!existing || t.version > existing.version) {
+        latestTemplatesMap.set(code, t);
+      }
+    }
+    let result = Array.from(latestTemplatesMap.values());
 
     const keyword = this.searchKeyword().trim().toLowerCase();
     if (keyword) {
@@ -284,7 +295,7 @@ export class FormTemplateComponent implements OnInit {
           this.messageService.add({
             severity: 'success',
             summary: 'Thành công',
-            detail: `Đã vô hiệu hóa biểu mẫu thành công!`
+            detail: `Đã xóa biểu mẫu thành công!`
           });
           this.showConfirmDelete.set(false);
           this.targetForm = null;
@@ -294,7 +305,7 @@ export class FormTemplateComponent implements OnInit {
           this.messageService.add({
             severity: 'error',
             summary: 'Lỗi',
-            detail: 'Không thể vô hiệu hóa biểu mẫu.'
+            detail: 'Không thể xóa biểu mẫu.'
           });
           this.showConfirmDelete.set(false);
           this.targetForm = null;
