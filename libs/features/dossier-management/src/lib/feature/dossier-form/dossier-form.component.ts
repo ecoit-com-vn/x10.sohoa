@@ -83,24 +83,25 @@ import {
 
       <!-- Tabs — chỉ hiện khi sửa hồ sơ -->
       <div class="tab-bar" *ngIf="isEditMode()">
-        <button *ngIf="isFormTabVisible('info')" class="tab-item" [class.tab-active]="activeTab() === 'info'" (click)="activeTab.set('info')">
+        <button type="button" *ngIf="isFormTabVisible('info')" class="tab-item" [class.tab-active]="activeTab() === 'info'" (click)="activeTab.set('info')">
           <i class="pi pi-info-circle" style="margin-right: 6px;"></i>
           Thông tin hồ sơ
         </button>
-        <button *ngIf="isFormTabVisible('documents')" class="tab-item" [class.tab-active]="activeTab() === 'documents'" (click)="activeTab.set('documents')">
+        <button type="button" *ngIf="isFormTabVisible('documents')" class="tab-item" [class.tab-active]="activeTab() === 'documents'" (click)="activeTab.set('documents')">
           <i class="pi pi-file" style="margin-right: 6px;"></i>
           Tài liệu đính kèm
         </button>
-        <button *ngIf="isFormTabVisible('versions')" class="tab-item" [class.tab-active]="activeTab() === 'versions'" (click)="activeTab.set('versions')">
+        <button type="button" *ngIf="isFormTabVisible('versions')" class="tab-item" [class.tab-active]="activeTab() === 'versions'" (click)="activeTab.set('versions')">
           <i class="pi pi-history" style="margin-right: 6px;"></i>
           Lịch sử phiên bản
         </button>
-        <button *ngIf="isFormTabVisible('workflow')" class="tab-item" [class.tab-active]="activeTab() === 'workflow'" (click)="activeTab.set('workflow')">
+        <button type="button" *ngIf="isFormTabVisible('workflow')" class="tab-item" [class.tab-active]="activeTab() === 'workflow'" (click)="activeTab.set('workflow')">
           <i class="pi pi-sitemap" style="margin-right: 6px;"></i>
           Quy trình & Lịch sử
         </button>
       </div>
 
+      <div class="tab-content" style="position: relative;">
       <div *ngIf="!isEditMode() || activeTab() === 'info'">
       <!-- Thông tin vị trí + Thiết bị liên quan -->
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;">
@@ -296,9 +297,10 @@ import {
         <app-dossier-workflow-tab [dossierId]="dossierId!" />
       </div>
 
-      <!-- Loading Overlay -->
-      <div *ngIf="loading()" style="position: absolute; inset: 0; background: rgba(255,255,255,0.6); display: flex; align-items: center; justify-content: center; z-index: 50; border-radius: 12px;">
+      <!-- Loading — chỉ che tab thông tin, không chặn tab Tài liệu -->
+      <div *ngIf="loading() && (!isEditMode() || activeTab() === 'info')" style="position: absolute; inset: 0; background: rgba(255,255,255,0.6); display: flex; align-items: center; justify-content: center; z-index: 10; border-radius: 8px; pointer-events: none;">
         <i class="pi pi-spin pi-spinner" style="font-size: 2rem; color: #002D72;"></i>
+      </div>
       </div>
     </div>
 
