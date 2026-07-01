@@ -552,7 +552,38 @@ export class DossierFormComponent implements OnInit {
   }
 
   loadInfrastructures() {
-    this.service.getInfrastructureLookup().subscribe(res => this.infrastructures.set(res || []));
+    this.service.getInfrastructureLookup().subscribe(res => {
+      const items = [...(res || [])];
+      const selectedId = this.dossier.infrastructureId;
+      if (selectedId && !items.some((inf) => (inf.id ?? inf.Id) === selectedId)) {
+        const existing = this.infrastructures().find((inf) => (inf.id ?? inf.Id) === selectedId);
+        if (existing) {
+          items.push(existing);
+        }
+      }
+      this.infrastructures.set(items);
+    });
+  }
+
+  /** Giữ option trạm/đường dây hiện tại khi sửa hồ sơ (tránh mất giá trị đã lưu). */
+  private ensureInfrastructureOption(detail: Record<string, unknown>) {
+    const infraId = (detail['infrastructureId'] ?? detail['InfrastructureId']) as string | null | undefined;
+    if (!infraId) return;
+
+    const exists = this.infrastructures().some(
+      (inf) => (inf.id ?? inf.Id) === infraId
+    );
+    if (exists) return;
+
+    this.infrastructures.update((list) => [
+      ...list,
+      {
+        id: infraId,
+        name: (detail['infrastructureName'] ?? detail['InfrastructureName'] ?? infraId) as string,
+        code: detail['infrastructureCode'] ?? detail['InfrastructureCode'],
+        gridTypeId: detail['gridTypeId'] ?? detail['GridTypeId'],
+      },
+    ]);
   }
 
   loadDossierDetail(id: string) {
@@ -589,6 +620,7 @@ export class DossierFormComponent implements OnInit {
           if (typeId) {
             this.loadFormForType(typeId, formDataJson, formId);
           }
+          this.ensureInfrastructureOption(res);
         }
         this.loading.set(false);
       },
