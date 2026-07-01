@@ -30,6 +30,7 @@ public class DossierSearchService : IDossierSearchService
     private async Task<(IEnumerable<DossierListItemDto> Items, int TotalCount)> SearchAsync(DossierFilterDto filter)
     {
         await ApplyUnitScopeAsync(filter);
+        await ApplyEquipmentTypeScopeAsync(filter);
         var bhsCatalogs = (await _enrichmentRepository.GetBhsCatalogDefinitionsAsync()).ToList();
         return await _searchRepository.GetPagedAsync(filter, bhsCatalogs);
     }
@@ -56,5 +57,36 @@ public class DossierSearchService : IDossierSearchService
 
         var unitIds = await _dbConnection.QueryAsync<long>(sql, new { StartUnitId = filter.UnitId.Value });
         filter.UnitScopeIds = unitIds.Distinct().ToList();
+    }
+
+    private async Task ApplyEquipmentTypeScopeAsync(DossierFilterDto filter)
+    {
+        if (filter.EquipmentId.HasValue || !filter.EquipmentTypeId.HasValue)
+            return;
+
+        if (_dbConnection.State != ConnectionState.Open)
+            _dbConnection.Open();
+
+        var sql = @"
+            SELECT DISTINCT e.Id
+            FROM Equipments e
+            WHERE (e.IsDeleted = 0 OR e.IsDeleted IS NULL)
+              AND e.EquipmentTypeId = :EquipmentTypeId";
+
+        var parameters = new DynamicParameters();
+        parameters.Add("EquipmentTypeId", filter.EquipmentTypeId.Value.ToString());
+
+        if (filter.InfrastructureId.HasValue)
+        {
+            sql += " AND e.InfrastructureId = :InfrastructureId";
+            parameters.Add("InfrastructureId", filter.InfrastructureId.Value.ToString());
+        }
+
+        var equipmentIds = (await _dbConnection.QueryAsync<string>(sql, parameters))
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        filter.EquipmentScopeIds = equipmentIds;
     }
 }

@@ -30,6 +30,14 @@ public class DossierSetUpdateDto
 
 // ===== DOSSIER DTOs =====
 
+public class BhsCatalogColumnDto
+{
+    public string Key { get; set; } = string.Empty;
+    public string Code { get; set; } = string.Empty;
+    public string Label { get; set; } = string.Empty;
+    public int Priority { get; set; }
+}
+
 /// <summary>
 /// DTO dùng cho danh sách hồ sơ — bao gồm catalog columns loại BHS + trạm/đường dây
 /// </summary>
@@ -208,6 +216,25 @@ public class DossierFilterDto
     public Guid? DossierTypeId { get; set; }
     public int Page { get; set; } = 1;
     public int PageSize { get; set; } = 10;
+}
+
+/// <summary>Bộ lọc chung cho tra cứu hồ sơ thiết bị (lookup + ES search).</summary>
+public class DossierByEquipmentFilterDto
+{
+    public string? Keyword { get; set; }
+    public DateTime? PublishDateFrom { get; set; }
+    public DateTime? PublishDateTo { get; set; }
+    public Guid? InfrastructureId { get; set; }
+    public Guid? EquipmentTypeId { get; set; }
+    public Guid? EquipmentId { get; set; }
+    public Guid? DossierTypeId { get; set; }
+}
+
+public class DossierByEquipmentLookupItemDto
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string? Code { get; set; }
 }
 
 public class DossierWorkflowStatusDto

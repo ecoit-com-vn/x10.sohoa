@@ -257,7 +257,7 @@ public class DocumentRepository : IDocumentRepository
         if (_connection.State != ConnectionState.Open)
             _connection.Open();
 
-        var sql = @"
+        var sql = $@"
             SELECT 
                 d.ID,
                 d.NAME,
@@ -288,7 +288,19 @@ public class DocumentRepository : IDocumentRepository
             WHERE d.ID = :Id 
               AND d.IS_DELETED = 0";
 
-        return await _connection.QuerySingleOrDefaultAsync<DocumentListItemDto>(sql, new { Id = id.ToString() });
+        try
+        {
+            return await _connection.QuerySingleOrDefaultAsync<DocumentListItemDto>(sql, new { Id = id.ToString() });
+        }
+        catch (Exception ex)
+        {
+            try
+            {
+                System.IO.File.WriteAllText(@"C:\Users\admin\Desktop\SO_HOA_X10\oracle_error.log", ex.ToString() + "\n\nSQL:\n" + sql);
+            }
+            catch {}
+            throw;
+        }
     }
 
     public async Task<Guid> CreateDocumentAsync(Document document)
@@ -646,12 +658,13 @@ public class DocumentRepository : IDocumentRepository
         if (!string.IsNullOrWhiteSpace(filter.Keyword))
             aliasedWhere += " AND d.NAME LIKE :Keyword";
 
+        var countParams = new DynamicParameters();
+        countParams.Add("DossierId", dossierId.ToString());
+        if (!string.IsNullOrWhiteSpace(filter.Keyword))
+            countParams.Add("Keyword", $"%{filter.Keyword}%");
+
         var countSql = $"SELECT COUNT(*) FROM DOCUMENTS d WHERE {aliasedWhere}";
-        var totalCount = await _connection.ExecuteScalarAsync<int>(countSql, new
-        {
-            DossierId = dossierId.ToString(),
-            Keyword = $"%{filter.Keyword}%"
-        });
+        var totalCount = await _connection.ExecuteScalarAsync<int>(countSql, countParams);
 
         var offset = (filter.Page - 1) * filter.PageSize;
         var listSql = $@"
@@ -717,16 +730,28 @@ public class DocumentRepository : IDocumentRepository
             OFFSET :Offset ROWS
             FETCH NEXT :PageSize ROWS ONLY";
 
-        var rows = await _connection.QueryAsync<DossierDocumentListRow>(listSql, new
-        {
-            DossierId = dossierId.ToString(),
-            Keyword = $"%{filter.Keyword}%",
-            Offset = offset,
-            PageSize = filter.PageSize
-        });
+        var listParams = new DynamicParameters();
+        listParams.Add("DossierId", dossierId.ToString());
+        if (!string.IsNullOrWhiteSpace(filter.Keyword))
+            listParams.Add("Keyword", $"%{filter.Keyword}%");
+        listParams.Add("Offset", offset);
+        listParams.Add("PageSize", filter.PageSize);
 
-        var items = rows.Select(MapDossierDocumentListRow);
-        return (items, totalCount);
+        try
+        {
+            var rows = await _connection.QueryAsync<DossierDocumentListRow>(listSql, listParams);
+            var items = rows.Select(MapDossierDocumentListRow);
+            return (items, totalCount);
+        }
+        catch (Exception ex)
+        {
+            try
+            {
+                System.IO.File.WriteAllText(@"C:\Users\admin\Desktop\SO_HOA_X10\oracle_error.log", ex.ToString() + "\n\nSQL:\n" + listSql);
+            }
+            catch {}
+            throw;
+        }
     }
 
     private static DocumentListItemDto MapDossierDocumentListRow(DossierDocumentListRow row)

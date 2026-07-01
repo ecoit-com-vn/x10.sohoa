@@ -320,6 +320,17 @@ public partial class DossierController : ControllerBase
         return result ? NoContent() : NotFound(new { message = "Không tìm thấy thiết bị trong hồ sơ." });
     }
 
+    [HttpGet("by-equipment/{equipmentId:guid}")]
+    [BypassDynamicPermission]
+    public async Task<IActionResult> GetDossiersByEquipment(
+        Guid equipmentId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10)
+    {
+        var (items, totalCount, columns) = await _dossierService.GetDossiersByEquipmentAsync(equipmentId, page, pageSize);
+        return Ok(new { items, totalCount, columns, page, pageSize });
+    }
+
     private List<long>? GetAuthorizedUnitIds()
     {
         var isAdmin = User.IsInRole("ADMIN") || User.Claims.Any(c => c.Type == ClaimTypes.Role && c.Value == "ADMIN");
