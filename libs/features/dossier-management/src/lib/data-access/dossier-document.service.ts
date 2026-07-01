@@ -115,13 +115,17 @@ export class DossierDocumentService {
   private readonly CHUNK_SIZE = 10 * 1024 * 1024;
   private readonly DIRECT_UPLOAD_THRESHOLD = 10 * 1024 * 1024;
 
-  private dossierBase(dossierId: string): string {
+  private dossierBase(dossierId: string, lookupMode = false): string {
+    if (lookupMode) {
+      return `${this.config.apiGatewayUrl}/api/v1/dossiers-by-equipment/${dossierId}/documents`;
+    }
     return `${this.config.apiGatewayUrl}/api/v1/dossiers/${dossierId}/documents`;
   }
 
   getDocuments(
     dossierId: string,
-    filter: { keyword?: string; page: number; pageSize: number }
+    filter: { keyword?: string; page: number; pageSize: number },
+    lookupMode = false
   ): Observable<DossierDocumentListResponse> {
     let params = new HttpParams()
       .set('page', filter.page.toString())
@@ -131,7 +135,7 @@ export class DossierDocumentService {
       params = params.set('keyword', filter.keyword.trim());
     }
 
-    return this.http.get<DossierDocumentListResponse>(this.dossierBase(dossierId), { params }).pipe(
+    return this.http.get<DossierDocumentListResponse>(this.dossierBase(dossierId, lookupMode), { params }).pipe(
       map((res) => ({
         ...res,
         items: (res.items ?? []).map((item) => normalizeDossierDocumentItem(item)),
@@ -218,8 +222,8 @@ export class DossierDocumentService {
     );
   }
 
-  async getPreviewBlobUrl(dossierId: string, versionId: string): Promise<string> {
-    const tokenResponse = await firstValueFrom(this.getDownloadToken(dossierId, versionId));
+  async getPreviewBlobUrl(dossierId: string, versionId: string, lookupMode = false): Promise<string> {
+    const tokenResponse = await firstValueFrom(this.getDownloadToken(dossierId, versionId, lookupMode));
     if (!tokenResponse?.token) {
       throw new Error('Không thể tạo link xem trước');
     }
@@ -347,9 +351,9 @@ export class DossierDocumentService {
     });
   }
 
-  private getDownloadToken(dossierId: string, versionId: string): Observable<DownloadTokenResponse> {
+  private getDownloadToken(dossierId: string, versionId: string, lookupMode = false): Observable<DownloadTokenResponse> {
     return this.http.get<DownloadTokenResponse>(
-      `${this.dossierBase(dossierId)}/${versionId}/download-url`
+      `${this.dossierBase(dossierId, lookupMode)}/${versionId}/download-url`
     );
   }
 
@@ -357,8 +361,8 @@ export class DossierDocumentService {
     return `${this.config.apiGatewayUrl}/api/v1/files/download?token=${encodeURIComponent(token)}`;
   }
 
-  async downloadFile(dossierId: string, versionId: string, fileName?: string): Promise<void> {
-    const tokenResponse = await firstValueFrom(this.getDownloadToken(dossierId, versionId));
+  async downloadFile(dossierId: string, versionId: string, fileName?: string, lookupMode = false): Promise<void> {
+    const tokenResponse = await firstValueFrom(this.getDownloadToken(dossierId, versionId, lookupMode));
     if (!tokenResponse?.token) {
       throw new Error('Không thể tạo link tải file');
     }
@@ -418,21 +422,21 @@ export class DossierDocumentService {
     );
   }
 
-  getDigitizationProgress(dossierId: string, versionId: string): Observable<DocumentOcrProgress> {
+  getDigitizationProgress(dossierId: string, versionId: string, lookupMode = false): Observable<DocumentOcrProgress> {
     return this.http.get<DocumentOcrProgress>(
-      `${this.dossierBase(dossierId)}/${versionId}/digitization/progress`
+      `${this.dossierBase(dossierId, lookupMode)}/${versionId}/digitization/progress`
     );
   }
 
-  getDigitizationResult(dossierId: string, versionId: string): Observable<DocumentExtractionResult> {
+  getDigitizationResult(dossierId: string, versionId: string, lookupMode = false): Observable<DocumentExtractionResult> {
     return this.http.get<DocumentExtractionResult>(
-      `${this.dossierBase(dossierId)}/${versionId}/digitization/result`
+      `${this.dossierBase(dossierId, lookupMode)}/${versionId}/digitization/result`
     );
   }
 
   /** 404 = chưa có kết quả bóc tách (null); lỗi khác ném lại để caller hiển thị message API. */
-  getDigitizationResultOrNull(dossierId: string, versionId: string): Observable<DocumentExtractionResult | null> {
-    return this.getDigitizationResult(dossierId, versionId).pipe(
+  getDigitizationResultOrNull(dossierId: string, versionId: string, lookupMode = false): Observable<DocumentExtractionResult | null> {
+    return this.getDigitizationResult(dossierId, versionId, lookupMode).pipe(
       catchError((error: unknown) => {
         if (error instanceof HttpErrorResponse && error.status === 404) {
           return of(null);

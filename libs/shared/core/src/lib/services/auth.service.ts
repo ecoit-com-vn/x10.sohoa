@@ -125,7 +125,6 @@ export class AuthService {
     if (!token) return null;
     const payload = this.decodeTokenPayload(token);
     if (!payload) return null;
-    console.log('SOHOA_DEBUG JWT Payload:', payload);
     return payload['id'] || 
            payload['nameid'] || 
            payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'] || 

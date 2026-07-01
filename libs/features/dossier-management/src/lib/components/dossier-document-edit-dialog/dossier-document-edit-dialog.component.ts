@@ -82,6 +82,8 @@ export class DossierDocumentEditDialogComponent implements OnDestroy {
 
   @Input() canEdit = false;
 
+  @Input() lookupMode = false;
+
   @Input() hasExtractionResult = false;
 
   @Input() totalPagesHint = 0;
@@ -178,7 +180,7 @@ export class DossierDocumentEditDialogComponent implements OnDestroy {
 
     this.documentService
 
-      .getPreviewBlobUrl(this.dossierId, this.versionId)
+      .getPreviewBlobUrl(this.dossierId, this.versionId, this.lookupMode)
 
       .then((url) => this.previewUrl.set(url))
 
@@ -256,7 +258,11 @@ export class DossierDocumentEditDialogComponent implements OnDestroy {
 
     } = {
 
-      dossier: this.dossierService.getDossierById(this.dossierId),
+      dossier: this.lookupMode
+
+        ? this.dossierService.getDossierByEquipmentLookup(this.dossierId)
+
+        : this.dossierService.getDossierById(this.dossierId),
 
     };
 
@@ -264,7 +270,15 @@ export class DossierDocumentEditDialogComponent implements OnDestroy {
 
     if (this.hasExtractionResult) {
 
-      requests.result = this.documentService.getDigitizationResultOrNull(this.dossierId, this.versionId);
+      requests.result = this.documentService.getDigitizationResultOrNull(
+
+        this.dossierId,
+
+        this.versionId,
+
+        this.lookupMode
+
+      );
 
     }
 

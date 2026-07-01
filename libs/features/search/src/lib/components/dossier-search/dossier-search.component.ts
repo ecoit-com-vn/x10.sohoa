@@ -19,9 +19,7 @@ import {
 } from '../../utils/folder-tree.util';
 import { of, switchMap, finalize, catchError, Observable } from 'rxjs';
 
-import { DossierDocumentEditDialogComponent, DossierManagementService, BhsCatalogColumn } from '@sohoa.frontend/features/dossier-management';
-import { DossierDocumentService } from '../../../../../dossier-management/src/lib/data-access/dossier-document.service';
-import { EavField, normalizeField, readFormSchemaJson, parseFormDataJson, normalizeDossierDetail } from '../../../../../dossier-management/src/lib/utils/dossier-form-schema.util';
+import { DossierDocumentEditDialogComponent, DossierManagementService, BhsCatalogColumn, DossierDocumentService, EavField, normalizeField, readFormSchemaJson, parseFormDataJson, normalizeDossierDetail } from '@sohoa.frontend/features/dossier-management';
 import { HttpClient } from '@angular/common/http';
 import { AuthService, APP_CONFIG } from '@sohoa.frontend/shared/core';
 

@@ -153,6 +153,11 @@ export class DossierManagementService {
     return this.http.get<any>(`${this.base}/${id}`);
   }
 
+  /** Chi tiết hồ sơ đã xuất bản — màn tra cứu hồ sơ thiết bị */
+  getDossierByEquipmentLookup(id: string): Observable<any> {
+    return this.http.get<any>(`${this.config.apiGatewayUrl}/api/v1/dossiers-by-equipment/${id}`);
+  }
+
   // ===== CRUD =====
 
   createDossier(dto: any): Observable<any> {
@@ -335,5 +340,12 @@ export class DossierManagementService {
     return this.http.get<any>(
       `${this.config.apiGatewayUrl}/api/v1/eav-form-templates/${formId}/get-form`
     ).pipe(catchError(() => of(null)));
+  }
+
+  getDossiersByEquipment(equipmentId: string, page: number, pageSize: number): Observable<any> {
+    let params = new HttpParams()
+      .set('page', page.toString())
+      .set('pageSize', pageSize.toString());
+    return this.http.get<any>(`${this.base}/by-equipment/${equipmentId}`, { params });
   }
 }
