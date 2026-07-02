@@ -18,19 +18,19 @@ public class WorkflowDefinitionCacheService
         _workflowRepository = workflowRepository ?? throw new ArgumentNullException(nameof(workflowRepository));
     }
 
-    public async Task<WorkflowDefinition?> GetActiveDefinitionByEntityTypeAsync(string entityType)
+    public async Task<WorkflowDefinition?> GetActiveDefinitionByWorkflowTypeIdAsync(int workflowTypeId)
     {
-        var cacheKey = $"wf:active:def:{entityType}";
+        var cacheKey = $"wf:active:def:{workflowTypeId}";
         if (_cache.TryGetValue(cacheKey, out WorkflowDefinition? cached))
             return cached;
 
-        var definition = await _workflowRepository.GetActiveDefinitionByEntityTypeAsync(entityType);
+        var definition = await _workflowRepository.GetActiveDefinitionByWorkflowTypeIdAsync(workflowTypeId);
         if (definition != null)
             _cache.Set(cacheKey, definition, ActiveDefinitionTtl);
 
         return definition;
     }
 
-    public void InvalidateActiveDefinition(string entityType) =>
-        _cache.Remove($"wf:active:def:{entityType}");
+    public void InvalidateActiveDefinition(int workflowTypeId) =>
+        _cache.Remove($"wf:active:def:{workflowTypeId}");
 }

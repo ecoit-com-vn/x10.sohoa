@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using EvnHanoi.WorkflowService.Core.Interfaces;
 using EvnHanoi.WorkflowService.Models;
+using EvnHanoi.Infrastructure.Enums;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -176,11 +177,12 @@ namespace EvnHanoi.WorkflowService.Controllers
         }
 
         [HttpGet("get-workflow-by-entity/{entityId}")]
-        public async Task<ActionResult> GetWorkflowByEntity(string entityId, [FromQuery] string entityType = "BorrowRecord")
+        public async Task<ActionResult> GetWorkflowByEntity(string entityId, [FromQuery] int? workflowTypeId)
         {
             try
             {
-                var status = await _borrowService.GetWorkflowStatusByEntityAsync(entityId, entityType);
+                var typeId = workflowTypeId ?? EntityType.BorrowRecord.Id;
+                var status = await _borrowService.GetWorkflowStatusByEntityAsync(entityId, typeId);
                 return Ok(status);
             }
             catch (KeyNotFoundException ex)

@@ -11,9 +11,9 @@ namespace EvnHanoi.WorkflowService.Models
         public string Name { get; set; } = string.Empty;
 
         /// <summary>
-        /// Code EntityType (GenericEnum) — ví dụ: "Dossier", "BorrowRecord".
+        /// ID loại quy trình liên kết với WORKFLOW_TYPES
         /// </summary>
-        public string EntityType { get; set; } = string.Empty;
+        public int WorkflowTypeId { get; set; }
 
         /// <summary>Mô tả chi tiết quy trình</summary>
         public string Description { get; set; } = string.Empty;

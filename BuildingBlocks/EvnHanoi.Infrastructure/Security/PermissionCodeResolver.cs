@@ -85,7 +85,7 @@ public static class PermissionCodeResolver
         }
 
         if (actLower.Contains("assign") || actLower.Contains("grant") ||
-            actLower.Contains("revoke") || actLower.Contains("move") || actLower.Contains("lock"))
+            actLower.Contains("revoke") || actLower.Contains("move") || actLower.Contains("lock") || actLower.Contains("reactivate"))
         {
             return "MANAGE";
         }
