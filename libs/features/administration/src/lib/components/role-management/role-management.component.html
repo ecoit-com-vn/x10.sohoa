@@ -87,10 +87,10 @@
                       <i class="pi pi-shield"></i>
                     </button>
                     <button *ngIf="authService.hasPermission('ROLE_EDIT') && role.isActive" class="act-btn act-lock" (click)="onToggleStatusRequest(role)" title="Khóa vai trò">
-                      <i class="pi pi-lock-open color-red"></i>
+                      <i class="pi pi-lock"></i>
                     </button>
-                    <button *ngIf="authService.hasPermission('ROLE_EDIT') && !role.isActive" class="act-btn act-unlock" (click)="onToggleStatusRequest(role)" title="Mở khóa vai trò">
-                      <i class="pi pi-lock color-green"></i>
+                    <button *ngIf="authService.hasPermission('ROLE_EDIT') && !role.isActive" class="act-btn act-unlock" (click)="onToggleStatusRequest(role)" title="Mở khóa vai trò">                     
+                      <i class="pi pi-lock-open"></i>
                     </button>
                     <button *ngIf="authService.hasPermission('ROLE_EDIT')" class="act-btn act-edit" (click)="onEdit(role)" title="Chỉnh sửa">
                       <i class="pi pi-pencil"></i>
@@ -404,8 +404,8 @@
           <i class="pi pi-times"></i> Hủy
         </button>
         <button class="btn-save btn-small" (click)="onConfirmLockUnlock()" [disabled]="lockUnlockLoading()"
-          [style.background-color]="lockUnlockTarget()?.isActive ? '#dc2626' : '#16a34a'"
-          [style.border-color]="lockUnlockTarget()?.isActive ? '#dc2626' : '#16a34a'">
+          [style.background-color]="lockUnlockTarget()?.isActive ? '#dc2626' : '#4790e9'"
+          [style.border-color]="lockUnlockTarget()?.isActive ? '#dc2626' : '#4790e9'">
           <i class="pi pi-spin pi-spinner" *ngIf="lockUnlockLoading()" style="margin-right: 4px;"></i>
           <i class="pi" [ngClass]="lockUnlockTarget()?.isActive ? 'pi-lock' : 'pi-lock-open'" *ngIf="!lockUnlockLoading()" style="margin-right: 4px;"></i>
           {{ lockUnlockTarget()?.isActive ? 'Khóa' : 'Mở khóa' }}

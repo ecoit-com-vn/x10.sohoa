@@ -11,6 +11,73 @@
     <span class="bc-current">Tìm kiếm hồ sơ trong kho</span>
   </div>
 
+  <!-- Vùng tìm kiếm riêng biệt mới phía dưới breadcrumb -->
+  <div class="wf-card dossier-search-bar" style="margin-bottom: 16px; padding: 16px; background: #ffffff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+    <div class="search-form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; align-items: flex-end;">
+      <!-- Tiêu chí 1: Đơn vị quản lý -->
+      <div class="search-form-item" style="display: flex; flex-direction: column; gap: 6px;">
+        <label class="search-field-label">Đơn vị quản lý</label>
+        <select
+          class="wf-select w-full"
+          [ngModel]="selectedUnitId()"
+          (ngModelChange)="onUnitChange($event)"
+          style="height: 38px; border-radius: 6px; border: 1px solid #cbd5e1; padding: 0 12px; outline: none;"
+        >
+          <option *ngFor="let unit of unitOptions()" [value]="unit.id">
+            {{ unit.name }}
+          </option>
+        </select>
+      </div>
+
+      <!-- Tiêu chí 2: Loại lưới điện -->
+      <div class="search-form-item" style="display: flex; flex-direction: column; gap: 6px;">
+        <label class="search-field-label">Loại lưới điện</label>
+        <select
+          class="wf-select w-full"
+          [ngModel]="searchGridType()"
+          (ngModelChange)="searchGridType.set($event)"
+          style="height: 38px; border-radius: 6px; border: 1px solid #cbd5e1; padding: 0 12px; outline: none;"
+        >
+          <option value="ALL">Tất cả</option>
+          <option value="HIGH">Lưới điện cao áp</option>
+          <option value="MEDIUM">Lưới điện trung áp</option>
+        </select>
+      </div>
+
+      <!-- Tiêu chí 3: Trạm / Đường dây -->
+      <div class="search-form-item" style="display: flex; flex-direction: column; gap: 6px;">
+        <label class="search-field-label" >Trạm / Đường dây</label>
+        <select
+          class="wf-select w-full"
+          [ngModel]="searchInfraName()"
+          (ngModelChange)="searchInfraName.set($event)"
+          style="height: 38px; border-radius: 6px; border: 1px solid #cbd5e1; padding: 0 12px; outline: none;"
+        >
+          <option value="">Tất cả</option>
+          <option *ngFor="let infra of infrastructures()" [value]="infra.name">
+            {{ infra.name }}
+          </option>
+        </select>
+      </div>
+
+      <!-- Tiêu chí 4: Hộp hồ sơ -->
+      <div class="search-form-item" style="display: flex; flex-direction: column; gap: 6px;">
+        <label class="search-field-label">Tên hộp hồ sơ</label>
+        <div class="search-input-with-icon" style="position: relative; display: flex; align-items: center;">
+          <i class="pi pi-box search-icon" style="position: absolute; left: 12px; color: #94a3b8;"></i>
+          <input
+            type="text"
+            class="wf-search-input w-full"
+            placeholder="Tìm tên hộp hồ sơ..."
+            [ngModel]="searchBoxName()"
+            (ngModelChange)="searchBoxName.set($event)"
+            style="height: 38px; border-radius: 6px; border: 1px solid #cbd5e1; padding: 0 12px 0 34px; outline: none;"
+          />
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- TWO SEPARATE CARDS -->
   <div class="search-layout-container">
     <!-- LEFT CARD: Folder Tree -->
@@ -23,35 +90,14 @@
         </div>
       </div>
 
-      <div class="search-input-wrapper">
-        <input
-          type="text"
-          class="wf-search-input tree-search-input"
-          placeholder="Tìm thư mục..."
-        />
-      </div>
-
-      <div class="unit-filter-wrapper" *ngIf="unitOptions().length > 1">
-        <!-- <label class="unit-filter-label">LỌC THEO ĐƠN VỊ</label> -->
-        <select
-          class="wf-select w-full"
-          [ngModel]="selectedUnitId()"
-          (ngModelChange)="onUnitChange($event)"
-        >
-          <option *ngFor="let unit of unitOptions()" [value]="unit.id">
-            {{ unit.name }}
-          </option>
-        </select>
-      </div>
-
       <!-- Folder tree (simplified list view) -->
       <div *ngIf="!loadingTree(); else loadingTreeSpinner">
-        <div *ngIf="folderTree().length === 0" class="empty-tree-message">
+        <div *ngIf="filteredFolderTree().length === 0" class="empty-tree-message">
           Chưa có thư mục nào
         </div>
 
         <!-- Recursive tree rendering -->
-        <ng-container *ngTemplateOutlet="folderTreeTemplate; context: { $implicit: folderTree(), isRoot: true }"></ng-container>
+        <ng-container *ngTemplateOutlet="folderTreeTemplate; context: { $implicit: filteredFolderTree(), isRoot: true }"></ng-container>
       </div>
 
       <!-- Template để render cây thư mục (recursive) -->

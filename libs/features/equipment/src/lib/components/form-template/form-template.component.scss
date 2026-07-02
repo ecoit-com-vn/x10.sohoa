@@ -213,3 +213,46 @@
     color: #002D72;
   }
 }
+
+.confirm-dialog-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 8px 0 16px;
+}
+
+.confirm-dialog-title {
+  margin: 0 0 6px 0;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.confirm-dialog-message {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.875rem;
+}
+
+.confirm-target-name {
+  color: #1e293b;
+}
+
+.confirm-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  border-top: 1px solid #f1f5f9;
+  padding-top: 12px;
+}
+
+.confirm-icon {
+  font-size: 1.8rem;
+}
+
+.confirm-icon-lock-open {
+  color: #f59e0b;
+}
+
+.confirm-icon-lock {
+  color: #3b82f6;
+}

@@ -249,7 +249,7 @@ export class CompletedFormListComponent implements OnInit {
 
     getFieldType(field: any): string {
         const type = (field?.type || 'text').toString().toLowerCase();
-        if (type === 'dropdown') {
+        if (type === 'dropdown' || type === 'select') {
             return 'dropdown';
         }
         if (type === 'textarea') {
@@ -257,6 +257,12 @@ export class CompletedFormListComponent implements OnInit {
         }
         if (type === 'checkbox') {
             return 'checkbox';
+        }
+        if (type === 'radio') {
+            return 'radio';
+        }
+        if (type === 'date') {
+            return 'date';
         }
         if (type === 'number') {
             return 'number';

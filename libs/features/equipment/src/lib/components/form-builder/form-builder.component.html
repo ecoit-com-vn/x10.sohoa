@@ -214,11 +214,36 @@
                     <textarea *ngIf="field.type === 'textarea'" pTextarea class="w-full preview-input" rows="2"
                       [placeholder]="field.placeholder || ''" disabled></textarea>
 
-                    <div *ngIf="field.type === 'checkbox'"
-                      style="display: flex; align-items: center; gap: 8px; padding: 8px 0;">
-                      <input type="checkbox" disabled style="scale: 1.1;" />
-                      <span class="text-sm select-none">{{ field.placeholder || 'Đồng ý / Xác nhận' }}</span>
-                    </div>
+                    <!-- Preview Checkbox -->
+                    <ng-container *ngIf="field.type === 'checkbox'">
+                      <!-- Case 1: Nhóm checkbox (nếu có options hoặc catalog) -->
+                      <div *ngIf="field.dataSourceType === 'catalog' || (field.options && field.options.length > 0); else singleCheckboxPreview"
+                           style="display: flex; flex-direction: column; gap: 6px; padding: 4px 0;">
+                        
+                        <!-- "Chọn tất cả" preview -->
+                        <label *ngIf="field.selectAll" style="display:flex; align-items:center; gap:8px; font-weight:600; cursor:not-allowed; opacity:0.8; border-bottom:1px dashed #cbd5e1; padding-bottom:4px; margin-bottom:4px; color:#002D72;">
+                          <input type="checkbox" disabled /> <span class="text-sm select-none">Chọn tất cả</span>
+                        </label>
+
+                        <div *ngIf="field.dataSourceType === 'catalog'" style="font-size:0.75rem; color:#64748b; font-style:italic;">
+                          (Lấy từ danh mục: {{ field.catalogType || 'chưa chọn' }})
+                        </div>
+                        
+                        <ng-container *ngIf="field.dataSourceType !== 'catalog'">
+                          <label *ngFor="let opt of (field.options || [])" style="display:flex; align-items:center; gap:8px; font-weight:normal; cursor:not-allowed; opacity:0.7;">
+                            <input type="checkbox" disabled /> <span class="text-sm select-none">{{ opt }}</span>
+                          </label>
+                        </ng-container>
+                      </div>
+
+                      <!-- Case 2: Checkbox đơn -->
+                      <ng-template #singleCheckboxPreview>
+                        <div style="display: flex; align-items: center; gap: 8px; padding: 8px 0;">
+                          <input type="checkbox" disabled style="scale: 1.1;" />
+                          <span class="text-sm select-none">{{ field.placeholder || 'Đồng ý / Xác nhận' }}</span>
+                        </div>
+                      </ng-template>
+                    </ng-container>
                   </div>
 
                   <div *ngIf="field.description" class="text-xs text-muted mt-2"
@@ -284,8 +309,17 @@
                     (Required)</label>
                 </div>
 
-                <!-- Data Source Selector for Dropdown & Radio -->
-                <div *ngIf="fields()[selectedFieldIndex()!].type === 'dropdown' || fields()[selectedFieldIndex()!].type === 'radio'" class="field mb-0">
+                <!-- Chọn tất cả (Select All) cho Checkbox Group -->
+                <div *ngIf="fields()[selectedFieldIndex()!].type === 'checkbox' && (fields()[selectedFieldIndex()!].dataSourceType === 'catalog' || (fields()[selectedFieldIndex()!].options && fields()[selectedFieldIndex()!].options?.length! > 0))" 
+                     class="field mb-2" style="display: flex; align-items: center; gap: 8px; margin-top: 10px;">
+                  <p-checkbox [ngModel]="fields()[selectedFieldIndex()!].selectAll"
+                    (ngModelChange)="updateSelectedField('selectAll', $event)" [binary]="true"
+                    id="prop-selectall"></p-checkbox>
+                  <label for="prop-selectall" class="font-bold text-sm cursor-pointer select-none" style="color: #002D72;">Cho phép Chọn tất cả (Select All)</label>
+                </div>
+
+                <!-- Data Source Selector for Dropdown, Radio, Checkbox -->
+                <div *ngIf="fields()[selectedFieldIndex()!].type === 'dropdown' || fields()[selectedFieldIndex()!].type === 'radio' || fields()[selectedFieldIndex()!].type === 'checkbox'" class="field mb-0">
                   <label class="block font-bold text-sm text-muted mb-1">Nguồn dữ liệu (Data Source)</label>
                   <p-select
                     [options]="[{label: 'Tự nhập thủ công (Manual)', value: 'manual'}, {label: 'Danh mục hệ thống (Catalog)', value: 'catalog'}]"
@@ -295,9 +329,9 @@
                   </p-select>
                 </div>
 
-                <!-- Options builder for Dropdown & Radio -->
+                <!-- Options builder for Dropdown, Radio, Checkbox (khi manual) -->
                 <div
-                  *ngIf="(fields()[selectedFieldIndex()!].type === 'dropdown' || fields()[selectedFieldIndex()!].type === 'radio') && fields()[selectedFieldIndex()!].dataSourceType !== 'catalog'"
+                  *ngIf="(fields()[selectedFieldIndex()!].type === 'dropdown' || fields()[selectedFieldIndex()!].type === 'radio' || fields()[selectedFieldIndex()!].type === 'checkbox') && fields()[selectedFieldIndex()!].dataSourceType !== 'catalog'"
                   class="dropdown-options-builder">
                   <div class="property-section-title flex justify-between items-center"
                     style="display: flex; justify-content: space-between; align-items: center;">
@@ -317,9 +351,9 @@
                   </div>
                 </div>
 
-                <!-- Catalog Selector -->
+                <!-- Catalog Selector for Dropdown, Radio, Checkbox -->
                 <div
-                  *ngIf="(fields()[selectedFieldIndex()!].type === 'dropdown' || fields()[selectedFieldIndex()!].type === 'radio') && fields()[selectedFieldIndex()!].dataSourceType === 'catalog'"
+                  *ngIf="(fields()[selectedFieldIndex()!].type === 'dropdown' || fields()[selectedFieldIndex()!].type === 'radio' || fields()[selectedFieldIndex()!].type === 'checkbox') && fields()[selectedFieldIndex()!].dataSourceType === 'catalog'"
                   class="field" style="margin-top: 10px;">
                   <label class="block font-bold text-sm text-muted mb-1">Chọn danh mục hệ thống</label>
                   <p-select [options]="catalogTypes()" [ngModel]="fields()[selectedFieldIndex()!].catalogType"
