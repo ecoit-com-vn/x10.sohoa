@@ -288,25 +288,13 @@ export class DossierSearchComponent implements OnInit, OnDestroy {
         this.folderTree.set(treeStructure);
         this.loadingTree.set(false);
 
+        // Mặc định chỉ mở cấp 1 và hộp lưới điện trung áp
         const toExpand = new Set<string>([
           'root-tba',
           'root-dd',
-          'tba-cao-ap',
           'tba-trung-ap',
-          'dd-cao-ap',
-          'dd-trung-ap'
+          'dd-trung-ap',
         ]);
-
-        for (const f of folders) {
-          if (
-            f.parentId === 'tba-cao-ap' ||
-            f.parentId === 'tba-trung-ap' ||
-            f.parentId === 'dd-cao-ap' ||
-            f.parentId === 'dd-trung-ap'
-          ) {
-            toExpand.add(f.id);
-          }
-        }
 
         this.expandedFolders.set(toExpand);
       },
