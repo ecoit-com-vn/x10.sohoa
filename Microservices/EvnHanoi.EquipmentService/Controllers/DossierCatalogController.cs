@@ -29,15 +29,15 @@ public class DossierCatalogController : ControllerBase
 
     [HttpGet("tree")]
     [BypassDynamicPermission]
-    public async Task<IActionResult> GetCatalogTree()
+    public async Task<IActionResult> GetCatalogTree([FromQuery] long? unitId)
     {
-        var unitId = GetUserUnitId();
-        if (unitId == 0)
-            return Unauthorized("Không thể xác định đơn vị của người dùng");
+        var targetUnitId = unitId ?? GetUserUnitId();
+        if (targetUnitId == 0)
+            return Unauthorized("Không thể xác định đơn vị");
 
         try
         {
-            var nodes = await _documentService.GetDossierCatalogTreeAsync(unitId);
+            var nodes = await _documentService.GetDossierCatalogTreeAsync(targetUnitId);
             return Ok(nodes);
         }
         catch (InvalidOperationException ex)
@@ -51,17 +51,18 @@ public class DossierCatalogController : ControllerBase
     public async Task<IActionResult> GetDocuments(
         [FromQuery] string? folderId,
         [FromQuery] string? keyword,
+        [FromQuery] long? unitId,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10)
     {
-        var unitId = GetUserUnitId();
-        if (unitId == 0)
-            return Unauthorized("Không thể xác định đơn vị của người dùng");
+        var targetUnitId = unitId ?? GetUserUnitId();
+        if (targetUnitId == 0)
+            return Unauthorized("Không thể xác định đơn vị");
 
         if (page < 1) page = 1;
         if (pageSize < 1) pageSize = 10;
 
-        var (items, totalCount) = await _documentService.GetDossierCatalogDocumentsAsync(unitId, folderId, keyword, page, pageSize);
+        var (items, totalCount) = await _documentService.GetDossierCatalogDocumentsAsync(targetUnitId, folderId, keyword, page, pageSize);
 
         return Ok(new { items, totalCount, page, pageSize });
     }

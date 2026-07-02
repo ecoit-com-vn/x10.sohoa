@@ -338,7 +338,7 @@ public class CatalogRepository : ICatalogRepository
 
         var sql = $@"UPDATE CATALOG_TYPE 
                      SET {nameof(CatalogType.IsDeleted)} = 1,
-                         {nameof(CatalogType.UpdatedAt)} = CURRENT_TIMESTAMP,
+                         {nameof(CatalogType.UpdatedAt)} = CURRENT_TIMESTAMP,ợ 
                          {nameof(CatalogType.UpdatedBy)} = :UpdatedBy
                      WHERE {nameof(CatalogType.Id)} = :Id";
         var affected = await _connection.ExecuteAsync(sql, new { Id = id, UpdatedBy = updatedBy });

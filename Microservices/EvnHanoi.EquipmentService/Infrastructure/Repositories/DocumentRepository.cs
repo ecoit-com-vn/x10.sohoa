@@ -997,6 +997,7 @@ public class DocumentRepository : IDocumentRepository
             LEFT JOIN DOSSIER_SETS ds ON d.DossierSetId = ds.ID
             LEFT JOIN EavFormTemplates f ON dt.FORM_ID = f.Id
             WHERE d.ISDELETED = 0 
+              AND d.PublishStatusId = 2
               AND i.UNIT_ID IN (
                   SELECT Id 
                   FROM ORGANIZATION_UNIT
