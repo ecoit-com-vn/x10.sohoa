@@ -26,7 +26,7 @@ namespace EvnHanoi.WorkflowService.Controllers;
 [Route("api/v1/dossiers-workflow")]
 public class DossierWorkflowController : ControllerBase
 {
-    private const string DossierEntityType = "Dossier";
+    private static readonly int DossierWorkflowTypeId = EntityType.Dossier.Id;
 
     private readonly IWorkflowEngineService _workflowEngine;
     private readonly IWorkflowDefinitionService _workflowDefinitionService;
@@ -64,7 +64,7 @@ public class DossierWorkflowController : ControllerBase
     {
         try
         {
-            var definition = await _workflowRepository.GetActiveDefinitionByEntityTypeAsync(DossierEntityType);
+            var definition = await _workflowRepository.GetActiveDefinitionByWorkflowTypeIdAsync(DossierWorkflowTypeId);
             if (definition == null)
             {
                 return NotFound(new { message = "Không tìm thấy quy trình đang hoạt động cho hồ sơ." });
@@ -158,7 +158,7 @@ public class DossierWorkflowController : ControllerBase
         try
         {
             // Submit (Tạo instance đứng ở Step 1)
-            instance = await _workflowEngine.SubmitByEntityTypeAsync(id.ToString(), DossierEntityType, UserId);
+            instance = await _workflowEngine.SubmitByWorkflowTypeIdAsync(id.ToString(), DossierWorkflowTypeId, UserId);
         }
         catch (KeyNotFoundException ex)
         {
@@ -185,7 +185,7 @@ public class DossierWorkflowController : ControllerBase
                 request.ActionLabel,
                 request.Comment,
                 request.NextAssigneeUserId,
-                DossierEntityType);
+                DossierWorkflowTypeId);
 
             return Ok(new
             {
@@ -293,12 +293,12 @@ public class DossierWorkflowController : ControllerBase
                 request.ActionLabel,
                 request.Comment,
                 request.NextAssigneeUserId,
-                DossierEntityType);
+                DossierWorkflowTypeId);
 
             object? workflow = null;
             try
             {
-                workflow = await _workflowEngine.GetInstanceStatusByEntityAsync(id.ToString(), DossierEntityType);
+                workflow = await _workflowEngine.GetInstanceStatusByEntityAsync(id.ToString(), DossierWorkflowTypeId);
             }
             catch (KeyNotFoundException)
             {
@@ -352,12 +352,12 @@ public class DossierWorkflowController : ControllerBase
                 request.ActionLabel,
                 request.Comment,
                 request.NextAssigneeUserId,
-                DossierEntityType);
+                DossierWorkflowTypeId);
 
             object? workflow = null;
             try
             {
-                workflow = await _workflowEngine.GetInstanceStatusByEntityAsync(id.ToString(), DossierEntityType);
+                workflow = await _workflowEngine.GetInstanceStatusByEntityAsync(id.ToString(), DossierWorkflowTypeId);
             }
             catch (KeyNotFoundException)
             {
@@ -400,7 +400,7 @@ public class DossierWorkflowController : ControllerBase
     {
         try
         {
-            var status = await _workflowEngine.GetInstanceStatusByEntityAsync(id.ToString(), DossierEntityType);
+            var status = await _workflowEngine.GetInstanceStatusByEntityAsync(id.ToString(), DossierWorkflowTypeId);
             return Ok(status);
         }
         catch (KeyNotFoundException)
@@ -415,7 +415,7 @@ public class DossierWorkflowController : ControllerBase
     {
         try
         {
-            var history = await _workflowEngine.GetHistoryByEntityAsync(id.ToString(), DossierEntityType);
+            var history = await _workflowEngine.GetHistoryByEntityAsync(id.ToString(), DossierWorkflowTypeId);
             return Ok(history);
         }
         catch (KeyNotFoundException ex)

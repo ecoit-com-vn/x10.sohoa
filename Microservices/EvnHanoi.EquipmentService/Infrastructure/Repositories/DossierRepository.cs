@@ -147,7 +147,7 @@ public class DossierRepository : IDossierRepository
                          LEFT JOIN DOSSIER_SETS ds ON d.{nameof(Dossier.DossierSetId)} = ds.ID
                          LEFT JOIN PUBLISH_STATUSES ps ON d.PUBLISHSTATUSID = ps.ID
                          LEFT JOIN DOSSIER_STATUSES dstat ON d.STATUS_ID = dstat.ID
-                         WHERE d.{nameof(Dossier.IsDeleted)} = 0";
+                         WHERE d.{nameof(Dossier.IsDeleted)} = 0 AND d.PUBLISHSTATUSID = 2";
 
         if (infrastructureId.HasValue)
         {

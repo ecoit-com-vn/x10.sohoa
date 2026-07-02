@@ -9,5 +9,6 @@ namespace EvnHanoi.WorkflowService.Core.Interfaces
         Task<WorkflowDefinition?> UpdateDefinitionWithVersioningAsync(Guid id, WorkflowDefinition dto, string userId);
         Task<WorkflowDefinition?> GetLatestActiveDefinitionByNameAsync(string name);
         Task<WorkflowDefinition?> GetDefinitionByIdAsync(Guid id);
+        Task<bool> ReactivateDefinitionAsync(Guid id, int workflowTypeId, string name);
     }
 }

@@ -8,8 +8,8 @@ namespace EvnHanoi.WorkflowService.Models
         public Guid Id { get; set; }
         public Guid WorkflowDefinitionId { get; set; }
         public string TargetEntityId { get; set; } = string.Empty;
-        /// <summary>Code EntityType — ví dụ: Dossier, BorrowRecord (cùng catalog với WorkflowDefinition.EntityType).</summary>
-        public string EntityType { get; set; } = string.Empty;
+        /// <summary>ID loại quy trình liên kết với WORKFLOW_TYPES</summary>
+        public int WorkflowTypeId { get; set; }
         public string Status { get; set; } = "Running"; // Running, Completed, Terminated
         public int CurrentStepOrder { get; set; }
         public string? CurrentNodeId { get; set; }
