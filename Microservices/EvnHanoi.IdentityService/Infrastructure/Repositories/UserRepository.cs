@@ -238,6 +238,48 @@ public class UserRepository : IUserRepository
         });
     }
 
+    public async Task UpdateProfileAsync(User user)
+    {
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+        var sql = $@"
+            UPDATE APP_USER
+            SET {nameof(User.Email)} = :Email,
+                {nameof(User.FullName)} = :FullName,
+                {nameof(User.PositionId)} = :PositionId,
+                {nameof(User.PositionName)} = :PositionName,
+                UpdatedAt = CURRENT_TIMESTAMP,
+                UpdatedBy = :UpdatedBy
+            WHERE {nameof(User.Id)} = :Id";
+
+        await _connection.ExecuteAsync(sql, new
+        {
+            user.Email,
+            user.FullName,
+            user.PositionId,
+            user.PositionName,
+            UpdatedBy = user.Id,
+            user.Id
+        });
+    }
+
+    public async Task<bool> EmailExistsForOtherUserAsync(string email, string userId)
+    {
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+        var sql = @"
+            SELECT COUNT(1)
+            FROM APP_USER
+            WHERE UPPER(Email) = UPPER(:Email)
+              AND Id <> :UserId";
+
+        var count = await _connection.ExecuteScalarAsync<int>(sql, new
+        {
+            Email = email,
+            UserId = userId
+        });
+
+        return count > 0;
+    }
+
     public async Task<string> CreateAsync(User user)
     {
         if (_connection.State != ConnectionState.Open) _connection.Open();

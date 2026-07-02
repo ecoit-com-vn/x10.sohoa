@@ -12,6 +12,8 @@ public interface IUserRepository
     Task<User?> GetByIdAsync(string id);
     Task UpdateAsync(User user);
     Task UpdateFullAsync(User user);
+    Task UpdateProfileAsync(User user);
+    Task<bool> EmailExistsForOtherUserAsync(string email, string userId);
     Task<string> CreateAsync(User user);
     Task DeleteAsync(string id);
     Task<IEnumerable<string>> GetRolesByUserIdAsync(string userId);

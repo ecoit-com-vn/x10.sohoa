@@ -6,6 +6,7 @@ using System.Net.Http.Json;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using EvnHanoi.IdentityService.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -528,17 +529,21 @@ public class AuthController : ControllerBase
     }
 
     [Authorize]
+    [BypassDynamicPermission]
     [HttpGet("profile")]
     public async Task<IActionResult> GetProfile()
     {
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         var username = User.FindFirst(ClaimTypes.Name)?.Value;
         
-        if (string.IsNullOrEmpty(username)) 
+        if (string.IsNullOrEmpty(userId) && string.IsNullOrEmpty(username))
         {
             return Unauthorized();
         }
 
-        var user = await _userRepository.GetUserByUsernameAsync(username);
+        var user = !string.IsNullOrEmpty(userId)
+            ? await _userRepository.GetByIdAsync(userId)
+            : await _userRepository.GetUserByUsernameAsync(username!);
         
         if (user == null)
         {
@@ -553,6 +558,8 @@ public class AuthController : ControllerBase
             Username = user.Username,
             FullName = user.FullName,
             Email = user.Email,
+            PositionId = user.PositionId,
+            PositionName = user.PositionName,
             UnitId = user.OrganizationUnitId,
             OrganizationUnitId = user.OrganizationUnitId,
             OrganizationUnit = user.OrganizationUnit,
@@ -560,6 +567,123 @@ public class AuthController : ControllerBase
             Roles = userRoles,
             Permissions = userPermissions
         });
+    }
+
+    [Authorize]
+    [BypassDynamicPermission]
+    [HttpPut("profile")]
+    public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileRequest? request)
+    {
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized();
+        }
+
+        if (request == null)
+        {
+            return BadRequest(new
+            {
+                statusCode = 400,
+                message = "Dữ liệu đầu vào không hợp lệ.",
+                errors = new Dictionary<string, string> { { "profile", "Dữ liệu cập nhật không hợp lệ." } }
+            });
+        }
+
+        var errors = ValidateProfileRequest(request);
+        if (errors.Count > 0)
+        {
+            return BadRequest(new
+            {
+                statusCode = 400,
+                message = "Dữ liệu đầu vào không hợp lệ.",
+                errors
+            });
+        }
+
+        var user = await _userRepository.GetByIdAsync(userId);
+        if (user == null)
+        {
+            return NotFound(new { message = "Không tìm thấy người dùng." });
+        }
+
+        var email = request.Email.Trim();
+        if (await _userRepository.EmailExistsForOtherUserAsync(email, userId))
+        {
+            return BadRequest(new
+            {
+                statusCode = 400,
+                message = "Dữ liệu đầu vào không hợp lệ.",
+                errors = new Dictionary<string, string> { { "email", "Email đã được sử dụng." } }
+            });
+        }
+
+        user.FullName = request.FullName.Trim();
+        user.Email = email;
+        user.PositionId = request.PositionId;
+        user.PositionName = string.IsNullOrWhiteSpace(request.PositionName)
+            ? null
+            : request.PositionName.Trim();
+
+        await _userRepository.UpdateProfileAsync(user);
+
+        var updated = await _userRepository.GetByIdAsync(userId);
+        if (updated == null)
+        {
+            return NotFound(new { message = "Không tìm thấy người dùng sau khi cập nhật." });
+        }
+
+        return Ok(new
+        {
+            Id = updated.Id,
+            Username = updated.Username,
+            FullName = updated.FullName,
+            Email = updated.Email,
+            PositionId = updated.PositionId,
+            PositionName = updated.PositionName,
+            UnitId = updated.OrganizationUnitId,
+            OrganizationUnitId = updated.OrganizationUnitId,
+            OrganizationUnit = updated.OrganizationUnit,
+            IsActive = updated.IsActive
+        });
+    }
+
+    private static Dictionary<string, string> ValidateProfileRequest(UpdateProfileRequest request)
+    {
+        var errors = new Dictionary<string, string>();
+
+        if (string.IsNullOrWhiteSpace(request.FullName))
+        {
+            errors["fullName"] = "Trường dữ liệu này không được để trống.";
+        }
+        else if (request.FullName.Trim().Length > 255)
+        {
+            errors["fullName"] = "Họ và tên không được vượt quá 255 ký tự.";
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Email))
+        {
+            errors["email"] = "Trường dữ liệu này không được để trống.";
+        }
+        else
+        {
+            var email = request.Email.Trim();
+            if (email.Length > 100)
+            {
+                errors["email"] = "Email không được vượt quá 100 ký tự.";
+            }
+            else if (!Regex.IsMatch(email, @"^[^@\s]+@[^@\s]+\.[^@\s]+$"))
+            {
+                errors["email"] = "Email không đúng định dạng.";
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.PositionName) && request.PositionName.Trim().Length > 255)
+        {
+            errors["positionName"] = "Chức vụ không được vượt quá 255 ký tự.";
+        }
+
+        return errors;
     }
 
     [Authorize]
@@ -587,6 +711,14 @@ public class LoginRequest
 public class RefreshRequest
 {
     public string RefreshToken { get; set; } = string.Empty;
+}
+
+public class UpdateProfileRequest
+{
+    public string FullName { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public long? PositionId { get; set; }
+    public string? PositionName { get; set; }
 }
 
 public class SsoValidationResponse
