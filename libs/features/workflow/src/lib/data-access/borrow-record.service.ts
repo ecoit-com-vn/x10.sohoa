@@ -59,8 +59,8 @@ export class BorrowRecordService {
     return this.http.get<any[]>(`${this.baseBorrow}/get-my-tasks`);
   }
 
-  getWorkflowByEntity(recordId: string, entityType: string = 'BorrowRecord'): Observable<any> {
-    const params = new HttpParams().set('entityType', entityType);
+  getWorkflowByEntity(recordId: string, workflowTypeId: number = 2): Observable<any> {
+    const params = new HttpParams().set('workflowTypeId', workflowTypeId.toString());
     return this.http.get<any>(`${this.baseBorrow}/get-workflow-by-entity/${recordId}`, { params });
   }
 
@@ -71,12 +71,9 @@ export class BorrowRecordService {
     return this.http.get<WorkflowDefinition[]>(this.baseDefinition, { params });
   }
 
-  submitWorkflow(definitionId: string, dossierId: string, entityType: string = 'BorrowRecord'): Observable<any> {
-    const params = new HttpParams()
-      .set('definitionId', definitionId)
-      .set('dossierId', dossierId)
-      .set('entityType', entityType);
-    return this.http.post<any>(`${this.baseWorkflow}/submit`, null, { params });
+  submitWorkflow(entityId: string, workflowTypeId: number = 2): Observable<any> {
+    const body = { entityId, workflowTypeId };
+    return this.http.post<any>(`${this.baseWorkflow}/submit`, body);
   }
 
   getWorkflowDefinition(id: string): Observable<WorkflowDefinition> {

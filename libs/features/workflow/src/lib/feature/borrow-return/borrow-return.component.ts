@@ -195,7 +195,7 @@ export class BorrowReturnComponent implements OnInit {
 
   // Lấy trạng thái workflow instance của hồ sơ từ backend
   loadEntityWorkflowState(recordId: string) {
-    this.borrowRecordService.getWorkflowByEntity(recordId, 'BorrowRecord').subscribe({
+    this.borrowRecordService.getWorkflowByEntity(recordId, 2).subscribe({
       next: (instance) => {
         if (instance) {
           const pendingTask = instance.pendingTasks && instance.pendingTasks.length > 0 ? instance.pendingTasks[0] : null;
