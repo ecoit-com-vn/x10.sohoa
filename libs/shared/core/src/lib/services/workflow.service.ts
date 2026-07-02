@@ -20,7 +20,7 @@ export interface WorkflowStep {
 export interface WorkflowDefinition {
   id?: string;
   name: string;
-  entityType?: string;
+  workflowTypeId?: number;
   description: string;
   version: string;         // Phiên bản
   forceActivate: boolean;  // Ép buộc kích hoạt
@@ -93,9 +93,15 @@ export class WorkflowService {
       .pipe(catchError(this.handleError));
   }
 
+  /** Tái kích hoạt một phiên bản quy trình cũ */
+  reactivate(id: string): Observable<any> {
+    return this.http.post<any>(`${this.BASE}/${id}/reactivate`, {})
+      .pipe(catchError(this.handleError));
+  }
+
   /** Lấy lịch sử tất cả phiên bản của một quy trình theo tên */
-  getVersions(name: string): Observable<WorkflowDefinition[]> {
-    return this.http.get<WorkflowDefinition[]>(`${this.BASE}/versions/${encodeURIComponent(name)}`)
+  getVersions(workflowTypeId: number): Observable<WorkflowDefinition[]> {
+    return this.http.get<WorkflowDefinition[]>(`${this.BASE}/versions/${workflowTypeId}`)
       .pipe(catchError(this.handleError));
   }
 
@@ -103,13 +109,10 @@ export class WorkflowService {
     return `${this.config.apiGatewayUrl}/api/v1/workflows`;
   }
 
-  /** Gửi hồ sơ/yêu cầu vào quy trình */
-  submitWorkflow(definitionId: string, dossierId: string, entityType: string = 'BorrowRecord'): Observable<any> {
-    let params = new HttpParams()
-      .set('definitionId', definitionId)
-      .set('dossierId', dossierId)
-      .set('entityType', entityType);
-    return this.http.post<any>(`${this.EXEC_BASE}/submit`, null, { params })
+  /** Gửi hồ sơ/yêu cầu vào quy trình theo loại quy trình (WorkflowTypeId) */
+  submitWorkflow(entityId: string, workflowTypeId: number = 2): Observable<any> {
+    const body = { entityId, workflowTypeId };
+    return this.http.post<any>(`${this.EXEC_BASE}/submit`, body)
       .pipe(catchError(this.handleError));
   }
 
@@ -149,9 +152,9 @@ export class WorkflowService {
   }
 
   /** Lấy instance hiện tại của target entity */
-  getInstanceByEntity(entityId: string, entityType: string = 'BorrowRecord'): Observable<any> {
-    let params = new HttpParams().set('entityType', entityType);
-    return this.http.get<any>(`${this.EXEC_BASE}/instances/entity/${entityId}`, { params })
+  getInstanceByEntity(entityId: string, workflowTypeId: number = 2): Observable<any> {
+    const params = new HttpParams().set('workflowTypeId', workflowTypeId.toString());
+    return this.http.get<any>(`${this.EXEC_BASE}/get-workflow-by-entity/${entityId}`, { params })
       .pipe(catchError(this.handleError));
   }
 

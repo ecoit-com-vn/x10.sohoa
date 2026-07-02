@@ -29,6 +29,7 @@ interface FormField {
   dataSourceType?: 'manual' | 'catalog';
   catalogType?: string;
   description?: string;
+  selectAll?: boolean;
 }
 
 interface ToolboxItem {
@@ -301,7 +302,7 @@ export class FormManagementComponent implements OnInit {
   }
 
   onEdit(form: EavFormTemplate) {
-    if (form.status === 'Chờ duyệt' || form.status === 'Hoàn thành') {
+    if (form.status === 'Chờ duyệt') {
       this.onPreview(form);
       return;
     }
@@ -443,9 +444,10 @@ export class FormManagementComponent implements OnInit {
       type,
       placeholder: '',
       required: false,
-      options: (type === 'dropdown' || type === 'radio') ? [] : undefined,
+      options: (type === 'dropdown' || type === 'radio' || type === 'checkbox') ? [] : undefined,
       width: 100,
-      dataSourceType: 'manual'
+      dataSourceType: 'manual',
+      selectAll: false
     };
   }
 

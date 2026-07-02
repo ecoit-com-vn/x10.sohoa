@@ -4,11 +4,18 @@ export interface EavField {
   name?: string;
   id?: string;
   label: string;
-  type: 'text' | 'number' | 'date' | 'textarea' | 'select' | 'checkbox';
+  type: 'text' | 'number' | 'date' | 'textarea' | 'select' | 'checkbox' | 'radio' | 'checkboxGroup';
   required?: boolean;
   placeholder?: string;
   options?: { label: string; value: string }[];
   unit?: string;
+  /** Nguồn dữ liệu: 'manual' (tự nhập) hoặc 'catalog' (từ danh mục hệ thống) */
+  dataSourceType?: 'manual' | 'catalog';
+  /** Mã loại danh mục hệ thống khi dataSourceType = 'catalog' */
+  catalogType?: string;
+  /** Dữ liệu đã load từ danh mục (được fill sau khi load) */
+  catalogItems?: { label: string; value: string }[];
+  selectAll?: boolean;
 }
 
 export interface NormalizedDossierDetail {
@@ -107,6 +114,9 @@ export function normalizeField(raw: Record<string, unknown>): EavField {
   if (type === 'dropdown') {
     type = 'select';
   }
+  if (type === 'checkboxGroup') {
+    type = 'checkbox';
+  }
 
   let options = raw['options'] as any;
   if (Array.isArray(options)) {
@@ -125,11 +135,16 @@ export function normalizeField(raw: Record<string, unknown>): EavField {
     });
   }
 
+  const dataSourceType = (raw['dataSourceType'] as 'manual' | 'catalog') || 'manual';
+  const catalogType = raw['catalogType'] as string | undefined;
+
   return {
     ...(raw as unknown as EavField),
     key,
     type,
     options,
+    dataSourceType,
+    catalogType,
   };
 }
 

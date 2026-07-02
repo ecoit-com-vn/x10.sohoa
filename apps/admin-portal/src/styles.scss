@@ -1203,24 +1203,24 @@ td:has(.act-btn) {
 }
 
 .act-lock {
-  color: #f59e0b !important;
-  border-color: #fef3c7 !important;
-  background-color: #fffbeb !important;
+  color: #ef4444 !important;
+  border-color: #fee2e2 !important;
+  background-color: #fef2f2 !important;
   &:hover {
-    background-color: #fef3c7 !important;
-    color: #d97706 !important;
+    background-color: #fee2e2 !important;
+    color: #b91c1c !important;
     box-shadow: 0 2px 4px rgba(245, 158, 11, 0.15) !important;
   }
 }
 
 .act-unlock {
-  color: #3b82f6 !important;
-  border-color: #dbeafe !important;
-  background-color: #eff6ff !important;
+  color: #0d9418 !important;
+  border-color: #ccfbf1 !important;
+  background-color: #f0fdfa !important;
   &:hover {
-    background-color: #dbeafe !important;
-    color: #1d4ed8 !important;
-    box-shadow: 0 2px 4px rgba(59, 130, 246, 0.15) !important;
+    background-color: #ccfbf1 !important;
+    color: #12760f !important;
+    box-shadow: 0 2px 4px rgba(13, 148, 136, 0.15) !important;
   }
 }
 

@@ -20,6 +20,9 @@ export function convertFlatToTree(folders: FolderNode[]): FolderNode[] {
       if (parent) {
         parent.children = parent.children || [];
         parent.children.push(node);
+      } else {
+        // Parent is missing from the list, treat this as a local root node
+        roots.push(node);
       }
     } else {
       roots.push(node);

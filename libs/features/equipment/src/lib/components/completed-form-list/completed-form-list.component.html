@@ -83,11 +83,11 @@
                                 </button>
                                 <button class="act-btn act-lock" *ngIf="!isFormLocked(form)" (click)="lockForm(form)"
                                     title="Khóa form">
-                                    <i class="pi pi-lock-open"></i>
+                                    <i class="pi pi-lock"></i>
                                 </button>
                                 <button class="act-btn act-unlock" *ngIf="isFormLocked(form)" (click)="unlockForm(form)"
-                                    title="Mở khóa form">
-                                    <i class="pi pi-lock"></i>
+                                    title="Mở khóa form">                                   
+                                    <i class="pi pi-lock-open"></i>
                                 </button>
                                 <button class="act-btn act-delete" (click)="deactivateForm(form)" title="Xóa">
                                     <i class="pi pi-trash"></i>
@@ -210,10 +210,37 @@
                                     <textarea *ngIf="getFieldType(field) === 'textarea'" pTextarea class="preview-form-textarea"
                                               [placeholder]="field.placeholder || ''" rows="2" disabled></textarea>
 
+                                    <!-- Radio -->
+                                    <div *ngIf="getFieldType(field) === 'radio'" style="display: flex; flex-direction: column; gap: 6px; padding: 4px 0;">
+                                      <label *ngFor="let opt of (field.dataSourceType === 'catalog' ? ['(Dữ liệu từ danh mục ' + field.catalogType + ')'] : (field.options || []))" 
+                                             style="display: flex; align-items: center; gap: 8px; font-weight: normal; cursor: pointer;">
+                                        <input type="radio" disabled />
+                                        <span style="font-size: 0.9rem;">{{ opt }}</span>
+                                      </label>
+                                    </div>
+
                                     <!-- Checkbox -->
-                                    <div *ngIf="getFieldType(field) === 'checkbox'" class="preview-form-checkbox-container">
-                                        <input type="checkbox" disabled class="preview-form-checkbox-input" />
-                                        <span class="preview-form-checkbox-label">{{ field.placeholder || 'Đồng ý / Xác nhận' }}</span>
+                                    <div *ngIf="getFieldType(field) === 'checkbox'">
+                                      <!-- Case 1: Nhóm checkbox (nếu có options hoặc catalog) -->
+                                      <div *ngIf="field.dataSourceType === 'catalog' || (field.options && field.options.length > 0); else singleCheckboxView"
+                                           style="display: flex; flex-direction: column; gap: 6px; padding: 4px 0;">
+                                        <!-- "Chọn tất cả" preview -->
+                                        <label *ngIf="field.selectAll" style="display:flex; align-items:center; gap:8px; font-weight:600; cursor:not-allowed; opacity:0.8; border-bottom:1px dashed #cbd5e1; padding-bottom:4px; margin-bottom:4px; color:#002D72;">
+                                          <input type="checkbox" disabled /> <span style="font-size:0.9rem;">Chọn tất cả</span>
+                                        </label>
+                                        <label *ngFor="let opt of (field.dataSourceType === 'catalog' ? ['(Dữ liệu từ danh mục ' + field.catalogType + ')'] : (field.options || []))" 
+                                               style="display: flex; align-items: center; gap: 8px; font-weight: normal; cursor: pointer;">
+                                          <input type="checkbox" disabled />
+                                          <span style="font-size: 0.9rem;">{{ opt }}</span>
+                                        </label>
+                                      </div>
+                                      <!-- Case 2: Checkbox đơn -->
+                                      <ng-template #singleCheckboxView>
+                                        <div class="preview-form-checkbox-container">
+                                            <input type="checkbox" disabled class="preview-form-checkbox-input" />
+                                            <span class="preview-form-checkbox-label">{{ field.placeholder || field.label || 'Đồng ý / Xác nhận' }}</span>
+                                        </div>
+                                      </ng-template>
                                     </div>
                                 </div>
 
@@ -251,7 +278,7 @@
                 <button class="btn-small btn-cancel" (click)="showConfirmLock.set(false)">
                     <i class="pi pi-times"></i> Hủy
                 </button>
-                <button class="btn-small btn-confirm btn-confirm-lock" (click)="onConfirmLock()">
+                <button class="btn-small btn-save" (click)="onConfirmLock()">
                     <i class="pi pi-check"></i> Xác nhận
                 </button>
             </div>
@@ -273,10 +300,10 @@
         </div>
         <ng-template #footer>
             <div class="confirm-dialog-footer">
-                <button class="btn-small btn-cancel" (click)="showConfirmUnlock.set(false)">
+                <button class="btn-cancel btn-small" (click)="showConfirmUnlock.set(false)">
                     <i class="pi pi-times"></i> Hủy
                 </button>
-                <button class="btn-small btn-confirm btn-confirm-unlock" (click)="onConfirmUnlock()">
+                <button class="btn-save btn-small" (click)="onConfirmUnlock()">
                     <i class="pi pi-check"></i> Xác nhận
                 </button>
             </div>
