@@ -455,8 +455,8 @@
           <i class="pi pi-times"></i> Hủy
         </button>
         <button class="btn-save btn-small" (click)="onConfirmTypeLock()" [disabled]="typeLockLoading()"
-                [style.background-color]="typeLockTarget()?.status === 1 ? '#dc2626' : '#16a34a'"
-                [style.border-color]="typeLockTarget()?.status === 1 ? '#dc2626' : '#16a34a'">
+                [style.background-color]="typeLockTarget()?.status === 1 ? '#dc2626' : '#4790e9'"
+                [style.border-color]="typeLockTarget()?.status === 1 ? '#dc2626' : '#4790e9'">
           <i class="pi pi-spin pi-spinner" *ngIf="typeLockLoading()"></i>
           <i class="pi" *ngIf="!typeLockLoading()"
              [ngClass]="typeLockTarget()?.status === 1 ? 'pi-lock' : 'pi-lock-open'"></i>
@@ -494,8 +494,8 @@
           <i class="pi pi-times"></i> Hủy
         </button>
         <button class="btn-save btn-small" (click)="onConfirmCatalogLock()" [disabled]="catalogLockLoading()"
-                [style.background-color]="catalogLockTarget()?.status === 1 ? '#dc2626' : '#16a34a'"
-                [style.border-color]="catalogLockTarget()?.status === 1 ? '#dc2626' : '#16a34a'">
+                [style.background-color]="catalogLockTarget()?.status === 1 ? '#dc2626' : '#4790e9'"
+                [style.border-color]="catalogLockTarget()?.status === 1 ? '#dc2626' : '#4790e9'">
           <i class="pi pi-spin pi-spinner" *ngIf="catalogLockLoading()"></i>
           <i class="pi" *ngIf="!catalogLockLoading()"
              [ngClass]="catalogLockTarget()?.status === 1 ? 'pi-lock' : 'pi-lock-open'"></i>

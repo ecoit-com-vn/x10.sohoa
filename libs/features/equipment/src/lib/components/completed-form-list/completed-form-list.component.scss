@@ -379,40 +379,6 @@
   gap: 6px;
 }
 
-.btn-cancel {
-  background: #f1f5f9;
-  color: #475569;
-
-  &:hover {
-    background: #e2e8f0;
-  }
-}
-
-.btn-confirm-lock {
-  background-color: #f59e0b;
-  border-color: #f59e0b;
-  color: white;
-
-  &:hover {
-    background-color: #d97706;
-  }
-}
-
-.btn-confirm-unlock {
-  background-color: #3b82f6;
-  border-color: #3b82f6;
-  color: white;
-
-  &:hover {
-    background-color: #2563eb;
-  }
-}
-
-.btn-small {
-  padding: 8px 14px;
-  font-size: 0.875rem;
-}
-
 // Icon colors
 .icon-view {
   color: #3b82f6;

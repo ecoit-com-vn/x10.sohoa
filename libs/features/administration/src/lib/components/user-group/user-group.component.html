@@ -245,8 +245,8 @@
             <i class="pi pi-times"></i> Hủy
           </button>
           <button class="btn-save btn-small" (click)="onConfirmLockUnlock()" [disabled]="lockUnlockLoading()"
-            [style.background-color]="lockUnlockTarget()?.isActive ? '#dc2626' : '#16a34a'"
-            [style.border-color]="lockUnlockTarget()?.isActive ? '#dc2626' : '#16a34a'">
+            [style.background-color]="lockUnlockTarget()?.isActive ? '#dc2626' : '#4790e9'"
+            [style.border-color]="lockUnlockTarget()?.isActive ? '#dc2626' : '#4790e9'">
             <i class="pi pi-spin pi-spinner" *ngIf="lockUnlockLoading()" style="margin-right: 4px;"></i>
             <i class="pi" [ngClass]="lockUnlockTarget()?.isActive ? 'pi-lock' : 'pi-lock-open'" *ngIf="!lockUnlockLoading()" style="margin-right: 4px;"></i>
             {{ lockUnlockTarget()?.isActive ? 'Khóa' : 'Mở khóa' }}

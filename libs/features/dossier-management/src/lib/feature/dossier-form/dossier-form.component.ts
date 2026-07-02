@@ -19,7 +19,8 @@ import {
 } from '../../utils/dossier-form-schema.util';
 import { forkJoin } from 'rxjs';
 import { DatePickerModule } from 'primeng/datepicker';
-import { AuthService } from '@sohoa.frontend/shared/core';
+import { AuthService } from '../../../../../../shared/core/src/lib/services/auth.service';
+import { EavFormService } from '../../../../../../shared/core/src/lib/services/eav-form.service';
 import {
   isApproveWorkflowLabel,
   isRejectWorkflowLabel,
@@ -238,20 +239,131 @@ import {
                           [placeholder]="field.placeholder || ''"
                           [(ngModel)]="formData[field.key]"></textarea>
 
+                <!-- Dropdown (type = select, luưu trong schema là dropdown → được normalize thành select) -->
                 <select *ngSwitchCase="'select'" class="wf-select w-full"
                         [name]="'dyn_' + field.key"
                         [(ngModel)]="formData[field.key]">
                   <option value="">-- Chọn --</option>
-                  <option *ngFor="let opt of field.options" [value]="opt.value">{{ opt.label }}</option>
+                  <ng-container *ngIf="field.dataSourceType === 'catalog' && field.catalogItems?.length; else manualOptions">
+                    <option *ngFor="let opt of field.catalogItems" [value]="opt.value">{{ opt.label }}</option>
+                  </ng-container>
+                  <ng-template #manualOptions>
+                    <option *ngFor="let opt of field.options" [value]="opt.value">{{ opt.label }}</option>
+                  </ng-template>
                 </select>
 
-                <label *ngSwitchCase="'checkbox'" style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin-top: 4px;">
-                  <input type="checkbox"
-                         [name]="'dyn_' + field.key"
-                         [(ngModel)]="formData[field.key]"
-                         style="width: 16px; height: 16px; accent-color: #002D72; cursor: pointer;">
-                  <span style="font-size: 0.9rem;">{{ field.placeholder || field.label }}</span>
-                </label>
+                <!-- Radio group -->
+                <div *ngSwitchCase="'radio'" style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
+                  <ng-container *ngIf="field.dataSourceType === 'catalog' && field.catalogItems?.length; else manualRadioOptions">
+                    <label *ngFor="let opt of field.catalogItems"
+                           style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: normal;">
+                      <input type="radio"
+                             [name]="'dyn_' + field.key"
+                             [value]="opt.value"
+                             [(ngModel)]="formData[field.key]"
+                             style="width: 16px; height: 16px; accent-color: #002D72; cursor: pointer;">
+                      <span style="font-size: 0.9rem;">{{ opt.label }}</span>
+                    </label>
+                  </ng-container>
+                  <ng-template #manualRadioOptions>
+                    <label *ngFor="let opt of (field.options || [])"
+                           style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: normal;">
+                      <input type="radio"
+                             [name]="'dyn_' + field.key"
+                             [value]="opt.value"
+                             [(ngModel)]="formData[field.key]"
+                             style="width: 16px; height: 16px; accent-color: #002D72; cursor: pointer;">
+                      <span style="font-size: 0.9rem;">{{ opt.label }}</span>
+                    </label>
+                  </ng-template>
+                </div>
+
+                <!-- Checkbox (có thể là đơn hoặc nhóm nhiều lựa chọn) -->
+                <ng-container *ngSwitchCase="'checkbox'">
+                  <!-- TH 1: Nhóm checkbox (nếu có options hoặc catalog) -->
+                  <div *ngIf="field.dataSourceType === 'catalog' || (field.options && field.options.length > 0); else singleCheckbox"
+                       style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
+                    
+                    <!-- Nút "Chọn tất cả" nếu có selectAll -->
+                    <label *ngIf="field.selectAll" style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 600; border-bottom: 1px dashed #cbd5e1; padding-bottom: 4px; margin-bottom: 4px;">
+                      <input type="checkbox"
+                             [checked]="isAllCheckboxesChecked(field)"
+                             (change)="toggleSelectAllCheckboxes(field, $any($event.target).checked)"
+                             style="width: 16px; height: 16px; accent-color: #002D72; cursor: pointer;">
+                      <span style="font-size: 0.9rem; color: #002D72;">Chọn tất cả</span>
+                    </label>
+
+                    <!-- Catalog hoặc Manual options -->
+                    <ng-container *ngIf="field.dataSourceType === 'catalog' && field.catalogItems?.length; else manualCheckboxGroup">
+                      <label *ngFor="let opt of field.catalogItems"
+                             style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: normal;">
+                        <input type="checkbox"
+                               [name]="'dyn_' + field.key + '_' + opt.value"
+                               [checked]="isCheckboxChecked(field.key, opt.value)"
+                               (change)="onCheckboxGroupChange(field.key, opt.value, $any($event.target).checked)"
+                               style="width: 16px; height: 16px; accent-color: #002D72; cursor: pointer;">
+                        <span style="font-size: 0.9rem;">{{ opt.label }}</span>
+                      </label>
+                    </ng-container>
+                    <ng-template #manualCheckboxGroup>
+                      <label *ngFor="let opt of (field.options || [])"
+                             style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: normal;">
+                        <input type="checkbox"
+                               [name]="'dyn_' + field.key + '_' + opt.value"
+                               [checked]="isCheckboxChecked(field.key, opt.value)"
+                               (change)="onCheckboxGroupChange(field.key, opt.value, $any($event.target).checked)"
+                               style="width: 16px; height: 16px; accent-color: #002D72; cursor: pointer;">
+                        <span style="font-size: 0.9rem;">{{ opt.label }}</span>
+                      </label>
+                    </ng-template>
+                  </div>
+
+                  <!-- TH 2: Checkbox đơn -->
+                  <ng-template #singleCheckbox>
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin-top: 4px;">
+                      <input type="checkbox"
+                             [name]="'dyn_' + field.key"
+                             [(ngModel)]="formData[field.key]"
+                             style="width: 16px; height: 16px; accent-color: #002D72; cursor: pointer;">
+                      <span style="font-size: 0.9rem;">{{ field.placeholder || field.label }}</span>
+                    </label>
+                  </ng-template>
+                </ng-container>
+
+                <!-- Checkbox Group (Giữ lại để tương thích ngược nếu có template cũ dùng checkboxGroup) -->
+                <div *ngSwitchCase="'checkboxGroup'" style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
+                  <!-- Nút "Chọn tất cả" nếu có selectAll -->
+                  <label *ngIf="field.selectAll" style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 600; border-bottom: 1px dashed #cbd5e1; padding-bottom: 4px; margin-bottom: 4px;">
+                    <input type="checkbox"
+                           [checked]="isAllCheckboxesChecked(field)"
+                           (change)="toggleSelectAllCheckboxes(field, $any($event.target).checked)"
+                           style="width: 16px; height: 16px; accent-color: #002D72; cursor: pointer;">
+                    <span style="font-size: 0.9rem; color: #002D72;">Chọn tất cả</span>
+                  </label>
+
+                  <ng-container *ngIf="field.dataSourceType === 'catalog' && field.catalogItems?.length; else manualCheckboxGroupOld">
+                    <label *ngFor="let opt of field.catalogItems"
+                           style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: normal;">
+                      <input type="checkbox"
+                             [name]="'dyn_' + field.key + '_' + opt.value"
+                             [checked]="isCheckboxChecked(field.key, opt.value)"
+                             (change)="onCheckboxGroupChange(field.key, opt.value, $any($event.target).checked)"
+                             style="width: 16px; height: 16px; accent-color: #002D72; cursor: pointer;">
+                      <span style="font-size: 0.9rem;">{{ opt.label }}</span>
+                    </label>
+                  </ng-container>
+                  <ng-template #manualCheckboxGroupOld>
+                    <label *ngFor="let opt of (field.options || [])"
+                           style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: normal;">
+                      <input type="checkbox"
+                             [name]="'dyn_' + field.key + '_' + opt.value"
+                             [checked]="isCheckboxChecked(field.key, opt.value)"
+                             (change)="onCheckboxGroupChange(field.key, opt.value, $any($event.target).checked)"
+                             style="width: 16px; height: 16px; accent-color: #002D72; cursor: pointer;">
+                      <span style="font-size: 0.9rem;">{{ opt.label }}</span>
+                    </label>
+                  </ng-template>
+                </div>
 
                 <input *ngSwitchDefault type="text" class="wf-input w-full"
                        autocomplete="off"
@@ -440,6 +552,7 @@ export class DossierFormComponent implements OnInit {
   private service = inject(DossierManagementService);
   private messageService = inject(MessageService);
   private authService = inject(AuthService);
+  private eavFormService = inject(EavFormService);
 
   isEditMode = computed(() => !!this.dossierId);
   activeTab = signal<'info' | 'documents' | 'versions' | 'workflow'>('info');
@@ -520,6 +633,9 @@ export class DossierFormComponent implements OnInit {
   dynamicFields = signal<EavField[]>([]);
   formData: Record<string, any> = {};
   selectedFormId = signal<string | null>(null);
+  /** Cache catalog items: key = catalogType code, value = array of {label, value} */
+  catalogCache: Record<string, { label: string; value: string }[]> = {};
+
   selectedTypeName = computed(() => {
     const found = this.dossierTypes().find(t => t.id === this.dossier.dossierTypeId);
     return found?.name ?? '';
@@ -697,6 +813,9 @@ export class DossierFormComponent implements OnInit {
                }
              }
            });
+
+           // Load catalog data cho các field có dataSourceType = 'catalog'
+           this.loadCatalogForFields(fields);
         } catch {
           this.dynamicFields.set([]);
           this.messageService.add({ severity: 'warn', summary: 'Cảnh báo', detail: 'Không thể đọc cấu trúc biểu mẫu' });
@@ -707,6 +826,131 @@ export class DossierFormComponent implements OnInit {
         this.dynamicFields.set([]);
       }
     });
+  }
+
+  /** Load catalog items cho các field có dataSourceType = 'catalog' */
+  private loadCatalogForFields(fields: EavField[]) {
+    const catalogFields = fields.filter(f => f.dataSourceType === 'catalog' && f.catalogType);
+    if (!catalogFields.length) return;
+
+    // Gom nhóm theo catalogType để tránh gọi API trùng
+    const uniqueCatalogTypes = [...new Set(catalogFields.map(f => f.catalogType!))];
+
+    uniqueCatalogTypes.forEach(catalogTypeCode => {
+      if (this.catalogCache[catalogTypeCode]) {
+        // Đã có trong cache → áp dụng luôn
+        this.applyCatalogToFields(catalogTypeCode, this.catalogCache[catalogTypeCode]);
+        return;
+      }
+
+      // Bước 1: Lấy catalogTypeId từ code
+      this.eavFormService.getCatalogTypeByCode(catalogTypeCode).subscribe({
+        next: (catalogTypeObj: any) => {
+          const catalogTypeId = catalogTypeObj?.id ?? catalogTypeObj?.Id;
+          if (!catalogTypeId) return;
+
+          // Bước 2: Load lookup items
+          this.eavFormService.getCatalogsLookup(catalogTypeId).subscribe({
+            next: (items: any[]) => {
+              const mappedItems = (items || []).map((item: any) => ({
+                label: String(item.name ?? item.Name ?? item.label ?? item.Label ?? item.value ?? ''),
+                value: String(item.id ?? item.Id ?? item.code ?? item.Code ?? item.value ?? ''),
+              }));
+              this.catalogCache[catalogTypeCode] = mappedItems;
+              this.applyCatalogToFields(catalogTypeCode, mappedItems);
+            },
+            error: () => {
+              console.warn('Không thể load catalog lookup cho:', catalogTypeCode);
+            }
+          });
+        },
+        error: () => {
+          console.warn('Không thể load catalog type:', catalogTypeCode);
+        }
+      });
+    });
+  }
+
+  /** Áp dụng catalogItems vào tất cả các field có catalogType tương ứng */
+  private applyCatalogToFields(catalogTypeCode: string, items: { label: string; value: string }[]) {
+    this.dynamicFields.update(fields =>
+      fields.map(f => {
+        if (f.catalogType === catalogTypeCode && f.dataSourceType === 'catalog') {
+          return { ...f, catalogItems: items };
+        }
+        return f;
+      })
+    );
+  }
+
+  /** Kiểm tra xem option trong checkboxGroup có được chọn không */
+  isCheckboxChecked(fieldKey: string, optionValue: string): boolean {
+    const current = this.formData[fieldKey];
+    if (!current) return false;
+    if (Array.isArray(current)) {
+      return current.includes(optionValue);
+    }
+    if (typeof current === 'string') {
+      try {
+        const parsed = JSON.parse(current);
+        if (Array.isArray(parsed)) return parsed.includes(optionValue);
+      } catch { /* ignore */ }
+    }
+    return false;
+  }
+
+  /** Xử lý thay đổi checkbox trong checkboxGroup */
+  onCheckboxGroupChange(fieldKey: string, optionValue: string, checked: boolean) {
+    let current: string[] = [];
+    const rawVal = this.formData[fieldKey];
+    if (Array.isArray(rawVal)) {
+      current = [...rawVal];
+    } else if (typeof rawVal === 'string' && rawVal) {
+      try {
+        const parsed = JSON.parse(rawVal);
+        if (Array.isArray(parsed)) current = parsed;
+      } catch { /* ignore */ }
+    }
+
+    if (checked) {
+      if (!current.includes(optionValue)) {
+        current.push(optionValue);
+      }
+    } else {
+      current = current.filter(v => v !== optionValue);
+    }
+
+  }
+
+  private getCheckboxOptionValues(field: EavField): string[] {
+    if (field.dataSourceType === 'catalog') {
+      return field.catalogItems?.map(item => item.value) || [];
+    }
+    return field.options?.map(opt => opt.value) || [];
+  }
+
+  isAllCheckboxesChecked(field: EavField): boolean {
+    const optionValues = this.getCheckboxOptionValues(field);
+    if (optionValues.length === 0) return false;
+    
+    let current: string[] = [];
+    const rawVal = this.formData[field.key];
+    if (Array.isArray(rawVal)) {
+      current = rawVal;
+    } else if (typeof rawVal === 'string' && rawVal) {
+      try {
+        const parsed = JSON.parse(rawVal);
+        if (Array.isArray(parsed)) current = parsed;
+      } catch { /* ignore */ }
+    }
+    
+    return optionValues.every(val => current.includes(val));
+  }
+
+  toggleSelectAllCheckboxes(field: EavField, checked: boolean) {
+    const optionValues = this.getCheckboxOptionValues(field);
+    const newValues = checked ? [...optionValues] : [];
+    this.formData = { ...this.formData, [field.key]: newValues };
   }
 
   isValid() {

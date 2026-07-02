@@ -131,8 +131,8 @@
                 <button class="act-btn act-edit" (click)="onEdit(wf)" title="Sửa quy trình" *ngIf="authService.hasPermission('WORKFLOW_EDIT')">
                   <i class="pi pi-pencil"></i>
                 </button>
-                <button *ngIf="authService.hasPermission('WORKFLOW_EDIT') && wf.isActive" class="act-btn act-lock" (click)="toggleWorkflowStatus(wf)" title="Khóa quy trình"><i class="pi pi-lock-open color-red"></i></button>
-                <button *ngIf="authService.hasPermission('WORKFLOW_EDIT') && !wf.isActive" class="act-btn act-unlock" (click)="toggleWorkflowStatus(wf)" title="Mở khóa quy trình"><i class="pi pi-lock color-green"></i></button>
+                <button *ngIf="authService.hasPermission('WORKFLOW_EDIT') && wf.isActive" class="act-btn act-lock" (click)="toggleWorkflowStatus(wf)" title="Khóa quy trình"><i class="pi pi-lock"></i></button>
+                <button *ngIf="authService.hasPermission('WORKFLOW_EDIT') && !wf.isActive" class="act-btn act-unlock" (click)="toggleWorkflowStatus(wf)" title="Mở khóa quy trình"><i class="pi pi-lock-open"></i></button>
                 <button class="act-btn act-delete" (click)="promptDeleteOne(wf)" title="Xóa quy trình" *ngIf="authService.hasPermission('WORKFLOW_DELETE')">
                   <i class="pi pi-trash"></i>
                 </button>

@@ -26,6 +26,7 @@ interface FormField {
   dataSourceType?: 'manual' | 'catalog';
   catalogType?: string;
   description?: string;
+  selectAll?: boolean;
 }
 
 interface ToolboxItem {
@@ -319,9 +320,10 @@ export class FormBuilderComponent implements OnInit {
       type,
       placeholder: '',
       required: false,
-      options: (type === 'dropdown' || type === 'radio') ? [] : undefined,
+      options: (type === 'dropdown' || type === 'radio' || type === 'checkbox') ? [] : undefined,
       width: 100,
-      dataSourceType: 'manual'
+      dataSourceType: 'manual',
+      selectAll: false
     };
   }
 
