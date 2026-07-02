@@ -1,0 +1,74 @@
+<p-dialog 
+  [header]="title" 
+  [(visible)]="visible" 
+  (onShow)="onShow()" 
+  (onHide)="close()"
+  [modal]="true" 
+  [maximizable]="false" 
+  [baseZIndex]="10000"
+  [focusTrap]="false"
+  [focusOnShow]="false"
+  styleClass="evn-dialog-no-modal"
+  [style]="{ width: '500px', minWidth: '350px' }">
+  
+  <div class="p-fluid" style="padding-top: 10px;">
+    <!-- Loading shimmer/spinner khi chưa sẵn sàng dữ liệu -->
+    <div *ngIf="loading() || !isDataReady()" style="display: flex; flex-direction: column; gap: 16px;">
+      <div style="height: 40px; background: #f3f4f6; border-radius: 6px; animation: pulse 1.5s infinite;"></div>
+      <div style="height: 40px; background: #f3f4f6; border-radius: 6px; animation: pulse 1.5s infinite;"></div>
+    </div>
+
+    <div *ngIf="!loading() && isDataReady()" style="display: flex; flex-direction: column; gap: 16px;">
+      
+      <!-- Thư mục (Dùng p-treeSelect trực tiếp) -->
+      <div class="form-group">
+        <label class="form-label required">Thư mục phân bổ</label>
+        <p-treeSelect 
+          [options]="folderTreeOptions()" 
+          [ngModel]="selectedFolderNode()" 
+          (ngModelChange)="selectedFolderNode.set($event)"
+          placeholder="-- Chọn thư mục nhập liệu --" 
+          [filter]="true" 
+          filterPlaceholder="Tìm kiếm thư mục..."
+          styleClass="w-full"
+          [style]="{ width: '100%' }"
+          appendTo="body"
+          scrollHeight="250px">
+        </p-treeSelect>
+      </div>
+
+      <!-- Người xử lý -->
+      <div class="form-group">
+        <label class="form-label required">Người xử lý</label>
+        <select 
+          class="wf-select w-full" 
+          [ngModel]="selectedUserId()" 
+          (ngModelChange)="selectedUserId.set($event)"
+          style="height: 38px; padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px;">
+          <option value="" disabled>-- Chọn người phụ trách nhập liệu --</option>
+          <option *ngFor="let opt of userOptions()" [value]="opt.value">{{ opt.label }}</option>
+        </select>
+      </div>
+
+    </div>
+  </div>
+
+  <p-footer>
+    <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
+      <button 
+        type="button" 
+        class="btn-cancel" 
+        (click)="close()" 
+        [disabled]="saving()">
+        <i class="pi pi-times"></i> Hủy
+      </button>
+      <button 
+        type="button" 
+        class="btn-save" 
+        (click)="save()" 
+        [disabled]="saving() || loading() || !isDataReady()">
+        <i class="pi pi-check"></i> {{ saving() ? 'Đang lưu...' : 'Lưu lại' }}
+      </button>
+    </div>
+  </p-footer>
+</p-dialog>
