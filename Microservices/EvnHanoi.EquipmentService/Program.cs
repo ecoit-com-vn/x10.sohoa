@@ -60,7 +60,9 @@ builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IDossierSea
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IDossierSetRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.DossierSetRepository>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IDossierService, EvnHanoi.EquipmentService.Core.Services.DossierService>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IDocumentRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.DocumentRepository>();
+builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IFolderAllocationRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.FolderAllocationRepository>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Services.IDocumentManagementService, EvnHanoi.EquipmentService.Core.Services.DocumentManagementService>();
+builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Services.IFolderAllocationService, EvnHanoi.EquipmentService.Core.Services.FolderAllocationService>();
 builder.Services.AddSingleton<IMinioClient>(sp =>
 {
     var config = sp.GetRequiredService<IConfiguration>();
