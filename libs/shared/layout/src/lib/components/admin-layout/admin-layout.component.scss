@@ -101,6 +101,9 @@
 .header-bell-wrapper {
   color: #ffffff !important;
 }
+.user-profile-wrapper {
+  position: relative;
+}
 .user-profile {
   display: flex;
   align-items: center;
@@ -131,6 +134,36 @@
 .profile-arrow {
   font-size: 0.75rem;
   opacity: 0.8;
+}
+.profile-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 190px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.16);
+  padding: 6px;
+  z-index: 1200;
+}
+.profile-menu-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  background: transparent;
+  color: #374151;
+  cursor: pointer;
+  font-size: 0.86rem;
+  padding: 9px 10px;
+  border-radius: 6px;
+  text-align: left;
+}
+.profile-menu-item:hover {
+  background: #f3f4f6;
+  color: #1d4ed8;
 }
 .logout-btn {
   background: transparent;

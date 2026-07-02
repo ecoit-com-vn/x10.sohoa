@@ -16,6 +16,10 @@ export const appRoutes: Route[] = [
         loadComponent: () => import('@sohoa.frontend/features/dashboard').then(m => m.DashboardComponent)
       },
       {
+        path: 'profile',
+        loadComponent: () => import('@sohoa.frontend/features/administration').then(m => m.UserProfileComponent)
+      },
+      {
         path: 'administration/user-management',
         loadComponent: () => import('@sohoa.frontend/features/administration').then(m => m.UserManagement)
       },

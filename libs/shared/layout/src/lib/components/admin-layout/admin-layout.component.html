@@ -21,12 +21,20 @@
         <div class="header-bell-wrapper">
           <app-notification-bell></app-notification-bell>
         </div>
-        <div class="user-profile">
-          <div class="avatar-circle">
-            <i class="pi pi-user"></i>
+        <div class="user-profile-wrapper" (click)="$event.stopPropagation()">
+          <div class="user-profile" (click)="toggleProfileMenu($event)">
+            <div class="avatar-circle">
+              <i class="pi pi-user"></i>
+            </div>
+            <span class="username-text">{{ displayName() }}</span>
+            <i class="pi pi-chevron-down profile-arrow"></i>
           </div>
-          <span class="username-text">{{ username }}</span>
-          <i class="pi pi-chevron-down profile-arrow"></i>
+          <div class="profile-menu" *ngIf="profileMenuOpen()">
+            <button type="button" class="profile-menu-item" (click)="goToProfile($event)">
+              <i class="pi pi-user-edit"></i>
+              <span>Thông tin cá nhân</span>
+            </button>
+          </div>
         </div>
         <button class="logout-btn" (click)="logout()" title="Đăng xuất">
           <i class="pi pi-sign-out"></i>

@@ -3,8 +3,10 @@ import {
   inject,
   OnInit,
   signal,
+  computed,
   DestroyRef,
   afterNextRender,
+  HostListener,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
@@ -33,6 +35,8 @@ export class AdminLayout implements OnInit {
   username = 'Người dùng';
   isSidebarCollapsed = false;
   isMobileSidebarOpen = false;
+  profileMenuOpen = signal(false);
+  displayName = computed(() => this.authService.currentUserProfile()?.fullName || this.username);
 
   /** Signal tránh NG0100 khi menu API trả về sau vòng CD đầu. */
   items = signal<MenuItem[]>([]);
@@ -63,6 +67,10 @@ export class AdminLayout implements OnInit {
       } catch {
         this.username = 'Người dùng';
       }
+
+      this.authService.loadProfile().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+        error: () => {}
+      });
     }
 
     const savedTheme = localStorage.getItem('theme');
@@ -98,6 +106,22 @@ export class AdminLayout implements OnInit {
     } else {
       this.isSidebarCollapsed = !this.isSidebarCollapsed;
     }
+  }
+
+  @HostListener('document:click')
+  closeProfileMenu() {
+    this.profileMenuOpen.set(false);
+  }
+
+  toggleProfileMenu(event: Event) {
+    event.stopPropagation();
+    this.profileMenuOpen.update(open => !open);
+  }
+
+  goToProfile(event: Event) {
+    event.stopPropagation();
+    this.profileMenuOpen.set(false);
+    this.router.navigate(['/profile']);
   }
 
   closeMobileSidebar() {
