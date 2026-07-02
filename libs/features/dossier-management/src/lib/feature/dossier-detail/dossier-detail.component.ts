@@ -99,17 +99,17 @@ function pickFirst<T>(...values: T[]): T | undefined {
 
       <!-- TABS -->
       <div class="tab-bar">
-        <button *ngIf="isDetailTabVisible('info')" class="tab-item" [class.tab-active]="activeTab() === 'info'" (click)="activeTab.set('info')">
+        <button type="button" *ngIf="isDetailTabVisible('info')" class="tab-item" [class.tab-active]="activeTab() === 'info'" (click)="activeTab.set('info')">
           <i class="pi pi-info-circle" style="margin-right: 6px;"></i>
           Dữ liệu Hồ sơ
         </button>
-        <button *ngIf="isDetailTabVisible('documents')" class="tab-item" [class.tab-active]="activeTab() === 'documents'" (click)="activeTab.set('documents')">
+        <button type="button" *ngIf="isDetailTabVisible('documents')" class="tab-item" [class.tab-active]="activeTab() === 'documents'" (click)="activeTab.set('documents')">
           <i class="pi pi-file" style="margin-right: 6px;"></i> Tài liệu đính kèm
         </button>
-        <button *ngIf="isDetailTabVisible('versions')" class="tab-item" [class.tab-active]="activeTab() === 'versions'" (click)="activeTab.set('versions')">
+        <button type="button" *ngIf="isDetailTabVisible('versions')" class="tab-item" [class.tab-active]="activeTab() === 'versions'" (click)="activeTab.set('versions')">
           <i class="pi pi-history" style="margin-right: 6px;"></i> Lịch sử phiên bản
         </button>
-        <button *ngIf="isDetailTabVisible('workflow')" class="tab-item" [class.tab-active]="activeTab() === 'workflow'" (click)="activeTab.set('workflow')">
+        <button type="button" *ngIf="isDetailTabVisible('workflow')" class="tab-item" [class.tab-active]="activeTab() === 'workflow'" (click)="activeTab.set('workflow')">
           <i class="pi pi-sitemap" style="margin-right: 6px;"></i> Quy trình & Lịch sử
         </button>
       </div>
@@ -119,11 +119,15 @@ function pickFirst<T>(...values: T[]): T | undefined {
 
         <!-- ═══ Tab: Dữ liệu Hồ sơ (chỉ xem) ═══ -->
         <div *ngIf="activeTab() === 'info'" class="dossier-readonly-view">
-          <div *ngIf="loadingType()" style="display: flex; align-items: center; gap: 8px; color: #6b7280; padding: 12px 0;">
+          <div *ngIf="loading() && !dossier()" style="display: flex; align-items: center; gap: 8px; color: #6b7280; padding: 12px 0;">
+            <i class="pi pi-spin pi-spinner"></i> Đang tải dữ liệu hồ sơ...
+          </div>
+
+          <div *ngIf="loadingType() && dossier()" style="display: flex; align-items: center; gap: 8px; color: #6b7280; padding: 0 0 12px 0; font-size: 0.83rem;">
             <i class="pi pi-spin pi-spinner"></i> Đang tải biểu mẫu...
           </div>
 
-          <ng-container *ngIf="!loadingType()">
+          <ng-container *ngIf="dossier()">
             <div class="readonly-line">
               <span class="readonly-label">Loại lưới điện:</span>
               <span class="readonly-value">{{ viewMeta()?.gridTypeName || '—' }}</span>
@@ -202,11 +206,6 @@ function pickFirst<T>(...values: T[]): T | undefined {
           />
         </div>
 
-      </div>
-
-      <!-- Loading Overlay -->
-      <div *ngIf="loading()" style="position: absolute; inset: 0; background: rgba(255,255,255,0.6); display: flex; align-items: center; justify-content: center; z-index: 50; border-radius: 12px;">
-        <i class="pi pi-spin pi-spinner" style="font-size: 2rem; color: #002D72;"></i>
       </div>
     </div>
 
@@ -530,6 +529,7 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
         this.dossier.set(res);
         this.pendingFormData = parseFormDataJson(meta.formDataJson);
         this.detailFormData = { ...this.pendingFormData };
+        this.loading.set(false);
 
         return this.resolveFormTemplate(meta.formId, meta.dossierTypeId);
       }),
@@ -546,6 +546,7 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
       error: () => {
         this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể tải chi tiết hồ sơ' });
         this.dynamicFields.set([]);
+        this.loading.set(false);
       }
     });
   }

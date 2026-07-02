@@ -1,0 +1,13 @@
+/* Dossier Lookup Documents Tab Component Styles */
+/* Tái sử dụng 100% styles từ EVN global Design System */
+.wf-name-link {
+  color: #002D72;
+  cursor: pointer;
+  text-decoration: none;
+  font-weight: 600;
+
+  &:hover {
+    text-decoration: underline;
+    color: #0056b3;
+  }
+}

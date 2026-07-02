@@ -1,4 +1,4 @@
-import { Component, OnInit, signal, computed, inject, effect } from '@angular/core';
+import { Component, OnInit, signal, computed, inject, effect, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ToastModule } from 'primeng/toast';
@@ -8,6 +8,8 @@ import { MessageService } from 'primeng/api';
 import { Router, ActivatedRoute } from '@angular/router';
 import { AuthService } from '@sohoa.frontend/shared/core';
 import { EquipmentService } from '../../data-access/equipment.service';
+import { FormTemplateService } from '../../data-access/form-template.service';
+import { DossierManagementService } from '@sohoa.frontend/features/dossier-management';
 import { EMPTY, forkJoin, of } from 'rxjs';
 import { catchError, finalize, switchMap } from 'rxjs/operators';
 
@@ -21,10 +23,49 @@ import { catchError, finalize, switchMap } from 'rxjs/operators';
 })
 export class EquipmentComponent implements OnInit {
   private equipmentService = inject(EquipmentService);
+  private formTemplateService = inject(FormTemplateService);
+  private dossierService = inject(DossierManagementService);
   private authService = inject(AuthService);
   private messageService = inject(MessageService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
+
+  protected readonly Math = Math;
+
+  // More menu state
+  activeRowMenu = signal<string | null>(null);
+
+  @HostListener('document:click')
+  closeMoreMenu() {
+    this.activeRowMenu.set(null);
+  }
+
+  toggleMoreMenu(item: any, event: Event) {
+    event.stopPropagation();
+    if (this.activeRowMenu() === item.id) {
+      this.activeRowMenu.set(null);
+    } else {
+      this.activeRowMenu.set(item.id);
+    }
+  }
+
+  // Tab and Detail View States
+  activeTab = signal<number>(0);
+  eavTemplate = signal<any>(null);
+  eavFields = signal<any[]>([]);
+  formValuesObj = signal<any>({});
+  isEditingGeneral = signal<boolean>(false);
+  isEditingFormValues = signal<boolean>(false);
+  isLoadingTemplate = signal<boolean>(false);
+  isSavingFormValues = signal<boolean>(false);
+
+  // Dossiers Tab States
+  dossierItems = signal<any[]>([]);
+  dossierTotalCount = signal<number>(0);
+  dossierPage = signal<number>(1);
+  dossierPageSize = signal<number>(10);
+  dossierColumns = signal<any[]>([]);
+  isLoadingDossiers = signal<boolean>(false);
 
   // Lists from lookup
   organizationUnits = signal<any[]>([]);
@@ -177,6 +218,16 @@ export class EquipmentComponent implements OnInit {
       }
     }, { allowSignalWrites: true });
 
+    effect(() => {
+      const tab = this.activeTab();
+      const page = this.dossierPage();
+      const pageSize = this.dossierPageSize();
+      const item = this.currentItem();
+      if (tab === 1 && item?.id) {
+        this.loadDossiers();
+      }
+    }, { allowSignalWrites: true });
+
     if (typeof window !== 'undefined') {
       window.addEventListener('click', () => {
         this.searchOrgTreeOpen.set(false);
@@ -210,6 +261,19 @@ export class EquipmentComponent implements OnInit {
         this.loadLookupData();
       } else if (id) {
         this.currentView.set('edit');
+        this.activeTab.set(0);
+        
+        let mode = '';
+        this.route.queryParams.subscribe(qParams => {
+          mode = qParams['mode'] || '';
+          if (mode === 'edit-specs') {
+            this.isEditingFormValues.set(true);
+          } else {
+            this.isEditingFormValues.set(false);
+          }
+        });
+
+        this.isEditingGeneral.set(false);
         this.formSubmitted.set(false);
         this.serverErrors.set({});
         this.loadLookupData();
@@ -227,8 +291,50 @@ export class EquipmentComponent implements OnInit {
                 infrastructureId: res.infrastructureId,
                 countryId: res.countryId,
                 gridTypeId: res.gridTypeId,
-                isActive: res.isActive === 1 || res.isActive === true
+                isActive: res.isActive === 1 || res.isActive === true,
+                formValues: res.formValues,
+                equipmentTypeName: res.equipmentTypeName,
+                equipmentTypeCode: res.equipmentTypeCode,
+                gridTypeName: res.gridTypeName,
+                infrastructureName: res.infrastructureName,
+                unitName: res.unitName,
+                countryName: res.countryName,
+                creator: res.creator,
+                createdBy: res.createdBy
               });
+
+              // Load form template directly from response
+              let parsedFields: any[] = [];
+              if (res.formSchema) {
+                this.eavTemplate.set({ name: res.formTemplateName, formSchema: res.formSchema });
+                try {
+                  parsedFields = JSON.parse(res.formSchema) || [];
+                } catch (e) {
+                  parsedFields = [];
+                }
+              } else {
+                this.eavTemplate.set(null);
+              }
+              this.eavFields.set(parsedFields);
+
+              // Parse form values và khởi tạo đủ key theo schema (tránh trùng binding khi name rỗng)
+              try {
+                const parsed = res.formValues ? JSON.parse(res.formValues) : {};
+                this.formValuesObj.set(this.initEavFormValues(parsedFields, parsed));
+              } catch (e) {
+                this.formValuesObj.set(this.initEavFormValues(parsedFields, {}));
+              }
+              
+              // Load dossier columns (for dossier tab)
+              this.loadBhsColumns();
+
+              // Nếu mode là view-specs hoặc edit-specs, tự động scroll xuống specs section
+              if (mode === 'view-specs' || mode === 'edit-specs') {
+                setTimeout(() => {
+                  const el = document.getElementById('specs-section');
+                  if (el) el.scrollIntoView({ behavior: 'smooth' });
+                }, 300);
+              }
             }
           },
           error: () => {
@@ -561,8 +667,7 @@ export class EquipmentComponent implements OnInit {
           summary: 'Thành công',
           detail: isAdd ? 'Đã thêm mới thiết bị thành công!' : 'Đã cập nhật thiết bị thành công!'
         });
-        this.currentView.set('list');
-        this.loadItems();
+        this.goBack();
       },
       error: (err) => {
         this.handleSaveError(err);
@@ -654,6 +759,169 @@ export class EquipmentComponent implements OnInit {
   onCancelDelete() {
     this.showDeleteConfirm.set(false);
     this.deleteTarget.set(null);
+  }
+
+  // EAV Form & Template Loaders
+  loadEavTemplate(equipmentTypeId: string) {
+    // Không cần gọi riêng lẻ ở client nữa, FormSchema đã được LEFT JOIN trả về cùng thông tin chi tiết thiết bị
+  }
+
+  loadBhsColumns() {
+    // Không cần gọi riêng lẻ ở client nữa, API by-equipment đã tích hợp trả về columns
+  }
+
+  loadDossiers() {
+    const item = this.currentItem();
+    if (!item?.id) return;
+
+    this.isLoadingDossiers.set(true);
+    this.dossierService.getDossiersByEquipment(item.id, this.dossierPage(), this.dossierPageSize()).subscribe({
+      next: (res) => {
+        if (res) {
+          this.dossierItems.set(res.items || []);
+          this.dossierTotalCount.set(res.totalCount || 0);
+          this.dossierColumns.set(res.columns || []);
+        }
+        this.isLoadingDossiers.set(false);
+      },
+      error: () => {
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Lỗi',
+          detail: 'Không thể tải danh sách hồ sơ liên quan'
+        });
+        this.isLoadingDossiers.set(false);
+      }
+    });
+  }
+
+  onSaveFormValues() {
+    const item = this.currentItem();
+    if (!item?.id) return;
+
+    this.isSavingFormValues.set(true);
+    const payload = JSON.stringify(this.formValuesObj());
+    this.equipmentService.updateFormValues(item.id, payload).subscribe({
+      next: () => {
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Thành công',
+          detail: 'Cập nhật thông số thiết bị thành công!'
+        });
+        this.currentItem.update(curr => ({ ...curr, formValues: payload }));
+        this.isSavingFormValues.set(false);
+        this.router.navigate(['/equipment/device-list', item.id], { queryParams: { mode: 'view-specs' } });
+      },
+      error: (err) => {
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Lỗi',
+          detail: err?.error?.message || 'Không thể cập nhật thông số thiết bị.'
+        });
+        this.isSavingFormValues.set(false);
+      }
+    });
+  }
+
+  onCancelConfigureParams() {
+    const item = this.currentItem();
+    if (item?.id) {
+      this.router.navigate(['/equipment/device-list', item.id], { queryParams: { mode: 'view-specs' } });
+    } else {
+      this.isEditingFormValues.set(false);
+    }
+    // Reset values to original
+    try {
+      const parsed = this.currentItem().formValues ? JSON.parse(this.currentItem().formValues) : {};
+      this.formValuesObj.set(this.initEavFormValues(this.eavFields(), parsed));
+    } catch (e) {
+      this.formValuesObj.set(this.initEavFormValues(this.eavFields(), {}));
+    }
+  }
+
+  /** Khóa lưu giá trị EAV: ưu tiên name, fallback id để tránh trùng khi name rỗng */
+  getEavFieldKey(field: any): string {
+    const name = (field?.name ?? '').trim();
+    return name || field?.id || '';
+  }
+
+  trackEavField(_index: number, field: any): string {
+    return field?.id || this.getEavFieldKey(field) || String(_index);
+  }
+
+  initEavFormValues(fields: any[], existing: Record<string, any> = {}): Record<string, any> {
+    const values: Record<string, any> = { ...existing };
+    for (const field of fields) {
+      const key = this.getEavFieldKey(field);
+      if (!key) continue;
+      if (values[key] === undefined) {
+        values[key] = field.type === 'checkbox' ? false : '';
+      }
+    }
+    return values;
+  }
+
+  getEavFieldValue(field: any): any {
+    const key = this.getEavFieldKey(field);
+    if (!key) return field.type === 'checkbox' ? false : '';
+    const val = this.formValuesObj()[key];
+    if (val === undefined || val === null) {
+      return field.type === 'checkbox' ? false : '';
+    }
+    return val;
+  }
+
+  setEavFieldValue(field: any, value: any): void {
+    const key = this.getEavFieldKey(field);
+    if (!key) return;
+    this.formValuesObj.update(current => ({ ...current, [key]: value }));
+  }
+
+  viewDossierDetail(dossier: any) {
+    const id = dossier?.id ?? dossier?.Id;
+    if (!id) return;
+    const serialized = this.router.serializeUrl(
+      this.router.createUrlTree(['/search/dossier-by-equipment', id])
+    );
+    window.open(`/#${serialized}`, '_blank');
+  }
+
+  onDossierPageChange(page: number) {
+    this.dossierPage.set(page);
+  }
+
+  // --- View Doc Helpers ---
+  isNumberField(field: any): boolean {
+    if (field.type === 'number') return true;
+    const val = this.getEavFieldValue(field);
+    if (val === null || val === undefined || val === '') return false;
+    return !isNaN(Number(val));
+  }
+
+  hasValue(field: any): boolean {
+    const val = this.getEavFieldValue(field);
+    return val !== null && val !== undefined && val !== '';
+  }
+
+  isImportantField(field: any): boolean {
+    return field.required === true || field.Required === true;
+  }
+
+  getFormattedValue(field: any): string {
+    const val = this.getEavFieldValue(field);
+    if (val === null || val === undefined) return '';
+    if (field.type === 'checkbox') {
+      return val === true || val === 'true' ? 'Có' : 'Không';
+    }
+    return String(val);
+  }
+
+  onViewSpecs(item: any) {
+    this.router.navigate(['/equipment/device-list', item.id], { queryParams: { mode: 'view-specs' } });
+  }
+
+  onEditSpecs(item: any) {
+    this.router.navigate(['/equipment/device-list', item.id], { queryParams: { mode: 'edit-specs' } });
   }
 
   goBack() {
