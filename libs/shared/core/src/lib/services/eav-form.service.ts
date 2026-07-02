@@ -13,6 +13,7 @@ export interface EavFormTemplate {
   formSchema: string; // JSON schema stringified
   version: number;
   isActive: boolean;
+  isDeleted?: boolean;
   isLocked?: boolean;
   createdAt: string;
   createdBy: string;

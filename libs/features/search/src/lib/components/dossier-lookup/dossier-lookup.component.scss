@@ -1,6 +1,69 @@
-/* Dossier Lookup Component Styles */
-/* Tái sử dụng tối đa các style chung tại src/styles.scss (Design System EVN):
-   - .filter-row, .wf-select, .wf-search-input, .btn-tim
-   - .wf-table-wrap, .wf-table, .wf-name-link
-   - .act-btn, .act-assign, .table-footer, .pagination
-*/
+.lookup-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  background: #f8faff;
+  border: 1px solid #e0e7ff;
+  border-radius: 6px;
+  margin-bottom: 12px;
+}
+
+.lookup-filters__row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  align-items: end;
+}
+
+.lookup-filters__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.lookup-filters__field .form-label {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #475569;
+  white-space: nowrap;
+}
+
+.lookup-filters__field .wf-search-input,
+.lookup-filters__field .wf-select {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.lookup-filters__field .wf-select[type='date'] {
+  padding: 0 8px;
+}
+
+.lookup-filters__action {
+  display: flex;
+  align-items: flex-end;
+}
+
+.lookup-filters__action .btn-tim {
+  height: 34px;
+  white-space: nowrap;
+}
+
+@media (max-width: 1200px) {
+  .lookup-filters__row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .lookup-filters__action {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 640px) {
+  .lookup-filters__row {
+    grid-template-columns: 1fr;
+  }
+}

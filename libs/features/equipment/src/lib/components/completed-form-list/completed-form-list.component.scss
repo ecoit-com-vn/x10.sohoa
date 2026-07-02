@@ -2,25 +2,6 @@
   padding: 24px;
 }
 
-.list-toolbar {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.toolbar-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.toolbar-right {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
 .wf-search-input {
   width: 260px;
   padding: 10px 12px;
@@ -74,17 +55,6 @@
 
 .wf-table td.col-actions {
   text-align: center;
-}
-
-.status-pill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 6px 10px;
-  border-radius: 999px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #0f172a;
 }
 
 .status-approved {

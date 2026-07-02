@@ -879,8 +879,12 @@ export class EquipmentComponent implements OnInit {
   }
 
   viewDossierDetail(dossier: any) {
-    if (!dossier?.id) return;
-    window.open('/search/dossier-by-equipment/' + dossier.id, '_blank');
+    const id = dossier?.id ?? dossier?.Id;
+    if (!id) return;
+    const serialized = this.router.serializeUrl(
+      this.router.createUrlTree(['/search/dossier-by-equipment', id])
+    );
+    window.open(`/#${serialized}`, '_blank');
   }
 
   onDossierPageChange(page: number) {

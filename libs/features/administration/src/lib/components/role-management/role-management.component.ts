@@ -45,6 +45,11 @@ export class RoleManagement implements OnInit {
   saving = signal<boolean>(false);
   savingPermissions = signal<boolean>(false);
 
+  // Lock/Unlock Confirmation
+  showLockUnlockConfirm = signal<boolean>(false);
+  lockUnlockTarget = signal<any>(null);
+  lockUnlockLoading = signal<boolean>(false);
+
   // Pagination
   currentPage = signal<number>(1);
   pageSize = signal<number>(10);
@@ -219,15 +224,27 @@ export class RoleManagement implements OnInit {
     this.formSubmitted.set(false);
   }
 
-  toggleRoleStatus(role: any) {
+  onToggleStatusRequest(role: any) {
+    this.lockUnlockTarget.set(role);
+    this.showLockUnlockConfirm.set(true);
+  }
+
+  onCancelLockUnlock() {
+    this.showLockUnlockConfirm.set(false);
+    this.lockUnlockTarget.set(null);
+  }
+
+  onConfirmLockUnlock() {
+    const role = this.lockUnlockTarget();
+    if (!role) return;
     if (!this.authService.hasPermission('ROLE_EDIT')) {
       this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền chỉnh sửa nhóm quyền.' });
       return;
     }
     const updated = { ...role, isActive: !role.isActive };
-    this.loading.set(true);
+    this.lockUnlockLoading.set(true);
     this.http.put(`${this.apiUrl}/${role.id}`, updated)
-      .pipe(finalize(() => this.loading.set(false)))
+      .pipe(finalize(() => this.lockUnlockLoading.set(false)))
       .subscribe({
         next: () => {
           this.messageService.add({
@@ -235,6 +252,8 @@ export class RoleManagement implements OnInit {
             summary: 'Thành công',
             detail: `${role.isActive ? 'Khóa' : 'Mở khóa'} vai trò thành công!`
           });
+          this.showLockUnlockConfirm.set(false);
+          this.lockUnlockTarget.set(null);
           this.loadRoles();
         },
         error: (err) => {

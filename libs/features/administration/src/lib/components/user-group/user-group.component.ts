@@ -198,15 +198,22 @@ export class UserGroupComponent implements OnInit {
     this.currentView.set('add');
   }
 
-  toggleGroupStatus(group: any) {
+  onToggleStatusRequest(group: any) {
+    this.lockUnlockTarget.set(group);
+    this.showLockUnlockConfirm.set(true);
+  }
+
+  onConfirmLockUnlock() {
+    const group = this.lockUnlockTarget();
+    if (!group) return;
     if (!this.authService.hasPermission('USER_GROUP_EDIT')) {
       this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền chỉnh sửa nhóm người dùng.' });
       return;
     }
     const updated = { ...group, isActive: !group.isActive };
-    this.loading.set(true);
+    this.lockUnlockLoading.set(true);
     this.http.put(`${this.apiUrl}/${group.id}`, updated)
-      .pipe(finalize(() => this.loading.set(false)))
+      .pipe(finalize(() => this.lockUnlockLoading.set(false)))
       .subscribe({
         next: () => {
           this.messageService.add({
@@ -214,6 +221,8 @@ export class UserGroupComponent implements OnInit {
             summary: 'Thành công',
             detail: `${group.isActive ? 'Khóa' : 'Mở khóa'} nhóm người dùng thành công!`
           });
+          this.showLockUnlockConfirm.set(false);
+          this.lockUnlockTarget.set(null);
           this.loadGroups();
         },
         error: (err) => {
@@ -221,6 +230,11 @@ export class UserGroupComponent implements OnInit {
           this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: detailMsg });
         }
       });
+  }
+
+  onCancelLockUnlock() {
+    this.showLockUnlockConfirm.set(false);
+    this.lockUnlockTarget.set(null);
   }
 
   onEdit(group: any) {
@@ -311,6 +325,10 @@ export class UserGroupComponent implements OnInit {
   showDeleteConfirm = signal<boolean>(false);
   deleteTarget = signal<any>(null);
   deleting = signal<boolean>(false);
+
+  showLockUnlockConfirm = signal<boolean>(false);
+  lockUnlockTarget = signal<any>(null);
+  lockUnlockLoading = signal<boolean>(false);
 
   onDelete(group: any) {
     this.deleteTarget.set(group);

@@ -62,7 +62,7 @@
     <div class="filter-row" *ngIf="showFilter">
       <select class="wf-select" [(ngModel)]="filterIsActive" (change)="loadList()">
         <option value="">-- Tất cả trạng thái --</option>
-        <option value="true">Đang hoạt động</option>
+        <option value="true">Hoạt động</option>
         <option value="false">Ngưng hoạt động</option>
       </select>
       <button class="btn-outlined btn-small" (click)="resetFilter()">
@@ -123,8 +123,7 @@
               <span class="status-pill"
                 [class.status-active]="wf.isActive"
                 [class.status-inactive]="!wf.isActive">
-                <i class="pi pi-clock"></i>
-                {{ wf.isActive ? 'Đang hoạt động' : 'Ngưng hoạt động' }}
+                {{ wf.isActive ? 'Hoạt động' : 'Ngừng hoạt động' }}
               </span>
             </td>
             <td class="col-hd">
@@ -250,7 +249,7 @@
           <span class="epbuoc-label">Ép buộc kích hoạt</span>
         </label>
         <div class="epbuoc-note">
-          Nếu chọn, các quy trình cũ cùng loại sẽ bị vô hiệu hóa tự động.
+          Nếu chọn, các quy trình cũ cùng loại sẽ bị xóa tự động.
         </div>
       </div>
 

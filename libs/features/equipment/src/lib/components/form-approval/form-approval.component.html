@@ -50,6 +50,7 @@
       <table class="wf-table">
         <thead>
           <tr>
+            <th style="width: 60px; text-align: center;">STT</th>
             <th style="width: 150px;">Mã biểu mẫu</th>
             <th>Tên biểu mẫu thuộc tính thiết bị</th>
             <th>Hạng mục áp dụng</th>
@@ -62,13 +63,14 @@
         </thead>
         <tbody>
           <tr *ngIf="loading()">
-            <td colspan="8" class="skeleton-row" style="padding: 30px; text-align: center;">
+            <td colspan="9" class="skeleton-row" style="padding: 30px; text-align: center;">
               <i class="pi pi-spin pi-spinner mr-2" style="font-size: 1.5rem; color: #002D72;"></i>
               <span>Đang tải dữ liệu biểu mẫu...</span>
             </td>
           </tr>
           
           <tr *ngFor="let form of paginatedForms(); let i = index">
+            <td style="text-align: center; color: #000000;">{{ first() + i + 1 }}</td>
             <td><code style="font-weight: bold; color: #000000;">{{ form.code || '(Chưa có)' }}</code></td>
             <td><b class="wf-name-link" style="color: #000000;" (click)="onPreview(form)">{{ form.name }}</b></td>
             <td>
@@ -109,7 +111,7 @@
           </tr>
           
           <tr *ngIf="filteredForms().length === 0 && !loading()">
-            <td colspan="8" class="empty-row">
+            <td colspan="9" class="empty-row">
               <i class="pi pi-inbox"></i>
               <div>Không tìm thấy biểu mẫu nào trong danh sách này.</div>
             </td>

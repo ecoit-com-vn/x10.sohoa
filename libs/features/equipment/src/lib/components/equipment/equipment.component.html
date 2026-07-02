@@ -96,7 +96,7 @@
               (ngModelChange)="searchStatus.set($event); onSearch()">
               <option value="">-- Trạng thái --</option>
               <option value="1">Hoạt động</option>
-              <option value="0">Bị khóa</option>
+              <option value="0">Ngừng hoạt động</option>
             </select>
           </div>
 
@@ -168,7 +168,7 @@
                 </span>
                 <span *ngIf="item.isActive === 0 || item.isActive === false" class="status-pill status-locked"
                   style="background-color: #f3f4f6; color: #374151; border-color: #d1d5db;">
-                  Bị khóa
+                  Ngừng hoạt động
                 </span>
               </td>
               <td class="col-hd">
@@ -806,7 +806,7 @@
           
           <div style="border-bottom: 1px dashed #cbd5e1; padding-bottom: 10px; margin-bottom: 15px;">
             <span style="font-size: 0.95rem; font-weight: 700; color: #002D72; text-transform: uppercase;">
-              <i class="pi pi-folder-open" style="color: #FF6B00; margin-right: 6px;"></i> Danh mục Hồ sơ lưu trữ liên quan (BHS)
+              <i class="pi pi-folder-open" style="color: #FF6B00; margin-right: 6px;"></i> Danh mục Hồ sơ lưu trữ liên quan
             </span>
           </div>
 
@@ -826,7 +826,6 @@
                   <th>Loại hồ sơ</th>
                   <th>Người tạo</th>
                   <th>Ngày tạo</th>
-                  <th style="width: 120px; text-align: center;">Trạng thái</th>
                 </tr>
               </thead>
               <tbody>
@@ -849,25 +848,11 @@
                   <td>{{ item.dossierTypeName }}</td>
                   <td>{{ item.creatorName || 'System' }}</td>
                   <td>{{ item.createdDate | date:'dd/MM/yyyy HH:mm' }}</td>
-                  <td style="text-align: center;">
-                    <span class="status-pill status-active" style="background-color: #eff6ff; color: #1e40af; border-color: #bfdbfe;" *ngIf="item.statusCode === 'New'">
-                      {{ item.statusName }}
-                    </span>
-                    <span class="status-pill status-active" style="background-color: #ecfdf5; color: #065f46; border-color: #a7f3d0;" *ngIf="item.statusCode === 'Approved' || item.statusCode === 'CompletedInput'">
-                      {{ item.statusName }}
-                    </span>
-                    <span class="status-pill status-locked" style="background-color: #fef2f2; color: #991b1b; border-color: #fca5a5;" *ngIf="item.statusCode === 'Rejected'">
-                      {{ item.statusName }}
-                    </span>
-                    <span class="status-pill status-locked" style="background-color: #fffbeb; color: #854d0e; border-color: #fde68a;" *ngIf="item.statusCode !== 'New' && item.statusCode !== 'Approved' && item.statusCode !== 'CompletedInput' && item.statusCode !== 'Rejected'">
-                      {{ item.statusName || 'Đang xử lý' }}
-                    </span>
-                  </td>
                 </tr>
                 <tr *ngIf="dossierItems().length === 0">
-                  <td [attr.colspan]="5 + dossierColumns().length" class="empty-row">
+                  <td [attr.colspan]="4 + dossierColumns().length" class="empty-row">
                     <i class="pi pi-inbox"></i>
-                    <div>Không tìm thấy hồ sơ nào liên kết với thiết bị này trong kho lưu trữ Oracle.</div>
+                    <div>Không tìm thấy hồ sơ nào liên kết với thiết bị này.</div>
                   </td>
                 </tr>
               </tbody>

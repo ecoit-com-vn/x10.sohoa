@@ -123,7 +123,18 @@ export class FormApprovalComponent implements OnInit {
   filteredForms = computed(() => {
     const keyword = this.searchKeyword().trim().toLowerCase();
     const tab = this.activeTab();
-    let list = this.forms();
+    const allForms = this.forms().filter(f => !f.isDeleted);
+
+    // Group forms by code and select the latest version for each unique code
+    const latestFormsMap = new Map<string, EavFormTemplate>();
+    for (const f of allForms) {
+      const code = f.code || '';
+      const existing = latestFormsMap.get(code);
+      if (!existing || f.version > existing.version) {
+        latestFormsMap.set(code, f);
+      }
+    }
+    let list = Array.from(latestFormsMap.values());
 
     // Filter by tab
     if (tab === 'pending') {

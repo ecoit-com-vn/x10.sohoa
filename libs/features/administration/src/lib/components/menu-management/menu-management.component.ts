@@ -58,6 +58,10 @@ export class MenuManagement implements OnInit {
 
   menuTree = computed(() => buildMenuDisplayTree(this.menus(), this.searchKeyword()));
 
+  showLockUnlockConfirm = signal<boolean>(false);
+  lockUnlockTarget = signal<any>(null);
+  lockUnlockLoading = signal<boolean>(false);
+
   private menuService = inject(MenuService);
   private messageService = inject(MessageService);
   private confirmationService = inject(ConfirmationService);
@@ -217,15 +221,22 @@ export class MenuManagement implements OnInit {
     this.currentView.set('add');
   }
 
-  toggleMenuStatus(menu: any) {
+  onToggleStatusRequest(menu: any) {
+    this.lockUnlockTarget.set(menu);
+    this.showLockUnlockConfirm.set(true);
+  }
+
+  onConfirmLockUnlock() {
+    const menu = this.lockUnlockTarget();
+    if (!menu) return;
     if (!this.authService.hasPermission('MENU_EDIT')) {
       this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền chỉnh sửa menu.' });
       return;
     }
     const updated = { ...menu, isActive: !menu.isActive };
-    this.loading.set(true);
+    this.lockUnlockLoading.set(true);
     this.menuService.updateMenu(menu.id, updated)
-      .pipe(finalize(() => this.loading.set(false)))
+      .pipe(finalize(() => this.lockUnlockLoading.set(false)))
       .subscribe({
         next: () => {
           this.messageService.add({
@@ -233,6 +244,8 @@ export class MenuManagement implements OnInit {
             summary: 'Thành công',
             detail: `${menu.isActive ? 'Khóa' : 'Mở khóa'} menu thành công!`
           });
+          this.showLockUnlockConfirm.set(false);
+          this.lockUnlockTarget.set(null);
           this.loadMenus();
         },
         error: (err: any) => {
@@ -240,6 +253,11 @@ export class MenuManagement implements OnInit {
           this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: detailMsg });
         }
       });
+  }
+
+  onCancelLockUnlock() {
+    this.showLockUnlockConfirm.set(false);
+    this.lockUnlockTarget.set(null);
   }
 
   getGlobalSTT(node: any): number {

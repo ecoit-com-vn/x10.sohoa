@@ -62,9 +62,9 @@
 .toolbox-column {
   position: sticky !important;
   top: 1rem !important;
-  max-height: calc(100vh - 120px) !important;
+  max-height: calc(100vh - 160px) !important;
   height: fit-content !important;
-  overflow-y: auto;
+  overflow-y: hidden;
   display: flex;
   flex-direction: column;
   
@@ -207,11 +207,12 @@
 .properties-column {
   position: sticky !important;
   top: 1rem !important;
-  max-height: calc(100vh - 120px) !important;
+  max-height: calc(100vh - 160px) !important;
   height: fit-content !important;
-  overflow-y: auto;
+  overflow-y: hidden;
   display: flex;
   flex-direction: column;
+  padding-bottom: 20px;
   
   p-card {
     height: 100%;
@@ -221,8 +222,7 @@
   }
 
   ::ng-deep .p-card-content {
-    overflow-y: auto;
-    padding-right: 4px !important;
+    overflow-y: visible;
   }
 }
 .properties-form {

@@ -33,6 +33,11 @@ export class UploadConfigComponent implements OnInit {
   showDeleteConfirm = signal<boolean>(false);
   deleteTarget = signal<any>(null);
   deleting = signal<boolean>(false);
+
+  // Custom inline lock/unlock confirm dialog
+  showLockUnlockConfirm = signal<boolean>(false);
+  lockUnlockTarget = signal<any>(null);
+  lockUnlockLoading = signal<boolean>(false);
   
   loading = signal<boolean>(false);
   saving = signal<boolean>(false);
@@ -116,15 +121,22 @@ export class UploadConfigComponent implements OnInit {
     this.displayDialog.set(true);
   }
 
-  toggleConfigStatus(config: any) {
-    if (!this.authService.hasPermission('UPLOAD_CONFIG_EDIT')) { // fallback check
+  onToggleStatusRequest(config: any) {
+    this.lockUnlockTarget.set(config);
+    this.showLockUnlockConfirm.set(true);
+  }
+
+  onConfirmLockUnlock() {
+    const config = this.lockUnlockTarget();
+    if (!config) return;
+    if (!this.authService.hasPermission('UPLOAD_CONFIG_EDIT')) {
       this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền chỉnh sửa cấu hình.' });
       return;
     }
     const updated = { ...config, isActive: !config.isActive };
-    this.loading.set(true);
+    this.lockUnlockLoading.set(true);
     this.http.put(`${this.apiUrl}/${config.id}`, updated)
-      .pipe(finalize(() => this.loading.set(false)))
+      .pipe(finalize(() => this.lockUnlockLoading.set(false)))
       .subscribe({
         next: () => {
           this.messageService.add({
@@ -132,6 +144,8 @@ export class UploadConfigComponent implements OnInit {
             summary: 'Thành công',
             detail: `${config.isActive ? 'Khóa' : 'Mở khóa'} cấu hình upload thành công!`
           });
+          this.showLockUnlockConfirm.set(false);
+          this.lockUnlockTarget.set(null);
           this.loadConfigs();
         },
         error: (err) => {
@@ -139,6 +153,11 @@ export class UploadConfigComponent implements OnInit {
           this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: detailMsg });
         }
       });
+  }
+
+  onCancelLockUnlock() {
+    this.showLockUnlockConfirm.set(false);
+    this.lockUnlockTarget.set(null);
   }
 
   onEdit(config: any) {

@@ -90,7 +90,6 @@
                   <span class="status-pill"
                     [class.status-active]="user.isActive"
                     [class.status-inactive]="!user.isActive">
-                    <i class="pi pi-clock"></i>
                     {{ user.isActive ? 'Hoạt động' : 'Ngưng hoạt động' }}
                   </span>
                 </td>
@@ -116,7 +115,7 @@
                           <i class="pi pi-pencil color-teal"></i>
                           <span>Chỉnh sửa</span>
                         </button>
-                        <button *ngIf="authService.hasPermission('USER_EDIT')" type="button" class="dropdown-item-btn" (click)="toggleUserStatus(user); activeDropdownUserId.set(null)" [title]="user.isActive ? 'Khóa tài khoản' : 'Mở khóa tài khoản'">
+                        <button *ngIf="authService.hasPermission('USER_EDIT')" type="button" class="dropdown-item-btn" (click)="onToggleStatusRequest(user); activeDropdownUserId.set(null)" [title]="user.isActive ? 'Khóa tài khoản' : 'Mở khóa tài khoản'">
                           <i class="pi" [ngClass]="user.isActive ? 'pi-lock color-red' : 'pi-lock-open color-green'"></i>
                           <span>{{ user.isActive ? 'Khóa tài khoản' : 'Mở khóa' }}</span>
                         </button>
@@ -553,6 +552,45 @@
         </div>
       </div>
     </div>
+
+    <!-- Dialog Xác nhận Khóa/Mở khóa -->
+    <p-dialog 
+      [visible]="showLockUnlockConfirm()" 
+      (visibleChange)="$event ? null : onCancelLockUnlock()" 
+      [header]="lockUnlockTarget()?.isActive ? 'Xác nhận khóa tài khoản' : 'Xác nhận mở khóa tài khoản'" 
+      [modal]="true" 
+      [style]="{ width: '420px' }" 
+      styleClass="evn-dialog-custom"
+      [closable]="!lockUnlockLoading()">
+      <div style="padding: 8px 0 16px 0; display: flex; flex-direction: column; gap: 12px;">
+        <div style="display: flex; align-items: flex-start; gap: 12px;">
+          <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #f59e0b; margin-top: 2px; flex-shrink: 0;"></i>
+          <div>
+            <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b; font-size: 0.95rem;">
+              {{ lockUnlockTarget()?.isActive ? 'Bạn có chắc muốn khóa tài khoản này?' : 'Bạn có chắc muốn mở khóa tài khoản này?' }}
+            </p>
+            <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
+              Tài khoản <b style="color: #1e293b;">{{ lockUnlockTarget()?.username || lockUnlockTarget()?.fullName }}</b> sẽ được 
+              {{ lockUnlockTarget()?.isActive ? 'khóa và không thể đăng nhập' : 'mở khóa và có thể đăng nhập trở lại' }}.
+            </p>
+          </div>
+        </div>
+      </div>
+      <ng-template #footer>
+        <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+          <button class="btn-cancel btn-small" (click)="onCancelLockUnlock()" [disabled]="lockUnlockLoading()">
+            <i class="pi pi-times"></i> Hủy
+          </button>
+          <button class="btn-save btn-small" (click)="onConfirmLockUnlock()" [disabled]="lockUnlockLoading()"
+            [style.background-color]="lockUnlockTarget()?.isActive ? '#dc2626' : '#16a34a'"
+            [style.border-color]="lockUnlockTarget()?.isActive ? '#dc2626' : '#16a34a'">
+            <i class="pi pi-spin pi-spinner" *ngIf="lockUnlockLoading()" style="margin-right: 4px;"></i>
+            <i class="pi" [ngClass]="lockUnlockTarget()?.isActive ? 'pi-lock' : 'pi-lock-open'" *ngIf="!lockUnlockLoading()" style="margin-right: 4px;"></i>
+            {{ lockUnlockTarget()?.isActive ? 'Khóa' : 'Mở khóa' }}
+          </button>
+        </div>
+      </ng-template>
+    </p-dialog>
 
   </div>
 </div>
