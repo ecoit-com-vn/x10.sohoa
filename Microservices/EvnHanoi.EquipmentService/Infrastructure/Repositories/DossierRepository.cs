@@ -252,6 +252,335 @@ public class DossierRepository : IDossierRepository
         return (resultList, totalCount);
     }
 
+    public async Task<IEnumerable<BhsCatalogColumnDto>> GetBhsCatalogColumnsAsync()
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        var bhsCatalogs = await GetBhsCatalogDefinitionsAsync();
+        return bhsCatalogs.Select(c => new BhsCatalogColumnDto
+        {
+            Key = c.Name,
+            Code = c.Code,
+            Label = c.Name,
+            Priority = c.Priority
+        });
+    }
+
+    public Task<IEnumerable<DossierByEquipmentLookupItemDto>> GetEquipmentLookupInfrastructuresAsync(
+        DossierByEquipmentFilterDto filter,
+        long? unitId) =>
+        QueryEquipmentLookupAsync(
+            filter,
+            unitId,
+            """
+            SELECT DISTINCT i.ID AS Id, i.NAME AS Name, i.CODE AS Code
+            FROM DOSSIERS d
+            INNER JOIN INFRASTRUCTURE i ON d.InfrastructureId = i.ID
+            """,
+            excludeInfrastructure: true);
+
+    public Task<IEnumerable<DossierByEquipmentLookupItemDto>> GetEquipmentLookupEquipmentTypesAsync(
+        DossierByEquipmentFilterDto filter,
+        long? unitId) =>
+        QueryEquipmentLookupAsync(
+            filter,
+            unitId,
+            """
+            SELECT DISTINCT et.ID AS Id, et.NAME AS Name, et.CODE AS Code
+            FROM DOSSIERS d
+            INNER JOIN INFRASTRUCTURE i ON d.InfrastructureId = i.ID
+            INNER JOIN DOSSIER_EQUIPMENTS de ON d.Id = de.DossierId
+            INNER JOIN Equipments e ON de.EquipmentId = e.Id AND (e.IsDeleted = 0 OR e.IsDeleted IS NULL)
+            INNER JOIN EquipmentTypes et ON e.EquipmentTypeId = et.Id
+            """,
+            keywordFields: "et",
+            excludeEquipmentType: true);
+
+    public Task<IEnumerable<DossierByEquipmentLookupItemDto>> GetEquipmentLookupEquipmentsAsync(
+        DossierByEquipmentFilterDto filter,
+        long? unitId) =>
+        QueryEquipmentLookupAsync(
+            filter,
+            unitId,
+            """
+            SELECT DISTINCT e.ID AS Id, e.NAME AS Name, e.CODE AS Code
+            FROM DOSSIERS d
+            INNER JOIN INFRASTRUCTURE i ON d.InfrastructureId = i.ID
+            INNER JOIN DOSSIER_EQUIPMENTS de ON d.Id = de.DossierId
+            INNER JOIN Equipments e ON de.EquipmentId = e.Id AND (e.IsDeleted = 0 OR e.IsDeleted IS NULL)
+            """,
+            keywordFields: "e",
+            excludeEquipment: true);
+
+    public Task<IEnumerable<DossierByEquipmentLookupItemDto>> GetEquipmentLookupDossierTypesAsync(
+        DossierByEquipmentFilterDto filter,
+        long? unitId) =>
+        QueryEquipmentLookupAsync(
+            filter,
+            unitId,
+            """
+            SELECT DISTINCT dt.ID AS Id, dt.NAME AS Name, dt.CODE AS Code
+            FROM DOSSIERS d
+            INNER JOIN INFRASTRUCTURE i ON d.InfrastructureId = i.ID
+            INNER JOIN DOSSIER_TYPES dt ON d.DossierTypeId = dt.ID
+            """,
+            keywordFields: "dt",
+            excludeDossierType: true);
+
+    public async Task<bool> IsPublishedDossierAccessibleAsync(Guid dossierId, long? unitId)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        var parameters = new DynamicParameters();
+        parameters.Add("DossierId", dossierId.ToString());
+
+        var sql = @"SELECT COUNT(1)
+                    FROM DOSSIERS d
+                    INNER JOIN INFRASTRUCTURE i ON d.InfrastructureId = i.ID
+                    WHERE d.Id = :DossierId
+                      AND d.IsDeleted = 0
+                      AND d.STATUS_ID = 6
+                      AND d.PUBLISHSTATUSID = 2";
+
+        AppendUnitScope(sql, parameters, unitId, out sql);
+
+        var count = await _connection.ExecuteScalarAsync<int>(sql, parameters);
+        return count > 0;
+    }
+
+    private async Task<IEnumerable<DossierByEquipmentLookupItemDto>> QueryEquipmentLookupAsync(
+        DossierByEquipmentFilterDto filter,
+        long? unitId,
+        string selectFromSql,
+        string keywordFields = "i",
+        bool excludeInfrastructure = false,
+        bool excludeEquipmentType = false,
+        bool excludeEquipment = false,
+        bool excludeDossierType = false)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        var parameters = new DynamicParameters();
+        var sql = selectFromSql + @"
+                    WHERE d.IsDeleted = 0
+                      AND d.STATUS_ID = 6
+                      AND d.PUBLISHSTATUSID = 2";
+
+        AppendPublishedDossierFilters(
+            ref sql,
+            parameters,
+            filter,
+            unitId,
+            excludeInfrastructure,
+            excludeEquipmentType,
+            excludeEquipment,
+            excludeDossierType);
+
+        if (!string.IsNullOrWhiteSpace(filter.Keyword))
+        {
+            var keyword = $"%{filter.Keyword.Trim().ToUpperInvariant()}%";
+            parameters.Add("LookupKeyword", keyword);
+            sql += keywordFields switch
+            {
+                "et" => " AND (UPPER(et.NAME) LIKE :LookupKeyword OR UPPER(et.CODE) LIKE :LookupKeyword)",
+                "e" => " AND (UPPER(e.NAME) LIKE :LookupKeyword OR UPPER(e.CODE) LIKE :LookupKeyword OR UPPER(e.SerialNumber) LIKE :LookupKeyword)",
+                "dt" => " AND (UPPER(dt.NAME) LIKE :LookupKeyword OR UPPER(dt.CODE) LIKE :LookupKeyword)",
+                _ => " AND (UPPER(i.NAME) LIKE :LookupKeyword OR UPPER(i.CODE) LIKE :LookupKeyword)"
+            };
+        }
+
+        sql += " ORDER BY Name ASC";
+
+        var rows = await _connection.QueryAsync<DossierByEquipmentLookupItemDto>(sql, parameters);
+        return rows.Select(row => new DossierByEquipmentLookupItemDto
+        {
+            Id = row.Id,
+            Name = row.Name,
+            Code = row.Code
+        });
+    }
+
+    private static void AppendPublishedDossierFilters(
+        ref string sql,
+        DynamicParameters parameters,
+        DossierByEquipmentFilterDto filter,
+        long? unitId,
+        bool excludeInfrastructure,
+        bool excludeEquipmentType,
+        bool excludeEquipment,
+        bool excludeDossierType)
+    {
+        AppendUnitScope(sql, parameters, unitId, out sql);
+
+        if (filter.PublishDateFrom.HasValue)
+        {
+            sql += " AND d.ModifiedDate >= :PublishDateFrom";
+            parameters.Add("PublishDateFrom", filter.PublishDateFrom.Value);
+        }
+
+        if (filter.PublishDateTo.HasValue)
+        {
+            sql += " AND d.ModifiedDate <= :PublishDateTo";
+            parameters.Add("PublishDateTo", filter.PublishDateTo.Value);
+        }
+
+        if (!excludeInfrastructure && filter.InfrastructureId.HasValue)
+        {
+            sql += " AND d.InfrastructureId = :InfrastructureId";
+            parameters.Add("InfrastructureId", filter.InfrastructureId.Value.ToString());
+        }
+
+        if (!excludeDossierType && filter.DossierTypeId.HasValue)
+        {
+            sql += " AND d.DossierTypeId = :DossierTypeId";
+            parameters.Add("DossierTypeId", filter.DossierTypeId.Value.ToString());
+        }
+
+        if (!excludeEquipment && filter.EquipmentId.HasValue)
+        {
+            sql += @" AND EXISTS (
+                SELECT 1 FROM DOSSIER_EQUIPMENTS de2
+                WHERE de2.DossierId = d.Id AND de2.EquipmentId = :EquipmentId
+            )";
+            parameters.Add("EquipmentId", filter.EquipmentId.Value.ToString());
+        }
+        else if (!excludeEquipmentType && filter.EquipmentTypeId.HasValue)
+        {
+            sql += @" AND EXISTS (
+                SELECT 1
+                FROM DOSSIER_EQUIPMENTS de2
+                INNER JOIN Equipments e2 ON de2.EquipmentId = e2.Id
+                WHERE de2.DossierId = d.Id
+                  AND e2.EquipmentTypeId = :EquipmentTypeId
+                  AND (e2.IsDeleted = 0 OR e2.IsDeleted IS NULL)
+            )";
+            parameters.Add("EquipmentTypeId", filter.EquipmentTypeId.Value.ToString());
+        }
+    }
+
+    private static void AppendUnitScope(string sql, DynamicParameters parameters, long? unitId, out string resultSql)
+    {
+        resultSql = sql;
+        if (!unitId.HasValue)
+            return;
+
+        resultSql += @" AND i.UNIT_ID IN (
+            SELECT Id
+            FROM ORGANIZATION_UNIT
+            START WITH Id = :UnitId
+            CONNECT BY PRIOR Id = ParentId
+        )";
+        parameters.Add("UnitId", unitId.Value);
+    }
+
+    public async Task<(IEnumerable<DossierListItemDto> Items, int TotalCount, IEnumerable<BhsCatalogColumnDto> Columns)> GetDossiersByEquipmentAsync(
+        Guid equipmentId,
+        int page,
+        int pageSize)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        // Get columns first
+        var bhsCatalogs = await GetBhsCatalogDefinitionsAsync();
+        var columns = bhsCatalogs.Select(c => new BhsCatalogColumnDto
+        {
+            Key = c.Name,
+            Code = c.Code,
+            Label = c.Name,
+            Priority = c.Priority
+        }).ToList();
+
+        var parameters = new DynamicParameters();
+        parameters.Add("EquipmentId", equipmentId.ToString());
+
+        var sqlBase = $@"FROM DOSSIERS d
+                         INNER JOIN DOSSIER_EQUIPMENTS de ON d.Id = de.DossierId
+                         LEFT JOIN INFRASTRUCTURE i ON d.InfrastructureId = i.ID
+                         LEFT JOIN DOSSIER_TYPES dt ON d.DossierTypeId = dt.ID
+                         LEFT JOIN DOSSIER_SETS ds ON d.DossierSetId = ds.ID
+                         LEFT JOIN PUBLISH_STATUSES ps ON d.PUBLISHSTATUSID = ps.ID
+                         LEFT JOIN DOSSIER_STATUSES dstat ON d.STATUS_ID = dstat.ID
+                         WHERE d.IsDeleted = 0
+                           AND d.PUBLISHSTATUSID = 2
+                           AND de.EquipmentId = :EquipmentId";
+
+        var countSql = $"SELECT COUNT(1) {sqlBase}";
+        var totalCount = await _connection.ExecuteScalarAsync<int>(countSql, parameters);
+
+        if (totalCount == 0)
+        {
+            return (Enumerable.Empty<DossierListItemDto>(), 0, columns);
+        }
+
+        var selectSql = $@"SELECT
+                            d.Id,
+                            d.GridTypeId,
+                            d.InfrastructureId,
+                            i.NAME as InfrastructureName,
+                            i.CODE as InfrastructureCode,
+                            d.DossierSetId,
+                            ds.NAME as DossierSetName,
+                            d.DossierTypeId,
+                            dt.NAME as DossierTypeName,
+                            d.STATUS_ID as StatusId,
+                            dstat.CODE as StatusCode,
+                            dstat.NAME as StatusName,
+                            d.WorkflowStatusName,
+                            d.CreatorName,
+                            d.CreatedDate,
+                            d.FormDataJson,
+                            d.PUBLISHSTATUSID as PublishStatusId,
+                            ps.CODE as PublishStatusCode,
+                            ps.NAME as PublishStatusName,
+                            (SELECT COUNT(1) FROM DOCUMENTS doc WHERE doc.DOSSIER_ID = d.Id AND doc.IS_DELETED = 0) as DocumentCount
+                         {sqlBase}
+                         ORDER BY d.CreatedDate DESC
+                         OFFSET :Offset ROWS FETCH NEXT :PageSize ROWS ONLY";
+
+        parameters.Add("Offset", (page - 1) * pageSize);
+        parameters.Add("PageSize", pageSize);
+
+        var rawItems = await _connection.QueryAsync<dynamic>(selectSql, parameters);
+        var mappedItems = rawItems.Select(d => (
+            dto: new DossierListItemDto
+            {
+                Id = d.ID is string sId && Guid.TryParse(sId, out var gId) ? gId : (d.ID is Guid guidId ? guidId : Guid.Empty),
+                GridTypeId = d.GRIDTYPEID == null ? (int?)null : Convert.ToInt32(d.GRIDTYPEID),
+                GridTypeName = null,
+                InfrastructureId = d.INFRASTRUCTUREID is string sInfra && Guid.TryParse(sInfra, out var gInfra) ? gInfra : (d.INFRASTRUCTUREID is Guid guidInfra ? guidInfra : null),
+                InfrastructureName = d.INFRASTRUCTURENAME,
+                InfrastructureCode = d.INFRASTRUCTURECODE,
+                DossierSetId = d.DOSSIERSETID is string sSet && Guid.TryParse(sSet, out var gSet) ? gSet : (d.DOSSIERSETID is Guid guidSet ? guidSet : null),
+                DossierSetName = d.DOSSIERSETNAME,
+                DossierTypeId = d.DOSSIERTYPEID is string sType && Guid.TryParse(sType, out var gType) ? gType : (d.DOSSIERTYPEID is Guid guidType ? guidType : Guid.Empty),
+                DossierTypeName = d.DOSSIERTYPENAME,
+                StatusId = d.STATUSID == null ? 0 : Convert.ToInt32(d.STATUSID),
+                StatusCode = d.STATUSCODE,
+                StatusName = d.STATUSNAME,
+                WorkflowStatusName = d.WORKFLOWSTATUSNAME,
+                CreatedDate = d.CREATEDDATE is DateTime dtVal ? dtVal : DateTime.MinValue,
+                DocumentCount = d.DOCUMENTCOUNT == null ? 0 : Convert.ToInt32(d.DOCUMENTCOUNT),
+                PublishStatusId = d.PUBLISHSTATUSID == null ? (int?)null : Convert.ToInt32(d.PUBLISHSTATUSID),
+                PublishStatusCode = d.PUBLISHSTATUSCODE,
+                PublishStatusName = d.PUBLISHSTATUSNAME
+            },
+            Item2: d.FORMDATAJSON as string
+        )).ToList();
+
+        var resultList = new List<DossierListItemDto>();
+        foreach (var tuple in mappedItems)
+        {
+            tuple.dto.CatalogData = ParseCatalogData(tuple.Item2, bhsCatalogs);
+            resultList.Add(tuple.dto);
+        }
+
+        return (resultList, totalCount, columns);
+    }
+
     public async Task<DossierDetailDto?> GetDetailByIdAsync(Guid id)
     {
         if (_connection.State != ConnectionState.Open)

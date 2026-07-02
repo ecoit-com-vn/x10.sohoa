@@ -76,6 +76,7 @@ public class DossierDocumentService : IDossierDocumentService
     private readonly IFileUploadService _fileUploadService;
     private readonly IFileStorageService _fileStorageService;
     private readonly IFileDownloadTokenService _downloadTokenService;
+    private readonly IFolderAllocationRepository _folderAllocationRepository;
     private readonly ILogger<DossierDocumentService> _logger;
 
     public DossierDocumentService(
@@ -85,6 +86,7 @@ public class DossierDocumentService : IDossierDocumentService
         IFileUploadService fileUploadService,
         IFileStorageService fileStorageService,
         IFileDownloadTokenService downloadTokenService,
+        IFolderAllocationRepository folderAllocationRepository,
         ILogger<DossierDocumentService> logger)
     {
         _dossierService = dossierService ?? throw new ArgumentNullException(nameof(dossierService));
@@ -93,6 +95,7 @@ public class DossierDocumentService : IDossierDocumentService
         _fileUploadService = fileUploadService ?? throw new ArgumentNullException(nameof(fileUploadService));
         _fileStorageService = fileStorageService ?? throw new ArgumentNullException(nameof(fileStorageService));
         _downloadTokenService = downloadTokenService ?? throw new ArgumentNullException(nameof(downloadTokenService));
+        _folderAllocationRepository = folderAllocationRepository ?? throw new ArgumentNullException(nameof(folderAllocationRepository));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -248,6 +251,34 @@ public class DossierDocumentService : IDossierDocumentService
 
             if (userUnitId == 0 || userUnitId < folder.UnitId)
                 throw new UnauthorizedAccessException($"Bạn không có quyền chuyển tài liệu '{document.Name}' từ thư mục này");
+
+            // Check folder allocation (ADMIN bypasses, subfolder inheritance allowed)
+            var isAdmin = await _folderAllocationRepository.IsUserAdminAsync(userId);
+            if (!isAdmin)
+            {
+                var activeAllocations = await _folderAllocationRepository.GetActiveAllocationsByUserAsync(userId);
+                var allocatedFolderIds = activeAllocations.Select(a => a.FolderId).ToHashSet();
+
+                bool hasAccess = false;
+                Guid? currentFolderId = folder.Id;
+                
+                while (currentFolderId.HasValue)
+                {
+                    if (allocatedFolderIds.Contains(currentFolderId.Value))
+                    {
+                        hasAccess = true;
+                        break;
+                    }
+                    
+                    var parentFolder = await _documentRepository.GetFolderByIdAsync(currentFolderId.Value);
+                    currentFolderId = parentFolder?.ParentId;
+                }
+
+                if (!hasAccess)
+                {
+                    throw new UnauthorizedAccessException($"Bạn không có quyền chuyển tài liệu '{document.Name}' từ thư mục '{folder.Name}' do chưa được phân bổ nhập liệu.");
+                }
+            }
 
             var version = await _documentRepository.GetDocumentVersionByIdAsync(document.LatestVersionId.Value);
             if (version == null || string.IsNullOrEmpty(version.FilePath))

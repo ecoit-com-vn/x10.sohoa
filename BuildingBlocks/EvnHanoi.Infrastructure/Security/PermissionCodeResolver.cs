@@ -24,6 +24,8 @@ public static class PermissionCodeResolver
             "Signatures" => "SIGNATURE",
             "WorkflowDefinitions" => "WORKFLOW_DEFINITION",
             "DossierWorkflow" => "DOSSIER",
+            "DossierByEquipment" => "SEARCH_DOSSIERS_BY_EQUIPMENT",
+            "SearchDossiersByEquipment" => "SEARCH_DOSSIERS_BY_EQUIPMENT",
             _ => ToSnakeCase(controllerKey)
         };
     }
@@ -39,8 +41,26 @@ public static class PermissionCodeResolver
     /// </summary>
     public static string CategorizeAction(string controllerKey, string actionName, string httpMethod)
     {
+        // Phân bổ nhập liệu: GET -> VIEW, các method khác (POST, PUT, DELETE, revoke...) -> EDIT
+        if (string.Equals(controllerKey, "FolderAllocation", StringComparison.OrdinalIgnoreCase))
+        {
+            if (httpMethod.Equals("GET", StringComparison.OrdinalIgnoreCase))
+            {
+                return "VIEW";
+            }
+            return "EDIT";
+        }
+
         // DossierPublish: mọi GET (GetPaged, GetTabCounts, …) → VIEW
         if (string.Equals(controllerKey, "DossierPublish", StringComparison.OrdinalIgnoreCase) &&
+            httpMethod.Equals("GET", StringComparison.OrdinalIgnoreCase))
+        {
+            return "VIEW";
+        }
+
+        // Tra cứu hồ sơ thiết bị: mọi GET → VIEW
+        if ((string.Equals(controllerKey, "DossierByEquipment", StringComparison.OrdinalIgnoreCase) ||
+             string.Equals(controllerKey, "SearchDossiersByEquipment", StringComparison.OrdinalIgnoreCase)) &&
             httpMethod.Equals("GET", StringComparison.OrdinalIgnoreCase))
         {
             return "VIEW";
@@ -114,6 +134,9 @@ public static class PermissionCodeResolver
         {
             "DOSSIER_PUBLISH_RELEASE" => "Xuất bản hồ sơ",
             "DOSSIER_PUBLISH_VIEW" => "Xem xuất bản hồ sơ",
+            "SEARCH_DOSSIERS_BY_EQUIPMENT_VIEW" => "Tra cứu hồ sơ thiết bị",
+            "FOLDER_ALLOCATION_VIEW" => "Xem phân bổ nhập liệu",
+            "FOLDER_ALLOCATION_EDIT" => "Cấu hình phân bổ nhập liệu",
             _ => null
         };
     }
