@@ -667,8 +667,7 @@ export class EquipmentComponent implements OnInit {
           summary: 'Thành công',
           detail: isAdd ? 'Đã thêm mới thiết bị thành công!' : 'Đã cập nhật thiết bị thành công!'
         });
-        this.currentView.set('list');
-        this.loadItems();
+        this.goBack();
       },
       error: (err) => {
         this.handleSaveError(err);
