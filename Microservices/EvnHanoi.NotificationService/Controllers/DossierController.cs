@@ -2,6 +2,7 @@ using System;
 using System.Data;
 using System.Threading.Tasks;
 using Dapper;
+using EvnHanoi.Infrastructure.Security;
 using EvnHanoi.NotificationService.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -10,6 +11,7 @@ namespace EvnHanoi.NotificationService.Controllers;
 
 [Authorize]
 [ApiController]
+[BypassDynamicPermission]
 [Route("api/v1/dossiers")]
 public class DossierController : ControllerBase
 {

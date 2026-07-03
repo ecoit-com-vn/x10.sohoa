@@ -14,4 +14,5 @@ public interface IRoleRepository
     Task<bool> DeleteAsync(long id);
     Task<IEnumerable<string>> GetPermissionsByRoleIdAsync(long roleId);
     Task<bool> AssignPermissionsToRoleAsync(long roleId, IEnumerable<string> permissionCodes);
+    Task<(IEnumerable<RoleAssignedUserListItem> Items, int TotalCount)> GetUsersByRoleIdPagedAsync(long roleId, int page, int pageSize, string? keyword = null);
 }

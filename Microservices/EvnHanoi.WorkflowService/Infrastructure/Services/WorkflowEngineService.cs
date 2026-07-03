@@ -29,34 +29,32 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
             _memoryCache = memoryCache ?? throw new ArgumentNullException(nameof(memoryCache));
         }
 
-        private IWorkflowIntegrationHandler? GetHandler(string entityType)
-        {
-            return _handlers.FirstOrDefault(h => h.EntityType.Equals(entityType, StringComparison.OrdinalIgnoreCase));
-        }
+        private IWorkflowIntegrationHandler? GetHandler(int workflowTypeId) =>
+            _handlers.FirstOrDefault(h => h.WorkflowTypeId == workflowTypeId);
 
-        public Task<WorkflowInstance> SubmitByEntityTypeAsync(string entityId, string entityType, string userId)
+        public Task<WorkflowInstance> SubmitByWorkflowTypeIdAsync(string entityId, int workflowTypeId, string userId)
         {
-            var item = EntityType.RequireByCode(entityType);
+            var item = EntityType.RequireById(workflowTypeId);
 
             return SubmitInternalAsync(
                 async () =>
                 {
-                    var definition = await _definitionCache.GetActiveDefinitionByEntityTypeAsync(item.Code);
+                    var definition = await _definitionCache.GetActiveDefinitionByWorkflowTypeIdAsync(item.Id);
                     if (definition == null)
                         throw new KeyNotFoundException(
-                            $"Không tìm thấy quy trình đang hoạt động cho EntityType '{item.Code}'. " +
-                            "Hãy tạo WorkflowDefinition với EntityType tương ứng và bật trạng thái Active.");
+                            $"Không tìm thấy quy trình đang hoạt động cho loại quy trình '{item.Name}'. " +
+                            "Hãy tạo WorkflowDefinition tương ứng và bật trạng thái Active.");
                     return definition;
                 },
                 entityId,
-                item.Code,
+                item.Id,
                 userId);
         }
 
         private async Task<WorkflowInstance> SubmitInternalAsync(
             Func<Task<WorkflowDefinition>> loadDefinition,
             string entityId,
-            string entityType,
+            int workflowTypeId,
             string userId)
         {
             var definition = await loadDefinition();
@@ -65,7 +63,7 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
             if (steps.Count == 0)
                 throw new InvalidOperationException("Quy trình chưa cấu hình bất kỳ bước duyệt nào.");
 
-            if (await _workflowRepository.ExistsRunningInstanceAsync(entityId, entityType))
+            if (await _workflowRepository.ExistsRunningInstanceAsync(entityId, workflowTypeId))
                 throw new InvalidOperationException("Hồ sơ/yêu cầu này đang trong một quy trình phê duyệt khác.");
 
             var firstNode = BpmnFirstNodeResolver.Resolve(definition, _memoryCache);
@@ -81,7 +79,7 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
                 Id = Guid.NewGuid(),
                 WorkflowDefinitionId = definition.Id,
                 TargetEntityId = entityId,
-                EntityType = entityType,
+                WorkflowTypeId = workflowTypeId,
                 Status = "Running",
                 CurrentStepOrder = steps[0].Order,
                 CurrentNodeId = currentNodeId,
@@ -115,7 +113,7 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
 
             await _workflowRepository.CreateSubmitBatchAsync(instance, task, history);
 
-            var handler = GetHandler(entityType);
+            var handler = GetHandler(workflowTypeId);
             if (handler != null)
                 await handler.OnWorkflowStartedAsync(entityId, instance.Id);
 
@@ -223,7 +221,7 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
             if (!await _workflowRepository.AddHistoryAsync(history))
                 throw new InvalidOperationException("Không thể ghi lịch sử phê duyệt.");
 
-            var handler = GetHandler(instance.EntityType);
+            var handler = GetHandler(instance.WorkflowTypeId);
             if (handler != null)
             {
                 if (nextTask != null)
@@ -341,7 +339,7 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
             if (!await _workflowRepository.AddHistoryAsync(history))
                 throw new InvalidOperationException("Không thể ghi lịch sử từ chối.");
 
-            var handler = GetHandler(instance.EntityType);
+            var handler = GetHandler(instance.WorkflowTypeId);
             if (handler != null)
             {
                 if (currentStepIndex > 0)
@@ -359,15 +357,15 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
             return prevTask;
         }
 
-        public async Task<WorkflowInstance> MoveAsync(string targetEntityId, string nextNodeId, string userId, string actionLabel, string? comment = null, string? nextAssigneeUserId = null, string entityType = "BorrowRecord")
+        public async Task<WorkflowInstance> MoveAsync(string targetEntityId, string nextNodeId, string userId, string actionLabel, string? comment = null, string? nextAssigneeUserId = null, int workflowTypeId = 2)
         {
-            var instance = await GetRunningMoveContextAsync(targetEntityId, entityType);
+            var instance = await GetRunningMoveContextAsync(targetEntityId, workflowTypeId);
             return await MoveCoreAsync(instance, nextNodeId, userId, actionLabel, comment, nextAssigneeUserId, preParsedXml: null);
         }
 
-        private async Task<WorkflowInstance> GetRunningMoveContextAsync(string targetEntityId, string entityType)
+        private async Task<WorkflowInstance> GetRunningMoveContextAsync(string targetEntityId, int workflowTypeId)
         {
-            var instance = await _workflowRepository.GetInstanceByEntityAsync(targetEntityId, entityType);
+            var instance = await _workflowRepository.GetInstanceByEntityAsync(targetEntityId, workflowTypeId);
             if (instance == null)
                 throw new KeyNotFoundException("Không tìm thấy phiên chạy quy trình cho hồ sơ này.");
 
@@ -458,7 +456,7 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
 
                 await _workflowRepository.ExecuteMoveBatchAsync(currentTask, instance, null, endHistory);
 
-                var handler = GetHandler(instance.EntityType);
+                var handler = GetHandler(instance.WorkflowTypeId);
                 if (handler != null)
                 {
                     if (isReject)
@@ -527,7 +525,7 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
                 await _workflowRepository.ExecuteMoveBatchAsync(currentTask, instance, nextTask, moveHistory);
                 instance.Tasks.Add(nextTask);
 
-                var handler = GetHandler(instance.EntityType);
+                var handler = GetHandler(instance.WorkflowTypeId);
                 if (handler != null)
                     await handler.OnWorkflowStateChangedAsync(instance.TargetEntityId, instance.Id, nextStepName);
             }
@@ -548,16 +546,18 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
             string actionLabel, 
             string? comment = null,
             string? nextAssigneeUserId = null,
-            string entityType = "BorrowRecord")
+            int workflowTypeId = 2)
         {
-            var instance = await GetRunningMoveContextAsync(targetEntityId, entityType);
+            var instance = await GetRunningMoveContextAsync(targetEntityId, workflowTypeId);
             var currentTask = instance.Tasks.First(t => t.Status == "Pending");
 
-            if (!isAdmin && !string.IsNullOrEmpty(currentTask.AssignedRole))
+            if (!isAdmin)
             {
-                var hasRole = userRoles.Any(r => r.Equals(currentTask.AssignedRole, StringComparison.OrdinalIgnoreCase));
-                if (!hasRole)
-                    throw new ArgumentException($"Người dùng không có vai trò '{currentTask.AssignedRole}' cần thiết cho bước này.");
+                if (string.IsNullOrEmpty(currentTask.AssigneeUserId))
+                    throw new ArgumentException("Nhiệm vụ chưa được gán cho người xử lý cụ thể.");
+
+                if (!currentTask.AssigneeUserId.Equals(userId, StringComparison.OrdinalIgnoreCase))
+                    throw new ArgumentException("Nhiệm vụ này đã được chỉ định cho người xử lý khác.");
             }
 
             var definition = instance.WorkflowDefinition;
@@ -652,10 +652,10 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
                 string targetDetails = "";
                 if (includeEntityDetails && task.WorkflowInstance != null)
                 {
-                    var entityType = task.WorkflowInstance.EntityType;
+                    var workflowTypeId = task.WorkflowInstance.WorkflowTypeId;
                     var entityId = task.WorkflowInstance.TargetEntityId;
-                    if (!entityDetailsLookup.TryGetValue((entityType, entityId), out targetDetails!))
-                        targetDetails = $"{entityType}: {entityId}";
+                    if (!entityDetailsLookup.TryGetValue((workflowTypeId, entityId), out targetDetails!))
+                        targetDetails = $"Loại quy trình {workflowTypeId}: {entityId}";
                 }
 
                 result.Add(new
@@ -665,7 +665,7 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
                     DefinitionId = task.WorkflowInstance?.WorkflowDefinitionId,
                     DefinitionName = task.WorkflowInstance?.WorkflowDefinition?.Name ?? "",
                     TargetEntityId = task.WorkflowInstance?.TargetEntityId ?? "",
-                    EntityType = task.WorkflowInstance?.EntityType ?? "",
+                    WorkflowTypeId = task.WorkflowInstance?.WorkflowTypeId ?? 0,
                     TargetDetails = targetDetails,
                     StepId = task.StepId,
                     StepName = task.StepName,
@@ -679,39 +679,39 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
             return result;
         }
 
-        private async Task<IReadOnlyDictionary<(string EntityType, string EntityId), string>> BuildEntityDetailsLookupAsync(
+        private async Task<IReadOnlyDictionary<(int WorkflowTypeId, string EntityId), string>> BuildEntityDetailsLookupAsync(
             IReadOnlyList<WorkflowTask> tasks,
             bool includeEntityDetails)
         {
-            var lookup = new Dictionary<(string EntityType, string EntityId), string>();
+            var lookup = new Dictionary<(int WorkflowTypeId, string EntityId), string>();
             if (!includeEntityDetails || tasks.Count == 0) return lookup;
 
             var grouped = tasks
                 .Where(t => t.WorkflowInstance != null)
-                .GroupBy(t => t.WorkflowInstance!.EntityType, StringComparer.OrdinalIgnoreCase);
+                .GroupBy(t => t.WorkflowInstance!.WorkflowTypeId);
 
             foreach (var group in grouped)
             {
-                var entityType = group.Key;
+                var workflowTypeId = group.Key;
                 var entityIds = group
                     .Select(t => t.WorkflowInstance!.TargetEntityId)
                     .Distinct(StringComparer.OrdinalIgnoreCase)
                     .ToList();
 
-                var handler = GetHandler(entityType);
+                var handler = GetHandler(workflowTypeId);
                 if (handler == null)
                 {
                     foreach (var entityId in entityIds)
-                        lookup[(entityType, entityId)] = $"{entityType}: {entityId}";
+                        lookup[(workflowTypeId, entityId)] = $"Loại quy trình {workflowTypeId}: {entityId}";
                     continue;
                 }
 
                 var batchDetails = await handler.GetEntityDetailsBatchAsync(entityIds);
                 foreach (var entityId in entityIds)
                 {
-                    lookup[(entityType, entityId)] = batchDetails.TryGetValue(entityId, out var detail)
+                    lookup[(workflowTypeId, entityId)] = batchDetails.TryGetValue(entityId, out var detail)
                         ? detail
-                        : $"{entityType}: {entityId}";
+                        : $"Loại quy trình {workflowTypeId}: {entityId}";
                 }
             }
 
@@ -723,16 +723,16 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
             return await _workflowRepository.GetHistoryByInstanceIdAsync(instanceId);
         }
 
-        public async Task<IEnumerable<WorkflowHistory>> GetHistoryByEntityAsync(string entityId, string entityType)
+        public async Task<IEnumerable<WorkflowHistory>> GetHistoryByEntityAsync(string entityId, int workflowTypeId)
         {
-            var instance = await _workflowRepository.GetInstanceByEntityAsync(entityId, entityType, false);
+            var instance = await _workflowRepository.GetInstanceByEntityAsync(entityId, workflowTypeId, false);
             if (instance == null) return Enumerable.Empty<WorkflowHistory>();
             return await _workflowRepository.GetHistoryByInstanceIdAsync(instance.Id);
         }
 
-        public async Task<object> GetInstanceStatusByEntityAsync(string entityId, string entityType)
+        public async Task<object> GetInstanceStatusByEntityAsync(string entityId, int workflowTypeId)
         {
-            var instance = await _workflowRepository.GetInstanceByEntityAsync(entityId, entityType, false);
+            var instance = await _workflowRepository.GetInstanceByEntityAsync(entityId, workflowTypeId, false);
             if (instance == null)
             {
                 throw new KeyNotFoundException("Không tìm thấy phiên chạy quy trình cho hồ sơ/yêu cầu này.");
@@ -759,6 +759,7 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
                     t.Id,
                     t.StepName,
                     t.AssignedRole,
+                    t.AssigneeUserId,
                     ActionType = t.Step?.ActionType ?? "",
                     AllowEdit = t.Step?.AllowEdit ?? false,
                     t.CreatedAt

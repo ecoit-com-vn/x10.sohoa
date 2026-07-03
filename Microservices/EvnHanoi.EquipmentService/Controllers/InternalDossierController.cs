@@ -55,4 +55,55 @@ public class InternalDossierController : ControllerBase
             return StatusCode(500, new { message = ex.Message });
         }
     }
+
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> GetInternalDossier(
+        Guid id,
+        [FromHeader(Name = "X-Internal-Token")] string? internalToken)
+    {
+        var expected = _configuration["Internal:Token"];
+        if (string.IsNullOrEmpty(expected))
+            return StatusCode(503, new { message = "Internal:Token chưa được cấu hình trên EquipmentService." });
+
+        if (!string.Equals(internalToken, expected, StringComparison.Ordinal))
+            return Unauthorized(new { message = "Token nội bộ không hợp lệ." });
+
+        try
+        {
+            var dossier = await _dossierService.GetDetailByIdAsync(id);
+            if (dossier == null) return NotFound(new { message = "Không tìm thấy hồ sơ." });
+            return Ok(new { status = dossier.StatusCode, statusId = dossier.StatusId });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+    }
+
+    [HttpPost("{id:guid}/auto-approve")]
+    public async Task<IActionResult> AutoApproveInternal(
+        Guid id,
+        [FromHeader(Name = "X-Internal-Token")] string? internalToken)
+    {
+        var expected = _configuration["Internal:Token"];
+        if (string.IsNullOrEmpty(expected))
+            return StatusCode(503, new { message = "Internal:Token chưa được cấu hình trên EquipmentService." });
+
+        if (!string.Equals(internalToken, expected, StringComparison.Ordinal))
+            return Unauthorized(new { message = "Token nội bộ không hợp lệ." });
+
+        try
+        {
+            await _dossierService.AutoApproveWithoutWorkflowAsync(id);
+            return Ok(new { success = true });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
 }

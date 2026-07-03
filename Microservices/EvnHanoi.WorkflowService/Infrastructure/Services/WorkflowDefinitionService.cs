@@ -76,6 +76,9 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
                     }
                 }
 
+                dto.IsActive = true;
+                dto.ForceActivate = true;
+
                 var success = await _workflowRepository.CreateDefinitionAsync(dto);
                 if (!success)
                 {
@@ -124,6 +127,11 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
         public async Task<WorkflowDefinition?> GetDefinitionByIdAsync(Guid id)
         {
             return await _workflowRepository.GetDefinitionByIdAsync(id);
+        }
+
+        public async Task<bool> ReactivateDefinitionAsync(Guid id, int workflowTypeId, string name)
+        {
+            return await _workflowRepository.ReactivateDefinitionAsync(id, workflowTypeId, name);
         }
     }
 }

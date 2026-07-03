@@ -4,6 +4,7 @@ using Dapper;
 using Elastic.Clients.Elasticsearch;
 using Elastic.Clients.Elasticsearch.QueryDsl;
 using EvnHanoi.Infrastructure.Messaging;
+using EvnHanoi.Infrastructure.Security;
 using EvnHanoi.NotificationService.Models;
 using EvnHanoi.NotificationService.Repositories;
 using EvnHanoi.NotificationService.Services;
@@ -17,23 +18,27 @@ namespace EvnHanoi.NotificationService.Controllers;
 
 [Authorize]
 [ApiController]
+[BypassDynamicPermission]
 [Route("api/v1/search")]
 public class SearchController : ControllerBase
 {
     private readonly ElasticsearchClient _elasticClient;
     private readonly IDbConnection _dbConnection;
     private readonly IDossierSearchService _dossierSearchService;
+    private readonly IDossierMenuScopeValidator _menuScopeValidator;
     private readonly ILogger<SearchController> _logger;
 
     public SearchController(
         ElasticsearchClient elasticClient,
         IDbConnection dbConnection,
         IDossierSearchService dossierSearchService,
+        IDossierMenuScopeValidator menuScopeValidator,
         ILogger<SearchController> logger)
     {
         _elasticClient = elasticClient;
         _dbConnection = dbConnection;
         _dossierSearchService = dossierSearchService;
+        _menuScopeValidator = menuScopeValidator;
         _logger = logger;
     }
 
@@ -44,23 +49,54 @@ public class SearchController : ControllerBase
         [FromQuery] int? gridTypeId,
         [FromQuery] long? unitId,
         [FromQuery] string? tab,
-        [FromQuery] string? status,
-        [FromQuery] int page = 1, 
+        [FromQuery] int? statusId,
+        [FromQuery] string? menuScope,
+        [FromQuery] Guid? dossierTypeId,
+        [FromQuery] int? kindId,
+        [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10)
     {
         var roles = GetUserRoles();
         var userId = GetUserId();
+        var isAdmin = IsAdmin(roles);
+        var normalizedTab = NormalizeTabParameter(tab, statusId?.ToString());
+
+        var scopeCheck = await _menuScopeValidator.ValidateAsync(
+            menuScope,
+            normalizedTab,
+            userId,
+            Request.Headers.Authorization.ToString(),
+            isAdmin,
+            kindId);
+        if (!scopeCheck.Allowed)
+        {
+            return StatusCode(403, new { message = scopeCheck.ErrorMessage });
+        }
+
+        var effectiveUnitId = unitId;
+        if (DossierMenuScopes.IsPublisher(menuScope))
+        {
+            var tokenUnitId = JwtUserClaimResolver.ResolveUnitId(User);
+            if (tokenUnitId.HasValue)
+            {
+                effectiveUnitId = tokenUnitId.Value;
+            }
+        }
+
         var filter = new DossierFilterDto
         {
             Keyword = keyword,
             InfrastructureId = infrastructureId,
             GridTypeId = gridTypeId,
-            UnitId = unitId,
-            Tab = NormalizeTabParameter(tab, status),
-            Status = status,
+            UnitId = effectiveUnitId,
+            Tab = normalizedTab,
+            StatusId = statusId,
+            MenuScope = DossierMenuScopes.Normalize(menuScope),
+            DossierTypeId = dossierTypeId,
+            KindId = kindId,
             UserId = userId,
             UserRoles = roles,
-            IsAdmin = IsAdmin(roles),
+            IsAdmin = isAdmin,
             Page = page,
             PageSize = pageSize
         };
@@ -88,8 +124,9 @@ public class SearchController : ControllerBase
         var (items, totalCount) = await _dossierSearchService.GetPagedAsync(filter);
 
         _logger.LogInformation(
-            "Dossier search tab={Tab} userId={UserId} roles={RoleCount} page={Page} total={Total}",
+            "Dossier search tab={Tab} menuScope={MenuScope} userId={UserId} roles={RoleCount} page={Page} total={Total}",
             effectiveTab ?? "(none)",
+            filter.MenuScope ?? "(none)",
             userId ?? "(null)",
             roles.Count,
             page,
@@ -103,18 +140,47 @@ public class SearchController : ControllerBase
         [FromQuery] string? keyword,
         [FromQuery] Guid? infrastructureId,
         [FromQuery] int? gridTypeId,
-        [FromQuery] long? unitId)
+        [FromQuery] long? unitId,
+        [FromQuery] string? menuScope,
+        [FromQuery] int? kindId)
     {
         var roles = GetUserRoles();
+        var userId = GetUserId();
+        var isAdmin = IsAdmin(roles);
+
+        var scopeCheck = await _menuScopeValidator.ValidateAsync(
+            menuScope,
+            tab: null,
+            userId,
+            Request.Headers.Authorization.ToString(),
+            isAdmin,
+            kindId);
+        if (!scopeCheck.Allowed)
+        {
+            return StatusCode(403, new { message = scopeCheck.ErrorMessage });
+        }
+
+        var effectiveUnitId = unitId;
+        if (DossierMenuScopes.IsPublisher(menuScope))
+        {
+            var tokenUnitId = JwtUserClaimResolver.ResolveUnitId(User);
+            if (tokenUnitId.HasValue)
+            {
+                effectiveUnitId = tokenUnitId.Value;
+            }
+        }
+
         var filter = new DossierFilterDto
         {
             Keyword = keyword,
             InfrastructureId = infrastructureId,
             GridTypeId = gridTypeId,
-            UnitId = unitId,
-            UserId = GetUserId(),
+            UnitId = effectiveUnitId,
+            MenuScope = DossierMenuScopes.Normalize(menuScope),
+            KindId = kindId,
+            UserId = userId,
             UserRoles = roles,
-            IsAdmin = IsAdmin(roles)
+            IsAdmin = isAdmin
         };
 
         var counts = await _dossierSearchService.GetTabCountsAsync(filter);
@@ -156,9 +222,9 @@ public class SearchController : ControllerBase
                 {
                     b.MustNot(mn => mn.Term(t => t.Field(DossierEsFieldNames.IsDeleted).Value(true)));
                     b.Filter(f => f.Terms(t => t
-                        .Field(DossierEsFieldNames.Status)
+                        .Field(DossierEsFieldNames.StatusId)
                         .Terms(new TermsQueryField(
-                            DossierTabEsQuery.InPipelineStatuses.Select(FieldValue.String).ToArray()))));
+                            DossierTabEsQuery.InPipelineStatuses.Select(x => (FieldValue)x).ToArray()))));
                     b.Filter(f => f.Terms(t => t
                         .Field(DossierEsFieldNames.PendingAssigneeUserId)
                         .Terms(new TermsQueryField(variants.Select(FieldValue.String).ToArray()))));
@@ -179,7 +245,9 @@ public class SearchController : ControllerBase
             sampleFromApi = items.Select(i => new
             {
                 i.Id,
-                i.Status,
+                i.StatusId,
+                i.StatusCode,
+                i.StatusName,
                 i.PendingAssigneeUserId
             }),
             jwtClaims = User.Claims.Select(c => new { c.Type, c.Value })
@@ -350,10 +418,14 @@ public class SearchController : ControllerBase
 
     private static string? NormalizeTabParameter(string? tab, string? status)
     {
+        int? statusId = null;
+        if (int.TryParse(status, out var parsed))
+            statusId = parsed;
+
         var resolved = DossierTabEsQuery.ResolveTabSlug(new DossierFilterDto
         {
             Tab = tab?.Trim(),
-            Status = status?.Trim()
+            StatusId = statusId
         });
 
         return resolved ?? tab?.Trim();

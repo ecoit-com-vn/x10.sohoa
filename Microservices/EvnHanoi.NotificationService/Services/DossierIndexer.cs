@@ -99,7 +99,7 @@ public class DossierIndexer : IDossierIndexer
             "Indexed dossier {DossierId} to {IndexName} (status={Status}, isDeleted={IsDeleted}).",
             normalizedId,
             DossierMessaging.IndexName,
-            document.Status,
+            document.StatusCode,
             document.IsDeleted);
         return true;
     }
@@ -118,6 +118,11 @@ public class DossierIndexer : IDossierIndexer
         {
             if (!await TryDeleteDocumentByIdAsync(documentId, cancellationToken))
                 allDeleted = false;
+        }
+
+        if (allDeleted)
+        {
+            await _elasticClient.Indices.RefreshAsync(DossierMessaging.IndexName, cancellationToken);
         }
 
         return allDeleted;
@@ -169,7 +174,7 @@ public class DossierIndexer : IDossierIndexer
             documentId,
             d => d
                 .Index(DossierMessaging.IndexName)
-                .Refresh(Refresh.WaitFor),
+                .Refresh(Refresh.False),
             cancellationToken);
 
         if (response.Result == Result.NotFound)

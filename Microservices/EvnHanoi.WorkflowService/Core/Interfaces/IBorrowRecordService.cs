@@ -16,7 +16,7 @@ namespace EvnHanoi.WorkflowService.Core.Interfaces
         Task<WorkflowInstance> MoveWorkflowWithValidationAsync(Guid id, string dossierId, string nextNodeId, string userId, List<string> userRoles, bool isAdmin, string actionLabel, string? comment, string? nextAssigneeUserId = null);
         Task<IEnumerable<object>> GetMyTasksAsync(List<string> userRoles, bool isAdmin, string userId);
         Task<IEnumerable<WorkflowHistory>> GetWorkflowHistoryAsync(Guid borrowRecordId);
-        Task<object> GetWorkflowStatusByEntityAsync(string entityId, string entityType);
+        Task<object> GetWorkflowStatusByEntityAsync(string entityId, int workflowTypeId);
         Task<WorkflowDefinition?> GetWorkflowDefinitionAsync(Guid definitionId);
     }
 }

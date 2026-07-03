@@ -6,7 +6,7 @@ namespace EvnHanoi.WorkflowService.Core.Interfaces
 {
     public interface IWorkflowIntegrationHandler
     {
-        string EntityType { get; }
+        int WorkflowTypeId { get; }
         Task OnWorkflowStartedAsync(string entityId, Guid instanceId);
         Task OnWorkflowCompletedAsync(string entityId, Guid instanceId);
         Task OnWorkflowRejectedAsync(string entityId, Guid instanceId);

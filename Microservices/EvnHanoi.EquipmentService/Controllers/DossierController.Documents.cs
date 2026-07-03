@@ -9,9 +9,9 @@ using EvnHanoi.Infrastructure.Security;
 namespace EvnHanoi.EquipmentService.Controllers;
 
 /// <summary>
-/// API tab Tài liệu đính kèm — partial của DossierController (phân quyền DOSSIER_*).
+/// API tab Tài liệu đính kèm — partial của DossierControllerBase.
 /// </summary>
-public partial class DossierController
+public abstract partial class DossierControllerBase
 {
     private long GetUserUnitId()
     {
@@ -45,6 +45,7 @@ public partial class DossierController
     }
 
     [HttpGet("{id:guid}/documents/{versionId:guid}/download-url")]
+    [BypassDynamicPermission]
     public async Task<IActionResult> GetDocumentDownloadUrl(
         Guid id,
         Guid versionId,
@@ -201,7 +202,7 @@ public partial class DossierController
     }
 
     [HttpPost("{id:guid}/documents/move-from-folder")]
-    public async Task<IActionResult> MoveDocumentsFromFolder(
+    public async Task<IActionResult> UploadDocumentsFromFolder(
         Guid id,
         [FromBody] MoveDocumentsFromFolderRequest request,
         CancellationToken cancellationToken)
@@ -261,7 +262,7 @@ public partial class DossierController
     }
 
     [HttpPost("{id:guid}/documents/{versionId:guid}/digitization")]
-    public async Task<IActionResult> SubmitDocumentDigitization(
+    public async Task<IActionResult> SubmitDocumentOCRDigitization(
         Guid id,
         Guid versionId,
         [FromBody] SubmitDossierDocumentDigitizationRequest? request)
@@ -331,6 +332,38 @@ public partial class DossierController
         }
     }
 
+    [HttpPut("{id:guid}/documents/{versionId:guid}/digitization/result")]
+    public async Task<IActionResult> SaveDocumentDigitizationResult(
+        Guid id,
+        Guid versionId,
+        [FromBody] SaveDocumentExtractionDataRequest request)
+    {
+        if (request == null)
+            return BadRequest(new { message = "Dữ liệu không hợp lệ." });
+
+        try
+        {
+            var result = await _documentDigitizationService.SaveDocumentExtractionDataAsync(
+                id,
+                versionId,
+                request,
+                UserId);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { code = "VALIDATION_ERROR", message = ex.Message });
+        }
+    }
+
     [HttpGet("{id:guid}/documents/{versionId:guid}/digitization/result")]
     [BypassDynamicPermission]
     public async Task<IActionResult> GetDocumentDigitizationResult(Guid id, Guid versionId)
@@ -346,6 +379,18 @@ public partial class DossierController
         catch (KeyNotFoundException ex)
         {
             return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { code = "VALIDATION_ERROR", message = ex.Message });
+        }
+        catch (Exception)
+        {
+            return StatusCode(500, new { message = "Không thể lấy kết quả bóc tách tài liệu." });
         }
     }
 }

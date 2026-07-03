@@ -29,7 +29,11 @@ public class DossierEnrichmentRepository : IDossierEnrichmentRepository
 
 {
 
-    private const string DossierEntityType = "Dossier";
+    private const int DossierWorkflowTypeId = 1;
+    private const int DossierDigitizationWorkflowTypeId = 3;
+
+    private static int ResolveWorkflowTypeId(int? kindId) =>
+        kindId == 1 ? DossierDigitizationWorkflowTypeId : DossierWorkflowTypeId;
 
     private const string InstanceRunning = "Running";
 
@@ -62,83 +66,60 @@ public class DossierEnrichmentRepository : IDossierEnrichmentRepository
         {
 
             const string sql = """
-
                 SELECT
-
                     d.Id,
-
                     d.GridTypeId,
-
                     gt.Name AS GridTypeName,
-
                     d.InfrastructureId,
-
                     i.NAME AS InfrastructureName,
-
                     i.CODE AS InfrastructureCode,
-
                     i.UNIT_ID AS UnitId,
-
                     d.DossierSetId,
-
                     ds.Name AS DossierSetName,
-
                     d.DossierTypeId,
-
                     dt.Name AS DossierTypeName,
-
                     d.FormDataJson,
-
-                    d.Status,
-
+                    d.STATUS_ID AS StatusId,
+                    dstat.CODE AS StatusCode,
+                    dstat.NAME AS StatusName,
                     d.WorkflowStatusName,
-
                     d.WorkflowInstanceId,
-
                     d.CreatorId,
-
                     d.CreatorUsername,
-
                     d.CreatorName,
-
                     d.CreatedDate,
-
                     d.ModifiedDate,
-
                     d.IsDeleted,
-
+                    d.PUBLISHSTATUSID AS PublishStatusId,
+                    ps.CODE AS PublishStatusCode,
+                    ps.NAME AS PublishStatusName,
+                    d.KIND_ID AS KindId,
+                    dk.CODE AS KindCode,
+                    d.KIND_ID AS KindId,
+                    dk.CODE AS KindCode,
                     COALESCE((
-
                         SELECT MAX(v.VersionNumber)
-
                         FROM DOSSIER_VERSIONS v
-
                         WHERE v.DossierId = d.Id
-
                     ), 0) AS CurrentVersionNumber,
-
                     COALESCE((
-
                         SELECT COUNT(1)
-
                         FROM DOCUMENTS doc
-
                         WHERE doc.DOSSIER_ID = d.Id AND doc.IS_DELETED = 0
-
-                    ), 0) AS DocumentCount
-
+                    ), 0) AS DocumentCount,
+                    wta.CURRENT_STEP_ID AS CurrentStepId,
+                    wta.CURRENT_ASSIGNEES AS CurrentAssignees,
+                    wta.AVAILABLE_ACTIONS AS AvailableActionsJson
                 FROM DOSSIERS d
-
                 LEFT JOIN GridTypes gt ON d.GridTypeId = gt.Id
-
                 LEFT JOIN INFRASTRUCTURE i ON d.InfrastructureId = i.ID
-
                 LEFT JOIN DOSSIER_SETS ds ON d.DossierSetId = ds.Id
-
                 LEFT JOIN DOSSIER_TYPES dt ON d.DossierTypeId = dt.Id
-
+                LEFT JOIN WORKFLOW_TASKS_ACTIVE wta ON d.Id = wta.DOSSIER_ID
+                LEFT JOIN PUBLISH_STATUSES ps ON d.PUBLISHSTATUSID = ps.ID
+                LEFT JOIN DOSSIER_KINDS dk ON d.KIND_ID = dk.ID
+                LEFT JOIN DOSSIER_STATUSES dstat ON d.STATUS_ID = dstat.ID
                 WHERE LOWER(TRIM(d.Id)) = LOWER(TRIM(:DossierId))
-
                 """;
 
 
@@ -171,15 +152,17 @@ public class DossierEnrichmentRepository : IDossierEnrichmentRepository
 
 
 
+        var workflowTypeId = ResolveWorkflowTypeId(data.KindId);
+
         const string instanceSql = """
 
-            SELECT wi.Id, wi.Status, wi.CurrentNodeName
+            SELECT wi.Id, wi.Status, wi.CurrentNodeName, wi.CurrentStepOrder
 
             FROM WORKFLOWINSTANCES wi
 
             WHERE LOWER(TRIM(wi.TargetEntityId)) = LOWER(TRIM(:DossierId))
 
-              AND wi.EntityType = :EntityType
+              AND wi.WORKFLOW_TYPE_ID = :WorkflowTypeId
 
             ORDER BY CASE WHEN UPPER(TRIM(wi.Status)) = 'RUNNING' THEN 0 ELSE 1 END, wi.CreatedAt DESC
 
@@ -189,9 +172,9 @@ public class DossierEnrichmentRepository : IDossierEnrichmentRepository
 
 
 
-        var instance = await connection.QueryFirstOrDefaultAsync<(string Id, string Status, string? CurrentNodeName)>(
+        var instance = await connection.QueryFirstOrDefaultAsync<(string Id, string Status, string? CurrentNodeName, int CurrentStepOrder)>(
 
-            instanceSql, new { DossierId = dossierId, EntityType = DossierEntityType });
+            instanceSql, new { DossierId = dossierId, WorkflowTypeId = workflowTypeId });
 
 
 
@@ -201,7 +184,7 @@ public class DossierEnrichmentRepository : IDossierEnrichmentRepository
 
             ClearInboxFields(data);
 
-            data.WorkflowParticipantUserIds = EnsureParticipants(data, await LoadParticipantUserIdsAsync(connection, dossierId));
+            data.WorkflowParticipantUserIds = EnsureParticipants(data, await LoadParticipantUserIdsAsync(connection, dossierId, workflowTypeId));
 
             return;
 
@@ -227,7 +210,13 @@ public class DossierEnrichmentRepository : IDossierEnrichmentRepository
 
 
 
-        var participants = await LoadParticipantUserIdsAsync(connection, dossierId);
+        await ApplyReturnedToCreatorStepFlagAsync(
+
+            connection, data, instanceId, instance.CurrentStepOrder, instance.Status);
+
+
+
+        var participants = await LoadParticipantUserIdsAsync(connection, dossierId, workflowTypeId);
 
         if (!string.IsNullOrWhiteSpace(data.PendingAssigneeUserId))
 
@@ -341,7 +330,10 @@ public class DossierEnrichmentRepository : IDossierEnrichmentRepository
 
         }
 
-
+        if (!string.IsNullOrWhiteSpace(data.PendingAssigneeUserId))
+        {
+            data.PendingAssignedRoles = new List<string>();
+        }
 
         data.WorkflowStatusName = !string.IsNullOrWhiteSpace(pending.StepName)
 
@@ -439,6 +431,60 @@ public class DossierEnrichmentRepository : IDossierEnrichmentRepository
 
 
 
+    /// <summary>
+    /// Tab Trả lại: WF đang Running, hành động gần nhất Reject, quay về bước đầu (người tạo).
+    /// </summary>
+    private static async Task ApplyReturnedToCreatorStepFlagAsync(
+        IDbConnection connection,
+        DossierEnrichmentData data,
+        string instanceId,
+        int currentStepOrder,
+        string? instanceStatus)
+    {
+        data.CurrentStepOrder = currentStepOrder;
+        data.WorkflowLastAction = await LoadLastHistoryActionAsync(connection, instanceId);
+        data.IsReturnedToCreatorStep = false;
+
+        if (!IsRunningStatus(instanceStatus))
+            return;
+
+        if (!string.Equals(data.WorkflowLastAction, "Reject", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        var firstStepOrder = await LoadFirstStepOrderAsync(connection, instanceId);
+        data.IsReturnedToCreatorStep = firstStepOrder is null
+            ? currentStepOrder <= 1
+            : currentStepOrder == firstStepOrder.Value;
+    }
+
+    private static async Task<string?> LoadLastHistoryActionAsync(IDbConnection connection, string instanceId)
+    {
+        const string sql = """
+            SELECT h."ACTION" AS ActionName
+            FROM WORKFLOWHISTORY h
+            WHERE LOWER(TRIM(h.WorkflowInstanceId)) = LOWER(TRIM(:InstanceId))
+            ORDER BY h.ActionDate DESC
+            FETCH FIRST 1 ROWS ONLY
+            """;
+
+        return await connection.QueryFirstOrDefaultAsync<string>(sql, new { InstanceId = instanceId });
+    }
+
+    private static async Task<int?> LoadFirstStepOrderAsync(IDbConnection connection, string instanceId)
+    {
+        const string sql = """
+            SELECT MIN(ws."Order") AS FirstStepOrder
+            FROM WORKFLOWSTEPS ws
+            INNER JOIN WORKFLOWINSTANCES wi
+                ON wi.WorkflowDefinitionId = ws.WorkflowDefinitionId
+            WHERE LOWER(TRIM(wi.Id)) = LOWER(TRIM(:InstanceId))
+            """;
+
+        return await connection.QueryFirstOrDefaultAsync<int?>(sql, new { InstanceId = instanceId });
+    }
+
+
+
     private static void MapClosedInstanceToEs(DossierEnrichmentData data, string? currentNodeName)
 
     {
@@ -462,6 +508,12 @@ public class DossierEnrichmentRepository : IDossierEnrichmentRepository
         data.PendingAssigneeUserId = null;
 
         data.CurrentStepAllowEdit = false;
+
+        data.CurrentStepId = null;
+
+        data.CurrentAssignees = null;
+
+        data.AvailableActionsJson = null;
 
     }
 
@@ -501,7 +553,7 @@ public class DossierEnrichmentRepository : IDossierEnrichmentRepository
 
 
 
-    private static async Task<List<string>> LoadParticipantUserIdsAsync(IDbConnection connection, string dossierId)
+    private static async Task<List<string>> LoadParticipantUserIdsAsync(IDbConnection connection, string dossierId, int workflowTypeId)
 
     {
 
@@ -517,7 +569,7 @@ public class DossierEnrichmentRepository : IDossierEnrichmentRepository
 
                 WHERE LOWER(TRIM(wi.TargetEntityId)) = LOWER(TRIM(:DossierId))
 
-                  AND wi.EntityType = :EntityType
+                  AND wi.WORKFLOW_TYPE_ID = :WorkflowTypeId
 
                   AND wt.AssigneeUserId IS NOT NULL
 
@@ -531,7 +583,7 @@ public class DossierEnrichmentRepository : IDossierEnrichmentRepository
 
                 WHERE LOWER(TRIM(wi.TargetEntityId)) = LOWER(TRIM(:DossierId))
 
-                  AND wi.EntityType = :EntityType
+                  AND wi.WORKFLOW_TYPE_ID = :WorkflowTypeId
 
                   AND h.ActionByUserId IS NOT NULL
 
@@ -555,7 +607,7 @@ public class DossierEnrichmentRepository : IDossierEnrichmentRepository
 
             sql,
 
-            new { DossierId = dossierId, EntityType = DossierEntityType })).ToList();
+            new { DossierId = dossierId, WorkflowTypeId = workflowTypeId })).ToList();
 
         return ids
 

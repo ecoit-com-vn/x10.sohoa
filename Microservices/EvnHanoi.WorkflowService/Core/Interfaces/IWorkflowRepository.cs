@@ -9,26 +9,29 @@ namespace EvnHanoi.WorkflowService.Core.Interfaces
     {
         // Definitions & Steps
         Task<IEnumerable<WorkflowDefinition>> GetAllDefinitionsAsync(string? keyword, bool? isActive);
-        Task<IEnumerable<WorkflowDefinition>> GetDefinitionsByNameAsync(string name);
+        Task<IEnumerable<WorkflowDefinition>> GetDefinitionsByWorkflowTypeIdAsync(int workflowTypeId);
+        Task<bool> ExistsDefinitionByWorkflowTypeIdAsync(int workflowTypeId);
         Task<(IEnumerable<WorkflowDefinition> Items, int TotalCount)> GetPagedDefinitionsAsync(int page, int pageSize, string? keyword = null, bool? isActive = null);
         Task<WorkflowDefinition?> GetDefinitionByIdAsync(Guid id, bool includeBpmnXml = true);
 
-        /// <summary>Lấy definition đang active theo EntityType Code (Dossier, BorrowRecord).</summary>
-        Task<WorkflowDefinition?> GetActiveDefinitionByEntityTypeAsync(string entityType);
+        /// <summary>Lấy definition đang active theo WorkflowTypeId (1: Dossier, 2: BorrowRecord, 3: DossierDigitization).</summary>
+        Task<WorkflowDefinition?> GetActiveDefinitionByWorkflowTypeIdAsync(int workflowTypeId);
 
         /// <summary>Kiểm tra nhanh instance đang Running — không load BPMN/tasks.</summary>
-        Task<bool> ExistsRunningInstanceAsync(string entityId, string entityType);
+        Task<bool> ExistsRunningInstanceAsync(string entityId, int workflowTypeId);
         Task<WorkflowStep?> GetStepByIdAsync(Guid id);
         Task<bool> CreateDefinitionAsync(WorkflowDefinition definition);
         Task<bool> UpdateDefinitionAsync(Guid id, WorkflowDefinition definition);
         Task<bool> DeleteDefinitionAsync(Guid id);
         Task<bool?> ToggleDefinitionStatusAsync(Guid id);
+        Task<bool> ReactivateDefinitionAsync(Guid id, int workflowTypeId, string name);
         
         // Instances
-        Task<WorkflowInstance?> GetInstanceByEntityAsync(string entityId, string entityType, bool includeBpmnXml = true);
+        Task<WorkflowInstance?> GetInstanceByEntityAsync(string entityId, int workflowTypeId, bool includeBpmnXml = true);
         Task<WorkflowInstance?> GetInstanceByIdAsync(Guid instanceId);
         Task<bool> CreateInstanceAsync(WorkflowInstance instance);
         Task<bool> UpdateInstanceAsync(WorkflowInstance instance);
+        Task<bool> DeleteInstancePhysicalAsync(Guid instanceId);
 
         /// <summary>Ghi instance + task + history trong một transaction Oracle.</summary>
         Task CreateSubmitBatchAsync(WorkflowInstance instance, WorkflowTask task, WorkflowHistory history);

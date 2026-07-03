@@ -48,9 +48,9 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
 
             try
             {
-                await _workflowEngine.SubmitByEntityTypeAsync(
+                await _workflowEngine.SubmitByWorkflowTypeIdAsync(
                     record.Id.ToString(),
-                    EntityType.BorrowRecord.Code,
+                    EntityType.BorrowRecord.Id,
                     userId);
             }
             catch (KeyNotFoundException)
@@ -127,9 +127,9 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
             return await _workflowEngine.GetHistoryAsync(record.WorkflowInstanceId.Value);
         }
 
-        public async Task<object> GetWorkflowStatusByEntityAsync(string entityId, string entityType)
+        public async Task<object> GetWorkflowStatusByEntityAsync(string entityId, int workflowTypeId)
         {
-            return await _workflowEngine.GetInstanceStatusByEntityAsync(entityId, entityType);
+            return await _workflowEngine.GetInstanceStatusByEntityAsync(entityId, workflowTypeId);
         }
 
         public async Task<WorkflowDefinition?> GetWorkflowDefinitionAsync(Guid definitionId)

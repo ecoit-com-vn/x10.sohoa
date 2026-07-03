@@ -14,7 +14,9 @@ public class DossierEnrichmentData
     public string DossierTypeId { get; set; } = string.Empty;
     public string? DossierTypeName { get; set; }
     public string? FormDataJson { get; set; }
-    public string Status { get; set; } = string.Empty;
+    public int StatusId { get; set; }
+    public string? StatusCode { get; set; }
+    public string? StatusName { get; set; }
     public string? WorkflowStatusName { get; set; }
     public string? WorkflowInstanceId { get; set; }
     public string? WorkflowInstanceStatus { get; set; }
@@ -30,6 +32,19 @@ public class DossierEnrichmentData
     public string? PendingAssigneeUserId { get; set; }
     public List<string> WorkflowParticipantUserIds { get; set; } = new();
     public bool CurrentStepAllowEdit { get; set; }
+    public string? CurrentStepId { get; set; }
+    public int? CurrentStepOrder { get; set; }
+    public string? WorkflowLastAction { get; set; }
+    /// <summary>WF Running + hành động gần nhất Reject + đang ở bước đầu (người tạo).</summary>
+    public bool IsReturnedToCreatorStep { get; set; }
+    public string? CurrentAssignees { get; set; }
+    public string? AvailableActionsJson { get; set; }
+
+    public int? PublishStatusId { get; set; }
+    public string? PublishStatusCode { get; set; }
+    public string? PublishStatusName { get; set; }
+    public int? KindId { get; set; }
+    public string? KindCode { get; set; }
 }
 
 public class BhsCatalogDefinition

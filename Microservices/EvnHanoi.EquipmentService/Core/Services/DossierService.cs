@@ -49,9 +49,36 @@ public class DossierService : IDossierService
 
     // ====loookup ====
 
-    public async Task<IEnumerable<InfrastructureEntity>> GetInfrastructuresLookupAsync()
+    public async Task<IEnumerable<InfrastructureEntity>> GetInfrastructuresLookupAsync(
+        bool isAdmin,
+        long? userUnitId,
+        IReadOnlyList<long>? fallbackUnitIds)
     {
-        return await _dossierRepository.GetInfrastructuresLookupAsync();
+        List<long>? allowedUnitIds = null;
+        if (!isAdmin)
+        {
+            if (userUnitId.HasValue)
+            {
+                var units = await _equipmentRepository.GetOrganizationUnitsHierarchicalAsync(userUnitId);
+                allowedUnitIds = units.Select(u => u.Id).ToList();
+            }
+            else if (fallbackUnitIds != null && fallbackUnitIds.Count > 0)
+            {
+                var list = new List<long>();
+                foreach (var fId in fallbackUnitIds)
+                {
+                    var units = await _equipmentRepository.GetOrganizationUnitsHierarchicalAsync(fId);
+                    list.AddRange(units.Select(u => u.Id));
+                }
+                allowedUnitIds = list.Distinct().ToList();
+            }
+            else
+            {
+                allowedUnitIds = new List<long> { -1 };
+            }
+        }
+
+        return await _dossierRepository.GetInfrastructuresLookupAsync(allowedUnitIds);
     }
 
     public async Task<IEnumerable<GridTypeEntity>> GetGridTypesLookupAsync()
@@ -118,12 +145,74 @@ public class DossierService : IDossierService
         return await _dossierSearchRepository.GetPagedAsync(filter);
     }
 
+    public async Task<(IEnumerable<DossierListItemDto> Items, int TotalCount)> GetCatalogDossiersAsync(
+        string? keyword,
+        Guid? infrastructureId,
+        Guid? dossierTypeId,
+        long? unitId,
+        int page,
+        int pageSize)
+    {
+        return await _dossierRepository.GetCatalogDossiersAsync(
+            keyword, infrastructureId, dossierTypeId, unitId, page, pageSize);
+    }
+
+    public Task<IEnumerable<DossierByEquipmentLookupItemDto>> GetEquipmentLookupInfrastructuresAsync(
+        DossierByEquipmentFilterDto filter,
+        bool isAdmin,
+        long? userUnitId) =>
+        _dossierRepository.GetEquipmentLookupInfrastructuresAsync(filter, ResolveUnitScope(isAdmin, userUnitId));
+
+    public Task<IEnumerable<DossierByEquipmentLookupItemDto>> GetEquipmentLookupEquipmentTypesAsync(
+        DossierByEquipmentFilterDto filter,
+        bool isAdmin,
+        long? userUnitId) =>
+        _dossierRepository.GetEquipmentLookupEquipmentTypesAsync(filter, ResolveUnitScope(isAdmin, userUnitId));
+
+    public Task<IEnumerable<DossierByEquipmentLookupItemDto>> GetEquipmentLookupEquipmentsAsync(
+        DossierByEquipmentFilterDto filter,
+        bool isAdmin,
+        long? userUnitId) =>
+        _dossierRepository.GetEquipmentLookupEquipmentsAsync(filter, ResolveUnitScope(isAdmin, userUnitId));
+
+    public Task<IEnumerable<DossierByEquipmentLookupItemDto>> GetEquipmentLookupDossierTypesAsync(
+        DossierByEquipmentFilterDto filter,
+        bool isAdmin,
+        long? userUnitId) =>
+        _dossierRepository.GetEquipmentLookupDossierTypesAsync(filter, ResolveUnitScope(isAdmin, userUnitId));
+
+    public Task<IEnumerable<BhsCatalogColumnDto>> GetBhsCatalogColumnsAsync() =>
+        _dossierRepository.GetBhsCatalogColumnsAsync();
+
+    public async Task<DossierDetailDto?> GetPublishedDetailByIdAsync(Guid id, bool isAdmin, long? userUnitId)
+    {
+        var unitScope = ResolveUnitScope(isAdmin, userUnitId);
+        if (!await _dossierRepository.IsPublishedDossierAccessibleAsync(id, unitScope))
+            return null;
+
+        return await _dossierRepository.GetDetailByIdAsync(id);
+    }
+
+    public Task<bool> IsPublishedDossierAccessibleAsync(Guid id, bool isAdmin, long? userUnitId) =>
+        _dossierRepository.IsPublishedDossierAccessibleAsync(id, ResolveUnitScope(isAdmin, userUnitId));
+
+    private static long? ResolveUnitScope(bool isAdmin, long? userUnitId) =>
+        isAdmin ? null : userUnitId;
+
+    public async Task<(IEnumerable<DossierListItemDto> Items, int TotalCount, IEnumerable<BhsCatalogColumnDto> Columns)> GetDossiersByEquipmentAsync(
+        Guid equipmentId,
+        int page,
+        int pageSize)
+    {
+        return await _dossierRepository.GetDossiersByEquipmentAsync(equipmentId, page, pageSize);
+    }
+
     public async Task<DossierDetailDto?> GetDetailByIdAsync(Guid id)
     {
         return await _dossierRepository.GetDetailByIdAsync(id);
     }
 
-    public async Task<Guid> CreateAsync(DossierCreateDto dto, string userId, string userName, string userFullName)
+    public async Task<Guid> CreateAsync(DossierCreateDto dto, string userId, string userName, string userFullName, int kindId = 2)
     {
         var dossier = new Dossier
         {
@@ -133,7 +222,8 @@ public class DossierService : IDossierService
             DossierSetId = dto.DossierSetId,
             DossierTypeId = dto.DossierTypeId,
             FormDataJson = dto.FormDataJson,
-            Status = DossierStatus.Draft,
+            StatusId = DossierStatusConstants.New,
+            KindId = kindId,
             RowVersion = 1,
             CreatorId = string.IsNullOrEmpty(userId) ? null : Guid.TryParse(userId, out var uid) ? uid : null,
             CreatorUsername = userName,
@@ -191,30 +281,44 @@ public class DossierService : IDossierService
         var existing = await _dossierRepository.GetByIdAsync(id);
         if (existing == null) throw new KeyNotFoundException($"Không tìm thấy hồ sơ với ID = {id}");
 
-        var isDraft = existing.Status == DossierStatus.Draft;
+        var isDraft = existing.StatusId == DossierStatusConstants.New || existing.StatusId == DossierStatusConstants.CompletedInput;
         var notInWorkflow = !existing.WorkflowInstanceId.HasValue;
         if (!isDraft && !notInWorkflow)
-            throw new InvalidOperationException("Chỉ có thể xóa hồ sơ ở trạng thái Nháp hoặc chưa đưa vào quy trình phê duyệt.");
+            throw new InvalidOperationException("Chỉ có thể xóa hồ sơ ở trạng thái Tạo mới, Hoàn thành nhập liệu hoặc chưa đưa vào quy trình phê duyệt.");
 
         var deleted = await _dossierRepository.SoftDeleteAsync(id, userId);
         if (deleted)
         {
-            var synced = await TrySyncDeleteFromEsAsync(id);
             var queued = await TryPublishDossierChangedAsync(id, DossierChangedActions.Deleted);
-            if (!synced && !queued)
-            {
-                _logger.LogError(
-                    "Dossier {DossierId} đã xóa mềm Oracle nhưng không đồng bộ được Elasticsearch.",
-                    id);
-            }
-            else if (!synced)
+            if (!queued)
             {
                 _logger.LogWarning(
-                    "Dossier {DossierId}: sync ES delete thất bại, đã đưa vào hàng đợi RabbitMQ.",
+                    "Dossier {DossierId}: không đưa được vào hàng đợi RabbitMQ, thử xóa ES đồng bộ.",
                     id);
+                if (!await TrySyncDeleteFromEsAsync(id))
+                {
+                    _logger.LogError(
+                        "Dossier {DossierId} đã xóa mềm Oracle nhưng không đồng bộ được Elasticsearch.",
+                        id);
+                }
             }
         }
         return deleted;
+    }
+    public async Task<bool> CompleteInputAsync(Guid id, string userId)
+    {
+        var existing = await _dossierRepository.GetByIdAsync(id);
+        if (existing == null) throw new KeyNotFoundException($"Không tìm thấy hồ sơ với ID = {id}");
+
+        if (existing.StatusId != DossierStatusConstants.New)
+            throw new InvalidOperationException("Chỉ hồ sơ ở trạng thái 'Tạo mới' mới được phép xác nhận hoàn thành nhập liệu.");
+
+        var success = await _dossierRepository.UpdateStatusAsync(id, DossierStatusConstants.CompletedInput, userId);
+        if (success)
+        {
+            await PublishDossierChangedAsync(id, DossierChangedActions.Updated);
+        }
+        return success;
     }
 
     // ===== FORM DATA + VERSIONING =====
@@ -322,10 +426,49 @@ public class DossierService : IDossierService
         var existing = await _dossierRepository.GetByIdAsync(id);
         if (existing == null) throw new KeyNotFoundException($"Không tìm thấy hồ sơ với ID = {id}");
 
-        var status = string.IsNullOrWhiteSpace(dto.DossierStatus) ? existing.Status : dto.DossierStatus;
+        var statusId = dto.DossierStatusId == 0 ? existing.StatusId : dto.DossierStatusId;
         var statusName = dto.WorkflowStatusName ?? existing.WorkflowStatusName ?? string.Empty;
 
-        await _dossierRepository.UpdateWorkflowAsync(id, dto.WorkflowInstanceId, statusName, status, "system");
+        int? publishStatusId = null;
+        if (statusId == DossierStatusConstants.Approved && (!existing.PublishStatusId.HasValue || existing.PublishStatusId == 0))
+        {
+            publishStatusId = 1; // Pending
+        }
+
+        await _dossierRepository.UpdateWorkflowAsync(id, dto.WorkflowInstanceId, statusName, statusId, publishStatusId, "system");
+
+        // WF đã hoàn thành (Approved) → xóa WORKFLOW_TASKS_ACTIVE; chỉ lưu khi còn bước đang chạy
+        var persistActiveTask = statusId != DossierStatusConstants.Approved
+            && !string.IsNullOrWhiteSpace(dto.CurrentStepId);
+
+        if (persistActiveTask)
+        {
+            var assignees = dto.CurrentAssignees != null && dto.CurrentAssignees.Any()
+                ? string.Join(",", dto.CurrentAssignees)
+                : string.Empty;
+
+            var actionsJson = dto.AvailableActions != null && dto.AvailableActions.Any()
+                ? System.Text.Json.JsonSerializer.Serialize(dto.AvailableActions)
+                : "[]";
+
+            await _dossierRepository.SaveActiveWorkflowTaskAsync(
+                id,
+                dto.CurrentStepId!,
+                statusName,
+                assignees,
+                actionsJson,
+                "system");
+        }
+        else
+        {
+            await _dossierRepository.SaveActiveWorkflowTaskAsync(
+                id,
+                string.Empty,
+                statusName,
+                string.Empty,
+                "[]",
+                "system");
+        }
 
         var synced = await TrySyncReindexAsync(id);
         var queued = synced
@@ -344,6 +487,29 @@ public class DossierService : IDossierService
                 "Dossier {DossierId}: sync reindex thất bại, đã đưa vào hàng đợi RabbitMQ dossier_index_queue.",
                 id);
         }
+    }
+
+    public async Task AutoApproveWithoutWorkflowAsync(Guid id)
+    {
+        var existing = await _dossierRepository.GetByIdAsync(id);
+        if (existing == null) throw new KeyNotFoundException($"Không tìm thấy hồ sơ với ID = {id}");
+
+        if (existing.StatusId != DossierStatusConstants.CompletedInput)
+            throw new InvalidOperationException("Hồ sơ phải ở trạng thái 'Hoàn thành' mới được tự động phê duyệt.");
+
+        await _dossierRepository.UpdateWorkflowAsync(
+            id,
+            Guid.Empty,
+            "Tự động duyệt",
+            DossierStatusConstants.Approved,
+            DossierPublishStatusConstants.Pending,
+            "system");
+
+        await _dossierRepository.SaveActiveWorkflowTaskAsync(id, string.Empty, string.Empty, string.Empty, "[]", "system");
+
+        var synced = await TrySyncReindexAsync(id);
+        if (!synced)
+            await TryPublishDossierChangedAsync(id, DossierChangedActions.WorkflowChanged);
     }
 
     private async Task<bool> TryPublishDossierChangedAsync(Guid dossierId, string action)
@@ -447,9 +613,13 @@ public class DossierService : IDossierService
     /// </summary>
     private async Task EnsureCanEditFormDataAsync(Dossier dossier)
     {
+        // Trả lại về bước người tạo — cho phép sửa dù instance WF vẫn đang chạy.
+        if (dossier.StatusId == DossierStatusConstants.Returned)
+            return;
+
         if (!dossier.WorkflowInstanceId.HasValue)
         {
-            if (dossier.Status != DossierStatus.Draft && dossier.Status != DossierStatus.Returned)
+            if (dossier.StatusId != DossierStatusConstants.New && dossier.StatusId != DossierStatusConstants.CompletedInput)
                 throw new InvalidOperationException("Không thể chỉnh sửa dữ liệu hồ sơ ở trạng thái hiện tại.");
             return;
         }
@@ -474,5 +644,27 @@ public class DossierService : IDossierService
             DateTime.UtcNow);
 
         await _messageProducer.SendMessageAsync(evt, DossierMessaging.IndexQueue);
+    }
+
+    public async Task<bool> UpdatePublishStatusAsync(Guid id, int publishStatusId, string userId)
+    {
+        var existing = await _dossierRepository.GetByIdAsync(id);
+        if (existing == null) throw new KeyNotFoundException($"Không tìm thấy hồ sơ với ID = {id}");
+
+        if (existing.StatusId != DossierStatusConstants.Approved)
+        {
+            throw new InvalidOperationException("Hồ sơ chưa hoàn thành quy trình phê duyệt, không thể thay đổi trạng thái xuất bản.");
+        }
+
+        var updated = await _dossierRepository.UpdatePublishStatusAsync(id, publishStatusId, userId);
+        if (updated)
+        {
+            var synced = await TrySyncReindexAsync(id);
+            if (!synced)
+            {
+                await TryPublishDossierChangedAsync(id, DossierChangedActions.Updated);
+            }
+        }
+        return updated;
     }
 }

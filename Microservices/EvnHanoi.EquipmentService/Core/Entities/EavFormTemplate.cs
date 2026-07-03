@@ -15,6 +15,7 @@ public class EavFormTemplate
     public Guid? EquipmentTypeId { get; set; }
     public int? GridTypeId { get; set; }
     public string? GridTypeName { get; set; }
+    public string? EquipmentTypeName { get; set; }
 
     public int Version { get; set; } = 1;
     public bool IsActive { get; set; } = true;
@@ -23,4 +24,5 @@ public class EavFormTemplate
     public string CreatedBy { get; set; } = string.Empty;
     public string Status { get; set; } = "Tạo mới";
     public string FormType { get; set; } = "FORM";
+    public bool IsDeleted { get; set; } = false;
 }

@@ -89,7 +89,9 @@ public static class DossierIndexSetup
             { "dossierSetName", textField },
             { "dossierTypeId", new KeywordProperty() },
             { "dossierTypeName", textField },
-            { "status", new KeywordProperty() },
+            { "statusId", new IntegerNumberProperty() },
+            { "statusCode", new KeywordProperty() },
+            { "statusName", new KeywordProperty() },
             { "workflowStatusName", new KeywordProperty() },
             { "workflowInstanceId", new KeywordProperty() },
             { "workflowInstanceStatus", new KeywordProperty() },
@@ -105,6 +107,24 @@ public static class DossierIndexSetup
             { "currentStepAllowEdit", new BooleanProperty() },
             { "currentVersionNumber", new IntegerNumberProperty() },
             { "isDeleted", new BooleanProperty() },
+            { "currentStepId", new KeywordProperty() },
+            { "currentStepOrder", new IntegerNumberProperty() },
+            { "workflowLastAction", new KeywordProperty() },
+            { "isReturnedToCreatorStep", new BooleanProperty() },
+            { "currentAssignees", new KeywordProperty() },
+            {
+                "availableActions", new NestedProperty
+                {
+                    Properties = new Properties
+                    {
+                        { "code", new KeywordProperty() },
+                        { "name", new KeywordProperty() },
+                        { "nextNodeId", new KeywordProperty() },
+                        { "requiresNextAssignee", new BooleanProperty() },
+                        { "nextStepRole", new KeywordProperty() }
+                    }
+                }
+            },
             {
                 "catalogFields", new NestedProperty
                 {
@@ -153,11 +173,32 @@ public static class DossierIndexSetup
         var response = await client.Indices.PutMappingAsync(indexName, m => m
             .Properties(new Properties
             {
+                { "statusId", new IntegerNumberProperty() },
+                { "statusCode", new KeywordProperty() },
+                { "statusName", new KeywordProperty() },
                 { "pendingAssignedRoles", new KeywordProperty() },
                 { "pendingAssigneeUserId", new KeywordProperty() },
                 { "workflowParticipantUserIds", new KeywordProperty() },
                 { "currentStepAllowEdit", new BooleanProperty() },
                 { "workflowInstanceStatus", new KeywordProperty() },
+                { "currentStepId", new KeywordProperty() },
+                { "currentStepOrder", new IntegerNumberProperty() },
+                { "workflowLastAction", new KeywordProperty() },
+                { "isReturnedToCreatorStep", new BooleanProperty() },
+                { "currentAssignees", new KeywordProperty() },
+                {
+                    "availableActions", new NestedProperty
+                    {
+                        Properties = new Properties
+                        {
+                            { "code", new KeywordProperty() },
+                            { "name", new KeywordProperty() },
+                            { "nextNodeId", new KeywordProperty() },
+                            { "requiresNextAssignee", new BooleanProperty() },
+                            { "nextStepRole", new KeywordProperty() }
+                        }
+                    }
+                },
             }), cancellationToken);
 
         if (response.IsValidResponse)

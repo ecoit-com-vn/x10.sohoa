@@ -58,7 +58,38 @@ public class DynamicSeederService
             { "SystemParams", "Tham số hệ thống" },
             { "UploadConfigs", "Cấu hình tải lên" },
             { "Permissions", "Quản lý quyền hạt mịn" },
-            { "Signatures", "Chữ ký số" }
+            { "Signatures", "Chữ ký số" },
+            { "Box", "Hộp hồ sơ" },
+            { "BorrowRecord", "Yêu cầu mượn trả hồ sơ" },
+            { "Catalog", "Danh mục chung" },
+            { "Dossier", "Hồ sơ thiết bị" },
+            { "DossierCatalog", "Danh mục hồ sơ" },
+            { "DossierSet", "Bộ hồ sơ" },
+            { "DossierType", "Loại hồ sơ" },
+            { "Document", "Văn bản tài liệu" },
+            { "DocumentType", "Loại văn bản" },
+            { "Digitization", "Hiệu đính số hóa OCR" },
+            { "DigitizationTask", "Nhiệm vụ số hóa OCR" },
+            { "Domain", "Lĩnh vực" },
+            { "EavFormTemplate", "Form" },
+            { "Equipment", "Thiết bị lưới điện" },
+            { "EquipmentType", "Loại thiết bị" },
+            { "Floor", "Tầng lưu trữ" },
+            { "FormTemplate", "Biểu mẫu" },
+            { "OcrTrainingData", "Dữ liệu huấn luyện AI OCR" },
+            { "PhysicalStatus", "Tình trạng vật lý" },
+            { "PhysicalStorage", "Kho lưu trữ vật lý" },
+            { "Position", "Chức vụ" },
+            { "PrivateCatalog", "Danh mục dùng riêng" },
+            { "SharedCatalog", "Danh mục dùng chung" },
+            { "Shelf", "Kệ lưu trữ" },
+            { "Substation", "Trạm biến áp" },
+            { "TransmissionLine", "Đường dây truyền tải" },
+            { "VirtualFolder", "Thư mục ảo (Explorer)" },
+            { "Workflow", "Quy trình hồ sơ" },
+            { "WorkflowDefinitions", "Thiết lập quy trình" }, 
+            { "DossierWorkflow", "Phê duyệt hồ sơ"},
+            { "DossierPublish", "Xuất bản hồ sơ"}
         };
 
         var friendlyActionNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
@@ -69,7 +100,8 @@ public class DynamicSeederService
             { "DELETE", "Xóa" },
             { "IMPORT", "Nhập tệp (Import)" },
             { "EXPORT", "Xuất tệp (Export)" },
-            { "MANAGE", "Quản lý chuyên sâu" }
+            { "MANAGE", "Quản lý chuyên sâu" },
+            { "RELEASE", "Xuất bản" },
         };
 
         int permCount = 0;
@@ -168,6 +200,11 @@ public class DynamicSeederService
     {
         string actLower = actionName.ToLowerInvariant();
 
+        if (actLower.Contains("submit") && (actLower.Contains("digitization")))
+        {
+            return "CREATE";
+        }
+
         // 0. MANAGE (Explicit management actions like assignment/grant/revoke)
         if (actLower.Contains("assign") || actLower.Contains("grant") || actLower.Contains("revoke") || actLower.Contains("move"))
         {
@@ -175,7 +212,7 @@ public class DynamicSeederService
         }
         
         // 1. IMPORT
-        if (actLower.Contains("import") || actLower.Contains("upload"))
+        if (actLower.Contains("import") || actLower.Contains("upload") || actLower.Contains("extract") || actLower.Contains("ocr"))
         {
             return "IMPORT";
         }
@@ -215,7 +252,13 @@ public class DynamicSeederService
             return "VIEW";
         }
 
-        // 7. MANAGE (General fallback)
+        // 7. RELEASE 
+        if (actLower.Contains("publish"))
+        {
+            return "RELEASE";
+        }
+
+        // 8. MANAGE (General fallback)
         return "MANAGE";
     }
 

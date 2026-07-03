@@ -30,6 +30,14 @@ public class DossierSetUpdateDto
 
 // ===== DOSSIER DTOs =====
 
+public class BhsCatalogColumnDto
+{
+    public string Key { get; set; } = string.Empty;
+    public string Code { get; set; } = string.Empty;
+    public string Label { get; set; } = string.Empty;
+    public int Priority { get; set; }
+}
+
 /// <summary>
 /// DTO dùng cho danh sách hồ sơ — bao gồm catalog columns loại BHS + trạm/đường dây
 /// </summary>
@@ -45,15 +53,20 @@ public class DossierListItemDto
     public string? DossierSetName { get; set; }
     public Guid DossierTypeId { get; set; }
     public string? DossierTypeName { get; set; }
-    public string Status { get; set; } = string.Empty;
+    public int StatusId { get; set; }
+    public string? StatusName { get; set; }
+    public string? StatusCode { get; set; }
     public string? WorkflowStatusName { get; set; }
     public int DocumentCount { get; set; }
-    public string? CreatorName { get; set; }
+    public CreatorInfoDto? Creator { get; set; }
     public DateTime CreatedDate { get; set; }
     /// <summary>
     /// Dữ liệu catalog động theo BHS — key = catalog.Name (trùng key FormDataJson), value = giá trị từ JSON
     /// </summary>
     public Dictionary<string, string> CatalogData { get; set; } = new();
+    public int? PublishStatusId { get; set; }
+    public string? PublishStatusCode { get; set; }
+    public string? PublishStatusName { get; set; }
 }
 
 /// <summary>
@@ -74,7 +87,9 @@ public class DossierDetailDto
     /// <summary>Form EAV gắn với loại hồ sơ — dùng gen trường động không cần gọi lookup.</summary>
     public Guid? FormId { get; set; }
     public string? FormDataJson { get; set; }
-    public string Status { get; set; } = string.Empty;
+    public int StatusId { get; set; }
+    public string? StatusName { get; set; }
+    public string? StatusCode { get; set; }
     public Guid? WorkflowInstanceId { get; set; }
     public string? WorkflowStatusName { get; set; }
     public int RowVersion { get; set; }
@@ -84,6 +99,9 @@ public class DossierDetailDto
     public DateTime CreatedDate { get; set; }
     public string? ModifiedBy { get; set; }
     public DateTime? ModifiedDate { get; set; }
+    public int? PublishStatusId { get; set; }
+    public string? PublishStatusCode { get; set; }
+    public string? PublishStatusName { get; set; }
 }
 
 /// <summary>
@@ -194,9 +212,29 @@ public class DossierFilterDto
     public long? UnitId { get; set; }
     /// <summary>Đơn vị + đơn vị con — do service resolve từ UnitId trước khi query ES.</summary>
     public IReadOnlyList<long>? UnitScopeIds { get; set; }
-    public string? Status { get; set; }
+    public int? StatusId { get; set; }
+    public Guid? DossierTypeId { get; set; }
     public int Page { get; set; } = 1;
     public int PageSize { get; set; } = 10;
+}
+
+/// <summary>Bộ lọc chung cho tra cứu hồ sơ thiết bị (lookup + ES search).</summary>
+public class DossierByEquipmentFilterDto
+{
+    public string? Keyword { get; set; }
+    public DateTime? PublishDateFrom { get; set; }
+    public DateTime? PublishDateTo { get; set; }
+    public Guid? InfrastructureId { get; set; }
+    public Guid? EquipmentTypeId { get; set; }
+    public Guid? EquipmentId { get; set; }
+    public Guid? DossierTypeId { get; set; }
+}
+
+public class DossierByEquipmentLookupItemDto
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string? Code { get; set; }
 }
 
 public class DossierWorkflowStatusDto
@@ -236,6 +274,24 @@ public class UpdateInternalWorkflowStateDto
     /// <summary>Tên trạng thái/bước hiển thị (gán vào Dossier.WorkflowStatusName).</summary>
     public string? WorkflowStatusName { get; set; }
 
-    /// <summary>Trạng thái nghiệp vụ do WS suy ra: Draft | PendingApproval | InProgress | Returned | Approved.</summary>
-    public string DossierStatus { get; set; } = string.Empty;
+    /// <summary>Trạng thái nghiệp vụ do WS suy ra: 1 | 2 | 3 | 4 | 5 | 6.</summary>
+    public int DossierStatusId { get; set; }
+
+    public string? CurrentStepId { get; set; }
+
+    public List<string> CurrentAssignees { get; set; } = new();
+
+    public List<WorkflowActionDto> AvailableActions { get; set; } = new();
 }
+
+public class WorkflowActionDto
+{
+    public string Code { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string NextNodeId { get; set; } = string.Empty;
+    /// <summary>Bước tiếp theo cần chọn người xử lý (userTask, không phải từ chối).</summary>
+    public bool RequiresNextAssignee { get; set; }
+    /// <summary>Role bước tiếp theo (requiredRole trên BPMN / WORKFLOWSTEPS).</summary>
+    public string? NextStepRole { get; set; }
+}
+

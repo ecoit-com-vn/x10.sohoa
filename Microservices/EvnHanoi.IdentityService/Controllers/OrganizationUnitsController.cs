@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Security.Claims;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using EvnHanoi.IdentityService.Core.Domain.Models;
@@ -29,10 +30,28 @@ public class OrganizationUnitsController : ControllerBase
     [BypassDynamicPermission]
     public async Task<IActionResult> GetLookup()
     {
-        var cacheKey = "OrganizationUnitsLookup";
+        var isAdmin = User.IsInRole("ADMIN") || 
+                      User.Claims.Any(c => c.Type == ClaimTypes.Role && c.Value == "ADMIN") || 
+                      User.Claims.Any(c => c.Type == ClaimTypes.Role && c.Value == "SUPER_ADMIN");
+
+        long? startUnitId = null;
+        if (!isAdmin)
+        {
+            var unitIdClaim = User.FindFirst("unit_id")?.Value;
+            if (!string.IsNullOrEmpty(unitIdClaim) && long.TryParse(unitIdClaim, out var userUnitId))
+            {
+                startUnitId = userUnitId;
+            }
+            else
+            {
+                return Ok(new List<object>());
+            }
+        }
+
+        var cacheKey = $"OrganizationUnitsLookup_{(startUnitId.HasValue ? startUnitId.Value.ToString() : "ALL")}";
         if (!_cache.TryGetValue(cacheKey, out IEnumerable<object>? result))
         {
-            var units = await _unitRepository.GetAllAsync();
+            var units = await _unitRepository.GetOrganizationUnitsHierarchicalAsync(startUnitId);
             result = units.Select(u => new { u.Id, u.Code, u.Name, u.ParentId }).ToList();
             var cacheOptions = new MemoryCacheEntryOptions()
                 .SetAbsoluteExpiration(TimeSpan.FromMinutes(5));

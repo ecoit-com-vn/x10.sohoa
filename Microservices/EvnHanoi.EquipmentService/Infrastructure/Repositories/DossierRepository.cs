@@ -1,4 +1,5 @@
 using System.Data;
+using System.Text.Json;
 using Dapper;
 using EvnHanoi.EquipmentService.Core.DTOs;
 using EvnHanoi.EquipmentService.Core.Entities;
@@ -16,16 +17,24 @@ public class DossierRepository : IDossierRepository
         _connection = connection ?? throw new ArgumentNullException(nameof(connection));
     }
 
-    public async Task<IEnumerable<InfrastructureEntity>> GetInfrastructuresLookupAsync()
+    public async Task<IEnumerable<InfrastructureEntity>> GetInfrastructuresLookupAsync(IEnumerable<long>? authorizedUnitIds = null)
     {
         if (_connection.State != ConnectionState.Open)
             _connection.Open();
 
-        var sql = @"SELECT ID, CODE, NAME, INFRA_TYPE_ID as InfraTypeId, UNIT_ID as UnitId, IS_ACTIVE as IsActive 
+        var sql = @"SELECT ID, CODE, NAME, INFRA_TYPE_ID as InfraTypeId, UNIT_ID as UnitId, GRIDTYPEID as GridTypeId, IS_ACTIVE as IsActive 
                     FROM INFRASTRUCTURE 
-                    WHERE IsDeleted = 0 
-                    ORDER BY NAME ASC";
-        return await _connection.QueryAsync<InfrastructureEntity>(sql);
+                    WHERE IsDeleted = 0";
+
+        var parameters = new DynamicParameters();
+        if (authorizedUnitIds != null && authorizedUnitIds.Any())
+        {
+            sql += " AND UNIT_ID IN :AuthorizedUnitIds";
+            parameters.Add("AuthorizedUnitIds", authorizedUnitIds.ToArray());
+        }
+
+        sql += " ORDER BY NAME ASC";
+        return await _connection.QueryAsync<InfrastructureEntity>(sql, parameters);
     }
 
     public async Task<IEnumerable<GridTypeEntity>> GetGridTypesLookupAsync()
@@ -59,6 +68,519 @@ public class DossierRepository : IDossierRepository
     public Task<(IEnumerable<DossierListItemDto> Items, int TotalCount)> GetPagedAsync(DossierFilterDto filter)
         => throw new NotSupportedException("Danh sách hồ sơ đã chuyển sang Elasticsearch. Gọi DossierService.GetPagedAsync.");
 
+    private class BhsCatalogDefinition
+    {
+        public string Code { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public int Priority { get; set; }
+    }
+
+    private async Task<IReadOnlyList<BhsCatalogDefinition>> GetBhsCatalogDefinitionsAsync()
+    {
+        const string sql = @"
+            SELECT c.Code, c.Name, c.Priority
+            FROM CATALOG c
+            INNER JOIN CATALOG_TYPE ct ON c.CatalogTypeId = ct.Id
+            WHERE ct.Code = 'BHS'
+              AND c.IsDeleted = 0
+              AND ct.IsDeleted = 0
+            ORDER BY c.Priority ASC, c.Name ASC";
+        return (await _connection.QueryAsync<BhsCatalogDefinition>(sql)).ToList();
+    }
+
+    private static Dictionary<string, string> ParseCatalogData(string? formDataJson, IReadOnlyList<BhsCatalogDefinition> bhsCatalogs)
+    {
+        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (string.IsNullOrWhiteSpace(formDataJson))
+            return result;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(formDataJson);
+            if (doc.RootElement.ValueKind != JsonValueKind.Object)
+                return result;
+
+            foreach (var catalog in bhsCatalogs)
+            {
+                if (doc.RootElement.TryGetProperty(catalog.Code, out var prop) || 
+                    doc.RootElement.TryGetProperty(catalog.Name, out prop))
+                {
+                    var val = prop.ValueKind switch
+                    {
+                        JsonValueKind.String => prop.GetString() ?? string.Empty,
+                        JsonValueKind.Number => prop.GetRawText(),
+                        JsonValueKind.True or JsonValueKind.False => prop.GetBoolean().ToString(),
+                        JsonValueKind.Null => string.Empty,
+                        _ => prop.GetRawText()
+                    };
+
+                    if (!string.IsNullOrWhiteSpace(val))
+                    {
+                        result[catalog.Name] = val;
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // Bỏ qua lỗi cú pháp JSON
+        }
+
+        return result;
+    }
+
+    public async Task<(IEnumerable<DossierListItemDto> Items, int TotalCount)> GetCatalogDossiersAsync(
+        string? keyword,
+        Guid? infrastructureId,
+        Guid? dossierTypeId,
+        long? unitId,
+        int page,
+        int pageSize)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        var parameters = new DynamicParameters();
+        var sqlBase = $@"FROM DOSSIERS d
+                         LEFT JOIN INFRASTRUCTURE i ON d.{nameof(Dossier.InfrastructureId)} = i.ID
+                         LEFT JOIN DOSSIER_TYPES dt ON d.{nameof(Dossier.DossierTypeId)} = dt.ID
+                         LEFT JOIN DOSSIER_SETS ds ON d.{nameof(Dossier.DossierSetId)} = ds.ID
+                         LEFT JOIN PUBLISH_STATUSES ps ON d.PUBLISHSTATUSID = ps.ID
+                         LEFT JOIN DOSSIER_STATUSES dstat ON d.STATUS_ID = dstat.ID
+                         WHERE d.{nameof(Dossier.IsDeleted)} = 0 AND d.PUBLISHSTATUSID = 2";
+
+        if (infrastructureId.HasValue)
+        {
+            sqlBase += $" AND d.{nameof(Dossier.InfrastructureId)} = :InfrastructureId";
+            parameters.Add("InfrastructureId", infrastructureId.Value.ToString());
+        }
+
+        if (dossierTypeId.HasValue)
+        {
+            sqlBase += $" AND d.{nameof(Dossier.DossierTypeId)} = :DossierTypeId";
+            parameters.Add("DossierTypeId", dossierTypeId.Value.ToString());
+        }
+
+        if (unitId.HasValue)
+        {
+            sqlBase += @" AND i.UNIT_ID IN (
+                SELECT Id 
+                FROM ORGANIZATION_UNIT
+                START WITH Id = :UnitId
+                CONNECT BY PRIOR Id = ParentId
+            )";
+            parameters.Add("UnitId", unitId.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(keyword))
+        {
+            sqlBase += $" AND UPPER(d.{nameof(Dossier.FormDataJson)}) LIKE :Keyword";
+            parameters.Add("Keyword", $"%{keyword.ToUpper().Trim()}%");
+        }
+
+        var countSql = $"SELECT COUNT(1) {sqlBase}";
+        var totalCount = await _connection.ExecuteScalarAsync<int>(countSql, parameters);
+
+        if (totalCount == 0)
+        {
+            return (Enumerable.Empty<DossierListItemDto>(), 0);
+        }
+
+        var selectSql = $@"SELECT
+                            d.{nameof(Dossier.Id)},
+                            d.{nameof(Dossier.GridTypeId)},
+                            d.{nameof(Dossier.InfrastructureId)},
+                            i.NAME as {nameof(DossierListItemDto.InfrastructureName)},
+                            i.CODE as {nameof(DossierListItemDto.InfrastructureCode)},
+                            d.{nameof(Dossier.DossierSetId)},
+                            ds.NAME as {nameof(DossierListItemDto.DossierSetName)},
+                            d.{nameof(Dossier.DossierTypeId)},
+                            dt.NAME as {nameof(DossierListItemDto.DossierTypeName)},
+                            d.STATUS_ID as StatusId,
+                            dstat.CODE as StatusCode,
+                            dstat.NAME as StatusName,
+                            d.{nameof(Dossier.WorkflowStatusName)},
+                            d.{nameof(Dossier.CreatorName)},
+                            d.{nameof(Dossier.CreatedDate)},
+                            d.{nameof(Dossier.FormDataJson)},
+                            d.PUBLISHSTATUSID as PublishStatusId,
+                            ps.CODE as PublishStatusCode,
+                            ps.NAME as PublishStatusName,
+                            (SELECT COUNT(1) FROM DOCUMENTS doc WHERE doc.DOSSIER_ID = d.Id AND doc.IS_DELETED = 0) as {nameof(DossierListItemDto.DocumentCount)}
+                         {sqlBase}
+                         ORDER BY d.{nameof(Dossier.CreatedDate)} DESC
+                         OFFSET :Offset ROWS FETCH NEXT :PageSize ROWS ONLY";
+
+        parameters.Add("Offset", (page - 1) * pageSize);
+        parameters.Add("PageSize", pageSize);
+
+        var rawItems = await _connection.QueryAsync<dynamic>(selectSql, parameters);
+        var mappedItems = rawItems.Select(d => (
+            dto: new DossierListItemDto
+            {
+                Id = d.ID is string sId && Guid.TryParse(sId, out var gId) ? gId : (d.ID is Guid guidId ? guidId : Guid.Empty),
+                GridTypeId = d.GRIDTYPEID == null ? (int?)null : Convert.ToInt32(d.GRIDTYPEID),
+                GridTypeName = null,
+                InfrastructureId = d.INFRASTRUCTUREID is string sInfra && Guid.TryParse(sInfra, out var gInfra) ? gInfra : (d.INFRASTRUCTUREID is Guid guidInfra ? guidInfra : null),
+                InfrastructureName = d.INFRASTRUCTURENAME,
+                InfrastructureCode = d.INFRASTRUCTURECODE,
+                DossierSetId = d.DOSSIERSETID is string sSet && Guid.TryParse(sSet, out var gSet) ? gSet : (d.DOSSIERSETID is Guid guidSet ? guidSet : null),
+                DossierSetName = d.DOSSIERSETNAME,
+                DossierTypeId = d.DOSSIERTYPEID is string sType && Guid.TryParse(sType, out var gType) ? gType : (d.DOSSIERTYPEID is Guid guidType ? guidType : Guid.Empty),
+                DossierTypeName = d.DOSSIERTYPENAME,
+                StatusId = d.STATUSID == null ? 0 : Convert.ToInt32(d.STATUSID),
+                StatusCode = d.STATUSCODE,
+                StatusName = d.STATUSNAME,
+                WorkflowStatusName = d.WORKFLOWSTATUSNAME,
+                CreatedDate = d.CREATEDDATE is DateTime dtVal ? dtVal : DateTime.MinValue,
+                DocumentCount = d.DOCUMENTCOUNT == null ? 0 : Convert.ToInt32(d.DOCUMENTCOUNT),
+                PublishStatusId = d.PUBLISHSTATUSID == null ? (int?)null : Convert.ToInt32(d.PUBLISHSTATUSID),
+                PublishStatusCode = d.PUBLISHSTATUSCODE,
+                PublishStatusName = d.PUBLISHSTATUSNAME
+            },
+            Item2: d.FORMDATAJSON as string
+        )).ToList();
+
+        var bhsCatalogs = await GetBhsCatalogDefinitionsAsync();
+        var resultList = new List<DossierListItemDto>();
+        foreach (var tuple in mappedItems)
+        {
+            tuple.dto.CatalogData = ParseCatalogData(tuple.Item2, bhsCatalogs);
+            resultList.Add(tuple.dto);
+        }
+
+        return (resultList, totalCount);
+    }
+
+    public async Task<IEnumerable<BhsCatalogColumnDto>> GetBhsCatalogColumnsAsync()
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        var bhsCatalogs = await GetBhsCatalogDefinitionsAsync();
+        return bhsCatalogs.Select(c => new BhsCatalogColumnDto
+        {
+            Key = c.Name,
+            Code = c.Code,
+            Label = c.Name,
+            Priority = c.Priority
+        });
+    }
+
+    public Task<IEnumerable<DossierByEquipmentLookupItemDto>> GetEquipmentLookupInfrastructuresAsync(
+        DossierByEquipmentFilterDto filter,
+        long? unitId) =>
+        QueryEquipmentLookupAsync(
+            filter,
+            unitId,
+            """
+            SELECT DISTINCT i.ID AS Id, i.NAME AS Name, i.CODE AS Code
+            FROM DOSSIERS d
+            INNER JOIN INFRASTRUCTURE i ON d.InfrastructureId = i.ID
+            """,
+            excludeInfrastructure: true);
+
+    public Task<IEnumerable<DossierByEquipmentLookupItemDto>> GetEquipmentLookupEquipmentTypesAsync(
+        DossierByEquipmentFilterDto filter,
+        long? unitId) =>
+        QueryEquipmentLookupAsync(
+            filter,
+            unitId,
+            """
+            SELECT DISTINCT et.ID AS Id, et.NAME AS Name, et.CODE AS Code
+            FROM DOSSIERS d
+            INNER JOIN INFRASTRUCTURE i ON d.InfrastructureId = i.ID
+            INNER JOIN DOSSIER_EQUIPMENTS de ON d.Id = de.DossierId
+            INNER JOIN Equipments e ON de.EquipmentId = e.Id AND (e.IsDeleted = 0 OR e.IsDeleted IS NULL)
+            INNER JOIN EquipmentTypes et ON e.EquipmentTypeId = et.Id
+            """,
+            keywordFields: "et",
+            excludeEquipmentType: true);
+
+    public Task<IEnumerable<DossierByEquipmentLookupItemDto>> GetEquipmentLookupEquipmentsAsync(
+        DossierByEquipmentFilterDto filter,
+        long? unitId) =>
+        QueryEquipmentLookupAsync(
+            filter,
+            unitId,
+            """
+            SELECT DISTINCT e.ID AS Id, e.NAME AS Name, e.CODE AS Code
+            FROM DOSSIERS d
+            INNER JOIN INFRASTRUCTURE i ON d.InfrastructureId = i.ID
+            INNER JOIN DOSSIER_EQUIPMENTS de ON d.Id = de.DossierId
+            INNER JOIN Equipments e ON de.EquipmentId = e.Id AND (e.IsDeleted = 0 OR e.IsDeleted IS NULL)
+            """,
+            keywordFields: "e",
+            excludeEquipment: true);
+
+    public Task<IEnumerable<DossierByEquipmentLookupItemDto>> GetEquipmentLookupDossierTypesAsync(
+        DossierByEquipmentFilterDto filter,
+        long? unitId) =>
+        QueryEquipmentLookupAsync(
+            filter,
+            unitId,
+            """
+            SELECT DISTINCT dt.ID AS Id, dt.NAME AS Name, dt.CODE AS Code
+            FROM DOSSIERS d
+            INNER JOIN INFRASTRUCTURE i ON d.InfrastructureId = i.ID
+            INNER JOIN DOSSIER_TYPES dt ON d.DossierTypeId = dt.ID
+            """,
+            keywordFields: "dt",
+            excludeDossierType: true);
+
+    public async Task<bool> IsPublishedDossierAccessibleAsync(Guid dossierId, long? unitId)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        var parameters = new DynamicParameters();
+        parameters.Add("DossierId", dossierId.ToString());
+
+        var sql = @"SELECT COUNT(1)
+                    FROM DOSSIERS d
+                    INNER JOIN INFRASTRUCTURE i ON d.InfrastructureId = i.ID
+                    WHERE d.Id = :DossierId
+                      AND d.IsDeleted = 0
+                      AND d.STATUS_ID = 6
+                      AND d.PUBLISHSTATUSID = 2";
+
+        AppendUnitScope(sql, parameters, unitId, out sql);
+
+        var count = await _connection.ExecuteScalarAsync<int>(sql, parameters);
+        return count > 0;
+    }
+
+    private async Task<IEnumerable<DossierByEquipmentLookupItemDto>> QueryEquipmentLookupAsync(
+        DossierByEquipmentFilterDto filter,
+        long? unitId,
+        string selectFromSql,
+        string keywordFields = "i",
+        bool excludeInfrastructure = false,
+        bool excludeEquipmentType = false,
+        bool excludeEquipment = false,
+        bool excludeDossierType = false)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        var parameters = new DynamicParameters();
+        var sql = selectFromSql + @"
+                    WHERE d.IsDeleted = 0
+                      AND d.STATUS_ID = 6
+                      AND d.PUBLISHSTATUSID = 2";
+
+        AppendPublishedDossierFilters(
+            ref sql,
+            parameters,
+            filter,
+            unitId,
+            excludeInfrastructure,
+            excludeEquipmentType,
+            excludeEquipment,
+            excludeDossierType);
+
+        if (!string.IsNullOrWhiteSpace(filter.Keyword))
+        {
+            var keyword = $"%{filter.Keyword.Trim().ToUpperInvariant()}%";
+            parameters.Add("LookupKeyword", keyword);
+            sql += keywordFields switch
+            {
+                "et" => " AND (UPPER(et.NAME) LIKE :LookupKeyword OR UPPER(et.CODE) LIKE :LookupKeyword)",
+                "e" => " AND (UPPER(e.NAME) LIKE :LookupKeyword OR UPPER(e.CODE) LIKE :LookupKeyword OR UPPER(e.SerialNumber) LIKE :LookupKeyword)",
+                "dt" => " AND (UPPER(dt.NAME) LIKE :LookupKeyword OR UPPER(dt.CODE) LIKE :LookupKeyword)",
+                _ => " AND (UPPER(i.NAME) LIKE :LookupKeyword OR UPPER(i.CODE) LIKE :LookupKeyword)"
+            };
+        }
+
+        sql += " ORDER BY Name ASC";
+
+        var rows = await _connection.QueryAsync<DossierByEquipmentLookupItemDto>(sql, parameters);
+        return rows.Select(row => new DossierByEquipmentLookupItemDto
+        {
+            Id = row.Id,
+            Name = row.Name,
+            Code = row.Code
+        });
+    }
+
+    private static void AppendPublishedDossierFilters(
+        ref string sql,
+        DynamicParameters parameters,
+        DossierByEquipmentFilterDto filter,
+        long? unitId,
+        bool excludeInfrastructure,
+        bool excludeEquipmentType,
+        bool excludeEquipment,
+        bool excludeDossierType)
+    {
+        AppendUnitScope(sql, parameters, unitId, out sql);
+
+        if (filter.PublishDateFrom.HasValue)
+        {
+            sql += " AND d.ModifiedDate >= :PublishDateFrom";
+            parameters.Add("PublishDateFrom", filter.PublishDateFrom.Value);
+        }
+
+        if (filter.PublishDateTo.HasValue)
+        {
+            sql += " AND d.ModifiedDate <= :PublishDateTo";
+            parameters.Add("PublishDateTo", filter.PublishDateTo.Value);
+        }
+
+        if (!excludeInfrastructure && filter.InfrastructureId.HasValue)
+        {
+            sql += " AND d.InfrastructureId = :InfrastructureId";
+            parameters.Add("InfrastructureId", filter.InfrastructureId.Value.ToString());
+        }
+
+        if (!excludeDossierType && filter.DossierTypeId.HasValue)
+        {
+            sql += " AND d.DossierTypeId = :DossierTypeId";
+            parameters.Add("DossierTypeId", filter.DossierTypeId.Value.ToString());
+        }
+
+        if (!excludeEquipment && filter.EquipmentId.HasValue)
+        {
+            sql += @" AND EXISTS (
+                SELECT 1 FROM DOSSIER_EQUIPMENTS de2
+                WHERE de2.DossierId = d.Id AND de2.EquipmentId = :EquipmentId
+            )";
+            parameters.Add("EquipmentId", filter.EquipmentId.Value.ToString());
+        }
+        else if (!excludeEquipmentType && filter.EquipmentTypeId.HasValue)
+        {
+            sql += @" AND EXISTS (
+                SELECT 1
+                FROM DOSSIER_EQUIPMENTS de2
+                INNER JOIN Equipments e2 ON de2.EquipmentId = e2.Id
+                WHERE de2.DossierId = d.Id
+                  AND e2.EquipmentTypeId = :EquipmentTypeId
+                  AND (e2.IsDeleted = 0 OR e2.IsDeleted IS NULL)
+            )";
+            parameters.Add("EquipmentTypeId", filter.EquipmentTypeId.Value.ToString());
+        }
+    }
+
+    private static void AppendUnitScope(string sql, DynamicParameters parameters, long? unitId, out string resultSql)
+    {
+        resultSql = sql;
+        if (!unitId.HasValue)
+            return;
+
+        resultSql += @" AND i.UNIT_ID IN (
+            SELECT Id
+            FROM ORGANIZATION_UNIT
+            START WITH Id = :UnitId
+            CONNECT BY PRIOR Id = ParentId
+        )";
+        parameters.Add("UnitId", unitId.Value);
+    }
+
+    public async Task<(IEnumerable<DossierListItemDto> Items, int TotalCount, IEnumerable<BhsCatalogColumnDto> Columns)> GetDossiersByEquipmentAsync(
+        Guid equipmentId,
+        int page,
+        int pageSize)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        // Get columns first
+        var bhsCatalogs = await GetBhsCatalogDefinitionsAsync();
+        var columns = bhsCatalogs.Select(c => new BhsCatalogColumnDto
+        {
+            Key = c.Name,
+            Code = c.Code,
+            Label = c.Name,
+            Priority = c.Priority
+        }).ToList();
+
+        var parameters = new DynamicParameters();
+        parameters.Add("EquipmentId", equipmentId.ToString());
+
+        var sqlBase = $@"FROM DOSSIERS d
+                         INNER JOIN DOSSIER_EQUIPMENTS de ON d.Id = de.DossierId
+                         LEFT JOIN INFRASTRUCTURE i ON d.InfrastructureId = i.ID
+                         LEFT JOIN DOSSIER_TYPES dt ON d.DossierTypeId = dt.ID
+                         LEFT JOIN DOSSIER_SETS ds ON d.DossierSetId = ds.ID
+                         LEFT JOIN PUBLISH_STATUSES ps ON d.PUBLISHSTATUSID = ps.ID
+                         LEFT JOIN DOSSIER_STATUSES dstat ON d.STATUS_ID = dstat.ID
+                         WHERE d.IsDeleted = 0
+                           AND d.PUBLISHSTATUSID = 2
+                           AND de.EquipmentId = :EquipmentId";
+
+        var countSql = $"SELECT COUNT(1) {sqlBase}";
+        var totalCount = await _connection.ExecuteScalarAsync<int>(countSql, parameters);
+
+        if (totalCount == 0)
+        {
+            return (Enumerable.Empty<DossierListItemDto>(), 0, columns);
+        }
+
+        var selectSql = $@"SELECT
+                            d.Id,
+                            d.GridTypeId,
+                            d.InfrastructureId,
+                            i.NAME as InfrastructureName,
+                            i.CODE as InfrastructureCode,
+                            d.DossierSetId,
+                            ds.NAME as DossierSetName,
+                            d.DossierTypeId,
+                            dt.NAME as DossierTypeName,
+                            d.STATUS_ID as StatusId,
+                            dstat.CODE as StatusCode,
+                            dstat.NAME as StatusName,
+                            d.WorkflowStatusName,
+                            d.CreatorName,
+                            d.CreatedDate,
+                            d.FormDataJson,
+                            d.PUBLISHSTATUSID as PublishStatusId,
+                            ps.CODE as PublishStatusCode,
+                            ps.NAME as PublishStatusName,
+                            (SELECT COUNT(1) FROM DOCUMENTS doc WHERE doc.DOSSIER_ID = d.Id AND doc.IS_DELETED = 0) as DocumentCount
+                         {sqlBase}
+                         ORDER BY d.CreatedDate DESC
+                         OFFSET :Offset ROWS FETCH NEXT :PageSize ROWS ONLY";
+
+        parameters.Add("Offset", (page - 1) * pageSize);
+        parameters.Add("PageSize", pageSize);
+
+        var rawItems = await _connection.QueryAsync<dynamic>(selectSql, parameters);
+        var mappedItems = rawItems.Select(d => (
+            dto: new DossierListItemDto
+            {
+                Id = d.ID is string sId && Guid.TryParse(sId, out var gId) ? gId : (d.ID is Guid guidId ? guidId : Guid.Empty),
+                GridTypeId = d.GRIDTYPEID == null ? (int?)null : Convert.ToInt32(d.GRIDTYPEID),
+                GridTypeName = null,
+                InfrastructureId = d.INFRASTRUCTUREID is string sInfra && Guid.TryParse(sInfra, out var gInfra) ? gInfra : (d.INFRASTRUCTUREID is Guid guidInfra ? guidInfra : null),
+                InfrastructureName = d.INFRASTRUCTURENAME,
+                InfrastructureCode = d.INFRASTRUCTURECODE,
+                DossierSetId = d.DOSSIERSETID is string sSet && Guid.TryParse(sSet, out var gSet) ? gSet : (d.DOSSIERSETID is Guid guidSet ? guidSet : null),
+                DossierSetName = d.DOSSIERSETNAME,
+                DossierTypeId = d.DOSSIERTYPEID is string sType && Guid.TryParse(sType, out var gType) ? gType : (d.DOSSIERTYPEID is Guid guidType ? guidType : Guid.Empty),
+                DossierTypeName = d.DOSSIERTYPENAME,
+                StatusId = d.STATUSID == null ? 0 : Convert.ToInt32(d.STATUSID),
+                StatusCode = d.STATUSCODE,
+                StatusName = d.STATUSNAME,
+                WorkflowStatusName = d.WORKFLOWSTATUSNAME,
+                CreatedDate = d.CREATEDDATE is DateTime dtVal ? dtVal : DateTime.MinValue,
+                DocumentCount = d.DOCUMENTCOUNT == null ? 0 : Convert.ToInt32(d.DOCUMENTCOUNT),
+                PublishStatusId = d.PUBLISHSTATUSID == null ? (int?)null : Convert.ToInt32(d.PUBLISHSTATUSID),
+                PublishStatusCode = d.PUBLISHSTATUSCODE,
+                PublishStatusName = d.PUBLISHSTATUSNAME
+            },
+            Item2: d.FORMDATAJSON as string
+        )).ToList();
+
+        var resultList = new List<DossierListItemDto>();
+        foreach (var tuple in mappedItems)
+        {
+            tuple.dto.CatalogData = ParseCatalogData(tuple.Item2, bhsCatalogs);
+            resultList.Add(tuple.dto);
+        }
+
+        return (resultList, totalCount, columns);
+    }
+
     public async Task<DossierDetailDto?> GetDetailByIdAsync(Guid id)
     {
         if (_connection.State != ConnectionState.Open)
@@ -75,29 +597,42 @@ public class DossierRepository : IDossierRepository
                         dt.NAME as {nameof(DossierDetailDto.DossierTypeName)},
                         dt.FORM_ID as {nameof(DossierDetailDto.FormId)},
                         d.{nameof(Dossier.FormDataJson)},
-                        d.{nameof(Dossier.Status)},
+                        d.STATUS_ID as StatusId,
+                        dstat.CODE as StatusCode,
+                        dstat.NAME as StatusName,
                         d.{nameof(Dossier.WorkflowInstanceId)},
                         d.{nameof(Dossier.WorkflowStatusName)},
                         d.{nameof(Dossier.RowVersion)},
-                        d.{nameof(Dossier.CreatorId)},
-                        d.{nameof(Dossier.CreatorUsername)},
-                        d.{nameof(Dossier.CreatorName)},
                         d.{nameof(Dossier.CreatedBy)},
                         d.{nameof(Dossier.CreatedDate)},
                         d.{nameof(Dossier.ModifiedBy)},
-                        d.{nameof(Dossier.ModifiedDate)}
+                        d.{nameof(Dossier.ModifiedDate)},
+                        d.PUBLISHSTATUSID as {nameof(DossierDetailDto.PublishStatusId)},
+                        ps.CODE as {nameof(DossierDetailDto.PublishStatusCode)},
+                        ps.NAME as {nameof(DossierDetailDto.PublishStatusName)},
+                        d.{nameof(Dossier.CreatorId)} as Id,
+                        d.{nameof(Dossier.CreatorUsername)} as Username,
+                        d.{nameof(Dossier.CreatorName)} as Name
                      FROM DOSSIERS d
                      LEFT JOIN INFRASTRUCTURE i ON d.{nameof(Dossier.InfrastructureId)} = i.ID
                      LEFT JOIN DOSSIER_TYPES dt ON d.{nameof(Dossier.DossierTypeId)} = dt.ID
                      LEFT JOIN DOSSIER_SETS ds ON d.{nameof(Dossier.DossierSetId)} = ds.ID
+                     LEFT JOIN PUBLISH_STATUSES ps ON d.PUBLISHSTATUSID = ps.ID
+                     LEFT JOIN DOSSIER_STATUSES dstat ON d.STATUS_ID = dstat.ID
                      WHERE d.{nameof(Dossier.Id)} = :Id AND d.{nameof(Dossier.IsDeleted)} = 0";
-        var dossier = await _connection.QuerySingleOrDefaultAsync<DossierDetailDto>(sql, new { Id = id.ToString() });
+        var dossierList = await _connection.QueryAsync<DossierDetailDto, CreatorInfoDto, DossierDetailDto>(
+            sql,
+            (dossierDto, creatorDto) =>
+            {
+                dossierDto.Creator = creatorDto;
+                return dossierDto;
+            },
+            new { Id = id.ToString() },
+            splitOn: "Id"
+        );
+        var dossier = dossierList.FirstOrDefault();
         if (dossier == null) return null;
-        // Populate Creator info
-        if (dossier.Creator == null)
-        {
-            // Creator info is embedded in the dossier columns
-        }
+
         // Get equipment list
         dossier.Equipments = (await GetEquipmentsAsync(id)).ToList();
         return dossier;
@@ -106,8 +641,16 @@ public class DossierRepository : IDossierRepository
     {
         if (_connection.State != ConnectionState.Open)
             _connection.Open();
-        var sql = $@"SELECT * FROM DOSSIERS WHERE {nameof(Dossier.Id)} = :Id AND {nameof(Dossier.IsDeleted)} = 0";
+        var sql = $@"SELECT Id, GridTypeId, InfrastructureId, DossierSetId, DossierTypeId, FormDataJson, STATUS_ID as StatusId, KIND_ID as KindId, WorkflowInstanceId, WorkflowStatusName, RowVersion, CreatorId, CreatorUsername, CreatorName, CreatedBy, CreatedDate, ModifiedBy, ModifiedDate, IsDeleted, PUBLISHSTATUSID as PublishStatusId FROM DOSSIERS WHERE {nameof(Dossier.Id)} = :Id AND {nameof(Dossier.IsDeleted)} = 0";
         return await _connection.QuerySingleOrDefaultAsync<Dossier>(sql, new { Id = id.ToString() });
+    }
+
+    public async Task<int?> GetKindIdAsync(Guid id)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+        const string sql = "SELECT KIND_ID FROM DOSSIERS WHERE Id = :Id AND IsDeleted = 0";
+        return await _connection.QuerySingleOrDefaultAsync<int?>(sql, new { Id = id.ToString() });
     }
     public async Task<Guid> CreateAsync(Dossier dossier, IEnumerable<Guid> equipmentIds)
     {
@@ -125,7 +668,8 @@ public class DossierRepository : IDossierRepository
                             {nameof(Dossier.DossierSetId)},
                             {nameof(Dossier.DossierTypeId)},
                             {nameof(Dossier.FormDataJson)},
-                            {nameof(Dossier.Status)},
+                            STATUS_ID,
+                            KIND_ID,
                             {nameof(Dossier.RowVersion)},
                             {nameof(Dossier.CreatorId)},
                             {nameof(Dossier.CreatorUsername)},
@@ -135,7 +679,7 @@ public class DossierRepository : IDossierRepository
                             {nameof(Dossier.IsDeleted)}
                         ) VALUES (
                             :Id, :GridTypeId, :InfrastructureId, :DossierSetId, :DossierTypeId,
-                            :FormDataJson, :Status, :RowVersion, :CreatorId, :CreatorUsername,
+                            :FormDataJson, :StatusId, :KindId, :RowVersion, :CreatorId, :CreatorUsername,
                             :CreatorName, :CreatedBy, :CreatedDate, :IsDeleted
                         )";
             await _connection.ExecuteAsync(sql, new
@@ -146,7 +690,8 @@ public class DossierRepository : IDossierRepository
                 DossierSetId = dossier.DossierSetId?.ToString(),
                 DossierTypeId = dossier.DossierTypeId.ToString(),
                 dossier.FormDataJson,
-                dossier.Status,
+                dossier.StatusId,
+                dossier.KindId,
                 dossier.RowVersion,
                 CreatorId = dossier.CreatorId?.ToString(),
                 dossier.CreatorUsername,
@@ -245,27 +790,116 @@ public class DossierRepository : IDossierRepository
         });
         return affected > 0;
     }
-    public async Task<bool> UpdateWorkflowAsync(Guid id, Guid workflowInstanceId, string workflowStatusName, string status, string modifiedBy)
+    public async Task<bool> UpdateStatusAsync(Guid id, int statusId, string modifiedBy)
     {
         if (_connection.State != ConnectionState.Open)
             _connection.Open();
         var sql = $@"UPDATE DOSSIERS SET
-                        {nameof(Dossier.WorkflowInstanceId)} = :WorkflowInstanceId,
-                        {nameof(Dossier.WorkflowStatusName)} = :WorkflowStatusName,
-                        {nameof(Dossier.Status)} = :Status,
+                        STATUS_ID = :StatusId,
                         {nameof(Dossier.ModifiedBy)} = :ModifiedBy,
                         {nameof(Dossier.ModifiedDate)} = :ModifiedDate
                      WHERE {nameof(Dossier.Id)} = :Id AND {nameof(Dossier.IsDeleted)} = 0";
         var affected = await _connection.ExecuteAsync(sql, new
         {
             Id = id.ToString(),
-            WorkflowInstanceId = workflowInstanceId.ToString(),
-            WorkflowStatusName = workflowStatusName,
-            Status = status,
+            StatusId = statusId,
             ModifiedBy = modifiedBy,
             ModifiedDate = DateTime.UtcNow
         });
         return affected > 0;
+    }
+    public async Task<bool> UpdateWorkflowAsync(Guid id, Guid workflowInstanceId, string workflowStatusName, int statusId, int? publishStatusId, string modifiedBy)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+        var sql = $@"UPDATE DOSSIERS SET
+                        {nameof(Dossier.WorkflowInstanceId)} = :WorkflowInstanceId,
+                        {nameof(Dossier.WorkflowStatusName)} = :WorkflowStatusName,
+                        STATUS_ID = :StatusId,
+                        {nameof(Dossier.ModifiedBy)} = :ModifiedBy,
+                        {nameof(Dossier.ModifiedDate)} = :ModifiedDate";
+        if (publishStatusId.HasValue)
+        {
+            sql += ", PUBLISHSTATUSID = :PublishStatusId";
+        }
+        sql += $" WHERE {nameof(Dossier.Id)} = :Id AND {nameof(Dossier.IsDeleted)} = 0";
+
+        var affected = await _connection.ExecuteAsync(sql, new
+        {
+            Id = id.ToString(),
+            WorkflowInstanceId = workflowInstanceId.ToString(),
+            WorkflowStatusName = workflowStatusName,
+            StatusId = statusId,
+            PublishStatusId = publishStatusId,
+            ModifiedBy = modifiedBy,
+            ModifiedDate = DateTime.UtcNow
+        });
+        return affected > 0;
+    }
+
+    public async Task<bool> UpdatePublishStatusAsync(Guid id, int publishStatusId, string modifiedBy)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+        const string sql = @"UPDATE DOSSIERS SET 
+                               PUBLISHSTATUSID = :PublishStatusId,
+                               ModifiedBy = :ModifiedBy,
+                               ModifiedDate = :ModifiedDate
+                             WHERE Id = :Id AND IsDeleted = 0";
+        var affected = await _connection.ExecuteAsync(sql, new 
+        { 
+            Id = id.ToString(), 
+            PublishStatusId = publishStatusId, 
+            ModifiedBy = modifiedBy, 
+            ModifiedDate = DateTime.UtcNow 
+        });
+        return affected > 0;
+    }
+    public async Task<bool> SaveActiveWorkflowTaskAsync(Guid dossierId, string stepId, string stepName, string assignees, string actionsJson, string modifiedBy)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        using var transaction = _connection.BeginTransaction();
+        try
+        {
+            var deleteSql = "DELETE FROM WORKFLOW_TASKS_ACTIVE WHERE DOSSIER_ID = :DossierId";
+            await _connection.ExecuteAsync(deleteSql, new { DossierId = dossierId.ToString() }, transaction);
+
+            if (!string.IsNullOrEmpty(stepId) && !string.IsNullOrWhiteSpace(assignees))
+            {
+                var insertSql = @"
+                    INSERT INTO WORKFLOW_TASKS_ACTIVE (
+                        ID, DOSSIER_ID, CURRENT_STEP_ID, CURRENT_STEP_NAME, CURRENT_ASSIGNEES, AVAILABLE_ACTIONS, 
+                        CREATED_BY, CREATED_DATE, LAST_MODIFIED_BY, LAST_MODIFIED_DATE
+                    ) VALUES (
+                        :Id, :DossierId, :CurrentStepId, :CurrentStepName, :CurrentAssignees, :AvailableActions, 
+                        :CreatedBy, :CreatedDate, :LastModifiedBy, :LastModifiedDate
+                    )";
+
+                await _connection.ExecuteAsync(insertSql, new
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    DossierId = dossierId.ToString(),
+                    CurrentStepId = stepId,
+                    CurrentStepName = stepName,
+                    CurrentAssignees = assignees,
+                    AvailableActions = actionsJson,
+                    CreatedBy = modifiedBy,
+                    CreatedDate = DateTime.UtcNow,
+                    LastModifiedBy = modifiedBy,
+                    LastModifiedDate = DateTime.UtcNow
+                }, transaction);
+            }
+
+            transaction.Commit();
+            return true;
+        }
+        catch
+        {
+            transaction.Rollback();
+            throw;
+        }
     }
     public async Task<bool> UpdateFormDataAsync(Guid id, string formDataJson, int expectedRowVersion, string modifiedBy)
     {

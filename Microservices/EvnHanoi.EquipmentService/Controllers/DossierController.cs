@@ -11,21 +11,42 @@ namespace EvnHanoi.EquipmentService.Controllers;
 
 [Authorize]
 [ApiController]
-[Route("api/v1/dossiers")]
-public partial class DossierController : ControllerBase
+public abstract partial class DossierControllerBase : ControllerBase
 {
     private readonly IDossierService _dossierService;
     private readonly IDossierDocumentService _dossierDocumentService;
     private readonly IDocumentDigitizationService _documentDigitizationService;
+    private readonly DossierKindGuard _kindGuard;
 
-    public DossierController(
+    protected abstract int ExpectedKindId { get; }
+
+    protected DossierControllerBase(
         IDossierService dossierService,
         IDossierDocumentService dossierDocumentService,
-        IDocumentDigitizationService documentDigitizationService)
+        IDocumentDigitizationService documentDigitizationService,
+        DossierKindGuard kindGuard)
     {
         _dossierService = dossierService ?? throw new ArgumentNullException(nameof(dossierService));
         _dossierDocumentService = dossierDocumentService ?? throw new ArgumentNullException(nameof(dossierDocumentService));
         _documentDigitizationService = documentDigitizationService ?? throw new ArgumentNullException(nameof(documentDigitizationService));
+        _kindGuard = kindGuard ?? throw new ArgumentNullException(nameof(kindGuard));
+    }
+
+    private async Task<IActionResult?> EnsureKindAsync(Guid id)
+    {
+        try
+        {
+            await _kindGuard.EnsureAsync(id, ExpectedKindId);
+            return null;
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return StatusCode(403, new { message = ex.Message });
+        }
     }
 
     private string UserId => User.FindFirst(ClaimTypes.NameIdentifier)?.Value
@@ -48,7 +69,8 @@ public partial class DossierController : ControllerBase
         [FromQuery] Guid? infrastructureId,
         [FromQuery] int? gridTypeId,
         [FromQuery] long? unitId,
-        [FromQuery] string? status,
+        [FromQuery] int? statusId,
+        [FromQuery] Guid? dossierTypeId,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10)
     {
@@ -58,12 +80,28 @@ public partial class DossierController : ControllerBase
             InfrastructureId = infrastructureId,
             GridTypeId = gridTypeId,
             UnitId = unitId,
-            Status = status,
+            StatusId = statusId,
+            DossierTypeId = dossierTypeId,
             Page = page,
             PageSize = pageSize
         };
 
         var (items, totalCount) = await _dossierService.GetPagedAsync(filter);
+        return Ok(new { items, totalCount, page, pageSize });
+    }
+
+    [HttpGet("catalog")]
+    [BypassDynamicPermission]
+    public async Task<IActionResult> GetCatalogDossiers(
+        [FromQuery] string? keyword,
+        [FromQuery] Guid? infrastructureId,
+        [FromQuery] Guid? dossierTypeId,
+        [FromQuery] long? unitId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10)
+    {
+        var (items, totalCount) = await _dossierService.GetCatalogDossiersAsync(
+            keyword, infrastructureId, dossierTypeId, unitId, page, pageSize);
         return Ok(new { items, totalCount, page, pageSize });
     }
 
@@ -79,7 +117,21 @@ public partial class DossierController : ControllerBase
     [BypassDynamicPermission]
     public async Task<IActionResult> GetInfrastructuresLookup()
     {
-        var items = await _dossierService.GetInfrastructuresLookupAsync();
+        var isAdmin = User.IsInRole("ADMIN") || User.Claims.Any(c => c.Type == ClaimTypes.Role && c.Value == "ADMIN");
+        long? userUnitId = null;
+        if (!isAdmin)
+        {
+            var unitIdClaim = User.FindFirst("unit_id")?.Value;
+            if (!string.IsNullOrEmpty(unitIdClaim) && long.TryParse(unitIdClaim, out var parsedUnitId))
+            {
+                userUnitId = parsedUnitId;
+            }
+        }
+
+        var items = await _dossierService.GetInfrastructuresLookupAsync(
+            isAdmin,
+            userUnitId,
+            GetAuthorizedUnitIds());
         return Ok(items);
     }
 
@@ -142,6 +194,9 @@ public partial class DossierController : ControllerBase
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetDetail(Guid id)
     {
+        var kindError = await EnsureKindAsync(id);
+        if (kindError != null) return kindError;
+
         var detail = await _dossierService.GetDetailByIdAsync(id);
         if (detail == null) return NotFound(new { message = $"Không tìm thấy hồ sơ với ID = {id}" });
         return Ok(detail);
@@ -154,7 +209,7 @@ public partial class DossierController : ControllerBase
     {
         if (dto == null) return BadRequest(new { message = "Dữ liệu không hợp lệ." });
 
-        var newId = await _dossierService.CreateAsync(dto, UserId, UserName, UserFullName);
+        var newId = await _dossierService.CreateAsync(dto, UserId, UserName, UserFullName, ExpectedKindId);
         return CreatedAtAction(nameof(GetDetail), new { id = newId }, new { id = newId });
     }
 
@@ -164,6 +219,9 @@ public partial class DossierController : ControllerBase
     public async Task<IActionResult> Update(Guid id, [FromBody] DossierUpdateDto dto)
     {
         if (dto == null) return BadRequest(new { message = "Dữ liệu không hợp lệ." });
+
+        var kindError = await EnsureKindAsync(id);
+        if (kindError != null) return kindError;
 
         try
         {
@@ -189,10 +247,35 @@ public partial class DossierController : ControllerBase
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id)
     {
+        var kindError = await EnsureKindAsync(id);
+        if (kindError != null) return kindError;
+
         try
         {
             await _dossierService.DeleteAsync(id, UserId);
             return NoContent();
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpPut("{id:guid}/complete-input")]
+    public async Task<IActionResult> CompleteInput(Guid id)
+    {
+        var kindError = await EnsureKindAsync(id);
+        if (kindError != null) return kindError;
+
+        try
+        {
+            var success = await _dossierService.CompleteInputAsync(id, UserId);
+            if (!success) return BadRequest(new { message = "Không thể cập nhật trạng thái hồ sơ." });
+            return Ok(new { success = true, message = "Xác nhận hoàn thành nhập liệu thành công." });
         }
         catch (KeyNotFoundException ex)
         {
@@ -215,6 +298,9 @@ public partial class DossierController : ControllerBase
     public async Task<IActionResult> SaveFormData(Guid id, [FromBody] DossierSaveFormDataDto dto)
     {
         if (dto == null) return BadRequest(new { message = "Dữ liệu không hợp lệ." });
+
+        var kindError = await EnsureKindAsync(id);
+        if (kindError != null) return kindError;
 
         try
         {
@@ -268,6 +354,17 @@ public partial class DossierController : ControllerBase
     {
         var result = await _dossierService.RemoveEquipmentAsync(id, equipmentId);
         return result ? NoContent() : NotFound(new { message = "Không tìm thấy thiết bị trong hồ sơ." });
+    }
+
+    [HttpGet("by-equipment/{equipmentId:guid}")]
+    [BypassDynamicPermission]
+    public async Task<IActionResult> GetDossiersByEquipment(
+        Guid equipmentId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10)
+    {
+        var (items, totalCount, columns) = await _dossierService.GetDossiersByEquipmentAsync(equipmentId, page, pageSize);
+        return Ok(new { items, totalCount, columns, page, pageSize });
     }
 
     private List<long>? GetAuthorizedUnitIds()

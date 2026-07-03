@@ -10,6 +10,16 @@ public class DocumentRepository : IDocumentRepository
 {
     private readonly IDbConnection _connection;
 
+    private const string DocumentCreatorJoin =
+        @"LEFT JOIN APP_USER cu ON (
+            LOWER(cu.Id) = LOWER(d.CREATED_BY)
+            OR LOWER(cu.UserName) = LOWER(d.CREATED_BY)
+            OR LOWER(cu.UserName) = LOWER(d.CREATOR_NAME)
+        )";
+
+    private const string DocumentCreatedByNameSelect =
+        "NVL(cu.FullName, NVL(d.CREATOR_NAME, d.CREATED_BY)) AS CreatedByName";
+
     public DocumentRepository(IDbConnection connection)
     {
         _connection = connection ?? throw new ArgumentNullException(nameof(connection));
@@ -211,11 +221,13 @@ public class DocumentRepository : IDocumentRepository
                 d.FOLDER_ID AS FolderId,
                 d.DOSSIER_ID AS DossierId,
                 d.CREATED_BY AS CreatedBy,
+                {DocumentCreatedByNameSelect},
                 d.CREATED_DATE AS CreatedDate,
                 NVL(latest.FILE_SIZE, 0) AS FileSize,
                 latest.MIME_TYPE AS MimeType,
                 latest.LATEST_VERSION_ID AS LatestVersionId
             FROM DOCUMENTS d
+            {DocumentCreatorJoin}
             LEFT JOIN (
                 SELECT dv.DOCUMENT_ID, dv.ID AS LATEST_VERSION_ID, dv.FILE_SIZE, dv.MIME_TYPE
                 FROM DOCUMENT_VERSIONS dv
@@ -245,7 +257,7 @@ public class DocumentRepository : IDocumentRepository
         if (_connection.State != ConnectionState.Open)
             _connection.Open();
 
-        var sql = @"
+        var sql = $@"
             SELECT 
                 d.ID,
                 d.NAME,
@@ -254,11 +266,13 @@ public class DocumentRepository : IDocumentRepository
                 d.DOCUMENT_TYPE_ID AS DocumentTypeId,
                 dt.NAME AS DocumentTypeName,
                 d.CREATED_BY AS CreatedBy,
+                {DocumentCreatedByNameSelect},
                 d.CREATED_DATE AS CreatedDate,
                 NVL(latest.FILE_SIZE, 0) AS FileSize,
                 latest.MIME_TYPE AS MimeType,
                 latest.LATEST_VERSION_ID AS LatestVersionId
             FROM DOCUMENTS d
+            {DocumentCreatorJoin}
             LEFT JOIN DOCUMENT_TYPES dt ON dt.ID = d.DOCUMENT_TYPE_ID AND dt.IsDeleted = 0
             LEFT JOIN (
                 SELECT dv.DOCUMENT_ID, dv.ID AS LATEST_VERSION_ID, dv.FILE_SIZE, dv.MIME_TYPE
@@ -274,7 +288,19 @@ public class DocumentRepository : IDocumentRepository
             WHERE d.ID = :Id 
               AND d.IS_DELETED = 0";
 
-        return await _connection.QuerySingleOrDefaultAsync<DocumentListItemDto>(sql, new { Id = id.ToString() });
+        try
+        {
+            return await _connection.QuerySingleOrDefaultAsync<DocumentListItemDto>(sql, new { Id = id.ToString() });
+        }
+        catch (Exception ex)
+        {
+            try
+            {
+                System.IO.File.WriteAllText(@"C:\Users\admin\Desktop\SO_HOA_X10\oracle_error.log", ex.ToString() + "\n\nSQL:\n" + sql);
+            }
+            catch {}
+            throw;
+        }
     }
 
     public async Task<Guid> CreateDocumentAsync(Document document)
@@ -632,12 +658,13 @@ public class DocumentRepository : IDocumentRepository
         if (!string.IsNullOrWhiteSpace(filter.Keyword))
             aliasedWhere += " AND d.NAME LIKE :Keyword";
 
+        var countParams = new DynamicParameters();
+        countParams.Add("DossierId", dossierId.ToString());
+        if (!string.IsNullOrWhiteSpace(filter.Keyword))
+            countParams.Add("Keyword", $"%{filter.Keyword}%");
+
         var countSql = $"SELECT COUNT(*) FROM DOCUMENTS d WHERE {aliasedWhere}";
-        var totalCount = await _connection.ExecuteScalarAsync<int>(countSql, new
-        {
-            DossierId = dossierId.ToString(),
-            Keyword = $"%{filter.Keyword}%"
-        });
+        var totalCount = await _connection.ExecuteScalarAsync<int>(countSql, countParams);
 
         var offset = (filter.Page - 1) * filter.PageSize;
         var listSql = $@"
@@ -649,7 +676,7 @@ public class DocumentRepository : IDocumentRepository
                 d.DOCUMENT_TYPE_ID AS DocumentTypeId,
                 dt.NAME AS DocumentTypeName,
                 d.CREATED_BY AS CreatedBy,
-                NVL(d.CREATOR_NAME, cu.FullName) AS CreatedByName,
+                {DocumentCreatedByNameSelect},
                 d.CREATED_DATE AS CreatedDate,
                 NVL(latest.FILE_SIZE, 0) AS FileSize,
                 latest.MIME_TYPE AS MimeType,
@@ -666,7 +693,7 @@ public class DocumentRepository : IDocumentRepository
                 ext.DOCUMENT_VERSION_ID AS ExtractionDocumentVersionId,
                 ext.STATUS AS ExtractionStatus
             FROM DOCUMENTS d
-            LEFT JOIN APP_USER cu ON cu.Id = d.CREATED_BY
+            {DocumentCreatorJoin}
             LEFT JOIN DOCUMENT_TYPES dt ON dt.ID = d.DOCUMENT_TYPE_ID AND dt.IsDeleted = 0
             LEFT JOIN (
                 SELECT dv.DOCUMENT_ID, dv.ID AS LATEST_VERSION_ID, dv.FILE_SIZE, dv.MIME_TYPE
@@ -703,16 +730,28 @@ public class DocumentRepository : IDocumentRepository
             OFFSET :Offset ROWS
             FETCH NEXT :PageSize ROWS ONLY";
 
-        var rows = await _connection.QueryAsync<DossierDocumentListRow>(listSql, new
-        {
-            DossierId = dossierId.ToString(),
-            Keyword = $"%{filter.Keyword}%",
-            Offset = offset,
-            PageSize = filter.PageSize
-        });
+        var listParams = new DynamicParameters();
+        listParams.Add("DossierId", dossierId.ToString());
+        if (!string.IsNullOrWhiteSpace(filter.Keyword))
+            listParams.Add("Keyword", $"%{filter.Keyword}%");
+        listParams.Add("Offset", offset);
+        listParams.Add("PageSize", filter.PageSize);
 
-        var items = rows.Select(MapDossierDocumentListRow);
-        return (items, totalCount);
+        try
+        {
+            var rows = await _connection.QueryAsync<DossierDocumentListRow>(listSql, listParams);
+            var items = rows.Select(MapDossierDocumentListRow);
+            return (items, totalCount);
+        }
+        catch (Exception ex)
+        {
+            try
+            {
+                System.IO.File.WriteAllText(@"C:\Users\admin\Desktop\SO_HOA_X10\oracle_error.log", ex.ToString() + "\n\nSQL:\n" + listSql);
+            }
+            catch {}
+            throw;
+        }
     }
 
     private static DocumentListItemDto MapDossierDocumentListRow(DossierDocumentListRow row)
@@ -950,7 +989,13 @@ public class DocumentRepository : IDocumentRepository
         const string infrastructureSql = @"
             SELECT ID as Id, NAME as Name, CODE as Code, INFRA_TYPE_ID as InfraTypeId
             FROM INFRASTRUCTURE
-            WHERE IsDeleted = 0 AND IS_ACTIVE = 1 AND INFRA_TYPE_ID IN (1, 2) AND UNIT_ID = :UnitId
+            WHERE IsDeleted = 0 AND IS_ACTIVE = 1 AND INFRA_TYPE_ID IN (1, 2) 
+              AND UNIT_ID IN (
+                  SELECT Id 
+                  FROM ORGANIZATION_UNIT
+                  START WITH Id = :UnitId
+                  CONNECT BY PRIOR Id = ParentId
+              )
             ORDER BY NAME ASC";
 
         return await _connection.QueryAsync<InfrastructureQueryDto>(infrastructureSql, new { UnitId = unitId });
@@ -977,7 +1022,13 @@ public class DocumentRepository : IDocumentRepository
             LEFT JOIN DOSSIER_SETS ds ON d.DossierSetId = ds.ID
             LEFT JOIN EavFormTemplates f ON dt.FORM_ID = f.Id
             WHERE d.ISDELETED = 0 
-              AND i.UNIT_ID = :UnitId 
+              AND d.PublishStatusId = 2
+              AND i.UNIT_ID IN (
+                  SELECT Id 
+                  FROM ORGANIZATION_UNIT
+                  START WITH Id = :UnitId
+                  CONNECT BY PRIOR Id = ParentId
+              )
               AND i.IsDeleted = 0 
               AND i.IS_ACTIVE = 1";
 
@@ -1038,6 +1089,7 @@ public class DocumentRepository : IDocumentRepository
                 d.FOLDER_ID AS FolderId,
                 d.DOSSIER_ID AS DossierId,
                 d.CREATED_BY AS CreatedBy,
+                {DocumentCreatedByNameSelect},
                 d.CREATED_DATE AS CreatedDate,
                 NVL(latest.FILE_SIZE, 0) AS FileSize,
                 latest.MIME_TYPE AS MimeType,
@@ -1045,6 +1097,7 @@ public class DocumentRepository : IDocumentRepository
             FROM DOCUMENTS d
             JOIN DOSSIERS dos ON d.DOSSIER_ID = dos.ID
             JOIN INFRASTRUCTURE i ON dos.InfrastructureId = i.ID
+            {DocumentCreatorJoin}
             LEFT JOIN (
                 SELECT dv.DOCUMENT_ID, dv.ID AS LATEST_VERSION_ID, dv.FILE_SIZE, dv.MIME_TYPE
                 FROM DOCUMENT_VERSIONS dv

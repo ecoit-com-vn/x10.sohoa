@@ -41,7 +41,10 @@ var rabbitFactory = new ConnectionFactory
 var rabbitConnection = await rabbitFactory.CreateConnectionAsync();
 builder.Services.AddSingleton<IConnection>(rabbitConnection);
 
-builder.Services.AddControllers();
+builder.Services.AddControllers(options =>
+{
+    options.Filters.Add<DynamicPermissionFilter>();
+});
 builder.Services.AddStructuredValidationErrors();
 builder.Services.AddDapperInfrastructure(builder.Configuration);
 builder.Services.AddOpenApi();
@@ -73,6 +76,7 @@ builder.Services.AddScoped<EvnHanoi.NotificationService.Services.IDossierIndexer
 
 builder.Services.AddScoped<EvnHanoi.NotificationService.Repositories.IDossierSearchRepository, EvnHanoi.NotificationService.Repositories.DossierSearchRepository>();
 builder.Services.AddScoped<EvnHanoi.NotificationService.Services.IDossierSearchService, EvnHanoi.NotificationService.Services.DossierSearchService>();
+builder.Services.AddScoped<EvnHanoi.NotificationService.Services.IDossierMenuScopeValidator, EvnHanoi.NotificationService.Services.DossierMenuScopeValidator>();
 
 // Elasticsearch setup — hỗ trợ cả key Url (Development) và Uri (appsettings gốc)
 var esUri = builder.Configuration["Elasticsearch:Url"]

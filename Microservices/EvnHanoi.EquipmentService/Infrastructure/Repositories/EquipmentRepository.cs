@@ -39,7 +39,8 @@ public class EquipmentRepository : IEquipmentRepository
                             ModifiedBy as {nameof(Equipment.ModifiedBy)}, 
                             ModifiedDate as {nameof(Equipment.ModifiedDate)}, 
                             IsDeleted as {nameof(Equipment.IsDeleted)}, 
-                            UnitId as {nameof(Equipment.UnitId)}
+                            UnitId as {nameof(Equipment.UnitId)},
+                            FORM_VALUES as {nameof(Equipment.FormValues)}
                      FROM EQUIPMENTS 
                      WHERE Id = :Id AND IsDeleted = 0";
         return await _connection.QuerySingleOrDefaultAsync<Equipment>(sql, new { Id = id.ToString() });
@@ -80,6 +81,7 @@ public class EquipmentRepository : IEquipmentRepository
                             e.CreatedAt AS {nameof(EquipmentDto.CreatedAt)},
                             e.ModifiedBy AS {nameof(EquipmentDto.ModifiedBy)},
                             e.ModifiedDate AS {nameof(EquipmentDto.ModifiedDate)},
+                            e.FORM_VALUES AS {nameof(EquipmentDto.FormValues)},
                             et.Name AS {nameof(EquipmentDto.EquipmentTypeName)},
                             et.Code AS {nameof(EquipmentDto.EquipmentTypeCode)},
                             et.GridTypeId AS {nameof(EquipmentDto.GridTypeId)},
@@ -90,6 +92,8 @@ public class EquipmentRepository : IEquipmentRepository
                             u.Name AS {nameof(EquipmentDto.UnitName)},
                             c.Name AS {nameof(EquipmentDto.CountryName)},
                             c.Code AS {nameof(EquipmentDto.CountryCode)},
+                            eft.Name AS {nameof(EquipmentDto.FormTemplateName)},
+                            eft.FormSchema AS {nameof(EquipmentDto.FormSchema)},
                             usr.Id AS CreatorId,
                             usr.UserName AS Username,
                             usr.FullName AS FullName
@@ -99,6 +103,19 @@ public class EquipmentRepository : IEquipmentRepository
                      LEFT JOIN INFRASTRUCTURE inf ON e.INFRASTRUCTURE_ID = inf.Id
                      LEFT JOIN ORGANIZATION_UNIT u ON e.UnitId = u.Id
                      LEFT JOIN COUNTRIES c ON e.COUNTRY_ID = c.Id
+                      LEFT JOIN (
+                          SELECT * FROM (
+                              SELECT Id, Name, FormSchema, EquipmentTypeId,
+                                     ROW_NUMBER() OVER (
+                                         PARTITION BY EquipmentTypeId 
+                                         ORDER BY CASE WHEN Status = 'Hoàn thành' THEN 0 ELSE 1 END, Version DESC
+                                     ) as rn
+                              FROM EavFormTemplates
+                              WHERE IsDeleted = 0
+                                AND IsActive = 1
+                                AND FormType = 'TEMPLATE'
+                          ) WHERE rn = 1
+                      ) eft ON e.EquipmentTypeId = eft.EquipmentTypeId
                      LEFT JOIN APP_USER usr ON e.CreatorId = usr.Id
                      WHERE e.Id = :Id AND e.IsDeleted = 0";
 
@@ -388,7 +405,8 @@ public class EquipmentRepository : IEquipmentRepository
                                            CreatedBy, 
                                            CreatedAt, 
                                            IsDeleted,
-                                           UnitId
+                                           UnitId,
+                                           FORM_VALUES
                                        )
                                        VALUES (
                                            :Id, 
@@ -403,7 +421,8 @@ public class EquipmentRepository : IEquipmentRepository
                                            :CreatedBy, 
                                            :CreatedAt, 
                                            0,
-                                           :UnitId
+                                           :UnitId,
+                                           :FormValues
                                        )";
 
             var param = new
@@ -419,7 +438,8 @@ public class EquipmentRepository : IEquipmentRepository
                 CreatorId = equipment.CreatorId?.ToString(),
                 equipment.CreatedBy,
                 equipment.CreatedAt,
-                equipment.UnitId
+                equipment.UnitId,
+                equipment.FormValues
             };
 
             await _connection.ExecuteAsync(insertEquipmentSql, param, transaction);
@@ -471,7 +491,8 @@ public class EquipmentRepository : IEquipmentRepository
                         CreatedBy, 
                         CreatedAt, 
                         IsDeleted,
-                        UnitId
+                        UnitId,
+                        FORM_VALUES
                     )
                     VALUES (
                         :Id, 
@@ -486,7 +507,8 @@ public class EquipmentRepository : IEquipmentRepository
                         :CreatedBy, 
                         :CreatedAt, 
                         0,
-                        :UnitId
+                        :UnitId,
+                        :FormValues
                     )";
 
         var param = new
@@ -502,7 +524,8 @@ public class EquipmentRepository : IEquipmentRepository
             CreatorId = equipment.CreatorId?.ToString(),
             equipment.CreatedBy,
             equipment.CreatedAt,
-            equipment.UnitId
+            equipment.UnitId,
+            equipment.FormValues
         };
 
         var result = await _connection.ExecuteAsync(sql, param);
@@ -524,7 +547,8 @@ public class EquipmentRepository : IEquipmentRepository
                         IS_ACTIVE = :IsActive,
                         ModifiedBy = :ModifiedBy,
                         ModifiedDate = :ModifiedDate,
-                        UnitId = :UnitId
+                        UnitId = :UnitId,
+                        FORM_VALUES = :FormValues
                     WHERE Id = :Id AND IsDeleted = 0";
 
         var param = new
@@ -539,7 +563,8 @@ public class EquipmentRepository : IEquipmentRepository
             IsActive = equipment.IsActive ? 1 : 0,
             equipment.ModifiedBy,
             ModifiedDate = DateTime.UtcNow,
-            equipment.UnitId
+            equipment.UnitId,
+            equipment.FormValues
         };
 
         var result = await _connection.ExecuteAsync(sql, param);
@@ -635,16 +660,24 @@ public class EquipmentRepository : IEquipmentRepository
         }
     }
 
-    public async Task<IEnumerable<InfrastructureEntity>> GetInfrastructuresLookupAsync()
+    public async Task<IEnumerable<InfrastructureEntity>> GetInfrastructuresLookupAsync(IEnumerable<long>? authorizedUnitIds = null)
     {
         if (_connection.State != ConnectionState.Open) 
             _connection.Open();
 
-        var sql = @"SELECT ID, CODE, NAME, INFRA_TYPE_ID as InfraTypeId, UNIT_ID as UnitId, IS_ACTIVE as IsActive 
+        var sql = @"SELECT ID, CODE, NAME, INFRA_TYPE_ID as InfraTypeId, UNIT_ID as UnitId, GRIDTYPEID as GridTypeId, IS_ACTIVE as IsActive 
                     FROM INFRASTRUCTURE 
-                    WHERE IsDeleted = 0 
-                    ORDER BY NAME ASC";
-        return await _connection.QueryAsync<InfrastructureEntity>(sql);
+                    WHERE IsDeleted = 0";
+
+        var parameters = new DynamicParameters();
+        if (authorizedUnitIds != null && authorizedUnitIds.Any())
+        {
+            sql += " AND UNIT_ID IN :AuthorizedUnitIds";
+            parameters.Add("AuthorizedUnitIds", authorizedUnitIds.ToArray());
+        }
+
+        sql += " ORDER BY NAME ASC";
+        return await _connection.QueryAsync<InfrastructureEntity>(sql, parameters);
     }
 
     public async Task<IEnumerable<EquipmentTypeDto>> GetEquipmentTypesLookupAsync()

@@ -66,6 +66,7 @@ builder.Services.AddScoped<WorkflowDefinitionCacheService>();
 builder.Services.AddScoped<IWorkflowEngineService, WorkflowEngineService>();
 builder.Services.AddScoped<IWorkflowIntegrationHandler, BorrowRecordWorkflowHandler>();
 builder.Services.AddScoped<IWorkflowIntegrationHandler, DossierWorkflowHandler>();
+builder.Services.AddScoped<IWorkflowIntegrationHandler, DossierDigitizationWorkflowHandler>();
 builder.Services.AddScoped<IBpmnValidatorService, BpmnValidatorService>();
 builder.Services.AddScoped<IWorkflowDefinitionService, WorkflowDefinitionService>();
 

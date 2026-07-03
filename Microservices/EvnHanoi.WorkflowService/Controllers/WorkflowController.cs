@@ -35,11 +35,12 @@ namespace EvnHanoi.WorkflowService.Controllers
         }
 
         [HttpGet("get-workflow-by-entity/{entityId}")]
-        public async Task<ActionResult> GetWorkflowByEntity(string entityId, [FromQuery] string entityType = "BorrowRecord")
+        public async Task<ActionResult> GetWorkflowByEntity(string entityId, [FromQuery] int? workflowTypeId)
         {
             try
             {
-                var status = await _workflowEngine.GetInstanceStatusByEntityAsync(entityId, entityType);
+                var typeId = workflowTypeId ?? EntityType.BorrowRecord.Id;
+                var status = await _workflowEngine.GetInstanceStatusByEntityAsync(entityId, typeId);
                 return Ok(status);
             }
             catch (KeyNotFoundException ex)
@@ -69,12 +70,12 @@ namespace EvnHanoi.WorkflowService.Controllers
 
             try
             {
-            if (EntityType.TryGetByCode(request.EntityType) == null)
-                return BadRequest(new { message = $"EntityType không hợp lệ: '{request.EntityType}'." });
+            if (EntityType.TryGetById(request.WorkflowTypeId) == null)
+                return BadRequest(new { message = $"WorkflowTypeId không hợp lệ: '{request.WorkflowTypeId}'." });
 
-                var instance = await _workflowEngine.SubmitByEntityTypeAsync(
+                var instance = await _workflowEngine.SubmitByWorkflowTypeIdAsync(
                     request.EntityId,
-                    request.EntityType,
+                    request.WorkflowTypeId,
                     userId);
                 return Ok(new
                 {
@@ -110,11 +111,12 @@ namespace EvnHanoi.WorkflowService.Controllers
         }
 
         [HttpGet("get-workflow-history/{entityId}")]
-        public async Task<IActionResult> GetWorkflowHistory(string entityId, [FromQuery] string entityType = "Dossier")
+        public async Task<IActionResult> GetWorkflowHistory(string entityId, [FromQuery] int? workflowTypeId)
         {
             try
             {
-                var history = await _workflowEngine.GetHistoryByEntityAsync(entityId, entityType);
+                var typeId = workflowTypeId ?? EntityType.Dossier.Id;
+                var history = await _workflowEngine.GetHistoryByEntityAsync(entityId, typeId);
                 return Ok(history);
             }
             catch (KeyNotFoundException ex)
@@ -202,7 +204,7 @@ namespace EvnHanoi.WorkflowService.Controllers
                     request.ActionLabel,
                     request.Comment,
                     request.NextAssigneeUserId,
-                    request.EntityType ?? "BorrowRecord");
+                    request.WorkflowTypeId ?? EntityType.BorrowRecord.Id);
 
                 return Ok(new
                 {
@@ -234,8 +236,8 @@ namespace EvnHanoi.WorkflowService.Controllers
     {
         public string EntityId { get; set; } = string.Empty;
 
-        /// <summary>Code EntityType — Dossier, BorrowRecord.</summary>
-        public string EntityType { get; set; } = string.Empty;
+        /// <summary>ID loại quy trình liên kết với WORKFLOW_TYPES</summary>
+        public int WorkflowTypeId { get; set; }
     }
 
     public class ApproveTaskRequest
@@ -251,7 +253,7 @@ namespace EvnHanoi.WorkflowService.Controllers
         public string ActionLabel { get; set; } = string.Empty;
         public string? Comment { get; set; }
         public string? NextAssigneeUserId { get; set; }
-        /// <summary>EntityType của WorkflowInstance — mặc định BorrowRecord.</summary>
-        public string? EntityType { get; set; }
+        /// <summary>WorkflowTypeId của WorkflowInstance — mặc định BorrowRecord.</summary>
+        public int? WorkflowTypeId { get; set; }
     }
 }

@@ -7,8 +7,12 @@ public static class DossierEsFieldNames
 {
     public const string Id = "id";
     public const string Status = "status";
+    public const string StatusId = "statusId";
+    public const string StatusCode = "statusCode";
+    public const string StatusName = "statusName";
     public const string IsDeleted = "isDeleted";
     public const string GridTypeId = "gridTypeId";
+    public const string DossierTypeId = "dossierTypeId";
     public const string InfrastructureId = "infrastructureId";
     public const string UnitId = "unitId";
     public const string WorkflowInstanceId = "workflowInstanceId";
@@ -18,4 +22,14 @@ public static class DossierEsFieldNames
     public const string PendingAssignedRoles = "pendingAssignedRoles";
     public const string WorkflowParticipantUserIds = "workflowParticipantUserIds";
     public const string CreatedDate = "createdDate";
+    public const string CurrentStepOrder = "currentStepOrder";
+    public const string WorkflowLastAction = "workflowLastAction";
+    public const string IsReturnedToCreatorStep = "isReturnedToCreatorStep";
+    public const string PublishStatusId = "publishStatusId";
+    public const string PublishStatusCode = "publishStatusCode";
+    public const string KindId = "kindId";
+    public const string KindCode = "kindCode";
+    public const string ModifiedDate = "modifiedDate";
+    public const string EquipmentsPath = "equipments";
+    public const string EquipmentId = "equipments.equipmentId";
 }

@@ -1,4 +1,6 @@
-using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text.Json;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using EvnHanoi.EquipmentService.Core.Interfaces;
@@ -16,18 +18,21 @@ using Infrastructure = EvnHanoi.EquipmentService.Core.Entities.Infrastructure;
 public class TransmissionLineController : ControllerBase
 {
     private readonly IInfrastructureRepository _infrastructureRepository;
+    private readonly IEquipmentRepository _equipmentRepository;
     private const int INFRA_TYPE_ID = 2; // 2 = Transmission Line (Đường dây)
 
-    public TransmissionLineController(IInfrastructureRepository infrastructureRepository)
+    public TransmissionLineController(IInfrastructureRepository infrastructureRepository, IEquipmentRepository equipmentRepository)
     {
         _infrastructureRepository = infrastructureRepository;
+        _equipmentRepository = equipmentRepository;
     }
 
     [HttpGet("lookup")]
     [BypassDynamicPermission]
     public async Task<IActionResult> Lookup([FromQuery] string? keyword = null)
     {
-        var (items, _) = await _infrastructureRepository.GetPagedAsync(1, 1000, INFRA_TYPE_ID, keyword, 1);
+        var allowedUnitIds = await GetAllowedUnitIdsAsync();
+        var (items, _) = await _infrastructureRepository.GetPagedAsync(1, 1000, INFRA_TYPE_ID, keyword, 1, allowedUnitIds);
         return Ok(items);
     }
 
@@ -36,12 +41,14 @@ public class TransmissionLineController : ControllerBase
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10,
         [FromQuery] string? keyword = null,
-        [FromQuery] int? status = null)
+        [FromQuery] int? status = null,
+        [FromQuery] long? unitId = null)
     {
         if (page < 1) page = 1;
         if (pageSize < 1) pageSize = 10;
 
-        var (items, totalCount) = await _infrastructureRepository.GetPagedAsync(page, pageSize, INFRA_TYPE_ID, keyword, status);
+        var allowedUnitIds = await GetAllowedUnitIdsAsync();
+        var (items, totalCount) = await _infrastructureRepository.GetPagedAsync(page, pageSize, INFRA_TYPE_ID, keyword, status, allowedUnitIds, unitId);
         return Ok(new { items, totalCount, page, pageSize });
     }
 
@@ -59,6 +66,8 @@ public class TransmissionLineController : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(infrastructure.Code) || string.IsNullOrWhiteSpace(infrastructure.Name))
             return BadRequest(new { message = "Mã và Tên đường dây là bắt buộc." });
+        if (infrastructure.GridTypeId == null || infrastructure.GridTypeId <= 0)
+            return BadRequest(new { message = "Loại lưới điện là bắt buộc." });
 
         // Force Transmission Line type
         infrastructure.InfraTypeId = INFRA_TYPE_ID;
@@ -86,6 +95,8 @@ public class TransmissionLineController : ControllerBase
 
         if (string.IsNullOrWhiteSpace(infrastructure.Code) || string.IsNullOrWhiteSpace(infrastructure.Name))
             return BadRequest(new { message = "Mã và Tên đường dây là bắt buộc." });
+        if (infrastructure.GridTypeId == null || infrastructure.GridTypeId <= 0)
+            return BadRequest(new { message = "Loại lưới điện là bắt buộc." });
 
         // Force Transmission Line type
         infrastructure.InfraTypeId = INFRA_TYPE_ID;
@@ -156,5 +167,72 @@ public class TransmissionLineController : ControllerBase
             return StatusCode(500, new { message = "Không thể mở khóa đường dây." });
 
         return Ok(new { message = "Đã mở khóa đường dây thành công." });
+    }
+
+    private async Task<List<long>?> GetAllowedUnitIdsAsync()
+    {
+        var isAdmin = User.IsInRole("ADMIN") || User.Claims.Any(c => c.Type == ClaimTypes.Role && c.Value == "ADMIN") || User.Claims.Any(c => c.Type == ClaimTypes.Role && c.Value == "SUPER_ADMIN");
+        if (isAdmin)
+        {
+            return null;
+        }
+
+        var unitIdClaim = User.FindFirst("unit_id")?.Value;
+        if (!string.IsNullOrEmpty(unitIdClaim) && long.TryParse(unitIdClaim, out var userUnitId))
+        {
+            var allowedUnits = await _equipmentRepository.GetOrganizationUnitsHierarchicalAsync(userUnitId);
+            return allowedUnits.Select(u => u.Id).ToList();
+        }
+
+        var fallbackUnitIds = GetAuthorizedUnitIds();
+        if (fallbackUnitIds != null && fallbackUnitIds.Any())
+        {
+            var list = new List<long>();
+            foreach (var fId in fallbackUnitIds)
+            {
+                var units = await _equipmentRepository.GetOrganizationUnitsHierarchicalAsync(fId);
+                list.AddRange(units.Select(u => u.Id));
+            }
+            return list.Distinct().ToList();
+        }
+
+        return new List<long> { -1 };
+    }
+
+    private List<long>? GetAuthorizedUnitIds()
+    {
+        var isAdmin = User.IsInRole("ADMIN") || User.Claims.Any(c => c.Type == ClaimTypes.Role && c.Value == "ADMIN") || User.Claims.Any(c => c.Type == ClaimTypes.Role && c.Value == "SUPER_ADMIN");
+        if (isAdmin)
+        {
+            return null;
+        }
+
+        var unitRolesClaim = User.FindFirst("unit_roles")?.Value;
+        if (string.IsNullOrEmpty(unitRolesClaim))
+        {
+            return new List<long>();
+        }
+
+        try
+        {
+            var unitRoles = JsonSerializer.Deserialize<List<UnitRoleDto>>(unitRolesClaim, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+
+            return unitRoles?.Select(ur => ur.UnitId).Distinct().ToList() ?? new List<long>();
+        }
+        catch
+        {
+            return new List<long>();
+        }
+    }
+
+    public class UnitRoleDto
+    {
+        public long UnitId { get; set; }
+        public long RoleId { get; set; }
+        public string RoleCode { get; set; } = string.Empty;
+        public string RoleName { get; set; } = string.Empty;
     }
 }

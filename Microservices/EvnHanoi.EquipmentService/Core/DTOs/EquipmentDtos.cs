@@ -30,7 +30,7 @@ public class EquipmentUpdateDto
     public Guid? InfrastructureId { get; set; }
     public Guid? CountryId { get; set; }
     public bool IsActive { get; set; }
-    
+    public string? FormValues { get; set; }
     public Dictionary<Guid, string> DynamicAttributes { get; set; } = new();
 }
 
@@ -61,8 +61,10 @@ public class EquipmentDto
     public DateTime CreatedAt { get; set; }
     public string? ModifiedBy { get; set; }
     public DateTime? ModifiedDate { get; set; }
-    
+    public string? FormValues { get; set; }
     public Dictionary<Guid, string> DynamicAttributes { get; set; } = new();
+    public string? FormTemplateName { get; set; }
+    public string? FormSchema { get; set; }
 }
 
 public class EquipmentTypeDto

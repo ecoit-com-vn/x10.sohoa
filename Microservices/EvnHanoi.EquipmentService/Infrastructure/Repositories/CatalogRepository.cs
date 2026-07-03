@@ -14,21 +14,18 @@ public class CatalogRepository : ICatalogRepository
         _connection = connection ?? throw new ArgumentNullException(nameof(connection));
     }
 
-    // ─────────────────────────────────────────────────────────
-    // CATALOG queries
-    // ─────────────────────────────────────────────────────────
-
     public async Task<IEnumerable<Catalog>> GetAllAsync(
         long? catalogTypeId = null,
         string? keyword = null,
         int? status = null,
-        long? unitId = null)
+        long? unitId = null,
+        string? username = null)
     {
         if (_connection.State != ConnectionState.Open) _connection.Open();
 
         var sql = $@"SELECT * FROM {nameof(Catalog)}
-                     WHERE {nameof(Catalog.IsDeleted)} = 0
-                       AND ({nameof(Catalog.UnitId)} IS NULL";
+                      WHERE {nameof(Catalog.IsDeleted)} = 0
+                        AND ({nameof(Catalog.UnitId)} IS NULL";
 
         if (unitId.HasValue)
             sql += $" OR {nameof(Catalog.UnitId)} = :UnitId";
@@ -36,6 +33,9 @@ public class CatalogRepository : ICatalogRepository
 
         if (catalogTypeId.HasValue)
             sql += $" AND {nameof(Catalog.CatalogTypeId)} = :CatalogTypeId";
+
+        if (!string.IsNullOrEmpty(username))
+            sql += $" AND {nameof(Catalog.CreatedBy)} = :Username";
 
         if (!string.IsNullOrEmpty(keyword))
             sql += $" AND (LOWER({nameof(Catalog.Code)}) LIKE :Keyword OR LOWER({nameof(Catalog.Name)}) LIKE :Keyword)";
@@ -52,7 +52,8 @@ public class CatalogRepository : ICatalogRepository
             UnitId = unitId,
             CatalogTypeId = catalogTypeId,
             Keyword = keywordParam,
-            Status = status
+            Status = status,
+            Username = username
         });
     }
 
@@ -62,7 +63,8 @@ public class CatalogRepository : ICatalogRepository
         long? catalogTypeId = null,
         string? keyword = null,
         int? status = null,
-        long? unitId = null)
+        long? unitId = null,
+        string? username = null)
     {
         if (_connection.State != ConnectionState.Open) _connection.Open();
 
@@ -73,6 +75,9 @@ public class CatalogRepository : ICatalogRepository
 
         if (catalogTypeId.HasValue)
             filterSql += $" AND {nameof(Catalog.CatalogTypeId)} = :CatalogTypeId";
+
+        if (!string.IsNullOrEmpty(username))
+            filterSql += $" AND {nameof(Catalog.CreatedBy)} = :Username";
 
         if (!string.IsNullOrEmpty(keyword))
             filterSql += $" AND (LOWER({nameof(Catalog.Code)}) LIKE :Keyword OR LOWER({nameof(Catalog.Name)}) LIKE :Keyword)";
@@ -96,6 +101,7 @@ public class CatalogRepository : ICatalogRepository
         parameters.Add("CatalogTypeId", catalogTypeId);
         parameters.Add("Keyword", keywordParam);
         parameters.Add("Status", status);
+        parameters.Add("Username", username);
         parameters.Add("Offset", offset);
         parameters.Add("OffsetPlusSize", offset + pageSize);
 
@@ -194,10 +200,6 @@ public class CatalogRepository : ICatalogRepository
         return affected > 0;
     }
 
-    // ─────────────────────────────────────────────────────────
-    // CATALOG_TYPE queries
-    // ─────────────────────────────────────────────────────────
-
     public async Task<IEnumerable<CatalogType>> GetCatalogTypesAsync()
     {
         if (_connection.State != ConnectionState.Open) _connection.Open();
@@ -222,13 +224,18 @@ public class CatalogRepository : ICatalogRepository
         return await _connection.QuerySingleOrDefaultAsync<CatalogType>(sql, new { Id = id });
     }
 
-    public async Task<IEnumerable<CatalogType>> GetCatalogTypesFilteredAsync(bool isPrivate, string? keyword = null, int? status = null)
+    public async Task<IEnumerable<CatalogType>> GetCatalogTypesFilteredAsync(bool isPrivate, string? keyword = null, int? status = null, string? username = null)
     {
         if (_connection.State != ConnectionState.Open) _connection.Open();
 
         var sql = $@"SELECT * FROM CATALOG_TYPE 
                      WHERE {nameof(CatalogType.IsDeleted)} = 0
                        AND {nameof(CatalogType.IsPrivate)} = :IsPrivate";
+
+        if (isPrivate && !string.IsNullOrEmpty(username))
+        {
+            sql += $" AND {nameof(CatalogType.CreatedBy)} = :Username";
+        }
 
         if (!string.IsNullOrEmpty(keyword))
             sql += $" AND LOWER({nameof(CatalogType.Name)}) LIKE :Keyword";
@@ -244,11 +251,12 @@ public class CatalogRepository : ICatalogRepository
         {
             IsPrivate = isPrivate ? 1 : 0,
             Keyword = keywordParam,
-            Status = status
+            Status = status,
+            Username = username
         });
     }
 
-    public async Task<CatalogType?> GetCatalogTypeByIdFilteredAsync(long id, bool isPrivate)
+    public async Task<CatalogType?> GetCatalogTypeByIdFilteredAsync(long id, bool isPrivate, string? username = null)
     {
         if (_connection.State != ConnectionState.Open) _connection.Open();
 
@@ -256,7 +264,13 @@ public class CatalogRepository : ICatalogRepository
                      WHERE {nameof(CatalogType.Id)} = :Id 
                        AND {nameof(CatalogType.IsPrivate)} = :IsPrivate
                        AND {nameof(CatalogType.IsDeleted)} = 0";
-        return await _connection.QuerySingleOrDefaultAsync<CatalogType>(sql, new { Id = id, IsPrivate = isPrivate ? 1 : 0 });
+
+        if (isPrivate && !string.IsNullOrEmpty(username))
+        {
+            sql += $" AND {nameof(CatalogType.CreatedBy)} = :Username";
+        }
+
+        return await _connection.QuerySingleOrDefaultAsync<CatalogType>(sql, new { Id = id, IsPrivate = isPrivate ? 1 : 0, Username = username });
     }
 
     public async Task<long> CreateCatalogTypeAsync(CatalogType catalogType)
@@ -324,7 +338,7 @@ public class CatalogRepository : ICatalogRepository
 
         var sql = $@"UPDATE CATALOG_TYPE 
                      SET {nameof(CatalogType.IsDeleted)} = 1,
-                         {nameof(CatalogType.UpdatedAt)} = CURRENT_TIMESTAMP,
+                         {nameof(CatalogType.UpdatedAt)} = CURRENT_TIMESTAMP,ợ 
                          {nameof(CatalogType.UpdatedBy)} = :UpdatedBy
                      WHERE {nameof(CatalogType.Id)} = :Id";
         var affected = await _connection.ExecuteAsync(sql, new { Id = id, UpdatedBy = updatedBy });

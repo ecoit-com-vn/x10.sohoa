@@ -22,6 +22,8 @@ public class DossierDocumentBuilder : IDossierDocumentBuilder
             .Cast<DossierFormFieldEs>()
             .ToList();
 
+        var hasActiveWorkflowTask = HasActiveWorkflowTask(data);
+
         return new DossierEsDocument
         {
             Id = DossierIndexIdNormalizer.Normalize(data.Id),
@@ -35,7 +37,9 @@ public class DossierDocumentBuilder : IDossierDocumentBuilder
             DossierSetName = data.DossierSetName,
             DossierTypeId = data.DossierTypeId,
             DossierTypeName = data.DossierTypeName,
-            Status = data.Status,
+            StatusId = data.StatusId,
+            StatusCode = data.StatusCode,
+            StatusName = data.StatusName,
             WorkflowStatusName = data.WorkflowStatusName,
             WorkflowInstanceId = DossierIndexIdNormalizer.NormalizeOrNull(data.WorkflowInstanceId),
             WorkflowInstanceStatus = data.WorkflowInstanceStatus,
@@ -57,6 +61,16 @@ public class DossierDocumentBuilder : IDossierDocumentBuilder
             CurrentStepAllowEdit = data.CurrentStepAllowEdit,
             CurrentVersionNumber = data.CurrentVersionNumber,
             IsDeleted = data.IsDeleted,
+            CurrentStepId = hasActiveWorkflowTask ? data.CurrentStepId : null,
+            CurrentStepOrder = data.CurrentStepOrder,
+            WorkflowLastAction = data.WorkflowLastAction,
+            IsReturnedToCreatorStep = data.IsReturnedToCreatorStep,
+            CurrentAssignees = hasActiveWorkflowTask && !string.IsNullOrEmpty(data.CurrentAssignees)
+                ? data.CurrentAssignees.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).ToList()
+                : new List<string>(),
+            AvailableActions = hasActiveWorkflowTask
+                ? ParseAvailableActions(data.AvailableActionsJson)
+                : new List<WorkflowActionEsDto>(),
             CatalogFields = catalogFields,
             FormFields = formFields,
             Equipments = equipments.Select(e => new DossierEquipmentEs
@@ -65,8 +79,38 @@ public class DossierDocumentBuilder : IDossierDocumentBuilder
                 EquipmentCode = e.EquipmentCode,
                 EquipmentName = e.EquipmentName,
                 SerialNumber = e.SerialNumber
-            }).ToList()
+            }).ToList(),
+            PublishStatusId = data.PublishStatusId,
+            PublishStatusCode = data.PublishStatusCode,
+            PublishStatusName = data.PublishStatusName,
+            KindId = data.KindId,
+            KindCode = data.KindCode
         };
+    }
+
+    private static bool HasActiveWorkflowTask(DossierEnrichmentData data)
+    {
+        if (data.StatusId == 6) // Approved
+            return false;
+
+        return string.Equals(data.WorkflowInstanceStatus, "Running", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static List<WorkflowActionEsDto> ParseAvailableActions(string? actionsJson)
+    {
+        if (string.IsNullOrWhiteSpace(actionsJson))
+            return new List<WorkflowActionEsDto>();
+
+        try
+        {
+            return JsonSerializer.Deserialize<List<WorkflowActionEsDto>>(
+                actionsJson,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<WorkflowActionEsDto>();
+        }
+        catch
+        {
+            return new List<WorkflowActionEsDto>();
+        }
     }
 
     private static Dictionary<string, object?> ParseFormData(string? formDataJson)

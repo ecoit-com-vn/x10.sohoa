@@ -263,68 +263,8 @@ public class DocumentManagementService : IDocumentManagementService
         var nodes = new List<FolderCatalogNodeDto>();
         var unitCode = unitInfo.Code ?? string.Empty;
 
-        // Cấp 1 (Root - Fix cứng): Trạm biến áp & Đường dây
-        nodes.Add(new FolderCatalogNodeDto
-        {
-            Id = "root-tba",
-            Name = "Trạm biến áp",
-            ParentId = null,
-            UnitId = unitId,
-            UnitCode = unitCode,
-            CreatedDate = DateTime.UtcNow
-        });
-
-        nodes.Add(new FolderCatalogNodeDto
-        {
-            Id = "root-dd",
-            Name = "Đường dây",
-            ParentId = null,
-            UnitId = unitId,
-            UnitCode = unitCode,
-            CreatedDate = DateTime.UtcNow
-        });
-
-        // Cấp 2 under Trạm biến áp: Lưới điện cao áp & Lưới điện trung áp
-        nodes.Add(new FolderCatalogNodeDto
-        {
-            Id = "tba-cao-ap",
-            Name = "Lưới điện cao áp",
-            ParentId = "root-tba",
-            UnitId = unitId,
-            UnitCode = unitCode,
-            CreatedDate = DateTime.UtcNow
-        });
-
-        nodes.Add(new FolderCatalogNodeDto
-        {
-            Id = "tba-trung-ap",
-            Name = "Lưới điện trung áp",
-            ParentId = "root-tba",
-            UnitId = unitId,
-            UnitCode = unitCode,
-            CreatedDate = DateTime.UtcNow
-        });
-
-        // Cấp 2 under Đường dây: Lưới điện cao áp & Lưới điện trung áp
-        nodes.Add(new FolderCatalogNodeDto
-        {
-            Id = "dd-cao-ap",
-            Name = "Lưới điện cao áp",
-            ParentId = "root-dd",
-            UnitId = unitId,
-            UnitCode = unitCode,
-            CreatedDate = DateTime.UtcNow
-        });
-
-        nodes.Add(new FolderCatalogNodeDto
-        {
-            Id = "dd-trung-ap",
-            Name = "Lưới điện trung áp",
-            ParentId = "root-dd",
-            UnitId = unitId,
-            UnitCode = unitCode,
-            CreatedDate = DateTime.UtcNow
-        });
+        // Tập hợp các ID của các node lưới điện và root cần thêm
+        var requiredParentIds = new HashSet<string>();
 
         // Tách biệt Substations (type = 1) và Power Lines (type = 2)
         var substations = infrastructures.Where(x => x.InfraTypeId == 1);
@@ -336,65 +276,48 @@ public class DocumentManagementService : IDocumentManagementService
             bool isHighVoltageSub = (sub.Name != null && (sub.Name.Contains("110") || sub.Name.Contains("220") || sub.Name.Contains("500")))
                                     || (sub.Code != null && (sub.Code.Contains("110") || sub.Code.Contains("220") || sub.Code.Contains("500")));
 
-            if (isHighVoltageSub)
+            string parentId = isHighVoltageSub ? "tba-cao-ap" : "tba-trung-ap";
+            string subNodeId = isHighVoltageSub ? $"tba-cao-ap_{sub.Id}" : $"tba-trung-ap_{sub.Id}";
+
+            // Lọc các dossiers thuộc trạm này và loại lưới điện tương ứng
+            var subDossiers = dossiers.Where(d => string.Equals(d.InfrastructureId, sub.Id, StringComparison.OrdinalIgnoreCase) 
+                                                  && (isHighVoltageSub ? (d.GridTypeId == 1 || d.GridTypeId == null) : (d.GridTypeId != 1 || d.GridTypeId == null)));
+
+            var dossierGroups = subDossiers
+                .GroupBy(d => new { d.DossierTypeId, d.DossierTypeName })
+                .OrderBy(g => g.Key.DossierTypeName)
+                .ToList();
+
+            if (dossierGroups.Any())
             {
-                // Cấp 3 under tba-cao-ap
-                var subNodeId = $"tba-cao-ap_{sub.Id}";
+                // Thêm node trạm (cấp 3)
                 nodes.Add(new FolderCatalogNodeDto
                 {
                     Id = subNodeId,
                     Name = $"{sub.Name} ({sub.Code})",
-                    ParentId = "tba-cao-ap",
+                    ParentId = parentId,
                     UnitId = unitId,
                     UnitCode = unitCode,
                     CreatedDate = DateTime.UtcNow
                 });
 
-                // Cấp 4 (Lá) under this Substation: các hồ sơ Cao áp của Trạm biến áp này (GridTypeId == 1 hoặc null)
-                var subDossiers = dossiers.Where(d => string.Equals(d.InfrastructureId, sub.Id, StringComparison.OrdinalIgnoreCase) && (d.GridTypeId == 1 || d.GridTypeId == null));
-                foreach (var d in subDossiers)
+                // Thêm các node hộp con (cấp 4)
+                foreach (var g in dossierGroups)
                 {
-                    var dossierName = GetDossierDisplayName(d.FormDataJson, d.DossierTypeName, d.DossierSetName ?? "", d.Id);
+                    if (string.IsNullOrEmpty(g.Key.DossierTypeId)) continue;
                     nodes.Add(new FolderCatalogNodeDto
                     {
-                        Id = $"dossier_{d.Id}",
-                        Name = dossierName,
+                        Id = $"type_{subNodeId}_{g.Key.DossierTypeId}",
+                        Name = $"{g.Key.DossierTypeName} ({g.Count()})", // Số lượng hồ sơ đã xuất bản
                         ParentId = subNodeId,
                         UnitId = unitId,
                         UnitCode = unitCode,
                         CreatedDate = DateTime.UtcNow
                     });
                 }
-            }
-            else
-            {
-                // Cấp 3 under tba-trung-ap
-                var subNodeId = $"tba-trung-ap_{sub.Id}";
-                nodes.Add(new FolderCatalogNodeDto
-                {
-                    Id = subNodeId,
-                    Name = $"{sub.Name} ({sub.Code})",
-                    ParentId = "tba-trung-ap",
-                    UnitId = unitId,
-                    UnitCode = unitCode,
-                    CreatedDate = DateTime.UtcNow
-                });
 
-                // Cấp 4 (Lá) under this Substation: các hồ sơ Trung áp của Trạm biến áp này (GridTypeId != 1 hoặc null)
-                var subDossiers = dossiers.Where(d => string.Equals(d.InfrastructureId, sub.Id, StringComparison.OrdinalIgnoreCase) && (d.GridTypeId != 1 || d.GridTypeId == null));
-                foreach (var d in subDossiers)
-                {
-                    var dossierName = GetDossierDisplayName(d.FormDataJson, d.DossierTypeName, d.DossierSetName ?? "", d.Id);
-                    nodes.Add(new FolderCatalogNodeDto
-                    {
-                        Id = $"dossier_{d.Id}",
-                        Name = dossierName,
-                        ParentId = subNodeId,
-                        UnitId = unitId,
-                        UnitCode = unitCode,
-                        CreatedDate = DateTime.UtcNow
-                    });
-                }
+                // Ghi nhận lưới điện cha và root cha cần hiển thị
+                requiredParentIds.Add(parentId);
             }
         }
 
@@ -404,65 +327,127 @@ public class DocumentManagementService : IDocumentManagementService
             bool isHighVoltageInfra = (infra.Name != null && (infra.Name.Contains("110") || infra.Name.Contains("220") || infra.Name.Contains("500")))
                                       || (infra.Code != null && (infra.Code.Contains("110") || infra.Code.Contains("220") || infra.Code.Contains("500")));
 
-            if (isHighVoltageInfra)
+            string parentId = isHighVoltageInfra ? "dd-cao-ap" : "dd-trung-ap";
+            string lineNodeId = isHighVoltageInfra ? $"dd-cao-ap_{infra.Id}" : $"dd-trung-ap_{infra.Id}";
+
+            // Lọc các dossiers thuộc đường dây này và loại lưới điện tương ứng
+            var lineDossiers = dossiers.Where(d => string.Equals(d.InfrastructureId, infra.Id, StringComparison.OrdinalIgnoreCase) 
+                                                   && (isHighVoltageInfra ? (d.GridTypeId == 1 || d.GridTypeId == null) : (d.GridTypeId != 1 || d.GridTypeId == null)));
+
+            var dossierGroups = lineDossiers
+                .GroupBy(d => new { d.DossierTypeId, d.DossierTypeName })
+                .OrderBy(g => g.Key.DossierTypeName)
+                .ToList();
+
+            if (dossierGroups.Any())
             {
-                // Cấp 3 under dd-cao-ap
-                var lineNodeId = $"dd-cao-ap_{infra.Id}";
+                // Thêm node đường dây (cấp 3)
                 nodes.Add(new FolderCatalogNodeDto
                 {
                     Id = lineNodeId,
                     Name = $"{infra.Name} ({infra.Code})",
-                    ParentId = "dd-cao-ap",
+                    ParentId = parentId,
                     UnitId = unitId,
                     UnitCode = unitCode,
                     CreatedDate = DateTime.UtcNow
                 });
 
-                // Cấp 4 (Lá) under this Power Line: các hồ sơ Cao áp của Đường dây này
-                var lineDossiers = dossiers.Where(d => string.Equals(d.InfrastructureId, infra.Id, StringComparison.OrdinalIgnoreCase) && (d.GridTypeId == 1 || d.GridTypeId == null));
-                foreach (var d in lineDossiers)
+                // Thêm các node hộp con (cấp 4)
+                foreach (var g in dossierGroups)
                 {
-                    var dossierName = GetDossierDisplayName(d.FormDataJson, d.DossierTypeName, d.DossierSetName ?? "", d.Id);
+                    if (string.IsNullOrEmpty(g.Key.DossierTypeId)) continue;
                     nodes.Add(new FolderCatalogNodeDto
                     {
-                        Id = $"dossier_{d.Id}",
-                        Name = dossierName,
+                        Id = $"type_{lineNodeId}_{g.Key.DossierTypeId}",
+                        Name = $"{g.Key.DossierTypeName} ({g.Count()})", // Số lượng hồ sơ đã xuất bản
                         ParentId = lineNodeId,
                         UnitId = unitId,
                         UnitCode = unitCode,
                         CreatedDate = DateTime.UtcNow
                     });
                 }
+
+                // Ghi nhận lưới điện cha và root cha cần hiển thị
+                requiredParentIds.Add(parentId);
             }
-            else
+        }
+
+        // 3. Chỉ thêm các node lưới điện (cấp 2) và root (cấp 1) cần thiết
+        if (requiredParentIds.Contains("tba-cao-ap") || requiredParentIds.Contains("tba-trung-ap"))
+        {
+            nodes.Add(new FolderCatalogNodeDto
             {
-                // Cấp 3 under dd-trung-ap
-                var lineNodeId = $"dd-trung-ap_{infra.Id}";
+                Id = "root-tba",
+                Name = "Trạm biến áp",
+                ParentId = null,
+                UnitId = unitId,
+                UnitCode = unitCode,
+                CreatedDate = DateTime.UtcNow
+            });
+
+            if (requiredParentIds.Contains("tba-cao-ap"))
+            {
                 nodes.Add(new FolderCatalogNodeDto
                 {
-                    Id = lineNodeId,
-                    Name = $"{infra.Name} ({infra.Code})",
-                    ParentId = "dd-trung-ap",
+                    Id = "tba-cao-ap",
+                    Name = "Lưới điện cao áp",
+                    ParentId = "root-tba",
                     UnitId = unitId,
                     UnitCode = unitCode,
                     CreatedDate = DateTime.UtcNow
                 });
+            }
 
-                // Cấp 4 (Lá) under this Power Line: các hồ sơ Trung áp của Đường dây này
-                var lineDossiers = dossiers.Where(d => string.Equals(d.InfrastructureId, infra.Id, StringComparison.OrdinalIgnoreCase) && (d.GridTypeId != 1 || d.GridTypeId == null));
-                foreach (var d in lineDossiers)
+            if (requiredParentIds.Contains("tba-trung-ap"))
+            {
+                nodes.Add(new FolderCatalogNodeDto
                 {
-                    var dossierName = GetDossierDisplayName(d.FormDataJson, d.DossierTypeName, d.DossierSetName ?? "", d.Id);
-                    nodes.Add(new FolderCatalogNodeDto
-                    {
-                        Id = $"dossier_{d.Id}",
-                        Name = dossierName,
-                        ParentId = lineNodeId,
-                        UnitId = unitId,
-                        UnitCode = unitCode,
-                        CreatedDate = DateTime.UtcNow
-                    });
-                }
+                    Id = "tba-trung-ap",
+                    Name = "Lưới điện trung áp",
+                    ParentId = "root-tba",
+                    UnitId = unitId,
+                    UnitCode = unitCode,
+                    CreatedDate = DateTime.UtcNow
+                });
+            }
+        }
+
+        if (requiredParentIds.Contains("dd-cao-ap") || requiredParentIds.Contains("dd-trung-ap"))
+        {
+            nodes.Add(new FolderCatalogNodeDto
+            {
+                Id = "root-dd",
+                Name = "Đường dây",
+                ParentId = null,
+                UnitId = unitId,
+                UnitCode = unitCode,
+                CreatedDate = DateTime.UtcNow
+            });
+
+            if (requiredParentIds.Contains("dd-cao-ap"))
+            {
+                nodes.Add(new FolderCatalogNodeDto
+                {
+                    Id = "dd-cao-ap",
+                    Name = "Lưới điện cao áp",
+                    ParentId = "root-dd",
+                    UnitId = unitId,
+                    UnitCode = unitCode,
+                    CreatedDate = DateTime.UtcNow
+                });
+            }
+
+            if (requiredParentIds.Contains("dd-trung-ap"))
+            {
+                nodes.Add(new FolderCatalogNodeDto
+                {
+                    Id = "dd-trung-ap",
+                    Name = "Lưới điện trung áp",
+                    ParentId = "root-dd",
+                    UnitId = unitId,
+                    UnitCode = unitCode,
+                    CreatedDate = DateTime.UtcNow
+                });
             }
         }
 

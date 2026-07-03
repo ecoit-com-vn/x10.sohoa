@@ -111,24 +111,45 @@ public class PermissionDiscoveryService : BackgroundService
             { "UploadConfigs", "Cấu hình tải lên" },
             { "Permissions", "Quản lý quyền hạt mịn" },
             { "Signatures", "Chữ ký số" },
-            { "Equipment", "Thiết bị" },
-            { "Catalog", "Danh mục đơn vị" },
-            { "EquipmentType", "Loại thiết bị" },
-            { "PhysicalStorage", "Kho lưu trữ vật lý" },
-            { "EavFormTemplate", "Mẫu thuộc tính EAV" },
+            { "Box", "Hộp hồ sơ" },
+            { "BorrowRecord", "Yêu cầu mượn trả hồ sơ" },
+            { "Catalog", "Danh mục chung" },
+            { "Dossier", "Hồ sơ thiết bị" },
+            { "DossierPublish", "Xuất bản hồ sơ" },
+            { "DossierByEquipment", "Tra cứu hồ sơ thiết bị" },
+            { "SearchDossiersByEquipment", "Tra cứu hồ sơ thiết bị" },
+            { "DossierCatalog", "Danh mục hồ sơ" },
+            { "DossierSet", "Bộ hồ sơ" },
             { "DossierType", "Loại hồ sơ" },
+            { "Document", "Văn bản tài liệu" },
             { "DocumentType", "Loại văn bản" },
-            { "Digitization", "Số hóa hồ sơ" },
-            { "DigitizationTask", "Nhiệm vụ số hóa" },
-            { "OcrTrainingData", "Dữ liệu huấn luyện AI" },
-            { "VirtualFolder", "Thư mục ảo" },
+            { "Digitization", "Hiệu đính số hóa OCR" },
+            { "DigitizationTask", "Nhiệm vụ số hóa OCR" },
+            { "Domain", "Lĩnh vực" },
             { "DynamicReport", "Báo cáo động" },
-            { "ReportGroup", "Nhóm báo cáo" },
-            { "Report", "Báo cáo" },
-            { "Workflow", "Quy trình làm việc" },
-            { "WorkflowDefinitions", "Thiết lập quy trình" },
+            { "EavFormTemplate", "Form" },
+            { "Equipment", "Thiết bị lưới điện" },
+            { "EquipmentType", "Loại thiết bị" },
+            { "Floor", "Tầng lưu trữ" },
+            { "FormTemplate", "Biểu mẫu" },
             { "Notifications", "Thông báo" },
-            { "Sync", "Đồng bộ dữ liệu" }
+            { "OcrTrainingData", "Dữ liệu huấn luyện AI OCR" },
+            { "PhysicalStatus", "Tình trạng vật lý" },
+            { "PhysicalStorage", "Kho lưu trữ vật lý" },
+            { "Position", "Chức vụ" },
+            { "PrivateCatalog", "Danh mục dùng riêng" },
+            { "Report", "Báo cáo" },
+            { "ReportGroup", "Nhóm báo cáo" },
+            { "SharedCatalog", "Danh mục dùng chung" },
+            { "Shelf", "Kệ lưu trữ" },
+            { "Substation", "Trạm biến áp" },
+            { "Sync", "Đồng bộ dữ liệu" },
+            { "TransmissionLine", "Đường dây truyền tải" },
+            { "VirtualFolder", "Thư mục ảo (Explorer)" },
+            { "Workflow", "Quy trình hồ sơ" },
+            { "WorkflowDefinitions", "Thiết lập quy trình" },
+            { "DossierWorkflow", "Phê duyệt hồ sơ"},
+
         };
 
         var friendlyActionNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
@@ -139,7 +160,8 @@ public class PermissionDiscoveryService : BackgroundService
             { "DELETE", "Xóa" },
             { "IMPORT", "Nhập tệp (Import)" },
             { "EXPORT", "Xuất tệp (Export)" },
-            { "MANAGE", "Quản lý chuyên sâu" }
+            { "MANAGE", "Quản lý chuyên sâu" },
+            { "RELEASE", "Xuất bản" },
         };
 
         // Group endpoints theo controller
@@ -168,7 +190,7 @@ public class PermissionDiscoveryService : BackgroundService
                 }
             }
 
-            string resourceBase = GetResourceBase(controllerKey);
+            string resourceBase = PermissionCodeResolver.GetResourceBase(controllerKey);
             string resourceFriendly = friendlyResourceNames.TryGetValue(controllerKey, out var val) ? val : controllerKey;
 
             // Thu thập các endpoints/actions hợp lệ
@@ -194,8 +216,8 @@ public class PermissionDiscoveryService : BackgroundService
                     }
                 }
 
-                string category = CategorizeAction(actionName, httpMethod);
-                string permissionCode = $"{resourceBase}_{category}";
+                string category = PermissionCodeResolver.CategorizeAction(controllerKey, actionName, httpMethod);
+                string permissionCode = PermissionCodeResolver.BuildPermissionCode(controllerKey, category, resourceBase);
 
                 actionsList.Add((actionName, httpMethod, category, permissionCode));
             }
@@ -211,8 +233,9 @@ public class PermissionDiscoveryService : BackgroundService
                 var permDto = new PermissionDto
                 {
                     Code = code,
-                    Name = $"{friendlyActionNames[category]} {resourceFriendly.ToLower()}",
-                    Description = $"Tự động sinh: Cho phép thực thi hành động '{friendlyActionNames[category].ToLower()}' trên tài nguyên '{resourceFriendly}'",
+                    Name = PermissionCodeResolver.GetFriendlyPermissionName(code)
+                           ?? $"{(friendlyActionNames.TryGetValue(category, out var actionLabel) ? actionLabel : category)} {resourceFriendly.ToLower()}",
+                    Description = $"Tự động sinh: Cho phép thực thi hành động '{(friendlyActionNames.TryGetValue(category, out var descLabel) ? descLabel : category).ToLower()}' trên tài nguyên '{resourceFriendly}'",
                     Details = codeGroup.Select(a => new PermissionDetailDto
                     {
                         ControllerName = controllerName,
@@ -225,93 +248,6 @@ public class PermissionDiscoveryService : BackgroundService
         }
 
         return result;
-    }
-
-    private string GetResourceBase(string controllerKey)
-    {
-        return controllerKey switch
-        {
-            "Menus" => "MENU",
-            "Users" => "USER",
-            "Roles" => "ROLE",
-            "Permissions" => "PERMISSION",
-            "OrganizationUnits" => "ORGANIZATION",
-            "UploadConfigs" => "UPLOAD_CONFIG",
-            "SystemParams" => "SYSTEM_PARAM",
-            "UserGroups" => "USER_GROUP",
-            "AuditLog" => "AUDIT_LOG",
-            "Signatures" => "SIGNATURE",
-            "WorkflowDefinitions" => "WORKFLOW_DEFINITION",
-            "DossierWorkflow" => "DOSSIER",
-            _ => ToSnakeCase(controllerKey)
-        };
-    }
-
-    private static string ToSnakeCase(string input)
-    {
-        if (string.IsNullOrEmpty(input)) return input;
-        var sb = new StringBuilder();
-        for (int i = 0; i < input.Length; i++)
-        {
-            char c = input[i];
-            if (i > 0 && char.IsUpper(c))
-            {
-                if (input[i - 1] != '_' && (!char.IsUpper(input[i - 1]) || (i + 1 < input.Length && char.IsLower(input[i + 1]))))
-                {
-                    sb.Append('_');
-                }
-            }
-            sb.Append(char.ToUpperInvariant(c));
-        }
-        return sb.ToString();
-    }
-
-    private string CategorizeAction(string actionName, string httpMethod)
-    {
-        string actLower = actionName.ToLowerInvariant();
-
-        // 0. MANAGE (Explicit management actions like assignment/grant/revoke)
-        if (actLower.Contains("assign") || actLower.Contains("grant") || actLower.Contains("revoke") || actLower.Contains("move") || actLower.Contains("lock") )
-        {
-            return "MANAGE";
-        }
-
-        if (actLower.Contains("import") || actLower.Contains("upload"))
-        {
-            return "IMPORT";
-        }
-
-        if (actLower.Contains("export") || actLower.Contains("download"))
-        {
-            return "EXPORT";
-        }
-
-        if (httpMethod.Equals("DELETE", StringComparison.OrdinalIgnoreCase) ||
-            actLower.StartsWith("delete") || actLower.StartsWith("remove") || actLower.StartsWith("destroy"))
-        {
-            return "DELETE";
-        }
-
-        if (httpMethod.Equals("PUT", StringComparison.OrdinalIgnoreCase) ||
-            httpMethod.Equals("PATCH", StringComparison.OrdinalIgnoreCase) ||
-            actLower.StartsWith("update") || actLower.StartsWith("edit") || actLower.StartsWith("save") || actLower.StartsWith("patch"))
-        {
-            return "EDIT";
-        }
-
-        if (httpMethod.Equals("POST", StringComparison.OrdinalIgnoreCase) ||
-            actLower.StartsWith("create") || actLower.StartsWith("add") || actLower.StartsWith("insert"))
-        {
-            return "CREATE";
-        }
-
-        if (httpMethod.Equals("GET", StringComparison.OrdinalIgnoreCase) ||
-            actLower.StartsWith("get") || actLower.StartsWith("find") || actLower.StartsWith("search") || actLower.StartsWith("load"))
-        {
-            return "VIEW";
-        }
-
-        return "MANAGE";
     }
 
     private async Task PublishPermissionsAsync(PermissionRegistrationMessage message)

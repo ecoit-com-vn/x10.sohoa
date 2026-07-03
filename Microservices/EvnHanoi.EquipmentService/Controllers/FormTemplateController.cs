@@ -25,7 +25,7 @@ public class FormTemplateController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<EavFormTemplate>>> GetAllActive()
     {
-        var templates = await _repository.GetAllActiveAsync("TEMPLATE");
+        var templates = await _repository.GetAllActiveAsync("TEMPLATE", null);
         return Ok(templates);
     }
 
@@ -37,6 +37,30 @@ public class FormTemplateController : ControllerBase
             return NotFound(new { Message = $"Không tìm thấy biểu mẫu với ID = {id}" });
 
         return Ok(template);
+    }
+
+    [HttpGet("by-equipment-type/{equipmentTypeId:guid}")]
+    public async Task<ActionResult<EavFormTemplate>> GetActiveTemplateByEquipmentType(Guid equipmentTypeId)
+    {
+        var templates = await _repository.GetAllActiveAsync("TEMPLATE", true);
+        var matched = templates
+            .Where(t => t.EquipmentTypeId == equipmentTypeId && t.Status == "Hoàn thành")
+            .OrderByDescending(t => t.Version)
+            .FirstOrDefault();
+
+        if (matched == null)
+        {
+            // fallback: nếu không tìm thấy template hoàn thành, lấy template hoạt động bất kì của equipment type này
+            matched = templates
+                .Where(t => t.EquipmentTypeId == equipmentTypeId)
+                .OrderByDescending(t => t.Version)
+                .FirstOrDefault();
+        }
+
+        if (matched == null)
+            return NotFound(new { Message = $"Không tìm thấy biểu mẫu hoạt động cho loại thiết bị này." });
+
+        return Ok(matched);
     }
 
     [HttpPost]
@@ -119,8 +143,55 @@ public class FormTemplateController : ControllerBase
         if (existing == null)
             return NotFound(new { Message = $"Không tìm thấy biểu mẫu với ID = {id}" });
 
+        if (!string.IsNullOrEmpty(existing.Code))
+        {
+            var versions = await _repository.GetVersionsByCodeAsync(existing.Code);
+            foreach (var version in versions)
+            {
+                version.IsDeleted = true;
+                await _repository.UpdateAsync(version);
+            }
+        }
+        else
+        {
+            existing.IsDeleted = true;
+            await _repository.UpdateAsync(existing);
+        }
+
+        return NoContent();
+    }
+
+    [HttpPost("{id:guid}/lock")]
+    public async Task<IActionResult> Lock(Guid id)
+    {
+        var existing = await _repository.GetByIdAsync(id);
+        if (existing == null)
+            return NotFound(new { Message = $"Không tìm thấy biểu mẫu với ID = {id}" });
+
         existing.IsActive = false;
         await _repository.UpdateAsync(existing);
-        return NoContent();
+        return Ok(new { Message = "Khóa biểu mẫu thành công." });
+    }
+
+    [HttpPost("{id:guid}/unlock")]
+    public async Task<IActionResult> Unlock(Guid id)
+    {
+        var existing = await _repository.GetByIdAsync(id);
+        if (existing == null)
+            return NotFound(new { Message = $"Không tìm thấy biểu mẫu với ID = {id}" });
+
+        existing.IsActive = true;
+        await _repository.UpdateAsync(existing);
+        return Ok(new { Message = "Mở khóa biểu mẫu thành công." });
+    }
+
+    [HttpGet("code/{code}/versions")]
+    public async Task<ActionResult<IEnumerable<EavFormTemplate>>> GetVersionsByCode(string code)
+    {
+        if (string.IsNullOrEmpty(code))
+            return BadRequest("Mã biểu mẫu không được để trống.");
+
+        var versions = await _repository.GetVersionsByCodeAsync(code);
+        return Ok(versions);
     }
 }

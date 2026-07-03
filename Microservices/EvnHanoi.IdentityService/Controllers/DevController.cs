@@ -300,7 +300,7 @@ public class DevController : ControllerBase
 
                 new { Id = 19, Name = "Hiệu đính OCR", Url = (string?)"/ocr-correction", Icon = "pi pi-check-square", ParentId = (int?)null, SortOrder = 6, IsActive = 1, PermissionCode = "DIGITIZATION_VIEW" },
                 
-                new { Id = 20, Name = "Tra cứu hồ sơ thiết bị", Url = (string?)"/search", Icon = "pi pi-search", ParentId = (int?)null, SortOrder = 7, IsActive = 1, PermissionCode = "EQUIPMENT_VIEW" },
+                new { Id = 20, Name = "Tra cứu hồ sơ thiết bị", Url = (string?)"/search/dossier-by-equipment", Icon = "pi pi-search", ParentId = (int?)null, SortOrder = 7, IsActive = 1, PermissionCode = "SEARCH_DOSSIERS_BY_EQUIPMENT_VIEW" },
 
                 new { Id = 21, Name = "Mượn trả hồ sơ", Url = (string?)null, Icon = "pi pi-envelope", ParentId = (int?)null, SortOrder = 8, IsActive = 1, PermissionCode = "EQUIPMENT_VIEW" },
                 new { Id = 22, Name = "Yêu cầu mượn trả", Url = (string?)"/workflow/borrow-return", Icon = "pi pi-send", ParentId = (int?)21, SortOrder = 1, IsActive = 1, PermissionCode = "EQUIPMENT_VIEW" },

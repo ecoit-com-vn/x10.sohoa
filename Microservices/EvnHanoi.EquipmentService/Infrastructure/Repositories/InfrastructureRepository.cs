@@ -31,6 +31,7 @@ public class InfrastructureRepository : IInfrastructureRepository
                             i.{nameof(Infrastructure.Address)},
                             i.INFRA_TYPE_ID as {nameof(Infrastructure.InfraTypeId)},
                             i.UNIT_ID as {nameof(Infrastructure.UnitId)},
+                            i.GRIDTYPEID as {nameof(Infrastructure.GridTypeId)},
                             i.IS_ACTIVE as {nameof(Infrastructure.IsActive)},
                             i.{nameof(Infrastructure.CreatedBy)},
                             i.{nameof(Infrastructure.CreatedDate)},
@@ -72,6 +73,7 @@ public class InfrastructureRepository : IInfrastructureRepository
                             i.{nameof(Infrastructure.Address)},
                             i.INFRA_TYPE_ID as {nameof(Infrastructure.InfraTypeId)},
                             i.UNIT_ID as {nameof(Infrastructure.UnitId)},
+                            i.GRIDTYPEID as {nameof(Infrastructure.GridTypeId)},
                             i.IS_ACTIVE as {nameof(Infrastructure.IsActive)},
                             i.{nameof(Infrastructure.CreatedBy)},
                             i.{nameof(Infrastructure.CreatedDate)},
@@ -107,15 +109,17 @@ public class InfrastructureRepository : IInfrastructureRepository
         int pageSize, 
         int infraTypeId, 
         string? keyword, 
-        int? status)
+        int? status,
+        IEnumerable<long>? unitIds = null,
+        long? unitId = null)
     {
         if (_connection.State != ConnectionState.Open) 
             _connection.Open();
 
         var sqlBase = $@"FROM INFRASTRUCTURE i
-                         LEFT JOIN INFRASTRUCTURE_TYPE it ON i.INFRA_TYPE_ID = it.ID
-                         LEFT JOIN ORGANIZATION_UNIT u ON i.UNIT_ID = u.Id
-                         WHERE i.{nameof(Infrastructure.IsDeleted)} = 0 AND i.INFRA_TYPE_ID = :InfraTypeId";
+                          LEFT JOIN INFRASTRUCTURE_TYPE it ON i.INFRA_TYPE_ID = it.ID
+                          LEFT JOIN ORGANIZATION_UNIT u ON i.UNIT_ID = u.Id
+                          WHERE i.{nameof(Infrastructure.IsDeleted)} = 0 AND i.INFRA_TYPE_ID = :InfraTypeId";
 
         var parameters = new DynamicParameters();
         parameters.Add("InfraTypeId", infraTypeId);
@@ -132,6 +136,17 @@ public class InfrastructureRepository : IInfrastructureRepository
             parameters.Add("Status", status.Value);
         }
 
+        if (unitId.HasValue && unitId.Value > 0)
+        {
+            sqlBase += $" AND i.UNIT_ID = :UnitId";
+            parameters.Add("UnitId", unitId.Value);
+        }
+        else if (unitIds != null && unitIds.Any())
+        {
+            sqlBase += $" AND i.UNIT_ID IN :UnitIds";
+            parameters.Add("UnitIds", unitIds);
+        }
+
         var countSql = $"SELECT COUNT(1) {sqlBase}";
         var totalCount = await _connection.ExecuteScalarAsync<int>(countSql, parameters);
 
@@ -141,6 +156,7 @@ public class InfrastructureRepository : IInfrastructureRepository
                                    i.{nameof(Infrastructure.Address)},
                                    i.INFRA_TYPE_ID as {nameof(Infrastructure.InfraTypeId)},
                                    i.UNIT_ID as {nameof(Infrastructure.UnitId)},
+                                   i.GRIDTYPEID as {nameof(Infrastructure.GridTypeId)},
                                    i.IS_ACTIVE as {nameof(Infrastructure.IsActive)},
                                    i.{nameof(Infrastructure.CreatedBy)},
                                    i.{nameof(Infrastructure.CreatedDate)},
@@ -191,12 +207,13 @@ public class InfrastructureRepository : IInfrastructureRepository
                         {nameof(Infrastructure.Address)},
                         INFRA_TYPE_ID,
                         UNIT_ID,
+                        GRIDTYPEID,
                         IS_ACTIVE,
                         {nameof(Infrastructure.CreatedBy)},
                         {nameof(Infrastructure.CreatedDate)},
                         {nameof(Infrastructure.IsDeleted)}
                     )
-                    VALUES (:Id, :Code, :Name, :Address, :InfraTypeId, :UnitId, :IsActive, :CreatedBy, :CreatedDate, :IsDeleted)";
+                    VALUES (:Id, :Code, :Name, :Address, :InfraTypeId, :UnitId, :GridTypeId, :IsActive, :CreatedBy, :CreatedDate, :IsDeleted)";
 
         var param = new
         {
@@ -206,6 +223,7 @@ public class InfrastructureRepository : IInfrastructureRepository
             infrastructure.Address,
             infrastructure.InfraTypeId,
             infrastructure.UnitId,
+            infrastructure.GridTypeId,
             IsActive = infrastructure.IsActive ? 1 : 0,
             infrastructure.CreatedBy,
             infrastructure.CreatedDate,
@@ -227,6 +245,7 @@ public class InfrastructureRepository : IInfrastructureRepository
                         {nameof(Infrastructure.Address)} = :Address,
                         INFRA_TYPE_ID = :InfraTypeId,
                         UNIT_ID = :UnitId,
+                        GRIDTYPEID = :GridTypeId,
                         IS_ACTIVE = :IsActive,
                         {nameof(Infrastructure.ModifiedBy)} = :ModifiedBy,
                         {nameof(Infrastructure.ModifiedDate)} = :ModifiedDate
@@ -240,6 +259,7 @@ public class InfrastructureRepository : IInfrastructureRepository
             infrastructure.Address,
             infrastructure.InfraTypeId,
             infrastructure.UnitId,
+            infrastructure.GridTypeId,
             IsActive = infrastructure.IsActive ? 1 : 0,
             infrastructure.ModifiedBy,
             infrastructure.ModifiedDate
