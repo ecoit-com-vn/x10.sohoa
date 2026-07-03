@@ -1,7 +1,23 @@
 import { Route } from '@angular/router';
-import { dossierEquipmentLookupGuard } from '@sohoa.frontend/shared/core';
+import { documentFulltextSearchGuard, dossierEquipmentLookupGuard } from '@sohoa.frontend/shared/core';
 
 export const SEARCH_ROUTES: Route[] = [
+  {
+    path: 'documents/:versionId',
+    loadComponent: () =>
+      import('./components/document-fulltext-detail/document-fulltext-detail.component').then(
+        m => m.DocumentFulltextDetailComponent
+      ),
+    canActivate: [documentFulltextSearchGuard]
+  },
+  {
+    path: 'documents',
+    loadComponent: () =>
+      import('./components/document-fulltext-search/document-fulltext-search.component').then(
+        m => m.DocumentFulltextSearchComponent
+      ),
+    canActivate: [documentFulltextSearchGuard]
+  },
   {
     path: 'equipment',
     loadComponent: () => import('./components/equipment-search/equipment-search.component').then(m => m.EquipmentSearchComponent)

@@ -353,7 +353,29 @@ export class DossierManagementService {
   }
 
   /**
-   * Lấy EAV form template theo formId để gen trường nhập liệu động.
+   * Lấy EAV form template theo ngữ cảnh hồ sơ (preview tài liệu / xem chi tiết).
+   * Không gọi api/v1/eav-form-templates — dùng endpoint gắn với hồ sơ, quyền DOSSIER_* / DOSSIER_PUBLISH_*.
+   */
+  getDossierFormTemplate(
+    dossierId: string,
+    formId?: string | null,
+    scope: 'default' | 'publish' | 'lookup' = 'default'
+  ): Observable<any> {
+    const url =
+      scope === 'publish'
+        ? `${this.config.apiGatewayUrl}/api/v1/dossier-publish/${dossierId}/form-template`
+        : scope === 'lookup'
+          ? `${this.config.apiGatewayUrl}/api/v1/dossiers-by-equipment/${dossierId}/form-template`
+          : `${this.base}/${dossierId}/form-template`;
+
+    let params = new HttpParams();
+    if (formId) params = params.set('formId', formId);
+
+    return this.http.get<any>(url, { params }).pipe(catchError(() => of(null)));
+  }
+
+  /**
+   * Lấy EAV form template theo formId — chỉ dùng khi tạo hồ sơ mới (chưa có dossierId).
    * Gọi endpoint /get-form (bypass DynamicPermission).
    */
   getFormTemplate(formId: string): Observable<any> {

@@ -127,7 +127,7 @@ export class DossierExtractionConfirmDialogComponent {
   }
 
   private loadFormTemplate(formId: string, merged: Record<string, unknown>): void {
-    this.dossierService.getFormTemplate(formId).subscribe({
+    this.dossierService.getDossierFormTemplate(this.dossierId, formId).subscribe({
       next: (template) => {
         const schemaJson = readFormSchemaJson(template);
         const parsedFields = parseFormSchemaFields(schemaJson);

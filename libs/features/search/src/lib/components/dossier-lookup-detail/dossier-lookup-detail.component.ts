@@ -64,6 +64,16 @@ export class DossierLookupDetailComponent {
         this.loadDetail(id);
       }
     });
+
+    this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((params) => {
+      const versionId = (params.get('documentVersionId') || '').trim();
+      if (versionId) {
+        void this.router.navigate(['/search/documents', versionId], {
+          replaceUrl: true,
+          queryParams: { keyword: params.get('keyword') || null }
+        });
+      }
+    });
   }
 
   loadDetail(id: string) {

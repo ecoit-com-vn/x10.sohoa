@@ -1,0 +1,133 @@
+<p-toast></p-toast>
+
+<div class="wf-page doc-search-page">
+  <div class="breadcrumb">
+    <i class="pi pi-home bc-icon"></i>
+    <span class="bc-text">Trang chủ</span>
+    <span class="bc-sep">/</span>
+    <span class="bc-current">Danh sách kết quả tìm kiếm</span>
+  </div>
+
+  <div class="doc-search-header">
+    <div>
+      <h2 class="doc-search-title">Danh sách kết quả tìm kiếm</h2>
+      <p class="doc-search-subtitle" *ngIf="activeKeyword(); else noKeyword">
+        Kết quả tra cứu tài liệu với từ khóa: <strong>{{ activeKeyword() }}</strong>
+      </p>
+      <ng-template #noKeyword>
+        <p class="doc-search-subtitle">Nhập từ khóa để tìm kiếm toàn văn trong nội dung tài liệu đã số hóa.</p>
+      </ng-template>
+    </div>
+    <button type="button" class="btn-outlined btn-small" disabled title="Sắp có ở bản cập nhật tiếp theo">
+      Tìm kiếm nâng cao
+    </button>
+  </div>
+
+  <div class="wf-card">
+    <div class="list-toolbar doc-search-toolbar">
+      <div class="toolbar-left">
+        <input
+          type="text"
+          class="wf-search-input doc-search-input"
+          placeholder="Nhập thông tin tên tài liệu, giấy phép, mã định danh..."
+          [ngModel]="keyword()"
+          (ngModelChange)="keyword.set($event)"
+          (keyup.enter)="onSearch()"
+        />
+        <button type="button" class="btn-tim" (click)="onSearch()">Tìm kiếm</button>
+      </div>
+      <div class="toolbar-right">
+        <label class="sort-label" for="docSort">Sắp xếp:</label>
+        <select
+          id="docSort"
+          class="wf-select page-size-sel"
+          [ngModel]="sort()"
+          (ngModelChange)="onSortChange($event)"
+        >
+          <option value="newest">Mới nhất</option>
+          <option value="oldest">Cũ nhất</option>
+          <option value="relevance" [disabled]="!activeKeyword()">Liên quan nhất</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="doc-search-summary" *ngIf="!loading()">
+      Tìm thấy <strong>{{ totalCount() }}</strong> kết quả phù hợp với từ khóa của bạn.
+    </div>
+
+    <div class="doc-search-loading" *ngIf="loading()">
+      <span class="skeleton-bar" style="width: 100%; height: 72px; margin-bottom: 12px;"></span>
+      <span class="skeleton-bar" style="width: 100%; height: 72px; margin-bottom: 12px;"></span>
+      <span class="skeleton-bar" style="width: 100%; height: 72px;"></span>
+    </div>
+
+    <div class="doc-result-list" *ngIf="!loading()">
+      <article class="doc-result-card" *ngFor="let item of items()">
+        <div class="doc-result-icon" aria-hidden="true">
+          <i class="pi pi-file-pdf"></i>
+        </div>
+
+        <div class="doc-result-body">
+          <button type="button" class="doc-result-title" (click)="openDetail(item)">
+            {{ item.documentName }}
+          </button>
+
+          <p class="doc-result-snippet" *ngIf="highlightHtml(item); else plainSnippet" [innerHTML]="highlightHtml(item)"></p>
+          <ng-template #plainSnippet>
+            <p class="doc-result-snippet">{{ snippetText(item) }}</p>
+          </ng-template>
+
+          <div class="doc-result-meta">
+            <span class="meta-tag" *ngIf="item.infrastructureName">
+              <i class="pi pi-map-marker"></i>{{ item.infrastructureName }}
+            </span>
+            <span class="meta-tag">
+              <i class="pi pi-cog"></i>{{ equipmentLabel(item) }}
+            </span>
+            <span class="meta-tag" *ngIf="item.documentTypeName">
+              <i class="pi pi-file"></i>{{ item.documentTypeName }}
+            </span>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          class="doc-result-download act-btn"
+          title="Tải xuống"
+          [disabled]="downloadingId() === item.documentVersionId"
+          (click)="download(item, $event)"
+        >
+          <i class="pi" [class.pi-spin]="downloadingId() === item.documentVersionId" [class.pi-spinner]="downloadingId() === item.documentVersionId" [class.pi-download]="downloadingId() !== item.documentVersionId"></i>
+        </button>
+      </article>
+
+      <div class="empty-row doc-search-empty" *ngIf="items().length === 0">
+        Không có tài liệu phù hợp. Thử từ khóa khác hoặc kiểm tra tài liệu đã qua OCR và thuộc hồ sơ đã xuất bản.
+      </div>
+    </div>
+
+    <div class="table-footer" *ngIf="!loading() && totalCount() > 0">
+      <span class="record-count">
+        Hiển thị {{ items().length }} trên tổng số <b>{{ totalCount() }}</b> bản ghi
+      </span>
+      <div class="pagination">
+        <button class="page-btn" [disabled]="currentPage() === 1" (click)="changePage(1)">
+          <i class="pi pi-angle-double-left"></i>
+        </button>
+        <button class="page-btn" [disabled]="currentPage() === 1" (click)="changePage(currentPage() - 1)">
+          <i class="pi pi-chevron-left"></i>
+        </button>
+        <span class="page-current">{{ currentPage() }}</span>
+        <button class="page-btn" [disabled]="currentPage() >= totalPages()" (click)="changePage(currentPage() + 1)">
+          <i class="pi pi-chevron-right"></i>
+        </button>
+        <button class="page-btn" [disabled]="currentPage() >= totalPages()" (click)="changePage(totalPages())">
+          <i class="pi pi-angle-double-right"></i>
+        </button>
+        <select class="page-size-sel" [ngModel]="pageSize()" (ngModelChange)="onPageSizeChange(+$event)">
+          <option *ngFor="let size of pageSizeOptions" [ngValue]="size">{{ size }}</option>
+        </select>
+      </div>
+    </div>
+  </div>
+</div>

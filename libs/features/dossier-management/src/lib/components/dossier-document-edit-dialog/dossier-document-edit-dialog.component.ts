@@ -84,6 +84,8 @@ export class DossierDocumentEditDialogComponent implements OnDestroy {
 
   @Input() lookupMode = false;
 
+  @Input() publishMode = false;
+
   @Input() hasExtractionResult = false;
 
   @Input() totalPagesHint = 0;
@@ -426,7 +428,13 @@ export class DossierDocumentEditDialogComponent implements OnDestroy {
 
 
 
-    this.dossierService.getFormTemplate(formId).subscribe({
+    this.dossierService
+      .getDossierFormTemplate(
+        this.dossierId,
+        formId,
+        this.lookupMode ? 'lookup' : this.publishMode ? 'publish' : 'default'
+      )
+      .subscribe({
 
       next: (template) => {
 

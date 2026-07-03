@@ -8,6 +8,7 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { RouterModule, Router, NavigationEnd } from '@angular/router';
 import { MenuItem } from 'primeng/api';
 import { filter, retry, timer } from 'rxjs';
@@ -18,7 +19,7 @@ import { LoadingComponent } from '../common/loading/loading.component';
 @Component({
   selector: 'app-admin-layout',
   standalone: true,
-  imports: [CommonModule, RouterModule, NotificationBellComponent, LoadingComponent],
+  imports: [CommonModule, FormsModule, RouterModule, NotificationBellComponent, LoadingComponent],
   templateUrl: './admin-layout.component.html',
   styleUrl: './admin-layout.component.scss',
 })
@@ -33,6 +34,8 @@ export class AdminLayout implements OnInit {
   username = 'Người dùng';
   isSidebarCollapsed = false;
   isMobileSidebarOpen = false;
+  headerSearchKeyword = '';
+  canUseHeaderSearch = false;
 
   /** Signal tránh NG0100 khi menu API trả về sau vòng CD đầu. */
   items = signal<MenuItem[]>([]);
@@ -51,6 +54,7 @@ export class AdminLayout implements OnInit {
     ).subscribe(() => {
       this.isMobileSidebarOpen = false;
       this.syncMenuExpandedState();
+      this.syncHeaderSearchFromRoute();
     });
 
     if (typeof window === 'undefined') {
@@ -77,6 +81,14 @@ export class AdminLayout implements OnInit {
       this.isDarkMode = false;
       document.documentElement.classList.remove('dark-mode');
     }
+
+    this.syncHeaderSearchFromRoute();
+    this.authService.ensurePermissionsLoaded().pipe(
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe(() => {
+      this.canUseHeaderSearch = this.authService.hasPermission('SUPER_ADMIN')
+        || this.authService.hasPermission('DOCUMENT_FULLTEXT_SEARCH_VIEW');
+    });
   }
 
   trackByMenuId(_index: number, item: MenuItem): string {
@@ -338,11 +350,43 @@ export class AdminLayout implements OnInit {
       }
     }
 
-    return rootItems;
+    return rootItems
+      .map((group) => ({
+        ...group,
+        items: group.items?.filter((sub) => !!sub.routerLink?.length),
+      }))
+      .filter((group) => !!group.routerLink?.length || (group.items?.length ?? 0) > 0);
   }
 
   logout() {
     this.authService.logout();
     this.router.navigate(['/login']);
+  }
+
+  onHeaderSearch() {
+    if (!this.canUseHeaderSearch) {
+      return;
+    }
+
+    const keyword = this.headerSearchKeyword.trim();
+    this.router.navigate(['/search/documents'], {
+      queryParams: { keyword: keyword || null }
+    });
+  }
+
+  private syncHeaderSearchFromRoute() {
+    const url = this.router.url || '';
+    if (!url.startsWith('/search/documents')) {
+      return;
+    }
+    const queryIndex = url.indexOf('?');
+    if (queryIndex < 0) {
+      return;
+    }
+    const params = new URLSearchParams(url.slice(queryIndex + 1));
+    const keyword = (params.get('keyword') || params.get('q') || '').trim();
+    if (keyword) {
+      this.headerSearchKeyword = keyword;
+    }
   }
 }

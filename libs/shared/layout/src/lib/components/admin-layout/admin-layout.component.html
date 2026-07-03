@@ -9,9 +9,15 @@
         <img src="/logo-white.svg" alt="EVNHANOI" class="header-logo" />
         <span class="header-divider">|</span>
         <h1 class="header-title">HỆ THỐNG SỐ HÓA HỒ SƠ KỸ THUẬT ĐƯỜNG DÂY VÀ TRẠM EVNHANOI</h1>
-        <div class="header-search-container">
+        <div class="header-search-container" *ngIf="canUseHeaderSearch">
           <i class="pi pi-search search-icon"></i>
-          <input type="text" placeholder="Tìm kiếm nhanh..." class="header-search-input" />
+          <input
+            type="text"
+            placeholder="Nhập thông tin tên tài liệu, giấy phép, mã định danh..."
+            class="header-search-input"
+            [(ngModel)]="headerSearchKeyword"
+            (keyup.enter)="onHeaderSearch()"
+          />
         </div>
       </div>
       <div class="header-right">
