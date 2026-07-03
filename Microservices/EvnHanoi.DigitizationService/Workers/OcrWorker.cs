@@ -43,6 +43,18 @@ namespace EvnHanoi.DigitizationService.Workers
     }
 
     /// <summary>
+    /// DTO parse kết quả sửa chính tả từ LLM: [{index, text}]
+    /// </summary>
+    public class CorrectedTextItem
+    {
+        [JsonPropertyName("index")]
+        public int Index { get; set; }
+
+        [JsonPropertyName("text")]
+        public string Text { get; set; } = "";
+    }
+
+    /// <summary>
     /// Worker tiêu thụ message từ RabbitMQ queue "ocr_task_queue".
     /// 
     /// Luồng xử lý:
@@ -60,6 +72,7 @@ namespace EvnHanoi.DigitizationService.Workers
         private readonly IConnection _connection;
         private IChannel? _channel;
         private readonly string _ocrVlServerUrl;
+        private readonly string _llmServerUrl;
 
         public OcrWorker(
             ILogger<OcrWorker> logger,
@@ -72,6 +85,7 @@ namespace EvnHanoi.DigitizationService.Workers
             _serviceProvider = serviceProvider;
             _connection = connection;
             _ocrVlServerUrl = _configuration["AIModelServers:OcrVlServerUrl"] ?? "http://ocr3.ecoit.asia";
+            _llmServerUrl = _configuration["AIModelServers:LlmServerUrl"] ?? "http://localhost:8080";
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -142,6 +156,10 @@ namespace EvnHanoi.DigitizationService.Workers
                             var httpClient = httpClientFactory.CreateClient("NoTimeout");
                             httpClient.Timeout = Timeout.InfiniteTimeSpan;
 
+                            var llmClient = httpClientFactory.CreateClient("LlmClient");
+                            llmClient.BaseAddress = new Uri(_llmServerUrl);
+                            llmClient.Timeout = TimeSpan.FromMinutes(5);
+
                             // Tạo PDF 2 lớp output
                             using var outPdfDoc = new PdfDocument();
                             // Brush gần trong suốt để text ẩn nhưng vẫn searchable
@@ -196,7 +214,115 @@ namespace EvnHanoi.DigitizationService.Workers
                                     _logger.LogWarning(ex, "Lỗi khi gọi ocr_vl_server cho trang {Page}.", i + 1);
                                 }
 
-                                // 4. Tạo trang PDF 2 lớp: ảnh gốc + text ẩn
+                                // 3b. Sửa chính tả từng box bằng LLM (trước khi vẽ PDF và sinh MD)
+                                if (ocrResults.Any())
+                                {
+                                    // Lọc các box hợp lệ để gửi cho LLM
+                                    var validBoxes = ocrResults
+                                        .Where(b => b.Box != null && b.Box.Count == 4 && !string.IsNullOrWhiteSpace(b.Text))
+                                        .ToList();
+
+                                    if (validBoxes.Any())
+                                    {
+                                        try
+                                        {
+                                            _logger.LogInformation("Đang gọi LLM sửa chính tả cho {Count} box text trang {Page}...", validBoxes.Count, i + 1);
+
+                                            // Chuẩn bị mảng JSON gửi cho LLM
+                                            var textsToCorrect = validBoxes
+                                                .Select((b, idx) => new { index = idx, text = b.Text })
+                                                .ToList();
+                                            string inputJson = JsonSerializer.Serialize(textsToCorrect);
+
+                                            var correctionPrompt = @"Bạn là chuyên gia hiệu đính văn bản tiếng Việt bị lỗi OCR trong lĩnh vực điện lực.
+
+NHIỆM VỤ: Nhận vào mảng JSON chứa các đoạn text bị lỗi OCR. Sửa chính tả từng đoạn và trả về mảng JSON CÙNG SỐ LƯỢNG phần tử, CÙNG THỨ TỰ index.
+
+CÁC LOẠI LỖI CẦN SỬA:
+A. LỖI DẤU THANH: KỶ→KỸ, SỰA→SỬA, LÓN→LỚN, TÀI→TẠI, MẮT→MẤT, LỤC→LỰC, PHƯƠNG ẢN→PHƯƠNG ÁN, NHỊM→NHIỆM
+B. LỖI MẤT DẤU PHỤ: son→sơn, gi→gỉ, QLDT→QLĐT, mất dấu mũ/móc/ngang
+C. LỖI NHẦM KÝ TỰ: nối→nói, dột→đột, Trưởng→Trường, SỎI→SỐI, CHÈM→CHÊM
+D. LỖI THỪA/THIẾU: UUY BAN→ỦY BAN
+E. LỖI ARTIFACTS: Loại bỏ LaTeX artifacts (\underline, \text{...})
+
+QUY TẮC:
+1. Sửa dựa trên NGỮ CẢNH. Ví dụ: 'thấm đột'→'thấm dột'; 'Trường phòng'→'Trưởng phòng'.
+2. GIỮ NGUYÊN số liệu, đơn vị, mã kỹ thuật (22/0,4kV, TBA, QLĐT, MBA).
+3. PHẢI trả về ĐÚNG số lượng phần tử và ĐÚNG thứ tự index.
+4. CHỈ trả về mảng JSON. Không thêm giải thích, không bọc trong markdown code block.";
+
+                                            var payload = new
+                                            {
+                                                messages = new[]
+                                                {
+                                                    new { role = "system", content = correctionPrompt },
+                                                    new { role = "user", content = inputJson }
+                                                },
+                                                temperature = 0.1,
+                                                max_tokens = 4000
+                                            };
+
+                                            var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+                                            var llmResponse = await llmClient.PostAsync("/v1/chat/completions", content, stoppingToken);
+
+                                            if (llmResponse.IsSuccessStatusCode)
+                                            {
+                                                var resultStr = await llmResponse.Content.ReadAsStringAsync(stoppingToken);
+                                                var jsonNode = System.Text.Json.Nodes.JsonNode.Parse(resultStr);
+                                                var llmOutput = jsonNode?["choices"]?[0]?["message"]?["content"]?.GetValue<string>();
+
+                                                if (!string.IsNullOrWhiteSpace(llmOutput))
+                                                {
+                                                    // Loại bỏ markdown code block nếu LLM tự thêm
+                                                    llmOutput = llmOutput.Trim();
+                                                    if (llmOutput.StartsWith("```json"))
+                                                    {
+                                                        llmOutput = llmOutput.Substring(7);
+                                                        if (llmOutput.EndsWith("```")) llmOutput = llmOutput.Substring(0, llmOutput.Length - 3);
+                                                    }
+                                                    else if (llmOutput.StartsWith("```"))
+                                                    {
+                                                        llmOutput = llmOutput.Substring(3);
+                                                        if (llmOutput.EndsWith("```")) llmOutput = llmOutput.Substring(0, llmOutput.Length - 3);
+                                                    }
+                                                    llmOutput = llmOutput.Trim();
+
+                                                    // Parse mảng JSON trả về
+                                                    var correctedItems = JsonSerializer.Deserialize<List<CorrectedTextItem>>(llmOutput,
+                                                        new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+                                                    if (correctedItems != null && correctedItems.Count == validBoxes.Count)
+                                                    {
+                                                        // Cập nhật text đã sửa ngược lại vào ocrResults
+                                                        for (int ci = 0; ci < correctedItems.Count; ci++)
+                                                        {
+                                                            if (!string.IsNullOrWhiteSpace(correctedItems[ci].Text))
+                                                            {
+                                                                validBoxes[ci].Text = correctedItems[ci].Text;
+                                                            }
+                                                        }
+                                                        _logger.LogInformation("Sửa chính tả {Count} box trang {Page} thành công.", correctedItems.Count, i + 1);
+                                                    }
+                                                    else
+                                                    {
+                                                        _logger.LogWarning("LLM trả về {ReturnCount} items nhưng cần {ExpectedCount}. Giữ nguyên text OCR gốc cho trang {Page}.",
+                                                            correctedItems?.Count ?? 0, validBoxes.Count, i + 1);
+                                                    }
+                                                }
+                                            }
+                                            else
+                                            {
+                                                _logger.LogWarning("LLM trả về status {StatusCode} khi sửa box trang {Page}. Sử dụng text OCR gốc.", llmResponse.StatusCode, i + 1);
+                                            }
+                                        }
+                                        catch (Exception ex)
+                                        {
+                                            _logger.LogError(ex, "Lỗi khi gọi LLM sửa chính tả box trang {Page}. Sử dụng text OCR gốc.", i + 1);
+                                        }
+                                    }
+                                }
+
+                                // 4. Tạo trang PDF 2 lớp: ảnh gốc + text ẩn (ĐÃ SỬA CHÍNH TẢ)
                                 PdfPage newPage = outPdfDoc.AddPage();
                                 using XGraphics gfx = XGraphics.FromPdfPage(newPage);
 
@@ -211,7 +337,7 @@ namespace EvnHanoi.DigitizationService.Workers
                                 newPage.Height = imgHeightPx * scale;
                                 gfx.DrawImage(xImage, 0, 0, newPage.Width, newPage.Height);
 
-                                // Vẽ text ẩn (invisible text layer) theo từng bounding box
+                                // Vẽ text ẩn (invisible text layer) — sử dụng text đã sửa chính tả
                                 foreach (var boxData in ocrResults)
                                 {
                                     if (boxData.Box == null || boxData.Box.Count != 4) continue;
@@ -233,7 +359,7 @@ namespace EvnHanoi.DigitizationService.Workers
                                     gfx.DrawString(boxData.Text, font, transparentBrush, rect, XStringFormats.TopLeft);
                                 }
 
-                                // Sinh Markdown cho page
+                                // 4b. Sinh Markdown cho page — sử dụng text đã sửa chính tả
                                 var mdLines = new List<string>();
                                 if (ocrResults.Any())
                                 {

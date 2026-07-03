@@ -8,6 +8,7 @@ using RabbitMQ.Client.Events;
 using System;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Net.Http;
@@ -86,7 +87,10 @@ namespace EvnHanoi.DigitizationService.Workers
                                 _logger.LogWarning("Bỏ qua lỗi DB khi update trạng thái: {Message}", ex.Message);
                             }
 
-                            // 2. Lấy danh sách nội dung Markdown từng trang từ MinIO
+                            // 2. Lấy danh sách nội dung text từng trang
+                            var pageTexts = new List<string>();
+
+                            // 2a. Thử tải file Markdown từ MinIO trước
                             string baseFilePath = taskMsg.FilePath;
                             if (baseFilePath.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
                             {
@@ -94,7 +98,6 @@ namespace EvnHanoi.DigitizationService.Workers
                             }
 
                             _logger.LogInformation("Tải các file Markdown với base {BaseFilePath} từ bucket {BucketName}", baseFilePath, taskMsg.BucketName);
-                            var pageTexts = new List<string>();
                             int pageNumToFetch = 1;
                             while (!stoppingToken.IsCancellationRequested)
                             {
@@ -107,15 +110,40 @@ namespace EvnHanoi.DigitizationService.Workers
                                     pageTexts.Add(text);
                                     pageNumToFetch++;
                                 }
+                                catch (Exception)
+                                {
+                                    _logger.LogInformation("Kết thúc tải file Markdown tại trang {Page}.", pageNumToFetch);
+                                    break;
+                                }
+                            }
+
+                            // 2b. Fix 3: Fallback — nếu không tìm thấy file .md, đọc PDF bằng PdfPig
+                            if (pageTexts.Count == 0)
+                            {
+                                _logger.LogWarning("Không tìm thấy file Markdown nào. Fallback: đọc text trực tiếp từ PDF bằng PdfPig.");
+                                try
+                                {
+                                    using var fileStream = await minioService.DownloadFileAsync(taskMsg.BucketName, taskMsg.FilePath);
+                                    using var msPdf = new MemoryStream();
+                                    await fileStream.CopyToAsync(msPdf, stoppingToken);
+                                    msPdf.Position = 0;
+
+                                    using var document = UglyToad.PdfPig.PdfDocument.Open(msPdf);
+                                    for (int p = 1; p <= document.NumberOfPages; p++)
+                                    {
+                                        var page = document.GetPage(p);
+                                        pageTexts.Add(page.Text ?? "");
+                                    }
+                                    _logger.LogInformation("Fallback PdfPig: đọc được {TotalPages} trang.", pageTexts.Count);
+                                }
                                 catch (Exception ex)
                                 {
-                                    _logger.LogInformation("Kết thúc tải file Markdown tại trang {Page}. Lỗi (thường là hết trang): {Error}", pageNumToFetch, ex.Message);
-                                    break; // Thoát khỏi vòng lặp khi không tìm thấy file
+                                    _logger.LogError(ex, "Lỗi fallback PdfPig khi đọc PDF {FilePath}.", taskMsg.FilePath);
                                 }
                             }
 
                             int totalPages = pageTexts.Count;
-                            _logger.LogInformation("Tổng cộng tìm thấy {TotalPages} file Markdown.", totalPages);
+                            _logger.LogInformation("Tổng cộng tìm thấy {TotalPages} trang text.", totalPages);
 
                             if (totalPages == 0)
                             {
@@ -189,7 +217,7 @@ CÁC TRƯỜNG CẦN TRÍCH XUẤT:
 
                                 if (string.IsNullOrWhiteSpace(pageText))
                                 {
-                                    _logger.LogInformation("Trang {Page} không có text.", pageNum);
+                                    _logger.LogInformation("Trang {Page} không có text. Bỏ qua.", pageNum);
                                     continue;
                                 }
 
@@ -199,7 +227,7 @@ CÁC TRƯỜNG CẦN TRÍCH XUẤT:
                                     await semaphore.WaitAsync(stoppingToken);
                                     try
                                     {
-                                        _logger.LogInformation("Đang gửi văn bản Markdown trang {Page}/{TotalPages} tới llm_server...", pageNum, totalPages);
+                                        _logger.LogInformation("Đang gửi văn bản trang {Page}/{TotalPages} tới llm_server...", pageNum, totalPages);
 
                                         string prompt = $"{systemPrompt}\n\nVĂN BẢN OCR:\n{pageText}";
 
@@ -217,7 +245,7 @@ CÁC TRƯỜNG CẦN TRÍCH XUẤT:
                                         var resultStr = await response.Content.ReadAsStringAsync(stoppingToken);
                                         sw.Stop();
 
-                                        var jsonNode = System.Text.Json.Nodes.JsonNode.Parse(resultStr);
+                                        var jsonNode = JsonNode.Parse(resultStr);
                                         var extractedJson = jsonNode?["choices"]?[0]?["message"]?["content"]?.GetValue<string>();
 
                                         try
@@ -235,7 +263,7 @@ CÁC TRƯỜNG CẦN TRÍCH XUẤT:
                                                     if (extractedJson.EndsWith("```")) extractedJson = extractedJson.Substring(0, extractedJson.Length - 3);
                                                 }
 
-                                                var parsedJson = System.Text.Json.Nodes.JsonNode.Parse(extractedJson.Trim());
+                                                var parsedJson = JsonNode.Parse(extractedJson.Trim());
                                                 _logger.LogInformation("[ĐO ĐẠC] Trang {Page} hoàn thành Trích xuất sau {ElapsedMs} ms.", pageNum, sw.ElapsedMilliseconds);
                                                 return new { page = pageNum, data = parsedJson };
                                             }
@@ -275,9 +303,55 @@ CÁC TRƯỜNG CẦN TRÍCH XUẤT:
                             var resultsArray = await Task.WhenAll(tasks);
                             finalResults = resultsArray.Where(r => r != null).OrderBy(r => ((dynamic)r).page).ToList();
 
+                            // Fix 1: Merge thông minh — gộp kết quả tất cả trang thành 1 JSON object
+                            // Ưu tiên giá trị non-null đầu tiên tìm thấy cho mỗi trường
+                            var mergedResult = new JsonObject();
+                            foreach (var result in finalResults)
+                            {
+                                try
+                                {
+                                    var dynamicResult = (dynamic)result;
+                                    // Chỉ merge các kết quả có property "data" (JsonNode)
+                                    var dataJson = JsonSerializer.Serialize(result);
+                                    var dataNode = JsonNode.Parse(dataJson);
+                                    var dataObj = dataNode?["data"];
+
+                                    if (dataObj is JsonObject pageData)
+                                    {
+                                        foreach (var kvp in pageData)
+                                        {
+                                            string fieldName = kvp.Key;
+                                            var fieldValue = kvp.Value;
+
+                                            // Chỉ ghi đè nếu trường chưa có giá trị hoặc giá trị hiện tại là null
+                                            if (!mergedResult.ContainsKey(fieldName))
+                                            {
+                                                // Clone giá trị để tránh lỗi "node already has a parent"
+                                                mergedResult[fieldName] = fieldValue != null ? JsonNode.Parse(fieldValue.ToJsonString()) : null;
+                                            }
+                                            else if (mergedResult[fieldName] == null && fieldValue != null)
+                                            {
+                                                mergedResult[fieldName] = JsonNode.Parse(fieldValue.ToJsonString());
+                                            }
+                                        }
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    _logger.LogWarning("Không thể merge kết quả trang: {Error}", ex.Message);
+                                }
+                            }
+
+                            _logger.LogInformation("Merge thông minh hoàn tất: {FieldCount} trường.", mergedResult.Count);
+
                             // 6. Lưu file JSON tổng hợp lên MinIO
-                            var finalJsonString = JsonSerializer.Serialize(finalResults, new JsonSerializerOptions { WriteIndented = true });
-                            //_logger.LogInformation("Kết quả trích xuất JSON cho {FileId}:\n{FinalJson}", taskMsg.FileId, finalJsonString);
+                            // Lưu cả kết quả per-page và kết quả merged
+                            var outputPayload = new
+                            {
+                                merged = mergedResult,
+                                pages = finalResults
+                            };
+                            var finalJsonString = JsonSerializer.Serialize(outputPayload, new JsonSerializerOptions { WriteIndented = true });
 
                             using var resultStream = new MemoryStream(Encoding.UTF8.GetBytes(finalJsonString));
                             string directory = Path.GetDirectoryName(taskMsg.FilePath)?.Replace("\\", "/") ?? string.Empty;
