@@ -26,6 +26,7 @@ interface FormField {
   dataSourceType?: 'manual' | 'catalog';
   catalogType?: string;
   description?: string;
+  selectAll?: boolean;
 }
 
 interface ToolboxItem {
@@ -62,6 +63,7 @@ export class FormBuilderComponent implements OnInit {
   templateId = signal<string | null>(null);
   isEditMode = signal<boolean>(false);
   loading = signal<boolean>(false);
+  activeTab = signal<'info' | 'builder'>('info');
 
   formName = signal<string>('');
   formCode = signal<string>('');
@@ -72,6 +74,15 @@ export class FormBuilderComponent implements OnInit {
   fields = signal<FormField[]>([]);
   selectedFieldIndex = signal<number | null>(null);
   showJson = signal<boolean>(false);
+  fieldSearchQuery = signal<string>('');
+
+  isFieldSearchMatched(field: FormField): boolean {
+    const query = this.fieldSearchQuery().trim().toLowerCase();
+    if (!query) return false;
+    return (field.label || '').toLowerCase().includes(query) || 
+           (field.name || '').toLowerCase().includes(query) || 
+           (field.type || '').toLowerCase().includes(query);
+  }
   gridTypes = signal<any[]>([]);
   selectedGridTypeId = signal<number | null>(null);
   equipmentTypeId = signal<string>('');
@@ -102,6 +113,7 @@ export class FormBuilderComponent implements OnInit {
     { type: 'number', label: 'Số liệu kỹ thuật (Number)', icon: 'pi-percentage' },
     { type: 'date', label: 'Ngày kiểm định (Date)', icon: 'pi-calendar' },
     { type: 'dropdown', label: 'Danh sách Lựa chọn (Dropdown)', icon: 'pi-chevron-down' },
+    { type: 'radio', label: 'Lựa chọn duy nhất (Radio)', icon: 'pi-circle-fill' },
     { type: 'textarea', label: 'Mô tả / Ghi chú (Textarea)', icon: 'pi-align-justify' },
     { type: 'checkbox', label: 'Hộp kiểm xác nhận (Checkbox)', icon: 'pi-check-square' }
   ];
@@ -115,6 +127,8 @@ export class FormBuilderComponent implements OnInit {
     this.loadGridTypes();
     this.loadEquipmentTypes();
     this.route.queryParams.subscribe(params => {
+      this.activeTab.set('info');
+      this.fieldSearchQuery.set('');
       if (params['id']) {
         const id = params['id'];
         this.templateId.set(id);
@@ -306,9 +320,10 @@ export class FormBuilderComponent implements OnInit {
       type,
       placeholder: '',
       required: false,
-      options: type === 'dropdown' ? [] : undefined,
+      options: (type === 'dropdown' || type === 'radio' || type === 'checkbox') ? [] : undefined,
       width: 100,
-      dataSourceType: 'manual'
+      dataSourceType: 'manual',
+      selectAll: false
     };
   }
 

@@ -47,7 +47,7 @@
 
           <select class="wf-select dropdown-filter" [ngModel]="selectedStatus()" (ngModelChange)="selectedStatus.set($event)">
             <option [ngValue]="null">-- Trạng thái --</option>
-            <option [ngValue]="true">Đang hoạt động</option>
+            <option [ngValue]="true">Hoạt động</option>
             <option [ngValue]="false">Ngưng hoạt động</option>
           </select>
           
@@ -61,6 +61,7 @@
         <table class="wf-table">
           <thead>
             <tr>
+              <th style="width: 60px; text-align: center;">STT</th>
               <th class="col-code-width">Mã biểu mẫu</th>
               <th>Tên biểu mẫu thuộc tính thiết bị</th>
               <th>Loại lưới điện</th>
@@ -74,13 +75,14 @@
           </thead>
           <tbody>
             <tr *ngIf="loading() && filteredForms().length === 0">
-              <td colspan="9" class="skeleton-row text-center padding-30">
+              <td colspan="10" class="skeleton-row text-center padding-30">
                 <i class="pi pi-spin pi-spinner mr-2 text-xl evn-spinner-color"></i>
                 <span>Đang tải danh sách biểu mẫu...</span>
               </td>
             </tr>
 
             <tr *ngFor="let form of paginatedForms(); let i = index">
+              <td style="text-align: center;">{{ first() + i + 1 }}</td>
               <td>{{ form.code }}</td>
               <td>{{ form.name }}</td>
               <td>
@@ -94,7 +96,7 @@
               <td>{{ form.createdAt | date:'dd/MM/yyyy HH:mm' }}</td>
               <td class="col-tt">
                 <span class="status-pill" [class.status-active]="form.isActive" [class.status-inactive]="!form.isActive">
-                  {{ form.isActive ? 'Đang hoạt động' : 'Ngưng hoạt động' }}
+                  {{ form.isActive ? 'Hoạt động' : 'Ngừng hoạt động' }}
                 </span>
               </td>
               <td class="col-hd">
@@ -108,20 +110,20 @@
                   <i class="pi pi-pencil"></i>
                 </button>
                 <button class="act-btn act-lock" *ngIf="form.isActive" (click)="lockForm(form)" title="Khóa biểu mẫu">
-                  <i class="pi pi-lock-open"></i>
+                  <i class="pi pi-lock"></i>
                 </button>
                 <button class="act-btn act-unlock" *ngIf="!form.isActive" (click)="unlockForm(form)"
                   title="Mở khóa biểu mẫu">
-                  <i class="pi pi-lock"></i>
+                  <i class="pi pi-lock-open"></i>
                 </button>
-                <button class="act-btn act-delete" *ngIf="form.isActive" (click)="deactivateForm(form)"
-                  title="Vô hiệu hóa">
+                <button class="act-btn act-delete" (click)="deactivateForm(form)"
+                  title="Xóa">
                   <i class="pi pi-trash"></i>
                 </button>
               </td>
             </tr>
             <tr *ngIf="filteredForms().length === 0 && !loading()">
-              <td colspan="9" class="empty-row">
+              <td colspan="10" class="empty-row">
                 <i class="pi pi-inbox"></i>
                 <div>Chưa có biểu mẫu động nào. Nhấp tạo biểu mẫu để thiết lập!</div>
               </td>
@@ -165,49 +167,36 @@
 
     <div class="wf-card" *ngIf="selectedTemplate() as template">
       <div class="detail-dialog-wrapper">
+        <h4 class="preview-title-header">Thông tin biểu mẫu</h4>
         <div class="metadata-grid">
           <div>
-            <label class="metadata-field-label">MÃ BIỂU MẪU</label>
-            <div class="metadata-field-value">{{ template.code }}</div>
+            <label>Mã biểu mẫu: {{ template.code }}</label>
           </div>
           <div>
-            <label class="metadata-field-label">TÊN BIỂU MẪU</label>
-            <div class="metadata-field-value">{{ template.name }}</div>
+            <label>Tên biểu mẫu: {{ template.name }}</label>
           </div>
           <div>
-            <label class="metadata-field-label">LOẠI LƯỚI ĐIỆN</label>
-            <div class="metadata-field-value">{{ template.gridTypeName || getGridTypeName(template.gridTypeId) }}</div>
+            <label>Loại lưới điện: {{ template.gridTypeName || getGridTypeName(template.gridTypeId) }}</label>
           </div>
           <div>
-            <label class="metadata-field-label">LOẠI THIẾT BỊ</label>
-            <div class="metadata-field-value">{{ getCategoryName(template.category) }}</div>
+            <label>Loại thiết bị: {{ getCategoryName(template.category) }}</label>
           </div>
           <div>
-            <label class="metadata-field-label">PHIÊN BẢN</label>
-            <div class="metadata-field-value">v{{ template.version }}.0</div>
+            <label>Phiên bản: v{{ template.version }}.0</label>
           </div>
           <div>
-            <label class="metadata-field-label">TRẠNG THÁI</label>
-            <div>
-              <span class="status-pill" [class.status-active]="template.isActive" [class.status-inactive]="!template.isActive">
-                {{ template.isActive ? 'Đang hoạt động' : 'Ngưng hoạt động' }}
-              </span>
-            </div>
+            <label>Trạng thái: {{ template.isActive ? 'Hoạt động' : 'Ngừng hoạt động' }}</label>
           </div>
           <div>
-            <label class="metadata-field-label">NGƯỜI TẠO</label>
-            <div class="metadata-field-value">{{ template.createdBy }}</div>
+            <label>Người tạo: {{ template.createdBy }}</label>
           </div>
           <div>
-            <label class="metadata-field-label">NGÀY CẬP NHẬT</label>
-            <div class="metadata-field-value">{{ template.createdAt | date:'dd/MM/yyyy HH:mm' }}</div>
+            <label>Ngày cập nhật: {{ template.createdAt | date:'dd/MM/yyyy HH:mm' }}</label>
           </div>
         </div>
-        <div class="metadata-desc-group">
-          <label class="metadata-field-label">MÔ TẢ</label>
-          <div class="metadata-desc-box">{{ template.description || 'Không có mô tả' }}</div>
+        <div>
+          <label>Mô tả: {{ template.description || '' }}</label>
         </div>
-
         <div class="mt-4">
           <h4 class="preview-title-header">Xem trước biểu mẫu nhập liệu</h4>
           <div class="preview-form-container" style="max-height: none; overflow-y: visible;">
@@ -269,25 +258,24 @@
     </div>
   </ng-container>
 
-  <!-- ==================== DIALOG XÁC NHẬN VÔ HIỆU HÓA ==================== -->
   <p-dialog [visible]="showConfirmDelete()" (visibleChange)="$event ? null : showConfirmDelete.set(false)"
-    header="Xác nhận vô hiệu hóa" [modal]="true" [style]="{ width: '420px' }" styleClass="evn-dialog-custom"
+    header="Xác nhận xóa" [modal]="true" [style]="{ width: '420px' }" styleClass="evn-dialog-custom"
     [closable]="true">
     <div class="confirm-dialog-content">
       <i class="pi pi-exclamation-triangle confirm-icon-delete"></i>
       <div>
-        <p class="confirm-title">Bạn có chắc chắn muốn vô hiệu hóa?</p>
+        <p class="confirm-title">Bạn có chắc chắn muốn xóa?</p>
         <p class="confirm-message">
-          Biểu mẫu <b class="text-highlight">{{ targetForm?.name }}</b> sẽ bị vô hiệu hóa trong hệ thống.
+          Biểu mẫu <b class="text-highlight">{{ targetForm?.name }}</b> sẽ bị xóa trong hệ thống.
         </p>
       </div>
     </div>
     <ng-template #footer>
-      <div class="dialog-footer-right gap-8">
+      <div class="dialog-footer-right gap-2">
         <button class="btn-cancel btn-small" (click)="showConfirmDelete.set(false)">
           <i class="pi pi-times"></i> Hủy
         </button>
-        <button class="btn-save btn-small btn-confirm-delete">
+        <button class="btn-save btn-small btn-confirm-delete" (click)="onConfirmDelete()">
           <i class="pi pi-check"></i> Xác nhận
         </button>
       </div>
@@ -299,20 +287,20 @@
     header="Xác nhận khóa biểu mẫu" [modal]="true" [style]="{ width: '420px' }" styleClass="evn-dialog-custom"
     [closable]="true">
     <div class="confirm-dialog-content">
-      <i class="pi pi-lock-open confirm-icon-lock"></i>
+      <i class="pi pi-lock-open confirm-icon confirm-icon-lock-open"></i>
       <div>
-        <p class="confirm-title">Bạn có chắc chắn muốn khóa?</p>
-        <p class="confirm-message">
-          Biểu mẫu <b class="text-highlight">{{ targetForm?.name }}</b> sẽ bị khóa không thể chỉnh sửa.
+        <p class="confirm-dialog-title">Bạn có chắc chắn muốn khóa?</p>
+        <p class="confirm-dialog-message">
+          Biểu mẫu <b class="confirm-target-name">{{ targetForm?.name }}</b> sẽ bị khóa không thể chỉnh sửa.
         </p>
       </div>
     </div>
     <ng-template #footer>
-      <div class="dialog-footer-right gap-8">
+      <div class="confirm-dialog-footer">
         <button class="btn-cancel btn-small" (click)="showConfirmLock.set(false)">
           <i class="pi pi-times"></i> Hủy
         </button>
-        <button class="btn-save btn-small btn-confirm-lock" (click)="onConfirmLock()">
+        <button class="btn-save btn-small" (click)="onConfirmLock()">
           <i class="pi pi-check"></i> Xác nhận
         </button>
       </div>
@@ -324,20 +312,20 @@
     header="Xác nhận mở khóa biểu mẫu" [modal]="true" [style]="{ width: '420px' }" styleClass="evn-dialog-custom"
     [closable]="true">
     <div class="confirm-dialog-content">
-      <i class="pi pi-lock confirm-icon-unlock"></i>
+      <i class="pi pi-lock confirm-icon confirm-icon-lock"></i>
       <div>
-        <p class="confirm-title">Bạn có chắc chắn muốn mở khóa?</p>
+        <p class="confirm-dialog-title">Bạn có chắc chắn muốn mở khóa?</p>
         <p class="confirm-message">
-          Biểu mẫu <b class="text-highlight">{{ targetForm?.name }}</b> sẽ được mở khóa để chỉnh sửa.
+          Biểu mẫu <b class="confirm-target-name">{{ targetForm?.name }}</b> sẽ được mở khóa để chỉnh sửa.
         </p>
       </div>
     </div>
     <ng-template #footer>
-      <div class="dialog-footer-right gap-8">
+      <div class="confirm-dialog-footer">
         <button class="btn-cancel btn-small" (click)="showConfirmUnlock.set(false)">
           <i class="pi pi-times"></i> Hủy
         </button>
-        <button class="btn-save btn-small btn-confirm-unlock" (click)="onConfirmUnlock()">
+        <button class="btn-save btn-small" (click)="onConfirmUnlock()">
           <i class="pi pi-check"></i> Xác nhận
         </button>
       </div>

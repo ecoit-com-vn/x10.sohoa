@@ -23,6 +23,13 @@
             placeholder="Tìm nhanh đơn vị..."
             [ngModel]="searchKeyword()"
             (ngModelChange)="searchKeyword.set($event)" />
+          
+          <select class="wf-select" [ngModel]="searchStatus()" (ngModelChange)="searchStatus.set($event)" style="min-width: 160px;">
+            <option value="">-- Tất cả trạng thái --</option>
+            <option value="active">Hoạt động</option>
+            <option value="inactive">Ngưng hoạt động</option>
+          </select>
+
           <button class="btn-tim" (click)="onSearch()">
             <i class="pi pi-search"></i> Tìm
           </button>
@@ -40,11 +47,11 @@
           <thead>
             <tr>
               <th style="width: 100px;">STT</th>
-              <th>Mã đơn vị (Code)</th>
-              <th>Cơ cấu Tổ chức / Phòng ban (Name)</th>
-              <th>Thuộc đơn vị cấp trên (Parent Unit)</th>
+              <th>Mã đơn vị</th>
+              <th>Cơ cấu Tổ chức / Phòng ban</th>
+              <th>Thuộc đơn vị cấp trên</th>
               <th>Mô tả</th>
-              <th>Trạng thái</th>
+              <th style="min-width: 130px; white-space: nowrap;">Trạng thái</th>
               <th class="col-hd">Thao tác</th>
             </tr>
           </thead>
@@ -73,13 +80,21 @@
                   </div>
                 </td>
                 <td>
-                  <span class="status-pill status-pending" *ngIf="unit.parentId" style="background-color: #f1f5f9; color: #0f172a; border-color: #cbd5e1;">
+                  <span *ngIf="unit.parentId">
                     {{ getUnitName(unit.parentId) }}
                   </span>
                 </td>
                 <td><span class="text-muted" style="font-size: 0.82rem;">{{ unit.description }}</span></td>
-                <td></td>
+                <td>
+                  <span class="status-pill"
+                    [class.status-active]="unit.isActive"
+                    [class.status-inactive]="!unit.isActive">
+                    {{ unit.isActive ? 'Hoạt động' : 'Ngưng hoạt động' }}
+                  </span>
+                </td>
                 <td class="col-hd">
+                  <button *ngIf="authService.hasPermission('ORGANIZATION_EDIT') && unit.isActive" class="act-btn act-lock" (click)="onToggleStatusRequest(unit)" title="Khóa đơn vị"><i class="pi pi-lock"></i></button>
+                  <button *ngIf="authService.hasPermission('ORGANIZATION_EDIT') && !unit.isActive" class="act-btn act-unlock" (click)="onToggleStatusRequest(unit)" title="Mở khóa đơn vị"><i class="pi pi-lock-open"></i></button>
                   <button *ngIf="authService.hasPermission('ORGANIZATION_EDIT')" class="act-btn act-edit" (click)="onEdit(unit)" title="Chỉnh sửa"><i class="pi pi-pencil"></i></button>
                   <button *ngIf="authService.hasPermission('ORGANIZATION_DELETE')" class="act-btn act-delete" (click)="onDelete(unit)" title="Xóa"><i class="pi pi-trash"></i></button>
                 </td>
@@ -125,6 +140,16 @@
         </div>
         
         <div class="form-group">
+          <label class="form-label">Mã định danh</label>
+          <input type="text" class="wf-input w-full" [(ngModel)]="currentUnit().identifier" placeholder="Ví dụ: MDD01, ORG_ID_02..." [disabled]="saving()" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Thứ tự sắp xếp</label>
+          <input type="number" class="wf-input w-full" [(ngModel)]="currentUnit().sortOrder" placeholder="Ví dụ: 1, 2, 3..." [disabled]="saving()" />
+        </div>
+
+        <div class="form-group">
           <label class="form-label">Mô tả chi tiết</label>
           <textarea class="wf-textarea w-full" rows="3" [(ngModel)]="currentUnit().description" placeholder="Ghi chú chi tiết phòng ban này..." [disabled]="saving()"></textarea>
         </div>
@@ -136,6 +161,45 @@
             <i class="pi pi-spin pi-spinner" *ngIf="saving()" style="margin-right: 4px;"></i>
             <i class="pi pi-save" *ngIf="!saving()" style="margin-right: 4px;"></i>
             Lưu
+          </button>
+        </div>
+      </ng-template>
+    </p-dialog>
+
+    <!-- Dialog Xác nhận Khóa/Mở khóa -->
+    <p-dialog 
+      [visible]="showLockUnlockConfirm()" 
+      (visibleChange)="$event ? null : onCancelLockUnlock()" 
+      [header]="lockUnlockTarget()?.isActive ? 'Xác nhận khóa' : 'Xác nhận mở khóa'" 
+      [modal]="true" 
+      [style]="{ width: '420px' }" 
+      styleClass="evn-dialog-custom"
+      [closable]="!lockUnlockLoading()">
+      <div style="padding: 8px 0 16px 0; display: flex; flex-direction: column; gap: 12px;">
+        <div style="display: flex; align-items: flex-start; gap: 12px;">
+          <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #f59e0b; margin-top: 2px; flex-shrink: 0;"></i>
+          <div>
+            <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b; font-size: 0.95rem;">
+              {{ lockUnlockTarget()?.isActive ? 'Bạn có chắc muốn khóa đơn vị này?' : 'Bạn có chắc muốn mở khóa đơn vị này?' }}
+            </p>
+            <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
+              Đơn vị <b style="color: #1e293b;">{{ lockUnlockTarget()?.name }}</b> sẽ được 
+              {{ lockUnlockTarget()?.isActive ? 'khóa và ngừng hoạt động' : 'mở khóa và hoạt động trở lại' }}.
+            </p>
+          </div>
+        </div>
+      </div>
+      <ng-template #footer>
+        <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+          <button class="btn-cancel btn-small" (click)="onCancelLockUnlock()" [disabled]="lockUnlockLoading()">
+            <i class="pi pi-times"></i> Hủy
+          </button>
+          <button class="btn-save btn-small" (click)="onConfirmLockUnlock()" [disabled]="lockUnlockLoading()"
+            [style.background-color]="lockUnlockTarget()?.isActive ? '#dc2626' : '#4790e9'"
+            [style.border-color]="lockUnlockTarget()?.isActive ? '#dc2626' : '#4790e9'">
+            <i class="pi pi-spin pi-spinner" *ngIf="lockUnlockLoading()" style="margin-right: 4px;"></i>
+            <i class="pi" [ngClass]="lockUnlockTarget()?.isActive ? 'pi-lock' : 'pi-lock-open'" *ngIf="!lockUnlockLoading()" style="margin-right: 4px;"></i>
+            {{ lockUnlockTarget()?.isActive ? 'Khóa' : 'Mở khóa' }}
           </button>
         </div>
       </ng-template>

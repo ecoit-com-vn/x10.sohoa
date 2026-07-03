@@ -68,7 +68,7 @@ export class DossierManagementService {
     infrastructureId?: string;
     gridTypeId?: number;
     unitId?: number;
-    status?: string;
+    statusId?: number;
     dossierTypeId?: string;
     page: number;
     pageSize: number;
@@ -84,7 +84,7 @@ export class DossierManagementService {
     if (filter.infrastructureId) params = params.set('infrastructureId', filter.infrastructureId);
     if (filter.gridTypeId != null) params = params.set('gridTypeId', filter.gridTypeId.toString());
     if (filter.unitId != null) params = params.set('unitId', filter.unitId.toString());
-    if (filter.status) params = params.set('status', filter.status);
+    if (filter.statusId != null) params = params.set('statusId', filter.statusId.toString());
     if (filter.dossierTypeId) params = params.set('dossierTypeId', filter.dossierTypeId);
 
     return this.http.get<any>(this.searchBase, { params });
@@ -151,6 +151,11 @@ export class DossierManagementService {
 
   getDossierById(id: string): Observable<any> {
     return this.http.get<any>(`${this.base}/${id}`);
+  }
+
+  /** Chi tiết hồ sơ đã xuất bản — màn tra cứu hồ sơ thiết bị */
+  getDossierByEquipmentLookup(id: string): Observable<any> {
+    return this.http.get<any>(`${this.config.apiGatewayUrl}/api/v1/dossiers-by-equipment/${id}`);
   }
 
   // ===== CRUD =====
@@ -335,5 +340,12 @@ export class DossierManagementService {
     return this.http.get<any>(
       `${this.config.apiGatewayUrl}/api/v1/eav-form-templates/${formId}/get-form`
     ).pipe(catchError(() => of(null)));
+  }
+
+  getDossiersByEquipment(equipmentId: string, page: number, pageSize: number): Observable<any> {
+    let params = new HttpParams()
+      .set('page', page.toString())
+      .set('pageSize', pageSize.toString());
+    return this.http.get<any>(`${this.base}/by-equipment/${equipmentId}`, { params });
   }
 }

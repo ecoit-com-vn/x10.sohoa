@@ -36,6 +36,7 @@
                 <table class="wf-table">
                     <thead>
                         <tr>
+                            <th style="width: 60px; text-align: center;">STT</th>
                             <th>Mã form</th>
                             <th>Tên form</th>
                             <th>Hạng mục áp dụng</th>
@@ -48,13 +49,14 @@
                     </thead>
                     <tbody>
                         <tr *ngIf="loading() && filteredForms().length === 0">
-                            <td colspan="8" class="skeleton-row">
+                            <td colspan="9" class="skeleton-row">
                                 <i class="pi pi-spin pi-spinner mr-2" style="font-size: 1.5rem; color: #002D72;"></i>
                                 <span>Đang tải danh sách form...</span>
                             </td>
                         </tr>
 
                         <tr *ngFor="let form of paginatedForms(); let i = index">
+                            <td style="text-align: center;">{{ first() + i + 1 }}</td>
                             <td>{{ form.code || '' }}</td>
                             <td>{{ form.name }}</td>
                             <td>
@@ -68,7 +70,7 @@
                             <td class="col-tt">
                                 <span class="status-pill" [class.status-approved]="!isFormLocked(form)"
                                     [class.status-locked]="isFormLocked(form)">
-                                    {{ isFormLocked(form) ? 'Khóa' : 'Hoàn thành' }}
+                                    {{ isFormLocked(form) ? 'Ngừng hoạt động' : 'Hoạt động' }}
                                 </span>
                             </td>
                             <td class="col-hd">
@@ -81,19 +83,19 @@
                                 </button>
                                 <button class="act-btn act-lock" *ngIf="!isFormLocked(form)" (click)="lockForm(form)"
                                     title="Khóa form">
-                                    <i class="pi pi-lock-open"></i>
-                                </button>
-                                <button class="act-btn act-unlock" *ngIf="isFormLocked(form)" (click)="unlockForm(form)"
-                                    title="Mở khóa form">
                                     <i class="pi pi-lock"></i>
                                 </button>
-                                <button class="act-btn act-delete" (click)="deactivateForm(form)" title="Vô hiệu hóa/Xóa">
+                                <button class="act-btn act-unlock" *ngIf="isFormLocked(form)" (click)="unlockForm(form)"
+                                    title="Mở khóa form">                                   
+                                    <i class="pi pi-lock-open"></i>
+                                </button>
+                                <button class="act-btn act-delete" (click)="deactivateForm(form)" title="Xóa">
                                     <i class="pi pi-trash"></i>
                                 </button>
                             </td>
                         </tr>
                         <tr *ngIf="filteredForms().length === 0 && !loading()">
-                            <td colspan="8" class="empty-row text-center padding-30">
+                            <td colspan="9" class="empty-row text-center padding-30">
                                 <i class="pi pi-inbox"></i>
                                 <div>Không có form hoàn thành nào được tìm thấy.</div>
                             </td>
@@ -136,38 +138,37 @@
 
         <div class="wf-card" *ngIf="selectedForm as template">
             <div class="detail-dialog-wrapper">
+                <h4 class="preview-title-header">Thông tin form</h4>
                 <div class="metadata-grid">
                     <div>
-                        <label class="metadata-field-label">MÃ FORM</label>
+                        <label class="metadata-field-label">Mã form: </label>
                         <div class="metadata-field-value">{{ template.code }}</div>
                     </div>
                     <div>
-                        <label class="metadata-field-label">TÊN FORM</label>
+                        <label class="metadata-field-label">Tên form: </label>
                         <div class="metadata-field-value">{{ template.name }}</div>
                     </div>
                     <div>
-                        <label class="metadata-field-label">PHIÊN BẢN</label>
+                        <label class="metadata-field-label">Phiên bản: </label>
                         <div class="metadata-field-value">v{{ template.version }}.0</div>
                     </div>
                     <div>
-                        <label class="metadata-field-label">TRẠNG THÁI</label>
-                        <div>
-                            <span class="status-pill" [class.status-active]="!isFormLocked(template)" [class.status-inactive]="isFormLocked(template)">
+                        <label class="metadata-field-label">Trạng thái: </label>
+                        <div class="metadata-field-value">
                                 {{ isFormLocked(template) ? 'Khóa' : 'Hoàn thành' }}
-                            </span>
                         </div>
                     </div>
                     <div>
-                        <label class="metadata-field-label">NGƯỜI TẠO</label>
+                        <label class="metadata-field-label">Người tạo: </label>
                         <div class="metadata-field-value">{{ template.createdBy }}</div>
                     </div>
                     <div>
-                        <label class="metadata-field-label">NGÀY TẠO</label>
+                        <label class="metadata-field-label">Ngày tạo: </label>
                         <div class="metadata-field-value">{{ template.createdAt | date:'dd/MM/yyyy HH:mm' }}</div>
                     </div>
                 </div>
                 <div class="metadata-desc-group">
-                    <label class="metadata-field-label">MÔ TẢ</label>
+                    <label class="metadata-field-label">Mô tả: </label>
                     <div class="metadata-desc-box">{{ template.description || 'Không có mô tả' }}</div>
                 </div>
 
@@ -209,10 +210,37 @@
                                     <textarea *ngIf="getFieldType(field) === 'textarea'" pTextarea class="preview-form-textarea"
                                               [placeholder]="field.placeholder || ''" rows="2" disabled></textarea>
 
+                                    <!-- Radio -->
+                                    <div *ngIf="getFieldType(field) === 'radio'" style="display: flex; flex-direction: column; gap: 6px; padding: 4px 0;">
+                                      <label *ngFor="let opt of (field.dataSourceType === 'catalog' ? ['(Dữ liệu từ danh mục ' + field.catalogType + ')'] : (field.options || []))" 
+                                             style="display: flex; align-items: center; gap: 8px; font-weight: normal; cursor: pointer;">
+                                        <input type="radio" disabled />
+                                        <span style="font-size: 0.9rem;">{{ opt }}</span>
+                                      </label>
+                                    </div>
+
                                     <!-- Checkbox -->
-                                    <div *ngIf="getFieldType(field) === 'checkbox'" class="preview-form-checkbox-container">
-                                        <input type="checkbox" disabled class="preview-form-checkbox-input" />
-                                        <span class="preview-form-checkbox-label">{{ field.placeholder || 'Đồng ý / Xác nhận' }}</span>
+                                    <div *ngIf="getFieldType(field) === 'checkbox'">
+                                      <!-- Case 1: Nhóm checkbox (nếu có options hoặc catalog) -->
+                                      <div *ngIf="field.dataSourceType === 'catalog' || (field.options && field.options.length > 0); else singleCheckboxView"
+                                           style="display: flex; flex-direction: column; gap: 6px; padding: 4px 0;">
+                                        <!-- "Chọn tất cả" preview -->
+                                        <label *ngIf="field.selectAll" style="display:flex; align-items:center; gap:8px; font-weight:600; cursor:not-allowed; opacity:0.8; border-bottom:1px dashed #cbd5e1; padding-bottom:4px; margin-bottom:4px; color:#002D72;">
+                                          <input type="checkbox" disabled /> <span style="font-size:0.9rem;">Chọn tất cả</span>
+                                        </label>
+                                        <label *ngFor="let opt of (field.dataSourceType === 'catalog' ? ['(Dữ liệu từ danh mục ' + field.catalogType + ')'] : (field.options || []))" 
+                                               style="display: flex; align-items: center; gap: 8px; font-weight: normal; cursor: pointer;">
+                                          <input type="checkbox" disabled />
+                                          <span style="font-size: 0.9rem;">{{ opt }}</span>
+                                        </label>
+                                      </div>
+                                      <!-- Case 2: Checkbox đơn -->
+                                      <ng-template #singleCheckboxView>
+                                        <div class="preview-form-checkbox-container">
+                                            <input type="checkbox" disabled class="preview-form-checkbox-input" />
+                                            <span class="preview-form-checkbox-label">{{ field.placeholder || field.label || 'Đồng ý / Xác nhận' }}</span>
+                                        </div>
+                                      </ng-template>
                                     </div>
                                 </div>
 
@@ -250,7 +278,7 @@
                 <button class="btn-small btn-cancel" (click)="showConfirmLock.set(false)">
                     <i class="pi pi-times"></i> Hủy
                 </button>
-                <button class="btn-small btn-confirm btn-confirm-lock" (click)="onConfirmLock()">
+                <button class="btn-small btn-save" (click)="onConfirmLock()">
                     <i class="pi pi-check"></i> Xác nhận
                 </button>
             </div>
@@ -272,26 +300,25 @@
         </div>
         <ng-template #footer>
             <div class="confirm-dialog-footer">
-                <button class="btn-small btn-cancel" (click)="showConfirmUnlock.set(false)">
+                <button class="btn-cancel btn-small" (click)="showConfirmUnlock.set(false)">
                     <i class="pi pi-times"></i> Hủy
                 </button>
-                <button class="btn-small btn-confirm btn-confirm-unlock" (click)="onConfirmUnlock()">
+                <button class="btn-save btn-small" (click)="onConfirmUnlock()">
                     <i class="pi pi-check"></i> Xác nhận
                 </button>
             </div>
         </ng-template>
     </p-dialog>
 
-    <!-- ==================== DIALOG XÁC NHẬN VÔ HIỆU HÓA/XÓA ==================== -->
     <p-dialog [visible]="showConfirmDelete()" (visibleChange)="$event ? null : showConfirmDelete.set(false)"
-        header="Xác nhận vô hiệu hóa form" [modal]="true" [style]="{ width: '420px' }" styleClass="evn-dialog-custom"
+        header="Xác nhận xóa form" [modal]="true" [style]="{ width: '420px' }" styleClass="evn-dialog-custom"
         [closable]="true">
         <div class="confirm-dialog-content">
             <i class="pi pi-exclamation-triangle confirm-icon-delete" style="font-size: 1.8rem; color: #ef4444;"></i>
             <div>
-                <p class="confirm-dialog-title" style="font-weight: 600; color: #1e293b;">Bạn có chắc chắn muốn vô hiệu hóa?</p>
+                <p class="confirm-dialog-title" style="font-weight: 600; color: #1e293b;">Bạn có chắc chắn xóa?</p>
                 <p class="confirm-dialog-message" style="color: #64748b; font-size: 0.875rem;">
-                    Form <b class="text-highlight" style="color: #1e293b;">{{ targetForm?.name }}</b> sẽ bị vô hiệu hóa trong hệ thống.
+                    Form <b class="text-highlight" style="color: #1e293b;">{{ targetForm?.name }}</b> sẽ xóa trong hệ thống.
                 </p>
             </div>
         </div>

@@ -403,12 +403,51 @@
                                 disabled>
                       </p-select>
 
+                      <!-- Preview Radio -->
+                      <div *ngIf="field.type === 'radio'" style="display: flex; flex-direction: column; gap: 6px; margin-top: 4px;">
+                        <div *ngIf="field.dataSourceType === 'catalog'" style="font-size:0.78rem; color:#64748b; font-style:italic;">
+                          (Lấy từ danh mục: {{ field.catalogType || 'chưa chọn' }})
+                        </div>
+                        <ng-container *ngIf="field.dataSourceType !== 'catalog'">
+                          <label *ngFor="let opt of (field.options || [])" style="display:flex; align-items:center; gap:6px; font-weight:normal; cursor:not-allowed; opacity:0.7;">
+                            <input type="radio" disabled /> <span style="font-size:0.85rem;">{{ opt }}</span>
+                          </label>
+                        </ng-container>
+                      </div>
+
+                      <!-- Preview Checkbox & Checkbox Group -->
+                      <ng-container *ngIf="field.type === 'checkbox' || field.type === 'checkboxGroup'">
+                        <!-- Case 1: Nhóm checkbox (nếu là checkboxGroup, hoặc checkbox có options hoặc là catalog) -->
+                        <div *ngIf="field.type === 'checkboxGroup' || field.dataSourceType === 'catalog' || (field.options && field.options.length > 0); else singleCheckboxPreview"
+                             style="display: flex; flex-direction: column; gap: 6px; margin-top: 4px;">
+                          
+                          <!-- "Chọn tất cả" preview -->
+                          <label *ngIf="field.selectAll" style="display:flex; align-items:center; gap:6px; font-weight:600; cursor:not-allowed; opacity:0.8; border-bottom:1px dashed #cbd5e1; padding-bottom:4px; margin-bottom:4px; color:#002D72;">
+                            <input type="checkbox" disabled /> <span style="font-size:0.85rem;">Chọn tất cả</span>
+                          </label>
+
+                          <div *ngIf="field.dataSourceType === 'catalog'" style="font-size:0.78rem; color:#64748b; font-style:italic;">
+                            (Lấy từ danh mục: {{ field.catalogType || 'chưa chọn' }})
+                          </div>
+                          
+                          <ng-container *ngIf="field.dataSourceType !== 'catalog'">
+                            <label *ngFor="let opt of (field.options || [])" style="display:flex; align-items:center; gap:6px; font-weight:normal; cursor:not-allowed; opacity:0.7;">
+                              <input type="checkbox" disabled /> <span style="font-size:0.85rem;">{{ opt }}</span>
+                            </label>
+                          </ng-container>
+                        </div>
+
+                        <!-- Case 2: Checkbox đơn -->
+                        <ng-template #singleCheckboxPreview>
+                          <div class="flex items-center gap-2 py-1" style="display: flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" disabled />
+                            <span class="text-sm">{{ field.placeholder || 'Đồng ý / Xác nhận' }}</span>
+                          </div>
+                        </ng-template>
+                      </ng-container>
+
                       <textarea *ngIf="field.type === 'textarea'" class="wf-input w-full preview-input" rows="2" [placeholder]="field.placeholder || ''" disabled></textarea>
 
-                      <div *ngIf="field.type === 'checkbox'" class="flex items-center gap-2 py-1" style="display: flex; align-items: center; gap: 8px;">
-                        <input type="checkbox" disabled />
-                        <span class="text-sm">{{ field.placeholder || 'Đồng ý / Xác nhận' }}</span>
-                      </div>
                     </div>
 
                   </div>
@@ -471,8 +510,15 @@
                   <label for="prop-required" class="font-bold text-sm cursor-pointer select-none" style="font-size: 0.85rem; font-weight: 600;">Bắt buộc nhập (Required)</label>
                 </div>
 
-                <!-- Data Source Selector for Dropdown -->
-                <div *ngIf="fields()[selectedFieldIndex()!].type === 'dropdown'" class="field" style="margin-top: 10px; display:flex; flex-direction:column; gap:4px;">
+                <!-- Chọn tất cả (Select All) cho Checkbox Group -->
+                <div *ngIf="(fields()[selectedFieldIndex()!].type === 'checkbox' || fields()[selectedFieldIndex()!].type === 'checkboxGroup') && (fields()[selectedFieldIndex()!].dataSourceType === 'catalog' || (fields()[selectedFieldIndex()!].options && fields()[selectedFieldIndex()!].options.length > 0))" 
+                     class="field" style="display: flex; align-items: center; gap: 8px; margin-top: 10px;">
+                  <input type="checkbox" [checked]="fields()[selectedFieldIndex()!].selectAll" (change)="updateSelectedField('selectAll', $any($event.target).checked)" id="prop-selectall" style="scale: 1.1; cursor: pointer;" />
+                  <label for="prop-selectall" class="font-bold text-sm cursor-pointer select-none" style="font-size: 0.85rem; font-weight: 600; color: #002D72;">Cho phép Chọn tất cả (Select All)</label>
+                </div>
+
+                <!-- Data Source Selector for Dropdown, Radio, Checkbox, CheckboxGroup -->
+                <div *ngIf="fields()[selectedFieldIndex()!].type === 'dropdown' || fields()[selectedFieldIndex()!].type === 'radio' || fields()[selectedFieldIndex()!].type === 'checkbox' || fields()[selectedFieldIndex()!].type === 'checkboxGroup'" class="field" style="margin-top: 10px; display:flex; flex-direction:column; gap:4px;">
                   <label class="block font-bold text-xs text-muted mb-1" style="font-size:0.75rem; font-weight:600; color:#64748b;">Nguồn dữ liệu (Data Source)</label>
                   <p-select [options]="[{label: 'Tự nhập thủ công (Manual)', value: 'manual'}, {label: 'Danh mục hệ thống (Catalog)', value: 'catalog'}]" 
                             [ngModel]="fields()[selectedFieldIndex()!].dataSourceType || 'manual'" 
@@ -485,8 +531,8 @@
                   </p-select>
                 </div>
 
-                <!-- Options builder for Dropdown -->
-                <div *ngIf="fields()[selectedFieldIndex()!].type === 'dropdown' && fields()[selectedFieldIndex()!].dataSourceType !== 'catalog'" class="dropdown-options-builder" style="margin-top: 10px;">
+                <!-- Options builder for Dropdown, Radio, Checkbox, CheckboxGroup (khi manual) -->
+                <div *ngIf="(fields()[selectedFieldIndex()!].type === 'dropdown' || fields()[selectedFieldIndex()!].type === 'radio' || fields()[selectedFieldIndex()!].type === 'checkbox' || fields()[selectedFieldIndex()!].type === 'checkboxGroup') && fields()[selectedFieldIndex()!].dataSourceType !== 'catalog'" class="dropdown-options-builder" style="margin-top: 10px;">
                   <div class="property-section-title" style="display: flex; justify-content: space-between; align-items: center; margin-bottom:8px;">
                     <span>Các lựa chọn</span>
                     <button class="btn-outlined btn-small" style="padding: 2px 8px; font-size: 0.75rem;" (click)="addOption()"><i class="pi pi-plus"></i> Thêm</button>
@@ -500,8 +546,8 @@
                   </div>
                 </div>
 
-                <!-- Catalog Selector -->
-                <div *ngIf="fields()[selectedFieldIndex()!].type === 'dropdown' && fields()[selectedFieldIndex()!].dataSourceType === 'catalog'" class="field" style="margin-top: 10px; display:flex; flex-direction:column; gap:4px;">
+                <!-- Catalog Selector for Dropdown, Radio, Checkbox, CheckboxGroup -->
+                <div *ngIf="(fields()[selectedFieldIndex()!].type === 'dropdown' || fields()[selectedFieldIndex()!].type === 'radio' || fields()[selectedFieldIndex()!].type === 'checkbox' || fields()[selectedFieldIndex()!].type === 'checkboxGroup') && fields()[selectedFieldIndex()!].dataSourceType === 'catalog'" class="field" style="margin-top: 10px; display:flex; flex-direction:column; gap:4px;">
                   <label class="block font-bold text-xs text-muted mb-1" style="font-size:0.75rem; font-weight:600; color:#64748b;">Chọn danh mục hệ thống</label>
                   <p-select [options]="catalogTypes()" 
                             [ngModel]="fields()[selectedFieldIndex()!].catalogType" 
@@ -517,9 +563,7 @@
               </div>
             </div>
           </div>
-
         </div>
-
       </div>
     </div>
   </div>

@@ -9,7 +9,6 @@ import {
   inject,
   signal,
   computed,
-  effect,
   ViewChild,
   ElementRef,
   HostListener,
@@ -164,17 +163,12 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, AfterVie
   isReExtracting = isReExtracting;
   isRetryingDigitization = isRetryingDigitization;
 
-  constructor() {
-    effect(() => {
-      const id = this.dossierId;
-      if (id) {
-        this.loadDocuments();
-        void this.switchDossierSignalRGroup(id);
-      }
-    });
-  }
-
   ngOnInit(): void {
+    if (this.dossierId) {
+      this.loadDocuments();
+      void this.switchDossierSignalRGroup(this.dossierId);
+    }
+
     this.search$
       .pipe(debounceTime(300), distinctUntilChanged(), takeUntil(this.destroy$))
       .subscribe(() => {
@@ -183,7 +177,9 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, AfterVie
       });
 
     this.setupDigitizationSignalR();
-    this.signalRService.startConnection();
+    void this.signalRService.ensureConnection().catch(() => {
+      // fallback polling sẽ cập nhật tiến trình OCR
+    });
 
     interval(5000)
       .pipe(

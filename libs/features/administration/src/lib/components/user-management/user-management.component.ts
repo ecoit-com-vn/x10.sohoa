@@ -20,6 +20,8 @@ import { buildMenuPermissionTree as buildMenuPermissionTreeFromLookup } from '..
 export class UserManagement implements OnInit {
   users = signal<any[]>([]);
   searchKeyword = signal<string>('');
+  searchUnitId = signal<number | null>(null);
+  searchStatus = signal<string>(''); // '' (All), 'active' (Hoạt động), 'inactive' (Ngưng hoạt động)
   totalCount = signal<number>(0);
 
   currentView = signal<'list' | 'add' | 'edit' | 'unit-role' | 'permission' | 'role'>('list');
@@ -98,6 +100,11 @@ export class UserManagement implements OnInit {
   showDeleteConfirm = signal<boolean>(false);
   deleteTarget = signal<any>(null);
   deleting = signal<boolean>(false);
+
+  // Lock/Unlock Confirmation
+  showLockUnlockConfirm = signal<boolean>(false);
+  lockUnlockTarget = signal<any>(null);
+  lockUnlockLoading = signal<boolean>(false);
   
   unitRoleDialogHeader = signal<string>('');
   activeUserForUnitRole = signal<any>(null);
@@ -125,14 +132,18 @@ export class UserManagement implements OnInit {
 
   constructor() {
     effect(() => {
-      const kw = this.searchKeyword();
+      this.searchKeyword();
+      this.searchUnitId();
+      this.searchStatus();
       this.currentPage.set(1);
     }, { allowSignalWrites: true });
 
     effect(() => {
       const page = this.currentPage();
       const size = this.pageSize();
-      const kw = this.searchKeyword();
+      this.searchKeyword();
+      this.searchUnitId();
+      this.searchStatus();
       this.loadUsers();
     }, { allowSignalWrites: true });
 
@@ -207,7 +218,16 @@ export class UserManagement implements OnInit {
 
   loadUsers() {
     this.loading.set(true);
-    this.userService.getUsers(this.currentPage(), this.pageSize(), this.searchKeyword())
+    const statusVal = this.searchStatus();
+    const isActiveParam = statusVal === 'active' ? true : (statusVal === 'inactive' ? false : null);
+    
+    this.userService.getUsers(
+      this.currentPage(),
+      this.pageSize(),
+      this.searchKeyword(),
+      this.searchUnitId(),
+      isActiveParam
+    )
       .pipe(
         finalize(() => {
           this.loading.set(false);
@@ -373,6 +393,49 @@ export class UserManagement implements OnInit {
     this.serverErrors.set({});
     this.dialogHeader.set('Thêm mới tài khoản');
     this.currentView.set('add');
+  }
+
+  onSearchUnitChange(val: any) {
+    this.searchUnitId.set(val && val !== 'null' ? Number(val) : null);
+  }
+
+  onToggleStatusRequest(user: any) {
+    this.lockUnlockTarget.set(user);
+    this.showLockUnlockConfirm.set(true);
+  }
+
+  onCancelLockUnlock() {
+    this.showLockUnlockConfirm.set(false);
+    this.lockUnlockTarget.set(null);
+  }
+
+  onConfirmLockUnlock() {
+    const user = this.lockUnlockTarget();
+    if (!user) return;
+    if (!this.authService.hasPermission('USER_EDIT')) {
+      this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền thay đổi trạng thái người dùng.' });
+      return;
+    }
+    const updated = { ...user, isActive: !user.isActive };
+    this.lockUnlockLoading.set(true);
+    this.userService.updateUser(user.id, updated).subscribe({
+      next: () => {
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Thành công',
+          detail: `${user.isActive ? 'Khóa' : 'Mở khóa'} tài khoản thành công!`
+        });
+        this.showLockUnlockConfirm.set(false);
+        this.lockUnlockTarget.set(null);
+        this.lockUnlockLoading.set(false);
+        this.loadUsers();
+      },
+      error: (err) => {
+        this.lockUnlockLoading.set(false);
+        const detailMsg = err?.error?.message || err?.message || `Không thể ${user.isActive ? 'khóa' : 'mở khóa'} tài khoản.`;
+        this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: detailMsg });
+      }
+    });
   }
 
   onEdit(user: any) {

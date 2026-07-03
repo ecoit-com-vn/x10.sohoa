@@ -14,6 +14,7 @@ export interface EavFormTemplate {
   formSchema: string; // JSON schema stringified
   version: number;
   isActive: boolean;
+  isDeleted?: boolean;
   isLocked?: boolean;
   createdAt: string;
   createdBy: string;
@@ -134,5 +135,9 @@ export class FormTemplateService {
 
   getTemplateVersions(code: string): Observable<EavFormTemplate[]> {
     return this.api.get<EavFormTemplate[]>(`${this.apiUrl}/code/${code}/versions`);
+  }
+
+  getActiveTemplateByEquipmentType(equipmentTypeId: string): Observable<EavFormTemplate> {
+    return this.api.get<EavFormTemplate>(`${this.apiUrl}/by-equipment-type/${equipmentTypeId}`);
   }
 }

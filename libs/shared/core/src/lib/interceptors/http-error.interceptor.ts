@@ -47,7 +47,7 @@ export const httpErrorInterceptor: HttpInterceptorFn = (req, next) => {
             });
             break;
           case 401:
-            if (!isAuthEndpoint(req.url)) {
+            if (!isAuthEndpoint(req.url) && !req.url.includes('/auth/permissions')) {
               if (typeof window !== 'undefined') {
                 localStorage.removeItem('token');
                 localStorage.removeItem('refreshToken');

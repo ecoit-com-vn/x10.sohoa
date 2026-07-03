@@ -66,7 +66,7 @@
                 class="act-btn" 
                 [ngClass]="type.status === 1 ? 'act-delete' : 'act-edit'"
                 [title]="type.status === 1 ? 'Ngừng hoạt động' : 'Kích hoạt'" 
-                (click)="onToggleTypeStatus(type)"
+                (click)="onToggleTypeStatusRequest(type)"
                 style="width: 26px; height: 26px; font-size: 0.75rem;">
                 <i class="pi" [ngClass]="type.status === 1 ? 'pi-lock' : 'pi-lock-open'"></i>
               </button>
@@ -182,7 +182,7 @@
                       class="act-btn" 
                       [ngClass]="item.status === 1 ? 'act-delete' : 'act-edit'"
                       [title]="item.status === 1 ? 'Ngừng hoạt động' : 'Kích hoạt'" 
-                      (click)="onToggleCatalogStatus(item)">
+                      (click)="onToggleCatalogStatusRequest(item)">
                       <i class="pi" [ngClass]="item.status === 1 ? 'pi-lock' : 'pi-lock-open'"></i>
                     </button>
 
@@ -423,6 +423,83 @@
           <i class="pi pi-spin pi-spinner" *ngIf="catalogDeleting()"></i>
           <i class="pi pi-trash" *ngIf="!catalogDeleting()"></i>
           Xóa
+        </button>
+      </div>
+    </ng-template>
+  </p-dialog>
+
+  <!-- Dialog Xác nhận Khóa / Mở khóa Loạt Danh mục -->
+  <p-dialog
+    [visible]="showTypeLockConfirm()"
+    (visibleChange)="$event ? null : onCancelTypeLock()"
+    [header]="typeLockTarget()?.status === 1 ? 'Xác nhận khóa' : 'Xác nhận mở khóa'"
+    [modal]="true"
+    [style]="{ width: '420px' }"
+    styleClass="evn-dialog-custom"
+    [closable]="!typeLockLoading()">
+    <div style="display: flex; align-items: flex-start; gap: 12px; padding: 8px 0 16px;">
+      <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #f59e0b;"></i>
+      <div>
+        <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">
+          {{ typeLockTarget()?.status === 1 ? 'Bạn có chắc chắn muốn khóa?' : 'Bạn có chắc chắn muốn mở khóa?' }}
+        </p>
+        <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
+          Loại danh mục <b style="color: #1e293b;">{{ typeLockTarget()?.name }}</b> sẽ được
+          {{ typeLockTarget()?.status === 1 ? 'ngừng hoạt động' : 'kích hoạt trở lại' }}.
+        </p>
+      </div>
+    </div>
+    <ng-template #footer>
+      <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+        <button class="btn-cancel btn-small" (click)="onCancelTypeLock()" [disabled]="typeLockLoading()">
+          <i class="pi pi-times"></i> Hủy
+        </button>
+        <button class="btn-save btn-small" (click)="onConfirmTypeLock()" [disabled]="typeLockLoading()"
+                [style.background-color]="typeLockTarget()?.status === 1 ? '#dc2626' : '#4790e9'"
+                [style.border-color]="typeLockTarget()?.status === 1 ? '#dc2626' : '#4790e9'">
+          <i class="pi pi-spin pi-spinner" *ngIf="typeLockLoading()"></i>
+          <i class="pi" *ngIf="!typeLockLoading()"
+             [ngClass]="typeLockTarget()?.status === 1 ? 'pi-lock' : 'pi-lock-open'"></i>
+          {{ typeLockTarget()?.status === 1 ? 'Khóa' : 'Mở khóa' }}
+        </button>
+      </div>
+    </ng-template>
+  </p-dialog>
+
+  <!-- Dialog Xác nhận Khóa / Mở khóa Danh mục -->
+  <p-dialog
+    [visible]="showCatalogLockConfirm()"
+    (visibleChange)="$event ? null : onCancelCatalogLock()"
+    [header]="catalogLockTarget()?.status === 1 ? 'Xác nhận khóa' : 'Xác nhận mở khóa'"
+    [modal]="true"
+    [style]="{ width: '420px' }"
+    styleClass="evn-dialog-custom"
+    [closable]="!catalogLockLoading()">
+    <div style="display: flex; align-items: flex-start; gap: 12px; padding: 8px 0 16px;">
+      <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #f59e0b;"></i>
+      <div>
+        <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">
+          {{ catalogLockTarget()?.status === 1 ? 'Bạn có chắc chắn muốn khóa?' : 'Bạn có chắc chắn muốn mở khóa?' }}
+        </p>
+        <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
+          Danh mục <b style="color: #1e293b;">{{ catalogLockTarget()?.name }}</b>
+          ({{ catalogLockTarget()?.code }})
+          sẽ được {{ catalogLockTarget()?.status === 1 ? 'ngừng hoạt động' : 'kích hoạt trở lại' }}.
+        </p>
+      </div>
+    </div>
+    <ng-template #footer>
+      <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+        <button class="btn-cancel btn-small" (click)="onCancelCatalogLock()" [disabled]="catalogLockLoading()">
+          <i class="pi pi-times"></i> Hủy
+        </button>
+        <button class="btn-save btn-small" (click)="onConfirmCatalogLock()" [disabled]="catalogLockLoading()"
+                [style.background-color]="catalogLockTarget()?.status === 1 ? '#dc2626' : '#4790e9'"
+                [style.border-color]="catalogLockTarget()?.status === 1 ? '#dc2626' : '#4790e9'">
+          <i class="pi pi-spin pi-spinner" *ngIf="catalogLockLoading()"></i>
+          <i class="pi" *ngIf="!catalogLockLoading()"
+             [ngClass]="catalogLockTarget()?.status === 1 ? 'pi-lock' : 'pi-lock-open'"></i>
+          {{ catalogLockTarget()?.status === 1 ? 'Khóa' : 'Mở khóa' }}
         </button>
       </div>
     </ng-template>

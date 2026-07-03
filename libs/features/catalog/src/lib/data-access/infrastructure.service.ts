@@ -24,7 +24,9 @@ export class InfrastructureService {
     page: number,
     pageSize: number,
     keyword?: string,
-    status?: string
+    status?: string,
+    unitId?: number | null,
+    personalOnly?: boolean
   ): Observable<any> {
     let params = new HttpParams()
       .set('page', page.toString())
@@ -35,6 +37,12 @@ export class InfrastructureService {
     }
     if (status !== undefined && status !== null && status !== '') {
       params = params.set('status', status);
+    }
+    if (unitId !== undefined && unitId !== null && String(unitId) !== 'null') {
+      params = params.set('unitId', unitId.toString());
+    }
+    if (personalOnly) {
+      params = params.set('personalOnly', 'true');
     }
 
     return this.http.get<any>(this.getBaseUrl(infraTypeId), { params });

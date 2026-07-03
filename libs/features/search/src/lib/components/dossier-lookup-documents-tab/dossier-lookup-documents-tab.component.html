@@ -1,0 +1,108 @@
+<div style="padding-top: 8px;">
+  <!-- Toolbar Tìm kiếm tài liệu -->
+  <div class="filter-row" style="margin-bottom: 12px; display: flex; gap: 8px; justify-content: flex-start; align-items: center;">
+    <div style="width: 320px;">
+      <input
+        type="text"
+        class="wf-search-input"
+        style="width: 100%; box-sizing: border-box;"
+        placeholder="Tìm kiếm tài liệu..."
+        [ngModel]="searchKeyword()"
+        (ngModelChange)="searchKeyword.set($event)"
+        (keyup.enter)="onSearch()"
+      />
+    </div>
+    <button (click)="onSearch()" class="btn-tim" style="height: 34px;">
+      <i class="pi pi-search"></i> Tìm kiếm
+    </button>
+  </div>
+
+  <!-- Bảng tài liệu -->
+  <div class="wf-table-wrap">
+    <table class="wf-table">
+      <thead>
+        <tr>
+          <th class="col-stt">STT</th>
+          <th>Tên tài liệu</th>
+          <th>Loại tài liệu</th>
+          <th style="width: 120px; text-align: right;">Kích thước</th>
+          <th style="width: 150px; text-align: center;">Ngày tải lên</th>
+          <th class="col-hd">Thao tác</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Loading -->
+        <tr *ngIf="loading()">
+          <td colspan="6" style="text-align: center; padding: 24px; color: #64748b;">
+            <i class="pi pi-spin pi-spinner"></i> Đang tải tài liệu...
+          </td>
+        </tr>
+
+        <!-- Empty data -->
+        <tr *ngIf="!loading() && documents().length === 0">
+          <td colspan="6" class="empty-row">
+            <i class="pi pi-inbox"></i>
+            <div>Không có tài liệu nào trong hồ sơ này.</div>
+          </td>
+        </tr>
+
+        <!-- Real Data -->
+        <ng-container *ngIf="!loading() && documents().length > 0">
+          <tr *ngFor="let doc of documents(); let i = index">
+            <td class="col-stt text-muted">{{ (page() - 1) * pageSize() + i + 1 }}</td>
+            <td>
+              <b class="wf-name-link" (click)="viewFile(doc)">{{ doc.name }}</b>
+            </td>
+            <td>{{ doc.documentTypeName || '-' }}</td>
+            <td style="text-align: right;">{{ formatSize(doc.fileSize) }}</td>
+            <td style="text-align: center;" class="text-muted">
+              {{ doc.createdDate | date: 'dd/MM/yyyy HH:mm' }}
+            </td>
+            <td class="col-hd">
+              <div class="action-buttons-group" style="display: flex; gap: 6px; justify-content: center;">
+                <button (click)="viewFile(doc)" class="act-btn" style="width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; padding: 0; background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1;" pTooltip="Xem tài liệu (chỉ xem)" tooltipPosition="bottom">
+                  <i class="pi pi-eye"></i>
+                </button>
+                <button (click)="downloadFile(doc)" class="act-btn act-assign" style="width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; padding: 0;" pTooltip="Tải tài liệu về máy" tooltipPosition="bottom">
+                  <i class="pi pi-download"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+        </ng-container>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Phân trang -->
+  <div class="table-footer" *ngIf="!loading() && documents().length > 0">
+    <span class="record-count">Tổng số: <b>{{ totalDocuments() }}</b> tài liệu.</span>
+    <div class="pagination">
+      <button class="page-btn" [disabled]="page() === 1" (click)="changePage(page() - 1)">
+        <i class="pi pi-chevron-left"></i>
+      </button>
+      <span class="page-current">Trang {{ page() }} / {{ totalPages() || 1 }}</span>
+      <button class="page-btn" [disabled]="page() >= totalPages()" (click)="changePage(page() + 1)">
+        <i class="pi pi-chevron-right"></i>
+      </button>
+    </div>
+  </div>
+</div>
+
+<app-dossier-document-edit-dialog
+  *ngIf="editTarget()?.latestVersionId as versionId"
+  [dossierId]="dossierId"
+  [versionId]="versionId"
+  [documentName]="editTarget()?.name ?? ''"
+  [mimeType]="editTarget()?.mimeType ?? null"
+  [documentTypeId]="editTarget()?.documentTypeId ?? null"
+  [formId]="null"
+  [canEdit]="false"
+  [lookupMode]="true"
+  [hasExtractionResult]="!!editTarget()?.extractionResult"
+  [totalPagesHint]="editTarget()?.ocrProgress?.totalPages ?? 0"
+  [visible]="showEditDocument()"
+  (visibleChange)="showEditDocument.set($event)"
+></app-dossier-document-edit-dialog>
+
+<p-toast></p-toast>

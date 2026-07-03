@@ -29,6 +29,7 @@ interface FormField {
   dataSourceType?: 'manual' | 'catalog';
   catalogType?: string;
   description?: string;
+  selectAll?: boolean;
 }
 
 interface ToolboxItem {
@@ -71,6 +72,8 @@ export class FormManagementComponent implements OnInit {
   viewState = signal<'list' | 'add' | 'edit' | 'preview'>('list');
   detailTitle = signal<string>('');
   isEditMode = signal<boolean>(false);
+  isFromCompletedForms = signal<boolean>(false);
+  activeTab = signal<'info' | 'builder'>('info');
 
   // Forms list state
   forms = signal<EavFormTemplate[]>([]);
@@ -88,6 +91,15 @@ export class FormManagementComponent implements OnInit {
   fields = signal<FormField[]>([]);
   selectedFieldIndex = signal<number | null>(null);
   showJson = signal<boolean>(false);
+  fieldSearchQuery = signal<string>('');
+
+  isFieldSearchMatched(field: FormField): boolean {
+    const query = this.fieldSearchQuery().trim().toLowerCase();
+    if (!query) return false;
+    return (field.label || '').toLowerCase().includes(query) || 
+           (field.name || '').toLowerCase().includes(query) || 
+           (field.type || '').toLowerCase().includes(query);
+  }
 
   // Pagination states
   first = signal<number>(0);
@@ -115,6 +127,7 @@ export class FormManagementComponent implements OnInit {
     { type: 'number', label: 'Số liệu kỹ thuật (Number)', icon: 'pi-percentage' },
     { type: 'date', label: 'Ngày kiểm định (Date)', icon: 'pi-calendar' },
     { type: 'dropdown', label: 'Danh sách Lựa chọn (Dropdown)', icon: 'pi-chevron-down' },
+    { type: 'radio', label: 'Lựa chọn duy nhất (Radio)', icon: 'pi-circle-fill' },
     { type: 'textarea', label: 'Mô tả / Ghi chú (Textarea)', icon: 'pi-align-justify' },
     { type: 'checkbox', label: 'Hộp kiểm xác nhận (Checkbox)', icon: 'pi-check-square' }
   ];
@@ -127,7 +140,7 @@ export class FormManagementComponent implements OnInit {
 
   filteredForms = computed(() => {
     const keyword = this.searchKeyword().trim().toLowerCase();
-    const allForms = this.forms().filter(f => f.isActive);
+    const allForms = this.forms().filter(f => !f.isDeleted);
 
     // Group forms by code and select the latest version for each unique code
     const latestFormsMap = new Map<string, EavFormTemplate>();
@@ -202,6 +215,7 @@ export class FormManagementComponent implements OnInit {
   }
 
   ngOnInit() {
+    this.isFromCompletedForms.set(this.router.url.includes('/completed-forms/edit'));
     this.loadCatalogTypes();
     this.loadHmadCategories();
     this.loadForms();
@@ -260,16 +274,20 @@ export class FormManagementComponent implements OnInit {
   }
 
   goToList() {
+    if (this.isFromCompletedForms()) {
+      this.router.navigate(['/equipment/completed-forms']);
+      return;
+    }
     this.viewState.set('list');
     this.templateId.set(null);
     this.targetForm = null;
     this.loadForms();
   }
 
-  // --- ACTIONS ---
   onAddNew() {
     this.viewState.set('add');
     this.isEditMode.set(false);
+    this.activeTab.set('info');
     this.detailTitle.set('Thêm mới form');
     this.formName.set('');
     this.formCode.set('');
@@ -280,17 +298,20 @@ export class FormManagementComponent implements OnInit {
     this.fields.set([]);
     this.selectedFieldIndex.set(null);
     this.showJson.set(false);
+    this.fieldSearchQuery.set('');
   }
 
   onEdit(form: EavFormTemplate) {
-    if (form.status === 'Chờ duyệt' || form.status === 'Hoàn thành') {
+    if (form.status === 'Chờ duyệt') {
       this.onPreview(form);
       return;
     }
     this.targetForm = form;
     this.viewState.set('edit');
     this.isEditMode.set(true);
+    this.activeTab.set('info');
     this.templateId.set(form.id);
+    this.fieldSearchQuery.set('');
     this.detailTitle.set(`Chỉnh sửa cấu hình form: ${form.name}`);
     this.formName.set(form.name);
     this.formCode.set(form.code || '');
@@ -423,9 +444,10 @@ export class FormManagementComponent implements OnInit {
       type,
       placeholder: '',
       required: false,
-      options: type === 'dropdown' ? [] : undefined,
+      options: (type === 'dropdown' || type === 'radio' || type === 'checkbox') ? [] : undefined,
       width: 100,
-      dataSourceType: 'manual'
+      dataSourceType: 'manual',
+      selectAll: false
     };
   }
 
@@ -696,7 +718,7 @@ export class FormManagementComponent implements OnInit {
           this.messageService.add({
             severity: 'success',
             summary: 'Thành công',
-            detail: `Đã vô hiệu hóa biểu mẫu thành công!`
+            detail: `Đã xóa biểu mẫu thành công!`
           });
           this.showConfirmDelete.set(false);
           this.targetForm = null;
@@ -706,7 +728,7 @@ export class FormManagementComponent implements OnInit {
           this.messageService.add({
             severity: 'error',
             summary: 'Lỗi',
-            detail: 'Không thể vô hiệu hóa biểu mẫu.'
+            detail: 'Không thể xóa biểu mẫu.'
           });
           this.showConfirmDelete.set(false);
           this.targetForm = null;

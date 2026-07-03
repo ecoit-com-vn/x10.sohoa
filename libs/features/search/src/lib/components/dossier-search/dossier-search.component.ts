@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, signal, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
@@ -19,9 +19,7 @@ import {
 } from '../../utils/folder-tree.util';
 import { of, switchMap, finalize, catchError, Observable } from 'rxjs';
 
-import { DossierDocumentEditDialogComponent, DossierManagementService, BhsCatalogColumn } from '@sohoa.frontend/features/dossier-management';
-import { DossierDocumentService } from '../../../../../dossier-management/src/lib/data-access/dossier-document.service';
-import { EavField, normalizeField, readFormSchemaJson, parseFormDataJson, normalizeDossierDetail } from '../../../../../dossier-management/src/lib/utils/dossier-form-schema.util';
+import { DossierDocumentEditDialogComponent, DossierManagementService, BhsCatalogColumn, DossierDocumentService, EavField, normalizeField, readFormSchemaJson, parseFormDataJson, normalizeDossierDetail } from '@sohoa.frontend/features/dossier-management';
 import { HttpClient } from '@angular/common/http';
 import { AuthService, APP_CONFIG } from '@sohoa.frontend/shared/core';
 
@@ -66,6 +64,11 @@ export class DossierSearchComponent implements OnInit, OnDestroy {
   loadingPreview = signal<boolean>(false);
   gridTypes = signal<any[]>([]);
 
+  // ===== NEW SIGNALS FOR DOSSIER SEARCH FILTER =====
+  searchGridType = signal<string>('ALL');
+  searchInfraName = signal<string>('');
+  searchBoxName = signal<string>('');
+
   isPdf = computed(() => {
     const doc = this.selectedDocument();
     if (!doc) return false;
@@ -92,6 +95,46 @@ export class DossierSearchComponent implements OnInit, OnDestroy {
 
   // ===== SIGNALS =====
   folderTree = signal<FolderNode[]>([]);
+  filteredFolderTree = computed(() => {
+    const boxName = this.searchBoxName().trim().toLowerCase();
+    const gridType = this.searchGridType();
+    const infraName = this.searchInfraName().trim().toLowerCase();
+    const flat = this.flatFolderList();
+
+    if (!boxName && gridType === 'ALL' && !infraName) {
+      return this.folderTree();
+    }
+
+    const validBoxes = flat.filter(f => {
+      if (!f.id.startsWith('type_')) return false;
+      if (boxName && !f.name.toLowerCase().includes(boxName)) return false;
+      if (gridType === 'HIGH') {
+        if (!f.id.includes('tba-cao-ap_') && !f.id.includes('dd-cao-ap_')) return false;
+      } else if (gridType === 'MEDIUM') {
+        if (!f.id.includes('tba-trung-ap_') && !f.id.includes('dd-trung-ap_')) return false;
+      }
+      if (infraName && f.parentId) {
+        const parent = flat.find(p => p.id === f.parentId);
+        if (!parent || !parent.name.toLowerCase().includes(infraName)) return false;
+      }
+      return true;
+    });
+
+    const validNodeIds = new Set<string>();
+    for (const box of validBoxes) {
+      validNodeIds.add(box.id);
+      let currParentId = box.parentId;
+      while (currParentId) {
+        validNodeIds.add(currParentId);
+        const parentNode = flat.find(p => p.id === currParentId);
+        currParentId = parentNode ? parentNode.parentId : null;
+      }
+    }
+
+    const filteredFlatList = flat.filter(f => validNodeIds.has(f.id));
+    return convertFlatToTree(filteredFlatList);
+  });
+
   flatFolderList = signal<FolderNode[]>([]); // Keep flat list for breadcrumb
   selectedFolder = signal<FolderNode | null>(null);
   documents = signal<Document[]>([]);
@@ -134,6 +177,21 @@ export class DossierSearchComponent implements OnInit, OnDestroy {
       .sort((a, b) => a.name.localeCompare(b.name));
   });
 
+  infrastructures = computed(() => {
+    const flat = this.flatFolderList();
+    const infraNodes = flat.filter(f => 
+      f.parentId === 'tba-cao-ap' || 
+      f.parentId === 'tba-trung-ap' || 
+      f.parentId === 'dd-cao-ap' || 
+      f.parentId === 'dd-trung-ap'
+    );
+    const uniqueMap = new Map<string, any>();
+    for (const node of infraNodes) {
+      uniqueMap.set(node.name, { id: node.id, name: node.name });
+    }
+    return Array.from(uniqueMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+  });
+
   // Computed signals for breadcrumbs
   breadcrumbLabel = computed(() => {
     const folder = this.selectedFolder();
@@ -146,6 +204,57 @@ export class DossierSearchComponent implements OnInit, OnDestroy {
     if (!folder) return [];
     return findBreadcrumbPath(folder?.id ?? null, this.flatFolderList());
   });
+
+  constructor() {
+    effect(() => {
+      const boxName = this.searchBoxName();
+      const gridType = this.searchGridType();
+      const infraName = this.searchInfraName();
+      const flat = this.flatFolderList();
+      if (flat.length === 0) return;
+
+      const validBoxes = flat.filter(f => {
+        if (!f.id.startsWith('type_')) return false;
+        if (boxName && !f.name.toLowerCase().includes(boxName.trim().toLowerCase())) return false;
+        if (gridType === 'HIGH') {
+          if (!f.id.includes('tba-cao-ap_') && !f.id.includes('dd-cao-ap_')) return false;
+        } else if (gridType === 'MEDIUM') {
+          if (!f.id.includes('tba-trung-ap_') && !f.id.includes('dd-trung-ap_')) return false;
+        }
+        if (infraName && f.parentId) {
+          const parent = flat.find(p => p.id === f.parentId);
+          if (!parent || !parent.name.toLowerCase().includes(infraName.trim().toLowerCase())) return false;
+        }
+        return true;
+      });
+
+      if (validBoxes.length > 0 && (boxName || gridType !== 'ALL' || infraName)) {
+        const parentsToExpand = new Set<string>();
+        for (const box of validBoxes) {
+          let currParentId = box.parentId;
+          while (currParentId) {
+            parentsToExpand.add(currParentId);
+            const parentNode = flat.find(p => p.id === currParentId);
+            currParentId = parentNode ? parentNode.parentId : null;
+          }
+        }
+        const expanded = new Set<string>([
+          'root-tba', 'root-dd', 'tba-cao-ap', 'tba-trung-ap', 'dd-cao-ap', 'dd-trung-ap',
+          ...Array.from(parentsToExpand)
+        ]);
+        this.expandedFolders.set(expanded);
+      }
+    });
+  }
+
+  onClearFilters() {
+    this.searchGridType.set('ALL');
+    this.searchInfraName.set('');
+    this.searchBoxName.set('');
+    this.expandedFolders.set(new Set<string>([
+      'root-tba', 'root-dd', 'tba-cao-ap', 'tba-trung-ap', 'dd-cao-ap', 'dd-trung-ap'
+    ]));
+  }
 
   ngOnInit() {
     this.initializeUnitFilter();
@@ -170,7 +279,6 @@ export class DossierSearchComponent implements OnInit, OnDestroy {
     }
   }
 
-  // ===== FOLDER OPERATIONS =====
   private loadFolderTree() {
     this.loadingTree.set(true);
     this.documentService.getFolderTree(this.selectedUnitId()).subscribe({
@@ -179,7 +287,16 @@ export class DossierSearchComponent implements OnInit, OnDestroy {
         const treeStructure = convertFlatToTree(folders);
         this.folderTree.set(treeStructure);
         this.loadingTree.set(false);
-        this.expandedFolders.set(new Set<string>());
+
+        // Mặc định chỉ mở cấp 1 và hộp lưới điện trung áp
+        const toExpand = new Set<string>([
+          'root-tba',
+          'root-dd',
+          'tba-trung-ap',
+          'dd-trung-ap',
+        ]);
+
+        this.expandedFolders.set(toExpand);
       },
       error: (err) => {
         this.messageService.add({
@@ -279,20 +396,22 @@ export class DossierSearchComponent implements OnInit, OnDestroy {
     }
 
     const id = selected.id;
-    const cleanId = id.substring('type_'.length);
-    const firstUnderscoreIdx = cleanId.indexOf('_');
-    if (firstUnderscoreIdx === -1) {
+    let cleanId = id.substring('type_'.length);
+    const prefixes = ['tba-cao-ap_', 'tba-trung-ap_', 'dd-cao-ap_', 'dd-trung-ap_'];
+    for (const prefix of prefixes) {
+      if (cleanId.startsWith(prefix)) {
+        cleanId = cleanId.substring(prefix.length);
+        break;
+      }
+    }
+
+    const parts = cleanId.split('_');
+    if (parts.length < 2) {
       this.loadingDocuments.set(false);
       return;
     }
-    const rest = cleanId.substring(firstUnderscoreIdx + 1);
-    const lastUnderscoreIdx = rest.lastIndexOf('_');
-    if (lastUnderscoreIdx === -1) {
-      this.loadingDocuments.set(false);
-      return;
-    }
-    const infraId = rest.substring(0, lastUnderscoreIdx);
-    const dossierTypeId = rest.substring(lastUnderscoreIdx + 1);
+    const infraId = parts[0];
+    const dossierTypeId = parts[1];
 
     console.log('[DEBUG] selected folder id:', id);
     console.log('[DEBUG] parsed infraId:', infraId);

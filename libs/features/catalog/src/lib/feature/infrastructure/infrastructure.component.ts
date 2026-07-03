@@ -34,7 +34,15 @@ export class InfrastructureComponent implements OnInit {
   gridTypes = signal<any[]>([]);
   searchKeyword = signal<string>('');
   searchStatus = signal<string>(''); // '', '1', '0'
+  searchUnitId = signal<number | null>(null);
   totalCount = signal<number>(0);
+  // Personal catalog only toggle
+  searchPersonalOnly = signal<boolean>(false);
+
+  // Lock/Unlock Confirmation Dialog Signals
+  showLockUnlockConfirm = signal<boolean>(false);
+  lockUnlockTarget = signal<any>(null);
+  lockUnlockLoading = signal<boolean>(false);
 
   currentView = signal<'list' | 'add' | 'edit'>('list');
   currentItem = signal<any>({});
@@ -133,6 +141,7 @@ export class InfrastructureComponent implements OnInit {
         this.currentPage.set(1);
         this.searchKeyword.set('');
         this.searchStatus.set('');
+        this.searchUnitId.set(null);
         this.currentView.set('list');
       }
     });
@@ -230,7 +239,9 @@ export class InfrastructureComponent implements OnInit {
       this.currentPage(),
       this.pageSize(),
       this.searchKeyword(),
-      this.searchStatus()
+      this.searchStatus(),
+      this.searchUnitId(),
+      this.searchPersonalOnly()
     ).subscribe({
       next: (res) => {
         if (res) {
@@ -256,6 +267,7 @@ export class InfrastructureComponent implements OnInit {
   onResetSearch() {
     this.searchKeyword.set('');
     this.searchStatus.set('');
+    this.searchUnitId.set(null);
     this.currentPage.set(1);
     this.loadItems();
   }
@@ -373,24 +385,45 @@ export class InfrastructureComponent implements OnInit {
   }
 
   onToggleStatus(item: any) {
+    this.lockUnlockTarget.set(item);
+    this.showLockUnlockConfirm.set(true);
+  }
+
+  onCancelLockUnlock() {
+    this.showLockUnlockConfirm.set(false);
+    this.lockUnlockTarget.set(null);
+  }
+
+  onConfirmLockUnlock() {
+    const item = this.lockUnlockTarget();
+    if (!item) return;
+
     const isLocking = item.isActive === 1 || item.isActive === true;
-    this.infraService.toggleStatus(this.infraTypeId(), item.id, isLocking).subscribe({
-      next: (res) => {
-        this.messageService.add({
-          severity: 'success',
-          summary: 'Thành công',
-          detail: res.message || (isLocking ? 'Khóa thành công!' : 'Mở khóa thành công!')
-        });
-        this.loadItems();
-      },
-      error: (err) => {
-        this.messageService.add({
-          severity: 'error',
-          summary: 'Lỗi',
-          detail: err?.error?.message || 'Không thể cập nhật trạng thái.'
-        });
-      }
-    });
+    this.lockUnlockLoading.set(true);
+    this.infraService.toggleStatus(this.infraTypeId(), item.id, isLocking)
+      .pipe(
+        finalize(() => {
+          this.lockUnlockLoading.set(false);
+          this.showLockUnlockConfirm.set(false);
+          this.lockUnlockTarget.set(null);
+        })
+      ).subscribe({
+        next: (res) => {
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Thành công',
+            detail: res.message || (isLocking ? 'Khóa thành công!' : 'Mở khóa thành công!')
+          });
+          this.loadItems();
+        },
+        error: (err) => {
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi',
+            detail: err?.error?.message || 'Không thể cập nhật trạng thái.'
+          });
+        }
+      });
   }
 
   onDelete(item: any) {

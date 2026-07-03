@@ -23,6 +23,7 @@ import {
   DossierDocumentService,
   DocumentTypeLookupItem,
 } from '../../data-access/dossier-document.service';
+import { FolderAllocationService } from '@sohoa.frontend/features/digitization';
 import { OcrMode } from '../../utils/dossier-digitization.util';
 import {
   formatDocumentDate,
@@ -42,6 +43,7 @@ type PickerPhase = 'pick' | 'configure';
 export class DossierFolderPickerDialogComponent {
   private documentService = inject(DocumentManagementService);
   private dossierDocumentService = inject(DossierDocumentService);
+  private folderAllocationService = inject(FolderAllocationService);
   private messageService = inject(MessageService);
 
   @Input({ required: true }) dossierId!: string;
@@ -121,21 +123,31 @@ export class DossierFolderPickerDialogComponent {
 
   private loadFolderTree(): void {
     this.loadingTree.set(true);
-    this.documentService.getFolderTree().subscribe({
+    this.folderAllocationService.getMyFolders().subscribe({
       next: (folders) => {
-        this.flatFolderList.set(folders);
-        this.folderTree.set(convertFlatToTree(folders));
+        const mappedFolders: FolderNode[] = folders.map((f: any) => ({
+          id: f.id,
+          name: f.name,
+          parentId: f.parent_id || null,
+          unitId: f.unit_id
+        }));
+
+        this.flatFolderList.set(mappedFolders);
+        this.folderTree.set(convertFlatToTree(mappedFolders));
         this.loadingTree.set(false);
-        const root = folders.find((f) => !f.parentId) ?? folders[0];
+        const root = mappedFolders.find((f) => !f.parentId) ?? mappedFolders[0];
         if (root) {
           this.selectFolder(root);
+        } else {
+          this.selectedFolder.set(null);
+          this.documents.set([]);
         }
       },
       error: () => {
         this.messageService.add({
           severity: 'error',
           summary: 'Lỗi',
-          detail: 'Không thể tải cây thư mục',
+          detail: 'Không thể tải cây thư mục được phân bổ',
         });
         this.loadingTree.set(false);
       },

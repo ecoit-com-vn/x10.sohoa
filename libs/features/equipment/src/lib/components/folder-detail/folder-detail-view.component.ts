@@ -15,7 +15,7 @@ import { ButtonModule } from 'primeng/button';
 import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
 import { FileUploadZoneComponent } from '../file-upload/file-upload-zone.component';
-import { FileListComponent } from '../file-list/file-list.component';
+import { FileListComponent } from '../file-upload/file-list.component';
 import { ScannerPanelComponent } from '../scanner/scanner-panel.component';
 import { UPLOAD_SOURCE } from '../../constants/upload-source.constants';
 import { Subject } from 'rxjs';

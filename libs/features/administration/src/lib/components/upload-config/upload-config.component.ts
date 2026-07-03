@@ -33,6 +33,11 @@ export class UploadConfigComponent implements OnInit {
   showDeleteConfirm = signal<boolean>(false);
   deleteTarget = signal<any>(null);
   deleting = signal<boolean>(false);
+
+  // Custom inline lock/unlock confirm dialog
+  showLockUnlockConfirm = signal<boolean>(false);
+  lockUnlockTarget = signal<any>(null);
+  lockUnlockLoading = signal<boolean>(false);
   
   loading = signal<boolean>(false);
   saving = signal<boolean>(false);
@@ -89,7 +94,7 @@ export class UploadConfigComponent implements OnInit {
         this.orgUnits.set(data || []);
       },
       error: (err) => {
-        this.messageService.add({ severity: 'error', summary: 'Lỗi tải đơn vị', detail: 'Không thể tải danh sách đơn vị.' });
+        this.messageService.add({ severity: 'error'});
       }
     });
   }
@@ -114,6 +119,45 @@ export class UploadConfigComponent implements OnInit {
     });
     this.dialogHeader.set('Thêm mới cấu hình Upload');
     this.displayDialog.set(true);
+  }
+
+  onToggleStatusRequest(config: any) {
+    this.lockUnlockTarget.set(config);
+    this.showLockUnlockConfirm.set(true);
+  }
+
+  onConfirmLockUnlock() {
+    const config = this.lockUnlockTarget();
+    if (!config) return;
+    if (!this.authService.hasPermission('UPLOAD_CONFIG_EDIT')) {
+      this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền chỉnh sửa cấu hình.' });
+      return;
+    }
+    const updated = { ...config, isActive: !config.isActive };
+    this.lockUnlockLoading.set(true);
+    this.http.put(`${this.apiUrl}/${config.id}`, updated)
+      .pipe(finalize(() => this.lockUnlockLoading.set(false)))
+      .subscribe({
+        next: () => {
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Thành công',
+            detail: `${config.isActive ? 'Khóa' : 'Mở khóa'} cấu hình upload thành công!`
+          });
+          this.showLockUnlockConfirm.set(false);
+          this.lockUnlockTarget.set(null);
+          this.loadConfigs();
+        },
+        error: (err) => {
+          const detailMsg = err?.error?.message || err?.message || `Không thể ${config.isActive ? 'khóa' : 'mở khóa'} cấu hình upload.`;
+          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: detailMsg });
+        }
+      });
+  }
+
+  onCancelLockUnlock() {
+    this.showLockUnlockConfirm.set(false);
+    this.lockUnlockTarget.set(null);
   }
 
   onEdit(config: any) {

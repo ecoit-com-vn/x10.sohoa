@@ -55,8 +55,9 @@ export class DossierTypeComponent implements OnInit {
     { type: 'number', label: 'Số liệu kỹ thuật (Number)', icon: 'pi-percentage' },
     { type: 'date', label: 'Ngày kiểm định (Date)', icon: 'pi-calendar' },
     { type: 'dropdown', label: 'Danh sách Lựa chọn (Dropdown)', icon: 'pi-chevron-down' },
+    { type: 'radio', label: 'Lựa chọn một (Radio)', icon: 'pi-circle' },
     { type: 'textarea', label: 'Mô tả / Ghi chú (Textarea)', icon: 'pi-align-justify' },
-    { type: 'checkbox', label: 'Hộp kiểm xác nhận (Checkbox)', icon: 'pi-check-square' }
+    { type: 'checkbox', label: 'Hộp kiểm (Checkbox)', icon: 'pi-check-square' }
   ];
 
   categories = [
@@ -533,13 +534,19 @@ export class DossierTypeComponent implements OnInit {
         name = 'danh_muc_lua_chon';
         options = ['Lựa chọn A', 'Lựa chọn B'];
         break;
+      case 'radio':
+        label = 'Lựa chọn một';
+        name = 'lua_chon_mot';
+        options = ['Tùy chọn 1', 'Tùy chọn 2'];
+        break;
       case 'textarea':
         label = 'Đoạn mô tả ngắn';
         name = 'doan_mo_ta';
         break;
       case 'checkbox':
-        label = 'Xác nhận kiểm tra';
-        name = 'xac_nhan_kiem_tra';
+        label = 'Hộp kiểm';
+        name = 'hop_kiem';
+        options = []; // Khởi tạo mảng rỗng, nếu có options thì là checkboxGroup, nếu rỗng thì là checkbox đơn
         break;
     }
 
@@ -552,7 +559,8 @@ export class DossierTypeComponent implements OnInit {
       required: false,
       options,
       width: 100,
-      dataSourceType: 'manual'
+      dataSourceType: 'manual',
+      selectAll: false
     };
   }
 

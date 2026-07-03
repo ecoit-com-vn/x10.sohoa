@@ -32,10 +32,15 @@ export interface UpdateProfileRequest {
 export class AuthService {
   private http = inject(HttpClient);
   private config = inject(APP_CONFIG);
+  private static readonly PERMISSIONS_STORAGE_KEY = 'userPermissions';
 
   currentUserPermissions = signal<string[]>([]);
   currentUserProfile = signal<UserProfile | null>(null);
   private refreshInFlight: Observable<string> | null = null;
+
+  constructor() {
+    this.restorePermissionsFromStorage();
+  }
 
   private get base() {
     return `${this.config.apiGatewayUrl}/api/v1/auth`;
@@ -143,7 +148,6 @@ export class AuthService {
     if (!token) return null;
     const payload = this.decodeTokenPayload(token);
     if (!payload) return null;
-    console.log('SOHOA_DEBUG JWT Payload:', payload);
     return payload['id'] || 
            payload['nameid'] || 
            payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'] || 
@@ -171,21 +175,59 @@ export class AuthService {
     );
   }
 
+  setPermissions(perms: string[]): void {
+    const normalized = perms || [];
+    this.currentUserPermissions.set(normalized);
+    if (typeof window !== 'undefined') {
+      if (normalized.length > 0) {
+        sessionStorage.setItem(AuthService.PERMISSIONS_STORAGE_KEY, JSON.stringify(normalized));
+      } else {
+        sessionStorage.removeItem(AuthService.PERMISSIONS_STORAGE_KEY);
+      }
+    }
+  }
+
+  private restorePermissionsFromStorage(): void {
+    if (typeof window === 'undefined' || this.currentUserPermissions().length > 0) {
+      return;
+    }
+    const raw = sessionStorage.getItem(AuthService.PERMISSIONS_STORAGE_KEY);
+    if (!raw) {
+      return;
+    }
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        this.currentUserPermissions.set(parsed);
+      }
+    } catch {
+      sessionStorage.removeItem(AuthService.PERMISSIONS_STORAGE_KEY);
+    }
+  }
+
+  ensurePermissionsLoaded(): Observable<string[]> {
+    this.restorePermissionsFromStorage();
+    const cached = this.currentUserPermissions();
+    if (cached.length > 0) {
+      return of(cached);
+    }
+    if (!this.getToken()) {
+      return of([]);
+    }
+    return this.getPermissions().pipe(
+      tap((perms) => this.setPermissions(perms || [])),
+      catchError(() => of(this.currentUserPermissions()))
+    );
+  }
+
   loadPermissions(): void {
     const token = this.getToken();
     if (token) {
       if (this.currentUserPermissions().length === 0) {
-        this.getPermissions().subscribe({
-          next: (perms) => {
-            this.currentUserPermissions.set(perms || []);
-          },
-          error: () => {
-            this.currentUserPermissions.set([]);
-          }
-        });
+        this.ensurePermissionsLoaded().subscribe();
       }
     } else {
-      this.currentUserPermissions.set([]);
+      this.setPermissions([]);
     }
   }
 
@@ -216,6 +258,7 @@ export class AuthService {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('token');
       localStorage.removeItem('refreshToken');
+      sessionStorage.removeItem(AuthService.PERMISSIONS_STORAGE_KEY);
     }
     this.currentUserPermissions.set([]);
     this.currentUserProfile.set(null);

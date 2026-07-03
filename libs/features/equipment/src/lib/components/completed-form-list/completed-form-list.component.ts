@@ -59,8 +59,20 @@ export class CompletedFormListComponent implements OnInit {
 
     filteredForms = computed(() => {
         const keyword = this.searchKeyword().trim().toLowerCase();
-        return this.forms()
-            .filter(form => form.isActive)
+        const allForms = this.forms().filter(form => !form.isDeleted && form.formType === 'FORM');
+
+        // Group forms by code and select the latest version for each unique code
+        const latestFormsMap = new Map<string, EavFormTemplate>();
+        for (const f of allForms) {
+            const code = f.code || '';
+            const existing = latestFormsMap.get(code);
+            if (!existing || f.version > existing.version) {
+                latestFormsMap.set(code, f);
+            }
+        }
+        let list = Array.from(latestFormsMap.values());
+
+        return list
             .filter(form => form.status === 'Hoàn thành')
             .filter(form => {
                 if (!keyword) {
@@ -177,7 +189,7 @@ export class CompletedFormListComponent implements OnInit {
             .subscribe({
                 next: () => {
                     if (this.targetForm) {
-                        this.targetForm.isLocked = true;
+                        this.targetForm.isActive = false;
                     }
                     this.messageService.add({
                         severity: 'success',
@@ -209,7 +221,7 @@ export class CompletedFormListComponent implements OnInit {
             .subscribe({
                 next: () => {
                     if (this.targetForm) {
-                        this.targetForm.isLocked = false;
+                        this.targetForm.isActive = true;
                     }
                     this.messageService.add({
                         severity: 'success',
@@ -232,12 +244,12 @@ export class CompletedFormListComponent implements OnInit {
     }
 
     isFormLocked(form: EavFormTemplate): boolean {
-        return form.isLocked === true;
+        return !form.isActive;
     }
 
     getFieldType(field: any): string {
         const type = (field?.type || 'text').toString().toLowerCase();
-        if (type === 'dropdown') {
+        if (type === 'dropdown' || type === 'select') {
             return 'dropdown';
         }
         if (type === 'textarea') {
@@ -245,6 +257,12 @@ export class CompletedFormListComponent implements OnInit {
         }
         if (type === 'checkbox') {
             return 'checkbox';
+        }
+        if (type === 'radio') {
+            return 'radio';
+        }
+        if (type === 'date') {
+            return 'date';
         }
         if (type === 'number') {
             return 'number';
@@ -325,7 +343,7 @@ export class CompletedFormListComponent implements OnInit {
     }
 
     onEdit(form: EavFormTemplate) {
-        this.router.navigate(['/equipment/form-management'], { queryParams: { id: form.id } });
+        this.router.navigate(['/equipment/completed-forms/edit'], { queryParams: { id: form.id } });
     }
 
     deactivateForm(form: EavFormTemplate) {
@@ -343,7 +361,7 @@ export class CompletedFormListComponent implements OnInit {
                     this.messageService.add({
                         severity: 'success',
                         summary: 'Thành công',
-                        detail: 'Đã vô hiệu hóa form thành công!'
+                        detail: 'Đã xóa form thành công!'
                     });
                     this.showConfirmDelete.set(false);
                     this.targetForm = null;
@@ -353,7 +371,7 @@ export class CompletedFormListComponent implements OnInit {
                     this.messageService.add({
                         severity: 'error',
                         summary: 'Lỗi',
-                        detail: 'Không thể vô hiệu hóa form.'
+                        detail: 'Không thể xóa form.'
                     });
                     this.showConfirmDelete.set(false);
                     this.targetForm = null;
