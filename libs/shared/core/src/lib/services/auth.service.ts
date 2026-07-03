@@ -4,6 +4,28 @@ import { Observable, of, throwError } from 'rxjs';
 import { catchError, finalize, map, shareReplay, tap } from 'rxjs/operators';
 import { APP_CONFIG } from '../config/app-config.token';
 
+export interface UserProfile {
+  id: string;
+  username: string;
+  fullName: string;
+  email: string;
+  positionId?: number | null;
+  positionName?: string | null;
+  organizationUnitId?: number | null;
+  unitId?: number | null;
+  organizationUnit?: { id: number; name: string } | null;
+  isActive?: boolean;
+  roles?: string[];
+  permissions?: string[];
+}
+
+export interface UpdateProfileRequest {
+  fullName: string;
+  email: string;
+  positionId?: number | null;
+  positionName?: string | null;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -13,6 +35,7 @@ export class AuthService {
   private static readonly PERMISSIONS_STORAGE_KEY = 'userPermissions';
 
   currentUserPermissions = signal<string[]>([]);
+  currentUserProfile = signal<UserProfile | null>(null);
   private refreshInFlight: Observable<string> | null = null;
 
   constructor() {
@@ -136,6 +159,22 @@ export class AuthService {
     return this.http.get<string[]>(`${this.base}/permissions`);
   }
 
+  getProfile(): Observable<UserProfile> {
+    return this.http.get<UserProfile>(`${this.base}/profile`).pipe(
+      tap((profile) => this.currentUserProfile.set(profile))
+    );
+  }
+
+  loadProfile(): Observable<UserProfile> {
+    return this.getProfile();
+  }
+
+  updateProfile(dto: UpdateProfileRequest): Observable<UserProfile> {
+    return this.http.put<UserProfile>(`${this.base}/profile`, dto).pipe(
+      tap((profile) => this.currentUserProfile.set(profile))
+    );
+  }
+
   setPermissions(perms: string[]): void {
     const normalized = perms || [];
     this.currentUserPermissions.set(normalized);
@@ -222,6 +261,7 @@ export class AuthService {
       sessionStorage.removeItem(AuthService.PERMISSIONS_STORAGE_KEY);
     }
     this.currentUserPermissions.set([]);
+    this.currentUserProfile.set(null);
   }
 
   getToken(): string | null {
