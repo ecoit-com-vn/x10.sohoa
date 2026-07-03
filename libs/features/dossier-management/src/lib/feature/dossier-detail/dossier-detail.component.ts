@@ -26,6 +26,10 @@ import {
   parseWorkflowActionButtons,
 } from '../../utils/dossier-workflow-bpmn.util';
 import { DossierMenuScope, getDossierStatusLabel, getDossierStatusPillClass } from '../../utils/dossier-status.util';
+import {
+  isUserAuthorizedForWorkflowAction,
+  mapAvailableActionsToButtons,
+} from '../../utils/dossier-workflow-auth.util';
 
 function pickFirst<T>(...values: T[]): T | undefined {
   for (const v of values) {
@@ -79,8 +83,8 @@ function pickFirst<T>(...values: T[]): T | undefined {
             <i class="pi pi-spin pi-spinner" *ngIf="submitting()"></i>
             Gửi duyệt
           </button>
-          <!-- Workflow action buttons: Duyệt / Tiếp tục / Từ chối (luôn hiện khi có pending task) -->
-          <ng-container *ngIf="detailPendingTask() && isUserAuthorizedForDetailAction">
+          <!-- Workflow action buttons: Duyệt / Tiếp tục / Từ chối -->
+          <ng-container *ngIf="detailDynamicButtons().length > 0 && isUserAuthorizedForDetailAction">
             <button *ngFor="let btn of detailDynamicButtons()"
                     class="btn-small"
                     [class.btn-cancel]="isRejectLabel(btn.label)"
@@ -473,19 +477,6 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
     return statusId === 2 && !wfId;
   }
 
-  private getCurrentUserIdFromToken(): string | null {
-    const token = this.authService.getToken();
-    if (!token) return null;
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
-      return payload.sub
-        ?? payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier']
-        ?? null;
-    } catch {
-      return null;
-    }
-  }
-
   private isCurrentUserCreator(): boolean {
     const d = this.dossier();
     if (!d) return false;
@@ -625,6 +616,7 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
       this.detailWorkflowXml.set('');
       this.detailPendingTask.set(null);
       this.detailCurrentNodeId.set('');
+      this.detailDynamicButtons.set([]);
       return;
     }
 
@@ -638,17 +630,31 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
     this.detailPendingTask.set(pending);
     this.detailCurrentNodeId.set(pickFirst(instance.currentNodeId, instance.CurrentNodeId) || '');
 
-    const bpmnXml = res.definition?.bpmnXml ?? res.definition?.BpmnXml;
+    const availableActions = instance.availableActions ?? instance.AvailableActions;
+    const mappedActions = mapAvailableActionsToButtons(availableActions);
+    if (mappedActions.length > 0) {
+      this.detailDynamicButtons.set(mappedActions);
+      return;
+    }
+
+    const bpmnXml = res.definition?.bpmnXml ?? res.definition?.BpmnXml ?? res.definition?.workflowXml ?? res.definition?.WorkflowXml;
     if (bpmnXml) {
       this.detailWorkflowXml.set(bpmnXml);
-      if (pending) {
-        const stepName = pickFirst(pending.stepName, pending.StepName) ?? '';
-        const nodeId = pickFirst(instance.currentNodeId, instance.CurrentNodeId);
+      const stepName = pickFirst(
+        pending?.stepName,
+        pending?.StepName,
+        instance.currentStepName,
+        instance.CurrentStepName
+      ) ?? '';
+      const nodeId = pickFirst(instance.currentNodeId, instance.CurrentNodeId);
+      if (nodeId) {
         this.parseDynamicButtons(bpmnXml, stepName, nodeId);
+        return;
       }
-    } else {
-      this.detailWorkflowXml.set('');
     }
+
+    this.detailWorkflowXml.set(bpmnXml ?? '');
+    this.detailDynamicButtons.set([]);
   }
 
   loadWorkflow() {
@@ -685,6 +691,22 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
           next: (tasks) => {
             const list = Array.isArray(tasks) ? tasks : [];
             this.myTask.set(list[0] ?? null);
+
+            if (!this.detailDynamicButtons().length && list[0]) {
+              const wf = this.workflowDetail();
+              const bpmnXml = wf?.definition?.bpmnXml ?? wf?.definition?.BpmnXml ?? wf?.definition?.workflowXml ?? wf?.definition?.WorkflowXml;
+              const task = list[0];
+              const stepName = pickFirst(
+                task.workflowStatusName,
+                task.WorkflowStatusName,
+                task.stepName,
+                task.StepName
+              ) ?? '';
+              const nodeId = this.detailCurrentNodeId();
+              if (bpmnXml && nodeId) {
+                this.parseDynamicButtons(bpmnXml, stepName, nodeId);
+              }
+            }
           },
           error: () => this.myTask.set(null)
         });
@@ -713,20 +735,23 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
 
   get isUserAuthorizedForDetailAction(): boolean {
     const task = this.detailPendingTask();
-    if (!task) return false;
-    const roles = this.authService.getUserRoles?.() ?? [];
-    if (roles.includes('ADMIN') || roles.includes('OPERATOR')) return true;
+    const d = this.dossier();
+    const instance = this.workflowDetail()?.instance;
+    const currentAssignees = Array.isArray(instance?.currentAssignees)
+      ? instance.currentAssignees
+      : Array.isArray(instance?.CurrentAssignees)
+        ? instance.CurrentAssignees
+        : [];
 
-    const assigneeId = task.assigneeUserId ?? task.AssigneeUserId;
-    const currentUserId = this.getCurrentUserIdFromToken();
-
-    if (assigneeId && currentUserId && String(assigneeId) === String(currentUserId)) return true;
-    if (assigneeId) return false;
-
-    const statusId = this.dossier()?.statusId ?? this.dossier()?.StatusId;
-    if (statusId === 5) return this.isCurrentUserCreator();
-
-    return false;
+    return isUserAuthorizedForWorkflowAction({
+      authService: this.authService,
+      menuScope: this.menuScope,
+      assigneeUserId: task?.assigneeUserId ?? task?.AssigneeUserId,
+      currentAssignees,
+      statusId: d?.statusId ?? d?.StatusId,
+      isCreator: this.isCurrentUserCreator(),
+      hasMyTask: !!this.myTask(),
+    });
   }
 
   openActionDialog(btn: any) {
@@ -961,7 +986,9 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
     const d = this.dossier();
     const wfId = d?.workflowInstanceId ?? d?.WorkflowInstanceId
       ?? this.workflowDetail()?.instance?.id
-      ?? this.workflowDetail()?.instance?.Id;
+      ?? this.workflowDetail()?.instance?.Id
+      ?? this.workflowDetail()?.instance?.instanceId
+      ?? this.workflowDetail()?.instance?.InstanceId;
 
     switch (tab) {
       case 'info':
@@ -970,7 +997,7 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
       case 'versions':
         return true;
       case 'workflow':
-        return !!wfId;
+        return !!wfId || this.menuScope === 'approver';
       default:
         return false;
     }

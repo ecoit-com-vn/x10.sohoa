@@ -25,14 +25,15 @@ import {
   getDossierWorkflowStepSubtitle,
   getTabsForMenuScope,
 } from '../../utils/dossier-status.util';
-import { catchError, finalize } from 'rxjs';
+import { isUserAuthorizedForWorkflowAction, buildListItemPatchFromSources, shouldKeepItemOnTab, DossierListItemPatch } from '../../utils/dossier-workflow-auth.util';
+import { catchError, finalize, forkJoin, of } from 'rxjs';
 
-function tabLabel(tab: DossierListTab): string {
+function tabLabel(tab: DossierListTab, kindId?: number): string {
   const labels: Partial<Record<DossierListTab, string>> = {
-    draft: 'Tạo mới',
+    draft: kindId === 1 ? 'Nháp' : 'Tạo mới',
     'pending-action': 'Chờ xử lý',
     'in-progress': 'Đang xử lý',
-    completed: 'Đã duyệt',
+    completed: kindId === 1 ? 'Hoàn thành' : 'Đã duyệt',
     returned: 'Trả lại',
   };
   return labels[tab] ?? '';
@@ -68,7 +69,7 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
           *ngFor="let tab of visibleTabs()"
           [class.tab-active]="activeTab() === tab"
           (click)="selectTab(tab)">
-          {{ tabLabel(tab) }}
+          {{ tabLabel(tab, kindIdSignal()) }}
           <span class="tab-badge" *ngIf="getTabBadgeCount(tab)">{{ getTabBadgeCount(tab) }}</span>
         </button>
       </div>
@@ -117,7 +118,7 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
 
         </div>
 
-        <div class="toolbar-right" *ngIf="isCreatorMenu() && activeTab() === 'draft' && authService.hasPermission('DOSSIER_CREATE')">
+        <div class="toolbar-right" *ngIf="isCreatorMenu() && activeTab() === 'draft' && canCreateDossier()">
 
           <button (click)="onCreateNew()" class="btn-green">
 
@@ -528,12 +529,27 @@ export class DossierListComponent implements OnInit {
     this.activeTab.set(getDefaultTabForMenuScope(value));
   }
 
+  @Input() set kindId(value: number | undefined) {
+    const id = value ?? 2;
+    this.kindIdSignal.set(id);
+    this.service.setKindContext(id);
+  }
+
+  kindIdSignal = signal<number>(2);
   private menuScopeSignal = signal<DossierMenuScope>('creator');
-  visibleTabs = computed(() => getTabsForMenuScope(this.menuScopeSignal()));
+  visibleTabs = computed(() => getTabsForMenuScope(this.menuScopeSignal(), this.kindIdSignal()));
   isCreatorMenu = computed(() => this.menuScopeSignal() === 'creator');
   isApproverMenu = computed(() => this.menuScopeSignal() === 'approver');
+  isDigitization = computed(() => this.kindIdSignal() === 1);
 
   tabLabel = tabLabel;
+
+  canCreateDossier(): boolean {
+    if (this.isDigitization()) {
+      return this.authService.hasPermission('SUPER_ADMIN') || this.authService.hasPermission('DOSSIER_DIGITIZATION_CREATE');
+    }
+    return this.authService.hasPermission('SUPER_ADMIN') || this.authService.hasPermission('DOSSIER_CREATE');
+  }
 
   private service = inject(DossierManagementService);
 
@@ -713,12 +729,60 @@ export class DossierListComponent implements OnInit {
 
   }
 
+  /** Cập nhật 1 dòng từ API Oracle + workflow (tránh chờ ES đồng bộ). */
+  private refreshListItemAfterMutation(id: string, onDone?: () => void) {
+    forkJoin({
+      detail: this.service.getDossierById(id),
+      workflow: this.service.getWorkflowDetail(id).pipe(catchError(() => of(null))),
+    }).subscribe({
+      next: ({ detail, workflow }) => {
+        const patch = buildListItemPatchFromSources(detail, workflow);
+        this.applyListItemPatch(id, patch);
+        onDone?.();
+      },
+      error: () => {
+        this.refreshList();
+        onDone?.();
+      },
+    });
+  }
+
+  private applyListItemPatch(id: string, patch: DossierListItemPatch) {
+    const tab = this.activeTab();
+
+    if (tab === 'pending-action') {
+      const stillInInbox = isUserAuthorizedForWorkflowAction({
+        authService: this.authService,
+        menuScope: this.menuScopeSignal(),
+        currentAssignees: patch.currentAssignees,
+        assigneeUserId: patch.currentAssignees[0],
+      });
+      if (!stillInInbox) {
+        this.items.update((list) => list.filter((item) => item.id !== id));
+        this.totalCount.update((count) => Math.max(0, count - 1));
+        return;
+      }
+    } else if (!shouldKeepItemOnTab(tab, {
+      statusId: patch.statusId,
+      workflowInstanceId: patch.workflowInstanceId,
+    })) {
+      this.items.update((list) => list.filter((item) => item.id !== id));
+      this.totalCount.update((count) => Math.max(0, count - 1));
+      return;
+    }
+
+    this.items.update((list) =>
+      list.map((item) => (item.id === id ? { ...item, ...patch } : item))
+    );
+  }
+
 
 
   loadTabCounts() {
 
     this.service.getDossierTabCounts({
       menuScope: this.menuScopeSignal(),
+      kindId: this.kindIdSignal(),
       keyword: this.searchKeyword(),
       gridTypeId: this.filterGridTypeId() !== null ? this.filterGridTypeId()! : undefined,
       infrastructureId: this.filterInfrastructureId() || undefined,
@@ -771,6 +835,7 @@ export class DossierListComponent implements OnInit {
 
     const filter = {
       menuScope: this.menuScopeSignal(),
+      kindId: this.kindIdSignal(),
       tab: this.activeTab(),
       keyword: this.searchKeyword(),
       gridTypeId: this.filterGridTypeId() !== null ? this.filterGridTypeId()! : undefined,
@@ -992,21 +1057,16 @@ export class DossierListComponent implements OnInit {
     if (!item || !item.availableActions || item.availableActions.length === 0) return false;
     if (!item.currentAssignees || item.currentAssignees.length === 0) return false;
 
-    const userId = this.authService.getUserId();
-    const roles = this.authService.getUserRoles();
-
-    if (roles.includes('ADMIN')) return true;
-
-    const isAssignee = item.currentAssignees.some((assignee: string) =>
-      assignee === userId
-    );
-
-    if (this.isApproverMenu()) {
-      return isAssignee;
-    }
-
+    const statusId = item.statusId ?? item.StatusId;
     const status = item.status ?? item.Status;
-    return status === 'Returned' && (isAssignee || this.isCurrentUserCreator(item));
+
+    return isUserAuthorizedForWorkflowAction({
+      authService: this.authService,
+      menuScope: this.menuScopeSignal(),
+      currentAssignees: item.currentAssignees,
+      statusId: statusId ?? (status === 'Returned' ? 5 : undefined),
+      isCreator: this.isCurrentUserCreator(item),
+    });
   }
 
   private shouldUseResubmit(item: any): boolean {
@@ -1061,7 +1121,7 @@ export class DossierListComponent implements OnInit {
           detail: `Thao tác "${meta.label || action.name}" thành công!`,
         });
         this.closeQuickActionDialog(true);
-        this.refreshList();
+        this.refreshListItemAfterMutation(dossierId, () => this.loadTabCounts());
       },
       error: (err) => {
         this.messageService.add({
@@ -1176,7 +1236,14 @@ export class DossierListComponent implements OnInit {
         this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã hoàn thành nhập liệu thành công' });
         this.showQuickCompleteConfirm.set(false);
         this.quickActionSubmitting.set(false);
-        this.loadData();
+        this.items.update((list) =>
+          list.map((row) =>
+            row.id === item.id
+              ? { ...row, statusId: 2, status: 'CompletedInput', statusName: 'Hoàn thành' }
+              : row
+          )
+        );
+        this.refreshListItemAfterMutation(item.id, () => this.loadTabCounts());
       },
       error: (err: any) => {
         this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: err.error?.message || 'Không thể hoàn thành nhập liệu' });
@@ -1190,6 +1257,25 @@ export class DossierListComponent implements OnInit {
     this.quickSubmitSubmitting.set(true);
     this.service.getNextStepInfo().subscribe({
       next: (res) => {
+        if (res?.autoApprove) {
+          this.service.submitForApproval(item.id, {
+            nextNodeId: '',
+            actionLabel: 'Tự động duyệt',
+            comment: 'Tự động phê duyệt — chưa cấu hình quy trình.'
+          }).subscribe({
+            next: () => {
+              this.messageService.add({ severity: 'success', summary: 'Thành công', detail: res.message || 'Đã tự động phê duyệt hồ sơ' });
+              this.quickSubmitSubmitting.set(false);
+              this.showQuickSubmitConfirm.set(false);
+              this.refreshListItemAfterMutation(item.id, () => this.loadTabCounts());
+            },
+            error: (err: any) => {
+              this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: err.error?.message || 'Không thể tự động phê duyệt hồ sơ.' });
+              this.quickSubmitSubmitting.set(false);
+            }
+          });
+          return;
+        }
         this.quickSubmitNextStepInfo.set(res);
         this.quickSubmitSelectedNextUser.set('');
         if (res.requiredRole) {
@@ -1239,7 +1325,7 @@ export class DossierListComponent implements OnInit {
         this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã gửi duyệt hồ sơ thành công' });
         this.showQuickSubmitConfirm.set(false);
         this.quickActionSubmitting.set(false);
-        this.loadData();
+        this.refreshListItemAfterMutation(item.id, () => this.loadTabCounts());
       },
       error: (err: any) => {
         this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: err.error?.message || 'Không thể gửi duyệt hồ sơ' });

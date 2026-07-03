@@ -12,6 +12,7 @@ import { DossierListComponent } from './dossier-list/dossier-list.component';
 import { DossierFormComponent } from './dossier-form/dossier-form.component';
 import { DossierDetailComponent } from './dossier-detail/dossier-detail.component';
 import { DossierPublishComponent } from './dossier-publish/dossier-publish.component';
+import { DossierManagementService } from '../data-access/dossier-management.service';
 
 import { DossierMenuScope } from '../utils/dossier-status.util';
 
@@ -50,6 +51,7 @@ import { DossierMenuScope } from '../utils/dossier-status.util';
       <app-dossier-list
         *ngIf="currentView() === 'list' && menuScope() !== 'publisher'"
         [menuScope]="menuScope()"
+        [kindId]="kindId()"
         (viewDetail)="onViewDetail($event)"
         (edit)="onEdit($event)"
         (create)="onCreate()"
@@ -108,12 +110,12 @@ export class DossierManagementComponent implements OnInit {
 
 
 
+  private dossierService = inject(DossierManagementService);
+
   currentView = signal<'list' | 'form' | 'detail'>('list');
-
   selectedDossierId = signal<string | null>(null);
-
   menuScope = signal<DossierMenuScope>('creator');
-
+  kindId = signal<number>(2);
   listTitle = signal('Quản lý hồ sơ');
 
 
@@ -166,27 +168,38 @@ export class DossierManagementComponent implements OnInit {
 
 
 
-  private routePrefix(): string {
+  private routeSegments(): string[] {
     const scope = this.menuScope();
-    if (scope === 'approver') return 'approve';
-    if (scope === 'publisher') return 'publish';
-    return 'my-dossiers';
+    if (this.kindId() === 1) {
+      return scope === 'approver' ? ['digitization', 'approve'] : ['digitization', 'my-dossiers'];
+    }
+    if (scope === 'approver') return ['approve'];
+    if (scope === 'publisher') return ['publish'];
+    return ['my-dossiers'];
   }
 
-
+  private routeBasePath(): string {
+    return `/dossier-management/${this.routeSegments().join('/')}`;
+  }
 
   private syncViewFromRoute(): void {
-    const snapshot = this.route.snapshot;
-    const scope = (snapshot.data['menuScope'] as DossierMenuScope) ?? 'creator';
+    let node = this.route.snapshot;
+    while (node.firstChild) node = node.firstChild;
+
+    const scope = (node.data['menuScope'] as DossierMenuScope) ?? 'creator';
+    const kind = (node.data['kindId'] as number) ?? 2;
     this.menuScope.set(scope);
-    this.listTitle.set((snapshot.data['listTitle'] as string) ?? 'Quản lý hồ sơ');
+    this.kindId.set(kind);
+    this.dossierService.setKindContext(kind);
+    this.listTitle.set((node.data['listTitle'] as string) ?? 'Quản lý hồ sơ');
 
-    const root = this.routePrefix();
-    const routePath = snapshot.routeConfig?.path ?? '';
-    const id = snapshot.paramMap.get('id');
+    const root = this.routeSegments().join('/');
+    const routePath = node.routeConfig?.path ?? '';
+    const id = node.paramMap.get('id');
     const url = this.router.url.split('?')[0];
+    const basePath = this.routeBasePath();
 
-    if (routePath === root || url === `/dossier-management/${root}` || url.endsWith(`/dossier-management/${root}`)) {
+    if (routePath === this.routeSegments().slice(-1)[0] || url === basePath || url.endsWith(basePath)) {
       this.selectedDossierId.set(null);
       this.currentView.set('list');
       return;
@@ -237,7 +250,7 @@ export class DossierManagementComponent implements OnInit {
 
   onViewDetail(id: string): void {
 
-    void this.router.navigate(['/dossier-management', this.routePrefix(), id]);
+    void this.router.navigate(['/dossier-management', ...this.routeSegments(), id]);
 
   }
 
@@ -247,7 +260,7 @@ export class DossierManagementComponent implements OnInit {
 
     if (this.menuScope() !== 'creator') return;
 
-    void this.router.navigate(['/dossier-management', this.routePrefix(), id, 'edit']);
+    void this.router.navigate(['/dossier-management', ...this.routeSegments(), id, 'edit']);
 
   }
 
@@ -257,7 +270,7 @@ export class DossierManagementComponent implements OnInit {
 
     if (this.menuScope() !== 'creator') return;
 
-    void this.router.navigate(['/dossier-management', this.routePrefix(), 'new']);
+    void this.router.navigate(['/dossier-management', ...this.routeSegments(), 'new']);
 
   }
 
@@ -265,7 +278,7 @@ export class DossierManagementComponent implements OnInit {
 
   onBackToList(): void {
 
-    void this.router.navigate(['/dossier-management', this.routePrefix()]);
+    void this.router.navigate(['/dossier-management', ...this.routeSegments()]);
 
   }
 
@@ -273,7 +286,7 @@ export class DossierManagementComponent implements OnInit {
 
   onSaved(id: string): void {
 
-    void this.router.navigate(['/dossier-management', this.routePrefix(), id]);
+    void this.router.navigate(['/dossier-management', ...this.routeSegments(), id]);
 
   }
 

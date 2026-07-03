@@ -37,14 +37,28 @@ export interface BhsCatalogColumn {
 export class DossierManagementService {
   private http = inject(HttpClient);
   private config = inject(APP_CONFIG);
+  private kindId = 2;
 
-  private get base() {
-    return `${this.config.apiGatewayUrl}/api/v1/dossiers`;
+  /** Gọi từ shell component theo route data (kindId: 1 = digitization). */
+  setKindContext(kindId: number): void {
+    this.kindId = kindId;
   }
 
-  /** Tác vụ workflow hồ sơ đã tách sang WorkflowService */
+  private get isDigitization(): boolean {
+    return this.kindId === 1;
+  }
+
+  private get base() {
+    return this.isDigitization
+      ? `${this.config.apiGatewayUrl}/api/v1/dossier-digitization/dossiers`
+      : `${this.config.apiGatewayUrl}/api/v1/dossiers`;
+  }
+
+  /** Tác vụ workflow hồ sơ */
   private get workflowBase() {
-    return `${this.config.apiGatewayUrl}/api/v1/dossiers-workflow`;
+    return this.isDigitization
+      ? `${this.config.apiGatewayUrl}/api/v1/dossier-digitization-workflow`
+      : `${this.config.apiGatewayUrl}/api/v1/dossiers-workflow`;
   }
 
   private get searchBase() {
@@ -64,6 +78,7 @@ export class DossierManagementService {
   getDossiers(filter: {
     menuScope?: DossierMenuScope;
     tab?: DossierListTab;
+    kindId?: number;
     keyword?: string;
     infrastructureId?: string;
     gridTypeId?: number;
@@ -78,6 +93,8 @@ export class DossierManagementService {
       .set('pageSize', filter.pageSize.toString());
 
     if (filter.menuScope) params = params.set('menuScope', filter.menuScope);
+    const effectiveKindId = filter.kindId ?? this.kindId;
+    if (effectiveKindId) params = params.set('kindId', effectiveKindId.toString());
 
     if (filter.tab) params = params.set('tab', filter.tab);
     if (filter.keyword?.trim()) params = params.set('keyword', filter.keyword.trim());
@@ -112,12 +129,15 @@ export class DossierManagementService {
 
   getDossierTabCounts(filter: {
     menuScope: DossierMenuScope;
+    kindId?: number;
     keyword?: string;
     infrastructureId?: string;
     gridTypeId?: number;
     unitId?: number;
   }): Observable<DossierTabCounts> {
     let params = new HttpParams().set('menuScope', filter.menuScope);
+    const effectiveKindId = filter.kindId ?? this.kindId;
+    if (effectiveKindId) params = params.set('kindId', effectiveKindId.toString());
     if (filter.keyword?.trim()) params = params.set('keyword', filter.keyword.trim());
     if (filter.infrastructureId) params = params.set('infrastructureId', filter.infrastructureId);
     if (filter.gridTypeId != null) params = params.set('gridTypeId', filter.gridTypeId.toString());
