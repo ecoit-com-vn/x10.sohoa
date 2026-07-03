@@ -212,7 +212,7 @@ public class DossierService : IDossierService
         return await _dossierRepository.GetDetailByIdAsync(id);
     }
 
-    public async Task<Guid> CreateAsync(DossierCreateDto dto, string userId, string userName, string userFullName)
+    public async Task<Guid> CreateAsync(DossierCreateDto dto, string userId, string userName, string userFullName, int kindId = 2)
     {
         var dossier = new Dossier
         {
@@ -223,6 +223,7 @@ public class DossierService : IDossierService
             DossierTypeId = dto.DossierTypeId,
             FormDataJson = dto.FormDataJson,
             StatusId = DossierStatusConstants.New,
+            KindId = kindId,
             RowVersion = 1,
             CreatorId = string.IsNullOrEmpty(userId) ? null : Guid.TryParse(userId, out var uid) ? uid : null,
             CreatorUsername = userName,
@@ -486,6 +487,29 @@ public class DossierService : IDossierService
                 "Dossier {DossierId}: sync reindex thất bại, đã đưa vào hàng đợi RabbitMQ dossier_index_queue.",
                 id);
         }
+    }
+
+    public async Task AutoApproveWithoutWorkflowAsync(Guid id)
+    {
+        var existing = await _dossierRepository.GetByIdAsync(id);
+        if (existing == null) throw new KeyNotFoundException($"Không tìm thấy hồ sơ với ID = {id}");
+
+        if (existing.StatusId != DossierStatusConstants.CompletedInput)
+            throw new InvalidOperationException("Hồ sơ phải ở trạng thái 'Hoàn thành' mới được tự động phê duyệt.");
+
+        await _dossierRepository.UpdateWorkflowAsync(
+            id,
+            Guid.Empty,
+            "Tự động duyệt",
+            DossierStatusConstants.Approved,
+            DossierPublishStatusConstants.Pending,
+            "system");
+
+        await _dossierRepository.SaveActiveWorkflowTaskAsync(id, string.Empty, string.Empty, string.Empty, "[]", "system");
+
+        var synced = await TrySyncReindexAsync(id);
+        if (!synced)
+            await TryPublishDossierChangedAsync(id, DossierChangedActions.WorkflowChanged);
     }
 
     private async Task<bool> TryPublishDossierChangedAsync(Guid dossierId, string action)

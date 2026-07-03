@@ -44,6 +44,8 @@ public class DossierEsDocument
     public int? PublishStatusId { get; set; }
     public string? PublishStatusCode { get; set; }
     public string? PublishStatusName { get; set; }
+    public int? KindId { get; set; }
+    public string? KindCode { get; set; }
 }
 
 public class WorkflowActionEsDto

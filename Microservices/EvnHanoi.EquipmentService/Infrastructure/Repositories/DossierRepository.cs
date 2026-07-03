@@ -641,8 +641,16 @@ public class DossierRepository : IDossierRepository
     {
         if (_connection.State != ConnectionState.Open)
             _connection.Open();
-        var sql = $@"SELECT Id, GridTypeId, InfrastructureId, DossierSetId, DossierTypeId, FormDataJson, STATUS_ID as StatusId, WorkflowInstanceId, WorkflowStatusName, RowVersion, CreatorId, CreatorUsername, CreatorName, CreatedBy, CreatedDate, ModifiedBy, ModifiedDate, IsDeleted, PUBLISHSTATUSID as PublishStatusId FROM DOSSIERS WHERE {nameof(Dossier.Id)} = :Id AND {nameof(Dossier.IsDeleted)} = 0";
+        var sql = $@"SELECT Id, GridTypeId, InfrastructureId, DossierSetId, DossierTypeId, FormDataJson, STATUS_ID as StatusId, KIND_ID as KindId, WorkflowInstanceId, WorkflowStatusName, RowVersion, CreatorId, CreatorUsername, CreatorName, CreatedBy, CreatedDate, ModifiedBy, ModifiedDate, IsDeleted, PUBLISHSTATUSID as PublishStatusId FROM DOSSIERS WHERE {nameof(Dossier.Id)} = :Id AND {nameof(Dossier.IsDeleted)} = 0";
         return await _connection.QuerySingleOrDefaultAsync<Dossier>(sql, new { Id = id.ToString() });
+    }
+
+    public async Task<int?> GetKindIdAsync(Guid id)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+        const string sql = "SELECT KIND_ID FROM DOSSIERS WHERE Id = :Id AND IsDeleted = 0";
+        return await _connection.QuerySingleOrDefaultAsync<int?>(sql, new { Id = id.ToString() });
     }
     public async Task<Guid> CreateAsync(Dossier dossier, IEnumerable<Guid> equipmentIds)
     {
@@ -661,6 +669,7 @@ public class DossierRepository : IDossierRepository
                             {nameof(Dossier.DossierTypeId)},
                             {nameof(Dossier.FormDataJson)},
                             STATUS_ID,
+                            KIND_ID,
                             {nameof(Dossier.RowVersion)},
                             {nameof(Dossier.CreatorId)},
                             {nameof(Dossier.CreatorUsername)},
@@ -670,7 +679,7 @@ public class DossierRepository : IDossierRepository
                             {nameof(Dossier.IsDeleted)}
                         ) VALUES (
                             :Id, :GridTypeId, :InfrastructureId, :DossierSetId, :DossierTypeId,
-                            :FormDataJson, :StatusId, :RowVersion, :CreatorId, :CreatorUsername,
+                            :FormDataJson, :StatusId, :KindId, :RowVersion, :CreatorId, :CreatorUsername,
                             :CreatorName, :CreatedBy, :CreatedDate, :IsDeleted
                         )";
             await _connection.ExecuteAsync(sql, new
@@ -682,6 +691,7 @@ public class DossierRepository : IDossierRepository
                 DossierTypeId = dossier.DossierTypeId.ToString(),
                 dossier.FormDataJson,
                 dossier.StatusId,
+                dossier.KindId,
                 dossier.RowVersion,
                 CreatorId = dossier.CreatorId?.ToString(),
                 dossier.CreatorUsername,

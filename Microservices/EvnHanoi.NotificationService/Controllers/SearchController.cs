@@ -52,6 +52,7 @@ public class SearchController : ControllerBase
         [FromQuery] int? statusId,
         [FromQuery] string? menuScope,
         [FromQuery] Guid? dossierTypeId,
+        [FromQuery] int? kindId,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10)
     {
@@ -65,7 +66,8 @@ public class SearchController : ControllerBase
             normalizedTab,
             userId,
             Request.Headers.Authorization.ToString(),
-            isAdmin);
+            isAdmin,
+            kindId);
         if (!scopeCheck.Allowed)
         {
             return StatusCode(403, new { message = scopeCheck.ErrorMessage });
@@ -91,6 +93,7 @@ public class SearchController : ControllerBase
             StatusId = statusId,
             MenuScope = DossierMenuScopes.Normalize(menuScope),
             DossierTypeId = dossierTypeId,
+            KindId = kindId,
             UserId = userId,
             UserRoles = roles,
             IsAdmin = isAdmin,
@@ -138,7 +141,8 @@ public class SearchController : ControllerBase
         [FromQuery] Guid? infrastructureId,
         [FromQuery] int? gridTypeId,
         [FromQuery] long? unitId,
-        [FromQuery] string? menuScope)
+        [FromQuery] string? menuScope,
+        [FromQuery] int? kindId)
     {
         var roles = GetUserRoles();
         var userId = GetUserId();
@@ -149,7 +153,8 @@ public class SearchController : ControllerBase
             tab: null,
             userId,
             Request.Headers.Authorization.ToString(),
-            isAdmin);
+            isAdmin,
+            kindId);
         if (!scopeCheck.Allowed)
         {
             return StatusCode(403, new { message = scopeCheck.ErrorMessage });
@@ -172,6 +177,7 @@ public class SearchController : ControllerBase
             GridTypeId = gridTypeId,
             UnitId = effectiveUnitId,
             MenuScope = DossierMenuScopes.Normalize(menuScope),
+            KindId = kindId,
             UserId = userId,
             UserRoles = roles,
             IsAdmin = isAdmin

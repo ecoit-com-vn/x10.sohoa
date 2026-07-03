@@ -82,7 +82,9 @@ public class DossierDocumentBuilder : IDossierDocumentBuilder
             }).ToList(),
             PublishStatusId = data.PublishStatusId,
             PublishStatusCode = data.PublishStatusCode,
-            PublishStatusName = data.PublishStatusName
+            PublishStatusName = data.PublishStatusName,
+            KindId = data.KindId,
+            KindCode = data.KindCode
         };
     }
 

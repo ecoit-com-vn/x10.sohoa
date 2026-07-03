@@ -50,6 +50,7 @@ public interface IDossierRepository
     // Chi tiết
     Task<DossierDetailDto?> GetDetailByIdAsync(Guid id);
     Task<Dossier?> GetByIdAsync(Guid id);
+    Task<int?> GetKindIdAsync(Guid id);
 
     // CRUD
     Task<Guid> CreateAsync(Dossier dossier, IEnumerable<Guid> equipmentIds);

@@ -59,6 +59,7 @@ builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IDossierRep
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IDossierSearchRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.DossierSearchRepository>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IDossierSetRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.DossierSetRepository>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IDossierService, EvnHanoi.EquipmentService.Core.Services.DossierService>();
+builder.Services.AddScoped<DossierKindGuard>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IDocumentRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.DocumentRepository>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IFolderAllocationRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.FolderAllocationRepository>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Services.IDocumentManagementService, EvnHanoi.EquipmentService.Core.Services.DocumentManagementService>();

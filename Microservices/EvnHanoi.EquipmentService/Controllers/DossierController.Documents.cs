@@ -9,9 +9,9 @@ using EvnHanoi.Infrastructure.Security;
 namespace EvnHanoi.EquipmentService.Controllers;
 
 /// <summary>
-/// API tab Tài liệu đính kèm — partial của DossierController (phân quyền DOSSIER_*).
+/// API tab Tài liệu đính kèm — partial của DossierControllerBase.
 /// </summary>
-public partial class DossierController
+public abstract partial class DossierControllerBase
 {
     private long GetUserUnitId()
     {

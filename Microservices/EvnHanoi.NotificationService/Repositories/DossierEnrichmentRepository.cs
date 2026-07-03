@@ -29,7 +29,11 @@ public class DossierEnrichmentRepository : IDossierEnrichmentRepository
 
 {
 
-    private const string DossierEntityType = "Dossier";
+    private const int DossierWorkflowTypeId = 1;
+    private const int DossierDigitizationWorkflowTypeId = 3;
+
+    private static int ResolveWorkflowTypeId(int? kindId) =>
+        kindId == 1 ? DossierDigitizationWorkflowTypeId : DossierWorkflowTypeId;
 
     private const string InstanceRunning = "Running";
 
@@ -89,6 +93,10 @@ public class DossierEnrichmentRepository : IDossierEnrichmentRepository
                     d.PUBLISHSTATUSID AS PublishStatusId,
                     ps.CODE AS PublishStatusCode,
                     ps.NAME AS PublishStatusName,
+                    d.KIND_ID AS KindId,
+                    dk.CODE AS KindCode,
+                    d.KIND_ID AS KindId,
+                    dk.CODE AS KindCode,
                     COALESCE((
                         SELECT MAX(v.VersionNumber)
                         FROM DOSSIER_VERSIONS v
@@ -109,6 +117,7 @@ public class DossierEnrichmentRepository : IDossierEnrichmentRepository
                 LEFT JOIN DOSSIER_TYPES dt ON d.DossierTypeId = dt.Id
                 LEFT JOIN WORKFLOW_TASKS_ACTIVE wta ON d.Id = wta.DOSSIER_ID
                 LEFT JOIN PUBLISH_STATUSES ps ON d.PUBLISHSTATUSID = ps.ID
+                LEFT JOIN DOSSIER_KINDS dk ON d.KIND_ID = dk.ID
                 LEFT JOIN DOSSIER_STATUSES dstat ON d.STATUS_ID = dstat.ID
                 WHERE LOWER(TRIM(d.Id)) = LOWER(TRIM(:DossierId))
                 """;
@@ -143,6 +152,8 @@ public class DossierEnrichmentRepository : IDossierEnrichmentRepository
 
 
 
+        var workflowTypeId = ResolveWorkflowTypeId(data.KindId);
+
         const string instanceSql = """
 
             SELECT wi.Id, wi.Status, wi.CurrentNodeName, wi.CurrentStepOrder
@@ -151,7 +162,7 @@ public class DossierEnrichmentRepository : IDossierEnrichmentRepository
 
             WHERE LOWER(TRIM(wi.TargetEntityId)) = LOWER(TRIM(:DossierId))
 
-              AND wi.EntityType = :EntityType
+              AND wi.WORKFLOW_TYPE_ID = :WorkflowTypeId
 
             ORDER BY CASE WHEN UPPER(TRIM(wi.Status)) = 'RUNNING' THEN 0 ELSE 1 END, wi.CreatedAt DESC
 
@@ -163,7 +174,7 @@ public class DossierEnrichmentRepository : IDossierEnrichmentRepository
 
         var instance = await connection.QueryFirstOrDefaultAsync<(string Id, string Status, string? CurrentNodeName, int CurrentStepOrder)>(
 
-            instanceSql, new { DossierId = dossierId, EntityType = DossierEntityType });
+            instanceSql, new { DossierId = dossierId, WorkflowTypeId = workflowTypeId });
 
 
 
@@ -173,7 +184,7 @@ public class DossierEnrichmentRepository : IDossierEnrichmentRepository
 
             ClearInboxFields(data);
 
-            data.WorkflowParticipantUserIds = EnsureParticipants(data, await LoadParticipantUserIdsAsync(connection, dossierId));
+            data.WorkflowParticipantUserIds = EnsureParticipants(data, await LoadParticipantUserIdsAsync(connection, dossierId, workflowTypeId));
 
             return;
 
@@ -205,7 +216,7 @@ public class DossierEnrichmentRepository : IDossierEnrichmentRepository
 
 
 
-        var participants = await LoadParticipantUserIdsAsync(connection, dossierId);
+        var participants = await LoadParticipantUserIdsAsync(connection, dossierId, workflowTypeId);
 
         if (!string.IsNullOrWhiteSpace(data.PendingAssigneeUserId))
 
@@ -542,7 +553,7 @@ public class DossierEnrichmentRepository : IDossierEnrichmentRepository
 
 
 
-    private static async Task<List<string>> LoadParticipantUserIdsAsync(IDbConnection connection, string dossierId)
+    private static async Task<List<string>> LoadParticipantUserIdsAsync(IDbConnection connection, string dossierId, int workflowTypeId)
 
     {
 
@@ -558,7 +569,7 @@ public class DossierEnrichmentRepository : IDossierEnrichmentRepository
 
                 WHERE LOWER(TRIM(wi.TargetEntityId)) = LOWER(TRIM(:DossierId))
 
-                  AND wi.EntityType = :EntityType
+                  AND wi.WORKFLOW_TYPE_ID = :WorkflowTypeId
 
                   AND wt.AssigneeUserId IS NOT NULL
 
@@ -572,7 +583,7 @@ public class DossierEnrichmentRepository : IDossierEnrichmentRepository
 
                 WHERE LOWER(TRIM(wi.TargetEntityId)) = LOWER(TRIM(:DossierId))
 
-                  AND wi.EntityType = :EntityType
+                  AND wi.WORKFLOW_TYPE_ID = :WorkflowTypeId
 
                   AND h.ActionByUserId IS NOT NULL
 
@@ -596,7 +607,7 @@ public class DossierEnrichmentRepository : IDossierEnrichmentRepository
 
             sql,
 
-            new { DossierId = dossierId, EntityType = DossierEntityType })).ToList();
+            new { DossierId = dossierId, WorkflowTypeId = workflowTypeId })).ToList();
 
         return ids
 

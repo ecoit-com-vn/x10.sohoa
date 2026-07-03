@@ -1,3 +1,4 @@
+using EvnHanoi.Infrastructure.Enums;
 using EvnHanoi.WorkflowService.Core.Interfaces;
 using EvnHanoi.WorkflowService.Models;
 using System;
@@ -12,7 +13,7 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
         private readonly IBorrowRecordRepository _borrowRepository;
         private readonly IWorkflowRepository _workflowRepository;
 
-        public string EntityType => "BorrowRecord";
+        public int WorkflowTypeId => EntityType.BorrowRecord.Id;
 
         public BorrowRecordWorkflowHandler(IBorrowRecordRepository borrowRepository, IWorkflowRepository workflowRepository)
         {

@@ -190,6 +190,6 @@ public class DynamicPermissionFilter : IAsyncActionFilter
             return new[] { "DOSSIER_CREATE" };
         }
 
-        return Array.Empty<string>();
+        return PermissionImplicationResolver.GetImpliedAlternates(requiredPermission);
     }
 }
