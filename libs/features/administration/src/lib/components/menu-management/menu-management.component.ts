@@ -1,4 +1,5 @@
 import { Component, OnInit, signal, computed, inject } from '@angular/core';
+import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DialogModule } from 'primeng/dialog';
@@ -16,7 +17,7 @@ import {
 @Component({
   selector: 'app-menu-management',
   standalone: true,
-  imports: [CommonModule, FormsModule, DialogModule, ToastModule],
+  imports: [CommonModule, FormsModule, DialogModule, ToastModule, WfBreadcrumbComponent],
   providers: [MessageService],
   templateUrl: './menu-management.component.html',
   styleUrl: './menu-management.component.scss'

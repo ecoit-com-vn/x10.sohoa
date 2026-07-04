@@ -1,4 +1,5 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
+import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FileUploadModule, FileUploadHandlerEvent } from 'primeng/fileupload';
 import { CardModule } from 'primeng/card';
@@ -10,7 +11,7 @@ import { environment } from '@env/environment';
 @Component({
   selector: 'app-ocr-upload',
   standalone: true,
-  imports: [CommonModule, FileUploadModule, CardModule, ToastModule],
+  imports: [CommonModule, FileUploadModule, CardModule, ToastModule, WfBreadcrumbComponent],
   providers: [MessageService],
   templateUrl: './ocr-upload.component.html',
   styleUrls: ['./ocr-upload.component.scss']

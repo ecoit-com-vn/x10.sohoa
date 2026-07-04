@@ -3,6 +3,7 @@ import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
+import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { ReportViewerComponent } from '../report-viewer/report-viewer.component';
 import { ReportDesignerComponent } from '../report-designer/report-designer.component';
 import { ReportGroupManagerComponent } from '../report-group-manager/report-group-manager.component';
@@ -13,6 +14,7 @@ import { ReportGroupManagerComponent } from '../report-group-manager/report-grou
   imports: [
     CommonModule, 
     ToastModule,
+    WfBreadcrumbComponent,
     ReportViewerComponent,
     ReportDesignerComponent,
     ReportGroupManagerComponent

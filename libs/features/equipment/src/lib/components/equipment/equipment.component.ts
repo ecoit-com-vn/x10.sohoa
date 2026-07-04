@@ -1,4 +1,5 @@
 import { Component, OnInit, signal, computed, inject, effect, HostListener } from '@angular/core';
+import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ToastModule } from 'primeng/toast';
@@ -16,7 +17,7 @@ import { catchError, finalize, switchMap } from 'rxjs/operators';
 @Component({
   selector: 'app-equipment-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule, SelectModule, DialogModule],
+  imports: [CommonModule, FormsModule, ToastModule, SelectModule, DialogModule, WfBreadcrumbComponent],
   providers: [MessageService],
   templateUrl: './equipment.component.html',
   styleUrls: ['./equipment.component.css']

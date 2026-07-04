@@ -1,4 +1,5 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ToastModule } from 'primeng/toast';
@@ -47,7 +48,8 @@ interface ToolboxItem {
     Select,
     CheckboxModule,
     CardModule,
-    TextareaModule
+    TextareaModule,
+    WfBreadcrumbComponent,
   ],
   providers: [MessageService],
   templateUrl: './form-builder.component.html',

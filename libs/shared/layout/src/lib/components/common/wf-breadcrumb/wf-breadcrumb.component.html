@@ -1,0 +1,22 @@
+<div class="breadcrumb">
+  <i class="pi pi-home bc-icon"></i>
+  <a class="bc-text bc-link" routerLink="/dashboard">Trang chủ</a>
+
+  @for (item of items(); track item.label; let last = $last) {
+    <span class="bc-sep">/</span>
+    @if (last && showListAsLink()) {
+      <span class="bc-text bc-link" (click)="onLeafClick()">{{ item.label }}</span>
+    } @else if (last) {
+      <span class="bc-current">{{ item.label }}</span>
+    } @else if (item.url) {
+      <a class="bc-text bc-link" [routerLink]="item.url">{{ item.label }}</a>
+    } @else {
+      <span class="bc-text">{{ item.label }}</span>
+    }
+  }
+
+  @if (resolvedSuffix()) {
+    <span class="bc-sep">/</span>
+    <span class="bc-current">{{ resolvedSuffix() }}</span>
+  }
+</div>

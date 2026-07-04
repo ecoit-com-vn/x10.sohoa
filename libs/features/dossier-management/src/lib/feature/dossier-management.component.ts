@@ -1,4 +1,5 @@
-import { Component, computed, DestroyRef, inject, OnInit, signal } from '@angular/core';
+﻿import { Component, computed, DestroyRef, inject, OnInit, signal } from '@angular/core';
+import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 
 import { CommonModule } from '@angular/common';
 
@@ -24,29 +25,16 @@ import { DossierMenuScope } from '../utils/dossier-status.util';
 
   standalone: true,
 
-  imports: [CommonModule, DossierListComponent, DossierFormComponent, DossierDetailComponent, DossierPublishComponent],
+  imports: [CommonModule, DossierListComponent, DossierFormComponent, DossierDetailComponent, DossierPublishComponent, WfBreadcrumbComponent],
 
   template: `
 
     <div class="wf-page">
-
-      <div class="breadcrumb">
-
-        <i class="pi pi-home bc-icon"></i>
-
-        <span class="bc-text">Trang chủ</span>
-
-        <span class="bc-sep">/</span>
-
-        <span class="bc-text">Nghiệp vụ hồ sơ</span>
-
-        <span class="bc-sep">/</span>
-
-        <span class="bc-current">{{ breadcrumbCurrent() }}</span>
-
-      </div>
-
-
+      <wf-breadcrumb
+        [leafLabel]="listTitle()"
+        [suffix]="currentView() === 'list' ? null : breadcrumbCurrent()"
+        (listClick)="onBackToList()"
+      />
 
       <app-dossier-list
         *ngIf="currentView() === 'list' && menuScope() !== 'publisher'"
@@ -116,7 +104,7 @@ export class DossierManagementComponent implements OnInit {
   selectedDossierId = signal<string | null>(null);
   menuScope = signal<DossierMenuScope>('creator');
   kindId = signal<number>(2);
-  listTitle = signal('Quản lý hồ sơ');
+  listTitle = signal('Quáº£n lĂ½ há»“ sÆ¡');
 
 
 
@@ -126,11 +114,11 @@ export class DossierManagementComponent implements OnInit {
 
       case 'form':
 
-        return this.selectedDossierId() ? 'Cập nhật hồ sơ' : 'Tạo hồ sơ mới';
+        return this.selectedDossierId() ? 'Cáº­p nháº­t há»“ sÆ¡' : 'Táº¡o há»“ sÆ¡ má»›i';
 
       case 'detail':
 
-        return 'Chi tiết hồ sơ';
+        return 'Chi tiáº¿t há»“ sÆ¡';
 
       default:
 
@@ -191,7 +179,7 @@ export class DossierManagementComponent implements OnInit {
     this.menuScope.set(scope);
     this.kindId.set(kind);
     this.dossierService.setKindContext(kind);
-    this.listTitle.set((node.data['listTitle'] as string) ?? 'Quản lý hồ sơ');
+    this.listTitle.set((node.data['listTitle'] as string) ?? 'Quáº£n lĂ½ há»“ sÆ¡');
 
     const root = this.routeSegments().join('/');
     const routePath = node.routeConfig?.path ?? '';
@@ -291,5 +279,7 @@ export class DossierManagementComponent implements OnInit {
   }
 
 }
+
+
 
 

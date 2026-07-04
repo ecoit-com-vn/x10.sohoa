@@ -93,7 +93,7 @@ function resolveDocumentFulltextSearchAccess(auth: AuthService, router: Router):
   return router.createUrlTree(['/error'], { queryParams: { code: '403' } });
 }
 
-/** Menu Tìm kiếm toàn văn tài liệu */
+/** Menu / ô tìm kiếm toàn văn tài liệu */
 export const documentFulltextSearchGuard = withPermissionsLoaded(resolveDocumentFulltextSearchAccess);
 
 function resolveDigitizationCreatorAccess(auth: AuthService, router: Router): boolean | UrlTree {

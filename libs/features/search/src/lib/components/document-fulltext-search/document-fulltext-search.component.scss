@@ -3,169 +3,127 @@
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    gap: 16px;
+    gap: 12px;
     margin-bottom: 12px;
   }
 
   .doc-search-title {
-    margin: 0 0 4px;
-    font-size: 1.15rem;
+    margin: 0;
+    font-size: 1.2rem;
     font-weight: 700;
-    color: #1e3a8a;
+    color: #1e293b;
   }
 
   .doc-search-subtitle {
-    margin: 0;
+    margin: 4px 0 0;
     color: #64748b;
-    font-size: 0.9rem;
+    font-size: 0.88rem;
   }
 
   .doc-search-toolbar {
     margin-bottom: 12px;
-    flex-wrap: wrap;
-    gap: 10px;
   }
 
   .doc-search-input {
-    min-width: 320px;
-    flex: 1;
+    min-width: 280px;
   }
 
   .sort-label {
-    font-size: 0.82rem;
+    font-size: 0.85rem;
     color: #64748b;
     margin-right: 6px;
   }
 
   .doc-search-summary {
-    background: #f1f5f9;
-    border: 1px solid #e2e8f0;
-    border-radius: 6px;
-    padding: 10px 12px;
     margin-bottom: 12px;
-    font-size: 0.88rem;
-    color: #334155;
+    color: #475569;
+    font-size: 0.9rem;
   }
 
   .doc-result-list {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
   }
 
   .doc-result-card {
-    display: grid;
-    grid-template-columns: 44px 1fr auto;
+    display: flex;
     gap: 12px;
-    align-items: start;
     padding: 14px;
-    border: 1px solid #e5e7eb;
+    border: 1px solid #e2e8f0;
     border-radius: 8px;
     background: #fff;
   }
 
   .doc-result-icon {
+    flex: 0 0 40px;
     width: 40px;
     height: 40px;
+    border-radius: 8px;
+    background: #fef2f2;
+    color: #dc2626;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #dc2626;
-    font-size: 1.6rem;
+  }
+
+  .doc-result-body {
+    flex: 1;
+    min-width: 0;
+    text-align: left;
   }
 
   .doc-result-title {
-    border: none;
-    background: transparent;
+    border: 0;
+    background: none;
     padding: 0;
     margin: 0 0 6px;
-    color: #2563eb;
-    font-size: 0.95rem;
-    font-weight: 600;
+    font-size: 0.98rem;
+    font-weight: 700;
+    color: #1d4ed8;
     text-align: left;
     cursor: pointer;
-  }
 
-  .doc-result-title:hover {
-    text-decoration: underline;
+    &:hover {
+      text-decoration: underline;
+    }
   }
 
   .doc-result-snippet {
     margin: 0 0 8px;
     color: #475569;
-    font-size: 0.86rem;
+    font-size: 0.88rem;
     line-height: 1.45;
-  }
+    text-align: left;
 
-  .doc-result-snippet ::ng-deep em {
-    background: #fef08a;
-    font-style: normal;
-    padding: 0 2px;
-    border-radius: 2px;
+    ::ng-deep em {
+      font-style: normal;
+      background: #fef08a;
+      padding: 0 2px;
+      border-radius: 2px;
+    }
   }
 
   .doc-result-meta {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px 14px;
+    gap: 8px;
   }
 
   .meta-tag {
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    font-size: 0.8rem;
+    font-size: 0.78rem;
     color: #64748b;
-
-    i {
-      color: #94a3b8;
-      font-size: 0.75rem;
-    }
-  }
-
-  .doc-result-download {
-    width: 34px;
-    height: 34px;
-    border: 1px solid #dbeafe;
-    border-radius: 6px;
     background: #f8fafc;
-    color: #2563eb;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .doc-result-download:disabled {
-    opacity: 0.6;
-    cursor: wait;
+    border-radius: 999px;
+    padding: 2px 8px;
   }
 
   .doc-search-empty {
-    padding: 24px;
+    padding: 24px 12px;
     text-align: center;
-    color: #64748b;
-  }
-}
-
-@media (max-width: 768px) {
-  .doc-search-page {
-    .doc-search-header {
-      flex-direction: column;
-    }
-
-    .doc-search-input {
-      min-width: 0;
-      width: 100%;
-    }
-
-    .doc-result-card {
-      grid-template-columns: 32px 1fr;
-    }
-
-    .doc-result-download {
-      grid-column: 2;
-      justify-self: end;
-    }
+    color: #94a3b8;
   }
 }

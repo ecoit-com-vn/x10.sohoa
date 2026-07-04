@@ -5,14 +5,7 @@
     <ng-container *ngIf="viewState() === 'list'">
         <div class="list-toolbar">
             <div class="toolbar-left">
-                <div class="breadcrumb">
-                    <i class="pi pi-home bc-icon"></i>
-                    <span class="bc-text">Trang chủ</span>
-                    <span class="bc-sep">/</span>
-                    <span class="bc-text">Quản lý Form</span>
-                    <span class="bc-sep">/</span>
-                    <span class="bc-current">Danh sách form hoàn thành</span>
-                </div>
+                <wf-breadcrumb />
             </div>
         </div>
         <div class="wf-card">
@@ -118,16 +111,7 @@
         <!-- Breadcrumb with Back button -->
         <div class="list-toolbar">
             <div class="toolbar-left">
-                <div class="breadcrumb">
-                    <i class="pi pi-home bc-icon"></i>
-                    <span class="bc-text">Trang chủ</span>
-                    <span class="bc-sep">/</span>
-                    <span class="bc-text">Quản lý Form</span>
-                    <span class="bc-sep">/</span>
-                    <span class="bc-text wf-name-link" (click)="goToList()">Danh sách form hoàn thành</span>
-                    <span class="bc-sep">/</span>
-                    <span class="bc-current">Xem chi tiết form</span>
-                </div>
+                <wf-breadcrumb />
             </div>
             <div class="toolbar-right">
                 <button class="btn-save btn-tim" (click)="goToList()" style="background-color: #002D72 !important; border-color: #002D72 !important; display: inline-flex; align-items: center; gap: 6px; color: white;">

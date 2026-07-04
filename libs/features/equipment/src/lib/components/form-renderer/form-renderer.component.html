@@ -3,17 +3,9 @@
 <div class="wf-page">
   <div class="wf-card">
     
-    <!-- Breadcrumb -->
-    <div class="breadcrumb">
-      <i class="pi pi-home bc-icon"></i>
-      <span class="bc-text">Trang chủ</span>
-      <span class="bc-sep">/</span>
-      <span class="bc-text">Quản lý thiết bị</span>
-      <span class="bc-sep">/</span>
-      <span class="bc-current">Hiển thị biểu mẫu động (EAV)</span>
-    </div>
+    <wf-breadcrumb />
 
-    <!-- Màn hình xem trước & chọn EAV nếu truy cập trực tiếp route -->
+  <!-- Màn hình xem trước & chọn EAV nếu truy cập trực tiếp route -->
     <div class="filter-row mb-4" *ngIf="!formDefinition" style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px 18px; border-radius: 8px;">
       <div class="flex align-items-center gap-3 flex-wrap">
         <span class="font-bold text-sm" style="color: #002D72; white-space: nowrap;">

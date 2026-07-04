@@ -1,17 +1,7 @@
 <div class="wf-page">
   <p-toast></p-toast>
 
-  <div class="breadcrumb">
-    <i class="pi pi-home bc-icon"></i>
-    <span class="bc-text">Trang chủ</span>
-    <span class="bc-sep">/</span>
-    <span class="bc-text">Hệ thống Danh mục</span>
-    <span class="bc-sep">/</span>
-    <span class="bc-text bc-current" [class.bc-current]="currentView() === 'list'" (click)="currentView() !== 'list' && currentView.set('list')" [class.bc-link]="currentView() !== 'list'">Danh mục loại văn bản</span>
-    <span class="bc-sep" *ngIf="currentView() !== 'list'">/</span>
-    <span class="bc-current" *ngIf="currentView() === 'add'">Thêm mới</span>
-    <span class="bc-current" *ngIf="currentView() === 'edit'">Chỉnh sửa</span>
-  </div>
+  <wf-breadcrumb [viewMode]="currentView()" (listClick)="currentView.set('list')" />
 
   <div class="wf-card">
     <div class="animate-fade-in">

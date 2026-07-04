@@ -1,4 +1,5 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
+import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { SplitterModule } from 'primeng/splitter';
 import { FormsModule } from '@angular/forms';
@@ -14,7 +15,8 @@ import { debounceTime } from 'rxjs/operators';
     CommonModule,
     SplitterModule,
     FormsModule,
-    ToastModule
+    ToastModule,
+    WfBreadcrumbComponent,
   ],
   providers: [MessageService],
   templateUrl: './ocr-correction.component.html',

@@ -1,4 +1,5 @@
 import { Component, OnInit, inject, signal, computed, effect } from '@angular/core';
+import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ToastModule } from 'primeng/toast';
@@ -20,7 +21,7 @@ interface DocumentTask {
 @Component({
   selector: 'app-ocr-allocation',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule],
+  imports: [CommonModule, FormsModule, ToastModule, WfBreadcrumbComponent],
   providers: [MessageService],
   templateUrl: './ocr-allocation.component.html',
   styleUrl: './ocr-allocation.component.scss'

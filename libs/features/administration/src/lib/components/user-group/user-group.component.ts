@@ -1,5 +1,6 @@
 // E:\ecoit\sohoax10\sohoa.frontend\apps\admin-portal\src\app\features\administration\user-group.component.ts
 import { Component, OnInit, signal, computed, effect } from '@angular/core';
+import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -14,7 +15,7 @@ import { AuthService } from '@sohoa.frontend/shared/core';
 @Component({
   selector: 'app-user-group',
   standalone: true,
-  imports: [CommonModule, FormsModule, DialogModule, ToastModule, PickListModule],
+  imports: [CommonModule, FormsModule, DialogModule, ToastModule, PickListModule, WfBreadcrumbComponent],
   providers: [MessageService],
   templateUrl: './user-group.component.html',
   styleUrl: './user-group.component.scss'

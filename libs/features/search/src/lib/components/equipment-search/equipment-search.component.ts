@@ -1,4 +1,5 @@
 import { Component, OnInit, inject } from '@angular/core';
+import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -12,7 +13,7 @@ import { VirtualFoldersComponent } from '@sohoa.frontend/features/digitization';
 @Component({
   selector: 'app-equipment-search',
   standalone: true,
-  imports: [CommonModule, FormsModule, DialogModule, ToastModule, ButtonModule, VirtualFoldersComponent],
+  imports: [CommonModule, FormsModule, DialogModule, ToastModule, ButtonModule, VirtualFoldersComponent, WfBreadcrumbComponent],
   providers: [MessageService],
   templateUrl: './equipment-search.component.html',
   styleUrl: './equipment-search.component.scss'

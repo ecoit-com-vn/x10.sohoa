@@ -1,4 +1,5 @@
 import { Component, OnInit, signal, computed } from '@angular/core';
+import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -12,7 +13,7 @@ import { AuthService } from '@sohoa.frontend/shared/core';
 @Component({
   selector: 'app-upload-config',
   standalone: true,
-  imports: [CommonModule, FormsModule, DialogModule, ToastModule],
+  imports: [CommonModule, FormsModule, DialogModule, ToastModule, WfBreadcrumbComponent],
   providers: [MessageService],
   templateUrl: './upload-config.component.html',
   styleUrl: './upload-config.component.scss'

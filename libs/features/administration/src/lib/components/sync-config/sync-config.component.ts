@@ -1,4 +1,5 @@
 import { Component, OnInit, inject, PLATFORM_ID } from '@angular/core';
+import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ToastModule } from 'primeng/toast';
@@ -10,7 +11,7 @@ import { AuthService } from '@sohoa.frontend/shared/core';
 @Component({
   selector: 'app-sync-config',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule, ProgressSpinnerModule, HttpClientModule],
+  imports: [CommonModule, FormsModule, ToastModule, ProgressSpinnerModule, HttpClientModule, WfBreadcrumbComponent],
   providers: [MessageService],
   templateUrl: './sync-config.component.html',
   styleUrl: './sync-config.component.scss'
