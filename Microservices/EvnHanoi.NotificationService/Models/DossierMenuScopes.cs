@@ -7,12 +7,15 @@ public static class DossierMenuScopes
     public const string Approver = "approver";
     public const string Publisher = "publisher";
     public const string EquipmentLookup = "equipment-lookup";
+    public const string DocumentFulltext = "document-fulltext";
 
     public static string? Normalize(string? value)
     {
         if (string.IsNullOrWhiteSpace(value)) return null;
         var normalized = value.Trim().ToLowerInvariant();
-        return normalized is Creator or Approver or Publisher or EquipmentLookup ? normalized : null;
+        return normalized is Creator or Approver or Publisher or EquipmentLookup or DocumentFulltext
+            ? normalized
+            : null;
     }
 
     public static bool IsCreator(string? scope) =>
@@ -26,4 +29,7 @@ public static class DossierMenuScopes
 
     public static bool IsEquipmentLookup(string? scope) =>
         string.Equals(Normalize(scope), EquipmentLookup, StringComparison.Ordinal);
+
+    public static bool IsDocumentFulltext(string? scope) =>
+        string.Equals(Normalize(scope), DocumentFulltext, StringComparison.Ordinal);
 }

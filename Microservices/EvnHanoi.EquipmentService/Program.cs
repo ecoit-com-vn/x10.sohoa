@@ -59,6 +59,7 @@ builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IDossierRep
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IDossierSearchRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.DossierSearchRepository>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IDossierSetRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.DossierSetRepository>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IDossierService, EvnHanoi.EquipmentService.Core.Services.DossierService>();
+builder.Services.AddScoped<DossierKindGuard>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IDocumentRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.DocumentRepository>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IFolderAllocationRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.FolderAllocationRepository>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Services.IDocumentManagementService, EvnHanoi.EquipmentService.Core.Services.DocumentManagementService>();
@@ -66,10 +67,10 @@ builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Services.IFolderAlloca
 builder.Services.AddSingleton<IMinioClient>(sp =>
 {
     var config = sp.GetRequiredService<IConfiguration>();
-    var endpoint = config["MinIO:Endpoint"] ?? config["Minio:Endpoint"] ?? "localhost:9000";
-    var accessKey = config["MinIO:AccessKey"] ?? config["Minio:AccessKey"] ?? "minioadmin";
-    var secretKey = config["MinIO:SecretKey"] ?? config["Minio:SecretKey"] ?? "minioadmin";
-    var useSslConfig = config["MinIO:UseSSL"] ?? config["Minio:UseSSL"];
+    var endpoint = config["MinIO:Endpoint"] ?? "localhost:9000";
+    var accessKey = config["MinIO:AccessKey"] ?? "minioadmin";
+    var secretKey = config["MinIO:SecretKey"] ?? "minioadmin";
+    var useSslConfig = config["MinIO:UseSSL"];
     var useSsl = !string.IsNullOrEmpty(useSslConfig) && bool.Parse(useSslConfig);
 
     return new MinioClient()
@@ -98,6 +99,7 @@ builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IInfrastruc
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IEavFormTemplateService, EvnHanoi.EquipmentService.Core.Services.EavFormTemplateService>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IDossierTypeService, EvnHanoi.EquipmentService.Core.Services.DossierTypeService>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IElasticsearchService, EvnHanoi.EquipmentService.Infrastructure.Services.ElasticsearchService>();
+builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IDocumentTextIndexNotifier, EvnHanoi.EquipmentService.Infrastructure.Messaging.DocumentTextIndexNotifier>();
 builder.Services.AddSingleton<EvnHanoi.EquipmentService.Core.Interfaces.IMessageProducer, EvnHanoi.EquipmentService.Infrastructure.Messaging.RabbitMQProducer>();
 builder.Services.AddPermissionDiscovery("EquipmentService");
 builder.Services.AddHttpContextAccessor();
@@ -118,7 +120,9 @@ builder.Services.AddHttpClient("NotificationService", client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["Services:NotificationService"] ?? "http://notificationservice");
     client.Timeout = TimeSpan.FromSeconds(30);
-});
+}).AddHttpMessageHandler<EvnHanoi.Infrastructure.Security.TokenRelayHandler>();
+
+builder.Services.AddScoped<IDocumentFulltextSearchNotificationClient, DocumentFulltextSearchNotificationClient>();
 
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IDigitizationProgressNotifier,
     EvnHanoi.EquipmentService.Infrastructure.Notifications.HttpDigitizationProgressNotifier>();

@@ -39,7 +39,7 @@ namespace EvnHanoi.DigitizationService.Controllers
             _fileRepository = fileRepository;
             _minioStorageService = minioStorageService;
             _logger = logger;
-            _bucketName = configuration["Minio:BucketName"] ?? "digitization";
+            _bucketName = configuration["MinIO:BucketName"] ?? "digitization";
         }
 
         private long? GetUserUnitId()

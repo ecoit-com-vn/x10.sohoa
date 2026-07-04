@@ -32,6 +32,7 @@ public class DossierDocumentBuilder : IDossierDocumentBuilder
             InfrastructureId = data.InfrastructureId,
             InfrastructureName = data.InfrastructureName,
             InfrastructureCode = data.InfrastructureCode,
+            StationName = data.StationName,
             UnitId = data.UnitId,
             DossierSetId = data.DossierSetId,
             DossierSetName = data.DossierSetName,
@@ -53,6 +54,7 @@ public class DossierDocumentBuilder : IDossierDocumentBuilder
                 .Where(r => !string.IsNullOrWhiteSpace(r))
                 .ToList(),
             PendingAssigneeUserId = DossierIndexIdNormalizer.NormalizeOrNull(data.PendingAssigneeUserId),
+            CurrentHandlerName = data.CurrentHandlerName,
             WorkflowParticipantUserIds = data.WorkflowParticipantUserIds
                 .Select(id => DossierIndexIdNormalizer.Normalize(id))
                 .Where(id => !string.IsNullOrEmpty(id))
@@ -82,7 +84,9 @@ public class DossierDocumentBuilder : IDossierDocumentBuilder
             }).ToList(),
             PublishStatusId = data.PublishStatusId,
             PublishStatusCode = data.PublishStatusCode,
-            PublishStatusName = data.PublishStatusName
+            PublishStatusName = data.PublishStatusName,
+            KindId = data.KindId,
+            KindCode = data.KindCode
         };
     }
 

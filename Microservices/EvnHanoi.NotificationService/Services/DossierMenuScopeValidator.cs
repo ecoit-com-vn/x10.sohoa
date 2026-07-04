@@ -11,7 +11,8 @@ public interface IDossierMenuScopeValidator
         string? tab,
         string? userId,
         string? authorizationHeader,
-        bool isAdmin);
+        bool isAdmin,
+        int? kindId = null);
 }
 
 /// <summary>
@@ -34,7 +35,8 @@ public class DossierMenuScopeValidator : IDossierMenuScopeValidator
         string? tab,
         string? userId,
         string? authorizationHeader,
-        bool isAdmin)
+        bool isAdmin,
+        int? kindId = null)
     {
         var scope = DossierMenuScopes.Normalize(menuScope);
         if (scope is null)
@@ -67,6 +69,13 @@ public class DossierMenuScopeValidator : IDossierMenuScopeValidator
                 return (true, null);
 
             var perms = await GetUserPermissionsAsync(userId, authorizationHeader);
+            if (kindId == 1)
+            {
+                if (HasAnyPermission(perms, "DOSSIER_DIGITIZATION_CREATE", "DOSSIER_DIGITIZATION_VIEW", "SUPER_ADMIN"))
+                    return (true, null);
+                return (false, "Không có quyền truy cập menu nhập liệu hồ sơ số hóa.");
+            }
+
             if (HasAnyPermission(perms, "DOSSIER_CREATE", "DOSSIER_VIEW", "SUPER_ADMIN"))
                 return (true, null);
 
@@ -105,6 +114,18 @@ public class DossierMenuScopeValidator : IDossierMenuScopeValidator
             return (false, "Không có quyền tra cứu hồ sơ thiết bị.");
         }
 
+        if (DossierMenuScopes.IsDocumentFulltext(scope))
+        {
+            if (isAdmin)
+                return (true, null);
+
+            var fulltextPerms = await GetUserPermissionsAsync(userId, authorizationHeader);
+            if (HasAnyPermission(fulltextPerms, "DOCUMENT_FULLTEXT_SEARCH_VIEW", "SUPER_ADMIN"))
+                return (true, null);
+
+            return (false, "Không có quyền tìm kiếm toàn văn tài liệu.");
+        }
+
         // approver
         if (string.Equals(tabSlug, DossierListTabs.Draft, StringComparison.Ordinal) ||
             string.Equals(tabSlug, DossierListTabs.Returned, StringComparison.Ordinal))
@@ -116,6 +137,13 @@ public class DossierMenuScopeValidator : IDossierMenuScopeValidator
             return (true, null);
 
         var approverPerms = await GetUserPermissionsAsync(userId, authorizationHeader);
+        if (kindId == 1)
+        {
+            if (HasAnyPermission(approverPerms, "DOSSIER_DIGITIZATION_MANAGE", "DOSSIER_DIGITIZATION_VIEW", "SUPER_ADMIN"))
+                return (true, null);
+            return (false, "Không có quyền truy cập menu kiểm tra nhập liệu.");
+        }
+
         if (HasAllPermissions(approverPerms, "DOSSIER_MANAGE", "DOSSIER_VIEW", "DOSSIER_EDIT"))
             return (true, null);
 

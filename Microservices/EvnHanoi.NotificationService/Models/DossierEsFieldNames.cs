@@ -27,6 +27,8 @@ public static class DossierEsFieldNames
     public const string IsReturnedToCreatorStep = "isReturnedToCreatorStep";
     public const string PublishStatusId = "publishStatusId";
     public const string PublishStatusCode = "publishStatusCode";
+    public const string KindId = "kindId";
+    public const string KindCode = "kindCode";
     public const string ModifiedDate = "modifiedDate";
     public const string EquipmentsPath = "equipments";
     public const string EquipmentId = "equipments.equipmentId";

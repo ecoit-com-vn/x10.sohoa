@@ -43,6 +43,18 @@ namespace EvnHanoi.DigitizationService.Workers
     }
 
     /// <summary>
+    /// DTO parse kết quả sửa chính tả từ LLM: [{index, text}]
+    /// </summary>
+    public class CorrectedTextItem
+    {
+        [JsonPropertyName("index")]
+        public int Index { get; set; }
+
+        [JsonPropertyName("text")]
+        public string Text { get; set; } = "";
+    }
+
+    /// <summary>
     /// Worker tiêu thụ message từ RabbitMQ queue "ocr_task_queue".
     /// 
     /// Luồng xử lý:
@@ -60,6 +72,7 @@ namespace EvnHanoi.DigitizationService.Workers
         private readonly IConnection _connection;
         private IChannel? _channel;
         private readonly string _ocrVlServerUrl;
+        private readonly string _llmServerUrl;
 
         public OcrWorker(
             ILogger<OcrWorker> logger,
@@ -72,6 +85,7 @@ namespace EvnHanoi.DigitizationService.Workers
             _serviceProvider = serviceProvider;
             _connection = connection;
             _ocrVlServerUrl = _configuration["AIModelServers:OcrVlServerUrl"] ?? "http://ocr3.ecoit.asia";
+            _llmServerUrl = _configuration["AIModelServers:LlmServerUrl"] ?? "http://localhost:8080";
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -142,6 +156,10 @@ namespace EvnHanoi.DigitizationService.Workers
                             var httpClient = httpClientFactory.CreateClient("NoTimeout");
                             httpClient.Timeout = Timeout.InfiniteTimeSpan;
 
+                            var llmClient = httpClientFactory.CreateClient("LlmClient");
+                            llmClient.BaseAddress = new Uri(_llmServerUrl);
+                            llmClient.Timeout = TimeSpan.FromMinutes(5);
+
                             // Tạo PDF 2 lớp output
                             using var outPdfDoc = new PdfDocument();
                             // Brush gần trong suốt để text ẩn nhưng vẫn searchable
@@ -151,9 +169,9 @@ namespace EvnHanoi.DigitizationService.Workers
                             {
                                 _logger.LogInformation("Đang xử lý trang {Page}/{TotalPages}...", i + 1, pageCount);
 
-                                // 2. Render trang PDF → JPEG (150 DPI)
+                                // 2. Render trang PDF → JPEG (200 DPI)
                                 using var imgStream = new MemoryStream();
-                                var renderOptions = new PDFtoImage.RenderOptions { Dpi = 150 };
+                                var renderOptions = new PDFtoImage.RenderOptions { Dpi = 200 };
                                 PDFtoImage.Conversion.SaveJpeg(imgStream, pdfBytes, password: null, page: i, options: renderOptions);
                                 byte[] pageImageBytes = imgStream.ToArray();
 
@@ -196,22 +214,22 @@ namespace EvnHanoi.DigitizationService.Workers
                                     _logger.LogWarning(ex, "Lỗi khi gọi ocr_vl_server cho trang {Page}.", i + 1);
                                 }
 
-                                // 4. Tạo trang PDF 2 lớp: ảnh gốc + text ẩn
+                                // 4. Tạo trang PDF 2 lớp: ảnh gốc + text ẩn (ĐÃ SỬA CHÍNH TẢ)
                                 PdfPage newPage = outPdfDoc.AddPage();
                                 using XGraphics gfx = XGraphics.FromPdfPage(newPage);
 
                                 using var memStreamImg = new MemoryStream(pageImageBytes);
                                 using XImage xImage = XImage.FromStream(() => memStreamImg);
 
-                                // Quy đổi pixel → point (72pt = 1 inch; 150 DPI → scale = 72/150)
-                                double scale = 72.0 / 150.0;
+                                // Quy đổi pixel → point (72pt = 1 inch; 200 DPI → scale = 72/200)
+                                double scale = 72.0 / 200.0;
                                 double imgWidthPx  = xImage.PixelWidth;
                                 double imgHeightPx = xImage.PixelHeight;
                                 newPage.Width  = imgWidthPx  * scale;
                                 newPage.Height = imgHeightPx * scale;
                                 gfx.DrawImage(xImage, 0, 0, newPage.Width, newPage.Height);
 
-                                // Vẽ text ẩn (invisible text layer) theo từng bounding box
+                                // Vẽ text ẩn (invisible text layer) — sử dụng text đã sửa chính tả
                                 foreach (var boxData in ocrResults)
                                 {
                                     if (boxData.Box == null || boxData.Box.Count != 4) continue;
@@ -233,65 +251,18 @@ namespace EvnHanoi.DigitizationService.Workers
                                     gfx.DrawString(boxData.Text, font, transparentBrush, rect, XStringFormats.TopLeft);
                                 }
 
-                                // Sinh Markdown cho page
-                                var mdLines = new List<string>();
-                                if (ocrResults.Any())
-                                {
-                                    // Nhóm các box có y0 chênh lệch <= 10px thành cùng một dòng
-                                    double yTolerance = 10.0;
-                                    var lines = new List<List<TextBoxResponse>>();
-                                    
-                                    var sortedByY = ocrResults.Where(b => b.Box != null && b.Box.Count == 4 && !string.IsNullOrWhiteSpace(b.Text))
-                                                              .OrderBy(b => b.Box[1]).ToList();
-                                                              
-                                    foreach (var box in sortedByY)
-                                    {
-                                        bool added = false;
-                                        foreach (var line in lines)
-                                        {
-                                            double avgY = line.Average(b => b.Box[1]);
-                                            if (Math.Abs(box.Box[1] - avgY) <= yTolerance)
-                                            {
-                                                line.Add(box);
-                                                added = true;
-                                                break;
-                                            }
-                                        }
-                                        if (!added)
-                                        {
-                                            lines.Add(new List<TextBoxResponse> { box });
-                                        }
-                                    }
-                                    
-                                    foreach (var line in lines)
-                                    {
-                                        var sortedByX = line.OrderBy(b => b.Box[0]).ToList();
-                                        
-                                        var lineParts = new List<string>();
-                                        foreach (var box in sortedByX)
-                                        {
-                                            string cleanText = Regex.Replace(box.Text, @"[ \t]{2,}", " ");
-                                            cleanText = Regex.Replace(cleanText, @"\r\n|\r|\n", " ");
-                                            lineParts.Add(cleanText.Trim());
-                                        }
-                                        mdLines.Add(string.Join(" ", lineParts));
-                                    }
-                                }
-
-                                string pageMarkdown = string.Join("\n", mdLines);
-                                pageMarkdown = Regex.Replace(pageMarkdown, @"\n{3,}", "\n\n"); // Max 2 newlines
-
-                                // Upload Markdown file
+                                // 4b. Sinh file JSON gốc cho page
                                 string baseFilePath = taskMsg.FilePath;
                                 if (baseFilePath.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
                                 {
                                     baseFilePath = baseFilePath.Substring(0, baseFilePath.Length - 4);
                                 }
-                                string mdFileName = $"{baseFilePath}_page_{i + 1}.md";
+                                string jsonFileName = $"{baseFilePath}_page_{i + 1}.json";
 
-                                using var mdStream = new MemoryStream(Encoding.UTF8.GetBytes(pageMarkdown));
-                                await minioService.UploadFileAsync(taskMsg.BucketName, mdFileName, mdStream, "text/markdown");
-                                _logger.LogInformation("Đã upload file markdown cho trang {Page}: {FileName}", i + 1, mdFileName);
+                                string pageJson = JsonSerializer.Serialize(ocrResults);
+                                using var jsonStream = new MemoryStream(Encoding.UTF8.GetBytes(pageJson));
+                                await minioService.UploadFileAsync(taskMsg.BucketName, jsonFileName, jsonStream, "application/json");
+                                _logger.LogInformation("Đã upload file JSON cho trang {Page}: {FileName}", i + 1, jsonFileName);
 
                                 // Báo cáo tiến trình per-page
                                 var progressMsg = new

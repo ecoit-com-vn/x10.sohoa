@@ -16,6 +16,7 @@ public interface IDocumentRepository
     // Document operations
     Task<(IEnumerable<DocumentListItemDto> Items, int TotalCount)> GetDocumentsByFolderAsync(Guid? folderId, DocumentFilterDto filter);
     Task<DocumentListItemDto?> GetDocumentByIdAsync(Guid id);
+    Task<EavFormTemplate?> GetEavFormTemplateByDocumentIdAsync(Guid documentId);
     Task<Guid> CreateDocumentAsync(Document document);
     Task<bool> UpdateDocumentAsync(Document document);
     Task<bool> DeleteDocumentAsync(Guid id, string modifiedBy);
@@ -54,4 +55,8 @@ public interface IDocumentRepository
         string? keyword, 
         int page, 
         int pageSize);
+
+    Task<IEnumerable<DocumentOcrIndexHintDto>> GetOcrVersionIndexHintsByDossierIdAsync(Guid dossierId);
+    Task<IEnumerable<Guid>> GetActiveVersionIdsByDossierIdAsync(Guid dossierId);
 }
+

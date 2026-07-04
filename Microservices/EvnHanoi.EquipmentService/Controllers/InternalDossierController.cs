@@ -79,4 +79,31 @@ public class InternalDossierController : ControllerBase
             return NotFound(new { message = ex.Message });
         }
     }
+
+    [HttpPost("{id:guid}/auto-approve")]
+    public async Task<IActionResult> AutoApproveInternal(
+        Guid id,
+        [FromHeader(Name = "X-Internal-Token")] string? internalToken)
+    {
+        var expected = _configuration["Internal:Token"];
+        if (string.IsNullOrEmpty(expected))
+            return StatusCode(503, new { message = "Internal:Token chưa được cấu hình trên EquipmentService." });
+
+        if (!string.Equals(internalToken, expected, StringComparison.Ordinal))
+            return Unauthorized(new { message = "Token nội bộ không hợp lệ." });
+
+        try
+        {
+            await _dossierService.AutoApproveWithoutWorkflowAsync(id);
+            return Ok(new { success = true });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
 }

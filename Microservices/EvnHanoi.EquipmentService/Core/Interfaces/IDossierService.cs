@@ -62,7 +62,7 @@ public interface IDossierService
         int page,
         int pageSize);
     Task<DossierDetailDto?> GetDetailByIdAsync(Guid id);
-    Task<Guid> CreateAsync(DossierCreateDto dto, string userId, string userName, string userFullName);
+    Task<Guid> CreateAsync(DossierCreateDto dto, string userId, string userName, string userFullName, int kindId = 2);
     Task<bool> UpdateAsync(Guid id, DossierUpdateDto dto, string userId);
     Task<bool> DeleteAsync(Guid id, string userId);
     Task<bool> CompleteInputAsync(Guid id, string userId);
@@ -79,9 +79,13 @@ public interface IDossierService
     // Workflow đã chuyển sang WorkflowService (DossierWorkflowController).
     // ES chỉ còn nhận đồng bộ trạng thái qua API nội bộ (không expose ra Gateway).
     Task UpdateWorkflowStateInternalAsync(Guid id, UpdateInternalWorkflowStateDto dto);
+    Task AutoApproveWithoutWorkflowAsync(Guid id);
 
     // Document tab helpers
     Task RecordDocumentListChangeAsync(Guid dossierId, string changeNote, string userId);
     Task EnsureCanEditFormDataAsync(Guid dossierId);
     Task<bool> UpdatePublishStatusAsync(Guid id, int publishStatusId, string userId);
+
+    Task<EavFormTemplate?> GetFormTemplateForDossierAsync(Guid dossierId, Guid? formId);
 }
+

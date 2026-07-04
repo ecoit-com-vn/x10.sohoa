@@ -11,21 +11,42 @@ namespace EvnHanoi.EquipmentService.Controllers;
 
 [Authorize]
 [ApiController]
-[Route("api/v1/dossiers")]
-public partial class DossierController : ControllerBase
+public abstract partial class DossierControllerBase : ControllerBase
 {
     private readonly IDossierService _dossierService;
     private readonly IDossierDocumentService _dossierDocumentService;
     private readonly IDocumentDigitizationService _documentDigitizationService;
+    private readonly DossierKindGuard _kindGuard;
 
-    public DossierController(
+    protected abstract int ExpectedKindId { get; }
+
+    protected DossierControllerBase(
         IDossierService dossierService,
         IDossierDocumentService dossierDocumentService,
-        IDocumentDigitizationService documentDigitizationService)
+        IDocumentDigitizationService documentDigitizationService,
+        DossierKindGuard kindGuard)
     {
         _dossierService = dossierService ?? throw new ArgumentNullException(nameof(dossierService));
         _dossierDocumentService = dossierDocumentService ?? throw new ArgumentNullException(nameof(dossierDocumentService));
         _documentDigitizationService = documentDigitizationService ?? throw new ArgumentNullException(nameof(documentDigitizationService));
+        _kindGuard = kindGuard ?? throw new ArgumentNullException(nameof(kindGuard));
+    }
+
+    private async Task<IActionResult?> EnsureKindAsync(Guid id)
+    {
+        try
+        {
+            await _kindGuard.EnsureAsync(id, ExpectedKindId);
+            return null;
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return StatusCode(403, new { message = ex.Message });
+        }
     }
 
     private string UserId => User.FindFirst(ClaimTypes.NameIdentifier)?.Value
@@ -173,6 +194,9 @@ public partial class DossierController : ControllerBase
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetDetail(Guid id)
     {
+        var kindError = await EnsureKindAsync(id);
+        if (kindError != null) return kindError;
+
         var detail = await _dossierService.GetDetailByIdAsync(id);
         if (detail == null) return NotFound(new { message = $"Không tìm thấy hồ sơ với ID = {id}" });
         return Ok(detail);
@@ -185,7 +209,7 @@ public partial class DossierController : ControllerBase
     {
         if (dto == null) return BadRequest(new { message = "Dữ liệu không hợp lệ." });
 
-        var newId = await _dossierService.CreateAsync(dto, UserId, UserName, UserFullName);
+        var newId = await _dossierService.CreateAsync(dto, UserId, UserName, UserFullName, ExpectedKindId);
         return CreatedAtAction(nameof(GetDetail), new { id = newId }, new { id = newId });
     }
 
@@ -195,6 +219,9 @@ public partial class DossierController : ControllerBase
     public async Task<IActionResult> Update(Guid id, [FromBody] DossierUpdateDto dto)
     {
         if (dto == null) return BadRequest(new { message = "Dữ liệu không hợp lệ." });
+
+        var kindError = await EnsureKindAsync(id);
+        if (kindError != null) return kindError;
 
         try
         {
@@ -220,6 +247,9 @@ public partial class DossierController : ControllerBase
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id)
     {
+        var kindError = await EnsureKindAsync(id);
+        if (kindError != null) return kindError;
+
         try
         {
             await _dossierService.DeleteAsync(id, UserId);
@@ -238,6 +268,9 @@ public partial class DossierController : ControllerBase
     [HttpPut("{id:guid}/complete-input")]
     public async Task<IActionResult> CompleteInput(Guid id)
     {
+        var kindError = await EnsureKindAsync(id);
+        if (kindError != null) return kindError;
+
         try
         {
             var success = await _dossierService.CompleteInputAsync(id, UserId);
@@ -265,6 +298,9 @@ public partial class DossierController : ControllerBase
     public async Task<IActionResult> SaveFormData(Guid id, [FromBody] DossierSaveFormDataDto dto)
     {
         if (dto == null) return BadRequest(new { message = "Dữ liệu không hợp lệ." });
+
+        var kindError = await EnsureKindAsync(id);
+        if (kindError != null) return kindError;
 
         try
         {

@@ -1,13 +1,15 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using EvnHanoi.EquipmentService.Core.Entities;
 using EvnHanoi.EquipmentService.Core.Interfaces;
+using EvnHanoi.Infrastructure.Security;
 
 namespace EvnHanoi.EquipmentService.Controllers;
 
 /// <summary>
 /// API xuất bản hồ sơ — tách khỏi DossierController.
-/// Quyền: DOSSIER_PUBLISH_RELEASE (gom publish / unpublish / republish).
+/// GET → DOSSIER_PUBLISH_VIEW; PUT publish/unpublish/republish → DOSSIER_PUBLISH_RELEASE.
 /// </summary>
 [Authorize]
 [ApiController]
@@ -24,6 +26,46 @@ public class DossierPublishController : ControllerBase
     private string UserId => User.FindFirst(ClaimTypes.NameIdentifier)?.Value
                            ?? User.FindFirst("sub")?.Value
                            ?? User.Identity?.Name ?? "system";
+
+    /// <summary>Chi tiết hồ sơ trong menu xuất bản (Oracle).</summary>
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> GetDetail(Guid id)
+    {
+        var detail = await _dossierService.GetDetailByIdAsync(id);
+        if (detail == null)
+            return NotFound(new { message = $"Không tìm thấy hồ sơ với ID = {id}" });
+
+        if (detail.StatusId != DossierStatusConstants.Approved)
+            return StatusCode(403, new { message = "Hồ sơ chưa hoàn thành quy trình phê duyệt, không thể xem trong menu xuất bản." });
+
+        return Ok(detail);
+    }
+
+    /// <summary>Biểu mẫu EAV theo ngữ cảnh xuất bản — tránh gọi eav-form-templates (quyền FORM).</summary>
+    [HttpGet("{id:guid}/form-template")]
+    [BypassDynamicPermission]
+    public async Task<IActionResult> GetFormTemplate(Guid id, [FromQuery] Guid? formId = null)
+    {
+        try
+        {
+            var detail = await _dossierService.GetDetailByIdAsync(id);
+            if (detail == null)
+                return NotFound(new { message = $"Không tìm thấy hồ sơ với ID = {id}" });
+
+            if (detail.StatusId != DossierStatusConstants.Approved)
+                return StatusCode(403, new { message = "Hồ sơ chưa hoàn thành quy trình phê duyệt." });
+
+            var template = await _dossierService.GetFormTemplateForDossierAsync(id, formId);
+            if (template is null)
+                return NotFound(new { message = "Không tìm thấy biểu mẫu EAV cho hồ sơ này." });
+
+            return Ok(template);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+    }
 
     [HttpPut("{id:guid}/publish")]
     public async Task<IActionResult> Publish(Guid id)

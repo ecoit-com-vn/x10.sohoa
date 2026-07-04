@@ -641,8 +641,16 @@ public class DossierRepository : IDossierRepository
     {
         if (_connection.State != ConnectionState.Open)
             _connection.Open();
-        var sql = $@"SELECT Id, GridTypeId, InfrastructureId, DossierSetId, DossierTypeId, FormDataJson, STATUS_ID as StatusId, WorkflowInstanceId, WorkflowStatusName, RowVersion, CreatorId, CreatorUsername, CreatorName, CreatedBy, CreatedDate, ModifiedBy, ModifiedDate, IsDeleted, PUBLISHSTATUSID as PublishStatusId FROM DOSSIERS WHERE {nameof(Dossier.Id)} = :Id AND {nameof(Dossier.IsDeleted)} = 0";
+        var sql = $@"SELECT Id, GridTypeId, InfrastructureId, DossierSetId, DossierTypeId, FormDataJson, STATUS_ID as StatusId, KIND_ID as KindId, WorkflowInstanceId, WorkflowStatusName, RowVersion, CreatorId, CreatorUsername, CreatorName, CreatedBy, CreatedDate, ModifiedBy, ModifiedDate, IsDeleted, PUBLISHSTATUSID as PublishStatusId FROM DOSSIERS WHERE {nameof(Dossier.Id)} = :Id AND {nameof(Dossier.IsDeleted)} = 0";
         return await _connection.QuerySingleOrDefaultAsync<Dossier>(sql, new { Id = id.ToString() });
+    }
+
+    public async Task<int?> GetKindIdAsync(Guid id)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+        const string sql = "SELECT KIND_ID FROM DOSSIERS WHERE Id = :Id AND IsDeleted = 0";
+        return await _connection.QuerySingleOrDefaultAsync<int?>(sql, new { Id = id.ToString() });
     }
     public async Task<Guid> CreateAsync(Dossier dossier, IEnumerable<Guid> equipmentIds)
     {
@@ -661,6 +669,7 @@ public class DossierRepository : IDossierRepository
                             {nameof(Dossier.DossierTypeId)},
                             {nameof(Dossier.FormDataJson)},
                             STATUS_ID,
+                            KIND_ID,
                             {nameof(Dossier.RowVersion)},
                             {nameof(Dossier.CreatorId)},
                             {nameof(Dossier.CreatorUsername)},
@@ -670,7 +679,7 @@ public class DossierRepository : IDossierRepository
                             {nameof(Dossier.IsDeleted)}
                         ) VALUES (
                             :Id, :GridTypeId, :InfrastructureId, :DossierSetId, :DossierTypeId,
-                            :FormDataJson, :StatusId, :RowVersion, :CreatorId, :CreatorUsername,
+                            :FormDataJson, :StatusId, :KindId, :RowVersion, :CreatorId, :CreatorUsername,
                             :CreatorName, :CreatedBy, :CreatedDate, :IsDeleted
                         )";
             await _connection.ExecuteAsync(sql, new
@@ -682,6 +691,7 @@ public class DossierRepository : IDossierRepository
                 DossierTypeId = dossier.DossierTypeId.ToString(),
                 dossier.FormDataJson,
                 dossier.StatusId,
+                dossier.KindId,
                 dossier.RowVersion,
                 CreatorId = dossier.CreatorId?.ToString(),
                 dossier.CreatorUsername,
@@ -1091,5 +1101,39 @@ public class DossierRepository : IDossierRepository
         }
 
         return dto;
+    }
+
+    public async Task<EavFormTemplate?> GetEavFormTemplateAsync(Guid formId)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        const string sql = @"
+            SELECT 
+                Id, Name, Code, Category, Description, DescriptionInfo, ExtractionProcess,
+                FormSchema, EquipmentTypeId, GridTypeId, Version, IsActive, CreatedAt,
+                CreatedBy, Status, FormType, IsDeleted
+            FROM EavFormTemplates
+            WHERE Id = :FormId AND IsDeleted = 0";
+
+        return await _connection.QuerySingleOrDefaultAsync<EavFormTemplate>(sql, new { FormId = formId.ToString() });
+    }
+
+    public async Task<EavFormTemplate?> GetEavFormTemplateByDossierIdAsync(Guid dossierId)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        const string sql = @"
+            SELECT 
+                f.Id, f.Name, f.Code, f.Category, f.Description, f.DescriptionInfo, f.ExtractionProcess,
+                f.FormSchema, f.EquipmentTypeId, f.GridTypeId, f.Version, f.IsActive, f.CreatedAt,
+                f.CreatedBy, f.Status, f.FormType, f.IsDeleted
+            FROM DOSSIERS d
+            INNER JOIN DOSSIER_TYPES dt ON d.DossierTypeId = dt.ID
+            INNER JOIN EavFormTemplates f ON dt.FORM_ID = f.Id
+            WHERE d.Id = :DossierId AND d.IsDeleted = 0 AND dt.IsDeleted = 0 AND f.IsDeleted = 0";
+
+        return await _connection.QuerySingleOrDefaultAsync<EavFormTemplate>(sql, new { DossierId = dossierId.ToString() });
     }
 }

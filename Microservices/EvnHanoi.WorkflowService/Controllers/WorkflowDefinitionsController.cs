@@ -73,8 +73,8 @@ namespace EvnHanoi.WorkflowService.Controllers
         [HttpPost]
         public async Task<ActionResult<WorkflowDefinition>> Create([FromBody] WorkflowDefinition dto)
         {
-            if (string.IsNullOrWhiteSpace(dto.Name))
-                return BadRequest(new { Message = "Loại quy trình không được để trống." });
+            if (dto.WorkflowTypeId <= 0)
+                return BadRequest(new { Message = "WorkflowTypeId không hợp lệ." });
 
             var xmlErrors = _bpmnValidatorService.Validate(dto.BpmnXml);
             if (xmlErrors.Any())
@@ -92,11 +92,17 @@ namespace EvnHanoi.WorkflowService.Controllers
 
             try
             {
-                NormalizeEntityType(dto);
+                NormalizeWorkflowType(dto);
             }
             catch (InvalidOperationException ex)
             {
                 return BadRequest(new { Message = ex.Message });
+            }
+
+            if (await _workflowRepository.ExistsDefinitionByWorkflowTypeIdAsync(dto.WorkflowTypeId))
+            {
+                var typeItem = EntityType.RequireById(dto.WorkflowTypeId);
+                return BadRequest(new { Message = $"Quy trình cho loại '{typeItem.Name}' đã tồn tại. Bạn không thể tạo quy trình mới cùng loại quy trình này, chỉ được phép sửa quy trình hiện có." });
             }
 
             if (dto.Steps != null)
@@ -133,7 +139,7 @@ namespace EvnHanoi.WorkflowService.Controllers
 
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? User.Identity?.Name ?? "admin";
 
-            NormalizeEntityType(dto);
+            NormalizeWorkflowType(dto);
             
             try
             {
@@ -182,19 +188,40 @@ namespace EvnHanoi.WorkflowService.Controllers
                 return NotFound(new { Message = $"Không tìm thấy quy trình với ID = {id}" });
 
             var def = await _workflowRepository.GetDefinitionByIdAsync(id, includeBpmnXml: false);
-            if (def != null && !string.IsNullOrWhiteSpace(def.EntityType))
-                _definitionCache.InvalidateActiveDefinition(def.EntityType);
+            if (def != null && def.WorkflowTypeId > 0)
+                _definitionCache.InvalidateActiveDefinition(def.WorkflowTypeId);
 
             return Ok(new { Id = id, IsActive = newStatus.Value });
         }
 
-        private static void NormalizeEntityType(WorkflowDefinition dto)
+        [HttpPost("{id:guid}/reactivate")]
+        public async Task<IActionResult> Reactivate(Guid id)
         {
-            if (string.IsNullOrWhiteSpace(dto.EntityType))
-                throw new InvalidOperationException("EntityType không được để trống.");
+            var def = await _workflowRepository.GetDefinitionByIdAsync(id);
+            if (def == null)
+                return NotFound(new { Message = $"Không tìm thấy quy trình với ID = {id}" });
 
-            var item = EntityType.RequireByCode(dto.EntityType);
-            dto.EntityType = item.Code;
+            var success = await _workflowDefinitionService.ReactivateDefinitionAsync(id, def.WorkflowTypeId, def.Name);
+            if (!success)
+                return BadRequest(new { Message = "Không thể tái kích hoạt quy trình." });
+
+            if (def.WorkflowTypeId > 0)
+                _definitionCache.InvalidateActiveDefinition(def.WorkflowTypeId);
+
+            _logger.LogInformation("Quy trình đã tái kích hoạt: {Name} v{Version}", def.Name, def.Version);
+            return Ok(new { Message = $"Đã tái kích hoạt quy trình: {def.Name} v{def.Version}", Id = id });
+        }
+
+        private static void NormalizeWorkflowType(WorkflowDefinition dto)
+        {
+            if (dto.WorkflowTypeId <= 0)
+                throw new InvalidOperationException("WorkflowTypeId không hợp lệ.");
+
+            var item = EntityType.RequireById(dto.WorkflowTypeId);
+            if (string.IsNullOrWhiteSpace(dto.Name))
+            {
+                dto.Name = item.Name;
+            }
         }
 
         [HttpGet("get-workflow-type")]
@@ -207,14 +234,14 @@ namespace EvnHanoi.WorkflowService.Controllers
             return Ok(items);
         }
 
-        [HttpGet("versions/{name}")]
+        [HttpGet("versions/{workflowTypeId:int}")]
         [BypassDynamicPermission]
-        public async Task<IActionResult> GetVersions(string name)
+        public async Task<IActionResult> GetVersions(int workflowTypeId)
         {
-            if (string.IsNullOrWhiteSpace(name))
-                return BadRequest(new { Message = "Tên quy trình không được để trống." });
+            if (EntityType.TryGetById(workflowTypeId) == null)
+                return BadRequest(new { Message = $"WorkflowTypeId không hợp lệ: '{workflowTypeId}'." });
 
-            var versions = await _workflowRepository.GetDefinitionsByNameAsync(name);
+            var versions = await _workflowRepository.GetDefinitionsByWorkflowTypeIdAsync(workflowTypeId);
             return Ok(versions);
         }
     }
