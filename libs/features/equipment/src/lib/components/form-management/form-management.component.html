@@ -516,8 +516,7 @@
             </div>
             <div>
               <label class="metadata-field-label">Ngày tạo: </label>
-              <div class="metadata-field-value">{{ targetForm?.createdAt ? (targetForm?.createdAt | date:'dd/MM/yyyy
-                HH:mm') : ('--/--/----') }}</div>
+              <div class="metadata-field-value">{{ targetForm?.createdAt ? (targetForm?.createdAt | date:'dd/MM/yyyy HH:mm') : ('--/--/----') }}</div>
             </div>
           </div>
           <div class="metadata-desc-group">
@@ -696,7 +695,7 @@
             <td class="text-center font-bold" style="text-align: center; font-weight: bold; color: #002D72;">v{{
               ver.version }}.0</td>
             <td>{{ ver.name }}</td>
-            <td>{{ ver.createdBy }}</td>
+            <td>{{ ver.creatorFullName }}</td>
             <td>{{ ver.createdAt | date:'dd/MM/yyyy HH:mm' }}</td>
             <td class="text-center text-center-align" style="text-align: center;">
               <span class="status-pill" [class.status-draft]="ver.status === 'Tạo mới' || !ver.status"

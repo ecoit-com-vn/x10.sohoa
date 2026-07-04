@@ -2,13 +2,26 @@
   <p-toast></p-toast>
 
   <!-- Breadcrumb (Isolated above card) -->
-  <div class="breadcrumb">
-    <i class="pi pi-home bc-icon"></i>
-    <span class="bc-text">Trang chủ</span>
-    <span class="bc-sep">/</span>
-    <span class="bc-text">Quản trị hệ thống</span>
-    <span class="bc-sep">/</span>
-    <span class="bc-current">Quản lý người dùng</span>
+  <div class="list-toolbar">
+    <div class="toolbar-left">
+      <div class="breadcrumb">
+        <i class="pi pi-home bc-icon"></i>
+        <span class="bc-text">Trang chủ</span>
+        <span class="bc-sep">/</span>
+        <span class="bc-text">Quản trị hệ thống</span>
+        <span class="bc-sep">/</span>
+        <span class="bc-current">Quản lý người dùng</span>
+      </div>
+    </div>
+    <div class="toolbar-right" style="display: flex; gap: 8px;">
+      <button *ngIf="authService.hasPermission('USER_EXPORT')" class="btn-outlined" (click)="onExportExcel()"
+        title="Xuất Excel" [disabled]="loading()">
+        <i class="pi pi-file-excel"></i> Xuất Excel
+      </button>
+      <button *ngIf="authService.hasPermission('USER_CREATE')" class="btn-green" (click)="onAddNew()">
+        <i class="pi pi-plus"></i> Thêm mới
+      </button>
+    </div>
   </div>
 
   <div class="wf-card">
@@ -18,7 +31,6 @@
       class="animate-fade-in">
       <!-- Toolbar -->
       <div class="list-toolbar">
-        <div class="toolbar-left">
           <input type="text" class="wf-search-input" placeholder="Tìm kiếm tài khoản, tên..."
             [ngModel]="searchKeyword()" (ngModelChange)="searchKeyword.set($event)" />
 
@@ -38,16 +50,6 @@
           <button class="btn-tim" (click)="loadUsers()">
             <i class="pi pi-search"></i> Tìm
           </button>
-        </div>
-        <div class="toolbar-right" style="display: flex; gap: 8px;">
-          <button *ngIf="authService.hasPermission('USER_EXPORT')" class="btn-outlined" (click)="onExportExcel()"
-            title="Xuất Excel" [disabled]="loading()">
-            <i class="pi pi-file-excel"></i> Xuất Excel
-          </button>
-          <button *ngIf="authService.hasPermission('USER_CREATE')" class="btn-green" (click)="onAddNew()">
-            <i class="pi pi-plus"></i> Thêm mới
-          </button>
-        </div>
       </div>
 
       <!-- Table -->

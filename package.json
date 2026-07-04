@@ -27,7 +27,8 @@
     "primeflex": "^4.0.0",
     "primeicons": "^7.0.0",
     "primeng": "^21.1.8",
-    "rxjs": "~7.8.0"
+    "rxjs": "~7.8.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@angular-devkit/core": "~21.2.0",
