@@ -30,6 +30,7 @@ public class DossierListItemDto
     public Guid? InfrastructureId { get; set; }
     public string? InfrastructureName { get; set; }
     public string? InfrastructureCode { get; set; }
+    public string? StationName { get; set; }
     public Guid? DossierSetId { get; set; }
     public string? DossierSetName { get; set; }
     public Guid DossierTypeId { get; set; }
@@ -46,6 +47,7 @@ public class DossierListItemDto
     public CreatorInfoDto? Creator { get; set; }
     /// <summary>User được gán xử lý bước Pending hiện tại (inbox tab Chờ xử lý).</summary>
     public string? PendingAssigneeUserId { get; set; }
+    public string? CurrentHandlerName { get; set; }
     public IReadOnlyList<string> PendingAssignedRoles { get; set; } = Array.Empty<string>();
     /// <summary>User đã tham gia WF — dùng tab Đang xử lý / Hoàn thành.</summary>
     public IReadOnlyList<string> WorkflowParticipantUserIds { get; set; } = Array.Empty<string>();

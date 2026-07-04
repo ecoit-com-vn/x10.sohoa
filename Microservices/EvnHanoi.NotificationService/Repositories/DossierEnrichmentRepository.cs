@@ -73,6 +73,16 @@ public class DossierEnrichmentRepository : IDossierEnrichmentRepository
                     d.InfrastructureId,
                     i.NAME AS InfrastructureName,
                     i.CODE AS InfrastructureCode,
+                    CASE
+                        WHEN i.INFRA_TYPE_ID = 1 THEN i.NAME
+                        ELSE (
+                            SELECT MIN(st.NAME)
+                            FROM DOSSIER_EQUIPMENTS de
+                            INNER JOIN Equipments e ON LOWER(TRIM(de.EquipmentId)) = LOWER(TRIM(e.Id)) AND e.IsDeleted = 0
+                            INNER JOIN INFRASTRUCTURE st ON e.INFRASTRUCTURE_ID = st.ID AND st.INFRA_TYPE_ID = 1 AND st.IsDeleted = 0
+                            WHERE LOWER(TRIM(de.DossierId)) = LOWER(TRIM(d.Id))
+                        )
+                    END AS StationName,
                     i.UNIT_ID AS UnitId,
                     d.DossierSetId,
                     ds.Name AS DossierSetName,
@@ -137,6 +147,8 @@ public class DossierEnrichmentRepository : IDossierEnrichmentRepository
 
 
             await EnrichWorkflowFieldsAsync(connection, data);
+
+            await ResolveCurrentHandlerNameAsync(connection, data);
 
             return data;
 
@@ -726,6 +738,74 @@ public class DossierEnrichmentRepository : IDossierEnrichmentRepository
     private static bool IsRunningStatus(string? status) =>
 
         string.Equals(status?.Trim(), InstanceRunning, StringComparison.OrdinalIgnoreCase);
+
+
+
+    private static async Task ResolveCurrentHandlerNameAsync(IDbConnection connection, DossierEnrichmentData data)
+
+    {
+
+        if (!string.IsNullOrWhiteSpace(data.PendingAssigneeUserId))
+
+        {
+
+            data.CurrentHandlerName = await LookupUserFullNameAsync(connection, data.PendingAssigneeUserId);
+
+            return;
+
+        }
+
+
+
+        if (string.IsNullOrWhiteSpace(data.WorkflowInstanceId) && (data.StatusId == 1 || data.StatusId == 2))
+
+        {
+
+            data.CurrentHandlerName = string.IsNullOrWhiteSpace(data.CreatorName)
+
+                ? await LookupUserFullNameAsync(connection, data.CreatorId)
+
+                : data.CreatorName;
+
+            return;
+
+        }
+
+
+
+        data.CurrentHandlerName = null;
+
+    }
+
+
+
+    private static async Task<string?> LookupUserFullNameAsync(IDbConnection connection, string? userId)
+
+    {
+
+        if (string.IsNullOrWhiteSpace(userId))
+
+            return null;
+
+
+
+        const string sql = """
+
+            SELECT FullName
+
+            FROM APP_USER
+
+            WHERE LOWER(TRIM(Id)) = LOWER(TRIM(:UserId))
+
+            FETCH FIRST 1 ROWS ONLY
+
+            """;
+
+
+
+        return await connection.QueryFirstOrDefaultAsync<string?>(sql, new { UserId = userId.Trim() });
+
+    }
 
 
 

@@ -118,6 +118,7 @@ public class PermissionDiscoveryService : BackgroundService
             { "DossierPublish", "Xuất bản hồ sơ" },
             { "DossierByEquipment", "Tra cứu hồ sơ thiết bị" },
             { "SearchDossiersByEquipment", "Tra cứu hồ sơ thiết bị" },
+            { "DocumentFullTextSearch", "Tra cứu toàn văn tài liệu" },
             { "DossierCatalog", "Danh mục hồ sơ" },
             { "DossierSet", "Bộ hồ sơ" },
             { "DossierType", "Loại hồ sơ" },

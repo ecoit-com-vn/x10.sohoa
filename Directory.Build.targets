@@ -1,0 +1,14 @@
+<Project>
+  <!-- Đồng bộ infra dev từ AppHost vào thư mục project (CreateBuilder đọc từ đây, không phải bin). -->
+  <PropertyGroup Condition="'$(UsingMicrosoftNETSdkWeb)' == 'true'">
+    <SharedDevAppSettings>$(MSBuildThisFileDirectory)Aspire\EvnHanoi.AppHost\appsettings.Development.json</SharedDevAppSettings>
+  </PropertyGroup>
+
+  <Target Name="SyncDevAppSettings"
+          BeforeTargets="BeforeBuild"
+          Condition="'$(UsingMicrosoftNETSdkWeb)' == 'true' And Exists('$(SharedDevAppSettings)')">
+    <Copy SourceFiles="$(SharedDevAppSettings)"
+          DestinationFiles="$(MSBuildProjectDirectory)\appsettings.Development.json"
+          SkipUnchangedFiles="true" />
+  </Target>
+</Project>

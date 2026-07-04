@@ -41,7 +41,7 @@ namespace EvnHanoi.DigitizationService.Controllers
             _repository = repository;
             _minioStorageService = minioStorageService;
             _logger = logger;
-            _bucketName = configuration["Minio:TrainingBucketName"] ?? "ocr-training";
+            _bucketName = configuration["MinIO:TrainingBucketName"] ?? "ocr-training";
         }
 
         // ─────────────────────────────────────────────────────────────────────────

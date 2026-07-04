@@ -28,6 +28,7 @@ public static class PermissionCodeResolver
             "DossierDigitizationWorkflow" => "DOSSIER_DIGITIZATION",
             "DossierByEquipment" => "SEARCH_DOSSIERS_BY_EQUIPMENT",
             "SearchDossiersByEquipment" => "SEARCH_DOSSIERS_BY_EQUIPMENT",
+            "DocumentFullTextSearch" => "DOCUMENT_FULLTEXT_SEARCH",
             _ => ToSnakeCase(controllerKey)
         };
     }
@@ -63,6 +64,13 @@ public static class PermissionCodeResolver
         // Tra cứu hồ sơ thiết bị: mọi GET → VIEW
         if ((string.Equals(controllerKey, "DossierByEquipment", StringComparison.OrdinalIgnoreCase) ||
              string.Equals(controllerKey, "SearchDossiersByEquipment", StringComparison.OrdinalIgnoreCase)) &&
+            httpMethod.Equals("GET", StringComparison.OrdinalIgnoreCase))
+        {
+            return "VIEW";
+        }
+
+        // Tra cứu toàn văn tài liệu: mọi GET → VIEW (kể cả download-url)
+        if (string.Equals(controllerKey, "DocumentFullTextSearch", StringComparison.OrdinalIgnoreCase) &&
             httpMethod.Equals("GET", StringComparison.OrdinalIgnoreCase))
         {
             return "VIEW";
@@ -137,6 +145,7 @@ public static class PermissionCodeResolver
             "DOSSIER_PUBLISH_RELEASE" => "Xuất bản hồ sơ",
             "DOSSIER_PUBLISH_VIEW" => "Xem xuất bản hồ sơ",
             "SEARCH_DOSSIERS_BY_EQUIPMENT_VIEW" => "Tra cứu hồ sơ thiết bị",
+            "DOCUMENT_FULLTEXT_SEARCH_VIEW" => "Tra cứu toàn văn tài liệu",
             "FOLDER_ALLOCATION_VIEW" => "Xem phân bổ nhập liệu",
             "FOLDER_ALLOCATION_EDIT" => "Cấu hình phân bổ nhập liệu",
             "DOSSIER_DIGITIZATION_VIEW" => "Xem hồ sơ số hóa",

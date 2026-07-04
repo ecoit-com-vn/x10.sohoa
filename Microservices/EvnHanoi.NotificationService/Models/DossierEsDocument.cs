@@ -8,6 +8,7 @@ public class DossierEsDocument
     public string? InfrastructureId { get; set; }
     public string? InfrastructureName { get; set; }
     public string? InfrastructureCode { get; set; }
+    public string? StationName { get; set; }
     public long? UnitId { get; set; }
     public string? DossierSetId { get; set; }
     public string? DossierSetName { get; set; }
@@ -27,6 +28,7 @@ public class DossierEsDocument
     public int DocumentCount { get; set; }
     public List<string> PendingAssignedRoles { get; set; } = new();
     public string? PendingAssigneeUserId { get; set; }
+    public string? CurrentHandlerName { get; set; }
     public List<string> WorkflowParticipantUserIds { get; set; } = new();
     public bool CurrentStepAllowEdit { get; set; }
     public int CurrentVersionNumber { get; set; }

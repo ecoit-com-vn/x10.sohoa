@@ -67,10 +67,10 @@ builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Services.IFolderAlloca
 builder.Services.AddSingleton<IMinioClient>(sp =>
 {
     var config = sp.GetRequiredService<IConfiguration>();
-    var endpoint = config["MinIO:Endpoint"] ?? config["Minio:Endpoint"] ?? "localhost:9000";
-    var accessKey = config["MinIO:AccessKey"] ?? config["Minio:AccessKey"] ?? "minioadmin";
-    var secretKey = config["MinIO:SecretKey"] ?? config["Minio:SecretKey"] ?? "minioadmin";
-    var useSslConfig = config["MinIO:UseSSL"] ?? config["Minio:UseSSL"];
+    var endpoint = config["MinIO:Endpoint"] ?? "localhost:9000";
+    var accessKey = config["MinIO:AccessKey"] ?? "minioadmin";
+    var secretKey = config["MinIO:SecretKey"] ?? "minioadmin";
+    var useSslConfig = config["MinIO:UseSSL"];
     var useSsl = !string.IsNullOrEmpty(useSslConfig) && bool.Parse(useSslConfig);
 
     return new MinioClient()
@@ -120,7 +120,9 @@ builder.Services.AddHttpClient("NotificationService", client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["Services:NotificationService"] ?? "http://notificationservice");
     client.Timeout = TimeSpan.FromSeconds(30);
-});
+}).AddHttpMessageHandler<EvnHanoi.Infrastructure.Security.TokenRelayHandler>();
+
+builder.Services.AddScoped<IDocumentFulltextSearchNotificationClient, DocumentFulltextSearchNotificationClient>();
 
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IDigitizationProgressNotifier,
     EvnHanoi.EquipmentService.Infrastructure.Notifications.HttpDigitizationProgressNotifier>();
