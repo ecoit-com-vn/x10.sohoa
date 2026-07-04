@@ -38,8 +38,6 @@ export class AdminLayout implements OnInit {
   isMobileSidebarOpen = false;
   profileMenuOpen = signal(false);
   displayName = computed(() => this.authService.currentUserProfile()?.fullName || this.username);
-  headerSearchKeyword = '';
-  canUseHeaderSearch = false;
 
   /** Signal tránh NG0100 khi menu API trả về sau vòng CD đầu. */
   items = signal<MenuItem[]>([]);
@@ -99,10 +97,7 @@ export class AdminLayout implements OnInit {
     this.syncHeaderSearchFromRoute();
     this.authService.ensurePermissionsLoaded().pipe(
       takeUntilDestroyed(this.destroyRef)
-    ).subscribe(() => {
-      this.canUseHeaderSearch = this.authService.hasPermission('SUPER_ADMIN')
-        || this.authService.hasPermission('DOCUMENT_FULLTEXT_SEARCH_VIEW');
-    });
+    ).subscribe();
   }
 
   trackByMenuId(_index: number, item: MenuItem): string {
