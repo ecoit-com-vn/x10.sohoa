@@ -81,3 +81,37 @@ function resolveEquipmentLookupAccess(auth: AuthService, router: Router): boolea
 
 /** Menu Tra cứu hồ sơ thiết bị */
 export const dossierEquipmentLookupGuard = withPermissionsLoaded(resolveEquipmentLookupAccess);
+
+function resolveDocumentFulltextSearchAccess(auth: AuthService, router: Router): boolean | UrlTree {
+  if (
+    auth.hasPermission('SUPER_ADMIN') ||
+    auth.hasPermission('DOCUMENT_FULLTEXT_SEARCH_VIEW')
+  ) {
+    return true;
+  }
+
+  return router.createUrlTree(['/error'], { queryParams: { code: '403' } });
+}
+
+/** Menu Tìm kiếm toàn văn tài liệu */
+export const documentFulltextSearchGuard = withPermissionsLoaded(resolveDocumentFulltextSearchAccess);
+
+function resolveDigitizationCreatorAccess(auth: AuthService, router: Router): boolean | UrlTree {
+  if (auth.hasPermission('SUPER_ADMIN')) return true;
+  if (auth.hasPermission('DOSSIER_DIGITIZATION_VIEW') && !auth.hasPermission('DOSSIER_DIGITIZATION_CREATE')) return true;
+  if (hasAllPermissions(auth, ['DOSSIER_DIGITIZATION_CREATE', 'DOSSIER_DIGITIZATION_EDIT', 'DOSSIER_DIGITIZATION_VIEW'])) return true;
+  return router.createUrlTree(['/error'], { queryParams: { code: '403' } });
+}
+
+function resolveDigitizationApproverAccess(auth: AuthService, router: Router): boolean | UrlTree {
+  if (auth.hasPermission('SUPER_ADMIN')) return true;
+  if (auth.hasPermission('DOSSIER_DIGITIZATION_MANAGE')) return true;
+  if (auth.hasPermission('DOSSIER_DIGITIZATION_VIEW')) return true;
+  return router.createUrlTree(['/error'], { queryParams: { code: '403' } });
+}
+
+/** Menu Nhập liệu hồ sơ số hóa */
+export const dossierDigitizationCreatorMenuGuard = withPermissionsLoaded(resolveDigitizationCreatorAccess);
+
+/** Menu Kiểm tra nhập liệu */
+export const dossierDigitizationApproverMenuGuard = withPermissionsLoaded(resolveDigitizationApproverAccess);

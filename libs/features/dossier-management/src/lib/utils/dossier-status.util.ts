@@ -113,7 +113,7 @@ export function getDefaultTabForMenuScope(scope: DossierMenuScope): DossierListT
   return 'draft';
 }
 
-export function getTabsForMenuScope(scope: DossierMenuScope): DossierListTab[] {
+export function getTabsForMenuScope(scope: DossierMenuScope, _kindId?: number): DossierListTab[] {
   if (scope === 'approver') return DOSSIER_APPROVER_TABS;
   if (scope === 'publisher') return DOSSIER_PUBLISHER_TABS;
   return DOSSIER_CREATOR_TABS;

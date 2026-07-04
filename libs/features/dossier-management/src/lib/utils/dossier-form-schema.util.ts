@@ -247,24 +247,20 @@ export function parseFormSchemaFields(schemaJson: string | null | undefined): Ea
   }
 }
 
-/** Gộp mảng { page, data } → object flat (fallback nếu BE chưa có mergedDataJson). */
+/** Đọc block `merged` từ RESULT_JSON format ExtractionWorker: `{ merged, pages }`. */
 export function mergeExtractionPageResults(resultJson: string | null | undefined): Record<string, unknown> {
   if (!resultJson?.trim()) return {};
   try {
-    const pages = JSON.parse(resultJson) as unknown;
-    if (!Array.isArray(pages)) return {};
+    const parsed = JSON.parse(resultJson) as unknown;
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+
+    const mergedBlock = (parsed as Record<string, unknown>)['merged'];
+    if (!mergedBlock || typeof mergedBlock !== 'object' || Array.isArray(mergedBlock)) return {};
 
     const merged: Record<string, unknown> = {};
-    for (const page of pages) {
-      if (!page || typeof page !== 'object') continue;
-      const data = (page as { data?: Record<string, unknown> }).data ?? page;
-      if (!data || typeof data !== 'object' || Array.isArray(data)) continue;
-
-      for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
-        if (value === null || value === undefined) continue;
-        if (typeof value === 'string' && !value.trim()) continue;
-        merged[key] = value;
-      }
+    for (const [key, value] of Object.entries(mergedBlock as Record<string, unknown>)) {
+      if (!hasExtractedValue(value)) continue;
+      merged[key] = value;
     }
     return merged;
   } catch {

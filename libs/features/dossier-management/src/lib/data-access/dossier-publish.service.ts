@@ -41,6 +41,10 @@ export class DossierPublishService {
     return this.http.get<{ items: unknown[]; totalCount: number; page: number; pageSize: number }>(this.searchBase, { params });
   }
 
+  getDetail(id: string): Observable<unknown> {
+    return this.http.get<unknown>(`${this.mutationBase}/${id}`);
+  }
+
   getTabCounts(filter: {
     keyword?: string;
     infrastructureId?: string;

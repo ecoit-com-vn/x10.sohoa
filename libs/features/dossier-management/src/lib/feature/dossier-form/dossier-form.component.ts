@@ -26,6 +26,7 @@ import {
   isRejectWorkflowLabel,
   parseWorkflowActionButtons,
 } from '../../utils/dossier-workflow-bpmn.util';
+import { isUserAuthorizedForWorkflowAction } from '../../utils/dossier-workflow-auth.util';
 
 @Component({
   selector: 'app-dossier-form',
@@ -971,6 +972,24 @@ export class DossierFormComponent implements OnInit {
     this.submitting.set(true);
     this.service.getNextStepInfo().subscribe({
       next: (res) => {
+        if (res?.autoApprove) {
+          this.service.submitForApproval(this.dossier.id, {
+            nextNodeId: '',
+            actionLabel: 'Tự động duyệt',
+            comment: 'Tự động phê duyệt — chưa cấu hình quy trình.'
+          }).subscribe({
+            next: () => {
+              this.messageService.add({ severity: 'success', summary: 'Thành công', detail: res.message || 'Đã tự động phê duyệt hồ sơ' });
+              this.submitting.set(false);
+              this.saved.emit(this.dossier.id);
+            },
+            error: (err) => {
+              this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: err.error?.message || 'Không thể tự động phê duyệt hồ sơ.' });
+              this.submitting.set(false);
+            }
+          });
+          return;
+        }
         this.nextStepInfo.set(res);
         this.selectedNextUser.set('');
         this.showSubmitConfirm.set(true);
@@ -1227,19 +1246,13 @@ export class DossierFormComponent implements OnInit {
   get isUserAuthorizedForFormAction(): boolean {
     const task = this.formPendingTask();
     if (!task) return false;
-    const roles = this.authService.getUserRoles?.() ?? [];
-    if (roles.includes('ADMIN') || roles.includes('OPERATOR')) return true;
-
-    const assigneeId = task.assigneeUserId ?? task.AssigneeUserId;
-    const currentUserId = this.authService.getUserId();
-
-    if (assigneeId && currentUserId && String(assigneeId) === String(currentUserId)) return true;
-    if (assigneeId) return false;
-
-    const statusId = this.dossierStatusId();
-    if (statusId === 5) return true; // Returned, creator được phép gửi
-
-    return false;
+    return isUserAuthorizedForWorkflowAction({
+      authService: this.authService,
+      menuScope: 'creator',
+      assigneeUserId: task.assigneeUserId ?? task.AssigneeUserId,
+      statusId: this.dossierStatusId(),
+      isCreator: true,
+    });
   }
 
   openFormActionDialog(btn: any) {

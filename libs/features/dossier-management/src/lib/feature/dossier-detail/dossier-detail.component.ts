@@ -6,6 +6,7 @@ import { DialogModule } from 'primeng/dialog';
 import { MessageService } from 'primeng/api';
 import { catchError, finalize, of, switchMap, takeUntil, Subject } from 'rxjs';
 import { DossierManagementService } from '../../data-access/dossier-management.service';
+import { DossierPublishService } from '../../data-access/dossier-publish.service';
 import { DossierDocumentsTabComponent } from '../dossier-documents/dossier-documents-tab.component';
 import { DossierVersionsTabComponent } from '../dossier-versions-tab/dossier-versions-tab.component';
 import { DossierWorkflowTabComponent } from '../dossier-workflow-tab/dossier-workflow-tab.component';
@@ -26,6 +27,10 @@ import {
   parseWorkflowActionButtons,
 } from '../../utils/dossier-workflow-bpmn.util';
 import { DossierMenuScope, getDossierStatusLabel, getDossierStatusPillClass } from '../../utils/dossier-status.util';
+import {
+  isUserAuthorizedForWorkflowAction,
+  mapAvailableActionsToButtons,
+} from '../../utils/dossier-workflow-auth.util';
 
 function pickFirst<T>(...values: T[]): T | undefined {
   for (const v of values) {
@@ -79,8 +84,8 @@ function pickFirst<T>(...values: T[]): T | undefined {
             <i class="pi pi-spin pi-spinner" *ngIf="submitting()"></i>
             Gửi duyệt
           </button>
-          <!-- Workflow action buttons: Duyệt / Tiếp tục / Từ chối (luôn hiện khi có pending task) -->
-          <ng-container *ngIf="detailPendingTask() && isUserAuthorizedForDetailAction">
+          <!-- Workflow action buttons: Duyệt / Tiếp tục / Từ chối -->
+          <ng-container *ngIf="detailDynamicButtons().length > 0 && isUserAuthorizedForDetailAction">
             <button *ngFor="let btn of detailDynamicButtons()"
                     class="btn-small"
                     [class.btn-cancel]="isRejectLabel(btn.label)"
@@ -188,6 +193,7 @@ function pickFirst<T>(...values: T[]): T | undefined {
           <app-dossier-documents-tab
             [dossierId]="dossierId"
             [canEdit]="canEditDossier()"
+            [menuScope]="menuScope"
             [hasFormTemplate]="!!dossierMeta()?.formId"
             [formId]="dossierMeta()?.formId ?? null"
             (formDataSaved)="loadDetail()"
@@ -358,6 +364,7 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
   @Output() edit = new EventEmitter<void>();
 
   private service = inject(DossierManagementService);
+  private publishService = inject(DossierPublishService);
   private authService = inject(AuthService);
   private messageService = inject(MessageService);
   private destroy$ = new Subject<void>();
@@ -473,19 +480,6 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
     return statusId === 2 && !wfId;
   }
 
-  private getCurrentUserIdFromToken(): string | null {
-    const token = this.authService.getToken();
-    if (!token) return null;
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
-      return payload.sub
-        ?? payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier']
-        ?? null;
-    } catch {
-      return null;
-    }
-  }
-
   private isCurrentUserCreator(): boolean {
     const d = this.dossier();
     if (!d) return false;
@@ -519,11 +513,24 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
     this.loading.set(true);
     this.loadingType.set(true);
 
-    this.service.getDossierById(this.dossierId).pipe(
+    const detail$ = this.menuScope === 'publisher'
+      ? this.publishService.getDetail(this.dossierId)
+      : this.service.getDossierById(this.dossierId);
+
+    detail$.pipe(
       switchMap((res) => {
         const meta = normalizeDossierDetail(res);
         if (!meta) {
           throw new Error('Invalid dossier response');
+        }
+
+        const resolvedKindId = Number(
+          (res as Record<string, unknown>)?.['kindId']
+          ?? (res as Record<string, unknown>)?.['KindId']
+          ?? 2
+        );
+        if (this.menuScope === 'publisher') {
+          this.service.setKindContext(resolvedKindId === 1 ? 1 : 2);
         }
 
         this.dossier.set(res);
@@ -553,8 +560,10 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
 
   /** Ưu tiên formId từ detail API; fallback lookup loại hồ sơ. */
   private resolveFormTemplate(formId: string | null, dossierTypeId: string) {
+    const scope = this.menuScope === 'publisher' ? 'publish' as const : 'default' as const;
+
     if (formId) {
-      return this.service.getFormTemplate(formId);
+      return this.service.getDossierFormTemplate(this.dossierId, formId, scope);
     }
 
     if (!dossierTypeId) {
@@ -571,7 +580,7 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
         if (!resolvedFormId) {
           return of(null);
         }
-        return this.service.getFormTemplate(resolvedFormId);
+        return this.service.getDossierFormTemplate(this.dossierId, resolvedFormId, scope);
       })
     );
   }
@@ -625,6 +634,7 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
       this.detailWorkflowXml.set('');
       this.detailPendingTask.set(null);
       this.detailCurrentNodeId.set('');
+      this.detailDynamicButtons.set([]);
       return;
     }
 
@@ -638,17 +648,31 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
     this.detailPendingTask.set(pending);
     this.detailCurrentNodeId.set(pickFirst(instance.currentNodeId, instance.CurrentNodeId) || '');
 
-    const bpmnXml = res.definition?.bpmnXml ?? res.definition?.BpmnXml;
+    const availableActions = instance.availableActions ?? instance.AvailableActions;
+    const mappedActions = mapAvailableActionsToButtons(availableActions);
+    if (mappedActions.length > 0) {
+      this.detailDynamicButtons.set(mappedActions);
+      return;
+    }
+
+    const bpmnXml = res.definition?.bpmnXml ?? res.definition?.BpmnXml ?? res.definition?.workflowXml ?? res.definition?.WorkflowXml;
     if (bpmnXml) {
       this.detailWorkflowXml.set(bpmnXml);
-      if (pending) {
-        const stepName = pickFirst(pending.stepName, pending.StepName) ?? '';
-        const nodeId = pickFirst(instance.currentNodeId, instance.CurrentNodeId);
+      const stepName = pickFirst(
+        pending?.stepName,
+        pending?.StepName,
+        instance.currentStepName,
+        instance.CurrentStepName
+      ) ?? '';
+      const nodeId = pickFirst(instance.currentNodeId, instance.CurrentNodeId);
+      if (nodeId) {
         this.parseDynamicButtons(bpmnXml, stepName, nodeId);
+        return;
       }
-    } else {
-      this.detailWorkflowXml.set('');
     }
+
+    this.detailWorkflowXml.set(bpmnXml ?? '');
+    this.detailDynamicButtons.set([]);
   }
 
   loadWorkflow() {
@@ -685,6 +709,22 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
           next: (tasks) => {
             const list = Array.isArray(tasks) ? tasks : [];
             this.myTask.set(list[0] ?? null);
+
+            if (!this.detailDynamicButtons().length && list[0]) {
+              const wf = this.workflowDetail();
+              const bpmnXml = wf?.definition?.bpmnXml ?? wf?.definition?.BpmnXml ?? wf?.definition?.workflowXml ?? wf?.definition?.WorkflowXml;
+              const task = list[0];
+              const stepName = pickFirst(
+                task.workflowStatusName,
+                task.WorkflowStatusName,
+                task.stepName,
+                task.StepName
+              ) ?? '';
+              const nodeId = this.detailCurrentNodeId();
+              if (bpmnXml && nodeId) {
+                this.parseDynamicButtons(bpmnXml, stepName, nodeId);
+              }
+            }
           },
           error: () => this.myTask.set(null)
         });
@@ -712,21 +752,26 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
   }
 
   get isUserAuthorizedForDetailAction(): boolean {
+    if (this.menuScope === 'publisher') return false;
+
     const task = this.detailPendingTask();
-    if (!task) return false;
-    const roles = this.authService.getUserRoles?.() ?? [];
-    if (roles.includes('ADMIN') || roles.includes('OPERATOR')) return true;
+    const d = this.dossier();
+    const instance = this.workflowDetail()?.instance;
+    const currentAssignees = Array.isArray(instance?.currentAssignees)
+      ? instance.currentAssignees
+      : Array.isArray(instance?.CurrentAssignees)
+        ? instance.CurrentAssignees
+        : [];
 
-    const assigneeId = task.assigneeUserId ?? task.AssigneeUserId;
-    const currentUserId = this.getCurrentUserIdFromToken();
-
-    if (assigneeId && currentUserId && String(assigneeId) === String(currentUserId)) return true;
-    if (assigneeId) return false;
-
-    const statusId = this.dossier()?.statusId ?? this.dossier()?.StatusId;
-    if (statusId === 5) return this.isCurrentUserCreator();
-
-    return false;
+    return isUserAuthorizedForWorkflowAction({
+      authService: this.authService,
+      menuScope: this.menuScope,
+      assigneeUserId: task?.assigneeUserId ?? task?.AssigneeUserId,
+      currentAssignees,
+      statusId: d?.statusId ?? d?.StatusId,
+      isCreator: this.isCurrentUserCreator(),
+      hasMyTask: !!this.myTask(),
+    });
   }
 
   openActionDialog(btn: any) {
@@ -796,6 +841,8 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
   }
 
   canEditDossier(): boolean {
+    if (this.menuScope === 'publisher') return false;
+
     const d = this.dossier();
     if (!d) return false;
 
@@ -868,12 +915,10 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
   onCompleteInput() {
     this.submitting.set(true);
     this.service.completeInput(this.dossierId).subscribe({
-      next: (res) => {
+      next: () => {
         this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã hoàn thành nhập liệu thành công' });
-        this.dossier.update((current) =>
-          current ? { ...current, statusId: 2, statusName: 'Hoàn thành' } : current
-        );
         this.submitting.set(false);
+        this.loadDetail();
       },
       error: (err) => {
         this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: err.error?.message || 'Không thể hoàn thành nhập liệu' });
@@ -961,7 +1006,9 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
     const d = this.dossier();
     const wfId = d?.workflowInstanceId ?? d?.WorkflowInstanceId
       ?? this.workflowDetail()?.instance?.id
-      ?? this.workflowDetail()?.instance?.Id;
+      ?? this.workflowDetail()?.instance?.Id
+      ?? this.workflowDetail()?.instance?.instanceId
+      ?? this.workflowDetail()?.instance?.InstanceId;
 
     switch (tab) {
       case 'info':
@@ -970,7 +1017,7 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
       case 'versions':
         return true;
       case 'workflow':
-        return !!wfId;
+        return !!wfId || this.menuScope === 'approver';
       default:
         return false;
     }

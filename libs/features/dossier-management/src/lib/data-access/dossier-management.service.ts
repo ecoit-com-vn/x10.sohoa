@@ -13,12 +13,21 @@ export interface DossierWorkflowAction {
 }
 
 export function normalizeDossierWorkflowAction(raw: Record<string, unknown>): DossierWorkflowAction {
+  const nextStepRole = raw['nextStepRole'] ?? raw['NextStepRole'];
+  const requiresRaw = raw['requiresNextAssignee'] ?? raw['RequiresNextAssignee'];
+  const requiresNextAssignee =
+    requiresRaw === true
+    || requiresRaw === 1
+    || (typeof requiresRaw === 'string' && ['true', '1', 'yes'].includes(requiresRaw.trim().toLowerCase()));
+
   return {
     code: String(raw['code'] ?? raw['Code'] ?? ''),
     name: String(raw['name'] ?? raw['Name'] ?? ''),
     nextNodeId: String(raw['nextNodeId'] ?? raw['NextNodeId'] ?? ''),
-    requiresNextAssignee: Boolean(raw['requiresNextAssignee'] ?? raw['RequiresNextAssignee'] ?? false),
-    nextStepRole: (raw['nextStepRole'] ?? raw['NextStepRole'] ?? null) as string | null,
+    requiresNextAssignee,
+    nextStepRole: nextStepRole != null && String(nextStepRole).trim() !== ''
+      ? String(nextStepRole).trim()
+      : null,
   };
 }
 
@@ -37,14 +46,28 @@ export interface BhsCatalogColumn {
 export class DossierManagementService {
   private http = inject(HttpClient);
   private config = inject(APP_CONFIG);
+  private kindId = 2;
 
-  private get base() {
-    return `${this.config.apiGatewayUrl}/api/v1/dossiers`;
+  /** Gọi từ shell component theo route data (kindId: 1 = digitization). */
+  setKindContext(kindId: number): void {
+    this.kindId = kindId;
   }
 
-  /** Tác vụ workflow hồ sơ đã tách sang WorkflowService */
+  private get isDigitization(): boolean {
+    return this.kindId === 1;
+  }
+
+  private get base() {
+    return this.isDigitization
+      ? `${this.config.apiGatewayUrl}/api/v1/dossier-digitization/dossiers`
+      : `${this.config.apiGatewayUrl}/api/v1/dossiers`;
+  }
+
+  /** Tác vụ workflow hồ sơ */
   private get workflowBase() {
-    return `${this.config.apiGatewayUrl}/api/v1/dossiers-workflow`;
+    return this.isDigitization
+      ? `${this.config.apiGatewayUrl}/api/v1/dossier-digitization-workflow`
+      : `${this.config.apiGatewayUrl}/api/v1/dossiers-workflow`;
   }
 
   private get searchBase() {
@@ -64,6 +87,7 @@ export class DossierManagementService {
   getDossiers(filter: {
     menuScope?: DossierMenuScope;
     tab?: DossierListTab;
+    kindId?: number;
     keyword?: string;
     infrastructureId?: string;
     gridTypeId?: number;
@@ -78,6 +102,8 @@ export class DossierManagementService {
       .set('pageSize', filter.pageSize.toString());
 
     if (filter.menuScope) params = params.set('menuScope', filter.menuScope);
+    const effectiveKindId = filter.kindId ?? this.kindId;
+    if (effectiveKindId) params = params.set('kindId', effectiveKindId.toString());
 
     if (filter.tab) params = params.set('tab', filter.tab);
     if (filter.keyword?.trim()) params = params.set('keyword', filter.keyword.trim());
@@ -112,12 +138,15 @@ export class DossierManagementService {
 
   getDossierTabCounts(filter: {
     menuScope: DossierMenuScope;
+    kindId?: number;
     keyword?: string;
     infrastructureId?: string;
     gridTypeId?: number;
     unitId?: number;
   }): Observable<DossierTabCounts> {
     let params = new HttpParams().set('menuScope', filter.menuScope);
+    const effectiveKindId = filter.kindId ?? this.kindId;
+    if (effectiveKindId) params = params.set('kindId', effectiveKindId.toString());
     if (filter.keyword?.trim()) params = params.set('keyword', filter.keyword.trim());
     if (filter.infrastructureId) params = params.set('infrastructureId', filter.infrastructureId);
     if (filter.gridTypeId != null) params = params.set('gridTypeId', filter.gridTypeId.toString());
@@ -333,7 +362,29 @@ export class DossierManagementService {
   }
 
   /**
-   * Lấy EAV form template theo formId để gen trường nhập liệu động.
+   * Lấy EAV form template theo ngữ cảnh hồ sơ (preview tài liệu / xem chi tiết).
+   * Không gọi api/v1/eav-form-templates — dùng endpoint gắn với hồ sơ, quyền DOSSIER_* / DOSSIER_PUBLISH_*.
+   */
+  getDossierFormTemplate(
+    dossierId: string,
+    formId?: string | null,
+    scope: 'default' | 'publish' | 'lookup' = 'default'
+  ): Observable<any> {
+    const url =
+      scope === 'publish'
+        ? `${this.config.apiGatewayUrl}/api/v1/dossier-publish/${dossierId}/form-template`
+        : scope === 'lookup'
+          ? `${this.config.apiGatewayUrl}/api/v1/dossiers-by-equipment/${dossierId}/form-template`
+          : `${this.base}/${dossierId}/form-template`;
+
+    let params = new HttpParams();
+    if (formId) params = params.set('formId', formId);
+
+    return this.http.get<any>(url, { params }).pipe(catchError(() => of(null)));
+  }
+
+  /**
+   * Lấy EAV form template theo formId — chỉ dùng khi tạo hồ sơ mới (chưa có dossierId).
    * Gọi endpoint /get-form (bypass DynamicPermission).
    */
   getFormTemplate(formId: string): Observable<any> {
