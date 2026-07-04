@@ -169,9 +169,9 @@ namespace EvnHanoi.DigitizationService.Workers
                             {
                                 _logger.LogInformation("Đang xử lý trang {Page}/{TotalPages}...", i + 1, pageCount);
 
-                                // 2. Render trang PDF → JPEG (150 DPI)
+                                // 2. Render trang PDF → JPEG (200 DPI)
                                 using var imgStream = new MemoryStream();
-                                var renderOptions = new PDFtoImage.RenderOptions { Dpi = 150 };
+                                var renderOptions = new PDFtoImage.RenderOptions { Dpi = 200 };
                                 PDFtoImage.Conversion.SaveJpeg(imgStream, pdfBytes, password: null, page: i, options: renderOptions);
                                 byte[] pageImageBytes = imgStream.ToArray();
 
@@ -214,114 +214,6 @@ namespace EvnHanoi.DigitizationService.Workers
                                     _logger.LogWarning(ex, "Lỗi khi gọi ocr_vl_server cho trang {Page}.", i + 1);
                                 }
 
-                                // 3b. Sửa chính tả từng box bằng LLM (trước khi vẽ PDF và sinh MD)
-                                if (ocrResults.Any())
-                                {
-                                    // Lọc các box hợp lệ để gửi cho LLM
-                                    var validBoxes = ocrResults
-                                        .Where(b => b.Box != null && b.Box.Count == 4 && !string.IsNullOrWhiteSpace(b.Text))
-                                        .ToList();
-
-                                    if (validBoxes.Any())
-                                    {
-                                        try
-                                        {
-                                            _logger.LogInformation("Đang gọi LLM sửa chính tả cho {Count} box text trang {Page}...", validBoxes.Count, i + 1);
-
-                                            // Chuẩn bị mảng JSON gửi cho LLM
-                                            var textsToCorrect = validBoxes
-                                                .Select((b, idx) => new { index = idx, text = b.Text })
-                                                .ToList();
-                                            string inputJson = JsonSerializer.Serialize(textsToCorrect);
-
-                                            var correctionPrompt = @"Bạn là chuyên gia hiệu đính văn bản tiếng Việt bị lỗi OCR trong lĩnh vực điện lực.
-
-NHIỆM VỤ: Nhận vào mảng JSON chứa các đoạn text bị lỗi OCR. Sửa chính tả từng đoạn và trả về mảng JSON CÙNG SỐ LƯỢNG phần tử, CÙNG THỨ TỰ index.
-
-CÁC LOẠI LỖI CẦN SỬA:
-A. LỖI DẤU THANH: KỶ→KỸ, SỰA→SỬA, LÓN→LỚN, TÀI→TẠI, MẮT→MẤT, LỤC→LỰC, PHƯƠNG ẢN→PHƯƠNG ÁN, NHỊM→NHIỆM
-B. LỖI MẤT DẤU PHỤ: son→sơn, gi→gỉ, QLDT→QLĐT, mất dấu mũ/móc/ngang
-C. LỖI NHẦM KÝ TỰ: nối→nói, dột→đột, Trưởng→Trường, SỎI→SỐI, CHÈM→CHÊM
-D. LỖI THỪA/THIẾU: UUY BAN→ỦY BAN, UỞ BAN->ỦY BAN, UỬ BAN->ỦY BAN
-E. LỖI ARTIFACTS: Loại bỏ LaTeX artifacts (\underline, \text{...})
-
-QUY TẮC:
-1. Sửa dựa trên NGỮ CẢNH. Ví dụ: 'thấm đột'→'thấm dột'; 'Trường phòng'→'Trưởng phòng'.
-2. GIỮ NGUYÊN số liệu, đơn vị, mã kỹ thuật (22/0,4kV, TBA, QLĐT, MBA).
-3. PHẢI trả về ĐÚNG số lượng phần tử và ĐÚNG thứ tự index.
-4. CHỈ trả về mảng JSON. Không thêm giải thích, không bọc trong markdown code block.";
-
-                                            var payload = new
-                                            {
-                                                messages = new[]
-                                                {
-                                                    new { role = "system", content = correctionPrompt },
-                                                    new { role = "user", content = inputJson }
-                                                },
-                                                temperature = 0.1,
-                                                max_tokens = 4000
-                                            };
-
-                                            var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
-                                            var llmResponse = await llmClient.PostAsync("/v1/chat/completions", content, stoppingToken);
-
-                                            if (llmResponse.IsSuccessStatusCode)
-                                            {
-                                                var resultStr = await llmResponse.Content.ReadAsStringAsync(stoppingToken);
-                                                var jsonNode = System.Text.Json.Nodes.JsonNode.Parse(resultStr);
-                                                var llmOutput = jsonNode?["choices"]?[0]?["message"]?["content"]?.GetValue<string>();
-
-                                                if (!string.IsNullOrWhiteSpace(llmOutput))
-                                                {
-                                                    // Loại bỏ markdown code block nếu LLM tự thêm
-                                                    llmOutput = llmOutput.Trim();
-                                                    if (llmOutput.StartsWith("```json"))
-                                                    {
-                                                        llmOutput = llmOutput.Substring(7);
-                                                        if (llmOutput.EndsWith("```")) llmOutput = llmOutput.Substring(0, llmOutput.Length - 3);
-                                                    }
-                                                    else if (llmOutput.StartsWith("```"))
-                                                    {
-                                                        llmOutput = llmOutput.Substring(3);
-                                                        if (llmOutput.EndsWith("```")) llmOutput = llmOutput.Substring(0, llmOutput.Length - 3);
-                                                    }
-                                                    llmOutput = llmOutput.Trim();
-
-                                                    // Parse mảng JSON trả về
-                                                    var correctedItems = JsonSerializer.Deserialize<List<CorrectedTextItem>>(llmOutput,
-                                                        new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-
-                                                    if (correctedItems != null && correctedItems.Count == validBoxes.Count)
-                                                    {
-                                                        // Cập nhật text đã sửa ngược lại vào ocrResults
-                                                        for (int ci = 0; ci < correctedItems.Count; ci++)
-                                                        {
-                                                            if (!string.IsNullOrWhiteSpace(correctedItems[ci].Text))
-                                                            {
-                                                                validBoxes[ci].Text = correctedItems[ci].Text;
-                                                            }
-                                                        }
-                                                        _logger.LogInformation("Sửa chính tả {Count} box trang {Page} thành công.", correctedItems.Count, i + 1);
-                                                    }
-                                                    else
-                                                    {
-                                                        _logger.LogWarning("LLM trả về {ReturnCount} items nhưng cần {ExpectedCount}. Giữ nguyên text OCR gốc cho trang {Page}.",
-                                                            correctedItems?.Count ?? 0, validBoxes.Count, i + 1);
-                                                    }
-                                                }
-                                            }
-                                            else
-                                            {
-                                                _logger.LogWarning("LLM trả về status {StatusCode} khi sửa box trang {Page}. Sử dụng text OCR gốc.", llmResponse.StatusCode, i + 1);
-                                            }
-                                        }
-                                        catch (Exception ex)
-                                        {
-                                            _logger.LogError(ex, "Lỗi khi gọi LLM sửa chính tả box trang {Page}. Sử dụng text OCR gốc.", i + 1);
-                                        }
-                                    }
-                                }
-
                                 // 4. Tạo trang PDF 2 lớp: ảnh gốc + text ẩn (ĐÃ SỬA CHÍNH TẢ)
                                 PdfPage newPage = outPdfDoc.AddPage();
                                 using XGraphics gfx = XGraphics.FromPdfPage(newPage);
@@ -329,8 +221,8 @@ QUY TẮC:
                                 using var memStreamImg = new MemoryStream(pageImageBytes);
                                 using XImage xImage = XImage.FromStream(() => memStreamImg);
 
-                                // Quy đổi pixel → point (72pt = 1 inch; 150 DPI → scale = 72/150)
-                                double scale = 72.0 / 150.0;
+                                // Quy đổi pixel → point (72pt = 1 inch; 200 DPI → scale = 72/200)
+                                double scale = 72.0 / 200.0;
                                 double imgWidthPx  = xImage.PixelWidth;
                                 double imgHeightPx = xImage.PixelHeight;
                                 newPage.Width  = imgWidthPx  * scale;
@@ -359,65 +251,18 @@ QUY TẮC:
                                     gfx.DrawString(boxData.Text, font, transparentBrush, rect, XStringFormats.TopLeft);
                                 }
 
-                                // 4b. Sinh Markdown cho page — sử dụng text đã sửa chính tả
-                                var mdLines = new List<string>();
-                                if (ocrResults.Any())
-                                {
-                                    // Nhóm các box có y0 chênh lệch <= 10px thành cùng một dòng
-                                    double yTolerance = 10.0;
-                                    var lines = new List<List<TextBoxResponse>>();
-                                    
-                                    var sortedByY = ocrResults.Where(b => b.Box != null && b.Box.Count == 4 && !string.IsNullOrWhiteSpace(b.Text))
-                                                              .OrderBy(b => b.Box[1]).ToList();
-                                                              
-                                    foreach (var box in sortedByY)
-                                    {
-                                        bool added = false;
-                                        foreach (var line in lines)
-                                        {
-                                            double avgY = line.Average(b => b.Box[1]);
-                                            if (Math.Abs(box.Box[1] - avgY) <= yTolerance)
-                                            {
-                                                line.Add(box);
-                                                added = true;
-                                                break;
-                                            }
-                                        }
-                                        if (!added)
-                                        {
-                                            lines.Add(new List<TextBoxResponse> { box });
-                                        }
-                                    }
-                                    
-                                    foreach (var line in lines)
-                                    {
-                                        var sortedByX = line.OrderBy(b => b.Box[0]).ToList();
-                                        
-                                        var lineParts = new List<string>();
-                                        foreach (var box in sortedByX)
-                                        {
-                                            string cleanText = Regex.Replace(box.Text, @"[ \t]{2,}", " ");
-                                            cleanText = Regex.Replace(cleanText, @"\r\n|\r|\n", " ");
-                                            lineParts.Add(cleanText.Trim());
-                                        }
-                                        mdLines.Add(string.Join(" ", lineParts));
-                                    }
-                                }
-
-                                string pageMarkdown = string.Join("\n", mdLines);
-                                pageMarkdown = Regex.Replace(pageMarkdown, @"\n{3,}", "\n\n"); // Max 2 newlines
-
-                                // Upload Markdown file
+                                // 4b. Sinh file JSON gốc cho page
                                 string baseFilePath = taskMsg.FilePath;
                                 if (baseFilePath.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
                                 {
                                     baseFilePath = baseFilePath.Substring(0, baseFilePath.Length - 4);
                                 }
-                                string mdFileName = $"{baseFilePath}_page_{i + 1}.md";
+                                string jsonFileName = $"{baseFilePath}_page_{i + 1}.json";
 
-                                using var mdStream = new MemoryStream(Encoding.UTF8.GetBytes(pageMarkdown));
-                                await minioService.UploadFileAsync(taskMsg.BucketName, mdFileName, mdStream, "text/markdown");
-                                _logger.LogInformation("Đã upload file markdown cho trang {Page}: {FileName}", i + 1, mdFileName);
+                                string pageJson = JsonSerializer.Serialize(ocrResults);
+                                using var jsonStream = new MemoryStream(Encoding.UTF8.GetBytes(pageJson));
+                                await minioService.UploadFileAsync(taskMsg.BucketName, jsonFileName, jsonStream, "application/json");
+                                _logger.LogInformation("Đã upload file JSON cho trang {Page}: {FileName}", i + 1, jsonFileName);
 
                                 // Báo cáo tiến trình per-page
                                 var progressMsg = new
