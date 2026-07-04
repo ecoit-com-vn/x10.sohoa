@@ -154,11 +154,6 @@
     }
     .page-btn:hover:not(:disabled) { background: #002D72; color: #fff; border-color: #002D72; }
     .page-btn:disabled { opacity: 0.4; cursor: default; }
-    .page-current {
-      min-width: 28px; height: 28px; border: 1px solid #002D72; border-radius: 4px;
-      background: #002D72; color: #fff; display: inline-flex; align-items: center;
-      justify-content: center; font-size: 0.82rem; font-weight: 600;
-    }
     .page-size-sel {
       height: 28px; padding: 0 6px; border: 1px solid #e5e7eb;
       border-radius: 4px; font-size: 0.8rem; background: #fff;

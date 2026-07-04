@@ -401,7 +401,7 @@ html, body {
 .wf-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.85rem;
+  font-size: 14px;
   text-align: left;
 }
 .wf-table thead tr { background: #f8fafc; border-bottom: 2px solid #e2e8f0; }
@@ -539,7 +539,7 @@ html, body {
 
 
 .text-muted { color: #22313F; }
-.wf-name-link { color: #002D72; font-weight: 500; cursor: pointer; text-decoration: none; }
+.wf-name-link { cursor: pointer; text-decoration: none; }
 .wf-name-link:hover { text-decoration: underline; color: #FF6B00; }
 .mota-text { color: #6b7280; }
 
@@ -687,10 +687,7 @@ td:has(.act-btn) {
 .page-current {
   min-width: 28px;
   height: 28px;
-  border: 1px solid #1a3593;
   border-radius: 4px;
-  background: #1a3593;
-  color: #ffffff;
   display: inline-flex;
   align-items: center;
   justify-content: center;

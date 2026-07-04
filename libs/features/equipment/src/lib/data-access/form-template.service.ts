@@ -11,13 +11,14 @@ export interface EavFormTemplate {
   description: string;
   descriptionInfo: string;
   extractionProcess?: string;
-  formSchema: string; // JSON schema stringified
+  formSchema: string; 
   version: number;
   isActive: boolean;
   isDeleted?: boolean;
   isLocked?: boolean;
   createdAt: string;
   createdBy: string;
+  creatorFullName: string;
   status?: string;
   equipmentTypeId?: string;
   formType?: string;

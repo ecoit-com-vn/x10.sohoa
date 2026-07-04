@@ -339,7 +339,7 @@
             <tr *ngFor="let ver of versionList()">
               <td class="text-center font-bold evn-spinner-color">v{{ ver.version }}.0</td>
               <td>{{ ver.name }}</td>
-              <td>{{ ver.createdBy }}</td>
+              <td>{{ ver.creatorFullName }}</td>
               <td>{{ ver.createdAt | date:'dd/MM/yyyy HH:mm' }}</td>
               <td class="text-center">
                 <span class="status-pill" [class.status-active]="ver.isActive" [class.status-inactive]="!ver.isActive">
