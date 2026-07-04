@@ -1,12 +1,7 @@
 <p-toast></p-toast>
 
 <div class="wf-page doc-search-page">
-  <div class="breadcrumb">
-    <i class="pi pi-home bc-icon"></i>
-    <span class="bc-text">Trang chủ</span>
-    <span class="bc-sep">/</span>
-    <span class="bc-current">Danh sách kết quả tìm kiếm</span>
-  </div>
+  <wf-breadcrumb />
 
   <div class="doc-search-header">
     <div>
@@ -18,32 +13,19 @@
         <p class="doc-search-subtitle">Nhập từ khóa để tìm kiếm toàn văn trong nội dung tài liệu đã số hóa.</p>
       </ng-template>
     </div>
-    <button type="button" class="btn-outlined btn-small" disabled title="Sắp có ở bản cập nhật tiếp theo">
-      Tìm kiếm nâng cao
-    </button>
   </div>
 
   <div class="wf-card">
     <div class="list-toolbar doc-search-toolbar">
       <div class="toolbar-left">
-        <input
-          type="text"
-          class="wf-search-input doc-search-input"
-          placeholder="Nhập thông tin tên tài liệu, giấy phép, mã định danh..."
-          [ngModel]="keyword()"
-          (ngModelChange)="keyword.set($event)"
-          (keyup.enter)="onSearch()"
-        />
+        <input type="text" class="wf-search-input doc-search-input"
+          placeholder="Nhập thông tin tên tài liệu, giấy phép, mã định danh..." [ngModel]="keyword()"
+          (ngModelChange)="keyword.set($event)" (keyup.enter)="onSearch()" />
         <button type="button" class="btn-tim" (click)="onSearch()">Tìm kiếm</button>
       </div>
       <div class="toolbar-right">
         <label class="sort-label" for="docSort">Sắp xếp:</label>
-        <select
-          id="docSort"
-          class="wf-select page-size-sel"
-          [ngModel]="sort()"
-          (ngModelChange)="onSortChange($event)"
-        >
+        <select id="docSort" class="wf-select page-size-sel" [ngModel]="sort()" (ngModelChange)="onSortChange($event)">
           <option value="newest">Mới nhất</option>
           <option value="oldest">Cũ nhất</option>
           <option value="relevance" [disabled]="!activeKeyword()">Liên quan nhất</option>
@@ -72,7 +54,8 @@
             {{ item.documentName }}
           </button>
 
-          <p class="doc-result-snippet" *ngIf="highlightHtml(item); else plainSnippet" [innerHTML]="highlightHtml(item)"></p>
+          <p class="doc-result-snippet" *ngIf="highlightHtml(item); else plainSnippet"
+            [innerHTML]="highlightHtml(item)"></p>
           <ng-template #plainSnippet>
             <p class="doc-result-snippet">{{ snippetText(item) }}</p>
           </ng-template>
@@ -89,16 +72,6 @@
             </span>
           </div>
         </div>
-
-        <button
-          type="button"
-          class="doc-result-download act-btn"
-          title="Tải xuống"
-          [disabled]="downloadingId() === item.documentVersionId"
-          (click)="download(item, $event)"
-        >
-          <i class="pi" [class.pi-spin]="downloadingId() === item.documentVersionId" [class.pi-spinner]="downloadingId() === item.documentVersionId" [class.pi-download]="downloadingId() !== item.documentVersionId"></i>
-        </button>
       </article>
 
       <div class="empty-row doc-search-empty" *ngIf="items().length === 0">

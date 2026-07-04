@@ -1,4 +1,5 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -26,7 +27,8 @@ import { EquipmentTypeService } from '../../data-access/equipment-type.service';
         TextareaModule,
         SelectModule,
         PaginatorModule,
-        DialogModule
+        DialogModule,
+        WfBreadcrumbComponent,
     ],
     providers: [MessageService],
     templateUrl: './completed-form-list.component.html',

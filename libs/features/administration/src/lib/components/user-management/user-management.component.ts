@@ -1,4 +1,5 @@
 import { Component, OnInit, inject, signal, computed, effect } from '@angular/core';
+import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DialogModule } from 'primeng/dialog';
@@ -12,7 +13,7 @@ import { buildMenuPermissionTree as buildMenuPermissionTreeFromLookup } from '..
 @Component({
   selector: 'app-user-management',
   standalone: true,
-  imports: [CommonModule, FormsModule, DialogModule, ToastModule],
+  imports: [CommonModule, FormsModule, DialogModule, ToastModule, WfBreadcrumbComponent],
   providers: [MessageService],
   templateUrl: './user-management.component.html',
   styleUrl: './user-management.component.scss'

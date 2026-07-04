@@ -2,19 +2,9 @@
   <p-toast></p-toast>
 
   <div class="builder-view-container">
-    <!-- Breadcrumb -->
-    <div class="breadcrumb">
-      <i class="pi pi-home bc-icon"></i>
-      <span class="bc-text">Trang chủ</span>
-      <span class="bc-sep">/</span>
-      <span class="bc-text">Quản lý thiết bị</span>
-      <span class="bc-sep">/</span>
-      <span class="bc-text" (click)="goToList()" style="cursor: pointer;">Quản lý biểu mẫu</span>
-      <span class="bc-sep">/</span>
-      <span class="bc-current">{{ isEditMode() ? 'Cấu hình biểu mẫu' : 'Thêm mới biểu mẫu' }}</span>
-    </div>
+    <wf-breadcrumb />
 
-    <!-- Builder & Editor Workspace -->
+  <!-- Builder & Editor Workspace -->
     <div class="form-builder-wrapper">
       <!-- Top Header Bar -->
       <div class="builder-header">

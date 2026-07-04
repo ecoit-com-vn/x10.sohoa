@@ -1,4 +1,5 @@
 import { Component, OnInit } from '@angular/core';
+import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { TabsModule } from 'primeng/tabs';
 import { DialogModule } from 'primeng/dialog';
@@ -16,7 +17,8 @@ import { environment } from '@env/environment';
     TabsModule,
     DialogModule,
     FormsModule,
-    ToastModule
+    ToastModule,
+    WfBreadcrumbComponent,
   ],
   providers: [MessageService],
   templateUrl: './physical-storage.component.html',

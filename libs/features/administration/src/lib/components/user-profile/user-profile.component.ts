@@ -1,4 +1,5 @@
 import { CommonModule } from '@angular/common';
+import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -11,7 +12,7 @@ import { UserService } from '../../services/user.service';
 @Component({
   selector: 'app-user-profile',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule],
+  imports: [CommonModule, FormsModule, ToastModule, WfBreadcrumbComponent],
   providers: [MessageService],
   templateUrl: './user-profile.component.html',
   styleUrl: './user-profile.component.scss'

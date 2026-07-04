@@ -1,4 +1,5 @@
 import { Component, OnInit, inject, signal, computed, effect } from '@angular/core';
+import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ToastModule } from 'primeng/toast';
@@ -30,7 +31,8 @@ import { LoadingService } from '@sohoa.frontend/shared/core';
     CardModule,
     TextareaModule,
     Paginator,
-    Dialog
+    Dialog,
+    WfBreadcrumbComponent,
   ],
   providers: [MessageService],
   templateUrl: './form-template.component.html',

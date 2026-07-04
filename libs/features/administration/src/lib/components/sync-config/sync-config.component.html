@@ -3,17 +3,9 @@
       <p-toast></p-toast>
       <div class="wf-card">
         
-        <!-- Breadcrumb -->
-        <div class="breadcrumb">
-          <i class="pi pi-home bc-icon"></i>
-          <span class="bc-text">Trang chủ</span>
-          <span class="bc-sep">/</span>
-          <span class="bc-text">Quản trị hệ thống</span>
-          <span class="bc-sep">/</span>
-          <span class="bc-current">Cấu hình đồng bộ PMIS</span>
-        </div>
+        <wf-breadcrumb />
 
-        <div class="edit-header">
+  <div class="edit-header">
           <h2 class="edit-title">Thiết lập kết nối PMIS</h2>
           <div class="edit-actions">
             <button *ngIf="authService.hasPermission('SYNC_CREATE')" class="btn-tim" (click)="confirmSync()" [disabled]="isSyncing || saving">

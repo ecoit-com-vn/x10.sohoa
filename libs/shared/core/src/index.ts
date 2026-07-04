@@ -11,6 +11,8 @@ export * from './lib/services/digitization-task.service';
 export * from './lib/services/eav-form.service';
 export * from './lib/services/workflow.service';
 export * from './lib/services/menu.service';
+export * from './lib/services/breadcrumb.service';
+export * from './lib/utils/sidebar-menu.util';
 export * from './lib/utils/functions';
 export * from './lib/utils/custom-validators';
 export * from './lib/utils/constants';

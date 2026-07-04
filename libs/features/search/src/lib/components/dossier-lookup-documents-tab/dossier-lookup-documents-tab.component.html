@@ -90,7 +90,7 @@
 </div>
 
 <app-dossier-document-edit-dialog
-  *ngIf="editTarget()?.latestVersionId as versionId"
+  *ngIf="apiMode !== 'fulltext' && editTarget()?.latestVersionId as versionId"
   [dossierId]="dossierId"
   [versionId]="versionId"
   [documentName]="editTarget()?.name ?? ''"

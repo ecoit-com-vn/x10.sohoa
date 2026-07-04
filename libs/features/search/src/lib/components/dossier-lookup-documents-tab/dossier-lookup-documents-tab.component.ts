@@ -1,12 +1,14 @@
-import { Component, OnInit, Input, signal, computed, inject } from '@angular/core';
+import { Component, OnInit, Input, signal, computed, inject, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
+import { Router } from '@angular/router';
 import { APP_CONFIG } from '@sohoa.frontend/shared/core';
 import { ToastModule } from 'primeng/toast';
 import { TooltipModule } from 'primeng/tooltip';
 import { MessageService } from 'primeng/api';
 import { DossierDocumentEditDialogComponent } from '@sohoa.frontend/features/dossier-management';
+import { DocumentFulltextSearchService } from '../../data-access/document-fulltext-search.service';
 
 export interface LookupDocumentItem {
   id: string;
@@ -32,12 +34,17 @@ export interface LookupDocumentItem {
   providers: [MessageService],
   templateUrl: './dossier-lookup-documents-tab.component.html'
 })
-export class DossierLookupDocumentsTabComponent implements OnInit {
+export class DossierLookupDocumentsTabComponent implements OnInit, OnChanges {
   private http = inject(HttpClient);
   private config = inject(APP_CONFIG);
   private messageService = inject(MessageService);
+  private router = inject(Router);
+  private fulltextService = inject(DocumentFulltextSearchService);
 
   @Input({ required: true }) dossierId!: string;
+  /** equipment = tra cứu hồ sơ TB; fulltext = tra cứu toàn văn */
+  @Input() apiMode: 'equipment' | 'fulltext' = 'equipment';
+  @Input() returnKeyword = '';
 
   documents = signal<LookupDocumentItem[]>([]);
   loading = signal<boolean>(false);
@@ -52,6 +59,20 @@ export class DossierLookupDocumentsTabComponent implements OnInit {
 
   ngOnInit() {
     this.loadDocuments();
+  }
+
+  ngOnChanges(changes: SimpleChanges) {
+    if (changes['dossierId'] && !changes['dossierId'].firstChange) {
+      this.page.set(1);
+      this.loadDocuments();
+    }
+  }
+
+  private documentsBaseUrl(): string {
+    if (this.apiMode === 'fulltext') {
+      return `${this.config.apiGatewayUrl}/api/v1/document-fulltext-search/dossiers/${this.dossierId}/documents`;
+    }
+    return `${this.config.apiGatewayUrl}/api/v1/dossiers-by-equipment/${this.dossierId}/documents`;
   }
 
   onSearch() {
@@ -71,10 +92,7 @@ export class DossierLookupDocumentsTabComponent implements OnInit {
       params.keyword = this.searchKeyword().trim();
     }
 
-    this.http.get<any>(
-      `${this.config.apiGatewayUrl}/api/v1/dossiers-by-equipment/${this.dossierId}/documents`,
-      { params }
-    ).subscribe({
+    this.http.get<any>(this.documentsBaseUrl(), { params }).subscribe({
       next: (res) => {
         this.documents.set(res?.items || []);
         this.totalDocuments.set(res?.totalCount || 0);
@@ -93,6 +111,12 @@ export class DossierLookupDocumentsTabComponent implements OnInit {
       this.messageService.add({ severity: 'warn', summary: 'Cảnh báo', detail: 'Tài liệu không có phiên bản để xem trước' });
       return;
     }
+    if (this.apiMode === 'fulltext') {
+      void this.router.navigate(['/search/documents', doc.latestVersionId], {
+        queryParams: this.returnKeyword ? { keyword: this.returnKeyword } : {}
+      });
+      return;
+    }
     this.editTarget.set(doc);
     this.showEditDocument.set(true);
   }
@@ -100,6 +124,13 @@ export class DossierLookupDocumentsTabComponent implements OnInit {
   downloadFile(doc: LookupDocumentItem) {
     if (!doc.latestVersionId) {
       this.messageService.add({ severity: 'warn', summary: 'Cảnh báo', detail: 'Tài liệu không có phiên bản để tải về' });
+      return;
+    }
+
+    if (this.apiMode === 'fulltext') {
+      void this.fulltextService.downloadFile(this.dossierId, doc.latestVersionId, doc.name).catch(() => {
+        this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể tải tài liệu' });
+      });
       return;
     }
 

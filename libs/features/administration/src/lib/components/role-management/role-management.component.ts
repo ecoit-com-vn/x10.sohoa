@@ -1,4 +1,5 @@
 import { Component, OnInit, signal, computed, effect } from '@angular/core';
+import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -13,7 +14,7 @@ import { buildMenuPermissionTree as buildMenuPermissionTreeFromLookup } from '..
 @Component({
   selector: 'app-role-management',
   standalone: true,
-  imports: [CommonModule, FormsModule, DialogModule, ToastModule],
+  imports: [CommonModule, FormsModule, DialogModule, ToastModule, WfBreadcrumbComponent],
   providers: [MessageService],
   templateUrl: './role-management.component.html',
   styleUrl: './role-management.component.scss'
@@ -212,6 +213,8 @@ export class RoleManagement implements OnInit {
   }
 
   onSearch() {
+    this.currentPage.set(1);
+    this.loadRoles();
   }
 
   onAddNew() {
@@ -222,6 +225,9 @@ export class RoleManagement implements OnInit {
     this.isEdit.set(false);
     this.currentRole.set({ code: '', name: '', description: '', isActive: true });
     this.formSubmitted.set(false);
+    this.serverErrors.set({});
+    this.dialogHeader.set('Thêm mới nhóm quyền');
+    this.currentView.set('add');
   }
 
   onToggleStatusRequest(role: any) {
@@ -400,10 +406,17 @@ export class RoleManagement implements OnInit {
     this.menuPermissionTree.update((tree) =>
       tree.map((parent) => ({
         ...parent,
-        expanded: false,
+        expanded: parent.expanded ?? this.hasAssignablePermissions(parent),
         subMenus: (parent.subMenus || []).map((sub: any) => ({ ...sub, expanded: true }))
       }))
     );
+  }
+
+  private hasAssignablePermissions(parent: any): boolean {
+    if ((parent.permissions || []).length > 0) {
+      return true;
+    }
+    return (parent.subMenus || []).some((sub: any) => (sub.permissions || []).length > 0);
   }
 
   getParentPermissionCodes(parent: any): string[] {

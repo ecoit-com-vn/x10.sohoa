@@ -1,4 +1,5 @@
 import { Component, OnInit, inject, signal, computed, effect } from '@angular/core';
+import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ToastModule } from 'primeng/toast';
@@ -16,7 +17,8 @@ import { FolderAllocationDialogComponent } from './folder-allocation-dialog.comp
     FormsModule, 
     ToastModule,
     DialogModule,
-    FolderAllocationDialogComponent
+    FolderAllocationDialogComponent,
+    WfBreadcrumbComponent,
   ],
   providers: [MessageService],
   templateUrl: './folder-allocation.component.html',

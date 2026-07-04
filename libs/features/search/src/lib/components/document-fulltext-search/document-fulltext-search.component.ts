@@ -1,4 +1,5 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -10,19 +11,17 @@ import {
   DocumentFulltextSearchService,
   DocumentFulltextSort
 } from '../../data-access/document-fulltext-search.service';
-import { FileDownloadService } from '../../data-access/file-download.service';
 
 @Component({
   selector: 'app-document-fulltext-search',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule],
+  imports: [CommonModule, FormsModule, ToastModule, WfBreadcrumbComponent],
   providers: [MessageService],
   templateUrl: './document-fulltext-search.component.html',
   styleUrl: './document-fulltext-search.component.scss'
 })
 export class DocumentFulltextSearchComponent implements OnInit {
   private searchService = inject(DocumentFulltextSearchService);
-  private fileDownloadService = inject(FileDownloadService);
   private messageService = inject(MessageService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
@@ -30,7 +29,6 @@ export class DocumentFulltextSearchComponent implements OnInit {
 
   items = signal<DocumentFulltextSearchItem[]>([]);
   loading = signal(false);
-  downloadingId = signal<string | null>(null);
   totalCount = signal(0);
   currentPage = signal(1);
   pageSize = signal(10);
@@ -53,10 +51,8 @@ export class DocumentFulltextSearchComponent implements OnInit {
 
   onSearch() {
     const q = this.keyword().trim();
-    this.router.navigate([], {
-      relativeTo: this.route,
-      queryParams: { keyword: q || null },
-      queryParamsHandling: 'merge'
+    this.router.navigate(['/search/documents'], {
+      queryParams: { keyword: q || null }
     });
   }
 
@@ -122,38 +118,19 @@ export class DocumentFulltextSearchComponent implements OnInit {
   }
 
   openDetail(item: DocumentFulltextSearchItem) {
-    const versionId = this.resolveVersionId(item);
+    const versionId = (item.documentVersionId
+      || (item as DocumentFulltextSearchItem & { DocumentVersionId?: string }).DocumentVersionId
+      || '').trim();
     if (!versionId) {
       this.messageService.add({
         severity: 'error',
         summary: 'Lỗi',
-        detail: 'Không xác định được phiên bản tài liệu để xem chi tiết.'
+        detail: 'Không xác định được phiên bản tài liệu.'
       });
       return;
     }
     this.router.navigate(['/search/documents', versionId], {
       queryParams: { keyword: this.activeKeyword() || null }
     });
-  }
-
-  private resolveVersionId(item: DocumentFulltextSearchItem): string {
-    const raw = item.documentVersionId
-      ?? (item as DocumentFulltextSearchItem & { DocumentVersionId?: string }).DocumentVersionId
-      ?? '';
-    return raw.trim();
-  }
-
-  async download(item: DocumentFulltextSearchItem, event: Event) {
-    event.stopPropagation();
-    event.preventDefault();
-    this.downloadingId.set(item.documentVersionId);
-    try {
-      await this.fileDownloadService.downloadFile(item.documentVersionId, item.documentName);
-    } catch (error: unknown) {
-      const detail = error instanceof Error ? error.message : 'Không thể tải tài liệu.';
-      this.messageService.add({ severity: 'error', summary: 'Lỗi', detail });
-    } finally {
-      this.downloadingId.set(null);
-    }
   }
 }

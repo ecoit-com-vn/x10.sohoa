@@ -2,7 +2,7 @@ import { Component, Input, Output, EventEmitter, inject, signal, computed } from
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DialogModule } from 'primeng/dialog';
-import { ButtonModule } from 'primeng/button';
+import { SelectModule } from 'primeng/select';
 import { TreeSelectModule } from 'primeng/treeselect';
 import { MessageService } from 'primeng/api';
 import { Observable, finalize } from 'rxjs';
@@ -19,7 +19,13 @@ interface PrimeNGTreeNode {
 @Component({
   selector: 'app-folder-allocation-dialog',
   standalone: true,
-  imports: [CommonModule, FormsModule, DialogModule, ButtonModule, TreeSelectModule],
+  imports: [
+    CommonModule,
+    FormsModule,
+    DialogModule,
+    SelectModule,
+    TreeSelectModule,
+  ],
   templateUrl: './folder-allocation-dialog.component.html',
   styleUrl: './folder-allocation-dialog.component.scss'
 })
@@ -42,17 +48,29 @@ export class FolderAllocationDialogComponent {
   saving = signal<boolean>(false);
   isDataReady = signal<boolean>(false); // Cờ kiểm soát việc render cây thư mục
 
+  /** Style đồng bộ với p-select Loại lưới điện — form thêm thiết bị kỹ thuật */
+  readonly selectFieldStyle = {
+    width: '100%',
+    height: '38px',
+    'line-height': '24px',
+    border: '1px solid #cbd5e1',
+    'border-radius': '6px',
+    'background-color': '#ffffff',
+    color: '#374151',
+  };
+
   get title(): string {
     return this.allocationId ? 'Cập nhật phân bổ nhập liệu' : 'Thêm mới phân bổ nhập liệu';
   }
 
-  // Map users lookup
-  userOptions = computed(() => {
-    return this.users().map(u => ({
-      label: `${u.full_name} (${u.user_name}) - ${u.organization_unit_name}`,
-      value: u.id
-    })).sort((a, b) => a.label.localeCompare(b.label));
-  });
+  userSelectOptions = computed(() =>
+    this.users()
+      .map(u => ({
+        id: u.id,
+        name: u.full_name,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'vi'))
+  );
 
   // Map folders lookup sang dạng cây TreeNode[] của PrimeNG
   folderTreeOptions = computed<PrimeNGTreeNode[]>(() => {
@@ -107,6 +125,10 @@ export class FolderAllocationDialogComponent {
     this.loadLookups();
   }
 
+  onFolderNodeChange(node: PrimeNGTreeNode | null): void {
+    this.selectedFolderNode.set(node);
+  }
+
   loadLookups(): void {
     this.loading.set(true);
     this.service.getUsersLookup().subscribe({
@@ -142,16 +164,8 @@ export class FolderAllocationDialogComponent {
     ).subscribe({
       next: (item) => {
         this.selectedUserId.set(item.user_id);
-        
-        const tree = this.folderTreeOptions();
-        this.collapseAllNodes(tree);
-
-        const matchedNode = this.findNodeByKey(tree, item.folder_id);
-        if (matchedNode) {
-          this.selectedFolderNode.set(matchedNode);
-          // Tự động mở rộng các cấp cha chứa node được chọn
-          this.expandAncestors(tree, item.folder_id);
-        }
+        const matchedNode = this.findNodeByKey(this.folderTreeOptions(), item.folder_id);
+        this.selectedFolderNode.set(matchedNode);
       },
       error: () => {
         this.showError('Không thể tải thông tin chi tiết phân bổ.');
@@ -160,35 +174,10 @@ export class FolderAllocationDialogComponent {
     });
   }
 
-  private collapseAllNodes(nodes: PrimeNGTreeNode[]): void {
-    nodes.forEach(node => {
-      node.expanded = false;
-      if (node.children && node.children.length > 0) {
-        this.collapseAllNodes(node.children);
-      }
-    });
-  }
-
-  private expandAncestors(nodes: PrimeNGTreeNode[], targetKey: string): boolean {
-    for (const node of nodes) {
-      if (node.key === targetKey) {
-        return true;
-      }
-      if (node.children && node.children.length > 0) {
-        const foundInChild = this.expandAncestors(node.children, targetKey);
-        if (foundInChild) {
-          node.expanded = true;
-          return true;
-        }
-      }
-    }
-    return false;
-  }
-
   private findNodeByKey(nodes: PrimeNGTreeNode[], key: string): PrimeNGTreeNode | null {
     for (const node of nodes) {
       if (node.key === key) return node;
-      if (node.children && node.children.length > 0) {
+      if (node.children?.length) {
         const found = this.findNodeByKey(node.children, key);
         if (found) return found;
       }
@@ -197,8 +186,7 @@ export class FolderAllocationDialogComponent {
   }
 
   save(): void {
-    const folderNode = this.selectedFolderNode();
-    const folderId = folderNode?.key;
+    const folderId = this.selectedFolderNode()?.key;
 
     if (!folderId || !this.selectedUserId()) {
       this.messageService.add({

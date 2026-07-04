@@ -1,17 +1,7 @@
 <div class="wf-page">
   <p-toast></p-toast>
 
-  <!-- Breadcrumb (Isolated above cards) -->
-  <div class="breadcrumb">
-    <i class="pi pi-home bc-icon"></i>
-    <span class="bc-text" (click)="viewMode !== 'list' && onBackToList()" [class.bc-link]="viewMode !== 'list'">Trang
-      chủ</span>
-    <span class="bc-sep">/</span>
-    <span class="bc-text" (click)="viewMode !== 'list' && onBackToList()" [class.bc-link]="viewMode !== 'list'">Cài đặt
-      quy trình</span>
-    <span class="bc-sep" *ngIf="viewMode !== 'list'">/</span>
-    <span class="bc-current" *ngIf="viewMode === 'edit'">{{ isEditMode ? 'Sửa quy trình' : 'Thêm mới' }}</span>
-  </div>
+  <wf-breadcrumb />
 
   <!-- ══════════════════════════════════════════════════════════
        LOADING OVERLAY

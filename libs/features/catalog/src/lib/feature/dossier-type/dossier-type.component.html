@@ -1,18 +1,7 @@
 <div class="wf-page">
   <p-toast></p-toast>
   
-  <!-- Breadcrumb -->
-  <div class="breadcrumb">
-    <i class="pi pi-home bc-icon"></i>
-    <span class="bc-text">Trang chủ</span>
-    <span class="bc-sep">/</span>
-    <span class="bc-text">Hệ thống Danh mục</span>
-    <span class="bc-sep">/</span>
-    <span class="bc-text bc-current" [class.bc-current]="currentView() === 'list'" (click)="currentView() !== 'list' && currentView.set('list')" [class.bc-link]="currentView() !== 'list'">Danh mục loại hồ sơ</span>
-    <span class="bc-sep" *ngIf="currentView() !== 'list'">/</span>
-    <span class="bc-current" *ngIf="currentView() === 'add'">Thêm mới</span>
-    <span class="bc-current" *ngIf="currentView() === 'edit'">Chỉnh sửa</span>
-  </div>
+  <wf-breadcrumb [viewMode]="currentView()" (listClick)="currentView.set('list')" />
 
   <div class="wf-card">
     
@@ -242,17 +231,9 @@
 
     <!-- MÀN HÌNH CẤU HÌNH BIỂU MẪU ĐỘNG (EAV) -->
     <div *ngIf="currentView() === 'configure'" class="animate-fade-in" style="padding-top: 10px;">
-      <!-- Breadcrumb -->
-      <div class="breadcrumb" style="display: flex; align-items: center; gap: 8px; font-size: 0.875rem; color: #64748b; margin-bottom: 1.25rem;">
-        <i class="pi pi-home bc-icon"></i>
-        <span class="bc-text" (click)="currentView.set('list')" style="cursor: pointer; transition: color 0.15s;">Trang chủ</span>
-        <span class="bc-sep">/</span>
-        <span class="bc-text" (click)="currentView.set('list')" style="cursor: pointer; transition: color 0.15s;">Danh mục loại hồ sơ</span>
-        <span class="bc-sep">/</span>
-        <span class="bc-current">Cấu hình biểu mẫu EAV: {{ currentItem().name }}</span>
-      </div>
+      <wf-breadcrumb suffix="Cấu hình biểu mẫu" (listClick)="currentView.set('list')" />
 
-      <div class="form-builder-wrapper">
+  <div class="form-builder-wrapper">
         <!-- Top Header Bar -->
         <div class="builder-header shadow-1" style="display: flex; justify-content: space-between; align-items: center; background-color: white; padding: 1.25rem 1.75rem; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px 0 rgba(0,0,0,0.05);">
           <div class="header-left" style="display: flex; flex-direction: column; gap: 4px;">

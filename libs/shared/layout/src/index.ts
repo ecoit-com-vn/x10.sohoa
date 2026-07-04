@@ -1,6 +1,7 @@
 export * from './lib/components/admin-layout/admin-layout.component';
 export * from './lib/components/notification-bell/notification-bell.component';
 export * from './lib/components/common/eco-bread-cumb/eco-bread-crumb.component';
+export * from './lib/components/common/wf-breadcrumb/wf-breadcrumb.component';
 export * from './lib/components/common/eco-input-checkbox/eco-input-checkbox.component';
 export * from './lib/components/common/eco-input-date/eco-input-date.component';
 export * from './lib/components/common/eco-input-email/eco-input-email.component';

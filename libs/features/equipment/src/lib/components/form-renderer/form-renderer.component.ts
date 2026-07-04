@@ -1,4 +1,5 @@
 import { Component, Input, OnInit, OnChanges, SimpleChanges, inject } from '@angular/core';
+import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators, FormsModule } from '@angular/forms';
 import { ToastModule } from 'primeng/toast';
@@ -23,7 +24,7 @@ export interface FormDefinition {
 @Component({
   selector: 'app-form-renderer',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, FormsModule, ToastModule, DatePickerModule],
+  imports: [CommonModule, ReactiveFormsModule, FormsModule, ToastModule, DatePickerModule, WfBreadcrumbComponent],
   providers: [MessageService],
   templateUrl: './form-renderer.component.html',
   styleUrls: ['./form-renderer.component.scss']

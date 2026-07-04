@@ -1,14 +1,7 @@
 <div class="wf-page">
   <p-toast></p-toast>
 
-  <div class="breadcrumb">
-    <i class="pi pi-home bc-icon"></i>
-    <span class="bc-text">Trang chủ</span>
-    <span class="bc-sep">/</span>
-    <span class="bc-text">Quản trị hệ thống</span>
-    <span class="bc-sep">/</span>
-    <span class="bc-current">Quản lý Menu</span>
-  </div>
+  <wf-breadcrumb />
 
   <div class="wf-card">
     <div *ngIf="currentView() === 'list' || currentView() === 'add' || currentView() === 'edit'" class="animate-fade-in">
