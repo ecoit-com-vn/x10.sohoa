@@ -242,7 +242,7 @@ CÁC LOẠI LỖI CẦN SỬA:
 A. LỖI DẤU THANH: KỶ→KỸ, SỰA→SỬA, LÓN→LỚN, TÀI→TẠI, MẮT→MẤT, LỤC→LỰC, PHƯƠNG ẢN→PHƯƠNG ÁN, NHỊM→NHIỆM
 B. LỖI MẤT DẤU PHỤ: son→sơn, gi→gỉ, QLDT→QLĐT, mất dấu mũ/móc/ngang
 C. LỖI NHẦM KÝ TỰ: nối→nói, dột→đột, Trưởng→Trường, SỎI→SỐI, CHÈM→CHÊM
-D. LỖI THỪA/THIẾU: UUY BAN→ỦY BAN
+D. LỖI THỪA/THIẾU: UUY BAN→ỦY BAN, UỞ BAN->ỦY BAN, UỬ BAN->ỦY BAN
 E. LỖI ARTIFACTS: Loại bỏ LaTeX artifacts (\underline, \text{...})
 
 QUY TẮC:

@@ -11,6 +11,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Text.RegularExpressions;
 using System.Net.Http;
 using System.Diagnostics;
 using System.IO;
@@ -190,7 +191,7 @@ Nhiệm vụ của bạn là đọc kỹ văn bản OCR và trích xuất CHÍNH
 NGUYÊN TẮC QUAN TRỌNG:
 1. TRÍCH XUẤT CHÍNH XÁC từng từ từ văn bản, KHÔNG ĐƯỢC suy đoán, tóm tắt hay tự bịa ra thông tin.
 2. NẾU KHÔNG TÌM THẤY thông tin cho một trường, bắt buộc trả về giá trị null cho trường đó, tuyệt đối không điền 'Không có' hay 'N/A'.
-3. CHỈ TRẢ VỀ một chuỗi JSON duy nhất, định dạng object. KHÔNG thêm bất kỳ lời giải thích, mở bài hay markdown nào khác.
+3. BẮT BUỘC TRẢ VỀ JSON HỢP LỆ (VALID JSON). Phải kiểm tra kỹ việc đóng ngoặc kép (dấu """") đối với các giá trị chuỗi dài. CHỈ TRẢ VỀ một chuỗi JSON duy nhất.
 4. Format JSON phải tuân thủ nghiêm ngặt theo cấu trúc đã cho, với tên trường chính xác như yêu cầu. KHÔNG được thêm bớt hay đổi tên trường.
 {taskMsg.ExtractPrompt}
 
@@ -271,6 +272,72 @@ CÁC TRƯỜNG CẦN TRÍCH XUẤT:
                                         }
                                         catch
                                         {
+                                            // Cứu hộ JSON bị lỗi (thiếu ngoặc kép, sai cú pháp) bằng Regex
+                                            try
+                                            {
+                                                var dict = new Dictionary<string, object>();
+                                                bool rescued = false;
+                                                if (taskMsg.Form?.Fields != null)
+                                                {
+                                                    var keys = taskMsg.Form.Fields.Select(f => f.FieldName).ToList();
+                                                    for (int k = 0; k < keys.Count; k++)
+                                                    {
+                                                        string key = keys[k];
+                                                        string nextKey = k < keys.Count - 1 ? keys[k + 1] : null;
+
+                                                        var match = Regex.Match(extractedJson, $"\"{key}\"\\s*:\\s*");
+                                                        if (match.Success)
+                                                        {
+                                                            int startValIdx = match.Index + match.Length;
+                                                            int endValIdx = extractedJson.Length;
+
+                                                            if (nextKey != null)
+                                                            {
+                                                                var nextMatch = Regex.Match(extractedJson, $"\"{nextKey}\"\\s*:\\s*");
+                                                                if (nextMatch.Success)
+                                                                {
+                                                                    endValIdx = nextMatch.Index;
+                                                                    int commaIdx = extractedJson.LastIndexOf(',', endValIdx - 1, endValIdx - startValIdx);
+                                                                    if (commaIdx != -1) endValIdx = commaIdx;
+                                                                }
+                                                            }
+                                                            else
+                                                            {
+                                                                int braceIdx = extractedJson.LastIndexOf('}');
+                                                                if (braceIdx > startValIdx) endValIdx = braceIdx;
+                                                            }
+
+                                                            if (endValIdx > startValIdx)
+                                                            {
+                                                                string rawVal = extractedJson.Substring(startValIdx, endValIdx - startValIdx).Trim();
+                                                                if (rawVal == "null") dict[key] = null;
+                                                                else
+                                                                {
+                                                                    if (rawVal.StartsWith("\"")) rawVal = rawVal.Substring(1);
+                                                                    if (rawVal.EndsWith("\"")) rawVal = rawVal.Substring(0, rawVal.Length - 1);
+                                                                    rawVal = rawVal.Replace("\\\"", "\"").Replace("\\n", "\n");
+                                                                    dict[key] = rawVal.Trim();
+                                                                }
+                                                                rescued = true;
+                                                            }
+                                                        }
+                                                    }
+                                                }
+
+                                                if (rescued && dict.Count > 0)
+                                                {
+                                                    var rescuedJson = JsonSerializer.Serialize(dict);
+                                                    var parsedJson = JsonNode.Parse(rescuedJson);
+                                                    _logger.LogInformation("[ĐO ĐẠC] Trang {Page} hoàn thành Trích xuất (ĐÃ CỨU HỘ BẰNG REGEX) sau {ElapsedMs} ms.", pageNum, sw.ElapsedMilliseconds);
+                                                    return new { page = pageNum, data = parsedJson };
+                                                }
+                                            }
+                                            catch (Exception ex)
+                                            {
+                                                _logger.LogWarning(ex, "Lỗi khi chạy cứu hộ JSON cho trang {Page}", pageNum);
+                                            }
+
+                                            // Fallback cuối cùng
                                             _logger.LogInformation("[ĐO ĐẠC] Trang {Page} hoàn thành Trích xuất (Raw Text) sau {ElapsedMs} ms.", pageNum, sw.ElapsedMilliseconds);
                                             return new { page = pageNum, data_text = extractedJson };
                                         }
