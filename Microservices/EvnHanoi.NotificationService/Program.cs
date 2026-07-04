@@ -78,6 +78,12 @@ builder.Services.AddScoped<EvnHanoi.NotificationService.Repositories.IDossierSea
 builder.Services.AddScoped<EvnHanoi.NotificationService.Services.IDossierSearchService, EvnHanoi.NotificationService.Services.DossierSearchService>();
 builder.Services.AddScoped<EvnHanoi.NotificationService.Services.IDossierMenuScopeValidator, EvnHanoi.NotificationService.Services.DossierMenuScopeValidator>();
 
+builder.Services.AddScoped<EvnHanoi.NotificationService.Repositories.IDocumentEnrichmentRepository, EvnHanoi.NotificationService.Repositories.DocumentEnrichmentRepository>();
+builder.Services.AddScoped<EvnHanoi.NotificationService.Repositories.IDocumentSearchRepository, EvnHanoi.NotificationService.Repositories.DocumentSearchRepository>();
+builder.Services.AddScoped<EvnHanoi.NotificationService.Services.IDocumentIndexer, EvnHanoi.NotificationService.Services.DocumentIndexer>();
+builder.Services.AddScoped<EvnHanoi.NotificationService.Services.IDocumentSearchService, EvnHanoi.NotificationService.Services.DocumentSearchService>();
+builder.Services.AddScoped<EvnHanoi.NotificationService.Services.IMinioOcrTextReader, EvnHanoi.NotificationService.Services.MinioOcrTextReader>();
+
 // Elasticsearch setup — hỗ trợ cả key Url (Development) và Uri (appsettings gốc)
 var esUri = builder.Configuration["Elasticsearch:Url"]
             ?? builder.Configuration["Elasticsearch:Uri"]
@@ -119,6 +125,7 @@ builder.Services.AddHttpClient("IdentityService", client =>
 
 builder.Services.AddHostedService<EquipmentIndexWorker>();
 builder.Services.AddHostedService<DossierIndexWorker>();
+builder.Services.AddHostedService<DocumentIndexWorker>();
 
 var app = builder.Build();
 
