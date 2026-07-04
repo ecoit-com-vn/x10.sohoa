@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnDestroy, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -6,7 +6,7 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
-import { switchMap, of, catchError } from 'rxjs';
+import { switchMap, of, catchError, map, distinctUntilChanged, EMPTY } from 'rxjs';
 import {
   DossierDocumentService,
   DossierManagementService,
@@ -45,7 +45,7 @@ interface EquipmentRow {
   templateUrl: './document-fulltext-detail.component.html',
   styleUrl: './document-fulltext-detail.component.scss'
 })
-export class DocumentFulltextDetailComponent implements OnInit, OnDestroy {
+export class DocumentFulltextDetailComponent implements OnDestroy {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private searchService = inject(DocumentFulltextSearchService);
@@ -91,16 +91,45 @@ export class DocumentFulltextDetailComponent implements OnInit, OnDestroy {
 
   formatFieldDisplayValue = formatFieldDisplayValue;
 
-  ngOnInit() {
-    this.route.paramMap.pipe(takeUntilDestroyed()).subscribe((params) => {
-      const id = params.get('versionId');
-      if (!id) return;
-      this.versionId.set(id);
-      this.loadDetail(id);
-    });
-
+  constructor() {
     this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((params) => {
       this.returnKeyword.set((params.get('keyword') || '').trim());
+    });
+
+    this.route.paramMap.pipe(
+      map((params) => (params.get('versionId') || '').trim()),
+      distinctUntilChanged(),
+      switchMap((versionId) => {
+        if (!versionId) {
+          this.loading.set(false);
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi',
+            detail: 'Không xác định được phiên bản tài liệu.'
+          });
+          return EMPTY;
+        }
+
+        this.versionId.set(versionId);
+        this.resetPageState();
+        this.loading.set(true);
+
+        return this.searchService.getDetail(versionId).pipe(
+          map((res) => ({ versionId, res })),
+          catchError(() => {
+            this.loading.set(false);
+            this.messageService.add({
+              severity: 'error',
+              summary: 'Lỗi',
+              detail: 'Không tải được chi tiết tài liệu.'
+            });
+            return EMPTY;
+          })
+        );
+      }),
+      takeUntilDestroyed()
+    ).subscribe(({ versionId, res }) => {
+      this.applyDetailResponse(res, versionId);
     });
   }
 
@@ -108,19 +137,15 @@ export class DocumentFulltextDetailComponent implements OnInit, OnDestroy {
     this.cleanupPreview();
   }
 
-  private loadDetail(versionId: string) {
+  reload(): void {
+    const versionId = this.versionId();
+    if (!versionId) {
+      return;
+    }
+    this.resetPageState();
     this.loading.set(true);
     this.searchService.getDetail(versionId).subscribe({
-      next: (res) => {
-        this.detail.set(res);
-        this.loadDocumentFields(res);
-        if (res.dossierId) {
-          this.loadDossier(res.dossierId);
-          this.loadPreview(res.dossierId, versionId);
-        } else {
-          this.loading.set(false);
-        }
-      },
+      next: (res) => this.applyDetailResponse(res, versionId),
       error: () => {
         this.loading.set(false);
         this.messageService.add({
@@ -130,6 +155,32 @@ export class DocumentFulltextDetailComponent implements OnInit, OnDestroy {
         });
       }
     });
+  }
+
+  private resetPageState(): void {
+    this.cleanupPreview();
+    this.detail.set(null);
+    this.dossier.set(null);
+    this.documentFields.set([]);
+    this.dossierDynamicFields.set([]);
+    this.documentFormData = {};
+    this.dossierFormData = {};
+    this.loadingDossier.set(false);
+    this.loadingPreview.set(false);
+    this.currentPage.set(1);
+    this.activeDossierTab.set('info');
+  }
+
+  private applyDetailResponse(res: DocumentFulltextSearchDetail, versionId: string): void {
+    this.detail.set(res);
+    this.loading.set(false);
+    this.loadDocumentFields(res);
+
+    const dossierId = (res.dossierId || (res as { DossierId?: string }).DossierId || '').trim();
+    if (dossierId) {
+      this.loadDossier(dossierId);
+      this.loadPreview(dossierId, versionId);
+    }
   }
 
   private loadDocumentFields(detail: DocumentFulltextSearchDetail) {
@@ -217,6 +268,7 @@ export class DocumentFulltextDetailComponent implements OnInit, OnDestroy {
   }
 
   private loadPreview(dossierId: string, versionId: string) {
+    this.cleanupPreview();
     this.loadingPreview.set(true);
     this.documentService
       .getPreviewBlobUrl(dossierId, versionId, true)

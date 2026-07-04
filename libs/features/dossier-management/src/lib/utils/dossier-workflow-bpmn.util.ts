@@ -127,13 +127,62 @@ export function resolveWorkflowActionButton(
   action: { name?: string; nextNodeId?: string }
 ): WorkflowActionButton | null {
   const nextNodeId = action.nextNodeId?.trim();
-  if (!nextNodeId) return null;
-
-  const byNode = buttons.find(b => b.targetNodeId === nextNodeId);
-  if (byNode) return byNode;
+  if (nextNodeId) {
+    const byNode = buttons.find(b => b.targetNodeId === nextNodeId);
+    if (byNode) return byNode;
+  }
 
   const actionName = (action.name ?? '').trim().toLowerCase();
   if (!actionName) return null;
 
   return buttons.find(b => b.label.trim().toLowerCase() === actionName) ?? null;
+}
+
+/** Lấy tên node BPMN theo id. */
+export function getBpmnNodeName(bpmnXml: string, nodeId: string): string {
+  if (!bpmnXml?.trim() || !nodeId?.trim()) return '';
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(bpmnXml, 'application/xml');
+    const all = doc.getElementsByTagName('*');
+    for (let i = 0; i < all.length; i++) {
+      if (all[i].getAttribute('id') === nodeId) {
+        return all[i].getAttribute('name')?.trim() || '';
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  return '';
+}
+
+/** Fallback role từ WORKFLOW_STEPS khi BPMN XML không có requiredRole. */
+export function resolveRequiredRoleFromDefinition(
+  definition: Record<string, unknown> | null | undefined,
+  targetNodeId: string,
+  bpmnXml: string
+): string {
+  if (!definition || !targetNodeId?.trim()) return '';
+  const steps = definition['steps'] ?? definition['Steps'];
+  if (!Array.isArray(steps) || steps.length === 0) return '';
+
+  const nodeName = getBpmnNodeName(bpmnXml, targetNodeId);
+  if (!nodeName) return '';
+
+  const normalized = nodeName.toLowerCase();
+  const match = steps.find((s: Record<string, unknown>) =>
+    String(s['stepName'] ?? s['StepName'] ?? '').toLowerCase() === normalized
+  );
+  return String(match?.['requiredRole'] ?? match?.['RequiredRole'] ?? '').trim();
+}
+
+/** Lọc user theo role (hỗ trợ nhiều role phân tách bằng dấu phẩy). */
+export function filterUsersByRequiredRole(users: any[], requiredRole?: string | null): any[] {
+  if (!requiredRole?.trim()) return users;
+  const roles = requiredRole.split(',').map((r) => r.trim().toUpperCase()).filter(Boolean);
+  if (roles.length === 0) return users;
+  return users.filter((u) => {
+    const uRoles: string[] = (u.roles || u.Roles || []).map((r: string) => String(r).toUpperCase());
+    return uRoles.some((r) => roles.includes(r));
+  });
 }

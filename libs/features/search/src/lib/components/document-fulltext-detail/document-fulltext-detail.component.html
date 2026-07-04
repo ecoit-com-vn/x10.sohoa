@@ -21,6 +21,16 @@
       </div>
     </div>
     <div class="doc-detail-header-right">
+      <button
+        type="button"
+        class="btn-outlined btn-small"
+        (click)="reload()"
+        [disabled]="loading()"
+        title="Tải lại trang"
+      >
+        <i class="pi" [class.pi-refresh]="!loading()" [class.pi-spin]="loading()" [class.pi-spinner]="loading()"></i>
+        Tải lại
+      </button>
       <button type="button" class="btn-outlined btn-small" (click)="onDownload()" [disabled]="downloading()">
         <i class="pi" [class.pi-download]="!downloading()" [class.pi-spin]="downloading()" [class.pi-spinner]="downloading()"></i>
         Tải xuống
@@ -62,43 +72,55 @@
         </div>
       </section>
 
-      <section class="metadata-pane">
-        <div class="pane-title">Thông tin tài liệu</div>
-        <div class="metadata-grid">
-          <div class="metadata-item">
-            <span class="metadata-label">Tên tài liệu</span>
-            <span class="metadata-value">{{ detail()?.documentName }}</span>
+      <section class="metadata-pane docs-style-view">
+        <div class="docs-section-header">
+          <span class="docs-section-title">
+            <i class="pi pi-file"></i>
+            Thông tin tài liệu
+          </span>
+        </div>
+
+        <div class="docs-fields-list">
+          <div class="docs-field-row">
+            <span class="docs-field-label">Tên tài liệu:</span>
+            <span class="docs-field-value docs-field-value--title">{{ detail()?.documentName || '—' }}</span>
           </div>
-          <div class="metadata-item" *ngIf="detail()?.documentTypeName">
-            <span class="metadata-label">Loại tài liệu</span>
-            <span class="metadata-value">{{ detail()?.documentTypeName }}</span>
+          <div class="docs-field-row" *ngIf="detail()?.documentTypeName">
+            <span class="docs-field-label">Loại tài liệu:</span>
+            <span class="docs-field-value docs-field-value--accent">{{ detail()?.documentTypeName }}</span>
           </div>
-          <div class="metadata-item" *ngIf="detail()?.extractionSummary">
-            <span class="metadata-label">Trích yếu nội dung</span>
-            <span class="metadata-value">{{ detail()?.extractionSummary }}</span>
+          <div class="docs-field-row docs-field-row--top" *ngIf="detail()?.extractionSummary">
+            <span class="docs-field-label">Trích yếu nội dung:</span>
+            <span class="docs-field-value docs-field-value--multiline">{{ detail()?.extractionSummary }}</span>
           </div>
-          <div class="metadata-item" *ngIf="detail()?.infrastructureName">
-            <span class="metadata-label">Trạm / Đường dây</span>
-            <span class="metadata-value">{{ detail()?.infrastructureName }}</span>
+          <div class="docs-field-row" *ngIf="detail()?.infrastructureName">
+            <span class="docs-field-label">Trạm / Đường dây:</span>
+            <span class="docs-field-value">{{ detail()?.infrastructureName }}</span>
           </div>
-          <div class="metadata-item" *ngIf="detail()?.equipmentNames?.length">
-            <span class="metadata-label">Thiết bị liên quan</span>
-            <span class="metadata-value">{{ detail()?.equipmentNames?.join(', ') }}</span>
+          <div class="docs-field-row docs-field-row--top" *ngIf="detail()?.equipmentNames?.length">
+            <span class="docs-field-label">Thiết bị liên quan:</span>
+            <span class="docs-field-value docs-field-value--multiline">{{ detail()?.equipmentNames?.join(', ') }}</span>
           </div>
 
           <ng-container *ngIf="documentFields().length > 0; else rawMergedFields">
-            <div class="metadata-item" *ngFor="let field of documentFields(); trackBy: trackByFieldKey">
-              <span class="metadata-label">{{ field.label }}</span>
-              <span class="metadata-value">{{ formatFieldDisplayValue(field, documentFormData[field.key]) }}</span>
+            <div
+              class="docs-field-row"
+              [class.docs-field-row--top]="field.type === 'textarea'"
+              *ngFor="let field of documentFields(); trackBy: trackByFieldKey"
+            >
+              <span class="docs-field-label">{{ field.label }}:</span>
+              <span
+                class="docs-field-value"
+                [class.docs-field-value--multiline]="field.type === 'textarea'"
+              >
+                {{ formatFieldDisplayValue(field, documentFormData[field.key]) }}
+              </span>
             </div>
           </ng-container>
           <ng-template #rawMergedFields>
-            <div
-              class="metadata-item"
-              *ngFor="let entry of documentFormData | keyvalue"
-            >
-              <span class="metadata-label">{{ entry.key }}</span>
-              <span class="metadata-value">{{ entry.value }}</span>
+            <div class="docs-field-row docs-field-row--top" *ngFor="let entry of documentFormData | keyvalue">
+              <span class="docs-field-label">{{ entry.key }}:</span>
+              <span class="docs-field-value docs-field-value--multiline">{{ entry.value }}</span>
             </div>
           </ng-template>
         </div>

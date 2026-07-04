@@ -393,6 +393,17 @@ export class DossierDocumentService {
     window.URL.revokeObjectURL(objectUrl);
   }
 
+  getDocumentFormTemplate(
+    dossierId: string,
+    versionId: string,
+    lookupMode = false
+  ): Observable<unknown> {
+    const url = lookupMode
+      ? `${this.config.apiGatewayUrl}/api/v1/dossiers-by-equipment/${dossierId}/documents/${versionId}/form-template`
+      : `${this.config.apiGatewayUrl}/api/v1/dossiers/${dossierId}/documents/${versionId}/form-template`;
+    return this.http.get<unknown>(url);
+  }
+
   submitDigitization(
     dossierId: string,
     versionId: string,

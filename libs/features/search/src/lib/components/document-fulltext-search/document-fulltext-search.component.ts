@@ -122,9 +122,25 @@ export class DocumentFulltextSearchComponent implements OnInit {
   }
 
   openDetail(item: DocumentFulltextSearchItem) {
-    this.router.navigate(['/search/documents', item.documentVersionId], {
+    const versionId = this.resolveVersionId(item);
+    if (!versionId) {
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Lỗi',
+        detail: 'Không xác định được phiên bản tài liệu để xem chi tiết.'
+      });
+      return;
+    }
+    this.router.navigate(['/search/documents', versionId], {
       queryParams: { keyword: this.activeKeyword() || null }
     });
+  }
+
+  private resolveVersionId(item: DocumentFulltextSearchItem): string {
+    const raw = item.documentVersionId
+      ?? (item as DocumentFulltextSearchItem & { DocumentVersionId?: string }).DocumentVersionId
+      ?? '';
+    return raw.trim();
   }
 
   async download(item: DocumentFulltextSearchItem, event: Event) {

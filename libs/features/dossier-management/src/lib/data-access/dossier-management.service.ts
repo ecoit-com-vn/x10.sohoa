@@ -13,12 +13,21 @@ export interface DossierWorkflowAction {
 }
 
 export function normalizeDossierWorkflowAction(raw: Record<string, unknown>): DossierWorkflowAction {
+  const nextStepRole = raw['nextStepRole'] ?? raw['NextStepRole'];
+  const requiresRaw = raw['requiresNextAssignee'] ?? raw['RequiresNextAssignee'];
+  const requiresNextAssignee =
+    requiresRaw === true
+    || requiresRaw === 1
+    || (typeof requiresRaw === 'string' && ['true', '1', 'yes'].includes(requiresRaw.trim().toLowerCase()));
+
   return {
     code: String(raw['code'] ?? raw['Code'] ?? ''),
     name: String(raw['name'] ?? raw['Name'] ?? ''),
     nextNodeId: String(raw['nextNodeId'] ?? raw['NextNodeId'] ?? ''),
-    requiresNextAssignee: Boolean(raw['requiresNextAssignee'] ?? raw['RequiresNextAssignee'] ?? false),
-    nextStepRole: (raw['nextStepRole'] ?? raw['NextStepRole'] ?? null) as string | null,
+    requiresNextAssignee,
+    nextStepRole: nextStepRole != null && String(nextStepRole).trim() !== ''
+      ? String(nextStepRole).trim()
+      : null,
   };
 }
 

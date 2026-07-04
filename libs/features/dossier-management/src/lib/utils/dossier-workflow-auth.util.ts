@@ -81,6 +81,7 @@ export interface DossierListItemPatch {
   statusName?: unknown;
   workflowInstanceId?: unknown;
   workflowStepName?: unknown;
+  workflowStatusName?: unknown;
   currentAssignees: string[];
   availableActions: unknown[];
 }
@@ -116,6 +117,7 @@ export function buildListItemPatchFromSources(detail: any, workflowRes: any | nu
     instance.CurrentStepName,
     patch.workflowStepName
   );
+  patch.workflowStatusName = patch.workflowStepName;
 
   const pendingList: any[] = Array.isArray(instance.pendingTasks)
     ? instance.pendingTasks

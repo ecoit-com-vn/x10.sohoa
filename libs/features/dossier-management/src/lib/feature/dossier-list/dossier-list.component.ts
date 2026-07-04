@@ -14,7 +14,7 @@ import { MessageService, MenuItem } from 'primeng/api';
 
 import { BhsCatalogColumn, DossierManagementService, DossierWorkflowAction, normalizeDossierWorkflowAction } from '../../data-access/dossier-management.service';
 import { AuthService } from '@sohoa.frontend/shared/core';
-import { isRejectWorkflowLabel, isApproveWorkflowLabel } from '../../utils/dossier-workflow-bpmn.util';
+import { isRejectWorkflowLabel, isApproveWorkflowLabel, filterUsersByRequiredRole } from '../../utils/dossier-workflow-bpmn.util';
 import {
   DossierListTab,
   DossierMenuScope,
@@ -439,12 +439,15 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
           <label class="form-label">
             <span class="required">*</span> Người xử lý bước tiếp theo
           </label>
-          <select class="wf-select w-full"
+          <div *ngIf="quickActionUsersLoading()" style="display: flex; align-items: center; gap: 8px; color: #64748b; font-size: 0.875rem;">
+            <i class="pi pi-spin pi-spinner"></i> Đang tải danh sách người xử lý...
+          </div>
+          <select *ngIf="!quickActionUsersLoading()" class="wf-select w-full"
                   [ngModel]="selectedNextUserId()"
                   (ngModelChange)="selectedNextUserId.set($event)">
             <option value="" disabled selected>-- Chọn người xử lý --</option>
-            <option *ngFor="let u of filteredNextUsers()" [value]="u.id">
-              {{ u.fullName }} ({{ u.username }})
+            <option *ngFor="let u of filteredNextUsers()" [value]="u.id ?? u.Id">
+              {{ u.fullName ?? u.FullName ?? u.name }} ({{ u.username ?? u.Username }})
             </option>
           </select>
         </div>
@@ -464,7 +467,7 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
                 [class.btn-save]="isApproveLabel(pendingQuickActionMeta()?.label)"
                 [class.btn-green]="!isRejectLabel(pendingQuickActionMeta()?.label) && !isApproveLabel(pendingQuickActionMeta()?.label)"
                 (click)="confirmQuickAction()"
-                [disabled]="quickActionSubmitting() || quickActionLoading()">
+                [disabled]="quickActionSubmitting() || quickActionLoading() || quickActionUsersLoading()">
           <i class="pi pi-spin pi-spinner" *ngIf="quickActionSubmitting()"></i>
           <i class="pi pi-check" *ngIf="!quickActionSubmitting() && !isRejectLabel(pendingQuickActionMeta()?.label)"></i>
           <i class="pi pi-times" *ngIf="!quickActionSubmitting() && isRejectLabel(pendingQuickActionMeta()?.label)"></i>
@@ -620,6 +623,7 @@ export class DossierListComponent implements OnInit {
 
   showQuickActionDialog = signal<boolean>(false);
   quickActionLoading = signal<boolean>(false);
+  quickActionUsersLoading = signal<boolean>(false);
   quickActionSubmitting = signal<boolean>(false);
   quickActionComment = signal<string>('');
   selectedNextUserId = signal<string>('');
@@ -649,7 +653,9 @@ export class DossierListComponent implements OnInit {
     });
   });
 
-  filteredNextUsers = computed(() => this.users());
+  filteredNextUsers = computed(() =>
+    filterUsersByRequiredRole(this.users(), this.pendingQuickActionMeta()?.requiredRole)
+  );
 
 
 
@@ -1054,7 +1060,8 @@ export class DossierListComponent implements OnInit {
   }
 
   checkQuickActionPermission(item: any): boolean {
-    if (!item || !item.availableActions || item.availableActions.length === 0) return false;
+    const actions = this.getItemAvailableActions(item);
+    if (!item || actions.length === 0) return false;
     if (!item.currentAssignees || item.currentAssignees.length === 0) return false;
 
     const statusId = item.statusId ?? item.StatusId;
@@ -1135,30 +1142,50 @@ export class DossierListComponent implements OnInit {
 
   openQuickActionDialog(item: any, rawAction: Record<string, unknown>) {
     const action = normalizeDossierWorkflowAction(rawAction);
+    const meta = this.buildQuickActionMeta(action);
+
     this.quickActionDossierId.set(item.id);
     this.pendingQuickAction.set(action);
-    this.pendingQuickActionMeta.set({
+    this.pendingQuickActionMeta.set(meta);
+    this.quickActionComment.set('');
+    this.selectedNextUserId.set('');
+    this.users.set([]);
+    this.showQuickActionDialog.set(true);
+    this.quickActionLoading.set(false);
+    this.loadQuickActionUsers(meta);
+  }
+
+  private getItemAvailableActions(item: any): any[] {
+    const actions = item?.availableActions ?? item?.AvailableActions;
+    return Array.isArray(actions) ? actions : [];
+  }
+
+  private buildQuickActionMeta(action: DossierWorkflowAction) {
+    return {
       label: action.name,
       targetNodeId: action.nextNodeId,
       requiresUser: !!action.requiresNextAssignee,
       requiredRole: action.nextStepRole ?? '',
-    });
-    this.quickActionComment.set('');
-    this.selectedNextUserId.set('');
-    this.showQuickActionDialog.set(true);
+    };
+  }
 
-    if (!action.requiresNextAssignee) {
+  /** Gọi API users/lookup theo role từ availableActions ES. */
+  private loadQuickActionUsers(meta: { requiresUser: boolean; requiredRole: string }) {
+    if (!meta.requiresUser) {
       this.users.set([]);
-      this.quickActionLoading.set(false);
+      this.quickActionUsersLoading.set(false);
       return;
     }
 
-    this.quickActionLoading.set(true);
-    this.service.getUsersLookup(action.nextStepRole).pipe(
-      finalize(() => this.quickActionLoading.set(false))
-    ).subscribe({
+    this.quickActionUsersLoading.set(true);
+    const roles = meta.requiredRole.split(',').map((r) => r.trim()).filter(Boolean);
+    const apiRole = roles.length === 1 ? roles[0] : null;
+
+    this.service.getUsersLookup(apiRole).subscribe({
       next: (users) => {
-        this.users.set(Array.isArray(users) ? users : []);
+        const list = Array.isArray(users) ? users : [];
+        this.users.set(roles.length > 1 ? filterUsersByRequiredRole(list, meta.requiredRole) : list);
+        this.quickActionUsersLoading.set(false);
       },
       error: () => {
         this.messageService.add({
@@ -1167,6 +1194,7 @@ export class DossierListComponent implements OnInit {
           detail: 'Không thể tải danh sách người xử lý.',
         });
         this.users.set([]);
+        this.quickActionUsersLoading.set(false);
       },
     });
   }
@@ -1187,6 +1215,7 @@ export class DossierListComponent implements OnInit {
     this.pendingQuickActionMeta.set(null);
     this.quickActionComment.set('');
     this.selectedNextUserId.set('');
+    this.quickActionUsersLoading.set(false);
   }
 
   isRejectLabel(label?: string | null): boolean {
@@ -1201,9 +1230,10 @@ export class DossierListComponent implements OnInit {
 
   openQuickActionMenu(event: Event, item: any, menu: any) {
     event.stopPropagation();
-    if (!item.availableActions || item.availableActions.length === 0) return;
+    const actions = this.getItemAvailableActions(item);
+    if (actions.length === 0) return;
 
-    this.quickActionMenuItems = item.availableActions.map((act: any) => {
+    this.quickActionMenuItems = actions.map((act: any) => {
       const isReject = act.code === 'REJECT' || 
                        act.name.toLowerCase().includes('từ chối') || 
                        act.name.toLowerCase().includes('trả lại') || 

@@ -915,12 +915,10 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
   onCompleteInput() {
     this.submitting.set(true);
     this.service.completeInput(this.dossierId).subscribe({
-      next: (res) => {
+      next: () => {
         this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã hoàn thành nhập liệu thành công' });
-        this.dossier.update((current) =>
-          current ? { ...current, statusId: 2, statusName: 'Hoàn thành' } : current
-        );
         this.submitting.set(false);
+        this.loadDetail();
       },
       error: (err) => {
         this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: err.error?.message || 'Không thể hoàn thành nhập liệu' });

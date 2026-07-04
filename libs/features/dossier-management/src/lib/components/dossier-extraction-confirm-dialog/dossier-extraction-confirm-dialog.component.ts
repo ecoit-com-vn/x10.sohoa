@@ -110,9 +110,10 @@ export class DossierExtractionConfirmDialogComponent {
           }
 
           const mergedRaw = parseMergedDataJson(result.mergedDataJson ?? undefined);
-          const merged = Object.keys(mergedRaw).length > 0
-            ? mergedRaw
-            : mergeExtractionPageResults(result.resultJson ?? undefined);
+          const merged =
+            Object.keys(mergedRaw).length > 0
+              ? mergedRaw
+              : mergeExtractionPageResults(result.resultJson ?? undefined);
 
           this.loadFormTemplate(resolvedFormId, merged);
         },
