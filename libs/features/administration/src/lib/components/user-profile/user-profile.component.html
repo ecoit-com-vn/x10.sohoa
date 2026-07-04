@@ -1,0 +1,89 @@
+<div class="wf-page">
+  <p-toast></p-toast>
+
+  <div class="breadcrumb">
+    <i class="pi pi-home bc-icon"></i>
+    <span class="bc-text">Trang chủ</span>
+    <span class="bc-sep">/</span>
+    <span class="bc-current">Thông tin cá nhân</span>
+  </div>
+
+  <div class="wf-card">
+    <div class="profile-header">
+      <div>
+        <h2>Thông tin cá nhân</h2>
+        <p>Cập nhật thông tin hiển thị của tài khoản đang đăng nhập.</p>
+      </div>
+    </div>
+
+    <div *ngIf="loading()" class="profile-loading">
+      <i class="pi pi-spin pi-spinner"></i>
+      <span>Đang tải thông tin...</span>
+    </div>
+
+    <form *ngIf="!loading() && profile()" class="profile-form" (ngSubmit)="onSave()">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Tên đăng nhập</label>
+          <input class="wf-input w-full" type="text" [ngModel]="profile()?.username" name="username" disabled />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Đơn vị</label>
+          <input class="wf-input w-full" type="text" [ngModel]="getOrganizationName()" name="organizationUnit" disabled />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Họ và tên <span class="required">*</span></label>
+          <input
+            class="wf-input w-full"
+            type="text"
+            name="fullName"
+            [ngModel]="profile()?.fullName"
+            (ngModelChange)="setField('fullName', $event)"
+            [disabled]="saving()"
+            placeholder="Nhập họ và tên" />
+          <span class="field-error" *ngIf="fullNameError()">{{ fullNameError() }}</span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Email <span class="required">*</span></label>
+          <input
+            class="wf-input w-full"
+            type="email"
+            name="email"
+            [ngModel]="profile()?.email"
+            (ngModelChange)="setField('email', $event)"
+            [disabled]="saving()"
+            placeholder="example@evnhanoi.vn" />
+          <span class="field-error" *ngIf="emailError()">{{ emailError() }}</span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Chức vụ</label>
+          <select
+            class="wf-select w-full"
+            name="positionId"
+            [ngModel]="profile()?.positionId"
+            (ngModelChange)="setField('positionId', $event)"
+            [disabled]="saving()">
+            <option [ngValue]="null">-- Chọn chức vụ --</option>
+            <option *ngFor="let p of positions()" [ngValue]="p.id">{{ p.name }}</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="profile-actions">
+        <button type="button" class="btn-cancel" (click)="onCancel()" [disabled]="saving()">
+          <i class="pi pi-times"></i>
+          Hủy
+        </button>
+        <button type="submit" class="btn-save" [disabled]="saving()">
+          <i class="pi pi-spin pi-spinner" *ngIf="saving()"></i>
+          <i class="pi pi-save" *ngIf="!saving()"></i>
+          Lưu thay đổi
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
