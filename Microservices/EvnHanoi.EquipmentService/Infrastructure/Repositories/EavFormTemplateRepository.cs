@@ -136,12 +136,14 @@ public class EavFormTemplateRepository : IEavFormTemplateRepository
 
     public async Task<IEnumerable<EavFormTemplate>> GetVersionsByCodeAsync(string code)
     {
-        var sql = $@"SELECT t.*, gt.Name as {nameof(EavFormTemplate.GridTypeName)}, et.Name as {nameof(EavFormTemplate.EquipmentTypeName)} 
+        var sql = $@"SELECT t.*, gt.Name as {nameof(EavFormTemplate.GridTypeName)}, et.Name as {nameof(EavFormTemplate.EquipmentTypeName)}, u.FullName as CreatorFullName
                      FROM {nameof(EavFormTemplate)}s t
                      LEFT JOIN GridTypes gt ON t.{nameof(EavFormTemplate.GridTypeId)} = gt.Id
                      LEFT JOIN EquipmentTypes et ON t.{nameof(EavFormTemplate.EquipmentTypeId)} = et.Id
+                     LEFT JOIN APP_USER u ON (t.{nameof(EavFormTemplate.CreatedBy)} = u.Id OR t.{nameof(EavFormTemplate.CreatedBy)} = u.UserName)
                      WHERE t.{nameof(EavFormTemplate.Code)} = :Code AND t.IsDeleted = 0
                      ORDER BY t.{nameof(EavFormTemplate.Version)} DESC";
+
         return await _connection.QueryAsync<EavFormTemplate>(sql, new { Code = code });
     }
 }
