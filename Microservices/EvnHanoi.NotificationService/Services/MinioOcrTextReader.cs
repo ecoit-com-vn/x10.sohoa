@@ -16,18 +16,10 @@ public class MinioOcrTextReader : IMinioOcrTextReader
     {
         _logger = logger;
 
-        var endpoint = configuration["MinIO:Endpoint"]
-            ?? configuration["Minio:Endpoint"]
-            ?? "localhost:9000";
-        var accessKey = configuration["MinIO:AccessKey"]
-            ?? configuration["Minio:AccessKey"]
-            ?? "minioadmin";
-        var secretKey = configuration["MinIO:SecretKey"]
-            ?? configuration["Minio:SecretKey"]
-            ?? "minioadmin";
-        var useSslConfig = configuration["MinIO:UseSSL"]
-            ?? configuration["Minio:UseSSL"]
-            ?? configuration["Minio:Secure"];
+        var endpoint = configuration["MinIO:Endpoint"] ?? "localhost:9000";
+        var accessKey = configuration["MinIO:AccessKey"] ?? "minioadmin";
+        var secretKey = configuration["MinIO:SecretKey"] ?? "minioadmin";
+        var useSslConfig = configuration["MinIO:UseSSL"];
         var useSsl = !string.IsNullOrEmpty(useSslConfig) && bool.Parse(useSslConfig);
 
         _minioClient = new MinioClient()

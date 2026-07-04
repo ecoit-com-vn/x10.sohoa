@@ -3,8 +3,6 @@ using EvnHanoi.AppHost;
 var builder = DistributedApplication.CreateBuilder(args);
 var config = builder.Configuration;
 
-// Add Microservices — secrets/infra inject từ AppHost appsettings.Development.json (dev)
-// hoặc patch-secrets.yaml + backend-secrets (K8s prod).
 var identityService = builder.AddProject<Projects.EvnHanoi_IdentityService>("identityservice")
     .WithSharedInfrastructure(config);
 
@@ -15,7 +13,7 @@ var equipmentService = builder.AddProject<Projects.EvnHanoi_EquipmentService>("e
 
 var digitizationService = builder.AddProject<Projects.EvnHanoi_DigitizationService>("digitizationservice")
     .WithSharedInfrastructure(config)
-    .WithMinio(config, useMinioSectionName: true)
+    .WithMinio(config)
     .WithEnvironment("AIModelServers__OcrVlServerUrl", config["AIModelServers:OcrVlServerUrl"])
     .WithEnvironment("AIModelServers__LlmServerUrl", config["AIModelServers:LlmServerUrl"]);
 
@@ -36,7 +34,6 @@ var workflowService = builder.AddProject<Projects.EvnHanoi_WorkflowService>("wor
 var reportService = builder.AddProject<Projects.EvnHanoi_ReportService>("reportservice")
     .WithSharedInfrastructure(config);
 
-// Add ApiGateway (which proxies to the other services)
 builder.AddProject<Projects.EvnHanoi_ApiGateway>("apigateway")
     .WithHttpEndpoint(port: 5000, name: "gateway-http")
     .WithReference(identityService)

@@ -91,37 +91,65 @@ namespace EvnHanoi.DigitizationService.Workers
                             // 2. Lấy danh sách nội dung text từng trang
                             var pageTexts = new List<string>();
 
-                            // 2a. Thử tải file Markdown từ MinIO trước
+                            // 2a. Thử tải file JSON từ MinIO trước
                             string baseFilePath = taskMsg.FilePath;
                             if (baseFilePath.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
                             {
                                 baseFilePath = baseFilePath.Substring(0, baseFilePath.Length - 4);
                             }
 
-                            _logger.LogInformation("Tải các file Markdown với base {BaseFilePath} từ bucket {BucketName}", baseFilePath, taskMsg.BucketName);
+                            _logger.LogInformation("Tải các file JSON với base {BaseFilePath} từ bucket {BucketName}", baseFilePath, taskMsg.BucketName);
                             int pageNumToFetch = 1;
                             while (!stoppingToken.IsCancellationRequested)
                             {
-                                string mdFileName = $"{baseFilePath}_page_{pageNumToFetch}.md";
+                                string jsonFileName = $"{baseFilePath}_page_{pageNumToFetch}.json";
                                 try
                                 {
-                                    using var mdStream = await minioService.DownloadFileAsync(taskMsg.BucketName, mdFileName);
-                                    using var reader = new StreamReader(mdStream, Encoding.UTF8);
-                                    string text = await reader.ReadToEndAsync();
-                                    pageTexts.Add(text);
+                                    using var jsonStream = await minioService.DownloadFileAsync(taskMsg.BucketName, jsonFileName);
+                                    using var reader = new StreamReader(jsonStream, Encoding.UTF8);
+                                    string jsonText = await reader.ReadToEndAsync();
+                                    
+                                    // Parse JSON và loại bỏ confidence, làm tròn toạ độ để tiết kiệm token
+                                    var boxes = JsonNode.Parse(jsonText)?.AsArray();
+                                    if (boxes != null)
+                                    {
+                                        var compactBoxes = new JsonArray();
+                                        foreach (var box in boxes)
+                                        {
+                                            var boxArr = box?["box"]?.AsArray();
+                                            if (boxArr != null && boxArr.Count == 4)
+                                            {
+                                                compactBoxes.Add(new JsonObject
+                                                {
+                                                    ["Text"] = box?["text"]?.GetValue<string>(),
+                                                    ["Box"] = new JsonArray(
+                                                        Math.Round(boxArr[0]!.GetValue<float>()),
+                                                        Math.Round(boxArr[1]!.GetValue<float>()),
+                                                        Math.Round(boxArr[2]!.GetValue<float>()),
+                                                        Math.Round(boxArr[3]!.GetValue<float>())
+                                                    )
+                                                });
+                                            }
+                                        }
+                                        pageTexts.Add(compactBoxes.ToJsonString());
+                                    }
+                                    else
+                                    {
+                                        pageTexts.Add("[]");
+                                    }
                                     pageNumToFetch++;
                                 }
                                 catch (Exception)
                                 {
-                                    _logger.LogInformation("Kết thúc tải file Markdown tại trang {Page}.", pageNumToFetch);
+                                    _logger.LogInformation("Kết thúc tải file JSON tại trang {Page}.", pageNumToFetch);
                                     break;
                                 }
                             }
 
-                            // 2b. Fix 3: Fallback — nếu không tìm thấy file .md, đọc PDF bằng PdfPig
+                            // 2b. Fallback — nếu không tìm thấy file .json, đọc PDF bằng PdfPig và tạo mảng JSON ảo
                             if (pageTexts.Count == 0)
                             {
-                                _logger.LogWarning("Không tìm thấy file Markdown nào. Fallback: đọc text trực tiếp từ PDF bằng PdfPig.");
+                                _logger.LogWarning("Không tìm thấy file JSON nào. Fallback: đọc text trực tiếp từ PDF bằng PdfPig.");
                                 try
                                 {
                                     using var fileStream = await minioService.DownloadFileAsync(taskMsg.BucketName, taskMsg.FilePath);
@@ -133,7 +161,18 @@ namespace EvnHanoi.DigitizationService.Workers
                                     for (int p = 1; p <= document.NumberOfPages; p++)
                                     {
                                         var page = document.GetPage(p);
-                                        pageTexts.Add(page.Text ?? "");
+                                        string rawText = page.Text ?? "";
+                                        
+                                        // Tạo mảng JSON giả với 1 box toàn trang để tương thích với LLM prompt mới
+                                        var fallbackBox = new JsonArray
+                                        {
+                                            new JsonObject
+                                            {
+                                                ["Text"] = rawText,
+                                                ["Box"] = new JsonArray(0, 0, 1000, 1000)
+                                            }
+                                        };
+                                        pageTexts.Add(fallbackBox.ToJsonString());
                                     }
                                     _logger.LogInformation("Fallback PdfPig: đọc được {TotalPages} trang.", pageTexts.Count);
                                 }
@@ -186,13 +225,23 @@ namespace EvnHanoi.DigitizationService.Workers
                                 string fieldsStr = string.Join("\n", fieldsList);
 
                                 systemPrompt = $@"Bạn là một chuyên gia phân tích và trích xuất dữ liệu tài liệu kỹ thuật ngành điện lực Việt Nam.
-Nhiệm vụ của bạn là đọc kỹ văn bản OCR và trích xuất CHÍNH XÁC các trường thông tin được yêu cầu dưới định dạng JSON object.
+Nhiệm vụ của bạn là đọc danh sách các khối chữ (JSON boxes) từ kết quả OCR và trích xuất CHÍNH XÁC các trường thông tin được yêu cầu dưới định dạng JSON object.
+
+ĐẦU VÀO CỦA BẠN:
+Là một mảng JSON chứa các đối tượng có cấu trúc: {{""Text"": ""nội dung"", ""Box"": [x0, y0, x1, y1]}}.
+- x0, y0 là tọa độ góc trên bên trái; x1, y1 là tọa độ góc dưới bên phải.
+- Bạn HÃY hình dung bố cục trang giấy dựa trên tọa độ: x0 gần nhau là cùng cột, y0 gần nhau là cùng hàng.
 
 NGUYÊN TẮC QUAN TRỌNG:
-1. TRÍCH XUẤT CHÍNH XÁC từng từ từ văn bản, KHÔNG ĐƯỢC suy đoán, tóm tắt hay tự bịa ra thông tin.
-2. NẾU KHÔNG TÌM THẤY thông tin cho một trường, bắt buộc trả về giá trị null cho trường đó, tuyệt đối không điền 'Không có' hay 'N/A'.
-3. BẮT BUỘC TRẢ VỀ JSON HỢP LỆ (VALID JSON). Phải kiểm tra kỹ việc đóng ngoặc kép (dấu """") đối với các giá trị chuỗi dài. CHỈ TRẢ VỀ một chuỗi JSON duy nhất.
-4. Format JSON phải tuân thủ nghiêm ngặt theo cấu trúc đã cho, với tên trường chính xác như yêu cầu. KHÔNG được thêm bớt hay đổi tên trường.
+1. SỬ DỤNG TƯ DUY KHÔNG GIAN: Dựa vào toạ độ Box để tránh ghép nhầm văn bản của cột trái và cột phải vào cùng một trường. Chỉ lấy giá trị cốt lõi, loại bỏ các chữ nhiễu ở cột bên cạnh (như Quốc hiệu, Tiêu ngữ, Ngày tháng).
+2. TỰ ĐỘNG SỬA LỖI CHÍNH TẢ OCR: Khi trích xuất văn bản, hãy tự động sửa các lỗi chính tả do OCR gây ra dựa vào ngữ cảnh. 
+   - Lỗi dấu thanh (KỶ→KỸ, SỰA→SỬA)
+   - Lỗi mất dấu (son→sơn, gi→gỉ)
+   - Lỗi nhận diện (UỞ BAN→ỦY BAN, Trưởng→Trường tuỳ ngữ cảnh).
+   - GIỮ NGUYÊN các mã kỹ thuật, số liệu (22/0,4kV, TBA, QLĐT).
+3. NẾU KHÔNG TÌM THẤY thông tin cho một trường, bắt buộc trả về giá trị null cho trường đó, tuyệt đối không điền 'Không có' hay 'N/A'.
+4. BẮT BUỘC TRẢ VỀ JSON HỢP LỆ (VALID JSON). Phải kiểm tra kỹ việc đóng ngoặc kép (dấu """") đối với các giá trị chuỗi dài. CHỈ TRẢ VỀ một chuỗi JSON duy nhất.
+5. Format JSON phải tuân thủ nghiêm ngặt theo cấu trúc đã cho, với tên trường chính xác như yêu cầu. KHÔNG được thêm bớt hay đổi tên trường.
 {taskMsg.ExtractPrompt}
 
 CÁC TRƯỜNG CẦN TRÍCH XUẤT:
@@ -235,7 +284,7 @@ CÁC TRƯỜNG CẦN TRÍCH XUẤT:
                                         var payload = new
                                         {
                                             messages = new[] { new { role = "user", content = prompt } },
-                                            temperature = 0.0,
+                                            temperature = 0.1,
                                             max_tokens = 2000
                                         };
                                         var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");

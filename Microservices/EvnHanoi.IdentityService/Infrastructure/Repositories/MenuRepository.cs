@@ -166,9 +166,28 @@ public class MenuRepository : IMenuRepository
             }
         }
 
-        // 4. Sắp xếp lại danh sách kết quả theo SortOrder và Tên để trả về Frontend
-        return resultDict.Values
+        // 4. Sidebar chỉ hiển thị menu điều hướng: có URL hoặc là menu cha có ít nhất một con.
+        // Menu không URL và không có con (vd. nhóm chỉ phục vụ phân quyền) vẫn giữ trong lookup/role UI.
+        var sidebarMenus = FilterSidebarNavigationMenus(resultDict.Values);
+
+        return sidebarMenus
             .OrderBy(m => m.SortOrder)
             .ThenBy(m => m.Name);
+    }
+
+    /// <summary>
+    /// Loại menu lá không URL khỏi sidebar. Giữ menu có URL hoặc menu cha (có menu con trong tập kết quả).
+    /// </summary>
+    private static List<Menu> FilterSidebarNavigationMenus(IEnumerable<Menu> menus)
+    {
+        var list = menus.ToList();
+        var parentIdsWithChildren = list
+            .Where(m => m.ParentId.HasValue)
+            .Select(m => m.ParentId!.Value)
+            .ToHashSet();
+
+        return list
+            .Where(m => !string.IsNullOrWhiteSpace(m.Url) || parentIdsWithChildren.Contains(m.Id))
+            .ToList();
     }
 }

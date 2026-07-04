@@ -18,19 +18,10 @@ namespace EvnHanoi.DigitizationService.Services
         {
             _logger = logger;
 
-            var endpoint = configuration["Minio:Endpoint"]
-                ?? configuration["MinIO:Endpoint"]
-                ?? "localhost:9000";
-            var accessKey = configuration["Minio:AccessKey"]
-                ?? configuration["MinIO:AccessKey"]
-                ?? "minioadmin";
-            var secretKey = configuration["Minio:SecretKey"]
-                ?? configuration["MinIO:SecretKey"]
-                ?? "minioadmin";
-
-            var useSslConfig = configuration["Minio:UseSSL"]
-                ?? configuration["Minio:Secure"]
-                ?? configuration["MinIO:UseSSL"];
+            var endpoint = configuration["MinIO:Endpoint"] ?? "localhost:9000";
+            var accessKey = configuration["MinIO:AccessKey"] ?? "minioadmin";
+            var secretKey = configuration["MinIO:SecretKey"] ?? "minioadmin";
+            var useSslConfig = configuration["MinIO:UseSSL"];
             bool useSsl = !string.IsNullOrEmpty(useSslConfig) && bool.Parse(useSslConfig);
 
             _minioClient = new MinioClient()

@@ -10,32 +10,30 @@ internal static class BackendConfigurationExtensions
         IConfiguration configuration)
     {
         return project
-            .WithEnvironment("ConnectionStrings__DefaultConnection", configuration["ConnectionStrings:DefaultConnection"])
-            .WithEnvironment("ConnectionStrings__Redis", configuration["ConnectionStrings:Redis"])
-            .WithEnvironment("RabbitMQ__Host", configuration["RabbitMQ:Host"])
-            .WithEnvironment("RabbitMQ__Port", configuration["RabbitMQ:Port"])
-            .WithEnvironment("RabbitMQ__VirtualHost", configuration["RabbitMQ:VirtualHost"])
-            .WithEnvironment("RabbitMQ__Username", configuration["RabbitMQ:Username"])
-            .WithEnvironment("RabbitMQ__Password", configuration["RabbitMQ:Password"])
-            .WithEnvironment("Elasticsearch__Url", configuration["Elasticsearch:Url"])
-            .WithEnvironment("Elasticsearch__Uri", configuration["Elasticsearch:Uri"] ?? configuration["Elasticsearch:Url"])
-            .WithEnvironment("Jwt__Issuer", configuration["Jwt:Issuer"])
-            .WithEnvironment("Jwt__Audience", configuration["Jwt:Audience"])
-            .WithEnvironment("Jwt__Key", configuration["Jwt:Key"])
-            .WithEnvironment("Internal__Token", configuration["Internal:Token"]);
+            .WithEnvIfSet("ConnectionStrings__DefaultConnection", configuration["ConnectionStrings:DefaultConnection"])
+            .WithEnvIfSet("ConnectionStrings__Redis", configuration["ConnectionStrings:Redis"])
+            .WithEnvIfSet("RabbitMQ__Host", configuration["RabbitMQ:Host"])
+            .WithEnvIfSet("RabbitMQ__Port", configuration["RabbitMQ:Port"])
+            .WithEnvIfSet("RabbitMQ__VirtualHost", configuration["RabbitMQ:VirtualHost"])
+            .WithEnvIfSet("RabbitMQ__Username", configuration["RabbitMQ:Username"])
+            .WithEnvIfSet("RabbitMQ__Password", configuration["RabbitMQ:Password"])
+            .WithEnvIfSet("Elasticsearch__Url", configuration["Elasticsearch:Url"])
+            .WithEnvIfSet("Elasticsearch__Uri", configuration["Elasticsearch:Uri"] ?? configuration["Elasticsearch:Url"])
+            .WithEnvIfSet("Jwt__Issuer", configuration["Jwt:Issuer"])
+            .WithEnvIfSet("Jwt__Audience", configuration["Jwt:Audience"])
+            .WithEnvIfSet("Jwt__Key", configuration["Jwt:Key"])
+            .WithEnvIfSet("Internal__Token", configuration["Internal:Token"]);
     }
 
     internal static IResourceBuilder<ProjectResource> WithMinio(
         this IResourceBuilder<ProjectResource> project,
-        IConfiguration configuration,
-        bool useMinioSectionName = false)
+        IConfiguration configuration)
     {
-        var prefix = useMinioSectionName ? "Minio" : "MinIO";
         return project
-            .WithEnvironment($"{prefix}__Endpoint", configuration[$"{prefix}:Endpoint"])
-            .WithEnvironment($"{prefix}__AccessKey", configuration[$"{prefix}:AccessKey"])
-            .WithEnvironment($"{prefix}__SecretKey", configuration[$"{prefix}:SecretKey"])
-            .WithEnvironment($"{prefix}__UseSSL", configuration[$"{prefix}:UseSSL"]);
+            .WithEnvIfSet("MinIO__Endpoint", configuration["MinIO:Endpoint"])
+            .WithEnvIfSet("MinIO__AccessKey", configuration["MinIO:AccessKey"])
+            .WithEnvIfSet("MinIO__SecretKey", configuration["MinIO:SecretKey"])
+            .WithEnvIfSet("MinIO__UseSSL", configuration["MinIO:UseSSL"]);
     }
 
     internal static IResourceBuilder<ProjectResource> WithServiceUrls(
@@ -45,8 +43,19 @@ internal static class BackendConfigurationExtensions
     {
         foreach (var name in serviceNames)
         {
-            project.WithEnvironment($"Services__{name}", configuration[$"Services:{name}"]);
+            project.WithEnvIfSet($"Services__{name}", configuration[$"Services:{name}"]);
         }
+
+        return project;
+    }
+
+    private static IResourceBuilder<ProjectResource> WithEnvIfSet(
+        this IResourceBuilder<ProjectResource> project,
+        string name,
+        string? value)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+            project.WithEnvironment(name, value);
 
         return project;
     }

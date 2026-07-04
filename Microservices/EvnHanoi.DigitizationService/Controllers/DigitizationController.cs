@@ -31,7 +31,7 @@ namespace EvnHanoi.DigitizationService.Controllers
             _messagePublisher = messagePublisher;
             _repository = repository;
             _logger = logger;
-            _bucketName = configuration["Minio:BucketName"] ?? "digitization";
+            _bucketName = configuration["MinIO:BucketName"] ?? "digitization";
         }
 
         [HttpPost("upload")]
