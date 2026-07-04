@@ -365,8 +365,9 @@ export class FormTemplateComponent implements OnInit {
     });
 
     const headers = [
+      'STT',
       'Mã biểu mẫu',
-      'Tên biểu mẫu thuộc tính thiết bị',
+      'Tên biểu mẫu',
       'Loại lưới điện',
       'Loại thiết bị',
       'Phiên bản',
@@ -375,35 +376,112 @@ export class FormTemplateComponent implements OnInit {
       'Trạng thái'
     ];
 
-    const rows = this.filteredForms().map(form => [
+    const rows = this.filteredForms().map((form, index) => [
+      index + 1,
       form.code,
       form.name,
       form.gridTypeName || this.getGridTypeName(form.gridTypeId),
       this.getCategoryName(form.category),
       `v${form.version}.0`,
       form.createdBy,
-      form.createdAt ? new Date(form.createdAt).toLocaleString('vi-VN') : '',
+      form.createdAt ? new Date(form.createdAt).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '',
       form.isActive ? 'Đang hoạt động' : 'Ngưng hoạt động'
     ]);
 
-    const csvContent = '\uFEFF' + [
-      headers.join(','),
-      ...rows.map(row => row.map(val => `"${(val || '').replace(/"/g, '""')}"`).join(','))
-    ].join('\n');
+    import('xlsx').then(XLSX => {
+      const workbook = XLSX.utils.book_new();
+      const worksheetData = [
+        ['Danh sách biểu mẫu'],
+        [],
+        headers,
+        ...rows
+      ];
+      const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
 
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `DanhSachBieuMau_${new Date().getTime()}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+      worksheet['!merges'] = [
+        { s: { r: 0, c: 0 }, e: { r: 0, c: headers.length - 1 } }
+      ];
 
-    this.messageService.add({
-      severity: 'success',
-      summary: 'Thành công',
-      detail: 'Đã xuất và tải về danh sách biểu mẫu thành công!'
+      const borderStyle = { style: 'thin', color: { rgb: '000000' } };
+      const titleCell = worksheet[XLSX.utils.encode_cell({ r: 0, c: 0 })];
+      if (titleCell) {
+        titleCell.s = {
+          font: { bold: true, sz: 16 },
+          alignment: { horizontal: 'center', vertical: 'center' },
+          border: {
+            top: borderStyle,
+            bottom: borderStyle,
+            left: borderStyle,
+            right: borderStyle
+          }
+        };
+      }
+
+      const headerRow = 2;
+      for (let col = 0; col < headers.length; col++) {
+        const cell = worksheet[XLSX.utils.encode_cell({ r: headerRow, c: col })];
+        if (cell) {
+          cell.s = {
+            font: { bold: true },
+            alignment: { horizontal: 'center', vertical: 'center' },
+            border: {
+              top: borderStyle,
+              bottom: borderStyle,
+              left: borderStyle,
+              right: borderStyle
+            },
+            fill: { fgColor: { rgb: 'FFF2F2F2' } }
+          };
+        }
+      }
+
+      for (let row = headerRow + 1; row < worksheetData.length; row++) {
+        for (let col = 0; col < headers.length; col++) {
+          const cell = worksheet[XLSX.utils.encode_cell({ r: row, c: col })];
+          if (cell) {
+            cell.s = {
+              alignment: { horizontal: col === 0 ? 'center' : 'left', vertical: 'center' },
+              border: {
+                top: borderStyle,
+                bottom: borderStyle,
+                left: borderStyle,
+                right: borderStyle
+              }
+            };
+          }
+        }
+      }
+
+      worksheet['!cols'] = [
+        { wch: 6 },
+        { wch: 18 },
+        { wch: 40 },
+        { wch: 24 },
+        { wch: 24 },
+        { wch: 10 },
+        { wch: 20 },
+        { wch: 22 },
+        { wch: 18 }
+      ];
+
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Danh sách biểu mẫu');
+      const workbookBlob = new Blob([XLSX.write(workbook, { bookType: 'xlsx', type: 'array' })], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      });
+
+      const url = URL.createObjectURL(workbookBlob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `DanhSachBieuMau_${new Date().getTime()}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      this.messageService.add({
+        severity: 'success',
+        summary: 'Thành công',
+        detail: 'Đã xuất và tải về danh sách biểu mẫu thành công!'
+      });
     });
   }
 }
