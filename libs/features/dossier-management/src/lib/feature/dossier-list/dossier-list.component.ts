@@ -144,9 +144,11 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
 
               <th *ngFor="let col of bhsColumns()">{{ col.label }}</th>
 
-              <th style="min-width: 250px; white-space: normal !important;">Trạm / Đường dây</th>
+              <th style="min-width: 200px; white-space: nowrap !important;">Trạm / Đường dây</th>
 
               <th style="width: 130px; text-align: center; white-space: normal !important;">Số lượng tài liệu</th>
+
+              <th style="width: 140px; white-space: nowrap !important;">Người xử lý hiện tại</th>
 
               <th style="width: 160px; text-align: center; white-space: normal !important;">Trạng thái duyệt</th>
 
@@ -169,6 +171,8 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
                 <td><div class="skeleton-bar"></div></td>
 
                 <td><div class="skeleton-bar short"></div></td>
+
+                <td><div class="skeleton-bar"></div></td>
 
                 <td><div class="skeleton-bar"></div></td>
 
@@ -208,15 +212,11 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
 
                 </td>
 
-                <td>
-
-                  <div>{{ item.infrastructureName || '-' }}</div>
-
-                  <div class="text-muted" style="font-size: 0.75rem;">{{ item.infrastructureCode }}</div>
-
-                </td>
+                <td class="station-cell" [title]="getStationName(item)">{{ getStationName(item) }}</td>
 
                 <td class="text-center">{{ item.documentCount ?? 0 }}</td>
+
+                <td class="handler-cell" [title]="getCurrentHandlerName(item)">{{ getCurrentHandlerName(item) }}</td>
 
                 <td class="text-center">
                   <span [class]="getDossierStatusPillClass(item.statusId)">
@@ -393,34 +393,48 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
       </div>
     </p-dialog>
 
-    <!-- Dialog gửi duyệt nhanh -->
-    <p-dialog [visible]="showQuickSubmitConfirm()" 
-              (visibleChange)="$event ? null : showQuickSubmitConfirm.set(false)"
-              header="Trình duyệt hồ sơ" 
-              [modal]="true" 
-              [style]="{ width: '450px' }"
-              styleClass="evn-dialog-no-modal">
-      <div style="padding: 10px 0;">
-        <p>Gửi duyệt hồ sơ trạm/đường dây: <b>{{ selectedQuickItem()?.infrastructureName || '-' }}</b></p>
-      </div>
+    <!-- Dialog gửi duyệt nhanh (cùng UI màn chi tiết) -->
+    <p-dialog
+      [visible]="showQuickSubmitConfirm()"
+      (visibleChange)="$event ? null : showQuickSubmitConfirm.set(false)"
+      header="Gửi duyệt hồ sơ"
+      [modal]="true"
+      [style]="{ width: '450px' }"
+      styleClass="evn-dialog-custom"
+      [closable]="!quickSubmitSubmitting() && !quickActionSubmitting()">
+      <div style="display: flex; flex-direction: column; gap: 16px; padding: 8px 0 16px;">
+        <div style="display: flex; align-items: flex-start; gap: 12px;">
+          <i class="pi pi-send" style="font-size: 1.8rem; color: #1d4ed8;"></i>
+          <div>
+            <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">Xác nhận gửi duyệt hồ sơ lên cấp trên</p>
+            <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
+              Hồ sơ sẽ đi vào quy trình phê duyệt bước: <b style="color: #1e293b;">{{ quickSubmitNextStepInfo()?.stepName || 'Phê duyệt' }}</b>.
+            </p>
+          </div>
+        </div>
 
-      <div class="form-group" *ngIf="quickSubmitNextStepInfo()?.requiresNextAssignee" style="margin-bottom: 16px; display: flex; flex-direction: column; gap: 6px;">
-        <label class="form-label required">Người xử lý tiếp theo</label>
-        <select class="wf-select w-full"
-                [ngModel]="quickSubmitSelectedNextUser()"
-                (ngModelChange)="quickSubmitSelectedNextUser.set($event)">
-          <option value="" disabled selected>-- Chọn người xử lý --</option>
-          <option *ngFor="let u of filteredQuickSubmitNextUsers()" [value]="u.id">{{ u.fullName || u.name }} ({{ u.username }})</option>
-        </select>
+        <div *ngIf="quickSubmitNextStepInfo()?.requiresNextAssignee" class="form-group">
+          <label class="form-label required">Người duyệt tiếp theo ({{ quickSubmitNextStepInfo()?.stepName }})</label>
+          <select class="wf-select" [value]="quickSubmitSelectedNextUser()" (change)="onQuickSubmitNextUserChange($event)">
+            <option value="">-- Chọn người phê duyệt --</option>
+            <option *ngFor="let u of filteredQuickSubmitNextUsers()" [value]="u.id || u.Id || u.userId || u.username">
+              {{ u.fullName || u.FullName || u.name || u.username }}
+            </option>
+          </select>
+        </div>
       </div>
-
-      <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px;">
-        <button (click)="showQuickSubmitConfirm.set(false)" class="btn-cancel btn-small" [disabled]="quickActionSubmitting()">Hủy</button>
-        <button (click)="confirmQuickSubmit()" class="btn-save btn-small" [disabled]="quickActionSubmitting() || (quickSubmitNextStepInfo()?.requiresNextAssignee && !quickSubmitSelectedNextUser())">
-          <i class="pi pi-spin pi-spinner" *ngIf="quickActionSubmitting()"></i>
-          Gửi duyệt
-        </button>
-      </div>
+      <ng-template #footer>
+        <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+          <button class="btn-cancel btn-small" (click)="showQuickSubmitConfirm.set(false)" [disabled]="quickActionSubmitting()">
+            <i class="pi pi-times"></i> Hủy
+          </button>
+          <button class="btn-save btn-small" (click)="confirmQuickSubmit()" [disabled]="quickActionSubmitting() || quickSubmitSubmitting()">
+            <i class="pi pi-spin pi-spinner" *ngIf="quickActionSubmitting() || quickSubmitSubmitting()"></i>
+            <i class="pi pi-check" *ngIf="!quickActionSubmitting() && !quickSubmitSubmitting()"></i>
+            Xác nhận gửi
+          </button>
+        </div>
+      </ng-template>
     </p-dialog>
 
     <p-dialog
@@ -503,6 +517,16 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
     ::ng-deep .quick-action-reject span,
     ::ng-deep .quick-action-reject i {
       color: #ef4444 !important;
+    }
+    .station-cell,
+    .handler-cell {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 220px;
+    }
+    .handler-cell {
+      max-width: 160px;
     }
     ::ng-deep .quick-action-approve .p-menuitem-text,
     ::ng-deep .quick-action-approve .p-menuitem-icon,
@@ -641,13 +665,12 @@ export class DossierListComponent implements OnInit {
   selectedQuickItem = signal<any>(null);
   quickSubmitNextStepInfo = signal<any>(null);
   quickSubmitSelectedNextUser = signal<string>('');
-  quickSubmitUsers = signal<any[]>([]);
   quickSubmitSubmitting = signal<boolean>(false);
   filteredQuickSubmitNextUsers = computed(() => {
     const info = this.quickSubmitNextStepInfo();
     if (!info || !info.requiredRole) return [];
     const roles = info.requiredRole.split(',').map((r: string) => r.trim().toUpperCase());
-    return this.quickSubmitUsers().filter((u: any) => {
+    return this.users().filter((u: any) => {
       const uRoles: string[] = (u.roles || u.Roles || []).map((r: string) => r.toUpperCase());
       return uRoles.some(r => roles.includes(r));
     });
@@ -661,7 +684,7 @@ export class DossierListComponent implements OnInit {
 
   totalPages = computed(() => Math.ceil(this.totalCount() / this.pageSize()));
 
-  tableColSpan = computed(() => this.bhsColumns().length + 5);
+  tableColSpan = computed(() => this.bhsColumns().length + 6);
 
   getDossierStatusPillClass = getDossierStatusPillClass;
 
@@ -883,6 +906,24 @@ export class DossierListComponent implements OnInit {
 
     return value != null && String(value).trim() !== '' ? String(value) : '-';
 
+  }
+
+  getStationName(item: any): string {
+    const name = item?.stationName ?? item?.StationName;
+    if (name != null && String(name).trim() !== '') return String(name).trim();
+    return '-';
+  }
+
+  getCurrentHandlerName(item: any): string {
+    const name = item?.currentHandlerName ?? item?.CurrentHandlerName
+      ?? item?.creator?.name ?? item?.Creator?.Name;
+    if (name != null && String(name).trim() !== '') return String(name).trim();
+    return '-';
+  }
+
+  onQuickSubmitNextUserChange(event: Event) {
+    const target = event.target as HTMLSelectElement | null;
+    this.quickSubmitSelectedNextUser.set(target?.value || '');
   }
 
 
@@ -1308,24 +1349,18 @@ export class DossierListComponent implements OnInit {
         }
         this.quickSubmitNextStepInfo.set(res);
         this.quickSubmitSelectedNextUser.set('');
-        if (res.requiredRole) {
-          this.service.getUsersLookup(res.requiredRole).subscribe({
-            next: (users) => {
-              this.quickSubmitUsers.set(Array.isArray(users) ? users : []);
-              this.showQuickSubmitConfirm.set(true);
-              this.quickSubmitSubmitting.set(false);
-            },
-            error: () => {
-              this.quickSubmitUsers.set([]);
-              this.showQuickSubmitConfirm.set(true);
-              this.quickSubmitSubmitting.set(false);
-            }
-          });
-        } else {
-          this.quickSubmitUsers.set([]);
-          this.showQuickSubmitConfirm.set(true);
-          this.quickSubmitSubmitting.set(false);
-        }
+        this.service.getUsersLookup().subscribe({
+          next: (users) => {
+            this.users.set(Array.isArray(users) ? users : []);
+            this.showQuickSubmitConfirm.set(true);
+            this.quickSubmitSubmitting.set(false);
+          },
+          error: () => {
+            this.users.set([]);
+            this.showQuickSubmitConfirm.set(true);
+            this.quickSubmitSubmitting.set(false);
+          }
+        });
       },
       error: (err: any) => {
         this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: err.error?.message || 'Không thể lấy thông tin bước duyệt tiếp theo.' });

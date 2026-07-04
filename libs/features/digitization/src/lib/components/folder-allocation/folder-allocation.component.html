@@ -1,15 +1,7 @@
 <div class="wf-page">
   <p-toast></p-toast>
 
-  <!-- Breadcrumb -->
-  <div class="breadcrumb">
-    <i class="pi pi-home bc-icon"></i>
-    <span class="bc-text">Trang chủ</span>
-    <span class="bc-sep">/</span>
-    <span class="bc-text">Số hóa hồ sơ</span>
-    <span class="bc-sep">/</span>
-    <span class="bc-current">Phân bổ nhập liệu</span>
-  </div>
+  <wf-breadcrumb />
 
   <div class="wf-card">
     
@@ -175,14 +167,14 @@
       </div>
     </div>
 
-  </div>
+    <!-- Dialog Thêm/Sửa phân bổ -->
+    <app-folder-allocation-dialog
+      [(visible)]="dialogVisible"
+      [allocationId]="editingId()"
+      (saved)="loadAllocations()">
+    </app-folder-allocation-dialog>
 
-  <!-- Dialog Popup CRUD -->
-  <app-folder-allocation-dialog
-    [(visible)]="dialogVisible"
-    [allocationId]="editingId()"
-    (saved)="loadAllocations()">
-  </app-folder-allocation-dialog>
+  </div>
 
   <!-- Dialog Xác nhận Thu hồi -->
   <p-dialog

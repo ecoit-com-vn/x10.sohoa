@@ -1,30 +1,22 @@
-<div class="wf-page">
+﻿<div class="wf-page">
   <p-toast></p-toast>
   
-  <!-- Breadcrumb -->
-  <div class="breadcrumb" style="margin-bottom: 15px; display: flex; align-items: center; gap: 8px; font-size: 0.875rem; color: #64748b;">
-    <i class="pi pi-home" style="font-size: 1rem; color: #64748b;"></i>
-    <span>Trang chủ</span>
-    <span>/</span>
-    <span>Hệ thống Danh mục</span>
-    <span>/</span>
-    <span style="font-weight: 600; color: #1e293b;">{{ isPrivate() ? 'Danh mục riêng' : 'Danh mục dùng chung' }}</span>
-  </div>
+  <wf-breadcrumb [viewMode]="currentCatalogView()" (listClick)="currentCatalogView.set('list')" />
 
   <div class="split-container">
     <!-- LEFT PANEL: Catalog Types (Width: 33%) -->
     <div class="panel-left wf-card" style="padding: 16px; background-color: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; display: flex; flex-direction: column;">
       <div class="panel-header">
-        <h3 class="panel-title">Danh sách loại danh mục</h3>
+        <h3 class="panel-title">Danh sĂ¡ch loáº¡i danh má»¥c</h3>
         <button class="btn-save btn-small" (click)="onAddNewType()" *ngIf="canCreateType()" style="background-color: #3BA962; border-color: #3BA962; color: #ffffff; padding: 6px 12px; font-size: 0.8rem; border-radius: 6px;">
-          <i class="pi pi-plus" style="font-size: 0.8rem;"></i> Thêm mới
+          <i class="pi pi-plus" style="font-size: 0.8rem;"></i> ThĂªm má»›i
         </button>
       </div>
 
       <!-- Left Panel Search Filter -->
       <div class="filter-row" style="margin-bottom: 12px;">
         <input type="text" class="wf-search-input" style="width: 100%; box-sizing: border-box; height: 38px;"
-          placeholder="Tên loại danh mục..."
+          placeholder="TĂªn loáº¡i danh má»¥c..."
           [ngModel]="typeSearchKeyword()"
           (ngModelChange)="typeSearchKeyword.set($event); loadCatalogTypes()" />
       </div>
@@ -43,21 +35,21 @@
             
             <span *ngIf="type.status === 1" class="status-pill"
               style="background-color: #ecfdf5; color: #065f46; border-color: #a7f3d0; padding: 2px 6px; border-radius: 9999px; font-size: 0.7rem; font-weight: 500; border: 1px solid;">
-              Hoạt động
+              Hoáº¡t Ä‘á»™ng
             </span>
             <span *ngIf="type.status === 0" class="status-pill"
               style="background-color: #fef2f2; color: #991b1b; border-color: #fecaca; padding: 2px 6px; border-radius: 9999px; font-size: 0.7rem; font-weight: 500; border: 1px solid;">
-              Ngừng hoạt động
+              Ngá»«ng hoáº¡t Ä‘á»™ng
             </span>
           </div>
 
           <!-- Bottom Row: Code and Actions -->
           <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-            <span class="type-item-code" style="font-size: 0.75rem; color: #64748b;">Mã: <code>{{ type.code }}</code></span>
+            <span class="type-item-code" style="font-size: 0.75rem; color: #64748b;">MĂ£: <code>{{ type.code }}</code></span>
             
             <div class="type-item-actions" style="display: flex; gap: 4px;" (click)="$event.stopPropagation()">
               <!-- Edit button -->
-              <button *ngIf="canEditType()" class="act-btn act-edit" (click)="onEditType(type)" title="Sửa loại danh mục" style="width: 26px; height: 26px; font-size: 0.75rem;">
+              <button *ngIf="canEditType()" class="act-btn act-edit" (click)="onEditType(type)" title="Sá»­a loáº¡i danh má»¥c" style="width: 26px; height: 26px; font-size: 0.75rem;">
                 <i class="pi pi-pencil"></i>
               </button>
               
@@ -65,14 +57,14 @@
               <button *ngIf="canManageType()" 
                 class="act-btn" 
                 [ngClass]="type.status === 1 ? 'act-delete' : 'act-edit'"
-                [title]="type.status === 1 ? 'Ngừng hoạt động' : 'Kích hoạt'" 
+                [title]="type.status === 1 ? 'Ngá»«ng hoáº¡t Ä‘á»™ng' : 'KĂ­ch hoáº¡t'" 
                 (click)="onToggleTypeStatusRequest(type)"
                 style="width: 26px; height: 26px; font-size: 0.75rem;">
                 <i class="pi" [ngClass]="type.status === 1 ? 'pi-lock' : 'pi-lock-open'"></i>
               </button>
 
               <!-- Delete button -->
-              <button *ngIf="canDeleteType()" class="act-btn act-delete" (click)="onDeleteType(type)" title="Xóa loại danh mục" style="width: 26px; height: 26px; font-size: 0.75rem;">
+              <button *ngIf="canDeleteType()" class="act-btn act-delete" (click)="onDeleteType(type)" title="XĂ³a loáº¡i danh má»¥c" style="width: 26px; height: 26px; font-size: 0.75rem;">
                 <i class="pi pi-trash"></i>
               </button>
             </div>
@@ -81,7 +73,7 @@
         
         <div *ngIf="types().length === 0" class="empty-list">
           <i class="pi pi-inbox"></i>
-          <div>Không tìm thấy loại danh mục nào.</div>
+          <div>KhĂ´ng tĂ¬m tháº¥y loáº¡i danh má»¥c nĂ o.</div>
         </div>
       </div>
     </div>
@@ -90,9 +82,9 @@
     <div class="panel-right wf-card" style="padding: 16px; background-color: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; display: flex; flex-direction: column;">
       <div *ngIf="selectedTypeId(); else noTypeSelected" style="display: flex; flex-direction: column; height: 100%;">
         <div class="panel-header">
-          <h3 class="panel-title">Danh sách danh mục: <b>{{ selectedTypeName() }}</b></h3>
+          <h3 class="panel-title">Danh sĂ¡ch danh má»¥c: <b>{{ selectedTypeName() }}</b></h3>
           <button class="btn-save btn-small" (click)="onAddNewCatalog()" *ngIf="canCreateCatalog()" style="background-color: #3BA962; border-color: #3BA962; color: #ffffff; padding: 8px 16px; font-size: 0.85rem; border-radius: 6px;">
-            <i class="pi pi-plus"></i> Thêm mới
+            <i class="pi pi-plus"></i> ThĂªm má»›i
           </button>
         </div>
 
@@ -100,40 +92,40 @@
         <div class="list-toolbar" style="margin-bottom: 12px; padding: 12px; background-color: #f8fafc; border-radius: 6px; border: 1px solid #e2e8f0;">
           <div class="toolbar-left" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
             <div style="display: flex; flex-direction: column; gap: 4px;">
-              <span style="font-size: 0.75rem; font-weight: 600; color: #64748b;">Tên danh mục</span>
+              <span style="font-size: 0.75rem; font-weight: 600; color: #64748b;">TĂªn danh má»¥c</span>
               <input type="text" class="wf-search-input" style="height: 38px; width: 180px;"
-                placeholder="Tên danh mục..."
+                placeholder="TĂªn danh má»¥c..."
                 [ngModel]="searchKeyword()"
                 (ngModelChange)="searchKeyword.set($event)"
                 (keyup.enter)="onSearchCatalogs()" />
             </div>
 
             <div style="display: flex; flex-direction: column; gap: 4px;">
-              <span style="font-size: 0.75rem; font-weight: 600; color: #64748b;">Mã danh mục</span>
+              <span style="font-size: 0.75rem; font-weight: 600; color: #64748b;">MĂ£ danh má»¥c</span>
               <input type="text" class="wf-search-input" style="height: 38px; width: 180px;"
-                placeholder="Mã danh mục..."
+                placeholder="MĂ£ danh má»¥c..."
                 [ngModel]="catalogSearchCode()"
                 (ngModelChange)="catalogSearchCode.set($event)"
                 (keyup.enter)="onSearchCatalogs()" />
             </div>
 
             <div style="display: flex; flex-direction: column; gap: 4px;">
-              <span style="font-size: 0.75rem; font-weight: 600; color: #64748b;">Trạng thái</span>
+              <span style="font-size: 0.75rem; font-weight: 600; color: #64748b;">Tráº¡ng thĂ¡i</span>
               <select class="wf-input" style="height: 38px; width: 160px; padding: 0 10px; border-radius: 6px;"
                 [ngModel]="searchStatus()"
                 (ngModelChange)="searchStatus.set($event); onSearchCatalogs()">
-                <option value="">-- Trạng thái --</option>
-                <option value="1">Hoạt động</option>
-                <option value="0">Ngừng hoạt động</option>
+                <option value="">-- Tráº¡ng thĂ¡i --</option>
+                <option value="1">Hoáº¡t Ä‘á»™ng</option>
+                <option value="0">Ngá»«ng hoáº¡t Ä‘á»™ng</option>
               </select>
             </div>
 
             <div style="display: flex; gap: 8px; margin-top: auto; padding-bottom: 2px;">
               <button class="btn-tim" (click)="onSearchCatalogs()" style="height: 38px; padding: 0 16px;">
-                <i class="pi pi-search"></i> Tìm
+                <i class="pi pi-search"></i> TĂ¬m
               </button>
               <button class="btn-outlined" style="height: 38px; padding: 0 16px;" (click)="onResetSearchCatalogs()">
-                Làm mới
+                LĂ m má»›i
               </button>
             </div>
           </div>
@@ -145,11 +137,11 @@
             <thead>
               <tr>
                 <th class="col-stt" style="text-align: center;">STT</th>
-                <th>Tên danh mục</th>
-                <th>Mã danh mục</th>
-                <th style="width: 120px; text-align: center;">Thứ tự ưu tiên</th>
-                <th>Trạng thái</th>
-                <th class="col-hd" style="width: 100px; text-align: center;">Thao tác</th>
+                <th>TĂªn danh má»¥c</th>
+                <th>MĂ£ danh má»¥c</th>
+                <th style="width: 120px; text-align: center;">Thá»© tá»± Æ°u tiĂªn</th>
+                <th>Tráº¡ng thĂ¡i</th>
+                <th class="col-hd" style="width: 100px; text-align: center;">Thao tĂ¡c</th>
               </tr>
             </thead>
             <tbody>
@@ -168,11 +160,11 @@
                 <td>
                   <span *ngIf="item.status === 1" class="status-pill"
                     style="background-color: #ecfdf5; color: #065f46; border-color: #a7f3d0; padding: 2px 8px; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; border: 1px solid;">
-                    Hoạt động
+                    Hoáº¡t Ä‘á»™ng
                   </span>
                   <span *ngIf="item.status === 0" class="status-pill"
                     style="background-color: #fef2f2; color: #991b1b; border-color: #fecaca; padding: 2px 8px; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; border: 1px solid;">
-                    Ngừng hoạt động
+                    Ngá»«ng hoáº¡t Ä‘á»™ng
                   </span>
                 </td>
                 <td class="col-hd" style="text-align: center;">
@@ -181,18 +173,18 @@
                     <button *ngIf="canManageCatalog()" 
                       class="act-btn" 
                       [ngClass]="item.status === 1 ? 'act-delete' : 'act-edit'"
-                      [title]="item.status === 1 ? 'Ngừng hoạt động' : 'Kích hoạt'" 
+                      [title]="item.status === 1 ? 'Ngá»«ng hoáº¡t Ä‘á»™ng' : 'KĂ­ch hoáº¡t'" 
                       (click)="onToggleCatalogStatusRequest(item)">
                       <i class="pi" [ngClass]="item.status === 1 ? 'pi-lock' : 'pi-lock-open'"></i>
                     </button>
 
                     <!-- Edit button -->
-                    <button *ngIf="canEditCatalog()" class="act-btn act-edit" (click)="onEditCatalog(item)" title="Chỉnh sửa">
+                    <button *ngIf="canEditCatalog()" class="act-btn act-edit" (click)="onEditCatalog(item)" title="Chá»‰nh sá»­a">
                       <i class="pi pi-pencil"></i>
                     </button>
 
                     <!-- Delete button -->
-                    <button *ngIf="canDeleteCatalog()" class="act-btn act-delete" (click)="onDeleteCatalog(item)" title="Xóa">
+                    <button *ngIf="canDeleteCatalog()" class="act-btn act-delete" (click)="onDeleteCatalog(item)" title="XĂ³a">
                       <i class="pi pi-trash"></i>
                     </button>
                   </div>
@@ -201,7 +193,7 @@
               <tr *ngIf="items().length === 0">
                 <td colspan="6" class="empty-row" style="text-align: center; padding: 30px; color: #64748b;">
                   <i class="pi pi-inbox" style="font-size: 2rem; color: #94a3b8; display: block; margin-bottom: 8px;"></i>
-                  <div>Không tìm thấy dữ liệu danh mục nào.</div>
+                  <div>KhĂ´ng tĂ¬m tháº¥y dá»¯ liá»‡u danh má»¥c nĂ o.</div>
                 </td>
               </tr>
             </tbody>
@@ -211,7 +203,7 @@
         <!-- Pagination -->
         <div class="table-footer" *ngIf="items().length > 0" style="margin-top: 12px; border-top: 1px solid #f1f5f9; padding-top: 12px; display: flex; justify-content: space-between; align-items: center;">
           <span class="record-count" style="font-size: 0.875rem; color: #64748b;">
-            Hiển thị 1 đến {{ items().length }} của <b>{{ totalCount() }}</b> bản ghi.
+            Hiá»ƒn thá»‹ 1 Ä‘áº¿n {{ items().length }} cá»§a <b>{{ totalCount() }}</b> báº£n ghi.
           </span>
           <div class="pagination" style="display: flex; align-items: center; gap: 8px;">
             <button class="page-btn" (click)="prevPage()" [disabled]="currentPage() === 1">
@@ -223,7 +215,7 @@
             </button>
             
             <span style="display: inline-flex; align-items: center; gap: 5px; font-size: 0.8rem; color: #6b7280; margin-left: 10px;">
-              Đi tới:
+              Äi tá»›i:
               <input type="number" class="page-jump-input" [value]="currentPage()" (change)="goToPage($any($event.target).value)" style="width: 50px; height: 28px; text-align: center; border: 1px solid #e5e7eb; border-radius: 4px; padding: 0 4px;" [min]="1" [max]="totalPages() || 1" />
             </span>
 
@@ -239,48 +231,48 @@
       <ng-template #noTypeSelected>
         <div class="no-selection-wrapper" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center; padding: 40px; color: #64748b;">
           <i class="pi pi-folder-open" style="font-size: 3.5rem; color: #cbd5e1; margin-bottom: 16px;"></i>
-          <p style="font-size: 0.95rem; font-weight: 500; max-width: 320px;">Vui lòng chọn một loại danh mục ở danh sách bên trái để quản lý danh mục chi tiết.</p>
+          <p style="font-size: 0.95rem; font-weight: 500; max-width: 320px;">Vui lĂ²ng chá»n má»™t loáº¡i danh má»¥c á»Ÿ danh sĂ¡ch bĂªn trĂ¡i Ä‘á»ƒ quáº£n lĂ½ danh má»¥c chi tiáº¿t.</p>
         </div>
       </ng-template>
     </div>
   </div>
 
-  <!-- DIALOG: Thêm/Sửa Loại Danh mục (Left Side CRUD) -->
+  <!-- DIALOG: ThĂªm/Sá»­a Loáº¡i Danh má»¥c (Left Side CRUD) -->
   <p-dialog 
     [visible]="showTypeDialog()" 
     (visibleChange)="$event ? null : onCloseTypeDialog()" 
-    [header]="isEditingType() ? 'Chỉnh sửa loại danh mục' : 'Thêm mới loại danh mục'" 
+    [header]="isEditingType() ? 'Chá»‰nh sá»­a loáº¡i danh má»¥c' : 'ThĂªm má»›i loáº¡i danh má»¥c'" 
     [modal]="true" 
     [style]="{ width: '450px' }" 
     styleClass="evn-dialog-custom">
     
     <div style="display: flex; flex-direction: column; gap: 16px; padding: 10px 0;">
       <div class="form-group">
-        <label class="form-label">Mã loại danh mục <span class="required">*</span></label>
+        <label class="form-label">MĂ£ loáº¡i danh má»¥c <span class="required">*</span></label>
         <input type="text" class="wf-input w-full" [(ngModel)]="currentTypeItem().code" 
           (ngModelChange)="onTypeFieldChange('code')"
-          placeholder="Ví dụ: MA_LOAI..." [disabled]="isEditingType() || typeSaving()" />
+          placeholder="VĂ­ dá»¥: MA_LOAI..." [disabled]="isEditingType() || typeSaving()" />
         <span class="field-error" *ngIf="typeCodeError()">{{ typeCodeError() }}</span>
       </div>
       
       <div class="form-group">
-        <label class="form-label">Tên loại danh mục <span class="required">*</span></label>
+        <label class="form-label">TĂªn loáº¡i danh má»¥c <span class="required">*</span></label>
         <input type="text" class="wf-input w-full" [(ngModel)]="currentTypeItem().name" 
           (ngModelChange)="onTypeFieldChange('name')"
-          placeholder="Nhập tên loại danh mục..." [disabled]="typeSaving()" />
+          placeholder="Nháº­p tĂªn loáº¡i danh má»¥c..." [disabled]="typeSaving()" />
         <span class="field-error" *ngIf="typeNameError()">{{ typeNameError() }}</span>
       </div>
 
       <div class="form-group">
-        <label class="form-label">Mô tả</label>
+        <label class="form-label">MĂ´ táº£</label>
         <textarea class="wf-textarea w-full" rows="3" [(ngModel)]="currentTypeItem().description" 
-          placeholder="Nhập mô tả loại danh mục..." [disabled]="typeSaving()"></textarea>
+          placeholder="Nháº­p mĂ´ táº£ loáº¡i danh má»¥c..." [disabled]="typeSaving()"></textarea>
       </div>
 
       <div class="form-group" style="display: flex; align-items: center; gap: 8px; padding-top: 5px;">
         <input type="checkbox" id="chkHasParent" [ngModel]="currentTypeItem().hasParent === 1" (ngModelChange)="currentTypeItem().hasParent = $event ? 1 : 0" style="scale: 1.1; cursor: pointer;" [disabled]="typeSaving()" />
         <label for="chkHasParent" style="font-size: 0.9rem; font-weight: 600; cursor: pointer; user-select: none; margin: 0; color: #334155;">
-          Hỗ trợ cấp cha - con (Hierarchy)
+          Há»— trá»£ cáº¥p cha - con (Hierarchy)
         </label>
       </div>
     </div>
@@ -288,85 +280,85 @@
     <ng-template #footer>
       <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
         <button class="btn-cancel btn-small" (click)="onCloseTypeDialog()" [disabled]="typeSaving()">
-          <i class="pi pi-times"></i> Hủy
+          <i class="pi pi-times"></i> Há»§y
         </button>
         <button class="btn-save btn-small" (click)="onSaveType()" [disabled]="typeSaving()" style="background-color: #4790e9; border-color: #4790e9; color: #ffffff;">
           <i class="pi pi-spin pi-spinner" *ngIf="typeSaving()" style="margin-right: 4px;"></i>
           <i class="pi pi-save" *ngIf="!typeSaving()" style="margin-right: 4px;"></i>
-          Lưu
+          LÆ°u
         </button>
       </div>
     </ng-template>
   </p-dialog>
 
-  <!-- DIALOG: Thêm/Sửa Danh mục (Right Side CRUD) -->
+  <!-- DIALOG: ThĂªm/Sá»­a Danh má»¥c (Right Side CRUD) -->
   <p-dialog 
     [visible]="currentCatalogView() === 'add' || currentCatalogView() === 'edit'" 
     (visibleChange)="$event ? null : currentCatalogView.set('list')" 
-    [header]="currentCatalogView() === 'add' ? 'Thêm mới danh mục' : 'Chỉnh sửa danh mục'" 
+    [header]="currentCatalogView() === 'add' ? 'ThĂªm má»›i danh má»¥c' : 'Chá»‰nh sá»­a danh má»¥c'" 
     [modal]="true" 
     [style]="{ width: '480px' }" 
     styleClass="evn-dialog-custom">
     
     <div style="display: flex; flex-direction: column; gap: 16px; padding: 10px 0;">
       <div class="form-group">
-        <label class="form-label">Mã danh mục <span class="required">*</span></label>
+        <label class="form-label">MĂ£ danh má»¥c <span class="required">*</span></label>
         <input type="text" class="wf-input w-full" [(ngModel)]="currentCatalogItem().code" 
           (ngModelChange)="onCatalogFieldChange('code')"
-          placeholder="Ví dụ: CODE_01..." [disabled]="currentCatalogView() === 'edit' || catalogSaving()" />
+          placeholder="VĂ­ dá»¥: CODE_01..." [disabled]="currentCatalogView() === 'edit' || catalogSaving()" />
         <span class="field-error" *ngIf="catalogCodeError()">{{ catalogCodeError() }}</span>
       </div>
       
       <div class="form-group">
-        <label class="form-label">Tên danh mục <span class="required">*</span></label>
+        <label class="form-label">TĂªn danh má»¥c <span class="required">*</span></label>
         <input type="text" class="wf-input w-full" [(ngModel)]="currentCatalogItem().name" 
           (ngModelChange)="onCatalogFieldChange('name')"
-          placeholder="Nhập tên danh mục..." [disabled]="catalogSaving()" />
+          placeholder="Nháº­p tĂªn danh má»¥c..." [disabled]="catalogSaving()" />
         <span class="field-error" *ngIf="catalogNameError()">{{ catalogNameError() }}</span>
       </div>
 
       <div class="form-group">
-        <label class="form-label">Thứ tự ưu tiên</label>
+        <label class="form-label">Thá»© tá»± Æ°u tiĂªn</label>
         <input type="number" class="wf-input w-full" [(ngModel)]="currentCatalogItem().priority" 
-          placeholder="Mặc định: 1" min="1" [disabled]="catalogSaving()" />
+          placeholder="Máº·c Ä‘á»‹nh: 1" min="1" [disabled]="catalogSaving()" />
       </div>
 
       <!-- Hierarchical drop-down (if selected type has hierarchy) -->
       <div class="form-group" *ngIf="selectedTypeHasParent() === 1">
-        <label class="form-label">Danh mục cha</label>
+        <label class="form-label">Danh má»¥c cha</label>
         <p-select [options]="parentsList()" [(ngModel)]="currentCatalogItem().parentId" 
-          optionLabel="name" optionValue="id" [showClear]="true" placeholder="-- Chọn danh mục cha --"
+          optionLabel="name" optionValue="id" [showClear]="true" placeholder="-- Chá»n danh má»¥c cha --"
           [disabled]="catalogSaving()"
           [style]="{'width':'100%', 'height':'38px', 'line-height':'24px', 'border':'1px solid #cbd5e1', 'border-radius':'6px'}">
         </p-select>
       </div>
 
       <div class="form-group">
-        <label class="form-label">Mô tả chi tiết</label>
+        <label class="form-label">MĂ´ táº£ chi tiáº¿t</label>
         <textarea class="wf-textarea w-full" rows="3" [(ngModel)]="currentCatalogItem().description" 
-          placeholder="Mô tả danh mục..." [disabled]="catalogSaving()"></textarea>
+          placeholder="MĂ´ táº£ danh má»¥c..." [disabled]="catalogSaving()"></textarea>
       </div>
     </div>
     
     <ng-template #footer>
       <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
         <button class="btn-cancel btn-small" (click)="currentCatalogView.set('list')" [disabled]="catalogSaving()">
-          <i class="pi pi-times"></i> Hủy
+          <i class="pi pi-times"></i> Há»§y
         </button>
         <button class="btn-save btn-small" (click)="onSaveCatalog()" [disabled]="catalogSaving()" style="background-color: #4790e9; border-color: #4790e9; color: #ffffff;">
           <i class="pi pi-spin pi-spinner" *ngIf="catalogSaving()" style="margin-right: 4px;"></i>
           <i class="pi pi-save" *ngIf="!catalogSaving()" style="margin-right: 4px;"></i>
-          Lưu
+          LÆ°u
         </button>
       </div>
     </ng-template>
   </p-dialog>
 
-  <!-- Dialog Xác nhận Xóa Loại Danh mục -->
+  <!-- Dialog XĂ¡c nháº­n XĂ³a Loáº¡i Danh má»¥c -->
   <p-dialog
     [visible]="showTypeDeleteConfirm()"
     (visibleChange)="$event ? null : onCancelDeleteType()"
-    header="Xác nhận xóa loại danh mục"
+    header="XĂ¡c nháº­n xĂ³a loáº¡i danh má»¥c"
     [modal]="true"
     [style]="{ width: '420px' }"
     styleClass="evn-dialog-custom"
@@ -374,32 +366,32 @@
     <div style="display: flex; align-items: flex-start; gap: 12px; padding: 8px 0 16px;">
       <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #f59e0b;"></i>
       <div>
-        <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">Bạn có chắc chắn muốn xóa loại danh mục?</p>
+        <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">Báº¡n cĂ³ cháº¯c cháº¯n muá»‘n xĂ³a loáº¡i danh má»¥c?</p>
         <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
-          Loại danh mục <b style="color: #1e293b;">{{ typeDeleteTarget()?.name }}</b> sẽ bị xóa vĩnh viễn.
+          Loáº¡i danh má»¥c <b style="color: #1e293b;">{{ typeDeleteTarget()?.name }}</b> sáº½ bá»‹ xĂ³a vÄ©nh viá»…n.
         </p>
       </div>
     </div>
     <ng-template #footer>
       <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
         <button class="btn-cancel btn-small" (click)="onCancelDeleteType()" [disabled]="typeDeleting()">
-          <i class="pi pi-times"></i> Hủy
+          <i class="pi pi-times"></i> Há»§y
         </button>
         <button class="btn-save btn-small" (click)="onConfirmDeleteType()" [disabled]="typeDeleting()"
                 style="background-color: #dc2626; border-color: #dc2626; color: #ffffff;">
           <i class="pi pi-spin pi-spinner" *ngIf="typeDeleting()"></i>
           <i class="pi pi-trash" *ngIf="!typeDeleting()"></i>
-          Xóa
+          XĂ³a
         </button>
       </div>
     </ng-template>
   </p-dialog>
 
-  <!-- Dialog Xác nhận Xóa Danh mục -->
+  <!-- Dialog XĂ¡c nháº­n XĂ³a Danh má»¥c -->
   <p-dialog
     [visible]="showCatalogDeleteConfirm()"
     (visibleChange)="$event ? null : onCancelDeleteCatalog()"
-    header="Xác nhận xóa danh mục"
+    header="XĂ¡c nháº­n xĂ³a danh má»¥c"
     [modal]="true"
     [style]="{ width: '420px' }"
     styleClass="evn-dialog-custom"
@@ -407,32 +399,32 @@
     <div style="display: flex; align-items: flex-start; gap: 12px; padding: 8px 0 16px;">
       <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #f59e0b;"></i>
       <div>
-        <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">Bạn có chắc chắn muốn xóa?</p>
+        <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">Báº¡n cĂ³ cháº¯c cháº¯n muá»‘n xĂ³a?</p>
         <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
-          Bản ghi <b style="color: #1e293b;">{{ catalogDeleteTarget()?.name }}</b> sẽ bị xóa vĩnh viễn.
+          Báº£n ghi <b style="color: #1e293b;">{{ catalogDeleteTarget()?.name }}</b> sáº½ bá»‹ xĂ³a vÄ©nh viá»…n.
         </p>
       </div>
     </div>
     <ng-template #footer>
       <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
         <button class="btn-cancel btn-small" (click)="onCancelDeleteCatalog()" [disabled]="catalogDeleting()">
-          <i class="pi pi-times"></i> Hủy
+          <i class="pi pi-times"></i> Há»§y
         </button>
         <button class="btn-save btn-small" (click)="onConfirmDeleteCatalog()" [disabled]="catalogDeleting()"
                 style="background-color: #dc2626; border-color: #dc2626; color: #ffffff;">
           <i class="pi pi-spin pi-spinner" *ngIf="catalogDeleting()"></i>
           <i class="pi pi-trash" *ngIf="!catalogDeleting()"></i>
-          Xóa
+          XĂ³a
         </button>
       </div>
     </ng-template>
   </p-dialog>
 
-  <!-- Dialog Xác nhận Khóa / Mở khóa Loạt Danh mục -->
+  <!-- Dialog XĂ¡c nháº­n KhĂ³a / Má»Ÿ khĂ³a Loáº¡t Danh má»¥c -->
   <p-dialog
     [visible]="showTypeLockConfirm()"
     (visibleChange)="$event ? null : onCancelTypeLock()"
-    [header]="typeLockTarget()?.status === 1 ? 'Xác nhận khóa' : 'Xác nhận mở khóa'"
+    [header]="typeLockTarget()?.status === 1 ? 'XĂ¡c nháº­n khĂ³a' : 'XĂ¡c nháº­n má»Ÿ khĂ³a'"
     [modal]="true"
     [style]="{ width: '420px' }"
     styleClass="evn-dialog-custom"
@@ -441,18 +433,18 @@
       <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #f59e0b;"></i>
       <div>
         <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">
-          {{ typeLockTarget()?.status === 1 ? 'Bạn có chắc chắn muốn khóa?' : 'Bạn có chắc chắn muốn mở khóa?' }}
+          {{ typeLockTarget()?.status === 1 ? 'Báº¡n cĂ³ cháº¯c cháº¯n muá»‘n khĂ³a?' : 'Báº¡n cĂ³ cháº¯c cháº¯n muá»‘n má»Ÿ khĂ³a?' }}
         </p>
         <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
-          Loại danh mục <b style="color: #1e293b;">{{ typeLockTarget()?.name }}</b> sẽ được
-          {{ typeLockTarget()?.status === 1 ? 'ngừng hoạt động' : 'kích hoạt trở lại' }}.
+          Loáº¡i danh má»¥c <b style="color: #1e293b;">{{ typeLockTarget()?.name }}</b> sáº½ Ä‘Æ°á»£c
+          {{ typeLockTarget()?.status === 1 ? 'ngá»«ng hoáº¡t Ä‘á»™ng' : 'kĂ­ch hoáº¡t trá»Ÿ láº¡i' }}.
         </p>
       </div>
     </div>
     <ng-template #footer>
       <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
         <button class="btn-cancel btn-small" (click)="onCancelTypeLock()" [disabled]="typeLockLoading()">
-          <i class="pi pi-times"></i> Hủy
+          <i class="pi pi-times"></i> Há»§y
         </button>
         <button class="btn-save btn-small" (click)="onConfirmTypeLock()" [disabled]="typeLockLoading()"
                 [style.background-color]="typeLockTarget()?.status === 1 ? '#dc2626' : '#4790e9'"
@@ -460,17 +452,17 @@
           <i class="pi pi-spin pi-spinner" *ngIf="typeLockLoading()"></i>
           <i class="pi" *ngIf="!typeLockLoading()"
              [ngClass]="typeLockTarget()?.status === 1 ? 'pi-lock' : 'pi-lock-open'"></i>
-          {{ typeLockTarget()?.status === 1 ? 'Khóa' : 'Mở khóa' }}
+          {{ typeLockTarget()?.status === 1 ? 'KhĂ³a' : 'Má»Ÿ khĂ³a' }}
         </button>
       </div>
     </ng-template>
   </p-dialog>
 
-  <!-- Dialog Xác nhận Khóa / Mở khóa Danh mục -->
+  <!-- Dialog XĂ¡c nháº­n KhĂ³a / Má»Ÿ khĂ³a Danh má»¥c -->
   <p-dialog
     [visible]="showCatalogLockConfirm()"
     (visibleChange)="$event ? null : onCancelCatalogLock()"
-    [header]="catalogLockTarget()?.status === 1 ? 'Xác nhận khóa' : 'Xác nhận mở khóa'"
+    [header]="catalogLockTarget()?.status === 1 ? 'XĂ¡c nháº­n khĂ³a' : 'XĂ¡c nháº­n má»Ÿ khĂ³a'"
     [modal]="true"
     [style]="{ width: '420px' }"
     styleClass="evn-dialog-custom"
@@ -479,19 +471,19 @@
       <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #f59e0b;"></i>
       <div>
         <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">
-          {{ catalogLockTarget()?.status === 1 ? 'Bạn có chắc chắn muốn khóa?' : 'Bạn có chắc chắn muốn mở khóa?' }}
+          {{ catalogLockTarget()?.status === 1 ? 'Báº¡n cĂ³ cháº¯c cháº¯n muá»‘n khĂ³a?' : 'Báº¡n cĂ³ cháº¯c cháº¯n muá»‘n má»Ÿ khĂ³a?' }}
         </p>
         <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
-          Danh mục <b style="color: #1e293b;">{{ catalogLockTarget()?.name }}</b>
+          Danh má»¥c <b style="color: #1e293b;">{{ catalogLockTarget()?.name }}</b>
           ({{ catalogLockTarget()?.code }})
-          sẽ được {{ catalogLockTarget()?.status === 1 ? 'ngừng hoạt động' : 'kích hoạt trở lại' }}.
+          sáº½ Ä‘Æ°á»£c {{ catalogLockTarget()?.status === 1 ? 'ngá»«ng hoáº¡t Ä‘á»™ng' : 'kĂ­ch hoáº¡t trá»Ÿ láº¡i' }}.
         </p>
       </div>
     </div>
     <ng-template #footer>
       <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
         <button class="btn-cancel btn-small" (click)="onCancelCatalogLock()" [disabled]="catalogLockLoading()">
-          <i class="pi pi-times"></i> Hủy
+          <i class="pi pi-times"></i> Há»§y
         </button>
         <button class="btn-save btn-small" (click)="onConfirmCatalogLock()" [disabled]="catalogLockLoading()"
                 [style.background-color]="catalogLockTarget()?.status === 1 ? '#dc2626' : '#4790e9'"
@@ -499,7 +491,7 @@
           <i class="pi pi-spin pi-spinner" *ngIf="catalogLockLoading()"></i>
           <i class="pi" *ngIf="!catalogLockLoading()"
              [ngClass]="catalogLockTarget()?.status === 1 ? 'pi-lock' : 'pi-lock-open'"></i>
-          {{ catalogLockTarget()?.status === 1 ? 'Khóa' : 'Mở khóa' }}
+          {{ catalogLockTarget()?.status === 1 ? 'KhĂ³a' : 'Má»Ÿ khĂ³a' }}
         </button>
       </div>
     </ng-template>

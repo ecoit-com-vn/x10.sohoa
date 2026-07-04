@@ -8,6 +8,7 @@ import { DialogModule } from 'primeng/dialog';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { TooltipModule } from 'primeng/tooltip';
+import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { environment } from '@env/environment';
 
 interface FolderNode {
@@ -32,7 +33,8 @@ interface FolderNode {
     DialogModule,
     ButtonModule,
     InputTextModule,
-    TooltipModule
+    TooltipModule,
+    WfBreadcrumbComponent
   ],
   providers: [MessageService],
   templateUrl: './virtual-folders.component.html',

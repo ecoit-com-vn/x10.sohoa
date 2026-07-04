@@ -1,21 +1,7 @@
 <div class="wf-page">
   <p-toast></p-toast>
   
-  <!-- Breadcrumb (Isolated above card) -->
-  <div class="breadcrumb">
-    <i class="pi pi-home bc-icon"></i>
-    <span class="bc-text">Trang chủ</span>
-    <span class="bc-sep">/</span>
-    <span class="bc-text">Quản trị hệ thống</span>
-    <span class="bc-sep">/</span>
-    <span class="bc-text" [class.bc-current]="currentView() === 'list'" (click)="currentView() !== 'list' && currentView.set('list')" [class.bc-link]="currentView() !== 'list'">Quản lý nhóm người dùng</span>
-    <span class="bc-sep" *ngIf="currentView() !== 'list'">/</span>
-    <span class="bc-current" *ngIf="currentView() === 'add'">Thêm nhóm mới</span>
-    <span class="bc-current" *ngIf="currentView() === 'edit'">Chỉnh sửa nhóm</span>
-    <span class="bc-current" *ngIf="currentView() === 'member'">Thành viên nhóm</span>
-    <span class="bc-current" *ngIf="currentView() === 'role'">Vai trò nhóm</span>
-    <span class="bc-current" *ngIf="currentView() === 'permission'">Quyền trực tiếp nhóm</span>
-  </div>
+  <wf-breadcrumb />
 
   <div class="wf-card">
     

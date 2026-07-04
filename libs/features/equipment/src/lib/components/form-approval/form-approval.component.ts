@@ -1,4 +1,5 @@
 import { Component, OnInit, inject, signal, computed, effect } from '@angular/core';
+import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ToastModule } from 'primeng/toast';
@@ -43,7 +44,8 @@ interface FormField {
     CardModule,
     TextareaModule,
     Paginator,
-    Dialog
+    Dialog,
+    WfBreadcrumbComponent,
   ],
   providers: [MessageService],
   templateUrl: './form-approval.component.html',

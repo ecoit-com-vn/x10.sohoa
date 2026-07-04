@@ -1,4 +1,5 @@
 import { Component, OnInit, signal, computed, inject } from '@angular/core';
+import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -16,7 +17,7 @@ import {
 @Component({
   selector: 'app-dossier-lookup',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule, TooltipModule],
+  imports: [CommonModule, FormsModule, ToastModule, TooltipModule, WfBreadcrumbComponent],
   providers: [MessageService],
   templateUrl: './dossier-lookup.component.html',
   styleUrl: './dossier-lookup.component.scss'

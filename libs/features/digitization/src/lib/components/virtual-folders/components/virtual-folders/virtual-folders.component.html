@@ -2,15 +2,7 @@
     <div class="wf-page" [class.embedded]="isEmbedded">
       <p-toast></p-toast>
 
-      <!-- Breadcrumb (Chỉ hiện khi chạy chế độ độc lập) -->
-      <div class="breadcrumb mb-3" *ngIf="!isEmbedded">
-        <i class="pi pi-home bc-icon"></i>
-        <span class="bc-text">Trang chủ</span>
-        <span class="bc-sep">/</span>
-        <span class="bc-text">Số hóa hồ sơ</span>
-        <span class="bc-sep">/</span>
-        <span class="bc-current">Cây thư mục ảo Explorer</span>
-      </div>
+      <wf-breadcrumb *ngIf="!isEmbedded" />
 
       <div class="explorer-container" [class.embedded-container]="isEmbedded">
         <!-- Cột trái: Cây thư mục ảo -->

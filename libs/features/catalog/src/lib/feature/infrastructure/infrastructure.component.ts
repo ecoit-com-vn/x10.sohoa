@@ -1,4 +1,5 @@
 import { Component, OnInit, signal, computed, inject, effect } from '@angular/core';
+import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ToastModule } from 'primeng/toast';
@@ -13,7 +14,7 @@ import { finalize } from 'rxjs/operators';
 @Component({
   selector: 'app-infrastructure',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule, SelectModule, DialogModule],
+  imports: [CommonModule, FormsModule, ToastModule, SelectModule, DialogModule, WfBreadcrumbComponent],
   providers: [MessageService],
   templateUrl: './infrastructure.component.html',
   styleUrl: './infrastructure.component.scss'

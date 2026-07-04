@@ -246,6 +246,19 @@ function buildGlobalPermissionAssignment(
   const assignment = new Map<string, number>();
 
   permissions.forEach((permission) => {
+    const exactMenu = menusList.find(
+      (menu) => menu.isActive !== false && menu.permissionCode === permission.code
+    );
+    if (exactMenu) {
+      assignment.set(permission.code, exactMenu.id);
+    }
+  });
+
+  permissions.forEach((permission) => {
+    if (assignment.has(permission.code)) {
+      return;
+    }
+
     const permPrefix = extractPermissionPrefix(permission.code);
     if (!permPrefix) {
       return;
@@ -310,21 +323,32 @@ export function buildMenuPermissionTree(
         return;
       }
 
+      const isPermissionOnlyParent = childMenus.length === 0 && directPermissions.length > 0;
+
       tree.push({
         id: parentMenu.id,
         name: parentMenu.name,
         icon: parentMenu.icon,
         url: parentMenu.url,
-        subMenus: childMenus.map((subMenu) => ({
-          id: subMenu.id,
-          name: subMenu.name,
-          url: subMenu.url,
-          icon: subMenu.icon,
-          permissions: permGroups.get(subMenu.id) || [],
-          expanded: true
-        })),
-        permissions: directPermissions,
-        expanded: false
+        subMenus: isPermissionOnlyParent
+          ? [{
+              id: parentMenu.id,
+              name: parentMenu.name,
+              url: parentMenu.url,
+              icon: parentMenu.icon,
+              permissions: directPermissions,
+              expanded: true
+            }]
+          : childMenus.map((subMenu) => ({
+              id: subMenu.id,
+              name: subMenu.name,
+              url: subMenu.url,
+              icon: subMenu.icon,
+              permissions: permGroups.get(subMenu.id) || [],
+              expanded: true
+            })),
+        permissions: isPermissionOnlyParent ? [] : directPermissions,
+        expanded: isPermissionOnlyParent
       });
     });
 

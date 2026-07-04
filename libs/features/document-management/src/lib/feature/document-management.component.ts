@@ -9,6 +9,7 @@ import {
   effect,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { FormsModule } from '@angular/forms';
 import { MessageService } from 'primeng/api';
 import { TableModule } from 'primeng/table';
@@ -48,6 +49,7 @@ type FolderUploadMode = 'web' | 'scan';
     PaginatorModule,
     FileUploadZoneComponent,
     ScannerPanelComponent,
+    WfBreadcrumbComponent,
   ],
   templateUrl: './document-management.component.html',
   styleUrl: './document-management.component.css',

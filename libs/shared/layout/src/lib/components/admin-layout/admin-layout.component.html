@@ -9,19 +9,15 @@
         <img src="/logo-white.svg" alt="EVNHANOI" class="header-logo" />
         <span class="header-divider">|</span>
         <h1 class="header-title">HỆ THỐNG SỐ HÓA HỒ SƠ KỸ THUẬT ĐƯỜNG DÂY VÀ TRẠM EVNHANOI</h1>
-        <div class="header-search-container" *ngIf="canUseHeaderSearch">
+        <div class="header-search-container" *ngIf="canUseHeaderSearch()">
           <i class="pi pi-search search-icon"></i>
-          <input
-            type="text"
-            placeholder="Nhập thông tin tên tài liệu, giấy phép, mã định danh..."
-            class="header-search-input"
-            [(ngModel)]="headerSearchKeyword"
-            (keyup.enter)="onHeaderSearch()"
-          />
+          <input type="text" placeholder="Nhập thông tin tên tài liệu, giấy phép, mã định danh..."
+            class="header-search-input" [(ngModel)]="headerSearchKeyword" (keyup.enter)="onHeaderSearch()" />
         </div>
       </div>
       <div class="header-right">
-        <button class="theme-toggle-btn" (click)="toggleTheme()" [title]="isDarkMode ? 'Bật chế độ sáng' : 'Bật chế độ tối'">
+        <button class="theme-toggle-btn" (click)="toggleTheme()"
+          [title]="isDarkMode ? 'Bật chế độ sáng' : 'Bật chế độ tối'">
           <i [class]="isDarkMode ? 'pi pi-sun' : 'pi pi-moon'"></i>
         </button>
         <div class="header-bell-wrapper">
@@ -53,30 +49,28 @@
     <div class="layout-sidebar" [class.collapsed]="isSidebarCollapsed" [class.mobile-open]="isMobileSidebarOpen">
       <div class="sidebar-menu-list">
         <ng-container *ngIf="items().length > 0; else sidebarMenuLoading">
-        <div *ngFor="let item of items(); trackBy: trackByMenuId" class="menu-group-item" [class.group-active]="isGroupActive(item)">
-          <!-- Dòng nhóm menu -->
-          <div class="menu-row" (click)="toggleGroup(item)" [title]="isSidebarCollapsed ? item.label : ''">
-            <span class="menu-left">
-              <i [class]="'menu-icon ' + item.icon"></i>
-              <span class="menu-label">{{ item.label }}</span>
-            </span>
-            <i class="pi menu-chevron" 
-               [class.pi-chevron-down]="item.items && item.items.length > 0 && item.expanded" 
-               [class.pi-chevron-right]="!(item.items && item.items.length > 0 && item.expanded)" 
-               *ngIf="((item.items && item.items.length > 0) || (item.routerLink && item.routerLink[0] === '/dashboard')) && !isSidebarCollapsed"></i>
-          </div>
+          <div *ngFor="let item of items(); trackBy: trackByMenuId" class="menu-group-item"
+            [class.group-active]="isGroupActive(item)">
+            <!-- Dòng nhóm menu -->
+            <div class="menu-row" (click)="toggleGroup(item)" [title]="isSidebarCollapsed ? item.label : ''">
+              <span class="menu-left">
+                <i [class]="'menu-icon ' + item.icon"></i>
+                <span class="menu-label">{{ item.label }}</span>
+              </span>
+              <i class="pi menu-chevron" [class.pi-chevron-down]="item.items && item.items.length > 0 && item.expanded"
+                [class.pi-chevron-right]="!(item.items && item.items.length > 0 && item.expanded)"
+                *ngIf="((item.items && item.items.length > 0) || (item.routerLink && item.routerLink[0] === '/dashboard')) && !isSidebarCollapsed"></i>
+            </div>
 
-          <!-- Menu con (Submenu) -->
-          <div class="submenu-list" *ngIf="item.items && item.expanded && !isSidebarCollapsed">
-            <a *ngFor="let sub of item.items"
-               [routerLink]="sub.routerLink"
-               [class.sub-active]="isSubMenuActive(sub, item.items!)"
-               class="submenu-item">
-              <span class="sub-dot"></span>
-              <span class="sub-label">{{ sub.label }}</span>
-            </a>
+            <!-- Menu con (Submenu) -->
+            <div class="submenu-list" *ngIf="item.items && item.expanded && !isSidebarCollapsed">
+              <a *ngFor="let sub of item.items" [routerLink]="sub.routerLink"
+                [class.sub-active]="isSubMenuActive(sub, item.items!)" class="submenu-item">
+                <span class="sub-dot"></span>
+                <span class="sub-label">{{ sub.label }}</span>
+              </a>
+            </div>
           </div>
-        </div>
         </ng-container>
         <ng-template #sidebarMenuLoading>
           <div class="sidebar-menu-loading" *ngIf="!menuLoaded()">

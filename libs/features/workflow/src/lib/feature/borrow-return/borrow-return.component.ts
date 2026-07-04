@@ -1,4 +1,5 @@
 import { Component, OnInit, inject, signal, computed, PLATFORM_ID, effect } from '@angular/core';
+import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
@@ -10,7 +11,7 @@ import { finalize } from 'rxjs';
 @Component({
   selector: 'app-borrow-return',
   standalone: true,
-  imports: [CommonModule, ToastModule, FormsModule],
+  imports: [CommonModule, ToastModule, FormsModule, WfBreadcrumbComponent],
   providers: [MessageService],
   templateUrl: './borrow-return.component.html',
   styleUrl: './borrow-return.component.scss'

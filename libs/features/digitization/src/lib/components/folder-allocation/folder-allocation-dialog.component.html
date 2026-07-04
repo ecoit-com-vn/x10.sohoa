@@ -1,74 +1,74 @@
-<p-dialog 
-  [header]="title" 
-  [(visible)]="visible" 
-  (onShow)="onShow()" 
+<p-dialog
+  [header]="title"
+  [(visible)]="visible"
+  (onShow)="onShow()"
   (onHide)="close()"
-  [modal]="true" 
-  [maximizable]="false" 
-  [baseZIndex]="10000"
-  [focusTrap]="false"
-  [focusOnShow]="false"
-  styleClass="evn-dialog-no-modal"
-  [style]="{ width: '500px', minWidth: '350px' }">
-  
-  <div class="p-fluid" style="padding-top: 10px;">
-    <!-- Loading shimmer/spinner khi chưa sẵn sàng dữ liệu -->
-    <div *ngIf="loading() || !isDataReady()" style="display: flex; flex-direction: column; gap: 16px;">
-      <div style="height: 40px; background: #f3f4f6; border-radius: 6px; animation: pulse 1.5s infinite;"></div>
-      <div style="height: 40px; background: #f3f4f6; border-radius: 6px; animation: pulse 1.5s infinite;"></div>
+  [modal]="true"
+  appendTo="body"
+  [closable]="!saving()"
+  styleClass="evn-dialog-custom"
+  [style]="{ width: '520px' }">
+
+  <!-- Loading shimmer khi chưa sẵn sàng dữ liệu -->
+  <div *ngIf="loading() || !isDataReady()" class="dialog-form-skeleton">
+    <div class="skeleton-bar"></div>
+    <div class="skeleton-bar"></div>
+  </div>
+
+  <div *ngIf="!loading() && isDataReady()" style="display: flex; flex-direction: column; gap: 14px; padding-top: 10px;">
+    <div class="form-group">
+      <label class="form-label">Thư mục phân bổ <span class="required">*</span></label>
+      <p-treeSelect
+        [options]="folderTreeOptions()"
+        [ngModel]="selectedFolderNode()"
+        (ngModelChange)="onFolderNodeChange($event)"
+        placeholder="-- Chọn thư mục nhập liệu --"
+        [filter]="true"
+        filterPlaceholder="Tìm kiếm thư mục..."
+        styleClass="w-full"
+        [style]="{ width: '100%' }"
+        appendTo="body"
+        scrollHeight="250px">
+      </p-treeSelect>
     </div>
 
-    <div *ngIf="!loading() && isDataReady()" style="display: flex; flex-direction: column; gap: 16px;">
-      
-      <!-- Thư mục (Dùng p-treeSelect trực tiếp) -->
-      <div class="form-group">
-        <label class="form-label required">Thư mục phân bổ</label>
-        <p-treeSelect 
-          [options]="folderTreeOptions()" 
-          [ngModel]="selectedFolderNode()" 
-          (ngModelChange)="selectedFolderNode.set($event)"
-          placeholder="-- Chọn thư mục nhập liệu --" 
-          [filter]="true" 
-          filterPlaceholder="Tìm kiếm thư mục..."
-          styleClass="w-full"
-          [style]="{ width: '100%' }"
-          appendTo="body"
-          scrollHeight="250px">
-        </p-treeSelect>
-      </div>
-
-      <!-- Người xử lý -->
-      <div class="form-group">
-        <label class="form-label required">Người xử lý</label>
-        <select 
-          class="wf-select w-full" 
-          [ngModel]="selectedUserId()" 
-          (ngModelChange)="selectedUserId.set($event)"
-          style="height: 38px; padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px;">
-          <option value="" disabled>-- Chọn người phụ trách nhập liệu --</option>
-          <option *ngFor="let opt of userOptions()" [value]="opt.value">{{ opt.label }}</option>
-        </select>
-      </div>
-
+    <div class="form-group">
+      <label class="form-label" style="font-weight: 600; margin-bottom: 6px; display: block; color: #374151;">Người xử lý <span class="required" style="color: #ef4444;">*</span></label>
+      <p-select
+        [options]="userSelectOptions()"
+        [ngModel]="selectedUserId()"
+        (ngModelChange)="selectedUserId.set($event)"
+        optionLabel="name"
+        optionValue="id"
+        [filter]="true"
+        filterPlaceholder="Tìm kiếm người xử lý..."
+        placeholder="-- Chọn người phụ trách nhập liệu --"
+        [disabled]="saving()"
+        appendTo="body"
+        [style]="selectFieldStyle">
+      </p-select>
     </div>
   </div>
 
-  <p-footer>
-    <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
-      <button 
-        type="button" 
-        class="btn-cancel" 
-        (click)="close()" 
+  <ng-template #footer>
+    <div class="dialog-form-footer">
+      <button
+        type="button"
+        class="btn-cancel btn-small"
+        (click)="close()"
         [disabled]="saving()">
         <i class="pi pi-times"></i> Hủy
       </button>
-      <button 
-        type="button" 
-        class="btn-save" 
-        (click)="save()" 
+      <button
+        type="button"
+        class="btn-save btn-small"
+        (click)="save()"
         [disabled]="saving() || loading() || !isDataReady()">
-        <i class="pi pi-check"></i> {{ saving() ? 'Đang lưu...' : 'Lưu lại' }}
+        <i class="pi pi-spin pi-spinner" *ngIf="saving()" style="margin-right: 4px;"></i>
+        <i class="pi pi-pencil" *ngIf="!saving() && allocationId" style="margin-right: 4px;"></i>
+        <i class="pi pi-plus" *ngIf="!saving() && !allocationId" style="margin-right: 4px;"></i>
+        {{ saving() ? 'Đang lưu...' : (allocationId ? 'Cập nhật' : 'Thêm mới') }}
       </button>
     </div>
-  </p-footer>
+  </ng-template>
 </p-dialog>

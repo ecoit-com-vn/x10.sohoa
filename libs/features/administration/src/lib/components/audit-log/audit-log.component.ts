@@ -1,4 +1,5 @@
 import { Component, OnInit, inject, signal, computed, effect } from '@angular/core';
+import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ToastModule } from 'primeng/toast';
@@ -20,7 +21,7 @@ interface AuditLog {
 @Component({
   selector: 'app-audit-log',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule, HttpClientModule, DialogModule],
+  imports: [CommonModule, FormsModule, ToastModule, HttpClientModule, DialogModule, WfBreadcrumbComponent],
   providers: [MessageService],
   templateUrl: './audit-log.component.html',
   styleUrl: './audit-log.component.scss'

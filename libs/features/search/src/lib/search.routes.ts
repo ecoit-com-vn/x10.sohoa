@@ -8,8 +8,7 @@ export const SEARCH_ROUTES: Route[] = [
       import('./components/document-fulltext-detail/document-fulltext-detail.component').then(
         m => m.DocumentFulltextDetailComponent
       ),
-    canActivate: [documentFulltextSearchGuard],
-    runGuardsAndResolvers: 'paramsChange'
+    canActivate: [documentFulltextSearchGuard]
   },
   {
     path: 'documents',
