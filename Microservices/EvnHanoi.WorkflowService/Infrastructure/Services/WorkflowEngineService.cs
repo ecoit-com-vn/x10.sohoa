@@ -29,17 +29,8 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
             _memoryCache = memoryCache ?? throw new ArgumentNullException(nameof(memoryCache));
         }
 
-        private IWorkflowIntegrationHandler? GetHandler(int workflowTypeId)
-        {
-            var item = EntityType.TryGetById(workflowTypeId);
-            if (item == null) return null;
-            return GetHandler(item.Code);
-        }
-
-        private IWorkflowIntegrationHandler? GetHandler(string entityType)
-        {
-            return _handlers.FirstOrDefault(h => h.EntityType.Equals(entityType, StringComparison.OrdinalIgnoreCase));
-        }
+        private IWorkflowIntegrationHandler? GetHandler(int workflowTypeId) =>
+            _handlers.FirstOrDefault(h => h.WorkflowTypeId == workflowTypeId);
 
         public Task<WorkflowInstance> SubmitByWorkflowTypeIdAsync(string entityId, int workflowTypeId, string userId)
         {
@@ -562,17 +553,11 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
 
             if (!isAdmin)
             {
-                if (!string.IsNullOrEmpty(currentTask.AssigneeUserId))
-                {
-                    if (!currentTask.AssigneeUserId.Equals(userId, StringComparison.OrdinalIgnoreCase))
-                        throw new ArgumentException("Nhiệm vụ này đã được chỉ định cho người xử lý khác, cùng vai trò không thể xử lý thay.");
-                }
-                else if (!string.IsNullOrEmpty(currentTask.AssignedRole))
-                {
-                    var hasRole = userRoles.Any(r => r.Equals(currentTask.AssignedRole, StringComparison.OrdinalIgnoreCase));
-                    if (!hasRole)
-                        throw new ArgumentException($"Người dùng không có vai trò '{currentTask.AssignedRole}' cần thiết cho bước này.");
-                }
+                if (string.IsNullOrEmpty(currentTask.AssigneeUserId))
+                    throw new ArgumentException("Nhiệm vụ chưa được gán cho người xử lý cụ thể.");
+
+                if (!currentTask.AssigneeUserId.Equals(userId, StringComparison.OrdinalIgnoreCase))
+                    throw new ArgumentException("Nhiệm vụ này đã được chỉ định cho người xử lý khác.");
             }
 
             var definition = instance.WorkflowDefinition;
@@ -667,10 +652,10 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
                 string targetDetails = "";
                 if (includeEntityDetails && task.WorkflowInstance != null)
                 {
-                    var entityType = EntityType.RequireById(task.WorkflowInstance.WorkflowTypeId).Code;
+                    var workflowTypeId = task.WorkflowInstance.WorkflowTypeId;
                     var entityId = task.WorkflowInstance.TargetEntityId;
-                    if (!entityDetailsLookup.TryGetValue((entityType, entityId), out targetDetails!))
-                        targetDetails = $"{entityType}: {entityId}";
+                    if (!entityDetailsLookup.TryGetValue((workflowTypeId, entityId), out targetDetails!))
+                        targetDetails = $"Loại quy trình {workflowTypeId}: {entityId}";
                 }
 
                 result.Add(new
@@ -680,7 +665,7 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
                     DefinitionId = task.WorkflowInstance?.WorkflowDefinitionId,
                     DefinitionName = task.WorkflowInstance?.WorkflowDefinition?.Name ?? "",
                     TargetEntityId = task.WorkflowInstance?.TargetEntityId ?? "",
-                    EntityType = task.WorkflowInstance != null ? EntityType.RequireById(task.WorkflowInstance.WorkflowTypeId).Code : "",
+                    WorkflowTypeId = task.WorkflowInstance?.WorkflowTypeId ?? 0,
                     TargetDetails = targetDetails,
                     StepId = task.StepId,
                     StepName = task.StepName,
@@ -694,39 +679,39 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
             return result;
         }
 
-        private async Task<IReadOnlyDictionary<(string EntityType, string EntityId), string>> BuildEntityDetailsLookupAsync(
+        private async Task<IReadOnlyDictionary<(int WorkflowTypeId, string EntityId), string>> BuildEntityDetailsLookupAsync(
             IReadOnlyList<WorkflowTask> tasks,
             bool includeEntityDetails)
         {
-            var lookup = new Dictionary<(string EntityType, string EntityId), string>();
+            var lookup = new Dictionary<(int WorkflowTypeId, string EntityId), string>();
             if (!includeEntityDetails || tasks.Count == 0) return lookup;
 
             var grouped = tasks
                 .Where(t => t.WorkflowInstance != null)
-                .GroupBy(t => EntityType.RequireById(t.WorkflowInstance!.WorkflowTypeId).Code, StringComparer.OrdinalIgnoreCase);
+                .GroupBy(t => t.WorkflowInstance!.WorkflowTypeId);
 
             foreach (var group in grouped)
             {
-                var entityType = group.Key;
+                var workflowTypeId = group.Key;
                 var entityIds = group
                     .Select(t => t.WorkflowInstance!.TargetEntityId)
                     .Distinct(StringComparer.OrdinalIgnoreCase)
                     .ToList();
 
-                var handler = GetHandler(entityType);
+                var handler = GetHandler(workflowTypeId);
                 if (handler == null)
                 {
                     foreach (var entityId in entityIds)
-                        lookup[(entityType, entityId)] = $"{entityType}: {entityId}";
+                        lookup[(workflowTypeId, entityId)] = $"Loại quy trình {workflowTypeId}: {entityId}";
                     continue;
                 }
 
                 var batchDetails = await handler.GetEntityDetailsBatchAsync(entityIds);
                 foreach (var entityId in entityIds)
                 {
-                    lookup[(entityType, entityId)] = batchDetails.TryGetValue(entityId, out var detail)
+                    lookup[(workflowTypeId, entityId)] = batchDetails.TryGetValue(entityId, out var detail)
                         ? detail
-                        : $"{entityType}: {entityId}";
+                        : $"Loại quy trình {workflowTypeId}: {entityId}";
                 }
             }
 
@@ -774,6 +759,7 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
                     t.Id,
                     t.StepName,
                     t.AssignedRole,
+                    t.AssigneeUserId,
                     ActionType = t.Step?.ActionType ?? "",
                     AllowEdit = t.Step?.AllowEdit ?? false,
                     t.CreatedAt

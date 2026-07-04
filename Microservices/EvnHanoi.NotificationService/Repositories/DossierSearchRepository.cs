@@ -165,6 +165,8 @@ public class DossierSearchRepository : IDossierSearchRepository
         IsAdmin = source.IsAdmin,
         MenuScope = source.MenuScope,
         DossierTypeId = source.DossierTypeId,
+        KindId = source.KindId,
+        KindCode = source.KindCode,
         EquipmentId = source.EquipmentId,
         EquipmentTypeId = source.EquipmentTypeId,
         EquipmentScopeIds = source.EquipmentScopeIds,
@@ -222,6 +224,25 @@ public class DossierSearchRepository : IDossierSearchRepository
 
             ApplyTabOrStatusFilter(mustQueries, filterQueries, mustNotQueries, filter);
             ApplyVisibilityFilter(filterQueries, filter);
+
+            if (filter.KindId.HasValue)
+            {
+                if (filter.KindId.Value == 2)
+                {
+                    // Hồ sơ legacy trên ES chưa có kindId — mặc định coi là hồ sơ mới (2).
+                    filterQueries.Add(new QueryDescriptor<DossierEsDocument>().Bool(bb => bb
+                        .MinimumShouldMatch(1)
+                        .Should(
+                            sh => sh.Term(t => t.Field(DossierEsFieldNames.KindId).Value(2)),
+                            sh => sh.Bool(b => b.MustNot(mn => mn.Exists(e => e.Field(DossierEsFieldNames.KindId)))))));
+                }
+                else
+                {
+                    filterQueries.Add(new QueryDescriptor<DossierEsDocument>().Term(t => t
+                        .Field(DossierEsFieldNames.KindId)
+                        .Value(filter.KindId.Value)));
+                }
+            }
 
             if (!string.IsNullOrWhiteSpace(keyword))
             {
@@ -382,54 +403,23 @@ public class DossierSearchRepository : IDossierSearchRepository
     }
 
     /// <summary>
-    /// Inbox tab Chờ xử lý — ưu tiên filter phẳng (terms) như /diag/inbox; OR role/creator qua Must bool.
+    /// Inbox tab Chờ xử lý — chỉ theo pendingAssigneeUserId (không fallback role).
     /// </summary>
     private static void ApplyPendingActionInboxClause(List<Query> mustQueries, List<Query> filterQueries, DossierFilterDto filter)
     {
         var userId = NormalizeFilterUserId(filter.UserId);
-        var roles = filter.UserRoles?
-            .Where(r => !string.IsNullOrWhiteSpace(r))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-        var hasUserId = !string.IsNullOrWhiteSpace(userId);
-        var hasRoles = roles is { Length: > 0 };
-
-        if (!hasUserId && !hasRoles)
+        if (string.IsNullOrWhiteSpace(userId))
         {
             filterQueries.Add(new QueryDescriptor<DossierEsDocument>().Term(t => t.Field(DossierEsFieldNames.Id).Value("__none__")));
             return;
         }
 
-        // userId + roles → Must bool OR (assignee trực tiếp hoặc role pool sau submit/move).
-        if (hasUserId && hasRoles)
-        {
-            mustQueries.Add(new QueryDescriptor<DossierEsDocument>().Bool(bb => bb
-                .MinimumShouldMatch(1)
-                .Should(
-                    sh => sh.Terms(t => t
-                        .Field(DossierEsFieldNames.PendingAssigneeUserId)
-                        .Terms(new TermsQueryField(UserIdTermValues(userId!)))),
-                    sh => sh.Terms(t => t
-                        .Field(DossierEsFieldNames.PendingAssignedRoles)
-                        .Terms(new TermsQueryField(roles!.Select(FieldValue.String).ToArray())))
-                )));
-            return;
-        }
-
-        if (hasUserId)
-        {
-            filterQueries.Add(new QueryDescriptor<DossierEsDocument>().Terms(t => t
-                .Field(DossierEsFieldNames.PendingAssigneeUserId)
-                .Terms(new TermsQueryField(UserIdTermValues(userId!)))));
-            return;
-        }
-
-        var rolePoolBool = new QueryDescriptor<DossierEsDocument>();
-        rolePoolBool.Bool(bb => ApplyPendingActionRolePoolInbox(bb, roles!));
-        filterQueries.Add(rolePoolBool);
+        filterQueries.Add(new QueryDescriptor<DossierEsDocument>().Terms(t => t
+            .Field(DossierEsFieldNames.PendingAssigneeUserId)
+            .Terms(new TermsQueryField(UserIdTermValues(userId)))));
     }
 
-    /// <summary>OR inbox: assignee | role | creator (bước đầu chưa gán).</summary>
+    /// <summary>OR inbox: assignee đích danh | creator (bước đầu chưa gán user).</summary>
     private static void ApplyPendingActionInboxOrFilter(
         BoolQueryDescriptor<DossierEsDocument> bb,
         string userId,
@@ -443,10 +433,6 @@ public class DossierSearchRepository : IDossierSearchRepository
             .Field(DossierEsFieldNames.PendingAssigneeUserId)
             .Terms(new TermsQueryField(UserIdTermValues(userId)))));
 
-        shouldQueries.Add(new QueryDescriptor<DossierEsDocument>().Terms(t => t
-            .Field(DossierEsFieldNames.PendingAssignedRoles)
-            .Terms(new TermsQueryField(roles.Select(FieldValue.String).ToArray()))));
-
         var creatorInbox = new QueryDescriptor<DossierEsDocument>();
         creatorInbox.Bool(cb =>
         {
@@ -455,68 +441,26 @@ public class DossierSearchRepository : IDossierSearchRepository
                 .Terms(new TermsQueryField(UserIdTermValues(userId)))));
             cb.MustNot(mn => mn.Exists(e => e
                 .Field(DossierEsFieldNames.PendingAssigneeUserId)));
-            cb.MustNot(mn => mn.Exists(e => e
-                .Field(DossierEsFieldNames.PendingAssignedRoles)));
         });
         shouldQueries.Add(creatorInbox);
 
         bb.Should(shouldQueries);
     }
 
-    /// <summary>Role pool khi chưa gán cá nhân.</summary>
-    private static void ApplyPendingActionRolePoolInbox(
-        BoolQueryDescriptor<DossierEsDocument> bb,
-        string[] roles)
-    {
-        bb.Must(m => m.Terms(t => t
-            .Field(DossierEsFieldNames.PendingAssignedRoles)
-            .Terms(new TermsQueryField(roles.Select(FieldValue.String).ToArray()))));
-        bb.MustNot(mn => mn.Exists(e => e
-            .Field(DossierEsFieldNames.PendingAssigneeUserId)));
-    }
-
     /// <summary>Doc đang nằm trong inbox pending của user (dùng loại trừ tab in-progress).</summary>
     internal static void ApplyPendingActionInboxMatch(BoolQueryDescriptor<DossierEsDocument> bb, DossierFilterDto filter)
     {
-        bb.MinimumShouldMatch(1);
-
         var userId = NormalizeFilterUserId(filter.UserId);
-        var roles = filter.UserRoles?
-            .Where(r => !string.IsNullOrWhiteSpace(r))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-        var hasUserId = !string.IsNullOrWhiteSpace(userId);
-        var hasRoles = roles is { Length: > 0 };
-
-        if (!hasUserId && !hasRoles)
+        if (string.IsNullOrWhiteSpace(userId))
         {
             bb.Should(sh => sh.Term(t => t.Field(DossierEsFieldNames.Id).Value("__none__")));
             return;
         }
 
-        var shouldQueries = new List<Query>();
-
-        if (hasUserId)
-        {
-            shouldQueries.Add(new QueryDescriptor<DossierEsDocument>().Terms(t => t
-                .Field(DossierEsFieldNames.PendingAssigneeUserId)
-                .Terms(new TermsQueryField(UserIdTermValues(userId!)))));
-        }
-        else if (hasRoles)
-        {
-            var rolePool = new QueryDescriptor<DossierEsDocument>();
-            rolePool.Bool(rolePoolBool =>
-            {
-                rolePoolBool.Must(m => m.Terms(t => t
-                    .Field(DossierEsFieldNames.PendingAssignedRoles)
-                    .Terms(new TermsQueryField(roles!.Select(FieldValue.String).ToArray()))));
-                rolePoolBool.MustNot(mn => mn.Exists(e => e
-                    .Field(DossierEsFieldNames.PendingAssigneeUserId)));
-            });
-            shouldQueries.Add(rolePool);
-        }
-
-        bb.Should(shouldQueries);
+        bb.MinimumShouldMatch(1);
+        bb.Should(sh => sh.Terms(t => t
+            .Field(DossierEsFieldNames.PendingAssigneeUserId)
+            .Terms(new TermsQueryField(UserIdTermValues(userId)))));
     }
 
     /// <summary>
@@ -677,13 +621,6 @@ public class DossierSearchRepository : IDossierSearchRepository
                 shouldQueries.Add(new QueryDescriptor<DossierEsDocument>().Terms(t => t
                     .Field(DossierEsFieldNames.PendingAssigneeUserId)
                     .Terms(new TermsQueryField(UserIdTermValues(userId!)))));
-            }
-
-            if (roles is { Length: > 0 })
-            {
-                shouldQueries.Add(new QueryDescriptor<DossierEsDocument>().Terms(t => t
-                    .Field(DossierEsFieldNames.PendingAssignedRoles)
-                    .Terms(new TermsQueryField(roles.Select(FieldValue.String).ToArray()))));
             }
         }
 

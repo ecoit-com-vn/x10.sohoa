@@ -1,3 +1,4 @@
+using EvnHanoi.Infrastructure.Enums;
 using EvnHanoi.WorkflowService.Core.Interfaces;
 using Microsoft.Extensions.Logging;
 using System;
@@ -10,7 +11,7 @@ using System.Threading.Tasks;
 namespace EvnHanoi.WorkflowService.Infrastructure.Services
 {
     /// <summary>
-    /// Tích hợp quy trình cho hồ sơ (EntityType = "Dossier").
+    /// Tích hợp quy trình cho hồ sơ (WORKFLOW_TYPE_ID = Dossier).
     /// WorkflowService SỞ HỮU logic suy ra DossierStatus từ sự kiện quy trình,
     /// rồi đồng bộ ngược về EquipmentService qua API nội bộ (KHÔNG expose ra Gateway).
     /// </summary>
@@ -26,7 +27,7 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly ILogger<DossierWorkflowHandler> _logger;
 
-        public string EntityType => "Dossier";
+        public virtual int WorkflowTypeId => EntityType.Dossier.Id;
 
         public DossierWorkflowHandler(
             IWorkflowRepository workflowRepository,
@@ -77,10 +78,6 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
                     if (!string.IsNullOrEmpty(task.AssigneeUserId))
                     {
                         currentAssignees.Add(task.AssigneeUserId);
-                    }
-                    else if (!string.IsNullOrEmpty(task.AssignedRole))
-                    {
-                        currentAssignees.Add(task.AssignedRole);
                     }
                 }
             }

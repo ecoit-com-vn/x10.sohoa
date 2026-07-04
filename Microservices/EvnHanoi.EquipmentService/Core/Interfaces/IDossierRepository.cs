@@ -50,6 +50,7 @@ public interface IDossierRepository
     // Chi tiết
     Task<DossierDetailDto?> GetDetailByIdAsync(Guid id);
     Task<Dossier?> GetByIdAsync(Guid id);
+    Task<int?> GetKindIdAsync(Guid id);
 
     // CRUD
     Task<Guid> CreateAsync(Dossier dossier, IEnumerable<Guid> equipmentIds);
@@ -74,4 +75,8 @@ public interface IDossierRepository
 
     // Form data
     Task<bool> UpdateFormDataAsync(Guid id, string formDataJson, int expectedRowVersion, string modifiedBy);
+
+    Task<EavFormTemplate?> GetEavFormTemplateAsync(Guid formId);
+    Task<EavFormTemplate?> GetEavFormTemplateByDossierIdAsync(Guid dossierId);
 }
+

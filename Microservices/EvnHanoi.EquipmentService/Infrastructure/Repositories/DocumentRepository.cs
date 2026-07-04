@@ -20,6 +20,15 @@ public class DocumentRepository : IDocumentRepository
     private const string DocumentCreatedByNameSelect =
         "NVL(cu.FullName, NVL(d.CREATOR_NAME, d.CREATED_BY)) AS CreatedByName";
 
+    /// <summary>
+    /// DOCUMENT_TYPES dùng cột IsDeleted (Oracle: ISDELETED), không phải IS_DELETED như bảng DOCUMENTS.
+    /// </summary>
+    private const string DocumentTypeActiveJoin =
+        $"dt.ID = d.DOCUMENT_TYPE_ID AND dt.{nameof(DocumentType.IsDeleted)} = 0";
+
+    private const string EavFormTemplateActiveFilter =
+        $"f.{nameof(EavFormTemplate.IsDeleted)} = 0";
+
     public DocumentRepository(IDbConnection connection)
     {
         _connection = connection ?? throw new ArgumentNullException(nameof(connection));
@@ -273,7 +282,7 @@ public class DocumentRepository : IDocumentRepository
                 latest.LATEST_VERSION_ID AS LatestVersionId
             FROM DOCUMENTS d
             {DocumentCreatorJoin}
-            LEFT JOIN DOCUMENT_TYPES dt ON dt.ID = d.DOCUMENT_TYPE_ID AND dt.IsDeleted = 0
+            LEFT JOIN DOCUMENT_TYPES dt ON {DocumentTypeActiveJoin}
             LEFT JOIN (
                 SELECT dv.DOCUMENT_ID, dv.ID AS LATEST_VERSION_ID, dv.FILE_SIZE, dv.MIME_TYPE
                 FROM DOCUMENT_VERSIONS dv
@@ -301,6 +310,26 @@ public class DocumentRepository : IDocumentRepository
             catch {}
             throw;
         }
+    }
+
+    public async Task<EavFormTemplate?> GetEavFormTemplateByDocumentIdAsync(Guid documentId)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        var sql = $@"
+            SELECT
+                f.Id, f.Name, f.Code, f.Category, f.Description, f.DescriptionInfo, f.ExtractionProcess,
+                f.FormSchema, f.EquipmentTypeId, f.GridTypeId, f.Version, f.IsActive, f.CreatedAt,
+                f.CreatedBy, f.Status, f.FormType, f.IsDeleted
+            FROM DOCUMENTS d
+            INNER JOIN DOCUMENT_TYPES dt ON {DocumentTypeActiveJoin}
+            INNER JOIN EavFormTemplates f ON f.Id = dt.FORM_ID AND {EavFormTemplateActiveFilter}
+            WHERE d.ID = :DocumentId AND d.IS_DELETED = 0";
+
+        return await _connection.QuerySingleOrDefaultAsync<EavFormTemplate>(
+            sql,
+            new { DocumentId = documentId.ToString() });
     }
 
     public async Task<Guid> CreateDocumentAsync(Document document)
@@ -694,7 +723,7 @@ public class DocumentRepository : IDocumentRepository
                 ext.STATUS AS ExtractionStatus
             FROM DOCUMENTS d
             {DocumentCreatorJoin}
-            LEFT JOIN DOCUMENT_TYPES dt ON dt.ID = d.DOCUMENT_TYPE_ID AND dt.IsDeleted = 0
+            LEFT JOIN DOCUMENT_TYPES dt ON {DocumentTypeActiveJoin}
             LEFT JOIN (
                 SELECT dv.DOCUMENT_ID, dv.ID AS LATEST_VERSION_ID, dv.FILE_SIZE, dv.MIME_TYPE
                 FROM DOCUMENT_VERSIONS dv
@@ -1118,4 +1147,69 @@ public class DocumentRepository : IDocumentRepository
 
         return (items, totalCount);
     }
+
+    public async Task<IEnumerable<DocumentOcrIndexHintDto>> GetOcrVersionIndexHintsByDossierIdAsync(Guid dossierId)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        const string sql = @"
+            SELECT 
+                dv.ID AS VersionId,
+                'dossiers' AS BucketName,
+                dv.FILE_PATH AS FilePath,
+                NVL(ocr.TOTAL_PAGES, 0) AS TotalPages
+            FROM DOCUMENTS d
+            INNER JOIN DOCUMENT_VERSIONS dv ON dv.DOCUMENT_ID = d.ID AND dv.IS_DELETED = 0
+            INNER JOIN (
+                SELECT DOCUMENT_ID, MAX(VERSION_NUMBER) AS MAX_VER
+                FROM DOCUMENT_VERSIONS
+                WHERE IS_DELETED = 0
+                GROUP BY DOCUMENT_ID
+            ) mx ON mx.DOCUMENT_ID = dv.DOCUMENT_ID AND mx.MAX_VER = dv.VERSION_NUMBER
+            LEFT JOIN (
+                SELECT DOCUMENT_VERSION_ID, TOTAL_PAGES
+                FROM (
+                    SELECT DOCUMENT_VERSION_ID, TOTAL_PAGES,
+                           ROW_NUMBER() OVER (PARTITION BY DOCUMENT_VERSION_ID ORDER BY CREATED_DATE DESC) AS RN
+                    FROM DOCUMENT_OCR_PROGRESS
+                    WHERE IS_DELETED = 0
+                ) WHERE RN = 1
+            ) ocr ON ocr.DOCUMENT_VERSION_ID = dv.ID
+            WHERE d.DOSSIER_ID = :DossierId
+              AND d.IS_DELETED = 0";
+
+        var rows = await _connection.QueryAsync<dynamic>(sql, new { DossierId = dossierId.ToString() });
+        return rows.Select(r => new DocumentOcrIndexHintDto
+        {
+            VersionId = r.VERSIONID is string sId && Guid.TryParse(sId, out var gId) ? gId : (r.VERSIONID is Guid guidId ? guidId : Guid.Empty),
+            BucketName = r.BUCKETNAME,
+            FilePath = r.FILEPATH,
+            TotalPages = Convert.ToInt32(r.TOTALPAGES)
+        }).ToList();
+    }
+
+    public async Task<IEnumerable<Guid>> GetActiveVersionIdsByDossierIdAsync(Guid dossierId)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        const string sql = @"
+            SELECT 
+                dv.ID
+            FROM DOCUMENTS d
+            INNER JOIN DOCUMENT_VERSIONS dv ON dv.DOCUMENT_ID = d.ID AND dv.IS_DELETED = 0
+            INNER JOIN (
+                SELECT DOCUMENT_ID, MAX(VERSION_NUMBER) AS MAX_VER
+                FROM DOCUMENT_VERSIONS
+                WHERE IS_DELETED = 0
+                GROUP BY DOCUMENT_ID
+            ) mx ON mx.DOCUMENT_ID = dv.DOCUMENT_ID AND mx.MAX_VER = dv.VERSION_NUMBER
+            WHERE d.DOSSIER_ID = :DossierId
+              AND d.IS_DELETED = 0";
+
+        var rows = await _connection.QueryAsync<string>(sql, new { DossierId = dossierId.ToString() });
+        return rows.Select(Guid.Parse).ToList();
+    }
 }
+

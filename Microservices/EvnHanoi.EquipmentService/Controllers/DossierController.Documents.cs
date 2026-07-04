@@ -9,9 +9,9 @@ using EvnHanoi.Infrastructure.Security;
 namespace EvnHanoi.EquipmentService.Controllers;
 
 /// <summary>
-/// API tab Tài liệu đính kèm — partial của DossierController (phân quyền DOSSIER_*).
+/// API tab Tài liệu đính kèm — partial của DossierControllerBase.
 /// </summary>
-public partial class DossierController
+public abstract partial class DossierControllerBase
 {
     private long GetUserUnitId()
     {
@@ -250,6 +250,28 @@ public partial class DossierController
         {
             var deleted = await _dossierDocumentService.DeleteDocumentAsync(id, documentId, UserId, cancellationToken);
             return deleted ? NoContent() : NotFound(new { message = "Không tìm thấy tài liệu trong hồ sơ." });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpGet("{id:guid}/documents/{versionId:guid}/form-template")]
+    [BypassDynamicPermission]
+    public async Task<IActionResult> GetDocumentFormTemplate(Guid id, Guid versionId)
+    {
+        try
+        {
+            var template = await _dossierDocumentService.GetFormTemplateForDocumentVersionAsync(id, versionId);
+            if (template is null)
+                return NotFound(new { message = "Không tìm thấy biểu mẫu EAV cho tài liệu này." });
+
+            return Ok(template);
         }
         catch (KeyNotFoundException ex)
         {

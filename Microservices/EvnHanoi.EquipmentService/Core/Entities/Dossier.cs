@@ -12,6 +12,7 @@ public class Dossier
     public Guid DossierTypeId { get; set; }
     public string? FormDataJson { get; set; }
     public int StatusId { get; set; } = DossierStatusConstants.New;
+    public int KindId { get; set; } = DossierKind.New.Id;
 
     // Workflow integration
     public Guid? WorkflowInstanceId { get; set; }

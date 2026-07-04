@@ -24,6 +24,8 @@ public static class PermissionCodeResolver
             "Signatures" => "SIGNATURE",
             "WorkflowDefinitions" => "WORKFLOW_DEFINITION",
             "DossierWorkflow" => "DOSSIER",
+            "DossierDigitization" => "DOSSIER_DIGITIZATION",
+            "DossierDigitizationWorkflow" => "DOSSIER_DIGITIZATION",
             "DossierByEquipment" => "SEARCH_DOSSIERS_BY_EQUIPMENT",
             "SearchDossiersByEquipment" => "SEARCH_DOSSIERS_BY_EQUIPMENT",
             _ => ToSnakeCase(controllerKey)
@@ -137,6 +139,11 @@ public static class PermissionCodeResolver
             "SEARCH_DOSSIERS_BY_EQUIPMENT_VIEW" => "Tra cứu hồ sơ thiết bị",
             "FOLDER_ALLOCATION_VIEW" => "Xem phân bổ nhập liệu",
             "FOLDER_ALLOCATION_EDIT" => "Cấu hình phân bổ nhập liệu",
+            "DOSSIER_DIGITIZATION_VIEW" => "Xem hồ sơ số hóa",
+            "DOSSIER_DIGITIZATION_CREATE" => "Tạo hồ sơ số hóa",
+            "DOSSIER_DIGITIZATION_EDIT" => "Sửa hồ sơ số hóa",
+            "DOSSIER_DIGITIZATION_DELETE" => "Xóa hồ sơ số hóa",
+            "DOSSIER_DIGITIZATION_MANAGE" => "Quản lý quy trình hồ sơ số hóa",
             _ => null
         };
     }

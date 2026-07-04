@@ -37,6 +37,11 @@ public static class DigitizationTopicTopology
         await DeclareAndBindAsync(channel, EquipmentProgressQueue, OcrProgressRoutingKey, cancellationToken);
         await DeclareAndBindAsync(channel, EquipmentProgressQueue, ExtractionProgressRoutingKey, cancellationToken);
         await DeclareAndBindAsync(channel, EquipmentCompletedQueue, ExtractionCompletedRoutingKey, cancellationToken);
+        await DeclareAndBindAsync(
+            channel,
+            DocumentTextMessaging.IndexQueue,
+            DocumentTextMessaging.ReindexRoutingKey,
+            cancellationToken);
     }
 
     private static async Task DeclareAndBindAsync(

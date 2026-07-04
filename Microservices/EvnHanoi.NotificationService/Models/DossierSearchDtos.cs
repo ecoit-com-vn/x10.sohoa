@@ -81,6 +81,8 @@ public class DossierFilterDto
     public DateTime? PublishDateTo { get; set; }
     public int Page { get; set; } = 1;
     public int PageSize { get; set; } = 10;
+    public int? KindId { get; set; }
+    public string? KindCode { get; set; }
 }
 
 public class DossierTabCountsDto

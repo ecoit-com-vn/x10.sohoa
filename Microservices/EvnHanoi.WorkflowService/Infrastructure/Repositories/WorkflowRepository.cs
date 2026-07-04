@@ -772,15 +772,7 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
 
             if (!isAdmin)
             {
-                if (roles == null || roles.Count == 0)
-                {
-                    sql += $@" AND t.{nameof(WorkflowTask.AssigneeUserId)} = :AssigneeUserId";
-                }
-                else
-                {
-                    sql += $@" AND (t.{nameof(WorkflowTask.AssigneeUserId)} = :AssigneeUserId OR (t.{nameof(WorkflowTask.AssigneeUserId)} IS NULL AND t.{nameof(WorkflowTask.AssignedRole)} IN :Roles))";
-                    parameters.Add("Roles", roles);
-                }
+                sql += $@" AND t.{nameof(WorkflowTask.AssigneeUserId)} = :AssigneeUserId";
                 parameters.Add("AssigneeUserId", userId);
             }
 

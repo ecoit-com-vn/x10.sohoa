@@ -23,6 +23,7 @@ public class DossierService : IDossierService
     private readonly IDocumentRepository _documentRepository;
     private readonly IEquipmentRepository _equipmentRepository;
     private readonly IMessageProducer _messageProducer;
+    private readonly IDocumentTextIndexNotifier _documentTextIndexNotifier;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IConfiguration _configuration;
     private readonly ILogger<DossierService> _logger;
@@ -33,6 +34,7 @@ public class DossierService : IDossierService
         IDocumentRepository documentRepository,
         IEquipmentRepository equipmentRepository,
         IMessageProducer messageProducer,
+        IDocumentTextIndexNotifier documentTextIndexNotifier,
         IHttpClientFactory httpClientFactory,
         IConfiguration configuration,
         ILogger<DossierService> logger)
@@ -42,6 +44,7 @@ public class DossierService : IDossierService
         _documentRepository = documentRepository ?? throw new ArgumentNullException(nameof(documentRepository));
         _equipmentRepository = equipmentRepository ?? throw new ArgumentNullException(nameof(equipmentRepository));
         _messageProducer = messageProducer ?? throw new ArgumentNullException(nameof(messageProducer));
+        _documentTextIndexNotifier = documentTextIndexNotifier ?? throw new ArgumentNullException(nameof(documentTextIndexNotifier));
         _httpClientFactory = httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory));
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -212,7 +215,7 @@ public class DossierService : IDossierService
         return await _dossierRepository.GetDetailByIdAsync(id);
     }
 
-    public async Task<Guid> CreateAsync(DossierCreateDto dto, string userId, string userName, string userFullName)
+    public async Task<Guid> CreateAsync(DossierCreateDto dto, string userId, string userName, string userFullName, int kindId = 2)
     {
         var dossier = new Dossier
         {
@@ -223,6 +226,7 @@ public class DossierService : IDossierService
             DossierTypeId = dto.DossierTypeId,
             FormDataJson = dto.FormDataJson,
             StatusId = DossierStatusConstants.New,
+            KindId = kindId,
             RowVersion = 1,
             CreatorId = string.IsNullOrEmpty(userId) ? null : Guid.TryParse(userId, out var uid) ? uid : null,
             CreatorUsername = userName,
@@ -488,6 +492,29 @@ public class DossierService : IDossierService
         }
     }
 
+    public async Task AutoApproveWithoutWorkflowAsync(Guid id)
+    {
+        var existing = await _dossierRepository.GetByIdAsync(id);
+        if (existing == null) throw new KeyNotFoundException($"Không tìm thấy hồ sơ với ID = {id}");
+
+        if (existing.StatusId != DossierStatusConstants.CompletedInput)
+            throw new InvalidOperationException("Hồ sơ phải ở trạng thái 'Hoàn thành' mới được tự động phê duyệt.");
+
+        await _dossierRepository.UpdateWorkflowAsync(
+            id,
+            Guid.Empty,
+            "Tự động duyệt",
+            DossierStatusConstants.Approved,
+            DossierPublishStatusConstants.Pending,
+            "system");
+
+        await _dossierRepository.SaveActiveWorkflowTaskAsync(id, string.Empty, string.Empty, string.Empty, "[]", "system");
+
+        var synced = await TrySyncReindexAsync(id);
+        if (!synced)
+            await TryPublishDossierChangedAsync(id, DossierChangedActions.WorkflowChanged);
+    }
+
     private async Task<bool> TryPublishDossierChangedAsync(Guid dossierId, string action)
     {
         try
@@ -640,7 +667,30 @@ public class DossierService : IDossierService
             {
                 await TryPublishDossierChangedAsync(id, DossierChangedActions.Updated);
             }
+
+            try
+            {
+                await _documentTextIndexNotifier.PublishReindexDossierDocumentsAsync(id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "Không publish reindex tài liệu hồ sơ {DossierId} sau thay đổi trạng thái xuất bản.",
+                    id);
+            }
         }
         return updated;
     }
+
+    public async Task<EavFormTemplate?> GetFormTemplateForDossierAsync(Guid dossierId, Guid? formId)
+    {
+        if (formId.HasValue && formId.Value != Guid.Empty)
+        {
+            return await _dossierRepository.GetEavFormTemplateAsync(formId.Value);
+        }
+
+        return await _dossierRepository.GetEavFormTemplateByDossierIdAsync(dossierId);
+    }
 }
+
