@@ -39,6 +39,7 @@ public class DocumentIndexWorker : BackgroundService
 
             _channel = await _connection.CreateChannelAsync(cancellationToken: stoppingToken);
             await DigitizationTopicTopology.EnsureAsync(_channel, stoppingToken);
+            await EnsureDocumentTextIndexQueueAsync(_channel, stoppingToken);
 
             var consumer = new AsyncEventingBasicConsumer(_channel);
             consumer.ReceivedAsync += async (_, ea) =>
@@ -100,6 +101,23 @@ public class DocumentIndexWorker : BackgroundService
         {
             _logger.LogError(ex, "Failed to connect or consume document text index queue.");
         }
+    }
+
+    private static async Task EnsureDocumentTextIndexQueueAsync(IChannel channel, CancellationToken cancellationToken)
+    {
+        await channel.QueueDeclareAsync(
+            queue: DocumentTextMessaging.IndexQueue,
+            durable: true,
+            exclusive: false,
+            autoDelete: false,
+            arguments: null,
+            cancellationToken: cancellationToken);
+
+        await channel.QueueBindAsync(
+            queue: DocumentTextMessaging.IndexQueue,
+            exchange: DigitizationTopicTopology.ExchangeName,
+            routingKey: DocumentTextMessaging.ReindexRoutingKey,
+            cancellationToken: cancellationToken);
     }
 
     private async Task<bool> IndexAsync(DocumentTextIndexEvent evt, CancellationToken cancellationToken)

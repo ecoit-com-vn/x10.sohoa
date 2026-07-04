@@ -1,5 +1,6 @@
 using System.Text.Json;
 using EvnHanoi.EquipmentService.Core.DTOs;
+using EvnHanoi.EquipmentService.Core.Entities;
 using EvnHanoi.EquipmentService.Core.Interfaces;
 
 namespace EvnHanoi.EquipmentService.Core.Services;
@@ -66,6 +67,11 @@ public interface IDossierDocumentService
         Guid documentId,
         string userId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>Lấy biểu mẫu EAV theo loại văn bản gắn với phiên bản tài liệu.</summary>
+    Task<EavFormTemplate?> GetFormTemplateForDocumentVersionAsync(
+        Guid dossierId,
+        Guid versionId);
 }
 
 public class DossierDocumentService : IDossierDocumentService
@@ -77,6 +83,7 @@ public class DossierDocumentService : IDossierDocumentService
     private readonly IFileStorageService _fileStorageService;
     private readonly IFileDownloadTokenService _downloadTokenService;
     private readonly IFolderAllocationRepository _folderAllocationRepository;
+    private readonly IDocumentTextIndexNotifier _documentTextIndexNotifier;
     private readonly ILogger<DossierDocumentService> _logger;
 
     public DossierDocumentService(
@@ -87,6 +94,7 @@ public class DossierDocumentService : IDossierDocumentService
         IFileStorageService fileStorageService,
         IFileDownloadTokenService downloadTokenService,
         IFolderAllocationRepository folderAllocationRepository,
+        IDocumentTextIndexNotifier documentTextIndexNotifier,
         ILogger<DossierDocumentService> logger)
     {
         _dossierService = dossierService ?? throw new ArgumentNullException(nameof(dossierService));
@@ -96,6 +104,7 @@ public class DossierDocumentService : IDossierDocumentService
         _fileStorageService = fileStorageService ?? throw new ArgumentNullException(nameof(fileStorageService));
         _downloadTokenService = downloadTokenService ?? throw new ArgumentNullException(nameof(downloadTokenService));
         _folderAllocationRepository = folderAllocationRepository ?? throw new ArgumentNullException(nameof(folderAllocationRepository));
+        _documentTextIndexNotifier = documentTextIndexNotifier ?? throw new ArgumentNullException(nameof(documentTextIndexNotifier));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -329,7 +338,7 @@ public class DossierDocumentService : IDossierDocumentService
         if (document == null)
             return false;
 
-        var versions = await _documentRepository.GetDocumentVersionsAsync(documentId);
+        var versions = (await _documentRepository.GetDocumentVersionsAsync(documentId)).ToList();
         foreach (var version in versions)
         {
             if (!string.IsNullOrEmpty(version.FilePath))
@@ -344,11 +353,58 @@ public class DossierDocumentService : IDossierDocumentService
 
         if (deleted)
         {
+            foreach (var version in versions)
+            {
+                try
+                {
+                    await _documentTextIndexNotifier.PublishDeleteAsync(version.Id, cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(
+                        ex,
+                        "Không publish xóa index tài liệu version {VersionId}.",
+                        version.Id);
+                }
+            }
+
             await _dossierService.RecordDocumentListChangeAsync(
                 dossierId, $"Xóa tài liệu: {document.Name}", userId);
         }
 
         return deleted;
+    }
+
+    public async Task<EavFormTemplate?> GetFormTemplateForDocumentVersionAsync(Guid dossierId, Guid versionId)
+    {
+        await EnsureDossierExistsAsync(dossierId);
+
+        if (!await _documentRepository.VersionBelongsToDossierAsync(versionId, dossierId))
+            throw new KeyNotFoundException("Phiên bản tài liệu không thuộc hồ sơ này.");
+
+        var version = await _documentRepository.GetDocumentVersionByIdAsync(versionId)
+            ?? throw new KeyNotFoundException("Phiên bản tài liệu không tồn tại.");
+
+        var template = await _documentRepository.GetEavFormTemplateByDocumentIdAsync(version.DocumentId);
+        if (template != null)
+            return template;
+
+        var document = await _documentRepository.GetDocumentByIdAsync(version.DocumentId);
+        if (document?.DocumentTypeId is Guid docTypeId && docTypeId != Guid.Empty)
+        {
+            var docType = await _documentTypeRepository.GetByIdAsync(docTypeId);
+            if (docType == null)
+                throw new KeyNotFoundException("Không tìm thấy loại văn bản của tài liệu.");
+
+            if (!docType.FormId.HasValue || docType.FormId.Value == Guid.Empty)
+                throw new InvalidOperationException("Loại văn bản chưa gắn form EAV.");
+
+            return await _dossierService.GetFormTemplateForDossierAsync(dossierId, docType.FormId)
+                ?? throw new InvalidOperationException(
+                    "Biểu mẫu EAV gắn với loại văn bản không tồn tại hoặc đã bị xóa.");
+        }
+
+        return await _dossierService.GetFormTemplateForDossierAsync(dossierId, null);
     }
 
     private async Task EnsureActiveDocumentTypeAsync(Guid documentTypeId)

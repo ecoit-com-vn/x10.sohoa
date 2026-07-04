@@ -85,4 +85,7 @@ public interface IDossierService
     Task RecordDocumentListChangeAsync(Guid dossierId, string changeNote, string userId);
     Task EnsureCanEditFormDataAsync(Guid dossierId);
     Task<bool> UpdatePublishStatusAsync(Guid id, int publishStatusId, string userId);
+
+    Task<EavFormTemplate?> GetFormTemplateForDossierAsync(Guid dossierId, Guid? formId);
 }
+

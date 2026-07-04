@@ -45,6 +45,7 @@ public class ElasticsearchSetupService : IHostedService
             }, cancellationToken);
 
             await DossierIndexSetup.EnsureIndexExistsAsync(_client, _logger, cancellationToken);
+            await DocumentIndexSetup.EnsureIndexExistsAsync(_client, _logger, cancellationToken);
 
             await EnsureIndexExistsAsync("eavformtemplates", new Properties
             {
@@ -146,6 +147,16 @@ public class ElasticsearchSetupService : IHostedService
             _logger.LogError(ex, "Error bootstrapping dossier_index.");
         }
 
+        // Document fulltext: bootstrap published OCR docs khi document_index rỗng.
+        try
+        {
+            await BootstrapDocumentIndexIfEmptyAsync(scope, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error bootstrapping document_index.");
+        }
+
         // Sync EavFormTemplates
         try
         {
@@ -217,6 +228,60 @@ public class ElasticsearchSetupService : IHostedService
             if (cancellationToken.IsCancellationRequested) break;
             await indexer.IndexByIdAsync(dossierId, cancellationToken);
         }
+    }
+
+    private async Task BootstrapDocumentIndexIfEmptyAsync(IServiceScope scope, CancellationToken cancellationToken)
+    {
+        var countResponse = await _client.CountAsync<DocumentEsDocument>(
+            c => c.Indices(DocumentTextMessaging.IndexName),
+            cancellationToken);
+
+        if (!countResponse.IsValidResponse)
+        {
+            _logger.LogWarning(
+                "Could not count {IndexName} — skipping document bootstrap. Error: {Error}",
+                DocumentTextMessaging.IndexName,
+                countResponse.DebugInformation);
+            return;
+        }
+
+        if (countResponse.Count > 0)
+        {
+            _logger.LogInformation(
+                "{IndexName} already has {Count} document(s) — skipping startup document sync (use RabbitMQ or POST internal/v1/documents/reindex-published).",
+                DocumentTextMessaging.IndexName,
+                countResponse.Count);
+            return;
+        }
+
+        var enrichmentRepository = scope.ServiceProvider.GetRequiredService<IDocumentEnrichmentRepository>();
+        var indexer = scope.ServiceProvider.GetRequiredService<IDocumentIndexer>();
+
+        var versionIds = (await enrichmentRepository.GetPublishedIndexableVersionIdsAsync()).ToList();
+        _logger.LogInformation(
+            "Bootstrapping {Count} published OCR document version(s) into empty {IndexName}...",
+            versionIds.Count,
+            DocumentTextMessaging.IndexName);
+
+        var indexed = 0;
+        var failed = 0;
+        foreach (var versionId in versionIds)
+        {
+            if (cancellationToken.IsCancellationRequested) break;
+
+            var ok = await indexer.IndexByVersionIdAsync(versionId, null, null, 0, cancellationToken);
+            if (ok)
+                indexed++;
+            else
+                failed++;
+        }
+
+        _logger.LogInformation(
+            "Document bootstrap completed for {IndexName}: total={Total}, indexed={Indexed}, failed={Failed}.",
+            DocumentTextMessaging.IndexName,
+            versionIds.Count,
+            indexed,
+            failed);
     }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;

@@ -1102,4 +1102,38 @@ public class DossierRepository : IDossierRepository
 
         return dto;
     }
+
+    public async Task<EavFormTemplate?> GetEavFormTemplateAsync(Guid formId)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        const string sql = @"
+            SELECT 
+                Id, Name, Code, Category, Description, DescriptionInfo, ExtractionProcess,
+                FormSchema, EquipmentTypeId, GridTypeId, Version, IsActive, CreatedAt,
+                CreatedBy, Status, FormType, IsDeleted
+            FROM EavFormTemplates
+            WHERE Id = :FormId AND IsDeleted = 0";
+
+        return await _connection.QuerySingleOrDefaultAsync<EavFormTemplate>(sql, new { FormId = formId.ToString() });
+    }
+
+    public async Task<EavFormTemplate?> GetEavFormTemplateByDossierIdAsync(Guid dossierId)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        const string sql = @"
+            SELECT 
+                f.Id, f.Name, f.Code, f.Category, f.Description, f.DescriptionInfo, f.ExtractionProcess,
+                f.FormSchema, f.EquipmentTypeId, f.GridTypeId, f.Version, f.IsActive, f.CreatedAt,
+                f.CreatedBy, f.Status, f.FormType, f.IsDeleted
+            FROM DOSSIERS d
+            INNER JOIN DOSSIER_TYPES dt ON d.DossierTypeId = dt.ID
+            INNER JOIN EavFormTemplates f ON dt.FORM_ID = f.Id
+            WHERE d.Id = :DossierId AND d.IsDeleted = 0 AND dt.IsDeleted = 0 AND f.IsDeleted = 0";
+
+        return await _connection.QuerySingleOrDefaultAsync<EavFormTemplate>(sql, new { DossierId = dossierId.ToString() });
+    }
 }

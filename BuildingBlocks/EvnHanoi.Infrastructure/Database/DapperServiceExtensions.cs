@@ -71,10 +71,13 @@ public class GuidTypeHandler : SqlMapper.TypeHandler<Guid>
         if (value is Guid guid)
             return guid;
 
-        if (value is string str && Guid.TryParse(str, out var parsedGuid))
+        if (value is string str && Guid.TryParse(str.Trim(), out var parsedGuid))
             return parsedGuid;
 
-        return Guid.Empty;
+        var text = value.ToString();
+        return !string.IsNullOrWhiteSpace(text) && Guid.TryParse(text.Trim(), out var parsed)
+            ? parsed
+            : Guid.Empty;
     }
 }
 
@@ -92,11 +95,15 @@ public class NullableGuidTypeHandler : SqlMapper.TypeHandler<Guid?>
             return null;
 
         if (value is Guid guid)
-            return guid;
+            return guid == Guid.Empty ? null : guid;
 
-        if (value is string str && Guid.TryParse(str, out var parsedGuid))
-            return parsedGuid;
+        if (value is string str)
+            return Guid.TryParse(str.Trim(), out var parsedGuid) ? parsedGuid : null;
 
-        return null;
+        var text = value.ToString();
+        if (string.IsNullOrWhiteSpace(text))
+            return null;
+
+        return Guid.TryParse(text.Trim(), out var parsed) ? parsed : null;
     }
 }

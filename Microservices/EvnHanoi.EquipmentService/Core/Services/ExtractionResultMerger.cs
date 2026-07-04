@@ -3,8 +3,7 @@ using System.Text.Json;
 namespace EvnHanoi.EquipmentService.Core.Services;
 
 /// <summary>
-/// Gộp mảng kết quả bóc tách theo trang thành một object flat (MERGED_DATA_JSON).
-/// Quy tắc: ưu tiên giá trị không null/empty; trang sau ghi đè nếu có giá trị mới.
+/// Đọc block <c>merged</c> từ RESULT_JSON format ExtractionWorker: <c>{ merged, pages }</c>.
 /// </summary>
 public static class ExtractionResultMerger
 {
@@ -16,28 +15,26 @@ public static class ExtractionResultMerger
         try
         {
             using var doc = JsonDocument.Parse(resultJson);
-            if (doc.RootElement.ValueKind != JsonValueKind.Array)
+            var root = doc.RootElement;
+
+            if (root.ValueKind != JsonValueKind.Object
+                || !TryGetPropertyIgnoreCase(root, "merged", out var mergedEl)
+                || mergedEl.ValueKind != JsonValueKind.Object)
+            {
                 return null;
+            }
 
             var merged = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
 
-            foreach (var pageItem in doc.RootElement.EnumerateArray())
+            foreach (var prop in mergedEl.EnumerateObject())
             {
-                if (!TryGetDataObject(pageItem, out var dataEl))
+                if (!HasMeaningfulValue(prop.Value))
                     continue;
 
-                foreach (var prop in dataEl.EnumerateObject())
-                {
-                    if (!HasMeaningfulValue(prop.Value))
-                        continue;
-
-                    merged[prop.Name] = JsonElementToNetValue(prop.Value);
-                }
+                merged[prop.Name] = JsonElementToNetValue(prop.Value);
             }
 
-            return merged.Count == 0
-                ? null
-                : JsonSerializer.Serialize(merged);
+            return merged.Count == 0 ? null : JsonSerializer.Serialize(merged);
         }
         catch (JsonException)
         {
@@ -45,22 +42,21 @@ public static class ExtractionResultMerger
         }
     }
 
-    private static bool TryGetDataObject(JsonElement pageItem, out JsonElement dataEl)
+    private static bool TryGetPropertyIgnoreCase(JsonElement element, string propertyName, out JsonElement value)
     {
-        dataEl = default;
-        if (pageItem.ValueKind != JsonValueKind.Object)
-            return false;
-
-        if (pageItem.TryGetProperty("data", out dataEl) && dataEl.ValueKind == JsonValueKind.Object)
+        if (element.TryGetProperty(propertyName, out value))
             return true;
 
-        // Fallback: phần tử là object phẳng (không bọc data)
-        if (!pageItem.TryGetProperty("page", out _))
+        foreach (var prop in element.EnumerateObject())
         {
-            dataEl = pageItem;
-            return dataEl.ValueKind == JsonValueKind.Object;
+            if (string.Equals(prop.Name, propertyName, StringComparison.OrdinalIgnoreCase))
+            {
+                value = prop.Value;
+                return true;
+            }
         }
 
+        value = default;
         return false;
     }
 
@@ -85,50 +81,5 @@ public static class ExtractionResultMerger
             JsonValueKind.Null => null,
             _ => JsonSerializer.Deserialize<object>(element.GetRawText())
         };
-    }
-
-    /// <summary>
-    /// Gộp kết quả bóc tách mới với FormDataJson hồ sơ — giá trị người dùng đã lưu được ưu tiên.
-    /// </summary>
-    public static string? MergePreservingExisting(string? freshMergedJson, string? existingFormDataJson)
-    {
-        if (string.IsNullOrWhiteSpace(freshMergedJson))
-            return existingFormDataJson;
-        if (string.IsNullOrWhiteSpace(existingFormDataJson))
-            return freshMergedJson;
-
-        try
-        {
-            using var freshDoc = JsonDocument.Parse(freshMergedJson);
-            using var existingDoc = JsonDocument.Parse(existingFormDataJson);
-
-            if (freshDoc.RootElement.ValueKind != JsonValueKind.Object)
-                return existingFormDataJson;
-
-            var result = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
-
-            foreach (var prop in freshDoc.RootElement.EnumerateObject())
-            {
-                if (!HasMeaningfulValue(prop.Value))
-                    continue;
-                result[prop.Name] = JsonElementToNetValue(prop.Value);
-            }
-
-            if (existingDoc.RootElement.ValueKind == JsonValueKind.Object)
-            {
-                foreach (var prop in existingDoc.RootElement.EnumerateObject())
-                {
-                    if (!HasMeaningfulValue(prop.Value))
-                        continue;
-                    result[prop.Name] = JsonElementToNetValue(prop.Value);
-                }
-            }
-
-            return result.Count == 0 ? null : JsonSerializer.Serialize(result);
-        }
-        catch (JsonException)
-        {
-            return freshMergedJson;
-        }
     }
 }

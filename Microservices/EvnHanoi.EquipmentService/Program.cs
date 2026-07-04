@@ -99,6 +99,7 @@ builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IInfrastruc
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IEavFormTemplateService, EvnHanoi.EquipmentService.Core.Services.EavFormTemplateService>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IDossierTypeService, EvnHanoi.EquipmentService.Core.Services.DossierTypeService>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IElasticsearchService, EvnHanoi.EquipmentService.Infrastructure.Services.ElasticsearchService>();
+builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IDocumentTextIndexNotifier, EvnHanoi.EquipmentService.Infrastructure.Messaging.DocumentTextIndexNotifier>();
 builder.Services.AddSingleton<EvnHanoi.EquipmentService.Core.Interfaces.IMessageProducer, EvnHanoi.EquipmentService.Infrastructure.Messaging.RabbitMQProducer>();
 builder.Services.AddPermissionDiscovery("EquipmentService");
 builder.Services.AddHttpContextAccessor();
