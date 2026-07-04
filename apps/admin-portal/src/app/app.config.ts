@@ -1,5 +1,10 @@
 import { ApplicationConfig, provideBrowserGlobalErrorListeners } from '@angular/core';
-import { provideRouter, withEnabledBlockingInitialNavigation, withHashLocation } from '@angular/router';
+import {
+  provideRouter,
+  withEnabledBlockingInitialNavigation,
+  withHashLocation,
+  withRouterConfig
+} from '@angular/router';
 
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { provideHttpClient, withInterceptors, withFetch } from '@angular/common/http';
@@ -14,7 +19,12 @@ import { environment } from '../environments/environment';
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
-    provideRouter(appRoutes, withHashLocation(), withEnabledBlockingInitialNavigation()),
+    provideRouter(
+      appRoutes,
+      withHashLocation(),
+      withEnabledBlockingInitialNavigation(),
+      withRouterConfig({ onSameUrlNavigation: 'reload' })
+    ),
     provideAnimationsAsync(),
     provideHttpClient(withInterceptors([authInterceptor, authRefreshInterceptor, httpErrorInterceptor]), withFetch()),
     MessageService,

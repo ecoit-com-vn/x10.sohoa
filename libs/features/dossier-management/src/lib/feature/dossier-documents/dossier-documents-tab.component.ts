@@ -108,6 +108,7 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, AfterVie
   @Input() canEdit = false;
   @Input() hasFormTemplate = false;
   @Input() formId: string | null = null;
+  @Input() menuScope: 'creator' | 'approver' | 'publisher' = 'creator';
   @Output() formDataSaved = new EventEmitter<void>();
 
   documents = signal<DossierDocumentItem[]>([]);

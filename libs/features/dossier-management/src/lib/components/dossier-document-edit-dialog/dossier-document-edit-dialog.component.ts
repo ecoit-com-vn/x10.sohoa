@@ -25,15 +25,11 @@ import {
   buildDocumentDraftFromSources,
 
   mergeExtractionPageResults,
-
   normalizeDossierDetail,
-
   parseFormDataJson,
-
   parseFormSchemaFields,
-
   parseMergedDataJson,
-
+  readApiField,
   readFormSchemaJson,
 
   serializeFormDataForSchema,
@@ -83,6 +79,8 @@ export class DossierDocumentEditDialogComponent implements OnDestroy {
   @Input() canEdit = false;
 
   @Input() lookupMode = false;
+
+  @Input() publishMode = false;
 
   @Input() hasExtractionResult = false;
 
@@ -340,55 +338,7 @@ export class DossierDocumentEditDialogComponent implements OnDestroy {
 
   private resolveFormAndLoad(mergedDataJson?: string, resultJson?: string): void {
 
-    if (this.documentTypeId) {
-
-      this.documentService.lookupDocumentTypes().subscribe({
-
-        next: (types) => {
-
-          const match = types.find((t) => t.id === this.documentTypeId);
-
-          const resolved = match?.formId ?? this.formId;
-
-          if (!resolved) {
-
-            if (this.canEdit) {
-
-              this.messageService.add({
-
-                severity: 'warn',
-
-                summary: 'Thiếu form',
-
-                detail: 'Loại văn bản chưa gắn biểu mẫu EAV',
-
-              });
-
-            }
-
-            return;
-
-          }
-
-          this.resolvedFormId.set(resolved);
-
-          this.loadFormFields(resolved, mergedDataJson, resultJson);
-
-        },
-
-        error: () => this.loadFormFields(this.formId, mergedDataJson, resultJson),
-
-      });
-
-      return;
-
-    }
-
-
-
-    this.resolvedFormId.set(this.formId);
-
-    this.loadFormFields(this.formId, mergedDataJson, resultJson);
+    this.loadFormFields(mergedDataJson, resultJson);
 
   }
 
@@ -396,67 +346,95 @@ export class DossierDocumentEditDialogComponent implements OnDestroy {
 
   private loadFormFields(
 
-    formId: string | null | undefined,
-
     mergedDataJson?: string,
 
     resultJson?: string
 
   ): void {
 
-    if (!formId) {
-
-      this.fields.set([]);
-
-      this.draftData.set({});
-
-      return;
-
-    }
-
-
-
     const mergedRaw = parseMergedDataJson(mergedDataJson);
-
-    const merged = Object.keys(mergedRaw).length > 0
-
-      ? mergedRaw
-
-      : mergeExtractionPageResults(resultJson);
+    const merged =
+      Object.keys(mergedRaw).length > 0 ? mergedRaw : mergeExtractionPageResults(resultJson);
 
 
 
-    this.dossierService.getFormTemplate(formId).subscribe({
+    this.documentService
 
-      next: (template) => {
+      .getDocumentFormTemplate(this.dossierId, this.versionId, this.lookupMode)
 
-        const schemaJson = readFormSchemaJson(template);
+      .subscribe({
 
-        const parsedFields = parseFormSchemaFields(schemaJson);
+        next: (template) => {
 
-        this.fields.set(parsedFields);
+          if (!template) {
 
-        this.draftData.set(buildDocumentDraftFromSources(parsedFields, merged, this.currentFormData()));
+            this.applyEmptyForm('Không tải được biểu mẫu EAV');
 
-      },
+            return;
 
-      error: () => {
+          }
 
-        this.fields.set([]);
 
-        this.draftData.set({});
 
-        this.messageService.add({
+          const schemaJson = readFormSchemaJson(template);
 
-          severity: 'error',
+          if (!schemaJson) {
 
-          summary: 'Lỗi',
+            this.applyEmptyForm('Biểu mẫu EAV không có schema hợp lệ');
 
-          detail: 'Không tải được biểu mẫu EAV',
+            return;
 
-        });
+          }
 
-      },
+
+
+          const parsedFields = parseFormSchemaFields(schemaJson);
+
+          this.fields.set(parsedFields);
+
+          this.draftData.set(buildDocumentDraftFromSources(parsedFields, merged, this.currentFormData()));
+
+          const templateId = readApiField<string>(template as Record<string, unknown>, 'id', 'Id');
+
+          this.resolvedFormId.set(templateId ?? this.formId);
+
+        },
+
+        error: (err) => {
+
+          const detail =
+
+            err?.error?.message ||
+
+            (this.documentTypeId
+
+              ? 'Loại văn bản chưa gắn biểu mẫu EAV hoặc biểu mẫu không tồn tại'
+
+              : 'Không tải được biểu mẫu EAV');
+
+          this.applyEmptyForm(detail);
+
+        },
+
+      });
+
+  }
+
+
+
+  private applyEmptyForm(detail: string): void {
+
+    this.fields.set([]);
+
+    this.draftData.set({});
+
+    this.messageService.add({
+
+      severity: 'error',
+
+      summary: 'Lỗi',
+
+      detail,
 
     });
 

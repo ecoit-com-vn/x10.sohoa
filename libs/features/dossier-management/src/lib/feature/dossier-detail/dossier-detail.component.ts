@@ -6,6 +6,7 @@ import { DialogModule } from 'primeng/dialog';
 import { MessageService } from 'primeng/api';
 import { catchError, finalize, of, switchMap, takeUntil, Subject } from 'rxjs';
 import { DossierManagementService } from '../../data-access/dossier-management.service';
+import { DossierPublishService } from '../../data-access/dossier-publish.service';
 import { DossierDocumentsTabComponent } from '../dossier-documents/dossier-documents-tab.component';
 import { DossierVersionsTabComponent } from '../dossier-versions-tab/dossier-versions-tab.component';
 import { DossierWorkflowTabComponent } from '../dossier-workflow-tab/dossier-workflow-tab.component';
@@ -192,6 +193,7 @@ function pickFirst<T>(...values: T[]): T | undefined {
           <app-dossier-documents-tab
             [dossierId]="dossierId"
             [canEdit]="canEditDossier()"
+            [menuScope]="menuScope"
             [hasFormTemplate]="!!dossierMeta()?.formId"
             [formId]="dossierMeta()?.formId ?? null"
             (formDataSaved)="loadDetail()"
@@ -362,6 +364,7 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
   @Output() edit = new EventEmitter<void>();
 
   private service = inject(DossierManagementService);
+  private publishService = inject(DossierPublishService);
   private authService = inject(AuthService);
   private messageService = inject(MessageService);
   private destroy$ = new Subject<void>();
@@ -510,11 +513,24 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
     this.loading.set(true);
     this.loadingType.set(true);
 
-    this.service.getDossierById(this.dossierId).pipe(
+    const detail$ = this.menuScope === 'publisher'
+      ? this.publishService.getDetail(this.dossierId)
+      : this.service.getDossierById(this.dossierId);
+
+    detail$.pipe(
       switchMap((res) => {
         const meta = normalizeDossierDetail(res);
         if (!meta) {
           throw new Error('Invalid dossier response');
+        }
+
+        const resolvedKindId = Number(
+          (res as Record<string, unknown>)?.['kindId']
+          ?? (res as Record<string, unknown>)?.['KindId']
+          ?? 2
+        );
+        if (this.menuScope === 'publisher') {
+          this.service.setKindContext(resolvedKindId === 1 ? 1 : 2);
         }
 
         this.dossier.set(res);
@@ -544,8 +560,10 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
 
   /** Ưu tiên formId từ detail API; fallback lookup loại hồ sơ. */
   private resolveFormTemplate(formId: string | null, dossierTypeId: string) {
+    const scope = this.menuScope === 'publisher' ? 'publish' as const : 'default' as const;
+
     if (formId) {
-      return this.service.getFormTemplate(formId);
+      return this.service.getDossierFormTemplate(this.dossierId, formId, scope);
     }
 
     if (!dossierTypeId) {
@@ -562,7 +580,7 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
         if (!resolvedFormId) {
           return of(null);
         }
-        return this.service.getFormTemplate(resolvedFormId);
+        return this.service.getDossierFormTemplate(this.dossierId, resolvedFormId, scope);
       })
     );
   }
@@ -734,6 +752,8 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
   }
 
   get isUserAuthorizedForDetailAction(): boolean {
+    if (this.menuScope === 'publisher') return false;
+
     const task = this.detailPendingTask();
     const d = this.dossier();
     const instance = this.workflowDetail()?.instance;
@@ -821,6 +841,8 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
   }
 
   canEditDossier(): boolean {
+    if (this.menuScope === 'publisher') return false;
+
     const d = this.dossier();
     if (!d) return false;
 
@@ -893,12 +915,10 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
   onCompleteInput() {
     this.submitting.set(true);
     this.service.completeInput(this.dossierId).subscribe({
-      next: (res) => {
+      next: () => {
         this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã hoàn thành nhập liệu thành công' });
-        this.dossier.update((current) =>
-          current ? { ...current, statusId: 2, statusName: 'Hoàn thành' } : current
-        );
         this.submitting.set(false);
+        this.loadDetail();
       },
       error: (err) => {
         this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: err.error?.message || 'Không thể hoàn thành nhập liệu' });

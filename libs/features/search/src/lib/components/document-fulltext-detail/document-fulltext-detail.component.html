@@ -1,0 +1,209 @@
+<p-toast></p-toast>
+
+<div class="wf-page doc-detail-page" *ngIf="!loading() || detail(); else loadingTpl">
+  <div class="breadcrumb">
+    <i class="pi pi-home bc-icon"></i>
+    <span class="bc-text">Trang chủ</span>
+    <span class="bc-sep">/</span>
+    <span class="bc-text">Tìm kiếm toàn văn</span>
+    <span class="bc-sep">/</span>
+    <span class="bc-current">Chi tiết tài liệu</span>
+  </div>
+
+  <div class="doc-detail-header">
+    <div class="doc-detail-header-left">
+      <button type="button" class="btn-back btn-small" (click)="onBack()" title="Quay lại">
+        <i class="pi pi-arrow-left"></i>
+      </button>
+      <div>
+        <h2 class="doc-detail-title">Chi tiết tài liệu</h2>
+        <p class="doc-detail-subtitle">{{ detail()?.documentName }}</p>
+      </div>
+    </div>
+    <div class="doc-detail-header-right">
+      <button
+        type="button"
+        class="btn-outlined btn-small"
+        (click)="reload()"
+        [disabled]="loading()"
+        title="Tải lại trang"
+      >
+        <i class="pi" [class.pi-refresh]="!loading()" [class.pi-spin]="loading()" [class.pi-spinner]="loading()"></i>
+        Tải lại
+      </button>
+      <button type="button" class="btn-outlined btn-small" (click)="onDownload()" [disabled]="downloading()">
+        <i class="pi" [class.pi-download]="!downloading()" [class.pi-spin]="downloading()" [class.pi-spinner]="downloading()"></i>
+        Tải xuống
+      </button>
+    </div>
+  </div>
+
+  <div class="wf-card doc-detail-top">
+    <div class="doc-detail-split">
+      <section class="preview-pane">
+        <div class="pane-title">Bản xem trước tài liệu</div>
+        <div class="preview-toolbar" *ngIf="isPdf() && totalPages() > 1">
+          <button type="button" class="page-btn" (click)="prevPage()" [disabled]="currentPage() <= 1">
+            <i class="pi pi-chevron-left"></i>
+          </button>
+          <span>Trang {{ currentPage() }} / {{ totalPages() }}</span>
+          <button type="button" class="page-btn" (click)="nextPage()" [disabled]="currentPage() >= totalPages()">
+            <i class="pi pi-chevron-right"></i>
+          </button>
+        </div>
+        <div class="preview-body">
+          <div *ngIf="loadingPreview()" class="preview-loading">
+            <i class="pi pi-spin pi-spinner"></i>
+            <span>Đang tải bản xem trước...</span>
+          </div>
+          <ng-container *ngIf="!loadingPreview()">
+            <ng-container *ngIf="previewUrl(); else noPreview">
+              <iframe *ngIf="isPdf()" class="preview-frame" [src]="previewSrc()" title="PDF Preview"></iframe>
+              <img *ngIf="isImage()" class="preview-image" [src]="previewSrc()" [alt]="detail()?.documentName" />
+              <iframe *ngIf="!isPdf() && !isImage()" class="preview-frame" [src]="previewSrc()" title="Preview"></iframe>
+            </ng-container>
+            <ng-template #noPreview>
+              <div class="preview-empty">
+                <i class="pi pi-info-circle"></i>
+                <span>Không thể hiển thị bản xem trước cho tài liệu này.</span>
+              </div>
+            </ng-template>
+          </ng-container>
+        </div>
+      </section>
+
+      <section class="metadata-pane docs-style-view">
+        <div class="docs-section-header">
+          <span class="docs-section-title">
+            <i class="pi pi-file"></i>
+            Thông tin tài liệu
+          </span>
+        </div>
+
+        <div class="docs-fields-list">
+          <div class="docs-field-row">
+            <span class="docs-field-label">Tên tài liệu:</span>
+            <span class="docs-field-value docs-field-value--title">{{ detail()?.documentName || '—' }}</span>
+          </div>
+          <div class="docs-field-row" *ngIf="detail()?.documentTypeName">
+            <span class="docs-field-label">Loại tài liệu:</span>
+            <span class="docs-field-value docs-field-value--accent">{{ detail()?.documentTypeName }}</span>
+          </div>
+          <div class="docs-field-row docs-field-row--top" *ngIf="detail()?.extractionSummary">
+            <span class="docs-field-label">Trích yếu nội dung:</span>
+            <span class="docs-field-value docs-field-value--multiline">{{ detail()?.extractionSummary }}</span>
+          </div>
+          <div class="docs-field-row" *ngIf="detail()?.infrastructureName">
+            <span class="docs-field-label">Trạm / Đường dây:</span>
+            <span class="docs-field-value">{{ detail()?.infrastructureName }}</span>
+          </div>
+          <div class="docs-field-row docs-field-row--top" *ngIf="detail()?.equipmentNames?.length">
+            <span class="docs-field-label">Thiết bị liên quan:</span>
+            <span class="docs-field-value docs-field-value--multiline">{{ detail()?.equipmentNames?.join(', ') }}</span>
+          </div>
+
+          <ng-container *ngIf="documentFields().length > 0; else rawMergedFields">
+            <div
+              class="docs-field-row"
+              [class.docs-field-row--top]="field.type === 'textarea'"
+              *ngFor="let field of documentFields(); trackBy: trackByFieldKey"
+            >
+              <span class="docs-field-label">{{ field.label }}:</span>
+              <span
+                class="docs-field-value"
+                [class.docs-field-value--multiline]="field.type === 'textarea'"
+              >
+                {{ formatFieldDisplayValue(field, documentFormData[field.key]) }}
+              </span>
+            </div>
+          </ng-container>
+          <ng-template #rawMergedFields>
+            <div class="docs-field-row docs-field-row--top" *ngFor="let entry of documentFormData | keyvalue">
+              <span class="docs-field-label">{{ entry.key }}:</span>
+              <span class="docs-field-value docs-field-value--multiline">{{ entry.value }}</span>
+            </div>
+          </ng-template>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <div class="wf-card doc-detail-bottom" *ngIf="detail()?.dossierId as dossierId">
+    <div class="section-title-row">
+      <h3>Thông tin hồ sơ</h3>
+      <button type="button" class="btn-outlined btn-small" (click)="openDossierDetail()">
+        Mở chi tiết hồ sơ
+      </button>
+    </div>
+
+    <div class="tab-bar">
+      <button type="button" class="tab-item" [class.tab-active]="activeDossierTab() === 'info'" (click)="activeDossierTab.set('info')">
+        Thông tin chung
+      </button>
+      <button type="button" class="tab-item" [class.tab-active]="activeDossierTab() === 'documents'" (click)="activeDossierTab.set('documents')">
+        Tài liệu đính kèm
+      </button>
+    </div>
+
+    <div class="tab-content" *ngIf="activeDossierTab() === 'info'">
+      <div *ngIf="loadingDossier()" class="inline-loading">
+        <i class="pi pi-spin pi-spinner"></i> Đang tải thông tin hồ sơ...
+      </div>
+      <ng-container *ngIf="!loadingDossier() && dossier()">
+        <div class="readonly-line">
+          <span class="readonly-label">Trạm / Đường dây:</span>
+          <span class="readonly-value">{{ dossier()?.['infrastructureName'] || detail()?.infrastructureName || '—' }}</span>
+        </div>
+        <div class="readonly-line">
+          <span class="readonly-label">Loại hồ sơ:</span>
+          <span class="readonly-value">{{ dossier()?.['dossierTypeName'] || detail()?.dossierTypeName || '—' }}</span>
+        </div>
+        <div class="readonly-line">
+          <span class="readonly-label">Tiêu đề hồ sơ:</span>
+          <span class="readonly-value">{{ detail()?.dossierTitle || dossier()?.['dossierTypeName'] || '—' }}</span>
+        </div>
+
+        <div class="readonly-line" *ngFor="let field of dossierDynamicFields(); trackBy: trackByFieldKey">
+          <span class="readonly-label">{{ field.label }}:</span>
+          <span class="readonly-value">{{ formatFieldDisplayValue(field, dossierFormData[field.key]) }}</span>
+        </div>
+
+        <div class="equipment-section" *ngIf="equipments().length > 0">
+          <h4>Thiết bị liên quan</h4>
+          <div class="wf-table-wrap">
+            <table class="wf-table">
+              <thead>
+                <tr>
+                  <th class="col-stt">STT</th>
+                  <th>Mã TB</th>
+                  <th>Tên TB</th>
+                  <th>Số serial</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let eq of equipments(); let i = index">
+                  <td class="col-stt">{{ i + 1 }}</td>
+                  <td>{{ eq.equipmentCode || eq.EquipmentCode || eq.code || '—' }}</td>
+                  <td>{{ eq.equipmentName || eq.EquipmentName || eq.name || '—' }}</td>
+                  <td>{{ eq.serialNumber || eq.SerialNumber || '—' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </ng-container>
+    </div>
+
+    <div class="tab-content" *ngIf="activeDossierTab() === 'documents'">
+      <app-dossier-lookup-documents-tab [dossierId]="dossierId"></app-dossier-lookup-documents-tab>
+    </div>
+  </div>
+</div>
+
+<ng-template #loadingTpl>
+  <div class="wf-page doc-detail-page">
+    <div class="inline-loading page-loading">
+      <i class="pi pi-spin pi-spinner"></i> Đang tải chi tiết tài liệu...
+    </div>
+  </div>
+</ng-template>
