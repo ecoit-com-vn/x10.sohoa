@@ -19,6 +19,7 @@ public class DocumentDigitizationService : IDocumentDigitizationService
     private readonly IEavFormTemplateRepository _formTemplateRepository;
     private readonly IFileStorageService _fileStorageService;
     private readonly IMessageProducer _messageProducer;
+    private readonly IDocumentTextIndexNotifier _documentTextIndexNotifier;
     private readonly IDigitizationProgressNotifier _progressNotifier;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<DocumentDigitizationService> _logger;
@@ -31,6 +32,7 @@ public class DocumentDigitizationService : IDocumentDigitizationService
         IEavFormTemplateRepository formTemplateRepository,
         IFileStorageService fileStorageService,
         IMessageProducer messageProducer,
+        IDocumentTextIndexNotifier documentTextIndexNotifier,
         IDigitizationProgressNotifier progressNotifier,
         IServiceScopeFactory scopeFactory,
         ILogger<DocumentDigitizationService> logger)
@@ -42,6 +44,7 @@ public class DocumentDigitizationService : IDocumentDigitizationService
         _formTemplateRepository = formTemplateRepository;
         _fileStorageService = fileStorageService;
         _messageProducer = messageProducer;
+        _documentTextIndexNotifier = documentTextIndexNotifier;
         _progressNotifier = progressNotifier;
         _scopeFactory = scopeFactory;
         _logger = logger;
@@ -68,6 +71,7 @@ public class DocumentDigitizationService : IDocumentDigitizationService
         var formContext = await ResolveFormContextAsync(
             dossier,
             version.DocumentId,
+            documentVersionId,
             request.FormSchemaJson?.Trim(),
             request.ExtractPrompt?.Trim(),
             forceReloadFromTemplate: false);
@@ -115,6 +119,7 @@ public class DocumentDigitizationService : IDocumentDigitizationService
         var formContext = await ResolveFormContextAsync(
             dossier,
             version.DocumentId,
+            documentVersionId,
             formSchemaJsonOverride: null,
             extractPromptOverride: null,
             forceReloadFromTemplate: true);
@@ -175,6 +180,13 @@ public class DocumentDigitizationService : IDocumentDigitizationService
         await _messageProducer.PublishToExchangeAsync(message, DigitizationExchange, ExtractionTaskRoutingKey);
         NotifyProgressInBackground(dossierId, progress);
 
+        await TryPublishDocumentTextIndexAsync(
+            documentVersionId,
+            _fileStorageService.DossierBucketName,
+            version.FilePath,
+            progress.TotalPages,
+            "re-extract-md-ready");
+
         _logger.LogInformation(
             "Đã gửi bóc tách lại version {VersionId}, document {DocumentId}, form {FormId}",
             documentVersionId, version.DocumentId, formContext.FormId);
@@ -191,47 +203,92 @@ public class DocumentDigitizationService : IDocumentDigitizationService
     private async Task<DigitizationFormContext> ResolveFormContextAsync(
         DossierDetailDto dossier,
         Guid documentId,
+        Guid? documentVersionId,
         string? formSchemaJsonOverride,
         string? extractPromptOverride,
         bool forceReloadFromTemplate)
     {
-        string formId = dossier.FormId?.ToString() ?? string.Empty;
-        string formName = dossier.DossierTypeName ?? "Hồ sơ";
         var formSchemaJson = forceReloadFromTemplate ? null : formSchemaJsonOverride?.Trim();
         var extractPrompt = extractPromptOverride?.Trim();
 
-        var documentMeta = await _documentRepository.GetDocumentByIdAsync(documentId);
-        if (documentMeta?.DocumentTypeId.HasValue == true)
+        EavFormTemplate? template = await _documentRepository.GetEavFormTemplateByDocumentIdAsync(documentId);
+        string formId = template?.Id.ToString() ?? dossier.FormId?.ToString() ?? string.Empty;
+        string formName = template?.Name ?? dossier.DossierTypeName ?? "Hồ sơ";
+
+        if (template == null)
         {
-            var docType = await _documentTypeRepository.GetByIdAsync(documentMeta.DocumentTypeId.Value);
-            if (docType?.FormId.HasValue == true)
+            var documentMeta = await _documentRepository.GetDocumentByIdAsync(documentId);
+            if (documentMeta?.DocumentTypeId is Guid docTypeId && docTypeId != Guid.Empty)
             {
-                formId = docType.FormId.Value.ToString();
-                formName = docType.FormName ?? docType.Name;
+                var docType = await _documentTypeRepository.GetByIdAsync(docTypeId);
+                if (docType == null)
+                    throw new InvalidOperationException("Không tìm thấy loại văn bản của tài liệu.");
+
+                if (!docType.FormId.HasValue || docType.FormId.Value == Guid.Empty)
+                    throw new InvalidOperationException("Loại văn bản chưa gắn form EAV — không thể bóc tách.");
+
+                template = await _formTemplateRepository.GetByIdAsync(docType.FormId.Value);
+                if (template == null)
+                {
+                    throw new InvalidOperationException(
+                        "Biểu mẫu EAV gắn với loại văn bản không tồn tại hoặc đã bị xóa — không thể bóc tách.");
+                }
+
+                formId = template.Id.ToString();
+                formName = docType.FormName ?? template.Name;
+            }
+            else if (dossier.FormId is Guid dossierFormId && dossierFormId != Guid.Empty)
+            {
+                template = await _formTemplateRepository.GetByIdAsync(dossierFormId);
+                if (template != null)
+                {
+                    formId = template.Id.ToString();
+                    formName = template.Name;
+                }
             }
         }
-
-        EavFormTemplate? template = null;
-        if (Guid.TryParse(formId, out var parsedFormId))
-            template = await _formTemplateRepository.GetByIdAsync(parsedFormId);
 
         if (forceReloadFromTemplate || string.IsNullOrWhiteSpace(formSchemaJson))
         {
             if (template == null)
-                throw new InvalidOperationException("Loại văn bản chưa gắn form EAV — không thể bóc tách.");
+            {
+                if (forceReloadFromTemplate && documentVersionId.HasValue)
+                {
+                    formSchemaJson = await GetCachedFormSchemaJsonAsync(documentVersionId.Value);
+                    if (!string.IsNullOrWhiteSpace(formSchemaJson) && string.IsNullOrEmpty(formId))
+                    {
+                        formId = dossier.FormId?.ToString() ?? "cached";
+                    }
+                }
 
-            formSchemaJson = template.FormSchema;
-            formId = template.Id.ToString();
-            formName = template.Name;
+                if (string.IsNullOrWhiteSpace(formSchemaJson))
+                    throw new InvalidOperationException("Loại văn bản chưa gắn form EAV — không thể bóc tách.");
+            }
+            else
+            {
+                formSchemaJson = template.FormSchema;
+                formId = template.Id.ToString();
+                formName = template.Name;
+            }
         }
 
-        if (forceReloadFromTemplate || string.IsNullOrWhiteSpace(extractPrompt))
+        if ((forceReloadFromTemplate || string.IsNullOrWhiteSpace(extractPrompt))
+            && !string.IsNullOrWhiteSpace(template?.ExtractionProcess))
         {
-            if (!string.IsNullOrWhiteSpace(template?.ExtractionProcess))
-                extractPrompt = template.ExtractionProcess.Trim();
+            extractPrompt = template.ExtractionProcess.Trim();
         }
 
         return new DigitizationFormContext(formId, formName, formSchemaJson!, extractPrompt);
+    }
+
+    private async Task<string?> GetCachedFormSchemaJsonAsync(Guid documentVersionId)
+    {
+        var progress = await _repository.GetProgressByVersionIdAsync(documentVersionId);
+        if (!string.IsNullOrWhiteSpace(progress?.FormJson))
+            return progress.FormJson.Trim();
+
+        var extraction = await _repository.GetExtractionResultByVersionIdAsync(documentVersionId);
+        return string.IsNullOrWhiteSpace(extraction?.FormJson) ? null : extraction.FormJson.Trim();
     }
 
     private static bool IsOcrPhaseComplete(DocumentOcrProgress progress) =>
@@ -336,6 +393,18 @@ public class DocumentDigitizationService : IDocumentDigitizationService
         }
 
         await _repository.UpdateProgressAsync(progress);
+
+        if (message.Action.Contains("ocr.process.progress", StringComparison.OrdinalIgnoreCase)
+            && message.Progress >= 100)
+        {
+            await TryPublishDocumentTextIndexAsync(
+                message.FileId,
+                progress.BucketName,
+                progress.FilePath,
+                progress.TotalPages > 0 ? progress.TotalPages : message.TotalPages,
+                "ocr-completed");
+        }
+
         await PublishProgressNotificationAsync(progress);
     }
 
@@ -385,21 +454,54 @@ public class DocumentDigitizationService : IDocumentDigitizationService
 
         result.MergedDataJson = ExtractionResultMerger.MergePageResults(result.ResultJson);
 
-        var dossierId = await _documentRepository.GetDossierIdByVersionIdAsync(message.FileId);
-        if (dossierId.HasValue)
-        {
-            var dossier = await _dossierService.GetDetailByIdAsync(dossierId.Value);
-            if (!string.IsNullOrWhiteSpace(dossier?.FormDataJson))
-            {
-                result.MergedDataJson = ExtractionResultMerger.MergePreservingExisting(
-                    result.MergedDataJson,
-                    dossier.FormDataJson);
-            }
-        }
-
         await _repository.UpdateExtractionResultAsync(result);
         if (progress != null)
             await PublishProgressNotificationAsync(progress, result.Status);
+
+        if (message.Status.Equals("Success", StringComparison.OrdinalIgnoreCase))
+        {
+            await TryPublishDocumentTextIndexAsync(
+                message.FileId,
+                message.BucketName ?? progress?.BucketName,
+                progress?.FilePath,
+                progress?.TotalPages ?? 0,
+                "extraction-completed");
+        }
+    }
+
+    /// <summary>
+    /// Publish index fulltext — gọi ngay sau OCR (file *_page_N.md trên MinIO) và reindex sau bóc tách (cập nhật extractionSummary).
+    /// </summary>
+    private async Task TryPublishDocumentTextIndexAsync(
+        Guid documentVersionId,
+        string? bucketName,
+        string? filePath,
+        int totalPages,
+        string trigger)
+    {
+        try
+        {
+            var resolvedPath = filePath;
+            if (string.IsNullOrEmpty(resolvedPath))
+            {
+                var version = await _documentRepository.GetDocumentVersionByIdAsync(documentVersionId);
+                resolvedPath = version?.FilePath;
+            }
+
+            await _documentTextIndexNotifier.PublishIndexAsync(
+                documentVersionId,
+                bucketName ?? _fileStorageService.DossierBucketName,
+                resolvedPath,
+                totalPages);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "Không publish được sự kiện index ({Trigger}) cho version {VersionId}.",
+                trigger,
+                documentVersionId);
+        }
     }
 
     private void NotifyProgressInBackground(Guid? dossierId, DocumentOcrProgress progress, string? extractionStatus = null)

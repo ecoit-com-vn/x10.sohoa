@@ -62,6 +62,31 @@ public partial class DossierByEquipmentController
         }
     }
 
+    [HttpGet("{id:guid}/documents/{versionId:guid}/form-template")]
+    public async Task<IActionResult> GetDocumentFormTemplate(Guid id, Guid versionId)
+    {
+        var access = await EnsurePublishedDossierAccessAsync(id);
+        if (access is not null)
+            return access;
+
+        try
+        {
+            var template = await _dossierDocumentService.GetFormTemplateForDocumentVersionAsync(id, versionId);
+            if (template is null)
+                return NotFound(new { message = "Không tìm thấy biểu mẫu EAV cho tài liệu này." });
+
+            return Ok(template);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
     [HttpGet("{id:guid}/documents/{versionId:guid}/digitization/progress")]
     public async Task<IActionResult> GetDocumentDigitizationProgress(Guid id, Guid versionId)
     {

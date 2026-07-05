@@ -16,6 +16,9 @@ public class EavFormTemplateRepository : IEavFormTemplateRepository
 
     public async Task<EavFormTemplate?> GetByIdAsync(Guid id)
     {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
         var sql = $@"SELECT t.*, gt.Name as {nameof(EavFormTemplate.GridTypeName)}, et.Name as {nameof(EavFormTemplate.EquipmentTypeName)} 
                      FROM {nameof(EavFormTemplate)}s t
                      LEFT JOIN GridTypes gt ON t.{nameof(EavFormTemplate.GridTypeId)} = gt.Id

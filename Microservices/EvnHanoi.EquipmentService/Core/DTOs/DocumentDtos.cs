@@ -183,3 +183,15 @@ public class ActiveDossierQueryDto
     public int? GridTypeId { get; set; }
 }
 
+/// <summary>
+/// DTO chứa gợi ý chỉ mục phiên bản tài liệu OCR
+/// </summary>
+public class DocumentOcrIndexHintDto
+{
+    public Guid VersionId { get; set; }
+    public string? BucketName { get; set; }
+    public string FilePath { get; set; } = string.Empty;
+    public int TotalPages { get; set; }
+}
+
+

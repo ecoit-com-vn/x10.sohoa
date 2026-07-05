@@ -75,4 +75,8 @@ public interface IDossierRepository
 
     // Form data
     Task<bool> UpdateFormDataAsync(Guid id, string formDataJson, int expectedRowVersion, string modifiedBy);
+
+    Task<EavFormTemplate?> GetEavFormTemplateAsync(Guid formId);
+    Task<EavFormTemplate?> GetEavFormTemplateByDossierIdAsync(Guid dossierId);
 }
+
