@@ -31,8 +31,11 @@ public class DossierSearchService : IDossierSearchService
     {
         await ApplyUnitScopeAsync(filter);
         await ApplyEquipmentTypeScopeAsync(filter);
+        await ApplyInfrastructureTypeScopeAsync(filter);
         var bhsCatalogs = (await _enrichmentRepository.GetBhsCatalogDefinitionsAsync()).ToList();
-        return await _searchRepository.GetPagedAsync(filter, bhsCatalogs);
+        var (items, totalCount) = await _searchRepository.GetPagedAsync(filter, bhsCatalogs);
+        var enriched = await EnrichUnitNamesAsync(items.ToList());
+        return (enriched, totalCount);
     }
 
     private async Task<DossierTabCountsDto> ResolveUnitScopeAndSearchCountsAsync(DossierFilterDto filter)
@@ -88,5 +91,71 @@ public class DossierSearchService : IDossierSearchService
             .ToList();
 
         filter.EquipmentScopeIds = equipmentIds;
+    }
+
+    private async Task ApplyInfrastructureTypeScopeAsync(DossierFilterDto filter)
+    {
+        if (!filter.InfrastructureTypeId.HasValue || filter.InfrastructureId.HasValue)
+            return;
+
+        if (_dbConnection.State != ConnectionState.Open)
+            _dbConnection.Open();
+
+        var sql = @"
+            SELECT DISTINCT i.ID
+            FROM INFRASTRUCTURE i
+            INNER JOIN DOSSIERS d ON d.InfrastructureId = i.ID
+            WHERE i.INFRA_TYPE_ID = :InfraTypeId
+              AND (d.IsDeleted = 0 OR d.IsDeleted IS NULL)
+              AND d.STATUS_ID = 6
+              AND d.PUBLISHSTATUSID = 2";
+
+        var parameters = new DynamicParameters();
+        parameters.Add("InfraTypeId", filter.InfrastructureTypeId.Value);
+
+        if (filter.UnitScopeIds is { Count: > 0 })
+        {
+            sql += " AND i.UNIT_ID IN :UnitScopeIds";
+            parameters.Add("UnitScopeIds", filter.UnitScopeIds.ToArray());
+        }
+
+        var infraIds = (await _dbConnection.QueryAsync<string>(sql, parameters))
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        filter.InfrastructureScopeIds = infraIds.Count > 0
+            ? infraIds
+            : new List<string> { "__none__" };
+    }
+
+    private async Task<List<DossierListItemDto>> EnrichUnitNamesAsync(List<DossierListItemDto> items)
+    {
+        var missingUnitIds = items
+            .Where(i => i.UnitId.HasValue && string.IsNullOrWhiteSpace(i.UnitName))
+            .Select(i => i.UnitId!.Value)
+            .Distinct()
+            .ToList();
+
+        if (missingUnitIds.Count == 0)
+            return items;
+
+        if (_dbConnection.State != ConnectionState.Open)
+            _dbConnection.Open();
+
+        const string sql = "SELECT Id, Name FROM ORGANIZATION_UNIT WHERE Id IN :UnitIds";
+        var rows = (await _dbConnection.QueryAsync<(long Id, string Name)>(sql, new { UnitIds = missingUnitIds.ToArray() }))
+            .ToDictionary(r => r.Id, r => r.Name);
+
+        foreach (var item in items)
+        {
+            if (item.UnitId.HasValue && string.IsNullOrWhiteSpace(item.UnitName) &&
+                rows.TryGetValue(item.UnitId.Value, out var name))
+            {
+                item.UnitName = name;
+            }
+        }
+
+        return items;
     }
 }

@@ -80,6 +80,27 @@ public class InternalDossierController : ControllerBase
         }
     }
 
+    [HttpGet("published/{id:guid}/detail")]
+    public async Task<IActionResult> GetPublishedDetail(
+        Guid id,
+        [FromHeader(Name = "X-Internal-Token")] string? internalToken,
+        [FromQuery] bool isAdmin = false,
+        [FromQuery] long? unitId = null)
+    {
+        var expected = _configuration["Internal:Token"];
+        if (string.IsNullOrEmpty(expected))
+            return StatusCode(503, new { message = "Internal:Token chưa được cấu hình trên EquipmentService." });
+
+        if (!string.Equals(internalToken, expected, StringComparison.Ordinal))
+            return Unauthorized(new { message = "Token nội bộ không hợp lệ." });
+
+        var detail = await _dossierService.GetPublishedDetailByIdAsync(id, isAdmin, unitId);
+        if (detail is null)
+            return NotFound(new { message = $"Không tìm thấy hồ sơ đã xuất bản với ID = {id}" });
+
+        return Ok(detail);
+    }
+
     [HttpPost("{id:guid}/auto-approve")]
     public async Task<IActionResult> AutoApproveInternal(
         Guid id,

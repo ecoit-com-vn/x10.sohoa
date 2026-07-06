@@ -74,6 +74,7 @@ public class DossierEnrichmentRepository : IDossierEnrichmentRepository
                     i.NAME AS InfrastructureName,
                     i.CODE AS InfrastructureCode,
                     i.UNIT_ID AS UnitId,
+                    ou.NAME AS UnitName,
                     d.DossierSetId,
                     ds.Name AS DossierSetName,
                     d.DossierTypeId,
@@ -113,6 +114,7 @@ public class DossierEnrichmentRepository : IDossierEnrichmentRepository
                 FROM DOSSIERS d
                 LEFT JOIN GridTypes gt ON d.GridTypeId = gt.Id
                 LEFT JOIN INFRASTRUCTURE i ON d.InfrastructureId = i.ID
+                LEFT JOIN ORGANIZATION_UNIT ou ON i.UNIT_ID = ou.Id
                 LEFT JOIN DOSSIER_SETS ds ON d.DossierSetId = ds.Id
                 LEFT JOIN DOSSIER_TYPES dt ON d.DossierTypeId = dt.Id
                 LEFT JOIN WORKFLOW_TASKS_ACTIVE wta ON d.Id = wta.DOSSIER_ID

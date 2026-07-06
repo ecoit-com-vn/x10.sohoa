@@ -28,6 +28,10 @@ public static class PermissionCodeResolver
             "DossierDigitizationWorkflow" => "DOSSIER_DIGITIZATION",
             "DossierByEquipment" => "SEARCH_DOSSIERS_BY_EQUIPMENT",
             "SearchDossiersByEquipment" => "SEARCH_DOSSIERS_BY_EQUIPMENT",
+            "ReportDossierByGridType" => "REPORT_DOSSIER_BY_GRIDTYPE",
+            "ReportDossierByEquipment" => "REPORT_DOSSIER_BY_EQUIPMENT",
+            "ReportDossierByStation" => "REPORT_DOSSIER_BY_STATION",
+            "ReportDossierByLine" => "REPORT_DOSSIER_BY_LINE",
             "DocumentFullTextSearch" => "DOCUMENT_FULLTEXT_SEARCH",
             _ => ToSnakeCase(controllerKey)
         };
@@ -67,6 +71,18 @@ public static class PermissionCodeResolver
             httpMethod.Equals("GET", StringComparison.OrdinalIgnoreCase))
         {
             return "VIEW";
+        }
+
+        // Báo cáo hồ sơ thiết bị: GET danh sách/chi tiết/lookup → VIEW; export → EXPORT
+        if (controllerKey.StartsWith("ReportDossierBy", StringComparison.OrdinalIgnoreCase))
+        {
+            if (httpMethod.Equals("GET", StringComparison.OrdinalIgnoreCase))
+            {
+                var actLower = actionName.ToLowerInvariant();
+                if (actLower.Contains("export"))
+                    return "EXPORT";
+                return "VIEW";
+            }
         }
 
         // Tra cứu toàn văn tài liệu: mọi GET → VIEW (kể cả download-url)
@@ -176,6 +192,14 @@ public static class PermissionCodeResolver
             "DOSSIER_PUBLISH_RELEASE" => "Xuất bản hồ sơ",
             "DOSSIER_PUBLISH_VIEW" => "Xem xuất bản hồ sơ",
             "SEARCH_DOSSIERS_BY_EQUIPMENT_VIEW" => "Tra cứu hồ sơ thiết bị",
+            "REPORT_DOSSIER_BY_GRIDTYPE_VIEW" => "Xem báo cáo hồ sơ theo loại lưới điện",
+            "REPORT_DOSSIER_BY_GRIDTYPE_EXPORT" => "Xuất Excel báo cáo theo loại lưới điện",
+            "REPORT_DOSSIER_BY_EQUIPMENT_VIEW" => "Xem báo cáo hồ sơ theo thiết bị",
+            "REPORT_DOSSIER_BY_EQUIPMENT_EXPORT" => "Xuất Excel báo cáo theo thiết bị",
+            "REPORT_DOSSIER_BY_STATION_VIEW" => "Xem báo cáo hồ sơ theo trạm",
+            "REPORT_DOSSIER_BY_STATION_EXPORT" => "Xuất Excel báo cáo theo trạm",
+            "REPORT_DOSSIER_BY_LINE_VIEW" => "Xem báo cáo hồ sơ theo đường dây",
+            "REPORT_DOSSIER_BY_LINE_EXPORT" => "Xuất Excel báo cáo theo đường dây",
             "DOCUMENT_FULLTEXT_SEARCH_VIEW" => "Tra cứu toàn văn tài liệu",
             "DOCUMENT_IMPORT" => "Nhập tệp kho tài liệu thiết bị",
             "FOLDER_ALLOCATION_VIEW" => "Xem phân bổ nhập liệu",

@@ -85,6 +85,7 @@ public static class DossierIndexSetup
             { "infrastructureName", searchableText },
             { "infrastructureCode", new KeywordProperty() },
             { "unitId", new LongNumberProperty() },
+            { "unitName", new KeywordProperty() },
             { "dossierSetId", new KeywordProperty() },
             { "dossierSetName", textField },
             { "dossierTypeId", new KeywordProperty() },

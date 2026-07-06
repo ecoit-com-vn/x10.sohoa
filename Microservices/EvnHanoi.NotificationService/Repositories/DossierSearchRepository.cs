@@ -157,6 +157,8 @@ public class DossierSearchRepository : IDossierSearchRepository
     {
         Keyword = source.Keyword,
         InfrastructureId = source.InfrastructureId,
+        InfrastructureTypeId = source.InfrastructureTypeId,
+        InfrastructureScopeIds = source.InfrastructureScopeIds,
         GridTypeId = source.GridTypeId,
         UnitId = source.UnitId,
         UnitScopeIds = source.UnitScopeIds,
@@ -196,13 +198,24 @@ public class DossierSearchRepository : IDossierSearchRepository
             if (filter.GridTypeId.HasValue)
                 filterQueries.Add(new QueryDescriptor<DossierEsDocument>().Term(t => t.Field(DossierEsFieldNames.GridTypeId).Value(filter.GridTypeId.Value)));
 
-            if (filter.InfrastructureId.HasValue)
-            {
-                var infraVariants = DossierIndexIdNormalizer.GetGuidTermVariants(filter.InfrastructureId.Value.ToString());
-                filterQueries.Add(new QueryDescriptor<DossierEsDocument>().Terms(t => t
-                    .Field(DossierEsFieldNames.InfrastructureId)
-                    .Terms(new TermsQueryField(infraVariants.Select(FieldValue.String).ToArray()))));
-            }
+        if (filter.InfrastructureId.HasValue)
+        {
+            var infraVariants = DossierIndexIdNormalizer.GetGuidTermVariants(filter.InfrastructureId.Value.ToString());
+            filterQueries.Add(new QueryDescriptor<DossierEsDocument>().Terms(t => t
+                .Field(DossierEsFieldNames.InfrastructureId)
+                .Terms(new TermsQueryField(infraVariants.Select(FieldValue.String).ToArray()))));
+        }
+        else if (filter.InfrastructureScopeIds is { Count: > 0 })
+        {
+            var infraVariants = filter.InfrastructureScopeIds
+                .SelectMany(id => DossierIndexIdNormalizer.GetGuidTermVariants(id))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Select(FieldValue.String)
+                .ToArray();
+            filterQueries.Add(new QueryDescriptor<DossierEsDocument>().Terms(t => t
+                .Field(DossierEsFieldNames.InfrastructureId)
+                .Terms(new TermsQueryField(infraVariants))));
+        }
 
             if (filter.DossierTypeId.HasValue)
             {
@@ -470,7 +483,7 @@ public class DossierSearchRepository : IDossierSearchRepository
     private static void ApplyVisibilityFilter(List<Query> filterQueries, DossierFilterDto filter)
     {
         var scope = DossierMenuScopes.Normalize(filter.MenuScope);
-        if (filter.IsAdmin || DossierMenuScopes.IsPublisher(scope) || DossierMenuScopes.IsEquipmentLookup(scope))
+        if (filter.IsAdmin || DossierMenuScopes.IsPublisher(scope) || DossierMenuScopes.IsEquipmentLookup(scope) || DossierMenuScopes.IsReport(scope))
             return;
 
         var userId = NormalizeFilterUserId(filter.UserId);
@@ -642,6 +655,9 @@ public class DossierSearchRepository : IDossierSearchRepository
             InfrastructureId = Guid.TryParse(doc.InfrastructureId, out var infraId) ? infraId : null,
             InfrastructureName = doc.InfrastructureName,
             InfrastructureCode = doc.InfrastructureCode,
+            UnitId = doc.UnitId,
+            UnitName = doc.UnitName,
+            EquipmentName = doc.Equipments?.FirstOrDefault()?.EquipmentName,
             DossierSetId = Guid.TryParse(doc.DossierSetId, out var setId) ? setId : null,
             DossierSetName = doc.DossierSetName,
             DossierTypeId = Guid.TryParse(doc.DossierTypeId, out var typeId) ? typeId : Guid.Empty,

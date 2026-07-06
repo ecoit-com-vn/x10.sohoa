@@ -8,12 +8,13 @@ public static class DossierMenuScopes
     public const string Publisher = "publisher";
     public const string EquipmentLookup = "equipment-lookup";
     public const string DocumentFulltext = "document-fulltext";
+    public const string Report = "report";
 
     public static string? Normalize(string? value)
     {
         if (string.IsNullOrWhiteSpace(value)) return null;
         var normalized = value.Trim().ToLowerInvariant();
-        return normalized is Creator or Approver or Publisher or EquipmentLookup or DocumentFulltext
+        return normalized is Creator or Approver or Publisher or EquipmentLookup or DocumentFulltext or Report
             ? normalized
             : null;
     }
@@ -32,4 +33,7 @@ public static class DossierMenuScopes
 
     public static bool IsDocumentFulltext(string? scope) =>
         string.Equals(Normalize(scope), DocumentFulltext, StringComparison.Ordinal);
+
+    public static bool IsReport(string? scope) =>
+        string.Equals(Normalize(scope), Report, StringComparison.Ordinal);
 }
