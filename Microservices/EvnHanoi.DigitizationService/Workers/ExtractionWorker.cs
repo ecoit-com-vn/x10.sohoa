@@ -239,13 +239,19 @@ Là một mảng JSON chứa các đối tượng có cấu trúc: {{""Text"": "
 NGUYÊN TẮC QUAN TRỌNG:
 1. SỬ DỤNG TƯ DUY KHÔNG GIAN: Dựa vào toạ độ Box để tránh ghép nhầm văn bản của cột trái và cột phải vào cùng một trường. Chỉ lấy giá trị cốt lõi, loại bỏ các chữ nhiễu ở cột bên cạnh (như Quốc hiệu, Tiêu ngữ, Ngày tháng).
 2. TỰ ĐỘNG SỬA LỖI CHÍNH TẢ OCR: Khi trích xuất văn bản, hãy tự động sửa các lỗi chính tả do OCR gây ra dựa vào ngữ cảnh. 
-   - Lỗi dấu thanh (KỶ→KỸ, SỰA→SỬA)
+   - Lỗi dấu thanh (KỶ→KỸ, SỰA→SỬA, TÍCH→TỊCH)
    - Lỗi mất dấu (son→sơn, gi→gỉ)
-   - Lỗi nhận diện (UỞ BAN→ỦY BAN, Trưởng→Trường tuỳ ngữ cảnh).
+   - Lỗi nhận diện (UỞ BAN→ỦY BAN, UỬ→ỦY, Trưởng→Trường tuỳ ngữ cảnh).
    - GIỮ NGUYÊN các mã kỹ thuật, số liệu (22/0,4kV, TBA, QLĐT).
 3. NẾU KHÔNG TÌM THẤY thông tin cho một trường, bắt buộc trả về giá trị null cho trường đó, tuyệt đối không điền 'Không có' hay 'N/A'.
-4. BẮT BUỘC TRẢ VỀ JSON HỢP LỆ (VALID JSON). Phải kiểm tra kỹ việc đóng ngoặc kép (dấu """") đối với các giá trị chuỗi dài. CHỈ TRẢ VỀ một chuỗi JSON duy nhất.
+4. BẮT BUỘC TRẢ VỀ JSON HỢP LỆ (VALID JSON). Phải kiểm tra kỹ việc đóng ngoặc kép (dấu """") đối với các giá trị chuỗi dài. CHỈ TRẢ VỀ một chuỗi JSON duy nhất, KHÔNG thêm giải thích hay markdown.
 5. Format JSON phải tuân thủ nghiêm ngặt theo cấu trúc đã cho, với tên trường chính xác như yêu cầu. KHÔNG được thêm bớt hay đổi tên trường.
+6. GHÉP CÁC DÒNG LIÊN TIẾP: Nếu một trường có nhiều dòng liền kề nhau (các box có y0 liên tiếp, cùng vùng x), hãy ghép tất cả thành 1 giá trị. Ví dụ: ""KT. CHỦ TỊCH"" và ""PHÓ CHỦ TỊCH"" trên 2 dòng → ghép thành ""KT. CHỦ TỊCH\nPHÓ CHỦ TỊCH"".
+7. PHÂN BIỆT KHU VỰC VĂN BẢN:
+   - Phần ""Nơi nhận"" (thường ở góc dưới bên trái, bắt đầu bằng ""Nơi nhận:"") KHÔNG phải là người ký.
+   - Phần ""Người ký"" thường nằm ở góc dưới bên phải, phía trên tên người ký có chức danh.
+   - Phần ""Trích yếu"" nằm ở header (giữa trang, dưới tên loại văn bản), KHÔNG phải nội dung chi tiết của các điều khoản.
+8. TRƯỜNG ĐỂ TRỐNG: Nếu phát hiện vị trí có dấu hiệu để trống (ví dụ: ""Số: .../QĐ-UBND"", ""ngày ... tháng ... năm"") thì trả về giá trị null.
 {taskMsg.ExtractPrompt}
 
 CÁC TRƯỜNG CẦN TRÍCH XUẤT:
@@ -283,120 +289,160 @@ CÁC TRƯỜNG CẦN TRÍCH XUẤT:
                                     {
                                         _logger.LogInformation("Đang gửi văn bản trang {Page}/{TotalPages} tới llm_server...", pageNum, totalPages);
                                         pageText = OcrPageContentHelper.NormalizeUtf8Text(pageText);
-                                        string prompt = $"{systemPrompt}\n\nVĂN BẢN OCR:\n{pageText}";
 
-                                        var payload = new
+                                        // Đọc cấu hình extraction từ appsettings
+                                        int maxTokens = _configuration.GetValue("Extraction:MaxTokens", 4096);
+                                        float llmTemperature = _configuration.GetValue("Extraction:Temperature", 0.05f);
+                                        int maxRetries = _configuration.GetValue("Extraction:MaxRetries", 2);
+                                        int retryDelayMs = _configuration.GetValue("Extraction:RetryDelayMs", 1000);
+
+                                        object pageResult = null;
+                                        var swTotal = Stopwatch.StartNew();
+
+                                        for (int attempt = 0; attempt <= maxRetries; attempt++)
                                         {
-                                            messages = new[] { new { role = "user", content = prompt } },
-                                            temperature = 0.1,
-                                            max_tokens = 2000
-                                        };
-                                        var content = new StringContent(
-                                            JsonSerializer.Serialize(payload, OcrPageContentHelper.Utf8JsonOptions),
-                                            Encoding.UTF8,
-                                            "application/json");
-
-                                        var sw = Stopwatch.StartNew();
-                                        var response = await httpClient.PostAsync("/v1/chat/completions", content, stoppingToken);
-                                        response.EnsureSuccessStatusCode();
-                                        var resultStr = await response.Content.ReadAsStringAsync(stoppingToken);
-                                        sw.Stop();
-
-                                        var jsonNode = JsonNode.Parse(resultStr);
-                                        var extractedJson = jsonNode?["choices"]?[0]?["message"]?["content"]?.GetValue<string>();
-
-                                        try
-                                        {
-                                            if (!string.IsNullOrEmpty(extractedJson))
+                                            if (attempt > 0)
                                             {
-                                                if (extractedJson.StartsWith("```json"))
-                                                {
-                                                    extractedJson = extractedJson.Substring(7);
-                                                    if (extractedJson.EndsWith("```")) extractedJson = extractedJson.Substring(0, extractedJson.Length - 3);
-                                                }
-                                                else if (extractedJson.StartsWith("```"))
-                                                {
-                                                    extractedJson = extractedJson.Substring(3);
-                                                    if (extractedJson.EndsWith("```")) extractedJson = extractedJson.Substring(0, extractedJson.Length - 3);
-                                                }
-
-                                                var parsedJson = JsonNode.Parse(extractedJson.Trim());
-                                                _logger.LogInformation("[ĐO ĐẠC] Trang {Page} hoàn thành Trích xuất sau {ElapsedMs} ms.", pageNum, sw.ElapsedMilliseconds);
-                                                return new { page = pageNum, data = parsedJson };
+                                                _logger.LogWarning("Retry lần {Attempt}/{MaxRetries} cho trang {Page}.", attempt, maxRetries, pageNum);
+                                                await Task.Delay(retryDelayMs * attempt, stoppingToken);
                                             }
-                                            return new { page = pageNum, data_text = extractedJson };
-                                        }
-                                        catch
-                                        {
-                                            // Cứu hộ JSON bị lỗi (thiếu ngoặc kép, sai cú pháp) bằng Regex
+
+                                            var payload = new
+                                            {
+                                                messages = new object[]
+                                                {
+                                                    new { role = "system", content = systemPrompt },
+                                                    new { role = "user", content = $"VĂN BẢN OCR:\n{pageText}" }
+                                                },
+                                                temperature = llmTemperature,
+                                                max_tokens = maxTokens
+                                            };
+                                            var content = new StringContent(
+                                                JsonSerializer.Serialize(payload, OcrPageContentHelper.Utf8JsonOptions),
+                                                Encoding.UTF8,
+                                                "application/json");
+
+                                            var sw = Stopwatch.StartNew();
+                                            var response = await httpClient.PostAsync("/v1/chat/completions", content, stoppingToken);
+                                            response.EnsureSuccessStatusCode();
+                                            var resultStr = await response.Content.ReadAsStringAsync(stoppingToken);
+                                            sw.Stop();
+
+                                            var jsonNode = JsonNode.Parse(resultStr);
+                                            var extractedJson = jsonNode?["choices"]?[0]?["message"]?["content"]?.GetValue<string>();
+
+                                            // Diagnostic: log chi tiết khi LLM response rỗng
+                                            if (string.IsNullOrEmpty(extractedJson))
+                                            {
+                                                _logger.LogWarning(
+                                                    "[DIAGNOSTIC] LLM response content rỗng cho trang {Page} (attempt {Attempt}). " +
+                                                    "HTTP Status: {Status}. Response length: {Length} bytes.",
+                                                    pageNum, attempt, response.StatusCode, resultStr?.Length ?? 0);
+                                                if (attempt < maxRetries) continue; // Retry
+                                                pageResult = new { page = pageNum, data_text = "" };
+                                                break;
+                                            }
+
+                                            // Strip markdown code block markers
+                                            if (extractedJson.StartsWith("```json"))
+                                            {
+                                                extractedJson = extractedJson.Substring(7);
+                                                if (extractedJson.EndsWith("```")) extractedJson = extractedJson.Substring(0, extractedJson.Length - 3);
+                                            }
+                                            else if (extractedJson.StartsWith("```"))
+                                            {
+                                                extractedJson = extractedJson.Substring(3);
+                                                if (extractedJson.EndsWith("```")) extractedJson = extractedJson.Substring(0, extractedJson.Length - 3);
+                                            }
+
                                             try
                                             {
-                                                var dict = new Dictionary<string, object>();
-                                                bool rescued = false;
-                                                if (taskMsg.Form?.Fields != null)
+                                                var parsedJson = JsonNode.Parse(extractedJson.Trim());
+                                                _logger.LogInformation("[ĐO ĐẠC] Trang {Page} hoàn thành Trích xuất sau {ElapsedMs} ms.", pageNum, sw.ElapsedMilliseconds);
+                                                pageResult = new { page = pageNum, data = parsedJson };
+                                                break; // Thành công → thoát retry
+                                            }
+                                            catch
+                                            {
+                                                _logger.LogWarning("JSON parse lỗi trang {Page} (attempt {Attempt}): {Json}",
+                                                    pageNum, attempt, extractedJson?.Length > 300 ? extractedJson[..300] + "..." : extractedJson);
+
+                                                if (attempt < maxRetries) continue; // Retry trước khi fallback
+
+                                                // Cứu hộ JSON bị lỗi (thiếu ngoặc kép, sai cú pháp) bằng Regex — chỉ khi hết retry
+                                                try
                                                 {
-                                                    var keys = taskMsg.Form.Fields.Select(f => f.FieldName).ToList();
-                                                    for (int k = 0; k < keys.Count; k++)
+                                                    var dict = new Dictionary<string, object>();
+                                                    bool rescued = false;
+                                                    if (taskMsg.Form?.Fields != null)
                                                     {
-                                                        string key = keys[k];
-                                                        string nextKey = k < keys.Count - 1 ? keys[k + 1] : null;
-
-                                                        var match = Regex.Match(extractedJson, $"\"{key}\"\\s*:\\s*");
-                                                        if (match.Success)
+                                                        var keys = taskMsg.Form.Fields.Select(f => f.FieldName).ToList();
+                                                        for (int k = 0; k < keys.Count; k++)
                                                         {
-                                                            int startValIdx = match.Index + match.Length;
-                                                            int endValIdx = extractedJson.Length;
+                                                            string key = keys[k];
+                                                            string nextKey = k < keys.Count - 1 ? keys[k + 1] : null;
 
-                                                            if (nextKey != null)
+                                                            var match = Regex.Match(extractedJson, $"\"{key}\"\\s*:\\s*");
+                                                            if (match.Success)
                                                             {
-                                                                var nextMatch = Regex.Match(extractedJson, $"\"{nextKey}\"\\s*:\\s*");
-                                                                if (nextMatch.Success)
+                                                                int startValIdx = match.Index + match.Length;
+                                                                int endValIdx = extractedJson.Length;
+
+                                                                if (nextKey != null)
                                                                 {
-                                                                    endValIdx = nextMatch.Index;
-                                                                    int commaIdx = extractedJson.LastIndexOf(',', endValIdx - 1, endValIdx - startValIdx);
-                                                                    if (commaIdx != -1) endValIdx = commaIdx;
+                                                                    var nextMatch = Regex.Match(extractedJson, $"\"{nextKey}\"\\s*:\\s*");
+                                                                    if (nextMatch.Success)
+                                                                    {
+                                                                        endValIdx = nextMatch.Index;
+                                                                        int commaIdx = extractedJson.LastIndexOf(',', endValIdx - 1, endValIdx - startValIdx);
+                                                                        if (commaIdx != -1) endValIdx = commaIdx;
+                                                                    }
                                                                 }
-                                                            }
-                                                            else
-                                                            {
-                                                                int braceIdx = extractedJson.LastIndexOf('}');
-                                                                if (braceIdx > startValIdx) endValIdx = braceIdx;
-                                                            }
-
-                                                            if (endValIdx > startValIdx)
-                                                            {
-                                                                string rawVal = extractedJson.Substring(startValIdx, endValIdx - startValIdx).Trim();
-                                                                if (rawVal == "null") dict[key] = null;
                                                                 else
                                                                 {
-                                                                    if (rawVal.StartsWith("\"")) rawVal = rawVal.Substring(1);
-                                                                    if (rawVal.EndsWith("\"")) rawVal = rawVal.Substring(0, rawVal.Length - 1);
-                                                                    rawVal = rawVal.Replace("\\\"", "\"").Replace("\\n", "\n");
-                                                                    dict[key] = rawVal.Trim();
+                                                                    int braceIdx = extractedJson.LastIndexOf('}');
+                                                                    if (braceIdx > startValIdx) endValIdx = braceIdx;
                                                                 }
-                                                                rescued = true;
+
+                                                                if (endValIdx > startValIdx)
+                                                                {
+                                                                    string rawVal = extractedJson.Substring(startValIdx, endValIdx - startValIdx).Trim();
+                                                                    if (rawVal == "null") dict[key] = null;
+                                                                    else
+                                                                    {
+                                                                        if (rawVal.StartsWith("\"")) rawVal = rawVal.Substring(1);
+                                                                        if (rawVal.EndsWith("\"")) rawVal = rawVal.Substring(0, rawVal.Length - 1);
+                                                                        rawVal = rawVal.Replace("\\\"", "\"").Replace("\\n", "\n");
+                                                                        dict[key] = rawVal.Trim();
+                                                                    }
+                                                                    rescued = true;
+                                                                }
                                                             }
                                                         }
                                                     }
-                                                }
 
-                                                if (rescued && dict.Count > 0)
+                                                    if (rescued && dict.Count > 0)
+                                                    {
+                                                        var rescuedJson = JsonSerializer.Serialize(dict);
+                                                        var parsedJson = JsonNode.Parse(rescuedJson);
+                                                        _logger.LogInformation("[ĐO ĐẠC] Trang {Page} hoàn thành Trích xuất (ĐÃ CỨU HỘ BẰNG REGEX) sau {ElapsedMs} ms.", pageNum, sw.ElapsedMilliseconds);
+                                                        pageResult = new { page = pageNum, data = parsedJson };
+                                                        break;
+                                                    }
+                                                }
+                                                catch (Exception ex)
                                                 {
-                                                    var rescuedJson = JsonSerializer.Serialize(dict);
-                                                    var parsedJson = JsonNode.Parse(rescuedJson);
-                                                    _logger.LogInformation("[ĐO ĐẠC] Trang {Page} hoàn thành Trích xuất (ĐÃ CỨU HỘ BẰNG REGEX) sau {ElapsedMs} ms.", pageNum, sw.ElapsedMilliseconds);
-                                                    return new { page = pageNum, data = parsedJson };
+                                                    _logger.LogWarning(ex, "Lỗi khi chạy cứu hộ JSON cho trang {Page}", pageNum);
                                                 }
-                                            }
-                                            catch (Exception ex)
-                                            {
-                                                _logger.LogWarning(ex, "Lỗi khi chạy cứu hộ JSON cho trang {Page}", pageNum);
-                                            }
 
-                                            // Fallback cuối cùng
-                                            _logger.LogInformation("[ĐO ĐẠC] Trang {Page} hoàn thành Trích xuất (Raw Text) sau {ElapsedMs} ms.", pageNum, sw.ElapsedMilliseconds);
-                                            return new { page = pageNum, data_text = extractedJson };
+                                                // Fallback cuối cùng
+                                                _logger.LogInformation("[ĐO ĐẠC] Trang {Page} hoàn thành Trích xuất (Raw Text) sau {ElapsedMs} ms.", pageNum, swTotal.ElapsedMilliseconds);
+                                                pageResult = new { page = pageNum, data_text = extractedJson };
+                                                break;
+                                            }
                                         }
+
+                                        return pageResult ?? new { page = pageNum, data_text = "" };
                                     }
                                     catch (Exception ex)
                                     {
@@ -455,6 +501,43 @@ CÁC TRƯỜNG CẦN TRÍCH XUẤT:
                                             else if (mergedResult[fieldName] == null && fieldValue != null)
                                             {
                                                 mergedResult[fieldName] = JsonNode.Parse(fieldValue.ToJsonString());
+                                            }
+                                        }
+                                    }
+                                    // Xử lý data_text: nếu trang không có "data" nhưng có "data_text" chứa JSON hợp lệ
+                                    else
+                                    {
+                                        var dataTextNode = dataNode?["data_text"];
+                                        if (dataTextNode != null)
+                                        {
+                                            string rawText = dataTextNode.GetValue<string>();
+                                            if (!string.IsNullOrWhiteSpace(rawText))
+                                            {
+                                                try
+                                                {
+                                                    // Thử strip markdown + parse JSON từ data_text
+                                                    string cleaned = rawText.Trim();
+                                                    if (cleaned.StartsWith("```json")) cleaned = cleaned[7..];
+                                                    if (cleaned.StartsWith("```")) cleaned = cleaned[3..];
+                                                    if (cleaned.EndsWith("```")) cleaned = cleaned[..^3];
+
+                                                    var parsedDataText = JsonNode.Parse(cleaned.Trim());
+                                                    if (parsedDataText is JsonObject textPageData)
+                                                    {
+                                                        foreach (var kvp in textPageData)
+                                                        {
+                                                            if (!mergedResult.ContainsKey(kvp.Key))
+                                                                mergedResult[kvp.Key] = kvp.Value != null ? JsonNode.Parse(kvp.Value.ToJsonString()) : null;
+                                                            else if (mergedResult[kvp.Key] == null && kvp.Value != null)
+                                                                mergedResult[kvp.Key] = JsonNode.Parse(kvp.Value.ToJsonString());
+                                                        }
+                                                        _logger.LogInformation("Đã merge thành công data_text từ trang.");
+                                                    }
+                                                }
+                                                catch (Exception dtEx)
+                                                {
+                                                    _logger.LogWarning("Không parse được data_text: {Error}", dtEx.Message);
+                                                }
                                             }
                                         }
                                     }
