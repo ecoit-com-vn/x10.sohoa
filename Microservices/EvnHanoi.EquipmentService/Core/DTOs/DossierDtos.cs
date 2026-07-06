@@ -90,6 +90,8 @@ public class DossierDetailDto
     public int StatusId { get; set; }
     public string? StatusName { get; set; }
     public string? StatusCode { get; set; }
+    /// <summary>1 = Digitization, 2 = New (hồ sơ mới).</summary>
+    public int KindId { get; set; } = 2;
     public Guid? WorkflowInstanceId { get; set; }
     public string? WorkflowStatusName { get; set; }
     public int RowVersion { get; set; }

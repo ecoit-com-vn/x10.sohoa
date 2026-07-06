@@ -18,10 +18,11 @@ public class DossierWorkflowController : DossierWorkflowControllerBase
     public DossierWorkflowController(
         IWorkflowEngineService workflowEngine,
         IWorkflowDefinitionService workflowDefinitionService,
+        IDossierWorkflowQueryService dossierWorkflowQuery,
         IHttpClientFactory httpClientFactory,
         IWorkflowRepository workflowRepository,
         IConfiguration configuration)
-        : base(workflowEngine, workflowDefinitionService, httpClientFactory, workflowRepository, configuration)
+        : base(workflowEngine, workflowDefinitionService, dossierWorkflowQuery, httpClientFactory, workflowRepository, configuration)
     {
     }
 }

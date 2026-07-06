@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using EvnHanoi.Infrastructure.Security;
 using EvnHanoi.NotificationService.Models;
 using Microsoft.Extensions.Caching.Memory;
 
@@ -144,7 +145,7 @@ public class DossierMenuScopeValidator : IDossierMenuScopeValidator
             return (false, "Không có quyền truy cập menu kiểm tra nhập liệu.");
         }
 
-        if (HasAllPermissions(approverPerms, "DOSSIER_MANAGE", "DOSSIER_VIEW", "DOSSIER_EDIT"))
+        if (HasAnyPermission(approverPerms, "DOSSIER_MANAGE", "SUPER_ADMIN"))
             return (true, null);
 
         return (false, "Không có quyền truy cập menu phê duyệt hồ sơ.");
@@ -180,8 +181,11 @@ public class DossierMenuScopeValidator : IDossierMenuScopeValidator
     }
 
     private static bool HasAnyPermission(IReadOnlyList<string> perms, params string[] codes) =>
-        codes.Any(code => perms.Any(p => string.Equals(p, code, StringComparison.OrdinalIgnoreCase)));
+        codes.Any(code =>
+            perms.Any(p => string.Equals(p, code, StringComparison.OrdinalIgnoreCase)) ||
+            PermissionImplicationResolver.GetImpliedAlternates(code)
+                .Any(alt => perms.Any(p => string.Equals(p, alt, StringComparison.OrdinalIgnoreCase))));
 
     private static bool HasAllPermissions(IReadOnlyList<string> perms, params string[] codes) =>
-        codes.All(code => perms.Any(p => string.Equals(p, code, StringComparison.OrdinalIgnoreCase)));
+        codes.All(code => HasAnyPermission(perms, code));
 }

@@ -604,7 +604,8 @@ public class FileUploadService : IFileUploadService
         if (folder == null)
             throw new InvalidOperationException("Thư mục không tồn tại");
 
-        if (userUnitId == 0 || userUnitId < folder.UnitId)
+        // Cây thư mục kho chỉ hiển thị folder thuộc đúng unit_id JWT — so khớp tuyệt đối, không so sánh số học ID.
+        if (userUnitId == 0 || folder.UnitId != userUnitId)
             throw new UnauthorizedAccessException("Bạn không có quyền upload file vào thư mục này");
 
         return folder;
