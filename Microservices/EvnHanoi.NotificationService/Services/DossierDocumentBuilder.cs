@@ -32,7 +32,6 @@ public class DossierDocumentBuilder : IDossierDocumentBuilder
             InfrastructureId = data.InfrastructureId,
             InfrastructureName = data.InfrastructureName,
             InfrastructureCode = data.InfrastructureCode,
-            StationName = data.StationName,
             UnitId = data.UnitId,
             DossierSetId = data.DossierSetId,
             DossierSetName = data.DossierSetName,

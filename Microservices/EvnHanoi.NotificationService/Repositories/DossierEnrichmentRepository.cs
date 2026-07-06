@@ -73,16 +73,6 @@ public class DossierEnrichmentRepository : IDossierEnrichmentRepository
                     d.InfrastructureId,
                     i.NAME AS InfrastructureName,
                     i.CODE AS InfrastructureCode,
-                    CASE
-                        WHEN i.INFRA_TYPE_ID = 1 THEN i.NAME
-                        ELSE (
-                            SELECT MIN(st.NAME)
-                            FROM DOSSIER_EQUIPMENTS de
-                            INNER JOIN Equipments e ON LOWER(TRIM(de.EquipmentId)) = LOWER(TRIM(e.Id)) AND e.IsDeleted = 0
-                            INNER JOIN INFRASTRUCTURE st ON e.INFRASTRUCTURE_ID = st.ID AND st.INFRA_TYPE_ID = 1 AND st.IsDeleted = 0
-                            WHERE LOWER(TRIM(de.DossierId)) = LOWER(TRIM(d.Id))
-                        )
-                    END AS StationName,
                     i.UNIT_ID AS UnitId,
                     d.DossierSetId,
                     ds.Name AS DossierSetName,

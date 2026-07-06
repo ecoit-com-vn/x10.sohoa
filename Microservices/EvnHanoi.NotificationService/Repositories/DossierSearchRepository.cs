@@ -642,7 +642,6 @@ public class DossierSearchRepository : IDossierSearchRepository
             InfrastructureId = Guid.TryParse(doc.InfrastructureId, out var infraId) ? infraId : null,
             InfrastructureName = doc.InfrastructureName,
             InfrastructureCode = doc.InfrastructureCode,
-            StationName = doc.StationName,
             DossierSetId = Guid.TryParse(doc.DossierSetId, out var setId) ? setId : null,
             DossierSetName = doc.DossierSetName,
             DossierTypeId = Guid.TryParse(doc.DossierTypeId, out var typeId) ? typeId : Guid.Empty,

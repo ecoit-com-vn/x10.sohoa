@@ -30,7 +30,6 @@ public class DossierListItemDto
     public Guid? InfrastructureId { get; set; }
     public string? InfrastructureName { get; set; }
     public string? InfrastructureCode { get; set; }
-    public string? StationName { get; set; }
     public Guid? DossierSetId { get; set; }
     public string? DossierSetName { get; set; }
     public Guid DossierTypeId { get; set; }
