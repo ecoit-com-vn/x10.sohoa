@@ -32,6 +32,27 @@ public class EavFormTemplateController : ControllerBase
         return Ok(templates);
     }
 
+    [HttpGet("design")]
+    public async Task<ActionResult<IEnumerable<EavFormTemplate>>> GetDesignList()
+    {
+        var templates = await _repository.GetDesignFormsAsync();
+        return Ok(templates);
+    }
+
+    [HttpGet("approval")]
+    public async Task<ActionResult<IEnumerable<EavFormTemplate>>> GetApprovalList()
+    {
+        var templates = await _repository.GetApprovalFormsAsync();
+        return Ok(templates);
+    }
+
+    [HttpGet("completed")]
+    public async Task<ActionResult<IEnumerable<EavFormTemplate>>> GetCompletedList()
+    {
+        var templates = await _repository.GetCompletedFormsAsync();
+        return Ok(templates);
+    }
+
     [HttpGet]
     public async Task<ActionResult<IEnumerable<EavFormTemplate>>> GetAllActive()
     {

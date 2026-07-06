@@ -76,6 +76,37 @@ public static class PermissionCodeResolver
             return "VIEW";
         }
 
+        // Biểu mẫu EAV (formType=FORM): phân quyền theo màn thiết kế / phê duyệt / hoàn thành
+        if (string.Equals(controllerKey, "EavFormTemplate", StringComparison.OrdinalIgnoreCase))
+        {
+            var actLower = actionName.ToLowerInvariant();
+
+            if (actLower.Contains("approve") || actLower.Contains("reject"))
+            {
+                return "APPROVE";
+            }
+
+            if (actLower.Contains("submit"))
+            {
+                return "SUBMIT";
+            }
+
+            if (httpMethod.Equals("GET", StringComparison.OrdinalIgnoreCase))
+            {
+                if (actLower.Contains("completed"))
+                {
+                    return "COMPLETED_VIEW";
+                }
+
+                if (actLower.Contains("approval"))
+                {
+                    return "APPROVAL_VIEW";
+                }
+
+                return "VIEW";
+            }
+        }
+
         return CategorizeAction(actionName, httpMethod);
     }
 
@@ -154,6 +185,15 @@ public static class PermissionCodeResolver
             "DOSSIER_DIGITIZATION_EDIT" => "Sửa hồ sơ số hóa",
             "DOSSIER_DIGITIZATION_DELETE" => "Xóa hồ sơ số hóa",
             "DOSSIER_DIGITIZATION_MANAGE" => "Quản lý quy trình hồ sơ số hóa",
+            "EAV_FORM_TEMPLATE_VIEW" => "Xem cấu hình biểu mẫu",
+            "EAV_FORM_TEMPLATE_CREATE" => "Tạo biểu mẫu",
+            "EAV_FORM_TEMPLATE_EDIT" => "Chỉnh sửa biểu mẫu",
+            "EAV_FORM_TEMPLATE_SUBMIT" => "Gửi duyệt biểu mẫu",
+            "EAV_FORM_TEMPLATE_APPROVAL_VIEW" => "Xem hàng chờ phê duyệt biểu mẫu",
+            "EAV_FORM_TEMPLATE_APPROVE" => "Phê duyệt / từ chối biểu mẫu",
+            "EAV_FORM_TEMPLATE_COMPLETED_VIEW" => "Xem danh sách form hoàn thành",
+            "EAV_FORM_TEMPLATE_MANAGE" => "Khóa / mở khóa biểu mẫu",
+            "EAV_FORM_TEMPLATE_DELETE" => "Xóa biểu mẫu",
             _ => null
         };
     }
