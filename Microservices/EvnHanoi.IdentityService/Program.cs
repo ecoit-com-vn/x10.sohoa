@@ -2,7 +2,10 @@ using System.Text;
 using EvnHanoi.Infrastructure.Database;
 using EvnHanoi.Infrastructure.Logging;
 using EvnHanoi.IdentityService.Core.Interfaces;
+using EvnHanoi.IdentityService.Controllers;
 using EvnHanoi.IdentityService.Infrastructure.Repositories;
+using EvnHanoi.IdentityService.Validators;
+using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
@@ -41,6 +44,7 @@ builder.Services.AddScoped<IUserUnitRoleRepository, UserUnitRoleRepository>();
 builder.Services.AddScoped<IUploadConfigRepository, UploadConfigRepository>();
 builder.Services.AddScoped<IPermissionRepository, PermissionRepository>();
 builder.Services.AddScoped<EvnHanoi.IdentityService.Infrastructure.Security.DynamicSeederService>();
+builder.Services.AddScoped<IValidator<UpdateProfileRequest>, UpdateProfileRequestValidator>();
 
 // RabbitMQ Configuration & Consumer Registration
 var rabbitFactory = new RabbitMQ.Client.ConnectionFactory
