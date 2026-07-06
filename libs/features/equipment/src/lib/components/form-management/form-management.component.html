@@ -5,7 +5,7 @@
       <div class="toolbar-left">
         <wf-breadcrumb />
       </div>
-      <div class="toolbar-right">
+      <div class="toolbar-right" *ngIf="canCreate()">
         <button class="btn-green" (click)="onAddNew()">
           <i class="pi pi-plus"></i> Tạo form mới
         </button>
@@ -80,16 +80,16 @@
                 <button class="act-btn btn-view-history" (click)="viewVersions(form)" title="Lịch sử phiên bản">
                   <i class="pi pi-history"></i>
                 </button>
-                <button class="act-btn act-edit" *ngIf="form.status !== 'Chờ duyệt' && form.status !== 'Hoàn thành'"
+                <button class="act-btn act-edit" *ngIf="canEdit() && form.status !== 'Chờ duyệt' && form.status !== 'Hoàn thành'"
                   (click)="onEdit(form)" title="Chỉnh sửa">
                   <i class="pi pi-pencil"></i>
                 </button>
                 <button class="act-btn act-submit"
-                  *ngIf="form.status === 'Tạo mới' || !form.status || form.status === 'Từ chối'"
+                  *ngIf="canSubmit() && (form.status === 'Tạo mới' || !form.status || form.status === 'Từ chối')"
                   (click)="submitForm(form)" title="Gửi duyệt">
                   <i class="pi pi-send"></i>
                 </button>
-                <button class="act-btn act-delete" *ngIf="form.status !== 'Chờ duyệt' && form.status !== 'Hoàn thành'"
+                <button class="act-btn act-delete" *ngIf="canDelete() && form.status !== 'Chờ duyệt' && form.status !== 'Hoàn thành'"
                   (click)="deactivateForm(form)" title="Xóa form">
                   <i class="pi pi-trash"></i>
                 </button>
@@ -142,7 +142,8 @@
             (onClick)="goToList()"></p-button>
           <p-button label="Xem JSON" icon="pi pi-code" severity="secondary" size="small" [rounded]="true"
             (onClick)="showJson.set(!showJson())"></p-button>
-          <p-button [label]="isEditMode() ? 'Cập nhật cấu hình' : 'Lưu form'" icon="pi pi-save" size="small"
+          <p-button *ngIf="(isEditMode() && canEdit()) || (!isEditMode() && canCreate())"
+            [label]="isEditMode() ? 'Cập nhật cấu hình' : 'Lưu form'" icon="pi pi-save" size="small"
             [rounded]="true" (onClick)="saveForm()"></p-button>
         </div>
       </div>

@@ -36,8 +36,21 @@ export class EavFormService {
     return `/api/v1/eav-form-templates`;
   }
 
+  getDesignTemplates(): Observable<EavFormTemplate[]> {
+    return this.api.get<EavFormTemplate[]>(`${this.apiUrl}/design`);
+  }
+
+  getApprovalTemplates(): Observable<EavFormTemplate[]> {
+    return this.api.get<EavFormTemplate[]>(`${this.apiUrl}/approval`);
+  }
+
+  getCompletedTemplates(): Observable<EavFormTemplate[]> {
+    return this.api.get<EavFormTemplate[]>(`${this.apiUrl}/completed`);
+  }
+
+  /** @deprecated Dùng getDesignTemplates / getApprovalTemplates / getCompletedTemplates */
   getTemplates(): Observable<EavFormTemplate[]> {
-    return this.api.get<EavFormTemplate[]>(this.apiUrl);
+    return this.getDesignTemplates();
   }
 
   getTemplateById(id: string): Observable<EavFormTemplate> {

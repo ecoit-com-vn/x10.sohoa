@@ -11,11 +11,17 @@ import { CheckboxModule } from 'primeng/checkbox';
 import { CardModule } from 'primeng/card';
 import { TextareaModule } from 'primeng/textarea';
 import { Paginator } from 'primeng/paginator';
-import { EavFormService, EavFormTemplate, LoadingService } from '@sohoa.frontend/shared/core';
+import { EavFormService, EavFormTemplate, LoadingService, AuthService } from '@sohoa.frontend/shared/core';
 import { finalize } from 'rxjs';
 import { Dialog } from 'primeng/dialog';
 import { EquipmentTypeService } from '../../data-access/equipment-type.service';
 import { ActivatedRoute, Router } from '@angular/router';
+import {
+  canCreateForm,
+  canDeleteForm,
+  canEditForm,
+  canSubmitForm,
+} from '../../utils/eav-form-permission.util';
 
 interface FormField {
   id: string;
@@ -139,6 +145,12 @@ export class FormManagementComponent implements OnInit {
   private messageService = inject(MessageService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
+  private authService = inject(AuthService);
+
+  canCreate = computed(() => canCreateForm(this.authService));
+  canEdit = computed(() => canEditForm(this.authService));
+  canSubmit = computed(() => canSubmitForm(this.authService));
+  canDelete = computed(() => canDeleteForm(this.authService));
 
   filteredForms = computed(() => {
     const keyword = this.searchKeyword().trim().toLowerCase();
@@ -218,20 +230,21 @@ export class FormManagementComponent implements OnInit {
 
   ngOnInit() {
     this.isFromCompletedForms.set(this.router.url.includes('/completed-forms/edit'));
+    this.authService.loadPermissions();
     this.loadCatalogTypes();
     this.loadHmadCategories();
-    this.loadForms();
+    if (!this.route.snapshot.queryParamMap.get('id')) {
+      this.loadForms();
+    }
 
     this.route.queryParams.subscribe(params => {
       if (params['id']) {
         const id = params['id'];
         this.loadingService.show();
-        this.eavFormService.getTemplates()
+        this.eavFormService.getTemplateById(id)
           .pipe(finalize(() => this.loadingService.hide()))
           .subscribe({
-            next: (data) => {
-              this.forms.set(data || []);
-              const matched = (data || []).find(f => f.id === id);
+            next: (matched) => {
               if (matched) {
                 this.onEdit(matched);
               } else {
@@ -243,8 +256,7 @@ export class FormManagementComponent implements OnInit {
               }
             },
             error: (err) => {
-              console.error('Error loading forms', err);
-              this.forms.set([]);
+              console.error('Error loading form', err);
             }
           });
       }
@@ -253,7 +265,10 @@ export class FormManagementComponent implements OnInit {
 
   loadForms() {
     this.loadingService.show();
-    this.eavFormService.getTemplates()
+    const request$ = this.isFromCompletedForms()
+      ? this.eavFormService.getCompletedTemplates()
+      : this.eavFormService.getDesignTemplates();
+    request$
       .pipe(finalize(() => this.loadingService.hide()))
       .subscribe({
         next: (data) => {
