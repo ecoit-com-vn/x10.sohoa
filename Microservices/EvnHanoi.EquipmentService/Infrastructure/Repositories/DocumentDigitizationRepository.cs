@@ -216,9 +216,5 @@ public class DocumentDigitizationRepository : IDocumentDigitizationRepository
         return rows > 0;
     }
 
-    private void EnsureOpen()
-    {
-        if (_connection.State != ConnectionState.Open)
-            _connection.Open();
-    }
+    private void EnsureOpen() => _connection.EnsureOpen();
 }
