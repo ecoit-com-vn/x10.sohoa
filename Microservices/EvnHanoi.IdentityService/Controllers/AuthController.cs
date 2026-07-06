@@ -6,9 +6,9 @@ using System.Net.Http.Json;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using EvnHanoi.IdentityService.Core.Interfaces;
+using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
@@ -29,12 +29,18 @@ public class AuthController : ControllerBase
     private readonly IUserRepository _userRepository;
     private readonly IConfiguration _configuration;
     private readonly IDbConnection _connection;
+    private readonly IValidator<UpdateProfileRequest> _updateProfileValidator;
 
-    public AuthController(IUserRepository userRepository, IConfiguration configuration, IDbConnection connection)
+    public AuthController(
+        IUserRepository userRepository,
+        IConfiguration configuration,
+        IDbConnection connection,
+        IValidator<UpdateProfileRequest> updateProfileValidator)
     {
         _userRepository = userRepository;
         _configuration = configuration;
         _connection = connection;
+        _updateProfileValidator = updateProfileValidator;
     }
     [AllowAnonymous]
     [HttpPost("login")]
@@ -590,7 +596,11 @@ public class AuthController : ControllerBase
             });
         }
 
-        var errors = ValidateProfileRequest(request);
+        var validationResult = await _updateProfileValidator.ValidateAsync(request);
+        var errors = validationResult.Errors
+            .GroupBy(e => ToCamelCase(e.PropertyName))
+            .ToDictionary(g => g.Key, g => g.First().ErrorMessage);
+
         if (errors.Count > 0)
         {
             return BadRequest(new
@@ -648,42 +658,11 @@ public class AuthController : ControllerBase
         });
     }
 
-    private static Dictionary<string, string> ValidateProfileRequest(UpdateProfileRequest request)
+    private static string ToCamelCase(string value)
     {
-        var errors = new Dictionary<string, string>();
-
-        if (string.IsNullOrWhiteSpace(request.FullName))
-        {
-            errors["fullName"] = "Trường dữ liệu này không được để trống.";
-        }
-        else if (request.FullName.Trim().Length > 255)
-        {
-            errors["fullName"] = "Họ và tên không được vượt quá 255 ký tự.";
-        }
-
-        if (string.IsNullOrWhiteSpace(request.Email))
-        {
-            errors["email"] = "Trường dữ liệu này không được để trống.";
-        }
-        else
-        {
-            var email = request.Email.Trim();
-            if (email.Length > 100)
-            {
-                errors["email"] = "Email không được vượt quá 100 ký tự.";
-            }
-            else if (!Regex.IsMatch(email, @"^[^@\s]+@[^@\s]+\.[^@\s]+$"))
-            {
-                errors["email"] = "Email không đúng định dạng.";
-            }
-        }
-
-        if (!string.IsNullOrWhiteSpace(request.PositionName) && request.PositionName.Trim().Length > 255)
-        {
-            errors["positionName"] = "Chức vụ không được vượt quá 255 ký tự.";
-        }
-
-        return errors;
+        return string.IsNullOrEmpty(value)
+            ? value
+            : char.ToLowerInvariant(value[0]) + value[1..];
     }
 
     [Authorize]
