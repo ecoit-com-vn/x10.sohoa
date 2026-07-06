@@ -8,7 +8,6 @@ public class DossierEsDocument
     public string? InfrastructureId { get; set; }
     public string? InfrastructureName { get; set; }
     public string? InfrastructureCode { get; set; }
-    public string? StationName { get; set; }
     public long? UnitId { get; set; }
     public string? DossierSetId { get; set; }
     public string? DossierSetName { get; set; }
