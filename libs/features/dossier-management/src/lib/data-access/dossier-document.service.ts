@@ -114,12 +114,19 @@ export class DossierDocumentService {
 
   private readonly CHUNK_SIZE = 10 * 1024 * 1024;
   private readonly DIRECT_UPLOAD_THRESHOLD = 10 * 1024 * 1024;
+  private kindId = 2;
+
+  /** kindId: 1 = hồ sơ số hóa → route dossier-digitization. */
+  setKindContext(kindId: number): void {
+    this.kindId = kindId === 1 ? 1 : 2;
+  }
 
   private dossierBase(dossierId: string, lookupMode = false): string {
     if (lookupMode) {
       return `${this.config.apiGatewayUrl}/api/v1/dossiers-by-equipment/${dossierId}/documents`;
     }
-    return `${this.config.apiGatewayUrl}/api/v1/dossiers/${dossierId}/documents`;
+    const segment = this.kindId === 1 ? 'dossier-digitization/dossiers' : 'dossiers';
+    return `${this.config.apiGatewayUrl}/api/v1/${segment}/${dossierId}/documents`;
   }
 
   getDocuments(

@@ -1,19 +1,7 @@
 <p-toast></p-toast>
 
 <div class="wf-page doc-ft-detail-page">
-  <wf-breadcrumb />
-
   <div class="wf-card doc-ft-detail-card">
-    <div class="doc-ft-topbar">
-      <div class="doc-ft-topbar-title">
-        <i class="pi pi-file"></i>
-        <span>Chi tiết tài liệu</span>
-      </div>
-      <button type="button" class="btn-close-detail" (click)="onBack()">
-        Đóng <i class="pi pi-times"></i>
-      </button>
-    </div>
-
     <div *ngIf="loading()" class="doc-ft-loading">
       <i class="pi pi-spin pi-spinner"></i> Đang tải dữ liệu tài liệu...
     </div>
@@ -21,26 +9,17 @@
     <ng-container *ngIf="!loading() && detail()">
       <div class="doc-ft-split">
         <div class="doc-ft-preview-wrap">
-          <div class="doc-ft-preview-toolbar">
-            <span class="doc-ft-preview-filename" [title]="detail()?.documentName || ''">
-              {{ detail()?.documentName }}
-            </span>
-            <button type="button" class="doc-ft-toolbar-btn" (click)="onDownload()" [disabled]="!detail()?.dossierId"
-              title="Tải về">
-              <i class="pi pi-download"></i>
-            </button>
-          </div>
           <div class="doc-ft-preview-body">
             <div *ngIf="previewLoading()" class="doc-ft-preview-state">
               <i class="pi pi-spin pi-spinner"></i>
               <span>Đang tải bản xem trước...</span>
             </div>
             <ng-container *ngIf="previewUrl() && !previewLoading()">
-              <iframe *ngIf="isPdf()" class="doc-ft-preview-frame" [src]="previewSafeSrc()"
+              <iframe *ngIf="isPdf()" class="doc-ft-preview-frame" [src]="previewSrc()"
                 title="Xem trước tài liệu"></iframe>
-              <img *ngIf="isImage()" class="doc-ft-preview-image" [src]="previewSafeSrc()"
+              <img *ngIf="isImage()" class="doc-ft-preview-image" [src]="previewSrc()"
                 [alt]="detail()?.documentName || ''" />
-              <iframe *ngIf="!isPdf() && !isImage()" class="doc-ft-preview-frame" [src]="previewSafeSrc()"
+              <iframe *ngIf="!isPdf() && !isImage()" class="doc-ft-preview-frame" [src]="previewSrc()"
                 title="Xem trước tài liệu"></iframe>
             </ng-container>
             <div *ngIf="!previewUrl() && !previewLoading()" class="doc-ft-preview-state">
@@ -52,8 +31,13 @@
 
         <aside class="doc-ft-panel doc-ft-doc-panel">
           <div class="doc-ft-panel-header">
-            <i class="pi pi-info-circle"></i>
-            <span>Thông tin tài liệu</span>
+            <div class="doc-ft-panel-header-main">
+              <i class="pi pi-info-circle"></i>
+              <span>Thông tin tài liệu</span>
+            </div>
+            <button type="button" class="btn-cancel btn-small" (click)="onBack()">
+              <i class="pi pi-times"></i> Đóng
+            </button>
           </div>
           <div class="doc-ft-panel-body">
             <div class="doc-ft-field-row">
@@ -91,10 +75,13 @@
         </aside>
       </div>
 
-      <section class="doc-ft-panel doc-ft-dossier-panel" *ngIf="dossier() || loadingDossier()">
-        <div class="doc-ft-panel-header">
-          <i class="pi pi-folder"></i>
-          <span>Thông tin hồ sơ</span>
+      <section class="doc-ft-dossier-section" *ngIf="dossier() || loadingDossier()">
+        <div class="doc-ft-panel doc-ft-dossier-panel">
+        <div class="doc-ft-panel-header doc-ft-panel-header--title-only">
+          <div class="doc-ft-panel-header-main">
+            <i class="pi pi-folder"></i>
+            <span>Thông tin hồ sơ</span>
+          </div>
         </div>
 
         <div class="tab-bar doc-ft-tabs">
@@ -221,6 +208,7 @@
             <i class="pi pi-copy"></i>
             <span>Chưa có hồ sơ liên quan được liên kết.</span>
           </div>
+        </div>
         </div>
       </section>
     </ng-container>

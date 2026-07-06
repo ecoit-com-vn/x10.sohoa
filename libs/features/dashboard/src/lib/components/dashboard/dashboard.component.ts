@@ -138,48 +138,31 @@ export class DashboardComponent implements OnInit {
       error: (err) => console.warn('Không thể tải OCR statistics:', err)
     });
 
-    // 2. Tải danh sách thiết bị để tính toán phân bổ và tổng số thiết bị
-    this.http.get<any[]>(`${environment.apiGatewayUrl}/api/v1/equipment`).subscribe({
-      next: (equipments) => {
-        if (equipments && equipments.length > 0) {
-          this.totalEquipment = equipments.length;
-
-          // Tính toán phân bổ theo loại thiết bị
-          this.http.get<any[]>(`${environment.apiGatewayUrl}/api/v1/equipmenttype`).subscribe({
-            next: (types) => {
-              const typeMap = new Map<string, string>();
-              types.forEach(t => typeMap.set(t.id, t.name));
-
-              const countMap = new Map<string, number>();
-              equipments.forEach(eq => {
-                const typeName = typeMap.get(eq.equipmentTypeId) || 'Thiết bị khác';
-                countMap.set(typeName, (countMap.get(typeName) || 0) + 1);
-              });
-
-              const colors = ['#002D72', '#FF6B00', '#22c55e', '#6366f1', '#a855f7'];
-              let idx = 0;
-              const totalEq = equipments.length;
-              this.categories = [];
-              countMap.forEach((count, typeName) => {
-                const percent = Math.round((count / totalEq) * 100);
-                this.categories.push({
-                  name: typeName,
-                  percent: percent,
-                  value: `${count.toLocaleString()} thiết bị`,
-                  color: colors[idx % colors.length]
-                });
-                idx++;
-              });
-            },
-            error: (err) => console.warn('Không thể tải Equipment Types:', err)
-          });
+    // 2. Thiết bị — dùng lookup (bypass quyền) thay GET /equipment + /equipmenttype
+    this.http.get<{
+      equipmentTypes?: Array<{ id?: string; Id?: string; name?: string; Name?: string }>;
+      EquipmentTypes?: Array<{ id?: string; Id?: string; name?: string; Name?: string }>;
+    }>(`${environment.apiGatewayUrl}/api/v1/equipment/lookup`).subscribe({
+      next: (lookup) => {
+        const types = lookup?.equipmentTypes ?? lookup?.EquipmentTypes ?? [];
+        if (types.length > 0) {
+          const colors = ['#002D72', '#FF6B00', '#22c55e', '#6366f1', '#a855f7'];
+          const share = Math.round(100 / Math.min(types.length, 5));
+          this.categories = types.slice(0, 5).map((t, idx) => ({
+            name: t.name ?? t.Name ?? 'Loại thiết bị',
+            percent: idx === Math.min(types.length, 5) - 1
+              ? 100 - share * (Math.min(types.length, 5) - 1)
+              : share,
+            value: t.name ?? t.Name ?? 'Loại thiết bị',
+            color: colors[idx % colors.length],
+          }));
         }
       },
-      error: (err) => console.warn('Không thể tải danh sách thiết bị:', err)
+      error: (err) => console.warn('Không thể tải equipment lookup:', err),
     });
 
-    // 3. Tải danh sách biểu mẫu để cập nhật weekly data
-    this.http.get<any[]>(`${environment.apiGatewayUrl}/api/v1/eav-form-templates`).subscribe({
+    // 3. Biểu mẫu EAV — dùng lookup thay GET /eav-form-templates
+    this.http.get<any[]>(`${environment.apiGatewayUrl}/api/v1/eav-form-templates/lookup`).subscribe({
       next: (templates) => {
         if (templates) {
           const days = ['T6', 'T7', 'CN', 'T2', 'T3', 'T4', 'T5 (h.nay)'];

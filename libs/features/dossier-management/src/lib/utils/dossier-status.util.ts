@@ -73,24 +73,6 @@ function isTechnicalWorkflowLabel(value?: string | null): boolean {
 
 export { isTechnicalWorkflowLabel };
 
-function isWeakWorkflowStepLabel(value?: string | null): boolean {
-  if (isTechnicalWorkflowLabel(value)) return true;
-  const trimmed = value?.trim();
-  if (!trimmed) return true;
-  if (/^\d+$/.test(trimmed)) return true;
-  return trimmed.startsWith('Activity_');
-}
-
-export function getDossierWorkflowStepSubtitle(
-  status?: string | number | null,
-  workflowStepName?: string | null
-): string | null {
-  const step = workflowStepName?.trim();
-  if (!step || isWeakWorkflowStepLabel(step)) return null;
-  if (status === 'New' || status === 'CompletedInput' || status === 'Approved' || status === 1 || status === 2 || status === 6) return null;
-  return step;
-}
-
 export type DossierListTab =
   | 'draft'
   | 'pending-action'

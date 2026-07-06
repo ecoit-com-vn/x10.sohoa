@@ -96,6 +96,7 @@
           <tr>
             <th class="col-stt">STT</th>
             <th *ngFor="let col of bhsColumns()">{{ col.label }}</th>
+            <th>Loại hồ sơ</th>
             <th>Trạm / Đường dây</th>
             <th style="width: 100px; text-align: center;">Số tài liệu</th>
             <th class="col-hd">Thao tác</th>
@@ -107,6 +108,7 @@
             <tr *ngFor="let r of [1,2,3,4,5]" class="skeleton-row">
               <td class="col-stt"><div class="skeleton-bar short" style="margin: 0 auto; width: 24px;"></div></td>
               <td *ngFor="let col of bhsColumns()"><div class="skeleton-bar"></div></td>
+              <td><div class="skeleton-bar"></div></td>
               <td><div class="skeleton-bar"></div></td>
               <td style="width: 100px;"><div class="skeleton-bar short" style="margin: 0 auto; width: 40px;"></div></td>
               <td class="col-hd"><div class="skeleton-bar short" style="margin-left: auto; width: 32px;"></div></td>
@@ -128,6 +130,7 @@
                 <b *ngIf="first" class="wf-name-link" (click)="viewDetail(item)">{{ getCatalogValue(item, col) }}</b>
                 <span *ngIf="!first">{{ getCatalogValue(item, col) }}</span>
               </td>
+              <td>{{ getDossierTypeName(item) }}</td>
               <td>
                 <div>{{ item.infrastructureName || '-' }}</div>
                 <div class="text-muted" style="font-size: 0.75rem;">{{ item.infrastructureCode }}</div>

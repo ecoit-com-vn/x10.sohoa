@@ -63,11 +63,16 @@ export class DossierManagementService {
       : `${this.config.apiGatewayUrl}/api/v1/dossiers`;
   }
 
-  /** Tác vụ workflow hồ sơ */
-  private get workflowBase() {
-    return this.isDigitization
+  /** Tác vụ workflow hồ sơ — digitization dùng controller riêng (WorkflowTypeId=3). */
+  private workflowBaseFor(kindId?: number): string {
+    const digitization = (kindId ?? this.kindId) === 1;
+    return digitization
       ? `${this.config.apiGatewayUrl}/api/v1/dossier-digitization-workflow`
       : `${this.config.apiGatewayUrl}/api/v1/dossiers-workflow`;
+  }
+
+  private get workflowBase() {
+    return this.workflowBaseFor(this.kindId);
   }
 
   private get searchBase() {
@@ -207,12 +212,12 @@ export class DossierManagementService {
 
   // ===== GỬI DUYỆT =====
 
-  submitForApproval(id: string, request: { nextNodeId: string; actionLabel: string; comment?: string; nextAssigneeUserId?: string }): Observable<any> {
-    return this.http.post<any>(`${this.workflowBase}/${id}/submit`, request);
+  submitForApproval(id: string, request: { nextNodeId: string; actionLabel: string; comment?: string; nextAssigneeUserId?: string }, kindId?: number): Observable<any> {
+    return this.http.post<any>(`${this.workflowBaseFor(kindId)}/${id}/submit`, request);
   }
 
-  getNextStepInfo(): Observable<any> {
-    return this.http.get<any>(`${this.workflowBase}/next-step-info`);
+  getNextStepInfo(kindId?: number): Observable<any> {
+    return this.http.get<any>(`${this.workflowBaseFor(kindId)}/next-step-info`);
   }
 
   // ===== FORM DATA =====
@@ -243,39 +248,39 @@ export class DossierManagementService {
 
   // ===== WORKFLOW =====
 
-  moveWorkflow(id: string, request: { nextNodeId: string; actionLabel: string; comment?: string; nextAssigneeUserId?: string }): Observable<any> {
-    return this.http.post<any>(`${this.workflowBase}/${id}/move`, request);
+  moveWorkflow(id: string, request: { nextNodeId: string; actionLabel: string; comment?: string; nextAssigneeUserId?: string }, kindId?: number): Observable<any> {
+    return this.http.post<any>(`${this.workflowBaseFor(kindId)}/${id}/move`, request);
   }
 
   /** Gửi duyệt lại từ tab Trả lại — map DOSSIER_CREATE */
-  resubmitWorkflow(id: string, request: { nextNodeId: string; actionLabel: string; comment?: string; nextAssigneeUserId?: string }): Observable<any> {
-    return this.http.post<any>(`${this.workflowBase}/${id}/resubmit`, request);
+  resubmitWorkflow(id: string, request: { nextNodeId: string; actionLabel: string; comment?: string; nextAssigneeUserId?: string }, kindId?: number): Observable<any> {
+    return this.http.post<any>(`${this.workflowBaseFor(kindId)}/${id}/resubmit`, request);
   }
 
-  getWorkflowByEntity(id: string): Observable<any> {
-    return this.http.get<any>(`${this.workflowBase}/${id}/get-workflow-by-entity`).pipe(
+  getWorkflowByEntity(id: string, kindId?: number): Observable<any> {
+    return this.http.get<any>(`${this.workflowBaseFor(kindId)}/${id}/get-workflow-by-entity`).pipe(
       catchError(() => of(null))
     );
   }
 
-  getWorkflowHistory(id: string): Observable<any[]> {
-    return this.http.get<any[]>(`${this.workflowBase}/${id}/get-workflow-history`).pipe(
+  getWorkflowHistory(id: string, kindId?: number): Observable<any[]> {
+    return this.http.get<any[]>(`${this.workflowBaseFor(kindId)}/${id}/get-workflow-history`).pipe(
       catchError(() => of([]))
     );
   }
 
-  getWorkflowDefinition(definitionId: string): Observable<any> {
-    return this.http.get<any>(`${this.workflowBase}/get-workflow-definition/${definitionId}`).pipe(
+  getWorkflowDefinition(definitionId: string, kindId?: number): Observable<any> {
+    return this.http.get<any>(`${this.workflowBaseFor(kindId)}/get-workflow-definition/${definitionId}`).pipe(
       catchError(() => of(null))
     );
   }
 
-  getMyTasks(instanceId?: string | null): Observable<any[]> {
+  getMyTasks(instanceId?: string | null, kindId?: number): Observable<any[]> {
     let params = new HttpParams();
     if (instanceId?.trim()) {
       params = params.set('instanceId', instanceId.trim());
     }
-    return this.http.get<any[]>(`${this.workflowBase}/get-my-tasks`, { params }).pipe(
+    return this.http.get<any[]>(`${this.workflowBaseFor(kindId)}/get-my-tasks`, { params }).pipe(
       catchError(() => of([]))
     );
   }
@@ -283,17 +288,18 @@ export class DossierManagementService {
   /**
    * Tải gộp workflow instance + definition + history cho 1 hồ sơ
    */
-  getWorkflowDetail(id: string): Observable<any> {
-    return this.getWorkflowByEntity(id).pipe(
+  getWorkflowDetail(id: string, kindId?: number): Observable<any> {
+    const effectiveKindId = kindId ?? this.kindId;
+    return this.getWorkflowByEntity(id, effectiveKindId).pipe(
       switchMap(instance => {
         if (!instance) return of({ instance: null, definition: null, history: [] });
 
         const definitionId = instance.workflowDefinitionId ?? instance.WorkflowDefinitionId;
         const def$ = definitionId
-          ? this.getWorkflowDefinition(definitionId).pipe(catchError(() => of(null)))
+          ? this.getWorkflowDefinition(definitionId, effectiveKindId).pipe(catchError(() => of(null)))
           : of(null);
 
-        const history$ = this.getWorkflowHistory(id).pipe(catchError(() => of([])));
+        const history$ = this.getWorkflowHistory(id, effectiveKindId).pipe(catchError(() => of([])));
 
         return forkJoin({ definition: def$, history: history$ }).pipe(
           map(({ definition, history }) => ({ instance, definition, history }))

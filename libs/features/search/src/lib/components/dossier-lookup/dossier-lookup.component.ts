@@ -49,7 +49,7 @@ export class DossierLookupComponent implements OnInit {
   bhsColumns = signal<BhsCatalogColumn[]>([]);
 
   totalPages = computed(() => Math.ceil(this.totalCount() / this.pageSize()));
-  tableColSpan = computed(() => this.bhsColumns().length + 4);
+  tableColSpan = computed(() => this.bhsColumns().length + 5);
 
   ngOnInit() {
     this.loadLookups();
@@ -147,6 +147,11 @@ export class DossierLookupComponent implements OnInit {
     const data = item?.catalogData ?? item?.CatalogData ?? {};
     const value = data[col.key] ?? data[col.code];
     return value != null && String(value).trim() !== '' ? String(value) : '-';
+  }
+
+  getDossierTypeName(item: any): string {
+    const name = item?.dossierTypeName ?? item?.DossierTypeName;
+    return name != null && String(name).trim() !== '' ? String(name) : '-';
   }
 
   changePage(page: number) {

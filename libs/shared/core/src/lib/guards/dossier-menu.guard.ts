@@ -24,10 +24,7 @@ function resolveCreatorAccess(auth: AuthService, router: Router): boolean | UrlT
 }
 
 function resolveApproverAccess(auth: AuthService, router: Router): boolean | UrlTree {
-  if (
-    auth.hasPermission('SUPER_ADMIN') ||
-    hasAllPermissions(auth, ['DOSSIER_MANAGE', 'DOSSIER_VIEW', 'DOSSIER_EDIT'])
-  ) {
+  if (auth.hasPermission('SUPER_ADMIN') || auth.hasPermission('DOSSIER_MANAGE')) {
     return true;
   }
 
