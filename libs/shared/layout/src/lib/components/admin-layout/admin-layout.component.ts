@@ -141,6 +141,12 @@ export class AdminLayout implements OnInit {
     this.router.navigate(['/profile']);
   }
 
+  goToChangePassword(event: Event) {
+    event.stopPropagation();
+    this.profileMenuOpen.set(false);
+    this.router.navigate(['/profile/change-password']);
+  }
+
   closeMobileSidebar() {
     this.isMobileSidebarOpen = false;
   }
