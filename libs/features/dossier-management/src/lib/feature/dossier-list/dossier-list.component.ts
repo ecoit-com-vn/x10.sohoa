@@ -212,7 +212,7 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
 
                 </td>
 
-                <td class="station-cell" [title]="getStationName(item)">{{ getStationName(item) }}</td>
+                <td class="station-cell" [title]="getInfrastructureName(item)">{{ getInfrastructureName(item) }}</td>
 
                 <td class="text-center">{{ item.documentCount ?? 0 }}</td>
 
@@ -908,8 +908,8 @@ export class DossierListComponent implements OnInit {
 
   }
 
-  getStationName(item: any): string {
-    const name = item?.stationName ?? item?.StationName;
+  getInfrastructureName(item: any): string {
+    const name = item?.infrastructureName ?? item?.InfrastructureName;
     if (name != null && String(name).trim() !== '') return String(name).trim();
     return '-';
   }

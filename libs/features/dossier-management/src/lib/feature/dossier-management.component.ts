@@ -104,7 +104,7 @@ export class DossierManagementComponent implements OnInit {
   selectedDossierId = signal<string | null>(null);
   menuScope = signal<DossierMenuScope>('creator');
   kindId = signal<number>(2);
-  listTitle = signal('Quáº£n lĂ½ há»“ sÆ¡');
+  listTitle = signal('Quản lý hồ sơ');
 
 
 
@@ -114,11 +114,11 @@ export class DossierManagementComponent implements OnInit {
 
       case 'form':
 
-        return this.selectedDossierId() ? 'Cáº­p nháº­t há»“ sÆ¡' : 'Táº¡o há»“ sÆ¡ má»›i';
+        return this.selectedDossierId() ? 'Cập nhật hồ sơ' : 'Tạo hồ sơ mới';
 
       case 'detail':
 
-        return 'Chi tiáº¿t há»“ sÆ¡';
+        return 'Chi tiết hồ sơ';
 
       default:
 
@@ -179,7 +179,7 @@ export class DossierManagementComponent implements OnInit {
     this.menuScope.set(scope);
     this.kindId.set(kind);
     this.dossierService.setKindContext(kind);
-    this.listTitle.set((node.data['listTitle'] as string) ?? 'Quáº£n lĂ½ há»“ sÆ¡');
+    this.listTitle.set((node.data['listTitle'] as string) ?? 'Quản lý hồ sơ');
 
     const root = this.routeSegments().join('/');
     const routePath = node.routeConfig?.path ?? '';
@@ -279,7 +279,6 @@ export class DossierManagementComponent implements OnInit {
   }
 
 }
-
 
 
 
