@@ -20,6 +20,7 @@ using System.Collections.Generic;
 using EvnHanoi.DigitizationService.Models;
 using EvnHanoi.DigitizationService.Repositories;
 using EvnHanoi.DigitizationService.Services;
+using EvnHanoi.DigitizationService.Helpers;
 
 namespace EvnHanoi.DigitizationService.Workers
 {
@@ -77,17 +78,6 @@ namespace EvnHanoi.DigitizationService.Workers
                             var httpClientFactory = scope.ServiceProvider.GetRequiredService<IHttpClientFactory>();
                             var publisher = scope.ServiceProvider.GetRequiredService<IMessagePublisher>();
 
-                            // 1. Cập nhật trạng thái DB
-                            try
-                            {
-                                await repository.UpdateStatusAsync(taskMsg.FileId, "Extracting");
-                                _logger.LogInformation("Đã cập nhật trạng thái FileAttachment {FileId} thành Extracting.", taskMsg.FileId);
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.LogWarning("Bỏ qua lỗi DB khi update trạng thái: {Message}", ex.Message);
-                            }
-
                             // 2. Lấy danh sách nội dung text từng trang
                             var pageTexts = new List<string>();
 
@@ -108,20 +98,28 @@ namespace EvnHanoi.DigitizationService.Workers
                                     using var jsonStream = await minioService.DownloadFileAsync(taskMsg.BucketName, jsonFileName);
                                     using var reader = new StreamReader(jsonStream, Encoding.UTF8);
                                     string jsonText = await reader.ReadToEndAsync();
-                                    
-                                    // Parse JSON và loại bỏ confidence, làm tròn toạ độ để tiết kiệm token
+
+                                    if (OcrPageContentHelper.IsEmptyOcrJson(jsonText))
+                                    {
+                                        pageTexts.Add("[]");
+                                        pageNumToFetch++;
+                                        continue;
+                                    }
+
                                     var boxes = JsonNode.Parse(jsonText)?.AsArray();
                                     if (boxes != null)
                                     {
                                         var compactBoxes = new JsonArray();
                                         foreach (var box in boxes)
                                         {
-                                            var boxArr = box?["box"]?.AsArray();
-                                            if (boxArr != null && boxArr.Count == 4)
+                                            var boxArr = box?["box"]?.AsArray() ?? box?["Box"]?.AsArray();
+                                            var text = OcrPageContentHelper.NormalizeUtf8Text(
+                                                box?["text"]?.GetValue<string>() ?? box?["Text"]?.GetValue<string>());
+                                            if (boxArr != null && boxArr.Count == 4 && !string.IsNullOrWhiteSpace(text))
                                             {
                                                 compactBoxes.Add(new JsonObject
                                                 {
-                                                    ["Text"] = box?["text"]?.GetValue<string>(),
+                                                    ["Text"] = text,
                                                     ["Box"] = new JsonArray(
                                                         Math.Round(boxArr[0]!.GetValue<float>()),
                                                         Math.Round(boxArr[1]!.GetValue<float>()),
@@ -131,7 +129,9 @@ namespace EvnHanoi.DigitizationService.Workers
                                                 });
                                             }
                                         }
-                                        pageTexts.Add(compactBoxes.ToJsonString());
+                                        pageTexts.Add(compactBoxes.Count > 0
+                                            ? compactBoxes.ToJsonString(OcrPageContentHelper.Utf8JsonOptions)
+                                            : "[]");
                                     }
                                     else
                                     {
@@ -146,10 +146,14 @@ namespace EvnHanoi.DigitizationService.Workers
                                 }
                             }
 
-                            // 2b. Fallback — nếu không tìm thấy file .json, đọc PDF bằng PdfPig và tạo mảng JSON ảo
-                            if (pageTexts.Count == 0)
+                            // 2b. Fallback — nếu không có JSON hoặc toàn bộ JSON rỗng, đọc PDF bằng PdfPig
+                            var needsPdfPigFallback = pageTexts.Count == 0
+                                || pageTexts.All(OcrPageContentHelper.IsEmptyOcrJson);
+                            if (needsPdfPigFallback)
                             {
-                                _logger.LogWarning("Không tìm thấy file JSON nào. Fallback: đọc text trực tiếp từ PDF bằng PdfPig.");
+                                pageTexts.Clear();
+                                _logger.LogWarning(
+                                    "File JSON OCR rỗng hoặc không tồn tại. Fallback: đọc text trực tiếp từ PDF bằng PdfPig.");
                                 try
                                 {
                                     using var fileStream = await minioService.DownloadFileAsync(taskMsg.BucketName, taskMsg.FilePath);
@@ -161,7 +165,7 @@ namespace EvnHanoi.DigitizationService.Workers
                                     for (int p = 1; p <= document.NumberOfPages; p++)
                                     {
                                         var page = document.GetPage(p);
-                                        string rawText = page.Text ?? "";
+                                        string rawText = OcrPageContentHelper.NormalizeUtf8Text(page.Text);
                                         
                                         // Tạo mảng JSON giả với 1 box toàn trang để tương thích với LLM prompt mới
                                         var fallbackBox = new JsonArray
@@ -172,7 +176,7 @@ namespace EvnHanoi.DigitizationService.Workers
                                                 ["Box"] = new JsonArray(0, 0, 1000, 1000)
                                             }
                                         };
-                                        pageTexts.Add(fallbackBox.ToJsonString());
+                                        pageTexts.Add(fallbackBox.ToJsonString(OcrPageContentHelper.Utf8JsonOptions));
                                     }
                                     _logger.LogInformation("Fallback PdfPig: đọc được {TotalPages} trang.", pageTexts.Count);
                                 }
@@ -187,7 +191,7 @@ namespace EvnHanoi.DigitizationService.Workers
 
                             if (totalPages == 0)
                             {
-                                _logger.LogWarning("Không tìm thấy file Markdown nào cho {FilePath}", taskMsg.FilePath);
+                                _logger.LogWarning("Không tìm thấy nội dung OCR/JSON nào cho {FilePath}", taskMsg.FilePath);
                                 // Gửi bản tin thông báo hoàn thành với Status = Failed lên RabbitMQ
                                 var failedCompletedMsg = new
                                 {
@@ -198,7 +202,7 @@ namespace EvnHanoi.DigitizationService.Workers
                                     Status = "Failed"
                                 };
                                 await publisher.PublishMessageAsync(failedCompletedMsg, "digitization.topic", "extraction.process.completed");
-                                _logger.LogInformation("Đã gửi bản tin báo lỗi (Failed) cho {FileId} do không có file Markdown.", taskMsg.FileId);
+                                _logger.LogInformation("Đã gửi bản tin báo lỗi (Failed) cho {FileId} do không có nội dung OCR.", taskMsg.FileId);
 
                                 // Tự động ack message nếu file không có để tránh kẹt queue
                                 await _channel.BasicAckAsync(ea.DeliveryTag, false);
@@ -278,7 +282,7 @@ CÁC TRƯỜNG CẦN TRÍCH XUẤT:
                                     try
                                     {
                                         _logger.LogInformation("Đang gửi văn bản trang {Page}/{TotalPages} tới llm_server...", pageNum, totalPages);
-
+                                        pageText = OcrPageContentHelper.NormalizeUtf8Text(pageText);
                                         string prompt = $"{systemPrompt}\n\nVĂN BẢN OCR:\n{pageText}";
 
                                         var payload = new
@@ -287,7 +291,10 @@ CÁC TRƯỜNG CẦN TRÍCH XUẤT:
                                             temperature = 0.1,
                                             max_tokens = 2000
                                         };
-                                        var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+                                        var content = new StringContent(
+                                            JsonSerializer.Serialize(payload, OcrPageContentHelper.Utf8JsonOptions),
+                                            Encoding.UTF8,
+                                            "application/json");
 
                                         var sw = Stopwatch.StartNew();
                                         var response = await httpClient.PostAsync("/v1/chat/completions", content, stoppingToken);

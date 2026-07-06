@@ -22,6 +22,7 @@ using System.Text.RegularExpressions;
 using EvnHanoi.DigitizationService.Models;
 using EvnHanoi.DigitizationService.Repositories;
 using EvnHanoi.DigitizationService.Services;
+using EvnHanoi.DigitizationService.Helpers;
 using PdfSharpCore.Pdf;
 using PdfSharpCore.Drawing;
 
@@ -152,6 +153,8 @@ namespace EvnHanoi.DigitizationService.Workers
                             int pageCount = PDFtoImage.Conversion.GetPageCount(pdfBytes);
                             _logger.LogInformation("PDF có {PageCount} trang. Bắt đầu xử lý từng trang.", pageCount);
 
+                            using var pdfDocument = UglyToad.PdfPig.PdfDocument.Open(pdfBytes);
+
                             // HttpClient không timeout — ocr_vl_server có thể mất vài giây
                             var httpClient = httpClientFactory.CreateClient("NoTimeout");
                             httpClient.Timeout = Timeout.InfiniteTimeSpan;
@@ -173,36 +176,65 @@ namespace EvnHanoi.DigitizationService.Workers
                                 using var imgStream = new MemoryStream();
                                 var renderOptions = new PDFtoImage.RenderOptions { Dpi = 200 };
                                 PDFtoImage.Conversion.SaveJpeg(imgStream, pdfBytes, password: null, page: i, options: renderOptions);
+                                imgStream.Position = 0;
                                 byte[] pageImageBytes = imgStream.ToArray();
+
+                                if (pageImageBytes.Length == 0)
+                                {
+                                    _logger.LogWarning("Render trang {Page} ra JPEG rỗng — bỏ qua gọi OCR server.", i + 1);
+                                }
 
                                 List<TextBoxResponse> ocrResults = new();
                                 var sw = Stopwatch.StartNew();
 
                                 try
                                 {
-                                    // 3. Gửi ảnh toàn trang lên ocr_vl_server → nhận [{text, box, confidence}]
-                                    //    Server thực hiện: PaddleOCR detect + 1 LLM call "OCR:"
-                                    using var multipart = new MultipartFormDataContent();
-                                    var imageContent = new ByteArrayContent(pageImageBytes);
-                                    imageContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/jpeg");
-                                    multipart.Add(imageContent, "file", $"page_{i + 1}.jpg");
-
-                                    string ocrPageUrl = $"{_ocrVlServerUrl.TrimEnd('/')}/ocr_page";
-                                    _logger.LogInformation("Gửi trang {Page} lên {Url}", i + 1, ocrPageUrl);
-
-                                    var response = await httpClient.PostAsync(ocrPageUrl, multipart, stoppingToken);
-
-                                    if (response.IsSuccessStatusCode)
+                                    if (pageImageBytes.Length > 0)
                                     {
-                                        var respStr = await response.Content.ReadAsStringAsync(stoppingToken);
-                                        var boxes = JsonSerializer.Deserialize<List<TextBoxResponse>>(respStr,
-                                            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-                                        if (boxes != null)
-                                            ocrResults = boxes;
+                                        // 3. Gửi ảnh toàn trang lên ocr_vl_server → nhận [{text, box, confidence}]
+                                        using var multipart = new MultipartFormDataContent();
+                                        var imageContent = new ByteArrayContent(pageImageBytes);
+                                        imageContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/jpeg");
+                                        multipart.Add(imageContent, "file", $"page_{i + 1}.jpg");
+
+                                        string ocrPageUrl = $"{_ocrVlServerUrl.TrimEnd('/')}/ocr_page";
+                                        _logger.LogInformation("Gửi trang {Page} ({ImageBytes} bytes) lên {Url}", i + 1, pageImageBytes.Length, ocrPageUrl);
+
+                                        var response = await httpClient.PostAsync(ocrPageUrl, multipart, stoppingToken);
+
+                                        if (response.IsSuccessStatusCode)
+                                        {
+                                            var respStr = await response.Content.ReadAsStringAsync(stoppingToken);
+                                            ocrResults = OcrPageContentHelper.DeserializeOcrResponse(respStr);
+                                            foreach (var box in ocrResults)
+                                                box.Text = OcrPageContentHelper.NormalizeUtf8Text(box.Text);
+                                            if (ocrResults.Count == 0)
+                                            {
+                                                var preview = respStr.Length > 300 ? respStr[..300] + "..." : respStr;
+                                                _logger.LogWarning(
+                                                    "ocr_vl_server trả về 0 box cho trang {Page}. Response: {Response}",
+                                                    i + 1, preview);
+                                            }
+                                        }
+                                        else
+                                        {
+                                            var errorBody = await response.Content.ReadAsStringAsync(stoppingToken);
+                                            _logger.LogWarning(
+                                                "ocr_vl_server trả về lỗi {StatusCode} cho trang {Page}. Body: {Body}",
+                                                response.StatusCode, i + 1, errorBody);
+                                        }
                                     }
-                                    else
+
+                                    if (ocrResults.Count == 0)
                                     {
-                                        _logger.LogWarning("ocr_vl_server trả về lỗi {StatusCode} cho trang {Page}", response.StatusCode, i + 1);
+                                        var rawText = pdfDocument.GetPage(i + 1).Text?.Trim();
+                                        if (!string.IsNullOrEmpty(rawText))
+                                        {
+                                            ocrResults.Add(OcrPageContentHelper.CreateFullPageBox(rawText));
+                                            _logger.LogInformation(
+                                                "Trang {Page}: dùng PdfPig fallback ({CharCount} ký tự).",
+                                                i + 1, rawText.Length);
+                                        }
                                     }
 
                                     sw.Stop();
@@ -211,6 +243,7 @@ namespace EvnHanoi.DigitizationService.Workers
                                 }
                                 catch (Exception ex)
                                 {
+                                    sw.Stop();
                                     _logger.LogWarning(ex, "Lỗi khi gọi ocr_vl_server cho trang {Page}.", i + 1);
                                 }
 
@@ -259,10 +292,12 @@ namespace EvnHanoi.DigitizationService.Workers
                                 }
                                 string jsonFileName = $"{baseFilePath}_page_{i + 1}.json";
 
-                                string pageJson = JsonSerializer.Serialize(ocrResults);
-                                using var jsonStream = new MemoryStream(Encoding.UTF8.GetBytes(pageJson));
-                                await minioService.UploadFileAsync(taskMsg.BucketName, jsonFileName, jsonStream, "application/json");
-                                _logger.LogInformation("Đã upload file JSON cho trang {Page}: {FileName}", i + 1, jsonFileName);
+                                string pageJson = JsonSerializer.Serialize(ocrResults, OcrPageContentHelper.OcrJsonOptions);
+                                using (var jsonStream = new MemoryStream(Encoding.UTF8.GetBytes(pageJson)))
+                                {
+                                    await minioService.UploadFileAsync(taskMsg.BucketName, jsonFileName, jsonStream, "application/json");
+                                }
+                                _logger.LogInformation("Đã upload file JSON cho trang {Page}: {FileName} ({BoxCount} box)", i + 1, jsonFileName, ocrResults.Count);
 
                                 // Báo cáo tiến trình per-page
                                 var progressMsg = new

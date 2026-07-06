@@ -19,8 +19,7 @@ public class DossierRepository : IDossierRepository
 
     public async Task<IEnumerable<InfrastructureEntity>> GetInfrastructuresLookupAsync(IEnumerable<long>? authorizedUnitIds = null)
     {
-        if (_connection.State != ConnectionState.Open)
-            _connection.Open();
+        _connection.EnsureOpen();
 
         var sql = @"SELECT ID, CODE, NAME, INFRA_TYPE_ID as InfraTypeId, UNIT_ID as UnitId, GRIDTYPEID as GridTypeId, IS_ACTIVE as IsActive 
                     FROM INFRASTRUCTURE 
@@ -39,16 +38,14 @@ public class DossierRepository : IDossierRepository
 
     public async Task<IEnumerable<GridTypeEntity>> GetGridTypesLookupAsync()
     {
-        if (_connection.State != ConnectionState.Open)
-            _connection.Open();
+        _connection.EnsureOpen();
 
         var sql = "SELECT Id, Name FROM GridTypes ORDER BY Id ASC";
         return await _connection.QueryAsync<GridTypeEntity>(sql);
     }
     public async Task<IEnumerable<DossierType>> GetDossierTypesLookupAsync()
     {
-        if (_connection.State != ConnectionState.Open)
-            _connection.Open();
+        _connection.EnsureOpen();
 
         var sql = @"SELECT Id,
                            Name,
@@ -137,8 +134,7 @@ public class DossierRepository : IDossierRepository
         int page,
         int pageSize)
     {
-        if (_connection.State != ConnectionState.Open)
-            _connection.Open();
+        _connection.EnsureOpen();
 
         var parameters = new DynamicParameters();
         var sqlBase = $@"FROM DOSSIERS d
@@ -254,8 +250,7 @@ public class DossierRepository : IDossierRepository
 
     public async Task<IEnumerable<BhsCatalogColumnDto>> GetBhsCatalogColumnsAsync()
     {
-        if (_connection.State != ConnectionState.Open)
-            _connection.Open();
+        _connection.EnsureOpen();
 
         var bhsCatalogs = await GetBhsCatalogDefinitionsAsync();
         return bhsCatalogs.Select(c => new BhsCatalogColumnDto
@@ -330,8 +325,7 @@ public class DossierRepository : IDossierRepository
 
     public async Task<bool> IsPublishedDossierAccessibleAsync(Guid dossierId, long? unitId)
     {
-        if (_connection.State != ConnectionState.Open)
-            _connection.Open();
+        _connection.EnsureOpen();
 
         var parameters = new DynamicParameters();
         parameters.Add("DossierId", dossierId.ToString());
@@ -360,8 +354,7 @@ public class DossierRepository : IDossierRepository
         bool excludeEquipment = false,
         bool excludeDossierType = false)
     {
-        if (_connection.State != ConnectionState.Open)
-            _connection.Open();
+        _connection.EnsureOpen();
 
         var parameters = new DynamicParameters();
         var sql = selectFromSql + @"
@@ -481,8 +474,7 @@ public class DossierRepository : IDossierRepository
         int page,
         int pageSize)
     {
-        if (_connection.State != ConnectionState.Open)
-            _connection.Open();
+        _connection.EnsureOpen();
 
         // Get columns first
         var bhsCatalogs = await GetBhsCatalogDefinitionsAsync();
@@ -583,9 +575,9 @@ public class DossierRepository : IDossierRepository
 
     public async Task<DossierDetailDto?> GetDetailByIdAsync(Guid id)
     {
-        if (_connection.State != ConnectionState.Open)
-            _connection.Open();
-        var sql = $@"SELECT
+        return await _connection.ExecuteWithRetryAsync(async conn =>
+        {
+            var sql = $@"SELECT
                         d.{nameof(Dossier.Id)},
                         d.{nameof(Dossier.GridTypeId)},
                         d.{nameof(Dossier.InfrastructureId)},
@@ -620,42 +612,39 @@ public class DossierRepository : IDossierRepository
                      LEFT JOIN PUBLISH_STATUSES ps ON d.PUBLISHSTATUSID = ps.ID
                      LEFT JOIN DOSSIER_STATUSES dstat ON d.STATUS_ID = dstat.ID
                      WHERE d.{nameof(Dossier.Id)} = :Id AND d.{nameof(Dossier.IsDeleted)} = 0";
-        var dossierList = await _connection.QueryAsync<DossierDetailDto, CreatorInfoDto, DossierDetailDto>(
-            sql,
-            (dossierDto, creatorDto) =>
-            {
-                dossierDto.Creator = creatorDto;
-                return dossierDto;
-            },
-            new { Id = id.ToString() },
-            splitOn: "Id"
-        );
-        var dossier = dossierList.FirstOrDefault();
-        if (dossier == null) return null;
+            var dossierList = await conn.QueryAsync<DossierDetailDto, CreatorInfoDto, DossierDetailDto>(
+                sql,
+                (dossierDto, creatorDto) =>
+                {
+                    dossierDto.Creator = creatorDto;
+                    return dossierDto;
+                },
+                new { Id = id.ToString() },
+                splitOn: "Id"
+            );
+            var dossier = dossierList.FirstOrDefault();
+            if (dossier == null) return null;
 
-        // Get equipment list
-        dossier.Equipments = (await GetEquipmentsAsync(id)).ToList();
-        return dossier;
+            dossier.Equipments = (await GetEquipmentsAsync(id)).ToList();
+            return dossier;
+        });
     }
     public async Task<Dossier?> GetByIdAsync(Guid id)
     {
-        if (_connection.State != ConnectionState.Open)
-            _connection.Open();
+        _connection.EnsureOpen();
         var sql = $@"SELECT Id, GridTypeId, InfrastructureId, DossierSetId, DossierTypeId, FormDataJson, STATUS_ID as StatusId, KIND_ID as KindId, WorkflowInstanceId, WorkflowStatusName, RowVersion, CreatorId, CreatorUsername, CreatorName, CreatedBy, CreatedDate, ModifiedBy, ModifiedDate, IsDeleted, PUBLISHSTATUSID as PublishStatusId FROM DOSSIERS WHERE {nameof(Dossier.Id)} = :Id AND {nameof(Dossier.IsDeleted)} = 0";
         return await _connection.QuerySingleOrDefaultAsync<Dossier>(sql, new { Id = id.ToString() });
     }
 
     public async Task<int?> GetKindIdAsync(Guid id)
     {
-        if (_connection.State != ConnectionState.Open)
-            _connection.Open();
+        _connection.EnsureOpen();
         const string sql = "SELECT KIND_ID FROM DOSSIERS WHERE Id = :Id AND IsDeleted = 0";
         return await _connection.QuerySingleOrDefaultAsync<int?>(sql, new { Id = id.ToString() });
     }
     public async Task<Guid> CreateAsync(Dossier dossier, IEnumerable<Guid> equipmentIds)
     {
-        if (_connection.State != ConnectionState.Open)
-            _connection.Open();
+        _connection.EnsureOpen();
         if (dossier.Id == Guid.Empty)
             dossier.Id = Guid.Parse(UuidHelper.NewUuid());
         using var transaction = _connection.BeginTransaction();
@@ -719,8 +708,7 @@ public class DossierRepository : IDossierRepository
     }
     public async Task<bool> UpdateAsync(Dossier dossier, IEnumerable<Guid> equipmentIds)
     {
-        if (_connection.State != ConnectionState.Open)
-            _connection.Open();
+        _connection.EnsureOpen();
         using var transaction = _connection.BeginTransaction();
         try
         {
@@ -775,8 +763,7 @@ public class DossierRepository : IDossierRepository
     }
     public async Task<bool> SoftDeleteAsync(Guid id, string modifiedBy)
     {
-        if (_connection.State != ConnectionState.Open)
-            _connection.Open();
+        _connection.EnsureOpen();
         var sql = $@"UPDATE DOSSIERS SET
                         {nameof(Dossier.IsDeleted)} = 1,
                         {nameof(Dossier.ModifiedBy)} = :ModifiedBy,
@@ -792,8 +779,7 @@ public class DossierRepository : IDossierRepository
     }
     public async Task<bool> UpdateStatusAsync(Guid id, int statusId, string modifiedBy)
     {
-        if (_connection.State != ConnectionState.Open)
-            _connection.Open();
+        _connection.EnsureOpen();
         var sql = $@"UPDATE DOSSIERS SET
                         STATUS_ID = :StatusId,
                         {nameof(Dossier.ModifiedBy)} = :ModifiedBy,
@@ -810,8 +796,7 @@ public class DossierRepository : IDossierRepository
     }
     public async Task<bool> UpdateWorkflowAsync(Guid id, Guid workflowInstanceId, string workflowStatusName, int statusId, int? publishStatusId, string modifiedBy)
     {
-        if (_connection.State != ConnectionState.Open)
-            _connection.Open();
+        _connection.EnsureOpen();
         var sql = $@"UPDATE DOSSIERS SET
                         {nameof(Dossier.WorkflowInstanceId)} = :WorkflowInstanceId,
                         {nameof(Dossier.WorkflowStatusName)} = :WorkflowStatusName,
@@ -839,8 +824,7 @@ public class DossierRepository : IDossierRepository
 
     public async Task<bool> UpdatePublishStatusAsync(Guid id, int publishStatusId, string modifiedBy)
     {
-        if (_connection.State != ConnectionState.Open)
-            _connection.Open();
+        _connection.EnsureOpen();
         const string sql = @"UPDATE DOSSIERS SET 
                                PUBLISHSTATUSID = :PublishStatusId,
                                ModifiedBy = :ModifiedBy,
@@ -857,8 +841,7 @@ public class DossierRepository : IDossierRepository
     }
     public async Task<bool> SaveActiveWorkflowTaskAsync(Guid dossierId, string stepId, string stepName, string assignees, string actionsJson, string modifiedBy)
     {
-        if (_connection.State != ConnectionState.Open)
-            _connection.Open();
+        _connection.EnsureOpen();
 
         using var transaction = _connection.BeginTransaction();
         try
@@ -903,8 +886,7 @@ public class DossierRepository : IDossierRepository
     }
     public async Task<bool> UpdateFormDataAsync(Guid id, string formDataJson, int expectedRowVersion, string modifiedBy)
     {
-        if (_connection.State != ConnectionState.Open)
-            _connection.Open();
+        _connection.EnsureOpen();
         var sql = $@"UPDATE DOSSIERS SET
                         {nameof(Dossier.FormDataJson)} = :FormDataJson,
                         {nameof(Dossier.ModifiedBy)} = :ModifiedBy,
@@ -927,8 +909,7 @@ public class DossierRepository : IDossierRepository
     }
     public async Task<IEnumerable<DossierEquipmentDto>> GetEquipmentsAsync(Guid dossierId)
     {
-        if (_connection.State != ConnectionState.Open)
-            _connection.Open();
+        _connection.EnsureOpen();
         var sql = $@"SELECT
                         de.EquipmentId,
                         e.CODE as EquipmentCode,
@@ -945,8 +926,7 @@ public class DossierRepository : IDossierRepository
     }
     public async Task<bool> AddEquipmentAsync(Guid dossierId, Guid equipmentId)
     {
-        if (_connection.State != ConnectionState.Open)
-            _connection.Open();
+        _connection.EnsureOpen();
         // Check không trùng
         var exists = await _connection.ExecuteScalarAsync<int>(
             "SELECT COUNT(1) FROM DOSSIER_EQUIPMENTS WHERE DossierId = :DossierId AND EquipmentId = :EquipmentId",
@@ -959,8 +939,7 @@ public class DossierRepository : IDossierRepository
     }
     public async Task<bool> RemoveEquipmentAsync(Guid dossierId, Guid equipmentId)
     {
-        if (_connection.State != ConnectionState.Open)
-            _connection.Open();
+        _connection.EnsureOpen();
         var affected = await _connection.ExecuteAsync(
             "DELETE FROM DOSSIER_EQUIPMENTS WHERE DossierId = :DossierId AND EquipmentId = :EquipmentId",
             new { DossierId = dossierId.ToString(), EquipmentId = equipmentId.ToString() });
@@ -968,8 +947,7 @@ public class DossierRepository : IDossierRepository
     }
     public async Task<int> CreateVersionAsync(DossierVersion version)
     {
-        if (_connection.State != ConnectionState.Open)
-            _connection.Open();
+        _connection.EnsureOpen();
         // Lấy version number tiếp theo
         var maxVersion = await _connection.ExecuteScalarAsync<int>(
             "SELECT COALESCE(MAX(VersionNumber), 0) FROM DOSSIER_VERSIONS WHERE DossierId = :DossierId",
@@ -1001,8 +979,7 @@ public class DossierRepository : IDossierRepository
     }
     public async Task<IEnumerable<DossierVersionDto>> GetVersionsAsync(Guid dossierId)
     {
-        if (_connection.State != ConnectionState.Open)
-            _connection.Open();
+        _connection.EnsureOpen();
         var sql = $@"SELECT
                         {nameof(DossierVersion.Id)},
                         {nameof(DossierVersion.DossierId)},
@@ -1020,8 +997,7 @@ public class DossierRepository : IDossierRepository
 
     public async Task<DossierWorkflowStatusDto?> GetWorkflowStatusByEntityAsync(string entityId)
     {
-        if (_connection.State != ConnectionState.Open)
-            _connection.Open();
+        _connection.EnsureOpen();
 
         // Query 1: Get latest workflow instance and JOIN with definition name
         var sqlInstance = @"SELECT wi.ID, wi.WORKFLOWDEFINITIONID, wi.TARGETENTITYID, wi.ENTITYTYPE, 
@@ -1105,8 +1081,7 @@ public class DossierRepository : IDossierRepository
 
     public async Task<EavFormTemplate?> GetEavFormTemplateAsync(Guid formId)
     {
-        if (_connection.State != ConnectionState.Open)
-            _connection.Open();
+        _connection.EnsureOpen();
 
         const string sql = @"
             SELECT 
@@ -1121,8 +1096,7 @@ public class DossierRepository : IDossierRepository
 
     public async Task<EavFormTemplate?> GetEavFormTemplateByDossierIdAsync(Guid dossierId)
     {
-        if (_connection.State != ConnectionState.Open)
-            _connection.Open();
+        _connection.EnsureOpen();
 
         const string sql = @"
             SELECT 

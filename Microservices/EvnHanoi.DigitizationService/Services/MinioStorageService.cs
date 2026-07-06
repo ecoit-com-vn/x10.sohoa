@@ -43,14 +43,41 @@ namespace EvnHanoi.DigitizationService.Services
                     await _minioClient.MakeBucketAsync(mbArgs);
                 }
 
-                var putObjectArgs = new PutObjectArgs()
-                    .WithBucket(bucketName)
-                    .WithObject(objectName)
-                    .WithStreamData(data)
-                    .WithObjectSize(data.Length)
-                    .WithContentType(contentType);
+                var uploadStream = data;
+                var disposeUploadStream = false;
+                long objectSize;
 
-                await _minioClient.PutObjectAsync(putObjectArgs);
+                if (data.CanSeek)
+                {
+                    data.Position = 0;
+                    objectSize = data.Length;
+                }
+                else
+                {
+                    var buffer = new MemoryStream();
+                    await data.CopyToAsync(buffer);
+                    buffer.Position = 0;
+                    uploadStream = buffer;
+                    disposeUploadStream = true;
+                    objectSize = buffer.Length;
+                }
+
+                try
+                {
+                    var putObjectArgs = new PutObjectArgs()
+                        .WithBucket(bucketName)
+                        .WithObject(objectName)
+                        .WithStreamData(uploadStream)
+                        .WithObjectSize(objectSize)
+                        .WithContentType(contentType);
+
+                    await _minioClient.PutObjectAsync(putObjectArgs);
+                }
+                finally
+                {
+                    if (disposeUploadStream)
+                        await uploadStream.DisposeAsync();
+                }
 
                 return objectName;
             }

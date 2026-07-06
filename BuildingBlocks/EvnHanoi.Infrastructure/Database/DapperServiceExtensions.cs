@@ -37,6 +37,14 @@ public static class DapperServiceExtensions
             if (builder.MaxPoolSize <= 0) builder.MaxPoolSize = 50;
         }
 
+        if (builder.ConnectionTimeout <= 15)
+            builder.ConnectionTimeout = 60;
+
+        builder.ValidateConnection = true;
+
+        if (builder.ConnectionLifeTime <= 0)
+            builder.ConnectionLifeTime = 300;
+
         return builder.ConnectionString;
     }
 
