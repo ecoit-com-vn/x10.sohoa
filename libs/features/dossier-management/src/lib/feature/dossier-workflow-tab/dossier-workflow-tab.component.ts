@@ -146,6 +146,7 @@ function pickFirst<T>(...values: T[]): T | undefined {
 })
 export class DossierWorkflowTabComponent implements OnInit, OnChanges, OnDestroy {
   @Input({ required: true }) dossierId!: string;
+  @Input() kindId?: number;
   @Input() canvasId = 'bpmn-canvas-dossier-form';
   @Input() refreshToken = 0;
 
@@ -181,7 +182,7 @@ export class DossierWorkflowTabComponent implements OnInit, OnChanges, OnDestroy
 
   loadWorkflow(): void {
     this.loading.set(true);
-    this.service.getWorkflowDetail(this.dossierId).pipe(
+    this.service.getWorkflowDetail(this.dossierId, this.kindId).pipe(
       finalize(() => this.loading.set(false))
     ).subscribe({
       next: (res) => {

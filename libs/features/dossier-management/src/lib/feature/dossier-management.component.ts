@@ -37,7 +37,7 @@ import { DossierMenuScope } from '../utils/dossier-status.util';
       />
 
       <app-dossier-list
-        *ngIf="currentView() === 'list' && menuScope() !== 'publisher'"
+        *ngIf="routeReady() && currentView() === 'list' && menuScope() !== 'publisher'"
         [menuScope]="menuScope()"
         [kindId]="kindId()"
         (viewDetail)="onViewDetail($event)"
@@ -58,6 +58,8 @@ import { DossierMenuScope } from '../utils/dossier-status.util';
 
         [dossierId]="selectedDossierId()"
 
+        [kindId]="kindId()"
+
         (cancel)="onBackToList()"
 
         (saved)="onSaved($event)"
@@ -73,6 +75,8 @@ import { DossierMenuScope } from '../utils/dossier-status.util';
         [dossierId]="selectedDossierId()!"
 
         [menuScope]="menuScope()"
+
+        [kindId]="kindId()"
 
         (cancel)="onBackToList()"
 
@@ -104,6 +108,8 @@ export class DossierManagementComponent implements OnInit {
   selectedDossierId = signal<string | null>(null);
   menuScope = signal<DossierMenuScope>('creator');
   kindId = signal<number>(2);
+  /** Chờ sync route trước khi mount list — chỉ cần cho digitization (kindId=1); hồ sơ mới mặc định kindId=2. */
+  routeReady = signal(false);
   listTitle = signal('Quản lý hồ sơ');
 
 
@@ -131,10 +137,8 @@ export class DossierManagementComponent implements OnInit {
 
 
   ngOnInit(): void {
-
     this.syncViewFromRoute();
-
-
+    this.routeReady.set(true);
 
     this.route.url.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.syncViewFromRoute());
 
