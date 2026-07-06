@@ -174,7 +174,7 @@ namespace EvnHanoi.DigitizationService.Workers
 
                                 // 2. Render trang PDF → JPEG (200 DPI)
                                 using var imgStream = new MemoryStream();
-                                var renderOptions = new PDFtoImage.RenderOptions { Dpi = 200 };
+                                var renderOptions = new PDFtoImage.RenderOptions { Dpi = 200, WithAnnotations = true };
                                 PDFtoImage.Conversion.SaveJpeg(imgStream, pdfBytes, password: null, page: i, options: renderOptions);
                                 imgStream.Position = 0;
                                 byte[] pageImageBytes = imgStream.ToArray();
