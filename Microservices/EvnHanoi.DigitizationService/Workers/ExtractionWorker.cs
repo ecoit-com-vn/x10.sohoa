@@ -109,7 +109,7 @@ namespace EvnHanoi.DigitizationService.Workers
                                     var boxes = JsonNode.Parse(jsonText)?.AsArray();
                                     if (boxes != null)
                                     {
-                                        var compactBoxes = new JsonArray();
+                                        var compactBoxes = new StringBuilder();
                                         foreach (var box in boxes)
                                         {
                                             var boxArr = box?["box"]?.AsArray() ?? box?["Box"]?.AsArray();
@@ -117,25 +117,14 @@ namespace EvnHanoi.DigitizationService.Workers
                                                 box?["text"]?.GetValue<string>() ?? box?["Text"]?.GetValue<string>());
                                             if (boxArr != null && boxArr.Count == 4 && !string.IsNullOrWhiteSpace(text))
                                             {
-                                                compactBoxes.Add(new JsonObject
-                                                {
-                                                    ["Text"] = text,
-                                                    ["Box"] = new JsonArray(
-                                                        Math.Round(boxArr[0]!.GetValue<float>()),
-                                                        Math.Round(boxArr[1]!.GetValue<float>()),
-                                                        Math.Round(boxArr[2]!.GetValue<float>()),
-                                                        Math.Round(boxArr[3]!.GetValue<float>())
-                                                    )
-                                                });
+                                                compactBoxes.AppendLine($"[{Math.Round(boxArr[0]!.GetValue<float>())}, {Math.Round(boxArr[1]!.GetValue<float>())}, {Math.Round(boxArr[2]!.GetValue<float>())}, {Math.Round(boxArr[3]!.GetValue<float>())}] {text}");
                                             }
                                         }
-                                        pageTexts.Add(compactBoxes.Count > 0
-                                            ? compactBoxes.ToJsonString(OcrPageContentHelper.Utf8JsonOptions)
-                                            : "[]");
+                                        pageTexts.Add(compactBoxes.ToString().Trim());
                                     }
                                     else
                                     {
-                                        pageTexts.Add("[]");
+                                        pageTexts.Add("");
                                     }
                                     pageNumToFetch++;
                                 }
@@ -148,7 +137,7 @@ namespace EvnHanoi.DigitizationService.Workers
 
                             // 2b. Fallback — nếu không có JSON hoặc toàn bộ JSON rỗng, đọc PDF bằng PdfPig
                             var needsPdfPigFallback = pageTexts.Count == 0
-                                || pageTexts.All(OcrPageContentHelper.IsEmptyOcrJson);
+                                || pageTexts.All(string.IsNullOrWhiteSpace);
                             if (needsPdfPigFallback)
                             {
                                 pageTexts.Clear();
@@ -167,16 +156,8 @@ namespace EvnHanoi.DigitizationService.Workers
                                         var page = document.GetPage(p);
                                         string rawText = OcrPageContentHelper.NormalizeUtf8Text(page.Text);
                                         
-                                        // Tạo mảng JSON giả với 1 box toàn trang để tương thích với LLM prompt mới
-                                        var fallbackBox = new JsonArray
-                                        {
-                                            new JsonObject
-                                            {
-                                                ["Text"] = rawText,
-                                                ["Box"] = new JsonArray(0, 0, 1000, 1000)
-                                            }
-                                        };
-                                        pageTexts.Add(fallbackBox.ToJsonString(OcrPageContentHelper.Utf8JsonOptions));
+                                        // Tạo text giả với 1 box toàn trang để tương thích với LLM prompt mới
+                                        pageTexts.Add($"[0, 0, 1000, 1000] {rawText}");
                                     }
                                     _logger.LogInformation("Fallback PdfPig: đọc được {TotalPages} trang.", pageTexts.Count);
                                 }
@@ -229,29 +210,26 @@ namespace EvnHanoi.DigitizationService.Workers
                                 string fieldsStr = string.Join("\n", fieldsList);
 
                                 systemPrompt = $@"Bạn là một chuyên gia phân tích và trích xuất dữ liệu tài liệu kỹ thuật ngành điện lực Việt Nam.
-Nhiệm vụ của bạn là đọc danh sách các khối chữ (JSON boxes) từ kết quả OCR và trích xuất CHÍNH XÁC các trường thông tin được yêu cầu dưới định dạng JSON object.
+Nhiệm vụ của bạn là đọc danh sách các khối chữ từ kết quả OCR và trích xuất CHÍNH XÁC các trường thông tin được yêu cầu dưới định dạng JSON object.
 
 ĐẦU VÀO CỦA BẠN:
-Là một mảng JSON chứa các đối tượng có cấu trúc: {{""Text"": ""nội dung"", ""Box"": [x0, y0, x1, y1]}}.
+Là một danh sách các dòng văn bản, mỗi dòng có cấu trúc: [x0, y0, x1, y1] nội_dung_text
 - x0, y0 là tọa độ góc trên bên trái; x1, y1 là tọa độ góc dưới bên phải.
 - Bạn HÃY hình dung bố cục trang giấy dựa trên tọa độ: x0 gần nhau là cùng cột, y0 gần nhau là cùng hàng.
 
 NGUYÊN TẮC QUAN TRỌNG:
-1. SỬ DỤNG TƯ DUY KHÔNG GIAN: Dựa vào toạ độ Box để tránh ghép nhầm văn bản của cột trái và cột phải vào cùng một trường. Chỉ lấy giá trị cốt lõi, loại bỏ các chữ nhiễu ở cột bên cạnh (như Quốc hiệu, Tiêu ngữ, Ngày tháng).
-2. TỰ ĐỘNG SỬA LỖI CHÍNH TẢ OCR: Khi trích xuất văn bản, hãy tự động sửa các lỗi chính tả do OCR gây ra dựa vào ngữ cảnh. 
-   - Lỗi dấu thanh (KỶ→KỸ, SỰA→SỬA, TÍCH→TỊCH)
-   - Lỗi mất dấu (son→sơn, gi→gỉ)
-   - Lỗi nhận diện (UỞ BAN→ỦY BAN, UỬ→ỦY, Trưởng→Trường tuỳ ngữ cảnh).
-   - GIỮ NGUYÊN các mã kỹ thuật, số liệu (22/0,4kV, TBA, QLĐT).
+1. SỬ DỤNG TƯ DUY KHÔNG GIAN: Dựa vào toạ độ để tránh ghép nhầm văn bản của cột trái và cột phải vào cùng một trường. Chỉ lấy giá trị cốt lõi, loại bỏ các chữ nhiễu ở cột bên cạnh.
+2. TỰ ĐỘNG SỬA LỖI CHÍNH TẢ OCR: Tự động sửa các lỗi chính tả do OCR gây ra dựa vào ngữ cảnh (KỶ→KỸ, SỰA→SỬA, TÍCH→TỊCH). Giữ nguyên các mã kỹ thuật.
 3. NẾU KHÔNG TÌM THẤY thông tin cho một trường, bắt buộc trả về giá trị null cho trường đó, tuyệt đối không điền 'Không có' hay 'N/A'.
 4. BẮT BUỘC TRẢ VỀ JSON HỢP LỆ (VALID JSON). Phải kiểm tra kỹ việc đóng ngoặc kép (dấu """") đối với các giá trị chuỗi dài. CHỈ TRẢ VỀ một chuỗi JSON duy nhất, KHÔNG thêm giải thích hay markdown.
 5. Format JSON phải tuân thủ nghiêm ngặt theo cấu trúc đã cho, với tên trường chính xác như yêu cầu. KHÔNG được thêm bớt hay đổi tên trường.
-6. GHÉP CÁC DÒNG LIÊN TIẾP: Nếu một trường có nhiều dòng liền kề nhau (các box có y0 liên tiếp, cùng vùng x), hãy ghép tất cả thành 1 giá trị. Ví dụ: ""KT. CHỦ TỊCH"" và ""PHÓ CHỦ TỊCH"" trên 2 dòng → ghép thành ""KT. CHỦ TỊCH\nPHÓ CHỦ TỊCH"".
+6. GHÉP CÁC DÒNG LIÊN TIẾP: Nếu một trường có nhiều dòng liền kề nhau (các box có y0 liên tiếp, cùng vùng x), hãy ghép tất cả thành 1 giá trị bằng ký tự \n.
 7. PHÂN BIỆT KHU VỰC VĂN BẢN:
-   - Phần ""Nơi nhận"" (thường ở góc dưới bên trái, bắt đầu bằng ""Nơi nhận:"") KHÔNG phải là người ký.
+   - Phần ""Nơi nhận"" (thường ở góc dưới bên trái) KHÔNG phải là người ký.
    - Phần ""Người ký"" thường nằm ở góc dưới bên phải, phía trên tên người ký có chức danh.
-   - Phần ""Trích yếu"" nằm ở header (giữa trang, dưới tên loại văn bản), KHÔNG phải nội dung chi tiết của các điều khoản.
-8. TRƯỜNG ĐỂ TRỐNG: Nếu phát hiện vị trí có dấu hiệu để trống (ví dụ: ""Số: .../QĐ-UBND"", ""ngày ... tháng ... năm"") thì trả về giá trị null.
+   - Phần ""Trích yếu"" nằm ở header (giữa trang, dưới tên loại văn bản), KHÔNG phải nội dung chi tiết.
+8. TRƯỜNG ĐỂ TRỐNG: Nếu phát hiện vị trí có dấu hiệu để trống (ví dụ: ""Số: .../QĐ-UBND"") thì trả về giá trị null thay vì lấy phần thừa.
+9. TRƯỜNG HỢP TRANG KHÔNG CÓ THÔNG TIN: Kể cả khi trang hoàn toàn không chứa bất kỳ trường nào cần trích xuất (ví dụ trang 2, trang 3 chỉ chứa chữ ký hoặc phụ lục), BẠN VẪN BẮT BUỘC PHẢI TRẢ VỀ JSON VỚI TẤT CẢ GIÁ TRỊ NULL. TUYỆT ĐỐI KHÔNG ĐƯỢC BỎ TRỐNG HAY TRẢ VỀ CHUỖI RỖNG.
 {taskMsg.ExtractPrompt}
 
 CÁC TRƯỜNG CẦN TRÍCH XUẤT:
