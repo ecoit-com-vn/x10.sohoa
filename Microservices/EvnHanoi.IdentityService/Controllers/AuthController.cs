@@ -30,17 +30,20 @@ public class AuthController : ControllerBase
     private readonly IConfiguration _configuration;
     private readonly IDbConnection _connection;
     private readonly IValidator<UpdateProfileRequest> _updateProfileValidator;
+    private readonly IValidator<ChangePasswordRequest> _changePasswordValidator;
 
     public AuthController(
         IUserRepository userRepository,
         IConfiguration configuration,
         IDbConnection connection,
-        IValidator<UpdateProfileRequest> updateProfileValidator)
+        IValidator<UpdateProfileRequest> updateProfileValidator,
+        IValidator<ChangePasswordRequest> changePasswordValidator)
     {
         _userRepository = userRepository;
         _configuration = configuration;
         _connection = connection;
         _updateProfileValidator = updateProfileValidator;
+        _changePasswordValidator = changePasswordValidator;
     }
     [AllowAnonymous]
     [HttpPost("login")]
@@ -658,6 +661,79 @@ public class AuthController : ControllerBase
         });
     }
 
+    [Authorize]
+    [BypassDynamicPermission]
+    [HttpPost("change-password")]
+    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest? request)
+    {
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized();
+        }
+
+        if (request == null)
+        {
+            return BadRequest(new
+            {
+                statusCode = 400,
+                message = "Dữ liệu đầu vào không hợp lệ.",
+                errors = new Dictionary<string, string> { { "password", "Dữ liệu đổi mật khẩu không hợp lệ." } }
+            });
+        }
+
+        var validationResult = await _changePasswordValidator.ValidateAsync(request);
+        var errors = validationResult.Errors
+            .GroupBy(e => ToCamelCase(e.PropertyName))
+            .ToDictionary(g => g.Key, g => g.First().ErrorMessage);
+
+        if (errors.Count > 0)
+        {
+            return BadRequest(new
+            {
+                statusCode = 400,
+                message = "Dữ liệu đầu vào không hợp lệ.",
+                errors
+            });
+        }
+
+        var user = await _userRepository.GetByIdAsync(userId);
+        if (user == null)
+        {
+            return NotFound(new { message = "Không tìm thấy người dùng." });
+        }
+
+        if (!user.IsActive)
+        {
+            return Unauthorized(new { message = "Tài khoản đã bị vô hiệu hóa." });
+        }
+
+        if (!BCrypt.Net.BCrypt.Verify(request.CurrentPassword, user.PasswordHash))
+        {
+            return BadRequest(new
+            {
+                statusCode = 400,
+                message = "Dữ liệu đầu vào không hợp lệ.",
+                errors = new Dictionary<string, string> { { "currentPassword", "Mật khẩu hiện tại không đúng." } }
+            });
+        }
+
+        if (BCrypt.Net.BCrypt.Verify(request.NewPassword, user.PasswordHash))
+        {
+            return BadRequest(new
+            {
+                statusCode = 400,
+                message = "Dữ liệu đầu vào không hợp lệ.",
+                errors = new Dictionary<string, string> { { "newPassword", "Mật khẩu mới không được trùng mật khẩu hiện tại." } }
+            });
+        }
+
+        var newPasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+        await _userRepository.UpdatePasswordAsync(user.Id, newPasswordHash);
+
+        return Ok(new { message = "Đổi mật khẩu thành công. Vui lòng đăng nhập lại." });
+    }
+
     private static string ToCamelCase(string value)
     {
         return string.IsNullOrEmpty(value)
@@ -698,6 +774,13 @@ public class UpdateProfileRequest
     public string Email { get; set; } = string.Empty;
     public long? PositionId { get; set; }
     public string? PositionName { get; set; }
+}
+
+public class ChangePasswordRequest
+{
+    public string CurrentPassword { get; set; } = string.Empty;
+    public string NewPassword { get; set; } = string.Empty;
+    public string ConfirmPassword { get; set; } = string.Empty;
 }
 
 public class SsoValidationResponse
