@@ -204,63 +204,7 @@ public class EavFormTemplateController : ControllerBase
         return Ok(existing);
     }
 
-    [HttpPut("{id:guid}/approve")]
-    public async Task<IActionResult> Approve(Guid id)
-    {
-        var existing = await _repository.GetByIdAsync(id);
-        if (existing == null)
-            return NotFound(new { Message = $"Không tìm thấy biểu mẫu với ID = {id}" });
 
-        if (existing.Status != "Chờ duyệt")
-        {
-            return BadRequest(new { Message = "Chỉ biểu mẫu ở trạng thái 'Chờ duyệt' mới được phê duyệt." });
-        }
-
-        existing.Status = "Hoàn thành";
-        await _repository.UpdateAsync(existing);
-        return Ok(existing);
-    }
-
-    [HttpPut("{id:guid}/reject")]
-    public async Task<IActionResult> Reject(Guid id)
-    {
-        var existing = await _repository.GetByIdAsync(id);
-        if (existing == null)
-            return NotFound(new { Message = $"Không tìm thấy biểu mẫu với ID = {id}" });
-
-        if (existing.Status != "Chờ duyệt")
-        {
-            return BadRequest(new { Message = "Chỉ biểu mẫu ở trạng thái 'Chờ duyệt' mới được từ chối." });
-        }
-
-        existing.Status = "Từ chối";
-        await _repository.UpdateAsync(existing);
-        return Ok(existing);
-    }
-
-    [HttpPost("{id:guid}/lock")]
-    public async Task<IActionResult> Lock(Guid id)
-    {
-        var existing = await _repository.GetByIdAsync(id);
-        if (existing == null)
-            return NotFound(new { Message = $"Không tìm thấy biểu mẫu với ID = {id}" });
-
-        existing.IsActive = false;
-        await _repository.UpdateAsync(existing);
-        return Ok(new { Message = "Khóa biểu mẫu thành công." });
-    }
-
-    [HttpPost("{id:guid}/unlock")]
-    public async Task<IActionResult> Unlock(Guid id)
-    {
-        var existing = await _repository.GetByIdAsync(id);
-        if (existing == null)
-            return NotFound(new { Message = $"Không tìm thấy biểu mẫu với ID = {id}" });
-
-        existing.IsActive = true;
-        await _repository.UpdateAsync(existing);
-        return Ok(new { Message = "Mở khóa biểu mẫu thành công." });
-    }
 
     [HttpGet("code/{code}/versions")]
     public async Task<ActionResult<IEnumerable<EavFormTemplate>>> GetVersionsByCode(string code)
