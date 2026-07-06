@@ -592,6 +592,7 @@ public class DossierRepository : IDossierRepository
                         d.STATUS_ID as StatusId,
                         dstat.CODE as StatusCode,
                         dstat.NAME as StatusName,
+                        d.KIND_ID as {nameof(DossierDetailDto.KindId)},
                         d.{nameof(Dossier.WorkflowInstanceId)},
                         d.{nameof(Dossier.WorkflowStatusName)},
                         d.{nameof(Dossier.RowVersion)},

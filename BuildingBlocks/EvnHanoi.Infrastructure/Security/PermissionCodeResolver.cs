@@ -146,6 +146,7 @@ public static class PermissionCodeResolver
             "DOSSIER_PUBLISH_VIEW" => "Xem xuất bản hồ sơ",
             "SEARCH_DOSSIERS_BY_EQUIPMENT_VIEW" => "Tra cứu hồ sơ thiết bị",
             "DOCUMENT_FULLTEXT_SEARCH_VIEW" => "Tra cứu toàn văn tài liệu",
+            "DOCUMENT_IMPORT" => "Nhập tệp kho tài liệu thiết bị",
             "FOLDER_ALLOCATION_VIEW" => "Xem phân bổ nhập liệu",
             "FOLDER_ALLOCATION_EDIT" => "Cấu hình phân bổ nhập liệu",
             "DOSSIER_DIGITIZATION_VIEW" => "Xem hồ sơ số hóa",

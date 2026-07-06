@@ -24,6 +24,7 @@ public abstract class DossierWorkflowControllerBase : ControllerBase
 {
     private readonly IWorkflowEngineService _workflowEngine;
     private readonly IWorkflowDefinitionService _workflowDefinitionService;
+    private readonly IDossierWorkflowQueryService _dossierWorkflowQuery;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IWorkflowRepository _workflowRepository;
     private readonly IConfiguration _configuration;
@@ -34,12 +35,14 @@ public abstract class DossierWorkflowControllerBase : ControllerBase
     protected DossierWorkflowControllerBase(
         IWorkflowEngineService workflowEngine,
         IWorkflowDefinitionService workflowDefinitionService,
+        IDossierWorkflowQueryService dossierWorkflowQuery,
         IHttpClientFactory httpClientFactory,
         IWorkflowRepository workflowRepository,
         IConfiguration configuration)
     {
         _workflowEngine = workflowEngine ?? throw new ArgumentNullException(nameof(workflowEngine));
         _workflowDefinitionService = workflowDefinitionService ?? throw new ArgumentNullException(nameof(workflowDefinitionService));
+        _dossierWorkflowQuery = dossierWorkflowQuery ?? throw new ArgumentNullException(nameof(dossierWorkflowQuery));
         _httpClientFactory = httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory));
         _workflowRepository = workflowRepository ?? throw new ArgumentNullException(nameof(workflowRepository));
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
@@ -330,15 +333,8 @@ public abstract class DossierWorkflowControllerBase : ControllerBase
     [HttpGet("{id:guid}/get-workflow-by-entity")]
     public async Task<IActionResult> GetWorkflowByEntity(Guid id)
     {
-        try
-        {
-            var status = await _workflowEngine.GetInstanceStatusByEntityAsync(id.ToString(), WorkflowTypeId);
-            return Ok(status);
-        }
-        catch (KeyNotFoundException)
-        {
-            return Ok(null);
-        }
+        var status = await _dossierWorkflowQuery.TryGetWorkflowByEntityAsync(id.ToString(), WorkflowTypeId);
+        return Ok(status);
     }
 
     [HttpGet("{id:guid}/get-workflow-history")]
@@ -346,7 +342,7 @@ public abstract class DossierWorkflowControllerBase : ControllerBase
     {
         try
         {
-            var history = await _workflowEngine.GetHistoryByEntityAsync(id.ToString(), WorkflowTypeId);
+            var history = await _dossierWorkflowQuery.GetWorkflowHistoryAsync(id.ToString(), WorkflowTypeId);
             return Ok(history);
         }
         catch (KeyNotFoundException ex)
