@@ -51,7 +51,7 @@ public class EavFormTemplateService : IEavFormTemplateService
             GridTypeId = gridTypeId,
             Version = 1,
             IsActive = true,
-            CreatedAt = DateTime.UtcNow,
+            CreatedAt = DateTime.Now,
             CreatedBy = createdBy ?? "admin",
             Status = "Tạo mới",
             FormType = formType
@@ -90,7 +90,7 @@ public class EavFormTemplateService : IEavFormTemplateService
             GridTypeId = gridTypeId,
             Version = oldTemplate.Version + 1,
             IsActive = true,
-            CreatedAt = DateTime.UtcNow,
+            CreatedAt = DateTime.Now,
             CreatedBy = updatedBy,
             Status = string.IsNullOrEmpty(oldTemplate.Status) ? "Tạo mới" : oldTemplate.Status,
             FormType = formType
