@@ -7,6 +7,10 @@ using Microsoft.Extensions.Configuration;
 namespace EvnHanoi.WorkflowService.Controllers;
 
 /// <summary>Workflow hồ sơ số hóa — WORKFLOW_TYPE_ID = DossierDigitization (3). Tự động duyệt nếu chưa có definition active.</summary>
+/// <remarks>
+/// GET /api/v1/dossier-digitization-workflow/{id}/get-workflow-by-entity — đọc instance WF (WorkflowTypeId=3).
+/// GET /api/v1/dossier-digitization-workflow/{id}/get-workflow-history — lịch sử WF.
+/// </remarks>
 [Authorize]
 [ApiController]
 [Route("api/v1/dossier-digitization-workflow")]
@@ -18,10 +22,11 @@ public class DossierDigitizationWorkflowController : DossierWorkflowControllerBa
     public DossierDigitizationWorkflowController(
         IWorkflowEngineService workflowEngine,
         IWorkflowDefinitionService workflowDefinitionService,
+        IDossierWorkflowQueryService dossierWorkflowQuery,
         IHttpClientFactory httpClientFactory,
         IWorkflowRepository workflowRepository,
         IConfiguration configuration)
-        : base(workflowEngine, workflowDefinitionService, httpClientFactory, workflowRepository, configuration)
+        : base(workflowEngine, workflowDefinitionService, dossierWorkflowQuery, httpClientFactory, workflowRepository, configuration)
     {
     }
 }

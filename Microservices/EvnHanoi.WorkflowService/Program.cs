@@ -69,6 +69,7 @@ builder.Services.AddScoped<IWorkflowIntegrationHandler, DossierWorkflowHandler>(
 builder.Services.AddScoped<IWorkflowIntegrationHandler, DossierDigitizationWorkflowHandler>();
 builder.Services.AddScoped<IBpmnValidatorService, BpmnValidatorService>();
 builder.Services.AddScoped<IWorkflowDefinitionService, WorkflowDefinitionService>();
+builder.Services.AddScoped<IDossierWorkflowQueryService, DossierWorkflowQueryService>();
 
 // Configure JWT Authentication
 var jwtKey = builder.Configuration["Jwt:Key"] ?? "super_secret_key_12345678901234567890";

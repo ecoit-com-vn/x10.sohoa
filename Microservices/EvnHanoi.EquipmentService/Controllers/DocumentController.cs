@@ -13,13 +13,20 @@ namespace EvnHanoi.EquipmentService.Controllers;
 [Authorize]
 [ApiController]
 [Route("api/v1/documents")]
-public class DocumentController : ControllerBase
+public partial class DocumentController : ControllerBase
 {
     private readonly IDocumentManagementService _documentService;
+    private readonly IFileUploadService _fileUploadService;
+    private readonly ILogger<DocumentController> _logger;
 
-    public DocumentController(IDocumentManagementService documentService)
+    public DocumentController(
+        IDocumentManagementService documentService,
+        IFileUploadService fileUploadService,
+        ILogger<DocumentController> logger)
     {
         _documentService = documentService ?? throw new ArgumentNullException(nameof(documentService));
+        _fileUploadService = fileUploadService ?? throw new ArgumentNullException(nameof(fileUploadService));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     private string UserId => User.FindFirst(ClaimTypes.NameIdentifier)?.Value
