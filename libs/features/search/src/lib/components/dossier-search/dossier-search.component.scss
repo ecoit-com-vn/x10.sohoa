@@ -73,7 +73,7 @@
 .folder-tree-btn {
   flex: 1;
   text-align: left;
-  padding: 6px 8px 0 8px;
+  padding: 10px 8px;
   border: none;
   cursor: pointer;
   display: flex;
@@ -82,7 +82,7 @@
   border-radius: 4px;
   margin-bottom: 2px;
   margin-left: 3px;
-  font-size: 0.9rem;
+  font-size: 14px;
   background-color: transparent;
   color: #374151;
   min-width: 0;
@@ -127,20 +127,6 @@
   }
 }
 
-/* Custom Subfolder table link styling */
-.wf-name-link {
-  color: #1f2937 !important;
-  font-weight: bold !important;
-  cursor: pointer;
-  text-decoration: none;
-  transition: color 0.15s ease;
-
-  &:hover {
-    color: #2563eb !important;
-    text-decoration: none !important;
-  }
-}
-
 /* Layout and card panels */
 .search-layout-container {
   display: flex;
@@ -149,7 +135,7 @@
 }
 
 .folder-tree-panel {
-  width: 380px;
+  width: 405px;
   overflow-y: auto;
 }
 
@@ -164,7 +150,7 @@
   color: white;
   padding: 8px 12px;
   border-radius: 6px;
-  margin-bottom: 12px;
+  margin-bottom: 5px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -182,7 +168,8 @@
   }
 
   .header-text {
-    font-size: 0.95rem;
+    font-size: 15px;
+    font-weight: 500;
   }
 }
 
@@ -221,7 +208,7 @@
 }
 
 .connector-space {
-  width: 20px;
+  width: 10px;
   align-self: stretch;
   flex-shrink: 0;
   position: relative;
@@ -263,13 +250,15 @@
 }
 
 .folder-children-wrapper {
-  margin-left: 36px;
+  margin-left: 30px;
   border-left: 1.5px dashed #3b82f6;
   padding-left: 0;
   position: relative;
+  margin-top: -7px;
 
   &.root-children {
-    margin-left: 16px;
+    margin-left: 20px;
+    margin-top: -7px;
   }
 }
 
