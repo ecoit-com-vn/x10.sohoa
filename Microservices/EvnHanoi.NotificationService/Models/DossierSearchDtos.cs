@@ -30,6 +30,9 @@ public class DossierListItemDto
     public Guid? InfrastructureId { get; set; }
     public string? InfrastructureName { get; set; }
     public string? InfrastructureCode { get; set; }
+    public long? UnitId { get; set; }
+    public string? UnitName { get; set; }
+    public string? EquipmentName { get; set; }
     public Guid? DossierSetId { get; set; }
     public string? DossierSetName { get; set; }
     public Guid DossierTypeId { get; set; }
@@ -61,6 +64,8 @@ public class DossierFilterDto
 {
     public string? Keyword { get; set; }
     public Guid? InfrastructureId { get; set; }
+    public int? InfrastructureTypeId { get; set; }
+    public IReadOnlyList<string>? InfrastructureScopeIds { get; set; }
     public int? GridTypeId { get; set; }
     public long? UnitId { get; set; }
     public IReadOnlyList<long>? UnitScopeIds { get; set; }

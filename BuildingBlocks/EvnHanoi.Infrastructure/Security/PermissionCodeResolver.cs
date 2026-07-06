@@ -28,6 +28,10 @@ public static class PermissionCodeResolver
             "DossierDigitizationWorkflow" => "DOSSIER_DIGITIZATION",
             "DossierByEquipment" => "SEARCH_DOSSIERS_BY_EQUIPMENT",
             "SearchDossiersByEquipment" => "SEARCH_DOSSIERS_BY_EQUIPMENT",
+            "ReportDossierByGridType" => "REPORT_DOSSIER_BY_GRIDTYPE",
+            "ReportDossierByEquipment" => "REPORT_DOSSIER_BY_EQUIPMENT",
+            "ReportDossierByStation" => "REPORT_DOSSIER_BY_STATION",
+            "ReportDossierByLine" => "REPORT_DOSSIER_BY_LINE",
             "DocumentFullTextSearch" => "DOCUMENT_FULLTEXT_SEARCH",
             _ => ToSnakeCase(controllerKey)
         };
@@ -69,11 +73,54 @@ public static class PermissionCodeResolver
             return "VIEW";
         }
 
+        // Báo cáo hồ sơ thiết bị: GET danh sách/chi tiết/lookup → VIEW; export → EXPORT
+        if (controllerKey.StartsWith("ReportDossierBy", StringComparison.OrdinalIgnoreCase))
+        {
+            if (httpMethod.Equals("GET", StringComparison.OrdinalIgnoreCase))
+            {
+                var actLower = actionName.ToLowerInvariant();
+                if (actLower.Contains("export"))
+                    return "EXPORT";
+                return "VIEW";
+            }
+        }
+
         // Tra cứu toàn văn tài liệu: mọi GET → VIEW (kể cả download-url)
         if (string.Equals(controllerKey, "DocumentFullTextSearch", StringComparison.OrdinalIgnoreCase) &&
             httpMethod.Equals("GET", StringComparison.OrdinalIgnoreCase))
         {
             return "VIEW";
+        }
+
+        // Biểu mẫu EAV (formType=FORM): phân quyền theo màn thiết kế / phê duyệt / hoàn thành
+        if (string.Equals(controllerKey, "EavFormTemplate", StringComparison.OrdinalIgnoreCase))
+        {
+            var actLower = actionName.ToLowerInvariant();
+
+            if (actLower.Contains("approve") || actLower.Contains("reject"))
+            {
+                return "APPROVE";
+            }
+
+            if (actLower.Contains("submit"))
+            {
+                return "SUBMIT";
+            }
+
+            if (httpMethod.Equals("GET", StringComparison.OrdinalIgnoreCase))
+            {
+                if (actLower.Contains("completed"))
+                {
+                    return "COMPLETED_VIEW";
+                }
+
+                if (actLower.Contains("approval"))
+                {
+                    return "APPROVAL_VIEW";
+                }
+
+                return "VIEW";
+            }
         }
 
         return CategorizeAction(actionName, httpMethod);
@@ -145,6 +192,14 @@ public static class PermissionCodeResolver
             "DOSSIER_PUBLISH_RELEASE" => "Xuất bản hồ sơ",
             "DOSSIER_PUBLISH_VIEW" => "Xem xuất bản hồ sơ",
             "SEARCH_DOSSIERS_BY_EQUIPMENT_VIEW" => "Tra cứu hồ sơ thiết bị",
+            "REPORT_DOSSIER_BY_GRIDTYPE_VIEW" => "Xem báo cáo hồ sơ theo loại lưới điện",
+            "REPORT_DOSSIER_BY_GRIDTYPE_EXPORT" => "Xuất Excel báo cáo theo loại lưới điện",
+            "REPORT_DOSSIER_BY_EQUIPMENT_VIEW" => "Xem báo cáo hồ sơ theo thiết bị",
+            "REPORT_DOSSIER_BY_EQUIPMENT_EXPORT" => "Xuất Excel báo cáo theo thiết bị",
+            "REPORT_DOSSIER_BY_STATION_VIEW" => "Xem báo cáo hồ sơ theo trạm",
+            "REPORT_DOSSIER_BY_STATION_EXPORT" => "Xuất Excel báo cáo theo trạm",
+            "REPORT_DOSSIER_BY_LINE_VIEW" => "Xem báo cáo hồ sơ theo đường dây",
+            "REPORT_DOSSIER_BY_LINE_EXPORT" => "Xuất Excel báo cáo theo đường dây",
             "DOCUMENT_FULLTEXT_SEARCH_VIEW" => "Tra cứu toàn văn tài liệu",
             "DOCUMENT_IMPORT" => "Nhập tệp kho tài liệu thiết bị",
             "FOLDER_ALLOCATION_VIEW" => "Xem phân bổ nhập liệu",
@@ -154,6 +209,15 @@ public static class PermissionCodeResolver
             "DOSSIER_DIGITIZATION_EDIT" => "Sửa hồ sơ số hóa",
             "DOSSIER_DIGITIZATION_DELETE" => "Xóa hồ sơ số hóa",
             "DOSSIER_DIGITIZATION_MANAGE" => "Quản lý quy trình hồ sơ số hóa",
+            "EAV_FORM_TEMPLATE_VIEW" => "Xem cấu hình biểu mẫu",
+            "EAV_FORM_TEMPLATE_CREATE" => "Tạo biểu mẫu",
+            "EAV_FORM_TEMPLATE_EDIT" => "Chỉnh sửa biểu mẫu",
+            "EAV_FORM_TEMPLATE_SUBMIT" => "Gửi duyệt biểu mẫu",
+            "EAV_FORM_TEMPLATE_APPROVAL_VIEW" => "Xem hàng chờ phê duyệt biểu mẫu",
+            "EAV_FORM_TEMPLATE_APPROVE" => "Phê duyệt / từ chối biểu mẫu",
+            "EAV_FORM_TEMPLATE_COMPLETED_VIEW" => "Xem danh sách form hoàn thành",
+            "EAV_FORM_TEMPLATE_MANAGE" => "Khóa / mở khóa biểu mẫu",
+            "EAV_FORM_TEMPLATE_DELETE" => "Xóa biểu mẫu",
             _ => null
         };
     }

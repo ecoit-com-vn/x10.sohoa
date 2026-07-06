@@ -9,6 +9,7 @@ public class DossierEnrichmentData
     public string? InfrastructureName { get; set; }
     public string? InfrastructureCode { get; set; }
     public long? UnitId { get; set; }
+    public string? UnitName { get; set; }
     public string? DossierSetId { get; set; }
     public string? DossierSetName { get; set; }
     public string DossierTypeId { get; set; } = string.Empty;

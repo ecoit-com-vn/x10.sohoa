@@ -46,6 +46,42 @@ public class EavFormTemplateRepository : IEavFormTemplateRepository
         return await _connection.QueryAsync<EavFormTemplate>(sql, new { FormType = formType, IsActive = isActive.HasValue && isActive.Value ? 1 : 0 });
     }
 
+    public async Task<IEnumerable<EavFormTemplate>> GetDesignFormsAsync()
+    {
+        return await GetFormsByScopeAsync(null);
+    }
+
+    public async Task<IEnumerable<EavFormTemplate>> GetApprovalFormsAsync()
+    {
+        return await GetFormsByScopeAsync(new[] { "Chờ duyệt", "Hoàn thành", "Từ chối" });
+    }
+
+    public async Task<IEnumerable<EavFormTemplate>> GetCompletedFormsAsync()
+    {
+        return await GetFormsByScopeAsync(new[] { "Hoàn thành" });
+    }
+
+    private async Task<IEnumerable<EavFormTemplate>> GetFormsByScopeAsync(string[]? statuses)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        var sql = $@"SELECT t.*, gt.Name as {nameof(EavFormTemplate.GridTypeName)}, et.Name as {nameof(EavFormTemplate.EquipmentTypeName)}
+                     FROM {nameof(EavFormTemplate)}s t
+                     LEFT JOIN GridTypes gt ON t.{nameof(EavFormTemplate.GridTypeId)} = gt.Id
+                     LEFT JOIN EquipmentTypes et ON t.{nameof(EavFormTemplate.EquipmentTypeId)} = et.Id
+                     WHERE t.IsDeleted = 0
+                       AND t.{nameof(EavFormTemplate.FormType)} = 'FORM'";
+
+        if (statuses is { Length: > 0 })
+        {
+            sql += $" AND t.{nameof(EavFormTemplate.Status)} IN :Statuses";
+        }
+
+        sql += $" ORDER BY t.{nameof(EavFormTemplate.CreatedAt)} DESC";
+        return await _connection.QueryAsync<EavFormTemplate>(sql, new { Statuses = statuses });
+    }
+
     public async Task AddAsync(EavFormTemplate template)
     {
         var sql = $@"INSERT INTO {nameof(EavFormTemplate)}s (
