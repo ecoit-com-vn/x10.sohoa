@@ -45,7 +45,8 @@ public class ReportFileDownloadTokenService : IReportFileDownloadTokenService
         var metadata = new ReportDownloadTokenMetadata
         {
             FilePath = filePath,
-            BucketName = bucketName ?? _config["MinIO:DocumentBucketName"] ?? "documents",
+            BucketName = bucketName
+                ?? _config["MinIO:DossierBucketName"],
             FileName = fileName,
             MimeType = mimeType ?? "application/octet-stream"
         };
