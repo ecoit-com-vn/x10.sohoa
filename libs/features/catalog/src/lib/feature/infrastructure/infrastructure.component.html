@@ -188,11 +188,14 @@
 
         <div class="form-group">
           <label class="form-label">Loại lưới điện <span class="required">*</span></label>
-          <select class="wf-select w-full" [(ngModel)]="currentItem().gridTypeId" (ngModelChange)="onFieldChange('gridTypeId')" [disabled]="isSaving()">
+          <select class="wf-select w-full" [(ngModel)]="currentItem().gridTypeId" (ngModelChange)="onFieldChange('gridTypeId')" [disabled]="isSaving() || isGridTypeLocked()">
             <option [ngValue]="null">-- Chọn loại lưới điện --</option>
             <option *ngFor="let gt of gridTypes()" [value]="gt.id">{{ gt.name }}</option>
           </select>
           <span class="field-error" *ngIf="gridTypeIdError()">{{ gridTypeIdError() }}</span>
+          <span *ngIf="isGridTypeLocked()" style="display: block; margin-top: 6px; font-size: 0.8rem; color: #b45309;">
+            Không thể thay đổi loại lưới điện vì {{ infraTypeId() === 1 ? 'trạm biến áp' : 'đường dây' }} này đã có thiết bị.
+          </span>
         </div>
 
         <!-- Đơn vị quản lý — Tree Picker -->

@@ -266,7 +266,7 @@ export class FormManagementComponent implements OnInit {
   loadForms() {
     this.loadingService.show();
     const request$ = this.isFromCompletedForms()
-      ? this.eavFormService.getCompletedTemplates()
+      ? this.eavFormService.getCompletedTemplatesForm()
       : this.eavFormService.getDesignTemplates();
     request$
       .pipe(finalize(() => this.loadingService.hide()))

@@ -50,10 +50,15 @@ export class BreadcrumbService {
     );
   }
 
-  /** Xây breadcrumb theo URL hiện tại và cây menu sidebar. */
   resolveTrail(currentUrl: string): BreadcrumbTrailItem[] {
     const matchedMenu = findMenuByUrl(this.flatMenus(), currentUrl);
     if (!matchedMenu) {
+      const path = currentUrl.split('?')[0];
+      if (path === '/search/dossier' || path.startsWith('/search/dossier/')) {
+        return [
+          { label: 'Tra cứu hồ sơ thiết bị', url: '/search/dossier-by-equipment' }
+        ];
+      }
       return [];
     }
 

@@ -10,7 +10,8 @@
   display: grid;
   grid-template-columns: minmax(280px, 1fr) minmax(320px, 1fr);
   gap: 16px;
-  min-height: 480px;
+  height: calc(85vh - 120px);
+  min-height: 520px;
 }
 
 .pane-title {
@@ -24,7 +25,8 @@
   border: 1px solid #e5e7eb;
   border-radius: 8px;
   padding: 12px;
-  min-height: 0;
+  height: 100%;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
 }
@@ -41,16 +43,15 @@
 
 .preview-body {
   flex: 1;
-  min-height: 420px;
   background: #f9fafb;
   border-radius: 6px;
   overflow: hidden;
+  height: 100%;
 }
 
 .preview-frame {
   width: 100%;
   height: 100%;
-  min-height: 420px;
   border: 0;
 }
 

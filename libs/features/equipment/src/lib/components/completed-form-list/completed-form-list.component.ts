@@ -197,7 +197,7 @@ export class CompletedFormListComponent implements OnInit {
             return;
         }
         this.loadingService.show();
-        this.eavFormService.lockTemplate(this.targetForm.id)
+        this.eavFormService.lockCompletedTemplate(this.targetForm.id)
             .pipe(finalize(() => this.loadingService.hide()))
             .subscribe({
                 next: () => {
@@ -229,7 +229,7 @@ export class CompletedFormListComponent implements OnInit {
             return;
         }
         this.loadingService.show();
-        this.eavFormService.unlockTemplate(this.targetForm.id)
+        this.eavFormService.unlockCompletedTemplate(this.targetForm.id)
             .pipe(finalize(() => this.loadingService.hide()))
             .subscribe({
                 next: () => {
@@ -367,7 +367,7 @@ export class CompletedFormListComponent implements OnInit {
     onConfirmDelete() {
         if (!this.targetForm) return;
         this.loadingService.show();
-        this.eavFormService.deleteTemplate(this.targetForm.id)
+        this.eavFormService.deleteCompletedTemplate(this.targetForm.id)
             .pipe(finalize(() => this.loadingService.hide()))
             .subscribe({
                 next: () => {

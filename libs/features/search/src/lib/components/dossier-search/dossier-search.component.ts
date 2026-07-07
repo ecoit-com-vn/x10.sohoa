@@ -55,7 +55,7 @@ export class DossierSearchComponent implements OnInit, OnDestroy {
   private sanitizer = inject(DomSanitizer);
 
   // ===== NEW SIGNALS FOR 2-TAB DETAIL & PREVIEW =====
-  activeDetailTab = signal<'info' | 'documents'>('info');
+  activeDetailTab = signal<'info' | 'documents' | 'related'>('info');
   relatedEquipments = signal<any[]>([]);
   loadingEquipments = signal<boolean>(false);
   dynamicFields = signal<EavField[]>([]);
@@ -65,6 +65,56 @@ export class DossierSearchComponent implements OnInit, OnDestroy {
   previewUrl = signal<string | null>(null);
   loadingPreview = signal<boolean>(false);
   gridTypes = signal<any[]>([]);
+
+  // Phân trang thiết bị liên quan
+  equipmentFirst = signal<number>(0);
+  equipmentRows = signal<number>(10);
+  paginatedEquipments = computed(() => {
+    const start = this.equipmentFirst();
+    const end = start + this.equipmentRows();
+    return this.relatedEquipments().slice(start, end);
+  });
+
+  // Chia đôi thuộc tính động EAV để hiển thị 2 cột sạch đẹp dạng văn bản
+  leftDynamicFields = computed(() => {
+    const fields = this.dynamicFields();
+    return fields.slice(0, Math.ceil(fields.length / 2));
+  });
+
+  rightDynamicFields = computed(() => {
+    const fields = this.dynamicFields();
+    return fields.slice(Math.ceil(fields.length / 2));
+  });
+
+  onEquipmentPageChange(event: any) {
+    this.equipmentFirst.set(event.first);
+    this.equipmentRows.set(event.rows);
+  }
+
+  getFieldValueText(field: EavField): string {
+    const value = this.detailFormData()[field.key];
+    if (value === null || value === undefined || value === '') {
+      return '-';
+    }
+    if (field.type === 'select') {
+      const option = field.options?.find(opt => opt.value === value);
+      return option ? option.label : value;
+    }
+    if (field.type === 'checkbox') {
+      return value ? 'Có' : 'Không';
+    }
+    if (field.type === 'date') {
+      try {
+        const date = new Date(value);
+        if (!isNaN(date.getTime())) {
+          return date.toLocaleDateString('vi-VN');
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+    return value;
+  }
 
   // ===== NEW SIGNALS FOR DOSSIER SEARCH FILTER =====
   searchGridType = signal<string>('ALL');
@@ -254,7 +304,7 @@ export class DossierSearchComponent implements OnInit, OnDestroy {
     this.searchInfraName.set('');
     this.searchBoxName.set('');
     this.expandedFolders.set(new Set<string>([
-      'root-tba', 'root-dd', 'tba-cao-ap', 'tba-trung-ap', 'dd-cao-ap', 'dd-trung-ap'
+      'root-tba', 'root-dd', 'tba-cao-ap', 'dd-cao-ap'
     ]));
   }
 
@@ -290,12 +340,12 @@ export class DossierSearchComponent implements OnInit, OnDestroy {
         this.folderTree.set(treeStructure);
         this.loadingTree.set(false);
 
-        // Mặc định chỉ mở cấp 1 và hộp lưới điện trung áp
+        // Mặc định chỉ mở cấp 1 và hộp lưới điện cao áp
         const toExpand = new Set<string>([
           'root-tba',
           'root-dd',
-          'tba-trung-ap',
-          'dd-trung-ap',
+          'tba-cao-ap',
+          'dd-cao-ap',
         ]);
 
         this.expandedFolders.set(toExpand);
@@ -453,44 +503,7 @@ export class DossierSearchComponent implements OnInit, OnDestroy {
   }
 
   onViewDossierDetail(item: any) {
-    this.cleanupPreview();
-    this.selectedDossier.set(null);
-    this.selectedDocument.set(null);
-    this.relatedEquipments.set([]);
-    this.dynamicFields.set([]);
-    this.detailFormData.set({});
-    this.activeDetailTab.set('info');
-
-    this.loadingForm.set(true);
-    this.dossierService.getDossierById(item.id).pipe(
-      switchMap((fullDossier) => {
-        const normalized = normalizeDossierDetail(fullDossier);
-        this.selectedDossier.set(normalized || fullDossier);
-
-        this.loadDossierDocuments(item.id);
-        this.loadRelatedEquipments(item.id);
-
-        if (normalized) {
-          const parsedData = parseFormDataJson(normalized.formDataJson);
-          this.detailFormData.set(parsedData);
-          return this.resolveFormTemplate(normalized.formId, normalized.dossierTypeId);
-        }
-        return of(null);
-      }),
-      finalize(() => this.loadingForm.set(false))
-    ).subscribe({
-      next: (template) => {
-        this.applyFormTemplate(template);
-      },
-      error: (err) => {
-        this.messageService.add({
-          severity: 'error',
-          summary: 'Lỗi',
-          detail: 'Không thể tải chi tiết dữ liệu hồ sơ',
-        });
-        console.error(err);
-      }
-    });
+    window.open(`/#/search/dossier/detail/${item.id}`, '_blank');
   }
 
   getGridTypeName(gridTypeId: number | null): string {

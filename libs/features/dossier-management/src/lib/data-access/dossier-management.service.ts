@@ -246,6 +246,16 @@ export class DossierManagementService {
     return this.http.delete<any>(`${this.base}/${id}/equipment/${equipmentId}`);
   }
 
+  getRelatedDossiers(dossierId: string, filter: { keyword?: string; dossierTypeId?: string; page?: number; pageSize?: number }): Observable<any> {
+    let params = new HttpParams();
+    if (filter.keyword) params = params.set('keyword', filter.keyword);
+    if (filter.dossierTypeId) params = params.set('dossierTypeId', filter.dossierTypeId);
+    if (filter.page) params = params.set('page', filter.page.toString());
+    if (filter.pageSize) params = params.set('pageSize', filter.pageSize.toString());
+
+    return this.http.get<any>(`${this.base}/${dossierId}/related`, { params });
+  }
+
   // ===== WORKFLOW =====
 
   moveWorkflow(id: string, request: { nextNodeId: string; actionLabel: string; comment?: string; nextAssigneeUserId?: string }, kindId?: number): Observable<any> {

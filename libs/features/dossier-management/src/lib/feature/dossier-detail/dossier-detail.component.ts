@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, OnChanges, SimpleChanges, signal, computed, inject, Output, EventEmitter, Input } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, computed, inject, Output, EventEmitter, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ToastModule } from 'primeng/toast';
@@ -27,12 +27,6 @@ import {
   parseWorkflowActionButtons,
 } from '../../utils/dossier-workflow-bpmn.util';
 import { DossierMenuScope, getDossierStatusLabel, getDossierStatusPillClass } from '../../utils/dossier-status.util';
-import {
-  canMutateDossierOnCreatorMenu,
-  hasDossierCreatePermission,
-  hasDossierEditPermission,
-  normalizeDossierKindId,
-} from '../../utils/dossier-permission.util';
 import {
   isUserAuthorizedForWorkflowAction,
   mapAvailableActionsToButtons,
@@ -199,7 +193,6 @@ function pickFirst<T>(...values: T[]): T | undefined {
           <app-dossier-documents-tab
             [dossierId]="dossierId"
             [canEdit]="canEditDossier()"
-            [kindId]="kindIdSignal()"
             [menuScope]="menuScope"
             [hasFormTemplate]="!!dossierMeta()?.formId"
             [formId]="dossierMeta()?.formId ?? null"
@@ -214,7 +207,6 @@ function pickFirst<T>(...values: T[]): T | undefined {
         <div *ngIf="activeTab() === 'workflow'">
           <app-dossier-workflow-tab
             [dossierId]="dossierId"
-            [kindId]="kindIdSignal()"
             [refreshToken]="workflowRefreshToken()"
             canvasId="bpmn-canvas-dossier-view"
           />
@@ -365,10 +357,9 @@ function pickFirst<T>(...values: T[]): T | undefined {
     }
   `]
 })
-export class DossierDetailComponent implements OnInit, OnDestroy, OnChanges {
+export class DossierDetailComponent implements OnInit, OnDestroy {
   @Input() dossierId!: string;
   @Input() menuScope: DossierMenuScope = 'creator';
-  @Input() kindId = 2;
   @Output() cancel = new EventEmitter<void>();
   @Output() edit = new EventEmitter<void>();
 
@@ -384,7 +375,6 @@ export class DossierDetailComponent implements OnInit, OnDestroy, OnChanges {
   workflowRefreshToken = signal(0);
 
   dossier = signal<any>(null);
-  kindIdSignal = signal<number>(2);
   dossierMeta = computed(() => normalizeDossierDetail(this.dossier()));
 
   viewMeta = computed(() => {
@@ -511,22 +501,7 @@ export class DossierDetailComponent implements OnInit, OnDestroy, OnChanges {
   }
 
   ngOnInit() {
-    this.applyRouteKindContext();
     this.loadDetail();
-  }
-
-  ngOnChanges(changes: SimpleChanges): void {
-    if (changes['kindId']) {
-      this.applyRouteKindContext();
-    }
-  }
-
-  private applyRouteKindContext(): void {
-    const id = normalizeDossierKindId(this.kindId, this.kindIdSignal());
-    this.kindIdSignal.set(id);
-    if (this.menuScope !== 'publisher') {
-      this.service.setKindContext(id);
-    }
   }
 
   ngOnDestroy() {
@@ -549,13 +524,13 @@ export class DossierDetailComponent implements OnInit, OnDestroy, OnChanges {
           throw new Error('Invalid dossier response');
         }
 
-        const normalizedKindId = normalizeDossierKindId(
-          (res as Record<string, unknown>)?.['kindId'] ?? (res as Record<string, unknown>)?.['KindId'],
-          this.kindIdSignal()
+        const resolvedKindId = Number(
+          (res as Record<string, unknown>)?.['kindId']
+          ?? (res as Record<string, unknown>)?.['KindId']
+          ?? 2
         );
-        this.kindIdSignal.set(normalizedKindId);
-        if (this.menuScope !== 'publisher') {
-          this.service.setKindContext(normalizedKindId);
+        if (this.menuScope === 'publisher') {
+          this.service.setKindContext(resolvedKindId === 1 ? 1 : 2);
         }
 
         this.dossier.set(res);
@@ -702,7 +677,7 @@ export class DossierDetailComponent implements OnInit, OnDestroy, OnChanges {
 
   loadWorkflow() {
     this.loadingBpmn.set(true);
-    this.service.getWorkflowDetail(this.dossierId, this.kindIdSignal()).pipe(
+    this.service.getWorkflowDetail(this.dossierId).pipe(
       finalize(() => this.loadingBpmn.set(false))
     ).subscribe({
       next: (res) => {
@@ -730,7 +705,7 @@ export class DossierDetailComponent implements OnInit, OnDestroy, OnChanges {
           return;
         }
 
-        this.service.getMyTasks(String(instanceId), this.kindIdSignal()).subscribe({
+        this.service.getMyTasks(String(instanceId)).subscribe({
           next: (tasks) => {
             const list = Array.isArray(tasks) ? tasks : [];
             this.myTask.set(list[0] ?? null);
@@ -829,8 +804,8 @@ export class DossierDetailComponent implements OnInit, OnDestroy, OnChanges {
     const statusId = this.dossier()?.statusId ?? this.dossier()?.StatusId;
     const useResubmit = this.menuScope === 'creator' && statusId === 5;
     const workflowCall = useResubmit
-      ? this.service.resubmitWorkflow(this.dossierId, payload, this.kindIdSignal())
-      : this.service.moveWorkflow(this.dossierId, payload, this.kindIdSignal());
+      ? this.service.resubmitWorkflow(this.dossierId, payload)
+      : this.service.moveWorkflow(this.dossierId, payload);
 
     workflowCall.subscribe({
       next: (res) => {
@@ -873,14 +848,13 @@ export class DossierDetailComponent implements OnInit, OnDestroy, OnChanges {
 
     const userId = this.authService.getUserId();
     const roles = this.authService.getUserRoles?.() ?? [];
-    const isDigitization = this.kindIdSignal() === 1;
 
     if (roles.includes('ADMIN')) return true;
 
     const statusId = d.statusId ?? d.StatusId;
     if (statusId === 1 || statusId === 2) {
       if (this.menuScope !== 'creator') return false;
-      if (!canMutateDossierOnCreatorMenu(this.authService, isDigitization)) {
+      if (!this.authService.hasPermission('DOSSIER_EDIT') && !this.authService.hasPermission('DOSSIER_CREATE')) {
         return false;
       }
       const creatorId = d.creator?.id ?? d.Creator?.Id ?? d.creatorId ?? d.CreatorId;
@@ -900,12 +874,12 @@ export class DossierDetailComponent implements OnInit, OnDestroy, OnChanges {
     // Trả lại — cán bộ tạo được sửa trên menu quản lý (không cần cờ AllowEdit)
     if (statusId === 5) {
       if (this.menuScope !== 'creator') return false;
-      if (!hasDossierEditPermission(this.authService, isDigitization)) return false;
+      if (!this.authService.hasPermission('DOSSIER_EDIT')) return false;
       return this.isCurrentUserCreator();
     }
 
     // Các trạng thái WF khác: bước hiện tại phải AllowEdit và user là assignee cụ thể
-    if (!hasDossierEditPermission(this.authService, isDigitization)) {
+    if (!this.authService.hasPermission('DOSSIER_EDIT')) {
       return false;
     }
 
@@ -955,7 +929,7 @@ export class DossierDetailComponent implements OnInit, OnDestroy, OnChanges {
 
   openSubmitWorkflowDialog() {
     this.submitting.set(true);
-    this.service.getNextStepInfo(this.kindIdSignal()).subscribe({
+    this.service.getNextStepInfo().subscribe({
       next: (res) => {
         this.nextStepInfo.set(res);
         this.selectedNextUser.set('');
@@ -987,7 +961,7 @@ export class DossierDetailComponent implements OnInit, OnDestroy, OnChanges {
       actionLabel: 'Trình duyệt',
       nextAssigneeUserId: this.selectedNextUser() || undefined,
       comment: 'Kính trình phê duyệt hồ sơ.'
-    }, this.kindIdSignal()).subscribe({
+    }).subscribe({
       next: (res) => {
         this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã gửi duyệt hồ sơ thành công' });
         this.showSubmitConfirm.set(false);
