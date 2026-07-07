@@ -15,7 +15,7 @@ export class DocumentManagementService {
   private config = inject(APP_CONFIG);
 
   private get apiUrl(): string {
-    return `${this.config.apiGatewayUrl}/api/v1/dossiers/catalog`;
+    return `${this.config.apiGatewayUrl}/api/v1/dossiers/search`;
   }
 
   // ===== FOLDER OPERATIONS =====
@@ -52,5 +52,17 @@ export class DocumentManagementService {
 
   getDocumentVersions(documentId: string) {
     return this.http.get<DocumentVersion[]>(`${this.apiUrl}/${documentId}/versions`);
+  }
+
+  getRelatedDossiers(dossierId: string, filter: { keyword?: string; dossierTypeId?: string; page?: number; pageSize?: number }) {
+    const params = new URLSearchParams();
+    if (filter.keyword) params.append('keyword', filter.keyword);
+    if (filter.dossierTypeId) params.append('dossierTypeId', filter.dossierTypeId);
+    if (filter.page) params.append('page', filter.page.toString());
+    if (filter.pageSize) params.append('pageSize', filter.pageSize.toString());
+
+    const queryString = params.toString();
+    const url = queryString ? `${this.apiUrl}/${dossierId}/related?${queryString}` : `${this.apiUrl}/${dossierId}/related`;
+    return this.http.get<any>(url);
   }
 }

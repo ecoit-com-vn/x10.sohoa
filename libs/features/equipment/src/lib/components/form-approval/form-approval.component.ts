@@ -104,7 +104,7 @@ export class FormApprovalComponent implements OnInit {
 
   loadForms() {
     this.loading.set(true);
-    this.eavFormService.getTemplates()
+    this.eavFormService.getApprovalTemplates()
       .pipe(finalize(() => this.loading.set(false)))
       .subscribe({
         next: (data) => {

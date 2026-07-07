@@ -82,14 +82,57 @@ export class EavFormService {
     return this.api.put<EavFormTemplate>(`${this.apiUrl}/${id}/submit`, {});
   }
 
+  // --- API cho Phê duyệt (EavFormApprovalController) ---
+  private get approvalApiUrl() {
+    return `/api/v1/eav-form-approvals`;
+  }
+
+  getApprovalTemplates(): Observable<EavFormTemplate[]> {
+    return this.api.get<EavFormTemplate[]>(this.approvalApiUrl);
+  }
+
+  getApprovalTemplateById(id: string): Observable<EavFormTemplate> {
+    return this.api.get<EavFormTemplate>(`${this.approvalApiUrl}/${id}`);
+  }
+
   approveTemplate(id: string): Observable<EavFormTemplate> {
-    return this.api.put<EavFormTemplate>(`${this.apiUrl}/${id}/approve`, {});
+    return this.api.put<EavFormTemplate>(`${this.approvalApiUrl}/${id}/approve`, {});
   }
 
   rejectTemplate(id: string): Observable<EavFormTemplate> {
-    return this.api.put<EavFormTemplate>(`${this.apiUrl}/${id}/reject`, {});
+    return this.api.put<EavFormTemplate>(`${this.approvalApiUrl}/${id}/reject`, {});
   }
 
+  // --- API cho Form hoàn thành (EavCompletedFormController) ---
+  private get completedApiUrl() {
+    return `/api/v1/eav-completed-forms`;
+  }
+
+  getCompletedTemplates(): Observable<EavFormTemplate[]> {
+    return this.api.get<EavFormTemplate[]>(this.completedApiUrl);
+  }
+
+  getCompletedTemplateById(id: string): Observable<EavFormTemplate> {
+    return this.api.get<EavFormTemplate>(`${this.completedApiUrl}/${id}`);
+  }
+
+  lockCompletedTemplate(id: string): Observable<any> {
+    return this.api.post<any>(`${this.completedApiUrl}/${id}/lock`, {});
+  }
+
+  unlockCompletedTemplate(id: string): Observable<any> {
+    return this.api.post<any>(`${this.completedApiUrl}/${id}/unlock`, {});
+  }
+
+  deleteCompletedTemplate(id: string): Observable<void> {
+    return this.api.delete<void>(`${this.completedApiUrl}/${id}`);
+  }
+
+  getCompletedTemplateVersions(code: string): Observable<EavFormTemplate[]> {
+    return this.api.get<EavFormTemplate[]>(`${this.completedApiUrl}/code/${code}/versions`);
+  }
+
+  // --- API cũ (giữ nguyên để tránh lỗi biên dịch) ---
   lockTemplate(id: string): Observable<any> {
     return this.api.post<any>(`${this.apiUrl}/${id}/lock`, {});
   }

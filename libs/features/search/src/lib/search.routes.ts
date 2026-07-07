@@ -27,6 +27,10 @@ export const SEARCH_ROUTES: Route[] = [
     loadComponent: () => import('./components/dossier-search/dossier-search.component').then(m => m.DossierSearchComponent)
   },
   {
+    path: 'dossier/detail/:id',
+    loadComponent: () => import('./components/dossier-detail/dossier-detail.component').then(m => m.DossierDetailComponent)
+  },
+  {
     path: 'dossier-by-equipment',
     loadComponent: () => import('./components/dossier-lookup/dossier-lookup.component').then(m => m.DossierLookupComponent)
   },
