@@ -42,7 +42,8 @@ public class InfrastructureRepository : IInfrastructureRepository
                             u.NAME as {nameof(Infrastructure.UnitName)},
                             u.Id as OrgId,
                             u.Code as OrgCode,
-                            u.Name as OrgName
+                            u.Name as OrgName,
+                            (SELECT COUNT(1) FROM EQUIPMENTS eq WHERE eq.INFRASTRUCTURE_ID = i.{nameof(Infrastructure.Id)} AND eq.IsDeleted = 0) AS {nameof(Infrastructure.EquipmentCount)}
                      FROM INFRASTRUCTURE i
                      LEFT JOIN INFRASTRUCTURE_TYPE it ON i.INFRA_TYPE_ID = it.ID
                      LEFT JOIN ORGANIZATION_UNIT u ON i.UNIT_ID = u.Id
@@ -84,7 +85,8 @@ public class InfrastructureRepository : IInfrastructureRepository
                             u.NAME as {nameof(Infrastructure.UnitName)},
                             u.Id as OrgId,
                             u.Code as OrgCode,
-                            u.Name as OrgName
+                            u.Name as OrgName,
+                            (SELECT COUNT(1) FROM EQUIPMENTS eq WHERE eq.INFRASTRUCTURE_ID = i.{nameof(Infrastructure.Id)} AND eq.IsDeleted = 0) AS {nameof(Infrastructure.EquipmentCount)}
                      FROM INFRASTRUCTURE i
                      LEFT JOIN INFRASTRUCTURE_TYPE it ON i.INFRA_TYPE_ID = it.ID
                      LEFT JOIN ORGANIZATION_UNIT u ON i.UNIT_ID = u.Id
@@ -167,7 +169,8 @@ public class InfrastructureRepository : IInfrastructureRepository
                                    u.NAME as {nameof(Infrastructure.UnitName)},
                                    u.Id as OrgId,
                                    u.Code as OrgCode,
-                                   u.Name as OrgName
+                                   u.Name as OrgName,
+                                   (SELECT COUNT(1) FROM EQUIPMENTS eq WHERE eq.INFRASTRUCTURE_ID = i.{nameof(Infrastructure.Id)} AND eq.IsDeleted = 0) AS {nameof(Infrastructure.EquipmentCount)}
                            {sqlBase}
                            ORDER BY i.{nameof(Infrastructure.Code)} ASC, i.{nameof(Infrastructure.CreatedDate)} DESC
                            OFFSET :Offset ROWS FETCH NEXT :PageSize ROWS ONLY";
