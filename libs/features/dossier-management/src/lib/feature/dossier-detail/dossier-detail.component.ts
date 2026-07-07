@@ -5,12 +5,14 @@ import { ToastModule } from 'primeng/toast';
 import { DialogModule } from 'primeng/dialog';
 import { MessageService } from 'primeng/api';
 import { catchError, finalize, of, switchMap, takeUntil, Subject } from 'rxjs';
+import { Router } from '@angular/router';
+import { PaginatorModule } from 'primeng/paginator';
 import { DossierManagementService } from '../../data-access/dossier-management.service';
 import { DossierPublishService } from '../../data-access/dossier-publish.service';
 import { DossierDocumentsTabComponent } from '../dossier-documents/dossier-documents-tab.component';
 import { DossierVersionsTabComponent } from '../dossier-versions-tab/dossier-versions-tab.component';
 import { DossierWorkflowTabComponent } from '../dossier-workflow-tab/dossier-workflow-tab.component';
-import { AuthService } from '@sohoa.frontend/shared/core';
+import { AuthService } from '../../../../../../shared/core/src/lib/services/auth.service';
 import {
   EavField,
   formatFieldDisplayValue,
@@ -42,320 +44,18 @@ function pickFirst<T>(...values: T[]): T | undefined {
 @Component({
   selector: 'app-dossier-detail',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule, DialogModule, DossierDocumentsTabComponent, DossierVersionsTabComponent, DossierWorkflowTabComponent],
-  template: `
-    <div class="wf-card" style="position: relative;">
-      <!-- Header -->
-      <div class="edit-header">
-        <div style="display: flex; align-items: flex-start; gap: 10px;">
-          <button (click)="onCancel()" class="btn-back btn-small" title="Quay lại" style="margin-top: 2px;">
-            <i class="pi pi-arrow-left"></i>
-          </button>
-          <div>
-            <h2 class="edit-title">Chi tiết Hồ sơ</h2>
-            <div style="display: flex; flex-wrap: wrap; gap: 16px; margin-top: 8px; font-size: 0.83rem;">
-              <span class="text-muted"><i class="pi pi-tag" style="margin-right: 4px;"></i> Loại hồ sơ: <b style="color: #374151;">{{ dossierMeta()?.dossierTypeName || '-' }}</b></span>
-              <span class="text-muted"><i class="pi pi-map-marker" style="margin-right: 4px;"></i> Trạm/ĐZ: <b style="color: #374151;">{{ dossierMeta()?.infrastructureName || '-' }}</b></span>
-              <span class="text-muted" style="display: inline-flex; align-items: center; gap: 6px;">
-                Trạng thái:
-                <span [class]="getStatusClass(dossierMeta()?.statusId)">
-                  {{ getStatusText(dossierMeta()?.statusId, dossierMeta()?.statusName) }}
-                </span>
-              </span>
-            </div>
-          </div>
-        </div>
-        <div class="edit-actions">
-          <button *ngIf="canEditDossier()"
-                  (click)="onEdit()" class="btn-save btn-small">
-            <i class="pi pi-pencil"></i> Sửa hồ sơ
-          </button>
-          <!-- Hoàn thành nhập liệu — chỉ khi trạng thái Tạo mới -->
-          <button *ngIf="showCompleteInputButton()"
-                  (click)="onCompleteInput()" class="btn-green btn-small" [disabled]="submitting()">
-            <i class="pi pi-check" *ngIf="!submitting()"></i>
-            <i class="pi pi-spin pi-spinner" *ngIf="submitting()"></i>
-            Hoàn thành nhập liệu
-          </button>
-          <!-- Gửi duyệt — chỉ khi đã Hoàn thành nhập liệu -->
-          <button *ngIf="showSubmitForApprovalButton()"
-                  (click)="openSubmitWorkflowDialog()" class="btn-save btn-small" [disabled]="submitting()">
-            <i class="pi pi-send" *ngIf="!submitting()"></i>
-            <i class="pi pi-spin pi-spinner" *ngIf="submitting()"></i>
-            Gửi duyệt
-          </button>
-          <!-- Workflow action buttons: Duyệt / Tiếp tục / Từ chối -->
-          <ng-container *ngIf="detailDynamicButtons().length > 0 && isUserAuthorizedForDetailAction">
-            <button *ngFor="let btn of detailDynamicButtons()"
-                    class="btn-small"
-                    [class.btn-cancel]="isRejectLabel(btn.label)"
-                    [class.btn-save]="isApproveLabel(btn.label)"
-                    [class.btn-green]="!isRejectLabel(btn.label) && !isApproveLabel(btn.label)"
-                    (click)="openActionDialog(btn)">
-              <i class="pi"
-                 [class.pi-check]="!isRejectLabel(btn.label)"
-                 [class.pi-times]="isRejectLabel(btn.label)"
-                 style="margin-right: 4px;"></i>
-              {{ btn.label }}
-            </button>
-          </ng-container>
-        </div>
-      </div>
-
-      <!-- TABS -->
-      <div class="tab-bar">
-        <button type="button" *ngIf="isDetailTabVisible('info')" class="tab-item" [class.tab-active]="activeTab() === 'info'" (click)="activeTab.set('info')">
-          <i class="pi pi-info-circle" style="margin-right: 6px;"></i>
-          Dữ liệu Hồ sơ
-        </button>
-        <button type="button" *ngIf="isDetailTabVisible('documents')" class="tab-item" [class.tab-active]="activeTab() === 'documents'" (click)="activeTab.set('documents')">
-          <i class="pi pi-file" style="margin-right: 6px;"></i> Tài liệu đính kèm
-        </button>
-        <button type="button" *ngIf="isDetailTabVisible('versions')" class="tab-item" [class.tab-active]="activeTab() === 'versions'" (click)="activeTab.set('versions')">
-          <i class="pi pi-history" style="margin-right: 6px;"></i> Lịch sử phiên bản
-        </button>
-        <button type="button" *ngIf="isDetailTabVisible('workflow')" class="tab-item" [class.tab-active]="activeTab() === 'workflow'" (click)="activeTab.set('workflow')">
-          <i class="pi pi-sitemap" style="margin-right: 6px;"></i> Quy trình & Lịch sử
-        </button>
-      </div>
-
-      <!-- TAB CONTENT -->
-      <div class="tab-content">
-
-        <!-- ═══ Tab: Dữ liệu Hồ sơ (chỉ xem) ═══ -->
-        <div *ngIf="activeTab() === 'info'" class="dossier-readonly-view">
-          <div *ngIf="loading() && !dossier()" style="display: flex; align-items: center; gap: 8px; color: #6b7280; padding: 12px 0;">
-            <i class="pi pi-spin pi-spinner"></i> Đang tải dữ liệu hồ sơ...
-          </div>
-
-          <div *ngIf="loadingType() && dossier()" style="display: flex; align-items: center; gap: 8px; color: #6b7280; padding: 0 0 12px 0; font-size: 0.83rem;">
-            <i class="pi pi-spin pi-spinner"></i> Đang tải biểu mẫu...
-          </div>
-
-          <ng-container *ngIf="dossier()">
-            <div class="readonly-line">
-              <span class="readonly-label">Loại lưới điện:</span>
-              <span class="readonly-value">{{ viewMeta()?.gridTypeName || '—' }}</span>
-            </div>
-            <div class="readonly-line">
-              <span class="readonly-label">Trạm / Đường dây:</span>
-              <span class="readonly-value">
-                {{ viewMeta()?.infrastructureName || '—' }}
-                <span *ngIf="viewMeta()?.infrastructureCode" class="text-muted" style="font-size: 0.85rem;"> ({{ viewMeta()?.infrastructureCode }})</span>
-              </span>
-            </div>
-            <div class="readonly-line">
-              <span class="readonly-label">Loại hồ sơ:</span>
-              <span class="readonly-value">{{ dossierMeta()?.dossierTypeName || '—' }}</span>
-            </div>
-
-            <div *ngFor="let field of dynamicFields(); trackBy: trackByFieldKey" class="readonly-line">
-              <span class="readonly-label">{{ field.label }}:</span>
-              <span class="readonly-value">{{ formatFieldDisplayValue(field, detailFormData[field.key]) }}</span>
-            </div>
-
-            <div *ngIf="dynamicFields().length === 0"
-                 style="padding: 24px; text-align: center; color: #9ca3af; background: #f8fafc; border-radius: 8px; border: 1px dashed #e2e8f0; font-size: 0.85rem; margin-top: 8px;">
-              Loại hồ sơ này chưa được cấu hình mẫu dữ liệu động.
-            </div>
-
-            <div class="equipment-section">
-              <h3 class="equipment-title">Thiết bị liên quan</h3>
-              <div *ngIf="equipments().length === 0" class="equipment-empty">
-                Chưa có thiết bị nào được gắn vào hồ sơ.
-              </div>
-              <div *ngIf="equipments().length > 0" class="wf-table-wrap">
-                <table class="wf-table">
-                  <thead>
-                    <tr>
-                      <th class="col-stt">STT</th>
-                      <th>Mã TB</th>
-                      <th>Tên TB</th>
-                      <th>Số serial</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr *ngFor="let eq of equipments(); let i = index">
-                      <td class="col-stt text-muted">{{ i + 1 }}</td>
-                      <td>{{ eq.equipmentCode || eq.EquipmentCode || eq.code || '—' }}</td>
-                      <td>{{ eq.equipmentName || eq.EquipmentName || eq.name || '—' }}</td>
-                      <td>{{ eq.serialNumber || eq.SerialNumber || '—' }}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </ng-container>
-        </div>
-
-        <!-- ═══ Tab: Tài liệu (chỉ xem) ═══ -->
-        <div *ngIf="activeTab() === 'documents'">
-          <app-dossier-documents-tab
-            [dossierId]="dossierId"
-            [canEdit]="canEditDossier()"
-            [menuScope]="menuScope"
-            [hasFormTemplate]="!!dossierMeta()?.formId"
-            [formId]="dossierMeta()?.formId ?? null"
-            (formDataSaved)="loadDetail()"
-          ></app-dossier-documents-tab>
-        </div>
-
-        <div *ngIf="activeTab() === 'versions'">
-          <app-dossier-versions-tab [dossierId]="dossierId" />
-        </div>
-
-        <div *ngIf="activeTab() === 'workflow'">
-          <app-dossier-workflow-tab
-            [dossierId]="dossierId"
-            [refreshToken]="workflowRefreshToken()"
-            canvasId="bpmn-canvas-dossier-view"
-          />
-        </div>
-
-      </div>
-    </div>
-
-    <!-- Dialog Xác nhận Hành động Quy trình -->
-    <p-dialog
-      [visible]="showActionDialog()"
-      (visibleChange)="$event ? null : showActionDialog.set(false)"
-      [header]="pendingActionBtn()?.label || 'Xác nhận'"
-      [modal]="true"
-      [style]="{ width: '460px' }"
-      styleClass="evn-dialog-custom"
-      [closable]="!detailActionSubmitting()">
-      <div style="display: flex; flex-direction: column; gap: 16px; padding: 4px 0 8px;">
-        <!-- Chọn người xử lý tiếp theo (chỉ khi duyệt/tiếp tục) -->
-        <div class="form-group" *ngIf="pendingActionBtn()?.requiresUser && !isRejectLabel(pendingActionBtn()?.label)">
-          <label class="form-label">
-            <span class="required">*</span> Người xử lý bước tiếp theo
-          </label>
-          <select class="wf-select w-full"
-                  [ngModel]="selectedNextUserId()"
-                  (ngModelChange)="selectedNextUserId.set($event)">
-            <option value="" disabled selected>-- Chọn người xử lý --</option>
-            <option *ngFor="let u of filteredNextUsers()" [value]="u.id">
-              {{ u.fullName }} ({{ u.username }})
-            </option>
-          </select>
-        </div>
-        <!-- Ý kiến -->
-        <div class="form-group">
-          <label class="form-label">Ý kiến xử lý <span style="color: #94a3b8; font-weight: 400;">(tuỳ chọn)</span></label>
-          <textarea class="wf-textarea w-full" rows="3"
-                    [ngModel]="detailActionComment()"
-                    (ngModelChange)="detailActionComment.set($event)"
-                    [placeholder]="isRejectLabel(pendingActionBtn()?.label) ? 'Nhập lý do từ chối / trả lại...' : 'Nhập ý kiến xử lý (nếu có)...'">
-          </textarea>
-        </div>
-      </div>
-      <ng-template #footer>
-        <button class="btn-cancel btn-small" (click)="showActionDialog.set(false)" [disabled]="detailActionSubmitting()">Hủy</button>
-        <button class="btn-small"
-                [class.btn-cancel]="isRejectLabel(pendingActionBtn()?.label)"
-                [class.btn-save]="isApproveLabel(pendingActionBtn()?.label)"
-                [class.btn-green]="!isRejectLabel(pendingActionBtn()?.label) && !isApproveLabel(pendingActionBtn()?.label)"
-                (click)="confirmAction()" [disabled]="detailActionSubmitting()">
-          <i class="pi pi-spin pi-spinner" *ngIf="detailActionSubmitting()"></i>
-          <i class="pi pi-check" *ngIf="!detailActionSubmitting() && !isRejectLabel(pendingActionBtn()?.label)"></i>
-          <i class="pi pi-times" *ngIf="!detailActionSubmitting() && isRejectLabel(pendingActionBtn()?.label)"></i>
-          {{ pendingActionBtn()?.label }}
-        </button>
-      </ng-template>
-    </p-dialog>
-
-    <!-- Dialog Xác nhận Gửi Duyệt -->
-    <p-dialog
-      [visible]="showSubmitConfirm()"
-      (visibleChange)="$event ? null : showSubmitConfirm.set(false)"
-      header="Gửi duyệt hồ sơ"
-      [modal]="true"
-      [style]="{ width: '450px' }"
-      styleClass="evn-dialog-custom"
-      [closable]="!submitting()">
-      <div style="display: flex; flex-direction: column; gap: 16px; padding: 8px 0 16px;">
-        <div style="display: flex; align-items: flex-start; gap: 12px;">
-          <i class="pi pi-send" style="font-size: 1.8rem; color: #1d4ed8;"></i>
-          <div>
-            <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">Xác nhận gửi duyệt hồ sơ lên cấp trên</p>
-            <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
-              Hồ sơ sẽ đi vào quy trình phê duyệt bước: <b style="color: #1e293b;">{{ nextStepInfo()?.stepName || 'Phê duyệt' }}</b>.
-            </p>
-          </div>
-        </div>
-
-        <!-- Chọn người xử lý tiếp theo nếu được yêu cầu -->
-        <div *ngIf="nextStepInfo()?.requiresNextAssignee" class="form-group">
-          <label class="form-label required">Người duyệt tiếp theo ({{ nextStepInfo()?.stepName }})</label>
-          <select class="wf-select" [value]="selectedNextUser()" (change)="onNextUserChange($event)">
-            <option value="">-- Chọn người phê duyệt --</option>
-            <option *ngFor="let u of filteredSubmitNextUsers()" [value]="u.id || u.Id || u.userId || u.username">
-              {{ u.fullName || u.FullName || u.name || u.username }}
-            </option>
-          </select>
-        </div>
-      </div>
-      <ng-template #footer>
-        <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
-          <button class="btn-cancel btn-small" (click)="showSubmitConfirm.set(false)" [disabled]="submitting()">
-            <i class="pi pi-times"></i> Hủy
-          </button>
-          <button class="btn-save btn-small" (click)="onConfirmSubmitAndMove()" [disabled]="submitting()">
-            <i class="pi pi-spin pi-spinner" *ngIf="submitting()"></i>
-            <i class="pi pi-check" *ngIf="!submitting()"></i>
-            Xác nhận gửi
-          </button>
-        </div>
-      </ng-template>
-    </p-dialog>
-  `,
-  styles: [`
-    .dossier-readonly-view {
-      display: flex;
-      flex-direction: column;
-      padding: 0;
-      gap: 2px;
-    }
-    .readonly-line {
-      display: flex;
-      gap: 8px;
-      padding: 4px 0;
-      font-size: 0.875rem;
-      line-height: 1.45;
-      align-items: flex-start;
-    }
-    .readonly-label {
-      font-weight: 600;
-      color: #374151;
-      min-width: 180px;
-      flex-shrink: 0;
-    }
-    .readonly-value {
-      color: #1e293b;
-      flex: 1;
-      white-space: pre-wrap;
-      word-break: break-word;
-    }
-    .equipment-section {
-      margin-top: 12px;
-      padding-top: 0;
-    }
-    .equipment-title {
-      font-size: 0.9rem;
-      font-weight: 700;
-      color: #002D72;
-      margin: 0 0 8px 0;
-    }
-    .equipment-empty {
-      padding: 12px;
-      background: #f8fafc;
-      border: 1px dashed #e2e8f0;
-      border-radius: 8px;
-      text-align: center;
-      color: #9ca3af;
-      font-size: 0.85rem;
-    }
-  `]
+  imports: [
+    CommonModule,
+    FormsModule,
+    ToastModule,
+    DialogModule,
+    DossierDocumentsTabComponent,
+    DossierVersionsTabComponent,
+    DossierWorkflowTabComponent,
+    PaginatorModule,
+  ],
+  templateUrl: './dossier-detail.component.html',
+  styleUrl: './dossier-detail.component.scss',
 })
 export class DossierDetailComponent implements OnInit, OnDestroy {
   @Input() dossierId!: string;
@@ -366,12 +66,100 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
   private service = inject(DossierManagementService);
   private publishService = inject(DossierPublishService);
   private authService = inject(AuthService);
+  private router = inject(Router);
+
+  // Related Dossiers tab state
+  relatedDossiers = signal<any[]>([]);
+  loadingRelated = signal<boolean>(false);
+  relatedFirst = signal<number>(0);
+  relatedRows = signal<number>(10);
+  totalRelatedDossiers = computed(() => this.relatedDossiers().length);
+
+  paginatedRelatedDossiers = computed(() => {
+    const list = this.relatedDossiers();
+    const first = this.relatedFirst();
+    const rows = this.relatedRows();
+    return list.slice(first, first + rows);
+  });
+
+  relatedEquipments = computed(() => this.equipments());
+  dossierTypes = signal<any[]>([]);
+
+  // Related Dossiers Filters
+  filterKeyword = '';
+  filterEquipmentId = '';
+  filterDossierTypeId = '';
+
+  onRelatedPageChange(event: any) {
+    this.relatedFirst.set(event.first);
+    this.relatedRows.set(event.rows);
+  }
+
+  onRelatedFilterChange() {
+    this.relatedFirst.set(0);
+    this.loadRelatedDossiers();
+  }
+
+  loadRelatedDossiers() {
+    const d = this.dossier();
+    if (!d) return;
+    const dossierId = d.id || d.Id || this.dossierId;
+    if (!dossierId) return;
+
+    this.loadingRelated.set(true);
+    this.service.getRelatedDossiers(dossierId, {
+      keyword: this.filterKeyword,
+      equipmentId: this.filterEquipmentId,
+      dossierTypeId: this.filterDossierTypeId
+    }).subscribe({
+      next: (res) => {
+        this.relatedDossiers.set(Array.isArray(res) ? res : []);
+        this.loadingRelated.set(false);
+      },
+      error: () => {
+        this.relatedDossiers.set([]);
+        this.loadingRelated.set(false);
+      }
+    });
+  }
+
+  loadDossierTypes() {
+    this.service.getDossierTypeLookup().subscribe({
+      next: (types) => {
+        this.dossierTypes.set(Array.isArray(types) ? types : []);
+      }
+    });
+  }
+
+  openRelatedDetail(rel: any) {
+    const id = rel.id || rel.dossierId;
+    if (!id) return;
+
+    const scope = this.menuScope;
+    const kind = Number(
+      (this.dossier() as Record<string, unknown>)?.['kindId']
+      ?? (this.dossier() as Record<string, unknown>)?.['KindId']
+      ?? 2
+    );
+
+    const segments: string[] = [];
+    if (kind === 1) {
+      segments.push('digitization');
+      segments.push(scope === 'approver' ? 'approve' : 'my-dossiers');
+    } else {
+      if (scope === 'approver') segments.push('approve');
+      else if (scope === 'publisher') segments.push('publish');
+      else segments.push('my-dossiers');
+    }
+
+    void this.router.navigate(['/dossier-management', ...segments, id]);
+  }
   private messageService = inject(MessageService);
   private destroy$ = new Subject<void>();
 
   loading = signal<boolean>(true);
   submitting = signal<boolean>(false);
-  activeTab = signal<'info' | 'documents' | 'versions' | 'workflow'>('info');
+  activeTab = signal<'info' | 'documents' | 'versions' | 'workflow' | 'related'>('info');
   workflowRefreshToken = signal(0);
 
   dossier = signal<any>(null);
@@ -394,6 +182,89 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
   });
 
   formatFieldDisplayValue = formatFieldDisplayValue;
+
+  getFieldValueText(field: EavField): string {
+    const value = this.detailFormData[field.key];
+    if (value === null || value === undefined || value === '') {
+      return '-';
+    }
+    if (field.type === 'select') {
+      const option = field.options?.find(opt => opt.value === value);
+      return option ? option.label : value;
+    }
+    if (field.type === 'checkbox') {
+      return value ? 'Có' : 'Không';
+    }
+    if (field.type === 'date') {
+      try {
+        const date = new Date(value);
+        if (!isNaN(date.getTime())) {
+          return date.toLocaleDateString('vi-VN');
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+    return value;
+  }
+
+  // Catalog columns map for dynamic fields
+  catalogColumnsMap = signal<Record<string, string>>({});
+
+  formatKeyToLabel(key: string): string {
+    if (!key) return '';
+    return key
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  }
+
+  // Restore and display all dynamic fields including formDataJson
+  allFields = computed(() => {
+    const dossierVal = this.dossier(); // tracks dossier load
+    const fields = [...this.dynamicFields()];
+    const data = this.detailFormData || {};
+    const colMap = this.catalogColumnsMap();
+
+    const existingKeys = new Set(fields.map(f => f.key));
+
+    Object.keys(data).forEach(key => {
+      if (!existingKeys.has(key)) {
+        const label = colMap[key] || this.formatKeyToLabel(key);
+        fields.push({
+          key: key,
+          label: label,
+          type: 'text' as const
+        });
+      }
+    });
+
+    return fields;
+  });
+
+  leftDynamicFields = computed(() => {
+    const fields = this.allFields();
+    return fields.slice(0, Math.ceil(fields.length / 2));
+  });
+
+  rightDynamicFields = computed(() => {
+    const fields = this.allFields();
+    return fields.slice(Math.ceil(fields.length / 2));
+  });
+
+  loadCatalogColumns() {
+    this.service.getBhsCatalogColumns().subscribe({
+      next: (cols) => {
+        const map: Record<string, string> = {};
+        if (Array.isArray(cols)) {
+          cols.forEach(c => {
+            if (c.code) map[c.code] = c.label || c.key;
+          });
+        }
+        this.catalogColumnsMap.set(map);
+      }
+    });
+  }
 
   // EAV Form
   loadingType = signal<boolean>(false);
@@ -501,6 +372,8 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
+    this.loadCatalogColumns();
+    this.loadDossierTypes();
     this.loadDetail();
   }
 
@@ -537,6 +410,9 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
         this.pendingFormData = parseFormDataJson(meta.formDataJson);
         this.detailFormData = { ...this.pendingFormData };
         this.loading.set(false);
+
+        // Load related dossiers
+        this.loadRelatedDossiers();
 
         return this.resolveFormTemplate(meta.formId, meta.dossierTypeId);
       }),

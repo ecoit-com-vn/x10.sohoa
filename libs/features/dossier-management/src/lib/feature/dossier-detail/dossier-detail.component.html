@@ -1,0 +1,335 @@
+<p-toast></p-toast>
+<div class="dossier-detail-view-container animate-fade-in" *ngIf="dossier()">
+  <div class="edit-actions" style="margin-left: auto; display: flex; gap: 8px;">
+    <button (click)="onCancel()" class="btn-back btn-small">
+      <i class="pi pi-arrow-left"></i> Quay lại danh sách
+    </button>
+    <button *ngIf="canEditDossier()" (click)="onEdit()" class="btn-save btn-small">
+      <i class="pi pi-pencil"></i> Sửa hồ sơ
+    </button>
+    <button *ngIf="showCompleteInputButton()" (click)="onCompleteInput()" class="btn-green btn-small"
+      [disabled]="submitting()">
+      <i class="pi pi-check" *ngIf="!submitting()"></i>
+      <i class="pi pi-spin pi-spinner" *ngIf="submitting()"></i>
+      Hoàn thành nhập liệu
+    </button>
+    <button *ngIf="showSubmitForApprovalButton()" (click)="openSubmitWorkflowDialog()" class="btn-save btn-small"
+      [disabled]="submitting()">
+      <i class="pi pi-send" *ngIf="!submitting()"></i>
+      <i class="pi pi-spin pi-spinner" *ngIf="submitting()"></i>
+      Gửi duyệt
+    </button>
+    <ng-container *ngIf="detailDynamicButtons().length > 0 && isUserAuthorizedForDetailAction">
+      <button *ngFor="let btn of detailDynamicButtons()" class="btn-small" [class.btn-cancel]="isRejectLabel(btn.label)"
+        [class.btn-save]="isApproveLabel(btn.label)"
+        [class.btn-green]="!isRejectLabel(btn.label) && !isApproveLabel(btn.label)" (click)="openActionDialog(btn)">
+        <i class="pi" [class.pi-check]="!isRejectLabel(btn.label)" [class.pi-times]="isRejectLabel(btn.label)"
+          style="margin-right: 4px;"></i>
+        {{ btn.label }}
+      </button>
+    </ng-container>
+  </div>
+  <div class="wf-card pt-0">
+    <div class="detail-tab-bar">
+      <button type="button" class="detail-tab-item" [class.tab-active]="activeTab() === 'info'"
+        (click)="activeTab.set('info')">
+        <i class="pi pi-info-circle"></i>
+        Dữ liệu Hồ sơ
+      </button>
+      <button type="button" class="detail-tab-item" [class.tab-active]="activeTab() === 'documents'"
+        (click)="activeTab.set('documents')">
+        <i class="pi pi-paperclip"></i>
+        Tài liệu đính kèm
+      </button>
+      <button type="button" class="detail-tab-item" [class.tab-active]="activeTab() === 'related'"
+        (click)="activeTab.set('related')">
+        <i class="pi pi-file"></i>
+        Hồ sơ liên quan ({{ totalRelatedDossiers() }})
+      </button>
+      <button type="button" *ngIf="isDetailTabVisible('versions')" class="detail-tab-item"
+        [class.tab-active]="activeTab() === 'versions'" (click)="activeTab.set('versions')">
+        <i class="pi pi-history"></i>
+        Lịch sử phiên bản
+      </button>
+      <button type="button" *ngIf="isDetailTabVisible('workflow')" class="detail-tab-item"
+        [class.tab-active]="activeTab() === 'workflow'" (click)="activeTab.set('workflow')">
+        <i class="pi pi-sitemap"></i>
+        Quy trình & Lịch sử
+      </button>
+    </div>
+
+    <div class="tab-content">
+      <div *ngIf="activeTab() === 'info'" class="tab-pane-container animate-fade-in">
+        <div *ngIf="loading() && !dossier()"
+          style="display: flex; align-items: center; gap: 8px; color: #6b7280; padding: 24px; justify-content: center;">
+          <i class="pi pi-spin pi-spinner" style="font-size: 1.5rem;"></i> Đang tải thông tin hồ sơ...
+        </div>
+
+        <div *ngIf="loadingType() && dossier()"
+          style="display: flex; align-items: center; gap: 8px; color: #6b7280; padding: 0 0 12px 0; font-size: 0.83rem;">
+          <i class="pi pi-spin pi-spinner"></i> Đang tải biểu mẫu...
+        </div>
+
+        <ng-container *ngIf="!loading() && dossier()">
+          <div class="info-two-column-layout">
+            <div class="info-column">
+              <div class="info-text-row">
+                <span class="info-text-label">Loại lưới điện:</span>
+                <span class="info-text-value">{{ viewMeta()?.gridTypeName || '—' }}</span>
+              </div>
+              <div class="info-text-row">
+                <span class="info-text-label">Trạm / Đường dây:</span>
+                <span class="info-text-value">
+                  {{ viewMeta()?.infrastructureName || '—' }}
+                  <span *ngIf="viewMeta()?.infrastructureCode" class="text-muted" style="font-size: 0.85rem;"> ({{
+                    viewMeta()?.infrastructureCode }})</span>
+                </span>
+              </div>
+
+              <ng-container *ngFor="let field of leftDynamicFields(); trackBy: trackByFieldKey">
+                <div class="info-text-row">
+                  <span class="info-text-label">{{ field.label }}:</span>
+                  <span class="info-text-value">{{ getFieldValueText(field) }}</span>
+                </div>
+              </ng-container>
+            </div>
+
+            <div class="info-column">
+              <div class="info-text-row">
+                <span class="info-text-label">Loại hồ sơ:</span>
+                <span class="info-text-value">{{ dossierMeta()?.dossierTypeName || '—' }}</span>
+              </div>
+
+              <ng-container *ngFor="let field of rightDynamicFields(); trackBy: trackByFieldKey">
+                <div class="info-text-row">
+                  <span class="info-text-label">{{ field.label }}:</span>
+                  <span class="info-text-value">{{ getFieldValueText(field) }}</span>
+                </div>
+              </ng-container>
+
+              <div class="info-text-row">
+                <span class="info-text-label">Trạng thái:</span>
+                <span>
+                  {{ getStatusText(dossierMeta()?.statusId, dossierMeta()?.statusName) }}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div *ngIf="dynamicFields().length === 0"
+            style="padding: 24px; text-align: center; color: #9ca3af; background: #f8fafc; border-radius: 8px; border: 1px dashed #e2e8f0; font-size: 0.85rem; margin-top: 16px;">
+            Loại hồ sơ này chưa được cấu hình mẫu dữ liệu động.
+          </div>
+
+          <div class="equipment-section" style="margin-top: 24px;">
+            <div class="section-subtitle-header" style="margin-right: 0;">
+              <i class="pi pi-sliders-h"></i> Thiết bị liên quan
+            </div>
+            <div class="wf-table-wrap" style="margin-top: 12px; border: 1px solid #cbd5e1; box-shadow: none;">
+              <table class="wf-table">
+                <thead>
+                  <tr>
+                    <th class="col-stt">STT</th>
+                    <th>Mã thiết bị</th>
+                    <th>Tên thiết bị</th>
+                    <th>Số serial</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngIf="equipments().length === 0">
+                    <td colspan="4" class="empty-row" style="padding: 32px 0;">
+                      <i class="pi pi-info-circle" style="margin-right: 6px;"></i>
+                      <span>Chưa có thiết bị nào được gắn vào hồ sơ.</span>
+                    </td>
+                  </tr>
+                  <tr *ngFor="let eq of equipments(); let i = index">
+                    <td class="col-stt text-muted">{{ i + 1 }}</td>
+                    <td>{{ eq.equipmentCode || eq.EquipmentCode || eq.code || '—' }}</td>
+                    <td>{{ eq.equipmentName || eq.EquipmentName || eq.name || '—' }}</td>
+                    <td>{{ eq.serialNumber || eq.SerialNumber || '—' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </ng-container>
+      </div>
+
+      <div *ngIf="activeTab() === 'documents'">
+        <app-dossier-documents-tab [dossierId]="dossierId" [canEdit]="canEditDossier()" [menuScope]="menuScope"
+          [hasFormTemplate]="!!dossierMeta()?.formId" [formId]="dossierMeta()?.formId ?? null"
+          (formDataSaved)="loadDetail()"></app-dossier-documents-tab>
+      </div>
+
+      <div *ngIf="activeTab() === 'related'" class="tab-pane-container animate-fade-in">
+        <div class="filters-card">
+          <div class="filter-item">
+            <span class="filter-label">Từ khóa</span>
+            <input type="text" class="wf-input" placeholder="Nhập từ khóa tìm kiếm" [(ngModel)]="filterKeyword"
+              (ngModelChange)="onRelatedFilterChange()">
+          </div>
+
+          <div class="filter-item">
+            <span class="filter-label">Thiết bị</span>
+            <select class="wf-select" [(ngModel)]="filterEquipmentId" (ngModelChange)="onRelatedFilterChange()">
+              <option value="">-- Chọn thiết bị --</option>
+              <option *ngFor="let eq of relatedEquipments()" [value]="eq.id || eq.equipmentId">{{ eq.name ||
+                eq.equipmentName }}</option>
+            </select>
+          </div>
+
+          <div class="filter-item">
+            <span class="filter-label">Loại hồ sơ</span>
+            <select class="wf-select" [(ngModel)]="filterDossierTypeId" (ngModelChange)="onRelatedFilterChange()">
+              <option value="">-- Chọn loại hồ sơ --</option>
+              <option *ngFor="let dt of dossierTypes()" [value]="dt.id">{{ dt.name }}</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="wf-table-wrap" [class.loading]="loadingRelated()">
+          <table class="wf-table">
+            <thead>
+              <tr>
+                <th class="col-stt">STT</th>
+                <th>Mã hồ sơ</th>
+                <th>Tiêu đề hồ sơ</th>
+                <th>Trạm/đường dây</th>
+                <th>Loại hồ sơ</th>
+                <th class="col-size" style="text-align: center;">Tài liệu</th>
+                <th class="col-action">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngIf="loadingRelated()">
+                <td colspan="7" class="empty-row" style="padding: 48px 0;">
+                  <i class="pi pi-spin pi-spinner" style="display: block; margin-bottom: 8px;"></i>
+                  <div>Đang tải hồ sơ liên quan...</div>
+                </td>
+              </tr>
+              <tr *ngFor="let rel of paginatedRelatedDossiers(); let i = index" [hidden]="loadingRelated()">
+                <td class="col-stt text-muted">{{ relatedFirst() + i + 1 }}</td>
+                <td>
+                  <span (click)="openRelatedDetail(rel)" class="wf-name-link">{{ rel.code || rel.id || '—' }}</span>
+                </td>
+                <td><b>{{ rel.title || rel.name }}</b></td>
+                <td>{{ rel.infrastructureName || '—' }}</td>
+                <td>{{ rel.dossierTypeName || '—' }}</td>
+                <td style="text-align: center;">{{ rel.documentCount ?? 0 }}</td>
+                <td class="col-action" style="text-align: center;">
+                  <button class="action-icon-btn" title="Xem chi tiết" (click)="openRelatedDetail(rel)">
+                    <i class="pi pi-eye"></i>
+                  </button>
+                </td>
+              </tr>
+              <tr *ngIf="!loadingRelated() && relatedDossiers().length === 0">
+                <td colspan="7" class="empty-row" style="padding: 48px 0;">
+                  <i class="pi pi-info-circle"></i>
+                  <div>Không có hồ sơ liên quan.</div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="table-footer-paginator" *ngIf="relatedDossiers().length > 0" style="padding: 12px 24px;">
+          <span class="record-count" style="color: #64748b;">
+            Hiển thị <b>{{ paginatedRelatedDossiers().length }}</b> trên tổng số <b>{{ relatedDossiers().length }}</b>
+            bản ghi
+          </span>
+          <p-paginator [first]="relatedFirst()" [rows]="relatedRows()" [totalRecords]="relatedDossiers().length"
+            [rowsPerPageOptions]="[5, 10, 20, 50]" (onPageChange)="onRelatedPageChange($event)">
+          </p-paginator>
+        </div>
+      </div>
+
+      <div *ngIf="activeTab() === 'versions'">
+        <app-dossier-versions-tab [dossierId]="dossierId" />
+      </div>
+
+      <div *ngIf="activeTab() === 'workflow'">
+        <app-dossier-workflow-tab [dossierId]="dossierId" [refreshToken]="workflowRefreshToken()"
+          canvasId="bpmn-canvas-dossier-view" />
+      </div>
+    </div>
+  </div>
+</div>
+
+<p-dialog [visible]="showActionDialog()" (visibleChange)="$event ? null : showActionDialog.set(false)"
+  [header]="pendingActionBtn()?.label || 'Xác nhận'" [modal]="true" [style]="{ width: '460px' }"
+  styleClass="evn-dialog-custom" [closable]="!detailActionSubmitting()">
+  <div style="display: flex; flex-direction: column; gap: 16px; padding: 4px 0 8px;">
+    <div class="form-group" *ngIf="pendingActionBtn()?.requiresUser && !isRejectLabel(pendingActionBtn()?.label)">
+      <label class="form-label">
+        <span class="required">*</span> Người xử lý bước tiếp theo
+      </label>
+      <select class="wf-select w-full" [ngModel]="selectedNextUserId()"
+        (ngModelChange)="selectedNextUserId.set($event)">
+        <option value="" disabled selected>-- Chọn người xử lý --</option>
+        <option *ngFor="let u of filteredNextUsers()" [value]="u.id">
+          {{ u.fullName }} ({{ u.username }})
+        </option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Ý kiến xử lý <span style="color: #94a3b8; font-weight: 400;">(tuỳ chọn)</span></label>
+      <textarea class="wf-textarea w-full" rows="3" [ngModel]="detailActionComment()"
+        (ngModelChange)="detailActionComment.set($event)"
+        [placeholder]="isRejectLabel(pendingActionBtn()?.label) ? 'Nhập lý do từ chối / trả lại...' : 'Nhập ý kiến xử lý (nếu có)...'">
+      </textarea>
+    </div>
+  </div>
+  <ng-template #footer>
+    <button class="btn-cancel btn-small" (click)="showActionDialog.set(false)"
+      [disabled]="detailActionSubmitting()">Hủy</button>
+    <button class="btn-small" [class.btn-cancel]="isRejectLabel(pendingActionBtn()?.label)"
+      [class.btn-save]="isApproveLabel(pendingActionBtn()?.label)"
+      [class.btn-green]="!isRejectLabel(pendingActionBtn()?.label) && !isApproveLabel(pendingActionBtn()?.label)"
+      (click)="confirmAction()" [disabled]="detailActionSubmitting()">
+      <i class="pi pi-spin pi-spinner" *ngIf="detailActionSubmitting()"></i>
+      <i class="pi pi-check" *ngIf="!detailActionSubmitting() && !isRejectLabel(pendingActionBtn()?.label)"></i>
+      <i class="pi pi-times" *ngIf="!detailActionSubmitting() && isRejectLabel(pendingActionBtn()?.label)"></i>
+      {{ pendingActionBtn()?.label }}
+    </button>
+  </ng-template>
+</p-dialog>
+
+<p-dialog [visible]="showSubmitConfirm()" (visibleChange)="$event ? null : showSubmitConfirm.set(false)"
+  header="Gửi duyệt hồ sơ" [modal]="true" [style]="{ width: '450px' }" styleClass="evn-dialog-custom"
+  [closable]="!submitting()">
+  <div style="display: flex; flex-direction: column; gap: 16px; padding: 8px 0 16px;">
+    <div style="display: flex; align-items: flex-start; gap: 12px;">
+      <i class="pi pi-send" style="font-size: 1.8rem; color: #1d4ed8;"></i>
+      <div>
+        <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">Xác nhận gửi duyệt hồ sơ lên cấp trên</p>
+        <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
+          Hồ sơ sẽ đi vào quy trình phê duyệt bước: <b style="color: #1e293b;">{{ nextStepInfo()?.stepName || 'Phê
+            duyệt' }}</b>.
+        </p>
+      </div>
+    </div>
+
+    <!-- Chọn người xử lý tiếp theo nếu được yêu cầu -->
+    <div *ngIf="nextStepInfo()?.requiresNextAssignee" class="form-group">
+      <label class="form-label required">Người duyệt tiếp theo ({{ nextStepInfo()?.stepName }})</label>
+      <select class="wf-select" [value]="selectedNextUser()" (change)="onNextUserChange($event)">
+        <option value="">-- Chọn người phê duyệt --</option>
+        <option *ngFor="let u of filteredSubmitNextUsers()" [value]="u.id || u.Id || u.userId || u.username">
+          {{ u.fullName || u.FullName || u.name || u.username }}
+        </option>
+      </select>
+    </div>
+  </div>
+  <ng-template #footer>
+    <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+      <button class="btn-cancel btn-small" (click)="showSubmitConfirm.set(false)" [disabled]="submitting()">
+        <i class="pi pi-times"></i> Hủy
+      </button>
+      <button class="btn-save btn-small" (click)="onConfirmSubmitAndMove()" [disabled]="submitting()">
+        <i class="pi pi-spin pi-spinner" *ngIf="submitting()"></i>
+        <i class="pi pi-check" *ngIf="!submitting()"></i>
+        Xác nhận gửi
+      </button>
+    </div>
+  </ng-template>
+</p-dialog>

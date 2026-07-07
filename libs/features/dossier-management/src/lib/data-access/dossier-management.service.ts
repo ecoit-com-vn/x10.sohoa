@@ -246,9 +246,10 @@ export class DossierManagementService {
     return this.http.delete<any>(`${this.base}/${id}/equipment/${equipmentId}`);
   }
 
-  getRelatedDossiers(dossierId: string, filter: { keyword?: string; dossierTypeId?: string; page?: number; pageSize?: number }): Observable<any> {
+  getRelatedDossiers(dossierId: string, filter: { keyword?: string; equipmentId?: string; dossierTypeId?: string; page?: number; pageSize?: number }): Observable<any> {
     let params = new HttpParams();
     if (filter.keyword) params = params.set('keyword', filter.keyword);
+    if (filter.equipmentId) params = params.set('equipmentId', filter.equipmentId);
     if (filter.dossierTypeId) params = params.set('dossierTypeId', filter.dossierTypeId);
     if (filter.page) params = params.set('page', filter.page.toString());
     if (filter.pageSize) params = params.set('pageSize', filter.pageSize.toString());
