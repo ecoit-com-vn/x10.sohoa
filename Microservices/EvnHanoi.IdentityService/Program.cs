@@ -45,6 +45,7 @@ builder.Services.AddScoped<IUploadConfigRepository, UploadConfigRepository>();
 builder.Services.AddScoped<IPermissionRepository, PermissionRepository>();
 builder.Services.AddScoped<EvnHanoi.IdentityService.Infrastructure.Security.DynamicSeederService>();
 builder.Services.AddScoped<IValidator<UpdateProfileRequest>, UpdateProfileRequestValidator>();
+builder.Services.AddScoped<IValidator<ChangePasswordRequest>, ChangePasswordRequestValidator>();
 
 // RabbitMQ Configuration & Consumer Registration
 var rabbitFactory = new RabbitMQ.Client.ConnectionFactory
