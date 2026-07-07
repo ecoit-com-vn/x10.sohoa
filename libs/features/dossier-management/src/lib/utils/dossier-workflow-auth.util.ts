@@ -1,6 +1,6 @@
 import { AuthService } from '@sohoa.frontend/shared/core';
 import { DossierListTab, DossierMenuScope } from './dossier-status.util';
-import { parseWorkflowActionButtons } from './dossier-workflow-bpmn.util';
+import { parseWorkflowActionButtons, sortWorkflowActionsRejectLast, sortWorkflowButtonsRejectLast } from './dossier-workflow-bpmn.util';
 
 export function normalizeWorkflowUserId(val: unknown): string {
   return val ? String(val).replace(/-/g, '').toLowerCase().trim() : '';
@@ -60,12 +60,14 @@ export function isUserAuthorizedForWorkflowAction(options: {
 export function mapAvailableActionsToButtons(actions: Array<Record<string, unknown>> | null | undefined) {
   if (!Array.isArray(actions) || actions.length === 0) return [];
 
-  return actions.map((action) => ({
-    label: String(action['name'] ?? action['Name'] ?? ''),
-    targetNodeId: String(action['nextNodeId'] ?? action['NextNodeId'] ?? ''),
-    requiresUser: Boolean(action['requiresNextAssignee'] ?? action['RequiresNextAssignee'] ?? false),
-    requiredRole: String(action['nextStepRole'] ?? action['NextStepRole'] ?? ''),
-  })).filter((btn) => !!btn.label);
+  return sortWorkflowButtonsRejectLast(
+    actions.map((action) => ({
+      label: String(action['name'] ?? action['Name'] ?? ''),
+      targetNodeId: String(action['nextNodeId'] ?? action['NextNodeId'] ?? ''),
+      requiresUser: Boolean(action['requiresNextAssignee'] ?? action['RequiresNextAssignee'] ?? false),
+      requiredRole: String(action['nextStepRole'] ?? action['NextStepRole'] ?? ''),
+    })).filter((btn) => !!btn.label)
+  );
 }
 
 function pickFirst<T>(...values: T[]): T | undefined {
@@ -132,7 +134,7 @@ export function buildListItemPatchFromSources(detail: any, workflowRes: any | nu
 
   const rawActions = instance.availableActions ?? instance.AvailableActions;
   if (Array.isArray(rawActions) && rawActions.length > 0) {
-    patch.availableActions = rawActions;
+    patch.availableActions = sortWorkflowActionsRejectLast(rawActions);
   } else {
     const bpmnXml = workflowRes?.definition?.bpmnXml
       ?? workflowRes?.definition?.BpmnXml
