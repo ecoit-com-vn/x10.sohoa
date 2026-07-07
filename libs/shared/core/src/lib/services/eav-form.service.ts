@@ -100,7 +100,7 @@ export class EavFormService {
     return `/api/v1/eav-form-approvals`;
   }
 
-  getApprovalTemplates(): Observable<EavFormTemplate[]> {
+  getApprovalTemplatesForm(): Observable<EavFormTemplate[]> {
     return this.api.get<EavFormTemplate[]>(this.approvalApiUrl);
   }
 
@@ -121,7 +121,7 @@ export class EavFormService {
     return `/api/v1/eav-completed-forms`;
   }
 
-  getCompletedTemplates(): Observable<EavFormTemplate[]> {
+  getCompletedTemplatesForm(): Observable<EavFormTemplate[]> {
     return this.api.get<EavFormTemplate[]>(this.completedApiUrl);
   }
 
