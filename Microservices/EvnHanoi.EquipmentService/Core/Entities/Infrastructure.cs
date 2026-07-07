@@ -33,6 +33,9 @@ public class Infrastructure
     // Nested Organization DTO
     public OrganizationDto? Organization { get; set; }
 
+    // Query helper: số thiết bị gắn với trạm/đường dây
+    public int EquipmentCount { get; set; }
+
     // Audit fields
     public string? CreatedBy { get; set; }
     public DateTime CreatedDate { get; set; } = DateTime.UtcNow;

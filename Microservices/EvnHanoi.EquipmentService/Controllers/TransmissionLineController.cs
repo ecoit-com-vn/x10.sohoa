@@ -109,6 +109,13 @@ public class TransmissionLineController : ControllerBase
         if (record == null || record.InfraTypeId != INFRA_TYPE_ID)
             return NotFound();
 
+        if (record.GridTypeId != infrastructure.GridTypeId)
+        {
+            var equipmentCount = await _equipmentRepository.CountByInfrastructureIdAsync(id);
+            if (equipmentCount > 0)
+                return BadRequest(new { message = "Không thể thay đổi loại lưới điện vì đường dây đã có thiết bị." });
+        }
+
         infrastructure.ModifiedBy = User.FindFirst(ClaimTypes.Name)?.Value ?? "system";
         infrastructure.ModifiedDate = DateTime.UtcNow;
 

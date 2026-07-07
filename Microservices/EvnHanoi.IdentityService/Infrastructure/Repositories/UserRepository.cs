@@ -277,6 +277,24 @@ public class UserRepository : IUserRepository
         });
     }
 
+    public async Task UpdatePasswordAsync(string userId, string passwordHash)
+    {
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+        var sql = $@"
+            UPDATE APP_USER
+            SET {nameof(User.PasswordHash)} = :PasswordHash,
+                UpdatedAt = CURRENT_TIMESTAMP,
+                UpdatedBy = :UpdatedBy
+            WHERE {nameof(User.Id)} = :Id";
+
+        await _connection.ExecuteAsync(sql, new
+        {
+            PasswordHash = passwordHash,
+            UpdatedBy = userId,
+            Id = userId
+        });
+    }
+
     public async Task<bool> EmailExistsForOtherUserAsync(string email, string userId)
     {
         if (_connection.State != ConnectionState.Open) _connection.Open();

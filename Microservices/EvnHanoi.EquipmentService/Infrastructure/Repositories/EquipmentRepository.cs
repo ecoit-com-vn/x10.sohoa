@@ -692,4 +692,17 @@ public class EquipmentRepository : IEquipmentRepository
                     ORDER BY et.Name ASC";
         return await _connection.QueryAsync<EquipmentTypeDto>(sql);
     }
+
+    public async Task<int> CountByInfrastructureIdAsync(Guid infrastructureId)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        const string sql = @"SELECT COUNT(1)
+                             FROM EQUIPMENTS
+                             WHERE INFRASTRUCTURE_ID = :InfrastructureId
+                               AND IsDeleted = 0";
+
+        return await _connection.ExecuteScalarAsync<int>(sql, new { InfrastructureId = infrastructureId.ToString() });
+    }
 }

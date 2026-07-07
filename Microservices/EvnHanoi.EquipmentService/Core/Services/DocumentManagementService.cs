@@ -279,9 +279,8 @@ public class DocumentManagementService : IDocumentManagementService
             string parentId = isHighVoltageSub ? "tba-cao-ap" : "tba-trung-ap";
             string subNodeId = isHighVoltageSub ? $"tba-cao-ap_{sub.Id}" : $"tba-trung-ap_{sub.Id}";
 
-            // Lọc các dossiers thuộc trạm này và loại lưới điện tương ứng
-            var subDossiers = dossiers.Where(d => string.Equals(d.InfrastructureId, sub.Id, StringComparison.OrdinalIgnoreCase) 
-                                                  && (isHighVoltageSub ? (d.GridTypeId == 1 || d.GridTypeId == null) : (d.GridTypeId != 1 || d.GridTypeId == null)));
+            // Lọc các dossiers thuộc trạm này
+            var subDossiers = dossiers.Where(d => string.Equals(d.InfrastructureId, sub.Id, StringComparison.OrdinalIgnoreCase));
 
             var dossierGroups = subDossiers
                 .GroupBy(d => new { d.DossierTypeId, d.DossierTypeName })
@@ -330,9 +329,8 @@ public class DocumentManagementService : IDocumentManagementService
             string parentId = isHighVoltageInfra ? "dd-cao-ap" : "dd-trung-ap";
             string lineNodeId = isHighVoltageInfra ? $"dd-cao-ap_{infra.Id}" : $"dd-trung-ap_{infra.Id}";
 
-            // Lọc các dossiers thuộc đường dây này và loại lưới điện tương ứng
-            var lineDossiers = dossiers.Where(d => string.Equals(d.InfrastructureId, infra.Id, StringComparison.OrdinalIgnoreCase) 
-                                                   && (isHighVoltageInfra ? (d.GridTypeId == 1 || d.GridTypeId == null) : (d.GridTypeId != 1 || d.GridTypeId == null)));
+            // Lọc các dossiers thuộc đường dây này
+            var lineDossiers = dossiers.Where(d => string.Equals(d.InfrastructureId, infra.Id, StringComparison.OrdinalIgnoreCase));
 
             var dossierGroups = lineDossiers
                 .GroupBy(d => new { d.DossierTypeId, d.DossierTypeName })

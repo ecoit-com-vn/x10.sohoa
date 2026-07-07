@@ -40,4 +40,5 @@ public interface IEquipmentRepository
     Task<(IEnumerable<EquipmentLookupItemDto> Items, int TotalCount)> GetLookupPagedAsync(
         EquipmentLookupFilterDto filter,
         IEnumerable<long>? authorizedUnitIds);
+    Task<int> CountByInfrastructureIdAsync(Guid infrastructureId);
 }
