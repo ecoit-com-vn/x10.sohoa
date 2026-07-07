@@ -11,9 +11,10 @@ import { CheckboxModule } from 'primeng/checkbox';
 import { CardModule } from 'primeng/card';
 import { TextareaModule } from 'primeng/textarea';
 import { Paginator } from 'primeng/paginator';
-import { EavFormService, EavFormTemplate } from '@sohoa.frontend/shared/core';
+import { EavFormService, EavFormTemplate, AuthService } from '@sohoa.frontend/shared/core';
 import { finalize } from 'rxjs';
 import { Dialog } from 'primeng/dialog';
+import { canApproveForm } from '../../utils/eav-form-permission.util';
 
 interface FormField {
   id: string;
@@ -87,6 +88,9 @@ export class FormApprovalComponent implements OnInit {
 
   private eavFormService = inject(EavFormService);
   private messageService = inject(MessageService);
+  private authService = inject(AuthService);
+
+  canApprove = computed(() => canApproveForm(this.authService));
 
   constructor() {
     effect(() => {
@@ -99,12 +103,13 @@ export class FormApprovalComponent implements OnInit {
 
 
   ngOnInit() {
+    this.authService.loadPermissions();
     this.loadForms();
   }
 
   loadForms() {
     this.loading.set(true);
-    this.eavFormService.getTemplates()
+    this.eavFormService.getApprovalTemplates()
       .pipe(finalize(() => this.loading.set(false)))
       .subscribe({
         next: (data) => {

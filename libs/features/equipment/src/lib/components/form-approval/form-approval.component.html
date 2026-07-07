@@ -92,7 +92,7 @@
                 <i class="pi pi-eye"></i>
               </button>
               
-              <ng-container *ngIf="form.status === 'Chờ duyệt'">
+              <ng-container *ngIf="form.status === 'Chờ duyệt' && canApprove()">
                 <button class="act-btn act-approve" (click)="approveForm(form)" title="Phê duyệt">
                   <i class="pi pi-check"></i>
                 </button>
@@ -146,7 +146,7 @@
       <div class="header-right" style="display: flex; gap: 8px;">
         <p-button label="Quay lại" icon="pi pi-arrow-left" severity="secondary" [rounded]="true" (onClick)="goToList()"></p-button>
         
-        <ng-container *ngIf="form.status === 'Chờ duyệt'">
+        <ng-container *ngIf="form.status === 'Chờ duyệt' && canApprove()">
           <p-button label="Từ chối duyệt" icon="pi pi-times" severity="danger" [rounded]="true" (onClick)="rejectForm(form)"></p-button>
           <p-button label="Phê duyệt" icon="pi pi-check" severity="success" [rounded]="true" (onClick)="approveForm(form)"></p-button>
         </ng-container>

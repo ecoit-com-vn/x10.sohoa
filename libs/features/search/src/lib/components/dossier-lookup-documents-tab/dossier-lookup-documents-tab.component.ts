@@ -42,8 +42,9 @@ export class DossierLookupDocumentsTabComponent implements OnInit, OnChanges {
   private fulltextService = inject(DocumentFulltextSearchService);
 
   @Input({ required: true }) dossierId!: string;
-  /** equipment = tra cứu hồ sơ TB; fulltext = tra cứu toàn văn */
-  @Input() apiMode: 'equipment' | 'fulltext' = 'equipment';
+  /** equipment = tra cứu hồ sơ TB; fulltext = tra cứu toàn văn; report = báo cáo hồ sơ TB */
+  @Input() apiMode: 'equipment' | 'fulltext' | 'report' = 'equipment';
+  @Input() reportApiSegment = '';
   @Input() returnKeyword = '';
 
   documents = signal<LookupDocumentItem[]>([]);
@@ -71,6 +72,9 @@ export class DossierLookupDocumentsTabComponent implements OnInit, OnChanges {
   private documentsBaseUrl(): string {
     if (this.apiMode === 'fulltext') {
       return `${this.config.apiGatewayUrl}/api/v1/document-fulltext-search/dossiers/${this.dossierId}/documents`;
+    }
+    if (this.apiMode === 'report' && this.reportApiSegment) {
+      return `${this.config.apiGatewayUrl}/api/v1/reports/${this.reportApiSegment}/${this.dossierId}/documents`;
     }
     return `${this.config.apiGatewayUrl}/api/v1/dossiers-by-equipment/${this.dossierId}/documents`;
   }
@@ -134,9 +138,12 @@ export class DossierLookupDocumentsTabComponent implements OnInit, OnChanges {
       return;
     }
 
-    this.http.get<any>(
-      `${this.config.apiGatewayUrl}/api/v1/dossiers-by-equipment/${this.dossierId}/documents/${doc.latestVersionId}/download-url`
-    ).subscribe({
+    const downloadBase =
+      this.apiMode === 'report' && this.reportApiSegment
+        ? `${this.config.apiGatewayUrl}/api/v1/reports/${this.reportApiSegment}/${this.dossierId}/documents`
+        : `${this.config.apiGatewayUrl}/api/v1/dossiers-by-equipment/${this.dossierId}/documents`;
+
+    this.http.get<any>(`${downloadBase}/${doc.latestVersionId}/download-url`).subscribe({
       next: (res) => {
         const url = res?.downloadUrl || res?.url;
         if (url) {

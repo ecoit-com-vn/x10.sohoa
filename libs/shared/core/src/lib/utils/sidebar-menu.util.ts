@@ -67,34 +67,6 @@ export function augmentSidebarMenus(
 ): SidebarMenuRecord[] {
   const menusCopy = [...flatMenus];
 
-  const hasApprovalMenu = menusCopy.some((m) => m.url === '/equipment/form-approval');
-  if (!hasApprovalMenu) {
-    const formMgmtMenu = menusCopy.find((m) => m.url === '/equipment/form-management');
-    if (formMgmtMenu) {
-      menusCopy.push({
-        id: 999999,
-        name: 'Phê duyệt biểu mẫu',
-        icon: 'pi pi-check-square',
-        url: '/equipment/form-approval',
-        parentId: formMgmtMenu.parentId ?? null,
-      });
-    }
-  }
-
-  const hasTemplateMenu = menusCopy.some((m) => m.url === '/equipment/form-template');
-  if (!hasTemplateMenu) {
-    const formMgmtMenu = menusCopy.find((m) => m.url === '/equipment/form-management');
-    if (formMgmtMenu) {
-      menusCopy.push({
-        id: 999998,
-        name: 'Quản lý biểu mẫu',
-        icon: 'pi pi-file',
-        url: '/equipment/form-template',
-        parentId: formMgmtMenu.parentId ?? null,
-      });
-    }
-  }
-
   const canPublish =
     auth?.hasPermission('SUPER_ADMIN') ||
     auth?.hasPermission('DOSSIER_PUBLISH_VIEW') ||
