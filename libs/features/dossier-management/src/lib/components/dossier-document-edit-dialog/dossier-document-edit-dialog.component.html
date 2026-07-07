@@ -18,7 +18,7 @@
   <div class="edit-split" *ngIf="!loading()">
     <section class="preview-pane">
       <div class="pane-title">Bản scan / file gốc</div>
-      <div class="preview-toolbar" *ngIf="isPdf() && totalPages() > 1">
+      <!-- <div class="preview-toolbar" *ngIf="isPdf() && totalPages() > 1">
         <button type="button" class="page-btn" (click)="prevPage()" [disabled]="currentPage() <= 1">
           <i class="pi pi-chevron-left"></i>
         </button>
@@ -26,7 +26,7 @@
         <button type="button" class="page-btn" (click)="nextPage()" [disabled]="currentPage() >= totalPages()">
           <i class="pi pi-chevron-right"></i>
         </button>
-      </div>
+      </div> -->
       <div class="preview-body">
         <ng-container *ngIf="previewUrl(); else noPreview">
           <iframe *ngIf="isPdf()" class="preview-frame" [src]="previewSrc()" title="Xem trước PDF"></iframe>

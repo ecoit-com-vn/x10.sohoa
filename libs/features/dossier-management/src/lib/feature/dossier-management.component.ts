@@ -69,19 +69,11 @@ import { DossierMenuScope } from '../utils/dossier-status.util';
 
 
       <app-dossier-detail
-
         *ngIf="currentView() === 'detail' && selectedDossierId()"
-
         [dossierId]="selectedDossierId()!"
-
         [menuScope]="menuScope()"
-
-        [kindId]="kindId()"
-
         (cancel)="onBackToList()"
-
         (edit)="onEdit(selectedDossierId()!)"
-
       ></app-dossier-detail>
 
     </div>
