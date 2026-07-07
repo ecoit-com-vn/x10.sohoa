@@ -32,7 +32,9 @@ var workflowService = builder.AddProject<Projects.EvnHanoi_WorkflowService>("wor
     .WithServiceUrls(config, "IdentityService", "EquipmentService");
 
 var reportService = builder.AddProject<Projects.EvnHanoi_ReportService>("reportservice")
-    .WithSharedInfrastructure(config);
+    .WithSharedInfrastructure(config)
+    .WithMinio(config)
+    .WithServiceUrls(config, "IdentityService");
 
 builder.AddProject<Projects.EvnHanoi_ApiGateway>("apigateway")
     .WithHttpEndpoint(port: 5000, name: "gateway-http")
