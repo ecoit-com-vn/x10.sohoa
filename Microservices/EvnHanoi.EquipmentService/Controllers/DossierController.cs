@@ -356,6 +356,38 @@ public abstract partial class DossierControllerBase : ControllerBase
         return result ? NoContent() : NotFound(new { message = "Không tìm thấy thiết bị trong hồ sơ." });
     }
 
+    [HttpGet("{id:guid}/related")]
+    public async Task<IActionResult> GetRelatedDossiers(
+        Guid id,
+        [FromQuery] string? keyword,
+        [FromQuery] Guid? dossierTypeId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10)
+    {
+        var dossier = await _dossierService.GetDetailByIdAsync(id);
+        if (dossier == null)
+            return NotFound(new { message = $"Không tìm thấy hồ sơ với ID = {id}" });
+
+        // Lấy danh sách hồ sơ có cùng InfrastructureId (trạm/đường dây)
+        var (items, totalCount) = await _dossierService.GetCatalogDossiersAsync(
+            keyword, 
+            dossier.InfrastructureId, 
+            dossierTypeId, 
+            null, 
+            page, 
+            pageSize);
+
+        // Loại bỏ hồ sơ hiện tại khỏi danh sách hồ sơ liên quan để tránh tự hiển thị chính nó
+        var filteredItems = items.Where(item => item.Id != id).ToList();
+        var count = totalCount;
+        if (items.Count() != filteredItems.Count)
+        {
+            count = Math.Max(0, totalCount - 1);
+        }
+
+        return Ok(new { items = filteredItems, totalCount = count, page, pageSize });
+    }
+
     [HttpGet("by-equipment/{equipmentId:guid}")]
     [BypassDynamicPermission]
     public async Task<IActionResult> GetDossiersByEquipment(
