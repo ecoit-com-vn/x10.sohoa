@@ -320,6 +320,13 @@ export class InfrastructureComponent implements OnInit {
     this.currentView.set('edit');
   }
 
+  isGridTypeLocked(item?: any): boolean {
+    if (this.currentView() !== 'edit') return false;
+    const target = item ?? this.currentItem();
+    const count = Number(target?.equipmentCount ?? target?.EquipmentCount ?? 0);
+    return count > 0;
+  }
+
   onSaveItem() {
     this.formSubmitted.set(true);
     const item = this.currentItem();

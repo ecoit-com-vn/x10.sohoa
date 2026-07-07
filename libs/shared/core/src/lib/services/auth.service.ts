@@ -26,6 +26,12 @@ export interface UpdateProfileRequest {
   positionName?: string | null;
 }
 
+export interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -173,6 +179,10 @@ export class AuthService {
     return this.http.put<UserProfile>(`${this.base}/profile`, dto).pipe(
       tap((profile) => this.currentUserProfile.set(profile))
     );
+  }
+
+  changePassword(dto: ChangePasswordRequest): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.base}/change-password`, dto);
   }
 
   setPermissions(perms: string[]): void {

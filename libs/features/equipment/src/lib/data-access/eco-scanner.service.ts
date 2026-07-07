@@ -20,13 +20,12 @@ export interface ScanProgress {
 
 const CLIENT_BUSY_MESSAGE = 'Client khác đang kết nối';
 const NO_DATA_MESSAGE = 'Không có dữ liệu';
+const SESSION_BUSY_PREFIX = 'Định dạng file đã được cấu hình';
+const UNSUPPORTED_FORMAT_PREFIX = 'Chưa hỗ trợ định dạng';
+const NO_ACTION_PREFIX = 'No action for';
 
-/** Chờ thêm sau text "Không có dữ liệu" — EcoScanner đôi khi gửi text trước Binary hoặc đang convert PDF. */
-const NO_DATA_GRACE_MS = 8_000;
-
-const CONVERT_SEND_FAILURE_HINT =
-  'EcoScanner đã quét xong nhưng không gửi được file qua WebSocket (bước ghép/convert PDF). ' +
-  'Kiểm tra thư mục file_temp của EcoScanner, log ứng dụng, thử quét lại hoặc liên hệ nhà cung cấp EcoScanner.';
+/** Thời gian chờ tối thiểu khi quét — không được đặt dưới 120 giây (docs/WEB_PROTOCOL.md §7). */
+const MIN_SCAN_TIMEOUT_MS = 120_000;
 
 @Injectable({
   providedIn: 'root',
@@ -39,13 +38,13 @@ export class EcoScannerService {
 
   /**
    * Quét tài liệu qua EcoScanner (WebSocket localhost).
-   * Luồng mode `s`: Binary (file) → Text ("1") → Close — xem docs/SCAN_WEB_INTEGRATION.md mục 5.
+   * Giao thức: docs/WEB_PROTOCOL.md — mode `s`: Binary → Text "1" → Close.
    */
   scan(options?: ScanOptions, onProgress?: (progress: ScanProgress) => void): Promise<File[]> {
     const format = options?.format ?? 'pdf';
     const mode = options?.mode ?? 's';
     const wsUrl = options?.wsUrl ?? this.config.ecoScannerWsUrl ?? 'ws://127.0.0.1:8282';
-    const timeoutMs = options?.timeoutMs ?? 120_000;
+    const timeoutMs = Math.max(options?.timeoutMs ?? MIN_SCAN_TIMEOUT_MS, MIN_SCAN_TIMEOUT_MS);
     const debug = this.config.ecoScannerDebug ?? !this.config.production;
 
     this.cancelRequested = false;
@@ -53,11 +52,10 @@ export class EcoScannerService {
     return new Promise((resolve, reject) => {
       const files: File[] = [];
       let settled = false;
-      let socketClosed = false;
+      let scanDone = false;
+      let scanFailed = false;
       let pendingBinaryReads = 0;
-      let completionAck: number | null = null;
-      let noDataSignal = false;
-      let noDataGraceTimer: ReturnType<typeof setTimeout> | null = null;
+      let expectedPageCount: number | null = null;
 
       const log = (message: string, detail?: unknown) => {
         if (debug) {
@@ -69,10 +67,6 @@ export class EcoScannerService {
 
       const cleanup = (socket: WebSocket) => {
         clearTimeout(timeoutId);
-        if (noDataGraceTimer) {
-          clearTimeout(noDataGraceTimer);
-          noDataGraceTimer = null;
-        }
         if (this.activeSocket === socket) {
           this.activeSocket = null;
         }
@@ -81,6 +75,7 @@ export class EcoScannerService {
       const fail = (socket: WebSocket, message: string, closeSocket = false) => {
         if (settled) return;
         settled = true;
+        scanFailed = true;
         cleanup(socket);
         if (
           closeSocket &&
@@ -96,62 +91,29 @@ export class EcoScannerService {
       const succeed = (socket: WebSocket) => {
         if (settled) return;
         settled = true;
+        scanDone = true;
         cleanup(socket);
-
-        if (files.length === 0) {
-          let message: string;
-          if (this.cancelRequested) {
-            message = 'Đã hủy quét tài liệu';
-          } else if (noDataSignal) {
-            message = CONVERT_SEND_FAILURE_HINT;
-          } else if (completionAck !== null && completionAck > 0) {
-            message =
-              'EcoScanner báo đã gửi file nhưng trình duyệt không nhận được frame Binary. ' +
-              'Thử refresh trang hoặc kiểm tra tab WS trong DevTools.';
-          } else {
-            message =
-              'Không nhận được dữ liệu quét. Hãy hoàn tất thao tác quét trên cửa sổ EcoScanner (chọn máy quét và bấm Quét).';
-          }
-          log('FAIL empty files', { completionAck, cancelRequested: this.cancelRequested, noDataSignal });
-          emit({ phase: 'error', message });
-          reject(new Error(message));
-          return;
-        }
-
         log('OK', { fileCount: files.length, sizes: files.map((f) => f.size) });
         emit({ phase: 'done', message: 'Quét thành công' });
         resolve([...files]);
       };
 
-      const tryFinish = (socket: WebSocket) => {
-        if (settled || pendingBinaryReads > 0) return;
+      const tryComplete = (socket: WebSocket) => {
+        if (settled || pendingBinaryReads > 0 || files.length === 0) return;
 
-        if (files.length > 0) {
-          if (completionAck !== null && files.length >= completionAck) {
-            succeed(socket);
-            return;
-          }
-          if (socketClosed) {
-            succeed(socket);
-          }
+        if (mode === 's' && scanDone) {
+          succeed(socket);
           return;
         }
 
-        if (!socketClosed) return;
-
-        if (noDataSignal && noDataGraceTimer) return;
-
-        succeed(socket);
-      };
-
-      const scheduleNoDataGrace = (socket: WebSocket) => {
-        if (noDataGraceTimer) return;
-        noDataGraceTimer = setTimeout(() => {
-          noDataGraceTimer = null;
-          if (settled || files.length > 0) return;
-          log('Grace period hết sau "Không có dữ liệu", vẫn chưa có Binary');
-          tryFinish(socket);
-        }, NO_DATA_GRACE_MS);
+        if (
+          mode === 'm' &&
+          scanDone &&
+          expectedPageCount !== null &&
+          files.length >= expectedPageCount
+        ) {
+          succeed(socket);
+        }
       };
 
       const onBinaryReceived = (socket: WebSocket, data: ArrayBuffer) => {
@@ -161,16 +123,10 @@ export class EcoScannerService {
           return;
         }
 
-        noDataSignal = false;
-        if (noDataGraceTimer) {
-          clearTimeout(noDataGraceTimer);
-          noDataGraceTimer = null;
-        }
-
         log('Binary frame', { bytes: data.byteLength });
         emit({ phase: 'receiving', message: 'Đang nhận file quét...' });
         files.push(this.bufferToFile(data, format, files.length + 1));
-        tryFinish(socket);
+        tryComplete(socket);
       };
 
       const tryParseMisframedPdf = (socket: WebSocket, raw: string): boolean => {
@@ -191,6 +147,29 @@ export class EcoScannerService {
           return;
         }
 
+        // Giao thức mở rộng (tùy chọn — docs/WEB_PROTOCOL.md §11)
+        if (text.startsWith('status:')) {
+          const statusMessage = text.slice('status:'.length).trim() || text;
+          emit({ phase: 'scanning', message: statusMessage });
+          return;
+        }
+
+        if (text.startsWith('filesize:')) {
+          const sizeHint = text.slice('filesize:'.length).trim();
+          emit({
+            phase: 'receiving',
+            message: sizeHint
+              ? `Đang chờ nhận file quét (${sizeHint} byte)...`
+              : 'Đang chờ nhận file quét...',
+          });
+          return;
+        }
+
+        if (text.startsWith('error:')) {
+          fail(socket, text.slice('error:'.length).trim() || text, true);
+          return;
+        }
+
         if (text.includes(CLIENT_BUSY_MESSAGE)) {
           fail(
             socket,
@@ -200,34 +179,56 @@ export class EcoScannerService {
           return;
         }
 
+        if (text.startsWith(SESSION_BUSY_PREFIX)) {
+          emit({
+            phase: 'scanning',
+            message: 'Phiên quét trước chưa kết thúc — vui lòng đợi hoặc khởi động lại EcoScanner.',
+          });
+          return;
+        }
+
+        if (text.startsWith(UNSUPPORTED_FORMAT_PREFIX)) {
+          fail(socket, text, true);
+          return;
+        }
+
+        if (text.startsWith(NO_ACTION_PREFIX)) {
+          fail(socket, `Lệnh quét không hợp lệ: ${text}`, true);
+          return;
+        }
+
         if (text === NO_DATA_MESSAGE) {
           if (this.cancelRequested) {
             fail(socket, 'Đã hủy quét tài liệu', true);
             return;
           }
-
-          // Không fail/đóng socket ngay — EcoScanner có thể đang convert PDF sau khi quét xong.
-          noDataSignal = true;
-          log('Nhận "Không có dữ liệu" — chờ Binary thêm (không đóng socket)');
-          emit({
-            phase: 'receiving',
-            message: 'EcoScanner báo không có dữ liệu — đang chờ file quét (nếu đã quét xong, vui lòng đợi)...',
-          });
-          scheduleNoDataGrace(socket);
-          tryFinish(socket);
+          fail(
+            socket,
+            'Không có dữ liệu quét. Hãy hoàn tất thao tác quét trên cửa sổ EcoScanner.',
+            true
+          );
           return;
         }
 
-        if (/^\d+$/.test(text)) {
-          completionAck = Number.parseInt(text, 10);
-          emit({
-            phase: 'receiving',
-            message: `EcoScanner báo đã gửi ${completionAck} file — đang nhận dữ liệu...`,
-          });
-          tryFinish(socket);
+        if (text === '1' && mode === 's') {
+          scanDone = true;
+          emit({ phase: 'receiving', message: 'EcoScanner báo đã gửi file — đang nhận dữ liệu...' });
+          tryComplete(socket);
           return;
         }
 
+        if (mode === 'm' && /^\d+$/.test(text)) {
+          scanDone = true;
+          expectedPageCount = Number.parseInt(text, 10);
+          emit({
+            phase: 'receiving',
+            message: `EcoScanner báo đã gửi ${expectedPageCount} file — đang nhận dữ liệu...`,
+          });
+          tryComplete(socket);
+          return;
+        }
+
+        // Các message khác — chỉ log / hiện trạng thái, KHÔNG báo lỗi (docs/WEB_PROTOCOL.md §4)
         emit({ phase: 'scanning', message: text });
       };
 
@@ -236,14 +237,13 @@ export class EcoScannerService {
 
       const socket = new WebSocket(wsUrl);
       this.activeSocket = socket;
+      // BẮT BUỘC — docs/WEB_PROTOCOL.md §1
       socket.binaryType = 'arraybuffer';
 
       const timeoutId = setTimeout(() => {
-        fail(
-          socket,
-          'Quá thời gian chờ máy quét. Hãy hoàn tất quét trên cửa sổ EcoScanner (chọn máy scan và bấm Quét).',
-          true
-        );
+        if (!scanDone && files.length === 0) {
+          fail(socket, 'Hết thời gian chờ quét (120s). Vui lòng thử lại.', true);
+        }
       }, timeoutMs);
 
       socket.onopen = () => {
@@ -258,19 +258,8 @@ export class EcoScannerService {
       socket.onmessage = (event: MessageEvent) => {
         const data = event.data;
 
-        if (typeof data === 'string') {
-          handleTextMessage(socket, data);
-          return;
-        }
-
         if (data instanceof ArrayBuffer) {
           onBinaryReceived(socket, data);
-          return;
-        }
-
-        if (ArrayBuffer.isView(data)) {
-          const view = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
-          onBinaryReceived(socket, view.slice().buffer);
           return;
         }
 
@@ -283,8 +272,19 @@ export class EcoScannerService {
             .catch(() => undefined)
             .finally(() => {
               pendingBinaryReads--;
-              tryFinish(socket);
+              tryComplete(socket);
             });
+          return;
+        }
+
+        if (ArrayBuffer.isView(data)) {
+          const view = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+          onBinaryReceived(socket, view.slice().buffer);
+          return;
+        }
+
+        if (typeof data === 'string') {
+          handleTextMessage(socket, data);
           return;
         }
 
@@ -293,13 +293,40 @@ export class EcoScannerService {
 
       socket.onclose = (event) => {
         log('Socket closed', { code: event.code, reason: event.reason, wasClean: event.wasClean });
-        socketClosed = true;
+        cleanup(socket);
 
-        if (noDataSignal && files.length === 0) {
-          scheduleNoDataGrace(socket);
+        // Đã hoàn tất hoặc đã xử lý lỗi — không báo thêm (docs/WEB_PROTOCOL.md §6)
+        if (settled) return;
+        if (scanDone && files.length > 0) {
+          succeed(socket);
+          return;
+        }
+        if (scanFailed) return;
+
+        if (this.cancelRequested) {
+          fail(socket, 'Đã hủy quét tài liệu');
+          return;
         }
 
-        tryFinish(socket);
+        if (scanDone && files.length === 0) {
+          fail(
+            socket,
+            'EcoScanner báo đã gửi file nhưng trình duyệt không nhận được frame Binary. ' +
+              'Thử refresh trang hoặc kiểm tra tab WS trong DevTools.'
+          );
+          return;
+        }
+
+        // Có binary nhưng chưa nhận "1" — vẫn chấp nhận file khi socket đóng
+        if (files.length > 0) {
+          succeed(socket);
+          return;
+        }
+
+        fail(
+          socket,
+          'Không nhận được dữ liệu quét. Hãy hoàn tất thao tác quét trên cửa sổ EcoScanner (chọn máy quét và bấm Quét).'
+        );
       };
 
       socket.onerror = () => {
@@ -337,7 +364,7 @@ export class EcoScannerService {
     if (!isLocalPortal && isSecure) {
       return (
         base +
-        ' Trang đang chạy HTTPS — trình duyệt có thể chặn ws:// (Mixed Content). Xem docs/SCAN_WEB_INTEGRATION.md mục 6–7.'
+        ' Trang đang chạy HTTPS — trình duyệt có thể chặn ws:// (Mixed Content). Xem docs/WEB_PROTOCOL.md mục 13.'
       );
     }
 

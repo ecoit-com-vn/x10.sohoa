@@ -14,7 +14,13 @@ import { MessageService, MenuItem } from 'primeng/api';
 
 import { BhsCatalogColumn, DossierManagementService, DossierWorkflowAction, normalizeDossierWorkflowAction } from '../../data-access/dossier-management.service';
 import { AuthService } from '@sohoa.frontend/shared/core';
-import { isRejectWorkflowLabel, isApproveWorkflowLabel, filterUsersByRequiredRole } from '../../utils/dossier-workflow-bpmn.util';
+import {
+  isRejectWorkflowLabel,
+  isApproveWorkflowLabel,
+  isRejectWorkflowAction,
+  sortWorkflowActionsRejectLast,
+  filterUsersByRequiredRole,
+} from '../../utils/dossier-workflow-bpmn.util';
 import {
   DossierListTab,
   DossierMenuScope,
@@ -1267,14 +1273,11 @@ export class DossierListComponent implements OnInit {
 
   openQuickActionMenu(event: Event, item: any, menu: any) {
     event.stopPropagation();
-    const actions = this.getItemAvailableActions(item);
+    const actions = sortWorkflowActionsRejectLast(this.getItemAvailableActions(item));
     if (actions.length === 0) return;
 
     this.quickActionMenuItems = actions.map((act: any) => {
-      const isReject = act.code === 'REJECT' || 
-                       act.name.toLowerCase().includes('từ chối') || 
-                       act.name.toLowerCase().includes('trả lại') || 
-                       act.name.toLowerCase().includes('hủy');
+      const isReject = isRejectWorkflowAction(act);
       return {
         label: act.name,
         icon: isReject ? 'pi pi-times-circle' : 'pi pi-check-circle',

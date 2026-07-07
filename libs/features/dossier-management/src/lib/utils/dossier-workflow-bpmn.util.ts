@@ -14,6 +14,39 @@ export function isRejectWorkflowLabel(label?: string | null): boolean {
     || l.includes('trả lại');
 }
 
+/** Nhận diện thao tác từ chối/trả lại từ API workflow (name/code). */
+export function isRejectWorkflowAction(action: {
+  name?: string | null;
+  code?: string | null;
+  label?: string | null;
+  Name?: string | null;
+  Code?: string | null;
+}): boolean {
+  const code = String(action.code ?? action.Code ?? '').toUpperCase();
+  if (code === 'REJECT') return true;
+  return isRejectWorkflowLabel(action.name ?? action.Name ?? action.label ?? '');
+}
+
+/** Đưa thao tác từ chối/trả lại xuống cuối danh sách (menu mở rộng, nút workflow). */
+export function sortWorkflowActionsRejectLast<T>(actions: T[]): T[] {
+  const rejects: T[] = [];
+  const others: T[] = [];
+  for (const action of actions) {
+    const item = action as Record<string, unknown>;
+    const isReject = isRejectWorkflowAction({
+      name: String(item['name'] ?? item['Name'] ?? item['label'] ?? item['Label'] ?? ''),
+      code: String(item['code'] ?? item['Code'] ?? ''),
+    });
+    if (isReject) rejects.push(action);
+    else others.push(action);
+  }
+  return [...others, ...rejects];
+}
+
+export function sortWorkflowButtonsRejectLast(buttons: WorkflowActionButton[]): WorkflowActionButton[] {
+  return sortWorkflowActionsRejectLast(buttons);
+}
+
 export function isApproveWorkflowLabel(label?: string | null): boolean {
   const l = (label || '').toLowerCase();
   return l.includes('đồng ý')
@@ -87,7 +120,7 @@ export function parseWorkflowActionButtons(
 
     if (targetEl.localName.includes('Gateway')) {
       const gwFlows = seqFlows.filter(f => f.getAttribute('sourceRef') === targetRef);
-      return gwFlows.map(flow => {
+      return sortWorkflowButtonsRejectLast(gwFlows.map(flow => {
         const ftRef = flow.getAttribute('targetRef') || '';
         let label = flow.getAttribute('name') || 'Tiếp tục';
         const isReject = isRejectWorkflowLabel(label);
@@ -100,7 +133,7 @@ export function parseWorkflowActionButtons(
           requiresUser: !isReject && isTask(ftRef),
           requiredRole: isReject ? '' : getRole(ftRef),
         };
-      });
+      }));
     }
 
     if (targetEl.localName === 'endEvent') {
@@ -115,10 +148,10 @@ export function parseWorkflowActionButtons(
       requiredRole: getRole(targetRef),
     }];
   } catch {
-    return [
+    return sortWorkflowButtonsRejectLast([
       { label: 'Đồng ý', targetNodeId: '', requiresUser: true, requiredRole: '' },
       { label: 'Từ chối', targetNodeId: '', requiresUser: false, requiredRole: '' },
-    ];
+    ]);
   }
 }
 
