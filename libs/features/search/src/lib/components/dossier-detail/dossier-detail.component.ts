@@ -1,8 +1,8 @@
-import { Component, OnInit, OnDestroy, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
+import { DomSanitizer } from '@angular/platform-browser';
 import { MessageService } from 'primeng/api';
 import { TableModule } from 'primeng/table';
 import { PaginatorModule } from 'primeng/paginator';
@@ -22,6 +22,7 @@ import {
   parseFormDataJson,
   readFormSchemaJson,
   normalizeField,
+  DossierDocumentEditDialogComponent,
 } from '@sohoa.frontend/features/dossier-management';
 
 @Component({
@@ -35,12 +36,13 @@ import {
     DialogModule,
     ToastModule,
     WfBreadcrumbComponent,
+    DossierDocumentEditDialogComponent,
   ],
   providers: [MessageService],
   templateUrl: './dossier-detail.component.html',
   styleUrl: './dossier-detail.component.scss',
 })
-export class DossierDetailComponent implements OnInit, OnDestroy {
+export class DossierDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private documentService = inject(DocumentManagementService);
@@ -61,9 +63,6 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
   dynamicFields = signal<EavField[]>([]);
   detailFormData = signal<Record<string, any>>({});
   loadingForm = signal<boolean>(false);
-  selectedDocument = signal<any | null>(null);
-  previewUrl = signal<string | null>(null);
-  loadingPreview = signal<boolean>(false);
   gridTypes = signal<any[]>([]);
   dossierTypes = signal<any[]>([]);
   showViewDocument = signal<boolean>(false);
@@ -138,29 +137,6 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
   filterEquipmentId = '';
   filterDossierTypeId = '';
 
-  isPdf = computed(() => {
-    const doc = this.selectedDocument();
-    if (!doc) return false;
-    const name = doc.name || '';
-    const ext = name.split('.').pop()?.toLowerCase() ?? '';
-    const mime = doc.mimeType || '';
-    return mime.includes('pdf') || ext === 'pdf';
-  });
-
-  isImage = computed(() => {
-    const doc = this.selectedDocument();
-    if (!doc) return false;
-    const name = doc.name || '';
-    const ext = name.split('.').pop()?.toLowerCase() ?? '';
-    const mime = doc.mimeType || '';
-    return mime.startsWith('image/') || ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(ext);
-  });
-
-  previewSrc = computed(() => {
-    const base = this.previewUrl();
-    if (!base) return '';
-    return this.sanitizer.bypassSecurityTrustResourceUrl(base);
-  });
 
   loadCatalogColumns() {
     this.dossierService.getBhsCatalogColumns().subscribe({
@@ -199,9 +175,7 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
     });
   }
 
-  ngOnDestroy() {
-    this.cleanupPreview();
-  }
+
 
   goBack() {
     // If opened in a new tab, we can try window.close()
@@ -427,14 +401,6 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
   }
 
   // ===== PREVIEW & DOWNLOAD =====
-  cleanupPreview() {
-    const url = this.previewUrl();
-    if (url && url.startsWith('blob:')) {
-      URL.revokeObjectURL(url);
-    }
-    this.previewUrl.set(null);
-  }
-
   onViewDocumentDetail(doc: any) {
     this.viewTarget.set(doc);
     this.showViewDocument.set(true);

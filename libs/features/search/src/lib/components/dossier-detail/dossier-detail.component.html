@@ -25,7 +25,7 @@
         </button>
         <button class="detail-tab-item"
                 [class.tab-active]="activeDetailTab() === 'documents'"
-                (click)="cleanupPreview(); selectedDocument.set(null); activeDetailTab.set('documents')">
+                (click)="activeDetailTab.set('documents')">
           <i class="pi pi-paperclip"></i>
           Tài liệu đính kèm ({{ dossierDocuments().length }})
         </button>
@@ -145,10 +145,10 @@
           </div>
         </div>
 
-        <!-- ═══ Tab 2: Tài liệu đính kèm (Split-Pane xem trước PDF) ═══ -->
-        <div *ngIf="activeDetailTab() === 'documents'" class="split-pane-container animate-fade-in">
-          <!-- Left Documents List -->
-          <div class="left-list-pane">
+        <!-- ═══ Tab 2: Tài liệu đính kèm (Bảng danh sách tài liệu) ═══ -->
+        <div *ngIf="activeDetailTab() === 'documents'" class="tab-pane-container animate-fade-in" style="padding: 0 24px;">
+          <!-- Documents List taking full width -->
+          <div class="wf-table-wrap">
             <table class="wf-table">
               <thead>
                 <tr>
@@ -167,8 +167,7 @@
                   </td>
                 </tr>
                 <tr *ngFor="let doc of dossierDocuments(); let i = index" 
-                    [hidden]="loadingDossierDocuments()"
-                    [style.background-color]="selectedDocument()?.id === doc.id ? '#eff6ff' : ''">
+                    [hidden]="loadingDossierDocuments()">
                   <td class="col-stt text-muted">{{ i + 1 }}</td>
                   <td>
                     <span class="wf-name-link" (click)="onViewDocumentDetail(doc)">{{ doc.name }}</span>
@@ -177,7 +176,7 @@
                   <td class="col-size">{{ formatSize(doc.sizeInBytes) }}</td>
                   <td class="col-action" style="display: flex; gap: 4px; justify-content: center; align-items: center;">
                     <button class="action-icon-btn" title="Xem chi tiết" (click)="onViewDocumentDetail(doc)">
-                      <i class="pi pi-eye" [style.color]="selectedDocument()?.id === doc.id ? '#1d4ed8' : ''"></i>
+                      <i class="pi pi-eye"></i>
                     </button>
                     <button class="action-icon-btn" title="Tải xuống" (click)="downloadDocument(doc)">
                       <i class="pi pi-download"></i>
@@ -192,47 +191,6 @@
                 </tr>
               </tbody>
             </table>
-          </div>
-
-          <!-- Right Document Preview Pane -->
-          <div class="right-preview-pane animate-fade-in" *ngIf="selectedDocument()">
-            <div class="preview-header-bar">
-              <h4 class="preview-title" [title]="selectedDocument()!.name">
-                <i class="pi pi-file-pdf" style="color: #ef4444; margin-right: 6px;" *ngIf="isPdf()"></i>
-                <i class="pi pi-image" style="color: #10b981; margin-right: 6px;" *ngIf="isImage()"></i>
-                {{ selectedDocument()!.name }}
-              </h4>
-              <button class="close-preview-btn" (click)="onCloseDocumentDetail()" title="Đóng xem trước">
-                <i class="pi pi-times"></i>
-              </button>
-            </div>
-            
-            <div class="preview-body">
-              <div *ngIf="loadingPreview()" style="display: flex; flex-direction: column; align-items: center; gap: 8px; color: #ffffff; z-index: 10;">
-                <i class="pi pi-spin pi-spinner" style="font-size: 2rem;"></i>
-                <span>Đang tải bản xem trước...</span>
-              </div>
-
-              <!-- PDF viewer -->
-              <iframe *ngIf="isPdf() && previewUrl()" 
-                      [src]="previewSrc()" 
-                      style="width: 100%; height: 100%; border: none;"
-                      (load)="loadingPreview.set(false)">
-              </iframe>
-
-              <!-- Image viewer -->
-              <div *ngIf="isImage() && previewUrl()" style="width: 100%; height: 100%; overflow: auto; display: flex; justify-content: center; align-items: center; background-color: #334155; padding: 16px;">
-                <img [src]="previewUrl()" 
-                     style="max-width: 100%; max-height: 100%; object-fit: contain; box-shadow: 0 4px 6px rgba(0,0,0,0.15); border-radius: 4px;"
-                     (load)="loadingPreview.set(false)" />
-              </div>
-
-              <!-- Fallback (not supported or empty previewUrl) -->
-              <div *ngIf="!loadingPreview() && !previewUrl()" style="color: #cbd5e1; text-align: center; padding: 32px;">
-                <i class="pi pi-file-excel" style="font-size: 3rem; display: block; margin-bottom: 12px; color: #94a3b8;"></i>
-                <span>Tài liệu này không hỗ trợ xem trực tuyến. Vui lòng tải xuống để xem.</span>
-              </div>
-            </div>
           </div>
         </div>
 
@@ -337,4 +295,19 @@
       </div>
     </div>
   </div>
+
+  <!-- Dialog Xem chi tiết tài liệu dạng Split-Pane EAV giống Quản lý hồ sơ -->
+  <app-dossier-document-edit-dialog
+    *ngIf="viewTarget()?.latestVersionId as versionId"
+    [dossierId]="dossierId()"
+    [versionId]="versionId"
+    [documentName]="viewTarget()?.name ?? ''"
+    [mimeType]="viewTarget()?.mimeType ?? null"
+    [documentTypeId]="viewTarget()?.documentTypeId ?? null"
+    [formId]="dossier()?.formId"
+    [canEdit]="false"
+    [lookupMode]="false"
+    [visible]="showViewDocument()"
+    (visibleChange)="showViewDocument.set($event)"
+  ></app-dossier-document-edit-dialog>
 </div>
