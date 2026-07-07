@@ -7,9 +7,15 @@ import {
 export type OcrMode = 'none' | 'OcrAndExtract' | 'ExtractOnly';
 
 const ACTIVE_STATUSES = new Set(['Pending', 'Running', 'OcrCompleted', 'Extracting']);
+/** Đang chạy worker — chặn gửi job mới. Không gồm OcrCompleted/Completed (OCR đã xong vẫn cho chạy lại). */
+const IN_PROGRESS_STATUSES = new Set(['Pending', 'Running', 'Extracting']);
 
 export function isActiveDigitizationStatus(status: string | undefined | null): boolean {
   return !!status && ACTIVE_STATUSES.has(status);
+}
+
+export function isDigitizationInProgress(status: string | undefined | null): boolean {
+  return !!status && IN_PROGRESS_STATUSES.has(status);
 }
 
 export function getDigitizationStatusLabel(status: string | undefined | null): string {
@@ -187,11 +193,17 @@ export function canRetryDigitization(doc: DossierDocumentItem): boolean {
   return false;
 }
 
+/** Cho phép gửi OCR + bóc tách (lần đầu hoặc chạy lại) — kể cả khi OCR đã hoàn tất trước đó. */
+export function canSubmitOcrAndExtract(doc: DossierDocumentItem): boolean {
+  if (!doc.latestVersionId) return false;
+  return !isDigitizationInProgress(doc.ocrProgress?.status);
+}
+
 /** Cho phép bóc tách lại (OCR đã xong, không đang xử lý). Form EAV được load mới trên server. */
 export function canReExtract(doc: DossierDocumentItem): boolean {
   const ocr = doc.ocrProgress;
   if (!ocr) return false;
-  if (isActiveDigitizationStatus(ocr.status)) return false;
+  if (isDigitizationInProgress(ocr.status)) return false;
   if (ocr.status === 'Failed' && (ocr.phase ?? 'ocr') === 'ocr') return false;
   return (
     ocr.status === 'OcrCompleted' ||

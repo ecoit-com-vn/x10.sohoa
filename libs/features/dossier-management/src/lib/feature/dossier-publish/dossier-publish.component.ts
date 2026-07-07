@@ -68,6 +68,7 @@ function tabLabel(tab: PublishTab): string {
             <tr>
               <th class="col-stt">STT</th>
               <th *ngFor="let col of bhsColumns()">{{ col.label }}</th>
+              <th>Loại hồ sơ</th>
               <th>Trạm / Đường dây</th>
               <th style="width: 100px; text-align: center;">Số tài liệu</th>
               <th class="col-hd">Thao tác</th>
@@ -78,6 +79,7 @@ function tabLabel(tab: PublishTab): string {
               <tr *ngFor="let r of [1,2,3,4,5]" class="skeleton-row">
                 <td class="col-stt"><div class="skeleton-bar short" style="margin: 0 auto; width: 24px;"></div></td>
                 <td *ngFor="let col of bhsColumns()"><div class="skeleton-bar"></div></td>
+                <td><div class="skeleton-bar"></div></td>
                 <td><div class="skeleton-bar"></div></td>
                 <td style="width: 100px;"><div class="skeleton-bar short" style="margin: 0 auto; width: 40px;"></div></td>
                 <td class="col-hd"><div class="skeleton-bar short" style="margin-left: auto; width: 70px;"></div></td>
@@ -98,6 +100,7 @@ function tabLabel(tab: PublishTab): string {
                   <b *ngIf="first" class="wf-name-link" (click)="viewDetail.emit(item.id)">{{ getCatalogValue(item, col) }}</b>
                   <span *ngIf="!first">{{ getCatalogValue(item, col) }}</span>
                 </td>
+                <td>{{ getDossierTypeName(item) }}</td>
                 <td>
                   <div>{{ item.infrastructureName || '-' }}</div>
                   <div class="text-muted" style="font-size: 0.75rem;">{{ item.infrastructureCode }}</div>
@@ -236,7 +239,7 @@ export class DossierPublishComponent implements OnInit {
   actionSubmitting = signal<boolean>(false);
 
   totalPages = computed(() => Math.ceil(this.totalCount() / this.pageSize()));
-  tableColSpan = computed(() => this.bhsColumns().length + 4);
+  tableColSpan = computed(() => this.bhsColumns().length + 5);
 
   actionTargetLabel = computed(() => {
     const item = this.actionTarget();
@@ -358,6 +361,11 @@ export class DossierPublishComponent implements OnInit {
     const data = item?.catalogData ?? item?.CatalogData ?? {};
     const value = data[col.key] ?? data[col.code];
     return value != null && String(value).trim() !== '' ? String(value) : '-';
+  }
+
+  getDossierTypeName(item: any): string {
+    const name = item?.dossierTypeName ?? item?.DossierTypeName;
+    return name != null && String(name).trim() !== '' ? String(name) : '-';
   }
 
   changePage(page: number) {

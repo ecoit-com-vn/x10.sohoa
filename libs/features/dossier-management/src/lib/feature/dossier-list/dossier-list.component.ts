@@ -22,9 +22,12 @@ import {
   getDefaultTabForMenuScope,
   getDossierStatusLabel,
   getDossierStatusPillClass,
-  getDossierWorkflowStepSubtitle,
   getTabsForMenuScope,
 } from '../../utils/dossier-status.util';
+import {
+  canMutateDossierOnCreatorMenu as hasCreatorMenuMutatePermission,
+  hasDossierCreatePermission,
+} from '../../utils/dossier-permission.util';
 import { isUserAuthorizedForWorkflowAction, buildListItemPatchFromSources, shouldKeepItemOnTab, DossierListItemPatch } from '../../utils/dossier-workflow-auth.util';
 import { catchError, finalize, forkJoin, of } from 'rxjs';
 
@@ -222,10 +225,6 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
                   <span [class]="getDossierStatusPillClass(item.statusId)">
                     {{ getDossierStatusLabel(item.statusId, item.statusName) }}
                   </span>
-                  <div class="text-muted" style="font-size: 0.75rem; margin-top: 2px;"
-                       *ngIf="getDossierWorkflowStepSubtitle(item.statusId, item.workflowStepName ?? item.workflowStatusName) as step">
-                    {{ step }}
-                  </div>
                 </td>
 
                 <td class="col-hd">
@@ -552,17 +551,26 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
 export class DossierListComponent implements OnInit {
 
   @Input({ required: true }) set menuScope(value: DossierMenuScope) {
+    const changed = this.menuScopeSignal() !== value;
     this.menuScopeSignal.set(value);
     this.activeTab.set(getDefaultTabForMenuScope(value));
+    if (changed && this.listBootstrapped) {
+      this.refreshList();
+    }
   }
 
   @Input() set kindId(value: number | undefined) {
     const id = value ?? 2;
+    const changed = this.kindIdSignal() !== id;
     this.kindIdSignal.set(id);
     this.service.setKindContext(id);
+    if (changed && this.listBootstrapped) {
+      this.refreshList();
+    }
   }
 
   kindIdSignal = signal<number>(2);
+  private listBootstrapped = false;
   private menuScopeSignal = signal<DossierMenuScope>('creator');
   visibleTabs = computed(() => getTabsForMenuScope(this.menuScopeSignal(), this.kindIdSignal()));
   isCreatorMenu = computed(() => this.menuScopeSignal() === 'creator');
@@ -572,10 +580,7 @@ export class DossierListComponent implements OnInit {
   tabLabel = tabLabel;
 
   canCreateDossier(): boolean {
-    if (this.isDigitization()) {
-      return this.authService.hasPermission('SUPER_ADMIN') || this.authService.hasPermission('DOSSIER_DIGITIZATION_CREATE');
-    }
-    return this.authService.hasPermission('SUPER_ADMIN') || this.authService.hasPermission('DOSSIER_CREATE');
+    return hasDossierCreatePermission(this.authService, this.isDigitization());
   }
 
   private service = inject(DossierManagementService);
@@ -690,10 +695,6 @@ export class DossierListComponent implements OnInit {
 
   getDossierStatusLabel = getDossierStatusLabel;
 
-  getDossierWorkflowStepSubtitle = getDossierWorkflowStepSubtitle;
-
-
-
   deleteTargetLabel = computed(() => {
 
     const item = this.deleteTarget();
@@ -717,11 +718,9 @@ export class DossierListComponent implements OnInit {
 
 
   ngOnInit() {
-
     this.loadLookups();
-
+    this.listBootstrapped = true;
     this.refreshList();
-
   }
 
 
@@ -762,7 +761,7 @@ export class DossierListComponent implements OnInit {
   private refreshListItemAfterMutation(id: string, onDone?: () => void) {
     forkJoin({
       detail: this.service.getDossierById(id),
-      workflow: this.service.getWorkflowDetail(id).pipe(catchError(() => of(null))),
+      workflow: this.service.getWorkflowDetail(id, this.kindIdSignal()).pipe(catchError(() => of(null))),
     }).subscribe({
       next: ({ detail, workflow }) => {
         const patch = buildListItemPatchFromSources(detail, workflow);
@@ -1123,13 +1122,10 @@ export class DossierListComponent implements OnInit {
     return status === 'Returned' || this.activeTab() === 'returned';
   }
 
-  /** Menu quản lý: sửa form/tài liệu cần DOSSIER_EDIT (PUT) hoặc CREATE (nháp mới). */
+  /** Menu quản lý: sửa form/tài liệu cần EDIT hoặc CREATE theo loại hồ sơ. */
   private canMutateDossierOnCreatorMenu(): boolean {
     if (!this.isCreatorMenu()) return false;
-    return (
-      this.authService.hasPermission('DOSSIER_EDIT') ||
-      this.authService.hasPermission('DOSSIER_CREATE')
-    );
+    return hasCreatorMenuMutatePermission(this.authService, this.isDigitization());
   }
 
   onQuickAction(
@@ -1156,8 +1152,8 @@ export class DossierListComponent implements OnInit {
     };
     const targetItem = this.items().find(i => i.id === dossierId);
     const workflowCall = this.shouldUseResubmit(targetItem ?? { status: this.activeTab() === 'returned' ? 'Returned' : '' })
-      ? this.service.resubmitWorkflow(dossierId, request)
-      : this.service.moveWorkflow(dossierId, request);
+      ? this.service.resubmitWorkflow(dossierId, request, this.kindIdSignal())
+      : this.service.moveWorkflow(dossierId, request, this.kindIdSignal());
 
     workflowCall.pipe(
       finalize(() => this.quickActionSubmitting.set(false))
@@ -1326,14 +1322,14 @@ export class DossierListComponent implements OnInit {
   onQuickSubmitForApproval(item: any) {
     this.selectedQuickItem.set(item);
     this.quickSubmitSubmitting.set(true);
-    this.service.getNextStepInfo().subscribe({
+    this.service.getNextStepInfo(this.kindIdSignal()).subscribe({
       next: (res) => {
         if (res?.autoApprove) {
           this.service.submitForApproval(item.id, {
             nextNodeId: '',
             actionLabel: 'Tự động duyệt',
             comment: 'Tự động phê duyệt — chưa cấu hình quy trình.'
-          }).subscribe({
+          }, this.kindIdSignal()).subscribe({
             next: () => {
               this.messageService.add({ severity: 'success', summary: 'Thành công', detail: res.message || 'Đã tự động phê duyệt hồ sơ' });
               this.quickSubmitSubmitting.set(false);
@@ -1385,7 +1381,7 @@ export class DossierListComponent implements OnInit {
       actionLabel: 'Trình duyệt',
       nextAssigneeUserId: this.quickSubmitSelectedNextUser() || undefined,
       comment: 'Kính trình phê duyệt hồ sơ.'
-    }).subscribe({
+    }, this.kindIdSignal()).subscribe({
       next: () => {
         this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã gửi duyệt hồ sơ thành công' });
         this.showQuickSubmitConfirm.set(false);

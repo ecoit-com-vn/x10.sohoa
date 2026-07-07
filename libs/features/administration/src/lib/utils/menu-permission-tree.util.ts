@@ -171,13 +171,29 @@ function resolveBestMenuForPermission(
   }
 
   if (permPrefix === 'EAV_FORM_TEMPLATE') {
-    const formMenu = ownerPool.find(
-      (menu) =>
-        menu.url?.includes('/equipment/form-management') ||
-        menu.url?.includes('/equipment/form-approval')
-    );
-    if (formMenu) {
-      return formMenu.id;
+    if (
+      permission.code === 'EAV_FORM_TEMPLATE_APPROVAL_VIEW' ||
+      permission.code === 'EAV_FORM_TEMPLATE_APPROVE'
+    ) {
+      const approvalMenu = ownerPool.find((menu) => menu.url?.includes('/equipment/form-approval'));
+      if (approvalMenu) {
+        return approvalMenu.id;
+      }
+    }
+
+    if (
+      permission.code === 'EAV_FORM_TEMPLATE_COMPLETED_VIEW' ||
+      permission.code === 'EAV_FORM_TEMPLATE_MANAGE'
+    ) {
+      const completedMenu = ownerPool.find((menu) => menu.url?.includes('/equipment/completed-forms'));
+      if (completedMenu) {
+        return completedMenu.id;
+      }
+    }
+
+    const designMenu = ownerPool.find((menu) => menu.url?.includes('/equipment/form-management'));
+    if (designMenu) {
+      return designMenu.id;
     }
   }
 

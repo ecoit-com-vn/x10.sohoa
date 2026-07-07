@@ -27,6 +27,7 @@ import {
   parseWorkflowActionButtons,
 } from '../../utils/dossier-workflow-bpmn.util';
 import { isUserAuthorizedForWorkflowAction } from '../../utils/dossier-workflow-auth.util';
+import { normalizeDossierKindId } from '../../utils/dossier-permission.util';
 
 @Component({
   selector: 'app-dossier-form',
@@ -396,6 +397,8 @@ import { isUserAuthorizedForWorkflowAction } from '../../utils/dossier-workflow-
         <app-dossier-documents-tab
           [dossierId]="dossierId!"
           [canEdit]="true"
+          [kindId]="kindIdSignal()"
+          [menuScope]="'creator'"
           [hasFormTemplate]="!!selectedFormId()"
           [formId]="selectedFormId()"
           (formDataSaved)="loadDossierDetail(dossierId!)"
@@ -407,7 +410,7 @@ import { isUserAuthorizedForWorkflowAction } from '../../utils/dossier-workflow-
       </div>
 
       <div *ngIf="isEditMode() && activeTab() === 'workflow'">
-        <app-dossier-workflow-tab [dossierId]="dossierId!" />
+        <app-dossier-workflow-tab [dossierId]="dossierId!" [kindId]="kindIdSignal()" />
       </div>
 
       <!-- Loading — chỉ che tab thông tin, không chặn tab Tài liệu -->
@@ -549,6 +552,12 @@ import { isUserAuthorizedForWorkflowAction } from '../../utils/dossier-workflow-
 })
 export class DossierFormComponent implements OnInit {
   @Input() dossierId: string | null = null;
+  @Input() set kindId(value: number | undefined) {
+    const id = normalizeDossierKindId(value, this.kindIdSignal());
+    this.kindIdSignal.set(id);
+    this.service.setKindContext(id);
+  }
+  kindIdSignal = signal<number>(2);
   @Output() cancel = new EventEmitter<void>();
   @Output() saved = new EventEmitter<string>();
 
@@ -716,6 +725,13 @@ export class DossierFormComponent implements OnInit {
           this.dossierTypes.set(types);
         }
         if (res) {
+          const normalizedKindId = normalizeDossierKindId(
+            res.kindId ?? res.KindId,
+            this.kindIdSignal()
+          );
+          this.kindIdSignal.set(normalizedKindId);
+          this.service.setKindContext(normalizedKindId);
+
           this.dossier = {
             id: res.id ?? res.Id,
             dossierTypeId: res.dossierTypeId ?? res.DossierTypeId,
@@ -970,14 +986,14 @@ export class DossierFormComponent implements OnInit {
 
   openSubmitWorkflowDialog() {
     this.submitting.set(true);
-    this.service.getNextStepInfo().subscribe({
+    this.service.getNextStepInfo(this.kindIdSignal()).subscribe({
       next: (res) => {
         if (res?.autoApprove) {
           this.service.submitForApproval(this.dossier.id, {
             nextNodeId: '',
             actionLabel: 'Tự động duyệt',
             comment: 'Tự động phê duyệt — chưa cấu hình quy trình.'
-          }).subscribe({
+          }, this.kindIdSignal()).subscribe({
             next: () => {
               this.messageService.add({ severity: 'success', summary: 'Thành công', detail: res.message || 'Đã tự động phê duyệt hồ sơ' });
               this.submitting.set(false);
@@ -1022,13 +1038,13 @@ export class DossierFormComponent implements OnInit {
           actionLabel: 'Trình duyệt',
           nextAssigneeUserId: this.selectedNextUser() || undefined,
           comment: 'Kính trình phê duyệt lại hồ sơ.'
-        })
+        }, this.kindIdSignal())
       : this.service.submitForApproval(this.dossier.id, {
           nextNodeId: info.nextNodeId,
           actionLabel: 'Trình duyệt',
           nextAssigneeUserId: this.selectedNextUser() || undefined,
           comment: 'Kính trình phê duyệt hồ sơ.'
-        });
+        }, this.kindIdSignal());
 
     call$.subscribe({
       next: (res: any) => {
@@ -1057,6 +1073,7 @@ export class DossierFormComponent implements OnInit {
     this.service.completeInput(this.dossier.id).subscribe({
       next: () => {
         this.dossierStatus.set('CompletedInput');
+        this.dossierStatusId.set(2);
         this.messageService.add({
           severity: 'success',
           summary: 'Thành công',
@@ -1197,7 +1214,7 @@ export class DossierFormComponent implements OnInit {
 
   loadWorkflow() {
     if (!this.dossierId) return;
-    this.service.getWorkflowDetail(this.dossierId).subscribe({
+    this.service.getWorkflowDetail(this.dossierId, this.kindIdSignal()).subscribe({
       next: (res: any) => {
         this.applyWorkflowDetailState(res);
       }
@@ -1298,8 +1315,8 @@ export class DossierFormComponent implements OnInit {
     const statusId = this.dossierStatusId();
     const useResubmit = statusId === 5;
     const workflowCall = useResubmit
-      ? this.service.resubmitWorkflow(this.dossierId, payload)
-      : this.service.moveWorkflow(this.dossierId, payload);
+      ? this.service.resubmitWorkflow(this.dossierId, payload, this.kindIdSignal())
+      : this.service.moveWorkflow(this.dossierId, payload, this.kindIdSignal());
 
     workflowCall.subscribe({
       next: () => {

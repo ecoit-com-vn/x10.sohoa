@@ -1,5 +1,4 @@
 import { Component, OnDestroy, computed, inject, signal } from '@angular/core';
-import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
@@ -25,7 +24,7 @@ import { DossierLookupDocumentsTabComponent } from '../dossier-lookup-documents-
 @Component({
   selector: 'app-document-fulltext-detail',
   standalone: true,
-  imports: [CommonModule, ToastModule, WfBreadcrumbComponent, DossierLookupDocumentsTabComponent],
+  imports: [CommonModule, ToastModule, DossierLookupDocumentsTabComponent],
   providers: [MessageService],
   templateUrl: './document-fulltext-detail.component.html',
   styleUrl: './document-fulltext-detail.component.scss'
@@ -45,7 +44,6 @@ export class DocumentFulltextDetailComponent implements OnDestroy {
   loadingDossier = signal(false);
   loadingTemplate = signal(false);
   previewUrl = signal<string | null>(null);
-  previewSafeSrc = signal<SafeResourceUrl | string>('');
   previewLoading = signal(false);
   dossierTab = signal<'info' | 'documents' | 'related'>('info');
 
@@ -65,6 +63,15 @@ export class DocumentFulltextDetailComponent implements OnDestroy {
   isImage = computed(() => {
     const mime = (this.detail()?.mimeType || '').toLowerCase();
     return mime.startsWith('image/');
+  });
+
+  previewSrc = computed((): SafeResourceUrl | string => {
+    const url = this.previewUrl();
+    if (!url) return '';
+    const withPdfView = this.isPdf()
+      ? `${url}#toolbar=1&navpanes=0&scrollbar=1&zoom=67`
+      : url;
+    return this.sanitizer.bypassSecurityTrustResourceUrl(withPdfView);
   });
 
   equipments = computed(() => {
@@ -184,7 +191,6 @@ export class DocumentFulltextDetailComponent implements OnDestroy {
         }
         this.previewLoadedKey = loadKey;
         this.previewUrl.set(url);
-        this.previewSafeSrc.set(this.sanitizer.bypassSecurityTrustResourceUrl(url));
         this.previewLoading.set(false);
       })
       .catch(() => {
@@ -274,25 +280,6 @@ export class DocumentFulltextDetailComponent implements OnDestroy {
     });
   }
 
-  async onDownload() {
-    const d = this.detail();
-    if (!d) return;
-
-    const dossierId = (d.dossierId || '').trim();
-    const versionId = (d.documentVersionId || '').trim();
-    if (!dossierId || !versionId) return;
-
-    try {
-      await this.searchService.downloadFile(dossierId, versionId, d.documentName);
-    } catch {
-      this.messageService.add({
-        severity: 'error',
-        summary: 'Lỗi',
-        detail: 'Không thể tải tài liệu'
-      });
-    }
-  }
-
   onBack() {
     const keyword = this.returnKeyword();
     void this.router.navigate(['/search/documents'], {
@@ -347,7 +334,6 @@ export class DocumentFulltextDetailComponent implements OnDestroy {
       window.URL.revokeObjectURL(url);
     }
     this.previewUrl.set(null);
-    this.previewSafeSrc.set('');
     this.previewLoadedKey = null;
   }
 }

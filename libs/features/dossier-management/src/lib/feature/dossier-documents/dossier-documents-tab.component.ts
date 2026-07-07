@@ -5,6 +5,8 @@ import {
   EventEmitter,
   OnInit,
   OnDestroy,
+  OnChanges,
+  SimpleChanges,
   AfterViewInit,
   inject,
   signal,
@@ -19,7 +21,7 @@ import { DialogModule } from 'primeng/dialog';
 import { ButtonModule } from 'primeng/button';
 import { MessageService, MenuItem } from 'primeng/api';
 import { Menu, MenuModule } from 'primeng/menu';
-import { SignalRService, DigitizationProgressEvent } from '@sohoa.frontend/shared/core';
+import { SignalRService, DigitizationProgressEvent, AuthService } from '@sohoa.frontend/shared/core';
 import {
   Subject,
   debounceTime,
@@ -53,9 +55,14 @@ import {
   canEditDossierDocument,
   canRetryDigitization,
   canReExtract,
+  canSubmitOcrAndExtract,
   isReExtracting,
   isRetryingDigitization,
 } from '../../utils/dossier-digitization.util';
+import {
+  hasDossierDigitizationImportPermission,
+  normalizeDossierKindId,
+} from '../../utils/dossier-permission.util';
 import { DossierUploadMenuComponent, DossierUploadAction } from '../../components/dossier-upload-menu/dossier-upload-menu.component';
 import { DossierFolderPickerDialogComponent } from '../../components/dossier-folder-picker-dialog/dossier-folder-picker-dialog.component';
 import { DossierDirectUploadDialogComponent } from '../../components/dossier-direct-upload-dialog/dossier-direct-upload-dialog.component';
@@ -67,6 +74,8 @@ interface DocumentTableAction {
   btnClass: string;
   iconClasses: string;
   disabled: boolean;
+  /** Luôn hiển thị trong menu ba chấm, không đưa ra cột thao tác chính. */
+  overflowOnly?: boolean;
   run: (doc: DossierDocumentItem) => void;
 }
 
@@ -89,7 +98,7 @@ const MAX_INLINE_DOCUMENT_ACTIONS = 3;
   templateUrl: './dossier-documents-tab.component.html',
   styleUrl: './dossier-documents-tab.component.scss',
 })
-export class DossierDocumentsTabComponent implements OnInit, OnDestroy, AfterViewInit {
+export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChanges, AfterViewInit {
   @ViewChild('docActionMenu') docActionMenu?: Menu;
   @ViewChild('tableWrap') tableWrap?: ElementRef<HTMLElement>;
 
@@ -98,6 +107,7 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, AfterVie
   private documentService = inject(DossierDocumentService);
   private messageService = inject(MessageService);
   private signalRService = inject(SignalRService);
+  private authService = inject(AuthService);
   private destroy$ = new Subject<void>();
   private search$ = new Subject<string>();
   private signalRConnected = false;
@@ -106,6 +116,7 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, AfterVie
 
   @Input({ required: true }) dossierId!: string;
   @Input() canEdit = false;
+  @Input() kindId = 2;
   @Input() hasFormTemplate = false;
   @Input() formId: string | null = null;
   @Input() menuScope: 'creator' | 'approver' | 'publisher' = 'creator';
@@ -161,10 +172,18 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, AfterVie
   shouldShowExtractionProgress = shouldShowExtractionProgress;
   canRetryDigitization = canRetryDigitization;
   canReExtract = canReExtract;
+  canSubmitOcrAndExtract = canSubmitOcrAndExtract;
   isReExtracting = isReExtracting;
   isRetryingDigitization = isRetryingDigitization;
 
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['kindId']) {
+      this.applyKindContext();
+    }
+  }
+
   ngOnInit(): void {
+    this.applyKindContext();
     if (this.dossierId) {
       this.loadDocuments();
       void this.switchDossierSignalRGroup(this.dossierId);
@@ -364,7 +383,20 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, AfterVie
 
   canEditDocument = canEditDossierDocument;
 
+  private applyKindContext(): void {
+    this.documentService.setKindContext(normalizeDossierKindId(this.kindId, 2));
+  }
+
+  /** Menu Quản lý hồ sơ (kỹ thuật) & Nhập liệu số hóa — hiển thị OCR/bóc tách mặc định khi có quyền IMPORT. */
+  showCreatorDigitizationActions(): boolean {
+    if (!this.canEdit || this.menuScope !== 'creator') return false;
+    const kind = normalizeDossierKindId(this.kindId, 2);
+    if (kind !== 1 && kind !== 2) return false;
+    return hasDossierDigitizationImportPermission(this.authService, kind === 1);
+  }
+
   getDocumentActions(doc: DossierDocumentItem): DocumentTableAction[] {
+    const showDigitization = this.showCreatorDigitizationActions();
     const actions: DocumentTableAction[] = [
       {
         key: 'view',
@@ -384,18 +416,44 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, AfterVie
       },
     ];
 
-    if (this.canEditDocument(doc) && this.canEdit) {
+    if (showDigitization && this.canSubmitOcrAndExtract(doc)) {
       actions.push({
-        key: 'edit',
-        title: 'Sửa tài liệu',
-        btnClass: 'act-edit',
-        iconClasses: 'pi pi-pencil',
-        disabled: !doc.latestVersionId,
-        run: (d) => this.onEditDocument(d),
+        key: 'ocr-extract',
+        title: 'OCR + bóc tách lại',
+        btnClass: 'act-retry',
+        iconClasses: this.isRetryingDigitization(doc.id, this.retryingIds())
+          ? 'pi pi-spin pi-spinner'
+          : 'pi pi-refresh',
+        disabled: this.isRetryingDigitization(doc.id, this.retryingIds()),
+        overflowOnly: true,
+        run: (d) => this.onOcrAndExtract(d),
+      });
+    } else if (this.canRetryDigitization(doc) && this.canEdit) {
+      actions.push({
+        key: 'retry',
+        title: 'Xử lý lại OCR/bóc tách',
+        btnClass: 'act-retry',
+        iconClasses: this.isRetryingDigitization(doc.id, this.retryingIds())
+          ? 'pi pi-spin pi-spinner'
+          : 'pi pi-refresh',
+        disabled: this.isRetryingDigitization(doc.id, this.retryingIds()),
+        run: (d) => this.onRetryDigitization(d),
       });
     }
 
-    if (this.canReExtract(doc) && this.canEdit) {
+    if (showDigitization && this.canReExtract(doc)) {
+      actions.push({
+        key: 'reextract',
+        title: 'Bóc tách lại',
+        btnClass: 'act-reextract',
+        iconClasses: this.isReExtracting(doc.id, this.reExtractingIds())
+          ? 'pi pi-spin pi-spinner'
+          : 'pi pi-sync',
+        disabled: this.isReExtracting(doc.id, this.reExtractingIds()),
+        overflowOnly: true,
+        run: (d) => this.onReExtract(d),
+      });
+    } else if (this.canReExtract(doc) && this.canEdit) {
       actions.push({
         key: 'reextract',
         title: 'Bóc tách lại (tải biểu mẫu mới)',
@@ -408,16 +466,14 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, AfterVie
       });
     }
 
-    if (this.canRetryDigitization(doc) && this.canEdit) {
+    if (this.canEditDocument(doc) && this.canEdit) {
       actions.push({
-        key: 'retry',
-        title: 'Xử lý lại OCR/bóc tách',
-        btnClass: 'act-retry',
-        iconClasses: this.isRetryingDigitization(doc.id, this.retryingIds())
-          ? 'pi pi-spin pi-spinner'
-          : 'pi pi-refresh',
-        disabled: this.isRetryingDigitization(doc.id, this.retryingIds()),
-        run: (d) => this.onRetryDigitization(d),
+        key: 'edit',
+        title: 'Sửa tài liệu',
+        btnClass: 'act-edit',
+        iconClasses: 'pi pi-pencil',
+        disabled: !doc.latestVersionId,
+        run: (d) => this.onEditDocument(d),
       });
     }
 
@@ -436,11 +492,16 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, AfterVie
   }
 
   getPrimaryDocumentActions(doc: DossierDocumentItem): DocumentTableAction[] {
-    return this.getDocumentActions(doc).slice(0, MAX_INLINE_DOCUMENT_ACTIONS);
+    const inline = this.getDocumentActions(doc).filter((action) => !action.overflowOnly);
+    return inline.slice(0, MAX_INLINE_DOCUMENT_ACTIONS);
   }
 
   getOverflowDocumentActions(doc: DossierDocumentItem): DocumentTableAction[] {
-    return this.getDocumentActions(doc).slice(MAX_INLINE_DOCUMENT_ACTIONS);
+    const actions = this.getDocumentActions(doc);
+    const overflowOnly = actions.filter((action) => action.overflowOnly);
+    const inline = actions.filter((action) => !action.overflowOnly);
+    const inlineOverflow = inline.slice(MAX_INLINE_DOCUMENT_ACTIONS);
+    return [...overflowOnly, ...inlineOverflow];
   }
 
   openDocActionMenu(doc: DossierDocumentItem, event: Event): void {
@@ -646,6 +707,39 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, AfterVie
             severity: 'error',
             summary: 'Lỗi',
             detail: err?.error?.message || 'Không thể gửi xử lý lại',
+          });
+        },
+      });
+  }
+
+  onOcrAndExtract(doc: DossierDocumentItem): void {
+    if (!doc.latestVersionId || !this.canEdit) return;
+
+    const ids = new Set(this.retryingIds());
+    ids.add(doc.id);
+    this.retryingIds.set(ids);
+
+    this.documentService
+      .retryDigitization(this.dossierId, doc.latestVersionId, 'OcrAndExtract')
+      .pipe(finalize(() => {
+        const next = new Set(this.retryingIds());
+        next.delete(doc.id);
+        this.retryingIds.set(next);
+      }))
+      .subscribe({
+        next: () => {
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Đã gửi OCR + bóc tách',
+            detail: `"${doc.name}" đang được xử lý OCR và bóc tách`,
+          });
+          this.loadDocuments(true);
+        },
+        error: (err) => {
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi',
+            detail: err?.error?.message || 'Không thể gửi OCR + bóc tách',
           });
         },
       });

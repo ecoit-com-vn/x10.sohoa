@@ -77,7 +77,7 @@ export class FileUploadService {
   private readonly DIRECT_UPLOAD_THRESHOLD = 10 * 1024 * 1024; // 10MB
 
   private get base() {
-    return `/api/v1/files`;
+    return `/api/v1/documents`;
   }
 
   /**
@@ -114,7 +114,7 @@ export class FileUploadService {
     };
 
     return this.api.post<InitiateChunkedUploadResponse>(
-      `${this.base}/initiate-chunked`,
+      `${this.base}/upload/chunked/initiate`,
       body
     );
   }
@@ -127,7 +127,7 @@ export class FileUploadService {
     chunkNumber: number,
     chunkData: ArrayBuffer
   ): Observable<UploadChunkResponse> {
-    const url = `${this.base}/${uploadId}/chunks/${chunkNumber}`;
+    const url = `${this.base}/upload/chunked/${uploadId}/chunks/${chunkNumber}`;
 
     return this.api.put<UploadChunkResponse>(url, chunkData, {
       headers: { 'Content-Type': 'application/octet-stream' }
@@ -141,7 +141,7 @@ export class FileUploadService {
     uploadId: string,
     parts: Array<{ chunkNumber: number; eTag: string }>
   ): Observable<FileUploadResponse> {
-    const url = `${this.base}/${uploadId}/complete`;
+    const url = `${this.base}/upload/chunked/${uploadId}/complete`;
     const body = { uploadId, parts };
 
     return this.api.post<FileUploadResponse>(url, body);

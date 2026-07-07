@@ -12,8 +12,13 @@ import { SelectModule } from 'primeng/select';
 import { PaginatorModule } from 'primeng/paginator';
 import { DialogModule } from 'primeng/dialog';
 import { finalize } from 'rxjs';
-import { LoadingService, EavFormService, EavFormTemplate } from '@sohoa.frontend/shared/core';
+import { LoadingService, EavFormService, EavFormTemplate, AuthService } from '@sohoa.frontend/shared/core';
 import { EquipmentTypeService } from '../../data-access/equipment-type.service';
+import {
+  canDeleteForm,
+  canEditForm,
+  canManageForm,
+} from '../../utils/eav-form-permission.util';
 
 @Component({
     selector: 'app-completed-form-list',
@@ -40,6 +45,11 @@ export class CompletedFormListComponent implements OnInit {
     private eavFormService = inject(EavFormService);
     private equipmentTypeService = inject(EquipmentTypeService);
     private router = inject(Router);
+    private authService = inject(AuthService);
+
+    canEdit = computed(() => canEditForm(this.authService));
+    canManage = computed(() => canManageForm(this.authService));
+    canDelete = computed(() => canDeleteForm(this.authService));
 
     showConfirmLock = signal<boolean>(false);
     showConfirmUnlock = signal<boolean>(false);
@@ -135,6 +145,7 @@ export class CompletedFormListComponent implements OnInit {
     }
 
     ngOnInit() {
+        this.authService.loadPermissions();
         this.loadEquipmentTypes();
         this.loadGridTypes();
         this.loadHmadCategories();
