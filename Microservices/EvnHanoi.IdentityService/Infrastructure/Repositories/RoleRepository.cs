@@ -217,7 +217,7 @@ public class RoleRepository : IRoleRepository
         var baseFrom = $@"
             FROM APP_USER u
             LEFT JOIN ORGANIZATION_UNIT o ON u.OrganizationUnitId = o.Id
-            WHERE (
+            WHERE u.IsDeleted = 0 AND (
                 EXISTS (SELECT 1 FROM USER_ROLE ur WHERE ur.UserId = u.Id AND ur.RoleId = :RoleId)
                 OR EXISTS (
                     SELECT 1 FROM USER_GROUP_MEMBER ugm

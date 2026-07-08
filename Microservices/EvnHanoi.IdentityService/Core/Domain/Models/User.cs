@@ -22,6 +22,7 @@ public class User
     public string? PositionName { get; set; }
 
     public bool IsActive { get; set; } = true;
+    public bool IsDeleted { get; set; }
     public int AccessFailedCount { get; set; } = 0;
     public DateTime? LockoutEnd { get; set; }
     public bool LockoutEnabled { get; set; } = true;

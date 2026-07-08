@@ -10,4 +10,5 @@ public class OrganizationUnit
     public long? ParentId { get; set; }
     public string Description { get; set; } = string.Empty;
     public bool IsActive { get; set; } = true;
+    public bool IsDeleted { get; set; }
 }
