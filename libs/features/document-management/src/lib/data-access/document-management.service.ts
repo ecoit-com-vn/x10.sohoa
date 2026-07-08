@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { APP_CONFIG } from '@sohoa.frontend/shared/core';
+import { HttpResponse } from '@angular/common/http';
+import { Observable } from 'rxjs';
+import { ApiService } from '@sohoa.frontend/shared/core';
 import {
   FolderNode,
   Document,
@@ -15,68 +16,74 @@ import {
 
 @Injectable({ providedIn: 'root' })
 export class DocumentManagementService {
-  private http = inject(HttpClient);
-  private config = inject(APP_CONFIG);
+  private api = inject(ApiService);
 
-  private get apiUrl(): string {
-    return `${this.config.apiGatewayUrl}/api/v1/documents`;
+  private get base(): string {
+    return '/api/v1/documents';
+  }
+
+  private buildDocumentListParams(filter: DocumentFilter): Record<string, string> {
+    const params: Record<string, string> = {};
+    if (filter.folderId) params['folderId'] = filter.folderId;
+    if (filter.keyword) params['keyword'] = filter.keyword;
+    if (filter.page) params['page'] = filter.page.toString();
+    if (filter.pageSize) params['pageSize'] = filter.pageSize.toString();
+    return params;
   }
 
   // ===== FOLDER OPERATIONS =====
 
-  getFolderTree() {
-    return this.http.get<FolderNode[]>(`${this.apiUrl}/folders/tree`);
+  getFolderTree(): Observable<FolderNode[]> {
+    return this.api.get<FolderNode[]>(`${this.base}/folders/tree`);
   }
 
-  getFolderById(id: string) {
-    return this.http.get<FolderNode>(`${this.apiUrl}/folders/${id}`);
+  getFolderById(id: string): Observable<FolderNode> {
+    return this.api.get<FolderNode>(`${this.base}/folders/${id}`);
   }
 
-  createFolder(req: CreateFolderRequest) {
-    return this.http.post<{ id: string }>(`${this.apiUrl}/folders`, req);
+  createFolder(req: CreateFolderRequest): Observable<{ id: string }> {
+    return this.api.post<{ id: string }>(`${this.base}/folders`, req);
   }
 
-  updateFolder(id: string, req: UpdateFolderRequest) {
-    return this.http.put(`${this.apiUrl}/folders/${id}`, req);
+  updateFolder(id: string, req: UpdateFolderRequest): Observable<void> {
+    return this.api.put<void>(`${this.base}/folders/${id}`, req);
   }
 
-  deleteFolder(id: string) {
-    return this.http.delete(`${this.apiUrl}/folders/${id}`);
+  deleteFolder(id: string): Observable<void> {
+    return this.api.delete<void>(`${this.base}/folders/${id}`);
+  }
+
+  downloadFolderZip(folderId: string): Observable<HttpResponse<Blob>> {
+    return this.api.getBlobResponse(`${this.base}/folders/${folderId}/download-zip`);
   }
 
   // ===== DOCUMENT OPERATIONS =====
 
-  getDocuments(filter: DocumentFilter) {
-    const params = new URLSearchParams();
-    if (filter.folderId) params.append('folderId', filter.folderId);
-    if (filter.keyword) params.append('keyword', filter.keyword);
-    if (filter.page) params.append('page', filter.page.toString());
-    if (filter.pageSize) params.append('pageSize', filter.pageSize.toString());
-
-    const queryString = params.toString();
-    const url = queryString ? `${this.apiUrl}/list?${queryString}` : `${this.apiUrl}/list`;
-    return this.http.get<PaginatedResponse<Document>>(url);
+  getDocuments(filter: DocumentFilter): Observable<PaginatedResponse<Document>> {
+    return this.api.get<PaginatedResponse<Document>>(`${this.base}/list`, {
+      params: this.buildDocumentListParams(filter),
+    });
   }
 
-  getDocumentById(id: string) {
-    return this.http.get<Document>(`${this.apiUrl}/${id}`);
+  getDocumentById(id: string): Observable<Document> {
+    return this.api.get<Document>(`${this.base}/${id}`);
   }
 
-  createDocument(req: CreateDocumentRequest) {
-    return this.http.post<{ id: string }>(`${this.apiUrl}`, req);
+  createDocument(req: CreateDocumentRequest): Observable<{ id: string }> {
+    return this.api.post<{ id: string }>(this.base, req);
   }
 
-  updateDocument(id: string, req: UpdateDocumentRequest) {
-    return this.http.put(`${this.apiUrl}/${id}`, req);
+  updateDocument(id: string, req: UpdateDocumentRequest): Observable<void> {
+    return this.api.put<void>(`${this.base}/${id}`, req);
   }
 
-  deleteDocument(id: string) {
-    return this.http.delete(`${this.apiUrl}/${id}`);
+  deleteDocument(id: string): Observable<void> {
+    return this.api.delete<void>(`${this.base}/${id}`);
   }
 
   // ===== DOCUMENT VERSION OPERATIONS =====
 
-  getDocumentVersions(documentId: string) {
-    return this.http.get<DocumentVersion[]>(`${this.apiUrl}/${documentId}/versions`);
+  getDocumentVersions(documentId: string): Observable<DocumentVersion[]> {
+    return this.api.get<DocumentVersion[]>(`${this.base}/${documentId}/versions`);
   }
 }

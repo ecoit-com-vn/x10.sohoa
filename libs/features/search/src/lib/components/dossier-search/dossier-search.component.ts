@@ -794,26 +794,30 @@ export class DossierSearchComponent implements OnInit, OnDestroy {
     const userUnitId = this.authService.getUserUnitId();
     this.selectedUnitId.set(userUnitId);
 
-    this.http.get<any[]>(`${this.config.apiGatewayUrl}/api/v1/organization-units`).subscribe({
-      next: (units) => {
-        const allUnits = Array.isArray(units) ? units : [];
-        if (userUnitId) {
-          const userUnit = allUnits.find(u => u.id == userUnitId);
-          const children = allUnits.filter(u => u.parentId == userUnitId);
-          
-          const options: any[] = [];
-          if (userUnit) {
-            options.push(userUnit);
-          }
-          options.push(...children);
+    this.http
+      .get<Array<{ id: number; name: string; parentId?: number | null }>>(
+        `${this.config.apiGatewayUrl}/api/v1/organization-units/lookup`
+      )
+      .subscribe({
+        next: (units) => {
+          const options = Array.isArray(units) ? units : [];
           this.unitOptions.set(options);
-        }
-        this.loadFolderTree();
-      },
-      error: () => {
-        this.loadFolderTree();
-      }
-    });
+
+          if (options.length > 0) {
+            const defaultUnit =
+              userUnitId != null
+                ? options.find((u) => u.id === userUnitId) ?? options[0]
+                : options[0];
+            this.selectedUnitId.set(defaultUnit?.id ?? userUnitId);
+          }
+
+          this.loadFolderTree();
+        },
+        error: () => {
+          this.unitOptions.set([]);
+          this.loadFolderTree();
+        },
+      });
   }
 
   onUnitChange(unitId: any) {

@@ -1,5 +1,5 @@
 import { Route } from '@angular/router';
-import { documentFulltextSearchGuard, dossierEquipmentLookupGuard } from '@sohoa.frontend/shared/core';
+import { documentFulltextSearchGuard, dossierEquipmentLookupGuard, dossierWarehouseSearchGuard } from '@sohoa.frontend/shared/core';
 
 export const SEARCH_ROUTES: Route[] = [
   {
@@ -24,11 +24,13 @@ export const SEARCH_ROUTES: Route[] = [
   },
   {
     path: 'dossier',
-    loadComponent: () => import('./components/dossier-search/dossier-search.component').then(m => m.DossierSearchComponent)
+    loadComponent: () => import('./components/dossier-search/dossier-search.component').then(m => m.DossierSearchComponent),
+    canActivate: [dossierWarehouseSearchGuard]
   },
   {
     path: 'dossier/detail/:id',
-    loadComponent: () => import('./components/dossier-detail/dossier-detail.component').then(m => m.DossierDetailComponent)
+    loadComponent: () => import('./components/dossier-detail/dossier-detail.component').then(m => m.DossierDetailComponent),
+    canActivate: [dossierWarehouseSearchGuard]
   },
   {
     path: 'dossier-by-equipment',

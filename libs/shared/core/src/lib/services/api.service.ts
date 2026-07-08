@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpHeaders, HttpParams, HttpResponse } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { APP_CONFIG } from '../config/app-config.token';
 
@@ -77,5 +77,16 @@ export class ApiService {
     body?: any;
   }): Observable<T> {
     return this.http.delete<T>(this.getBaseUrl(path), options);
+  }
+
+  /** Tải file binary — trả về HttpResponse để đọc header Content-Disposition. */
+  getBlobResponse(path: string, options?: {
+    params?: HttpParams | { [param: string]: string | number | boolean | ReadonlyArray<string | number | boolean> };
+  }): Observable<HttpResponse<Blob>> {
+    return this.http.get(this.getBaseUrl(path), {
+      ...options,
+      responseType: 'blob',
+      observe: 'response'
+    });
   }
 }
