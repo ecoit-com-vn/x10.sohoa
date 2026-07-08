@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using EvnHanoi.EquipmentService.Core.DTOs;
 using EvnHanoi.EquipmentService.Core.Services;
-using EvnHanoi.Infrastructure.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -28,7 +27,6 @@ public class DossierCatalogController : ControllerBase
     }
 
     [HttpGet("tree")]
-    [BypassDynamicPermission]
     public async Task<IActionResult> GetCatalogTree([FromQuery] long? unitId)
     {
         var targetUnitId = unitId ?? GetUserUnitId();
@@ -47,7 +45,6 @@ public class DossierCatalogController : ControllerBase
     }
 
     [HttpGet("documents")]
-    [BypassDynamicPermission]
     public async Task<IActionResult> GetDocuments(
         [FromQuery] string? folderId,
         [FromQuery] string? keyword,
