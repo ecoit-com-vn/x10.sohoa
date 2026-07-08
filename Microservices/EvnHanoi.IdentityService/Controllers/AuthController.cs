@@ -31,19 +31,22 @@ public class AuthController : ControllerBase
     private readonly IDbConnection _connection;
     private readonly IValidator<UpdateProfileRequest> _updateProfileValidator;
     private readonly IValidator<ChangePasswordRequest> _changePasswordValidator;
+    private readonly IAvatarStorageService _avatarStorageService;
 
     public AuthController(
         IUserRepository userRepository,
         IConfiguration configuration,
         IDbConnection connection,
         IValidator<UpdateProfileRequest> updateProfileValidator,
-        IValidator<ChangePasswordRequest> changePasswordValidator)
+        IValidator<ChangePasswordRequest> changePasswordValidator,
+        IAvatarStorageService avatarStorageService)
     {
         _userRepository = userRepository;
         _configuration = configuration;
         _connection = connection;
         _updateProfileValidator = updateProfileValidator;
         _changePasswordValidator = changePasswordValidator;
+        _avatarStorageService = avatarStorageService;
     }
     [AllowAnonymous]
     [HttpPost("login")]
@@ -569,6 +572,8 @@ public class AuthController : ControllerBase
             Email = user.Email,
             PositionId = user.PositionId,
             PositionName = user.PositionName,
+            AvatarObjectKey = user.AvatarObjectKey,
+            AvatarUrl = BuildAvatarUrl(user),
             UnitId = user.OrganizationUnitId,
             OrganizationUnitId = user.OrganizationUnitId,
             OrganizationUnit = user.OrganizationUnit,
@@ -654,6 +659,8 @@ public class AuthController : ControllerBase
             Email = updated.Email,
             PositionId = updated.PositionId,
             PositionName = updated.PositionName,
+            AvatarObjectKey = updated.AvatarObjectKey,
+            AvatarUrl = BuildAvatarUrl(updated),
             UnitId = updated.OrganizationUnitId,
             OrganizationUnitId = updated.OrganizationUnitId,
             OrganizationUnit = updated.OrganizationUnit,
@@ -732,6 +739,119 @@ public class AuthController : ControllerBase
         await _userRepository.UpdatePasswordAsync(user.Id, newPasswordHash);
 
         return Ok(new { message = "Đổi mật khẩu thành công. Vui lòng đăng nhập lại." });
+    }
+
+    [Authorize]
+    [BypassDynamicPermission]
+    [HttpPost("avatar")]
+    [RequestSizeLimit(2 * 1024 * 1024)]
+    public async Task<IActionResult> UploadAvatar([FromForm] IFormFile? file, CancellationToken cancellationToken)
+    {
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized();
+        }
+
+        if (file == null || file.Length == 0)
+        {
+            return BadRequest(new { message = "Vui lòng chọn ảnh đại diện." });
+        }
+
+        if (file.Length > 2 * 1024 * 1024)
+        {
+            return BadRequest(new { message = "Dung lượng ảnh đại diện không được vượt quá 2MB." });
+        }
+
+        var user = await _userRepository.GetByIdAsync(userId);
+        if (user == null)
+        {
+            return NotFound(new { message = "Không tìm thấy người dùng." });
+        }
+
+        string objectKey;
+        try
+        {
+            objectKey = await _avatarStorageService.UploadAvatarAsync(userId, file, cancellationToken);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+
+        var oldAvatarObjectKey = user.AvatarObjectKey;
+        await _userRepository.UpdateAvatarAsync(userId, objectKey);
+
+        if (!string.IsNullOrWhiteSpace(oldAvatarObjectKey))
+        {
+            await _avatarStorageService.DeleteAvatarAsync(oldAvatarObjectKey, cancellationToken);
+        }
+
+        user.AvatarObjectKey = objectKey;
+        return Ok(new
+        {
+            message = "Cập nhật ảnh đại diện thành công.",
+            avatarObjectKey = objectKey,
+            avatarUrl = BuildAvatarUrl(user)
+        });
+    }
+
+    [Authorize]
+    [BypassDynamicPermission]
+    [HttpGet("avatar")]
+    public async Task<IActionResult> GetAvatar(CancellationToken cancellationToken)
+    {
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized();
+        }
+
+        var user = await _userRepository.GetByIdAsync(userId);
+        if (user == null || string.IsNullOrWhiteSpace(user.AvatarObjectKey))
+        {
+            return NotFound();
+        }
+
+        var avatar = await _avatarStorageService.DownloadAvatarAsync(user.AvatarObjectKey, cancellationToken);
+        return File(avatar.Stream, avatar.ContentType);
+    }
+
+    [Authorize]
+    [BypassDynamicPermission]
+    [HttpDelete("avatar")]
+    public async Task<IActionResult> DeleteAvatar(CancellationToken cancellationToken)
+    {
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized();
+        }
+
+        var user = await _userRepository.GetByIdAsync(userId);
+        if (user == null)
+        {
+            return NotFound(new { message = "Không tìm thấy người dùng." });
+        }
+
+        if (!string.IsNullOrWhiteSpace(user.AvatarObjectKey))
+        {
+            await _avatarStorageService.DeleteAvatarAsync(user.AvatarObjectKey, cancellationToken);
+            await _userRepository.UpdateAvatarAsync(userId, null);
+        }
+
+        return Ok(new { message = "Xóa ảnh đại diện thành công." });
+    }
+
+    private string? BuildAvatarUrl(EvnHanoi.IdentityService.Core.Domain.Models.User user)
+    {
+        if (string.IsNullOrWhiteSpace(user.AvatarObjectKey))
+        {
+            return null;
+        }
+
+        var version = Uri.EscapeDataString(user.AvatarObjectKey);
+        return $"{Request.Scheme}://{Request.Host}/api/v1/auth/avatar?v={version}";
     }
 
     private static string ToCamelCase(string value)

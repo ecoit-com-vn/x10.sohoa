@@ -13,6 +13,7 @@ public interface IUserRepository
     Task UpdateAsync(User user);
     Task UpdateFullAsync(User user);
     Task UpdateProfileAsync(User user);
+    Task UpdateAvatarAsync(string userId, string? avatarObjectKey);
     Task UpdatePasswordAsync(string userId, string passwordHash);
     Task<bool> EmailExistsForOtherUserAsync(string email, string userId);
     Task<string> CreateAsync(User user);

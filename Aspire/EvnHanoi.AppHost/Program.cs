@@ -4,7 +4,8 @@ var builder = DistributedApplication.CreateBuilder(args);
 var config = builder.Configuration;
 
 var identityService = builder.AddProject<Projects.EvnHanoi_IdentityService>("identityservice")
-    .WithSharedInfrastructure(config);
+    .WithSharedInfrastructure(config)
+    .WithMinio(config);
 
 var equipmentService = builder.AddProject<Projects.EvnHanoi_EquipmentService>("equipmentservice")
     .WithSharedInfrastructure(config)

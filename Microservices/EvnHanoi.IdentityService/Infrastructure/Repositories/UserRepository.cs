@@ -34,6 +34,7 @@ public class UserRepository : IUserRepository
                    u.{nameof(User.OrganizationUnitId)},
                    u.{nameof(User.PositionId)},
                    u.{nameof(User.PositionName)},
+                   u.{nameof(User.AvatarObjectKey)},
                    u.{nameof(User.AccessFailedCount)}, 
                    u.{nameof(User.LockoutEnd)}, 
                    u.{nameof(User.LockoutEnabled)},
@@ -71,6 +72,7 @@ public class UserRepository : IUserRepository
                    u.{nameof(User.OrganizationUnitId)},
                    u.{nameof(User.PositionId)},
                    u.{nameof(User.PositionName)},
+                   u.{nameof(User.AvatarObjectKey)},
                    u.{nameof(User.AccessFailedCount)}, 
                    u.{nameof(User.LockoutEnd)}, 
                    u.{nameof(User.LockoutEnabled)},
@@ -123,7 +125,7 @@ public class UserRepository : IUserRepository
         var offset = (page - 1) * pageSize;
         
         var sql = $@"
-            SELECT Id, Username, Email, FullName, PasswordHash, IsActive, OrganizationUnitId, PositionId, PositionName, AccessFailedCount, LockoutEnd, LockoutEnabled,
+            SELECT Id, Username, Email, FullName, PasswordHash, IsActive, OrganizationUnitId, PositionId, PositionName, AvatarObjectKey, AccessFailedCount, LockoutEnd, LockoutEnabled,
                    OrgId AS Id, Code, Name, ParentId, Description
             FROM (
                 SELECT u.Id AS Id, 
@@ -135,6 +137,7 @@ public class UserRepository : IUserRepository
                        u.OrganizationUnitId AS OrganizationUnitId,
                        u.PositionId AS PositionId,
                        u.PositionName AS PositionName,
+                       u.AvatarObjectKey AS AvatarObjectKey,
                        u.AccessFailedCount AS AccessFailedCount, 
                        u.LockoutEnd AS LockoutEnd, 
                        u.LockoutEnabled AS LockoutEnabled,
@@ -179,6 +182,7 @@ public class UserRepository : IUserRepository
                    u.{nameof(User.OrganizationUnitId)},
                    u.{nameof(User.PositionId)},
                    u.{nameof(User.PositionName)},
+                   u.{nameof(User.AvatarObjectKey)},
                    u.{nameof(User.AccessFailedCount)}, 
                    u.{nameof(User.LockoutEnd)}, 
                    u.{nameof(User.LockoutEnabled)},
@@ -235,6 +239,7 @@ public class UserRepository : IUserRepository
                 {nameof(User.OrganizationUnitId)} = :OrganizationUnitId,
                 {nameof(User.PositionId)} = :PositionId,
                 {nameof(User.PositionName)} = :PositionName,
+                {nameof(User.AvatarObjectKey)} = :AvatarObjectKey,
                 {nameof(User.LockoutEnabled)} = :LockoutEnabled
             WHERE {nameof(User.Id)} = :Id";
             
@@ -248,6 +253,7 @@ public class UserRepository : IUserRepository
             user.OrganizationUnitId,
             user.PositionId,
             user.PositionName,
+            user.AvatarObjectKey,
             LockoutEnabled = user.LockoutEnabled ? 1 : 0,
             user.Id
         });
@@ -274,6 +280,24 @@ public class UserRepository : IUserRepository
             user.PositionName,
             UpdatedBy = user.Id,
             user.Id
+        });
+    }
+
+    public async Task UpdateAvatarAsync(string userId, string? avatarObjectKey)
+    {
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+        var sql = $@"
+            UPDATE APP_USER
+            SET {nameof(User.AvatarObjectKey)} = :AvatarObjectKey,
+                UpdatedAt = CURRENT_TIMESTAMP,
+                UpdatedBy = :UpdatedBy
+            WHERE {nameof(User.Id)} = :Id";
+
+        await _connection.ExecuteAsync(sql, new
+        {
+            AvatarObjectKey = avatarObjectKey,
+            UpdatedBy = userId,
+            Id = userId
         });
     }
 
