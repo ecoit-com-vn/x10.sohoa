@@ -602,6 +602,18 @@ export class FormManagementComponent implements OnInit {
     }));
   }
 
+  isAllChecked(field: any): boolean {
+    if (!field.options || field.options.length === 0) return false;
+    return field.options.every((opt: string) => this.simulatedValues()[field.name + '_' + opt] === true);
+  }
+
+  toggleSelectAll(field: any, checked: boolean) {
+    if (!field.options) return;
+    field.options.forEach((opt: string) => {
+      this.updateSimulatedValue(field.name + '_' + opt, checked);
+    });
+  }
+
   saveForm() {
     const fName = this.formName().trim();
     const fCode = this.formCode().trim();
@@ -805,5 +817,10 @@ export class FormManagementComponent implements OnInit {
           });
         }
       });
+  }
+
+  viewVersionDetail(ver: EavFormTemplate) {
+    this.showVersionsDialog.set(false);
+    this.onPreview(ver);
   }
 }

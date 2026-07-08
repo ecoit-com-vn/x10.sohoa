@@ -187,9 +187,54 @@
 
             <textarea *ngIf="field.type === 'textarea'" pTextarea class="w-full" rows="3" [placeholder]="field.placeholder || ''" [ngModel]="simulatedValues()[field.name]" (ngModelChange)="updateSimulatedValue(field.name, $event)"></textarea>
 
-            <div *ngIf="field.type === 'checkbox'" style="display: flex; align-items: center; gap: 8px; padding: 8px 0;">
-              <input type="checkbox" [id]="'sim_' + field.id" [ngModel]="simulatedValues()[field.name]" (ngModelChange)="updateSimulatedValue(field.name, $event)" style="scale: 1.1; cursor: pointer;" />
-              <label [for]="'sim_' + field.id" class="text-sm select-none" style="cursor: pointer;">{{ field.placeholder || 'Đồng ý / Xác nhận' }}</label>
+            <!-- Radio -->
+            <div *ngIf="field.type === 'radio'" style="display: flex; flex-direction: column; gap: 8px; padding: 4px 0;">
+              <ng-container *ngIf="field.dataSourceType === 'catalog'">
+                <div style="font-size:0.8rem; color:#64748b; font-style:italic;">
+                  (Dữ liệu từ danh mục: {{ field.catalogType || 'chưa chọn' }})
+                </div>
+              </ng-container>
+              <ng-container *ngIf="field.dataSourceType !== 'catalog'">
+                <div *ngFor="let opt of (field.options || []); let oIdx = index" style="display: flex; align-items: center; gap: 8px;">
+                  <input type="radio" [id]="'sim_radio_' + field.id + '_' + oIdx" [name]="'sim_radio_' + field.id" [value]="opt" [ngModel]="simulatedValues()[field.name]" (ngModelChange)="updateSimulatedValue(field.name, $event)" style="scale: 1.1; cursor: pointer;" />
+                  <label [for]="'sim_radio_' + field.id + '_' + oIdx" class="text-sm select-none" style="cursor: pointer;">{{ opt }}</label>
+                </div>
+              </ng-container>
+            </div>
+
+            <!-- Checkbox -->
+            <div *ngIf="field.type === 'checkbox'">
+              <!-- Case 1: Nhóm checkbox (nếu có options hoặc catalog) -->
+              <div *ngIf="field.dataSourceType === 'catalog' || (field.options && field.options.length > 0); else singleCheckboxPreview"
+                   style="display: flex; flex-direction: column; gap: 8px; padding: 4px 0;">
+                
+                <ng-container *ngIf="field.dataSourceType === 'catalog'">
+                  <div style="font-size:0.8rem; color:#64748b; font-style:italic;">
+                    (Dữ liệu từ danh mục: {{ field.catalogType || 'chưa chọn' }})
+                  </div>
+                </ng-container>
+
+                <ng-container *ngIf="field.dataSourceType !== 'catalog'">
+                  <!-- "Chọn tất cả" preview -->
+                  <div *ngIf="field.selectAll" style="display: flex; align-items: center; gap: 8px;">
+                    <input type="checkbox" [id]="'sim_chk_all_' + field.id" [ngModel]="isAllChecked(field)" (ngModelChange)="toggleSelectAll(field, $event)" style="scale: 1.1; cursor: pointer;" />
+                    <label [for]="'sim_chk_all_' + field.id" class="text-sm select-none" style="cursor: pointer; font-weight: 600; color: #002D72;">Chọn tất cả</label>
+                  </div>
+
+                  <div *ngFor="let opt of (field.options || []); let oIdx = index" style="display: flex; align-items: center; gap: 8px;">
+                    <input type="checkbox" [id]="'sim_chk_' + field.id + '_' + oIdx" [ngModel]="simulatedValues()[field.name + '_' + opt] || false" (ngModelChange)="updateSimulatedValue(field.name + '_' + opt, $event)" style="scale: 1.1; cursor: pointer;" />
+                    <label [for]="'sim_chk_' + field.id + '_' + oIdx" class="text-sm select-none" style="cursor: pointer;">{{ opt }}</label>
+                  </div>
+                </ng-container>
+              </div>
+
+              <!-- Case 2: Checkbox đơn -->
+              <ng-template #singleCheckboxPreview>
+                <div style="display: flex; align-items: center; gap: 8px; padding: 8px 0;">
+                  <input type="checkbox" [id]="'sim_chk_single_' + field.id" [ngModel]="simulatedValues()[field.name] || false" (ngModelChange)="updateSimulatedValue(field.name, $event)" style="scale: 1.1; cursor: pointer;" />
+                  <label [for]="'sim_chk_single_' + field.id" class="text-sm select-none" style="cursor: pointer;">{{ field.placeholder || 'Đồng ý / Xác nhận' }}</label>
+                </div>
+              </ng-template>
             </div>
           </div>
 

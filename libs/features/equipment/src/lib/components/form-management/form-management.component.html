@@ -80,7 +80,8 @@
                 <button class="act-btn btn-view-history" (click)="viewVersions(form)" title="Lịch sử phiên bản">
                   <i class="pi pi-history"></i>
                 </button>
-                <button class="act-btn act-edit" *ngIf="canEdit() && form.status !== 'Chờ duyệt' && form.status !== 'Hoàn thành'"
+                <button class="act-btn act-edit"
+                  *ngIf="canEdit() && form.status !== 'Chờ duyệt' && form.status !== 'Hoàn thành'"
                   (click)="onEdit(form)" title="Chỉnh sửa">
                   <i class="pi pi-pencil"></i>
                 </button>
@@ -89,7 +90,8 @@
                   (click)="submitForm(form)" title="Gửi duyệt">
                   <i class="pi pi-send"></i>
                 </button>
-                <button class="act-btn act-delete" *ngIf="canDelete() && form.status !== 'Chờ duyệt' && form.status !== 'Hoàn thành'"
+                <button class="act-btn act-delete"
+                  *ngIf="canDelete() && form.status !== 'Chờ duyệt' && form.status !== 'Hoàn thành'"
                   (click)="deactivateForm(form)" title="Xóa form">
                   <i class="pi pi-trash"></i>
                 </button>
@@ -118,7 +120,8 @@
     <!-- Breadcrumb -->
     <div class="list-toolbar">
       <div class="toolbar-left">
-        <wf-breadcrumb />
+        <wf-breadcrumb
+          [suffix]="viewState() === 'add' ? 'Thêm mới form' : (viewState() === 'edit' ? 'Chỉnh sửa cấu hình form' : (viewState() === 'preview' ? 'Xem chi tiết & Cấu trúc form' : null))" />
       </div>
       <div class="toolbar-right" *ngIf="viewState() === 'preview'">
         <button class="btn-save btn-tim" (click)="goToList()"
@@ -143,8 +146,8 @@
           <p-button label="Xem JSON" icon="pi pi-code" severity="secondary" size="small" [rounded]="true"
             (onClick)="showJson.set(!showJson())"></p-button>
           <p-button *ngIf="(isEditMode() && canEdit()) || (!isEditMode() && canCreate())"
-            [label]="isEditMode() ? 'Cập nhật cấu hình' : 'Lưu form'" icon="pi pi-save" size="small"
-            [rounded]="true" (onClick)="saveForm()"></p-button>
+            [label]="isEditMode() ? 'Cập nhật cấu hình' : 'Lưu form'" icon="pi pi-save" size="small" [rounded]="true"
+            (onClick)="saveForm()"></p-button>
         </div>
       </div>
 
@@ -322,20 +325,24 @@
                     <!-- Preview Checkbox -->
                     <ng-container *ngIf="field.type === 'checkbox'">
                       <!-- Case 1: Nhóm checkbox (nếu có options hoặc catalog) -->
-                      <div *ngIf="field.dataSourceType === 'catalog' || (field.options && field.options.length > 0); else singleCheckboxPreview"
-                           style="display: flex; flex-direction: column; gap: 6px; padding: 4px 0;">
-                        
+                      <div
+                        *ngIf="field.dataSourceType === 'catalog' || (field.options && field.options.length > 0); else singleCheckboxPreview"
+                        style="display: flex; flex-direction: column; gap: 6px; padding: 4px 0;">
+
                         <!-- "Chọn tất cả" preview -->
-                        <label *ngIf="field.selectAll" style="display:flex; align-items:center; gap:8px; font-weight:600; cursor:not-allowed; opacity:0.8; border-bottom:1px dashed #cbd5e1; padding-bottom:4px; margin-bottom:4px; color:#002D72;">
+                        <label *ngIf="field.selectAll"
+                          style="display:flex; align-items:center; gap:8px; font-weight:600; cursor:not-allowed; opacity:0.8; border-bottom:1px dashed #cbd5e1; padding-bottom:4px; margin-bottom:4px; color:#002D72;">
                           <input type="checkbox" disabled /> <span class="text-sm select-none">Chọn tất cả</span>
                         </label>
 
-                        <div *ngIf="field.dataSourceType === 'catalog'" style="font-size:0.75rem; color:#64748b; font-style:italic;">
+                        <div *ngIf="field.dataSourceType === 'catalog'"
+                          style="font-size:0.75rem; color:#64748b; font-style:italic;">
                           (Lấy từ danh mục: {{ field.catalogType || 'chưa chọn' }})
                         </div>
-                        
+
                         <ng-container *ngIf="field.dataSourceType !== 'catalog'">
-                          <label *ngFor="let opt of (field.options || [])" style="display:flex; align-items:center; gap:8px; font-weight:normal; cursor:not-allowed; opacity:0.7;">
+                          <label *ngFor="let opt of (field.options || [])"
+                            style="display:flex; align-items:center; gap:8px; font-weight:normal; cursor:not-allowed; opacity:0.7;">
                             <input type="checkbox" disabled /> <span class="text-sm select-none">{{ opt }}</span>
                           </label>
                         </ng-container>
@@ -412,12 +419,14 @@
                 </div>
 
                 <!-- Chọn tất cả (Select All) cho Checkbox Group -->
-                <div *ngIf="fields()[selectedFieldIndex()!].type === 'checkbox' && (fields()[selectedFieldIndex()!].dataSourceType === 'catalog' || (fields()[selectedFieldIndex()!].options && fields()[selectedFieldIndex()!].options?.length! > 0))" 
-                     class="field mb-2" style="display: flex; align-items: center; gap: 8px; margin-top: 10px;">
+                <div
+                  *ngIf="fields()[selectedFieldIndex()!].type === 'checkbox' && (fields()[selectedFieldIndex()!].dataSourceType === 'catalog' || (fields()[selectedFieldIndex()!].options && fields()[selectedFieldIndex()!].options?.length! > 0))"
+                  class="field mb-2" style="display: flex; align-items: center; gap: 8px; margin-top: 10px;">
                   <p-checkbox [ngModel]="fields()[selectedFieldIndex()!].selectAll"
                     (ngModelChange)="updateSelectedField('selectAll', $event)" [binary]="true"
                     id="prop-selectall"></p-checkbox>
-                  <label for="prop-selectall" class="font-bold text-sm cursor-pointer select-none" style="color: #002D72;">Cho phép Chọn tất cả (Select All)</label>
+                  <label for="prop-selectall" class="font-bold text-sm cursor-pointer select-none"
+                    style="color: #002D72;">Cho phép Chọn tất cả (Select All)</label>
                 </div>
 
                 <!-- Data Source Selector for Dropdown, Radio, Checkbox -->
@@ -503,7 +512,8 @@
             </div>
             <div>
               <label class="metadata-field-label">Ngày tạo: </label>
-              <div class="metadata-field-value">{{ targetForm?.createdAt ? (targetForm?.createdAt | date:'dd/MM/yyyy HH:mm') : ('--/--/----') }}</div>
+              <div class="metadata-field-value">{{ targetForm?.createdAt ? (targetForm?.createdAt | date:'dd/MM/yyyy
+                HH:mm') : ('--/--/----') }}</div>
             </div>
           </div>
           <div class="metadata-desc-group">
@@ -550,13 +560,19 @@
 
                     <!-- Radio buttons -->
                     <div *ngIf="field.type === 'radio'" class="flex flex-column gap-1 py-1"
-                      style="display: flex; flex-direction: column; gap: 4px;">
-                      <div
-                        *ngFor="let opt of (field.dataSourceType === 'catalog' ? ['(Lựa chọn từ danh mục: ' + field.catalogType + ')'] : (field.options && field.options.length > 0 ? field.options : ['Lựa chọn 1', 'Lựa chọn 2']))"
-                        style="display: flex; align-items: center; gap: 8px;">
-                        <input type="radio" disabled />
-                        <span class="text-sm" style="font-size: 0.875rem; color: #475569;">{{ opt }}</span>
-                      </div>
+                      style="display: flex; flex-direction: column; gap: 4px; padding: 4px 0;">
+                      <ng-container *ngIf="field.dataSourceType === 'catalog'">
+                        <div style="font-size: 0.875rem; color: #64748b; font-style: italic;">
+                          (Dữ liệu từ danh mục: {{ field.catalogType || 'chưa chọn' }})
+                        </div>
+                      </ng-container>
+                      <ng-container *ngIf="field.dataSourceType !== 'catalog'">
+                        <div *ngFor="let opt of (field.options || [])"
+                          style="display: flex; align-items: center; gap: 8px;">
+                          <input type="radio" disabled style="cursor: not-allowed;" />
+                          <span class="text-sm" style="font-size: 0.875rem; color: #475569;">{{ opt }}</span>
+                        </div>
+                      </ng-container>
                     </div>
 
                     <!-- Textarea -->
@@ -564,12 +580,46 @@
                       [placeholder]="field.placeholder || ''" rows="2" disabled></textarea>
 
                     <!-- Checkbox -->
-                    <div *ngIf="field.type === 'checkbox'" class="preview-form-checkbox-container"
-                      style="display: flex; align-items: center; gap: 8px; padding: 8px 0;">
-                      <input type="checkbox" disabled class="preview-form-checkbox-input"
-                        style="transform: scale(1.2); cursor: not-allowed;" />
-                      <span class="preview-form-checkbox-label" style="font-size: 0.875rem; color: #475569;">{{
-                        field.placeholder || 'Đồng ý / Xác nhận' }}</span>
+                    <div *ngIf="field.type === 'checkbox'">
+                      <!-- Case 1: Nhóm checkbox (nếu có options hoặc catalog) -->
+                      <div
+                        *ngIf="field.dataSourceType === 'catalog' || (field.options && field.options.length > 0); else singleCheckboxPreview"
+                        style="display: flex; flex-direction: column; gap: 4px; padding: 4px 0;">
+
+                        <ng-container *ngIf="field.dataSourceType === 'catalog'">
+                          <div style="font-size: 0.875rem; color: #64748b; font-style: italic;">
+                            (Dữ liệu từ danh mục: {{ field.catalogType || 'chưa chọn' }})
+                          </div>
+                        </ng-container>
+
+                        <ng-container *ngIf="field.dataSourceType !== 'catalog'">
+                          <!-- "Chọn tất cả" preview -->
+                          <div *ngIf="field.selectAll"
+                            style="display: flex; align-items: center; gap: 8px; opacity: 0.8;">
+                            <input type="checkbox" disabled style="transform: scale(1.2); cursor: not-allowed;" />
+                            <label class="text-sm select-none"
+                              style="cursor: not-allowed; font-weight: 600; color: #002D72;">Chọn tất cả</label>
+                          </div>
+
+                          <div *ngFor="let opt of (field.options || [])"
+                            style="display: flex; align-items: center; gap: 8px; opacity: 0.8;">
+                            <input type="checkbox" disabled style="transform: scale(1.2); cursor: not-allowed;" />
+                            <label class="text-sm select-none" style="cursor: not-allowed; color: #475569;">{{ opt
+                              }}</label>
+                          </div>
+                        </ng-container>
+                      </div>
+
+                      <!-- Case 2: Checkbox đơn -->
+                      <ng-template #singleCheckboxPreview>
+                        <div class="preview-form-checkbox-container"
+                          style="display: flex; align-items: center; gap: 8px; padding: 8px 0;">
+                          <input type="checkbox" disabled class="preview-form-checkbox-input"
+                            style="transform: scale(1.2); cursor: not-allowed;" />
+                          <span class="preview-form-checkbox-label" style="font-size: 0.875rem; color: #475569;">{{
+                            field.placeholder || 'Đồng ý / Xác nhận' }}</span>
+                        </div>
+                      </ng-template>
                     </div>
                   </div>
 
@@ -659,28 +709,27 @@
 
 <!-- ==================== DIALOG XEM PHIÊN BẢN BIỂU MẪU ==================== -->
 <p-dialog [visible]="showVersionsDialog()" (visibleChange)="$event ? null : showVersionsDialog.set(false)"
-  header="Lịch sử phiên bản biểu mẫu" [modal]="true" [style]="{ width: '750px' }" styleClass="evn-dialog-custom"
+  header="Lịch sử phiên bản form" [modal]="true" [style]="{ width: '850px' }" styleClass="evn-dialog-custom"
   [closable]="true">
   <div *ngIf="selectedTemplate() as template" class="version-dialog-wrapper" style="padding: 10px 0;">
-    <div class="version-meta-header" style="margin-bottom: 15px; font-size: 0.95rem; color: #374151;">
-      Mã biểu mẫu: <b class="code-highlight" style="color: #002D72;">{{ template.code }}</b> - Tên: <b>{{ template.name
-        }}</b>
-    </div>
     <div class="wf-table-wrap">
       <table class="wf-table">
         <thead>
           <tr>
             <th class="col-ver-width text-center" style="width: 100px; text-align: center;">Phiên bản</th>
-            <th>Tên phiên bản</th>
+            <th>Mã form</th>
+            <th>Tên form</th>
             <th>Người cập nhật</th>
             <th>Ngày cập nhật</th>
             <th class="col-tt-width text-center" style="width: 150px; text-align: center;">Trạng thái</th>
+            <th style="width: 90px; text-align: center;">Thao tác</th>
           </tr>
         </thead>
         <tbody>
           <tr *ngFor="let ver of versionList()">
             <td class="text-center font-bold" style="text-align: center; font-weight: bold; color: #002D72;">v{{
               ver.version }}.0</td>
+            <td>{{ ver.code }}</td>
             <td>{{ ver.name }}</td>
             <td>{{ ver.creatorFullName }}</td>
             <td>{{ ver.createdAt | date:'dd/MM/yyyy HH:mm' }}</td>
@@ -692,9 +741,14 @@
                 {{ ver.status || 'Tạo mới' }}
               </span>
             </td>
+            <td class="text-center" style="text-align: center;">
+              <button class="act-btn btn-view-detail" (click)="viewVersionDetail(ver)" title="Xem chi tiết">
+                <i class="pi pi-eye"></i>
+              </button>
+            </td>
           </tr>
           <tr *ngIf="versionList().length === 0">
-            <td colspan="5" class="empty-row text-center">Không tải được lịch sử phiên bản.</td>
+            <td colspan="6" class="empty-row text-center">Không tải được lịch sử phiên bản.</td>
           </tr>
         </tbody>
       </table>

@@ -58,6 +58,10 @@ export class CompletedFormListComponent implements OnInit {
     targetForm: EavFormTemplate | null = null;
     selectedForm: EavFormTemplate | null = null;
 
+    showVersionsDialog = signal<boolean>(false);
+    versionList = signal<EavFormTemplate[]>([]);
+    selectedTemplate = signal<EavFormTemplate | null>(null);
+
     equipmentTypes = signal<any[]>([]);
     gridTypes = signal<any[]>([]);
     categories = signal<any[]>([]);
@@ -390,5 +394,31 @@ export class CompletedFormListComponent implements OnInit {
                     this.targetForm = null;
                 }
             });
+    }
+
+    viewVersions(form: EavFormTemplate) {
+        this.loadingService.show();
+        this.eavFormService.getTemplateVersions(form.code)
+            .pipe(finalize(() => this.loadingService.hide()))
+            .subscribe({
+                next: (versions) => {
+                    this.versionList.set(versions || []);
+                    this.selectedTemplate.set(form);
+                    this.showVersionsDialog.set(true);
+                },
+                error: (err) => {
+                    console.error('Failed to load template versions', err);
+                    this.messageService.add({
+                        severity: 'error',
+                        summary: 'Lỗi',
+                        detail: 'Không thể tải danh sách phiên bản của biểu mẫu.'
+                    });
+                }
+            });
+    }
+
+    viewVersionDetail(ver: EavFormTemplate) {
+        this.showVersionsDialog.set(false);
+        this.viewFormDetail(ver);
     }
 }

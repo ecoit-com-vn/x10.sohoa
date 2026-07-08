@@ -24,7 +24,7 @@
             style="min-width: 160px;">
             <option value="">-- Tất cả trạng thái --</option>
             <option value="active">Hoạt động</option>
-            <option value="inactive">Ngưng hoạt động</option>
+            <option value="inactive">Ngừng hoạt động</option>
           </select>
 
           <button class="btn-tim" (click)="loadUsers()">
@@ -96,9 +96,8 @@
                 <td>{{ user.organizationUnit?.name || getUnitLabel(user.organizationUnitId) }}</td>
                 <td><span class="text-muted">{{ user.email }}</span></td>
                 <td class="col-tt">
-                  <span class="status-pill" [class.status-active]="user.isActive"
-                    [class.status-inactive]="!user.isActive">
-                    {{ user.isActive ? 'Hoạt động' : 'Ngưng hoạt động' }}
+                  <span class="status-pill" [class.status-active]="user.isActive" [class.status-inactive]="!user.isActive">
+                    {{ user.isActive ? 'Hoạt động' : 'Ngừng hoạt động' }}
                   </span>
                 </td>
                 <td class="col-hd">
@@ -323,7 +322,7 @@
           <select class="wf-select w-full" style="height: 38px;" [(ngModel)]="currentUser().isActive"
             [disabled]="saving()">
             <option [ngValue]="true">Hoạt động</option>
-            <option [ngValue]="false">Ngưng hoạt động</option>
+            <option [ngValue]="false">Ngừng hoạt động</option>
           </select>
         </div>
       </div>
