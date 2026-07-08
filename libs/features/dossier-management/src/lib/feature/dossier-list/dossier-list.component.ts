@@ -920,9 +920,25 @@ export class DossierListComponent implements OnInit {
   }
 
   getCurrentHandlerName(item: any): string {
-    const name = item?.currentHandlerName ?? item?.CurrentHandlerName
-      ?? item?.creator?.name ?? item?.Creator?.Name;
-    if (name != null && String(name).trim() !== '') return String(name).trim();
+    const handlerName = item?.currentHandlerName ?? item?.CurrentHandlerName;
+    const creatorUsername = item?.creator?.username ?? item?.Creator?.Username;
+    const normalizedUsername = creatorUsername ? String(creatorUsername).trim().toLowerCase() : '';
+
+    if (handlerName != null && String(handlerName).trim() !== '') {
+      const normalizedHandler = String(handlerName).trim();
+      if (!normalizedUsername || normalizedHandler.toLowerCase() !== normalizedUsername) {
+        return normalizedHandler;
+      }
+    }
+
+    const creatorName = item?.creator?.name ?? item?.Creator?.Name;
+    if (creatorName != null && String(creatorName).trim() !== '') {
+      const normalizedCreator = String(creatorName).trim();
+      if (!normalizedUsername || normalizedCreator.toLowerCase() !== normalizedUsername) {
+        return normalizedCreator;
+      }
+    }
+
     return '-';
   }
 
