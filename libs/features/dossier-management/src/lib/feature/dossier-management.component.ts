@@ -1,5 +1,5 @@
 ﻿import { Component, computed, DestroyRef, inject, OnInit, signal } from '@angular/core';
-import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
+import { WfBreadcrumbComponent } from '../../../../../shared/layout/src/lib/components/common/wf-breadcrumb/wf-breadcrumb.component';
 
 import { CommonModule } from '@angular/common';
 
@@ -53,17 +53,11 @@ import { DossierMenuScope } from '../utils/dossier-status.util';
 
 
       <app-dossier-form
-
         *ngIf="currentView() === 'form'"
-
         [dossierId]="selectedDossierId()"
-
         [kindId]="kindId()"
-
         (cancel)="onBackToList()"
-
         (saved)="onSaved($event)"
-
       ></app-dossier-form>
 
 

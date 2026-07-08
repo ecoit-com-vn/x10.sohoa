@@ -10,7 +10,7 @@ import { DialogModule } from 'primeng/dialog';
 import { ToastModule } from 'primeng/toast';
 import { of, switchMap, finalize, catchError } from 'rxjs';
 import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
-
+import { getDossierStatusLabel } from '../../utils/dossier-status.util';
 import { DocumentManagementService } from '../../data-access/document-management.service';
 import { FileDownloadService } from '../../data-access/file-download.service';
 import { DocumentFilter } from '../../models/document.models';
@@ -137,6 +137,7 @@ export class DossierDetailComponent implements OnInit {
   filterEquipmentId = '';
   filterDossierTypeId = '';
 
+  dossierMeta = computed(() => normalizeDossierDetail(this.dossier()));
 
   loadCatalogColumns() {
     this.dossierService.getBhsCatalogColumns().subscribe({
@@ -175,7 +176,9 @@ export class DossierDetailComponent implements OnInit {
     });
   }
 
-
+  getStatusText(status?: string | number, statusName?: string): string {
+    return getDossierStatusLabel(status, statusName);
+  }
 
   goBack() {
     // If opened in a new tab, we can try window.close()
@@ -310,7 +313,7 @@ export class DossierDetailComponent implements OnInit {
     ).subscribe({
       next: (response) => {
         let items = response.items || [];
-        
+
         // Client-side filter by selected equipment if any
         if (this.filterEquipmentId) {
           // If the dossier list in response doesn't explicitly link equipment, we keep items as is, 
