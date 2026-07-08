@@ -2,8 +2,10 @@ import {
   Component,
   inject,
   OnInit,
+  OnDestroy,
   signal,
   computed,
+  effect,
   DestroyRef,
   afterNextRender,
   HostListener,
@@ -25,7 +27,7 @@ import { LoadingComponent } from '../common/loading/loading.component';
   templateUrl: './admin-layout.component.html',
   styleUrl: './admin-layout.component.scss',
 })
-export class AdminLayout implements OnInit {
+export class AdminLayout implements OnInit, OnDestroy {
   public loadingService = inject(LoadingService);
   private router = inject(Router);
   private authService = inject(AuthService);
@@ -38,6 +40,16 @@ export class AdminLayout implements OnInit {
   isMobileSidebarOpen = false;
   profileMenuOpen = signal(false);
   displayName = computed(() => this.authService.currentUserProfile()?.fullName || this.username);
+  headerAvatarUrl = signal<string | null>(null);
+  headerInitials = computed(() => {
+    const name = this.displayName().trim();
+    return name
+      .split(/\s+/)
+      .slice(-2)
+      .map(part => part.charAt(0).toUpperCase())
+      .join('') || 'U';
+  });
+  private loadedAvatarKey: string | null = null;
 
   /** Signal tránh NG0100 khi menu API trả về sau vòng CD đầu. */
   items = signal<MenuItem[]>([]);
@@ -52,6 +64,10 @@ export class AdminLayout implements OnInit {
   constructor() {
     afterNextRender(() => {
       this.loadSidebarMenu();
+    });
+
+    effect(() => {
+      this.syncHeaderAvatar(this.authService.currentUserProfile()?.avatarObjectKey ?? null);
     });
   }
 
@@ -139,6 +155,10 @@ export class AdminLayout implements OnInit {
     event.stopPropagation();
     this.profileMenuOpen.set(false);
     this.router.navigate(['/profile']);
+  }
+
+  ngOnDestroy(): void {
+    this.revokeHeaderAvatarUrl();
   }
 
   goToChangePassword(event: Event) {
@@ -384,6 +404,33 @@ export class AdminLayout implements OnInit {
     const keyword = (params.get('keyword') || params.get('q') || '').trim();
     if (keyword) {
       this.headerSearchKeyword = keyword;
+    }
+  }
+
+  private syncHeaderAvatar(avatarObjectKey: string | null): void {
+    if (avatarObjectKey === this.loadedAvatarKey) {
+      return;
+    }
+
+    this.loadedAvatarKey = avatarObjectKey;
+    this.revokeHeaderAvatarUrl();
+
+    if (!avatarObjectKey) {
+      return;
+    }
+
+    this.authService.getAvatarBlob()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (blob) => this.headerAvatarUrl.set(URL.createObjectURL(blob)),
+        error: () => this.headerAvatarUrl.set(null)
+      });
+  }
+
+  private revokeHeaderAvatarUrl(): void {
+    if (this.headerAvatarUrl()) {
+      URL.revokeObjectURL(this.headerAvatarUrl()!);
+      this.headerAvatarUrl.set(null);
     }
   }
 }
