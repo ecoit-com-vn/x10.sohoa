@@ -179,6 +179,7 @@ public class InfrastructureQueryDto
     public string Name { get; set; } = string.Empty;
     public string Code { get; set; } = string.Empty;
     public int InfraTypeId { get; set; }
+    public int? GridTypeId { get; set; }
 }
 
 public class ActiveDossierQueryDto
