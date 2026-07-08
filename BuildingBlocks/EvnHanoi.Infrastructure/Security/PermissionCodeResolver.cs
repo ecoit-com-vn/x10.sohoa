@@ -218,6 +218,9 @@ public static class PermissionCodeResolver
             "EAV_FORM_TEMPLATE_COMPLETED_VIEW" => "Xem danh sách form hoàn thành",
             "EAV_FORM_TEMPLATE_MANAGE" => "Khóa / mở khóa biểu mẫu",
             "EAV_FORM_TEMPLATE_DELETE" => "Xóa biểu mẫu",
+            "AUDIT_LOG_VIEW" => "Xem nhật ký hệ thống",
+            "AUDIT_LOG_DELETE" => "Xóa nhật ký hệ thống",
+            "AUDIT_LOG_EXPORT" => "Xuất nhật ký hệ thống",
             _ => null
         };
     }

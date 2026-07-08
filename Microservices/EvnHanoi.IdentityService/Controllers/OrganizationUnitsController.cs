@@ -110,6 +110,21 @@ public class OrganizationUnitsController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(long id)
     {
+        var unit = await _unitRepository.GetByIdAsync(id);
+        if (unit == null) return NotFound(new { message = "Không tìm thấy đơn vị cần xóa." });
+
+        if (await _unitRepository.HasActiveChildrenAsync(id))
+            return BadRequest(new { message = "Không thể xóa đơn vị này vì còn đơn vị trực thuộc chưa được xóa." });
+
+        if (await _unitRepository.HasActiveUsersAsync(id))
+            return BadRequest(new { message = "Không thể xóa đơn vị này vì còn tài khoản người dùng chưa được xóa." });
+
+        if (await _unitRepository.HasActiveFoldersAsync(id))
+            return BadRequest(new { message = "Không thể xóa đơn vị này vì còn thư mục tài liệu chưa được xóa." });
+
+        if (await _unitRepository.HasActiveInfrastructureAsync(id))
+            return BadRequest(new { message = "Không thể xóa đơn vị này vì còn hạ tầng (trạm/đường dây) chưa được xóa." });
+
         var success = await _unitRepository.DeleteAsync(id);
         if (!success) return NotFound(new { message = "Không tìm thấy đơn vị cần xóa." });
 

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using EvnHanoi.EquipmentService.Core.DTOs;
 using EvnHanoi.EquipmentService.Core.Services;
+using EvnHanoi.Infrastructure.Audit;
 
 namespace EvnHanoi.EquipmentService.Controllers;
 
@@ -63,6 +64,13 @@ public class FileUploadController : ControllerBase
                     UserId,
                     userUnitId,
                     cancellationToken);
+
+                HttpContext.SetAudit(
+                    result.DocumentId.ToString(),
+                    file.FileName,
+                    $"Upload tài liệu: {file.FileName}",
+                    "DOCUMENT",
+                    AuditActions.Import);
 
                 return Ok(result);
             }

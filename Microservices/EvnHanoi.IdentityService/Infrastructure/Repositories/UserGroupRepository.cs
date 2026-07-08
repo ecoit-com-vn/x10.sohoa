@@ -154,7 +154,7 @@ public class UserGroupRepository : IUserGroupRepository
             FROM APP_USER u
             INNER JOIN USER_GROUP_MEMBER ugm ON u.Id = ugm.UserId
             LEFT JOIN ORGANIZATION_UNIT o ON u.{nameof(User.OrganizationUnitId)} = o.{nameof(OrganizationUnit.Id)}
-            WHERE ugm.UserGroupId = :GroupId";
+            WHERE ugm.UserGroupId = :GroupId AND u.IsDeleted = 0";
             
         return await _connection.QueryAsync<User, OrganizationUnit, User>(
             sql, 

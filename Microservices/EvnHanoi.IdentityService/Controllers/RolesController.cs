@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using EvnHanoi.IdentityService.Core.Domain.Models;
 using EvnHanoi.IdentityService.Core.Interfaces;
 using EvnHanoi.IdentityService.Infrastructure.Security;
+using EvnHanoi.Infrastructure.Audit;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
@@ -73,6 +74,7 @@ public class RolesController : ControllerBase
 
         // Evict cache
         _cache.Remove("RolesLookup");
+        HttpContext.SetAudit(newId.ToString(), role.Code, $"Tạo vai trò {role.Code}", "ROLE", AuditActions.Create);
 
         return CreatedAtAction(nameof(GetById), new { id = newId }, role);
     }
@@ -89,8 +91,8 @@ public class RolesController : ControllerBase
         var success = await _roleRepository.UpdateAsync(role);
         if (!success) return NotFound(new { message = "Không tìm thấy vai trò cần chỉnh sửa." });
 
-        // Evict cache
         _cache.Remove("RolesLookup");
+        HttpContext.SetAudit(id.ToString(), role.Code, $"Cập nhật vai trò {role.Code}", "ROLE", AuditActions.Update);
 
         return NoContent();
     }
@@ -98,11 +100,12 @@ public class RolesController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(long id)
     {
+        var role = await _roleRepository.GetByIdAsync(id);
         var success = await _roleRepository.DeleteAsync(id);
         if (!success) return NotFound(new { message = "Không tìm thấy vai trò cần xóa." });
 
-        // Evict cache
         _cache.Remove("RolesLookup");
+        HttpContext.SetAudit(id.ToString(), role?.Code, $"Xóa vai trò {role?.Code}", "ROLE", AuditActions.Delete);
 
         return NoContent();
     }
@@ -122,6 +125,7 @@ public class RolesController : ControllerBase
         if (permissionCodes == null) return BadRequest(new { message = "Danh sách quyền không hợp lệ." });
         var success = await _roleRepository.AssignPermissionsToRoleAsync(id, permissionCodes);
         if (!success) return BadRequest(new { message = "Gán quyền không thành công." });
+        HttpContext.SetAudit(id.ToString(), null, $"Gán {permissionCodes.Count} quyền cho vai trò {id}", "ROLE", AuditActions.Manage);
         return Ok(new { message = "Gán quyền cho vai trò thành công." });
     }
 

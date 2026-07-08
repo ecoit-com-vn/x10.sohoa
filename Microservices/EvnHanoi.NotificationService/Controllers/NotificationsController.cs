@@ -1,3 +1,4 @@
+using EvnHanoi.Infrastructure.Audit;
 using EvnHanoi.Infrastructure.Security;
 using EvnHanoi.NotificationService.Hubs;
 using EvnHanoi.NotificationService.Models;
@@ -10,6 +11,7 @@ namespace EvnHanoi.NotificationService.Controllers;
 
 [ApiController]
 [BypassDynamicPermission]
+[SkipAudit]
 [Route("api/v1/[controller]")]
 public class NotificationsController : ControllerBase
 {

@@ -1,10 +1,8 @@
 using EvnHanoi.Infrastructure.Security;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Authorization;
-using System;
-using System.Linq;
-using System.Threading.Tasks;
+using EvnHanoi.NotificationService.Models;
 using EvnHanoi.NotificationService.Services;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 
 namespace EvnHanoi.NotificationService.Controllers
 {
@@ -27,17 +25,57 @@ namespace EvnHanoi.NotificationService.Controllers
             var authHeader = Request.Headers["Authorization"].ToString();
 
             if (!await _auditLogService.CheckPermissionAsync(authHeader, User, "VIEW_DASHBOARD"))
-            {
                 return StatusCode(403, new { message = "Không có quyền truy cập Dashboard." });
-            }
 
             try
             {
                 var logs = await _auditLogService.GetRecentAuditLogsAsync(5);
-                return Ok(new
-                {
-                    Logs = logs
-                });
+                return Ok(new { Logs = logs });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ex.Message);
+            }
+        }
+
+        [HttpGet("export")]
+        [Authorize]
+        public async Task<IActionResult> ExportAuditLogs(
+            [FromQuery] DateTime fromDate,
+            [FromQuery] DateTime toDate,
+            [FromQuery] string? keyword = null,
+            [FromQuery] string? action = null,
+            [FromQuery] string? resourceType = null,
+            [FromQuery] string? serviceName = null,
+            [FromQuery] string? userName = null)
+        {
+            var authHeader = Request.Headers["Authorization"].ToString();
+            if (!await _auditLogService.CheckAnyPermissionAsync(authHeader, User, "AUDIT_LOG_EXPORT", "AUDIT_LOG_VIEW"))
+                return StatusCode(403, new { message = "Không có quyền xuất nhật ký hệ thống." });
+
+            if (fromDate == default || toDate == default)
+                return BadRequest(new { message = "Vui lòng chọn khoảng thời gian (fromDate, toDate)." });
+
+            if (fromDate > toDate)
+                return BadRequest(new { message = "Từ ngày không thể lớn hơn Đến ngày." });
+
+            var maxRangeDays = 366;
+            if ((toDate.Date - fromDate.Date).TotalDays > maxRangeDays)
+                return BadRequest(new { message = $"Khoảng thời gian xuất file không được vượt quá {maxRangeDays} ngày." });
+
+            try
+            {
+                var endOfDay = toDate.Date.AddDays(1).AddTicks(-1);
+                var (fileBytes, fileName, rowCount) = await _auditLogService.ExportAuditLogsAsync(
+                    fromDate.Date, endOfDay, keyword, action, resourceType, serviceName, userName);
+
+                if (rowCount == 0)
+                    return NotFound(new { message = "Không có bản ghi nhật ký trong khoảng thời gian đã chọn." });
+
+                return File(
+                    fileBytes,
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    fileName);
             }
             catch (Exception ex)
             {
@@ -47,17 +85,25 @@ namespace EvnHanoi.NotificationService.Controllers
 
         [HttpGet]
         [Authorize]
-        public async Task<IActionResult> GetAuditLogs([FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] string? keyword = null)
+        public async Task<IActionResult> GetAuditLogs(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 20,
+            [FromQuery] string? keyword = null,
+            [FromQuery] string? action = null,
+            [FromQuery] string? resourceType = null,
+            [FromQuery] string? serviceName = null,
+            [FromQuery] string? userName = null,
+            [FromQuery] DateTime? fromDate = null,
+            [FromQuery] DateTime? toDate = null)
         {
             var authHeader = Request.Headers["Authorization"].ToString();
             if (!await _auditLogService.CheckPermissionAsync(authHeader, User, "AUDIT_LOG_VIEW"))
-            {
                 return StatusCode(403, new { message = "Không có quyền xem nhật ký hệ thống." });
-            }
 
             try
             {
-                var (total, logs) = await _auditLogService.GetAuditLogsAsync(page, pageSize, keyword);
+                var (total, logs) = await _auditLogService.GetAuditLogsAsync(
+                    page, pageSize, keyword, action, resourceType, serviceName, userName, fromDate, toDate);
                 return Ok(new
                 {
                     items = logs,
@@ -72,21 +118,59 @@ namespace EvnHanoi.NotificationService.Controllers
             }
         }
 
+        [HttpPost("bulk-delete")]
+        [Authorize]
+        public async Task<IActionResult> DeleteSelectedAuditLogs([FromBody] DeleteAuditLogsByIdsRequest request)
+        {
+            var isSuperAdmin = User.IsInRole("ADMIN") || User.Claims.Any(c =>
+                c.Type == System.Security.Claims.ClaimTypes.Role && c.Value == "ADMIN");
+            if (!isSuperAdmin)
+                return Forbid("Bạn không có quyền thực hiện chức năng này. Chỉ SuperAdmin mới được quyền dọn dẹp nhật ký.");
+
+            var authHeader = Request.Headers["Authorization"].ToString();
+            if (!await _auditLogService.CheckPermissionAsync(authHeader, User, "AUDIT_LOG_DELETE"))
+                return StatusCode(403, new { message = "Không có quyền dọn dẹp nhật ký hệ thống." });
+
+            if (request?.Ids is not { Count: > 0 })
+                return BadRequest(new { message = "Vui lòng chọn ít nhất một nhật ký cần xóa." });
+
+            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            var username = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value;
+
+            try
+            {
+                var count = await _auditLogService.DeleteAuditLogsByIdsAsync(request.Ids, username, userId);
+                if (count == 0)
+                    return NotFound(new { message = "Không tìm thấy nhật ký hợp lệ trong danh sách đã chọn." });
+
+                return Ok(new
+                {
+                    message = $"Đã thực hiện dọn dẹp ẩn danh {count} nhật ký đã chọn thành công.",
+                    Count = count
+                });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ex.Message);
+            }
+        }
+
         [HttpDelete]
         [Authorize]
         public async Task<IActionResult> DeleteAuditLogs([FromQuery] DateTime fromDate, [FromQuery] DateTime toDate)
         {
-            var isSuperAdmin = User.IsInRole("ADMIN") || User.Claims.Any(c => c.Type == System.Security.Claims.ClaimTypes.Role && c.Value == "ADMIN");
+            var isSuperAdmin = User.IsInRole("ADMIN") || User.Claims.Any(c =>
+                c.Type == System.Security.Claims.ClaimTypes.Role && c.Value == "ADMIN");
             if (!isSuperAdmin)
-            {
                 return Forbid("Bạn không có quyền thực hiện chức năng này. Chỉ SuperAdmin mới được quyền dọn dẹp nhật ký.");
-            }
 
             var authHeader = Request.Headers["Authorization"].ToString();
             if (!await _auditLogService.CheckPermissionAsync(authHeader, User, "AUDIT_LOG_DELETE"))
-            {
                 return StatusCode(403, new { message = "Không có quyền dọn dẹp nhật ký hệ thống." });
-            }
 
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             var username = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value;
@@ -94,7 +178,11 @@ namespace EvnHanoi.NotificationService.Controllers
             try
             {
                 var count = await _auditLogService.DeleteAuditLogsAsync(fromDate, toDate, username, userId);
-                return Ok(new { message = $"Đã thực hiện dọn dẹp ẩn danh {count} bản ghi nhật ký hệ thống thành công.", Count = count });
+                return Ok(new
+                {
+                    message = $"Đã thực hiện dọn dẹp ẩn danh {count} bản ghi nhật ký hệ thống thành công.",
+                    Count = count
+                });
             }
             catch (Exception ex)
             {

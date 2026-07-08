@@ -4,6 +4,7 @@ using System.Security.Claims;
 using EvnHanoi.EquipmentService.Core.Interfaces;
 using EvnHanoi.EquipmentService.Core.Services;
 using EvnHanoi.Infrastructure.Security;
+using EvnHanoi.Infrastructure.Audit;
 
 namespace EvnHanoi.EquipmentService.Controllers;
 
@@ -87,6 +88,13 @@ public class FileDownloadTokenController : ControllerBase
             _logger.LogInformation(
                 "Generated folder download token for document {DocumentId}, version {VersionId}, user {UserId}",
                 document.Id, versionId, UserId);
+
+            HttpContext.SetAudit(
+                versionId.ToString(),
+                document.Name,
+                $"Tạo link tải tài liệu: {document.Name}",
+                "DOCUMENT",
+                AuditActions.Export);
 
             return Ok(result);
         }

@@ -11,6 +11,7 @@ namespace EvnHanoi.IdentityService.Infrastructure.Repositories;
 public class OrganizationUnitRepository : IOrganizationUnitRepository
 {
     private readonly IDbConnection _connection;
+    private const string ActiveOnlyFilter = "IsDeleted = 0";
 
     public OrganizationUnitRepository(IDbConnection connection)
     {
@@ -26,8 +27,10 @@ public class OrganizationUnitRepository : IOrganizationUnitRepository
                    {nameof(OrganizationUnit.Name)}, 
                    {nameof(OrganizationUnit.ParentId)}, 
                    {nameof(OrganizationUnit.Description)},
-                   {nameof(OrganizationUnit.IsActive)}
+                   {nameof(OrganizationUnit.IsActive)},
+                   {nameof(OrganizationUnit.IsDeleted)}
             FROM ORGANIZATION_UNIT 
+            WHERE {ActiveOnlyFilter}
             ORDER BY {nameof(OrganizationUnit.Id)}";
         return await _connection.QueryAsync<OrganizationUnit>(sql);
     }
@@ -41,9 +44,10 @@ public class OrganizationUnitRepository : IOrganizationUnitRepository
                    {nameof(OrganizationUnit.Name)}, 
                    {nameof(OrganizationUnit.ParentId)}, 
                    {nameof(OrganizationUnit.Description)},
-                   {nameof(OrganizationUnit.IsActive)}
+                   {nameof(OrganizationUnit.IsActive)},
+                   {nameof(OrganizationUnit.IsDeleted)}
             FROM ORGANIZATION_UNIT 
-            WHERE {nameof(OrganizationUnit.Id)} = :Id";
+            WHERE {nameof(OrganizationUnit.Id)} = :Id AND {ActiveOnlyFilter}";
         return await _connection.QuerySingleOrDefaultAsync<OrganizationUnit>(sql, new { Id = id });
     }
 
@@ -56,9 +60,10 @@ public class OrganizationUnitRepository : IOrganizationUnitRepository
                 {nameof(OrganizationUnit.Name)}, 
                 {nameof(OrganizationUnit.ParentId)}, 
                 {nameof(OrganizationUnit.Description)},
-                {nameof(OrganizationUnit.IsActive)}
+                {nameof(OrganizationUnit.IsActive)},
+                {nameof(OrganizationUnit.IsDeleted)}
             )
-            VALUES (:Code, :Name, :ParentId, :Description, :IsActive)
+            VALUES (:Code, :Name, :ParentId, :Description, :IsActive, 0)
             RETURNING {nameof(OrganizationUnit.Id)} INTO :Id";
             
         var parameters = new DynamicParameters();
@@ -84,7 +89,7 @@ public class OrganizationUnitRepository : IOrganizationUnitRepository
                 {nameof(OrganizationUnit.Description)} = :Description,
                 {nameof(OrganizationUnit.IsActive)} = :IsActive,
                 UpdatedAt = CURRENT_TIMESTAMP
-            WHERE {nameof(OrganizationUnit.Id)} = :Id";
+            WHERE {nameof(OrganizationUnit.Id)} = :Id AND {ActiveOnlyFilter}";
         var affected = await _connection.ExecuteAsync(sql, new 
         {
             unit.Code,
@@ -108,22 +113,59 @@ public class OrganizationUnitRepository : IOrganizationUnitRepository
                                {nameof(OrganizationUnit.Name)}, 
                                {nameof(OrganizationUnit.ParentId)}, 
                                {nameof(OrganizationUnit.Description)},
-                               {nameof(OrganizationUnit.IsActive)}
+                               {nameof(OrganizationUnit.IsActive)},
+                               {nameof(OrganizationUnit.IsDeleted)}
                         FROM ORGANIZATION_UNIT
+                        WHERE {ActiveOnlyFilter}
                         START WITH Id = :StartUnitId
                         CONNECT BY PRIOR Id = ParentId";
             return await _connection.QueryAsync<OrganizationUnit>(sql, new { StartUnitId = startUnitId.Value });
         }
-        else
-        {
-            return await GetAllAsync();
-        }
+
+        return await GetAllAsync();
+    }
+
+    public async Task<bool> HasActiveChildrenAsync(long id)
+    {
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+        var sql = $@"SELECT COUNT(*) FROM ORGANIZATION_UNIT 
+                     WHERE {nameof(OrganizationUnit.ParentId)} = :Id AND {ActiveOnlyFilter}";
+        var count = await _connection.ExecuteScalarAsync<int>(sql, new { Id = id });
+        return count > 0;
+    }
+
+    public async Task<bool> HasActiveUsersAsync(long id)
+    {
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+        const string sql = "SELECT COUNT(*) FROM APP_USER WHERE OrganizationUnitId = :Id AND IsDeleted = 0";
+        var count = await _connection.ExecuteScalarAsync<int>(sql, new { Id = id });
+        return count > 0;
+    }
+
+    public async Task<bool> HasActiveFoldersAsync(long id)
+    {
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+        const string sql = "SELECT COUNT(*) FROM FOLDERS WHERE UNIT_ID = :Id AND IS_DELETED = 0";
+        var count = await _connection.ExecuteScalarAsync<int>(sql, new { Id = id });
+        return count > 0;
+    }
+
+    public async Task<bool> HasActiveInfrastructureAsync(long id)
+    {
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+        const string sql = "SELECT COUNT(*) FROM INFRASTRUCTURE WHERE UNIT_ID = :Id AND IsDeleted = 0";
+        var count = await _connection.ExecuteScalarAsync<int>(sql, new { Id = id });
+        return count > 0;
     }
 
     public async Task<bool> DeleteAsync(long id)
     {
         if (_connection.State != ConnectionState.Open) _connection.Open();
-        var sql = $"DELETE FROM ORGANIZATION_UNIT WHERE {nameof(OrganizationUnit.Id)} = :Id";
+        var sql = $@"
+            UPDATE ORGANIZATION_UNIT 
+            SET {nameof(OrganizationUnit.IsDeleted)} = 1,
+                UpdatedAt = CURRENT_TIMESTAMP
+            WHERE {nameof(OrganizationUnit.Id)} = :Id AND {ActiveOnlyFilter}";
         var affected = await _connection.ExecuteAsync(sql, new { Id = id });
         return affected > 0;
     }

@@ -43,8 +43,8 @@ public class UserRepository : IUserRepository
                    o.{nameof(OrganizationUnit.ParentId)}, 
                    o.{nameof(OrganizationUnit.Description)}
             FROM APP_USER u
-            LEFT JOIN ORGANIZATION_UNIT o ON u.{nameof(User.OrganizationUnitId)} = o.{nameof(OrganizationUnit.Id)}
-            WHERE u.UserName = :Username";
+            LEFT JOIN ORGANIZATION_UNIT o ON u.{nameof(User.OrganizationUnitId)} = o.{nameof(OrganizationUnit.Id)} AND o.IsDeleted = 0
+            WHERE u.UserName = :Username AND u.IsDeleted = 0";
             
         var result = await _connection.QueryAsync<User, OrganizationUnit, User>(
             sql, 
@@ -80,7 +80,8 @@ public class UserRepository : IUserRepository
                    o.{nameof(OrganizationUnit.ParentId)}, 
                    o.{nameof(OrganizationUnit.Description)}
             FROM APP_USER u
-            LEFT JOIN ORGANIZATION_UNIT o ON u.{nameof(User.OrganizationUnitId)} = o.{nameof(OrganizationUnit.Id)}";
+            LEFT JOIN ORGANIZATION_UNIT o ON u.{nameof(User.OrganizationUnitId)} = o.{nameof(OrganizationUnit.Id)} AND o.IsDeleted = 0
+            WHERE u.IsDeleted = 0";
             
         return await _connection.QueryAsync<User, OrganizationUnit, User>(
             sql, 
@@ -96,7 +97,7 @@ public class UserRepository : IUserRepository
     {
         if (_connection.State != ConnectionState.Open) _connection.Open();
         
-        var conditions = new List<string>();
+        var conditions = new List<string> { "u.IsDeleted = 0" };
         var parameters = new DynamicParameters();
         
         if (!string.IsNullOrWhiteSpace(keyword))
@@ -119,7 +120,7 @@ public class UserRepository : IUserRepository
         
         var whereClause = conditions.Count > 0 ? "WHERE " + string.Join(" AND ", conditions) : "";
         
-        var countSql = $"SELECT COUNT(*) FROM APP_USER u LEFT JOIN ORGANIZATION_UNIT o ON u.OrganizationUnitId = o.Id {whereClause}";
+        var countSql = $"SELECT COUNT(*) FROM APP_USER u LEFT JOIN ORGANIZATION_UNIT o ON u.OrganizationUnitId = o.Id AND o.IsDeleted = 0 {whereClause}";
         var offset = (page - 1) * pageSize;
         
         var sql = $@"
@@ -145,7 +146,7 @@ public class UserRepository : IUserRepository
                        o.Description AS Description,
                        ROW_NUMBER() OVER (ORDER BY u.UserName ASC) AS RN
                 FROM APP_USER u
-                LEFT JOIN ORGANIZATION_UNIT o ON u.OrganizationUnitId = o.Id
+                LEFT JOIN ORGANIZATION_UNIT o ON u.OrganizationUnitId = o.Id AND o.IsDeleted = 0
                 {whereClause}
             ) WHERE RN > :Offset AND RN <= :OffsetPlusSize";
             
@@ -188,8 +189,8 @@ public class UserRepository : IUserRepository
                    o.{nameof(OrganizationUnit.ParentId)}, 
                    o.{nameof(OrganizationUnit.Description)}
             FROM APP_USER u
-            LEFT JOIN ORGANIZATION_UNIT o ON u.{nameof(User.OrganizationUnitId)} = o.{nameof(OrganizationUnit.Id)}
-            WHERE u.{nameof(User.Id)} = :Id";
+            LEFT JOIN ORGANIZATION_UNIT o ON u.{nameof(User.OrganizationUnitId)} = o.{nameof(OrganizationUnit.Id)} AND o.IsDeleted = 0
+            WHERE u.{nameof(User.Id)} = :Id AND u.IsDeleted = 0";
             
         var result = await _connection.QueryAsync<User, OrganizationUnit, User>(
             sql, 
@@ -302,7 +303,8 @@ public class UserRepository : IUserRepository
             SELECT COUNT(1)
             FROM APP_USER
             WHERE UPPER(Email) = UPPER(:Email)
-              AND Id <> :UserId";
+              AND Id <> :UserId
+              AND IsDeleted = 0";
 
         var count = await _connection.ExecuteScalarAsync<int>(sql, new
         {
@@ -356,7 +358,12 @@ public class UserRepository : IUserRepository
     public async Task DeleteAsync(string id)
     {
         if (_connection.State != ConnectionState.Open) _connection.Open();
-        var sql = $"DELETE FROM APP_USER WHERE {nameof(User.Id)} = :Id";
+        var sql = $@"
+            UPDATE APP_USER 
+            SET IsDeleted = 1,
+                IsActive = 0,
+                UpdatedAt = CURRENT_TIMESTAMP
+            WHERE {nameof(User.Id)} = :Id AND IsDeleted = 0";
         await _connection.ExecuteAsync(sql, new { Id = id });
     }
 

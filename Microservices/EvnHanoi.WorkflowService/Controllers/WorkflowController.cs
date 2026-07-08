@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using EvnHanoi.WorkflowService.Core.Interfaces;
 using EvnHanoi.WorkflowService.Models;
 using EvnHanoi.Infrastructure.Security;
+using EvnHanoi.Infrastructure.Audit;
 using EvnHanoi.Infrastructure.Enums;
 using System;
 using System.Collections.Generic;
@@ -77,6 +78,7 @@ namespace EvnHanoi.WorkflowService.Controllers
                     request.EntityId,
                     request.WorkflowTypeId,
                     userId);
+                HttpContext.SetAudit(request.EntityId, null, $"Khởi chạy workflow cho entity {request.EntityId}", "WORKFLOW", AuditActions.Create);
                 return Ok(new
                 {
                     Success = true,
@@ -133,6 +135,7 @@ namespace EvnHanoi.WorkflowService.Controllers
             try
             {
                 var task = await _workflowEngine.ApproveAsync(taskId, userId, request.Comment, request.NextAssigneeUserId);
+                HttpContext.SetAudit(taskId.ToString(), null, $"Phê duyệt nhiệm vụ workflow {taskId}", "WORKFLOW", "APPROVE");
                 return Ok(new
                 {
                     Success = true,
@@ -158,6 +161,7 @@ namespace EvnHanoi.WorkflowService.Controllers
             try
             {
                 var prevTask = await _workflowEngine.RejectAsync(taskId, userId, comment);
+                HttpContext.SetAudit(taskId.ToString(), null, $"Từ chối nhiệm vụ workflow {taskId}", "WORKFLOW", "REJECT");
                 return Ok(new
                 {
                     Success = true,

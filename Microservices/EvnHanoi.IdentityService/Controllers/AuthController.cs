@@ -18,6 +18,7 @@ using System.Data;
 using Dapper;
 using Microsoft.IdentityModel.Tokens;
 using EvnHanoi.IdentityService.Infrastructure.Security;
+using EvnHanoi.Infrastructure.Audit;
 
 
 namespace EvnHanoi.IdentityService.Controllers;
@@ -730,6 +731,7 @@ public class AuthController : ControllerBase
 
         var newPasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
         await _userRepository.UpdatePasswordAsync(user.Id, newPasswordHash);
+        HttpContext.SetAudit(user.Id, user.Username, $"Đổi mật khẩu tài khoản {user.Username}", "USER", AuditActions.Update);
 
         return Ok(new { message = "Đổi mật khẩu thành công. Vui lòng đăng nhập lại." });
     }

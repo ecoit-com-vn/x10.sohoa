@@ -5,6 +5,7 @@ using System.Net.Http;
 using System.Net.Http.Json;
 using System.Security.Claims;
 using System.Threading.Tasks;
+using EvnHanoi.NotificationService.Models;
 using EvnHanoi.NotificationService.Repositories;
 using Serilog;
 
@@ -13,44 +14,90 @@ namespace EvnHanoi.NotificationService.Services
     public class AuditLogService : IAuditLogService
     {
         private readonly IAuditLogRepository _auditLogRepository;
+        private readonly IAuditLogExportService _auditLogExportService;
         private readonly IHttpClientFactory _httpClientFactory;
 
-        public AuditLogService(IAuditLogRepository auditLogRepository, IHttpClientFactory httpClientFactory)
+        public AuditLogService(
+            IAuditLogRepository auditLogRepository,
+            IAuditLogExportService auditLogExportService,
+            IHttpClientFactory httpClientFactory)
         {
             _auditLogRepository = auditLogRepository;
+            _auditLogExportService = auditLogExportService;
             _httpClientFactory = httpClientFactory;
         }
 
-        public async Task<(long Total, IEnumerable<dynamic> Logs)> GetAuditLogsAsync(int page, int pageSize, string? keyword = null)
+        public Task<(long Total, IReadOnlyList<AuditLogItemDto> Logs)> GetAuditLogsAsync(
+            int page,
+            int pageSize,
+            string? keyword = null,
+            string? action = null,
+            string? resourceType = null,
+            string? serviceName = null,
+            string? userName = null,
+            DateTime? fromDate = null,
+            DateTime? toDate = null)
         {
-            return await _auditLogRepository.GetAuditLogsAsync(page, pageSize, keyword);
+            return _auditLogRepository.GetAuditLogsAsync(
+                page, pageSize, keyword, action, resourceType, serviceName, userName, fromDate, toDate);
         }
 
-        public async Task<IEnumerable<dynamic>> GetRecentAuditLogsAsync(int count)
+        public Task<IReadOnlyList<AuditLogItemDto>> GetRecentAuditLogsAsync(int count)
         {
-            return await _auditLogRepository.GetRecentAuditLogsAsync(count);
+            return _auditLogRepository.GetRecentAuditLogsAsync(count);
         }
 
-        public async Task<long> DeleteAuditLogsAsync(DateTime fromDate, DateTime toDate, string? username, string? userId)
+        public async Task<(byte[] FileBytes, string FileName, int RowCount)> ExportAuditLogsAsync(
+            DateTime fromDate,
+            DateTime toDate,
+            string? keyword = null,
+            string? action = null,
+            string? resourceType = null,
+            string? serviceName = null,
+            string? userName = null)
         {
-            return await _auditLogRepository.DeleteAuditLogsAsync(fromDate, toDate, username, userId);
+            var logs = await _auditLogRepository.ExportAuditLogsAsync(
+                keyword, action, resourceType, serviceName, userName, fromDate, toDate);
+
+            var bytes = _auditLogExportService.BuildExcel(logs);
+            var fileName = $"AuditLog_{fromDate:yyyyMMdd}_{toDate:yyyyMMdd}.xlsx";
+            return (bytes, fileName, logs.Count);
+        }
+
+        public Task<long> DeleteAuditLogsAsync(DateTime fromDate, DateTime toDate, string? username, string? userId)
+        {
+            return _auditLogRepository.DeleteAuditLogsAsync(fromDate, toDate, username, userId);
+        }
+
+        public Task<long> DeleteAuditLogsByIdsAsync(IReadOnlyList<string> ids, string? username, string? userId)
+        {
+            return _auditLogRepository.DeleteAuditLogsByIdsAsync(ids, username, userId);
         }
 
         public async Task<bool> CheckPermissionAsync(string? authHeader, ClaimsPrincipal user, string permissionCode)
         {
+            return await CheckAnyPermissionAsync(authHeader, user, permissionCode);
+        }
+
+        public async Task<bool> CheckAnyPermissionAsync(
+            string? authHeader,
+            ClaimsPrincipal user,
+            params string[] permissionCodes)
+        {
+            if (permissionCodes.Length == 0)
+                return false;
+
             var roles = user.FindAll(ClaimTypes.Role).Select(c => c.Value).ToList();
             var username = user.FindFirst(ClaimTypes.Name)?.Value ?? user.Identity?.Name;
-            
-            if (roles.Any(r => string.Equals(r, "ADMIN", StringComparison.OrdinalIgnoreCase)) || 
+
+            if (roles.Any(r => string.Equals(r, "ADMIN", StringComparison.OrdinalIgnoreCase)) ||
                 string.Equals(username, "admin", StringComparison.OrdinalIgnoreCase))
             {
                 return true;
             }
 
             if (string.IsNullOrEmpty(authHeader))
-            {
                 return false;
-            }
 
             var client = _httpClientFactory.CreateClient("IdentityService");
             var requestMessage = new HttpRequestMessage(HttpMethod.Get, "api/v1/auth/permissions");
@@ -60,16 +107,16 @@ namespace EvnHanoi.NotificationService.Services
             {
                 var response = await client.SendAsync(requestMessage);
                 if (!response.IsSuccessStatusCode)
-                {
                     return false;
-                }
 
                 var permissions = await response.Content.ReadFromJsonAsync<List<string>>();
-                return permissions != null && permissions.Any(p => string.Equals(p, permissionCode, StringComparison.OrdinalIgnoreCase));
+                return permissions != null && permissionCodes.Any(code =>
+                    permissions.Any(p => string.Equals(p, code, StringComparison.OrdinalIgnoreCase)));
             }
             catch (Exception ex)
             {
-                Log.Error(ex, "Error checking permission {PermissionCode} with IdentityService", permissionCode);
+                Log.Error(ex, "Error checking permissions [{Permissions}] with IdentityService",
+                    string.Join(", ", permissionCodes));
                 return false;
             }
         }
