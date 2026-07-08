@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using EvnHanoi.IdentityService.Core.Domain.Models;
 using EvnHanoi.IdentityService.Core.Interfaces;
 using EvnHanoi.IdentityService.Infrastructure.Security;
+using EvnHanoi.Infrastructure.Audit;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
@@ -101,8 +102,8 @@ public class UsersController : ControllerBase
         {
             var newId = await _userRepository.CreateAsync(user);
             user.Id = newId;
-            // Evict cache
             _cache.Remove("UsersLookup");
+            HttpContext.SetAudit(newId, user.Username, $"Tạo người dùng {user.Username}", "USER", AuditActions.Create);
 
             return CreatedAtAction(nameof(GetById), new { id = newId }, user);
         }
@@ -139,11 +140,9 @@ public class UsersController : ControllerBase
             });
         }
         
-        user.PasswordHash = existing.PasswordHash; // Keep existing hash
         await _userRepository.UpdateFullAsync(user);
-
-        // Evict cache
         _cache.Remove("UsersLookup");
+        HttpContext.SetAudit(id, user.Username, $"Cập nhật người dùng {user.Username}", "USER", AuditActions.Update);
 
         return NoContent();
     }
@@ -155,9 +154,8 @@ public class UsersController : ControllerBase
         if (existing == null) return NotFound(new { message = "Không tìm thấy người dùng cần xóa." });
         
         await _userRepository.DeleteAsync(id);
-
-        // Evict cache
         _cache.Remove("UsersLookup");
+        HttpContext.SetAudit(id, existing.Username, $"Xóa người dùng {existing.Username}", "USER", AuditActions.Delete);
 
         return NoContent();
     }
@@ -179,6 +177,7 @@ public class UsersController : ControllerBase
 
         // Xóa cache quyền của người dùng để thay đổi có hiệu lực ngay lập tức
         _cache.Remove($"UserPerms_{userId}");
+        HttpContext.SetAudit(userId, null, $"Gán quyền trực tiếp cho user {userId}", "USER", AuditActions.Manage);
 
         return Ok(new { message = "Gán quyền trực tiếp cho người dùng thành công!" });
      }
@@ -200,6 +199,7 @@ public class UsersController : ControllerBase
 
         // Xóa cache quyền của người dùng để thay đổi có hiệu lực ngay lập tức
         _cache.Remove($"UserPerms_{userId}");
+        HttpContext.SetAudit(userId, null, $"Gán vai trò cho user {userId}", "USER", AuditActions.Manage);
 
         return Ok(new { message = "Gán vai trò trực tiếp cho người dùng thành công!" });
     }

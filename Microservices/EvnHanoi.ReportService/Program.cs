@@ -27,6 +27,8 @@ using EvnHanoi.Infrastructure.Logging;
 using EvnHanoi.Infrastructure.Messaging;
 
 using EvnHanoi.Infrastructure.Security;
+using EvnHanoi.Infrastructure.Audit;
+using RabbitMQ.Client;
 
 
 
@@ -53,6 +55,7 @@ builder.Services.AddControllers(options =>
 {
 
     options.Filters.Add<DynamicPermissionFilter>();
+    options.Filters.Add<AuditActionFilter>();
 
 });
 
@@ -77,6 +80,18 @@ builder.Services.AddScoped<IReportFileDownloadTokenService, ReportFileDownloadTo
 builder.Services.AddScoped<IReportFileStorageService, ReportFileStorageService>();
 
 builder.Services.AddPermissionDiscovery("ReportService");
+
+var rabbitFactory = new ConnectionFactory
+{
+    HostName = builder.Configuration["RabbitMQ:Host"] ?? "localhost",
+    VirtualHost = builder.Configuration["RabbitMQ:VirtualHost"] ?? "/",
+    UserName = builder.Configuration["RabbitMQ:Username"] ?? "guest",
+    Password = builder.Configuration["RabbitMQ:Password"] ?? "guest",
+    Port = int.TryParse(builder.Configuration["RabbitMQ:Port"], out var rabbitPort) ? rabbitPort : 5672
+};
+var rabbitConnection = await rabbitFactory.CreateConnectionAsync();
+builder.Services.AddSingleton<IConnection>(rabbitConnection);
+builder.Services.AddAuditInfrastructure("ReportService");
 
 builder.Services.AddHttpContextAccessor();
 

@@ -1,16 +1,20 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Claims;
 using System.Threading.Tasks;
 using EvnHanoi.EquipmentService.Core.DTOs;
 using EvnHanoi.EquipmentService.Core.Interfaces;
 using EvnHanoi.EquipmentService.Core.Services;
-using EvnHanoi.Infrastructure.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EvnHanoi.EquipmentService.Controllers;
 
+/// <summary>
+/// Tìm kiếm hồ sơ trong kho — cây thư mục, danh sách hồ sơ đã xuất bản, chi tiết chỉ đọc.
+/// Quyền: SEARCH_DOSSIERS_IN_WAREHOUSE_VIEW.
+/// </summary>
 [Authorize]
 [ApiController]
 [Route("api/v1/dossiers/search")]
@@ -31,6 +35,22 @@ public class DossierSearchController : ControllerBase
     {
         var unitIdClaim = User.FindFirst("unit_id")?.Value;
         return long.TryParse(unitIdClaim, out var unitId) ? unitId : 0;
+    }
+
+    private (bool IsAdmin, long? UnitId) ResolveUserScope()
+    {
+        var isAdmin = User.IsInRole("ADMIN") ||
+                      User.Claims.Any(c => c.Type == ClaimTypes.Role && c.Value == "ADMIN");
+
+        long? unitId = null;
+        if (!isAdmin)
+        {
+            var unitIdClaim = User.FindFirst("unit_id")?.Value;
+            if (long.TryParse(unitIdClaim, out var userUnitId) && userUnitId > 0)
+                unitId = userUnitId;
+        }
+
+        return (isAdmin, unitId);
     }
 
     [HttpGet("tree")]
@@ -71,6 +91,23 @@ public class DossierSearchController : ControllerBase
         return Ok(new { items, totalCount, page, pageSize });
     }
 
+    [HttpGet("catalog")]
+    public async Task<IActionResult> GetCatalogDossiers(
+        [FromQuery] string? keyword,
+        [FromQuery] Guid? infrastructureId,
+        [FromQuery] Guid? dossierTypeId,
+        [FromQuery] long? unitId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10)
+    {
+        if (page < 1) page = 1;
+        if (pageSize < 1) pageSize = 10;
+
+        var (items, totalCount) = await _dossierService.GetCatalogDossiersAsync(
+            keyword, infrastructureId, dossierTypeId, unitId, page, pageSize);
+        return Ok(new { items, totalCount, page, pageSize });
+    }
+
     [HttpGet("{id:guid}/related")]
     public async Task<IActionResult> GetRelatedDossiers(
         Guid id,
@@ -79,20 +116,22 @@ public class DossierSearchController : ControllerBase
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10)
     {
-        var dossier = await _dossierService.GetDetailByIdAsync(id);
-        if (dossier == null)
-            return NotFound(new { message = $"Không tìm thấy hồ sơ với ID = {id}" });
+        var (isAdmin, unitId) = ResolveUserScope();
+        if (!isAdmin && unitId is null)
+            return Unauthorized(new { message = "Không thể xác định đơn vị của người dùng" });
 
-        // Lấy danh sách hồ sơ có cùng InfrastructureId (trạm/đường dây)
+        var dossier = await _dossierService.GetPublishedDetailByIdAsync(id, isAdmin, unitId);
+        if (dossier == null)
+            return NotFound(new { message = $"Không tìm thấy hồ sơ đã xuất bản với ID = {id}" });
+
         var (items, totalCount) = await _dossierService.GetCatalogDossiersAsync(
-            keyword, 
-            dossier.InfrastructureId, 
-            dossierTypeId, 
-            null, // Lấy toàn bộ trong trạm mà không bắt buộc trùng đơn vị con nếu trạm dùng chung
-            page, 
+            keyword,
+            dossier.InfrastructureId,
+            dossierTypeId,
+            null,
+            page,
             pageSize);
 
-        // Loại bỏ hồ sơ hiện tại khỏi danh sách hồ sơ liên quan để tránh tự hiển thị chính nó
         var filteredItems = items.Where(item => item.Id != id).ToList();
         var count = totalCount;
         if (items.Count() != filteredItems.Count)
@@ -101,5 +140,34 @@ public class DossierSearchController : ControllerBase
         }
 
         return Ok(new { items = filteredItems, totalCount = count, page, pageSize });
+    }
+
+    [HttpGet("{id:guid}/equipments")]
+    public async Task<IActionResult> GetEquipments(Guid id)
+    {
+        var (isAdmin, unitId) = ResolveUserScope();
+        if (!isAdmin && unitId is null)
+            return Unauthorized(new { message = "Không thể xác định đơn vị của người dùng" });
+
+        var dossier = await _dossierService.GetPublishedDetailByIdAsync(id, isAdmin, unitId);
+        if (dossier is null)
+            return NotFound(new { message = $"Không tìm thấy hồ sơ đã xuất bản với ID = {id}" });
+
+        var equipments = await _dossierService.GetEquipmentsAsync(id);
+        return Ok(equipments);
+    }
+
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> GetDetail(Guid id)
+    {
+        var (isAdmin, unitId) = ResolveUserScope();
+        if (!isAdmin && unitId is null)
+            return Unauthorized(new { message = "Không thể xác định đơn vị của người dùng" });
+
+        var detail = await _dossierService.GetPublishedDetailByIdAsync(id, isAdmin, unitId);
+        if (detail is null)
+            return NotFound(new { message = $"Không tìm thấy hồ sơ đã xuất bản với ID = {id}" });
+
+        return Ok(detail);
     }
 }

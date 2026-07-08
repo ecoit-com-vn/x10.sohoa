@@ -160,7 +160,7 @@ public class DevController : ControllerBase
                 "MENU_VIEW", "MENU_MANAGE", 
                 "USER_GROUP_VIEW", "USER_GROUP_MANAGE", 
                 "UPLOAD_CONFIG_VIEW", "UPLOAD_CONFIG_MANAGE",
-                "AUDIT_LOG_VIEW", "AUDIT_LOG_DELETE",
+                "AUDIT_LOG_VIEW", "AUDIT_LOG_DELETE", "AUDIT_LOG_EXPORT",
                 "EQUIPMENT_VIEW", "EQUIPMENT_MANAGE",
                 "DIGITIZATION_VIEW", "DIGITIZATION_MANAGE",
                 "REPORT_VIEW", "REPORT_MANAGE", "REPORT_EXPORT"

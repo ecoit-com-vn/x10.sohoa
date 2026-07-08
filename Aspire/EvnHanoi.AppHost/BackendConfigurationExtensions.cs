@@ -18,7 +18,6 @@ internal static class BackendConfigurationExtensions
             .WithEnvIfSet("RabbitMQ__Username", configuration["RabbitMQ:Username"])
             .WithEnvIfSet("RabbitMQ__Password", configuration["RabbitMQ:Password"])
             .WithEnvIfSet("Elasticsearch__Url", configuration["Elasticsearch:Url"])
-            .WithEnvIfSet("Elasticsearch__Uri", configuration["Elasticsearch:Uri"] ?? configuration["Elasticsearch:Url"])
             .WithEnvIfSet("Jwt__Issuer", configuration["Jwt:Issuer"])
             .WithEnvIfSet("Jwt__Audience", configuration["Jwt:Audience"])
             .WithEnvIfSet("Jwt__Key", configuration["Jwt:Key"])

@@ -1,3 +1,5 @@
+using System.IO.Compression;
+using System.Text;
 using System.Text.Json;
 using EvnHanoi.EquipmentService.Core.DTOs;
 using EvnHanoi.EquipmentService.Core.Entities;
@@ -16,6 +18,7 @@ public interface IDocumentManagementService
     Task<Guid> CreateFolderAsync(CreateFolderDto dto, long unitId, string createdBy);
     Task<bool> UpdateFolderAsync(Guid id, UpdateFolderDto dto, string modifiedBy);
     Task<bool> DeleteFolderAsync(Guid id, string modifiedBy);
+    Task<(byte[] ZipBytes, string FileName)?> DownloadFolderAsZipAsync(Guid folderId, long userUnitId);
 
     // Document operations
     Task<(IEnumerable<DocumentListItemDto> Items, int TotalCount)> GetDocumentsByFolderAsync(Guid? folderId, DocumentFilterDto filter);
@@ -40,10 +43,17 @@ public interface IDocumentManagementService
 public class DocumentManagementService : IDocumentManagementService
 {
     private readonly IDocumentRepository _documentRepository;
+    private readonly IFileStorageService _fileStorageService;
+    private readonly ILogger<DocumentManagementService> _logger;
 
-    public DocumentManagementService(IDocumentRepository documentRepository)
+    public DocumentManagementService(
+        IDocumentRepository documentRepository,
+        IFileStorageService fileStorageService,
+        ILogger<DocumentManagementService> logger)
     {
         _documentRepository = documentRepository ?? throw new ArgumentNullException(nameof(documentRepository));
+        _fileStorageService = fileStorageService ?? throw new ArgumentNullException(nameof(fileStorageService));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     // ===== FOLDER OPERATIONS =====
@@ -113,6 +123,101 @@ public class DocumentManagementService : IDocumentManagementService
     public async Task<bool> DeleteFolderAsync(Guid id, string modifiedBy)
     {
         return await _documentRepository.DeleteFolderAsync(id, modifiedBy);
+    }
+
+    public async Task<(byte[] ZipBytes, string FileName)?> DownloadFolderAsZipAsync(Guid folderId, long userUnitId)
+    {
+        var folder = await _documentRepository.GetFolderByIdAsync(folderId);
+        if (folder == null)
+            return null;
+
+        if (userUnitId < folder.UnitId)
+            throw new UnauthorizedAccessException("Bạn không có quyền tải thư mục này");
+
+        using var memoryStream = new MemoryStream();
+        using (var zipArchive = new ZipArchive(memoryStream, ZipArchiveMode.Create, true))
+        {
+            await AddFolderToZipAsync(zipArchive, folderId, "");
+        }
+
+        memoryStream.Position = 0;
+        var zipBytes = memoryStream.ToArray();
+        var zipFileName = $"{SanitizeZipPathSegment(folder.Name)}.zip";
+        return (zipBytes, zipFileName);
+    }
+
+    private async Task AddFolderToZipAsync(ZipArchive zipArchive, Guid folderId, string currentPath)
+    {
+        var documents = await _documentRepository.GetFolderDocumentsForZipAsync(folderId);
+        var usedEntryNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var document in documents)
+        {
+            if (string.IsNullOrWhiteSpace(document.FilePath))
+                continue;
+
+            try
+            {
+                await using var fileStream = await _fileStorageService.DownloadFileAsync(document.FilePath);
+                var entryName = BuildUniqueZipEntryName(currentPath, document.DocumentName, usedEntryNames);
+                var zipEntry = zipArchive.CreateEntry(entryName, CompressionLevel.Optimal);
+                await using var entryStream = zipEntry.Open();
+                await fileStream.CopyToAsync(entryStream);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to add document {DocumentName} to zip archive", document.DocumentName);
+            }
+        }
+
+        var subfolders = await _documentRepository.GetChildFoldersByParentAsync(folderId);
+        foreach (var subfolder in subfolders)
+        {
+            var segment = SanitizeZipPathSegment(subfolder.Name);
+            var nextPath = string.IsNullOrEmpty(currentPath) ? segment : $"{currentPath}/{segment}";
+            await AddFolderToZipAsync(zipArchive, subfolder.Id, nextPath);
+        }
+    }
+
+    private static string BuildUniqueZipEntryName(string currentPath, string documentName, HashSet<string> usedEntryNames)
+    {
+        var baseName = SanitizeZipPathSegment(documentName);
+        var entryName = string.IsNullOrEmpty(currentPath) ? baseName : $"{currentPath}/{baseName}";
+
+        if (usedEntryNames.Add(entryName))
+            return entryName;
+
+        var extension = Path.GetExtension(baseName);
+        var nameWithoutExt = Path.GetFileNameWithoutExtension(baseName);
+        var counter = 1;
+        string candidate;
+        do
+        {
+            var suffix = string.IsNullOrEmpty(extension)
+                ? $"{nameWithoutExt}_{counter}"
+                : $"{nameWithoutExt}_{counter}{extension}";
+            candidate = string.IsNullOrEmpty(currentPath) ? suffix : $"{currentPath}/{suffix}";
+            counter++;
+        } while (!usedEntryNames.Add(candidate));
+
+        return candidate;
+    }
+
+    private static string SanitizeZipPathSegment(string name)
+    {
+        var trimmed = name.Trim();
+        if (string.IsNullOrEmpty(trimmed))
+            return "unnamed";
+
+        var invalid = Path.GetInvalidFileNameChars();
+        var builder = new StringBuilder(trimmed.Length);
+        foreach (var ch in trimmed)
+        {
+            builder.Append(invalid.Contains(ch) ? '_' : ch);
+        }
+
+        var result = builder.ToString().Trim();
+        return string.IsNullOrEmpty(result) ? "unnamed" : result;
     }
 
     // ===== DOCUMENT OPERATIONS =====

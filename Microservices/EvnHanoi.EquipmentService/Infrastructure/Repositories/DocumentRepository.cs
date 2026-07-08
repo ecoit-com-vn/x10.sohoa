@@ -51,7 +51,8 @@ public class DocumentRepository : IDocumentRepository
                 f.CREATED_BY AS CreatedBy,
                 f.CREATED_DATE AS CreatedDate,
                 f.MODIFIED_BY AS ModifiedBy,
-                f.MODIFIED_DATE AS ModifiedDate
+                f.MODIFIED_DATE AS ModifiedDate,
+                f.ROW_VERSION AS RowVersion
             FROM FOLDERS f
             INNER JOIN ORGANIZATION_UNIT ou ON ou.ID = f.UNIT_ID
             WHERE f.UNIT_ID = :UnitId 
@@ -76,7 +77,8 @@ public class DocumentRepository : IDocumentRepository
                 f.CREATED_BY AS CreatedBy,
                 f.CREATED_DATE AS CreatedDate,
                 f.MODIFIED_BY AS ModifiedBy,
-                f.MODIFIED_DATE AS ModifiedDate
+                f.MODIFIED_DATE AS ModifiedDate,
+                f.ROW_VERSION AS RowVersion
             FROM FOLDERS f
             INNER JOIN ORGANIZATION_UNIT ou ON ou.ID = f.UNIT_ID
             WHERE f.ID = :Id 
@@ -185,6 +187,62 @@ public class DocumentRepository : IDocumentRepository
         var sql = "SELECT COUNT(*) FROM FOLDERS WHERE ID = :Id AND IS_DELETED = 0";
         var count = await _connection.ExecuteScalarAsync<int>(sql, new { Id = id.ToString() });
         return count > 0;
+    }
+
+    public async Task<IEnumerable<FolderNodeDto>> GetChildFoldersByParentAsync(Guid parentId)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        var sql = @"
+            SELECT 
+                f.ID,
+                f.NAME,
+                f.PARENT_ID AS ParentId,
+                f.UNIT_ID AS UnitId,
+                ou.CODE AS UnitCode,
+                f.CREATED_BY AS CreatedBy,
+                f.CREATED_DATE AS CreatedDate,
+                f.MODIFIED_BY AS ModifiedBy,
+                f.MODIFIED_DATE AS ModifiedDate,
+                f.ROW_VERSION AS RowVersion
+            FROM FOLDERS f
+            INNER JOIN ORGANIZATION_UNIT ou ON ou.ID = f.UNIT_ID
+            WHERE f.PARENT_ID = :ParentId
+              AND f.IS_DELETED = 0
+            ORDER BY f.NAME ASC";
+
+        return await _connection.QueryAsync<FolderNodeDto>(sql, new { ParentId = parentId.ToString() });
+    }
+
+    public async Task<IEnumerable<FolderZipDocumentDto>> GetFolderDocumentsForZipAsync(Guid folderId)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        var sql = @"
+            SELECT
+                d.NAME AS DocumentName,
+                dv.FILE_PATH AS FilePath
+            FROM DOCUMENTS d
+            INNER JOIN (
+                SELECT dv2.DOCUMENT_ID, dv2.FILE_PATH
+                FROM DOCUMENT_VERSIONS dv2
+                INNER JOIN (
+                    SELECT DOCUMENT_ID, MAX(VERSION_NUMBER) AS MAX_VER
+                    FROM DOCUMENT_VERSIONS
+                    WHERE IS_DELETED = 0
+                    GROUP BY DOCUMENT_ID
+                ) mx ON mx.DOCUMENT_ID = dv2.DOCUMENT_ID AND mx.MAX_VER = dv2.VERSION_NUMBER
+                WHERE dv2.IS_DELETED = 0
+                  AND dv2.FILE_PATH IS NOT NULL
+            ) dv ON dv.DOCUMENT_ID = d.ID
+            WHERE d.IS_DELETED = 0
+              AND d.DOSSIER_ID IS NULL
+              AND d.FOLDER_ID = :FolderId
+            ORDER BY d.NAME ASC";
+
+        return await _connection.QueryAsync<FolderZipDocumentDto>(sql, new { FolderId = folderId.ToString() });
     }
 
     // ===== DOCUMENT OPERATIONS =====

@@ -1,5 +1,6 @@
 using EvnHanoi.Infrastructure.Logging;
 using EvnHanoi.Infrastructure.Security;
+using EvnHanoi.Infrastructure.Audit;
 using EvnHanoi.Infrastructure.Database;
 using EvnHanoi.NotificationService.Hubs;
 using EvnHanoi.NotificationService.Services;
@@ -40,10 +41,12 @@ var rabbitFactory = new ConnectionFactory
 
 var rabbitConnection = await rabbitFactory.CreateConnectionAsync();
 builder.Services.AddSingleton<IConnection>(rabbitConnection);
+builder.Services.AddAuditInfrastructure("NotificationService");
 
 builder.Services.AddControllers(options =>
 {
     options.Filters.Add<DynamicPermissionFilter>();
+    options.Filters.Add<AuditActionFilter>();
 });
 builder.Services.AddStructuredValidationErrors();
 builder.Services.AddDapperInfrastructure(builder.Configuration);
@@ -68,6 +71,7 @@ else
 builder.Services.AddSingleton<NotificationDispatcher>();
 builder.Services.AddMemoryCache();
 builder.Services.AddPermissionDiscovery("NotificationService");
+builder.Services.AddScoped<EvnHanoi.NotificationService.Services.IAuditLogExportService, EvnHanoi.NotificationService.Services.AuditLogExportService>();
 builder.Services.AddScoped<EvnHanoi.NotificationService.Repositories.IAuditLogRepository, EvnHanoi.NotificationService.Repositories.AuditLogRepository>();
 builder.Services.AddScoped<EvnHanoi.NotificationService.Services.IAuditLogService, EvnHanoi.NotificationService.Services.AuditLogService>();
 builder.Services.AddScoped<EvnHanoi.NotificationService.Repositories.IDossierEnrichmentRepository, EvnHanoi.NotificationService.Repositories.DossierEnrichmentRepository>();
@@ -126,6 +130,7 @@ builder.Services.AddHttpClient("IdentityService", client =>
 builder.Services.AddHostedService<EquipmentIndexWorker>();
 builder.Services.AddHostedService<DossierIndexWorker>();
 builder.Services.AddHostedService<DocumentIndexWorker>();
+builder.Services.AddHostedService<AuditEventWorker>();
 
 var app = builder.Build();
 

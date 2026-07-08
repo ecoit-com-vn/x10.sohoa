@@ -138,6 +138,35 @@ public partial class DocumentController : ControllerBase
         return NoContent();
     }
 
+    /// <summary>
+    /// Tải thư mục (bao gồm thư mục con) dưới dạng file ZIP.
+    /// </summary>
+    [HttpGet("folders/{id}/download-zip")]
+    public async Task<IActionResult> DownloadFolderAsZip([FromRoute] Guid id)
+    {
+        var unitId = GetUserUnitId();
+        if (unitId == 0)
+            return Unauthorized(new { code = "UNAUTHORIZED", message = "Không thể xác định đơn vị của người dùng" });
+
+        try
+        {
+            var result = await _documentService.DownloadFolderAsZipAsync(id, unitId);
+            if (result == null)
+                return NotFound(new { code = "NOT_FOUND", message = "Thư mục không tồn tại" });
+
+            return File(result.Value.ZipBytes, "application/zip", result.Value.FileName);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(403, new { code = "FORBIDDEN", message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating zip download for folder {FolderId}", id);
+            return StatusCode(500, new { code = "ZIP_ERROR", message = "Không thể tạo file ZIP thư mục" });
+        }
+    }
+
     // ===== DOCUMENT ENDPOINTS =====
 
     /// <summary>

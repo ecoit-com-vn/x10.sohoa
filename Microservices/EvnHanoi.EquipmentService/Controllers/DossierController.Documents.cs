@@ -5,6 +5,7 @@ using EvnHanoi.EquipmentService.Core.DTOs;
 using EvnHanoi.EquipmentService.Core.Interfaces;
 using EvnHanoi.EquipmentService.Core.Services;
 using EvnHanoi.Infrastructure.Security;
+using EvnHanoi.Infrastructure.Audit;
 
 namespace EvnHanoi.EquipmentService.Controllers;
 
@@ -96,6 +97,7 @@ public abstract partial class DossierControllerBase
                 GetUserUnitId(),
                 UserFullName,
                 cancellationToken);
+            HttpContext.SetAudit(id.ToString(), file.FileName, $"Upload tài liệu vào hồ sơ {id}: {file.FileName}", "DOCUMENT", AuditActions.Import);
             return Ok(result);
         }
         catch (KeyNotFoundException ex)

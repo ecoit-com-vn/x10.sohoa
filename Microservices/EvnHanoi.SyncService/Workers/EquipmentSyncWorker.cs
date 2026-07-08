@@ -32,7 +32,7 @@ public class EquipmentSyncWorker : BackgroundService
         _connection = connection;
 
         // Configure Elasticsearch Client
-        var esUrl = _configuration["Elasticsearch:Uri"] ?? "http://localhost:9200";
+        var esUrl = _configuration["Elasticsearch:Url"] ?? "http://localhost:9200";
         var settings = new ConnectionSettings(new Uri(esUrl))
             .DefaultIndex("equipment_index");
         _elasticClient = new ElasticClient(settings);

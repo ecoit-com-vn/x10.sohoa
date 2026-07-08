@@ -6,6 +6,7 @@ using EvnHanoi.EquipmentService.Core.Interfaces;
 using EvnHanoi.EquipmentService.Core.DTOs;
 using EvnHanoi.EquipmentService.Core.Services;
 using EvnHanoi.Infrastructure.Security;
+using EvnHanoi.Infrastructure.Audit;
 
 namespace EvnHanoi.EquipmentService.Controllers;
 
@@ -90,8 +91,12 @@ public abstract partial class DossierControllerBase : ControllerBase
         return Ok(new { items, totalCount, page, pageSize });
     }
 
+    /// <summary>
+    /// Danh sách hồ sơ đã xuất bản theo hộp — dùng bởi caller cũ; ưu tiên GET /api/v1/dossiers/search/catalog.
+    /// </summary>
     [HttpGet("catalog")]
     [BypassDynamicPermission]
+    [Obsolete("Dùng GET /api/v1/dossiers/search/catalog (SEARCH_DOSSIERS_IN_WAREHOUSE_VIEW).")]
     public async Task<IActionResult> GetCatalogDossiers(
         [FromQuery] string? keyword,
         [FromQuery] Guid? infrastructureId,
@@ -210,6 +215,7 @@ public abstract partial class DossierControllerBase : ControllerBase
         if (dto == null) return BadRequest(new { message = "Dữ liệu không hợp lệ." });
 
         var newId = await _dossierService.CreateAsync(dto, UserId, UserName, UserFullName, ExpectedKindId);
+        HttpContext.SetAudit(newId.ToString(), null, $"Tạo hồ sơ mới (ID: {newId})", "DOSSIER", AuditActions.Create);
         return CreatedAtAction(nameof(GetDetail), new { id = newId }, new { id = newId });
     }
 
@@ -226,6 +232,7 @@ public abstract partial class DossierControllerBase : ControllerBase
         try
         {
             await _dossierService.UpdateAsync(id, dto, UserId);
+            HttpContext.SetAudit(id.ToString(), null, $"Cập nhật hồ sơ {id}", "DOSSIER", AuditActions.Update);
             return NoContent();
         }
         catch (KeyNotFoundException ex)
@@ -252,7 +259,14 @@ public abstract partial class DossierControllerBase : ControllerBase
 
         try
         {
+            var detail = await _dossierService.GetDetailByIdAsync(id);
             await _dossierService.DeleteAsync(id, UserId);
+            HttpContext.SetAudit(
+                id.ToString(),
+                detail?.InfrastructureCode,
+                $"Xóa hồ sơ {detail?.InfrastructureCode ?? id.ToString()}",
+                "DOSSIER",
+                AuditActions.Delete);
             return NoContent();
         }
         catch (KeyNotFoundException ex)

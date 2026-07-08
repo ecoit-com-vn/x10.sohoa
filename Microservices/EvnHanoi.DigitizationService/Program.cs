@@ -5,6 +5,7 @@ using EvnHanoi.Infrastructure.Database;
 using EvnHanoi.Infrastructure.Logging;
 using EvnHanoi.Infrastructure.Messaging;
 using EvnHanoi.Infrastructure.Security;
+using EvnHanoi.Infrastructure.Audit;
 using Serilog;
 using Scalar.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -26,7 +27,10 @@ builder.Host.UseSerilog((context, services, configuration) =>
 });
 
 // Add services to the container.
-builder.Services.AddControllers();
+builder.Services.AddControllers(options =>
+{
+    options.Filters.Add<AuditActionFilter>();
+});
 builder.Services.AddStructuredValidationErrors();
 builder.Services.AddOpenApi();
 
@@ -41,6 +45,7 @@ var rabbitFactory = new ConnectionFactory
 };
 var rabbitConnection = await rabbitFactory.CreateConnectionAsync();
 builder.Services.AddSingleton<IConnection>(rabbitConnection);
+builder.Services.AddAuditInfrastructure("DigitizationService");
 builder.Services.AddHostedService<DigitizationMessagingTopologyInitializer>();
 
 builder.Services.AddDapperInfrastructure(builder.Configuration);

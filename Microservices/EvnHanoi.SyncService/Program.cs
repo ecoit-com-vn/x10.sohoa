@@ -1,6 +1,7 @@
 using EvnHanoi.Infrastructure.Database;
 using EvnHanoi.Infrastructure.Logging;
 using EvnHanoi.Infrastructure.Security;
+using EvnHanoi.Infrastructure.Audit;
 using EvnHanoi.SyncService.Schedulers;
 using Polly;
 using Polly.Extensions.Http;
@@ -21,7 +22,10 @@ builder.AddServiceDefaults();
 builder.Host.UseSerilog(SerilogSetupHelper.ConfigureSerilog);
 
 builder.Services.AddOpenApi();
-builder.Services.AddControllers();
+builder.Services.AddControllers(options =>
+{
+    options.Filters.Add<AuditActionFilter>();
+});
 
 // Run DbUp Migrations
 DatabaseMigrationHelper.RunMigrations(builder.Configuration, "SyncService");
@@ -89,6 +93,7 @@ var rabbitFactory = new ConnectionFactory
 };
 var rabbitConnection = await rabbitFactory.CreateConnectionAsync();
 builder.Services.AddSingleton<IConnection>(rabbitConnection);
+builder.Services.AddAuditInfrastructure("SyncService");
 
 builder.Services.AddSingleton<EvnHanoi.SyncService.Services.IPmisSyncTriggerService, EvnHanoi.SyncService.Services.PmisSyncTriggerService>();
 builder.Services.AddHostedService<EvnHanoi.SyncService.Workers.EquipmentSyncWorker>();

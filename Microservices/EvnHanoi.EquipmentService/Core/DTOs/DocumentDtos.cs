@@ -16,6 +16,7 @@ public class FolderNodeDto
     public DateTime CreatedDate { get; set; }
     public string? ModifiedBy { get; set; }
     public DateTime? ModifiedDate { get; set; }
+    public int RowVersion { get; set; }
 }
 
 /// <summary>
@@ -34,6 +35,15 @@ public class UpdateFolderDto
 {
     public string Name { get; set; } = string.Empty;
     public int RowVersion { get; set; }
+}
+
+/// <summary>
+/// Tài liệu trong thư mục kèm đường dẫn file MinIO — dùng nén ZIP thư mục.
+/// </summary>
+public class FolderZipDocumentDto
+{
+    public string DocumentName { get; set; } = string.Empty;
+    public string FilePath { get; set; } = string.Empty;
 }
 
 // ===== DOCUMENT DTOs =====

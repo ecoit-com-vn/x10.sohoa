@@ -28,6 +28,8 @@ public static class PermissionCodeResolver
             "DossierDigitizationWorkflow" => "DOSSIER_DIGITIZATION",
             "DossierByEquipment" => "SEARCH_DOSSIERS_BY_EQUIPMENT",
             "SearchDossiersByEquipment" => "SEARCH_DOSSIERS_BY_EQUIPMENT",
+            "DossierSearch" => "SEARCH_DOSSIERS_IN_WAREHOUSE",
+            "DossierCatalog" => "SEARCH_DOSSIERS_IN_WAREHOUSE",
             "ReportDossierByGridType" => "REPORT_DOSSIER_BY_GRIDTYPE",
             "ReportDossierByEquipment" => "REPORT_DOSSIER_BY_EQUIPMENT",
             "ReportDossierByStation" => "REPORT_DOSSIER_BY_STATION",
@@ -68,6 +70,14 @@ public static class PermissionCodeResolver
         // Tra cứu hồ sơ thiết bị: mọi GET → VIEW
         if ((string.Equals(controllerKey, "DossierByEquipment", StringComparison.OrdinalIgnoreCase) ||
              string.Equals(controllerKey, "SearchDossiersByEquipment", StringComparison.OrdinalIgnoreCase)) &&
+            httpMethod.Equals("GET", StringComparison.OrdinalIgnoreCase))
+        {
+            return "VIEW";
+        }
+
+        // Tìm kiếm hồ sơ trong kho: mọi GET → VIEW
+        if ((string.Equals(controllerKey, "DossierSearch", StringComparison.OrdinalIgnoreCase) ||
+             string.Equals(controllerKey, "DossierCatalog", StringComparison.OrdinalIgnoreCase)) &&
             httpMethod.Equals("GET", StringComparison.OrdinalIgnoreCase))
         {
             return "VIEW";
@@ -192,6 +202,7 @@ public static class PermissionCodeResolver
             "DOSSIER_PUBLISH_RELEASE" => "Xuất bản hồ sơ",
             "DOSSIER_PUBLISH_VIEW" => "Xem xuất bản hồ sơ",
             "SEARCH_DOSSIERS_BY_EQUIPMENT_VIEW" => "Tra cứu hồ sơ thiết bị",
+            "SEARCH_DOSSIERS_IN_WAREHOUSE_VIEW" => "Tìm kiếm hồ sơ trong kho",
             "REPORT_DOSSIER_BY_GRIDTYPE_VIEW" => "Xem báo cáo hồ sơ theo loại lưới điện",
             "REPORT_DOSSIER_BY_GRIDTYPE_EXPORT" => "Xuất Excel báo cáo theo loại lưới điện",
             "REPORT_DOSSIER_BY_EQUIPMENT_VIEW" => "Xem báo cáo hồ sơ theo thiết bị",
@@ -218,6 +229,9 @@ public static class PermissionCodeResolver
             "EAV_FORM_TEMPLATE_COMPLETED_VIEW" => "Xem danh sách form hoàn thành",
             "EAV_FORM_TEMPLATE_MANAGE" => "Khóa / mở khóa biểu mẫu",
             "EAV_FORM_TEMPLATE_DELETE" => "Xóa biểu mẫu",
+            "AUDIT_LOG_VIEW" => "Xem nhật ký hệ thống",
+            "AUDIT_LOG_DELETE" => "Xóa nhật ký hệ thống",
+            "AUDIT_LOG_EXPORT" => "Xuất nhật ký hệ thống",
             _ => null
         };
     }
