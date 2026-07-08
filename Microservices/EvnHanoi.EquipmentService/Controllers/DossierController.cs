@@ -91,8 +91,12 @@ public abstract partial class DossierControllerBase : ControllerBase
         return Ok(new { items, totalCount, page, pageSize });
     }
 
+    /// <summary>
+    /// Danh sách hồ sơ đã xuất bản theo hộp — dùng bởi caller cũ; ưu tiên GET /api/v1/dossiers/search/catalog.
+    /// </summary>
     [HttpGet("catalog")]
     [BypassDynamicPermission]
+    [Obsolete("Dùng GET /api/v1/dossiers/search/catalog (SEARCH_DOSSIERS_IN_WAREHOUSE_VIEW).")]
     public async Task<IActionResult> GetCatalogDossiers(
         [FromQuery] string? keyword,
         [FromQuery] Guid? infrastructureId,

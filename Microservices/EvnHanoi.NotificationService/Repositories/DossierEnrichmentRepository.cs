@@ -140,6 +140,8 @@ public class DossierEnrichmentRepository : IDossierEnrichmentRepository
 
             await EnrichWorkflowFieldsAsync(connection, data);
 
+            await ResolveCreatorDisplayNameAsync(connection, data);
+
             await ResolveCurrentHandlerNameAsync(connection, data);
 
             return data;
@@ -733,6 +735,28 @@ public class DossierEnrichmentRepository : IDossierEnrichmentRepository
 
 
 
+    private static async Task ResolveCreatorDisplayNameAsync(IDbConnection connection, DossierEnrichmentData data)
+
+    {
+
+        var resolved = await ResolveUserDisplayNameAsync(
+
+            connection,
+
+            data.CreatorId,
+
+            data.CreatorUsername,
+
+            data.CreatorName);
+
+        if (!string.IsNullOrWhiteSpace(resolved))
+
+            data.CreatorName = resolved;
+
+    }
+
+
+
     private static async Task ResolveCurrentHandlerNameAsync(IDbConnection connection, DossierEnrichmentData data)
 
     {
@@ -741,7 +765,13 @@ public class DossierEnrichmentRepository : IDossierEnrichmentRepository
 
         {
 
-            data.CurrentHandlerName = await LookupUserFullNameAsync(connection, data.PendingAssigneeUserId);
+            data.CurrentHandlerName = await ResolveUserDisplayNameAsync(
+
+                connection,
+
+                data.PendingAssigneeUserId,
+
+                data.CreatorUsername);
 
             return;
 
@@ -753,11 +783,15 @@ public class DossierEnrichmentRepository : IDossierEnrichmentRepository
 
         {
 
-            data.CurrentHandlerName = string.IsNullOrWhiteSpace(data.CreatorName)
+            data.CurrentHandlerName = await ResolveUserDisplayNameAsync(
 
-                ? await LookupUserFullNameAsync(connection, data.CreatorId)
+                connection,
 
-                : data.CreatorName;
+                data.CreatorId,
+
+                data.CreatorUsername,
+
+                data.CreatorName);
 
             return;
 
@@ -771,11 +805,65 @@ public class DossierEnrichmentRepository : IDossierEnrichmentRepository
 
 
 
-    private static async Task<string?> LookupUserFullNameAsync(IDbConnection connection, string? userId)
+    private static async Task<string?> ResolveUserDisplayNameAsync(
+
+        IDbConnection connection,
+
+        string? primaryKey,
+
+        string? usernameKey,
+
+        string? fallbackName = null)
 
     {
 
-        if (string.IsNullOrWhiteSpace(userId))
+        var fromPrimary = await LookupUserFullNameAsync(connection, primaryKey);
+
+        if (!string.IsNullOrWhiteSpace(fromPrimary))
+
+            return fromPrimary.Trim();
+
+
+
+        var fromUsername = await LookupUserFullNameAsync(connection, usernameKey);
+
+        if (!string.IsNullOrWhiteSpace(fromUsername))
+
+            return fromUsername.Trim();
+
+
+
+        if (!string.IsNullOrWhiteSpace(fallbackName))
+
+        {
+
+            var trimmed = fallbackName.Trim();
+
+            if (!string.Equals(trimmed, usernameKey?.Trim(), StringComparison.OrdinalIgnoreCase)
+
+                && !string.Equals(trimmed, primaryKey?.Trim(), StringComparison.OrdinalIgnoreCase))
+
+            {
+
+                return trimmed;
+
+            }
+
+        }
+
+
+
+        return null;
+
+    }
+
+
+
+    private static async Task<string?> LookupUserFullNameAsync(IDbConnection connection, string? userIdOrUsername)
+
+    {
+
+        if (string.IsNullOrWhiteSpace(userIdOrUsername))
 
             return null;
 
@@ -787,7 +875,11 @@ public class DossierEnrichmentRepository : IDossierEnrichmentRepository
 
             FROM APP_USER
 
-            WHERE LOWER(TRIM(Id)) = LOWER(TRIM(:UserId))
+            WHERE (LOWER(TRIM(Id)) = LOWER(TRIM(:Key))
+
+               OR LOWER(TRIM(UserName)) = LOWER(TRIM(:Key)))
+
+              AND NVL(IsDeleted, 0) = 0
 
             FETCH FIRST 1 ROWS ONLY
 
@@ -795,7 +887,7 @@ public class DossierEnrichmentRepository : IDossierEnrichmentRepository
 
 
 
-        return await connection.QueryFirstOrDefaultAsync<string?>(sql, new { UserId = userId.Trim() });
+        return await connection.QueryFirstOrDefaultAsync<string?>(sql, new { Key = userIdOrUsername.Trim() });
 
     }
 

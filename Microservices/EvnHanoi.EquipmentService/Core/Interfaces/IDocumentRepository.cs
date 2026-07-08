@@ -12,6 +12,8 @@ public interface IDocumentRepository
     Task<bool> UpdateFolderAsync(Folder folder);
     Task<bool> DeleteFolderAsync(Guid id, string modifiedBy);
     Task<bool> FolderExistsAsync(Guid id);
+    Task<IEnumerable<FolderNodeDto>> GetChildFoldersByParentAsync(Guid parentId);
+    Task<IEnumerable<FolderZipDocumentDto>> GetFolderDocumentsForZipAsync(Guid folderId);
 
     // Document operations
     Task<(IEnumerable<DocumentListItemDto> Items, int TotalCount)> GetDocumentsByFolderAsync(Guid? folderId, DocumentFilterDto filter);
