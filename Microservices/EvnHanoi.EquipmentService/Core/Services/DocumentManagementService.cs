@@ -273,8 +273,11 @@ public class DocumentManagementService : IDocumentManagementService
         // 1. Mapping Trạm biến áp (4 cấp)
         foreach (var sub in substations)
         {
-            bool isHighVoltageSub = (sub.Name != null && (sub.Name.Contains("110") || sub.Name.Contains("220") || sub.Name.Contains("500")))
-                                    || (sub.Code != null && (sub.Code.Contains("110") || sub.Code.Contains("220") || sub.Code.Contains("500")));
+            bool isHighVoltageSub = sub.GridTypeId == 1 || 
+                                    (sub.GridTypeId == null && (
+                                        (sub.Name != null && (sub.Name.Contains("110") || sub.Name.Contains("220") || sub.Name.Contains("500")))
+                                        || (sub.Code != null && (sub.Code.Contains("110") || sub.Code.Contains("220") || sub.Code.Contains("500")))
+                                    ));
 
             string parentId = isHighVoltageSub ? "tba-cao-ap" : "tba-trung-ap";
             string subNodeId = isHighVoltageSub ? $"tba-cao-ap_{sub.Id}" : $"tba-trung-ap_{sub.Id}";
@@ -323,8 +326,11 @@ public class DocumentManagementService : IDocumentManagementService
         // 2. Mapping Đường dây (4 cấp)
         foreach (var infra in powerLines)
         {
-            bool isHighVoltageInfra = (infra.Name != null && (infra.Name.Contains("110") || infra.Name.Contains("220") || infra.Name.Contains("500")))
-                                      || (infra.Code != null && (infra.Code.Contains("110") || infra.Code.Contains("220") || infra.Code.Contains("500")));
+            bool isHighVoltageInfra = infra.GridTypeId == 1 || 
+                                      (infra.GridTypeId == null && (
+                                          (infra.Name != null && (infra.Name.Contains("110") || infra.Name.Contains("220") || infra.Name.Contains("500")))
+                                          || (infra.Code != null && (infra.Code.Contains("110") || infra.Code.Contains("220") || infra.Code.Contains("500")))
+                                      ));
 
             string parentId = isHighVoltageInfra ? "dd-cao-ap" : "dd-trung-ap";
             string lineNodeId = isHighVoltageInfra ? $"dd-cao-ap_{infra.Id}" : $"dd-trung-ap_{infra.Id}";

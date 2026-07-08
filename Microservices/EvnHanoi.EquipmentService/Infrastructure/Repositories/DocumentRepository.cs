@@ -1016,7 +1016,7 @@ public class DocumentRepository : IDocumentRepository
             _connection.Open();
 
         const string infrastructureSql = @"
-            SELECT ID as Id, NAME as Name, CODE as Code, INFRA_TYPE_ID as InfraTypeId
+            SELECT ID as Id, NAME as Name, CODE as Code, INFRA_TYPE_ID as InfraTypeId, GridTypeId
             FROM INFRASTRUCTURE
             WHERE IsDeleted = 0 AND IS_ACTIVE = 1 AND INFRA_TYPE_ID IN (1, 2) 
               AND UNIT_ID IN (
