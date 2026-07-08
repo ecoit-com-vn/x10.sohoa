@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '@env/environment';
+import { AuditLogService } from '@sohoa.frontend/shared/core';
 
 interface ActivityLog {
   id: string;
@@ -31,6 +32,7 @@ interface RecentDossier {
 })
 export class DashboardComponent implements OnInit {
   private http = inject(HttpClient);
+  private auditLogService = inject(AuditLogService);
 
   loading = false;
   totalEquipment = 3248;
@@ -185,17 +187,17 @@ export class DashboardComponent implements OnInit {
     });
 
     // 4. Tải danh sách thao tác (Audit Logs) thực tế
-    this.http.get<any>(`${environment.apiGatewayUrl}/api/v1/audit-logs/recent`).subscribe({
+    this.auditLogService.getRecent().subscribe({
       next: (res) => {
-        const logs = res.logs || [];
+        const logs = res.logs || res.Logs || [];
         if (logs.length > 0) {
           this.recentActivities = logs.slice(0, 5).map((item: any, idx: number) => ({
             id: item.id ? item.id.substring(0, 8) : `AL-${100 + idx}`,
             action: item.action || 'USER_ACTION',
             user: item.userName || item.user || 'system',
-            time: new Date(item['@timestamp'] || item.timestamp || Date.now()).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
-            status: item.action?.includes('ERROR') || item.action?.includes('FAIL') ? 'warning' : 'success',
-            detail: item.details || item.message || 'Thao tác hệ thống'
+            time: new Date(item.timestamp || item.occurredAt || item['@timestamp'] || Date.now()).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+            status: item.statusCode && item.statusCode >= 400 ? 'warning' : 'success',
+            detail: [item.serviceName, item.resourceName, item.details].filter(Boolean).join(' — ') || 'Thao tác hệ thống'
           }));
         } else {
           this.fallbackActivities();
