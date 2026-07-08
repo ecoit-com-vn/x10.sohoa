@@ -2,9 +2,9 @@
   <wf-breadcrumb />
 
   <!-- TWO SEPARATE CARDS -->
-  <div style="display: flex; gap: 16px; height: 100%;">
+  <div class="document-layout">
     <!-- LEFT CARD: Folder Tree -->
-    <div class="wf-card" style="width: 380px; overflow-y: auto;">
+    <div class="wf-card document-folder-panel">
       <!-- Header with colored background -->
       <div
         style="
@@ -211,57 +211,48 @@
     </div>
 
     <!-- RIGHT CARD: List View / Form View -->
-    <div class="wf-card document-right-panel" style="flex: 1; overflow-y: auto;">
-      <!-- LIST VIEW (giữ hiển thị khi mở popup upload) -->
-      <ng-container *ngIf="currentView() === 'list' || currentView() === 'upload'">
+    <div class="wf-card document-right-panel">
+      <!-- LIST VIEW (giữ hiển thị khi mở popup upload / thêm-sửa thư mục) -->
+      <ng-container *ngIf="currentView() === 'list' || currentView() === 'upload' || currentView() === 'add_folder' || currentView() === 'edit_folder'">
         <!-- Breadcrumb path (clickable) -->
-        <div style="margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #e5e7eb;">
-          <div style="display: flex; align-items: center; gap: 4px; flex-wrap: wrap;">
-            <span
-              style="
-                font-weight: bold;
-                color: #6b7280;
-                font-size: 0.9rem;
-              "
-            >
-              Vị trí:
-            </span>
+        <div class="location-header">
+          <div class="location-breadcrumb">
+            <span class="location-label">Vị trí:</span>
             <ng-container *ngIf="breadcrumbPath().length > 0; else emptyBreadcrumb">
               <button
                 *ngFor="let folder of breadcrumbPath(); let isLast = last"
                 (click)="selectFolder(folder)"
-                style="
-                  background: none;
-                  border: none;
-                  padding: 0;
-                  cursor: pointer;
-                  font-size: 0.9rem;
-                  display: flex;
-                  align-items: center;
-                  gap: 4px;
-                "
+                class="breadcrumb-item-btn"
                 [style.font-weight]="selectedFolder()?.id === folder.id ? 'bold' : 'normal'"
                 [style.color]="selectedFolder()?.id === folder.id ? '#3b82f6' : '#6b7280'"
               >
                 {{ folder.name }}
-                <span *ngIf="!isLast" style="color: #9ca3af;">/</span>
+                <span *ngIf="!isLast" class="breadcrumb-separator">/</span>
               </button>
             </ng-container>
             <ng-template #emptyBreadcrumb>
-              <span style="font-weight: bold; color: #3b82f6; font-size: 0.9rem;">
-                Kho tài liệu thiết bị
-              </span>
+              <span class="location-current">Kho tài liệu thiết bị</span>
             </ng-template>
           </div>
+          <button
+            type="button"
+            class="btn-outlined btn-small location-download-btn"
+            [disabled]="!selectedFolder() || downloadingFolderZip()"
+            (click)="onDownloadFolder()"
+            title="Tải thư mục dưới dạng ZIP"
+          >
+            <i class="pi" [ngClass]="downloadingFolderZip() ? 'pi-spin pi-spinner' : 'pi-download'"></i>
+            Tải ZIP
+          </button>
         </div>
 
-        <!-- Document list table -->
+        <!-- Document & subfolder list table -->
         <div class="wf-table-wrap" [class.loading]="loadingDocuments()">
           <table class="wf-table">
             <thead>
               <tr>
                 <th class="col-stt">STT</th>
-                <th>Tên tài liệu</th>
+                <th>Tên</th>
                 <th style="width: 110px;">Kích thước</th>
                 <th style="width: 150px;">Ngày tạo</th>
                 <th style="width: 120px;">Người tạo</th>
@@ -272,14 +263,65 @@
               <tr *ngIf="loadingDocuments()">
                 <td colspan="6" class="empty-row">
                   <i class="pi pi-spin pi-spinner"></i>
-                  <div>Đang tải danh sách tài liệu...</div>
+                  <div>Đang tải danh sách...</div>
                 </td>
               </tr>
+
+              <!-- Subfolders -->
+              <tr
+                *ngFor="let folder of subFolders(); let i = index; trackBy: trackByFolderId"
+                [hidden]="loadingDocuments()"
+                class="folder-row-table"
+              >
+                <td class="col-stt text-muted">{{ i + 1 }}</td>
+                <td>
+                  <div class="table-item-name-container">
+                    <i class="pi pi-folder table-item-icon folder-icon-yellow"></i>
+                    <a
+                      (click)="onSelectSubFolder(folder)"
+                      class="wf-name-link"
+                      [title]="folder.name"
+                    >
+                      {{ folder.name }}
+                    </a>
+                  </div>
+                </td>
+                <td>-</td>
+                <td>{{ formatDate(folder.createdDate) }}</td>
+                <td>
+                  <span
+                    style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: inline-block; max-width: 110px;"
+                    [title]="folder.createdBy || '-'"
+                  >
+                    {{ folder.createdBy || '-' }}
+                  </span>
+                </td>
+                <td class="col-hd">
+                  <div class="action-buttons-group">
+                    <button
+                      class="act-btn act-edit"
+                      title="Sửa thư mục"
+                      (click)="onEditFolder(folder)"
+                    >
+                      <i class="pi pi-pencil"></i>
+                    </button>
+                    <button
+                      class="act-btn act-delete"
+                      title="Xóa thư mục"
+                      (click)="onDeleteFolder(folder)"
+                    >
+                      <i class="pi pi-trash"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+
+              <!-- Documents -->
               <tr
                 *ngFor="let doc of documents(); let i = index; trackBy: trackByDocumentId"
                 [hidden]="loadingDocuments()"
               >
-                <td class="col-stt text-muted">{{ first() + i + 1 }}</td>
+                <td class="col-stt text-muted">{{ subFolders().length + first() + i + 1 }}</td>
                 <td>
                   <div style="display: flex; align-items: center; gap: 8px; min-width: 0;">
                     <i class="pi" [ngClass]="getFileIcon(doc.name)" style="color: #3b82f6; flex-shrink: 0;"></i>
@@ -324,10 +366,11 @@
                   </div>
                 </td>
               </tr>
-              <tr *ngIf="!loadingDocuments() && documents().length === 0">
+
+              <tr *ngIf="!loadingDocuments() && subFolders().length === 0 && documents().length === 0">
                 <td colspan="6" class="empty-row">
                   <i class="pi pi-inbox"></i>
-                  <div>Chưa có tài liệu nào trong thư mục này.</div>
+                  <div>Thư mục này chưa có thư mục con hoặc tài liệu nào.</div>
                 </td>
               </tr>
             </tbody>
@@ -335,9 +378,14 @@
         </div>
 
         <!-- Footer / Paginator -->
-        <div class="table-footer-paginator" *ngIf="totalDocuments() > 0">
-          <span class="record-count">Tổng số: <b>{{ totalDocuments() }}</b> tài liệu.</span>
-          <p-paginator 
+        <div class="table-footer-paginator" *ngIf="totalItems() > 0">
+          <span class="record-count">
+            Tổng số:
+            <b>{{ subFolders().length }}</b> thư mục,
+            <b>{{ totalDocuments() }}</b> tài liệu.
+          </span>
+          <p-paginator
+              *ngIf="totalDocuments() > 0"
               [first]="first()" 
               [rows]="rows()" 
               [totalRecords]="totalDocuments()" 

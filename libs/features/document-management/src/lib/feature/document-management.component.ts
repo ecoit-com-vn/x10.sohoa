@@ -18,6 +18,8 @@ import { InputTextModule } from 'primeng/inputtext';
 import { DialogModule } from 'primeng/dialog';
 import { PaginatorModule } from 'primeng/paginator';
 import { FileUploadZoneComponent, FileDownloadService, ScannerPanelComponent, UPLOAD_SOURCE } from '@sohoa.frontend/features/equipment';
+import { finalize } from 'rxjs';
+import { HttpResponse } from '@angular/common/http';
 import { DocumentManagementService } from '../data-access/document-management.service';
 import {
   FolderNode,
@@ -84,6 +86,7 @@ export class DocumentManagementComponent implements OnInit {
   deletingDocument = signal(false);
   savingFolder = signal(false);
   downloadingDocumentIds = signal<Set<string>>(new Set());
+  downloadingFolderZip = signal(false);
 
   // Dialog states
   showDeleteFolderConfirm = signal(false);
@@ -123,6 +126,21 @@ export class DocumentManagementComponent implements OnInit {
     return findBreadcrumbPath(folder?.id ?? null, this.flatFolderList());
   });
 
+  subFolders = computed(() => {
+    const selected = this.selectedFolder();
+    const flat = this.flatFolderList();
+    if (!selected) {
+      return flat
+        .filter(f => !f.parentId)
+        .sort((a, b) => a.name.localeCompare(b.name, 'vi'));
+    }
+    return flat
+      .filter(f => f.parentId === selected.id)
+      .sort((a, b) => a.name.localeCompare(b.name, 'vi'));
+  });
+
+  totalItems = computed(() => this.subFolders().length + this.totalDocuments());
+
   totalPages = computed(() => {
     const total = this.totalDocuments();
     const size = this.pageSize();
@@ -152,6 +170,18 @@ export class DocumentManagementComponent implements OnInit {
         const treeStructure = convertFlatToTree(folders);
         this.folderTree.set(treeStructure);
         this.loadingTree.set(false);
+
+        const current = this.selectedFolder();
+        if (current) {
+          const refreshed = folders.find(f => f.id === current.id) ?? null;
+          this.selectedFolder.set(refreshed);
+          if (refreshed) {
+            this.loadDocuments();
+          } else {
+            this.documents.set([]);
+            this.totalDocuments.set(0);
+          }
+        }
       },
       error: (err) => {
         this.messageService.add({
@@ -168,6 +198,15 @@ export class DocumentManagementComponent implements OnInit {
     this.selectedFolder.set(folder);
     this.first.set(0);
     this.loadDocuments();
+  }
+
+  onSelectSubFolder(folder: FolderNode) {
+    this.selectFolder(folder);
+    const expanded = new Set(this.expandedFolders());
+    if (folder.parentId) {
+      expanded.add(folder.parentId);
+    }
+    this.expandedFolders.set(expanded);
   }
 
   toggleFolderExpand(folder: FolderNode, event: Event) {
@@ -191,9 +230,11 @@ export class DocumentManagementComponent implements OnInit {
   }
 
   onAddFolder() {
+    this.savingFolder.set(false);
     this.currentView.set('add_folder');
     this.folderFormName.set('');
     this.editingFolderId.set(null);
+    this.editingFolderRowVersion.set(0);
   }
 
   onUploadDocuments() {
@@ -226,17 +267,59 @@ export class DocumentManagementComponent implements OnInit {
       this.messageService.add({
         severity: 'warn',
         summary: 'Cảnh báo',
-        detail: 'Vui lòng chọn thư mục trước',
+        detail: 'Vui lòng chọn thư mục trước khi tải ZIP',
       });
       return;
     }
 
+    if (this.downloadingFolderZip()) return;
+
+    this.downloadingFolderZip.set(true);
     this.messageService.add({
       severity: 'info',
-      summary: 'Thông báo',
-      detail: 'Đang tạo ZIP... (tính năng sắp có)',
+      summary: 'Đang chuẩn bị',
+      detail: 'Hệ thống đang nén thư mục, vui lòng chờ...',
     });
     this.showFolderMenu.set(false);
+
+    this.documentService.downloadFolderZip(folder.id).subscribe({
+      next: (response) => {
+        const blob = response.body;
+        if (!blob) {
+          this.downloadingFolderZip.set(false);
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi',
+            detail: 'Không nhận được dữ liệu file ZIP',
+          });
+          return;
+        }
+
+        const fileName = this.resolveZipDownloadFileName(response, folder.name);
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        window.URL.revokeObjectURL(url);
+        link.remove();
+        this.downloadingFolderZip.set(false);
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Thành công',
+          detail: `Đã tải xuống file ZIP thư mục "${folder.name}"`,
+        });
+      },
+      error: (err) => {
+        this.downloadingFolderZip.set(false);
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Lỗi',
+          detail: err.error?.message || 'Tạo file ZIP thư mục thất bại',
+        });
+      },
+    });
   }
 
   onFileUploaded(event: any) {
@@ -278,8 +361,9 @@ export class DocumentManagementComponent implements OnInit {
   }
 
   onEditFolder(folder: FolderNode) {
+    this.savingFolder.set(false);
     this.editingFolderId.set(folder.id);
-    this.editingFolderRowVersion.set(0);
+    this.editingFolderRowVersion.set(folder.rowVersion ?? 0);
     this.folderFormName.set(folder.name);
     this.currentView.set('edit_folder');
   }
@@ -303,7 +387,9 @@ export class DocumentManagementComponent implements OnInit {
         name,
         rowVersion: this.editingFolderRowVersion() || 0,
       };
-      this.documentService.updateFolder(this.editingFolderId()!, updateReq).subscribe({
+      this.documentService.updateFolder(this.editingFolderId()!, updateReq).pipe(
+        finalize(() => this.savingFolder.set(false)),
+      ).subscribe({
         next: () => {
           this.messageService.add({
             severity: 'success',
@@ -319,7 +405,6 @@ export class DocumentManagementComponent implements OnInit {
             summary: 'Lỗi',
             detail: err.error?.message || 'Cập nhật thư mục thất bại',
           });
-          this.savingFolder.set(false);
         },
       });
     } else {
@@ -327,7 +412,9 @@ export class DocumentManagementComponent implements OnInit {
         name,
         parentId: this.selectedFolder()?.id ?? null,
       };
-      this.documentService.createFolder(createReq).subscribe({
+      this.documentService.createFolder(createReq).pipe(
+        finalize(() => this.savingFolder.set(false)),
+      ).subscribe({
         next: () => {
           this.messageService.add({
             severity: 'success',
@@ -343,7 +430,6 @@ export class DocumentManagementComponent implements OnInit {
             summary: 'Lỗi',
             detail: err.error?.message || 'Tạo thư mục thất bại',
           });
-          this.savingFolder.set(false);
         },
       });
     }
@@ -369,6 +455,15 @@ export class DocumentManagementComponent implements OnInit {
         this.showDeleteFolderConfirm.set(false);
         this.deleteTargetFolder.set(null);
         this.deletingFolder.set(false);
+
+        if (this.selectedFolder()?.id === folder.id) {
+          const parent = folder.parentId
+            ? this.flatFolderList().find(f => f.id === folder.parentId) ?? null
+            : null;
+          this.selectedFolder.set(parent);
+          this.first.set(0);
+        }
+
         this.loadFolderTree();
       },
       error: (err) => {
@@ -538,6 +633,7 @@ export class DocumentManagementComponent implements OnInit {
   }
 
   onCancelFolder() {
+    this.savingFolder.set(false);
     this.currentView.set('list');
   }
 
@@ -547,5 +643,20 @@ export class DocumentManagementComponent implements OnInit {
 
   trackByFolderId(index: number, folder: FolderNode): string {
     return folder.id;
+  }
+
+  private resolveZipDownloadFileName(response: HttpResponse<Blob>, folderName: string): string {
+    const disposition = response.headers.get('Content-Disposition');
+    if (disposition) {
+      const utf8Match = /filename\*=UTF-8''([^;]+)/i.exec(disposition);
+      if (utf8Match?.[1]) {
+        return decodeURIComponent(utf8Match[1].trim());
+      }
+      const asciiMatch = /filename="?([^";]+)"?/i.exec(disposition);
+      if (asciiMatch?.[1]) {
+        return asciiMatch[1].trim();
+      }
+    }
+    return `${folderName.replace(/\s+/g, '_')}.zip`;
   }
 }

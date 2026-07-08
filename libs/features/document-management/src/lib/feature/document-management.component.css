@@ -7,6 +7,34 @@
 /* Overlay fullscreen — căn giữa popup trên viewport (kể cả chế độ quét) */
 .document-management-page {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 56px);
+}
+
+.document-layout {
+  display: flex;
+  gap: 16px;
+  flex: 1;
+  align-items: stretch;
+  min-height: calc(100vh - 56px - 40px - 2.5rem);
+}
+
+.document-folder-panel,
+.document-right-panel {
+  margin-bottom: 0;
+  min-height: calc(100vh - 56px - 40px - 2.5rem);
+  overflow-y: auto;
+}
+
+.document-folder-panel {
+  width: 380px;
+  flex-shrink: 0;
+}
+
+.document-right-panel {
+  flex: 1;
+  min-width: 0;
 }
 
 .upload-overlay {
@@ -275,4 +303,83 @@
 
 :host ::ng-deep .scan-upload-hidden {
   display: none;
+}
+
+.table-item-name-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.table-item-icon {
+  flex-shrink: 0;
+  font-size: 1.1rem;
+}
+
+.folder-icon-yellow {
+  color: #eab308;
+}
+
+.folder-row-table .wf-name-link {
+  color: #374151;
+  transition: color 0.15s ease;
+}
+
+.folder-row-table .wf-name-link:hover {
+  color: #2563eb;
+  text-decoration: none;
+}
+
+.location-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.location-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  min-width: 0;
+  flex: 1;
+}
+
+.location-label {
+  font-weight: bold;
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+.location-current {
+  font-weight: bold;
+  color: #3b82f6;
+  font-size: 0.9rem;
+}
+
+.breadcrumb-item-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.breadcrumb-separator {
+  color: #9ca3af;
+}
+
+.location-download-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
