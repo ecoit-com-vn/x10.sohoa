@@ -326,7 +326,7 @@ export class OrganizationSettings implements OnInit {
     // Kiểm tra xem đơn vị này có đơn vị con không trước khi xóa
     const hasChildren = this.units().some(u => u.parentId === unit.id);
     if (hasChildren) {
-      this.messageService.add({ severity: 'warn', summary: 'Cảnh báo', detail: 'Không thể xóa đơn vị này vì có các đơn vị trực thuộc bên dưới!' });
+      this.messageService.add({ severity: 'warn', summary: 'Cảnh báo', detail: 'Không thể xóa đơn vị này vì còn đơn vị trực thuộc chưa được xóa.' });
       return;
     }
 
@@ -343,7 +343,8 @@ export class OrganizationSettings implements OnInit {
             this.loadUnits();
           },
           error: (err) => {
-            this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Xóa đơn vị thất bại.' });
+            const detailMsg = err?.error?.message || err?.message || 'Xóa đơn vị thất bại.';
+            this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: detailMsg });
           }
         });
       }
