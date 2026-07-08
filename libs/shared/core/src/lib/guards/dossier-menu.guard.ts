@@ -79,6 +79,20 @@ function resolveEquipmentLookupAccess(auth: AuthService, router: Router): boolea
 /** Menu Tra cứu hồ sơ thiết bị */
 export const dossierEquipmentLookupGuard = withPermissionsLoaded(resolveEquipmentLookupAccess);
 
+function resolveWarehouseSearchAccess(auth: AuthService, router: Router): boolean | UrlTree {
+  if (
+    auth.hasPermission('SUPER_ADMIN') ||
+    auth.hasPermission('SEARCH_DOSSIERS_IN_WAREHOUSE_VIEW')
+  ) {
+    return true;
+  }
+
+  return router.createUrlTree(['/error'], { queryParams: { code: '403' } });
+}
+
+/** Menu Tìm kiếm hồ sơ trong kho */
+export const dossierWarehouseSearchGuard = withPermissionsLoaded(resolveWarehouseSearchAccess);
+
 function resolveDocumentFulltextSearchAccess(auth: AuthService, router: Router): boolean | UrlTree {
   if (
     auth.hasPermission('SUPER_ADMIN') ||

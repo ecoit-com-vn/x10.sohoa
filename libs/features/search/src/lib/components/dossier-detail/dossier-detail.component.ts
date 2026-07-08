@@ -191,7 +191,7 @@ export class DossierDetailComponent implements OnInit {
 
   loadDossierDetail(id: string) {
     this.loadingForm.set(true);
-    this.dossierService.getDossierById(id).pipe(
+    this.dossierService.getWarehouseSearchDossierById(id).pipe(
       switchMap((fullDossier) => {
         const normalized = normalizeDossierDetail(fullDossier);
         this.dossier.set(normalized || fullDossier);
@@ -267,7 +267,7 @@ export class DossierDetailComponent implements OnInit {
 
   loadRelatedEquipments(dossierId: string) {
     this.loadingEquipments.set(true);
-    this.dossierService.getEquipments(dossierId).pipe(
+    this.dossierService.getWarehouseSearchEquipments(dossierId).pipe(
       finalize(() => this.loadingEquipments.set(false))
     ).subscribe({
       next: (data) => {

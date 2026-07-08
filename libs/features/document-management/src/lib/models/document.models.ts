@@ -13,6 +13,7 @@ export interface FolderNode {
   createdDate?: Date;
   modifiedBy?: string;
   modifiedDate?: Date | null;
+  rowVersion?: number;
   children?: FolderNode[]; // for tree structure
 }
 

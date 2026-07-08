@@ -56,7 +56,7 @@ export class BreadcrumbService {
       const path = currentUrl.split('?')[0];
       if (path === '/search/dossier' || path.startsWith('/search/dossier/')) {
         return [
-          { label: 'Tra cứu hồ sơ thiết bị', url: '/search/dossier-by-equipment' }
+          { label: 'Tìm kiếm hồ sơ trong kho', url: '/search/dossier' }
         ];
       }
       return [];

@@ -79,6 +79,10 @@ export class DossierManagementService {
     return `${this.config.apiGatewayUrl}/api/v1/search/dossiers`;
   }
 
+  private get dossierWarehouseSearchBase() {
+    return `${this.config.apiGatewayUrl}/api/v1/dossiers/search`;
+  }
+
   private get catalogBase() {
     return `${this.config.apiGatewayUrl}/api/catalog`;
   }
@@ -138,7 +142,17 @@ export class DossierManagementService {
     if (filter.unitId != null) params = params.set('unitId', filter.unitId.toString());
     if (filter.dossierTypeId) params = params.set('dossierTypeId', filter.dossierTypeId);
 
-    return this.http.get<any>(`${this.base}/catalog`, { params });
+    return this.http.get<any>(`${this.dossierWarehouseSearchBase}/catalog`, { params });
+  }
+
+  /** Chi tiết hồ sơ đã xuất bản — màn Tìm kiếm hồ sơ trong kho */
+  getWarehouseSearchDossierById(id: string): Observable<any> {
+    return this.http.get<any>(`${this.dossierWarehouseSearchBase}/${id}`);
+  }
+
+  /** Thiết bị liên quan — màn Tìm kiếm hồ sơ trong kho */
+  getWarehouseSearchEquipments(id: string): Observable<any[]> {
+    return this.http.get<any[]>(`${this.dossierWarehouseSearchBase}/${id}/equipments`);
   }
 
   getDossierTabCounts(filter: {
