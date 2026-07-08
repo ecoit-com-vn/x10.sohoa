@@ -11,18 +11,18 @@
   </div>
 
   <div class="wf-card pt-0">
-    <div class="detail-tab-bar">
-      <button class="detail-tab-item" [class.tab-active]="activeDetailTab() === 'info'"
+    <div class="tab-bar">
+      <button class="tab-item" [class.tab-active]="activeDetailTab() === 'info'"
         (click)="activeDetailTab.set('info')">
         <i class="pi pi-clock"></i>
         Thông tin chung
       </button>
-      <button class="detail-tab-item" [class.tab-active]="activeDetailTab() === 'documents'"
+      <button class="tab-item" [class.tab-active]="activeDetailTab() === 'documents'"
         (click)="activeDetailTab.set('documents')">
         <i class="pi pi-paperclip"></i>
         Tài liệu đính kèm ({{ dossierDocuments().length }})
       </button>
-      <button class="detail-tab-item" [class.tab-active]="activeDetailTab() === 'related'"
+      <button class="tab-item" [class.tab-active]="activeDetailTab() === 'related'"
         (click)="activeDetailTab.set('related')">
         <i class="pi pi-file"></i>
         Hồ sơ liên quan ({{ totalRelatedDossiers() }})

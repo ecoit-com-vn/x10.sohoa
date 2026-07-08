@@ -29,6 +29,7 @@ interface FormField {
   dataSourceType?: 'manual' | 'catalog';
   catalogType?: string;
   description?: string;
+  selectAll?: boolean;
 }
 
 @Component({
@@ -291,6 +292,18 @@ export class FormApprovalComponent implements OnInit {
       ...prev,
       [name]: value
     }));
+  }
+
+  isAllChecked(field: any): boolean {
+    if (!field.options || field.options.length === 0) return false;
+    return field.options.every((opt: string) => this.simulatedValues()[field.name + '_' + opt] === true);
+  }
+
+  toggleSelectAll(field: any, checked: boolean) {
+    if (!field.options) return;
+    field.options.forEach((opt: string) => {
+      this.updateSimulatedValue(field.name + '_' + opt, checked);
+    });
   }
 
   onSimulateSubmit() {

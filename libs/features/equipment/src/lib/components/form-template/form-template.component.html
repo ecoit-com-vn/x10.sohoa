@@ -25,24 +25,41 @@
 
       <div class="template-search-toolbar">
         <div class="search-controls">
-          <input type="text" class="wf-search-input search-input-width" placeholder="Tên hoặc mã biểu mẫu..." [ngModel]="searchKeyword()"
-            (ngModelChange)="searchKeyword.set($event)" (keyup.enter)="onSearch()" />
+          <input type="text" pInputText class="search-input-width" placeholder="Tên hoặc mã biểu mẫu..." [ngModel]="searchKeyword()"
+            (ngModelChange)="searchKeyword.set($event)" (keyup.enter)="onSearch()" style="height: 38px;" />
           
-          <select class="wf-select dropdown-filter" [ngModel]="selectedGridTypeId()" (ngModelChange)="selectedGridTypeId.set($event)">
-            <option [ngValue]="null">-- Loại lưới điện --</option>
-            <option *ngFor="let gt of gridTypes()" [ngValue]="gt.id">{{ gt.name }}</option>
-          </select>
+          <p-select [options]="gridTypes()"
+            [ngModel]="selectedGridTypeId()"
+            (ngModelChange)="selectedGridTypeId.set($event)"
+            optionLabel="name"
+            optionValue="id"
+            placeholder="-- Loại lưới điện --"
+            [showClear]="true"
+            filterBy="name">
+          </p-select>
 
-          <select class="wf-select dropdown-filter" [ngModel]="selectedEquipmentTypeId()" (ngModelChange)="selectedEquipmentTypeId.set($event)">
-            <option value="">-- Loại thiết bị --</option>
-            <option *ngFor="let et of equipmentTypes()" [value]="et.code || et.id">{{ et.name }}</option>
-          </select>
+          <p-select [options]="equipmentTypes()"
+            [ngModel]="selectedEquipmentTypeId()"
+            (ngModelChange)="selectedEquipmentTypeId.set($event)"
+            optionLabel="name"
+            optionValue="value"
+            placeholder="-- Loại thiết bị --"
+            [showClear]="true"
+            [filter]="true"
+            filterBy="name,code">
+          </p-select>
 
-          <select class="wf-select dropdown-filter" [ngModel]="selectedStatus()" (ngModelChange)="selectedStatus.set($event)">
-            <option [ngValue]="null">-- Trạng thái --</option>
-            <option [ngValue]="true">Hoạt động</option>
-            <option [ngValue]="false">Ngưng hoạt động</option>
-          </select>
+          <p-select [options]="[
+              { label: 'Hoạt động', value: true },
+              { label: 'Ngưng hoạt động', value: false }
+            ]"
+            [ngModel]="selectedStatus()"
+            (ngModelChange)="selectedStatus.set($event)"
+            optionLabel="label"
+            optionValue="value"
+            placeholder="-- Trạng thái --"
+            [showClear]="true">
+          </p-select>
           
           <button class="btn-tim btn-search-trigger" (click)="onSearch()">
             <i class="pi pi-search"></i> Tìm kiếm
@@ -219,10 +236,58 @@
                   <textarea *ngIf="field.type === 'textarea'" pTextarea class="preview-form-textarea"
                             [placeholder]="field.placeholder || ''" rows="2" disabled></textarea>
 
+                  <!-- Radio buttons -->
+                  <div *ngIf="field.type === 'radio'" class="flex flex-column gap-1 py-1"
+                    style="display: flex; flex-direction: column; gap: 4px; padding: 4px 0;">
+                    <ng-container *ngIf="field.dataSourceType === 'catalog'">
+                      <div style="font-size: 0.875rem; color: #64748b; font-style: italic;">
+                        (Dữ liệu từ danh mục: {{ field.catalogType || 'chưa chọn' }})
+                      </div>
+                    </ng-container>
+                    <ng-container *ngIf="field.dataSourceType !== 'catalog'">
+                      <div *ngFor="let opt of (field.options || [])"
+                        style="display: flex; align-items: center; gap: 8px;">
+                        <input type="radio" disabled style="cursor: not-allowed;" />
+                        <span class="text-sm" style="font-size: 0.875rem; color: #475569;">{{ opt }}</span>
+                      </div>
+                    </ng-container>
+                  </div>
+
                   <!-- Checkbox -->
-                  <div *ngIf="field.type === 'checkbox'" class="preview-form-checkbox-container">
-                    <input type="checkbox" disabled class="preview-form-checkbox-input" />
-                    <span class="preview-form-checkbox-label">{{ field.placeholder || 'Đồng ý / Xác nhận' }}</span>
+                  <div *ngIf="field.type === 'checkbox'">
+                    <!-- Case 1: Nhóm checkbox (nếu có options hoặc catalog) -->
+                    <div *ngIf="field.dataSourceType === 'catalog' || (field.options && field.options.length > 0); else singleCheckboxPreview"
+                         style="display: flex; flex-direction: column; gap: 4px; padding: 4px 0;">
+                      
+                      <ng-container *ngIf="field.dataSourceType === 'catalog'">
+                        <div style="font-size: 0.875rem; color: #64748b; font-style: italic;">
+                          (Dữ liệu từ danh mục: {{ field.catalogType || 'chưa chọn' }})
+                        </div>
+                      </ng-container>
+
+                      <ng-container *ngIf="field.dataSourceType !== 'catalog'">
+                        <!-- "Chọn tất cả" preview -->
+                        <div *ngIf="field.selectAll" style="display: flex; align-items: center; gap: 8px; opacity: 0.8;">
+                          <input type="checkbox" disabled style="transform: scale(1.2); cursor: not-allowed;" />
+                          <label class="text-sm select-none" style="cursor: not-allowed; font-weight: 600; color: #002D72;">Chọn tất cả</label>
+                        </div>
+
+                        <div *ngFor="let opt of (field.options || [])" style="display: flex; align-items: center; gap: 8px; opacity: 0.8;">
+                          <input type="checkbox" disabled style="transform: scale(1.2); cursor: not-allowed;" />
+                          <label class="text-sm select-none" style="cursor: not-allowed; color: #475569;">{{ opt }}</label>
+                        </div>
+                      </ng-container>
+                    </div>
+
+                    <!-- Case 2: Checkbox đơn -->
+                    <ng-template #singleCheckboxPreview>
+                      <div class="preview-form-checkbox-container" style="display: flex; align-items: center; gap: 8px; padding: 8px 0;">
+                        <input type="checkbox" disabled class="preview-form-checkbox-input"
+                          style="transform: scale(1.2); cursor: not-allowed;" />
+                        <span class="preview-form-checkbox-label" style="font-size: 0.875rem; color: #475569;">{{
+                          field.placeholder || 'Đồng ý / Xác nhận' }}</span>
+                      </div>
+                    </ng-template>
                   </div>
                 </div>
 
@@ -243,13 +308,13 @@
   </ng-container>
 
   <p-dialog [visible]="showConfirmDelete()" (visibleChange)="$event ? null : showConfirmDelete.set(false)"
-    header="Xác nhận xóa" [modal]="true" [style]="{ width: '420px' }" styleClass="evn-dialog-custom"
+    header="Xác nhận xóa biểu mẫu" [modal]="true" [style]="{ width: '420px' }" styleClass="evn-dialog-custom"
     [closable]="true">
     <div class="confirm-dialog-content">
-      <i class="pi pi-exclamation-triangle confirm-icon-delete"></i>
+      <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #f59e0b; margin-top: 2px; flex-shrink: 0;"></i>
       <div>
-        <p class="confirm-title">Bạn có chắc chắn muốn xóa?</p>
-        <p class="confirm-message">
+        <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b; font-size: 0.95rem;">Bạn có chắc chắn muốn xóa?</p>
+        <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
           Biểu mẫu <b class="text-highlight">{{ targetForm?.name }}</b> sẽ bị xóa trong hệ thống.
         </p>
       </div>
@@ -318,37 +383,42 @@
 
   <!-- ==================== DIALOG XEM PHIÊN BẢN BIỂU MẪU ==================== -->
   <p-dialog [visible]="showVersionsDialog()" (visibleChange)="$event ? null : showVersionsDialog.set(false)"
-    header="Lịch sử phiên bản biểu mẫu" [modal]="true" [style]="{ width: '750px' }" styleClass="evn-dialog-custom"
+    header="Lịch sử phiên bản biểu mẫu" [modal]="true" [style]="{ width: '850px' }" class="evn-dialog-custom"
     [closable]="true">
     <div *ngIf="selectedTemplate() as template" class="version-dialog-wrapper">
-      <div class="version-meta-header">
-        Mã biểu mẫu: <b class="code-highlight">{{ template.code }}</b> - Tên: <b>{{ template.name }}</b>
-      </div>
       <div class="wf-table-wrap">
         <table class="wf-table">
           <thead>
-            <tr>
+            <tr>             
               <th class="col-ver-width text-center">Phiên bản</th>
-              <th>Tên phiên bản</th>
+              <th>Mã biểu mẫu</th>
+              <th>Tên biểu mẫu</th>
               <th>Người cập nhật</th>
               <th>Ngày cập nhật</th>
               <th class="col-tt-width text-center">Trạng thái</th>
+              <th style="width: 90px; text-align: center;">Thao tác</th>
             </tr>
           </thead>
           <tbody>
             <tr *ngFor="let ver of versionList()">
               <td class="text-center font-bold evn-spinner-color">v{{ ver.version }}.0</td>
+              <td>{{ ver.code }}</td>
               <td>{{ ver.name }}</td>
               <td>{{ ver.creatorFullName }}</td>
-              <td>{{ ver.createdAt | date:'dd/MM/yyyy HH:mm' }}</td>
+              <td>{{ ver.createdAt | date:'dd/MM/yyyy' }}</td>
               <td class="text-center">
                 <span class="status-pill" [class.status-active]="ver.isActive" [class.status-inactive]="!ver.isActive">
-                  {{ ver.isActive ? 'Đang hoạt động' : 'Ngưng hoạt động' }}
+                  {{ ver.isActive ? 'Hoạt động' : 'Ngưng hoạt động' }}
                 </span>
+              </td>
+              <td class="text-center" style="text-align: center;">
+                <button class="act-btn btn-view-detail" (click)="viewVersionDetail(ver)" title="Xem chi tiết">
+                  <i class="pi pi-eye"></i>
+                </button>
               </td>
             </tr>
             <tr *ngIf="versionList().length === 0">
-              <td colspan="5" class="empty-row text-center">Không tải được lịch sử phiên bản.</td>
+              <td colspan="7" class="empty-row text-center">Không tải được lịch sử phiên bản.</td>
             </tr>
           </tbody>
         </table>
@@ -362,4 +432,5 @@
       </div>
     </ng-template>
   </p-dialog>
+
 </div>
