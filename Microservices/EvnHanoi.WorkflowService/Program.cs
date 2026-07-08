@@ -1,6 +1,8 @@
 using EvnHanoi.Infrastructure.Database;
 using EvnHanoi.Infrastructure.Logging;
 using EvnHanoi.Infrastructure.Security;
+using EvnHanoi.Infrastructure.Audit;
+using RabbitMQ.Client;
 using Serilog;
 using Scalar.AspNetCore;
 using EvnHanoi.WorkflowService.Core.Interfaces;
@@ -32,6 +34,7 @@ builder.Services.AddMemoryCache();
 builder.Services.AddControllers(options =>
 {
     options.Filters.Add<EvnHanoi.Infrastructure.Security.DynamicPermissionFilter>();
+    options.Filters.Add<AuditActionFilter>();
 });
 builder.Services.AddStructuredValidationErrors();
 builder.Services.AddOpenApi();
@@ -45,6 +48,18 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddDapperInfrastructure(builder.Configuration);
 builder.Services.AddPermissionDiscovery("WorkflowService");
+
+var rabbitFactory = new ConnectionFactory
+{
+    HostName = builder.Configuration["RabbitMQ:Host"] ?? "localhost",
+    VirtualHost = builder.Configuration["RabbitMQ:VirtualHost"] ?? "/",
+    UserName = builder.Configuration["RabbitMQ:Username"] ?? "guest",
+    Password = builder.Configuration["RabbitMQ:Password"] ?? "guest",
+    Port = int.TryParse(builder.Configuration["RabbitMQ:Port"], out var rabbitPort) ? rabbitPort : 5672
+};
+var rabbitConnection = await rabbitFactory.CreateConnectionAsync();
+builder.Services.AddSingleton<IConnection>(rabbitConnection);
+builder.Services.AddAuditInfrastructure("WorkflowService");
 
 builder.Services.AddHttpClient("IdentityService", client =>
 {

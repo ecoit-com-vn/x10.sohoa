@@ -29,7 +29,7 @@ public static class SerilogSetupHelper
             .WriteTo.Elasticsearch(new Serilog.Sinks.Elasticsearch.ElasticsearchSinkOptions(new Uri(context.Configuration["Elasticsearch:Uri"] ?? "http://localhost:9200"))
             {
                 AutoRegisterTemplate = true,
-                IndexFormat = "audit_logs-{0:yyyy.MM.dd}",
+                IndexFormat = "app_logs-{0:yyyy.MM.dd}",
                 AutoRegisterTemplateVersion = Serilog.Sinks.Elasticsearch.AutoRegisterTemplateVersion.ESv8
             });
 

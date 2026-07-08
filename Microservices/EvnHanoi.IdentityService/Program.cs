@@ -12,6 +12,7 @@ using Serilog;
 using Scalar.AspNetCore;
 
 using EvnHanoi.Infrastructure.Security;
+using EvnHanoi.Infrastructure.Audit;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -28,6 +29,7 @@ builder.Services.AddMemoryCache();
 builder.Services.AddControllers(options =>
 {
     options.Filters.Add<EvnHanoi.IdentityService.Infrastructure.Security.DynamicPermissionFilter>();
+    options.Filters.Add<AuditActionFilter>();
 });
 builder.Services.AddStructuredValidationErrors();
 builder.Services.AddOpenApi();
@@ -57,6 +59,7 @@ var rabbitFactory = new RabbitMQ.Client.ConnectionFactory
 };
 var rabbitConnection = await rabbitFactory.CreateConnectionAsync();
 builder.Services.AddSingleton<RabbitMQ.Client.IConnection>(rabbitConnection);
+builder.Services.AddAuditInfrastructure("IdentityService");
 builder.Services.AddHostedService<EvnHanoi.IdentityService.Infrastructure.Security.PermissionRegistrationConsumer>();
 
 

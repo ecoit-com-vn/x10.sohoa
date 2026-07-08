@@ -6,6 +6,7 @@ using EvnHanoi.EquipmentService.Core.Interfaces;
 using EvnHanoi.EquipmentService.Core.DTOs;
 using EvnHanoi.EquipmentService.Core.Services;
 using EvnHanoi.Infrastructure.Security;
+using EvnHanoi.Infrastructure.Audit;
 
 namespace EvnHanoi.EquipmentService.Controllers;
 
@@ -210,6 +211,7 @@ public abstract partial class DossierControllerBase : ControllerBase
         if (dto == null) return BadRequest(new { message = "Dữ liệu không hợp lệ." });
 
         var newId = await _dossierService.CreateAsync(dto, UserId, UserName, UserFullName, ExpectedKindId);
+        HttpContext.SetAudit(newId.ToString(), null, $"Tạo hồ sơ mới (ID: {newId})", "DOSSIER", AuditActions.Create);
         return CreatedAtAction(nameof(GetDetail), new { id = newId }, new { id = newId });
     }
 
@@ -226,6 +228,7 @@ public abstract partial class DossierControllerBase : ControllerBase
         try
         {
             await _dossierService.UpdateAsync(id, dto, UserId);
+            HttpContext.SetAudit(id.ToString(), null, $"Cập nhật hồ sơ {id}", "DOSSIER", AuditActions.Update);
             return NoContent();
         }
         catch (KeyNotFoundException ex)
@@ -252,7 +255,14 @@ public abstract partial class DossierControllerBase : ControllerBase
 
         try
         {
+            var detail = await _dossierService.GetDetailByIdAsync(id);
             await _dossierService.DeleteAsync(id, UserId);
+            HttpContext.SetAudit(
+                id.ToString(),
+                detail?.InfrastructureCode,
+                $"Xóa hồ sơ {detail?.InfrastructureCode ?? id.ToString()}",
+                "DOSSIER",
+                AuditActions.Delete);
             return NoContent();
         }
         catch (KeyNotFoundException ex)
