@@ -93,11 +93,44 @@ export class FormApprovalComponent implements OnInit {
 
   canApprove = computed(() => canApproveForm(this.authService));
 
+  catalogOptionsMap = signal<{ [catalogCode: string]: string[] }>({});
+
+  loadCatalogOptions(catalogCode: string) {
+    if (!catalogCode || this.catalogOptionsMap()[catalogCode]) return;
+    this.eavFormService.getCatalogTypeByCode(catalogCode).subscribe({
+      next: (catalogType) => {
+        if (catalogType && catalogType.id) {
+          this.eavFormService.getCatalogsLookup(catalogType.id).subscribe({
+            next: (items) => {
+              const options = (items || []).map((item: any) => item.name || item.code);
+              this.catalogOptionsMap.update(prev => ({
+                ...prev,
+                [catalogCode]: options
+              }));
+            },
+            error: (err) => console.error(`Failed to load catalogs lookup for ${catalogCode}`, err)
+          });
+        }
+      },
+      error: (err) => console.error(`Failed to load catalog type for ${catalogCode}`, err)
+    });
+  }
+
   constructor() {
     effect(() => {
       this.searchKeyword();
       this.activeTab();
       this.first.set(0);
+    });
+
+    effect(() => {
+      const currentFields = this.fields();
+      if (!currentFields) return;
+      currentFields.forEach((f: FormField) => {
+        if (f.dataSourceType === 'catalog' && f.catalogType) {
+          this.loadCatalogOptions(f.catalogType);
+        }
+      });
     });
   }
 

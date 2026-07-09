@@ -188,7 +188,7 @@
                                     <!-- Dropdown Select -->
                                     <select *ngIf="getFieldType(field) === 'dropdown'" class="preview-form-select" disabled>
                                         <option value="">{{ field.placeholder || 'Chọn giá trị...' }}</option>
-                                        <option *ngFor="let opt of (field.dataSourceType === 'catalog' ? ['(Dữ liệu từ danh mục ' + field.catalogType + ')'] : (field.options || []))">
+                                        <option *ngFor="let opt of (field.dataSourceType === 'catalog' ? (catalogOptionsMap()[field.catalogType || ''] || ['Đang tải...']) : (field.options || []))">
                                             {{ opt }}
                                         </option>
                                     </select>
@@ -199,7 +199,7 @@
 
                                     <!-- Radio -->
                                     <div *ngIf="getFieldType(field) === 'radio'" style="display: flex; flex-direction: column; gap: 6px; padding: 4px 0;">
-                                      <label *ngFor="let opt of (field.dataSourceType === 'catalog' ? ['(Dữ liệu từ danh mục ' + field.catalogType + ')'] : (field.options || []))" 
+                                      <label *ngFor="let opt of (field.dataSourceType === 'catalog' ? (catalogOptionsMap()[field.catalogType || ''] || ['Đang tải...']) : (field.options || []))" 
                                              style="display: flex; align-items: center; gap: 8px; font-weight: normal; cursor: pointer;">
                                         <input type="radio" disabled />
                                         <span style="font-size: 0.9rem;">{{ opt }}</span>
@@ -211,15 +211,26 @@
                                       <!-- Case 1: Nhóm checkbox (nếu có options hoặc catalog) -->
                                       <div *ngIf="field.dataSourceType === 'catalog' || (field.options && field.options.length > 0); else singleCheckboxView"
                                            style="display: flex; flex-direction: column; gap: 6px; padding: 4px 0;">
-                                        <!-- "Chọn tất cả" preview -->
-                                        <label *ngIf="field.selectAll" style="display:flex; align-items:center; gap:8px; font-weight:600; cursor:not-allowed; opacity:0.8; color:#002D72;">
-                                          <input type="checkbox" disabled /> <span style="font-size:0.9rem;">Chọn tất cả</span>
-                                        </label>
-                                        <label *ngFor="let opt of (field.dataSourceType === 'catalog' ? ['(Dữ liệu từ danh mục ' + field.catalogType + ')'] : (field.options || []))" 
-                                               style="display: flex; align-items: center; gap: 8px; font-weight: normal; cursor: pointer;">
-                                          <input type="checkbox" disabled />
-                                          <span style="font-size: 0.9rem;">{{ opt }}</span>
-                                        </label>
+                                        
+                                        <ng-container *ngIf="field.dataSourceType === 'catalog'">
+                                          <label *ngFor="let opt of (catalogOptionsMap()[field.catalogType || ''] || ['Đang tải...'])" 
+                                                 style="display: flex; align-items: center; gap: 8px; font-weight: normal; cursor: pointer;">
+                                            <input type="checkbox" disabled />
+                                            <span style="font-size: 0.9rem;">{{ opt }}</span>
+                                          </label>
+                                        </ng-container>
+
+                                        <ng-container *ngIf="field.dataSourceType !== 'catalog'">
+                                          <!-- "Chọn tất cả" preview -->
+                                          <label *ngIf="field.selectAll" style="display:flex; align-items:center; gap:8px; font-weight:600; cursor:not-allowed; opacity:0.8; color:#002D72;">
+                                            <input type="checkbox" disabled /> <span style="font-size:0.9rem;">Chọn tất cả</span>
+                                          </label>
+                                          <label *ngFor="let opt of (field.options || [])" 
+                                                 style="display: flex; align-items: center; gap: 8px; font-weight: normal; cursor: pointer;">
+                                            <input type="checkbox" disabled />
+                                            <span style="font-size: 0.9rem;">{{ opt }}</span>
+                                          </label>
+                                        </ng-container>
                                       </div>
                                       <!-- Case 2: Checkbox đơn -->
                                       <ng-template #singleCheckboxView>
