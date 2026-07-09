@@ -20,6 +20,7 @@ public class User
     /// Denormalized tên chức vụ — để hiển thị FE mà không cần cross-service join
     /// </summary>
     public string? PositionName { get; set; }
+    public string? AvatarObjectKey { get; set; }
 
     public bool IsActive { get; set; } = true;
     public bool IsDeleted { get; set; }
@@ -29,5 +30,13 @@ public class User
 
     // Chi tiết Đơn vị liên kết hiển thị lên FE
     public OrganizationUnit? OrganizationUnit { get; set; }
+}
+
+public class UserLookupDto
+{
+    public string Id { get; set; } = string.Empty;
+    public string Username { get; set; } = string.Empty;
+    public string FullName { get; set; } = string.Empty;
+    public IEnumerable<string> Roles { get; set; } = new List<string>();
 }
 

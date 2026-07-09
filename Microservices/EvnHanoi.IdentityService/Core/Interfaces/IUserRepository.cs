@@ -13,6 +13,7 @@ public interface IUserRepository
     Task UpdateAsync(User user);
     Task UpdateFullAsync(User user);
     Task UpdateProfileAsync(User user);
+    Task UpdateAvatarAsync(string userId, string? avatarObjectKey);
     Task UpdatePasswordAsync(string userId, string passwordHash);
     Task<bool> EmailExistsForOtherUserAsync(string email, string userId);
     Task<string> CreateAsync(User user);
@@ -21,4 +22,5 @@ public interface IUserRepository
     Task<IEnumerable<string>> GetPermissionsByUserIdAsync(string userId);
     Task<IEnumerable<long>> GetDirectRoleIdsByUserIdAsync(string userId);
     Task<bool> AssignRolesToUserAsync(string userId, IEnumerable<long> roleIds);
+    Task<IEnumerable<UserLookupDto>> GetUsersLookupAsync(string? roleCodeFilter);
 }
