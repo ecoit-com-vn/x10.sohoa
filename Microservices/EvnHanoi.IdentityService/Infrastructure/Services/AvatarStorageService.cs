@@ -39,7 +39,7 @@ public class AvatarStorageService : IAvatarStorageService
             .Build();
     }
 
-    public async Task<string> UploadAvatarAsync(string userId, IFormFile file, CancellationToken cancellationToken = default)
+    public async Task<string> UploadAvatarAsync(string userId, string? organizationUnitCode, IFormFile file, CancellationToken cancellationToken = default)
     {
         if (!AllowedContentTypes.Contains(file.ContentType))
             throw new InvalidOperationException("Ảnh đại diện chỉ hỗ trợ JPG, PNG hoặc WEBP.");
@@ -50,11 +50,11 @@ public class AvatarStorageService : IAvatarStorageService
         if (string.IsNullOrWhiteSpace(extension))
             extension = ContentTypeToExtension(file.ContentType);
 
-        var safeFileName = FileNameHelper.ToMinioObjectFileName(Path.GetFileNameWithoutExtension(file.FileName));
-        if (string.IsNullOrWhiteSpace(safeFileName))
-            safeFileName = "avatar";
+        var unitCode = FileNameHelper.ToMinioObjectFileName(organizationUnitCode ?? string.Empty);
+        if (string.IsNullOrWhiteSpace(unitCode))
+            unitCode = "unknown-unit";
 
-        var objectKey = $"avatars/{userId}/{DateTime.UtcNow:yyyyMMddHHmmssfff}_{safeFileName}{extension.ToLowerInvariant()}";
+        var objectKey = $"{unitCode}/{userId}/{DateTime.UtcNow:yyyyMMddHHmmssfff}_avatar{extension.ToLowerInvariant()}";
 
         await using var stream = file.OpenReadStream();
         var putArgs = new PutObjectArgs()

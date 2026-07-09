@@ -772,7 +772,7 @@ public class AuthController : ControllerBase
         string objectKey;
         try
         {
-            objectKey = await _avatarStorageService.UploadAvatarAsync(userId, file, cancellationToken);
+            objectKey = await _avatarStorageService.UploadAvatarAsync(userId, user.OrganizationUnit?.Code, file, cancellationToken);
         }
         catch (InvalidOperationException ex)
         {
