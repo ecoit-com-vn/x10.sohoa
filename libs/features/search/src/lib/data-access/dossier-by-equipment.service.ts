@@ -8,6 +8,7 @@ export interface DossierByEquipmentFilter {
   keyword?: string;
   publishDateFrom?: string;
   publishDateTo?: string;
+  gridTypeId?: number | null;
   infrastructureId?: string | null;
   equipmentTypeId?: string | null;
   equipmentId?: string | null;
@@ -38,6 +39,7 @@ export class DossierByEquipmentService {
     if (filter.keyword?.trim()) params = params.set('keyword', filter.keyword.trim());
     if (filter.publishDateFrom) params = params.set('publishDateFrom', new Date(filter.publishDateFrom).toISOString());
     if (filter.publishDateTo) params = params.set('publishDateTo', new Date(filter.publishDateTo).toISOString());
+    if (filter.gridTypeId != null) params = params.set('gridTypeId', filter.gridTypeId.toString());
     if (filter.infrastructureId) params = params.set('infrastructureId', filter.infrastructureId);
     if (filter.equipmentTypeId) params = params.set('equipmentTypeId', filter.equipmentTypeId);
     if (filter.equipmentId) params = params.set('equipmentId', filter.equipmentId);
@@ -71,6 +73,12 @@ export class DossierByEquipmentService {
 
   getBhsColumns(): Observable<BhsCatalogColumn[]> {
     return this.http.get<BhsCatalogColumn[]>(`${this.lookupBase}/bhs-columns`);
+  }
+
+  getGridTypes(): Observable<DossierByEquipmentLookupItem[]> {
+    return this.http.get<DossierByEquipmentLookupItem[]>(
+      `${this.config.apiGatewayUrl}/api/v1/dossiers/grid-types/lookup`
+    );
   }
 
   search(filter: DossierByEquipmentFilter & { page: number; pageSize: number }): Observable<{
