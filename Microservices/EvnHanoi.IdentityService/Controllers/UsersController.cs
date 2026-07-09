@@ -34,31 +34,14 @@ public class UsersController : ControllerBase
     {
         if (!string.IsNullOrWhiteSpace(role))
         {
-            var roleTrim = role.Trim();
-            var users = (await _userRepository.GetAllAsync()).ToList();
-            var filtered = new List<object>();
-            foreach (var u in users)
-            {
-                var roles = await _userRepository.GetRolesByUserIdAsync(u.Id);
-                if (roles.Any(r => string.Equals(r, roleTrim, StringComparison.OrdinalIgnoreCase)))
-                {
-                    filtered.Add(new { u.Id, u.Username, u.FullName, Roles = roles });
-                }
-            }
-            return Ok(filtered);
+            var filteredResult = await _userRepository.GetUsersLookupAsync(role);
+            return Ok(filteredResult);
         }
 
         var cacheKey = "UsersLookup";
-        if (!_cache.TryGetValue(cacheKey, out IEnumerable<object>? result))
+        if (!_cache.TryGetValue(cacheKey, out IEnumerable<UserLookupDto>? result))
         {
-            var users = (await _userRepository.GetAllAsync()).ToList();
-            var list = new List<object>();
-            foreach (var u in users)
-            {
-                var roles = await _userRepository.GetRolesByUserIdAsync(u.Id);
-                list.Add(new { u.Id, u.Username, u.FullName, Roles = roles });
-            }
-            result = list;
+            result = await _userRepository.GetUsersLookupAsync(null);
             var cacheOptions = new Microsoft.Extensions.Caching.Memory.MemoryCacheEntryOptions()
                 .SetAbsoluteExpiration(TimeSpan.FromMinutes(5));
             _cache.Set(cacheKey, result, cacheOptions);

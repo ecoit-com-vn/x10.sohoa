@@ -424,4 +424,53 @@ public class UserRepository : IUserRepository
             throw;
         }
     }
+
+    public async Task<IEnumerable<UserLookupDto>> GetUsersLookupAsync(string? roleCodeFilter)
+    {
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+        var sql = @"
+            SELECT u.Id, u.UserName AS Username, u.FullName, r.Code AS RoleCode
+            FROM APP_USER u
+            LEFT JOIN (
+                SELECT ur.UserId, r.Code
+                FROM ROLE r
+                INNER JOIN (
+                    SELECT UserId, RoleId FROM USER_ROLE
+                    UNION
+                    SELECT ugm.UserId, ugr.RoleId 
+                    FROM USER_GROUP_MEMBER ugm
+                    INNER JOIN USER_GROUP_ROLE ugr ON ugm.UserGroupId = ugr.UserGroupId
+                ) ur ON r.Id = ur.RoleId
+            ) r ON u.Id = r.UserId
+            WHERE u.IsDeleted = 0 AND u.IsActive = 1
+            ORDER BY u.UserName ASC";
+
+        var userDict = new Dictionary<string, UserLookupDto>();
+        await _connection.QueryAsync<UserLookupDto, string, UserLookupDto>(
+            sql,
+            (user, roleCode) =>
+            {
+                if (!userDict.TryGetValue(user.Id, out var existingUser))
+                {
+                    existingUser = user;
+                    existingUser.Roles = new List<string>();
+                    userDict.Add(user.Id, existingUser);
+                }
+                if (!string.IsNullOrEmpty(roleCode))
+                {
+                    ((List<string>)existingUser.Roles).Add(roleCode);
+                }
+                return user;
+            },
+            splitOn: "RoleCode"
+        );
+
+        var result = userDict.Values.AsEnumerable();
+        if (!string.IsNullOrWhiteSpace(roleCodeFilter))
+        {
+            var filter = roleCodeFilter.Trim();
+            result = result.Where(u => u.Roles.Any(r => string.Equals(r, filter, StringComparison.OrdinalIgnoreCase)));
+        }
+        return result;
+    }
 }
