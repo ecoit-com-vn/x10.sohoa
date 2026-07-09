@@ -3,13 +3,35 @@
 
   <div class="wf-card">
     <div class="lookup-filters">
-      <div class="lookup-filters__row lookup-filters__row--dropdowns">
+      <div class="lookup-filters__row lookup-filters__row--primary">
+        <div class="lookup-filters__field">
+          <label class="form-label">Từ khóa</label>
+          <input
+            type="text"
+            class="wf-search-input"
+            placeholder="Tìm kiếm theo từ khóa..."
+            [ngModel]="searchKeyword()"
+            (ngModelChange)="searchKeyword.set($event)"
+            (keyup.enter)="onSearch()"
+          />
+        </div>
+        <div class="lookup-filters__field">
+          <label class="form-label">Loại lưới điện</label>
+          <select
+            class="wf-select"
+            [ngModel]="filterGridTypeId()"
+            (ngModelChange)="filterGridTypeId.set($event); onGridTypeChange()"
+          >
+            <option [ngValue]="null">-- Tất cả loại lưới điện --</option>
+            <option *ngFor="let item of gridTypes()" [ngValue]="item.id">{{ item.name }}</option>
+          </select>
+        </div>
         <div class="lookup-filters__field">
           <label class="form-label">Trạm / Đường dây</label>
           <select
             class="wf-select"
             [ngModel]="filterInfrastructureId()"
-            (ngModelChange)="filterInfrastructureId.set($event); onFilterRelationChange(); onSearch()"
+            (ngModelChange)="filterInfrastructureId.set($event); onInfrastructureChange()"
           >
             <option [ngValue]="null">-- Tất cả trạm/đường dây --</option>
             <option *ngFor="let item of infrastructures()" [value]="item.id">{{ item.name }}</option>
@@ -20,24 +42,15 @@
           <select
             class="wf-select"
             [ngModel]="filterEquipmentTypeId()"
-            (ngModelChange)="filterEquipmentTypeId.set($event); onFilterRelationChange(); onSearch()"
+            (ngModelChange)="filterEquipmentTypeId.set($event); onEquipmentTypeChange()"
           >
             <option [ngValue]="null">-- Tất cả loại thiết bị --</option>
             <option *ngFor="let item of equipmentTypes()" [value]="item.id">{{ item.name }}</option>
           </select>
         </div>
-        <div class="lookup-filters__field">
-          <label class="form-label">Thiết bị</label>
-          <select
-            class="wf-select"
-            [ngModel]="filterEquipmentId()"
-            (ngModelChange)="filterEquipmentId.set($event); onSearch()"
-            [disabled]="!filterInfrastructureId() && !filterEquipmentTypeId()"
-          >
-            <option [ngValue]="null">-- Tất cả thiết bị --</option>
-            <option *ngFor="let item of equipments()" [value]="item.id">{{ item.name }} ({{ item.code }})</option>
-          </select>
-        </div>
+      </div>
+
+      <div class="lookup-filters__row lookup-filters__row--secondary">
         <div class="lookup-filters__field">
           <label class="form-label">Loại hồ sơ</label>
           <select
@@ -49,22 +62,8 @@
             <option *ngFor="let item of dossierTypes()" [value]="item.id">{{ item.name }}</option>
           </select>
         </div>
-      </div>
-
-      <div class="lookup-filters__row lookup-filters__row--search">
         <div class="lookup-filters__field">
-          <label class="form-label">Từ khóa</label>
-          <input
-            type="text"
-            class="wf-search-input"
-            placeholder="Tìm kiếm theo thông tin hồ sơ..."
-            [ngModel]="searchKeyword()"
-            (ngModelChange)="searchKeyword.set($event)"
-            (keyup.enter)="onSearch()"
-          />
-        </div>
-        <div class="lookup-filters__field">
-          <label class="form-label">Từ ngày xuất bản</label>
+          <label class="form-label">Từ ngày</label>
           <input
             type="date"
             class="wf-select"
@@ -73,7 +72,7 @@
           />
         </div>
         <div class="lookup-filters__field">
-          <label class="form-label">Đến ngày xuất bản</label>
+          <label class="form-label">Đến ngày</label>
           <input
             type="date"
             class="wf-select"

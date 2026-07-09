@@ -57,10 +57,15 @@ export class DossierManagementService {
     return this.kindId === 1;
   }
 
-  private get base() {
-    return this.isDigitization
+  private baseFor(kindId?: number): string {
+    const digitization = (kindId ?? this.kindId) === 1;
+    return digitization
       ? `${this.config.apiGatewayUrl}/api/v1/dossier-digitization/dossiers`
       : `${this.config.apiGatewayUrl}/api/v1/dossiers`;
+  }
+
+  private get base() {
+    return this.baseFor(this.kindId);
   }
 
   /** Tác vụ workflow hồ sơ — digitization dùng controller riêng (WorkflowTypeId=3). */
@@ -260,7 +265,11 @@ export class DossierManagementService {
     return this.http.delete<any>(`${this.base}/${id}/equipment/${equipmentId}`);
   }
 
-  getRelatedDossiers(dossierId: string, filter: { keyword?: string; equipmentId?: string; dossierTypeId?: string; page?: number; pageSize?: number }): Observable<any> {
+  getRelatedDossiers(
+    dossierId: string,
+    filter: { keyword?: string; equipmentId?: string; dossierTypeId?: string; page?: number; pageSize?: number },
+    kindId?: number
+  ): Observable<any> {
     let params = new HttpParams();
     if (filter.keyword) params = params.set('keyword', filter.keyword);
     if (filter.equipmentId) params = params.set('equipmentId', filter.equipmentId);
@@ -268,7 +277,7 @@ export class DossierManagementService {
     if (filter.page) params = params.set('page', filter.page.toString());
     if (filter.pageSize) params = params.set('pageSize', filter.pageSize.toString());
 
-    return this.http.get<any>(`${this.base}/${dossierId}/related`, { params });
+    return this.http.get<any>(`${this.baseFor(kindId)}/${dossierId}/related`, { params });
   }
 
   // ===== WORKFLOW =====
