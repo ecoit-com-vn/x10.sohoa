@@ -20,6 +20,7 @@ public class User
     /// Denormalized tên chức vụ — để hiển thị FE mà không cần cross-service join
     /// </summary>
     public string? PositionName { get; set; }
+    public string? AvatarObjectKey { get; set; }
 
     public bool IsActive { get; set; } = true;
     public bool IsDeleted { get; set; }
