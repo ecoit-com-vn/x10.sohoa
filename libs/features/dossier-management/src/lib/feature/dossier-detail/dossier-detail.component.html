@@ -30,23 +30,23 @@
     </ng-container>
   </div>
   <div class="wf-card pt-0">
-    <div class="detail-tab-bar">
-      <button type="button" class="detail-tab-item" [class.tab-active]="activeTab() === 'info'"
+    <div class="tab-bar">
+      <button type="button" class="tab-item" [class.tab-active]="activeTab() === 'info'"
         (click)="activeTab.set('info')">
         <i class="pi pi-info-circle"></i>
         Dữ liệu Hồ sơ
       </button>
-      <button type="button" class="detail-tab-item" [class.tab-active]="activeTab() === 'documents'"
+      <button type="button" class="tab-item" [class.tab-active]="activeTab() === 'documents'"
         (click)="activeTab.set('documents')">
         <i class="pi pi-paperclip"></i>
         Tài liệu đính kèm
       </button>
-      <button type="button" class="detail-tab-item" [class.tab-active]="activeTab() === 'related'"
+      <button type="button" class="tab-item" [class.tab-active]="activeTab() === 'related'"
         (click)="activeTab.set('related')">
         <i class="pi pi-file"></i>
         Hồ sơ liên quan ({{ totalRelatedDossiers() }})
       </button>
-      <button type="button" *ngIf="isDetailTabVisible('versions')" class="detail-tab-item"
+      <button type="button" *ngIf="isDetailTabVisible('versions')" class="tab-item"
         [class.tab-active]="activeTab() === 'versions'" (click)="activeTab.set('versions')">
         <i class="pi pi-history"></i>
         Lịch sử phiên bản
