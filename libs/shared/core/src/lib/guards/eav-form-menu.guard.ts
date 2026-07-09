@@ -36,8 +36,8 @@ export const eavFormDesignMenuGuard = withPermissionsLoaded((auth, router) => {
 export const eavFormApprovalMenuGuard = withPermissionsLoaded((auth, router) => {
   if (
     auth.hasPermission('SUPER_ADMIN') ||
-    auth.hasPermission('EAV_FORM_TEMPLATE_APPROVAL_VIEW') ||
-    auth.hasPermission('EAV_FORM_TEMPLATE_APPROVE')
+    auth.hasPermission('EAV_FORM_APPROVAL_VIEW') ||
+    auth.hasPermission('EAV_FORM_APPROVAL_APPROVE')
   ) {
     return true;
   }
@@ -46,7 +46,7 @@ export const eavFormApprovalMenuGuard = withPermissionsLoaded((auth, router) => 
 
 /** Menu Danh sách form hoàn thành */
 export const eavFormCompletedMenuGuard = withPermissionsLoaded((auth, router) => {
-  if (auth.hasPermission('SUPER_ADMIN') || auth.hasPermission('EAV_FORM_TEMPLATE_COMPLETED_VIEW')) {
+  if (auth.hasPermission('SUPER_ADMIN') || auth.hasPermission('EAV_COMPLETED_FORM_VIEW')) {
     return true;
   }
   return deny(router);
@@ -58,8 +58,8 @@ export const eavFormCompletedEditGuard = withPermissionsLoaded((auth, router) =>
     return true;
   }
   if (
-    auth.hasPermission('EAV_FORM_TEMPLATE_COMPLETED_VIEW') &&
-    hasAny(auth, ['EAV_FORM_TEMPLATE_EDIT', 'EAV_FORM_TEMPLATE_MANAGE', 'EAV_FORM_TEMPLATE_DELETE'])
+    auth.hasPermission('EAV_COMPLETED_FORM_VIEW') &&
+    hasAny(auth, ['EAV_FORM_TEMPLATE_EDIT', 'EAV_COMPLETED_FORM_MANAGE', 'EAV_COMPLETED_FORM_DELETE'])
   ) {
     return true;
   }
