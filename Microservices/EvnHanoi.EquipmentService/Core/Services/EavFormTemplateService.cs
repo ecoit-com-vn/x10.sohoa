@@ -95,8 +95,14 @@ public class EavFormTemplateService : IEavFormTemplateService
             Status = string.IsNullOrEmpty(oldTemplate.Status) ? "Tạo mới" : oldTemplate.Status,
             FormType = formType
         };
-
-        await _repository.AddAsync(newTemplate);
+        try
+        {
+            await _repository.AddAsync(newTemplate);
+        }
+        catch (Exception ex)
+        {
+            throw ex;
+        }
 
         return newTemplate;
     }

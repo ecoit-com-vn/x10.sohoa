@@ -1,4 +1,5 @@
 using Dapper;
+using EvnHanoi.Infrastructure.Database;
 using EvnHanoi.Infrastructure.Enums;
 using EvnHanoi.WorkflowService.Core.Interfaces;
 using EvnHanoi.WorkflowService.Models;
@@ -315,7 +316,7 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
                 parameters.Add("CreatedBy", string.IsNullOrEmpty(definition.CreatedBy) ? "System" : definition.CreatedBy);
                 parameters.Add("UpdatedBy", string.IsNullOrEmpty(definition.UpdatedBy) ? "System" : definition.UpdatedBy);
                 parameters.Add("IsActive", definition.IsActive ? 1 : 0);
-                parameters.Add("BpmnXml", string.IsNullOrEmpty(definition.BpmnXml) ? null : definition.BpmnXml);
+                parameters.Add("BpmnXml", OracleClob.Param(definition.BpmnXml));
                 parameters.Add("WorkflowTypeId", definition.WorkflowTypeId);
 
                 await _connection.ExecuteAsync(sqlInsertDef, parameters, transaction);
@@ -398,7 +399,7 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
                 defParams.Add("Version", string.IsNullOrEmpty(definition.Version) ? null : definition.Version);
                 defParams.Add("ForceActivate", definition.ForceActivate ? 1 : 0);
                 defParams.Add("IsActive", definition.IsActive ? 1 : 0);
-                defParams.Add("BpmnXml", string.IsNullOrEmpty(definition.BpmnXml) ? null : definition.BpmnXml);
+                defParams.Add("BpmnXml", OracleClob.Param(definition.BpmnXml));
                 defParams.Add("UpdatedAt", definition.UpdatedAt);
                 defParams.Add("UpdatedBy", string.IsNullOrEmpty(definition.UpdatedBy) ? "System" : definition.UpdatedBy);
                 defParams.Add("WorkflowTypeId", definition.WorkflowTypeId);
