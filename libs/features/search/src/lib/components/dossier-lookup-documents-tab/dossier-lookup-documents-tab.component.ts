@@ -145,11 +145,17 @@ export class DossierLookupDocumentsTabComponent implements OnInit, OnChanges {
 
     this.http.get<any>(`${downloadBase}/${doc.latestVersionId}/download-url`).subscribe({
       next: (res) => {
-        const url = res?.downloadUrl || res?.url;
-        if (url) {
-          window.open(url, '_blank');
+        const token = res?.token;
+        if (token) {
+          const downloadUrl = `${this.config.apiGatewayUrl}/api/v1/files/download?token=${encodeURIComponent(token)}`;
+          window.open(downloadUrl, '_blank');
         } else {
-          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không lấy được đường dẫn tải tài liệu' });
+          const url = res?.downloadUrl || res?.url;
+          if (url) {
+            window.open(url, '_blank');
+          } else {
+            this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không lấy được đường dẫn tải tài liệu' });
+          }
         }
       },
       error: (err) => {
