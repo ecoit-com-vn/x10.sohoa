@@ -15,8 +15,24 @@ import { Select } from 'primeng/select';
 import { Router } from '@angular/router';
 import { FormTemplateService, EavFormTemplate } from '../../data-access/form-template.service';
 import { EquipmentTypeService } from '../../data-access/equipment-type.service';
-import { finalize } from 'rxjs';
 import { LoadingService } from '@sohoa.frontend/shared/core';
+import { finalize } from 'rxjs';
+
+interface FormField {
+  id: string;
+  name: string;
+  label: string;
+  type: string;
+  placeholder?: string;
+  required: boolean;
+  options?: string[];
+  helpText?: string;
+  width: number;
+  dataSourceType?: 'manual' | 'catalog';
+  catalogType?: string;
+  description?: string;
+  selectAll?: boolean;
+}
 
 @Component({
   selector: 'app-form-template',
@@ -32,6 +48,7 @@ import { LoadingService } from '@sohoa.frontend/shared/core';
     TextareaModule,
     Paginator,
     Dialog,
+    Select,
     WfBreadcrumbComponent,
   ],
   providers: [MessageService],
@@ -159,7 +176,11 @@ export class FormTemplateComponent implements OnInit {
     this.equipmentTypeService.getEquipmentTypes(1, 1000, undefined, undefined, undefined, true).subscribe({
       next: (res) => {
         if (res && res.items) {
-          this.equipmentTypes.set(res.items);
+          const mapped = res.items.map((item: any) => ({
+            ...item,
+            value: item.code || item.id
+          }));
+          this.equipmentTypes.set(mapped);
         }
       },
       error: (err) => {
@@ -355,6 +376,11 @@ export class FormTemplateComponent implements OnInit {
           });
         }
       });
+  }
+
+  viewVersionDetail(ver: EavFormTemplate) {
+    this.showVersionsDialog.set(false);
+    this.viewDetails(ver);
   }
 
   exportExcel() {

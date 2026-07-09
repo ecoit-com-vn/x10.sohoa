@@ -71,6 +71,9 @@
                                     title="Xem chi tiết form">
                                     <i class="pi pi-eye"></i>
                                 </button>
+                                <button class="act-btn btn-view-history" (click)="viewVersions(form)" title="Lịch sử phiên bản">
+                                    <i class="pi pi-history"></i>
+                                </button>
                                 <button class="act-btn act-edit" *ngIf="canEdit()" (click)="onEdit(form)" title="Chỉnh sửa">
                                     <i class="pi pi-pencil"></i>
                                 </button>
@@ -111,7 +114,7 @@
         <!-- Breadcrumb with Back button -->
         <div class="list-toolbar">
             <div class="toolbar-left">
-                <wf-breadcrumb />
+                <wf-breadcrumb [suffix]="viewState() === 'detail' ? 'Xem chi tiết form hoàn thành' : null" />
             </div>
             <div class="toolbar-right">
                 <button class="btn-save btn-tim" (click)="goToList()" style="background-color: #002D72 !important; border-color: #002D72 !important; display: inline-flex; align-items: center; gap: 6px; color: white;">
@@ -209,7 +212,7 @@
                                       <div *ngIf="field.dataSourceType === 'catalog' || (field.options && field.options.length > 0); else singleCheckboxView"
                                            style="display: flex; flex-direction: column; gap: 6px; padding: 4px 0;">
                                         <!-- "Chọn tất cả" preview -->
-                                        <label *ngIf="field.selectAll" style="display:flex; align-items:center; gap:8px; font-weight:600; cursor:not-allowed; opacity:0.8; border-bottom:1px dashed #cbd5e1; padding-bottom:4px; margin-bottom:4px; color:#002D72;">
+                                        <label *ngIf="field.selectAll" style="display:flex; align-items:center; gap:8px; font-weight:600; cursor:not-allowed; opacity:0.8; color:#002D72;">
                                           <input type="checkbox" disabled /> <span style="font-size:0.9rem;">Chọn tất cả</span>
                                         </label>
                                         <label *ngFor="let opt of (field.dataSourceType === 'catalog' ? ['(Dữ liệu từ danh mục ' + field.catalogType + ')'] : (field.options || []))" 
@@ -316,5 +319,60 @@
                 </button>
             </div>
         </ng-template>
+    </p-dialog>
+
+    <!-- ==================== DIALOG XEM PHIÊN BẢN BIỂU MẪU ==================== -->
+    <p-dialog [visible]="showVersionsDialog()" (visibleChange)="$event ? null : showVersionsDialog.set(false)"
+      header="Lịch sử phiên bản form" [modal]="true" [style]="{ width: '850px' }" styleClass="evn-dialog-custom"
+      [closable]="true" appendTo="body">
+      <div *ngIf="selectedTemplate() as template" class="version-dialog-wrapper" style="padding: 10px 0;">
+        <div class="wf-table-wrap">
+          <table class="wf-table">
+            <thead>
+              <tr>
+                <th class="col-ver-width text-center" style="width: 100px; text-align: center;">Phiên bản</th>
+                <th>Mã form</th>
+                <th>Tên form</th>
+                <th>Người cập nhật</th>
+                <th>Ngày cập nhật</th>
+                <th class="col-tt-width text-center" style="width: 150px; text-align: center;">Trạng thái</th>
+                <th style="width: 90px; text-align: center;">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let ver of versionList()">
+                <td class="text-center font-bold" style="text-align: center; font-weight: bold; color: #002D72;">v{{ ver.version }}.0</td>
+                <td>{{ ver.code }}</td>
+                <td>{{ ver.name }}</td>
+                <td>{{ ver.creatorFullName }}</td>
+                <td>{{ ver.createdAt | date:'dd/MM/yyyy HH:mm' }}</td>
+                <td class="text-center text-center-align" style="text-align: center;">
+                  <span class="status-pill" [class.status-draft]="ver.status === 'Tạo mới' || !ver.status"
+                    [class.status-pending]="ver.status === 'Chờ duyệt'"
+                    [class.status-approved]="ver.status === 'Hoàn thành'"
+                    [class.status-rejected]="ver.status === 'Từ chối'">
+                    {{ ver.status || 'Tạo mới' }}
+                  </span>
+                </td>
+                <td class="text-center" style="text-align: center;">
+                  <button class="act-btn btn-view-detail" (click)="viewVersionDetail(ver)" title="Xem chi tiết">
+                  <i class="pi pi-eye"></i>
+                </button>
+                </td>
+              </tr>
+              <tr *ngIf="versionList().length === 0">
+                <td colspan="6" class="empty-row text-center">Không tải được lịch sử phiên bản.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <ng-template #footer>
+        <div style="display: flex; justify-content: flex-end; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+          <button class="btn-cancel btn-small" (click)="showVersionsDialog.set(false)">
+            <i class="pi pi-times"></i> Đóng
+          </button>
+        </div>
+      </ng-template>
     </p-dialog>
 </div>
