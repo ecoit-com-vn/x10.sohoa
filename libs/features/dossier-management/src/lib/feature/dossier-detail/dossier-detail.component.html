@@ -307,23 +307,29 @@
 </p-dialog>
 
 <p-dialog [visible]="showCompleteInputConfirm()" (visibleChange)="$event ? null : showCompleteInputConfirm.set(false)"
-  header="Xác nhận hoàn thành" [modal]="true" [style]="{ width: '400px' }" styleClass="evn-dialog-no-modal"
+  header="Xác nhận hoàn thành" [modal]="true" [style]="{ width: '420px' }" styleClass="evn-dialog-custom"
   [closable]="!submitting()">
-  <div style="padding: 10px 0;">
-    <p>Bạn có chắc chắn muốn hoàn thành nhập liệu cho hồ sơ trạm/đường dây:
-      <b>{{ viewMeta()?.infrastructureName || '—' }}</b>?
-    </p>
-    <p class="text-muted" style="font-size: 0.85rem; margin-top: 5px;">
-      Hành động này sẽ chuyển trạng thái hồ sơ sang "Hoàn thành" để chuẩn bị gửi duyệt.
-    </p>
+  <div style="display: flex; align-items: flex-start; gap: 12px; padding: 8px 0 16px;">
+    <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #3b82f6;"></i>
+    <div>
+      <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">Bạn có chắc chắn muốn hoàn thành nhập liệu?</p>
+      <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
+        Hồ sơ <b style="color: #1e293b;">{{ dossier()?.title || dossier()?.name || viewMeta()?.infrastructureName || dossier()?.dossierTypeName || 'này' }}</b> sẽ được chuyển sang trạng thái "Hoàn thành".
+      </p>
+    </div>
   </div>
-  <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px;">
-    <button (click)="showCompleteInputConfirm.set(false)" class="btn-cancel btn-small" [disabled]="submitting()">Hủy</button>
-    <button (click)="confirmCompleteInput()" class="btn-save btn-small" [disabled]="submitting()">
-      <i class="pi pi-spin pi-spinner" *ngIf="submitting()"></i>
-      Xác nhận
-    </button>
-  </div>
+  <ng-template #footer>
+    <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+      <button (click)="showCompleteInputConfirm.set(false)" class="btn-cancel btn-small" [disabled]="submitting()">
+        <i class="pi pi-times"></i> Hủy
+      </button>
+      <button (click)="confirmCompleteInput()" class="btn-save btn-small" [disabled]="submitting()">
+        <i class="pi pi-spin pi-spinner" *ngIf="submitting()"></i>
+        <i class="pi pi-check" *ngIf="!submitting()"></i>
+        Xác nhận
+      </button>
+    </div>
+  </ng-template>
 </p-dialog>
 
 <p-dialog [visible]="showPublishActionConfirm()" (visibleChange)="$event ? null : cancelPublishAction()"

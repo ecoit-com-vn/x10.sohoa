@@ -130,10 +130,7 @@
                 <span *ngIf="!first">{{ getCatalogValue(item, col) }}</span>
               </td>
               <td>{{ getDossierTypeName(item) }}</td>
-              <td>
-                <div>{{ item.infrastructureName || '-' }}</div>
-                <div class="text-muted" style="font-size: 0.75rem;">{{ item.infrastructureCode }}</div>
-              </td>
+              <td>{{ item.infrastructureName || '-' }}</td>
               <td class="text-center" style="width: 100px;">{{ item.documentCount ?? 0 }}</td>
               <td class="col-hd">
                 <div class="action-buttons-group">
