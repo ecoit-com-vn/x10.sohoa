@@ -105,27 +105,7 @@ public class EavFormTemplateRepository : IEavFormTemplateRepository
                 )
                 VALUES (:Id, :Name, :Code, :Category, :Description, :DescriptionInfo, :ExtractionProcess, :FormSchema, :EquipmentTypeId, :GridTypeId, :Version, :IsActive, :CreatedAt, :CreatedBy, :Status, :FormType, :IsDeleted)";
 
-        var param = new
-        {
-            Id = template.Id.ToString(),
-            template.Name,
-            template.Code,
-            template.Category,
-            template.Description,
-            template.DescriptionInfo,
-            template.ExtractionProcess,
-            template.FormSchema,
-            EquipmentTypeId = template.EquipmentTypeId?.ToString(),
-            template.GridTypeId,
-            template.Version,
-            IsActive = template.IsActive ? 1 : 0,
-            template.CreatedAt,
-            template.CreatedBy,
-            template.Status,
-            template.FormType,
-            IsDeleted = template.IsDeleted ? 1 : 0
-        };
-
+        var param = BuildWriteParameters(template, includeId: true, includeAudit: true);
         await _connection.ExecuteAsync(sql, param);
     }
 
@@ -148,26 +128,36 @@ public class EavFormTemplateRepository : IEavFormTemplateRepository
                          IsDeleted = :IsDeleted
                      WHERE {nameof(EavFormTemplate.Id)} = :Id";
         
-        var param = new
-        {
-            template.Name,
-            template.Code,
-            template.Category,
-            template.Description,
-            template.DescriptionInfo,
-            template.ExtractionProcess,
-            template.FormSchema,
-            EquipmentTypeId = template.EquipmentTypeId?.ToString(),
-            template.GridTypeId,
-            template.Version,
-            IsActive = template.IsActive ? 1 : 0,
-            template.Status,
-            template.FormType,
-            IsDeleted = template.IsDeleted ? 1 : 0,
-            Id = template.Id.ToString()
-        };
-
+        var param = BuildWriteParameters(template, includeId: true, includeAudit: false);
         await _connection.ExecuteAsync(sql, param);
+    }
+
+    private static DynamicParameters BuildWriteParameters(EavFormTemplate template, bool includeId, bool includeAudit)
+    {
+        var parameters = new DynamicParameters();
+        if (includeId)
+            parameters.Add("Id", template.Id.ToString());
+
+        parameters.Add("Name", template.Name);
+        parameters.Add("Code", template.Code);
+        parameters.Add("Category", template.Category);
+        parameters.Add("Description", template.Description);
+        parameters.Add("DescriptionInfo", template.DescriptionInfo);
+        parameters.Add("ExtractionProcess", template.ExtractionProcess);
+        parameters.Add("FormSchema", template.FormSchema);
+        parameters.Add("EquipmentTypeId", template.EquipmentTypeId?.ToString());
+        parameters.Add("GridTypeId", template.GridTypeId);
+        parameters.Add("Version", template.Version);
+        parameters.Add("IsActive", template.IsActive ? 1 : 0);
+        if (includeAudit)
+        {
+            parameters.Add("CreatedAt", template.CreatedAt);
+            parameters.Add("CreatedBy", template.CreatedBy);
+        }
+        parameters.Add("Status", template.Status);
+        parameters.Add("FormType", template.FormType);
+        parameters.Add("IsDeleted", template.IsDeleted ? 1 : 0);
+        return parameters;
     }
 
     public async Task<IEnumerable<EavFormTemplate>> GetVersionsByCodeAsync(string code)

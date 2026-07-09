@@ -226,6 +226,7 @@ public class DossierByEquipmentFilterDto
     public string? Keyword { get; set; }
     public DateTime? PublishDateFrom { get; set; }
     public DateTime? PublishDateTo { get; set; }
+    public int? GridTypeId { get; set; }
     public Guid? InfrastructureId { get; set; }
     public Guid? EquipmentTypeId { get; set; }
     public Guid? EquipmentId { get; set; }

@@ -420,6 +420,12 @@ public class DossierRepository : IDossierRepository
             parameters.Add("PublishDateTo", filter.PublishDateTo.Value);
         }
 
+        if (filter.GridTypeId.HasValue)
+        {
+            sql += " AND d.GridTypeId = :GridTypeId";
+            parameters.Add("GridTypeId", filter.GridTypeId.Value);
+        }
+
         if (!excludeInfrastructure && filter.InfrastructureId.HasValue)
         {
             sql += " AND d.InfrastructureId = :InfrastructureId";
@@ -580,6 +586,7 @@ public class DossierRepository : IDossierRepository
             var sql = $@"SELECT
                         d.{nameof(Dossier.Id)},
                         d.{nameof(Dossier.GridTypeId)},
+                        gt.Name as {nameof(DossierDetailDto.GridTypeName)},
                         d.{nameof(Dossier.InfrastructureId)},
                         i.NAME as {nameof(DossierDetailDto.InfrastructureName)},
                         i.CODE as {nameof(DossierDetailDto.InfrastructureCode)},
@@ -607,6 +614,7 @@ public class DossierRepository : IDossierRepository
                         d.{nameof(Dossier.CreatorUsername)} as Username,
                         d.{nameof(Dossier.CreatorName)} as Name
                      FROM DOSSIERS d
+                     LEFT JOIN GridTypes gt ON d.{nameof(Dossier.GridTypeId)} = gt.Id
                      LEFT JOIN INFRASTRUCTURE i ON d.{nameof(Dossier.InfrastructureId)} = i.ID
                      LEFT JOIN DOSSIER_TYPES dt ON d.{nameof(Dossier.DossierTypeId)} = dt.ID
                      LEFT JOIN DOSSIER_SETS ds ON d.{nameof(Dossier.DossierSetId)} = ds.ID

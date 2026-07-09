@@ -58,6 +58,7 @@ public static class DapperServiceExtensions
 
             SqlMapper.AddTypeHandler(new GuidTypeHandler());
             SqlMapper.AddTypeHandler(new NullableGuidTypeHandler());
+            SqlMapper.AddTypeHandler(new OracleStringTypeHandler());
             _handlersRegistered = true;
         }
     }
@@ -113,5 +114,39 @@ public class NullableGuidTypeHandler : SqlMapper.TypeHandler<Guid?>
             return null;
 
         return Guid.TryParse(text.Trim(), out var parsed) ? parsed : null;
+    }
+}
+
+/// <summary>
+/// Oracle bind VARCHAR2 tối đa 4000 ký tự; chuỗi dài hơn phải dùng CLOB.
+/// </summary>
+public class OracleStringTypeHandler : SqlMapper.TypeHandler<string>
+{
+    private const int OracleVarchar2BindMax = 4000;
+
+    public override void SetValue(IDbDataParameter parameter, string value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            parameter.Value = DBNull.Value;
+            return;
+        }
+
+        if (parameter is OracleParameter oracleParameter && value.Length > OracleVarchar2BindMax)
+        {
+            oracleParameter.OracleDbType = OracleDbType.Clob;
+            oracleParameter.Value = value;
+            return;
+        }
+
+        parameter.Value = value;
+    }
+
+    public override string Parse(object value)
+    {
+        if (value == null || value is DBNull)
+            return string.Empty;
+
+        return value.ToString() ?? string.Empty;
     }
 }
