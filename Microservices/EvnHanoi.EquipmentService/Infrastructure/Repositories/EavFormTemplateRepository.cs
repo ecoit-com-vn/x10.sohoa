@@ -2,6 +2,7 @@ using System.Data;
 using Dapper;
 using EvnHanoi.EquipmentService.Core.Entities;
 using EvnHanoi.EquipmentService.Core.Interfaces;
+using EvnHanoi.Infrastructure.Database;
 
 namespace EvnHanoi.EquipmentService.Infrastructure.Repositories;
 
@@ -144,7 +145,7 @@ public class EavFormTemplateRepository : IEavFormTemplateRepository
         parameters.Add("Description", template.Description);
         parameters.Add("DescriptionInfo", template.DescriptionInfo);
         parameters.Add("ExtractionProcess", template.ExtractionProcess);
-        parameters.Add("FormSchema", template.FormSchema);
+        parameters.Add("FormSchema", OracleClob.Param(template.FormSchema));
         parameters.Add("EquipmentTypeId", template.EquipmentTypeId?.ToString());
         parameters.Add("GridTypeId", template.GridTypeId);
         parameters.Add("Version", template.Version);

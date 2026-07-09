@@ -23,7 +23,7 @@ public class EavCompletedFormController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<EavFormTemplate>>> GetAllActive()
     {
-        var templates = await _repository.GetAllActiveAsync("FORM", null);
+        var templates = await _repository.GetCompletedFormsAsync();
         return Ok(templates);
     }
 

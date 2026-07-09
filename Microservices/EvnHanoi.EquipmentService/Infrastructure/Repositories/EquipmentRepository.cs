@@ -7,6 +7,7 @@ using Dapper;
 using EvnHanoi.EquipmentService.Core.Entities;
 using EvnHanoi.EquipmentService.Core.DTOs;
 using EvnHanoi.EquipmentService.Core.Interfaces;
+using EvnHanoi.Infrastructure.Database;
 using InfrastructureEntity = EvnHanoi.EquipmentService.Core.Entities.Infrastructure;
 
 namespace EvnHanoi.EquipmentService.Infrastructure.Repositories;
@@ -439,7 +440,7 @@ public class EquipmentRepository : IEquipmentRepository
                 equipment.CreatedBy,
                 equipment.CreatedAt,
                 equipment.UnitId,
-                equipment.FormValues
+                FormValues = OracleClob.Param(equipment.FormValues)
             };
 
             await _connection.ExecuteAsync(insertEquipmentSql, param, transaction);
@@ -458,7 +459,7 @@ public class EquipmentRepository : IEquipmentRepository
                     Id = a.Id.ToString(),
                     EquipmentId = a.EquipmentId.ToString(),
                     AttributeDefinitionId = a.AttributeDefinitionId.ToString(),
-                    a.Value
+                    Value = OracleClob.Param(a.Value)
                 });
                 await _connection.ExecuteAsync(insertAttributeSql, attrParams, transaction);
             }
@@ -525,7 +526,7 @@ public class EquipmentRepository : IEquipmentRepository
             equipment.CreatedBy,
             equipment.CreatedAt,
             equipment.UnitId,
-            equipment.FormValues
+            FormValues = OracleClob.Param(equipment.FormValues)
         };
 
         var result = await _connection.ExecuteAsync(sql, param);
@@ -564,7 +565,7 @@ public class EquipmentRepository : IEquipmentRepository
             equipment.ModifiedBy,
             ModifiedDate = DateTime.UtcNow,
             equipment.UnitId,
-            equipment.FormValues
+            FormValues = OracleClob.Param(equipment.FormValues)
         };
 
         var result = await _connection.ExecuteAsync(sql, param);
@@ -597,7 +598,7 @@ public class EquipmentRepository : IEquipmentRepository
                     Id = a.Id.ToString(),
                     EquipmentId = a.EquipmentId.ToString(),
                     AttributeDefinitionId = a.AttributeDefinitionId.ToString(),
-                    a.Value
+                    Value = OracleClob.Param(a.Value)
                 });
                 await _connection.ExecuteAsync(insertSql, attrParams, transaction);
             }

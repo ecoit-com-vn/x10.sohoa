@@ -687,7 +687,7 @@ public class DossierRepository : IDossierRepository
                 InfrastructureId = dossier.InfrastructureId?.ToString(),
                 DossierSetId = dossier.DossierSetId?.ToString(),
                 DossierTypeId = dossier.DossierTypeId.ToString(),
-                dossier.FormDataJson,
+                FormDataJson = OracleClob.Param(dossier.FormDataJson),
                 dossier.StatusId,
                 dossier.KindId,
                 dossier.RowVersion,
@@ -740,7 +740,7 @@ public class DossierRepository : IDossierRepository
                 InfrastructureId = dossier.InfrastructureId?.ToString(),
                 DossierSetId = dossier.DossierSetId?.ToString(),
                 DossierTypeId = dossier.DossierTypeId.ToString(),
-                dossier.FormDataJson,
+                FormDataJson = OracleClob.Param(dossier.FormDataJson),
                 dossier.ModifiedBy,
                 dossier.ModifiedDate,
                 dossier.RowVersion
@@ -907,7 +907,7 @@ public class DossierRepository : IDossierRepository
         var affected = await _connection.ExecuteAsync(sql, new
         {
             Id = id.ToString(),
-            FormDataJson = formDataJson,
+            FormDataJson = OracleClob.Param(formDataJson),
             ModifiedBy = modifiedBy,
             ModifiedDate = DateTime.UtcNow,
             ExpectedRowVersion = expectedRowVersion
@@ -978,8 +978,8 @@ public class DossierRepository : IDossierRepository
             Id = version.Id.ToString(),
             DossierId = version.DossierId.ToString(),
             version.VersionNumber,
-            version.FormDataJson,
-            version.DocumentsSnapshotJson,
+            FormDataJson = OracleClob.Param(version.FormDataJson),
+            DocumentsSnapshotJson = OracleClob.Param(version.DocumentsSnapshotJson),
             version.ChangeNote,
             version.CreatedBy,
             version.CreatedDate

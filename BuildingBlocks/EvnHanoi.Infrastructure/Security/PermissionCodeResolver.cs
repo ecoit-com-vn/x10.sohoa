@@ -102,34 +102,23 @@ public static class PermissionCodeResolver
             return "VIEW";
         }
 
-        // Biểu mẫu EAV (formType=FORM): phân quyền theo màn thiết kế / phê duyệt / hoàn thành
-        if (string.Equals(controllerKey, "EavFormTemplate", StringComparison.OrdinalIgnoreCase))
+        // EavFormApprovalController → EAV_FORM_APPROVAL_*
+        if (string.Equals(controllerKey, "EavFormApproval", StringComparison.OrdinalIgnoreCase))
         {
             var actLower = actionName.ToLowerInvariant();
-
             if (actLower.Contains("approve") || actLower.Contains("reject"))
             {
                 return "APPROVE";
             }
+        }
 
+        // EavFormTemplateController → EAV_FORM_TEMPLATE_* (thiết kế / gửi duyệt)
+        if (string.Equals(controllerKey, "EavFormTemplate", StringComparison.OrdinalIgnoreCase))
+        {
+            var actLower = actionName.ToLowerInvariant();
             if (actLower.Contains("submit"))
             {
                 return "SUBMIT";
-            }
-
-            if (httpMethod.Equals("GET", StringComparison.OrdinalIgnoreCase))
-            {
-                if (actLower.Contains("completed"))
-                {
-                    return "COMPLETED_VIEW";
-                }
-
-                if (actLower.Contains("approval"))
-                {
-                    return "APPROVAL_VIEW";
-                }
-
-                return "VIEW";
             }
         }
 
@@ -224,11 +213,12 @@ public static class PermissionCodeResolver
             "EAV_FORM_TEMPLATE_CREATE" => "Tạo biểu mẫu",
             "EAV_FORM_TEMPLATE_EDIT" => "Chỉnh sửa biểu mẫu",
             "EAV_FORM_TEMPLATE_SUBMIT" => "Gửi duyệt biểu mẫu",
-            "EAV_FORM_TEMPLATE_APPROVAL_VIEW" => "Xem hàng chờ phê duyệt biểu mẫu",
-            "EAV_FORM_TEMPLATE_APPROVE" => "Phê duyệt / từ chối biểu mẫu",
-            "EAV_FORM_TEMPLATE_COMPLETED_VIEW" => "Xem danh sách form hoàn thành",
-            "EAV_FORM_TEMPLATE_MANAGE" => "Khóa / mở khóa biểu mẫu",
             "EAV_FORM_TEMPLATE_DELETE" => "Xóa biểu mẫu",
+            "EAV_FORM_APPROVAL_VIEW" => "Xem hàng chờ phê duyệt biểu mẫu",
+            "EAV_FORM_APPROVAL_APPROVE" => "Phê duyệt / từ chối biểu mẫu",
+            "EAV_COMPLETED_FORM_VIEW" => "Xem danh sách form hoàn thành",
+            "EAV_COMPLETED_FORM_MANAGE" => "Khóa / mở khóa biểu mẫu hoàn thành",
+            "EAV_COMPLETED_FORM_DELETE" => "Xóa biểu mẫu hoàn thành",
             "AUDIT_LOG_VIEW" => "Xem nhật ký hệ thống",
             "AUDIT_LOG_DELETE" => "Xóa nhật ký hệ thống",
             "AUDIT_LOG_EXPORT" => "Xuất nhật ký hệ thống",
