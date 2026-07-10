@@ -317,19 +317,30 @@ public class PermissionRepository : IPermissionRepository
                 UNION
                 
                 -- 3. Quyền từ Roles gán trực tiếp cho User
-                SELECT rp.PermissionId
-                FROM ROLE_PERMISSION rp
-                INNER JOIN USER_ROLE ur ON rp.RoleId = ur.RoleId
+                SELECT pgp.PermissionId
+                FROM ROLE_PERMISSION_GROUP rpg
+                INNER JOIN PERMISSION_GROUP_PERMISSION pgp ON rpg.PermissionGroupId = pgp.PermissionGroupId
+                INNER JOIN USER_ROLE ur ON rpg.RoleId = ur.RoleId
                 WHERE ur.UserId = :UserId
                 
                 UNION
                 
                 -- 4. Quyền từ Roles gán qua Nhóm người dùng
-                SELECT rp.PermissionId
-                FROM ROLE_PERMISSION rp
-                INNER JOIN USER_GROUP_ROLE ugr ON rp.RoleId = ugr.RoleId
+                SELECT pgp.PermissionId
+                FROM ROLE_PERMISSION_GROUP rpg
+                INNER JOIN PERMISSION_GROUP_PERMISSION pgp ON rpg.PermissionGroupId = pgp.PermissionGroupId
+                INNER JOIN USER_GROUP_ROLE ugr ON rpg.RoleId = ugr.RoleId
                 INNER JOIN USER_GROUP_MEMBER ugm ON ugr.UserGroupId = ugm.UserGroupId
                 WHERE ugm.UserId = :UserId
+
+                UNION
+
+                -- 5. Quyền từ Roles gán theo đơn vị
+                SELECT pgp.PermissionId
+                FROM USER_UNIT_ROLE uur
+                INNER JOIN ROLE_PERMISSION_GROUP rpg ON uur.RoleId = rpg.RoleId
+                INNER JOIN PERMISSION_GROUP_PERMISSION pgp ON rpg.PermissionGroupId = pgp.PermissionGroupId
+                WHERE uur.UserId = :UserId
             )";
         return await _connection.QueryAsync<PermissionDetail>(sql, new { UserId = userId });
     }
@@ -375,19 +386,30 @@ public class PermissionRepository : IPermissionRepository
                 UNION
                 
                 -- 3. Quyền từ các Roles gán trực tiếp cho User
-                SELECT rp.PermissionId
-                FROM ROLE_PERMISSION rp
-                INNER JOIN USER_ROLE ur ON rp.RoleId = ur.RoleId
+                SELECT pgp.PermissionId
+                FROM ROLE_PERMISSION_GROUP rpg
+                INNER JOIN PERMISSION_GROUP_PERMISSION pgp ON rpg.PermissionGroupId = pgp.PermissionGroupId
+                INNER JOIN USER_ROLE ur ON rpg.RoleId = ur.RoleId
                 WHERE ur.UserId = :UserId
                 
                 UNION
                 
                 -- 4. Quyền từ các Roles gán qua Nhóm người dùng
-                SELECT rp.PermissionId
-                FROM ROLE_PERMISSION rp
-                INNER JOIN USER_GROUP_ROLE ugr ON rp.RoleId = ugr.RoleId
+                SELECT pgp.PermissionId
+                FROM ROLE_PERMISSION_GROUP rpg
+                INNER JOIN PERMISSION_GROUP_PERMISSION pgp ON rpg.PermissionGroupId = pgp.PermissionGroupId
+                INNER JOIN USER_GROUP_ROLE ugr ON rpg.RoleId = ugr.RoleId
                 INNER JOIN USER_GROUP_MEMBER ugm ON ugr.UserGroupId = ugm.UserGroupId
                 WHERE ugm.UserId = :UserId
+
+                UNION
+
+                -- 5. Quyền từ Roles gán theo đơn vị
+                SELECT pgp.PermissionId
+                FROM USER_UNIT_ROLE uur
+                INNER JOIN ROLE_PERMISSION_GROUP rpg ON uur.RoleId = rpg.RoleId
+                INNER JOIN PERMISSION_GROUP_PERMISSION pgp ON rpg.PermissionGroupId = pgp.PermissionGroupId
+                WHERE uur.UserId = :UserId
             )";
         return await _connection.QueryAsync<string>(sql, new { UserId = userId });
     }

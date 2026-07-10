@@ -8,7 +8,7 @@ public interface IUserRepository
 {
     Task<User?> GetUserByUsernameAsync(string username);
     Task<IEnumerable<User>> GetAllAsync();
-    Task<(IEnumerable<User> Items, int TotalCount)> GetPagedAsync(int page, int pageSize, string? keyword = null, long? organizationUnitId = null, bool? isActive = null);
+    Task<(IEnumerable<User> Items, int TotalCount)> GetPagedAsync(int page, int pageSize, string? keyword = null, long? organizationUnitId = null, bool? isActive = null, bool includeDescendants = false);
     Task<User?> GetByIdAsync(string id);
     Task UpdateAsync(User user);
     Task UpdateFullAsync(User user);

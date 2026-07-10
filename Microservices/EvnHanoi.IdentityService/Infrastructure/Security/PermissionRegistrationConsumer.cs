@@ -112,13 +112,13 @@ public class PermissionRegistrationConsumer : BackgroundService
 
         try
         {
-            // Lấy ID của vai trò ADMIN
-            var adminRoleId = await connection.QuerySingleOrDefaultAsync<long?>(
-                "SELECT Id FROM ROLE WHERE Code = 'ADMIN'", transaction: transaction);
+            // Lấy ID nhóm quyền ADMIN (permission bundle)
+            var adminPermissionGroupId = await connection.QuerySingleOrDefaultAsync<long?>(
+                "SELECT Id FROM PERMISSION_GROUP WHERE Code = 'ADMIN'", transaction: transaction);
 
-            if (!adminRoleId.HasValue)
+            if (!adminPermissionGroupId.HasValue)
             {
-                _logger.LogWarning("⚠️ Không tìm thấy vai trò ADMIN trong cơ sở dữ liệu. Bỏ qua liên kết quyền cho ADMIN.");
+                _logger.LogWarning("⚠️ Không tìm thấy nhóm quyền ADMIN trong cơ sở dữ liệu. Bỏ qua liên kết quyền cho ADMIN.");
             }
 
             int permissionInserted = 0;
@@ -128,12 +128,18 @@ public class PermissionRegistrationConsumer : BackgroundService
 
             foreach (var permDto in message.Permissions)
             {
+                if (permDto.Code.Equals("UNIT_PERMISSION_GROUP_VIEW"))
+                {
+                    bool check = true;
+                }
+
                 // 1. Đồng bộ PERMISSION
                 var permId = GenerateDeterministicGuid("PERM_" + permDto.Code);
                 var existsPerm = await connection.ExecuteScalarAsync<int>(
                     "SELECT COUNT(1) FROM PERMISSION WHERE Code = :Code", 
                     new { Code = permDto.Code }, 
                     transaction: transaction);
+                
 
                 if (existsPerm == 0)
                 {
@@ -180,21 +186,21 @@ public class PermissionRegistrationConsumer : BackgroundService
                     }
                 }
 
-                // 3. Tự động gán quyền mới vào vai trò ADMIN
-                if (adminRoleId.HasValue)
+                // 3. Tự động gán quyền mới vào nhóm quyền ADMIN
+                if (adminPermissionGroupId.HasValue)
                 {
                     var existsRolePerm = await connection.ExecuteScalarAsync<int>(
-                        "SELECT COUNT(1) FROM ROLE_PERMISSION WHERE RoleId = :RoleId AND PermissionId = :PermissionId",
-                        new { RoleId = adminRoleId.Value, PermissionId = permId },
+                        "SELECT COUNT(1) FROM PERMISSION_GROUP_PERMISSION WHERE PermissionGroupId = :PermissionGroupId AND PermissionId = :PermissionId",
+                        new { PermissionGroupId = adminPermissionGroupId.Value, PermissionId = permId },
                         transaction: transaction);
 
                     if (existsRolePerm == 0)
                     {
-                        var rolePermId = Guid.NewGuid().ToString(); // sử dụng ngẫu nhiên hoặc UUIDv7
+                        var rolePermId = Guid.NewGuid().ToString();
                         await connection.ExecuteAsync(@"
-                            INSERT INTO ROLE_PERMISSION (Id, RoleId, PermissionId)
-                            VALUES (:Id, :RoleId, :PermissionId)",
-                            new { Id = rolePermId, RoleId = adminRoleId.Value, PermissionId = permId },
+                            INSERT INTO PERMISSION_GROUP_PERMISSION (Id, PermissionGroupId, PermissionId)
+                            VALUES (:Id, :PermissionGroupId, :PermissionId)",
+                            new { Id = rolePermId, PermissionGroupId = adminPermissionGroupId.Value, PermissionId = permId },
                             transaction: transaction);
                         roleMapped++;
                     }
