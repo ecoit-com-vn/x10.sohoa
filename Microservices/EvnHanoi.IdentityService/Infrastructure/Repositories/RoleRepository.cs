@@ -12,98 +12,85 @@ namespace EvnHanoi.IdentityService.Infrastructure.Repositories;
 public class RoleRepository : IRoleRepository
 {
     private readonly IDbConnection _connection;
-    private readonly IPermissionRepository _permissionRepository;
 
-    public RoleRepository(IDbConnection connection, IPermissionRepository permissionRepository)
+    public RoleRepository(IDbConnection connection)
     {
         _connection = connection;
-        _permissionRepository = permissionRepository;
     }
 
-    public async Task<IEnumerable<Role>> GetAllAsync()
+    public async Task<IEnumerable<Role>> GetAllAsync(int? scopeTypeId = null, long? organizationUnitId = null, bool includeDescendants = false)
     {
         if (_connection.State != ConnectionState.Open) _connection.Open();
+        var (whereClause, parameters) = BuildFilter(scopeTypeId, organizationUnitId, includeDescendants, keyword: null);
         var sql = $@"
-            SELECT {nameof(Role.Id)}, 
-                   {nameof(Role.Code)}, 
-                   {nameof(Role.Name)}, 
-                   {nameof(Role.Description)},
-                   {nameof(Role.IsActive)}
-            FROM ROLE 
-            ORDER BY {nameof(Role.Id)}";
-        return await _connection.QueryAsync<Role>(sql);
+            SELECT r.Id, r.Code, r.Name, r.Description, r.ScopeTypeId, st.Code AS ScopeType, st.Name AS ScopeTypeName, r.OrganizationUnitId,
+                   o.Name AS OrganizationUnitName, r.IsActive
+            FROM ROLE r
+            INNER JOIN SCOPE_TYPE st ON r.ScopeTypeId = st.Id
+            LEFT JOIN ORGANIZATION_UNIT o ON r.OrganizationUnitId = o.Id
+            {whereClause}
+            ORDER BY r.Id";
+        return await _connection.QueryAsync<Role>(sql, parameters);
     }
 
-    public async Task<(IEnumerable<Role> Items, int TotalCount)> GetPagedAsync(int page, int pageSize, string? keyword = null)
+    public async Task<(IEnumerable<Role> Items, int TotalCount)> GetPagedAsync(
+        int page, int pageSize, string? keyword = null, int? scopeTypeId = null,
+        long? organizationUnitId = null, bool includeDescendants = false)
     {
         if (_connection.State != ConnectionState.Open) _connection.Open();
-        
-        var whereClause = "";
-        var parameters = new DynamicParameters();
-        if (!string.IsNullOrWhiteSpace(keyword))
-        {
-            whereClause = "WHERE (UPPER(r.Code) LIKE UPPER(:Keyword) OR UPPER(r.Name) LIKE UPPER(:Keyword) OR UPPER(r.Description) LIKE UPPER(:Keyword))";
-            parameters.Add("Keyword", $"%{keyword}%");
-        }
-        
-        var countSql = $"SELECT COUNT(*) FROM ROLE r {whereClause}";
+        var (whereClause, parameters) = BuildFilter(scopeTypeId, organizationUnitId, includeDescendants, keyword);
+        var countSql = $"SELECT COUNT(*) FROM ROLE r INNER JOIN SCOPE_TYPE st ON r.ScopeTypeId = st.Id {whereClause}";
         var offset = (page - 1) * pageSize;
-        
+
         var sql = $@"
             SELECT * FROM (
-                SELECT r.{nameof(Role.Id)}, 
-                       r.{nameof(Role.Code)}, 
-                       r.{nameof(Role.Name)}, 
-                       r.{nameof(Role.Description)},
-                       r.{nameof(Role.IsActive)},
-                       ROW_NUMBER() OVER (ORDER BY r.{nameof(Role.Id)} ASC) AS RN
+                SELECT r.Id, r.Code, r.Name, r.Description, r.ScopeTypeId, st.Code AS ScopeType, st.Name AS ScopeTypeName, r.OrganizationUnitId,
+                       o.Name AS OrganizationUnitName, r.IsActive,
+                       ROW_NUMBER() OVER (ORDER BY r.Id ASC) AS RN
                 FROM ROLE r
+                INNER JOIN SCOPE_TYPE st ON r.ScopeTypeId = st.Id
+                LEFT JOIN ORGANIZATION_UNIT o ON r.OrganizationUnitId = o.Id
                 {whereClause}
             ) WHERE RN > :Offset AND RN <= :OffsetPlusSize";
-            
+
         parameters.Add("Offset", offset);
         parameters.Add("OffsetPlusSize", offset + pageSize);
-        
+
         var totalCount = await _connection.ExecuteScalarAsync<int>(countSql, parameters);
         var items = await _connection.QueryAsync<Role>(sql, parameters);
-        
         return (items, totalCount);
     }
 
     public async Task<Role?> GetByIdAsync(long id)
     {
         if (_connection.State != ConnectionState.Open) _connection.Open();
-        var sql = $@"
-            SELECT {nameof(Role.Id)}, 
-                   {nameof(Role.Code)}, 
-                   {nameof(Role.Name)}, 
-                   {nameof(Role.Description)},
-                   {nameof(Role.IsActive)}
-            FROM ROLE 
-            WHERE {nameof(Role.Id)} = :Id";
+        const string sql = @"
+            SELECT r.Id, r.Code, r.Name, r.Description, r.ScopeTypeId, st.Code AS ScopeType, st.Name AS ScopeTypeName, r.OrganizationUnitId,
+                   o.Name AS OrganizationUnitName, r.IsActive
+            FROM ROLE r
+            INNER JOIN SCOPE_TYPE st ON r.ScopeTypeId = st.Id
+            LEFT JOIN ORGANIZATION_UNIT o ON r.OrganizationUnitId = o.Id
+            WHERE r.Id = :Id";
         return await _connection.QuerySingleOrDefaultAsync<Role>(sql, new { Id = id });
     }
 
     public async Task<long> CreateAsync(Role role)
     {
         if (_connection.State != ConnectionState.Open) _connection.Open();
-        var sql = $@"
-            INSERT INTO ROLE (
-                {nameof(Role.Code)}, 
-                {nameof(Role.Name)}, 
-                {nameof(Role.Description)},
-                {nameof(Role.IsActive)}
-            )
-            VALUES (:Code, :Name, :Description, :IsActive)
-            RETURNING {nameof(Role.Id)} INTO :Id";
-            
+        const string sql = @"
+            INSERT INTO ROLE (Code, Name, Description, ScopeTypeId, OrganizationUnitId, IsActive)
+            VALUES (:Code, :Name, :Description, :ScopeTypeId, :OrganizationUnitId, :IsActive)
+            RETURNING Id INTO :Id";
+
         var parameters = new DynamicParameters();
         parameters.Add("Code", role.Code);
         parameters.Add("Name", role.Name);
         parameters.Add("Description", role.Description);
+        parameters.Add("ScopeTypeId", role.ScopeTypeId);
+        parameters.Add("OrganizationUnitId", role.OrganizationUnitId);
         parameters.Add("IsActive", role.IsActive ? 1 : 0);
         parameters.Add("Id", dbType: DbType.Int64, direction: ParameterDirection.Output);
-        
+
         await _connection.ExecuteAsync(sql, parameters);
         return parameters.Get<long>("Id");
     }
@@ -111,18 +98,20 @@ public class RoleRepository : IRoleRepository
     public async Task<bool> UpdateAsync(Role role)
     {
         if (_connection.State != ConnectionState.Open) _connection.Open();
-        var sql = $@"
-            UPDATE ROLE 
-            SET {nameof(Role.Code)} = :Code, 
-                {nameof(Role.Name)} = :Name, 
-                {nameof(Role.Description)} = :Description,
-                {nameof(Role.IsActive)} = :IsActive
-            WHERE {nameof(Role.Id)} = :Id";
-        var affected = await _connection.ExecuteAsync(sql, new 
+        const string sql = @"
+            UPDATE ROLE
+            SET Code = :Code, Name = :Name, Description = :Description,
+                ScopeTypeId = :ScopeTypeId, OrganizationUnitId = :OrganizationUnitId,
+                IsActive = :IsActive, UpdatedAt = CURRENT_TIMESTAMP
+            WHERE Id = :Id";
+
+        var affected = await _connection.ExecuteAsync(sql, new
         {
             role.Code,
             role.Name,
             role.Description,
+            role.ScopeTypeId,
+            role.OrganizationUnitId,
             IsActive = role.IsActive ? 1 : 0,
             role.Id
         });
@@ -132,57 +121,29 @@ public class RoleRepository : IRoleRepository
     public async Task<bool> DeleteAsync(long id)
     {
         if (_connection.State != ConnectionState.Open) _connection.Open();
-        var sql = $"DELETE FROM ROLE WHERE {nameof(Role.Id)} = :Id";
+        const string sql = "DELETE FROM ROLE WHERE Id = :Id";
         var affected = await _connection.ExecuteAsync(sql, new { Id = id });
         return affected > 0;
     }
 
-    public async Task<IEnumerable<string>> GetPermissionsByRoleIdAsync(long roleId)
+    public async Task<bool> AssignPermissionGroupsAsync(long roleId, IEnumerable<long> permissionGroupIds)
     {
-        if (_connection.State != ConnectionState.Open) _connection.Open();
-        var sql = @"
-            SELECT p.Code 
-            FROM ROLE_PERMISSION rp
-            INNER JOIN PERMISSION p ON rp.PermissionId = p.Id
-            WHERE rp.RoleId = :RoleId";
-        return await _connection.QueryAsync<string>(sql, new { RoleId = roleId });
-    }
-
-    public async Task<bool> AssignPermissionsToRoleAsync(long roleId, IEnumerable<string> permissionCodes)
-    {
-        // Fetch active permissions to get ID from Code via IPermissionRepository
-        var permissions = await _permissionRepository.GetAllPermissionsAsync();
-        var codeToIdMap = permissions
-            .Where(p => p.IsActive)
-            .ToDictionary(p => p.Code, p => p.Id, StringComparer.OrdinalIgnoreCase);
-
         if (_connection.State != ConnectionState.Open) _connection.Open();
         using var transaction = _connection.BeginTransaction();
         try
         {
-            // Clear existing permissions
             await _connection.ExecuteAsync(
-                "DELETE FROM ROLE_PERMISSION WHERE RoleId = :RoleId", 
-                new { RoleId = roleId }, 
+                "DELETE FROM ROLE_PERMISSION_GROUP WHERE RoleId = :RoleId",
+                new { RoleId = roleId },
                 transaction);
 
-            // Insert new permissions mapping
-            var sql = @"
-                INSERT INTO ROLE_PERMISSION (Id, RoleId, PermissionId) 
-                VALUES (:Id, :RoleId, :PermissionId)";
-                
-            foreach (var code in permissionCodes)
+            const string sql = @"
+                INSERT INTO ROLE_PERMISSION_GROUP (RoleId, PermissionGroupId)
+                VALUES (:RoleId, :PermissionGroupId)";
+
+            foreach (var groupId in permissionGroupIds.Distinct())
             {
-                if (codeToIdMap.TryGetValue(code, out var permissionId))
-                {
-                    var id = Guid.NewGuid().ToString(); // UUID
-                    await _connection.ExecuteAsync(sql, new 
-                    {
-                        Id = id,
-                        RoleId = roleId,
-                        PermissionId = permissionId
-                    }, transaction);
-                }
+                await _connection.ExecuteAsync(sql, new { RoleId = roleId, PermissionGroupId = groupId }, transaction);
             }
 
             transaction.Commit();
@@ -247,5 +208,45 @@ public class RoleRepository : IRoleRepository
 
         var items = await _connection.QueryAsync<RoleAssignedUserListItem>(sql, parameters);
         return (items, totalCount);
+    }
+
+    private static (string WhereClause, DynamicParameters Parameters) BuildFilter(
+        int? scopeTypeId, long? organizationUnitId, bool includeDescendants, string? keyword)
+    {
+        var conditions = new List<string>();
+        var parameters = new DynamicParameters();
+
+        if (scopeTypeId.HasValue)
+        {
+            conditions.Add("st.Id = :ScopeTypeId");
+            parameters.Add("ScopeTypeId", scopeTypeId);
+        }
+
+        if (organizationUnitId.HasValue)
+        {
+            if (includeDescendants)
+            {
+                conditions.Add(@"r.OrganizationUnitId IN (
+                    SELECT Id FROM ORGANIZATION_UNIT
+                    WHERE IsDeleted = 0
+                    START WITH Id = :OrganizationUnitId
+                    CONNECT BY PRIOR Id = ParentId)");
+            }
+            else
+            {
+                conditions.Add("r.OrganizationUnitId = :OrganizationUnitId");
+            }
+
+            parameters.Add("OrganizationUnitId", organizationUnitId.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(keyword))
+        {
+            conditions.Add("(UPPER(r.Code) LIKE UPPER(:Keyword) OR UPPER(r.Name) LIKE UPPER(:Keyword) OR UPPER(r.Description) LIKE UPPER(:Keyword))");
+            parameters.Add("Keyword", $"%{keyword.Trim()}%");
+        }
+
+        var whereClause = conditions.Count > 0 ? "WHERE " + string.Join(" AND ", conditions) : "";
+        return (whereClause, parameters);
     }
 }

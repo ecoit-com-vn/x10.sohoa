@@ -102,7 +102,9 @@ public class PermissionDiscoveryService : BackgroundService
         var friendlyResourceNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             { "Users", "Người dùng" },
-            { "Roles", "Vai trò hệ thống" },
+            { "Roles", "Vai trò" },
+            { "SystemPermissionGroups", "Nhóm quyền hệ thống" },
+            { "UnitPermissionGroups", "Nhóm quyền đơn vị" },
             { "Menus", "Thực đơn điều hướng (Menu)" },
             { "OrganizationUnits", "Đơn vị thành viên" },
             { "UserGroups", "Nhóm người dùng" },

@@ -5,6 +5,7 @@ using EvnHanoi.IdentityService.Core.Interfaces;
 using EvnHanoi.IdentityService.Controllers;
 using EvnHanoi.IdentityService.Infrastructure.Repositories;
 using EvnHanoi.IdentityService.Infrastructure.Services;
+using EvnHanoi.IdentityService.Infrastructure.Security;
 using EvnHanoi.IdentityService.Validators;
 using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -38,7 +39,9 @@ builder.Services.AddOpenApi();
 // DI Configuration
 builder.Services.AddDapperInfrastructure(builder.Configuration);
 builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IPermissionGroupRepository, PermissionGroupRepository>();
 builder.Services.AddScoped<IRoleRepository, RoleRepository>();
+builder.Services.AddScoped<IRbacScopeAuthorizationService, RbacScopeAuthorizationService>();
 builder.Services.AddScoped<ISystemParamRepository, SystemParamRepository>();
 builder.Services.AddScoped<IOrganizationUnitRepository, OrganizationUnitRepository>();
 builder.Services.AddScoped<IMenuRepository, MenuRepository>();
@@ -48,6 +51,7 @@ builder.Services.AddScoped<IUploadConfigRepository, UploadConfigRepository>();
 builder.Services.AddScoped<IPermissionRepository, PermissionRepository>();
 builder.Services.AddScoped<IAvatarStorageService, AvatarStorageService>();
 builder.Services.AddScoped<EvnHanoi.IdentityService.Infrastructure.Security.DynamicSeederService>();
+builder.Services.AddPermissionDiscovery("IdentityService");
 builder.Services.AddScoped<IValidator<UpdateProfileRequest>, UpdateProfileRequestValidator>();
 builder.Services.AddScoped<IValidator<ChangePasswordRequest>, ChangePasswordRequestValidator>();
 
@@ -94,6 +98,9 @@ catch (Exception ex)
 {
     Log.Error(ex, "Failed to run database migrations.");
 }
+
+
+
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

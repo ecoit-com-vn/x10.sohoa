@@ -50,16 +50,7 @@ public class DevController : ControllerBase
 
         var results = new List<string>();
 
-        try
-        {
-            // 0. Quét hệ thống tự động chèn Permissions & Details trước
-            var scanLogs = await _seederService.ScanAndSeedPermissionsAsync();
-            results.AddRange(scanLogs);
-        }
-        catch (Exception ex)
-        {
-            results.Add($"⚠️ Lỗi quét phân quyền tự động: {ex.Message}");
-        }
+
 
         if (_connection.State != ConnectionState.Open) _connection.Open();
         using var transaction = _connection.BeginTransaction();
@@ -76,8 +67,8 @@ public class DevController : ControllerBase
             if (adminRoleId == null)
             {
                 var insertRoleSql = @"
-                    INSERT INTO ROLE (Code, Name, Description, CreatedBy)
-                    VALUES ('ADMIN', 'Quản trị viên hệ thống', 'Tài khoản có toàn quyền trên hệ thống', 'SYSTEM')
+                    INSERT INTO ROLE (Code, Name, Description, ScopeTypeId, CreatedBy)
+                    VALUES ('ADMIN', 'Quản trị viên hệ thống', 'Tài khoản có toàn quyền trên hệ thống', 1, 'SYSTEM')
                     RETURNING Id INTO :Id";
 
                 var roleParams = new DynamicParameters();
@@ -101,8 +92,8 @@ public class DevController : ControllerBase
             if (userRoleId == null)
             {
                 var insertUserRoleSql = @"
-                    INSERT INTO ROLE (Code, Name, Description, CreatedBy)
-                    VALUES ('USER', 'Người dùng', 'Tài khoản người dùng thông thường', 'SYSTEM')
+                    INSERT INTO ROLE (Code, Name, Description, ScopeTypeId, CreatedBy)
+                    VALUES ('USER', 'Người dùng', 'Tài khoản người dùng thông thường', 1, 'SYSTEM')
                     RETURNING Id INTO :Id";
 
                 var userRoleParams = new DynamicParameters();
@@ -126,8 +117,8 @@ public class DevController : ControllerBase
             if (operatorRoleId == null)
             {
                 var insertOpRoleSql = @"
-                    INSERT INTO ROLE (Code, Name, Description, CreatedBy)
-                    VALUES ('OPERATOR', 'Nhân viên vận hành', 'Tài khoản nhân viên vận hành hệ thống', 'SYSTEM')
+                    INSERT INTO ROLE (Code, Name, Description, ScopeTypeId, CreatedBy)
+                    VALUES ('OPERATOR', 'Nhân viên vận hành', 'Tài khoản nhân viên vận hành hệ thống', 1, 'SYSTEM')
                     RETURNING Id INTO :Id";
 
                 var opRoleParams = new DynamicParameters();
@@ -142,18 +133,31 @@ public class DevController : ControllerBase
             }
 
             // =============================================
-            // 3. Gán tất cả Permissions cho Role ADMIN
+            // 3. Gán tất cả Permissions cho nhóm quyền ADMIN
             // =============================================
-            await _connection.ExecuteAsync(
-                "DELETE FROM ROLE_PERMISSION WHERE RoleId = :RoleId",
-                new { RoleId = adminRoleId },
-                transaction);
+            var adminPermissionGroupId = await _connection.QuerySingleOrDefaultAsync<long?>(
+                "SELECT Id FROM PERMISSION_GROUP WHERE Code = 'ADMIN'",
+                transaction: transaction);
+
+            if (!adminPermissionGroupId.HasValue)
+            {
+                var insertPgSql = @"
+                    INSERT INTO PERMISSION_GROUP (Code, Name, Description, GroupType, IsActive, CreatedBy)
+                    VALUES ('ADMIN', 'Quản trị viên hệ thống', 'Nhóm quyền quản trị tối cao', 'SYSTEM', 1, 'SYSTEM')
+                    RETURNING Id INTO :Id";
+                var pgParams = new DynamicParameters();
+                pgParams.Add("Id", dbType: DbType.Int64, direction: ParameterDirection.Output);
+                await _connection.ExecuteAsync(insertPgSql, pgParams, transaction);
+                adminPermissionGroupId = pgParams.Get<long>("Id");
+            }
 
             var allPermissions = new[]
             {
                 "VIEW_DASHBOARD", 
                 "USER_VIEW", "USER_MANAGE", 
                 "ROLE_VIEW", "ROLE_MANAGE", "PERMISSION_MANAGE",
+                "PERMISSION_GROUP_VIEW", "PERMISSION_GROUP_MANAGE", 
+                "UNIT_PERMISSION_GROUP_VIEW", "UNIT_PERMISSION_GROUP_CREATE", "UNIT_PERMISSION_GROUP_EDIT", "UNIT_PERMISSION_GROUP_DELETE", "UNIT_PERMISSION_GROUP_MANAGE",
                 "SYSTEM_PARAM_VIEW", "SYSTEM_PARAM_MANAGE", 
                 "ORGANIZATION_VIEW", "ORGANIZATION_MANAGE", 
                 "CATALOG_VIEW", "CATALOG_MANAGE",
@@ -166,6 +170,27 @@ public class DevController : ControllerBase
                 "REPORT_VIEW", "REPORT_MANAGE", "REPORT_EXPORT"
             };
 
+            var operatorPermissions = new[]
+            {
+                "VIEW_DASHBOARD", 
+                "EQUIPMENT_VIEW", "EQUIPMENT_MANAGE",
+                "DIGITIZATION_VIEW", "DIGITIZATION_MANAGE",
+                "REPORT_VIEW",
+                "CATALOG_VIEW",
+                "SEARCH_DOSSIERS_BY_EQUIPMENT_VIEW",
+                "SEARCH_DOSSIERS_IN_WAREHOUSE_VIEW",
+                "AUDIT_LOG_VIEW"
+            };
+
+            var userPermissions = new[]
+            {
+                "VIEW_DASHBOARD", 
+                "EQUIPMENT_VIEW",
+                "CATALOG_VIEW",
+                "SEARCH_DOSSIERS_BY_EQUIPMENT_VIEW",
+                "SEARCH_DOSSIERS_IN_WAREHOUSE_VIEW"
+            };
+
             // Truy vấn danh sách Permission active để lấy ID tương ứng với Code
             var permissions = await _connection.QueryAsync<(string Id, string Code)>(
                 "SELECT Id, Code FROM PERMISSION WHERE IsActive = 1", 
@@ -173,7 +198,12 @@ public class DevController : ControllerBase
             
             var codeToIdMap = permissions.ToDictionary(p => p.Code, p => p.Id, StringComparer.OrdinalIgnoreCase);
 
-            var insertPermSql = "INSERT INTO ROLE_PERMISSION (Id, RoleId, PermissionId) VALUES (:Id, :RoleId, :PermissionId)";
+            var insertPermSql = @"
+                INSERT INTO PERMISSION_GROUP_PERMISSION (Id, PermissionGroupId, PermissionId)
+                SELECT :Id, :PermissionGroupId, :PermissionId FROM DUAL
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM PERMISSION_GROUP_PERMISSION 
+                    WHERE PermissionGroupId = :PermissionGroupId AND PermissionId = :PermissionId)";
             int insertCount = 0;
             foreach (var code in allPermissions)
             {
@@ -183,13 +213,121 @@ public class DevController : ControllerBase
                     await _connection.ExecuteAsync(insertPermSql, new
                     {
                         Id = id,
-                        RoleId = adminRoleId,
+                        PermissionGroupId = adminPermissionGroupId,
                         PermissionId = permissionId
                     }, transaction);
                     insertCount++;
                 }
             }
-            results.Add($"✅ Gán {insertCount} trên tổng số {allPermissions.Length} quyền cho Role ADMIN thành công.");
+            results.Add($"✅ Gán {insertCount} trên tổng số {allPermissions.Length} quyền cho nhóm quyền ADMIN thành công.");
+
+            if (adminRoleId.HasValue && adminPermissionGroupId.HasValue)
+            {
+                await _connection.ExecuteAsync(@"
+                    INSERT INTO ROLE_PERMISSION_GROUP (RoleId, PermissionGroupId)
+                    SELECT :RoleId, :PermissionGroupId FROM DUAL
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM ROLE_PERMISSION_GROUP
+                        WHERE RoleId = :RoleId AND PermissionGroupId = :PermissionGroupId)",
+                    new { RoleId = adminRoleId.Value, PermissionGroupId = adminPermissionGroupId.Value },
+                    transaction);
+            }
+
+            // =============================================
+            // 3b. Gán Permissions cho nhóm quyền OPERATOR
+            // =============================================
+            var operatorPermissionGroupId = await _connection.QuerySingleOrDefaultAsync<long?>(
+                "SELECT Id FROM PERMISSION_GROUP WHERE Code = 'OPERATOR'",
+                transaction: transaction);
+
+            if (!operatorPermissionGroupId.HasValue)
+            {
+                var insertPgSql = @"
+                    INSERT INTO PERMISSION_GROUP (Code, Name, Description, GroupType, IsActive, CreatedBy)
+                    VALUES ('OPERATOR', 'Nhân viên vận hành', 'Nhóm quyền nhân viên vận hành hệ thống', 'SYSTEM', 1, 'SYSTEM')
+                    RETURNING Id INTO :Id";
+                var pgParams = new DynamicParameters();
+                pgParams.Add("Id", dbType: DbType.Int64, direction: ParameterDirection.Output);
+                await _connection.ExecuteAsync(insertPgSql, pgParams, transaction);
+                operatorPermissionGroupId = pgParams.Get<long>("Id");
+            }
+
+            int opInsertCount = 0;
+            foreach (var code in operatorPermissions)
+            {
+                if (codeToIdMap.TryGetValue(code, out var permissionId))
+                {
+                    var id = Guid.NewGuid().ToString();
+                    await _connection.ExecuteAsync(insertPermSql, new
+                    {
+                        Id = id,
+                        PermissionGroupId = operatorPermissionGroupId.Value,
+                        PermissionId = permissionId
+                    }, transaction);
+                    opInsertCount++;
+                }
+            }
+            results.Add($"✅ Gán {opInsertCount} trên tổng số {operatorPermissions.Length} quyền cho nhóm quyền OPERATOR thành công.");
+
+            if (operatorRoleId.HasValue && operatorPermissionGroupId.HasValue)
+            {
+                await _connection.ExecuteAsync(@"
+                    INSERT INTO ROLE_PERMISSION_GROUP (RoleId, PermissionGroupId)
+                    SELECT :RoleId, :PermissionGroupId FROM DUAL
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM ROLE_PERMISSION_GROUP
+                        WHERE RoleId = :RoleId AND PermissionGroupId = :PermissionGroupId)",
+                    new { RoleId = operatorRoleId.Value, PermissionGroupId = operatorPermissionGroupId.Value },
+                    transaction);
+            }
+
+            // =============================================
+            // 3c. Gán Permissions cho nhóm quyền USER
+            // =============================================
+            var userPermissionGroupId = await _connection.QuerySingleOrDefaultAsync<long?>(
+                "SELECT Id FROM PERMISSION_GROUP WHERE Code = 'USER'",
+                transaction: transaction);
+
+            if (!userPermissionGroupId.HasValue)
+            {
+                var insertPgSql = @"
+                    INSERT INTO PERMISSION_GROUP (Code, Name, Description, GroupType, IsActive, CreatedBy)
+                    VALUES ('USER', 'Người dùng', 'Nhóm quyền người dùng thông thường', 'SYSTEM', 1, 'SYSTEM')
+                    RETURNING Id INTO :Id";
+                var pgParams = new DynamicParameters();
+                pgParams.Add("Id", dbType: DbType.Int64, direction: ParameterDirection.Output);
+                await _connection.ExecuteAsync(insertPgSql, pgParams, transaction);
+                userPermissionGroupId = pgParams.Get<long>("Id");
+            }
+
+            int userInsertCount = 0;
+            foreach (var code in userPermissions)
+            {
+                if (codeToIdMap.TryGetValue(code, out var permissionId))
+                {
+                    var id = Guid.NewGuid().ToString();
+                    await _connection.ExecuteAsync(insertPermSql, new
+                    {
+                        Id = id,
+                        PermissionGroupId = userPermissionGroupId.Value,
+                        PermissionId = permissionId
+                    }, transaction);
+                    userInsertCount++;
+                }
+            }
+            results.Add($"✅ Gán {userInsertCount} trên tổng số {userPermissions.Length} quyền cho nhóm quyền USER thành công.");
+
+            if (userRoleId.HasValue && userPermissionGroupId.HasValue)
+            {
+                await _connection.ExecuteAsync(@"
+                    INSERT INTO ROLE_PERMISSION_GROUP (RoleId, PermissionGroupId)
+                    SELECT :RoleId, :PermissionGroupId FROM DUAL
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM ROLE_PERMISSION_GROUP
+                        WHERE RoleId = :RoleId AND PermissionGroupId = :PermissionGroupId)",
+                    new { RoleId = userRoleId.Value, PermissionGroupId = userPermissionGroupId.Value },
+                    transaction);
+            }
 
             // =============================================
             // 4. Đảm bảo APP_USER 'admin' và 'operator' tồn tại
@@ -319,6 +457,17 @@ public class DevController : ControllerBase
 
             transaction.Commit();
 
+            try
+            {
+                // Quét hệ thống tự động chèn Permissions & Details và tự động gán bổ sung vào nhóm ADMIN
+                var scanLogs = await _seederService.ScanAndSeedPermissionsAsync();
+                results.AddRange(scanLogs);
+            }
+            catch (Exception ex)
+            {
+                results.Add($"⚠️ Lỗi quét phân quyền tự động: {ex.Message}");
+            }
+
             return Ok(new
             {
                 message = "Seed dữ liệu ban đầu hoàn tất.",
@@ -356,20 +505,20 @@ public class DevController : ControllerBase
         {
             var logs = await _seederService.ScanAndSeedPermissionsAsync();
 
-            // Gán tất cả Permissions active cho Role ADMIN tự động
+            // Gán tất cả Permissions active cho nhóm quyền ADMIN
             if (_connection.State != ConnectionState.Open) _connection.Open();
-            var adminRoleId = await _connection.QuerySingleOrDefaultAsync<long?>(
-                "SELECT Id FROM ROLE WHERE Code = 'ADMIN'");
-            if (adminRoleId.HasValue)
+            var adminPermissionGroupId = await _connection.QuerySingleOrDefaultAsync<long?>(
+                "SELECT Id FROM PERMISSION_GROUP WHERE Code = 'ADMIN'");
+            if (adminPermissionGroupId.HasValue)
             {
                 await _connection.ExecuteAsync(
-                    "DELETE FROM ROLE_PERMISSION WHERE RoleId = :RoleId",
-                    new { RoleId = adminRoleId.Value });
+                    "DELETE FROM PERMISSION_GROUP_PERMISSION WHERE PermissionGroupId = :PermissionGroupId",
+                    new { PermissionGroupId = adminPermissionGroupId.Value });
 
                 var permissions = await _connection.QueryAsync<string>(
                     "SELECT Id FROM PERMISSION WHERE IsActive = 1");
 
-                var insertPermSql = "INSERT INTO ROLE_PERMISSION (Id, RoleId, PermissionId) VALUES (:Id, :RoleId, :PermissionId)";
+                var insertPermSql = "INSERT INTO PERMISSION_GROUP_PERMISSION (Id, PermissionGroupId, PermissionId) VALUES (:Id, :PermissionGroupId, :PermissionId)";
                 int insertCount = 0;
                 foreach (var permId in permissions)
                 {
@@ -377,12 +526,12 @@ public class DevController : ControllerBase
                     await _connection.ExecuteAsync(insertPermSql, new
                     {
                         Id = id,
-                        RoleId = adminRoleId.Value,
+                        PermissionGroupId = adminPermissionGroupId.Value,
                         PermissionId = permId
                     });
                     insertCount++;
                 }
-                logs.Add($"✅ Tự động liên kết gán {insertCount} quyền mới quét được cho vai trò ADMIN thành công.");
+                logs.Add($"✅ Tự động liên kết gán {insertCount} quyền mới quét được cho nhóm quyền ADMIN thành công.");
             }
 
             return Ok(new

@@ -95,7 +95,7 @@ public class UserRepository : IUserRepository
         );
     }
 
-    public async Task<(IEnumerable<User> Items, int TotalCount)> GetPagedAsync(int page, int pageSize, string? keyword = null, long? organizationUnitId = null, bool? isActive = null)
+    public async Task<(IEnumerable<User> Items, int TotalCount)> GetPagedAsync(int page, int pageSize, string? keyword = null, long? organizationUnitId = null, bool? isActive = null, bool includeDescendants = false)
     {
         if (_connection.State != ConnectionState.Open) _connection.Open();
         
@@ -110,7 +110,18 @@ public class UserRepository : IUserRepository
         
         if (organizationUnitId.HasValue && organizationUnitId.Value > 0)
         {
-            conditions.Add("u.OrganizationUnitId = :OrganizationUnitId");
+            if (includeDescendants)
+            {
+                conditions.Add(@"u.OrganizationUnitId IN (
+                    SELECT Id FROM ORGANIZATION_UNIT
+                    WHERE IsDeleted = 0
+                    START WITH Id = :OrganizationUnitId
+                    CONNECT BY PRIOR Id = ParentId)");
+            }
+            else
+            {
+                conditions.Add("u.OrganizationUnitId = :OrganizationUnitId");
+            }
             parameters.Add("OrganizationUnitId", organizationUnitId.Value);
         }
         

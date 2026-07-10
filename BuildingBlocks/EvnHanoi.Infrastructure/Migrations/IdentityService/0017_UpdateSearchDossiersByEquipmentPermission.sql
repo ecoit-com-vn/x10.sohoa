@@ -7,26 +7,30 @@ SET PermissionCode = 'SEARCH_DOSSIERS_BY_EQUIPMENT_VIEW',
 WHERE Url = '/search' OR Name = N'Tra cứu hồ sơ thiết bị';
 
 -- 2. Đăng ký quyền SEARCH_DOSSIERS_BY_EQUIPMENT_VIEW vào bảng PERMISSION
-INSERT INTO PERMISSION (Id, Code, Name, Description, ServiceName)
+INSERT INTO PERMISSION (Id, Code, Name, Description, IsActive, CreatedBy)
 SELECT 'search_dossier_equip_view_id', 
        'SEARCH_DOSSIERS_BY_EQUIPMENT_VIEW', 
        N'Tra cứu hồ sơ thiết bị', 
        N'Tự động sinh: Quyền tra cứu hồ sơ thiết bị', 
-       'EquipmentService'
+       1,
+       'SYSTEM'
 FROM DUAL
 WHERE NOT EXISTS (
     SELECT 1 FROM PERMISSION WHERE Code = 'SEARCH_DOSSIERS_BY_EQUIPMENT_VIEW'
 );
 
 -- 3. Gán quyền này cho vai trò ADMIN
-INSERT INTO ROLE_PERMISSION (RoleId, PermissionId)
-SELECT (SELECT Id FROM ROLE WHERE Code = 'ADMIN' AND ROWNUM = 1), 'search_dossier_equip_view_id'
+INSERT INTO ROLE_PERMISSION (Id, RoleId, PermissionId)
+SELECT SYS_GUID(), 
+       (SELECT Id FROM ROLE WHERE Code = 'ADMIN' AND ROWNUM = 1), 
+       (SELECT Id FROM PERMISSION WHERE Code = 'SEARCH_DOSSIERS_BY_EQUIPMENT_VIEW' AND ROWNUM = 1)
 FROM DUAL
 WHERE NOT EXISTS (
     SELECT 1 FROM ROLE_PERMISSION 
     WHERE RoleId = (SELECT Id FROM ROLE WHERE Code = 'ADMIN' AND ROWNUM = 1)
-      AND PermissionId = 'search_dossier_equip_view_id'
+      AND PermissionId = (SELECT Id FROM PERMISSION WHERE Code = 'SEARCH_DOSSIERS_BY_EQUIPMENT_VIEW' AND ROWNUM = 1)
 )
-AND (SELECT Id FROM ROLE WHERE Code = 'ADMIN' AND ROWNUM = 1) IS NOT NULL;
+AND (SELECT Id FROM ROLE WHERE Code = 'ADMIN' AND ROWNUM = 1) IS NOT NULL
+AND (SELECT Id FROM PERMISSION WHERE Code = 'SEARCH_DOSSIERS_BY_EQUIPMENT_VIEW' AND ROWNUM = 1) IS NOT NULL;
 
 COMMIT;

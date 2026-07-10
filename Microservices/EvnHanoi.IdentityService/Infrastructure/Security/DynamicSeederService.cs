@@ -11,6 +11,7 @@ using EvnHanoi.IdentityService.Core.Interfaces;
 using Microsoft.AspNetCore.Mvc.ApiExplorer;
 using Microsoft.Extensions.Caching.Memory;
 using Serilog;
+using EvnHanoi.Infrastructure.Security;
 
 namespace EvnHanoi.IdentityService.Infrastructure.Security;
 
@@ -107,6 +108,11 @@ public class DynamicSeederService
 
         int permCount = 0;
         int detailCount = 0;
+        int adminMappedCount = 0;
+
+        // Lấy ID nhóm quyền ADMIN (permission bundle)
+        var adminPermissionGroupId = await _connection.QuerySingleOrDefaultAsync<long?>(
+            "SELECT Id FROM PERMISSION_GROUP WHERE Code = 'ADMIN'");
 
         // Group endpoints by controller
         var endpointsByController = apiEndpoints
@@ -120,7 +126,7 @@ public class DynamicSeederService
             var controllerName = controllerKey + "Controller"; // e.g. UsersController
             
             // Standardize resource base name: e.g. "Users" -> "USER"
-            string resourceBase = GetResourceBase(controllerKey);
+            string resourceBase = PermissionCodeResolver.GetResourceBase(controllerKey);
             string resourceFriendly = friendlyResourceNames.TryGetValue(controllerKey, out var val) ? val : controllerKey;
 
             foreach (var api in controllerGroup)
@@ -129,7 +135,7 @@ public class DynamicSeederService
                 var httpMethod = api.HttpMethod ?? "GET";
 
                 // Phân loại hành động sang CRUD+
-                string category = CategorizeAction(actionName, httpMethod);
+                string category = PermissionCodeResolver.CategorizeAction(controllerKey, actionName, httpMethod);
                 string permissionCode = $"{resourceBase}_{category}"; // e.g. USER_CREATE
                 
                 string permId = GenerateDeterministicGuid("PERM_" + permissionCode);
@@ -170,98 +176,35 @@ public class DynamicSeederService
                         new { Id = detailId, PermissionId = permId, ControllerName = controllerName, ActionName = actionName });
                     detailCount++;
                 }
+
+                // 4. Tự động gán quyền vào nhóm quyền ADMIN nếu chưa có
+                if (adminPermissionGroupId.HasValue)
+                {
+                    var existsRolePerm = await _connection.ExecuteScalarAsync<int>(
+                        "SELECT COUNT(1) FROM PERMISSION_GROUP_PERMISSION WHERE PermissionGroupId = :PermissionGroupId AND PermissionId = :PermissionId",
+                        new { PermissionGroupId = adminPermissionGroupId.Value, PermissionId = permId });
+
+                    if (existsRolePerm == 0)
+                    {
+                        var rolePermId = Guid.NewGuid().ToString();
+                        await _connection.ExecuteAsync(@"
+                            INSERT INTO PERMISSION_GROUP_PERMISSION (Id, PermissionGroupId, PermissionId)
+                            VALUES (:Id, :PermissionGroupId, :PermissionId)",
+                            new { Id = rolePermId, PermissionGroupId = adminPermissionGroupId.Value, PermissionId = permId });
+                        adminMappedCount++;
+                    }
+                }
             }
         }
 
         logs.Add($"✨ Tự động tạo mới thành công {permCount} quyền PERMISSION.");
         logs.Add($"✨ Tự động tạo mới thành công {detailCount} chi tiết ánh xạ API PERMISSION_DETAIL.");
+        logs.Add($"✨ Tự động gán thành công {adminMappedCount} quyền mới cho ADMIN.");
 
         return logs;
     }
 
-    private string GetResourceBase(string controllerKey)
-    {
-        return controllerKey switch
-        {
-            "Menus" => "MENU",
-            "Users" => "USER",
-            "Roles" => "ROLE",
-            "Permissions" => "PERMISSION",
-            "OrganizationUnits" => "ORGANIZATION",
-            "UploadConfigs" => "UPLOAD_CONFIG",
-            "SystemParams" => "SYSTEM_PARAM",
-            "UserGroups" => "USER_GROUP",
-            "AuditLog" => "AUDIT_LOG",
-            "Signatures" => "SIGNATURE",
-            _ => controllerKey.ToUpperInvariant()
-        };
-    }
 
-    private string CategorizeAction(string actionName, string httpMethod)
-    {
-        string actLower = actionName.ToLowerInvariant();
-
-        if (actLower.Contains("submit") && (actLower.Contains("digitization")))
-        {
-            return "CREATE";
-        }
-
-        // 0. MANAGE (Explicit management actions like assignment/grant/revoke)
-        if (actLower.Contains("assign") || actLower.Contains("grant") || actLower.Contains("revoke") || actLower.Contains("move"))
-        {
-            return "MANAGE";
-        }
-        
-        // 1. IMPORT
-        if (actLower.Contains("import") || actLower.Contains("upload") || actLower.Contains("extract") || actLower.Contains("ocr"))
-        {
-            return "IMPORT";
-        }
-
-        // 2. EXPORT
-        if (actLower.Contains("export") || actLower.Contains("download"))
-        {
-            return "EXPORT";
-        }
-
-        // 3. DELETE
-        if (httpMethod.Equals("DELETE", StringComparison.OrdinalIgnoreCase) || 
-            actLower.StartsWith("delete") || actLower.StartsWith("remove") || actLower.StartsWith("destroy"))
-        {
-            return "DELETE";
-        }
-
-        // 4. EDIT
-        if (httpMethod.Equals("PUT", StringComparison.OrdinalIgnoreCase) || 
-            httpMethod.Equals("PATCH", StringComparison.OrdinalIgnoreCase) ||
-            actLower.StartsWith("update") || actLower.StartsWith("edit") || actLower.StartsWith("save") || actLower.StartsWith("patch"))
-        {
-            return "EDIT";
-        }
-
-        // 5. CREATE
-        if (httpMethod.Equals("POST", StringComparison.OrdinalIgnoreCase) || 
-            actLower.StartsWith("create") || actLower.StartsWith("add") || actLower.StartsWith("insert"))
-        {
-            return "CREATE";
-        }
-
-        // 6. VIEW (Fallback for all GET requests)
-        if (httpMethod.Equals("GET", StringComparison.OrdinalIgnoreCase) || 
-            actLower.StartsWith("get") || actLower.StartsWith("find") || actLower.StartsWith("search") || actLower.StartsWith("load"))
-        {
-            return "VIEW";
-        }
-
-        // 7. RELEASE 
-        if (actLower.Contains("publish"))
-        {
-            return "RELEASE";
-        }
-
-        // 8. MANAGE (General fallback)
-        return "MANAGE";
-    }
 
     private string GenerateDeterministicGuid(string input)
     {

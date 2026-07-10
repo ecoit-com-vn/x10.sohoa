@@ -19,12 +19,14 @@ public class UsersController : ControllerBase
     private readonly IUserRepository _userRepository;
     private readonly IPermissionRepository _permissionRepository;
     private readonly IMemoryCache _cache;
+    private readonly IRbacScopeAuthorizationService _rbacScope;
 
-    public UsersController(IUserRepository userRepository, IPermissionRepository permissionRepository, IMemoryCache cache)
+    public UsersController(IUserRepository userRepository, IPermissionRepository permissionRepository, IMemoryCache cache, IRbacScopeAuthorizationService rbacScope)
     {
         _userRepository = userRepository;
         _permissionRepository = permissionRepository;
         _cache = cache;
+        _rbacScope = rbacScope;
     }
 
     [HttpGet("lookup")]
@@ -52,7 +54,19 @@ public class UsersController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] string? keyword = null, [FromQuery] long? organizationUnitId = null, [FromQuery] bool? isActive = null)
     {
-        var (items, totalCount) = await _userRepository.GetPagedAsync(page, pageSize, keyword, organizationUnitId, isActive);
+        if (_rbacScope.IsCentralAdmin(User))
+        {
+            var (allItems, allTotal) = await _userRepository.GetPagedAsync(page, pageSize, keyword, organizationUnitId, isActive, includeDescendants: false);
+            return Ok(new { items = allItems, totalCount = allTotal, page, pageSize });
+        }
+
+        var unitIdClaim = User.FindFirst("unit_id")?.Value;
+        if (string.IsNullOrEmpty(unitIdClaim) || !long.TryParse(unitIdClaim, out var unitId))
+        {
+            return Ok(new { items = Array.Empty<User>(), totalCount = 0, page, pageSize });
+        }
+
+        var (items, totalCount) = await _userRepository.GetPagedAsync(page, pageSize, keyword, unitId, isActive, includeDescendants: true);
         return Ok(new { items, totalCount, page, pageSize });
     }
 
