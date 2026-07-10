@@ -5,7 +5,9 @@ using System.Net.Http;
 using System.Net.Http.Json;
 using System.Security.Claims;
 using System.Security.Cryptography;
+using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 using EvnHanoi.IdentityService.Core.Interfaces;
 using FluentValidation;
@@ -122,20 +124,7 @@ public class AuthController : ControllerBase
                     ssoUser.Id = await _userRepository.CreateAsync(ssoUser);
                 }
                 
-                var ssoRoles = await _userRepository.GetRolesByUserIdAsync(ssoUser.Id);
-                var ssoClaims = new List<Claim>
-                {
-                    new Claim(ClaimTypes.NameIdentifier, ssoUser.Id),
-                    new Claim(ClaimTypes.Name, ssoUser.Username)
-                };
-                if (ssoUser.OrganizationUnitId.HasValue)
-                {
-                    ssoClaims.Add(new Claim("unit_id", ssoUser.OrganizationUnitId.Value.ToString()));
-                }
-                foreach (var r in ssoRoles)
-                {
-                    ssoClaims.Add(new Claim(ClaimTypes.Role, r));
-                }
+                var ssoClaims = await BuildUserClaimsAsync(ssoUser);
 
                 var ssoTokenDescriptor = new SecurityTokenDescriptor
                 {
@@ -233,20 +222,7 @@ public class AuthController : ControllerBase
             await _userRepository.UpdateAsync(user);
         }
 
-        var userRoles = await _userRepository.GetRolesByUserIdAsync(user.Id);
-        var claims = new List<Claim>
-        {
-            new Claim(ClaimTypes.NameIdentifier, user.Id),
-            new Claim(ClaimTypes.Name, user.Username)
-        };
-        if (user.OrganizationUnitId.HasValue)
-        {
-            claims.Add(new Claim("unit_id", user.OrganizationUnitId.Value.ToString()));
-        }
-        foreach (var r in userRoles)
-        {
-            claims.Add(new Claim(ClaimTypes.Role, r));
-        }
+        var claims = await BuildUserClaimsAsync(user);
 
         var tokenDescriptor = new SecurityTokenDescriptor
         {
@@ -330,20 +306,7 @@ public class AuthController : ControllerBase
             return Unauthorized(new { message = "Tài khoản không tồn tại hoặc đã bị vô hiệu hóa." });
         }
 
-        var userRoles = await _userRepository.GetRolesByUserIdAsync(user.Id);
-        var claims = new List<Claim>
-        {
-            new Claim(ClaimTypes.NameIdentifier, user.Id),
-            new Claim(ClaimTypes.Name, user.Username)
-        };
-        if (user.OrganizationUnitId.HasValue)
-        {
-            claims.Add(new Claim("unit_id", user.OrganizationUnitId.Value.ToString()));
-        }
-        foreach (var r in userRoles)
-        {
-            claims.Add(new Claim(ClaimTypes.Role, r));
-        }
+        var claims = await BuildUserClaimsAsync(user);
 
         var accessToken = tokenHandler.CreateToken(new SecurityTokenDescriptor
         {
@@ -402,8 +365,8 @@ public class AuthController : ControllerBase
             if (!adminRoleId.HasValue)
             {
                 var insertRoleSql = @"
-                    INSERT INTO ROLE (Code, Name, Description, CreatedBy)
-                    VALUES ('ADMIN', 'Quản trị viên hệ thống', 'Tài khoản có toàn quyền trên hệ thống', 'SYSTEM')
+                    INSERT INTO ROLE (Code, Name, Description, ScopeTypeId, CreatedBy)
+                    VALUES ('ADMIN', 'Quản trị viên hệ thống', 'Tài khoản có toàn quyền trên hệ thống', 1, 'SYSTEM')
                     RETURNING Id INTO :Id";
                 var roleParams = new DynamicParameters();
                 roleParams.Add("Id", dbType: DbType.Int64, direction: ParameterDirection.Output);
@@ -417,8 +380,8 @@ public class AuthController : ControllerBase
             if (!operatorRoleId.HasValue)
             {
                 var insertRoleSql = @"
-                    INSERT INTO ROLE (Code, Name, Description, CreatedBy)
-                    VALUES ('OPERATOR', 'Nhân viên vận hành', 'Tài khoản nhân viên vận hành hệ thống', 'SYSTEM')
+                    INSERT INTO ROLE (Code, Name, Description, ScopeTypeId, CreatedBy)
+                    VALUES ('OPERATOR', 'Nhân viên vận hành', 'Tài khoản nhân viên vận hành hệ thống', 1, 'SYSTEM')
                     RETURNING Id INTO :Id";
                 var roleParams = new DynamicParameters();
                 roleParams.Add("Id", dbType: DbType.Int64, direction: ParameterDirection.Output);
@@ -876,6 +839,44 @@ public class AuthController : ControllerBase
 
         var permissions = await _userRepository.GetPermissionsByUserIdAsync(userId);
         return Ok(permissions);
+    }
+
+    private async Task<List<Claim>> BuildUserClaimsAsync(EvnHanoi.IdentityService.Core.Domain.Models.User user)
+    {
+        var userRoles = await _userRepository.GetRolesByUserIdAsync(user.Id);
+        var claims = new List<Claim>
+        {
+            new Claim(ClaimTypes.NameIdentifier, user.Id),
+            new Claim(ClaimTypes.Name, user.Username)
+        };
+
+        if (user.OrganizationUnitId.HasValue)
+        {
+            claims.Add(new Claim("unit_id", user.OrganizationUnitId.Value.ToString()));
+        }
+
+        foreach (var roleCode in userRoles)
+        {
+            claims.Add(new Claim(ClaimTypes.Role, roleCode));
+        }
+
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+        var unitRoles = await _connection.QueryAsync<(long UnitId, string RoleCode)>(@"
+            SELECT uur.UnitId, r.Code AS RoleCode
+            FROM USER_UNIT_ROLE uur
+            INNER JOIN ROLE r ON uur.RoleId = r.Id
+            WHERE uur.UserId = :UserId", new { UserId = user.Id });
+
+        var unitRolePayload = unitRoles
+            .Select(x => new { unitId = x.UnitId, roleCode = x.RoleCode })
+            .ToList();
+
+        if (unitRolePayload.Count > 0)
+        {
+            claims.Add(new Claim("unit_roles", JsonSerializer.Serialize(unitRolePayload)));
+        }
+
+        return claims;
     }
 }
 

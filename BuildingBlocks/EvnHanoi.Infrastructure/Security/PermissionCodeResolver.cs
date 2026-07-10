@@ -15,6 +15,8 @@ public static class PermissionCodeResolver
             "Menus" => "MENU",
             "Users" => "USER",
             "Roles" => "ROLE",
+            "SystemPermissionGroups" => "SYSTEM_PERMISSION_GROUP",
+            "UnitPermissionGroups" => "UNIT_PERMISSION_GROUP",
             "Permissions" => "PERMISSION",
             "OrganizationUnits" => "ORGANIZATION",
             "UploadConfigs" => "UPLOAD_CONFIG",
