@@ -126,6 +126,20 @@
   justify-content: center;
   font-size: 0.85rem;
   color: #ffffff;
+  overflow: hidden;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  span {
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1;
+  }
 }
 .username-text {
   font-size: 0.875rem;

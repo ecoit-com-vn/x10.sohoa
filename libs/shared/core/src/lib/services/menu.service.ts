@@ -23,7 +23,7 @@ export class MenuService {
   }
 
   getPermissions(): Observable<any> {
-    return this.http.get<any>(`${this.config.apiGatewayUrl}/api/v1/roles/permissions/all`);
+    return this.http.get<any>(`${this.config.apiGatewayUrl}/api/v1/system-permission-groups/permissions/all`);
   }
 
   createMenu(menu: any): Observable<any> {

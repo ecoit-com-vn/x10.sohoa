@@ -14,6 +14,8 @@ export interface UserProfile {
   organizationUnitId?: number | null;
   unitId?: number | null;
   organizationUnit?: { id: number; name: string } | null;
+  avatarObjectKey?: string | null;
+  avatarUrl?: string | null;
   isActive?: boolean;
   roles?: string[];
   permissions?: string[];
@@ -30,6 +32,12 @@ export interface ChangePasswordRequest {
   currentPassword: string;
   newPassword: string;
   confirmPassword: string;
+}
+
+export interface AvatarResponse {
+  message: string;
+  avatarObjectKey?: string | null;
+  avatarUrl?: string | null;
 }
 
 @Injectable({
@@ -183,6 +191,36 @@ export class AuthService {
 
   changePassword(dto: ChangePasswordRequest): Observable<{ message: string }> {
     return this.http.post<{ message: string }>(`${this.base}/change-password`, dto);
+  }
+
+  getAvatarBlob(): Observable<Blob> {
+    return this.http.get(`${this.base}/avatar`, { responseType: 'blob' });
+  }
+
+  uploadAvatar(file: File): Observable<AvatarResponse> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.http.post<AvatarResponse>(`${this.base}/avatar`, formData).pipe(
+      tap((res) => {
+        this.currentUserProfile.update(profile => profile ? {
+          ...profile,
+          avatarObjectKey: res.avatarObjectKey ?? null,
+          avatarUrl: res.avatarUrl ?? null
+        } : profile);
+      })
+    );
+  }
+
+  deleteAvatar(): Observable<{ message: string }> {
+    return this.http.delete<{ message: string }>(`${this.base}/avatar`).pipe(
+      tap(() => {
+        this.currentUserProfile.update(profile => profile ? {
+          ...profile,
+          avatarObjectKey: null,
+          avatarUrl: null
+        } : profile);
+      })
+    );
   }
 
   setPermissions(perms: string[]): void {

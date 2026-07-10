@@ -40,8 +40,21 @@ export const appRoutes: Route[] = [
         loadComponent: () => import('@sohoa.frontend/features/administration').then(m => m.UploadConfigComponent)
       },
       {
-        path: 'administration/role-management',
+        path: 'administration/system-permission-groups',
+        loadComponent: () => import('@sohoa.frontend/features/administration').then(m => m.SystemPermissionGroupManagement)
+      },
+      {
+        path: 'administration/unit-permission-groups',
+        loadComponent: () => import('@sohoa.frontend/features/administration').then(m => m.UnitPermissionGroupManagement)
+      },
+      {
+        path: 'administration/roles',
         loadComponent: () => import('@sohoa.frontend/features/administration').then(m => m.RoleManagement)
+      },
+      {
+        path: 'administration/role-management',
+        redirectTo: 'administration/system-permission-groups',
+        pathMatch: 'full'
       },
       {
         path: 'administration/system-param',
