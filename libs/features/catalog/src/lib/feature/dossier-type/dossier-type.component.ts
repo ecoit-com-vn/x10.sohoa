@@ -25,7 +25,6 @@ export class DossierTypeComponent implements OnInit {
 
   // States
   items = signal<any[]>([]);
-  formTemplates = signal<any[]>([]);
   searchKeyword = signal<string>('');
   searchStatus = signal<string>(''); // '', '1', '0'
   totalCount = signal<number>(0);
@@ -122,7 +121,6 @@ export class DossierTypeComponent implements OnInit {
 
   ngOnInit() {
     this.authService.loadPermissions();
-    this.loadFormTemplates();
     this.loadItems();
   }
 
@@ -133,17 +131,6 @@ export class DossierTypeComponent implements OnInit {
       const capitalized = field.charAt(0).toUpperCase() + field.slice(1);
       delete copy[capitalized];
       return copy;
-    });
-  }
-
-  loadFormTemplates() {
-    this.dossierTypeService.getEavFormTemplates().subscribe({
-      next: (data) => {
-        this.formTemplates.set(Array.isArray(data) ? data : []);
-      },
-      error: () => {
-        console.error('Không thể tải danh sách biểu mẫu EAV');
-      }
     });
   }
 
