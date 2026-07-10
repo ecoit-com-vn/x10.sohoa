@@ -29,6 +29,10 @@ export class ChangePasswordComponent {
   submitted = signal(false);
   saving = signal(false);
   serverErrors = signal<Record<string, string>>({});
+  breadcrumbItems = [
+    { label: 'Thông tin cá nhân', url: '/profile' },
+    { label: 'Đổi mật khẩu', url: '/profile/change-password' }
+  ];
   visible = signal<Record<PasswordField, boolean>>({
     currentPassword: false,
     newPassword: false,
