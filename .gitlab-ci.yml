@@ -30,6 +30,7 @@ backend-build:
   script:
     - dotnet tool install -g Aspirate
     - export PATH="$PATH:$HOME/.dotnet/tools"
+    - dotnet workload install aspire
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $REGISTRY
     - cd Aspire/EvnHanoi.AppHost
     - |
