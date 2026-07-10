@@ -37,6 +37,7 @@ backend-build:
       sed -i 's/"containerRegistry": "harbor.ecoit.vn"/"containerRegistry": ""/g' aspirate-state.json
     - |
       sed -i 's/"Registry": "harbor.ecoit.vn"/"Registry": ""/g' aspirate.json
+    - dotnet run --project Aspire/EvnHanoi.AppHost/EvnHanoi.AppHost.csproj -- --publisher manifest --output-path test-manifest-out
     - aspirate build --non-interactive
     - |
       sed -i 's/"containerRegistry": ""/"containerRegistry": "harbor.ecoit.vn"/g' aspirate-state.json
