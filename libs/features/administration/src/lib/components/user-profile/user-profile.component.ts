@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { MessageService } from 'primeng/api';
@@ -17,7 +17,9 @@ import { UserService } from '../../services/user.service';
   templateUrl: './user-profile.component.html',
   styleUrl: './user-profile.component.scss'
 })
-export class UserProfileComponent implements OnInit {
+export class UserProfileComponent implements OnInit, OnDestroy {
+  @ViewChild('avatarInput') avatarInput?: ElementRef<HTMLInputElement>;
+
   private authService = inject(AuthService);
   private userService = inject(UserService);
   private messageService = inject(MessageService);
@@ -27,8 +29,26 @@ export class UserProfileComponent implements OnInit {
   positions = signal<any[]>([]);
   loading = signal(false);
   saving = signal(false);
+  avatarSaving = signal(false);
+  avatarDeleting = signal(false);
   submitted = signal(false);
   serverErrors = signal<Record<string, string>>({});
+  avatarPreviewUrl = signal<string | null>(null);
+  selectedAvatarFile = signal<File | null>(null);
+  avatarObjectUrl = signal<string | null>(null);
+  avatarError = signal('');
+  breadcrumbItems = [{ label: 'Thông tin cá nhân', url: '/profile' }];
+  avatarMenuOpen = signal(false);
+
+  displayAvatarUrl = computed(() => this.avatarPreviewUrl() || this.avatarObjectUrl());
+  initials = computed(() => {
+    const name = this.profile()?.fullName?.trim() || this.profile()?.username?.trim() || '';
+    return name
+      .split(/\s+/)
+      .slice(-2)
+      .map(part => part.charAt(0).toUpperCase())
+      .join('') || 'U';
+  });
 
   fullNameError = computed(() => {
     if (this.submitted() && !this.profile()?.fullName?.trim()) {
@@ -53,12 +73,24 @@ export class UserProfileComponent implements OnInit {
     this.loadPositions();
   }
 
+  ngOnDestroy(): void {
+    this.revokeAvatarUrls();
+  }
+
+  @HostListener('document:click')
+  closeAvatarMenu(): void {
+    this.avatarMenuOpen.set(false);
+  }
+
   loadProfile(): void {
     this.loading.set(true);
     this.authService.getProfile()
       .pipe(finalize(() => this.loading.set(false)))
       .subscribe({
-        next: (profile) => this.profile.set({ ...profile }),
+        next: (profile) => {
+          this.profile.set({ ...profile });
+          this.loadAvatarImage(profile);
+        },
         error: () => {
           this.messageService.add({
             severity: 'error',
@@ -104,6 +136,116 @@ export class UserProfileComponent implements OnInit {
     return profile?.organizationUnit?.name || '';
   }
 
+  openAvatarPicker(): void {
+    this.avatarMenuOpen.set(false);
+    this.avatarInput?.nativeElement.click();
+  }
+
+  toggleAvatarMenu(event: Event): void {
+    event.stopPropagation();
+    this.avatarMenuOpen.update(open => !open);
+  }
+
+  async onAvatarSelected(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    this.avatarError.set('');
+
+    if (!file) {
+      return;
+    }
+
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      this.avatarError.set('Ảnh đại diện chỉ hỗ trợ JPG, PNG hoặc WEBP.');
+      return;
+    }
+
+    try {
+      const resized = await this.resizeAvatar(file);
+      this.selectedAvatarFile.set(resized);
+      this.setPreviewUrl(URL.createObjectURL(resized));
+    } catch {
+      this.avatarError.set('Không thể xử lý ảnh đã chọn.');
+    }
+  }
+
+  uploadSelectedAvatar(): void {
+    const file = this.selectedAvatarFile();
+    if (!file) {
+      return;
+    }
+
+    this.avatarMenuOpen.set(false);
+    this.avatarSaving.set(true);
+    this.authService.uploadAvatar(file)
+      .pipe(finalize(() => this.avatarSaving.set(false)))
+      .subscribe({
+        next: () => {
+          this.clearSelectedAvatar(false);
+          this.loadProfile();
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Thành công',
+            detail: 'Cập nhật ảnh đại diện thành công.'
+          });
+        },
+        error: (err) => {
+          this.avatarError.set(err?.error?.message || 'Không thể cập nhật ảnh đại diện.');
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi',
+            detail: err?.error?.message || 'Không thể cập nhật ảnh đại diện.'
+          });
+        }
+      });
+  }
+
+  clearSelectedAvatar(revoke = true): void {
+    this.selectedAvatarFile.set(null);
+    if (revoke && this.avatarPreviewUrl()) {
+      URL.revokeObjectURL(this.avatarPreviewUrl()!);
+    }
+    this.avatarPreviewUrl.set(null);
+    this.avatarError.set('');
+    this.avatarMenuOpen.set(false);
+  }
+
+  deleteAvatar(): void {
+    if (!this.profile()?.avatarObjectKey || this.avatarDeleting()) {
+      return;
+    }
+
+    this.avatarMenuOpen.set(false);
+    this.avatarDeleting.set(true);
+    this.authService.deleteAvatar()
+      .pipe(finalize(() => this.avatarDeleting.set(false)))
+      .subscribe({
+        next: () => {
+          this.clearSelectedAvatar();
+          this.revokeCurrentAvatarUrl();
+          this.profile.update(profile => profile ? { ...profile, avatarObjectKey: null, avatarUrl: null } : profile);
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Thành công',
+            detail: 'Xóa ảnh đại diện thành công.'
+          });
+        },
+        error: (err) => {
+          this.avatarError.set(err?.error?.message || 'Không thể xóa ảnh đại diện.');
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi',
+            detail: err?.error?.message || 'Không thể xóa ảnh đại diện.'
+          });
+        }
+      });
+  }
+
+  goToChangePassword(): void {
+    this.router.navigate(['/profile/change-password']);
+  }
+
   onSave(): void {
     this.submitted.set(true);
     this.serverErrors.set({});
@@ -146,6 +288,84 @@ export class UserProfileComponent implements OnInit {
 
   onCancel(): void {
     this.router.navigate(['/dashboard']);
+  }
+
+  private loadAvatarImage(profile: UserProfile): void {
+    this.revokeCurrentAvatarUrl();
+    if (!profile.avatarObjectKey) {
+      return;
+    }
+
+    this.authService.getAvatarBlob().subscribe({
+      next: (blob) => this.avatarObjectUrl.set(URL.createObjectURL(blob)),
+      error: () => this.avatarObjectUrl.set(null)
+    });
+  }
+
+  private resizeAvatar(file: File): Promise<File> {
+    const maxSize = 512;
+
+    return new Promise((resolve, reject) => {
+      const image = new Image();
+      const sourceUrl = URL.createObjectURL(file);
+
+      image.onload = () => {
+        const scale = Math.min(maxSize / image.width, maxSize / image.height, 1);
+        const width = Math.round(image.width * scale);
+        const height = Math.round(image.height * scale);
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const context = canvas.getContext('2d');
+
+        if (!context) {
+          URL.revokeObjectURL(sourceUrl);
+          reject();
+          return;
+        }
+
+        context.drawImage(image, 0, 0, width, height);
+        canvas.toBlob(blob => {
+          URL.revokeObjectURL(sourceUrl);
+          if (!blob) {
+            reject();
+            return;
+          }
+
+          const extension = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';
+          resolve(new File([blob], `avatar.${extension}`, { type: blob.type || file.type }));
+        }, file.type === 'image/png' || file.type === 'image/webp' ? file.type : 'image/jpeg', 0.88);
+      };
+
+      image.onerror = () => {
+        URL.revokeObjectURL(sourceUrl);
+        reject();
+      };
+
+      image.src = sourceUrl;
+    });
+  }
+
+  private setPreviewUrl(url: string): void {
+    if (this.avatarPreviewUrl()) {
+      URL.revokeObjectURL(this.avatarPreviewUrl()!);
+    }
+    this.avatarPreviewUrl.set(url);
+  }
+
+  private revokeAvatarUrls(): void {
+    this.revokeCurrentAvatarUrl();
+    if (this.avatarPreviewUrl()) {
+      URL.revokeObjectURL(this.avatarPreviewUrl()!);
+      this.avatarPreviewUrl.set(null);
+    }
+  }
+
+  private revokeCurrentAvatarUrl(): void {
+    if (this.avatarObjectUrl()) {
+      URL.revokeObjectURL(this.avatarObjectUrl()!);
+      this.avatarObjectUrl.set(null);
+    }
   }
 
   private extractErrors(err: any): Record<string, string> {

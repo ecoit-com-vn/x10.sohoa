@@ -26,7 +26,8 @@
         <div class="user-profile-wrapper" (click)="$event.stopPropagation()">
           <div class="user-profile" (click)="toggleProfileMenu($event)">
             <div class="avatar-circle">
-              <i class="pi pi-user"></i>
+              <img *ngIf="headerAvatarUrl()" [src]="headerAvatarUrl()" alt="Ảnh đại diện" />
+              <span *ngIf="!headerAvatarUrl()">{{ headerInitials() }}</span>
             </div>
             <span class="username-text">{{ displayName() }}</span>
             <i class="pi pi-chevron-down profile-arrow"></i>

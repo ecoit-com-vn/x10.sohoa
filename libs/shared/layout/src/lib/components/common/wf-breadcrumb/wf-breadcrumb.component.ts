@@ -36,6 +36,7 @@ export class WfBreadcrumbComponent implements OnInit {
   @Input() leafLabel: string | null = null;
   /** Ghi đè URL dùng để khớp menu (mặc định lấy router.url). */
   @Input() matchUrl: string | null = null;
+  @Input() customItems: BreadcrumbTrailItem[] | null = null;
 
   @Input() customItems: BreadcrumbTrailItem[] | null = null;
   
