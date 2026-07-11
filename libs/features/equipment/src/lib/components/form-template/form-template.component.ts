@@ -32,6 +32,7 @@ interface FormField {
   catalogType?: string;
   description?: string;
   selectAll?: boolean;
+  active?: boolean;
 }
 
 @Component({

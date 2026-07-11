@@ -16,6 +16,7 @@ import { finalize } from 'rxjs';
 import { Dialog } from 'primeng/dialog';
 import { EquipmentTypeService } from '../../data-access/equipment-type.service';
 import { ActivatedRoute, Router } from '@angular/router';
+import { ToggleSwitch } from 'primeng/toggleswitch';
 import {
   canCreateForm,
   canDeleteForm,
@@ -37,6 +38,7 @@ interface FormField {
   catalogType?: string;
   description?: string;
   selectAll?: boolean;
+  active?: boolean;
 }
 
 interface ToolboxItem {
@@ -60,6 +62,7 @@ interface ToolboxItem {
     TextareaModule,
     Paginator,
     Dialog,
+    ToggleSwitch,
     WfBreadcrumbComponent,
   ],
   providers: [MessageService],
@@ -497,7 +500,8 @@ export class FormManagementComponent implements OnInit {
       options: (type === 'dropdown' || type === 'radio' || type === 'checkbox') ? [] : undefined,
       width: 100,
       dataSourceType: 'manual',
-      selectAll: false
+      selectAll: false,
+      active: true
     };
   }
 

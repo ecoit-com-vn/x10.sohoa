@@ -32,9 +32,10 @@
     <form *ngIf="dynamicForm && getActiveDefinition() as activeDef" [formGroup]="dynamicForm" (ngSubmit)="onSubmit()" class="mt-3">
       <div style="display: flex; flex-wrap: wrap; gap: 20px;">
         
-        <div *ngFor="let field of activeDef.fields" 
-             [style.width]="field.width === 50 ? 'calc(50% - 10px)' : '100%'"
-             style="display: flex; flex-direction: column; gap: 6px; min-width: 250px;">
+        <ng-container *ngFor="let field of activeDef.fields">
+          <div *ngIf="field.active !== false"
+               [style.width]="field.width === 50 ? 'calc(50% - 10px)' : '100%'"
+               style="display: flex; flex-direction: column; gap: 6px; min-width: 250px;">
           
           <label [for]="field.name" class="form-label" style="font-weight: 600; color: #374151;">
             {{ field.label }} <span *ngIf="field.required" class="required">*</span>
@@ -125,6 +126,7 @@
             Vui lòng điền thông tin hợp lệ cho trường này.
           </div>
         </div>
+        </ng-container>
 
       </div>
 

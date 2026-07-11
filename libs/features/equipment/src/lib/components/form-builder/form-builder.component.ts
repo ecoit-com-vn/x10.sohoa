@@ -13,6 +13,7 @@ import { TextareaModule } from 'primeng/textarea';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormTemplateService, EavFormTemplate } from '../../data-access/form-template.service';
 import { EquipmentTypeService } from '../../data-access/equipment-type.service';
+import { ToggleSwitch } from 'primeng/toggleswitch';
 
 interface FormField {
   id: string;
@@ -28,6 +29,7 @@ interface FormField {
   catalogType?: string;
   description?: string;
   selectAll?: boolean;
+  active?: boolean;
 }
 
 interface ToolboxItem {
@@ -49,6 +51,7 @@ interface ToolboxItem {
     CheckboxModule,
     CardModule,
     TextareaModule,
+    ToggleSwitch,
     WfBreadcrumbComponent,
   ],
   providers: [MessageService],
@@ -325,7 +328,8 @@ export class FormBuilderComponent implements OnInit {
       options: (type === 'dropdown' || type === 'radio' || type === 'checkbox') ? [] : undefined,
       width: 100,
       dataSourceType: 'manual',
-      selectAll: false
+      selectAll: false,
+      active: true
     };
   }
 
