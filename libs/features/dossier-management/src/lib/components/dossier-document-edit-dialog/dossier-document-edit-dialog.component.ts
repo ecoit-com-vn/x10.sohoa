@@ -136,6 +136,26 @@ export class DossierDocumentEditDialogComponent implements OnDestroy {
 
   }
 
+  getSelectLabel(field: any, val: any): string {
+    if (!field || !field.options) return '';
+    const opt = field.options.find((o: any) => o.value === val || o.value == val);
+    return opt ? opt.label : (val !== null && val !== undefined ? String(val) : '');
+  }
+
+  formatDateValue(val: any): string {
+    if (val === null || val === undefined || val === '') return '';
+    try {
+      const date = new Date(val);
+      if (isNaN(date.getTime())) return String(val);
+      const d = String(date.getDate()).padStart(2, '0');
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const y = date.getFullYear();
+      return `${d}/${m}/${y}`;
+    } catch {
+      return String(val);
+    }
+  }
+
 
 
   onShow(): void {

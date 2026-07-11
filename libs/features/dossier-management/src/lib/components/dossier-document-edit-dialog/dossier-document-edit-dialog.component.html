@@ -57,43 +57,68 @@
         >
           <label class="form-label">{{ field.label }}</label>
 
-          <ng-container [ngSwitch]="field.type">
-            <textarea
-              *ngSwitchCase="'textarea'"
-              class="wf-textarea w-full"
-              rows="2"
-              [ngModel]="draftData()[field.key] ?? ''"
-              (ngModelChange)="setDraftFieldValue(field.key, $event)"
-              [disabled]="!canEdit"
-            ></textarea>
-            <select
-              *ngSwitchCase="'select'"
-              class="wf-select w-full"
-              [ngModel]="draftData()[field.key] ?? ''"
-              (ngModelChange)="setDraftFieldValue(field.key, $event)"
-              [disabled]="!canEdit"
-            >
-              <option value="">-- Chọn --</option>
-              <option *ngFor="let opt of field.options" [ngValue]="opt.value">{{ opt.label }}</option>
-            </select>
-            <label *ngSwitchCase="'checkbox'" class="checkbox-row">
+          <ng-container *ngIf="canEdit; else readOnlyText">
+            <ng-container [ngSwitch]="field.type">
+              <textarea
+                *ngSwitchCase="'textarea'"
+                class="wf-textarea w-full"
+                rows="2"
+                [ngModel]="draftData()[field.key] ?? ''"
+                (ngModelChange)="setDraftFieldValue(field.key, $event)"
+                [disabled]="!canEdit"
+              ></textarea>
+              <select
+                *ngSwitchCase="'select'"
+                class="wf-select w-full"
+                [ngModel]="draftData()[field.key] ?? ''"
+                (ngModelChange)="setDraftFieldValue(field.key, $event)"
+                [disabled]="!canEdit"
+              >
+                <option value="">-- Chọn --</option>
+                <option *ngFor="let opt of field.options" [ngValue]="opt.value">{{ opt.label }}</option>
+              </select>
+              <label *ngSwitchCase="'checkbox'" class="checkbox-row">
+                <input
+                  type="checkbox"
+                  [checked]="!!draftData()[field.key]"
+                  (change)="setDraftCheckbox(field.key, $event)"
+                  [disabled]="!canEdit"
+                />
+                {{ field.placeholder || field.label }}
+              </label>
               <input
-                type="checkbox"
-                [checked]="!!draftData()[field.key]"
-                (change)="setDraftCheckbox(field.key, $event)"
+                *ngSwitchDefault
+                [type]="field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : 'text'"
+                class="wf-input w-full"
+                [ngModel]="draftData()[field.key] ?? ''"
+                (ngModelChange)="setDraftFieldValue(field.key, $event)"
                 [disabled]="!canEdit"
               />
-              {{ field.placeholder || field.label }}
-            </label>
-            <input
-              *ngSwitchDefault
-              [type]="field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : 'text'"
-              class="wf-input w-full"
-              [ngModel]="draftData()[field.key] ?? ''"
-              (ngModelChange)="setDraftFieldValue(field.key, $event)"
-              [disabled]="!canEdit"
-            />
+            </ng-container>
           </ng-container>
+
+          <ng-template #readOnlyText>
+            <div class="readonly-value-text" style="font-size: 0.95rem; color: #1e293b; padding: 6px 0; font-weight: 500; min-height: 24px; word-break: break-all;">
+              <!-- Checkbox -->
+              <ng-container *ngIf="field.type === 'checkbox'">
+                <i class="pi" [ngClass]="draftData()[field.key] ? 'pi-check-square' : 'pi-stop'" style="font-size: 1.1rem; vertical-align: middle; margin-right: 6px; color: #16a34a;"></i>
+                <span>{{ (draftData()[field.key] ? 'Có' : 'Không') }}</span>
+              </ng-container>
+              <!-- Select / Dropdown -->
+              <ng-container *ngIf="field.type === 'select'">
+                {{ getSelectLabel(field, draftData()[field.key]) || '' }}
+              </ng-container>
+              <!-- Other types: text, date, textarea, number -->
+              <ng-container *ngIf="field.type !== 'checkbox' && field.type !== 'select'">
+                <ng-container *ngIf="field.type === 'date'">
+                  {{ formatDateValue(draftData()[field.key]) || '' }}
+                </ng-container>
+                <ng-container *ngIf="field.type !== 'date'">
+                  {{ draftData()[field.key] !== null && draftData()[field.key] !== undefined && draftData()[field.key] !== '' ? draftData()[field.key] : '' }}
+                </ng-container>
+              </ng-container>
+            </div>
+          </ng-template>
         </div>
       </div>
     </section>

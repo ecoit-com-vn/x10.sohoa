@@ -63,8 +63,8 @@
   position: sticky !important;
   top: 1rem !important;
   max-height: calc(100vh - 160px) !important;
-  height: fit-content !important;
-  overflow-y: hidden;
+  height: 100% !important;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   
@@ -80,7 +80,6 @@
   flex-direction: column;
   gap: 10px;
   flex: 1;
-  overflow-y: auto;
   padding-top: 8px;
 }
 .toolbox-item {
@@ -208,8 +207,8 @@
   position: sticky !important;
   top: 1rem !important;
   max-height: calc(100vh - 160px) !important;
-  height: fit-content !important;
-  overflow-y: hidden;
+  height: 100% !important;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   padding-bottom: 20px;
@@ -439,6 +438,8 @@
 
 /* Responsive Form Builder Styles */
 .toolbox-scroll-wrapper {
+  flex: 1;
+  min-height: 0;
   max-height: calc(100vh - 240px);
   overflow-y: auto;
   padding-right: 4px;
@@ -446,6 +447,8 @@
 }
 
 .properties-scroll-wrapper {
+  flex: 1;
+  min-height: 0;
   max-height: calc(100vh - 240px);
   overflow-y: auto;
   padding-right: 4px;
@@ -531,5 +534,15 @@
       flex-wrap: wrap;
       gap: 6px;
     }
+  }
+}
+
+.canvas-field-card.field-inactive {
+  opacity: 0.65;
+  background-color: #f1f5f9;
+  border: 1px dashed #cbd5e1;
+  
+  .field-preview-body {
+    filter: grayscale(40%);
   }
 }

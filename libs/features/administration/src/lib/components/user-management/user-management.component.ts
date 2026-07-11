@@ -24,6 +24,7 @@ export class UserManagement implements OnInit {
   searchUnitId = signal<number | null>(null);
   searchStatus = signal<string>(''); // '' (All), 'active' (Hoạt động), 'inactive' (Ngưng hoạt động)
   totalCount = signal<number>(0);
+  searchOrgTreePickerOpen = signal<boolean>(false);
 
   currentView = signal<'list' | 'add' | 'edit' | 'unit-role' | 'permission' | 'role'>('list');
   dialogHeader = signal<string>('');
@@ -152,6 +153,7 @@ export class UserManagement implements OnInit {
       window.addEventListener('click', () => {
         this.activeDropdownUserId.set(null);
         this.orgTreePickerOpen.set(false);
+        this.searchOrgTreePickerOpen.set(false);
         this.rolesDropdownOpen.set(false);
       });
     }
@@ -344,9 +346,22 @@ export class UserManagement implements OnInit {
     this.onFieldChange('organizationUnitId');
   }
 
+  selectSearchOrgUnit(unitId: number | null) {
+    this.searchUnitId.set(unitId);
+    this.searchOrgTreePickerOpen.set(false);
+  }
+
   toggleOrgTreePicker(event?: Event) {
     if (event) event.stopPropagation();
     this.orgTreePickerOpen.update(v => !v);
+    this.searchOrgTreePickerOpen.set(false);
+    this.rolesDropdownOpen.set(false);
+  }
+
+  toggleSearchOrgTreePicker(event?: Event) {
+    if (event) event.stopPropagation();
+    this.searchOrgTreePickerOpen.update(v => !v);
+    this.orgTreePickerOpen.set(false);
     this.rolesDropdownOpen.set(false);
   }
 
@@ -354,6 +369,7 @@ export class UserManagement implements OnInit {
     if (event) event.stopPropagation();
     this.rolesDropdownOpen.update(v => !v);
     this.orgTreePickerOpen.set(false);
+    this.searchOrgTreePickerOpen.set(false);
   }
 
   closeOrgTreePicker() {

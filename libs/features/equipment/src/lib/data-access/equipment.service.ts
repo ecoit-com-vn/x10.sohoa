@@ -24,7 +24,8 @@ export class EquipmentService {
     infrastructureId?: string,
     gridTypeId?: number,
     equipmentTypeId?: string,
-    isActive?: boolean
+    isActive?: boolean,
+    keyword?: string
   ): Observable<any> {
     let params = new HttpParams()
       .set('page', page.toString())
@@ -50,6 +51,9 @@ export class EquipmentService {
     }
     if (isActive !== undefined && isActive !== null) {
       params = params.set('isActive', isActive.toString());
+    }
+    if (keyword && keyword.trim()) {
+      params = params.set('keyword', keyword.trim());
     }
 
     return this.http.get<any>(this.base, { params });

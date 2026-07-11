@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, effect } from '@angular/core';
 import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -61,6 +61,39 @@ export class CompletedFormListComponent implements OnInit {
     showVersionsDialog = signal<boolean>(false);
     versionList = signal<EavFormTemplate[]>([]);
     selectedTemplate = signal<EavFormTemplate | null>(null);
+
+    catalogOptionsMap = signal<{ [catalogCode: string]: string[] }>({});
+
+    loadCatalogOptions(catalogCode: string) {
+        if (!catalogCode || this.catalogOptionsMap()[catalogCode]) return;
+        this.eavFormService.getCatalogTypeByCode(catalogCode).subscribe({
+            next: (catalogType) => {
+                if (catalogType && catalogType.id) {
+                    this.eavFormService.getCatalogsLookup(catalogType.id).subscribe({
+                        next: (items) => {
+                            const options = (items || []).map((item: any) => item.name || item.code);
+                            this.catalogOptionsMap.update(prev => ({
+                                ...prev,
+                                [catalogCode]: options
+                            }));
+                        },
+                        error: (err) => console.error(`Failed to load catalogs lookup for ${catalogCode}`, err)
+                    });
+                }
+            },
+            error: (err) => console.error(`Failed to load catalog type for ${catalogCode}`, err)
+        });
+    }
+
+    loadCatalogOptionsEffect = effect(() => {
+        const currentFields = this.formFields();
+        if (!currentFields) return;
+        currentFields.forEach((f: any) => {
+            if (f.dataSourceType === 'catalog' && f.catalogType) {
+                this.loadCatalogOptions(f.catalogType);
+            }
+        });
+    });
 
     equipmentTypes = signal<any[]>([]);
     gridTypes = signal<any[]>([]);
