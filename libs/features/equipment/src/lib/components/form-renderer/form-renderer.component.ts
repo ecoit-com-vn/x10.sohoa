@@ -14,6 +14,7 @@ export interface FormField {
   options?: string[];
   placeholder?: string;
   width?: number; // 50 or 100
+  active?: boolean;
 }
 
 export interface FormDefinition {
@@ -91,6 +92,7 @@ export class FormRendererComponent implements OnInit, OnChanges {
     const activeDef = this.getActiveDefinition();
     if (activeDef && activeDef.fields) {
       activeDef.fields.forEach(field => {
+        if (field.active === false) return;
         const validators = field.required ? [Validators.required] : [];
         // Checkbox defaults to false, other inputs to empty string
         const defaultValue = field.type === 'checkbox' ? false : '';

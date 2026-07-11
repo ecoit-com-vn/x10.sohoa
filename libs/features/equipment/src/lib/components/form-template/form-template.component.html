@@ -227,7 +227,7 @@
                   <!-- Dropdown Select -->
                   <select *ngIf="field.type === 'dropdown'" class="preview-form-select" disabled>
                     <option value="">{{ field.placeholder || 'Chọn giá trị...' }}</option>
-                    <option *ngFor="let opt of (field.dataSourceType === 'catalog' ? ['(Dữ liệu từ danh mục ' + field.catalogType + ')'] : (field.options || []))">
+                    <option *ngFor="let opt of (field.dataSourceType === 'catalog' ? (catalogOptionsMap()[field.catalogType || ''] || ['Đang tải...']) : (field.options || []))">
                       {{ opt }}
                     </option>
                   </select>
@@ -240,8 +240,10 @@
                   <div *ngIf="field.type === 'radio'" class="flex flex-column gap-1 py-1"
                     style="display: flex; flex-direction: column; gap: 4px; padding: 4px 0;">
                     <ng-container *ngIf="field.dataSourceType === 'catalog'">
-                      <div style="font-size: 0.875rem; color: #64748b; font-style: italic;">
-                        (Dữ liệu từ danh mục: {{ field.catalogType || 'chưa chọn' }})
+                      <div *ngFor="let opt of (catalogOptionsMap()[field.catalogType || ''] || ['Đang tải...'])"
+                        style="display: flex; align-items: center; gap: 8px;">
+                        <input type="radio" disabled style="cursor: not-allowed;" />
+                        <span class="text-sm" style="font-size: 0.875rem; color: #475569;">{{ opt }}</span>
                       </div>
                     </ng-container>
                     <ng-container *ngIf="field.dataSourceType !== 'catalog'">
@@ -260,8 +262,10 @@
                          style="display: flex; flex-direction: column; gap: 4px; padding: 4px 0;">
                       
                       <ng-container *ngIf="field.dataSourceType === 'catalog'">
-                        <div style="font-size: 0.875rem; color: #64748b; font-style: italic;">
-                          (Dữ liệu từ danh mục: {{ field.catalogType || 'chưa chọn' }})
+                        <div *ngFor="let opt of (catalogOptionsMap()[field.catalogType || ''] || ['Đang tải...'])"
+                          style="display: flex; align-items: center; gap: 8px; opacity: 0.8;">
+                          <input type="checkbox" disabled style="transform: scale(1.2); cursor: not-allowed;" />
+                          <label class="text-sm select-none" style="cursor: not-allowed; color: #475569;">{{ opt }}</label>
                         </div>
                       </ng-container>
 

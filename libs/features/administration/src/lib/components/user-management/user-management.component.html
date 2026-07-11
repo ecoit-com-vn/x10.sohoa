@@ -14,11 +14,33 @@
           <input type="text" class="wf-search-input" placeholder="Tìm kiếm tài khoản, tên..."
             [ngModel]="searchKeyword()" (ngModelChange)="searchKeyword.set($event)" />
 
-          <select class="wf-select" [ngModel]="searchUnitId()" (ngModelChange)="onSearchUnitChange($event)"
-            style="min-width: 180px;">
-            <option [value]="null">-- Tất cả đơn vị --</option>
-            <option *ngFor="let unit of organizationUnits()" [value]="unit.id">{{ unit.name }}</option>
-          </select>
+          <div class="org-tree-picker" style="min-width: 180px; width: 240px; position: relative;">
+            <!-- Thanh hiển thị đơn vị đã chọn -->
+            <div class="org-tree-trigger" (click)="toggleSearchOrgTreePicker($event)"
+              [class.has-value]="searchUnitId() !== null" [class.open]="searchOrgTreePickerOpen()">
+              <span class="org-tree-selected-label">
+                <i class="pi pi-building" style="margin-right: 6px; color: #6b7280;"></i>
+                {{ getUnitLabel(searchUnitId()) || '-- Tất cả đơn vị --' }}
+              </span>
+              <i class="pi" [class.pi-chevron-down]="!searchOrgTreePickerOpen()"
+                [class.pi-chevron-up]="searchOrgTreePickerOpen()"></i>
+            </div>
+            <!-- Tree dropdown -->
+            <div class="org-tree-dropdown" *ngIf="searchOrgTreePickerOpen()" (click)="$event.stopPropagation()">
+              <div class="org-tree-node" style="padding-left: 8px;"
+                [class.selected]="searchUnitId() === null">
+                <span class="org-tree-node-spacer"></span>
+                <span class="org-tree-node-label" (click)="selectSearchOrgUnit(null)">
+                  <i class="pi pi-building" style="margin-right: 5px; font-size: 0.8rem; color: #6b7280;"></i>
+                  -- Tất cả đơn vị --
+                </span>
+              </div>
+              <ng-container *ngFor="let node of orgUnitTree()">
+                <ng-container *ngTemplateOutlet="orgTreeSearchNode; context: { $implicit: node, depth: 0 }"></ng-container>
+              </ng-container>
+              <div *ngIf="orgUnitTree().length === 0" class="org-tree-empty">Chưa có đơn vị nào.</div>
+            </div>
+          </div>
 
           <select class="wf-select" [ngModel]="searchStatus()" (ngModelChange)="searchStatus.set($event)"
             style="min-width: 160px;">
@@ -258,6 +280,32 @@
               <ng-container *ngFor="let child of node.children">
                 <ng-container
                   *ngTemplateOutlet="orgTreeNode; context: { $implicit: child, depth: depth + 1 }"></ng-container>
+              </ng-container>
+            </ng-container>
+          </ng-template>
+
+          <!-- Template cây node cho Tìm kiếm (đệ quy) -->
+          <ng-template #orgTreeSearchNode let-node let-depth="depth">
+            <div class="org-tree-node" [style.padding-left.px]="depth * 18 + 8"
+              [class.selected]="searchUnitId() == node.id">
+              <!-- Nút mở rộng nếu có con -->
+              <button type="button" class="org-tree-expand-btn" *ngIf="node.children && node.children.length > 0"
+                (click)="toggleUnitNode(node.id, $event)">
+                <i class="pi" [class.pi-chevron-right]="!isNodeExpanded(node.id)"
+                  [class.pi-chevron-down]="isNodeExpanded(node.id)"></i>
+              </button>
+              <span class="org-tree-node-spacer" *ngIf="!node.children || node.children.length === 0"></span>
+              <!-- Nhãn đơn vị — click để chọn -->
+              <span class="org-tree-node-label" (click)="selectSearchOrgUnit(node.id)">
+                <i class="pi pi-building" style="margin-right: 5px; font-size: 0.8rem; color: #6b7280;"></i>
+                {{ node.name }}
+              </span>
+            </div>
+            <!-- Cây con — chỉ hiện khi mở rộng -->
+            <ng-container *ngIf="isNodeExpanded(node.id) && node.children?.length">
+              <ng-container *ngFor="let child of node.children">
+                <ng-container
+                  *ngTemplateOutlet="orgTreeSearchNode; context: { $implicit: child, depth: depth + 1 }"></ng-container>
               </ng-container>
             </ng-container>
           </ng-template>

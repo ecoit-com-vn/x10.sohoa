@@ -177,7 +177,7 @@
             <input *ngIf="field.type === 'date'" type="date" pInputText class="w-full" [ngModel]="simulatedValues()[field.name]" (ngModelChange)="updateSimulatedValue(field.name, $event)" />
             
             <p-select *ngIf="field.type === 'dropdown'" 
-                      [options]="field.dataSourceType === 'catalog' ? ['(Dữ liệu từ danh mục ' + field.catalogType + ')'] : (field.options || [])" 
+                      [options]="field.dataSourceType === 'catalog' ? (catalogOptionsMap()[field.catalogType || ''] || ['Đang tải...']) : (field.options || [])" 
                       [placeholder]="field.placeholder || 'Chọn giá trị...'"
                       [ngModel]="simulatedValues()[field.name]"
                       (ngModelChange)="updateSimulatedValue(field.name, $event)"
@@ -190,8 +190,9 @@
             <!-- Radio -->
             <div *ngIf="field.type === 'radio'" style="display: flex; flex-direction: column; gap: 8px; padding: 4px 0;">
               <ng-container *ngIf="field.dataSourceType === 'catalog'">
-                <div style="font-size:0.8rem; color:#64748b; font-style:italic;">
-                  (Dữ liệu từ danh mục: {{ field.catalogType || 'chưa chọn' }})
+                <div *ngFor="let opt of (catalogOptionsMap()[field.catalogType || ''] || ['Đang tải...']); let oIdx = index" style="display: flex; align-items: center; gap: 8px;">
+                  <input type="radio" [id]="'sim_radio_' + field.id + '_' + oIdx" [name]="'sim_radio_' + field.id" [value]="opt" [ngModel]="simulatedValues()[field.name]" (ngModelChange)="updateSimulatedValue(field.name, $event)" style="scale: 1.1; cursor: pointer;" />
+                  <label [for]="'sim_radio_' + field.id + '_' + oIdx" class="text-sm select-none" style="cursor: pointer;">{{ opt }}</label>
                 </div>
               </ng-container>
               <ng-container *ngIf="field.dataSourceType !== 'catalog'">
@@ -209,8 +210,9 @@
                    style="display: flex; flex-direction: column; gap: 8px; padding: 4px 0;">
                 
                 <ng-container *ngIf="field.dataSourceType === 'catalog'">
-                  <div style="font-size:0.8rem; color:#64748b; font-style:italic;">
-                    (Dữ liệu từ danh mục: {{ field.catalogType || 'chưa chọn' }})
+                  <div *ngFor="let opt of (catalogOptionsMap()[field.catalogType || ''] || ['Đang tải...']); let oIdx = index" style="display: flex; align-items: center; gap: 8px;">
+                    <input type="checkbox" [id]="'sim_chk_' + field.id + '_' + oIdx" [ngModel]="simulatedValues()[field.name + '_' + opt] || false" (ngModelChange)="updateSimulatedValue(field.name + '_' + opt, $event)" style="scale: 1.1; cursor: pointer;" />
+                    <label [for]="'sim_chk_' + field.id + '_' + oIdx" class="text-sm select-none" style="cursor: pointer;">{{ opt }}</label>
                   </div>
                 </ng-container>
 

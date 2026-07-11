@@ -15,7 +15,7 @@ import { Select } from 'primeng/select';
 import { Router } from '@angular/router';
 import { FormTemplateService, EavFormTemplate } from '../../data-access/form-template.service';
 import { EquipmentTypeService } from '../../data-access/equipment-type.service';
-import { LoadingService } from '@sohoa.frontend/shared/core';
+import { LoadingService, EavFormService } from '@sohoa.frontend/shared/core';
 import { finalize } from 'rxjs';
 
 interface FormField {
@@ -32,6 +32,7 @@ interface FormField {
   catalogType?: string;
   description?: string;
   selectAll?: boolean;
+  active?: boolean;
 }
 
 @Component({
@@ -61,6 +62,7 @@ export class FormTemplateComponent implements OnInit {
   private formTemplateService = inject(FormTemplateService);
   private equipmentTypeService = inject(EquipmentTypeService);
   private messageService = inject(MessageService);
+  private eavFormService = inject(EavFormService);
 
   showConfirmDelete = signal<boolean>(false);
   showConfirmLock = signal<boolean>(false);
@@ -154,6 +156,29 @@ export class FormTemplateComponent implements OnInit {
     }
   });
 
+  catalogOptionsMap = signal<{ [catalogCode: string]: string[] }>({});
+
+  loadCatalogOptions(catalogCode: string) {
+    if (!catalogCode || this.catalogOptionsMap()[catalogCode]) return;
+    this.eavFormService.getCatalogTypeByCode(catalogCode).subscribe({
+      next: (catalogType) => {
+        if (catalogType && catalogType.id) {
+          this.eavFormService.getCatalogsLookup(catalogType.id).subscribe({
+            next: (items) => {
+              const options = (items || []).map((item: any) => item.name || item.code);
+              this.catalogOptionsMap.update(prev => ({
+                ...prev,
+                [catalogCode]: options
+              }));
+            },
+            error: (err) => console.error(`Failed to load catalogs lookup for ${catalogCode}`, err)
+          });
+        }
+      },
+      error: (err) => console.error(`Failed to load catalog type for ${catalogCode}`, err)
+    });
+  }
+
   constructor() {
     effect(() => {
       this.searchKeyword();
@@ -162,6 +187,16 @@ export class FormTemplateComponent implements OnInit {
       this.selectedStatus();
       this.first.set(0);
     }, { allowSignalWrites: true });
+
+    effect(() => {
+      const currentFields = this.detailFields();
+      if (!currentFields) return;
+      currentFields.forEach((f: FormField) => {
+        if (f.dataSourceType === 'catalog' && f.catalogType) {
+          this.loadCatalogOptions(f.catalogType);
+        }
+      });
+    });
   }
 
   ngOnInit() {

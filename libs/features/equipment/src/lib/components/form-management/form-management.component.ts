@@ -16,6 +16,7 @@ import { finalize } from 'rxjs';
 import { Dialog } from 'primeng/dialog';
 import { EquipmentTypeService } from '../../data-access/equipment-type.service';
 import { ActivatedRoute, Router } from '@angular/router';
+import { ToggleSwitch } from 'primeng/toggleswitch';
 import {
   canCreateForm,
   canDeleteForm,
@@ -37,6 +38,7 @@ interface FormField {
   catalogType?: string;
   description?: string;
   selectAll?: boolean;
+  active?: boolean;
 }
 
 interface ToolboxItem {
@@ -60,6 +62,7 @@ interface ToolboxItem {
     TextareaModule,
     Paginator,
     Dialog,
+    ToggleSwitch,
     WfBreadcrumbComponent,
   ],
   providers: [MessageService],
@@ -113,10 +116,43 @@ export class FormManagementComponent implements OnInit {
   first = signal<number>(0);
   rows = signal<number>(10);
 
+  catalogOptionsMap = signal<{ [catalogCode: string]: string[] }>({});
+
+  loadCatalogOptions(catalogCode: string) {
+    if (!catalogCode || this.catalogOptionsMap()[catalogCode]) return;
+    this.eavFormService.getCatalogTypeByCode(catalogCode).subscribe({
+      next: (catalogType) => {
+        if (catalogType && catalogType.id) {
+          this.eavFormService.getCatalogsLookup(catalogType.id).subscribe({
+            next: (items) => {
+              const options = (items || []).map((item: any) => item.name || item.code);
+              this.catalogOptionsMap.update(prev => ({
+                ...prev,
+                [catalogCode]: options
+              }));
+            },
+            error: (err) => console.error(`Failed to load catalogs lookup for ${catalogCode}`, err)
+          });
+        }
+      },
+      error: (err) => console.error(`Failed to load catalog type for ${catalogCode}`, err)
+    });
+  }
+
   constructor() {
     effect(() => {
       this.searchKeyword();
       this.first.set(0);
+    });
+
+    effect(() => {
+      const currentFields = this.fields();
+      if (!currentFields) return;
+      currentFields.forEach((f: FormField) => {
+        if (f.dataSourceType === 'catalog' && f.catalogType) {
+          this.loadCatalogOptions(f.catalogType);
+        }
+      });
     });
   }
 
@@ -464,7 +500,8 @@ export class FormManagementComponent implements OnInit {
       options: (type === 'dropdown' || type === 'radio' || type === 'checkbox') ? [] : undefined,
       width: 100,
       dataSourceType: 'manual',
-      selectAll: false
+      selectAll: false,
+      active: true
     };
   }
 
