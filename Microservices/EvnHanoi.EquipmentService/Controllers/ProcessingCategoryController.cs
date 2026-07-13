@@ -61,9 +61,14 @@ public class ProcessingCategoryController : ControllerBase
         if (catalog.CatalogTypeId <= 0)
             return BadRequest(new { message = $"Không tìm thấy loại danh mục '{CatalogTypeCode}' trong hệ thống." });
 
-        var existing = await _catalogRepository.GetByCodeAsync(catalog.CatalogTypeId, catalog.Code);
+        var existing = await _catalogRepository.GetByCodeIncludingDeletedAsync(catalog.CatalogTypeId, catalog.Code);
         if (existing != null)
+        {
+            if (existing.IsDeleted)
+                return BadRequest(new { message = $"Mã danh mục '{catalog.Code}' đã bị xóa và không thể tái sử dụng." });
+
             return BadRequest(new { message = $"Mã danh mục '{catalog.Code}' đã tồn tại trong nhóm này." });
+        }
 
         catalog.UnitId = catalog.UnitId.HasValue ? GetUnitIdFromClaims() : null;
         catalog.Priority = catalog.Priority <= 0 ? 1 : catalog.Priority;
