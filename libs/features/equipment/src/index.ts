@@ -15,3 +15,6 @@ export * from './lib/data-access/equipment.service';
 export * from './lib/data-access/file-upload.service';
 export * from './lib/data-access/file-download.service';
 export * from './lib/models/creator-info.model';
+export * from './lib/components/equipment-documents/equipment-documents.component';
+export * from './lib/components/equipment-document-detail-dialog/equipment-document-detail-dialog.component';
+

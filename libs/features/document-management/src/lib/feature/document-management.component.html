@@ -346,6 +346,13 @@
                 <td class="col-hd">
                   <div class="action-buttons-group">
                     <button
+                      class="act-btn act-edit"
+                      title="Sửa tài liệu"
+                      (click)="onEditDocument(doc)"
+                    >
+                      <i class="pi pi-pencil"></i>
+                    </button>
+                    <button
                       class="act-btn act-download"
                       title="Tải tài liệu"
                       [disabled]="!doc.latestVersionId || isDownloadingDocument(doc.id)"
@@ -637,6 +644,60 @@
         <i class="pi pi-spin pi-spinner" *ngIf="deletingDocument()"></i>
         <i class="pi pi-trash" *ngIf="!deletingDocument()"></i>
         Xóa
+      </button>
+    </div>
+  </ng-template>
+</p-dialog>
+
+<!-- Edit Document Dialog -->
+<p-dialog
+  [visible]="showEditDocument()"
+  (visibleChange)="$event ? null : onCancelEditDocument()"
+  header="Sửa tên tài liệu"
+  [modal]="true"
+  [style]="{ width: '450px' }"
+  styleClass="evn-dialog-custom"
+  [closable]="!savingDocument()"
+>
+  <div class="form-group" style="padding: 8px 0 16px;">
+    <label class="form-label required" style="color: #1e293b; font-weight: 600; margin-bottom: 8px; display: block;">Tên tài liệu</label>
+    <input
+      #documentNameInput
+      type="text"
+      class="wf-input"
+      [ngModel]="documentFormName()"
+      (ngModelChange)="documentFormName.set($event)"
+      placeholder="Nhập tên tài liệu..."
+      [disabled]="savingDocument()"
+      style="border-color: #e5e7eb; width: 100%;"
+      autocomplete="off"
+    />
+  </div>
+  <ng-template #footer>
+    <div
+      style="
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        border-top: 1px solid #f1f5f9;
+        padding-top: 12px;
+      "
+    >
+      <button
+        class="btn-cancel btn-small"
+        (click)="onCancelEditDocument()"
+        [disabled]="savingDocument()"
+      >
+        <i class="pi pi-times"></i> Hủy
+      </button>
+      <button
+        class="btn-save btn-small"
+        (click)="onSaveDocument()"
+        [disabled]="savingDocument()"
+      >
+        <i class="pi pi-spin pi-spinner" *ngIf="savingDocument()"></i>
+        <i class="pi pi-check" *ngIf="!savingDocument()"></i>
+        Lưu
       </button>
     </div>
   </ng-template>

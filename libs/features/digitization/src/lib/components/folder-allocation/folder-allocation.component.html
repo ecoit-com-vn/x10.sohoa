@@ -32,7 +32,7 @@
           style="width: 260px; height: 36px;" />
 
         <!-- Nút Thêm mới -->
-        <button class="btn-green" (click)="openCreate()" style="height: 36px; padding: 0 16px;">
+        <button *ngIf="authService.hasPermission('FOLDER_ALLOCATION_CREATE') || authService.hasPermission('FOLDER_ALLOCATION_EDIT') || authService.hasPermission('FOLDER_ALLOCATION_MANAGE')" class="btn-green" (click)="openCreate()" style="height: 36px; padding: 0 16px;">
           <i class="pi pi-user-plus"></i> Thêm phân bổ
         </button>
       </div>
@@ -73,7 +73,8 @@
                 {{ (currentPage() - 1) * pageSize() + i + 1 }}
               </td>
               <td>
-                <b class="wf-name-link" (click)="openEdit(item)">{{ item.folder_name }}</b>
+                <b *ngIf="authService.hasPermission('FOLDER_ALLOCATION_EDIT') || authService.hasPermission('FOLDER_ALLOCATION_MANAGE')" class="wf-name-link" (click)="openEdit(item)">{{ item.folder_name }}</b>
+                <span *ngIf="!(authService.hasPermission('FOLDER_ALLOCATION_EDIT') || authService.hasPermission('FOLDER_ALLOCATION_MANAGE'))">{{ item.folder_name }}</span>
               </td>
               <td style="color: #64748b; font-size: 0.9rem;">
                 {{ item.folder_path || '---' }}
@@ -89,7 +90,7 @@
                 <span 
                   class="status-pill"
                   [class.status-active]="item.status === 'Active'"
-                  [class.status-inactive]="item.status === 'Revoked'">
+                  [class.status-inactive]="!item.status || item.status === 'Revoked'">
                   <i [class]="item.status === 'Active' ? 'pi pi-check-circle' : 'pi pi-minus-circle'"></i>
                   {{ item.status === 'Active' ? 'Đang phân bổ' : 'Thu hồi' }}
                 </span>
@@ -98,6 +99,7 @@
                 <div class="action-buttons-group" style="display: flex; justify-content: center; gap: 8px;">
                   <!-- Nút Sửa -->
                   <button 
+                    *ngIf="authService.hasPermission('FOLDER_ALLOCATION_EDIT') || authService.hasPermission('FOLDER_ALLOCATION_MANAGE')"
                     class="act-btn act-edit" 
                     (click)="openEdit(item)" 
                     title="Chỉnh sửa phân bổ">
@@ -106,7 +108,7 @@
 
                   <!-- Nút Thu hồi -->
                   <button 
-                    *ngIf="item.status === 'Active'"
+                    *ngIf="item.status === 'Active' && (authService.hasPermission('FOLDER_ALLOCATION_EDIT') || authService.hasPermission('FOLDER_ALLOCATION_MANAGE'))"
                     class="act-btn act-assign" 
                     (click)="onRevoke(item)" 
                     title="Thu hồi quyền phân bổ"
@@ -116,6 +118,7 @@
 
                   <!-- Nút Xóa -->
                   <button 
+                    *ngIf="authService.hasPermission('FOLDER_ALLOCATION_DELETE') || authService.hasPermission('FOLDER_ALLOCATION_MANAGE')"
                     class="act-btn act-delete" 
                     (click)="onDelete(item)" 
                     title="Xóa phân bổ">

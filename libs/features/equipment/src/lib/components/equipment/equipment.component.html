@@ -397,6 +397,9 @@
         <div class="tab-item" [class.tab-active]="activeTab() === 2" (click)="activeTab.set(2)">
           <i class="pi pi-folder-open" style="margin-right: 4px;"></i> Hồ sơ liên quan
         </div>
+        <div class="tab-item" [class.tab-active]="activeTab() === 2" (click)="activeTab.set(2)">
+          <i class="pi pi-file" style="margin-right: 4px;"></i> Tài liệu lý lịch
+        </div>
       </div>
 
       <!-- NỘI DUNG CÁC TAB -->
@@ -892,6 +895,15 @@
         </div>
       </div>
 
+      <!-- ==================== TAB 2: TÀI LIỆU LÝ LỊCH THIẾT BỊ ==================== -->
+      <div *ngIf="activeTab() === 2" class="tab-content animate-fade-in">
+        <app-equipment-documents
+          *ngIf="currentItem().id as profileEquipmentId"
+          [equipmentId]="profileEquipmentId"
+          [canEdit]="canEdit()"
+          (documentProcessed)="reloadDetail(profileEquipmentId)"
+        ></app-equipment-documents>
+      </div>
     </div>
 
   </div>

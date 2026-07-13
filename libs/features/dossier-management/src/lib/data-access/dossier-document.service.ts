@@ -7,7 +7,7 @@ import {
   FileUploadResponse,
   InitiateChunkedUploadResponse,
   UploadProgress,
-} from '@sohoa.frontend/features/equipment';
+} from '../../../../equipment/src/lib/data-access/file-upload.service';
 
 export interface DocumentOcrProgress {
   id: string;

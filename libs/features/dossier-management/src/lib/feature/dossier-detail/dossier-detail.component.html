@@ -19,6 +19,18 @@
       <i class="pi pi-spin pi-spinner" *ngIf="submitting()"></i>
       Gửi duyệt
     </button>
+    <button *ngIf="showPublishButton()" (click)="requestPublishAction('publish')" class="btn-green btn-small"
+      [disabled]="publishActionSubmitting()">
+      <i class="pi pi-cloud-upload"></i> Xuất bản
+    </button>
+    <button *ngIf="showUnpublishButton()" (click)="requestPublishAction('unpublish')" class="btn-cancel btn-small"
+      [disabled]="publishActionSubmitting()">
+      <i class="pi pi-ban"></i> Hủy xuất bản
+    </button>
+    <button *ngIf="showRepublishButton()" (click)="requestPublishAction('republish')" class="btn-green btn-small"
+      [disabled]="publishActionSubmitting()">
+      <i class="pi pi-refresh"></i> Tái xuất bản
+    </button>
     <ng-container *ngIf="detailDynamicButtons().length > 0 && isUserAuthorizedForDetailAction">
       <button *ngFor="let btn of detailDynamicButtons()" class="btn-small" [class.btn-cancel]="isRejectLabel(btn.label)"
         [class.btn-save]="isApproveLabel(btn.label)"
@@ -157,7 +169,7 @@
 
       <div *ngIf="activeTab() === 'documents'">
         <app-dossier-documents-tab [dossierId]="dossierId" [canEdit]="canEditDossier()" [menuScope]="menuScope"
-          [hasFormTemplate]="!!dossierMeta()?.formId" [formId]="dossierMeta()?.formId ?? null"
+          [kindId]="dossierKindId()" [hasFormTemplate]="!!dossierMeta()?.formId" [formId]="dossierMeta()?.formId ?? null"
           (formDataSaved)="loadDetail()"></app-dossier-documents-tab>
       </div>
 
@@ -291,6 +303,59 @@
       <i class="pi pi-times" *ngIf="!detailActionSubmitting() && isRejectLabel(pendingActionBtn()?.label)"></i>
       {{ pendingActionBtn()?.label }}
     </button>
+  </ng-template>
+</p-dialog>
+
+<p-dialog [visible]="showCompleteInputConfirm()" (visibleChange)="$event ? null : showCompleteInputConfirm.set(false)"
+  header="Xác nhận hoàn thành" [modal]="true" [style]="{ width: '420px' }" styleClass="evn-dialog-custom"
+  [closable]="!submitting()">
+  <div style="display: flex; align-items: flex-start; gap: 12px; padding: 8px 0 16px;">
+    <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #3b82f6;"></i>
+    <div>
+      <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">Bạn có chắc chắn muốn hoàn thành nhập liệu?</p>
+      <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
+        Hồ sơ <b style="color: #1e293b;">{{ dossier()?.title || dossier()?.name || viewMeta()?.infrastructureName || dossier()?.dossierTypeName || 'này' }}</b> sẽ được chuyển sang trạng thái "Hoàn thành".
+      </p>
+    </div>
+  </div>
+  <ng-template #footer>
+    <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+      <button (click)="showCompleteInputConfirm.set(false)" class="btn-cancel btn-small" [disabled]="submitting()">
+        <i class="pi pi-times"></i> Hủy
+      </button>
+      <button (click)="confirmCompleteInput()" class="btn-save btn-small" [disabled]="submitting()">
+        <i class="pi pi-spin pi-spinner" *ngIf="submitting()"></i>
+        <i class="pi pi-check" *ngIf="!submitting()"></i>
+        Xác nhận
+      </button>
+    </div>
+  </ng-template>
+</p-dialog>
+
+<p-dialog [visible]="showPublishActionConfirm()" (visibleChange)="$event ? null : cancelPublishAction()"
+  [header]="publishActionHeader()" [modal]="true" [style]="{ width: '420px' }" styleClass="evn-dialog-custom"
+  [closable]="!publishActionSubmitting()">
+  <div style="display: flex; align-items: flex-start; gap: 12px; padding: 8px 0 16px;">
+    <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #3b82f6;"></i>
+    <div>
+      <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">{{ publishActionTitle() }}</p>
+      <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
+        Hồ sơ <b style="color: #1e293b;">{{ viewMeta()?.infrastructureName || '—' }}</b> sẽ được thay đổi trạng thái xuất bản.
+      </p>
+    </div>
+  </div>
+  <ng-template #footer>
+    <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+      <button class="btn-cancel btn-small" (click)="cancelPublishAction()" [disabled]="publishActionSubmitting()">
+        <i class="pi pi-times"></i> Hủy
+      </button>
+      <button class="btn-save btn-small" (click)="confirmPublishAction()" [disabled]="publishActionSubmitting()"
+        [style.background-color]="publishActionButtonColor()" [style.border-color]="publishActionButtonColor()">
+        <i class="pi pi-spin pi-spinner" *ngIf="publishActionSubmitting()"></i>
+        <i class="pi pi-check" *ngIf="!publishActionSubmitting()"></i>
+        Xác nhận
+      </button>
+    </div>
   </ng-template>
 </p-dialog>
 

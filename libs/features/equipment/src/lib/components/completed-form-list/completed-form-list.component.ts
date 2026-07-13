@@ -15,9 +15,9 @@ import { finalize } from 'rxjs';
 import { LoadingService, EavFormService, EavFormTemplate, AuthService } from '@sohoa.frontend/shared/core';
 import { EquipmentTypeService } from '../../data-access/equipment-type.service';
 import {
-  canDeleteForm,
+  canDeleteCompletedForm,
   canEditForm,
-  canManageForm,
+  canManageCompletedForm,
 } from '../../utils/eav-form-permission.util';
 
 @Component({
@@ -48,8 +48,8 @@ export class CompletedFormListComponent implements OnInit {
     private authService = inject(AuthService);
 
     canEdit = computed(() => canEditForm(this.authService));
-    canManage = computed(() => canManageForm(this.authService));
-    canDelete = computed(() => canDeleteForm(this.authService));
+    canManage = computed(() => canManageCompletedForm(this.authService));
+    canDelete = computed(() => canDeleteCompletedForm(this.authService));
 
     showConfirmLock = signal<boolean>(false);
     showConfirmUnlock = signal<boolean>(false);

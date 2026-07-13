@@ -111,7 +111,7 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
       keyword: this.filterKeyword,
       equipmentId: this.filterEquipmentId,
       dossierTypeId: this.filterDossierTypeId
-    }).subscribe({
+    }, this.dossierKindId()).subscribe({
       next: (res) => {
         this.relatedDossiers.set(Array.isArray(res) ? res : []);
         this.loadingRelated.set(false);
@@ -143,12 +143,13 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
     );
 
     const segments: string[] = [];
-    if (kind === 1) {
+    if (scope === 'publisher') {
+      segments.push('publish');
+    } else if (kind === 1) {
       segments.push('digitization');
       segments.push(scope === 'approver' ? 'approve' : 'my-dossiers');
     } else {
       if (scope === 'approver') segments.push('approve');
-      else if (scope === 'publisher') segments.push('publish');
       else segments.push('my-dossiers');
     }
 
@@ -163,6 +164,7 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
   workflowRefreshToken = signal(0);
 
   dossier = signal<any>(null);
+  dossierKindId = signal<number>(2);
   dossierMeta = computed(() => normalizeDossierDetail(this.dossier()));
 
   viewMeta = computed(() => {
@@ -275,6 +277,10 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
 
   // Submit for approval confirmation
   showSubmitConfirm = signal<boolean>(false);
+  showCompleteInputConfirm = signal<boolean>(false);
+  showPublishActionConfirm = signal<boolean>(false);
+  pendingPublishAction = signal<'publish' | 'unpublish' | 'republish' | null>(null);
+  publishActionSubmitting = signal<boolean>(false);
   nextStepInfo = signal<any>(null);
   selectedNextUser = signal<string>('');
 
@@ -402,9 +408,7 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
           ?? (res as Record<string, unknown>)?.['KindId']
           ?? 2
         );
-        if (this.menuScope === 'publisher') {
-          this.service.setKindContext(resolvedKindId === 1 ? 1 : 2);
-        }
+        this.dossierKindId.set(resolvedKindId === 1 ? 1 : 2);
 
         this.dossier.set(res);
         this.pendingFormData = parseFormDataJson(meta.formDataJson);
@@ -424,7 +428,9 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
     ).subscribe({
       next: (template) => {
         this.applyFormTemplate(template);
-        this.loadWorkflow();
+        if (this.menuScope !== 'publisher') {
+          this.loadWorkflow();
+        }
       },
       error: () => {
         this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể tải chi tiết hồ sơ' });
@@ -553,7 +559,7 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
 
   loadWorkflow() {
     this.loadingBpmn.set(true);
-    this.service.getWorkflowDetail(this.dossierId).pipe(
+    this.service.getWorkflowDetail(this.dossierId, this.dossierKindId()).pipe(
       finalize(() => this.loadingBpmn.set(false))
     ).subscribe({
       next: (res) => {
@@ -789,10 +795,17 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
   }
 
   onCompleteInput() {
+    this.showCompleteInputConfirm.set(true);
+  }
+
+  confirmCompleteInput() {
+    if (this.submitting()) return;
+
     this.submitting.set(true);
     this.service.completeInput(this.dossierId).subscribe({
       next: () => {
         this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã hoàn thành nhập liệu thành công' });
+        this.showCompleteInputConfirm.set(false);
         this.submitting.set(false);
         this.loadDetail();
       },
@@ -878,6 +891,99 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
     return getDossierStatusPillClass(status);
   }
 
+  getPublishStatusId(): number {
+    const d = this.dossier();
+    return Number(d?.publishStatusId ?? d?.PublishStatusId ?? 0);
+  }
+
+  canReleasePublish(): boolean {
+    return this.authService.hasPermission('DOSSIER_PUBLISH_RELEASE');
+  }
+
+  showPublishButton(): boolean {
+    return this.menuScope === 'publisher' && this.canReleasePublish() && this.getPublishStatusId() === 1;
+  }
+
+  showUnpublishButton(): boolean {
+    return this.menuScope === 'publisher' && this.canReleasePublish() && this.getPublishStatusId() === 2;
+  }
+
+  showRepublishButton(): boolean {
+    return this.menuScope === 'publisher' && this.canReleasePublish() && this.getPublishStatusId() === 3;
+  }
+
+  publishActionHeader(): string {
+    switch (this.pendingPublishAction()) {
+      case 'publish': return 'Xác nhận xuất bản';
+      case 'unpublish': return 'Xác nhận hủy xuất bản';
+      case 'republish': return 'Xác nhận tái xuất bản';
+      default: return 'Xác nhận hành động';
+    }
+  }
+
+  publishActionTitle(): string {
+    switch (this.pendingPublishAction()) {
+      case 'publish': return 'Bạn có chắc chắn muốn xuất bản hồ sơ này?';
+      case 'unpublish': return 'Bạn có chắc chắn muốn hủy xuất bản hồ sơ này?';
+      case 'republish': return 'Bạn có chắc chắn muốn tái xuất bản hồ sơ này?';
+      default: return 'Xác nhận thực hiện hành động?';
+    }
+  }
+
+  publishActionButtonColor(): string {
+    return this.pendingPublishAction() === 'unpublish' ? '#dc2626' : '#22c55e';
+  }
+
+  requestPublishAction(type: 'publish' | 'unpublish' | 'republish') {
+    this.pendingPublishAction.set(type);
+    this.showPublishActionConfirm.set(true);
+  }
+
+  cancelPublishAction() {
+    this.showPublishActionConfirm.set(false);
+    this.pendingPublishAction.set(null);
+  }
+
+  confirmPublishAction() {
+    const type = this.pendingPublishAction();
+    if (!type || this.publishActionSubmitting()) return;
+
+    this.publishActionSubmitting.set(true);
+    let obs$;
+    if (type === 'publish') {
+      obs$ = this.publishService.publish(this.dossierId);
+    } else if (type === 'unpublish') {
+      obs$ = this.publishService.unpublish(this.dossierId);
+    } else {
+      obs$ = this.publishService.republish(this.dossierId);
+    }
+
+    obs$.pipe(
+      finalize(() => {
+        this.publishActionSubmitting.set(false);
+        this.cancelPublishAction();
+      })
+    ).subscribe({
+      next: () => {
+        const detail =
+          type === 'publish'
+            ? 'Xuất bản hồ sơ thành công'
+            : type === 'unpublish'
+              ? 'Hủy xuất bản hồ sơ thành công'
+              : 'Tái xuất bản hồ sơ thành công';
+        this.messageService.add({ severity: 'success', summary: 'Thành công', detail });
+        this.loadDetail();
+      },
+      error: (err) => {
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Lỗi',
+          detail: err?.error?.message || 'Có lỗi xảy ra khi thực hiện thao tác',
+        });
+      },
+    });
+  }
+
   isDetailTabVisible(tab: 'info' | 'documents' | 'versions' | 'workflow'): boolean {
     const d = this.dossier();
     const wfId = d?.workflowInstanceId ?? d?.WorkflowInstanceId
@@ -893,7 +999,7 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
       case 'versions':
         return true;
       case 'workflow':
-        return !!wfId || this.menuScope === 'approver';
+        return this.menuScope !== 'publisher' && (!!wfId || this.menuScope === 'approver');
       default:
         return false;
     }

@@ -269,36 +269,18 @@ export class DossierDocumentEditDialogComponent implements OnDestroy {
 
 
     const requests: {
-
       dossier: ReturnType<DossierManagementService['getDossierById']>;
-
-      result?: ReturnType<DossierDocumentService['getDigitizationResultOrNull']>;
-
+      result: ReturnType<DossierDocumentService['getDigitizationResultOrNull']>;
     } = {
-
       dossier: this.lookupMode
-
         ? this.dossierService.getDossierByEquipmentLookup(this.dossierId)
-
         : this.dossierService.getDossierById(this.dossierId),
-
-    };
-
-
-
-    if (this.hasExtractionResult) {
-
-      requests.result = this.documentService.getDigitizationResultOrNull(
-
+      result: this.documentService.getDigitizationResultOrNull(
         this.dossierId,
-
         this.versionId,
-
         this.lookupMode
-
-      );
-
-    }
+      )
+    };
 
 
 

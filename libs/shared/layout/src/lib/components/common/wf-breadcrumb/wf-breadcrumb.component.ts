@@ -36,7 +36,8 @@ export class WfBreadcrumbComponent implements OnInit {
   @Input() leafLabel: string | null = null;
   /** Ghi đè URL dùng để khớp menu (mặc định lấy router.url). */
   @Input() matchUrl: string | null = null;
-
+  @Input() customItems: BreadcrumbTrailItem[] | null = null;
+  
   @Output() listClick = new EventEmitter<void>();
 
   private currentUrlSignal = signal<string>('');
@@ -47,7 +48,7 @@ export class WfBreadcrumbComponent implements OnInit {
   });
 
   readonly items = computed(() => {
-    const trail = [...this.trail()];
+    const trail = this.customItems?.length ? [...this.customItems] : [...this.trail()];
     if (!trail.length) {
       return trail;
     }

@@ -8,24 +8,27 @@ import { DialogModule } from 'primeng/dialog';
 import { MessageService } from 'primeng/api';
 import { AuthService, EavFormService } from '@sohoa.frontend/shared/core';
 import { DossierTypeService } from '../../data-access/dossier-type.service';
+import { DocumentTypeService } from '../../data-access/document-type.service';
+import { MultiSelectModule } from 'primeng/multiselect';
 import { finalize } from 'rxjs/operators';
 
 @Component({
   selector: 'app-dossier-type',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule, SelectModule, DialogModule, WfBreadcrumbComponent],
+  imports: [CommonModule, FormsModule, ToastModule, SelectModule, DialogModule, MultiSelectModule, WfBreadcrumbComponent],
   providers: [MessageService],
   templateUrl: './dossier-type.component.html',
   styleUrl: './dossier-type.component.scss'
 })
 export class DossierTypeComponent implements OnInit {
   private dossierTypeService = inject(DossierTypeService);
+  private documentTypeService = inject(DocumentTypeService);
   private authService = inject(AuthService);
   private messageService = inject(MessageService);
 
   // States
   items = signal<any[]>([]);
-  formTemplates = signal<any[]>([]);
+  documentTypes = signal<any[]>([]);
   searchKeyword = signal<string>('');
   searchStatus = signal<string>(''); // '', '1', '0'
   totalCount = signal<number>(0);
@@ -122,8 +125,17 @@ export class DossierTypeComponent implements OnInit {
 
   ngOnInit() {
     this.authService.loadPermissions();
-    this.loadFormTemplates();
+    this.loadDocumentTypes();
     this.loadItems();
+  }
+
+  loadDocumentTypes() {
+    this.documentTypeService.getDocumentTypes(1, 1000, '', '1').subscribe({
+      next: (res) => {
+        this.documentTypes.set(res?.items || []);
+      },
+      error: () => this.documentTypes.set([])
+    });
   }
 
   onFieldChange(field: string) {
@@ -133,17 +145,6 @@ export class DossierTypeComponent implements OnInit {
       const capitalized = field.charAt(0).toUpperCase() + field.slice(1);
       delete copy[capitalized];
       return copy;
-    });
-  }
-
-  loadFormTemplates() {
-    this.dossierTypeService.getEavFormTemplates().subscribe({
-      next: (data) => {
-        this.formTemplates.set(Array.isArray(data) ? data : []);
-      },
-      error: () => {
-        console.error('Không thể tải danh sách biểu mẫu EAV');
-      }
     });
   }
 
@@ -210,7 +211,8 @@ export class DossierTypeComponent implements OnInit {
     this.currentItem.set({
       isActive: true,
       piority: 1,
-      formId: null
+      formId: null,
+      documentTypeIds: []
     });
     this.formSubmitted.set(false);
     this.serverErrors.set({});
@@ -218,7 +220,10 @@ export class DossierTypeComponent implements OnInit {
   }
 
   onEdit(item: any) {
-    this.currentItem.set({ ...item });
+    this.currentItem.set({ 
+      ...item,
+      documentTypeIds: item.documentTypeIds || []
+    });
     this.formSubmitted.set(false);
     this.serverErrors.set({});
     this.currentView.set('edit');
@@ -240,7 +245,8 @@ export class DossierTypeComponent implements OnInit {
       name: item.name.trim(),
       formId: item.formId || null,
       piority: item.piority || 1,
-      isActive: item.isActive
+      isActive: item.isActive,
+      documentTypeIds: item.documentTypeIds || []
     };
 
     const request$ = this.currentView() === 'add'
