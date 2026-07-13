@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { ToastModule } from 'primeng/toast';
 import { SelectModule } from 'primeng/select';
 import { DialogModule } from 'primeng/dialog';
+import { ToggleSwitch } from 'primeng/toggleswitch';
 import { MessageService } from 'primeng/api';
 import { Router, ActivatedRoute } from '@angular/router';
 import { AuthService } from '@sohoa.frontend/shared/core';
@@ -18,7 +19,7 @@ import { EquipmentDocumentsComponent } from '../equipment-documents/equipment-do
 @Component({
   selector: 'app-equipment-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule, SelectModule, DialogModule, WfBreadcrumbComponent, EquipmentDocumentsComponent],
+  imports: [CommonModule, FormsModule, ToastModule, SelectModule, DialogModule, ToggleSwitch, WfBreadcrumbComponent, EquipmentDocumentsComponent],
   providers: [MessageService],
   templateUrl: './equipment.component.html',
   styleUrls: ['./equipment.component.css']
@@ -78,7 +79,7 @@ export class EquipmentComponent implements OnInit {
 
   // Tree computed and states
   orgUnitTree = computed(() => this.buildOrgTree(this.organizationUnits()));
-  
+
   // Search Tree Picker State
   searchOrgTreeOpen = signal<boolean>(false);
   expandedSearchUnitNodes = signal<Set<number>>(new Set<number>());
@@ -88,9 +89,10 @@ export class EquipmentComponent implements OnInit {
   expandedFormUnitNodes = signal<Set<number>>(new Set<number>());
 
   // Search Filters
+  searchKeyword = signal<string>('');
   searchCode = signal<string>('');
   searchName = signal<string>('');
-  searchUnitId = signal<string>(''); 
+  searchUnitId = signal<string>('');
   searchInfrastructureId = signal<string>('');
   searchGridTypeId = signal<string>('');
   searchEquipmentTypeId = signal<string>('');
@@ -241,12 +243,12 @@ export class EquipmentComponent implements OnInit {
 
   ngOnInit() {
     this.authService.loadPermissions();
-    
+
     this.route.paramMap.subscribe(params => {
       const id = params.get('id');
       const url = this.router.url;
 
-      if (url.includes('/device-list/add')) {
+      if (url.includes('/device-list/add') || url.includes('/device-add')) {
         this.currentView.set('add');
         this.currentItem.set({
           isActive: true,
@@ -265,18 +267,22 @@ export class EquipmentComponent implements OnInit {
       } else if (id) {
         this.currentView.set('edit');
         this.activeTab.set(0);
-        
+
         let mode = '';
         this.route.queryParams.subscribe(qParams => {
           mode = qParams['mode'] || '';
           if (mode === 'edit-specs') {
             this.isEditingFormValues.set(true);
+            this.isEditingGeneral.set(false);
+          } else if (mode === 'edit') {
+            this.isEditingGeneral.set(true);
+            this.isEditingFormValues.set(false);
           } else {
             this.isEditingFormValues.set(false);
+            this.isEditingGeneral.set(false);
           }
         });
 
-        this.isEditingGeneral.set(false);
         this.formSubmitted.set(false);
         this.serverErrors.set({});
         this.loadLookupData();
@@ -327,7 +333,7 @@ export class EquipmentComponent implements OnInit {
               } catch (e) {
                 this.formValuesObj.set(this.initEavFormValues(parsedFields, {}));
               }
-              
+
               // Load dossier columns (for dossier tab)
               this.loadBhsColumns();
 
@@ -365,7 +371,6 @@ export class EquipmentComponent implements OnInit {
       return copy;
     });
   }
-
   loadLookupData() {
     forkJoin({
       organizationUnits: this.equipmentService.getOrganizationUnits().pipe(catchError(() => of([]))),
@@ -380,6 +385,22 @@ export class EquipmentComponent implements OnInit {
         this.gridTypes.set(Array.isArray(data.gridTypes) ? data.gridTypes : []);
         this.equipmentTypes.set(Array.isArray(data.equipmentTypes) ? data.equipmentTypes : []);
         this.countries.set(Array.isArray(data.countries) ? data.countries : []);
+
+        // Tự động điền dữ liệu nếu có parentId từ route hoặc infrastructureId truyền qua queryParams
+        const parentId = this.route.snapshot.paramMap.get('parentId');
+        const queryParams = this.route.snapshot.queryParams;
+        const preInfraId = parentId || queryParams['infrastructureId'];
+        if (preInfraId && this.currentView() === 'add') {
+          const infra = this.infrastructures().find(x => String(x.id) === String(preInfraId));
+          if (infra) {
+            this.currentItem.update(item => ({
+              ...item,
+              infrastructureId: infra.id,
+              unitId: infra.unitId,
+              gridTypeId: infra.gridTypeId
+            }));
+          }
+        }
       },
       error: () => {
         console.error('Không thể tải dữ liệu danh mục');
@@ -410,7 +431,8 @@ export class EquipmentComponent implements OnInit {
       this.searchInfrastructureId(),
       gridTypeId,
       this.searchEquipmentTypeId(),
-      isActive
+      isActive,
+      this.searchKeyword()
     ).subscribe({
       next: (res) => {
         if (res) {
@@ -576,6 +598,7 @@ export class EquipmentComponent implements OnInit {
   }
 
   onResetSearch() {
+    this.searchKeyword.set('');
     this.searchCode.set('');
     this.searchName.set('');
     this.searchUnitId.set('');
@@ -928,7 +951,16 @@ export class EquipmentComponent implements OnInit {
   }
 
   goBack() {
-    this.router.navigate(['/equipment/device-list']);
+    const url = this.router.url;
+    if (url.includes('/catalog/substation/')) {
+      const parentId = this.route.snapshot.paramMap.get('parentId');
+      this.router.navigate(['/catalog/substation', parentId]);
+    } else if (url.includes('/catalog/transmission-line/')) {
+      const parentId = this.route.snapshot.paramMap.get('parentId');
+      this.router.navigate(['/catalog/transmission-line', parentId]);
+    } else {
+      this.router.navigate(['/equipment/device-list']);
+    }
   }
 
   onEquipmentSpecsSaved(): void {
