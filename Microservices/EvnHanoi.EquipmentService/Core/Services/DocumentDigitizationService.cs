@@ -425,15 +425,16 @@ public class DocumentDigitizationService : IDocumentDigitizationService
             await _repository.UpdateProgressAsync(progress);
         }
 
+        var equipmentId = ResolveEquipmentIdForExtractionCompleted(message);
         var result = await _repository.GetExtractionResultByVersionIdAsync(
             message.FileId,
-            ResolveEquipmentIdForExtractionCompleted(message));
+            equipmentId);
         if (result == null)
         {
             _logger.LogWarning(
                 "Không tìm thấy extraction result cho version {VersionId}, equipment {EquipmentId}",
                 message.FileId,
-                message.EquipmentId);
+                equipmentId);
             return;
         }
 
@@ -462,6 +463,39 @@ public class DocumentDigitizationService : IDocumentDigitizationService
         result.MergedDataJson = ExtractionResultMerger.MergePageResults(result.ResultJson);
 
         await _repository.UpdateExtractionResultAsync(result);
+
+        // --- TỰ ĐỘNG ĐẨY NGƯỢC THÔNG TIN VÀO THÔNG SỐ THIẾT BỊ ---
+        if (message.Status.Equals("Success", StringComparison.OrdinalIgnoreCase) 
+            && equipmentId.HasValue 
+            && !string.IsNullOrWhiteSpace(result.MergedDataJson))
+        {
+            try
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var equipmentRepository = scope.ServiceProvider.GetRequiredService<IEquipmentRepository>();
+                var equipment = await equipmentRepository.GetByIdAsync(equipmentId.Value);
+                if (equipment != null)
+                {
+                    var oldFormValues = equipment.FormValues;
+                    var extData = result.MergedDataJson.Trim();
+
+                    var mergedData = AutoMergeEquipmentFormValues(oldFormValues, extData);
+                    if (mergedData != oldFormValues)
+                    {
+                        equipment.FormValues = mergedData;
+                        equipment.ModifiedBy = "System-OCR";
+                        equipment.ModifiedDate = DateTime.UtcNow;
+                        await equipmentRepository.UpdateAsync(equipment);
+                        _logger.LogInformation("Auto-fill thành công dữ liệu bóc tách từ background vào thiết bị {EquipmentId}.", equipmentId);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Lỗi xảy ra trong quá trình Auto-fill dữ liệu thiết bị {EquipmentId} sau khi bóc tách hoàn tất.", equipmentId);
+            }
+        }
+
         if (progress != null)
             await PublishProgressNotificationAsync(progress, result.Status);
 
