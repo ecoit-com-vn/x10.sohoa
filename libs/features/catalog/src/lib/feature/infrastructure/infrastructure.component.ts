@@ -1,4 +1,4 @@
-import { Component, OnInit, signal, computed, inject, effect } from '@angular/core';
+import { Component, OnInit, signal, computed, inject, effect, HostListener } from '@angular/core';
 import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -6,9 +6,10 @@ import { ToastModule } from 'primeng/toast';
 import { SelectModule } from 'primeng/select';
 import { DialogModule } from 'primeng/dialog';
 import { MessageService } from 'primeng/api';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { AuthService } from '@sohoa.frontend/shared/core';
 import { InfrastructureService } from '../../data-access/infrastructure.service';
+import { EquipmentService } from '@sohoa.frontend/features/equipment';
 import { finalize } from 'rxjs/operators';
 
 @Component({
@@ -21,9 +22,13 @@ import { finalize } from 'rxjs/operators';
 })
 export class InfrastructureComponent implements OnInit {
   private infraService = inject(InfrastructureService);
+  private equipmentService = inject(EquipmentService);
   private authService = inject(AuthService);
   private messageService = inject(MessageService);
   private route = inject(ActivatedRoute);
+  private router = inject(Router);
+
+  protected readonly Math = Math;
 
   // Dynamic Route Data
   infraTypeId = signal<number>(1);
@@ -45,7 +50,12 @@ export class InfrastructureComponent implements OnInit {
   lockUnlockTarget = signal<any>(null);
   lockUnlockLoading = signal<boolean>(false);
 
-  currentView = signal<'list' | 'add' | 'edit'>('list');
+  // Equipment Lock/Unlock Confirmation Signals
+  showEquipmentLockConfirm = signal<boolean>(false);
+  equipmentLockTarget = signal<any>(null);
+  equipmentLockLoading = signal<boolean>(false);
+
+  currentView = signal<'list' | 'add' | 'edit' | 'detail'>('list');
   currentItem = signal<any>({});
   isSaving = signal<boolean>(false);
 
@@ -91,6 +101,43 @@ export class InfrastructureComponent implements OnInit {
     return Math.ceil(this.totalCount() / this.pageSize());
   });
 
+  // ── DETAIL VIEW SIGNALS ────────────────────────────────────────────────────
+  activeTab = signal<number>(0);
+
+  // Danh sách thiết bị trong tab chi tiết
+  equipmentItems = signal<any[]>([]);
+  equipmentTotalCount = signal<number>(0);
+  equipmentPage = signal<number>(1);
+  equipmentPageSize = signal<number>(10);
+  equipmentTypes = signal<any[]>([]);
+  isLoadingEquipments = signal<boolean>(false);
+
+  // Search thiết bị
+  equipmentSearchKeyword = signal<string>('');
+  equipmentSearchTypeId = signal<string>('');
+
+  equipmentTotalPages = computed(() =>
+    Math.ceil(this.equipmentTotalCount() / this.equipmentPageSize())
+  );
+
+  // More-menu 3 chấm cho bảng thiết bị
+  activeEquipmentMenu = signal<string | null>(null);
+
+  @HostListener('document:click')
+  closeEquipmentMenu() {
+    this.activeEquipmentMenu.set(null);
+  }
+
+  toggleEquipmentMenu(item: any, event: Event) {
+    event.stopPropagation();
+    if (this.activeEquipmentMenu() === item.id) {
+      this.activeEquipmentMenu.set(null);
+    } else {
+      this.activeEquipmentMenu.set(item.id);
+    }
+  }
+  // ── END DETAIL VIEW SIGNALS ────────────────────────────────────────────────
+
   // Dynamic Permissions check per catalog type
   canCreate = computed(() => {
     const perm = this.infraTypeId() === 1 ? 'SUBSTATION_CREATE' : 'TRANSMISSION_LINE_CREATE';
@@ -112,13 +159,19 @@ export class InfrastructureComponent implements OnInit {
     return this.authService.hasPermission(perm) || this.authService.hasPermission('SUPER_ADMIN');
   });
 
+  canCreateEquipment = computed(() =>
+    this.authService.hasPermission('EQUIPMENT_CREATE') || this.authService.hasPermission('SUPER_ADMIN')
+  );
+
   constructor() {
     effect(() => {
       // Re-trigger load when page, pageSize, or infraTypeId changes
       this.currentPage();
       this.pageSize();
       this.infraTypeId();
-      this.loadItems();
+      if (this.currentView() === 'list') {
+        this.loadItems();
+      }
     }, { allowSignalWrites: true });
 
     if (typeof window !== 'undefined') {
@@ -132,6 +185,7 @@ export class InfrastructureComponent implements OnInit {
     this.authService.loadPermissions();
     this.loadOrgUnits();
     this.loadGridTypes();
+    this.loadEquipmentTypes();
 
     // Listen to route data changes to adapt dynamically
     this.route.data.subscribe(data => {
@@ -143,7 +197,31 @@ export class InfrastructureComponent implements OnInit {
         this.searchKeyword.set('');
         this.searchStatus.set('');
         this.searchUnitId.set(null);
+      }
+    });
+
+    // Detect detail route (has :id param)
+    this.route.paramMap.subscribe(params => {
+      const id = params.get('id');
+      if (id) {
+        this.currentView.set('detail');
+        this.activeTab.set(0);
+        this.equipmentPage.set(1);
+        this.equipmentSearchKeyword.set('');
+        this.equipmentSearchTypeId.set('');
+        // Load item detail
+        this.infraService.getInfrastructureById(this.infraTypeId(), id).subscribe({
+          next: (res) => {
+            this.currentItem.set(res || {});
+            this.loadEquipments();
+          },
+          error: () => {
+            this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể tải thông tin chi tiết.' });
+          }
+        });
+      } else {
         this.currentView.set('list');
+        this.loadItems();
       }
     });
   }
@@ -177,6 +255,17 @@ export class InfrastructureComponent implements OnInit {
       },
       error: () => {
         console.error('Không thể tải danh sách loại lưới điện');
+      }
+    });
+  }
+
+  loadEquipmentTypes() {
+    this.infraService.getEquipmentTypes().subscribe({
+      next: (data) => {
+        this.equipmentTypes.set(data || []);
+      },
+      error: () => {
+        console.error('Không thể tải danh sách loại thiết bị');
       }
     });
   }
@@ -320,6 +409,18 @@ export class InfrastructureComponent implements OnInit {
     this.currentView.set('edit');
   }
 
+  // Điều hướng vào màn hình chi tiết
+  onViewDetail(item: any) {
+    const segment = this.infraTypeId() === 1 ? 'substation' : 'transmission-line';
+    this.router.navigate(['../', segment, item.id], { relativeTo: this.route });
+  }
+
+  // Quay lại danh sách
+  goBack() {
+    const segment = this.infraTypeId() === 1 ? 'substation' : 'transmission-line';
+    this.router.navigate(['../', segment], { relativeTo: this.route });
+  }
+
   isGridTypeLocked(item?: any): boolean {
     if (this.currentView() !== 'edit') return false;
     const target = item ?? this.currentItem();
@@ -381,7 +482,7 @@ export class InfrastructureComponent implements OnInit {
           errorsObj = err.errors;
         }
         this.serverErrors.set(errorsObj);
-        
+
         const errMsg = err?.error?.message || 'Có lỗi xảy ra khi lưu thông tin.';
         this.messageService.add({
           severity: 'error',
@@ -471,5 +572,153 @@ export class InfrastructureComponent implements OnInit {
   onCancelDelete() {
     this.showDeleteConfirm.set(false);
     this.deleteTarget.set(null);
+  }
+
+  // ── DETAIL VIEW METHODS ────────────────────────────────────────────────────
+
+  loadEquipments() {
+    const item = this.currentItem();
+    if (!item?.id) return;
+
+    this.isLoadingEquipments.set(true);
+    const keyword = this.equipmentSearchKeyword();
+    const typeId = this.equipmentSearchTypeId();
+
+    this.equipmentService.getEquipments(
+      this.equipmentPage(),
+      this.equipmentPageSize(),
+      undefined, // code
+      undefined, // name
+      undefined, // unitId
+      String(item.id), // infrastructureId
+      undefined, // gridTypeId
+      typeId || undefined, // equipmentTypeId
+      undefined, // isActive
+      keyword || undefined // keyword
+    ).pipe(finalize(() => this.isLoadingEquipments.set(false)))
+     .subscribe({
+       next: (res) => {
+         this.equipmentItems.set(res?.items || []);
+         this.equipmentTotalCount.set(res?.totalCount || 0);
+       },
+       error: () => {
+         this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể tải danh sách thiết bị.' });
+       }
+     });
+  }
+
+   onEquipmentFilterChange() {
+    this.equipmentPage.set(1);
+    this.loadEquipments();
+  }
+
+  onSearchEquipments() {
+    this.equipmentPage.set(1);
+    this.loadEquipments();
+  }
+
+  onResetEquipmentSearch() {
+    this.equipmentSearchKeyword.set('');
+    this.equipmentSearchTypeId.set('');
+    this.equipmentPage.set(1);
+    this.loadEquipments();
+  }
+
+  equipmentPrevPage() {
+    if (this.equipmentPage() > 1) {
+      this.equipmentPage.update(p => p - 1);
+      this.loadEquipments();
+    }
+  }
+
+  equipmentNextPage() {
+    if (this.equipmentPage() < this.equipmentTotalPages()) {
+      this.equipmentPage.update(p => p + 1);
+      this.loadEquipments();
+    }
+  }
+
+  goToEquipmentPage(page: any) {
+    const p = Number(page);
+    if (p >= 1 && p <= this.equipmentTotalPages()) {
+      this.equipmentPage.set(p);
+      this.loadEquipments();
+    }
+  }
+
+  onEquipmentPageSizeChange(event: any) {
+    this.equipmentPageSize.set(Number(event.target.value));
+    this.equipmentPage.set(1);
+    this.loadEquipments();
+  }
+
+  // Thêm thiết bị mới gắn với trạm/đường dây này
+  onAddEquipment() {
+    const segment = this.infraTypeId() === 1 ? 'substation' : 'transmission-line';
+    this.router.navigate(['/catalog', segment, this.currentItem().id, 'device-add']);
+  }
+
+  // Xem chi tiết thiết bị
+  onViewEquipment(equipment: any) {
+    const segment = this.infraTypeId() === 1 ? 'substation' : 'transmission-line';
+    this.router.navigate(['/catalog', segment, this.currentItem().id, 'device-detail', equipment.id]);
+  }
+
+  // Chỉnh sửa thiết bị (vào thẳng chế độ sửa)
+  onEditEquipment(equipment: any) {
+    const segment = this.infraTypeId() === 1 ? 'substation' : 'transmission-line';
+    this.router.navigate(['/catalog', segment, this.currentItem().id, 'device-detail', equipment.id], {
+      queryParams: { mode: 'edit' }
+    });
+  }
+
+  // Khóa / Mở khóa thiết bị (Mở popup xác nhận)
+  onToggleEquipmentStatus(equipment: any) {
+    this.equipmentLockTarget.set(equipment);
+    this.showEquipmentLockConfirm.set(true);
+  }
+
+  onCancelEquipmentLock() {
+    this.showEquipmentLockConfirm.set(false);
+    this.equipmentLockTarget.set(null);
+  }
+
+  onConfirmEquipmentLock() {
+    const equipment = this.equipmentLockTarget();
+    if (!equipment) return;
+
+    const isLocking = equipment.isActive === 1 || equipment.isActive === true;
+    this.equipmentLockLoading.set(true);
+    this.equipmentService.toggleStatus(equipment.id, isLocking)
+      .pipe(
+        finalize(() => {
+          this.equipmentLockLoading.set(false);
+          this.showEquipmentLockConfirm.set(false);
+          this.equipmentLockTarget.set(null);
+        })
+      )
+      .subscribe({
+        next: (res) => {
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Thành công',
+            detail: res.message || (isLocking ? 'Khóa thiết bị thành công!' : 'Mở khóa thiết bị thành công!')
+          });
+          this.loadEquipments();
+        },
+        error: (err) => {
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi',
+            detail: err?.error?.message || 'Không thể cập nhật trạng thái thiết bị.'
+          });
+        }
+      });
+  }
+
+  // Lấy tên loại thiết bị
+  getEquipmentTypeName(typeId: any): string {
+    const et = this.equipmentTypes().find(t => t.id == typeId);
+    return et ? et.name : '-';
   }
 }

@@ -1,5 +1,5 @@
 import { Component, OnInit, inject, signal, computed, effect } from '@angular/core';
-import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
+import { WfBreadcrumbComponent, EcoInputTreeSelectComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DialogModule } from 'primeng/dialog';
@@ -13,7 +13,7 @@ import { buildMenuPermissionTree as buildMenuPermissionTreeFromLookup } from '..
 @Component({
   selector: 'app-user-management',
   standalone: true,
-  imports: [CommonModule, FormsModule, DialogModule, ToastModule, WfBreadcrumbComponent],
+  imports: [CommonModule, FormsModule, DialogModule, ToastModule, WfBreadcrumbComponent, EcoInputTreeSelectComponent],
   providers: [MessageService],
   templateUrl: './user-management.component.html',
   styleUrl: './user-management.component.scss'
@@ -24,7 +24,6 @@ export class UserManagement implements OnInit {
   searchUnitId = signal<number | null>(null);
   searchStatus = signal<string>(''); // '' (All), 'active' (Hoạt động), 'inactive' (Ngưng hoạt động)
   totalCount = signal<number>(0);
-  searchOrgTreePickerOpen = signal<boolean>(false);
 
   currentView = signal<'list' | 'add' | 'edit' | 'unit-role' | 'permission' | 'role'>('list');
   dialogHeader = signal<string>('');
@@ -81,8 +80,17 @@ export class UserManagement implements OnInit {
 
   // Org-unit tree picker
   orgUnitTree = computed(() => this.buildOrgTree(this.organizationUnits()));
-  expandedUnitNodes = signal<Set<number>>(new Set<number>());
-  orgTreePickerOpen = signal<boolean>(false);
+  primengOrgUnitTree = computed(() => {
+    const buildPrimeNGNodes = (nodes: any[]): any[] => {
+      return nodes.map(n => ({
+        key: n.id,
+        label: n.name,
+        data: n,
+        children: n.children && n.children.length ? buildPrimeNGNodes(n.children) : []
+      }));
+    };
+    return buildPrimeNGNodes(this.orgUnitTree());
+  });
 
   // Vai trò trong form add/edit (chọn nhiều)
   selectedRoleIdsInForm = signal<number[]>([]);
@@ -152,8 +160,6 @@ export class UserManagement implements OnInit {
     if (typeof window !== 'undefined') {
       window.addEventListener('click', () => {
         this.activeDropdownUserId.set(null);
-        this.orgTreePickerOpen.set(false);
-        this.searchOrgTreePickerOpen.set(false);
         this.rolesDropdownOpen.set(false);
       });
     }
@@ -325,55 +331,11 @@ export class UserManagement implements OnInit {
     return roots;
   }
 
-  toggleUnitNode(unitId: number, event?: Event) {
-    if (event) event.stopPropagation();
-    const current = new Set(this.expandedUnitNodes());
-    if (current.has(unitId)) {
-      current.delete(unitId);
-    } else {
-      current.add(unitId);
-    }
-    this.expandedUnitNodes.set(current);
-  }
 
-  isNodeExpanded(unitId: number): boolean {
-    return this.expandedUnitNodes().has(unitId);
-  }
-
-  selectOrgUnit(unitId: number) {
-    this.currentUser.update(u => ({ ...u, organizationUnitId: unitId }));
-    this.orgTreePickerOpen.set(false);
-    this.onFieldChange('organizationUnitId');
-  }
-
-  selectSearchOrgUnit(unitId: number | null) {
-    this.searchUnitId.set(unitId);
-    this.searchOrgTreePickerOpen.set(false);
-  }
-
-  toggleOrgTreePicker(event?: Event) {
-    if (event) event.stopPropagation();
-    this.orgTreePickerOpen.update(v => !v);
-    this.searchOrgTreePickerOpen.set(false);
-    this.rolesDropdownOpen.set(false);
-  }
-
-  toggleSearchOrgTreePicker(event?: Event) {
-    if (event) event.stopPropagation();
-    this.searchOrgTreePickerOpen.update(v => !v);
-    this.orgTreePickerOpen.set(false);
-    this.rolesDropdownOpen.set(false);
-  }
 
   toggleRolesDropdown(event?: Event) {
     if (event) event.stopPropagation();
     this.rolesDropdownOpen.update(v => !v);
-    this.orgTreePickerOpen.set(false);
-    this.searchOrgTreePickerOpen.set(false);
-  }
-
-  closeOrgTreePicker() {
-    this.orgTreePickerOpen.set(false);
   }
 
   // ── Vai trò trong form ───────────────────────────────────────────────────
@@ -404,7 +366,6 @@ export class UserManagement implements OnInit {
     this.isEdit.set(false);
     this.currentUser.set({ username: '', fullName: '', email: '', organizationUnitId: null, positionId: null, positionName: '', isActive: true });
     this.selectedRoleIdsInForm.set([]);
-    this.orgTreePickerOpen.set(false);
     this.rolesDropdownOpen.set(false);
     this.formSubmitted.set(false);
     this.serverErrors.set({});
@@ -464,7 +425,6 @@ export class UserManagement implements OnInit {
     this.currentUser.set({ ...user });
     this.formSubmitted.set(false);
     this.serverErrors.set({});
-    this.orgTreePickerOpen.set(false);
     this.rolesDropdownOpen.set(false);
     // Load roles hiện tại của user vào form
     this.userService.getUserRoles(user.id).subscribe({

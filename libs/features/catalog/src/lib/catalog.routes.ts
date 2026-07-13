@@ -50,9 +50,35 @@ export const CATALOG_ROUTES: Route[] = [
     loadComponent: () => import('./feature/document-type/document-type.component').then(m => m.DocumentTypeComponent)
   },
   {
+    path: 'substation/:id',
+    loadComponent: () => import('./feature/infrastructure/infrastructure.component').then(m => m.InfrastructureComponent),
+    data: { infraTypeId: 1, title: 'Chi tiết Trạm biến áp' }
+  },
+  {
+    path: 'substation/:parentId/device-add',
+    loadComponent: () => import('@sohoa.frontend/features/equipment').then(m => m.EquipmentComponent)
+  },
+  {
+    path: 'substation/:parentId/device-detail/:id',
+    loadComponent: () => import('@sohoa.frontend/features/equipment').then(m => m.EquipmentComponent)
+  },
+  {
     path: 'substation',
     loadComponent: () => import('./feature/infrastructure/infrastructure.component').then(m => m.InfrastructureComponent),
     data: { infraTypeId: 1, title: 'Danh mục trạm biến áp' }
+  },
+  {
+    path: 'transmission-line/:id',
+    loadComponent: () => import('./feature/infrastructure/infrastructure.component').then(m => m.InfrastructureComponent),
+    data: { infraTypeId: 2, title: 'Chi tiết Đường dây' }
+  },
+  {
+    path: 'transmission-line/:parentId/device-add',
+    loadComponent: () => import('@sohoa.frontend/features/equipment').then(m => m.EquipmentComponent)
+  },
+  {
+    path: 'transmission-line/:parentId/device-detail/:id',
+    loadComponent: () => import('@sohoa.frontend/features/equipment').then(m => m.EquipmentComponent)
   },
   {
     path: 'transmission-line',
