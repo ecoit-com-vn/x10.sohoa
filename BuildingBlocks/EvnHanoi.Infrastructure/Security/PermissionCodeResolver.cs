@@ -52,6 +52,13 @@ public static class PermissionCodeResolver
     /// </summary>
     public static string CategorizeAction(string controllerKey, string actionName, string httpMethod)
     {
+        if (string.Equals(controllerKey, "ProcessingCategory", StringComparison.OrdinalIgnoreCase) &&
+            (actionName.Equals("Lock", StringComparison.OrdinalIgnoreCase) ||
+             actionName.Equals("Unlock", StringComparison.OrdinalIgnoreCase)))
+        {
+            return "EDIT";
+        }
+
         // Phân bổ nhập liệu: GET -> VIEW, các method khác (POST, PUT, DELETE, revoke...) -> EDIT
         if (string.Equals(controllerKey, "FolderAllocation", StringComparison.OrdinalIgnoreCase))
         {
@@ -201,6 +208,10 @@ public static class PermissionCodeResolver
     {
         return permissionCode switch
         {
+            "PROCESSING_CATEGORY_VIEW" => "Xem quy trình xử lý",
+            "PROCESSING_CATEGORY_CREATE" => "Thêm quy trình xử lý",
+            "PROCESSING_CATEGORY_EDIT" => "Sửa quy trình xử lý",
+            "PROCESSING_CATEGORY_DELETE" => "Xóa quy trình xử lý",
             "DOSSIER_PUBLISH_RELEASE" => "Xuất bản hồ sơ",
             "DOSSIER_PUBLISH_VIEW" => "Xem xuất bản hồ sơ",
             "SEARCH_DOSSIERS_BY_EQUIPMENT_VIEW" => "Tra cứu hồ sơ thiết bị",
