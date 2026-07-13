@@ -94,6 +94,7 @@ public class EquipmentRepository : IEquipmentRepository
                             c.Name AS {nameof(EquipmentDto.CountryName)},
                             c.Code AS {nameof(EquipmentDto.CountryCode)},
                             eft.Name AS {nameof(EquipmentDto.FormTemplateName)},
+                            eft.Id AS {nameof(EquipmentDto.FormTemplateId)},
                             eft.FormSchema AS {nameof(EquipmentDto.FormSchema)},
                             usr.Id AS CreatorId,
                             usr.UserName AS Username,

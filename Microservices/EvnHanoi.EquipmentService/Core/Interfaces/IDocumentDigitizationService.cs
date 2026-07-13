@@ -14,7 +14,8 @@ public interface IDocumentDigitizationService
     Task<DocumentOcrProgressDto> ReExtractForDossierDocumentAsync(
         Guid dossierId,
         Guid documentVersionId,
-        string userId);
+        string userId,
+        string? formSchemaJsonOverride = null);
     Task HandleProgressMessageAsync(DigitizationProgressMessage message);
     Task HandleExtractionCompletedAsync(DigitizationExtractionCompletedMessage message);
     Task<DocumentOcrProgressDto?> GetProgressByVersionIdAsync(Guid documentVersionId);
@@ -27,6 +28,23 @@ public interface IDocumentDigitizationService
         Guid documentVersionId,
         SaveDocumentExtractionDataRequest request,
         string userId);
+
+    Task<DocumentOcrProgressDto> SubmitForEquipmentDocumentAsync(
+        Guid equipmentId,
+        Guid documentVersionId,
+        string userId);
+    Task<DocumentOcrProgressDto> ReExtractForEquipmentDocumentAsync(
+        Guid equipmentId,
+        Guid documentVersionId,
+        string userId);
+    Task<DocumentExtractionResultDto?> GetExtractionResultForEquipmentAsync(Guid equipmentId, Guid documentVersionId);
+    Task<DocumentExtractionResultDto> SaveEquipmentExtractionDataAsync(
+        Guid equipmentId,
+        Guid documentVersionId,
+        SaveDocumentExtractionDataRequest request,
+        string userId);
+
+
 
     DigitizationExtractionForm BuildExtractionForm(string formId, string formName, string formSchemaJson);
 }

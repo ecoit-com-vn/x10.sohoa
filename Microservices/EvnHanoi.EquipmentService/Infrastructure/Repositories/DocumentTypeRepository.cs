@@ -27,6 +27,7 @@ public class DocumentTypeRepository : IDocumentTypeRepository
                             dt.{nameof(DocumentType.Code)},
                             dt.FORM_ID as {nameof(DocumentType.FormId)},
                             dt.IS_ACTIVE as {nameof(DocumentType.IsActive)},
+                            dt.IS_EQUIPMENT_PROFILE as {nameof(DocumentType.IsEquipmentProfile)},
                             dt.PIORITY as {nameof(DocumentType.Piority)},
                             dt.{nameof(DocumentType.CreatedBy)},
                             dt.{nameof(DocumentType.CreatedDate)},
@@ -51,6 +52,7 @@ public class DocumentTypeRepository : IDocumentTypeRepository
                             dt.{nameof(DocumentType.Code)},
                             dt.FORM_ID as {nameof(DocumentType.FormId)},
                             dt.IS_ACTIVE as {nameof(DocumentType.IsActive)},
+                            dt.IS_EQUIPMENT_PROFILE as {nameof(DocumentType.IsEquipmentProfile)},
                             dt.PIORITY as {nameof(DocumentType.Piority)},
                             dt.{nameof(DocumentType.CreatedBy)},
                             dt.{nameof(DocumentType.CreatedDate)},
@@ -100,6 +102,7 @@ public class DocumentTypeRepository : IDocumentTypeRepository
                                    dt.{nameof(DocumentType.Code)},
                                    dt.FORM_ID as {nameof(DocumentType.FormId)},
                                    dt.IS_ACTIVE as {nameof(DocumentType.IsActive)},
+                                   dt.IS_EQUIPMENT_PROFILE as {nameof(DocumentType.IsEquipmentProfile)},
                                    dt.PIORITY as {nameof(DocumentType.Piority)},
                                    dt.{nameof(DocumentType.CreatedBy)},
                                    dt.{nameof(DocumentType.CreatedDate)},
@@ -135,12 +138,13 @@ public class DocumentTypeRepository : IDocumentTypeRepository
                         {nameof(DocumentType.Code)},
                         FORM_ID,
                         IS_ACTIVE,
+                        IS_EQUIPMENT_PROFILE,
                         PIORITY,
                         {nameof(DocumentType.CreatedBy)},
                         {nameof(DocumentType.CreatedDate)},
                         {nameof(DocumentType.IsDeleted)}
                     )
-                    VALUES (:Id, :Name, :Code, :FormId, :IsActive, :Piority, :CreatedBy, :CreatedDate, :IsDeleted)";
+                    VALUES (:Id, :Name, :Code, :FormId, :IsActive, :IsEquipmentProfile, :Piority, :CreatedBy, :CreatedDate, :IsDeleted)";
 
         var param = new
         {
@@ -149,6 +153,7 @@ public class DocumentTypeRepository : IDocumentTypeRepository
             documentType.Code,
             FormId = documentType.FormId?.ToString(),
             IsActive = documentType.IsActive ? 1 : 0,
+            IsEquipmentProfile = documentType.IsEquipmentProfile ? 1 : 0,
             documentType.Piority,
             documentType.CreatedBy,
             documentType.CreatedDate,
@@ -169,6 +174,7 @@ public class DocumentTypeRepository : IDocumentTypeRepository
                         {nameof(DocumentType.Code)} = :Code,
                         FORM_ID = :FormId,
                         IS_ACTIVE = :IsActive,
+                        IS_EQUIPMENT_PROFILE = :IsEquipmentProfile,
                         PIORITY = :Piority,
                         {nameof(DocumentType.ModifiedBy)} = :ModifiedBy,
                         {nameof(DocumentType.ModifiedDate)} = :ModifiedDate

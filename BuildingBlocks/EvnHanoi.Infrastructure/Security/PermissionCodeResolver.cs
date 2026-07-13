@@ -124,6 +124,17 @@ public static class PermissionCodeResolver
             }
         }
 
+        // Thiết bị — OCR/bóc tách tài liệu hồ sơ liên quan → EQUIPMENT_EDIT (không DOSSIER_IMPORT)
+        if (string.Equals(controllerKey, "Equipment", StringComparison.OrdinalIgnoreCase))
+        {
+            var actLower = actionName.ToLowerInvariant();
+            if (actLower.Contains("document") &&
+                (actLower.Contains("digitization") || actLower.Contains("extraction")))
+            {
+                return "EDIT";
+            }
+        }
+
         return CategorizeAction(actionName, httpMethod);
     }
 

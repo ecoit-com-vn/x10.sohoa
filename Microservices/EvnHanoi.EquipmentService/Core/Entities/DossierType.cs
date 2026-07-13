@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace EvnHanoi.EquipmentService.Core.Entities;
 
@@ -13,6 +14,8 @@ public class DossierType
     
     // Join field (populated by repository)
     public string? FormName { get; set; }
+    public List<Guid> DocumentTypeIds { get; set; } = new();
+    public string? DocumentTypeNames { get; set; }
 
     // Audit fields
     public string? CreatedBy { get; set; }

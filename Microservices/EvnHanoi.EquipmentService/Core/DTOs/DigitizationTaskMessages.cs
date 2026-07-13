@@ -15,6 +15,7 @@ public class OcrTaskPublishMessage
     public DigitizationExtractionForm? Form { get; set; }
     /// <summary>Snapshot đầy đủ EAV FormSchema JSON để worker/LLM tham chiếu.</summary>
     public string? FormSchemaJson { get; set; }
+    public Guid? EquipmentId { get; set; }
 }
 
 public class DigitizationExtractionForm
@@ -38,6 +39,7 @@ public class ExtractionTaskPublishMessage
     public string? ExtractPrompt { get; set; }
     public DigitizationExtractionForm? Form { get; set; }
     public string? FormSchemaJson { get; set; }
+    public Guid? EquipmentId { get; set; }
 }
 
 /// <summary>ocr.process.progress / extraction.process.progress</summary>
@@ -72,6 +74,8 @@ public class DigitizationExtractionCompletedMessage
     public string ResultFile { get; set; } = string.Empty;
     public string BucketName { get; set; } = string.Empty;
     public string Status { get; set; } = "Success";
+    /// <summary>Thiết bị kỹ thuật — phân biệt kết quả bóc tách theo thiết bị vs hồ sơ.</summary>
+    public Guid? EquipmentId { get; set; }
 }
 
 /// <summary>Body API POST .../documents/{versionId}/digitization</summary>
@@ -125,6 +129,7 @@ public class DocumentExtractionResultDto
     public string? ResultJson { get; set; }
     public string? ResultFilePath { get; set; }
     public string? MergedDataJson { get; set; }
+    public Guid? EquipmentId { get; set; }
     public DateTime CreatedDate { get; set; }
     public DateTime? ModifiedDate { get; set; }
 }
