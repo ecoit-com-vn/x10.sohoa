@@ -35,27 +35,23 @@ import { finalize, forkJoin, of } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 
 import {
-
   FileUploadZoneComponent,
-
   FileUploadHandler,
-
+} from '../../../../../equipment/src/lib/components/file-upload/file-upload-zone.component';
+import {
   ScannerPanelComponent,
-
+} from '../../../../../equipment/src/lib/components/scanner/scanner-panel.component';
+import {
   UPLOAD_SOURCE,
-
-} from '@sohoa.frontend/features/equipment';
+} from '../../../../../equipment/src/lib/constants/upload-source.constants';
 
 import {
-
   DossierDocumentService,
-
   DocumentTypeLookupItem,
-
   DigitizationProcessOption,
-
 } from '../../data-access/dossier-document.service';
-
+import { DossierManagementService } from '../../data-access/dossier-management.service';
+import { DossierTypeService } from '@sohoa.frontend/features/catalog';
 import { OcrMode } from '../../utils/dossier-digitization.util';
 
 
@@ -87,7 +83,8 @@ interface UploadedFileItem {
 export class DossierDirectUploadDialogComponent implements OnInit {
 
   private dossierDocumentService = inject(DossierDocumentService);
-
+  private dossierService = inject(DossierManagementService);
+  private dossierTypeService = inject(DossierTypeService);
   private messageService = inject(MessageService);
 
 
@@ -107,6 +104,8 @@ export class DossierDirectUploadDialogComponent implements OnInit {
   @Input() uploadSource = 3;
 
   @Input() dialogTitle = 'Upload trực tiếp vào hồ sơ';
+
+  /** Chỉ hiển thị loại văn bản lý lịch thiết bị (IsEquipmentProfile). */
 
   @Output() visibleChange = new EventEmitter<boolean>();
 
@@ -283,35 +282,53 @@ export class DossierDirectUploadDialogComponent implements OnInit {
 
 
   private loadDocumentTypes(): void {
-
     this.loadingDocTypes.set(true);
+    this.dossierService.getDossierById(this.dossierId).subscribe({
+      next: (dossier: any) => {
+        const dossierTypeId = dossier?.dossierTypeId;
+        if (!dossierTypeId) {
+          this.loadAllDocumentTypes();
+          return;
+        }
 
-    this.dossierDocumentService
+        this.dossierTypeService.getDossierTypeById(dossierTypeId).subscribe({
+          next: (dossierType: any) => {
+            const linkedDocTypeIds: string[] = dossierType?.documentTypeIds || [];
+            this.dossierDocumentService.lookupDocumentTypes()
+              .pipe(finalize(() => this.loadingDocTypes.set(false)))
+              .subscribe({
+                next: (items) => {
+                  let filtered = items;
+                  if (linkedDocTypeIds.length > 0) {
+                    filtered = items.filter(item => linkedDocTypeIds.includes(item.id));
+                  }
+                  this.documentTypes.set(filtered);
+                },
+                error: () => this.handleLoadError()
+              });
+          },
+          error: () => this.loadAllDocumentTypes()
+        });
+      },
+      error: () => this.loadAllDocumentTypes()
+    });
+  }
 
-      .lookupDocumentTypes()
-
+  private loadAllDocumentTypes(): void {
+    this.dossierDocumentService.lookupDocumentTypes()
       .pipe(finalize(() => this.loadingDocTypes.set(false)))
-
       .subscribe({
-
         next: (items) => this.documentTypes.set(items),
-
-        error: () => {
-
-          this.messageService.add({
-
-            severity: 'error',
-
-            summary: 'Lỗi',
-
-            detail: 'Không thể tải danh mục loại văn bản',
-
-          });
-
-        },
-
+        error: () => this.handleLoadError()
       });
+  }
 
+  private handleLoadError(): void {
+    this.messageService.add({
+      severity: 'error',
+      summary: 'Lỗi',
+      detail: 'Không thể tải danh mục loại văn bản',
+    });
   }
 
 

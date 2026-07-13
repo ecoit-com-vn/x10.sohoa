@@ -2,7 +2,7 @@
   <i class="pi pi-home bc-icon"></i>
   <a class="bc-text bc-link" routerLink="/dashboard">Trang chủ</a>
 
-  @for (item of items(); track item.label; let last = $last) {
+  @for (item of items(); track $index; let last = $last) {
     <span class="bc-sep">/</span>
     @if (last && showListAsLink()) {
       <span class="bc-text bc-link" (click)="onLeafClick()">{{ item.label }}</span>

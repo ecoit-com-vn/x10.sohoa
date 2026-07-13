@@ -159,6 +159,7 @@ export class DocumentTypeComponent implements OnInit {
   onAddNew() {
     this.currentItem.set({
       isActive: true,
+      isEquipmentProfile: false,
       piority: 1,
       formId: null
     });
@@ -190,7 +191,8 @@ export class DocumentTypeComponent implements OnInit {
       name: item.name.trim(),
       formId: item.formId || null,
       piority: item.piority || 1,
-      isActive: item.isActive
+      isActive: item.isActive,
+      isEquipmentProfile: item.isEquipmentProfile || false
     };
 
     const request$ = this.currentView() === 'add'
