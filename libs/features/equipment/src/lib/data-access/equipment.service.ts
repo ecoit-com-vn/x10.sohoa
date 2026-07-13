@@ -1,8 +1,9 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
+import { Observable, of, throwError } from 'rxjs';
+import { catchError, map } from 'rxjs/operators';
 import { APP_CONFIG } from '@sohoa.frontend/shared/core';
+import { DigitizationProcessOption } from '@sohoa.frontend/features/dossier-management';
 
 @Injectable({
   providedIn: 'root'
@@ -116,5 +117,93 @@ export class EquipmentService {
 
   updateFormValues(id: string, formValues: string): Observable<any> {
     return this.http.put<any>(`${this.base}/${id}/form-values`, { formValues });
+  }
+
+  /** Biểu mẫu EAV thông số theo loại thiết bị — quyền EQUIPMENT_VIEW. */
+  getFormTemplate(id: string): Observable<{ id?: string; name?: string; formSchema?: string }> {
+    return this.http.get<{ id?: string; name?: string; formSchema?: string }>(`${this.base}/${id}/form-template`);
+  }
+
+  /** Lấy danh sách tài liệu lý lịch thiết bị kỹ thuật EAV/OCR. */
+  getProfileDocuments(
+    equipmentId: string,
+    page: number,
+    pageSize: number,
+    keyword?: string
+  ): Observable<any> {
+    let params = new HttpParams()
+      .set('page', page.toString())
+      .set('pageSize', pageSize.toString());
+    if (keyword && keyword.trim()) {
+      params = params.set('keyword', keyword.trim());
+    }
+    return this.http.get<any>(`${this.base}/${equipmentId}/profile-documents`, { params });
+  }
+
+  /** Gửi OCR + Bóc tách tài liệu lý lịch theo biểu mẫu thiết bị. */
+  submitDocumentDigitizationOnly(equipmentId: string, versionId: string): Observable<any> {
+    return this.http.post<any>(`${this.base}/${equipmentId}/documents/${versionId}/digitization`, {});
+  }
+
+  /** OCR/bóc tách tài liệu hồ sơ liên quan — dùng biểu mẫu thiết bị, quyền EQUIPMENT_EDIT. */
+  submitDossierDocumentDigitization(
+    equipmentId: string,
+    dossierId: string,
+    versionId: string,
+    processOption: DigitizationProcessOption = 'OcrAndExtract'
+  ): Observable<any> {
+    return this.http.post<any>(
+      `${this.base}/${equipmentId}/dossiers/${dossierId}/documents/${versionId}/digitization`,
+      { processOption }
+    );
+  }
+
+  /** Bóc tách lại tài liệu hồ sơ liên quan — quyền EQUIPMENT_EDIT. */
+  rerunDossierDocumentExtraction(
+    equipmentId: string,
+    dossierId: string,
+    versionId: string
+  ): Observable<any> {
+    return this.http.post<any>(
+      `${this.base}/${equipmentId}/dossiers/${dossierId}/documents/${versionId}/digitization/rerun-extraction`,
+      {}
+    );
+  }
+
+  /** Bóc tách lại tài liệu lý lịch theo biểu mẫu thiết bị — quyền EQUIPMENT_EDIT. */
+  rerunEquipmentDocumentExtraction(equipmentId: string, versionId: string): Observable<any> {
+    return this.http.post<any>(
+      `${this.base}/${equipmentId}/documents/${versionId}/digitization/rerun-extraction`,
+      {}
+    );
+  }
+
+  /** Lấy kết quả bóc tách của tài liệu theo thiết bị. */
+  getDigitizationResultForEquipment(equipmentId: string, versionId: string): Observable<any> {
+    return this.http.get<any>(`${this.base}/${equipmentId}/documents/${versionId}/digitization/result`);
+  }
+
+  /** 404 = chưa có kết quả bóc tách (null). */
+  getDigitizationResultForEquipmentOrNull(equipmentId: string, versionId: string): Observable<any | null> {
+    return this.getDigitizationResultForEquipment(equipmentId, versionId).pipe(
+      catchError((error: unknown) => {
+        if (error instanceof HttpErrorResponse && error.status === 404) {
+          return of(null);
+        }
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /** Lưu kết quả bóc tách đã chỉnh sửa của thiết bị. */
+  saveEquipmentExtractionData(
+    equipmentId: string,
+    versionId: string,
+    mergedDataJson: string
+  ): Observable<any> {
+    return this.http.put<any>(
+      `${this.base}/${equipmentId}/documents/${versionId}/digitization/result`,
+      { mergedDataJson }
+    );
   }
 }

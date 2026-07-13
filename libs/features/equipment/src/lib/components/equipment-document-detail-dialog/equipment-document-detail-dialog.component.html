@@ -1,0 +1,115 @@
+<p-dialog
+  [visible]="visible"
+  (visibleChange)="visibleChange.emit($event)"
+  (onShow)="onShow()"
+  (onHide)="onHide()"
+  [header]="dialogHeader()"
+  [modal]="true"
+  [style]="{ width: '1200px', maxWidth: '98vw' }"
+  styleClass="evn-dialog-custom dossier-document-edit-dialog"
+  [closable]="!saving()"
+  [draggable]="false"
+>
+  <div *ngIf="loading()" class="edit-loading" style="padding: 40px; text-align: center; color: #64748b;">
+    <i class="pi pi-spin pi-spinner" style="font-size: 2rem; margin-bottom: 12px; display: block;"></i>
+    Đang tải tài liệu và biểu mẫu thông số thiết bị...
+  </div>
+
+  <div class="edit-split" *ngIf="!loading()" style="display: flex; gap: 20px; min-height: 500px;">
+    <!-- Bên trái: PDF Viewer -->
+    <section class="preview-pane" style="flex: 1; display: flex; flex-direction: column; border-right: 1px solid #e2e8f0; padding-right: 20px;">
+      <div class="pane-title" style="font-weight: 600; margin-bottom: 8px; color: #1e293b;">Bản scan / File gốc</div>
+      <div class="preview-body" style="flex: 1; background: #f1f5f9; border-radius: 8px; overflow: hidden; min-height: 480px; position: relative;">
+        <ng-container *ngIf="previewUrl(); else noPreview">
+          <iframe *ngIf="isPdf()" class="preview-frame" [src]="previewSrc()" title="Xem trước PDF" style="width: 100%; height: 100%; border: none;"></iframe>
+          <img *ngIf="isImage()" class="preview-image" [src]="previewSrc()" [alt]="documentName" style="max-width: 100%; max-height: 100%; display: block; margin: auto;" />
+          <iframe *ngIf="!isPdf() && !isImage()" class="preview-frame" [src]="previewSrc()" title="Xem trước" style="width: 100%; height: 100%; border: none;"></iframe>
+        </ng-container>
+        <ng-template #noPreview>
+          <div class="preview-empty" style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #94a3b8;">Không có bản xem trước</div>
+        </ng-template>
+      </div>
+    </section>
+
+    <!-- Bên phải: EAV Form -->
+    <section class="form-pane" style="width: 500px; display: flex; flex-direction: column;">
+      <div class="pane-title" style="font-weight: 600; margin-bottom: 8px; color: #1e293b;">{{ formPaneTitle() }}</div>
+      <p class="confirm-intro" style="color: #64748b; font-size: 0.82rem; margin-bottom: 16px;">
+        <ng-container *ngIf="hasExtractionData(); else templateOnlyIntro">
+          Các trường thông số được cấu hình theo biểu mẫu của loại thiết bị kỹ thuật này. Dữ liệu bóc tách được điền sẵn — bạn có thể chỉnh sửa trước khi lưu. Khi lưu, các thông số còn thiếu sẽ tự động fill vào thông số của thiết bị.
+        </ng-container>
+        <ng-template #templateOnlyIntro>
+          Chưa có kết quả bóc tách. Hiển thị cấu trúc biểu mẫu thông số thiết bị và dữ liệu thông số hiện có (nếu có). Bạn vẫn có thể xem file gốc bên trái.
+        </ng-template>
+      </p>
+
+      <div *ngIf="fields().length === 0" class="empty-fields" style="padding: 40px; text-align: center; color: #94a3b8; border: 1px dashed #cbd5e1; border-radius: 8px;">
+        Loại thiết bị này chưa được định nghĩa form thông số kỹ thuật.
+      </div>
+
+      <div class="confirm-form-grid" *ngIf="fields().length > 0" style="flex: 1; overflow-y: auto; max-height: 480px; padding-right: 6px; display: flex; flex-direction: column; gap: 14px;">
+        <div
+          class="confirm-field"
+          *ngFor="let field of fields()"
+          [class.no-value]="!draftData()[field.key] && draftData()[field.key] !== false"
+        >
+          <label class="form-label" style="display: block; font-weight: 500; font-size: 0.85rem; margin-bottom: 4px; color: #374151;">{{ field.label }}</label>
+
+          <ng-container [ngSwitch]="field.type">
+            <textarea
+              *ngSwitchCase="'textarea'"
+              class="wf-textarea w-full"
+              rows="2"
+              [ngModel]="draftData()[field.key] ?? ''"
+              (ngModelChange)="setDraftFieldValue(field.key, $event)"
+              [disabled]="!formEditable()"
+              style="width: 100%; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 10px; font-size: 0.875rem;"
+            ></textarea>
+            <select
+              *ngSwitchCase="'select'"
+              class="wf-select w-full"
+              [ngModel]="draftData()[field.key] ?? ''"
+              (ngModelChange)="setDraftFieldValue(field.key, $event)"
+              [disabled]="!formEditable()"
+              style="width: 100%; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 10px; font-size: 0.875rem; background: #fff; height: 36px;"
+            >
+              <option value="">-- Chọn --</option>
+              <option *ngFor="let opt of field.options" [ngValue]="opt.value">{{ opt.label }}</option>
+            </select>
+            <label *ngSwitchCase="'checkbox'" class="checkbox-row" style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.875rem; color: #374151;">
+              <input
+                type="checkbox"
+                [checked]="!!draftData()[field.key]"
+                (change)="setDraftCheckbox(field.key, $event)"
+                [disabled]="!formEditable()"
+              />
+              {{ field.placeholder || field.label }}
+            </label>
+            <input
+              *ngSwitchDefault
+              [type]="field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : 'text'"
+              class="wf-input w-full"
+              [ngModel]="draftData()[field.key] ?? ''"
+              (ngModelChange)="setDraftFieldValue(field.key, $event)"
+              [disabled]="!formEditable()"
+              style="width: 100%; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 10px; font-size: 0.875rem; height: 36px;"
+            />
+          </ng-container>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <ng-template #footer>
+    <p-button [label]="formEditable() ? 'Hủy' : 'Đóng'" severity="secondary" size="small" (onClick)="close()" [disabled]="saving()"></p-button>
+    <p-button
+      *ngIf="formEditable()"
+      label="Lưu & Fill thông số"
+      size="small"
+      icon="pi pi-save"
+      (onClick)="confirmApply()"
+      [disabled]="loading() || saving() || fields().length === 0"
+      [loading]="saving()"
+    ></p-button>
+  </ng-template>
+</p-dialog>

@@ -418,13 +418,16 @@
         </button>
       </div>
 
-      <!-- Tab Bar EVN (2 Tab) -->
+      <!-- Tab Bar EVN (3 Tab) -->
       <div class="tab-bar" style="margin-bottom: 20px;">
         <div class="tab-item" [class.tab-active]="activeTab() === 0" (click)="activeTab.set(0)">
           <i class="pi pi-info-circle" style="margin-right: 4px;"></i> Thông tin thiết bị
         </div>
         <div class="tab-item" [class.tab-active]="activeTab() === 1" (click)="activeTab.set(1)">
           <i class="pi pi-folder-open" style="margin-right: 4px;"></i> Hồ sơ liên quan
+        </div>
+        <div class="tab-item" [class.tab-active]="activeTab() === 2" (click)="activeTab.set(2)">
+          <i class="pi pi-file" style="margin-right: 4px;"></i> Tài liệu lý lịch
         </div>
       </div>
 
@@ -865,6 +868,15 @@
         </div>
       </div>
 
+      <!-- ==================== TAB 2: TÀI LIỆU LÝ LỊCH THIẾT BỊ ==================== -->
+      <div *ngIf="activeTab() === 2" class="tab-content animate-fade-in">
+        <app-equipment-documents
+          *ngIf="currentItem().id as profileEquipmentId"
+          [equipmentId]="profileEquipmentId"
+          [canEdit]="canEdit()"
+          (documentProcessed)="reloadDetail(profileEquipmentId)"
+        ></app-equipment-documents>
+      </div>
     </div>
 
   </div>
@@ -941,4 +953,5 @@
       </div>
     </ng-template>
   </p-dialog>
+
 </div>

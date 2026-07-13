@@ -32,9 +32,20 @@ export class FileDownloadService {
     return `/api/v1/files`;
   }
 
+  private get equipmentBase() {
+    return `/api/v1/equipment`;
+  }
+
   getDownloadToken(versionId: string): Observable<DownloadTokenResponse> {
     return this.api.get<DownloadTokenResponse>(
       `${this.base}/${versionId}/download-url`
+    );
+  }
+
+  /** Download token cho tài liệu lý lịch thuộc hồ sơ liên quan thiết bị. */
+  getEquipmentProfileDownloadToken(equipmentId: string, versionId: string): Observable<DownloadTokenResponse> {
+    return this.api.get<DownloadTokenResponse>(
+      `${this.equipmentBase}/${equipmentId}/documents/${versionId}/download-url`
     );
   }
 
@@ -42,17 +53,43 @@ export class FileDownloadService {
     return `${this.config.apiGatewayUrl}${this.base}/download?token=${encodeURIComponent(token)}`;
   }
 
-  async getDownloadUrlForVersion(versionId: string): Promise<string> {
-    const tokenResponse = await firstValueFrom(this.getDownloadToken(versionId));
+  async getDownloadUrlForVersion(versionId: string, equipmentId?: string): Promise<string> {
+    const tokenResponse = await firstValueFrom(
+      equipmentId
+        ? this.getEquipmentProfileDownloadToken(equipmentId, versionId)
+        : this.getDownloadToken(versionId)
+    );
     if (!tokenResponse?.token) {
       throw new Error('Không thể tạo link tải file');
     }
     return this.getDownloadUrl(tokenResponse.token);
   }
 
-  async downloadFile(versionId: string, fileName?: string): Promise<void> {
+  /** Fetch file qua one-time token, trả blob URL để preview inline (không gắn thẳng token URL vào iframe). */
+  async getPreviewBlobUrl(versionId: string, equipmentId?: string): Promise<string> {
+    const url = await this.getDownloadUrlForVersion(versionId, equipmentId);
+    const response = await fetch(url, { method: 'GET', credentials: 'include' });
+    if (!response.ok) {
+      let message = 'Không thể tải file xem trước';
+      try {
+        const body = await response.json();
+        message = body?.message || message;
+      } catch {
+        // ignore parse errors
+      }
+      throw new Error(message);
+    }
+    const blob = await response.blob();
+    return window.URL.createObjectURL(blob);
+  }
+
+  revokePreviewBlobUrl(objectUrl: string): void {
+    window.URL.revokeObjectURL(objectUrl);
+  }
+
+  async downloadFile(versionId: string, fileName?: string, equipmentId?: string): Promise<void> {
     try {
-      const url = await this.getDownloadUrlForVersion(versionId);
+      const url = await this.getDownloadUrlForVersion(versionId, equipmentId);
       const response = await fetch(url, { method: 'GET', credentials: 'include' });
 
       if (!response.ok) {

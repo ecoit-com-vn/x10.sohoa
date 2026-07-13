@@ -50,6 +50,7 @@
               <th>Mã loại hồ sơ</th>
               <th>Tên loại hồ sơ</th>
               <th>Biểu mẫu EAV liên kết</th>
+              <th>Loại tài liệu liên kết</th>
               <th style="width: 100px; text-align: center;">Thứ tự</th>
               <th>Trạng thái</th>
               <th class="col-hd">Thao tác</th>
@@ -72,6 +73,12 @@
                   {{ item.formName || 'Biểu mẫu: ' + item.formId }}
                 </span>
                 <span *ngIf="!item.formId">Không liên kết</span>
+              </td>
+              <td>
+                <span *ngIf="item.documentTypeNames" [title]="item.documentTypeNames" style="max-width: 220px; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                  {{ item.documentTypeNames }}
+                </span>
+                <span *ngIf="!item.documentTypeNames" class="text-muted" style="font-size: 0.85rem; font-style: italic;">Chưa cấu hình</span>
               </td>
               <td style="text-align: center;">{{ item.piority || 1 }}</td>
               <td>
@@ -113,7 +120,7 @@
               </td>
             </tr>
             <tr *ngIf="items().length === 0">
-              <td colspan="7" class="empty-row">
+              <td colspan="8" class="empty-row">
                 <i class="pi pi-inbox"></i>
                 <div>Không tìm thấy loại hồ sơ nào.</div>
               </td>
@@ -170,6 +177,14 @@
           <input type="text" class="wf-input w-full" [(ngModel)]="currentItem().name"
             (ngModelChange)="onFieldChange('name')" placeholder="Nhập tên hiển thị..." [disabled]="isSaving()" />
           <span class="field-error" *ngIf="nameError()">{{ nameError() }}</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Các loại tài liệu thuộc hồ sơ</label>
+          <p-multiSelect [options]="documentTypes()" [(ngModel)]="currentItem().documentTypeIds" optionLabel="name" optionValue="id"
+            [filter]="true" filterBy="name,code" placeholder="-- Chọn các loại tài liệu --"
+            [style]="{'width':'100%', 'height':'38px', 'line-height':'24px', 'border':'1px solid #cbd5e1', 'border-radius':'6px'}"
+            appendTo="body" [disabled]="isSaving()">
+          </p-multiSelect>
         </div>
 
 
