@@ -39,6 +39,7 @@ export class CatalogComponent implements OnInit {
   // Catalog Type Form Dialog
   showTypeDialog = signal<boolean>(false);
   isEditingType = signal<boolean>(false);
+  isViewingType = signal<boolean>(false);
   currentTypeItem = signal<any>({});
   typeFormSubmitted = signal<boolean>(false);
   typeServerErrors = signal<any>({});
@@ -62,7 +63,7 @@ export class CatalogComponent implements OnInit {
   pageSize = signal<number>(10);
 
   // Right Panel Catalog Form Dialog
-  currentCatalogView = signal<'list' | 'add' | 'edit'>('list');
+  currentCatalogView = signal<'list' | 'add' | 'edit' | 'view'>('list');
   currentCatalogItem = signal<any>({});
   catalogFormSubmitted = signal<boolean>(false);
   catalogServerErrors = signal<any>({});
@@ -200,6 +201,16 @@ export class CatalogComponent implements OnInit {
       status: 1
     });
     this.isEditingType.set(false);
+    this.isViewingType.set(false);
+    this.typeFormSubmitted.set(false);
+    this.typeServerErrors.set({});
+    this.showTypeDialog.set(true);
+  }
+
+  onViewType(type: any) {
+    this.currentTypeItem.set({ ...type });
+    this.isEditingType.set(false);
+    this.isViewingType.set(true);
     this.typeFormSubmitted.set(false);
     this.typeServerErrors.set({});
     this.showTypeDialog.set(true);
@@ -209,6 +220,7 @@ export class CatalogComponent implements OnInit {
     if (!this.canEditType()) return;
     this.currentTypeItem.set({ ...type });
     this.isEditingType.set(true);
+    this.isViewingType.set(false);
     this.typeFormSubmitted.set(false);
     this.typeServerErrors.set({});
     this.showTypeDialog.set(true);
@@ -216,6 +228,7 @@ export class CatalogComponent implements OnInit {
 
   onCloseTypeDialog() {
     this.showTypeDialog.set(false);
+    this.isViewingType.set(false);
   }
 
   onTypeFieldChange(field: string) {
@@ -457,6 +470,16 @@ export class CatalogComponent implements OnInit {
     this.catalogFormSubmitted.set(false);
     this.catalogServerErrors.set({});
     this.currentCatalogView.set('add');
+  }
+
+  onViewCatalog(catalog: any) {
+    this.currentCatalogItem.set({ ...catalog });
+    if (this.selectedTypeHasParent() === 1) {
+      this.loadParentsList(catalog.id);
+    }
+    this.catalogFormSubmitted.set(false);
+    this.catalogServerErrors.set({});
+    this.currentCatalogView.set('view');
   }
 
   onEditCatalog(catalog: any) {
