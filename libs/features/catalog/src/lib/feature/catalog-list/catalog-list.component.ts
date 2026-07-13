@@ -122,6 +122,7 @@ export class CatalogListComponent implements OnInit {
     TANG: 'FLOOR',
     HOP: 'BOX',
     CHUC_VU: 'POSITION',
+    PROCESSING_CATEGORY: 'PROCESSING_CATEGORY',
     LINH_VUC: 'DOMAIN',
     TINH_TRANG_VAT_LY: 'PHYSICAL_STATUS',
   };
@@ -134,7 +135,9 @@ export class CatalogListComponent implements OnInit {
   canCreate = computed(() => this.authService.hasPermission(`${this.permissionPrefix()}_CREATE`));
   canEdit = computed(() => this.authService.hasPermission(`${this.permissionPrefix()}_EDIT`));
   canDelete = computed(() => this.authService.hasPermission(`${this.permissionPrefix()}_DELETE`));
-  canManage = computed(() => this.authService.hasPermission(`${this.permissionPrefix()}_MANAGE`));
+  canManage = computed(() => this.catalogType() === 'PROCESSING_CATEGORY'
+    ? this.authService.hasPermission('PROCESSING_CATEGORY_EDIT')
+    : this.authService.hasPermission(`${this.permissionPrefix()}_MANAGE`));
 
   constructor() {
     // Listen to changes in route data to reload catalog configurations

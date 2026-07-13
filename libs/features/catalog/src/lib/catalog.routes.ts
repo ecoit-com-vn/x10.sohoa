@@ -22,6 +22,11 @@ export const CATALOG_ROUTES: Route[] = [
     data: { type: 'CHUC_VU', title: 'Chức vụ' }
   },
   {
+    path: 'processing-category',
+    loadComponent: () => import('./feature/catalog-list/catalog-list.component').then(m => m.CatalogListComponent),
+    data: { type: 'PROCESSING_CATEGORY', title: 'Quy trình xử lý' }
+  },
+  {
     path: 'domain',
     loadComponent: () => import('./feature/catalog-list/catalog-list.component').then(m => m.CatalogListComponent),
     data: { type: 'LINH_VUC', title: 'Lĩnh vực' }
