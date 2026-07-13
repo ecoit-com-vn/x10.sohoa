@@ -27,6 +27,7 @@ import {
   CreateFolderRequest,
   UpdateFolderRequest,
   CreateDocumentRequest,
+  UpdateDocumentRequest,
   DocumentFilter,
 } from '../models/document.models';
 import {
@@ -101,6 +102,15 @@ export class DocumentManagementComponent implements OnInit {
   editingFolderRowVersion = signal(0);
   expandedFolders = signal<Set<string>>(new Set()); // Track expanded folder IDs
 
+  // Document Edit states
+  showEditDocument = signal(false);
+  documentFormName = signal('');
+  editingDocumentId = signal<string | null>(null);
+  editingDocumentRowVersion = signal(0);
+  savingDocument = signal(false);
+
+  @ViewChild('documentNameInput') documentNameInput?: ElementRef<HTMLInputElement>;
+
   constructor() {
     // Watch currentView changes and focus input when modal opens
     effect(() => {
@@ -108,6 +118,15 @@ export class DocumentManagementComponent implements OnInit {
       if (view === 'add_folder' || view === 'edit_folder') {
         setTimeout(() => {
           this.folderNameInput?.nativeElement?.focus();
+        }, 50);
+      }
+    });
+
+    // Watch showEditDocument change and focus input
+    effect(() => {
+      if (this.showEditDocument()) {
+        setTimeout(() => {
+          this.documentNameInput?.nativeElement?.focus();
         }, 50);
       }
     });
@@ -643,6 +662,61 @@ export class DocumentManagementComponent implements OnInit {
 
   trackByFolderId(index: number, folder: FolderNode): string {
     return folder.id;
+  }
+
+  onEditDocument(doc: Document) {
+    this.savingDocument.set(false);
+    this.editingDocumentId.set(doc.id);
+    this.editingDocumentRowVersion.set(doc.rowVersion ?? 0);
+    this.documentFormName.set(doc.name);
+    this.showEditDocument.set(true);
+  }
+
+  onCancelEditDocument() {
+    this.savingDocument.set(false);
+    this.showEditDocument.set(false);
+    this.editingDocumentId.set(null);
+    this.editingDocumentRowVersion.set(0);
+    this.documentFormName.set('');
+  }
+
+  onSaveDocument() {
+    const name = this.documentFormName().trim();
+    if (!name) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Cảnh báo',
+        detail: 'Tên tài liệu không được để trống',
+      });
+      return;
+    }
+
+    this.savingDocument.set(true);
+    const updateReq: UpdateDocumentRequest = {
+      name,
+      rowVersion: this.editingDocumentRowVersion() || 0,
+    };
+
+    this.documentService.updateDocument(this.editingDocumentId()!, updateReq).pipe(
+      finalize(() => this.savingDocument.set(false)),
+    ).subscribe({
+      next: () => {
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Thành công',
+          detail: 'Cập nhật tên tài liệu thành công',
+        });
+        this.showEditDocument.set(false);
+        this.loadDocuments();
+      },
+      error: (err) => {
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Lỗi',
+          detail: err.error?.message || 'Cập nhật tên tài liệu thất bại',
+        });
+      },
+    });
   }
 
   private resolveZipDownloadFileName(response: HttpResponse<Blob>, folderName: string): string {
