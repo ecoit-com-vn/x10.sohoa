@@ -141,6 +141,7 @@ public class PermissionDiscoveryService : BackgroundService
             { "PhysicalStatus", "Tình trạng vật lý" },
             { "PhysicalStorage", "Kho lưu trữ vật lý" },
             { "Position", "Chức vụ" },
+            { "ProcessingCategory", "Quy trình xử lý" },
             { "PrivateCatalog", "Danh mục dùng riêng" },
             { "Report", "Báo cáo" },
             { "ReportGroup", "Nhóm báo cáo" },
