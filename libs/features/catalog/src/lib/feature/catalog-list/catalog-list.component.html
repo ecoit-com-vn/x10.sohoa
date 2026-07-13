@@ -218,8 +218,9 @@
         <div>
           <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">Bạn có chắc chắn muốn xóa?</p>
           <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
-            Bản ghi <b style="color: #1e293b;">{{ deleteTarget()?.name }}</b> sẽ bị xóa vĩnh viễn và không thể khôi phục.
-          </p>
+          Bản ghi <b style="color: #1e293b;">{{ deleteTarget()?.name }}</b> sẽ bị xóa khỏi danh sách.
+          Mã danh mục <b style="color: #1e293b;">{{ deleteTarget()?.code }}</b> sẽ không thể sử dụng lại để tạo mới.
+        </p>
         </div>
       </div>
       <ng-template #footer>
