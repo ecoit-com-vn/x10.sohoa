@@ -88,6 +88,34 @@ export function augmentSidebarMenus(
     }
   }
 
+  const canViewProcessingCategory =
+    auth?.hasPermission('SUPER_ADMIN') ||
+    auth?.hasPermission('PROCESSING_CATEGORY_VIEW');
+
+  const hasProcessingCategoryMenu = menusCopy.some((m) => m.url === '/catalog/processing-category');
+  if (!hasProcessingCategoryMenu && canViewProcessingCategory) {
+    const catalogParent = menusCopy.find(
+      (m) =>
+        !m.url &&
+        (
+          m.name === 'Quản lý danh mục' ||
+          m.name === 'Danh mục hệ thống' ||
+          m.permissionCode === 'CATALOG_VIEW'
+        )
+    );
+    if (catalogParent) {
+      menusCopy.push({
+        id: 999996,
+        name: 'Quy trình xử lý',
+        icon: 'pi pi-sitemap',
+        url: '/catalog/processing-category',
+        parentId: catalogParent.id,
+        sortOrder: 8,
+        permissionCode: 'PROCESSING_CATEGORY_VIEW',
+      });
+    }
+  }
+
   return menusCopy.map((menu) => {
     if (menu.url === '/dossier-management') {
       return { ...menu, url: '/dossier-management/my-dossiers' };
