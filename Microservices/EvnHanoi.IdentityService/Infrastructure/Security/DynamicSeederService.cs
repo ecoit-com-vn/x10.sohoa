@@ -82,6 +82,7 @@ public class DynamicSeederService
             { "PhysicalStatus", "Tình trạng vật lý" },
             { "PhysicalStorage", "Kho lưu trữ vật lý" },
             { "Position", "Chức vụ" },
+            { "ProcessingCategory", "Quy trình xử lý" },
             { "PrivateCatalog", "Danh mục dùng riêng" },
             { "SharedCatalog", "Danh mục dùng chung" },
             { "Shelf", "Kệ lưu trữ" },
@@ -203,8 +204,6 @@ public class DynamicSeederService
 
         return logs;
     }
-
-
 
     private string GenerateDeterministicGuid(string input)
     {
