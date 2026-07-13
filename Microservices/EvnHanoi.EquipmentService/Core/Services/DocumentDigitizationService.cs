@@ -1,3 +1,4 @@
+using System.IO;
 using System.Text;
 using System.Text.Json;
 using EvnHanoi.EquipmentService.Core.DTOs;
@@ -93,7 +94,8 @@ public class DocumentDigitizationService : IDocumentDigitizationService
     public async Task<DocumentOcrProgressDto> ReExtractForDossierDocumentAsync(
         Guid dossierId,
         Guid documentVersionId,
-        string userId)
+        string userId,
+        string? formSchemaJsonOverride = null)
     {
         var dossier = await _dossierService.GetDetailByIdAsync(dossierId)
             ?? throw new KeyNotFoundException("Không tìm thấy hồ sơ.");
@@ -120,9 +122,9 @@ public class DocumentDigitizationService : IDocumentDigitizationService
             dossier,
             version.DocumentId,
             documentVersionId,
-            formSchemaJsonOverride: null,
+            formSchemaJsonOverride: formSchemaJsonOverride?.Trim(),
             extractPromptOverride: null,
-            forceReloadFromTemplate: true);
+            forceReloadFromTemplate: string.IsNullOrWhiteSpace(formSchemaJsonOverride));
 
         var form = BuildExtractionForm(formContext.FormId, formContext.FormName, formContext.FormSchemaJson);
 
@@ -423,10 +425,15 @@ public class DocumentDigitizationService : IDocumentDigitizationService
             await _repository.UpdateProgressAsync(progress);
         }
 
-        var result = await _repository.GetExtractionResultByVersionIdAsync(message.FileId);
+        var result = await _repository.GetExtractionResultByVersionIdAsync(
+            message.FileId,
+            ResolveEquipmentIdForExtractionCompleted(message));
         if (result == null)
         {
-            _logger.LogWarning("Không tìm thấy extraction result cho version {VersionId}", message.FileId);
+            _logger.LogWarning(
+                "Không tìm thấy extraction result cho version {VersionId}, equipment {EquipmentId}",
+                message.FileId,
+                message.EquipmentId);
             return;
         }
 
@@ -634,7 +641,7 @@ public class DocumentDigitizationService : IDocumentDigitizationService
                 Status = "Manual",
                 MergedDataJson = request.MergedDataJson.Trim(),
                 CreatedBy = userId,
-                CreatedDate = DateTime.UtcNow,
+                CreatedDate = DateTime.UtcNow
             };
             await _repository.CreateExtractionResultAsync(result);
         }
@@ -821,7 +828,426 @@ public class DocumentDigitizationService : IDocumentDigitizationService
         ResultJson = r.ResultJson,
         ResultFilePath = r.ResultFilePath,
         MergedDataJson = r.MergedDataJson,
+        EquipmentId = r.EquipmentId,
         CreatedDate = r.CreatedDate,
         ModifiedDate = r.ModifiedDate
     };
+
+    public async Task<DocumentOcrProgressDto> SubmitForEquipmentDocumentAsync(
+        Guid equipmentId,
+        Guid documentVersionId,
+        string userId)
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var equipmentRepository = scope.ServiceProvider.GetRequiredService<IEquipmentRepository>();
+
+        var equipment = await equipmentRepository.GetByIdAsync(equipmentId)
+            ?? throw new KeyNotFoundException("Không tìm thấy thiết bị kỹ thuật.");
+
+        var version = await _documentRepository.GetDocumentVersionByIdAsync(documentVersionId)
+            ?? throw new KeyNotFoundException("Phiên bản tài liệu không tồn tại.");
+
+        if (string.IsNullOrEmpty(version.FilePath))
+            throw new InvalidOperationException("Tài liệu chưa có file để xử lý OCR.");
+
+        var template = await _formTemplateRepository.GetActiveByEquipmentTypeIdAsync(equipment.EquipmentTypeId);
+        if (template == null)
+            throw new InvalidOperationException("Loại thiết bị chưa gắn biểu mẫu EAV thông số — không thể bóc tách.");
+
+        var form = BuildExtractionForm(template.Id.ToString(), template.Name, template.FormSchema);
+
+        var existing = await _repository.GetProgressByVersionIdAsync(documentVersionId);
+        if (existing != null && existing.Status is "Running" or "Extracting" or "Pending")
+            throw new InvalidOperationException("Tài liệu đang được xử lý OCR/bóc tách.");
+
+        var bucketName = _fileStorageService.DossierBucketName;
+
+        var progress = new DocumentOcrProgress
+        {
+            DocumentId = version.DocumentId,
+            DocumentVersionId = documentVersionId,
+            Phase = "ocr",
+            Action = "ocr.process.task",
+            Status = "Pending",
+            ProcessOption = "OcrAndExtract",
+            BucketName = bucketName,
+            FilePath = version.FilePath,
+            FormJson = template.FormSchema,
+            Progress = 0,
+            CreatedBy = userId,
+            CreatedDate = DateTime.UtcNow
+        };
+        await _repository.CreateProgressAsync(progress);
+
+        var extractionResult = new DocumentExtractionResult
+        {
+            DocumentId = version.DocumentId,
+            DocumentVersionId = documentVersionId,
+            OcrProgressId = progress.Id,
+            Status = "Pending",
+            FormJson = template.FormSchema,
+            BucketName = bucketName,
+            CreatedBy = userId,
+            CreatedDate = DateTime.UtcNow,
+            EquipmentId = equipmentId
+        };
+        await _repository.CreateExtractionResultAsync(extractionResult);
+
+        var message = new OcrTaskPublishMessage
+        {
+            FileId = documentVersionId,
+            FilePath = version.FilePath ?? string.Empty,
+            BucketName = bucketName,
+            ProcessOption = "OcrAndExtract",
+            ExtractPrompt = template.ExtractionProcess ?? "Hãy đọc văn bản và trích xuất thông tin dưới dạng JSON.",
+            Form = form,
+            FormSchemaJson = template.FormSchema,
+            EquipmentId = equipmentId
+        };
+
+        await _messageProducer.PublishToExchangeAsync(message, DigitizationExchange, OcrTaskRoutingKey);
+
+        progress.Status = "Running";
+        progress.ModifiedBy = userId;
+        progress.ModifiedDate = DateTime.UtcNow;
+        await _repository.UpdateProgressAsync(progress);
+
+        return MapProgress(progress);
+    }
+
+    public async Task<DocumentOcrProgressDto> ReExtractForEquipmentDocumentAsync(
+        Guid equipmentId,
+        Guid documentVersionId,
+        string userId)
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var equipmentRepository = scope.ServiceProvider.GetRequiredService<IEquipmentRepository>();
+
+        var equipment = await equipmentRepository.GetByIdAsync(equipmentId)
+            ?? throw new KeyNotFoundException("Không tìm thấy thiết bị kỹ thuật.");
+
+        var version = await _documentRepository.GetDocumentVersionByIdAsync(documentVersionId)
+            ?? throw new KeyNotFoundException("Phiên bản tài liệu không tồn tại.");
+
+        if (string.IsNullOrEmpty(version.FilePath))
+            throw new InvalidOperationException("Tài liệu chưa có file để bóc tách.");
+
+        var template = await _formTemplateRepository.GetActiveByEquipmentTypeIdAsync(equipment.EquipmentTypeId);
+        if (template == null)
+            throw new InvalidOperationException("Loại thiết bị chưa gắn biểu mẫu EAV thông số — không thể bóc tách.");
+
+        var progress = await _repository.GetProgressByVersionIdAsync(documentVersionId)
+            ?? throw new InvalidOperationException("Tài liệu chưa qua OCR — không thể bóc tách lại.");
+
+        if (progress.Status is "Running" or "Extracting" or "Pending")
+            throw new InvalidOperationException("Tài liệu đang được xử lý — vui lòng đợi hoàn tất.");
+
+        if (!IsOcrPhaseComplete(progress))
+            throw new InvalidOperationException("OCR chưa hoàn thành — không thể bóc tách lại.");
+
+        var form = BuildExtractionForm(template.Id.ToString(), template.Name, template.FormSchema);
+        var bucketName = _fileStorageService.DossierBucketName;
+
+        progress.Phase = "extraction";
+        progress.Action = ExtractionTaskRoutingKey;
+        progress.Status = "Extracting";
+        progress.Progress = 0;
+        progress.CurrentPage = 0;
+        progress.TotalPages = 0;
+        progress.ProcessOption = "ExtractOnly";
+        progress.FormJson = template.FormSchema;
+        progress.ModifiedBy = userId;
+        progress.ModifiedDate = DateTime.UtcNow;
+        await _repository.UpdateProgressAsync(progress);
+
+        var extractionResult = await _repository.GetExtractionResultByVersionIdAsync(documentVersionId, equipmentId);
+        if (extractionResult == null)
+        {
+            extractionResult = new DocumentExtractionResult
+            {
+                DocumentId = version.DocumentId,
+                DocumentVersionId = documentVersionId,
+                OcrProgressId = progress.Id,
+                Status = "Pending",
+                FormJson = template.FormSchema,
+                BucketName = bucketName,
+                CreatedBy = userId,
+                CreatedDate = DateTime.UtcNow,
+                EquipmentId = equipmentId
+            };
+            await _repository.CreateExtractionResultAsync(extractionResult);
+        }
+        else
+        {
+            extractionResult.Status = "Pending";
+            extractionResult.ResultJson = null;
+            extractionResult.ResultFilePath = null;
+            extractionResult.MergedDataJson = null;
+            extractionResult.ErrorMessage = null;
+            extractionResult.FormJson = template.FormSchema;
+            extractionResult.ModifiedBy = userId;
+            extractionResult.ModifiedDate = DateTime.UtcNow;
+            await _repository.UpdateExtractionResultAsync(extractionResult);
+        }
+
+        var message = new ExtractionTaskPublishMessage
+        {
+            FileId = documentVersionId,
+            FilePath = version.FilePath,
+            BucketName = bucketName,
+            ExtractPrompt = template.ExtractionProcess ?? "Hãy đọc văn bản và trích xuất thông tin dưới dạng JSON.",
+            Form = form,
+            FormSchemaJson = template.FormSchema,
+            EquipmentId = equipmentId
+        };
+
+        await _messageProducer.PublishToExchangeAsync(message, DigitizationExchange, ExtractionTaskRoutingKey);
+
+        await TryPublishDocumentTextIndexAsync(
+            documentVersionId,
+            bucketName,
+            version.FilePath,
+            progress.TotalPages,
+            "equipment-re-extract-md-ready");
+
+        _logger.LogInformation(
+            "Đã gửi bóc tách lại thiết bị {EquipmentId}, version {VersionId}, document {DocumentId}",
+            equipmentId, documentVersionId, version.DocumentId);
+
+        return MapProgress(progress);
+    }
+
+    public async Task<DocumentExtractionResultDto?> GetExtractionResultForEquipmentAsync(Guid equipmentId, Guid documentVersionId)
+    {
+        var result = await _repository.GetExtractionResultByVersionIdAsync(documentVersionId, equipmentId);
+        if (result == null)
+        {
+            result = await TryHydrateEquipmentExtractionFromStorageAsync(equipmentId, documentVersionId);
+            if (result == null)
+                return null;
+        }
+        else if (NeedsHydrationFromStorage(result))
+        {
+            await TryHydrateEquipmentExtractionFromStorageAsync(equipmentId, documentVersionId, result);
+        }
+
+        if (string.IsNullOrWhiteSpace(result.MergedDataJson) && !string.IsNullOrWhiteSpace(result.ResultJson))
+        {
+            try
+            {
+                var parsed = JsonDocument.Parse(result.ResultJson);
+                if (parsed.RootElement.TryGetProperty("merged", out var mergedNode))
+                {
+                    result.MergedDataJson = mergedNode.GetRawText();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Lỗi giải nén ResultJson trong GetExtractionResultForEquipmentAsync.");
+            }
+        }
+
+        return MapResult(result);
+    }
+
+    public async Task<DocumentExtractionResultDto> SaveEquipmentExtractionDataAsync(
+        Guid equipmentId,
+        Guid documentVersionId,
+        SaveDocumentExtractionDataRequest request,
+        string userId)
+    {
+        if (request == null || string.IsNullOrWhiteSpace(request.MergedDataJson))
+            throw new ArgumentException("Dữ liệu form tài liệu không được để trống.");
+
+        using var scope = _scopeFactory.CreateScope();
+        var equipmentRepository = scope.ServiceProvider.GetRequiredService<IEquipmentRepository>();
+
+        var equipment = await equipmentRepository.GetByIdAsync(equipmentId)
+            ?? throw new KeyNotFoundException("Không tìm thấy thiết bị kỹ thuật.");
+
+        var version = await _documentRepository.GetDocumentVersionByIdAsync(documentVersionId)
+            ?? throw new KeyNotFoundException("Phiên bản tài liệu không tồn tại.");
+
+        var result = await _repository.GetExtractionResultByVersionIdAsync(documentVersionId, equipmentId);
+        if (result == null)
+        {
+            result = new DocumentExtractionResult
+            {
+                DocumentId = version.DocumentId,
+                DocumentVersionId = documentVersionId,
+                Status = "Manual",
+                MergedDataJson = request.MergedDataJson.Trim(),
+                EquipmentId = equipmentId,
+                CreatedBy = userId,
+                CreatedDate = DateTime.UtcNow
+            };
+            await _repository.CreateExtractionResultAsync(result);
+        }
+        else
+        {
+            result.MergedDataJson = request.MergedDataJson.Trim();
+            result.ModifiedBy = userId;
+            result.ModifiedDate = DateTime.UtcNow;
+            await _repository.UpdateExtractionResultAsync(result);
+        }
+
+        try
+        {
+            var oldFormValues = equipment.FormValues;
+            var extData = request.MergedDataJson.Trim();
+
+            var mergedData = AutoMergeEquipmentFormValues(oldFormValues, extData);
+            if (mergedData != oldFormValues)
+            {
+                equipment.FormValues = mergedData;
+                equipment.ModifiedBy = userId;
+                equipment.ModifiedDate = DateTime.UtcNow;
+                await equipmentRepository.UpdateAsync(equipment);
+                _logger.LogInformation("Auto-fill thành công dữ liệu bóc tách vào thiết bị {EquipmentId}.", equipmentId);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Lỗi xảy ra trong quá trình Auto-fill dữ liệu thiết bị {EquipmentId}.", equipmentId);
+        }
+
+        return MapResult(result);
+    }
+
+    private static string AutoMergeEquipmentFormValues(string? oldFormValues, string extData)
+    {
+        try
+        {
+            var oldDict = string.IsNullOrWhiteSpace(oldFormValues) 
+                ? new Dictionary<string, object>() 
+                : JsonSerializer.Deserialize<Dictionary<string, object>>(oldFormValues) ?? new();
+
+            var extDict = JsonSerializer.Deserialize<Dictionary<string, object>>(extData) ?? new();
+
+            bool hasChanges = false;
+            foreach (var kvp in extDict)
+            {
+                string key = kvp.Key;
+                object val = kvp.Value;
+
+                if (!oldDict.ContainsKey(key) || oldDict[key] == null || string.IsNullOrWhiteSpace(oldDict[key]?.ToString()))
+                {
+                    if (val != null && !string.IsNullOrWhiteSpace(val.ToString()))
+                    {
+                        oldDict[key] = val;
+                        hasChanges = true;
+                    }
+                }
+            }
+
+            if (hasChanges)
+            {
+                return JsonSerializer.Serialize(oldDict);
+            }
+        }
+        catch
+        {
+        }
+        return oldFormValues ?? "{}";
+    }
+
+    private static Guid? ResolveEquipmentIdForExtractionCompleted(DigitizationExtractionCompletedMessage message)
+    {
+        if (message.EquipmentId.HasValue)
+            return message.EquipmentId;
+
+        return TryParseEquipmentIdFromResultFile(message.ResultFile);
+    }
+
+    private static Guid? TryParseEquipmentIdFromResultFile(string? resultFile)
+    {
+        if (string.IsNullOrWhiteSpace(resultFile))
+            return null;
+
+        var fileName = Path.GetFileName(resultFile);
+        const string marker = "_eq_";
+        var markerIndex = fileName.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+        if (markerIndex < 0)
+            return null;
+
+        var equipmentPart = fileName[(markerIndex + marker.Length)..];
+        if (equipmentPart.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+            equipmentPart = equipmentPart[..^5];
+
+        return Guid.TryParse(equipmentPart, out var equipmentId) ? equipmentId : null;
+    }
+
+    private static bool NeedsHydrationFromStorage(DocumentExtractionResult result) =>
+        !result.Status.Equals("Completed", StringComparison.OrdinalIgnoreCase)
+        || string.IsNullOrWhiteSpace(result.ResultJson);
+
+    private static string BuildEquipmentExtractionResultPath(string filePath, Guid documentVersionId, Guid equipmentId)
+    {
+        var directory = Path.GetDirectoryName(filePath)?.Replace("\\", "/") ?? string.Empty;
+        var fileName = $"extraction_result_{documentVersionId}_eq_{equipmentId}.json";
+        return string.IsNullOrEmpty(directory) ? fileName : $"{directory}/{fileName}";
+    }
+
+    private async Task<DocumentExtractionResult?> TryHydrateEquipmentExtractionFromStorageAsync(
+        Guid equipmentId,
+        Guid documentVersionId,
+        DocumentExtractionResult? existing = null)
+    {
+        var version = await _documentRepository.GetDocumentVersionByIdAsync(documentVersionId);
+        if (version == null || string.IsNullOrWhiteSpace(version.FilePath))
+            return existing;
+
+        var bucketName = existing?.BucketName ?? _fileStorageService.DossierBucketName;
+        var resultPath = BuildEquipmentExtractionResultPath(version.FilePath, documentVersionId, equipmentId);
+
+        try
+        {
+            await using var stream = await _fileStorageService.DownloadFileAsync(resultPath, bucketName);
+            using var reader = new StreamReader(stream, Encoding.UTF8);
+            var resultJson = await reader.ReadToEndAsync();
+            if (string.IsNullOrWhiteSpace(resultJson))
+                return existing;
+
+            if (existing == null)
+            {
+                existing = new DocumentExtractionResult
+                {
+                    DocumentId = version.DocumentId,
+                    DocumentVersionId = documentVersionId,
+                    Status = "Completed",
+                    ResultJson = resultJson,
+                    ResultFilePath = resultPath,
+                    BucketName = bucketName,
+                    EquipmentId = equipmentId,
+                    CreatedDate = DateTime.UtcNow
+                };
+                existing.MergedDataJson = ExtractionResultMerger.MergePageResults(resultJson);
+                await _repository.CreateExtractionResultAsync(existing);
+                _logger.LogInformation(
+                    "Đã hydrate extraction result thiết bị {EquipmentId} từ MinIO: {Path}",
+                    equipmentId, resultPath);
+                return existing;
+            }
+
+            existing.Status = "Completed";
+            existing.ResultJson = resultJson;
+            existing.ResultFilePath = resultPath;
+            existing.BucketName = bucketName;
+            existing.MergedDataJson = ExtractionResultMerger.MergePageResults(resultJson);
+            existing.ModifiedDate = DateTime.UtcNow;
+            await _repository.UpdateExtractionResultAsync(existing);
+            _logger.LogInformation(
+                "Đã cập nhật extraction result thiết bị {EquipmentId} từ MinIO: {Path}",
+                equipmentId, resultPath);
+            return existing;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(
+                ex,
+                "Không hydrate được extraction result thiết bị {EquipmentId} từ {Path}",
+                equipmentId, resultPath);
+            return existing;
+        }
+    }
 }

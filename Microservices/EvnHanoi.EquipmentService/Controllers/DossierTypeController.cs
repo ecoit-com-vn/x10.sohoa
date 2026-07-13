@@ -100,6 +100,7 @@ public class DossierTypeController : ControllerBase
         dbItem.Name = dossierType.Name;
         dbItem.FormId = dossierType.FormId;
         dbItem.IsActive = dossierType.IsActive;
+        dbItem.DocumentTypeIds = dossierType.DocumentTypeIds;
         dbItem.Piority = dossierType.Piority;
         dbItem.ModifiedBy = User.FindFirst(ClaimTypes.Name)?.Value ?? "system";
         dbItem.ModifiedDate = DateTime.UtcNow;

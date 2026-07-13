@@ -43,6 +43,7 @@ public interface IDocumentRepository
     Task<string?> GetOrganizationUnitCodeAsync(long unitId);
     Task<bool> DocumentBelongsToDossierAsync(Guid documentId, Guid dossierId);
     Task<bool> VersionBelongsToDossierAsync(Guid versionId, Guid dossierId);
+    Task<bool> IsEquipmentProfileDocumentVersionForEquipmentAsync(Guid equipmentId, Guid versionId);
     Task<Guid?> GetDossierIdByVersionIdAsync(Guid versionId);
 
     // Dossier Catalog tree queries
@@ -60,5 +61,6 @@ public interface IDocumentRepository
 
     Task<IEnumerable<DocumentOcrIndexHintDto>> GetOcrVersionIndexHintsByDossierIdAsync(Guid dossierId);
     Task<IEnumerable<Guid>> GetActiveVersionIdsByDossierIdAsync(Guid dossierId);
+    Task<(IEnumerable<DocumentListItemDto> Items, int TotalCount)> GetProfileDocumentsByEquipmentAsync(Guid equipmentId, DossierDocumentFilterDto filter);
 }
 

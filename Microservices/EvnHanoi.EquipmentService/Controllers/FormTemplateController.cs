@@ -42,21 +42,7 @@ public class FormTemplateController : ControllerBase
     [HttpGet("by-equipment-type/{equipmentTypeId:guid}")]
     public async Task<ActionResult<EavFormTemplate>> GetActiveTemplateByEquipmentType(Guid equipmentTypeId)
     {
-        var templates = await _repository.GetAllActiveAsync("TEMPLATE", true);
-        var matched = templates
-            .Where(t => t.EquipmentTypeId == equipmentTypeId && t.Status == "Hoàn thành")
-            .OrderByDescending(t => t.Version)
-            .FirstOrDefault();
-
-        if (matched == null)
-        {
-            // fallback: nếu không tìm thấy template hoàn thành, lấy template hoạt động bất kì của equipment type này
-            matched = templates
-                .Where(t => t.EquipmentTypeId == equipmentTypeId)
-                .OrderByDescending(t => t.Version)
-                .FirstOrDefault();
-        }
-
+        var matched = await _repository.GetActiveByEquipmentTypeIdAsync(equipmentTypeId);
         if (matched == null)
             return NotFound(new { Message = $"Không tìm thấy biểu mẫu hoạt động cho loại thiết bị này." });
 

@@ -24,8 +24,45 @@ public class EavFormTemplateRepository : IEavFormTemplateRepository
                      FROM {nameof(EavFormTemplate)}s t
                      LEFT JOIN GridTypes gt ON t.{nameof(EavFormTemplate.GridTypeId)} = gt.Id
                      LEFT JOIN EquipmentTypes et ON t.{nameof(EavFormTemplate.EquipmentTypeId)} = et.Id
-                     WHERE t.{nameof(EavFormTemplate.Id)} = :Id AND t.IsDeleted = 0";
+                     WHERE et.Id = :Id AND t.IsDeleted = 0 AND t.IsActive = 1";
         return await _connection.QuerySingleOrDefaultAsync<EavFormTemplate>(sql, new { Id = id.ToString() });
+    }
+
+    public async Task<EavFormTemplate?> GetActiveByEquipmentTypeIdAsync(Guid equipmentTypeId)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        var form = await QueryActiveTemplateByEquipmentTypeAsync(equipmentTypeId, "FORM");
+        if (form != null)
+            return form;
+
+        return await QueryActiveTemplateByEquipmentTypeAsync(equipmentTypeId, "TEMPLATE");
+    }
+
+    private async Task<EavFormTemplate?> QueryActiveTemplateByEquipmentTypeAsync(Guid equipmentTypeId, string formType)
+    {
+        var sql = $@"SELECT * FROM (
+                         SELECT t.*,
+                                gt.Name AS {nameof(EavFormTemplate.GridTypeName)},
+                                et.Name AS {nameof(EavFormTemplate.EquipmentTypeName)},
+                                ROW_NUMBER() OVER (
+                                    ORDER BY CASE WHEN t.{nameof(EavFormTemplate.Status)} = 'Hoàn thành' THEN 0 ELSE 1 END,
+                                             t.{nameof(EavFormTemplate.Version)} DESC
+                                ) AS rn
+                         FROM {nameof(EavFormTemplate)}s t
+                         LEFT JOIN GridTypes gt ON t.{nameof(EavFormTemplate.GridTypeId)} = gt.Id
+                         LEFT JOIN EquipmentTypes et ON t.{nameof(EavFormTemplate.EquipmentTypeId)} = et.Id
+                         WHERE t.IsDeleted = 0
+                           AND t.{nameof(EavFormTemplate.IsActive)} = 1
+                           AND t.{nameof(EavFormTemplate.FormType)} = :FormType
+                           AND t.{nameof(EavFormTemplate.EquipmentTypeId)} = :EquipmentTypeId
+                     )
+                     WHERE rn = 1";
+
+        return await _connection.QuerySingleOrDefaultAsync<EavFormTemplate>(
+            sql,
+            new { FormType = formType, EquipmentTypeId = equipmentTypeId.ToString() });
     }
 
     public async Task<IEnumerable<EavFormTemplate>> GetAllActiveAsync(string? formType = null, bool? isActive = true)

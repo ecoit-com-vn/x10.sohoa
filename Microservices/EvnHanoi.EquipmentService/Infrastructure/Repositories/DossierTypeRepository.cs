@@ -18,6 +18,14 @@ public class DossierTypeRepository : IDossierTypeRepository
         _connection = connection ?? throw new ArgumentNullException(nameof(connection));
     }
 
+    private async Task PopulateDocumentTypeIdsAsync(DossierType dossierType)
+    {
+        if (dossierType == null) return;
+        var sql = "SELECT DOCUMENT_TYPE_ID FROM DOSSIER_TYPE_DOCUMENT_TYPES WHERE DOSSIER_TYPE_ID = :DossierTypeId";
+        var ids = await _connection.QueryAsync<string>(sql, new { DossierTypeId = dossierType.Id.ToString() });
+        dossierType.DocumentTypeIds = ids.Select(Guid.Parse).ToList();
+    }
+
     public async Task<DossierType?> GetByIdAsync(Guid id)
     {
         if (_connection.State != ConnectionState.Open) 
@@ -39,7 +47,12 @@ public class DossierTypeRepository : IDossierTypeRepository
                      LEFT JOIN EavFormTemplates f ON dt.FORM_ID = f.Id
                      WHERE dt.{nameof(DossierType.Id)} = :Id AND dt.{nameof(DossierType.IsDeleted)} = 0";
 
-        return await _connection.QuerySingleOrDefaultAsync<DossierType>(sql, new { Id = id.ToString() });
+        var dossierType = await _connection.QuerySingleOrDefaultAsync<DossierType>(sql, new { Id = id.ToString() });
+        if (dossierType != null)
+        {
+            await PopulateDocumentTypeIdsAsync(dossierType);
+        }
+        return dossierType;
     }
 
     public async Task<DossierType?> GetByCodeAsync(string code)
@@ -63,7 +76,12 @@ public class DossierTypeRepository : IDossierTypeRepository
                      LEFT JOIN EavFormTemplates f ON dt.FORM_ID = f.Id
                      WHERE LOWER(dt.{nameof(DossierType.Code)}) = :Code AND dt.{nameof(DossierType.IsDeleted)} = 0";
 
-        return await _connection.QuerySingleOrDefaultAsync<DossierType>(sql, new { Code = code.ToLower().Trim() });
+        var dossierType = await _connection.QuerySingleOrDefaultAsync<DossierType>(sql, new { Code = code.ToLower().Trim() });
+        if (dossierType != null)
+        {
+            await PopulateDocumentTypeIdsAsync(dossierType);
+        }
+        return dossierType;
     }
 
     public async Task<(IEnumerable<DossierType> Items, int TotalCount)> GetPagedAsync(
@@ -107,7 +125,11 @@ public class DossierTypeRepository : IDossierTypeRepository
                                    dt.{nameof(DossierType.ModifiedBy)},
                                    dt.{nameof(DossierType.ModifiedDate)},
                                    dt.{nameof(DossierType.IsDeleted)},
-                                   f.Name as {nameof(DossierType.FormName)}
+                                   f.Name as {nameof(DossierType.FormName)},
+                                   (SELECT LISTAGG(doc.NAME, ', ') WITHIN GROUP (ORDER BY doc.NAME) 
+                                    FROM DOSSIER_TYPE_DOCUMENT_TYPES l
+                                    JOIN DOCUMENT_TYPES doc ON l.DOCUMENT_TYPE_ID = doc.ID
+                                    WHERE l.DOSSIER_TYPE_ID = dt.ID AND doc.IsDeleted = 0) as {nameof(DossierType.DocumentTypeNames)}
                            {sqlBase}
                            ORDER BY dt.PIORITY ASC, dt.{nameof(DossierType.CreatedDate)} DESC
                            OFFSET :Offset ROWS FETCH NEXT :PageSize ROWS ONLY";
@@ -130,34 +152,56 @@ public class DossierTypeRepository : IDossierTypeRepository
             dossierType.Id = Guid.Parse(EvnHanoi.Infrastructure.Database.UuidHelper.NewUuid());
         }
 
-        var sql = $@"INSERT INTO DOSSIER_TYPES (
-                        {nameof(DossierType.Id)},
-                        {nameof(DossierType.Name)},
-                        {nameof(DossierType.Code)},
-                        FORM_ID,
-                        IS_ACTIVE,
-                        PIORITY,
-                        {nameof(DossierType.CreatedBy)},
-                        {nameof(DossierType.CreatedDate)},
-                        {nameof(DossierType.IsDeleted)}
-                    )
-                    VALUES (:Id, :Name, :Code, :FormId, :IsActive, :Piority, :CreatedBy, :CreatedDate, :IsDeleted)";
-
-        var param = new
+        using var transaction = _connection.BeginTransaction();
+        try
         {
-            Id = dossierType.Id.ToString(),
-            dossierType.Name,
-            dossierType.Code,
-            FormId = dossierType.FormId?.ToString(),
-            IsActive = dossierType.IsActive ? 1 : 0,
-            dossierType.Piority,
-            dossierType.CreatedBy,
-            dossierType.CreatedDate,
-            IsDeleted = dossierType.IsDeleted ? 1 : 0
-        };
+            var sql = $@"INSERT INTO DOSSIER_TYPES (
+                            {nameof(DossierType.Id)},
+                            {nameof(DossierType.Name)},
+                            {nameof(DossierType.Code)},
+                            FORM_ID,
+                            IS_ACTIVE,
+                            PIORITY,
+                            {nameof(DossierType.CreatedBy)},
+                            {nameof(DossierType.CreatedDate)},
+                            {nameof(DossierType.IsDeleted)}
+                        )
+                        VALUES (:Id, :Name, :Code, :FormId, :IsActive, :Piority, :CreatedBy, :CreatedDate, :IsDeleted)";
 
-        await _connection.ExecuteAsync(sql, param);
-        return dossierType.Id;
+            var param = new
+            {
+                Id = dossierType.Id.ToString(),
+                dossierType.Name,
+                dossierType.Code,
+                FormId = dossierType.FormId?.ToString(),
+                IsActive = dossierType.IsActive ? 1 : 0,
+                dossierType.Piority,
+                dossierType.CreatedBy,
+                dossierType.CreatedDate,
+                IsDeleted = dossierType.IsDeleted ? 1 : 0
+            };
+
+            await _connection.ExecuteAsync(sql, param, transaction);
+
+            if (dossierType.DocumentTypeIds != null && dossierType.DocumentTypeIds.Any())
+            {
+                var sqlLink = "INSERT INTO DOSSIER_TYPE_DOCUMENT_TYPES (DOSSIER_TYPE_ID, DOCUMENT_TYPE_ID) VALUES (:DossierTypeId, :DocumentTypeId)";
+                var linkParams = dossierType.DocumentTypeIds.Select(docId => new
+                {
+                    DossierTypeId = dossierType.Id.ToString(),
+                    DocumentTypeId = docId.ToString()
+                });
+                await _connection.ExecuteAsync(sqlLink, linkParams, transaction);
+            }
+
+            transaction.Commit();
+            return dossierType.Id;
+        }
+        catch
+        {
+            transaction.Rollback();
+            throw;
+        }
     }
 
     public async Task<bool> UpdateAsync(DossierType dossierType)
@@ -165,30 +209,61 @@ public class DossierTypeRepository : IDossierTypeRepository
         if (_connection.State != ConnectionState.Open) 
             _connection.Open();
 
-        var sql = $@"UPDATE DOSSIER_TYPES
-                    SET {nameof(DossierType.Name)} = :Name,
-                        {nameof(DossierType.Code)} = :Code,
-                        FORM_ID = :FormId,
-                        IS_ACTIVE = :IsActive,
-                        PIORITY = :Piority,
-                        {nameof(DossierType.ModifiedBy)} = :ModifiedBy,
-                        {nameof(DossierType.ModifiedDate)} = :ModifiedDate
-                    WHERE {nameof(DossierType.Id)} = :Id AND {nameof(DossierType.IsDeleted)} = 0";
-
-        var param = new
+        using var transaction = _connection.BeginTransaction();
+        try
         {
-            Id = dossierType.Id.ToString(),
-            dossierType.Name,
-            dossierType.Code,
-            FormId = dossierType.FormId?.ToString(),
-            IsActive = dossierType.IsActive ? 1 : 0,
-            dossierType.Piority,
-            dossierType.ModifiedBy,
-            dossierType.ModifiedDate
-        };
+            var sql = $@"UPDATE DOSSIER_TYPES
+                        SET {nameof(DossierType.Name)} = :Name,
+                            {nameof(DossierType.Code)} = :Code,
+                            FORM_ID = :FormId,
+                            IS_ACTIVE = :IsActive,
+                            PIORITY = :Piority,
+                            {nameof(DossierType.ModifiedBy)} = :ModifiedBy,
+                            {nameof(DossierType.ModifiedDate)} = :ModifiedDate
+                        WHERE {nameof(DossierType.Id)} = :Id AND {nameof(DossierType.IsDeleted)} = 0";
 
-        var affected = await _connection.ExecuteAsync(sql, param);
-        return affected > 0;
+            var param = new
+            {
+                Id = dossierType.Id.ToString(),
+                dossierType.Name,
+                dossierType.Code,
+                FormId = dossierType.FormId?.ToString(),
+                IsActive = dossierType.IsActive ? 1 : 0,
+                dossierType.Piority,
+                dossierType.ModifiedBy,
+                dossierType.ModifiedDate
+            };
+
+            var affected = await _connection.ExecuteAsync(sql, param, transaction);
+            if (affected <= 0)
+            {
+                transaction.Rollback();
+                return false;
+            }
+
+            // Update links
+            var sqlDeleteLink = "DELETE FROM DOSSIER_TYPE_DOCUMENT_TYPES WHERE DOSSIER_TYPE_ID = :DossierTypeId";
+            await _connection.ExecuteAsync(sqlDeleteLink, new { DossierTypeId = dossierType.Id.ToString() }, transaction);
+
+            if (dossierType.DocumentTypeIds != null && dossierType.DocumentTypeIds.Any())
+            {
+                var sqlLink = "INSERT INTO DOSSIER_TYPE_DOCUMENT_TYPES (DOSSIER_TYPE_ID, DOCUMENT_TYPE_ID) VALUES (:DossierTypeId, :DocumentTypeId)";
+                var linkParams = dossierType.DocumentTypeIds.Select(docId => new
+                {
+                    DossierTypeId = dossierType.Id.ToString(),
+                    DocumentTypeId = docId.ToString()
+                });
+                await _connection.ExecuteAsync(sqlLink, linkParams, transaction);
+            }
+
+            transaction.Commit();
+            return true;
+        }
+        catch
+        {
+            transaction.Rollback();
+            throw;
+        }
     }
 
     public async Task<bool> DeleteAsync(Guid id)

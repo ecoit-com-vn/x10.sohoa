@@ -1,6 +1,7 @@
 using EvnHanoi.EquipmentService.Core.DTOs;
 using EvnHanoi.EquipmentService.Core.Entities;
 using EvnHanoi.EquipmentService.Core.Interfaces;
+using EvnHanoi.EquipmentService.Core.Services;
 using EvnHanoi.Infrastructure.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -16,20 +17,35 @@ namespace EvnHanoi.EquipmentService.Controllers;
 [Authorize]
 [ApiController]
 [Route("api/v1/[controller]")]
-public class EquipmentController : ControllerBase
+public partial class EquipmentController : ControllerBase
 {
     private readonly IEquipmentRepository _equipmentRepository;
     private readonly IEquipmentTypeRepository _equipmentTypeRepository;
     private readonly IMessageProducer _messageProducer;
+    private readonly IDocumentDigitizationService _documentDigitizationService;
+    private readonly IDocumentRepository _documentRepository;
+    private readonly IDossierRepository _dossierRepository;
+    private readonly IFileDownloadTokenService _downloadTokenService;
+    private readonly IFileStorageService _fileStorageService;
 
     public EquipmentController(
         IEquipmentRepository equipmentRepository, 
         IEquipmentTypeRepository equipmentTypeRepository,
-        IMessageProducer messageProducer)
+        IMessageProducer messageProducer,
+        IDocumentDigitizationService documentDigitizationService,
+        IDocumentRepository documentRepository,
+        IDossierRepository dossierRepository,
+        IFileDownloadTokenService downloadTokenService,
+        IFileStorageService fileStorageService)
     {
         _equipmentRepository = equipmentRepository;
         _equipmentTypeRepository = equipmentTypeRepository;
         _messageProducer = messageProducer;
+        _documentDigitizationService = documentDigitizationService;
+        _documentRepository = documentRepository;
+        _dossierRepository = dossierRepository;
+        _downloadTokenService = downloadTokenService;
+        _fileStorageService = fileStorageService;
     }
 
     [HttpGet]
@@ -529,6 +545,31 @@ public class EquipmentController : ControllerBase
         }
 
         return BadRequest(new { message = "Không thể cập nhật thông số thiết bị." });
+    }
+
+    /// <summary>
+    /// Biểu mẫu EAV thông số theo loại thiết bị — tuân thủ quyền EQUIPMENT_VIEW, không gọi eav-form-templates.
+    /// </summary>
+    [HttpGet("{id:guid}/form-template")]
+    public async Task<IActionResult> GetFormTemplate(Guid id)
+    {
+        var dto = await _equipmentRepository.GetDtoByIdAsync(id);
+        if (dto == null)
+            return NotFound(new { message = "Không tìm thấy thiết bị." });
+
+        var allowedUnitIds = await GetAllowedUnitIdsAsync();
+        if (allowedUnitIds != null && (!dto.UnitId.HasValue || !allowedUnitIds.Contains(dto.UnitId.Value)))
+            return Forbid();
+
+        if (string.IsNullOrWhiteSpace(dto.FormSchema))
+            return NotFound(new { message = "Loại thiết bị chưa có biểu mẫu thông số kỹ thuật." });
+
+        return Ok(new
+        {
+            id = dto.FormTemplateId,
+            name = dto.FormTemplateName,
+            formSchema = dto.FormSchema
+        });
     }
 }
 

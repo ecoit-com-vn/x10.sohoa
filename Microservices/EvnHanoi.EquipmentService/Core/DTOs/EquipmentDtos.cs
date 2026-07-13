@@ -64,6 +64,7 @@ public class EquipmentDto
     public string? FormValues { get; set; }
     public Dictionary<Guid, string> DynamicAttributes { get; set; } = new();
     public string? FormTemplateName { get; set; }
+    public Guid? FormTemplateId { get; set; }
     public string? FormSchema { get; set; }
 }
 

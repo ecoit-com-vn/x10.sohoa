@@ -89,23 +89,9 @@ public class EavFormTemplateController : ControllerBase
     [BypassDynamicPermission]
     public async Task<ActionResult<EavFormTemplate>> GetActiveTemplateByEquipmentType(Guid equipmentTypeId)
     {
-        var templates = await _repository.GetAllActiveAsync("FORM", true);
-        var matched = templates
-            .Where(t => t.EquipmentTypeId == equipmentTypeId && t.Status == "Hoàn thành")
-            .OrderByDescending(t => t.Version)
-            .FirstOrDefault();
-
+        var matched = await _repository.GetActiveByEquipmentTypeIdAsync(equipmentTypeId);
         if (matched == null)
-        {
-            // fallback: nếu không tìm thấy template hoàn thành, lấy template hoạt động bất kì của equipment type này
-            matched = templates
-                .Where(t => t.EquipmentTypeId == equipmentTypeId)
-                .OrderByDescending(t => t.Version)
-                .FirstOrDefault();
-        }
-
-        if (matched == null)
-            return NotFound(new { Message = $"Không tìm thấy biểu mẫu hoạt động cho loại thiết bị này." });
+            return NotFound(new { Message = "Không tìm thấy biểu mẫu hoạt động cho loại thiết bị này." });
 
         return Ok(matched);
     }

@@ -8,6 +8,7 @@ namespace EvnHanoi.DigitizationService.Models
         public string FilePath { get; set; }
         public string BucketName { get; set; }
         public string ExtractPrompt { get; set; }
+        public Guid? EquipmentId { get; set; }
 
         /// <summary>Danh sách các form cần bóc tách. Mỗi form tương ứng với một đối tượng được bóc tách từ PDF.
         /// </summary>

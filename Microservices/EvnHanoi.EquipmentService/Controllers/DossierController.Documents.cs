@@ -417,4 +417,5 @@ public abstract partial class DossierControllerBase
             return StatusCode(500, new { message = "Không thể lấy kết quả bóc tách tài liệu." });
         }
     }
+
 }

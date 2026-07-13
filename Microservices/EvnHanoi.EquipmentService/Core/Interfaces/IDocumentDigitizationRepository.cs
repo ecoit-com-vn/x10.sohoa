@@ -9,7 +9,7 @@ public interface IDocumentDigitizationRepository
     Task<Guid> CreateProgressAsync(DocumentOcrProgress progress);
     Task<bool> UpdateProgressAsync(DocumentOcrProgress progress);
 
-    Task<DocumentExtractionResult?> GetExtractionResultByVersionIdAsync(Guid documentVersionId);
+    Task<DocumentExtractionResult?> GetExtractionResultByVersionIdAsync(Guid documentVersionId, Guid? equipmentId = null);
     Task<Guid> CreateExtractionResultAsync(DocumentExtractionResult result);
     Task<bool> UpdateExtractionResultAsync(DocumentExtractionResult result);
 }

@@ -209,28 +209,7 @@ namespace EvnHanoi.DigitizationService.Workers
                                 }
                                 string fieldsStr = string.Join("\n", fieldsList);
 
-                                systemPrompt = $@"Bạn là một chuyên gia phân tích và trích xuất dữ liệu tài liệu kỹ thuật ngành điện lực Việt Nam.
-Nhiệm vụ của bạn là đọc danh sách các khối chữ từ kết quả OCR và trích xuất CHÍNH XÁC các trường thông tin được yêu cầu dưới định dạng JSON object.
-
-ĐẦU VÀO CỦA BẠN:
-Là một danh sách các dòng văn bản, mỗi dòng có cấu trúc: [x0, y0, x1, y1] nội_dung_text
-- x0, y0 là tọa độ góc trên bên trái; x1, y1 là tọa độ góc dưới bên phải.
-- Bạn HÃY hình dung bố cục trang giấy dựa trên tọa độ: x0 gần nhau là cùng cột, y0 gần nhau là cùng hàng.
-
-NGUYÊN TẮC QUAN TRỌNG:
-1. SỬ DỤNG TƯ DUY KHÔNG GIAN: Dựa vào toạ độ để tránh ghép nhầm văn bản của cột trái và cột phải vào cùng một trường. Chỉ lấy giá trị cốt lõi, loại bỏ các chữ nhiễu ở cột bên cạnh.
-2. TỰ ĐỘNG SỬA LỖI CHÍNH TẢ OCR: Tự động sửa các lỗi chính tả do OCR gây ra dựa vào ngữ cảnh (KỶ→KỸ, SỰA→SỬA, TÍCH→TỊCH). Giữ nguyên các mã kỹ thuật.
-3. NẾU KHÔNG TÌM THẤY thông tin cho một trường, bắt buộc trả về giá trị null cho trường đó, tuyệt đối không điền 'Không có' hay 'N/A'.
-4. BẮT BUỘC TRẢ VỀ JSON HỢP LỆ (VALID JSON). Phải kiểm tra kỹ việc đóng ngoặc kép (dấu """") đối với các giá trị chuỗi dài. CHỈ TRẢ VỀ một chuỗi JSON duy nhất, KHÔNG thêm giải thích hay markdown.
-5. Format JSON phải tuân thủ nghiêm ngặt theo cấu trúc đã cho, với tên trường chính xác như yêu cầu. KHÔNG được thêm bớt hay đổi tên trường.
-6. GHÉP CÁC DÒNG LIÊN TIẾP: Nếu một trường có nhiều dòng liền kề nhau (các box có y0 liên tiếp, cùng vùng x), hãy ghép tất cả thành 1 giá trị bằng ký tự \n.
-7. PHÂN BIỆT KHU VỰC VĂN BẢN:
-   - Phần ""Nơi nhận"" (thường ở góc dưới bên trái) KHÔNG phải là người ký.
-   - Phần ""Người ký"" thường nằm ở góc dưới bên phải, phía trên tên người ký có chức danh.
-   - Phần ""Trích yếu"" nằm ở header (giữa trang, dưới tên loại văn bản), KHÔNG phải nội dung chi tiết.
-8. TRƯỜNG ĐỂ TRỐNG: Nếu phát hiện vị trí có dấu hiệu để trống (ví dụ: ""Số: .../QĐ-UBND"") thì trả về giá trị null thay vì lấy phần thừa.
-9. TRƯỜNG HỢP TRANG KHÔNG CÓ THÔNG TIN: Kể cả khi trang hoàn toàn không chứa bất kỳ trường nào cần trích xuất (ví dụ trang 2, trang 3 chỉ chứa chữ ký hoặc phụ lục), BẠN VẪN BẮT BUỘC PHẢI TRẢ VỀ JSON VỚI TẤT CẢ GIÁ TRỊ NULL. TUYỆT ĐỐI KHÔNG ĐƯỢC BỎ TRỐNG HAY TRẢ VỀ CHUỖI RỖNG.
-{taskMsg.ExtractPrompt}
+                                systemPrompt = $@"{taskMsg.ExtractPrompt}
 
 CÁC TRƯỜNG CẦN TRÍCH XUẤT:
 {fieldsStr}";
@@ -539,9 +518,10 @@ CÁC TRƯỜNG CẦN TRÍCH XUẤT:
 
                             using var resultStream = new MemoryStream(Encoding.UTF8.GetBytes(finalJsonString));
                             string directory = Path.GetDirectoryName(taskMsg.FilePath)?.Replace("\\", "/") ?? string.Empty;
+                            string fileSuffix = taskMsg.EquipmentId.HasValue ? $"_eq_{taskMsg.EquipmentId.Value}" : "";
                             var resultFileName = string.IsNullOrEmpty(directory) 
-                                ? $"extraction_result_{taskMsg.FileId}.json" 
-                                : $"{directory}/extraction_result_{taskMsg.FileId}.json";
+                                ? $"extraction_result_{taskMsg.FileId}{fileSuffix}.json" 
+                                : $"{directory}/extraction_result_{taskMsg.FileId}{fileSuffix}.json";
                             await minioService.UploadFileAsync(taskMsg.BucketName, resultFileName, resultStream, "application/json");
                             _logger.LogInformation("Đã lưu kết quả gộp vào MinIO: {FileName} tại bucket {BucketName}", resultFileName, taskMsg.BucketName);
 
@@ -583,7 +563,8 @@ CÁC TRƯỜNG CẦN TRÍCH XUẤT:
                                 Action = "extraction.process.completed",
                                 ResultFile = resultFileName,
                                 BucketName = taskMsg.BucketName,
-                                Status = status
+                                Status = status,
+                                EquipmentId = taskMsg.EquipmentId
                             };
                             await publisher.PublishMessageAsync(completedMsg, "digitization.topic", "extraction.process.completed");
                             _logger.LogInformation("Đã gửi bản tin hoàn thành lên RabbitMQ (Routing key: extraction.process.completed) với Status: {Status}.", status);

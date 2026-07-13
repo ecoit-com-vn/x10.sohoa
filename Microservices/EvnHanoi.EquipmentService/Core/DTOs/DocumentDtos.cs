@@ -66,6 +66,7 @@ public class DocumentListItemDto
     public bool IsDeleted { get; set; }
     public Guid? DocumentTypeId { get; set; }
     public string? DocumentTypeName { get; set; }
+    public bool IsEquipmentProfile { get; set; }
 
     /// <summary>Tiến trình OCR/extraction — chỉ populate khi list theo hồ sơ.</summary>
     public DocumentOcrProgressSummaryDto? OcrProgress { get; set; }
