@@ -29,6 +29,8 @@ interface FormField {
   dataSourceType?: 'manual' | 'catalog';
   catalogType?: string;
   description?: string;
+  selectAll?: boolean;
+  active?: boolean;
 }
 
 @Component({
@@ -92,11 +94,44 @@ export class FormApprovalComponent implements OnInit {
 
   canApprove = computed(() => canApproveForm(this.authService));
 
+  catalogOptionsMap = signal<{ [catalogCode: string]: string[] }>({});
+
+  loadCatalogOptions(catalogCode: string) {
+    if (!catalogCode || this.catalogOptionsMap()[catalogCode]) return;
+    this.eavFormService.getCatalogTypeByCode(catalogCode).subscribe({
+      next: (catalogType) => {
+        if (catalogType && catalogType.id) {
+          this.eavFormService.getCatalogsLookup(catalogType.id).subscribe({
+            next: (items) => {
+              const options = (items || []).map((item: any) => item.name || item.code);
+              this.catalogOptionsMap.update(prev => ({
+                ...prev,
+                [catalogCode]: options
+              }));
+            },
+            error: (err) => console.error(`Failed to load catalogs lookup for ${catalogCode}`, err)
+          });
+        }
+      },
+      error: (err) => console.error(`Failed to load catalog type for ${catalogCode}`, err)
+    });
+  }
+
   constructor() {
     effect(() => {
       this.searchKeyword();
       this.activeTab();
       this.first.set(0);
+    });
+
+    effect(() => {
+      const currentFields = this.fields();
+      if (!currentFields) return;
+      currentFields.forEach((f: FormField) => {
+        if (f.dataSourceType === 'catalog' && f.catalogType) {
+          this.loadCatalogOptions(f.catalogType);
+        }
+      });
     });
   }
 
@@ -291,6 +326,18 @@ export class FormApprovalComponent implements OnInit {
       ...prev,
       [name]: value
     }));
+  }
+
+  isAllChecked(field: any): boolean {
+    if (!field.options || field.options.length === 0) return false;
+    return field.options.every((opt: string) => this.simulatedValues()[field.name + '_' + opt] === true);
+  }
+
+  toggleSelectAll(field: any, checked: boolean) {
+    if (!field.options) return;
+    field.options.forEach((opt: string) => {
+      this.updateSimulatedValue(field.name + '_' + opt, checked);
+    });
   }
 
   onSimulateSubmit() {

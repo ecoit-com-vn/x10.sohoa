@@ -383,19 +383,30 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
               (visibleChange)="$event ? null : showQuickCompleteConfirm.set(false)"
               header="Xác nhận hoàn thành" 
               [modal]="true" 
-              [style]="{ width: '400px' }"
-              styleClass="evn-dialog-no-modal">
-      <div style="padding: 10px 0;">
-        <p>Bạn có chắc chắn muốn hoàn thành nhập liệu cho hồ sơ trạm/đường dây: <b>{{ selectedQuickItem()?.infrastructureName || '-' }}</b>?</p>
-        <p class="text-muted" style="font-size: 0.85rem; margin-top: 5px;">Hành động này sẽ chuyển trạng thái hồ sơ sang "Hoàn thành" để chuẩn bị gửi duyệt.</p>
+              [style]="{ width: '420px' }"
+              styleClass="evn-dialog-custom"
+              [closable]="!quickActionSubmitting()">
+      <div style="display: flex; align-items: flex-start; gap: 12px; padding: 8px 0 16px;">
+        <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #3b82f6;"></i>
+        <div>
+          <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">Bạn có chắc chắn muốn hoàn thành nhập liệu?</p>
+          <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
+            Hồ sơ <b style="color: #1e293b;">{{ completeTargetLabel() }}</b> sẽ được chuyển sang trạng thái "Hoàn thành".
+          </p>
+        </div>
       </div>
-      <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px;">
-        <button (click)="showQuickCompleteConfirm.set(false)" class="btn-cancel btn-small" [disabled]="quickActionSubmitting()">Hủy</button>
-        <button (click)="confirmQuickComplete()" class="btn-save btn-small" [disabled]="quickActionSubmitting()">
-          <i class="pi pi-spin pi-spinner" *ngIf="quickActionSubmitting()"></i>
-          Xác nhận
-        </button>
-      </div>
+      <ng-template #footer>
+        <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+          <button class="btn-cancel btn-small" (click)="showQuickCompleteConfirm.set(false)" [disabled]="quickActionSubmitting()">
+            <i class="pi pi-times"></i> Hủy
+          </button>
+          <button class="btn-save btn-small" (click)="confirmQuickComplete()" [disabled]="quickActionSubmitting()">
+            <i class="pi pi-spin pi-spinner" *ngIf="quickActionSubmitting()"></i>
+            <i class="pi pi-check" *ngIf="!quickActionSubmitting()"></i>
+            Xác nhận
+          </button>
+        </div>
+      </ng-template>
     </p-dialog>
 
     <!-- Dialog gửi duyệt nhanh (cùng UI màn chi tiết) -->
@@ -721,6 +732,17 @@ export class DossierListComponent implements OnInit {
 
   });
 
+  completeTargetLabel = computed(() => {
+    const item = this.selectedQuickItem();
+    if (!item) return '';
+    const firstCol = this.bhsColumns()[0];
+    if (firstCol) {
+      const val = this.getCatalogValue(item, firstCol);
+      if (val !== '-') return val;
+    }
+    return item.infrastructureName || item.dossierTypeName || 'này';
+  });
+
 
 
   ngOnInit() {
@@ -920,9 +942,25 @@ export class DossierListComponent implements OnInit {
   }
 
   getCurrentHandlerName(item: any): string {
-    const name = item?.currentHandlerName ?? item?.CurrentHandlerName
-      ?? item?.creator?.name ?? item?.Creator?.Name;
-    if (name != null && String(name).trim() !== '') return String(name).trim();
+    const handlerName = item?.currentHandlerName ?? item?.CurrentHandlerName;
+    const creatorUsername = item?.creator?.username ?? item?.Creator?.Username;
+    const normalizedUsername = creatorUsername ? String(creatorUsername).trim().toLowerCase() : '';
+
+    if (handlerName != null && String(handlerName).trim() !== '') {
+      const normalizedHandler = String(handlerName).trim();
+      if (!normalizedUsername || normalizedHandler.toLowerCase() !== normalizedUsername) {
+        return normalizedHandler;
+      }
+    }
+
+    const creatorName = item?.creator?.name ?? item?.Creator?.Name;
+    if (creatorName != null && String(creatorName).trim() !== '') {
+      const normalizedCreator = String(creatorName).trim();
+      if (!normalizedUsername || normalizedCreator.toLowerCase() !== normalizedUsername) {
+        return normalizedCreator;
+      }
+    }
+
     return '-';
   }
 

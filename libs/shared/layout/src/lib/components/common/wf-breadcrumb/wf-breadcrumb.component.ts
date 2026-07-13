@@ -37,10 +37,15 @@ export class WfBreadcrumbComponent implements OnInit {
   /** Ghi đè URL dùng để khớp menu (mặc định lấy router.url). */
   @Input() matchUrl: string | null = null;
   @Input() customItems: BreadcrumbTrailItem[] | null = null;
-
+  
   @Output() listClick = new EventEmitter<void>();
 
-  private trail = signal<BreadcrumbTrailItem[]>([]);
+  private currentUrlSignal = signal<string>('');
+
+  private trail = computed(() => {
+    const url = this.currentUrlSignal();
+    return this.breadcrumbService.resolveTrail(url);
+  });
 
   readonly items = computed(() => {
     const trail = this.customItems?.length ? [...this.customItems] : [...this.trail()];
@@ -78,27 +83,26 @@ export class WfBreadcrumbComponent implements OnInit {
   readonly showListAsLink = computed(() => !!this.resolvedSuffix());
 
   ngOnInit(): void {
+    this.currentUrlSignal.set(this.matchUrl ?? this.router.url);
+
     this.breadcrumbService
       .ensureMenusLoaded()
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(() => this.refreshTrail());
+      .subscribe();
 
     this.router.events
       .pipe(
         filter((event): event is NavigationEnd => event instanceof NavigationEnd),
         takeUntilDestroyed(this.destroyRef)
       )
-      .subscribe(() => this.refreshTrail());
+      .subscribe((event) => {
+        this.currentUrlSignal.set(this.matchUrl ?? (event.urlAfterRedirects || event.url));
+      });
   }
 
   onLeafClick(): void {
     if (this.showListAsLink()) {
       this.listClick.emit();
     }
-  }
-
-  private refreshTrail(): void {
-    const url = this.matchUrl ?? this.router.url;
-    this.trail.set(this.breadcrumbService.resolveTrail(url));
   }
 }

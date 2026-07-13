@@ -138,11 +138,16 @@ export function menuUrlPath(url?: string | null): string {
 }
 
 export function urlMatchesMenuLink(currentUrl: string, menuLink: string): boolean {
-  const current = normalizeRoutePath(currentUrl);
+  let current = normalizeRoutePath(currentUrl);
   const link = normalizeRoutePath(menuLink);
   if (!link) {
     return false;
   }
+
+  if (current === '/equipment/form-builder' || current.startsWith('/equipment/form-builder/')) {
+    current = '/equipment/form-template' + current.substring('/equipment/form-builder'.length);
+  }
+
   return current === link || current.startsWith(`${link}/`);
 }
 

@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, effect } from '@angular/core';
 import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -15,9 +15,9 @@ import { finalize } from 'rxjs';
 import { LoadingService, EavFormService, EavFormTemplate, AuthService } from '@sohoa.frontend/shared/core';
 import { EquipmentTypeService } from '../../data-access/equipment-type.service';
 import {
-  canDeleteForm,
+  canDeleteCompletedForm,
   canEditForm,
-  canManageForm,
+  canManageCompletedForm,
 } from '../../utils/eav-form-permission.util';
 
 @Component({
@@ -48,8 +48,8 @@ export class CompletedFormListComponent implements OnInit {
     private authService = inject(AuthService);
 
     canEdit = computed(() => canEditForm(this.authService));
-    canManage = computed(() => canManageForm(this.authService));
-    canDelete = computed(() => canDeleteForm(this.authService));
+    canManage = computed(() => canManageCompletedForm(this.authService));
+    canDelete = computed(() => canDeleteCompletedForm(this.authService));
 
     showConfirmLock = signal<boolean>(false);
     showConfirmUnlock = signal<boolean>(false);
@@ -57,6 +57,43 @@ export class CompletedFormListComponent implements OnInit {
     viewState = signal<'list' | 'detail'>('list');
     targetForm: EavFormTemplate | null = null;
     selectedForm: EavFormTemplate | null = null;
+
+    showVersionsDialog = signal<boolean>(false);
+    versionList = signal<EavFormTemplate[]>([]);
+    selectedTemplate = signal<EavFormTemplate | null>(null);
+
+    catalogOptionsMap = signal<{ [catalogCode: string]: string[] }>({});
+
+    loadCatalogOptions(catalogCode: string) {
+        if (!catalogCode || this.catalogOptionsMap()[catalogCode]) return;
+        this.eavFormService.getCatalogTypeByCode(catalogCode).subscribe({
+            next: (catalogType) => {
+                if (catalogType && catalogType.id) {
+                    this.eavFormService.getCatalogsLookup(catalogType.id).subscribe({
+                        next: (items) => {
+                            const options = (items || []).map((item: any) => item.name || item.code);
+                            this.catalogOptionsMap.update(prev => ({
+                                ...prev,
+                                [catalogCode]: options
+                            }));
+                        },
+                        error: (err) => console.error(`Failed to load catalogs lookup for ${catalogCode}`, err)
+                    });
+                }
+            },
+            error: (err) => console.error(`Failed to load catalog type for ${catalogCode}`, err)
+        });
+    }
+
+    loadCatalogOptionsEffect = effect(() => {
+        const currentFields = this.formFields();
+        if (!currentFields) return;
+        currentFields.forEach((f: any) => {
+            if (f.dataSourceType === 'catalog' && f.catalogType) {
+                this.loadCatalogOptions(f.catalogType);
+            }
+        });
+    });
 
     equipmentTypes = signal<any[]>([]);
     gridTypes = signal<any[]>([]);
@@ -390,5 +427,31 @@ export class CompletedFormListComponent implements OnInit {
                     this.targetForm = null;
                 }
             });
+    }
+
+    viewVersions(form: EavFormTemplate) {
+        this.loadingService.show();
+        this.eavFormService.getTemplateVersions(form.code)
+            .pipe(finalize(() => this.loadingService.hide()))
+            .subscribe({
+                next: (versions) => {
+                    this.versionList.set(versions || []);
+                    this.selectedTemplate.set(form);
+                    this.showVersionsDialog.set(true);
+                },
+                error: (err) => {
+                    console.error('Failed to load template versions', err);
+                    this.messageService.add({
+                        severity: 'error',
+                        summary: 'Lỗi',
+                        detail: 'Không thể tải danh sách phiên bản của biểu mẫu.'
+                    });
+                }
+            });
+    }
+
+    viewVersionDetail(ver: EavFormTemplate) {
+        this.showVersionsDialog.set(false);
+        this.viewFormDetail(ver);
     }
 }

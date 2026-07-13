@@ -23,6 +23,11 @@ export class RoleManagement implements OnInit {
   roles = signal<any[]>([]);
   searchKeyword = signal<string>('');
   totalCount = signal<number>(0);
+  organizationUnits = signal<any[]>([]);
+  isCentralAdmin = computed(() => {
+    const userRoles = this.authService.getUserRoles();
+    return userRoles.includes('ADMIN') || userRoles.includes('SUPER_ADMIN');
+  });
   
   currentView = signal<'list' | 'add' | 'edit' | 'permission'>('list');
   dialogHeader = signal<string>('');
@@ -32,8 +37,8 @@ export class RoleManagement implements OnInit {
   permissionDialogHeader = signal<string>('');
   permissionTab = signal<'permissions' | 'accounts'>('permissions');
   activeRoleForPermission = signal<any>(null);
-  systemPermissions = signal<any[]>([]);
-  selectedPermissionCodes = signal<string[]>([]);
+  availablePermissionGroups = signal<any[]>([]);
+  selectedPermissionGroupIds = signal<number[]>([]);
 
   roleUsers = signal<any[]>([]);
   roleUsersKeyword = signal<string>('');
@@ -78,6 +83,7 @@ export class RoleManagement implements OnInit {
   }
 
   menus = signal<any[]>([]);
+  systemPermissions = signal<any[]>([]);
   menuPermissionTree = signal<any[]>([]);
 
   private apiUrl = `${environment.apiGatewayUrl}/api/v1/roles`;
@@ -158,6 +164,16 @@ export class RoleManagement implements OnInit {
     this.loadRoles();
     this.loadMenus();
     this.loadSystemPermissions();
+    if (this.isCentralAdmin()) {
+      this.loadOrganizationUnits();
+    }
+  }
+
+  loadOrganizationUnits() {
+    this.http.get<any[]>(`${environment.apiGatewayUrl}/api/v1/organization-units/lookup`).subscribe({
+      next: (res) => this.organizationUnits.set(Array.isArray(res) ? res : []),
+      error: () => this.organizationUnits.set([])
+    });
   }
 
   loadRoles() {
@@ -171,7 +187,7 @@ export class RoleManagement implements OnInit {
           this.totalCount.set(res?.totalCount || 0);
         },
         error: (err) => {
-          this.messageService.add({ severity: 'error', summary: 'Lỗi tải dữ liệu', detail: 'Không thể tải danh sách nhóm quyền.' });
+          this.messageService.add({ severity: 'error', summary: 'Lỗi tải dữ liệu', detail: 'Không thể tải danh sách vai trò.' });
           this.roles.set([]);
           this.totalCount.set(0);
         }
@@ -219,14 +235,27 @@ export class RoleManagement implements OnInit {
 
   onAddNew() {
     if (!this.authService.hasPermission('ROLE_CREATE')) {
-      this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền thêm mới nhóm quyền.' });
+      this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền thêm mới vai trò.' });
       return;
     }
     this.isEdit.set(false);
-    this.currentRole.set({ code: '', name: '', description: '', isActive: true });
+    
+    if (this.isCentralAdmin()) {
+      this.currentRole.set({ code: '', name: '', description: '', scopeTypeId: 1, organizationUnitId: null, isActive: true });
+    } else {
+      this.currentRole.set({ 
+        code: '', 
+        name: '', 
+        description: '', 
+        scopeTypeId: 2, 
+        organizationUnitId: this.authService.getUserUnitId(), 
+        isActive: true 
+      });
+    }
+
     this.formSubmitted.set(false);
     this.serverErrors.set({});
-    this.dialogHeader.set('Thêm mới nhóm quyền');
+    this.dialogHeader.set('Thêm mới vai trò');
     this.currentView.set('add');
   }
 
@@ -271,14 +300,14 @@ export class RoleManagement implements OnInit {
 
   onEdit(role: any) {
     if (!this.authService.hasPermission('ROLE_EDIT')) {
-      this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền chỉnh sửa nhóm quyền.' });
+      this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền chỉnh sửa vai trò.' });
       return;
     }
     this.isEdit.set(true);
     this.currentRole.set({ ...role });
     this.formSubmitted.set(false);
     this.serverErrors.set({});
-    this.dialogHeader.set('Chỉnh sửa nhóm quyền');
+    this.dialogHeader.set('Chỉnh sửa vai trò');
     this.currentView.set('edit');
   }
 
@@ -296,7 +325,7 @@ export class RoleManagement implements OnInit {
         .pipe(finalize(() => this.saving.set(false)))
         .subscribe({
           next: () => {
-            this.messageService.add({ severity: 'success', summary: 'Cập nhật', detail: 'Cập nhật thông tin nhóm quyền thành công!' });
+            this.messageService.add({ severity: 'success', summary: 'Cập nhật', detail: 'Cập nhật thông tin vai trò thành công!' });
             this.loadRoles();
             this.currentView.set('list');
           },
@@ -317,7 +346,7 @@ export class RoleManagement implements OnInit {
               errorsObj = err.errors;
             }
             this.serverErrors.set(errorsObj);
-            const detailMsg = err?.error?.message || err?.message || 'Cập nhật nhóm quyền thất bại.';
+            const detailMsg = err?.error?.message || err?.message || 'Cập nhật vai trò thất bại.';
             this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: detailMsg });
           }
         });
@@ -326,7 +355,7 @@ export class RoleManagement implements OnInit {
         .pipe(finalize(() => this.saving.set(false)))
         .subscribe({
           next: (created) => {
-            this.messageService.add({ severity: 'success', summary: 'Thêm mới', detail: 'Tạo nhóm quyền mới thành công!' });
+            this.messageService.add({ severity: 'success', summary: 'Thêm mới', detail: 'Tạo vai trò mới thành công!' });
             this.loadRoles();
             this.currentView.set('list');
           },
@@ -347,7 +376,7 @@ export class RoleManagement implements OnInit {
               errorsObj = err.errors;
             }
             this.serverErrors.set(errorsObj);
-            const detailMsg = err?.error?.message || err?.message || 'Tạo nhóm quyền thất bại.';
+            const detailMsg = err?.error?.message || err?.message || 'Tạo vai trò thất bại.';
             this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: detailMsg });
           }
         });
@@ -378,83 +407,67 @@ export class RoleManagement implements OnInit {
   }
 
   onAssignPermissions(role: any) {
-    if (!this.authService.hasPermission('ROLE_MANAGE') && !this.authService.hasPermission('PERMISSION_MANAGE')) {
-      this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền cấu hình nhóm quyền này.' });
+    if (!this.authService.hasPermission('ROLE_MANAGE')) {
+      this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền phân bổ nhóm quyền cho vai trò.' });
       return;
     }
     this.activeRoleForPermission.set({ ...role });
-    this.permissionDialogHeader.set(`Phân quyền nhóm: ${role.name}`);
+    this.permissionDialogHeader.set(`Phân bổ nhóm quyền: ${role.name}`);
     this.permissionTab.set('permissions');
     this.roleUsersKeyword.set('');
     this.roleUsersPage.set(1);
-    this.selectedPermissionCodes.set([]);
+    this.selectedPermissionGroupIds.set([]);
+    this.availablePermissionGroups.set([]);
 
-    this.http.get<any>(`${this.apiUrl}/${role.id}/permissions`).subscribe({
+    this.loadAvailablePermissionGroups(role);
+    this.http.get<any>(`${this.apiUrl}/${role.id}/permission-groups`).subscribe({
       next: (res) => {
-        const list = Array.isArray(res) ? res : (res && Array.isArray(res.items) ? res.items : (res && Array.isArray(res.value) ? res.value : []));
-        this.selectedPermissionCodes.set(list);
-        this.expandAllPermissionGroups();
+        const list = Array.isArray(res) ? res : [];
+        this.selectedPermissionGroupIds.set(list.map((g: any) => g.id));
         this.currentView.set('permission');
       },
       error: () => {
-        this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể tải quyền đã gán.' });
+        this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể tải nhóm quyền đã gán.' });
       }
     });
   }
 
-  private expandAllPermissionGroups() {
-    this.menuPermissionTree.update((tree) =>
-      tree.map((parent) => ({
-        ...parent,
-        expanded: parent.expanded ?? this.hasAssignablePermissions(parent),
-        subMenus: (parent.subMenus || []).map((sub: any) => ({ ...sub, expanded: true }))
-      }))
-    );
-  }
-
-  private hasAssignablePermissions(parent: any): boolean {
-    if ((parent.permissions || []).length > 0) {
-      return true;
-    }
-    return (parent.subMenus || []).some((sub: any) => (sub.permissions || []).length > 0);
-  }
-
-  getParentPermissionCodes(parent: any): string[] {
-    const codes: string[] = (parent.permissions || []).map((p: any) => p.code);
-    (parent.subMenus || []).forEach((sub: any) => {
-      codes.push(...this.getSubmenuPermissionCodes(sub));
+  private loadAvailablePermissionGroups(role: any) {
+    const unitLookupUrl = `${environment.apiGatewayUrl}/api/v1/unit-permission-groups/lookup`;
+    this.http.get<any[]>(unitLookupUrl).subscribe({
+      next: (unitGroups) => {
+        const normalized = Array.isArray(unitGroups) ? unitGroups : [];
+        if (this.authService.hasPermission('SYSTEM_PERMISSION_GROUP_VIEW') && role.scopeTypeId === 1) {
+          const systemLookupUrl = `${environment.apiGatewayUrl}/api/v1/system-permission-groups/lookup`;
+          this.http.get<any[]>(systemLookupUrl).subscribe({
+            next: (systemGroups) => {
+              const sys = Array.isArray(systemGroups) ? systemGroups : [];
+              this.availablePermissionGroups.set([...sys, ...normalized]);
+            },
+            error: () => this.availablePermissionGroups.set(normalized)
+          });
+        } else {
+          this.availablePermissionGroups.set(normalized);
+        }
+      },
+      error: () => this.availablePermissionGroups.set([])
     });
-    return codes;
   }
 
-  getSubmenuPermissionCodes(sub: any): string[] {
-    return (sub.permissions || []).map((p: any) => p.code);
+  isPermissionGroupSelected(groupId: number): boolean {
+    return this.selectedPermissionGroupIds().includes(groupId);
   }
 
-  isAllPermissionsChecked(codes: string[]): boolean {
-    return codes.length > 0 && codes.every((code) => this.isPermissionChecked(code));
-  }
-
-  getPermissionInputId(parentId: number, subId: number | null, code: string): string {
-    return `perm-${parentId}-${subId ?? 'root'}-${code}`;
-  }
-
-  toggleAllPermissions(codes: string[]) {
-    if (this.isAllPermissionsChecked(codes)) {
-      this.selectedPermissionCodes.update((prev) => prev.filter((code) => !codes.includes(code)));
-      return;
-    }
-    this.selectedPermissionCodes.update((prev) => Array.from(new Set([...prev, ...codes])));
-  }
-
-  toggleParentMenu(parent: any) {
-    parent.expanded = !parent.expanded;
-    this.menuPermissionTree.set([...this.menuPermissionTree()]);
-  }
-
-  toggleSubMenu(sub: any) {
-    sub.expanded = !(sub.expanded ?? true);
-    this.menuPermissionTree.set([...this.menuPermissionTree()]);
+  togglePermissionGroup(groupId: number) {
+    this.selectedPermissionGroupIds.update((prev) => {
+      const idx = prev.indexOf(groupId);
+      if (idx > -1) {
+        const copy = [...prev];
+        copy.splice(idx, 1);
+        return copy;
+      }
+      return [...prev, groupId];
+    });
   }
 
   switchPermissionTab(tab: 'permissions' | 'accounts') {
@@ -508,37 +521,21 @@ export class RoleManagement implements OnInit {
     this.roleUsersPage.set(1);
   }
 
-  isPermissionChecked(code: string): boolean {
-    return this.selectedPermissionCodes().includes(code);
-  }
-
-  togglePermission(code: string) {
-    this.selectedPermissionCodes.update(prev => {
-      const idx = prev.indexOf(code);
-      if (idx > -1) {
-        const copy = [...prev];
-        copy.splice(idx, 1);
-        return copy;
-      } else {
-        return [...prev, code];
-      }
-    });
-  }
-
   onSavePermissions() {
     const activeRole = this.activeRoleForPermission();
     if (!activeRole) return;
     
     this.savingPermissions.set(true);
-    this.http.post(`${this.apiUrl}/${activeRole.id}/permissions`, this.selectedPermissionCodes())
+    this.http.put(`${this.apiUrl}/${activeRole.id}/permission-groups`, this.selectedPermissionGroupIds())
       .pipe(finalize(() => this.savingPermissions.set(false)))
       .subscribe({
         next: () => {
-          this.messageService.add({ severity: 'success', summary: 'Phân quyền thành công', detail: 'Đã lưu thay đổi phân quyền hệ thống!' });
+          this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã phân bổ nhóm quyền cho vai trò!' });
           this.currentView.set('list');
         },
         error: (err) => {
-          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Lưu phân quyền vai trò thất bại.' });
+          const detail = err?.error?.message || 'Lưu phân bổ nhóm quyền thất bại.';
+          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail });
         }
       });
   }

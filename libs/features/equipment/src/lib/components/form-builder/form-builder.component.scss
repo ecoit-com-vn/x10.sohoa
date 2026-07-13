@@ -63,8 +63,8 @@
   position: sticky !important;
   top: 1rem !important;
   max-height: calc(100vh - 160px) !important;
-  height: fit-content !important;
-  overflow-y: hidden;
+  height: 100% !important;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   
@@ -80,7 +80,6 @@
   flex-direction: column;
   gap: 10px;
   flex: 1;
-  overflow-y: auto;
   padding-top: 8px;
 }
 .toolbox-item {
@@ -208,8 +207,8 @@
   position: sticky !important;
   top: 1rem !important;
   max-height: calc(100vh - 160px) !important;
-  height: fit-content !important;
-  overflow-y: hidden;
+  height: 100% !important;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   padding-bottom: 20px;
@@ -435,4 +434,115 @@
   width: 4px !important;
   background-color: #ef4444 !important;
   border-radius: 8px 0 0 8px !important;
+}
+
+/* Responsive Form Builder Styles */
+.toolbox-scroll-wrapper {
+  flex: 1;
+  min-height: 0;
+  max-height: calc(100vh - 240px);
+  overflow-y: auto;
+  padding-right: 4px;
+  padding-bottom: 20px;
+}
+
+.properties-scroll-wrapper {
+  flex: 1;
+  min-height: 0;
+  max-height: calc(100vh - 240px);
+  overflow-y: auto;
+  padding-right: 4px;
+  padding-bottom: 60px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.info-form-row {
+  display: flex;
+  gap: 16px;
+  
+  @media (max-width: 640px) {
+    flex-direction: column;
+    gap: 12px;
+  }
+}
+
+@media (max-width: 1200px) {
+  .wf-page.builder-mode {
+    height: auto !important;
+    overflow: auto !important;
+    padding-bottom: 30px !important;
+  }
+
+  .builder-view-container {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  .builder-main-layout {
+    grid-template-columns: 1fr !important;
+    grid-template-rows: auto auto auto;
+    height: auto !important;
+    overflow: visible !important;
+    gap: 1.5rem !important;
+    
+    .toolbox-column {
+      position: static !important;
+      max-height: none !important;
+      overflow-y: visible !important;
+      width: 100%;
+    }
+    
+    .canvas-column {
+      position: static !important;
+      max-height: none !important;
+      overflow-y: visible !important;
+      width: 100%;
+    }
+
+    .properties-column {
+      grid-column: span 1 !important;
+      position: static !important;
+      max-height: none !important;
+      overflow-y: visible !important;
+      width: 100%;
+    }
+  }
+
+  .toolbox-scroll-wrapper,
+  .properties-scroll-wrapper {
+    max-height: none !important;
+    overflow-y: visible !important;
+  }
+
+  .canvas-field-card.width-50 {
+    width: 100% !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .list-toolbar {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 10px !important;
+    
+    .toolbar-right {
+      width: 100%;
+      justify-content: flex-end;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+  }
+}
+
+.canvas-field-card.field-inactive {
+  opacity: 0.65;
+  background-color: #f1f5f9;
+  border: 1px dashed #cbd5e1;
+  
+  .field-preview-body {
+    filter: grayscale(40%);
+  }
 }

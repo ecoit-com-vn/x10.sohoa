@@ -12,26 +12,27 @@ import { EquipmentService } from '../../data-access/equipment.service';
 import { FormTemplateService } from '../../data-access/form-template.service';
 import { DossierManagementService } from '@sohoa.frontend/features/dossier-management';
 import { EMPTY, forkJoin, of } from 'rxjs';
-import { catchError, finalize, switchMap } from 'rxjs/operators';
+import { catchError, finalize, switchMap, map } from 'rxjs/operators';
+import { EquipmentDocumentsComponent } from '../equipment-documents/equipment-documents.component';
 
 @Component({
   selector: 'app-equipment-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule, SelectModule, DialogModule, WfBreadcrumbComponent],
+  imports: [CommonModule, FormsModule, ToastModule, SelectModule, DialogModule, WfBreadcrumbComponent, EquipmentDocumentsComponent],
   providers: [MessageService],
   templateUrl: './equipment.component.html',
   styleUrls: ['./equipment.component.css']
 })
 export class EquipmentComponent implements OnInit {
-  private equipmentService = inject(EquipmentService);
-  private formTemplateService = inject(FormTemplateService);
-  private dossierService = inject(DossierManagementService);
-  private authService = inject(AuthService);
-  private messageService = inject(MessageService);
-  private router = inject(Router);
-  private route = inject(ActivatedRoute);
+  public equipmentService = inject(EquipmentService);
+  public formTemplateService = inject(FormTemplateService);
+  public dossierService = inject(DossierManagementService);
+  public authService = inject(AuthService);
+  public messageService = inject(MessageService);
+  public router = inject(Router);
+  public route = inject(ActivatedRoute);
 
-  protected readonly Math = Math;
+  public readonly Math = Math;
 
   // More menu state
   activeRowMenu = signal<string | null>(null);
@@ -61,12 +62,12 @@ export class EquipmentComponent implements OnInit {
   isSavingFormValues = signal<boolean>(false);
 
   // Dossiers Tab States
-  dossierItems = signal<any[]>([]);
-  dossierTotalCount = signal<number>(0);
-  dossierPage = signal<number>(1);
-  dossierPageSize = signal<number>(10);
-  dossierColumns = signal<any[]>([]);
-  isLoadingDossiers = signal<boolean>(false);
+  public dossierItems = signal<any[]>([]);
+  public dossierTotalCount = signal<number>(0);
+  public dossierPage = signal<number>(1);
+  public dossierPageSize = signal<number>(10);
+  public dossierColumns = signal<any[]>([]);
+  public isLoadingDossiers = signal<boolean>(false);
 
   // Lists from lookup
   organizationUnits = signal<any[]>([]);
@@ -217,8 +218,9 @@ export class EquipmentComponent implements OnInit {
       if (this.currentView() === 'list') {
         this.loadItems();
       }
-    }, { allowSignalWrites: true });
+    });
 
+    // Align with dossiers tab: load related data when tab becomes active and id is ready.
     effect(() => {
       const tab = this.activeTab();
       const page = this.dossierPage();
@@ -227,7 +229,7 @@ export class EquipmentComponent implements OnInit {
       if (tab === 1 && item?.id) {
         this.loadDossiers();
       }
-    }, { allowSignalWrites: true });
+    });
 
     if (typeof window !== 'undefined') {
       window.addEventListener('click', () => {
@@ -927,5 +929,73 @@ export class EquipmentComponent implements OnInit {
 
   goBack() {
     this.router.navigate(['/equipment/device-list']);
+  }
+
+  onEquipmentSpecsSaved(): void {
+    const item = this.currentItem();
+    if (!item?.id) return;
+    this.equipmentService.getById(item.id).subscribe({
+      next: (res) => {
+        if (!res) return;
+        try {
+          const parsed = res.formValues ? JSON.parse(res.formValues) : {};
+          this.formValuesObj.set(this.initEavFormValues(this.eavFields(), parsed));
+          this.currentItem.update((current) => ({ ...current, formValues: res.formValues }));
+        } catch {
+          // ignore
+        }
+      },
+    });
+  }
+
+  reloadDetail(id: string | null | undefined): void {
+    if (!id) return;
+    this.equipmentService.getById(id).subscribe({
+      next: (res) => {
+        if (res) {
+          this.currentItem.set({
+            id: res.id,
+            equipmentTypeId: res.equipmentTypeId,
+            name: res.name,
+            code: res.code,
+            serialNumber: res.serialNumber,
+            unitId: res.unitId,
+            infrastructureId: res.infrastructureId,
+            countryId: res.countryId,
+            gridTypeId: res.gridTypeId,
+            isActive: res.isActive === 1 || res.isActive === true,
+            formValues: res.formValues,
+            equipmentTypeName: res.equipmentTypeName,
+            equipmentTypeCode: res.equipmentTypeCode,
+            gridTypeName: res.gridTypeName,
+            infrastructureName: res.infrastructureName,
+            unitName: res.unitName,
+            countryName: res.countryName,
+            creator: res.creator,
+            createdBy: res.createdBy
+          });
+
+          let parsedFields: any[] = [];
+          if (res.formSchema) {
+            this.eavTemplate.set({ name: res.formTemplateName, formSchema: res.formSchema });
+            try {
+              parsedFields = JSON.parse(res.formSchema) || [];
+            } catch (e) {
+              parsedFields = [];
+            }
+          } else {
+            this.eavTemplate.set(null);
+          }
+          this.eavFields.set(parsedFields);
+
+          try {
+            const parsed = res.formValues ? JSON.parse(res.formValues) : {};
+            this.formValuesObj.set(this.initEavFormValues(parsedFields, parsed));
+          } catch (e) {
+            this.formValuesObj.set(this.initEavFormValues(parsedFields, {}));
+          }
+        }
+      }
+    });
   }
 }

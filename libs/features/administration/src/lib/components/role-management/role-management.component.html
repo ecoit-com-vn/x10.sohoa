@@ -21,7 +21,7 @@
         </div>
         <div class="toolbar-right">
           <button *ngIf="authService.hasPermission('ROLE_CREATE')" class="btn-green" (click)="onAddNew()">
-            <i class="pi pi-plus"></i> Thêm nhóm mới
+            <i class="pi pi-plus"></i> Thêm vai trò mới
           </button>
         </div>
       </div>
@@ -91,7 +91,7 @@
               <tr *ngIf="filteredRoles().length === 0">
                 <td colspan="6" class="empty-row">
                   <i class="pi pi-inbox"></i>
-                  <div>Không tìm thấy nhóm quyền phù hợp.</div>
+                  <div>Không tìm thấy vai trò phù hợp.</div>
                 </td>
               </tr>
             </ng-container>
@@ -101,7 +101,7 @@
 
       <!-- Footer with Pagination -->
       <div class="table-footer" *ngIf="filteredRoles().length > 0 && !loading()">
-        <span class="record-count">Tổng số: <b>{{ totalCount() }}</b> nhóm quyền.</span>
+        <span class="record-count">Tổng số: <b>{{ totalCount() }}</b> vai trò.</span>
         <div class="pagination">
           <button class="page-btn" (click)="prevPage()" [disabled]="currentPage() === 1">
             <i class="pi pi-chevron-left"></i>
@@ -123,19 +123,35 @@
       </div>
     </div>
 
-    <!-- Dialog Thêm/Sửa Nhóm quyền -->
+    <!-- Dialog Thêm/Sửa Vai trò -->
     <p-dialog [visible]="currentView() === 'add' || currentView() === 'edit'" (visibleChange)="$event ? null : currentView.set('list')" [header]="dialogHeader()" [modal]="true" [style]="{ width: '500px' }" styleClass="evn-dialog-custom">
       <div style="display: flex; flex-direction: column; gap: 16px; padding: 10px 0;">
         <div class="form-group">
-          <label class="form-label">Mã nhóm quyền <span class="required">*</span></label>
+          <label class="form-label">Mã vai trò <span class="required">*</span></label>
           <input type="text" class="wf-input w-full" [(ngModel)]="currentRole().code" (ngModelChange)="onFieldChange('code')" placeholder="Ví dụ: QUAN_TRI, CAN_BO..." [disabled]="isEdit() || saving()" />
           <span class="field-error" *ngIf="codeError()">{{ codeError() }}</span>
         </div>
         
         <div class="form-group">
-          <label class="form-label">Tên nhóm quyền <span class="required">*</span></label>
+          <label class="form-label">Tên vai trò <span class="required">*</span></label>
           <input type="text" class="wf-input w-full" [(ngModel)]="currentRole().name" (ngModelChange)="onFieldChange('name')" placeholder="Ví dụ: Quản trị viên hệ thống..." [disabled]="saving()" />
           <span class="field-error" *ngIf="nameError()">{{ nameError() }}</span>
+        </div>
+        
+        <div class="form-group" *ngIf="isCentralAdmin()">
+          <label class="form-label">Phạm vi vai trò <span class="required">*</span></label>
+          <select class="wf-select w-full" [(ngModel)]="currentRole().scopeTypeId" (ngModelChange)="currentRole().organizationUnitId = ($event == 1 ? null : currentRole().organizationUnitId)" [disabled]="isEdit() || saving()">
+            <option [value]="1">Toàn hệ thống (Global)</option>
+            <option [value]="2">Đơn vị (Unit)</option>
+          </select>
+        </div>
+
+        <div class="form-group" *ngIf="isCentralAdmin() && currentRole().scopeTypeId == 2">
+          <label class="form-label">Đơn vị thành viên <span class="required">*</span></label>
+          <select class="wf-select w-full" [(ngModel)]="currentRole().organizationUnitId" [disabled]="isEdit() || saving()">
+            <option [value]="null">-- Chọn đơn vị --</option>
+            <option *ngFor="let ou of organizationUnits()" [value]="ou.id">{{ ou.name }}</option>
+          </select>
         </div>
         
         <div class="form-group">
@@ -181,7 +197,7 @@
 
       <div class="tab-bar">
         <button type="button" class="tab-item" [class.tab-active]="permissionTab() === 'permissions'" (click)="switchPermissionTab('permissions')">
-          Phân quyền
+          Phân bổ nhóm quyền
         </button>
         <button type="button" class="tab-item" [class.tab-active]="permissionTab() === 'accounts'" (click)="switchPermissionTab('accounts')">
           Danh sách tài khoản
@@ -189,90 +205,24 @@
       </div>
 
       <div *ngIf="permissionTab() === 'permissions'" class="permission-tab-content">
-        <div class="permissions-scroll-container">
-          <div *ngFor="let parent of menuPermissionTree()" class="permission-group-card">
-            <ng-container *ngIf="getParentPermissionCodes(parent) as parentCodes">
-              <div class="permission-group-header" (click)="toggleParentMenu(parent)">
-                <div class="group-header-left">
-                  <i class="pi chevron-icon" [class.pi-angle-up]="parent.expanded" [class.pi-angle-down]="!parent.expanded"></i>
-                  <input
-                    type="checkbox"
-                    class="perm-checkbox group-checkbox"
-                    [checked]="isAllPermissionsChecked(parentCodes)"
-                    [disabled]="savingPermissions() || parentCodes.length === 0"
-                    (click)="$event.stopPropagation()"
-                    (change)="toggleAllPermissions(parentCodes)"
-                  />
-                  <span class="group-title">{{ parent.name }}</span>
-                </div>
-              </div>
-
-              <div *ngIf="parent.expanded" class="permission-group-body">
-                <div class="permission-columns">
-                  <div *ngFor="let sub of parent.subMenus" class="permission-column">
-                    <ng-container *ngIf="getSubmenuPermissionCodes(sub) as subCodes">
-                      <div class="column-header" (click)="toggleSubMenu(sub)">
-                        <div class="column-header-left">
-                          <i class="pi chevron-icon column-chevron" [class.pi-angle-up]="sub.expanded !== false" [class.pi-angle-down]="sub.expanded === false"></i>
-                          <input
-                            type="checkbox"
-                            class="perm-checkbox group-checkbox"
-                            [checked]="isAllPermissionsChecked(subCodes)"
-                            [disabled]="savingPermissions() || subCodes.length === 0"
-                            (click)="$event.stopPropagation()"
-                            (change)="toggleAllPermissions(subCodes)"
-                          />
-                          <span class="column-title">{{ sub.name }}</span>
-                        </div>
-                      </div>
-
-                      <div *ngIf="sub.expanded !== false" class="permission-list">
-                        <label
-                          *ngFor="let perm of sub.permissions"
-                          class="permission-row"
-                          [for]="getPermissionInputId(parent.id, sub.id, perm.code)"
-                        >
-                          <input
-                            type="checkbox"
-                            class="perm-checkbox"
-                            [id]="getPermissionInputId(parent.id, sub.id, perm.code)"
-                            [checked]="isPermissionChecked(perm.code)"
-                            [disabled]="savingPermissions()"
-                            (change)="togglePermission(perm.code)"
-                          />
-                          <span class="perm-name">{{ perm.name }}</span>
-                        </label>
-                        <div *ngIf="sub.permissions.length === 0" class="no-perms-hint">Chưa map quyền cho menu này.</div>
-                      </div>
-                    </ng-container>
-                  </div>
-
-                  <div *ngIf="parent.permissions?.length" class="permission-column">
-                    <div class="column-header">
-                      <span class="column-title">Quyền khác</span>
-                    </div>
-                    <div class="permission-list">
-                      <label
-                        *ngFor="let perm of parent.permissions"
-                        class="permission-row"
-                        [for]="getPermissionInputId(parent.id, null, perm.code)"
-                      >
-                        <input
-                          type="checkbox"
-                          class="perm-checkbox"
-                          [id]="getPermissionInputId(parent.id, null, perm.code)"
-                          [checked]="isPermissionChecked(perm.code)"
-                          [disabled]="savingPermissions()"
-                          (change)="togglePermission(perm.code)"
-                        />
-                        <span class="perm-name">{{ perm.name }}</span>
-                      </label>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </ng-container>
-          </div>
+        <div class="permissions-scroll-container" style="padding: 20px;">
+          <p class="text-muted" style="margin-bottom: 16px;">
+            Chọn nhóm quyền gán vào vai trò. Quản trị đơn vị chỉ thấy nhóm quyền đơn vị thuộc phạm vi quản lý.
+          </p>
+          <label *ngFor="let g of availablePermissionGroups()" class="permission-row" style="display: flex; align-items: center; gap: 12px; padding: 6px 0; margin-bottom: 6px; cursor: pointer;">
+            <input
+              type="checkbox"
+              class="perm-checkbox"
+              [checked]="isPermissionGroupSelected(g.id)"
+              [disabled]="savingPermissions()"
+              (change)="togglePermissionGroup(g.id)"
+            />
+            <span>
+              <b>{{ g.name }}</b>
+              <span *ngIf="g.organizationUnitName" class="text-muted" style="margin-left: 8px;">— {{ g.organizationUnitName }}</span>
+            </span>
+          </label>
+          <div *ngIf="availablePermissionGroups().length === 0" class="text-muted" style="padding: 10px 0;">Không có nhóm quyền khả dụng.</div>
         </div>
       </div>
 

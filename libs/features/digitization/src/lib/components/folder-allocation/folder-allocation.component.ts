@@ -8,6 +8,7 @@ import { MessageService } from 'primeng/api';
 import { finalize } from 'rxjs';
 import { FolderAllocationService, FolderAllocationItem } from '../../data-access/folder-allocation.service';
 import { FolderAllocationDialogComponent } from './folder-allocation-dialog.component';
+import { AuthService } from '@sohoa.frontend/shared/core';
 
 @Component({
   selector: 'app-folder-allocation',
@@ -27,6 +28,7 @@ import { FolderAllocationDialogComponent } from './folder-allocation-dialog.comp
 export class FolderAllocationComponent implements OnInit {
   private service = inject(FolderAllocationService);
   private messageService = inject(MessageService);
+  public authService = inject(AuthService);
 
   allocations = signal<FolderAllocationItem[]>([]);
   loading = signal<boolean>(false);

@@ -15,8 +15,25 @@ import { Select } from 'primeng/select';
 import { Router } from '@angular/router';
 import { FormTemplateService, EavFormTemplate } from '../../data-access/form-template.service';
 import { EquipmentTypeService } from '../../data-access/equipment-type.service';
+import { LoadingService, EavFormService } from '@sohoa.frontend/shared/core';
 import { finalize } from 'rxjs';
-import { LoadingService } from '@sohoa.frontend/shared/core';
+
+interface FormField {
+  id: string;
+  name: string;
+  label: string;
+  type: string;
+  placeholder?: string;
+  required: boolean;
+  options?: string[];
+  helpText?: string;
+  width: number;
+  dataSourceType?: 'manual' | 'catalog';
+  catalogType?: string;
+  description?: string;
+  selectAll?: boolean;
+  active?: boolean;
+}
 
 @Component({
   selector: 'app-form-template',
@@ -32,6 +49,7 @@ import { LoadingService } from '@sohoa.frontend/shared/core';
     TextareaModule,
     Paginator,
     Dialog,
+    Select,
     WfBreadcrumbComponent,
   ],
   providers: [MessageService],
@@ -44,6 +62,7 @@ export class FormTemplateComponent implements OnInit {
   private formTemplateService = inject(FormTemplateService);
   private equipmentTypeService = inject(EquipmentTypeService);
   private messageService = inject(MessageService);
+  private eavFormService = inject(EavFormService);
 
   showConfirmDelete = signal<boolean>(false);
   showConfirmLock = signal<boolean>(false);
@@ -137,6 +156,29 @@ export class FormTemplateComponent implements OnInit {
     }
   });
 
+  catalogOptionsMap = signal<{ [catalogCode: string]: string[] }>({});
+
+  loadCatalogOptions(catalogCode: string) {
+    if (!catalogCode || this.catalogOptionsMap()[catalogCode]) return;
+    this.eavFormService.getCatalogTypeByCode(catalogCode).subscribe({
+      next: (catalogType) => {
+        if (catalogType && catalogType.id) {
+          this.eavFormService.getCatalogsLookup(catalogType.id).subscribe({
+            next: (items) => {
+              const options = (items || []).map((item: any) => item.name || item.code);
+              this.catalogOptionsMap.update(prev => ({
+                ...prev,
+                [catalogCode]: options
+              }));
+            },
+            error: (err) => console.error(`Failed to load catalogs lookup for ${catalogCode}`, err)
+          });
+        }
+      },
+      error: (err) => console.error(`Failed to load catalog type for ${catalogCode}`, err)
+    });
+  }
+
   constructor() {
     effect(() => {
       this.searchKeyword();
@@ -145,6 +187,16 @@ export class FormTemplateComponent implements OnInit {
       this.selectedStatus();
       this.first.set(0);
     }, { allowSignalWrites: true });
+
+    effect(() => {
+      const currentFields = this.detailFields();
+      if (!currentFields) return;
+      currentFields.forEach((f: FormField) => {
+        if (f.dataSourceType === 'catalog' && f.catalogType) {
+          this.loadCatalogOptions(f.catalogType);
+        }
+      });
+    });
   }
 
   ngOnInit() {
@@ -159,7 +211,11 @@ export class FormTemplateComponent implements OnInit {
     this.equipmentTypeService.getEquipmentTypes(1, 1000, undefined, undefined, undefined, true).subscribe({
       next: (res) => {
         if (res && res.items) {
-          this.equipmentTypes.set(res.items);
+          const mapped = res.items.map((item: any) => ({
+            ...item,
+            value: item.code || item.id
+          }));
+          this.equipmentTypes.set(mapped);
         }
       },
       error: (err) => {
@@ -355,6 +411,11 @@ export class FormTemplateComponent implements OnInit {
           });
         }
       });
+  }
+
+  viewVersionDetail(ver: EavFormTemplate) {
+    this.showVersionsDialog.set(false);
+    this.viewDetails(ver);
   }
 
   exportExcel() {
