@@ -63,6 +63,7 @@ public class DocumentListItemDto
     public long FileSize { get; set; }
     public string? MimeType { get; set; }
     public Guid? LatestVersionId { get; set; }
+    public int RowVersion { get; set; }
     public bool IsDeleted { get; set; }
     public Guid? DocumentTypeId { get; set; }
     public string? DocumentTypeName { get; set; }

@@ -292,7 +292,8 @@ public class DocumentRepository : IDocumentRepository
                 d.CREATED_DATE AS CreatedDate,
                 NVL(latest.FILE_SIZE, 0) AS FileSize,
                 latest.MIME_TYPE AS MimeType,
-                latest.LATEST_VERSION_ID AS LatestVersionId
+                latest.LATEST_VERSION_ID AS LatestVersionId,
+                d.ROW_VERSION AS RowVersion
             FROM DOCUMENTS d
             {DocumentCreatorJoin}
             LEFT JOIN (
