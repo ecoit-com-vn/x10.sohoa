@@ -40,6 +40,7 @@ export interface Document {
   fileSize?: number;
   mimeType?: string;
   latestVersionId?: string | null;
+  rowVersion?: number;
 }
 
 export interface CreateDocumentRequest {

@@ -299,6 +299,30 @@ export class AdminLayout implements OnInit, OnDestroy {
       }
     }
 
+    const hasProcessingCategoryMenu = menusCopy.some((m) => m.url === '/catalog/processing-category');
+    if (!hasProcessingCategoryMenu && (this.authService.hasPermission('SUPER_ADMIN') || this.authService.hasPermission('PROCESSING_CATEGORY_VIEW'))) {
+      const catalogParent = menusCopy.find(
+        (m) =>
+          !m.url &&
+          (
+            m.name === 'Quản lý danh mục' ||
+            m.name === 'Danh mục hệ thống' ||
+            m.permissionCode === 'CATALOG_VIEW'
+          )
+      );
+      if (catalogParent) {
+        menusCopy.push({
+          id: 999996,
+          name: 'Quy trình xử lý',
+          icon: 'pi pi-sitemap',
+          url: '/catalog/processing-category',
+          parentId: catalogParent.id,
+          sortOrder: 8,
+          permissionCode: 'PROCESSING_CATEGORY_VIEW',
+        });
+      }
+    }
+
     menusCopy.forEach((m) => {
       const url = m.url === '/dossier-management' ? '/dossier-management/my-dossiers' : m.url;
       const item: MenuItem = {

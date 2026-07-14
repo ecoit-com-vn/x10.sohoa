@@ -1,8 +1,19 @@
 <div class="wf-page">
   <p-toast></p-toast>
-
-  <wf-breadcrumb />
-
+  <div class="list-toolbar">
+    <div class="list-toolbar">
+      <wf-breadcrumb />
+    </div>
+    <div class="toolbar-right" style="display: flex; gap: 8px;">
+      <button *ngIf="authService.hasPermission('USER_EXPORT')" class="btn-outlined" (click)="onExportExcel()"
+        title="Xuất Excel" [disabled]="loading()">
+        <i class="pi pi-file-excel"></i> Xuất Excel
+      </button>
+      <button *ngIf="authService.hasPermission('USER_CREATE')" class="btn-green" (click)="onAddNew()">
+        <i class="pi pi-plus"></i> Thêm mới
+      </button>
+    </div>
+  </div>
   <div class="wf-card">
 
     <!-- MÀN HÌNH DANH SÁCH -->
@@ -14,32 +25,17 @@
           <input type="text" class="wf-search-input" placeholder="Tìm kiếm tài khoản, tên..."
             [ngModel]="searchKeyword()" (ngModelChange)="searchKeyword.set($event)" />
 
-          <div class="org-tree-picker" style="min-width: 180px; width: 240px; position: relative;">
-            <!-- Thanh hiển thị đơn vị đã chọn -->
-            <div class="org-tree-trigger" (click)="toggleSearchOrgTreePicker($event)"
-              [class.has-value]="searchUnitId() !== null" [class.open]="searchOrgTreePickerOpen()">
-              <span class="org-tree-selected-label">
-                <i class="pi pi-building" style="margin-right: 6px; color: #6b7280;"></i>
-                {{ getUnitLabel(searchUnitId()) || '-- Tất cả đơn vị --' }}
-              </span>
-              <i class="pi" [class.pi-chevron-down]="!searchOrgTreePickerOpen()"
-                [class.pi-chevron-up]="searchOrgTreePickerOpen()"></i>
-            </div>
-            <!-- Tree dropdown -->
-            <div class="org-tree-dropdown" *ngIf="searchOrgTreePickerOpen()" (click)="$event.stopPropagation()">
-              <div class="org-tree-node" style="padding-left: 8px;"
-                [class.selected]="searchUnitId() === null">
-                <span class="org-tree-node-spacer"></span>
-                <span class="org-tree-node-label" (click)="selectSearchOrgUnit(null)">
-                  <i class="pi pi-building" style="margin-right: 5px; font-size: 0.8rem; color: #6b7280;"></i>
-                  -- Tất cả đơn vị --
-                </span>
-              </div>
-              <ng-container *ngFor="let node of orgUnitTree()">
-                <ng-container *ngTemplateOutlet="orgTreeSearchNode; context: { $implicit: node, depth: 0 }"></ng-container>
-              </ng-container>
-              <div *ngIf="orgUnitTree().length === 0" class="org-tree-empty">Chưa có đơn vị nào.</div>
-            </div>
+          <div style="min-width: 180px; width: 240px;">
+            <eco-input-tree-select
+              [showLabel]="false"
+              placeholder="-- Tất cả đơn vị --"
+              [nodes]="primengOrgUnitTree()"
+              [ngModel]="searchUnitId()"
+              (ngModelChange)="searchUnitId.set($event)"
+              [showClear]="true"
+              [enableSearch]="true"
+              [border]="true">
+            </eco-input-tree-select>
           </div>
 
           <select class="wf-select" [ngModel]="searchStatus()" (ngModelChange)="searchStatus.set($event)"
@@ -50,16 +46,7 @@
           </select>
 
           <button class="btn-tim" (click)="loadUsers()">
-            <i class="pi pi-search"></i> Tìm
-          </button>
-        </div>
-        <div class="toolbar-right" style="display: flex; gap: 8px;">
-          <button *ngIf="authService.hasPermission('USER_EXPORT')" class="btn-outlined" (click)="onExportExcel()"
-            title="Xuất Excel" [disabled]="loading()">
-            <i class="pi pi-file-excel"></i> Xuất Excel
-          </button>
-          <button *ngIf="authService.hasPermission('USER_CREATE')" class="btn-green" (click)="onAddNew()">
-            <i class="pi pi-plus"></i> Thêm mới
+            <i class="pi pi-search"></i> Tìm kiếm
           </button>
         </div>
       </div>
@@ -118,7 +105,8 @@
                 <td>{{ user.organizationUnit?.name || getUnitLabel(user.organizationUnitId) }}</td>
                 <td><span class="text-muted">{{ user.email }}</span></td>
                 <td class="col-tt">
-                  <span class="status-pill" [class.status-active]="user.isActive" [class.status-inactive]="!user.isActive">
+                  <span class="status-pill" [class.status-active]="user.isActive"
+                    [class.status-inactive]="!user.isActive">
                     {{ user.isActive ? 'Hoạt động' : 'Ngừng hoạt động' }}
                   </span>
                 </td>
@@ -238,78 +226,18 @@
 
         <!-- Đơn vị thành viên — Tree Picker -->
         <div class="form-group">
-          <label class="form-label">Đơn vị thành viên <span class="required">*</span></label>
-          <div class="org-tree-picker" [class.disabled]="saving()">
-            <!-- Thanh hiển thị đơn vị đã chọn -->
-            <div class="org-tree-trigger" (click)="!saving() && toggleOrgTreePicker($event)"
-              [class.has-value]="currentUser().organizationUnitId" [class.open]="orgTreePickerOpen()">
-              <span class="org-tree-selected-label">
-                <i class="pi pi-building" style="margin-right: 6px; color: #6b7280;"></i>
-                {{ getUnitLabel(currentUser().organizationUnitId) || '-- Chọn đơn vị thành viên --' }}
-              </span>
-              <i class="pi" [class.pi-chevron-down]="!orgTreePickerOpen()"
-                [class.pi-chevron-up]="orgTreePickerOpen()"></i>
-            </div>
-            <!-- Tree dropdown -->
-            <div class="org-tree-dropdown" *ngIf="orgTreePickerOpen()" (click)="$event.stopPropagation()">
-              <ng-container *ngFor="let node of orgUnitTree()">
-                <ng-container *ngTemplateOutlet="orgTreeNode; context: { $implicit: node, depth: 0 }"></ng-container>
-              </ng-container>
-              <div *ngIf="orgUnitTree().length === 0" class="org-tree-empty">Chưa có đơn vị nào.</div>
-            </div>
-          </div>
-          <!-- Template cây node (đệ quy) -->
-          <ng-template #orgTreeNode let-node let-depth="depth">
-            <div class="org-tree-node" [style.padding-left.px]="depth * 18 + 8"
-              [class.selected]="currentUser().organizationUnitId == node.id">
-              <!-- Nút mở rộng nếu có con -->
-              <button type="button" class="org-tree-expand-btn" *ngIf="node.children && node.children.length > 0"
-                (click)="toggleUnitNode(node.id, $event)">
-                <i class="pi" [class.pi-chevron-right]="!isNodeExpanded(node.id)"
-                  [class.pi-chevron-down]="isNodeExpanded(node.id)"></i>
-              </button>
-              <span class="org-tree-node-spacer" *ngIf="!node.children || node.children.length === 0"></span>
-              <!-- Nhãn đơn vị — click để chọn -->
-              <span class="org-tree-node-label" (click)="selectOrgUnit(node.id)">
-                <i class="pi pi-building" style="margin-right: 5px; font-size: 0.8rem; color: #6b7280;"></i>
-                {{ node.name }}
-              </span>
-            </div>
-            <!-- Cây con — chỉ hiện khi mở rộng -->
-            <ng-container *ngIf="isNodeExpanded(node.id) && node.children?.length">
-              <ng-container *ngFor="let child of node.children">
-                <ng-container
-                  *ngTemplateOutlet="orgTreeNode; context: { $implicit: child, depth: depth + 1 }"></ng-container>
-              </ng-container>
-            </ng-container>
-          </ng-template>
-
-          <!-- Template cây node cho Tìm kiếm (đệ quy) -->
-          <ng-template #orgTreeSearchNode let-node let-depth="depth">
-            <div class="org-tree-node" [style.padding-left.px]="depth * 18 + 8"
-              [class.selected]="searchUnitId() == node.id">
-              <!-- Nút mở rộng nếu có con -->
-              <button type="button" class="org-tree-expand-btn" *ngIf="node.children && node.children.length > 0"
-                (click)="toggleUnitNode(node.id, $event)">
-                <i class="pi" [class.pi-chevron-right]="!isNodeExpanded(node.id)"
-                  [class.pi-chevron-down]="isNodeExpanded(node.id)"></i>
-              </button>
-              <span class="org-tree-node-spacer" *ngIf="!node.children || node.children.length === 0"></span>
-              <!-- Nhãn đơn vị — click để chọn -->
-              <span class="org-tree-node-label" (click)="selectSearchOrgUnit(node.id)">
-                <i class="pi pi-building" style="margin-right: 5px; font-size: 0.8rem; color: #6b7280;"></i>
-                {{ node.name }}
-              </span>
-            </div>
-            <!-- Cây con — chỉ hiện khi mở rộng -->
-            <ng-container *ngIf="isNodeExpanded(node.id) && node.children?.length">
-              <ng-container *ngFor="let child of node.children">
-                <ng-container
-                  *ngTemplateOutlet="orgTreeSearchNode; context: { $implicit: child, depth: depth + 1 }"></ng-container>
-              </ng-container>
-            </ng-container>
-          </ng-template>
-          <span class="field-error" *ngIf="unitError()">{{ unitError() }}</span>
+          <eco-input-tree-select
+            label="Đơn vị thành viên"
+            placeholder="-- Chọn đơn vị thành viên --"
+            [nodes]="primengOrgUnitTree()"
+            [ngModel]="currentUser().organizationUnitId"
+            (ngModelChange)="currentUser().organizationUnitId = $event; onFieldChange('organizationUnitId')"
+            [required]="true"
+            [enableSearch]="true"
+            [showClear]="true"
+            [border]="true"
+            [errorMessage]="unitError()">
+          </eco-input-tree-select>
         </div>
 
         <!-- Chức vụ -->

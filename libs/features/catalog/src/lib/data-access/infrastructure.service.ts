@@ -76,4 +76,8 @@ export class InfrastructureService {
   getGridTypes(): Observable<any[]> {
     return this.http.get<any[]>(`${this.config.apiGatewayUrl}/api/v1/dossiers/grid-types/lookup`);
   }
+
+  getEquipmentTypes(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.config.apiGatewayUrl}/api/v1/equipment/get-equipment-types`);
+  }
 }
