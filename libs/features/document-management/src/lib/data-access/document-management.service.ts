@@ -86,4 +86,12 @@ export class DocumentManagementService {
   getDocumentVersions(documentId: string): Observable<DocumentVersion[]> {
     return this.api.get<DocumentVersion[]>(`${this.base}/${documentId}/versions`);
   }
+
+  rollbackDocumentVersion(versionId: string): Observable<void> {
+    return this.api.post<void>(`${this.base}/versions/${versionId}/rollback`, {});
+  }
+
+  deleteDocumentVersion(versionId: string): Observable<void> {
+    return this.api.delete<void>(`${this.base}/versions/${versionId}`);
+  }
 }

@@ -1,5 +1,6 @@
 <div class="wf-page document-management-page">
   <wf-breadcrumb />
+  <p-menu #docActionMenu [model]="docActionMenuItems()" [popup]="true" appendTo="body"></p-menu>
 
   <!-- TWO SEPARATE CARDS -->
   <div class="document-layout">
@@ -346,29 +347,12 @@
                 <td class="col-hd">
                   <div class="action-buttons-group">
                     <button
-                      class="act-btn act-edit"
-                      title="Sửa tài liệu"
-                      (click)="onEditDocument(doc)"
+                      class="act-btn"
+                      title="Thao tác"
+                      (click)="openDocumentMenu(doc, $event)"
+                      style="border: none; background: transparent; cursor: pointer; padding: 4px 8px; border-radius: 4px;"
                     >
-                      <i class="pi pi-pencil"></i>
-                    </button>
-                    <button
-                      class="act-btn act-download"
-                      title="Tải tài liệu"
-                      [disabled]="!doc.latestVersionId || isDownloadingDocument(doc.id)"
-                      (click)="onDownloadDocument(doc)"
-                    >
-                      <i
-                        class="pi"
-                        [ngClass]="isDownloadingDocument(doc.id) ? 'pi-spin pi-spinner' : 'pi-download'"
-                      ></i>
-                    </button>
-                    <button
-                      class="act-btn act-delete"
-                      title="Xóa tài liệu"
-                      (click)="onDeleteDocument(doc)"
-                    >
-                      <i class="pi pi-trash"></i>
+                      <i class="pi pi-ellipsis-h" style="font-size: 1.1rem; color: #64748b;"></i>
                     </button>
                   </div>
                 </td>
@@ -698,6 +682,103 @@
         <i class="pi pi-spin pi-spinner" *ngIf="savingDocument()"></i>
         <i class="pi pi-check" *ngIf="!savingDocument()"></i>
         Lưu
+      </button>
+    </div>
+  </ng-template>
+</p-dialog>
+
+<!-- dialog Lịch sử phiên bản -->
+<p-dialog
+  [header]="'Lịch sử phiên bản: ' + (historyTargetDocument()?.name || '')"
+  [visible]="showHistoryDialog()"
+  (visibleChange)="$event ? null : onCloseHistoryDialog()"
+  [modal]="true"
+  [resizable]="false"
+  [draggable]="false"
+  [style]="{ width: '70vw', maxWidth: '900px' }"
+  styleClass="evn-dialog-no-modal"
+>
+  <div class="version-history-container" style="padding: 10px 0;">
+    <div *ngIf="loadingVersions()" class="loading-overlay-dialog" style="text-align: center; padding: 20px;">
+      <i class="pi pi-spin pi-spinner" style="font-size: 2rem; color: var(--primary-color);"></i>
+      <div style="margin-top: 8px;">Đang tải danh sách phiên bản...</div>
+    </div>
+
+    <div *ngIf="!loadingVersions() && documentVersions().length === 0" style="text-align: center; padding: 20px; color: #64748b;">
+      Không tìm thấy thông tin phiên bản nào cho tài liệu này.
+    </div>
+
+    <div class="wf-table-wrap" *ngIf="!loadingVersions() && documentVersions().length > 0">
+      <table class="wf-table" style="width: 100%; border-collapse: collapse;">
+        <thead>
+          <tr>
+            <th class="col-stt" style="text-align: center; width: 80px;">Phiên bản</th>
+            <th style="width: 150px;">Nguồn tải lên</th>
+            <th style="width: 120px; text-align: right;">Kích thước</th>
+            <th style="width: 150px;">Người tạo</th>
+            <th style="width: 180px; text-align: center;">Ngày tạo</th>
+            <th class="col-hd" style="text-align: center; width: 160px;">Thao tác</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let ver of documentVersions(); let first = first">
+            <td style="text-align: center; font-weight: bold;">
+              v{{ ver.versionNumber }}
+              <span *ngIf="first" class="latest-badge" style="background: #22c55e; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 4px;">Mới nhất</span>
+            </td>
+            <td>
+              <span [ngSwitch]="ver.uploadSource">
+                <span *ngSwitchCase="1"><i class="pi pi-folder" style="color: #f59e0b; margin-right: 4px;"></i>Thư mục</span>
+                <span *ngSwitchCase="2"><i class="pi pi-print" style="color: #3b82f6; margin-right: 4px;"></i>Scan</span>
+                <span *ngSwitchCase="3"><i class="pi pi-globe" style="color: #10b981; margin-right: 4px;"></i>Web</span>
+                <span *ngSwitchDefault>Khác</span>
+              </span>
+            </td>
+            <td style="text-align: right;">
+              {{ (ver.fileSize || 0) / 1024 | number:'1.0-1' }} KB
+            </td>
+            <td>{{ ver.createdByName || ver.createdBy || 'Hệ thống' }}</td>
+            <td style="text-align: center;">
+              {{ ver.createdDate | date:'dd/MM/yyyy HH:mm:ss' }}
+            </td>
+            <td style="text-align: center;">
+              <div style="display: flex; justify-content: center; gap: 6px;">
+                <button
+                  class="act-btn act-download"
+                  title="Tải phiên bản này"
+                  (click)="onDownloadVersion(ver)"
+                >
+                  <i class="pi pi-download"></i>
+                </button>
+                <button
+                  class="act-btn act-history"
+                  title="Khôi phục về phiên bản này"
+                  [disabled]="first || rollingBack()"
+                  (click)="onRollbackVersion(ver)"
+                  style="background-color: #f59e0b; color: white;"
+                >
+                  <i class="pi pi-refresh" [class.pi-spin]="rollingBack()"></i>
+                </button>
+                <button
+                  class="act-btn act-delete"
+                  title="Xóa phiên bản này"
+                  [disabled]="deletingVersion()"
+                  (click)="onDeleteVersion(ver)"
+                >
+                  <i class="pi pi-trash" [class.pi-spin]="deletingVersion()"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <div style="display: flex; justify-content: flex-end; padding-top: 12px; border-top: 1px solid #e2e8f0;">
+      <button class="btn-cancel btn-small" (click)="onCloseHistoryDialog()">
+        <i class="pi pi-times"></i> Đóng
       </button>
     </div>
   </ng-template>

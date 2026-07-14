@@ -24,6 +24,20 @@ export interface DocumentOcrProgress {
   modifiedDate?: string;
 }
 
+export interface DocumentVersion {
+  id: string;
+  documentId: string;
+  versionNumber: number;
+  uploadSource: number; // 1: Thư mục, 2: Scan, 3: Web
+  filePath?: string;
+  minioVersionId?: string;
+  fileSize?: number;
+  mimeType?: string;
+  createdBy?: string;
+  createdByName?: string;
+  createdDate?: string;
+}
+
 export interface DocumentExtractionResultSummary {
   id: string;
   documentVersionId: string;
@@ -472,6 +486,25 @@ export class DossierDocumentService {
     return this.http.put<DocumentExtractionResult>(
       `${this.dossierBase(dossierId)}/${versionId}/digitization/result`,
       { mergedDataJson }
+    );
+  }
+
+  getDocumentVersions(dossierId: string, documentId: string): Observable<DocumentVersion[]> {
+    return this.http.get<DocumentVersion[]>(`${this.config.apiGatewayUrl}/api/v1/documents/${documentId}/versions`);
+  }
+
+  rollbackDocumentVersion(dossierId: string, versionId: string): Observable<void> {
+    const segment = this.kindId === 1 ? 'dossier-digitization/dossiers' : 'dossiers';
+    return this.http.post<void>(
+      `${this.config.apiGatewayUrl}/api/v1/${segment}/${dossierId}/documents/versions/${versionId}/rollback`,
+      {}
+    );
+  }
+
+  deleteDocumentVersion(dossierId: string, versionId: string): Observable<void> {
+    const segment = this.kindId === 1 ? 'dossier-digitization/dossiers' : 'dossiers';
+    return this.http.delete<void>(
+      `${this.config.apiGatewayUrl}/api/v1/${segment}/${dossierId}/documents/versions/${versionId}`
     );
   }
 
