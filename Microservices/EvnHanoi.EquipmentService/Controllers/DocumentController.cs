@@ -277,4 +277,30 @@ public partial class DocumentController : ControllerBase
         var versions = await _documentService.GetDocumentVersionsAsync(documentId);
         return Ok(versions);
     }
+
+    /// <summary>
+    /// Quay lại một phiên bản cũ của tài liệu
+    /// </summary>
+    [HttpPost("versions/{versionId}/rollback")]
+    public async Task<IActionResult> RollbackDocumentVersion([FromRoute] Guid versionId)
+    {
+        var result = await _documentService.RollbackDocumentVersionAsync(versionId, UserId);
+        if (!result)
+            return BadRequest("Không thể quay lại phiên bản này. Vui lòng kiểm tra lại.");
+
+        return Ok(new { message = "Quay lại phiên bản thành công" });
+    }
+
+    /// <summary>
+    /// Xóa một phiên bản của tài liệu
+    /// </summary>
+    [HttpDelete("versions/{versionId}")]
+    public async Task<IActionResult> DeleteDocumentVersion([FromRoute] Guid versionId)
+    {
+        var result = await _documentService.DeleteDocumentVersionAsync(versionId, UserId);
+        if (!result)
+            return BadRequest("Không thể xóa phiên bản này.");
+
+        return NoContent();
+    }
 }

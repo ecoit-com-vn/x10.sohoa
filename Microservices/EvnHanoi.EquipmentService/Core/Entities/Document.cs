@@ -10,6 +10,7 @@ public class DocumentVersion
     public int VersionNumber { get; set; }
     public int UploadSource { get; set; }  // 1: Thư mục, 2: Scan, 3: Web
     public string? FilePath { get; set; }  // Đường dẫn MinIO
+    public string? MinioVersionId { get; set; }  // ID phiên bản lưu trên MinIO
     public long FileSize { get; set; }
     public string? MimeType { get; set; }
 
