@@ -12,4 +12,11 @@ public interface IEavFormTemplateRepository
     Task AddAsync(EavFormTemplate template);
     Task UpdateAsync(EavFormTemplate template);
     Task<IEnumerable<EavFormTemplate>> GetVersionsByCodeAsync(string code);
+
+    // Version management methods
+    Task AddVersionAsync(EavFormTemplateVersion version);
+    Task DeactivateVersionsAsync(Guid formTemplateId);
+    Task<int> GetMaxVersionAsync(Guid formTemplateId);
+    Task DeleteVersionsAsync(Guid formTemplateId);
+    Task ApproveVersionAsync(Guid formTemplateId, string status);
 }

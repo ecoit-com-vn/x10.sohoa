@@ -104,19 +104,20 @@ public class EquipmentRepository : IEquipmentRepository
                      LEFT JOIN INFRASTRUCTURE inf ON e.INFRASTRUCTURE_ID = inf.Id
                      LEFT JOIN ORGANIZATION_UNIT u ON e.UnitId = u.Id
                      LEFT JOIN COUNTRIES c ON e.COUNTRY_ID = c.Id
-                      LEFT JOIN (
-                          SELECT * FROM (
-                              SELECT Id, Name, FormSchema, EquipmentTypeId,
-                                     ROW_NUMBER() OVER (
-                                         PARTITION BY EquipmentTypeId 
-                                         ORDER BY CASE WHEN Status = 'Hoàn thành' THEN 0 ELSE 1 END, Version DESC
-                                     ) as rn
-                              FROM EavFormTemplates
-                              WHERE IsDeleted = 0
-                                AND IsActive = 1
-                                AND FormType = 'TEMPLATE'
-                          ) WHERE rn = 1
-                      ) eft ON e.EquipmentTypeId = eft.EquipmentTypeId
+                     LEFT JOIN (
+                           SELECT * FROM (
+                               SELECT t.Id, v.Name, v.FormSchema, t.EquipmentTypeId,
+                                      ROW_NUMBER() OVER (
+                                          PARTITION BY t.EquipmentTypeId 
+                                          ORDER BY CASE WHEN v.Status = 'Hoàn thành' THEN 0 ELSE 1 END, v.Version DESC
+                                      ) as rn
+                               FROM EavFormTemplates t
+                               INNER JOIN EavFormTemplateVersions v ON t.Id = v.FormTemplateId AND v.IsActive = 1 AND v.IsDeleted = 0
+                               WHERE t.IsDeleted = 0
+                                 AND t.IsActive = 1
+                                 AND t.FormType = 'TEMPLATE'
+                           ) WHERE rn = 1
+                       ) eft ON e.EquipmentTypeId = eft.EquipmentTypeId
                      LEFT JOIN APP_USER usr ON e.CreatorId = usr.Id
                      WHERE e.Id = :Id AND e.IsDeleted = 0";
 
@@ -183,6 +184,7 @@ public class EquipmentRepository : IEquipmentRepository
     public async Task<(IEnumerable<EquipmentDto> Items, int TotalCount)> GetPagedAsync(
         int page, 
         int pageSize, 
+        string? keyword,
         string? code, 
         string? name, 
         long? unitId, 
@@ -205,6 +207,12 @@ public class EquipmentRepository : IEquipmentRepository
                         WHERE e.IsDeleted = 0";
 
         var parameters = new DynamicParameters();
+
+        if (!string.IsNullOrEmpty(keyword))
+        {
+            sqlBase += " AND (LOWER(e.Code) LIKE :Keyword OR LOWER(e.Name) LIKE :Keyword)";
+            parameters.Add("Keyword", $"%{keyword.ToLower().Trim()}%");
+        }
 
         if (!string.IsNullOrEmpty(code))
         {
