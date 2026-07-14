@@ -126,9 +126,11 @@ public class DocumentVersionDto
     public int VersionNumber { get; set; }
     public int UploadSource { get; set; }  // 1: Thư mục, 2: Scan, 3: Web
     public string? FilePath { get; set; }
+    public string? MinioVersionId { get; set; }
     public long FileSize { get; set; }
     public string? MimeType { get; set; }
     public string? CreatedBy { get; set; }
+    public string? CreatedByName { get; set; }
     public DateTime CreatedDate { get; set; }
     public bool IsDeleted { get; set; }
 }

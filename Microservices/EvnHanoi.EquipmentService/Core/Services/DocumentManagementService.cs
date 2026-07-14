@@ -29,6 +29,8 @@ public interface IDocumentManagementService
 
     // Document Version operations
     Task<IEnumerable<DocumentVersionDto>> GetDocumentVersionsAsync(Guid documentId);
+    Task<bool> RollbackDocumentVersionAsync(Guid versionId, string userId);
+    Task<bool> DeleteDocumentVersionAsync(Guid versionId, string userId);
 
     // Dossier Catalog tree operations
     Task<IEnumerable<FolderCatalogNodeDto>> GetDossierCatalogTreeAsync(long unitId);
@@ -286,6 +288,23 @@ public class DocumentManagementService : IDocumentManagementService
 
     public async Task<bool> DeleteDocumentAsync(Guid id, string modifiedBy)
     {
+        var document = await _documentRepository.GetDocumentByIdAsync(id);
+        if (document == null)
+            return false;
+
+        var versions = (await _documentRepository.GetDocumentVersionsAsync(id)).ToList();
+        foreach (var version in versions)
+        {
+            if (!string.IsNullOrEmpty(version.FilePath))
+            {
+                await _fileStorageService.DeleteFileAsync(
+                    version.FilePath,
+                    null,
+                    version.MinioVersionId);
+            }
+        }
+
+        await _documentRepository.SoftDeleteDocumentVersionsAsync(id, modifiedBy);
         return await _documentRepository.DeleteDocumentAsync(id, modifiedBy);
     }
 
@@ -294,6 +313,89 @@ public class DocumentManagementService : IDocumentManagementService
     public async Task<IEnumerable<DocumentVersionDto>> GetDocumentVersionsAsync(Guid documentId)
     {
         return await _documentRepository.GetDocumentVersionsAsync(documentId);
+    }
+
+    public async Task<bool> RollbackDocumentVersionAsync(Guid versionId, string userId)
+    {
+        var targetVersion = await _documentRepository.GetDocumentVersionByIdAsync(versionId);
+        if (targetVersion == null || string.IsNullOrEmpty(targetVersion.FilePath))
+        {
+            _logger.LogWarning("Rollback target version {VersionId} not found or has no file.", versionId);
+            return false;
+        }
+
+        var document = await _documentRepository.GetDocumentByIdAsync(targetVersion.DocumentId);
+        if (document == null)
+        {
+            _logger.LogWarning("Document {DocumentId} for target version not found.", targetVersion.DocumentId);
+            return false;
+        }
+
+        if (!document.FolderId.HasValue)
+        {
+            _logger.LogWarning("Document {DocumentId} is not in a folder, rollback currently only supported for folder files.", document.Id);
+            return false;
+        }
+
+        var folder = await _documentRepository.GetFolderByIdAsync(document.FolderId.Value);
+        var unitCode = folder?.UnitCode ?? "system";
+
+        // Download the target file version
+        using var stream = await _fileStorageService.DownloadFileAsync(
+            targetVersion.FilePath,
+            null,
+            targetVersion.MinioVersionId);
+
+        // Upload it back to MinIO as a new version
+        var (newPath, newMinioVersionId) = await _fileStorageService.UploadFileAsync(
+            stream,
+            document.Name ?? "rollback_file",
+            targetVersion.MimeType ?? "application/octet-stream",
+            targetVersion.FileSize,
+            unitCode,
+            document.FolderId.Value);
+
+        // Determine new version number
+        var versions = await _documentRepository.GetDocumentVersionsAsync(document.Id);
+        var maxVersion = versions.Any() ? versions.Max(v => v.VersionNumber) : 0;
+
+        var newVersion = new DocumentVersion
+        {
+            DocumentId = document.Id,
+            VersionNumber = maxVersion + 1,
+            UploadSource = 3, // Web/Rollback
+            FilePath = newPath,
+            MinioVersionId = newMinioVersionId,
+            FileSize = targetVersion.FileSize,
+            MimeType = targetVersion.MimeType,
+            CreatedBy = userId
+        };
+
+        var newVersionId = await _documentRepository.CreateDocumentVersionAsync(newVersion);
+        _logger.LogInformation("Successfully rolled back document {DocumentId} to version {VersionNumber} (New VersionId: {NewVersionId})",
+            document.Id, targetVersion.VersionNumber, newVersionId);
+
+        return true;
+    }
+
+    public async Task<bool> DeleteDocumentVersionAsync(Guid versionId, string userId)
+    {
+        var version = await _documentRepository.GetDocumentVersionByIdAsync(versionId);
+        if (version == null)
+        {
+            _logger.LogWarning("Document version {VersionId} not found.", versionId);
+            return false;
+        }
+
+        if (!string.IsNullOrEmpty(version.FilePath))
+        {
+            await _fileStorageService.DeleteFileAsync(
+                version.FilePath,
+                null,
+                version.MinioVersionId);
+        }
+
+        return await _documentRepository.SoftDeleteDocumentVersionAsync(versionId, userId);
     }
 
     // ===== DOSSIER CATALOG TREE OPERATIONS =====

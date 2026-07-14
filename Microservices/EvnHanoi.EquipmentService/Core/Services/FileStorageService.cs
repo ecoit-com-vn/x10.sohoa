@@ -12,7 +12,7 @@ public interface IFileStorageService
     /// <summary>
     /// Upload file trực tiếp (dùng cho direct upload)
     /// </summary>
-    Task<string> UploadFileAsync(
+    Task<(string ObjectKey, string VersionId)> UploadFileAsync(
         Stream fileStream,
         string fileName,
         string mimeType,
@@ -33,9 +33,9 @@ public interface IFileStorageService
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Merge chunks thành file hoàn chỉnh — trả về object key và kích thước file.
+    /// Merge chunks thành file hoàn chỉnh — trả về object key, kích thước file và versionId.
     /// </summary>
-    Task<(string ObjectKey, long Size)> MergeChunksAsync(
+    Task<(string ObjectKey, long Size, string VersionId)> MergeChunksAsync(
         string uploadId,
         int totalChunks,
         string unitCode,
@@ -46,12 +46,12 @@ public interface IFileStorageService
     /// <summary>
     /// Download file từ MinIO (bucket mặc định: kho tài liệu)
     /// </summary>
-    Task<Stream> DownloadFileAsync(string filePath, string? bucketName = null, CancellationToken cancellationToken = default);
+    Task<Stream> DownloadFileAsync(string filePath, string? bucketName = null, string? versionId = null, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Xóa file khỏi MinIO (bucket mặc định: kho tài liệu)
     /// </summary>
-    Task<bool> DeleteFileAsync(string filePath, string? bucketName = null, CancellationToken cancellationToken = default);
+    Task<bool> DeleteFileAsync(string filePath, string? bucketName = null, string? versionId = null, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Xóa chunks tạm từ upload session
@@ -62,7 +62,7 @@ public interface IFileStorageService
         string unitCode,
         CancellationToken cancellationToken = default);
 
-    Task<string> UploadFileToDossierAsync(
+    Task<(string ObjectKey, string VersionId)> UploadFileToDossierAsync(
         Stream fileStream,
         string fileName,
         string mimeType,
@@ -71,7 +71,7 @@ public interface IFileStorageService
         Guid dossierId,
         CancellationToken cancellationToken = default);
 
-    Task<(string ObjectKey, long Size)> MergeChunksToDossierAsync(
+    Task<(string ObjectKey, long Size, string VersionId)> MergeChunksToDossierAsync(
         string uploadId,
         int totalChunks,
         string unitCode,
@@ -113,7 +113,7 @@ public class FileStorageService : IFileStorageService
         _sessionBucket = config["MinIO:UploadSessionsBucketName"] ?? "upload-sessions";
     }
 
-    public async Task<string> UploadFileAsync(
+    public async Task<(string ObjectKey, string VersionId)> UploadFileAsync(
         Stream fileStream,
         string fileName,
         string mimeType,
@@ -137,11 +137,17 @@ public class FileStorageService : IFileStorageService
                 .WithContentType(mimeType);
 
             await _minioClient.PutObjectAsync(putArgs, cancellationToken);
-            _logger.LogInformation(
-                "Uploaded file to MinIO: {Bucket}/{ObjectKey} (UnitCode: {UnitCode}, Size: {Size} bytes)",
-                _documentBucket, objectKey, unitCode, fileSize);
 
-            return objectKey;
+            var statArgs = new StatObjectArgs()
+                .WithBucket(_documentBucket)
+                .WithObject(objectKey);
+            var stat = await _minioClient.StatObjectAsync(statArgs, cancellationToken);
+
+            _logger.LogInformation(
+                "Uploaded file to MinIO: {Bucket}/{ObjectKey} (UnitCode: {UnitCode}, Size: {Size} bytes, Version: {Version})",
+                _documentBucket, objectKey, unitCode, fileSize, stat.VersionId);
+
+            return (objectKey, stat.VersionId ?? "");
         }
         catch (Exception ex)
         {
@@ -192,7 +198,7 @@ public class FileStorageService : IFileStorageService
         }
     }
 
-    public async Task<(string ObjectKey, long Size)> MergeChunksAsync(
+    public async Task<(string ObjectKey, long Size, string VersionId)> MergeChunksAsync(
         string uploadId,
         int totalChunks,
         string unitCode,
@@ -201,14 +207,15 @@ public class FileStorageService : IFileStorageService
         CancellationToken cancellationToken = default)
     {
         var objectKey = BuildDocumentObjectKey(unitCode, folderId, fileName);
-        var size = await MergeUploadChunksAsync(
+        var (size, versionId) = await MergeUploadChunksAsync(
             uploadId, totalChunks, unitCode, objectKey, _documentBucket, cancellationToken);
-        return (objectKey, size);
+        return (objectKey, size, versionId);
     }
 
     public async Task<Stream> DownloadFileAsync(
         string filePath,
         string? bucketName = null,
+        string? versionId = null,
         CancellationToken cancellationToken = default)
     {
         try
@@ -218,21 +225,27 @@ public class FileStorageService : IFileStorageService
 
             var getArgs = new GetObjectArgs()
                 .WithBucket(bucket)
-                .WithObject(filePath)
-                .WithCallbackStream(stream =>
-                {
-                    stream.CopyTo(memStream);
-                });
+                .WithObject(filePath);
+
+            if (!string.IsNullOrEmpty(versionId))
+            {
+                getArgs = getArgs.WithVersionId(versionId);
+            }
+
+            getArgs = getArgs.WithCallbackStream(stream =>
+            {
+                stream.CopyTo(memStream);
+            });
 
             await _minioClient.GetObjectAsync(getArgs, cancellationToken);
             memStream.Seek(0, SeekOrigin.Begin);
 
-            _logger.LogInformation("Downloaded file from MinIO: {Bucket}/{ObjectKey}", bucket, filePath);
+            _logger.LogInformation("Downloaded file from MinIO: {Bucket}/{ObjectKey} (Version: {Version})", bucket, filePath, versionId);
             return memStream;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to download file: {FilePath}", filePath);
+            _logger.LogError(ex, "Failed to download file: {FilePath} (Version: {Version})", filePath, versionId);
             throw;
         }
     }
@@ -240,6 +253,7 @@ public class FileStorageService : IFileStorageService
     public async Task<bool> DeleteFileAsync(
         string filePath,
         string? bucketName = null,
+        string? versionId = null,
         CancellationToken cancellationToken = default)
     {
         try
@@ -249,13 +263,18 @@ public class FileStorageService : IFileStorageService
                 .WithBucket(bucket)
                 .WithObject(filePath);
 
+            if (!string.IsNullOrEmpty(versionId))
+            {
+                rmArgs = rmArgs.WithVersionId(versionId);
+            }
+
             await _minioClient.RemoveObjectAsync(rmArgs, cancellationToken);
-            _logger.LogInformation("Deleted file from MinIO: {Bucket}/{ObjectKey}", bucket, filePath);
+            _logger.LogInformation("Deleted file from MinIO: {Bucket}/{ObjectKey} (Version: {Version})", bucket, filePath, versionId);
             return true;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to delete file: {FilePath}", filePath);
+            _logger.LogError(ex, "Failed to delete file: {FilePath} (Version: {Version})", filePath, versionId);
             return false;
         }
     }
@@ -293,7 +312,7 @@ public class FileStorageService : IFileStorageService
         }
     }
 
-    public async Task<string> UploadFileToDossierAsync(
+    public async Task<(string ObjectKey, string VersionId)> UploadFileToDossierAsync(
         Stream fileStream,
         string fileName,
         string mimeType,
@@ -313,13 +332,19 @@ public class FileStorageService : IFileStorageService
             .WithContentType(mimeType);
 
         await _minioClient.PutObjectAsync(putArgs, cancellationToken);
+
+        var statArgs = new StatObjectArgs()
+            .WithBucket(_dossierBucket)
+            .WithObject(objectKey);
+        var stat = await _minioClient.StatObjectAsync(statArgs, cancellationToken);
+
         _logger.LogInformation(
-            "Uploaded dossier file to MinIO: {Bucket}/{ObjectKey} (DossierId: {DossierId})",
-            _dossierBucket, objectKey, dossierId);
-        return objectKey;
+            "Uploaded dossier file to MinIO: {Bucket}/{ObjectKey} (DossierId: {DossierId}, Version: {Version})",
+            _dossierBucket, objectKey, dossierId, stat.VersionId);
+        return (objectKey, stat.VersionId ?? "");
     }
 
-    public async Task<(string ObjectKey, long Size)> MergeChunksToDossierAsync(
+    public async Task<(string ObjectKey, long Size, string VersionId)> MergeChunksToDossierAsync(
         string uploadId,
         int totalChunks,
         string unitCode,
@@ -328,12 +353,12 @@ public class FileStorageService : IFileStorageService
         CancellationToken cancellationToken = default)
     {
         var objectKey = BuildDossierObjectKey(unitCode, dossierId, fileName);
-        var size = await MergeUploadChunksAsync(
+        var (size, versionId) = await MergeUploadChunksAsync(
             uploadId, totalChunks, unitCode, objectKey, _dossierBucket, cancellationToken);
-        return (objectKey, size);
+        return (objectKey, size, versionId);
     }
 
-    private async Task<long> MergeUploadChunksAsync(
+    private async Task<(long Size, string VersionId)> MergeUploadChunksAsync(
         string uploadId,
         int totalChunks,
         string unitCode,
@@ -347,7 +372,7 @@ public class FileStorageService : IFileStorageService
         for (var chunkNumber = 1; chunkNumber <= totalChunks; chunkNumber++)
         {
             var chunkObjectKey = BuildChunkObjectKey(unitCode, uploadId, chunkNumber);
-            await using var chunkStream = await DownloadFileAsync(chunkObjectKey, _sessionBucket, cancellationToken);
+            await using var chunkStream = await DownloadFileAsync(chunkObjectKey, _sessionBucket, null, cancellationToken);
             await chunkStream.CopyToAsync(mergedStream, cancellationToken);
         }
 
@@ -361,11 +386,17 @@ public class FileStorageService : IFileStorageService
             .WithContentType("application/octet-stream");
 
         await _minioClient.PutObjectAsync(putArgs, cancellationToken);
-        _logger.LogInformation(
-            "Merged {TotalChunks} upload chunks session {UploadId} -> {Bucket}/{ObjectKey} ({Size} bytes)",
-            totalChunks, uploadId, destinationBucket, destinationObjectKey, mergedStream.Length);
 
-        return mergedStream.Length;
+        var statArgs = new StatObjectArgs()
+            .WithBucket(destinationBucket)
+            .WithObject(destinationObjectKey);
+        var stat = await _minioClient.StatObjectAsync(statArgs, cancellationToken);
+
+        _logger.LogInformation(
+            "Merged {TotalChunks} upload chunks session {UploadId} -> {Bucket}/{ObjectKey} ({Size} bytes, Version: {Version})",
+            totalChunks, uploadId, destinationBucket, destinationObjectKey, mergedStream.Length, stat.VersionId);
+
+        return (mergedStream.Length, stat.VersionId ?? "");
     }
 
     public async Task<string> CopyFileAsync(

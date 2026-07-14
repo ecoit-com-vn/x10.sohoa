@@ -17,6 +17,7 @@ public interface IEquipmentRepository
     Task<(IEnumerable<EquipmentDto> Items, int TotalCount)> GetPagedAsync(
         int page, 
         int pageSize, 
+        string? keyword,
         string? code, 
         string? name, 
         long? unitId, 

@@ -52,6 +52,7 @@ public partial class EquipmentController : ControllerBase
     public async Task<IActionResult> Get(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10,
+        [FromQuery] string? keyword = null,
         [FromQuery] string? code = null,
         [FromQuery] string? name = null,
         [FromQuery] long? unitId = null,
@@ -72,6 +73,7 @@ public partial class EquipmentController : ControllerBase
         var (items, totalCount) = await _equipmentRepository.GetPagedAsync(
             page, 
             pageSize, 
+            keyword,
             code, 
             name, 
             unitId, 

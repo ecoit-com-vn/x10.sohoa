@@ -156,7 +156,7 @@ public class FileUploadService : IFileUploadService
 
             // ===== UPLOAD TO MINIO (theo đơn vị + thư mục) =====
             fileStream.Seek(0, SeekOrigin.Begin);
-            var minioPath = await _fileStorageService.UploadFileAsync(
+            var (minioPath, minioVersionId) = await _fileStorageService.UploadFileAsync(
                 fileStream,
                 fileName,
                 mimeType,
@@ -165,25 +165,40 @@ public class FileUploadService : IFileUploadService
                 folderId,
                 cancellationToken);
 
-            _logger.LogInformation("File uploaded to MinIO: {MinioPath}", minioPath);
+            _logger.LogInformation("File uploaded to MinIO: {MinioPath} (Version: {VersionId})", minioPath, minioVersionId);
 
-            // ===== CREATE DOCUMENT & VERSION =====
-            var document = new Document
+            // ===== CREATE OR UPDATE DOCUMENT & VERSION =====
+            Guid documentId;
+            int versionNumber = 1;
+
+            var existingDoc = await _documentRepository.GetDocumentByNameAndFolderAsync(fileName, folderId);
+            if (existingDoc != null)
             {
-                Name = fileName,
-                FolderId = folderId,
-                Status = "Active",
-                CreatedBy = userId
-            };
-
-            var documentId = await _documentRepository.CreateDocumentAsync(document);
+                documentId = existingDoc.Id;
+                var versions = await _documentRepository.GetDocumentVersionsAsync(documentId);
+                versionNumber = versions.Any() ? versions.Max(v => v.VersionNumber) + 1 : 1;
+                _logger.LogInformation("Found existing document with same name '{FileName}' (DocumentId: {DocumentId}). Incrementing to version {VersionNumber}.", 
+                    fileName, documentId, versionNumber);
+            }
+            else
+            {
+                var document = new Document
+                {
+                    Name = fileName,
+                    FolderId = folderId,
+                    Status = "Active",
+                    CreatedBy = userId
+                };
+                documentId = await _documentRepository.CreateDocumentAsync(document);
+            }
 
             var version = new DocumentVersion
             {
                 DocumentId = documentId,
-                VersionNumber = 1,
+                VersionNumber = versionNumber,
                 UploadSource = uploadSource,
                 FilePath = minioPath,
+                MinioVersionId = minioVersionId,
                 FileSize = fileSize,
                 MimeType = mimeType,
                 ChunksCount = 1,  // Direct upload
@@ -192,14 +207,14 @@ public class FileUploadService : IFileUploadService
 
             var versionId = await _documentRepository.CreateDocumentVersionAsync(version);
 
-            _logger.LogInformation("Successfully uploaded file: {FileName} (DocumentId: {DocumentId}, VersionId: {VersionId})",
-                fileName, documentId, versionId);
+            _logger.LogInformation("Successfully uploaded file: {FileName} (DocumentId: {DocumentId}, VersionId: {VersionId}, VersionNumber: {VersionNumber})",
+                fileName, documentId, versionId, versionNumber);
 
             return new FileUploadResponse
             {
                 DocumentVersionId = versionId,
                 DocumentId = documentId,
-                VersionNumber = 1,
+                VersionNumber = versionNumber,
                 Status = "Active"
             };
         }
@@ -338,32 +353,47 @@ public class FileUploadService : IFileUploadService
                 throw new InvalidOperationException("Thư mục của upload session không tồn tại");
 
             // ===== MERGE CHUNKS (theo đơn vị + thư mục) =====
-            var (mergedPath, mergedSize) = await _fileStorageService.MergeChunksAsync(
+            var (mergedPath, mergedSize, minioVersionId) = await _fileStorageService.MergeChunksAsync(
                 uploadId,
                 session.TotalChunks,
                 ResolveUnitCode(folder),
                 session.FolderId!.Value,
                 session.FileName,
                 cancellationToken);
-            _logger.LogInformation("Merged chunks for session {UploadId}: {MergedPath}", uploadId, mergedPath);
+            _logger.LogInformation("Merged chunks for session {UploadId}: {MergedPath} (Version: {VersionId})", uploadId, mergedPath, minioVersionId);
 
-            // ===== CREATE DOCUMENT & VERSION =====
-            var document = new Document
+            // ===== CREATE OR UPDATE DOCUMENT & VERSION =====
+            Guid documentId;
+            int versionNumber = 1;
+
+            var existingDoc = await _documentRepository.GetDocumentByNameAndFolderAsync(session.FileName, session.FolderId!.Value);
+            if (existingDoc != null)
             {
-                Name = session.FileName,
-                FolderId = session.FolderId,
-                Status = "Active",
-                CreatedBy = userId
-            };
-
-            var documentId = await _documentRepository.CreateDocumentAsync(document);
+                documentId = existingDoc.Id;
+                var versions = await _documentRepository.GetDocumentVersionsAsync(documentId);
+                versionNumber = versions.Any() ? versions.Max(v => v.VersionNumber) + 1 : 1;
+                _logger.LogInformation("Found existing document with same name '{FileName}' (DocumentId: {DocumentId}) in chunked upload. Incrementing version to {VersionNumber}.",
+                    session.FileName, documentId, versionNumber);
+            }
+            else
+            {
+                var document = new Document
+                {
+                    Name = session.FileName,
+                    FolderId = session.FolderId,
+                    Status = "Active",
+                    CreatedBy = userId
+                };
+                documentId = await _documentRepository.CreateDocumentAsync(document);
+            }
 
             var version = new DocumentVersion
             {
                 DocumentId = documentId,
-                VersionNumber = 1,
+                VersionNumber = versionNumber,
                 UploadSource = 1,  // 1 = Folder upload
                 FilePath = mergedPath,
+                MinioVersionId = minioVersionId,
                 FileSize = mergedSize,
                 MimeType = "application/octet-stream",
                 UploadSessionId = session.Id,
@@ -381,13 +411,13 @@ public class FileUploadService : IFileUploadService
                 cancellationToken);
             await _documentRepository.CompleteUploadSessionAsync(uploadId, userId);
 
-            _logger.LogInformation("Completed chunked upload: {UploadId} ({FileName})", uploadId, session.FileName);
+            _logger.LogInformation("Completed chunked upload: {UploadId} ({FileName}), Version: {VersionNumber}", uploadId, session.FileName, versionNumber);
 
             return new FileUploadResponse
             {
                 DocumentVersionId = versionId,
                 DocumentId = documentId,
-                VersionNumber = 1,
+                VersionNumber = versionNumber,
                 Status = "Active"
             };
         }
@@ -424,26 +454,44 @@ public class FileUploadService : IFileUploadService
             throw new InvalidOperationException($"File bị phát hiện chứa mã độc: {scanResult.Threat}");
 
         fileStream.Seek(0, SeekOrigin.Begin);
-        var minioPath = await _fileStorageService.UploadFileToDossierAsync(
+        var (minioPath, minioVersionId) = await _fileStorageService.UploadFileToDossierAsync(
             fileStream, fileName, mimeType, fileSize, unitCode, dossierId, cancellationToken);
 
-        var document = new Document
+        // Check for existing document in dossier
+        var existingDoc = await _documentRepository.GetDocumentByNameAndDossierAsync(fileName, dossierId);
+        Guid documentId;
+        int versionNumber;
+        if (existingDoc != null)
         {
-            Name = fileName,
-            DossierId = dossierId,
-            DocumentTypeId = documentTypeId,
-            Status = "Active",
-            CreatedBy = userId,
-            CreatorName = creatorName
-        };
-        var documentId = await _documentRepository.CreateDocumentAsync(document);
+            documentId = existingDoc.Id;
+            // Get current max version number and increment
+            var maxVersion = await _documentRepository.GetMaxDocumentVersionNumberAsync(documentId);
+            versionNumber = maxVersion + 1;
+            _logger.LogInformation("Found existing document in dossier '{FileName}' (DocumentId: {DocumentId}). Incrementing to version {VersionNumber}.",
+                fileName, documentId, versionNumber);
+        }
+        else
+        {
+            var document = new Document
+            {
+                Name = fileName,
+                DossierId = dossierId,
+                DocumentTypeId = documentTypeId,
+                Status = "Active",
+                CreatedBy = userId,
+                CreatorName = creatorName
+            };
+            documentId = await _documentRepository.CreateDocumentAsync(document);
+            versionNumber = 1;
+        }
 
         var version = new DocumentVersion
         {
             DocumentId = documentId,
-            VersionNumber = 1,
+            VersionNumber = versionNumber,
             UploadSource = uploadSource,
             FilePath = minioPath,
+            MinioVersionId = minioVersionId,
             FileSize = fileSize,
             MimeType = mimeType,
             ChunksCount = 1,
@@ -455,7 +503,7 @@ public class FileUploadService : IFileUploadService
         {
             DocumentVersionId = versionId,
             DocumentId = documentId,
-            VersionNumber = 1,
+            VersionNumber = versionNumber,
             Status = "Active"
         };
     }
@@ -531,7 +579,7 @@ public class FileUploadService : IFileUploadService
             throw new InvalidOperationException($"Thiếu chunks. Cần {session.TotalChunks}, nhận được {request.Parts.Count}");
 
         var unitCode = await ResolveUnitCodeFromUserAsync(userUnitId);
-        var (mergedPath, mergedSize) = await _fileStorageService.MergeChunksToDossierAsync(
+        var (mergedPath, mergedSize, minioVersionId) = await _fileStorageService.MergeChunksToDossierAsync(
             uploadId, session.TotalChunks, unitCode, dossierId, session.FileName, cancellationToken);
 
         var document = new Document
@@ -551,6 +599,7 @@ public class FileUploadService : IFileUploadService
             VersionNumber = 1,
             UploadSource = 3,
             FilePath = mergedPath,
+            MinioVersionId = minioVersionId,
             FileSize = mergedSize,
             MimeType = "application/octet-stream",
             UploadSessionId = session.Id,

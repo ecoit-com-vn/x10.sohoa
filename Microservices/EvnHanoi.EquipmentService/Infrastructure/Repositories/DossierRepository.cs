@@ -1094,11 +1094,14 @@ public class DossierRepository : IDossierRepository
 
         const string sql = @"
             SELECT 
-                Id, Name, Code, Category, Description, DescriptionInfo, ExtractionProcess,
-                FormSchema, EquipmentTypeId, GridTypeId, Version, IsActive, CreatedAt,
-                CreatedBy, Status, FormType, IsDeleted
-            FROM EavFormTemplates
-            WHERE Id = :FormId AND IsDeleted = 0";
+                t.Id, v.Name as Name, t.Code as Code, v.Category as Category, v.Description as Description, v.DescriptionInfo as DescriptionInfo, t.ExtractionProcess,
+                v.FormSchema as FormSchema, t.EquipmentTypeId, t.GridTypeId, v.Version as Version, t.IsActive as IsActive, t.CreatedAt,
+                t.CreatedBy, t.Status, t.FormType, t.IsDeleted
+            FROM EavFormTemplates t
+            LEFT JOIN EavFormTemplateVersions v ON t.Id = v.FormTemplateId AND v.IsActive = 1 AND v.IsDeleted = 0 AND v.Version = (
+                SELECT MAX(Version) FROM EavFormTemplateVersions WHERE FormTemplateId = t.Id AND IsActive = 1 AND IsDeleted = 0
+            )
+            WHERE t.Id = :FormId AND t.IsDeleted = 0";
 
         return await _connection.QuerySingleOrDefaultAsync<EavFormTemplate>(sql, new { FormId = formId.ToString() });
     }
@@ -1109,12 +1112,15 @@ public class DossierRepository : IDossierRepository
 
         const string sql = @"
             SELECT 
-                f.Id, f.Name, f.Code, f.Category, f.Description, f.DescriptionInfo, f.ExtractionProcess,
-                f.FormSchema, f.EquipmentTypeId, f.GridTypeId, f.Version, f.IsActive, f.CreatedAt,
+                f.Id, v.Name as Name, f.Code as Code, v.Category as Category, v.Description as Description, v.DescriptionInfo as DescriptionInfo, f.ExtractionProcess,
+                v.FormSchema as FormSchema, f.EquipmentTypeId, f.GridTypeId, v.Version as Version, f.IsActive as IsActive, f.CreatedAt,
                 f.CreatedBy, f.Status, f.FormType, f.IsDeleted
             FROM DOSSIERS d
             INNER JOIN DOSSIER_TYPES dt ON d.DossierTypeId = dt.ID
             INNER JOIN EavFormTemplates f ON dt.FORM_ID = f.Id
+            LEFT JOIN EavFormTemplateVersions v ON f.Id = v.FormTemplateId AND v.IsActive = 1 AND v.IsDeleted = 0 AND v.Version = (
+                SELECT MAX(Version) FROM EavFormTemplateVersions WHERE FormTemplateId = f.Id AND IsActive = 1 AND IsDeleted = 0
+            )
             WHERE d.Id = :DossierId AND d.IsDeleted = 0 AND dt.IsDeleted = 0 AND f.IsDeleted = 0";
 
         return await _connection.QuerySingleOrDefaultAsync<EavFormTemplate>(sql, new { DossierId = dossierId.ToString() });

@@ -46,10 +46,8 @@ public class EavFormTemplateService : IEavFormTemplateService
             Description = description ?? string.Empty,
             DescriptionInfo = descriptionInfo ?? string.Empty,
             ExtractionProcess = extractionProcess,
-            FormSchema = formSchema,
             EquipmentTypeId = equipmentTypeId,
             GridTypeId = gridTypeId,
-            Version = 1,
             IsActive = true,
             CreatedAt = DateTime.Now,
             CreatedBy = createdBy ?? "admin",
@@ -58,6 +56,28 @@ public class EavFormTemplateService : IEavFormTemplateService
         };
 
         await _repository.AddAsync(template);
+
+        var version = new EavFormTemplateVersion
+        {
+            Id = Guid.Parse(UuidHelper.NewUuid()),
+            FormTemplateId = template.Id,
+            Code = code,
+            Name = name,
+            Category = category,
+            Description = description ?? string.Empty,
+            DescriptionInfo = descriptionInfo ?? string.Empty,
+            FormSchema = formSchema,
+            Version = 1,
+            IsActive = true,
+            CreatedAt = DateTime.Now,
+            CreatedBy = createdBy ?? "admin",
+            Status = "Tạo mới"
+        };
+        await _repository.AddVersionAsync(version);
+
+        template.FormSchema = formSchema;
+        template.Version = 1;
+
         return template;
     }
 
@@ -71,39 +91,44 @@ public class EavFormTemplateService : IEavFormTemplateService
             throw new Exception("Template not found");
         }
 
-        // Đổi bản cũ thành IsActive=false
-        oldTemplate.IsActive = false;
+        // 1. Cập nhật metadata của form cha (in-place)
+        oldTemplate.Name = newName;
+        oldTemplate.Code = newCode;
+        oldTemplate.Category = newCategory;
+        oldTemplate.Description = newDescription;
+        oldTemplate.DescriptionInfo = newDescriptionInfo;
+        oldTemplate.ExtractionProcess = extractionProcess;
+        oldTemplate.EquipmentTypeId = equipmentTypeId;
+        oldTemplate.GridTypeId = gridTypeId;
+        oldTemplate.FormType = formType;
+        oldTemplate.Status = "Tạo mới"; 
+
         await _repository.UpdateAsync(oldTemplate);
 
-        // Tạo bản mới Version+1
-        var newTemplate = new EavFormTemplate
+        // 2. Tạo phiên bản con mới trong EavFormTemplateVersions (IsActive = 0 cho đến khi được duyệt)
+        var maxVersion = await _repository.GetMaxVersionAsync(id);
+        var newVersion = new EavFormTemplateVersion
         {
             Id = Guid.Parse(UuidHelper.NewUuid()),
-            Name = newName,
+            FormTemplateId = id,
             Code = newCode,
+            Name = newName,
             Category = newCategory,
-            Description = newDescription,
-            DescriptionInfo = newDescriptionInfo,
-            ExtractionProcess = extractionProcess,
+            Description = newDescription ?? string.Empty,
+            DescriptionInfo = newDescriptionInfo ?? string.Empty,
             FormSchema = newFormSchema,
-            EquipmentTypeId = equipmentTypeId,
-            GridTypeId = gridTypeId,
-            Version = oldTemplate.Version + 1,
-            IsActive = true,
+            Version = maxVersion + 1,
+            IsActive = false,
             CreatedAt = DateTime.Now,
             CreatedBy = updatedBy,
-            Status = string.IsNullOrEmpty(oldTemplate.Status) ? "Tạo mới" : oldTemplate.Status,
-            FormType = formType
+            Status = "Tạo mới"
         };
-        try
-        {
-            await _repository.AddAsync(newTemplate);
-        }
-        catch (Exception ex)
-        {
-            throw ex;
-        }
+        await _repository.AddVersionAsync(newVersion);
 
-        return newTemplate;
+        // Gán động các thuộc tính để trả về DTO tương thích ngược
+        oldTemplate.FormSchema = newFormSchema;
+        oldTemplate.Version = newVersion.Version;
+
+        return oldTemplate;
     }
 }

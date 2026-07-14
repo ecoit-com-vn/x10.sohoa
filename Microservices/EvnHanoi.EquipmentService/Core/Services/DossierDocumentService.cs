@@ -68,6 +68,19 @@ public interface IDossierDocumentService
         string userId,
         CancellationToken cancellationToken = default);
 
+    Task<bool> RollbackDocumentVersionAsync(
+        Guid dossierId,
+        Guid versionId,
+        string userId,
+        long userUnitId,
+        CancellationToken cancellationToken = default);
+
+    Task<bool> DeleteDocumentVersionAsync(
+        Guid dossierId,
+        Guid versionId,
+        string userId,
+        CancellationToken cancellationToken = default);
+
     /// <summary>Lấy biểu mẫu EAV theo loại văn bản gắn với phiên bản tài liệu.</summary>
     Task<EavFormTemplate?> GetFormTemplateForDocumentVersionAsync(
         Guid dossierId,
@@ -139,7 +152,8 @@ public class DossierDocumentService : IDossierDocumentService
             document.Name,
             version.MimeType ?? "application/octet-stream",
             _fileStorageService.DossierBucketName,
-            cancellationToken);
+            cancellationToken,
+            versionId: version.MinioVersionId);
     }
 
     public async Task<FileUploadResponse> UploadDirectAsync(
@@ -345,6 +359,7 @@ public class DossierDocumentService : IDossierDocumentService
                 await _fileStorageService.DeleteFileAsync(
                     version.FilePath,
                     _fileStorageService.DossierBucketName,
+                    version.MinioVersionId,
                     cancellationToken);
         }
 
@@ -405,6 +420,95 @@ public class DossierDocumentService : IDossierDocumentService
         }
 
         return await _dossierService.GetFormTemplateForDossierAsync(dossierId, null);
+    }
+
+    public async Task<bool> RollbackDocumentVersionAsync(
+        Guid dossierId,
+        Guid versionId,
+        string userId,
+        long userUnitId,
+        CancellationToken cancellationToken = default)
+    {
+        await _dossierService.EnsureCanEditFormDataAsync(dossierId);
+
+        if (!await _documentRepository.VersionBelongsToDossierAsync(versionId, dossierId))
+            throw new KeyNotFoundException("Phiên bản tài liệu không thuộc hồ sơ này");
+
+        var targetVersion = await _documentRepository.GetDocumentVersionByIdAsync(versionId);
+        if (targetVersion == null || string.IsNullOrEmpty(targetVersion.FilePath))
+            throw new KeyNotFoundException("Phiên bản tài liệu không tồn tại hoặc không có file");
+
+        var document = await _documentRepository.GetDocumentByIdAsync(targetVersion.DocumentId);
+        if (document == null)
+            throw new KeyNotFoundException("Tài liệu không tồn tại");
+
+        var unitCode = await ResolveUnitCodeAsync(userUnitId);
+
+        // Download the target file version
+        using var stream = await _fileStorageService.DownloadFileAsync(
+            targetVersion.FilePath,
+            _fileStorageService.DossierBucketName,
+            targetVersion.MinioVersionId,
+            cancellationToken);
+
+        // Upload it back to MinIO as a new version
+        var (newPath, newMinioVersionId) = await _fileStorageService.UploadFileToDossierAsync(
+            stream,
+            document.Name ?? "rollback_file",
+            targetVersion.MimeType ?? "application/octet-stream",
+            targetVersion.FileSize,
+            unitCode,
+            dossierId,
+            cancellationToken);
+
+        // Determine new version number
+        var versions = await _documentRepository.GetDocumentVersionsAsync(document.Id);
+        var maxVersion = versions.Any() ? versions.Max(v => v.VersionNumber) : 0;
+
+        var newVersion = new DocumentVersion
+        {
+            DocumentId = document.Id,
+            VersionNumber = maxVersion + 1,
+            UploadSource = 3, // Rollback/Web
+            FilePath = newPath,
+            MinioVersionId = newMinioVersionId,
+            FileSize = targetVersion.FileSize,
+            MimeType = targetVersion.MimeType,
+            CreatedBy = userId
+        };
+
+        var newVersionId = await _documentRepository.CreateDocumentVersionAsync(newVersion);
+        _logger.LogInformation("Successfully rolled back dossier document {DocumentId} to version {VersionNumber} (New VersionId: {NewVersionId})",
+            document.Id, targetVersion.VersionNumber, newVersionId);
+
+        return true;
+    }
+
+    public async Task<bool> DeleteDocumentVersionAsync(
+        Guid dossierId,
+        Guid versionId,
+        string userId,
+        CancellationToken cancellationToken = default)
+    {
+        await _dossierService.EnsureCanEditFormDataAsync(dossierId);
+
+        if (!await _documentRepository.VersionBelongsToDossierAsync(versionId, dossierId))
+            throw new KeyNotFoundException("Phiên bản tài liệu không thuộc hồ sơ này");
+
+        var version = await _documentRepository.GetDocumentVersionByIdAsync(versionId);
+        if (version == null)
+            return false;
+
+        if (!string.IsNullOrEmpty(version.FilePath))
+        {
+            await _fileStorageService.DeleteFileAsync(
+                version.FilePath,
+                _fileStorageService.DossierBucketName,
+                version.MinioVersionId,
+                cancellationToken);
+        }
+
+        return await _documentRepository.SoftDeleteDocumentVersionAsync(versionId, userId);
     }
 
     private async Task EnsureActiveDocumentTypeAsync(Guid documentTypeId)

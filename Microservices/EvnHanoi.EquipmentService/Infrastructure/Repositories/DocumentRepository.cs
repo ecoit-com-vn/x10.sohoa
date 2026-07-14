@@ -371,6 +371,87 @@ public class DocumentRepository : IDocumentRepository
         }
     }
 
+    public async Task<Document?> GetDocumentByNameAndFolderAsync(string name, Guid folderId)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        const string sql = @"
+            SELECT 
+                ID,
+                NAME,
+                FOLDER_ID AS FolderId,
+                DOSSIER_ID AS DossierId,
+                DOCUMENT_TYPE_ID AS DocumentTypeId,
+                STATUS,
+                ROW_VERSION AS RowVersion,
+                CREATED_BY AS CreatedBy,
+                CREATOR_NAME AS CreatorName,
+                CREATED_DATE AS CreatedDate,
+                MODIFIED_BY AS ModifiedBy,
+                MODIFIED_DATE AS ModifiedDate,
+                IS_DELETED AS IsDeleted
+            FROM DOCUMENTS
+            WHERE NAME = :Name 
+              AND FOLDER_ID = :FolderId 
+              AND IS_DELETED = 0";
+
+        return await _connection.QuerySingleOrDefaultAsync<Document>(sql, new 
+        { 
+            Name = name, 
+            FolderId = folderId.ToString() 
+        });
+    }
+
+    // New method: Get document by name within a dossier
+    public async Task<Document?> GetDocumentByNameAndDossierAsync(string name, Guid dossierId)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        const string sql = @"
+            SELECT 
+                ID,
+                NAME,
+                FOLDER_ID AS FolderId,
+                DOSSIER_ID AS DossierId,
+                DOCUMENT_TYPE_ID AS DocumentTypeId,
+                STATUS,
+                ROW_VERSION AS RowVersion,
+                CREATED_BY AS CreatedBy,
+                CREATOR_NAME AS CreatorName,
+                CREATED_DATE AS CreatedDate,
+                MODIFIED_BY AS ModifiedBy,
+                MODIFIED_DATE AS ModifiedDate,
+                IS_DELETED AS IsDeleted
+            FROM DOCUMENTS
+            WHERE NAME = :Name 
+              AND DOSSIER_ID = :DossierId 
+              AND IS_DELETED = 0";
+
+        return await _connection.QuerySingleOrDefaultAsync<Document>(sql, new {
+            Name = name,
+            DossierId = dossierId.ToString()
+        });
+    }
+
+    // New method: Get the highest version number for a document
+    public async Task<int> GetMaxDocumentVersionNumberAsync(Guid documentId)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        const string sql = @"
+            SELECT NVL(MAX(VERSION_NUMBER), 0)
+            FROM DOCUMENT_VERSIONS
+            WHERE DOCUMENT_ID = :DocumentId
+              AND IS_DELETED = 0";
+
+        var result = await _connection.ExecuteScalarAsync<int>(sql, new { DocumentId = documentId.ToString() });
+        return result;
+    }
+
+
     public async Task<EavFormTemplate?> GetEavFormTemplateByDocumentIdAsync(Guid documentId)
     {
         if (_connection.State != ConnectionState.Open)
@@ -378,12 +459,15 @@ public class DocumentRepository : IDocumentRepository
 
         var sql = $@"
             SELECT
-                f.Id, f.Name, f.Code, f.Category, f.Description, f.DescriptionInfo, f.ExtractionProcess,
-                f.FormSchema, f.EquipmentTypeId, f.GridTypeId, f.Version, f.IsActive, f.CreatedAt,
+                f.Id, v.Name as Name, f.Code as Code, v.Category as Category, v.Description as Description, v.DescriptionInfo as DescriptionInfo, f.ExtractionProcess,
+                v.FormSchema as FormSchema, f.EquipmentTypeId, f.GridTypeId, v.Version as Version, f.IsActive as IsActive, f.CreatedAt,
                 f.CreatedBy, f.Status, f.FormType, f.IsDeleted
             FROM DOCUMENTS d
             INNER JOIN DOCUMENT_TYPES dt ON {DocumentTypeActiveJoin}
             INNER JOIN EavFormTemplates f ON f.Id = dt.FORM_ID AND {EavFormTemplateActiveFilter}
+            LEFT JOIN EavFormTemplateVersions v ON f.Id = v.FormTemplateId AND v.IsActive = 1 AND v.IsDeleted = 0 AND v.Version = (
+                SELECT MAX(Version) FROM EavFormTemplateVersions WHERE FormTemplateId = f.Id AND IsActive = 1 AND IsDeleted = 0
+            )
             WHERE d.ID = :DocumentId AND d.IS_DELETED = 0";
 
         return await _connection.QuerySingleOrDefaultAsync<EavFormTemplate>(
@@ -506,6 +590,7 @@ public class DocumentRepository : IDocumentRepository
                 VERSION_NUMBER,
                 UPLOAD_SOURCE,
                 FILE_PATH,
+                MINIO_VERSION_ID,
                 FILE_SIZE,
                 MIME_TYPE,
                 CREATED_BY,
@@ -517,6 +602,7 @@ public class DocumentRepository : IDocumentRepository
                 :VersionNumber,
                 :UploadSource,
                 :FilePath,
+                :MinioVersionId,
                 :FileSize,
                 :MimeType,
                 :CreatedBy,
@@ -531,6 +617,7 @@ public class DocumentRepository : IDocumentRepository
             version.VersionNumber,
             version.UploadSource,
             version.FilePath,
+            version.MinioVersionId,
             version.FileSize,
             version.MimeType,
             version.CreatedBy
@@ -546,19 +633,25 @@ public class DocumentRepository : IDocumentRepository
 
         var sql = @"
             SELECT 
-                ID,
-                DOCUMENT_ID AS DocumentId,
-                VERSION_NUMBER AS VersionNumber,
-                UPLOAD_SOURCE AS UploadSource,
-                FILE_PATH AS FilePath,
-                FILE_SIZE AS FileSize,
-                MIME_TYPE AS MimeType,
-                CREATED_BY AS CreatedBy,
-                CREATED_DATE AS CreatedDate
-            FROM DOCUMENT_VERSIONS
-            WHERE DOCUMENT_ID = :DocumentId 
-              AND IS_DELETED = 0
-            ORDER BY VERSION_NUMBER DESC";
+                dv.ID,
+                dv.DOCUMENT_ID AS DocumentId,
+                dv.VERSION_NUMBER AS VersionNumber,
+                dv.UPLOAD_SOURCE AS UploadSource,
+                dv.FILE_PATH AS FilePath,
+                dv.MINIO_VERSION_ID AS MinioVersionId,
+                dv.FILE_SIZE AS FileSize,
+                dv.MIME_TYPE AS MimeType,
+                dv.CREATED_BY AS CreatedBy,
+                NVL(cu.FullName, dv.CREATED_BY) AS CreatedByName,
+                dv.CREATED_DATE AS CreatedDate
+            FROM DOCUMENT_VERSIONS dv
+            LEFT JOIN APP_USER cu ON (
+                LOWER(cu.Id) = LOWER(dv.CREATED_BY)
+                OR LOWER(cu.UserName) = LOWER(dv.CREATED_BY)
+            )
+            WHERE dv.DOCUMENT_ID = :DocumentId 
+              AND dv.IS_DELETED = 0
+            ORDER BY dv.VERSION_NUMBER DESC";
 
         return await _connection.QueryAsync<DocumentVersionDto>(sql, new { DocumentId = documentId.ToString() });
     }
@@ -570,18 +663,24 @@ public class DocumentRepository : IDocumentRepository
 
         var sql = @"
             SELECT 
-                ID,
-                DOCUMENT_ID AS DocumentId,
-                VERSION_NUMBER AS VersionNumber,
-                UPLOAD_SOURCE AS UploadSource,
-                FILE_PATH AS FilePath,
-                FILE_SIZE AS FileSize,
-                MIME_TYPE AS MimeType,
-                CREATED_BY AS CreatedBy,
-                CREATED_DATE AS CreatedDate
-            FROM DOCUMENT_VERSIONS
-            WHERE ID = :Id 
-              AND IS_DELETED = 0";
+                dv.ID,
+                dv.DOCUMENT_ID AS DocumentId,
+                dv.VERSION_NUMBER AS VersionNumber,
+                dv.UPLOAD_SOURCE AS UploadSource,
+                dv.FILE_PATH AS FilePath,
+                dv.MINIO_VERSION_ID AS MinioVersionId,
+                dv.FILE_SIZE AS FileSize,
+                dv.MIME_TYPE AS MimeType,
+                dv.CREATED_BY AS CreatedBy,
+                NVL(cu.FullName, dv.CREATED_BY) AS CreatedByName,
+                dv.CREATED_DATE AS CreatedDate
+            FROM DOCUMENT_VERSIONS dv
+            LEFT JOIN APP_USER cu ON (
+                LOWER(cu.Id) = LOWER(dv.CREATED_BY)
+                OR LOWER(cu.UserName) = LOWER(dv.CREATED_BY)
+            )
+            WHERE dv.ID = :Id 
+              AND dv.IS_DELETED = 0";
 
         return await _connection.QuerySingleOrDefaultAsync<DocumentVersionDto>(sql, new { Id = versionId.ToString() });
     }
@@ -976,6 +1075,23 @@ public class DocumentRepository : IDocumentRepository
         var rows = await _connection.ExecuteAsync(sql, new
         {
             DocumentId = documentId.ToString()
+        });
+        return rows > 0;
+    }
+
+    public async Task<bool> SoftDeleteDocumentVersionAsync(Guid versionId, string modifiedBy)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        const string sql = @"
+            UPDATE DOCUMENT_VERSIONS
+            SET IS_DELETED = 1
+            WHERE ID = :VersionId AND IS_DELETED = 0";
+
+        var rows = await _connection.ExecuteAsync(sql, new
+        {
+            VersionId = versionId.ToString()
         });
         return rows > 0;
     }
