@@ -51,6 +51,7 @@ public class EavFormApprovalController : ControllerBase
 
         existing.Status = "Hoàn thành";
         await _repository.UpdateAsync(existing);
+        await _repository.ApproveVersionAsync(id, "Hoàn thành");
         return Ok(existing);
     }
 
@@ -68,6 +69,7 @@ public class EavFormApprovalController : ControllerBase
 
         existing.Status = "Từ chối";
         await _repository.UpdateAsync(existing);
+        await _repository.ApproveVersionAsync(id, "Từ chối");
         return Ok(existing);
     }
 }

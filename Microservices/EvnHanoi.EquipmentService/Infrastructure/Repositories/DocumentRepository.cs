@@ -459,12 +459,15 @@ public class DocumentRepository : IDocumentRepository
 
         var sql = $@"
             SELECT
-                f.Id, f.Name, f.Code, f.Category, f.Description, f.DescriptionInfo, f.ExtractionProcess,
-                f.FormSchema, f.EquipmentTypeId, f.GridTypeId, f.Version, f.IsActive, f.CreatedAt,
+                f.Id, v.Name as Name, f.Code as Code, v.Category as Category, v.Description as Description, v.DescriptionInfo as DescriptionInfo, f.ExtractionProcess,
+                v.FormSchema as FormSchema, f.EquipmentTypeId, f.GridTypeId, v.Version as Version, f.IsActive as IsActive, f.CreatedAt,
                 f.CreatedBy, f.Status, f.FormType, f.IsDeleted
             FROM DOCUMENTS d
             INNER JOIN DOCUMENT_TYPES dt ON {DocumentTypeActiveJoin}
             INNER JOIN EavFormTemplates f ON f.Id = dt.FORM_ID AND {EavFormTemplateActiveFilter}
+            LEFT JOIN EavFormTemplateVersions v ON f.Id = v.FormTemplateId AND v.IsActive = 1 AND v.IsDeleted = 0 AND v.Version = (
+                SELECT MAX(Version) FROM EavFormTemplateVersions WHERE FormTemplateId = f.Id AND IsActive = 1 AND IsDeleted = 0
+            )
             WHERE d.ID = :DocumentId AND d.IS_DELETED = 0";
 
         return await _connection.QuerySingleOrDefaultAsync<EavFormTemplate>(

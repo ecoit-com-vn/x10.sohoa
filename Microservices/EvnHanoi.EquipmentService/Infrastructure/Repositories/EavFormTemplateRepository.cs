@@ -20,8 +20,12 @@ public class EavFormTemplateRepository : IEavFormTemplateRepository
         if (_connection.State != ConnectionState.Open)
             _connection.Open();
 
-        var sql = $@"SELECT t.*, gt.Name as {nameof(EavFormTemplate.GridTypeName)}, et.Name as {nameof(EavFormTemplate.EquipmentTypeName)} 
+        var sql = $@"SELECT t.*, v.Code as Code, v.Name as Name, v.Category as Category, v.Description as Description, v.DescriptionInfo as DescriptionInfo,
+                            v.FormSchema as FormSchema, v.Version as Version, gt.Name as {nameof(EavFormTemplate.GridTypeName)}, et.Name as {nameof(EavFormTemplate.EquipmentTypeName)} 
                      FROM {nameof(EavFormTemplate)}s t
+                     LEFT JOIN EavFormTemplateVersions v ON t.{nameof(EavFormTemplate.Id)} = v.FormTemplateId AND v.IsDeleted = 0 AND v.Version = (
+                         SELECT MAX(Version) FROM EavFormTemplateVersions WHERE FormTemplateId = t.{nameof(EavFormTemplate.Id)} AND IsDeleted = 0
+                     )
                      LEFT JOIN GridTypes gt ON t.{nameof(EavFormTemplate.GridTypeId)} = gt.Id
                      LEFT JOIN EquipmentTypes et ON t.{nameof(EavFormTemplate.EquipmentTypeId)} = et.Id
                      WHERE et.Id = :Id AND t.IsDeleted = 0 AND t.IsActive = 1";
@@ -67,8 +71,12 @@ public class EavFormTemplateRepository : IEavFormTemplateRepository
 
     public async Task<IEnumerable<EavFormTemplate>> GetAllActiveAsync(string? formType = null, bool? isActive = true)
     {
-        var sql = $@"SELECT t.*, gt.Name as {nameof(EavFormTemplate.GridTypeName)}, et.Name as {nameof(EavFormTemplate.EquipmentTypeName)} 
+        var sql = $@"SELECT t.*, v.Code as Code, v.Name as Name, v.Category as Category, v.Description as Description, v.DescriptionInfo as DescriptionInfo,
+                            v.FormSchema as FormSchema, v.Version as Version, gt.Name as {nameof(EavFormTemplate.GridTypeName)}, et.Name as {nameof(EavFormTemplate.EquipmentTypeName)} 
                      FROM {nameof(EavFormTemplate)}s t
+                     LEFT JOIN EavFormTemplateVersions v ON t.{nameof(EavFormTemplate.Id)} = v.FormTemplateId AND v.IsActive = 1 AND v.IsDeleted = 0 AND v.Version = (
+                         SELECT MAX(Version) FROM EavFormTemplateVersions WHERE FormTemplateId = t.{nameof(EavFormTemplate.Id)} AND IsActive = 1 AND IsDeleted = 0
+                     )
                      LEFT JOIN GridTypes gt ON t.{nameof(EavFormTemplate.GridTypeId)} = gt.Id
                      LEFT JOIN EquipmentTypes et ON t.{nameof(EavFormTemplate.EquipmentTypeId)} = et.Id
                      WHERE t.IsDeleted = 0";
@@ -104,8 +112,12 @@ public class EavFormTemplateRepository : IEavFormTemplateRepository
         if (_connection.State != ConnectionState.Open)
             _connection.Open();
 
-        var sql = $@"SELECT t.*, gt.Name as {nameof(EavFormTemplate.GridTypeName)}, et.Name as {nameof(EavFormTemplate.EquipmentTypeName)}
+        var sql = $@"SELECT t.*, v.Code as Code, v.Name as Name, v.Category as Category, v.Description as Description, v.DescriptionInfo as DescriptionInfo,
+                            v.FormSchema as FormSchema, v.Version as Version, gt.Name as {nameof(EavFormTemplate.GridTypeName)}, et.Name as {nameof(EavFormTemplate.EquipmentTypeName)}
                      FROM {nameof(EavFormTemplate)}s t
+                     LEFT JOIN EavFormTemplateVersions v ON t.{nameof(EavFormTemplate.Id)} = v.FormTemplateId AND v.IsDeleted = 0 AND v.Version = (
+                         SELECT MAX(Version) FROM EavFormTemplateVersions WHERE FormTemplateId = t.{nameof(EavFormTemplate.Id)} AND IsDeleted = 0
+                     )
                      LEFT JOIN GridTypes gt ON t.{nameof(EavFormTemplate.GridTypeId)} = gt.Id
                      LEFT JOIN EquipmentTypes et ON t.{nameof(EavFormTemplate.EquipmentTypeId)} = et.Id
                      WHERE t.IsDeleted = 0
@@ -130,10 +142,8 @@ public class EavFormTemplateRepository : IEavFormTemplateRepository
                     {nameof(EavFormTemplate.Description)}, 
                     {nameof(EavFormTemplate.DescriptionInfo)}, 
                     {nameof(EavFormTemplate.ExtractionProcess)}, 
-                    {nameof(EavFormTemplate.FormSchema)}, 
                     {nameof(EavFormTemplate.EquipmentTypeId)},
                     {nameof(EavFormTemplate.GridTypeId)},
-                    {nameof(EavFormTemplate.Version)}, 
                     {nameof(EavFormTemplate.IsActive)}, 
                     {nameof(EavFormTemplate.CreatedAt)}, 
                     {nameof(EavFormTemplate.CreatedBy)},
@@ -141,7 +151,7 @@ public class EavFormTemplateRepository : IEavFormTemplateRepository
                     {nameof(EavFormTemplate.FormType)},
                     IsDeleted
                 )
-                VALUES (:Id, :Name, :Code, :Category, :Description, :DescriptionInfo, :ExtractionProcess, :FormSchema, :EquipmentTypeId, :GridTypeId, :Version, :IsActive, :CreatedAt, :CreatedBy, :Status, :FormType, :IsDeleted)";
+                VALUES (:Id, :Name, :Code, :Category, :Description, :DescriptionInfo, :ExtractionProcess, :EquipmentTypeId, :GridTypeId, :IsActive, :CreatedAt, :CreatedBy, :Status, :FormType, :IsDeleted)";
 
         var param = BuildWriteParameters(template, includeId: true, includeAudit: true);
         await _connection.ExecuteAsync(sql, param);
@@ -156,10 +166,8 @@ public class EavFormTemplateRepository : IEavFormTemplateRepository
                          {nameof(EavFormTemplate.Description)} = :Description,
                          {nameof(EavFormTemplate.DescriptionInfo)} = :DescriptionInfo,
                          {nameof(EavFormTemplate.ExtractionProcess)} = :ExtractionProcess,
-                         {nameof(EavFormTemplate.FormSchema)} = :FormSchema,
                          {nameof(EavFormTemplate.EquipmentTypeId)} = :EquipmentTypeId,
                          {nameof(EavFormTemplate.GridTypeId)} = :GridTypeId,
-                         {nameof(EavFormTemplate.Version)} = :Version,
                          {nameof(EavFormTemplate.IsActive)} = :IsActive,
                          {nameof(EavFormTemplate.Status)} = :Status,
                          {nameof(EavFormTemplate.FormType)} = :FormType,
@@ -182,10 +190,8 @@ public class EavFormTemplateRepository : IEavFormTemplateRepository
         parameters.Add("Description", template.Description);
         parameters.Add("DescriptionInfo", template.DescriptionInfo);
         parameters.Add("ExtractionProcess", template.ExtractionProcess);
-        parameters.Add("FormSchema", OracleClob.Param(template.FormSchema));
         parameters.Add("EquipmentTypeId", template.EquipmentTypeId?.ToString());
         parameters.Add("GridTypeId", template.GridTypeId);
-        parameters.Add("Version", template.Version);
         parameters.Add("IsActive", template.IsActive ? 1 : 0);
         if (includeAudit)
         {
@@ -200,14 +206,97 @@ public class EavFormTemplateRepository : IEavFormTemplateRepository
 
     public async Task<IEnumerable<EavFormTemplate>> GetVersionsByCodeAsync(string code)
     {
-        var sql = $@"SELECT t.*, gt.Name as {nameof(EavFormTemplate.GridTypeName)}, et.Name as {nameof(EavFormTemplate.EquipmentTypeName)}, u.FullName as CreatorFullName
+        var sql = $@"SELECT t.Id, 
+                            v.Code as Code, 
+                            v.Name as Name, 
+                            v.Category as Category, 
+                            v.Description as Description, 
+                            v.DescriptionInfo as DescriptionInfo, 
+                            t.ExtractionProcess,
+                            t.EquipmentTypeId, t.GridTypeId, t.FormType,
+                            v.FormSchema as FormSchema, v.Version as Version, v.IsActive as IsActive,
+                            v.CreatedAt as CreatedAt, v.CreatedBy as CreatedBy, v.Status as Status, v.IsDeleted as IsDeleted,
+                            gt.Name as GridTypeName, et.Name as {nameof(EavFormTemplate.EquipmentTypeName)}, u.FullName as CreatorFullName
                      FROM {nameof(EavFormTemplate)}s t
+                     INNER JOIN EavFormTemplateVersions v ON t.Id = v.FormTemplateId AND v.IsDeleted = 0
                      LEFT JOIN GridTypes gt ON t.{nameof(EavFormTemplate.GridTypeId)} = gt.Id
                      LEFT JOIN EquipmentTypes et ON t.{nameof(EavFormTemplate.EquipmentTypeId)} = et.Id
-                     LEFT JOIN APP_USER u ON (t.{nameof(EavFormTemplate.CreatedBy)} = u.Id OR t.{nameof(EavFormTemplate.CreatedBy)} = u.UserName)
+                     LEFT JOIN APP_USER u ON (v.CreatedBy = u.Id OR v.CreatedBy = u.UserName)
                      WHERE t.{nameof(EavFormTemplate.Code)} = :Code AND t.IsDeleted = 0
-                     ORDER BY t.{nameof(EavFormTemplate.Version)} DESC";
+                     ORDER BY v.Version DESC";
 
         return await _connection.QueryAsync<EavFormTemplate>(sql, new { Code = code });
+    }
+
+    // Version management methods
+    public async Task AddVersionAsync(EavFormTemplateVersion version)
+    {
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+        var sql = @"INSERT INTO EavFormTemplateVersions (Id, FormTemplateId, Code, Name, Category, Description, DescriptionInfo, FormSchema, Version, IsActive, CreatedAt, CreatedBy, Status, IsDeleted)
+                    VALUES (:Id, :FormTemplateId, :Code, :Name, :Category, :Description, :DescriptionInfo, :FormSchema, :Version, :IsActive, :CreatedAt, :CreatedBy, :Status, :IsDeleted)";
+        var param = new DynamicParameters();
+        param.Add("Id", version.Id.ToString());
+        param.Add("FormTemplateId", version.FormTemplateId.ToString());
+        param.Add("Code", version.Code);
+        param.Add("Name", version.Name);
+        param.Add("Category", version.Category);
+        param.Add("Description", version.Description);
+        param.Add("DescriptionInfo", version.DescriptionInfo);
+        param.Add("FormSchema", OracleClob.Param(version.FormSchema));
+        param.Add("Version", version.Version);
+        param.Add("IsActive", version.IsActive ? 1 : 0);
+        param.Add("CreatedAt", version.CreatedAt);
+        param.Add("CreatedBy", version.CreatedBy);
+        param.Add("Status", version.Status);
+        param.Add("IsDeleted", version.IsDeleted ? 1 : 0);
+        await _connection.ExecuteAsync(sql, param);
+    }
+
+    public async Task DeactivateVersionsAsync(Guid formTemplateId)
+    {
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+        var sql = @"UPDATE EavFormTemplateVersions SET IsActive = 0 WHERE FormTemplateId = :FormTemplateId";
+        await _connection.ExecuteAsync(sql, new { FormTemplateId = formTemplateId.ToString() });
+    }
+
+    public async Task<int> GetMaxVersionAsync(Guid formTemplateId)
+    {
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+        var sql = @"SELECT MAX(Version) FROM EavFormTemplateVersions WHERE FormTemplateId = :FormTemplateId AND IsDeleted = 0";
+        var val = await _connection.QuerySingleOrDefaultAsync<int?>(sql, new { FormTemplateId = formTemplateId.ToString() });
+        return val ?? 0;
+    }
+
+    public async Task DeleteVersionsAsync(Guid formTemplateId)
+    {
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+        var sql = @"UPDATE EavFormTemplateVersions SET IsDeleted = 1 WHERE FormTemplateId = :FormTemplateId";
+        await _connection.ExecuteAsync(sql, new { FormTemplateId = formTemplateId.ToString() });
+    }
+
+    public async Task ApproveVersionAsync(Guid formTemplateId, string status)
+    {
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+        var sqlGet = @"SELECT Id FROM EavFormTemplateVersions 
+                       WHERE FormTemplateId = :FormTemplateId AND IsDeleted = 0 
+                       ORDER BY Version DESC 
+                       FETCH FIRST 1 ROWS ONLY";
+        var latestVerId = await _connection.QueryFirstOrDefaultAsync<string>(sqlGet, new { FormTemplateId = formTemplateId.ToString() });
+        if (!string.IsNullOrEmpty(latestVerId))
+        {
+            if (status == "Hoàn thành")
+            {
+                var sqlDeact = @"UPDATE EavFormTemplateVersions SET IsActive = 0 WHERE FormTemplateId = :FormTemplateId AND Id != :LatestVerId";
+                await _connection.ExecuteAsync(sqlDeact, new { FormTemplateId = formTemplateId.ToString(), LatestVerId = latestVerId });
+
+                var sqlAct = @"UPDATE EavFormTemplateVersions SET IsActive = 1, Status = 'Hoàn thành' WHERE Id = :LatestVerId";
+                await _connection.ExecuteAsync(sqlAct, new { LatestVerId = latestVerId });
+            }
+            else
+            {
+                var sqlReject = @"UPDATE EavFormTemplateVersions SET Status = :Status WHERE Id = :LatestVerId";
+                await _connection.ExecuteAsync(sqlReject, new { LatestVerId = latestVerId, Status = status });
+            }
+        }
     }
 }
