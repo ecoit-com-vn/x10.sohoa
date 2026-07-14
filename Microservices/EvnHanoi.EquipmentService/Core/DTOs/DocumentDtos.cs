@@ -63,9 +63,11 @@ public class DocumentListItemDto
     public long FileSize { get; set; }
     public string? MimeType { get; set; }
     public Guid? LatestVersionId { get; set; }
+    public int RowVersion { get; set; }
     public bool IsDeleted { get; set; }
     public Guid? DocumentTypeId { get; set; }
     public string? DocumentTypeName { get; set; }
+    public bool IsEquipmentProfile { get; set; }
 
     /// <summary>Tiến trình OCR/extraction — chỉ populate khi list theo hồ sơ.</summary>
     public DocumentOcrProgressSummaryDto? OcrProgress { get; set; }
@@ -124,9 +126,11 @@ public class DocumentVersionDto
     public int VersionNumber { get; set; }
     public int UploadSource { get; set; }  // 1: Thư mục, 2: Scan, 3: Web
     public string? FilePath { get; set; }
+    public string? MinioVersionId { get; set; }
     public long FileSize { get; set; }
     public string? MimeType { get; set; }
     public string? CreatedBy { get; set; }
+    public string? CreatedByName { get; set; }
     public DateTime CreatedDate { get; set; }
     public bool IsDeleted { get; set; }
 }

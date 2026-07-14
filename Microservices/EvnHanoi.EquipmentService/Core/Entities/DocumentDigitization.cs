@@ -47,6 +47,8 @@ public class DocumentExtractionResult
     public string? FormJson { get; set; }
     public string? MergedDataJson { get; set; }
     public string? ErrorMessage { get; set; }
+    public Guid? EquipmentId { get; set; }
+
 
     public string? CreatedBy { get; set; }
     public DateTime CreatedDate { get; set; } = DateTime.UtcNow;

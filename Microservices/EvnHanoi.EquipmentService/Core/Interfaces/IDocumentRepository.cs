@@ -18,6 +18,11 @@ public interface IDocumentRepository
     // Document operations
     Task<(IEnumerable<DocumentListItemDto> Items, int TotalCount)> GetDocumentsByFolderAsync(Guid? folderId, DocumentFilterDto filter);
     Task<DocumentListItemDto?> GetDocumentByIdAsync(Guid id);
+    Task<Document?> GetDocumentByNameAndFolderAsync(string name, Guid folderId);
+    // New: Get document by name within a dossier
+    Task<Document?> GetDocumentByNameAndDossierAsync(string name, Guid dossierId);
+    // New: Get the highest version number for a document
+    Task<int> GetMaxDocumentVersionNumberAsync(Guid documentId);
     Task<EavFormTemplate?> GetEavFormTemplateByDocumentIdAsync(Guid documentId);
     Task<Guid> CreateDocumentAsync(Document document);
     Task<bool> UpdateDocumentAsync(Document document);
@@ -40,9 +45,11 @@ public interface IDocumentRepository
     Task<bool> AssignDocumentToDossierAsync(Guid documentId, Guid dossierId, Guid documentTypeId, string modifiedBy);
     Task<bool> UpdateDocumentVersionFilePathAsync(Guid versionId, string filePath, string modifiedBy);
     Task<bool> SoftDeleteDocumentVersionsAsync(Guid documentId, string modifiedBy);
+    Task<bool> SoftDeleteDocumentVersionAsync(Guid versionId, string modifiedBy);
     Task<string?> GetOrganizationUnitCodeAsync(long unitId);
     Task<bool> DocumentBelongsToDossierAsync(Guid documentId, Guid dossierId);
     Task<bool> VersionBelongsToDossierAsync(Guid versionId, Guid dossierId);
+    Task<bool> IsEquipmentProfileDocumentVersionForEquipmentAsync(Guid equipmentId, Guid versionId);
     Task<Guid?> GetDossierIdByVersionIdAsync(Guid versionId);
 
     // Dossier Catalog tree queries
@@ -60,5 +67,6 @@ public interface IDocumentRepository
 
     Task<IEnumerable<DocumentOcrIndexHintDto>> GetOcrVersionIndexHintsByDossierIdAsync(Guid dossierId);
     Task<IEnumerable<Guid>> GetActiveVersionIdsByDossierIdAsync(Guid dossierId);
+    Task<(IEnumerable<DocumentListItemDto> Items, int TotalCount)> GetProfileDocumentsByEquipmentAsync(Guid equipmentId, DossierDocumentFilterDto filter);
 }
 

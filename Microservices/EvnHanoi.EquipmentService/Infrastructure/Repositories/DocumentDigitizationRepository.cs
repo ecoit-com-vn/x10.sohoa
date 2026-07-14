@@ -128,7 +128,7 @@ public class DocumentDigitizationRepository : IDocumentDigitizationRepository
         return rows > 0;
     }
 
-    public async Task<DocumentExtractionResult?> GetExtractionResultByVersionIdAsync(Guid documentVersionId)
+    public async Task<DocumentExtractionResult?> GetExtractionResultByVersionIdAsync(Guid documentVersionId, Guid? equipmentId = null)
     {
         EnsureOpen();
         const string sql = @"
@@ -137,13 +137,16 @@ public class DocumentDigitizationRepository : IDocumentDigitizationRepository
                    RESULT_FILE_PATH AS ResultFilePath, BUCKET_NAME AS BucketName,
                    FORM_JSON AS FormJson, MERGED_DATA_JSON AS MergedDataJson,
                    ERROR_MESSAGE AS ErrorMessage, CREATED_BY AS CreatedBy, CREATED_DATE AS CreatedDate,
-                   MODIFIED_BY AS ModifiedBy, MODIFIED_DATE AS ModifiedDate, IS_DELETED AS IsDeleted
+                   MODIFIED_BY AS ModifiedBy, MODIFIED_DATE AS ModifiedDate, IS_DELETED AS IsDeleted,
+                   EQUIPMENT_ID AS EquipmentId
             FROM DOCUMENT_EXTRACTION_RESULTS
-            WHERE DOCUMENT_VERSION_ID = :VersionId AND IS_DELETED = 0
+            WHERE DOCUMENT_VERSION_ID = :VersionId 
+              AND ((:EquipmentId IS NULL AND EQUIPMENT_ID IS NULL) OR (EQUIPMENT_ID = :EquipmentId))
+              AND IS_DELETED = 0
             ORDER BY CREATED_DATE DESC
             FETCH FIRST 1 ROWS ONLY";
         return await _connection.QuerySingleOrDefaultAsync<DocumentExtractionResult>(
-            sql, new { VersionId = documentVersionId.ToString() });
+            sql, new { VersionId = documentVersionId.ToString(), EquipmentId = equipmentId?.ToString() });
     }
 
     public async Task<Guid> CreateExtractionResultAsync(DocumentExtractionResult result)
@@ -156,11 +159,11 @@ public class DocumentDigitizationRepository : IDocumentDigitizationRepository
             INSERT INTO DOCUMENT_EXTRACTION_RESULTS (
                 ID, DOCUMENT_ID, DOCUMENT_VERSION_ID, OCR_PROGRESS_ID, STATUS,
                 RESULT_JSON, RESULT_FILE_PATH, BUCKET_NAME, FORM_JSON, MERGED_DATA_JSON,
-                ERROR_MESSAGE, CREATED_BY, CREATED_DATE, IS_DELETED
+                ERROR_MESSAGE, CREATED_BY, CREATED_DATE, IS_DELETED, EQUIPMENT_ID
             ) VALUES (
                 :Id, :DocumentId, :DocumentVersionId, :OcrProgressId, :Status,
                 :ResultJson, :ResultFilePath, :BucketName, :FormJson, :MergedDataJson,
-                :ErrorMessage, :CreatedBy, :CreatedDate, :IsDeleted
+                :ErrorMessage, :CreatedBy, :CreatedDate, :IsDeleted, :EquipmentId
             )";
 
         await _connection.ExecuteAsync(sql, new
@@ -178,7 +181,8 @@ public class DocumentDigitizationRepository : IDocumentDigitizationRepository
             result.ErrorMessage,
             result.CreatedBy,
             result.CreatedDate,
-            IsDeleted = result.IsDeleted ? 1 : 0
+            IsDeleted = result.IsDeleted ? 1 : 0,
+            EquipmentId = result.EquipmentId?.ToString()
         });
 
         return result.Id;
@@ -197,7 +201,8 @@ public class DocumentDigitizationRepository : IDocumentDigitizationRepository
                 MERGED_DATA_JSON = :MergedDataJson,
                 ERROR_MESSAGE = :ErrorMessage,
                 MODIFIED_BY = :ModifiedBy,
-                MODIFIED_DATE = :ModifiedDate
+                MODIFIED_DATE = :ModifiedDate,
+                EQUIPMENT_ID = :EquipmentId
             WHERE ID = :Id AND IS_DELETED = 0";
 
         var rows = await _connection.ExecuteAsync(sql, new
@@ -211,7 +216,8 @@ public class DocumentDigitizationRepository : IDocumentDigitizationRepository
             MergedDataJson = OracleClob.Param(result.MergedDataJson),
             result.ErrorMessage,
             result.ModifiedBy,
-            ModifiedDate = result.ModifiedDate ?? DateTime.UtcNow
+            ModifiedDate = result.ModifiedDate ?? DateTime.UtcNow,
+            EquipmentId = result.EquipmentId?.ToString()
         });
         return rows > 0;
     }

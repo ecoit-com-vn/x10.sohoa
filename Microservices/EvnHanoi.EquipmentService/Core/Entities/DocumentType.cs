@@ -9,6 +9,7 @@ public class DocumentType
     public string Code { get; set; } = string.Empty;
     public Guid? FormId { get; set; }
     public bool IsActive { get; set; } = true;
+    public bool IsEquipmentProfile { get; set; }
     public int? Piority { get; set; }
 
     public string? FormName { get; set; }

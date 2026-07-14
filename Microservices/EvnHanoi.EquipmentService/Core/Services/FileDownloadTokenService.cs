@@ -12,7 +12,8 @@ public interface IFileDownloadTokenService
         string fileName,
         string mimeType,
         string? bucketName = null,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        string? versionId = null);
 }
 
 public class FileDownloadTokenService : IFileDownloadTokenService
@@ -36,7 +37,8 @@ public class FileDownloadTokenService : IFileDownloadTokenService
         string fileName,
         string mimeType,
         string? bucketName = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? versionId = null)
     {
         if (string.IsNullOrWhiteSpace(filePath))
             throw new ArgumentException("Tài liệu không có file");
@@ -48,7 +50,8 @@ public class FileDownloadTokenService : IFileDownloadTokenService
             FilePath = filePath,
             BucketName = bucketName ?? _config["MinIO:DocumentBucketName"] ?? "documents",
             FileName = fileName,
-            MimeType = mimeType ?? "application/octet-stream"
+            MimeType = mimeType ?? "application/octet-stream",
+            VersionId = versionId
         };
 
         var cacheKey = $"download:token:{token}";
@@ -61,7 +64,7 @@ public class FileDownloadTokenService : IFileDownloadTokenService
             },
             cancellationToken);
 
-        _logger.LogInformation("Generated download token for file {FileName}", fileName);
+        _logger.LogInformation("Generated download token for file {FileName} (Version: {VersionId})", fileName, versionId);
 
         return new DownloadTokenResponse
         {
@@ -78,4 +81,5 @@ public class DownloadTokenMetadata
     public string BucketName { get; set; } = string.Empty;
     public string FileName { get; set; } = string.Empty;
     public string MimeType { get; set; } = string.Empty;
+    public string? VersionId { get; set; }
 }

@@ -417,4 +417,50 @@ public abstract partial class DossierControllerBase
             return StatusCode(500, new { message = "Không thể lấy kết quả bóc tách tài liệu." });
         }
     }
+
+    [HttpPost("{id:guid}/documents/versions/{versionId:guid}/rollback")]
+    public async Task<IActionResult> RollbackDocumentVersion(
+        Guid id,
+        Guid versionId)
+    {
+        try
+        {
+            var result = await _dossierDocumentService.RollbackDocumentVersionAsync(id, versionId, UserId, GetUserUnitId());
+            if (!result)
+                return BadRequest(new { message = "Khôi phục phiên bản thất bại" });
+
+            return Ok(new { message = "Khôi phục phiên bản thành công" });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpDelete("{id:guid}/documents/versions/{versionId:guid}")]
+    public async Task<IActionResult> DeleteDocumentVersion(
+        Guid id,
+        Guid versionId)
+    {
+        try
+        {
+            var result = await _dossierDocumentService.DeleteDocumentVersionAsync(id, versionId, UserId);
+            if (!result)
+                return BadRequest(new { message = "Xóa phiên bản thất bại" });
+
+            return NoContent();
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
 }

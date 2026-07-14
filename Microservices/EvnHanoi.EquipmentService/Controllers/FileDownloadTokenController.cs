@@ -83,7 +83,8 @@ public class FileDownloadTokenController : ControllerBase
                 version.FilePath,
                 document.Name,
                 version.MimeType ?? "application/octet-stream",
-                cancellationToken: cancellationToken);
+                cancellationToken: cancellationToken,
+                versionId: version.MinioVersionId);
 
             _logger.LogInformation(
                 "Generated folder download token for document {DocumentId}, version {VersionId}, user {UserId}",

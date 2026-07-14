@@ -130,6 +130,16 @@ public class CatalogRepository : ICatalogRepository
         return await _connection.QuerySingleOrDefaultAsync<Catalog>(sql, new { CatalogTypeId = catalogTypeId, Code = code });
     }
 
+    public async Task<Catalog?> GetByCodeIncludingDeletedAsync(long catalogTypeId, string code)
+    {
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+
+        var sql = $@"SELECT * FROM {nameof(Catalog)}
+                     WHERE {nameof(Catalog.CatalogTypeId)} = :CatalogTypeId
+                       AND {nameof(Catalog.Code)} = :Code";
+        return await _connection.QuerySingleOrDefaultAsync<Catalog>(sql, new { CatalogTypeId = catalogTypeId, Code = code });
+    }
+
     public async Task<bool> HasChildrenAsync(long id)
     {
         if (_connection.State != ConnectionState.Open) _connection.Open();

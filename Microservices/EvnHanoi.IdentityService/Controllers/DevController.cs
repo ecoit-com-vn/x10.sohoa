@@ -161,6 +161,7 @@ public class DevController : ControllerBase
                 "SYSTEM_PARAM_VIEW", "SYSTEM_PARAM_MANAGE", 
                 "ORGANIZATION_VIEW", "ORGANIZATION_MANAGE", 
                 "CATALOG_VIEW", "CATALOG_MANAGE",
+                "PROCESSING_CATEGORY_VIEW", "PROCESSING_CATEGORY_CREATE", "PROCESSING_CATEGORY_EDIT", "PROCESSING_CATEGORY_DELETE",
                 "MENU_VIEW", "MENU_MANAGE", 
                 "USER_GROUP_VIEW", "USER_GROUP_MANAGE", 
                 "UPLOAD_CONFIG_VIEW", "UPLOAD_CONFIG_MANAGE",
@@ -426,6 +427,7 @@ public class DevController : ControllerBase
 
                 new { Id = 10, Name = "Danh mục hệ thống", Url = (string?)null, Icon = "pi pi-folder-open", ParentId = (int?)null, SortOrder = 3, IsActive = 1, PermissionCode = "CATALOG_VIEW" },
                 new { Id = 11, Name = "Đơn vị tính", Url = (string?)"/catalog/unit-of-measurement", Icon = "pi pi-tag", ParentId = (int?)10, SortOrder = 1, IsActive = 1, PermissionCode = "CATALOG_VIEW" },
+                new { Id = 26, Name = "Quy trình xử lý", Url = (string?)"/catalog/processing-category", Icon = "pi pi-sitemap", ParentId = (int?)10, SortOrder = 8, IsActive = 1, PermissionCode = "PROCESSING_CATEGORY_VIEW" },
 
                 new { Id = 12, Name = "Hồ sơ & Thiết bị", Url = (string?)null, Icon = "pi pi-file", ParentId = (int?)null, SortOrder = 4, IsActive = 1, PermissionCode = "EQUIPMENT_VIEW" },
                 new { Id = 13, Name = "Quản lý thông số EAV", Url = (string?)"/equipment/form-management", Icon = "pi pi-sliders-h", ParentId = (int?)12, SortOrder = 1, IsActive = 1, PermissionCode = "EQUIPMENT_VIEW" },

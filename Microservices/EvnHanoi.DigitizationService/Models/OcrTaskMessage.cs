@@ -13,5 +13,7 @@ namespace EvnHanoi.DigitizationService.Models
         public ExtractionForm Form { get; set; }
         /// <summary>Snapshot đầy đủ EAV FormSchema JSON — tham chiếu khi bóc tách.</summary>
         public string FormSchemaJson { get; set; }
+        /// <summary>Thiết bị kỹ thuật — dùng suffix _eq_{EquipmentId} khi lưu kết quả bóc tách.</summary>
+        public Guid? EquipmentId { get; set; }
     }
 }

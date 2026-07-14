@@ -131,7 +131,8 @@ namespace EvnHanoi.DigitizationService.Workers
                                     BucketName = taskMsg.BucketName,
                                     ExtractPrompt = taskMsg.ExtractPrompt,
                                     Form = taskMsg.Form,
-                                    FormSchemaJson = taskMsg.FormSchemaJson
+                                    FormSchemaJson = taskMsg.FormSchemaJson,
+                                    EquipmentId = taskMsg.EquipmentId
                                 };
                                 await publisher.PublishMessageAsync(extractMsg, "digitization.topic", "extraction.process.task");
                                 await _channel.BasicAckAsync(ea.DeliveryTag, false);
@@ -328,7 +329,8 @@ namespace EvnHanoi.DigitizationService.Workers
                                 BucketName = taskMsg.BucketName,
                                 ExtractPrompt = taskMsg.ExtractPrompt,
                                 Form = taskMsg.Form,
-                                FormSchemaJson = taskMsg.FormSchemaJson
+                                FormSchemaJson = taskMsg.FormSchemaJson,
+                                EquipmentId = taskMsg.EquipmentId
                             };
                             await publisher.PublishMessageAsync(extractionTask, "digitization.topic", "extraction.process.task");
 

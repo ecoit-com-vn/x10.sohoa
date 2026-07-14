@@ -292,7 +292,8 @@ public class DocumentRepository : IDocumentRepository
                 d.CREATED_DATE AS CreatedDate,
                 NVL(latest.FILE_SIZE, 0) AS FileSize,
                 latest.MIME_TYPE AS MimeType,
-                latest.LATEST_VERSION_ID AS LatestVersionId
+                latest.LATEST_VERSION_ID AS LatestVersionId,
+                d.ROW_VERSION AS RowVersion
             FROM DOCUMENTS d
             {DocumentCreatorJoin}
             LEFT JOIN (
@@ -369,6 +370,87 @@ public class DocumentRepository : IDocumentRepository
             throw;
         }
     }
+
+    public async Task<Document?> GetDocumentByNameAndFolderAsync(string name, Guid folderId)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        const string sql = @"
+            SELECT 
+                ID,
+                NAME,
+                FOLDER_ID AS FolderId,
+                DOSSIER_ID AS DossierId,
+                DOCUMENT_TYPE_ID AS DocumentTypeId,
+                STATUS,
+                ROW_VERSION AS RowVersion,
+                CREATED_BY AS CreatedBy,
+                CREATOR_NAME AS CreatorName,
+                CREATED_DATE AS CreatedDate,
+                MODIFIED_BY AS ModifiedBy,
+                MODIFIED_DATE AS ModifiedDate,
+                IS_DELETED AS IsDeleted
+            FROM DOCUMENTS
+            WHERE NAME = :Name 
+              AND FOLDER_ID = :FolderId 
+              AND IS_DELETED = 0";
+
+        return await _connection.QuerySingleOrDefaultAsync<Document>(sql, new 
+        { 
+            Name = name, 
+            FolderId = folderId.ToString() 
+        });
+    }
+
+    // New method: Get document by name within a dossier
+    public async Task<Document?> GetDocumentByNameAndDossierAsync(string name, Guid dossierId)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        const string sql = @"
+            SELECT 
+                ID,
+                NAME,
+                FOLDER_ID AS FolderId,
+                DOSSIER_ID AS DossierId,
+                DOCUMENT_TYPE_ID AS DocumentTypeId,
+                STATUS,
+                ROW_VERSION AS RowVersion,
+                CREATED_BY AS CreatedBy,
+                CREATOR_NAME AS CreatorName,
+                CREATED_DATE AS CreatedDate,
+                MODIFIED_BY AS ModifiedBy,
+                MODIFIED_DATE AS ModifiedDate,
+                IS_DELETED AS IsDeleted
+            FROM DOCUMENTS
+            WHERE NAME = :Name 
+              AND DOSSIER_ID = :DossierId 
+              AND IS_DELETED = 0";
+
+        return await _connection.QuerySingleOrDefaultAsync<Document>(sql, new {
+            Name = name,
+            DossierId = dossierId.ToString()
+        });
+    }
+
+    // New method: Get the highest version number for a document
+    public async Task<int> GetMaxDocumentVersionNumberAsync(Guid documentId)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        const string sql = @"
+            SELECT NVL(MAX(VERSION_NUMBER), 0)
+            FROM DOCUMENT_VERSIONS
+            WHERE DOCUMENT_ID = :DocumentId
+              AND IS_DELETED = 0";
+
+        var result = await _connection.ExecuteScalarAsync<int>(sql, new { DocumentId = documentId.ToString() });
+        return result;
+    }
+
 
     public async Task<EavFormTemplate?> GetEavFormTemplateByDocumentIdAsync(Guid documentId)
     {
@@ -508,6 +590,7 @@ public class DocumentRepository : IDocumentRepository
                 VERSION_NUMBER,
                 UPLOAD_SOURCE,
                 FILE_PATH,
+                MINIO_VERSION_ID,
                 FILE_SIZE,
                 MIME_TYPE,
                 CREATED_BY,
@@ -519,6 +602,7 @@ public class DocumentRepository : IDocumentRepository
                 :VersionNumber,
                 :UploadSource,
                 :FilePath,
+                :MinioVersionId,
                 :FileSize,
                 :MimeType,
                 :CreatedBy,
@@ -533,6 +617,7 @@ public class DocumentRepository : IDocumentRepository
             version.VersionNumber,
             version.UploadSource,
             version.FilePath,
+            version.MinioVersionId,
             version.FileSize,
             version.MimeType,
             version.CreatedBy
@@ -548,19 +633,25 @@ public class DocumentRepository : IDocumentRepository
 
         var sql = @"
             SELECT 
-                ID,
-                DOCUMENT_ID AS DocumentId,
-                VERSION_NUMBER AS VersionNumber,
-                UPLOAD_SOURCE AS UploadSource,
-                FILE_PATH AS FilePath,
-                FILE_SIZE AS FileSize,
-                MIME_TYPE AS MimeType,
-                CREATED_BY AS CreatedBy,
-                CREATED_DATE AS CreatedDate
-            FROM DOCUMENT_VERSIONS
-            WHERE DOCUMENT_ID = :DocumentId 
-              AND IS_DELETED = 0
-            ORDER BY VERSION_NUMBER DESC";
+                dv.ID,
+                dv.DOCUMENT_ID AS DocumentId,
+                dv.VERSION_NUMBER AS VersionNumber,
+                dv.UPLOAD_SOURCE AS UploadSource,
+                dv.FILE_PATH AS FilePath,
+                dv.MINIO_VERSION_ID AS MinioVersionId,
+                dv.FILE_SIZE AS FileSize,
+                dv.MIME_TYPE AS MimeType,
+                dv.CREATED_BY AS CreatedBy,
+                NVL(cu.FullName, dv.CREATED_BY) AS CreatedByName,
+                dv.CREATED_DATE AS CreatedDate
+            FROM DOCUMENT_VERSIONS dv
+            LEFT JOIN APP_USER cu ON (
+                LOWER(cu.Id) = LOWER(dv.CREATED_BY)
+                OR LOWER(cu.UserName) = LOWER(dv.CREATED_BY)
+            )
+            WHERE dv.DOCUMENT_ID = :DocumentId 
+              AND dv.IS_DELETED = 0
+            ORDER BY dv.VERSION_NUMBER DESC";
 
         return await _connection.QueryAsync<DocumentVersionDto>(sql, new { DocumentId = documentId.ToString() });
     }
@@ -572,18 +663,24 @@ public class DocumentRepository : IDocumentRepository
 
         var sql = @"
             SELECT 
-                ID,
-                DOCUMENT_ID AS DocumentId,
-                VERSION_NUMBER AS VersionNumber,
-                UPLOAD_SOURCE AS UploadSource,
-                FILE_PATH AS FilePath,
-                FILE_SIZE AS FileSize,
-                MIME_TYPE AS MimeType,
-                CREATED_BY AS CreatedBy,
-                CREATED_DATE AS CreatedDate
-            FROM DOCUMENT_VERSIONS
-            WHERE ID = :Id 
-              AND IS_DELETED = 0";
+                dv.ID,
+                dv.DOCUMENT_ID AS DocumentId,
+                dv.VERSION_NUMBER AS VersionNumber,
+                dv.UPLOAD_SOURCE AS UploadSource,
+                dv.FILE_PATH AS FilePath,
+                dv.MINIO_VERSION_ID AS MinioVersionId,
+                dv.FILE_SIZE AS FileSize,
+                dv.MIME_TYPE AS MimeType,
+                dv.CREATED_BY AS CreatedBy,
+                NVL(cu.FullName, dv.CREATED_BY) AS CreatedByName,
+                dv.CREATED_DATE AS CreatedDate
+            FROM DOCUMENT_VERSIONS dv
+            LEFT JOIN APP_USER cu ON (
+                LOWER(cu.Id) = LOWER(dv.CREATED_BY)
+                OR LOWER(cu.UserName) = LOWER(dv.CREATED_BY)
+            )
+            WHERE dv.ID = :Id 
+              AND dv.IS_DELETED = 0";
 
         return await _connection.QuerySingleOrDefaultAsync<DocumentVersionDto>(sql, new { Id = versionId.ToString() });
     }
@@ -860,6 +957,7 @@ public class DocumentRepository : IDocumentRepository
             LatestVersionId = string.IsNullOrEmpty(row.LatestVersionId) ? null : Guid.Parse(row.LatestVersionId),
             DocumentTypeId = string.IsNullOrEmpty(row.DocumentTypeId) ? null : Guid.Parse(row.DocumentTypeId),
             DocumentTypeName = row.DocumentTypeName,
+            IsEquipmentProfile = row.IsEquipmentProfile == 1,
         };
 
         if (!string.IsNullOrEmpty(row.OcrProgressId))
@@ -904,6 +1002,7 @@ public class DocumentRepository : IDocumentRepository
         public string? LatestVersionId { get; set; }
         public string? DocumentTypeId { get; set; }
         public string? DocumentTypeName { get; set; }
+        public int IsEquipmentProfile { get; set; }
         public string? OcrProgressId { get; set; }
         public string? OcrDocumentVersionId { get; set; }
         public string? OcrPhase { get; set; }
@@ -980,6 +1079,23 @@ public class DocumentRepository : IDocumentRepository
         return rows > 0;
     }
 
+    public async Task<bool> SoftDeleteDocumentVersionAsync(Guid versionId, string modifiedBy)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        const string sql = @"
+            UPDATE DOCUMENT_VERSIONS
+            SET IS_DELETED = 1
+            WHERE ID = :VersionId AND IS_DELETED = 0";
+
+        var rows = await _connection.ExecuteAsync(sql, new
+        {
+            VersionId = versionId.ToString()
+        });
+        return rows > 0;
+    }
+
     public async Task<string?> GetOrganizationUnitCodeAsync(long unitId)
     {
         if (_connection.State != ConnectionState.Open)
@@ -1022,6 +1138,27 @@ public class DocumentRepository : IDocumentRepository
         {
             VersionId = versionId.ToString(),
             DossierId = dossierId.ToString()
+        });
+        return count > 0;
+    }
+
+    public async Task<bool> IsEquipmentProfileDocumentVersionForEquipmentAsync(Guid equipmentId, Guid versionId)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        const string sql = $@"
+            SELECT COUNT(1)
+            FROM DOCUMENT_VERSIONS dv
+            INNER JOIN DOCUMENTS d ON d.ID = dv.DOCUMENT_ID AND d.IS_DELETED = 0
+            INNER JOIN DOSSIER_EQUIPMENTS de ON d.DOSSIER_ID = de.DossierId AND de.EquipmentId = :EquipmentId
+            INNER JOIN DOCUMENT_TYPES dt ON {DocumentTypeActiveJoin} AND dt.IS_EQUIPMENT_PROFILE = 1
+            WHERE dv.ID = :VersionId AND dv.IS_DELETED = 0";
+
+        var count = await _connection.ExecuteScalarAsync<int>(sql, new
+        {
+            EquipmentId = equipmentId.ToString(),
+            VersionId = versionId.ToString()
         });
         return count > 0;
     }
@@ -1271,6 +1408,91 @@ public class DocumentRepository : IDocumentRepository
 
         var rows = await _connection.QueryAsync<string>(sql, new { DossierId = dossierId.ToString() });
         return rows.Select(Guid.Parse).ToList();
+    }
+
+    public async Task<(IEnumerable<DocumentListItemDto> Items, int TotalCount)> GetProfileDocumentsByEquipmentAsync(
+        Guid equipmentId,
+        DossierDocumentFilterDto filter)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        var aliasedWhere = "d.IS_DELETED = 0 AND dt.IS_EQUIPMENT_PROFILE = 1 AND de.EquipmentId = :EquipmentId";
+        if (!string.IsNullOrWhiteSpace(filter.Keyword))
+            aliasedWhere += " AND d.NAME LIKE :Keyword";
+
+        var countParams = new DynamicParameters();
+        countParams.Add("EquipmentId", equipmentId.ToString());
+        if (!string.IsNullOrWhiteSpace(filter.Keyword))
+            countParams.Add("Keyword", $"%{filter.Keyword}%");
+
+        var countSql = $@"
+            SELECT COUNT(*) 
+            FROM DOCUMENTS d 
+            INNER JOIN DOSSIER_EQUIPMENTS de ON d.DOSSIER_ID = de.DossierId
+            INNER JOIN DOCUMENT_TYPES dt ON {DocumentTypeActiveJoin}
+            WHERE {aliasedWhere}";
+        var totalCount = await _connection.ExecuteScalarAsync<int>(countSql, countParams);
+
+        var offset = (filter.Page - 1) * filter.PageSize;
+        var listSql = $@"
+            SELECT 
+                d.ID,
+                d.NAME,
+                d.FOLDER_ID AS FolderId,
+                d.DOSSIER_ID AS DossierId,
+                d.DOCUMENT_TYPE_ID AS DocumentTypeId,
+                dt.NAME AS DocumentTypeName,
+                dt.IS_EQUIPMENT_PROFILE AS IsEquipmentProfile,
+                d.CREATED_BY AS CreatedBy,
+                {DocumentCreatedByNameSelect},
+                d.CREATED_DATE AS CreatedDate,
+                NVL(latest.FILE_SIZE, 0) AS FileSize,
+                latest.MIME_TYPE AS MimeType,
+                latest.LATEST_VERSION_ID AS LatestVersionId,
+                ocr.ID AS OcrProgressId,
+                ocr.DOCUMENT_VERSION_ID AS OcrDocumentVersionId,
+                ocr.PHASE AS OcrPhase,
+                ocr.CURRENT_PAGE AS OcrCurrentPage,
+                ocr.TOTAL_PAGES AS OcrTotalPages,
+                ocr.PROGRESS AS OcrProgress,
+                ocr.STATUS AS OcrStatus,
+                ocr.PROCESS_OPTION AS OcrProcessOption,
+                ext.ID AS ExtractionResultId,
+                ext.DOCUMENT_VERSION_ID AS ExtractionDocumentVersionId,
+                ext.STATUS AS ExtractionStatus
+            FROM DOCUMENTS d
+            INNER JOIN DOSSIER_EQUIPMENTS de ON d.DOSSIER_ID = de.DossierId
+            {DocumentCreatorJoin}
+            INNER JOIN DOCUMENT_TYPES dt ON {DocumentTypeActiveJoin}
+            LEFT JOIN (
+                SELECT dv.DOCUMENT_ID, dv.ID AS LATEST_VERSION_ID, dv.FILE_SIZE, dv.MIME_TYPE
+                FROM DOCUMENT_VERSIONS dv
+                INNER JOIN (
+                    SELECT DOCUMENT_ID, MAX(VERSION_NUMBER) AS MAX_VER
+                    FROM DOCUMENT_VERSIONS
+                    WHERE IS_DELETED = 0
+                    GROUP BY DOCUMENT_ID
+                ) m ON dv.DOCUMENT_ID = m.DOCUMENT_ID AND dv.VERSION_NUMBER = m.MAX_VER
+                WHERE dv.IS_DELETED = 0
+            ) latest ON d.ID = latest.DOCUMENT_ID
+            LEFT JOIN DOCUMENT_OCR_PROGRESS ocr ON latest.LATEST_VERSION_ID = ocr.DOCUMENT_VERSION_ID AND ocr.IS_DELETED = 0
+            LEFT JOIN DOCUMENT_EXTRACTION_RESULTS ext ON latest.LATEST_VERSION_ID = ext.DOCUMENT_VERSION_ID AND ext.EQUIPMENT_ID = :EquipmentId AND ext.IS_DELETED = 0
+            WHERE {aliasedWhere}
+            ORDER BY d.CREATED_DATE DESC
+            OFFSET :Offset ROWS FETCH NEXT :PageSize ROWS ONLY";
+
+        var listParams = new DynamicParameters();
+        listParams.Add("EquipmentId", equipmentId.ToString());
+        listParams.Add("Offset", offset);
+        listParams.Add("PageSize", filter.PageSize);
+        if (!string.IsNullOrWhiteSpace(filter.Keyword))
+            listParams.Add("Keyword", $"%{filter.Keyword}%");
+
+        var rows = await _connection.QueryAsync<DossierDocumentListRow>(listSql, listParams);
+        var items = rows.Select(MapDossierDocumentListRow).ToList();
+
+        return (items, totalCount);
     }
 }
 
