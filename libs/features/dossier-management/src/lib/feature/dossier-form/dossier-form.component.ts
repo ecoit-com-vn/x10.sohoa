@@ -128,6 +128,81 @@ import { normalizeDossierKindId } from '../../utils/dossier-permission.util';
               <option *ngFor="let item of formInfrastructures()" [value]="item.id">{{ item.name }}</option>
             </select>
           </div>
+
+          <div class="form-group">
+            <label class="form-label">Hộp lưu trữ</label>
+            <div class="storage-tree-picker">
+              <div class="storage-tree-trigger"
+                [class.has-value]="!!selectedStorageBoxId()"
+                [class.open]="storageTreeOpen()"
+                (click)="toggleStorageTree($event)">
+                <span class="storage-tree-selected-label">
+                  <i class="pi pi-box" style="margin-right: 6px; color: #6b7280;"></i>
+                  {{ storageSelectionLabel() || '-- Chọn hộp (kệ / tầng / hộp) --' }}
+                </span>
+                <span style="display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0;">
+                  <button *ngIf="selectedStorageBoxId()" type="button" class="storage-tree-clear"
+                    title="Bỏ chọn" (click)="clearStorageSelection($event)">
+                    <i class="pi pi-times"></i>
+                  </button>
+                  <i class="pi" [class.pi-chevron-down]="!storageTreeOpen()"
+                    [class.pi-chevron-up]="storageTreeOpen()"></i>
+                </span>
+              </div>
+              <div class="storage-tree-dropdown" *ngIf="storageTreeOpen()" (click)="$event.stopPropagation()">
+                <div *ngIf="storageTree().length === 0" class="storage-tree-empty">
+                  Chưa có kệ/tầng/hộp theo đơn vị hiện tại.
+                </div>
+                <ng-container *ngFor="let shelf of storageTree()">
+                  <div class="storage-tree-node" [style.padding-left.px]="8">
+                    <button type="button" class="storage-tree-expand-btn"
+                      *ngIf="shelf.floors?.length"
+                      (click)="toggleStorageNode('s-' + shelf.id, $event)">
+                      <i class="pi"
+                        [class.pi-chevron-right]="!isStorageNodeExpanded('s-' + shelf.id)"
+                        [class.pi-chevron-down]="isStorageNodeExpanded('s-' + shelf.id)"></i>
+                    </button>
+                    <span class="storage-tree-node-spacer" *ngIf="!shelf.floors?.length"></span>
+                    <span class="storage-tree-node-label storage-tree-level">
+                      {{ shelf.name }} <code>({{ shelf.code }})</code>
+                    </span>
+                  </div>
+                  <ng-container *ngIf="isStorageNodeExpanded('s-' + shelf.id)">
+                    <ng-container *ngFor="let floor of shelf.floors || []">
+                      <div class="storage-tree-node" [style.padding-left.px]="22">
+                        <button type="button" class="storage-tree-expand-btn"
+                          *ngIf="floor.boxes?.length"
+                          (click)="toggleStorageNode('f-' + floor.id, $event)">
+                          <i class="pi"
+                            [class.pi-chevron-right]="!isStorageNodeExpanded('f-' + floor.id)"
+                            [class.pi-chevron-down]="isStorageNodeExpanded('f-' + floor.id)"></i>
+                        </button>
+                        <span class="storage-tree-node-spacer" *ngIf="!floor.boxes?.length"></span>
+                        <span class="storage-tree-node-label storage-tree-level">
+                          {{ floor.name }} <code>({{ floor.code }})</code>
+                        </span>
+                      </div>
+                      <ng-container *ngIf="isStorageNodeExpanded('f-' + floor.id)">
+                        <div class="storage-tree-node storage-tree-leaf"
+                          *ngFor="let box of floor.boxes || []"
+                          [style.padding-left.px]="36"
+                          [class.selected]="selectedStorageBoxId() == box.id"
+                          (click)="selectStorageBox(shelf, floor, box)">
+                          <span class="storage-tree-node-spacer"></span>
+                          <span class="storage-tree-node-label">
+                            {{ box.name }} <code>({{ box.code }})</code>
+                          </span>
+                        </div>
+                      </ng-container>
+                    </ng-container>
+                  </ng-container>
+                </ng-container>
+              </div>
+            </div>
+            <p style="font-size: 0.75rem; color: #6b7280; margin: 6px 0 0 0;">
+              Không bắt buộc. Chỉ lưu khi chọn đến hộp.
+            </p>
+          </div>
         </div>
 
         <!-- Cột phải: Thiết bị liên quan -->
@@ -548,6 +623,50 @@ import { normalizeDossierKindId } from '../../utils/dossier-permission.util';
   styles: [`
     .w-full { width: 100%; }
     .tab-bar { margin-bottom: 16px; }
+    .storage-tree-picker { position: relative; width: 100%; }
+    .storage-tree-trigger {
+      display: flex; align-items: center; justify-content: space-between;
+      height: 34px; padding: 0 10px;
+      border: 1px solid #d1d5db; border-radius: 5px;
+      cursor: pointer; background: #ffffff;
+      font-size: 0.85rem; color: #94a3b8; user-select: none; outline: none;
+    }
+    .storage-tree-trigger.has-value { color: #374151; }
+    .storage-tree-trigger.open, .storage-tree-trigger:hover { border-color: #9ca3af; }
+    .storage-tree-selected-label {
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;
+    }
+    .storage-tree-clear {
+      border: none; background: transparent; width: 18px; height: 18px;
+      cursor: pointer; color: #6b7280; display: inline-flex; align-items: center; justify-content: center;
+      font-size: 0.75rem;
+    }
+    .storage-tree-dropdown {
+      position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 40;
+      background: #fff; border: 1px solid #d1d5db; border-radius: 5px;
+      box-shadow: 0 4px 12px rgba(0,0,0,.08); max-height: 240px; overflow-y: auto;
+    }
+    .storage-tree-empty { padding: 12px; text-align: center; color: #6b7280; font-size: 0.85rem; }
+    .storage-tree-node {
+      display: flex; align-items: center; gap: 4px; padding: 6px 8px; margin: 1px 4px;
+      border-radius: 4px; cursor: default;
+    }
+    .storage-tree-node.selected { background: #eff6ff; cursor: pointer; }
+    .storage-tree-node.selected .storage-tree-node-label { color: #002D72; font-weight: 600; }
+    .storage-tree-node:not(.selected) .storage-tree-node-label.storage-tree-level { color: #6b7280; font-weight: 500; }
+    .storage-tree-leaf { cursor: pointer; }
+    .storage-tree-node:hover { background: #f8fafc; }
+    .storage-tree-expand-btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 18px; height: 18px; border: none; background: transparent; cursor: pointer; flex-shrink: 0;
+    }
+    .storage-tree-expand-btn .pi { font-size: 0.65rem; color: #6b7280; }
+    .storage-tree-node-spacer { display: inline-block; width: 18px; height: 18px; flex-shrink: 0; }
+    .storage-tree-node-label {
+      font-size: 0.85rem; color: #374151; flex: 1;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .storage-tree-node-label code { font-size: 0.85rem; color: #6b7280; font-family: inherit; }
   `]
 })
 export class DossierFormComponent implements OnInit {
@@ -620,11 +739,40 @@ export class DossierFormComponent implements OnInit {
     gridTypeId: null as number | null,
     infrastructureId: null as string | null,
     dossierSetId: null as string | null,
-    rowVersion: 1
+    rowVersion: 1,
+    shelfId: null as number | null,
+    floorId: null as number | null,
+    boxId: null as number | null,
+    shelfName: null as string | null,
+    floorName: null as string | null,
+    boxName: null as string | null,
+    shelfCode: null as string | null,
+    floorCode: null as string | null,
+    boxCode: null as string | null,
   };
 
   selectedEquipments = signal<any[]>([]);
   formGridTypeId = signal<number | null>(null);
+
+  storageTree = signal<any[]>([]);
+  storageTreeOpen = signal(false);
+  expandedStorageNodes = signal<Set<string>>(new Set());
+  /** Signal để UI (zoneless) cập nhật sau khi chọn/xóa hộp — không dùng computed trên object thuần. */
+  selectedStorageBoxId = signal<number | null>(null);
+  storageSelectionLabel = signal('');
+
+  private refreshStorageSelectionLabel() {
+    if (!this.dossier.boxId) {
+      this.selectedStorageBoxId.set(null);
+      this.storageSelectionLabel.set('');
+      return;
+    }
+    this.selectedStorageBoxId.set(Number(this.dossier.boxId));
+    const shelf = this.dossier.shelfName || this.dossier.shelfCode || (this.dossier.shelfId ? `Kệ #${this.dossier.shelfId}` : '');
+    const floor = this.dossier.floorName || this.dossier.floorCode || (this.dossier.floorId ? `Tầng #${this.dossier.floorId}` : '');
+    const box = this.dossier.boxName || this.dossier.boxCode || `Hộp #${this.dossier.boxId}`;
+    this.storageSelectionLabel.set([shelf, floor, box].filter(Boolean).join(' / '));
+  }
 
   formInfrastructures = computed(() => {
     const gtId = this.formGridTypeId();
@@ -661,6 +809,12 @@ export class DossierFormComponent implements OnInit {
   /** Lựa chọn tạm trong popup — chỉ áp dụng vào hồ sơ khi bấm Lưu. */
   dialogSelectedEquipments = signal<any[]>([]);
 
+  constructor() {
+    if (typeof window !== 'undefined') {
+      window.addEventListener('click', () => this.storageTreeOpen.set(false));
+    }
+  }
+
   ngOnInit() {
     this.loadLookups();
     if (this.dossierId) {
@@ -673,10 +827,64 @@ export class DossierFormComponent implements OnInit {
     this.service.getGridTypeLookup().subscribe(res => this.gridTypes.set(res || []));
     this.service.getDossierSets().subscribe(res => this.dossierSets.set(res || []));
     this.loadInfrastructures();
+    this.loadPhysicalStorageTree();
     this.service.getUsersLookup().subscribe({
       next: (users) => this.users.set(Array.isArray(users) ? users : []),
       error: () => this.users.set([])
     });
+  }
+
+  loadPhysicalStorageTree() {
+    const unitId = this.authService.getUserUnitId();
+    this.service.getPhysicalStorageTree(unitId).subscribe({
+      next: (res) => this.storageTree.set(Array.isArray(res) ? res : []),
+      error: () => this.storageTree.set([])
+    });
+  }
+
+  toggleStorageTree(event?: Event) {
+    if (event) event.stopPropagation();
+    this.storageTreeOpen.update(v => !v);
+  }
+
+  toggleStorageNode(key: string, event?: Event) {
+    if (event) event.stopPropagation();
+    const current = new Set(this.expandedStorageNodes());
+    if (current.has(key)) current.delete(key);
+    else current.add(key);
+    this.expandedStorageNodes.set(current);
+  }
+
+  isStorageNodeExpanded(key: string): boolean {
+    return this.expandedStorageNodes().has(key);
+  }
+
+  selectStorageBox(shelf: any, floor: any, box: any) {
+    this.dossier.shelfId = Number(shelf.id);
+    this.dossier.floorId = Number(floor.id);
+    this.dossier.boxId = Number(box.id);
+    this.dossier.shelfName = shelf.name ?? null;
+    this.dossier.floorName = floor.name ?? null;
+    this.dossier.boxName = box.name ?? null;
+    this.dossier.shelfCode = shelf.code ?? null;
+    this.dossier.floorCode = floor.code ?? null;
+    this.dossier.boxCode = box.code ?? null;
+    this.refreshStorageSelectionLabel();
+    this.storageTreeOpen.set(false);
+  }
+
+  clearStorageSelection(event?: Event) {
+    if (event) event.stopPropagation();
+    this.dossier.shelfId = null;
+    this.dossier.floorId = null;
+    this.dossier.boxId = null;
+    this.dossier.shelfName = null;
+    this.dossier.floorName = null;
+    this.dossier.boxName = null;
+    this.dossier.shelfCode = null;
+    this.dossier.floorCode = null;
+    this.dossier.boxCode = null;
+    this.refreshStorageSelectionLabel();
   }
 
   loadInfrastructures() {
@@ -739,7 +947,25 @@ export class DossierFormComponent implements OnInit {
             infrastructureId: res.infrastructureId ?? res.InfrastructureId,
             dossierSetId: res.dossierSetId ?? res.DossierSetId,
             rowVersion: res.rowVersion ?? res.RowVersion,
+            shelfId: res.shelfId ?? res.ShelfId ?? null,
+            floorId: res.floorId ?? res.FloorId ?? null,
+            boxId: res.boxId ?? res.BoxId ?? null,
+            shelfName: res.shelfName ?? res.ShelfName ?? null,
+            floorName: res.floorName ?? res.FloorName ?? null,
+            boxName: res.boxName ?? res.BoxName ?? null,
+            shelfCode: res.shelfCode ?? res.ShelfCode ?? null,
+            floorCode: res.floorCode ?? res.FloorCode ?? null,
+            boxCode: res.boxCode ?? res.BoxCode ?? null,
           };
+          if (this.dossier.shelfId) {
+            this.expandedStorageNodes.update(set => {
+              const next = new Set(set);
+              next.add('s-' + this.dossier.shelfId);
+              if (this.dossier.floorId) next.add('f-' + this.dossier.floorId);
+              return next;
+            });
+          }
+          this.refreshStorageSelectionLabel();
           this.dossierStatus.set(String(res.status ?? res.Status ?? ''));
           this.dossierStatusId.set(Number(res.statusId ?? res.StatusId ?? 0));
           this.workflowInstanceId.set(res.workflowInstanceId ?? res.WorkflowInstanceId ?? null);
@@ -1112,13 +1338,18 @@ export class DossierFormComponent implements OnInit {
     }
 
     this.isSaving.set(true);
+    const hasBox = !!this.dossier.boxId;
     const dto = {
       ...this.dossier,
       gridTypeId: this.dossier.gridTypeId != null ? Number(this.dossier.gridTypeId) : null,
       equipmentIds: this.selectedEquipments().map(e => e.equipmentId || e.id),
       formDataJson: this.dynamicFields().length > 0
         ? serializeFormDataForSchema(this.dynamicFields(), this.formData)
-        : undefined
+        : undefined,
+      // Chỉ gửi vị trí khi đã chọn đến hộp; ngược lại null để BE clear.
+      shelfId: hasBox ? this.dossier.shelfId : null,
+      floorId: hasBox ? this.dossier.floorId : null,
+      boxId: hasBox ? this.dossier.boxId : null,
     };
 
     const req$ = this.isEditMode()
