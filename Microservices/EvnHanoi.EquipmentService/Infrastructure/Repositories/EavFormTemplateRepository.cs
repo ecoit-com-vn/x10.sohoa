@@ -28,7 +28,7 @@ public class EavFormTemplateRepository : IEavFormTemplateRepository
                      )
                      LEFT JOIN GridTypes gt ON t.{nameof(EavFormTemplate.GridTypeId)} = gt.Id
                      LEFT JOIN EquipmentTypes et ON t.{nameof(EavFormTemplate.EquipmentTypeId)} = et.Id
-                     WHERE et.Id = :Id AND t.IsDeleted = 0 AND t.IsActive = 1";
+                     WHERE t.{nameof(EavFormTemplate.Id)}= :Id";
         return await _connection.QuerySingleOrDefaultAsync<EavFormTemplate>(sql, new { Id = id.ToString() });
     }
 
