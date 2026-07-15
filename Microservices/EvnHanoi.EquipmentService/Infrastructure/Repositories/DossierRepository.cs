@@ -610,6 +610,15 @@ public class DossierRepository : IDossierRepository
                         d.PUBLISHSTATUSID as {nameof(DossierDetailDto.PublishStatusId)},
                         ps.CODE as {nameof(DossierDetailDto.PublishStatusCode)},
                         ps.NAME as {nameof(DossierDetailDto.PublishStatusName)},
+                        d.ShelfId as {nameof(DossierDetailDto.ShelfId)},
+                        shel.Code as {nameof(DossierDetailDto.ShelfCode)},
+                        shel.Name as {nameof(DossierDetailDto.ShelfName)},
+                        d.FloorId as {nameof(DossierDetailDto.FloorId)},
+                        fl.Code as {nameof(DossierDetailDto.FloorCode)},
+                        fl.Name as {nameof(DossierDetailDto.FloorName)},
+                        d.BoxId as {nameof(DossierDetailDto.BoxId)},
+                        bx.Code as {nameof(DossierDetailDto.BoxCode)},
+                        bx.Name as {nameof(DossierDetailDto.BoxName)},
                         d.{nameof(Dossier.CreatorId)} as Id,
                         d.{nameof(Dossier.CreatorUsername)} as Username,
                         d.{nameof(Dossier.CreatorName)} as Name
@@ -620,6 +629,9 @@ public class DossierRepository : IDossierRepository
                      LEFT JOIN DOSSIER_SETS ds ON d.{nameof(Dossier.DossierSetId)} = ds.ID
                      LEFT JOIN PUBLISH_STATUSES ps ON d.PUBLISHSTATUSID = ps.ID
                      LEFT JOIN DOSSIER_STATUSES dstat ON d.STATUS_ID = dstat.ID
+                     LEFT JOIN PHYSICAL_SHELF shel ON d.ShelfId = shel.Id
+                     LEFT JOIN PHYSICAL_FLOOR fl ON d.FloorId = fl.Id
+                     LEFT JOIN PHYSICAL_BOX bx ON d.BoxId = bx.Id
                      WHERE d.{nameof(Dossier.Id)} = :Id AND d.{nameof(Dossier.IsDeleted)} = 0";
             var dossierList = await conn.QueryAsync<DossierDetailDto, CreatorInfoDto, DossierDetailDto>(
                 sql,
@@ -641,7 +653,7 @@ public class DossierRepository : IDossierRepository
     public async Task<Dossier?> GetByIdAsync(Guid id)
     {
         _connection.EnsureOpen();
-        var sql = $@"SELECT Id, GridTypeId, InfrastructureId, DossierSetId, DossierTypeId, FormDataJson, STATUS_ID as StatusId, KIND_ID as KindId, WorkflowInstanceId, WorkflowStatusName, RowVersion, CreatorId, CreatorUsername, CreatorName, CreatedBy, CreatedDate, ModifiedBy, ModifiedDate, IsDeleted, PUBLISHSTATUSID as PublishStatusId FROM DOSSIERS WHERE {nameof(Dossier.Id)} = :Id AND {nameof(Dossier.IsDeleted)} = 0";
+        var sql = $@"SELECT Id, GridTypeId, InfrastructureId, DossierSetId, DossierTypeId, FormDataJson, STATUS_ID as StatusId, KIND_ID as KindId, WorkflowInstanceId, WorkflowStatusName, RowVersion, CreatorId, CreatorUsername, CreatorName, CreatedBy, CreatedDate, ModifiedBy, ModifiedDate, IsDeleted, PUBLISHSTATUSID as PublishStatusId, ShelfId, FloorId, BoxId FROM DOSSIERS WHERE {nameof(Dossier.Id)} = :Id AND {nameof(Dossier.IsDeleted)} = 0";
         return await _connection.QuerySingleOrDefaultAsync<Dossier>(sql, new { Id = id.ToString() });
     }
 
@@ -674,11 +686,15 @@ public class DossierRepository : IDossierRepository
                             {nameof(Dossier.CreatorName)},
                             {nameof(Dossier.CreatedBy)},
                             {nameof(Dossier.CreatedDate)},
-                            {nameof(Dossier.IsDeleted)}
+                            {nameof(Dossier.IsDeleted)},
+                            {nameof(Dossier.ShelfId)},
+                            {nameof(Dossier.FloorId)},
+                            {nameof(Dossier.BoxId)}
                         ) VALUES (
                             :Id, :GridTypeId, :InfrastructureId, :DossierSetId, :DossierTypeId,
                             :FormDataJson, :StatusId, :KindId, :RowVersion, :CreatorId, :CreatorUsername,
-                            :CreatorName, :CreatedBy, :CreatedDate, :IsDeleted
+                            :CreatorName, :CreatedBy, :CreatedDate, :IsDeleted,
+                            :ShelfId, :FloorId, :BoxId
                         )";
             await _connection.ExecuteAsync(sql, new
             {
@@ -696,7 +712,10 @@ public class DossierRepository : IDossierRepository
                 dossier.CreatorName,
                 dossier.CreatedBy,
                 dossier.CreatedDate,
-                IsDeleted = dossier.IsDeleted ? 1 : 0
+                IsDeleted = dossier.IsDeleted ? 1 : 0,
+                dossier.ShelfId,
+                dossier.FloorId,
+                dossier.BoxId
             }, transaction);
             // Insert equipment links
             foreach (var equipId in equipmentIds)
@@ -727,6 +746,9 @@ public class DossierRepository : IDossierRepository
                             {nameof(Dossier.DossierSetId)} = :DossierSetId,
                             {nameof(Dossier.DossierTypeId)} = :DossierTypeId,
                             {nameof(Dossier.FormDataJson)} = :FormDataJson,
+                            {nameof(Dossier.ShelfId)} = :ShelfId,
+                            {nameof(Dossier.FloorId)} = :FloorId,
+                            {nameof(Dossier.BoxId)} = :BoxId,
                             {nameof(Dossier.ModifiedBy)} = :ModifiedBy,
                             {nameof(Dossier.ModifiedDate)} = :ModifiedDate,
                             {nameof(Dossier.RowVersion)} = {nameof(Dossier.RowVersion)} + 1
@@ -741,6 +763,9 @@ public class DossierRepository : IDossierRepository
                 DossierSetId = dossier.DossierSetId?.ToString(),
                 DossierTypeId = dossier.DossierTypeId.ToString(),
                 FormDataJson = OracleClob.Param(dossier.FormDataJson),
+                dossier.ShelfId,
+                dossier.FloorId,
+                dossier.BoxId,
                 dossier.ModifiedBy,
                 dossier.ModifiedDate,
                 dossier.RowVersion
