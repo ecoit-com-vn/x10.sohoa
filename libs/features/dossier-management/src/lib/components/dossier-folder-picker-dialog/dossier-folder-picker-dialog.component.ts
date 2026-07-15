@@ -157,7 +157,7 @@ export class DossierFolderPickerDialogComponent {
   private loadDocumentTypes(): void {
     this.loadingDocTypes.set(true);
     this.dossierDocumentService
-      .lookupDocumentTypes()
+      .getDocumentTypesForDossier(this.dossierId)
       .pipe(finalize(() => this.loadingDocTypes.set(false)))
       .subscribe({
         next: (items) => this.documentTypes.set(items),

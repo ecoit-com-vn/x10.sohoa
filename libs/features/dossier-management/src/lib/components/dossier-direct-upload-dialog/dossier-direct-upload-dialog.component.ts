@@ -50,8 +50,6 @@ import {
   DocumentTypeLookupItem,
   DigitizationProcessOption,
 } from '../../data-access/dossier-document.service';
-import { DossierManagementService } from '../../data-access/dossier-management.service';
-import { DossierTypeService } from '@sohoa.frontend/features/catalog';
 import { OcrMode } from '../../utils/dossier-digitization.util';
 
 
@@ -83,8 +81,6 @@ interface UploadedFileItem {
 export class DossierDirectUploadDialogComponent implements OnInit {
 
   private dossierDocumentService = inject(DossierDocumentService);
-  private dossierService = inject(DossierManagementService);
-  private dossierTypeService = inject(DossierTypeService);
   private messageService = inject(MessageService);
 
 
@@ -283,52 +279,19 @@ export class DossierDirectUploadDialogComponent implements OnInit {
 
   private loadDocumentTypes(): void {
     this.loadingDocTypes.set(true);
-    this.dossierService.getDossierById(this.dossierId).subscribe({
-      next: (dossier: any) => {
-        const dossierTypeId = dossier?.dossierTypeId;
-        if (!dossierTypeId) {
-          this.loadAllDocumentTypes();
-          return;
-        }
-
-        this.dossierTypeService.getDossierTypeById(dossierTypeId).subscribe({
-          next: (dossierType: any) => {
-            const linkedDocTypeIds: string[] = dossierType?.documentTypeIds || [];
-            this.dossierDocumentService.lookupDocumentTypes()
-              .pipe(finalize(() => this.loadingDocTypes.set(false)))
-              .subscribe({
-                next: (items) => {
-                  let filtered = items;
-                  if (linkedDocTypeIds.length > 0) {
-                    filtered = items.filter(item => linkedDocTypeIds.includes(item.id));
-                  }
-                  this.documentTypes.set(filtered);
-                },
-                error: () => this.handleLoadError()
-              });
-          },
-          error: () => this.loadAllDocumentTypes()
-        });
-      },
-      error: () => this.loadAllDocumentTypes()
-    });
-  }
-
-  private loadAllDocumentTypes(): void {
-    this.dossierDocumentService.lookupDocumentTypes()
+    this.dossierDocumentService
+      .getDocumentTypesForDossier(this.dossierId)
       .pipe(finalize(() => this.loadingDocTypes.set(false)))
       .subscribe({
         next: (items) => this.documentTypes.set(items),
-        error: () => this.handleLoadError()
+        error: () => {
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi',
+            detail: 'Không thể tải danh mục loại văn bản',
+          });
+        },
       });
-  }
-
-  private handleLoadError(): void {
-    this.messageService.add({
-      severity: 'error',
-      summary: 'Lỗi',
-      detail: 'Không thể tải danh mục loại văn bản',
-    });
   }
 
 

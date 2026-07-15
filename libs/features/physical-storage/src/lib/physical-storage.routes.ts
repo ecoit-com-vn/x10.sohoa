@@ -1,8 +1,10 @@
-import { Routes } from '@angular/router';
+import { PhysicalStorageComponent } from './components/physical-storage/physical-storage.component';
+import { Route } from '@angular/router';
 
-export const PHYSICAL_STORAGE_ROUTES: Routes = [
+export const PHYSICAL_STORAGE_ROUTES: Route[] = [
   {
     path: '',
-    loadComponent: () => import('./components/physical-storage/physical-storage.component').then(m => m.PhysicalStorageComponent)
+    component: PhysicalStorageComponent,
+    data: { title: 'Quản lý kho vật lý' }
   }
 ];

@@ -1,60 +1,63 @@
 import { Component, OnInit } from '@angular/core';
-import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
-import { CommonModule } from '@angular/common';
+import { PhysicalStorageService, PhysicalShelfDto, PhysicalFloorDto, PhysicalBoxDto } from '../../physical-storage/physical-storage.service';
+import { TableModule } from 'primeng/table';
 import { TabsModule } from 'primeng/tabs';
+import { ButtonModule } from 'primeng/button';
+import { PaginatorModule } from 'primeng/paginator';
 import { DialogModule } from 'primeng/dialog';
-import { FormsModule } from '@angular/forms';
 import { ToastModule } from 'primeng/toast';
+import { ConfirmDialogModule } from 'primeng/confirmdialog';
+import { FormsModule } from '@angular/forms';
+import { CommonModule } from '@angular/common';
+import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { MessageService, ConfirmationService } from 'primeng/api';
-import { HttpClient } from '@angular/common/http';
-import { environment } from '@env/environment';
+import { forkJoin, switchMap, of } from 'rxjs';
 
+/**
+ * Physical Storage Component – quản lý Kệ / Tầng / Hộp hồ sơ.
+ * API thực tế: /api/physicalstorage/shelves, /floors, /boxes (qua YARP gateway)
+ */
 @Component({
   selector: 'app-physical-storage',
   standalone: true,
   imports: [
     CommonModule,
+    TableModule,
     TabsModule,
+    ButtonModule,
+    PaginatorModule,
     DialogModule,
-    FormsModule,
     ToastModule,
-    WfBreadcrumbComponent,
+    ConfirmDialogModule,
+    FormsModule,
+    WfBreadcrumbComponent
   ],
-  providers: [MessageService],
+  providers: [MessageService, ConfirmationService],
   templateUrl: './physical-storage.component.html',
   styleUrl: './physical-storage.component.scss'
 })
 export class PhysicalStorageComponent implements OnInit {
-  shelves: any[] = [];
-  floors: any[] = [];
-  boxes: any[] = [];
-  categories: any[] = [];
+  shelves: PhysicalShelfDto[] = [];
+  floors: PhysicalFloorDto[] = [];
+  boxes: PhysicalBoxDto[] = [];
 
   displayDialog = false;
   dialogHeader = '';
   currentType = '';
   currentData: any = {};
   isEdit = false;
-  activeTab = 0;
 
   loading = false;
   saving = false;
 
-  private apiUrl = `${environment.apiGatewayUrl}/api/physicalstorage`;
-
   constructor(
-    private http: HttpClient,
+    private physicalStorageService: PhysicalStorageService,
     private messageService: MessageService,
     private confirmationService: ConfirmationService
-  ) { }
+  ) {}
 
   ngOnInit() {
     this.loadAllData();
-  }
-
-  getFondName(id: number): string {
-    const fond = this.categories.find(c => c.id === id);
-    return fond ? fond.name : `Danh mục #${id}`;
   }
 
   getShelfName(id: number): string {
@@ -67,115 +70,48 @@ export class PhysicalStorageComponent implements OnInit {
     return floor ? floor.name : `Tầng #${id}`;
   }
 
-  get activeTabLabel(): string {
-    switch (this.activeTab) {
-      case 0: return 'Thêm kệ mới';
-      case 1: return 'Thêm tầng mới';
-      case 2: return 'Thêm hộp mới';
-      case 3: return 'Thêm danh mục mới';
-      default: return 'Thêm mới';
-    }
-  }
-
-  get activeTabAction(): string {
-    switch (this.activeTab) {
-      case 0: return 'shelf';
-      case 1: return 'floor';
-      case 2: return 'box';
-      case 3: return 'category';
-      default: return 'shelf';
-    }
-  }
-
   loadAllData() {
     this.loading = true;
-    this.http.get<any[]>(`${this.apiUrl}/fonds`).subscribe({
-      next: (fondsData) => {
-        this.categories = fondsData;
-        this.shelves = [];
-        this.floors = [];
-        this.boxes = [];
+    this.shelves = [];
+    this.floors = [];
+    this.boxes = [];
 
-        if (fondsData.length === 0) {
+    this.physicalStorageService.getShelves().subscribe({
+      next: (shelvesData) => {
+        this.shelves = shelvesData;
+        if (shelvesData.length === 0) {
           this.loading = false;
           return;
         }
 
-        let loadedShelvesCount = 0;
-        fondsData.forEach(fond => {
-          this.http.get<any[]>(`${this.apiUrl}/fonds/${fond.id}/shelves`).subscribe({
-            next: (shelvesData) => {
-              shelvesData.forEach(s => {
-                s.location = s.description;
-              });
-              this.shelves = [...this.shelves, ...shelvesData];
-              loadedShelvesCount++;
-
-              if (loadedShelvesCount === fondsData.length) {
-                if (this.shelves.length === 0) {
-                  this.loading = false;
-                  return;
-                }
-                let loadedFloorsCount = 0;
-                const currentShelves = [...this.shelves];
-                currentShelves.forEach(shelf => {
-                  this.http.get<any[]>(`${this.apiUrl}/shelves/${shelf.id}/floors`).subscribe({
-                    next: (floorsData) => {
-                      this.floors = [...this.floors, ...floorsData];
-                      loadedFloorsCount++;
-
-                      if (loadedFloorsCount === currentShelves.length) {
-                        if (this.floors.length === 0) {
-                          this.loading = false;
-                          return;
-                        }
-                        const currentFloors = [...this.floors];
-                        let loadedBoxesCount = 0;
-                        currentFloors.forEach(floor => {
-                          this.http.get<any[]>(`${this.apiUrl}/floors/${floor.id}/boxes`).subscribe({
-                            next: (boxesData) => {
-                              boxesData.forEach(b => {
-                                b.capacity = b.description ? parseInt(b.description) || 50 : 50;
-                              });
-                              this.boxes = [...this.boxes, ...boxesData];
-                              loadedBoxesCount++;
-                              if (loadedBoxesCount === currentFloors.length) {
-                                this.loading = false;
-                              }
-                            },
-                            error: (err) => {
-                              console.error(err);
-                              loadedBoxesCount++;
-                              if (loadedBoxesCount === currentFloors.length) {
-                                this.loading = false;
-                              }
-                            }
-                          });
-                        });
-                      }
-                    },
-                    error: (err) => {
-                      console.error(err);
-                      loadedFloorsCount++;
-                      if (loadedFloorsCount === currentShelves.length) {
-                        this.loading = false;
-                      }
-                    }
-                  });
-                });
-              }
-            },
-            error: (err) => {
-              console.error(err);
-              loadedShelvesCount++;
-              if (loadedShelvesCount === fondsData.length) {
-                this.loading = false;
-              }
+        // Load tất cả floors song song cho các kệ
+        const floorRequests = shelvesData.map(s =>
+          this.physicalStorageService.getFloorsByShelf(s.id)
+        );
+        forkJoin(floorRequests).subscribe({
+          next: (floorArrays) => {
+            this.floors = floorArrays.flat();
+            if (this.floors.length === 0) {
+              this.loading = false;
+              return;
             }
-          });
+
+            // Load tất cả boxes song song cho các tầng
+            const boxRequests = this.floors.map(f =>
+              this.physicalStorageService.getBoxesByFloor(f.id)
+            );
+            forkJoin(boxRequests).subscribe({
+              next: (boxArrays) => {
+                this.boxes = boxArrays.flat();
+                this.loading = false;
+              },
+              error: () => { this.loading = false; }
+            });
+          },
+          error: () => { this.loading = false; }
         });
       },
-      error: (err) => {
+      error: () => {
         this.loading = false;
         this.messageService.add({ severity: 'error', summary: 'Lỗi tải dữ liệu', detail: 'Không thể tải sơ đồ lưu trữ.' });
       }
@@ -188,12 +124,11 @@ export class PhysicalStorageComponent implements OnInit {
     this.currentData = {
       code: '',
       name: '',
-      location: '',
       description: '',
-      fondsId: this.categories.length > 0 ? this.categories[0].id : null,
       shelfId: this.shelves.length > 0 ? this.shelves[0].id : null,
       floorId: this.floors.length > 0 ? this.floors[0].id : null,
-      capacity: 50
+      capacity: 50,
+      status: 1
     };
     this.dialogHeader = 'Thêm mới ' + this.getTypeName(type);
     this.displayDialog = true;
@@ -209,7 +144,7 @@ export class PhysicalStorageComponent implements OnInit {
 
   deleteItem(type: string, item: any) {
     this.confirmationService.confirm({
-      message: `Bạn có chắc chắn muốn xóa bản ghi này khỏi danh mục không?`,
+      message: `Bạn có chắc chắn muốn xóa bản ghi này không?`,
       header: 'Xác nhận xóa',
       icon: 'pi pi-exclamation-triangle',
       acceptLabel: 'Đồng ý',
@@ -217,34 +152,27 @@ export class PhysicalStorageComponent implements OnInit {
       acceptButtonStyleClass: 'btn-save',
       rejectButtonStyleClass: 'btn-cancel',
       accept: () => {
-        let deleteUrl = '';
+        let obs$;
         switch (type) {
-          case 'category': deleteUrl = `${this.apiUrl}/fonds/${item.id}`; break;
-          case 'shelf': deleteUrl = `${this.apiUrl}/shelves/${item.id}`; break;
-          case 'floor': deleteUrl = `${this.apiUrl}/floors/${item.id}`; break;
-          case 'box': deleteUrl = `${this.apiUrl}/boxes/${item.id}`; break;
+          case 'shelf': obs$ = this.physicalStorageService.deleteShelf(item.id); break;
+          case 'floor': obs$ = this.physicalStorageService.deleteFloor(item.id); break;
+          case 'box':   obs$ = this.physicalStorageService.deleteBox(item.id);   break;
+          default: return;
         }
-        this.http.delete(deleteUrl).subscribe({
+        obs$.subscribe({
           next: () => {
-            this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã xóa bản ghi thành công!' });
+            this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã xóa thành công.' });
             this.loadAllData();
           },
-          error: (err) => {
-            this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Xóa bản ghi thất bại.' });
-          }
+          error: () => this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Xóa thất bại.' })
         });
       }
     });
   }
 
   saveData() {
-    if (!this.currentData.code || !this.currentData.name) {
+    if (!this.currentData.code?.trim() || !this.currentData.name?.trim()) {
       this.messageService.add({ severity: 'error', summary: 'Thiếu thông tin', detail: 'Vui lòng điền đầy đủ Mã và Tên bắt buộc!' });
-      return;
-    }
-
-    if (this.currentType === 'shelf' && !this.currentData.fondsId) {
-      this.messageService.add({ severity: 'error', summary: 'Thiếu thông tin', detail: 'Vui lòng chọn danh mục quản lý.' });
       return;
     }
     if (this.currentType === 'floor' && !this.currentData.shelfId) {
@@ -257,63 +185,43 @@ export class PhysicalStorageComponent implements OnInit {
     }
 
     this.saving = true;
-    let saveObs;
+    let saveObs$: import('rxjs').Observable<any> | undefined;
+
     if (this.isEdit) {
       switch (this.currentType) {
-        case 'category':
-          saveObs = this.http.put(`${this.apiUrl}/fonds/${this.currentData.id}`, this.currentData);
-          break;
-        case 'shelf':
-          this.currentData.description = this.currentData.location;
-          saveObs = this.http.put(`${this.apiUrl}/shelves/${this.currentData.id}`, this.currentData);
-          break;
-        case 'floor':
-          saveObs = this.http.put(`${this.apiUrl}/floors/${this.currentData.id}`, this.currentData);
-          break;
-        case 'box':
-          this.currentData.description = String(this.currentData.capacity);
-          saveObs = this.http.put(`${this.apiUrl}/boxes/${this.currentData.id}`, this.currentData);
-          break;
+        case 'shelf': saveObs$ = this.physicalStorageService.updateShelf(this.currentData.id, this.currentData); break;
+        case 'floor': saveObs$ = this.physicalStorageService.updateFloor(this.currentData.id, this.currentData); break;
+        case 'box':   saveObs$ = this.physicalStorageService.updateBox(this.currentData.id, this.currentData);   break;
+        default: return;
       }
     } else {
       switch (this.currentType) {
-        case 'category':
-          saveObs = this.http.post(`${this.apiUrl}/fonds`, this.currentData);
-          break;
-        case 'shelf':
-          this.currentData.description = this.currentData.location;
-          saveObs = this.http.post(`${this.apiUrl}/shelves`, this.currentData);
-          break;
-        case 'floor':
-          saveObs = this.http.post(`${this.apiUrl}/floors`, this.currentData);
-          break;
-        case 'box':
-          this.currentData.description = String(this.currentData.capacity);
-          saveObs = this.http.post(`${this.apiUrl}/boxes`, this.currentData);
-          break;
+        case 'shelf': saveObs$ = this.physicalStorageService.createShelf(this.currentData); break;
+        case 'floor': saveObs$ = this.physicalStorageService.createFloor(this.currentData); break;
+        case 'box':   saveObs$ = this.physicalStorageService.createBox(this.currentData);   break;
+        default: return;
       }
     }
 
-    saveObs?.subscribe({
+    saveObs$?.subscribe({
       next: () => {
-        this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã lưu thay đổi thông tin thành công!' });
+        this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã lưu thông tin thành công!' });
         this.loadAllData();
         this.displayDialog = false;
         this.saving = false;
       },
-      error: (err) => {
+      error: () => {
         this.saving = false;
         this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Lưu thông tin thất bại.' });
       }
     });
   }
 
-  private getTypeName(type: string) {
+  private getTypeName(type: string): string {
     switch (type) {
       case 'shelf': return 'Kệ lưu trữ';
       case 'floor': return 'Tầng kệ';
-      case 'box': return 'Hộp hồ sơ';
-      case 'category': return 'Danh mục hồ sơ';
+      case 'box':   return 'Hộp hồ sơ';
       default: return '';
     }
   }

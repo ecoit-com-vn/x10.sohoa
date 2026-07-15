@@ -36,6 +36,7 @@ export class DossierTypeComponent implements OnInit {
   currentView = signal<'list' | 'add' | 'edit' | 'configure'>('list');
   currentItem = signal<any>({});
   isSaving = signal<boolean>(false);
+  isLoadingDetail = signal<boolean>(false);
 
   // Configure EAV states & signals
   private eavFormService = inject(EavFormService);
@@ -220,13 +221,36 @@ export class DossierTypeComponent implements OnInit {
   }
 
   onEdit(item: any) {
-    this.currentItem.set({ 
-      ...item,
-      documentTypeIds: item.documentTypeIds || []
-    });
+    if (!item?.id) return;
+
+    this.isLoadingDetail.set(true);
     this.formSubmitted.set(false);
     this.serverErrors.set({});
     this.currentView.set('edit');
+
+    this.dossierTypeService
+      .getDossierTypeById(item.id)
+      .pipe(finalize(() => this.isLoadingDetail.set(false)))
+      .subscribe({
+        next: (detail) => {
+          const rawIds = detail?.documentTypeIds ?? detail?.DocumentTypeIds ?? [];
+          const documentTypeIds = (Array.isArray(rawIds) ? rawIds : []).map((id: unknown) => String(id));
+          this.currentItem.set({
+            ...detail,
+            id: detail?.id ?? item.id,
+            documentTypeIds,
+            isActive: detail?.isActive === 1 || detail?.isActive === true,
+          });
+        },
+        error: () => {
+          this.currentView.set('list');
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi',
+            detail: 'Không tải được chi tiết loại hồ sơ',
+          });
+        },
+      });
   }
 
   onSaveItem() {
