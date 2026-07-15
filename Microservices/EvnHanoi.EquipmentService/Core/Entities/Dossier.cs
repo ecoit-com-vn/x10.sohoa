@@ -35,6 +35,11 @@ public class Dossier
 
     // Publish status
     public int? PublishStatusId { get; set; }
+
+    /// <summary>Vị trí lưu trữ vật lý — chỉ có giá trị khi đã chọn đến hộp.</summary>
+    public long? ShelfId { get; set; }
+    public long? FloorId { get; set; }
+    public long? BoxId { get; set; }
 }
 
 public static class DossierStatusConstants

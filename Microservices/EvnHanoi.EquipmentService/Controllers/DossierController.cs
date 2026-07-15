@@ -140,6 +140,24 @@ public abstract partial class DossierControllerBase : ControllerBase
         return Ok(items);
     }
 
+    /// <summary>
+    /// Cây kho lưu trữ (kệ → tầng → hộp) — chỉ đúng đơn vị hiện tại, không gồm đơn vị con.
+    /// </summary>
+    [HttpGet("physical-storage/tree")]
+    public async Task<IActionResult> GetPhysicalStorageTree([FromQuery] long? unitId = null)
+    {
+        long? currentUnitId = unitId is > 0 ? unitId : null;
+        if (currentUnitId is null)
+        {
+            var unitIdClaim = User.FindFirst("unit_id")?.Value;
+            if (!string.IsNullOrEmpty(unitIdClaim) && long.TryParse(unitIdClaim, out var parsedUnitId) && parsedUnitId > 0)
+                currentUnitId = parsedUnitId;
+        }
+
+        var items = await _dossierService.GetPhysicalStorageTreeAsync(currentUnitId);
+        return Ok(items);
+    }
+
     [HttpGet("dossier-type/lookup")]
     [BypassDynamicPermission]
     public async Task<IActionResult> GetDossierTypesLookup()

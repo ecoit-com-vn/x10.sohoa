@@ -22,6 +22,7 @@ public class DossierService : IDossierService
     private readonly IDossierSearchRepository _dossierSearchRepository;
     private readonly IDocumentRepository _documentRepository;
     private readonly IEquipmentRepository _equipmentRepository;
+    private readonly IPhysicalStorageRepository _physicalStorageRepository;
     private readonly IMessageProducer _messageProducer;
     private readonly IDocumentTextIndexNotifier _documentTextIndexNotifier;
     private readonly IHttpClientFactory _httpClientFactory;
@@ -33,6 +34,7 @@ public class DossierService : IDossierService
         IDossierSearchRepository dossierSearchRepository,
         IDocumentRepository documentRepository,
         IEquipmentRepository equipmentRepository,
+        IPhysicalStorageRepository physicalStorageRepository,
         IMessageProducer messageProducer,
         IDocumentTextIndexNotifier documentTextIndexNotifier,
         IHttpClientFactory httpClientFactory,
@@ -43,6 +45,7 @@ public class DossierService : IDossierService
         _dossierSearchRepository = dossierSearchRepository ?? throw new ArgumentNullException(nameof(dossierSearchRepository));
         _documentRepository = documentRepository ?? throw new ArgumentNullException(nameof(documentRepository));
         _equipmentRepository = equipmentRepository ?? throw new ArgumentNullException(nameof(equipmentRepository));
+        _physicalStorageRepository = physicalStorageRepository ?? throw new ArgumentNullException(nameof(physicalStorageRepository));
         _messageProducer = messageProducer ?? throw new ArgumentNullException(nameof(messageProducer));
         _documentTextIndexNotifier = documentTextIndexNotifier ?? throw new ArgumentNullException(nameof(documentTextIndexNotifier));
         _httpClientFactory = httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory));
@@ -82,6 +85,63 @@ public class DossierService : IDossierService
         }
 
         return await _dossierRepository.GetInfrastructuresLookupAsync(allowedUnitIds);
+    }
+
+    /// <summary>
+    /// Cây kệ → tầng → hộp chỉ theo đúng đơn vị hiện tại (không gồm đơn vị con).
+    /// Không có unitId → danh sách rỗng. Sắp xếp theo Priority rồi Code.
+    /// </summary>
+    public async Task<IReadOnlyList<PhysicalStorageTreeShelfDto>> GetPhysicalStorageTreeAsync(long? currentUnitId)
+    {
+        if (currentUnitId is null or <= 0)
+            return Array.Empty<PhysicalStorageTreeShelfDto>();
+
+        var unitIds = new List<long> { currentUnitId.Value };
+        var shelves = (await _physicalStorageRepository.GetShelvesAsync(unitIds)).ToList();
+        var floors = (await _physicalStorageRepository.GetFloorsByUnitIdsAsync(unitIds)).ToList();
+        var boxes = (await _physicalStorageRepository.GetBoxesByUnitIdsAsync(unitIds)).ToList();
+
+        var boxesByFloor = boxes
+            .GroupBy(b => b.FloorId)
+            .ToDictionary(g => g.Key, g => g
+                .OrderBy(b => b.Priority)
+                .ThenBy(b => b.Code)
+                .Select(b => new PhysicalStorageTreeBoxDto
+                {
+                    Id = b.Id,
+                    FloorId = b.FloorId,
+                    Code = b.Code,
+                    Name = b.Name,
+                    Priority = b.Priority
+                }).ToList());
+
+        var floorsByShelf = floors
+            .GroupBy(f => f.ShelfId)
+            .ToDictionary(g => g.Key, g => g
+                .OrderBy(f => f.Priority)
+                .ThenBy(f => f.Code)
+                .Select(f => new PhysicalStorageTreeFloorDto
+                {
+                    Id = f.Id,
+                    ShelfId = f.ShelfId,
+                    Code = f.Code,
+                    Name = f.Name,
+                    Priority = f.Priority,
+                    Boxes = boxesByFloor.TryGetValue(f.Id, out var fb) ? fb : new List<PhysicalStorageTreeBoxDto>()
+                }).ToList());
+
+        return shelves
+            .OrderBy(s => s.Priority)
+            .ThenBy(s => s.Code)
+            .Select(s => new PhysicalStorageTreeShelfDto
+            {
+                Id = s.Id,
+                Code = s.Code,
+                Name = s.Name,
+                Priority = s.Priority,
+                Floors = floorsByShelf.TryGetValue(s.Id, out var sf) ? sf : new List<PhysicalStorageTreeFloorDto>()
+            })
+            .ToList();
     }
 
     public async Task<IEnumerable<GridTypeEntity>> GetGridTypesLookupAsync()
@@ -235,6 +295,7 @@ public class DossierService : IDossierService
             CreatedDate = DateTime.UtcNow,
             IsDeleted = false
         };
+        ApplyPhysicalStorage(dossier, dto.ShelfId, dto.FloorId, dto.BoxId);
 
         var newId = await _dossierRepository.CreateAsync(dossier, dto.EquipmentIds);
 
@@ -272,6 +333,7 @@ public class DossierService : IDossierService
         existing.ModifiedBy = userId;
         existing.ModifiedDate = DateTime.UtcNow;
         existing.RowVersion = dto.RowVersion;
+        ApplyPhysicalStorage(existing, dto.ShelfId, dto.FloorId, dto.BoxId);
 
         var updated = await _dossierRepository.UpdateAsync(existing, dto.EquipmentIds);
         if (updated)
@@ -691,6 +753,24 @@ public class DossierService : IDossierService
         }
 
         return await _dossierRepository.GetEavFormTemplateByDossierIdAsync(dossierId);
+    }
+
+    /// <summary>
+    /// Chỉ lưu kệ/tầng/hộp khi đã chọn đến hộp; ngược lại clear cả 3.
+    /// </summary>
+    private static void ApplyPhysicalStorage(Dossier dossier, long? shelfId, long? floorId, long? boxId)
+    {
+        if (boxId is null or <= 0)
+        {
+            dossier.ShelfId = null;
+            dossier.FloorId = null;
+            dossier.BoxId = null;
+            return;
+        }
+
+        dossier.ShelfId = shelfId is > 0 ? shelfId : null;
+        dossier.FloorId = floorId is > 0 ? floorId : null;
+        dossier.BoxId = boxId;
     }
 }
 
