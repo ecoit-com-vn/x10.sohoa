@@ -51,6 +51,13 @@ public class DossierTypeRepository : IDossierTypeRepository
         if (dossierType != null)
         {
             await PopulateDocumentTypeIdsAsync(dossierType);
+            var namesSql = @"SELECT LISTAGG(doc.NAME, ', ') WITHIN GROUP (ORDER BY doc.NAME)
+                             FROM DOSSIER_TYPE_DOCUMENT_TYPES l
+                             JOIN DOCUMENT_TYPES doc ON l.DOCUMENT_TYPE_ID = doc.ID
+                             WHERE l.DOSSIER_TYPE_ID = :DossierTypeId AND doc.IsDeleted = 0";
+            dossierType.DocumentTypeNames = await _connection.QuerySingleOrDefaultAsync<string>(
+                namesSql,
+                new { DossierTypeId = dossierType.Id.ToString() });
         }
         return dossierType;
     }

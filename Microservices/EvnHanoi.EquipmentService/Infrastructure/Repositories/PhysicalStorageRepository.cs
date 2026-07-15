@@ -14,58 +14,11 @@ public class PhysicalStorageRepository : IPhysicalStorageRepository
         _connection = connection ?? throw new ArgumentNullException(nameof(connection));
     }
 
-    // Fonds
-    public async Task<IEnumerable<PhysicalFonds>> GetAllFondsAsync()
+    public async Task<IEnumerable<PhysicalShelf>> GetAllShelvesAsync()
     {
-        return await _connection.QueryAsync<PhysicalFonds>(
-            $"SELECT * FROM PHYSICAL_FONDS ORDER BY {nameof(PhysicalFonds.Id)}");
-    }
-
-    public async Task<PhysicalFonds?> GetFondsByIdAsync(long id)
-    {
-        return await _connection.QuerySingleOrDefaultAsync<PhysicalFonds>(
-            $"SELECT * FROM PHYSICAL_FONDS WHERE {nameof(PhysicalFonds.Id)} = :Id", new { Id = id });
-    }
-
-    public async Task<long> CreateFondsAsync(PhysicalFonds fonds)
-    {
-        var sql = $@"INSERT INTO PHYSICAL_FONDS (
-                        {nameof(PhysicalFonds.Code)}, 
-                        {nameof(PhysicalFonds.Name)}, 
-                        {nameof(PhysicalFonds.Description)}, 
-                        {nameof(PhysicalFonds.CreatedBy)}
-                    ) 
-                    VALUES (:Code, :Name, :Description, :CreatedBy) 
-                    RETURNING {nameof(PhysicalFonds.Id)} INTO :Id";
-        var parameters = new DynamicParameters(fonds);
-        parameters.Add("Id", dbType: DbType.Int64, direction: ParameterDirection.Output);
-        await _connection.ExecuteAsync(sql, parameters);
-        return parameters.Get<long>("Id");
-    }
-
-    public async Task<bool> UpdateFondsAsync(PhysicalFonds fonds)
-    {
-        var sql = $@"UPDATE PHYSICAL_FONDS SET 
-                        {nameof(PhysicalFonds.Code)} = :Code, 
-                        {nameof(PhysicalFonds.Name)} = :Name, 
-                        {nameof(PhysicalFonds.Description)} = :Description, 
-                        {nameof(PhysicalFonds.UpdatedAt)} = CURRENT_TIMESTAMP, 
-                        {nameof(PhysicalFonds.UpdatedBy)} = :UpdatedBy 
-                    WHERE {nameof(PhysicalFonds.Id)} = :Id";
-        return await _connection.ExecuteAsync(sql, fonds) > 0;
-    }
-
-    public async Task<bool> DeleteFondsAsync(long id)
-    {
-        return await _connection.ExecuteAsync(
-            $"DELETE FROM PHYSICAL_FONDS WHERE {nameof(PhysicalFonds.Id)} = :Id", new { Id = id }) > 0;
-    }
-
-    // Shelf
-    public async Task<IEnumerable<PhysicalShelf>> GetShelvesByFondsIdAsync(long fondsId)
-    {
+        // Return all shelves; fonds concept removed
         return await _connection.QueryAsync<PhysicalShelf>(
-            $"SELECT * FROM PHYSICAL_SHELF WHERE {nameof(PhysicalShelf.FondsId)} = :FondsId ORDER BY {nameof(PhysicalShelf.Id)}", new { FondsId = fondsId });
+            $"SELECT * FROM PHYSICAL_SHELF ORDER BY {nameof(PhysicalShelf.Id)}");
     }
 
     public async Task<PhysicalShelf?> GetShelfByIdAsync(long id)
@@ -77,7 +30,6 @@ public class PhysicalStorageRepository : IPhysicalStorageRepository
     public async Task<long> CreateShelfAsync(PhysicalShelf shelf)
     {
         var sql = $@"INSERT INTO PHYSICAL_SHELF (
-                        {nameof(PhysicalShelf.FondsId)}, 
                         {nameof(PhysicalShelf.Code)}, 
                         {nameof(PhysicalShelf.Name)}, 
                         {nameof(PhysicalShelf.Description)}, 
@@ -94,7 +46,6 @@ public class PhysicalStorageRepository : IPhysicalStorageRepository
     public async Task<bool> UpdateShelfAsync(PhysicalShelf shelf)
     {
         var sql = $@"UPDATE PHYSICAL_SHELF SET 
-                        {nameof(PhysicalShelf.FondsId)} = :FondsId, 
                         {nameof(PhysicalShelf.Code)} = :Code, 
                         {nameof(PhysicalShelf.Name)} = :Name, 
                         {nameof(PhysicalShelf.Description)} = :Description, 

@@ -4,15 +4,10 @@ namespace EvnHanoi.EquipmentService.Core.Interfaces;
 
 public interface IPhysicalStorageRepository
 {
-    // Fonds
-    Task<IEnumerable<PhysicalFonds>> GetAllFondsAsync();
-    Task<PhysicalFonds?> GetFondsByIdAsync(long id);
-    Task<long> CreateFondsAsync(PhysicalFonds fonds);
-    Task<bool> UpdateFondsAsync(PhysicalFonds fonds);
-    Task<bool> DeleteFondsAsync(long id);
+
 
     // Shelf
-    Task<IEnumerable<PhysicalShelf>> GetShelvesByFondsIdAsync(long fondsId);
+    Task<IEnumerable<PhysicalShelf>> GetAllShelvesAsync();
     Task<PhysicalShelf?> GetShelfByIdAsync(long id);
     Task<long> CreateShelfAsync(PhysicalShelf shelf);
     Task<bool> UpdateShelfAsync(PhysicalShelf shelf);

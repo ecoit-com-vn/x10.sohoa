@@ -15,39 +15,10 @@ public class PhysicalStorageController : ControllerBase
         _repository = repository;
     }
 
-    // --- FONDS ---
-    [HttpGet("fonds")]
-    public async Task<IActionResult> GetAllFonds() => Ok(await _repository.GetAllFondsAsync());
-
-    [HttpGet("fonds/{id}")]
-    public async Task<IActionResult> GetFondsById(long id)
-    {
-        var result = await _repository.GetFondsByIdAsync(id);
-        return result != null ? Ok(result) : NotFound();
-    }
-
-    [HttpPost("fonds")]
-    public async Task<IActionResult> CreateFonds([FromBody] PhysicalFonds fonds)
-    {
-        var id = await _repository.CreateFondsAsync(fonds);
-        return CreatedAtAction(nameof(GetFondsById), new { id = id }, fonds);
-    }
-
-    [HttpPut("fonds/{id}")]
-    public async Task<IActionResult> UpdateFonds(long id, [FromBody] PhysicalFonds fonds)
-    {
-        if (id != fonds.Id) return BadRequest();
-        return await _repository.UpdateFondsAsync(fonds) ? NoContent() : NotFound();
-    }
-
-    [HttpDelete("fonds/{id}")]
-    public async Task<IActionResult> DeleteFonds(long id) => 
-        await _repository.DeleteFondsAsync(id) ? NoContent() : NotFound();
-
 
     // --- SHELF ---
-    [HttpGet("fonds/{fondsId}/shelves")]
-    public async Task<IActionResult> GetShelves(long fondsId) => Ok(await _repository.GetShelvesByFondsIdAsync(fondsId));
+    [HttpGet("shelves")]
+    public async Task<IActionResult> GetShelves() => Ok(await _repository.GetAllShelvesAsync());
 
     [HttpGet("shelves/{id}")]
     public async Task<IActionResult> GetShelfById(long id)
