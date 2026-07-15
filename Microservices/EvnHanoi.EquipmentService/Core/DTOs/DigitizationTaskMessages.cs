@@ -138,4 +138,11 @@ public class DocumentExtractionResultDto
 public class SaveDocumentExtractionDataRequest
 {
     public string MergedDataJson { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Chỉ dùng khi lưu bóc tách theo thiết bị:
+    /// false = chỉ lưu MergedDataJson;
+    /// true = thay thế toàn bộ FormValues thiết bị bằng MergedDataJson.
+    /// </summary>
+    public bool UpdateEquipmentFormValues { get; set; }
 }

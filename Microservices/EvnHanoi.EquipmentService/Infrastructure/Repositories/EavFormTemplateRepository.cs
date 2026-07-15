@@ -32,41 +32,56 @@ public class EavFormTemplateRepository : IEavFormTemplateRepository
         return await _connection.QuerySingleOrDefaultAsync<EavFormTemplate>(sql, new { Id = id.ToString() });
     }
 
+    /// <summary>
+    /// Biểu mẫu thông số thiết bị: FormType = TEMPLATE gắn EquipmentType,
+    /// lấy FormSchema JSON từ EavFormTemplateVersions active mới nhất.
+    /// </summary>
     public async Task<EavFormTemplate?> GetActiveByEquipmentTypeIdAsync(Guid equipmentTypeId)
     {
         if (_connection.State != ConnectionState.Open)
             _connection.Open();
 
-        var form = await QueryActiveTemplateByEquipmentTypeAsync(equipmentTypeId, "FORM");
-        if (form != null)
-            return form;
-
-        return await QueryActiveTemplateByEquipmentTypeAsync(equipmentTypeId, "TEMPLATE");
-    }
-
-    private async Task<EavFormTemplate?> QueryActiveTemplateByEquipmentTypeAsync(Guid equipmentTypeId, string formType)
-    {
         var sql = $@"SELECT * FROM (
-                         SELECT t.*,
+                         SELECT t.Id,
+                                v.Code AS Code,
+                                v.Name AS Name,
+                                v.Category AS Category,
+                                v.Description AS Description,
+                                v.DescriptionInfo AS DescriptionInfo,
+                                t.ExtractionProcess,
+                                v.FormSchema AS FormSchema,
+                                t.EquipmentTypeId,
+                                t.GridTypeId,
+                                v.Version AS Version,
+                                t.IsActive AS IsActive,
+                                t.CreatedAt,
+                                t.CreatedBy,
+                                t.Status,
+                                t.FormType,
+                                t.IsDeleted,
                                 gt.Name AS {nameof(EavFormTemplate.GridTypeName)},
                                 et.Name AS {nameof(EavFormTemplate.EquipmentTypeName)},
                                 ROW_NUMBER() OVER (
-                                    ORDER BY CASE WHEN t.{nameof(EavFormTemplate.Status)} = 'Hoàn thành' THEN 0 ELSE 1 END,
-                                             t.{nameof(EavFormTemplate.Version)} DESC
+                                    ORDER BY CASE WHEN v.Status = 'Hoàn thành' THEN 0 ELSE 1 END,
+                                             v.Version DESC
                                 ) AS rn
                          FROM {nameof(EavFormTemplate)}s t
+                         INNER JOIN EavFormTemplateVersions v
+                             ON t.Id = v.FormTemplateId
+                            AND v.IsActive = 1
+                            AND v.IsDeleted = 0
                          LEFT JOIN GridTypes gt ON t.{nameof(EavFormTemplate.GridTypeId)} = gt.Id
                          LEFT JOIN EquipmentTypes et ON t.{nameof(EavFormTemplate.EquipmentTypeId)} = et.Id
                          WHERE t.IsDeleted = 0
                            AND t.{nameof(EavFormTemplate.IsActive)} = 1
-                           AND t.{nameof(EavFormTemplate.FormType)} = :FormType
+                           AND t.{nameof(EavFormTemplate.FormType)} = 'TEMPLATE'
                            AND t.{nameof(EavFormTemplate.EquipmentTypeId)} = :EquipmentTypeId
                      )
                      WHERE rn = 1";
 
         return await _connection.QuerySingleOrDefaultAsync<EavFormTemplate>(
             sql,
-            new { FormType = formType, EquipmentTypeId = equipmentTypeId.ToString() });
+            new { EquipmentTypeId = equipmentTypeId.ToString() });
     }
 
     public async Task<IEnumerable<EavFormTemplate>> GetAllActiveAsync(string? formType = null, bool? isActive = true)
