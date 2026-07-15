@@ -184,14 +184,15 @@ export class DossierDocumentService {
     );
   }
 
-  lookupDocumentTypes(keyword?: string): Observable<DocumentTypeLookupItem[]> {
-    let params = new HttpParams();
-    if (keyword?.trim()) {
-      params = params.set('keyword', keyword.trim());
-    }
-    return this.http.get<unknown[]>(`${this.config.apiGatewayUrl}/api/catalog/document-type/lookup`, { params }).pipe(
-      map((items) => (items ?? []).map((item) => normalizeDocumentTypeLookup(item)))
-    );
+  /**
+   * Loại văn bản gắn loại hồ sơ — API dossier (DOSSIER_VIEW / DOSSIER_DIGITIZATION_VIEW).
+   * Không gọi catalog/dossier-type (sai phạm vi phân quyền).
+   */
+  getDocumentTypesForDossier(dossierId: string): Observable<DocumentTypeLookupItem[]> {
+    const segment = this.kindId === 1 ? 'dossier-digitization/dossiers' : 'dossiers';
+    return this.http
+      .get<unknown[]>(`${this.config.apiGatewayUrl}/api/v1/${segment}/${dossierId}/document-types`)
+      .pipe(map((items) => (items ?? []).map((item) => normalizeDocumentTypeLookup(item))));
   }
 
   uploadFileDirect(
