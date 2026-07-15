@@ -44,6 +44,7 @@ export class EquipmentDocumentDetailDialogComponent implements OnDestroy {
 
   loading = signal(false);
   saving = signal(false);
+  savingMode = signal<'save' | 'apply' | null>(null);
   hasExtractionData = signal(false);
   fields = signal<EavField[]>([]);
   draftData = signal<Record<string, unknown>>({});
@@ -56,7 +57,7 @@ export class EquipmentDocumentDetailDialogComponent implements OnDestroy {
   isImage = computed(() => (this.mimeType ?? '').startsWith('image/'));
   totalPages = computed(() => Math.max(this.totalPagesHint, 1));
   dialogHeader = computed(() => {
-    const name = this.documentName || 'Tài liệu lý lịch';
+    const name = this.documentName || 'Tài liệu đính kèm';
     if (!this.hasExtractionData()) {
       return `Xem tài liệu — ${name}`;
     }
@@ -240,7 +241,17 @@ export class EquipmentDocumentDetailDialogComponent implements OnDestroy {
     this.draftData.update((data) => ({ ...data, [key]: target.checked }));
   }
 
-  confirmApply(): void {
+  /** Chỉ lưu kết quả bóc tách — không đụng FormValues thiết bị. */
+  saveExtractionOnly(): void {
+    this.persistExtraction(false);
+  }
+
+  /** Lưu kết quả bóc tách và thay thế toàn bộ thông số thiết bị. */
+  applyEquipmentFormValues(): void {
+    this.persistExtraction(true);
+  }
+
+  private persistExtraction(updateEquipmentFormValues: boolean): void {
     const fields = this.fields();
     if (!fields.length) {
       this.messageService.add({ severity: 'warn', summary: 'Không có form', detail: 'Không có trường để lưu' });
@@ -248,17 +259,28 @@ export class EquipmentDocumentDetailDialogComponent implements OnDestroy {
     }
 
     const mergedDataJson = serializeFormDataForSchema(fields, this.draftData());
-
+    this.savingMode.set(updateEquipmentFormValues ? 'apply' : 'save');
     this.saving.set(true);
+
     this.equipmentService
-      .saveEquipmentExtractionData(this.equipmentId, this.versionId, mergedDataJson)
-      .pipe(finalize(() => this.saving.set(false)))
+      .saveEquipmentExtractionData(
+        this.equipmentId,
+        this.versionId,
+        mergedDataJson,
+        updateEquipmentFormValues
+      )
+      .pipe(finalize(() => {
+        this.saving.set(false);
+        this.savingMode.set(null);
+      }))
       .subscribe({
         next: () => {
           this.messageService.add({
             severity: 'success',
             summary: 'Thành công',
-            detail: 'Đã lưu kết quả bóc tách và tự động cập nhật thông số thiết bị.',
+            detail: updateEquipmentFormValues
+              ? 'Đã lưu kết quả bóc tách và cập nhật toàn bộ thông số thiết bị.'
+              : 'Đã lưu kết quả bóc tách.',
           });
           this.applied.emit();
           this.close();

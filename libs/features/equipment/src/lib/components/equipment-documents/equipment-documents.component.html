@@ -1,5 +1,5 @@
 <div class="dossier-documents-tab">
-  <div class="list-toolbar" style="margin-bottom: 12px;">
+  <div class="list-toolbar" style="margin-bottom: 8px;">
     <div class="toolbar-left">
       <input
         type="text"
@@ -13,6 +13,16 @@
     <div class="toolbar-right">
       <!-- Toolbar right empty since documents are linked from associated dossiers -->
     </div>
+  </div>
+
+  <div class="form-template-banner" *ngIf="formTemplateName() as templateName">
+    <i class="pi pi-table"></i>
+    <span>Biểu mẫu bóc tách:</span>
+    <b>{{ templateName }}</b>
+  </div>
+  <div class="form-template-banner form-template-banner--warn" *ngIf="formTemplateMissing()">
+    <i class="pi pi-exclamation-triangle"></i>
+    <span>Loại thiết bị chưa gắn biểu mẫu thông số (TEMPLATE) — không thể OCR/bóc tách.</span>
   </div>
 
   <div
