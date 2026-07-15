@@ -282,7 +282,7 @@ public partial class EquipmentController
         }
     }
 
-    /// <summary>Lưu kết quả bóc tách đã chỉnh sửa và điền thông số vào thiết bị — quyền EQUIPMENT_EDIT.</summary>
+    /// <summary>Lưu kết quả bóc tách đã chỉnh sửa; tùy chọn thay FormValues thiết bị — quyền EQUIPMENT_EDIT.</summary>
     [HttpPut("{equipmentId:guid}/documents/{versionId:guid}/digitization/result")]
     public async Task<IActionResult> SaveEquipmentDocumentDigitizationResult(
         Guid equipmentId,
