@@ -1,0 +1,109 @@
+<div class="wf-page">
+  <wf-breadcrumb />
+
+  <div class="wf-card" style="position: relative;">
+    <!-- Header -->
+    <div class="edit-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 16px; margin-bottom: 16px;">
+      <div style="display: flex; align-items: flex-start; gap: 10px;">
+        <button (click)="onBack()" class="btn-back btn-small" title="Quay lại" style="margin-top: 2px;">
+          <i class="pi pi-arrow-left"></i>
+        </button>
+        <div>
+          <h2 class="edit-title" style="margin: 0; font-size: 1.25rem; font-weight: 700; color: #1e293b;">Chi tiết Hồ sơ</h2>
+          <div style="display: flex; flex-wrap: wrap; gap: 16px; margin-top: 8px; font-size: 0.83rem;">
+            <span class="text-muted"><i class="pi pi-tag" style="margin-right: 4px;"></i> Loại hồ sơ: <b style="color: #374151;">{{ dossier()?.dossierTypeName || '-' }}</b></span>
+            <span class="text-muted"><i class="pi pi-map-marker" style="margin-right: 4px;"></i> Trạm/ĐZ: <b style="color: #374151;">{{ dossier()?.infrastructureName || '-' }}</b></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TABS -->
+    <div class="tab-bar" style="display: flex; border-bottom: 1px solid #e2e8f0; margin-bottom: 16px; gap: 4px;">
+      <button type="button" class="tab-item" [class.tab-active]="activeTab() === 'info'" (click)="activeTab.set('info')">
+        <i class="pi pi-info-circle" style="margin-right: 6px;"></i>
+        Dữ liệu Hồ sơ
+      </button>
+      <button type="button" class="tab-item" [class.tab-active]="activeTab() === 'documents'" (click)="activeTab.set('documents')">
+        <i class="pi pi-file" style="margin-right: 6px;"></i> Tài liệu đính kèm
+      </button>
+    </div>
+
+    <!-- TAB CONTENT -->
+    <div class="tab-content">
+      <!-- ═══ Tab 1: Dữ liệu Hồ sơ (chỉ xem) ═══ -->
+      <div *ngIf="activeTab() === 'info'" class="dossier-readonly-view">
+        <div *ngIf="loading() && !dossier()" style="display: flex; align-items: center; gap: 8px; color: #6b7280; padding: 12px 0;">
+          <i class="pi pi-spin pi-spinner"></i> Đang tải dữ liệu hồ sơ...
+        </div>
+
+        <div *ngIf="loadingType() && dossier()" style="display: flex; align-items: center; gap: 8px; color: #6b7280; padding: 0 0 12px 0; font-size: 0.83rem;">
+          <i class="pi pi-spin pi-spinner"></i> Đang tải biểu mẫu...
+        </div>
+
+        <ng-container *ngIf="dossier() && !loading()">
+          <div class="readonly-line">
+            <span class="readonly-label">Loại lưới điện:</span>
+            <span class="readonly-value">{{ dossier()?.gridTypeName || '—' }}</span>
+          </div>
+          <div class="readonly-line">
+            <span class="readonly-label">Trạm / Đường dây:</span>
+            <span class="readonly-value">
+              {{ dossier()?.infrastructureName || '—' }}
+              <span *ngIf="dossier()?.infrastructureCode" class="text-muted" style="font-size: 0.85rem;"> ({{ dossier()?.infrastructureCode }})</span>
+            </span>
+          </div>
+          <div class="readonly-line">
+            <span class="readonly-label">Loại hồ sơ:</span>
+            <span class="readonly-value">{{ dossier()?.dossierTypeName || '—' }}</span>
+          </div>
+
+          <div *ngFor="let field of dynamicFields(); trackBy: trackByFieldKey" class="readonly-line">
+            <span class="readonly-label">{{ field.label }}:</span>
+            <span class="readonly-value">{{ formatFieldDisplayValue(field, detailFormData[field.key]) }}</span>
+          </div>
+
+          <div *ngIf="dynamicFields().length === 0 && !loadingType()"
+               style="padding: 24px; text-align: center; color: #9ca3af; background: #f8fafc; border-radius: 8px; border: 1px dashed #e2e8f0; font-size: 0.85rem; margin-top: 8px;">
+            Loại hồ sơ này chưa được cấu hình mẫu dữ liệu động.
+          </div>
+
+          <!-- Thiết bị liên quan -->
+          <div class="equipment-section" style="margin-top: 24px; border-top: 1px solid #f1f5f9; padding-top: 16px;">
+            <h3 class="equipment-title" style="font-size: 1rem; font-weight: 700; color: #334155; margin-bottom: 12px;">Thiết bị liên quan</h3>
+            <div *ngIf="equipments().length === 0" class="equipment-empty" style="padding: 16px; text-align: center; color: #94a3b8; background: #f8fafc; border-radius: 6px; font-size: 0.85rem;">
+              Chưa có thiết bị nào được gắn vào hồ sơ.
+            </div>
+            <div *ngIf="equipments().length > 0" class="wf-table-wrap">
+              <table class="wf-table">
+                <thead>
+                  <tr>
+                    <th class="col-stt">STT</th>
+                    <th>Mã TB</th>
+                    <th>Tên TB</th>
+                    <th>Số serial</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let eq of equipments(); let i = index">
+                    <td class="col-stt text-muted">{{ i + 1 }}</td>
+                    <td>{{ eq.equipmentCode || eq.EquipmentCode || eq.code || '—' }}</td>
+                    <td>{{ eq.equipmentName || eq.EquipmentName || eq.name || '—' }}</td>
+                    <td>{{ eq.serialNumber || eq.SerialNumber || '—' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </ng-container>
+      </div>
+
+      <!-- ═══ Tab 2: Tài liệu đính kèm (Chỉ xem / tải về) ═══ -->
+      <div *ngIf="activeTab() === 'documents' && dossierId()">
+        <app-dossier-lookup-documents-tab [dossierId]="dossierId()!" />
+      </div>
+    </div>
+  </div>
+</div>
+
+<p-toast></p-toast>

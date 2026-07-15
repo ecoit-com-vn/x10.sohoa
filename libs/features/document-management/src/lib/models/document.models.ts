@@ -62,9 +62,11 @@ export interface DocumentVersion {
   versionNumber: number;
   uploadSource: number; // 1: Thư mục, 2: Scan, 3: Web
   filePath?: string;
+  minioVersionId?: string;
   fileSize?: number;
   mimeType?: string;
   createdBy?: string;
+  createdByName?: string;
   createdDate?: Date;
 }
 
