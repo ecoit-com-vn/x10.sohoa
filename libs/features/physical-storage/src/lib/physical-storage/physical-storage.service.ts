@@ -1,7 +1,6 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { APP_CONFIG, AppConfig } from '@sohoa.frontend/shared/core';
+import { ApiService } from '@sohoa.frontend/shared/core';
 
 /**
  * DTO interfaces matching backend entities for Physical Storage.
@@ -9,9 +8,13 @@ import { APP_CONFIG, AppConfig } from '@sohoa.frontend/shared/core';
  */
 export interface PhysicalShelfDto {
   id: number;
+  unitId?: number | null;
+  unitName?: string | null;
   code: string;
   name: string;
   description?: string;
+  /** Thứ tự ưu tiên — không bắt buộc; mặc định 1. Số nhỏ hơn ưu tiên cao hơn. */
+  priority?: number | null;
   status: number; // 1 = Active, 0 = Locked
   isDeleted: boolean;
 }
@@ -22,6 +25,7 @@ export interface PhysicalFloorDto {
   code: string;
   name: string;
   description?: string;
+  priority?: number | null;
   status: number;
   isDeleted: boolean;
 }
@@ -32,99 +36,110 @@ export interface PhysicalBoxDto {
   code: string;
   name: string;
   description?: string;
+  priority?: number | null;
   status: number;
   isDeleted: boolean;
 }
 
 /**
- * PhysicalStorageService – gọi API /api/physicalstorage/...
- * được proxy qua YARP gateway tới equipment-cluster.
+ * PhysicalStorageService – gọi API qua ApiService.
  *
- * Endpoints thực tế:
- *   GET  /api/physicalstorage/shelves
- *   POST /api/physicalstorage/shelves
- *   PUT  /api/physicalstorage/shelves/{id}
- *   DEL  /api/physicalstorage/shelves/{id}
- *
- *   GET  /api/physicalstorage/shelves/{shelfId}/floors
- *   POST /api/physicalstorage/floors
- *   PUT  /api/physicalstorage/floors/{id}
- *   DEL  /api/physicalstorage/floors/{id}
- *
- *   GET  /api/physicalstorage/floors/{floorId}/boxes
- *   POST /api/physicalstorage/boxes
- *   PUT  /api/physicalstorage/boxes/{id}
- *   DEL  /api/physicalstorage/boxes/{id}
+ * Endpoints:
+ *   GET  /api/physicalstorage/shelves?unitId=
+ *   GET  /api/physicalstorage/floors?unitId=
+ *   GET  /api/physicalstorage/boxes?unitId=
  */
 @Injectable({ providedIn: 'root' })
 export class PhysicalStorageService {
-  private readonly config = inject<AppConfig>(APP_CONFIG);
-  private get base() {
-    return `${this.config.apiGatewayUrl}/api/physicalstorage`;
+  private readonly api = inject(ApiService);
+
+  private readonly base = '/api/physicalstorage';
+  private readonly equipmentBase = '/api/v1/equipment';
+
+  private unitParams(unitId?: number | null): Record<string, string | number> | undefined {
+    if (unitId == null || unitId <= 0) return undefined;
+    return { unitId };
   }
 
-  constructor(private http: HttpClient) {}
+  /** Cây đơn vị (scoped theo JWT) — tái dùng API equipment. */
+  getOrganizationUnits(): Observable<any[]> {
+    return this.api.get<any[]>(`${this.equipmentBase}/get-organization-units`);
+  }
 
   // ─────────────────── SHELF ───────────────────
-  getShelves(): Observable<PhysicalShelfDto[]> {
-    return this.http.get<PhysicalShelfDto[]>(`${this.base}/shelves`);
+  getShelves(unitId?: number | null): Observable<PhysicalShelfDto[]> {
+    return this.api.get<PhysicalShelfDto[]>(`${this.base}/shelves`, {
+      params: this.unitParams(unitId)
+    });
   }
 
   getShelfById(id: number): Observable<PhysicalShelfDto> {
-    return this.http.get<PhysicalShelfDto>(`${this.base}/shelves/${id}`);
+    return this.api.get<PhysicalShelfDto>(`${this.base}/shelves/${id}`);
   }
 
   createShelf(payload: Omit<PhysicalShelfDto, 'id' | 'isDeleted'>): Observable<PhysicalShelfDto> {
-    return this.http.post<PhysicalShelfDto>(`${this.base}/shelves`, payload);
+    return this.api.post<PhysicalShelfDto>(`${this.base}/shelves`, payload);
   }
 
   updateShelf(id: number, payload: Partial<PhysicalShelfDto>): Observable<void> {
-    return this.http.put<void>(`${this.base}/shelves/${id}`, payload);
+    return this.api.put<void>(`${this.base}/shelves/${id}`, payload);
   }
 
   deleteShelf(id: number): Observable<void> {
-    return this.http.delete<void>(`${this.base}/shelves/${id}`);
+    return this.api.delete<void>(`${this.base}/shelves/${id}`);
   }
 
   // ─────────────────── FLOOR ───────────────────
+  getFloorsByUnit(unitId?: number | null): Observable<PhysicalFloorDto[]> {
+    return this.api.get<PhysicalFloorDto[]>(`${this.base}/floors`, {
+      params: this.unitParams(unitId)
+    });
+  }
+
   getFloorsByShelf(shelfId: number): Observable<PhysicalFloorDto[]> {
-    return this.http.get<PhysicalFloorDto[]>(`${this.base}/shelves/${shelfId}/floors`);
+    return this.api.get<PhysicalFloorDto[]>(`${this.base}/shelves/${shelfId}/floors`);
   }
 
   getFloorById(id: number): Observable<PhysicalFloorDto> {
-    return this.http.get<PhysicalFloorDto>(`${this.base}/floors/${id}`);
+    return this.api.get<PhysicalFloorDto>(`${this.base}/floors/${id}`);
   }
 
   createFloor(payload: Omit<PhysicalFloorDto, 'id' | 'isDeleted'>): Observable<PhysicalFloorDto> {
-    return this.http.post<PhysicalFloorDto>(`${this.base}/floors`, payload);
+    return this.api.post<PhysicalFloorDto>(`${this.base}/floors`, payload);
   }
 
   updateFloor(id: number, payload: Partial<PhysicalFloorDto>): Observable<void> {
-    return this.http.put<void>(`${this.base}/floors/${id}`, payload);
+    return this.api.put<void>(`${this.base}/floors/${id}`, payload);
   }
 
   deleteFloor(id: number): Observable<void> {
-    return this.http.delete<void>(`${this.base}/floors/${id}`);
+    return this.api.delete<void>(`${this.base}/floors/${id}`);
   }
 
   // ─────────────────── BOX ─────────────────────
+  getBoxesByUnit(unitId?: number | null): Observable<PhysicalBoxDto[]> {
+    return this.api.get<PhysicalBoxDto[]>(`${this.base}/boxes`, {
+      params: this.unitParams(unitId)
+    });
+  }
+
   getBoxesByFloor(floorId: number): Observable<PhysicalBoxDto[]> {
-    return this.http.get<PhysicalBoxDto[]>(`${this.base}/floors/${floorId}/boxes`);
+    return this.api.get<PhysicalBoxDto[]>(`${this.base}/floors/${floorId}/boxes`);
   }
 
   getBoxById(id: number): Observable<PhysicalBoxDto> {
-    return this.http.get<PhysicalBoxDto>(`${this.base}/boxes/${id}`);
+    return this.api.get<PhysicalBoxDto>(`${this.base}/boxes/${id}`);
   }
 
   createBox(payload: Omit<PhysicalBoxDto, 'id' | 'isDeleted'>): Observable<PhysicalBoxDto> {
-    return this.http.post<PhysicalBoxDto>(`${this.base}/boxes`, payload);
+    return this.api.post<PhysicalBoxDto>(`${this.base}/boxes`, payload);
   }
 
   updateBox(id: number, payload: Partial<PhysicalBoxDto>): Observable<void> {
-    return this.http.put<void>(`${this.base}/boxes/${id}`, payload);
+    return this.api.put<void>(`${this.base}/boxes/${id}`, payload);
   }
 
   deleteBox(id: number): Observable<void> {
-    return this.http.delete<void>(`${this.base}/boxes/${id}`);
+    return this.api.delete<void>(`${this.base}/boxes/${id}`);
   }
 }

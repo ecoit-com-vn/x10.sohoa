@@ -362,6 +362,15 @@ export class DossierManagementService {
     return this.http.get<any[]>(`${this.config.apiGatewayUrl}/api/v1/dossiers/infrastructures/lookup`, { params });
   }
 
+  /** Cây kệ → tầng → hộp theo đơn vị (DOSSIER_VIEW / DOSSIER_DIGITIZATION_VIEW). */
+  getPhysicalStorageTree(unitId?: number | null): Observable<any[]> {
+    let params = new HttpParams();
+    if (unitId != null && unitId > 0) {
+      params = params.set('unitId', unitId.toString());
+    }
+    return this.http.get<any[]>(`${this.base}/physical-storage/tree`, { params });
+  }
+
   getGridTypeLookup(): Observable<any[]> {
     return this.http.get<any[]>(`${this.config.apiGatewayUrl}/api/v1/dossiers/grid-types/lookup`);
   }

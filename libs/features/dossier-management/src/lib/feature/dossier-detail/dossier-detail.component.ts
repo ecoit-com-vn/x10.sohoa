@@ -170,10 +170,32 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
   viewMeta = computed(() => {
     const d = this.dossier();
     if (!d) return null;
+    const shelfName = pickFirst(d.shelfName, d.ShelfName) as string | undefined;
+    const shelfCode = pickFirst(d.shelfCode, d.ShelfCode) as string | undefined;
+    const floorName = pickFirst(d.floorName, d.FloorName) as string | undefined;
+    const floorCode = pickFirst(d.floorCode, d.FloorCode) as string | undefined;
+    const boxName = pickFirst(d.boxName, d.BoxName) as string | undefined;
+    const boxCode = pickFirst(d.boxCode, d.BoxCode) as string | undefined;
+    const boxId = pickFirst(d.boxId, d.BoxId);
+
+    const shelf = shelfName || shelfCode;
+    const floor = floorName || floorCode;
+    const box = boxName || boxCode;
+    const storageLabel = boxId
+      ? [shelf, floor, box].filter(Boolean).join(' / ') || `Hộp #${boxId}`
+      : '';
+
     return {
       gridTypeName: pickFirst(d.gridTypeName, d.GridTypeName) as string | undefined,
       infrastructureName: pickFirst(d.infrastructureName, d.InfrastructureName) as string | undefined,
       infrastructureCode: pickFirst(d.infrastructureCode, d.InfrastructureCode) as string | undefined,
+      storageLabel,
+      shelfName,
+      shelfCode,
+      floorName,
+      floorCode,
+      boxName,
+      boxCode,
     };
   });
 

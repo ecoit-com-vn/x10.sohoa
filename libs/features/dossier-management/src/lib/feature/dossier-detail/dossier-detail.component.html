@@ -97,6 +97,10 @@
                     viewMeta()?.infrastructureCode }})</span>
                 </span>
               </div>
+              <div class="info-text-row">
+                <span class="info-text-label">Hộp lưu trữ:</span>
+                <span class="info-text-value">{{ viewMeta()?.storageLabel || '—' }}</span>
+              </div>
 
               <ng-container *ngFor="let field of leftDynamicFields(); trackBy: trackByFieldKey">
                 <div class="info-text-row">
