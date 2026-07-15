@@ -6,6 +6,36 @@
   max-width: 100%;
 }
 
+.form-template-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  color: #1e3a8a;
+  font-size: 0.85rem;
+
+  .pi {
+    color: #2563eb;
+  }
+
+  b {
+    color: #0f172a;
+  }
+
+  &--warn {
+    background: #fffbeb;
+    border-color: #fde68a;
+    color: #92400e;
+
+    .pi {
+      color: #d97706;
+    }
+  }
+}
+
 .readonly-notice {
   display: flex;
   align-items: center;

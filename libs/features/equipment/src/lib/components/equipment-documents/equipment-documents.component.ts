@@ -122,6 +122,9 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
   pageSize = signal(10);
   totalDocuments = signal(0);
   searchKeyword = signal('');
+  /** Tên biểu mẫu TEMPLATE gắn loại thiết bị (version active mới nhất). */
+  formTemplateName = signal<string | null>(null);
+  formTemplateMissing = signal(false);
   submittingIds = signal<Set<string>>(new Set());
   retryingIds = signal<Set<string>>(new Set());
   reExtractingIds = signal<Set<string>>(new Set());
@@ -132,11 +135,13 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
   totalPages = computed(() => Math.ceil(this.totalDocuments() / this.pageSize()));
 
   constructor() {
-    // Load khi equipmentId có giá trị (tương đương effect tab Hồ sơ liên quan ở parent).
     effect(() => {
       const id = this.equipmentId();
       if (!id) return;
-      untracked(() => this.loadDocuments());
+      untracked(() => {
+        this.loadFormTemplate();
+        this.loadDocuments();
+      });
     });
   }
 
@@ -179,6 +184,34 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
             summary: 'Lỗi',
             detail: err.error?.message || 'Không thể tải danh sách tài liệu lý lịch.',
           });
+        },
+      });
+  }
+
+  private loadFormTemplate(): void {
+    const equipmentId = this.equipmentId();
+    if (!equipmentId) return;
+
+    this.formTemplateName.set(null);
+    this.formTemplateMissing.set(false);
+
+    this.equipmentService
+      .getFormTemplate(equipmentId)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (template) => {
+          const name = template?.name?.trim();
+          if (name) {
+            this.formTemplateName.set(name);
+            this.formTemplateMissing.set(false);
+          } else {
+            this.formTemplateName.set(null);
+            this.formTemplateMissing.set(true);
+          }
+        },
+        error: () => {
+          this.formTemplateName.set(null);
+          this.formTemplateMissing.set(true);
         },
       });
   }
@@ -308,21 +341,22 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
     });
 
     if (showDigitization && this.canSubmitOcrAndExtract(doc)) {
+      const noTemplate = this.formTemplateMissing();
       actions.push({
         key: 'ocr',
-        title: 'OCR',
+        title: noTemplate ? 'OCR (thiếu biểu mẫu thiết bị)' : 'OCR',
         btnClass: 'act-retry',
         iconClasses: this.isOcrSubmitting(doc.id) ? 'pi pi-spin pi-spinner' : 'pi pi-file-edit',
-        disabled: this.isOcrSubmitting(doc.id) || !doc.latestVersionId,
+        disabled: noTemplate || this.isOcrSubmitting(doc.id) || !doc.latestVersionId,
         overflowOnly: true,
         run: (d) => this.onSubmitOcr(d),
       });
       actions.push({
         key: 'ocr-extract',
-        title: 'OCR + bóc tách',
+        title: noTemplate ? 'OCR + bóc tách (thiếu biểu mẫu thiết bị)' : 'OCR + bóc tách',
         btnClass: 'act-retry',
         iconClasses: this.isOcrExtractSubmitting(doc.id) ? 'pi pi-spin pi-spinner' : 'pi pi-refresh',
-        disabled: this.isOcrExtractSubmitting(doc.id) || !doc.latestVersionId,
+        disabled: noTemplate || this.isOcrExtractSubmitting(doc.id) || !doc.latestVersionId,
         overflowOnly: true,
         run: (d) => this.onOcrAndExtract(d),
       });
@@ -334,7 +368,10 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
         iconClasses: isRetryingDigitization(doc.id, this.retryingIds())
           ? 'pi pi-spin pi-spinner'
           : 'pi pi-refresh',
-        disabled: isRetryingDigitization(doc.id, this.retryingIds()) || !doc.latestVersionId,
+        disabled:
+          this.formTemplateMissing() ||
+          isRetryingDigitization(doc.id, this.retryingIds()) ||
+          !doc.latestVersionId,
         overflowOnly: true,
         run: (d) => this.onRetryDigitization(d),
       });
@@ -348,7 +385,10 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
         iconClasses: isReExtracting(doc.id, this.reExtractingIds())
           ? 'pi pi-spin pi-spinner'
           : 'pi pi-sync',
-        disabled: isReExtracting(doc.id, this.reExtractingIds()) || !doc.latestVersionId,
+        disabled:
+          this.formTemplateMissing() ||
+          isReExtracting(doc.id, this.reExtractingIds()) ||
+          !doc.latestVersionId,
         overflowOnly: true,
         run: (d) => this.onReExtract(d),
       });

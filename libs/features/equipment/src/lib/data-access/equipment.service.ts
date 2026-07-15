@@ -195,15 +195,16 @@ export class EquipmentService {
     );
   }
 
-  /** Lưu kết quả bóc tách đã chỉnh sửa của thiết bị. */
+  /** Lưu kết quả bóc tách; updateEquipmentFormValues=true → thay toàn bộ thông số thiết bị. */
   saveEquipmentExtractionData(
     equipmentId: string,
     versionId: string,
-    mergedDataJson: string
+    mergedDataJson: string,
+    updateEquipmentFormValues = false
   ): Observable<any> {
     return this.http.put<any>(
       `${this.base}/${equipmentId}/documents/${versionId}/digitization/result`,
-      { mergedDataJson }
+      { mergedDataJson, updateEquipmentFormValues }
     );
   }
 }
