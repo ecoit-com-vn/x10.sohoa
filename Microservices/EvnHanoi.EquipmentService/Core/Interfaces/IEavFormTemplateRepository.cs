@@ -20,4 +20,5 @@ public interface IEavFormTemplateRepository
     Task<int> GetMaxVersionAsync(Guid formTemplateId);
     Task DeleteVersionsAsync(Guid formTemplateId);
     Task ApproveVersionAsync(Guid formTemplateId, string status);
+    Task ActivateVersionAsync(Guid versionId);
 }

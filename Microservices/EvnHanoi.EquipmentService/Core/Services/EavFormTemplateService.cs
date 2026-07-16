@@ -33,7 +33,7 @@ public class EavFormTemplateService : IEavFormTemplateService
         }
     }
 
-    public async Task<EavFormTemplate> CreateFormTemplateAsync(string name, string code, string category, string description, string descriptionInfo, string formSchema, string createdBy, Guid? equipmentTypeId = null, string formType = "FORM", int? gridTypeId = null, string? extractionProcess = null)
+    public async Task<EavFormTemplate> CreateFormTemplateAsync(string name, string code, string category, string description, string descriptionInfo, string formSchema, string createdBy, Guid? equipmentTypeId = null, string formType = "FORM", int? gridTypeId = null, string? extractionProcess = null, string? extractionPosition = null)
     {
         ValidateFormSchema(formSchema);
 
@@ -46,6 +46,7 @@ public class EavFormTemplateService : IEavFormTemplateService
             Description = description ?? string.Empty,
             DescriptionInfo = descriptionInfo ?? string.Empty,
             ExtractionProcess = extractionProcess,
+            ExtractionPosition = extractionPosition,
             EquipmentTypeId = equipmentTypeId,
             GridTypeId = gridTypeId,
             IsActive = true,
@@ -66,6 +67,7 @@ public class EavFormTemplateService : IEavFormTemplateService
             Category = category,
             Description = description ?? string.Empty,
             DescriptionInfo = descriptionInfo ?? string.Empty,
+            ExtractionPosition = extractionPosition,
             FormSchema = formSchema,
             Version = 1,
             IsActive = true,
@@ -81,7 +83,7 @@ public class EavFormTemplateService : IEavFormTemplateService
         return template;
     }
 
-    public async Task<EavFormTemplate> UpdateFormTemplateAsync(Guid id, string newName, string newCode, string newCategory, string newDescription, string newDescriptionInfo, string newFormSchema, string updatedBy, Guid? equipmentTypeId = null, string formType = "FORM", int? gridTypeId = null, string? extractionProcess = null)
+    public async Task<EavFormTemplate> UpdateFormTemplateAsync(Guid id, string newName, string newCode, string newCategory, string newDescription, string newDescriptionInfo, string newFormSchema, string updatedBy, Guid? equipmentTypeId = null, string formType = "FORM", int? gridTypeId = null, string? extractionProcess = null, string? extractionPosition = null)
     {
         ValidateFormSchema(newFormSchema);
 
@@ -98,6 +100,7 @@ public class EavFormTemplateService : IEavFormTemplateService
         oldTemplate.Description = newDescription;
         oldTemplate.DescriptionInfo = newDescriptionInfo;
         oldTemplate.ExtractionProcess = extractionProcess;
+        oldTemplate.ExtractionPosition = extractionPosition;
         oldTemplate.EquipmentTypeId = equipmentTypeId;
         oldTemplate.GridTypeId = gridTypeId;
         oldTemplate.FormType = formType;
@@ -105,7 +108,9 @@ public class EavFormTemplateService : IEavFormTemplateService
 
         await _repository.UpdateAsync(oldTemplate);
 
-        // 2. Tạo phiên bản con mới trong EavFormTemplateVersions (IsActive = 0 cho đến khi được duyệt)
+        // 2. Tạo phiên bản con mới trong EavFormTemplateVersions (Kích hoạt phiên bản mới, ngừng hoạt động phiên bản cũ)
+        await _repository.DeactivateVersionsAsync(id);
+
         var maxVersion = await _repository.GetMaxVersionAsync(id);
         var newVersion = new EavFormTemplateVersion
         {
@@ -116,9 +121,10 @@ public class EavFormTemplateService : IEavFormTemplateService
             Category = newCategory,
             Description = newDescription ?? string.Empty,
             DescriptionInfo = newDescriptionInfo ?? string.Empty,
+            ExtractionPosition = extractionPosition,
             FormSchema = newFormSchema,
             Version = maxVersion + 1,
-            IsActive = false,
+            IsActive = true,
             CreatedAt = DateTime.Now,
             CreatedBy = updatedBy,
             Status = "Tạo mới"

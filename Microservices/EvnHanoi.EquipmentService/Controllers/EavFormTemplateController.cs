@@ -117,7 +117,8 @@ public class EavFormTemplateController : ControllerBase
                 request.EquipmentTypeId,
                 "FORM",
                 request.GridTypeId,
-                request.ExtractionProcess
+                request.ExtractionProcess,
+                request.ExtractionPosition
             );
 
             return CreatedAtAction(nameof(GetById), new { id = template.Id.ToString() }, template);
@@ -155,7 +156,8 @@ public class EavFormTemplateController : ControllerBase
                 request.EquipmentTypeId,
                 "FORM",
                 request.GridTypeId,
-                request.ExtractionProcess);
+                request.ExtractionProcess,
+                request.ExtractionPosition);
 
             return Ok(newTemplate);
         }
@@ -211,6 +213,20 @@ public class EavFormTemplateController : ControllerBase
         var versions = await _repository.GetVersionsByCodeAsync(code);
         return Ok(versions);
     }
+
+    [HttpPost("versions/{versionId:guid}/activate")]
+    public async Task<IActionResult> ActivateVersion(Guid versionId)
+    {
+        try
+        {
+            await _repository.ActivateVersionAsync(versionId);
+            return Ok(new { Message = "Kích hoạt phiên bản thành công!" });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { Message = $"Lỗi khi kích hoạt phiên bản: {ex.Message}" });
+        }
+    }
 }
 
 public class CreateEavFormTemplateRequest
@@ -221,6 +237,7 @@ public class CreateEavFormTemplateRequest
     public string? Description { get; set; }
     public string? DescriptionInfo { get; set; }
     public string? ExtractionProcess { get; set; }
+    public string? ExtractionPosition { get; set; }
     public string FormSchema { get; set; } = string.Empty;
     public string? CreatedBy { get; set; }
     public Guid? EquipmentTypeId { get; set; }
@@ -235,6 +252,7 @@ public class UpgradeEavFormTemplateRequest
     public string? Description { get; set; }
     public string? DescriptionInfo { get; set; }
     public string? ExtractionProcess { get; set; }
+    public string? ExtractionPosition { get; set; }
     public string FormSchema { get; set; } = string.Empty;
     public string? UpdatedBy { get; set; }
     public Guid? EquipmentTypeId { get; set; }

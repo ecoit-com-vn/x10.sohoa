@@ -9,6 +9,7 @@ public class EavFormTemplate
     public string Description { get; set; } = string.Empty;
     public string DescriptionInfo { get; set; } = string.Empty;
     public string? ExtractionProcess { get; set; }
+    public string? ExtractionPosition { get; set; }
     
     public string FormSchema { get; set; } = string.Empty;
 

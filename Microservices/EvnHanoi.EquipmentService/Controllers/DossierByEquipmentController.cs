@@ -96,6 +96,61 @@ public partial class DossierByEquipmentController : ControllerBase
         return Ok(detail);
     }
 
+    /// <summary>
+    /// Trả về danh sách thiết bị liên quan của hồ sơ đã xuất bản.
+    /// </summary>
+    [HttpGet("{id:guid}/equipments")]
+    public async Task<IActionResult> GetRelatedEquipments(Guid id)
+    {
+        var (isAdmin, unitId) = ResolveUserScope();
+        if (!isAdmin && unitId is null)
+            return Unauthorized(new { message = "Không thể xác định đơn vị của người dùng" });
+
+        var dossier = await _dossierService.GetPublishedDetailByIdAsync(id, isAdmin, unitId);
+        if (dossier is null)
+            return NotFound(new { message = $"Không tìm thấy hồ sơ đã xuất bản với ID = {id}" });
+
+        var equipments = await _dossierService.GetEquipmentsAsync(id);
+        return Ok(equipments);
+    }
+
+    /// <summary>
+    /// Trả về danh sách hồ sơ liên quan (cùng trạm/đường dây) của hồ sơ đã xuất bản.
+    /// </summary>
+    [HttpGet("{id:guid}/related")]
+    public async Task<IActionResult> GetRelatedDossiers(
+        Guid id,
+        [FromQuery] string? keyword,
+        [FromQuery] Guid? dossierTypeId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10)
+    {
+        var (isAdmin, unitId) = ResolveUserScope();
+        if (!isAdmin && unitId is null)
+            return Unauthorized(new { message = "Không thể xác định đơn vị của người dùng" });
+
+        var dossier = await _dossierService.GetPublishedDetailByIdAsync(id, isAdmin, unitId);
+        if (dossier == null)
+            return NotFound(new { message = $"Không tìm thấy hồ sơ đã xuất bản với ID = {id}" });
+
+        var (items, totalCount) = await _dossierService.GetCatalogDossiersAsync(
+            keyword,
+            dossier.InfrastructureId,
+            dossierTypeId,
+            null,
+            page,
+            pageSize);
+
+        var filteredItems = items.Where(item => item.Id != id).ToList();
+        var count = totalCount;
+        if (items.Count() != filteredItems.Count)
+        {
+            count = Math.Max(0, totalCount - 1);
+        }
+
+        return Ok(new { items = filteredItems, totalCount = count, page, pageSize });
+    }
+
     private (bool IsAdmin, long? UnitId) ResolveUserScope()
     {
         var isAdmin = User.IsInRole("ADMIN") ||
