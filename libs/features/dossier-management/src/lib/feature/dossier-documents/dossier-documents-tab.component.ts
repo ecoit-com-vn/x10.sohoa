@@ -21,7 +21,9 @@ import { DialogModule } from 'primeng/dialog';
 import { ButtonModule } from 'primeng/button';
 import { MessageService, MenuItem } from 'primeng/api';
 import { Menu, MenuModule } from 'primeng/menu';
-import { SignalRService, DigitizationProgressEvent, AuthService } from '@sohoa.frontend/shared/core';
+import { SignalRService, DigitizationProgressEvent } from '../../../../../../shared/core/src/lib/services/signalr.service';
+import { AuthService } from '../../../../../../shared/core/src/lib/services/auth.service';
+
 import {
   Subject,
   debounceTime,
@@ -357,6 +359,7 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
       .subscribe({
         next: (res) => {
           this.documents.set(res.items ?? []);
+          
           this.totalDocuments.set(res.totalCount ?? 0);
         },
         error: () => {

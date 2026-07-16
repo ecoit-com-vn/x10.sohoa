@@ -33,12 +33,13 @@
       <thead>
         <tr>
           <th class="col-stt">STT</th>
+          <th>Loại tài liệu</th>
           <th>Tên tài liệu</th>
           <th style="width: 110px;">Kích thước</th>
-          <th class="col-digitization" style="width: 130px;">OCR</th>
-          <th class="col-digitization" style="width: 130px;">Bóc tách</th>
+          <th class="col-digitization" style="width: 10px;">OCR</th>
+          <th class="col-digitization" style="width: 100px;">Bóc tách</th>
           <th style="width: 150px;">Ngày tạo</th>
-          <th style="width: 120px;">Người tạo</th>
+          <th style="width: 200px;">Người tạo</th>
           <th class="col-hd col-actions-sticky">
             <div class="col-actions-sticky-panel col-actions-sticky-panel--head">Thao tác</div>
           </th>
@@ -56,6 +57,7 @@
           [hidden]="loading()"
         >
           <td class="col-stt text-muted">{{ (page() - 1) * pageSize() + i + 1 }}</td>
+          <td>{{doc.documentTypeName}}</td>
           <td>
             <div style="display: flex; align-items: center; gap: 8px; min-width: 0;">
               <i class="pi" [ngClass]="fileIcon(doc.name)" style="color: #3b82f6; flex-shrink: 0;"></i>
@@ -130,7 +132,6 @@
           <td>{{ formatDate(doc.createdDate) }}</td>
           <td>
             <span
-              style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: inline-block; max-width: 110px;"
               [title]="displayCreatorName(doc)"
             >
               {{ displayCreatorName(doc) }}

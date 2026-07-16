@@ -198,6 +198,11 @@ export class EquipmentComponent implements OnInit {
   deleteTarget = signal<any>(null);
   deleting = signal<boolean>(false);
 
+  // Lock/Unlock Confirmation Dialog Signals
+  showLockUnlockConfirm = signal<boolean>(false);
+  lockUnlockTarget = signal<any>(null);
+  lockUnlockLoading = signal<boolean>(false);
+
   // Pagination Computeds
   paginatedItems = computed(() => {
     return this.items();
@@ -727,25 +732,63 @@ export class EquipmentComponent implements OnInit {
     });
   }
 
+  onToggleStatusRequest(item: any) {
+    console.log('onToggleStatusRequest was called with item:', item);
+    this.lockUnlockTarget.set(item);
+    this.showLockUnlockConfirm.set(true);
+    console.log('showLockUnlockConfirm is now:', this.showLockUnlockConfirm());
+  }
+
   onToggleStatus(item: any) {
+    console.log('onToggleStatus (alias) was called with item:', item);
+    this.onToggleStatusRequest(item);
+  }
+
+  onCancelLockUnlock() {
+    console.log('onCancelLockUnlock was called');
+    this.showLockUnlockConfirm.set(false);
+    this.lockUnlockTarget.set(null);
+  }
+
+  onConfirmLockUnlock() {
+    console.log('onConfirmLockUnlock was called');
+    const item = this.lockUnlockTarget();
+    if (!item) {
+      console.log('No lockUnlockTarget item found!');
+      return;
+    }
+
+    this.lockUnlockLoading.set(true);
     const isLocking = item.isActive === 1 || item.isActive === true;
-    this.equipmentService.toggleStatus(item.id, isLocking).subscribe({
-      next: (res) => {
-        this.messageService.add({
-          severity: 'success',
-          summary: 'Thành công',
-          detail: res.message || (isLocking ? 'Khóa thiết bị thành công!' : 'Mở khóa thiết bị thành công!')
-        });
-        this.loadItems();
-      },
-      error: (err) => {
-        this.messageService.add({
-          severity: 'error',
-          summary: 'Lỗi',
-          detail: err?.error?.message || 'Không thể cập nhật trạng thái thiết bị.'
-        });
-      }
-    });
+    console.log('Calling equipmentService.toggleStatus with id:', item.id, 'isLocking:', isLocking);
+    this.equipmentService.toggleStatus(item.id, isLocking)
+      .pipe(
+        finalize(() => {
+          this.lockUnlockLoading.set(false);
+          console.log('toggleStatus API call completed');
+        })
+      )
+      .subscribe({
+        next: (res) => {
+          console.log('toggleStatus success response:', res);
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Thành công',
+            detail: res.message || (isLocking ? 'Khóa thiết bị thành công!' : 'Mở khóa thiết bị thành công!')
+          });
+          this.showLockUnlockConfirm.set(false);
+          this.lockUnlockTarget.set(null);
+          this.loadItems();
+        },
+        error: (err) => {
+          console.error('toggleStatus error response:', err);
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi',
+            detail: err?.error?.message || 'Không thể cập nhật trạng thái thiết bị.'
+          });
+        }
+      });
   }
 
   onDelete(item: any) {

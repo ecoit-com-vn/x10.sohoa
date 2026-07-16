@@ -24,6 +24,7 @@ export interface EavFormTemplate {
   gridTypeName?: string;
   equipmentTypeId?: string;
   equipmentTypeName?: string;
+  extractionPosition?: string;
 }
 
 @Injectable({
@@ -57,7 +58,7 @@ export class EavFormService {
     return this.api.get<EavFormTemplate>(`${this.apiUrl}/${id}`);
   }
 
-  createTemplate(name: string, code: string, category: string, description: string, descriptionInfo: string, formSchema: string, createdBy: string = 'admin', gridTypeId?: number, equipmentTypeId?: string, extractionProcess?: string): Observable<EavFormTemplate> {
+  createTemplate(name: string, code: string, category: string, description: string, descriptionInfo: string, formSchema: string, createdBy: string = 'admin', gridTypeId?: number, equipmentTypeId?: string, extractionProcess?: string, extractionPosition?: string): Observable<EavFormTemplate> {
     return this.api.post<EavFormTemplate>(this.apiUrl, {
       name,
       code,
@@ -65,6 +66,7 @@ export class EavFormService {
       description,
       descriptionInfo,
       extractionProcess,
+      extractionPosition,
       formSchema,
       createdBy,
       gridTypeId,
@@ -72,7 +74,7 @@ export class EavFormService {
     });
   }
 
-  updateTemplate(id: string, name: string, code: string, category: string, description: string, descriptionInfo: string, formSchema: string, updatedBy: string = 'admin', gridTypeId?: number, equipmentTypeId?: string, extractionProcess?: string): Observable<EavFormTemplate> {
+  updateTemplate(id: string, name: string, code: string, category: string, description: string, descriptionInfo: string, formSchema: string, updatedBy: string = 'admin', gridTypeId?: number, equipmentTypeId?: string, extractionProcess?: string, extractionPosition?: string): Observable<EavFormTemplate> {
     return this.api.put<EavFormTemplate>(`${this.apiUrl}/${id}`, {
       name,
       code,
@@ -80,6 +82,7 @@ export class EavFormService {
       description,
       descriptionInfo,
       extractionProcess,
+      extractionPosition,
       formSchema,
       updatedBy,
       gridTypeId,

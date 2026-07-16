@@ -1,5 +1,5 @@
 import { Injectable, inject, signal } from '@angular/core';
-import { Observable, of, tap, catchError, map } from 'rxjs';
+import { Observable, of, tap, catchError, map, finalize, shareReplay } from 'rxjs';
 import { MenuService } from './menu.service';
 import { AuthService } from './auth.service';
 import {
@@ -22,32 +22,34 @@ export class BreadcrumbService {
 
   private flatMenus = signal<SidebarMenuRecord[]>([]);
   private menusLoaded = signal(false);
-  private loading = false;
+  private menus$: Observable<SidebarMenuRecord[]> | null = null;
 
   ensureMenusLoaded(): Observable<SidebarMenuRecord[]> {
     if (this.menusLoaded()) {
       return of(this.flatMenus());
     }
 
-    if (this.loading) {
-      return of(this.flatMenus());
+    if (this.menus$) {
+      return this.menus$;
     }
 
-    this.loading = true;
-    return this.menuService.getSidebarMenu().pipe(
+    this.menus$ = this.menuService.getSidebarMenu().pipe(
       map((res) => augmentSidebarMenus(normalizeSidebarMenus(res), this.authService)),
       tap((menus) => {
         this.flatMenus.set(menus);
         this.menusLoaded.set(true);
-        this.loading = false;
       }),
       catchError((err) => {
         console.error('Không thể load menu cho breadcrumb', err);
-        this.menusLoaded.set(true);
-        this.loading = false;
         return of([]);
-      })
+      }),
+      finalize(() => {
+        this.menus$ = null;
+      }),
+      shareReplay(1)
     );
+
+    return this.menus$;
   }
 
   resolveTrail(currentUrl: string): BreadcrumbTrailItem[] {
@@ -71,6 +73,6 @@ export class BreadcrumbService {
   invalidateCache(): void {
     this.flatMenus.set([]);
     this.menusLoaded.set(false);
-    this.loading = false;
+    this.menus$ = null;
   }
 }

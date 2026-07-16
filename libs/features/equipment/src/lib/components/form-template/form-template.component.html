@@ -194,9 +194,15 @@
           <div>
             <label>Ngày cập nhật: {{ template.createdAt | date:'dd/MM/yyyy HH:mm' }}</label>
           </div>
-        </div>
-        <div>
-          <label>Mô tả: {{ template.description || '' }}</label>
+          <div>
+            <label>Vị trí bóc tách: {{ getExtractionPositionLabel(template.extractionPosition) }}</label>
+          </div>
+          <div>
+            <label>Quy trình bóc tách: {{ template.extractionProcess || 'Chưa cấu hình' }}</label>
+          </div>
+          <div>
+            <label>Mô tả: {{ template.description || '' }}</label>
+          </div>
         </div>
         <div class="mt-4">
           <h4 class="preview-title-header">Xem trước biểu mẫu nhập liệu</h4>
@@ -400,7 +406,7 @@
               <th>Người cập nhật</th>
               <th>Ngày cập nhật</th>
               <th class="col-tt-width text-center">Trạng thái</th>
-              <th style="width: 90px; text-align: center;">Thao tác</th>
+              <th style="width: 110px; text-align: center;">Thao tác</th>
             </tr>
           </thead>
           <tbody>
@@ -415,9 +421,12 @@
                   {{ ver.isActive ? 'Hoạt động' : 'Ngưng hoạt động' }}
                 </span>
               </td>
-              <td class="text-center" style="text-align: center;">
+              <td class="text-center" style="text-align: center; white-space: nowrap;">
                 <button class="act-btn btn-view-detail" (click)="viewVersionDetail(ver)" title="Xem chi tiết">
                   <i class="pi pi-eye"></i>
+                </button>
+                <button *ngIf="!ver.isActive" class="act-btn" style="color: #16a34a; margin-left: 8px; border: none; background: none; padding: 0; cursor: pointer;" (click)="onActivateVersion(ver)" title="Kích hoạt phiên bản này">
+                  <i class="pi pi-check-circle" style="font-size: 1.1rem;"></i>
                 </button>
               </td>
             </tr>

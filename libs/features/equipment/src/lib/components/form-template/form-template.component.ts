@@ -205,6 +205,16 @@ export class FormTemplateComponent implements OnInit {
     this.loadForms();
   }
 
+  getExtractionPositionLabel(val?: string): string {
+    switch (val) {
+      case 'all': return 'Tất cả';
+      case 'first': return 'Trang đầu';
+      case 'last': return 'Trang cuối';
+      case 'first_last': return 'Trang đầu + trang cuối';
+      default: return 'Tất cả';
+    }
+  }
+
 
 
   loadEquipmentTypes() {
@@ -416,6 +426,35 @@ export class FormTemplateComponent implements OnInit {
   viewVersionDetail(ver: EavFormTemplate) {
     this.showVersionsDialog.set(false);
     this.viewDetails(ver);
+  }
+
+  onActivateVersion(ver: any) {
+    if (!ver || !ver.id) return;
+    this.loadingService.show();
+    this.formTemplateService.activateTemplateVersion(ver.id)
+      .pipe(finalize(() => this.loadingService.hide()))
+      .subscribe({
+        next: (res) => {
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Thành công',
+            detail: res.message || `Đã kích hoạt phiên bản v${ver.version}.0 thành công!`
+          });
+          // Reload versions list
+          if (this.selectedTemplate()) {
+            this.viewVersions(this.selectedTemplate()!);
+          }
+          this.loadForms();
+        },
+        error: (err) => {
+          console.error('Failed to activate template version', err);
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi',
+            detail: err?.error?.message || 'Không thể kích hoạt phiên bản biểu mẫu.'
+          });
+        }
+      });
   }
 
   exportExcel() {

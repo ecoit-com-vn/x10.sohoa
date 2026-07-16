@@ -76,6 +76,7 @@ export class FormBuilderComponent implements OnInit {
   formDescription = signal<string>('');
   formDescriptionInfo = signal<string>('');
   extractionProcess = signal<string>('');
+  extractionPosition = signal<string>('all');
   fields = signal<FormField[]>([]);
   selectedFieldIndex = signal<number | null>(null);
   showJson = signal<boolean>(false);
@@ -177,6 +178,7 @@ export class FormBuilderComponent implements OnInit {
         this.formDescription.set(form.description || '');
         this.formDescriptionInfo.set(form.descriptionInfo || '');
         this.extractionProcess.set(form.extractionProcess || '');
+        this.extractionPosition.set(form.extractionPosition || 'all');
         this.equipmentTypeId.set(form.equipmentTypeId || '');
         
         // Load gridTypeId if available, else fall back to equipment type mapping
@@ -238,6 +240,7 @@ export class FormBuilderComponent implements OnInit {
     this.formDescription.set('');
     this.formDescriptionInfo.set('');
     this.extractionProcess.set('');
+    this.extractionPosition.set('all');
     this.equipmentTypeId.set('');
     this.fields.set([]);
     this.selectedFieldIndex.set(null);
@@ -502,11 +505,12 @@ export class FormBuilderComponent implements OnInit {
     const desc = this.formDescription();
     const fDescInfo = this.formDescriptionInfo();
     const extractProc = this.extractionProcess();
+    const extPos = this.extractionPosition();
     const isEdit = this.isEditMode();
     const tId = this.templateId();
     
     if (isEdit && tId) {
-      this.formTemplateService.updateTemplate(tId, fName, fCode, fCategory, desc, fDescInfo, schemaStr, 'admin', eqTypeId, gridId || undefined, extractProc).subscribe({
+      this.formTemplateService.updateTemplate(tId, fName, fCode, fCategory, desc, fDescInfo, schemaStr, 'admin', eqTypeId, gridId || undefined, extractProc, extPos).subscribe({
         next: () => {
           this.messageService.add({
             severity: 'success',
@@ -526,7 +530,7 @@ export class FormBuilderComponent implements OnInit {
         }
       });
     } else {
-      this.formTemplateService.createTemplate(fName, fCode, fCategory, desc, fDescInfo, schemaStr, 'admin', eqTypeId, gridId || undefined, extractProc).subscribe({
+      this.formTemplateService.createTemplate(fName, fCode, fCategory, desc, fDescInfo, schemaStr, 'admin', eqTypeId, gridId || undefined, extractProc, extPos).subscribe({
         next: () => {
           this.messageService.add({
             severity: 'success',

@@ -4,6 +4,8 @@ import {
   EventEmitter,
   Input,
   OnInit,
+  OnChanges,
+  SimpleChanges,
   Output,
   computed,
   inject,
@@ -23,7 +25,7 @@ type BreadcrumbViewMode = 'list' | 'add' | 'edit' | 'detail' | 'form' | string;
   imports: [CommonModule, RouterModule],
   templateUrl: './wf-breadcrumb.component.html',
 })
-export class WfBreadcrumbComponent implements OnInit {
+export class WfBreadcrumbComponent implements OnInit, OnChanges {
   private router = inject(Router);
   private breadcrumbService = inject(BreadcrumbService);
   private destroyRef = inject(DestroyRef);
@@ -40,6 +42,10 @@ export class WfBreadcrumbComponent implements OnInit {
   
   @Output() listClick = new EventEmitter<void>();
 
+  private suffixSignal = signal<string | null>(null);
+  private viewModeSignal = signal<BreadcrumbViewMode | null>(null);
+  private leafLabelSignal = signal<string | null>(null);
+  private customItemsSignal = signal<BreadcrumbTrailItem[] | null>(null);
   private currentUrlSignal = signal<string>('');
 
   private trail = computed(() => {
@@ -48,15 +54,17 @@ export class WfBreadcrumbComponent implements OnInit {
   });
 
   readonly items = computed(() => {
-    const trail = this.customItems?.length ? [...this.customItems] : [...this.trail()];
+    const customItems = this.customItemsSignal();
+    const trail = customItems?.length ? [...customItems] : [...this.trail()];
     if (!trail.length) {
       return trail;
     }
 
-    if (this.leafLabel?.trim()) {
+    const leafLabel = this.leafLabelSignal();
+    if (leafLabel?.trim()) {
       trail[trail.length - 1] = {
         ...trail[trail.length - 1],
-        label: this.leafLabel.trim(),
+        label: leafLabel.trim(),
       };
     }
 
@@ -64,11 +72,14 @@ export class WfBreadcrumbComponent implements OnInit {
   });
 
   readonly resolvedSuffix = computed(() => {
-    if (this.suffix?.trim()) {
-      return this.suffix.trim();
+    const suffix = this.suffixSignal();
+    const viewMode = this.viewModeSignal();
+
+    if (suffix?.trim()) {
+      return suffix.trim();
     }
 
-    switch (this.viewMode) {
+    switch (viewMode) {
       case 'add':
         return 'Thêm mới';
       case 'edit':
@@ -84,6 +95,10 @@ export class WfBreadcrumbComponent implements OnInit {
 
   ngOnInit(): void {
     this.currentUrlSignal.set(this.matchUrl ?? this.router.url);
+    this.suffixSignal.set(this.suffix);
+    this.viewModeSignal.set(this.viewMode);
+    this.leafLabelSignal.set(this.leafLabel);
+    this.customItemsSignal.set(this.customItems);
 
     this.breadcrumbService
       .ensureMenusLoaded()
@@ -98,6 +113,24 @@ export class WfBreadcrumbComponent implements OnInit {
       .subscribe((event) => {
         this.currentUrlSignal.set(this.matchUrl ?? (event.urlAfterRedirects || event.url));
       });
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['suffix']) {
+      this.suffixSignal.set(this.suffix);
+    }
+    if (changes['viewMode']) {
+      this.viewModeSignal.set(this.viewMode);
+    }
+    if (changes['leafLabel']) {
+      this.leafLabelSignal.set(this.leafLabel);
+    }
+    if (changes['matchUrl']) {
+      this.currentUrlSignal.set(this.matchUrl ?? this.router.url);
+    }
+    if (changes['customItems']) {
+      this.customItemsSignal.set(this.customItems);
+    }
   }
 
   onLeafClick(): void {
