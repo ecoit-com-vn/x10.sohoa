@@ -115,19 +115,34 @@ public static class PermissionCodeResolver
         if (string.Equals(controllerKey, "EavFormApproval", StringComparison.OrdinalIgnoreCase))
         {
             var actLower = actionName.ToLowerInvariant();
-            if (actLower.Contains("approve") || actLower.Contains("reject"))
+            if (actLower.Contains("approve") || actLower.Contains("reject") || actLower.Contains("restore"))
             {
                 return "APPROVE";
             }
         }
 
-        // EavFormTemplateController → EAV_FORM_TEMPLATE_* (thiết kế / gửi duyệt)
-        if (string.Equals(controllerKey, "EavFormTemplate", StringComparison.OrdinalIgnoreCase))
+        // EavFormTemplateController / FormTemplateController — restore phiên bản = EDIT
+        if (string.Equals(controllerKey, "EavFormTemplate", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(controllerKey, "FormTemplate", StringComparison.OrdinalIgnoreCase))
         {
             var actLower = actionName.ToLowerInvariant();
             if (actLower.Contains("submit"))
             {
                 return "SUBMIT";
+            }
+            if (actLower.Contains("restore"))
+            {
+                return "EDIT";
+            }
+        }
+
+        // EavCompletedFormController — restore = MANAGE
+        if (string.Equals(controllerKey, "EavCompletedForm", StringComparison.OrdinalIgnoreCase))
+        {
+            var actLower = actionName.ToLowerInvariant();
+            if (actLower.Contains("restore"))
+            {
+                return "MANAGE";
             }
         }
 
