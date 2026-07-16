@@ -593,6 +593,7 @@ public class DocumentRepository : IDocumentRepository
                 MINIO_VERSION_ID,
                 FILE_SIZE,
                 MIME_TYPE,
+                PAGE_COUNT,
                 CREATED_BY,
                 CREATED_DATE,
                 IS_DELETED
@@ -605,6 +606,7 @@ public class DocumentRepository : IDocumentRepository
                 :MinioVersionId,
                 :FileSize,
                 :MimeType,
+                :PageCount,
                 :CreatedBy,
                 SYSTIMESTAMP,
                 0
@@ -620,6 +622,7 @@ public class DocumentRepository : IDocumentRepository
             version.MinioVersionId,
             version.FileSize,
             version.MimeType,
+            version.PageCount,
             version.CreatedBy
         });
 

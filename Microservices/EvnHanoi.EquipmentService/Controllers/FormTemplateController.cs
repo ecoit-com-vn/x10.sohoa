@@ -180,4 +180,41 @@ public class FormTemplateController : ControllerBase
         var versions = await _repository.GetVersionsByCodeAsync(code);
         return Ok(versions);
     }
+
+    [HttpGet("{id:guid}/versions/{version:int}")]
+    public async Task<ActionResult<EavFormTemplate>> GetByIdAndVersion(Guid id, int version)
+    {
+        if (version < 1)
+            return BadRequest(new { Message = "Số phiên bản không hợp lệ." });
+
+        var template = await _repository.GetByIdAndVersionAsync(id, version);
+        if (template == null)
+            return NotFound(new { Message = $"Không tìm thấy biểu mẫu ID = {id}, phiên bản {version}." });
+
+        return Ok(template);
+    }
+
+    /// <summary>Khôi phục phiên bản biểu mẫu — quyền FORM_TEMPLATE_EDIT.</summary>
+    [HttpPut("{id:guid}/versions/{version:int}/restore")]
+    public async Task<IActionResult> RestoreVersion(Guid id, int version)
+    {
+        if (version < 1)
+            return BadRequest(new { Message = "Số phiên bản không hợp lệ." });
+
+        var existing = await _repository.GetByIdAsync(id);
+        if (existing == null)
+            return NotFound(new { Message = $"Không tìm thấy biểu mẫu ID = {id}." });
+
+        var target = await _repository.GetByIdAndVersionAsync(id, version);
+        if (target == null)
+            return NotFound(new { Message = $"Không tìm thấy phiên bản {version} của biểu mẫu." });
+        if (target.IsActive)
+            return BadRequest(new { Message = "Phiên bản này đang hoạt động, không cần khôi phục." });
+
+        var ok = await _repository.RestoreVersionAsync(id, version);
+        if (!ok)
+            return NotFound(new { Message = $"Không tìm thấy phiên bản {version} của biểu mẫu." });
+
+        return Ok(new { Message = $"Đã khôi phục biểu mẫu về phiên bản {version}." });
+    }
 }

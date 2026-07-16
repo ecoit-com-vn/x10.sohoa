@@ -166,6 +166,15 @@ public abstract partial class DossierControllerBase : ControllerBase
         return Ok(items);
     }
 
+    /// <summary>Lookup nhóm hồ sơ (DOSSIER_GROUPS) — dùng cho form tạo/sửa.</summary>
+    [HttpGet("dossier-groups/lookup")]
+    [BypassDynamicPermission]
+    public async Task<IActionResult> GetDossierGroupsLookup()
+    {
+        var items = await _dossierService.GetDossierGroupsLookupAsync();
+        return Ok(items);
+    }
+
     [HttpGet("equipment/lookup")]
     [BypassDynamicPermission]
     public async Task<IActionResult> GetEquipmentLookup(
@@ -232,9 +241,16 @@ public abstract partial class DossierControllerBase : ControllerBase
     {
         if (dto == null) return BadRequest(new { message = "Dữ liệu không hợp lệ." });
 
-        var newId = await _dossierService.CreateAsync(dto, UserId, UserName, UserFullName, ExpectedKindId);
-        HttpContext.SetAudit(newId.ToString(), null, $"Tạo hồ sơ mới (ID: {newId})", "DOSSIER", AuditActions.Create);
-        return CreatedAtAction(nameof(GetDetail), new { id = newId }, new { id = newId });
+        try
+        {
+            var newId = await _dossierService.CreateAsync(dto, UserId, UserName, UserFullName, ExpectedKindId);
+            HttpContext.SetAudit(newId.ToString(), null, $"Tạo hồ sơ mới (ID: {newId})", "DOSSIER", AuditActions.Create);
+            return CreatedAtAction(nameof(GetDetail), new { id = newId }, new { id = newId });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     // ===== CẬP NHẬT =====
@@ -256,6 +272,10 @@ public abstract partial class DossierControllerBase : ControllerBase
         catch (KeyNotFoundException ex)
         {
             return NotFound(new { message = ex.Message });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
         }
         catch (InvalidOperationException ex)
         {

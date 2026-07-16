@@ -113,4 +113,28 @@ internal static class OcrPageContentHelper
 
     private static bool LooksLikeMojibake(string text) =>
         text.Contains('Ã') || text.Contains('Â') || text.Contains('\uFFFD');
+
+    internal static string StripMarkdownCodeFence(string? jsonText)
+    {
+        if (string.IsNullOrWhiteSpace(jsonText)) return string.Empty;
+
+        var extracted = jsonText.Trim();
+        if (extracted.StartsWith("```json", StringComparison.OrdinalIgnoreCase))
+        {
+            extracted = extracted.Substring(7);
+        }
+        else if (extracted.StartsWith("```"))
+        {
+            int nl = extracted.IndexOf('\n');
+            extracted = nl >= 0 ? extracted.Substring(nl + 1) : extracted;
+        }
+
+        extracted = extracted.Trim();
+        if (extracted.EndsWith("```"))
+        {
+            extracted = extracted.Substring(0, extracted.Length - 3);
+        }
+
+        return extracted.Trim();
+    }
 }

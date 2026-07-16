@@ -123,7 +123,28 @@ public class RbacScopeAuthorizationService : IRbacScopeAuthorizationService
                 continue;
             }
 
-            if (!group.OrganizationUnitId.HasValue || !managedUnits.Contains(group.OrganizationUnitId.Value))
+            var groupUnitIds = group.OrganizationUnitIds?.Count > 0
+                ? group.OrganizationUnitIds
+                : (group.OrganizationUnitId.HasValue
+                    ? new List<long> { group.OrganizationUnitId.Value }
+                    : new List<long>());
+
+            if (groupUnitIds.Count == 0)
+            {
+                throw new UnauthorizedAccessException("Nhóm quyền đơn vị chưa được gắn đơn vị.");
+            }
+
+            // Vai trò UNIT: nhóm phải chứa đơn vị của vai trò trong mapping
+            if (role.ScopeTypeId == RoleScopeTypes.UNIT.Id && role.OrganizationUnitId.HasValue)
+            {
+                if (!groupUnitIds.Contains(role.OrganizationUnitId.Value))
+                {
+                    throw new UnauthorizedAccessException(
+                        "Nhóm quyền đơn vị phải bao gồm đúng đơn vị của vai trò.");
+                }
+            }
+
+            if (!groupUnitIds.Any(managedUnits.Contains))
             {
                 throw new UnauthorizedAccessException("Bạn không được gắn nhóm quyền đơn vị ngoài phạm vi quản lý.");
             }
