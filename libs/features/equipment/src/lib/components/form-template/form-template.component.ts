@@ -12,11 +12,13 @@ import { TextareaModule } from 'primeng/textarea';
 import { Paginator } from 'primeng/paginator';
 import { Dialog } from 'primeng/dialog';
 import { Select } from 'primeng/select';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { FormTemplateService, EavFormTemplate } from '../../data-access/form-template.service';
 import { EquipmentTypeService } from '../../data-access/equipment-type.service';
 import { LoadingService, EavFormService } from '@sohoa.frontend/shared/core';
 import { finalize } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { combineLatest } from 'rxjs';
 
 interface FormField {
   id: string;
@@ -59,6 +61,7 @@ interface FormField {
 export class FormTemplateComponent implements OnInit {
   private loadingService = inject(LoadingService);
   private router = inject(Router);
+  private route = inject(ActivatedRoute);
   private formTemplateService = inject(FormTemplateService);
   private equipmentTypeService = inject(EquipmentTypeService);
   private messageService = inject(MessageService);
@@ -80,6 +83,9 @@ export class FormTemplateComponent implements OnInit {
   showVersionsDialog = signal<boolean>(false);
   selectedTemplate = signal<EavFormTemplate | null>(null);
   versionList = signal<EavFormTemplate[]>([]);
+  showConfirmRestore = signal<boolean>(false);
+  restoreTarget = signal<EavFormTemplate | null>(null);
+  restoringVersion = signal<boolean>(false);
 
   loading = signal<boolean>(false);
 
@@ -197,18 +203,63 @@ export class FormTemplateComponent implements OnInit {
         }
       });
     });
+
+    combineLatest([this.route.paramMap, this.route.queryParamMap])
+      .pipe(takeUntilDestroyed())
+      .subscribe(([params, query]) => {
+        const id = params.get('id');
+        if (!id) {
+          this.viewState.set('list');
+          this.selectedTemplate.set(null);
+          if (this.forms().length === 0) {
+            this.loadForms();
+          }
+          return;
+        }
+        const versionRaw = query.get('version');
+        const version = versionRaw ? Number(versionRaw) : null;
+        this.loadDetail(id, version && version > 0 ? version : null);
+      });
   }
 
   ngOnInit() {
     this.loadEquipmentTypes();
     this.loadGridTypes();
-    this.loadForms();
   }
 
+  private loadDetail(id: string, version: number | null) {
+    this.loadingService.show();
+    const request$ = version != null
+      ? this.formTemplateService.getTemplateByIdAndVersion(id, version)
+      : this.formTemplateService.getTemplateById(id);
 
+    request$
+      .pipe(finalize(() => this.loadingService.hide()))
+      .subscribe({
+        next: (detail) => {
+          this.selectedTemplate.set(detail);
+          this.viewState.set('detail');
+        },
+        error: (err) => {
+          console.error('Failed to load template detail', err);
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi',
+            detail: 'Không thể tải chi tiết biểu mẫu.'
+          });
+          this.router.navigate(['/equipment/form-template']);
+        }
+      });
+  }
 
-  loadEquipmentTypes() {
-    this.equipmentTypeService.getEquipmentTypes(1, 1000, undefined, undefined, undefined, true).subscribe({
+  onGridTypeChange(gridTypeId: number | null) {
+    this.selectedGridTypeId.set(gridTypeId);
+    this.selectedEquipmentTypeId.set('');
+    this.loadEquipmentTypes(gridTypeId ?? undefined);
+  }
+
+  loadEquipmentTypes(gridTypeId?: number) {
+    this.equipmentTypeService.getEquipmentTypes(1, 1000, undefined, undefined, gridTypeId, true).subscribe({
       next: (res) => {
         if (res && res.items) {
           const mapped = res.items.map((item: any) => ({
@@ -216,10 +267,13 @@ export class FormTemplateComponent implements OnInit {
             value: item.code || item.id
           }));
           this.equipmentTypes.set(mapped);
+        } else {
+          this.equipmentTypes.set([]);
         }
       },
       error: (err) => {
         console.error('Failed to load equipment types', err);
+        this.equipmentTypes.set([]);
       }
     });
   }
@@ -383,13 +437,11 @@ export class FormTemplateComponent implements OnInit {
   }
 
   viewDetails(form: EavFormTemplate) {
-    this.selectedTemplate.set(form);
-    this.viewState.set('detail');
+    this.router.navigate(['/equipment/form-template', form.id]);
   }
 
   goToList() {
-    this.viewState.set('list');
-    this.selectedTemplate.set(null);
+    this.router.navigate(['/equipment/form-template']);
   }
 
   viewVersions(form: EavFormTemplate) {
@@ -415,7 +467,45 @@ export class FormTemplateComponent implements OnInit {
 
   viewVersionDetail(ver: EavFormTemplate) {
     this.showVersionsDialog.set(false);
-    this.viewDetails(ver);
+    this.router.navigate(['/equipment/form-template', ver.id], {
+      queryParams: { version: ver.version }
+    });
+  }
+
+  confirmRestoreVersion(ver: EavFormTemplate) {
+    if (ver.isActive || this.restoringVersion()) return;
+    this.restoreTarget.set(ver);
+    this.showConfirmRestore.set(true);
+  }
+
+  onConfirmRestoreVersion() {
+    const ver = this.restoreTarget();
+    const parent = this.selectedTemplate();
+    if (!ver || !parent) return;
+
+    this.restoringVersion.set(true);
+    this.formTemplateService.restoreTemplateVersion(ver.id, ver.version)
+      .pipe(finalize(() => this.restoringVersion.set(false)))
+      .subscribe({
+        next: () => {
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Thành công',
+            detail: `Đã khôi phục biểu mẫu về phiên bản v${ver.version}.0.`
+          });
+          this.showConfirmRestore.set(false);
+          this.restoreTarget.set(null);
+          this.viewVersions(parent);
+          this.loadForms();
+        },
+        error: (err) => {
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi',
+            detail: err?.error?.Message || 'Không thể khôi phục phiên bản.'
+          });
+        }
+      });
   }
 
   exportExcel() {
