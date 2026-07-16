@@ -164,8 +164,8 @@ public class ElasticsearchSetupService : IHostedService
                 SELECT t.Id, v.Name as Name, v.Description as Description, v.Version as Version, 
                        t.IsActive as IsActive, t.GridTypeId, t.ExtractionProcess 
                 FROM EavFormTemplates t
-                LEFT JOIN EavFormTemplateVersions v ON t.Id = v.FormTemplateId AND v.IsDeleted = 0 AND v.Version = (
-                    SELECT MAX(Version) FROM EavFormTemplateVersions WHERE FormTemplateId = t.Id AND IsDeleted = 0
+                LEFT JOIN EavFormTemplateVersions v ON t.Id = v.FormTemplateId AND v.IsActive = 1 AND v.IsDeleted = 0 AND v.Version = (
+                    SELECT MAX(Version) FROM EavFormTemplateVersions WHERE FormTemplateId = t.Id AND IsActive = 1 AND IsDeleted = 0
                 )
                 WHERE t.IsDeleted = 0");
             _logger.LogInformation("Syncing {Count} templates to Elasticsearch...", templates.Count());
