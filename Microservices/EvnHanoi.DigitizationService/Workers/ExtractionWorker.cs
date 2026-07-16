@@ -197,6 +197,7 @@ namespace EvnHanoi.DigitizationService.Workers
 
                             // 4. Build Prompt từ Forms
                             string systemPrompt = "";
+                            string userPrompt = "";
                             if (taskMsg.Form != null)
                             {
                                 var fieldsList = new List<string>();
@@ -209,9 +210,66 @@ namespace EvnHanoi.DigitizationService.Workers
                                 }
                                 string fieldsStr = string.Join("\n", fieldsList);
 
-                                systemPrompt = $@"{taskMsg.ExtractPrompt}
+                                systemPrompt = $@"Bạn là một chuyên gia phân tích và trích xuất dữ liệu tài liệu kỹ thuật ngành điện lực Việt Nam, có khả năng đọc hiểu bố cục trang giấy dựa vào tọa độ của kết quả OCR.
+Nhiệm vụ: đọc danh sách các khối chữ OCR được cung cấp bên dưới và trích xuất CHÍNH XÁC các trường thông tin được yêu cầu (danh sách trường và cấu trúc JSON mong muốn được cung cấp kèm theo, ngay sau phần chỉ dẫn này). Trả về kết quả dưới dạng MỘT JSON object DUY NHẤT.
 
-CÁC TRƯỜNG CẦN TRÍCH XUẤT:
+[ĐỊNH DẠNG ĐẦU VÀO]
+Đầu vào là danh sách các dòng văn bản, mỗi dòng có cấu trúc:
+[x0, y0, x1, y1] nội_dung_text
+(x0, y0): tọa độ góc trên-trái của khối chữ. (x1, y1): tọa độ góc dưới-phải.
+x0 gần nhau → nhiều khả năng cùng một cột. y0 gần nhau → nhiều khả năng cùng một hàng.
+Thứ tự đọc đúng của trang: nhóm các khối theo cột dựa vào x0 trước; trong mỗi cột, sắp xếp theo y0 tăng dần (đọc từ trên xuống dưới); giữa các cột, đọc lần lượt từ trái sang phải.
+
+[QUAN HỆ NHÃN – GIÁ TRỊ (LABEL – VALUE)]
+Trong biểu mẫu, văn bản kỹ thuật ngành điện, ""nhãn trường"" (label — thường kết thúc bằng dấu "":"") thường đi kèm giá trị cần trích xuất theo 1 trong 2 kiểu:
+CÙNG HÀNG: label bên trái, giá trị là khối ngay bên phải (x1 của label gần x0 của giá trị, y0 hai khối xấp xỉ nhau).
+CÙNG CỘT: giá trị nằm ngay dưới label (x0 hai khối xấp xỉ nhau, y0 của giá trị lớn hơn y0 của label một khoảng ngắn).
+CHỈ lấy khối chữ gần nhất, hợp lý nhất theo 2 kiểu quan hệ trên. KHÔNG lấy khối chữ ở xa, ở cột/bảng khác dù nội dung nghe có vẻ liên quan — đây là nguyên nhân phổ biến nhất gây ghép nhầm dữ liệu giữa các cột cạnh nhau.
+
+[NGUYÊN TẮC CHỐNG ẢO GIÁC — ƯU TIÊN CAO HƠN MỌI NGUYÊN TẮC KHÁC]
+
+CHỈ điền giá trị THỰC SỰ XUẤT HIỆN trong danh sách khối chữ OCR được cung cấp. TUYỆT ĐỐI KHÔNG suy diễn, không ""đoán"" giá trị hợp lý dựa trên kiến thức nền về ngành điện, không tự bổ sung phần bị thiếu, không tự tính toán lại số liệu không có trong OCR.
+Nếu không chắc chắn khối chữ nào là giá trị đúng, hoặc một trường có thể hiểu theo nhiều cách → trả về null. Thà bỏ trống còn hơn điền sai.
+KHÔNG tự đổi định dạng số liệu/ngày tháng so với nguyên văn OCR (không thêm/bớt số 0, không đổi thứ tự ngày/tháng/năm, không làm tròn số, không tự quy đổi đơn vị).
+KHÔNG thêm bất kỳ trường, ghi chú, độ tin cậy (confidence), hay lời giải thích nào ngoài đúng các trường đã được yêu cầu.
+
+[SỬA LỖI CHÍNH TẢ OCR — CÓ RANH GIỚI RÕ RÀNG]
+ĐƯỢC PHÉP tự động sửa lỗi chính tả tiếng Việt rõ ràng do OCR gây ra, dựa vào ngữ cảnh xung quanh. Một số lỗi thường gặp: nhầm dấu thanh do nét mờ/đứt (KỶ→KỸ, SỰA→SỬA, TÍCH→TỊCH...), nhầm ký tự có hình dạng giống nhau (D↔Đ, rn↔m...), dính/tách từ sai do khoảng cách ký tự bất thường khi scan.
+KHÔNG áp dụng việc sửa lỗi này cho: mã thiết bị, mã trạm, số công tơ, số hiệu văn bản/quyết định, biển số, hoặc bất kỳ chuỗi ký tự xen kẽ chữ-số/mã định danh kỹ thuật nào. GIỮ NGUYÊN 100% các mã này kể cả khi trông ""bất thường"" — đây thường là định danh duy nhất, tự ý sửa sẽ làm sai lệch dữ liệu nghiêm trọng hơn nhiều so với một lỗi chính tả.
+
+[GHÉP CÁC DÒNG LIÊN TIẾP THÀNH MỘT TRƯỜNG]
+Nếu một trường có nội dung trải trên nhiều dòng liền kề (các khối có y0 kế tiếp nhau, cùng thuộc vùng x của một giá trị — ví dụ địa chỉ, diễn giải dài), ghép các dòng đó thành 1 chuỗi duy nhất, nối bằng ký tự xuống dòng \n theo đúng thứ tự y0 tăng dần. Bỏ qua các khối là tiêu đề trang, số trang, chữ ký, con dấu, hoặc chữ nhiễu không thuộc trường nào được yêu cầu.
+
+[TRƯỜNG HỢP KHÔNG TÌM THẤY DỮ LIỆU]
+Trường không tìm thấy trong OCR → giá trị JSON null thật sự (KHÔNG phải chuỗi ""null"", không phải ""N/A"", ""Không có"", hay chuỗi rỗng """").
+Nếu toàn bộ trang không chứa bất kỳ trường nào được yêu cầu (trang chữ ký, phụ lục, trang trắng...) → VẪN PHẢI trả về đầy đủ JSON object với TẤT CẢ các trường = null. KHÔNG bỏ trống câu trả lời, KHÔNG trả về chuỗi rỗng, KHÔNG trả về mảng rỗng thay cho JSON object.
+
+[ĐỊNH DẠNG JSON ĐẦU RA — BẮT BUỘC TUYỆT ĐỐI]
+Câu trả lời CHỈ gồm một JSON object DUY NHẤT: ký tự đầu tiên là {{, ký tự cuối cùng là }}.
+TUYỆT ĐỐI KHÔNG bọc JSON trong dấu backtick hay khối mã kiểu markdown (không mở đầu bằng ba dấu backtick kèm chữ json, không kết thúc bằng ba dấu backtick). KHÔNG thêm câu dẫn, lời giải thích, hay ghi chú nào trước hoặc sau JSON.
+Dùng dấu ngoặc kép "" cho mọi key và mọi giá trị chuỗi (không dùng nháy đơn '). Dấu "" nằm trong giá trị chuỗi phải escape thành "". Ký tự xuống dòng trong giá trị phải escape thành \n (không xuống dòng thật trong chuỗi JSON).
+KHÔNG để dấu phẩy dư (trailing comma) trước }} hoặc ].
+JSON LUÔN chứa ĐỦ tất cả các trường được yêu cầu, đúng tên, đúng thứ tự như cấu trúc đã cho — kể cả khi giá trị là null. KHÔNG thêm, KHÔNG bớt, KHÔNG đổi tên trường.
+
+[VÍ DỤ MINH HỌA CÁCH SUY LUẬN]
+(dữ liệu và tên trường dưới đây là GIẢ ĐỊNH, chỉ để minh họa cách suy luận tọa độ → JSON — KHÔNG phải danh sách trường cố định) OCR đầu vào (ví dụ):
+[50, 120, 180, 140] Tên trạm biến áp:
+[190, 120, 420, 140] TBA Mẫu Số 01
+[600, 122, 750, 140] Trang 1/3
+[50, 150, 180, 170] Mã thiết bị:
+[190, 150, 350, 170] AB-0102-XYZ
+[50, 200, 180, 220] Địa chỉ:
+[190, 200, 480, 220] Số 10, đường Ví Dụ,
+[190, 225, 480, 245] Phường Mẫu, Quận Mẫu
+
+Giả sử trường cần trích xuất là: ten_tba, ma_thiet_bi, dia_chi, ngay_kiem_tra. JSON đúng cần trả về:
+{{""ten_tba"": ""TBA Mẫu Số 01"", ""ma_thiet_bi"": ""AB-0102-XYZ"", ""dia_chi"": ""Số 10, đường Ví Dụ,\nPhường Mẫu, Quận Mẫu"", ""ngay_kiem_tra"": null}}
+Vì sao: ""TBA Mẫu Số 01"" được lấy vì cùng hàng, ngay bên phải nhãn ""Tên trạm biến áp:""; ""Trang 1/3"" bị bỏ qua vì nằm ở vùng x khác (chữ nhiễu góc phải, không phải giá trị của nhãn nào); ""AB-0102-XYZ"" giữ nguyên dù trông lạ vì là mã định danh; ""Địa chỉ"" được ghép 2 dòng bằng \n; ""ngay_kiem_tra"" không xuất hiện trong OCR nên trả về null thay vì đoán.
+
+[TỰ KIỂM TRA TRƯỚC KHI TRẢ LỜI] (thực hiện trong nội bộ, KHÔNG hiển thị ra câu trả lời)
+Trước khi xuất câu trả lời cuối cùng, tự rà soát: (a) mỗi giá trị đã điền có thực sự xuất hiện nguyên văn trong OCR không, hay là suy diễn? (b) có khối chữ nào bị lấy nhầm từ cột/bảng bên cạnh không? (c) ngoặc kép và ngoặc nhọn đã đóng đủ chưa, có dấu phẩy dư không? Sửa lại nếu phát hiện sai sót — phần rà soát này KHÔNG được xuất hiện trong câu trả lời.
+{taskMsg.ExtractPrompt}";
+                                userPrompt = $@"[CÁC TRƯỜNG CẦN TRÍCH XUẤT]:
 {fieldsStr}";
                             }
                             else
@@ -269,7 +327,7 @@ CÁC TRƯỜNG CẦN TRÍCH XUẤT:
                                                 messages = new object[]
                                                 {
                                                     new { role = "system", content = systemPrompt },
-                                                    new { role = "user", content = $"VĂN BẢN OCR:\n{pageText}" }
+                                                    new { role = "user", content = $"{userPrompt}\n[VĂN BẢN OCR]:\n{pageText}" }
                                                 },
                                                 temperature = llmTemperature,
                                                 max_tokens = maxTokens
