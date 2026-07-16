@@ -45,6 +45,24 @@ public abstract partial class DossierControllerBase
         }
     }
 
+    /// <summary>
+    /// Loại văn bản gắn với loại hồ sơ của dossier — dùng combobox tab Tài liệu.
+    /// Map quyền DOSSIER_VIEW / DOSSIER_DIGITIZATION_VIEW (không dùng catalog/dossier-type).
+    /// </summary>
+    [HttpGet("{id:guid}/document-types")]
+    public async Task<IActionResult> GetDocumentTypes(Guid id)
+    {
+        try
+        {
+            var items = await _dossierDocumentService.GetDocumentTypesForDossierAsync(id);
+            return Ok(items);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+    }
+
     [HttpGet("{id:guid}/documents/{versionId:guid}/download-url")]
     [BypassDynamicPermission]
     public async Task<IActionResult> GetDocumentDownloadUrl(

@@ -14,7 +14,9 @@ public interface IDossierService
         bool isAdmin,
         long? userUnitId,
         IReadOnlyList<long>? fallbackUnitIds);
+    Task<IReadOnlyList<PhysicalStorageTreeShelfDto>> GetPhysicalStorageTreeAsync(long? currentUnitId);
     Task<IEnumerable<DossierType>> GetDossierTypesLookupAsync();
+    Task<IEnumerable<DossierGroupDto>> GetDossierGroupsLookupAsync();
     Task<(IEnumerable<EquipmentLookupItemDto> Items, int TotalCount)> GetEquipmentLookupAsync(
         EquipmentLookupFilterDto filter,
         bool isAdmin,

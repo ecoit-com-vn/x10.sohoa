@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using EvnHanoi.EquipmentService.Core.Entities;
 using EvnHanoi.EquipmentService.Core.Interfaces;
@@ -15,13 +16,16 @@ public class EavFormTemplateController : ControllerBase
 {
     private readonly IEavFormTemplateRepository _repository;
     private readonly IEavFormTemplateService _service;
+    private readonly ICatalogRepository _catalogRepository;
 
     public EavFormTemplateController(
         IEavFormTemplateRepository repository,
-        IEavFormTemplateService service)
+        IEavFormTemplateService service,
+        ICatalogRepository catalogRepository)
     {
         _repository = repository;
         _service = service;
+        _catalogRepository = catalogRepository;
     }
 
     [HttpGet("lookup")]
@@ -51,6 +55,39 @@ public class EavFormTemplateController : ControllerBase
     {
         var templates = await _repository.GetCompletedFormsAsync();
         return Ok(templates);
+    }
+
+    /// <summary>Lookup danh mục phục vụ thiết kế form — quyền EAV_FORM_TEMPLATE_VIEW</summary>
+    [HttpGet("catalog-options/{typeCode}")]
+    public async Task<ActionResult<IEnumerable<object>>> GetCatalogOptions(string typeCode)
+    {
+        if (string.IsNullOrWhiteSpace(typeCode))
+            return BadRequest(new { Message = "Mã loại danh mục không được để trống." });
+
+        var catalogType = await _catalogRepository.GetCatalogTypeByCodeAsync(typeCode.Trim());
+        if (catalogType == null)
+            return Ok(Array.Empty<object>());
+
+        var items = await _catalogRepository.GetAllAsync(catalogTypeId: catalogType.Id, status: 1);
+        return Ok(items.Select(c => new { c.Code, c.Name }));
+    }
+
+    /// <summary>Lookup hạng mục HMAD cho dropdown tạo/sửa form</summary>
+    [HttpGet("hmad-categories")]
+    public async Task<ActionResult<IEnumerable<object>>> GetHmadCategories()
+    {
+        var catalogType = await _catalogRepository.GetCatalogTypeByCodeAsync("HMAD");
+        if (catalogType == null) return Ok(Array.Empty<object>());
+        var items = await _catalogRepository.GetAllAsync(catalogTypeId: catalogType.Id, status: 1);
+        return Ok(items.Select(c => new { c.Id, c.Code, c.Name }));
+    }
+
+    /// <summary>Lookup loại danh mục cho builder form</summary>
+    [HttpGet("catalog-types")]
+    public async Task<ActionResult<IEnumerable<object>>> GetCatalogTypesLookup()
+    {
+        var types = await _catalogRepository.GetCatalogTypesAsync();
+        return Ok(types.Select(t => new { t.Id, t.Code, t.Name }));
     }
 
     [HttpGet]
@@ -226,6 +263,43 @@ public class EavFormTemplateController : ControllerBase
         {
             return StatusCode(500, new { Message = $"Lỗi khi kích hoạt phiên bản: {ex.Message}" });
         }
+    }
+
+    [HttpGet("{id:guid}/versions/{version:int}")]
+    public async Task<ActionResult<EavFormTemplate>> GetByIdAndVersion(Guid id, int version)
+    {
+        if (version < 1)
+            return BadRequest(new { Message = "Số phiên bản không hợp lệ." });
+
+        var template = await _repository.GetByIdAndVersionAsync(id, version);
+        if (template == null)
+            return NotFound(new { Message = $"Không tìm thấy biểu mẫu ID = {id}, phiên bản {version}." });
+
+        return Ok(template);
+    }
+
+    /// <summary>Khôi phục phiên bản — chỉ áp dụng cho version đang ngưng; đặt IsActive=1, các version khác = 0.</summary>
+    [HttpPut("{id:guid}/versions/{version:int}/restore")]
+    public async Task<IActionResult> RestoreVersion(Guid id, int version)
+    {
+        if (version < 1)
+            return BadRequest(new { Message = "Số phiên bản không hợp lệ." });
+
+        var existing = await _repository.GetByIdAsync(id);
+        if (existing == null)
+            return NotFound(new { Message = $"Không tìm thấy form ID = {id}." });
+
+        var target = await _repository.GetByIdAndVersionAsync(id, version);
+        if (target == null)
+            return NotFound(new { Message = $"Không tìm thấy phiên bản {version} của form." });
+        if (target.IsActive)
+            return BadRequest(new { Message = "Phiên bản này đang hoạt động, không cần khôi phục." });
+
+        var ok = await _repository.RestoreVersionAsync(id, version);
+        if (!ok)
+            return NotFound(new { Message = $"Không tìm thấy phiên bản {version} của form." });
+
+        return Ok(new { Message = $"Đã khôi phục form về phiên bản {version}." });
     }
 }
 

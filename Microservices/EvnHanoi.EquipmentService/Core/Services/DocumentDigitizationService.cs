@@ -464,37 +464,8 @@ public class DocumentDigitizationService : IDocumentDigitizationService
 
         await _repository.UpdateExtractionResultAsync(result);
 
-        // --- TỰ ĐỘNG ĐẨY NGƯỢC THÔNG TIN VÀO THÔNG SỐ THIẾT BỊ ---
-        if (message.Status.Equals("Success", StringComparison.OrdinalIgnoreCase) 
-            && equipmentId.HasValue 
-            && !string.IsNullOrWhiteSpace(result.MergedDataJson))
-        {
-            try
-            {
-                using var scope = _scopeFactory.CreateScope();
-                var equipmentRepository = scope.ServiceProvider.GetRequiredService<IEquipmentRepository>();
-                var equipment = await equipmentRepository.GetByIdAsync(equipmentId.Value);
-                if (equipment != null)
-                {
-                    var oldFormValues = equipment.FormValues;
-                    var extData = result.MergedDataJson.Trim();
-
-                    var mergedData = AutoMergeEquipmentFormValues(oldFormValues, extData);
-                    if (mergedData != oldFormValues)
-                    {
-                        equipment.FormValues = mergedData;
-                        equipment.ModifiedBy = "System-OCR";
-                        equipment.ModifiedDate = DateTime.UtcNow;
-                        await equipmentRepository.UpdateAsync(equipment);
-                        _logger.LogInformation("Auto-fill thành công dữ liệu bóc tách từ background vào thiết bị {EquipmentId}.", equipmentId);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Lỗi xảy ra trong quá trình Auto-fill dữ liệu thiết bị {EquipmentId} sau khi bóc tách hoàn tất.", equipmentId);
-            }
-        }
+        // OCR / bóc tách (kể cả bóc tách lại) không tự merge vào FormValues thiết bị —
+        // chỉ cập nhật thông số khi user bấm «Cập nhật thông số» trên popup xem tài liệu.
 
         if (progress != null)
             await PublishProgressNotificationAsync(progress, result.Status);
@@ -511,7 +482,9 @@ public class DocumentDigitizationService : IDocumentDigitizationService
     }
 
     /// <summary>
-    /// Publish index fulltext — gọi ngay sau OCR (file *_page_N.md trên MinIO) và reindex sau bóc tách (cập nhật extractionSummary).
+    /// Chỉ index fulltext khi hồ sơ đã xuất bản (quy tắc nghiệp vụ).
+    /// OCR/bóc tách trước xuất bản không ghi ES; lúc xuất bản DossierService gọi PublishReindexDossierDocumentsAsync.
+    /// Sau xuất bản (không đổi version) — reindex khi bóc tách lại để cập nhật extractionSummary.
     /// </summary>
     private async Task TryPublishDocumentTextIndexAsync(
         Guid documentVersionId,
@@ -522,6 +495,17 @@ public class DocumentDigitizationService : IDocumentDigitizationService
     {
         try
         {
+            var publishStatusId = await _documentRepository.GetDossierPublishStatusIdByVersionIdAsync(documentVersionId);
+            if (publishStatusId != DossierPublishStatusConstants.Published)
+            {
+                _logger.LogDebug(
+                    "Bỏ qua index ES ({Trigger}) — hồ sơ chưa xuất bản (version {VersionId}, publishStatus={PublishStatusId}).",
+                    trigger,
+                    documentVersionId,
+                    publishStatusId);
+                return;
+            }
+
             var resolvedPath = filePath;
             if (string.IsNullOrEmpty(resolvedPath))
             {
@@ -1125,64 +1109,28 @@ public class DocumentDigitizationService : IDocumentDigitizationService
             await _repository.UpdateExtractionResultAsync(result);
         }
 
-        try
+        // Chỉ thay FormValues thiết bị khi user yêu cầu «Cập nhật thông số» (replace toàn bộ).
+        if (request.UpdateEquipmentFormValues)
         {
-            var oldFormValues = equipment.FormValues;
-            var extData = request.MergedDataJson.Trim();
-
-            var mergedData = AutoMergeEquipmentFormValues(oldFormValues, extData);
-            if (mergedData != oldFormValues)
+            try
             {
-                equipment.FormValues = mergedData;
+                equipment.FormValues = request.MergedDataJson.Trim();
                 equipment.ModifiedBy = userId;
                 equipment.ModifiedDate = DateTime.UtcNow;
                 await equipmentRepository.UpdateAsync(equipment);
-                _logger.LogInformation("Auto-fill thành công dữ liệu bóc tách vào thiết bị {EquipmentId}.", equipmentId);
+                _logger.LogInformation(
+                    "Đã thay thế FormValues thiết bị {EquipmentId} từ kết quả bóc tách version {VersionId}.",
+                    equipmentId,
+                    documentVersionId);
             }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Lỗi xảy ra trong quá trình Auto-fill dữ liệu thiết bị {EquipmentId}.", equipmentId);
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Lỗi cập nhật FormValues thiết bị {EquipmentId} từ kết quả bóc tách.", equipmentId);
+                throw;
+            }
         }
 
         return MapResult(result);
-    }
-
-    private static string AutoMergeEquipmentFormValues(string? oldFormValues, string extData)
-    {
-        try
-        {
-            var oldDict = string.IsNullOrWhiteSpace(oldFormValues) 
-                ? new Dictionary<string, object>() 
-                : JsonSerializer.Deserialize<Dictionary<string, object>>(oldFormValues) ?? new();
-
-            var extDict = JsonSerializer.Deserialize<Dictionary<string, object>>(extData) ?? new();
-
-            bool hasChanges = false;
-            foreach (var kvp in extDict)
-            {
-                string key = kvp.Key;
-                object val = kvp.Value;
-
-                if (!oldDict.ContainsKey(key) || oldDict[key] == null || string.IsNullOrWhiteSpace(oldDict[key]?.ToString()))
-                {
-                    if (val != null && !string.IsNullOrWhiteSpace(val.ToString()))
-                    {
-                        oldDict[key] = val;
-                        hasChanges = true;
-                    }
-                }
-            }
-
-            if (hasChanges)
-            {
-                return JsonSerializer.Serialize(oldDict);
-            }
-        }
-        catch
-        {
-        }
-        return oldFormValues ?? "{}";
     }
 
     private static Guid? ResolveEquipmentIdForExtractionCompleted(DigitizationExtractionCompletedMessage message)

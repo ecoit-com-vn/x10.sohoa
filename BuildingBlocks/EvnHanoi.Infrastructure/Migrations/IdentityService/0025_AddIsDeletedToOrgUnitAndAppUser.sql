@@ -1,6 +1,2 @@
--- Soft delete support for organization units and users
-ALTER TABLE ORGANIZATION_UNIT ADD IsDeleted NUMBER(1) DEFAULT 0 NOT NULL;
-ALTER TABLE APP_USER ADD IsDeleted NUMBER(1) DEFAULT 0 NOT NULL;
-
-CREATE INDEX IDX_ORG_UNIT_IS_DELETED ON ORGANIZATION_UNIT(IsDeleted);
-CREATE INDEX IDX_APP_USER_IS_DELETED ON APP_USER(IsDeleted);
+-- Soft delete: ADD cột/index idempotent trong Migration0025_AddIsDeletedToOrgUnitAndAppUser.cs
+SELECT 1 FROM DUAL

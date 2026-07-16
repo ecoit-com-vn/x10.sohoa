@@ -131,6 +131,12 @@ public class DocumentEnrichmentRepository : IDocumentEnrichmentRepository
                 INNER JOIN DOCUMENTS d ON d.ID = dv.DOCUMENT_ID AND d.IS_DELETED = 0
                 INNER JOIN DOSSIERS dos ON dos.Id = d.DOSSIER_ID AND dos.IsDeleted = 0
                 INNER JOIN (
+                    SELECT DOCUMENT_ID, MAX(VERSION_NUMBER) AS MAX_VER
+                    FROM DOCUMENT_VERSIONS
+                    WHERE IS_DELETED = 0
+                    GROUP BY DOCUMENT_ID
+                ) mx ON mx.DOCUMENT_ID = dv.DOCUMENT_ID AND mx.MAX_VER = dv.VERSION_NUMBER
+                INNER JOIN (
                     SELECT DOCUMENT_VERSION_ID
                     FROM DOCUMENT_OCR_PROGRESS
                     WHERE IS_DELETED = 0

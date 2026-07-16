@@ -9,6 +9,7 @@ stages:
 
 variables:
   REGISTRY: "harbor.ecoit.vn"
+  DOTNET_ROLL_FORWARD: "Major"
 
 default:
   tags:

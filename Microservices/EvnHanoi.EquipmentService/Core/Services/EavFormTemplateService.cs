@@ -67,7 +67,6 @@ public class EavFormTemplateService : IEavFormTemplateService
             Category = category,
             Description = description ?? string.Empty,
             DescriptionInfo = descriptionInfo ?? string.Empty,
-            ExtractionPosition = extractionPosition,
             FormSchema = formSchema,
             Version = 1,
             IsActive = true,
@@ -108,7 +107,7 @@ public class EavFormTemplateService : IEavFormTemplateService
 
         await _repository.UpdateAsync(oldTemplate);
 
-        // 2. Tạo phiên bản con mới trong EavFormTemplateVersions (Kích hoạt phiên bản mới, ngừng hoạt động phiên bản cũ)
+        // 2. Ngưng toàn bộ phiên bản cũ → tạo phiên bản mới đang sử dụng (luôn chỉ 1 IsActive = 1)
         await _repository.DeactivateVersionsAsync(id);
 
         var maxVersion = await _repository.GetMaxVersionAsync(id);

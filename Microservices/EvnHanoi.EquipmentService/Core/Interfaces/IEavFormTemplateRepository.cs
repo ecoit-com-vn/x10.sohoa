@@ -13,6 +13,7 @@ public interface IEavFormTemplateRepository
     Task AddAsync(EavFormTemplate template);
     Task UpdateAsync(EavFormTemplate template);
     Task<IEnumerable<EavFormTemplate>> GetVersionsByCodeAsync(string code);
+    Task<EavFormTemplate?> GetByIdAndVersionAsync(Guid id, int version);
 
     // Version management methods
     Task AddVersionAsync(EavFormTemplateVersion version);
@@ -21,4 +22,6 @@ public interface IEavFormTemplateRepository
     Task DeleteVersionsAsync(Guid formTemplateId);
     Task ApproveVersionAsync(Guid formTemplateId, string status);
     Task ActivateVersionAsync(Guid versionId);
+    /// <summary>Khôi phục: đặt phiên bản chỉ định thành IsActive=1, các phiên bản khác = 0.</summary>
+    Task<bool> RestoreVersionAsync(Guid formTemplateId, int version);
 }

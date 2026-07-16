@@ -13,6 +13,8 @@ public class DocumentVersion
     public string? MinioVersionId { get; set; }  // ID phiên bản lưu trên MinIO
     public long FileSize { get; set; }
     public string? MimeType { get; set; }
+    /// <summary>Số trang: PDF = thực tế; ảnh = 1; loại khác = 0.</summary>
+    public int PageCount { get; set; }
 
     // Upload tracking (added for file upload system)
     public string? FileHash { get; set; }  // SHA256 for integrity check

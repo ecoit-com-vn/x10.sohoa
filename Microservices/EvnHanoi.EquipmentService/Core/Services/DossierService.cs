@@ -22,6 +22,8 @@ public class DossierService : IDossierService
     private readonly IDossierSearchRepository _dossierSearchRepository;
     private readonly IDocumentRepository _documentRepository;
     private readonly IEquipmentRepository _equipmentRepository;
+    private readonly IPhysicalStorageRepository _physicalStorageRepository;
+    private readonly IInfrastructureRepository _infrastructureRepository;
     private readonly IMessageProducer _messageProducer;
     private readonly IDocumentTextIndexNotifier _documentTextIndexNotifier;
     private readonly IHttpClientFactory _httpClientFactory;
@@ -33,6 +35,8 @@ public class DossierService : IDossierService
         IDossierSearchRepository dossierSearchRepository,
         IDocumentRepository documentRepository,
         IEquipmentRepository equipmentRepository,
+        IPhysicalStorageRepository physicalStorageRepository,
+        IInfrastructureRepository infrastructureRepository,
         IMessageProducer messageProducer,
         IDocumentTextIndexNotifier documentTextIndexNotifier,
         IHttpClientFactory httpClientFactory,
@@ -43,6 +47,8 @@ public class DossierService : IDossierService
         _dossierSearchRepository = dossierSearchRepository ?? throw new ArgumentNullException(nameof(dossierSearchRepository));
         _documentRepository = documentRepository ?? throw new ArgumentNullException(nameof(documentRepository));
         _equipmentRepository = equipmentRepository ?? throw new ArgumentNullException(nameof(equipmentRepository));
+        _physicalStorageRepository = physicalStorageRepository ?? throw new ArgumentNullException(nameof(physicalStorageRepository));
+        _infrastructureRepository = infrastructureRepository ?? throw new ArgumentNullException(nameof(infrastructureRepository));
         _messageProducer = messageProducer ?? throw new ArgumentNullException(nameof(messageProducer));
         _documentTextIndexNotifier = documentTextIndexNotifier ?? throw new ArgumentNullException(nameof(documentTextIndexNotifier));
         _httpClientFactory = httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory));
@@ -84,6 +90,63 @@ public class DossierService : IDossierService
         return await _dossierRepository.GetInfrastructuresLookupAsync(allowedUnitIds);
     }
 
+    /// <summary>
+    /// Cây kệ → tầng → hộp chỉ theo đúng đơn vị hiện tại (không gồm đơn vị con).
+    /// Không có unitId → danh sách rỗng. Sắp xếp theo Priority rồi Code.
+    /// </summary>
+    public async Task<IReadOnlyList<PhysicalStorageTreeShelfDto>> GetPhysicalStorageTreeAsync(long? currentUnitId)
+    {
+        if (currentUnitId is null or <= 0)
+            return Array.Empty<PhysicalStorageTreeShelfDto>();
+
+        var unitIds = new List<long> { currentUnitId.Value };
+        var shelves = (await _physicalStorageRepository.GetShelvesAsync(unitIds)).ToList();
+        var floors = (await _physicalStorageRepository.GetFloorsByUnitIdsAsync(unitIds)).ToList();
+        var boxes = (await _physicalStorageRepository.GetBoxesByUnitIdsAsync(unitIds)).ToList();
+
+        var boxesByFloor = boxes
+            .GroupBy(b => b.FloorId)
+            .ToDictionary(g => g.Key, g => g
+                .OrderBy(b => b.Priority)
+                .ThenBy(b => b.Code)
+                .Select(b => new PhysicalStorageTreeBoxDto
+                {
+                    Id = b.Id,
+                    FloorId = b.FloorId,
+                    Code = b.Code,
+                    Name = b.Name,
+                    Priority = b.Priority
+                }).ToList());
+
+        var floorsByShelf = floors
+            .GroupBy(f => f.ShelfId)
+            .ToDictionary(g => g.Key, g => g
+                .OrderBy(f => f.Priority)
+                .ThenBy(f => f.Code)
+                .Select(f => new PhysicalStorageTreeFloorDto
+                {
+                    Id = f.Id,
+                    ShelfId = f.ShelfId,
+                    Code = f.Code,
+                    Name = f.Name,
+                    Priority = f.Priority,
+                    Boxes = boxesByFloor.TryGetValue(f.Id, out var fb) ? fb : new List<PhysicalStorageTreeBoxDto>()
+                }).ToList());
+
+        return shelves
+            .OrderBy(s => s.Priority)
+            .ThenBy(s => s.Code)
+            .Select(s => new PhysicalStorageTreeShelfDto
+            {
+                Id = s.Id,
+                Code = s.Code,
+                Name = s.Name,
+                Priority = s.Priority,
+                Floors = floorsByShelf.TryGetValue(s.Id, out var sf) ? sf : new List<PhysicalStorageTreeFloorDto>()
+            })
+            .ToList();
+    }
+
     public async Task<IEnumerable<GridTypeEntity>> GetGridTypesLookupAsync()
     {
         return await _dossierRepository.GetGridTypesLookupAsync();
@@ -91,6 +154,19 @@ public class DossierService : IDossierService
     public async Task<IEnumerable<DossierType>> GetDossierTypesLookupAsync()
     {
         return await _dossierRepository.GetDossierTypesLookupAsync();
+    }
+
+    public async Task<IEnumerable<DossierGroupDto>> GetDossierGroupsLookupAsync()
+    {
+        var items = await _dossierRepository.GetDossierGroupsLookupAsync();
+        return items.Select(g => new DossierGroupDto
+        {
+            Id = g.Id,
+            Code = g.Code,
+            Name = g.Name,
+            InfraTypeId = g.InfraTypeId,
+            IsEquipmentDossier = g.IsEquipmentDossier
+        });
     }
 
     public async Task<(IEnumerable<EquipmentLookupItemDto> Items, int TotalCount)> GetEquipmentLookupAsync(
@@ -217,9 +293,12 @@ public class DossierService : IDossierService
 
     public async Task<Guid> CreateAsync(DossierCreateDto dto, string userId, string userName, string userFullName, int kindId = 2)
     {
+        var equipmentIds = await ValidateAndNormalizeGroupAsync(dto.DossierGroupId, dto.InfrastructureId, dto.EquipmentIds);
+
         var dossier = new Dossier
         {
             Id = Guid.Parse(UuidHelper.NewUuid()),
+            DossierGroupId = dto.DossierGroupId,
             GridTypeId = dto.GridTypeId,
             InfrastructureId = dto.InfrastructureId,
             DossierSetId = dto.DossierSetId,
@@ -235,8 +314,9 @@ public class DossierService : IDossierService
             CreatedDate = DateTime.UtcNow,
             IsDeleted = false
         };
+        ApplyPhysicalStorage(dossier, dto.ShelfId, dto.FloorId, dto.BoxId);
 
-        var newId = await _dossierRepository.CreateAsync(dossier, dto.EquipmentIds);
+        var newId = await _dossierRepository.CreateAsync(dossier, equipmentIds);
 
         // Tạo phiên bản khởi đầu (v1) ngay khi hồ sơ được tạo mới
         if (!string.IsNullOrEmpty(dto.FormDataJson))
@@ -264,6 +344,9 @@ public class DossierService : IDossierService
         if (!string.IsNullOrEmpty(dto.FormDataJson))
             await EnsureCanEditFormDataAsync(existing);
 
+        var equipmentIds = await ValidateAndNormalizeGroupAsync(dto.DossierGroupId, dto.InfrastructureId, dto.EquipmentIds);
+
+        existing.DossierGroupId = dto.DossierGroupId;
         existing.GridTypeId = dto.GridTypeId;
         existing.InfrastructureId = dto.InfrastructureId;
         existing.DossierSetId = dto.DossierSetId;
@@ -272,11 +355,47 @@ public class DossierService : IDossierService
         existing.ModifiedBy = userId;
         existing.ModifiedDate = DateTime.UtcNow;
         existing.RowVersion = dto.RowVersion;
+        ApplyPhysicalStorage(existing, dto.ShelfId, dto.FloorId, dto.BoxId);
 
-        var updated = await _dossierRepository.UpdateAsync(existing, dto.EquipmentIds);
+        var updated = await _dossierRepository.UpdateAsync(existing, equipmentIds);
         if (updated)
             await PublishDossierChangedAsync(id, DossierChangedActions.Updated);
         return updated;
+    }
+
+    /// <summary>
+    /// Validate nhóm hồ sơ / loại hạ tầng / thiết bị. Trả về danh sách EquipmentIds đã chuẩn hóa (rỗng nếu không phải HS thiết bị).
+    /// </summary>
+    private async Task<List<Guid>> ValidateAndNormalizeGroupAsync(
+        int dossierGroupId,
+        Guid? infrastructureId,
+        List<Guid>? equipmentIds)
+    {
+        var group = await _dossierRepository.GetDossierGroupByIdAsync(dossierGroupId);
+        if (group == null)
+            throw new ArgumentException("Nhóm hồ sơ không hợp lệ.");
+
+        if (infrastructureId.HasValue)
+        {
+            var infra = await _infrastructureRepository.GetByIdAsync(infrastructureId.Value);
+            if (infra == null)
+                throw new ArgumentException("Trạm / đường dây không tồn tại.");
+            if (infra.InfraTypeId != group.InfraTypeId)
+                throw new ArgumentException(
+                    group.InfraTypeId == 1
+                        ? "Nhóm hồ sơ này yêu cầu chọn trạm biến áp."
+                        : "Nhóm hồ sơ này yêu cầu chọn đường dây.");
+        }
+
+        var ids = equipmentIds?.Where(x => x != Guid.Empty).Distinct().ToList() ?? new List<Guid>();
+        if (group.IsEquipmentDossier)
+        {
+            if (ids.Count == 0)
+                throw new ArgumentException("Hồ sơ thiết bị bắt buộc chọn ít nhất một thiết bị.");
+            return ids;
+        }
+
+        return new List<Guid>();
     }
 
     public async Task<bool> DeleteAsync(Guid id, string userId)
@@ -670,14 +789,22 @@ public class DossierService : IDossierService
 
             try
             {
-                await _documentTextIndexNotifier.PublishReindexDossierDocumentsAsync(id);
+                if (publishStatusId == DossierPublishStatusConstants.Published)
+                {
+                    await _documentTextIndexNotifier.PublishReindexDossierDocumentsAsync(id);
+                }
+                else if (publishStatusId == DossierPublishStatusConstants.Unpublished)
+                {
+                    await _documentTextIndexNotifier.PublishDeleteDossierDocumentsAsync(id);
+                }
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(
                     ex,
-                    "Không publish reindex tài liệu hồ sơ {DossierId} sau thay đổi trạng thái xuất bản.",
-                    id);
+                    "Không đồng bộ document_index hồ sơ {DossierId} sau thay đổi trạng thái xuất bản (publishStatus={PublishStatusId}).",
+                    id,
+                    publishStatusId);
             }
         }
         return updated;
@@ -691,6 +818,24 @@ public class DossierService : IDossierService
         }
 
         return await _dossierRepository.GetEavFormTemplateByDossierIdAsync(dossierId);
+    }
+
+    /// <summary>
+    /// Chỉ lưu kệ/tầng/hộp khi đã chọn đến hộp; ngược lại clear cả 3.
+    /// </summary>
+    private static void ApplyPhysicalStorage(Dossier dossier, long? shelfId, long? floorId, long? boxId)
+    {
+        if (boxId is null or <= 0)
+        {
+            dossier.ShelfId = null;
+            dossier.FloorId = null;
+            dossier.BoxId = null;
+            return;
+        }
+
+        dossier.ShelfId = shelfId is > 0 ? shelfId : null;
+        dossier.FloorId = floorId is > 0 ? floorId : null;
+        dossier.BoxId = boxId;
     }
 }
 

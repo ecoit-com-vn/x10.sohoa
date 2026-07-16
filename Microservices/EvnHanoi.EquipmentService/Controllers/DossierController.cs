@@ -140,11 +140,38 @@ public abstract partial class DossierControllerBase : ControllerBase
         return Ok(items);
     }
 
+    /// <summary>
+    /// Cây kho lưu trữ (kệ → tầng → hộp) — chỉ đúng đơn vị hiện tại, không gồm đơn vị con.
+    /// </summary>
+    [HttpGet("physical-storage/tree")]
+    public async Task<IActionResult> GetPhysicalStorageTree([FromQuery] long? unitId = null)
+    {
+        long? currentUnitId = unitId is > 0 ? unitId : null;
+        if (currentUnitId is null)
+        {
+            var unitIdClaim = User.FindFirst("unit_id")?.Value;
+            if (!string.IsNullOrEmpty(unitIdClaim) && long.TryParse(unitIdClaim, out var parsedUnitId) && parsedUnitId > 0)
+                currentUnitId = parsedUnitId;
+        }
+
+        var items = await _dossierService.GetPhysicalStorageTreeAsync(currentUnitId);
+        return Ok(items);
+    }
+
     [HttpGet("dossier-type/lookup")]
     [BypassDynamicPermission]
     public async Task<IActionResult> GetDossierTypesLookup()
     {
         var items = await _dossierService.GetDossierTypesLookupAsync();
+        return Ok(items);
+    }
+
+    /// <summary>Lookup nhóm hồ sơ (DOSSIER_GROUPS) — dùng cho form tạo/sửa.</summary>
+    [HttpGet("dossier-groups/lookup")]
+    [BypassDynamicPermission]
+    public async Task<IActionResult> GetDossierGroupsLookup()
+    {
+        var items = await _dossierService.GetDossierGroupsLookupAsync();
         return Ok(items);
     }
 
@@ -214,9 +241,16 @@ public abstract partial class DossierControllerBase : ControllerBase
     {
         if (dto == null) return BadRequest(new { message = "Dữ liệu không hợp lệ." });
 
-        var newId = await _dossierService.CreateAsync(dto, UserId, UserName, UserFullName, ExpectedKindId);
-        HttpContext.SetAudit(newId.ToString(), null, $"Tạo hồ sơ mới (ID: {newId})", "DOSSIER", AuditActions.Create);
-        return CreatedAtAction(nameof(GetDetail), new { id = newId }, new { id = newId });
+        try
+        {
+            var newId = await _dossierService.CreateAsync(dto, UserId, UserName, UserFullName, ExpectedKindId);
+            HttpContext.SetAudit(newId.ToString(), null, $"Tạo hồ sơ mới (ID: {newId})", "DOSSIER", AuditActions.Create);
+            return CreatedAtAction(nameof(GetDetail), new { id = newId }, new { id = newId });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     // ===== CẬP NHẬT =====
@@ -238,6 +272,10 @@ public abstract partial class DossierControllerBase : ControllerBase
         catch (KeyNotFoundException ex)
         {
             return NotFound(new { message = ex.Message });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
         }
         catch (InvalidOperationException ex)
         {

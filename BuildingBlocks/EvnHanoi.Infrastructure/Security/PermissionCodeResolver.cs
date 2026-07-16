@@ -30,6 +30,7 @@ public static class PermissionCodeResolver
             "DossierDigitizationWorkflow" => "DOSSIER_DIGITIZATION",
             "DossierByEquipment" => "SEARCH_DOSSIERS_BY_EQUIPMENT",
             "SearchDossiersByEquipment" => "SEARCH_DOSSIERS_BY_EQUIPMENT",
+            "SubstationSearch" => "SEARCH_SUBSTATION",
             "DossierSearch" => "SEARCH_DOSSIERS_IN_WAREHOUSE",
             "DossierCatalog" => "SEARCH_DOSSIERS_IN_WAREHOUSE",
             "ReportDossierByGridType" => "REPORT_DOSSIER_BY_GRIDTYPE",
@@ -84,6 +85,13 @@ public static class PermissionCodeResolver
             return "VIEW";
         }
 
+        // Tra cứu trạm biến áp: mọi GET → VIEW
+        if (string.Equals(controllerKey, "SubstationSearch", StringComparison.OrdinalIgnoreCase) &&
+            httpMethod.Equals("GET", StringComparison.OrdinalIgnoreCase))
+        {
+            return "VIEW";
+        }
+
         // Tìm kiếm hồ sơ trong kho: mọi GET → VIEW
         if ((string.Equals(controllerKey, "DossierSearch", StringComparison.OrdinalIgnoreCase) ||
              string.Equals(controllerKey, "DossierCatalog", StringComparison.OrdinalIgnoreCase)) &&
@@ -115,19 +123,34 @@ public static class PermissionCodeResolver
         if (string.Equals(controllerKey, "EavFormApproval", StringComparison.OrdinalIgnoreCase))
         {
             var actLower = actionName.ToLowerInvariant();
-            if (actLower.Contains("approve") || actLower.Contains("reject"))
+            if (actLower.Contains("approve") || actLower.Contains("reject") || actLower.Contains("restore"))
             {
                 return "APPROVE";
             }
         }
 
-        // EavFormTemplateController → EAV_FORM_TEMPLATE_* (thiết kế / gửi duyệt)
-        if (string.Equals(controllerKey, "EavFormTemplate", StringComparison.OrdinalIgnoreCase))
+        // EavFormTemplateController / FormTemplateController — restore phiên bản = EDIT
+        if (string.Equals(controllerKey, "EavFormTemplate", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(controllerKey, "FormTemplate", StringComparison.OrdinalIgnoreCase))
         {
             var actLower = actionName.ToLowerInvariant();
             if (actLower.Contains("submit"))
             {
                 return "SUBMIT";
+            }
+            if (actLower.Contains("restore"))
+            {
+                return "EDIT";
+            }
+        }
+
+        // EavCompletedFormController — restore = MANAGE
+        if (string.Equals(controllerKey, "EavCompletedForm", StringComparison.OrdinalIgnoreCase))
+        {
+            var actLower = actionName.ToLowerInvariant();
+            if (actLower.Contains("restore"))
+            {
+                return "MANAGE";
             }
         }
 
@@ -216,6 +239,7 @@ public static class PermissionCodeResolver
             "DOSSIER_PUBLISH_VIEW" => "Xem xuất bản hồ sơ",
             "SEARCH_DOSSIERS_BY_EQUIPMENT_VIEW" => "Tra cứu hồ sơ thiết bị",
             "SEARCH_DOSSIERS_IN_WAREHOUSE_VIEW" => "Tìm kiếm hồ sơ trong kho",
+            "SEARCH_SUBSTATION_VIEW" => "Tra cứu tìm kiếm Trạm biến áp",
             "REPORT_DOSSIER_BY_GRIDTYPE_VIEW" => "Xem báo cáo hồ sơ theo loại lưới điện",
             "REPORT_DOSSIER_BY_GRIDTYPE_EXPORT" => "Xuất Excel báo cáo theo loại lưới điện",
             "REPORT_DOSSIER_BY_EQUIPMENT_VIEW" => "Xem báo cáo hồ sơ theo thiết bị",

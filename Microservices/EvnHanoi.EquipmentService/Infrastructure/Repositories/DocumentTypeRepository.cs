@@ -122,6 +122,39 @@ public class DocumentTypeRepository : IDocumentTypeRepository
         return (items, totalCount);
     }
 
+    public async Task<IReadOnlyList<DocumentType>> GetActiveByDossierTypeIdAsync(Guid dossierTypeId)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        var sql = $@"SELECT dt.{nameof(DocumentType.Id)},
+                            dt.{nameof(DocumentType.Name)},
+                            dt.{nameof(DocumentType.Code)},
+                            dt.FORM_ID as {nameof(DocumentType.FormId)},
+                            dt.IS_ACTIVE as {nameof(DocumentType.IsActive)},
+                            dt.IS_EQUIPMENT_PROFILE as {nameof(DocumentType.IsEquipmentProfile)},
+                            dt.PIORITY as {nameof(DocumentType.Piority)},
+                            dt.{nameof(DocumentType.CreatedBy)},
+                            dt.{nameof(DocumentType.CreatedDate)},
+                            dt.{nameof(DocumentType.ModifiedBy)},
+                            dt.{nameof(DocumentType.ModifiedDate)},
+                            dt.{nameof(DocumentType.IsDeleted)},
+                            f.Name as {nameof(DocumentType.FormName)}
+                     FROM DOCUMENT_TYPES dt
+                     INNER JOIN DOSSIER_TYPE_DOCUMENT_TYPES link
+                         ON link.DOCUMENT_TYPE_ID = dt.{nameof(DocumentType.Id)}
+                     LEFT JOIN EavFormTemplates f ON dt.FORM_ID = f.Id
+                     WHERE link.DOSSIER_TYPE_ID = :DossierTypeId
+                       AND dt.{nameof(DocumentType.IsDeleted)} = 0
+                       AND dt.IS_ACTIVE = 1
+                     ORDER BY dt.PIORITY ASC, dt.{nameof(DocumentType.Name)} ASC";
+
+        var items = await _connection.QueryAsync<DocumentType>(
+            sql,
+            new { DossierTypeId = dossierTypeId.ToString() });
+        return items.AsList();
+    }
+
     public async Task<Guid> CreateAsync(DocumentType documentType)
     {
         if (_connection.State != ConnectionState.Open)

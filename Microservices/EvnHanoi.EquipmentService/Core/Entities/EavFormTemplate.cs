@@ -17,6 +17,8 @@ public class EavFormTemplate
     public int? GridTypeId { get; set; }
     public string? GridTypeName { get; set; }
     public string? EquipmentTypeName { get; set; }
+    /// <summary>Tên hạng mục áp dụng (Catalog HMAD) — map từ Category code/id.</summary>
+    public string? CategoryName { get; set; }
 
     public int Version { get; set; } = 1;
     public bool IsActive { get; set; } = true;

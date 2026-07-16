@@ -69,12 +69,25 @@ public class DossierListItemDto
     public string? PublishStatusName { get; set; }
 }
 
+/// <summary>Lookup nhóm hồ sơ (DOSSIER_GROUPS).</summary>
+public class DossierGroupDto
+{
+    public int Id { get; set; }
+    public string Code { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public int InfraTypeId { get; set; }
+    public bool IsEquipmentDossier { get; set; }
+}
+
 /// <summary>
 /// DTO chi tiết hồ sơ — bao gồm FormDataJson và danh sách thiết bị
 /// </summary>
 public class DossierDetailDto
 {
     public Guid Id { get; set; }
+    public int DossierGroupId { get; set; }
+    public string? DossierGroupName { get; set; }
+    public bool IsEquipmentDossier { get; set; }
     public int? GridTypeId { get; set; }
     public string? GridTypeName { get; set; }
     public Guid? InfrastructureId { get; set; }
@@ -104,6 +117,17 @@ public class DossierDetailDto
     public int? PublishStatusId { get; set; }
     public string? PublishStatusCode { get; set; }
     public string? PublishStatusName { get; set; }
+
+    /// <summary>Vị trí lưu trữ vật lý (chỉ lưu khi đã chọn đến hộp).</summary>
+    public long? ShelfId { get; set; }
+    public string? ShelfCode { get; set; }
+    public string? ShelfName { get; set; }
+    public long? FloorId { get; set; }
+    public string? FloorCode { get; set; }
+    public string? FloorName { get; set; }
+    public long? BoxId { get; set; }
+    public string? BoxCode { get; set; }
+    public string? BoxName { get; set; }
 }
 
 /// <summary>
@@ -111,6 +135,7 @@ public class DossierDetailDto
 /// </summary>
 public class DossierCreateDto
 {
+    public int DossierGroupId { get; set; }
     public int? GridTypeId { get; set; }
     public Guid? InfrastructureId { get; set; }
     public Guid? DossierSetId { get; set; }
@@ -118,6 +143,10 @@ public class DossierCreateDto
     public List<Guid> EquipmentIds { get; set; } = new();
     /// <summary>Dữ liệu form động (JSON) từ EAV template, lưu cùng lúc với tạo hồ sơ.</summary>
     public string? FormDataJson { get; set; }
+    /// <summary>Chỉ lưu khi BoxId có giá trị; ngược lại backend bỏ qua/null cả 3.</summary>
+    public long? ShelfId { get; set; }
+    public long? FloorId { get; set; }
+    public long? BoxId { get; set; }
 }
 
 /// <summary>
@@ -125,6 +154,7 @@ public class DossierCreateDto
 /// </summary>
 public class DossierUpdateDto
 {
+    public int DossierGroupId { get; set; }
     public int? GridTypeId { get; set; }
     public Guid? InfrastructureId { get; set; }
     public Guid? DossierSetId { get; set; }
@@ -133,6 +163,10 @@ public class DossierUpdateDto
     public int RowVersion { get; set; }
     /// <summary>Dữ liệu form động (JSON) từ EAV template, lưu cùng lúc với cập nhật hồ sơ.</summary>
     public string? FormDataJson { get; set; }
+    /// <summary>Chỉ lưu khi BoxId có giá trị; ngược lại backend clear cả 3.</summary>
+    public long? ShelfId { get; set; }
+    public long? FloorId { get; set; }
+    public long? BoxId { get; set; }
 }
 
 /// <summary>

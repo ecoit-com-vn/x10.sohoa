@@ -6,6 +6,8 @@ namespace EvnHanoi.EquipmentService.Core.Entities;
 public class Dossier
 {
     public Guid Id { get; set; }
+    /// <summary>Nhóm hồ sơ — FK DOSSIER_GROUPS (bắt buộc, mặc định 1 = Hồ sơ trạm).</summary>
+    public int DossierGroupId { get; set; } = DossierGroupConstants.Station;
     public int? GridTypeId { get; set; }
     public Guid? InfrastructureId { get; set; }
     public Guid? DossierSetId { get; set; }
@@ -35,6 +37,11 @@ public class Dossier
 
     // Publish status
     public int? PublishStatusId { get; set; }
+
+    /// <summary>Vị trí lưu trữ vật lý — chỉ có giá trị khi đã chọn đến hộp.</summary>
+    public long? ShelfId { get; set; }
+    public long? FloorId { get; set; }
+    public long? BoxId { get; set; }
 }
 
 public static class DossierStatusConstants

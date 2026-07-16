@@ -85,6 +85,12 @@ public interface IDossierDocumentService
     Task<EavFormTemplate?> GetFormTemplateForDocumentVersionAsync(
         Guid dossierId,
         Guid versionId);
+
+    /// <summary>
+    /// Loại văn bản gắn với loại hồ sơ của dossier (tab Tài liệu).
+    /// Không có liên kết cấu hình → trả danh sách rỗng (không fallback tất cả loại văn bản).
+    /// </summary>
+    Task<IReadOnlyList<DocumentType>> GetDocumentTypesForDossierAsync(Guid dossierId);
 }
 
 public class DossierDocumentService : IDossierDocumentService
@@ -509,6 +515,17 @@ public class DossierDocumentService : IDossierDocumentService
         }
 
         return await _documentRepository.SoftDeleteDocumentVersionAsync(versionId, userId);
+    }
+
+    public async Task<IReadOnlyList<DocumentType>> GetDocumentTypesForDossierAsync(Guid dossierId)
+    {
+        var detail = await _dossierService.GetDetailByIdAsync(dossierId)
+            ?? throw new KeyNotFoundException($"Không tìm thấy hồ sơ với ID = {dossierId}");
+
+        if (detail.DossierTypeId == Guid.Empty)
+            return Array.Empty<DocumentType>();
+
+        return await _documentTypeRepository.GetActiveByDossierTypeIdAsync(detail.DossierTypeId);
     }
 
     private async Task EnsureActiveDocumentTypeAsync(Guid documentTypeId)
