@@ -10,7 +10,7 @@
 
       <!-- Toolbar -->
       <div class="list-toolbar">
-        <div class="toolbar-left" style="display: flex; gap: 8px; align-items: center;">
+        <div class="toolbar-left" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
           <!-- Keyword input -->
           <input type="text" class="wf-search-input"
             placeholder="Tìm theo mã hoặc tên..."
@@ -24,6 +24,14 @@
             (ngModelChange)="searchUnitId.set($event); onSearch()">
             <option [value]="null">-- Tất cả đơn vị --</option>
             <option *ngFor="let unit of orgUnits()" [value]="unit.id">{{ unit.name }}</option>
+          </select>
+
+          <!-- Grid Type Filter -->
+          <select class="wf-input" style="height: 38px; width: 160px; padding: 0 10px; border-radius: 6px;"
+            [ngModel]="searchGridTypeId()"
+            (ngModelChange)="searchGridTypeId.set($event); onSearch()">
+            <option [value]="null">-- Loại lưới điện --</option>
+            <option *ngFor="let gt of gridTypes()" [value]="gt.id">{{ gt.name }}</option>
           </select>
 
           <!-- Status Filter -->
@@ -43,12 +51,6 @@
             Làm mới
           </button>
         </div>
-
-        <div class="toolbar-right" *ngIf="canCreate()">
-          <button class="btn-green" (click)="onAddNew()">
-            <i class="pi pi-plus"></i> Thêm mới
-          </button>
-        </div>
       </div>
 
       <!-- Table Grid -->
@@ -57,13 +59,13 @@
           <thead>
             <tr>
               <th class="col-stt">STT</th>
-              <th>Mã</th>
-              <th>Tên</th>
+              <th>Mã trạm</th>
+              <th>Tên trạm</th>
               <th>Địa chỉ</th>
               <th>Loại lưới điện</th>
               <th>Đơn vị quản lý</th>
               <th>Trạng thái</th>
-              <th class="col-hd">Thao tác</th>
+              <th class="col-hd" style="width: 80px;">Thao tác</th>
             </tr>
           </thead>
           <tbody>
@@ -74,12 +76,7 @@
                    (click)="onViewDetail(item)">{{ item.code }}</a>
               </td>
               <td>
-                <span *ngIf="canEdit(); else viewOnlyName">
-                  <b class="wf-name-link" (click)="onEdit(item)">{{ item.name }}</b>
-                </span>
-                <ng-template #viewOnlyName>
-                  <b>{{ item.name }}</b>
-                </ng-template>
+                <b class="wf-name-link" style="cursor: pointer;" (click)="onViewDetail(item)">{{ item.name }}</b>
               </td>
               <td>{{ item.address || '-' }}</td>
               <td>
@@ -108,29 +105,9 @@
               </td>
               <td class="col-hd">
                 <div class="action-buttons-group">
-                  <!-- Detail action -->
                   <button class="act-btn" style="background-color: #eff6ff; color: #1d4ed8; border-color: #bfdbfe;"
                     title="Xem chi tiết" (click)="onViewDetail(item)">
                     <i class="pi pi-eye"></i>
-                  </button>
-
-                  <!-- Lock/Unlock action -->
-                  <button *ngIf="canManage()"
-                    class="act-btn"
-                    [ngClass]="(item.isActive === 1 || item.isActive === true) ? 'act-delete' : 'act-edit'"
-                    [title]="(item.isActive === 1 || item.isActive === true) ? 'Khóa bản ghi' : 'Mở khóa bản ghi'"
-                    (click)="onToggleStatus(item)">
-                    <i class="pi" [ngClass]="(item.isActive === 1 || item.isActive === true) ? 'pi-lock' : 'pi-lock-open'"></i>
-                  </button>
-
-                  <!-- Edit action -->
-                  <button *ngIf="canEdit()" class="act-btn act-edit" (click)="onEdit(item)" title="Chỉnh sửa">
-                    <i class="pi pi-pencil"></i>
-                  </button>
-
-                  <!-- Delete action -->
-                  <button *ngIf="canDelete()" class="act-btn act-delete" (click)="onDelete(item)" title="Xóa">
-                    <i class="pi pi-trash"></i>
                   </button>
                 </div>
               </td>
@@ -169,120 +146,10 @@
       </div>
     </div>
 
-    <!-- ==================== DIALOG THÊM/SỬA ==================== -->
-    <p-dialog [visible]="currentView() === 'add' || currentView() === 'edit'" (visibleChange)="$event ? null : currentView.set('list')" [header]="currentView() === 'add' ? ('Thêm mới ' + (infraTypeId() === 1 ? 'Trạm biến áp' : 'Đường dây')) : ('Chỉnh sửa ' + (infraTypeId() === 1 ? 'Trạm biến áp' : 'Đường dây'))" [modal]="true" [style]="{ width: '500px' }" styleClass="evn-dialog-custom">
-      <div style="display: flex; flex-direction: column; gap: 16px; padding: 10px 0;">
-
-        <div class="form-group">
-          <label class="form-label">Mã <span class="required">*</span></label>
-          <input type="text" class="wf-input w-full" [(ngModel)]="currentItem().code"
-            (ngModelChange)="onFieldChange('code')"
-            placeholder="Ví dụ: TBA_01, DD_110KV..." [disabled]="currentView() === 'edit' || isSaving()" />
-          <span class="field-error" *ngIf="codeError()">{{ codeError() }}</span>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Tên <span class="required">*</span></label>
-          <input type="text" class="wf-input w-full" [(ngModel)]="currentItem().name"
-            (ngModelChange)="onFieldChange('name')"
-            placeholder="Nhập tên hiển thị..." [disabled]="isSaving()" />
-          <span class="field-error" *ngIf="nameError()">{{ nameError() }}</span>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Địa chỉ</label>
-          <input type="text" class="wf-input w-full" [(ngModel)]="currentItem().address"
-            placeholder="Nhập địa chỉ..." [disabled]="isSaving()" />
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Loại lưới điện <span class="required">*</span></label>
-          <select class="wf-select w-full" [(ngModel)]="currentItem().gridTypeId" (ngModelChange)="onFieldChange('gridTypeId')" [disabled]="isSaving() || isGridTypeLocked()">
-            <option [ngValue]="null">-- Chọn loại lưới điện --</option>
-            <option *ngFor="let gt of gridTypes()" [value]="gt.id">{{ gt.name }}</option>
-          </select>
-          <span class="field-error" *ngIf="gridTypeIdError()">{{ gridTypeIdError() }}</span>
-          <span *ngIf="isGridTypeLocked()" style="display: block; margin-top: 6px; font-size: 0.8rem; color: #b45309;">
-            Không thể thay đổi loại lưới điện vì {{ infraTypeId() === 1 ? 'trạm biến áp' : 'đường dây' }} này đã có thiết bị.
-          </span>
-        </div>
-
-        <!-- Đơn vị quản lý — Tree Picker -->
-        <div class="form-group">
-          <label class="form-label">Đơn vị quản lý</label>
-          <div class="org-tree-picker" [class.disabled]="isSaving()">
-            <!-- Thanh hiển thị đơn vị đã chọn -->
-            <div class="org-tree-trigger" (click)="!isSaving() && toggleOrgTreePicker($event)"
-                 [class.has-value]="currentItem().unitId"
-                 [class.open]="orgTreePickerOpen()">
-              <span class="org-tree-selected-label">
-                <i class="pi pi-building" style="margin-right: 6px; color: #6b7280;"></i>
-                {{ getUnitLabel(currentItem().unitId) || '-- Chọn đơn vị quản lý --' }}
-              </span>
-              <span style="display: flex; align-items: center; gap: 8px;">
-                <i class="pi pi-times-circle clear-btn" *ngIf="currentItem().unitId && !isSaving()" (click)="clearOrgUnit($event)" style="color: #94a3b8; font-size: 0.95rem; cursor: pointer; transition: color 0.15s;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#94a3b8'"></i>
-                <i class="pi" [class.pi-chevron-down]="!orgTreePickerOpen()" [class.pi-chevron-up]="orgTreePickerOpen()"></i>
-              </span>
-            </div>
-            <!-- Tree dropdown -->
-            <div class="org-tree-dropdown" *ngIf="orgTreePickerOpen()" (click)="$event.stopPropagation()">
-              <ng-container *ngFor="let node of orgUnitTree()">
-                <ng-container *ngTemplateOutlet="orgTreeNode; context: { $implicit: node, depth: 0 }"></ng-container>
-              </ng-container>
-              <div *ngIf="orgUnitTree().length === 0" class="org-tree-empty">Chưa có đơn vị nào.</div>
-            </div>
-          </div>
-          <!-- Template cây node (đệ quy) -->
-          <ng-template #orgTreeNode let-node let-depth="depth">
-            <div class="org-tree-node" [style.padding-left.px]="depth * 18 + 8"
-                 [class.selected]="currentItem().unitId == node.id">
-              <!-- Nút mở rộng nếu có con -->
-              <button type="button" class="org-tree-expand-btn"
-                      *ngIf="node.children && node.children.length > 0"
-                      (click)="toggleUnitNode(node.id, $event)">
-                <i class="pi" [class.pi-chevron-right]="!isNodeExpanded(node.id)"
-                   [class.pi-chevron-down]="isNodeExpanded(node.id)"></i>
-              </button>
-              <span class="org-tree-node-spacer" *ngIf="!node.children || node.children.length === 0"></span>
-              <!-- Nhãn đơn vị — click để chọn -->
-              <span class="org-tree-node-label" (click)="selectOrgUnit(node.id)">
-                <i class="pi pi-building" style="margin-right: 5px; font-size: 0.8rem; color: #6b7280;"></i>
-                {{ node.name }}
-              </span>
-            </div>
-            <!-- Cây con — chỉ hiện khi mở rộng -->
-            <ng-container *ngIf="isNodeExpanded(node.id) && node.children?.length">
-              <ng-container *ngFor="let child of node.children">
-                <ng-container *ngTemplateOutlet="orgTreeNode; context: { $implicit: child, depth: depth + 1 }"></ng-container>
-              </ng-container>
-            </ng-container>
-          </ng-template>
-        </div>
-
-        <div class="form-group" style="display: flex; align-items: center; gap: 8px; padding-top: 5px;">
-          <input type="checkbox" id="chkActive" [ngModel]="currentItem().isActive" (ngModelChange)="currentItem().isActive = $event" style="scale: 1.1; cursor: pointer;" [disabled]="isSaving()" />
-          <label for="chkActive" style="font-size: 0.9rem; font-weight: 600; cursor: pointer; user-select: none; margin: 0;">
-            Kích hoạt sử dụng
-          </label>
-        </div>
-
-      </div>
-      <ng-template #footer>
-        <div class="flex gap-2 justify-content-end pt-3" style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
-          <button class="btn-cancel btn-small" (click)="currentView.set('list')" [disabled]="isSaving()"><i class="pi pi-times"></i> Đóng</button>
-          <button class="btn-save btn-small" (click)="onSaveItem()" [disabled]="isSaving()">
-            <i class="pi pi-spin pi-spinner" *ngIf="isSaving()" style="margin-right: 4px;"></i>
-            <i class="pi pi-save" *ngIf="!isSaving()" style="margin-right: 4px;"></i>
-            Lưu
-          </button>
-        </div>
-      </ng-template>
-    </p-dialog>
-
     <!-- ==================== VIEW CHI TIẾT ==================== -->
     <div *ngIf="currentView() === 'detail'" class="animate-fade-in sub-view-container">
 
-      <!-- Tab Bar (đặt trực tiếp ở đầu card) -->
+      <!-- Tab Bar -->
       <div class="tab-bar" style="margin-bottom: 24px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
         <div style="display: flex; gap: 8px;">
           <div class="tab-item" [class.tab-active]="activeTab() === 0" (click)="activeTab.set(0)"
@@ -305,29 +172,29 @@
         </div>
       </div>
 
-      <!-- ======= TAB 0: THÔNG TIN CHUNG ======= -->
+      <!-- ======= TAB 0: THÔNG TIN CHUNG & THIẾT BỊ ======= -->
       <div *ngIf="activeTab() === 0" class="tab-content animate-fade-in">
 
-        <!-- Thông tin cơ sở hạ tầng (kiểu danh sách nhãn-giá trị sạch, không khung viền) -->
+        <!-- Thông tin cơ sở hạ tầng (chỉ đọc) -->
         <div class="info-block" style="padding: 0 8px 32px 8px; display: flex; flex-direction: column; gap: 14px; border-bottom: 1px solid #cbd5e1; margin-bottom: 24px;">
           <div style="display: flex; font-size: 0.95rem; line-height: 1.6; align-items: baseline;">
-            <span style="width: 160px; color: #0f172a; font-weight: 600; flex-shrink: 0;">Mã {{ infraTypeId() === 1 ? 'trạm biến áp' : 'đường dây' }}:</span>
+            <span style="width: 160px; color: #0f172a; font-weight: 600; flex-shrink: 0;">Mã trạm biến áp:</span>
             <span style="color: #334155;">{{ currentItem().code || '-' }}</span>
           </div>
           <div style="display: flex; font-size: 0.95rem; line-height: 1.6; align-items: baseline;">
-            <span style="width: 160px; color: #0f172a; font-weight: 600; flex-shrink: 0;">Tên {{ infraTypeId() === 1 ? 'trạm biến áp' : 'đường dây' }}:</span>
+            <span style="width: 160px; color: #0f172a; font-weight: 600; flex-shrink: 0;">Tên trạm biến áp:</span>
             <span style="color: #334155;">{{ currentItem().name || '-' }}</span>
           </div>
           <div style="display: flex; font-size: 0.95rem; line-height: 1.6; align-items: baseline;">
-            <span style="width: 160px; color: #0f172a; font-weight: 600; flex-shrink: 0;">{{ infraTypeId() === 1 ? 'Địa chỉ' : 'Chiều dài' }}:</span>
-            <span style="color: #334155;">{{ currentItem().address ? (currentItem().address + (infraTypeId() === 2 && !currentItem().address.includes('km') ? ' km' : '')) : '-' }}</span>
+            <span style="width: 160px; color: #0f172a; font-weight: 600; flex-shrink: 0;">Địa chỉ:</span>
+            <span style="color: #334155;">{{ currentItem().address || '-' }}</span>
           </div>
           <div style="display: flex; font-size: 0.95rem; line-height: 1.6; align-items: baseline;">
             <span style="width: 160px; color: #0f172a; font-weight: 600; flex-shrink: 0;">Loại lưới điện:</span>
             <span style="color: #334155;">{{ currentItem().gridTypeName || (currentItem().gridTypeId === 1 ? 'Lưới điện cao áp' : (currentItem().gridTypeId === 2 ? 'Lưới điện trung áp' : '-')) }}</span>
           </div>
           <div style="display: flex; font-size: 0.95rem; line-height: 1.6; align-items: baseline;">
-            <span style="width: 160px; color: #0f172a; font-weight: 600; flex-shrink: 0;">Đơn vị Quản lý:</span>
+            <span style="width: 160px; color: #0f172a; font-weight: 600; flex-shrink: 0;">Đơn vị quản lý:</span>
             <span style="color: #334155;">{{ currentItem().organization?.name || currentItem().unitName || 'Chưa phân bổ' }}</span>
           </div>
           <div style="display: flex; font-size: 0.95rem; line-height: 1.6; align-items: baseline;">
@@ -336,7 +203,7 @@
           </div>
         </div>
 
-        <!-- Danh sách thiết bị -->
+        <!-- Danh sách thiết bị (chỉ đọc) -->
         <div style="background: #ffffff; padding: 0 8px;">
 
           <!-- Section header -->
@@ -345,16 +212,12 @@
               <i class="pi pi-link" style="color: #2563eb; margin-right: 8px; font-weight: bold;"></i>
               Danh sách thiết bị
             </span>
-            <button class="btn-green" (click)="onAddEquipment()" *ngIf="canCreateEquipment()"
-              style="background-color: #2563eb; border-color: #2563eb; color: #ffffff; font-weight: 500; font-size: 0.9rem; padding: 8px 16px; border-radius: 6px; display: inline-flex; align-items: center; gap: 6px;">
-              <i class="pi pi-plus"></i> Thêm mới
-            </button>
           </div>
 
           <!-- Divider line -->
           <div style="border-bottom: 1px solid #e2e8f0; margin-bottom: 20px;"></div>
 
-          <!-- Search bar (Auto search, không có nút Tìm kiếm/Làm mới) -->
+          <!-- Search bar (Auto search) -->
           <div style="display: flex; gap: 24px; align-items: center; margin-bottom: 24px; flex-wrap: wrap;">
             <div style="display: flex; flex-direction: column; gap: 6px; flex: 1; max-width: 300px; min-width: 200px;">
               <label style="font-size: 0.875rem; color: #475569; font-weight: 500;">Từ khóa</label>
@@ -392,14 +255,14 @@
                   <th>Loại thiết bị</th>
                   <th>Số serial</th>
                   <th>Trạng thái</th>
-                  <th class="col-hd">Thao tác</th>
+                  <th class="col-hd" style="width: 80px;">Thao tác</th>
                 </tr>
               </thead>
               <tbody>
                 <tr *ngFor="let eq of equipmentItems(); let i = index">
                   <td class="col-stt text-muted">{{ (equipmentPage() - 1) * equipmentPageSize() + i + 1 }}</td>
                   <td>
-                    <a class="wf-link" 
+                    <a class="wf-link" style="color: #2563eb; cursor: pointer; font-weight: 600; text-decoration: none;"
                        (click)="onViewEquipment(eq)">{{ eq.code }}</a>
                   </td>
                   <td>{{ eq.name }}</td>
@@ -416,68 +279,38 @@
                   </td>
                   <td class="col-hd">
                     <div class="action-buttons-group">
-                      <div class="dropdown-actions-container">
-                        <button type="button" class="act-btn act-more" 
-                          (click)="toggleEquipmentMenu(eq, $event)" title="Thao tác khác">
-                          <i class="pi pi-ellipsis-h"></i>
-                        </button>
-                        <div class="dropdown-actions-menu animate-fade-in"
-                          [class.dropdown-upwards]="i >= equipmentItems().length - 2"
-                          *ngIf="activeEquipmentMenu() === eq.id" (click)="$event.stopPropagation()">
-                          
-                          <!-- Xem chi tiết -->
-                          <button type="button" class="dropdown-item-btn"
-                            (click)="onViewEquipment(eq); activeEquipmentMenu.set(null)">
-                            <i class="pi pi-eye color-blue"></i>
-                            <span>Xem chi tiết</span>
-                          </button>
-
-                          <!-- Chỉnh sửa -->
-                          <button type="button" class="dropdown-item-btn"
-                            (click)="onEditEquipment(eq); activeEquipmentMenu.set(null)">
-                            <i class="pi pi-pencil color-teal"></i>
-                            <span>Chỉnh sửa</span>
-                          </button>
-
-                          <!-- Khóa / Mở khóa -->
-                          <button type="button" class="dropdown-item-btn"
-                            (click)="onToggleEquipmentStatus(eq); activeEquipmentMenu.set(null)">
-                            <i class="pi" [ngClass]="(eq.isActive === 1 || eq.isActive === true) ? 'pi-lock color-red' : 'pi-lock-open color-green'"></i>
-                            <span>{{ (eq.isActive === 1 || eq.isActive === true) ? 'Khóa thiết bị' : 'Mở khóa' }}</span>
-                          </button>
-                        </div>
-                      </div>
+                      <button class="act-btn" style="background-color: #eff6ff; color: #1d4ed8; border-color: #bfdbfe;"
+                        title="Xem chi tiết thiết bị" (click)="onViewEquipment(eq)">
+                        <i class="pi pi-eye"></i>
+                      </button>
                     </div>
                   </td>
                 </tr>
                 <tr *ngIf="equipmentItems().length === 0">
                   <td colspan="8" class="empty-row" style="text-align: center; padding: 32px; color: #64748b;">
                     <i class="pi pi-inbox" style="font-size: 2rem; margin-bottom: 8px; display: block;"></i>
-                    <div>Không có thiết bị nào thuộc {{ infraTypeId() === 1 ? 'trạm' : 'đường dây' }} này.</div>
+                    <div>Không có thiết bị nào thuộc trạm biến áp này.</div>
                   </td>
                 </tr>
               </tbody>
             </table>
 
-            <!-- Equipment Pagination (Căn giữa, biểu tượng « ‹ › » giống ảnh mẫu) -->
-            <div style="display: flex; justify-content: center; align-items: center; gap: 20px; padding: 24px 0; margin-top: 16px; font-size: 0.875rem; color: #64748b;">
+            <!-- Equipment Pagination -->
+            <div style="display: flex; justify-content: center; align-items: center; gap: 20px; padding: 24px 0; margin-top: 16px; font-size: 0.875rem; color: #64748b;" *ngIf="equipmentItems().length > 0">
               <span>Hiển thị {{ equipmentItems().length }} trên tổng số {{ equipmentTotalCount() }} bản ghi</span>
 
               <div style="display: flex; align-items: center; gap: 6px;">
-                <!-- First Page « -->
                 <button (click)="goToEquipmentPage(1)" [disabled]="equipmentPage() === 1"
                   style="border: none; background: none; color: #64748b; cursor: pointer; padding: 4px 8px; font-size: 1rem; font-weight: bold;"
                   [style.opacity]="equipmentPage() === 1 ? '0.4' : '1'">
                   «
                 </button>
-                <!-- Prev Page ‹ -->
                 <button (click)="equipmentPrevPage()" [disabled]="equipmentPage() === 1"
                   style="border: none; background: none; color: #64748b; cursor: pointer; padding: 4px 8px; font-size: 1.1rem; font-weight: bold;"
                   [style.opacity]="equipmentPage() === 1 ? '0.4' : '1'">
                   ‹
                 </button>
 
-                <!-- Page numbers -->
                 <ng-container *ngFor="let pageNum of [].constructor(equipmentTotalPages()); let pageIndex = index">
                   <button *ngIf="pageIndex + 1 >= equipmentPage() - 2 && pageIndex + 1 <= equipmentPage() + 2"
                     (click)="goToEquipmentPage(pageIndex + 1)"
@@ -489,13 +322,11 @@
                   </button>
                 </ng-container>
 
-                <!-- Next Page › -->
                 <button (click)="equipmentNextPage()" [disabled]="equipmentPage() >= equipmentTotalPages()"
                   style="border: none; background: none; color: #64748b; cursor: pointer; padding: 4px 8px; font-size: 1.1rem; font-weight: bold;"
                   [style.opacity]="equipmentPage() >= equipmentTotalPages() ? '0.4' : '1'">
                   ›
                 </button>
-                <!-- Last Page » -->
                 <button (click)="goToEquipmentPage(equipmentTotalPages())" [disabled]="equipmentPage() >= equipmentTotalPages()"
                   style="border: none; background: none; color: #64748b; cursor: pointer; padding: 4px 8px; font-size: 1rem; font-weight: bold;"
                   [style.opacity]="equipmentPage() >= equipmentTotalPages() ? '0.4' : '1'">
@@ -503,7 +334,6 @@
                 </button>
               </div>
 
-              <!-- Page size select dropdown -->
               <select [ngModel]="equipmentPageSize()" (change)="onEquipmentPageSizeChange($event)"
                 style="border: 1px solid #cbd5e1; border-radius: 4px; padding: 2px 6px; height: 28px; color: #64748b; background-color: #fff; cursor: pointer;">
                 <option [value]="10">10</option>
@@ -515,7 +345,7 @@
         </div>
       </div>
 
-      <!-- ======= TAB 1: HỒ SƠ LIÊN QUAN ======= -->
+      <!-- ======= TAB 1: HỒ SƠ LIÊN QUAN (chỉ đọc) ======= -->
       <div *ngIf="activeTab() === 1" class="tab-content animate-fade-in">
         <div style="background: #ffffff; padding: 0 8px 24px 8px;">
           <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #cbd5e1; padding-bottom: 12px; margin-bottom: 20px;">
@@ -524,7 +354,7 @@
               Hồ sơ liên quan
             </span>
             <button class="btn-green" (click)="exportToExcel()" *ngIf="relatedDossiers().length > 0"
-              style="background-color: #10b981; border-color: #10b981; color: #ffffff; font-weight: 500; font-size: 0.9rem; padding: 8px 16px; border-radius: 6px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; border: 1px solid transparent; transition: all 0.2s;">
+              style="background-color: #10b981; border-color: #10b981; color: #ffffff; font-weight: 500; font-size: 0.9rem; padding: 8px 16px; border-radius: 6px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; border: 1px solid transparent;">
               <i class="pi pi-file-excel"></i> Xuất Excel
             </button>
           </div>
@@ -563,11 +393,11 @@
                 <tr *ngFor="let doc of relatedDossiers(); let i = index">
                   <td class="col-stt text-muted">{{ (relatedDossiersPage() - 1) * relatedDossiersPageSize() + i + 1 }}</td>
                   <td>
-                    <a class="wf-link" 
+                    <a class="wf-link" style="color: #2563eb; cursor: pointer; font-weight: 600; text-decoration: none;"
                        (click)="onViewDossier(doc)">{{ getDossierCode(doc) }}</a>
                   </td>
                   <td>
-                    <a class="wf-name-link" 
+                    <a class="wf-name-link" style="cursor: pointer;"
                        (click)="onViewDossier(doc)">{{ getDossierTitle(doc) }}</a>
                   </td>
                   <td>{{ doc.dossierTypeName || '-' }}</td>
@@ -584,7 +414,7 @@
                 <tr *ngIf="relatedDossiers().length === 0">
                   <td colspan="6" class="empty-row" style="text-align: center; padding: 32px; color: #64748b;">
                     <i class="pi pi-inbox" style="font-size: 2rem; margin-bottom: 8px; display: block;"></i>
-                    <div>Không có hồ sơ nào thuộc {{ infraTypeId() === 1 ? 'trạm' : 'đường dây' }} này đã được xuất bản.</div>
+                    <div>Không có hồ sơ nào thuộc trạm biến áp này đã được xuất bản.</div>
                   </td>
                 </tr>
               </tbody>
@@ -595,20 +425,17 @@
               <span>Hiển thị {{ relatedDossiers().length }} trên tổng số {{ relatedDossiersTotalCount() }} bản ghi</span>
 
               <div style="display: flex; align-items: center; gap: 6px;">
-                <!-- First Page « -->
                 <button (click)="goToRelatedDossiersPage(1)" [disabled]="relatedDossiersPage() === 1"
                   style="border: none; background: none; color: #64748b; cursor: pointer; padding: 4px 8px; font-size: 1rem; font-weight: bold;"
                   [style.opacity]="relatedDossiersPage() === 1 ? '0.4' : '1'">
                   «
                 </button>
-                <!-- Prev Page ‹ -->
                 <button (click)="relatedDossiersPrevPage()" [disabled]="relatedDossiersPage() === 1"
                   style="border: none; background: none; color: #64748b; cursor: pointer; padding: 4px 8px; font-size: 1.1rem; font-weight: bold;"
                   [style.opacity]="relatedDossiersPage() === 1 ? '0.4' : '1'">
                   ‹
                 </button>
 
-                <!-- Page numbers -->
                 <ng-container *ngFor="let pageNum of [].constructor(relatedDossiersTotalPages()); let pageIndex = index">
                   <button *ngIf="pageIndex + 1 >= relatedDossiersPage() - 2 && pageIndex + 1 <= relatedDossiersPage() + 2"
                     (click)="goToRelatedDossiersPage(pageIndex + 1)"
@@ -620,13 +447,11 @@
                   </button>
                 </ng-container>
 
-                <!-- Next Page › -->
                 <button (click)="relatedDossiersNextPage()" [disabled]="relatedDossiersPage() >= relatedDossiersTotalPages()"
                   style="border: none; background: none; color: #64748b; cursor: pointer; padding: 4px 8px; font-size: 1.1rem; font-weight: bold;"
                   [style.opacity]="relatedDossiersPage() >= relatedDossiersTotalPages() ? '0.4' : '1'">
                   ›
                 </button>
-                <!-- Last Page » -->
                 <button (click)="goToRelatedDossiersPage(relatedDossiersTotalPages())" [disabled]="relatedDossiersPage() >= relatedDossiersTotalPages()"
                   style="border: none; background: none; color: #64748b; cursor: pointer; padding: 4px 8px; font-size: 1rem; font-weight: bold;"
                   [style.opacity]="relatedDossiersPage() >= relatedDossiersTotalPages() ? '0.4' : '1'">
@@ -634,7 +459,6 @@
                 </button>
               </div>
 
-              <!-- Page size select dropdown -->
               <select [ngModel]="relatedDossiersPageSize()" (change)="onRelatedDossiersPageSizeChange($event)"
                 style="border: 1px solid #cbd5e1; border-radius: 4px; padding: 2px 6px; height: 28px; color: #64748b; background-color: #fff; cursor: pointer;">
                 <option [value]="10">10</option>
@@ -647,113 +471,87 @@
       </div>
 
     </div>
+
   </div>
-
-  <!-- ==================== DIALOG XÁC NHẬN XÓA ==================== -->
-    <p-dialog
-      [visible]="showDeleteConfirm()"
-      (visibleChange)="$event ? null : onCancelDelete()"
-      header="Xác nhận xóa"
-      [modal]="true"
-      [style]="{ width: '420px' }"
-      styleClass="evn-dialog-custom"
-      [closable]="!deleting()">
-      <div style="display: flex; align-items: flex-start; gap: 12px; padding: 8px 0 16px;">
-        <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #f59e0b;"></i>
-        <div>
-          <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">Bạn có chắc chắn muốn xóa?</p>
-          <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
-            Bản ghi <b style="color: #1e293b;">{{ deleteTarget()?.name }}</b> sẽ bị xóa vĩnh viễn.
-          </p>
-        </div>
-      </div>
-      <ng-template #footer>
-        <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
-          <button class="btn-cancel btn-small" (click)="onCancelDelete()" [disabled]="deleting()">
-            <i class="pi pi-times"></i> Hủy
-          </button>
-          <button class="btn-save btn-small" (click)="onConfirmDelete()" [disabled]="deleting()"
-                  style="background-color: #dc2626; border-color: #dc2626;">
-            <i class="pi pi-spin pi-spinner" *ngIf="deleting()"></i>
-            <i class="pi pi-trash" *ngIf="!deleting()"></i>
-            Xóa
-          </button>
-        </div>
-      </ng-template>
-    </p-dialog>
-
-    <!-- ==================== DIALOG XÁC NHẬN KHÓA / MỞ KHÓA ==================== -->
-    <p-dialog
-      [visible]="showLockUnlockConfirm()"
-      (visibleChange)="$event ? null : onCancelLockUnlock()"
-      [header]="(lockUnlockTarget()?.isActive === 1 || lockUnlockTarget()?.isActive === true) ? 'Xác nhận khóa' : 'Xác nhận mở khóa'"
-      [modal]="true"
-      [style]="{ width: '420px' }"
-      styleClass="evn-dialog-custom"
-      [closable]="!lockUnlockLoading()">
-      <div style="display: flex; align-items: flex-start; gap: 12px; padding: 8px 0 16px;">
-        <i class="pi pi-question-circle" style="font-size: 1.8rem; color: #3b82f6;"></i>
-        <div>
-          <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">
-            Bạn có chắc chắn muốn {{ (lockUnlockTarget()?.isActive === 1 || lockUnlockTarget()?.isActive === true) ? 'khóa' : 'mở khóa' }}?
-          </p>
-          <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
-            {{ infraTypeId() === 1 ? 'Trạm biến áp' : 'Đường dây' }} <b style="color: #1e293b;">{{ lockUnlockTarget()?.name }}</b> sẽ được thay đổi trạng thái.
-          </p>
-        </div>
-      </div>
-      <ng-template #footer>
-        <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
-          <button class="btn-cancel btn-small" (click)="onCancelLockUnlock()" [disabled]="lockUnlockLoading()">
-            <i class="pi pi-times"></i> Hủy
-          </button>
-          <button class="btn-save btn-small" (click)="onConfirmLockUnlock()" [disabled]="lockUnlockLoading()"
-                  [style.background-color]="(lockUnlockTarget()?.isActive === 1 || lockUnlockTarget()?.isActive === true) ? '#dc2626' : '#4790e9'"
-                  [style.border-color]="(lockUnlockTarget()?.isActive === 1 || lockUnlockTarget()?.isActive === true) ? '#dc2626' : '#4790e9'">
-            <i class="pi pi-spin pi-spinner" *ngIf="lockUnlockLoading()"></i>
-            <i class="pi pi-lock" *ngIf="!lockUnlockLoading() && (lockUnlockTarget()?.isActive === 1 || lockUnlockTarget()?.isActive === true)"></i>
-            <i class="pi pi-lock-open" *ngIf="!lockUnlockLoading() && !(lockUnlockTarget()?.isActive === 1 || lockUnlockTarget()?.isActive === true)"></i>
-            Đồng ý
-          </button>
-        </div>
-      </ng-template>
-    </p-dialog>
-
-    <!-- ==================== DIALOG XÁC NHẬN KHÓA / MỞ KHÓA THIẾT BỊ ==================== -->
-    <p-dialog
-      [visible]="showEquipmentLockConfirm()"
-      (visibleChange)="$event ? null : onCancelEquipmentLock()"
-      [header]="(equipmentLockTarget()?.isActive === 1 || equipmentLockTarget()?.isActive === true) ? 'Xác nhận khóa thiết bị' : 'Xác nhận mở khóa thiết bị'"
-      [modal]="true"
-      [style]="{ width: '420px' }"
-      styleClass="evn-dialog-custom"
-      [closable]="!equipmentLockLoading()">
-      <div style="display: flex; align-items: flex-start; gap: 12px; padding: 8px 0 16px;">
-        <i class="pi pi-question-circle" style="font-size: 1.8rem; color: #3b82f6;"></i>
-        <div>
-          <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">
-            Bạn có chắc chắn muốn {{ (equipmentLockTarget()?.isActive === 1 || equipmentLockTarget()?.isActive === true) ? 'khóa' : 'mở khóa' }}?
-          </p>
-          <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
-            Thiết bị <b style="color: #1e293b;">{{ equipmentLockTarget()?.name }}</b> sẽ được thay đổi trạng thái hoạt động.
-          </p>
-        </div>
-      </div>
-      <ng-template #footer>
-        <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
-          <button class="btn-cancel btn-small" (click)="onCancelEquipmentLock()" [disabled]="equipmentLockLoading()">
-            <i class="pi pi-times"></i> Hủy
-          </button>
-          <button class="btn-save btn-small" (click)="onConfirmEquipmentLock()" [disabled]="equipmentLockLoading()"
-                  [style.background-color]="(equipmentLockTarget()?.isActive === 1 || equipmentLockTarget()?.isActive === true) ? '#dc2626' : '#4790e9'"
-                  [style.border-color]="(equipmentLockTarget()?.isActive === 1 || equipmentLockTarget()?.isActive === true) ? '#dc2626' : '#4790e9'">
-            <i class="pi pi-spin pi-spinner" *ngIf="equipmentLockLoading()"></i>
-            <i class="pi pi-lock" *ngIf="!equipmentLockLoading() && (equipmentLockTarget()?.isActive === 1 || equipmentLockTarget()?.isActive === true)"></i>
-            <i class="pi pi-lock-open" *ngIf="!equipmentLockLoading() && !(equipmentLockTarget()?.isActive === 1 || equipmentLockTarget()?.isActive === true)"></i>
-            Đồng ý
-          </button>
-        </div>
-      </ng-template>
-    </p-dialog>
 </div>
 
+<!-- ==================== DIALOG XEM CHI TIẾT THIẾT BỊ ==================== -->
+<p-dialog
+  [visible]="showEquipmentDetail()"
+  (visibleChange)="$event ? null : showEquipmentDetail.set(false)"
+  header="Thông tin chi tiết Thiết bị"
+  [modal]="true"
+  [style]="{ width: '600px' }"
+  styleClass="evn-dialog-custom">
+  <div style="display: flex; flex-direction: column; gap: 16px; padding: 10px 0; max-height: 480px; overflow-y: auto;" *ngIf="selectedEquipment()">
+    <!-- Thông tin chung thiết bị -->
+    <div style="border-bottom: 1px dashed #cbd5e1; padding-bottom: 14px; display: flex; flex-direction: column; gap: 10px;">
+      <div style="font-weight: bold; color: #002D72; font-size: 0.95rem; margin-bottom: 4px;">Thông tin chung</div>
+      <div style="display: flex; justify-content: space-between; font-size: 0.9rem;">
+        <span style="color: #64748b; width: 140px;">Mã thiết bị:</span>
+        <span style="font-weight: 600; color: #1e293b; flex: 1; text-align: right;">{{ selectedEquipment().code || '-' }}</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; font-size: 0.9rem;">
+        <span style="color: #64748b; width: 140px;">Tên thiết bị:</span>
+        <span style="font-weight: 600; color: #1e293b; flex: 1; text-align: right;">{{ selectedEquipment().name || '-' }}</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; font-size: 0.9rem;">
+        <span style="color: #64748b; width: 140px;">Loại thiết bị:</span>
+        <span style="font-weight: 600; color: #1e293b; flex: 1; text-align: right;">{{ selectedEquipment().equipmentTypeName || getEquipmentTypeName(selectedEquipment().equipmentTypeId) }}</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; font-size: 0.9rem;">
+        <span style="color: #64748b; width: 140px;">Số Serial:</span>
+        <span style="font-weight: 600; color: #1e293b; flex: 1; text-align: right;">{{ selectedEquipment().serialNumber || '-' }}</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; font-size: 0.9rem;">
+        <span style="color: #64748b; width: 140px;">Nhà sản xuất:</span>
+        <span style="font-weight: 600; color: #1e293b; flex: 1; text-align: right;">{{ selectedEquipment().manufacturer || '-' }}</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; font-size: 0.9rem;">
+        <span style="color: #64748b; width: 140px;">Nước sản xuất:</span>
+        <span style="font-weight: 600; color: #1e293b; flex: 1; text-align: right;">{{ selectedEquipment().countryName || selectedEquipment().countryCode || '-' }}</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; font-size: 0.9rem;">
+        <span style="color: #64748b; width: 140px;">Năm sản xuất:</span>
+        <span style="font-weight: 600; color: #1e293b; flex: 1; text-align: right;">{{ selectedEquipment().manufactureYear || '-' }}</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; font-size: 0.9rem;">
+        <span style="color: #64748b; width: 140px;">Ngày vận hành:</span>
+        <span style="font-weight: 600; color: #1e293b; flex: 1; text-align: right;">{{ selectedEquipment().operationDate | date:'dd/MM/yyyy' }}</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; font-size: 0.9rem;">
+        <span style="color: #64748b; width: 140px;">Mô tả:</span>
+        <span style="font-weight: 600; color: #1e293b; flex: 1; text-align: right;">{{ selectedEquipment().description || '-' }}</span>
+      </div>
+    </div>
+
+    <!-- Thông số kỹ thuật EAV -->
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+      <div style="font-weight: bold; color: #002D72; font-size: 0.95rem; margin-bottom: 4px;">Thông số kỹ thuật</div>
+      <div *ngIf="getEavFields().length === 0" style="color: #64748b; font-style: italic; font-size: 0.9rem;">
+        Chưa cấu hình thông số kỹ thuật.
+      </div>
+      <div class="wf-table-wrap" *ngIf="getEavFields().length > 0" style="border: 1px solid #cbd5e1; border-radius: 6px;">
+        <table class="wf-table" style="width: 100%; border-collapse: collapse;">
+          <thead>
+            <tr style="background-color: #f8fafc; border-bottom: 1px solid #cbd5e1;">
+              <th style="font-weight: 600; color: #475569; padding: 8px 12px; font-size: 0.85rem;">Tên thông số</th>
+              <th style="font-weight: 600; color: #475569; padding: 8px 12px; font-size: 0.85rem; text-align: right;">Giá trị</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let field of getEavFields()" style="border-bottom: 1px solid #f1f5f9;">
+              <td style="padding: 8px 12px; font-size: 0.875rem; color: #475569;">{{ field.label }}</td>
+              <td style="padding: 8px 12px; font-size: 0.875rem; color: #1e293b; font-weight: 600; text-align: right;">{{ field.value }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <ng-template #footer>
+    <div style="display: flex; justify-content: flex-end; padding-top: 12px; border-top: 1px solid #f1f5f9;">
+      <button class="btn-cancel btn-small" (click)="showEquipmentDetail.set(false)"><i class="pi pi-times"></i> Đóng</button>
+    </div>
+  </ng-template>
+</p-dialog>

@@ -1,36 +1,41 @@
-import { Component, inject, signal, computed } from '@angular/core';
-import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
+import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { of, catchError, switchMap } from 'rxjs';
-import { APP_CONFIG } from '@sohoa.frontend/shared/core';
-import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
-
-import { DossierLookupDocumentsTabComponent } from '../dossier-lookup-documents-tab/dossier-lookup-documents-tab.component';
+import { PaginatorModule } from 'primeng/paginator';
+import { ToastModule } from 'primeng/toast';
+import { of, switchMap, finalize, catchError } from 'rxjs';
+import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
+import { APP_CONFIG } from '@sohoa.frontend/shared/core';
+import { getDossierStatusLabel } from '../../utils/dossier-status.util';
 import {
   DossierManagementService,
   EavField,
-  formatFieldDisplayValue,
-  guidsEqual,
-  normalizeField,
+  normalizeDossierDetail,
   parseFormDataJson,
-  pickFormDataForSchema,
-  readFormSchemaJson
+  readFormSchemaJson,
+  normalizeField,
+  DossierDocumentEditDialogComponent,
 } from '@sohoa.frontend/features/dossier-management';
 
 @Component({
   selector: 'app-dossier-lookup-detail',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule, DossierLookupDocumentsTabComponent, WfBreadcrumbComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    PaginatorModule,
+    ToastModule,
+    WfBreadcrumbComponent,
+    DossierDocumentEditDialogComponent,
+  ],
   providers: [MessageService],
   templateUrl: './dossier-lookup-detail.component.html',
-  styleUrl: './dossier-lookup-detail.component.scss'
+  styleUrl: './dossier-lookup-detail.component.scss',
 })
-export class DossierLookupDetailComponent {
+export class DossierLookupDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private http = inject(HttpClient);
@@ -38,86 +43,203 @@ export class DossierLookupDetailComponent {
   private dossierService = inject(DossierManagementService);
   private messageService = inject(MessageService);
 
-  dossierId = signal<string | null>(null);
-  dossier = signal<any>(null);
-  loading = signal<boolean>(true);
-  loadingType = signal<boolean>(false);
-  activeTab = signal<'info' | 'documents'>('info');
-  returnUrl = signal<string | null>(null);
+  private get apiBase(): string {
+    return `${this.config.apiGatewayUrl}/api/v1/dossiers-by-equipment`;
+  }
 
-  // Form templates
-  formTemplate = signal<any>(null);
+  // ===== SIGNALS =====
+  dossierId = signal<string>('');
+  dossier = signal<any | null>(null);
+  activeDetailTab = signal<'info' | 'documents' | 'related'>('info');
+  dossierDocuments = signal<any[]>([]);
+  loadingDossierDocuments = signal<boolean>(false);
+  relatedEquipments = signal<any[]>([]);
+  loadingEquipments = signal<boolean>(false);
   dynamicFields = signal<EavField[]>([]);
-  detailFormData: Record<string, any> = {};
+  detailFormData = signal<Record<string, any>>({});
+  loadingForm = signal<boolean>(false);
+  gridTypes = signal<any[]>([]);
+  dossierTypes = signal<any[]>([]);
+  showViewDocument = signal<boolean>(false);
+  viewTarget = signal<any | null>(null);
 
-  equipments = computed(() => {
-    const d = this.dossier();
-    const list = d?.equipments ?? d?.Equipments ?? [];
-    return Array.isArray(list) ? list : [];
+  // Equipment pagination signals
+  equipmentFirst = signal<number>(0);
+  equipmentRows = signal<number>(10);
+  paginatedEquipments = computed(() => {
+    const start = this.equipmentFirst();
+    const end = start + this.equipmentRows();
+    return this.relatedEquipments().slice(start, end);
   });
 
-  formatFieldDisplayValue = formatFieldDisplayValue;
+  catalogColumnsMap = signal<Record<string, string>>({});
 
-  constructor() {
-    this.route.paramMap.pipe(takeUntilDestroyed()).subscribe((params) => {
-      const id = params.get('id');
-      this.dossierId.set(id);
-      if (id) {
-        this.loadDetail(id);
+  formatKeyToLabel(key: string): string {
+    if (!key) return '';
+    return key
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  }
+
+  // Phục hồi và hiển thị đầy đủ các trường từ formDataJson
+  allFields = computed(() => {
+    const fields = [...this.dynamicFields()];
+    const data = this.detailFormData();
+    const colMap = this.catalogColumnsMap();
+
+    const existingKeys = new Set(fields.map(f => f.key));
+
+    Object.keys(data).forEach(key => {
+      if (!existingKeys.has(key)) {
+        const label = colMap[key] || this.formatKeyToLabel(key);
+        fields.push({
+          key: key,
+          label: label,
+          type: 'text' as const
+        });
       }
     });
 
-    this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((params) => {
-      const returnUrl = params.get('returnUrl');
-      if (returnUrl) {
-        this.returnUrl.set(returnUrl);
-      }
+    return fields;
+  });
 
-      const versionId = (params.get('documentVersionId') || '').trim();
-      if (versionId) {
-        void this.router.navigate(['/search/documents', versionId], {
-          replaceUrl: true,
-          queryParams: { keyword: params.get('keyword') || null }
+  // Chia đôi thuộc tính động EAV để hiển thị 2 cột sạch đẹp dạng văn bản
+  leftDynamicFields = computed(() => {
+    const fields = this.allFields();
+    return fields.slice(0, Math.ceil(fields.length / 2));
+  });
+
+  rightDynamicFields = computed(() => {
+    const fields = this.allFields();
+    return fields.slice(Math.ceil(fields.length / 2));
+  });
+
+  // Related dossiers signals & filters
+  relatedDossiers = signal<any[]>([]);
+  loadingRelated = signal<boolean>(false);
+  relatedFirst = signal<number>(0);
+  relatedRows = signal<number>(10);
+  totalRelatedDossiers = signal<number>(0);
+  paginatedRelatedDossiers = computed(() => {
+    const start = this.relatedFirst();
+    const end = start + this.relatedRows();
+    return this.relatedDossiers().slice(start, end);
+  });
+
+  // Filters for related dossiers
+  filterKeyword = '';
+  filterEquipmentId = '';
+  filterDossierTypeId = '';
+
+  dossierMeta = computed(() => normalizeDossierDetail(this.dossier()));
+
+  loadCatalogColumns() {
+    this.dossierService.getBhsCatalogColumns().subscribe({
+      next: (cols) => {
+        const map: Record<string, string> = {};
+        if (Array.isArray(cols)) {
+          cols.forEach(c => {
+            if (c.code) map[c.code] = c.label || c.key;
+          });
+        }
+        this.catalogColumnsMap.set(map);
+      }
+    });
+  }
+
+  ngOnInit() {
+    this.loadCatalogColumns();
+
+    this.route.paramMap.subscribe(params => {
+      const id = params.get('id');
+      if (id) {
+        this.dossierId.set(id);
+        this.loadDossierDetail(id);
+      }
+    });
+
+    // Load lookups for related dossier filter
+    this.dossierService.getGridTypeLookup().subscribe({
+      next: (types) => this.gridTypes.set(types || []),
+      error: () => console.error('Failed to load grid types'),
+    });
+
+    this.dossierService.getDossierTypeLookup().subscribe({
+      next: (types) => this.dossierTypes.set(types || []),
+      error: () => console.error('Failed to load dossier types'),
+    });
+  }
+
+  getStatusText(status?: string | number, statusName?: string): string {
+    return getDossierStatusLabel(status, statusName);
+  }
+
+  onBack(): void {
+    if (window.history.length > 1) {
+      window.history.back();
+    } else {
+      void this.router.navigate(['/search/dossier-by-equipment']);
+    }
+  }
+
+  loadDossierDetail(id: string) {
+    this.loadingForm.set(true);
+    this.http.get<any>(`${this.apiBase}/${id}`).pipe(
+      switchMap((fullDossier) => {
+        const normalized = normalizeDossierDetail(fullDossier);
+        this.dossier.set(normalized || fullDossier);
+
+        // Load danh sách tài liệu, thiết bị liên quan và hồ sơ liên quan
+        this.loadDossierDocuments(id);
+        this.loadRelatedEquipments(id);
+        this.loadRelatedDossiers(id);
+
+        if (normalized) {
+          const parsedData = parseFormDataJson(normalized.formDataJson);
+          this.detailFormData.set(parsedData);
+          return this.resolveFormTemplate(normalized.formId, normalized.dossierTypeId);
+        }
+        return of(null);
+      }),
+      finalize(() => this.loadingForm.set(false))
+    ).subscribe({
+      next: (template) => {
+        this.applyFormTemplate(template);
+      },
+      error: (err) => {
+        console.error('Error loading dossier details', err);
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Lỗi',
+          detail: 'Không thể tải thông tin chi tiết hồ sơ',
         });
       }
     });
   }
 
-  loadDetail(id: string) {
-    this.loading.set(true);
-    this.loadingType.set(true);
+  private applyFormTemplate(template: any) {
+    if (!template) {
+      this.dynamicFields.set([]);
+      return;
+    }
 
-    this.http.get<any>(`${this.config.apiGatewayUrl}/api/v1/dossiers-by-equipment/${id}`).pipe(
-      switchMap((res) => {
-        this.dossier.set(res);
-        const formId = res.formId ?? res.FormId ?? null;
-        const dossierTypeId = res.dossierTypeId ?? res.DossierTypeId;
-        const formDataJson = res.formDataJson ?? res.FormDataJson;
+    const schemaJson = readFormSchemaJson(template);
+    if (!schemaJson) {
+      this.dynamicFields.set([]);
+      return;
+    }
 
-        const pendingFormData = parseFormDataJson(formDataJson);
-        this.detailFormData = { ...pendingFormData };
-
-        return this.resolveFormTemplate(formId, dossierTypeId);
-      }),
-      catchError((err) => {
-        const msg = err?.error?.message || 'Không thể tải chi tiết hồ sơ';
-        this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: msg });
-        this.loading.set(false);
-        this.loadingType.set(false);
-        return of(null);
-      })
-    ).subscribe({
-      next: (template) => {
-        if (template) {
-          this.applyFormTemplate(template);
-        }
-        this.loading.set(false);
-        this.loadingType.set(false);
-      }
-    });
+    try {
+      const raw = JSON.parse(schemaJson);
+      const fields: EavField[] = Array.isArray(raw) ? raw.map((f) => normalizeField(f)) : [];
+      this.dynamicFields.set(fields);
+    } catch {
+      this.dynamicFields.set([]);
+    }
   }
 
-  private resolveFormTemplate(formId: string | null, dossierTypeId: string) {
+  private resolveFormTemplate(formId: string | null, dossierTypeId: string | null) {
     if (formId) {
       return this.dossierService.getFormTemplate(formId);
     }
@@ -128,49 +250,192 @@ export class DossierLookupDetailComponent {
       catchError(() => of([] as any[])),
       switchMap((types) => {
         const found = Array.isArray(types)
-          ? types.find((t: any) => guidsEqual(t.id ?? t.Id, dossierTypeId))
-          : undefined;
-        const resolvedFormId = found?.formId ?? found?.FormId ?? null;
-        if (!resolvedFormId) {
-          return of(null);
-        }
+          ? types.find((t: any) => (t.id ?? t.Id) === dossierTypeId)
+          : null;
+        const resolvedFormId = found ? (found.formId ?? found.FormId) : null;
+        if (!resolvedFormId) return of(null);
         return this.dossierService.getFormTemplate(resolvedFormId);
       })
     );
   }
 
-  private applyFormTemplate(template: any) {
-    if (!template) {
-      this.formTemplate.set(null);
-      this.dynamicFields.set([]);
-      return;
-    }
-    this.formTemplate.set(template);
-    const schemaJson = readFormSchemaJson(template);
-    if (!schemaJson) {
-      this.dynamicFields.set([]);
-      return;
-    }
-    try {
-      const raw = JSON.parse(schemaJson);
-      const fields: EavField[] = Array.isArray(raw) ? raw.map((f) => normalizeField(f)) : [];
-      this.dynamicFields.set(fields);
-      this.detailFormData = pickFormDataForSchema(fields, this.detailFormData);
-    } catch {
-      this.dynamicFields.set([]);
-    }
+  loadRelatedEquipments(dossierId: string) {
+    this.loadingEquipments.set(true);
+    this.http.get<any[]>(`${this.apiBase}/${dossierId}/equipments`).pipe(
+      finalize(() => this.loadingEquipments.set(false))
+    ).subscribe({
+      next: (data) => {
+        this.relatedEquipments.set(data || []);
+      },
+      error: (err) => {
+        console.error('Error loading related equipments', err);
+        this.relatedEquipments.set([]);
+      }
+    });
   }
 
-  trackByFieldKey(_index: number, field: EavField): string {
-    return field.key;
+  loadDossierDocuments(dossierId: string) {
+    this.loadingDossierDocuments.set(true);
+    this.http.get<any>(`${this.apiBase}/${dossierId}/documents`, {
+      params: { page: '1', pageSize: '50' }
+    }).pipe(
+      finalize(() => this.loadingDossierDocuments.set(false))
+    ).subscribe({
+      next: (response) => {
+        this.dossierDocuments.set(response?.items || []);
+      },
+      error: (err) => {
+        console.error('Error loading dossier documents', err);
+        this.dossierDocuments.set([]);
+      }
+    });
   }
 
-  onBack(): void {
-    const url = this.returnUrl();
-    if (url) {
-      void this.router.navigateByUrl(url);
-    } else {
-      void this.router.navigate(['/search/dossier-by-equipment']);
+  loadRelatedDossiers(dossierId: string) {
+    this.loadingRelated.set(true);
+    const params: Record<string, string> = {
+      page: '1',
+      pageSize: '100',
+    };
+    if (this.filterKeyword.trim()) params['keyword'] = this.filterKeyword.trim();
+    if (this.filterDossierTypeId) params['dossierTypeId'] = this.filterDossierTypeId;
+
+    this.http.get<any>(`${this.apiBase}/${dossierId}/related`, { params }).pipe(
+      finalize(() => this.loadingRelated.set(false))
+    ).subscribe({
+      next: (response) => {
+        let items = response?.items || [];
+
+        // Client-side filter by selected equipment if any
+        if (this.filterEquipmentId) {
+          items = items.filter((item: any) => {
+            const equipments = item.equipments || item.Equipments || [];
+            return equipments.some((e: any) => (e.id || e.Id) === this.filterEquipmentId);
+          });
+        }
+
+        this.relatedDossiers.set(items);
+        this.totalRelatedDossiers.set(items.length);
+      },
+      error: (err) => {
+        console.error('Error loading related dossiers', err);
+        this.relatedDossiers.set([]);
+        this.totalRelatedDossiers.set(0);
+      }
+    });
+  }
+
+  onRelatedFilterChange() {
+    this.relatedFirst.set(0);
+    this.loadRelatedDossiers(this.dossierId());
+  }
+
+  onEquipmentPageChange(event: any) {
+    this.equipmentFirst.set(event.first);
+    this.equipmentRows.set(event.rows);
+  }
+
+  onRelatedPageChange(event: any) {
+    this.relatedFirst.set(event.first);
+    this.relatedRows.set(event.rows);
+  }
+
+  openRelatedDetail(rel: any) {
+    window.open(`/#/search/dossier-by-equipment/${rel.id}`, '_blank');
+  }
+
+  getGridTypeName(gridTypeId: number | null): string {
+    if (gridTypeId == null) return '-';
+    const found = this.gridTypes().find(t => t.id === gridTypeId);
+    return found ? found.name : `Lưới điện ${gridTypeId}`;
+  }
+
+  getFieldValueText(field: EavField): string {
+    const value = this.detailFormData()[field.key];
+    if (value === null || value === undefined || value === '') {
+      return '-';
     }
+    if (field.type === 'select') {
+      const option = field.options?.find(opt => opt.value === value);
+      return option ? option.label : value;
+    }
+    if (field.type === 'checkbox') {
+      return value ? 'Có' : 'Không';
+    }
+    if (field.type === 'date') {
+      try {
+        const date = new Date(value);
+        if (!isNaN(date.getTime())) {
+          return date.toLocaleDateString('vi-VN');
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+    return value;
+  }
+
+  formatDate(value?: Date | string): string {
+    if (!value) return '-';
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) return '-';
+    return date.toLocaleDateString('vi-VN');
+  }
+
+  formatSize(bytes?: number): string {
+    if (bytes == null || isNaN(bytes)) return '-';
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  }
+
+  // ===== PREVIEW & DOWNLOAD =====
+  onViewDocumentDetail(doc: any) {
+    this.viewTarget.set(doc);
+    this.showViewDocument.set(true);
+  }
+
+  onCloseDocumentDetail() {
+    this.showViewDocument.set(false);
+    this.viewTarget.set(null);
+  }
+
+  downloadDocument(doc: any) {
+    if (!doc.latestVersionId) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Không thể tải',
+        detail: 'Tài liệu chưa có phiên bản file để tải xuống.',
+      });
+      return;
+    }
+
+    this.http.get<any>(`${this.apiBase}/${this.dossierId()}/documents/${doc.latestVersionId}/download-url`)
+      .subscribe({
+        next: (res) => {
+          const token = res?.token;
+          if (token) {
+            const downloadUrl = `${this.config.apiGatewayUrl}/api/v1/files/download?token=${encodeURIComponent(token)}`;
+            window.open(downloadUrl, '_blank');
+          } else {
+            const url = res?.downloadUrl || res?.url;
+            if (url) {
+              window.open(url, '_blank');
+            } else {
+              this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không lấy được đường dẫn tải tài liệu' });
+            }
+          }
+        },
+        error: (err) => {
+          const message = err?.error?.message || 'Không thể tải file';
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi tải file',
+            detail: `${doc.name}: ${message}`,
+          });
+        }
+      });
   }
 }
