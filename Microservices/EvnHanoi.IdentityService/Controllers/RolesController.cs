@@ -210,7 +210,17 @@ public class RolesController : ControllerBase
         }
 
         var groups = await _permissionGroupRepository.GetPermissionGroupsByRoleIdAsync(id);
-        return Ok(groups.Select(g => new { g.Id, g.Code, g.Name, g.GroupType, g.OrganizationUnitId, g.OrganizationUnitName }));
+        return Ok(groups.Select(g => new
+        {
+            g.Id,
+            g.Code,
+            g.Name,
+            g.GroupType,
+            g.OrganizationUnitId,
+            g.OrganizationUnitName,
+            g.OrganizationUnitIds,
+            g.OrganizationUnitNames
+        }));
     }
 
     [HttpPut("{id}/permission-groups")]

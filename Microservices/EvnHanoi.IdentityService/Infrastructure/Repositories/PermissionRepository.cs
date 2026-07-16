@@ -317,30 +317,67 @@ public class PermissionRepository : IPermissionRepository
                 UNION
                 
                 -- 3. Quyền từ Roles gán trực tiếp cho User
+                -- Role GLOBAL: lấy tất cả nhóm gắn (SYSTEM + UNIT)
+                -- Role UNIT: SYSTEM không áp dụng qua nhánh này; UNIT group phải khớp Role.OrganizationUnitId qua PERMISSION_GROUP_UNIT
                 SELECT pgp.PermissionId
-                FROM ROLE_PERMISSION_GROUP rpg
-                INNER JOIN PERMISSION_GROUP_PERMISSION pgp ON rpg.PermissionGroupId = pgp.PermissionGroupId
-                INNER JOIN USER_ROLE ur ON rpg.RoleId = ur.RoleId
+                FROM USER_ROLE ur
+                INNER JOIN ROLE r ON ur.RoleId = r.Id
+                INNER JOIN ROLE_PERMISSION_GROUP rpg ON r.Id = rpg.RoleId
+                INNER JOIN PERMISSION_GROUP pg ON rpg.PermissionGroupId = pg.Id
+                INNER JOIN SCOPE_TYPE st ON pg.ScopeTypeId = st.Id
+                INNER JOIN PERMISSION_GROUP_PERMISSION pgp ON pgp.PermissionGroupId = pg.Id
                 WHERE ur.UserId = :UserId
+                  AND (
+                    r.ScopeTypeId = 1
+                    OR st.Code = 'GLOBAL'
+                    OR EXISTS (
+                        SELECT 1 FROM PERMISSION_GROUP_UNIT pgu
+                        WHERE pgu.PermissionGroupId = pg.Id
+                          AND pgu.OrganizationUnitId = r.OrganizationUnitId
+                    )
+                  )
                 
                 UNION
                 
                 -- 4. Quyền từ Roles gán qua Nhóm người dùng
                 SELECT pgp.PermissionId
-                FROM ROLE_PERMISSION_GROUP rpg
-                INNER JOIN PERMISSION_GROUP_PERMISSION pgp ON rpg.PermissionGroupId = pgp.PermissionGroupId
-                INNER JOIN USER_GROUP_ROLE ugr ON rpg.RoleId = ugr.RoleId
-                INNER JOIN USER_GROUP_MEMBER ugm ON ugr.UserGroupId = ugm.UserGroupId
+                FROM USER_GROUP_MEMBER ugm
+                INNER JOIN USER_GROUP_ROLE ugr ON ugm.UserGroupId = ugr.UserGroupId
+                INNER JOIN ROLE r ON ugr.RoleId = r.Id
+                INNER JOIN ROLE_PERMISSION_GROUP rpg ON r.Id = rpg.RoleId
+                INNER JOIN PERMISSION_GROUP pg ON rpg.PermissionGroupId = pg.Id
+                INNER JOIN SCOPE_TYPE st ON pg.ScopeTypeId = st.Id
+                INNER JOIN PERMISSION_GROUP_PERMISSION pgp ON pgp.PermissionGroupId = pg.Id
                 WHERE ugm.UserId = :UserId
+                  AND (
+                    r.ScopeTypeId = 1
+                    OR st.Code = 'GLOBAL'
+                    OR EXISTS (
+                        SELECT 1 FROM PERMISSION_GROUP_UNIT pgu
+                        WHERE pgu.PermissionGroupId = pg.Id
+                          AND pgu.OrganizationUnitId = r.OrganizationUnitId
+                    )
+                  )
 
                 UNION
 
-                -- 5. Quyền từ Roles gán theo đơn vị
+                -- 5. Quyền từ Roles gán theo đơn vị (USER_UNIT_ROLE)
+                -- Chỉ lấy nhóm SYSTEM hoặc nhóm UNIT có mapping khớp UnitId ngữ cảnh
                 SELECT pgp.PermissionId
                 FROM USER_UNIT_ROLE uur
                 INNER JOIN ROLE_PERMISSION_GROUP rpg ON uur.RoleId = rpg.RoleId
-                INNER JOIN PERMISSION_GROUP_PERMISSION pgp ON rpg.PermissionGroupId = pgp.PermissionGroupId
+                INNER JOIN PERMISSION_GROUP pg ON rpg.PermissionGroupId = pg.Id
+                INNER JOIN SCOPE_TYPE st ON pg.ScopeTypeId = st.Id
+                INNER JOIN PERMISSION_GROUP_PERMISSION pgp ON pgp.PermissionGroupId = pg.Id
                 WHERE uur.UserId = :UserId
+                  AND (
+                    st.Code = 'GLOBAL'
+                    OR EXISTS (
+                        SELECT 1 FROM PERMISSION_GROUP_UNIT pgu
+                        WHERE pgu.PermissionGroupId = pg.Id
+                          AND pgu.OrganizationUnitId = uur.UnitId
+                    )
+                  )
             )";
         return await _connection.QueryAsync<PermissionDetail>(sql, new { UserId = userId });
     }
@@ -387,29 +424,63 @@ public class PermissionRepository : IPermissionRepository
                 
                 -- 3. Quyền từ các Roles gán trực tiếp cho User
                 SELECT pgp.PermissionId
-                FROM ROLE_PERMISSION_GROUP rpg
-                INNER JOIN PERMISSION_GROUP_PERMISSION pgp ON rpg.PermissionGroupId = pgp.PermissionGroupId
-                INNER JOIN USER_ROLE ur ON rpg.RoleId = ur.RoleId
+                FROM USER_ROLE ur
+                INNER JOIN ROLE r ON ur.RoleId = r.Id
+                INNER JOIN ROLE_PERMISSION_GROUP rpg ON r.Id = rpg.RoleId
+                INNER JOIN PERMISSION_GROUP pg ON rpg.PermissionGroupId = pg.Id
+                INNER JOIN SCOPE_TYPE st ON pg.ScopeTypeId = st.Id
+                INNER JOIN PERMISSION_GROUP_PERMISSION pgp ON pgp.PermissionGroupId = pg.Id
                 WHERE ur.UserId = :UserId
+                  AND (
+                    r.ScopeTypeId = 1
+                    OR st.Code = 'GLOBAL'
+                    OR EXISTS (
+                        SELECT 1 FROM PERMISSION_GROUP_UNIT pgu
+                        WHERE pgu.PermissionGroupId = pg.Id
+                          AND pgu.OrganizationUnitId = r.OrganizationUnitId
+                    )
+                  )
                 
                 UNION
                 
                 -- 4. Quyền từ các Roles gán qua Nhóm người dùng
                 SELECT pgp.PermissionId
-                FROM ROLE_PERMISSION_GROUP rpg
-                INNER JOIN PERMISSION_GROUP_PERMISSION pgp ON rpg.PermissionGroupId = pgp.PermissionGroupId
-                INNER JOIN USER_GROUP_ROLE ugr ON rpg.RoleId = ugr.RoleId
-                INNER JOIN USER_GROUP_MEMBER ugm ON ugr.UserGroupId = ugm.UserGroupId
+                FROM USER_GROUP_MEMBER ugm
+                INNER JOIN USER_GROUP_ROLE ugr ON ugm.UserGroupId = ugr.UserGroupId
+                INNER JOIN ROLE r ON ugr.RoleId = r.Id
+                INNER JOIN ROLE_PERMISSION_GROUP rpg ON r.Id = rpg.RoleId
+                INNER JOIN PERMISSION_GROUP pg ON rpg.PermissionGroupId = pg.Id
+                INNER JOIN SCOPE_TYPE st ON pg.ScopeTypeId = st.Id
+                INNER JOIN PERMISSION_GROUP_PERMISSION pgp ON pgp.PermissionGroupId = pg.Id
                 WHERE ugm.UserId = :UserId
+                  AND (
+                    r.ScopeTypeId = 1
+                    OR st.Code = 'GLOBAL'
+                    OR EXISTS (
+                        SELECT 1 FROM PERMISSION_GROUP_UNIT pgu
+                        WHERE pgu.PermissionGroupId = pg.Id
+                          AND pgu.OrganizationUnitId = r.OrganizationUnitId
+                    )
+                  )
 
                 UNION
 
-                -- 5. Quyền từ Roles gán theo đơn vị
+                -- 5. Quyền từ Roles gán theo đơn vị (USER_UNIT_ROLE)
                 SELECT pgp.PermissionId
                 FROM USER_UNIT_ROLE uur
                 INNER JOIN ROLE_PERMISSION_GROUP rpg ON uur.RoleId = rpg.RoleId
-                INNER JOIN PERMISSION_GROUP_PERMISSION pgp ON rpg.PermissionGroupId = pgp.PermissionGroupId
+                INNER JOIN PERMISSION_GROUP pg ON rpg.PermissionGroupId = pg.Id
+                INNER JOIN SCOPE_TYPE st ON pg.ScopeTypeId = st.Id
+                INNER JOIN PERMISSION_GROUP_PERMISSION pgp ON pgp.PermissionGroupId = pg.Id
                 WHERE uur.UserId = :UserId
+                  AND (
+                    st.Code = 'GLOBAL'
+                    OR EXISTS (
+                        SELECT 1 FROM PERMISSION_GROUP_UNIT pgu
+                        WHERE pgu.PermissionGroupId = pg.Id
+                          AND pgu.OrganizationUnitId = uur.UnitId
+                    )
+                  )
             )";
         return await _connection.QueryAsync<string>(sql, new { UserId = userId });
     }
