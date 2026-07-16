@@ -126,3 +126,17 @@ export const dossierDigitizationCreatorMenuGuard = withPermissionsLoaded(resolve
 
 /** Menu Kiểm tra nhập liệu */
 export const dossierDigitizationApproverMenuGuard = withPermissionsLoaded(resolveDigitizationApproverAccess);
+
+function resolveSubstationSearchAccess(auth: AuthService, router: Router): boolean | UrlTree {
+  if (
+    auth.hasPermission('SUPER_ADMIN') ||
+    auth.hasPermission('SEARCH_SUBSTATION_VIEW')
+  ) {
+    return true;
+  }
+
+  return router.createUrlTree(['/error'], { queryParams: { code: '403' } });
+}
+
+/** Menu Tra cứu tìm kiếm Trạm biến áp */
+export const substationSearchGuard = withPermissionsLoaded(resolveSubstationSearchAccess);

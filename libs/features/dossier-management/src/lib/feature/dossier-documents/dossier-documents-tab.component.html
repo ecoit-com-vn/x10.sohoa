@@ -309,6 +309,102 @@
   (digitizationStarted)="onDigitizationStarted()"
 ></app-dossier-direct-upload-dialog>
 
+<p-dialog
+  [visible]="showHistoryDialog()"
+  (visibleChange)="$event ? null : onCloseHistoryDialog()"
+  header="Lịch sử phiên bản: {{ historyTargetDocument()?.name }}"
+  [modal]="true"
+  [style]="{ width: '850px' }"
+  styleClass="evn-dialog-custom"
+>
+  <div style="min-height: 200px; padding: 12px 0;">
+    <div *ngIf="loadingVersions()" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 0; color: #64748b;">
+      <i class="pi pi-spin pi-spinner" style="font-size: 2rem; margin-bottom: 8px;"></i>
+      <span>Đang tải danh sách phiên bản...</span>
+    </div>
+
+    <div *ngIf="!loadingVersions() && documentVersions().length === 0" style="text-align: center; padding: 40px 0; color: #64748b;">
+      <i class="pi pi-history" style="font-size: 2.5rem; margin-bottom: 12px; color: #cbd5e1;"></i>
+      <div>Không tìm thấy phiên bản nào cho tài liệu này.</div>
+    </div>
+
+    <div *ngIf="!loadingVersions() && documentVersions().length > 0" class="wf-table-wrap" style="box-shadow: none; border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden;">
+      <table class="wf-table" style="margin-bottom: 0;">
+        <thead>
+          <tr>
+            <th style="width: 70px; text-align: center;">Phiên bản</th>
+            <th style="width: 120px;">Nguồn tải lên</th>
+            <th style="width: 110px; text-align: right;">Dung lượng</th>
+            <th>Người tạo</th>
+            <th style="width: 180px; text-align: center;">Ngày tạo</th>
+            <th style="width: 150px; text-align: center;">Thao tác</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let ver of documentVersions(); let first = first">
+            <td style="text-align: center; font-weight: 600; color: #1e293b;">
+              v{{ ver.versionNumber }}
+              <span *ngIf="first" style="margin-left: 4px; padding: 2px 6px; font-size: 0.75rem; background-color: #dcfce7; color: #15803d; border-radius: 9999px; font-weight: 500;">
+                Mới nhất
+              </span>
+            </td>
+            <td>
+              <span [ngSwitch]="ver.uploadSource">
+                <span *ngSwitchCase="1"><i class="pi pi-folder" style="color: #f59e0b; margin-right: 4px;"></i>Thư mục</span>
+                <span *ngSwitchCase="2"><i class="pi pi-print" style="color: #3b82f6; margin-right: 4px;"></i>Scan</span>
+                <span *ngSwitchCase="3"><i class="pi pi-globe" style="color: #10b981; margin-right: 4px;"></i>Web</span>
+                <span *ngSwitchDefault>Khác</span>
+              </span>
+            </td>
+            <td style="text-align: right;">
+              {{ (ver.fileSize || 0) / 1024 | number:'1.0-1' }} KB
+            </td>
+            <td>{{ ver.createdByName || ver.createdBy || 'Hệ thống' }}</td>
+            <td style="text-align: center;">
+              {{ ver.createdDate | date:'dd/MM/yyyy HH:mm:ss' }}
+            </td>
+            <td style="text-align: center;">
+              <div style="display: flex; justify-content: center; gap: 6px;">
+                <button
+                  class="act-btn act-download"
+                  title="Tải phiên bản này"
+                  (click)="onDownloadVersion(ver)"
+                >
+                  <i class="pi pi-download"></i>
+                </button>
+                <button
+                  class="act-btn act-history"
+                  title="Khôi phục về phiên bản này"
+                  [disabled]="first || rollingBack() || !canEdit"
+                  (click)="onRollbackVersion(ver)"
+                  style="background-color: #f59e0b; color: white;"
+                >
+                  <i class="pi pi-refresh" [class.pi-spin]="rollingBack()"></i>
+                </button>
+                <button
+                  class="act-btn act-delete"
+                  title="Xóa phiên bản này"
+                  [disabled]="deletingVersion() || !canEdit"
+                  (click)="onDeleteVersion(ver)"
+                >
+                  <i class="pi pi-trash" [class.pi-spin]="deletingVersion()"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <ng-template #footer>
+    <div style="display: flex; justify-content: flex-end; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+      <button class="btn-cancel btn-small" (click)="onCloseHistoryDialog()">
+        Đóng
+      </button>
+    </div>
+  </ng-template>
+</p-dialog>
+
 <p-menu
   #docActionMenu
   [model]="docActionMenuItems()"

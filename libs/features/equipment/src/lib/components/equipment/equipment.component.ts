@@ -53,7 +53,7 @@ export class EquipmentComponent implements OnInit {
   }
 
   // Tab and Detail View States
-  activeTab = signal<number>(0);
+  activeTab = signal<'info' | 'related' | 'profileDocs'>('info');
   eavTemplate = signal<any>(null);
   eavFields = signal<any[]>([]);
   formValuesObj = signal<any>({});
@@ -227,13 +227,13 @@ export class EquipmentComponent implements OnInit {
       }
     });
 
-    // Align with dossiers tab: load related data when tab becomes active and id is ready.
+    // Load hồ sơ liên quan chỉ khi mở tab related.
     effect(() => {
       const tab = this.activeTab();
       const page = this.dossierPage();
       const pageSize = this.dossierPageSize();
       const item = this.currentItem();
-      if (tab === 1 && item?.id) {
+      if (tab === 'related' && item?.id) {
         this.loadDossiers();
       }
     });
@@ -271,7 +271,7 @@ export class EquipmentComponent implements OnInit {
         this.loadLookupData();
       } else if (id) {
         this.currentView.set('edit');
-        this.activeTab.set(0);
+        this.activeTab.set('info');
 
         let mode = '';
         this.route.queryParams.subscribe(qParams => {

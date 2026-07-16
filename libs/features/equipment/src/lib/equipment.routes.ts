@@ -29,7 +29,27 @@ export const EQUIPMENT_ROUTES: Routes = [
     loadComponent: () => import('./components/form-management/form-management.component').then(m => m.FormManagementComponent)
   },
   {
+    path: 'form-management/new',
+    canActivate: [eavFormDesignMenuGuard],
+    loadComponent: () => import('./components/form-management/form-management.component').then(m => m.FormManagementComponent)
+  },
+  {
+    path: 'form-management/:id/edit',
+    canActivate: [eavFormDesignMenuGuard],
+    loadComponent: () => import('./components/form-management/form-management.component').then(m => m.FormManagementComponent)
+  },
+  {
+    path: 'form-management/:id',
+    canActivate: [eavFormDesignMenuGuard],
+    loadComponent: () => import('./components/form-management/form-management.component').then(m => m.FormManagementComponent)
+  },
+  {
     path: 'form-approval',
+    canActivate: [eavFormApprovalMenuGuard],
+    loadComponent: () => import('./components/form-approval/form-approval.component').then(m => m.FormApprovalComponent)
+  },
+  {
+    path: 'form-approval/:id',
     canActivate: [eavFormApprovalMenuGuard],
     loadComponent: () => import('./components/form-approval/form-approval.component').then(m => m.FormApprovalComponent)
   },
@@ -44,14 +64,24 @@ export const EQUIPMENT_ROUTES: Routes = [
     loadComponent: () => import('./components/form-template/form-template.component').then(m => m.FormTemplateComponent)
   },
   {
+    path: 'form-template/:id',
+    canActivate: [eavFormDesignMenuGuard],
+    loadComponent: () => import('./components/form-template/form-template.component').then(m => m.FormTemplateComponent)
+  },
+  {
     path: 'completed-forms',
     canActivate: [eavFormCompletedMenuGuard],
     loadComponent: () => import('./components/completed-form-list/completed-form-list.component').then(m => m.CompletedFormListComponent)
   },
   {
-    path: 'completed-forms/edit',
+    path: 'completed-forms/:id/edit',
     canActivate: [eavFormCompletedEditGuard],
     loadComponent: () => import('./components/form-management/form-management.component').then(m => m.FormManagementComponent)
+  },
+  {
+    path: 'completed-forms/:id',
+    canActivate: [eavFormCompletedMenuGuard],
+    loadComponent: () => import('./components/completed-form-list/completed-form-list.component').then(m => m.CompletedFormListComponent)
   },
   {
     path: 'form-renderer',

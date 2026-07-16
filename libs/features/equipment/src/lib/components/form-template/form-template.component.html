@@ -14,7 +14,7 @@
         </button>
       </div>
     </div>
-    
+
     <div class="wf-card">
       <div class="loading-overlay" *ngIf="loading()">
         <div class="loading-content">
@@ -27,10 +27,10 @@
         <div class="search-controls">
           <input type="text" pInputText class="search-input-width" placeholder="Tên hoặc mã biểu mẫu..." [ngModel]="searchKeyword()"
             (ngModelChange)="searchKeyword.set($event)" (keyup.enter)="onSearch()" style="height: 38px;" />
-          
+
           <p-select [options]="gridTypes()"
             [ngModel]="selectedGridTypeId()"
-            (ngModelChange)="selectedGridTypeId.set($event)"
+            (ngModelChange)="onGridTypeChange($event)"
             optionLabel="name"
             optionValue="id"
             placeholder="-- Loại lưới điện --"
@@ -60,7 +60,7 @@
             placeholder="-- Trạng thái --"
             [showClear]="true">
           </p-select>
-          
+
           <button class="btn-tim btn-search-trigger" (click)="onSearch()">
             <i class="pi pi-search"></i> Tìm kiếm
           </button>
@@ -194,24 +194,22 @@
           <div>
             <label>Ngày cập nhật: {{ template.createdAt | date:'dd/MM/yyyy HH:mm' }}</label>
           </div>
-          <div>
-            <label>Vị trí bóc tách: {{ getExtractionPositionLabel(template.extractionPosition) }}</label>
-          </div>
-          <div>
-            <label>Quy trình bóc tách: {{ template.extractionProcess || 'Chưa cấu hình' }}</label>
-          </div>
-          <div>
-            <label>Mô tả: {{ template.description || '' }}</label>
-          </div>
+        </div>
+        <div>
+          <label>Mô tả: {{ template.description || '' }}</label>
+        </div>
+        <div class="extraction-process-box" *ngIf="template.extractionProcess">
+          <label class="extraction-process-label">Quy trình bóc tách thông tin</label>
+          <div class="extraction-process-content">{{ template.extractionProcess }}</div>
         </div>
         <div class="mt-4">
           <h4 class="preview-title-header">Xem trước biểu mẫu nhập liệu</h4>
           <div class="preview-form-container" style="max-height: none; overflow-y: visible;">
             <div class="preview-form-grid">
-              <div *ngFor="let field of detailFields()" 
+              <div *ngFor="let field of detailFields()"
                    [style.grid-column]="'span ' + (field.width === 50 ? 6 : 12)"
                    class="preview-form-field">
-                
+
                 <label class="preview-form-label">
                   {{ field.label || '(Trường chưa đặt tên)' }}
                   <span *ngIf="field.required" class="required-star">*</span>
@@ -266,7 +264,7 @@
                     <!-- Case 1: Nhóm checkbox (nếu có options hoặc catalog) -->
                     <div *ngIf="field.dataSourceType === 'catalog' || (field.options && field.options.length > 0); else singleCheckboxPreview"
                          style="display: flex; flex-direction: column; gap: 4px; padding: 4px 0;">
-                      
+
                       <ng-container *ngIf="field.dataSourceType === 'catalog'">
                         <div *ngFor="let opt of (catalogOptionsMap()[field.catalogType || ''] || ['Đang tải...'])"
                           style="display: flex; align-items: center; gap: 8px; opacity: 0.8;">
@@ -393,19 +391,19 @@
 
   <!-- ==================== DIALOG XEM PHIÊN BẢN BIỂU MẪU ==================== -->
   <p-dialog [visible]="showVersionsDialog()" (visibleChange)="$event ? null : showVersionsDialog.set(false)"
-    header="Lịch sử phiên bản biểu mẫu" [modal]="true" [style]="{ width: '850px' }" class="evn-dialog-custom"
+    header="Lịch sử phiên bản biểu mẫu" [modal]="true" [style]="{ width: '900px' }" class="evn-dialog-custom"
     [closable]="true">
     <div *ngIf="selectedTemplate() as template" class="version-dialog-wrapper">
       <div class="wf-table-wrap">
         <table class="wf-table">
           <thead>
-            <tr>             
+            <tr>
               <th class="col-ver-width text-center">Phiên bản</th>
               <th>Mã biểu mẫu</th>
               <th>Tên biểu mẫu</th>
               <th>Người cập nhật</th>
               <th>Ngày cập nhật</th>
-              <th class="col-tt-width text-center">Trạng thái</th>
+              <th class="col-tt-width text-center">Trạng thái sử dụng</th>
               <th style="width: 110px; text-align: center;">Thao tác</th>
             </tr>
           </thead>
@@ -421,13 +419,17 @@
                   {{ ver.isActive ? 'Hoạt động' : 'Ngưng hoạt động' }}
                 </span>
               </td>
-              <td class="text-center" style="text-align: center; white-space: nowrap;">
-                <button class="act-btn btn-view-detail" (click)="viewVersionDetail(ver)" title="Xem chi tiết">
-                  <i class="pi pi-eye"></i>
-                </button>
-                <button *ngIf="!ver.isActive" class="act-btn" style="color: #16a34a; margin-left: 8px; border: none; background: none; padding: 0; cursor: pointer;" (click)="onActivateVersion(ver)" title="Kích hoạt phiên bản này">
-                  <i class="pi pi-check-circle" style="font-size: 1.1rem;"></i>
-                </button>
+              <td class="text-center" style="text-align: center;">
+                <div style="display: inline-flex; gap: 6px; justify-content: center;">
+                  <button class="act-btn btn-view-detail" (click)="viewVersionDetail(ver)" title="Xem chi tiết">
+                    <i class="pi pi-eye"></i>
+                  </button>
+                  <button *ngIf="!ver.isActive" class="act-btn act-history" (click)="confirmRestoreVersion(ver)"
+                    title="Khôi phục phiên bản này" [disabled]="restoringVersion()"
+                    style="background-color: #f59e0b; color: white;">
+                    <i class="pi pi-refresh" [class.pi-spin]="restoringVersion()"></i>
+                  </button>
+                </div>
               </td>
             </tr>
             <tr *ngIf="versionList().length === 0">
@@ -441,6 +443,25 @@
       <div class="dialog-footer-right">
         <button class="btn-cancel btn-small" (click)="showVersionsDialog.set(false)">
           <i class="pi pi-times"></i> Đóng
+        </button>
+      </div>
+    </ng-template>
+  </p-dialog>
+
+  <p-dialog [visible]="showConfirmRestore()" (visibleChange)="$event ? null : showConfirmRestore.set(false)"
+    header="Xác nhận khôi phục" [modal]="true" [style]="{ width: '480px' }" class="evn-dialog-custom"
+    [closable]="true">
+    <p *ngIf="restoreTarget() as ver" style="margin: 8px 0 16px; line-height: 1.5;">
+      Khôi phục biểu mẫu về phiên bản <b>v{{ ver.version }}.0</b>?
+      Phiên bản này sẽ trở thành phiên bản đang sử dụng.
+    </p>
+    <ng-template #footer>
+      <div class="dialog-footer-right" style="display: flex; gap: 8px; justify-content: flex-end;">
+        <button class="btn-cancel btn-small" (click)="showConfirmRestore.set(false)" [disabled]="restoringVersion()">
+          Hủy
+        </button>
+        <button class="btn-save btn-small" (click)="onConfirmRestoreVersion()" [disabled]="restoringVersion()">
+          <i class="pi pi-refresh" [class.pi-spin]="restoringVersion()"></i> Khôi phục
         </button>
       </div>
     </ng-template>

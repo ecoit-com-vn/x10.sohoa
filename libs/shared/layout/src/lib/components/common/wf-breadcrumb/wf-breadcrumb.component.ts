@@ -39,7 +39,7 @@ export class WfBreadcrumbComponent implements OnInit, OnChanges {
   /** Ghi đè URL dùng để khớp menu (mặc định lấy router.url). */
   @Input() matchUrl: string | null = null;
   @Input() customItems: BreadcrumbTrailItem[] | null = null;
-  
+
   @Output() listClick = new EventEmitter<void>();
 
   private suffixSignal = signal<string | null>(null);
@@ -99,11 +99,15 @@ export class WfBreadcrumbComponent implements OnInit, OnChanges {
     this.viewModeSignal.set(this.viewMode);
     this.leafLabelSignal.set(this.leafLabel);
     this.customItemsSignal.set(this.customItems);
+    this.syncUrl();
 
     this.breadcrumbService
       .ensureMenusLoaded()
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe();
+      .subscribe(() => {
+        // Menu vừa về (đặc biệt local chậm) → ép trail resolve lại.
+        this.syncUrl();
+      });
 
     this.router.events
       .pipe(
@@ -131,6 +135,10 @@ export class WfBreadcrumbComponent implements OnInit, OnChanges {
     if (changes['customItems']) {
       this.customItemsSignal.set(this.customItems);
     }
+  }
+
+  private syncUrl(): void {
+    this.currentUrlSignal.set(this.matchUrl ?? this.router.url);
   }
 
   onLeafClick(): void {

@@ -86,6 +86,10 @@
           <div class="info-two-column-layout">
             <div class="info-column">
               <div class="info-text-row">
+                <span class="info-text-label">Nhóm hồ sơ:</span>
+                <span class="info-text-value">{{ viewMeta()?.dossierGroupName || '—' }}</span>
+              </div>
+              <div class="info-text-row">
                 <span class="info-text-label">Loại lưới điện:</span>
                 <span class="info-text-value">{{ viewMeta()?.gridTypeName || '—' }}</span>
               </div>
@@ -96,6 +100,10 @@
                   <span *ngIf="viewMeta()?.infrastructureCode" class="text-muted" style="font-size: 0.85rem;"> ({{
                     viewMeta()?.infrastructureCode }})</span>
                 </span>
+              </div>
+              <div class="info-text-row">
+                <span class="info-text-label">Hộp lưu trữ:</span>
+                <span class="info-text-value">{{ viewMeta()?.storageLabel || '—' }}</span>
               </div>
 
               <ng-container *ngFor="let field of leftDynamicFields(); trackBy: trackByFieldKey">
@@ -133,7 +141,7 @@
             Loại hồ sơ này chưa được cấu hình mẫu dữ liệu động.
           </div>
 
-          <div class="equipment-section" style="margin-top: 24px;">
+          <div class="equipment-section" style="margin-top: 24px;" *ngIf="viewMeta()?.isEquipmentDossier || equipments().length > 0">
             <div class="section-subtitle-header" style="margin-right: 0;">
               <i class="pi pi-sliders-h"></i> Thiết bị liên quan
             </div>

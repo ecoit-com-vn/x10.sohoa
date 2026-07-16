@@ -11,7 +11,7 @@ export interface EavFormTemplate {
   description: string;
   descriptionInfo: string;
   extractionProcess?: string;
-  formSchema: string; 
+  formSchema?: string; 
   version: number;
   isActive: boolean;
   isDeleted?: boolean;
@@ -50,6 +50,10 @@ export class FormTemplateService {
 
   getTemplateById(id: string): Observable<EavFormTemplate> {
     return this.api.get<EavFormTemplate>(`${this.apiUrl}/${id}`);
+  }
+
+  getTemplateByIdAndVersion(id: string, version: number): Observable<EavFormTemplate> {
+    return this.api.get<EavFormTemplate>(`${this.apiUrl}/${id}/versions/${version}`);
   }
 
   createTemplate(
@@ -141,6 +145,12 @@ export class FormTemplateService {
 
   getTemplateVersions(code: string): Observable<EavFormTemplate[]> {
     return this.api.get<EavFormTemplate[]>(`${this.apiUrl}/code/${code}/versions`);
+  }
+
+  restoreTemplateVersion(id: string, version: number): Observable<{ message?: string }> {
+    return this.api.put<{ message?: string }>(`${this.apiUrl}/${id}/versions/${version}/restore`, {}).pipe(
+      tap(() => this.templates$ = null)
+    );
   }
 
   getActiveTemplateByEquipmentType(equipmentTypeId: string): Observable<EavFormTemplate> {
