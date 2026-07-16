@@ -23,6 +23,7 @@ public class DossierService : IDossierService
     private readonly IDocumentRepository _documentRepository;
     private readonly IEquipmentRepository _equipmentRepository;
     private readonly IPhysicalStorageRepository _physicalStorageRepository;
+    private readonly IInfrastructureRepository _infrastructureRepository;
     private readonly IMessageProducer _messageProducer;
     private readonly IDocumentTextIndexNotifier _documentTextIndexNotifier;
     private readonly IHttpClientFactory _httpClientFactory;
@@ -35,6 +36,7 @@ public class DossierService : IDossierService
         IDocumentRepository documentRepository,
         IEquipmentRepository equipmentRepository,
         IPhysicalStorageRepository physicalStorageRepository,
+        IInfrastructureRepository infrastructureRepository,
         IMessageProducer messageProducer,
         IDocumentTextIndexNotifier documentTextIndexNotifier,
         IHttpClientFactory httpClientFactory,
@@ -46,6 +48,7 @@ public class DossierService : IDossierService
         _documentRepository = documentRepository ?? throw new ArgumentNullException(nameof(documentRepository));
         _equipmentRepository = equipmentRepository ?? throw new ArgumentNullException(nameof(equipmentRepository));
         _physicalStorageRepository = physicalStorageRepository ?? throw new ArgumentNullException(nameof(physicalStorageRepository));
+        _infrastructureRepository = infrastructureRepository ?? throw new ArgumentNullException(nameof(infrastructureRepository));
         _messageProducer = messageProducer ?? throw new ArgumentNullException(nameof(messageProducer));
         _documentTextIndexNotifier = documentTextIndexNotifier ?? throw new ArgumentNullException(nameof(documentTextIndexNotifier));
         _httpClientFactory = httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory));
@@ -151,6 +154,19 @@ public class DossierService : IDossierService
     public async Task<IEnumerable<DossierType>> GetDossierTypesLookupAsync()
     {
         return await _dossierRepository.GetDossierTypesLookupAsync();
+    }
+
+    public async Task<IEnumerable<DossierGroupDto>> GetDossierGroupsLookupAsync()
+    {
+        var items = await _dossierRepository.GetDossierGroupsLookupAsync();
+        return items.Select(g => new DossierGroupDto
+        {
+            Id = g.Id,
+            Code = g.Code,
+            Name = g.Name,
+            InfraTypeId = g.InfraTypeId,
+            IsEquipmentDossier = g.IsEquipmentDossier
+        });
     }
 
     public async Task<(IEnumerable<EquipmentLookupItemDto> Items, int TotalCount)> GetEquipmentLookupAsync(
@@ -277,9 +293,12 @@ public class DossierService : IDossierService
 
     public async Task<Guid> CreateAsync(DossierCreateDto dto, string userId, string userName, string userFullName, int kindId = 2)
     {
+        var equipmentIds = await ValidateAndNormalizeGroupAsync(dto.DossierGroupId, dto.InfrastructureId, dto.EquipmentIds);
+
         var dossier = new Dossier
         {
             Id = Guid.Parse(UuidHelper.NewUuid()),
+            DossierGroupId = dto.DossierGroupId,
             GridTypeId = dto.GridTypeId,
             InfrastructureId = dto.InfrastructureId,
             DossierSetId = dto.DossierSetId,
@@ -297,7 +316,7 @@ public class DossierService : IDossierService
         };
         ApplyPhysicalStorage(dossier, dto.ShelfId, dto.FloorId, dto.BoxId);
 
-        var newId = await _dossierRepository.CreateAsync(dossier, dto.EquipmentIds);
+        var newId = await _dossierRepository.CreateAsync(dossier, equipmentIds);
 
         // Tạo phiên bản khởi đầu (v1) ngay khi hồ sơ được tạo mới
         if (!string.IsNullOrEmpty(dto.FormDataJson))
@@ -325,6 +344,9 @@ public class DossierService : IDossierService
         if (!string.IsNullOrEmpty(dto.FormDataJson))
             await EnsureCanEditFormDataAsync(existing);
 
+        var equipmentIds = await ValidateAndNormalizeGroupAsync(dto.DossierGroupId, dto.InfrastructureId, dto.EquipmentIds);
+
+        existing.DossierGroupId = dto.DossierGroupId;
         existing.GridTypeId = dto.GridTypeId;
         existing.InfrastructureId = dto.InfrastructureId;
         existing.DossierSetId = dto.DossierSetId;
@@ -335,10 +357,45 @@ public class DossierService : IDossierService
         existing.RowVersion = dto.RowVersion;
         ApplyPhysicalStorage(existing, dto.ShelfId, dto.FloorId, dto.BoxId);
 
-        var updated = await _dossierRepository.UpdateAsync(existing, dto.EquipmentIds);
+        var updated = await _dossierRepository.UpdateAsync(existing, equipmentIds);
         if (updated)
             await PublishDossierChangedAsync(id, DossierChangedActions.Updated);
         return updated;
+    }
+
+    /// <summary>
+    /// Validate nhóm hồ sơ / loại hạ tầng / thiết bị. Trả về danh sách EquipmentIds đã chuẩn hóa (rỗng nếu không phải HS thiết bị).
+    /// </summary>
+    private async Task<List<Guid>> ValidateAndNormalizeGroupAsync(
+        int dossierGroupId,
+        Guid? infrastructureId,
+        List<Guid>? equipmentIds)
+    {
+        var group = await _dossierRepository.GetDossierGroupByIdAsync(dossierGroupId);
+        if (group == null)
+            throw new ArgumentException("Nhóm hồ sơ không hợp lệ.");
+
+        if (infrastructureId.HasValue)
+        {
+            var infra = await _infrastructureRepository.GetByIdAsync(infrastructureId.Value);
+            if (infra == null)
+                throw new ArgumentException("Trạm / đường dây không tồn tại.");
+            if (infra.InfraTypeId != group.InfraTypeId)
+                throw new ArgumentException(
+                    group.InfraTypeId == 1
+                        ? "Nhóm hồ sơ này yêu cầu chọn trạm biến áp."
+                        : "Nhóm hồ sơ này yêu cầu chọn đường dây.");
+        }
+
+        var ids = equipmentIds?.Where(x => x != Guid.Empty).Distinct().ToList() ?? new List<Guid>();
+        if (group.IsEquipmentDossier)
+        {
+            if (ids.Count == 0)
+                throw new ArgumentException("Hồ sơ thiết bị bắt buộc chọn ít nhất một thiết bị.");
+            return ids;
+        }
+
+        return new List<Guid>();
     }
 
     public async Task<bool> DeleteAsync(Guid id, string userId)

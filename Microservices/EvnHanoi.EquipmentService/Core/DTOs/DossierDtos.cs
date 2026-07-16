@@ -69,12 +69,25 @@ public class DossierListItemDto
     public string? PublishStatusName { get; set; }
 }
 
+/// <summary>Lookup nhóm hồ sơ (DOSSIER_GROUPS).</summary>
+public class DossierGroupDto
+{
+    public int Id { get; set; }
+    public string Code { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public int InfraTypeId { get; set; }
+    public bool IsEquipmentDossier { get; set; }
+}
+
 /// <summary>
 /// DTO chi tiết hồ sơ — bao gồm FormDataJson và danh sách thiết bị
 /// </summary>
 public class DossierDetailDto
 {
     public Guid Id { get; set; }
+    public int DossierGroupId { get; set; }
+    public string? DossierGroupName { get; set; }
+    public bool IsEquipmentDossier { get; set; }
     public int? GridTypeId { get; set; }
     public string? GridTypeName { get; set; }
     public Guid? InfrastructureId { get; set; }
@@ -122,6 +135,7 @@ public class DossierDetailDto
 /// </summary>
 public class DossierCreateDto
 {
+    public int DossierGroupId { get; set; }
     public int? GridTypeId { get; set; }
     public Guid? InfrastructureId { get; set; }
     public Guid? DossierSetId { get; set; }
@@ -140,6 +154,7 @@ public class DossierCreateDto
 /// </summary>
 public class DossierUpdateDto
 {
+    public int DossierGroupId { get; set; }
     public int? GridTypeId { get; set; }
     public Guid? InfrastructureId { get; set; }
     public Guid? DossierSetId { get; set; }

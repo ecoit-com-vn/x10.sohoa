@@ -60,6 +60,31 @@ public class DossierRepository : IDossierRepository
         return await _connection.QueryAsync<DossierType>(sql);
     }
 
+    public async Task<IEnumerable<DossierGroup>> GetDossierGroupsLookupAsync()
+    {
+        _connection.EnsureOpen();
+        const string sql = @"SELECT ID as Id,
+                                    CODE as Code,
+                                    NAME as Name,
+                                    INFRA_TYPE_ID as InfraTypeId,
+                                    IS_EQUIPMENT_DOSSIER as IsEquipmentDossier
+                             FROM DOSSIER_GROUPS
+                             ORDER BY ID ASC";
+        return await _connection.QueryAsync<DossierGroup>(sql);
+    }
+
+    public async Task<DossierGroup?> GetDossierGroupByIdAsync(int id)
+    {
+        _connection.EnsureOpen();
+        const string sql = @"SELECT ID as Id,
+                                    CODE as Code,
+                                    NAME as Name,
+                                    INFRA_TYPE_ID as InfraTypeId,
+                                    IS_EQUIPMENT_DOSSIER as IsEquipmentDossier
+                             FROM DOSSIER_GROUPS
+                             WHERE ID = :Id";
+        return await _connection.QuerySingleOrDefaultAsync<DossierGroup>(sql, new { Id = id });
+    }
 
     [Obsolete("Dùng IDossierSearchRepository qua DossierService.GetPagedAsync.")]
     public Task<(IEnumerable<DossierListItemDto> Items, int TotalCount)> GetPagedAsync(DossierFilterDto filter)
@@ -585,6 +610,9 @@ public class DossierRepository : IDossierRepository
         {
             var sql = $@"SELECT
                         d.{nameof(Dossier.Id)},
+                        d.DOSSIER_GROUP_ID as {nameof(DossierDetailDto.DossierGroupId)},
+                        dg.NAME as {nameof(DossierDetailDto.DossierGroupName)},
+                        dg.IS_EQUIPMENT_DOSSIER as {nameof(DossierDetailDto.IsEquipmentDossier)},
                         d.{nameof(Dossier.GridTypeId)},
                         gt.Name as {nameof(DossierDetailDto.GridTypeName)},
                         d.{nameof(Dossier.InfrastructureId)},
@@ -623,6 +651,7 @@ public class DossierRepository : IDossierRepository
                         d.{nameof(Dossier.CreatorUsername)} as Username,
                         d.{nameof(Dossier.CreatorName)} as Name
                      FROM DOSSIERS d
+                     LEFT JOIN DOSSIER_GROUPS dg ON d.DOSSIER_GROUP_ID = dg.ID
                      LEFT JOIN GridTypes gt ON d.{nameof(Dossier.GridTypeId)} = gt.Id
                      LEFT JOIN INFRASTRUCTURE i ON d.{nameof(Dossier.InfrastructureId)} = i.ID
                      LEFT JOIN DOSSIER_TYPES dt ON d.{nameof(Dossier.DossierTypeId)} = dt.ID
@@ -653,7 +682,7 @@ public class DossierRepository : IDossierRepository
     public async Task<Dossier?> GetByIdAsync(Guid id)
     {
         _connection.EnsureOpen();
-        var sql = $@"SELECT Id, GridTypeId, InfrastructureId, DossierSetId, DossierTypeId, FormDataJson, STATUS_ID as StatusId, KIND_ID as KindId, WorkflowInstanceId, WorkflowStatusName, RowVersion, CreatorId, CreatorUsername, CreatorName, CreatedBy, CreatedDate, ModifiedBy, ModifiedDate, IsDeleted, PUBLISHSTATUSID as PublishStatusId, ShelfId, FloorId, BoxId FROM DOSSIERS WHERE {nameof(Dossier.Id)} = :Id AND {nameof(Dossier.IsDeleted)} = 0";
+        var sql = $@"SELECT Id, DOSSIER_GROUP_ID as DossierGroupId, GridTypeId, InfrastructureId, DossierSetId, DossierTypeId, FormDataJson, STATUS_ID as StatusId, KIND_ID as KindId, WorkflowInstanceId, WorkflowStatusName, RowVersion, CreatorId, CreatorUsername, CreatorName, CreatedBy, CreatedDate, ModifiedBy, ModifiedDate, IsDeleted, PUBLISHSTATUSID as PublishStatusId, ShelfId, FloorId, BoxId FROM DOSSIERS WHERE {nameof(Dossier.Id)} = :Id AND {nameof(Dossier.IsDeleted)} = 0";
         return await _connection.QuerySingleOrDefaultAsync<Dossier>(sql, new { Id = id.ToString() });
     }
 
@@ -673,6 +702,7 @@ public class DossierRepository : IDossierRepository
         {
             var sql = $@"INSERT INTO DOSSIERS (
                             {nameof(Dossier.Id)},
+                            DOSSIER_GROUP_ID,
                             {nameof(Dossier.GridTypeId)},
                             {nameof(Dossier.InfrastructureId)},
                             {nameof(Dossier.DossierSetId)},
@@ -691,7 +721,7 @@ public class DossierRepository : IDossierRepository
                             {nameof(Dossier.FloorId)},
                             {nameof(Dossier.BoxId)}
                         ) VALUES (
-                            :Id, :GridTypeId, :InfrastructureId, :DossierSetId, :DossierTypeId,
+                            :Id, :DossierGroupId, :GridTypeId, :InfrastructureId, :DossierSetId, :DossierTypeId,
                             :FormDataJson, :StatusId, :KindId, :RowVersion, :CreatorId, :CreatorUsername,
                             :CreatorName, :CreatedBy, :CreatedDate, :IsDeleted,
                             :ShelfId, :FloorId, :BoxId
@@ -699,6 +729,7 @@ public class DossierRepository : IDossierRepository
             await _connection.ExecuteAsync(sql, new
             {
                 Id = dossier.Id.ToString(),
+                dossier.DossierGroupId,
                 dossier.GridTypeId,
                 InfrastructureId = dossier.InfrastructureId?.ToString(),
                 DossierSetId = dossier.DossierSetId?.ToString(),
@@ -741,6 +772,7 @@ public class DossierRepository : IDossierRepository
         try
         {
             var sql = $@"UPDATE DOSSIERS SET
+                            DOSSIER_GROUP_ID = :DossierGroupId,
                             {nameof(Dossier.GridTypeId)} = :GridTypeId,
                             {nameof(Dossier.InfrastructureId)} = :InfrastructureId,
                             {nameof(Dossier.DossierSetId)} = :DossierSetId,
@@ -758,6 +790,7 @@ public class DossierRepository : IDossierRepository
             var affected = await _connection.ExecuteAsync(sql, new
             {
                 Id = dossier.Id.ToString(),
+                dossier.DossierGroupId,
                 dossier.GridTypeId,
                 InfrastructureId = dossier.InfrastructureId?.ToString(),
                 DossierSetId = dossier.DossierSetId?.ToString(),
