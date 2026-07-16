@@ -24,6 +24,8 @@ using EvnHanoi.DigitizationService.Helpers;
 
 namespace EvnHanoi.DigitizationService.Workers
 {
+    public record PageResult(int Page, JsonNode? Data, string? DataText, string? Error, string? ExtractionMethod);
+
     public class ExtractionWorker : BackgroundService
     {
         private readonly ILogger<ExtractionWorker> _logger;
@@ -128,9 +130,16 @@ namespace EvnHanoi.DigitizationService.Workers
                                     }
                                     pageNumToFetch++;
                                 }
-                                catch (Exception)
+                                catch (Exception ex)
                                 {
-                                    _logger.LogInformation("Kết thúc tải file JSON tại trang {Page}.", pageNumToFetch);
+                                    if (ex.Message.Contains("not found", StringComparison.OrdinalIgnoreCase) || ex.Message.Contains("does not exist", StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        _logger.LogInformation("Kết thúc tải file JSON tại trang {Page} (File không tồn tại).", pageNumToFetch);
+                                    }
+                                    else
+                                    {
+                                        _logger.LogWarning(ex, "Lỗi khi tải file JSON tại trang {Page}. Dừng quá trình tải JSON.", pageNumToFetch);
+                                    }
                                     break;
                                 }
                             }
@@ -196,21 +205,7 @@ namespace EvnHanoi.DigitizationService.Workers
                             httpClient.Timeout = TimeSpan.FromMinutes(10);
 
                             // 4. Build Prompt từ Forms
-                            string systemPrompt = "";
-                            string userPrompt = "";
-                            if (taskMsg.Form != null)
-                            {
-                                var fieldsList = new List<string>();
-                                if (taskMsg.Form.Fields != null)
-                                {
-                                    foreach (var field in taskMsg.Form.Fields)
-                                    {
-                                        fieldsList.Add($"- {field.FieldName}: {field.Description}");
-                                    }
-                                }
-                                string fieldsStr = string.Join("\n", fieldsList);
-
-                                systemPrompt = $@"Bạn là một chuyên gia phân tích và trích xuất dữ liệu tài liệu kỹ thuật ngành điện lực Việt Nam, có khả năng đọc hiểu bố cục trang giấy dựa vào tọa độ của kết quả OCR.
+                            string systemPrompt = $@"Bạn là một chuyên gia phân tích và trích xuất dữ liệu tài liệu kỹ thuật ngành điện lực Việt Nam, có khả năng đọc hiểu bố cục trang giấy dựa vào tọa độ của kết quả OCR.
 Nhiệm vụ: đọc danh sách các khối chữ OCR được cung cấp bên dưới và trích xuất CHÍNH XÁC các trường thông tin được yêu cầu (danh sách trường và cấu trúc JSON mong muốn được cung cấp kèm theo, ngay sau phần chỉ dẫn này). Trả về kết quả dưới dạng MỘT JSON object DUY NHẤT.
 
 [ĐỊNH DẠNG ĐẦU VÀO]
@@ -247,7 +242,7 @@ Nếu toàn bộ trang không chứa bất kỳ trường nào được yêu c�
 [ĐỊNH DẠNG JSON ĐẦU RA — BẮT BUỘC TUYỆT ĐỐI]
 Câu trả lời CHỈ gồm một JSON object DUY NHẤT: ký tự đầu tiên là {{, ký tự cuối cùng là }}.
 TUYỆT ĐỐI KHÔNG bọc JSON trong dấu backtick hay khối mã kiểu markdown (không mở đầu bằng ba dấu backtick kèm chữ json, không kết thúc bằng ba dấu backtick). KHÔNG thêm câu dẫn, lời giải thích, hay ghi chú nào trước hoặc sau JSON.
-Dùng dấu ngoặc kép "" cho mọi key và mọi giá trị chuỗi (không dùng nháy đơn '). Dấu "" nằm trong giá trị chuỗi phải escape thành "". Ký tự xuống dòng trong giá trị phải escape thành \n (không xuống dòng thật trong chuỗi JSON).
+Dùng dấu ngoặc kép """" cho mọi key và mọi giá trị chuỗi (không dùng nháy đơn '). Dấu """" nằm trong giá trị chuỗi phải escape thành """". Ký tự xuống dòng trong giá trị phải escape thành \n (không xuống dòng thật trong chuỗi JSON).
 KHÔNG để dấu phẩy dư (trailing comma) trước }} hoặc ].
 JSON LUÔN chứa ĐỦ tất cả các trường được yêu cầu, đúng tên, đúng thứ tự như cấu trúc đã cho — kể cả khi giá trị là null. KHÔNG thêm, KHÔNG bớt, KHÔNG đổi tên trường.
 
@@ -268,19 +263,28 @@ Vì sao: ""TBA Mẫu Số 01"" được lấy vì cùng hàng, ngay bên phải 
 
 [TỰ KIỂM TRA TRƯỚC KHI TRẢ LỜI] (thực hiện trong nội bộ, KHÔNG hiển thị ra câu trả lời)
 Trước khi xuất câu trả lời cuối cùng, tự rà soát: (a) mỗi giá trị đã điền có thực sự xuất hiện nguyên văn trong OCR không, hay là suy diễn? (b) có khối chữ nào bị lấy nhầm từ cột/bảng bên cạnh không? (c) ngoặc kép và ngoặc nhọn đã đóng đủ chưa, có dấu phẩy dư không? Sửa lại nếu phát hiện sai sót — phần rà soát này KHÔNG được xuất hiện trong câu trả lời.
-{taskMsg.ExtractPrompt}";
+{(taskMsg.Form != null ? taskMsg.ExtractPrompt : string.Empty)}";
+
+                            string userPrompt = "";
+                            if (taskMsg.Form != null && taskMsg.Form.Fields != null)
+                            {
+                                var fieldsList = new List<string>();
+                                foreach (var field in taskMsg.Form.Fields)
+                                {
+                                    fieldsList.Add($"- {field.FieldName}: {field.Description}");
+                                }
+                                string fieldsStr = string.Join("\n", fieldsList);
                                 userPrompt = $@"[CÁC TRƯỜNG CẦN TRÍCH XUẤT]:
 {fieldsStr}";
                             }
                             else
                             {
-                                // Default prompt nếu không truyền Forms (Fallback)
-                                systemPrompt = @"Bạn là chuyên gia trích xuất dữ liệu. Hãy đọc văn bản và trích xuất thông tin dưới dạng JSON. Chỉ trả về chuỗi JSON duy nhất, không thêm giải thích.";
+                                userPrompt = "[CÁC TRƯỜNG CẦN TRÍCH XUẤT]:\nTrích xuất tất cả các thông tin quan trọng có trong văn bản.";
                             }
 
                             // 5. Gửi từng trang lên LLM
-                            var tasks = new List<Task<object>>();
-                            List<object> finalResults = new List<object>();
+                            var tasks = new List<Task<PageResult>>();
+                            List<PageResult> finalResults = new List<PageResult>();
 
                             using var semaphore = new SemaphoreSlim(1, 1);
                             int completedPages = 0;
@@ -297,7 +301,7 @@ Trước khi xuất câu trả lời cuối cùng, tự rà soát: (a) mỗi gi�
                                 }
 
                                 // Local function to handle each page asynchronously
-                                async Task<object> ProcessPageAsync()
+                                async Task<PageResult> ProcessPageAsync()
                                 {
                                     await semaphore.WaitAsync(stoppingToken);
                                     try
@@ -311,7 +315,7 @@ Trước khi xuất câu trả lời cuối cùng, tự rà soát: (a) mỗi gi�
                                         int maxRetries = _configuration.GetValue("Extraction:MaxRetries", 2);
                                         int retryDelayMs = _configuration.GetValue("Extraction:RetryDelayMs", 1000);
 
-                                        object pageResult = null;
+                                        PageResult? pageResult = null;
                                         var swTotal = Stopwatch.StartNew();
 
                                         for (int attempt = 0; attempt <= maxRetries; attempt++)
@@ -322,72 +326,72 @@ Trước khi xuất câu trả lời cuối cùng, tự rà soát: (a) mỗi gi�
                                                 await Task.Delay(retryDelayMs * attempt, stoppingToken);
                                             }
 
-                                            var payload = new
-                                            {
-                                                messages = new object[]
-                                                {
-                                                    new { role = "system", content = systemPrompt },
-                                                    new { role = "user", content = $"{userPrompt}\n[VĂN BẢN OCR]:\n{pageText}" }
-                                                },
-                                                temperature = llmTemperature,
-                                                max_tokens = maxTokens
-                                            };
-                                            var content = new StringContent(
-                                                JsonSerializer.Serialize(payload, OcrPageContentHelper.Utf8JsonOptions),
-                                                Encoding.UTF8,
-                                                "application/json");
-
+                                            string? extractedJson = null;
                                             var sw = Stopwatch.StartNew();
-                                            var response = await httpClient.PostAsync("/v1/chat/completions", content, stoppingToken);
-                                            response.EnsureSuccessStatusCode();
-                                            var resultStr = await response.Content.ReadAsStringAsync(stoppingToken);
-                                            sw.Stop();
-
-                                            var jsonNode = JsonNode.Parse(resultStr);
-                                            var extractedJson = jsonNode?["choices"]?[0]?["message"]?["content"]?.GetValue<string>();
-
-                                            // Diagnostic: log chi tiết khi LLM response rỗng
-                                            if (string.IsNullOrEmpty(extractedJson))
-                                            {
-                                                _logger.LogWarning(
-                                                    "[DIAGNOSTIC] LLM response content rỗng cho trang {Page} (attempt {Attempt}). " +
-                                                    "HTTP Status: {Status}. Response length: {Length} bytes.",
-                                                    pageNum, attempt, response.StatusCode, resultStr?.Length ?? 0);
-                                                if (attempt < maxRetries) continue; // Retry
-                                                pageResult = new { page = pageNum, data_text = "" };
-                                                break;
-                                            }
-
-                                            // Strip markdown code block markers
-                                            if (extractedJson.StartsWith("```json"))
-                                            {
-                                                extractedJson = extractedJson.Substring(7);
-                                                if (extractedJson.EndsWith("```")) extractedJson = extractedJson.Substring(0, extractedJson.Length - 3);
-                                            }
-                                            else if (extractedJson.StartsWith("```"))
-                                            {
-                                                extractedJson = extractedJson.Substring(3);
-                                                if (extractedJson.EndsWith("```")) extractedJson = extractedJson.Substring(0, extractedJson.Length - 3);
-                                            }
 
                                             try
                                             {
-                                                var parsedJson = JsonNode.Parse(extractedJson.Trim());
+                                                var payload = new
+                                                {
+                                                    messages = new object[]
+                                                    {
+                                                        new { role = "system", content = systemPrompt },
+                                                        new { role = "user", content = $"{userPrompt}\n[VĂN BẢN OCR]:\n{pageText}" }
+                                                    },
+                                                    temperature = llmTemperature,
+                                                    max_tokens = maxTokens,
+                                                    response_format = new { type = "json_object" }
+                                                };
+                                                var content = new StringContent(
+                                                    JsonSerializer.Serialize(payload, OcrPageContentHelper.Utf8JsonOptions),
+                                                    Encoding.UTF8,
+                                                    "application/json");
+
+                                                var response = await httpClient.PostAsync("/v1/chat/completions", content, stoppingToken);
+                                                response.EnsureSuccessStatusCode();
+                                                var resultStr = await response.Content.ReadAsStringAsync(stoppingToken);
+                                                sw.Stop();
+
+                                                var jsonNode = JsonNode.Parse(resultStr);
+                                                extractedJson = jsonNode?["choices"]?[0]?["message"]?["content"]?.GetValue<string>();
+                                            }
+                                            catch (Exception httpEx)
+                                            {
+                                                _logger.LogWarning(httpEx, "Lỗi gọi LLM/parse envelope, trang {Page}, attempt {Attempt}.", pageNum, attempt);
+                                                if (attempt < maxRetries) continue;
+                                                pageResult = new PageResult(pageNum, null, "", httpEx.Message, "error");
+                                                break;
+                                            }
+
+                                            if (string.IsNullOrEmpty(extractedJson))
+                                            {
+                                                _logger.LogWarning(
+                                                    "[DIAGNOSTIC] LLM response content rỗng cho trang {Page} (attempt {Attempt}).",
+                                                    pageNum, attempt);
+                                                if (attempt < maxRetries) continue;
+                                                pageResult = new PageResult(pageNum, null, "", null, "empty");
+                                                break;
+                                            }
+
+                                            extractedJson = OcrPageContentHelper.StripMarkdownCodeFence(extractedJson);
+
+                                            try
+                                            {
+                                                var parsedJson = JsonNode.Parse(extractedJson);
                                                 _logger.LogInformation("[ĐO ĐẠC] Trang {Page} hoàn thành Trích xuất sau {ElapsedMs} ms.", pageNum, sw.ElapsedMilliseconds);
-                                                pageResult = new { page = pageNum, data = parsedJson };
-                                                break; // Thành công → thoát retry
+                                                pageResult = new PageResult(pageNum, parsedJson, null, null, "direct");
+                                                break;
                                             }
                                             catch
                                             {
                                                 _logger.LogWarning("JSON parse lỗi trang {Page} (attempt {Attempt}): {Json}",
                                                     pageNum, attempt, extractedJson?.Length > 300 ? extractedJson[..300] + "..." : extractedJson);
 
-                                                if (attempt < maxRetries) continue; // Retry trước khi fallback
+                                                if (attempt < maxRetries) continue;
 
-                                                // Cứu hộ JSON bị lỗi (thiếu ngoặc kép, sai cú pháp) bằng Regex — chỉ khi hết retry
                                                 try
                                                 {
-                                                    var dict = new Dictionary<string, object>();
+                                                    var dict = new Dictionary<string, object?>();
                                                     bool rescued = false;
                                                     if (taskMsg.Form?.Fields != null)
                                                     {
@@ -395,9 +399,9 @@ Trước khi xuất câu trả lời cuối cùng, tự rà soát: (a) mỗi gi�
                                                         for (int k = 0; k < keys.Count; k++)
                                                         {
                                                             string key = keys[k];
-                                                            string nextKey = k < keys.Count - 1 ? keys[k + 1] : null;
+                                                            string? nextKey = k < keys.Count - 1 ? keys[k + 1] : null;
 
-                                                            var match = Regex.Match(extractedJson, $"\"{key}\"\\s*:\\s*");
+                                                            var match = Regex.Match(extractedJson, $"\"{Regex.Escape(key)}\"\\s*:\\s*");
                                                             if (match.Success)
                                                             {
                                                                 int startValIdx = match.Index + match.Length;
@@ -405,7 +409,7 @@ Trước khi xuất câu trả lời cuối cùng, tự rà soát: (a) mỗi gi�
 
                                                                 if (nextKey != null)
                                                                 {
-                                                                    var nextMatch = Regex.Match(extractedJson, $"\"{nextKey}\"\\s*:\\s*");
+                                                                    var nextMatch = Regex.Match(extractedJson, $"\"{Regex.Escape(nextKey)}\"\\s*:\\s*");
                                                                     if (nextMatch.Success)
                                                                     {
                                                                         endValIdx = nextMatch.Index;
@@ -441,7 +445,7 @@ Trước khi xuất câu trả lời cuối cùng, tự rà soát: (a) mỗi gi�
                                                         var rescuedJson = JsonSerializer.Serialize(dict);
                                                         var parsedJson = JsonNode.Parse(rescuedJson);
                                                         _logger.LogInformation("[ĐO ĐẠC] Trang {Page} hoàn thành Trích xuất (ĐÃ CỨU HỘ BẰNG REGEX) sau {ElapsedMs} ms.", pageNum, sw.ElapsedMilliseconds);
-                                                        pageResult = new { page = pageNum, data = parsedJson };
+                                                        pageResult = new PageResult(pageNum, parsedJson, null, null, "rescued");
                                                         break;
                                                     }
                                                 }
@@ -450,19 +454,18 @@ Trước khi xuất câu trả lời cuối cùng, tự rà soát: (a) mỗi gi�
                                                     _logger.LogWarning(ex, "Lỗi khi chạy cứu hộ JSON cho trang {Page}", pageNum);
                                                 }
 
-                                                // Fallback cuối cùng
                                                 _logger.LogInformation("[ĐO ĐẠC] Trang {Page} hoàn thành Trích xuất (Raw Text) sau {ElapsedMs} ms.", pageNum, swTotal.ElapsedMilliseconds);
-                                                pageResult = new { page = pageNum, data_text = extractedJson };
+                                                pageResult = new PageResult(pageNum, null, extractedJson, null, "raw_text");
                                                 break;
                                             }
                                         }
 
-                                        return pageResult ?? new { page = pageNum, data_text = "" };
+                                        return pageResult ?? new PageResult(pageNum, null, "", null, "empty");
                                     }
                                     catch (Exception ex)
                                     {
                                         _logger.LogWarning(ex, "Lỗi khi gọi llm_server cho trang {Page}.", pageNum);
-                                        return new { page = pageNum, error = ex.Message };
+                                        return new PageResult(pageNum, null, null, ex.Message, "error");
                                     }
                                     finally
                                     {
@@ -485,7 +488,7 @@ Trước khi xuất câu trả lời cuối cùng, tự rà soát: (a) mỗi gi�
 
                             // Đợi tất cả các task hoàn thành
                             var resultsArray = await Task.WhenAll(tasks);
-                            finalResults = resultsArray.Where(r => r != null).OrderBy(r => ((dynamic)r).page).ToList();
+                            finalResults = resultsArray.Where(r => r != null).OrderBy(r => r.Page).ToList();
 
                             // Fix 1: Merge thông minh — gộp kết quả tất cả trang thành 1 JSON object
                             // Ưu tiên giá trị non-null đầu tiên tìm thấy cho mỗi trường
@@ -494,13 +497,7 @@ Trước khi xuất câu trả lời cuối cùng, tự rà soát: (a) mỗi gi�
                             {
                                 try
                                 {
-                                    var dynamicResult = (dynamic)result;
-                                    // Chỉ merge các kết quả có property "data" (JsonNode)
-                                    var dataJson = JsonSerializer.Serialize(result);
-                                    var dataNode = JsonNode.Parse(dataJson);
-                                    var dataObj = dataNode?["data"];
-
-                                    if (dataObj is JsonObject pageData)
+                                    if (result.Data is JsonObject pageData)
                                     {
                                         foreach (var kvp in pageData)
                                         {
@@ -510,56 +507,51 @@ Trước khi xuất câu trả lời cuối cùng, tự rà soát: (a) mỗi gi�
                                             // Chỉ ghi đè nếu trường chưa có giá trị hoặc giá trị hiện tại là null
                                             if (!mergedResult.ContainsKey(fieldName))
                                             {
-                                                // Clone giá trị để tránh lỗi "node already has a parent"
                                                 mergedResult[fieldName] = fieldValue != null ? JsonNode.Parse(fieldValue.ToJsonString()) : null;
                                             }
                                             else if (mergedResult[fieldName] == null && fieldValue != null)
                                             {
                                                 mergedResult[fieldName] = JsonNode.Parse(fieldValue.ToJsonString());
                                             }
+                                            else if (mergedResult[fieldName] != null && fieldValue != null)
+                                            {
+                                                var oldVal = mergedResult[fieldName]!.ToJsonString();
+                                                var newVal = fieldValue.ToJsonString();
+                                                if (oldVal != newVal)
+                                                {
+                                                    _logger.LogWarning("Trường {Field} có giá trị khác nhau giữa các trang. Cũ: {Old}, Mới (bị bỏ qua): {New}", fieldName, oldVal, newVal);
+                                                }
+                                            }
                                         }
                                     }
                                     // Xử lý data_text: nếu trang không có "data" nhưng có "data_text" chứa JSON hợp lệ
-                                    else
+                                    else if (!string.IsNullOrWhiteSpace(result.DataText))
                                     {
-                                        var dataTextNode = dataNode?["data_text"];
-                                        if (dataTextNode != null)
+                                        try
                                         {
-                                            string rawText = dataTextNode.GetValue<string>();
-                                            if (!string.IsNullOrWhiteSpace(rawText))
+                                            string cleaned = OcrPageContentHelper.StripMarkdownCodeFence(result.DataText);
+                                            var parsedDataText = JsonNode.Parse(cleaned);
+                                            if (parsedDataText is JsonObject textPageData)
                                             {
-                                                try
+                                                foreach (var kvp in textPageData)
                                                 {
-                                                    // Thử strip markdown + parse JSON từ data_text
-                                                    string cleaned = rawText.Trim();
-                                                    if (cleaned.StartsWith("```json")) cleaned = cleaned[7..];
-                                                    if (cleaned.StartsWith("```")) cleaned = cleaned[3..];
-                                                    if (cleaned.EndsWith("```")) cleaned = cleaned[..^3];
-
-                                                    var parsedDataText = JsonNode.Parse(cleaned.Trim());
-                                                    if (parsedDataText is JsonObject textPageData)
-                                                    {
-                                                        foreach (var kvp in textPageData)
-                                                        {
-                                                            if (!mergedResult.ContainsKey(kvp.Key))
-                                                                mergedResult[kvp.Key] = kvp.Value != null ? JsonNode.Parse(kvp.Value.ToJsonString()) : null;
-                                                            else if (mergedResult[kvp.Key] == null && kvp.Value != null)
-                                                                mergedResult[kvp.Key] = JsonNode.Parse(kvp.Value.ToJsonString());
-                                                        }
-                                                        _logger.LogInformation("Đã merge thành công data_text từ trang.");
-                                                    }
+                                                    if (!mergedResult.ContainsKey(kvp.Key))
+                                                        mergedResult[kvp.Key] = kvp.Value != null ? JsonNode.Parse(kvp.Value.ToJsonString()) : null;
+                                                    else if (mergedResult[kvp.Key] == null && kvp.Value != null)
+                                                        mergedResult[kvp.Key] = JsonNode.Parse(kvp.Value.ToJsonString());
                                                 }
-                                                catch (Exception dtEx)
-                                                {
-                                                    _logger.LogWarning("Không parse được data_text: {Error}", dtEx.Message);
-                                                }
+                                                _logger.LogInformation("Đã merge thành công data_text từ trang {Page}.", result.Page);
                                             }
+                                        }
+                                        catch (Exception dtEx)
+                                        {
+                                            _logger.LogWarning("Không parse được data_text trang {Page}: {Error}", result.Page, dtEx.Message);
                                         }
                                     }
                                 }
                                 catch (Exception ex)
                                 {
-                                    _logger.LogWarning("Không thể merge kết quả trang: {Error}", ex.Message);
+                                    _logger.LogWarning("Không thể merge kết quả trang {Page}: {Error}", result.Page, ex.Message);
                                 }
                             }
 
@@ -584,26 +576,14 @@ Trước khi xuất câu trả lời cuối cùng, tự rà soát: (a) mỗi gi�
                             _logger.LogInformation("Đã lưu kết quả gộp vào MinIO: {FileName} tại bucket {BucketName}", resultFileName, taskMsg.BucketName);
 
                             bool allFailed = true;
-                            if (resultsArray.Length > 0)
+                            if (finalResults.Count > 0)
                             {
-                                foreach (var r in resultsArray)
+                                foreach (var r in finalResults)
                                 {
-                                    if (r != null)
+                                    if (string.IsNullOrEmpty(r.Error))
                                     {
-                                        try
-                                        {
-                                            var errorProp = r.GetType().GetProperty("error");
-                                            if (errorProp == null || errorProp.GetValue(r) == null)
-                                            {
-                                                allFailed = false;
-                                                break;
-                                            }
-                                        }
-                                        catch
-                                        {
-                                            allFailed = false;
-                                            break;
-                                        }
+                                        allFailed = false;
+                                        break;
                                     }
                                 }
                             }
@@ -638,7 +618,7 @@ Trước khi xuất câu trả lời cuối cùng, tự rà soát: (a) mỗi gi�
                     catch (Exception ex)
                     {
                         _logger.LogError(ex, "Lỗi khi xử lý Extraction task.");
-                        await _channel.BasicNackAsync(ea.DeliveryTag, false, true);
+                        await _channel.BasicNackAsync(ea.DeliveryTag, false, false);
                     }
                 };
 
