@@ -220,6 +220,7 @@ public class DocumentTypeRepository : IDocumentTypeRepository
             documentType.Code,
             FormId = documentType.FormId?.ToString(),
             IsActive = documentType.IsActive ? 1 : 0,
+            IsEquipmentProfile = documentType.IsEquipmentProfile ? 1 : 0,
             documentType.Piority,
             documentType.ModifiedBy,
             documentType.ModifiedDate

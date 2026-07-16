@@ -21,6 +21,7 @@ public interface IEavFormTemplateRepository
     Task<int> GetMaxVersionAsync(Guid formTemplateId);
     Task DeleteVersionsAsync(Guid formTemplateId);
     Task ApproveVersionAsync(Guid formTemplateId, string status);
+    Task ActivateVersionAsync(Guid versionId);
     /// <summary>Khôi phục: đặt phiên bản chỉ định thành IsActive=1, các phiên bản khác = 0.</summary>
     Task<bool> RestoreVersionAsync(Guid formTemplateId, int version);
 }
