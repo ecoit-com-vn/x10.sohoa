@@ -10,7 +10,7 @@ import { APP_CONFIG } from '@sohoa.frontend/shared/core';
 import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
 
-import { DossierLookupDocumentsTabComponent } from '../dossier-lookup-documents-tab/dossier-lookup-documents-tab.component';
+import { DossierLookupDocumentsTabComponent } from '@sohoa.frontend/features/search';
 import {
   DossierManagementService,
   EavField,
@@ -23,14 +23,14 @@ import {
 } from '@sohoa.frontend/features/dossier-management';
 
 @Component({
-  selector: 'app-dossier-lookup-detail',
+  selector: 'app-infrastructure-dossier-detail',
   standalone: true,
   imports: [CommonModule, FormsModule, ToastModule, DossierLookupDocumentsTabComponent, WfBreadcrumbComponent],
   providers: [MessageService],
-  templateUrl: './dossier-lookup-detail.component.html',
-  styleUrl: './dossier-lookup-detail.component.scss'
+  templateUrl: './infrastructure-dossier-detail.component.html',
+  styleUrl: './infrastructure-dossier-detail.component.scss'
 })
-export class DossierLookupDetailComponent {
+export class InfrastructureDossierDetailComponent {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private http = inject(HttpClient);
@@ -43,7 +43,8 @@ export class DossierLookupDetailComponent {
   loading = signal<boolean>(true);
   loadingType = signal<boolean>(false);
   activeTab = signal<'info' | 'documents'>('info');
-  returnUrl = signal<string | null>(null);
+
+  infraTypeId = signal<number>(1);
 
   // Form templates
   formTemplate = signal<any>(null);
@@ -67,18 +68,9 @@ export class DossierLookupDetailComponent {
       }
     });
 
-    this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((params) => {
-      const returnUrl = params.get('returnUrl');
-      if (returnUrl) {
-        this.returnUrl.set(returnUrl);
-      }
-
-      const versionId = (params.get('documentVersionId') || '').trim();
-      if (versionId) {
-        void this.router.navigate(['/search/documents', versionId], {
-          replaceUrl: true,
-          queryParams: { keyword: params.get('keyword') || null }
-        });
+    this.route.data.pipe(takeUntilDestroyed()).subscribe(data => {
+      if (data) {
+        this.infraTypeId.set(data['infraTypeId'] || 1);
       }
     });
   }
@@ -166,11 +158,14 @@ export class DossierLookupDetailComponent {
   }
 
   onBack(): void {
-    const url = this.returnUrl();
-    if (url) {
-      void this.router.navigateByUrl(url);
+    const parentId = this.route.snapshot.paramMap.get('parentId');
+    const segment = this.infraTypeId() === 1 ? 'substation' : 'transmission-line';
+    if (parentId) {
+      void this.router.navigate(['/catalog', segment, parentId], {
+        queryParams: { tab: 1 }
+      });
     } else {
-      void this.router.navigate(['/search/dossier-by-equipment']);
+      void this.router.navigate(['/catalog', segment]);
     }
   }
 }

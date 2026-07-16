@@ -36,7 +36,8 @@
       <div class="pane-title" style="font-weight: 600; margin-bottom: 8px; color: #1e293b;">{{ formPaneTitle() }}</div>
       <p class="confirm-intro" style="color: #64748b; font-size: 0.82rem; margin-bottom: 16px;">
         <ng-container *ngIf="hasExtractionData(); else templateOnlyIntro">
-          Các trường thông số được cấu hình theo biểu mẫu của loại thiết bị kỹ thuật này. Dữ liệu bóc tách được điền sẵn — bạn có thể chỉnh sửa trước khi lưu. Khi lưu, các thông số còn thiếu sẽ tự động fill vào thông số của thiết bị.
+          Các trường thông số theo biểu mẫu loại thiết bị. Dữ liệu bóc tách được điền sẵn — chỉnh sửa rồi
+          <b>Lưu lại</b> (chỉ lưu kết quả bóc tách) hoặc <b>Cập nhật thông số</b> (thay thế toàn bộ thông số thiết bị).
         </ng-container>
         <ng-template #templateOnlyIntro>
           Chưa có kết quả bóc tách. Hiển thị cấu trúc biểu mẫu thông số thiết bị và dữ liệu thông số hiện có (nếu có). Bạn vẫn có thể xem file gốc bên trái.
@@ -104,12 +105,23 @@
     <p-button [label]="formEditable() ? 'Hủy' : 'Đóng'" severity="secondary" size="small" (onClick)="close()" [disabled]="saving()"></p-button>
     <p-button
       *ngIf="formEditable()"
-      label="Lưu & Fill thông số"
+      label="Lưu lại"
+      severity="success"
       size="small"
       icon="pi pi-save"
-      (onClick)="confirmApply()"
+      (onClick)="saveExtractionOnly()"
       [disabled]="loading() || saving() || fields().length === 0"
-      [loading]="saving()"
+      [loading]="saving() && savingMode() === 'save'"
+    ></p-button>
+    <p-button
+      *ngIf="formEditable()"
+      label="Cập nhật thông số"
+      severity="info"
+      size="small"
+      icon="pi pi-sync"
+      (onClick)="applyEquipmentFormValues()"
+      [disabled]="loading() || saving() || fields().length === 0"
+      [loading]="saving() && savingMode() === 'apply'"
     ></p-button>
   </ng-template>
 </p-dialog>

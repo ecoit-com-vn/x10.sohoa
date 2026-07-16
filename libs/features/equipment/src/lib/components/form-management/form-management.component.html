@@ -58,7 +58,7 @@
               <td>{{ form.name }}</td>
               <td>
                 <span class="badge">
-                  {{ getCategoryName(form.category) }}
+                  {{ getCategoryName(form) }}
                 </span>
               </td>
               <td>v{{
@@ -706,7 +706,7 @@
 
 <!-- ==================== DIALOG XEM PHIÊN BẢN BIỂU MẪU ==================== -->
 <p-dialog [visible]="showVersionsDialog()" (visibleChange)="$event ? null : showVersionsDialog.set(false)"
-  header="Lịch sử phiên bản form" [modal]="true" [style]="{ width: '850px' }" styleClass="evn-dialog-custom"
+  header="Lịch sử phiên bản form" [modal]="true" [style]="{ width: '900px' }" styleClass="evn-dialog-custom"
   [closable]="true">
   <div *ngIf="selectedTemplate() as template" class="version-dialog-wrapper" style="padding: 10px 0;">
     <div class="wf-table-wrap">
@@ -718,8 +718,8 @@
             <th>Tên form</th>
             <th>Người cập nhật</th>
             <th>Ngày cập nhật</th>
-            <th class="col-tt-width text-center" style="width: 150px; text-align: center;">Trạng thái</th>
-            <th style="width: 90px; text-align: center;">Thao tác</th>
+            <th class="col-tt-width text-center" style="width: 150px; text-align: center;">Trạng thái sử dụng</th>
+            <th style="width: 110px; text-align: center;">Thao tác</th>
           </tr>
         </thead>
         <tbody>
@@ -731,21 +731,25 @@
             <td>{{ ver.creatorFullName }}</td>
             <td>{{ ver.createdAt | date:'dd/MM/yyyy HH:mm' }}</td>
             <td class="text-center text-center-align" style="text-align: center;">
-              <span class="status-pill" [class.status-draft]="ver.status === 'Tạo mới' || !ver.status"
-                [class.status-pending]="ver.status === 'Chờ duyệt'"
-                [class.status-approved]="ver.status === 'Hoàn thành'"
-                [class.status-rejected]="ver.status === 'Từ chối'">
-                {{ ver.status || 'Tạo mới' }}
+              <span class="status-pill" [class.status-active]="ver.isActive" [class.status-inactive]="!ver.isActive">
+                {{ ver.isActive ? 'Hoạt động' : 'Ngưng hoạt động' }}
               </span>
             </td>
             <td class="text-center" style="text-align: center;">
-              <button class="act-btn btn-view-detail" (click)="viewVersionDetail(ver)" title="Xem chi tiết">
-                <i class="pi pi-eye"></i>
-              </button>
+              <div style="display: inline-flex; gap: 6px; justify-content: center;">
+                <button class="act-btn btn-view-detail" (click)="viewVersionDetail(ver)" title="Xem chi tiết">
+                  <i class="pi pi-eye"></i>
+                </button>
+                <button *ngIf="canEdit() && !ver.isActive" class="act-btn act-history" (click)="confirmRestoreVersion(ver)"
+                  title="Khôi phục phiên bản này" [disabled]="restoringVersion()"
+                  style="background-color: #f59e0b; color: white;">
+                  <i class="pi pi-refresh" [class.pi-spin]="restoringVersion()"></i>
+                </button>
+              </div>
             </td>
           </tr>
           <tr *ngIf="versionList().length === 0">
-            <td colspan="6" class="empty-row text-center">Không tải được lịch sử phiên bản.</td>
+            <td colspan="7" class="empty-row text-center">Không tải được lịch sử phiên bản.</td>
           </tr>
         </tbody>
       </table>
@@ -755,6 +759,26 @@
     <div style="display: flex; justify-content: flex-end; border-top: 1px solid #f1f5f9; padding-top: 12px;">
       <button class="btn-cancel btn-small" (click)="showVersionsDialog.set(false)">
         <i class="pi pi-times"></i> Đóng
+      </button>
+    </div>
+  </ng-template>
+</p-dialog>
+
+<!-- Xác nhận khôi phục phiên bản -->
+<p-dialog [visible]="showConfirmRestore()" (visibleChange)="$event ? null : showConfirmRestore.set(false)"
+  header="Xác nhận khôi phục" [modal]="true" [style]="{ width: '480px' }" styleClass="evn-dialog-custom"
+  [closable]="true">
+  <p *ngIf="restoreTarget() as ver" style="margin: 8px 0 16px; line-height: 1.5;">
+    Khôi phục form về phiên bản <b>v{{ ver.version }}.0</b>?
+    Phiên bản này sẽ trở thành phiên bản đang sử dụng.
+  </p>
+  <ng-template #footer>
+    <div style="display: flex; justify-content: flex-end; gap: 8px;">
+      <button class="btn-cancel btn-small" (click)="showConfirmRestore.set(false)" [disabled]="restoringVersion()">
+        Hủy
+      </button>
+      <button class="btn-save btn-small" (click)="onConfirmRestoreVersion()" [disabled]="restoringVersion()">
+        <i class="pi pi-refresh" [class.pi-spin]="restoringVersion()"></i> Khôi phục
       </button>
     </div>
   </ng-template>

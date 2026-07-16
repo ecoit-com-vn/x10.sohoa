@@ -11,13 +11,13 @@ import {
 import { CommonModule } from '@angular/common';
 import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { FormsModule } from '@angular/forms';
-import { MenuItem, MessageService } from 'primeng/api';
+import { MessageService, MenuItem } from 'primeng/api';
+import { Menu, MenuModule } from 'primeng/menu';
 import { TableModule } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { DialogModule } from 'primeng/dialog';
 import { PaginatorModule } from 'primeng/paginator';
-import { Menu, MenuModule } from 'primeng/menu';
 import { FileUploadZoneComponent, FileDownloadService, ScannerPanelComponent, UPLOAD_SOURCE } from '@sohoa.frontend/features/equipment';
 import { finalize } from 'rxjs';
 import { HttpResponse } from '@angular/common/http';
@@ -30,6 +30,7 @@ import {
   CreateDocumentRequest,
   UpdateDocumentRequest,
   DocumentFilter,
+  DocumentVersion,
 } from '../models/document.models';
 import {
   convertFlatToTree,
@@ -67,6 +68,7 @@ export class DocumentManagementComponent implements OnInit {
   @ViewChild('folderNameInput') folderNameInput?: ElementRef<HTMLInputElement>;
   @ViewChild('uploadZone') uploadZone?: FileUploadZoneComponent;
   @ViewChild('scannerPanel') scannerPanel?: ScannerPanelComponent;
+  @ViewChild('docActionMenu') docActionMenu?: Menu;
 
   readonly UPLOAD_SOURCE = UPLOAD_SOURCE;
   scanInProgress = signal(false);
@@ -113,6 +115,16 @@ export class DocumentManagementComponent implements OnInit {
 
   folderActionMenuItems: MenuItem[] = [];
   documentActionMenuItems: MenuItem[] = [];
+
+  // Document Version states
+  showHistoryDialog = signal(false);
+  documentVersions = signal<DocumentVersion[]>([]);
+  historyTargetDocument = signal<Document | null>(null);
+  loadingVersions = signal(false);
+  rollingBack = signal(false);
+  deletingVersion = signal(false);
+  docActionMenuItems = signal<MenuItem[]>([]);
+  activeDocument = signal<Document | null>(null);
 
   @ViewChild('documentNameInput') documentNameInput?: ElementRef<HTMLInputElement>;
 
@@ -782,5 +794,144 @@ export class DocumentManagementComponent implements OnInit {
       }
     }
     return `${folderName.replace(/\s+/g, '_')}.zip`;
+  }
+
+  // ===== DOCUMENT VERSION LOGIC =====
+
+  onViewHistory(doc: Document) {
+    this.historyTargetDocument.set(doc);
+    this.showHistoryDialog.set(true);
+    this.loadDocumentVersions(doc.id);
+  }
+
+  loadDocumentVersions(documentId: string) {
+    this.loadingVersions.set(true);
+    this.documentService.getDocumentVersions(documentId)
+      .pipe(finalize(() => this.loadingVersions.set(false)))
+      .subscribe({
+        next: (versions) => {
+          this.documentVersions.set(versions);
+        },
+        error: (err) => {
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi',
+            detail: err.error?.message || 'Không thể lấy lịch sử phiên bản tài liệu',
+          });
+        }
+      });
+  }
+
+  onRollbackVersion(version: DocumentVersion) {
+    const doc = this.historyTargetDocument();
+    if (!doc) return;
+
+    this.rollingBack.set(true);
+    this.documentService.rollbackDocumentVersion(version.id)
+      .pipe(finalize(() => this.rollingBack.set(false)))
+      .subscribe({
+        next: () => {
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Thành công',
+            detail: `Đã khôi phục tài liệu về phiên bản ${version.versionNumber}`,
+          });
+          this.loadDocuments();
+          this.loadDocumentVersions(doc.id);
+        },
+        error: (err) => {
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi',
+            detail: err.error?.message || 'Khôi phục phiên bản thất bại',
+          });
+        }
+      });
+  }
+
+  onDeleteVersion(version: DocumentVersion) {
+    const doc = this.historyTargetDocument();
+    if (!doc) return;
+
+    this.deletingVersion.set(true);
+    this.documentService.deleteDocumentVersion(version.id)
+      .pipe(finalize(() => this.deletingVersion.set(false)))
+      .subscribe({
+        next: () => {
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Thành công',
+            detail: `Đã xóa phiên bản số ${version.versionNumber} của tài liệu`,
+          });
+          this.loadDocuments();
+          this.loadDocumentVersions(doc.id);
+        },
+        error: (err) => {
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi',
+            detail: err.error?.message || 'Xóa phiên bản thất bại',
+          });
+        }
+      });
+  }
+
+  onDownloadVersion(version: DocumentVersion) {
+    const doc = this.historyTargetDocument();
+    if (!doc) return;
+
+    this.fileDownloadService.downloadFile(version.id, doc.name)
+      .then(() => {
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Tải xuống',
+          detail: `Bắt đầu tải phiên bản ${version.versionNumber} của tài liệu`,
+        });
+      })
+      .catch((err) => {
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Lỗi',
+          detail: err.message || 'Không thể tải phiên bản này',
+        });
+      });
+  }
+
+  onCloseHistoryDialog() {
+    this.showHistoryDialog.set(false);
+    this.documentVersions.set([]);
+    this.historyTargetDocument.set(null);
+  }
+
+  openDocumentMenu(doc: Document, event: Event) {
+    event.stopPropagation();
+    this.activeDocument.set(doc);
+
+    this.docActionMenuItems.set([
+      {
+        label: 'Tải tài liệu',
+        icon: 'pi pi-download',
+        disabled: !doc.latestVersionId || this.isDownloadingDocument(doc.id),
+        command: () => this.onDownloadDocument(doc)
+      },
+      {
+        label: 'Sửa tên',
+        icon: 'pi pi-pencil',
+        command: () => this.onEditDocument(doc)
+      },
+      {
+        label: 'Lịch sử phiên bản',
+        icon: 'pi pi-history',
+        command: () => this.onViewHistory(doc)
+      },
+      {
+        label: 'Xóa tài liệu',
+        icon: 'pi pi-trash',
+        styleClass: 'text-red-500',
+        command: () => this.onDeleteDocument(doc)
+      }
+    ]);
+
+    this.docActionMenu?.toggle(event);
   }
 }

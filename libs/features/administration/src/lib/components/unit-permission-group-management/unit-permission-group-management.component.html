@@ -60,7 +60,7 @@
             <ng-container *ngIf="!loading()">
               <tr *ngFor="let role of paginatedRoles(); let i = index">
                 <td class="col-stt text-muted">{{ (currentPage() - 1) * pageSize() + i + 1 }}</td>
-                <td>{{ role.organizationUnitName || '—' }}</td>
+                <td>{{ role.organizationUnitNames || role.organizationUnitName || '—' }}</td>
                 <td><code>{{ role.code }}</code></td>
                 <td>
                   <b *ngIf="authService.hasPermission('UNIT_PERMISSION_GROUP_MANAGE')" class="wf-name-link" (click)="onEdit(role)">{{ role.name }}</b>
@@ -120,14 +120,29 @@
     <p-menu #actionMenu [model]="actionMenuItems" [popup]="true" appendTo="body" styleClass="row-action-menu"></p-menu>
 
     <!-- Dialog Thêm/Sửa Nhóm quyền -->
-    <p-dialog [visible]="currentView() === 'add' || currentView() === 'edit'" (visibleChange)="$event ? null : currentView.set('list')" [header]="dialogHeader()" [modal]="true" [style]="{ width: '500px' }" styleClass="evn-dialog-custom">
+    <p-dialog [visible]="currentView() === 'add' || currentView() === 'edit'" (visibleChange)="$event ? null : currentView.set('list')" [header]="dialogHeader()" [modal]="true" [style]="{ width: '560px' }" styleClass="evn-dialog-custom">
       <div style="display: flex; flex-direction: column; gap: 16px; padding: 10px 0;">
         <div class="form-group">
           <label class="form-label">Đơn vị <span class="required">*</span></label>
-          <select class="wf-select w-full" [(ngModel)]="currentRole().organizationUnitId" (change)="onFieldChange('organizationUnitId')" style="height: 38px;" [disabled]="isEdit() || saving()">
-            <option [ngValue]="null">-- Chọn đơn vị --</option>
-            <option *ngFor="let u of organizationUnits()" [ngValue]="u.id">{{ u.name }}</option>
-          </select>
+          <p-treeSelect
+            [options]="primengOrgUnitTree()"
+            [ngModel]="selectedUnitNodes()"
+            (ngModelChange)="onUnitNodesChange($event)"
+            selectionMode="checkbox"
+            [metaKeySelection]="false"
+            display="chip"
+            [filter]="true"
+            filterPlaceholder="Tìm đơn vị..."
+            placeholder="-- Chọn một hoặc nhiều đơn vị --"
+            [showClear]="true"
+            [disabled]="saving()"
+            appendTo="body"
+            scrollHeight="280px"
+            styleClass="w-full"
+            [style]="{ width: '100%' }"
+            [propagateSelectionDown]="true"
+            [propagateSelectionUp]="true">
+          </p-treeSelect>
           <span class="field-error" *ngIf="unitError()">{{ unitError() }}</span>
         </div>
 

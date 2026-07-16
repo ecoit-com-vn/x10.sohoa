@@ -125,7 +125,18 @@ export function augmentSidebarMenus(
 }
 
 export function normalizeRoutePath(url: string): string {
-  const path = (url.split('?')[0] || '').replace(/\/+$/, '');
+  let path = (url || '').trim();
+
+  // HashLocation / copy URL thô đôi khi kèm "#/..." hoặc query sau hash
+  const hashIdx = path.indexOf('#');
+  if (hashIdx >= 0) {
+    path = path.slice(hashIdx + 1);
+  }
+
+  path = (path.split('?')[0] || '').replace(/\/+$/, '');
+  if (path && !path.startsWith('/')) {
+    path = `/${path}`;
+  }
   return path || '/';
 }
 

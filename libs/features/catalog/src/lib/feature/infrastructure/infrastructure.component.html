@@ -268,18 +268,25 @@
     <div *ngIf="currentView() === 'detail'" class="animate-fade-in sub-view-container">
 
       <!-- Tab Bar (đặt trực tiếp ở đầu card) -->
-      <div class="tab-bar" style="margin-bottom: 24px; border-bottom: 1px solid #e2e8f0; display: flex; gap: 8px;">
-        <div class="tab-item" [class.tab-active]="activeTab() === 0" (click)="activeTab.set(0)"
-             style="padding: 12px 16px; cursor: pointer; font-weight: 500; font-size: 0.95rem; display: flex; align-items: center; gap: 6px; border-bottom: 2px solid transparent;"
-             [style.border-bottom-color]="activeTab() === 0 ? '#2563eb' : 'transparent'"
-             [style.color]="activeTab() === 0 ? '#2563eb' : '#64748b'">
-          <i class="pi pi-info-circle"></i> Thông tin chung
+      <div class="tab-bar" style="margin-bottom: 24px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; gap: 8px;">
+          <div class="tab-item" [class.tab-active]="activeTab() === 0" (click)="activeTab.set(0)"
+               style="padding: 12px 16px; cursor: pointer; font-weight: 500; font-size: 0.95rem; display: flex; align-items: center; gap: 6px; border-bottom: 2px solid transparent;"
+               [style.border-bottom-color]="activeTab() === 0 ? '#2563eb' : 'transparent'"
+               [style.color]="activeTab() === 0 ? '#2563eb' : '#64748b'">
+            <i class="pi pi-info-circle"></i> Thông tin chung
+          </div>
+          <div class="tab-item" [class.tab-active]="activeTab() === 1" (click)="activeTab.set(1)"
+               style="padding: 12px 16px; cursor: pointer; font-weight: 500; font-size: 0.95rem; display: flex; align-items: center; gap: 6px; border-bottom: 2px solid transparent;"
+               [style.border-bottom-color]="activeTab() === 1 ? '#2563eb' : 'transparent'"
+               [style.color]="activeTab() === 1 ? '#2563eb' : '#64748b'">
+            <i class="pi pi-folder-open"></i> Hồ sơ liên quan
+          </div>
         </div>
-        <div class="tab-item" [class.tab-active]="activeTab() === 1" (click)="activeTab.set(1)"
-             style="padding: 12px 16px; cursor: pointer; font-weight: 500; font-size: 0.95rem; display: flex; align-items: center; gap: 6px; border-bottom: 2px solid transparent;"
-             [style.border-bottom-color]="activeTab() === 1 ? '#2563eb' : 'transparent'"
-             [style.color]="activeTab() === 1 ? '#2563eb' : '#64748b'">
-          <i class="pi pi-folder-open"></i> Hồ sơ liên quan
+        <div style="padding-right: 8px;">
+          <button class="btn-outlined btn-small" (click)="goBack()" style="height: 34px; padding: 0 12px; border-radius: 6px; display: inline-flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+            <i class="pi pi-arrow-left"></i> Quay lại
+          </button>
         </div>
       </div>
 
@@ -363,62 +370,67 @@
             <table class="wf-table" style="width: 100%; border-collapse: collapse; margin-top: 16px;">
               <thead>
                 <tr style="border-bottom: 1px solid #cbd5e1;">
-                  <th class="col-stt" style="text-align: left; padding: 12px 8px; font-weight: 600; color: #475569; font-size: 0.875rem; width: 60px;">STT</th>
-                  <th style="text-align: left; padding: 12px 8px; font-weight: 600; color: #475569; font-size: 0.875rem;">Mã thiết bị</th>
-                  <th style="text-align: left; padding: 12px 8px; font-weight: 600; color: #475569; font-size: 0.875rem;">Tên thiết bị</th>
-                  <th style="text-align: left; padding: 12px 8px; font-weight: 600; color: #475569; font-size: 0.875rem;">Ngăn lộ</th>
-                  <th style="text-align: left; padding: 12px 8px; font-weight: 600; color: #475569; font-size: 0.875rem;">Loại thiết bị</th>
-                  <th style="text-align: left; padding: 12px 8px; font-weight: 600; color: #475569; font-size: 0.875rem;">Số serial</th>
-                  <th style="text-align: left; padding: 12px 8px; font-weight: 600; color: #475569; font-size: 0.875rem;">Trạng thái</th>
-                  <th class="col-hd" style="text-align: center; padding: 12px 8px; font-weight: 600; color: #475569; font-size: 0.875rem; width: 100px;">Thao tác</th>
+                  <th class="col-stt">STT</th>
+                  <th>Mã thiết bị</th>
+                  <th>Tên thiết bị</th>
+                  <th>Ngăn lộ</th>
+                  <th>Loại thiết bị</th>
+                  <th>Số serial</th>
+                  <th>Trạng thái</th>
+                  <th class="col-hd">Thao tác</th>
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let eq of equipmentItems(); let i = index" style="border-bottom: 1px solid #f1f5f9;">
-                  <td class="col-stt text-muted" style="padding: 14px 8px; font-size: 0.9rem;">{{ (equipmentPage() - 1) * equipmentPageSize() + i + 1 }}</td>
-                  <td style="padding: 14px 8px;">
-                    <a class="wf-link" style="color: #2563eb; cursor: pointer; font-weight: 600; text-decoration: none; font-size: 0.9rem;"
+                <tr *ngFor="let eq of equipmentItems(); let i = index">
+                  <td class="col-stt text-muted">{{ (equipmentPage() - 1) * equipmentPageSize() + i + 1 }}</td>
+                  <td>
+                    <a class="wf-link" 
                        (click)="onViewEquipment(eq)">{{ eq.code }}</a>
                   </td>
-                  <td style="padding: 14px 8px; font-size: 0.9rem; color: #334155;">{{ eq.name }}</td>
-                  <td style="padding: 14px 8px; font-size: 0.9rem; color: #334155;">{{ currentItem().code || '-' }}</td>
-                  <td style="padding: 14px 8px; font-size: 0.9rem; color: #334155;">{{ eq.equipmentTypeName || getEquipmentTypeName(eq.equipmentTypeId) }}</td>
-                  <td style="padding: 14px 8px; font-size: 0.9rem; font-family: monospace; color: #334155;">{{ eq.serialNumber || '-' }}</td>
-                  <td style="padding: 14px 8px;">
+                  <td>{{ eq.name }}</td>
+                  <td>{{ currentItem().code || '-' }}</td>
+                  <td>{{ eq.equipmentTypeName || getEquipmentTypeName(eq.equipmentTypeId) }}</td>
+                  <td>{{ eq.serialNumber || '-' }}</td>
+                  <td>
                     <span *ngIf="eq.isActive === 1 || eq.isActive === true" class="status-pill status-active">
                       Hoạt động
                     </span>
-                    <span *ngIf="eq.isActive === 0 || eq.isActive === false" class="status-pill status-locked">
+                    <span *ngIf="eq.isActive === 0 || eq.isActive === false" class="status-pill status-inactive">
                       Ngừng hoạt động
                     </span>
                   </td>
-                  <td class="col-hd" style="text-align: center; padding: 14px 8px; position: relative;">
-                    <div class="more-menu-wrap" style="position: relative; display: inline-block;">
-                      <a style="color: #2563eb; cursor: pointer; font-weight: bold; font-size: 1.1rem; letter-spacing: 2px; user-select: none;"
-                        (click)="toggleEquipmentMenu(eq, $event)">
-                        •••
-                      </a>
-                      <div *ngIf="activeEquipmentMenu() === eq.id"
-                        style="position: absolute; right: 0; top: 100%; z-index: 100; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.12); min-width: 160px; padding: 4px 0;">
-                        <!-- Xem chi tiết -->
-                        <button style="display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 16px; background: none; border: none; cursor: pointer; font-size: 0.875rem; color: #374151; white-space: nowrap;"
-                          (click)="onViewEquipment(eq); activeEquipmentMenu.set(null); $event.stopPropagation()">
-                          <i class="pi pi-eye" style="color: #2563eb;"></i> Xem chi tiết
+                  <td class="col-hd">
+                    <div class="action-buttons-group">
+                      <div class="dropdown-actions-container">
+                        <button type="button" class="act-btn act-more" 
+                          (click)="toggleEquipmentMenu(eq, $event)" title="Thao tác khác">
+                          <i class="pi pi-ellipsis-h"></i>
                         </button>
+                        <div class="dropdown-actions-menu animate-fade-in"
+                          [class.dropdown-upwards]="i >= equipmentItems().length - 2"
+                          *ngIf="activeEquipmentMenu() === eq.id" (click)="$event.stopPropagation()">
+                          
+                          <!-- Xem chi tiết -->
+                          <button type="button" class="dropdown-item-btn"
+                            (click)="onViewEquipment(eq); activeEquipmentMenu.set(null)">
+                            <i class="pi pi-eye color-blue"></i>
+                            <span>Xem chi tiết</span>
+                          </button>
 
-                        <!-- Chỉnh sửa -->
-                        <button style="display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 16px; background: none; border: none; cursor: pointer; font-size: 0.875rem; color: #374151; white-space: nowrap;"
-                          (click)="onEditEquipment(eq); activeEquipmentMenu.set(null); $event.stopPropagation()">
-                          <i class="pi pi-pencil" style="color: #f59e0b;"></i> Sửa thiết bị
-                        </button>
+                          <!-- Chỉnh sửa -->
+                          <button type="button" class="dropdown-item-btn"
+                            (click)="onEditEquipment(eq); activeEquipmentMenu.set(null)">
+                            <i class="pi pi-pencil color-teal"></i>
+                            <span>Chỉnh sửa</span>
+                          </button>
 
-                        <!-- Khóa / Mở khóa -->
-                        <button style="display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 16px; background: none; border: none; cursor: pointer; font-size: 0.875rem; color: #374151; white-space: nowrap;"
-                          (click)="onToggleEquipmentStatus(eq); activeEquipmentMenu.set(null); $event.stopPropagation()">
-                          <i class="pi" [ngClass]="(eq.isActive === 1 || eq.isActive === true) ? 'pi-lock' : 'pi-lock-open'"
-                             [style.color]="(eq.isActive === 1 || eq.isActive === true) ? '#dc2626' : '#16a34a'"></i>
-                          {{ (eq.isActive === 1 || eq.isActive === true) ? 'Khóa thiết bị' : 'Mở khóa' }}
-                        </button>
+                          <!-- Khóa / Mở khóa -->
+                          <button type="button" class="dropdown-item-btn"
+                            (click)="onToggleEquipmentStatus(eq); activeEquipmentMenu.set(null)">
+                            <i class="pi" [ngClass]="(eq.isActive === 1 || eq.isActive === true) ? 'pi-lock color-red' : 'pi-lock-open color-green'"></i>
+                            <span>{{ (eq.isActive === 1 || eq.isActive === true) ? 'Khóa thiết bị' : 'Mở khóa' }}</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </td>
@@ -491,16 +503,131 @@
       <!-- ======= TAB 1: HỒ SƠ LIÊN QUAN ======= -->
       <div *ngIf="activeTab() === 1" class="tab-content animate-fade-in">
         <div style="background: #ffffff; padding: 0 8px 24px 8px;">
-          <div style="border-bottom: 1px solid #cbd5e1; padding-bottom: 12px; margin-bottom: 20px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #cbd5e1; padding-bottom: 12px; margin-bottom: 20px;">
             <span style="font-size: 1.05rem; font-weight: 700; color: #002D72; display: flex; align-items: center;">
               <i class="pi pi-folder-open" style="color: #FF6B00; margin-right: 8px;"></i>
               Hồ sơ liên quan
             </span>
+            <button class="btn-green" (click)="exportToExcel()" *ngIf="relatedDossiers().length > 0"
+              style="background-color: #10b981; border-color: #10b981; color: #ffffff; font-weight: 500; font-size: 0.9rem; padding: 8px 16px; border-radius: 6px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; border: 1px solid transparent; transition: all 0.2s;">
+              <i class="pi pi-file-excel"></i> Xuất Excel
+            </button>
           </div>
-          <p style="color: #64748b; text-align: center; padding: 24px 0; font-size: 0.95rem;">
-            <i class="pi pi-info-circle" style="margin-right: 6px;"></i>
-            Tính năng xem hồ sơ liên quan sẽ được tích hợp vào đây.
-          </p>
+
+          <!-- Search bar cho Hồ sơ -->
+          <div style="display: flex; gap: 24px; align-items: center; margin-bottom: 24px; flex-wrap: wrap;">
+            <div style="display: flex; flex-direction: column; gap: 6px; flex: 1; max-width: 300px; min-width: 200px;">
+              <label style="font-size: 0.875rem; color: #475569; font-weight: 500;">Từ khóa</label>
+              <input type="text" class="wf-search-input" style="height: 38px; border-radius: 6px; border: 1px solid #cbd5e1; padding: 0 12px; width: 100%;"
+                placeholder="Tìm theo mã hoặc tiêu đề..."
+                [ngModel]="relatedDossiersSearchKeyword()"
+                (ngModelChange)="relatedDossiersSearchKeyword.set($event); onRelatedDossierFilterChange()" />
+            </div>
+          </div>
+
+          <!-- Loading -->
+          <div *ngIf="isLoadingRelatedDossiers()" style="text-align: center; padding: 30px 0;">
+            <i class="pi pi-spin pi-spinner" style="font-size: 1.8rem; color: #002D72;"></i>
+            <div style="margin-top: 8px; color: #64748b;">Đang tải danh sách hồ sơ liên quan...</div>
+          </div>
+
+          <!-- Dossier Table -->
+          <div *ngIf="!isLoadingRelatedDossiers()">
+            <table class="wf-table" style="width: 100%; border-collapse: collapse; margin-top: 16px;">
+              <thead>
+                <tr style="border-bottom: 1px solid #cbd5e1;">
+                  <th class="col-stt">STT</th>
+                  <th>Mã hồ sơ</th>
+                  <th>Tiêu đề hồ sơ</th>
+                  <th>Loại hồ sơ</th>
+                  <th style="width: 120px; text-align: center;">Số tài liệu</th>
+                  <th class="col-hd" style="width: 100px; text-align: center;">Thao tác</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let doc of relatedDossiers(); let i = index">
+                  <td class="col-stt text-muted">{{ (relatedDossiersPage() - 1) * relatedDossiersPageSize() + i + 1 }}</td>
+                  <td>
+                    <a class="wf-link" 
+                       (click)="onViewDossier(doc)">{{ getDossierCode(doc) }}</a>
+                  </td>
+                  <td>
+                    <a class="wf-name-link" 
+                       (click)="onViewDossier(doc)">{{ getDossierTitle(doc) }}</a>
+                  </td>
+                  <td>{{ doc.dossierTypeName || '-' }}</td>
+                  <td style="text-align: center;">{{ doc.documentCount ?? 0 }}</td>
+                  <td class="col-hd">
+                    <div class="action-buttons-group" style="justify-content: center;">
+                      <button class="act-btn" style="background-color: #eff6ff; color: #1d4ed8; border-color: #bfdbfe;"
+                        title="Xem chi tiết hồ sơ" (click)="onViewDossier(doc)">
+                        <i class="pi pi-eye"></i>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+                <tr *ngIf="relatedDossiers().length === 0">
+                  <td colspan="6" class="empty-row" style="text-align: center; padding: 32px; color: #64748b;">
+                    <i class="pi pi-inbox" style="font-size: 2rem; margin-bottom: 8px; display: block;"></i>
+                    <div>Không có hồ sơ nào thuộc {{ infraTypeId() === 1 ? 'trạm' : 'đường dây' }} này đã được xuất bản.</div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            <!-- Pagination -->
+            <div *ngIf="relatedDossiers().length > 0" style="display: flex; justify-content: center; align-items: center; gap: 20px; padding: 24px 0; margin-top: 16px; font-size: 0.875rem; color: #64748b;">
+              <span>Hiển thị {{ relatedDossiers().length }} trên tổng số {{ relatedDossiersTotalCount() }} bản ghi</span>
+
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <!-- First Page « -->
+                <button (click)="goToRelatedDossiersPage(1)" [disabled]="relatedDossiersPage() === 1"
+                  style="border: none; background: none; color: #64748b; cursor: pointer; padding: 4px 8px; font-size: 1rem; font-weight: bold;"
+                  [style.opacity]="relatedDossiersPage() === 1 ? '0.4' : '1'">
+                  «
+                </button>
+                <!-- Prev Page ‹ -->
+                <button (click)="relatedDossiersPrevPage()" [disabled]="relatedDossiersPage() === 1"
+                  style="border: none; background: none; color: #64748b; cursor: pointer; padding: 4px 8px; font-size: 1.1rem; font-weight: bold;"
+                  [style.opacity]="relatedDossiersPage() === 1 ? '0.4' : '1'">
+                  ‹
+                </button>
+
+                <!-- Page numbers -->
+                <ng-container *ngFor="let pageNum of [].constructor(relatedDossiersTotalPages()); let pageIndex = index">
+                  <button *ngIf="pageIndex + 1 >= relatedDossiersPage() - 2 && pageIndex + 1 <= relatedDossiersPage() + 2"
+                    (click)="goToRelatedDossiersPage(pageIndex + 1)"
+                    [style.background-color]="relatedDossiersPage() === pageIndex + 1 ? '#2563eb' : 'transparent'"
+                    [style.color]="relatedDossiersPage() === pageIndex + 1 ? '#fff' : '#64748b'"
+                    [style.font-weight]="relatedDossiersPage() === pageIndex + 1 ? '600' : '400'"
+                    style="border: none; border-radius: 9999px; width: 28px; height: 28px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 0.875rem;">
+                    {{ pageIndex + 1 }}
+                  </button>
+                </ng-container>
+
+                <!-- Next Page › -->
+                <button (click)="relatedDossiersNextPage()" [disabled]="relatedDossiersPage() >= relatedDossiersTotalPages()"
+                  style="border: none; background: none; color: #64748b; cursor: pointer; padding: 4px 8px; font-size: 1.1rem; font-weight: bold;"
+                  [style.opacity]="relatedDossiersPage() >= relatedDossiersTotalPages() ? '0.4' : '1'">
+                  ›
+                </button>
+                <!-- Last Page » -->
+                <button (click)="goToRelatedDossiersPage(relatedDossiersTotalPages())" [disabled]="relatedDossiersPage() >= relatedDossiersTotalPages()"
+                  style="border: none; background: none; color: #64748b; cursor: pointer; padding: 4px 8px; font-size: 1rem; font-weight: bold;"
+                  [style.opacity]="relatedDossiersPage() >= relatedDossiersTotalPages() ? '0.4' : '1'">
+                  »
+                </button>
+              </div>
+
+              <!-- Page size select dropdown -->
+              <select [ngModel]="relatedDossiersPageSize()" (change)="onRelatedDossiersPageSizeChange($event)"
+                style="border: 1px solid #cbd5e1; border-radius: 4px; padding: 2px 6px; height: 28px; color: #64748b; background-color: #fff; cursor: pointer;">
+                <option [value]="10">10</option>
+                <option [value]="20">20</option>
+                <option [value]="50">50</option>
+              </select>
+            </div>
+          </div>
         </div>
       </div>
 

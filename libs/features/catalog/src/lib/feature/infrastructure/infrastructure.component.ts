@@ -11,6 +11,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { AuthService } from '@sohoa.frontend/shared/core';
 import { InfrastructureService } from '../../data-access/infrastructure.service';
 import { EquipmentService } from '@sohoa.frontend/features/equipment';
+import { DossierManagementService } from '@sohoa.frontend/features/dossier-management';
 import { finalize } from 'rxjs/operators';
 
 @Component({
@@ -28,6 +29,7 @@ export class InfrastructureComponent implements OnInit {
   private messageService = inject(MessageService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
+  private dossierService = inject(DossierManagementService);
 
   protected readonly Math = Math;
 
@@ -104,6 +106,17 @@ export class InfrastructureComponent implements OnInit {
 
   // ── DETAIL VIEW SIGNALS ────────────────────────────────────────────────────
   activeTab = signal<number>(0);
+
+  // Hồ sơ liên quan trong tab chi tiết
+  relatedDossiers = signal<any[]>([]);
+  relatedDossiersTotalCount = signal<number>(0);
+  relatedDossiersPage = signal<number>(1);
+  relatedDossiersPageSize = signal<number>(10);
+  isLoadingRelatedDossiers = signal<boolean>(false);
+  relatedDossiersSearchKeyword = signal<string>('');
+  relatedDossiersTotalPages = computed(() =>
+    Math.ceil(this.relatedDossiersTotalCount() / this.relatedDossiersPageSize())
+  );
 
   // Danh sách thiết bị trong tab chi tiết
   equipmentItems = signal<any[]>([]);
@@ -187,6 +200,12 @@ export class InfrastructureComponent implements OnInit {
       }
     }, { allowSignalWrites: true });
 
+    effect(() => {
+      if (this.currentView() === 'detail' && this.activeTab() === 1) {
+        this.loadRelatedDossiers();
+      }
+    }, { allowSignalWrites: true });
+
     if (typeof window !== 'undefined') {
       window.addEventListener('click', () => {
         this.orgTreePickerOpen.set(false);
@@ -218,7 +237,8 @@ export class InfrastructureComponent implements OnInit {
       const id = params.get('id');
       if (id) {
         this.currentView.set('detail');
-        this.activeTab.set(0);
+        const tabParam = this.route.snapshot.queryParamMap.get('tab');
+        this.activeTab.set(tabParam ? Number(tabParam) : 0);
         this.equipmentPage.set(1);
         this.equipmentSearchKeyword.set('');
         this.equipmentSearchTypeId.set('');
@@ -227,6 +247,7 @@ export class InfrastructureComponent implements OnInit {
           next: (res) => {
             this.currentItem.set(res || {});
             this.loadEquipments();
+            this.loadRelatedDossiers();
           },
           error: () => {
             this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể tải thông tin chi tiết.' });
@@ -733,5 +754,139 @@ export class InfrastructureComponent implements OnInit {
   getEquipmentTypeName(typeId: any): string {
     const et = this.equipmentTypes().find(t => t.id == typeId);
     return et ? et.name : '-';
+  }
+
+  // Tải danh sách hồ sơ liên quan (đã xuất bản của cùng trạm/đường dây)
+  loadRelatedDossiers() {
+    const item = this.currentItem();
+    if (!item?.id) return;
+
+    this.isLoadingRelatedDossiers.set(true);
+    const keyword = this.relatedDossiersSearchKeyword();
+
+    this.dossierService.getCatalogDossiers({
+      keyword: keyword || undefined,
+      infrastructureId: String(item.id),
+      page: this.relatedDossiersPage(),
+      pageSize: this.relatedDossiersPageSize()
+    }).pipe(finalize(() => this.isLoadingRelatedDossiers.set(false)))
+      .subscribe({
+        next: (res) => {
+          this.relatedDossiers.set(res?.items || []);
+          this.relatedDossiersTotalCount.set(res?.totalCount || 0);
+        },
+        error: () => {
+          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể tải danh sách hồ sơ liên quan.' });
+        }
+      });
+  }
+
+  onRelatedDossierFilterChange() {
+    this.relatedDossiersPage.set(1);
+    this.loadRelatedDossiers();
+  }
+
+  relatedDossiersPrevPage() {
+    if (this.relatedDossiersPage() > 1) {
+      this.relatedDossiersPage.update(p => p - 1);
+      this.loadRelatedDossiers();
+    }
+  }
+
+  relatedDossiersNextPage() {
+    if (this.relatedDossiersPage() < this.relatedDossiersTotalPages()) {
+      this.relatedDossiersPage.update(p => p + 1);
+      this.loadRelatedDossiers();
+    }
+  }
+
+  goToRelatedDossiersPage(page: any) {
+    const p = Number(page);
+    if (p >= 1 && p <= this.relatedDossiersTotalPages()) {
+      this.relatedDossiersPage.set(p);
+      this.loadRelatedDossiers();
+    }
+  }
+
+  onRelatedDossiersPageSizeChange(event: any) {
+    this.relatedDossiersPageSize.set(Number(event.target.value));
+    this.relatedDossiersPage.set(1);
+    this.loadRelatedDossiers();
+  }
+
+  onViewDossier(dossier: any) {
+    const segment = this.infraTypeId() === 1 ? 'substation' : 'transmission-line';
+    const parentId = this.currentItem()?.id;
+    this.router.navigate(['/catalog', segment, parentId, 'dossier-detail', dossier.id]);
+  }
+
+  getDossierCode(doc: any): string {
+    const data = doc?.catalogData ?? doc?.CatalogData ?? {};
+    return data['Mã hồ sơ'] ?? data['ma_ho_so'] ?? doc?.code ?? '-';
+  }
+
+  getDossierTitle(doc: any): string {
+    const data = doc?.catalogData ?? doc?.CatalogData ?? {};
+    return data['Tiêu đề hồ sơ'] ?? data['tieude_hoso'] ?? data['tieude'] ?? doc?.title ?? '-';
+  }
+
+  getDossierBox(doc: any): string {
+    return doc?.dossierSetName ?? doc?.boxCode ?? '-';
+  }
+
+  getDossierCreator(doc: any): string {
+    return doc?.creator ?? doc?.createdByName ?? doc?.createdBy ?? '-';
+  }
+
+  getDossierDate(doc: any): any {
+    return doc?.createdDate ?? doc?.createdAt;
+  }
+
+  exportToExcel() {
+    const item = this.currentItem();
+    if (!item?.id) return;
+
+    this.messageService.add({ severity: 'info', summary: 'Thông báo', detail: 'Đang chuẩn bị tệp Excel...' });
+
+    import('xlsx').then(XLSX => {
+      const workbook = XLSX.utils.book_new();
+      
+      const dataRows = this.relatedDossiers().map((doc, index) => ({
+        'STT': index + 1,
+        'Mã hồ sơ': this.getDossierCode(doc),
+        'Tiêu đề hồ sơ': this.getDossierTitle(doc),
+        'Loại hồ sơ': doc.dossierTypeName || '-',
+        'Số tài liệu': doc.documentCount ?? 0
+      }));
+
+      const worksheet = XLSX.utils.json_to_sheet(dataRows);
+
+      worksheet['!cols'] = [
+        { wch: 6 },  // STT
+        { wch: 20 }, // Mã hồ sơ
+        { wch: 45 }, // Tiêu đề hồ sơ
+        { wch: 25 }, // Loại hồ sơ
+        { wch: 12 }  // Số tài liệu
+      ];
+
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Hồ sơ liên quan');
+
+      const workbookBlob = new Blob([XLSX.write(workbook, { bookType: 'xlsx', type: 'array' })], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      });
+
+      const url = URL.createObjectURL(workbookBlob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      const fileName = `HoSoLienQuan_${item.code || 'Tram'}_${new Date().getTime()}.xlsx`;
+      link.setAttribute('download', fileName);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã xuất file Excel thành công!' });
+    }).catch(() => {
+      this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể xuất file Excel.' });
+    });
   }
 }

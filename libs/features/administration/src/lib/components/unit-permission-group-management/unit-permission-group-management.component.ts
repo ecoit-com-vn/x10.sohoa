@@ -6,7 +6,8 @@ import { HttpClient } from '@angular/common/http';
 import { DialogModule } from 'primeng/dialog';
 import { ToastModule } from 'primeng/toast';
 import { Menu, MenuModule } from 'primeng/menu';
-import { MenuItem, MessageService, ConfirmationService } from 'primeng/api';
+import { MenuItem, MessageService, ConfirmationService, TreeNode  } from 'primeng/api';
+import { TreeSelectModule } from 'primeng/treeselect';
 import { environment } from '@env/environment';
 import { finalize } from 'rxjs';
 import { AuthService } from '@sohoa.frontend/shared/core';
@@ -15,7 +16,7 @@ import { buildMenuPermissionTree as buildMenuPermissionTreeFromLookup } from '..
 @Component({
   selector: 'app-unit-permission-group-management',
   standalone: true,
-  imports: [CommonModule, FormsModule, DialogModule, ToastModule, MenuModule, WfBreadcrumbComponent],
+  imports: [CommonModule, FormsModule, DialogModule, ToastModule, MenuModule, TreeSelectModule, WfBreadcrumbComponent],
   providers: [MessageService],
   templateUrl: './unit-permission-group-management.component.html',
   styleUrl: './unit-permission-group-management.component.scss'
@@ -23,6 +24,25 @@ import { buildMenuPermissionTree as buildMenuPermissionTreeFromLookup } from '..
 export class UnitPermissionGroupManagement implements OnInit {
   organizationUnits = signal<any[]>([]);
   filterOrganizationUnitId = signal<number | null>(null);
+  selectedOrganizationUnitIds = signal<number[]>([]);
+  selectedUnitNodes = signal<TreeNode[]>([]);
+
+  orgUnitTree = computed(() => this.buildOrgTree(this.organizationUnits()));
+  primengOrgUnitTree = computed(() => {
+    const buildPrimeNGNodes = (nodes: any[]): TreeNode[] =>
+      nodes.map(n => {
+        const children = n.children?.length ? buildPrimeNGNodes(n.children) : undefined;
+        return {
+          key: String(n.id),
+          label: n.name,
+          data: n,
+          selectable: true,
+          leaf: !children?.length,
+          children
+        } as TreeNode;
+      });
+    return buildPrimeNGNodes(this.orgUnitTree());
+  });
   roles = signal<any[]>([]);
   searchKeyword = signal<string>('');
   totalCount = signal<number>(0);
@@ -63,8 +83,12 @@ export class UnitPermissionGroupManagement implements OnInit {
     return this.serverErrors().name || this.serverErrors().Name || '';
   });
   unitError = computed(() => {
-    if (this.formSubmitted() && !this.currentRole().organizationUnitId) return 'Đơn vị là bắt buộc';
-    return this.serverErrors().organizationUnitId || this.serverErrors().OrganizationUnitId || '';
+    if (this.formSubmitted() && this.selectedOrganizationUnitIds().length === 0) return 'Đơn vị là bắt buộc';
+    return this.serverErrors().organizationUnitIds
+      || this.serverErrors().OrganizationUnitIds
+      || this.serverErrors().organizationUnitId
+      || this.serverErrors().OrganizationUnitId
+      || '';
   });
 
   onFieldChange(field: string) {
@@ -168,6 +192,66 @@ export class UnitPermissionGroupManagement implements OnInit {
     });
   }
 
+  buildOrgTree(units: any[]): any[] {
+    const map = new Map<number, any>();
+    const roots: any[] = [];
+    units.forEach(u => {
+      const id = Number(u.id);
+      if (!id) return;
+      map.set(id, { ...u, id, parentId: u.parentId != null ? Number(u.parentId) : null, children: [] as any[] });
+    });
+    map.forEach(node => {
+      if (node.parentId && map.has(node.parentId)) {
+        map.get(node.parentId)!.children.push(node);
+      } else {
+        roots.push(node);
+      }
+    });
+    return roots;
+  }
+
+  onUnitNodesChange(nodes: TreeNode[] | TreeNode | null) {
+    const list = Array.isArray(nodes) ? nodes : nodes ? [nodes] : [];
+    this.selectedUnitNodes.set(list);
+    const ids = list
+      .map((n) => Number(n?.key ?? (n as any)?.data?.id))
+      .filter((id) => !isNaN(id) && id > 0);
+    this.selectedOrganizationUnitIds.set(ids);
+    this.currentRole.update(r => ({
+      ...r,
+      organizationUnitIds: ids,
+      organizationUnitId: ids.length > 0 ? ids[0] : null
+    }));
+    this.onFieldChange('organizationUnitIds');
+  }
+
+  private syncSelectedUnitNodes(unitIds: number[]) {
+    const findNode = (nodes: TreeNode[], key: string): TreeNode | null => {
+      for (const node of nodes) {
+        if (node.key === key) return node;
+        if (node.children?.length) {
+          const found = findNode(node.children, key);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+    const tree = this.primengOrgUnitTree();
+    this.selectedUnitNodes.set(
+      unitIds.map((id) => findNode(tree, String(id))).filter((n): n is TreeNode => !!n)
+    );
+  }
+
+  private resolveUnitIdsFromGroup(group: any): number[] {
+    if (Array.isArray(group?.organizationUnitIds) && group.organizationUnitIds.length > 0) {
+      return group.organizationUnitIds.map((id: any) => Number(id)).filter((id: number) => !isNaN(id) && id > 0);
+    }
+    if (group?.organizationUnitId) {
+      return [Number(group.organizationUnitId)];
+    }
+    return [];
+  }
+
   loadRoles() {
     this.loading.set(true);
     let url = `${this.apiUrl}?page=${this.currentPage()}&pageSize=${this.pageSize()}&keyword=${this.searchKeyword() || ''}`;
@@ -235,7 +319,9 @@ export class UnitPermissionGroupManagement implements OnInit {
       return;
     }
     this.isEdit.set(false);
-    this.currentRole.set({ code: '', name: '', description: '', isActive: true, organizationUnitId: null });
+    this.selectedOrganizationUnitIds.set([]);
+    this.selectedUnitNodes.set([]);
+    this.currentRole.set({ code: '', name: '', description: '', isActive: true, organizationUnitId: null, organizationUnitIds: [] });
     this.formSubmitted.set(false);
     this.serverErrors.set({});
     this.dialogHeader.set('Thêm mới nhóm quyền');
@@ -259,7 +345,12 @@ export class UnitPermissionGroupManagement implements OnInit {
       this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền chỉnh sửa nhóm quyền.' });
       return;
     }
-    const updated = { ...role, isActive: !role.isActive };
+    const updated = {
+      ...role,
+      isActive: !role.isActive,
+      organizationUnitIds: this.resolveUnitIdsFromGroup(role),
+      organizationUnitId: this.resolveUnitIdsFromGroup(role)[0] ?? role.organizationUnitId ?? null
+    };
     this.lockUnlockLoading.set(true);
     this.http.put(`${this.apiUrl}/${role.id}`, updated)
       .pipe(finalize(() => this.lockUnlockLoading.set(false)))
@@ -287,7 +378,14 @@ export class UnitPermissionGroupManagement implements OnInit {
       return;
     }
     this.isEdit.set(true);
-    this.currentRole.set({ ...role });
+    const unitIds = this.resolveUnitIdsFromGroup(role);
+    this.selectedOrganizationUnitIds.set(unitIds);
+    this.syncSelectedUnitNodes(unitIds);
+    this.currentRole.set({
+      ...role,
+      organizationUnitIds: unitIds,
+      organizationUnitId: unitIds.length > 0 ? unitIds[0] : null
+    });
     this.formSubmitted.set(false);
     this.serverErrors.set({});
     this.dialogHeader.set('Chỉnh sửa nhóm quyền');
@@ -301,7 +399,12 @@ export class UnitPermissionGroupManagement implements OnInit {
       return;
     }
 
-    const roleDraft = this.currentRole();
+    const unitIds = this.selectedOrganizationUnitIds();
+    const roleDraft = {
+      ...this.currentRole(),
+      organizationUnitIds: unitIds,
+      organizationUnitId: unitIds.length > 0 ? unitIds[0] : null
+    };
     this.saving.set(true);
     if (this.isEdit()) {
       this.http.put(`${this.apiUrl}/${roleDraft.id}`, roleDraft)

@@ -10,7 +10,7 @@ export interface EavFormTemplate {
   description: string;
   descriptionInfo: string;
   extractionProcess?: string;
-  formSchema: string; 
+  formSchema?: string; 
   version: number;
   isActive: boolean;
   isDeleted?: boolean;
@@ -24,6 +24,7 @@ export interface EavFormTemplate {
   gridTypeName?: string;
   equipmentTypeId?: string;
   equipmentTypeName?: string;
+  categoryName?: string;
 }
 
 @Injectable({
@@ -41,14 +42,15 @@ export class EavFormService {
   }
 
   getApprovalTemplates(): Observable<EavFormTemplate[]> {
-    return this.api.get<EavFormTemplate[]>(`${this.apiUrl}/approval`);
+    return this.getApprovalTemplatesForm();
   }
 
+  /** @deprecated Dùng getCompletedTemplatesForm — API tách EavCompletedFormController */
   getCompletedTemplates(): Observable<EavFormTemplate[]> {
-    return this.api.get<EavFormTemplate[]>(`${this.apiUrl}/completed`);
+    return this.getCompletedTemplatesForm();
   }
 
-  /** @deprecated Dùng getDesignTemplates / getApprovalTemplates / getCompletedTemplates */
+  /** @deprecated Dùng getDesignTemplates / getApprovalTemplatesForm / getCompletedTemplatesForm */
   getTemplates(): Observable<EavFormTemplate[]> {
     return this.getDesignTemplates();
   }
@@ -108,6 +110,18 @@ export class EavFormService {
     return this.api.get<EavFormTemplate>(`${this.approvalApiUrl}/${id}`);
   }
 
+  getApprovalTemplateVersions(code: string): Observable<EavFormTemplate[]> {
+    return this.api.get<EavFormTemplate[]>(`${this.approvalApiUrl}/code/${code}/versions`);
+  }
+
+  getApprovalTemplateByIdAndVersion(id: string, version: number): Observable<EavFormTemplate> {
+    return this.api.get<EavFormTemplate>(`${this.approvalApiUrl}/${id}/versions/${version}`);
+  }
+
+  restoreApprovalTemplateVersion(id: string, version: number): Observable<{ message?: string }> {
+    return this.api.put<{ message?: string }>(`${this.approvalApiUrl}/${id}/versions/${version}/restore`, {});
+  }
+
   approveTemplate(id: string): Observable<EavFormTemplate> {
     return this.api.put<EavFormTemplate>(`${this.approvalApiUrl}/${id}/approve`, {});
   }
@@ -145,17 +159,74 @@ export class EavFormService {
     return this.api.get<EavFormTemplate[]>(`${this.completedApiUrl}/code/${code}/versions`);
   }
 
-  // --- API cũ (giữ nguyên để tránh lỗi biên dịch) ---
-  lockTemplate(id: string): Observable<any> {
-    return this.api.post<any>(`${this.apiUrl}/${id}/lock`, {});
+  getCompletedTemplateByIdAndVersion(id: string, version: number): Observable<EavFormTemplate> {
+    return this.api.get<EavFormTemplate>(`${this.completedApiUrl}/${id}/versions/${version}`);
   }
 
-  unlockTemplate(id: string): Observable<any> {
-    return this.api.post<any>(`${this.apiUrl}/${id}/unlock`, {});
+  restoreCompletedTemplateVersion(id: string, version: number): Observable<{ message?: string }> {
+    return this.api.put<{ message?: string }>(`${this.completedApiUrl}/${id}/versions/${version}/restore`, {});
   }
 
+  /** Lookup danh mục cho preview form hoàn thành — quyền EAV_COMPLETED_FORM_VIEW */
+  getCompletedCatalogOptions(typeCode: string): Observable<{ code: string; name: string }[]> {
+    return this.api.get<{ code: string; name: string }[]>(
+      `${this.completedApiUrl}/catalog-options/${encodeURIComponent(typeCode)}`
+    );
+  }
+
+  getCompletedHmadCategories(): Observable<{ id: number; code: string; name: string }[]> {
+    return this.api.get<{ id: number; code: string; name: string }[]>(`${this.completedApiUrl}/hmad-categories`);
+  }
+
+  getCompletedCatalogTypes(): Observable<{ id: number; code: string; name: string }[]> {
+    return this.api.get<{ id: number; code: string; name: string }[]>(`${this.completedApiUrl}/catalog-types`);
+  }
+
+  // --- API thiết kế form (EavFormTemplateController) — versions ---
   getTemplateVersions(code: string): Observable<EavFormTemplate[]> {
     return this.api.get<EavFormTemplate[]>(`${this.apiUrl}/code/${code}/versions`);
+  }
+
+  getTemplateByIdAndVersion(id: string, version: number): Observable<EavFormTemplate> {
+    return this.api.get<EavFormTemplate>(`${this.apiUrl}/${id}/versions/${version}`);
+  }
+
+  restoreTemplateVersion(id: string, version: number): Observable<{ message?: string }> {
+    return this.api.put<{ message?: string }>(`${this.apiUrl}/${id}/versions/${version}/restore`, {});
+  }
+
+  /** Lookup danh mục field — quyền EAV_FORM_TEMPLATE_VIEW */
+  getDesignCatalogOptions(typeCode: string): Observable<{ code: string; name: string }[]> {
+    return this.api.get<{ code: string; name: string }[]>(
+      `${this.apiUrl}/catalog-options/${encodeURIComponent(typeCode)}`
+    );
+  }
+
+  /** Hạng mục HMAD cho dropdown tạo/sửa — quyền EAV_FORM_TEMPLATE_VIEW */
+  getDesignHmadCategories(): Observable<{ id: number; code: string; name: string }[]> {
+    return this.api.get<{ id: number; code: string; name: string }[]>(`${this.apiUrl}/hmad-categories`);
+  }
+
+  /** Loại danh mục cho builder — quyền EAV_FORM_TEMPLATE_VIEW */
+  getDesignCatalogTypes(): Observable<{ id: number; code: string; name: string }[]> {
+    return this.api.get<{ id: number; code: string; name: string }[]>(`${this.apiUrl}/catalog-types`);
+  }
+
+  /** Lookup danh mục preview phê duyệt — quyền EAV_FORM_APPROVAL_VIEW */
+  getApprovalCatalogOptions(typeCode: string): Observable<{ code: string; name: string }[]> {
+    return this.api.get<{ code: string; name: string }[]>(
+      `${this.approvalApiUrl}/catalog-options/${encodeURIComponent(typeCode)}`
+    );
+  }
+
+  /** @deprecated Dùng lockCompletedTemplate */
+  lockTemplate(id: string): Observable<any> {
+    return this.lockCompletedTemplate(id);
+  }
+
+  /** @deprecated Dùng unlockCompletedTemplate */
+  unlockTemplate(id: string): Observable<any> {
+    return this.unlockCompletedTemplate(id);
   }
 
   getCatalogTypes(): Observable<any[]> {

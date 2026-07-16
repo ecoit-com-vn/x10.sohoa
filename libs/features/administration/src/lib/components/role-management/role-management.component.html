@@ -209,7 +209,7 @@
             />
             <span>
               <b>{{ g.name }}</b>
-              <span *ngIf="g.organizationUnitName" class="text-muted" style="margin-left: 8px;">— {{ g.organizationUnitName }}</span>
+              <span *ngIf="g.organizationUnitNames || g.organizationUnitName" class="text-muted" style="margin-left: 8px;">— {{ g.organizationUnitNames || g.organizationUnitName }}</span>
             </span>
           </label>
           <div *ngIf="availablePermissionGroups().length === 0" class="text-muted" style="padding: 10px 0;">Không có nhóm quyền khả dụng.</div>

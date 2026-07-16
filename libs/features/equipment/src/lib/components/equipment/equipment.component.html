@@ -343,26 +343,23 @@
     <!-- ==================== VIEW 3: MÀN HÌNH CHI TIẾT 2 TAB (EDIT MODE) ==================== -->
     <div *ngIf="currentView() === 'edit'" class="animate-fade-in sub-view-container">
 
-      <!-- Tab Bar EVN (3 Tab) -->
+      <!-- Tab Bar EVN -->
       <div class="tab-bar" style="margin-bottom: 20px;">
-        <div class="tab-item" [class.tab-active]="activeTab() === 0" (click)="activeTab.set(0)">
+        <div class="tab-item" [class.tab-active]="activeTab() === 'info'" (click)="activeTab.set('info')">
           <i class="pi pi-info-circle" style="margin-right: 4px;"></i> Thông tin thiết bị
         </div>
-        <div class="tab-item" [class.tab-active]="activeTab() === 1" (click)="activeTab.set(1)">
+        <div class="tab-item" [class.tab-active]="activeTab() === 'profileDocs'" (click)="activeTab.set('profileDocs')">
           <i class="pi pi-paperclip" style="margin-right: 4px;"></i> Tài liệu đính kèm
         </div>
-        <div class="tab-item" [class.tab-active]="activeTab() === 2" (click)="activeTab.set(2)">
+        <div class="tab-item" [class.tab-active]="activeTab() === 'related'" (click)="activeTab.set('related')">
           <i class="pi pi-folder-open" style="margin-right: 4px;"></i> Hồ sơ liên quan
-        </div>
-        <div class="tab-item" [class.tab-active]="activeTab() === 2" (click)="activeTab.set(2)">
-          <i class="pi pi-file" style="margin-right: 4px;"></i> Tài liệu lý lịch
         </div>
       </div>
 
       <!-- NỘI DUNG CÁC TAB -->
 
-      <!-- ==================== TAB 0: THÔNG TIN THIẾT BỊ ==================== -->
-      <div *ngIf="activeTab() === 0" class="tab-content animate-fade-in">
+      <!-- ==================== TAB: THÔNG TIN THIẾT BỊ ==================== -->
+      <div *ngIf="activeTab() === 'info'" class="tab-content animate-fade-in">
 
         <!-- Chế độ Xem (General Info View Doc) -->
         <div *ngIf="!isEditingGeneral()" class="docs-style-view"
@@ -753,24 +750,18 @@
         </div>
       </div>
 
-      <!-- ==================== TAB 1: TÀI LIỆU ĐÍNH KÈM ==================== -->
-      <div *ngIf="activeTab() === 1" class="tab-content animate-fade-in">
-        <div class="wf-table-wrap"
-          style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-          <div style="border-bottom: 1px dashed #cbd5e1; padding-bottom: 10px; margin-bottom: 15px;">
-            <span style="font-size: 0.95rem; font-weight: 700; color: #002D72; text-transform: uppercase;">
-              <i class="pi pi-paperclip" style="color: #FF6B00; margin-right: 6px;"></i> Tài liệu đính kèm
-            </span>
-          </div>
-          <p style="color: #64748b; text-align: center; padding: 24px 0;">
-            <i class="pi pi-info-circle" style="margin-right: 6px;"></i>
-            Tính năng quản lý tài liệu đính kèm sẽ được tích hợp vào đây.
-          </p>
-        </div>
+      <!-- ==================== TAB: TÀI LIỆU ĐÍNH KÈM (profile docs) ==================== -->
+      <div *ngIf="activeTab() === 'profileDocs'" class="tab-content animate-fade-in">
+        <app-equipment-documents
+          *ngIf="currentItem().id as profileEquipmentId"
+          [equipmentId]="profileEquipmentId"
+          [canEdit]="canEdit()"
+          (documentProcessed)="reloadDetail(profileEquipmentId)"
+        ></app-equipment-documents>
       </div>
 
-      <!-- ==================== TAB 2: HỒ SƠ LIÊN QUAN (ORACLE BHS LIST) ==================== -->
-      <div *ngIf="activeTab() === 2" class="tab-content animate-fade-in">
+      <!-- ==================== TAB: HỒ SƠ LIÊN QUAN (ORACLE BHS LIST) ==================== -->
+      <div *ngIf="activeTab() === 'related'" class="tab-content animate-fade-in">
 
         <!-- Bảng danh sách hồ sơ (STT -> các trường theo BHS -> loại hồ sơ -> người tạo -> ngày tạo -> trạng thái) -->
         <div class="wf-table-wrap"
@@ -850,16 +841,6 @@
           </div>
 
         </div>
-      </div>
-
-      <!-- ==================== TAB 2: TÀI LIỆU LÝ LỊCH THIẾT BỊ ==================== -->
-      <div *ngIf="activeTab() === 2" class="tab-content animate-fade-in">
-        <app-equipment-documents
-          *ngIf="currentItem().id as profileEquipmentId"
-          [equipmentId]="profileEquipmentId"
-          [canEdit]="canEdit()"
-          (documentProcessed)="reloadDetail(profileEquipmentId)"
-        ></app-equipment-documents>
       </div>
     </div>
 

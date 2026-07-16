@@ -1,4 +1,21 @@
 
+    :host ::ng-deep {
+      .p-treeselect {
+        width: 100%;
+      }
+
+      .p-treeselect-label-container {
+        max-width: 100%;
+      }
+
+      /* Đảm bảo nút mở rộng cây nhận click */
+      .p-treeselect-overlay .p-tree-toggler,
+      .p-treeselect-panel .p-tree-toggler {
+        pointer-events: auto;
+        flex-shrink: 0;
+      }
+    }
+
     @keyframes shimmer {
       0% { background-position: -200% 0; }
       100% { background-position: 200% 0; }

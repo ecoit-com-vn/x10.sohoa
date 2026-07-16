@@ -44,13 +44,13 @@
               <label class="block text-sm font-bold text-muted tracking-wider">Mã biểu mẫu <span
                   class="required">*</span></label>
               <input type="text" pInputText [ngModel]="formCode()" (ngModelChange)="formCode.set($event)"
-                class="w-full form-title-input" placeholder="Ví dụ: BM_MBA_01..." />
+                class="w-full form-title-input" placeholder="Nhập mã biểu mẫu..." />
             </div>
             <div class="form-group" style="flex: 1;">
               <label class="block text-sm font-bold text-muted tracking-wider">Tên biểu mẫu <span
                   class="required">*</span></label>
               <input type="text" pInputText [ngModel]="formName()" (ngModelChange)="formName.set($event)"
-                class="w-full form-title-input" placeholder="Nhập tên form..." />
+                class="w-full form-title-input" placeholder="Nhập tên biểu mẫu..." />
             </div>
           </div>
           <div class="info-form-row mb-3">
@@ -80,10 +80,10 @@
             </div>
           </div>
           <div class="info-form-row">
-            <div class="form-group" style="flex: 1;">
+            <div class="form-group extraction-process-group">
               <label class="block text-sm font-bold text-muted tracking-wider">Quy trình bóc tách thông tin</label>
               <textarea pTextarea [ngModel]="extractionProcess()" (ngModelChange)="extractionProcess.set($event)"
-                class="w-full form-title-input" rows="2" placeholder="Nhập quy trình bóc tách thông tin..."></textarea>
+                class="form-title-input extraction-process-input" rows="2" placeholder="Nhập quy trình bóc tách thông tin..."></textarea>
             </div>
           </div>
         </div>

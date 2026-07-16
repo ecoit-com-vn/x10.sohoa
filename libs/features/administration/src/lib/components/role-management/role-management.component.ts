@@ -446,7 +446,11 @@ export class RoleManagement implements OnInit {
   }
 
   private loadAvailablePermissionGroups(role: any) {
-    const unitLookupUrl = `${environment.apiGatewayUrl}/api/v1/unit-permission-groups/lookup`;
+    let unitLookupUrl = `${environment.apiGatewayUrl}/api/v1/unit-permission-groups/lookup`;
+    // Vai trò UNIT: chỉ lấy nhóm ĐV có mapping chứa đơn vị của vai trò
+    if (role?.scopeTypeId === 2 && role?.organizationUnitId) {
+      unitLookupUrl += `?organizationUnitId=${role.organizationUnitId}`;
+    }
     this.http.get<any[]>(unitLookupUrl).subscribe({
       next: (unitGroups) => {
         const normalized = Array.isArray(unitGroups) ? unitGroups : [];

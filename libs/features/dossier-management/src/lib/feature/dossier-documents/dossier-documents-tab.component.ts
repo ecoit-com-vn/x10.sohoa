@@ -35,6 +35,7 @@ import {
   DossierDocumentItem,
   DossierDocumentService,
   DocumentOcrProgress,
+  DocumentVersion,
 } from '../../data-access/dossier-document.service';
 import {
   formatDocumentDate,
@@ -151,6 +152,14 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
   documentDialogEditable = signal(false);
   docActionMenuItems = signal<MenuItem[]>([]);
   hasHorizontalScroll = signal(false);
+
+  // Document Version states
+  showHistoryDialog = signal(false);
+  documentVersions = signal<DocumentVersion[]>([]);
+  historyTargetDocument = signal<DossierDocumentItem | null>(null);
+  loadingVersions = signal(false);
+  rollingBack = signal(false);
+  deletingVersion = signal(false);
 
   totalPages = computed(() => {
     const total = this.totalDocuments();
@@ -413,6 +422,15 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
         iconClasses: this.isDownloading(doc.id) ? 'pi pi-spin pi-spinner' : 'pi pi-download',
         disabled: !doc.latestVersionId || this.isDownloading(doc.id),
         run: (d) => this.onDownload(d),
+      },
+      {
+        key: 'history',
+        title: 'Lịch sử phiên bản',
+        btnClass: 'act-history',
+        iconClasses: 'pi pi-history',
+        disabled: !doc.latestVersionId,
+        overflowOnly: true,
+        run: (d) => this.onViewHistory(d),
       },
     ];
 
@@ -795,5 +813,112 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
           });
         },
       });
+  }
+
+  // ===== DOCUMENT VERSION LOGIC =====
+
+  onViewHistory(doc: DossierDocumentItem) {
+    this.historyTargetDocument.set(doc);
+    this.showHistoryDialog.set(true);
+    this.loadDocumentVersions(doc.id);
+  }
+
+  loadDocumentVersions(documentId: string) {
+    this.loadingVersions.set(true);
+    this.documentService.getDocumentVersions(this.dossierId, documentId)
+      .pipe(finalize(() => this.loadingVersions.set(false)))
+      .subscribe({
+        next: (versions) => {
+          this.documentVersions.set(versions);
+        },
+        error: (err) => {
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi',
+            detail: err.error?.message || 'Không thể lấy lịch sử phiên bản tài liệu',
+          });
+        }
+      });
+  }
+
+  onRollbackVersion(version: DocumentVersion) {
+    const doc = this.historyTargetDocument();
+    if (!doc) return;
+
+    this.rollingBack.set(true);
+    this.documentService.rollbackDocumentVersion(this.dossierId, version.id)
+      .pipe(finalize(() => this.rollingBack.set(false)))
+      .subscribe({
+        next: () => {
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Thành công',
+            detail: `Đã khôi phục tài liệu về phiên bản ${version.versionNumber}`,
+          });
+          this.loadDocuments();
+          this.loadDocumentVersions(doc.id);
+        },
+        error: (err) => {
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi',
+            detail: err.error?.message || 'Khôi phục phiên bản thất bại',
+          });
+        }
+      });
+  }
+
+  onDeleteVersion(version: DocumentVersion) {
+    const doc = this.historyTargetDocument();
+    if (!doc) return;
+
+    this.deletingVersion.set(true);
+    this.documentService.deleteDocumentVersion(this.dossierId, version.id)
+      .pipe(finalize(() => this.deletingVersion.set(false)))
+      .subscribe({
+        next: () => {
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Thành công',
+            detail: `Đã xóa phiên bản số ${version.versionNumber} của tài liệu`,
+          });
+          this.loadDocuments();
+          this.loadDocumentVersions(doc.id);
+        },
+        error: (err) => {
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi',
+            detail: err.error?.message || 'Xóa phiên bản thất bại',
+          });
+        }
+      });
+  }
+
+  onDownloadVersion(version: DocumentVersion) {
+    const doc = this.historyTargetDocument();
+    if (!doc) return;
+
+    this.documentService.downloadFile(this.dossierId, version.id, doc.name)
+      .then(() => {
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Tải xuống',
+          detail: `Bắt đầu tải phiên bản ${version.versionNumber} của tài liệu`,
+        });
+      })
+      .catch((err) => {
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Lỗi',
+          detail: err.message || 'Không thể tải phiên bản này',
+        });
+      });
+  }
+
+  onCloseHistoryDialog() {
+    this.showHistoryDialog.set(false);
+    this.documentVersions.set([]);
+    this.historyTargetDocument.set(null);
   }
 }

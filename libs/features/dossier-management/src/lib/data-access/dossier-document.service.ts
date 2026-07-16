@@ -24,6 +24,20 @@ export interface DocumentOcrProgress {
   modifiedDate?: string;
 }
 
+export interface DocumentVersion {
+  id: string;
+  documentId: string;
+  versionNumber: number;
+  uploadSource: number; // 1: Thư mục, 2: Scan, 3: Web
+  filePath?: string;
+  minioVersionId?: string;
+  fileSize?: number;
+  mimeType?: string;
+  createdBy?: string;
+  createdByName?: string;
+  createdDate?: string;
+}
+
 export interface DocumentExtractionResultSummary {
   id: string;
   documentVersionId: string;
@@ -170,14 +184,15 @@ export class DossierDocumentService {
     );
   }
 
-  lookupDocumentTypes(keyword?: string): Observable<DocumentTypeLookupItem[]> {
-    let params = new HttpParams();
-    if (keyword?.trim()) {
-      params = params.set('keyword', keyword.trim());
-    }
-    return this.http.get<unknown[]>(`${this.config.apiGatewayUrl}/api/catalog/document-type/lookup`, { params }).pipe(
-      map((items) => (items ?? []).map((item) => normalizeDocumentTypeLookup(item)))
-    );
+  /**
+   * Loại văn bản gắn loại hồ sơ — API dossier (DOSSIER_VIEW / DOSSIER_DIGITIZATION_VIEW).
+   * Không gọi catalog/dossier-type (sai phạm vi phân quyền).
+   */
+  getDocumentTypesForDossier(dossierId: string): Observable<DocumentTypeLookupItem[]> {
+    const segment = this.kindId === 1 ? 'dossier-digitization/dossiers' : 'dossiers';
+    return this.http
+      .get<unknown[]>(`${this.config.apiGatewayUrl}/api/v1/${segment}/${dossierId}/document-types`)
+      .pipe(map((items) => (items ?? []).map((item) => normalizeDocumentTypeLookup(item))));
   }
 
   uploadFileDirect(
@@ -472,6 +487,25 @@ export class DossierDocumentService {
     return this.http.put<DocumentExtractionResult>(
       `${this.dossierBase(dossierId)}/${versionId}/digitization/result`,
       { mergedDataJson }
+    );
+  }
+
+  getDocumentVersions(dossierId: string, documentId: string): Observable<DocumentVersion[]> {
+    return this.http.get<DocumentVersion[]>(`${this.config.apiGatewayUrl}/api/v1/documents/${documentId}/versions`);
+  }
+
+  rollbackDocumentVersion(dossierId: string, versionId: string): Observable<void> {
+    const segment = this.kindId === 1 ? 'dossier-digitization/dossiers' : 'dossiers';
+    return this.http.post<void>(
+      `${this.config.apiGatewayUrl}/api/v1/${segment}/${dossierId}/documents/versions/${versionId}/rollback`,
+      {}
+    );
+  }
+
+  deleteDocumentVersion(dossierId: string, versionId: string): Observable<void> {
+    const segment = this.kindId === 1 ? 'dossier-digitization/dossiers' : 'dossiers';
+    return this.http.delete<void>(
+      `${this.config.apiGatewayUrl}/api/v1/${segment}/${dossierId}/documents/versions/${versionId}`
     );
   }
 

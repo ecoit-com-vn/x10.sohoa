@@ -63,34 +63,41 @@
           </tr>
           
           <tr *ngFor="let form of paginatedForms(); let i = index">
-            <td style="text-align: center; color: #000000;">{{ first() + i + 1 }}</td>
-            <td><code style="font-weight: bold; color: #000000;">{{ form.code || '(Chưa có)' }}</code></td>
-            <td><b class="wf-name-link" style="color: #000000;" (click)="onPreview(form)">{{ form.name }}</b></td>
+            <td>{{ first() + i + 1 }}</td>
+            <td>{{ form.code }}</td>
+            <td><span class="wf-name-link" (click)="onPreview(form)">{{ form.name }}</span></td>
             <td>
-              <span class="badge" style="background: #f1f5f9; color: #000000; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;">
-                {{ getCategoryName(form.category) }}
+              <span class="badge">
+                {{ getCategoryName(form) }}
               </span>
             </td>
-            <td style="text-align: center; font-family: monospace; font-weight: bold; color: #000000;">v{{ form.version }}.0</td>
-            <td style="color: #000000;">{{ form.createdBy || 'admin' }}</td>
+            <td>v{{ form.version }}.0</td>
+            <td>{{ form.createdBy || 'admin' }}</td>
             <td class="col-tt">
               <span class="status-pill"
                 [class.status-pending]="form.status === 'Chờ duyệt'"
                 [class.status-approved]="form.status === 'Hoàn thành'"
-                [class.status-rejected]="form.status === 'Từ chối'">
-                <i class="pi" [ngClass]="{
-                  'pi-clock': form.status === 'Chờ duyệt',
-                  'pi-check-circle': form.status === 'Hoàn thành',
-                  'pi-times-circle': form.status === 'Từ chối'
-                }"></i>
+                [class.status-rejected]="form.status === 'Từ chối'" >
                 {{ form.status || 'Chờ duyệt' }}
               </span>
             </td>
-            <td style="color: #000000;">{{ form.createdAt | date:'dd/MM/yyyy HH:mm' }}</td>
+            <td>{{ form.createdAt | date:'dd/MM/yyyy' }}</td>
             <td class="col-hd">
               <button type="button" class="act-btn act-more" (click)="openActionMenu(form, $event, actionMenu)" title="Thao tác khác">
                 <i class="pi pi-ellipsis-h"></i>
               </button>
+              <button class="act-btn btn-view-history" (click)="viewVersions(form)" title="Lịch sử phiên bản">
+                <i class="pi pi-history"></i>
+              </button>
+              
+              <ng-container *ngIf="form.status === 'Chờ duyệt' && canApprove()">
+                <button class="act-btn act-approve" (click)="approveForm(form)" title="Phê duyệt">
+                  <i class="pi pi-check"></i>
+                </button>
+                <button class="act-btn act-reject" (click)="rejectForm(form)" title="Từ chối">
+                  <i class="pi pi-times"></i>
+                </button>
+              </ng-container>
             </td>
           </tr>
           
@@ -150,7 +157,7 @@
       <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #FF6B00; padding-bottom: 8px; margin-bottom: 20px;">
         <h3 class="font-bold text-lg" style="color: #002D72; margin: 0;">Thông số kỹ thuật biểu mẫu (Preview)</h3>
         <span class="text-sm font-semibold" style="color: #64748b;">
-          Mã biểu mẫu: <b style="color: #000;">{{ form.code }}</b> | Hạng mục: <b style="color: #000;">{{ getCategoryName(form.category) }}</b>
+          Mã biểu mẫu: <b style="color: #000;">{{ form.code }}</b> | Hạng mục: <b style="color: #000;">{{ getCategoryName(form) }}</b>
         </span>
       </div>
       
@@ -297,6 +304,86 @@
         </button>
         <button class="btn-save btn-small" (click)="onConfirmReject()" style="background-color: #ef4444; border-color: #ef4444;">
           <i class="pi pi-times"></i> Từ chối
+        </button>
+      </div>
+    </ng-template>
+  </p-dialog>
+
+  <!-- ==================== DIALOG LỊCH SỬ PHIÊN BẢN ==================== -->
+  <p-dialog [visible]="showVersionsDialog()" (visibleChange)="$event ? null : showVersionsDialog.set(false)"
+    header="Lịch sử phiên bản form" [modal]="true" [style]="{ width: '900px' }" styleClass="evn-dialog-custom"
+    [closable]="true">
+    <div *ngIf="selectedTemplateForVersions() as template" class="version-dialog-wrapper" style="padding: 10px 0;">
+      <div class="wf-table-wrap">
+        <table class="wf-table">
+          <thead>
+            <tr>
+              <th class="col-ver-width text-center" style="width: 100px; text-align: center;">Phiên bản</th>
+              <th>Mã form</th>
+              <th>Tên form</th>
+              <th>Người cập nhật</th>
+              <th>Ngày cập nhật</th>
+              <th class="col-tt-width text-center" style="width: 150px; text-align: center;">Trạng thái sử dụng</th>
+              <th style="width: 110px; text-align: center;">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let ver of versionList()">
+              <td class="text-center font-bold" style="text-align: center; font-weight: bold; color: #002D72;">
+                v{{ ver.version }}.0
+              </td>
+              <td>{{ ver.code }}</td>
+              <td>{{ ver.name }}</td>
+              <td>{{ ver.creatorFullName }}</td>
+              <td>{{ ver.createdAt | date:'dd/MM/yyyy HH:mm' }}</td>
+              <td class="text-center" style="text-align: center;">
+                <span class="status-pill" [class.status-active]="ver.isActive" [class.status-inactive]="!ver.isActive">
+                  {{ ver.isActive ? 'Hoạt động' : 'Ngưng hoạt động' }}
+                </span>
+              </td>
+              <td class="text-center" style="text-align: center;">
+                <div style="display: inline-flex; gap: 6px; justify-content: center;">
+                  <button class="act-btn btn-view-detail" (click)="viewVersionDetail(ver)" title="Xem chi tiết">
+                    <i class="pi pi-eye"></i>
+                  </button>
+                  <button *ngIf="canApprove() && !ver.isActive" class="act-btn act-history" (click)="confirmRestoreVersion(ver)"
+                    title="Khôi phục phiên bản này" [disabled]="restoringVersion()"
+                    style="background-color: #f59e0b; color: white;">
+                    <i class="pi pi-refresh" [class.pi-spin]="restoringVersion()"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+            <tr *ngIf="versionList().length === 0">
+              <td colspan="7" class="empty-row text-center">Không tải được lịch sử phiên bản.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <ng-template #footer>
+      <div style="display: flex; justify-content: flex-end; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+        <button class="btn-cancel btn-small" (click)="showVersionsDialog.set(false)">
+          <i class="pi pi-times"></i> Đóng
+        </button>
+      </div>
+    </ng-template>
+  </p-dialog>
+
+  <p-dialog [visible]="showConfirmRestore()" (visibleChange)="$event ? null : showConfirmRestore.set(false)"
+    header="Xác nhận khôi phục" [modal]="true" [style]="{ width: '480px' }" styleClass="evn-dialog-custom"
+    [closable]="true">
+    <p *ngIf="restoreTarget() as ver" style="margin: 8px 0 16px; line-height: 1.5;">
+      Khôi phục form về phiên bản <b>v{{ ver.version }}.0</b>?
+      Phiên bản này sẽ trở thành phiên bản đang sử dụng.
+    </p>
+    <ng-template #footer>
+      <div style="display: flex; justify-content: flex-end; gap: 8px;">
+        <button class="btn-cancel btn-small" (click)="showConfirmRestore.set(false)" [disabled]="restoringVersion()">
+          Hủy
+        </button>
+        <button class="btn-save btn-small" (click)="onConfirmRestoreVersion()" [disabled]="restoringVersion()">
+          <i class="pi pi-refresh" [class.pi-spin]="restoringVersion()"></i> Khôi phục
         </button>
       </div>
     </ng-template>

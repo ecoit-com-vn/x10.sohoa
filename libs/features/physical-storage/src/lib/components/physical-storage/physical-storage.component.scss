@@ -45,4 +45,171 @@
       background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
       background-size: 200% 100%;
     }
+
+    /* Org unit tree picker (giống màn thiết bị) */
+    .org-tree-picker {
+      position: relative;
+      width: 100%;
+    }
+
+    .org-tree-picker.disabled {
+      opacity: 0.6;
+      pointer-events: none;
+    }
+
+    .org-tree-picker .org-tree-trigger {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border: 1.5px solid #cbd5e1;
+      border-radius: 6px;
+      padding: 0 12px;
+      height: 38px;
+      cursor: pointer;
+      background: #fff;
+      font-size: 0.875rem;
+      color: #94a3b8;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      user-select: none;
+    }
+
+    .org-tree-picker .org-tree-trigger.has-value {
+      color: #374151;
+    }
+
+    .org-tree-picker .org-tree-trigger:hover,
+    .org-tree-picker .org-tree-trigger.open {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+    }
+
+    .org-tree-picker .org-tree-trigger .org-tree-selected-label {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+    }
+
+    .org-tree-picker .org-tree-trigger .pi-chevron-down,
+    .org-tree-picker .org-tree-trigger .pi-chevron-up {
+      font-size: 0.75rem;
+      color: #6b7280;
+      flex-shrink: 0;
+      margin-left: 8px;
+    }
+
+    .org-tree-picker .org-tree-dropdown {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      right: 0;
+      z-index: 1100;
+      background: #fff;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 8px;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+      max-height: 240px;
+      overflow-y: auto;
+      user-select: none;
+    }
+
+    .org-tree-picker .org-tree-dropdown .org-tree-empty {
+      padding: 16px;
+      text-align: center;
+      color: #94a3b8;
+      font-size: 0.82rem;
+    }
+
+    .org-tree-picker .org-tree-node {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 7px 8px;
+      cursor: pointer;
+      border-radius: 4px;
+      margin: 1px 4px;
+      transition: background-color 0.15s;
+    }
+
+    .org-tree-picker .org-tree-node:hover {
+      background-color: #f0f9ff;
+    }
+
+    .org-tree-picker .org-tree-node.selected {
+      background-color: #eff6ff;
+    }
+
+    .org-tree-picker .org-tree-node.selected .org-tree-node-label {
+      color: #1d4ed8;
+      font-weight: 600;
+    }
+
+    .org-tree-picker .org-tree-node .org-tree-expand-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      border: none;
+      background: #f1f5f9;
+      border-radius: 4px;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .org-tree-picker .org-tree-node .org-tree-expand-btn:hover {
+      background: #dbeafe;
+    }
+
+    .org-tree-picker .org-tree-node .org-tree-expand-btn .pi {
+      font-size: 0.6rem;
+      color: #475569;
+    }
+
+    .org-tree-picker .org-tree-node .org-tree-node-spacer {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      flex-shrink: 0;
+    }
+
+    .org-tree-picker .org-tree-node .org-tree-node-label {
+      font-size: 0.85rem;
+      color: #374151;
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .filter-select {
+      min-width: 200px;
+      height: 38px;
+      padding: 0 12px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      background-color: #fff;
+      font-size: 0.875rem;
+      color: #334155;
+      cursor: pointer;
+      outline: none;
+    }
+
+    .page-jump-label {
+      margin-left: 10px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.8rem;
+      color: #6b7280;
+    }
+
+    .page-jump-input {
+      width: 50px;
+      height: 28px;
+      text-align: center;
+      border: 1px solid #e5e7eb;
+      border-radius: 4px;
+      padding: 0 4px;
+    }
   

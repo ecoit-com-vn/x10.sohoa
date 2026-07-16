@@ -68,6 +68,11 @@ export const CATALOG_ROUTES: Route[] = [
     loadComponent: () => import('@sohoa.frontend/features/equipment').then(m => m.EquipmentComponent)
   },
   {
+    path: 'substation/:parentId/dossier-detail/:id',
+    loadComponent: () => import('./feature/infrastructure-dossier-detail/infrastructure-dossier-detail.component').then(m => m.InfrastructureDossierDetailComponent),
+    data: { infraTypeId: 1, title: 'Chi tiết Hồ sơ Trạm biến áp' }
+  },
+  {
     path: 'substation',
     loadComponent: () => import('./feature/infrastructure/infrastructure.component').then(m => m.InfrastructureComponent),
     data: { infraTypeId: 1, title: 'Danh mục trạm biến áp' }
@@ -84,6 +89,11 @@ export const CATALOG_ROUTES: Route[] = [
   {
     path: 'transmission-line/:parentId/device-detail/:id',
     loadComponent: () => import('@sohoa.frontend/features/equipment').then(m => m.EquipmentComponent)
+  },
+  {
+    path: 'transmission-line/:parentId/dossier-detail/:id',
+    loadComponent: () => import('./feature/infrastructure-dossier-detail/infrastructure-dossier-detail.component').then(m => m.InfrastructureDossierDetailComponent),
+    data: { infraTypeId: 2, title: 'Chi tiết Hồ sơ Đường dây' }
   },
   {
     path: 'transmission-line',

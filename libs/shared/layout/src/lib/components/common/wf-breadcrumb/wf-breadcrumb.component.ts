@@ -37,7 +37,7 @@ export class WfBreadcrumbComponent implements OnInit {
   /** Ghi đè URL dùng để khớp menu (mặc định lấy router.url). */
   @Input() matchUrl: string | null = null;
   @Input() customItems: BreadcrumbTrailItem[] | null = null;
-  
+
   @Output() listClick = new EventEmitter<void>();
 
   private currentUrlSignal = signal<string>('');
@@ -83,12 +83,15 @@ export class WfBreadcrumbComponent implements OnInit {
   readonly showListAsLink = computed(() => !!this.resolvedSuffix());
 
   ngOnInit(): void {
-    this.currentUrlSignal.set(this.matchUrl ?? this.router.url);
+    this.syncUrl();
 
     this.breadcrumbService
       .ensureMenusLoaded()
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe();
+      .subscribe(() => {
+        // Menu vừa về (đặc biệt local chậm) → ép trail resolve lại.
+        this.syncUrl();
+      });
 
     this.router.events
       .pipe(
@@ -98,6 +101,10 @@ export class WfBreadcrumbComponent implements OnInit {
       .subscribe((event) => {
         this.currentUrlSignal.set(this.matchUrl ?? (event.urlAfterRedirects || event.url));
       });
+  }
+
+  private syncUrl(): void {
+    this.currentUrlSignal.set(this.matchUrl ?? this.router.url);
   }
 
   onLeafClick(): void {

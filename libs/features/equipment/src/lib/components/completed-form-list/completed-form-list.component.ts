@@ -2,7 +2,8 @@ import { Component, OnInit, inject, signal, computed, effect } from '@angular/co
 import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ToastModule } from 'primeng/toast';
 import { Menu, MenuModule } from 'primeng/menu';
 import { MenuItem, MessageService } from 'primeng/api';
@@ -12,9 +13,8 @@ import { TextareaModule } from 'primeng/textarea';
 import { SelectModule } from 'primeng/select';
 import { PaginatorModule } from 'primeng/paginator';
 import { DialogModule } from 'primeng/dialog';
-import { finalize } from 'rxjs';
+import { combineLatest, finalize } from 'rxjs';
 import { LoadingService, EavFormService, EavFormTemplate, AuthService } from '@sohoa.frontend/shared/core';
-import { EquipmentTypeService } from '../../data-access/equipment-type.service';
 import {
   canDeleteCompletedForm,
   canEditForm,
@@ -45,8 +45,8 @@ export class CompletedFormListComponent implements OnInit {
     private messageService = inject(MessageService);
     private loadingService = inject(LoadingService);
     private eavFormService = inject(EavFormService);
-    private equipmentTypeService = inject(EquipmentTypeService);
     private router = inject(Router);
+    private route = inject(ActivatedRoute);
     private authService = inject(AuthService);
 
     canEdit = computed(() => canEditForm(this.authService));
@@ -58,11 +58,14 @@ export class CompletedFormListComponent implements OnInit {
     showConfirmDelete = signal<boolean>(false);
     viewState = signal<'list' | 'detail'>('list');
     targetForm: EavFormTemplate | null = null;
-    selectedForm: EavFormTemplate | null = null;
+    selectedForm = signal<EavFormTemplate | null>(null);
 
     showVersionsDialog = signal<boolean>(false);
     versionList = signal<EavFormTemplate[]>([]);
     selectedTemplate = signal<EavFormTemplate | null>(null);
+    showConfirmRestore = signal<boolean>(false);
+    restoreTarget = signal<EavFormTemplate | null>(null);
+    restoringVersion = signal<boolean>(false);
 
     catalogOptionsMap = signal<{ [catalogCode: string]: string[] }>({});
     actionMenuItems: MenuItem[] = [];
@@ -82,22 +85,15 @@ export class CompletedFormListComponent implements OnInit {
 
     loadCatalogOptions(catalogCode: string) {
         if (!catalogCode || this.catalogOptionsMap()[catalogCode]) return;
-        this.eavFormService.getCatalogTypeByCode(catalogCode).subscribe({
-            next: (catalogType) => {
-                if (catalogType && catalogType.id) {
-                    this.eavFormService.getCatalogsLookup(catalogType.id).subscribe({
-                        next: (items) => {
-                            const options = (items || []).map((item: any) => item.name || item.code);
-                            this.catalogOptionsMap.update(prev => ({
-                                ...prev,
-                                [catalogCode]: options
-                            }));
-                        },
-                        error: (err) => console.error(`Failed to load catalogs lookup for ${catalogCode}`, err)
-                    });
-                }
+        this.eavFormService.getCompletedCatalogOptions(catalogCode).subscribe({
+            next: (items) => {
+                const options = (items || []).map((item) => item.name || item.code);
+                this.catalogOptionsMap.update(prev => ({
+                    ...prev,
+                    [catalogCode]: options
+                }));
             },
-            error: (err) => console.error(`Failed to load catalog type for ${catalogCode}`, err)
+            error: (err) => console.error(`Failed to load catalogs lookup for ${catalogCode}`, err)
         });
     }
 
@@ -110,10 +106,6 @@ export class CompletedFormListComponent implements OnInit {
             }
         });
     });
-
-    equipmentTypes = signal<any[]>([]);
-    gridTypes = signal<any[]>([]);
-    categories = signal<any[]>([]);
 
     forms = signal<EavFormTemplate[]>([]);
     searchKeyword = signal<string>('');
@@ -158,10 +150,11 @@ export class CompletedFormListComponent implements OnInit {
     });
 
     formFields = computed(() => {
-        if (!this.selectedForm?.formSchema) {
+        const form = this.selectedForm();
+        if (!form?.formSchema) {
             return [];
         }
-        return this.parseFormSchema(this.selectedForm.formSchema);
+        return this.parseFormSchema(form.formSchema);
     });
 
     private parseFormSchema(schema: unknown): any[] {
@@ -197,17 +190,57 @@ export class CompletedFormListComponent implements OnInit {
         return [];
     }
 
+    constructor() {
+        combineLatest([this.route.paramMap, this.route.queryParamMap])
+            .pipe(takeUntilDestroyed())
+            .subscribe(([params, query]) => {
+                const id = params.get('id');
+                if (!id) {
+                    this.viewState.set('list');
+                    this.selectedForm.set(null);
+                    if (this.forms().length === 0) {
+                        this.loadForms();
+                    }
+                    return;
+                }
+                const versionRaw = query.get('version');
+                const version = versionRaw ? Number(versionRaw) : null;
+                this.loadDetail(id, version && version > 0 ? version : null);
+            });
+    }
+
     ngOnInit() {
         this.authService.loadPermissions();
-        this.loadEquipmentTypes();
-        this.loadGridTypes();
-        this.loadHmadCategories();
-        this.loadForms();
+    }
+
+    private loadDetail(id: string, version: number | null) {
+        this.loadingService.show();
+        const request$ = version != null
+            ? this.eavFormService.getCompletedTemplateByIdAndVersion(id, version)
+            : this.eavFormService.getCompletedTemplateById(id);
+
+        request$
+            .pipe(finalize(() => this.loadingService.hide()))
+            .subscribe({
+                next: (detail) => {
+                    this.selectedForm.set(detail);
+                    this.viewState.set('detail');
+                },
+                error: (err) => {
+                    console.error('Failed to load form detail', err);
+                    this.messageService.add({
+                        severity: 'error',
+                        summary: 'Lỗi',
+                        detail: 'Không thể tải chi tiết form.'
+                    });
+                    this.router.navigate(['/equipment/completed-forms']);
+                }
+            });
     }
 
     loadForms(keyword?: string) {
         this.loading.set(true);
-        this.eavFormService.getCompletedTemplates()
+        this.eavFormService.getCompletedTemplatesForm()
             .pipe(finalize(() => this.loading.set(false)))
             .subscribe({
                 next: (data) => {
@@ -344,72 +377,19 @@ export class CompletedFormListComponent implements OnInit {
     }
 
     viewFormDetail(form: EavFormTemplate) {
-        this.selectedForm = form;
-        this.viewState.set('detail');
+        this.router.navigate(['/equipment/completed-forms', form.id]);
     }
 
     goToList() {
-        this.viewState.set('list');
-        this.selectedForm = null;
+        this.router.navigate(['/equipment/completed-forms']);
     }
 
-    loadEquipmentTypes() {
-        this.equipmentTypeService.getEquipmentTypes(1, 1000, undefined, undefined, undefined, true).subscribe({
-            next: (res) => {
-                if (res && res.items) {
-                    this.equipmentTypes.set(res.items);
-                }
-            },
-            error: (err) => {
-                console.error('Failed to load equipment types', err);
-            }
-        });
-    }
-
-    loadGridTypes() {
-        this.equipmentTypeService.getGridTypesLookup().subscribe({
-            next: (types) => {
-                this.gridTypes.set(types || []);
-            },
-            error: (err) => {
-                console.error('Failed to load grid types', err);
-            }
-        });
-    }
-
-    loadHmadCategories() {
-        this.eavFormService.getCatalogTypeByCode('HMAD').subscribe({
-            next: (catalogType) => {
-                if (catalogType && catalogType.id) {
-                    this.eavFormService.getCatalogsLookup(catalogType.id).subscribe({
-                        next: (catalogs) => {
-                            this.categories.set(catalogs || []);
-                        },
-                        error: (err) => {
-                            console.error('Failed to load catalogs for HMAD', err);
-                        }
-                    });
-                }
-            },
-            error: (err) => {
-                console.error('Failed to load CatalogType HMAD', err);
-            }
-        });
-    }
-
-    getCategoryName(code: string): string {
-        const cat = this.categories().find(c => c.code === code || c.id === code || c.id?.toString() === code?.toString());
-        return cat ? cat.name : code || '';
-    }
-
-    getGridTypeName(gridTypeId?: number): string {
-        if (!gridTypeId) return '';
-        const gt = this.gridTypes().find(g => g.id === gridTypeId);
-        return gt ? gt.name : `Loại ${gridTypeId}`;
+    getCategoryName(form: EavFormTemplate): string {
+        return form.categoryName || form.category || '';
     }
 
     onEdit(form: EavFormTemplate) {
-        this.router.navigate(['/equipment/completed-forms/edit'], { queryParams: { id: form.id } });
+        this.router.navigate(['/equipment/completed-forms', form.id, 'edit']);
     }
 
     deactivateForm(form: EavFormTemplate) {
@@ -447,7 +427,7 @@ export class CompletedFormListComponent implements OnInit {
 
     viewVersions(form: EavFormTemplate) {
         this.loadingService.show();
-        this.eavFormService.getTemplateVersions(form.code)
+        this.eavFormService.getCompletedTemplateVersions(form.code)
             .pipe(finalize(() => this.loadingService.hide()))
             .subscribe({
                 next: (versions) => {
@@ -468,6 +448,44 @@ export class CompletedFormListComponent implements OnInit {
 
     viewVersionDetail(ver: EavFormTemplate) {
         this.showVersionsDialog.set(false);
-        this.viewFormDetail(ver);
+        this.router.navigate(['/equipment/completed-forms', ver.id], {
+            queryParams: { version: ver.version }
+        });
+    }
+
+    confirmRestoreVersion(ver: EavFormTemplate) {
+        if (ver.isActive || this.restoringVersion()) return;
+        this.restoreTarget.set(ver);
+        this.showConfirmRestore.set(true);
+    }
+
+    onConfirmRestoreVersion() {
+        const ver = this.restoreTarget();
+        const parent = this.selectedTemplate();
+        if (!ver || !parent) return;
+
+        this.restoringVersion.set(true);
+        this.eavFormService.restoreCompletedTemplateVersion(ver.id, ver.version)
+            .pipe(finalize(() => this.restoringVersion.set(false)))
+            .subscribe({
+                next: () => {
+                    this.messageService.add({
+                        severity: 'success',
+                        summary: 'Thành công',
+                        detail: `Đã khôi phục form về phiên bản v${ver.version}.0.`
+                    });
+                    this.showConfirmRestore.set(false);
+                    this.restoreTarget.set(null);
+                    this.viewVersions(parent);
+                    this.loadForms();
+                },
+                error: (err) => {
+                    this.messageService.add({
+                        severity: 'error',
+                        summary: 'Lỗi',
+                        detail: err?.error?.Message || 'Không thể khôi phục phiên bản.'
+                    });
+                }
+            });
     }
 }
