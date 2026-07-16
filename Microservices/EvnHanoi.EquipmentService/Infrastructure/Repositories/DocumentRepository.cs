@@ -1187,6 +1187,27 @@ public class DocumentRepository : IDocumentRepository
         return string.IsNullOrWhiteSpace(dossierId) ? null : Guid.Parse(dossierId);
     }
 
+    public async Task<int?> GetDossierPublishStatusIdByVersionIdAsync(Guid versionId)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        const string sql = @"
+            SELECT dos.PUBLISHSTATUSID
+            FROM DOCUMENT_VERSIONS dv
+            INNER JOIN DOCUMENTS d ON d.ID = dv.DOCUMENT_ID AND d.IS_DELETED = 0
+            INNER JOIN DOSSIERS dos ON dos.Id = d.DOSSIER_ID AND dos.IsDeleted = 0
+            WHERE dv.ID = :VersionId
+              AND dv.IS_DELETED = 0";
+
+        var value = await _connection.QuerySingleOrDefaultAsync<int?>(sql, new
+        {
+            VersionId = versionId.ToString()
+        });
+
+        return value is null or 0 ? null : value;
+    }
+
     public async Task<UnitQueryDto?> GetUnitInfoAsync(long unitId)
     {
         if (_connection.State != ConnectionState.Open)
@@ -1354,11 +1375,12 @@ public class DocumentRepository : IDocumentRepository
         if (_connection.State != ConnectionState.Open)
             _connection.Open();
 
+        // Hồ sơ đã xuất bản không đổi version — lấy phiên bản mới nhất đã OCR mỗi tài liệu.
         const string sql = @"
-            SELECT 
+            SELECT
                 dv.ID AS VersionId,
-                'dossiers' AS BucketName,
-                dv.FILE_PATH AS FilePath,
+                NVL(ocr.BUCKET_NAME, 'dossiers') AS BucketName,
+                NVL(ocr.FILE_PATH, dv.FILE_PATH) AS FilePath,
                 NVL(ocr.TOTAL_PAGES, 0) AS TotalPages
             FROM DOCUMENTS d
             INNER JOIN DOCUMENT_VERSIONS dv ON dv.DOCUMENT_ID = d.ID AND dv.IS_DELETED = 0
@@ -1368,14 +1390,18 @@ public class DocumentRepository : IDocumentRepository
                 WHERE IS_DELETED = 0
                 GROUP BY DOCUMENT_ID
             ) mx ON mx.DOCUMENT_ID = dv.DOCUMENT_ID AND mx.MAX_VER = dv.VERSION_NUMBER
-            LEFT JOIN (
-                SELECT DOCUMENT_VERSION_ID, TOTAL_PAGES
+            INNER JOIN (
+                SELECT DOCUMENT_VERSION_ID, BUCKET_NAME, FILE_PATH, TOTAL_PAGES
                 FROM (
-                    SELECT DOCUMENT_VERSION_ID, TOTAL_PAGES,
-                           ROW_NUMBER() OVER (PARTITION BY DOCUMENT_VERSION_ID ORDER BY CREATED_DATE DESC) AS RN
+                    SELECT DOCUMENT_VERSION_ID, BUCKET_NAME, FILE_PATH, TOTAL_PAGES,
+                           ROW_NUMBER() OVER (
+                               PARTITION BY DOCUMENT_VERSION_ID
+                               ORDER BY CREATED_DATE DESC) AS RN
                     FROM DOCUMENT_OCR_PROGRESS
                     WHERE IS_DELETED = 0
-                ) WHERE RN = 1
+                      AND STATUS IN ('OcrCompleted', 'Completed', 'Extracting')
+                )
+                WHERE RN = 1
             ) ocr ON ocr.DOCUMENT_VERSION_ID = dv.ID
             WHERE d.DOSSIER_ID = :DossierId
               AND d.IS_DELETED = 0";
@@ -1385,9 +1411,11 @@ public class DocumentRepository : IDocumentRepository
         {
             VersionId = r.VERSIONID is string sId && Guid.TryParse(sId, out var gId) ? gId : (r.VERSIONID is Guid guidId ? guidId : Guid.Empty),
             BucketName = r.BUCKETNAME,
-            FilePath = r.FILEPATH,
+            FilePath = r.FILEPATH ?? string.Empty,
             TotalPages = Convert.ToInt32(r.TOTALPAGES)
-        }).ToList();
+        })
+        .Where(h => h.VersionId != Guid.Empty)
+        .ToList();
     }
 
     public async Task<IEnumerable<Guid>> GetActiveVersionIdsByDossierIdAsync(Guid dossierId)

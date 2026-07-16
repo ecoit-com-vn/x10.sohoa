@@ -789,14 +789,22 @@ public class DossierService : IDossierService
 
             try
             {
-                await _documentTextIndexNotifier.PublishReindexDossierDocumentsAsync(id);
+                if (publishStatusId == DossierPublishStatusConstants.Published)
+                {
+                    await _documentTextIndexNotifier.PublishReindexDossierDocumentsAsync(id);
+                }
+                else if (publishStatusId == DossierPublishStatusConstants.Unpublished)
+                {
+                    await _documentTextIndexNotifier.PublishDeleteDossierDocumentsAsync(id);
+                }
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(
                     ex,
-                    "Không publish reindex tài liệu hồ sơ {DossierId} sau thay đổi trạng thái xuất bản.",
-                    id);
+                    "Không đồng bộ document_index hồ sơ {DossierId} sau thay đổi trạng thái xuất bản (publishStatus={PublishStatusId}).",
+                    id,
+                    publishStatusId);
             }
         }
         return updated;

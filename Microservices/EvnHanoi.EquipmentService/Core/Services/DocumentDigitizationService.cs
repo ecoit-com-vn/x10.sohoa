@@ -482,7 +482,9 @@ public class DocumentDigitizationService : IDocumentDigitizationService
     }
 
     /// <summary>
-    /// Publish index fulltext — gọi ngay sau OCR (file *_page_N.md trên MinIO) và reindex sau bóc tách (cập nhật extractionSummary).
+    /// Chỉ index fulltext khi hồ sơ đã xuất bản (quy tắc nghiệp vụ).
+    /// OCR/bóc tách trước xuất bản không ghi ES; lúc xuất bản DossierService gọi PublishReindexDossierDocumentsAsync.
+    /// Sau xuất bản (không đổi version) — reindex khi bóc tách lại để cập nhật extractionSummary.
     /// </summary>
     private async Task TryPublishDocumentTextIndexAsync(
         Guid documentVersionId,
@@ -493,6 +495,17 @@ public class DocumentDigitizationService : IDocumentDigitizationService
     {
         try
         {
+            var publishStatusId = await _documentRepository.GetDossierPublishStatusIdByVersionIdAsync(documentVersionId);
+            if (publishStatusId != DossierPublishStatusConstants.Published)
+            {
+                _logger.LogDebug(
+                    "Bỏ qua index ES ({Trigger}) — hồ sơ chưa xuất bản (version {VersionId}, publishStatus={PublishStatusId}).",
+                    trigger,
+                    documentVersionId,
+                    publishStatusId);
+                return;
+            }
+
             var resolvedPath = filePath;
             if (string.IsNullOrEmpty(resolvedPath))
             {

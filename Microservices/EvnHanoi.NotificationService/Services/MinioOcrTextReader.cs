@@ -1,4 +1,6 @@
 using System.Text;
+using System.Text.Json;
+using System.Linq;
 using Minio;
 using Minio.DataModel.Args;
 using Minio.Exceptions;
@@ -11,6 +13,16 @@ public class MinioOcrTextReader : IMinioOcrTextReader
 {
     private readonly IMinioClient _minioClient;
     private readonly ILogger<MinioOcrTextReader> _logger;
+
+    private sealed class OcrTextBoxItem
+    {
+        public string? Text { get; set; }
+    }
+
+    private static readonly JsonSerializerOptions OcrJsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
 
     public MinioOcrTextReader(IConfiguration configuration, ILogger<MinioOcrTextReader> logger)
     {
@@ -46,33 +58,50 @@ public class MinioOcrTextReader : IMinioOcrTextReader
         while (page <= maxPages)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            var jsonFileName = $"{baseFilePath}_page_{page}.json";
             var mdFileName = $"{baseFilePath}_page_{page}.md";
 
+            string? pageText = null;
             try
             {
-                using var stream = await DownloadObjectAsync(bucketName, mdFileName, cancellationToken);
+                using var stream = await DownloadObjectAsync(bucketName, jsonFileName, cancellationToken);
                 using var reader = new StreamReader(stream, Encoding.UTF8);
-                var pageText = await reader.ReadToEndAsync(cancellationToken);
-                if (!string.IsNullOrWhiteSpace(pageText))
-                {
-                    if (builder.Length > 0)
-                        builder.AppendLine();
-                    builder.AppendLine(pageText.Trim());
-                }
-                page++;
+                var jsonText = await reader.ReadToEndAsync(cancellationToken);
+
+                // OCR json: mảng [{text, box, confidence}, ...]
+                var items = JsonSerializer.Deserialize<List<OcrTextBoxItem>>(jsonText, OcrJsonOptions);
+                pageText = items?
+                    .Select(i => i.Text?.Trim())
+                    .Where(t => !string.IsNullOrWhiteSpace(t))
+                    .Aggregate(string.Empty, (acc, t) =>
+                        string.IsNullOrEmpty(acc) ? t : $"{acc} {t}");
+                pageText = string.IsNullOrWhiteSpace(pageText) ? null : pageText.Trim();
             }
             catch (ObjectNotFoundException)
             {
-                if (totalPagesHint > 0 && page <= totalPagesHint)
+                // Backward compatibility: có thể còn file .md ở dữ liệu OCR cũ.
+                try
                 {
-                    _logger.LogWarning(
-                        "Thiếu file markdown trang {Page}/{TotalPages}: {Bucket}/{Object}",
-                        page, totalPagesHint, bucketName, mdFileName);
+                    using var stream = await DownloadObjectAsync(bucketName, mdFileName, cancellationToken);
+                    using var reader = new StreamReader(stream, Encoding.UTF8);
+                    var mdText = await reader.ReadToEndAsync(cancellationToken);
+                    pageText = string.IsNullOrWhiteSpace(mdText) ? null : mdText.Trim();
+                }
+                catch (ObjectNotFoundException)
+                {
                     page++;
                     continue;
                 }
-                break;
             }
+
+            if (!string.IsNullOrWhiteSpace(pageText))
+            {
+                if (builder.Length > 0)
+                    builder.AppendLine();
+                builder.AppendLine(pageText);
+            }
+
+            page++;
         }
 
         return builder.ToString().Trim();
