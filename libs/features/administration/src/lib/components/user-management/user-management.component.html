@@ -112,52 +112,9 @@
                 </td>
                 <td class="col-hd">
                   <div class="action-buttons-group">
-                    <button *ngIf="authService.hasPermission('USER_MANAGE')" class="act-btn act-assign"
-                      (click)="onManageUnitRoles(user)" title="Quyền theo đơn vị"
-                      style="background-color: #fef3c7; color: #d97706; border-color: #fde68a;">
-                      <i class="pi pi-sitemap"></i>
+                    <button type="button" class="act-btn act-more" (click)="openActionMenu(user, $event, actionMenu)" title="Thao tác khác">
+                      <i class="pi pi-ellipsis-h"></i>
                     </button>
-                    <button *ngIf="authService.hasPermission('USER_MANAGE')" class="act-btn act-assign"
-                      (click)="onManageRoles(user)" title="Gán vai trò trực tiếp"
-                      style="background-color: #f0fdf4; color: #16a34a; border-color: #bbf7d0;">
-                      <i class="pi pi-shield"></i>
-                    </button>
-
-                    <div class="dropdown-actions-container">
-                      <button type="button" class="act-btn act-more" (click)="toggleDropdown(user.id, $event)"
-                        title="Thao tác khác">
-                        <i class="pi pi-ellipsis-h"></i>
-                      </button>
-                      <div class="dropdown-actions-menu animate-fade-in"
-                        [class.dropdown-upwards]="i >= filteredUsers().length - 2"
-                        *ngIf="activeDropdownUserId() === user.id" (click)="$event.stopPropagation()">
-                        <button
-                          *ngIf="authService.hasPermission('USER_MANAGE') || authService.hasPermission('PERMISSION_MANAGE')"
-                          type="button" class="dropdown-item-btn"
-                          (click)="onManagePermissions(user); activeDropdownUserId.set(null)"
-                          title="Phân quyền trực tiếp">
-                          <i class="pi pi-key color-blue"></i>
-                          <span>Phân quyền trực tiếp</span>
-                        </button>
-                        <button *ngIf="authService.hasPermission('USER_EDIT')" type="button" class="dropdown-item-btn"
-                          (click)="onEdit(user); activeDropdownUserId.set(null)" title="Chỉnh sửa">
-                          <i class="pi pi-pencil color-teal"></i>
-                          <span>Chỉnh sửa</span>
-                        </button>
-                        <button *ngIf="authService.hasPermission('USER_EDIT')" type="button" class="dropdown-item-btn"
-                          (click)="onToggleStatusRequest(user); activeDropdownUserId.set(null)"
-                          [title]="user.isActive ? 'Khóa tài khoản' : 'Mở khóa tài khoản'">
-                          <i class="pi"
-                            [ngClass]="user.isActive ? 'pi-lock color-red' : 'pi-lock-open color-green'"></i>
-                          <span>{{ user.isActive ? 'Khóa tài khoản' : 'Mở khóa' }}</span>
-                        </button>
-                        <button *ngIf="authService.hasPermission('USER_DELETE')" type="button" class="dropdown-item-btn"
-                          (click)="onDelete(user); activeDropdownUserId.set(null)" title="Xóa">
-                          <i class="pi pi-trash color-red"></i>
-                          <span>Xóa</span>
-                        </button>
-                      </div>
-                    </div>
                   </div>
                 </td>
               </tr>
@@ -171,6 +128,8 @@
           </tbody>
         </table>
       </div>
+
+      <p-menu #actionMenu [model]="actionMenuItems" [popup]="true" appendTo="body" styleClass="row-action-menu"></p-menu>
 
       <!-- Footer with Pagination -->
       <div class="table-footer" *ngIf="filteredUsers().length > 0 && !loading()">

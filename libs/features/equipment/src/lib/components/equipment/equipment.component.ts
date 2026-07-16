@@ -6,7 +6,8 @@ import { ToastModule } from 'primeng/toast';
 import { SelectModule } from 'primeng/select';
 import { DialogModule } from 'primeng/dialog';
 import { ToggleSwitch } from 'primeng/toggleswitch';
-import { MessageService } from 'primeng/api';
+import { MenuItem, MessageService } from 'primeng/api';
+import { Menu, MenuModule } from 'primeng/menu';
 import { Router, ActivatedRoute } from '@angular/router';
 import { AuthService } from '@sohoa.frontend/shared/core';
 import { EquipmentService } from '../../data-access/equipment.service';
@@ -19,7 +20,7 @@ import { EquipmentDocumentsComponent } from '../equipment-documents/equipment-do
 @Component({
   selector: 'app-equipment-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule, SelectModule, DialogModule, ToggleSwitch, WfBreadcrumbComponent, EquipmentDocumentsComponent],
+  imports: [CommonModule, FormsModule, ToastModule, MenuModule, SelectModule, DialogModule, ToggleSwitch, WfBreadcrumbComponent, EquipmentDocumentsComponent],
   providers: [MessageService],
   templateUrl: './equipment.component.html',
   styleUrls: ['./equipment.component.css']
@@ -37,6 +38,24 @@ export class EquipmentComponent implements OnInit {
 
   // More menu state
   activeRowMenu = signal<string | null>(null);
+  actionMenuItems: MenuItem[] = [];
+
+  openActionMenu(item: any, event: Event, menu: Menu) {
+    event.stopPropagation();
+    this.actionMenuItems = [
+      { label: 'Xem chi tiết', title: 'Xem chi tiết', icon: 'pi pi-eye color-teal', command: () => this.onViewSpecs(item) },
+      ...(this.canEdit() && item.equipmentTypeId ? [{ label: 'Cấu hình', title: 'Cấu hình', icon: 'pi pi-cog color-blue', command: () => this.onEditSpecs(item) }] : []),
+      ...(this.canEdit() ? [{ label: 'Sửa', title: 'Sửa', icon: 'pi pi-pencil color-blue', command: () => this.onEdit(item) }] : []),
+      ...(this.canManage() ? [{
+        label: item.isActive === 1 || item.isActive === true ? 'Khóa thiết bị' : 'Mở khóa',
+        title: item.isActive === 1 || item.isActive === true ? 'Khóa thiết bị' : 'Mở khóa',
+        icon: item.isActive === 1 || item.isActive === true ? 'pi pi-lock color-red' : 'pi pi-lock-open color-teal',
+        command: () => this.onToggleStatus(item)
+      }] : []),
+      ...(this.canDelete() ? [{ label: 'Xóa thiết bị', title: 'Xóa thiết bị', icon: 'pi pi-trash color-red', command: () => this.onDelete(item) }] : []),
+    ];
+    menu.toggle(event);
+  }
 
   @HostListener('document:click')
   closeMoreMenu() {

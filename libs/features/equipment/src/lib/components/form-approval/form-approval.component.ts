@@ -3,7 +3,8 @@ import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ToastModule } from 'primeng/toast';
-import { MessageService } from 'primeng/api';
+import { Menu, MenuModule } from 'primeng/menu';
+import { MenuItem, MessageService } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { Select } from 'primeng/select';
@@ -40,6 +41,7 @@ interface FormField {
     CommonModule, 
     FormsModule, 
     ToastModule, 
+    MenuModule,
     ButtonModule,
     InputTextModule,
     Select,
@@ -67,6 +69,7 @@ export class FormApprovalComponent implements OnInit {
   searchKeyword = signal<string>('');
   activeTab = signal<'pending' | 'history'>('pending');
   selectedForm = signal<EavFormTemplate | null>(null);
+  actionMenuItems: MenuItem[] = [];
 
   // Preview properties
   fields = signal<FormField[]>([]);
@@ -93,6 +96,18 @@ export class FormApprovalComponent implements OnInit {
   private authService = inject(AuthService);
 
   canApprove = computed(() => canApproveForm(this.authService));
+
+  openActionMenu(form: EavFormTemplate, event: Event, menu: Menu): void {
+    event.stopPropagation();
+    this.actionMenuItems = [
+      { label: 'Xem chi tiết & cấu trúc', title: 'Xem chi tiết & cấu trúc', icon: 'pi pi-eye color-teal', command: () => this.onPreview(form) },
+      ...(form.status === 'Chờ duyệt' && this.canApprove() ? [
+        { label: 'Phê duyệt', title: 'Phê duyệt', icon: 'pi pi-check color-teal', command: () => this.approveForm(form) },
+        { label: 'Từ chối', title: 'Từ chối', icon: 'pi pi-times color-red', command: () => this.rejectForm(form) },
+      ] : []),
+    ];
+    menu.toggle(event);
+  }
 
   catalogOptionsMap = signal<{ [catalogCode: string]: string[] }>({});
 

@@ -6,14 +6,15 @@ import { ActivatedRoute } from '@angular/router';
 import { ToastModule } from 'primeng/toast';
 import { SelectModule } from 'primeng/select';
 import { DialogModule } from 'primeng/dialog';
-import { MessageService } from 'primeng/api';
+import { Menu, MenuModule } from 'primeng/menu';
+import { MenuItem, MessageService } from 'primeng/api';
 import { AuthService } from '@sohoa.frontend/shared/core';
 import { CatalogService } from '../../data-access/catalog.service';
 
 @Component({
   selector: 'app-catalog-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule, SelectModule, DialogModule, WfBreadcrumbComponent],
+  imports: [CommonModule, FormsModule, ToastModule, MenuModule, SelectModule, DialogModule, WfBreadcrumbComponent],
   providers: [MessageService],
   templateUrl: './catalog-list.component.html'
 })
@@ -39,6 +40,23 @@ export class CatalogListComponent implements OnInit {
   isSaving = signal<boolean>(false);
 
   catalogTypes = signal<any[]>([]);
+  actionMenuItems: MenuItem[] = [];
+
+  openActionMenu(item: any, event: Event, menu: Menu): void {
+    event.stopPropagation();
+    const active = item.status === 1;
+    this.actionMenuItems = [
+      ...(this.canManage() ? [{
+        label: active ? 'Khóa danh mục' : 'Mở khóa danh mục',
+        title: active ? 'Khóa danh mục' : 'Mở khóa danh mục',
+        icon: active ? 'pi pi-lock color-red' : 'pi pi-lock-open color-teal',
+        command: () => this.onToggleStatus(item)
+      }] : []),
+      ...(this.canEdit() ? [{ label: 'Chỉnh sửa', title: 'Chỉnh sửa', icon: 'pi pi-pencil color-blue', command: () => this.onEdit(item) }] : []),
+      ...(this.canDelete() ? [{ label: 'Xóa', title: 'Xóa', icon: 'pi pi-trash color-red', command: () => this.onDelete(item) }] : []),
+    ];
+    menu.toggle(event);
+  }
 
   // Delete confirmation
   showDeleteConfirm = signal<boolean>(false);

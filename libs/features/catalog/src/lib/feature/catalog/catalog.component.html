@@ -1,6 +1,6 @@
 <div class="wf-page">
   <p-toast></p-toast>
-  
+
   <wf-breadcrumb [viewMode]="currentCatalogView()" (listClick)="currentCatalogView.set('list')" />
 
   <div class="split-container">
@@ -28,11 +28,11 @@
              [class.type-item-selected]="selectedTypeId() === type.id"
              (click)="onSelectType(type)"
              style="padding: 8px 12px; display: flex; flex-direction: column; gap: 4px; border: 1px solid #cbd5e1; border-radius: 8px; position: relative;">
-          
+
           <!-- Top Row: Name and Status Badge -->
           <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
             <span class="type-item-name" style="font-size: 0.9rem; font-weight: 700; color: #1e293b;">{{ type.name }}</span>
-            
+
             <span *ngIf="type.status === 1" class="status-pill"
               style="background-color: #ecfdf5; color: #065f46; border-color: #a7f3d0; padding: 2px 6px; border-radius: 9999px; font-size: 0.7rem; font-weight: 500; border: 1px solid;">
               Hoạt động
@@ -44,38 +44,17 @@
           </div>
 
           <!-- Bottom Row: Code and Actions -->
-          <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-            <span class="type-item-code" style="font-size: 0.75rem; color: #64748b;">Mã: <code>{{ type.code }}</code></span>
-            
-            <div class="type-item-actions" style="display: flex; gap: 4px;" (click)="$event.stopPropagation()">
-              <!-- View button -->
-              <button class="act-btn act-view" (click)="onViewType(type)" title="Xem chi tiết loại danh mục" style="width: 26px; height: 26px; font-size: 0.75rem;">
-                <i class="pi pi-eye"></i>
-              </button>
+          <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; gap: 8px;">
+            <span class="type-item-code" style="font-size: 0.75rem; color: #64748b; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Mã: <code>{{ type.code }}</code></span>
 
-              <!-- Edit button -->
-              <button *ngIf="canEditType()" class="act-btn act-edit" (click)="onEditType(type)" title="Sửa loại danh mục" style="width: 26px; height: 26px; font-size: 0.75rem;">
-                <i class="pi pi-pencil"></i>
-              </button>
-              
-              <!-- Lock/Unlock button -->
-              <button *ngIf="canManageType()" 
-                class="act-btn" 
-                [ngClass]="type.status === 1 ? 'act-delete' : 'act-edit'"
-                [title]="type.status === 1 ? 'Ngừng hoạt động' : 'Kích hoạt'" 
-                (click)="onToggleTypeStatusRequest(type)"
-                style="width: 26px; height: 26px; font-size: 0.75rem;">
-                <i class="pi" [ngClass]="type.status === 1 ? 'pi-lock' : 'pi-lock-open'"></i>
-              </button>
-
-              <!-- Delete button -->
-              <button *ngIf="canDeleteType()" class="act-btn act-delete" (click)="onDeleteType(type)" title="Xóa loại danh mục" style="width: 26px; height: 26px; font-size: 0.75rem;">
-                <i class="pi pi-trash"></i>
+            <div class="type-item-actions dropdown-actions-container" style="display: inline-flex; gap: 4px; flex-shrink: 0; position: relative;">
+              <button type="button" class="act-btn act-more" title="Thao tác khác" style="width: 26px; height: 26px; font-size: 0.75rem;" (click)="openTypeMenu(type, $event, actionMenu)">
+                <i class="pi pi-ellipsis-h"></i>
               </button>
             </div>
           </div>
         </div>
-        
+
         <div *ngIf="types().length === 0" class="empty-list">
           <i class="pi pi-inbox"></i>
           <div>Không tìm thấy loại danh mục nào.</div>
@@ -173,29 +152,9 @@
                   </span>
                 </td>
                 <td class="col-hd" style="text-align: center;">
-                  <div class="action-buttons-group" style="justify-content: center;">
-                    <!-- View button -->
-                    <button class="act-btn act-view" (click)="onViewCatalog(item)" title="Xem chi tiết">
-                      <i class="pi pi-eye"></i>
-                    </button>
-
-                    <!-- Lock/Unlock button -->
-                    <button *ngIf="canManageCatalog()" 
-                      class="act-btn" 
-                      [ngClass]="item.status === 1 ? 'act-delete' : 'act-edit'"
-                      [title]="item.status === 1 ? 'Ngừng hoạt động' : 'Kích hoạt'" 
-                      (click)="onToggleCatalogStatusRequest(item)">
-                      <i class="pi" [ngClass]="item.status === 1 ? 'pi-lock' : 'pi-lock-open'"></i>
-                    </button>
-
-                    <!-- Edit button -->
-                    <button *ngIf="canEditCatalog()" class="act-btn act-edit" (click)="onEditCatalog(item)" title="Chỉnh sửa">
-                      <i class="pi pi-pencil"></i>
-                    </button>
-
-                    <!-- Delete button -->
-                    <button *ngIf="canDeleteCatalog()" class="act-btn act-delete" (click)="onDeleteCatalog(item)" title="Xóa">
-                      <i class="pi pi-trash"></i>
+                  <div class="action-buttons-group dropdown-actions-container" (click)="$event.stopPropagation()">
+                    <button class="act-btn act-more" title="Thao tác khác" (click)="openCatalogMenu(item, $event, actionMenu)">
+                      <i class="pi pi-ellipsis-h"></i>
                     </button>
                   </div>
                 </td>
@@ -223,7 +182,7 @@
             <button class="page-btn" (click)="nextPage()" [disabled]="currentPage() >= totalPages()">
               <i class="pi pi-chevron-right"></i>
             </button>
-            
+
             <span style="display: inline-flex; align-items: center; gap: 5px; font-size: 0.8rem; color: #6b7280; margin-left: 10px;">
               Đi tới:
               <input type="number" class="page-jump-input" [value]="currentPage()" (change)="goToPage($any($event.target).value)" style="width: 50px; height: 28px; text-align: center; border: 1px solid #e5e7eb; border-radius: 4px; padding: 0 4px;" [min]="1" [max]="totalPages() || 1" />
@@ -237,7 +196,7 @@
           </div>
         </div>
       </div>
-      
+
       <ng-template #noTypeSelected>
         <div class="no-selection-wrapper" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center; padding: 40px; color: #64748b;">
           <i class="pi pi-folder-open" style="font-size: 3.5rem; color: #cbd5e1; margin-bottom: 16px;"></i>
@@ -245,6 +204,8 @@
         </div>
       </ng-template>
     </div>
+
+    <p-menu #actionMenu [model]="actionMenuItems" [popup]="true" appendTo="body" styleClass="row-action-menu"></p-menu>
   </div>
 
   <!-- DIALOG: Thêm/Sửa Loại Danh mục (Left Side CRUD) -->
@@ -255,7 +216,7 @@
     [modal]="true" 
     [style]="{ width: '450px' }" 
     styleClass="evn-dialog-custom">
-    
+
     <div style="display: flex; flex-direction: column; gap: 16px; padding: 10px 0;">
       <div class="form-group">
         <label class="form-label">Mã loại danh mục <span class="required">*</span></label>
@@ -264,7 +225,7 @@
           placeholder="Ví dụ: MA_LOAI..." [disabled]="isViewingType() || isEditingType() || typeSaving()" />
         <span class="field-error" *ngIf="typeCodeError()">{{ typeCodeError() }}</span>
       </div>
-      
+
       <div class="form-group">
         <label class="form-label">Tên loại danh mục <span class="required">*</span></label>
         <input type="text" class="wf-input w-full" [(ngModel)]="currentTypeItem().name" 
@@ -286,7 +247,7 @@
         </label>
       </div>
     </div>
-    
+
     <ng-template #footer>
       <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
         <button class="btn-cancel btn-small" (click)="onCloseTypeDialog()" [disabled]="typeSaving()">
@@ -309,7 +270,7 @@
     [modal]="true" 
     [style]="{ width: '480px' }" 
     styleClass="evn-dialog-custom">
-    
+
     <div style="display: flex; flex-direction: column; gap: 16px; padding: 10px 0;">
       <div class="form-group">
         <label class="form-label">Mã danh mục <span class="required">*</span></label>
@@ -318,7 +279,7 @@
           placeholder="Ví dụ: CODE_01..." [disabled]="currentCatalogView() === 'view' || currentCatalogView() === 'edit' || catalogSaving()" />
         <span class="field-error" *ngIf="catalogCodeError()">{{ catalogCodeError() }}</span>
       </div>
-      
+
       <div class="form-group">
         <label class="form-label">Tên danh mục <span class="required">*</span></label>
         <input type="text" class="wf-input w-full" [(ngModel)]="currentCatalogItem().name" 
@@ -349,7 +310,7 @@
           placeholder="Mô tả danh mục..." [disabled]="currentCatalogView() === 'view' || catalogSaving()"></textarea>
       </div>
     </div>
-    
+
     <ng-template #footer>
       <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
         <button class="btn-cancel btn-small" (click)="currentCatalogView.set('list')" [disabled]="catalogSaving()">

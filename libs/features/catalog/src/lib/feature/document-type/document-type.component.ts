@@ -5,7 +5,8 @@ import { FormsModule } from '@angular/forms';
 import { ToastModule } from 'primeng/toast';
 import { SelectModule } from 'primeng/select';
 import { DialogModule } from 'primeng/dialog';
-import { MessageService } from 'primeng/api';
+import { Menu, MenuModule } from 'primeng/menu';
+import { MenuItem, MessageService } from 'primeng/api';
 import { AuthService } from '@sohoa.frontend/shared/core';
 import { DocumentTypeService } from '../../data-access/document-type.service';
 import { finalize } from 'rxjs/operators';
@@ -13,7 +14,7 @@ import { finalize } from 'rxjs/operators';
 @Component({
   selector: 'app-document-type',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule, SelectModule, DialogModule, WfBreadcrumbComponent],
+  imports: [CommonModule, FormsModule, ToastModule, MenuModule, SelectModule, DialogModule, WfBreadcrumbComponent],
   providers: [MessageService],
   templateUrl: './document-type.component.html',
   styleUrl: './document-type.component.scss'
@@ -61,6 +62,23 @@ export class DocumentTypeComponent implements OnInit {
   canEdit = computed(() => this.authService.hasPermission('DOCUMENT_TYPE_EDIT') || this.authService.hasPermission('SUPER_ADMIN'));
   canDelete = computed(() => this.authService.hasPermission('DOCUMENT_TYPE_DELETE') || this.authService.hasPermission('SUPER_ADMIN'));
   canManage = computed(() => this.authService.hasPermission('DOCUMENT_TYPE_MANAGE') || this.authService.hasPermission('SUPER_ADMIN'));
+  actionMenuItems: MenuItem[] = [];
+
+  openActionMenu(item: any, event: Event, menu: Menu): void {
+    event.stopPropagation();
+    const active = item.isActive === 1 || item.isActive === true;
+    this.actionMenuItems = [
+      ...(this.canManage() ? [{
+        label: active ? 'Khóa loại văn bản' : 'Mở khóa loại văn bản',
+        title: active ? 'Khóa loại văn bản' : 'Mở khóa loại văn bản',
+        icon: active ? 'pi pi-lock color-red' : 'pi pi-lock-open color-teal',
+        command: () => this.onToggleStatus(item)
+      }] : []),
+      ...(this.canEdit() ? [{ label: 'Chỉnh sửa', title: 'Chỉnh sửa', icon: 'pi pi-pencil color-blue', command: () => this.onEdit(item) }] : []),
+      ...(this.canDelete() ? [{ label: 'Xóa', title: 'Xóa', icon: 'pi pi-trash color-red', command: () => this.onDelete(item) }] : []),
+    ];
+    menu.toggle(event);
+  }
 
   constructor() {
     effect(() => {

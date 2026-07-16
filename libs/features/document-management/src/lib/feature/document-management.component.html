@@ -299,18 +299,12 @@
                 <td class="col-hd">
                   <div class="action-buttons-group">
                     <button
-                      class="act-btn act-edit"
-                      title="Sửa thư mục"
-                      (click)="onEditFolder(folder)"
+                      type="button"
+                      class="act-btn act-more"
+                      title="Thao tác"
+                      (click)="openFolderActionMenu(folder, $event, folderActionMenu)"
                     >
-                      <i class="pi pi-pencil"></i>
-                    </button>
-                    <button
-                      class="act-btn act-delete"
-                      title="Xóa thư mục"
-                      (click)="onDeleteFolder(folder)"
-                    >
-                      <i class="pi pi-trash"></i>
+                      <i class="pi pi-ellipsis-h"></i>
                     </button>
                   </div>
                 </td>
@@ -346,29 +340,12 @@
                 <td class="col-hd">
                   <div class="action-buttons-group">
                     <button
-                      class="act-btn act-edit"
-                      title="Sửa tài liệu"
-                      (click)="onEditDocument(doc)"
+                      type="button"
+                      class="act-btn act-more"
+                      title="Thao tác"
+                      (click)="openDocumentActionMenu(doc, $event, documentActionMenu)"
                     >
-                      <i class="pi pi-pencil"></i>
-                    </button>
-                    <button
-                      class="act-btn act-download"
-                      title="Tải tài liệu"
-                      [disabled]="!doc.latestVersionId || isDownloadingDocument(doc.id)"
-                      (click)="onDownloadDocument(doc)"
-                    >
-                      <i
-                        class="pi"
-                        [ngClass]="isDownloadingDocument(doc.id) ? 'pi-spin pi-spinner' : 'pi-download'"
-                      ></i>
-                    </button>
-                    <button
-                      class="act-btn act-delete"
-                      title="Xóa tài liệu"
-                      (click)="onDeleteDocument(doc)"
-                    >
-                      <i class="pi pi-trash"></i>
+                      <i class="pi pi-ellipsis-h"></i>
                     </button>
                   </div>
                 </td>
@@ -542,6 +519,22 @@
   </div>
 
 </div>
+
+<p-menu
+  #folderActionMenu
+  [model]="folderActionMenuItems"
+  [popup]="true"
+  appendTo="body"
+  styleClass="row-action-menu"
+></p-menu>
+
+<p-menu
+  #documentActionMenu
+  [model]="documentActionMenuItems"
+  [popup]="true"
+  appendTo="body"
+  styleClass="row-action-menu"
+></p-menu>
 
 <!-- Delete Folder Confirmation Dialog -->
 <p-dialog

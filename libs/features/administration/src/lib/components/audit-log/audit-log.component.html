@@ -1,7 +1,23 @@
 <div class="wf-page">
   <p-toast></p-toast>
 
-  <wf-breadcrumb />
+  <div class="list-toolbar">
+    <div class="toolbar-left">
+      <wf-breadcrumb />
+    </div>
+    <div class="toolbar-right">
+      <button class="btn-toolbar-danger" (click)="onOpenDeleteSelectedDialog()" *ngIf="canDelete()"
+        [disabled]="selectedCount() === 0 || loading() || deleting()">
+        <i class="pi pi-trash"></i> Xóa đã chọn ({{ selectedCount() }})
+      </button>
+      <button class="btn-toolbar-danger btn-toolbar-danger-outline" (click)="onOpenDeleteDialog()" *ngIf="canDelete()">
+        <i class="pi pi-calendar-times"></i> Xóa theo khoảng ngày
+      </button>
+      <button class="btn-excel" (click)="exportExcel()" *ngIf="canExport()" [disabled]="loading() || exporting()">
+        <i class="pi" [ngClass]="exporting() ? 'pi-spin pi-spinner' : 'pi-file-excel'"></i> Xuất Excel
+      </button>
+    </div>
+  </div>
 
   <div class="wf-card">
     <div class="list-toolbar">
@@ -45,20 +61,7 @@
           <i class="pi pi-search"></i> Tìm
         </button>
       </div>
-      <div class="toolbar-right">
-        <button class="btn-toolbar-danger" (click)="onOpenDeleteSelectedDialog()" *ngIf="canDelete()"
-          [disabled]="selectedCount() === 0 || loading() || deleting()">
-          <i class="pi pi-trash"></i> Xóa đã chọn ({{ selectedCount() }})
-        </button>
-        <button class="btn-toolbar-danger btn-toolbar-danger-outline" (click)="onOpenDeleteDialog()" *ngIf="canDelete()">
-          <i class="pi pi-calendar-times"></i> Xóa theo khoảng ngày
-        </button>
-        <button class="btn-excel" (click)="exportExcel()" *ngIf="canExport()" [disabled]="loading() || exporting()">
-          <i class="pi" [ngClass]="exporting() ? 'pi-spin pi-spinner' : 'pi-file-excel'"></i> Xuất Excel
-        </button>
-      </div>
-    </div>
-
+  </div>
     <div class="wf-table-wrap">
       <table class="wf-table">
         <thead>

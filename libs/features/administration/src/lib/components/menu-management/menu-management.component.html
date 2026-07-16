@@ -106,20 +106,8 @@
             </span>
           </td>
           <td class="col-hd" (click)="$event.stopPropagation()">
-            <button *ngIf="authService.hasPermission('MENU_CREATE')" class="act-btn act-assign" (click)="onAddNew(node.id)" title="Thêm menu con">
-              <i class="pi pi-plus"></i>
-            </button>
-            <button *ngIf="authService.hasPermission('MENU_EDIT') && node.isActive" class="act-btn act-lock" (click)="onToggleStatusRequest(node)" title="Khóa menu">
-              <i class="pi pi-lock"></i>
-            </button>
-            <button *ngIf="authService.hasPermission('MENU_EDIT') && !node.isActive" class="act-btn act-unlock" (click)="onToggleStatusRequest(node)" title="Mở khóa menu">             
-              <i class="pi pi-lock-open"></i>
-            </button>
-            <button *ngIf="authService.hasPermission('MENU_EDIT')" class="act-btn act-edit" (click)="onEdit(node)" title="Chỉnh sửa">
-              <i class="pi pi-pencil"></i>
-            </button>
-            <button *ngIf="authService.hasPermission('MENU_DELETE')" class="act-btn act-delete" (click)="onDelete(node)" title="Xóa">
-              <i class="pi pi-trash"></i>
+            <button type="button" class="act-btn act-more" (click)="openActionMenu(node, $event, actionMenu)" title="Thao tác khác">
+              <i class="pi pi-ellipsis-h"></i>
             </button>
           </td>
         </tr>
@@ -133,6 +121,8 @@
         </ng-container>
       </ng-container>
     </ng-template>
+
+    <p-menu #actionMenu [model]="actionMenuItems" [popup]="true" appendTo="body" styleClass="row-action-menu"></p-menu>
 
     <p-dialog
       [visible]="currentView() === 'add' || currentView() === 'edit'"

@@ -88,18 +88,9 @@
             </td>
             <td style="color: #000000;">{{ form.createdAt | date:'dd/MM/yyyy HH:mm' }}</td>
             <td class="col-hd">
-              <button class="act-btn act-preview" (click)="onPreview(form)" title="Xem chi tiết & Cấu trúc">
-                <i class="pi pi-eye"></i>
+              <button type="button" class="act-btn act-more" (click)="openActionMenu(form, $event, actionMenu)" title="Thao tác khác">
+                <i class="pi pi-ellipsis-h"></i>
               </button>
-              
-              <ng-container *ngIf="form.status === 'Chờ duyệt' && canApprove()">
-                <button class="act-btn act-approve" (click)="approveForm(form)" title="Phê duyệt">
-                  <i class="pi pi-check"></i>
-                </button>
-                <button class="act-btn act-reject" (click)="rejectForm(form)" title="Từ chối">
-                  <i class="pi pi-times"></i>
-                </button>
-              </ng-container>
             </td>
           </tr>
           
@@ -112,6 +103,8 @@
         </tbody>
       </table>
     </div>
+
+    <p-menu #actionMenu [model]="actionMenuItems" [popup]="true" appendTo="body" styleClass="row-action-menu"></p-menu>
 
     <div class="table-footer-paginator" *ngIf="filteredForms().length > 0">
       <span class="record-count">Tổng số: <b>{{ filteredForms().length }}</b> bản ghi.</span>

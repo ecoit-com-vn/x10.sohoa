@@ -3,7 +3,8 @@ import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ToastModule } from 'primeng/toast';
-import { MessageService } from 'primeng/api';
+import { Menu, MenuModule } from 'primeng/menu';
+import { MenuItem, MessageService } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { CheckboxModule } from 'primeng/checkbox';
@@ -42,6 +43,7 @@ interface FormField {
     CommonModule,
     FormsModule,
     ToastModule,
+    MenuModule,
     ButtonModule,
     InputTextModule,
     CheckboxModule,
@@ -82,9 +84,22 @@ export class FormTemplateComponent implements OnInit {
   versionList = signal<EavFormTemplate[]>([]);
 
   loading = signal<boolean>(false);
+  actionMenuItems: MenuItem[] = [];
 
   first = signal<number>(0);
   rows = signal<number>(10);
+
+  openActionMenu(form: EavFormTemplate, event: Event, menu: Menu): void {
+    event.stopPropagation();
+    this.actionMenuItems = [
+      { label: 'Xem chi tiết', title: 'Xem chi tiết', icon: 'pi pi-eye color-teal', command: () => this.viewDetails(form) },
+      { label: 'Xem phiên bản', title: 'Xem phiên bản', icon: 'pi pi-history color-blue', command: () => this.viewVersions(form) },
+      { label: 'Chỉnh sửa', title: 'Chỉnh sửa', icon: 'pi pi-pencil color-blue', command: () => this.onEdit(form) },
+      ...(form.isActive ? [{ label: 'Khóa biểu mẫu', title: 'Khóa biểu mẫu', icon: 'pi pi-lock color-red', command: () => this.lockForm(form) }] : [{ label: 'Mở khóa biểu mẫu', icon: 'pi pi-lock-open color-teal', command: () => this.unlockForm(form) }]),
+      { label: 'Xóa', title: 'Xóa', icon: 'pi pi-trash color-red', command: () => this.deactivateForm(form) },
+    ];
+    menu.toggle(event);
+  }
 
   equipmentTypes = signal<any[]>([]);
   gridTypes = signal<any[]>([]);

@@ -11,12 +11,13 @@ import {
 import { CommonModule } from '@angular/common';
 import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { FormsModule } from '@angular/forms';
-import { MessageService } from 'primeng/api';
+import { MenuItem, MessageService } from 'primeng/api';
 import { TableModule } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { DialogModule } from 'primeng/dialog';
 import { PaginatorModule } from 'primeng/paginator';
+import { Menu, MenuModule } from 'primeng/menu';
 import { FileUploadZoneComponent, FileDownloadService, ScannerPanelComponent, UPLOAD_SOURCE } from '@sohoa.frontend/features/equipment';
 import { finalize } from 'rxjs';
 import { HttpResponse } from '@angular/common/http';
@@ -50,6 +51,7 @@ type FolderUploadMode = 'web' | 'scan';
     InputTextModule,
     DialogModule,
     PaginatorModule,
+    MenuModule,
     FileUploadZoneComponent,
     ScannerPanelComponent,
     WfBreadcrumbComponent,
@@ -108,6 +110,9 @@ export class DocumentManagementComponent implements OnInit {
   editingDocumentId = signal<string | null>(null);
   editingDocumentRowVersion = signal(0);
   savingDocument = signal(false);
+
+  folderActionMenuItems: MenuItem[] = [];
+  documentActionMenuItems: MenuItem[] = [];
 
   @ViewChild('documentNameInput') documentNameInput?: ElementRef<HTMLInputElement>;
 
@@ -385,6 +390,51 @@ export class DocumentManagementComponent implements OnInit {
     this.editingFolderRowVersion.set(folder.rowVersion ?? 0);
     this.folderFormName.set(folder.name);
     this.currentView.set('edit_folder');
+  }
+
+  openFolderActionMenu(folder: FolderNode, event: MouseEvent, menu: Menu): void {
+    this.folderActionMenuItems = [
+      {
+        label: 'Chỉnh sửa thư mục',
+        title: 'Chỉnh sửa thư mục',
+        icon: 'pi pi-pencil color-blue',
+        command: () => this.onEditFolder(folder),
+      },
+      {
+        label: 'Xóa thư mục',
+        title: 'Xóa thư mục',
+        icon: 'pi pi-trash color-red',
+        command: () => this.onDeleteFolder(folder),
+      },
+    ];
+    menu.toggle(event);
+  }
+
+  openDocumentActionMenu(doc: Document, event: MouseEvent, menu: Menu): void {
+    this.documentActionMenuItems = [
+      {
+        label: 'Chỉnh sửa tài liệu',
+        title: 'Chỉnh sửa tài liệu',
+        icon: 'pi pi-pencil color-blue',
+        command: () => this.onEditDocument(doc),
+      },
+      {
+        label: 'Tải tài liệu',
+        title: 'Tải tài liệu',
+        icon: this.isDownloadingDocument(doc.id)
+          ? 'pi pi-spin pi-spinner color-blue'
+          : 'pi pi-download color-blue',
+        disabled: !doc.latestVersionId || this.isDownloadingDocument(doc.id),
+        command: () => this.onDownloadDocument(doc),
+      },
+      {
+        label: 'Xóa tài liệu',
+        title: 'Xóa tài liệu',
+        icon: 'pi pi-trash color-red',
+        command: () => this.onDeleteDocument(doc),
+      },
+    ];
+    menu.toggle(event);
   }
 
   onSaveFolder() {

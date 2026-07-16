@@ -85,10 +85,9 @@
                   </span>
                 </td>
                 <td class="col-hd">
-                  <button *ngIf="authService.hasPermission('ORGANIZATION_EDIT') && unit.isActive" class="act-btn act-lock" (click)="onToggleStatusRequest(unit)" title="Khóa đơn vị"><i class="pi pi-lock"></i></button>
-                  <button *ngIf="authService.hasPermission('ORGANIZATION_EDIT') && !unit.isActive" class="act-btn act-unlock" (click)="onToggleStatusRequest(unit)" title="Mở khóa đơn vị"><i class="pi pi-lock-open"></i></button>
-                  <button *ngIf="authService.hasPermission('ORGANIZATION_EDIT')" class="act-btn act-edit" (click)="onEdit(unit)" title="Chỉnh sửa"><i class="pi pi-pencil"></i></button>
-                  <button *ngIf="authService.hasPermission('ORGANIZATION_DELETE')" class="act-btn act-delete" (click)="onDelete(unit)" title="Xóa"><i class="pi pi-trash"></i></button>
+                  <button type="button" class="act-btn act-more" (click)="openActionMenu(unit, $event, actionMenu)" title="Thao tác khác">
+                    <i class="pi pi-ellipsis-h"></i>
+                  </button>
                 </td>
               </tr>
               <tr *ngIf="filteredUnits().length === 0">
@@ -107,6 +106,8 @@
         <span class="record-count">Tổng số: <b>{{ units().length }}</b> phòng ban / đơn vị trực thuộc.</span>
       </div>
     </div>
+
+    <p-menu #actionMenu [model]="actionMenuItems" [popup]="true" appendTo="body" styleClass="row-action-menu"></p-menu>
 
     <!-- Dialog Thêm/Sửa Đơn vị -->
     <p-dialog [visible]="currentView() === 'add' || currentView() === 'edit'" (visibleChange)="$event ? null : currentView.set('list')" [header]="dialogHeader()" [modal]="true" [style]="{ width: '500px' }" styleClass="evn-dialog-custom">

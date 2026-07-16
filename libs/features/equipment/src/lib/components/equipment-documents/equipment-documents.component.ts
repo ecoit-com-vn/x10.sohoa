@@ -293,7 +293,7 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
       key: 'view',
       title: 'Xem tài liệu',
       btnClass: 'act-view',
-      iconClasses: 'pi pi-eye',
+      iconClasses: 'pi pi-eye color-teal',
       disabled: !doc.latestVersionId,
       run: (d) => this.editDocument(d),
     });
@@ -302,7 +302,7 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
       key: 'download',
       title: 'Tải tài liệu xuống',
       btnClass: 'act-download',
-      iconClasses: 'pi pi-download',
+      iconClasses: 'pi pi-download color-blue',
       disabled: !doc.latestVersionId,
       run: (d) => this.downloadDocument(d),
     });
@@ -312,7 +312,7 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
         key: 'ocr',
         title: 'OCR',
         btnClass: 'act-retry',
-        iconClasses: this.isOcrSubmitting(doc.id) ? 'pi pi-spin pi-spinner' : 'pi pi-file-edit',
+        iconClasses: this.isOcrSubmitting(doc.id) ? 'pi pi-spin pi-spinner color-blue' : 'pi pi-file-edit color-blue',
         disabled: this.isOcrSubmitting(doc.id) || !doc.latestVersionId,
         overflowOnly: true,
         run: (d) => this.onSubmitOcr(d),
@@ -321,7 +321,7 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
         key: 'ocr-extract',
         title: 'OCR + bóc tách',
         btnClass: 'act-retry',
-        iconClasses: this.isOcrExtractSubmitting(doc.id) ? 'pi pi-spin pi-spinner' : 'pi pi-refresh',
+        iconClasses: this.isOcrExtractSubmitting(doc.id) ? 'pi pi-spin pi-spinner color-blue' : 'pi pi-refresh color-blue',
         disabled: this.isOcrExtractSubmitting(doc.id) || !doc.latestVersionId,
         overflowOnly: true,
         run: (d) => this.onOcrAndExtract(d),
@@ -332,8 +332,8 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
         title: 'Xử lý lại OCR/bóc tách',
         btnClass: 'act-retry',
         iconClasses: isRetryingDigitization(doc.id, this.retryingIds())
-          ? 'pi pi-spin pi-spinner'
-          : 'pi pi-refresh',
+          ? 'pi pi-spin pi-spinner color-blue'
+          : 'pi pi-refresh color-blue',
         disabled: isRetryingDigitization(doc.id, this.retryingIds()) || !doc.latestVersionId,
         overflowOnly: true,
         run: (d) => this.onRetryDigitization(d),
@@ -346,8 +346,8 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
         title: 'Bóc tách lại',
         btnClass: 'act-reextract',
         iconClasses: isReExtracting(doc.id, this.reExtractingIds())
-          ? 'pi pi-spin pi-spinner'
-          : 'pi pi-sync',
+          ? 'pi pi-spin pi-spinner color-blue'
+          : 'pi pi-sync color-blue',
         disabled: isReExtracting(doc.id, this.reExtractingIds()) || !doc.latestVersionId,
         overflowOnly: true,
         run: (d) => this.onReExtract(d),
@@ -382,7 +382,7 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
 
   openDocActionMenu(doc: EquipmentDocumentItem, event: MouseEvent): void {
     this.selectedDocMenuTarget = doc;
-    const actions = this.getOverflowDocumentActions(doc);
+    const actions = this.buildAllDocumentActions(doc);
     const items: MenuItem[] = actions.map((act) => ({
       label: act.title,
       icon: act.iconClasses,

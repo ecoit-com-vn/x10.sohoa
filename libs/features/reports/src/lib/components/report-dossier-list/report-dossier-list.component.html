@@ -84,8 +84,8 @@
               <td>{{ getDimensionValue(item) }}</td>
               <td class="text-center">{{ item.documentCount ?? item.DocumentCount ?? 0 }}</td>
               <td class="col-hd">
-                <button type="button" class="act-btn" (click)="openActionMenu($event, item)">
-                  <i class="pi pi-ellipsis-v"></i>
+                <button type="button" class="act-btn" title="Thao tác" (click)="openActionMenu($event, item)">
+                  <i class="pi pi-ellipsis-h"></i>
                 </button>
               </td>
             </tr>

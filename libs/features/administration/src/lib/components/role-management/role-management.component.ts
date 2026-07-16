@@ -5,7 +5,8 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { DialogModule } from 'primeng/dialog';
 import { ToastModule } from 'primeng/toast';
-import { MessageService, ConfirmationService } from 'primeng/api';
+import { Menu, MenuModule } from 'primeng/menu';
+import { MenuItem, MessageService, ConfirmationService } from 'primeng/api';
 import { environment } from '@env/environment';
 import { finalize } from 'rxjs';
 import { AuthService } from '@sohoa.frontend/shared/core';
@@ -14,7 +15,7 @@ import { buildMenuPermissionTree as buildMenuPermissionTreeFromLookup } from '..
 @Component({
   selector: 'app-role-management',
   standalone: true,
-  imports: [CommonModule, FormsModule, DialogModule, ToastModule, WfBreadcrumbComponent],
+  imports: [CommonModule, FormsModule, DialogModule, ToastModule, MenuModule, WfBreadcrumbComponent],
   providers: [MessageService],
   templateUrl: './role-management.component.html',
   styleUrl: './role-management.component.scss'
@@ -50,6 +51,7 @@ export class RoleManagement implements OnInit {
   loading = signal<boolean>(false);
   saving = signal<boolean>(false);
   savingPermissions = signal<boolean>(false);
+  actionMenuItems: MenuItem[] = [];
 
   // Lock/Unlock Confirmation
   showLockUnlockConfirm = signal<boolean>(false);
@@ -167,6 +169,17 @@ export class RoleManagement implements OnInit {
     if (this.isCentralAdmin()) {
       this.loadOrganizationUnits();
     }
+  }
+
+  openActionMenu(role: any, event: Event, menu: Menu): void {
+    event.stopPropagation();
+    this.actionMenuItems = [
+      ...(this.authService.hasPermission('ROLE_MANAGE') || this.authService.hasPermission('PERMISSION_MANAGE') ? [{ label: 'Phân quyền', title:'Phân quyền', icon: 'pi pi-shield', command: () => this.onAssignPermissions(role) }] : []),
+      ...(this.authService.hasPermission('ROLE_EDIT') ? [{ label: role.isActive ? 'Khóa vai trò' : 'Mở khóa vai trò', title: role.isActive ? 'Khóa vai trò' : 'Mở khóa vai trò', icon: role.isActive ? 'pi pi-lock color-red' : 'pi pi-lock-open color-teal', command: () => this.onToggleStatusRequest(role) }] : []),
+      ...(this.authService.hasPermission('ROLE_EDIT') ? [{ label: 'Chỉnh sửa', title:'Chỉnh sửa', icon: 'pi pi-pencil color-blue', command: () => this.onEdit(role) }] : []),
+      ...(this.authService.hasPermission('ROLE_DELETE') ? [{ label: 'Xóa', title:'Xóa', icon: 'pi pi-trash color-red', command: () => this.onDelete(role) }] : []),
+    ];
+    menu.toggle(event);
   }
 
   loadOrganizationUnits() {

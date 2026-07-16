@@ -5,6 +5,8 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { DialogModule } from 'primeng/dialog';
 import { ToastModule } from 'primeng/toast';
+import { Menu, MenuModule } from 'primeng/menu';
+import { MenuItem } from 'primeng/api';
 import { MessageService } from 'primeng/api';
 import { environment } from '@env/environment';
 import { finalize } from 'rxjs';
@@ -13,7 +15,7 @@ import { AuthService } from '@sohoa.frontend/shared/core';
 @Component({
   selector: 'app-upload-config',
   standalone: true,
-  imports: [CommonModule, FormsModule, DialogModule, ToastModule, WfBreadcrumbComponent],
+  imports: [CommonModule, FormsModule, DialogModule, ToastModule, MenuModule, WfBreadcrumbComponent],
   providers: [MessageService],
   templateUrl: './upload-config.component.html',
   styleUrl: './upload-config.component.scss'
@@ -42,6 +44,7 @@ export class UploadConfigComponent implements OnInit {
   
   loading = signal<boolean>(false);
   saving = signal<boolean>(false);
+  actionMenuItems: MenuItem[] = [];
 
   private apiUrl = `${environment.apiGatewayUrl}/api/v1/upload-configs`;
 
@@ -72,6 +75,16 @@ export class UploadConfigComponent implements OnInit {
   ngOnInit() {
     this.loadConfigs();
     this.loadOrgUnits();
+  }
+
+  openActionMenu(config: any, event: Event, menu: Menu): void {
+    event.stopPropagation();
+    this.actionMenuItems = [
+      ...(this.authService.hasPermission('UPLOAD_CONFIG_EDIT') ? [{ label: config.isActive ? 'Khóa cấu hình' : 'Mở khóa cấu hình', title: config.isActive ? 'Khóa cấu hình' : 'Mở khóa cấu hình', icon: config.isActive ? 'pi pi-lock color-red' : 'pi pi-lock-open color-blue', command: () => this.onToggleStatusRequest(config) }] : []),
+      ...(this.authService.hasPermission('UPLOAD_CONFIG_EDIT') ? [{ label: 'Chỉnh sửa', title:'Chỉnh sửa', icon: 'pi pi-pencil color-blue', command: () => this.onEdit(config) }] : []),
+      ...(this.authService.hasPermission('UPLOAD_CONFIG_DELETE') ? [{ label: 'Xóa', title:'Xóa', icon: 'pi pi-trash color-red', command: () => this.onDelete(config) }] : []),
+    ];
+    menu.toggle(event);
   }
 
   loadConfigs() {

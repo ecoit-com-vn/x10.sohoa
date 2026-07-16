@@ -1,12 +1,20 @@
 <div class="wf-page">
   <p-toast></p-toast>
-
-  <wf-breadcrumb [viewMode]="currentView()" [leafLabel]="pageTitle()" (listClick)="goBack()" />
-
+  
+  <div class="list-toolbar">
+    <div class="toolbar-left">
+      <wf-breadcrumb [viewMode]="currentView()" [leafLabel]="pageTitle()" (listClick)="goBack()" />
+  </div>
+  <div class="toolbar-right" *ngIf="canCreate()">
+    <button class="btn-green" (click)="onAddNew()">
+      <i class="pi pi-plus"></i> Thêm mới
+    </button>
+    </div>
+  </div>
   <div class="wf-card">
 
     <!-- ==================== MÀN HÌNH DANH SÁCH ==================== -->
-    <div *ngIf="currentView() === 'list'" class="animate-fade-in">
+    <div *ngIf="currentView() === 'list' || currentView() === 'add' || currentView() === 'edit'" class="animate-fade-in">
 
       <!-- Toolbar -->
       <div class="list-toolbar">
@@ -43,13 +51,7 @@
             Làm mới
           </button>
         </div>
-
-        <div class="toolbar-right" *ngIf="canCreate()">
-          <button class="btn-green" (click)="onAddNew()">
-            <i class="pi pi-plus"></i> Thêm mới
-          </button>
-        </div>
-      </div>
+    </div>
 
       <!-- Table Grid -->
       <div class="wf-table-wrap">
@@ -108,30 +110,11 @@
               </td>
               <td class="col-hd">
                 <div class="action-buttons-group">
-                  <!-- Detail action -->
-                  <button class="act-btn" style="background-color: #eff6ff; color: #1d4ed8; border-color: #bfdbfe;"
-                    title="Xem chi tiết" (click)="onViewDetail(item)">
-                    <i class="pi pi-eye"></i>
-                  </button>
-
-                  <!-- Lock/Unlock action -->
-                  <button *ngIf="canManage()"
-                    class="act-btn"
-                    [ngClass]="(item.isActive === 1 || item.isActive === true) ? 'act-delete' : 'act-edit'"
-                    [title]="(item.isActive === 1 || item.isActive === true) ? 'Khóa bản ghi' : 'Mở khóa bản ghi'"
-                    (click)="onToggleStatus(item)">
-                    <i class="pi" [ngClass]="(item.isActive === 1 || item.isActive === true) ? 'pi-lock' : 'pi-lock-open'"></i>
-                  </button>
-
-                  <!-- Edit action -->
-                  <button *ngIf="canEdit()" class="act-btn act-edit" (click)="onEdit(item)" title="Chỉnh sửa">
-                    <i class="pi pi-pencil"></i>
-                  </button>
-
-                  <!-- Delete action -->
-                  <button *ngIf="canDelete()" class="act-btn act-delete" (click)="onDelete(item)" title="Xóa">
-                    <i class="pi pi-trash"></i>
-                  </button>
+                  <div class="dropdown-actions-container" (click)="$event.stopPropagation()">
+                    <button class="act-btn act-more" title="Thao tác khác" (click)="openActionMenu(item, $event, actionMenu)">
+                      <i class="pi pi-ellipsis-h"></i>
+                    </button>
+                  </div>
                 </div>
               </td>
             </tr>
@@ -168,6 +151,8 @@
         </div>
       </div>
     </div>
+
+    <p-menu #actionMenu [model]="actionMenuItems" [popup]="true" appendTo="body" styleClass="row-action-menu"></p-menu>
 
     <!-- ==================== DIALOG THÊM/SỬA ==================== -->
     <p-dialog [visible]="currentView() === 'add' || currentView() === 'edit'" (visibleChange)="$event ? null : currentView.set('list')" [header]="currentView() === 'add' ? ('Thêm mới ' + (infraTypeId() === 1 ? 'Trạm biến áp' : 'Đường dây')) : ('Chỉnh sửa ' + (infraTypeId() === 1 ? 'Trạm biến áp' : 'Đường dây'))" [modal]="true" [style]="{ width: '500px' }" styleClass="evn-dialog-custom">

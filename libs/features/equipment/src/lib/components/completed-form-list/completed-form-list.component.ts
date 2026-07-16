@@ -4,7 +4,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { ToastModule } from 'primeng/toast';
-import { MessageService } from 'primeng/api';
+import { Menu, MenuModule } from 'primeng/menu';
+import { MenuItem, MessageService } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { TextareaModule } from 'primeng/textarea';
@@ -27,6 +28,7 @@ import {
         CommonModule,
         FormsModule,
         ToastModule,
+        MenuModule,
         ButtonModule,
         InputTextModule,
         TextareaModule,
@@ -63,6 +65,20 @@ export class CompletedFormListComponent implements OnInit {
     selectedTemplate = signal<EavFormTemplate | null>(null);
 
     catalogOptionsMap = signal<{ [catalogCode: string]: string[] }>({});
+    actionMenuItems: MenuItem[] = [];
+
+    openActionMenu(form: EavFormTemplate, event: Event, menu: Menu): void {
+        event.stopPropagation();
+        this.actionMenuItems = [
+            { label: 'Xem chi tiết', title: 'Xem chi tiết', icon: 'pi pi-eye color-teal', command: () => this.viewFormDetail(form) },
+            { label: 'Lịch sử phiên bản', title: 'Lịch sử phiên bản', icon: 'pi pi-history color-blue', command: () => this.viewVersions(form) },
+            ...(this.canEdit() ? [{ label: 'Chỉnh sửa', title: 'Chỉnh sửa', icon: 'pi pi-pencil color-blue', command: () => this.onEdit(form) }] : []),
+            ...(this.canManage() && !this.isFormLocked(form) ? [{ label: 'Khóa form', title: 'Khóa form', icon: 'pi pi-lock color-red', command: () => this.lockForm(form) }] : []),
+            ...(this.canManage() && this.isFormLocked(form) ? [{ label: 'Mở khóa form', title: 'Mở khóa form', icon: 'pi pi-lock-open color-teal', command: () => this.unlockForm(form) }] : []),
+            ...(this.canDelete() ? [{ label: 'Xóa', title: 'Xóa', icon: 'pi pi-trash color-red', command: () => this.deactivateForm(form) }] : []),
+        ];
+        menu.toggle(event);
+    }
 
     loadCatalogOptions(catalogCode: string) {
         if (!catalogCode || this.catalogOptionsMap()[catalogCode]) return;

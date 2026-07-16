@@ -132,21 +132,9 @@
             <div class="col-actions-sticky-panel">
               <div class="action-buttons-group">
                 <button
-                  *ngFor="let action of getPrimaryDocumentActions(doc)"
-                  type="button"
-                  class="act-btn"
-                  [ngClass]="action.btnClass"
-                  [title]="action.title"
-                  [disabled]="action.disabled"
-                  (click)="action.run(doc); $event.stopPropagation()"
-                >
-                  <i [ngClass]="action.iconClasses"></i>
-                </button>
-                <button
-                  *ngIf="getOverflowDocumentActions(doc).length"
                   type="button"
                   class="act-btn act-more"
-                  title="Thao tác khác"
+                  title="Thao tác"
                   (click)="openDocActionMenu(doc, $event)"
                 >
                   <i class="pi pi-ellipsis-h"></i>

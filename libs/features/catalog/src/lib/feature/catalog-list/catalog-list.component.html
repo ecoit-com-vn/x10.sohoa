@@ -84,23 +84,10 @@
                 </span>
               </td>
               <td class="col-hd">
-                <div class="action-buttons-group">
-                  <!-- Lock/Unlock button -->
-                  <button *ngIf="canManage()" class="act-btn" [ngClass]="item.status === 1 ? 'act-delete' : 'act-edit'"
-                    [title]="item.status === 1 ? 'Khóa danh mục' : 'Mở khóa danh mục'" (click)="onToggleStatus(item)">
-                    <i class="pi" [ngClass]="item.status === 1 ? 'pi-lock' : 'pi-lock-open'"></i>
-                  </button>
-
-                  <!-- Edit button -->
-                  <button *ngIf="canEdit()" class="act-btn act-edit" (click)="onEdit(item)" title="Chỉnh sửa">
-                    <i class="pi pi-pencil"></i>
-                  </button>
-
-                  <!-- Delete button -->
-                  <button *ngIf="canDelete()" class="act-btn act-delete" (click)="onDelete(item)" title="Xóa">
-                    <i class="pi pi-trash"></i>
-                  </button>
-                </div>
+                <button type="button" class="act-btn act-more" title="Thao tác khác"
+                  (click)="openActionMenu(item, $event, actionMenu)">
+                  <i class="pi pi-ellipsis-h"></i>
+                </button>
               </td>
             </tr>
             <tr *ngIf="items().length === 0">
@@ -112,6 +99,9 @@
           </tbody>
         </table>
       </div>
+
+      <p-menu #actionMenu [model]="actionMenuItems" [popup]="true" appendTo="body"
+        styleClass="row-action-menu"></p-menu>
 
       <!-- Footer with Pagination -->
       <div class="table-footer" *ngIf="items().length > 0">
