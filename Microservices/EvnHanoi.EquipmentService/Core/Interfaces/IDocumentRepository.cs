@@ -51,6 +51,7 @@ public interface IDocumentRepository
     Task<bool> VersionBelongsToDossierAsync(Guid versionId, Guid dossierId);
     Task<bool> IsEquipmentProfileDocumentVersionForEquipmentAsync(Guid equipmentId, Guid versionId);
     Task<Guid?> GetDossierIdByVersionIdAsync(Guid versionId);
+    Task<int?> GetDossierPublishStatusIdByVersionIdAsync(Guid versionId);
 
     // Dossier Catalog tree queries
     Task<UnitQueryDto?> GetUnitInfoAsync(long unitId);

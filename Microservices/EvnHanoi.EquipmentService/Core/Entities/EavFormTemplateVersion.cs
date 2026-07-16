@@ -11,6 +11,7 @@ public class EavFormTemplateVersion
     public string Category { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public string DescriptionInfo { get; set; } = string.Empty;
+    public string? ExtractionPosition { get; set; }
     public string FormSchema { get; set; } = string.Empty;
     public int Version { get; set; } = 1;
     public bool IsActive { get; set; } = true;

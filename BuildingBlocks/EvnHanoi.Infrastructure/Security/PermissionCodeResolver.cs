@@ -30,6 +30,7 @@ public static class PermissionCodeResolver
             "DossierDigitizationWorkflow" => "DOSSIER_DIGITIZATION",
             "DossierByEquipment" => "SEARCH_DOSSIERS_BY_EQUIPMENT",
             "SearchDossiersByEquipment" => "SEARCH_DOSSIERS_BY_EQUIPMENT",
+            "SubstationSearch" => "SEARCH_SUBSTATION",
             "DossierSearch" => "SEARCH_DOSSIERS_IN_WAREHOUSE",
             "DossierCatalog" => "SEARCH_DOSSIERS_IN_WAREHOUSE",
             "ReportDossierByGridType" => "REPORT_DOSSIER_BY_GRIDTYPE",
@@ -79,6 +80,13 @@ public static class PermissionCodeResolver
         // Tra cứu hồ sơ thiết bị: mọi GET → VIEW
         if ((string.Equals(controllerKey, "DossierByEquipment", StringComparison.OrdinalIgnoreCase) ||
              string.Equals(controllerKey, "SearchDossiersByEquipment", StringComparison.OrdinalIgnoreCase)) &&
+            httpMethod.Equals("GET", StringComparison.OrdinalIgnoreCase))
+        {
+            return "VIEW";
+        }
+
+        // Tra cứu trạm biến áp: mọi GET → VIEW
+        if (string.Equals(controllerKey, "SubstationSearch", StringComparison.OrdinalIgnoreCase) &&
             httpMethod.Equals("GET", StringComparison.OrdinalIgnoreCase))
         {
             return "VIEW";
@@ -231,6 +239,7 @@ public static class PermissionCodeResolver
             "DOSSIER_PUBLISH_VIEW" => "Xem xuất bản hồ sơ",
             "SEARCH_DOSSIERS_BY_EQUIPMENT_VIEW" => "Tra cứu hồ sơ thiết bị",
             "SEARCH_DOSSIERS_IN_WAREHOUSE_VIEW" => "Tìm kiếm hồ sơ trong kho",
+            "SEARCH_SUBSTATION_VIEW" => "Tra cứu tìm kiếm Trạm biến áp",
             "REPORT_DOSSIER_BY_GRIDTYPE_VIEW" => "Xem báo cáo hồ sơ theo loại lưới điện",
             "REPORT_DOSSIER_BY_GRIDTYPE_EXPORT" => "Xuất Excel báo cáo theo loại lưới điện",
             "REPORT_DOSSIER_BY_EQUIPMENT_VIEW" => "Xem báo cáo hồ sơ theo thiết bị",

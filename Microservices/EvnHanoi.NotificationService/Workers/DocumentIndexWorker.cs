@@ -65,10 +65,15 @@ public class DocumentIndexWorker : BackgroundService
                         ? await DeleteAsync(evt.DocumentVersionId, stoppingToken)
                         : await IndexAsync(evt, stoppingToken);
 
-                    if (success)
-                        await _channel!.BasicAckAsync(ea.DeliveryTag, false, CancellationToken.None);
-                    else
-                        await _channel!.BasicNackAsync(ea.DeliveryTag, false, true, CancellationToken.None);
+                    if (!success)
+                    {
+                        _logger.LogWarning(
+                            "Document index/delete skipped or failed for version {VersionId} (action={Action}) — ACK to avoid poison requeue.",
+                            evt.DocumentVersionId,
+                            evt.Action);
+                    }
+
+                    await _channel!.BasicAckAsync(ea.DeliveryTag, false, CancellationToken.None);
                 }
                 catch (Exception ex)
                 {

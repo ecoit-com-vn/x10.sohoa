@@ -113,7 +113,8 @@ public class InfrastructureRepository : IInfrastructureRepository
         string? keyword, 
         int? status,
         IEnumerable<long>? unitIds = null,
-        long? unitId = null)
+        long? unitId = null,
+        int? gridTypeId = null)
     {
         if (_connection.State != ConnectionState.Open) 
             _connection.Open();
@@ -136,6 +137,12 @@ public class InfrastructureRepository : IInfrastructureRepository
         {
             sqlBase += $" AND i.IS_ACTIVE = :Status";
             parameters.Add("Status", status.Value);
+        }
+
+        if (gridTypeId.HasValue)
+        {
+            sqlBase += $" AND i.GRIDTYPEID = :GridTypeId";
+            parameters.Add("GridTypeId", gridTypeId.Value);
         }
 
         if (unitId.HasValue && unitId.Value > 0)

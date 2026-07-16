@@ -70,7 +70,8 @@ public class FormTemplateController : ControllerBase
                 request.EquipmentTypeId,
                 "TEMPLATE",
                 request.GridTypeId,
-                request.ExtractionProcess
+                request.ExtractionProcess,
+                request.ExtractionPosition
             );
 
             return CreatedAtAction(nameof(GetById), new { id = template.Id.ToString() }, template);
@@ -108,7 +109,8 @@ public class FormTemplateController : ControllerBase
                 request.EquipmentTypeId,
                 "TEMPLATE",
                 request.GridTypeId,
-                request.ExtractionProcess);
+                request.ExtractionProcess,
+                request.ExtractionPosition);
 
             return Ok(newTemplate);
         }
@@ -179,6 +181,20 @@ public class FormTemplateController : ControllerBase
 
         var versions = await _repository.GetVersionsByCodeAsync(code);
         return Ok(versions);
+    }
+
+    [HttpPost("versions/{versionId:guid}/activate")]
+    public async Task<IActionResult> ActivateVersion(Guid versionId)
+    {
+        try
+        {
+            await _repository.ActivateVersionAsync(versionId);
+            return Ok(new { Message = "Kích hoạt phiên bản thành công!" });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { Message = $"Lỗi khi kích hoạt phiên bản: {ex.Message}" });
+        }
     }
 
     [HttpGet("{id:guid}/versions/{version:int}")]
