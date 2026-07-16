@@ -39,6 +39,7 @@ interface FormField {
   description?: string;
   selectAll?: boolean;
   active?: boolean;
+  extractionPosition?: string;
 }
 
 interface ToolboxItem {
@@ -102,6 +103,7 @@ export class FormManagementComponent implements OnInit {
   formDescription = signal<string>('');
   formDescriptionInfo = signal<string>('');
   extractionProcess = signal<string>('');
+  extractionPosition = signal<string>('all');
   fields = signal<FormField[]>([]);
   selectedFieldIndex = signal<number | null>(null);
   showJson = signal<boolean>(false);
@@ -330,6 +332,16 @@ export class FormManagementComponent implements OnInit {
     this.router.navigate(['/equipment/form-management']);
   }
 
+  getExtractionPositionLabel(val?: string): string {
+    switch (val) {
+      case 'all': return 'Tất cả';
+      case 'first': return 'Trang đầu';
+      case 'last': return 'Trang cuối';
+      case 'first_last': return 'Trang đầu + trang cuối';
+      default: return 'Tất cả';
+    }
+  }
+
   onAddNew() {
     this.router.navigate(['/equipment/form-management/new']);
   }
@@ -347,6 +359,7 @@ export class FormManagementComponent implements OnInit {
     this.formDescription.set('');
     this.formDescriptionInfo.set('');
     this.extractionProcess.set('');
+    this.extractionPosition.set('all');
     this.fields.set([]);
     this.selectedFieldIndex.set(null);
     this.showJson.set(false);
@@ -412,6 +425,7 @@ export class FormManagementComponent implements OnInit {
     this.formDescription.set(form.description);
     this.formDescriptionInfo.set(form.descriptionInfo || '');
     this.extractionProcess.set(form.extractionProcess || '');
+    this.extractionPosition.set(form.extractionPosition || 'all');
     this.showJson.set(false);
 
     try {
@@ -436,6 +450,7 @@ export class FormManagementComponent implements OnInit {
     this.formDescription.set(form.description);
     this.formDescriptionInfo.set(form.descriptionInfo || '');
     this.extractionProcess.set(form.extractionProcess || '');
+    this.extractionPosition.set(form.extractionPosition || 'all');
 
     const initialSimulated: { [key: string]: any } = {};
 
@@ -540,7 +555,8 @@ export class FormManagementComponent implements OnInit {
       width: 100,
       dataSourceType: 'manual',
       selectAll: false,
-      active: true
+      active: true,
+      extractionPosition: 'all'
     };
   }
 
@@ -718,12 +734,13 @@ export class FormManagementComponent implements OnInit {
     const desc = this.formDescription();
     const fDescInfo = this.formDescriptionInfo();
     const extractProc = this.extractionProcess();
+    const extPos = this.extractionPosition();
     const isEdit = this.isEditMode();
     const tId = this.templateId();
 
     this.loadingService.show();
     if (isEdit && tId) {
-      this.eavFormService.updateTemplate(tId, fName, fCode, fCategory, desc, fDescInfo, schemaStr, 'admin', undefined, undefined, extractProc)
+      this.eavFormService.updateTemplate(tId, fName, fCode, fCategory, desc, fDescInfo, schemaStr, 'admin', undefined, undefined, extractProc, extPos)
         .pipe(finalize(() => this.loadingService.hide()))
         .subscribe({
           next: () => {
@@ -745,7 +762,7 @@ export class FormManagementComponent implements OnInit {
           }
         });
     } else {
-      this.eavFormService.createTemplate(fName, fCode, fCategory, desc, fDescInfo, schemaStr, 'admin', undefined, undefined, extractProc)
+      this.eavFormService.createTemplate(fName, fCode, fCategory, desc, fDescInfo, schemaStr, 'admin', undefined, undefined, extractProc, extPos)
         .pipe(finalize(() => this.loadingService.hide()))
         .subscribe({
           next: () => {

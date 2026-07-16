@@ -171,8 +171,7 @@
       </div>
 
       <!-- Tab 1: Nhập thông tin -->
-      <div *ngIf="activeTab() === 'info'" class="tab-content-info animate-fade-in"
-        style="padding: 0.75rem; background: #ffffff; border-radius: 8px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); border: 1px solid #e2e8f0;">
+      <div *ngIf="activeTab() === 'info'" class="tab-content-info animate-fade-in">
         <div class="general-info-card card"
           style="box-shadow: none; padding: 0; border: none; background: transparent; margin-bottom: 0;">
           <div style="display: flex; gap: 16px;" class="mb-3">
@@ -201,16 +200,30 @@
           </div>
           <div style="display: flex; gap: 16px;" class="mb-3">
             <div class="form-group" style="flex: 1;">
+              <label class="block text-sm font-bold text-muted tracking-wider">Vị trí bóc tách</label>
+              <p-select [options]="[
+                  { label: 'Tất cả', value: 'all' },
+                  { label: 'Trang đầu', value: 'first' },
+                  { label: 'Trang cuối', value: 'last' },
+                  { label: 'Trang đầu + trang cuối', value: 'first_last' }
+                ]" [ngModel]="extractionPosition()" (ngModelChange)="extractionPosition.set($event)"
+                optionLabel="label" optionValue="value" placeholder="-- Chọn vị trí bóc tách --" styleClass="w-full"
+                appendTo="body">
+              </p-select>
+            </div>
+          </div>
+          <div style="display: flex; gap: 16px;" class="mb-3">
+            <div class="form-group" style="flex: 1;">
               <label class="block text-sm font-bold text-muted tracking-wider">Mô tả thông tin</label>
               <textarea pTextarea [ngModel]="formDescriptionInfo()" (ngModelChange)="formDescriptionInfo.set($event)"
-                class="w-full form-title-input" rows="2" placeholder="Nhập mô tả thông tin..."></textarea>
+                class="w-full form-title-input" rows="3" placeholder="Nhập mô tả thông tin..."></textarea>
             </div>
           </div>
           <div style="display: flex; gap: 16px;">
             <div class="form-group" style="flex: 1;">
               <label class="block text-sm font-bold text-muted tracking-wider">Quy tắc bóc tách thông tin</label>
               <textarea pTextarea [ngModel]="extractionProcess()" (ngModelChange)="extractionProcess.set($event)"
-                class="w-full form-title-input" rows="2" placeholder="Nhập quy trình bóc tách thông tin..."></textarea>
+                class="w-full form-title-input" rows="15" placeholder="Nhập quy trình bóc tách thông tin..."></textarea>
             </div>
           </div>
         </div>
@@ -274,8 +287,8 @@
               <div *ngFor="let field of fields(); let i = index; trackBy: trackByFn" class="canvas-field-card"
                 [class.selected]="selectedFieldIndex() === i" [class.width-50]="field.width === 50"
                 [class.width-100]="field.width === 100" [class.search-matched]="isFieldSearchMatched(field)"
-                [class.field-inactive]="field.active === false"
-                draggable="true" (dragstart)="onCanvasDragStart($event, i)" (dragover)="onDragOver($event)"
+                [class.field-inactive]="field.active === false" draggable="true"
+                (dragstart)="onCanvasDragStart($event, i)" (dragover)="onDragOver($event)"
                 (drop)="onCanvasDrop($event, i)" (click)="selectField(i)">
 
                 <div class="field-card-header"
@@ -286,7 +299,8 @@
                     <span class="field-type-badge text-sm font-bold"
                       style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">{{ field.type }}</span>
                     <span *ngIf="field.active === false" class="status-pill status-inactive"
-                      style="padding: 2px 6px; font-size: 0.75rem; font-weight: 600; border-radius: 4px; background-color: #fef2f2; color: #dc2626; border: 1px solid #fee2e2;">Tạm ngưng</span>
+                      style="padding: 2px 6px; font-size: 0.75rem; font-weight: 600; border-radius: 4px; background-color: #fef2f2; color: #dc2626; border: 1px solid #fee2e2;">Tạm
+                      ngưng</span>
                   </div>
                   <div class="field-actions" style="display: flex; gap: 4px;">
                     <button class="act-btn act-edit" (click)="cloneField(i, $event)" title="Nhân bản"
@@ -421,11 +435,11 @@
                     id="prop-required"></p-checkbox>
                   <label for="prop-required" class="font-bold text-sm cursor-pointer select-none">Bắt buộc nhập</label>
                 </div>
-                <div class="field mb-2" style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px;">
+                <div class="field mb-2"
+                  style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px;">
                   <span class="font-bold text-sm cursor-pointer select-none" style="color: #475569;">Hoạt động</span>
                   <p-toggleswitch [ngModel]="fields()[selectedFieldIndex()!].active !== false"
-                    (ngModelChange)="updateSelectedField('active', $event)"
-                    id="prop-active"></p-toggleswitch>
+                    (ngModelChange)="updateSelectedField('active', $event)" id="prop-active"></p-toggleswitch>
                 </div>
 
                 <!-- Chọn tất cả (Select All) cho Checkbox Group -->
@@ -525,6 +539,14 @@
               <div class="metadata-field-value">{{ targetForm?.createdAt ? (targetForm?.createdAt | date:'dd/MM/yyyy
                 HH:mm') : ('--/--/----') }}</div>
             </div>
+            <div>
+              <label class="metadata-field-label">Vị trí bóc tách: </label>
+              <div class="metadata-field-value">{{ getExtractionPositionLabel(extractionPosition()) }}</div>
+            </div>
+          </div>
+          <div class="metadata-desc-group" style="margin-top: 10px;">
+            <label class="metadata-field-label">Quy tắc bóc tách thông tin: </label>
+            <div class="metadata-desc-box">{{ extractionProcess() || 'Chưa cấu hình' }}</div>
           </div>
           <div class="metadata-desc-group">
             <label class="metadata-field-label">Mô tả: </label>
@@ -602,7 +624,8 @@
                           <div *ngFor="let opt of (catalogOptionsMap()[field.catalogType || ''] || ['Đang tải...'])"
                             style="display: flex; align-items: center; gap: 8px; opacity: 0.8;">
                             <input type="checkbox" disabled style="transform: scale(1.2); cursor: not-allowed;" />
-                            <label class="text-sm select-none" style="cursor: not-allowed; color: #475569;">{{ opt }}</label>
+                            <label class="text-sm select-none" style="cursor: not-allowed; color: #475569;">{{ opt
+                              }}</label>
                           </div>
                         </ng-container>
 
@@ -618,7 +641,8 @@
                           <div *ngFor="let opt of (field.options || [])"
                             style="display: flex; align-items: center; gap: 8px; opacity: 0.8;">
                             <input type="checkbox" disabled style="transform: scale(1.2); cursor: not-allowed;" />
-                            <label class="text-sm select-none" style="cursor: not-allowed; color: #475569;">{{ opt }}</label>
+                            <label class="text-sm select-none" style="cursor: not-allowed; color: #475569;">{{ opt
+                              }}</label>
                           </div>
                         </ng-container>
                       </div>
@@ -756,8 +780,8 @@
                 <button class="act-btn btn-view-detail" (click)="viewVersionDetail(ver)" title="Xem chi tiết">
                   <i class="pi pi-eye"></i>
                 </button>
-                <button *ngIf="canEdit() && !ver.isActive" class="act-btn act-history" (click)="confirmRestoreVersion(ver)"
-                  title="Khôi phục phiên bản này" [disabled]="restoringVersion()"
+                <button *ngIf="canEdit() && !ver.isActive" class="act-btn act-history"
+                  (click)="confirmRestoreVersion(ver)" title="Khôi phục phiên bản này" [disabled]="restoringVersion()"
                   style="background-color: #f59e0b; color: white;">
                   <i class="pi pi-refresh" [class.pi-spin]="restoringVersion()"></i>
                 </button>

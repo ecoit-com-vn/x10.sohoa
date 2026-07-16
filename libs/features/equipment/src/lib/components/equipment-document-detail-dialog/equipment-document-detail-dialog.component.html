@@ -5,7 +5,7 @@
   (onHide)="onHide()"
   [header]="dialogHeader()"
   [modal]="true"
-  [style]="{ width: '1200px', maxWidth: '98vw' }"
+  [style]="{ width: '90vw', maxWidth: '95vw' }"
   styleClass="evn-dialog-custom dossier-document-edit-dialog"
   [closable]="!saving()"
   [draggable]="false"
@@ -32,7 +32,7 @@
     </section>
 
     <!-- Bên phải: EAV Form -->
-    <section class="form-pane" style="width: 500px; display: flex; flex-direction: column;">
+    <section class="form-pane" style="display: flex; flex-direction: column;">
       <div class="pane-title" style="font-weight: 600; margin-bottom: 8px; color: #1e293b;">{{ formPaneTitle() }}</div>
       <p class="confirm-intro" style="color: #64748b; font-size: 0.82rem; margin-bottom: 16px;">
         <ng-container *ngIf="hasExtractionData(); else templateOnlyIntro">

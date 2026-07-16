@@ -35,8 +35,7 @@
       </div>
 
       <!-- Tab 1: Nhập thông tin -->
-      <div *ngIf="activeTab() === 'info'" class="tab-content-info animate-fade-in"
-        style="padding: 0.75rem; background: #ffffff; border-radius: 8px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); border: 1px solid #e2e8f0;">
+      <div *ngIf="activeTab() === 'info'" class="tab-content-info animate-fade-in">
         <div class="general-info-card card"
           style="box-shadow: none; padding: 0; border: none; background: transparent; margin-bottom: 0;">
           <div class="info-form-row mb-3">
@@ -74,16 +73,36 @@
           </div>
           <div class="info-form-row mb-3">
             <div class="form-group" style="flex: 1;">
+              <label class="block text-sm font-bold text-muted tracking-wider">Vị trí bóc tách</label>
+              <p-select [options]="[
+                  { label: 'Tất cả', value: 'all' },
+                  { label: 'Trang đầu', value: 'first' },
+                  { label: 'Trang cuối', value: 'last' },
+                  { label: 'Trang đầu + trang cuối', value: 'first_last' }
+                ]"
+                [ngModel]="extractionPosition()"
+                (ngModelChange)="extractionPosition.set($event)"
+                optionLabel="label"
+                optionValue="value"
+                placeholder="-- Chọn vị trí bóc tách --"
+                styleClass="w-full"
+                appendTo="body">
+              </p-select>
+            </div>
+          </div>
+
+          <div class="info-form-row mb-3">
+            <div class="form-group" style="flex: 1;">
               <label class="block text-sm font-bold text-muted tracking-wider">Mô tả thông tin</label>
               <textarea pTextarea [ngModel]="formDescriptionInfo()" (ngModelChange)="formDescriptionInfo.set($event)"
-                class="w-full form-title-input" rows="2" placeholder="Nhập mô tả thông tin..."></textarea>
+                class="w-full form-title-input" rows="3" placeholder="Nhập mô tả thông tin..."></textarea>
             </div>
           </div>
           <div class="info-form-row">
-            <div class="form-group extraction-process-group">
+            <div class="form-group" style="flex: 1;">
               <label class="block text-sm font-bold text-muted tracking-wider">Quy trình bóc tách thông tin</label>
               <textarea pTextarea [ngModel]="extractionProcess()" (ngModelChange)="extractionProcess.set($event)"
-                class="form-title-input extraction-process-input" rows="2" placeholder="Nhập quy trình bóc tách thông tin..."></textarea>
+                class="w-full form-title-input" rows="15" placeholder="Nhập quy trình bóc tách thông tin..."></textarea>
             </div>
           </div>
         </div>
