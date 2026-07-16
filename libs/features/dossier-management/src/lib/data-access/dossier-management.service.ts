@@ -379,6 +379,10 @@ export class DossierManagementService {
     return this.http.get<any[]>(`${this.config.apiGatewayUrl}/api/v1/dossiers/dossier-type/lookup`);
   }
 
+  getDossierGroupLookup(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.config.apiGatewayUrl}/api/v1/dossiers/dossier-groups/lookup`);
+  }
+
   getEquipmentLookup(params?: { infrastructureId?: string; gridTypeId?: number; keyword?: string; code?: string; name?: string; unitId?: number; isActive?: boolean; page?: number; pageSize?: number }): Observable<any> {
     let httpParams = new HttpParams();
     if (params?.infrastructureId) httpParams = httpParams.set('infrastructureId', params.infrastructureId);

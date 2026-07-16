@@ -1,4 +1,6 @@
 import { Component, OnInit, inject, signal, computed, effect } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ActivatedRoute, Router } from '@angular/router';
 import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -12,7 +14,7 @@ import { CardModule } from 'primeng/card';
 import { TextareaModule } from 'primeng/textarea';
 import { Paginator } from 'primeng/paginator';
 import { EavFormService, EavFormTemplate, AuthService } from '@sohoa.frontend/shared/core';
-import { finalize } from 'rxjs';
+import { combineLatest, finalize } from 'rxjs';
 import { Dialog } from 'primeng/dialog';
 import { canApproveForm } from '../../utils/eav-form-permission.util';
 
@@ -67,6 +69,12 @@ export class FormApprovalComponent implements OnInit {
   searchKeyword = signal<string>('');
   activeTab = signal<'pending' | 'history'>('pending');
   selectedForm = signal<EavFormTemplate | null>(null);
+  showVersionsDialog = signal<boolean>(false);
+  versionList = signal<EavFormTemplate[]>([]);
+  selectedTemplateForVersions = signal<EavFormTemplate | null>(null);
+  showConfirmRestore = signal<boolean>(false);
+  restoreTarget = signal<EavFormTemplate | null>(null);
+  restoringVersion = signal<boolean>(false);
 
   // Preview properties
   fields = signal<FormField[]>([]);
@@ -76,21 +84,11 @@ export class FormApprovalComponent implements OnInit {
   first = signal<number>(0);
   rows = signal<number>(10);
 
-  categories = [
-    { code: 'MAY_BIEN_AP', name: 'Máy biến áp' },
-    { code: 'MAY_CAT', name: 'Máy cắt' },
-    { code: 'DAO_CACH_LY', name: 'Dao cách ly' },
-    { code: 'BIEN_DIEN_AP', name: 'Biến điện áp (TU)' },
-    { code: 'BIEN_DONG_DIEN', name: 'Biến dòng điện (TI)' },
-    { code: 'CAP_DIEN_LUC', name: 'Cáp điện lực' },
-    { code: 'TU_TRUNG_THE', name: 'Tủ trung thế' },
-    { code: 'THIET_BI_DO_LUONG', name: 'Thiết bị đo lường' },
-    { code: 'KHAC', name: 'Hạng mục khác' }
-  ];
-
   private eavFormService = inject(EavFormService);
   private messageService = inject(MessageService);
   private authService = inject(AuthService);
+  private router = inject(Router);
+  private route = inject(ActivatedRoute);
 
   canApprove = computed(() => canApproveForm(this.authService));
 
@@ -98,22 +96,15 @@ export class FormApprovalComponent implements OnInit {
 
   loadCatalogOptions(catalogCode: string) {
     if (!catalogCode || this.catalogOptionsMap()[catalogCode]) return;
-    this.eavFormService.getCatalogTypeByCode(catalogCode).subscribe({
-      next: (catalogType) => {
-        if (catalogType && catalogType.id) {
-          this.eavFormService.getCatalogsLookup(catalogType.id).subscribe({
-            next: (items) => {
-              const options = (items || []).map((item: any) => item.name || item.code);
-              this.catalogOptionsMap.update(prev => ({
-                ...prev,
-                [catalogCode]: options
-              }));
-            },
-            error: (err) => console.error(`Failed to load catalogs lookup for ${catalogCode}`, err)
-          });
-        }
+    this.eavFormService.getApprovalCatalogOptions(catalogCode).subscribe({
+      next: (items) => {
+        const options = (items || []).map((item) => item.name || item.code);
+        this.catalogOptionsMap.update(prev => ({
+          ...prev,
+          [catalogCode]: options
+        }));
       },
-      error: (err) => console.error(`Failed to load catalog type for ${catalogCode}`, err)
+      error: (err) => console.error(`Failed to load catalogs lookup for ${catalogCode}`, err)
     });
   }
 
@@ -133,13 +124,51 @@ export class FormApprovalComponent implements OnInit {
         }
       });
     });
+
+    combineLatest([this.route.paramMap, this.route.queryParamMap])
+      .pipe(takeUntilDestroyed())
+      .subscribe(([params, query]) => {
+        const id = params.get('id');
+        if (!id) {
+          this.viewState.set('list');
+          this.selectedForm.set(null);
+          this.fields.set([]);
+          this.simulatedValues.set({});
+          if (this.forms().length === 0) {
+            this.loadForms();
+          }
+          return;
+        }
+        const versionRaw = query.get('version');
+        const version = versionRaw ? Number(versionRaw) : null;
+        this.loadDetail(id, version && version > 0 ? version : null);
+      });
   }
-
-
 
   ngOnInit() {
     this.authService.loadPermissions();
-    this.loadForms();
+  }
+
+  private loadDetail(id: string, version: number | null) {
+    this.loading.set(true);
+    const request$ = version != null
+      ? this.eavFormService.getApprovalTemplateByIdAndVersion(id, version)
+      : this.eavFormService.getApprovalTemplateById(id);
+
+    request$
+      .pipe(finalize(() => this.loading.set(false)))
+      .subscribe({
+        next: (detail) => this.applyPreview(detail),
+        error: (err) => {
+          console.error('Failed to load form detail', err);
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi',
+            detail: 'Không thể tải chi tiết form.'
+          });
+          this.router.navigate(['/equipment/form-approval']);
+        }
+      });
   }
 
   loadForms() {
@@ -216,13 +245,17 @@ export class FormApprovalComponent implements OnInit {
   }
 
   onPreview(form: EavFormTemplate) {
+    this.router.navigate(['/equipment/form-approval', form.id]);
+  }
+
+  private applyPreview(form: EavFormTemplate) {
     this.selectedForm.set(form);
     this.viewState.set('preview');
-    
+
     try {
-      const parsedFields = JSON.parse(form.formSchema) || [];
+      const parsedFields = JSON.parse(form.formSchema || '[]') || [];
       this.fields.set(parsedFields);
-      
+
       const initialSimulated: { [key: string]: any } = {};
       parsedFields.forEach((f: FormField) => {
         if (f.type === 'checkbox') {
@@ -240,10 +273,71 @@ export class FormApprovalComponent implements OnInit {
   }
 
   goToList() {
-    this.viewState.set('list');
-    this.selectedForm.set(null);
-    this.fields.set([]);
-    this.simulatedValues.set({});
+    this.router.navigate(['/equipment/form-approval']);
+  }
+
+  viewVersions(form: EavFormTemplate) {
+    this.loading.set(true);
+    this.eavFormService.getApprovalTemplateVersions(form.code)
+      .pipe(finalize(() => this.loading.set(false)))
+      .subscribe({
+        next: (versions) => {
+          this.versionList.set(versions || []);
+          this.selectedTemplateForVersions.set(form);
+          this.showVersionsDialog.set(true);
+        },
+        error: (err) => {
+          console.error('Failed to load template versions', err);
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi',
+            detail: 'Không thể tải danh sách phiên bản của form.'
+          });
+        }
+      });
+  }
+
+  viewVersionDetail(ver: EavFormTemplate) {
+    this.showVersionsDialog.set(false);
+    this.router.navigate(['/equipment/form-approval', ver.id], {
+      queryParams: { version: ver.version }
+    });
+  }
+
+  confirmRestoreVersion(ver: EavFormTemplate) {
+    if (ver.isActive || this.restoringVersion()) return;
+    this.restoreTarget.set(ver);
+    this.showConfirmRestore.set(true);
+  }
+
+  onConfirmRestoreVersion() {
+    const ver = this.restoreTarget();
+    const parent = this.selectedTemplateForVersions();
+    if (!ver || !parent) return;
+
+    this.restoringVersion.set(true);
+    this.eavFormService.restoreApprovalTemplateVersion(ver.id, ver.version)
+      .pipe(finalize(() => this.restoringVersion.set(false)))
+      .subscribe({
+        next: () => {
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Thành công',
+            detail: `Đã khôi phục form về phiên bản v${ver.version}.0.`
+          });
+          this.showConfirmRestore.set(false);
+          this.restoreTarget.set(null);
+          this.viewVersions(parent);
+          this.loadForms();
+        },
+        error: (err) => {
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi',
+            detail: err?.error?.Message || 'Không thể khôi phục phiên bản.'
+          });
+        }
+      });
   }
 
   approveForm(form: EavFormTemplate) {
@@ -316,9 +410,8 @@ export class FormApprovalComponent implements OnInit {
       });
   }
 
-  getCategoryName(code: string): string {
-    const cat = this.categories.find(c => c.code === code);
-    return cat ? cat.name : code || '(Chưa chọn)';
+  getCategoryName(form: EavFormTemplate): string {
+    return form.categoryName || form.category || '(Chưa chọn)';
   }
 
   updateSimulatedValue(name: string, value: any) {

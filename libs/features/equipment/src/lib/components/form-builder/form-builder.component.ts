@@ -191,7 +191,7 @@ export class FormBuilderComponent implements OnInit {
         }
 
         try {
-          const parsedFields = JSON.parse(form.formSchema) || [];
+          const parsedFields = JSON.parse(form.formSchema || '[]') || [];
           this.fields.set(parsedFields);
           this.selectedFieldIndex.set(parsedFields.length > 0 ? 0 : null);
         } catch (e) {

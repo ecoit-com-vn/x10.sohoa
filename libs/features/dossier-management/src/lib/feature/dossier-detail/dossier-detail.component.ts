@@ -186,6 +186,11 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
       : '';
 
     return {
+      dossierGroupName: pickFirst(d.dossierGroupName, d.DossierGroupName) as string | undefined,
+      isEquipmentDossier: (() => {
+        const flag = pickFirst(d.isEquipmentDossier, d.IsEquipmentDossier);
+        return flag === true || flag === 1 || flag === '1';
+      })(),
       gridTypeName: pickFirst(d.gridTypeName, d.GridTypeName) as string | undefined,
       infrastructureName: pickFirst(d.infrastructureName, d.InfrastructureName) as string | undefined,
       infrastructureCode: pickFirst(d.infrastructureCode, d.InfrastructureCode) as string | undefined,

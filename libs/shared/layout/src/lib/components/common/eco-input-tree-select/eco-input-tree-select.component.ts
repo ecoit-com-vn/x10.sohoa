@@ -13,7 +13,6 @@ import {
 import {
   AbstractControl,
   ControlValueAccessor,
-  FormControl,
   FormControlName,
   FormGroupDirective,
   NG_VALIDATORS,
@@ -21,6 +20,7 @@ import {
   NgControl,
   NgForm,
   NgModel,
+  FormsModule,
   ReactiveFormsModule,
   ValidationErrors,
   Validator,
@@ -49,6 +49,7 @@ import { TreeSelectModule } from 'primeng/treeselect';
     NgClass,
     NgIf,
     TreeSelectModule,
+    FormsModule,
     ReactiveFormsModule,
   ],
 })
@@ -73,28 +74,14 @@ export class EcoInputTreeSelectComponent
   @Output() doChange = new EventEmitter<any>();
 
   ngControl?: NgControl;
-  control = new FormControl();
   isFiltering: boolean = false;
+  selectedNode: any = null;
+  private pendingValue: any = null;
+
   constructor(
     private el: ElementRef<HTMLElement>,
-    private injector: Injector) {
-    this.control.valueChanges.subscribe((value) => {
-      let emitValue = value;
-      if (
-        this.isStringValue &&
-        Array.isArray(value) &&
-        (this.selectionMode === 'checkbox' || this.selectionMode === 'multiple')
-      ) {
-        emitValue = value
-          .map((o: any) => (o && typeof o === 'object' ? o.key : o))
-          .join(';');
-      }
-      if (this.onChange) {
-        this.onChange(emitValue);
-      }
-      this.emitChange(emitValue);
-    });
-  }
+    private injector: Injector,
+  ) {}
 
   get errors() {
     const form = (this.ngControl as any)?.formDirective;
@@ -108,11 +95,6 @@ export class EcoInputTreeSelectComponent
     return getErrorMessage(this.ngControl?.errors, this.label)?.key || null;
   }
 
-  get isSubmitted(): boolean {
-    const form = (this.ngControl as any)?.formDirective;
-    return !!form?.submitted;
-  }
-
   onFilter(event: any) {
     const previousFiltering = this.isFiltering;
     this.isFiltering = !!event.filter;
@@ -123,13 +105,12 @@ export class EcoInputTreeSelectComponent
 
   refreshTreeSelection() {
     if (this.selectionMode !== 'checkbox') return;
-    let currentValues = this.control.value;
+    const currentValues = this.selectedNode;
     if (!Array.isArray(currentValues)) return;
     const tempValue = [...currentValues];
-    this.control.setValue([]);
-
+    this.selectedNode = [];
     setTimeout(() => {
-      this.control.setValue(tempValue);
+      this.selectedNode = tempValue;
     }, 10);
   }
 
@@ -142,55 +123,58 @@ export class EcoInputTreeSelectComponent
     if (ngControl) {
       setTimeout(() => {
         this.ngControl = ngControl;
-        //this.control = ngControl.control as FormControl;
       });
     }
   }
+
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['nodes'] && this.control.value) {
-      this.selectedNode = this.findNodeByKey(this.nodes, this.control.value);
+    if (changes['nodes'] && this.nodes) {
+      const value = this.pendingValue ?? this.extractKeysFromSelection(this.selectedNode);
+      if (value !== null && value !== undefined && value !== '') {
+        this.writeValue(value);
+      }
     }
   }
 
   onTreePanelShow() {
-    const closeButton: any = this.el.nativeElement.querySelector(
-      'button.p-treeselect-close',
-    );
-    if (closeButton) {
-      closeButton.setAttribute('type', 'button');
-    }
+    setTimeout(() => {
+      const panelButtons = document.querySelectorAll(
+        '.p-treeselect-overlay button, .p-treeselect-panel button',
+      );
+      panelButtons.forEach((btn) => btn.setAttribute('type', 'button'));
+    });
   }
 
   onChange = (_value: any) => {};
-
   onTouched = () => {};
 
-  //Lấy ra message lỗi validate để hiển thị, nếu có nhiều lỗi -> hiển thị lỗi đầu tiên.
   getError() {
     return getErrorMessage(this.ngControl?.errors, this.label);
   }
 
-  //Dùng để check trường hiện tại có phải required hay không.
   checkRequire() {
-    // return this.ngControl?.control?.hasValidator(Validators.required);
     return !!this.required;
   }
 
   setDisabledState(isDisabled: boolean) {
-    if (isDisabled) {
-      this.control.disable({ emitEvent: false });
-    } else {
-      this.control.enable();
-    }
+    this.readonly = isDisabled;
   }
 
-  validate(control: AbstractControl): ValidationErrors | null {
+  validate(_control: AbstractControl): ValidationErrors | null {
     return null;
   }
 
-  selectedNode: any = null;
+  onInternalModelChange(value: any) {
+    this.selectedNode = value;
+    const emitValue = this.normalizeEmitValue(value);
+    this.pendingValue = emitValue;
+    this.onChange?.(emitValue);
+    this.emitChange(emitValue);
+    this.onTouched?.();
+  }
 
   writeValue(value: any): void {
+    this.pendingValue = value;
     if (
       this.selectionMode === 'checkbox' ||
       this.selectionMode === 'multiple'
@@ -201,14 +185,12 @@ export class EcoInputTreeSelectComponent
       }
       let values = value;
       if (this.isStringValue && typeof value === 'string') {
-        values = value.split(';').filter((v) => v);
+        values = value.split(';').filter((v: string) => v);
       }
       values = Array.isArray(values) ? values : [values];
-
       this.selectedNode = values
         .map((v: any) => this.findNodeByKey(this.nodes, v))
         .filter(Boolean);
-
       return;
     }
     if (!value) {
@@ -230,31 +212,38 @@ export class EcoInputTreeSelectComponent
     this.onTouched = fn;
   }
 
-  onSelect(event: any) {
-    this.selectedNode = event.node;
-    this.onChange?.(event.node.key); // return id
-  }
-
-  onUnselect(event: any) {
-    this.selectedNode = null;
-    this.onChange(null);
-  }
-
-  findNodeById(nodes: any[], id: any): any {
-    for (const node of nodes) {
-      if (node.key === id || node.data?.id === id) return node;
-      if (node.children) {
-        const found = this.findNodeById(node.children, id);
-        if (found) return found;
-      }
+  private normalizeEmitValue(value: any): any {
+    if (
+      this.selectionMode === 'checkbox' ||
+      this.selectionMode === 'multiple'
+    ) {
+      if (!value) return this.isStringValue ? '' : [];
+      const arr = Array.isArray(value) ? value : [value];
+      const keys = arr
+        .map((o: any) => (o && typeof o === 'object' ? o.key : o))
+        .filter((k: any) => k !== null && k !== undefined && k !== '');
+      if (this.isStringValue) return keys.join(';');
+      return keys.map((k: any) => {
+        const n = Number(k);
+        return !isNaN(n) && String(n) === String(k) ? n : k;
+      });
     }
-    return null;
+    if (value && typeof value === 'object' && value.key !== undefined) {
+      const n = Number(value.key);
+      return !isNaN(n) && String(n) === String(value.key) ? n : value.key;
+    }
+    return value ?? null;
+  }
+
+  private extractKeysFromSelection(selection: any): any {
+    return this.normalizeEmitValue(selection);
   }
 
   findNodeByKey(nodes: any[], key: any): any | null {
     if (!nodes) return null;
+    const keyStr = key != null ? String(key) : '';
     for (const node of nodes) {
-      if (node.key === key) return node;
+      if (node.key === key || String(node.key) === keyStr) return node;
       if (node.children) {
         const found = this.findNodeByKey(node.children, key);
         if (found) return found;

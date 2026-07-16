@@ -1,4 +1,5 @@
 import { Component, OnInit, inject, signal, computed, effect } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -12,9 +13,8 @@ import { CardModule } from 'primeng/card';
 import { TextareaModule } from 'primeng/textarea';
 import { Paginator } from 'primeng/paginator';
 import { EavFormService, EavFormTemplate, LoadingService, AuthService } from '@sohoa.frontend/shared/core';
-import { finalize } from 'rxjs';
+import { combineLatest, finalize } from 'rxjs';
 import { Dialog } from 'primeng/dialog';
-import { EquipmentTypeService } from '../../data-access/equipment-type.service';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ToggleSwitch } from 'primeng/toggleswitch';
 import {
@@ -77,6 +77,9 @@ export class FormManagementComponent implements OnInit {
   targetForm: EavFormTemplate | null = null;
   showVersionsDialog = signal<boolean>(false);
   versionList = signal<EavFormTemplate[]>([]);
+  showConfirmRestore = signal<boolean>(false);
+  restoreTarget = signal<EavFormTemplate | null>(null);
+  restoringVersion = signal<boolean>(false);
   selectedTemplate = signal<EavFormTemplate | null>(null);
 
   // Navigation & States
@@ -120,22 +123,18 @@ export class FormManagementComponent implements OnInit {
 
   loadCatalogOptions(catalogCode: string) {
     if (!catalogCode || this.catalogOptionsMap()[catalogCode]) return;
-    this.eavFormService.getCatalogTypeByCode(catalogCode).subscribe({
-      next: (catalogType) => {
-        if (catalogType && catalogType.id) {
-          this.eavFormService.getCatalogsLookup(catalogType.id).subscribe({
-            next: (items) => {
-              const options = (items || []).map((item: any) => item.name || item.code);
-              this.catalogOptionsMap.update(prev => ({
-                ...prev,
-                [catalogCode]: options
-              }));
-            },
-            error: (err) => console.error(`Failed to load catalogs lookup for ${catalogCode}`, err)
-          });
-        }
+    const request$ = this.isFromCompletedForms()
+      ? this.eavFormService.getCompletedCatalogOptions(catalogCode)
+      : this.eavFormService.getDesignCatalogOptions(catalogCode);
+    request$.subscribe({
+      next: (items) => {
+        const options = (items || []).map((item) => item.name || item.code);
+        this.catalogOptionsMap.update(prev => ({
+          ...prev,
+          [catalogCode]: options
+        }));
       },
-      error: (err) => console.error(`Failed to load catalog type for ${catalogCode}`, err)
+      error: (err) => console.error(`Failed to load catalog options for ${catalogCode}`, err)
     });
   }
 
@@ -154,6 +153,43 @@ export class FormManagementComponent implements OnInit {
         }
       });
     });
+
+    combineLatest([this.route.paramMap, this.route.queryParamMap])
+      .pipe(takeUntilDestroyed())
+      .subscribe(([params, query]) => {
+        const url = this.router.url;
+        this.isFromCompletedForms.set(url.includes('/completed-forms'));
+
+        if (url.includes('/form-management/new')) {
+          this.setupAddNew();
+          this.loadHmadCategories();
+          this.loadCatalogTypes();
+          return;
+        }
+
+        const id = params.get('id');
+        if (!id) {
+          this.viewState.set('list');
+          this.templateId.set(null);
+          this.targetForm = null;
+          if (this.forms().length === 0) {
+            this.loadForms();
+          }
+          return;
+        }
+
+        const versionRaw = query.get('version');
+        const version = versionRaw ? Number(versionRaw) : null;
+        const resolvedVersion = version && version > 0 ? version : null;
+
+        if (url.includes('/edit')) {
+          this.loadHmadCategories();
+          this.loadCatalogTypes();
+          this.loadFormDetail(id, (detail) => this.applyEdit(detail), resolvedVersion);
+        } else {
+          this.loadFormDetail(id, (detail) => this.applyPreview(detail), resolvedVersion);
+        }
+      });
   }
 
   categories = signal<any[]>([]);
@@ -177,7 +213,6 @@ export class FormManagementComponent implements OnInit {
   ];
 
   private eavFormService = inject(EavFormService);
-  private equipmentTypeService = inject(EquipmentTypeService);
   private messageService = inject(MessageService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
@@ -227,76 +262,37 @@ export class FormManagementComponent implements OnInit {
   catalogTypes = signal<any[]>([]);
 
   loadCatalogTypes() {
-    this.eavFormService.getCatalogTypes().subscribe({
+    const request$ = this.isFromCompletedForms()
+      ? this.eavFormService.getCompletedCatalogTypes()
+      : this.eavFormService.getDesignCatalogTypes();
+    request$.subscribe({
       next: (types) => {
         this.catalogTypes.set(types || []);
       },
       error: (err) => {
         console.error('Failed to load catalog types', err);
-        this.catalogTypes.set([
-          { code: 'HANG_SAN_XUAT', name: 'Hãng sản xuất' },
-          { code: 'CAP_DIEN_AP', name: 'Cấp điện áp' },
-          { code: 'TINH_TRANG_VH', name: 'Tình trạng vận hành' },
-          { code: 'DON_VI', name: 'Đơn vị quản lý' },
-          { code: 'CHUC_VU', name: 'Chức vụ' }
-        ]);
+        this.catalogTypes.set([]);
       }
     });
   }
 
   loadHmadCategories() {
-    this.eavFormService.getCatalogTypeByCode('HMAD').subscribe({
-      next: (catalogType) => {
-        if (catalogType && catalogType.id) {
-          this.eavFormService.getCatalogsLookup(catalogType.id).subscribe({
-            next: (catalogs) => {
-              this.categories.set(catalogs || []);
-            },
-            error: (err) => {
-              console.error('Failed to load catalogs for HMAD', err);
-            }
-          });
-        }
+    const request$ = this.isFromCompletedForms()
+      ? this.eavFormService.getCompletedHmadCategories()
+      : this.eavFormService.getDesignHmadCategories();
+    request$.subscribe({
+      next: (catalogs) => {
+        this.categories.set(catalogs || []);
       },
       error: (err) => {
-        console.error('Failed to load CatalogType HMAD', err);
+        console.error('Failed to load HMAD categories', err);
+        this.categories.set([]);
       }
     });
   }
 
   ngOnInit() {
-    this.isFromCompletedForms.set(this.router.url.includes('/completed-forms/edit'));
     this.authService.loadPermissions();
-    this.loadCatalogTypes();
-    this.loadHmadCategories();
-    if (!this.route.snapshot.queryParamMap.get('id')) {
-      this.loadForms();
-    }
-
-    this.route.queryParams.subscribe(params => {
-      if (params['id']) {
-        const id = params['id'];
-        this.loadingService.show();
-        this.eavFormService.getTemplateById(id)
-          .pipe(finalize(() => this.loadingService.hide()))
-          .subscribe({
-            next: (matched) => {
-              if (matched) {
-                this.onEdit(matched);
-              } else {
-                this.messageService.add({
-                  severity: 'error',
-                  summary: 'Lỗi',
-                  detail: 'Không tìm thấy cấu hình form.'
-                });
-              }
-            },
-            error: (err) => {
-              console.error('Error loading form', err);
-            }
-          });
-      }
-    });
   }
 
   loadForms() {
@@ -331,17 +327,20 @@ export class FormManagementComponent implements OnInit {
       this.router.navigate(['/equipment/completed-forms']);
       return;
     }
-    this.viewState.set('list');
-    this.templateId.set(null);
-    this.targetForm = null;
-    this.loadForms();
+    this.router.navigate(['/equipment/form-management']);
   }
 
   onAddNew() {
+    this.router.navigate(['/equipment/form-management/new']);
+  }
+
+  private setupAddNew() {
     this.viewState.set('add');
     this.isEditMode.set(false);
     this.activeTab.set('info');
     this.detailTitle.set('Thêm mới form');
+    this.templateId.set(null);
+    this.targetForm = null;
     this.formName.set('');
     this.formCode.set('');
     this.formCategory.set('');
@@ -359,6 +358,47 @@ export class FormManagementComponent implements OnInit {
       this.onPreview(form);
       return;
     }
+    if (this.isFromCompletedForms()) {
+      this.router.navigate(['/equipment/completed-forms', form.id, 'edit']);
+      return;
+    }
+    this.router.navigate(['/equipment/form-management', form.id, 'edit']);
+  }
+
+  onPreview(form: EavFormTemplate) {
+    this.router.navigate(['/equipment/form-management', form.id]);
+  }
+
+  private loadFormDetail(
+    id: string,
+    onSuccess: (detail: EavFormTemplate) => void,
+    version: number | null = null
+  ) {
+    this.loadingService.show();
+    const fromCompleted = this.isFromCompletedForms();
+    const detail$ = version != null
+      ? (fromCompleted
+        ? this.eavFormService.getCompletedTemplateByIdAndVersion(id, version)
+        : this.eavFormService.getTemplateByIdAndVersion(id, version))
+      : (fromCompleted
+        ? this.eavFormService.getCompletedTemplateById(id)
+        : this.eavFormService.getTemplateById(id));
+    detail$
+      .pipe(finalize(() => this.loadingService.hide()))
+      .subscribe({
+        next: onSuccess,
+        error: (err) => {
+          console.error('Failed to load form detail', err);
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi',
+            detail: 'Không thể tải chi tiết form.'
+          });
+        }
+      });
+  }
+
+  private applyEdit(form: EavFormTemplate) {
     this.targetForm = form;
     this.viewState.set('edit');
     this.isEditMode.set(true);
@@ -375,7 +415,7 @@ export class FormManagementComponent implements OnInit {
     this.showJson.set(false);
 
     try {
-      const parsedFields = JSON.parse(form.formSchema) || [];
+      const parsedFields = JSON.parse(form.formSchema || '[]') || [];
       this.fields.set(parsedFields);
       this.selectedFieldIndex.set(parsedFields.length > 0 ? 0 : null);
     } catch (e) {
@@ -385,7 +425,7 @@ export class FormManagementComponent implements OnInit {
     }
   }
 
-  onPreview(form: EavFormTemplate) {
+  private applyPreview(form: EavFormTemplate) {
     this.targetForm = form;
     this.viewState.set('preview');
     this.templateId.set(form.id);
@@ -400,9 +440,8 @@ export class FormManagementComponent implements OnInit {
     const initialSimulated: { [key: string]: any } = {};
 
     try {
-      const parsedFields = JSON.parse(form.formSchema) || [];
+      const parsedFields = JSON.parse(form.formSchema || '[]') || [];
       this.fields.set(parsedFields);
-      // Initialize simulated checkboxes to false
       parsedFields.forEach((f: FormField) => {
         if (f.type === 'checkbox') {
           initialSimulated[f.name] = false;
@@ -830,14 +869,16 @@ export class FormManagementComponent implements OnInit {
       });
   }
 
-  getCategoryName(code: string): string {
-    const cat = this.categories().find(c => c.code === code || c.id === code || c.id?.toString() === code?.toString());
-    return cat ? cat.name : code || '';
+  getCategoryName(form: EavFormTemplate): string {
+    return form.categoryName || form.category || '';
   }
 
   viewVersions(form: EavFormTemplate) {
     this.loadingService.show();
-    this.eavFormService.getTemplateVersions(form.code)
+    const versions$ = this.isFromCompletedForms()
+      ? this.eavFormService.getCompletedTemplateVersions(form.code)
+      : this.eavFormService.getTemplateVersions(form.code);
+    versions$
       .pipe(finalize(() => this.loadingService.hide()))
       .subscribe({
         next: (versions) => {
@@ -858,6 +899,49 @@ export class FormManagementComponent implements OnInit {
 
   viewVersionDetail(ver: EavFormTemplate) {
     this.showVersionsDialog.set(false);
-    this.onPreview(ver);
+    this.router.navigate(
+      ['/equipment/form-management', ver.id],
+      { queryParams: { version: ver.version } }
+    );
+  }
+
+  confirmRestoreVersion(ver: EavFormTemplate) {
+    if (ver.isActive || this.restoringVersion()) return;
+    this.restoreTarget.set(ver);
+    this.showConfirmRestore.set(true);
+  }
+
+  onConfirmRestoreVersion() {
+    const ver = this.restoreTarget();
+    const parent = this.selectedTemplate();
+    if (!ver || !parent) return;
+
+    this.restoringVersion.set(true);
+    const restore$ = this.isFromCompletedForms()
+      ? this.eavFormService.restoreCompletedTemplateVersion(ver.id, ver.version)
+      : this.eavFormService.restoreTemplateVersion(ver.id, ver.version);
+
+    restore$
+      .pipe(finalize(() => this.restoringVersion.set(false)))
+      .subscribe({
+        next: () => {
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Thành công',
+            detail: `Đã khôi phục form về phiên bản v${ver.version}.0.`
+          });
+          this.showConfirmRestore.set(false);
+          this.restoreTarget.set(null);
+          this.viewVersions(parent);
+          this.loadForms();
+        },
+        error: (err) => {
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi',
+            detail: err?.error?.Message || 'Không thể khôi phục phiên bản.'
+          });
+        }
+      });
   }
 }

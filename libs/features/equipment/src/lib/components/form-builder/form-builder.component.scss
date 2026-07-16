@@ -468,6 +468,19 @@
   }
 }
 
+.extraction-process-group {
+  flex: 0 1 auto;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.extraction-process-input {
+  width: fit-content;
+  min-width: 280px;
+  max-width: 100%;
+  field-sizing: content;
+}
+
 @media (max-width: 1200px) {
   .wf-page.builder-mode {
     height: auto !important;
