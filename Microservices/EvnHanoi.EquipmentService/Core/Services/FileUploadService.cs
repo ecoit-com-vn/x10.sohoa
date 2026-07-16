@@ -454,6 +454,9 @@ public class FileUploadService : IFileUploadService
             throw new InvalidOperationException($"File bị phát hiện chứa mã độc: {scanResult.Threat}");
 
         fileStream.Seek(0, SeekOrigin.Begin);
+        var pageCount = DocumentPageCountDetector.Detect(fileStream, fileName, mimeType);
+
+        fileStream.Seek(0, SeekOrigin.Begin);
         var (minioPath, minioVersionId) = await _fileStorageService.UploadFileToDossierAsync(
             fileStream, fileName, mimeType, fileSize, unitCode, dossierId, cancellationToken);
 
@@ -494,6 +497,7 @@ public class FileUploadService : IFileUploadService
             MinioVersionId = minioVersionId,
             FileSize = fileSize,
             MimeType = mimeType,
+            PageCount = pageCount,
             ChunksCount = 1,
             CreatedBy = userId
         };
@@ -582,6 +586,23 @@ public class FileUploadService : IFileUploadService
         var (mergedPath, mergedSize, minioVersionId) = await _fileStorageService.MergeChunksToDossierAsync(
             uploadId, session.TotalChunks, unitCode, dossierId, session.FileName, cancellationToken);
 
+        var pageCount = 0;
+        try
+        {
+            await using var mergedFile = await _fileStorageService.DownloadFileAsync(
+                mergedPath,
+                _fileStorageService.DossierBucketName,
+                minioVersionId,
+                cancellationToken);
+            pageCount = DocumentPageCountDetector.Detect(mergedFile, session.FileName, mimeType: null);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Không đọc được số trang sau chunked upload hồ sơ {UploadId} ({FileName})",
+                uploadId, session.FileName);
+        }
+
         var document = new Document
         {
             Name = session.FileName,
@@ -602,6 +623,7 @@ public class FileUploadService : IFileUploadService
             MinioVersionId = minioVersionId,
             FileSize = mergedSize,
             MimeType = "application/octet-stream",
+            PageCount = pageCount,
             UploadSessionId = session.Id,
             ChunksCount = session.TotalChunks,
             CreatedBy = userId

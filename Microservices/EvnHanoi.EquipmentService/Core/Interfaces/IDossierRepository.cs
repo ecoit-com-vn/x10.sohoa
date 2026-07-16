@@ -9,6 +9,8 @@ public interface IDossierRepository
     Task<IEnumerable<InfrastructureEntity>> GetInfrastructuresLookupAsync(IEnumerable<long>? authorizedUnitIds = null);
     Task<IEnumerable<GridType>> GetGridTypesLookupAsync();
     Task<IEnumerable<DossierType>> GetDossierTypesLookupAsync();
+    Task<IEnumerable<DossierGroup>> GetDossierGroupsLookupAsync();
+    Task<DossierGroup?> GetDossierGroupByIdAsync(int id);
 
     // Danh sách có phân trang và filter — đã chuyển sang Elasticsearch (DossierSearchRepository).
     [Obsolete("Dùng IDossierSearchRepository qua DossierService.GetPagedAsync.")]
