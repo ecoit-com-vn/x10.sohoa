@@ -74,36 +74,9 @@
                 </td>
                 <td class="col-hd">
                   <div class="action-buttons-group">
-                    <button *ngIf="authService.hasPermission('USER_GROUP_MANAGE')" class="act-btn act-assign" (click)="onManageMembers(g)" title="Thành viên" style="background-color: #eff6ff; color: #1e40af; border-color: #bfdbfe;">
-                      <i class="pi pi-users"></i>
+                    <button type="button" class="act-btn act-more" (click)="openActionMenu(g, $event, actionMenu)" title="Thao tác khác">
+                      <i class="pi pi-ellipsis-h"></i>
                     </button>
-                    <button *ngIf="authService.hasPermission('USER_GROUP_MANAGE')" class="act-btn act-assign" (click)="onManageRoles(g)" title="Vai trò" style="background-color: #f0fdf4; color: #16a34a; border-color: #bbf7d0;">
-                      <i class="pi pi-shield"></i>
-                    </button>
-                    
-                    <div class="dropdown-actions-container">
-                      <button type="button" class="act-btn act-more" (click)="toggleDropdown(g.id, $event)" title="Thao tác khác">
-                        <i class="pi pi-ellipsis-h"></i>
-                      </button>
-                      <div class="dropdown-actions-menu animate-fade-in" [class.dropdown-upwards]="i >= paginatedGroups().length - 2" *ngIf="activeDropdownGroupId() === g.id" (click)="$event.stopPropagation()">
-                        <button *ngIf="authService.hasPermission('USER_GROUP_MANAGE')" type="button" class="dropdown-item-btn" (click)="onManagePermissions(g); activeDropdownGroupId.set(null)" title="Phân quyền trực tiếp">
-                          <i class="pi pi-key color-blue"></i>
-                          <span>Phân quyền trực tiếp</span>
-                        </button>
-                        <button *ngIf="authService.hasPermission('USER_GROUP_EDIT')" type="button" class="dropdown-item-btn" (click)="onEdit(g); activeDropdownGroupId.set(null)" title="Chỉnh sửa">
-                          <i class="pi pi-pencil color-teal"></i>
-                          <span>Chỉnh sửa</span>
-                        </button>
-                        <button *ngIf="authService.hasPermission('USER_GROUP_EDIT')" type="button" class="dropdown-item-btn" (click)="onToggleStatusRequest(g); activeDropdownGroupId.set(null)" [title]="g.isActive ? 'Khóa nhóm' : 'Mở khóa nhóm'">
-                          <i class="pi" [ngClass]="g.isActive ? 'pi-lock color-red' : 'pi-lock-open color-green'"></i>
-                          <span>{{ g.isActive ? 'Khóa nhóm' : 'Mở khóa' }}</span>
-                        </button>
-                        <button *ngIf="authService.hasPermission('USER_GROUP_DELETE')" type="button" class="dropdown-item-btn" (click)="onDelete(g); activeDropdownGroupId.set(null)" title="Xóa">
-                          <i class="pi pi-trash color-red"></i>
-                          <span>Xóa</span>
-                        </button>
-                      </div>
-                    </div>
                   </div>
                 </td>
               </tr>
@@ -117,6 +90,8 @@
           </tbody>
         </table>
       </div>
+
+      <p-menu #actionMenu [model]="actionMenuItems" [popup]="true" appendTo="body" styleClass="row-action-menu"></p-menu>
 
       <!-- Footer with Pagination -->
       <div class="table-footer" *ngIf="filteredGroups().length > 0 && !loading()">

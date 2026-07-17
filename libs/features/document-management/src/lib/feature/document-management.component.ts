@@ -129,6 +129,9 @@ export class DocumentManagementComponent implements OnInit {
   editingDocumentRowVersion = signal(0);
   savingDocument = signal(false);
 
+  folderActionMenuItems: MenuItem[] = [];
+  documentActionMenuItems: MenuItem[] = [];
+
   // Document Version states
   showHistoryDialog = signal(false);
   documentVersions = signal<DocumentVersion[]>([]);
@@ -541,6 +544,51 @@ export class DocumentManagementComponent implements OnInit {
     this.editingFolderRowVersion.set(folder.rowVersion ?? 0);
     this.folderFormName.set(folder.name);
     this.currentView.set('edit_folder');
+  }
+
+  openFolderActionMenu(folder: FolderNode, event: MouseEvent, menu: Menu): void {
+    this.folderActionMenuItems = [
+      {
+        label: 'Chỉnh sửa thư mục',
+        title: 'Chỉnh sửa thư mục',
+        icon: 'pi pi-pencil color-blue',
+        command: () => this.onEditFolder(folder),
+      },
+      {
+        label: 'Xóa thư mục',
+        title: 'Xóa thư mục',
+        icon: 'pi pi-trash color-red',
+        command: () => this.onDeleteFolder(folder),
+      },
+    ];
+    menu.toggle(event);
+  }
+
+  openDocumentActionMenu(doc: Document, event: MouseEvent, menu: Menu): void {
+    this.documentActionMenuItems = [
+      {
+        label: 'Chỉnh sửa tài liệu',
+        title: 'Chỉnh sửa tài liệu',
+        icon: 'pi pi-pencil color-blue',
+        command: () => this.onEditDocument(doc),
+      },
+      {
+        label: 'Tải tài liệu',
+        title: 'Tải tài liệu',
+        icon: this.isDownloadingDocument(doc.id)
+          ? 'pi pi-spin pi-spinner color-blue'
+          : 'pi pi-download color-blue',
+        disabled: !doc.latestVersionId || this.isDownloadingDocument(doc.id),
+        command: () => this.onDownloadDocument(doc),
+      },
+      {
+        label: 'Xóa tài liệu',
+        title: 'Xóa tài liệu',
+        icon: 'pi pi-trash color-red',
+        command: () => this.onDeleteDocument(doc),
+      },
+    ];
+    menu.toggle(event);
   }
 
   onSaveFolder() {

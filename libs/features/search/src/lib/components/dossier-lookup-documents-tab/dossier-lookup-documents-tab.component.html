@@ -60,11 +60,12 @@
             </td>
             <td class="col-hd">
               <div class="action-buttons-group" style="display: flex; gap: 6px; justify-content: center;">
-                <button (click)="viewFile(doc)" class="act-btn" style="width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; padding: 0; background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1;" pTooltip="Xem tài liệu (chỉ xem)" tooltipPosition="bottom">
-                  <i class="pi pi-eye"></i>
-                </button>
-                <button (click)="downloadFile(doc)" class="act-btn act-assign" style="width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; padding: 0;" pTooltip="Tải tài liệu về máy" tooltipPosition="bottom">
-                  <i class="pi pi-download"></i>
+                <button
+                  type="button"
+                  class="act-btn act-more"
+                  title="Thao tác"
+                  (click)="openActionMenu(doc, $event, actionMenu)">
+                  <i class="pi pi-ellipsis-h"></i>
                 </button>
               </div>
             </td>
@@ -73,6 +74,14 @@
       </tbody>
     </table>
   </div>
+
+  <p-menu
+    #actionMenu
+    [model]="actionMenuItems"
+    [popup]="true"
+    appendTo="body"
+    styleClass="row-action-menu">
+  </p-menu>
 
   <!-- Phân trang -->
   <div class="table-footer" *ngIf="!loading() && documents().length > 0">

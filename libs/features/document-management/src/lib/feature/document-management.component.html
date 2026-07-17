@@ -380,18 +380,12 @@
                 <td class="col-hd">
                   <div class="action-buttons-group">
                     <button
-                      class="act-btn act-edit"
-                      title="Sửa thư mục"
-                      (click)="onEditFolder(folder)"
+                      type="button"
+                      class="act-btn act-more"
+                      title="Thao tác"
+                      (click)="openFolderActionMenu(folder, $event, folderActionMenu)"
                     >
-                      <i class="pi pi-pencil"></i>
-                    </button>
-                    <button
-                      class="act-btn act-delete"
-                      title="Xóa thư mục"
-                      (click)="onDeleteFolder(folder)"
-                    >
-                      <i class="pi pi-trash"></i>
+                      <i class="pi pi-ellipsis-h"></i>
                     </button>
                   </div>
                 </td>
@@ -427,12 +421,12 @@
                 <td class="col-hd">
                   <div class="action-buttons-group">
                     <button
-                      class="act-btn"
+                      type="button"
+                      class="act-btn act-more"
                       title="Thao tác"
-                      (click)="openDocumentMenu(doc, $event)"
-                      style="border: none; background: transparent; cursor: pointer; padding: 4px 8px; border-radius: 4px;"
+                      (click)="openDocumentActionMenu(doc, $event, documentActionMenu)"
                     >
-                      <i class="pi pi-ellipsis-h" style="font-size: 1.1rem; color: #64748b;"></i>
+                      <i class="pi pi-ellipsis-h"></i>
                     </button>
                   </div>
                 </td>
@@ -608,6 +602,22 @@
   </div>
 
 </div>
+
+<p-menu
+  #folderActionMenu
+  [model]="folderActionMenuItems"
+  [popup]="true"
+  appendTo="body"
+  styleClass="row-action-menu"
+></p-menu>
+
+<p-menu
+  #documentActionMenu
+  [model]="documentActionMenuItems"
+  [popup]="true"
+  appendTo="body"
+  styleClass="row-action-menu"
+></p-menu>
 
 <!-- Delete Folder Confirmation Dialog -->
 <p-dialog

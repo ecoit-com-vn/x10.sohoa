@@ -5,6 +5,8 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { DialogModule } from 'primeng/dialog';
 import { ToastModule } from 'primeng/toast';
+import { Menu, MenuModule } from 'primeng/menu';
+import { MenuItem } from 'primeng/api';
 import { MessageService, ConfirmationService } from 'primeng/api';
 import { environment } from '@env/environment';
 import { finalize } from 'rxjs';
@@ -14,7 +16,7 @@ import { buildMenuPermissionTree as buildMenuPermissionTreeFromLookup } from '..
 @Component({
   selector: 'app-system-permission-group-management',
   standalone: true,
-  imports: [CommonModule, FormsModule, DialogModule, ToastModule, WfBreadcrumbComponent],
+  imports: [CommonModule, FormsModule, DialogModule, ToastModule, MenuModule, WfBreadcrumbComponent],
   providers: [MessageService],
   templateUrl: './system-permission-group-management.component.html',
   styleUrl: './system-permission-group-management.component.scss'
@@ -37,6 +39,7 @@ export class SystemPermissionGroupManagement implements OnInit {
   loading = signal<boolean>(false);
   saving = signal<boolean>(false);
   savingPermissions = signal<boolean>(false);
+  actionMenuItems: MenuItem[] = [];
 
   // Lock/Unlock Confirmation
   showLockUnlockConfirm = signal<boolean>(false);
@@ -139,6 +142,17 @@ export class SystemPermissionGroupManagement implements OnInit {
     this.loadRoles();
     this.loadMenus();
     this.loadSystemPermissions();
+  }
+
+  openActionMenu(role: any, event: Event, menu: Menu): void {
+    event.stopPropagation();
+    this.actionMenuItems = [
+      ...(this.authService.hasPermission('SYSTEM_PERMISSION_GROUP_MANAGE') || this.authService.hasPermission('PERMISSION_MANAGE') ? [{ label: 'Phân quyền', title:'Phân quyền', icon: 'pi pi-shield', command: () => this.onAssignPermissions(role) }] : []),
+      ...(this.authService.hasPermission('SYSTEM_PERMISSION_GROUP_EDIT') || this.authService.hasPermission('SYSTEM_PERMISSION_GROUP_MANAGE') ? [{ label: role.isActive ? 'Khóa nhóm quyền' : 'Mở khóa nhóm quyền', title: role.isActive ? 'Khóa nhóm quyền' : 'Mở khóa nhóm quyền', icon: role.isActive ? 'pi pi-lock color-red' : 'pi pi-lock-open color-blue', command: () => this.onToggleStatusRequest(role) }] : []),
+      ...(this.authService.hasPermission('SYSTEM_PERMISSION_GROUP_EDIT') || this.authService.hasPermission('SYSTEM_PERMISSION_GROUP_MANAGE') ? [{ label: 'Chỉnh sửa', title:'Chỉnh sửa', icon: 'pi pi-pencil color-blue', command: () => this.onEdit(role) }] : []),
+      ...(this.authService.hasPermission('SYSTEM_PERMISSION_GROUP_DELETE') || this.authService.hasPermission('SYSTEM_PERMISSION_GROUP_MANAGE') ? [{ label: 'Xóa', title:'Xóa', icon: 'pi pi-trash color-red', command: () => this.onDelete(role) }] : []),
+    ];
+    menu.toggle(event);
   }
 
   loadRoles() {

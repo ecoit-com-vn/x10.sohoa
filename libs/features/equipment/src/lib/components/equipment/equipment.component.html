@@ -133,55 +133,10 @@
                 </span>
               </td>
               <td class="col-hd">
-                <div class="action-buttons-group"
-                  style="display: flex; gap: 4px; align-items: center; position: relative;">
-                  <!-- Ba chấm (Khóa và Xóa) -->
-                  <div style="position: relative; display: inline-block;">
-                    <button class="act-btn" style="background-color: #f8fafc; color: #64748b; border-color: #cbd5e1;"
-                      title="Thao tác khác" (click)="toggleMoreMenu(item, $event)">
-                      <i class="pi pi-ellipsis-h"></i>
-                    </button>
-
-                    <div *ngIf="activeRowMenu() === item.id" class="more-actions-dropdown animate-fade-in"
-                      (click)="$event.stopPropagation()">
-                      <button class="dropdown-item" style="color: #475569"
-                        title="Xem thông số kỹ thuật" (click)="onViewSpecs(item)">
-                        <i class="pi pi-eye"></i>
-                        <span>Xem chi tiết</span>
-                      </button>
-
-                      <!-- Chỉnh sửa thông số kỹ thuật (Cấu hình) -->
-                      <button *ngIf="canEdit() && item.equipmentTypeId" class="dropdown-item"
-                        style="color: #2563eb;"
-                        title="Cấu hình thông số kỹ thuật" (click)="onEditSpecs(item)">
-                        <i class="pi pi-cog"></i>
-                        <span>Cấu hình</span>
-                      </button>
-
-                      <!-- Sửa thông tin chung (Sửa) -->
-                      <button *ngIf="canEdit()" class="dropdown-item" (click)="onEdit(item)"
-                        title="Chỉnh sửa thông tin chung">
-                        <i class="pi pi-pencil"></i>
-                        <span>Sửa</span>
-                      </button>
-                      <!-- Lock/Unlock -->
-                      <button *ngIf="canManage()" class="dropdown-item"
-                        (click)="onToggleStatusRequest(item); activeRowMenu.set(null);">
-                        <i class="pi"
-                          [ngClass]="(item.isActive === 1 || item.isActive === true) ? 'pi-lock' : 'pi-lock-open'"
-                          [style.color]="(item.isActive === 1 || item.isActive === true) ? '#dc2626' : '#16a34a'"></i>
-                        <span>{{ (item.isActive === 1 || item.isActive === true) ? 'Khóa thiết bị' : 'Mở khóa' }}</span>
-                      </button>
-
-                      <!-- Delete -->
-                      <button *ngIf="canDelete()" class="dropdown-item" style="color: #dc2626;"
-                        (click)="onDelete(item); activeRowMenu.set(null);">
-                        <i class="pi pi-trash" style="color: #dc2626;"></i>
-                        <span>Xóa thiết bị</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                <button type="button" class="act-btn act-more" title="Thao tác khác"
+                  (click)="openActionMenu(item, $event, actionMenu)">
+                  <i class="pi pi-ellipsis-h"></i>
+                </button>
               </td>
             </tr>
             <tr *ngIf="items().length === 0">
@@ -193,6 +148,8 @@
           </tbody>
         </table>
       </div>
+      <p-menu #actionMenu [model]="actionMenuItems" [popup]="true" appendTo="body"
+        styleClass="row-action-menu"></p-menu>
 
       <!-- Phân trang -->
       <div class="table-footer" *ngIf="items().length > 0">

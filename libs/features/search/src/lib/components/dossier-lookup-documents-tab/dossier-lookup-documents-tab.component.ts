@@ -6,7 +6,8 @@ import { Router } from '@angular/router';
 import { APP_CONFIG } from '@sohoa.frontend/shared/core';
 import { ToastModule } from 'primeng/toast';
 import { TooltipModule } from 'primeng/tooltip';
-import { MessageService } from 'primeng/api';
+import { MenuItem, MessageService } from 'primeng/api';
+import { Menu, MenuModule } from 'primeng/menu';
 import { DossierDocumentEditDialogComponent } from '@sohoa.frontend/features/dossier-management';
 import { DocumentFulltextSearchService } from '../../data-access/document-fulltext-search.service';
 
@@ -30,7 +31,7 @@ export interface LookupDocumentItem {
 @Component({
   selector: 'app-dossier-lookup-documents-tab',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule, TooltipModule, DossierDocumentEditDialogComponent],
+  imports: [CommonModule, FormsModule, ToastModule, TooltipModule, MenuModule, DossierDocumentEditDialogComponent],
   providers: [MessageService],
   templateUrl: './dossier-lookup-documents-tab.component.html'
 })
@@ -55,8 +56,26 @@ export class DossierLookupDocumentsTabComponent implements OnInit, OnChanges {
   searchKeyword = signal<string>('');
   showEditDocument = signal<boolean>(false);
   editTarget = signal<LookupDocumentItem | null>(null);
+  actionMenuItems: MenuItem[] = [];
 
   totalPages = computed(() => Math.ceil(this.totalDocuments() / this.pageSize()));
+
+  openActionMenu(doc: LookupDocumentItem, event: MouseEvent, menu: Menu): void {
+    this.actionMenuItems = [
+      {
+        label: 'Xem tài liệu',
+        icon: 'pi pi-eye color-teal',
+        command: () => this.viewFile(doc),
+      },
+      {
+        label: 'Tải tài liệu',
+        icon: 'pi pi-download color-blue',
+        disabled: !doc.latestVersionId,
+        command: () => this.downloadFile(doc),
+      },
+    ];
+    menu.toggle(event);
+  }
 
   ngOnInit() {
     this.loadDocuments();

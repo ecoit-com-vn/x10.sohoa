@@ -5,7 +5,8 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { DialogModule } from 'primeng/dialog';
 import { ToastModule } from 'primeng/toast';
-import { MessageService, ConfirmationService } from 'primeng/api';
+import { Menu, MenuModule } from 'primeng/menu';
+import { MenuItem, MessageService, ConfirmationService } from 'primeng/api';
 import { environment } from '@env/environment';
 import { finalize } from 'rxjs';
 import { AuthService } from '@sohoa.frontend/shared/core';
@@ -13,7 +14,7 @@ import { AuthService } from '@sohoa.frontend/shared/core';
 @Component({
   selector: 'app-organization-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule, DialogModule, ToastModule, WfBreadcrumbComponent],
+  imports: [CommonModule, FormsModule, DialogModule, ToastModule, MenuModule, WfBreadcrumbComponent],
   providers: [MessageService],
   templateUrl: './organization-settings.component.html',
   styleUrl: './organization-settings.component.scss'
@@ -29,6 +30,7 @@ export class OrganizationSettings implements OnInit {
   
   loading = signal<boolean>(false);
   saving = signal<boolean>(false);
+  actionMenuItems: MenuItem[] = [];
 
   // Lock/Unlock Confirmation
   showLockUnlockConfirm = signal<boolean>(false);
@@ -92,6 +94,16 @@ export class OrganizationSettings implements OnInit {
 
   ngOnInit() {
     this.loadUnits();
+  }
+
+  openActionMenu(unit: any, event: Event, menu: Menu): void {
+    event.stopPropagation();
+    this.actionMenuItems = [
+      ...(this.authService.hasPermission('ORGANIZATION_EDIT') ? [{ label: unit.isActive ? 'Khóa đơn vị' : 'Mở khóa đơn vị', title: unit.isActive ? 'Khóa đơn vị' : 'Mở khóa đơn vị', icon: unit.isActive ? 'pi pi-lock color-red' : 'pi pi-lock-open color-teal', command: () => this.onToggleStatusRequest(unit) }] : []),
+      ...(this.authService.hasPermission('ORGANIZATION_EDIT') ? [{ label: 'Chỉnh sửa', title: 'Chỉnh sửa', icon: 'pi pi-pencil color-blue', command: () => this.onEdit(unit) }] : []),
+      ...(this.authService.hasPermission('ORGANIZATION_DELETE') ? [{ label: 'Xóa', title: 'Xóa', icon: 'pi pi-trash color-red', command: () => this.onDelete(unit) }] : []),
+    ];
+    menu.toggle(event);
   }
 
   loadUnits() {

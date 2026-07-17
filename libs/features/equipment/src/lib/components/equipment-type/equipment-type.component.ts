@@ -5,7 +5,8 @@ import { FormsModule } from '@angular/forms';
 import { ToastModule } from 'primeng/toast';
 import { SelectModule } from 'primeng/select';
 import { DialogModule } from 'primeng/dialog';
-import { MessageService } from 'primeng/api';
+import { MenuItem, MessageService } from 'primeng/api';
+import { Menu, MenuModule } from 'primeng/menu';
 import { AuthService } from '@sohoa.frontend/shared/core';
 import { EquipmentTypeService } from '../../data-access/equipment-type.service';
 import { finalize } from 'rxjs/operators';
@@ -13,7 +14,7 @@ import { finalize } from 'rxjs/operators';
 @Component({
   selector: 'app-equipment-type',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule, SelectModule, DialogModule, WfBreadcrumbComponent],
+  imports: [CommonModule, FormsModule, ToastModule, MenuModule, SelectModule, DialogModule, WfBreadcrumbComponent],
   providers: [MessageService],
   templateUrl: './equipment-type.component.html',
   styleUrls: ['./equipment-type.component.css']
@@ -63,6 +64,23 @@ export class EquipmentTypeComponent implements OnInit {
   showDeleteConfirm = signal<boolean>(false);
   deleteTarget = signal<any>(null);
   deleting = signal<boolean>(false);
+  actionMenuItems: MenuItem[] = [];
+
+  openActionMenu(item: any, event: Event, menu: Menu): void {
+    event.stopPropagation();
+    const active = item.isActive === 1 || item.isActive === true;
+    this.actionMenuItems = [
+      ...(this.canManage() ? [{
+        label: active ? 'Khóa loại thiết bị' : 'Mở khóa loại thiết bị',
+        title: active ? 'Khóa loại thiết bị' : 'Mở khóa loại thiết bị',
+        icon: active ? 'pi pi-lock color-red' : 'pi pi-lock-open color-teal',
+        command: () => this.onToggleStatus(item)
+      }] : []),
+      ...(this.canEdit() ? [{ label: 'Chỉnh sửa', title: 'Chỉnh sửa', icon: 'pi pi-pencil color-blue', command: () => this.onEdit(item) }] : []),
+      ...(this.canDelete() ? [{ label: 'Xóa', title: 'Xóa', icon: 'pi pi-trash color-red', command: () => this.onDelete(item) }] : []),
+    ];
+    menu.toggle(event);
+  }
 
   // Lock/Unlock Confirmation Dialog Signals
   showStatusConfirm = signal<boolean>(false);

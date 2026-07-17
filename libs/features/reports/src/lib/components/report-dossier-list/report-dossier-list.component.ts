@@ -193,7 +193,8 @@ export class ReportDossierListComponent implements OnInit {
     this.actionMenuItems = [
       {
         label: 'Xem chi tiết',
-        icon: 'pi pi-eye',
+        title: 'Xem chi tiết',
+        icon: 'pi pi-eye color-teal',
         command: () => this.viewDetail(item)
       }
     ];

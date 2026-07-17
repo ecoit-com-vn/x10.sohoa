@@ -326,7 +326,7 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
       key: 'view',
       title: 'Xem tài liệu',
       btnClass: 'act-view',
-      iconClasses: 'pi pi-eye',
+      iconClasses: 'pi pi-eye color-teal',
       disabled: !doc.latestVersionId,
       run: (d) => this.editDocument(d),
     });
@@ -335,7 +335,7 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
       key: 'download',
       title: 'Tải tài liệu xuống',
       btnClass: 'act-download',
-      iconClasses: 'pi pi-download',
+      iconClasses: 'pi pi-download color-blue',
       disabled: !doc.latestVersionId,
       run: (d) => this.downloadDocument(d),
     });
@@ -346,7 +346,7 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
         key: 'ocr',
         title: noTemplate ? 'OCR (thiếu biểu mẫu thiết bị)' : 'OCR',
         btnClass: 'act-retry',
-        iconClasses: this.isOcrSubmitting(doc.id) ? 'pi pi-spin pi-spinner' : 'pi pi-file-edit',
+        iconClasses: this.isOcrSubmitting(doc.id) ? 'pi pi-spin pi-spinner color-blue' : 'pi pi-file-edit color-blue',
         disabled: noTemplate || this.isOcrSubmitting(doc.id) || !doc.latestVersionId,
         overflowOnly: true,
         run: (d) => this.onSubmitOcr(d),
@@ -355,7 +355,7 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
         key: 'ocr-extract',
         title: noTemplate ? 'OCR + bóc tách (thiếu biểu mẫu thiết bị)' : 'OCR + bóc tách',
         btnClass: 'act-retry',
-        iconClasses: this.isOcrExtractSubmitting(doc.id) ? 'pi pi-spin pi-spinner' : 'pi pi-refresh',
+        iconClasses: this.isOcrExtractSubmitting(doc.id) ? 'pi pi-spin pi-spinner color-blue' : 'pi pi-refresh color-blue',
         disabled: noTemplate || this.isOcrExtractSubmitting(doc.id) || !doc.latestVersionId,
         overflowOnly: true,
         run: (d) => this.onOcrAndExtract(d),
@@ -366,12 +366,12 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
         title: 'Xử lý lại OCR/bóc tách',
         btnClass: 'act-retry',
         iconClasses: isRetryingDigitization(doc.id, this.retryingIds())
-          ? 'pi pi-spin pi-spinner'
-          : 'pi pi-refresh',
-        disabled:
-          this.formTemplateMissing() ||
-          isRetryingDigitization(doc.id, this.retryingIds()) ||
-          !doc.latestVersionId,
+          ? 'pi pi-spin pi-spinner color-blue'
+          : 'pi pi-refresh color-blue',
+        disabled: 
+        this.formTemplateMissing() ||
+        isRetryingDigitization(doc.id, this.retryingIds()) || 
+        !doc.latestVersionId,
         overflowOnly: true,
         run: (d) => this.onRetryDigitization(d),
       });
@@ -383,11 +383,11 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
         title: 'Bóc tách lại',
         btnClass: 'act-reextract',
         iconClasses: isReExtracting(doc.id, this.reExtractingIds())
-          ? 'pi pi-spin pi-spinner'
-          : 'pi pi-sync',
-        disabled:
+          ? 'pi pi-spin pi-spinner color-blue'
+          : 'pi pi-sync color-blue',
+        disabled: 
           this.formTemplateMissing() ||
-          isReExtracting(doc.id, this.reExtractingIds()) ||
+          isReExtracting(doc.id, this.reExtractingIds()) || 
           !doc.latestVersionId,
         overflowOnly: true,
         run: (d) => this.onReExtract(d),

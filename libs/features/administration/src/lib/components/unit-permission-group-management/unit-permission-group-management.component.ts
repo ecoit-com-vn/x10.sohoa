@@ -5,8 +5,9 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { DialogModule } from 'primeng/dialog';
 import { ToastModule } from 'primeng/toast';
+import { Menu, MenuModule } from 'primeng/menu';
+import { MenuItem, MessageService, ConfirmationService, TreeNode  } from 'primeng/api';
 import { TreeSelectModule } from 'primeng/treeselect';
-import { MessageService, ConfirmationService, TreeNode } from 'primeng/api';
 import { environment } from '@env/environment';
 import { finalize } from 'rxjs';
 import { AuthService } from '@sohoa.frontend/shared/core';
@@ -15,7 +16,7 @@ import { buildMenuPermissionTree as buildMenuPermissionTreeFromLookup } from '..
 @Component({
   selector: 'app-unit-permission-group-management',
   standalone: true,
-  imports: [CommonModule, FormsModule, DialogModule, ToastModule, TreeSelectModule, WfBreadcrumbComponent],
+  imports: [CommonModule, FormsModule, DialogModule, ToastModule, MenuModule, TreeSelectModule, WfBreadcrumbComponent],
   providers: [MessageService],
   templateUrl: './unit-permission-group-management.component.html',
   styleUrl: './unit-permission-group-management.component.scss'
@@ -59,6 +60,7 @@ export class UnitPermissionGroupManagement implements OnInit {
   loading = signal<boolean>(false);
   saving = signal<boolean>(false);
   savingPermissions = signal<boolean>(false);
+  actionMenuItems: MenuItem[] = [];
 
   // Lock/Unlock Confirmation
   showLockUnlockConfirm = signal<boolean>(false);
@@ -170,6 +172,17 @@ export class UnitPermissionGroupManagement implements OnInit {
     this.loadRoles();
     this.loadMenus();
     this.loadSystemPermissions();
+  }
+
+  openActionMenu(role: any, event: Event, menu: Menu): void {
+    event.stopPropagation();
+    this.actionMenuItems = [
+      ...(this.authService.hasPermission('UNIT_PERMISSION_GROUP_MANAGE') || this.authService.hasPermission('PERMISSION_MANAGE') ? [{ label: 'Phân quyền', title:'Phân quyền', icon: 'pi pi-shield', command: () => this.onAssignPermissions(role) }] : []),
+      ...(this.authService.hasPermission('UNIT_PERMISSION_GROUP_MANAGE') ? [{ label: role.isActive ? 'Khóa vai trò' : 'Mở khóa vai trò', title: role.isActive ? 'Khóa vai trò' : 'Mở khóa vai trò', icon: role.isActive ? 'pi pi-lock color-red' : 'pi pi-lock-open color-teal', command: () => this.onToggleStatusRequest(role) }] : []),
+      ...(this.authService.hasPermission('UNIT_PERMISSION_GROUP_MANAGE') ? [{ label: 'Chỉnh sửa', title:'Chỉnh sửa', icon: 'pi pi-pencil color-blue', command: () => this.onEdit(role) }] : []),
+      ...(this.authService.hasPermission('UNIT_PERMISSION_GROUP_MANAGE') ? [{ label: 'Xóa', title:'Xóa', icon: 'pi pi-trash color-red', command: () => this.onDelete(role) }] : []),
+    ];
+    menu.toggle(event);
   }
 
   loadOrganizationUnits() {

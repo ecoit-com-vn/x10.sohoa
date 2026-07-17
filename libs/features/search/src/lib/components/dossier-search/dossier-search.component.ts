@@ -3,7 +3,8 @@ import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
-import { MessageService } from 'primeng/api';
+import { MenuItem, MessageService } from 'primeng/api';
+import { Menu, MenuModule } from 'primeng/menu';
 import { TableModule } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
@@ -36,6 +37,7 @@ import { AuthService, APP_CONFIG } from '@sohoa.frontend/shared/core';
     DialogModule,
     PaginatorModule,
     ToastModule,
+    MenuModule,
     DossierDocumentEditDialogComponent,
     WfBreadcrumbComponent,
   ],
@@ -213,6 +215,19 @@ export class DossierSearchComponent implements OnInit, OnDestroy {
   loadingDossierDocuments = signal<boolean>(false);
   dossierDocuments = signal<any[]>([]);
   totalDossierDocuments = signal<number>(0);
+  actionMenuItems: MenuItem[] = [];
+
+  openActionMenu(item: any, event: MouseEvent, menu: Menu): void {
+    this.actionMenuItems = [
+      {
+        label: 'Xem chi tiết hồ sơ',
+        title: 'Xem chi tiết hồ sơ',
+        icon: 'pi pi-eye color-teal',
+        command: () => this.onViewDossierDetail(item),
+      },
+    ];
+    menu.toggle(event);
+  }
 
   subFolders = computed(() => {
     const selected = this.selectedFolder();

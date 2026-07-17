@@ -12,7 +12,8 @@ import { ToastModule } from 'primeng/toast';
 
 import { TooltipModule } from 'primeng/tooltip';
 
-import { MessageService } from 'primeng/api';
+import { MenuItem, MessageService } from 'primeng/api';
+import { Menu, MenuModule } from 'primeng/menu';
 
 import { AuthService } from '@sohoa.frontend/shared/core';
 
@@ -36,7 +37,7 @@ import {
 
   standalone: true,
 
-  imports: [CommonModule, FormsModule, ToastModule, TooltipModule, WfBreadcrumbComponent],
+  imports: [CommonModule, FormsModule, ToastModule, TooltipModule, MenuModule, WfBreadcrumbComponent],
 
   providers: [MessageService],
 
@@ -95,12 +96,25 @@ export class DossierLookupComponent implements OnInit {
   dossierTypes = signal<DossierByEquipmentLookupItem[]>([]);
 
   bhsColumns = signal<BhsCatalogColumn[]>([]);
+  actionMenuItems: MenuItem[] = [];
 
 
 
   totalPages = computed(() => Math.ceil(this.totalCount() / this.pageSize()));
 
   tableColSpan = computed(() => this.bhsColumns().length + 5);
+
+  openActionMenu(item: any, event: MouseEvent, menu: Menu): void {
+    this.actionMenuItems = [
+      {
+        label: 'Xem chi tiết',
+        title: 'Xem chi tiết',
+        icon: 'pi pi-eye color-teal',
+        command: () => this.viewDetail(item),
+      },
+    ];
+    menu.toggle(event);
+  }
 
 
 

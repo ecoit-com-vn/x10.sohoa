@@ -5,7 +5,8 @@ import { FormsModule } from '@angular/forms';
 import { ToastModule } from 'primeng/toast';
 import { SelectModule } from 'primeng/select';
 import { DialogModule } from 'primeng/dialog';
-import { MessageService } from 'primeng/api';
+import { Menu, MenuModule } from 'primeng/menu';
+import { MenuItem, MessageService } from 'primeng/api';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AuthService } from '@sohoa.frontend/shared/core';
 import { InfrastructureService } from '../../data-access/infrastructure.service';
@@ -16,7 +17,7 @@ import { finalize } from 'rxjs/operators';
 @Component({
   selector: 'app-infrastructure',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule, SelectModule, DialogModule, WfBreadcrumbComponent],
+  imports: [CommonModule, FormsModule, ToastModule, SelectModule, DialogModule, MenuModule, WfBreadcrumbComponent],
   providers: [MessageService],
   templateUrl: './infrastructure.component.html',
   styleUrl: './infrastructure.component.scss'
@@ -135,10 +136,22 @@ export class InfrastructureComponent implements OnInit {
 
   // More-menu 3 chấm cho bảng thiết bị
   activeEquipmentMenu = signal<string | null>(null);
+  actionMenuItems: MenuItem[] = [];
 
   @HostListener('document:click')
-  closeEquipmentMenu() {
+  closeActionMenus() {
     this.activeEquipmentMenu.set(null);
+  }
+
+  openActionMenu(item: any, event: Event, menu: Menu): void {
+    event.stopPropagation();
+    this.actionMenuItems = [
+      { label: 'Xem chi tiết', title: 'Xem chi tiết', icon: 'pi pi-eye color-teal', command: () => this.onViewDetail(item) },
+      ...(this.canManage() ? [{ label: (item.isActive === 1 || item.isActive === true) ? 'Khóa bản ghi' : 'Mở khóa bản ghi', title: (item.isActive === 1 || item.isActive === true) ? 'Khóa bản ghi' : 'Mở khóa bản ghi', icon: (item.isActive === 1 || item.isActive === true) ? 'pi pi-lock color-red' : 'pi pi-lock-open color-teal', command: () => this.onToggleStatus(item) }] : []),
+      ...(this.canEdit() ? [{ label: 'Chỉnh sửa', title: 'Chỉnh sửa', icon: 'pi pi-pencil color-blue', command: () => this.onEdit(item) }] : []),
+      ...(this.canDelete() ? [{ label: 'Xóa', title: 'Xóa', icon: 'pi pi-trash color-red', command: () => this.onDelete(item) }] : []),
+    ];
+    menu.toggle(event);
   }
 
   toggleEquipmentMenu(item: any, event: Event) {
