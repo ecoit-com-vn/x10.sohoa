@@ -144,6 +144,11 @@ public class DocumentFilterDto
 {
     public Guid? FolderId { get; set; }
     public string? Keyword { get; set; }
+    public string? CreatedBy { get; set; }
+    public DateTime? StartDate { get; set; }
+    public DateTime? EndDate { get; set; }
+    public string? SortField { get; set; } = "createdDate";
+    public string? SortOrder { get; set; } = "desc";
     public int Page { get; set; } = 1;
     public int PageSize { get; set; } = 10;
 }

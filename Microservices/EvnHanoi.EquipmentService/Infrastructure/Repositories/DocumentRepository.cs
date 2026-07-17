@@ -268,19 +268,68 @@ public class DocumentRepository : IDocumentRepository
 
         if (!string.IsNullOrWhiteSpace(filter.Keyword))
         {
-            whereClause += " AND NAME LIKE :Keyword";
-            aliasedWhereClause += " AND d.NAME LIKE :Keyword";
+            whereClause += " AND LOWER(NAME) LIKE :Keyword";
+            aliasedWhereClause += " AND LOWER(d.NAME) LIKE :Keyword";
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.CreatedBy))
+        {
+            whereClause += " AND (LOWER(CREATED_BY) LIKE :CreatedBy OR LOWER(CREATOR_NAME) LIKE :CreatedBy)";
+            aliasedWhereClause += " AND (LOWER(d.CREATED_BY) LIKE :CreatedBy OR LOWER(d.CREATOR_NAME) LIKE :CreatedBy OR LOWER(cu.FullName) LIKE :CreatedBy)";
+        }
+
+        if (filter.StartDate.HasValue)
+        {
+            whereClause += " AND CREATED_DATE >= :StartDate";
+            aliasedWhereClause += " AND d.CREATED_DATE >= :StartDate";
+        }
+
+        if (filter.EndDate.HasValue)
+        {
+            whereClause += " AND CREATED_DATE <= :EndDate";
+            aliasedWhereClause += " AND d.CREATED_DATE <= :EndDate";
         }
 
         // Count total
         var countSql = $"SELECT COUNT(*) FROM DOCUMENTS WHERE {whereClause}";
+        var keywordParam = !string.IsNullOrWhiteSpace(filter.Keyword) ? $"%{filter.Keyword.Trim().ToLower()}%" : null;
+        var creatorParam = !string.IsNullOrWhiteSpace(filter.CreatedBy) ? $"%{filter.CreatedBy.Trim().ToLower()}%" : null;
+        var endOfDayVal = filter.EndDate.HasValue ? filter.EndDate.Value.Date.AddDays(1).AddTicks(-1) : (DateTime?)null;
+
         var totalCount = await _connection.ExecuteScalarAsync<int>(
             countSql,
-            new { FolderId = folderId?.ToString(), Keyword = $"%{filter.Keyword}%" }
+            new { 
+                FolderId = folderId?.ToString(), 
+                Keyword = keywordParam,
+                CreatedBy = creatorParam,
+                StartDate = filter.StartDate,
+                EndDate = endOfDayVal
+            }
         );
 
         // Get paged data (join phiên bản mới nhất để lấy FILE_SIZE, MIME_TYPE)
         var offset = (filter.Page - 1) * filter.PageSize;
+
+        // Build sorting clause dynamically and safely
+        var sortField = "d.CREATED_DATE";
+        if (!string.IsNullOrEmpty(filter.SortField))
+        {
+            sortField = filter.SortField.ToLowerInvariant() switch
+            {
+                "name" => "d.NAME",
+                "filesize" => "NVL(latest.FILE_SIZE, 0)",
+                "createddate" => "d.CREATED_DATE",
+                "createdby" => "d.CREATED_BY",
+                _ => "d.CREATED_DATE"
+            };
+        }
+
+        var sortOrder = "DESC";
+        if (!string.IsNullOrEmpty(filter.SortOrder) && filter.SortOrder.ToLowerInvariant() == "asc")
+        {
+            sortOrder = "ASC";
+        }
+
         var listSql = $@"
             SELECT 
                 d.ID,
@@ -308,13 +357,21 @@ public class DocumentRepository : IDocumentRepository
                 WHERE dv.IS_DELETED = 0
             ) latest ON latest.DOCUMENT_ID = d.ID
             WHERE {aliasedWhereClause}
-            ORDER BY d.CREATED_DATE DESC, d.NAME ASC
+            ORDER BY {sortField} {sortOrder}, d.NAME ASC
             OFFSET :Offset ROWS
             FETCH NEXT :PageSize ROWS ONLY";
 
         var items = await _connection.QueryAsync<DocumentListItemDto>(
             listSql,
-            new { FolderId = folderId?.ToString(), Keyword = $"%{filter.Keyword}%", Offset = offset, PageSize = filter.PageSize }
+            new { 
+                FolderId = folderId?.ToString(), 
+                Keyword = keywordParam, 
+                CreatedBy = creatorParam,
+                StartDate = filter.StartDate,
+                EndDate = endOfDayVal,
+                Offset = offset, 
+                PageSize = filter.PageSize 
+            }
         );
 
         return (items, totalCount);
