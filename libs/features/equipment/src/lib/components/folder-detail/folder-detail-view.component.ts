@@ -69,15 +69,34 @@ export class FolderDetailViewComponent implements OnInit, OnDestroy {
     this.messageService.add({
       severity: 'success',
       summary: 'Tải lên thành công',
-      detail: event.fileName,
+      detail: `Đã lưu tệp: ${event.fileName}`,
       life: 3000
     });
+  }
+
+  onAllUploadsFinished(event: { successCount: number; errorCount: number }) {
+    if (event.successCount > 0) {
+      this.messageService.add({
+        severity: 'success',
+        summary: 'Hoàn tất tải lên',
+        detail: `Đã tải lên thành công ${event.successCount} tệp.`,
+        life: 5000
+      });
+      // Trigger refresh
+      this.refreshTrigger.set(Date.now());
+    }
+
+    if (event.errorCount > 0) {
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Tải lên có lỗi',
+        detail: `Có ${event.errorCount} tệp gặp lỗi khi tải lên.`,
+        life: 5000
+      });
+    }
 
     // Switch to files view
     this.currentView.set('files');
-
-    // Trigger refresh
-    this.refreshTrigger.set(Date.now());
   }
 
   /**

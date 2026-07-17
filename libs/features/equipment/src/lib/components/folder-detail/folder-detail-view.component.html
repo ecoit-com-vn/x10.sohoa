@@ -57,6 +57,7 @@
           [folderId]="folderId()"
           (fileUploaded)="onFileUploaded($event)"
           (uploadError)="onUploadError($event)"
+          (allUploadsFinished)="onAllUploadsFinished($event)"
         ></app-file-upload-zone>
       </div>
     </div>

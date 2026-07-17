@@ -247,16 +247,96 @@
           </button>
         </div>
 
+        <!-- Advanced Search Filter Bar -->
+        <div class="grid-filter-bar" style="display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; background: #f8fafc; padding: 12px; border-radius: 6px; border: 1px solid #e2e8f0; align-items: flex-end;">
+          <div class="filter-item" style="flex: 1; min-width: 180px;">
+            <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #475569; margin-bottom: 4px;">Từ khóa</label>
+            <div style="position: relative;">
+              <i class="pi pi-search" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 0.85rem;"></i>
+              <input
+                type="text"
+                class="wf-input"
+                style="padding-left: 30px; width: 100%; height: 32px; font-size: 0.85rem;"
+                placeholder="Tên thư mục, tài liệu..."
+                [ngModel]="filterKeyword()"
+                (ngModelChange)="filterKeyword.set($event)"
+                (keyup.enter)="onSearch()"
+              />
+            </div>
+          </div>
+          
+          <div class="filter-item" style="width: 150px;">
+            <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #475569; margin-bottom: 4px;">Người đăng tải</label>
+            <div style="position: relative;">
+              <i class="pi pi-user" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 0.85rem;"></i>
+              <input
+                type="text"
+                class="wf-input"
+                style="padding-left: 30px; width: 100%; height: 32px; font-size: 0.85rem;"
+                placeholder="Tài khoản..."
+                [ngModel]="filterCreator()"
+                (ngModelChange)="filterCreator.set($event)"
+                (keyup.enter)="onSearch()"
+              />
+            </div>
+          </div>
+
+          <div class="filter-item" style="width: 130px;">
+            <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #475569; margin-bottom: 4px;">Từ ngày</label>
+            <input
+              type="date"
+              class="wf-input"
+              style="width: 100%; height: 32px; font-size: 0.85rem; padding: 4px 8px;"
+              [ngModel]="filterStartDate()"
+              (ngModelChange)="filterStartDate.set($event)"
+              (keyup.enter)="onSearch()"
+            />
+          </div>
+
+          <div class="filter-item" style="width: 130px;">
+            <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #475569; margin-bottom: 4px;">Đến ngày</label>
+            <input
+              type="date"
+              class="wf-input"
+              style="width: 100%; height: 32px; font-size: 0.85rem; padding: 4px 8px;"
+              [ngModel]="filterEndDate()"
+              (ngModelChange)="filterEndDate.set($event)"
+              (keyup.enter)="onSearch()"
+            />
+          </div>
+
+          <div class="filter-buttons" style="display: flex; gap: 8px;">
+            <button class="btn-tim btn-small" style="height: 32px; display: flex; align-items: center; gap: 6px;" (click)="onSearch()">
+              <i class="pi pi-search"></i> Tìm kiếm
+            </button>
+            <button class="btn-outlined btn-small" style="height: 32px; display: flex; align-items: center; gap: 6px; border-color: #cbd5e1; color: #475569;" (click)="onResetFilters()">
+              <i class="pi pi-refresh"></i> Reset
+            </button>
+          </div>
+        </div>
+
         <!-- Document & subfolder list table -->
         <div class="wf-table-wrap" [class.loading]="loadingDocuments()">
           <table class="wf-table">
             <thead>
               <tr>
                 <th class="col-stt">STT</th>
-                <th>Tên</th>
-                <th style="width: 110px;">Kích thước</th>
-                <th style="width: 150px;">Ngày tạo</th>
-                <th style="width: 120px;">Người tạo</th>
+                <th (click)="onSort('name')" style="cursor: pointer; user-select: none;">
+                  Tên
+                  <i class="pi" [ngClass]="sortField() === 'name' ? (sortOrder() === 'asc' ? 'pi-sort-amount-up' : 'pi-sort-amount-down') : 'pi-sort-alt'" style="font-size: 0.75rem; margin-left: 4px; color: #94a3b8;"></i>
+                </th>
+                <th (click)="onSort('filesize')" style="width: 110px; cursor: pointer; user-select: none;">
+                  Kích thước
+                  <i class="pi" [ngClass]="sortField() === 'filesize' ? (sortOrder() === 'asc' ? 'pi-sort-amount-up' : 'pi-sort-amount-down') : 'pi-sort-alt'" style="font-size: 0.75rem; margin-left: 4px; color: #94a3b8;"></i>
+                </th>
+                <th (click)="onSort('createdDate')" style="width: 150px; cursor: pointer; user-select: none;">
+                  Ngày tạo
+                  <i class="pi" [ngClass]="sortField() === 'createdDate' ? (sortOrder() === 'asc' ? 'pi-sort-amount-up' : 'pi-sort-amount-down') : 'pi-sort-alt'" style="font-size: 0.75rem; margin-left: 4px; color: #94a3b8;"></i>
+                </th>
+                <th (click)="onSort('createdBy')" style="width: 120px; cursor: pointer; user-select: none;">
+                  Người tạo
+                  <i class="pi" [ngClass]="sortField() === 'createdBy' ? (sortOrder() === 'asc' ? 'pi-sort-amount-up' : 'pi-sort-amount-down') : 'pi-sort-alt'" style="font-size: 0.75rem; margin-left: 4px; color: #94a3b8;"></i>
+                </th>
                 <th class="col-hd">Thao tác</th>
               </tr>
             </thead>
@@ -499,6 +579,7 @@
         [maxFileSize]="500000000"
         (fileUploaded)="onFileUploaded($event)"
         (uploadError)="onUploadError($event)"
+        (allUploadsFinished)="onAllUploadsFinished($event)"
       ></app-file-upload-zone>
 
       <!-- Pipeline upload ẩn khi quét — không hiển thị UI kéo-thả -->
@@ -511,6 +592,7 @@
         [maxFileSize]="500000000"
         (fileUploaded)="onFileUploaded($event)"
         (uploadError)="onUploadError($event)"
+        (allUploadsFinished)="onAllUploadsFinished($event)"
       ></app-file-upload-zone>
 
       <div class="upload-modal-footer">
@@ -708,7 +790,27 @@
       Không tìm thấy thông tin phiên bản nào cho tài liệu này.
     </div>
 
-    <div class="wf-table-wrap" *ngIf="!loadingVersions() && documentVersions().length > 0">
+    <!-- Search bar for version history -->
+    <div *ngIf="!loadingVersions() && documentVersions().length > 0" style="margin-bottom: 16px; padding: 0 4px;">
+      <div style="position: relative; width: 100%;">
+        <i class="pi pi-search" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 0.9rem;"></i>
+        <input
+          type="text"
+          class="wf-input"
+          [ngModel]="versionSearchQuery()"
+          (ngModelChange)="versionSearchQuery.set($event)"
+          placeholder="Tìm kiếm theo phiên bản, người tạo, nguồn tải..."
+          style="padding-left: 36px; width: 100%; border-color: #e2e8f0; height: 36px; font-size: 0.9rem;"
+        />
+      </div>
+    </div>
+
+    <div *ngIf="!loadingVersions() && documentVersions().length > 0 && filteredDocumentVersions().length === 0" style="text-align: center; padding: 30px; color: #64748b;">
+      <i class="pi pi-search" style="font-size: 1.5rem; margin-bottom: 8px; display: block; color: #94a3b8;"></i>
+      Không tìm thấy phiên bản nào phù hợp với từ khóa "{{ versionSearchQuery() }}"
+    </div>
+
+    <div class="wf-table-wrap" *ngIf="!loadingVersions() && filteredDocumentVersions().length > 0">
       <table class="wf-table" style="width: 100%; border-collapse: collapse;">
         <thead>
           <tr>
@@ -721,7 +823,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let ver of documentVersions(); let first = first">
+          <tr *ngFor="let ver of filteredDocumentVersions(); let first = first">
             <td style="text-align: center; font-weight: bold;">
               v{{ ver.versionNumber }}
               <span *ngIf="first" class="latest-badge" style="background: #22c55e; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 4px;">Mới nhất</span>

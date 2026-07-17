@@ -26,6 +26,11 @@ export class DocumentManagementService {
     const params: Record<string, string> = {};
     if (filter.folderId) params['folderId'] = filter.folderId;
     if (filter.keyword) params['keyword'] = filter.keyword;
+    if (filter.createdBy) params['creator'] = filter.createdBy;
+    if (filter.startDate) params['startDate'] = filter.startDate;
+    if (filter.endDate) params['endDate'] = filter.endDate;
+    if (filter.sortField) params['sortField'] = filter.sortField;
+    if (filter.sortOrder) params['sortOrder'] = filter.sortOrder;
     if (filter.page) params['page'] = filter.page.toString();
     if (filter.pageSize) params['pageSize'] = filter.pageSize.toString();
     return params;

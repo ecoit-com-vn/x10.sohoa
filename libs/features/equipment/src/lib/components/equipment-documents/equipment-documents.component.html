@@ -36,11 +36,9 @@
         <tr>
           <th class="col-stt">STT</th>
           <th>Tên tài liệu</th>
-          <th style="width: 110px;">Kích thước</th>
+          <th>Loại tài liệu</th>
           <th class="col-digitization" style="width: 130px;">OCR</th>
           <th class="col-digitization" style="width: 130px;">Bóc tách</th>
-          <th style="width: 150px;">Ngày tạo</th>
-          <th style="width: 120px;">Người tạo</th>
           <th class="col-hd col-actions-sticky">
             <div class="col-actions-sticky-panel col-actions-sticky-panel--head">Thao tác</div>
           </th>
@@ -48,7 +46,7 @@
       </thead>
       <tbody>
         <tr *ngIf="loading()">
-          <td colspan="8" class="empty-row">
+          <td colspan="6" class="empty-row">
             <i class="pi pi-spin pi-spinner"></i>
             <div>Đang tải danh sách tài liệu...</div>
           </td>
@@ -69,7 +67,7 @@
               </span>
             </div>
           </td>
-          <td>{{ formatSize(doc.fileSize) }}</td>
+          <td>{{ doc.documentTypeName || '—' }}</td>
           <td class="col-digitization">
             <ng-container *ngIf="getOcrProgress(doc) as ocr; else noOcr">
               <div class="digitization-progress-cell">
@@ -129,34 +127,13 @@
               <span class="text-muted">—</span>
             </ng-template>
           </td>
-          <td>{{ formatDate(doc.createdDate) }}</td>
-          <td>
-            <span
-              style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: inline-block; max-width: 110px;"
-              [title]="displayCreatorName(doc)"
-            >
-              {{ displayCreatorName(doc) }}
-            </span>
-          </td>
           <td class="col-hd col-actions-sticky">
             <div class="col-actions-sticky-panel">
               <div class="action-buttons-group">
                 <button
-                  *ngFor="let action of getPrimaryDocumentActions(doc)"
-                  type="button"
-                  class="act-btn"
-                  [ngClass]="action.btnClass"
-                  [title]="action.title"
-                  [disabled]="action.disabled"
-                  (click)="action.run(doc); $event.stopPropagation()"
-                >
-                  <i [ngClass]="action.iconClasses"></i>
-                </button>
-                <button
-                  *ngIf="getOverflowDocumentActions(doc).length"
                   type="button"
                   class="act-btn act-more"
-                  title="Thao tác khác"
+                  title="Thao tác"
                   (click)="openDocActionMenu(doc, $event)"
                 >
                   <i class="pi pi-ellipsis-h"></i>
@@ -166,7 +143,7 @@
           </td>
         </tr>
         <tr *ngIf="!loading() && documents().length === 0">
-          <td colspan="8" class="empty-row">
+          <td colspan="6" class="empty-row">
             <i class="pi pi-inbox"></i>
             <div>Không tìm thấy tài liệu lý lịch thiết bị kỹ thuật nào.</div>
           </td>

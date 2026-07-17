@@ -422,7 +422,7 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
 
   openDocActionMenu(doc: EquipmentDocumentItem, event: MouseEvent): void {
     this.selectedDocMenuTarget = doc;
-    const actions = this.getOverflowDocumentActions(doc);
+    const actions = this.buildAllDocumentActions(doc);
     const items: MenuItem[] = actions.map((act) => ({
       label: act.title,
       icon: act.iconClasses,
