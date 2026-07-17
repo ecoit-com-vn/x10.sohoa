@@ -1,5 +1,5 @@
 import { Route } from '@angular/router';
-import { documentFulltextSearchGuard, dossierEquipmentLookupGuard, dossierWarehouseSearchGuard } from '@sohoa.frontend/shared/core';
+import { documentFulltextSearchGuard, dossierEquipmentLookupGuard, dossierWarehouseSearchGuard, substationSearchGuard } from '@sohoa.frontend/shared/core';
 
 export const SEARCH_ROUTES: Route[] = [
   {
@@ -17,6 +17,16 @@ export const SEARCH_ROUTES: Route[] = [
         m => m.DocumentFulltextSearchComponent
       ),
     canActivate: [documentFulltextSearchGuard]
+  },
+  {
+    path: 'substation',
+    loadComponent: () => import('./components/substation-search/substation-search.component').then(m => m.SubstationSearchComponent),
+    canActivate: [substationSearchGuard]
+  },
+  {
+    path: 'substation/:id',
+    loadComponent: () => import('./components/substation-search/substation-search.component').then(m => m.SubstationSearchComponent),
+    canActivate: [substationSearchGuard]
   },
   {
     path: 'equipment',

@@ -14,7 +14,7 @@
         </button>
       </div>
     </div>
-    
+
     <div class="wf-card">
       <div class="loading-overlay" *ngIf="loading()">
         <div class="loading-content">
@@ -27,7 +27,7 @@
         <div class="search-controls">
           <input type="text" pInputText class="search-input-width" placeholder="Tên hoặc mã biểu mẫu..." [ngModel]="searchKeyword()"
             (ngModelChange)="searchKeyword.set($event)" (keyup.enter)="onSearch()" style="height: 38px;" />
-          
+
           <p-select [options]="gridTypes()"
             [ngModel]="selectedGridTypeId()"
             (ngModelChange)="onGridTypeChange($event)"
@@ -60,7 +60,7 @@
             placeholder="-- Trạng thái --"
             [showClear]="true">
           </p-select>
-          
+
           <button class="btn-tim btn-search-trigger" (click)="onSearch()">
             <i class="pi pi-search"></i> Tìm kiếm
           </button>
@@ -191,10 +191,10 @@
           <h4 class="preview-title-header">Xem trước biểu mẫu nhập liệu</h4>
           <div class="preview-form-container" style="max-height: none; overflow-y: visible;">
             <div class="preview-form-grid">
-              <div *ngFor="let field of detailFields()" 
+              <div *ngFor="let field of detailFields()"
                    [style.grid-column]="'span ' + (field.width === 50 ? 6 : 12)"
                    class="preview-form-field">
-                
+
                 <label class="preview-form-label">
                   {{ field.label || '(Trường chưa đặt tên)' }}
                   <span *ngIf="field.required" class="required-star">*</span>
@@ -249,7 +249,7 @@
                     <!-- Case 1: Nhóm checkbox (nếu có options hoặc catalog) -->
                     <div *ngIf="field.dataSourceType === 'catalog' || (field.options && field.options.length > 0); else singleCheckboxPreview"
                          style="display: flex; flex-direction: column; gap: 4px; padding: 4px 0;">
-                      
+
                       <ng-container *ngIf="field.dataSourceType === 'catalog'">
                         <div *ngFor="let opt of (catalogOptionsMap()[field.catalogType || ''] || ['Đang tải...'])"
                           style="display: flex; align-items: center; gap: 8px; opacity: 0.8;">
@@ -382,7 +382,7 @@
       <div class="wf-table-wrap">
         <table class="wf-table">
           <thead>
-            <tr>             
+            <tr>
               <th class="col-ver-width text-center">Phiên bản</th>
               <th>Mã biểu mẫu</th>
               <th>Tên biểu mẫu</th>

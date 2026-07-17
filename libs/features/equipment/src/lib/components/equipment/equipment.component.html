@@ -5,8 +5,7 @@
       <wf-breadcrumb  />
     </div>
     <div class="toolbar-right">
-      <button class="btn-green" (click)="onAddNew()" *ngIf="canCreate() && currentView() === 'list'"
-        style="height: 36px; padding: 0 16px; background-color: #3BA962; border-color: #3BA962; margin-left: auto;">
+      <button class="btn-green" (click)="onAddNew()" *ngIf="canCreate() && currentView() === 'list'">
         <i class="pi pi-plus"></i> Thêm mới
       </button>
     </div>
@@ -95,7 +94,7 @@
               <th>Đơn vị quản lý</th>
               <th>Ngày tạo</th>
               <th>Người tạo</th>
-              <th style="width: 110px; text-align: center;">Trạng thái</th>
+              <th style="width: 130px; text-align: center;">Trạng thái</th>
               <th class="col-hd">Thao tác</th>
             </tr>
           </thead>
@@ -104,10 +103,10 @@
               <td class="col-stt text-muted">{{ (currentPage() - 1) * pageSize() + i + 1 }}</td>
               <td>
                 <span *ngIf="canEdit(); else viewOnlyCode">
-                  <b class="wf-name-link" (click)="onEdit(item)">{{ item.code }}</b>
+                  <p (click)="onEdit(item)">{{ item.code }}</p>
                 </span>
                 <ng-template #viewOnlyCode>
-                  <code>{{ item.code }}</code>
+                  <span>{{ item.code }}</span>
                 </ng-template>
               </td>
               <td>
@@ -126,12 +125,10 @@
                 <span class="text-muted italic" *ngIf="!item.creator">{{ item.createdBy || '' }}</span>
               </td>
               <td style="text-align: center;">
-                <span *ngIf="item.isActive === 1 || item.isActive === true" class="status-pill status-active"
-                  style="background-color: #ecfdf5; color: #065f46; border-color: #a7f3d0;">
+                <span *ngIf="item.isActive === 1 || item.isActive === true" class="status-pill status-active">
                   Hoạt động
                 </span>
-                <span *ngIf="item.isActive === 0 || item.isActive === false" class="status-pill status-locked"
-                  style="background-color: #f3f4f6; color: #374151; border-color: #d1d5db;">
+                <span *ngIf="item.isActive === 0 || item.isActive === false" class="status-pill status-inactive">
                   Ngừng hoạt động
                 </span>
               </td>
@@ -204,7 +201,7 @@
 
       <!-- Form chi tiết thêm mới -->
       <div class="grid-form-layout"
-        style="display: flex; flex-direction: column; gap: 18px; max-width: 900px; margin: 0 auto; width: 100%;">
+        style="display: flex; flex-direction: column; gap: 18px; width: 100%;">
 
         <div class="form-group-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
           <!-- Đơn vị quản lý (Tree Picker) -->
@@ -908,6 +905,45 @@
           <i class="pi pi-spin pi-spinner" *ngIf="deleting()"></i>
           <i class="pi pi-trash" *ngIf="!deleting()"></i>
           Xóa
+        </button>
+      </div>
+    </ng-template>
+  </p-dialog>
+
+  <!-- Dialog Xác nhận Khóa/Mở khóa -->
+  <p-dialog 
+    [visible]="showLockUnlockConfirm()" 
+    (visibleChange)="showLockUnlockConfirm.set($event)" 
+    [header]="(lockUnlockTarget()?.isActive === 1 || lockUnlockTarget()?.isActive === true) ? 'Xác nhận khóa thiết bị' : 'Xác nhận mở khóa thiết bị'" 
+    [modal]="true" 
+    [style]="{ width: '420px' }" 
+    styleClass="evn-dialog-custom"
+    [closable]="!lockUnlockLoading()">
+    <div style="padding: 8px 0 16px 0; display: flex; flex-direction: column; gap: 12px;">
+      <div style="display: flex; align-items: flex-start; gap: 12px;">
+        <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #f59e0b; margin-top: 2px; flex-shrink: 0;"></i>
+        <div>
+          <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b; font-size: 0.95rem;">
+            {{ (lockUnlockTarget()?.isActive === 1 || lockUnlockTarget()?.isActive === true) ? 'Bạn có chắc muốn khóa thiết bị này?' : 'Bạn có chắc muốn mở khóa thiết bị này?' }}
+          </p>
+          <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
+            Thiết bị <b style="color: #1e293b;">{{ lockUnlockTarget()?.name }}</b> sẽ được 
+            {{ (lockUnlockTarget()?.isActive === 1 || lockUnlockTarget()?.isActive === true) ? 'khóa và ngừng hoạt động' : 'mở khóa và hoạt động trở lại' }}.
+          </p>
+        </div>
+      </div>
+    </div>
+    <ng-template #footer>
+      <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+        <button class="btn-cancel btn-small" (click)="onCancelLockUnlock()" [disabled]="lockUnlockLoading()">
+          <i class="pi pi-times"></i> Hủy
+        </button>
+        <button class="btn-save btn-small" (click)="onConfirmLockUnlock()" [disabled]="lockUnlockLoading()"
+          [style.background-color]="(lockUnlockTarget()?.isActive === 1 || lockUnlockTarget()?.isActive === true) ? '#dc2626' : '#16a34a'"
+          [style.border-color]="(lockUnlockTarget()?.isActive === 1 || lockUnlockTarget()?.isActive === true) ? '#dc2626' : '#16a34a'">
+          <i class="pi pi-spin pi-spinner" *ngIf="lockUnlockLoading()" style="margin-right: 4px;"></i>
+          <i class="pi" [ngClass]="(lockUnlockTarget()?.isActive === 1 || lockUnlockTarget()?.isActive === true) ? 'pi-lock' : 'pi-lock-open'" *ngIf="!lockUnlockLoading()" style="margin-right: 4px;"></i>
+          {{ (lockUnlockTarget()?.isActive === 1 || lockUnlockTarget()?.isActive === true) ? 'Khóa' : 'Mở khóa' }}
         </button>
       </div>
     </ng-template>

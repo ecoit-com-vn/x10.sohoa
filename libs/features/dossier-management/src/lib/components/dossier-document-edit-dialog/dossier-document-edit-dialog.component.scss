@@ -8,7 +8,7 @@
 
 .edit-split {
   display: grid;
-  grid-template-columns: minmax(280px, 1fr) minmax(320px, 1fr);
+  grid-template-columns: 2fr 1fr;
   gap: 16px;
   height: calc(85vh - 120px);
   min-height: 520px;

@@ -24,6 +24,7 @@ export interface EavFormTemplate {
   formType?: string;
   gridTypeId?: number;
   gridTypeName?: string;
+  extractionPosition?: string;
 }
 
 @Injectable({
@@ -65,7 +66,8 @@ export class FormTemplateService {
     createdBy: string = 'admin',
     equipmentTypeId?: string,
     gridTypeId?: number,
-    extractionProcess?: string
+    extractionProcess?: string,
+    extractionPosition?: string
   ): Observable<EavFormTemplate> {
     return this.api.post<EavFormTemplate>(this.apiUrl, {
       name,
@@ -74,6 +76,7 @@ export class FormTemplateService {
       description,
       descriptionInfo,
       extractionProcess,
+      extractionPosition,
       formSchema,
       createdBy,
       equipmentTypeId,
@@ -94,7 +97,8 @@ export class FormTemplateService {
     updatedBy: string = 'admin',
     equipmentTypeId?: string,
     gridTypeId?: number,
-    extractionProcess?: string
+    extractionProcess?: string,
+    extractionPosition?: string
   ): Observable<EavFormTemplate> {
     return this.api.put<EavFormTemplate>(`${this.apiUrl}/${id}`, {
       name,
@@ -103,6 +107,7 @@ export class FormTemplateService {
       description,
       descriptionInfo,
       extractionProcess,
+      extractionPosition,
       formSchema,
       updatedBy,
       equipmentTypeId,
@@ -150,5 +155,11 @@ export class FormTemplateService {
 
   getActiveTemplateByEquipmentType(equipmentTypeId: string): Observable<EavFormTemplate> {
     return this.api.get<EavFormTemplate>(`${this.apiUrl}/by-equipment-type/${equipmentTypeId}`);
+  }
+
+  activateTemplateVersion(versionId: string): Observable<any> {
+    return this.api.post<any>(`${this.apiUrl}/versions/${versionId}/activate`, {}).pipe(
+      tap(() => this.templates$ = null)
+    );
   }
 }
