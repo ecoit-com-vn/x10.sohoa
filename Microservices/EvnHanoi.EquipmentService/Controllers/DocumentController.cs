@@ -140,8 +140,10 @@ public partial class DocumentController : ControllerBase
 
     /// <summary>
     /// Tải thư mục (bao gồm thư mục con) dưới dạng file ZIP.
+    /// Bypass phân quyền động vì đây là thao tác tải file tương tự download-url, bảo mật được kiểm soát bằng unit_id.
     /// </summary>
     [HttpGet("folders/{id}/download-zip")]
+    [BypassDynamicPermission]
     public async Task<IActionResult> DownloadFolderAsZip([FromRoute] Guid id)
     {
         var unitId = GetUserUnitId();
@@ -178,6 +180,11 @@ public partial class DocumentController : ControllerBase
     public async Task<IActionResult> GetDocumentsList(
         [FromQuery] Guid? folderId,
         [FromQuery] string? keyword,
+        [FromQuery] string? creator,
+        [FromQuery] DateTime? startDate,
+        [FromQuery] DateTime? endDate,
+        [FromQuery] string? sortField,
+        [FromQuery] string? sortOrder,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10)
     {
@@ -185,6 +192,11 @@ public partial class DocumentController : ControllerBase
         {
             FolderId = folderId,
             Keyword = keyword,
+            CreatedBy = creator,
+            StartDate = startDate,
+            EndDate = endDate,
+            SortField = sortField,
+            SortOrder = sortOrder,
             Page = page,
             PageSize = pageSize
         };

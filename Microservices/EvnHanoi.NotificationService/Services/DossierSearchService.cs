@@ -81,7 +81,7 @@ public class DossierSearchService : IDossierSearchService
 
         if (filter.InfrastructureId.HasValue)
         {
-            sql += " AND e.InfrastructureId = :InfrastructureId";
+            sql += " AND e.INFRASTRUCTURE_ID = :InfrastructureId";
             parameters.Add("InfrastructureId", filter.InfrastructureId.Value.ToString());
         }
 
