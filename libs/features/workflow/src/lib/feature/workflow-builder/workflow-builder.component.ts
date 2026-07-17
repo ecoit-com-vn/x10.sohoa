@@ -6,7 +6,8 @@ import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, NavigationEnd, Router } from '@angular/router';
 import { ToastModule } from 'primeng/toast';
 import { DialogModule } from 'primeng/dialog';
-import { MessageService } from 'primeng/api';
+import { Menu, MenuModule } from 'primeng/menu';
+import { MenuItem, MessageService } from 'primeng/api';
 import {
   WorkflowService,
   WorkflowDefinition,
@@ -40,7 +41,7 @@ const WORKFLOW_BUILDER_BASE = '/administration/workflow-builder';
 @Component({
   selector: 'app-workflow-builder',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule, DialogModule, WfBreadcrumbComponent],
+  imports: [CommonModule, FormsModule, ToastModule, DialogModule, MenuModule, WfBreadcrumbComponent],
   providers: [MessageService],
   templateUrl: './workflow-builder.component.html',
   styleUrl: './workflow-builder.component.scss'
@@ -182,6 +183,7 @@ export class WorkflowBuilderComponent implements OnInit, OnDestroy {
   deleteTarget = signal<WorkflowDefinition | null>(null);
   reactivateTarget = signal<WorkflowDefinition | null>(null);
   reactivating = signal<boolean>(false);
+  actionMenuItems: MenuItem[] = [];
 
   // ─── Bpmn.io Modeler state ──────────────────────────────────────────────────
   bpmnModeler: any = null;
@@ -209,6 +211,16 @@ export class WorkflowBuilderComponent implements OnInit, OnDestroy {
     this.routeSub?.unsubscribe();
     this.destroyModeler();
     this.onClosePreviewDialog();
+  }
+
+  openActionMenu(wf: WorkflowDefinition, event: Event, menu: Menu): void {
+    event.stopPropagation();
+    this.actionMenuItems = [
+      ...(this.authService.hasPermission('WORKFLOW_EDIT') ? [{ label: 'Sửa quy trình', title:"Sửa quy trình" ,icon: 'pi pi-pencil color-blue', command: () => this.onEdit(wf) }] : []),
+      ...(this.authService.hasPermission('WORKFLOW_EDIT') ? [{ label: wf.isActive ? 'Khóa quy trình' : 'Mở khóa quy trình', title: wf.isActive ? 'Khóa quy trình' : 'Mở khóa quy trình', icon: wf.isActive ? 'pi pi-lock color-red' : 'pi pi-lock-open color-teal', command: () => this.toggleWorkflowStatus(wf) }] : []),
+      ...(this.authService.hasPermission('WORKFLOW_DELETE') ? [{ label: 'Xóa quy trình', title:"Xóa quy trình" ,icon: 'pi pi-trash color-red', command: () => this.onDelete(wf) }] : []),
+    ];
+    menu.toggle(event);
   }
 
   private applyRouteState(): void {

@@ -89,33 +89,10 @@
                 </span>
               </td>
               <td class="col-hd">
-                <div class="action-buttons-group">
-                  <!-- Lock/Unlock action -->
-                  <button *ngIf="canManage()" class="act-btn"
-                    [ngClass]="(item.isActive === 1 || item.isActive === true) ? 'act-delete' : 'act-edit'"
-                    [title]="(item.isActive === 1 || item.isActive === true) ? 'Khóa loại hồ sơ' : 'Mở khóa loại hồ sơ'"
-                    (click)="onToggleStatus(item)">
-                    <i class="pi"
-                      [ngClass]="(item.isActive === 1 || item.isActive === true) ? 'pi-lock' : 'pi-lock-open'"></i>
-                  </button>
-
-                  <!-- Configure EAV action -->
-                  <button *ngIf="canEdit()" class="act-btn"
-                    style="background-color: #f0fdf4; color: #15803d; border-color: #bbf7d0;"
-                    (click)="onConfigureEav(item)" title="Cấu hình biểu mẫu EAV">
-                    <i class="pi pi-cog"></i>
-                  </button>
-
-                  <!-- Edit action -->
-                  <button *ngIf="canEdit()" class="act-btn act-edit" (click)="onEdit(item)" title="Chỉnh sửa">
-                    <i class="pi pi-pencil"></i>
-                  </button>
-
-                  <!-- Delete action -->
-                  <button *ngIf="canDelete()" class="act-btn act-delete" (click)="onDelete(item)" title="Xóa">
-                    <i class="pi pi-trash"></i>
-                  </button>
-                </div>
+                <button type="button" class="act-btn act-more" title="Thao tác khác"
+                  (click)="openActionMenu(item, $event, actionMenu)">
+                  <i class="pi pi-ellipsis-h"></i>
+                </button>
               </td>
             </tr>
             <tr *ngIf="items().length === 0">
@@ -127,6 +104,9 @@
           </tbody>
         </table>
       </div>
+
+      <p-menu #actionMenu [model]="actionMenuItems" [popup]="true" appendTo="body"
+        styleClass="row-action-menu"></p-menu>
 
       <!-- Footer with Pagination -->
       <div class="table-footer" *ngIf="items().length > 0">

@@ -3,7 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ToastModule } from 'primeng/toast';
 import { DialogModule } from 'primeng/dialog';
-import { MessageService } from 'primeng/api';
+import { MenuItem, MessageService } from 'primeng/api';
+import { Menu, MenuModule } from 'primeng/menu';
 import { BhsCatalogColumn, DossierManagementService } from '../../data-access/dossier-management.service';
 import { DossierPublishService } from '../../data-access/dossier-publish.service';
 import { DossierListTab } from '../../utils/dossier-status.util';
@@ -24,7 +25,7 @@ function tabLabel(tab: PublishTab): string {
 @Component({
   selector: 'app-dossier-publish',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule, DialogModule],
+  imports: [CommonModule, FormsModule, ToastModule, DialogModule, MenuModule],
   template: `
     <div class="wf-card">
       <div class="tab-bar">
@@ -108,23 +109,12 @@ function tabLabel(tab: PublishTab): string {
                 <td class="text-center" style="width: 100px;">{{ item.documentCount ?? 0 }}</td>
                 <td class="col-hd">
                   <div class="action-buttons-group">
-                    <button (click)="viewDetail.emit(item.id)" class="act-btn act-assign" title="Xem chi tiết">
-                      <i class="pi pi-eye"></i>
-                    </button>
-
-                    <button *ngIf="activeTab() === 'pending-publish' && authService.hasPermission('DOSSIER_PUBLISH_RELEASE')" 
-                            (click)="requestAction('publish', item)" class="act-btn act-assign" title="Xuất bản" style="margin-left: 6px;">
-                      <i class="pi pi-cloud-upload"></i>
-                    </button>
-
-                    <button *ngIf="activeTab() === 'published' && authService.hasPermission('DOSSIER_PUBLISH_RELEASE')" 
-                            (click)="requestAction('unpublish', item)" class="act-btn act-delete" title="Hủy xuất bản" style="margin-left: 6px;">
-                      <i class="pi pi-ban"></i>
-                    </button>
-
-                    <button *ngIf="activeTab() === 'unpublished' && authService.hasPermission('DOSSIER_PUBLISH_RELEASE')" 
-                            (click)="requestAction('republish', item)" class="act-btn act-assign" title="Tái xuất bản" style="margin-left: 6px;">
-                      <i class="pi pi-refresh"></i>
+                    <button
+                      type="button"
+                      class="act-btn act-more"
+                      title="Thao tác"
+                      (click)="openPublishActionMenu(item, $event, publishActionMenu)">
+                      <i class="pi pi-ellipsis-h"></i>
                     </button>
                   </div>
                 </td>
@@ -147,6 +137,14 @@ function tabLabel(tab: PublishTab): string {
         </div>
       </div>
     </div>
+
+    <p-menu
+      #publishActionMenu
+      [model]="publishActionMenuItems()"
+      [popup]="true"
+      appendTo="body"
+      styleClass="row-action-menu">
+    </p-menu>
 
     <!-- Confirm Action Dialog -->
     <p-dialog
@@ -237,6 +235,7 @@ export class DossierPublishComponent implements OnInit {
   confirmActionType = signal<'publish' | 'unpublish' | 'republish' | null>(null);
   actionTarget = signal<any>(null);
   actionSubmitting = signal<boolean>(false);
+  publishActionMenuItems = signal<MenuItem[]>([]);
 
   totalPages = computed(() => Math.ceil(this.totalCount() / this.pageSize()));
   tableColSpan = computed(() => this.bhsColumns().length + 5);
@@ -379,6 +378,45 @@ export class DossierPublishComponent implements OnInit {
     this.confirmActionType.set(type);
     this.actionTarget.set(item);
     this.showConfirmDialog.set(true);
+  }
+
+  openPublishActionMenu(item: any, event: MouseEvent, menu: Menu): void {
+    const items: MenuItem[] = [
+      {
+        label: 'Xem chi tiết',
+        title: 'Xem chi tiết',
+        icon: 'pi pi-eye color-teal',
+        command: () => this.viewDetail.emit(item.id),
+      },
+    ];
+
+    if (this.authService.hasPermission('DOSSIER_PUBLISH_RELEASE')) {
+      if (this.activeTab() === 'pending-publish') {
+        items.push({
+          label: 'Xuất bản',
+          title: 'Xuất bản',
+          icon: 'pi pi-cloud-upload color-teal',
+          command: () => this.requestAction('publish', item),
+        });
+      } else if (this.activeTab() === 'published') {
+        items.push({
+          label: 'Hủy xuất bản',
+          title: 'Hủy xuất bản',
+          icon: 'pi pi-ban color-red',
+          command: () => this.requestAction('unpublish', item),
+        });
+      } else if (this.activeTab() === 'unpublished') {
+        items.push({
+          label: 'Tái xuất bản',
+          title: 'Tái xuất bản',
+          icon: 'pi pi-refresh color-teal',
+          command: () => this.requestAction('republish', item),
+        });
+      }
+    }
+
+    this.publishActionMenuItems.set(items);
+    menu.toggle(event);
   }
 
   onCancelAction() {

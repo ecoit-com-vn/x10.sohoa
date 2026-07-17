@@ -117,18 +117,9 @@
               </span>
             </td>
             <td class="col-hd">
-              <div class="action-buttons-group">
-                <button class="act-btn act-edit" (click)="onEdit(wf)" title="Sửa quy trình"
-                  *ngIf="authService.hasPermission('WORKFLOW_EDIT')">
-                  <i class="pi pi-pencil"></i>
-                </button>
-                <button *ngIf="authService.hasPermission('WORKFLOW_EDIT') && wf.isActive" class="act-btn act-lock"
-                  (click)="toggleWorkflowStatus(wf)" title="Khóa quy trình"><i class="pi pi-lock"></i></button>
-                <button *ngIf="authService.hasPermission('WORKFLOW_EDIT') && !wf.isActive" class="act-btn act-unlock"
-                  (click)="toggleWorkflowStatus(wf)" title="Mở khóa quy trình"><i class="pi pi-lock-open"></i></button>
-                <button class="act-btn act-delete" (click)="onDelete(wf)" title="Xóa quy trình"
-                  *ngIf="authService.hasPermission('WORKFLOW_DELETE')">
-                  <i class="pi pi-trash"></i>
+              <div class="action-buttons-group dropdown-actions-container">
+                <button class="act-btn act-more" title="Thao tác khác" (click)="openActionMenu(wf, $event, actionMenu)">
+                  <i class="pi pi-ellipsis-h"></i>
                 </button>
               </div>
             </td>
@@ -143,6 +134,8 @@
         </tbody>
       </table>
     </div>
+
+    <p-menu #actionMenu [model]="actionMenuItems" [popup]="true" appendTo="body" styleClass="row-action-menu"></p-menu>
 
     <!-- Footer with Pagination -->
     <div class="table-footer" *ngIf="workflows.length > 0 && !loading">

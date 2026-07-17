@@ -106,6 +106,22 @@ export class DocumentManagementComponent implements OnInit {
   editingFolderRowVersion = signal(0);
   expandedFolders = signal<Set<string>>(new Set()); // Track expanded folder IDs
 
+  // Search Filter states (input bindings)
+  filterKeyword = signal('');
+  filterCreator = signal('');
+  filterStartDate = signal('');
+  filterEndDate = signal('');
+
+  // Applied Filter states (actually used for queries)
+  appliedKeyword = signal('');
+  appliedCreator = signal('');
+  appliedStartDate = signal('');
+  appliedEndDate = signal('');
+
+  // Sort states
+  sortField = signal<string>('createdDate');
+  sortOrder = signal<'asc' | 'desc'>('desc');
+
   // Document Edit states
   showEditDocument = signal(false);
   documentFormName = signal('');
@@ -113,9 +129,35 @@ export class DocumentManagementComponent implements OnInit {
   editingDocumentRowVersion = signal(0);
   savingDocument = signal(false);
 
+  folderActionMenuItems: MenuItem[] = [];
+  documentActionMenuItems: MenuItem[] = [];
+
   // Document Version states
   showHistoryDialog = signal(false);
   documentVersions = signal<DocumentVersion[]>([]);
+  versionSearchQuery = signal('');
+  filteredDocumentVersions = computed(() => {
+    const query = this.versionSearchQuery().trim().toLowerCase();
+    const versions = this.documentVersions();
+    if (!query) return versions;
+
+    return versions.filter(ver => {
+      const versionStr = `v${ver.versionNumber}`.toLowerCase();
+      const versionNumberStr = ver.versionNumber.toString();
+      const creator = (ver.createdByName || ver.createdBy || 'Hệ thống').toLowerCase();
+      
+      let sourceStr = 'Khác';
+      if (ver.uploadSource === 1) sourceStr = 'Thư mục';
+      else if (ver.uploadSource === 2) sourceStr = 'Scan';
+      else if (ver.uploadSource === 3) sourceStr = 'Web';
+      sourceStr = sourceStr.toLowerCase();
+
+      return versionStr.includes(query) ||
+             versionNumberStr.includes(query) ||
+             creator.includes(query) ||
+             sourceStr.includes(query);
+    });
+  });
   historyTargetDocument = signal<Document | null>(null);
   loadingVersions = signal(false);
   rollingBack = signal(false);
@@ -162,15 +204,97 @@ export class DocumentManagementComponent implements OnInit {
   subFolders = computed(() => {
     const selected = this.selectedFolder();
     const flat = this.flatFolderList();
+    
+    // Lọc theo cấu trúc cây trước
+    let list = [];
     if (!selected) {
-      return flat
-        .filter(f => !f.parentId)
-        .sort((a, b) => a.name.localeCompare(b.name, 'vi'));
+      list = flat.filter(f => !f.parentId);
+    } else {
+      list = flat.filter(f => f.parentId === selected.id);
     }
-    return flat
-      .filter(f => f.parentId === selected.id)
-      .sort((a, b) => a.name.localeCompare(b.name, 'vi'));
+
+    // Áp dụng bộ lọc tìm kiếm client-side cho thư mục con
+    const keyword = this.appliedKeyword().trim().toLowerCase();
+    const creator = this.appliedCreator().trim().toLowerCase();
+    const startDate = this.appliedStartDate();
+    const endDate = this.appliedEndDate();
+
+    if (keyword) {
+      list = list.filter(f => f.name.toLowerCase().includes(keyword));
+    }
+    if (creator) {
+      list = list.filter(f => f.createdBy && f.createdBy.toLowerCase().includes(creator));
+    }
+    if (startDate) {
+      const start = new Date(startDate);
+      list = list.filter(f => f.createdDate && new Date(f.createdDate) >= start);
+    }
+    if (endDate) {
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      list = list.filter(f => f.createdDate && new Date(f.createdDate) <= end);
+    }
+
+    // Áp dụng Sort cho thư mục con (Client-side)
+    const field = this.sortField();
+    const order = this.sortOrder();
+    
+    list.sort((a, b) => {
+      let compare = 0;
+      if (field === 'name') {
+        compare = a.name.localeCompare(b.name, 'vi');
+      } else if (field === 'createdDate') {
+        const dateA = a.createdDate ? new Date(a.createdDate).getTime() : 0;
+        const dateB = b.createdDate ? new Date(b.createdDate).getTime() : 0;
+        compare = dateA - dateB;
+      } else if (field === 'createdBy') {
+        const creatorA = a.createdBy || '';
+        const creatorB = b.createdBy || '';
+        compare = creatorA.localeCompare(creatorB, 'vi');
+      }
+      return order === 'asc' ? compare : -compare;
+    });
+
+    return list;
   });
+
+  onSearch() {
+    this.appliedKeyword.set(this.filterKeyword());
+    this.appliedCreator.set(this.filterCreator());
+    this.appliedStartDate.set(this.filterStartDate());
+    this.appliedEndDate.set(this.filterEndDate());
+    this.first.set(0); // Reset page to 1
+    this.loadDocuments();
+  }
+
+  onResetFilters() {
+    this.filterKeyword.set('');
+    this.filterCreator.set('');
+    this.filterStartDate.set('');
+    this.filterEndDate.set('');
+
+    this.appliedKeyword.set('');
+    this.appliedCreator.set('');
+    this.appliedStartDate.set('');
+    this.appliedEndDate.set('');
+    
+    this.sortField.set('createdDate');
+    this.sortOrder.set('desc');
+    
+    this.first.set(0); // Reset page to 1
+    this.loadDocuments();
+  }
+
+  onSort(field: string) {
+    if (this.sortField() === field) {
+      this.sortOrder.set(this.sortOrder() === 'asc' ? 'desc' : 'asc');
+    } else {
+      this.sortField.set(field);
+      this.sortOrder.set('asc');
+    }
+    this.first.set(0); // Reset page to 1
+    this.loadDocuments();
+  }
 
   totalItems = computed(() => this.subFolders().length + this.totalDocuments());
 
@@ -356,13 +480,34 @@ export class DocumentManagementComponent implements OnInit {
   }
 
   onFileUploaded(event: any) {
+    // Chỉ hiển thị toast, không đóng modal và loadDocuments tại đây để tránh race condition khi tải nhiều file
     this.messageService.add({
       severity: 'success',
-      summary: 'Thành công',
-      detail: 'Upload tài liệu thành công',
+      summary: 'Tải lên thành công',
+      detail: `Đã lưu tệp: ${event.fileName}`,
     });
+  }
+
+  onAllUploadsFinished(event: { successCount: number; errorCount: number }) {
+    if (event.successCount > 0) {
+      this.messageService.add({
+        severity: 'success',
+        summary: 'Hoàn tất tải lên',
+        detail: `Đã tải lên thành công ${event.successCount} tài liệu.`,
+      });
+      this.loadDocuments();
+    }
+
+    if (event.errorCount > 0) {
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Tải lên có lỗi',
+        detail: `Có ${event.errorCount} tài liệu gặp lỗi khi tải lên.`,
+      });
+    }
+
+    // Đóng popup và quay lại màn hình danh sách khi hàng đợi hoàn thành
     this.currentView.set('list');
-    this.loadDocuments();
   }
 
   onScannedFile(file: File): void {
@@ -399,6 +544,51 @@ export class DocumentManagementComponent implements OnInit {
     this.editingFolderRowVersion.set(folder.rowVersion ?? 0);
     this.folderFormName.set(folder.name);
     this.currentView.set('edit_folder');
+  }
+
+  openFolderActionMenu(folder: FolderNode, event: MouseEvent, menu: Menu): void {
+    this.folderActionMenuItems = [
+      {
+        label: 'Chỉnh sửa thư mục',
+        title: 'Chỉnh sửa thư mục',
+        icon: 'pi pi-pencil color-blue',
+        command: () => this.onEditFolder(folder),
+      },
+      {
+        label: 'Xóa thư mục',
+        title: 'Xóa thư mục',
+        icon: 'pi pi-trash color-red',
+        command: () => this.onDeleteFolder(folder),
+      },
+    ];
+    menu.toggle(event);
+  }
+
+  openDocumentActionMenu(doc: Document, event: MouseEvent, menu: Menu): void {
+    this.documentActionMenuItems = [
+      {
+        label: 'Chỉnh sửa tài liệu',
+        title: 'Chỉnh sửa tài liệu',
+        icon: 'pi pi-pencil color-blue',
+        command: () => this.onEditDocument(doc),
+      },
+      {
+        label: 'Tải tài liệu',
+        title: 'Tải tài liệu',
+        icon: this.isDownloadingDocument(doc.id)
+          ? 'pi pi-spin pi-spinner color-blue'
+          : 'pi pi-download color-blue',
+        disabled: !doc.latestVersionId || this.isDownloadingDocument(doc.id),
+        command: () => this.onDownloadDocument(doc),
+      },
+      {
+        label: 'Xóa tài liệu',
+        title: 'Xóa tài liệu',
+        icon: 'pi pi-trash color-red',
+        command: () => this.onDeleteDocument(doc),
+      },
+    ];
+    menu.toggle(event);
   }
 
   onSaveFolder() {
@@ -521,6 +711,12 @@ export class DocumentManagementComponent implements OnInit {
     this.loadingDocuments.set(true);
     const filter: DocumentFilter = {
       folderId: this.selectedFolder()?.id,
+      keyword: this.appliedKeyword() ? this.appliedKeyword() : undefined,
+      createdBy: this.appliedCreator() ? this.appliedCreator() : undefined,
+      startDate: this.appliedStartDate() ? this.appliedStartDate() : undefined,
+      endDate: this.appliedEndDate() ? this.appliedEndDate() : undefined,
+      sortField: this.sortField(),
+      sortOrder: this.sortOrder(),
       page: this.page(),
       pageSize: this.pageSize(),
     };
@@ -753,6 +949,7 @@ export class DocumentManagementComponent implements OnInit {
   onViewHistory(doc: Document) {
     this.historyTargetDocument.set(doc);
     this.showHistoryDialog.set(true);
+    this.versionSearchQuery.set('');
     this.loadDocumentVersions(doc.id);
   }
 
@@ -852,6 +1049,7 @@ export class DocumentManagementComponent implements OnInit {
   onCloseHistoryDialog() {
     this.showHistoryDialog.set(false);
     this.documentVersions.set([]);
+    this.versionSearchQuery.set('');
     this.historyTargetDocument.set(null);
   }
 

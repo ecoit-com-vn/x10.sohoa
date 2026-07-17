@@ -63,6 +63,7 @@ export class FileUploadZoneComponent implements OnInit, OnDestroy {
   // Outputs
   fileUploaded = output<{ documentVersionId: string; fileName: string }>();
   uploadError = output<{ fileName: string; error: string }>();
+  allUploadsFinished = output<{ successCount: number; errorCount: number }>();
 
   // State
   isDragOver = signal<boolean>(false);
@@ -291,6 +292,8 @@ export class FileUploadZoneComponent implements OnInit, OnDestroy {
         fileName: file.name,
         error: errorMsg
       });
+    } finally {
+      this.checkQueueFinished();
     }
   }
 
@@ -322,52 +325,56 @@ export class FileUploadZoneComponent implements OnInit, OnDestroy {
     );
     const results: Array<{ response: FileUploadResponse; fileName: string }> = [];
 
-    for (const item of queued) {
-      try {
-        const onProgress = (progress: UploadProgress) => this.updateProgress(item.id, progress);
-        const folderUploadSource = item.uploadSource ?? this.uploadSource();
-        const result = handler
-          ? await handler(item.file, onProgress)
-          : await this.fileUploadService.uploadFile(
-              item.file,
-              folderId,
-              onProgress,
-              folderUploadSource
-            );
+    try {
+      for (const item of queued) {
+        try {
+          const onProgress = (progress: UploadProgress) => this.updateProgress(item.id, progress);
+          const folderUploadSource = item.uploadSource ?? this.uploadSource();
+          const result = handler
+            ? await handler(item.file, onProgress)
+            : await this.fileUploadService.uploadFile(
+                item.file,
+                folderId,
+                onProgress,
+                folderUploadSource
+              );
 
-        this.updateProgress(item.id, {
-          uploadId: item.id,
-          progress: 100,
-          uploadedBytes: item.file.size,
-          totalBytes: item.file.size,
-          status: 'completed',
-        });
+          this.updateProgress(item.id, {
+            uploadId: item.id,
+            progress: 100,
+            uploadedBytes: item.file.size,
+            totalBytes: item.file.size,
+            status: 'completed',
+          });
 
-        this.fileUploaded.emit({
-          documentVersionId: result.documentVersionId,
-          fileName: item.file.name,
-        });
+          this.fileUploaded.emit({
+            documentVersionId: result.documentVersionId,
+            fileName: item.file.name,
+          });
 
-        results.push({ response: result, fileName: item.file.name });
+          results.push({ response: result, fileName: item.file.name });
 
-        setTimeout(() => {
-          const current = this.uploads();
-          current.delete(item.id);
-          this.uploads.set(new Map(current));
-        }, 1500);
-      } catch (error: unknown) {
-        const errorMsg = extractApiErrorMessage(error);
-        this.updateProgress(item.id, {
-          uploadId: item.id,
-          progress: 0,
-          uploadedBytes: 0,
-          totalBytes: item.file.size,
-          status: 'error',
-          error: errorMsg,
-        });
-        this.uploadError.emit({ fileName: item.file.name, error: errorMsg });
-        throw error;
+          setTimeout(() => {
+            const current = this.uploads();
+            current.delete(item.id);
+            this.uploads.set(new Map(current));
+          }, 1500);
+        } catch (error: unknown) {
+          const errorMsg = extractApiErrorMessage(error);
+          this.updateProgress(item.id, {
+            uploadId: item.id,
+            progress: 0,
+            uploadedBytes: 0,
+            totalBytes: item.file.size,
+            status: 'error',
+            error: errorMsg,
+          });
+          this.uploadError.emit({ fileName: item.file.name, error: errorMsg });
+          throw error;
+        }
       }
+    } finally {
+      this.checkQueueFinished();
     }
 
     return results;
@@ -381,6 +388,18 @@ export class FileUploadZoneComponent implements OnInit, OnDestroy {
       }
     }
     this.uploads.set(new Map(current));
+  }
+
+  private checkQueueFinished() {
+    const allItems = Array.from(this.uploads().values());
+    const hasActive = allItems.some(
+      (item) => item.progress.status === 'pending' || item.progress.status === 'uploading'
+    );
+    if (!hasActive) {
+      const successCount = allItems.filter((item) => item.progress.status === 'completed').length;
+      const errorCount = allItems.filter((item) => item.progress.status === 'error').length;
+      this.allUploadsFinished.emit({ successCount, errorCount });
+    }
   }
 
   /**

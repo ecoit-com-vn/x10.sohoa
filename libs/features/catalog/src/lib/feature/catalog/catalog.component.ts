@@ -5,6 +5,8 @@ import { FormsModule } from '@angular/forms';
 import { ToastModule } from 'primeng/toast';
 import { SelectModule } from 'primeng/select';
 import { DialogModule } from 'primeng/dialog';
+import { Menu, MenuModule } from 'primeng/menu';
+import { MenuItem } from 'primeng/api';
 import { MessageService } from 'primeng/api';
 import { ActivatedRoute } from '@angular/router';
 import { AuthService } from '@sohoa.frontend/shared/core';
@@ -13,7 +15,7 @@ import { CatalogService } from '../../data-access/catalog.service';
 @Component({
   selector: 'app-catalog',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule, SelectModule, DialogModule, WfBreadcrumbComponent],
+  imports: [CommonModule, FormsModule, ToastModule, SelectModule, DialogModule, MenuModule, WfBreadcrumbComponent],
   providers: [MessageService],
   templateUrl: './catalog.component.html',
   styleUrl: './catalog.component.css'
@@ -35,6 +37,7 @@ export class CatalogComponent implements OnInit {
   selectedTypeCode = signal<string>('');
   selectedTypeName = signal<string>('');
   selectedTypeHasParent = signal<number>(0);
+  actionMenuItems: MenuItem[] = [];
 
   // Catalog Type Form Dialog
   showTypeDialog = signal<boolean>(false);
@@ -140,6 +143,27 @@ export class CatalogComponent implements OnInit {
     this.loadCatalogTypes();
   }
 
+  openTypeMenu(type: any, event: Event, menu: Menu): void {
+    event.stopPropagation();
+    this.actionMenuItems = [
+      { label: 'Xem chi tiết', title:'Xem chi tiết', icon: 'pi pi-eye color-teal', command: () => this.onViewType(type) },
+      ...(this.canEditType() ? [{ label: 'Chỉnh sửa', title:'Chỉnh sửa', icon: 'pi pi-pencil color-blue', command: () => this.onEditType(type) }] : []),
+      ...(this.canManageType() ? [{ label: type.status === 1 ? 'Khóa' : 'Mở khóa', title: type.status === 1 ? 'Khóa' : 'Mở khóa', icon: type.status === 1 ? 'pi pi-lock color-red' : 'pi pi-lock-open color-teal', command: () => this.onToggleTypeStatusRequest(type) }] : []),
+      ...(this.canDeleteType() ? [{ label: 'Xóa', title:'Xóa', icon: 'pi pi-trash color-red', command: () => this.onDeleteType(type) }] : []),
+    ];
+    menu.toggle(event);
+  }
+
+  openCatalogMenu(item: any, event: Event, menu: Menu): void {
+    event.stopPropagation();
+    this.actionMenuItems = [
+      { label: 'Xem chi tiết', title:'Xem chi tiết', icon: 'pi pi-eye color-teal', command: () => this.onViewCatalog(item) },
+      ...(this.canEditCatalog() ? [{ label: 'Chỉnh sửa', title:'Chỉnh sửa', icon: 'pi pi-pencil color-blue', command: () => this.onEditCatalog(item) }] : []),
+      ...(this.canManageCatalog() ? [{ label: item.status === 1 ? 'Khóa' : 'Mở khóa', title: item.status === 1 ? 'Khóa' : 'Mở khóa', icon: item.status === 1 ? 'pi pi-lock color-red' : 'pi pi-lock-open color-teal', command: () => this.onToggleCatalogStatusRequest(item) }] : []),
+      ...(this.canDeleteCatalog() ? [{ label: 'Xóa', title:'Xóa', icon: 'pi pi-trash color-red', command: () => this.onDeleteCatalog(item) }] : []),
+    ];
+    menu.toggle(event);
+  }
   // ─── LEFT PANEL: CATALOG TYPES ─────────────────────────────
 
   loadCatalogTypes(callback?: () => void) {

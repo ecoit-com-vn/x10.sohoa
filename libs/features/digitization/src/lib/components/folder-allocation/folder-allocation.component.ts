@@ -4,7 +4,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ToastModule } from 'primeng/toast';
 import { DialogModule } from 'primeng/dialog';
-import { MessageService } from 'primeng/api';
+import { MenuItem, MessageService } from 'primeng/api';
+import { Menu, MenuModule } from 'primeng/menu';
 import { finalize } from 'rxjs';
 import { FolderAllocationService, FolderAllocationItem } from '../../data-access/folder-allocation.service';
 import { FolderAllocationDialogComponent } from './folder-allocation-dialog.component';
@@ -18,6 +19,7 @@ import { AuthService } from '@sohoa.frontend/shared/core';
     FormsModule, 
     ToastModule,
     DialogModule,
+    MenuModule,
     FolderAllocationDialogComponent,
     WfBreadcrumbComponent,
   ],
@@ -49,6 +51,9 @@ export class FolderAllocationComponent implements OnInit {
 
   dialogVisible = signal<boolean>(false);
   editingId = signal<string | null>(null);
+
+  actionMenuItems: MenuItem[] = [];
+  selectedActionItem: FolderAllocationItem | null = null;
 
   totalPages = computed(() => Math.ceil(this.totalCount() / this.pageSize()));
 
@@ -104,6 +109,27 @@ export class FolderAllocationComponent implements OnInit {
   openEdit(item: FolderAllocationItem): void {
     this.editingId.set(item.id);
     this.dialogVisible.set(true);
+  }
+
+  openActionMenu(item: FolderAllocationItem, event: MouseEvent, menu: Menu): void {
+    this.selectedActionItem = item;
+    const canManage = this.authService.hasPermission('FOLDER_ALLOCATION_EDIT')
+      || this.authService.hasPermission('FOLDER_ALLOCATION_MANAGE');
+    const items: MenuItem[] = [];
+
+    if (canManage) {
+      items.push({ label: 'Chỉnh sửa phân bổ', title: 'Chỉnh sửa phân bổ', icon: 'pi pi-pencil color-blue', command: () => this.openEdit(item) });
+    }
+    if (item.status === 'Active' && canManage) {
+      items.push({ label: 'Thu hồi quyền phân bổ', title: 'Thu hồi quyền phân bổ', icon: 'pi pi-ban color-teal', command: () => this.onRevoke(item) });
+    }
+    if (this.authService.hasPermission('FOLDER_ALLOCATION_DELETE')
+      || this.authService.hasPermission('FOLDER_ALLOCATION_MANAGE')) {
+      items.push({ label: 'Xóa phân bổ', title: 'Xóa phân bổ', icon: 'pi pi-trash color-red', command: () => this.onDelete(item) });
+    }
+
+    this.actionMenuItems = items;
+    menu.toggle(event);
   }
 
   onRevoke(item: FolderAllocationItem): void {

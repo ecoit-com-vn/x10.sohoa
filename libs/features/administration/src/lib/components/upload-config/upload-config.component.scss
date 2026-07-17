@@ -8,4 +8,11 @@
       background-size: 200% 100%;
       animation: shimmer 1.5s infinite;
     }
-  
+
+    .upload-config-actions > .act-btn:not(.act-more) {
+      display: none;
+    }
+
+    .col-hd > .act-btn {
+      display: none;
+    }

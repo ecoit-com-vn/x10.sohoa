@@ -75,6 +75,11 @@ export interface DocumentVersion {
 export interface DocumentFilter {
   folderId?: string | null;
   keyword?: string;
+  createdBy?: string;
+  startDate?: string;
+  endDate?: string;
+  sortField?: string;
+  sortOrder?: string;
   page?: number;
   pageSize?: number;
 }

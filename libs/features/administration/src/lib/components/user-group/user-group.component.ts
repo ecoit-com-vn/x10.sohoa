@@ -7,7 +7,8 @@ import { HttpClient } from '@angular/common/http';
 import { DialogModule } from 'primeng/dialog';
 import { ToastModule } from 'primeng/toast';
 import { PickListModule } from 'primeng/picklist';
-import { MessageService, ConfirmationService } from 'primeng/api';
+import { Menu, MenuModule } from 'primeng/menu';
+import { MenuItem, MessageService, ConfirmationService } from 'primeng/api';
 import { environment } from '@env/environment';
 import { finalize } from 'rxjs';
 import { AuthService } from '@sohoa.frontend/shared/core';
@@ -15,7 +16,7 @@ import { AuthService } from '@sohoa.frontend/shared/core';
 @Component({
   selector: 'app-user-group',
   standalone: true,
-  imports: [CommonModule, FormsModule, DialogModule, ToastModule, PickListModule, WfBreadcrumbComponent],
+  imports: [CommonModule, FormsModule, DialogModule, ToastModule, PickListModule, MenuModule, WfBreadcrumbComponent],
   providers: [MessageService],
   templateUrl: './user-group.component.html',
   styleUrl: './user-group.component.scss'
@@ -117,7 +118,7 @@ export class UserGroupComponent implements OnInit {
     this.currentPage.set(1);
   }
 
-  activeDropdownGroupId = signal<string | null>(null);
+  actionMenuItems: MenuItem[] = [];
 
   constructor(
     private http: HttpClient,
@@ -125,11 +126,6 @@ export class UserGroupComponent implements OnInit {
     private confirmationService: ConfirmationService,
     public authService: AuthService
   ) {
-    if (typeof window !== 'undefined') {
-      window.addEventListener('click', () => {
-        this.activeDropdownGroupId.set(null);
-      });
-    }
     effect(() => {
       this.searchKeyword();
       this.searchStatus();
@@ -145,13 +141,19 @@ export class UserGroupComponent implements OnInit {
     }, { allowSignalWrites: true });
   }
 
-  toggleDropdown(groupId: string, event: Event) {
+  openActionMenu(group: any, event: Event, menu: Menu): void {
     event.stopPropagation();
-    if (this.activeDropdownGroupId() === groupId) {
-      this.activeDropdownGroupId.set(null);
-    } else {
-      this.activeDropdownGroupId.set(groupId);
-    }
+    this.actionMenuItems = [
+      ...(this.authService.hasPermission('USER_GROUP_MANAGE') ? [
+        { label: 'Thành viên', title:'Thành viên', icon: 'pi pi-users color-blue', command: () => this.onManageMembers(group) },
+        { label: 'Vai trò', title:'Vai trò', icon: 'pi pi-shield', command: () => this.onManageRoles(group) },
+        { label: 'Phân quyền trực tiếp', title: 'Phân quyền trực tiếp', icon: 'pi pi-key color-blue', command: () => this.onManagePermissions(group) },
+      ] : []),
+      ...(this.authService.hasPermission('USER_GROUP_EDIT') ? [{ label: 'Chỉnh sửa', title:'Chỉnh sửa', icon: 'pi pi-pencil color-teal', command: () => this.onEdit(group) }] : []),
+      ...(this.authService.hasPermission('USER_GROUP_EDIT') ? [{ label: group.isActive ? 'Khóa nhóm' : 'Mở khóa', title: group.isActive ? 'Khóa nhóm' : 'Mở khóa', icon: group.isActive ? 'pi pi-lock color-red' : 'pi pi-lock-open color-teal', command: () => this.onToggleStatusRequest(group) }] : []),
+      ...(this.authService.hasPermission('USER_GROUP_DELETE') ? [{ label: 'Xóa', title:'Xóa', icon: 'pi pi-trash color-red', command: () => this.onDelete(group) }] : []),
+    ];
+    menu.toggle(event);
   }
 
   ngOnInit() {

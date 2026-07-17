@@ -245,11 +245,12 @@
               <td class="col-hd">
                 <div class="action-buttons-group">
                   <button
-                    class="act-btn"
-                    title="Xem chi tiết hồ sơ"
-                    (click)="onViewDossierDetail(item)"
+                    type="button"
+                    class="act-btn act-more"
+                    title="Thao tác"
+                    (click)="openActionMenu(item, $event, actionMenu)"
                   >
-                    <i class="pi pi-eye"></i>
+                    <i class="pi pi-ellipsis-h"></i>
                   </button>
                 </div>
               </td>
@@ -292,4 +293,12 @@
     [visible]="showViewDocument()"
     (visibleChange)="showViewDocument.set($event)"
   ></app-dossier-document-edit-dialog>
+
+  <p-menu
+    #actionMenu
+    [model]="actionMenuItems"
+    [popup]="true"
+    appendTo="body"
+    styleClass="row-action-menu">
+  </p-menu>
 </div>

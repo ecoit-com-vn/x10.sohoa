@@ -4,7 +4,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DialogModule } from 'primeng/dialog';
 import { ToastModule } from 'primeng/toast';
-import { MessageService, ConfirmationService } from 'primeng/api';
+import { Menu, MenuModule } from 'primeng/menu';
+import { MenuItem, MessageService, ConfirmationService } from 'primeng/api';
 import { finalize } from 'rxjs';
 import { AuthService, MenuService } from '@sohoa.frontend/shared/core';
 import {
@@ -17,7 +18,7 @@ import {
 @Component({
   selector: 'app-menu-management',
   standalone: true,
-  imports: [CommonModule, FormsModule, DialogModule, ToastModule, WfBreadcrumbComponent],
+  imports: [CommonModule, FormsModule, DialogModule, ToastModule, MenuModule, WfBreadcrumbComponent],
   providers: [MessageService],
   templateUrl: './menu-management.component.html',
   styleUrl: './menu-management.component.scss'
@@ -35,6 +36,7 @@ export class MenuManagement implements OnInit {
 
   loading = signal<boolean>(false);
   saving = signal<boolean>(false);
+  actionMenuItems: MenuItem[] = [];
 
   formSubmitted = signal<boolean>(false);
   serverErrors = signal<any>({});
@@ -71,6 +73,17 @@ export class MenuManagement implements OnInit {
   ngOnInit() {
     this.loadMenus();
     this.loadPermissions();
+  }
+
+  openActionMenu(menuItem: any, event: Event, menu: Menu): void {
+    event.stopPropagation();
+    this.actionMenuItems = [
+      ...(this.authService.hasPermission('MENU_CREATE') ? [{ label: 'Thêm menu con', title: 'Thêm menu con', icon: 'pi pi-plus', command: () => this.onAddNew(menuItem.id) }] : []),
+      ...(this.authService.hasPermission('MENU_EDIT') ? [{ label: menuItem.isActive ? 'Khóa menu' : 'Mở khóa menu', title: menuItem.isActive ? 'Khóa menu' : 'Mở khóa menu' ,icon: menuItem.isActive ? 'pi pi-lock color-red' : 'pi pi-lock-open color-teal', command: () => this.onToggleStatusRequest(menuItem) }] : []),
+      ...(this.authService.hasPermission('MENU_EDIT') ? [{ label: 'Chỉnh sửa', title: 'Chỉnh sửa' ,icon: 'pi pi-pencil color-blue', command: () => this.onEdit(menuItem) }] : []),
+      ...(this.authService.hasPermission('MENU_DELETE') ? [{ label: 'Xóa', title: 'Xóa' ,icon: 'pi pi-trash color-red', command: () => this.onDelete(menuItem) }] : []),
+    ];
+    menu.toggle(event);
   }
 
   loadMenus() {
