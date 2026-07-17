@@ -74,26 +74,8 @@
                 </span>
               </td>
               <td class="col-hd">
-                <button class="act-btn act-preview" (click)="onPreview(form)" title="Xem trước">
-                  <i class="pi pi-eye"></i>
-                </button>
-                <button class="act-btn btn-view-history" (click)="viewVersions(form)" title="Lịch sử phiên bản">
-                  <i class="pi pi-history"></i>
-                </button>
-                <button class="act-btn act-edit"
-                  *ngIf="canEdit() && form.status !== 'Chờ duyệt' && form.status !== 'Hoàn thành'"
-                  (click)="onEdit(form)" title="Chỉnh sửa">
-                  <i class="pi pi-pencil"></i>
-                </button>
-                <button class="act-btn act-submit"
-                  *ngIf="canSubmit() && (form.status === 'Tạo mới' || !form.status || form.status === 'Từ chối')"
-                  (click)="submitForm(form)" title="Gửi duyệt">
-                  <i class="pi pi-send"></i>
-                </button>
-                <button class="act-btn act-delete"
-                  *ngIf="canDelete() && form.status !== 'Chờ duyệt' && form.status !== 'Hoàn thành'"
-                  (click)="deactivateForm(form)" title="Xóa form">
-                  <i class="pi pi-trash"></i>
+                <button type="button" class="act-btn act-more" (click)="openActionMenu(form, $event, actionMenu)" title="Thao tác khác">
+                  <i class="pi pi-ellipsis-h"></i>
                 </button>
               </td>
             </tr>
@@ -106,6 +88,8 @@
           </tbody>
         </table>
       </div>
+
+      <p-menu #actionMenu [model]="actionMenuItems" [popup]="true" appendTo="body" styleClass="row-action-menu"></p-menu>
 
       <!-- Footer / Paginator -->
       <div class="table-footer-paginator" *ngIf="filteredForms().length > 0">
@@ -536,8 +520,7 @@
             </div>
             <div>
               <label class="metadata-field-label">Ngày tạo: </label>
-              <div class="metadata-field-value">{{ targetForm?.createdAt ? (targetForm?.createdAt | date:'dd/MM/yyyy
-                HH:mm') : ('--/--/----') }}</div>
+              <div class="metadata-field-value">{{ targetForm?.createdAt ? (targetForm?.createdAt | date:'dd/MM/yyyy HH:mm') : ('--/--/----') }}</div>
             </div>
             <div>
               <label class="metadata-field-label">Vị trí bóc tách: </label>

@@ -60,6 +60,10 @@
       white-space: nowrap;
     }
 
+    .system-permission-actions + .action-buttons-group > .act-btn {
+      display: none;
+    }
+
     .permission-tab-content,
     .accounts-tab-content {
       min-height: 320px;

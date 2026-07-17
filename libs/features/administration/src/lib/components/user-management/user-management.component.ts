@@ -4,7 +4,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DialogModule } from 'primeng/dialog';
 import { ToastModule } from 'primeng/toast';
-import { MessageService } from 'primeng/api';
+import { Menu, MenuModule } from 'primeng/menu';
+import { MenuItem, MessageService } from 'primeng/api';
 import { UserService } from '../../services/user.service';
 import { finalize } from 'rxjs';
 import { AuthService } from '@sohoa.frontend/shared/core';
@@ -13,7 +14,7 @@ import { buildMenuPermissionTree as buildMenuPermissionTreeFromLookup } from '..
 @Component({
   selector: 'app-user-management',
   standalone: true,
-  imports: [CommonModule, FormsModule, DialogModule, ToastModule, WfBreadcrumbComponent, EcoInputTreeSelectComponent],
+  imports: [CommonModule, FormsModule, DialogModule, ToastModule, MenuModule, WfBreadcrumbComponent, EcoInputTreeSelectComponent],
   providers: [MessageService],
   templateUrl: './user-management.component.html',
   styleUrl: './user-management.component.scss'
@@ -138,7 +139,7 @@ export class UserManagement implements OnInit {
   selectedRoleIds = signal<number[]>([]);
   savingRoles = signal<boolean>(false);
 
-  activeDropdownUserId = signal<string | null>(null);
+  actionMenuItems: MenuItem[] = [];
 
   constructor() {
     effect(() => {
@@ -157,21 +158,21 @@ export class UserManagement implements OnInit {
       this.loadUsers();
     }, { allowSignalWrites: true });
 
-    if (typeof window !== 'undefined') {
-      window.addEventListener('click', () => {
-        this.activeDropdownUserId.set(null);
-        this.rolesDropdownOpen.set(false);
-      });
-    }
   }
 
-  toggleDropdown(userId: string, event: Event) {
+  openActionMenu(user: any, event: Event, menu: Menu): void {
     event.stopPropagation();
-    if (this.activeDropdownUserId() === userId) {
-      this.activeDropdownUserId.set(null);
-    } else {
-      this.activeDropdownUserId.set(userId);
-    }
+    this.actionMenuItems = [
+      ...(this.authService.hasPermission('USER_MANAGE') ? [
+        { label: 'Quyền theo đơn vị', title: 'Quyền theo đơn vị', icon: 'pi pi-sitemap', command: () => this.onManageUnitRoles(user) },
+        { label: 'Gán vai trò trực tiếp', title: 'Gán vai trò trực tiếp', icon: 'pi pi-shield', command: () => this.onManageRoles(user) },
+      ] : []),
+      ...(this.authService.hasPermission('USER_MANAGE') || this.authService.hasPermission('PERMISSION_MANAGE') ? [{ label: 'Phân quyền trực tiếp', title: 'Phân quyền trực tiếp', icon: 'pi pi-key color-blue', command: () => this.onManagePermissions(user) }] : []),
+      ...(this.authService.hasPermission('USER_EDIT') ? [{ label: 'Chỉnh sửa', title: 'Chỉnh sửa', icon: 'pi pi-pencil color-teal', command: () => this.onEdit(user) }] : []),
+      ...(this.authService.hasPermission('USER_EDIT') ? [{ label: user.isActive ? 'Khóa tài khoản' : 'Mở khóa tài khoản', title: user.isActive ? 'Khóa tài khoản' : 'Mở khóa tài khoản', icon: user.isActive ? 'pi pi-lock color-red' : 'pi pi-lock-open color-teal', command: () => this.onToggleStatusRequest(user) }] : []),
+      ...(this.authService.hasPermission('USER_DELETE') ? [{ label: 'Xóa', title: 'Xóa', icon: 'pi pi-trash color-red', command: () => this.onDelete(user) }] : []),
+    ];
+    menu.toggle(event);
   }
 
   private userService = inject(UserService);

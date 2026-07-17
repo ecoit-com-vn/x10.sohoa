@@ -235,44 +235,10 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
 
                 <td class="col-hd">
 
-                  <div class="action-buttons-group">
-
-                    <button (click)="onViewDetail(item.id)" class="act-btn act-assign" title="Chi tiết">
-
-                      <i class="pi pi-eye"></i>
-
-                    </button>
-
-                    <button *ngIf="canEditItem(item)" (click)="onEdit(item.id)" class="act-btn act-edit" title="Sửa thông tin">
-
-                      <i class="pi pi-pencil"></i>
-
-                    </button>
-
-                    <!-- Creator tab draft buttons -->
-                    <ng-container *ngIf="isCreatorMenu() && activeTab() === 'draft'">
-                      <!-- Hoàn thành nhập liệu cho Tạo mới (statusId === 1) -->
-                      <button *ngIf="item.statusId === 1" (click)="onQuickCompleteInput(item)" class="act-btn act-edit" title="Hoàn thành nhập liệu" style="background-color: #f0fdf4; color: #16a34a; border-color: #bbf7d0;">
-                        <i class="pi pi-check-circle"></i>
-                      </button>
-                      <!-- Gửi duyệt cho Hoàn thành (statusId === 2) -->
-                      <button *ngIf="item.statusId === 2" (click)="onQuickSubmitForApproval(item)" class="act-btn act-assign" title="Gửi duyệt" style="background-color: #f0f9ff; color: #0284c7; border-color: #bae6fd;">
-                        <i class="pi pi-send"></i>
-                      </button>
-                    </ng-container>
-
-                    <!-- Thao tác nhanh (Quick Actions) dạng dropdown -->
-                    <div *ngIf="checkQuickActionPermission(item)" style="display: inline-flex; justify-content: center; align-items: center;">
-                      <button (click)="openQuickActionMenu($event, item, actionMenu)" class="act-btn act-assign" title="Thao tác nhanh">
-                        <i class="pi pi-chevron-down"></i>
-                      </button>
-                    </div>
-
-                    <button *ngIf="isCreatorMenu() && (item.statusId === 1 || item.statusId === 2 || !item.workflowInstanceId)" (click)="onDelete(item)" class="act-btn act-delete" title="Xóa">
-                      <i class="pi pi-trash"></i>
-                    </button>
-
-                  </div>
+                  <button type="button" class="act-btn act-more" title="Thao tác khác"
+                    (click)="openRowActionMenu($event, item, rowActionMenu)">
+                    <i class="pi pi-ellipsis-h"></i>
+                  </button>
 
                 </td>
 
@@ -314,6 +280,7 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
 
     </div>
 
+    <p-menu #rowActionMenu [model]="rowActionMenuItems" [popup]="true" appendTo="body" styleClass="row-action-menu"></p-menu>
     <p-menu #actionMenu [model]="quickActionMenuItems" [popup]="true" appendTo="body" styleClass="quick-action-menu"></p-menu>
 
     <p-dialog
@@ -1308,6 +1275,37 @@ export class DossierListComponent implements OnInit {
   }
 
   quickActionMenuItems: MenuItem[] = [];
+  rowActionMenuItems: MenuItem[] = [];
+
+  openRowActionMenu(event: Event, item: any, menu: any): void {
+    event.stopPropagation();
+    const actions: MenuItem[] = [
+      { label: 'Chi tiết', title: 'Chi tiết', icon: 'pi pi-eye color-teal', command: () => this.onViewDetail(item.id) },
+      ...(this.canEditItem(item) ? [{ label: 'Sửa thông tin', title: 'Sửa thông tin', icon: 'pi pi-pencil color-blue', command: () => this.onEdit(item.id) }] : []),
+      ...(this.isCreatorMenu() && this.activeTab() === 'draft' && item.statusId === 1
+        ? [{ label: 'Hoàn thành nhập liệu', title: 'Hoàn thành nhập liệu', icon: 'pi pi-check-circle color-teal', command: () => this.onQuickCompleteInput(item) }]
+        : []),
+      ...(this.isCreatorMenu() && this.activeTab() === 'draft' && item.statusId === 2
+        ? [{ label: 'Gửi duyệt', title: 'Gửi duyệt', icon: 'pi pi-send color-blue', command: () => this.onQuickSubmitForApproval(item) }]
+        : []),
+      ...(this.checkQuickActionPermission(item)
+        ? sortWorkflowActionsRejectLast(this.getItemAvailableActions(item)).map((act: any) => {
+            const isReject = isRejectWorkflowAction(act);
+            return {
+              label: act.name,
+              title: isReject ? 'Từ chối hồ sơ' : 'Duyệt hồ sơ',
+              icon: isReject ? 'pi pi-times-circle color-red' : 'pi pi-check-circle color-teal',
+              command: () => this.openQuickActionDialog(item, act),
+            };
+          })
+        : []),
+      ...(this.isCreatorMenu() && (item.statusId === 1 || item.statusId === 2 || !item.workflowInstanceId)
+        ? [{ label: 'Xóa', title: 'Xóa', icon: 'pi pi-trash color-red', command: () => this.onDelete(item) }]
+        : []),
+    ];
+    this.rowActionMenuItems = actions;
+    menu.toggle(event);
+  }
 
   openQuickActionMenu(event: Event, item: any, menu: any) {
     event.stopPropagation();

@@ -69,6 +69,11 @@
                   </span>
                 </td>
                 <td class="col-hd">
+                  <div class="action-buttons-group dropdown-actions-container system-permission-actions" (click)="$event.stopPropagation()">
+                    <button type="button" class="act-btn act-more" title="Thao tác khác" (click)="openActionMenu(role, $event, actionMenu)">
+                      <i class="pi pi-ellipsis-h"></i>
+                    </button>
+                  </div>
                   <div class="action-buttons-group">
                     <button *ngIf="authService.hasPermission('SYSTEM_PERMISSION_GROUP_MANAGE') || authService.hasPermission('PERMISSION_MANAGE')" class="act-btn act-assign" (click)="onAssignPermissions(role)" title="Phân quyền">
                       <i class="pi pi-shield"></i>
@@ -122,6 +127,8 @@
         </div>
       </div>
     </div>
+
+    <p-menu #actionMenu [model]="actionMenuItems" [popup]="true" appendTo="body" styleClass="row-action-menu"></p-menu>
 
     <!-- Dialog Thêm/Sửa Nhóm quyền -->
     <p-dialog [visible]="currentView() === 'add' || currentView() === 'edit'" (visibleChange)="$event ? null : currentView.set('list')" [header]="dialogHeader()" [modal]="true" [style]="{ width: '500px' }" styleClass="evn-dialog-custom">

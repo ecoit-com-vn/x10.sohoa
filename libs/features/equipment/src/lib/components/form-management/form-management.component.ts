@@ -4,7 +4,8 @@ import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ToastModule } from 'primeng/toast';
-import { MessageService } from 'primeng/api';
+import { Menu, MenuModule } from 'primeng/menu';
+import { MenuItem, MessageService } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { Select } from 'primeng/select';
@@ -55,6 +56,7 @@ interface ToolboxItem {
     CommonModule,
     FormsModule,
     ToastModule,
+    MenuModule,
     ButtonModule,
     InputTextModule,
     Select,
@@ -94,6 +96,7 @@ export class FormManagementComponent implements OnInit {
   forms = signal<EavFormTemplate[]>([]);
   searchKeyword = signal<string>('');
   loading = signal<boolean>(false);
+  actionMenuItems: MenuItem[] = [];
 
   // Active builder/preview states
   templateId = signal<string | null>(null);
@@ -224,6 +227,21 @@ export class FormManagementComponent implements OnInit {
   canEdit = computed(() => canEditForm(this.authService));
   canSubmit = computed(() => canSubmitForm(this.authService));
   canDelete = computed(() => canDeleteForm(this.authService));
+
+  openActionMenu(form: EavFormTemplate, event: Event, menu: Menu): void {
+    event.stopPropagation();
+    const isPending = form.status === 'Chờ duyệt';
+    const isCompleted = form.status === 'Hoàn thành';
+    const isNewOrRejected = form.status === 'Tạo mới' || !form.status || form.status === 'Từ chối';
+    this.actionMenuItems = [
+      { label: 'Xem trước', title: 'Xem trước', icon: 'pi pi-eye color-teal', command: () => this.onPreview(form) },
+      { label: 'Lịch sử phiên bản', title: 'Lịch sử phiên bản', icon: 'pi pi-history color-blue', command: () => this.viewVersions(form) },
+      ...(this.canEdit() && !isPending && !isCompleted ? [{ label: 'Chỉnh sửa', icon: 'pi pi-pencil color-blue', command: () => this.onEdit(form) }] : []),
+      ...(this.canSubmit() && isNewOrRejected ? [{ label: 'Gửi duyệt', icon: 'pi pi-send color-teal', command: () => this.submitForm(form) }] : []),
+      ...(this.canDelete() && !isPending && !isCompleted ? [{ label: 'Xóa form', icon: 'pi pi-trash color-red', command: () => this.deactivateForm(form) }] : []),
+    ];
+    menu.toggle(event);
+  }
 
   filteredForms = computed(() => {
     const keyword = this.searchKeyword().trim().toLowerCase();
