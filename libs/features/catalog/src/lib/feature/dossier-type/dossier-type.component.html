@@ -48,11 +48,11 @@
             <tr>
               <th class="col-stt">STT</th>
               <th>Mã loại hồ sơ</th>
-              <th>Tên loại hồ sơ</th>
-              <th>Biểu mẫu EAV liên kết</th>
+              <th style="width: 220px; text-align: center;">Tên loại hồ sơ</th>
+              <th style="width: 160px; text-align: center;">Biểu mẫu EAV liên kết</th>
               <th>Loại tài liệu liên kết</th>
               <th style="width: 100px; text-align: center;">Thứ tự</th>
-              <th>Trạng thái</th>
+              <th style="width: 160px; text-align: center;">Trạng thái</th>
               <th class="col-hd">Thao tác</th>
             </tr>
           </thead>
@@ -68,17 +68,16 @@
                   <b>{{ item.name }}</b>
                 </ng-template>
               </td>
-              <td>
+              <td style="text-align: center;">
                 <span *ngIf="item.formId">
                   {{ item.formName || 'Biểu mẫu: ' + item.formId }}
                 </span>
                 <span *ngIf="!item.formId">Không liên kết</span>
               </td>
               <td>
-                <span *ngIf="item.documentTypeNames" [title]="item.documentTypeNames" style="max-width: 220px; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                <span *ngIf="item.documentTypeNames" [title]="item.documentTypeNames">
                   {{ item.documentTypeNames }}
                 </span>
-                <span *ngIf="!item.documentTypeNames" class="text-muted" style="font-size: 0.85rem; font-style: italic;">Chưa cấu hình</span>
               </td>
               <td style="text-align: center;">{{ item.piority || 1 }}</td>
               <td>
