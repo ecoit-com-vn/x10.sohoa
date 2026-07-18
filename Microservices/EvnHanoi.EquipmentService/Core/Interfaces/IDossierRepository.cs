@@ -80,5 +80,6 @@ public interface IDossierRepository
 
     Task<EavFormTemplate?> GetEavFormTemplateAsync(Guid formId);
     Task<EavFormTemplate?> GetEavFormTemplateByDossierIdAsync(Guid dossierId);
+    Task<(IEnumerable<DossierListItemDto> Items, int TotalCount)> GetDraftPagedFromDbAsync(DossierFilterDto filter, string userId);
 }
 

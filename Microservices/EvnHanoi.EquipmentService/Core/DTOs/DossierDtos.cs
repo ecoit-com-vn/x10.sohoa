@@ -252,6 +252,9 @@ public class DossierFilterDto
     public Guid? DossierTypeId { get; set; }
     public int Page { get; set; } = 1;
     public int PageSize { get; set; } = 10;
+    public string? Tab { get; set; }
+    public string? MenuScope { get; set; }
+    public string? UserId { get; set; }
 }
 
 /// <summary>Bộ lọc chung cho tra cứu hồ sơ thiết bị (lookup + ES search).</summary>
