@@ -6,14 +6,14 @@
   </div>
   <div class="toolbar-right">
 <button id="btn-them" class="btn-green" (click)="onAddNew()"
-          *ngIf="authService.hasPermission('WORKFLOW_CREATE')">
+          *ngIf="authService.hasPermission('WORKFLOW_DEFINITION_CREATE')">
           <i class="pi pi-plus"></i> Thêm
         </button>
         <button id="btn-excel" class="btn-excel" (click)="onExportExcel()">
           <i class="pi pi-file-excel"></i> Excel
         </button>
         <button id="btn-xoa-nhieu" class="btn-outlined btn-xoa-outlined" [disabled]="selectedIds.length === 0"
-          (click)="onDeleteSelected()" *ngIf="authService.hasPermission('WORKFLOW_DELETE')">
+          (click)="onDeleteSelected()" *ngIf="authService.hasPermission('WORKFLOW_DEFINITION_DELETE')">
           <i class="pi pi-trash"></i> Xóa
         </button>
   </div>
@@ -103,9 +103,9 @@
             </td>
             <td class="col-stt text-muted">{{ (currentPage - 1) * pageSize + i + 1 }}</td>
             <td class="col-loai">
-              <span class="wf-name-link" *ngIf="authService.hasPermission('WORKFLOW_EDIT')" (click)="onEdit(wf)">{{
+              <span class="wf-name-link" *ngIf="authService.hasPermission('WORKFLOW_DEFINITION_EDIT')" (click)="onEdit(wf)">{{
                 wf.name }}</span>
-              <span *ngIf="!authService.hasPermission('WORKFLOW_EDIT')">{{ wf.name }}</span>
+              <span *ngIf="!authService.hasPermission('WORKFLOW_DEFINITION_EDIT')">{{ wf.name }}</span>
             </td>
             <td class="col-mota">
               <span class="mota-text" [title]="wf.description">{{ truncate(wf.description, 60) || '—' }}</span>
@@ -432,7 +432,7 @@
                   <button class="act-btn act-edit" (click)="onPreviewVersion(ver)" title="Xem sơ đồ quy trình">
                     <i class="pi pi-eye"></i>
                   </button>
-                  <button *ngIf="authService.hasPermission('WORKFLOW_EDIT') && !ver.isActive" class="act-btn act-unlock"
+                  <button *ngIf="authService.hasPermission('WORKFLOW_DEFINITION_EDIT') && !ver.isActive" class="act-btn act-unlock"
                     (click)="onReactivateVersion(ver)" title="Tái kích hoạt phiên bản">
                     <i class="pi pi-check-circle color-green"></i>
                   </button>
@@ -465,7 +465,6 @@
       <div id="preview-canvas" style="width: 100%; height: 100%; border: 1px solid #e2e8f0; border-radius: 6px;"></div>
     </div>
   </p-dialog>
-
   <!-- Dialog Xác nhận Xóa -->
   <p-dialog [visible]="showDeleteConfirm()" (visibleChange)="$event ? null : onCancelDelete()" header="Xác nhận xóa"
     [modal]="true" [style]="{ width: '420px' }" styleClass="evn-dialog-custom" appendTo="body" [closable]="!deleting()">

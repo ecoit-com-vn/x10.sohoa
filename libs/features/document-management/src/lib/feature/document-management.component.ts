@@ -68,7 +68,6 @@ export class DocumentManagementComponent implements OnInit {
   @ViewChild('folderNameInput') folderNameInput?: ElementRef<HTMLInputElement>;
   @ViewChild('uploadZone') uploadZone?: FileUploadZoneComponent;
   @ViewChild('scannerPanel') scannerPanel?: ScannerPanelComponent;
-  @ViewChild('docActionMenu') docActionMenu?: Menu;
 
   readonly UPLOAD_SOURCE = UPLOAD_SOURCE;
   scanInProgress = signal(false);
@@ -162,8 +161,6 @@ export class DocumentManagementComponent implements OnInit {
   loadingVersions = signal(false);
   rollingBack = signal(false);
   deletingVersion = signal(false);
-  docActionMenuItems = signal<MenuItem[]>([]);
-  activeDocument = signal<Document | null>(null);
 
   @ViewChild('documentNameInput') documentNameInput?: ElementRef<HTMLInputElement>;
 
@@ -580,6 +577,13 @@ export class DocumentManagementComponent implements OnInit {
           : 'pi pi-download color-blue',
         disabled: !doc.latestVersionId || this.isDownloadingDocument(doc.id),
         command: () => this.onDownloadDocument(doc),
+      },
+      {
+        label: 'Lịch sử phiên bản',
+        title: 'Lịch sử phiên bản',
+        icon: 'pi pi-history color-blue',
+        disabled: !doc.latestVersionId,
+        command: () => this.onViewHistory(doc),
       },
       {
         label: 'Xóa tài liệu',
@@ -1051,37 +1055,5 @@ export class DocumentManagementComponent implements OnInit {
     this.documentVersions.set([]);
     this.versionSearchQuery.set('');
     this.historyTargetDocument.set(null);
-  }
-
-  openDocumentMenu(doc: Document, event: Event) {
-    event.stopPropagation();
-    this.activeDocument.set(doc);
-
-    this.docActionMenuItems.set([
-      {
-        label: 'Tải tài liệu',
-        icon: 'pi pi-download',
-        disabled: !doc.latestVersionId || this.isDownloadingDocument(doc.id),
-        command: () => this.onDownloadDocument(doc)
-      },
-      {
-        label: 'Sửa tên',
-        icon: 'pi pi-pencil',
-        command: () => this.onEditDocument(doc)
-      },
-      {
-        label: 'Lịch sử phiên bản',
-        icon: 'pi pi-history',
-        command: () => this.onViewHistory(doc)
-      },
-      {
-        label: 'Xóa tài liệu',
-        icon: 'pi pi-trash',
-        styleClass: 'text-red-500',
-        command: () => this.onDeleteDocument(doc)
-      }
-    ]);
-
-    this.docActionMenu?.toggle(event);
   }
 }
