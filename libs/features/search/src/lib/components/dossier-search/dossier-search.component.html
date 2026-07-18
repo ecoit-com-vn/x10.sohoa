@@ -9,7 +9,7 @@
       <!-- Tiêu chí 1: Đơn vị quản lý -->
       <div class="search-form-item" style="display: flex; flex-direction: column; gap: 6px;">
         <label class="search-field-label">Đơn vị quản lý</label>
-        <select
+        <select 
           class="wf-select w-full"
           [ngModel]="selectedUnitId()"
           (ngModelChange)="onUnitChange($event)"
@@ -67,6 +67,7 @@
           />
         </div>
       </div>
+      
     </div>
   </div>
 

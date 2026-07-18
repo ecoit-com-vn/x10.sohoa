@@ -53,11 +53,6 @@
         <i class="pi pi-paperclip"></i>
         Tài liệu đính kèm
       </button>
-      <button type="button" class="tab-item" [class.tab-active]="activeTab() === 'related'"
-        (click)="activeTab.set('related')">
-        <i class="pi pi-file"></i>
-        Hồ sơ liên quan ({{ totalRelatedDossiers() }})
-      </button>
       <button type="button" *ngIf="isDetailTabVisible('versions')" class="tab-item"
         [class.tab-active]="activeTab() === 'versions'" (click)="activeTab.set('versions')">
         <i class="pi pi-history"></i>
@@ -181,87 +176,6 @@
           (formDataSaved)="loadDetail()"></app-dossier-documents-tab>
       </div>
 
-      <div *ngIf="activeTab() === 'related'" class="tab-pane-container animate-fade-in">
-        <div class="filters-card">
-          <div class="filter-item">
-            <span class="filter-label">Từ khóa</span>
-            <input type="text" class="wf-input" placeholder="Nhập từ khóa tìm kiếm" [(ngModel)]="filterKeyword"
-              (ngModelChange)="onRelatedFilterChange()">
-          </div>
-
-          <div class="filter-item">
-            <span class="filter-label">Thiết bị</span>
-            <select class="wf-select" [(ngModel)]="filterEquipmentId" (ngModelChange)="onRelatedFilterChange()">
-              <option value="">-- Chọn thiết bị --</option>
-              <option *ngFor="let eq of relatedEquipments()" [value]="eq.id || eq.equipmentId">{{ eq.name ||
-                eq.equipmentName }}</option>
-            </select>
-          </div>
-
-          <div class="filter-item">
-            <span class="filter-label">Loại hồ sơ</span>
-            <select class="wf-select" [(ngModel)]="filterDossierTypeId" (ngModelChange)="onRelatedFilterChange()">
-              <option value="">-- Chọn loại hồ sơ --</option>
-              <option *ngFor="let dt of dossierTypes()" [value]="dt.id">{{ dt.name }}</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="wf-table-wrap" [class.loading]="loadingRelated()">
-          <table class="wf-table">
-            <thead>
-              <tr>
-                <th class="col-stt">STT</th>
-                <th>Mã hồ sơ</th>
-                <th>Tiêu đề hồ sơ</th>
-                <th>Trạm/đường dây</th>
-                <th>Loại hồ sơ</th>
-                <th class="col-size" style="text-align: center;">Tài liệu</th>
-                <th class="col-action">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngIf="loadingRelated()">
-                <td colspan="7" class="empty-row" style="padding: 48px 0;">
-                  <i class="pi pi-spin pi-spinner" style="display: block; margin-bottom: 8px;"></i>
-                  <div>Đang tải hồ sơ liên quan...</div>
-                </td>
-              </tr>
-              <tr *ngFor="let rel of paginatedRelatedDossiers(); let i = index" [hidden]="loadingRelated()">
-                <td class="col-stt text-muted">{{ relatedFirst() + i + 1 }}</td>
-                <td>
-                  <span (click)="openRelatedDetail(rel)" class="wf-name-link">{{ rel.code || rel.id || '—' }}</span>
-                </td>
-                <td><b>{{ rel.title || rel.name }}</b></td>
-                <td>{{ rel.infrastructureName || '—' }}</td>
-                <td>{{ rel.dossierTypeName || '—' }}</td>
-                <td style="text-align: center;">{{ rel.documentCount ?? 0 }}</td>
-                <td class="col-action" style="text-align: center;">
-                  <button class="action-icon-btn" title="Xem chi tiết" (click)="openRelatedDetail(rel)">
-                    <i class="pi pi-eye"></i>
-                  </button>
-                </td>
-              </tr>
-              <tr *ngIf="!loadingRelated() && relatedDossiers().length === 0">
-                <td colspan="7" class="empty-row" style="padding: 48px 0;">
-                  <i class="pi pi-info-circle"></i>
-                  <div>Không có hồ sơ liên quan.</div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div class="table-footer-paginator" *ngIf="relatedDossiers().length > 0" style="padding: 12px 24px;">
-          <span class="record-count" style="color: #64748b;">
-            Hiển thị <b>{{ paginatedRelatedDossiers().length }}</b> trên tổng số <b>{{ relatedDossiers().length }}</b>
-            bản ghi
-          </span>
-          <p-paginator [first]="relatedFirst()" [rows]="relatedRows()" [totalRecords]="relatedDossiers().length"
-            [rowsPerPageOptions]="[5, 10, 20, 50]" (onPageChange)="onRelatedPageChange($event)">
-          </p-paginator>
-        </div>
-      </div>
 
       <div *ngIf="activeTab() === 'versions'">
         <app-dossier-versions-tab [dossierId]="dossierId" />
