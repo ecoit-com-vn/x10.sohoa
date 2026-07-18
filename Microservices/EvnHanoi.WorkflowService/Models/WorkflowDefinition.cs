@@ -33,6 +33,7 @@ namespace EvnHanoi.WorkflowService.Models
         public string? UpdatedByUsername { get; set; }
         public string? UpdatedByFullName { get; set; }
         public bool IsActive { get; set; } = true;
+        public bool IsDeleted { get; set; } = false;
 
         /// <summary>Định nghĩa sơ đồ quy trình dạng BPMN 2.0 XML</summary>
         public string? BpmnXml { get; set; } = string.Empty;

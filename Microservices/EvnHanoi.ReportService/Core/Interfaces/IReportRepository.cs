@@ -7,21 +7,19 @@ namespace EvnHanoi.ReportService.Core.Interfaces
 {
     public interface IReportRepository
     {
-        // Report Group
+        // System Report Group
         Task<IEnumerable<ReportGroup>> GetReportGroupsAsync();
         Task<ReportGroup?> GetReportGroupByIdAsync(long id);
-        Task<long> CreateReportGroupAsync(ReportGroup group);
-        Task<bool> UpdateReportGroupAsync(ReportGroup group);
+        Task<long> CreateReportGroupAsync(ReportGroup group, List<long> reportIds, List<long> unitIds);
+        Task<bool> UpdateReportGroupAsync(ReportGroup group, List<long> reportIds, List<long> unitIds);
         Task<bool> DeleteReportGroupAsync(long id);
 
-        // Dynamic Report
-        Task<IEnumerable<DynamicReport>> GetDynamicReportsByGroupIdAsync(long groupId);
-        Task<DynamicReport?> GetDynamicReportByIdAsync(long id);
-        Task<long> CreateDynamicReportAsync(DynamicReport report);
-        Task<bool> UpdateDynamicReportAsync(DynamicReport report);
-        Task<bool> DeleteDynamicReportAsync(long id);
+        // System Reports Lookup
+        Task<IEnumerable<Report>> GetSystemReportsAsync();
 
-        // Execute SQL Query
-        Task<IEnumerable<IDictionary<string, object>>> ExecuteDynamicQueryAsync(string sql, Dictionary<string, object>? parameters);
+        // Report Unit Publish
+        Task<IEnumerable<ReportUnitPublish>> GetReportUnitPublishesAsync(long unitId);
+        Task<bool> SaveReportUnitPublishAsync(long unitId, long reportId, int isPublish, List<long> roleIds, string? updatedBy);
+        Task<IEnumerable<Report>> GetPublishedReportsForUserAsync(long unitId, List<string> roleCodes);
     }
 }
