@@ -44,6 +44,10 @@ export class DocumentTypeComponent implements OnInit {
   deleteTarget = signal<any>(null);
   deleting = signal<boolean>(false);
 
+  showToggleConfirm = signal<boolean>(false);
+  toggleTarget = signal<any>(null);
+  toggling = signal<boolean>(false);
+
   codeError = computed(() => {
     if (this.formSubmitted() && !this.currentItem().code) return 'Mã loại văn bản là bắt buộc';
     return this.serverErrors().code || this.serverErrors().Code || '';
@@ -258,24 +262,42 @@ export class DocumentTypeComponent implements OnInit {
   }
 
   onToggleStatus(item: any) {
+    this.toggleTarget.set(item);
+    this.showToggleConfirm.set(true);
+  }
+
+  onConfirmToggle() {
+    const item = this.toggleTarget();
+    if (!item) return;
     const isLocking = item.isActive === 1 || item.isActive === true;
-    this.documentTypeService.toggleStatus(item.id, isLocking).subscribe({
-      next: (res) => {
-        this.messageService.add({
-          severity: 'success',
-          summary: 'Thành công',
-          detail: res.message || (isLocking ? 'Khóa thành công!' : 'Mở khóa thành công!')
-        });
-        this.loadItems();
-      },
-      error: (err) => {
-        this.messageService.add({
-          severity: 'error',
-          summary: 'Lỗi',
-          detail: err?.error?.message || 'Không thể cập nhật trạng thái loại văn bản.'
-        });
-      }
-    });
+    this.toggling.set(true);
+    this.documentTypeService.toggleStatus(item.id, isLocking)
+      .pipe(finalize(() => this.toggling.set(false)))
+      .subscribe({
+        next: (res) => {
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Thành công',
+            detail: res.message || (isLocking ? 'Khóa thành công!' : 'Mở khóa thành công!')
+          });
+          this.showToggleConfirm.set(false);
+          this.toggleTarget.set(null);
+          this.loadItems();
+        },
+        error: (err) => {
+          this.showToggleConfirm.set(false);
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi',
+            detail: err?.error?.message || 'Không thể cập nhật trạng thái loại văn bản.'
+          });
+        }
+      });
+  }
+
+  onCancelToggle() {
+    this.showToggleConfirm.set(false);
+    this.toggleTarget.set(null);
   }
 
   onDelete(item: any) {
