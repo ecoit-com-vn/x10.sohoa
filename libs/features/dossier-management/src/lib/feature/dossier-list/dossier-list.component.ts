@@ -128,13 +128,16 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
         </div>
 
         <div class="toolbar-right" *ngIf="isCreatorMenu() && activeTab() === 'draft' && canCreateDossier()">
-
-          <button (click)="onCreateNew()" class="btn-green">
-
-            <i class="pi pi-plus"></i> Tạo hồ sơ mới
-
+          <input type="file" #fileInput style="display: none;" (change)="onFileSelected($event)" accept=".xlsx" />
+          <button (click)="onExportTemplate()" class="btn-outlined" style="margin-right: 8px;">
+            <i class="pi pi-download"></i> Xuất mẫu import
           </button>
-
+          <button (click)="fileInput.click()" class="btn-outlined" style="margin-right: 8px;">
+            <i class="pi pi-upload"></i> Import
+          </button>
+          <button (click)="onCreateNew()" class="btn-green">
+            <i class="pi pi-plus"></i> Tạo hồ sơ mới
+          </button>
         </div>
 
       </div>
@@ -473,6 +476,73 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
       </ng-template>
     </p-dialog>
 
+    <!-- Dialog hiển thị kết quả import -->
+    <p-dialog
+      [visible]="showImportResultDialog()"
+      (visibleChange)="$event ? null : closeImportResultDialog()"
+      header="Kết quả import hồ sơ"
+      [modal]="true"
+      [style]="{ width: '650px' }"
+      styleClass="evn-dialog-custom"
+      [closable]="true">
+      <div style="display: flex; flex-direction: column; gap: 16px; padding: 4px 0 8px;">
+        <div *ngIf="importResult()?.successDossiers?.length" class="import-section">
+          <h4 style="color: #16a34a; margin-top: 0; display: flex; align-items: center; gap: 6px;">
+            <i class="pi pi-check-circle"></i>
+            Thành công ({{ importResult()?.successDossiers?.length }} dòng)
+          </h4>
+          <div style="max-height: 150px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 4px; padding: 8px;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.875rem;">
+              <thead>
+                <tr style="border-bottom: 1px solid #cbd5e1; text-align: left; color: #475569;">
+                  <th style="padding: 4px;">STT</th>
+                  <th style="padding: 4px;">Nhóm hồ sơ</th>
+                  <th style="padding: 4px;">Mã trạm/đường dây</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let row of importResult()?.successDossiers" style="border-bottom: 1px solid #f1f5f9;">
+                  <td style="padding: 4px; font-weight: bold;">{{ row.stt || row.STT }}</td>
+                  <td style="padding: 4px;">{{ row.dossierGroupName }}</td>
+                  <td style="padding: 4px;">{{ row.infrastructureCode }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div *ngIf="importResult()?.failedDossiers?.length" class="import-section">
+          <h4 style="color: #dc2626; margin-top: 0; display: flex; align-items: center; gap: 6px;">
+            <i class="pi pi-times-circle"></i>
+            Thất bại ({{ importResult()?.failedDossiers?.length }} dòng)
+          </h4>
+          <div style="max-height: 200px; overflow-y: auto; border: 1px solid #fecaca; border-radius: 4px; padding: 8px; background-color: #fef2f2;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.875rem;">
+              <thead>
+                <tr style="border-bottom: 1px solid #fca5a5; text-align: left; color: #7f1d1d;">
+                  <th style="padding: 4px; width: 60px;">STT</th>
+                  <th style="padding: 4px; width: 150px;">Nhóm hồ sơ</th>
+                  <th style="padding: 4px; width: 120px;">Mã trạm/ĐD</th>
+                  <th style="padding: 4px;">Lý do lỗi</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let row of importResult()?.failedDossiers" style="border-bottom: 1px solid #fee2e2;">
+                  <td style="padding: 4px; font-weight: bold; color: #b91c1c;">{{ row.stt || row.STT || 'Dòng ' + row.rowIndex }}</td>
+                  <td style="padding: 4px; color: #7f1d1d;">{{ row.dossierGroupName }}</td>
+                  <td style="padding: 4px; color: #7f1d1d;">{{ row.infrastructureCode }}</td>
+                  <td style="padding: 4px; color: #dc2626;">{{ row.errorMessage }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <ng-template #footer>
+        <button class="btn-cancel btn-small" (click)="closeImportResultDialog()">Đóng</button>
+      </ng-template>
+    </p-dialog>
+
   `,
 
   styles: [`
@@ -629,6 +699,8 @@ export class DossierListComponent implements OnInit {
 
 
   showDeleteConfirm = signal<boolean>(false);
+  showImportResultDialog = signal<boolean>(false);
+  importResult = signal<any>(null);
 
   deleteTarget = signal<any>(null);
 
@@ -875,7 +947,15 @@ export class DossierListComponent implements OnInit {
         this.items.set(res.items || []);
         this.totalCount.set(res.totalCount || 0);
         this.loading.set(false);
-
+        if (filter.tab === 'draft') {
+          const counts = this.tabCounts();
+          if (counts) {
+            this.tabCounts.set({
+              ...counts,
+              draft: res.totalCount || 0
+            });
+          }
+        }
       },
 
       error: () => {
@@ -1048,6 +1128,63 @@ export class DossierListComponent implements OnInit {
 
     this.edit.emit(id);
 
+  }
+
+  onExportTemplate() {
+    this.service.downloadImportTemplate().subscribe({
+      next: (blob) => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Mau_Import_Ho_So_${new Date().getTime()}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Tải file mẫu thành công' });
+      },
+      error: (err) => {
+        this.messageService.add({ severity: 'error', summary: 'Thất bại', detail: 'Không thể tải file mẫu. ' + (err?.error?.message || err?.message || '') });
+      }
+    });
+  }
+
+  onFileSelected(event: any) {
+    const file = event.target?.files?.[0];
+    if (!file) return;
+
+    this.loading.set(true);
+    this.service.importDossiers(file).pipe(
+      finalize(() => {
+        this.loading.set(false);
+        if (event.target) {
+          event.target.value = '';
+        }
+      })
+    ).subscribe({
+      next: (res) => {
+        this.importResult.set(res);
+        this.showImportResultDialog.set(true);
+        this.refreshList();
+        this.messageService.add({
+          severity: 'info',
+          summary: 'Import kết thúc',
+          detail: `Thành công: ${res?.successDossiers?.length || 0}, Thất bại: ${res?.failedDossiers?.length || 0}`
+        });
+      },
+      error: (err) => {
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Lỗi import',
+          detail: err?.error?.message || err?.message || 'Có lỗi xảy ra trong quá trình tải tệp lên.'
+        });
+      }
+    });
+  }
+
+  closeImportResultDialog() {
+    this.showImportResultDialog.set(false);
+    this.importResult.set(null);
   }
 
 
