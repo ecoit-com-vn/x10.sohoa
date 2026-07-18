@@ -160,7 +160,7 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
 
   loading = signal<boolean>(true);
   submitting = signal<boolean>(false);
-  activeTab = signal<'info' | 'documents' | 'versions' | 'workflow' | 'related'>('info');
+  activeTab = signal<'info' | 'documents' | 'versions' | 'workflow'>('info');
   workflowRefreshToken = signal(0);
 
   dossier = signal<any>(null);

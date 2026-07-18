@@ -1,0 +1,13 @@
+/* sohoa.frontend/libs/features/reports/src/lib/components/report-group-detail/report-group-detail.component.scss */
+
+.evn-tab-btn {
+  border-bottom: 3px solid transparent;
+  &:hover {
+    color: #002D72 !important;
+    background-color: #f8fafc !important;
+  }
+  &.active {
+    color: #002D72 !important;
+    border-bottom-color: #002D72 !important;
+  }
+}

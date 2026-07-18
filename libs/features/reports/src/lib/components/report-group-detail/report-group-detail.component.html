@@ -1,0 +1,159 @@
+<!-- sohoa.frontend/libs/features/reports/src/lib/components/report-group-detail/report-group-detail.component.html -->
+<p-toast></p-toast>
+<div class="wf-page">
+  <wf-breadcrumb></wf-breadcrumb>
+
+  <div class="wf-card mt-3">
+    <!-- Toolbar Header -->
+    <div class="detail-header mb-4" style="border-bottom: 1px solid #f1f5f9; padding-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+      <h3 class="text-lg font-bold m-0" style="color: #002D72;">
+        <i class="pi pi-file-edit mr-2 text-xl" style="vertical-align: middle;"></i>
+        {{ isEdit() ? 'Thông Tin Chi Tiết Nhóm Báo Cáo' : 'Thêm Mới Nhóm Báo Cáo Hệ Thống' }}
+      </h3>
+      <div class="header-buttons" style="display: flex; gap: 8px;">
+        <button class="btn-outlined btn-small" (click)="goBack()">
+          <i class="pi pi-arrow-left mr-1"></i> Quay lại
+        </button>
+        <button 
+          class="btn-save btn-small" 
+          *ngIf="!isEdit() ? authService.hasPermission('REPORT_GROUP_CREATE') : authService.hasPermission('REPORT_GROUP_EDIT')"
+          [disabled]="saving() || loading()" 
+          (click)="saveGroup()">
+          <i class="pi pi-spin pi-spinner mr-1" *ngIf="saving()"></i>
+          <i class="pi pi-save mr-1" *ngIf="!saving()"></i> Lưu lại
+        </button>
+      </div>
+    </div>
+
+    <!-- Loading State -->
+    <div *ngIf="loading()" class="text-center py-5 text-muted">
+      <i class="pi pi-spin pi-spinner text-3xl mb-2" style="color: #002D72;"></i>
+      <div>Đang tải dữ liệu chi tiết...</div>
+    </div>
+
+    <!-- Content (Hidden when loading) -->
+    <div *ngIf="!loading()">
+      <!-- Tabs Navigation -->
+      <div class="evn-tabs-container" style="display: flex; border-bottom: 2px solid #e2e8f0; margin-bottom: 20px;">
+        <button 
+          class="evn-tab-btn" 
+          [class.active]="activeTab() === 0" 
+          (click)="activeTab.set(0)"
+          style="padding: 10px 20px; font-weight: 600; font-size: 14px; border: none; background: transparent; cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.2s;"
+          [style.border-bottom-color]="activeTab() === 0 ? '#002D72' : 'transparent'"
+          [style.color]="activeTab() === 0 ? '#002D72' : '#64748b'">
+          <i class="pi pi-info-circle mr-1"></i> Thông tin chung
+        </button>
+        <button 
+          class="evn-tab-btn" 
+          [class.active]="activeTab() === 1" 
+          (click)="activeTab.set(1)"
+          style="padding: 10px 20px; font-weight: 600; font-size: 14px; border: none; background: transparent; cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.2s;"
+          [style.border-bottom-color]="activeTab() === 1 ? '#002D72' : 'transparent'"
+          [style.color]="activeTab() === 1 ? '#002D72' : '#64748b'">
+          <i class="pi pi-file mr-1"></i> Cấu hình báo cáo
+        </button>
+      </div>
+
+      <!-- Tab Content Area -->
+      <div class="tab-content-wrapper" style="background-color: #fff; min-height: 300px;">
+        
+        <!-- TAB 1: THÔNG TIN CHUNG -->
+        <div *ngIf="activeTab() === 0" style="display: flex; flex-direction: column; gap: 16px; max-width: 800px;">
+          
+          <!-- Hàng 1: Mã nhóm -->
+          <div class="form-group">
+            <label class="form-label font-bold text-sm" style="color: #334155; margin-bottom: 6px; display: block;">Mã nhóm <span class="required" style="color: red;">*</span></label>
+            <input 
+              type="text" 
+              class="wf-input w-full" 
+              [(ngModel)]="currentGroup.code" 
+              required 
+              placeholder="Ví dụ: NHOM_KT..." 
+              [disabled]="isEdit()" />
+            <small class="field-error" style="color: red; display: block; margin-top: 4px;" *ngIf="formSubmitted && !currentGroup.code">Mã nhóm là bắt buộc.</small>
+          </div>
+
+          <!-- Hàng 2: Tên nhóm -->
+          <div class="form-group">
+            <label class="form-label font-bold text-sm" style="color: #334155; margin-bottom: 6px; display: block;">Tên nhóm <span class="required" style="color: red;">*</span></label>
+            <input 
+              type="text" 
+              class="wf-input w-full" 
+              [(ngModel)]="currentGroup.name" 
+              required 
+              placeholder="Nhập tên nhóm báo cáo..." />
+            <small class="field-error" style="color: red; display: block; margin-top: 4px;" *ngIf="formSubmitted && !currentGroup.name">Tên nhóm là bắt buộc.</small>
+          </div>
+
+          <!-- Hàng 3: Thứ tự -->
+          <div class="form-group">
+            <label class="form-label font-bold text-sm" style="color: #334155; margin-bottom: 6px; display: block;">Thứ tự sắp xếp</label>
+            <input type="number" class="wf-input w-full" [(ngModel)]="currentGroup.sortOrder" min="1" placeholder="Thứ tự hiển thị (ví dụ: 1, 2, 3...)" />
+          </div>
+
+          <!-- Hàng 4: Trạng thái kích hoạt (tickbox và label cùng 1 hàng) -->
+          <div style="display: flex !important; flex-direction: row !important; align-items: center !important; gap: 8px !important; margin-top: 4px !important; margin-bottom: 14px !important; width: 100% !important; padding: 4px 0 !important;">
+            <input 
+              type="checkbox" 
+              id="isActive" 
+              [(ngModel)]="currentGroup.isActive" 
+              style="width: 18px !important; height: 18px !important; cursor: pointer !important; accent-color: #002D72 !important; margin: 0 !important; display: inline-block !important;" />
+            <label for="isActive" style="cursor: pointer !important; margin: 0 !important; user-select: none !important; color: #334155 !important; font-size: 13.5px !important; font-weight: 600 !important; display: inline-block !important; line-height: 1 !important; vertical-align: middle !important;">Trạng thái kích hoạt</label>
+          </div>
+
+          <!-- Hàng 5: Đơn vị sử dụng -->
+          <div class="form-group">
+            <label class="form-label font-bold text-sm" style="color: #334155; margin-bottom: 6px; display: block;">Đơn vị sử dụng được xem</label>
+            <p-treeSelect
+              [options]="primengOrgUnitTree()"
+              [ngModel]="selectedUnitNodes()"
+              (ngModelChange)="onUnitNodesChange($event)"
+              display="chip"
+              selectionMode="checkbox"
+              [metaKeySelection]="false"
+              placeholder="Chọn các đơn vị được quyền xem nhóm báo cáo này..."
+              styleClass="w-full wf-select"
+              class="w-full">
+            </p-treeSelect>
+          </div>
+
+          <!-- Hàng 6: Mô tả (đem xuống dưới cùng) -->
+          <div class="form-group">
+            <label class="form-label font-bold text-sm" style="color: #334155; margin-bottom: 6px; display: block;">Mô tả</label>
+            <textarea class="wf-input w-full" [(ngModel)]="currentGroup.description" rows="3" placeholder="Nhập mô tả ngắn gọn về nhóm báo cáo này..." style="resize: vertical;"></textarea>
+          </div>
+        </div>
+
+        <!-- TAB 2: CẤU HÌNH BÁO CÁO -->
+        <div *ngIf="activeTab() === 1" style="display: flex; flex-direction: column; gap: 12px;">
+          <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 18px;">
+            <div style="margin-bottom: 12px; font-weight: 600; color: #475569; font-size: 13.5px; border-bottom: 1px dashed #cbd5e1; padding-bottom: 8px;">
+              Đánh dấu chọn các báo cáo tĩnh sẽ hiển thị trong nhóm này:
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px 24px;">
+              <div *ngFor="let rep of systemReports()" style="display: flex; align-items: flex-start; gap: 10px; padding: 6px 0; border-bottom: 1px solid #f1f5f9;">
+                <input 
+                  type="checkbox" 
+                  [id]="'rep-' + rep.id" 
+                  [checked]="isReportSelected(rep.id)" 
+                  (change)="toggleReportSelection(rep.id)"
+                  style="margin-top: 4px; width: 16px; height: 16px; cursor: pointer; accent-color: #002D72;">
+                <label [for]="'rep-' + rep.id" style="cursor: pointer; font-size: 13.5px; line-height: 1.4; color: #334155; user-select: none;">
+                  {{ rep.name }}
+                </label>
+              </div>
+            </div>
+
+            <div *ngIf="systemReports().length === 0" class="text-center py-5 text-muted">
+              <i class="pi pi-inbox text-2xl mb-1"></i>
+              <div>Không tìm thấy dữ liệu báo cáo hệ thống.</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>

@@ -216,9 +216,9 @@ export class WorkflowBuilderComponent implements OnInit, OnDestroy {
   openActionMenu(wf: WorkflowDefinition, event: Event, menu: Menu): void {
     event.stopPropagation();
     this.actionMenuItems = [
-      ...(this.authService.hasPermission('WORKFLOW_EDIT') ? [{ label: 'Sửa quy trình', title:"Sửa quy trình" ,icon: 'pi pi-pencil color-blue', command: () => this.onEdit(wf) }] : []),
-      ...(this.authService.hasPermission('WORKFLOW_EDIT') ? [{ label: wf.isActive ? 'Khóa quy trình' : 'Mở khóa quy trình', title: wf.isActive ? 'Khóa quy trình' : 'Mở khóa quy trình', icon: wf.isActive ? 'pi pi-lock color-red' : 'pi pi-lock-open color-teal', command: () => this.toggleWorkflowStatus(wf) }] : []),
-      ...(this.authService.hasPermission('WORKFLOW_DELETE') ? [{ label: 'Xóa quy trình', title:"Xóa quy trình" ,icon: 'pi pi-trash color-red', command: () => this.onDelete(wf) }] : []),
+      ...(this.authService.hasPermission('WORKFLOW_DEFINITION_EDIT') ? [{ label: 'Sửa quy trình', title:"Sửa quy trình" ,icon: 'pi pi-pencil color-blue', command: () => this.onEdit(wf) }] : []),
+      ...(this.authService.hasPermission('WORKFLOW_DEFINITION_EDIT') ? [{ label: wf.isActive ? 'Khóa quy trình' : 'Mở khóa quy trình', title: wf.isActive ? 'Khóa quy trình' : 'Mở khóa quy trình', icon: wf.isActive ? 'pi pi-lock color-red' : 'pi pi-lock-open color-teal', command: () => this.toggleWorkflowStatus(wf) }] : []),
+      ...(this.authService.hasPermission('WORKFLOW_DEFINITION_DELETE') ? [{ label: 'Xóa quy trình', title:"Xóa quy trình" ,icon: 'pi pi-trash color-red', command: () => this.onDelete(wf) }] : []),
     ];
     menu.toggle(event);
   }
@@ -249,7 +249,7 @@ export class WorkflowBuilderComponent implements OnInit, OnDestroy {
   }
 
   private openCreateMode(): void {
-    if (!this.authService.hasPermission('WORKFLOW_CREATE')) {
+    if (!this.authService.hasPermission('WORKFLOW_DEFINITION_CREATE')) {
       this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền thêm mới quy trình.' });
       this.router.navigate([WORKFLOW_BUILDER_BASE]);
       return;
@@ -265,7 +265,7 @@ export class WorkflowBuilderComponent implements OnInit, OnDestroy {
   }
 
   private loadDetailById(id: string): void {
-    if (!this.authService.hasPermission('WORKFLOW_EDIT')) {
+    if (!this.authService.hasPermission('WORKFLOW_DEFINITION_EDIT')) {
       this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền chỉnh sửa quy trình.' });
       this.router.navigate([WORKFLOW_BUILDER_BASE]);
       return;
@@ -527,7 +527,7 @@ export class WorkflowBuilderComponent implements OnInit, OnDestroy {
   }
 
   async onSave() {
-    const hasPerm = this.isEditMode ? this.authService.hasPermission('WORKFLOW_EDIT') : this.authService.hasPermission('WORKFLOW_CREATE');
+    const hasPerm = this.isEditMode ? this.authService.hasPermission('WORKFLOW_DEFINITION_EDIT') : this.authService.hasPermission('WORKFLOW_DEFINITION_CREATE');
     if (!hasPerm) {
       this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền lưu quy trình.' });
       return;
@@ -583,7 +583,7 @@ export class WorkflowBuilderComponent implements OnInit, OnDestroy {
   }
 
   onDelete(wf: WorkflowDefinition): void {
-    if (!this.authService.hasPermission('WORKFLOW_DELETE')) {
+    if (!this.authService.hasPermission('WORKFLOW_DEFINITION_DELETE')) {
       this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền xóa quy trình.' });
       return;
     }
@@ -618,7 +618,7 @@ export class WorkflowBuilderComponent implements OnInit, OnDestroy {
   }
 
   toggleWorkflowStatus(wf: WorkflowDefinition): void {
-    if (!this.authService.hasPermission('WORKFLOW_EDIT')) {
+    if (!this.authService.hasPermission('WORKFLOW_DEFINITION_EDIT')) {
       this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền thay đổi trạng thái quy trình.' });
       return;
     }
@@ -641,7 +641,7 @@ export class WorkflowBuilderComponent implements OnInit, OnDestroy {
   }
 
   onDeleteSelected(): void {
-    if (!this.authService.hasPermission('WORKFLOW_DELETE')) {
+    if (!this.authService.hasPermission('WORKFLOW_DEFINITION_DELETE')) {
       this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền xóa quy trình.' });
       return;
     }
@@ -659,7 +659,7 @@ export class WorkflowBuilderComponent implements OnInit, OnDestroy {
   }
 
   doDeleteSelected(): void {
-    if (!this.authService.hasPermission('WORKFLOW_DELETE')) {
+    if (!this.authService.hasPermission('WORKFLOW_DEFINITION_DELETE')) {
       this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền xóa quy trình.' });
       return;
     }

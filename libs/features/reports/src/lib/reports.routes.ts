@@ -28,6 +28,30 @@ export const REPORTS_ROUTES: Routes = [
     path: '',
     component: ReportsComponent
   },
+  {
+    path: 'groups',
+    loadComponent: () =>
+      import('./components/report-groups/report-groups.component').then(
+        (m) => m.ReportGroupsComponent
+      ),
+    canActivate: [reportDossierGuard('REPORT_GROUP_VIEW')]
+  },
+  {
+    path: 'groups/:id',
+    loadComponent: () =>
+      import('./components/report-group-detail/report-group-detail.component').then(
+        (m) => m.ReportGroupDetailComponent
+      ),
+    canActivate: [reportDossierGuard('REPORT_GROUP_VIEW')]
+  },
+  {
+    path: 'unit-publish',
+    loadComponent: () =>
+      import('./components/report-unit-publish/report-unit-publish.component').then(
+        (m) => m.ReportUnitPublishComponent
+      ),
+    canActivate: [reportDossierGuard('REPORT_UNIT_PUBLISH_VIEW')]
+  },
   reportListRoute('dossier-by-grid-type', 'REPORT_DOSSIER_BY_GRIDTYPE_VIEW'),
   reportDetailRoute('dossier-by-grid-type', 'REPORT_DOSSIER_BY_GRIDTYPE_VIEW'),
   reportListRoute('dossier-by-equipment', 'REPORT_DOSSIER_BY_EQUIPMENT_VIEW'),

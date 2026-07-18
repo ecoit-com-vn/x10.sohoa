@@ -1,0 +1,267 @@
+// sohoa.frontend/libs/features/reports/src/lib/components/report-groups/report-groups.component.ts
+import { Component, OnInit, signal, computed, inject } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { HttpClient } from '@angular/common/http';
+import { Router, RouterModule } from '@angular/router';
+import { MessageService, TreeNode, MenuItem } from 'primeng/api';
+import { ToastModule } from 'primeng/toast';
+import { DialogModule } from 'primeng/dialog';
+import { TreeSelectModule } from 'primeng/treeselect';
+import { Menu, MenuModule } from 'primeng/menu';
+import { environment } from '@env/environment';
+import { finalize } from 'rxjs';
+import { AuthService } from '@sohoa.frontend/shared/core';
+import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
+
+export interface Report {
+  id: number;
+  code: string;
+  name: string;
+}
+
+export interface ReportGroup {
+  id?: number;
+  code: string;
+  name: string;
+  sortOrder: number;
+  description?: string;
+  isActive: boolean;
+  reportCount?: number;
+  unitCount?: number;
+  reportIds: number[];
+  unitIds: number[];
+  reports?: Report[];
+}
+
+@Component({
+  selector: 'app-report-groups',
+  standalone: true,
+  imports: [
+    CommonModule,
+    FormsModule,
+    RouterModule,
+    ToastModule,
+    DialogModule,
+    TreeSelectModule,
+    MenuModule,
+    WfBreadcrumbComponent
+  ],
+  providers: [MessageService],
+  templateUrl: './report-groups.component.html',
+  styleUrls: ['./report-groups.component.scss']
+})
+export class ReportGroupsComponent implements OnInit {
+  groups = signal<ReportGroup[]>([]);
+  loading = signal<boolean>(false);
+  saving = signal<boolean>(false);
+  
+  // Filter variables
+  searchKeyword = signal<string>('');
+  filterStatus = signal<string>('ALL'); // ALL, ACTIVE, INACTIVE
+
+  // Action Menu Items
+  actionMenuItems: MenuItem[] = [];
+
+  // Computed filtered list client-side
+  filteredGroups = computed(() => {
+    const kw = this.searchKeyword().toLowerCase().trim();
+    const status = this.filterStatus();
+
+    return this.groups().filter(g => {
+      const matchKeyword = !kw || 
+        g.code.toLowerCase().includes(kw) || 
+        g.name.toLowerCase().includes(kw) ||
+        (g.description && g.description.toLowerCase().includes(kw));
+
+      const matchStatus = status === 'ALL' || 
+        (status === 'ACTIVE' && g.isActive) || 
+        (status === 'INACTIVE' && !g.isActive);
+
+      return matchKeyword && matchStatus;
+    });
+  });
+
+  // Popup Create Variables
+  displayCreateDialog = false;
+  formSubmitted = false;
+  currentNewGroup: ReportGroup = {
+    code: '',
+    name: '',
+    sortOrder: 1,
+    description: '',
+    isActive: true,
+    reportIds: [],
+    unitIds: []
+  };
+
+  organizationUnits = signal<any[]>([]);
+  selectedUnitNodes = signal<TreeNode[]>([]);
+  orgUnitTree = computed(() => this.buildOrgTree(this.organizationUnits()));
+  primengOrgUnitTree = computed(() => {
+    const buildPrimeNGNodes = (nodes: any[]): TreeNode[] =>
+      nodes.map(n => {
+        const children = n.children?.length ? buildPrimeNGNodes(n.children) : undefined;
+        return {
+          key: String(n.id),
+          label: n.name,
+          data: n,
+          selectable: true,
+          leaf: !children?.length,
+          children
+        } as TreeNode;
+      });
+    return buildPrimeNGNodes(this.orgUnitTree());
+  });
+
+  private http = inject(HttpClient);
+  private router = inject(Router);
+  private messageService = inject(MessageService);
+  public authService = inject(AuthService);
+  private apiUrl = `${environment.apiGatewayUrl}/api/v1/report-groups`;
+
+  ngOnInit(): void {
+    this.loadGroups();
+    this.loadOrganizationUnits();
+  }
+
+  loadGroups() {
+    this.loading.set(true);
+    this.http.get<ReportGroup[]>(this.apiUrl)
+      .pipe(finalize(() => this.loading.set(false)))
+      .subscribe({
+        next: (data) => {
+          this.groups.set(data);
+        },
+        error: (err) => {
+          console.error('Lỗi tải danh sách nhóm báo cáo:', err);
+          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể tải danh sách nhóm báo cáo.' });
+        }
+      });
+  }
+
+  loadOrganizationUnits() {
+    this.http.get<any[]>(`${environment.apiGatewayUrl}/api/v1/organization-units/lookup`).subscribe({
+      next: (res) => {
+        this.organizationUnits.set(res || []);
+      },
+      error: (err) => {
+        console.error('Lỗi tải cây đơn vị:', err);
+      }
+    });
+  }
+
+  buildOrgTree(units: any[]): any[] {
+    const map = new Map<number, any>();
+    const roots: any[] = [];
+    units.forEach(u => {
+      const id = Number(u.id);
+      if (!id) return;
+      map.set(id, { ...u, id, parentId: u.parentId != null ? Number(u.parentId) : null, children: [] as any[] });
+    });
+    map.forEach(node => {
+      if (node.parentId && map.has(node.parentId)) {
+        map.get(node.parentId)!.children.push(node);
+      } else {
+        roots.push(node);
+      }
+    });
+    return roots;
+  }
+
+  onUnitNodesChange(nodes: TreeNode[] | TreeNode | null) {
+    const list = Array.isArray(nodes) ? nodes : nodes ? [nodes] : [];
+    this.selectedUnitNodes.set(list);
+    const ids = list
+      .map((n) => Number(n?.key ?? (n as any)?.data?.id))
+      .filter((id) => !isNaN(id) && id > 0);
+    this.currentNewGroup.unitIds = ids;
+  }
+
+  showCreatePopup() {
+    this.formSubmitted = false;
+    this.selectedUnitNodes.set([]);
+    this.currentNewGroup = {
+      code: '',
+      name: '',
+      sortOrder: this.groups().length + 1,
+      description: '',
+      isActive: true,
+      reportIds: [],
+      unitIds: []
+    };
+    this.displayCreateDialog = true;
+  }
+
+  hideCreatePopup() {
+    this.displayCreateDialog = false;
+  }
+
+  saveNewGroup() {
+    this.formSubmitted = true;
+    if (!this.currentNewGroup.code || !this.currentNewGroup.name) {
+      return;
+    }
+
+    this.saving.set(true);
+    this.http.post(this.apiUrl, this.currentNewGroup)
+      .pipe(finalize(() => this.saving.set(false)))
+      .subscribe({
+        next: () => {
+          this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã thêm mới nhóm báo cáo hệ thống.' });
+          this.loadGroups();
+          this.displayCreateDialog = false;
+        },
+        error: (err) => {
+          console.error('Thêm mới nhóm báo cáo lỗi:', err);
+          const msg = err?.error?.message || err?.message || 'Thêm mới thất bại.';
+          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: msg });
+        }
+      });
+  }
+
+  openActionMenu(group: ReportGroup, event: Event, menu: Menu): void {
+    event.stopPropagation();
+    this.actionMenuItems = [
+      ...(this.authService.hasPermission('REPORT_GROUP_EDIT') ? [
+        { 
+          label: 'Cấu hình báo cáo', 
+          icon: 'pi pi-cog text-sky-600', 
+          command: () => this.goToEdit(group, 1) 
+        },
+        { 
+          label: 'Chỉnh sửa thông tin', 
+          icon: 'pi pi-pencil text-amber-600', 
+          command: () => this.goToEdit(group, 0) 
+        }
+      ] : []),
+      ...(this.authService.hasPermission('REPORT_GROUP_DELETE') ? [
+        { 
+          label: 'Xóa nhóm', 
+          icon: 'pi pi-trash text-red-600', 
+          command: () => this.deleteGroup(group) 
+        }
+      ] : [])
+    ];
+    menu.toggle(event);
+  }
+
+  goToEdit(group: ReportGroup, tabIndex: number) {
+    this.router.navigate(['/reports/groups', group.id], { queryParams: { tab: tabIndex } });
+  }
+
+  deleteGroup(group: ReportGroup) {
+    if (confirm(`Bạn có chắc chắn muốn xóa nhóm báo cáo hệ thống "${group.name}" (${group.code})?`)) {
+      this.http.delete(`${this.apiUrl}/${group.id}`).subscribe({
+        next: () => {
+          this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã xóa nhóm báo cáo hệ thống.' });
+          this.loadGroups();
+        },
+        error: (err) => {
+          console.error('Xóa nhóm báo cáo lỗi:', err);
+          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Xóa nhóm báo cáo thất bại.' });
+        }
+      });
+    }
+  }
+}

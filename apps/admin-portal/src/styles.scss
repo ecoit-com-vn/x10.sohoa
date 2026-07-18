@@ -154,7 +154,7 @@ html, body {
   margin-bottom: 20px;
   border: 1px solid var(--p-content-border-color, rgba(226, 232, 240, 0.8));
   transition: box-shadow 0.3s ease, transform 0.3s ease;
-  
+  overflow-y: auto;
   &:hover {
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.06), 0 10px 10px -5px rgba(0, 0, 0, 0.03);
   }

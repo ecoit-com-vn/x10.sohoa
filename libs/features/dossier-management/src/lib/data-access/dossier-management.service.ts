@@ -127,7 +127,9 @@ export class DossierManagementService {
     if (filter.statusId != null) params = params.set('statusId', filter.statusId.toString());
     if (filter.dossierTypeId) params = params.set('dossierTypeId', filter.dossierTypeId);
 
-    return this.http.get<any>(this.searchBase, { params });
+    const isDraftCreator = filter.tab === 'draft' && filter.menuScope === 'creator';
+    const url = isDraftCreator ? this.base : this.searchBase;
+    return this.http.get<any>(url, { params });
   }
 
   getCatalogDossiers(filter: {
@@ -451,5 +453,15 @@ export class DossierManagementService {
       .set('page', page.toString())
       .set('pageSize', pageSize.toString());
     return this.http.get<any>(`${this.base}/by-equipment/${equipmentId}`, { params });
+  }
+
+  downloadImportTemplate(): Observable<Blob> {
+    return this.http.get(`${this.base}/import/template`, { responseType: 'blob' });
+  }
+
+  importDossiers(file: File): Observable<any> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.http.post<any>(`${this.base}/import`, formData);
   }
 }
