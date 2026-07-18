@@ -227,5 +227,48 @@
         </div>
       </ng-template>
     </p-dialog>
+
+    <!-- Popup xác nhận Khóa / Mở khóa -->
+    <p-dialog [visible]="showToggleConfirm()" (visibleChange)="$event ? null : onCancelToggle()"
+      [header]="(toggleTarget()?.isActive === 1 || toggleTarget()?.isActive === true) ? 'Xác nhận khóa loại văn bản' : 'Xác nhận mở khóa loại văn bản'"
+      [modal]="true" [style]="{ width: '420px' }" styleClass="evn-dialog-custom" [closable]="!toggling()">
+      <div style="display: flex; align-items: flex-start; gap: 12px; padding: 8px 0 16px;">
+        <i class="pi pi-exclamation-triangle"
+            style="font-size: 1.8rem; color: #f59e0b; margin-top: 2px; flex-shrink: 0;"></i>
+        <div>
+          <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">
+            {{ (toggleTarget()?.isActive === 1 || toggleTarget()?.isActive === true)
+              ? 'Bạn có chắc chắn muốn khóa?'
+              : 'Bạn có chắc chắn muốn mở khóa?' }}
+          </p>
+          <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
+            Loại văn bản <b style="color: #1e293b;">{{ toggleTarget()?.name }}</b>
+            {{ (toggleTarget()?.isActive === 1 || toggleTarget()?.isActive === true)
+              ? 'sẽ bị khóa và không thể sử dụng.'
+              : 'sẽ được mở khóa và có thể sử dụng trở lại.' }}
+          </p>
+        </div>
+      </div>
+      <ng-template #footer>
+        <div
+          style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+          <button class="btn-cancel btn-small" (click)="onCancelToggle()" [disabled]="toggling()">
+            <i class="pi pi-times"></i> Hủy
+          </button>
+          <button class="btn-small" (click)="onConfirmToggle()" [disabled]="toggling()"
+            [class.btn-cancel]="toggleTarget()?.isActive === 1 || toggleTarget()?.isActive === true"
+            [class.btn-green]="!(toggleTarget()?.isActive === 1 || toggleTarget()?.isActive === true)"
+            [style.background-color]="(toggleTarget()?.isActive === 1 || toggleTarget()?.isActive === true) ? '#dc2626' : ''"
+            [style.border-color]="(toggleTarget()?.isActive === 1 || toggleTarget()?.isActive === true) ? '#dc2626' : ''">
+            <i class="pi pi-spin pi-spinner" *ngIf="toggling()"></i>
+            <ng-container *ngIf="!toggling()">
+              <i [class]="(toggleTarget()?.isActive === 1 || toggleTarget()?.isActive === true) ? 'pi pi-lock' : 'pi pi-lock-open'"></i>
+              {{ (toggleTarget()?.isActive === 1 || toggleTarget()?.isActive === true) ? 'Khóa' : 'Mở khóa' }}
+            </ng-container>
+          </button>
+        </div>
+      </ng-template>
+    </p-dialog>
   </div>
 </div>
+
