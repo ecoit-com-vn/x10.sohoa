@@ -1,0 +1,97 @@
+-- Menu Nhóm báo cáo đơn vị và quyền REPORT_UNIT_PUBLISH_VIEW/EDIT/RELEASE
+-- Menu này là menu con của menu cha "Báo cáo & Thống kê" (Id = 24), SortOrder = 2
+
+INSERT INTO APP_MENU (Id, Name, Url, Icon, ParentId, SortOrder, IsActive, PermissionCode)
+SELECT 91,
+       N'Nhóm báo cáo đơn vị',
+       '/reports/unit-publish',
+       'pi pi-users',
+       24,
+       2,
+       1,
+       'REPORT_UNIT_PUBLISH_VIEW'
+FROM DUAL
+WHERE NOT EXISTS (
+    SELECT 1 FROM APP_MENU WHERE Url = '/reports/unit-publish'
+);
+
+-- Quyền REPORT_UNIT_PUBLISH_VIEW
+INSERT INTO PERMISSION (Id, Code, Name, Description, IsActive, CreatedBy)
+SELECT 'report_unit_publish_view_id',
+       'REPORT_UNIT_PUBLISH_VIEW',
+       N'Xem cấu hình nhóm báo cáo đơn vị',
+       N'Tự động sinh: Quyền xem cấu hình nhóm báo cáo đơn vị',
+       1,
+       'SYSTEM'
+FROM DUAL
+WHERE NOT EXISTS (
+    SELECT 1 FROM PERMISSION WHERE Code = 'REPORT_UNIT_PUBLISH_VIEW'
+);
+
+-- Quyền REPORT_UNIT_PUBLISH_EDIT
+INSERT INTO PERMISSION (Id, Code, Name, Description, IsActive, CreatedBy)
+SELECT 'report_unit_publish_edit_id',
+       'REPORT_UNIT_PUBLISH_EDIT',
+       N'Lưu cấu hình nhóm báo cáo đơn vị',
+       N'Tự động sinh: Quyền lưu nháp cấu hình nhóm báo cáo đơn vị',
+       1,
+       'SYSTEM'
+FROM DUAL
+WHERE NOT EXISTS (
+    SELECT 1 FROM PERMISSION WHERE Code = 'REPORT_UNIT_PUBLISH_EDIT'
+);
+
+-- Quyền REPORT_UNIT_PUBLISH_RELEASE
+INSERT INTO PERMISSION (Id, Code, Name, Description, IsActive, CreatedBy)
+SELECT 'report_unit_publish_release_id',
+       'REPORT_UNIT_PUBLISH_RELEASE',
+       N'Công bố cấu hình nhóm báo cáo đơn vị',
+       N'Tự động sinh: Quyền công bố áp dụng cấu hình nhóm báo cáo đơn vị',
+       1,
+       'SYSTEM'
+FROM DUAL
+WHERE NOT EXISTS (
+    SELECT 1 FROM PERMISSION WHERE Code = 'REPORT_UNIT_PUBLISH_RELEASE'
+);
+
+-- Gán 3 quyền trên cho vai trò ADMIN
+INSERT INTO PERMISSION_GROUP_PERMISSION (Id, PermissionGroupId, PermissionId)
+SELECT SYS_GUID(),
+       (SELECT Id FROM PERMISSION_GROUP WHERE Code = 'ADMIN' AND ROWNUM = 1),
+       (SELECT Id FROM PERMISSION WHERE Code = 'REPORT_UNIT_PUBLISH_VIEW' AND ROWNUM = 1)
+FROM DUAL
+WHERE NOT EXISTS (
+    SELECT 1 FROM PERMISSION_GROUP_PERMISSION
+    WHERE PermissionGroupId = (SELECT Id FROM PERMISSION_GROUP WHERE Code = 'ADMIN' AND ROWNUM = 1)
+      AND PermissionId = (SELECT Id FROM PERMISSION WHERE Code = 'REPORT_UNIT_PUBLISH_VIEW' AND ROWNUM = 1)
+)
+AND (SELECT Id FROM PERMISSION_GROUP WHERE Code = 'ADMIN' AND ROWNUM = 1) IS NOT NULL
+AND (SELECT Id FROM PERMISSION WHERE Code = 'REPORT_UNIT_PUBLISH_VIEW' AND ROWNUM = 1) IS NOT NULL;
+
+INSERT INTO PERMISSION_GROUP_PERMISSION (Id, PermissionGroupId, PermissionId)
+SELECT SYS_GUID(),
+       (SELECT Id FROM PERMISSION_GROUP WHERE Code = 'ADMIN' AND ROWNUM = 1),
+       (SELECT Id FROM PERMISSION WHERE Code = 'REPORT_UNIT_PUBLISH_EDIT' AND ROWNUM = 1)
+FROM DUAL
+WHERE NOT EXISTS (
+    SELECT 1 FROM PERMISSION_GROUP_PERMISSION
+    WHERE PermissionGroupId = (SELECT Id FROM PERMISSION_GROUP WHERE Code = 'ADMIN' AND ROWNUM = 1)
+      AND PermissionId = (SELECT Id FROM PERMISSION WHERE Code = 'REPORT_UNIT_PUBLISH_EDIT' AND ROWNUM = 1)
+)
+AND (SELECT Id FROM PERMISSION_GROUP WHERE Code = 'ADMIN' AND ROWNUM = 1) IS NOT NULL
+AND (SELECT Id FROM PERMISSION WHERE Code = 'REPORT_UNIT_PUBLISH_EDIT' AND ROWNUM = 1) IS NOT NULL;
+
+INSERT INTO PERMISSION_GROUP_PERMISSION (Id, PermissionGroupId, PermissionId)
+SELECT SYS_GUID(),
+       (SELECT Id FROM PERMISSION_GROUP WHERE Code = 'ADMIN' AND ROWNUM = 1),
+       (SELECT Id FROM PERMISSION WHERE Code = 'REPORT_UNIT_PUBLISH_RELEASE' AND ROWNUM = 1)
+FROM DUAL
+WHERE NOT EXISTS (
+    SELECT 1 FROM PERMISSION_GROUP_PERMISSION
+    WHERE PermissionGroupId = (SELECT Id FROM PERMISSION_GROUP WHERE Code = 'ADMIN' AND ROWNUM = 1)
+      AND PermissionId = (SELECT Id FROM PERMISSION WHERE Code = 'REPORT_UNIT_PUBLISH_RELEASE' AND ROWNUM = 1)
+)
+AND (SELECT Id FROM PERMISSION_GROUP WHERE Code = 'ADMIN' AND ROWNUM = 1) IS NOT NULL
+AND (SELECT Id FROM PERMISSION WHERE Code = 'REPORT_UNIT_PUBLISH_RELEASE' AND ROWNUM = 1) IS NOT NULL;
+
+COMMIT;

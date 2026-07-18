@@ -6,6 +6,8 @@ using EvnHanoi.Infrastructure.Messaging;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System.Net.Http;
+using System.Data;
+using Dapper;
 using InfrastructureEntity = EvnHanoi.EquipmentService.Core.Entities.Infrastructure;
 using GridTypeEntity = EvnHanoi.EquipmentService.Core.Entities.GridType;
 
@@ -28,6 +30,7 @@ public class DossierService : IDossierService
     private readonly IDocumentTextIndexNotifier _documentTextIndexNotifier;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IConfiguration _configuration;
+    private readonly IDbConnection _dbConnection;
     private readonly ILogger<DossierService> _logger;
 
     public DossierService(
@@ -41,6 +44,7 @@ public class DossierService : IDossierService
         IDocumentTextIndexNotifier documentTextIndexNotifier,
         IHttpClientFactory httpClientFactory,
         IConfiguration configuration,
+        System.Data.IDbConnection dbConnection,
         ILogger<DossierService> logger)
     {
         _dossierRepository = dossierRepository ?? throw new ArgumentNullException(nameof(dossierRepository));
@@ -53,6 +57,7 @@ public class DossierService : IDossierService
         _documentTextIndexNotifier = documentTextIndexNotifier ?? throw new ArgumentNullException(nameof(documentTextIndexNotifier));
         _httpClientFactory = httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory));
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+        _dbConnection = dbConnection ?? throw new ArgumentNullException(nameof(dbConnection));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -219,6 +224,13 @@ public class DossierService : IDossierService
         {
             var units = await _equipmentRepository.GetOrganizationUnitsHierarchicalAsync(filter.UnitId);
             filter.UnitScopeIds = units.Select(u => u.Id).Distinct().ToList();
+        }
+
+        if (string.Equals(filter.Tab, "draft", StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(filter.MenuScope, "creator", StringComparison.OrdinalIgnoreCase) &&
+            !string.IsNullOrEmpty(filter.UserId))
+        {
+            return await _dossierRepository.GetDraftPagedFromDbAsync(filter, filter.UserId);
         }
 
         return await _dossierSearchRepository.GetPagedAsync(filter);
@@ -818,6 +830,407 @@ public class DossierService : IDossierService
         }
 
         return await _dossierRepository.GetEavFormTemplateByDossierIdAsync(dossierId);
+    }
+
+    /// <summary>
+    /// Chỉ lưu kệ/tầng/hộp khi đã chọn đến hộp; ngược lại clear cả 3.
+    public byte[] GenerateImportTemplate()
+    {
+        using var workbook = new ClosedXML.Excel.XLWorkbook();
+        
+        // Sheet 1: Template
+        var wsTemplate = workbook.Worksheets.Add("Template");
+        string[] headers = { "STT", "Nhóm hồ sơ", "Loại lưới điện", "Trạm/đường dây", "Hộp lưu trữ", "Loại hồ sơ", "Thiết bị", "Ghi chú" };
+        for (int i = 0; i < headers.Length; i++)
+        {
+            wsTemplate.Cell(1, i + 1).Value = headers[i];
+        }
+        var headerRange = wsTemplate.Range(1, 1, 1, headers.Length);
+        headerRange.Style.Font.Bold = true;
+        headerRange.Style.Fill.BackgroundColor = ClosedXML.Excel.XLColor.LightGray;
+        headerRange.Style.Border.OutsideBorder = ClosedXML.Excel.XLBorderStyleValues.Thin;
+        headerRange.Style.Border.InsideBorder = ClosedXML.Excel.XLBorderStyleValues.Thin;
+        wsTemplate.Columns().AdjustToContents();
+
+        // Sheet 2: Quy tắc import
+        var wsRules = workbook.Worksheets.Add("Quy tắc import");
+        wsRules.Cell(1, 1).Value = "Cột";
+        wsRules.Cell(1, 2).Value = "Bắt buộc";
+        wsRules.Cell(1, 3).Value = "Quy tắc nhập dữ liệu";
+        
+        var rulesHeader = wsRules.Range(1, 1, 1, 3);
+        rulesHeader.Style.Font.Bold = true;
+        rulesHeader.Style.Fill.BackgroundColor = ClosedXML.Excel.XLColor.LightGray;
+
+        string[][] ruleRows = new string[][]
+        {
+            new string[] { "STT", "Không", "Số thứ tự của dòng import, không bắt buộc (nếu có nhập thì hiển thị kết quả kiểm tra lỗi theo STT này)." },
+            new string[] { "Nhóm hồ sơ", "Có", "Tên nhóm hồ sơ, không phân biệt hoa thường và khoảng trắng. Ví dụ: 'Nhóm hồ sơ trạm biến áp', 'Nhóm hồ sơ đường dây', 'Nhóm hồ sơ thiết bị trạm', 'Nhóm hồ sơ thiết bị đường dây'" },
+            new string[] { "Loại lưới điện", "Không", "Tên loại lưới điện, không phân biệt hoa thường và khoảng trắng. Ví dụ: '110kV', '220kV'" },
+            new string[] { "Trạm/đường dây", "Có", "Mã trạm biến áp hoặc mã đường dây, phân biệt hoa thường. Ví dụ: 'TBA110_HOADONG'" },
+            new string[] { "Hộp lưu trữ", "Không", "Mã hộp lưu trữ vật lý, phân biệt hoa thường. Ví dụ: 'BOX-001'" },
+            new string[] { "Loại hồ sơ", "Có", "Mã loại hồ sơ, phân biệt hoa thường. Ví dụ: 'LH-001'" },
+            new string[] { "Thiết bị", "Bắt buộc đối với nhóm hồ sơ 3 và 4", "Mã các thiết bị ngăn cách nhau bằng dấu chấm phẩy (;), phân biệt hoa thường. Các thiết bị phải thuộc Trạm/đường dây đã chọn. Ví dụ: 'TB-001;TB-002'" },
+            new string[] { "Ghi chú", "Không", "Ghi chú thêm cho hồ sơ, thông tin này được lưu vào trường dữ liệu động với key là 'NOTE'. Ví dụ: 'Hồ sơ lắp đặt bổ sung'" }
+        };
+
+        for (int r = 0; r < ruleRows.Length; r++)
+        {
+            wsRules.Cell(r + 2, 1).Value = ruleRows[r][0];
+            wsRules.Cell(r + 2, 2).Value = ruleRows[r][1];
+            wsRules.Cell(r + 2, 3).Value = ruleRows[r][2];
+        }
+
+        var allRulesRange = wsRules.Range(1, 1, ruleRows.Length + 1, 3);
+        allRulesRange.Style.Border.OutsideBorder = ClosedXML.Excel.XLBorderStyleValues.Thin;
+        allRulesRange.Style.Border.InsideBorder = ClosedXML.Excel.XLBorderStyleValues.Thin;
+        
+        wsRules.Columns().AdjustToContents();
+
+        using var stream = new System.IO.MemoryStream();
+        workbook.SaveAs(stream);
+        return stream.ToArray();
+    }
+
+    private static string NormalizeForMatching(string? val)
+    {
+        if (string.IsNullOrEmpty(val)) return string.Empty;
+        return val.Replace(" ", "").ToLowerInvariant();
+    }
+
+    public async Task<DossierImportResultDto> ImportDossiersAsync(
+        System.IO.Stream excelStream,
+        string userId,
+        string userName,
+        string userFullName,
+        int kindId)
+    {
+        var result = new DossierImportResultDto();
+        
+        using var workbook = new ClosedXML.Excel.XLWorkbook(excelStream);
+        var worksheet = workbook.Worksheet(1);
+        var rows = worksheet.RowsUsed().Skip(1).ToList();
+        if (rows.Count == 0)
+        {
+            return result;
+        }
+
+        var infraCodes = new HashSet<string>(StringComparer.Ordinal);
+        var boxCodes = new HashSet<string>(StringComparer.Ordinal);
+        var equipCodes = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var row in rows)
+        {
+            var infraCodeText = row.Cell(4).GetString()?.Trim();
+            var boxCodeText = row.Cell(5).GetString()?.Trim();
+            var equipCodesText = row.Cell(7).GetString()?.Trim();
+
+            if (!string.IsNullOrEmpty(infraCodeText))
+                infraCodes.Add(infraCodeText);
+            if (!string.IsNullOrEmpty(boxCodeText))
+                boxCodes.Add(boxCodeText);
+            if (!string.IsNullOrEmpty(equipCodesText))
+            {
+                var parts = equipCodesText.Split(';', StringSplitOptions.RemoveEmptyEntries);
+                foreach (var p in parts)
+                {
+                    var trimmed = p.Trim();
+                    if (!string.IsNullOrEmpty(trimmed))
+                        equipCodes.Add(trimmed);
+                }
+            }
+        }
+
+        // Bulk load Infrastructures
+        var infras = new Dictionary<string, InfrastructureEntity>(StringComparer.Ordinal);
+        if (infraCodes.Count > 0)
+        {
+            var sql = "SELECT Id, Code, Name, INFRA_TYPE_ID as InfraTypeId, GRIDTYPEID as GridTypeId, UNIT_ID as UnitId, IsDeleted FROM INFRASTRUCTURE WHERE CODE IN :Codes AND NVL(IsDeleted, 0) = 0";
+            var list = await _dbConnection.QueryAsync<InfrastructureEntity>(sql, new { Codes = infraCodes.ToArray() });
+            foreach (var x in list)
+            {
+                if (!infras.ContainsKey(x.Code))
+                    infras.Add(x.Code, x);
+            }
+        }
+
+        // Bulk load Boxes, Floors, Shelves
+        var boxes = new Dictionary<string, PhysicalBox>(StringComparer.Ordinal);
+        var floorIds = new HashSet<long>();
+        if (boxCodes.Count > 0)
+        {
+            var sql = "SELECT * FROM PHYSICAL_BOX WHERE CODE IN :Codes AND NVL(IS_DELETED, 0) = 0";
+            var list = await _dbConnection.QueryAsync<PhysicalBox>(sql, new { Codes = boxCodes.ToArray() });
+            foreach (var x in list)
+            {
+                if (!boxes.ContainsKey(x.Code))
+                {
+                    boxes.Add(x.Code, x);
+                    floorIds.Add(x.FloorId);
+                }
+            }
+        }
+
+        var floors = new Dictionary<long, PhysicalFloor>();
+        var shelfIds = new HashSet<long>();
+        if (floorIds.Count > 0)
+        {
+            var sql = "SELECT * FROM PHYSICAL_FLOOR WHERE ID IN :Ids AND NVL(IS_DELETED, 0) = 0";
+            var list = await _dbConnection.QueryAsync<PhysicalFloor>(sql, new { Ids = floorIds.ToArray() });
+            floors = list.ToDictionary(f => f.Id);
+            foreach (var f in list)
+            {
+                shelfIds.Add(f.ShelfId);
+            }
+        }
+
+        var shelves = new Dictionary<long, PhysicalShelf>();
+        if (shelfIds.Count > 0)
+        {
+            var sql = "SELECT * FROM PHYSICAL_SHELF WHERE ID IN :Ids AND NVL(IS_DELETED, 0) = 0";
+            var list = await _dbConnection.QueryAsync<PhysicalShelf>(sql, new { Ids = shelfIds.ToArray() });
+            shelves = list.ToDictionary(s => s.Id);
+        }
+
+        // Bulk load Equipments
+        var equipments = new Dictionary<string, Equipment>(StringComparer.Ordinal);
+        if (equipCodes.Count > 0)
+        {
+            var sql = "SELECT Id, Code, Name, INFRASTRUCTURE_ID as InfrastructureId, IsDeleted FROM EQUIPMENTS WHERE CODE IN :Codes AND NVL(IsDeleted, 0) = 0";
+            var list = await _dbConnection.QueryAsync<Equipment>(sql, new { Codes = equipCodes.ToArray() });
+            foreach (var x in list)
+            {
+                if (!equipments.ContainsKey(x.Code))
+                    equipments.Add(x.Code, x);
+            }
+        }
+
+        // Load lookups
+        var groups = (await GetDossierGroupsLookupAsync()).ToList();
+        var gridTypes = (await GetGridTypesLookupAsync()).ToList();
+        var dossierTypes = (await _dossierRepository.GetDossierTypesLookupAsync()).ToList();
+
+        foreach (var row in rows)
+        {
+            var rowIndex = row.RowNumber();
+            var sttText = row.Cell(1).GetString()?.Trim();
+            var groupText = row.Cell(2).GetString()?.Trim();
+            var gridTypeText = row.Cell(3).GetString()?.Trim();
+            var infraCodeText = row.Cell(4).GetString()?.Trim();
+            var boxCodeText = row.Cell(5).GetString()?.Trim();
+            var dossierTypeCodeText = row.Cell(6).GetString()?.Trim();
+            var equipCodesText = row.Cell(7).GetString()?.Trim();
+            var noteText = row.Cell(8).GetString()?.Trim();
+
+            var rowResult = new ImportRowResultDto
+            {
+                RowIndex = rowIndex,
+                STT = sttText,
+                DossierGroupName = groupText,
+                GridTypeName = gridTypeText,
+                InfrastructureCode = infraCodeText,
+                StorageBoxCode = boxCodeText,
+                DossierTypeCode = dossierTypeCodeText,
+                EquipmentCodes = equipCodesText,
+                Note = noteText
+            };
+
+            var errors = new List<string>();
+
+            // 1. Nhóm hồ sơ
+            if (string.IsNullOrEmpty(groupText))
+            {
+                errors.Add("Nhóm hồ sơ không được để trống.");
+            }
+            var group = string.IsNullOrEmpty(groupText)
+                ? null
+                : groups.FirstOrDefault(g => NormalizeForMatching(g.Name) == NormalizeForMatching(groupText));
+            if (!string.IsNullOrEmpty(groupText) && group == null)
+            {
+                errors.Add($"Nhóm hồ sơ '{groupText}' không tồn tại.");
+            }
+
+            // 2. Loại lưới điện
+            GridTypeEntity? gridType = null;
+            if (!string.IsNullOrEmpty(gridTypeText))
+            {
+                gridType = gridTypes.FirstOrDefault(g => NormalizeForMatching(g.Name) == NormalizeForMatching(gridTypeText));
+                if (gridType == null)
+                {
+                    errors.Add($"Loại lưới điện '{gridTypeText}' không tồn tại.");
+                }
+            }
+
+            // 3. Trạm/đường dây
+            InfrastructureEntity? infra = null;
+            if (string.IsNullOrEmpty(infraCodeText))
+            {
+                errors.Add("Trạm/đường dây không được để trống.");
+            }
+            else
+            {
+                infras.TryGetValue(infraCodeText, out infra);
+                if (infra == null || infra.Code != infraCodeText)
+                {
+                    errors.Add($"Trạm/đường dây với mã '{infraCodeText}' không tồn tại.");
+                    infra = null;
+                }
+                else if (group != null)
+                {
+                    var expectedInfraTypeId = DossierGroupConstants.ResolveInfraTypeId(group.Id);
+                    if (infra.InfraTypeId != expectedInfraTypeId)
+                    {
+                        errors.Add(expectedInfraTypeId == 1
+                            ? $"Nhóm hồ sơ '{groupText}' yêu cầu chọn trạm biến áp, nhưng '{infraCodeText}' là đường dây."
+                            : $"Nhóm hồ sơ '{groupText}' yêu cầu chọn đường dây, nhưng '{infraCodeText}' là trạm biến áp.");
+                    }
+                }
+            }
+
+            // 4. Hộp lưu trữ
+            long? shelfId = null;
+            long? floorId = null;
+            long? boxId = null;
+            if (!string.IsNullOrEmpty(boxCodeText))
+            {
+                boxes.TryGetValue(boxCodeText, out var box);
+                if (box == null || box.Code != boxCodeText)
+                {
+                    errors.Add($"Hộp lưu trữ với mã '{boxCodeText}' không tồn tại.");
+                }
+                else
+                {
+                    boxId = box.Id;
+                    floorId = box.FloorId;
+                    if (floors.TryGetValue(box.FloorId, out var floor))
+                    {
+                        shelfId = floor.ShelfId;
+                    }
+                }
+            }
+
+            // 5. Loại hồ sơ
+            DossierType? dossierType = null;
+            if (string.IsNullOrEmpty(dossierTypeCodeText))
+            {
+                errors.Add("Loại hồ sơ không được để trống.");
+            }
+            else
+            {
+                dossierType = dossierTypes.FirstOrDefault(d => d.Code == dossierTypeCodeText);
+                if (dossierType == null)
+                {
+                    errors.Add($"Loại hồ sơ với mã '{dossierTypeCodeText}' không tồn tại.");
+                }
+            }
+
+            // 6. Thiết bị
+            var listEquipIds = new List<Guid>();
+            if (group != null)
+            {
+                var isEquipDossier = DossierGroupConstants.IsEquipmentDossierId(group.Id);
+                if (isEquipDossier && string.IsNullOrEmpty(equipCodesText))
+                {
+                    errors.Add("Hồ sơ thiết bị bắt buộc chọn ít nhất một thiết bị.");
+                }
+                else if (!string.IsNullOrEmpty(equipCodesText))
+                {
+                    var codeList = equipCodesText.Split(';', StringSplitOptions.RemoveEmptyEntries)
+                        .Select(c => c.Trim())
+                        .Where(c => !string.IsNullOrEmpty(c))
+                        .ToList();
+                    
+                    if (isEquipDossier && codeList.Count == 0)
+                    {
+                        errors.Add("Hồ sơ thiết bị bắt buộc chọn ít nhất một thiết bị.");
+                    }
+
+                    foreach (var code in codeList)
+                    {
+                        equipments.TryGetValue(code, out var equip);
+                        if (equip == null || equip.Code != code)
+                        {
+                            errors.Add($"Thiết bị với mã '{code}' không tồn tại.");
+                        }
+                        else
+                        {
+                            listEquipIds.Add(equip.Id);
+                            if (infra != null && equip.InfrastructureId != infra.Id)
+                            {
+                                errors.Add($"Thiết bị '{code}' không thuộc trạm/đường dây '{infraCodeText}'.");
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (errors.Count > 0)
+            {
+                rowResult.ErrorMessage = string.Join(" ", errors);
+                result.FailedDossiers.Add(rowResult);
+            }
+            else
+            {
+                try
+                {
+                    // Chuẩn bị FormDataJson chứa ghi chú
+                    var formDataObj = new Dictionary<string, object>();
+                    if (!string.IsNullOrEmpty(noteText))
+                    {
+                        formDataObj.Add("NOTE", noteText);
+                    }
+                    var formDataJson = System.Text.Json.JsonSerializer.Serialize(formDataObj);
+
+                    // Tạo hồ sơ
+                    var dossier = new Dossier
+                    {
+                        Id = Guid.Parse(UuidHelper.NewUuid()),
+                        DossierGroupId = group!.Id,
+                        GridTypeId = gridType?.Id ?? infra?.GridTypeId,
+                        InfrastructureId = infra?.Id,
+                        DossierSetId = null,
+                        DossierTypeId = dossierType!.Id,
+                        FormDataJson = formDataJson,
+                        StatusId = DossierStatusConstants.New,
+                        KindId = kindId,
+                        RowVersion = 1,
+                        CreatorId = string.IsNullOrEmpty(userId) ? null : Guid.TryParse(userId, out var uid) ? uid : null,
+                        CreatorUsername = userName,
+                        CreatorName = userFullName,
+                        CreatedBy = userName,
+                        CreatedDate = DateTime.UtcNow,
+                        IsDeleted = false
+                    };
+                    ApplyPhysicalStorage(dossier, shelfId, floorId, boxId);
+
+                    var newId = await _dossierRepository.CreateAsync(dossier, listEquipIds);
+
+                    // Phiên bản khởi đầu v1
+                    var firstVersion = new DossierVersion
+                    {
+                        DossierId = newId,
+                        FormDataJson = formDataJson,
+                        ChangeNote = "Khởi tạo hồ sơ bằng Import Excel",
+                        CreatedBy = userName,
+                        CreatedDate = DateTime.UtcNow
+                    };
+                    await _dossierRepository.CreateVersionAsync(firstVersion);
+
+                    // Sự kiện thay đổi
+                    await PublishDossierChangedAsync(newId, DossierChangedActions.Created);
+
+                    rowResult.CreatedDossierId = newId;
+                    result.SuccessDossiers.Add(rowResult);
+                }
+                catch (Exception ex)
+                {
+                    rowResult.ErrorMessage = $"Lỗi hệ thống khi lưu hồ sơ: {ex.Message}";
+                    result.FailedDossiers.Add(rowResult);
+                }
+            }
+        }
+
+        return result;
     }
 
     /// <summary>

@@ -37,6 +37,9 @@ public static class PermissionCodeResolver
             "ReportDossierByEquipment" => "REPORT_DOSSIER_BY_EQUIPMENT",
             "ReportDossierByStation" => "REPORT_DOSSIER_BY_STATION",
             "ReportDossierByLine" => "REPORT_DOSSIER_BY_LINE",
+            "ReportGroup" => "REPORT_GROUP",
+            "ReportGroups" => "REPORT_GROUP",
+            "ReportUnitPublish" => "REPORT_UNIT_PUBLISH",
             "DocumentFullTextSearch" => "DOCUMENT_FULLTEXT_SEARCH",
             _ => ToSnakeCase(controllerKey)
         };
@@ -242,6 +245,13 @@ public static class PermissionCodeResolver
             "SEARCH_SUBSTATION_VIEW" => "Tra cứu tìm kiếm Trạm biến áp",
             "REPORT_DOSSIER_BY_GRIDTYPE_VIEW" => "Xem báo cáo hồ sơ theo loại lưới điện",
             "REPORT_DOSSIER_BY_GRIDTYPE_EXPORT" => "Xuất Excel báo cáo theo loại lưới điện",
+            "REPORT_GROUP_VIEW" => "Xem cấu hình nhóm báo cáo hệ thống",
+            "REPORT_GROUP_CREATE" => "Thêm nhóm báo cáo hệ thống",
+            "REPORT_GROUP_EDIT" => "Sửa nhóm báo cáo hệ thống",
+            "REPORT_GROUP_DELETE" => "Xóa nhóm báo cáo hệ thống",
+            "REPORT_UNIT_PUBLISH_VIEW" => "Xem cấu hình nhóm báo cáo đơn vị",
+            "REPORT_UNIT_PUBLISH_EDIT" => "Lưu cấu hình nhóm báo cáo đơn vị",
+            "REPORT_UNIT_PUBLISH_RELEASE" => "Công bố cấu hình nhóm báo cáo đơn vị",
             "REPORT_DOSSIER_BY_EQUIPMENT_VIEW" => "Xem báo cáo hồ sơ theo thiết bị",
             "REPORT_DOSSIER_BY_EQUIPMENT_EXPORT" => "Xuất Excel báo cáo theo thiết bị",
             "REPORT_DOSSIER_BY_STATION_VIEW" => "Xem báo cáo hồ sơ theo trạm",

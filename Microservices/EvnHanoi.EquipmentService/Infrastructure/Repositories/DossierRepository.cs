@@ -1183,4 +1183,117 @@ public class DossierRepository : IDossierRepository
 
         return await _connection.QuerySingleOrDefaultAsync<EavFormTemplate>(sql, new { DossierId = dossierId.ToString() });
     }
+
+    public async Task<(IEnumerable<DossierListItemDto> Items, int TotalCount)> GetDraftPagedFromDbAsync(DossierFilterDto filter, string userId)
+    {
+        _connection.EnsureOpen();
+        var parameters = new DynamicParameters();
+        
+        var sqlBase = @" FROM DOSSIERS d
+                         LEFT JOIN INFRASTRUCTURE i ON d.InfrastructureId = i.ID
+                         LEFT JOIN DOSSIER_TYPES dt ON d.DossierTypeId = dt.ID
+                         LEFT JOIN DOSSIER_SETS ds ON d.DossierSetId = ds.ID
+                         LEFT JOIN DOSSIER_STATUSES dstat ON d.STATUS_ID = dstat.ID
+                         WHERE d.IsDeleted = 0
+                           AND d.STATUS_ID IN (1, 2)
+                           AND d.CreatorId = :UserId";
+        
+        parameters.Add("UserId", userId);
+
+        if (filter.InfrastructureId.HasValue)
+        {
+            sqlBase += " AND d.InfrastructureId = :InfrastructureId";
+            parameters.Add("InfrastructureId", filter.InfrastructureId.Value.ToString());
+        }
+
+        if (filter.GridTypeId.HasValue)
+        {
+            sqlBase += " AND d.GridTypeId = :GridTypeId";
+            parameters.Add("GridTypeId", filter.GridTypeId.Value);
+        }
+
+        if (filter.DossierTypeId.HasValue)
+        {
+            sqlBase += " AND d.DossierTypeId = :DossierTypeId";
+            parameters.Add("DossierTypeId", filter.DossierTypeId.Value.ToString());
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.Keyword))
+        {
+            var keyword = $"%{filter.Keyword.Trim().ToUpperInvariant()}%";
+            sqlBase += " AND (UPPER(d.Id) LIKE :Keyword OR UPPER(i.NAME) LIKE :Keyword OR UPPER(i.CODE) LIKE :Keyword OR UPPER(dt.NAME) LIKE :Keyword)";
+            parameters.Add("Keyword", keyword);
+        }
+
+        var countSql = $"SELECT COUNT(1) {sqlBase}";
+        var totalCount = await _connection.ExecuteScalarAsync<int>(countSql, parameters);
+
+        if (totalCount == 0)
+        {
+            return (Enumerable.Empty<DossierListItemDto>(), 0);
+        }
+
+        var selectSql = $@"SELECT
+                            d.Id,
+                            d.GridTypeId,
+                            d.InfrastructureId,
+                            i.NAME as InfrastructureName,
+                            i.CODE as InfrastructureCode,
+                            d.DossierSetId,
+                            ds.NAME as DossierSetName,
+                            d.DossierTypeId,
+                            dt.NAME as DossierTypeName,
+                            d.STATUS_ID as StatusId,
+                            dstat.CODE as StatusCode,
+                            dstat.NAME as StatusName,
+                            d.WorkflowStatusName,
+                            d.CreatorId as CreatorId,
+                            d.CreatorUsername as CreatorUsername,
+                            d.CreatorName as CreatorName,
+                            d.CreatedDate,
+                            d.FormDataJson,
+                            (SELECT COUNT(1) FROM DOCUMENTS doc WHERE doc.DOSSIER_ID = d.Id AND doc.IS_DELETED = 0) as DocumentCount
+                         {sqlBase}
+                         ORDER BY d.CreatedDate DESC
+                         OFFSET :Offset ROWS FETCH NEXT :PageSize ROWS ONLY";
+
+        parameters.Add("Offset", (filter.Page - 1) * filter.PageSize);
+        parameters.Add("PageSize", filter.PageSize);
+
+        var rawItems = await _connection.QueryAsync<dynamic>(selectSql, parameters);
+        var bhsCatalogs = await GetBhsCatalogDefinitionsAsync();
+
+        var mappedItems = rawItems.Select(d => {
+            var dto = new DossierListItemDto
+            {
+                Id = d.ID is string sId && Guid.TryParse(sId, out var gId) ? gId : (d.ID is Guid guidId ? guidId : Guid.Empty),
+                GridTypeId = d.GRIDTYPEID == null ? (int?)null : Convert.ToInt32(d.GRIDTYPEID),
+                InfrastructureId = d.INFRASTRUCTUREID is string sInfra && Guid.TryParse(sInfra, out var gInfra) ? gInfra : (d.INFRASTRUCTUREID is Guid guidInfra ? guidInfra : null),
+                InfrastructureName = d.INFRASTRUCTURENAME,
+                InfrastructureCode = d.INFRASTRUCTURECODE,
+                DossierSetId = d.DOSSIERSETID is string sSet && Guid.TryParse(sSet, out var gSet) ? gSet : (d.DOSSIERSETID is Guid guidSet ? guidSet : null),
+                DossierSetName = d.DOSSIERSETNAME,
+                DossierTypeId = d.DOSSIERTYPEID is string sType && Guid.TryParse(sType, out var gType) ? gType : (d.DOSSIERTYPEID is Guid guidType ? guidType : Guid.Empty),
+                DossierTypeName = d.DOSSIERTYPENAME,
+                StatusId = d.STATUSID == null ? 0 : Convert.ToInt32(d.STATUSID),
+                StatusCode = d.STATUSCODE,
+                StatusName = d.STATUSNAME,
+                WorkflowStatusName = d.WORKFLOWSTATUSNAME,
+                CreatedDate = d.CREATEDDATE is DateTime dtVal ? dtVal : DateTime.MinValue,
+                DocumentCount = d.DOCUMENTCOUNT == null ? 0 : Convert.ToInt32(d.DOCUMENTCOUNT),
+                Creator = new CreatorInfoDto
+                {
+                    Id = d.CREATORID?.ToString() ?? string.Empty,
+                    Username = d.CREATORUSERNAME?.ToString() ?? string.Empty,
+                    Name = d.CREATORNAME?.ToString() ?? string.Empty
+                }
+            };
+
+            string? formDataJson = d.FORMDATAJSON as string;
+            dto.CatalogData = ParseCatalogData(formDataJson, bhsCatalogs);
+            return dto;
+        }).ToList();
+
+        return (mappedItems, totalCount);
+    }
 }

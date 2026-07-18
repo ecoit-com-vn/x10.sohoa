@@ -166,13 +166,18 @@ namespace EvnHanoi.WorkflowService.Controllers
             if (def == null)
                 return NotFound(new { Message = $"Không tìm thấy quy trình với ID = {id}" });
 
+            if (def.IsActive)
+            {
+                return BadRequest(new { Message = "Không thể xóa quy trình đang hoạt động. Vui lòng tắt trạng thái hoạt động trước khi xóa." });
+            }
+
             var success = await _workflowRepository.DeleteDefinitionAsync(id);
             if (!success)
             {
                 return BadRequest(new { Message = "Không thể xóa quy trình." });
             }
 
-            _logger.LogInformation("Quy trình đã xóa: {Name}", def.Name);
+            _logger.LogInformation("Quy trình đã xóa mềm: {Name}", def.Name);
             return Ok(new { Message = $"Đã xóa quy trình: {def.Name}" });
         }
 

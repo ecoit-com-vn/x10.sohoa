@@ -41,7 +41,7 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
                         FROM WORKFLOWDEFINITIONS wd
                         LEFT JOIN APP_USER u1 ON wd.CreatedBy = u1.Id
                         LEFT JOIN APP_USER u2 ON wd.UpdatedBy = u2.Id
-                        WHERE 1=1";
+                        WHERE wd.IsDeleted = 0";
             var parameters = new DynamicParameters();
             if (!string.IsNullOrWhiteSpace(keyword))
             {
@@ -81,7 +81,8 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
                         LEFT JOIN APP_USER u1 ON wd.CreatedBy = u1.Id
                         LEFT JOIN APP_USER u2 ON wd.UpdatedBy = u2.Id
                         WHERE wd.WORKFLOW_TYPE_ID = :WorkflowTypeId
-                        ORDER BY wd.{nameof(WorkflowDefinition.CreatedAt)} DESC";
+                          AND wd.IsDeleted = 0
+                        ORDER BY wd.CreatedAt DESC";
             
             var definitions = await _connection.QueryAsync<WorkflowDefinition>(sql, new { WorkflowTypeId = workflowTypeId });
             return definitions.ToList();
@@ -90,7 +91,7 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
         public async Task<bool> ExistsDefinitionByWorkflowTypeIdAsync(int workflowTypeId)
         {
             if (_connection.State != ConnectionState.Open) _connection.Open();
-            const string sql = @"SELECT 1 FROM WORKFLOWDEFINITIONS WHERE WORKFLOW_TYPE_ID = :WorkflowTypeId AND ROWNUM = 1";
+            const string sql = @"SELECT 1 FROM WORKFLOWDEFINITIONS WHERE WORKFLOW_TYPE_ID = :WorkflowTypeId AND IsDeleted = 0 AND ROWNUM = 1";
             var found = await _connection.QueryFirstOrDefaultAsync<int?>(sql, new { WorkflowTypeId = workflowTypeId });
             return found.HasValue;
         }
@@ -117,6 +118,7 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
                         FROM WORKFLOWDEFINITIONS wd
                         WHERE wd.WORKFLOW_TYPE_ID = :WorkflowTypeId
                           AND wd.{nameof(WorkflowDefinition.IsActive)} = 1
+                          AND wd.IsDeleted = 0
                         ORDER BY wd.{nameof(WorkflowDefinition.CreatedAt)} DESC
                         FETCH FIRST 1 ROWS ONLY";
 
@@ -159,8 +161,9 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
             
             var countSql = $@"SELECT COUNT(*) FROM (
                 SELECT w.*, 
-                       ROW_NUMBER() OVER (PARTITION BY w.WORKFLOW_TYPE_ID ORDER BY w.{nameof(WorkflowDefinition.IsActive)} DESC, w.{nameof(WorkflowDefinition.CreatedAt)} DESC) AS RN_LATEST
+                       ROW_NUMBER() OVER (PARTITION BY w.WORKFLOW_TYPE_ID ORDER BY w.IsActive DESC, w.CreatedAt DESC) AS RN_LATEST
                 FROM WORKFLOWDEFINITIONS w
+                WHERE w.IsDeleted = 0
             ) w {filterSql}";
             
             var offset = (page - 1) * pageSize;
@@ -184,8 +187,9 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
                            ROW_NUMBER() OVER (ORDER BY w.{nameof(WorkflowDefinition.CreatedAt)} DESC) AS RN
                     FROM (
                         SELECT w.*,
-                               ROW_NUMBER() OVER (PARTITION BY w.WORKFLOW_TYPE_ID ORDER BY w.{nameof(WorkflowDefinition.IsActive)} DESC, w.{nameof(WorkflowDefinition.CreatedAt)} DESC) AS RN_LATEST
+                               ROW_NUMBER() OVER (PARTITION BY w.WORKFLOW_TYPE_ID ORDER BY w.IsActive DESC, w.CreatedAt DESC) AS RN_LATEST
                         FROM WORKFLOWDEFINITIONS w
+                        WHERE w.IsDeleted = 0
                     ) w
                     LEFT JOIN APP_USER u1 ON w.CreatedBy = u1.Id
                     LEFT JOIN APP_USER u2 ON w.UpdatedBy = u2.Id
@@ -285,25 +289,26 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
                 {
                     var sqlDeactivate = $@"UPDATE WORKFLOWDEFINITIONS 
                                            SET {nameof(WorkflowDefinition.IsActive)} = 0 
-                                           WHERE WORKFLOW_TYPE_ID = :WorkflowTypeId AND {nameof(WorkflowDefinition.IsActive)} = 1 AND Id != :Id";
+                                           WHERE WORKFLOW_TYPE_ID = :WorkflowTypeId AND {nameof(WorkflowDefinition.IsActive)} = 1 AND IsDeleted = 0 AND Id != :Id";
                     await _connection.ExecuteAsync(sqlDeactivate, new { WorkflowTypeId = definition.WorkflowTypeId, Id = definition.Id.ToString() }, transaction);
                 }
 
                 var sqlInsertDef = $@"INSERT INTO WORKFLOWDEFINITIONS (
-                                        {nameof(WorkflowDefinition.Id)}, 
-                                        {nameof(WorkflowDefinition.Name)}, 
-                                        {nameof(WorkflowDefinition.Description)}, 
-                                        {nameof(WorkflowDefinition.Version)}, 
-                                        {nameof(WorkflowDefinition.ForceActivate)}, 
-                                        {nameof(WorkflowDefinition.CreatedAt)}, 
-                                        {nameof(WorkflowDefinition.UpdatedAt)}, 
-                                        {nameof(WorkflowDefinition.CreatedBy)}, 
-                                        {nameof(WorkflowDefinition.UpdatedBy)}, 
-                                        {nameof(WorkflowDefinition.IsActive)}, 
-                                        {nameof(WorkflowDefinition.BpmnXml)},
+                                        Id, 
+                                        Name, 
+                                        Description, 
+                                        Version, 
+                                        ForceActivate, 
+                                        CreatedAt, 
+                                        UpdatedAt, 
+                                        CreatedBy, 
+                                        UpdatedBy, 
+                                        IsActive, 
+                                        IsDeleted,
+                                        BpmnXml,
                                         WORKFLOW_TYPE_ID
                                      )
-                                     VALUES (:Id, :Name, :Description, :Version, :ForceActivate, :CreatedAt, :UpdatedAt, :CreatedBy, :UpdatedBy, :IsActive, :BpmnXml, :WorkflowTypeId)";
+                                     VALUES (:Id, :Name, :Description, :Version, :ForceActivate, :CreatedAt, :UpdatedAt, :CreatedBy, :UpdatedBy, :IsActive, :IsDeleted, :BpmnXml, :WorkflowTypeId)";
 
                 var parameters = new DynamicParameters();
                 parameters.Add("Id", definition.Id.ToString());
@@ -316,6 +321,7 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
                 parameters.Add("CreatedBy", string.IsNullOrEmpty(definition.CreatedBy) ? "System" : definition.CreatedBy);
                 parameters.Add("UpdatedBy", string.IsNullOrEmpty(definition.UpdatedBy) ? "System" : definition.UpdatedBy);
                 parameters.Add("IsActive", definition.IsActive ? 1 : 0);
+                parameters.Add("IsDeleted", definition.IsDeleted ? 1 : 0);
                 parameters.Add("BpmnXml", OracleClob.Param(definition.BpmnXml));
                 parameters.Add("WorkflowTypeId", definition.WorkflowTypeId);
 
@@ -378,27 +384,29 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
                 {
                     var sqlDeactivate = $@"UPDATE WORKFLOWDEFINITIONS 
                                            SET {nameof(WorkflowDefinition.IsActive)} = 0 
-                                           WHERE WORKFLOW_TYPE_ID = :WorkflowTypeId AND {nameof(WorkflowDefinition.IsActive)} = 1 AND {nameof(WorkflowDefinition.Id)} != :Id";
+                                           WHERE WORKFLOW_TYPE_ID = :WorkflowTypeId AND {nameof(WorkflowDefinition.IsActive)} = 1 AND IsDeleted = 0 AND {nameof(WorkflowDefinition.Id)} != :Id";
                     await _connection.ExecuteAsync(sqlDeactivate, new { WorkflowTypeId = definition.WorkflowTypeId, Id = id.ToString() }, transaction);
                 }
 
                 var sqlUpdateDef = $@"UPDATE WORKFLOWDEFINITIONS
-                                     SET {nameof(WorkflowDefinition.Name)} = :Name, 
-                                         {nameof(WorkflowDefinition.Description)} = :Description, 
-                                         {nameof(WorkflowDefinition.Version)} = :Version,
-                                         {nameof(WorkflowDefinition.ForceActivate)} = :ForceActivate, 
-                                         {nameof(WorkflowDefinition.IsActive)} = :IsActive, 
-                                         {nameof(WorkflowDefinition.BpmnXml)} = :BpmnXml, 
-                                         {nameof(WorkflowDefinition.UpdatedAt)} = :UpdatedAt,
-                                         {nameof(WorkflowDefinition.UpdatedBy)} = :UpdatedBy,
+                                     SET Name = :Name, 
+                                         Description = :Description, 
+                                         Version = :Version,
+                                         ForceActivate = :ForceActivate, 
+                                         IsActive = :IsActive, 
+                                         IsDeleted = :IsDeleted,
+                                         BpmnXml = :BpmnXml, 
+                                         UpdatedAt = :UpdatedAt,
+                                         UpdatedBy = :UpdatedBy,
                                          WORKFLOW_TYPE_ID = :WorkflowTypeId
-                                     WHERE {nameof(WorkflowDefinition.Id)} = :Id";
+                                     WHERE Id = :Id";
                 var defParams = new DynamicParameters();
                 defParams.Add("Name", string.IsNullOrEmpty(definition.Name) ? null : definition.Name);
                 defParams.Add("Description", string.IsNullOrEmpty(definition.Description) ? null : definition.Description);
                 defParams.Add("Version", string.IsNullOrEmpty(definition.Version) ? null : definition.Version);
                 defParams.Add("ForceActivate", definition.ForceActivate ? 1 : 0);
                 defParams.Add("IsActive", definition.IsActive ? 1 : 0);
+                defParams.Add("IsDeleted", definition.IsDeleted ? 1 : 0);
                 defParams.Add("BpmnXml", OracleClob.Param(definition.BpmnXml));
                 defParams.Add("UpdatedAt", definition.UpdatedAt);
                 defParams.Add("UpdatedBy", string.IsNullOrEmpty(definition.UpdatedBy) ? "System" : definition.UpdatedBy);
@@ -494,11 +502,13 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
             using var transaction = _connection.BeginTransaction();
             try
             {
-                var sqlDeleteSteps = $@"DELETE FROM WORKFLOWSTEPS WHERE {nameof(WorkflowStep.WorkflowDefinitionId)} = :Id";
-                await _connection.ExecuteAsync(sqlDeleteSteps, new { Id = id.ToString() }, transaction);
-
-                var sqlDeleteDef = $@"DELETE FROM WORKFLOWDEFINITIONS WHERE {nameof(WorkflowDefinition.Id)} = :Id";
-                var affected = await _connection.ExecuteAsync(sqlDeleteDef, new { Id = id.ToString() }, transaction);
+                var sqlDeleteDef = $@"UPDATE WORKFLOWDEFINITIONS 
+                                     SET IsDeleted = 1, IsActive = 0, UpdatedAt = :UpdatedAt 
+                                     WHERE Id = :Id";
+                var affected = await _connection.ExecuteAsync(sqlDeleteDef, new { 
+                    Id = id.ToString(), 
+                    UpdatedAt = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified) 
+                }, transaction);
 
                 transaction.Commit();
                 return affected > 0;
@@ -513,12 +523,12 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
         public async Task<bool?> ToggleDefinitionStatusAsync(Guid id)
         {
             if (_connection.State != ConnectionState.Open) _connection.Open();
-            var sqlSelect = $@"SELECT {nameof(WorkflowDefinition.IsActive)} FROM WORKFLOWDEFINITIONS WHERE {nameof(WorkflowDefinition.Id)} = :Id";
+            var sqlSelect = $@"SELECT IsActive FROM WORKFLOWDEFINITIONS WHERE Id = :Id AND IsDeleted = 0";
             var currentStatus = await _connection.QuerySingleOrDefaultAsync<int?>(sqlSelect, new { Id = id.ToString() });
             if (!currentStatus.HasValue) return null;
 
             var newStatus = currentStatus.Value == 1 ? 0 : 1;
-            var sqlUpdate = $@"UPDATE WORKFLOWDEFINITIONS SET {nameof(WorkflowDefinition.IsActive)} = :IsActive, {nameof(WorkflowDefinition.UpdatedAt)} = :UpdatedAt WHERE {nameof(WorkflowDefinition.Id)} = :Id";
+            var sqlUpdate = $@"UPDATE WORKFLOWDEFINITIONS SET IsActive = :IsActive, UpdatedAt = :UpdatedAt WHERE Id = :Id";
             await _connection.ExecuteAsync(sqlUpdate, new { IsActive = newStatus, UpdatedAt = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified), Id = id.ToString() });
             return newStatus == 1;
         }
@@ -1246,12 +1256,12 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
                 // 1. Deactivate all versions of the same workflowTypeId
                 var sqlDeactivate = @"UPDATE WORKFLOWDEFINITIONS 
                                       SET IsActive = 0, UpdatedAt = :UpdatedAt
-                                      WHERE WORKFLOW_TYPE_ID = :WorkflowTypeId AND IsActive = 1";
+                                      WHERE WORKFLOW_TYPE_ID = :WorkflowTypeId AND IsActive = 1 AND IsDeleted = 0";
                 await _connection.ExecuteAsync(sqlDeactivate, new { WorkflowTypeId = workflowTypeId, UpdatedAt = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified) }, transaction);
 
                 // 2. Activate the specified version
                 var sqlActivate = @"UPDATE WORKFLOWDEFINITIONS 
-                                    SET IsActive = 1, UpdatedAt = :UpdatedAt
+                                    SET IsActive = 1, IsDeleted = 0, UpdatedAt = :UpdatedAt
                                     WHERE Id = :Id";
                 var affected = await _connection.ExecuteAsync(sqlActivate, new { Id = id.ToString(), UpdatedAt = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified) }, transaction);
 

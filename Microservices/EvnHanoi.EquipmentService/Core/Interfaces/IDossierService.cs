@@ -89,5 +89,13 @@ public interface IDossierService
     Task<bool> UpdatePublishStatusAsync(Guid id, int publishStatusId, string userId);
 
     Task<EavFormTemplate?> GetFormTemplateForDossierAsync(Guid dossierId, Guid? formId);
+
+    byte[] GenerateImportTemplate();
+    Task<DossierImportResultDto> ImportDossiersAsync(
+        System.IO.Stream excelStream,
+        string userId,
+        string userName,
+        string userFullName,
+        int kindId);
 }
 

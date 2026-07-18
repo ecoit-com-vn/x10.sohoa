@@ -72,6 +72,8 @@ public abstract partial class DossierControllerBase : ControllerBase
         [FromQuery] long? unitId,
         [FromQuery] int? statusId,
         [FromQuery] Guid? dossierTypeId,
+        [FromQuery] string? tab,
+        [FromQuery] string? menuScope,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10)
     {
@@ -84,7 +86,10 @@ public abstract partial class DossierControllerBase : ControllerBase
             StatusId = statusId,
             DossierTypeId = dossierTypeId,
             Page = page,
-            PageSize = pageSize
+            PageSize = pageSize,
+            Tab = tab,
+            MenuScope = menuScope,
+            UserId = UserId
         };
 
         var (items, totalCount) = await _dossierService.GetPagedAsync(filter);
