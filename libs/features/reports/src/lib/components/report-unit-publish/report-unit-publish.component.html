@@ -44,8 +44,8 @@
         <tbody>
           <tr *ngFor="let report of filteredReports(); let i = index">
             <td class="text-center text-muted font-semibold">{{ i + 1 }}</td>
-            <td><span class="font-semibold" style="color: #475569;">{{ report.reportCode }}</span></td>
-            <td>{{ report.reportName }}</td>
+            <td><span style="font-weight: 400; color: #0284c7;">{{ report.reportCode }}</span></td>
+            <td style="font-weight: 400; color: #1e293b;">{{ report.reportName }}</td>
             <td class="text-center">
               <span
                 class="badge"
@@ -55,9 +55,14 @@
                 {{ statusLabel(report) }}
               </span>
             </td>
-            <td>
-              <span *ngIf="roleNamesOf(report); else noRole" style="color: #334155;">{{ roleNamesOf(report) }}</span>
-              <ng-template #noRole><span class="text-muted">Chưa gán vai trò</span></ng-template>
+            <td style="max-width: 280px;">
+              <div
+                *ngIf="roleNamesOf(report); else noRole"
+                [title]="roleNamesOf(report)"
+                style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #334155; font-weight: 400;">
+                {{ roleNamesOf(report) }}
+              </div>
+              <ng-template #noRole><span class="text-muted" style="font-weight: 400;">Chưa gán vai trò</span></ng-template>
             </td>
             <td class="text-center">
               <button

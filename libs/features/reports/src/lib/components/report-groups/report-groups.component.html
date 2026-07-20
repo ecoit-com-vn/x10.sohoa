@@ -49,12 +49,12 @@
         <tbody>
           <tr *ngFor="let group of filteredGroups()">
             <td class="text-center text-muted font-semibold">{{ group.id }}</td>
-            <td><span class="font-semibold" style="color: #475569;">{{ group.code }}</span></td>
+            <td><span style="font-weight: 400; color: #0284c7;">{{ group.code }}</span></td>
             <td>
-              <b class="wf-name-link" style="cursor: pointer; color: #334155;" 
+              <span class="wf-name-link" style="cursor: pointer; color: #334155; font-weight: 400;" 
                  (click)="authService.hasPermission('REPORT_GROUP_EDIT') ? goToEdit(group, 0) : null">
                 {{ group.name }}
-              </b>
+              </span>
             </td>
             <td class="text-center">
               <span style="font-weight: 500; color: #475569;">

@@ -401,46 +401,58 @@ export class DossierTypeComponent implements OnInit {
   onConfigureEav(item: any) {
     this.currentItem.set({ ...item });
     this.selectedFieldIndex.set(null);
-    
+
     if (item.formId) {
       this.selectedFormId.set(item.formId);
-      this.eavFormService.getTemplateById(item.formId).subscribe({
-        next: (form: any) => {
-          this.formName = form.name;
-          this.formCode = form.code || '';
-          this.formCategory = form.category || '';
-          this.formDescription = form.description || '';
-          this.formDescriptionInfo = form.descriptionInfo || '';
-          try {
-            const parsedFields = JSON.parse(form.formSchema) || [];
-            this.fields.set(parsedFields);
-            this.selectedFieldIndex.set(parsedFields.length > 0 ? 0 : null);
-          } catch {
-            this.fields.set([]);
-          }
-        },
-        error: () => {
-          this.formName = '';
-          this.formCode = '';
-          this.formCategory = '';
-          this.formDescription = '';
-          this.formDescriptionInfo = '';
-          this.fields.set([]);
-        }
-      });
+      this.loadFormTemplateDetail(item.formId);
     } else {
       this.selectedFormId.set(null);
-      this.formName = '';
-      this.formCode = '';
-      this.formCategory = '';
-      this.formDescription = '';
-      this.formDescriptionInfo = '';
-      this.fields.set([]);
+      this.clearFormTemplate();
     }
 
     this.loadFormTemplatesLookup();
     this.loadCatalogTypes();
     this.currentView.set('configure');
+  }
+
+  private clearFormTemplate() {
+    this.formName = '';
+    this.formCode = '';
+    this.formCategory = '';
+    this.formDescription = '';
+    this.formDescriptionInfo = '';
+    this.fields.set([]);
+  }
+
+  private applyFormTemplate(form: any) {
+    this.formName = form?.name ?? form?.Name ?? '';
+    this.formCode = form?.code ?? form?.Code ?? '';
+    this.formCategory = form?.category ?? form?.Category ?? '';
+    this.formDescription = form?.description ?? form?.Description ?? '';
+    this.formDescriptionInfo = form?.descriptionInfo ?? form?.DescriptionInfo ?? '';
+    const schema = form?.formSchema ?? form?.FormSchema;
+    try {
+      const parsedFields = schema ? JSON.parse(schema) : [];
+      this.fields.set(Array.isArray(parsedFields) ? parsedFields : []);
+      this.selectedFieldIndex.set(this.fields().length > 0 ? 0 : null);
+    } catch {
+      this.fields.set([]);
+      this.selectedFieldIndex.set(null);
+    }
+  }
+
+  private loadFormTemplateDetail(formId: string) {
+    this.dossierTypeService.getEavFormTemplateById(formId).subscribe({
+      next: (form) => this.applyFormTemplate(form),
+      error: () => {
+        this.clearFormTemplate();
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Lỗi',
+          detail: 'Không thể tải chi tiết biểu mẫu EAV.'
+        });
+      }
+    });
   }
 
   loadFormTemplatesLookup() {
@@ -467,30 +479,11 @@ export class DossierTypeComponent implements OnInit {
     this.selectedFormId.set(formId);
     this.selectedFieldIndex.set(null);
     if (!formId) {
-      this.formName = '';
-      this.formCode = '';
-      this.formCategory = '';
-      this.formDescription = '';
-      this.formDescriptionInfo = '';
-      this.fields.set([]);
+      this.clearFormTemplate();
       return;
     }
 
-    const template = this.lookupFormTemplates().find(t => t.id === formId);
-    if (template) {
-      this.formName = template.name;
-      this.formCode = template.code || '';
-      this.formCategory = template.category || '';
-      this.formDescription = template.description || '';
-      this.formDescriptionInfo = template.descriptionInfo || '';
-      try {
-        const parsedFields = JSON.parse(template.formSchema) || [];
-        this.fields.set(parsedFields);
-        this.selectedFieldIndex.set(parsedFields.length > 0 ? 0 : null);
-      } catch {
-        this.fields.set([]);
-      }
-    }
+    this.loadFormTemplateDetail(formId);
   }
 
   // --- EAV Form Builder canvas interactions ---
