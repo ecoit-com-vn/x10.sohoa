@@ -13,6 +13,7 @@ public class ReportDossierLookupItem
     public string Id { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string? Code { get; set; }
+    public long? ParentId { get; set; }
 }
 
 public class ReportDossierBhsColumn

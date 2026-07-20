@@ -131,7 +131,12 @@ public class EavFormTemplateRepository : IEavFormTemplateRepository
         return await GetFormsByScopeAsync(new[] { "Hoàn thành" });
     }
 
-    private async Task<IEnumerable<EavFormTemplate>> GetFormsByScopeAsync(string[]? statuses)
+    public async Task<IEnumerable<EavFormTemplate>> GetCompletedActiveFormsAsync()
+    {
+        return await GetFormsByScopeAsync(new[] { "Hoàn thành" }, isActive: true);
+    }
+
+    private async Task<IEnumerable<EavFormTemplate>> GetFormsByScopeAsync(string[]? statuses, bool? isActive = null)
     {
         if (_connection.State != ConnectionState.Open)
             _connection.Open();
@@ -161,8 +166,17 @@ public class EavFormTemplateRepository : IEavFormTemplateRepository
             sql += $" AND t.{nameof(EavFormTemplate.Status)} IN :Statuses";
         }
 
+        if (isActive.HasValue)
+        {
+            sql += $" AND t.{nameof(EavFormTemplate.IsActive)} = :IsActive";
+        }
+
         sql += $" ORDER BY t.{nameof(EavFormTemplate.CreatedAt)} DESC";
-        return await _connection.QueryAsync<EavFormTemplate>(sql, new { Statuses = statuses });
+        return await _connection.QueryAsync<EavFormTemplate>(sql, new
+        {
+            Statuses = statuses,
+            IsActive = isActive.HasValue && isActive.Value ? 1 : 0
+        });
     }
 
     public async Task AddAsync(EavFormTemplate template)

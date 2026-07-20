@@ -28,11 +28,12 @@ public class EavFormTemplateController : ControllerBase
         _catalogRepository = catalogRepository;
     }
 
+    /// <summary>Lookup biểu mẫu FORM trạng thái Hoàn thành và đang hoạt động (không trả FormSchema).</summary>
     [HttpGet("lookup")]
     [BypassDynamicPermission]
     public async Task<ActionResult<IEnumerable<EavFormTemplate>>> Lookup()
     {
-        var templates = await _repository.GetAllActiveAsync();
+        var templates = await _repository.GetCompletedActiveFormsAsync();
         return Ok(templates);
     }
 

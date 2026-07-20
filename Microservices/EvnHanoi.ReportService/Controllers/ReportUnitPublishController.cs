@@ -105,7 +105,7 @@ namespace EvnHanoi.ReportService.Controllers
             if (unitId is null)
                 return Ok(Array.Empty<object>());
 
-            var roleCodes = GetUnitRoleCodes(unitId.Value);
+            var roleCodes = GetUserRoleCodes(unitId.Value);
             if (roleCodes.Count == 0)
                 return Ok(Array.Empty<object>());
 
@@ -113,29 +113,39 @@ namespace EvnHanoi.ReportService.Controllers
             return Ok(reports.Select(r => new { r.Id, r.Code, r.Name }));
         }
 
-        private List<string> GetUnitRoleCodes(long unitId)
+        private List<string> GetUserRoleCodes(long unitId)
         {
+            var roleCodes = User.Claims
+                .Where(c => c.Type == ClaimTypes.Role || c.Type == "role" || c.Type.EndsWith("/role", StringComparison.OrdinalIgnoreCase))
+                .Select(c => c.Value)
+                .Where(v => !string.IsNullOrWhiteSpace(v))
+                .ToList();
+
             var unitRolesClaim = User.FindFirst("unit_roles")?.Value;
-            if (string.IsNullOrEmpty(unitRolesClaim))
-                return new List<string>();
-
-            try
+            if (!string.IsNullOrEmpty(unitRolesClaim))
             {
-                var unitRoles = JsonSerializer.Deserialize<List<UnitRoleClaimDto>>(unitRolesClaim, new JsonSerializerOptions
+                try
                 {
-                    PropertyNameCaseInsensitive = true
-                });
+                    var unitRoles = JsonSerializer.Deserialize<List<UnitRoleClaimDto>>(unitRolesClaim, new JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true
+                    });
 
-                return unitRoles?
-                    .Where(ur => ur.UnitId == unitId && !string.IsNullOrEmpty(ur.RoleCode))
-                    .Select(ur => ur.RoleCode)
-                    .Distinct()
-                    .ToList() ?? new List<string>();
+                    if (unitRoles != null)
+                    {
+                        var matchedRoles = unitRoles
+                            .Where(ur => ur.UnitId == unitId && !string.IsNullOrEmpty(ur.RoleCode))
+                            .Select(ur => ur.RoleCode);
+                        roleCodes.AddRange(matchedRoles);
+                    }
+                }
+                catch
+                {
+                    // Ignore format error if unit_roles claim differs
+                }
             }
-            catch
-            {
-                return new List<string>();
-            }
+
+            return roleCodes.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         }
 
         private class UnitRoleClaimDto
