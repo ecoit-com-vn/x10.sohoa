@@ -40,6 +40,7 @@ public static class PermissionCodeResolver
             "ReportGroup" => "REPORT_GROUP",
             "ReportGroups" => "REPORT_GROUP",
             "ReportUnitPublish" => "REPORT_UNIT_PUBLISH",
+            "ReportStatistics" => "REPORT_STATISTICS",
             "DocumentFullTextSearch" => "DOCUMENT_FULLTEXT_SEARCH",
             _ => ToSnakeCase(controllerKey)
         };
@@ -252,6 +253,7 @@ public static class PermissionCodeResolver
             "REPORT_UNIT_PUBLISH_VIEW" => "Xem cấu hình nhóm báo cáo đơn vị",
             "REPORT_UNIT_PUBLISH_EDIT" => "Lưu cấu hình nhóm báo cáo đơn vị",
             "REPORT_UNIT_PUBLISH_RELEASE" => "Công bố cấu hình nhóm báo cáo đơn vị",
+            "REPORT_STATISTICS_VIEW" => "Xem danh sách thống kê báo cáo",
             "REPORT_DOSSIER_BY_EQUIPMENT_VIEW" => "Xem báo cáo hồ sơ theo thiết bị",
             "REPORT_DOSSIER_BY_EQUIPMENT_EXPORT" => "Xuất Excel báo cáo theo thiết bị",
             "REPORT_DOSSIER_BY_STATION_VIEW" => "Xem báo cáo hồ sơ theo trạm",

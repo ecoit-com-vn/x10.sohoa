@@ -321,6 +321,22 @@ namespace EvnHanoi.ReportService.Infrastructure.Repositories
             if (roleCodes == null || !roleCodes.Any())
                 return Enumerable.Empty<Report>();
 
+            var isAdmin = roleCodes.Any(r => string.Equals(r, "ADMIN", StringComparison.OrdinalIgnoreCase) ||
+                                             string.Equals(r, "SUPER_ADMIN", StringComparison.OrdinalIgnoreCase));
+
+            if (isAdmin)
+            {
+                var sqlAdmin = @"
+                    SELECT DISTINCT r.Id, r.Code, r.Name
+                    FROM REPORTS r
+                    INNER JOIN REPORT_UNIT_PUBLISH rup ON rup.ReportId = r.Id
+                    WHERE rup.UnitId = :UnitId
+                      AND rup.IsPublish = 1
+                    ORDER BY r.Id";
+
+                return await _connection.QueryAsync<Report>(sqlAdmin, new { UnitId = unitId });
+            }
+
             var sql = @"
                 SELECT DISTINCT r.Id, r.Code, r.Name
                 FROM REPORTS r
@@ -329,10 +345,11 @@ namespace EvnHanoi.ReportService.Infrastructure.Repositories
                 INNER JOIN ROLE ro ON ro.Id = rupr.RoleId
                 WHERE rup.UnitId = :UnitId
                   AND rup.IsPublish = 1
-                  AND ro.Code IN :RoleCodes
+                  AND UPPER(ro.Code) IN :RoleCodes
                 ORDER BY r.Id";
 
-            return await _connection.QueryAsync<Report>(sql, new { UnitId = unitId, RoleCodes = roleCodes });
+            var upperRoleCodes = roleCodes.Select(r => r.ToUpperInvariant()).Distinct().ToList();
+            return await _connection.QueryAsync<Report>(sql, new { UnitId = unitId, RoleCodes = upperRoleCodes });
         }
     }
 }

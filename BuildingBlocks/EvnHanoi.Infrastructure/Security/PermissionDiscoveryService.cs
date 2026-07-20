@@ -146,6 +146,7 @@ public class PermissionDiscoveryService : BackgroundService
             { "Report", "Báo cáo" },
             { "ReportGroup", "Nhóm báo cáo" },
             { "ReportUnitPublish", "Nhóm báo cáo đơn vị" },
+            { "ReportStatistics", "Thống kê báo cáo" },
             { "SharedCatalog", "Danh mục dùng chung" },
             { "Shelf", "Kệ lưu trữ" },
             { "Substation", "Trạm biến áp" },

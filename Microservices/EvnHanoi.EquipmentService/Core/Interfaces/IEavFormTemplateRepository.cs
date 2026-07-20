@@ -10,6 +10,8 @@ public interface IEavFormTemplateRepository
     Task<IEnumerable<EavFormTemplate>> GetDesignFormsAsync();
     Task<IEnumerable<EavFormTemplate>> GetApprovalFormsAsync();
     Task<IEnumerable<EavFormTemplate>> GetCompletedFormsAsync();
+    /// <summary>Lookup biểu mẫu FORM trạng thái Hoàn thành và đang hoạt động.</summary>
+    Task<IEnumerable<EavFormTemplate>> GetCompletedActiveFormsAsync();
     Task AddAsync(EavFormTemplate template);
     Task UpdateAsync(EavFormTemplate template);
     Task<IEnumerable<EavFormTemplate>> GetVersionsByCodeAsync(string code);

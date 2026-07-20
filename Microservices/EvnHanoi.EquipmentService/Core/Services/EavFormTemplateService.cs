@@ -33,6 +33,24 @@ public class EavFormTemplateService : IEavFormTemplateService
         }
     }
 
+    private static bool AreJsonSchemasEqual(string? json1, string? json2)
+    {
+        if (string.IsNullOrWhiteSpace(json1) && string.IsNullOrWhiteSpace(json2)) return true;
+        if (string.IsNullOrWhiteSpace(json1) || string.IsNullOrWhiteSpace(json2)) return false;
+        if (string.Equals(json1.Trim(), json2.Trim(), StringComparison.Ordinal)) return true;
+
+        try
+        {
+            using var doc1 = JsonDocument.Parse(json1);
+            using var doc2 = JsonDocument.Parse(json2);
+            return JsonElement.DeepEquals(doc1.RootElement, doc2.RootElement);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     public async Task<EavFormTemplate> CreateFormTemplateAsync(string name, string code, string category, string description, string descriptionInfo, string formSchema, string createdBy, Guid? equipmentTypeId = null, string formType = "FORM", int? gridTypeId = null, string? extractionProcess = null, string? extractionPosition = null)
     {
         ValidateFormSchema(formSchema);
@@ -92,18 +110,48 @@ public class EavFormTemplateService : IEavFormTemplateService
             throw new Exception("Template not found");
         }
 
+        // Kiểm tra xem có sự thay đổi nào giữa nội dung mới và phiên bản đang active hiện tại không
+        bool nameChanged = !string.Equals(oldTemplate.Name, newName ?? string.Empty, StringComparison.Ordinal);
+        bool codeChanged = !string.Equals(oldTemplate.Code, newCode ?? string.Empty, StringComparison.Ordinal);
+        bool categoryChanged = !string.Equals(oldTemplate.Category, newCategory ?? string.Empty, StringComparison.Ordinal);
+        bool descriptionChanged = !string.Equals(oldTemplate.Description ?? string.Empty, newDescription ?? string.Empty, StringComparison.Ordinal);
+        bool descriptionInfoChanged = !string.Equals(oldTemplate.DescriptionInfo ?? string.Empty, newDescriptionInfo ?? string.Empty, StringComparison.Ordinal);
+        bool extractionProcessChanged = !string.Equals(oldTemplate.ExtractionProcess ?? string.Empty, extractionProcess ?? string.Empty, StringComparison.Ordinal);
+        bool extractionPositionChanged = !string.Equals(oldTemplate.ExtractionPosition ?? string.Empty, extractionPosition ?? string.Empty, StringComparison.Ordinal);
+        bool equipmentTypeIdChanged = oldTemplate.EquipmentTypeId != equipmentTypeId;
+        bool gridTypeIdChanged = oldTemplate.GridTypeId != gridTypeId;
+        bool formTypeChanged = !string.Equals(oldTemplate.FormType, formType, StringComparison.Ordinal);
+        bool schemaChanged = !AreJsonSchemasEqual(oldTemplate.FormSchema, newFormSchema);
+
+        bool isChanged = nameChanged || codeChanged || categoryChanged || descriptionChanged
+            || descriptionInfoChanged || extractionProcessChanged || extractionPositionChanged
+            || equipmentTypeIdChanged || gridTypeIdChanged || formTypeChanged || schemaChanged;
+
+        // Nếu nội dung form hoàn toàn không đổi -> Không tạo phiên bản mới, giữ nguyên form hiện tại
+        if (!isChanged)
+        {
+            return oldTemplate;
+        }
+
+        // Nếu có thay đổi -> Xác định trạng thái của phiên bản mới
+        // Bảo toàn trạng thái "Hoàn thành" nếu form cũ đã Hoàn thành (hoặc chưa set status)
+        string targetStatus = string.Equals(oldTemplate.Status, "Hoàn thành", StringComparison.OrdinalIgnoreCase)
+                              || string.IsNullOrWhiteSpace(oldTemplate.Status)
+            ? "Hoàn thành"
+            : oldTemplate.Status;
+
         // 1. Cập nhật metadata của form cha (in-place)
-        oldTemplate.Name = newName;
-        oldTemplate.Code = newCode;
-        oldTemplate.Category = newCategory;
-        oldTemplate.Description = newDescription;
-        oldTemplate.DescriptionInfo = newDescriptionInfo;
+        oldTemplate.Name = newName ?? string.Empty;
+        oldTemplate.Code = newCode ?? string.Empty;
+        oldTemplate.Category = newCategory ?? string.Empty;
+        oldTemplate.Description = newDescription ?? string.Empty;
+        oldTemplate.DescriptionInfo = newDescriptionInfo ?? string.Empty;
         oldTemplate.ExtractionProcess = extractionProcess;
         oldTemplate.ExtractionPosition = extractionPosition;
         oldTemplate.EquipmentTypeId = equipmentTypeId;
         oldTemplate.GridTypeId = gridTypeId;
         oldTemplate.FormType = formType;
-        oldTemplate.Status = "Tạo mới"; 
+        oldTemplate.Status = targetStatus;
 
         await _repository.UpdateAsync(oldTemplate);
 
@@ -115,9 +163,9 @@ public class EavFormTemplateService : IEavFormTemplateService
         {
             Id = Guid.Parse(UuidHelper.NewUuid()),
             FormTemplateId = id,
-            Code = newCode,
-            Name = newName,
-            Category = newCategory,
+            Code = newCode ?? string.Empty,
+            Name = newName ?? string.Empty,
+            Category = newCategory ?? string.Empty,
             Description = newDescription ?? string.Empty,
             DescriptionInfo = newDescriptionInfo ?? string.Empty,
             ExtractionPosition = extractionPosition,
@@ -126,7 +174,7 @@ public class EavFormTemplateService : IEavFormTemplateService
             IsActive = true,
             CreatedAt = DateTime.Now,
             CreatedBy = updatedBy,
-            Status = "Tạo mới"
+            Status = targetStatus
         };
         await _repository.AddVersionAsync(newVersion);
 
