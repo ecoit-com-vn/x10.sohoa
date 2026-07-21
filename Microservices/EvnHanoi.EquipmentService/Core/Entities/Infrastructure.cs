@@ -24,6 +24,7 @@ public class Infrastructure
     public int InfraTypeId { get; set; }
     public long? UnitId { get; set; }
     public int? GridTypeId { get; set; }
+    public DateTime? OperationDate { get; set; }
     public bool IsActive { get; set; } = true;
 
     // Join helper fields

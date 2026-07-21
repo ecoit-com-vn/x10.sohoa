@@ -7,10 +7,12 @@ public class Equipment
     public string Name { get; set; } = string.Empty;
     public string Code { get; set; } = string.Empty; // Mã thiết bị
     public string SerialNumber { get; set; } = string.Empty;
-    
+
     public Guid? InfrastructureId { get; set; }
     public Guid? CountryId { get; set; }
-    public bool IsActive { get; set; } = true; 
+    public int? ManufactureYear { get; set; }
+    public long? EquipmentStatusId { get; set; }
+    public bool IsActive { get; set; } = true;
     public Guid? CreatorId { get; set; }
     
     // Audit fields

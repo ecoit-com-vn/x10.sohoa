@@ -146,9 +146,9 @@ public partial class EquipmentController : ControllerBase
             EquipmentTypeId = dto.EquipmentTypeId,
             Name = dto.Name.Trim(),
             Code = dto.Code.Trim(),
-            SerialNumber = dto.SerialNumber?.Trim() ?? string.Empty,
             InfrastructureId = dto.InfrastructureId,
-            CountryId = dto.CountryId,
+            ManufactureYear = dto.ManufactureYear,
+            EquipmentStatusId = dto.EquipmentStatusId,
             IsActive = dto.IsActive,
             UnitId = dto.UnitId,
             CreatedAt = DateTime.UtcNow,
@@ -228,9 +228,9 @@ public partial class EquipmentController : ControllerBase
         existing.EquipmentTypeId = dto.EquipmentTypeId;
         existing.Name = dto.Name.Trim();
         existing.Code = dto.Code.Trim();
-        existing.SerialNumber = dto.SerialNumber?.Trim() ?? string.Empty;
         existing.InfrastructureId = dto.InfrastructureId;
-        existing.CountryId = dto.CountryId;
+        existing.ManufactureYear = dto.ManufactureYear;
+        existing.EquipmentStatusId = dto.EquipmentStatusId;
         existing.UnitId = dto.UnitId;
         existing.IsActive = dto.IsActive;
         existing.ModifiedBy = User.FindFirst(ClaimTypes.Name)?.Value ?? User.Identity?.Name ?? "system";
@@ -361,15 +361,13 @@ public partial class EquipmentController : ControllerBase
         var infrastructures = await _equipmentRepository.GetInfrastructuresLookupAsync(allowedUnitIdsForInfra);
         var gridTypes = await _equipmentTypeRepository.GetGridTypesAsync();
         var equipmentTypes = await _equipmentRepository.GetEquipmentTypesLookupAsync();
-        var countries = await _equipmentRepository.GetCountriesAsync();
 
         return Ok(new
         {
             organizationUnits,
             infrastructures,
             gridTypes,
-            equipmentTypes,
-            countries
+            equipmentTypes
         });
     }
 
@@ -422,14 +420,6 @@ public partial class EquipmentController : ControllerBase
     public async Task<IActionResult> GetEquipmentTypes()
     {
         var data = await _equipmentRepository.GetEquipmentTypesLookupAsync();
-        return Ok(data);
-    }
-
-    [HttpGet("get-countries")]
-    [BypassDynamicPermission]
-    public async Task<IActionResult> GetCountries()
-    {
-        var data = await _equipmentRepository.GetCountriesAsync();
         return Ok(data);
     }
 

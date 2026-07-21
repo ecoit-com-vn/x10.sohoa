@@ -26,23 +26,25 @@ public class EquipmentRepository : IEquipmentRepository
         if (_connection.State != ConnectionState.Open) 
             _connection.Open();
 
-        var sql = $@"SELECT Id, 
-                            EquipmentTypeId, 
-                            Name, 
-                            Code, 
-                            SerialNumber, 
-                            INFRASTRUCTURE_ID as {nameof(Equipment.InfrastructureId)}, 
-                            COUNTRY_ID as {nameof(Equipment.CountryId)}, 
-                            IS_ACTIVE as {nameof(Equipment.IsActive)}, 
-                            CreatorId as {nameof(Equipment.CreatorId)}, 
-                            CreatedBy, 
-                            CreatedAt, 
-                            ModifiedBy as {nameof(Equipment.ModifiedBy)}, 
-                            ModifiedDate as {nameof(Equipment.ModifiedDate)}, 
-                            IsDeleted as {nameof(Equipment.IsDeleted)}, 
+        var sql = $@"SELECT Id,
+                            EquipmentTypeId,
+                            Name,
+                            Code,
+                            SerialNumber,
+                            INFRASTRUCTURE_ID as {nameof(Equipment.InfrastructureId)},
+                            COUNTRY_ID as {nameof(Equipment.CountryId)},
+                            MANUFACTURE_YEAR as {nameof(Equipment.ManufactureYear)},
+                            EQUIPMENT_STATUS_ID as {nameof(Equipment.EquipmentStatusId)},
+                            IS_ACTIVE as {nameof(Equipment.IsActive)},
+                            CreatorId as {nameof(Equipment.CreatorId)},
+                            CreatedBy,
+                            CreatedAt,
+                            ModifiedBy as {nameof(Equipment.ModifiedBy)},
+                            ModifiedDate as {nameof(Equipment.ModifiedDate)},
+                            IsDeleted as {nameof(Equipment.IsDeleted)},
                             UnitId as {nameof(Equipment.UnitId)},
                             FORM_VALUES as {nameof(Equipment.FormValues)}
-                     FROM EQUIPMENTS 
+                     FROM EQUIPMENTS
                      WHERE Id = :Id AND IsDeleted = 0";
         return await _connection.QuerySingleOrDefaultAsync<Equipment>(sql, new { Id = id.ToString() });
     }
@@ -73,10 +75,10 @@ public class EquipmentRepository : IEquipmentRepository
         var sql = $@"SELECT e.Id AS {nameof(EquipmentDto.Id)},
                             e.Name AS {nameof(EquipmentDto.Name)},
                             e.Code AS {nameof(EquipmentDto.Code)},
-                            e.SerialNumber AS {nameof(EquipmentDto.SerialNumber)},
                             e.EquipmentTypeId AS {nameof(EquipmentDto.EquipmentTypeId)},
                             e.INFRASTRUCTURE_ID AS {nameof(EquipmentDto.InfrastructureId)},
-                            e.COUNTRY_ID AS {nameof(EquipmentDto.CountryId)},
+                            e.MANUFACTURE_YEAR AS {nameof(EquipmentDto.ManufactureYear)},
+                            e.EQUIPMENT_STATUS_ID AS {nameof(EquipmentDto.EquipmentStatusId)},
                             e.IS_ACTIVE AS {nameof(EquipmentDto.IsActive)},
                             e.CreatedBy AS {nameof(EquipmentDto.CreatedBy)},
                             e.CreatedAt AS {nameof(EquipmentDto.CreatedAt)},
@@ -91,8 +93,7 @@ public class EquipmentRepository : IEquipmentRepository
                             inf.Code AS {nameof(EquipmentDto.InfrastructureCode)},
                             e.UnitId AS {nameof(EquipmentDto.UnitId)},
                             u.Name AS {nameof(EquipmentDto.UnitName)},
-                            c.Name AS {nameof(EquipmentDto.CountryName)},
-                            c.Code AS {nameof(EquipmentDto.CountryCode)},
+                            es.Name AS {nameof(EquipmentDto.EquipmentStatusName)},
                             eft.Name AS {nameof(EquipmentDto.FormTemplateName)},
                             eft.Id AS {nameof(EquipmentDto.FormTemplateId)},
                             eft.FormSchema AS {nameof(EquipmentDto.FormSchema)},
@@ -104,7 +105,7 @@ public class EquipmentRepository : IEquipmentRepository
                      LEFT JOIN GridTypes gt ON et.GridTypeId = gt.Id
                      LEFT JOIN INFRASTRUCTURE inf ON e.INFRASTRUCTURE_ID = inf.Id
                      LEFT JOIN ORGANIZATION_UNIT u ON e.UnitId = u.Id
-                     LEFT JOIN COUNTRIES c ON e.COUNTRY_ID = c.Id
+                     LEFT JOIN CATALOG es ON e.EQUIPMENT_STATUS_ID = es.Id
                      LEFT JOIN (
                            SELECT * FROM (
                                SELECT t.Id, v.Name, v.FormSchema, t.EquipmentTypeId,
@@ -141,42 +142,46 @@ public class EquipmentRepository : IEquipmentRepository
 
         if (unitIds == null || !unitIds.Any())
         {
-            var sql = $@"SELECT Id, 
-                                EquipmentTypeId, 
-                                Name, 
-                                Code, 
-                                SerialNumber, 
-                                INFRASTRUCTURE_ID as {nameof(Equipment.InfrastructureId)}, 
-                                COUNTRY_ID as {nameof(Equipment.CountryId)}, 
-                                IS_ACTIVE as {nameof(Equipment.IsActive)}, 
-                                CreatorId as {nameof(Equipment.CreatorId)}, 
-                                CreatedBy, 
-                                CreatedAt, 
-                                ModifiedBy as {nameof(Equipment.ModifiedBy)}, 
-                                ModifiedDate as {nameof(Equipment.ModifiedDate)}, 
-                                IsDeleted as {nameof(Equipment.IsDeleted)}, 
+            var sql = $@"SELECT Id,
+                                EquipmentTypeId,
+                                Name,
+                                Code,
+                                SerialNumber,
+                                INFRASTRUCTURE_ID as {nameof(Equipment.InfrastructureId)},
+                                COUNTRY_ID as {nameof(Equipment.CountryId)},
+                                MANUFACTURE_YEAR as {nameof(Equipment.ManufactureYear)},
+                                EQUIPMENT_STATUS_ID as {nameof(Equipment.EquipmentStatusId)},
+                                IS_ACTIVE as {nameof(Equipment.IsActive)},
+                                CreatorId as {nameof(Equipment.CreatorId)},
+                                CreatedBy,
+                                CreatedAt,
+                                ModifiedBy as {nameof(Equipment.ModifiedBy)},
+                                ModifiedDate as {nameof(Equipment.ModifiedDate)},
+                                IsDeleted as {nameof(Equipment.IsDeleted)},
                                 UnitId as {nameof(Equipment.UnitId)}
                          FROM EQUIPMENTS WHERE IsDeleted = 0";
             return await _connection.QueryAsync<Equipment>(sql);
         }
         else
         {
-            var sql = $@"SELECT Id, 
-                                EquipmentTypeId, 
-                                Name, 
-                                Code, 
-                                SerialNumber, 
-                                INFRASTRUCTURE_ID as {nameof(Equipment.InfrastructureId)}, 
-                                COUNTRY_ID as {nameof(Equipment.CountryId)}, 
-                                IS_ACTIVE as {nameof(Equipment.IsActive)}, 
-                                CreatorId as {nameof(Equipment.CreatorId)}, 
-                                CreatedBy, 
-                                CreatedAt, 
-                                ModifiedBy as {nameof(Equipment.ModifiedBy)}, 
-                                ModifiedDate as {nameof(Equipment.ModifiedDate)}, 
-                                IsDeleted as {nameof(Equipment.IsDeleted)}, 
+            var sql = $@"SELECT Id,
+                                EquipmentTypeId,
+                                Name,
+                                Code,
+                                SerialNumber,
+                                INFRASTRUCTURE_ID as {nameof(Equipment.InfrastructureId)},
+                                COUNTRY_ID as {nameof(Equipment.CountryId)},
+                                MANUFACTURE_YEAR as {nameof(Equipment.ManufactureYear)},
+                                EQUIPMENT_STATUS_ID as {nameof(Equipment.EquipmentStatusId)},
+                                IS_ACTIVE as {nameof(Equipment.IsActive)},
+                                CreatorId as {nameof(Equipment.CreatorId)},
+                                CreatedBy,
+                                CreatedAt,
+                                ModifiedBy as {nameof(Equipment.ModifiedBy)},
+                                ModifiedDate as {nameof(Equipment.ModifiedDate)},
+                                IsDeleted as {nameof(Equipment.IsDeleted)},
                                 UnitId as {nameof(Equipment.UnitId)}
-                         FROM EQUIPMENTS 
+                         FROM EQUIPMENTS
                          WHERE UnitId IN :UnitIds AND IsDeleted = 0";
             return await _connection.QueryAsync<Equipment>(sql, new { UnitIds = unitIds.ToArray() });
         }
@@ -203,7 +208,7 @@ public class EquipmentRepository : IEquipmentRepository
                         LEFT JOIN GridTypes gt ON et.GridTypeId = gt.Id
                         LEFT JOIN INFRASTRUCTURE inf ON e.INFRASTRUCTURE_ID = inf.Id
                         LEFT JOIN ORGANIZATION_UNIT u ON e.UnitId = u.Id
-                        LEFT JOIN COUNTRIES c ON e.COUNTRY_ID = c.Id
+                        LEFT JOIN CATALOG es ON e.EQUIPMENT_STATUS_ID = es.Id
                         LEFT JOIN APP_USER usr ON e.CreatorId = usr.Id
                         WHERE e.IsDeleted = 0";
 
@@ -268,10 +273,10 @@ public class EquipmentRepository : IEquipmentRepository
         var selectSql = $@"SELECT e.Id AS {nameof(EquipmentDto.Id)},
                                    e.Name AS {nameof(EquipmentDto.Name)},
                                    e.Code AS {nameof(EquipmentDto.Code)},
-                                   e.SerialNumber AS {nameof(EquipmentDto.SerialNumber)},
                                    e.EquipmentTypeId AS {nameof(EquipmentDto.EquipmentTypeId)},
                                    e.INFRASTRUCTURE_ID AS {nameof(EquipmentDto.InfrastructureId)},
-                                   e.COUNTRY_ID AS {nameof(EquipmentDto.CountryId)},
+                                   e.MANUFACTURE_YEAR AS {nameof(EquipmentDto.ManufactureYear)},
+                                   e.EQUIPMENT_STATUS_ID AS {nameof(EquipmentDto.EquipmentStatusId)},
                                    e.IS_ACTIVE AS {nameof(EquipmentDto.IsActive)},
                                    e.CreatedBy AS {nameof(EquipmentDto.CreatedBy)},
                                    e.CreatedAt AS {nameof(EquipmentDto.CreatedAt)},
@@ -285,8 +290,7 @@ public class EquipmentRepository : IEquipmentRepository
                                    inf.Code AS {nameof(EquipmentDto.InfrastructureCode)},
                                    e.UnitId AS {nameof(EquipmentDto.UnitId)},
                                    u.Name AS {nameof(EquipmentDto.UnitName)},
-                                   c.Name AS {nameof(EquipmentDto.CountryName)},
-                                   c.Code AS {nameof(EquipmentDto.CountryCode)},
+                                   es.Name AS {nameof(EquipmentDto.EquipmentStatusName)},
                                    usr.Id AS CreatorId,
                                    usr.UserName AS Username,
                                    usr.FullName AS FullName
@@ -403,33 +407,33 @@ public class EquipmentRepository : IEquipmentRepository
         try
         {
             var insertEquipmentSql = $@"INSERT INTO EQUIPMENTS (
-                                           Id, 
-                                           EquipmentTypeId, 
-                                           Name, 
-                                           Code, 
-                                           SerialNumber, 
-                                           INFRASTRUCTURE_ID, 
-                                           COUNTRY_ID, 
-                                           IS_ACTIVE, 
-                                           CreatorId, 
-                                           CreatedBy, 
-                                           CreatedAt, 
+                                           Id,
+                                           EquipmentTypeId,
+                                           Name,
+                                           Code,
+                                           INFRASTRUCTURE_ID,
+                                           MANUFACTURE_YEAR,
+                                           EQUIPMENT_STATUS_ID,
+                                           IS_ACTIVE,
+                                           CreatorId,
+                                           CreatedBy,
+                                           CreatedAt,
                                            IsDeleted,
                                            UnitId,
                                            FORM_VALUES
                                        )
                                        VALUES (
-                                           :Id, 
-                                           :EquipmentTypeId, 
-                                           :Name, 
-                                           :Code, 
-                                           :SerialNumber, 
-                                           :InfrastructureId, 
-                                           :CountryId, 
-                                           :IsActive, 
-                                           :CreatorId, 
-                                           :CreatedBy, 
-                                           :CreatedAt, 
+                                           :Id,
+                                           :EquipmentTypeId,
+                                           :Name,
+                                           :Code,
+                                           :InfrastructureId,
+                                           :ManufactureYear,
+                                           :EquipmentStatusId,
+                                           :IsActive,
+                                           :CreatorId,
+                                           :CreatedBy,
+                                           :CreatedAt,
                                            0,
                                            :UnitId,
                                            :FormValues
@@ -441,9 +445,9 @@ public class EquipmentRepository : IEquipmentRepository
                 EquipmentTypeId = equipment.EquipmentTypeId.ToString(),
                 equipment.Name,
                 equipment.Code,
-                equipment.SerialNumber,
                 InfrastructureId = equipment.InfrastructureId?.ToString(),
-                CountryId = equipment.CountryId?.ToString(),
+                equipment.ManufactureYear,
+                equipment.EquipmentStatusId,
                 IsActive = equipment.IsActive ? 1 : 0,
                 CreatorId = equipment.CreatorId?.ToString(),
                 equipment.CreatedBy,
@@ -489,33 +493,33 @@ public class EquipmentRepository : IEquipmentRepository
             _connection.Open();
 
         var sql = $@"INSERT INTO EQUIPMENTS (
-                        Id, 
-                        EquipmentTypeId, 
-                        Name, 
-                        Code, 
-                        SerialNumber, 
-                        INFRASTRUCTURE_ID, 
-                        COUNTRY_ID, 
-                        IS_ACTIVE, 
-                        CreatorId, 
-                        CreatedBy, 
-                        CreatedAt, 
+                        Id,
+                        EquipmentTypeId,
+                        Name,
+                        Code,
+                        INFRASTRUCTURE_ID,
+                        MANUFACTURE_YEAR,
+                        EQUIPMENT_STATUS_ID,
+                        IS_ACTIVE,
+                        CreatorId,
+                        CreatedBy,
+                        CreatedAt,
                         IsDeleted,
                         UnitId,
                         FORM_VALUES
                     )
                     VALUES (
-                        :Id, 
-                        :EquipmentTypeId, 
-                        :Name, 
-                        :Code, 
-                        :SerialNumber, 
-                        :InfrastructureId, 
-                        :CountryId, 
-                        :IsActive, 
-                        :CreatorId, 
-                        :CreatedBy, 
-                        :CreatedAt, 
+                        :Id,
+                        :EquipmentTypeId,
+                        :Name,
+                        :Code,
+                        :InfrastructureId,
+                        :ManufactureYear,
+                        :EquipmentStatusId,
+                        :IsActive,
+                        :CreatorId,
+                        :CreatedBy,
+                        :CreatedAt,
                         0,
                         :UnitId,
                         :FormValues
@@ -527,9 +531,9 @@ public class EquipmentRepository : IEquipmentRepository
             EquipmentTypeId = equipment.EquipmentTypeId.ToString(),
             equipment.Name,
             equipment.Code,
-            equipment.SerialNumber,
             InfrastructureId = equipment.InfrastructureId?.ToString(),
-            CountryId = equipment.CountryId?.ToString(),
+            equipment.ManufactureYear,
+            equipment.EquipmentStatusId,
             IsActive = equipment.IsActive ? 1 : 0,
             CreatorId = equipment.CreatorId?.ToString(),
             equipment.CreatedBy,
@@ -547,13 +551,13 @@ public class EquipmentRepository : IEquipmentRepository
         if (_connection.State != ConnectionState.Open)
             _connection.Open();
 
-        var sql = $@"UPDATE EQUIPMENTS 
+        var sql = $@"UPDATE EQUIPMENTS
                     SET EquipmentTypeId = :EquipmentTypeId,
                         Name = :Name,
                         Code = :Code,
-                        SerialNumber = :SerialNumber,
                         INFRASTRUCTURE_ID = :InfrastructureId,
-                        COUNTRY_ID = :CountryId,
+                        MANUFACTURE_YEAR = :ManufactureYear,
+                        EQUIPMENT_STATUS_ID = :EquipmentStatusId,
                         IS_ACTIVE = :IsActive,
                         ModifiedBy = :ModifiedBy,
                         ModifiedDate = :ModifiedDate,
@@ -567,9 +571,9 @@ public class EquipmentRepository : IEquipmentRepository
             EquipmentTypeId = equipment.EquipmentTypeId.ToString(),
             equipment.Name,
             equipment.Code,
-            equipment.SerialNumber,
             InfrastructureId = equipment.InfrastructureId?.ToString(),
-            CountryId = equipment.CountryId?.ToString(),
+            equipment.ManufactureYear,
+            equipment.EquipmentStatusId,
             IsActive = equipment.IsActive ? 1 : 0,
             equipment.ModifiedBy,
             ModifiedDate = DateTime.UtcNow,
@@ -641,15 +645,6 @@ public class EquipmentRepository : IEquipmentRepository
     }
 
     // Lookups
-    public async Task<IEnumerable<Country>> GetCountriesAsync()
-    {
-        if (_connection.State != ConnectionState.Open) 
-            _connection.Open();
-
-        var sql = "SELECT ID, CODE, NAME FROM COUNTRIES ORDER BY NAME ASC";
-        return await _connection.QueryAsync<Country>(sql);
-    }
-
     public async Task<IEnumerable<OrganizationDto>> GetOrganizationUnitsHierarchicalAsync(long? startUnitId)
     {
         if (_connection.State != ConnectionState.Open) 

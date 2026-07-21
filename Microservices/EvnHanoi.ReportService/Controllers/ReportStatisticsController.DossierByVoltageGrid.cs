@@ -75,9 +75,11 @@ namespace EvnHanoi.ReportService.Controllers
             using var workbook = new XLWorkbook();
             var worksheet = workbook.Worksheets.Add("DanhSachHoSo");
 
-            var year = filter.Year.HasValue && filter.Year.Value > 0 ? filter.Year.Value : DateTime.Now.Year;
+            var yearLabel = filter.Year.HasValue && filter.Year.Value > 0
+                ? $"NĂM {filter.Year.Value}"
+                : "TẤT CẢ CÁC NĂM";
             var totalCols = 1 + bhsColumns.Count + 3;
-            worksheet.Cell(1, 1).Value = $"DANH SÁCH HỒ SƠ NHẬP LIỆU THEO LƯỚI ĐIỆN ÁP NĂM {year}";
+            worksheet.Cell(1, 1).Value = $"DANH SÁCH HỒ SƠ NHẬP LIỆU THEO LƯỚI ĐIỆN ÁP {yearLabel}";
             worksheet.Range(1, 1, 1, totalCols).Merge().Style.Font.SetBold().Font.SetFontSize(14)
                 .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
 
@@ -114,7 +116,10 @@ namespace EvnHanoi.ReportService.Controllers
 
             using var stream = new MemoryStream();
             workbook.SaveAs(stream);
-            var fileName = $"DanhSachHoSo_LuoiDien_Nam_{year}_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+            var fileSuffix = filter.Year.HasValue && filter.Year.Value > 0
+                ? $"Nam_{filter.Year.Value}"
+                : "TatCaCacNam";
+            var fileName = $"DanhSachHoSo_LuoiDien_{fileSuffix}_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
             return File(stream.ToArray(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
         }
     }
