@@ -35,7 +35,6 @@ public static class PermissionCodeResolver
             "DossierCatalog" => "SEARCH_DOSSIERS_IN_WAREHOUSE",
             "ReportDossierByGridType" => "REPORT_DOSSIER_BY_GRIDTYPE",
             "ReportDossierByEquipment" => "REPORT_DOSSIER_BY_EQUIPMENT",
-            "ReportDossierByStation" => "REPORT_DOSSIER_BY_STATION",
             "ReportDossierByLine" => "REPORT_DOSSIER_BY_LINE",
             "ReportGroup" => "REPORT_GROUP",
             "ReportGroups" => "REPORT_GROUP",

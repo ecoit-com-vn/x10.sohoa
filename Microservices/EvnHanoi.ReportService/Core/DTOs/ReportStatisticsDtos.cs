@@ -21,6 +21,27 @@ namespace EvnHanoi.ReportService.Core.DTOs
         public int PageSize { get; set; }
     }
 
+    /// <summary>Dòng danh sách tài liệu — tab Danh sách tài liệu báo cáo theo loại văn bản.</summary>
+    public class ReportStatisticsDocumentListItemDto
+    {
+        public int Stt { get; set; }
+        public string DocumentId { get; set; } = string.Empty;
+        public string DossierId { get; set; } = string.Empty;
+        public string DocumentTypeName { get; set; } = string.Empty;
+        public string DossierTypeName { get; set; } = string.Empty;
+        public string InfrastructureName { get; set; } = string.Empty;
+        public string EquipmentName { get; set; } = string.Empty;
+        public string DocumentName { get; set; } = string.Empty;
+    }
+
+    public class ReportStatisticsDocumentListResponseDto
+    {
+        public List<ReportStatisticsDocumentListItemDto> Items { get; set; } = new();
+        public int TotalCount { get; set; }
+        public int Page { get; set; }
+        public int PageSize { get; set; }
+    }
+
     /// <summary>Lưới thống kê theo trạm/đường dây — mỗi dòng là 1 infrastructure, không phải hồ sơ.</summary>
     public class ReportStatisticsStationGridItemDto
     {
@@ -55,6 +76,120 @@ namespace EvnHanoi.ReportService.Core.DTOs
     public class ReportStatisticsEquipmentTypeGridResponseDto
     {
         public List<ReportStatisticsEquipmentTypeGridItemDto> Items { get; set; } = new();
+        public int TotalCount { get; set; }
+        public int Page { get; set; }
+        public int PageSize { get; set; }
+    }
+
+    /// <summary>Lưới thống kê theo loại hồ sơ — mỗi dòng gom theo loại hồ sơ.</summary>
+    public class ReportStatisticsDossierTypeGridItemDto
+    {
+        public int Stt { get; set; }
+        public string DossierTypeCode { get; set; } = string.Empty;
+        public string DossierTypeName { get; set; } = string.Empty;
+        public long TotalDossiers { get; set; }
+        public long TotalDocuments { get; set; }
+        public long TotalPages { get; set; }
+    }
+
+    public class ReportStatisticsDossierTypeGridResponseDto
+    {
+        public List<ReportStatisticsDossierTypeGridItemDto> Items { get; set; } = new();
+        public int TotalCount { get; set; }
+        public int Page { get; set; }
+        public int PageSize { get; set; }
+    }
+
+    /// <summary>Lưới thống kê theo loại văn bản — mỗi dòng gom theo loại văn bản.</summary>
+    public class ReportStatisticsDocumentTypeGridItemDto
+    {
+        public int Stt { get; set; }
+        public string DocumentTypeCode { get; set; } = string.Empty;
+        public string DocumentTypeName { get; set; } = string.Empty;
+        public long TotalDocuments { get; set; }
+        public long TotalPages { get; set; }
+    }
+
+    public class ReportStatisticsDocumentTypeGridResponseDto
+    {
+        public List<ReportStatisticsDocumentTypeGridItemDto> Items { get; set; } = new();
+        public int TotalCount { get; set; }
+        public int Page { get; set; }
+        public int PageSize { get; set; }
+    }
+
+    /// <summary>Lưới thống kê theo kệ lưu trữ — mỗi dòng gom theo kệ hồ sơ.</summary>
+    public class ReportStatisticsShelfGridItemDto
+    {
+        public int Stt { get; set; }
+        public string ShelfCode { get; set; } = string.Empty;
+        public string ShelfName { get; set; } = string.Empty;
+        public long TotalDossiers { get; set; }
+        public long TotalDocuments { get; set; }
+        public long TotalPages { get; set; }
+    }
+
+    public class ReportStatisticsShelfGridResponseDto
+    {
+        public List<ReportStatisticsShelfGridItemDto> Items { get; set; } = new();
+        public int TotalCount { get; set; }
+        public int Page { get; set; }
+        public int PageSize { get; set; }
+    }
+
+    /// <summary>Lưới thống kê theo hộp lưu trữ — mỗi dòng gom theo hộp hồ sơ.</summary>
+    public class ReportStatisticsBoxGridItemDto
+    {
+        public int Stt { get; set; }
+        public string BoxCode { get; set; } = string.Empty;
+        public string BoxName { get; set; } = string.Empty;
+        public long TotalDossiers { get; set; }
+        public long TotalDocuments { get; set; }
+        public long TotalPages { get; set; }
+    }
+
+    public class ReportStatisticsBoxGridResponseDto
+    {
+        public List<ReportStatisticsBoxGridItemDto> Items { get; set; } = new();
+        public int TotalCount { get; set; }
+        public int Page { get; set; }
+        public int PageSize { get; set; }
+    }
+
+    /// <summary>Lưới thống kê theo tầng lưu trữ — mỗi dòng gom theo tầng hồ sơ.</summary>
+    public class ReportStatisticsFloorGridItemDto
+    {
+        public int Stt { get; set; }
+        public string FloorCode { get; set; } = string.Empty;
+        public string FloorName { get; set; } = string.Empty;
+        public long TotalDossiers { get; set; }
+        public long TotalDocuments { get; set; }
+        public long TotalPages { get; set; }
+    }
+
+    public class ReportStatisticsFloorGridResponseDto
+    {
+        public List<ReportStatisticsFloorGridItemDto> Items { get; set; } = new();
+        public int TotalCount { get; set; }
+        public int Page { get; set; }
+        public int PageSize { get; set; }
+    }
+
+    /// <summary>Lưới thống kê theo người tạo hồ sơ — báo cáo phân bổ.</summary>
+    public class ReportStatisticsCreatorGridItemDto
+    {
+        public int Stt { get; set; }
+        public string Username { get; set; } = string.Empty;
+        public string FullName { get; set; } = string.Empty;
+        public string UnitName { get; set; } = string.Empty;
+        public long TotalDossiers { get; set; }
+        public long TotalDocuments { get; set; }
+        public long TotalPages { get; set; }
+    }
+
+    public class ReportStatisticsCreatorGridResponseDto
+    {
+        public List<ReportStatisticsCreatorGridItemDto> Items { get; set; } = new();
         public int TotalCount { get; set; }
         public int Page { get; set; }
         public int PageSize { get; set; }

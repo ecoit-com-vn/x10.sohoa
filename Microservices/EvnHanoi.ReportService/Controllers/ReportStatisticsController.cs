@@ -138,6 +138,112 @@ namespace EvnHanoi.ReportService.Controllers
             return Ok(equipmentTypes);
         }
 
+        /// <summary>
+        /// Lookup danh sách loại hồ sơ — dùng cho báo cáo thống kê theo loại hồ sơ.
+        /// GET /api/v1/reports/statistics/lookups/dossier-types
+        /// </summary>
+        [HttpGet("lookups/dossier-types")]
+        public async Task<IActionResult> GetDossierTypesLookup()
+        {
+            var scope = ResolveUserScope();
+            var effectiveUnitId = scope.IsAdmin ? null : scope.UnitId;
+            var dossierTypes = await _dossierRepository.GetDossierTypesAsync(effectiveUnitId);
+            return Ok(dossierTypes);
+        }
+
+        /// <summary>
+        /// Lookup danh sách loại văn bản — dùng cho báo cáo thống kê theo loại văn bản.
+        /// GET /api/v1/reports/statistics/lookups/document-types
+        /// </summary>
+        [HttpGet("lookups/document-types")]
+        public async Task<IActionResult> GetDocumentTypesLookup()
+        {
+            var documentTypes = await _dossierRepository.GetDocumentTypesAsync();
+            return Ok(documentTypes);
+        }
+
+        /// <summary>
+        /// Lookup danh sách trạm biến áp — dùng cho báo cáo thống kê theo trạm.
+        /// GET /api/v1/reports/statistics/lookups/stations
+        /// </summary>
+        [HttpGet("lookups/stations")]
+        public async Task<IActionResult> GetStationsLookup([FromQuery] long? unitId)
+        {
+            var scope = ResolveUserScope();
+            var unitScopeRoot = scope.IsAdmin ? null : scope.UnitId;
+            var effectiveUnitId = scope.IsAdmin ? unitId : (unitId ?? scope.UnitId);
+            var stations = await _dossierRepository.GetInfrastructuresAsync(unitScopeRoot, effectiveUnitId, infraTypeId: 1);
+            return Ok(stations);
+        }
+
+        /// <summary>
+        /// Lookup danh sách đường dây — dùng cho báo cáo thống kê theo đường dây.
+        /// GET /api/v1/reports/statistics/lookups/lines
+        /// </summary>
+        [HttpGet("lookups/lines")]
+        public async Task<IActionResult> GetLinesLookup([FromQuery] long? unitId)
+        {
+            var scope = ResolveUserScope();
+            var unitScopeRoot = scope.IsAdmin ? null : scope.UnitId;
+            var effectiveUnitId = scope.IsAdmin ? unitId : (unitId ?? scope.UnitId);
+            var lines = await _dossierRepository.GetInfrastructuresAsync(unitScopeRoot, effectiveUnitId, infraTypeId: 2);
+            return Ok(lines);
+        }
+
+        /// <summary>
+        /// Lookup danh sách kệ hồ sơ — dùng cho báo cáo thống kê theo kệ lưu trữ.
+        /// GET /api/v1/reports/statistics/lookups/shelves
+        /// </summary>
+        [HttpGet("lookups/shelves")]
+        public async Task<IActionResult> GetShelvesLookup([FromQuery] long? unitId)
+        {
+            var scope = ResolveUserScope();
+            var unitScopeRoot = scope.IsAdmin ? null : scope.UnitId;
+            var effectiveUnitId = scope.IsAdmin ? unitId : (unitId ?? scope.UnitId);
+            var shelves = await _dossierRepository.GetShelvesAsync(unitScopeRoot, effectiveUnitId);
+            return Ok(shelves);
+        }
+
+        /// <summary>
+        /// Lookup danh sách hộp hồ sơ — dùng cho báo cáo thống kê theo hộp lưu trữ.
+        /// GET /api/v1/reports/statistics/lookups/boxes
+        /// </summary>
+        [HttpGet("lookups/boxes")]
+        public async Task<IActionResult> GetBoxesLookup([FromQuery] long? unitId)
+        {
+            var scope = ResolveUserScope();
+            var unitScopeRoot = scope.IsAdmin ? null : scope.UnitId;
+            var effectiveUnitId = scope.IsAdmin ? unitId : (unitId ?? scope.UnitId);
+            var boxes = await _dossierRepository.GetBoxesAsync(unitScopeRoot, effectiveUnitId);
+            return Ok(boxes);
+        }
+
+        /// <summary>
+        /// Lookup danh sách tầng hồ sơ — dùng cho báo cáo thống kê theo tầng lưu trữ.
+        /// GET /api/v1/reports/statistics/lookups/floors
+        /// </summary>
+        [HttpGet("lookups/floors")]
+        public async Task<IActionResult> GetFloorsLookup([FromQuery] long? unitId)
+        {
+            var scope = ResolveUserScope();
+            var unitScopeRoot = scope.IsAdmin ? null : scope.UnitId;
+            var effectiveUnitId = scope.IsAdmin ? unitId : (unitId ?? scope.UnitId);
+            var floors = await _dossierRepository.GetFloorsAsync(unitScopeRoot, effectiveUnitId);
+            return Ok(floors);
+        }
+
+        /// <summary>
+        /// Lookup cán bộ nhập liệu (người tạo hồ sơ) — dùng cho báo cáo thống kê theo phân bổ hồ sơ.
+        /// GET /api/v1/reports/statistics/lookups/input-users
+        /// </summary>
+        [HttpGet("lookups/input-users")]
+        public async Task<IActionResult> GetInputUsersLookup()
+        {
+            var scope = ResolveUserScope();
+            var users = await _dossierRepository.GetInputUsersAsync(scope.IsAdmin, scope.UnitId);
+            return Ok(users);
+        }
+
         private long? GetClaimUnitId()
         {
             var unitIdClaim = User.FindFirst("unit_id")?.Value;
