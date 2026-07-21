@@ -4,11 +4,12 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ToastModule } from 'primeng/toast';
 import { SelectModule } from 'primeng/select';
+import { DatePickerModule } from 'primeng/datepicker';
 import { DialogModule } from 'primeng/dialog';
 import { Menu, MenuModule } from 'primeng/menu';
 import { MenuItem, MessageService } from 'primeng/api';
 import { ActivatedRoute, Router } from '@angular/router';
-import { AuthService } from '@sohoa.frontend/shared/core';
+import { AuthService, BreadcrumbTrailItem } from '@sohoa.frontend/shared/core';
 import { InfrastructureService } from '../../data-access/infrastructure.service';
 import { EquipmentService } from '@sohoa.frontend/features/equipment';
 import { DossierManagementService } from '@sohoa.frontend/features/dossier-management';
@@ -17,7 +18,7 @@ import { finalize } from 'rxjs/operators';
 @Component({
   selector: 'app-infrastructure',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule, SelectModule, DialogModule, MenuModule, WfBreadcrumbComponent],
+  imports: [CommonModule, FormsModule, ToastModule, SelectModule, DatePickerModule, DialogModule, MenuModule, WfBreadcrumbComponent],
   providers: [MessageService],
   templateUrl: './infrastructure.component.html',
   styleUrl: './infrastructure.component.scss'
@@ -102,6 +103,18 @@ export class InfrastructureComponent implements OnInit {
 
   totalPages = computed(() => {
     return Math.ceil(this.totalCount() / this.pageSize());
+  });
+
+  /**
+   * Breadcrumb tường minh cho màn chi tiết — chỉ 2 cấp: "Trạm biến áp/Đường dây" (link) + pageTitle() (leaf).
+   * Không dùng trail tự resolve từ menu (tránh nhảy thêm cấp cha) + không bind viewMode (tránh lặp "Chi tiết").
+   */
+  detailBreadcrumbItems = computed<BreadcrumbTrailItem[]>(() => {
+    const isSubstation = this.infraTypeId() === 1;
+    return [
+      { label: isSubstation ? 'Trạm biến áp' : 'Đường dây', url: isSubstation ? '/catalog/substation' : '/catalog/transmission-line' },
+      { label: this.pageTitle() }
+    ];
   });
 
   // ── DETAIL VIEW SIGNALS ────────────────────────────────────────────────────
@@ -427,6 +440,7 @@ export class InfrastructureComponent implements OnInit {
       unitId: null,
       gridTypeId: null,
       address: '',
+      operationDate: null,
       organization: null
     });
     this.orgTreePickerOpen.set(false);
@@ -436,7 +450,10 @@ export class InfrastructureComponent implements OnInit {
   }
 
   onEdit(item: any) {
-    this.currentItem.set({ ...item });
+    this.currentItem.set({
+      ...item,
+      operationDate: item.operationDate ? new Date(item.operationDate) : null
+    });
     this.orgTreePickerOpen.set(false);
     this.formSubmitted.set(false);
     this.serverErrors.set({});
@@ -446,13 +463,13 @@ export class InfrastructureComponent implements OnInit {
   // Điều hướng vào màn hình chi tiết
   onViewDetail(item: any) {
     const segment = this.infraTypeId() === 1 ? 'substation' : 'transmission-line';
-    this.router.navigate(['../', segment, item.id], { relativeTo: this.route });
+    this.router.navigate(['/catalog', segment, item.id]);
   }
 
   // Quay lại danh sách
   goBack() {
     const segment = this.infraTypeId() === 1 ? 'substation' : 'transmission-line';
-    this.router.navigate(['../', segment], { relativeTo: this.route });
+    this.router.navigate(['/catalog', segment]);
   }
 
   isGridTypeLocked(item?: any): boolean {
@@ -460,6 +477,21 @@ export class InfrastructureComponent implements OnInit {
     const target = item ?? this.currentItem();
     const count = Number(target?.equipmentCount ?? target?.EquipmentCount ?? 0);
     return count > 0;
+  }
+
+  /**
+   * Chuyển Date của p-datepicker thành chuỗi 'yyyy-MM-dd' theo giờ local trước khi gửi lên BE.
+   * Nếu gửi thẳng đối tượng Date, HttpClient JSON.stringify sẽ gọi Date.toISOString() (quy về UTC),
+   * khiến ngày bị lùi 1 ngày với múi giờ dương (vd. UTC+7) do Oracle TIMESTAMP lưu nguyên giá trị nhận được.
+   */
+  private toDateOnlyString(value: any): string | null {
+    if (!value) return null;
+    const d = value instanceof Date ? value : new Date(value);
+    if (isNaN(d.getTime())) return null;
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
   }
 
   onSaveItem() {
@@ -480,6 +512,7 @@ export class InfrastructureComponent implements OnInit {
       infraTypeId: this.infraTypeId(),
       unitId: item.unitId || null,
       gridTypeId: item.gridTypeId,
+      operationDate: this.toDateOnlyString(item.operationDate),
       isActive: item.isActive
     };
 

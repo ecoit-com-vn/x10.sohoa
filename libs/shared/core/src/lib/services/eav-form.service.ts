@@ -243,4 +243,9 @@ export class EavFormService {
   getCatalogsLookup(catalogTypeId: number): Observable<any[]> {
     return this.api.get<any[]>(`/api/Catalog/lookup?catalogTypeId=${catalogTypeId}`);
   }
+
+  /** Lookup danh mục theo mã CatalogType (vd. EQUIPMENT_STATUS) — 1 lần gọi, không cần resolve id trước. */
+  getCatalogsLookupByCode(code: string): Observable<any[]> {
+    return this.api.get<any[]>(`/api/Catalog/lookup?code=${encodeURIComponent(code)}`);
+  }
 }

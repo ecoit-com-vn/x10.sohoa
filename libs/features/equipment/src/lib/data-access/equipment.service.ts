@@ -111,10 +111,6 @@ export class EquipmentService {
     return this.http.get<any[]>(`${this.base}/get-equipment-types`);
   }
 
-  getCountries(): Observable<any[]> {
-    return this.http.get<any[]>(`${this.base}/get-countries`);
-  }
-
   updateFormValues(id: string, formValues: string): Observable<any> {
     return this.http.put<any>(`${this.base}/${id}/form-values`, { formValues });
   }
