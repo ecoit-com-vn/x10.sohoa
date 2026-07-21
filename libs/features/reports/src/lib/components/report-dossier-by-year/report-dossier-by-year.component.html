@@ -1,0 +1,242 @@
+<p-toast></p-toast>
+
+<div class="wf-page dossier-report-page">
+  <!-- Breadcrumb -->
+  <div class="breadcrumb-container">
+    <wf-breadcrumb [suffix]="'Báo cáo thống kê hồ sơ nhập liệu theo năm'"></wf-breadcrumb>
+  </div>
+
+  <!-- Filter Bar Card -->
+  <div class="filter-card">
+    <div class="filter-row">
+      <!-- Đơn vị -->
+      <div class="filter-col">
+        <label class="filter-label">Đơn vị</label>
+        <eco-input-tree-select
+          [showLabel]="false"
+          placeholder="-- Chọn đơn vị --"
+          [nodes]="primengOrgUnitTree()"
+          [ngModel]="selectedUnitId()"
+          (ngModelChange)="selectedUnitId.set($event)"
+          [showClear]="true"
+          [enableSearch]="true"
+          [border]="true"
+        ></eco-input-tree-select>
+      </div>
+
+      <!-- Loại đối tượng -->
+      <div class="filter-col">
+        <label class="filter-label">Loại đối tượng</label>
+        <p-select
+          [options]="objectTypes()"
+          [ngModel]="selectedObjectType()"
+          (ngModelChange)="selectedObjectType.set($event)"
+          optionLabel="name"
+          optionValue="id"
+          placeholder="-- Chọn loại đối tượng --"
+          styleClass="w-full wf-select-custom"
+        ></p-select>
+      </div>
+
+      <!-- Năm báo cáo -->
+      <div class="filter-col">
+        <label class="filter-label">Năm báo cáo</label>
+        <p-select
+          [options]="years()"
+          [ngModel]="selectedYear()"
+          (ngModelChange)="selectedYear.set($event)"
+          placeholder="Chọn"
+          styleClass="w-full wf-select-custom"
+        ></p-select>
+      </div>
+
+      <!-- Actions -->
+      <div class="filter-actions">
+        <button type="button" class="btn-tim" (click)="onFilter()" [disabled]="loading()">
+          <i class="pi pi-search"></i> Tìm kiếm
+        </button>
+        <button
+          *ngIf="activeTab() === 'list'"
+          type="button"
+          class="btn-green"
+          (click)="exportExcel()"
+          [disabled]="exporting() || loading()"
+        >
+          <i class="pi pi-file-excel"></i> Xuất Excel
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Navigation Tabs -->
+  <div class="main-tabs-bar">
+    <button
+      type="button"
+      class="tab-item"
+      [class.active]="activeTab() === 'stats'"
+      (click)="switchTab('stats')"
+    >
+      <i class="pi pi-chart-bar"></i> Báo cáo thống kê
+    </button>
+
+    <button
+      type="button"
+      class="tab-item"
+      [class.active]="activeTab() === 'list'"
+      (click)="switchTab('list')"
+    >
+      <i class="pi pi-file"></i> Danh sách hồ sơ
+    </button>
+  </div>
+
+  <!-- Tab 1: Báo cáo thống kê -->
+  <ng-container *ngIf="activeTab() === 'stats'">
+    <div *ngIf="loading()" class="loading-box">
+      <i class="pi pi-spin pi-spinner"></i>
+      <p>Đang tải dữ liệu báo cáo...</p>
+    </div>
+
+    <div *ngIf="!loading()" class="stats-section">
+      <div class="stats-grid">
+      <!-- Left Card: Grouped Bar Chart -->
+      <div class="card-box chart-box">
+        <div class="card-header flex-header">
+          <h3 class="card-title">Biểu đồ thống kê số lượng Hồ sơ, Tài liệu, Trang tài liệu</h3>
+          <div class="top-legend">
+            <span class="legend-dot-item"><span class="dot bg-blue"></span> Trạm biến áp</span>
+            <span class="legend-dot-item"><span class="dot bg-green"></span> Đường dây</span>
+            <span class="legend-dot-item"><span class="dot bg-orange"></span> Thiết bị</span>
+          </div>
+        </div>
+
+        <!-- Custom Visual Bar Chart Area -->
+        <div class="bar-chart-container">
+          <!-- Left Y-Axis Label & Ticks -->
+          <div class="y-axis-area">
+            <span class="y-axis-title">Số lượng</span>
+            <div class="y-ticks">
+              <span>{{ maxChartValue() }}</span>
+              <span>{{ maxChartValue() * 0.75 | number:'1.0-0' }}</span>
+              <span>{{ maxChartValue() * 0.5 | number:'1.0-0' }}</span>
+              <span>{{ maxChartValue() * 0.25 | number:'1.0-0' }}</span>
+              <span>0</span>
+            </div>
+          </div>
+
+          <!-- Chart Body with Grid Lines & Bars -->
+          <div class="chart-body">
+            <!-- Grid Lines -->
+            <div class="grid-lines">
+              <div class="grid-line"></div>
+              <div class="grid-line"></div>
+              <div class="grid-line"></div>
+              <div class="grid-line"></div>
+              <div class="grid-line line-zero"></div>
+            </div>
+
+            <!-- Groups Area -->
+            <div class="groups-wrapper" [attr.data-chart-key]="filterVersion()">
+              <!-- Group 1: Hồ sơ -->
+              <div class="bar-group-col">
+                <div class="bars-flex">
+                  <div *ngIf="showStationRatio()" class="bar-item bg-blue" [style.height.px]="getBarHeightPx(stationStat().dossierCount)" [pTooltip]="'Trạm biến áp: ' + stationStat().dossierCount"></div>
+                  <div *ngIf="showLineRatio()" class="bar-item bg-green" [style.height.px]="getBarHeightPx(lineStat().dossierCount)" [pTooltip]="'Đường dây: ' + lineStat().dossierCount"></div>
+                  <div *ngIf="showEquipmentRatio()" class="bar-item bg-orange" [style.height.px]="getBarHeightPx(equipmentStat().dossierCount)" [pTooltip]="'Thiết bị: ' + equipmentStat().dossierCount"></div>
+                </div>
+                <div class="x-group-label">Hồ sơ</div>
+              </div>
+
+              <!-- Group 2: Tài liệu -->
+              <div class="bar-group-col">
+                <div class="bars-flex">
+                  <div *ngIf="showStationRatio()" class="bar-item bg-blue" [style.height.px]="getBarHeightPx(stationStat().documentCount)" [pTooltip]="'Trạm biến áp: ' + stationStat().documentCount"></div>
+                  <div *ngIf="showLineRatio()" class="bar-item bg-green" [style.height.px]="getBarHeightPx(lineStat().documentCount)" [pTooltip]="'Đường dây: ' + lineStat().documentCount"></div>
+                  <div *ngIf="showEquipmentRatio()" class="bar-item bg-orange" [style.height.px]="getBarHeightPx(equipmentStat().documentCount)" [pTooltip]="'Thiết bị: ' + equipmentStat().documentCount"></div>
+                </div>
+                <div class="x-group-label">Tài liệu</div>
+              </div>
+
+              <!-- Group 3: Trang tài liệu -->
+              <div class="bar-group-col">
+                <div class="bars-flex">
+                  <div *ngIf="showStationRatio()" class="bar-item bg-blue" [style.height.px]="getBarHeightPx(stationStat().pageCount)" [pTooltip]="'Trạm biến áp: ' + stationStat().pageCount"></div>
+                  <div *ngIf="showLineRatio()" class="bar-item bg-green" [style.height.px]="getBarHeightPx(lineStat().pageCount)" [pTooltip]="'Đường dây: ' + lineStat().pageCount"></div>
+                  <div *ngIf="showEquipmentRatio()" class="bar-item bg-orange" [style.height.px]="getBarHeightPx(equipmentStat().pageCount)" [pTooltip]="'Thiết bị: ' + equipmentStat().pageCount"></div>
+                </div>
+                <div class="x-group-label">Trang tài liệu</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Card: Donut Ratio Chart -->
+      <div class="card-box ratio-box">
+        <div class="card-header">
+          <h3 class="card-title">Thống kê hồ sơ nhập liệu</h3>
+        </div>
+
+        <!-- Donut Ring Center -->
+        <div class="donut-area">
+          <div
+            class="donut-ring"
+            [attr.data-chart-key]="filterVersion()"
+            [style.background-image]="donutConicGradient()"
+          >
+            <div class="donut-hole">
+              <span class="donut-total-num">{{ totalDossierCount() }}</span>
+              <span class="donut-total-lbl">TỔNG SỐ LƯỢNG</span>
+              <span class="donut-pct-num">100%</span>
+              <span class="donut-pct-lbl">TỔNG CỘNG</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Legend Pill Items -->
+        <div class="legend-pill-list">
+          <div class="pill-item" *ngIf="showStationRatio()">
+            <div class="pill-left">
+              <span class="dot bg-blue"></span>
+              <span class="pill-label">Trạm biến áp</span>
+            </div>
+            <div class="pill-val color-blue">{{ stationRatio().dossierCount }} ({{ stationRatio().percentage }}%)</div>
+          </div>
+
+          <div class="pill-item" *ngIf="showLineRatio()">
+            <div class="pill-left">
+              <span class="dot bg-green"></span>
+              <span class="pill-label">Đường dây</span>
+            </div>
+            <div class="pill-val color-green">{{ lineRatio().dossierCount }} ({{ lineRatio().percentage }}%)</div>
+          </div>
+
+          <div class="pill-item" *ngIf="showEquipmentRatio()">
+            <div class="pill-left">
+              <span class="dot bg-orange"></span>
+              <span class="pill-label">Thiết bị</span>
+            </div>
+            <div class="pill-val color-orange">{{ equipmentRatio().dossierCount }} ({{ equipmentRatio().percentage }}%)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    </div>
+
+    <!-- View 3: Lưới hồ sơ theo trạm/đường dây — gom theo infrastructure, load độc lập -->
+    <app-report-statistics-station-grid
+      [gridConfig]="stationGridConfig"
+      [filter]="reportFilter()"
+      [active]="activeTab() === 'stats'"
+      [filterVersion]="filterVersion()"
+    />
+  </ng-container>
+
+  <!-- Tab 2: Danh sách hồ sơ -->
+  <app-report-statistics-dossier-list
+    *ngIf="activeTab() === 'list'"
+    [listConfig]="dossierListConfig"
+    [filter]="reportFilter()"
+    [active]="activeTab() === 'list'"
+    [filterVersion]="filterVersion()"
+  />
+</div>

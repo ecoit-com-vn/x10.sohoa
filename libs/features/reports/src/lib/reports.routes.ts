@@ -52,6 +52,14 @@ export const REPORTS_ROUTES: Routes = [
       ),
     canActivate: [reportDossierGuard('REPORT_UNIT_PUBLISH_VIEW')]
   },
+  {
+    path: 'statistics',
+    loadComponent: () =>
+      import('./components/report-statistics/report-statistics.component').then(
+        (m) => m.ReportStatisticsComponent
+      ),
+    canActivate: [reportDossierGuard('REPORT_STATISTICS_VIEW')]
+  },
   reportListRoute('dossier-by-grid-type', 'REPORT_DOSSIER_BY_GRIDTYPE_VIEW'),
   reportDetailRoute('dossier-by-grid-type', 'REPORT_DOSSIER_BY_GRIDTYPE_VIEW'),
   reportListRoute('dossier-by-equipment', 'REPORT_DOSSIER_BY_EQUIPMENT_VIEW'),
@@ -59,5 +67,37 @@ export const REPORTS_ROUTES: Routes = [
   reportListRoute('dossier-by-station', 'REPORT_DOSSIER_BY_STATION_VIEW'),
   reportDetailRoute('dossier-by-station', 'REPORT_DOSSIER_BY_STATION_VIEW'),
   reportListRoute('dossier-by-line', 'REPORT_DOSSIER_BY_LINE_VIEW'),
-  reportDetailRoute('dossier-by-line', 'REPORT_DOSSIER_BY_LINE_VIEW')
+  reportDetailRoute('dossier-by-line', 'REPORT_DOSSIER_BY_LINE_VIEW'),
+  {
+    path: 'dossier-by-year',
+    loadComponent: () =>
+      import('./components/report-dossier-by-year/report-dossier-by-year.component').then(
+        (m) => m.ReportDossierByYearComponent
+      ),
+    canActivate: [reportDossierGuard('REPORT_STATISTICS_VIEW')]
+  },
+  {
+    path: 'dossier-by-month',
+    loadComponent: () =>
+      import('./components/report-dossier-by-month/report-dossier-by-month.component').then(
+        (m) => m.ReportDossierByMonthComponent
+      ),
+    canActivate: [reportDossierGuard('REPORT_STATISTICS_VIEW')]
+  },
+  {
+    path: 'dossier-by-voltage-grid',
+    loadComponent: () =>
+      import('./components/report-dossier-by-voltage-grid/report-dossier-by-voltage-grid.component').then(
+        (m) => m.ReportDossierByVoltageGridComponent
+      ),
+    canActivate: [reportDossierGuard('REPORT_STATISTICS_VIEW')]
+  },
+  {
+    path: 'dossier-by-equipment-type',
+    loadComponent: () =>
+      import('./components/report-dossier-by-equipment-type/report-dossier-by-equipment-type.component').then(
+        (m) => m.ReportDossierByEquipmentTypeComponent
+      ),
+    canActivate: [reportDossierGuard('REPORT_STATISTICS_VIEW')]
+  }
 ];

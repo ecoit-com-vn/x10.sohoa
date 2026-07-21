@@ -1,0 +1,55 @@
+<div class="table-card">
+  <div class="card-header flex-header">
+    <h3 class="card-title">Lưới hồ sơ theo thiết bị</h3>
+    <span class="total-badge" *ngIf="!loading()">
+      Tổng số dòng lưới: <strong>{{ totalCount() | number }}</strong>
+    </span>
+  </div>
+
+  <div class="wf-table-wrap">
+    <p-table
+      [value]="items()"
+      [lazy]="true"
+      [paginator]="true"
+      [rows]="pageSize()"
+      [totalRecords]="totalCount()"
+      [first]="(page() - 1) * pageSize()"
+      (onPage)="onPageChange($event)"
+      [rowsPerPageOptions]="[10, 20, 50]"
+      [loading]="loading()"
+      styleClass="wf-table-custom p-datatable-gridlines"
+    >
+      <ng-template pTemplate="header">
+        <tr>
+          <th class="col-stt text-center">STT</th>
+          <th class="col-code">Mã loại thiết bị</th>
+          <th class="col-name">Tên loại thiết bị</th>
+          <th class="col-grid">Lưới điện</th>
+          <th class="col-num text-center">Tổng số hồ sơ</th>
+          <th class="col-num text-center">Tổng số tài liệu</th>
+          <th class="col-num text-center">Tổng số trang tài liệu</th>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="body" let-item>
+        <tr>
+          <td class="text-center font-medium">{{ item.stt }}</td>
+          <td><span class="equipment-type-code">{{ item.equipmentTypeCode || '-' }}</span></td>
+          <td class="font-medium text-gray-800">{{ item.equipmentTypeName || '-' }}</td>
+          <td>{{ item.gridTypeName || '-' }}</td>
+          <td class="text-center font-semibold">{{ item.totalDossiers }}</td>
+          <td class="text-center font-semibold">{{ item.totalDocuments }}</td>
+          <td class="text-center font-semibold">{{ item.totalPages }}</td>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="7" class="text-center py-8 text-gray-500 text-xs">
+            Không tìm thấy dữ liệu phù hợp.
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </div>
+</div>
