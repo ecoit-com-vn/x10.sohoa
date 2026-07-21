@@ -30,6 +30,11 @@ import {
   REPORT_STATISTICS_DOSSIER_LIST_CONFIGS,
   REPORT_STATISTICS_EQUIPMENT_TYPE_GRID_CONFIGS
 } from '../../data-access/report-statistics.config';
+import {
+  buildYearOptions,
+  yearToFilterParam,
+  buildExportYearSuffix
+} from '../../data-access/report-year-filter.util';
 import { ReportStatisticsDossierListComponent } from '../report-statistics-dossier-list/report-statistics-dossier-list.component';
 import { ReportStatisticsEquipmentTypeGridComponent } from '../report-statistics-equipment-type-grid/report-statistics-equipment-type-grid.component';
 import { finalize } from 'rxjs';
@@ -93,13 +98,14 @@ export class ReportDossierByEquipmentTypeComponent implements OnInit, AfterViewI
     unitId: this.selectedUnitId(),
     objectType: this.selectedObjectType(),
     equipmentTypeIds: this.selectedEquipmentTypeIds().filter((id) => id?.trim()),
-    year: this.selectedYear()
+    ...yearToFilterParam(this.selectedYear())
   }));
 
   units = signal<UnitLookupItem[]>([]);
   objectTypes = signal<ObjectTypeLookupItem[]>([]);
   equipmentTypeOptions = signal<EquipmentTypeOption[]>([]);
   years = signal<number[]>([]);
+  yearOptions = computed(() => buildYearOptions(this.years()));
 
   orgUnitTree = computed(() => this.buildOrgTree(this.units()));
   primengOrgUnitTree = computed((): TreeNode[] => {
@@ -173,15 +179,17 @@ export class ReportDossierByEquipmentTypeComponent implements OnInit, AfterViewI
 
     this.reportService.getYearsLookup().subscribe({
       next: (years) => {
-        this.years.set(years || [new Date().getFullYear()]);
-        if (years && years.length > 0) {
-          this.selectedYear.set(years[0]);
-        }
+        const availableYears = years || [new Date().getFullYear()];
+        this.years.set(availableYears);
+        const currentYear = new Date().getFullYear();
+        const defaultYear = availableYears.includes(currentYear) ? currentYear : availableYears[0];
+        this.selectedYear.set(defaultYear);
         this.loadStatsData();
       },
       error: (err) => {
         console.error('Lỗi tải danh sách năm:', err);
         this.years.set([new Date().getFullYear()]);
+        this.selectedYear.set(new Date().getFullYear());
         this.loadStatsData();
       }
     });
@@ -240,7 +248,7 @@ export class ReportDossierByEquipmentTypeComponent implements OnInit, AfterViewI
       unitId: this.selectedUnitId(),
       objectType: this.selectedObjectType(),
       equipmentTypeIds: this.selectedEquipmentTypeIds(),
-      year: this.selectedYear()
+      ...yearToFilterParam(this.selectedYear())
     };
 
     this.loading.set(true);
@@ -275,7 +283,7 @@ export class ReportDossierByEquipmentTypeComponent implements OnInit, AfterViewI
       unitId: this.selectedUnitId(),
       objectType: this.selectedObjectType(),
       equipmentTypeIds: this.selectedEquipmentTypeIds(),
-      year: this.selectedYear()
+      ...yearToFilterParam(this.selectedYear())
     };
 
     this.reportService.exportExcel(filter)
@@ -285,7 +293,7 @@ export class ReportDossierByEquipmentTypeComponent implements OnInit, AfterViewI
           const url = window.URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;
-          a.download = `DanhSachHoSo_LoaiThietBi_Nam_${this.selectedYear()}_${new Date().getTime()}.xlsx`;
+          a.download = `DanhSachHoSo_LoaiThietBi_${buildExportYearSuffix(this.selectedYear())}_${new Date().getTime()}.xlsx`;
           a.click();
           window.URL.revokeObjectURL(url);
           this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã xuất danh sách hồ sơ ra Excel.' });

@@ -47,9 +47,7 @@ export class ReportDossierService {
         ? 'lookups/grid-types'
         : cfg.secondaryLookup === 'equipments'
           ? 'lookups/equipments'
-          : cfg.secondaryLookup === 'stations'
-            ? 'lookups/stations'
-            : 'lookups/lines';
+          : 'lookups/lines';
 
     return this.http.get<ReportDossierLookupItem[]>(`${this.base(cfg.apiSegment)}/${path}`, { params });
   }

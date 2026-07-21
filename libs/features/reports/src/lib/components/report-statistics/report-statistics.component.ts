@@ -60,7 +60,13 @@ export class ReportStatisticsComponent implements OnInit {
     REPORT_DOSSIER_BY_STATION: '/reports/dossier-by-station',
     REPORT_DOSSIER_BY_LINE: '/reports/dossier-by-line',
     REPORT_DOSSIER_BY_YEAR: '/reports/dossier-by-year',
-    REPORT_DOSSIER_BY_MONTH: '/reports/dossier-by-month'
+    REPORT_DOSSIER_BY_MONTH: '/reports/dossier-by-month',
+    REPORT_DOSSIER_BY_ALLOCATION: '/reports/dossier-by-allocation',
+    REPORT_DOSSIER_BY_DOSSIER_TYPE: '/reports/dossier-by-dossier-type',
+    REPORT_DOSSIER_BY_SHELF: '/reports/dossier-by-shelf',
+    REPORT_DOSSIER_BY_BOX: '/reports/dossier-by-box',
+    REPORT_DOSSIER_BY_FLOOR: '/reports/dossier-by-floor',
+    REPORT_DOSSIER_BY_DOCUMENT_TYPE: '/reports/dossier-by-document-type'
   };
 
   ngOnInit(): void {

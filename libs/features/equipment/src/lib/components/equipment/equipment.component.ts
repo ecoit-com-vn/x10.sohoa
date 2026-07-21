@@ -16,6 +16,7 @@ import { DossierManagementService } from '@sohoa.frontend/features/dossier-manag
 import { EMPTY, forkJoin, of } from 'rxjs';
 import { catchError, finalize, switchMap, map } from 'rxjs/operators';
 import { EquipmentDocumentsComponent } from '../equipment-documents/equipment-documents.component';
+import { EavFormService } from '../../../../../../shared/core/src/lib/services/eav-form.service';
 
 @Component({
   selector: 'app-equipment-list',
@@ -30,11 +31,13 @@ export class EquipmentComponent implements OnInit {
   public formTemplateService = inject(FormTemplateService);
   public dossierService = inject(DossierManagementService);
   public authService = inject(AuthService);
+  private eavFormService = inject(EavFormService);
   public messageService = inject(MessageService);
   public router = inject(Router);
   public route = inject(ActivatedRoute);
 
   public readonly Math = Math;
+  public readonly currentYear = new Date().getFullYear();
 
   // More menu state
   activeRowMenu = signal<string | null>(null);
@@ -94,7 +97,7 @@ export class EquipmentComponent implements OnInit {
   infrastructures = signal<any[]>([]);
   gridTypes = signal<any[]>([]);
   equipmentTypes = signal<any[]>([]);
-  countries = signal<any[]>([]);
+  equipmentStatuses = signal<any[]>([]);
 
   // Tree computed and states
   orgUnitTree = computed(() => this.buildOrgTree(this.organizationUnits()));
@@ -212,6 +215,14 @@ export class EquipmentComponent implements OnInit {
     return this.serverErrors().equipmentTypeId || this.serverErrors().EquipmentTypeId || '';
   });
 
+  manufactureYearError = computed(() => {
+    if (this.formSubmitted()) {
+      const year = this.currentItem().manufactureYear;
+      if (year && !this.isManufactureYearValid(year)) return `Năm sản xuất phải trong khoảng 1900 - ${this.currentYear}`;
+    }
+    return this.serverErrors().manufactureYear || this.serverErrors().ManufactureYear || '';
+  });
+
   // Delete Confirmation Dialog Signals
   showDeleteConfirm = signal<boolean>(false);
   deleteTarget = signal<any>(null);
@@ -280,10 +291,10 @@ export class EquipmentComponent implements OnInit {
           gridTypeId: null,
           infrastructureId: null,
           equipmentTypeId: null,
-          countryId: null,
+          manufactureYear: null,
+          equipmentStatusId: null,
           code: '',
-          name: '',
-          serialNumber: ''
+          name: ''
         });
         this.formSubmitted.set(false);
         this.serverErrors.set({});
@@ -319,10 +330,10 @@ export class EquipmentComponent implements OnInit {
                 equipmentTypeId: res.equipmentTypeId,
                 name: res.name,
                 code: res.code,
-                serialNumber: res.serialNumber,
                 unitId: res.unitId,
                 infrastructureId: res.infrastructureId,
-                countryId: res.countryId,
+                manufactureYear: res.manufactureYear,
+                equipmentStatusId: res.equipmentStatusId,
                 gridTypeId: res.gridTypeId,
                 isActive: res.isActive === 1 || res.isActive === true,
                 formValues: res.formValues,
@@ -331,7 +342,7 @@ export class EquipmentComponent implements OnInit {
                 gridTypeName: res.gridTypeName,
                 infrastructureName: res.infrastructureName,
                 unitName: res.unitName,
-                countryName: res.countryName,
+                equipmentStatusName: res.equipmentStatusName,
                 creator: res.creator,
                 createdBy: res.createdBy
               });
@@ -386,6 +397,11 @@ export class EquipmentComponent implements OnInit {
     });
   }
 
+  isManufactureYearValid(year: any): boolean {
+    const n = Number(year);
+    return !Number.isNaN(n) && n >= 1900 && n <= this.currentYear;
+  }
+
   onFieldChange(field: string) {
     this.serverErrors.update(errs => {
       const copy = { ...errs };
@@ -395,20 +411,32 @@ export class EquipmentComponent implements OnInit {
       return copy;
     });
   }
+  /** Danh mục Tình trạng thiết bị (catalogType = EQUIPMENT_STATUS) — tái dùng API Catalog chung (1 lần gọi theo code). */
+  private loadEquipmentStatusesLookup() {
+    return this.eavFormService.getCatalogsLookupByCode('EQUIPMENT_STATUS').pipe(
+      map((items: any[]) => (items || []).map((item: any) => ({
+        id: item.id ?? item.Id,
+        code: item.code ?? item.Code,
+        name: item.name ?? item.Name
+      }))),
+      catchError(() => of([]))
+    );
+  }
+
   loadLookupData() {
     forkJoin({
       organizationUnits: this.equipmentService.getOrganizationUnits().pipe(catchError(() => of([]))),
       infrastructures: this.equipmentService.getInfrastructures().pipe(catchError(() => of([]))),
       gridTypes: this.equipmentService.getGridTypes().pipe(catchError(() => of([]))),
       equipmentTypes: this.equipmentService.getEquipmentTypes().pipe(catchError(() => of([]))),
-      countries: this.equipmentService.getCountries().pipe(catchError(() => of([])))
+      equipmentStatuses: this.loadEquipmentStatusesLookup()
     }).subscribe({
       next: (data) => {
         this.organizationUnits.set(Array.isArray(data.organizationUnits) ? data.organizationUnits : []);
         this.infrastructures.set(Array.isArray(data.infrastructures) ? data.infrastructures : []);
         this.gridTypes.set(Array.isArray(data.gridTypes) ? data.gridTypes : []);
         this.equipmentTypes.set(Array.isArray(data.equipmentTypes) ? data.equipmentTypes : []);
-        this.countries.set(Array.isArray(data.countries) ? data.countries : []);
+        this.equipmentStatuses.set(Array.isArray(data.equipmentStatuses) ? data.equipmentStatuses : []);
 
         // Tự động điền dữ liệu nếu có parentId từ route hoặc infrastructureId truyền qua queryParams
         const parentId = this.route.snapshot.paramMap.get('parentId');
@@ -670,7 +698,8 @@ export class EquipmentComponent implements OnInit {
     this.formSubmitted.set(true);
     const item = this.currentItem();
 
-    if (!item.code || !item.name || !item.unitId || !item.gridTypeId || !item.infrastructureId || !item.equipmentTypeId) {
+    if (!item.code || !item.name || !item.unitId || !item.gridTypeId || !item.infrastructureId || !item.equipmentTypeId
+      || (item.manufactureYear && !this.isManufactureYearValid(item.manufactureYear))) {
       return;
     }
 
@@ -679,10 +708,10 @@ export class EquipmentComponent implements OnInit {
     const payload = {
       equipmentTypeId: item.equipmentTypeId,
       infrastructureId: item.infrastructureId,
-      countryId: item.countryId || null,
       code: item.code.trim(),
       name: item.name.trim(),
-      serialNumber: item.serialNumber ? item.serialNumber.trim() : '',
+      manufactureYear: item.manufactureYear ? Number(item.manufactureYear) : null,
+      equipmentStatusId: item.equipmentStatusId || null,
       unitId: Number(item.unitId),
       isActive: item.isActive === true || item.isActive === 1
     };
@@ -1052,10 +1081,10 @@ export class EquipmentComponent implements OnInit {
             equipmentTypeId: res.equipmentTypeId,
             name: res.name,
             code: res.code,
-            serialNumber: res.serialNumber,
             unitId: res.unitId,
             infrastructureId: res.infrastructureId,
-            countryId: res.countryId,
+            manufactureYear: res.manufactureYear,
+            equipmentStatusId: res.equipmentStatusId,
             gridTypeId: res.gridTypeId,
             isActive: res.isActive === 1 || res.isActive === true,
             formValues: res.formValues,
@@ -1064,7 +1093,7 @@ export class EquipmentComponent implements OnInit {
             gridTypeName: res.gridTypeName,
             infrastructureName: res.infrastructureName,
             unitName: res.unitName,
-            countryName: res.countryName,
+            equipmentStatusName: res.equipmentStatusName,
             creator: res.creator,
             createdBy: res.createdBy
           });

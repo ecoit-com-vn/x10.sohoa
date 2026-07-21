@@ -306,23 +306,27 @@
         </div>
 
         <div class="form-group-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-          <!-- Nước sản xuất -->
+          <!-- Năm sản xuất -->
           <div class="form-group">
-            <label class="form-label" style="font-weight: 600; margin-bottom: 6px; display: block; color: #374151;">Nước
+            <label class="form-label" style="font-weight: 600; margin-bottom: 6px; display: block; color: #374151;">Năm
               sản xuất</label>
-            <p-select [options]="countries()" [(ngModel)]="currentItem().countryId" optionLabel="name" optionValue="id"
-              placeholder="Nhập mã thiết bị..." [disabled]="isSaving()"
-              [style]="{'width':'100%', 'height':'38px', 'line-height':'24px', 'border':'1px solid #cbd5e1', 'border-radius':'6px', 'background-color':'#ffffff', 'color':'#374151'}">
-            </p-select>
+            <input type="number" class="wf-input w-full" [(ngModel)]="currentItem().manufactureYear"
+              (ngModelChange)="onFieldChange('manufactureYear')" min="1900" [max]="currentYear" maxlength="4"
+              placeholder="Nhập năm sản xuất..." [disabled]="isSaving()"
+              style="background-color: #ffffff !important; color: #374151 !important; border-radius: 6px; height: 38px;" />
+            <span class="field-error" *ngIf="manufactureYearError()"
+              style="color: #ef4444; font-size: 0.8rem; margin-top: 4px; display: block;">{{ manufactureYearError()
+              }}</span>
           </div>
 
-          <!-- Số serial -->
+          <!-- Tình trạng -->
           <div class="form-group">
-            <label class="form-label" style="font-weight: 600; margin-bottom: 6px; display: block; color: #374151;">Số
-              serial</label>
-            <input type="text" class="wf-input w-full" [(ngModel)]="currentItem().serialNumber"
-              placeholder="Nhập tên thiết bị..." [disabled]="isSaving()"
-              style="background-color: #ffffff !important; color: #374151 !important; border-radius: 6px; height: 38px;" />
+            <label class="form-label" style="font-weight: 600; margin-bottom: 6px; display: block; color: #374151;">Tình
+              trạng</label>
+            <p-select [options]="equipmentStatuses()" [(ngModel)]="currentItem().equipmentStatusId" optionLabel="name"
+              optionValue="id" placeholder="-- Chọn tình trạng thiết bị --" [disabled]="isSaving()"
+              [style]="{'width':'100%', 'height':'38px', 'line-height':'24px', 'border':'1px solid #cbd5e1', 'border-radius':'6px', 'background-color':'#ffffff', 'color':'#374151'}">
+            </p-select>
           </div>
         </div>
 
@@ -417,18 +421,18 @@
               </span>
             </div>
 
-            <!-- Nước sản xuất -->
+            <!-- Năm sản xuất -->
             <div style="display: flex; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px;"
-              *ngIf="currentItem().countryName">
-              <span style="width: 200px; color: #64748b; font-weight: 600;">Nước sản xuất:</span>
-              <span style="color: #334155;">{{ currentItem().countryName }}</span>
+              *ngIf="currentItem().manufactureYear">
+              <span style="width: 200px; color: #64748b; font-weight: 600;">Năm sản xuất:</span>
+              <span style="color: #334155;">{{ currentItem().manufactureYear }}</span>
             </div>
 
-            <!-- Số Serial -->
+            <!-- Tình trạng -->
             <div style="display: flex; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px;"
-              *ngIf="currentItem().serialNumber">
-              <span style="width: 200px; color: #64748b; font-weight: 600;">Số Serial (S/N):</span>
-              <span style="font-family: monospace; color: #334155;">{{ currentItem().serialNumber }}</span>
+              *ngIf="currentItem().equipmentStatusName">
+              <span style="width: 200px; color: #64748b; font-weight: 600;">Tình trạng:</span>
+              <span style="color: #334155;">{{ currentItem().equipmentStatusName }}</span>
             </div>
 
             <!-- Trạng thái hoạt động (Highlight) -->
@@ -569,23 +573,28 @@
             </div>
 
             <div class="form-group-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-              <!-- Nước sản xuất -->
+              <!-- Năm sản xuất -->
               <div class="form-group">
                 <label class="form-label"
-                  style="font-weight: 600; margin-bottom: 6px; display: block; color: #374151;">Nước sản xuất</label>
-                <p-select [options]="countries()" [(ngModel)]="currentItem().countryId" optionLabel="name"
-                  optionValue="id" placeholder="-- Chọn nước sản xuất --" [disabled]="isSaving()"
-                  [style]="{'width':'100%', 'height':'38px', 'line-height':'24px', 'border':'1px solid #cbd5e1', 'border-radius':'6px', 'background-color':'#ffffff', 'color':'#374151'}">
-                </p-select>
+                  style="font-weight: 600; margin-bottom: 6px; display: block; color: #374151;">Năm sản xuất</label>
+                <input type="number" class="wf-input w-full" [(ngModel)]="currentItem().manufactureYear"
+                  (ngModelChange)="onFieldChange('manufactureYear')" min="1900" [max]="currentYear" maxlength="4"
+                  placeholder="Nhập năm sản xuất..." [disabled]="isSaving()"
+                  style="background-color: #ffffff !important; color: #374151 !important; border-radius: 6px; height: 38px;" />
+                <span class="field-error" *ngIf="manufactureYearError()"
+                  style="color: #ef4444; font-size: 0.8rem; margin-top: 4px; display: block;">{{ manufactureYearError()
+                  }}</span>
               </div>
 
-              <!-- Số serial -->
+              <!-- Tình trạng -->
               <div class="form-group">
                 <label class="form-label"
-                  style="font-weight: 600; margin-bottom: 6px; display: block; color: #374151;">Số serial</label>
-                <input type="text" class="wf-input w-full" [(ngModel)]="currentItem().serialNumber"
-                  placeholder="Nhập số serial..." [disabled]="isSaving()"
-                  style="background-color: #ffffff !important; color: #374151 !important; border-radius: 6px; height: 38px;" />
+                  style="font-weight: 600; margin-bottom: 6px; display: block; color: #374151;">Tình trạng</label>
+                <p-select [options]="equipmentStatuses()" [(ngModel)]="currentItem().equipmentStatusId"
+                  optionLabel="name" optionValue="id" placeholder="-- Chọn tình trạng thiết bị --"
+                  [disabled]="isSaving()"
+                  [style]="{'width':'100%', 'height':'38px', 'line-height':'24px', 'border':'1px solid #cbd5e1', 'border-radius':'6px', 'background-color':'#ffffff', 'color':'#374151'}">
+                </p-select>
               </div>
             </div>
 

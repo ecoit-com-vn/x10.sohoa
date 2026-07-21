@@ -64,10 +64,6 @@ export const REPORTS_ROUTES: Routes = [
   reportDetailRoute('dossier-by-grid-type', 'REPORT_DOSSIER_BY_GRIDTYPE_VIEW'),
   reportListRoute('dossier-by-equipment', 'REPORT_DOSSIER_BY_EQUIPMENT_VIEW'),
   reportDetailRoute('dossier-by-equipment', 'REPORT_DOSSIER_BY_EQUIPMENT_VIEW'),
-  reportListRoute('dossier-by-station', 'REPORT_DOSSIER_BY_STATION_VIEW'),
-  reportDetailRoute('dossier-by-station', 'REPORT_DOSSIER_BY_STATION_VIEW'),
-  reportListRoute('dossier-by-line', 'REPORT_DOSSIER_BY_LINE_VIEW'),
-  reportDetailRoute('dossier-by-line', 'REPORT_DOSSIER_BY_LINE_VIEW'),
   {
     path: 'dossier-by-year',
     loadComponent: () =>
@@ -97,6 +93,70 @@ export const REPORTS_ROUTES: Routes = [
     loadComponent: () =>
       import('./components/report-dossier-by-equipment-type/report-dossier-by-equipment-type.component').then(
         (m) => m.ReportDossierByEquipmentTypeComponent
+      ),
+    canActivate: [reportDossierGuard('REPORT_STATISTICS_VIEW')]
+  },
+  {
+    path: 'dossier-by-allocation',
+    loadComponent: () =>
+      import('./components/report-dossier-by-allocation/report-dossier-by-allocation.component').then(
+        (m) => m.ReportDossierByAllocationComponent
+      ),
+    canActivate: [reportDossierGuard('REPORT_STATISTICS_VIEW')]
+  },
+  {
+    path: 'dossier-by-dossier-type',
+    loadComponent: () =>
+      import('./components/report-dossier-by-dossier-type/report-dossier-by-dossier-type.component').then(
+        (m) => m.ReportDossierByDossierTypeComponent
+      ),
+    canActivate: [reportDossierGuard('REPORT_STATISTICS_VIEW')]
+  },
+  {
+    path: 'dossier-by-shelf',
+    loadComponent: () =>
+      import('./components/report-dossier-by-shelf/report-dossier-by-shelf.component').then(
+        (m) => m.ReportDossierByShelfComponent
+      ),
+    canActivate: [reportDossierGuard('REPORT_STATISTICS_VIEW')]
+  },
+  {
+    path: 'dossier-by-box',
+    loadComponent: () =>
+      import('./components/report-dossier-by-box/report-dossier-by-box.component').then(
+        (m) => m.ReportDossierByBoxComponent
+      ),
+    canActivate: [reportDossierGuard('REPORT_STATISTICS_VIEW')]
+  },
+  {
+    path: 'dossier-by-floor',
+    loadComponent: () =>
+      import('./components/report-dossier-by-floor/report-dossier-by-floor.component').then(
+        (m) => m.ReportDossierByFloorComponent
+      ),
+    canActivate: [reportDossierGuard('REPORT_STATISTICS_VIEW')]
+  },
+  {
+    path: 'dossier-by-document-type',
+    loadComponent: () =>
+      import('./components/report-dossier-by-document-type/report-dossier-by-document-type.component').then(
+        (m) => m.ReportDossierByDocumentTypeComponent
+      ),
+    canActivate: [reportDossierGuard('REPORT_STATISTICS_VIEW')]
+  },
+  {
+    path: 'dossier-by-station',
+    loadComponent: () =>
+      import('./components/report-dossier-by-station/report-dossier-by-station.component').then(
+        (m) => m.ReportDossierByStationComponent
+      ),
+    canActivate: [reportDossierGuard('REPORT_STATISTICS_VIEW')]
+  },
+  {
+    path: 'dossier-by-line',
+    loadComponent: () =>
+      import('./components/report-dossier-by-line/report-dossier-by-line.component').then(
+        (m) => m.ReportDossierByLineComponent
       ),
     canActivate: [reportDossierGuard('REPORT_STATISTICS_VIEW')]
   }

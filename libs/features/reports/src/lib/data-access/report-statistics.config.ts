@@ -4,6 +4,12 @@ export interface ReportStatisticsDossierListConfig {
   listSegment: string;
 }
 
+/** Cấu hình tab Danh sách tài liệu — báo cáo thống kê theo loại văn bản. */
+export interface ReportStatisticsDocumentListConfig {
+  reportCode: string;
+  listSegment: string;
+}
+
 /** Cấu hình View Lưới hồ sơ theo trạm — tab Báo cáo thống kê. */
 export interface ReportStatisticsStationGridConfig {
   reportCode: string;
@@ -12,6 +18,42 @@ export interface ReportStatisticsStationGridConfig {
 
 /** Cấu hình View Lưới hồ sơ theo loại thiết bị — tab Báo cáo thống kê. */
 export interface ReportStatisticsEquipmentTypeGridConfig {
+  reportCode: string;
+  gridSegment: string;
+}
+
+/** Cấu hình View Lưới hồ sơ theo loại hồ sơ — tab Báo cáo thống kê. */
+export interface ReportStatisticsDossierTypeGridConfig {
+  reportCode: string;
+  gridSegment: string;
+}
+
+/** Cấu hình View Lưới hồ sơ theo loại văn bản — tab Báo cáo thống kê. */
+export interface ReportStatisticsDocumentTypeGridConfig {
+  reportCode: string;
+  gridSegment: string;
+}
+
+/** Cấu hình View Lưới hồ sơ theo kệ lưu trữ — tab Báo cáo thống kê. */
+export interface ReportStatisticsShelfGridConfig {
+  reportCode: string;
+  gridSegment: string;
+}
+
+/** Cấu hình View Lưới hồ sơ theo hộp lưu trữ — tab Báo cáo thống kê. */
+export interface ReportStatisticsBoxGridConfig {
+  reportCode: string;
+  gridSegment: string;
+}
+
+/** Cấu hình View Lưới hồ sơ theo tầng lưu trữ — tab Báo cáo thống kê. */
+export interface ReportStatisticsFloorGridConfig {
+  reportCode: string;
+  gridSegment: string;
+}
+
+/** Cấu hình View Lưới hồ sơ theo người tạo — tab Báo cáo thống kê (phân bổ). */
+export interface ReportStatisticsCreatorGridConfig {
   reportCode: string;
   gridSegment: string;
 }
@@ -32,8 +74,43 @@ export const REPORT_STATISTICS_DOSSIER_LIST_CONFIGS = {
   DOSSIER_BY_EQUIPMENT_TYPE: {
     reportCode: 'REPORT_DOSSIER_BY_EQUIPMENT',
     listSegment: 'dossier-by-equipment-type'
+  },
+  DOSSIER_BY_ALLOCATION: {
+    reportCode: 'REPORT_DOSSIER_BY_ALLOCATION',
+    listSegment: 'dossier-by-allocation'
+  },
+  DOSSIER_BY_DOSSIER_TYPE: {
+    reportCode: 'REPORT_DOSSIER_BY_DOSSIER_TYPE',
+    listSegment: 'dossier-by-dossier-type'
+  },
+  DOSSIER_BY_SHELF: {
+    reportCode: 'REPORT_DOSSIER_BY_SHELF',
+    listSegment: 'dossier-by-shelf'
+  },
+  DOSSIER_BY_BOX: {
+    reportCode: 'REPORT_DOSSIER_BY_BOX',
+    listSegment: 'dossier-by-box'
+  },
+  DOSSIER_BY_FLOOR: {
+    reportCode: 'REPORT_DOSSIER_BY_FLOOR',
+    listSegment: 'dossier-by-floor'
+  },
+  DOSSIER_BY_STATION: {
+    reportCode: 'REPORT_DOSSIER_BY_STATION',
+    listSegment: 'dossier-by-station'
+  },
+  DOSSIER_BY_LINE: {
+    reportCode: 'REPORT_DOSSIER_BY_LINE',
+    listSegment: 'dossier-by-line'
   }
 } as const satisfies Record<string, ReportStatisticsDossierListConfig>;
+
+export const REPORT_STATISTICS_DOCUMENT_LIST_CONFIGS = {
+  DOSSIER_BY_DOCUMENT_TYPE: {
+    reportCode: 'REPORT_DOSSIER_BY_DOCUMENT_TYPE',
+    listSegment: 'dossier-by-document-type'
+  }
+} as const satisfies Record<string, ReportStatisticsDocumentListConfig>;
 
 export const REPORT_STATISTICS_STATION_GRID_CONFIGS = {
   DOSSIER_BY_YEAR: {
@@ -47,8 +124,23 @@ export const REPORT_STATISTICS_STATION_GRID_CONFIGS = {
   DOSSIER_BY_VOLTAGE_GRID: {
     reportCode: 'REPORT_DOSSIER_BY_VOLTAGE_GRID',
     gridSegment: 'dossier-by-voltage-grid'
+  },
+  DOSSIER_BY_STATION: {
+    reportCode: 'REPORT_DOSSIER_BY_STATION',
+    gridSegment: 'dossier-by-station'
+  },
+  DOSSIER_BY_LINE: {
+    reportCode: 'REPORT_DOSSIER_BY_LINE',
+    gridSegment: 'dossier-by-line'
   }
 } as const satisfies Record<string, ReportStatisticsStationGridConfig>;
+
+export const REPORT_STATISTICS_CREATOR_GRID_CONFIGS = {
+  DOSSIER_BY_ALLOCATION: {
+    reportCode: 'REPORT_DOSSIER_BY_ALLOCATION',
+    gridSegment: 'dossier-by-allocation'
+  }
+} as const satisfies Record<string, ReportStatisticsCreatorGridConfig>;
 
 export const REPORT_STATISTICS_EQUIPMENT_TYPE_GRID_CONFIGS = {
   DOSSIER_BY_EQUIPMENT_TYPE: {
@@ -56,3 +148,38 @@ export const REPORT_STATISTICS_EQUIPMENT_TYPE_GRID_CONFIGS = {
     gridSegment: 'dossier-by-equipment-type'
   }
 } as const satisfies Record<string, ReportStatisticsEquipmentTypeGridConfig>;
+
+export const REPORT_STATISTICS_DOSSIER_TYPE_GRID_CONFIGS = {
+  DOSSIER_BY_DOSSIER_TYPE: {
+    reportCode: 'REPORT_DOSSIER_BY_DOSSIER_TYPE',
+    gridSegment: 'dossier-by-dossier-type'
+  }
+} as const satisfies Record<string, ReportStatisticsDossierTypeGridConfig>;
+
+export const REPORT_STATISTICS_DOCUMENT_TYPE_GRID_CONFIGS = {
+  DOSSIER_BY_DOCUMENT_TYPE: {
+    reportCode: 'REPORT_DOSSIER_BY_DOCUMENT_TYPE',
+    gridSegment: 'dossier-by-document-type'
+  }
+} as const satisfies Record<string, ReportStatisticsDocumentTypeGridConfig>;
+
+export const REPORT_STATISTICS_SHELF_GRID_CONFIGS = {
+  DOSSIER_BY_SHELF: {
+    reportCode: 'REPORT_DOSSIER_BY_SHELF',
+    gridSegment: 'dossier-by-shelf'
+  }
+} as const satisfies Record<string, ReportStatisticsShelfGridConfig>;
+
+export const REPORT_STATISTICS_BOX_GRID_CONFIGS = {
+  DOSSIER_BY_BOX: {
+    reportCode: 'REPORT_DOSSIER_BY_BOX',
+    gridSegment: 'dossier-by-box'
+  }
+} as const satisfies Record<string, ReportStatisticsBoxGridConfig>;
+
+export const REPORT_STATISTICS_FLOOR_GRID_CONFIGS = {
+  DOSSIER_BY_FLOOR: {
+    reportCode: 'REPORT_DOSSIER_BY_FLOOR',
+    gridSegment: 'dossier-by-floor'
+  }
+} as const satisfies Record<string, ReportStatisticsFloorGridConfig>;

@@ -20,6 +20,24 @@ export interface ReportStatisticsDossierListResponse {
   pageSize: number;
 }
 
+export interface ReportStatisticsDocumentListItem {
+  stt: number;
+  documentId: string;
+  dossierId: string;
+  documentTypeName: string;
+  dossierTypeName: string;
+  infrastructureName: string;
+  equipmentName: string;
+  documentName: string;
+}
+
+export interface ReportStatisticsDocumentListResponse {
+  items: ReportStatisticsDocumentListItem[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+}
+
 export interface ReportStatisticsStationGridItem {
   stt: number;
   catalogData?: Record<string, string>;
@@ -53,6 +71,102 @@ export interface ReportStatisticsEquipmentTypeGridResponse {
   pageSize: number;
 }
 
+export interface ReportStatisticsDossierTypeGridItem {
+  stt: number;
+  dossierTypeCode: string;
+  dossierTypeName: string;
+  totalDossiers: number;
+  totalDocuments: number;
+  totalPages: number;
+}
+
+export interface ReportStatisticsDossierTypeGridResponse {
+  items: ReportStatisticsDossierTypeGridItem[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface ReportStatisticsDocumentTypeGridItem {
+  stt: number;
+  documentTypeCode: string;
+  documentTypeName: string;
+  totalDocuments: number;
+  totalPages: number;
+}
+
+export interface ReportStatisticsDocumentTypeGridResponse {
+  items: ReportStatisticsDocumentTypeGridItem[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface ReportStatisticsShelfGridItem {
+  stt: number;
+  shelfCode: string;
+  shelfName: string;
+  totalDossiers: number;
+  totalDocuments: number;
+  totalPages: number;
+}
+
+export interface ReportStatisticsShelfGridResponse {
+  items: ReportStatisticsShelfGridItem[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface ReportStatisticsBoxGridItem {
+  stt: number;
+  boxCode: string;
+  boxName: string;
+  totalDossiers: number;
+  totalDocuments: number;
+  totalPages: number;
+}
+
+export interface ReportStatisticsBoxGridResponse {
+  items: ReportStatisticsBoxGridItem[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface ReportStatisticsFloorGridItem {
+  stt: number;
+  floorCode: string;
+  floorName: string;
+  totalDossiers: number;
+  totalDocuments: number;
+  totalPages: number;
+}
+
+export interface ReportStatisticsFloorGridResponse {
+  items: ReportStatisticsFloorGridItem[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface ReportStatisticsCreatorGridItem {
+  stt: number;
+  username: string;
+  fullName: string;
+  unitName: string;
+  totalDossiers: number;
+  totalDocuments: number;
+  totalPages: number;
+}
+
+export interface ReportStatisticsCreatorGridResponse {
+  items: ReportStatisticsCreatorGridItem[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+}
+
 @Injectable({ providedIn: 'root' })
 export class ReportStatisticsService {
   private http = inject(HttpClient);
@@ -75,6 +189,15 @@ export class ReportStatisticsService {
     });
   }
 
+  getDocumentList(
+    listSegment: string,
+    filter: Record<string, string | number | string[] | null | undefined>
+  ): Observable<ReportStatisticsDocumentListResponse> {
+    return this.http.get<ReportStatisticsDocumentListResponse>(`${this.baseUrl}/${listSegment}/list`, {
+      params: this.buildParams(filter)
+    });
+  }
+
   getStationGrid(
     gridSegment: string,
     filter: Record<string, string | number | string[] | null | undefined>
@@ -93,6 +216,60 @@ export class ReportStatisticsService {
     });
   }
 
+  getDossierTypeGrid(
+    gridSegment: string,
+    filter: Record<string, string | number | string[] | null | undefined>
+  ): Observable<ReportStatisticsDossierTypeGridResponse> {
+    return this.http.get<ReportStatisticsDossierTypeGridResponse>(`${this.baseUrl}/${gridSegment}/dossier-type-grid`, {
+      params: this.buildParams(filter)
+    });
+  }
+
+  getDocumentTypeGrid(
+    gridSegment: string,
+    filter: Record<string, string | number | string[] | null | undefined>
+  ): Observable<ReportStatisticsDocumentTypeGridResponse> {
+    return this.http.get<ReportStatisticsDocumentTypeGridResponse>(`${this.baseUrl}/${gridSegment}/document-type-grid`, {
+      params: this.buildParams(filter)
+    });
+  }
+
+  getShelfGrid(
+    gridSegment: string,
+    filter: Record<string, string | number | string[] | null | undefined>
+  ): Observable<ReportStatisticsShelfGridResponse> {
+    return this.http.get<ReportStatisticsShelfGridResponse>(`${this.baseUrl}/${gridSegment}/shelf-grid`, {
+      params: this.buildParams(filter)
+    });
+  }
+
+  getBoxGrid(
+    gridSegment: string,
+    filter: Record<string, string | number | string[] | null | undefined>
+  ): Observable<ReportStatisticsBoxGridResponse> {
+    return this.http.get<ReportStatisticsBoxGridResponse>(`${this.baseUrl}/${gridSegment}/box-grid`, {
+      params: this.buildParams(filter)
+    });
+  }
+
+  getFloorGrid(
+    gridSegment: string,
+    filter: Record<string, string | number | string[] | null | undefined>
+  ): Observable<ReportStatisticsFloorGridResponse> {
+    return this.http.get<ReportStatisticsFloorGridResponse>(`${this.baseUrl}/${gridSegment}/floor-grid`, {
+      params: this.buildParams(filter)
+    });
+  }
+
+  getCreatorGrid(
+    gridSegment: string,
+    filter: Record<string, string | number | string[] | null | undefined>
+  ): Observable<ReportStatisticsCreatorGridResponse> {
+    return this.http.get<ReportStatisticsCreatorGridResponse>(`${this.baseUrl}/${gridSegment}/creator-grid`, {
+      params: this.buildParams(filter)
+    });
+  }
+
   private buildParams(filter: Record<string, string | number | string[] | null | undefined>): HttpParams {
     let params = new HttpParams();
     for (const [key, value] of Object.entries(filter)) {
@@ -102,7 +279,7 @@ export class ReportStatisticsService {
           .map((item) => String(item).trim())
           .filter((item) => item !== '');
         if (items.length === 0) continue;
-        if (key === 'equipmentTypeIds') {
+        if (key === 'equipmentTypeIds' || key === 'dossierTypeIds' || key === 'documentTypeIds' || key === 'shelfIds' || key === 'floorIds' || key === 'boxIds' || key === 'stationIds' || key === 'lineIds') {
           params = params.set(key, items.join(','));
         } else {
           for (const item of items) {
