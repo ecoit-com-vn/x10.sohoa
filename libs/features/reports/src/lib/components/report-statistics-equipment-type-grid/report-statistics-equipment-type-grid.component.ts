@@ -42,7 +42,6 @@ export class ReportStatisticsEquipmentTypeGridComponent {
       if (!cfg || !isActive) return;
 
       void this.filterVersion();
-      void this.filter();
       void this.page();
       void this.pageSize();
 

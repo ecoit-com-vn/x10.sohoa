@@ -78,7 +78,6 @@ export class ReportDossierListComponent implements OnInit {
         return { ...base, gridTypeId: this.filterSecondaryId() };
       case 'equipments':
         return { ...base, equipmentId: this.filterSecondaryId() };
-      case 'stations':
       case 'lines':
         return { ...base, infrastructureId: this.filterSecondaryId() };
       default:

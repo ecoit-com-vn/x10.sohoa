@@ -1,6 +1,6 @@
 <div class="table-card">
   <div class="card-header flex-header">
-    <h3 class="card-title">Lưới hồ sơ theo trạm/đường dây</h3>
+    <h3 class="card-title">{{ gridTitle() }}</h3>
     <span class="total-badge" *ngIf="!loading()">
       Tổng số bản ghi: <strong>{{ totalCount() | number }}</strong>
     </span>
@@ -27,7 +27,7 @@
             [class.col-code]="first"
             [class.col-name]="!first && last && displayColumns().length === 2"
           >{{ col.label }}</th>
-          <th class="col-grid">Lưới điện</th>
+          <th *ngIf="showGridTypeColumn()" class="col-grid">Lưới điện</th>
           <th class="col-num text-center">Tổng số hồ sơ</th>
           <th class="col-num text-center">Tổng số tài liệu</th>
           <th class="col-num text-center">Tổng số trang tài liệu</th>
@@ -45,7 +45,7 @@
             <span *ngIf="first" class="station-code">{{ getCatalogValue(item, col) }}</span>
             <span *ngIf="!first">{{ getCatalogValue(item, col) }}</span>
           </td>
-          <td>{{ item.gridTypeName || '-' }}</td>
+          <td *ngIf="showGridTypeColumn()">{{ item.gridTypeName || '-' }}</td>
           <td class="text-center font-semibold">{{ item.totalDossiers }}</td>
           <td class="text-center font-semibold">{{ item.totalDocuments }}</td>
           <td class="text-center font-semibold">{{ item.totalPages }}</td>

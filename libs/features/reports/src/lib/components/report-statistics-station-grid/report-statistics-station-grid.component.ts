@@ -18,7 +18,7 @@ import {
 import { finalize } from 'rxjs';
 
 /** View 3 gom theo infrastructure — không dùng nhãn BHS của hồ sơ. */
-const STATION_GRID_LABELS = ['Mã trạm/đường dây', 'Tên trạm/đường dây'] as const;
+const DEFAULT_STATION_GRID_LABELS = ['Mã trạm/đường dây', 'Tên trạm/đường dây'] as const;
 
 @Component({
   selector: 'app-report-statistics-station-grid',
@@ -31,9 +31,16 @@ export class ReportStatisticsStationGridComponent implements OnInit {
   private statisticsService = inject(ReportStatisticsService);
 
   gridConfig = input.required<ReportStatisticsStationGridConfig>();
-  filter = input<Record<string, string | number | null | undefined>>({});
+  filter = input<Record<string, string | number | string[] | null | undefined>>({});
   active = input(false);
   filterVersion = input(0);
+  /** Tiêu đề lưới */
+  gridTitle = input('Lưới hồ sơ theo trạm/đường dây');
+  /** Hiển thị cột Lưới điện */
+  showGridTypeColumn = input(true);
+  /** Nhãn cột mã / tên trạm */
+  codeColumnLabel = input<string | null>(null);
+  nameColumnLabel = input<string | null>(null);
 
   bhsColumns = signal<BhsCatalogColumn[]>([]);
   items = signal<ReportStatisticsStationGridItem[]>([]);
@@ -42,19 +49,25 @@ export class ReportStatisticsStationGridComponent implements OnInit {
   page = signal(1);
   pageSize = signal(10);
 
-  tableColSpan = computed(() => this.displayColumns().length + 5);
+  tableColSpan = computed(() => this.displayColumns().length + (this.showGridTypeColumn() ? 4 : 3));
 
   displayColumns = computed((): BhsCatalogColumn[] => {
+    const codeLabel = this.codeColumnLabel();
+    const nameLabel = this.nameColumnLabel();
+    const labels: [string, string] = codeLabel && nameLabel
+      ? [codeLabel, nameLabel]
+      : [DEFAULT_STATION_GRID_LABELS[0], DEFAULT_STATION_GRID_LABELS[1]];
+
     const cols = this.bhsColumns();
     if (cols.length === 0) {
       return [
-        { key: 'code', code: 'code', label: STATION_GRID_LABELS[0], priority: 1 },
-        { key: 'name', code: 'name', label: STATION_GRID_LABELS[1], priority: 2 }
+        { key: 'code', code: 'code', label: labels[0], priority: 1 },
+        { key: 'name', code: 'name', label: labels[1], priority: 2 }
       ];
     }
     return cols.map((col, index) => ({
       ...col,
-      label: STATION_GRID_LABELS[index] ?? col.label
+      label: labels[index] ?? col.label
     }));
   });
 
@@ -65,7 +78,6 @@ export class ReportStatisticsStationGridComponent implements OnInit {
       if (!cfg || !isActive) return;
 
       void this.filterVersion();
-      void this.filter();
       void this.page();
       void this.pageSize();
 

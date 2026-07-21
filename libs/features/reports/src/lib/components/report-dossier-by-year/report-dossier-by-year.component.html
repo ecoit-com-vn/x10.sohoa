@@ -42,9 +42,11 @@
       <div class="filter-col">
         <label class="filter-label">Năm báo cáo</label>
         <p-select
-          [options]="years()"
+          [options]="yearOptions()"
           [ngModel]="selectedYear()"
           (ngModelChange)="selectedYear.set($event)"
+          optionLabel="label"
+          optionValue="value"
           placeholder="Chọn"
           styleClass="w-full wf-select-custom"
         ></p-select>

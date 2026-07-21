@@ -1,7 +1,6 @@
 export type ReportDossierType =
   | 'dossier-by-grid-type'
   | 'dossier-by-equipment'
-  | 'dossier-by-station'
   | 'dossier-by-line';
 
 export interface ReportDossierConfig {
@@ -10,7 +9,7 @@ export interface ReportDossierConfig {
   exportPermission: string;
   dimensionLabel: string;
   secondaryFilterLabel: string;
-  secondaryLookup: 'gridTypes' | 'equipments' | 'stations' | 'lines';
+  secondaryLookup: 'gridTypes' | 'equipments' | 'lines';
   dimensionField: 'gridTypeName' | 'equipmentName' | 'infrastructureName';
   listRoute: string;
 }
@@ -35,16 +34,6 @@ export const REPORT_DOSSIER_CONFIGS: Record<ReportDossierType, ReportDossierConf
     secondaryLookup: 'equipments',
     dimensionField: 'equipmentName',
     listRoute: '/reports/dossier-by-equipment'
-  },
-  'dossier-by-station': {
-    apiSegment: 'dossier-by-station',
-    viewPermission: 'REPORT_DOSSIER_BY_STATION_VIEW',
-    exportPermission: 'REPORT_DOSSIER_BY_STATION_EXPORT',
-    dimensionLabel: 'Trạm / Đường dây',
-    secondaryFilterLabel: 'Chọn trạm',
-    secondaryLookup: 'stations',
-    dimensionField: 'infrastructureName',
-    listRoute: '/reports/dossier-by-station'
   },
   'dossier-by-line': {
     apiSegment: 'dossier-by-line',

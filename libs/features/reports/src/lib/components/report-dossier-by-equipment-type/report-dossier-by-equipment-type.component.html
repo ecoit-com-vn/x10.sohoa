@@ -58,9 +58,11 @@
       <div class="filter-col">
         <label class="filter-label">Năm báo cáo</label>
         <p-select
-          [options]="years()"
+          [options]="yearOptions()"
           [ngModel]="selectedYear()"
           (ngModelChange)="selectedYear.set($event)"
+          optionLabel="label"
+          optionValue="value"
           placeholder="Chọn"
           styleClass="w-full wf-select-custom"
         ></p-select>
@@ -152,11 +154,7 @@
                 <span>{{ maxChartValue() }}</span>
               </div>
 
-              <div
-                #chartBarsScroll
-                class="hbar-bars-scroll"
-                (scroll)="syncRowScroll('bars', $event)"
-              >
+              <div class="hbar-bars-viewport">
                 <div class="hbar-grid-lines" aria-hidden="true">
                   <div class="hbar-grid-line"></div>
                   <div class="hbar-grid-line"></div>
@@ -165,23 +163,29 @@
                   <div class="hbar-grid-line line-zero"></div>
                 </div>
 
-                <div class="hbar-rows">
-                  <div *ngFor="let stat of chartStats()" class="hbar-row">
-                    <div
-                      class="hbar-bar bg-blue"
-                      [style.width.%]="getBarWidthPercent(stat.dossierCount)"
-                      [pTooltip]="getTypeLabel(stat) + ' — Hồ sơ: ' + stat.dossierCount"
-                    ></div>
-                    <div
-                      class="hbar-bar bg-green"
-                      [style.width.%]="getBarWidthPercent(stat.documentCount)"
-                      [pTooltip]="getTypeLabel(stat) + ' — Tài liệu: ' + stat.documentCount"
-                    ></div>
-                    <div
-                      class="hbar-bar bg-orange"
-                      [style.width.%]="getBarWidthPercent(stat.pageCount)"
-                      [pTooltip]="getTypeLabel(stat) + ' — Trang tài liệu: ' + stat.pageCount"
-                    ></div>
+                <div
+                  #chartBarsScroll
+                  class="hbar-bars-scroll"
+                  (scroll)="syncRowScroll('bars', $event)"
+                >
+                  <div class="hbar-rows">
+                    <div *ngFor="let stat of chartStats()" class="hbar-row">
+                      <div
+                        class="hbar-bar bg-blue"
+                        [style.width.%]="getBarWidthPercent(stat.dossierCount)"
+                        [pTooltip]="getTypeLabel(stat) + ' — Hồ sơ: ' + stat.dossierCount"
+                      ></div>
+                      <div
+                        class="hbar-bar bg-green"
+                        [style.width.%]="getBarWidthPercent(stat.documentCount)"
+                        [pTooltip]="getTypeLabel(stat) + ' — Tài liệu: ' + stat.documentCount"
+                      ></div>
+                      <div
+                        class="hbar-bar bg-orange"
+                        [style.width.%]="getBarWidthPercent(stat.pageCount)"
+                        [pTooltip]="getTypeLabel(stat) + ' — Trang tài liệu: ' + stat.pageCount"
+                      ></div>
+                    </div>
                   </div>
                 </div>
               </div>
