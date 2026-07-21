@@ -28,13 +28,14 @@
 
       <!-- Table -->
       <div class="wf-table-wrap">
-        <table class="wf-table">
+        <table class="wf-table system-permission-group-table">
           <thead>
             <tr>
               <th class="col-stt">STT</th>
-              <th>Mã nhóm quyền (Code)</th>
-              <th>Tên nhóm quyền (Name)</th>
-              <th>Mô tả</th>
+              <th class="col-code">Mã nhóm quyền</th>
+              <th class="col-name">Tên nhóm quyền</th>
+              <th class="col-created">Ngày tạo</th>
+              <th class="col-creator">Người tạo</th>
               <th class="col-tt">Trạng thái</th>
               <th class="col-hd" style="width: 250px;">Thao tác</th>
             </tr>
@@ -46,7 +47,8 @@
                 <td class="col-stt"><div class="skeleton-shimmer" style="height: 16px; width: 24px; border-radius: 4px;"></div></td>
                 <td><div class="skeleton-shimmer" style="height: 16px; width: 100px; border-radius: 4px;"></div></td>
                 <td><div class="skeleton-shimmer" style="height: 16px; width: 150px; border-radius: 4px;"></div></td>
-                <td><div class="skeleton-shimmer" style="height: 16px; width: 200px; border-radius: 4px;"></div></td>
+                <td><div class="skeleton-shimmer" style="height: 16px; width: 120px; border-radius: 4px;"></div></td>
+                <td><div class="skeleton-shimmer" style="height: 16px; width: 120px; border-radius: 4px;"></div></td>
                 <td style="text-align: center;"><div class="skeleton-shimmer" style="height: 16px; width: 80px; margin: 0 auto; border-radius: 12px;"></div></td>
                 <td class="col-hd"><div class="skeleton-shimmer" style="height: 24px; width: 180px; border-radius: 4px;"></div></td>
               </tr>
@@ -60,7 +62,8 @@
                   <b *ngIf="authService.hasPermission('SYSTEM_PERMISSION_GROUP_EDIT') || authService.hasPermission('SYSTEM_PERMISSION_GROUP_MANAGE')" class="wf-name-link" (click)="onEdit(role)">{{ role.name }}</b>
                   <span *ngIf="!(authService.hasPermission('SYSTEM_PERMISSION_GROUP_EDIT') || authService.hasPermission('SYSTEM_PERMISSION_GROUP_MANAGE'))">{{ role.name }}</span>
                 </td>
-                <td><span class="text-muted">{{ role.description }}</span></td>
+                <td>{{ role.createdAt ? (role.createdAt | date:'dd/MM/yyyy HH:mm') : '—' }}</td>
+                <td>{{ role.createdByName || role.createdBy || '—' }}</td>
                 <td style="text-align: center;">
                   <span class="status-pill"
                     [class.status-active]="role.isActive"
@@ -94,7 +97,7 @@
                 </td>
               </tr>
               <tr *ngIf="filteredRoles().length === 0">
-                <td colspan="6" class="empty-row">
+                <td colspan="7" class="empty-row">
                   <i class="pi pi-inbox"></i>
                   <div>Không tìm thấy nhóm quyền phù hợp.</div>
                 </td>
