@@ -32,6 +32,7 @@ public class InfrastructureRepository : IInfrastructureRepository
                             i.INFRA_TYPE_ID as {nameof(Infrastructure.InfraTypeId)},
                             i.UNIT_ID as {nameof(Infrastructure.UnitId)},
                             i.GRIDTYPEID as {nameof(Infrastructure.GridTypeId)},
+                            i.OPERATION_DATE as {nameof(Infrastructure.OperationDate)},
                             i.IS_ACTIVE as {nameof(Infrastructure.IsActive)},
                             i.{nameof(Infrastructure.CreatedBy)},
                             i.{nameof(Infrastructure.CreatedDate)},
@@ -75,6 +76,7 @@ public class InfrastructureRepository : IInfrastructureRepository
                             i.INFRA_TYPE_ID as {nameof(Infrastructure.InfraTypeId)},
                             i.UNIT_ID as {nameof(Infrastructure.UnitId)},
                             i.GRIDTYPEID as {nameof(Infrastructure.GridTypeId)},
+                            i.OPERATION_DATE as {nameof(Infrastructure.OperationDate)},
                             i.IS_ACTIVE as {nameof(Infrastructure.IsActive)},
                             i.{nameof(Infrastructure.CreatedBy)},
                             i.{nameof(Infrastructure.CreatedDate)},
@@ -166,6 +168,7 @@ public class InfrastructureRepository : IInfrastructureRepository
                                    i.INFRA_TYPE_ID as {nameof(Infrastructure.InfraTypeId)},
                                    i.UNIT_ID as {nameof(Infrastructure.UnitId)},
                                    i.GRIDTYPEID as {nameof(Infrastructure.GridTypeId)},
+                                   i.OPERATION_DATE as {nameof(Infrastructure.OperationDate)},
                                    i.IS_ACTIVE as {nameof(Infrastructure.IsActive)},
                                    i.{nameof(Infrastructure.CreatedBy)},
                                    i.{nameof(Infrastructure.CreatedDate)},
@@ -218,12 +221,13 @@ public class InfrastructureRepository : IInfrastructureRepository
                         INFRA_TYPE_ID,
                         UNIT_ID,
                         GRIDTYPEID,
+                        OPERATION_DATE,
                         IS_ACTIVE,
                         {nameof(Infrastructure.CreatedBy)},
                         {nameof(Infrastructure.CreatedDate)},
                         {nameof(Infrastructure.IsDeleted)}
                     )
-                    VALUES (:Id, :Code, :Name, :Address, :InfraTypeId, :UnitId, :GridTypeId, :IsActive, :CreatedBy, :CreatedDate, :IsDeleted)";
+                    VALUES (:Id, :Code, :Name, :Address, :InfraTypeId, :UnitId, :GridTypeId, :OperationDate, :IsActive, :CreatedBy, :CreatedDate, :IsDeleted)";
 
         var param = new
         {
@@ -234,6 +238,7 @@ public class InfrastructureRepository : IInfrastructureRepository
             infrastructure.InfraTypeId,
             infrastructure.UnitId,
             infrastructure.GridTypeId,
+            infrastructure.OperationDate,
             IsActive = infrastructure.IsActive ? 1 : 0,
             infrastructure.CreatedBy,
             infrastructure.CreatedDate,
@@ -256,6 +261,7 @@ public class InfrastructureRepository : IInfrastructureRepository
                         INFRA_TYPE_ID = :InfraTypeId,
                         UNIT_ID = :UnitId,
                         GRIDTYPEID = :GridTypeId,
+                        OPERATION_DATE = :OperationDate,
                         IS_ACTIVE = :IsActive,
                         {nameof(Infrastructure.ModifiedBy)} = :ModifiedBy,
                         {nameof(Infrastructure.ModifiedDate)} = :ModifiedDate
@@ -270,6 +276,7 @@ public class InfrastructureRepository : IInfrastructureRepository
             infrastructure.InfraTypeId,
             infrastructure.UnitId,
             infrastructure.GridTypeId,
+            infrastructure.OperationDate,
             IsActive = infrastructure.IsActive ? 1 : 0,
             infrastructure.ModifiedBy,
             infrastructure.ModifiedDate

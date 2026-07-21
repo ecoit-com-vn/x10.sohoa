@@ -34,7 +34,6 @@ public interface IEquipmentRepository
     Task<IEnumerable<AttributeValue>> GetAttributesAsync(Guid equipmentId);
     
     // Lookups
-    Task<IEnumerable<Country>> GetCountriesAsync();
     Task<IEnumerable<OrganizationDto>> GetOrganizationUnitsHierarchicalAsync(long? startUnitId);
     Task<IEnumerable<InfrastructureEntity>> GetInfrastructuresLookupAsync(IEnumerable<long>? authorizedUnitIds = null);
     Task<IEnumerable<EquipmentTypeDto>> GetEquipmentTypesLookupAsync();

@@ -61,15 +61,25 @@ public class CatalogController : ControllerBase
     // ─── CATALOG endpoints ───────────────────────────────────
 
     /// <summary>
-    /// Lookup danh mục đang Active — lọc theo catalogTypeId.
-    /// Query param: catalogTypeId (long), keyword (string)
+    /// Lookup danh mục đang Active — lọc theo catalogTypeId hoặc code (mã CatalogType, vd. EQUIPMENT_STATUS).
+    /// Query param: catalogTypeId (long), code (string), keyword (string)
     /// </summary>
     [HttpGet("lookup")]
     [BypassDynamicPermission]
     public async Task<IActionResult> Lookup(
         [FromQuery] long? catalogTypeId = null,
+        [FromQuery] string? code = null,
         [FromQuery] string? keyword = null)
     {
+        if (!catalogTypeId.HasValue && !string.IsNullOrWhiteSpace(code))
+        {
+            var catalogType = await _catalogRepository.GetCatalogTypeByCodeAsync(code);
+            if (catalogType == null)
+                return Ok(Array.Empty<Catalog>());
+
+            catalogTypeId = catalogType.Id;
+        }
+
         long? unitId = GetUnitIdFromClaims();
         var result = await _catalogRepository.GetAllAsync(catalogTypeId, keyword, 1, unitId);
         return Ok(result);
