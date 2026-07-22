@@ -5382,4 +5382,243 @@ public class ReportDossierRepository : IReportDossierRepository
 
         return (parameters, baseWhere);
     }
+
+    public async Task<DossierMostViewedSummaryStatsDto> GetDossierMostViewedSummaryStatsAsync(
+        DossierMostViewedFilterDto filter,
+        bool isAdmin,
+        long? userUnitId)
+    {
+        EnsureOpen();
+        var effectiveUnitId = isAdmin ? filter.UnitId : (filter.UnitId ?? userUnitId);
+
+        // Hồ sơ thiết bị của trạm/đường dây (nhóm 3/4) tính gộp vào box trạm/đường dây tương ứng —
+        // mọi lượt xem hồ sơ (kể cả hồ sơ thiết bị, vd mở từ "Tra cứu hồ sơ thiết bị") đều rơi vào đúng 1 box.
+        var (stationTotal, stationGrowth) = await GetLookupViewBoxStatsAsync("DOSSIER", new[] { 1, 3 }, effectiveUnitId, filter.FromDate, filter.ToDate);
+        var (lineTotal, lineGrowth) = await GetLookupViewBoxStatsAsync("DOSSIER", new[] { 2, 4 }, effectiveUnitId, filter.FromDate, filter.ToDate);
+        var (docTotal, docGrowth) = await GetLookupViewBoxStatsAsync("DOCUMENT", null, effectiveUnitId, filter.FromDate, filter.ToDate);
+
+        return new DossierMostViewedSummaryStatsDto
+        {
+            StationViewCount = stationTotal,
+            StationGrowthPercent = stationGrowth,
+            LineViewCount = lineTotal,
+            LineGrowthPercent = lineGrowth,
+            DocumentViewCount = docTotal,
+            DocumentGrowthPercent = docGrowth
+        };
+    }
+
+    /// <summary>
+    /// Tổng lượt tra cứu theo bộ lọc (khớp filter khoảng ngày) + % tăng trưởng tháng hiện tại thực tế
+    /// so với tháng trước — độc lập với filter khoảng ngày của báo cáo.
+    /// </summary>
+    private async Task<(long Total, decimal? GrowthPercent)> GetLookupViewBoxStatsAsync(
+        string entityType,
+        int[]? dossierGroupIds,
+        long? effectiveUnitId,
+        DateTime? fromDate,
+        DateTime? toDate)
+    {
+        var (totalWhere, totalParams) = BuildLookupViewBaseWhere(entityType, dossierGroupIds, effectiveUnitId, fromDate, toDate);
+        var totalSql = $@"
+            SELECT NVL(SUM(lvl.VIEW_COUNT), 0)
+            FROM LOOKUP_VIEW_DAILY_COUNTS lvl
+            INNER JOIN DOSSIERS d ON lvl.DOSSIER_ID = d.Id
+            INNER JOIN INFRASTRUCTURE i ON d.InfrastructureId = i.ID
+            WHERE {totalWhere}";
+        var total = await _connection.ExecuteScalarAsync<long>(totalSql, totalParams);
+
+        var now = DateTime.Now;
+        var previousMonthDate = now.AddMonths(-1);
+
+        var (currentWhere, currentParams) = BuildLookupViewBaseWhere(entityType, dossierGroupIds, effectiveUnitId, null, null);
+        currentWhere += " AND EXTRACT(MONTH FROM lvl.VIEW_DATE) = :CurMonth AND EXTRACT(YEAR FROM lvl.VIEW_DATE) = :CurYear";
+        currentParams.Add("CurMonth", now.Month);
+        currentParams.Add("CurYear", now.Year);
+        var currentSql = $@"
+            SELECT NVL(SUM(lvl.VIEW_COUNT), 0)
+            FROM LOOKUP_VIEW_DAILY_COUNTS lvl
+            INNER JOIN DOSSIERS d ON lvl.DOSSIER_ID = d.Id
+            INNER JOIN INFRASTRUCTURE i ON d.InfrastructureId = i.ID
+            WHERE {currentWhere}";
+        var currentMonthCount = await _connection.ExecuteScalarAsync<long>(currentSql, currentParams);
+
+        var (prevWhere, prevParams) = BuildLookupViewBaseWhere(entityType, dossierGroupIds, effectiveUnitId, null, null);
+        prevWhere += " AND EXTRACT(MONTH FROM lvl.VIEW_DATE) = :PrevMonth AND EXTRACT(YEAR FROM lvl.VIEW_DATE) = :PrevYear";
+        prevParams.Add("PrevMonth", previousMonthDate.Month);
+        prevParams.Add("PrevYear", previousMonthDate.Year);
+        var prevSql = $@"
+            SELECT NVL(SUM(lvl.VIEW_COUNT), 0)
+            FROM LOOKUP_VIEW_DAILY_COUNTS lvl
+            INNER JOIN DOSSIERS d ON lvl.DOSSIER_ID = d.Id
+            INNER JOIN INFRASTRUCTURE i ON d.InfrastructureId = i.ID
+            WHERE {prevWhere}";
+        var prevMonthCount = await _connection.ExecuteScalarAsync<long>(prevSql, prevParams);
+
+        return (total, CalcGrowthPercent(currentMonthCount, prevMonthCount));
+    }
+
+    private static (string BaseWhere, DynamicParameters Parameters) BuildLookupViewBaseWhere(
+        string entityType,
+        int[]? dossierGroupIds,
+        long? effectiveUnitId,
+        DateTime? fromDate,
+        DateTime? toDate)
+    {
+        var parameters = new DynamicParameters();
+        parameters.Add("EntityType", entityType);
+
+        var baseWhere = @"
+            lvl.ENTITY_TYPE = :EntityType
+            AND d.IsDeleted = 0
+            AND d.STATUS_ID = 6
+            AND d.PUBLISHSTATUSID = 2
+            AND NVL(i.IsDeleted, 0) = 0";
+
+        if (dossierGroupIds is { Length: > 0 })
+        {
+            baseWhere += " AND NVL(d.DOSSIER_GROUP_ID, 1) IN :DossierGroupIds";
+            parameters.Add("DossierGroupIds", dossierGroupIds);
+        }
+
+        if (effectiveUnitId.HasValue)
+        {
+            baseWhere += @" AND i.UNIT_ID IN (
+                SELECT Id FROM ORGANIZATION_UNIT START WITH Id = :UnitId CONNECT BY PRIOR Id = ParentId
+            )";
+            parameters.Add("UnitId", effectiveUnitId.Value);
+        }
+
+        if (fromDate.HasValue)
+        {
+            baseWhere += " AND lvl.VIEW_DATE >= :FromDate";
+            parameters.Add("FromDate", fromDate.Value.Date);
+        }
+
+        if (toDate.HasValue)
+        {
+            baseWhere += " AND lvl.VIEW_DATE <= :ToDate";
+            parameters.Add("ToDate", toDate.Value.Date);
+        }
+
+        return (baseWhere, parameters);
+    }
+
+    public async Task<ReportStatisticsDossierViewGridResponseDto> GetDossierMostViewedGridAsync(
+        DossierMostViewedFilterDto filter,
+        bool isAdmin,
+        long? userUnitId)
+    {
+        EnsureOpen();
+        var (page, pageSize, parameters, logDateWhere, dossierWhere) = BuildDossierMostViewedGridFilter(filter, isAdmin, userUnitId);
+
+        var countSql = $@"
+            WITH filtered_views AS (
+                SELECT lvl.DOSSIER_ID AS DossierId, SUM(lvl.VIEW_COUNT) AS ViewCount
+                FROM LOOKUP_VIEW_DAILY_COUNTS lvl
+                WHERE {logDateWhere}
+                GROUP BY lvl.DOSSIER_ID
+            )
+            SELECT COUNT(*)
+            FROM filtered_views fv
+            INNER JOIN DOSSIERS d ON d.Id = fv.DossierId
+            INNER JOIN INFRASTRUCTURE i ON d.InfrastructureId = i.ID
+            WHERE {dossierWhere}";
+
+        var totalCount = await _connection.ExecuteScalarAsync<int>(countSql, parameters);
+
+        var offset = (page - 1) * pageSize;
+        parameters.Add("Offset", offset);
+        parameters.Add("PageSize", pageSize);
+
+        var gridSql = $@"
+            WITH filtered_views AS (
+                SELECT lvl.DOSSIER_ID AS DossierId, SUM(lvl.VIEW_COUNT) AS ViewCount
+                FROM LOOKUP_VIEW_DAILY_COUNTS lvl
+                WHERE {logDateWhere}
+                GROUP BY lvl.DOSSIER_ID
+            )
+            SELECT
+                d.ID AS DossierId,
+                i.NAME AS InfrastructureName,
+                MAX(DBMS_LOB.SUBSTR(d.FORMDATAJSON, 4000, 1)) AS FormDataJson,
+                fv.ViewCount
+            FROM filtered_views fv
+            INNER JOIN DOSSIERS d ON d.Id = fv.DossierId
+            INNER JOIN INFRASTRUCTURE i ON d.InfrastructureId = i.ID
+            WHERE {dossierWhere}
+            GROUP BY d.ID, i.NAME, fv.ViewCount
+            ORDER BY fv.ViewCount DESC
+            OFFSET :Offset ROWS
+            FETCH NEXT :PageSize ROWS ONLY";
+
+        var bhsColumns = (await GetBhsColumnsAsync()).ToList();
+        var rawRows = (await _connection.QueryAsync(gridSql, parameters)).ToList();
+        var items = new List<ReportStatisticsDossierViewGridItemDto>();
+
+        int stt = offset + 1;
+        foreach (var r in rawRows)
+        {
+            var formDataJson = Convert.ToString(r.FORMDATAJSON ?? r.FormDataJson);
+            items.Add(new ReportStatisticsDossierViewGridItemDto
+            {
+                Stt = stt++,
+                DossierId = Convert.ToString(r.DOSSIERID ?? r.DossierId) ?? string.Empty,
+                InfrastructureName = Convert.ToString(r.INFRASTRUCTURENAME ?? r.InfrastructureName) ?? "-",
+                ViewCount = Convert.ToInt64(r.VIEWCOUNT ?? r.ViewCount ?? 0),
+                CatalogData = ParseBhsCatalogData(formDataJson, bhsColumns)
+            });
+        }
+
+        return new ReportStatisticsDossierViewGridResponseDto
+        {
+            Items = items,
+            TotalCount = totalCount,
+            Page = page,
+            PageSize = pageSize
+        };
+    }
+
+    private static (int Page, int PageSize, DynamicParameters Parameters, string LogDateWhere, string DossierWhere) BuildDossierMostViewedGridFilter(
+        DossierMostViewedFilterDto filter,
+        bool isAdmin,
+        long? userUnitId)
+    {
+        var page = filter.Page < 1 ? 1 : filter.Page;
+        var pageSize = filter.PageSize < 1 ? 10 : filter.PageSize;
+        var parameters = new DynamicParameters();
+        var effectiveUnitId = isAdmin ? filter.UnitId : (filter.UnitId ?? userUnitId);
+
+        var logDateWhere = "1 = 1";
+
+        if (filter.FromDate.HasValue)
+        {
+            logDateWhere += " AND lvl.VIEW_DATE >= :FromDate";
+            parameters.Add("FromDate", filter.FromDate.Value.Date);
+        }
+
+        if (filter.ToDate.HasValue)
+        {
+            logDateWhere += " AND lvl.VIEW_DATE <= :ToDate";
+            parameters.Add("ToDate", filter.ToDate.Value.Date);
+        }
+
+        var dossierWhere = @"
+            d.IsDeleted = 0
+            AND d.STATUS_ID = 6
+            AND d.PUBLISHSTATUSID = 2
+            AND NVL(i.IsDeleted, 0) = 0";
+
+        if (effectiveUnitId.HasValue)
+        {
+            dossierWhere += @" AND i.UNIT_ID IN (
+                SELECT Id FROM ORGANIZATION_UNIT START WITH Id = :UnitId CONNECT BY PRIOR Id = ParentId
+            )";
+            parameters.Add("UnitId", effectiveUnitId.Value);
+        }
+
+        AppendObjectTypeFilterToWhere(filter.ObjectType, ref dossierWhere);
+
+        return (page, pageSize, parameters, logDateWhere, dossierWhere);
+    }
 }

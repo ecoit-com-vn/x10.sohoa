@@ -109,6 +109,10 @@ public interface IReportDossierRepository
     Task<ReportStatisticsDossierListResponseDto> GetDossierByEquipmentStatusListAsync(DossierByEquipmentStatusFilterDto filter, bool isAdmin, long? userUnitId);
     Task<ReportStatisticsEquipmentStatusGridResponseDto> GetDossierByEquipmentStatusEquipmentGridAsync(DossierByEquipmentStatusFilterDto filter, bool isAdmin, long? userUnitId);
 
+    // Báo cáo thống kê tổng hợp hồ sơ được tra cứu nhiều nhất (LOOKUP_VIEW_LOGS)
+    Task<DossierMostViewedSummaryStatsDto> GetDossierMostViewedSummaryStatsAsync(DossierMostViewedFilterDto filter, bool isAdmin, long? userUnitId);
+    Task<ReportStatisticsDossierViewGridResponseDto> GetDossierMostViewedGridAsync(DossierMostViewedFilterDto filter, bool isAdmin, long? userUnitId);
+
     // Báo cáo thống kê hồ sơ nhập liệu theo phân bổ hồ sơ
     Task<IEnumerable<ReportInputUserLookupDto>> GetInputUsersAsync(bool isAdmin, long? userUnitId);
     Task<IEnumerable<DossierByAllocationChartStatDto>> GetDossierByAllocationChartStatsAsync(DossierByAllocationFilterDto filter, bool isAdmin, long? userUnitId);

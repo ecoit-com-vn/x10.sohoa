@@ -236,4 +236,22 @@ namespace EvnHanoi.ReportService.Core.DTOs
         public int Page { get; set; }
         public int PageSize { get; set; }
     }
+
+    /// <summary>Lưới hồ sơ được tra cứu nhiều nhất — mỗi dòng là một hồ sơ, kèm tổng số lượt tra cứu.</summary>
+    public class ReportStatisticsDossierViewGridItemDto
+    {
+        public int Stt { get; set; }
+        public string DossierId { get; set; } = string.Empty;
+        public Dictionary<string, string> CatalogData { get; set; } = new();
+        public string InfrastructureName { get; set; } = string.Empty;
+        public long ViewCount { get; set; }
+    }
+
+    public class ReportStatisticsDossierViewGridResponseDto
+    {
+        public List<ReportStatisticsDossierViewGridItemDto> Items { get; set; } = new();
+        public int TotalCount { get; set; }
+        public int Page { get; set; }
+        public int PageSize { get; set; }
+    }
 }
