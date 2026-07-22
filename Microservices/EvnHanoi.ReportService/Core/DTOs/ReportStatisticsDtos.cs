@@ -194,4 +194,46 @@ namespace EvnHanoi.ReportService.Core.DTOs
         public int Page { get; set; }
         public int PageSize { get; set; }
     }
+
+    /// <summary>Lưới hồ sơ theo thiết bị — mỗi dòng là một thiết bị cụ thể (không gom theo loại).</summary>
+    public class ReportStatisticsEquipmentGridItemDto
+    {
+        public int Stt { get; set; }
+        public string EquipmentCode { get; set; } = string.Empty;
+        public string EquipmentName { get; set; } = string.Empty;
+        public string InfrastructureName { get; set; } = string.Empty;
+        public int? ManufactureYear { get; set; }
+        public long TotalDossiers { get; set; }
+        public long TotalDocuments { get; set; }
+        public long TotalPages { get; set; }
+    }
+
+    public class ReportStatisticsEquipmentGridResponseDto
+    {
+        public List<ReportStatisticsEquipmentGridItemDto> Items { get; set; } = new();
+        public int TotalCount { get; set; }
+        public int Page { get; set; }
+        public int PageSize { get; set; }
+    }
+
+    /// <summary>Lưới hồ sơ theo thiết bị (theo tình trạng) — mỗi dòng là một thiết bị cụ thể.</summary>
+    public class ReportStatisticsEquipmentStatusGridItemDto
+    {
+        public int Stt { get; set; }
+        public string EquipmentCode { get; set; } = string.Empty;
+        public string EquipmentName { get; set; } = string.Empty;
+        public string InfrastructureName { get; set; } = string.Empty;
+        public string EquipmentStatusName { get; set; } = string.Empty;
+        public long TotalDossiers { get; set; }
+        public long TotalDocuments { get; set; }
+        public long TotalPages { get; set; }
+    }
+
+    public class ReportStatisticsEquipmentStatusGridResponseDto
+    {
+        public List<ReportStatisticsEquipmentStatusGridItemDto> Items { get; set; } = new();
+        public int TotalCount { get; set; }
+        public int Page { get; set; }
+        public int PageSize { get; set; }
+    }
 }

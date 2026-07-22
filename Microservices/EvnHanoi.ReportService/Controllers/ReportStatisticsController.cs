@@ -91,6 +91,39 @@ namespace EvnHanoi.ReportService.Controllers
         }
 
         /// <summary>
+        /// Lookup danh sách năm vận hành khả dụng (trạm/đường dây) — dùng cho báo cáo theo năm vận hành.
+        /// GET /api/v1/reports/statistics/lookups/operation-years
+        /// </summary>
+        [HttpGet("lookups/operation-years")]
+        public async Task<IActionResult> GetOperationYearsLookup()
+        {
+            var years = await _dossierRepository.GetAvailableOperationYearsAsync();
+            return Ok(years);
+        }
+
+        /// <summary>
+        /// Lookup danh sách tình trạng thiết bị (CATALOG, CatalogType = EQUIPMENT_STATUS) — dùng cho báo cáo theo tình trạng thiết bị.
+        /// GET /api/v1/reports/statistics/lookups/equipment-statuses
+        /// </summary>
+        [HttpGet("lookups/equipment-statuses")]
+        public async Task<IActionResult> GetEquipmentStatusesLookup()
+        {
+            var statuses = await _dossierRepository.GetEquipmentStatusesAsync();
+            return Ok(statuses);
+        }
+
+        /// <summary>
+        /// Lookup danh sách năm sản xuất thiết bị khả dụng — dùng cho báo cáo theo năm sản xuất.
+        /// GET /api/v1/reports/statistics/lookups/manufacture-years
+        /// </summary>
+        [HttpGet("lookups/manufacture-years")]
+        public async Task<IActionResult> GetManufactureYearsLookup()
+        {
+            var years = await _dossierRepository.GetAvailableManufactureYearsAsync();
+            return Ok(years);
+        }
+
+        /// <summary>
         /// Lookup danh sách tháng báo cáo khả dụng (nhóm theo năm — FE render combobox grouped)
         /// GET /api/v1/reports/statistics/lookups/months
         /// </summary>
