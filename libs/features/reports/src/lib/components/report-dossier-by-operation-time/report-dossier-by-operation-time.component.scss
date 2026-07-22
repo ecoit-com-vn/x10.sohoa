@@ -1,0 +1,93 @@
+.operation-time-report {
+  .filter-row {
+    display: grid;
+    grid-template-columns: minmax(200px, 1.1fr) minmax(160px, 0.8fr) minmax(150px, 0.75fr) minmax(150px, 0.75fr) auto;
+    align-items: end;
+    gap: 1rem;
+
+    @media (max-width: 1200px) {
+      grid-template-columns: 1fr 1fr;
+
+      .filter-actions {
+        grid-column: 1 / -1;
+      }
+    }
+
+    @media (max-width: 640px) {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+
+    @media (min-width: 768px) {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+
+  .kpi-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.5rem;
+    padding: 1.5rem 1.25rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    min-height: 8.5rem;
+  }
+
+  .kpi-label {
+    font-size: 0.875rem;
+    color: #475569;
+    font-weight: 600;
+    margin-bottom: 0.625rem;
+  }
+
+  .kpi-value {
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  .kpi-card-dossier {
+    background: linear-gradient(180deg, #eff6ff 0%, #ffffff 100%);
+    border-color: #bfdbfe;
+
+    .kpi-value {
+      color: #1d6bf3;
+    }
+  }
+
+  .kpi-card-document {
+    background: linear-gradient(180deg, #ecfdf5 0%, #ffffff 100%);
+    border-color: #a7f3d0;
+
+    .kpi-value {
+      color: #10b981;
+    }
+  }
+
+  .kpi-card-page {
+    background: linear-gradient(180deg, #fffbeb 0%, #ffffff 100%);
+    border-color: #fde68a;
+
+    .kpi-value {
+      color: #f59e0b;
+    }
+  }
+
+  :host ::ng-deep .filter-card eco-input-date .p-datepicker-input {
+    width: 100%;
+    height: 38px;
+    border-color: #cbd5e1;
+    border-radius: 6px;
+    font-size: 0.875rem;
+  }
+}

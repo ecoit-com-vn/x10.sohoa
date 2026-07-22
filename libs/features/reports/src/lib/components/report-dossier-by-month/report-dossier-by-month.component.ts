@@ -128,6 +128,9 @@ export class ReportDossierByMonthComponent implements OnInit, AfterViewInit {
   selectedUnitId = signal<number | null>(null);
   selectedObjectType = signal<number | null>(0);
 
+  /** Chỉ cập nhật khi Tìm kiếm (trong loadStatsData) — dùng cho legend/donut, tránh đổi ngay khi user chỉnh dropdown. */
+  appliedObjectType = signal<number | null>(0);
+
   activeTab = signal<MainTabMode>('stats');
   loading = signal<boolean>(false);
   exporting = signal<boolean>(false);
@@ -255,6 +258,8 @@ export class ReportDossierByMonthComponent implements OnInit, AfterViewInit {
   }
 
   loadStatsData(): void {
+    this.appliedObjectType.set(this.selectedObjectType());
+
     const filter: DossierByMonthFilter = {
       unitId: this.selectedUnitId(),
       objectType: this.selectedObjectType(),
@@ -383,7 +388,7 @@ export class ReportDossierByMonthComponent implements OnInit, AfterViewInit {
   donutConicGradient = computed(() => {
     this.filterVersion();
     this.ratioStats();
-    this.selectedObjectType();
+    this.appliedObjectType();
 
     const station = this.showStationRatio() ? Number(this.stationRatio().dossierCount) || 0 : 0;
     const line = this.showLineRatio() ? Number(this.lineRatio().dossierCount) || 0 : 0;
@@ -414,17 +419,17 @@ export class ReportDossierByMonthComponent implements OnInit, AfterViewInit {
   });
 
   showStationRatio = computed(() => {
-    const t = this.selectedObjectType();
+    const t = this.appliedObjectType();
     return t == null || t === 0 || t === 1;
   });
 
   showLineRatio = computed(() => {
-    const t = this.selectedObjectType();
+    const t = this.appliedObjectType();
     return t == null || t === 0 || t === 2;
   });
 
   showEquipmentRatio = computed(() => {
-    const t = this.selectedObjectType();
+    const t = this.appliedObjectType();
     return t == null || t === 0 || t === 3;
   });
 

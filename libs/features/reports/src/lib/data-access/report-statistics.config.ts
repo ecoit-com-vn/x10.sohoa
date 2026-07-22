@@ -22,6 +22,18 @@ export interface ReportStatisticsEquipmentTypeGridConfig {
   gridSegment: string;
 }
 
+/** Cấu hình View Lưới hồ sơ theo thiết bị (từng thiết bị cụ thể) — tab Báo cáo thống kê. */
+export interface ReportStatisticsEquipmentGridConfig {
+  reportCode: string;
+  gridSegment: string;
+}
+
+/** Cấu hình View Lưới hồ sơ theo thiết bị (kèm tình trạng thiết bị) — tab Báo cáo thống kê. */
+export interface ReportStatisticsEquipmentStatusGridConfig {
+  reportCode: string;
+  gridSegment: string;
+}
+
 /** Cấu hình View Lưới hồ sơ theo loại hồ sơ — tab Báo cáo thống kê. */
 export interface ReportStatisticsDossierTypeGridConfig {
   reportCode: string;
@@ -102,6 +114,26 @@ export const REPORT_STATISTICS_DOSSIER_LIST_CONFIGS = {
   DOSSIER_BY_LINE: {
     reportCode: 'REPORT_DOSSIER_BY_LINE',
     listSegment: 'dossier-by-line'
+  },
+  DOSSIER_BY_OPERATION_YEAR: {
+    reportCode: 'REPORT_DOSSIER_BY_OPERATION_YEAR',
+    listSegment: 'dossier-by-operation-year'
+  },
+  DOSSIER_BY_OPERATION_TIME: {
+    reportCode: 'REPORT_DOSSIER_BY_OPERATION_TIME',
+    listSegment: 'dossier-by-operation-time'
+  },
+  DOSSIER_BY_MANUFACTURE_YEAR: {
+    reportCode: 'REPORT_DOSSIER_BY_MANUFACTURE_YEAR',
+    listSegment: 'dossier-by-manufacture-year'
+  },
+  DOSSIER_BY_EQUIPMENT_STATUS: {
+    reportCode: 'REPORT_DOSSIER_BY_EQUIPMENT_STATUS',
+    listSegment: 'dossier-by-equipment-status'
+  },
+  DOSSIER_GENERAL_INPUT: {
+    reportCode: 'REPORT_DOSSIER_GENERAL_INPUT',
+    listSegment: 'dossier-general-input'
   }
 } as const satisfies Record<string, ReportStatisticsDossierListConfig>;
 
@@ -132,6 +164,18 @@ export const REPORT_STATISTICS_STATION_GRID_CONFIGS = {
   DOSSIER_BY_LINE: {
     reportCode: 'REPORT_DOSSIER_BY_LINE',
     gridSegment: 'dossier-by-line'
+  },
+  DOSSIER_BY_OPERATION_YEAR: {
+    reportCode: 'REPORT_DOSSIER_BY_OPERATION_YEAR',
+    gridSegment: 'dossier-by-operation-year'
+  },
+  DOSSIER_BY_OPERATION_TIME: {
+    reportCode: 'REPORT_DOSSIER_BY_OPERATION_TIME',
+    gridSegment: 'dossier-by-operation-time'
+  },
+  DOSSIER_GENERAL_INPUT: {
+    reportCode: 'REPORT_DOSSIER_GENERAL_INPUT',
+    gridSegment: 'dossier-general-input'
   }
 } as const satisfies Record<string, ReportStatisticsStationGridConfig>;
 
@@ -148,6 +192,20 @@ export const REPORT_STATISTICS_EQUIPMENT_TYPE_GRID_CONFIGS = {
     gridSegment: 'dossier-by-equipment-type'
   }
 } as const satisfies Record<string, ReportStatisticsEquipmentTypeGridConfig>;
+
+export const REPORT_STATISTICS_EQUIPMENT_GRID_CONFIGS = {
+  DOSSIER_BY_MANUFACTURE_YEAR: {
+    reportCode: 'REPORT_DOSSIER_BY_MANUFACTURE_YEAR',
+    gridSegment: 'dossier-by-manufacture-year'
+  }
+} as const satisfies Record<string, ReportStatisticsEquipmentGridConfig>;
+
+export const REPORT_STATISTICS_EQUIPMENT_STATUS_GRID_CONFIGS = {
+  DOSSIER_BY_EQUIPMENT_STATUS: {
+    reportCode: 'REPORT_DOSSIER_BY_EQUIPMENT_STATUS',
+    gridSegment: 'dossier-by-equipment-status'
+  }
+} as const satisfies Record<string, ReportStatisticsEquipmentStatusGridConfig>;
 
 export const REPORT_STATISTICS_DOSSIER_TYPE_GRID_CONFIGS = {
   DOSSIER_BY_DOSSIER_TYPE: {
