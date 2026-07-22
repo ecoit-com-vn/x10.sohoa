@@ -24,6 +24,7 @@ import { of, switchMap, finalize, catchError, Observable } from 'rxjs';
 import { DossierDocumentEditDialogComponent, DossierManagementService, BhsCatalogColumn, DossierDocumentService, EavField, normalizeField, readFormSchemaJson, parseFormDataJson, normalizeDossierDetail } from '@sohoa.frontend/features/dossier-management';
 import { HttpClient } from '@angular/common/http';
 import { AuthService, APP_CONFIG } from '@sohoa.frontend/shared/core';
+import { LookupTrackingService } from '../../data-access/lookup-tracking.service';
 
 @Component({
   selector: 'app-dossier-search',
@@ -54,6 +55,7 @@ export class DossierSearchComponent implements OnInit, OnDestroy {
   private config = inject(APP_CONFIG);
   private dossierService = inject(DossierManagementService);
   private dossierDocumentService = inject(DossierDocumentService);
+  private lookupTrackingService = inject(LookupTrackingService);
   private sanitizer = inject(DomSanitizer);
 
   // ===== NEW SIGNALS FOR 2-TAB DETAIL & PREVIEW =====
@@ -518,6 +520,9 @@ export class DossierSearchComponent implements OnInit, OnDestroy {
   }
 
   onViewDossierDetail(item: any) {
+    if (item?.id) {
+      this.lookupTrackingService.recordView('DOSSIER', item.id);
+    }
     window.open(`/#/search/dossier/detail/${item.id}`, '_blank');
   }
 

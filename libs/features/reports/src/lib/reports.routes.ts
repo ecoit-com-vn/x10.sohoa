@@ -199,5 +199,13 @@ export const REPORTS_ROUTES: Routes = [
         (m) => m.ReportDossierGeneralInputComponent
       ),
     canActivate: [reportDossierGuard('REPORT_STATISTICS_VIEW')]
+  },
+  {
+    path: 'dossier-most-viewed',
+    loadComponent: () =>
+      import('./components/report-dossier-most-viewed/report-dossier-most-viewed.component').then(
+        (m) => m.ReportDossierMostViewedComponent
+      ),
+    canActivate: [reportDossierGuard('REPORT_STATISTICS_VIEW')]
   }
 ];

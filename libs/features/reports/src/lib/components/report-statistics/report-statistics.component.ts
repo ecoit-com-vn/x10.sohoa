@@ -64,6 +64,7 @@ export class ReportStatisticsComponent implements OnInit {
     REPORT_DOSSIER_BY_MANUFACTURE_YEAR: '/reports/dossier-by-manufacture-year',
     REPORT_DOSSIER_BY_EQUIPMENT_STATUS: '/reports/dossier-by-equipment-status',
     REPORT_DOSSIER_GENERAL_INPUT: '/reports/dossier-general-input',
+    REPORT_DOSSIER_MOST_VIEWED: '/reports/dossier-most-viewed',
     REPORT_DOSSIER_BY_YEAR: '/reports/dossier-by-year',
     REPORT_DOSSIER_BY_MONTH: '/reports/dossier-by-month',
     REPORT_DOSSIER_BY_ALLOCATION: '/reports/dossier-by-allocation',

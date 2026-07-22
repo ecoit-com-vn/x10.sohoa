@@ -54,6 +54,21 @@ export interface ReportStatisticsStationGridResponse {
   pageSize: number;
 }
 
+export interface ReportStatisticsDossierViewGridItem {
+  stt: number;
+  dossierId: string;
+  catalogData?: Record<string, string>;
+  infrastructureName: string;
+  viewCount: number;
+}
+
+export interface ReportStatisticsDossierViewGridResponse {
+  items: ReportStatisticsDossierViewGridItem[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+}
+
 export interface ReportStatisticsEquipmentGridItem {
   stt: number;
   equipmentCode: string;
@@ -239,6 +254,15 @@ export class ReportStatisticsService {
     filter: Record<string, string | number | string[] | null | undefined>
   ): Observable<ReportStatisticsStationGridResponse> {
     return this.http.get<ReportStatisticsStationGridResponse>(`${this.baseUrl}/${gridSegment}/station-grid`, {
+      params: this.buildParams(filter)
+    });
+  }
+
+  getDossierViewGrid(
+    gridSegment: string,
+    filter: Record<string, string | number | string[] | null | undefined>
+  ): Observable<ReportStatisticsDossierViewGridResponse> {
+    return this.http.get<ReportStatisticsDossierViewGridResponse>(`${this.baseUrl}/${gridSegment}/grid`, {
       params: this.buildParams(filter)
     });
   }

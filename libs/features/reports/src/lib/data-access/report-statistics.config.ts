@@ -34,6 +34,12 @@ export interface ReportStatisticsEquipmentStatusGridConfig {
   gridSegment: string;
 }
 
+/** Cấu hình View Lưới hồ sơ được tra cứu nhiều nhất — kèm số lượt tra cứu. */
+export interface ReportStatisticsDossierViewGridConfig {
+  reportCode: string;
+  gridSegment: string;
+}
+
 /** Cấu hình View Lưới hồ sơ theo loại hồ sơ — tab Báo cáo thống kê. */
 export interface ReportStatisticsDossierTypeGridConfig {
   reportCode: string;
@@ -206,6 +212,13 @@ export const REPORT_STATISTICS_EQUIPMENT_STATUS_GRID_CONFIGS = {
     gridSegment: 'dossier-by-equipment-status'
   }
 } as const satisfies Record<string, ReportStatisticsEquipmentStatusGridConfig>;
+
+export const REPORT_STATISTICS_DOSSIER_VIEW_GRID_CONFIGS = {
+  DOSSIER_MOST_VIEWED: {
+    reportCode: 'REPORT_DOSSIER_MOST_VIEWED',
+    gridSegment: 'dossier-most-viewed'
+  }
+} as const satisfies Record<string, ReportStatisticsDossierViewGridConfig>;
 
 export const REPORT_STATISTICS_DOSSIER_TYPE_GRID_CONFIGS = {
   DOSSIER_BY_DOSSIER_TYPE: {
