@@ -168,6 +168,12 @@ public class PermissionGroupRepository : IPermissionGroupRepository
 
                          WHERE pgu2.PermissionGroupId = pg.Id) AS OrganizationUnitNames,
 
+                       pg.CreatedAt,
+
+                       pg.CreatedBy,
+
+                       creator.FullName AS CreatedByName,
+
                        pg.IsActive,
 
                        ROW_NUMBER() OVER (ORDER BY pg.Id ASC) AS RN
@@ -177,6 +183,8 @@ public class PermissionGroupRepository : IPermissionGroupRepository
                 INNER JOIN SCOPE_TYPE st ON pg.ScopeTypeId = st.Id
 
                 LEFT JOIN ORGANIZATION_UNIT o ON pg.OrganizationUnitId = o.Id
+
+                LEFT JOIN APP_USER creator ON creator.Id = pg.CreatedBy
 
                 {whereClause}
 
@@ -250,9 +258,9 @@ public class PermissionGroupRepository : IPermissionGroupRepository
 
             var sql = @"
 
-                INSERT INTO PERMISSION_GROUP (Code, Name, Description, ScopeTypeId, OrganizationUnitId, IsActive)
+                INSERT INTO PERMISSION_GROUP (Code, Name, Description, ScopeTypeId, OrganizationUnitId, IsActive, CreatedBy)
 
-                VALUES (:Code, :Name, :Description, :ScopeTypeId, :OrganizationUnitId, :IsActive)
+                VALUES (:Code, :Name, :Description, :ScopeTypeId, :OrganizationUnitId, :IsActive, :CreatedBy)
 
                 RETURNING Id INTO :Id";
 
@@ -275,6 +283,7 @@ public class PermissionGroupRepository : IPermissionGroupRepository
             parameters.Add("OrganizationUnitId", group.OrganizationUnitId);
 
             parameters.Add("IsActive", group.IsActive ? 1 : 0);
+            parameters.Add("CreatedBy", group.CreatedBy);
 
             parameters.Add("Id", dbType: DbType.Int64, direction: ParameterDirection.Output);
 
@@ -836,6 +845,12 @@ public class PermissionGroupRepository : IPermissionGroupRepository
 
                  WHERE pgu2.PermissionGroupId = pg.Id) AS OrganizationUnitNames,
 
+               pg.CreatedAt,
+
+               pg.CreatedBy,
+
+               creator.FullName AS CreatedByName,
+
                pg.IsActive
 
         FROM PERMISSION_GROUP pg
@@ -843,6 +858,8 @@ public class PermissionGroupRepository : IPermissionGroupRepository
         INNER JOIN SCOPE_TYPE st ON pg.ScopeTypeId = st.Id
 
         LEFT JOIN ORGANIZATION_UNIT o ON pg.OrganizationUnitId = o.Id
+
+        LEFT JOIN APP_USER creator ON creator.Id = pg.CreatedBy
 
         {whereClause}";
 

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace EvnHanoi.IdentityService.Core.Domain.Models;
@@ -19,6 +20,9 @@ public class PermissionGroup
     /// <summary>Tên các đơn vị (LISTAGG) để hiển thị danh sách.</summary>
     public string? OrganizationUnitNames { get; set; }
     public bool IsActive { get; set; } = true;
+    public DateTime? CreatedAt { get; set; }
+    public string? CreatedBy { get; set; }
+    public string? CreatedByName { get; set; }
 }
 
 public static class PermissionGroupTypes
