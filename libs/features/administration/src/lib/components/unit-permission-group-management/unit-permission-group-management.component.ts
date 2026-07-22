@@ -1,5 +1,5 @@
 import { Component, OnInit, signal, computed, effect } from '@angular/core';
-import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
+import { WfBreadcrumbComponent, EcoInputTreeSelectComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -16,7 +16,7 @@ import { buildMenuPermissionTree as buildMenuPermissionTreeFromLookup } from '..
 @Component({
   selector: 'app-unit-permission-group-management',
   standalone: true,
-  imports: [CommonModule, FormsModule, DialogModule, ToastModule, MenuModule, TreeSelectModule, WfBreadcrumbComponent],
+  imports: [CommonModule, FormsModule, DialogModule, ToastModule, MenuModule, TreeSelectModule, WfBreadcrumbComponent, EcoInputTreeSelectComponent],
   providers: [MessageService],
   templateUrl: './unit-permission-group-management.component.html',
   styleUrl: './unit-permission-group-management.component.scss'
@@ -545,6 +545,11 @@ export class UnitPermissionGroupManagement implements OnInit {
 
   isAllPermissionsChecked(codes: string[]): boolean {
     return codes.length > 0 && codes.every((code) => this.isPermissionChecked(code));
+  }
+
+  isPartiallyChecked(codes: string[]): boolean {
+    const checkedCount = codes.filter((code) => this.isPermissionChecked(code)).length;
+    return checkedCount > 0 && checkedCount < codes.length;
   }
 
   getPermissionInputId(parentId: number, subId: number | null, code: string): string {
