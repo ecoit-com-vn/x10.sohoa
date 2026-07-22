@@ -75,6 +75,7 @@ builder.Services.AddScoped<EvnHanoi.NotificationService.Services.IAuditLogExport
 builder.Services.AddScoped<EvnHanoi.NotificationService.Repositories.IAuditLogRepository, EvnHanoi.NotificationService.Repositories.AuditLogRepository>();
 builder.Services.AddScoped<EvnHanoi.NotificationService.Services.IAuditLogService, EvnHanoi.NotificationService.Services.AuditLogService>();
 builder.Services.AddScoped<EvnHanoi.NotificationService.Repositories.IDossierEnrichmentRepository, EvnHanoi.NotificationService.Repositories.DossierEnrichmentRepository>();
+builder.Services.AddScoped<EvnHanoi.NotificationService.Repositories.ILookupTrackingRepository, EvnHanoi.NotificationService.Repositories.LookupTrackingRepository>();
 builder.Services.AddScoped<EvnHanoi.NotificationService.Services.IDossierDocumentBuilder, EvnHanoi.NotificationService.Services.DossierDocumentBuilder>();
 builder.Services.AddScoped<EvnHanoi.NotificationService.Services.IDossierIndexer, EvnHanoi.NotificationService.Services.DossierIndexer>();
 

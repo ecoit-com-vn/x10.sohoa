@@ -4,6 +4,8 @@ using System.Collections.Generic;
 
 using System.Linq;
 
+using System.Security.Claims;
+
 using System.Threading.Tasks;
 
 using EvnHanoi.IdentityService.Core.Domain.Models;
@@ -223,6 +225,10 @@ public class UnitPermissionGroupsController : ControllerBase
 
 
         group.GroupType = PermissionGroupTypes.Unit;
+
+        group.CreatedBy = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue(ClaimTypes.Name)
+            ?? "SYSTEM";
 
         var newId = await _permissionGroupRepository.CreateAsync(group);
 

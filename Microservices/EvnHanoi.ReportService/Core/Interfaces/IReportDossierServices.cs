@@ -27,6 +27,12 @@ public interface IReportDossierRepository
     Task<ReportStatisticsDossierListResponseDto> GetDossierByYearListAsync(DossierByYearFilterDto filter, bool isAdmin, long? userUnitId);
     Task<ReportStatisticsStationGridResponseDto> GetDossierByYearStationGridAsync(DossierByYearFilterDto filter, bool isAdmin, long? userUnitId);
 
+    // Báo cáo thống kê tổng hợp hồ sơ nhập liệu (filter khoảng ngày, không theo năm)
+    Task<IEnumerable<DossierGeneralInputChartStatDto>> GetDossierGeneralInputChartStatsAsync(DossierGeneralInputFilterDto filter, bool isAdmin, long? userUnitId);
+    Task<IEnumerable<DossierGeneralInputRatioStatDto>> GetDossierGeneralInputRatioStatsAsync(DossierGeneralInputFilterDto filter, bool isAdmin, long? userUnitId);
+    Task<ReportStatisticsDossierListResponseDto> GetDossierGeneralInputListAsync(DossierGeneralInputFilterDto filter, bool isAdmin, long? userUnitId);
+    Task<ReportStatisticsStationGridResponseDto> GetDossierGeneralInputStationGridAsync(DossierGeneralInputFilterDto filter, bool isAdmin, long? userUnitId);
+
     // Báo cáo thống kê hồ sơ nhập liệu theo tháng
     Task<IEnumerable<ReportMonthLookupDto>> GetAvailableMonthsAsync();
     Task<IEnumerable<DossierByMonthChartStatDto>> GetDossierByMonthChartStatsAsync(DossierByMonthFilterDto filter, bool isAdmin, long? userUnitId);
@@ -79,6 +85,33 @@ public interface IReportDossierRepository
     Task<DossierByLineSummaryStatsDto> GetDossierByLineSummaryStatsAsync(DossierByLineFilterDto filter, bool isAdmin, long? userUnitId);
     Task<ReportStatisticsDossierListResponseDto> GetDossierByLineListAsync(DossierByLineFilterDto filter, bool isAdmin, long? userUnitId);
     Task<ReportStatisticsStationGridResponseDto> GetDossierByLineLineGridAsync(DossierByLineFilterDto filter, bool isAdmin, long? userUnitId);
+
+    // Báo cáo thống kê hồ sơ theo năm vận hành (xuất bản)
+    Task<IEnumerable<int>> GetAvailableOperationYearsAsync();
+    Task<DossierByOperationYearSummaryStatsDto> GetDossierByOperationYearSummaryStatsAsync(DossierByOperationYearFilterDto filter, bool isAdmin, long? userUnitId);
+    Task<ReportStatisticsDossierListResponseDto> GetDossierByOperationYearListAsync(DossierByOperationYearFilterDto filter, bool isAdmin, long? userUnitId);
+    Task<ReportStatisticsStationGridResponseDto> GetDossierByOperationYearStationGridAsync(DossierByOperationYearFilterDto filter, bool isAdmin, long? userUnitId);
+
+    // Báo cáo thống kê hồ sơ thiết bị theo thời gian vận hành (xuất bản)
+    Task<DossierByOperationTimeSummaryStatsDto> GetDossierByOperationTimeSummaryStatsAsync(DossierByOperationTimeFilterDto filter, bool isAdmin, long? userUnitId);
+    Task<ReportStatisticsDossierListResponseDto> GetDossierByOperationTimeListAsync(DossierByOperationTimeFilterDto filter, bool isAdmin, long? userUnitId);
+    Task<ReportStatisticsStationGridResponseDto> GetDossierByOperationTimeStationGridAsync(DossierByOperationTimeFilterDto filter, bool isAdmin, long? userUnitId);
+
+    // Báo cáo thống kê hồ sơ thiết bị theo năm sản xuất (xuất bản)
+    Task<IEnumerable<int>> GetAvailableManufactureYearsAsync();
+    Task<IEnumerable<DossierByManufactureYearChartStatDto>> GetDossierByManufactureYearChartStatsAsync(DossierByManufactureYearFilterDto filter, bool isAdmin, long? userUnitId);
+    Task<ReportStatisticsDossierListResponseDto> GetDossierByManufactureYearListAsync(DossierByManufactureYearFilterDto filter, bool isAdmin, long? userUnitId);
+    Task<ReportStatisticsEquipmentGridResponseDto> GetDossierByManufactureYearEquipmentGridAsync(DossierByManufactureYearFilterDto filter, bool isAdmin, long? userUnitId);
+
+    // Báo cáo thống kê hồ sơ thiết bị theo tình trạng thiết bị (xuất bản)
+    Task<IEnumerable<ReportDossierLookupItem>> GetEquipmentStatusesAsync();
+    Task<IEnumerable<DossierByEquipmentStatusChartStatDto>> GetDossierByEquipmentStatusChartStatsAsync(DossierByEquipmentStatusFilterDto filter, bool isAdmin, long? userUnitId);
+    Task<ReportStatisticsDossierListResponseDto> GetDossierByEquipmentStatusListAsync(DossierByEquipmentStatusFilterDto filter, bool isAdmin, long? userUnitId);
+    Task<ReportStatisticsEquipmentStatusGridResponseDto> GetDossierByEquipmentStatusEquipmentGridAsync(DossierByEquipmentStatusFilterDto filter, bool isAdmin, long? userUnitId);
+
+    // Báo cáo thống kê tổng hợp hồ sơ được tra cứu nhiều nhất (LOOKUP_VIEW_LOGS)
+    Task<DossierMostViewedSummaryStatsDto> GetDossierMostViewedSummaryStatsAsync(DossierMostViewedFilterDto filter, bool isAdmin, long? userUnitId);
+    Task<ReportStatisticsDossierViewGridResponseDto> GetDossierMostViewedGridAsync(DossierMostViewedFilterDto filter, bool isAdmin, long? userUnitId);
 
     // Báo cáo thống kê hồ sơ nhập liệu theo phân bổ hồ sơ
     Task<IEnumerable<ReportInputUserLookupDto>> GetInputUsersAsync(bool isAdmin, long? userUnitId);

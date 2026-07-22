@@ -4071,4 +4071,1554 @@ public class ReportDossierRepository : IReportDossierRepository
         baseWhere += " AND d.InfrastructureId IN :LineIds";
         parameters.Add("LineIds", ids.ToArray());
     }
+
+    public async Task<IEnumerable<int>> GetAvailableOperationYearsAsync()
+    {
+        EnsureOpen();
+        const string sql = @"
+            SELECT DISTINCT EXTRACT(YEAR FROM i.OPERATION_DATE) AS Yr
+            FROM INFRASTRUCTURE i
+            INNER JOIN DOSSIERS d ON d.InfrastructureId = i.ID
+            WHERE i.INFRA_TYPE_ID IN (1, 2)
+              AND NVL(i.IsDeleted, 0) = 0
+              AND i.OPERATION_DATE IS NOT NULL
+              AND d.IsDeleted = 0 AND d.STATUS_ID = 6 AND d.PUBLISHSTATUSID = 2
+            ORDER BY Yr DESC";
+
+        var years = (await _connection.QueryAsync<int?>(sql))
+            .Where(y => y.HasValue && y.Value > 1900)
+            .Select(y => y!.Value)
+            .ToList();
+
+        return years;
+    }
+
+    public async Task<DossierByOperationYearSummaryStatsDto> GetDossierByOperationYearSummaryStatsAsync(
+        DossierByOperationYearFilterDto filter,
+        bool isAdmin,
+        long? userUnitId)
+    {
+        EnsureOpen();
+        var (targetYear, allYears, _, _, parameters, baseWhere) = BuildDossierByOperationYearFilter(filter, isAdmin, userUnitId);
+        var totals = await QueryStationTotalsAsync(baseWhere, parameters);
+
+        if (allYears)
+        {
+            return new DossierByOperationYearSummaryStatsDto
+            {
+                Year = 0,
+                PreviousYear = 0,
+                ShowGrowth = false,
+                DossierCount = totals.Dossiers,
+                DocumentCount = totals.Documents,
+                PageCount = totals.Pages
+            };
+        }
+
+        var previousYear = targetYear - 1;
+        var (_, _, _, _, prevParameters, prevBaseWhere) = BuildDossierByOperationYearFilter(filter, isAdmin, userUnitId, previousYear);
+        var previousTotals = await QueryStationTotalsAsync(prevBaseWhere, prevParameters);
+
+        return new DossierByOperationYearSummaryStatsDto
+        {
+            Year = targetYear,
+            PreviousYear = previousYear,
+            ShowGrowth = true,
+            DossierCount = totals.Dossiers,
+            DossierGrowthPercent = CalcGrowthPercent(totals.Dossiers, previousTotals.Dossiers),
+            DocumentCount = totals.Documents,
+            DocumentGrowthPercent = CalcGrowthPercent(totals.Documents, previousTotals.Documents),
+            PageCount = totals.Pages,
+            PageGrowthPercent = CalcGrowthPercent(totals.Pages, previousTotals.Pages)
+        };
+    }
+
+    public async Task<ReportStatisticsDossierListResponseDto> GetDossierByOperationYearListAsync(
+        DossierByOperationYearFilterDto filter,
+        bool isAdmin,
+        long? userUnitId)
+    {
+        EnsureOpen();
+        var (_, _, page, pageSize, parameters, baseWhere) = BuildDossierByOperationYearFilter(filter, isAdmin, userUnitId);
+
+        var countSql = $@"
+            SELECT COUNT(DISTINCT d.ID)
+            FROM DOSSIERS d
+            INNER JOIN INFRASTRUCTURE i ON d.InfrastructureId = i.ID
+            WHERE {baseWhere}";
+
+        var totalCount = await _connection.ExecuteScalarAsync<int>(countSql, parameters);
+
+        var offset = (page - 1) * pageSize;
+        parameters.Add("Offset", offset);
+        parameters.Add("PageSize", pageSize);
+
+        var listSql = $@"
+            SELECT
+                d.ID AS DossierId,
+                i.NAME AS InfrastructureName,
+                dt.NAME AS DossierTypeName,
+                MAX(DBMS_LOB.SUBSTR(d.FORMDATAJSON, 4000, 1)) AS FormDataJson,
+                COUNT(DISTINCT doc.ID) AS DocumentCount
+            FROM DOSSIERS d
+            INNER JOIN INFRASTRUCTURE i ON d.InfrastructureId = i.ID
+            LEFT JOIN DOSSIER_TYPES dt ON d.DossierTypeId = dt.ID
+            LEFT JOIN DOCUMENTS doc ON doc.DOSSIER_ID = d.Id AND doc.IS_DELETED = 0
+            WHERE {baseWhere}
+            GROUP BY d.ID, i.NAME, dt.NAME, d.CreatedDate
+            ORDER BY d.CreatedDate DESC
+            OFFSET :Offset ROWS
+            FETCH NEXT :PageSize ROWS ONLY";
+
+        var bhsColumns = (await GetBhsColumnsAsync()).ToList();
+        var rawRows = (await _connection.QueryAsync(listSql, parameters)).ToList();
+        var items = new List<ReportStatisticsDossierListItemDto>();
+
+        int stt = offset + 1;
+        foreach (var r in rawRows)
+        {
+            var formDataJson = Convert.ToString(r.FORMDATAJSON ?? r.FormDataJson);
+            items.Add(new ReportStatisticsDossierListItemDto
+            {
+                Stt = stt++,
+                DossierId = Convert.ToString(r.DOSSIERID ?? r.DossierId),
+                InfrastructureName = Convert.ToString(r.INFRASTRUCTURENAME ?? r.InfrastructureName),
+                DossierTypeName = Convert.ToString(r.DOSSIERTYPENAME ?? r.DossierTypeName),
+                DocumentCount = Convert.ToInt64(r.DOCUMENTCOUNT ?? r.DocumentCount ?? 0),
+                CatalogData = ParseBhsCatalogData(formDataJson, bhsColumns)
+            });
+        }
+
+        return new ReportStatisticsDossierListResponseDto
+        {
+            Items = items,
+            TotalCount = totalCount,
+            Page = page,
+            PageSize = pageSize
+        };
+    }
+
+    public async Task<ReportStatisticsStationGridResponseDto> GetDossierByOperationYearStationGridAsync(
+        DossierByOperationYearFilterDto filter,
+        bool isAdmin,
+        long? userUnitId)
+    {
+        EnsureOpen();
+        var (_, _, page, pageSize, parameters, baseWhere) = BuildDossierByOperationYearFilter(filter, isAdmin, userUnitId);
+
+        var countSql = $@"
+            WITH filtered AS (
+                SELECT d.InfrastructureId
+                FROM DOSSIERS d
+                INNER JOIN INFRASTRUCTURE i ON d.InfrastructureId = i.ID
+                WHERE {baseWhere}
+                GROUP BY d.InfrastructureId
+            )
+            SELECT COUNT(*) FROM filtered";
+
+        var totalCount = await _connection.ExecuteScalarAsync<int>(countSql, parameters);
+
+        var offset = (page - 1) * pageSize;
+        parameters.Add("Offset", offset);
+        parameters.Add("PageSize", pageSize);
+
+        var gridSql = $@"
+            WITH filtered AS (
+                SELECT d.ID AS DossierId, d.InfrastructureId
+                FROM DOSSIERS d
+                INNER JOIN INFRASTRUCTURE i ON d.InfrastructureId = i.ID
+                WHERE {baseWhere}
+            ),
+            infra_stats AS (
+                SELECT
+                    f.InfrastructureId,
+                    COUNT(DISTINCT f.DossierId) AS TotalDossiers,
+                    COUNT(DISTINCT doc.ID) AS TotalDocuments,
+                    NVL(SUM(dv.PAGE_COUNT), 0) AS TotalPages
+                FROM filtered f
+                LEFT JOIN DOCUMENTS doc ON doc.DOSSIER_ID = f.DossierId AND doc.IS_DELETED = 0
+                LEFT JOIN DOCUMENT_VERSIONS dv ON dv.DOCUMENT_ID = doc.ID AND dv.IS_DELETED = 0
+                GROUP BY f.InfrastructureId
+            )
+            SELECT
+                i.CODE AS InfrastructureCode,
+                i.NAME AS InfrastructureName,
+                s.TotalDossiers,
+                s.TotalDocuments,
+                s.TotalPages
+            FROM infra_stats s
+            INNER JOIN INFRASTRUCTURE i ON i.ID = s.InfrastructureId
+            ORDER BY i.NAME
+            OFFSET :Offset ROWS
+            FETCH NEXT :PageSize ROWS ONLY";
+
+        var bhsColumns = (await GetBhsColumnsAsync()).ToList();
+        var rawRows = (await _connection.QueryAsync(gridSql, parameters)).ToList();
+        var items = new List<ReportStatisticsStationGridItemDto>();
+
+        int stt = offset + 1;
+        foreach (var r in rawRows)
+        {
+            var infraCode = Convert.ToString(r.INFRASTRUCTURECODE ?? r.InfrastructureCode);
+            var infraName = Convert.ToString(r.INFRASTRUCTURENAME ?? r.InfrastructureName);
+            items.Add(new ReportStatisticsStationGridItemDto
+            {
+                Stt = stt++,
+                TotalDossiers = Convert.ToInt64(r.TOTALDOSSIERS ?? r.TotalDossiers ?? 0),
+                TotalDocuments = Convert.ToInt64(r.TOTALDOCUMENTS ?? r.TotalDocuments ?? 0),
+                TotalPages = Convert.ToInt64(r.TOTALPAGES ?? r.TotalPages ?? 0),
+                CatalogData = BuildInfrastructureCatalogData(infraCode, infraName, bhsColumns)
+            });
+        }
+
+        return new ReportStatisticsStationGridResponseDto
+        {
+            Items = items,
+            TotalCount = totalCount,
+            Page = page,
+            PageSize = pageSize
+        };
+    }
+
+    /// <summary>
+    /// Filter báo cáo theo năm vận hành: năm so sánh với INFRASTRUCTURE.OPERATION_DATE (không phải d.CreatedDate).
+    /// Đối tượng Trạm/Đường dây gộp cả hồ sơ thiết bị của trạm/đường dây tương ứng (DOSSIER_GROUP_ID 1+3 / 2+4).
+    /// </summary>
+    private static (int TargetYear, bool AllYears, int Page, int PageSize, DynamicParameters Parameters, string BaseWhere) BuildDossierByOperationYearFilter(
+        DossierByOperationYearFilterDto filter,
+        bool isAdmin,
+        long? userUnitId,
+        int? yearOverride = null)
+    {
+        var year = yearOverride ?? filter.Year;
+        var allYears = !year.HasValue || year.Value <= 0;
+        var targetYear = allYears ? 0 : year!.Value;
+        var page = filter.Page < 1 ? 1 : filter.Page;
+        var pageSize = filter.PageSize < 1 ? 10 : filter.PageSize;
+
+        var parameters = new DynamicParameters();
+
+        var effectiveUnitId = isAdmin ? filter.UnitId : (filter.UnitId ?? userUnitId);
+
+        var baseWhere = @"
+            d.IsDeleted = 0
+            AND d.STATUS_ID = 6
+            AND d.PUBLISHSTATUSID = 2
+            AND i.INFRA_TYPE_ID IN (1, 2)
+            AND NVL(i.IsDeleted, 0) = 0";
+
+        if (!allYears)
+        {
+            baseWhere += " AND EXTRACT(YEAR FROM i.OPERATION_DATE) = :Year";
+            parameters.Add("Year", targetYear);
+        }
+
+        if (effectiveUnitId.HasValue)
+        {
+            baseWhere += @" AND i.UNIT_ID IN (
+                SELECT Id FROM ORGANIZATION_UNIT START WITH Id = :UnitId CONNECT BY PRIOR Id = ParentId
+            )";
+            parameters.Add("UnitId", effectiveUnitId.Value);
+        }
+
+        AppendOperationYearObjectTypeFilterToWhere(filter.ObjectType, ref baseWhere);
+
+        return (targetYear, allYears, page, pageSize, parameters, baseWhere);
+    }
+
+    private static void AppendOperationYearObjectTypeFilterToWhere(int? objectType, ref string baseWhere)
+    {
+        if (!objectType.HasValue || objectType.Value <= 0)
+            return;
+
+        if (objectType.Value == 1)
+            baseWhere += " AND NVL(d.DOSSIER_GROUP_ID, 1) IN (1, 3)";
+        else if (objectType.Value == 2)
+            baseWhere += " AND NVL(d.DOSSIER_GROUP_ID, 1) IN (2, 4)";
+    }
+
+    public async Task<DossierByOperationTimeSummaryStatsDto> GetDossierByOperationTimeSummaryStatsAsync(
+        DossierByOperationTimeFilterDto filter,
+        bool isAdmin,
+        long? userUnitId)
+    {
+        EnsureOpen();
+        var (_, _, parameters, baseWhere) = BuildDossierByOperationTimeFilter(filter, isAdmin, userUnitId);
+        var totals = await QueryStationTotalsAsync(baseWhere, parameters);
+
+        return new DossierByOperationTimeSummaryStatsDto
+        {
+            DossierCount = totals.Dossiers,
+            DocumentCount = totals.Documents,
+            PageCount = totals.Pages
+        };
+    }
+
+    public async Task<ReportStatisticsDossierListResponseDto> GetDossierByOperationTimeListAsync(
+        DossierByOperationTimeFilterDto filter,
+        bool isAdmin,
+        long? userUnitId)
+    {
+        EnsureOpen();
+        var (page, pageSize, parameters, baseWhere) = BuildDossierByOperationTimeFilter(filter, isAdmin, userUnitId);
+
+        var countSql = $@"
+            SELECT COUNT(DISTINCT d.ID)
+            FROM DOSSIERS d
+            INNER JOIN INFRASTRUCTURE i ON d.InfrastructureId = i.ID
+            WHERE {baseWhere}";
+
+        var totalCount = await _connection.ExecuteScalarAsync<int>(countSql, parameters);
+
+        var offset = (page - 1) * pageSize;
+        parameters.Add("Offset", offset);
+        parameters.Add("PageSize", pageSize);
+
+        var listSql = $@"
+            SELECT
+                d.ID AS DossierId,
+                i.NAME AS InfrastructureName,
+                dt.NAME AS DossierTypeName,
+                MAX(DBMS_LOB.SUBSTR(d.FORMDATAJSON, 4000, 1)) AS FormDataJson,
+                COUNT(DISTINCT doc.ID) AS DocumentCount
+            FROM DOSSIERS d
+            INNER JOIN INFRASTRUCTURE i ON d.InfrastructureId = i.ID
+            LEFT JOIN DOSSIER_TYPES dt ON d.DossierTypeId = dt.ID
+            LEFT JOIN DOCUMENTS doc ON doc.DOSSIER_ID = d.Id AND doc.IS_DELETED = 0
+            WHERE {baseWhere}
+            GROUP BY d.ID, i.NAME, dt.NAME, d.CreatedDate
+            ORDER BY d.CreatedDate DESC
+            OFFSET :Offset ROWS
+            FETCH NEXT :PageSize ROWS ONLY";
+
+        var bhsColumns = (await GetBhsColumnsAsync()).ToList();
+        var rawRows = (await _connection.QueryAsync(listSql, parameters)).ToList();
+        var items = new List<ReportStatisticsDossierListItemDto>();
+
+        int stt = offset + 1;
+        foreach (var r in rawRows)
+        {
+            var formDataJson = Convert.ToString(r.FORMDATAJSON ?? r.FormDataJson);
+            items.Add(new ReportStatisticsDossierListItemDto
+            {
+                Stt = stt++,
+                DossierId = Convert.ToString(r.DOSSIERID ?? r.DossierId),
+                InfrastructureName = Convert.ToString(r.INFRASTRUCTURENAME ?? r.InfrastructureName),
+                DossierTypeName = Convert.ToString(r.DOSSIERTYPENAME ?? r.DossierTypeName),
+                DocumentCount = Convert.ToInt64(r.DOCUMENTCOUNT ?? r.DocumentCount ?? 0),
+                CatalogData = ParseBhsCatalogData(formDataJson, bhsColumns)
+            });
+        }
+
+        return new ReportStatisticsDossierListResponseDto
+        {
+            Items = items,
+            TotalCount = totalCount,
+            Page = page,
+            PageSize = pageSize
+        };
+    }
+
+    public async Task<ReportStatisticsStationGridResponseDto> GetDossierByOperationTimeStationGridAsync(
+        DossierByOperationTimeFilterDto filter,
+        bool isAdmin,
+        long? userUnitId)
+    {
+        EnsureOpen();
+        var (page, pageSize, parameters, baseWhere) = BuildDossierByOperationTimeFilter(filter, isAdmin, userUnitId);
+
+        var countSql = $@"
+            WITH filtered AS (
+                SELECT d.InfrastructureId
+                FROM DOSSIERS d
+                INNER JOIN INFRASTRUCTURE i ON d.InfrastructureId = i.ID
+                WHERE {baseWhere}
+                GROUP BY d.InfrastructureId
+            )
+            SELECT COUNT(*) FROM filtered";
+
+        var totalCount = await _connection.ExecuteScalarAsync<int>(countSql, parameters);
+
+        var offset = (page - 1) * pageSize;
+        parameters.Add("Offset", offset);
+        parameters.Add("PageSize", pageSize);
+
+        var gridSql = $@"
+            WITH filtered AS (
+                SELECT d.ID AS DossierId, d.InfrastructureId
+                FROM DOSSIERS d
+                INNER JOIN INFRASTRUCTURE i ON d.InfrastructureId = i.ID
+                WHERE {baseWhere}
+            ),
+            infra_stats AS (
+                SELECT
+                    f.InfrastructureId,
+                    COUNT(DISTINCT f.DossierId) AS TotalDossiers,
+                    COUNT(DISTINCT doc.ID) AS TotalDocuments,
+                    NVL(SUM(dv.PAGE_COUNT), 0) AS TotalPages
+                FROM filtered f
+                LEFT JOIN DOCUMENTS doc ON doc.DOSSIER_ID = f.DossierId AND doc.IS_DELETED = 0
+                LEFT JOIN DOCUMENT_VERSIONS dv ON dv.DOCUMENT_ID = doc.ID AND dv.IS_DELETED = 0
+                GROUP BY f.InfrastructureId
+            )
+            SELECT
+                i.CODE AS InfrastructureCode,
+                i.NAME AS InfrastructureName,
+                s.TotalDossiers,
+                s.TotalDocuments,
+                s.TotalPages
+            FROM infra_stats s
+            INNER JOIN INFRASTRUCTURE i ON i.ID = s.InfrastructureId
+            ORDER BY i.NAME
+            OFFSET :Offset ROWS
+            FETCH NEXT :PageSize ROWS ONLY";
+
+        var bhsColumns = (await GetBhsColumnsAsync()).ToList();
+        var rawRows = (await _connection.QueryAsync(gridSql, parameters)).ToList();
+        var items = new List<ReportStatisticsStationGridItemDto>();
+
+        int stt = offset + 1;
+        foreach (var r in rawRows)
+        {
+            var infraCode = Convert.ToString(r.INFRASTRUCTURECODE ?? r.InfrastructureCode);
+            var infraName = Convert.ToString(r.INFRASTRUCTURENAME ?? r.InfrastructureName);
+            items.Add(new ReportStatisticsStationGridItemDto
+            {
+                Stt = stt++,
+                TotalDossiers = Convert.ToInt64(r.TOTALDOSSIERS ?? r.TotalDossiers ?? 0),
+                TotalDocuments = Convert.ToInt64(r.TOTALDOCUMENTS ?? r.TotalDocuments ?? 0),
+                TotalPages = Convert.ToInt64(r.TOTALPAGES ?? r.TotalPages ?? 0),
+                CatalogData = BuildInfrastructureCatalogData(infraCode, infraName, bhsColumns)
+            });
+        }
+
+        return new ReportStatisticsStationGridResponseDto
+        {
+            Items = items,
+            TotalCount = totalCount,
+            Page = page,
+            PageSize = pageSize
+        };
+    }
+
+    /// <summary>
+    /// Filter báo cáo theo thời gian vận hành: khoảng ngày so sánh với INFRASTRUCTURE.OPERATION_DATE
+    /// (không phải d.CreatedDate). Đối tượng Trạm/Đường dây gộp cả hồ sơ thiết bị tương ứng (DOSSIER_GROUP_ID 1+3 / 2+4).
+    /// </summary>
+    private static (int Page, int PageSize, DynamicParameters Parameters, string BaseWhere) BuildDossierByOperationTimeFilter(
+        DossierByOperationTimeFilterDto filter,
+        bool isAdmin,
+        long? userUnitId)
+    {
+        var page = filter.Page < 1 ? 1 : filter.Page;
+        var pageSize = filter.PageSize < 1 ? 10 : filter.PageSize;
+
+        var parameters = new DynamicParameters();
+        var effectiveUnitId = isAdmin ? filter.UnitId : (filter.UnitId ?? userUnitId);
+
+        var baseWhere = @"
+            d.IsDeleted = 0
+            AND d.STATUS_ID = 6
+            AND d.PUBLISHSTATUSID = 2
+            AND i.INFRA_TYPE_ID IN (1, 2)
+            AND NVL(i.IsDeleted, 0) = 0";
+
+        if (filter.FromDate.HasValue)
+        {
+            baseWhere += " AND i.OPERATION_DATE >= :FromDate";
+            parameters.Add("FromDate", filter.FromDate.Value.Date);
+        }
+
+        if (filter.ToDate.HasValue)
+        {
+            baseWhere += " AND i.OPERATION_DATE < :ToDate";
+            parameters.Add("ToDate", filter.ToDate.Value.Date.AddDays(1));
+        }
+
+        if (effectiveUnitId.HasValue)
+        {
+            baseWhere += @" AND i.UNIT_ID IN (
+                SELECT Id FROM ORGANIZATION_UNIT START WITH Id = :UnitId CONNECT BY PRIOR Id = ParentId
+            )";
+            parameters.Add("UnitId", effectiveUnitId.Value);
+        }
+
+        AppendOperationYearObjectTypeFilterToWhere(filter.ObjectType, ref baseWhere);
+
+        return (page, pageSize, parameters, baseWhere);
+    }
+
+    public async Task<IEnumerable<int>> GetAvailableManufactureYearsAsync()
+    {
+        EnsureOpen();
+        const string sql = @"
+            SELECT DISTINCT e.MANUFACTURE_YEAR AS Yr
+            FROM Equipments e
+            INNER JOIN DOSSIER_EQUIPMENTS de ON de.EquipmentId = e.Id
+            INNER JOIN DOSSIERS d ON d.Id = de.DossierId
+            WHERE e.MANUFACTURE_YEAR IS NOT NULL
+              AND (e.IsDeleted = 0 OR e.IsDeleted IS NULL)
+              AND d.IsDeleted = 0 AND d.STATUS_ID = 6 AND d.PUBLISHSTATUSID = 2
+            ORDER BY Yr DESC";
+
+        var years = (await _connection.QueryAsync<int?>(sql))
+            .Where(y => y.HasValue && y.Value > 1900)
+            .Select(y => y!.Value)
+            .ToList();
+
+        return years;
+    }
+
+    public async Task<IEnumerable<DossierByManufactureYearChartStatDto>> GetDossierByManufactureYearChartStatsAsync(
+        DossierByManufactureYearFilterDto filter,
+        bool isAdmin,
+        long? userUnitId)
+    {
+        EnsureOpen();
+        var (allYears, parameters, baseWhere) = BuildDossierByManufactureYearFilter(filter, isAdmin, userUnitId);
+        var manufactureYearClause = BuildManufactureYearDimensionClause(allYears);
+
+        var sql = $@"
+            SELECT
+                et.CODE AS EquipmentTypeCode,
+                et.NAME AS EquipmentTypeName,
+                COUNT(DISTINCT d.ID) AS DossierCount,
+                COUNT(DISTINCT doc.ID) AS DocumentCount,
+                NVL(SUM(dv.PAGE_COUNT), 0) AS PageCount
+            FROM DOSSIERS d
+            INNER JOIN INFRASTRUCTURE i ON d.InfrastructureId = i.ID
+            INNER JOIN DOSSIER_EQUIPMENTS de ON d.Id = de.DossierId
+            INNER JOIN Equipments e ON de.EquipmentId = e.Id AND (e.IsDeleted = 0 OR e.IsDeleted IS NULL)
+            INNER JOIN EquipmentTypes et ON e.EquipmentTypeId = et.Id
+            LEFT JOIN DOCUMENTS doc ON doc.DOSSIER_ID = d.Id AND doc.IS_DELETED = 0
+            LEFT JOIN DOCUMENT_VERSIONS dv ON dv.DOCUMENT_ID = doc.ID AND dv.IS_DELETED = 0
+            WHERE {baseWhere}{manufactureYearClause}
+            GROUP BY et.ID, et.CODE, et.NAME
+            ORDER BY et.NAME";
+
+        return await _connection.QueryAsync<DossierByManufactureYearChartStatDto>(sql, parameters);
+    }
+
+    public async Task<ReportStatisticsDossierListResponseDto> GetDossierByManufactureYearListAsync(
+        DossierByManufactureYearFilterDto filter,
+        bool isAdmin,
+        long? userUnitId)
+    {
+        EnsureOpen();
+        var (_, page, pageSize, parameters, baseWhere) = BuildDossierByManufactureYearListFilter(filter, isAdmin, userUnitId);
+
+        var countSql = $@"
+            SELECT COUNT(DISTINCT d.ID)
+            FROM DOSSIERS d
+            INNER JOIN INFRASTRUCTURE i ON d.InfrastructureId = i.ID
+            WHERE {baseWhere}";
+
+        var totalCount = await _connection.ExecuteScalarAsync<int>(countSql, parameters);
+
+        var offset = (page - 1) * pageSize;
+        parameters.Add("Offset", offset);
+        parameters.Add("PageSize", pageSize);
+
+        var listSql = $@"
+            SELECT
+                d.ID AS DossierId,
+                i.NAME AS InfrastructureName,
+                dt.NAME AS DossierTypeName,
+                MAX(DBMS_LOB.SUBSTR(d.FORMDATAJSON, 4000, 1)) AS FormDataJson,
+                COUNT(DISTINCT doc.ID) AS DocumentCount
+            FROM DOSSIERS d
+            INNER JOIN INFRASTRUCTURE i ON d.InfrastructureId = i.ID
+            LEFT JOIN DOSSIER_TYPES dt ON d.DossierTypeId = dt.ID
+            LEFT JOIN DOCUMENTS doc ON doc.DOSSIER_ID = d.Id AND doc.IS_DELETED = 0
+            WHERE {baseWhere}
+            GROUP BY d.ID, i.NAME, dt.NAME, d.CreatedDate
+            ORDER BY d.CreatedDate DESC
+            OFFSET :Offset ROWS
+            FETCH NEXT :PageSize ROWS ONLY";
+
+        var bhsColumns = (await GetBhsColumnsAsync()).ToList();
+        var rawRows = (await _connection.QueryAsync(listSql, parameters)).ToList();
+        var items = new List<ReportStatisticsDossierListItemDto>();
+
+        int stt = offset + 1;
+        foreach (var r in rawRows)
+        {
+            var formDataJson = Convert.ToString(r.FORMDATAJSON ?? r.FormDataJson);
+            items.Add(new ReportStatisticsDossierListItemDto
+            {
+                Stt = stt++,
+                DossierId = Convert.ToString(r.DOSSIERID ?? r.DossierId),
+                InfrastructureName = Convert.ToString(r.INFRASTRUCTURENAME ?? r.InfrastructureName),
+                DossierTypeName = Convert.ToString(r.DOSSIERTYPENAME ?? r.DossierTypeName),
+                DocumentCount = Convert.ToInt64(r.DOCUMENTCOUNT ?? r.DocumentCount ?? 0),
+                CatalogData = ParseBhsCatalogData(formDataJson, bhsColumns)
+            });
+        }
+
+        return new ReportStatisticsDossierListResponseDto
+        {
+            Items = items,
+            TotalCount = totalCount,
+            Page = page,
+            PageSize = pageSize
+        };
+    }
+
+    public async Task<ReportStatisticsEquipmentGridResponseDto> GetDossierByManufactureYearEquipmentGridAsync(
+        DossierByManufactureYearFilterDto filter,
+        bool isAdmin,
+        long? userUnitId)
+    {
+        EnsureOpen();
+        var (allYears, page, pageSize, parameters, baseWhere) = BuildDossierByManufactureYearListFilter(filter, isAdmin, userUnitId);
+        var manufactureYearClause = BuildManufactureYearDimensionClause(allYears);
+
+        var countSql = $@"
+            WITH filtered AS (
+                SELECT DISTINCT e.Id AS EquipmentId
+                FROM DOSSIERS d
+                INNER JOIN INFRASTRUCTURE i ON d.InfrastructureId = i.ID
+                INNER JOIN DOSSIER_EQUIPMENTS de ON d.Id = de.DossierId
+                INNER JOIN Equipments e ON de.EquipmentId = e.Id AND (e.IsDeleted = 0 OR e.IsDeleted IS NULL)
+                WHERE {baseWhere}{manufactureYearClause}
+            )
+            SELECT COUNT(*) FROM filtered";
+
+        var totalCount = await _connection.ExecuteScalarAsync<int>(countSql, parameters);
+
+        var offset = (page - 1) * pageSize;
+        parameters.Add("Offset", offset);
+        parameters.Add("PageSize", pageSize);
+
+        var gridSql = $@"
+            WITH filtered AS (
+                SELECT d.ID AS DossierId, e.Id AS EquipmentId, e.Code AS EquipmentCode, e.Name AS EquipmentName,
+                       i.NAME AS InfrastructureName, e.MANUFACTURE_YEAR AS ManufactureYear
+                FROM DOSSIERS d
+                INNER JOIN INFRASTRUCTURE i ON d.InfrastructureId = i.ID
+                INNER JOIN DOSSIER_EQUIPMENTS de ON d.Id = de.DossierId
+                INNER JOIN Equipments e ON de.EquipmentId = e.Id AND (e.IsDeleted = 0 OR e.IsDeleted IS NULL)
+                WHERE {baseWhere}{manufactureYearClause}
+            ),
+            equip_stats AS (
+                SELECT
+                    f.EquipmentId, f.EquipmentCode, f.EquipmentName, f.InfrastructureName, f.ManufactureYear,
+                    COUNT(DISTINCT f.DossierId) AS TotalDossiers,
+                    COUNT(DISTINCT doc.ID) AS TotalDocuments,
+                    NVL(SUM(dv.PAGE_COUNT), 0) AS TotalPages
+                FROM filtered f
+                LEFT JOIN DOCUMENTS doc ON doc.DOSSIER_ID = f.DossierId AND doc.IS_DELETED = 0
+                LEFT JOIN DOCUMENT_VERSIONS dv ON dv.DOCUMENT_ID = doc.ID AND dv.IS_DELETED = 0
+                GROUP BY f.EquipmentId, f.EquipmentCode, f.EquipmentName, f.InfrastructureName, f.ManufactureYear
+            )
+            SELECT
+                EquipmentCode, EquipmentName, InfrastructureName, ManufactureYear,
+                TotalDossiers, TotalDocuments, TotalPages
+            FROM equip_stats
+            ORDER BY EquipmentName
+            OFFSET :Offset ROWS
+            FETCH NEXT :PageSize ROWS ONLY";
+
+        var rawRows = (await _connection.QueryAsync(gridSql, parameters)).ToList();
+        var items = new List<ReportStatisticsEquipmentGridItemDto>();
+
+        int stt = offset + 1;
+        foreach (var r in rawRows)
+        {
+            object manufactureYearObj = r.MANUFACTUREYEAR ?? r.ManufactureYear;
+            items.Add(new ReportStatisticsEquipmentGridItemDto
+            {
+                Stt = stt++,
+                EquipmentCode = Convert.ToString(r.EQUIPMENTCODE ?? r.EquipmentCode) ?? "-",
+                EquipmentName = Convert.ToString(r.EQUIPMENTNAME ?? r.EquipmentName) ?? "-",
+                InfrastructureName = Convert.ToString(r.INFRASTRUCTURENAME ?? r.InfrastructureName) ?? "-",
+                ManufactureYear = manufactureYearObj == null || manufactureYearObj is DBNull
+                    ? null
+                    : Convert.ToInt32(manufactureYearObj),
+                TotalDossiers = Convert.ToInt64(r.TOTALDOSSIERS ?? r.TotalDossiers ?? 0),
+                TotalDocuments = Convert.ToInt64(r.TOTALDOCUMENTS ?? r.TotalDocuments ?? 0),
+                TotalPages = Convert.ToInt64(r.TOTALPAGES ?? r.TotalPages ?? 0)
+            });
+        }
+
+        return new ReportStatisticsEquipmentGridResponseDto
+        {
+            Items = items,
+            TotalCount = totalCount,
+            Page = page,
+            PageSize = pageSize
+        };
+    }
+
+    /// <summary>
+    /// Filter chung: hồ sơ thiết bị của trạm/đường dây (DOSSIER_EQUIPMENTS), lọc theo đơn vị,
+    /// trạm/đường dây cụ thể (StationIds) và năm sản xuất thiết bị (EQUIPMENTS.MANUFACTURE_YEAR).
+    /// Dùng EXISTS cho list/count (không cần enumerate từng thiết bị); chart/equipment-grid enumerate
+    /// trực tiếp qua JOIN + <see cref="BuildManufactureYearDimensionClause"/> (cùng tham số :ManufactureYear).
+    /// </summary>
+    private static (bool AllYears, DynamicParameters Parameters, string BaseWhere) BuildDossierByManufactureYearFilter(
+        DossierByManufactureYearFilterDto filter,
+        bool isAdmin,
+        long? userUnitId)
+    {
+        var allYears = !filter.ManufactureYear.HasValue || filter.ManufactureYear.Value <= 0;
+        var targetYear = allYears ? 0 : filter.ManufactureYear!.Value;
+
+        var parameters = new DynamicParameters();
+        var effectiveUnitId = isAdmin ? filter.UnitId : (filter.UnitId ?? userUnitId);
+
+        var baseWhere = @"
+            d.IsDeleted = 0
+            AND d.STATUS_ID = 6
+            AND d.PUBLISHSTATUSID = 2
+            AND i.INFRA_TYPE_ID IN (1, 2)
+            AND NVL(i.IsDeleted, 0) = 0";
+
+        if (effectiveUnitId.HasValue)
+        {
+            baseWhere += @" AND i.UNIT_ID IN (
+                SELECT Id FROM ORGANIZATION_UNIT START WITH Id = :UnitId CONNECT BY PRIOR Id = ParentId
+            )";
+            parameters.Add("UnitId", effectiveUnitId.Value);
+        }
+
+        AppendStationFilterToWhere(filter.StationIds, ref baseWhere, parameters);
+
+        baseWhere += @" AND EXISTS (
+            SELECT 1 FROM DOSSIER_EQUIPMENTS de_f
+            INNER JOIN Equipments e_f ON de_f.EquipmentId = e_f.Id
+            WHERE de_f.DossierId = d.Id
+              AND (e_f.IsDeleted = 0 OR e_f.IsDeleted IS NULL)";
+
+        if (!allYears)
+        {
+            baseWhere += " AND e_f.MANUFACTURE_YEAR = :ManufactureYear";
+            parameters.Add("ManufactureYear", targetYear);
+        }
+
+        baseWhere += ")";
+
+        return (allYears, parameters, baseWhere);
+    }
+
+    private static (bool AllYears, int Page, int PageSize, DynamicParameters Parameters, string BaseWhere) BuildDossierByManufactureYearListFilter(
+        DossierByManufactureYearFilterDto filter,
+        bool isAdmin,
+        long? userUnitId)
+    {
+        var (allYears, parameters, baseWhere) = BuildDossierByManufactureYearFilter(filter, isAdmin, userUnitId);
+        var page = filter.Page < 1 ? 1 : filter.Page;
+        var pageSize = filter.PageSize < 1 ? 10 : filter.PageSize;
+
+        return (allYears, page, pageSize, parameters, baseWhere);
+    }
+
+    private static string BuildManufactureYearDimensionClause(bool allYears) =>
+        allYears ? string.Empty : " AND e.MANUFACTURE_YEAR = :ManufactureYear";
+
+    public async Task<IEnumerable<ReportDossierLookupItem>> GetEquipmentStatusesAsync()
+    {
+        EnsureOpen();
+        const string sql = @"
+            SELECT CAST(c.Id AS VARCHAR2(50)) AS Id, c.Name AS Name, c.Code AS Code
+            FROM CATALOG c
+            INNER JOIN CATALOG_TYPE ct ON c.CatalogTypeId = ct.Id
+            WHERE ct.Code = 'EQUIPMENT_STATUS'
+              AND c.IsDeleted = 0
+              AND ct.IsDeleted = 0
+            ORDER BY c.Priority ASC, c.Name ASC";
+
+        return await _connection.QueryAsync<ReportDossierLookupItem>(sql);
+    }
+
+    public async Task<IEnumerable<DossierByEquipmentStatusChartStatDto>> GetDossierByEquipmentStatusChartStatsAsync(
+        DossierByEquipmentStatusFilterDto filter,
+        bool isAdmin,
+        long? userUnitId)
+    {
+        EnsureOpen();
+        var (parameters, baseWhere) = BuildDossierByEquipmentStatusFilter(filter, isAdmin, userUnitId);
+        var statusClause = BuildEquipmentStatusDimensionClause(filter.EquipmentStatusIds);
+
+        var sql = $@"
+            SELECT
+                et.CODE AS EquipmentTypeCode,
+                et.NAME AS EquipmentTypeName,
+                COUNT(DISTINCT d.ID) AS DossierCount,
+                COUNT(DISTINCT doc.ID) AS DocumentCount,
+                NVL(SUM(dv.PAGE_COUNT), 0) AS PageCount
+            FROM DOSSIERS d
+            INNER JOIN INFRASTRUCTURE i ON d.InfrastructureId = i.ID
+            INNER JOIN DOSSIER_EQUIPMENTS de ON d.Id = de.DossierId
+            INNER JOIN Equipments e ON de.EquipmentId = e.Id AND (e.IsDeleted = 0 OR e.IsDeleted IS NULL)
+            INNER JOIN EquipmentTypes et ON e.EquipmentTypeId = et.Id
+            LEFT JOIN DOCUMENTS doc ON doc.DOSSIER_ID = d.Id AND doc.IS_DELETED = 0
+            LEFT JOIN DOCUMENT_VERSIONS dv ON dv.DOCUMENT_ID = doc.ID AND dv.IS_DELETED = 0
+            WHERE {baseWhere}{statusClause}
+            GROUP BY et.ID, et.CODE, et.NAME
+            ORDER BY et.NAME";
+
+        return await _connection.QueryAsync<DossierByEquipmentStatusChartStatDto>(sql, parameters);
+    }
+
+    public async Task<ReportStatisticsDossierListResponseDto> GetDossierByEquipmentStatusListAsync(
+        DossierByEquipmentStatusFilterDto filter,
+        bool isAdmin,
+        long? userUnitId)
+    {
+        EnsureOpen();
+        var (page, pageSize, parameters, baseWhere) = BuildDossierByEquipmentStatusListFilter(filter, isAdmin, userUnitId);
+
+        var countSql = $@"
+            SELECT COUNT(DISTINCT d.ID)
+            FROM DOSSIERS d
+            INNER JOIN INFRASTRUCTURE i ON d.InfrastructureId = i.ID
+            WHERE {baseWhere}";
+
+        var totalCount = await _connection.ExecuteScalarAsync<int>(countSql, parameters);
+
+        var offset = (page - 1) * pageSize;
+        parameters.Add("Offset", offset);
+        parameters.Add("PageSize", pageSize);
+
+        var listSql = $@"
+            SELECT
+                d.ID AS DossierId,
+                i.NAME AS InfrastructureName,
+                dt.NAME AS DossierTypeName,
+                MAX(DBMS_LOB.SUBSTR(d.FORMDATAJSON, 4000, 1)) AS FormDataJson,
+                COUNT(DISTINCT doc.ID) AS DocumentCount
+            FROM DOSSIERS d
+            INNER JOIN INFRASTRUCTURE i ON d.InfrastructureId = i.ID
+            LEFT JOIN DOSSIER_TYPES dt ON d.DossierTypeId = dt.ID
+            LEFT JOIN DOCUMENTS doc ON doc.DOSSIER_ID = d.Id AND doc.IS_DELETED = 0
+            WHERE {baseWhere}
+            GROUP BY d.ID, i.NAME, dt.NAME, d.CreatedDate
+            ORDER BY d.CreatedDate DESC
+            OFFSET :Offset ROWS
+            FETCH NEXT :PageSize ROWS ONLY";
+
+        var bhsColumns = (await GetBhsColumnsAsync()).ToList();
+        var rawRows = (await _connection.QueryAsync(listSql, parameters)).ToList();
+        var items = new List<ReportStatisticsDossierListItemDto>();
+
+        int stt = offset + 1;
+        foreach (var r in rawRows)
+        {
+            var formDataJson = Convert.ToString(r.FORMDATAJSON ?? r.FormDataJson);
+            items.Add(new ReportStatisticsDossierListItemDto
+            {
+                Stt = stt++,
+                DossierId = Convert.ToString(r.DOSSIERID ?? r.DossierId),
+                InfrastructureName = Convert.ToString(r.INFRASTRUCTURENAME ?? r.InfrastructureName),
+                DossierTypeName = Convert.ToString(r.DOSSIERTYPENAME ?? r.DossierTypeName),
+                DocumentCount = Convert.ToInt64(r.DOCUMENTCOUNT ?? r.DocumentCount ?? 0),
+                CatalogData = ParseBhsCatalogData(formDataJson, bhsColumns)
+            });
+        }
+
+        return new ReportStatisticsDossierListResponseDto
+        {
+            Items = items,
+            TotalCount = totalCount,
+            Page = page,
+            PageSize = pageSize
+        };
+    }
+
+    public async Task<ReportStatisticsEquipmentStatusGridResponseDto> GetDossierByEquipmentStatusEquipmentGridAsync(
+        DossierByEquipmentStatusFilterDto filter,
+        bool isAdmin,
+        long? userUnitId)
+    {
+        EnsureOpen();
+        var (page, pageSize, parameters, baseWhere) = BuildDossierByEquipmentStatusListFilter(filter, isAdmin, userUnitId);
+        var statusClause = BuildEquipmentStatusDimensionClause(filter.EquipmentStatusIds);
+
+        var countSql = $@"
+            WITH filtered AS (
+                SELECT DISTINCT e.Id AS EquipmentId
+                FROM DOSSIERS d
+                INNER JOIN INFRASTRUCTURE i ON d.InfrastructureId = i.ID
+                INNER JOIN DOSSIER_EQUIPMENTS de ON d.Id = de.DossierId
+                INNER JOIN Equipments e ON de.EquipmentId = e.Id AND (e.IsDeleted = 0 OR e.IsDeleted IS NULL)
+                WHERE {baseWhere}{statusClause}
+            )
+            SELECT COUNT(*) FROM filtered";
+
+        var totalCount = await _connection.ExecuteScalarAsync<int>(countSql, parameters);
+
+        var offset = (page - 1) * pageSize;
+        parameters.Add("Offset", offset);
+        parameters.Add("PageSize", pageSize);
+
+        var gridSql = $@"
+            WITH filtered AS (
+                SELECT d.ID AS DossierId, e.Id AS EquipmentId, e.Code AS EquipmentCode, e.Name AS EquipmentName,
+                       i.NAME AS InfrastructureName, cat.NAME AS EquipmentStatusName
+                FROM DOSSIERS d
+                INNER JOIN INFRASTRUCTURE i ON d.InfrastructureId = i.ID
+                INNER JOIN DOSSIER_EQUIPMENTS de ON d.Id = de.DossierId
+                INNER JOIN Equipments e ON de.EquipmentId = e.Id AND (e.IsDeleted = 0 OR e.IsDeleted IS NULL)
+                LEFT JOIN CATALOG cat ON cat.Id = e.EQUIPMENT_STATUS_ID
+                WHERE {baseWhere}{statusClause}
+            ),
+            equip_stats AS (
+                SELECT
+                    f.EquipmentId, f.EquipmentCode, f.EquipmentName, f.InfrastructureName, f.EquipmentStatusName,
+                    COUNT(DISTINCT f.DossierId) AS TotalDossiers,
+                    COUNT(DISTINCT doc.ID) AS TotalDocuments,
+                    NVL(SUM(dv.PAGE_COUNT), 0) AS TotalPages
+                FROM filtered f
+                LEFT JOIN DOCUMENTS doc ON doc.DOSSIER_ID = f.DossierId AND doc.IS_DELETED = 0
+                LEFT JOIN DOCUMENT_VERSIONS dv ON dv.DOCUMENT_ID = doc.ID AND dv.IS_DELETED = 0
+                GROUP BY f.EquipmentId, f.EquipmentCode, f.EquipmentName, f.InfrastructureName, f.EquipmentStatusName
+            )
+            SELECT
+                EquipmentCode, EquipmentName, InfrastructureName, EquipmentStatusName,
+                TotalDossiers, TotalDocuments, TotalPages
+            FROM equip_stats
+            ORDER BY EquipmentName
+            OFFSET :Offset ROWS
+            FETCH NEXT :PageSize ROWS ONLY";
+
+        var rawRows = (await _connection.QueryAsync(gridSql, parameters)).ToList();
+        var items = new List<ReportStatisticsEquipmentStatusGridItemDto>();
+
+        int stt = offset + 1;
+        foreach (var r in rawRows)
+        {
+            items.Add(new ReportStatisticsEquipmentStatusGridItemDto
+            {
+                Stt = stt++,
+                EquipmentCode = Convert.ToString(r.EQUIPMENTCODE ?? r.EquipmentCode) ?? "-",
+                EquipmentName = Convert.ToString(r.EQUIPMENTNAME ?? r.EquipmentName) ?? "-",
+                InfrastructureName = Convert.ToString(r.INFRASTRUCTURENAME ?? r.InfrastructureName) ?? "-",
+                EquipmentStatusName = Convert.ToString(r.EQUIPMENTSTATUSNAME ?? r.EquipmentStatusName) ?? "-",
+                TotalDossiers = Convert.ToInt64(r.TOTALDOSSIERS ?? r.TotalDossiers ?? 0),
+                TotalDocuments = Convert.ToInt64(r.TOTALDOCUMENTS ?? r.TotalDocuments ?? 0),
+                TotalPages = Convert.ToInt64(r.TOTALPAGES ?? r.TotalPages ?? 0)
+            });
+        }
+
+        return new ReportStatisticsEquipmentStatusGridResponseDto
+        {
+            Items = items,
+            TotalCount = totalCount,
+            Page = page,
+            PageSize = pageSize
+        };
+    }
+
+    /// <summary>
+    /// Filter chung: hồ sơ thiết bị (DOSSIER_GROUP_ID 3/4) của trạm/đường dây, lọc theo đơn vị,
+    /// trạm/đường dây cụ thể (StationIds) và tình trạng thiết bị (EQUIPMENTS.EQUIPMENT_STATUS_ID).
+    /// </summary>
+    private static (DynamicParameters Parameters, string BaseWhere) BuildDossierByEquipmentStatusFilter(
+        DossierByEquipmentStatusFilterDto filter,
+        bool isAdmin,
+        long? userUnitId)
+    {
+        var parameters = new DynamicParameters();
+        var effectiveUnitId = isAdmin ? filter.UnitId : (filter.UnitId ?? userUnitId);
+
+        var baseWhere = @"
+            d.IsDeleted = 0
+            AND d.STATUS_ID = 6
+            AND d.PUBLISHSTATUSID = 2
+            AND i.INFRA_TYPE_ID IN (1, 2)
+            AND NVL(i.IsDeleted, 0) = 0
+            AND NVL(d.DOSSIER_GROUP_ID, 1) IN (3, 4)";
+
+        if (effectiveUnitId.HasValue)
+        {
+            baseWhere += @" AND i.UNIT_ID IN (
+                SELECT Id FROM ORGANIZATION_UNIT START WITH Id = :UnitId CONNECT BY PRIOR Id = ParentId
+            )";
+            parameters.Add("UnitId", effectiveUnitId.Value);
+        }
+
+        AppendStationFilterToWhere(filter.StationIds, ref baseWhere, parameters);
+
+        var statusIds = NormalizeStationIds(filter.EquipmentStatusIds);
+
+        baseWhere += @" AND EXISTS (
+            SELECT 1 FROM DOSSIER_EQUIPMENTS de_f
+            INNER JOIN Equipments e_f ON de_f.EquipmentId = e_f.Id
+            WHERE de_f.DossierId = d.Id
+              AND (e_f.IsDeleted = 0 OR e_f.IsDeleted IS NULL)";
+
+        if (statusIds.Count > 0)
+        {
+            baseWhere += " AND e_f.EQUIPMENT_STATUS_ID IN :EquipmentStatusIds";
+            parameters.Add("EquipmentStatusIds", statusIds.ToArray());
+        }
+
+        baseWhere += ")";
+
+        return (parameters, baseWhere);
+    }
+
+    private static (int Page, int PageSize, DynamicParameters Parameters, string BaseWhere) BuildDossierByEquipmentStatusListFilter(
+        DossierByEquipmentStatusFilterDto filter,
+        bool isAdmin,
+        long? userUnitId)
+    {
+        var (parameters, baseWhere) = BuildDossierByEquipmentStatusFilter(filter, isAdmin, userUnitId);
+        var page = filter.Page < 1 ? 1 : filter.Page;
+        var pageSize = filter.PageSize < 1 ? 10 : filter.PageSize;
+
+        return (page, pageSize, parameters, baseWhere);
+    }
+
+    private static string BuildEquipmentStatusDimensionClause(IEnumerable<string>? equipmentStatusIds)
+    {
+        return NormalizeStationIds(equipmentStatusIds).Count > 0
+            ? " AND e.EQUIPMENT_STATUS_ID IN :EquipmentStatusIds"
+            : string.Empty;
+    }
+
+    public async Task<IEnumerable<DossierGeneralInputChartStatDto>> GetDossierGeneralInputChartStatsAsync(
+        DossierGeneralInputFilterDto filter,
+        bool isAdmin,
+        long? userUnitId)
+    {
+        EnsureOpen();
+        var (parameters, baseWhere) = BuildDossierGeneralInputFilter(filter, isAdmin, userUnitId);
+
+        var sql = $@"
+            SELECT
+                CASE
+                    WHEN NVL(d.DOSSIER_GROUP_ID, 1) = 1 THEN 'STATION'
+                    WHEN NVL(d.DOSSIER_GROUP_ID, 1) = 2 THEN 'LINE'
+                    ELSE 'EQUIPMENT'
+                END AS GroupCode,
+                CASE
+                    WHEN NVL(d.DOSSIER_GROUP_ID, 1) = 1 THEN N'Trạm biến áp'
+                    WHEN NVL(d.DOSSIER_GROUP_ID, 1) = 2 THEN N'Đường dây'
+                    ELSE N'Thiết bị'
+                END AS GroupName,
+                COUNT(DISTINCT d.ID) AS DossierCount,
+                COUNT(DISTINCT doc.ID) AS DocumentCount,
+                NVL(SUM(dv.PAGE_COUNT), 0) AS PageCount
+            FROM DOSSIERS d
+            INNER JOIN INFRASTRUCTURE i ON d.InfrastructureId = i.ID
+            LEFT JOIN DOCUMENTS doc ON doc.DOSSIER_ID = d.Id AND doc.IS_DELETED = 0
+            LEFT JOIN DOCUMENT_VERSIONS dv ON dv.DOCUMENT_ID = doc.ID AND dv.IS_DELETED = 0
+            WHERE {baseWhere}
+            GROUP BY
+                CASE
+                    WHEN NVL(d.DOSSIER_GROUP_ID, 1) = 1 THEN 'STATION'
+                    WHEN NVL(d.DOSSIER_GROUP_ID, 1) = 2 THEN 'LINE'
+                    ELSE 'EQUIPMENT'
+                END,
+                CASE
+                    WHEN NVL(d.DOSSIER_GROUP_ID, 1) = 1 THEN N'Trạm biến áp'
+                    WHEN NVL(d.DOSSIER_GROUP_ID, 1) = 2 THEN N'Đường dây'
+                    ELSE N'Thiết bị'
+                END";
+
+        var rows = (await _connection.QueryAsync<DossierGeneralInputChartStatDto>(sql, parameters)).ToList();
+
+        var defaultGroups = new List<(string Code, string Name)>
+        {
+            ("STATION", "Trạm biến áp"),
+            ("LINE", "Đường dây"),
+            ("EQUIPMENT", "Thiết bị")
+        };
+
+        if (filter.ObjectType.HasValue && filter.ObjectType.Value > 0)
+        {
+            if (filter.ObjectType.Value == 1) defaultGroups = defaultGroups.Where(g => g.Code == "STATION").ToList();
+            else if (filter.ObjectType.Value == 2) defaultGroups = defaultGroups.Where(g => g.Code == "LINE").ToList();
+            else if (filter.ObjectType.Value == 3) defaultGroups = defaultGroups.Where(g => g.Code == "EQUIPMENT").ToList();
+        }
+
+        var result = new List<DossierGeneralInputChartStatDto>();
+        foreach (var (code, name) in defaultGroups)
+        {
+            var match = rows.FirstOrDefault(r => string.Equals(r.GroupCode, code, StringComparison.OrdinalIgnoreCase));
+            result.Add(match ?? new DossierGeneralInputChartStatDto
+            {
+                GroupCode = code,
+                GroupName = name,
+                DossierCount = 0,
+                DocumentCount = 0,
+                PageCount = 0
+            });
+        }
+
+        return result;
+    }
+
+    public async Task<IEnumerable<DossierGeneralInputRatioStatDto>> GetDossierGeneralInputRatioStatsAsync(
+        DossierGeneralInputFilterDto filter,
+        bool isAdmin,
+        long? userUnitId)
+    {
+        var chartStats = await GetDossierGeneralInputChartStatsAsync(filter, isAdmin, userUnitId);
+        var totalDossiers = chartStats.Sum(s => s.DossierCount);
+
+        return chartStats.Select(s => new DossierGeneralInputRatioStatDto
+        {
+            GroupCode = s.GroupCode,
+            GroupName = s.GroupName,
+            DossierCount = s.DossierCount,
+            Percentage = totalDossiers > 0 ? Math.Round((decimal)s.DossierCount / totalDossiers * 100, 2) : 0
+        });
+    }
+
+    public async Task<ReportStatisticsDossierListResponseDto> GetDossierGeneralInputListAsync(
+        DossierGeneralInputFilterDto filter,
+        bool isAdmin,
+        long? userUnitId)
+    {
+        EnsureOpen();
+        var (page, pageSize, parameters, baseWhere) = BuildDossierGeneralInputListFilter(filter, isAdmin, userUnitId);
+
+        var countSql = $@"
+            SELECT COUNT(DISTINCT d.ID)
+            FROM DOSSIERS d
+            INNER JOIN INFRASTRUCTURE i ON d.InfrastructureId = i.ID
+            WHERE {baseWhere}";
+
+        var totalCount = await _connection.ExecuteScalarAsync<int>(countSql, parameters);
+
+        var offset = (page - 1) * pageSize;
+        parameters.Add("Offset", offset);
+        parameters.Add("PageSize", pageSize);
+
+        var listSql = $@"
+            SELECT
+                d.ID AS DossierId,
+                i.NAME AS InfrastructureName,
+                dt.NAME AS DossierTypeName,
+                MAX(DBMS_LOB.SUBSTR(d.FORMDATAJSON, 4000, 1)) AS FormDataJson,
+                COUNT(DISTINCT doc.ID) AS DocumentCount
+            FROM DOSSIERS d
+            INNER JOIN INFRASTRUCTURE i ON d.InfrastructureId = i.ID
+            LEFT JOIN DOSSIER_TYPES dt ON d.DossierTypeId = dt.ID
+            LEFT JOIN DOCUMENTS doc ON doc.DOSSIER_ID = d.Id AND doc.IS_DELETED = 0
+            WHERE {baseWhere}
+            GROUP BY d.ID, i.NAME, dt.NAME, d.CreatedDate
+            ORDER BY d.CreatedDate DESC
+            OFFSET :Offset ROWS
+            FETCH NEXT :PageSize ROWS ONLY";
+
+        var bhsColumns = (await GetBhsColumnsAsync()).ToList();
+        var rawRows = (await _connection.QueryAsync(listSql, parameters)).ToList();
+        var items = new List<ReportStatisticsDossierListItemDto>();
+
+        int stt = offset + 1;
+        foreach (var r in rawRows)
+        {
+            var formDataJson = Convert.ToString(r.FORMDATAJSON ?? r.FormDataJson);
+            items.Add(new ReportStatisticsDossierListItemDto
+            {
+                Stt = stt++,
+                DossierId = Convert.ToString(r.DOSSIERID ?? r.DossierId),
+                InfrastructureName = Convert.ToString(r.INFRASTRUCTURENAME ?? r.InfrastructureName),
+                DossierTypeName = Convert.ToString(r.DOSSIERTYPENAME ?? r.DossierTypeName),
+                DocumentCount = Convert.ToInt64(r.DOCUMENTCOUNT ?? r.DocumentCount ?? 0),
+                CatalogData = ParseBhsCatalogData(formDataJson, bhsColumns)
+            });
+        }
+
+        return new ReportStatisticsDossierListResponseDto
+        {
+            Items = items,
+            TotalCount = totalCount,
+            Page = page,
+            PageSize = pageSize
+        };
+    }
+
+    public async Task<ReportStatisticsStationGridResponseDto> GetDossierGeneralInputStationGridAsync(
+        DossierGeneralInputFilterDto filter,
+        bool isAdmin,
+        long? userUnitId)
+    {
+        EnsureOpen();
+        var (page, pageSize, parameters, baseWhere) = BuildDossierGeneralInputStationGridFilter(filter, isAdmin, userUnitId);
+
+        var countSql = $@"
+            WITH filtered AS (
+                SELECT d.InfrastructureId
+                FROM DOSSIERS d
+                INNER JOIN INFRASTRUCTURE i ON d.InfrastructureId = i.ID
+                WHERE {baseWhere}
+                GROUP BY d.InfrastructureId
+            )
+            SELECT COUNT(*) FROM filtered";
+
+        var totalCount = await _connection.ExecuteScalarAsync<int>(countSql, parameters);
+
+        var offset = (page - 1) * pageSize;
+        parameters.Add("Offset", offset);
+        parameters.Add("PageSize", pageSize);
+
+        var gridSql = $@"
+            WITH filtered AS (
+                SELECT d.ID AS DossierId, d.InfrastructureId
+                FROM DOSSIERS d
+                INNER JOIN INFRASTRUCTURE i ON d.InfrastructureId = i.ID
+                WHERE {baseWhere}
+            ),
+            infra_stats AS (
+                SELECT
+                    f.InfrastructureId,
+                    COUNT(DISTINCT f.DossierId) AS TotalDossiers,
+                    COUNT(DISTINCT doc.ID) AS TotalDocuments,
+                    NVL(SUM(dv.PAGE_COUNT), 0) AS TotalPages
+                FROM filtered f
+                LEFT JOIN DOCUMENTS doc ON doc.DOSSIER_ID = f.DossierId AND doc.IS_DELETED = 0
+                LEFT JOIN DOCUMENT_VERSIONS dv ON dv.DOCUMENT_ID = doc.ID AND dv.IS_DELETED = 0
+                GROUP BY f.InfrastructureId
+            )
+            SELECT
+                i.CODE AS InfrastructureCode,
+                i.NAME AS InfrastructureName,
+                gt.NAME AS GridTypeName,
+                s.TotalDossiers,
+                s.TotalDocuments,
+                s.TotalPages
+            FROM infra_stats s
+            INNER JOIN INFRASTRUCTURE i ON i.ID = s.InfrastructureId
+            LEFT JOIN GridTypes gt ON i.GridTypeId = gt.Id
+            ORDER BY i.NAME
+            OFFSET :Offset ROWS
+            FETCH NEXT :PageSize ROWS ONLY";
+
+        var bhsColumns = (await GetBhsColumnsAsync()).ToList();
+        var rawRows = (await _connection.QueryAsync(gridSql, parameters)).ToList();
+        var items = new List<ReportStatisticsStationGridItemDto>();
+
+        int stt = offset + 1;
+        foreach (var r in rawRows)
+        {
+            var infraCode = Convert.ToString(r.INFRASTRUCTURECODE ?? r.InfrastructureCode);
+            var infraName = Convert.ToString(r.INFRASTRUCTURENAME ?? r.InfrastructureName);
+            items.Add(new ReportStatisticsStationGridItemDto
+            {
+                Stt = stt++,
+                GridTypeName = Convert.ToString(r.GRIDTYPENAME ?? r.GridTypeName),
+                TotalDossiers = Convert.ToInt64(r.TOTALDOSSIERS ?? r.TotalDossiers ?? 0),
+                TotalDocuments = Convert.ToInt64(r.TOTALDOCUMENTS ?? r.TotalDocuments ?? 0),
+                TotalPages = Convert.ToInt64(r.TOTALPAGES ?? r.TotalPages ?? 0),
+                CatalogData = BuildInfrastructureCatalogData(infraCode, infraName, bhsColumns)
+            });
+        }
+
+        return new ReportStatisticsStationGridResponseDto
+        {
+            Items = items,
+            TotalCount = totalCount,
+            Page = page,
+            PageSize = pageSize
+        };
+    }
+
+    private static (int Page, int PageSize, DynamicParameters Parameters, string BaseWhere) BuildDossierGeneralInputStationGridFilter(
+        DossierGeneralInputFilterDto filter,
+        bool isAdmin,
+        long? userUnitId)
+    {
+        var (page, pageSize, parameters, baseWhere) = BuildDossierGeneralInputListFilter(filter, isAdmin, userUnitId);
+        baseWhere += " AND NVL(i.IsDeleted, 0) = 0";
+
+        return (page, pageSize, parameters, baseWhere);
+    }
+
+    private static (int Page, int PageSize, DynamicParameters Parameters, string BaseWhere) BuildDossierGeneralInputListFilter(
+        DossierGeneralInputFilterDto filter,
+        bool isAdmin,
+        long? userUnitId)
+    {
+        var (parameters, baseWhere) = BuildDossierGeneralInputFilter(filter, isAdmin, userUnitId);
+        var page = filter.Page < 1 ? 1 : filter.Page;
+        var pageSize = filter.PageSize < 1 ? 10 : filter.PageSize;
+
+        return (page, pageSize, parameters, baseWhere);
+    }
+
+    /// <summary>
+    /// Báo cáo thống kê tổng hợp hồ sơ nhập liệu — giống hệt BuildDossierByYearFilter nhưng lọc theo
+    /// khoảng ngày (d.CreatedDate) thay vì năm đơn.
+    /// </summary>
+    private static (DynamicParameters Parameters, string BaseWhere) BuildDossierGeneralInputFilter(
+        DossierGeneralInputFilterDto filter,
+        bool isAdmin,
+        long? userUnitId)
+    {
+        var parameters = new DynamicParameters();
+        var effectiveUnitId = isAdmin ? filter.UnitId : (filter.UnitId ?? userUnitId);
+
+        var baseWhere = @"
+            d.IsDeleted = 0
+            AND d.STATUS_ID = 6
+            AND d.PUBLISHSTATUSID = 2";
+
+        if (filter.FromDate.HasValue)
+        {
+            baseWhere += " AND d.CreatedDate >= :FromDate";
+            parameters.Add("FromDate", filter.FromDate.Value.Date);
+        }
+
+        if (filter.ToDate.HasValue)
+        {
+            baseWhere += " AND d.CreatedDate < :ToDate";
+            parameters.Add("ToDate", filter.ToDate.Value.Date.AddDays(1));
+        }
+
+        if (effectiveUnitId.HasValue)
+        {
+            baseWhere += @" AND i.UNIT_ID IN (
+                SELECT Id FROM ORGANIZATION_UNIT START WITH Id = :UnitId CONNECT BY PRIOR Id = ParentId
+            )";
+            parameters.Add("UnitId", effectiveUnitId.Value);
+        }
+
+        AppendObjectTypeFilterToWhere(filter.ObjectType, ref baseWhere);
+
+        return (parameters, baseWhere);
+    }
+
+    public async Task<DossierMostViewedSummaryStatsDto> GetDossierMostViewedSummaryStatsAsync(
+        DossierMostViewedFilterDto filter,
+        bool isAdmin,
+        long? userUnitId)
+    {
+        EnsureOpen();
+        var effectiveUnitId = isAdmin ? filter.UnitId : (filter.UnitId ?? userUnitId);
+
+        // Hồ sơ thiết bị của trạm/đường dây (nhóm 3/4) tính gộp vào box trạm/đường dây tương ứng —
+        // mọi lượt xem hồ sơ (kể cả hồ sơ thiết bị, vd mở từ "Tra cứu hồ sơ thiết bị") đều rơi vào đúng 1 box.
+        var (stationTotal, stationGrowth) = await GetLookupViewBoxStatsAsync("DOSSIER", new[] { 1, 3 }, effectiveUnitId, filter.FromDate, filter.ToDate);
+        var (lineTotal, lineGrowth) = await GetLookupViewBoxStatsAsync("DOSSIER", new[] { 2, 4 }, effectiveUnitId, filter.FromDate, filter.ToDate);
+        var (docTotal, docGrowth) = await GetLookupViewBoxStatsAsync("DOCUMENT", null, effectiveUnitId, filter.FromDate, filter.ToDate);
+
+        return new DossierMostViewedSummaryStatsDto
+        {
+            StationViewCount = stationTotal,
+            StationGrowthPercent = stationGrowth,
+            LineViewCount = lineTotal,
+            LineGrowthPercent = lineGrowth,
+            DocumentViewCount = docTotal,
+            DocumentGrowthPercent = docGrowth
+        };
+    }
+
+    /// <summary>
+    /// Tổng lượt tra cứu theo bộ lọc (khớp filter khoảng ngày) + % tăng trưởng tháng hiện tại thực tế
+    /// so với tháng trước — độc lập với filter khoảng ngày của báo cáo.
+    /// </summary>
+    private async Task<(long Total, decimal? GrowthPercent)> GetLookupViewBoxStatsAsync(
+        string entityType,
+        int[]? dossierGroupIds,
+        long? effectiveUnitId,
+        DateTime? fromDate,
+        DateTime? toDate)
+    {
+        var (totalWhere, totalParams) = BuildLookupViewBaseWhere(entityType, dossierGroupIds, effectiveUnitId, fromDate, toDate);
+        var totalSql = $@"
+            SELECT NVL(SUM(lvl.VIEW_COUNT), 0)
+            FROM LOOKUP_VIEW_DAILY_COUNTS lvl
+            INNER JOIN DOSSIERS d ON lvl.DOSSIER_ID = d.Id
+            INNER JOIN INFRASTRUCTURE i ON d.InfrastructureId = i.ID
+            WHERE {totalWhere}";
+        var total = await _connection.ExecuteScalarAsync<long>(totalSql, totalParams);
+
+        var now = DateTime.Now;
+        var previousMonthDate = now.AddMonths(-1);
+
+        var (currentWhere, currentParams) = BuildLookupViewBaseWhere(entityType, dossierGroupIds, effectiveUnitId, null, null);
+        currentWhere += " AND EXTRACT(MONTH FROM lvl.VIEW_DATE) = :CurMonth AND EXTRACT(YEAR FROM lvl.VIEW_DATE) = :CurYear";
+        currentParams.Add("CurMonth", now.Month);
+        currentParams.Add("CurYear", now.Year);
+        var currentSql = $@"
+            SELECT NVL(SUM(lvl.VIEW_COUNT), 0)
+            FROM LOOKUP_VIEW_DAILY_COUNTS lvl
+            INNER JOIN DOSSIERS d ON lvl.DOSSIER_ID = d.Id
+            INNER JOIN INFRASTRUCTURE i ON d.InfrastructureId = i.ID
+            WHERE {currentWhere}";
+        var currentMonthCount = await _connection.ExecuteScalarAsync<long>(currentSql, currentParams);
+
+        var (prevWhere, prevParams) = BuildLookupViewBaseWhere(entityType, dossierGroupIds, effectiveUnitId, null, null);
+        prevWhere += " AND EXTRACT(MONTH FROM lvl.VIEW_DATE) = :PrevMonth AND EXTRACT(YEAR FROM lvl.VIEW_DATE) = :PrevYear";
+        prevParams.Add("PrevMonth", previousMonthDate.Month);
+        prevParams.Add("PrevYear", previousMonthDate.Year);
+        var prevSql = $@"
+            SELECT NVL(SUM(lvl.VIEW_COUNT), 0)
+            FROM LOOKUP_VIEW_DAILY_COUNTS lvl
+            INNER JOIN DOSSIERS d ON lvl.DOSSIER_ID = d.Id
+            INNER JOIN INFRASTRUCTURE i ON d.InfrastructureId = i.ID
+            WHERE {prevWhere}";
+        var prevMonthCount = await _connection.ExecuteScalarAsync<long>(prevSql, prevParams);
+
+        return (total, CalcGrowthPercent(currentMonthCount, prevMonthCount));
+    }
+
+    private static (string BaseWhere, DynamicParameters Parameters) BuildLookupViewBaseWhere(
+        string entityType,
+        int[]? dossierGroupIds,
+        long? effectiveUnitId,
+        DateTime? fromDate,
+        DateTime? toDate)
+    {
+        var parameters = new DynamicParameters();
+        parameters.Add("EntityType", entityType);
+
+        var baseWhere = @"
+            lvl.ENTITY_TYPE = :EntityType
+            AND d.IsDeleted = 0
+            AND d.STATUS_ID = 6
+            AND d.PUBLISHSTATUSID = 2
+            AND NVL(i.IsDeleted, 0) = 0";
+
+        if (dossierGroupIds is { Length: > 0 })
+        {
+            baseWhere += " AND NVL(d.DOSSIER_GROUP_ID, 1) IN :DossierGroupIds";
+            parameters.Add("DossierGroupIds", dossierGroupIds);
+        }
+
+        if (effectiveUnitId.HasValue)
+        {
+            baseWhere += @" AND i.UNIT_ID IN (
+                SELECT Id FROM ORGANIZATION_UNIT START WITH Id = :UnitId CONNECT BY PRIOR Id = ParentId
+            )";
+            parameters.Add("UnitId", effectiveUnitId.Value);
+        }
+
+        if (fromDate.HasValue)
+        {
+            baseWhere += " AND lvl.VIEW_DATE >= :FromDate";
+            parameters.Add("FromDate", fromDate.Value.Date);
+        }
+
+        if (toDate.HasValue)
+        {
+            baseWhere += " AND lvl.VIEW_DATE <= :ToDate";
+            parameters.Add("ToDate", toDate.Value.Date);
+        }
+
+        return (baseWhere, parameters);
+    }
+
+    public async Task<ReportStatisticsDossierViewGridResponseDto> GetDossierMostViewedGridAsync(
+        DossierMostViewedFilterDto filter,
+        bool isAdmin,
+        long? userUnitId)
+    {
+        EnsureOpen();
+        var (page, pageSize, parameters, logDateWhere, dossierWhere) = BuildDossierMostViewedGridFilter(filter, isAdmin, userUnitId);
+
+        var countSql = $@"
+            WITH filtered_views AS (
+                SELECT lvl.DOSSIER_ID AS DossierId, SUM(lvl.VIEW_COUNT) AS ViewCount
+                FROM LOOKUP_VIEW_DAILY_COUNTS lvl
+                WHERE {logDateWhere}
+                GROUP BY lvl.DOSSIER_ID
+            )
+            SELECT COUNT(*)
+            FROM filtered_views fv
+            INNER JOIN DOSSIERS d ON d.Id = fv.DossierId
+            INNER JOIN INFRASTRUCTURE i ON d.InfrastructureId = i.ID
+            WHERE {dossierWhere}";
+
+        var totalCount = await _connection.ExecuteScalarAsync<int>(countSql, parameters);
+
+        var offset = (page - 1) * pageSize;
+        parameters.Add("Offset", offset);
+        parameters.Add("PageSize", pageSize);
+
+        var gridSql = $@"
+            WITH filtered_views AS (
+                SELECT lvl.DOSSIER_ID AS DossierId, SUM(lvl.VIEW_COUNT) AS ViewCount
+                FROM LOOKUP_VIEW_DAILY_COUNTS lvl
+                WHERE {logDateWhere}
+                GROUP BY lvl.DOSSIER_ID
+            )
+            SELECT
+                d.ID AS DossierId,
+                i.NAME AS InfrastructureName,
+                MAX(DBMS_LOB.SUBSTR(d.FORMDATAJSON, 4000, 1)) AS FormDataJson,
+                fv.ViewCount
+            FROM filtered_views fv
+            INNER JOIN DOSSIERS d ON d.Id = fv.DossierId
+            INNER JOIN INFRASTRUCTURE i ON d.InfrastructureId = i.ID
+            WHERE {dossierWhere}
+            GROUP BY d.ID, i.NAME, fv.ViewCount
+            ORDER BY fv.ViewCount DESC
+            OFFSET :Offset ROWS
+            FETCH NEXT :PageSize ROWS ONLY";
+
+        var bhsColumns = (await GetBhsColumnsAsync()).ToList();
+        var rawRows = (await _connection.QueryAsync(gridSql, parameters)).ToList();
+        var items = new List<ReportStatisticsDossierViewGridItemDto>();
+
+        int stt = offset + 1;
+        foreach (var r in rawRows)
+        {
+            var formDataJson = Convert.ToString(r.FORMDATAJSON ?? r.FormDataJson);
+            items.Add(new ReportStatisticsDossierViewGridItemDto
+            {
+                Stt = stt++,
+                DossierId = Convert.ToString(r.DOSSIERID ?? r.DossierId) ?? string.Empty,
+                InfrastructureName = Convert.ToString(r.INFRASTRUCTURENAME ?? r.InfrastructureName) ?? "-",
+                ViewCount = Convert.ToInt64(r.VIEWCOUNT ?? r.ViewCount ?? 0),
+                CatalogData = ParseBhsCatalogData(formDataJson, bhsColumns)
+            });
+        }
+
+        return new ReportStatisticsDossierViewGridResponseDto
+        {
+            Items = items,
+            TotalCount = totalCount,
+            Page = page,
+            PageSize = pageSize
+        };
+    }
+
+    private static (int Page, int PageSize, DynamicParameters Parameters, string LogDateWhere, string DossierWhere) BuildDossierMostViewedGridFilter(
+        DossierMostViewedFilterDto filter,
+        bool isAdmin,
+        long? userUnitId)
+    {
+        var page = filter.Page < 1 ? 1 : filter.Page;
+        var pageSize = filter.PageSize < 1 ? 10 : filter.PageSize;
+        var parameters = new DynamicParameters();
+        var effectiveUnitId = isAdmin ? filter.UnitId : (filter.UnitId ?? userUnitId);
+
+        var logDateWhere = "1 = 1";
+
+        if (filter.FromDate.HasValue)
+        {
+            logDateWhere += " AND lvl.VIEW_DATE >= :FromDate";
+            parameters.Add("FromDate", filter.FromDate.Value.Date);
+        }
+
+        if (filter.ToDate.HasValue)
+        {
+            logDateWhere += " AND lvl.VIEW_DATE <= :ToDate";
+            parameters.Add("ToDate", filter.ToDate.Value.Date);
+        }
+
+        var dossierWhere = @"
+            d.IsDeleted = 0
+            AND d.STATUS_ID = 6
+            AND d.PUBLISHSTATUSID = 2
+            AND NVL(i.IsDeleted, 0) = 0";
+
+        if (effectiveUnitId.HasValue)
+        {
+            dossierWhere += @" AND i.UNIT_ID IN (
+                SELECT Id FROM ORGANIZATION_UNIT START WITH Id = :UnitId CONNECT BY PRIOR Id = ParentId
+            )";
+            parameters.Add("UnitId", effectiveUnitId.Value);
+        }
+
+        AppendObjectTypeFilterToWhere(filter.ObjectType, ref dossierWhere);
+
+        return (page, pageSize, parameters, logDateWhere, dossierWhere);
+    }
 }
