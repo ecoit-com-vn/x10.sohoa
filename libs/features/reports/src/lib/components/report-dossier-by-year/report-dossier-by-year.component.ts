@@ -110,6 +110,9 @@ export class ReportDossierByYearComponent implements OnInit, AfterViewInit {
   selectedObjectType = signal<number | null>(0);
   selectedYear = signal<number>(new Date().getFullYear());
 
+  /** Chỉ cập nhật khi Tìm kiếm (trong loadStatsData) — dùng cho legend/donut, tránh đổi ngay khi user chỉnh dropdown. */
+  appliedObjectType = signal<number | null>(0);
+
   // Active Tab: 'stats' (Báo cáo thống kê) | 'list' (Danh sách hồ sơ)
   activeTab = signal<MainTabMode>('stats');
   loading = signal<boolean>(false);
@@ -220,6 +223,8 @@ export class ReportDossierByYearComponent implements OnInit, AfterViewInit {
   }
 
   loadStatsData(): void {
+    this.appliedObjectType.set(this.selectedObjectType());
+
     const filter: DossierByYearFilter = {
       unitId: this.selectedUnitId(),
       objectType: this.selectedObjectType(),
@@ -353,7 +358,7 @@ export class ReportDossierByYearComponent implements OnInit, AfterViewInit {
     // Phụ thuộc rõ filter + ratio để buộc vẽ lại vòng tròn khi Tìm kiếm
     this.filterVersion();
     this.ratioStats();
-    this.selectedObjectType();
+    this.appliedObjectType();
 
     const station = this.showStationRatio() ? Number(this.stationRatio().dossierCount) || 0 : 0;
     const line = this.showLineRatio() ? Number(this.lineRatio().dossierCount) || 0 : 0;
@@ -385,17 +390,17 @@ export class ReportDossierByYearComponent implements OnInit, AfterViewInit {
 
   /** Ẩn legend nhóm không thuộc filter loại đối tượng đang chọn. */
   showStationRatio = computed(() => {
-    const t = this.selectedObjectType();
+    const t = this.appliedObjectType();
     return t == null || t === 0 || t === 1;
   });
 
   showLineRatio = computed(() => {
-    const t = this.selectedObjectType();
+    const t = this.appliedObjectType();
     return t == null || t === 0 || t === 2;
   });
 
   showEquipmentRatio = computed(() => {
-    const t = this.selectedObjectType();
+    const t = this.appliedObjectType();
     return t == null || t === 0 || t === 3;
   });
 

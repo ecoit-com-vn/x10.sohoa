@@ -29,6 +29,8 @@ import {
 
 } from '../../data-access/dossier-by-equipment.service';
 
+import { LookupTrackingService } from '../../data-access/lookup-tracking.service';
+
 
 
 @Component({
@@ -50,6 +52,8 @@ import {
 export class DossierLookupComponent implements OnInit {
 
   private dossierByEquipmentService = inject(DossierByEquipmentService);
+
+  private lookupTrackingService = inject(LookupTrackingService);
 
   private messageService = inject(MessageService);
 
@@ -362,6 +366,7 @@ export class DossierLookupComponent implements OnInit {
 
     }
 
+    this.lookupTrackingService.recordView('DOSSIER', id);
     void this.router.navigate(['/search/dossier-by-equipment', id]);
 
   }

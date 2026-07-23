@@ -15,22 +15,19 @@ import { ToastModule } from 'primeng/toast';
 import { SelectModule } from 'primeng/select';
 import { TooltipModule } from 'primeng/tooltip';
 import { TreeNode } from 'primeng/api';
-import { WfBreadcrumbComponent, EcoInputTreeSelectComponent } from '@sohoa.frontend/shared/layout';
+import { WfBreadcrumbComponent, EcoInputTreeSelectComponent, EcoInputDateComponent } from '@sohoa.frontend/shared/layout';
 import { AuthService } from '@sohoa.frontend/shared/core';
 import {
-  ReportDossierByVoltageGridService,
-  GridTypeLookupItem,
-  DossierByVoltageGridFilter,
-  DossierByVoltageGridChartStat,
-  DossierByVoltageGridRatioStat
-} from '../../data-access/report-dossier-by-voltage-grid.service';
+  ReportDossierGeneralInputService,
+  DossierGeneralInputFilter,
+  DossierGeneralInputChartStat,
+  DossierGeneralInputRatioStat
+} from '../../data-access/report-dossier-general-input.service';
 import { ObjectTypeLookupItem, UnitLookupItem } from '../../data-access/report-dossier-by-year.service';
-import { REPORT_STATISTICS_DOSSIER_LIST_CONFIGS, REPORT_STATISTICS_STATION_GRID_CONFIGS } from '../../data-access/report-statistics.config';
 import {
-  buildYearOptions,
-  yearToFilterParam,
-  buildExportYearSuffix
-} from '../../data-access/report-year-filter.util';
+  REPORT_STATISTICS_DOSSIER_LIST_CONFIGS,
+  REPORT_STATISTICS_STATION_GRID_CONFIGS
+} from '../../data-access/report-statistics.config';
 import { ReportStatisticsDossierListComponent } from '../report-statistics-dossier-list/report-statistics-dossier-list.component';
 import { ReportStatisticsStationGridComponent } from '../report-statistics-station-grid/report-statistics-station-grid.component';
 import { finalize, forkJoin } from 'rxjs';
@@ -44,13 +41,16 @@ interface OrgTreeNode {
   children: OrgTreeNode[];
 }
 
-interface GridTypeOption {
-  id: number;
-  name: string;
+function toDateOnlyParam(date: Date | null): string | null {
+  if (!date) return null;
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 @Component({
-  selector: 'app-report-dossier-by-voltage-grid',
+  selector: 'app-report-dossier-general-input',
   standalone: true,
   imports: [
     CommonModule,
@@ -60,18 +60,19 @@ interface GridTypeOption {
     TooltipModule,
     WfBreadcrumbComponent,
     EcoInputTreeSelectComponent,
+    EcoInputDateComponent,
     ReportStatisticsDossierListComponent,
     ReportStatisticsStationGridComponent
   ],
   providers: [MessageService],
-  templateUrl: './report-dossier-by-voltage-grid.component.html',
+  templateUrl: './report-dossier-general-input.component.html',
   styleUrls: [
     '../report-dossier-by-year/report-dossier-by-year.component.scss',
-    './report-dossier-by-voltage-grid.component.scss'
+    './report-dossier-general-input.component.scss'
   ]
 })
-export class ReportDossierByVoltageGridComponent implements OnInit, AfterViewInit {
-  private reportService = inject(ReportDossierByVoltageGridService);
+export class ReportDossierGeneralInputComponent implements OnInit, AfterViewInit {
+  private reportService = inject(ReportDossierGeneralInputService);
   private messageService = inject(MessageService);
   private authService = inject(AuthService);
   private router = inject(Router);
@@ -82,25 +83,19 @@ export class ReportDossierByVoltageGridComponent implements OnInit, AfterViewIni
   @ViewChild(ReportStatisticsStationGridComponent)
   stationGrid?: ReportStatisticsStationGridComponent;
 
-  readonly dossierListConfig = REPORT_STATISTICS_DOSSIER_LIST_CONFIGS.DOSSIER_BY_VOLTAGE_GRID;
-  readonly stationGridConfig = REPORT_STATISTICS_STATION_GRID_CONFIGS.DOSSIER_BY_VOLTAGE_GRID;
+  readonly dossierListConfig = REPORT_STATISTICS_DOSSIER_LIST_CONFIGS.DOSSIER_GENERAL_INPUT;
+  readonly stationGridConfig = REPORT_STATISTICS_STATION_GRID_CONFIGS.DOSSIER_GENERAL_INPUT;
   filterVersion = signal(0);
 
-  reportFilter = computed(() => {
-    const gridTypeId = this.selectedGridTypeId();
-    return {
-      unitId: this.selectedUnitId(),
-      objectType: this.selectedObjectType(),
-      gridTypeId: gridTypeId != null && gridTypeId > 0 ? gridTypeId : null,
-      ...yearToFilterParam(this.selectedYear())
-    };
-  });
+  reportFilter = computed(() => ({
+    unitId: this.selectedUnitId(),
+    objectType: this.selectedObjectType(),
+    fromDate: toDateOnlyParam(this.selectedFromDate()),
+    toDate: toDateOnlyParam(this.selectedToDate())
+  }));
 
   units = signal<UnitLookupItem[]>([]);
   objectTypes = signal<ObjectTypeLookupItem[]>([]);
-  gridTypeOptions = signal<GridTypeOption[]>([]);
-  years = signal<number[]>([]);
-  yearOptions = computed(() => buildYearOptions(this.years()));
 
   orgUnitTree = computed(() => this.buildOrgTree(this.units()));
   primengOrgUnitTree = computed((): TreeNode[] => {
@@ -121,15 +116,15 @@ export class ReportDossierByVoltageGridComponent implements OnInit, AfterViewIni
 
   /** Chỉ cập nhật khi Tìm kiếm (trong loadStatsData) — dùng cho legend/donut, tránh đổi ngay khi user chỉnh dropdown. */
   appliedObjectType = signal<number | null>(0);
-  selectedGridTypeId = signal<number | null>(0);
-  selectedYear = signal<number>(new Date().getFullYear());
+  selectedFromDate = signal<Date | null>(null);
+  selectedToDate = signal<Date | null>(null);
 
   activeTab = signal<MainTabMode>('stats');
   loading = signal<boolean>(false);
   exporting = signal<boolean>(false);
 
-  chartStats = signal<DossierByVoltageGridChartStat[]>([]);
-  ratioStats = signal<DossierByVoltageGridRatioStat[]>([]);
+  chartStats = signal<DossierGeneralInputChartStat[]>([]);
+  ratioStats = signal<DossierGeneralInputRatioStat[]>([]);
 
   ngOnInit(): void {
     this.loadLookups();
@@ -165,33 +160,7 @@ export class ReportDossierByVoltageGridComponent implements OnInit, AfterViewIni
       error: (err) => console.error('Lỗi tải loại đối tượng:', err)
     });
 
-    this.reportService.getGridTypesLookup().subscribe({
-      next: (types) => {
-        const options: GridTypeOption[] = [{ id: 0, name: 'Tất cả' }];
-        (types || []).forEach((t: GridTypeLookupItem) => {
-          options.push({ id: Number(t.id), name: t.name });
-        });
-        this.gridTypeOptions.set(options);
-      },
-      error: (err) => console.error('Lỗi tải loại lưới điện:', err)
-    });
-
-    this.reportService.getYearsLookup().subscribe({
-      next: (years) => {
-        const availableYears = years || [new Date().getFullYear()];
-        this.years.set(availableYears);
-        const currentYear = new Date().getFullYear();
-        const defaultYear = availableYears.includes(currentYear) ? currentYear : availableYears[0];
-        this.selectedYear.set(defaultYear);
-        this.loadStatsData();
-      },
-      error: (err) => {
-        console.error('Lỗi tải danh sách năm:', err);
-        this.years.set([new Date().getFullYear()]);
-        this.selectedYear.set(new Date().getFullYear());
-        this.loadStatsData();
-      }
-    });
+    this.loadStatsData();
   }
 
   private applyDefaultUnitFilter(): void {
@@ -224,6 +193,14 @@ export class ReportDossierByVoltageGridComponent implements OnInit, AfterViewIni
     return roots;
   }
 
+  onFromDateChange(date: Date | null): void {
+    this.selectedFromDate.set(date);
+  }
+
+  onToDateChange(date: Date | null): void {
+    this.selectedToDate.set(date);
+  }
+
   onFilter(): void {
     this.filterVersion.update((v) => v + 1);
     this.dossierList?.resetPagination();
@@ -245,11 +222,11 @@ export class ReportDossierByVoltageGridComponent implements OnInit, AfterViewIni
   loadStatsData(): void {
     this.appliedObjectType.set(this.selectedObjectType());
 
-    const filter: DossierByVoltageGridFilter = {
+    const filter: DossierGeneralInputFilter = {
       unitId: this.selectedUnitId(),
       objectType: this.selectedObjectType(),
-      gridTypeId: this.selectedGridTypeId(),
-      ...yearToFilterParam(this.selectedYear())
+      fromDate: toDateOnlyParam(this.selectedFromDate()),
+      toDate: toDateOnlyParam(this.selectedToDate())
     };
 
     this.loading.set(true);
@@ -286,11 +263,11 @@ export class ReportDossierByVoltageGridComponent implements OnInit, AfterViewIni
     }
 
     this.exporting.set(true);
-    const filter: DossierByVoltageGridFilter = {
+    const filter: DossierGeneralInputFilter = {
       unitId: this.selectedUnitId(),
       objectType: this.selectedObjectType(),
-      gridTypeId: this.selectedGridTypeId(),
-      ...yearToFilterParam(this.selectedYear())
+      fromDate: toDateOnlyParam(this.selectedFromDate()),
+      toDate: toDateOnlyParam(this.selectedToDate())
     };
 
     this.reportService.exportExcel(filter)
@@ -300,7 +277,7 @@ export class ReportDossierByVoltageGridComponent implements OnInit, AfterViewIni
           const url = window.URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;
-          a.download = `DanhSachHoSo_LuoiDien_${buildExportYearSuffix(this.selectedYear())}_${new Date().getTime()}.xlsx`;
+          a.download = `DanhSachHoSo_TongHop_${new Date().getTime()}.xlsx`;
           a.click();
           window.URL.revokeObjectURL(url);
           this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã xuất danh sách hồ sơ ra Excel.' });
@@ -312,6 +289,8 @@ export class ReportDossierByVoltageGridComponent implements OnInit, AfterViewIni
   goBack(): void {
     this.router.navigate(['/reports/statistics']);
   }
+
+  // --- Computed helpers for grouped Bar Chart & Donut Chart ---
 
   maxChartValue = computed(() => {
     this.filterVersion();
@@ -372,7 +351,6 @@ export class ReportDossierByVoltageGridComponent implements OnInit, AfterViewIni
     this.filterVersion();
     this.ratioStats();
     this.appliedObjectType();
-    this.selectedGridTypeId();
 
     const station = this.showStationRatio() ? Number(this.stationRatio().dossierCount) || 0 : 0;
     const line = this.showLineRatio() ? Number(this.lineRatio().dossierCount) || 0 : 0;

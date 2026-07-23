@@ -12,6 +12,7 @@ import { EquipmentService } from '@sohoa.frontend/features/equipment';
 import { DossierManagementService } from '@sohoa.frontend/features/dossier-management';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { finalize } from 'rxjs/operators';
+import { LookupTrackingService } from '../../data-access/lookup-tracking.service';
 
 @Component({
   selector: 'app-substation-search',
@@ -30,6 +31,7 @@ export class SubstationSearchComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private dossierService = inject(DossierManagementService);
+  private lookupTrackingService = inject(LookupTrackingService);
 
   // States
   pageTitle = signal<string>('Tra cứu tìm kiếm Trạm biến áp');
@@ -479,6 +481,9 @@ export class SubstationSearchComponent implements OnInit {
   }
 
   onViewDossier(dossier: any) {
+    if (dossier?.id) {
+      this.lookupTrackingService.recordView('DOSSIER', dossier.id);
+    }
     this.router.navigate(['/search/dossier/detail', dossier.id]);
   }
 

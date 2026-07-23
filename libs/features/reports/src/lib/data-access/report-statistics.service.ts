@@ -54,6 +54,57 @@ export interface ReportStatisticsStationGridResponse {
   pageSize: number;
 }
 
+export interface ReportStatisticsDossierViewGridItem {
+  stt: number;
+  dossierId: string;
+  catalogData?: Record<string, string>;
+  infrastructureName: string;
+  viewCount: number;
+}
+
+export interface ReportStatisticsDossierViewGridResponse {
+  items: ReportStatisticsDossierViewGridItem[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface ReportStatisticsEquipmentGridItem {
+  stt: number;
+  equipmentCode: string;
+  equipmentName: string;
+  infrastructureName: string;
+  manufactureYear: number | null;
+  totalDossiers: number;
+  totalDocuments: number;
+  totalPages: number;
+}
+
+export interface ReportStatisticsEquipmentGridResponse {
+  items: ReportStatisticsEquipmentGridItem[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface ReportStatisticsEquipmentStatusGridItem {
+  stt: number;
+  equipmentCode: string;
+  equipmentName: string;
+  infrastructureName: string;
+  equipmentStatusName: string;
+  totalDossiers: number;
+  totalDocuments: number;
+  totalPages: number;
+}
+
+export interface ReportStatisticsEquipmentStatusGridResponse {
+  items: ReportStatisticsEquipmentStatusGridItem[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+}
+
 export interface ReportStatisticsEquipmentTypeGridItem {
   stt: number;
   equipmentTypeCode: string;
@@ -203,6 +254,33 @@ export class ReportStatisticsService {
     filter: Record<string, string | number | string[] | null | undefined>
   ): Observable<ReportStatisticsStationGridResponse> {
     return this.http.get<ReportStatisticsStationGridResponse>(`${this.baseUrl}/${gridSegment}/station-grid`, {
+      params: this.buildParams(filter)
+    });
+  }
+
+  getDossierViewGrid(
+    gridSegment: string,
+    filter: Record<string, string | number | string[] | null | undefined>
+  ): Observable<ReportStatisticsDossierViewGridResponse> {
+    return this.http.get<ReportStatisticsDossierViewGridResponse>(`${this.baseUrl}/${gridSegment}/grid`, {
+      params: this.buildParams(filter)
+    });
+  }
+
+  getEquipmentGrid(
+    gridSegment: string,
+    filter: Record<string, string | number | string[] | null | undefined>
+  ): Observable<ReportStatisticsEquipmentGridResponse> {
+    return this.http.get<ReportStatisticsEquipmentGridResponse>(`${this.baseUrl}/${gridSegment}/equipment-grid`, {
+      params: this.buildParams(filter)
+    });
+  }
+
+  getEquipmentStatusGrid(
+    gridSegment: string,
+    filter: Record<string, string | number | string[] | null | undefined>
+  ): Observable<ReportStatisticsEquipmentStatusGridResponse> {
+    return this.http.get<ReportStatisticsEquipmentStatusGridResponse>(`${this.baseUrl}/${gridSegment}/equipment-grid`, {
       params: this.buildParams(filter)
     });
   }

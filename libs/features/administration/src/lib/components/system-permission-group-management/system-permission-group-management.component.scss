@@ -60,6 +60,20 @@
       white-space: nowrap;
     }
 
+    .system-permission-group-table {
+      min-width: 900px;
+
+      .col-stt { width: 56px; }
+      .col-code { width: 18%; }
+      .col-name { width: 25%; }
+      .col-created { width: 16%; white-space: nowrap; }
+      .col-creator { width: 16%; }
+      .col-tt { width: 12%; }
+      .col-hd { width: 90px !important; }
+
+      td { vertical-align: middle; }
+    }
+
     .system-permission-actions + .action-buttons-group > .act-btn {
       display: none;
     }

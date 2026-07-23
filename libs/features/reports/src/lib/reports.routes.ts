@@ -159,5 +159,53 @@ export const REPORTS_ROUTES: Routes = [
         (m) => m.ReportDossierByLineComponent
       ),
     canActivate: [reportDossierGuard('REPORT_STATISTICS_VIEW')]
+  },
+  {
+    path: 'dossier-by-operation-year',
+    loadComponent: () =>
+      import('./components/report-dossier-by-operation-year/report-dossier-by-operation-year.component').then(
+        (m) => m.ReportDossierByOperationYearComponent
+      ),
+    canActivate: [reportDossierGuard('REPORT_STATISTICS_VIEW')]
+  },
+  {
+    path: 'dossier-by-operation-time',
+    loadComponent: () =>
+      import('./components/report-dossier-by-operation-time/report-dossier-by-operation-time.component').then(
+        (m) => m.ReportDossierByOperationTimeComponent
+      ),
+    canActivate: [reportDossierGuard('REPORT_STATISTICS_VIEW')]
+  },
+  {
+    path: 'dossier-by-manufacture-year',
+    loadComponent: () =>
+      import('./components/report-dossier-by-manufacture-year/report-dossier-by-manufacture-year.component').then(
+        (m) => m.ReportDossierByManufactureYearComponent
+      ),
+    canActivate: [reportDossierGuard('REPORT_STATISTICS_VIEW')]
+  },
+  {
+    path: 'dossier-by-equipment-status',
+    loadComponent: () =>
+      import('./components/report-dossier-by-equipment-status/report-dossier-by-equipment-status.component').then(
+        (m) => m.ReportDossierByEquipmentStatusComponent
+      ),
+    canActivate: [reportDossierGuard('REPORT_STATISTICS_VIEW')]
+  },
+  {
+    path: 'dossier-general-input',
+    loadComponent: () =>
+      import('./components/report-dossier-general-input/report-dossier-general-input.component').then(
+        (m) => m.ReportDossierGeneralInputComponent
+      ),
+    canActivate: [reportDossierGuard('REPORT_STATISTICS_VIEW')]
+  },
+  {
+    path: 'dossier-most-viewed',
+    loadComponent: () =>
+      import('./components/report-dossier-most-viewed/report-dossier-most-viewed.component').then(
+        (m) => m.ReportDossierMostViewedComponent
+      ),
+    canActivate: [reportDossierGuard('REPORT_STATISTICS_VIEW')]
   }
 ];

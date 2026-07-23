@@ -11,6 +11,7 @@ import {
   DocumentFulltextSearchService,
   DocumentFulltextSort
 } from '../../data-access/document-fulltext-search.service';
+import { LookupTrackingService } from '../../data-access/lookup-tracking.service';
 
 @Component({
   selector: 'app-document-fulltext-search',
@@ -22,6 +23,7 @@ import {
 })
 export class DocumentFulltextSearchComponent implements OnInit {
   private searchService = inject(DocumentFulltextSearchService);
+  private lookupTrackingService = inject(LookupTrackingService);
   private messageService = inject(MessageService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
@@ -129,6 +131,10 @@ export class DocumentFulltextSearchComponent implements OnInit {
       });
       return;
     }
+    if (item.dossierId) {
+      this.lookupTrackingService.recordView('DOCUMENT', item.dossierId);
+    }
+
     this.router.navigate(['/search/documents', versionId], {
       queryParams: { keyword: this.activeKeyword() || null }
     });
