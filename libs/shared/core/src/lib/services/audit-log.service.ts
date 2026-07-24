@@ -16,6 +16,21 @@ export interface AuditLogItem {
   statusCode?: number;
   httpMethod?: string;
   requestPath?: string;
+  logGroup?: string;
+  actorUnitId?: string;
+  actorUnitName?: string;
+  actorFullName?: string;
+}
+
+export interface AuditLogLookupItem {
+  code: string;
+  label: string;
+}
+
+export interface AuditLogLookups {
+  actions: AuditLogLookupItem[];
+  resourceTypes: AuditLogLookupItem[];
+  logGroups: AuditLogLookupItem[];
 }
 
 export interface AuditLogListResponse {
@@ -45,6 +60,8 @@ export interface AuditLogQueryParams {
   userName?: string;
   fromDate?: string;
   toDate?: string;
+  logGroup?: string;
+  unitIds?: string[];
 }
 
 @Injectable({
@@ -63,6 +80,12 @@ export class AuditLogService {
 
   getRecent(count = 5): Observable<AuditLogRecentResponse> {
     return this.api.get<AuditLogRecentResponse>(`${this.base}/recent`);
+  }
+
+  getLookups(logGroup?: string): Observable<AuditLogLookups> {
+    return this.api.get<AuditLogLookups>(`${this.base}/lookups`, {
+      params: logGroup ? { logGroup } : {}
+    });
   }
 
   exportExcel(params: AuditLogQueryParams): Observable<HttpResponse<Blob>> {
@@ -84,8 +107,8 @@ export class AuditLogService {
   private toParams(
     params: AuditLogQueryParams,
     includePagination: boolean
-  ): Record<string, string> {
-    const result: Record<string, string> = {};
+  ): Record<string, string | string[]> {
+    const result: Record<string, string | string[]> = {};
 
     if (includePagination) {
       result['page'] = String(params.page ?? 1);
@@ -98,6 +121,8 @@ export class AuditLogService {
     if (params.userName) result['userName'] = params.userName;
     if (params.fromDate) result['fromDate'] = params.fromDate;
     if (params.toDate) result['toDate'] = params.toDate;
+    if (params.logGroup) result['logGroup'] = params.logGroup;
+    if (params.unitIds?.length) result['unitIds'] = params.unitIds;
 
     return result;
   }

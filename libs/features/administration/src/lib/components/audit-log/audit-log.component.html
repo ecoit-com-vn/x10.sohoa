@@ -19,49 +19,73 @@
     </div>
   </div>
 
-  <div class="wf-card">
-    <div class="list-toolbar">
-      <div class="toolbar-left audit-filters">
-        <input type="text" class="wf-search-input"
-          placeholder="Tìm kiếm nhật ký, hành động, người dùng..."
+  <div class="wf-card audit-filter-card">
+    <div class="audit-filter-grid">
+      <div class="filter-item">
+        <label class="filter-label">Tên đăng nhập / Họ và tên</label>
+        <input type="text" class="wf-search-input w-full"
           [ngModel]="searchTerm()"
           (ngModelChange)="searchTerm.set($event)"
           (keyup.enter)="onSearch()" />
-        <select class="wf-select audit-filter-action" [ngModel]="filterAction()" (ngModelChange)="filterAction.set($event)">
+      </div>
+      <div class="filter-item">
+        <label class="filter-label">Đơn vị</label>
+        <eco-input-tree-select
+          [showLabel]="false"
+          selectionMode="checkbox"
+          [nodes]="primengOrgUnitTree()"
+          [ngModel]="filterUnitIds()"
+          (ngModelChange)="filterUnitIds.set($event)"
+          [showClear]="true"
+          [enableSearch]="true"
+          [border]="true">
+        </eco-input-tree-select>
+      </div>
+      <div class="filter-item">
+        <label class="filter-label">Loại hành động</label>
+        <select class="wf-select w-full" [ngModel]="filterAction()" (ngModelChange)="filterAction.set($event)">
           <option value="">Tất cả hành động</option>
-          <option value="CREATE">CREATE</option>
-          <option value="UPDATE">UPDATE</option>
-          <option value="DELETE">DELETE</option>
-          <option value="LOGIN">LOGIN</option>
-          <option value="EXPORT">EXPORT</option>
-          <option value="IMPORT">IMPORT</option>
-          <option value="MANAGE">MANAGE</option>
-          <option value="APPROVE">APPROVE</option>
-          <option value="REJECT">REJECT</option>
+          <option *ngFor="let a of actionLookups()" [value]="a.code">{{ a.label }}</option>
         </select>
-        <input type="text" class="wf-input audit-filter-sm"
-          placeholder="Loại đối tượng"
-          [ngModel]="filterResourceType()"
-          (ngModelChange)="filterResourceType.set($event)" />
-        <input type="text" class="wf-input audit-filter-sm"
-          placeholder="Service"
-          [ngModel]="filterServiceName()"
-          (ngModelChange)="filterServiceName.set($event)" />
-        <input type="text" class="wf-input audit-filter-user"
-          placeholder="Người dùng"
-          [ngModel]="filterUserName()"
-          (ngModelChange)="filterUserName.set($event)" />
-        <input type="date" class="wf-input audit-filter-date"
+      </div>
+      <div class="filter-item">
+        <label class="filter-label">Loại đối tượng</label>
+        <select class="wf-select w-full" [ngModel]="filterResourceType()" (ngModelChange)="filterResourceType.set($event)">
+          <option value="">Tất cả đối tượng</option>
+          <option *ngFor="let r of resourceTypeLookups()" [value]="r.code">{{ r.label }}</option>
+        </select>
+      </div>
+      <div class="filter-item">
+        <label class="filter-label">Từ ngày</label>
+        <input type="date" class="wf-input w-full"
           [ngModel]="filterFromDate()"
           (ngModelChange)="filterFromDate.set($event)" />
-        <input type="date" class="wf-input audit-filter-date"
+      </div>
+      <div class="filter-item">
+        <label class="filter-label">Đến ngày</label>
+        <input type="date" class="wf-input w-full"
           [ngModel]="filterToDate()"
           (ngModelChange)="filterToDate.set($event)" />
-        <button class="btn-tim" (click)="onSearch()">
-          <i class="pi pi-search"></i> Tìm
-        </button>
       </div>
+    </div>
+    <div class="audit-filter-actions">
+      <button class="btn-cancel" (click)="onReset()">
+        <i class="pi pi-refresh"></i> Làm mới
+      </button>
+      <button class="btn-tim" (click)="onSearch()">
+        <i class="pi pi-search"></i> Áp dụng
+      </button>
+    </div>
   </div>
+
+  <div class="wf-card">
+    <p-tabs [value]="activeTab()" (valueChange)="onTabChange($event)" class="evn-tabs">
+      <p-tablist class="tab-bar-custom">
+        <p-tab value="0" class="tab-item-custom"><i class="pi pi-history mr-1"></i>Nhật ký thao tác</p-tab>
+        <p-tab value="1" class="tab-item-custom"><i class="pi pi-folder-open mr-1"></i>Nhật ký nghiệp vụ</p-tab>
+      </p-tablist>
+    </p-tabs>
+
     <div class="wf-table-wrap">
       <table class="wf-table">
         <thead>
@@ -73,13 +97,13 @@
                 [disabled]="loading() || paginatedLogs.length === 0" />
             </th>
             <th class="col-stt">STT</th>
-            <th>Mã nhật ký</th>
-            <th>Hành động</th>
-            <th>Người dùng</th>
-            <th>Service</th>
+            <th>Tên đăng nhập</th>
+            <th>Họ và tên</th>
+            <th>Loại hành động</th>
             <th>Đối tượng</th>
             <th>Thời gian</th>
-            <th>Chi tiết thao tác</th>
+            <th>Chi tiết hành động</th>
+            <th class="col-actions">Thao tác</th>
           </tr>
         </thead>
         <tbody>
@@ -88,12 +112,12 @@
               <td *ngIf="canDelete()" class="col-check"><div class="skeleton-shimmer skeleton-sm"></div></td>
               <td class="col-stt"><div class="skeleton-shimmer skeleton-sm"></div></td>
               <td><div class="skeleton-shimmer skeleton-md"></div></td>
-              <td><div class="skeleton-shimmer skeleton-sm"></div></td>
               <td><div class="skeleton-shimmer skeleton-md"></div></td>
               <td><div class="skeleton-shimmer skeleton-sm"></div></td>
               <td><div class="skeleton-shimmer skeleton-sm"></div></td>
               <td><div class="skeleton-shimmer skeleton-md"></div></td>
               <td><div class="skeleton-shimmer skeleton-lg"></div></td>
+              <td><div class="skeleton-shimmer skeleton-sm"></div></td>
             </tr>
           </ng-container>
 
@@ -105,16 +129,17 @@
                   (change)="toggleSelect(log.id)" />
               </td>
               <td class="col-stt text-muted">{{ (currentPage() - 1) * pageSize() + i + 1 }}</td>
-              <td><code class="text-muted">{{ log.id }}</code></td>
-              <td><b>{{ log.action }}</b></td>
-              <td><span class="wf-name-link">{{ log.user }}</span></td>
-              <td>{{ log.serviceName || '—' }}</td>
-              <td>
-                <div>{{ log.resourceType || '—' }}</div>
-                <small class="text-muted" *ngIf="log.resourceName">{{ log.resourceName }}</small>
-              </td>
+              <td><span class="wf-name-link">{{ log.userName }}</span></td>
+              <td>{{ log.fullName }}</td>
+              <td><b>{{ getActionLabel(log.action) }}</b></td>
+              <td>{{ getResourceTypeLabel(log.resourceType) }}</td>
               <td>{{ log.timestamp }}</td>
               <td class="mota-text">{{ log.details }}</td>
+              <td class="col-actions">
+                <button type="button" class="btn-icon-danger" title="Xóa" *ngIf="canDelete()" (click)="onDeleteSingle(log.id)">
+                  <i class="pi pi-trash"></i>
+                </button>
+              </td>
             </tr>
             <tr *ngIf="filteredLogs().length === 0">
               <td [attr.colspan]="canDelete() ? 9 : 8" class="empty-row">
