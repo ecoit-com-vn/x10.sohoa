@@ -55,6 +55,13 @@ public interface IDossierDocumentService
         string? creatorName,
         CancellationToken cancellationToken);
 
+    Task AbortChunkedUploadAsync(
+        Guid dossierId,
+        string uploadId,
+        string userId,
+        long userUnitId,
+        CancellationToken cancellationToken);
+
     Task<IReadOnlyList<MovedDossierDocumentDto>> MoveFromFolderAsync(
         Guid dossierId,
         MoveDocumentsFromFolderRequest request,
@@ -240,6 +247,16 @@ public class DossierDocumentService : IDossierDocumentService
             dossierId, $"Upload trực tiếp (chunked): {fileName}", userId);
 
         return result;
+    }
+
+    public async Task AbortChunkedUploadAsync(
+        Guid dossierId,
+        string uploadId,
+        string userId,
+        long userUnitId,
+        CancellationToken cancellationToken)
+    {
+        await _fileUploadService.AbortDossierChunkedUploadAsync(uploadId, dossierId, userId, userUnitId, cancellationToken);
     }
 
     public async Task<IReadOnlyList<MovedDossierDocumentDto>> MoveFromFolderAsync(

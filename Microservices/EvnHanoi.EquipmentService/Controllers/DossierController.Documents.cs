@@ -171,14 +171,16 @@ public abstract partial class DossierControllerBase
         Guid id,
         string uploadId,
         int chunkNumber,
-        [FromBody] byte[] chunkData,
         CancellationToken cancellationToken)
     {
         try
         {
-            using var stream = new MemoryStream(chunkData);
+            var contentLength = Request.ContentLength ?? 0;
+            if (contentLength <= 0)
+                return BadRequest(new { message = "Dữ liệu chunk không được để trống" });
+
             var eTag = await _dossierDocumentService.UploadChunkAsync(
-                id, uploadId, chunkNumber, stream, chunkData.Length, UserId, GetUserUnitId(), cancellationToken);
+                id, uploadId, chunkNumber, Request.Body, contentLength, UserId, GetUserUnitId(), cancellationToken);
             return Ok(new { chunkNumber, eTag });
         }
         catch (KeyNotFoundException ex)
@@ -210,6 +212,28 @@ public abstract partial class DossierControllerBase
             var result = await _dossierDocumentService.CompleteChunkedUploadAsync(
                 id, uploadId, request, UserId, GetUserUnitId(), UserFullName, cancellationToken);
             return Ok(result);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpDelete("{id:guid}/documents/upload/chunked/{uploadId}/abort")]
+    public async Task<IActionResult> AbortDocumentChunkedUpload(
+        Guid id,
+        string uploadId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _dossierDocumentService.AbortChunkedUploadAsync(
+                id, uploadId, UserId, GetUserUnitId(), cancellationToken);
+            return NoContent();
         }
         catch (KeyNotFoundException ex)
         {

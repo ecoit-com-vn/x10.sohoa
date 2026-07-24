@@ -153,23 +153,22 @@ public class FileUploadController : ControllerBase
     public async Task<IActionResult> UploadChunk(
         [FromRoute] string uploadId,
         [FromRoute] int chunkNumber,
-        [FromBody] byte[] chunkData,
         CancellationToken cancellationToken)
     {
         try
         {
-            // Convert byte array to stream for service layer
-            using (var chunkStream = new MemoryStream(chunkData))
-            {
-                var eTag = await _fileUploadService.UploadChunkAsync(
-                    uploadId,
-                    chunkNumber,
-                    chunkStream,
-                    chunkData.Length,
-                    cancellationToken);
+            var contentLength = Request.ContentLength ?? 0;
+            if (contentLength <= 0)
+                return BadRequest("Dữ liệu chunk không được để trống");
 
-                return Ok(new { chunkNumber, eTag });
-            }
+            var eTag = await _fileUploadService.UploadChunkAsync(
+                uploadId,
+                chunkNumber,
+                Request.Body,
+                contentLength,
+                cancellationToken);
+
+            return Ok(new { chunkNumber, eTag });
         }
         catch (InvalidOperationException ex)
         {
@@ -194,10 +193,15 @@ public class FileUploadController : ControllerBase
     {
         try
         {
+            var userUnitId = GetUserUnitId();
+            if (userUnitId == 0)
+                return Unauthorized("Không thể xác định đơn vị của người dùng");
+
             var result = await _fileUploadService.CompleteChunkedUploadAsync(
                 uploadId,
                 request,
                 UserId,
+                userUnitId,
                 cancellationToken);
 
             return Ok(result);
@@ -211,6 +215,35 @@ public class FileUploadController : ControllerBase
         {
             _logger.LogError(ex, "Error completing chunked upload {UploadId}", uploadId);
             return StatusCode(500, new { code = "COMPLETE_ERROR", message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Hủy phiên chunked upload và dọn dẹp các mảnh tạm
+    /// </summary>
+    [HttpDelete("{uploadId}/abort")]
+    public async Task<IActionResult> AbortChunkedUpload(
+        [FromRoute] string uploadId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var userUnitId = GetUserUnitId();
+            if (userUnitId == 0)
+                return Unauthorized("Không thể xác định đơn vị của người dùng");
+
+            await _fileUploadService.AbortChunkedUploadAsync(
+                uploadId,
+                UserId,
+                userUnitId,
+                cancellationToken);
+
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error aborting chunked upload {UploadId}", uploadId);
+            return StatusCode(500, new { code = "ABORT_ERROR", message = ex.Message });
         }
     }
 }
