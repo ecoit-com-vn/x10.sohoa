@@ -249,7 +249,7 @@ public abstract partial class DossierControllerBase : ControllerBase
         try
         {
             var newId = await _dossierService.CreateAsync(dto, UserId, UserName, UserFullName, ExpectedKindId);
-            HttpContext.SetAudit(newId.ToString(), null, $"Tạo hồ sơ mới (ID: {newId})", "DOSSIER", AuditActions.Create);
+            HttpContext.SetAudit(resourceId: newId.ToString(), resourceType: "DOSSIER", action: AuditActions.Create);
             return CreatedAtAction(nameof(GetDetail), new { id = newId }, new { id = newId });
         }
         catch (ArgumentException ex)
@@ -271,7 +271,7 @@ public abstract partial class DossierControllerBase : ControllerBase
         try
         {
             await _dossierService.UpdateAsync(id, dto, UserId);
-            HttpContext.SetAudit(id.ToString(), null, $"Cập nhật hồ sơ {id}", "DOSSIER", AuditActions.Update);
+            HttpContext.SetAudit(resourceId: id.ToString(), resourceType: "DOSSIER", action: AuditActions.Update);
             return NoContent();
         }
         catch (KeyNotFoundException ex)
@@ -304,12 +304,12 @@ public abstract partial class DossierControllerBase : ControllerBase
         {
             var detail = await _dossierService.GetDetailByIdAsync(id);
             await _dossierService.DeleteAsync(id, UserId);
+            var dossierCode = ExtractDossierCodeFromFormData(detail?.FormDataJson);
             HttpContext.SetAudit(
-                id.ToString(),
-                detail?.InfrastructureCode,
-                $"Xóa hồ sơ {detail?.InfrastructureCode ?? id.ToString()}",
-                "DOSSIER",
-                AuditActions.Delete);
+                resourceId: id.ToString(),
+                resourceName: dossierCode,
+                resourceType: "DOSSIER",
+                action: AuditActions.Delete);
             return NoContent();
         }
         catch (KeyNotFoundException ex)
@@ -492,4 +492,44 @@ public abstract partial class DossierControllerBase : ControllerBase
         public string RoleCode { get; set; } = string.Empty;
         public string RoleName { get; set; } = string.Empty;
     }
+    /// <summary>
+    /// Mã hồ sơ (CODE) là dữ liệu EAV động trong FormDataJson, không phải cột cố định trên bảng DOSSIERS.
+    /// Dùng cho audit log Xóa hồ sơ — nơi response không có body để tự động dò như Create/Update.
+    /// </summary>
+    private static string? ExtractDossierCodeFromFormData(string? formDataJson)
+    {
+        if (string.IsNullOrWhiteSpace(formDataJson))
+            return null;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(formDataJson);
+            var root = doc.RootElement;
+            if (root.ValueKind != JsonValueKind.Object)
+                return null;
+
+            foreach (var property in root.EnumerateObject())
+            {
+                if (!string.Equals(property.Name, "CODE", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var code = property.Value.ValueKind switch
+                {
+                    JsonValueKind.String => property.Value.GetString(),
+                    JsonValueKind.Number => property.Value.ToString(),
+                    _ => null
+                };
+
+                if (!string.IsNullOrWhiteSpace(code))
+                    return code;
+            }
+        }
+        catch (JsonException)
+        {
+            // FormDataJson không hợp lệ — bỏ qua, fallback ResourceId.
+        }
+
+        return null;
+    }
+
 }

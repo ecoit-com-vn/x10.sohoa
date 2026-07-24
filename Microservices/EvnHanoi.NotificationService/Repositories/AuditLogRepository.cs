@@ -30,9 +30,11 @@ namespace EvnHanoi.NotificationService.Repositories
             string? serviceName = null,
             string? userName = null,
             DateTime? fromDate = null,
-            DateTime? toDate = null)
+            DateTime? toDate = null,
+            string? logGroup = null,
+            IReadOnlyList<string>? unitIds = null)
         {
-            var response = await SearchAsync(page, pageSize, keyword, action, resourceType, serviceName, userName, fromDate, toDate);
+            var response = await SearchAsync(page, pageSize, keyword, action, resourceType, serviceName, userName, fromDate, toDate, logGroup, unitIds);
 
             if (!response.IsValidResponse)
             {
@@ -59,7 +61,7 @@ namespace EvnHanoi.NotificationService.Repositories
             if (!indicesResponse.Exists)
                 Log.Warning("Index pattern '{IndexPrefix}-*' chưa tồn tại trên Elasticsearch.", AuditMessaging.IndexPrefix);
 
-            var response = await SearchAsync(1, count, null, null, null, null, null, null, null);
+            var response = await SearchAsync(1, count, null, null, null, null, null, null, null, null, null);
 
             if (!response.IsValidResponse)
                 throw new Exception("Failed to query Elasticsearch");
@@ -75,7 +77,9 @@ namespace EvnHanoi.NotificationService.Repositories
             string? userName = null,
             DateTime? fromDate = null,
             DateTime? toDate = null,
-            int maxRows = 50000)
+            int maxRows = 50000,
+            string? logGroup = null,
+            IReadOnlyList<string>? unitIds = null)
         {
             var all = new List<AuditLogItemDto>();
             var page = 1;
@@ -83,7 +87,7 @@ namespace EvnHanoi.NotificationService.Repositories
             while (all.Count < maxRows)
             {
                 var take = Math.Min(ExportPageSize, maxRows - all.Count);
-                var response = await SearchAsync(page, take, keyword, action, resourceType, serviceName, userName, fromDate, toDate);
+                var response = await SearchAsync(page, take, keyword, action, resourceType, serviceName, userName, fromDate, toDate, logGroup, unitIds);
                 if (!response.IsValidResponse)
                     throw new Exception("Failed to export audit logs from Elasticsearch");
 
@@ -227,7 +231,9 @@ namespace EvnHanoi.NotificationService.Repositories
             string? serviceName,
             string? userName,
             DateTime? fromDate,
-            DateTime? toDate)
+            DateTime? toDate,
+            string? logGroup,
+            IReadOnlyList<string>? unitIds)
         {
             return _elasticsearchClient.SearchAsync<AuditLogDocument>(s => s
                 .Indices($"{AuditMessaging.IndexPrefix}-*")
@@ -267,6 +273,17 @@ namespace EvnHanoi.NotificationService.Repositories
 
                     if (!string.IsNullOrWhiteSpace(userName))
                         mustQueries.Add(BuildContainsFieldQuery("userName", userName));
+
+                    if (!string.IsNullOrWhiteSpace(logGroup))
+                        mustQueries.Add(BuildExactFieldQuery("logGroup", logGroup));
+
+                    var unitIdList = unitIds?.Where(id => !string.IsNullOrWhiteSpace(id)).ToList();
+                    if (unitIdList is { Count: > 0 })
+                    {
+                        mustQueries.Add(new QueryDescriptor<AuditLogDocument>().Terms(t => t
+                            .Field("actorUnitId")
+                            .Terms(new TermsQueryField(unitIdList.Select(FieldValue.String).ToArray()))));
+                    }
 
                     if (fromDate.HasValue || toDate.HasValue)
                     {
@@ -366,7 +383,11 @@ namespace EvnHanoi.NotificationService.Repositories
                 ServiceName = doc.ServiceName,
                 StatusCode = doc.StatusCode,
                 HttpMethod = doc.HttpMethod,
-                RequestPath = doc.RequestPath
+                RequestPath = doc.RequestPath,
+                LogGroup = doc.LogGroup,
+                ActorUnitId = doc.ActorUnitId,
+                ActorUnitName = doc.ActorUnitName,
+                ActorFullName = doc.ActorFullName
             };
         }
     }

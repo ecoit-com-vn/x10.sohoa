@@ -115,7 +115,7 @@ public abstract partial class DossierControllerBase
                 GetUserUnitId(),
                 UserFullName,
                 cancellationToken);
-            HttpContext.SetAudit(id.ToString(), file.FileName, $"Upload tài liệu vào hồ sơ {id}: {file.FileName}", "DOCUMENT", AuditActions.Import);
+            HttpContext.SetAudit(id.ToString(), file.FileName, $"Upload tài liệu vào hồ sơ {id}: {file.FileName}", "DOCUMENT", AuditActions.Import, AuditLogGroups.Business);
             return Ok(result);
         }
         catch (KeyNotFoundException ex)

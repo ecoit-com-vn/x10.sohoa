@@ -850,6 +850,11 @@ public class AuthController : ControllerBase
             new Claim(ClaimTypes.Name, user.Username)
         };
 
+        if (!string.IsNullOrWhiteSpace(user.FullName))
+        {
+            claims.Add(new Claim("full_name", user.FullName));
+        }
+
         if (user.OrganizationUnitId.HasValue)
         {
             claims.Add(new Claim("unit_id", user.OrganizationUnitId.Value.ToString()));

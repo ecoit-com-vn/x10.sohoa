@@ -16,7 +16,9 @@ namespace EvnHanoi.NotificationService.Repositories
             string? serviceName = null,
             string? userName = null,
             DateTime? fromDate = null,
-            DateTime? toDate = null);
+            DateTime? toDate = null,
+            string? logGroup = null,
+            IReadOnlyList<string>? unitIds = null);
 
         Task<IReadOnlyList<AuditLogItemDto>> GetRecentAuditLogsAsync(int count);
         Task<IReadOnlyList<AuditLogItemDto>> ExportAuditLogsAsync(
@@ -27,7 +29,9 @@ namespace EvnHanoi.NotificationService.Repositories
             string? userName = null,
             DateTime? fromDate = null,
             DateTime? toDate = null,
-            int maxRows = 50000);
+            int maxRows = 50000,
+            string? logGroup = null,
+            IReadOnlyList<string>? unitIds = null);
         Task<long> DeleteAuditLogsAsync(DateTime fromDate, DateTime toDate, string? username, string? userId);
         Task<long> DeleteAuditLogsByIdsAsync(IReadOnlyList<string> ids, string? username, string? userId);
     }

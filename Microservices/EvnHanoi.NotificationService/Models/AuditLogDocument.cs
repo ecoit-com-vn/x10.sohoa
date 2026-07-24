@@ -21,4 +21,8 @@ public sealed class AuditLogDocument
     public int? StatusCode { get; set; }
     public string? CorrelationId { get; set; }
     public bool IsDeleted { get; set; }
+    public string? LogGroup { get; set; }
+    public string? ActorUnitId { get; set; }
+    public string? ActorUnitName { get; set; }
+    public string? ActorFullName { get; set; }
 }

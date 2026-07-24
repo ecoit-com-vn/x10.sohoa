@@ -14,4 +14,8 @@ public sealed class AuditLogItemDto
     public int? StatusCode { get; set; }
     public string? HttpMethod { get; set; }
     public string? RequestPath { get; set; }
+    public string? LogGroup { get; set; }
+    public string? ActorUnitId { get; set; }
+    public string? ActorUnitName { get; set; }
+    public string? ActorFullName { get; set; }
 }
