@@ -11,7 +11,8 @@ public static class AuditHttpContextExtensions
         string? resourceName = null,
         string? details = null,
         string? resourceType = null,
-        string? action = null)
+        string? action = null,
+        string? logGroup = null)
     {
         AuditContext.Set(httpContext, new AuditContextData
         {
@@ -19,7 +20,8 @@ public static class AuditHttpContextExtensions
             ResourceName = resourceName,
             Details = details,
             ResourceType = resourceType,
-            Action = action
+            Action = action,
+            LogGroup = logGroup
         });
     }
 
@@ -29,8 +31,9 @@ public static class AuditHttpContextExtensions
         string? resourceName = null,
         string? details = null,
         string? resourceType = null,
-        string? action = null)
+        string? action = null,
+        string? logGroup = null)
     {
-        controller.HttpContext.SetAudit(resourceId, resourceName, details, resourceType, action);
+        controller.HttpContext.SetAudit(resourceId, resourceName, details, resourceType, action, logGroup);
     }
 }

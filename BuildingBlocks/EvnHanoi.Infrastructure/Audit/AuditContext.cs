@@ -9,6 +9,7 @@ public sealed class AuditContextData
     public string? Details { get; set; }
     public string? Action { get; set; }
     public string? ResourceType { get; set; }
+    public string? LogGroup { get; set; }
 }
 
 public static class AuditContext

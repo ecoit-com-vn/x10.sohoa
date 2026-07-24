@@ -5,6 +5,7 @@ using System.Net.Http;
 using System.Net.Http.Json;
 using System.Security.Claims;
 using System.Threading.Tasks;
+using EvnHanoi.Infrastructure.Audit;
 using EvnHanoi.NotificationService.Models;
 using EvnHanoi.NotificationService.Repositories;
 using Serilog;
@@ -36,10 +37,12 @@ namespace EvnHanoi.NotificationService.Services
             string? serviceName = null,
             string? userName = null,
             DateTime? fromDate = null,
-            DateTime? toDate = null)
+            DateTime? toDate = null,
+            string? logGroup = null,
+            IReadOnlyList<string>? unitIds = null)
         {
             return _auditLogRepository.GetAuditLogsAsync(
-                page, pageSize, keyword, action, resourceType, serviceName, userName, fromDate, toDate);
+                page, pageSize, keyword, action, resourceType, serviceName, userName, fromDate, toDate, logGroup, unitIds);
         }
 
         public Task<IReadOnlyList<AuditLogItemDto>> GetRecentAuditLogsAsync(int count)
@@ -54,14 +57,45 @@ namespace EvnHanoi.NotificationService.Services
             string? action = null,
             string? resourceType = null,
             string? serviceName = null,
-            string? userName = null)
+            string? userName = null,
+            string? logGroup = null,
+            IReadOnlyList<string>? unitIds = null)
         {
             var logs = await _auditLogRepository.ExportAuditLogsAsync(
-                keyword, action, resourceType, serviceName, userName, fromDate, toDate);
+                keyword, action, resourceType, serviceName, userName, fromDate, toDate, logGroup: logGroup, unitIds: unitIds);
 
             var bytes = _auditLogExportService.BuildExcel(logs);
             var fileName = $"AuditLog_{fromDate:yyyyMMdd}_{toDate:yyyyMMdd}.xlsx";
             return (bytes, fileName, logs.Count);
+        }
+
+        public AuditLogLookupsDto GetLookups(string? logGroup)
+        {
+            var resourceTypeQuery = AuditVietnameseLabels.ResourceTypeLabels.AsEnumerable();
+            if (string.Equals(logGroup, AuditLogGroups.Business, StringComparison.OrdinalIgnoreCase))
+            {
+                resourceTypeQuery = resourceTypeQuery.Where(kv => kv.Key.StartsWith("DOSSIER", StringComparison.OrdinalIgnoreCase));
+            }
+            else if (string.Equals(logGroup, AuditLogGroups.Operation, StringComparison.OrdinalIgnoreCase))
+            {
+                resourceTypeQuery = resourceTypeQuery.Where(kv => !kv.Key.StartsWith("DOSSIER", StringComparison.OrdinalIgnoreCase));
+            }
+
+            return new AuditLogLookupsDto
+            {
+                Actions = AuditVietnameseLabels.ActionLabels
+                    .Select(kv => new AuditLogLookupItem { Code = kv.Key, Label = kv.Value })
+                    .ToList(),
+                ResourceTypes = resourceTypeQuery
+                    .Select(kv => new AuditLogLookupItem { Code = kv.Key, Label = kv.Value })
+                    .OrderBy(item => item.Label, StringComparer.CurrentCultureIgnoreCase)
+                    .ToList(),
+                LogGroups = new List<AuditLogLookupItem>
+                {
+                    new() { Code = AuditLogGroups.Operation, Label = "Nhật ký thao tác" },
+                    new() { Code = AuditLogGroups.Business, Label = "Nhật ký nghiệp vụ" }
+                }
+            };
         }
 
         public Task<long> DeleteAuditLogsAsync(DateTime fromDate, DateTime toDate, string? username, string? userId)

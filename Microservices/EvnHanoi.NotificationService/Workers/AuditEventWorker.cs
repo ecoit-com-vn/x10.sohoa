@@ -122,7 +122,11 @@ public sealed class AuditEventWorker : BackgroundService
             RequestPath = auditEvent.RequestPath,
             StatusCode = auditEvent.StatusCode,
             CorrelationId = auditEvent.CorrelationId,
-            IsDeleted = auditEvent.IsDeleted
+            IsDeleted = auditEvent.IsDeleted,
+            LogGroup = auditEvent.LogGroup,
+            ActorUnitId = auditEvent.ActorUnitId,
+            ActorUnitName = auditEvent.ActorUnitName,
+            ActorFullName = auditEvent.ActorFullName
         };
 
         var response = await _elasticClient.IndexAsync(

@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Text.Json;
 using EvnHanoi.Infrastructure.Database;
 using EvnHanoi.Infrastructure.Security;
 using Microsoft.AspNetCore.Authorization;
@@ -30,6 +31,7 @@ public sealed class AuditActionFilter : IAsyncActionFilter
     public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
     {
         CaptureLoginUsername(context);
+        CaptureRequestCode(context);
         var executedContext = await next();
 
         try
@@ -60,6 +62,19 @@ public sealed class AuditActionFilter : IAsyncActionFilter
             if (usernameProp?.GetValue(argument) is string username && !string.IsNullOrWhiteSpace(username))
             {
                 context.HttpContext.Items["__AuditLoginUsername"] = username.Trim();
+                return;
+            }
+        }
+    }
+
+    private static void CaptureRequestCode(ActionExecutingContext context)
+    {
+        foreach (var argument in context.ActionArguments.Values)
+        {
+            var code = TryGetCodeFromFormDataJson(argument);
+            if (!string.IsNullOrWhiteSpace(code))
+            {
+                context.HttpContext.Items["__AuditRequestCode"] = code;
                 return;
             }
         }
@@ -118,7 +133,12 @@ public sealed class AuditActionFilter : IAsyncActionFilter
         var actionCategory = auditContext?.Action ?? PermissionCodeResolver.CategorizeAction(controllerName, actionName, method);
         var resourceId = auditContext?.ResourceId ?? ExtractResourceId(context);
         var resourceName = auditContext?.ResourceName;
-        var details = auditContext?.Details ?? BuildDefaultDetails(actionCategory, resourceType, resourceName, resourceId, method, path);
+        if (string.IsNullOrWhiteSpace(resourceName) && resourceType.StartsWith("DOSSIER", StringComparison.OrdinalIgnoreCase))
+        {
+            resourceName = ExtractCodeFromContext(context);
+        }
+        var details = auditContext?.Details ?? BuildDefaultDetails(actionCategory, resourceType, resourceName, resourceId);
+        var logGroup = auditContext?.LogGroup ?? ResolveLogGroup(resourceType);
 
         string actorUserId;
         string actorUserName;
@@ -143,6 +163,9 @@ public sealed class AuditActionFilter : IAsyncActionFilter
         if (AuditUserActionGuard.ShouldSkipHttpAudit(httpContext, isLogin, actorUserId, actorUserName))
             return;
 
+        var actorUnitId = user.FindFirst("unit_id")?.Value;
+        var actorFullName = user.FindFirst("full_name")?.Value;
+
         var auditEvent = new AuditEvent(
             Id: UuidHelper.NewUuid(),
             OccurredAt: DateTime.UtcNow,
@@ -158,9 +181,23 @@ public sealed class AuditActionFilter : IAsyncActionFilter
             HttpMethod: method,
             RequestPath: path,
             StatusCode: statusCode,
-            CorrelationId: httpContext.TraceIdentifier);
+            CorrelationId: httpContext.TraceIdentifier,
+            LogGroup: logGroup,
+            ActorUnitId: actorUnitId,
+            ActorFullName: actorFullName);
 
         _auditPublisher.Publish(auditEvent);
+    }
+
+    /// <summary>
+    /// Mặc định: thao tác liên quan Hồ sơ/Hồ sơ số hóa thuộc tab "Nhật ký nghiệp vụ", còn lại thuộc "Nhật ký thao tác".
+    /// Controller xử lý tài liệu trong hồ sơ có thể override qua AuditContext.SetAudit(logGroup: ...).
+    /// </summary>
+    private static string ResolveLogGroup(string resourceType)
+    {
+        return resourceType.StartsWith("DOSSIER", StringComparison.OrdinalIgnoreCase)
+            ? AuditLogGroups.Business
+            : AuditLogGroups.Operation;
     }
 
     private static bool IsSkipped(ActionExecutedContext context)
@@ -193,6 +230,70 @@ public sealed class AuditActionFilter : IAsyncActionFilter
         return null;
     }
 
+    /// <summary>
+    /// Mã hồ sơ (CODE) là dữ liệu EAV động, không phải property C# tĩnh — nằm trong key "CODE" (không phân biệt
+    /// hoa/thường) của JSON <c>FormDataJson</c>. Ưu tiên giá trị đã bắt được từ request (CaptureRequestCode),
+    /// fallback quét response nếu action trả về object có FormDataJson (vd GetDetail). Không tìm thấy → null
+    /// (BuildDefaultDetails sẽ fallback về ResourceId).
+    /// </summary>
+    private static string? ExtractCodeFromContext(ActionExecutedContext context)
+    {
+        if (context.HttpContext.Items.TryGetValue("__AuditRequestCode", out var requestCode) &&
+            requestCode is string requestCodeStr && !string.IsNullOrWhiteSpace(requestCodeStr))
+        {
+            return requestCodeStr;
+        }
+
+        if (context.Result is ObjectResult { Value: not null } objectResult)
+        {
+            var code = TryGetCodeFromFormDataJson(objectResult.Value);
+            if (!string.IsNullOrWhiteSpace(code))
+                return code;
+        }
+
+        return null;
+    }
+
+    private static string? TryGetCodeFromFormDataJson(object? value)
+    {
+        if (value is null)
+            return null;
+
+        var property = value.GetType().GetProperty("FormDataJson");
+        if (property?.GetValue(value) is not string formDataJson || string.IsNullOrWhiteSpace(formDataJson))
+            return null;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(formDataJson);
+            var root = doc.RootElement;
+            if (root.ValueKind != JsonValueKind.Object)
+                return null;
+
+            foreach (var jsonProperty in root.EnumerateObject())
+            {
+                if (!string.Equals(jsonProperty.Name, "CODE", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var code = jsonProperty.Value.ValueKind switch
+                {
+                    JsonValueKind.String => jsonProperty.Value.GetString(),
+                    JsonValueKind.Number => jsonProperty.Value.ToString(),
+                    _ => null
+                };
+
+                if (!string.IsNullOrWhiteSpace(code))
+                    return code;
+            }
+        }
+        catch (JsonException)
+        {
+            // FormDataJson không hợp lệ — bỏ qua, fallback ResourceId.
+        }
+
+        return null;
+    }
+
     private static string? ExtractLoginUsername(ActionExecutedContext context)
     {
         return context.HttpContext.Items.TryGetValue("__AuditLoginUsername", out var username)
@@ -204,16 +305,18 @@ public sealed class AuditActionFilter : IAsyncActionFilter
         string action,
         string resourceType,
         string? resourceName,
-        string? resourceId,
-        string method,
-        string path)
+        string? resourceId)
     {
+        var actionLabel = AuditVietnameseLabels.GetActionLabel(action);
+        var resourceLabel = AuditVietnameseLabels.GetResourceTypeLabel(resourceType);
         var target = !string.IsNullOrWhiteSpace(resourceName)
             ? resourceName
             : !string.IsNullOrWhiteSpace(resourceId)
                 ? resourceId
-                : resourceType;
+                : null;
 
-        return $"{action} {resourceType}: {target} ({method} {path})";
+        return string.IsNullOrWhiteSpace(target)
+            ? $"{actionLabel} {resourceLabel}"
+            : $"{actionLabel} {resourceLabel}: {target}";
     }
 }

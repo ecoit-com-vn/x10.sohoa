@@ -38,6 +38,13 @@ namespace EvnHanoi.NotificationService.Controllers
             }
         }
 
+        [HttpGet("lookups")]
+        [Authorize]
+        public IActionResult GetLookups([FromQuery] string? logGroup = null)
+        {
+            return Ok(_auditLogService.GetLookups(logGroup));
+        }
+
         [HttpGet("export")]
         [Authorize]
         public async Task<IActionResult> ExportAuditLogs(
@@ -47,7 +54,9 @@ namespace EvnHanoi.NotificationService.Controllers
             [FromQuery] string? action = null,
             [FromQuery] string? resourceType = null,
             [FromQuery] string? serviceName = null,
-            [FromQuery] string? userName = null)
+            [FromQuery] string? userName = null,
+            [FromQuery] string? logGroup = null,
+            [FromQuery] List<string>? unitIds = null)
         {
             var authHeader = Request.Headers["Authorization"].ToString();
             if (!await _auditLogService.CheckAnyPermissionAsync(authHeader, User, "AUDIT_LOG_EXPORT", "AUDIT_LOG_VIEW"))
@@ -67,7 +76,7 @@ namespace EvnHanoi.NotificationService.Controllers
             {
                 var endOfDay = toDate.Date.AddDays(1).AddTicks(-1);
                 var (fileBytes, fileName, rowCount) = await _auditLogService.ExportAuditLogsAsync(
-                    fromDate.Date, endOfDay, keyword, action, resourceType, serviceName, userName);
+                    fromDate.Date, endOfDay, keyword, action, resourceType, serviceName, userName, logGroup, unitIds);
 
                 if (rowCount == 0)
                     return NotFound(new { message = "Không có bản ghi nhật ký trong khoảng thời gian đã chọn." });
@@ -94,7 +103,9 @@ namespace EvnHanoi.NotificationService.Controllers
             [FromQuery] string? serviceName = null,
             [FromQuery] string? userName = null,
             [FromQuery] DateTime? fromDate = null,
-            [FromQuery] DateTime? toDate = null)
+            [FromQuery] DateTime? toDate = null,
+            [FromQuery] string? logGroup = null,
+            [FromQuery] List<string>? unitIds = null)
         {
             var authHeader = Request.Headers["Authorization"].ToString();
             if (!await _auditLogService.CheckPermissionAsync(authHeader, User, "AUDIT_LOG_VIEW"))
@@ -103,7 +114,7 @@ namespace EvnHanoi.NotificationService.Controllers
             try
             {
                 var (total, logs) = await _auditLogService.GetAuditLogsAsync(
-                    page, pageSize, keyword, action, resourceType, serviceName, userName, fromDate, toDate);
+                    page, pageSize, keyword, action, resourceType, serviceName, userName, fromDate, toDate, logGroup, unitIds);
                 return Ok(new
                 {
                     items = logs,

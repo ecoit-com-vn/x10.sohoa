@@ -16,7 +16,11 @@ public record AuditEvent(
     string? RequestPath,
     int? StatusCode,
     string? CorrelationId,
-    bool IsDeleted = false);
+    bool IsDeleted = false,
+    string LogGroup = AuditLogGroups.Operation,
+    string? ActorUnitId = null,
+    string? ActorUnitName = null,
+    string? ActorFullName = null);
 
 public static class AuditActions
 {
@@ -29,4 +33,13 @@ public static class AuditActions
     public const string Release = "RELEASE";
     public const string Login = "LOGIN";
     public const string Logout = "LOGOUT";
+}
+
+/// <summary>
+/// Phân nhóm tab hiển thị ở màn Nhật ký hệ thống: thao tác chung vs nghiệp vụ hồ sơ/tài liệu.
+/// </summary>
+public static class AuditLogGroups
+{
+    public const string Operation = "THAO_TAC";
+    public const string Business = "NGHIEP_VU";
 }

@@ -52,6 +52,16 @@ public interface IFileUploadService
         string uploadId,
         CompleteChunkedUploadRequest request,
         string userId,
+        long userUnitId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Hủy phiên chunked upload thư mục và dọn dẹp các mảnh tạm
+    /// </summary>
+    Task AbortChunkedUploadAsync(
+        string uploadId,
+        string userId,
+        long userUnitId,
         CancellationToken cancellationToken);
 
     Task<FileUploadResponse> UploadFileToDossierDirectAsync(
@@ -90,6 +100,48 @@ public interface IFileUploadService
         string userId,
         long userUnitId,
         string? creatorName,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Hủy phiên chunked upload hồ sơ và dọn dẹp các mảnh tạm
+    /// </summary>
+    Task AbortDossierChunkedUploadAsync(
+        string uploadId,
+        Guid dossierId,
+        string userId,
+        long userUnitId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Khởi tạo phiên chunked upload cho phiên bản mới
+    /// </summary>
+    Task<InitiateChunkedUploadResponse> InitiateNewVersionChunkedUploadAsync(
+        Guid documentId,
+        string fileName,
+        long fileSize,
+        string userId,
+        long userUnitId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Hoàn tất chunked upload phiên bản mới
+    /// </summary>
+    Task<FileUploadResponse> CompleteNewVersionChunkedUploadAsync(
+        Guid documentId,
+        string uploadId,
+        CompleteChunkedUploadRequest request,
+        string userId,
+        long userUnitId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Hủy phiên chunked upload phiên bản mới
+    /// </summary>
+    Task AbortNewVersionChunkedUploadAsync(
+        Guid documentId,
+        string uploadId,
+        string userId,
+        long userUnitId,
         CancellationToken cancellationToken);
 }
 
@@ -336,6 +388,7 @@ public class FileUploadService : IFileUploadService
         string uploadId,
         CompleteChunkedUploadRequest request,
         string userId,
+        long userUnitId,
         CancellationToken cancellationToken)
     {
         try
@@ -348,9 +401,7 @@ public class FileUploadService : IFileUploadService
             if (request.Parts.Count != session.TotalChunks)
                 throw new InvalidOperationException($"Thiếu chunks. Cần {session.TotalChunks}, nhận được {request.Parts.Count}");
 
-            var folder = await _documentRepository.GetFolderByIdAsync(session.FolderId!.Value);
-            if (folder == null)
-                throw new InvalidOperationException("Thư mục của upload session không tồn tại");
+            var folder = await ValidateFolderPermissionAsync(session.FolderId!.Value, userUnitId);
 
             // ===== MERGE CHUNKS (theo đơn vị + thư mục) =====
             var (mergedPath, mergedSize, minioVersionId) = await _fileStorageService.MergeChunksAsync(
@@ -395,37 +446,49 @@ public class FileUploadService : IFileUploadService
                 FilePath = mergedPath,
                 MinioVersionId = minioVersionId,
                 FileSize = mergedSize,
-                MimeType = "application/octet-stream",
+                MimeType = ResolveMimeType(session.FileName),
                 UploadSessionId = session.Id,
                 ChunksCount = session.TotalChunks,
                 CreatedBy = userId
             };
-
             var versionId = await _documentRepository.CreateDocumentVersionAsync(version);
 
-            // ===== CLEANUP =====
-            await _fileStorageService.DeleteUploadSessionAsync(
-                uploadId,
-                session.TotalChunks,
-                ResolveUnitCode(folder),
-                cancellationToken);
+            // ===== UPDATE UPLOAD SESSION =====
             await _documentRepository.CompleteUploadSessionAsync(uploadId, userId);
-
-            _logger.LogInformation("Completed chunked upload: {UploadId} ({FileName}), Version: {VersionNumber}", uploadId, session.FileName, versionNumber);
 
             return new FileUploadResponse
             {
-                DocumentVersionId = versionId,
                 DocumentId = documentId,
+                DocumentVersionId = versionId,
                 VersionNumber = versionNumber,
                 Status = "Active"
             };
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error completing chunked upload {UploadId}", uploadId);
+            _logger.LogError(ex, "Error completing chunked upload for session {UploadId}", uploadId);
             throw;
         }
+    }
+
+    public async Task AbortChunkedUploadAsync(
+        string uploadId,
+        string userId,
+        long userUnitId,
+        CancellationToken cancellationToken)
+    {
+        var session = await _documentRepository.GetUploadSessionAsync(uploadId);
+        if (session == null) return;
+
+        if (session.FolderId.HasValue)
+        {
+            var folder = await ValidateFolderPermissionAsync(session.FolderId.Value, userUnitId);
+            await _fileStorageService.AbortUploadSessionAsync(uploadId, ResolveUnitCode(folder), cancellationToken);
+        }
+
+        session.Status = "Aborted";
+        session.ModifiedBy = userId;
+        await _documentRepository.UpdateUploadSessionAsync(session);
     }
 
     public async Task<FileUploadResponse> UploadFileToDossierDirectAsync(
@@ -695,6 +758,225 @@ public class FileUploadService : IFileUploadService
         var isMimeTypeAllowed = await _mimeTypeValidator.IsAllowedMimeTypeAsync(mimeType);
         if (!isMimeTypeAllowed)
             throw new ArgumentException($"Loại file không được hỗ trợ: {mimeType}");
+    }
+
+    public async Task AbortDossierChunkedUploadAsync(
+        string uploadId,
+        Guid dossierId,
+        string userId,
+        long userUnitId,
+        CancellationToken cancellationToken)
+    {
+        var session = await ValidateDossierUploadSessionAsync(uploadId, dossierId);
+        var unitCode = await ResolveUnitCodeFromUserAsync(userUnitId);
+        await _fileStorageService.AbortUploadSessionAsync(uploadId, unitCode, cancellationToken);
+        session.Status = "Aborted";
+        session.ModifiedBy = userId;
+        await _documentRepository.UpdateUploadSessionAsync(session);
+    }
+
+    public async Task<InitiateChunkedUploadResponse> InitiateNewVersionChunkedUploadAsync(
+        Guid documentId,
+        string fileName,
+        long fileSize,
+        string userId,
+        long userUnitId,
+        CancellationToken cancellationToken)
+    {
+        var document = await _documentRepository.GetDocumentByIdAsync(documentId);
+        if (document == null)
+            throw new KeyNotFoundException($"Không tìm thấy tài liệu với ID: {documentId}");
+
+        FolderNodeDto? folder = null;
+        if (document.FolderId.HasValue)
+        {
+            folder = await ValidateFolderPermissionAsync(document.FolderId.Value, userUnitId);
+        }
+
+        if (string.IsNullOrWhiteSpace(fileName))
+            throw new ArgumentException("Tên file không được để trống");
+
+        var mimeType = ResolveMimeType(fileName);
+        await ValidateMimeTypeAsync(mimeType);
+
+        var chunkSize = _config.GetValue<int>("FileUpload:DefaultChunkSizeBytes", 5_242_880);
+        var maxFileSize = _config.GetValue<long>("FileUpload:MaxFileSizeBytes", 524_288_000);
+        if (fileSize > maxFileSize)
+            throw new ArgumentException($"Dung lượng file vượt quá giới hạn ({maxFileSize / 1024 / 1024}MB)");
+
+        var totalChunks = (int)Math.Ceiling((double)fileSize / chunkSize);
+        var uploadId = Guid.NewGuid().ToString("N");
+
+        var session = new UploadSession
+        {
+            UploadId = uploadId,
+            FolderId = document.FolderId,
+            DossierId = document.DossierId,
+            FileName = fileName,
+            TotalChunks = totalChunks,
+            CompletedChunks = 0,
+            Status = "InProgress",
+            ExpiresAt = DateTime.UtcNow.AddMinutes(_config.GetValue<int>("FileUpload:UploadSessionExpiryMinutes", 240)),
+            CreatedBy = userId
+        };
+
+        await _documentRepository.CreateUploadSessionAsync(session);
+
+        _logger.LogInformation("Initiated new version chunked upload for document {DocumentId}: UploadId={UploadId}, TotalChunks={TotalChunks}",
+            documentId, uploadId, totalChunks);
+
+        return new InitiateChunkedUploadResponse
+        {
+            UploadId = uploadId,
+            ChunkSize = chunkSize,
+            TotalChunks = totalChunks
+        };
+    }
+
+    public async Task<FileUploadResponse> CompleteNewVersionChunkedUploadAsync(
+        Guid documentId,
+        string uploadId,
+        CompleteChunkedUploadRequest request,
+        string userId,
+        long userUnitId,
+        CancellationToken cancellationToken)
+    {
+        var session = await _documentRepository.GetUploadSessionAsync(uploadId);
+        if (session == null)
+            throw new InvalidOperationException($"Upload session không tồn tại: {uploadId}");
+
+        if (session.Status != "InProgress")
+            throw new InvalidOperationException($"Upload session không ở trạng thái hợp lệ: {session.Status}");
+
+        if (DateTime.UtcNow > session.ExpiresAt)
+        {
+            session.Status = "Expired";
+            await _documentRepository.UpdateUploadSessionAsync(session);
+            throw new InvalidOperationException("Upload session đã hết hạn");
+        }
+
+        var document = await _documentRepository.GetDocumentByIdAsync(documentId);
+        if (document == null)
+            throw new KeyNotFoundException($"Không tìm thấy tài liệu với ID: {documentId}");
+
+        string unitCode = "system";
+        if (document.FolderId.HasValue)
+        {
+            var folder = await ValidateFolderPermissionAsync(document.FolderId.Value, userUnitId);
+            unitCode = ResolveUnitCode(folder);
+        }
+        else if (userUnitId > 0)
+        {
+            unitCode = await ResolveUnitCodeFromUserAsync(userUnitId);
+        }
+
+        try
+        {
+            (string minioPath, long mergedSize, string minioVersionId) = document.FolderId.HasValue
+                ? await _fileStorageService.MergeChunksAsync(
+                    uploadId, session.TotalChunks, unitCode, document.FolderId.Value, session.FileName, cancellationToken)
+                : await _fileStorageService.MergeChunksToDossierAsync(
+                    uploadId, session.TotalChunks, unitCode, document.DossierId ?? Guid.Empty, session.FileName, cancellationToken);
+
+            using var mergedStream = await _fileStorageService.DownloadFileAsync(
+                minioPath,
+                document.FolderId.HasValue ? _fileStorageService.DocumentBucketName : _fileStorageService.DossierBucketName,
+                minioVersionId,
+                cancellationToken);
+
+            var scanResult = await _antivirusService.ScanFileAsync(mergedStream, session.FileName, cancellationToken);
+            if (!scanResult.IsClean)
+            {
+                await _fileStorageService.DeleteFileAsync(
+                    minioPath,
+                    document.FolderId.HasValue ? _fileStorageService.DocumentBucketName : _fileStorageService.DossierBucketName,
+                    minioVersionId,
+                    cancellationToken);
+                session.Status = "Failed";
+                await _documentRepository.UpdateUploadSessionAsync(session);
+                throw new InvalidOperationException($"File bị phát hiện chứa mã độc: {scanResult.Threat}");
+            }
+
+            var mimeType = ResolveMimeType(session.FileName);
+            await ValidateMimeTypeAsync(mimeType);
+            ValidateMagicBytes(mergedStream, mimeType);
+
+            var versions = await _documentRepository.GetDocumentVersionsAsync(documentId);
+            int versionNumber = versions.Any() ? versions.Max(v => v.VersionNumber) + 1 : 1;
+
+            var version = new DocumentVersion
+            {
+                DocumentId = documentId,
+                VersionNumber = versionNumber,
+                UploadSource = 3,
+                FilePath = minioPath,
+                MinioVersionId = minioVersionId,
+                FileSize = mergedSize,
+                MimeType = mimeType,
+                UploadSessionId = session.Id,
+                ChunksCount = session.TotalChunks,
+                CreatedBy = userId
+            };
+
+            var versionId = await _documentRepository.CreateDocumentVersionAsync(version);
+
+            await _fileStorageService.DeleteUploadSessionAsync(uploadId, session.TotalChunks, unitCode, cancellationToken);
+            await _documentRepository.CompleteUploadSessionAsync(uploadId, userId);
+
+            _logger.LogInformation("Successfully completed new version chunked upload for document {DocumentId}: VersionId={VersionId}, VersionNumber={VersionNumber}",
+                documentId, versionId, versionNumber);
+
+            return new FileUploadResponse
+            {
+                DocumentId = documentId,
+                DocumentVersionId = versionId,
+                VersionNumber = versionNumber,
+                Status = "Active"
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error completing new version chunked upload for document {DocumentId}, session {UploadId}", documentId, uploadId);
+            throw;
+        }
+    }
+
+    public async Task AbortNewVersionChunkedUploadAsync(
+        Guid documentId,
+        string uploadId,
+        string userId,
+        long userUnitId,
+        CancellationToken cancellationToken)
+    {
+        var session = await _documentRepository.GetUploadSessionAsync(uploadId);
+        if (session == null) return;
+
+        string unitCode = "system";
+        if (session.FolderId.HasValue)
+        {
+            var folder = await ValidateFolderPermissionAsync(session.FolderId.Value, userUnitId);
+            unitCode = ResolveUnitCode(folder);
+        }
+        else if (userUnitId > 0)
+        {
+            unitCode = await ResolveUnitCodeFromUserAsync(userUnitId);
+        }
+
+        await _fileStorageService.AbortUploadSessionAsync(uploadId, unitCode, cancellationToken);
+
+        session.Status = "Aborted";
+        session.ModifiedBy = userId;
+        await _documentRepository.UpdateUploadSessionAsync(session);
+    }
+
+    private static string ResolveMimeType(string fileName)
+    {
+        var provider = new Microsoft.AspNetCore.StaticFiles.FileExtensionContentTypeProvider();
+        if (provider.TryGetContentType(fileName, out var contentType))
+        {
+            return contentType;
+        }
+        return "application/octet-stream";
     }
 
     private void ValidateMagicBytes(Stream fileStream, string mimeType)
