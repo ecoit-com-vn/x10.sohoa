@@ -407,8 +407,18 @@ export class FileUploadZoneComponent implements OnInit, OnDestroy {
    */
   cancelUpload(uploadId: string) {
     const current = this.uploads();
-    current.delete(uploadId);
-    this.uploads.set(new Map(current));
+    const item = current.get(uploadId);
+    if (item) {
+      const sessionUploadId = item.progress.uploadId;
+      if (sessionUploadId && item.progress.status === 'uploading') {
+        // Nếu đã có uploadSessionId từ MinIO (UUID), gọi API Abort để giải phóng bộ nhớ server
+        this.fileUploadService.abortChunkedUpload(sessionUploadId).subscribe({
+          error: (err) => console.warn('Lỗi khi hủy phiên upload:', err)
+        });
+      }
+      current.delete(uploadId);
+      this.uploads.set(new Map(current));
+    }
   }
 
   /**

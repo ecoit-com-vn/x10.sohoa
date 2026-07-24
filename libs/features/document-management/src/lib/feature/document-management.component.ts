@@ -9,6 +9,7 @@ import {
   effect,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { FormsModule } from '@angular/forms';
 import { MessageService, MenuItem } from 'primeng/api';
@@ -18,8 +19,8 @@ import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { DialogModule } from 'primeng/dialog';
 import { PaginatorModule } from 'primeng/paginator';
-import { FileUploadZoneComponent, FileDownloadService, ScannerPanelComponent, UPLOAD_SOURCE } from '@sohoa.frontend/features/equipment';
-import { finalize } from 'rxjs';
+import { FileUploadZoneComponent, FileDownloadService, ScannerPanelComponent, UPLOAD_SOURCE, extractApiErrorMessage } from '@sohoa.frontend/features/equipment';
+import { finalize, lastValueFrom } from 'rxjs';
 import { HttpResponse } from '@angular/common/http';
 import { DocumentManagementService } from '../data-access/document-management.service';
 import {
@@ -64,6 +65,7 @@ export class DocumentManagementComponent implements OnInit {
   private documentService = inject(DocumentManagementService);
   private messageService = inject(MessageService);
   private fileDownloadService = inject(FileDownloadService);
+  private sanitizer = inject(DomSanitizer);
 
   @ViewChild('folderNameInput') folderNameInput?: ElementRef<HTMLInputElement>;
   @ViewChild('uploadZone') uploadZone?: FileUploadZoneComponent;
@@ -71,6 +73,15 @@ export class DocumentManagementComponent implements OnInit {
 
   readonly UPLOAD_SOURCE = UPLOAD_SOURCE;
   scanInProgress = signal(false);
+
+  // ===== PREVIEW SIGNALS =====
+  showPreviewDialog = signal(false);
+  previewLoading = signal(false);
+  previewTitle = signal('');
+  previewVersionId = signal('');
+  previewTargetDoc = signal<Document | null>(null);
+  previewBlobUrl = signal<string | null>(null);
+  previewFileType = signal<'pdf' | 'image' | 'unsupported'>('unsupported');
 
   // ===== SIGNALS =====
   currentView = signal<ViewMode>('list');
@@ -564,6 +575,13 @@ export class DocumentManagementComponent implements OnInit {
   openDocumentActionMenu(doc: Document, event: MouseEvent, menu: Menu): void {
     this.documentActionMenuItems = [
       {
+        label: 'Xem trước tài liệu',
+        title: 'Xem trước tài liệu',
+        icon: 'pi pi-eye color-blue',
+        disabled: !doc.latestVersionId,
+        command: () => this.onPreviewDocument(doc),
+      },
+      {
         label: 'Chỉnh sửa tài liệu',
         title: 'Chỉnh sửa tài liệu',
         icon: 'pi pi-pencil color-blue',
@@ -950,11 +968,109 @@ export class DocumentManagementComponent implements OnInit {
 
   // ===== DOCUMENT VERSION LOGIC =====
 
+  uploadingNewVersion = signal(false);
+
   onViewHistory(doc: Document) {
     this.historyTargetDocument.set(doc);
     this.showHistoryDialog.set(true);
     this.versionSearchQuery.set('');
     this.loadDocumentVersions(doc.id);
+  }
+
+  onUploadNewVersionSelected(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    const doc = this.historyTargetDocument();
+    if (!file || !doc) return;
+
+    const folderId = this.selectedFolder()?.id || doc.folderId || '';
+    this.uploadingNewVersion.set(true);
+
+    const LARGE_FILE_THRESHOLD = 10 * 1024 * 1024; // 10MB
+
+    if (file.size > LARGE_FILE_THRESHOLD) {
+      this.uploadLargeNewVersionFile(doc.id, doc.name, file, input);
+    } else {
+      this.documentService.uploadNewVersion(doc.id, file, folderId, UPLOAD_SOURCE.WEB)
+        .pipe(finalize(() => {
+          this.uploadingNewVersion.set(false);
+          input.value = '';
+        }))
+        .subscribe({
+          next: () => {
+            this.messageService.add({
+              severity: 'success',
+              summary: 'Thành công',
+              detail: `Đã tải lên phiên bản mới cho tài liệu "${doc.name}"`,
+            });
+            this.loadDocuments();
+            this.loadDocumentVersions(doc.id);
+          },
+          error: (err) => {
+            this.messageService.add({
+              severity: 'error',
+              summary: 'Lỗi',
+              detail: extractApiErrorMessage(err, 'Upload phiên bản mới thất bại'),
+            });
+          }
+        });
+    }
+  }
+
+  private uploadLargeNewVersionFile(documentId: string, docName: string, file: File, input: HTMLInputElement) {
+    this.documentService.initiateNewVersionChunkedUpload(documentId, file.name, file.size)
+      .subscribe({
+        next: async (session) => {
+          const { uploadId, chunkSize, totalChunks } = session;
+          const parts: Array<{ chunkNumber: number; eTag: string }> = [];
+
+          try {
+            for (let i = 0; i < totalChunks; i++) {
+              const start = i * chunkSize;
+              const end = Math.min(file.size, start + chunkSize);
+              const chunk = file.slice(start, end);
+              const chunkNumber = i + 1;
+
+              const res = await lastValueFrom(
+                this.documentService.uploadNewVersionChunk(documentId, uploadId, chunkNumber, chunk)
+              );
+              parts.push({ chunkNumber: res.chunkNumber, eTag: res.eTag });
+            }
+
+            await lastValueFrom(
+              this.documentService.completeNewVersionChunkedUpload(documentId, uploadId, parts)
+            );
+
+            this.uploadingNewVersion.set(false);
+            input.value = '';
+            this.messageService.add({
+              severity: 'success',
+              summary: 'Thành công',
+              detail: `Đã tải lên phiên bản mới (file lớn) cho tài liệu "${docName}"`,
+            });
+            this.loadDocuments();
+            this.loadDocumentVersions(documentId);
+          } catch (err) {
+            this.documentService.abortNewVersionChunkedUpload(documentId, uploadId).subscribe();
+            this.uploadingNewVersion.set(false);
+            input.value = '';
+            this.messageService.add({
+              severity: 'error',
+              summary: 'Lỗi',
+              detail: extractApiErrorMessage(err, 'Upload phiên bản mới file lớn thất bại'),
+            });
+          }
+        },
+        error: (err) => {
+          this.uploadingNewVersion.set(false);
+          input.value = '';
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi',
+            detail: extractApiErrorMessage(err, 'Khởi tạo upload phiên bản mới thất bại'),
+          });
+        }
+      });
   }
 
   loadDocumentVersions(documentId: string) {
@@ -1055,5 +1171,70 @@ export class DocumentManagementComponent implements OnInit {
     this.documentVersions.set([]);
     this.versionSearchQuery.set('');
     this.historyTargetDocument.set(null);
+  }
+
+  // ===== PREVIEW LOGIC =====
+
+  async onPreviewDocument(doc: Document, versionId?: string) {
+    const targetVersionId = versionId || doc.latestVersionId;
+    if (!targetVersionId) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Cảnh báo',
+        detail: 'Tài liệu chưa có phiên bản file để xem trước.',
+      });
+      return;
+    }
+
+    this.cleanupPreview();
+    this.previewTitle.set(doc.name);
+    this.previewTargetDoc.set(doc);
+    this.previewVersionId.set(targetVersionId);
+    this.showPreviewDialog.set(true);
+    this.previewLoading.set(true);
+
+    const ext = doc.name.split('.').pop()?.toLowerCase() ?? '';
+    if (['pdf'].includes(ext)) {
+      this.previewFileType.set('pdf');
+    } else if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'].includes(ext)) {
+      this.previewFileType.set('image');
+    } else {
+      this.previewFileType.set('unsupported');
+    }
+
+    try {
+      const blobUrl = await this.fileDownloadService.getPreviewBlobUrl(targetVersionId);
+      this.previewBlobUrl.set(blobUrl);
+    } catch (error: unknown) {
+      const msg = extractApiErrorMessage(error, 'Không thể tải file xem trước');
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Lỗi xem trước',
+        detail: msg,
+      });
+      this.closePreviewDialog();
+    } finally {
+      this.previewLoading.set(false);
+    }
+  }
+
+  getSafePreviewUrl(): SafeResourceUrl | null {
+    const url = this.previewBlobUrl();
+    return url ? this.sanitizer.bypassSecurityTrustResourceUrl(url) : null;
+  }
+
+  cleanupPreview(): void {
+    const url = this.previewBlobUrl();
+    if (url) {
+      this.fileDownloadService.revokePreviewBlobUrl(url);
+      this.previewBlobUrl.set(null);
+    }
+  }
+
+  closePreviewDialog(): void {
+    this.cleanupPreview();
+    this.showPreviewDialog.set(false);
+    this.previewTargetDoc.set(null);
+    this.previewVersionId.set('');
   }
 }
