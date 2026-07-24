@@ -26,6 +26,13 @@ export class CatalogComponent implements OnInit {
   private messageService = inject(MessageService);
   private route = inject(ActivatedRoute);
 
+  readonly catalogBreadcrumbItems = this.route.snapshot.data['selectedTypeCode'] === 'PHONG'
+    ? [
+        { label: 'Quản lý danh mục' },
+        { label: 'Danh mục phông' }
+      ]
+    : null;
+
   // Mode state
   isPrivate = signal<boolean>(false);
 
@@ -56,9 +63,11 @@ export class CatalogComponent implements OnInit {
   // Right Panel - Child Catalogs State
   items = signal<any[]>([]);
   parentsList = signal<any[]>([]);
+  organizationUnits = signal<any[]>([]);
   searchKeyword = signal<string>('');
   catalogSearchCode = signal<string>('');
   searchStatus = signal<string>(''); // '', '1', '0'
+  catalogSearchUnitId = signal<number | null>(null);
   totalCount = signal<number>(0);
 
   // Right Panel Pagination
@@ -106,6 +115,10 @@ export class CatalogComponent implements OnInit {
     if (this.catalogFormSubmitted() && !this.currentCatalogItem().name) return 'Tên danh mục là bắt buộc';
     return this.catalogServerErrors().name || this.catalogServerErrors().Name || '';
   });
+  catalogUnitError = computed(() => {
+    if (this.isPhongSelected() && this.catalogFormSubmitted() && !this.currentCatalogItem().unitId) return 'Đơn vị là bắt buộc';
+    return this.catalogServerErrors().unitId || this.catalogServerErrors().UnitId || '';
+  });
 
   // Catalog Type permissions
   canCreateType = computed(() => this.authService.hasPermission(this.isPrivate() ? 'PRIVATE_CATALOG_CREATE' : 'SHARED_CATALOG_CREATE'));
@@ -118,6 +131,7 @@ export class CatalogComponent implements OnInit {
   canEditCatalog = computed(() => this.authService.hasPermission('CATALOG_EDIT'));
   canDeleteCatalog = computed(() => this.authService.hasPermission('CATALOG_DELETE'));
   canManageCatalog = computed(() => this.authService.hasPermission('CATALOG_MANAGE'));
+  isPhongSelected = computed(() => this.selectedTypeCode() === 'PHONG');
 
   // Pagination computed signals
   totalPages = computed(() => {
@@ -141,6 +155,7 @@ export class CatalogComponent implements OnInit {
     const isPriv = this.route.snapshot.data['isPrivate'] ?? false;
     this.isPrivate.set(isPriv);
     this.loadCatalogTypes();
+    this.loadOrganizationUnits();
   }
 
   openTypeMenu(type: any, event: Event, menu: Menu): void {
@@ -176,7 +191,11 @@ export class CatalogComponent implements OnInit {
           const currentId = this.selectedTypeId();
           const stillExists = currentId !== null && list.some(t => t.id === currentId);
           if (!stillExists) {
-            this.onSelectType(list[0]);
+            const selectedTypeCode = this.route.snapshot.data['selectedTypeCode'];
+            const defaultType = selectedTypeCode
+              ? list.find(t => t.code === selectedTypeCode) || list[0]
+              : list[0];
+            this.onSelectType(defaultType);
           }
         } else {
           this.selectedTypeId.set(null);
@@ -211,6 +230,10 @@ export class CatalogComponent implements OnInit {
     this.searchKeyword.set('');
     this.catalogSearchCode.set('');
     this.searchStatus.set('');
+    this.catalogSearchUnitId.set(null);
+    if (type.code === 'PHONG') {
+      this.loadOrganizationUnits();
+    }
     this.loadCatalogs();
   }
 
@@ -438,6 +461,12 @@ export class CatalogComponent implements OnInit {
     const typeId = this.selectedTypeId();
     if (!typeId) return;
 
+    if (this.isPhongSelected() && !this.catalogSearchUnitId()) {
+      this.items.set([]);
+      this.totalCount.set(0);
+      return;
+    }
+
     const queryKeyword = this.searchKeyword() || this.catalogSearchCode();
 
     this.catalogService.getItemsByTypeId(
@@ -445,7 +474,8 @@ export class CatalogComponent implements OnInit {
       this.currentPage(), 
       this.pageSize(), 
       queryKeyword, 
-      this.searchStatus()
+      this.searchStatus(),
+      this.isPhongSelected() ? this.catalogSearchUnitId() : null
     ).subscribe({
       next: (res) => {
         const list = res?.items || [];
@@ -473,8 +503,15 @@ export class CatalogComponent implements OnInit {
     this.searchKeyword.set('');
     this.catalogSearchCode.set('');
     this.searchStatus.set('');
+    this.catalogSearchUnitId.set(this.isPhongSelected() ? this.getDefaultPhongUnitId() : null);
     this.currentPage.set(1);
     this.loadCatalogs();
+  }
+
+  onCatalogSearchUnitChange(unitId: number | string | null) {
+    const normalizedUnitId = unitId === null || unitId === '' ? null : Number(unitId);
+    this.catalogSearchUnitId.set(normalizedUnitId);
+    this.onSearchCatalogs();
   }
 
   onAddNewCatalog() {
@@ -486,7 +523,8 @@ export class CatalogComponent implements OnInit {
       parentId: null,
       description: '',
       priority: 1,
-      status: 1
+      status: 1,
+      unitId: this.isPhongSelected() ? this.catalogSearchUnitId() : null
     });
     if (this.selectedTypeHasParent() === 1) {
       this.loadParentsList();
@@ -548,13 +586,16 @@ export class CatalogComponent implements OnInit {
   onSaveCatalog() {
     this.catalogFormSubmitted.set(true);
     this.catalogServerErrors.set({});
-    if (this.catalogCodeError() || this.catalogNameError()) {
+    if (this.catalogCodeError() || this.catalogNameError() || this.catalogUnitError()) {
       return;
     }
 
     const catalogDraft = this.currentCatalogItem();
     if (catalogDraft.priority === undefined || catalogDraft.priority === null) {
       catalogDraft.priority = 1;
+    }
+    if (this.isPhongSelected()) {
+      catalogDraft.unitId = Number(catalogDraft.unitId);
     }
 
     this.catalogSaving.set(true);
@@ -728,5 +769,41 @@ export class CatalogComponent implements OnInit {
   onPageSizeChange(event: any) {
     this.pageSize.set(Number(event.target.value));
     this.currentPage.set(1);
+  }
+
+  loadOrganizationUnits() {
+    this.catalogService.getOrganizationUnits().subscribe({
+      next: (units) => {
+        const allUnits = Array.isArray(units) ? units : [];
+        const isAdmin = this.authService.getUserRoles().some(role => role.toUpperCase() === 'ADMIN');
+        const currentUnitId = this.authService.getUserUnitId();
+        const selectableUnits = isAdmin || !currentUnitId
+          ? allUnits
+          : allUnits.filter(unit => Number(unit.id) === Number(currentUnitId));
+
+        this.organizationUnits.set(selectableUnits);
+        if (this.isPhongSelected() && !this.catalogSearchUnitId()) {
+          const defaultUnitId = this.getDefaultPhongUnitId();
+          this.catalogSearchUnitId.set(defaultUnitId);
+          if (defaultUnitId) this.loadCatalogs();
+        }
+      },
+      error: () => this.organizationUnits.set([])
+    });
+  }
+
+  private getDefaultPhongUnitId(): number | null {
+    const currentUnitId = this.authService.getUserUnitId();
+    if (currentUnitId && this.organizationUnits().some(unit => Number(unit.id) === currentUnitId)) {
+      return currentUnitId;
+    }
+    const firstUnit = this.organizationUnits()[0];
+    return firstUnit ? Number(firstUnit.id) : null;
+  }
+
+  getUnitLabel(unitId: number | string | null | undefined): string {
+    if (!unitId) return '';
+    const unit = this.organizationUnits().find(x => Number(x.id) === Number(unitId));
+    return unit?.name || '';
   }
 }

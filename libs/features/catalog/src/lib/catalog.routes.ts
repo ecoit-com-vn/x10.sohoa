@@ -37,6 +37,31 @@ export const CATALOG_ROUTES: Route[] = [
     data: { type: 'TINH_TRANG_VAT_LY', title: 'Tình trạng vật lý' }
   },
   {
+    path: 'phong',
+    loadComponent: () => import('./feature/catalog/catalog.component').then(m => m.CatalogComponent),
+    data: { isPrivate: true, selectedTypeCode: 'PHONG', title: 'Danh mục phông' }
+  },
+  {
+    path: 'fond',
+    redirectTo: 'phong',
+    pathMatch: 'full'
+  },
+  {
+    path: 'fonds',
+    redirectTo: 'phong',
+    pathMatch: 'full'
+  },
+  {
+    path: 'phong-ho-so',
+    redirectTo: 'phong',
+    pathMatch: 'full'
+  },
+  {
+    path: 'danh-muc-phong',
+    redirectTo: 'phong',
+    pathMatch: 'full'
+  },
+  {
     path: 'shared',
     loadComponent: () => import('./feature/catalog/catalog.component').then(m => m.CatalogComponent),
     data: { isPrivate: false, title: 'Danh mục dùng chung' }
