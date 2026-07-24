@@ -148,6 +148,14 @@ export class FileUploadService {
   }
 
   /**
+   * Abort chunked upload session
+   */
+  abortChunkedUpload(uploadId: string): Observable<void> {
+    const url = `${this.base}/upload/chunked/${uploadId}/abort`;
+    return this.api.delete<void>(url);
+  }
+
+  /**
    * Main upload method - decides between direct and chunked
    */
   async uploadFile(
@@ -205,61 +213,72 @@ export class FileUploadService {
     progress$: Subject<UploadProgress>,
     uploadSource: UploadSource = UPLOAD_SOURCE.WEB,
   ): Promise<FileUploadResponse> {
-    // Phase 1: Initiate
-    const initResponse = await firstValueFrom(
-      this.initiateChunkedUpload(file.name, file.size, folderId)
-    );
+    let uploadSessionId = '';
 
-    const uploadSessionId = initResponse.uploadId;
-    const chunkSize = initResponse.chunkSize;
-    const totalChunks = initResponse.totalChunks;
+    try {
+      // Phase 1: Initiate
+      const initResponse = await firstValueFrom(
+        this.initiateChunkedUpload(file.name, file.size, folderId)
+      );
 
-    // Phase 2: Upload chunks sequentially
-    const parts: Array<{ chunkNumber: number; eTag: string }> = [];
-    let uploadedBytes = 0;
+      uploadSessionId = initResponse.uploadId;
+      const chunkSize = initResponse.chunkSize;
+      const totalChunks = initResponse.totalChunks;
 
-    for (let i = 1; i <= totalChunks; i++) {
-      const start = (i - 1) * chunkSize;
-      const end = Math.min(start + chunkSize, file.size);
-      const chunk = file.slice(start, end);
-      const chunkArrayBuffer = await this.fileToArrayBuffer(chunk);
+      // Phase 2: Upload chunks sequentially
+      const parts: Array<{ chunkNumber: number; eTag: string }> = [];
+      let uploadedBytes = 0;
 
-      try {
-        const response = await firstValueFrom(
-          this.uploadChunk(uploadSessionId, i, chunkArrayBuffer)
-        );
+      for (let i = 1; i <= totalChunks; i++) {
+        const start = (i - 1) * chunkSize;
+        const end = Math.min(start + chunkSize, file.size);
+        const chunk = file.slice(start, end);
+        const chunkArrayBuffer = await this.fileToArrayBuffer(chunk);
 
-        parts.push({ chunkNumber: i, eTag: response.eTag });
-        uploadedBytes += chunk.size;
+        try {
+          const response = await firstValueFrom(
+            this.uploadChunk(uploadSessionId, i, chunkArrayBuffer)
+          );
 
-        // Emit progress
-        const percent = Math.round((uploadedBytes / file.size) * 100);
-        progress$.next({
-          uploadId: uploadSessionId,
-          progress: percent,
-          uploadedBytes,
-          totalBytes: file.size,
-          status: 'uploading'
-        });
-      } catch (error: unknown) {
-        throw new Error(extractApiErrorMessage(error, `Không thể upload chunk ${i}`));
+          parts.push({ chunkNumber: i, eTag: response.eTag });
+          uploadedBytes += chunk.size;
+
+          // Emit progress
+          const percent = Math.round((uploadedBytes / file.size) * 100);
+          progress$.next({
+            uploadId: uploadSessionId,
+            progress: percent,
+            uploadedBytes,
+            totalBytes: file.size,
+            status: 'uploading'
+          });
+        } catch (error: unknown) {
+          throw new Error(extractApiErrorMessage(error, `Không thể upload chunk ${i}/${totalChunks}`));
+        }
       }
+
+      // Phase 3: Complete
+      const result = await firstValueFrom(
+        this.completeChunkedUpload(uploadSessionId, parts)
+      );
+
+      progress$.next({
+        uploadId: uploadSessionId,
+        progress: 100,
+        uploadedBytes: file.size,
+        totalBytes: file.size,
+        status: 'completed'
+      });
+
+      return result;
+    } catch (error: unknown) {
+      if (uploadSessionId) {
+        firstValueFrom(this.abortChunkedUpload(uploadSessionId)).catch((err) =>
+          console.warn('Không thể tự động hủy phiên upload:', err)
+        );
+      }
+      throw error;
     }
-
-    // Phase 3: Complete
-    const result = await firstValueFrom(
-      this.completeChunkedUpload(uploadSessionId, parts)
-    );
-
-    progress$.next({
-      uploadId: uploadSessionId,
-      progress: 100,
-      uploadedBytes: file.size,
-      totalBytes: file.size,
-      status: 'completed'
-    });
-
-    return result;
   }
 
   /**

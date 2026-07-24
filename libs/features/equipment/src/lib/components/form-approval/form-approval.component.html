@@ -174,7 +174,7 @@
           <div>
             <input *ngIf="field.type === 'text'" type="text" pInputText class="w-full" [placeholder]="field.placeholder || ''" [ngModel]="simulatedValues()[field.name]" (ngModelChange)="updateSimulatedValue(field.name, $event)" />
             <input *ngIf="field.type === 'number'" type="number" pInputText class="w-full" [placeholder]="field.placeholder || ''" [ngModel]="simulatedValues()[field.name]" (ngModelChange)="updateSimulatedValue(field.name, $event)" />
-            <input *ngIf="field.type === 'date'" type="date" pInputText class="w-full" [ngModel]="simulatedValues()[field.name]" (ngModelChange)="updateSimulatedValue(field.name, $event)" />
+            <p-datepicker *ngIf="field.type === 'date'" class="w-full" dateFormat="dd/mm/yy" [showIcon]="true" icon="pi pi-calendar" appendTo="body" styleClass="w-full" [style]="{'width':'100%'}" placeholder="dd/mm/yyyy" [ngModel]="simulatedValues()[field.name]" (ngModelChange)="updateSimulatedValue(field.name, $event)"></p-datepicker>
             
             <p-select *ngIf="field.type === 'dropdown'" 
                       [options]="field.dataSourceType === 'catalog' ? (catalogOptionsMap()[field.catalogType || ''] || ['Đang tải...']) : (field.options || [])" 
