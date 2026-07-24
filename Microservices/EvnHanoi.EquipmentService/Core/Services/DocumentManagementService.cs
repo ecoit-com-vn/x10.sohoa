@@ -1,9 +1,10 @@
-using System.IO.Compression;
-using System.Text;
-using System.Text.Json;
+using DocumentFormat.OpenXml.Office2010.Word;
 using EvnHanoi.EquipmentService.Core.DTOs;
 using EvnHanoi.EquipmentService.Core.Entities;
 using EvnHanoi.EquipmentService.Core.Interfaces;
+using System.IO.Compression;
+using System.Text;
+using System.Text.Json;
 
 namespace EvnHanoi.EquipmentService.Core.Services;
 
@@ -31,14 +32,25 @@ public interface IDocumentManagementService
     Task<IEnumerable<DocumentVersionDto>> GetDocumentVersionsAsync(Guid documentId);
     Task<bool> RollbackDocumentVersionAsync(Guid versionId, string userId);
     Task<bool> DeleteDocumentVersionAsync(Guid versionId, string userId);
+    Task<FileUploadResponse> UploadNewDocumentVersionAsync(
+      Stream fileStream,
+      string fileName,
+      string mimeType,
+      long fileSize,
+      Guid documentId,
+      Guid folderId,
+      int uploadSource,
+      string userId,
+      long userUnitId,
+      CancellationToken cancellationToken);
 
     // Dossier Catalog tree operations
     Task<IEnumerable<FolderCatalogNodeDto>> GetDossierCatalogTreeAsync(long unitId);
     Task<(IEnumerable<DocumentListItemDto> Items, int TotalCount)> GetDossierCatalogDocumentsAsync(
-        long unitId, 
-        string? folderId, 
-        string? keyword, 
-        int page, 
+        long unitId,
+        string? folderId,
+        string? keyword,
+        int page,
         int pageSize);
 }
 
@@ -46,15 +58,20 @@ public class DocumentManagementService : IDocumentManagementService
 {
     private readonly IDocumentRepository _documentRepository;
     private readonly IFileStorageService _fileStorageService;
+    private readonly IClamAvService _antivirusService;
     private readonly ILogger<DocumentManagementService> _logger;
-
+    private readonly IMimeTypeValidationService _mimeTypeValidator;
     public DocumentManagementService(
         IDocumentRepository documentRepository,
         IFileStorageService fileStorageService,
+        IClamAvService antivirusService,
+        IMimeTypeValidationService mimeTypeValidator,
         ILogger<DocumentManagementService> logger)
     {
         _documentRepository = documentRepository ?? throw new ArgumentNullException(nameof(documentRepository));
         _fileStorageService = fileStorageService ?? throw new ArgumentNullException(nameof(fileStorageService));
+        _mimeTypeValidator = mimeTypeValidator ?? throw new ArgumentNullException(nameof(mimeTypeValidator));
+        _antivirusService = antivirusService ?? throw new ArgumentNullException(nameof(antivirusService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -398,6 +415,106 @@ public class DocumentManagementService : IDocumentManagementService
         return await _documentRepository.SoftDeleteDocumentVersionAsync(versionId, userId);
     }
 
+    public async Task<FileUploadResponse> UploadNewDocumentVersionAsync(
+       Stream fileStream,
+       string fileName,
+       string mimeType,
+       long fileSize,
+       Guid documentId,
+       Guid folderId,
+       int uploadSource,
+       string userId,
+       long userUnitId,
+       CancellationToken cancellationToken)
+    {
+        try
+        {
+            // ===== VALIDATION =====
+            if (string.IsNullOrWhiteSpace(fileName))
+                throw new ArgumentException("Tên file không được để trống");
+
+            var folder = await ValidateFolderPermissionAsync(folderId, userUnitId);
+
+            // ===== MIME TYPE & SIGNATURE VALIDATION =====
+            await ValidateMimeTypeAsync(mimeType);
+            ValidateMagicBytes(fileStream, mimeType);
+
+            // ===== ANTIVIRUS SCAN =====
+            _logger.LogInformation("Starting antivirus scan for {FileName}", fileName);
+            var scanResult = await _antivirusService.ScanFileAsync(
+                fileStream,
+                fileName,
+                cancellationToken);
+
+            if (!scanResult.IsClean)
+            {
+                _logger.LogWarning("File infected: {FileName} - Threat: {Threat}", fileName, scanResult.Threat);
+                throw new InvalidOperationException($"File bị phát hiện chứa mã độc: {scanResult.Threat}");
+            }
+
+            // ===== UPLOAD TO MINIO (theo đơn vị + thư mục) =====
+            fileStream.Seek(0, SeekOrigin.Begin);
+            var (minioPath, minioVersionId) = await _fileStorageService.UploadFileAsync(
+                fileStream,
+                fileName,
+                mimeType,
+                fileSize,
+                ResolveUnitCode(folder),
+                folderId,
+                cancellationToken);
+
+            _logger.LogInformation("File uploaded to MinIO: {MinioPath} (Version: {VersionId})", minioPath, minioVersionId);
+
+            // ===== CREATE OR UPDATE DOCUMENT & VERSION =====
+            int versionNumber = 1;
+
+            //var existingDoc = await _documentRepository.GetDocumentByNameAndFolderAsync(fileName, folderId);
+            //if (existingDoc != null)
+            //{
+            //    documentId = existingDoc.Id;
+            //    var versions = await _documentRepository.GetDocumentVersionsAsync(documentId);
+            //    versionNumber = versions.Any() ? versions.Max(v => v.VersionNumber) + 1 : 1;
+            //    _logger.LogInformation("Found existing document with same name '{FileName}' (DocumentId: {DocumentId}). Incrementing to version {VersionNumber}.",
+            //        fileName, documentId, versionNumber);
+            //}
+            var version = new DocumentVersion
+            {
+                DocumentId = documentId,
+                VersionNumber = versionNumber,
+                UploadSource = uploadSource,
+                FilePath = minioPath,
+                MinioVersionId = minioVersionId,
+                FileSize = fileSize,
+                MimeType = mimeType,
+                ChunksCount = 1,  // Direct upload
+                CreatedBy = userId
+            };
+
+            var versionId = await _documentRepository.CreateDocumentVersionAsync(version);
+
+            _logger.LogInformation("Successfully uploaded file: {FileName} (DocumentId: {DocumentId}, VersionId: {VersionId}, VersionNumber: {VersionNumber})",
+                fileName, documentId, versionId, versionNumber);
+
+            return new FileUploadResponse
+            {
+                DocumentVersionId = versionId,
+                DocumentId = documentId,
+                VersionNumber = versionNumber,
+                Status = "Active"
+            };
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning(ex, "Validation failed for upload: {FileName}", fileName);
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error uploading file: {FileName}", fileName);
+            throw;
+        }
+    }
+
     // ===== DOSSIER CATALOG TREE OPERATIONS =====
 
     private string GetDossierDisplayName(string? formDataJson, string dossierTypeName, string dossierSetName, string dossierId)
@@ -480,7 +597,7 @@ public class DocumentManagementService : IDocumentManagementService
         // 1. Mapping Trạm biến áp (4 cấp)
         foreach (var sub in substations)
         {
-            bool isHighVoltageSub = sub.GridTypeId == 1 || 
+            bool isHighVoltageSub = sub.GridTypeId == 1 ||
                                     (sub.GridTypeId == null && (
                                         (sub.Name != null && (sub.Name.Contains("110") || sub.Name.Contains("220") || sub.Name.Contains("500")))
                                         || (sub.Code != null && (sub.Code.Contains("110") || sub.Code.Contains("220") || sub.Code.Contains("500")))
@@ -533,7 +650,7 @@ public class DocumentManagementService : IDocumentManagementService
         // 2. Mapping Đường dây (4 cấp)
         foreach (var infra in powerLines)
         {
-            bool isHighVoltageInfra = infra.GridTypeId == 1 || 
+            bool isHighVoltageInfra = infra.GridTypeId == 1 ||
                                       (infra.GridTypeId == null && (
                                           (infra.Name != null && (infra.Name.Contains("110") || infra.Name.Contains("220") || infra.Name.Contains("500")))
                                           || (infra.Code != null && (infra.Code.Contains("110") || infra.Code.Contains("220") || infra.Code.Contains("500")))
@@ -666,10 +783,10 @@ public class DocumentManagementService : IDocumentManagementService
     }
 
     public async Task<(IEnumerable<DocumentListItemDto> Items, int TotalCount)> GetDossierCatalogDocumentsAsync(
-        long unitId, 
-        string? folderId, 
-        string? keyword, 
-        int page, 
+        long unitId,
+        string? folderId,
+        string? keyword,
+        int page,
         int pageSize)
     {
         if (string.IsNullOrWhiteSpace(folderId))
@@ -694,5 +811,41 @@ public class DocumentManagementService : IDocumentManagementService
         }
 
         return (Enumerable.Empty<DocumentListItemDto>(), 0);
+    }
+    private async Task<FolderNodeDto> ValidateFolderPermissionAsync(Guid folderId, long userUnitId)
+    {
+        var folder = await _documentRepository.GetFolderByIdAsync(folderId);
+        if (folder == null)
+            throw new InvalidOperationException("Thư mục không tồn tại");
+
+        // Cây thư mục kho chỉ hiển thị folder thuộc đúng unit_id JWT — so khớp tuyệt đối, không so sánh số học ID.
+        if (userUnitId == 0 || folder.UnitId != userUnitId)
+            throw new UnauthorizedAccessException("Bạn không có quyền upload file vào thư mục này");
+
+        return folder;
+    }
+    private static string ResolveUnitCode(FolderNodeDto folder)
+    {
+        if (string.IsNullOrWhiteSpace(folder.UnitCode))
+            throw new InvalidOperationException("Không tìm thấy mã đơn vị (unit_code) của thư mục");
+
+        return folder.UnitCode.Trim();
+    }
+    private async Task ValidateMimeTypeAsync(string mimeType)
+    {
+        var isMimeTypeAllowed = await _mimeTypeValidator.IsAllowedMimeTypeAsync(mimeType);
+        if (!isMimeTypeAllowed)
+            throw new ArgumentException($"Loại file không được hỗ trợ: {mimeType}");
+    }
+    private void ValidateMagicBytes(Stream fileStream, string mimeType)
+    {
+        using var memStream = new MemoryStream();
+        fileStream.CopyTo(memStream);
+        memStream.Seek(0, SeekOrigin.Begin);
+
+        if (!_mimeTypeValidator.ValidateMagicBytes(memStream, mimeType))
+            throw new ArgumentException("File bị nghi ngờ - chữ ký file không khớp với loại file");
+
+        fileStream.Seek(0, SeekOrigin.Begin);
     }
 }

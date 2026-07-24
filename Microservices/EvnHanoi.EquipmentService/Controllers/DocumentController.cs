@@ -1,9 +1,12 @@
+using DocumentFormat.OpenXml.Office2010.Word;
+using EvnHanoi.EquipmentService.Core.DTOs;
+using EvnHanoi.EquipmentService.Core.Entities;
+using EvnHanoi.EquipmentService.Core.Services;
+using EvnHanoi.Infrastructure.Audit;
+using EvnHanoi.Infrastructure.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
-using EvnHanoi.EquipmentService.Core.DTOs;
-using EvnHanoi.EquipmentService.Core.Services;
-using EvnHanoi.Infrastructure.Security;
 
 namespace EvnHanoi.EquipmentService.Controllers;
 
@@ -314,5 +317,61 @@ public partial class DocumentController : ControllerBase
             return BadRequest("Không thể xóa phiên bản này.");
 
         return NoContent();
+    }
+    /// <summary>
+    /// Upload bản mới cho tài liệu
+    /// </summary>
+    [HttpPost("{documentId}/new-versions")]
+    [RequestSizeLimit(10_485_760)]
+    public async Task<IActionResult> UploadNewDocumentVersion(
+        [FromRoute] Guid documentId,
+        [FromForm] IFormFile file,
+          [FromForm] Guid folderId,
+        CancellationToken cancellationToken,
+        [FromForm] int uploadSource = 3)
+    {
+        try
+        {
+            if (file == null || file.Length == 0)
+                return BadRequest("File không được để trống");
+
+            var userUnitId = GetUserUnitId();
+            if (userUnitId == 0)
+                return Unauthorized("Không thể xác định đơn vị của người dùng");
+            using var fileStream = file.OpenReadStream();
+            var result = await _documentService.UploadNewDocumentVersionAsync(
+                fileStream,
+                file.FileName,
+                file.ContentType,
+                file.Length,
+                documentId,
+                folderId,
+                uploadSource,
+                UserId,
+                userUnitId,
+                cancellationToken);
+
+            return Ok(result);
+        }
+        catch (ArgumentException ex)
+        {
+            _logger.LogWarning(ex, "Validation error for document upload");
+            return BadRequest(new { code = "VALIDATION_ERROR", message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning(ex, "Operation error for document upload");
+            return BadRequest(new { code = "OPERATION_ERROR", message = ex.Message });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning(ex, "Permission denied for document upload");
+            return StatusCode(403, new { code = "FORBIDDEN", message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error uploading document to folder");
+            return StatusCode(500, new { code = "UPLOAD_ERROR", message = ex.Message });
+        }
     }
 }
