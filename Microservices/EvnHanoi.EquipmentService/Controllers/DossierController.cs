@@ -74,6 +74,7 @@ public abstract partial class DossierControllerBase : ControllerBase
         [FromQuery] Guid? dossierTypeId,
         [FromQuery] string? tab,
         [FromQuery] string? menuScope,
+        [FromQuery] int? kindId,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10)
     {
@@ -89,6 +90,7 @@ public abstract partial class DossierControllerBase : ControllerBase
             PageSize = pageSize,
             Tab = tab,
             MenuScope = menuScope,
+            KindId = kindId ?? ExpectedKindId,
             UserId = UserId
         };
 

@@ -38,6 +38,16 @@ public class BhsCatalogColumnDto
     public int Priority { get; set; }
 }
 
+public class DossierInfrastructureDto
+{
+    public Guid InfrastructureId { get; set; }
+    public string InfrastructureCode { get; set; } = string.Empty;
+    public string InfrastructureName { get; set; } = string.Empty;
+    public int InfraTypeId { get; set; }
+    public string? InfraTypeName { get; set; }
+    public long? UnitId { get; set; }
+}
+
 /// <summary>
 /// DTO dùng cho danh sách hồ sơ — bao gồm catalog columns loại BHS + trạm/đường dây
 /// </summary>
@@ -47,6 +57,8 @@ public class DossierListItemDto
     public int? GridTypeId { get; set; }
     public string? GridTypeName { get; set; }
     public Guid? InfrastructureId { get; set; }
+    public List<Guid> InfrastructureIds { get; set; } = new();
+    public List<DossierInfrastructureDto> Infrastructures { get; set; } = new();
     public string? InfrastructureName { get; set; }
     public string? InfrastructureCode { get; set; }
     public Guid? DossierSetId { get; set; }
@@ -91,6 +103,8 @@ public class DossierDetailDto
     public int? GridTypeId { get; set; }
     public string? GridTypeName { get; set; }
     public Guid? InfrastructureId { get; set; }
+    public List<Guid> InfrastructureIds { get; set; } = new();
+    public List<DossierInfrastructureDto> Infrastructures { get; set; } = new();
     public string? InfrastructureName { get; set; }
     public string? InfrastructureCode { get; set; }
     public Guid? DossierSetId { get; set; }
@@ -138,6 +152,7 @@ public class DossierCreateDto
     public int DossierGroupId { get; set; }
     public int? GridTypeId { get; set; }
     public Guid? InfrastructureId { get; set; }
+    public List<Guid> InfrastructureIds { get; set; } = new();
     public Guid? DossierSetId { get; set; }
     public Guid DossierTypeId { get; set; }
     public List<Guid> EquipmentIds { get; set; } = new();
@@ -157,6 +172,7 @@ public class DossierUpdateDto
     public int DossierGroupId { get; set; }
     public int? GridTypeId { get; set; }
     public Guid? InfrastructureId { get; set; }
+    public List<Guid> InfrastructureIds { get; set; } = new();
     public Guid? DossierSetId { get; set; }
     public Guid DossierTypeId { get; set; }
     public List<Guid> EquipmentIds { get; set; } = new();
@@ -254,6 +270,7 @@ public class DossierFilterDto
     public int PageSize { get; set; } = 10;
     public string? Tab { get; set; }
     public string? MenuScope { get; set; }
+    public int? KindId { get; set; }
     public string? UserId { get; set; }
 }
 
