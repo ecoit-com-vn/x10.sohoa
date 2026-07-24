@@ -5,6 +5,7 @@ import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
 import { DialogModule } from 'primeng/dialog';
 import { SelectModule } from 'primeng/select';
+import { MultiSelectModule } from 'primeng/multiselect';
 import { DossierManagementService } from '../../data-access/dossier-management.service';
 import { DossierDocumentsTabComponent } from '../dossier-documents/dossier-documents-tab.component';
 import { DossierVersionsTabComponent } from '../dossier-versions-tab/dossier-versions-tab.component';
@@ -33,7 +34,7 @@ import { normalizeDossierKindId } from '../../utils/dossier-permission.util';
 @Component({
   selector: 'app-dossier-form',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule, DialogModule, SelectModule, DossierDocumentsTabComponent, DossierVersionsTabComponent, DossierWorkflowTabComponent, DatePickerModule],
+  imports: [CommonModule, FormsModule, ToastModule, DialogModule, SelectModule, MultiSelectModule, DossierDocumentsTabComponent, DossierVersionsTabComponent, DossierWorkflowTabComponent, DatePickerModule],
   template: `
     <div class="wf-card" style="position: relative;">
       <!-- Header -->
@@ -107,62 +108,121 @@ import { normalizeDossierKindId } from '../../utils/dossier-permission.util';
 
       <div class="tab-content" style="position: relative;">
       <div *ngIf="!isEditMode() || activeTab() === 'info'">
-      <!-- Thông tin vị trí: Nhóm → Lưới → Trạm/ĐZ → (Thiết bị) → Hộp lưu trữ -->
-      <div style="display: flex; flex-direction: column; gap: 16px; margin-bottom: 24px; max-width: 640px;">
+      <!-- Thông tin vị trí: Nhóm / Trạm-ĐZ / Hộp lưu trữ (cùng 1 hàng) → (Thiết bị) -->
+      <div style="display: flex; flex-direction: column; gap: 16px; margin-bottom: 24px;">
         <h3 style="font-size: 0.95rem; font-weight: 700; color: #002D72; padding-bottom: 8px; border-bottom: 1px solid #e2e8f0; margin: 0;">Thông tin vị trí</h3>
 
-        <div class="form-group">
-          <label class="form-label">Nhóm hồ sơ <span class="required">*</span></label>
-          <p-select
-            [options]="dossierGroups()"
-            [(ngModel)]="dossier.dossierGroupId"
-            (ngModelChange)="onDossierGroupChange($event)"
-            optionLabel="name"
-            optionValue="id"
-            [filter]="true"
-            filterBy="name,code"
-            [showClear]="false"
-            placeholder="-- Chọn nhóm hồ sơ --"
-            appendTo="body"
-            styleClass="w-full"
-            [style]="{'width':'100%'}">
-          </p-select>
-        </div>
+        <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+          <div class="form-group" style="flex: 1 1 240px; min-width: 220px;">
+            <label class="form-label">Nhóm hồ sơ <span class="required">*</span></label>
+            <p-select
+              [options]="dossierGroups()"
+              [(ngModel)]="dossier.dossierGroupId"
+              (ngModelChange)="onDossierGroupChange($event)"
+              optionLabel="name"
+              optionValue="id"
+              [filter]="true"
+              filterBy="name,code"
+              [showClear]="false"
+              placeholder="-- Chọn nhóm hồ sơ --"
+              appendTo="body"
+              styleClass="w-full"
+              [style]="{'width':'100%'}">
+            </p-select>
+          </div>
 
-        <div class="form-group">
-          <label class="form-label">Loại lưới điện</label>
-          <p-select
-            [options]="gridTypes()"
-            [(ngModel)]="dossier.gridTypeId"
-            (ngModelChange)="onGridTypeChange($event)"
-            optionLabel="name"
-            optionValue="id"
-            [filter]="true"
-            filterBy="name"
-            [showClear]="true"
-            placeholder="-- Chọn loại lưới điện --"
-            appendTo="body"
-            styleClass="w-full"
-            [style]="{'width':'100%'}">
-          </p-select>
-        </div>
+          <div class="form-group" style="flex: 1 1 240px; min-width: 220px;">
+            <label class="form-label">Trạm / Đường dây</label>
+            <p-multiSelect
+              [options]="formInfrastructures()"
+              [(ngModel)]="dossier.infrastructureIds"
+              (ngModelChange)="onInfrastructureChange($event)"
+              optionLabel="displayLabel"
+              optionValue="id"
+              [filter]="true"
+              filterBy="name,code,displayLabel"
+              [showClear]="true"
+              placeholder="-- Chọn trạm / đường dây --"
+              appendTo="body"
+              styleClass="w-full"
+              [style]="{'width':'100%'}">
+            </p-multiSelect>
+          </div>
 
-        <div class="form-group">
-          <label class="form-label">{{ infrastructureFieldLabel() }}</label>
-          <p-select
-            [options]="formInfrastructures()"
-            [(ngModel)]="dossier.infrastructureId"
-            (ngModelChange)="onInfrastructureChange($event)"
-            optionLabel="displayLabel"
-            optionValue="id"
-            [filter]="true"
-            filterBy="name,code,displayLabel"
-            [showClear]="true"
-            [placeholder]="infrastructurePlaceholder()"
-            appendTo="body"
-            styleClass="w-full"
-            [style]="{'width':'100%'}">
-          </p-select>
+          <div class="form-group" style="flex: 1 1 240px; min-width: 220px;">
+            <label class="form-label">Hộp lưu trữ</label>
+            <div class="storage-tree-picker">
+              <div class="storage-tree-trigger"
+                [class.has-value]="!!selectedStorageBoxId()"
+                [class.open]="storageTreeOpen()"
+                (click)="toggleStorageTree($event)">
+                <span class="storage-tree-selected-label">
+                  <i class="pi pi-box" style="margin-right: 6px; color: #6b7280;"></i>
+                  {{ storageSelectionLabel() || '-- Chọn hộp (kệ / tầng / hộp) --' }}
+                </span>
+                <span style="display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0;">
+                  <button *ngIf="selectedStorageBoxId()" type="button" class="storage-tree-clear"
+                    title="Bỏ chọn" (click)="clearStorageSelection($event)">
+                    <i class="pi pi-times"></i>
+                  </button>
+                  <i class="pi" [class.pi-chevron-down]="!storageTreeOpen()"
+                    [class.pi-chevron-up]="storageTreeOpen()"></i>
+                </span>
+              </div>
+              <div class="storage-tree-dropdown" *ngIf="storageTreeOpen()" (click)="$event.stopPropagation()">
+                <div *ngIf="storageTree().length === 0" class="storage-tree-empty">
+                  Chưa có kệ/tầng/hộp theo đơn vị hiện tại.
+                </div>
+                <ng-container *ngFor="let shelf of storageTree()">
+                  <div class="storage-tree-node" [style.padding-left.px]="8">
+                    <button type="button" class="storage-tree-expand-btn"
+                      *ngIf="shelf.floors?.length"
+                      (click)="toggleStorageNode('s-' + shelf.id, $event)">
+                      <i class="pi"
+                        [class.pi-chevron-right]="!isStorageNodeExpanded('s-' + shelf.id)"
+                        [class.pi-chevron-down]="isStorageNodeExpanded('s-' + shelf.id)"></i>
+                    </button>
+                    <span class="storage-tree-node-spacer" *ngIf="!shelf.floors?.length"></span>
+                    <span class="storage-tree-node-label storage-tree-level">
+                      {{ shelf.name }} <code>({{ shelf.code }})</code>
+                    </span>
+                  </div>
+                  <ng-container *ngIf="isStorageNodeExpanded('s-' + shelf.id)">
+                    <ng-container *ngFor="let floor of shelf.floors || []">
+                      <div class="storage-tree-node" [style.padding-left.px]="22">
+                        <button type="button" class="storage-tree-expand-btn"
+                          *ngIf="floor.boxes?.length"
+                          (click)="toggleStorageNode('f-' + floor.id, $event)">
+                          <i class="pi"
+                            [class.pi-chevron-right]="!isStorageNodeExpanded('f-' + floor.id)"
+                            [class.pi-chevron-down]="isStorageNodeExpanded('f-' + floor.id)"></i>
+                        </button>
+                        <span class="storage-tree-node-spacer" *ngIf="!floor.boxes?.length"></span>
+                        <span class="storage-tree-node-label storage-tree-level">
+                          {{ floor.name }} <code>({{ floor.code }})</code>
+                        </span>
+                      </div>
+                      <ng-container *ngIf="isStorageNodeExpanded('f-' + floor.id)">
+                        <div class="storage-tree-node storage-tree-leaf"
+                          *ngFor="let box of floor.boxes || []"
+                          [style.padding-left.px]="36"
+                          [class.selected]="selectedStorageBoxId() == box.id"
+                          (click)="selectStorageBox(shelf, floor, box)">
+                          <span class="storage-tree-node-spacer"></span>
+                          <span class="storage-tree-node-label">
+                            {{ box.name }} <code>({{ box.code }})</code>
+                          </span>
+                        </div>
+                      </ng-container>
+                    </ng-container>
+                  </ng-container>
+                </ng-container>
+              </div>
+            </div>
+            <p style="font-size: 0.75rem; color: #6b7280; margin: 6px 0 0 0;">
+              Không bắt buộc. Chỉ lưu khi chọn đến hộp.
+            </p>
+          </div>
         </div>
 
         <div class="form-group" *ngIf="isEquipmentDossier()">
@@ -197,81 +257,6 @@ import { normalizeDossierKindId } from '../../utils/dossier-permission.util';
               </tbody>
             </table>
           </div>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Hộp lưu trữ</label>
-          <div class="storage-tree-picker">
-            <div class="storage-tree-trigger"
-              [class.has-value]="!!selectedStorageBoxId()"
-              [class.open]="storageTreeOpen()"
-              (click)="toggleStorageTree($event)">
-              <span class="storage-tree-selected-label">
-                <i class="pi pi-box" style="margin-right: 6px; color: #6b7280;"></i>
-                {{ storageSelectionLabel() || '-- Chọn hộp (kệ / tầng / hộp) --' }}
-              </span>
-              <span style="display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0;">
-                <button *ngIf="selectedStorageBoxId()" type="button" class="storage-tree-clear"
-                  title="Bỏ chọn" (click)="clearStorageSelection($event)">
-                  <i class="pi pi-times"></i>
-                </button>
-                <i class="pi" [class.pi-chevron-down]="!storageTreeOpen()"
-                  [class.pi-chevron-up]="storageTreeOpen()"></i>
-              </span>
-            </div>
-            <div class="storage-tree-dropdown" *ngIf="storageTreeOpen()" (click)="$event.stopPropagation()">
-              <div *ngIf="storageTree().length === 0" class="storage-tree-empty">
-                Chưa có kệ/tầng/hộp theo đơn vị hiện tại.
-              </div>
-              <ng-container *ngFor="let shelf of storageTree()">
-                <div class="storage-tree-node" [style.padding-left.px]="8">
-                  <button type="button" class="storage-tree-expand-btn"
-                    *ngIf="shelf.floors?.length"
-                    (click)="toggleStorageNode('s-' + shelf.id, $event)">
-                    <i class="pi"
-                      [class.pi-chevron-right]="!isStorageNodeExpanded('s-' + shelf.id)"
-                      [class.pi-chevron-down]="isStorageNodeExpanded('s-' + shelf.id)"></i>
-                  </button>
-                  <span class="storage-tree-node-spacer" *ngIf="!shelf.floors?.length"></span>
-                  <span class="storage-tree-node-label storage-tree-level">
-                    {{ shelf.name }} <code>({{ shelf.code }})</code>
-                  </span>
-                </div>
-                <ng-container *ngIf="isStorageNodeExpanded('s-' + shelf.id)">
-                  <ng-container *ngFor="let floor of shelf.floors || []">
-                    <div class="storage-tree-node" [style.padding-left.px]="22">
-                      <button type="button" class="storage-tree-expand-btn"
-                        *ngIf="floor.boxes?.length"
-                        (click)="toggleStorageNode('f-' + floor.id, $event)">
-                        <i class="pi"
-                          [class.pi-chevron-right]="!isStorageNodeExpanded('f-' + floor.id)"
-                          [class.pi-chevron-down]="isStorageNodeExpanded('f-' + floor.id)"></i>
-                      </button>
-                      <span class="storage-tree-node-spacer" *ngIf="!floor.boxes?.length"></span>
-                      <span class="storage-tree-node-label storage-tree-level">
-                        {{ floor.name }} <code>({{ floor.code }})</code>
-                      </span>
-                    </div>
-                    <ng-container *ngIf="isStorageNodeExpanded('f-' + floor.id)">
-                      <div class="storage-tree-node storage-tree-leaf"
-                        *ngFor="let box of floor.boxes || []"
-                        [style.padding-left.px]="36"
-                        [class.selected]="selectedStorageBoxId() == box.id"
-                        (click)="selectStorageBox(shelf, floor, box)">
-                        <span class="storage-tree-node-spacer"></span>
-                        <span class="storage-tree-node-label">
-                          {{ box.name }} <code>({{ box.code }})</code>
-                        </span>
-                      </div>
-                    </ng-container>
-                  </ng-container>
-                </ng-container>
-              </ng-container>
-            </div>
-          </div>
-          <p style="font-size: 0.75rem; color: #6b7280; margin: 6px 0 0 0;">
-            Không bắt buộc. Chỉ lưu khi chọn đến hộp.
-          </p>
         </div>
       </div>
 
@@ -773,6 +758,7 @@ export class DossierFormComponent implements OnInit {
     dossierGroupId: null as number | null,
     gridTypeId: null as number | null,
     infrastructureId: null as string | null,
+    infrastructureIds: [] as string[],
     dossierSetId: null as string | null,
     rowVersion: 1,
     shelfId: null as number | null,
@@ -818,12 +804,32 @@ export class DossierFormComponent implements OnInit {
       ? Number(group.infraTypeId ?? group.InfraTypeId)
       : null;
 
+    const selectedIds = this.dossier.infrastructureIds || [];
+
+    // Lấy UnitId của hạ tầng đầu tiên đã chọn (nếu có)
+    let enforcedUnitId: number | null = null;
+    if (selectedIds.length > 0) {
+      const firstSelected = this.infrastructures().find(inf => (inf.id ?? inf.Id) === selectedIds[0]);
+      if (firstSelected) {
+        enforcedUnitId = firstSelected.unitId ?? firstSelected.UnitId ?? null;
+      }
+    }
+
     return this.infrastructures().filter(inf => {
       const itemGridType = Number(inf.gridTypeId ?? inf.GridTypeId);
       const itemInfraType = Number(inf.infraTypeId ?? inf.InfraTypeId);
+      const itemUnitId = inf.unitId ?? inf.UnitId ?? null;
+
+      // 1. Chỉ lấy đúng loại hạ tầng theo Nhóm hồ sơ (1 = Trạm biến áp, 2 = Đường dây)
       if (infraTypeId != null && !Number.isNaN(infraTypeId) && itemInfraType !== infraTypeId) {
         return false;
       }
+
+      // 2. Khi đã chọn 1 hạ tầng -> chỉ hiển thị các hạ tầng CÙNG ĐƠN VỊ
+      if (enforcedUnitId != null && itemUnitId != null && Number(itemUnitId) !== Number(enforcedUnitId)) {
+        return false;
+      }
+
       if (gtId && itemGridType !== Number(gtId)) {
         return false;
       }
@@ -1039,6 +1045,11 @@ export class DossierFormComponent implements OnInit {
           this.kindIdSignal.set(normalizedKindId);
           this.service.setKindContext(normalizedKindId);
 
+          const rawInfraIds = res.infrastructureIds ?? res.InfrastructureIds;
+          const infraIds: string[] = Array.isArray(rawInfraIds)
+            ? rawInfraIds
+            : (res.infrastructureId ?? res.InfrastructureId ? [res.infrastructureId ?? res.InfrastructureId] : []);
+
           this.dossier = {
             id: res.id ?? res.Id,
             dossierTypeId: res.dossierTypeId ?? res.DossierTypeId,
@@ -1046,7 +1057,8 @@ export class DossierFormComponent implements OnInit {
               ? Number(res.dossierGroupId ?? res.DossierGroupId)
               : 1,
             gridTypeId: res.gridTypeId != null ? Number(res.gridTypeId ?? res.GridTypeId) : null,
-            infrastructureId: res.infrastructureId ?? res.InfrastructureId,
+            infrastructureId: infraIds[0] ?? null,
+            infrastructureIds: infraIds,
             dossierSetId: res.dossierSetId ?? res.DossierSetId,
             rowVersion: res.rowVersion ?? res.RowVersion,
             shelfId: res.shelfId ?? res.ShelfId ?? null,
@@ -1110,14 +1122,13 @@ export class DossierFormComponent implements OnInit {
     this.dossier.gridTypeId = numericId;
     this.formGridTypeId.set(numericId);
 
-    // Reset trạm nếu trạm cũ không thuộc lưới điện mới
-    if (this.dossier.infrastructureId) {
-      const match = this.infrastructures().find(inf => inf.id === this.dossier.infrastructureId);
-      const itemGridType = match ? Number(match.gridTypeId ?? match.GridTypeId) : null;
-      if (itemGridType !== numericId) {
-        this.dossier.infrastructureId = null;
-        this.selectedEquipments.set([]);
-      }
+    if (this.dossier.infrastructureIds && this.dossier.infrastructureIds.length > 0) {
+      const allowed = this.infrastructures()
+        .filter(inf => numericId == null || Number(inf.gridTypeId ?? inf.GridTypeId) === numericId)
+        .map(inf => inf.id ?? inf.Id);
+      this.dossier.infrastructureIds = this.dossier.infrastructureIds.filter(id => allowed.includes(id));
+      this.dossier.infrastructureId = this.dossier.infrastructureIds[0] ?? null;
+      this.selectedEquipments.set([]);
     }
   }
 
@@ -1126,25 +1137,62 @@ export class DossierFormComponent implements OnInit {
     this.dossier.dossierGroupId = numericId;
     this.dossierGroupIdSignal.set(numericId);
 
-    // Clear hạ tầng nếu không còn khớp InfraTypeId của nhóm mới
-    if (this.dossier.infrastructureId) {
-      const allowed = this.formInfrastructures().some(
-        (inf) => (inf.id ?? inf.Id) === this.dossier.infrastructureId
-      );
-      if (!allowed) {
-        this.dossier.infrastructureId = null;
-      }
+    if (this.dossier.infrastructureIds && this.dossier.infrastructureIds.length > 0) {
+      const allowedIds = this.formInfrastructures().map(inf => inf.id ?? inf.Id);
+      this.dossier.infrastructureIds = this.dossier.infrastructureIds.filter(id => allowedIds.includes(id));
+      this.dossier.infrastructureId = this.dossier.infrastructureIds[0] ?? null;
     }
 
     if (!this.isEquipmentDossier()) {
       this.selectedEquipments.set([]);
     }
+
+    this.tryAutoGenerateDossierCode();
   }
 
-  onInfrastructureChange(infraId: any) {
+  onInfrastructureChange(selectedIds: any) {
     if (this.loading()) return;
-    // Đổi trạm/đường dây → clear thiết bị đã chọn (có thể thuộc hạ tầng khác)
+    const ids: string[] = Array.isArray(selectedIds) ? selectedIds : (selectedIds ? [selectedIds] : []);
+    this.dossier.infrastructureIds = ids;
+    this.dossier.infrastructureId = ids[0] ?? null;
+
+    // Đổi trạm/đường dây -> clear danh sách thiết bị đã chọn
     this.selectedEquipments.set([]);
+    this.tryAutoGenerateDossierCode();
+  }
+
+  /**
+   * Tự sinh mã hồ sơ theo công thức: <Mã nhóm hs>.<Mã trạm/ĐZ đầu tiên>.<Mã loại hồ sơ>
+   * Điền vào trường có mã "CODE" trong EAV form nếu ở chế độ Tạo mới (hoặc khi đổi tiêu chí).
+   */
+  private tryAutoGenerateDossierCode() {
+    if (this.isEditMode()) return;
+    const fields = this.dynamicFields();
+    if (!fields.length) return;
+
+    const codeField = fields.find(
+      (f) => f.key?.toUpperCase() === 'CODE' || f.name?.toUpperCase() === 'CODE' || f.id?.toUpperCase() === 'CODE'
+    );
+    if (!codeField) return;
+
+    // 1. Mã nhóm hồ sơ
+    const group = this.selectedDossierGroup();
+    const groupCode = group ? String(group.code ?? group.Code ?? '').trim() : '';
+
+    // 2. Mã trạm/đường dây phần tử đầu tiên
+    const firstInfraId = this.dossier.infrastructureIds?.[0] || this.dossier.infrastructureId;
+    const firstInfra = this.infrastructures().find((inf) => guidsEqual(inf.id ?? inf.Id, firstInfraId));
+    const infraCode = firstInfra ? String(firstInfra.code ?? firstInfra.Code ?? '').trim() : '';
+
+    // 3. Mã loại hồ sơ
+    const typeId = this.dossier.dossierTypeId;
+    const dossierType = this.dossierTypes().find((t) => guidsEqual(t.id ?? t.Id, typeId));
+    const typeCode = dossierType ? String(dossierType.code ?? dossierType.Code ?? '').trim() : '';
+
+    if (groupCode && infraCode && typeCode) {
+      const generatedCode = `${groupCode}.${infraCode}.${typeCode}`;
+      this.formData[codeField.key] = generatedCode;
+    }
   }
 
   /** Tìm formId từ dossierType rồi gọi API lấy form template */
@@ -1191,6 +1239,7 @@ export class DossierFormComponent implements OnInit {
 
            // Load catalog data cho các field có dataSourceType = 'catalog'
            this.loadCatalogForFields(fields);
+           this.tryAutoGenerateDossierCode();
         } catch {
           this.dynamicFields.set([]);
           this.messageService.add({ severity: 'warn', summary: 'Cảnh báo', detail: 'Không thể đọc cấu trúc biểu mẫu' });
@@ -1464,6 +1513,25 @@ export class DossierFormComponent implements OnInit {
     }
   }
 
+  /**
+   * Chuyển các field 'date' (đang là Date object cho p-datepicker) về chuỗi 'yyyy-mm-dd' theo
+   * giờ local trước khi serialize — tránh JSON.stringify(Date) tự quy đổi UTC làm lùi ngày
+   * (VD: 00:00 giờ VN (UTC+7) → 17:00 ngày hôm trước khi ép về UTC).
+   */
+  private toSerializableFormData(): Record<string, unknown> {
+    const result: Record<string, unknown> = { ...this.formData };
+    for (const f of this.dynamicFields()) {
+      const val = result[f.key];
+      if (f.type === 'date' && val instanceof Date && !isNaN(val.getTime())) {
+        const y = val.getFullYear();
+        const m = String(val.getMonth() + 1).padStart(2, '0');
+        const d = String(val.getDate()).padStart(2, '0');
+        result[f.key] = `${y}-${m}-${d}`;
+      }
+    }
+    return result;
+  }
+
   onSave() {
     if (!this.isValid()) {
       let detail = 'Vui lòng chọn loại hồ sơ và nhóm hồ sơ';
@@ -1480,15 +1548,21 @@ export class DossierFormComponent implements OnInit {
 
     this.isSaving.set(true);
     const hasBox = !!this.dossier.boxId;
+    const infraIds = this.dossier.infrastructureIds?.length
+      ? this.dossier.infrastructureIds
+      : (this.dossier.infrastructureId ? [this.dossier.infrastructureId] : []);
+
     const dto = {
       ...this.dossier,
+      infrastructureIds: infraIds,
+      infrastructureId: infraIds[0] || null,
       dossierGroupId: Number(this.dossier.dossierGroupId),
       gridTypeId: this.dossier.gridTypeId != null ? Number(this.dossier.gridTypeId) : null,
       equipmentIds: this.isEquipmentDossier()
         ? this.selectedEquipments().map(e => e.equipmentId || e.id)
         : [],
       formDataJson: this.dynamicFields().length > 0
-        ? serializeFormDataForSchema(this.dynamicFields(), this.formData)
+        ? serializeFormDataForSchema(this.dynamicFields(), this.toSerializableFormData())
         : undefined,
       // Chỉ gửi vị trí khi đã chọn đến hộp; ngược lại null để BE clear.
       shelfId: hasBox ? this.dossier.shelfId : null,

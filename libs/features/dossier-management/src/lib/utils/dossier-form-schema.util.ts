@@ -26,6 +26,7 @@ export interface NormalizedDossierDetail {
   formDataJson: string | null;
   infrastructureName: string;
   infrastructureId: string | null;
+  infrastructureIds: string[];
   gridTypeId: number | null;
   status: string;
   statusId?: number;
@@ -64,6 +65,12 @@ export function normalizeDossierDetail(raw: unknown): NormalizedDossierDetail | 
   const id = readApiField<string>(o, 'id', 'Id');
   if (!id) return null;
 
+  const infraId = readApiField<string>(o, 'infrastructureId', 'InfrastructureId') ?? null;
+  const rawInfraIds = o['infrastructureIds'] ?? o['InfrastructureIds'];
+  const infrastructureIds = Array.isArray(rawInfraIds)
+    ? (rawInfraIds as string[])
+    : (infraId ? [infraId] : []);
+
   return {
     id: String(id),
     dossierTypeId: String(readApiField<string>(o, 'dossierTypeId', 'DossierTypeId') ?? ''),
@@ -71,7 +78,8 @@ export function normalizeDossierDetail(raw: unknown): NormalizedDossierDetail | 
     formId: readApiField<string>(o, 'formId', 'FormId') ?? null,
     formDataJson: readApiField<string>(o, 'formDataJson', 'FormDataJson') ?? null,
     infrastructureName: String(readApiField<string>(o, 'infrastructureName', 'InfrastructureName') ?? ''),
-    infrastructureId: readApiField<string>(o, 'infrastructureId', 'InfrastructureId') ?? null,
+    infrastructureId: infraId,
+    infrastructureIds,
     gridTypeId: readApiField<number>(o, 'gridTypeId', 'GridTypeId') ?? null,
     status: String(readApiField<string>(o, 'status', 'Status') ?? ''),
     statusId: readApiField<number>(o, 'statusId', 'StatusId'),
