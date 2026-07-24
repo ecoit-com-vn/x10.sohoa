@@ -466,17 +466,9 @@ public class DocumentManagementService : IDocumentManagementService
             _logger.LogInformation("File uploaded to MinIO: {MinioPath} (Version: {VersionId})", minioPath, minioVersionId);
 
             // ===== CREATE OR UPDATE DOCUMENT & VERSION =====
-            int versionNumber = 1;
+            var versions = await _documentRepository.GetDocumentVersionsAsync(documentId);
+            int versionNumber = versions.Any() ? versions.Max(v => v.VersionNumber) + 1 : 1;
 
-            //var existingDoc = await _documentRepository.GetDocumentByNameAndFolderAsync(fileName, folderId);
-            //if (existingDoc != null)
-            //{
-            //    documentId = existingDoc.Id;
-            //    var versions = await _documentRepository.GetDocumentVersionsAsync(documentId);
-            //    versionNumber = versions.Any() ? versions.Max(v => v.VersionNumber) + 1 : 1;
-            //    _logger.LogInformation("Found existing document with same name '{FileName}' (DocumentId: {DocumentId}). Incrementing to version {VersionNumber}.",
-            //        fileName, documentId, versionNumber);
-            //}
             var version = new DocumentVersion
             {
                 DocumentId = documentId,
