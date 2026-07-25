@@ -726,9 +726,12 @@
                     [name]="getEavFieldKey(field)" [ngModel]="getEavFieldValue(field)"
                     (ngModelChange)="setEavFieldValue(field, $event)" [disabled]="isSavingFormValues()"
                     style="text-align: right;" />
-                  <input *ngSwitchCase="'date'" type="date" class="wf-input w-full" [id]="'eav-' + field.id"
+                  <p-datepicker *ngSwitchCase="'date'" [id]="'eav-' + field.id"
                     [name]="getEavFieldKey(field)" [ngModel]="getEavFieldValue(field)"
-                    (ngModelChange)="setEavFieldValue(field, $event)" [disabled]="isSavingFormValues()" />
+                    (ngModelChange)="setEavFieldValue(field, $event)" [disabled]="isSavingFormValues()"
+                    dateFormat="dd/mm/yy" [showIcon]="true" icon="pi pi-calendar" appendTo="body"
+                    styleClass="w-full" [style]="{'width':'100%'}" placeholder="dd/mm/yyyy">
+                  </p-datepicker>
                   <textarea *ngSwitchCase="'textarea'" class="wf-textarea w-full" rows="3" [id]="'eav-' + field.id"
                     [name]="getEavFieldKey(field)" [ngModel]="getEavFieldValue(field)"
                     (ngModelChange)="setEavFieldValue(field, $event)" [disabled]="isSavingFormValues()"></textarea>

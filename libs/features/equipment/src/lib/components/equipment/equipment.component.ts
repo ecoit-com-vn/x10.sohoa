@@ -8,6 +8,7 @@ import { DialogModule } from 'primeng/dialog';
 import { ToggleSwitch } from 'primeng/toggleswitch';
 import { MenuItem, MessageService } from 'primeng/api';
 import { Menu, MenuModule } from 'primeng/menu';
+import { DatePickerModule } from 'primeng/datepicker';
 import { Router, ActivatedRoute } from '@angular/router';
 import { AuthService } from '@sohoa.frontend/shared/core';
 import { EquipmentService } from '../../data-access/equipment.service';
@@ -21,7 +22,7 @@ import { EavFormService } from '../../../../../../shared/core/src/lib/services/e
 @Component({
   selector: 'app-equipment-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule, MenuModule, SelectModule, DialogModule, ToggleSwitch, WfBreadcrumbComponent, EquipmentDocumentsComponent],
+  imports: [CommonModule, FormsModule, ToastModule, MenuModule, SelectModule, DialogModule, ToggleSwitch, WfBreadcrumbComponent, EquipmentDocumentsComponent, DatePickerModule],
   providers: [MessageService],
   templateUrl: './equipment.component.html',
   styleUrls: ['./equipment.component.css']
@@ -1211,8 +1212,12 @@ export class EquipmentComponent implements OnInit {
     const key = this.getEavFieldKey(field);
     if (!key) return field.type === 'checkbox' ? false : '';
     const val = this.formValuesObj()[key];
-    if (val === undefined || val === null) {
+    if (val === undefined || val === null || val === '') {
       return field.type === 'checkbox' ? false : '';
+    }
+    if (field.type === 'date') {
+      const d = val instanceof Date ? val : new Date(val);
+      return isNaN(d.getTime()) ? null : d;
     }
     return val;
   }
@@ -1220,7 +1225,14 @@ export class EquipmentComponent implements OnInit {
   setEavFieldValue(field: any, value: any): void {
     const key = this.getEavFieldKey(field);
     if (!key) return;
-    this.formValuesObj.update(current => ({ ...current, [key]: value }));
+    let stored = value;
+    if (field.type === 'date' && value instanceof Date && !isNaN(value.getTime())) {
+      const y = value.getFullYear();
+      const m = String(value.getMonth() + 1).padStart(2, '0');
+      const dd = String(value.getDate()).padStart(2, '0');
+      stored = `${y}-${m}-${dd}`;
+    }
+    this.formValuesObj.update(current => ({ ...current, [key]: stored }));
   }
 
   viewDossierDetail(dossier: any) {
@@ -1255,9 +1267,13 @@ export class EquipmentComponent implements OnInit {
 
   getFormattedValue(field: any): string {
     const val = this.getEavFieldValue(field);
-    if (val === null || val === undefined) return '';
+    if (val === null || val === undefined || val === '') return '';
     if (field.type === 'checkbox') {
       return val === true || val === 'true' ? 'Có' : 'Không';
+    }
+    if (field.type === 'date') {
+      const d = val instanceof Date ? val : new Date(val);
+      return isNaN(d.getTime()) ? String(val) : d.toLocaleDateString('vi-VN');
     }
     return String(val);
   }

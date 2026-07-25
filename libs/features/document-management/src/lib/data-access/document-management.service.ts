@@ -92,6 +92,62 @@ export class DocumentManagementService {
     return this.api.get<DocumentVersion[]>(`${this.base}/${documentId}/versions`);
   }
 
+  uploadNewVersion(
+    documentId: string,
+    file: File,
+    folderId: string,
+    uploadSource = 3
+  ): Observable<unknown> {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('folderId', folderId);
+    formData.append('uploadSource', String(uploadSource));
+    return this.api.post<unknown>(`${this.base}/${documentId}/new-versions`, formData);
+  }
+
+  initiateNewVersionChunkedUpload(
+    documentId: string,
+    fileName: string,
+    fileSize: number
+  ): Observable<{ uploadId: string; chunkSize: number; totalChunks: number }> {
+    return this.api.post<{ uploadId: string; chunkSize: number; totalChunks: number }>(
+      `${this.base}/${documentId}/new-versions/initiate-chunked`,
+      { fileName, fileSize }
+    );
+  }
+
+  uploadNewVersionChunk(
+    documentId: string,
+    uploadId: string,
+    chunkNumber: number,
+    chunk: Blob
+  ): Observable<{ chunkNumber: number; eTag: string }> {
+    return this.api.put<{ chunkNumber: number; eTag: string }>(
+      `${this.base}/${documentId}/new-versions/upload/chunked/${uploadId}/chunks/${chunkNumber}`,
+      chunk,
+      {
+        headers: { 'Content-Type': 'application/octet-stream' }
+      }
+    );
+  }
+
+  completeNewVersionChunkedUpload(
+    documentId: string,
+    uploadId: string,
+    parts: Array<{ chunkNumber: number; eTag: string }>
+  ): Observable<unknown> {
+    return this.api.post<unknown>(
+      `${this.base}/${documentId}/new-versions/upload/chunked/${uploadId}/complete`,
+      { uploadId, parts }
+    );
+  }
+
+  abortNewVersionChunkedUpload(documentId: string, uploadId: string): Observable<void> {
+    return this.api.delete<void>(
+      `${this.base}/${documentId}/new-versions/upload/chunked/${uploadId}/abort`
+    );
+  }
+
   rollbackDocumentVersion(versionId: string): Observable<void> {
     return this.api.post<void>(`${this.base}/versions/${versionId}/rollback`, {});
   }

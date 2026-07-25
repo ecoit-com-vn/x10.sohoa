@@ -17,6 +17,7 @@ import { Paginator } from 'primeng/paginator';
 import { EavFormService, EavFormTemplate, AuthService } from '@sohoa.frontend/shared/core';
 import { combineLatest, finalize } from 'rxjs';
 import { Dialog } from 'primeng/dialog';
+import { DatePickerModule } from 'primeng/datepicker';
 import { canApproveForm } from '../../utils/eav-form-permission.util';
 
 interface FormField {
@@ -53,6 +54,7 @@ interface FormField {
     Paginator,
     Dialog,
     WfBreadcrumbComponent,
+    DatePickerModule,
   ],
   providers: [MessageService],
   templateUrl: './form-approval.component.html',
