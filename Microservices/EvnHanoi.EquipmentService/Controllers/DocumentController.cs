@@ -374,4 +374,161 @@ public partial class DocumentController : ControllerBase
             return StatusCode(500, new { code = "UPLOAD_ERROR", message = ex.Message });
         }
     }
+
+    /// <summary>
+    /// Khởi tạo phiên chunked upload cho phiên bản mới (file > 10MB)
+    /// </summary>
+    [HttpPost("{documentId}/new-versions/initiate-chunked")]
+    public async Task<IActionResult> InitiateNewVersionChunkedUpload(
+        [FromRoute] Guid documentId,
+        [FromBody] InitiateChunkedUploadRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var userUnitId = GetUserUnitId();
+            if (userUnitId == 0)
+                return Unauthorized("Không thể xác định đơn vị của người dùng");
+
+            var result = await _fileUploadService.InitiateNewVersionChunkedUploadAsync(
+                documentId,
+                request.FileName,
+                request.FileSize,
+                UserId,
+                userUnitId,
+                cancellationToken);
+
+            return Ok(result);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { code = "NOT_FOUND", message = ex.Message });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { code = "VALIDATION_ERROR", message = ex.Message });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Forbid();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error initiating new version chunked upload");
+            return StatusCode(500, new { code = "INITIATE_ERROR", message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Upload chunk cho phiên bản mới
+    /// </summary>
+    [HttpPut("{documentId}/new-versions/upload/chunked/{uploadId}/chunks/{chunkNumber:int}")]
+    [RequestSizeLimit(26_214_400)]
+    public async Task<IActionResult> UploadNewVersionChunk(
+        [FromRoute] Guid documentId,
+        [FromRoute] string uploadId,
+        [FromRoute] int chunkNumber,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var contentLength = Request.ContentLength ?? 0;
+            if (contentLength <= 0)
+                return BadRequest("Dữ liệu chunk không được để trống");
+
+            var eTag = await _fileUploadService.UploadChunkAsync(
+                uploadId,
+                chunkNumber,
+                Request.Body,
+                contentLength,
+                cancellationToken);
+
+            return Ok(new { chunkNumber, eTag });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { code = "OPERATION_ERROR", message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error uploading chunk {ChunkNumber} for new version session {UploadId}", chunkNumber, uploadId);
+            return StatusCode(500, new { code = "CHUNK_UPLOAD_ERROR", message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Hoàn tất chunked upload phiên bản mới
+    /// </summary>
+    [HttpPost("{documentId}/new-versions/upload/chunked/{uploadId}/complete")]
+    public async Task<IActionResult> CompleteNewVersionChunkedUpload(
+        [FromRoute] Guid documentId,
+        [FromRoute] string uploadId,
+        [FromBody] CompleteChunkedUploadRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var userUnitId = GetUserUnitId();
+            if (userUnitId == 0)
+                return Unauthorized("Không thể xác định đơn vị của người dùng");
+
+            var result = await _fileUploadService.CompleteNewVersionChunkedUploadAsync(
+                documentId,
+                uploadId,
+                request,
+                UserId,
+                userUnitId,
+                cancellationToken);
+
+            return Ok(result);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { code = "NOT_FOUND", message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { code = "OPERATION_ERROR", message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error completing new version chunked upload {UploadId}", uploadId);
+            return StatusCode(500, new { code = "COMPLETE_ERROR", message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Hủy phiên chunked upload phiên bản mới
+    /// </summary>
+    [HttpDelete("{documentId}/new-versions/upload/chunked/{uploadId}/abort")]
+    public async Task<IActionResult> AbortNewVersionChunkedUpload(
+        [FromRoute] Guid documentId,
+        [FromRoute] string uploadId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var userUnitId = GetUserUnitId();
+            if (userUnitId == 0)
+                return Unauthorized("Không thể xác định đơn vị của người dùng");
+
+            await _fileUploadService.AbortNewVersionChunkedUploadAsync(
+                documentId,
+                uploadId,
+                UserId,
+                userUnitId,
+                cancellationToken);
+
+            return NoContent();
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { code = "NOT_FOUND", message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error aborting new version chunked upload {UploadId}", uploadId);
+            return StatusCode(500, new { code = "ABORT_ERROR", message = ex.Message });
+        }
+    }
 }

@@ -62,6 +62,14 @@ public interface IFileStorageService
         string unitCode,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Hủy phiên upload session và xóa các mảnh tạm
+    /// </summary>
+    Task<bool> AbortUploadSessionAsync(
+        string uploadId,
+        string unitCode,
+        CancellationToken cancellationToken = default);
+
     Task<(string ObjectKey, string VersionId)> UploadFileToDossierAsync(
         Stream fileStream,
         string fileName,
@@ -318,6 +326,14 @@ public class FileStorageService : IFileStorageService
             _logger.LogError(ex, "Failed to delete upload session {UploadId}", uploadId);
             return false;
         }
+    }
+
+    public async Task<bool> AbortUploadSessionAsync(
+        string uploadId,
+        string unitCode,
+        CancellationToken cancellationToken = default)
+    {
+        return await DeleteUploadSessionAsync(uploadId, 1000, unitCode, cancellationToken);
     }
 
     public async Task<(string ObjectKey, string VersionId)> UploadFileToDossierAsync(

@@ -158,7 +158,12 @@ public class UserRepository : IUserRepository
                        o.Name AS Name, 
                        o.ParentId AS ParentId, 
                        o.Description AS Description,
-                       ROW_NUMBER() OVER (ORDER BY u.UserName ASC) AS RN
+                       ROW_NUMBER() OVER (
+                           ORDER BY
+                               u.IsActive DESC NULLS LAST,
+                               u.FullName ASC,
+                               u.UserName ASC
+                       ) AS RN
                 FROM APP_USER u
                 LEFT JOIN ORGANIZATION_UNIT o ON u.OrganizationUnitId = o.Id AND o.IsDeleted = 0
                 {whereClause}

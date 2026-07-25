@@ -10,6 +10,7 @@ public class Dossier
     public int DossierGroupId { get; set; } = DossierGroupConstants.Station;
     public int? GridTypeId { get; set; }
     public Guid? InfrastructureId { get; set; }
+    public List<Guid> InfrastructureIds { get; set; } = new();
     public Guid? DossierSetId { get; set; }
     public Guid DossierTypeId { get; set; }
     public string? FormDataJson { get; set; }

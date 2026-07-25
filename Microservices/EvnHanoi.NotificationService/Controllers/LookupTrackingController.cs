@@ -1,3 +1,4 @@
+using EvnHanoi.Infrastructure.Audit;
 using EvnHanoi.Infrastructure.Security;
 using EvnHanoi.NotificationService.Models;
 using EvnHanoi.NotificationService.Repositories;
@@ -6,6 +7,11 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace EvnHanoi.NotificationService.Controllers;
 
+/// <summary>
+/// Đếm lượt tra cứu ngầm, không phải mutation nghiệp vụ người dùng chủ động — loại khỏi Nhật ký hệ thống
+/// để tránh spam log mỗi lần user mở xem 1 hồ sơ/tài liệu qua tính năng tra cứu.
+/// </summary>
+[SkipAudit]
 [ApiController]
 [Route("api/v1/notification/lookup-tracking")]
 public class LookupTrackingController : ControllerBase

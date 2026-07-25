@@ -65,7 +65,8 @@ public interface IDossierRepository
     Task<bool> UpdateWorkflowAsync(Guid id, Guid workflowInstanceId, string workflowStatusName, int statusId, int? publishStatusId, string modifiedBy);
     Task<bool> SaveActiveWorkflowTaskAsync(Guid dossierId, string stepId, string stepName, string assignees, string actionsJson, string modifiedBy);
 
-    // Equipments
+    // Equipments & Infrastructures
+    Task<IEnumerable<DossierInfrastructureDto>> GetInfrastructuresAsync(Guid dossierId);
     Task<IEnumerable<DossierEquipmentDto>> GetEquipmentsAsync(Guid dossierId);
     Task<bool> AddEquipmentAsync(Guid dossierId, Guid equipmentId);
     Task<bool> RemoveEquipmentAsync(Guid dossierId, Guid equipmentId);

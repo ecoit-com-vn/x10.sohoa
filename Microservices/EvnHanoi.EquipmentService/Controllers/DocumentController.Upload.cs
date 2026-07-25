@@ -109,17 +109,19 @@ public partial class DocumentController
     public async Task<IActionResult> UploadFolderChunk(
         [FromRoute] string uploadId,
         [FromRoute] int chunkNumber,
-        [FromBody] byte[] chunkData,
         CancellationToken cancellationToken)
     {
         try
         {
-            using var chunkStream = new MemoryStream(chunkData);
+            var contentLength = Request.ContentLength ?? 0;
+            if (contentLength <= 0)
+                return BadRequest("Dữ liệu chunk không được để trống");
+
             var eTag = await _fileUploadService.UploadChunkAsync(
                 uploadId,
                 chunkNumber,
-                chunkStream,
-                chunkData.Length,
+                Request.Body,
+                contentLength,
                 cancellationToken);
 
             return Ok(new { chunkNumber, eTag });
@@ -144,10 +146,15 @@ public partial class DocumentController
     {
         try
         {
+            var userUnitId = GetUserUnitId();
+            if (userUnitId == 0)
+                return Unauthorized("Không thể xác định đơn vị của người dùng");
+
             var result = await _fileUploadService.CompleteChunkedUploadAsync(
                 uploadId,
                 request,
                 UserId,
+                userUnitId,
                 cancellationToken);
 
             return Ok(result);
@@ -161,6 +168,32 @@ public partial class DocumentController
         {
             _logger.LogError(ex, "Error completing document chunked upload {UploadId}", uploadId);
             return StatusCode(500, new { code = "COMPLETE_ERROR", message = ex.Message });
+        }
+    }
+
+    [HttpDelete("upload/chunked/{uploadId}/abort")]
+    public async Task<IActionResult> AbortFolderChunkedUpload(
+        [FromRoute] string uploadId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var userUnitId = GetUserUnitId();
+            if (userUnitId == 0)
+                return Unauthorized("Không thể xác định đơn vị của người dùng");
+
+            await _fileUploadService.AbortChunkedUploadAsync(
+                uploadId,
+                UserId,
+                userUnitId,
+                cancellationToken);
+
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error aborting document chunked upload {UploadId}", uploadId);
+            return StatusCode(500, new { code = "ABORT_ERROR", message = ex.Message });
         }
     }
 }

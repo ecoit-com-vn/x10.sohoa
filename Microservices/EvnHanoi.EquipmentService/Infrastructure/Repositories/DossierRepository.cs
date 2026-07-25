@@ -453,7 +453,10 @@ public class DossierRepository : IDossierRepository
 
         if (!excludeInfrastructure && filter.InfrastructureId.HasValue)
         {
-            sql += " AND d.InfrastructureId = :InfrastructureId";
+            sql += @" AND EXISTS (
+                SELECT 1 FROM DOSSIER_INFRASTRUCTURE di2
+                WHERE di2.DossierId = d.Id AND di2.InfrastructureId = :InfrastructureId
+            )";
             parameters.Add("InfrastructureId", filter.InfrastructureId.Value.ToString());
         }
 
@@ -491,11 +494,15 @@ public class DossierRepository : IDossierRepository
         if (!unitId.HasValue)
             return;
 
-        resultSql += @" AND i.UNIT_ID IN (
-            SELECT Id
-            FROM ORGANIZATION_UNIT
-            START WITH Id = :UnitId
-            CONNECT BY PRIOR Id = ParentId
+        resultSql += @" AND EXISTS (
+            SELECT 1 FROM DOSSIER_INFRASTRUCTURE di
+            INNER JOIN INFRASTRUCTURE i ON di.InfrastructureId = i.ID
+            WHERE di.DossierId = d.Id AND i.UNIT_ID IN (
+                SELECT Id
+                FROM ORGANIZATION_UNIT
+                START WITH Id = :UnitId
+                CONNECT BY PRIOR Id = ParentId
+            )
         )";
         parameters.Add("UnitId", unitId.Value);
     }
@@ -676,6 +683,13 @@ public class DossierRepository : IDossierRepository
             if (dossier == null) return null;
 
             dossier.Equipments = (await GetEquipmentsAsync(id)).ToList();
+            dossier.Infrastructures = (await GetInfrastructuresAsync(id)).ToList();
+            dossier.InfrastructureIds = dossier.Infrastructures.Select(x => x.InfrastructureId).ToList();
+            if (dossier.Infrastructures.Any())
+            {
+                dossier.InfrastructureName = string.Join(", ", dossier.Infrastructures.Select(x => x.InfrastructureName));
+                dossier.InfrastructureCode = string.Join(", ", dossier.Infrastructures.Select(x => x.InfrastructureCode));
+            }
             return dossier;
         });
     }
@@ -683,7 +697,14 @@ public class DossierRepository : IDossierRepository
     {
         _connection.EnsureOpen();
         var sql = $@"SELECT Id, DOSSIER_GROUP_ID as DossierGroupId, GridTypeId, InfrastructureId, DossierSetId, DossierTypeId, FormDataJson, STATUS_ID as StatusId, KIND_ID as KindId, WorkflowInstanceId, WorkflowStatusName, RowVersion, CreatorId, CreatorUsername, CreatorName, CreatedBy, CreatedDate, ModifiedBy, ModifiedDate, IsDeleted, PUBLISHSTATUSID as PublishStatusId, ShelfId, FloorId, BoxId FROM DOSSIERS WHERE {nameof(Dossier.Id)} = :Id AND {nameof(Dossier.IsDeleted)} = 0";
-        return await _connection.QuerySingleOrDefaultAsync<Dossier>(sql, new { Id = id.ToString() });
+        var dossier = await _connection.QuerySingleOrDefaultAsync<Dossier>(sql, new { Id = id.ToString() });
+        if (dossier != null)
+        {
+            var infraSql = "SELECT InfrastructureId FROM DOSSIER_INFRASTRUCTURE WHERE DossierId = :DossierId";
+            var infraIds = await _connection.QueryAsync<string>(infraSql, new { DossierId = id.ToString() });
+            dossier.InfrastructureIds = infraIds.Select(x => Guid.TryParse(x, out var g) ? g : Guid.Empty).Where(x => x != Guid.Empty).ToList();
+        }
+        return dossier;
     }
 
     public async Task<int?> GetKindIdAsync(Guid id)
@@ -748,6 +769,17 @@ public class DossierRepository : IDossierRepository
                 dossier.FloorId,
                 dossier.BoxId
             }, transaction);
+            // Insert infrastructure links
+            var infraIdsToInsert = dossier.InfrastructureIds != null && dossier.InfrastructureIds.Count > 0
+                ? dossier.InfrastructureIds.Distinct().ToList()
+                : (dossier.InfrastructureId.HasValue ? new List<Guid> { dossier.InfrastructureId.Value } : new List<Guid>());
+            foreach (var infId in infraIdsToInsert)
+            {
+                await _connection.ExecuteAsync(
+                    "INSERT INTO DOSSIER_INFRASTRUCTURE (DossierId, InfrastructureId) VALUES (:DossierId, :InfrastructureId)",
+                    new { DossierId = dossier.Id.ToString(), InfrastructureId = infId.ToString() },
+                    transaction);
+            }
             // Insert equipment links
             foreach (var equipId in equipmentIds)
             {
@@ -807,6 +839,20 @@ public class DossierRepository : IDossierRepository
             {
                 transaction.Rollback();
                 throw new Exception("Concurrency conflict: Hồ sơ đã được cập nhật bởi người dùng khác.");
+            }
+            // Update infrastructure list: xóa cũ, thêm mới
+            await _connection.ExecuteAsync(
+                "DELETE FROM DOSSIER_INFRASTRUCTURE WHERE DossierId = :DossierId",
+                new { DossierId = dossier.Id.ToString() }, transaction);
+            var infraIdsToUpdate = dossier.InfrastructureIds != null && dossier.InfrastructureIds.Count > 0
+                ? dossier.InfrastructureIds.Distinct().ToList()
+                : (dossier.InfrastructureId.HasValue ? new List<Guid> { dossier.InfrastructureId.Value } : new List<Guid>());
+            foreach (var infId in infraIdsToUpdate)
+            {
+                await _connection.ExecuteAsync(
+                    "INSERT INTO DOSSIER_INFRASTRUCTURE (DossierId, InfrastructureId) VALUES (:DossierId, :InfrastructureId)",
+                    new { DossierId = dossier.Id.ToString(), InfrastructureId = infId.ToString() },
+                    transaction);
             }
             // Update equipment list: xóa cũ, thêm mới
             await _connection.ExecuteAsync(
@@ -974,6 +1020,22 @@ public class DossierRepository : IDossierRepository
             throw new Exception("Concurrency conflict: Hồ sơ đã được cập nhật bởi người dùng khác.");
         return true;
     }
+
+    public async Task<IEnumerable<DossierInfrastructureDto>> GetInfrastructuresAsync(Guid dossierId)
+    {
+        _connection.EnsureOpen();
+        var sql = @"SELECT
+                        di.InfrastructureId,
+                        i.CODE as InfrastructureCode,
+                        i.NAME as InfrastructureName,
+                        i.INFRA_TYPE_ID as InfraTypeId,
+                        i.UNIT_ID as UnitId
+                     FROM DOSSIER_INFRASTRUCTURE di
+                     INNER JOIN INFRASTRUCTURE i ON di.InfrastructureId = i.ID
+                     WHERE di.DossierId = :DossierId";
+        return await _connection.QueryAsync<DossierInfrastructureDto>(sql, new { DossierId = dossierId.ToString() });
+    }
+
     public async Task<IEnumerable<DossierEquipmentDto>> GetEquipmentsAsync(Guid dossierId)
     {
         _connection.EnsureOpen();
@@ -1200,9 +1262,25 @@ public class DossierRepository : IDossierRepository
         
         parameters.Add("UserId", userId);
 
+        if (filter.KindId.HasValue)
+        {
+            if (filter.KindId.Value == 2)
+            {
+                sqlBase += " AND (d.KIND_ID = 2 OR d.KIND_ID IS NULL)";
+            }
+            else
+            {
+                sqlBase += " AND d.KIND_ID = :KindId";
+                parameters.Add("KindId", filter.KindId.Value);
+            }
+        }
+
         if (filter.InfrastructureId.HasValue)
         {
-            sqlBase += " AND d.InfrastructureId = :InfrastructureId";
+            sqlBase += @" AND (EXISTS (
+                SELECT 1 FROM DOSSIER_INFRASTRUCTURE di 
+                WHERE di.DossierId = d.Id AND di.InfrastructureId = :InfrastructureId
+            ) OR d.InfrastructureId = :InfrastructureId)";
             parameters.Add("InfrastructureId", filter.InfrastructureId.Value.ToString());
         }
 
