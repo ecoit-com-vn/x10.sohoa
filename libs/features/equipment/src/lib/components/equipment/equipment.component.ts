@@ -49,6 +49,8 @@ export class EquipmentComponent implements OnInit {
       { label: 'Xem chi tiết', title: 'Xem chi tiết', icon: 'pi pi-eye color-teal', command: () => this.onViewSpecs(item) },
       ...(this.canEdit() && item.equipmentTypeId ? [{ label: 'Cấu hình', title: 'Cấu hình', icon: 'pi pi-cog color-blue', command: () => this.onEditSpecs(item) }] : []),
       ...(this.canEdit() ? [{ label: 'Sửa', title: 'Sửa', icon: 'pi pi-pencil color-blue', command: () => this.onEdit(item) }] : []),
+      ...(this.canManage() && this.canShowTransferEquipment(item) ? [{ label: 'Chuyển thiết bị', title: 'Chuyển thiết bị', icon: 'pi pi-send color-blue', command: () => this.openTransferDialog(item) }] : []),
+      ...(this.canManage() && this.canShowTransferDossier(item) ? [{ label: 'Chuyển hồ sơ', title: 'Chuyển hồ sơ', icon: 'pi pi-folder-open color-blue', command: () => this.onTransferDossier(item) }] : []),
       ...(this.canManage() ? [{
         label: item.isActive === 1 || item.isActive === true ? 'Khóa thiết bị' : 'Mở khóa',
         title: item.isActive === 1 || item.isActive === true ? 'Khóa thiết bị' : 'Mở khóa',
@@ -110,6 +112,21 @@ export class EquipmentComponent implements OnInit {
   formOrgTreeOpen = signal<boolean>(false);
   expandedFormUnitNodes = signal<Set<number>>(new Set<number>());
 
+  // Transfer Equipment Dialog State
+  showTransferDialog = signal<boolean>(false);
+  transferForm = signal<{ unitId: number | null; infrastructureId: string | null }>({
+    unitId: null,
+    infrastructureId: null
+  });
+  transferSubmitted = signal<boolean>(false);
+  transferLoading = signal<boolean>(false);
+  transferOrgTreeOpen = signal<boolean>(false);
+  expandedTransferUnitNodes = signal<Set<number>>(new Set<number>());
+  transferTarget = signal<any>(null);
+  showTransferDossierConfirm = signal<boolean>(false);
+  transferDossierTarget = signal<any>(null);
+  transferDossierLoading = signal<boolean>(false);
+
   // Search Filters
   searchKeyword = signal<string>('');
   searchCode = signal<string>('');
@@ -159,6 +176,17 @@ export class EquipmentComponent implements OnInit {
       const isActive = et.isActive === true || et.isActive === 1;
       const isSelected = !!selectedId && String(et.id) === String(selectedId);
       return isActive || isSelected;
+    });
+  });
+
+  transferInfrastructures = computed(() => {
+    const unitId = this.transferForm().unitId;
+    const gridTypeId = this.transferTarget()?.gridTypeId ?? this.currentItem().gridTypeId;
+    if (!unitId) return [];
+    return this.infrastructures().filter(inf => {
+      const matchUnit = inf.unitId === Number(unitId);
+      const matchGridType = !gridTypeId || this.matchesGridTypeId(inf, gridTypeId);
+      return matchUnit && matchGridType;
     });
   });
 
@@ -223,6 +251,16 @@ export class EquipmentComponent implements OnInit {
     return this.serverErrors().manufactureYear || this.serverErrors().ManufactureYear || '';
   });
 
+  transferUnitError = computed(() => {
+    if (this.transferSubmitted() && !this.transferForm().unitId) return 'Đơn vị quản lý là bắt buộc';
+    return '';
+  });
+
+  transferInfrastructureError = computed(() => {
+    if (this.transferSubmitted() && !this.transferForm().infrastructureId) return 'Trạm/Đường dây là bắt buộc';
+    return '';
+  });
+
   // Delete Confirmation Dialog Signals
   showDeleteConfirm = signal<boolean>(false);
   deleteTarget = signal<any>(null);
@@ -272,6 +310,7 @@ export class EquipmentComponent implements OnInit {
       window.addEventListener('click', () => {
         this.searchOrgTreeOpen.set(false);
         this.formOrgTreeOpen.set(false);
+        this.transferOrgTreeOpen.set(false);
       });
     }
   }
@@ -469,6 +508,43 @@ export class EquipmentComponent implements OnInit {
       && itemGridType === selectedGridType;
   }
 
+  getEquipmentStatusTransition(item: any): any {
+    return item?.statusTransition ?? item?.StatusTransition;
+  }
+
+  hasEquipmentStatusTransition(item: any): boolean {
+    const statusTransition = this.getEquipmentStatusTransition(item);
+    return statusTransition !== null && statusTransition !== undefined;
+  }
+
+  isEquipmentStatusTransition(item: any, value: number): boolean {
+    const statusTransition = this.getEquipmentStatusTransition(item);
+    return statusTransition !== null
+      && statusTransition !== undefined
+      && Number(statusTransition) === value;
+  }
+
+  canShowTransferEquipment(item: any): boolean {
+    return !this.hasEquipmentStatusTransition(item);
+  }
+
+  canShowTransferDossier(item: any): boolean {
+    return this.isEquipmentStatusTransition(item, 0);
+  }
+
+  getEquipmentStatusLabel(item: any): string {
+    const statusTransition = this.getEquipmentStatusTransition(item);
+    if (statusTransition !== null && statusTransition !== undefined) {
+      return Number(statusTransition) == 0 || Number(statusTransition) == 1 ? 'Đã chuyển TBA' : String(statusTransition);
+    }
+    return item?.isActive === 1 || item?.isActive === true ? 'Hoạt động' : 'Ngừng hoạt động';
+  }
+
+  getEquipmentStatusClass(item: any): string {
+    if (this.hasEquipmentStatusTransition(item)) return 'status-inactive';
+    return item?.isActive === 1 || item?.isActive === true ? 'status-active' : 'status-inactive';
+  }
+
   loadItems() {
     const unitId = this.searchUnitId() ? Number(this.searchUnitId()) : undefined;
     const gridTypeId = this.searchGridTypeId() ? Number(this.searchGridTypeId()) : undefined;
@@ -630,6 +706,159 @@ export class EquipmentComponent implements OnInit {
     }));
     this.formOrgTreeOpen.set(false);
     this.onFieldChange('unitId');
+  }
+
+  // Transfer tree picker actions
+  toggleTransferOrgTree(event?: Event) {
+    if (event) event.stopPropagation();
+    if (this.transferLoading()) return;
+    if (this.organizationUnits().length === 0) {
+      this.equipmentService.getOrganizationUnits().pipe(catchError(() => of([]))).subscribe(data => {
+        this.organizationUnits.set(Array.isArray(data) ? data : []);
+        this.transferOrgTreeOpen.update(v => !v);
+        this.searchOrgTreeOpen.set(false);
+        this.formOrgTreeOpen.set(false);
+      });
+    } else {
+      this.transferOrgTreeOpen.update(v => !v);
+      this.searchOrgTreeOpen.set(false);
+      this.formOrgTreeOpen.set(false);
+    }
+  }
+
+  toggleTransferUnitNode(unitId: number, event?: Event) {
+    if (event) event.stopPropagation();
+    const current = new Set(this.expandedTransferUnitNodes());
+    if (current.has(unitId)) {
+      current.delete(unitId);
+    } else {
+      current.add(unitId);
+    }
+    this.expandedTransferUnitNodes.set(current);
+  }
+
+  isTransferNodeExpanded(unitId: number): boolean {
+    return this.expandedTransferUnitNodes().has(unitId);
+  }
+
+  selectTransferOrgUnit(unitId: number) {
+    this.transferForm.set({
+      unitId,
+      infrastructureId: null
+    });
+    this.transferOrgTreeOpen.set(false);
+  }
+
+  onTransferInfrastructureChange(value: string | null) {
+    this.transferForm.update(form => ({ ...form, infrastructureId: value }));
+  }
+
+  onTransferDossier(item: any) {
+    this.transferDossierTarget.set(item);
+    this.showTransferDossierConfirm.set(true);
+  }
+
+  onCancelTransferDossier() {
+    if (this.transferDossierLoading()) return;
+    this.showTransferDossierConfirm.set(false);
+    this.transferDossierTarget.set(null);
+  }
+
+  onConfirmTransferDossier() {
+    const item = this.transferDossierTarget();
+    if (!item?.id) return;
+
+    this.transferDossierLoading.set(true);
+    this.equipmentService.copyDetailById(item.id)
+      .pipe(finalize(() => this.transferDossierLoading.set(false)))
+      .subscribe({
+        next: () => {
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Thành công',
+            detail: 'Chuyển hồ sơ thành công!'
+          });
+          this.showTransferDossierConfirm.set(false);
+          this.transferDossierTarget.set(null);
+          this.loadItems();
+        },
+        error: (err) => {
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi',
+            detail: err?.error?.message || 'Không thể chuyển hồ sơ.'
+          });
+        }
+      });
+  }
+
+  openTransferDialog(targetItem?: any) {
+    const item = targetItem || this.currentItem();
+    this.transferTarget.set(item);
+    this.transferForm.set({
+      unitId: item?.unitId ? Number(item.unitId) : null,
+      infrastructureId: item?.infrastructureId ?? null
+    });
+    this.transferSubmitted.set(false);
+    this.transferOrgTreeOpen.set(false);
+    this.showTransferDialog.set(true);
+
+    if (this.organizationUnits().length === 0 || this.infrastructures().length === 0) {
+      forkJoin({
+        organizationUnits: this.organizationUnits().length === 0
+          ? this.equipmentService.getOrganizationUnits().pipe(catchError(() => of([])))
+          : of(this.organizationUnits()),
+        infrastructures: this.infrastructures().length === 0
+          ? this.equipmentService.getInfrastructures().pipe(catchError(() => of([])))
+          : of(this.infrastructures())
+      }).subscribe(data => {
+        this.organizationUnits.set(Array.isArray(data.organizationUnits) ? data.organizationUnits : []);
+        this.infrastructures.set(Array.isArray(data.infrastructures) ? data.infrastructures : []);
+      });
+    }
+  }
+
+  closeTransferDialog() {
+    if (this.transferLoading()) return;
+    this.showTransferDialog.set(false);
+    this.transferSubmitted.set(false);
+    this.transferOrgTreeOpen.set(false);
+    this.transferTarget.set(null);
+  }
+
+  confirmTransferEquipment() {
+    this.transferSubmitted.set(true);
+    const item = this.transferTarget() || this.currentItem();
+    const form = this.transferForm();
+    if (!item?.id || !form.unitId || !form.infrastructureId) return;
+
+    this.transferLoading.set(true);
+    this.equipmentService.copyById(item.id, form.infrastructureId)
+      .pipe(finalize(() => this.transferLoading.set(false)))
+      .subscribe({
+        next: () => {
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Thành công',
+            detail: 'Chuyển TBA thành công!'
+          });
+          this.showTransferDialog.set(false);
+          this.transferSubmitted.set(false);
+          this.transferTarget.set(null);
+          if (this.currentView() === 'edit') {
+            this.reloadDetail(item.id);
+          } else {
+            this.loadItems();
+          }
+        },
+        error: (err) => {
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi',
+            detail: err?.error?.message || 'Không thể chuyển thiết bị.'
+          });
+        }
+      });
   }
 
   onGridTypeChange(value: any) {
