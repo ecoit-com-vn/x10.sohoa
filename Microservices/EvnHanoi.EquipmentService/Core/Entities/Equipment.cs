@@ -14,6 +14,7 @@ public class Equipment
     public long? EquipmentStatusId { get; set; }
     public bool IsActive { get; set; } = true;
     public Guid? CreatorId { get; set; }
+    public int? StatusTransition { get; set; }
     
     // Audit fields
     public string CreatedBy { get; set; } = string.Empty;

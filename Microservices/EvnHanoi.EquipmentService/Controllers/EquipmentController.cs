@@ -80,7 +80,7 @@ public partial class EquipmentController : ControllerBase
             infrastructureId, 
             gridTypeId, 
             equipmentTypeId, 
-            isActive, 
+            isActive,
             allowedUnitIds);
 
         return Ok(new { items, totalCount, page, pageSize });
@@ -112,7 +112,157 @@ public partial class EquipmentController : ControllerBase
 
         return Ok(dto);
     }
+    [HttpPost("{id}/copy-byid")]
+    public async Task<IActionResult> CreateFromById(Guid id, Guid InfrastructureId)
+    {
+        var dto = await _equipmentRepository.GetDtoByIdAsync(id);
+        if (dto == null)
+            return NotFound();
 
+        var allowedUnitIds = await GetAllowedUnitIdsAsync();
+        if (allowedUnitIds != null && (!dto.UnitId.HasValue || !allowedUnitIds.Contains(dto.UnitId.Value)))
+        {
+            return Forbid();
+        }
+
+        if (InfrastructureId == Guid.Empty)
+            return BadRequest(new { message = "Trạm không hợp lệ." });
+
+        var infrastructures = await _equipmentRepository.GetInfrastructuresLookupAsync(allowedUnitIds);
+        if (!infrastructures.Any(infrastructure => infrastructure.Id == InfrastructureId))
+            return BadRequest(new { message = "Trạm được chọn không tồn tại hoặc bạn không có quyền sử dụng." });
+
+        var sourceEquipment = await _equipmentRepository.GetByIdAsync(id);
+        if (sourceEquipment == null)
+            return NotFound();
+
+        if (sourceEquipment.InfrastructureId == InfrastructureId)
+        {
+            return BadRequest(new
+            {
+                message = "TBA đang trùng với TBA của thiết bị hiện tại. Vui lòng chọn TBA khác."
+            });
+        }
+
+        var userName = User.FindFirst(ClaimTypes.Name)?.Value ?? User.Identity?.Name ?? "system";
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var replacementEquipment = new Equipment
+        {
+            Id = Guid.NewGuid(),
+            EquipmentTypeId = dto.EquipmentTypeId,
+            Name = dto.Name,
+            Code = dto.Code,
+            SerialNumber = sourceEquipment.SerialNumber,
+            InfrastructureId = InfrastructureId,
+            ManufactureYear = dto.ManufactureYear,
+            EquipmentStatusId = dto.EquipmentStatusId,
+            IsActive = true,
+            UnitId = dto.UnitId,
+            FormValues = dto.FormValues,
+            CreatedBy = userName,
+            CreatedAt = DateTime.UtcNow,
+            StatusTransition = null,
+        };
+
+        if (!string.IsNullOrEmpty(userId) && Guid.TryParse(userId, out var creatorId))
+            replacementEquipment.CreatorId = creatorId;
+
+        sourceEquipment.IsActive = false;
+        sourceEquipment.ModifiedBy = userName;
+        sourceEquipment.ModifiedDate = DateTime.UtcNow;
+        sourceEquipment.StatusTransition = 0; // 0: Đã chuyển TBA, 1: Đã chuyển hồ sơ
+
+        var result = await _equipmentRepository.CloneForInfrastructureTransferAsync(
+            sourceEquipment,
+            replacementEquipment);
+
+        if (!result)
+            return BadRequest(new { message = "Không thể chuyển thiết bị sang hạ tầng mới." });
+
+        try
+        {
+            await _messageProducer.SendMessageAsync(new
+            {
+                Id = replacementEquipment.Id,
+                EquipmentTypeId = replacementEquipment.EquipmentTypeId,
+                Name = replacementEquipment.Name,
+                Code = replacementEquipment.Code,
+                SerialNumber = replacementEquipment.SerialNumber,
+                CreatedAt = replacementEquipment.CreatedAt,
+                CreatedBy = replacementEquipment.CreatedBy,
+                UnitId = replacementEquipment.UnitId,
+                IsActive = replacementEquipment.IsActive,
+            }, "equipment_sync_queue");
+
+            await _messageProducer.SendMessageAsync(new
+            {
+                Id = sourceEquipment.Id,
+                EquipmentTypeId = sourceEquipment.EquipmentTypeId,
+                Name = sourceEquipment.Name,
+                Code = sourceEquipment.Code,
+                SerialNumber = sourceEquipment.SerialNumber,
+                CreatedAt = sourceEquipment.CreatedAt,
+                CreatedBy = sourceEquipment.CreatedBy,
+                UnitId = sourceEquipment.UnitId,
+                IsActive = sourceEquipment.IsActive
+            }, "equipment_sync_queue");
+        }
+        catch (Exception ex)
+        {
+            Serilog.Log.Error(ex, "Failed to publish sync messages for equipment transfer from {SourceEquipmentId} to {ReplacementEquipmentId}.", id, replacementEquipment.Id);
+        }
+
+        var createdDto = await _equipmentRepository.GetDtoByIdAsync(replacementEquipment.Id);
+        return CreatedAtAction(nameof(GetById), new { id = replacementEquipment.Id }, createdDto);
+    }
+    [HttpPost("{id}/copy-detailbyid")]
+    public async Task<IActionResult> CreateDetailFromById(Guid id)
+    {
+        var dto = await _equipmentRepository.GetDtoByIdAsync(id);
+        if (dto == null)
+            return NotFound();
+
+        var allowedUnitIds = await GetAllowedUnitIdsAsync();
+        if (allowedUnitIds != null && (!dto.UnitId.HasValue || !allowedUnitIds.Contains(dto.UnitId.Value)))
+            return Forbid();
+
+        var sourceEquipment = await _equipmentRepository.GetByIdAsync(id);
+        if (sourceEquipment == null)
+            return NotFound();
+
+        if (sourceEquipment.StatusTransition == 1)
+            return BadRequest(new { message = "Thiết bị nguồn đã được chuyển hồ sơ." });
+
+        var replacementEquipment = await _equipmentRepository.GetDetailTransferTargetAsync(sourceEquipment);
+        if (replacementEquipment == null)
+        {
+            return BadRequest(new
+            {
+                message = "Không tìm thấy thiết bị mới có cùng mã, thuộc hạ tầng khác và chưa nhận hồ sơ."
+            });
+        }
+
+        if (allowedUnitIds != null && (!replacementEquipment.UnitId.HasValue || !allowedUnitIds.Contains(replacementEquipment.UnitId.Value)))
+            return Forbid();
+
+        sourceEquipment.ModifiedBy = User.FindFirst(ClaimTypes.Name)?.Value ?? User.Identity?.Name ?? "system";
+        sourceEquipment.ModifiedDate = DateTime.UtcNow;
+        sourceEquipment.StatusTransition = 1;
+
+        var result = await _equipmentRepository.CloneDossiersAndDocumentsForDetailTransferAsync(
+            sourceEquipment,
+            replacementEquipment);
+
+        if (!result)
+            return BadRequest(new { message = "Không thể chuyển hồ sơ thiết bị sang bản ghi mới." });
+
+        var targetDto = await _equipmentRepository.GetDtoByIdAsync(replacementEquipment.Id);
+        return Ok(new
+        {
+            message = "Đã chuyển hồ sơ thiết bị sang bản ghi mới.",
+            equipment = targetDto
+        });
+    }
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] EquipmentCreateDto dto)
     {

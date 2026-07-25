@@ -28,6 +28,9 @@ public interface IEquipmentRepository
         IEnumerable<long>? authorizedUnitIds);
     Task<bool> CreateWithAttributesAsync(Equipment equipment, IEnumerable<AttributeValue> attributes);
     Task<bool> CreateAsync(Equipment equipment);
+    Task<bool> CloneForInfrastructureTransferAsync(Equipment sourceEquipment, Equipment replacementEquipment);
+    Task<Equipment?> GetDetailTransferTargetAsync(Equipment sourceEquipment);
+    Task<bool> CloneDossiersAndDocumentsForDetailTransferAsync(Equipment sourceEquipment, Equipment replacementEquipment);
     Task<bool> UpdateAsync(Equipment equipment);
     Task<bool> UpdateAttributesAsync(Guid equipmentId, IEnumerable<AttributeValue> attributes);
     Task<bool> DeleteAsync(Guid id);
