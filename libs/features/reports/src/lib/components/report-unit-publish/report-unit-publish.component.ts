@@ -166,11 +166,11 @@ export class ReportUnitPublishComponent implements OnInit {
             }
           ]
         : []),
-      ...(canRelease && isDraft
+      ...(canRelease //&& isDraft
         ? [
             {
-              label: 'Công bố',
-              icon: 'pi pi-cloud-upload text-green-600',
+              label: !report.isPublish ? 'Công bố' : 'Hủy công bố',
+              icon: !report.isPublish ? 'pi pi-cloud-upload text-green-600' : 'pi pi-undo text-red-600',
               command: () => this.quickPublish(report)
             }
           ]
@@ -182,8 +182,12 @@ export class ReportUnitPublishComponent implements OnInit {
   /// Công bố nhanh cấu hình đang ở trạng thái Lưu nháp (không cần mở lại dialog).
   quickPublish(report: ReportUnitPublishRow): void {
     this.saving.set(true);
+    const action = report.isPublish ? 'unpublish' : 'publish';
     this.http
-      .post(`${this.apiUrl}/publish`, { reportId: report.reportId, isPublish: true, roleIds: report.roleIds || [] })
+      .post(`${this.apiUrl}/${action}`, { 
+        reportId: report.reportId,  
+        roleIds: report.roleIds || [] 
+      })
       .pipe(finalize(() => this.saving.set(false)))
       .subscribe({
         next: () => {
