@@ -223,6 +223,60 @@ public class RolesController : ControllerBase
         }));
     }
 
+    [HttpGet("{id}/available-permission-groups")]
+    public async Task<IActionResult> GetAvailablePermissionGroups(long id)
+    {
+        var role = await _roleRepository.GetByIdAsync(id);
+        if (role == null) return NotFound(new { message = "Không tìm thấy vai trò này." });
+
+        try
+        {
+            await _rbacScope.EnsureCanManageRoleAsync(User, role);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(403, new { message = ex.Message });
+        }
+
+        var unitGroups = role.ScopeTypeId == RoleScopeTypes.UNIT.Id && role.OrganizationUnitId.HasValue
+            ? await _permissionGroupRepository.GetAllAsync(PermissionGroupTypes.Unit, role.OrganizationUnitId.Value)
+            : await _permissionGroupRepository.GetAllAsync(PermissionGroupTypes.Unit);
+
+        var availableGroups = unitGroups.ToList();
+        if (_rbacScope.IsCentralAdmin(User) && role.ScopeTypeId == RoleScopeTypes.GLOBAL.Id)
+        {
+            availableGroups.AddRange(await _permissionGroupRepository.GetAllAsync(PermissionGroupTypes.System));
+        }
+
+        availableGroups = availableGroups
+            .Where(group => group.IsActive)
+            .GroupBy(group => group.Id)
+            .Select(group => group.First())
+            .OrderBy(group => group.GroupType)
+            .ThenBy(group => group.Name)
+            .ToList();
+
+        var assignedIds = (await _permissionGroupRepository.GetPermissionGroupIdsByRoleIdAsync(id)).ToHashSet();
+        var permissionCodesByGroup = await _permissionGroupRepository.GetPermissionCodesByGroupIdsAsync(
+            availableGroups.Select(group => group.Id));
+
+        return Ok(availableGroups.Select(group => new
+        {
+            id = group.Id,
+            code = group.Code,
+            name = group.Name,
+            groupType = group.GroupType,
+            organizationUnitId = group.OrganizationUnitId,
+            organizationUnitName = group.OrganizationUnitName,
+            organizationUnitIds = group.OrganizationUnitIds,
+            organizationUnitNames = group.OrganizationUnitNames,
+            isAssigned = assignedIds.Contains(group.Id),
+            permissionCodes = permissionCodesByGroup.TryGetValue(group.Id, out var codes)
+                ? codes
+                : Array.Empty<string>()
+        }));
+    }
+
     [HttpPut("{id}/permission-groups")]
     public async Task<IActionResult> AssignPermissionGroups(long id, [FromBody] List<long> permissionGroupIds)
     {
