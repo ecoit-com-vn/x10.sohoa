@@ -53,7 +53,7 @@ public class EquipmentRepository : IEquipmentRepository
         return await _connection.QuerySingleOrDefaultAsync<Equipment>(sql, new { Id = id.ToString() });
     }
 
-    public async Task<Equipment?> GetByCodeAsync(string code)
+    public async Task<Equipment?> GetByCodeAsync(string code, Guid? infrastructureId)
     {
         if (string.IsNullOrWhiteSpace(code))
             return null;
@@ -61,14 +61,22 @@ public class EquipmentRepository : IEquipmentRepository
         if (_connection.State != ConnectionState.Open)
             _connection.Open();
 
-        // UNIQUE trên cột Code áp dụng toàn bộ bảng EQUIPMENTS (kể cả bản ghi soft-delete).
-        var sql = $@"SELECT Id, Code
-                     FROM EQUIPMENTS
-                     WHERE Code = :Code";
+        // UNIQUE áp dụng cho cặp Code và InfrastructureId, kể cả bản ghi soft-delete.
+        const string sql = @"SELECT Id, Code, INFRASTRUCTURE_ID AS InfrastructureId
+                             FROM EQUIPMENTS
+                             WHERE Code = :Code
+                               AND (
+                                   INFRASTRUCTURE_ID = :InfrastructureId
+                                   OR (INFRASTRUCTURE_ID IS NULL AND :InfrastructureId IS NULL)
+                               )";
 
         return await _connection.QuerySingleOrDefaultAsync<Equipment>(
             sql,
-            new { Code = code.Trim() });
+            new
+            {
+                Code = code.Trim(),
+                InfrastructureId = infrastructureId?.ToString()
+            });
     }
 
     public async Task<EquipmentDto?> GetDtoByIdAsync(Guid id)
@@ -581,7 +589,8 @@ public class EquipmentRepository : IEquipmentRepository
                 IsDeleted,
                 UnitId,
                 FORM_VALUES,
-                StatusTransition
+                Note,
+                StatusTransition,
             )
             VALUES (
                 :Id,
@@ -599,6 +608,7 @@ public class EquipmentRepository : IEquipmentRepository
                 0,
                 :UnitId,
                 :FormValues,
+:Note,
                 NULL
             )";
 
@@ -617,7 +627,8 @@ public class EquipmentRepository : IEquipmentRepository
                 replacementEquipment.CreatedBy,
                 replacementEquipment.CreatedAt,
                 replacementEquipment.UnitId,
-                FormValues = OracleClob.Param(replacementEquipment.FormValues)
+                FormValues = OracleClob.Param(replacementEquipment.FormValues),
+                replacementEquipment.Note,
             }, transaction);
 
             var sourceAttributes = await _connection.QueryAsync<AttributeValue>(

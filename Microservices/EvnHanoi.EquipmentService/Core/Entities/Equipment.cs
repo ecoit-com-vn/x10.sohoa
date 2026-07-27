@@ -15,7 +15,8 @@ public class Equipment
     public bool IsActive { get; set; } = true;
     public Guid? CreatorId { get; set; }
     public int? StatusTransition { get; set; }
-    
+    public string Note { get; set; } = string.Empty;
+
     // Audit fields
     public string CreatedBy { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

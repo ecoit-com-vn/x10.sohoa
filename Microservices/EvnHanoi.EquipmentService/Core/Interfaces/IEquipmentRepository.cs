@@ -11,7 +11,7 @@ using InfrastructureEntity = EvnHanoi.EquipmentService.Core.Entities.Infrastruct
 public interface IEquipmentRepository
 {
     Task<Equipment?> GetByIdAsync(Guid id);
-    Task<Equipment?> GetByCodeAsync(string code);
+    Task<Equipment?> GetByCodeAsync(string code, Guid? infrastructureId);
     Task<EquipmentDto?> GetDtoByIdAsync(Guid id);
     Task<IEnumerable<Equipment>> GetAllAsync(IEnumerable<long>? unitIds = null);
     Task<(IEnumerable<EquipmentDto> Items, int TotalCount)> GetPagedAsync(

@@ -87,12 +87,15 @@ public partial class EquipmentController : ControllerBase
     }
 
     [HttpGet("check-code")]
-    public async Task<IActionResult> CheckCode([FromQuery] string code, [FromQuery] Guid? excludeId = null)
+    public async Task<IActionResult> CheckCode(
+        [FromQuery] string code,
+        [FromQuery] Guid? infrastructureId,
+        [FromQuery] Guid? excludeId = null)
     {
         if (string.IsNullOrWhiteSpace(code))
             return BadRequest(new { message = "Mã thiết bị không được để trống." });
 
-        var existing = await _equipmentRepository.GetByCodeAsync(code);
+        var existing = await _equipmentRepository.GetByCodeAsync(code, infrastructureId);
         var exists = existing != null && (!excludeId.HasValue || existing.Id != excludeId.Value);
         return Ok(new { exists });
     }
@@ -113,7 +116,7 @@ public partial class EquipmentController : ControllerBase
         return Ok(dto);
     }
     [HttpPost("{id}/copy-byid")]
-    public async Task<IActionResult> CreateFromById(Guid id, Guid InfrastructureId)
+    public async Task<IActionResult> CreateFromById(Guid id, Guid InfrastructureId, string note)
     {
         var dto = await _equipmentRepository.GetDtoByIdAsync(id);
         if (dto == null)
@@ -171,6 +174,7 @@ public partial class EquipmentController : ControllerBase
         sourceEquipment.ModifiedBy = userName;
         sourceEquipment.ModifiedDate = DateTime.UtcNow;
         sourceEquipment.StatusTransition = 0; // 0: Đã chuyển TBA, 1: Đã chuyển hồ sơ
+        sourceEquipment.Note = note;
 
         var result = await _equipmentRepository.CloneForInfrastructureTransferAsync(
             sourceEquipment,
@@ -282,7 +286,7 @@ public partial class EquipmentController : ControllerBase
         }
 
         var trimmedCode = dto.Code.Trim();
-        var existingByCode = await _equipmentRepository.GetByCodeAsync(trimmedCode);
+        var existingByCode = await _equipmentRepository.GetByCodeAsync(trimmedCode, dto.InfrastructureId);
         if (existingByCode != null)
         {
             var duplicateMessage = $"Mã thiết bị '{trimmedCode}' đã tồn tại trong hệ thống.";
@@ -368,7 +372,7 @@ public partial class EquipmentController : ControllerBase
         }
 
         var trimmedCode = dto.Code.Trim();
-        var existingByCode = await _equipmentRepository.GetByCodeAsync(trimmedCode);
+        var existingByCode = await _equipmentRepository.GetByCodeAsync(trimmedCode, dto.InfrastructureId);
         if (existingByCode != null && existingByCode.Id != id)
         {
             var duplicateMessage = $"Mã thiết bị '{trimmedCode}' đã được sử dụng bởi bản ghi khác.";
