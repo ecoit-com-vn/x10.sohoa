@@ -44,6 +44,12 @@ export interface MenuDisplayTreeNode {
   expanded: boolean;
 }
 
+export interface AssignedMenuSummaryNode {
+  id: number;
+  name: string;
+  children: Array<{ id: number; name: string }>;
+}
+
 /** Chuẩn hóa dữ liệu menu từ API (camelCase / PascalCase). */
 export function normalizeMenuLookupItem(raw: Record<string, unknown>): MenuLookupItem {
   return {
@@ -381,6 +387,39 @@ export function buildMenuPermissionTree(
   }
 
   return tree;
+}
+
+/** Tóm tắt các menu được cấp bởi một tập permission code; mỗi menu chỉ xuất hiện một lần. */
+export function buildAssignedMenuSummary(
+  menusList: MenuLookupItem[] | unknown[],
+  permissions: PermissionLookupItem[] | unknown[],
+  permissionCodes: string[] | null | undefined
+): AssignedMenuSummaryNode[] {
+  const selectedCodes = new Set(
+    (permissionCodes || []).filter(Boolean).map((code) => code.toUpperCase())
+  );
+
+  if (selectedCodes.size === 0) {
+    return [];
+  }
+
+  const selectedPermissions = normalizePermissionLookupList(
+    Array.isArray(permissions) ? permissions : []
+  ).filter((permission) => selectedCodes.has(permission.code.toUpperCase()));
+
+  return buildMenuPermissionTree(menusList, selectedPermissions)
+    .filter((parent) =>
+      parent.id !== -999 &&
+      ((parent.permissions || []).length > 0 ||
+        (parent.subMenus || []).some((subMenu) => (subMenu.permissions || []).length > 0))
+    )
+    .map((parent) => ({
+      id: parent.id,
+      name: parent.name,
+      children: (parent.subMenus || [])
+        .filter((subMenu) => subMenu.id !== parent.id && (subMenu.permissions || []).length > 0)
+        .map((subMenu) => ({ id: subMenu.id, name: subMenu.name }))
+    }));
 }
 
 /** Cây menu cha/con cho màn cấu hình menu. */
