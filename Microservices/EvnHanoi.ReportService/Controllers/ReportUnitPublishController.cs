@@ -74,6 +74,9 @@ namespace EvnHanoi.ReportService.Controllers
         [HttpPost("publish")]
         public Task<IActionResult> Publish([FromBody] ReportUnitPublishSaveDto dto) => SaveInternal(dto, isPublish: true);
 
+        [HttpPost("unpublish")]
+        public Task<IActionResult> Unpublish([FromBody] ReportUnitPublishSaveDto dto) => SaveInternal(dto, false);
+
         private async Task<IActionResult> SaveInternal(ReportUnitPublishSaveDto dto, bool isPublish)
         {
             if (dto == null || dto.ReportId <= 0)
