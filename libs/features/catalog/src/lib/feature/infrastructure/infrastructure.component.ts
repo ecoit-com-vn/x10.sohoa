@@ -62,14 +62,13 @@ export class InfrastructureComponent implements OnInit {
 
   // Equipment transfer signals in infrastructure detail
   showTransferDialog = signal<boolean>(false);
-  transferForm = signal<{ unitId: number | null; infrastructureId: string | null }>({
+  transferForm = signal<{ unitId: number | null; infrastructureId: string | null; note: string }>({
     unitId: null,
-    infrastructureId: null
+    infrastructureId: null,
+    note: ''
   });
   transferSubmitted = signal<boolean>(false);
   transferLoading = signal<boolean>(false);
-  transferOrgTreeOpen = signal<boolean>(false);
-  expandedTransferUnitNodes = signal<Set<any>>(new Set<any>());
   transferTarget = signal<any>(null);
   transferInfrastructuresSource = signal<any[]>([]);
 
@@ -869,47 +868,30 @@ export class InfrastructureComponent implements OnInit {
     return '';
   }
 
-  toggleTransferOrgTree(event?: Event) {
-    if (event) event.stopPropagation();
-    if (this.transferLoading()) return;
-    this.transferOrgTreeOpen.update(v => !v);
-  }
-
-  toggleTransferUnitNode(unitId: any, event?: Event) {
-    if (event) event.stopPropagation();
-    const current = new Set(this.expandedTransferUnitNodes());
-    if (current.has(unitId)) {
-      current.delete(unitId);
-    } else {
-      current.add(unitId);
-    }
-    this.expandedTransferUnitNodes.set(current);
-  }
-
-  isTransferNodeExpanded(unitId: any): boolean {
-    return this.expandedTransferUnitNodes().has(unitId);
-  }
-
   selectTransferOrgUnit(unitId: any) {
-    this.transferForm.set({
+    this.transferForm.update(form => ({
+      ...form,
       unitId: Number(unitId),
       infrastructureId: null
-    });
-    this.transferOrgTreeOpen.set(false);
+    }));
   }
 
   onTransferInfrastructureChange(value: string | null) {
     this.transferForm.update(form => ({ ...form, infrastructureId: value }));
   }
 
+  onTransferNoteChange(value: string) {
+    this.transferForm.update(form => ({ ...form, note: value || '' }));
+  }
+
   openTransferDialog(equipment: any) {
     this.transferTarget.set(equipment);
     this.transferForm.set({
       unitId: equipment?.unitId ? Number(equipment.unitId) : (this.currentItem()?.unitId ? Number(this.currentItem().unitId) : null),
-      infrastructureId: equipment?.infrastructureId ?? this.currentItem()?.id ?? null
+      infrastructureId: equipment?.infrastructureId ?? this.currentItem()?.id ?? null,
+      note: ''
     });
     this.transferSubmitted.set(false);
-    this.transferOrgTreeOpen.set(false);
     this.showTransferDialog.set(true);
 
     if (this.orgUnits().length === 0 || this.transferInfrastructuresSource().length === 0) {
@@ -931,7 +913,6 @@ export class InfrastructureComponent implements OnInit {
     if (this.transferLoading()) return;
     this.showTransferDialog.set(false);
     this.transferSubmitted.set(false);
-    this.transferOrgTreeOpen.set(false);
     this.transferTarget.set(null);
   }
 
@@ -942,7 +923,7 @@ export class InfrastructureComponent implements OnInit {
     if (!item?.id || !form.unitId || !form.infrastructureId) return;
 
     this.transferLoading.set(true);
-    this.equipmentService.copyById(item.id, form.infrastructureId)
+    this.equipmentService.copyById(item.id, form.infrastructureId, form.note.trim())
       .pipe(finalize(() => this.transferLoading.set(false)))
       .subscribe({
         next: () => {

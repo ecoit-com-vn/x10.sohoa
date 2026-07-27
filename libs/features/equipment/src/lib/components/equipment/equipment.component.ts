@@ -102,27 +102,15 @@ export class EquipmentComponent implements OnInit {
   equipmentTypes = signal<any[]>([]);
   equipmentStatuses = signal<any[]>([]);
 
-  // Tree computed and states
-  orgUnitTree = computed(() => this.buildOrgTree(this.organizationUnits()));
-
-  // Search Tree Picker State
-  searchOrgTreeOpen = signal<boolean>(false);
-  expandedSearchUnitNodes = signal<Set<number>>(new Set<number>());
-
-  // Form Tree Picker State
-  formOrgTreeOpen = signal<boolean>(false);
-  expandedFormUnitNodes = signal<Set<number>>(new Set<number>());
-
   // Transfer Equipment Dialog State
   showTransferDialog = signal<boolean>(false);
-  transferForm = signal<{ unitId: number | null; infrastructureId: string | null }>({
+  transferForm = signal<{ unitId: number | null; infrastructureId: string | null; note: string }>({
     unitId: null,
-    infrastructureId: null
+    infrastructureId: null,
+    note: ''
   });
   transferSubmitted = signal<boolean>(false);
   transferLoading = signal<boolean>(false);
-  transferOrgTreeOpen = signal<boolean>(false);
-  expandedTransferUnitNodes = signal<Set<number>>(new Set<number>());
   transferTarget = signal<any>(null);
   showTransferDossierConfirm = signal<boolean>(false);
   transferDossierTarget = signal<any>(null);
@@ -307,13 +295,6 @@ export class EquipmentComponent implements OnInit {
       }
     });
 
-    if (typeof window !== 'undefined') {
-      window.addEventListener('click', () => {
-        this.searchOrgTreeOpen.set(false);
-        this.formOrgTreeOpen.set(false);
-        this.transferOrgTreeOpen.set(false);
-      });
-    }
   }
 
   ngOnInit() {
@@ -579,27 +560,6 @@ export class EquipmentComponent implements OnInit {
     });
   }
 
-  // Tree Helpers
-  buildOrgTree(units: any[]): any[] {
-    const map = new Map<number, any>();
-    const roots: any[] = [];
-    units.forEach(u => map.set(u.id, { ...u, children: [] }));
-    map.forEach(node => {
-      if (node.parentId && map.has(node.parentId)) {
-        map.get(node.parentId)!.children.push(node);
-      } else {
-        roots.push(node);
-      }
-    });
-    return roots;
-  }
-
-  getUnitLabel(unitId: any): string {
-    if (!unitId) return '';
-    const u = (this.organizationUnits() || []).find(x => x.id == unitId);
-    return u ? u.name : `Đơn vị #${unitId}`;
-  }
-
   loadSearchInfrastructuresOnDemand() {
     if (this.infrastructures().length === 0) {
       this.equipmentService.getInfrastructures().pipe(catchError(() => of([]))).subscribe(data => {
@@ -624,134 +584,29 @@ export class EquipmentComponent implements OnInit {
     }
   }
 
-  // Search tree picker actions
-  toggleSearchOrgTree(event?: Event) {
-    if (event) event.stopPropagation();
-    if (this.organizationUnits().length === 0) {
-      this.equipmentService.getOrganizationUnits().pipe(catchError(() => of([]))).subscribe(data => {
-        this.organizationUnits.set(Array.isArray(data) ? data : []);
-        this.searchOrgTreeOpen.update(v => !v);
-        this.formOrgTreeOpen.set(false);
-      });
-    } else {
-      this.searchOrgTreeOpen.update(v => !v);
-      this.formOrgTreeOpen.set(false);
-    }
-  }
-
-  toggleSearchUnitNode(unitId: number, event?: Event) {
-    if (event) event.stopPropagation();
-    const current = new Set(this.expandedSearchUnitNodes());
-    if (current.has(unitId)) {
-      current.delete(unitId);
-    } else {
-      current.add(unitId);
-    }
-    this.expandedSearchUnitNodes.set(current);
-  }
-
-  isSearchNodeExpanded(unitId: number): boolean {
-    return this.expandedSearchUnitNodes().has(unitId);
-  }
-
-  selectSearchOrgUnit(unitId: number) {
-    this.searchUnitId.set(unitId.toString());
-    this.searchInfrastructureId.set('');
-    this.searchOrgTreeOpen.set(false);
-    this.onSearch();
-  }
-
-  clearSearchOrgUnit(event: Event) {
-    event.stopPropagation();
-    this.searchUnitId.set('');
-    this.searchInfrastructureId.set('');
-    this.searchOrgTreeOpen.set(false);
-    this.onSearch();
-  }
-
-  // Form tree picker actions
-  toggleFormOrgTree(event?: Event) {
-    if (event) event.stopPropagation();
-    if (this.organizationUnits().length === 0) {
-      this.equipmentService.getOrganizationUnits().pipe(catchError(() => of([]))).subscribe(data => {
-        this.organizationUnits.set(Array.isArray(data) ? data : []);
-        this.formOrgTreeOpen.update(v => !v);
-        this.searchOrgTreeOpen.set(false);
-      });
-    } else {
-      this.formOrgTreeOpen.update(v => !v);
-      this.searchOrgTreeOpen.set(false);
-    }
-  }
-
-  toggleFormUnitNode(unitId: number, event?: Event) {
-    if (event) event.stopPropagation();
-    const current = new Set(this.expandedFormUnitNodes());
-    if (current.has(unitId)) {
-      current.delete(unitId);
-    } else {
-      current.add(unitId);
-    }
-    this.expandedFormUnitNodes.set(current);
-  }
-
-  isFormNodeExpanded(unitId: number): boolean {
-    return this.expandedFormUnitNodes().has(unitId);
-  }
-
   selectFormOrgUnit(unitId: number) {
     this.currentItem.update(item => ({
       ...item,
       unitId: unitId,
       infrastructureId: null
     }));
-    this.formOrgTreeOpen.set(false);
     this.onFieldChange('unitId');
-  }
-
-  // Transfer tree picker actions
-  toggleTransferOrgTree(event?: Event) {
-    if (event) event.stopPropagation();
-    if (this.transferLoading()) return;
-    if (this.organizationUnits().length === 0) {
-      this.equipmentService.getOrganizationUnits().pipe(catchError(() => of([]))).subscribe(data => {
-        this.organizationUnits.set(Array.isArray(data) ? data : []);
-        this.transferOrgTreeOpen.update(v => !v);
-        this.searchOrgTreeOpen.set(false);
-        this.formOrgTreeOpen.set(false);
-      });
-    } else {
-      this.transferOrgTreeOpen.update(v => !v);
-      this.searchOrgTreeOpen.set(false);
-      this.formOrgTreeOpen.set(false);
-    }
-  }
-
-  toggleTransferUnitNode(unitId: number, event?: Event) {
-    if (event) event.stopPropagation();
-    const current = new Set(this.expandedTransferUnitNodes());
-    if (current.has(unitId)) {
-      current.delete(unitId);
-    } else {
-      current.add(unitId);
-    }
-    this.expandedTransferUnitNodes.set(current);
-  }
-
-  isTransferNodeExpanded(unitId: number): boolean {
-    return this.expandedTransferUnitNodes().has(unitId);
   }
 
   selectTransferOrgUnit(unitId: number) {
     this.transferForm.set({
       unitId,
-      infrastructureId: null
+      infrastructureId: null,
+      note: this.transferForm().note
     });
-    this.transferOrgTreeOpen.set(false);
   }
 
   onTransferInfrastructureChange(value: string | null) {
     this.transferForm.update(form => ({ ...form, infrastructureId: value }));
+  }
+
+  onTransferNoteChange(value: string) {
+    this.transferForm.update(form => ({ ...form, note: value || '' }));
   }
 
   onTransferDossier(item: any) {
@@ -798,10 +653,10 @@ export class EquipmentComponent implements OnInit {
     this.transferTarget.set(item);
     this.transferForm.set({
       unitId: item?.unitId ? Number(item.unitId) : null,
-      infrastructureId: item?.infrastructureId ?? null
+      infrastructureId: item?.infrastructureId ?? null,
+      note: ''
     });
     this.transferSubmitted.set(false);
-    this.transferOrgTreeOpen.set(false);
     this.showTransferDialog.set(true);
 
     if (this.organizationUnits().length === 0 || this.infrastructures().length === 0) {
@@ -823,7 +678,6 @@ export class EquipmentComponent implements OnInit {
     if (this.transferLoading()) return;
     this.showTransferDialog.set(false);
     this.transferSubmitted.set(false);
-    this.transferOrgTreeOpen.set(false);
     this.transferTarget.set(null);
   }
 
@@ -834,7 +688,7 @@ export class EquipmentComponent implements OnInit {
     if (!item?.id || !form.unitId || !form.infrastructureId) return;
 
     this.transferLoading.set(true);
-    this.equipmentService.copyById(item.id, form.infrastructureId)
+    this.equipmentService.copyById(item.id, form.infrastructureId, form.note.trim())
       .pipe(finalize(() => this.transferLoading.set(false)))
       .subscribe({
         next: () => {

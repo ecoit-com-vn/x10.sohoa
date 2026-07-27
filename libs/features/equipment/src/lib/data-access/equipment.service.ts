@@ -82,8 +82,11 @@ export class EquipmentService {
     return this.http.put<any>(`${this.base}/${id}`, item);
   }
 
-  copyById(id: string, infrastructureId: string): Observable<any> {
-    const params = new HttpParams().set('InfrastructureId', infrastructureId);
+  copyById(id: string, infrastructureId: string, note?: string): Observable<any> {
+    let params = new HttpParams().set('InfrastructureId', infrastructureId);
+    if (note !== undefined && note !== null) {
+      params = params.set('Note', note);
+    }
     return this.http.post<any>(`${this.base}/${id}/copy-byid`, {}, { params });
   }
 

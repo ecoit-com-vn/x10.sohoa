@@ -206,25 +206,11 @@
             <label class="form-label" style="font-weight: 600; margin-bottom: 6px; display: block; color: #374151;">Đơn
               vị quản lý <span class="required" style="color: #ef4444;">*</span></label>
 
-            <div class="org-tree-picker" [class.disabled]="isSaving()">
-              <div class="org-tree-trigger" (click)="!isSaving() && toggleFormOrgTree($event)"
-                [class.has-value]="currentItem().unitId" [class.open]="formOrgTreeOpen()">
-                <span class="org-tree-selected-label">
-                  <i class="pi pi-building" style="margin-right: 6px; color: #6b7280;"></i>
-                  {{ getUnitLabel(currentItem().unitId) || '-- Chọn đơn vị quản lý --' }}
-                </span>
-                <i class="pi" [class.pi-chevron-down]="!formOrgTreeOpen()"
-                  [class.pi-chevron-up]="formOrgTreeOpen()"></i>
-              </div>
-
-              <div class="org-tree-dropdown" *ngIf="formOrgTreeOpen()" (click)="$event.stopPropagation()">
-                <ng-container *ngFor="let node of orgUnitTree()">
-                  <ng-container
-                    *ngTemplateOutlet="formOrgTreeNode; context: { $implicit: node, depth: 0 }"></ng-container>
-                </ng-container>
-                <div *ngIf="orgUnitTree().length === 0" class="org-tree-empty">Chưa có đơn vị nào.</div>
-              </div>
-            </div>
+            <p-select [options]="organizationUnits()" [ngModel]="currentItem().unitId"
+              (ngModelChange)="selectFormOrgUnit($event)" optionLabel="name" optionValue="id" [filter]="true"
+              filterBy="name,code" placeholder="-- Chọn đơn vị quản lý --" [disabled]="isSaving()"
+              [style]="{'width':'100%', 'height':'38px', 'line-height':'24px', 'border':'1px solid #cbd5e1', 'border-radius':'6px', 'background-color':'#ffffff', 'color':'#374151'}">
+            </p-select>
 
             <span class="field-error" *ngIf="unitError()"
               style="color: #ef4444; font-size: 0.8rem; margin-top: 4px; display: block;">{{ unitError() }}</span>
@@ -467,25 +453,11 @@
                   style="font-weight: 600; margin-bottom: 6px; display: block; color: #374151;">Đơn vị quản lý <span
                     class="required" style="color: #ef4444;">*</span></label>
 
-                <div class="org-tree-picker" [class.disabled]="isSaving()">
-                  <div class="org-tree-trigger" (click)="!isSaving() && toggleFormOrgTree($event)"
-                    [class.has-value]="currentItem().unitId" [class.open]="formOrgTreeOpen()">
-                    <span class="org-tree-selected-label">
-                      <i class="pi pi-building" style="margin-right: 6px; color: #6b7280;"></i>
-                      {{ getUnitLabel(currentItem().unitId) || '-- Chọn đơn vị quản lý --' }}
-                    </span>
-                    <i class="pi" [class.pi-chevron-down]="!formOrgTreeOpen()"
-                      [class.pi-chevron-up]="formOrgTreeOpen()"></i>
-                  </div>
-
-                  <div class="org-tree-dropdown" *ngIf="formOrgTreeOpen()" (click)="$event.stopPropagation()">
-                    <ng-container *ngFor="let node of orgUnitTree()">
-                      <ng-container
-                        *ngTemplateOutlet="formOrgTreeNode; context: { $implicit: node, depth: 0 }"></ng-container>
-                    </ng-container>
-                    <div *ngIf="orgUnitTree().length === 0" class="org-tree-empty">Chưa có đơn vị nào.</div>
-                  </div>
-                </div>
+                <p-select [options]="organizationUnits()" [ngModel]="currentItem().unitId"
+                  (ngModelChange)="selectFormOrgUnit($event)" optionLabel="name" optionValue="id" [filter]="true"
+                  filterBy="name,code" placeholder="-- Chọn đơn vị quản lý --" [disabled]="isSaving()"
+                  [style]="{'width':'100%', 'height':'38px', 'line-height':'24px', 'border':'1px solid #cbd5e1', 'border-radius':'6px', 'background-color':'#ffffff', 'color':'#374151'}">
+                </p-select>
 
                 <span class="field-error" *ngIf="unitError()"
                   style="color: #ef4444; font-size: 0.8rem; margin-top: 4px; display: block;">{{ unitError() }}</span>
@@ -852,45 +824,6 @@
 
   </div>
 
-  <!-- Recursive templates for Unit Tree Picker (Search filter) -->
-  <ng-template #searchOrgTreeNode let-node let-depth="depth">
-    <div class="org-tree-node" [style.padding-left.px]="depth * 14 + 8" [class.selected]="searchUnitId() == node.id">
-      <button type="button" class="org-tree-expand-btn" *ngIf="node.children && node.children.length > 0"
-        (click)="toggleSearchUnitNode(node.id, $event)">
-        <i class="pi" [class.pi-chevron-right]="!isSearchNodeExpanded(node.id)"
-          [class.pi-chevron-down]="isSearchNodeExpanded(node.id)"></i>
-      </button>
-      <span class="org-tree-node-spacer" *ngIf="!node.children || node.children.length === 0"></span>
-      <span class="org-tree-node-label" (click)="selectSearchOrgUnit(node.id)">{{ node.name }}</span>
-    </div>
-    <div *ngIf="isSearchNodeExpanded(node.id) && node.children && node.children.length > 0">
-      <ng-container *ngFor="let child of node.children">
-        <ng-container
-          *ngTemplateOutlet="searchOrgTreeNode; context: { $implicit: child, depth: depth + 1 }"></ng-container>
-      </ng-container>
-    </div>
-  </ng-template>
-
-  <!-- Recursive templates for Unit Tree Picker (Form select) -->
-  <ng-template #formOrgTreeNode let-node let-depth="depth">
-    <div class="org-tree-node" [style.padding-left.px]="depth * 14 + 8"
-      [class.selected]="currentItem().unitId == node.id">
-      <button type="button" class="org-tree-expand-btn" *ngIf="node.children && node.children.length > 0"
-        (click)="toggleFormUnitNode(node.id, $event)">
-        <i class="pi" [class.pi-chevron-right]="!isFormNodeExpanded(node.id)"
-          [class.pi-chevron-down]="isFormNodeExpanded(node.id)"></i>
-      </button>
-      <span class="org-tree-node-spacer" *ngIf="!node.children || node.children.length === 0"></span>
-      <span class="org-tree-node-label" (click)="selectFormOrgUnit(node.id)">{{ node.name }}</span>
-    </div>
-    <div *ngIf="isFormNodeExpanded(node.id) && node.children && node.children.length > 0">
-      <ng-container *ngFor="let child of node.children">
-        <ng-container
-          *ngTemplateOutlet="formOrgTreeNode; context: { $implicit: child, depth: depth + 1 }"></ng-container>
-      </ng-container>
-    </div>
-  </ng-template>
-
   <!-- Dialog Chuyển thiết bị -->
   <p-dialog [visible]="showTransferDialog()" (visibleChange)="$event ? null : closeTransferDialog()"
     header="Chuyển thiết bị" [modal]="true" [style]="{ width: '560px' }" styleClass="evn-dialog-custom"
@@ -900,25 +833,11 @@
         <label class="form-label" style="font-weight: 600; margin-bottom: 6px; display: block; color: #374151;">
           Đơn vị quản lý <span class="required" style="color: #ef4444;">*</span>
         </label>
-        <div class="org-tree-picker" [class.disabled]="transferLoading()">
-          <div class="org-tree-trigger" (click)="toggleTransferOrgTree($event)"
-            [class.has-value]="transferForm().unitId" [class.open]="transferOrgTreeOpen()">
-            <span class="org-tree-selected-label">
-              <i class="pi pi-building" style="margin-right: 6px; color: #6b7280;"></i>
-              {{ getUnitLabel(transferForm().unitId) || '-- Chọn đơn vị quản lý --' }}
-            </span>
-            <i class="pi" [class.pi-chevron-down]="!transferOrgTreeOpen()"
-              [class.pi-chevron-up]="transferOrgTreeOpen()"></i>
-          </div>
-
-          <div class="org-tree-dropdown" *ngIf="transferOrgTreeOpen()" (click)="$event.stopPropagation()">
-            <ng-container *ngFor="let node of orgUnitTree()">
-              <ng-container
-                *ngTemplateOutlet="transferOrgTreeNode; context: { $implicit: node, depth: 0 }"></ng-container>
-            </ng-container>
-            <div *ngIf="orgUnitTree().length === 0" class="org-tree-empty">Chưa có đơn vị nào.</div>
-          </div>
-        </div>
+        <p-select [options]="organizationUnits()" [ngModel]="transferForm().unitId"
+          (ngModelChange)="selectTransferOrgUnit($event)" optionLabel="name" optionValue="id" [filter]="true"
+          filterBy="name,code" placeholder="-- Chọn đơn vị quản lý --" [disabled]="transferLoading()"
+          [style]="{'width':'100%', 'height':'38px', 'line-height':'24px', 'border':'1px solid #cbd5e1', 'border-radius':'6px', 'background-color':'#ffffff', 'color':'#374151'}">
+        </p-select>
         <span class="field-error" *ngIf="transferUnitError()"
           style="color: #ef4444; font-size: 0.8rem; margin-top: 4px; display: block;">{{ transferUnitError() }}</span>
       </div>
@@ -942,6 +861,8 @@
           Ghi chú
         </label>
         <textarea class="wf-input w-full" rows="4" placeholder="Nhập ghi chú..."
+          [ngModel]="transferForm().note"
+          (ngModelChange)="onTransferNoteChange($event)"
           [disabled]="transferLoading()"
           style="min-height: 96px; resize: vertical; padding: 10px 12px; background-color: #ffffff !important; color: #374151 !important; border-radius: 6px;"></textarea>
       </div>
@@ -959,25 +880,6 @@
       </div>
     </ng-template>
   </p-dialog>
-
-  <ng-template #transferOrgTreeNode let-node let-depth="depth">
-    <div class="org-tree-node" [class.selected]="transferForm().unitId == node.id"
-      [style.padding-left.px]="8 + depth * 16">
-      <button type="button" class="org-tree-expand-btn" *ngIf="node.children && node.children.length > 0"
-        (click)="toggleTransferUnitNode(node.id, $event)">
-        <i class="pi" [class.pi-chevron-right]="!isTransferNodeExpanded(node.id)"
-          [class.pi-chevron-down]="isTransferNodeExpanded(node.id)"></i>
-      </button>
-      <span class="org-tree-node-spacer" *ngIf="!node.children || node.children.length === 0"></span>
-      <span class="org-tree-node-label" (click)="selectTransferOrgUnit(node.id)">{{ node.name }}</span>
-    </div>
-    <div *ngIf="isTransferNodeExpanded(node.id) && node.children && node.children.length > 0">
-      <ng-container *ngFor="let child of node.children">
-        <ng-container
-          *ngTemplateOutlet="transferOrgTreeNode; context: { $implicit: child, depth: depth + 1 }"></ng-container>
-      </ng-container>
-    </div>
-  </ng-template>
 
   <!-- ==================== DIALOG XÁC NHẬN XÓA (CUSTOM INLINE SIGNAL) ==================== -->
   <p-dialog [visible]="showDeleteConfirm()" (visibleChange)="$event ? null : onCancelDelete()" header="Xác nhận xóa"
