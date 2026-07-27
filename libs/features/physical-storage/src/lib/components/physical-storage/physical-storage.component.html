@@ -385,12 +385,26 @@
       </select>
     </div>
 
-    <!-- Box: chọn tầng -->
+    <!-- Box: chọn kệ trước, sau đó chọn tầng thuộc kệ -->
+    <div class="form-group" *ngIf="currentType() === 'box'">
+      <label class="form-label">Thuộc kệ lưu trữ <span class="required">*</span></label>
+      <select class="wf-select w-full" [ngModel]="boxShelfId()"
+        (ngModelChange)="onBoxShelfChange($event)" [disabled]="saving()">
+        <option [ngValue]="null">-- Chọn kệ lưu trữ --</option>
+        <option *ngFor="let s of shelves()" [ngValue]="s.id">{{ s.name }} ({{ s.code }})</option>
+      </select>
+    </div>
+
     <div class="form-group" *ngIf="currentType() === 'box'">
       <label class="form-label">Thuộc tầng kệ <span class="required">*</span></label>
-      <select class="wf-select w-full" [(ngModel)]="currentData().floorId" [disabled]="saving()">
-        <option *ngFor="let f of floors()" [ngValue]="f.id">{{ f.name }} ({{ f.code }})</option>
+      <select class="wf-select w-full" [(ngModel)]="currentData().floorId"
+        [disabled]="saving() || boxShelfId() == null">
+        <option [ngValue]="null">-- Chọn tầng kệ --</option>
+        <option *ngFor="let f of boxAvailableFloors()" [ngValue]="f.id">{{ f.name }} ({{ f.code }})</option>
       </select>
+      <small class="text-muted" *ngIf="boxShelfId() != null && boxAvailableFloors().length === 0">
+        Kệ đã chọn chưa có tầng kệ.
+      </small>
     </div>
 
     <div class="form-group">
