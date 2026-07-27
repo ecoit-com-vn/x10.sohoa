@@ -82,6 +82,11 @@ export class ReportGroupsComponent implements OnInit {
     });
   });
 
+  // Delete Confirmation
+  showDeleteConfirm = signal<boolean>(false);
+  deleteTarget = signal<ReportGroup | null>(null);
+  deleting = signal<boolean>(false);
+
   // Popup Create Variables
   displayCreateDialog = false;
   formSubmitted = false;
@@ -222,7 +227,14 @@ export class ReportGroupsComponent implements OnInit {
 
   openActionMenu(group: ReportGroup, event: Event, menu: Menu): void {
     event.stopPropagation();
+    const active = group.isActive === true;
     this.actionMenuItems = [
+      ...([{
+        label: active ? 'Khóa nhóm báo cáo' : 'Mở khóa nhóm báo cáo',
+        title: active ? 'Khóa nhóm báo cáo' : 'Mở khóa nhóm báo cáo',
+        icon: active ? 'pi pi-lock color-red' : 'pi pi-lock-open color-teal',
+        command: () => this.onToggleStatus(group)
+      }]),
       ...(this.authService.hasPermission('REPORT_GROUP_EDIT') ? [
         { 
           label: 'Cấu hình báo cáo', 
@@ -251,17 +263,73 @@ export class ReportGroupsComponent implements OnInit {
   }
 
   deleteGroup(group: ReportGroup) {
-    if (confirm(`Bạn có chắc chắn muốn xóa nhóm báo cáo hệ thống "${group.name}" (${group.code})?`)) {
-      this.http.delete(`${this.apiUrl}/${group.id}`).subscribe({
+    this.deleteTarget.set(group);
+    this.showDeleteConfirm.set(true);
+  }
+
+  onCancelDelete() {
+    this.showDeleteConfirm.set(false);
+    this.deleteTarget.set(null);
+  }
+
+  onConfirmDelete() {
+    const group = this.deleteTarget();
+    if (!group) return;
+    this.deleting.set(true);
+    this.http.delete(`${this.apiUrl}/${group.id}`)
+      .pipe(finalize(() => this.deleting.set(false)))
+      .subscribe({
         next: () => {
           this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã xóa nhóm báo cáo hệ thống.' });
+          this.showDeleteConfirm.set(false);
+          this.deleteTarget.set(null);
           this.loadGroups();
         },
         error: (err) => {
-          console.error('Xóa nhóm báo cáo lỗi:', err);
-          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Xóa nhóm báo cáo thất bại.' });
+          const msg = err?.error?.message || 'Xóa nhóm báo cáo thất bại.';
+          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: msg });
         }
       });
-    }
   }
+  
+  onCodeInput(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const invalid = input.value.match(/[^a-zA-Z0-9_]/g);
+    if (invalid) {
+      this.messageService.add({ severity: 'warn', summary: 'Nhập sai', detail: 'Mã nhóm chỉ được chứa chữ cái (A-Z, a-z), chữ số (0-9) và dấu gạch dưới (_).' });
+    }
+    input.value = input.value.replace(/[^a-zA-Z0-9_]/g, '');
+    this.currentNewGroup.code = input.value;
+  }
+  
+  onToggleStatus(group: ReportGroup) {
+    const isLocking = group.isActive === true;
+    const action = isLocking ? 'lock' : 'unlock';
+
+    this.http
+      .patch(`${this.apiUrl}/${group.id}/${action}`, {})
+      .subscribe({
+        next: () => {
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Thành công',
+            detail: isLocking
+              ? 'Khóa nhóm báo cáo thành công.'
+              : 'Mở khóa nhóm báo cáo thành công.'
+          });
+
+          this.loadGroups();
+        },
+        error: (err) => {
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi',
+            detail:
+              err?.error?.message ??
+              'Không thể cập nhật trạng thái nhóm báo cáo.'
+          });
+        }
+      });
+  }
+
 }

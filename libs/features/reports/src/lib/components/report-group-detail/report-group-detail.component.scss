@@ -11,3 +11,32 @@
     border-bottom-color: #002D72 !important;
   }
 }
+.page-header {
+  display: flex;
+  align-items: center; /* Căn giữa theo trục dọc */
+  justify-content: space-between;
+  min-height: 48px; /* Đảm bảo đủ độ cao chuẩn cho header */
+
+  /* Ép breadcrumb căn giữa tuyệt đối */
+  ::ng-deep wf-breadcrumb,
+  wf-breadcrumb {
+    display: flex;
+    align-items: center;
+    margin: 0 !important;
+    padding: 0 !important;
+
+    /* Reset các thẻ ul, ol, p bên trong breadcrumb nếu có */
+    ul, ol, nav, div {
+      margin: 0 !important;
+      padding: 0 !important;
+      display: flex;
+      align-items: center;
+    }
+  }
+
+  .header-buttons {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+}
