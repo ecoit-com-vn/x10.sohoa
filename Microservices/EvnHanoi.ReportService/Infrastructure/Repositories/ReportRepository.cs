@@ -188,6 +188,22 @@ namespace EvnHanoi.ReportService.Infrastructure.Repositories
             return rows > 0;
         }
 
+        public async Task<bool> LockReportGroupAsync(long id)
+        {
+            // Lock
+            var sql = "UPDATE REPORT_GROUPS SET IsActive = 0, UpdatedAt = :UpdatedAt WHERE Id = :Id AND IsActive = 1";
+            var rows = await _connection.ExecuteAsync(sql, new { Id = id, UpdatedAt = DateTime.UtcNow });
+            return rows > 0;
+        }
+
+        public async Task<bool> UnlockReportGroupAsync(long id)
+        {
+            // Unlock
+            var sql = "UPDATE REPORT_GROUPS SET IsActive = 1, UpdatedAt = :UpdatedAt WHERE Id = :Id AND IsActive = 0";
+            var rows = await _connection.ExecuteAsync(sql, new { Id = id, UpdatedAt = DateTime.UtcNow });
+            return rows > 0;
+        }
+
         // --- SYSTEM REPORTS LOOKUP ---
 
         public async Task<IEnumerable<Report>> GetSystemReportsAsync()
