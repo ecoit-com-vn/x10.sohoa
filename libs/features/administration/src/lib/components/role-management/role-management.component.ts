@@ -21,6 +21,8 @@ import { buildMenuPermissionTree as buildMenuPermissionTreeFromLookup } from '..
   styleUrl: './role-management.component.scss'
 })
 export class RoleManagement implements OnInit {
+  private static readonly ROLE_CODE_PATTERN = /^[A-Za-z0-9_]+$/;
+
   roles = signal<any[]>([]);
   searchKeyword = signal<string>('');
   totalCount = signal<number>(0);
@@ -66,7 +68,12 @@ export class RoleManagement implements OnInit {
   formSubmitted = signal<boolean>(false);
   serverErrors = signal<any>({});
   codeError = computed(() => {
-    if (this.formSubmitted() && !this.currentRole().code) return 'Mã vai trò là bắt buộc';
+    const code = this.currentRole().code ?? '';
+    if (this.formSubmitted() && !code) return 'Mã vai trò là bắt buộc';
+    if (this.formSubmitted() && code.length > 50) return 'Mã vai trò không được vượt quá 50 ký tự';
+    if (this.formSubmitted() && !RoleManagement.ROLE_CODE_PATTERN.test(code)) {
+      return 'Mã vai trò chỉ được chứa chữ cái không dấu, chữ số và dấu gạch dưới; không được chứa khoảng trắng';
+    }
     return this.serverErrors().code || this.serverErrors().Code || '';
   });
   nameError = computed(() => {
