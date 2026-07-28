@@ -265,7 +265,7 @@ public class CatalogRepository : ICatalogRepository
 
         if (isPrivate && !string.IsNullOrEmpty(username))
         {
-            sql += $" AND {nameof(CatalogType.CreatedBy)} = :Username";
+            sql += $" AND ({nameof(CatalogType.CreatedBy)} = :Username OR {nameof(CatalogType.Code)} = 'PHONG')";
         }
 
         if (!string.IsNullOrEmpty(keyword))
@@ -298,7 +298,7 @@ public class CatalogRepository : ICatalogRepository
 
         if (isPrivate && !string.IsNullOrEmpty(username))
         {
-            sql += $" AND {nameof(CatalogType.CreatedBy)} = :Username";
+            sql += $" AND ({nameof(CatalogType.CreatedBy)} = :Username OR {nameof(CatalogType.Code)} = 'PHONG')";
         }
 
         return await _connection.QuerySingleOrDefaultAsync<CatalogType>(sql, new { Id = id, IsPrivate = isPrivate ? 1 : 0, Username = username });

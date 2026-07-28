@@ -2,11 +2,12 @@
 using EvnHanoi.ReportService.Core.DTOs;
 using EvnHanoi.ReportService.Core.Entities;
 using EvnHanoi.ReportService.Core.Interfaces;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
-using System.Linq;
-using System.Threading.Tasks;
+using Microsoft.AspNetCore.Mvc;
 using System;
+using System.Linq;
+using System.Security.Claims;
+using System.Threading.Tasks;
 
 namespace EvnHanoi.ReportService.Controllers
 {
@@ -137,6 +138,18 @@ namespace EvnHanoi.ReportService.Controllers
                 Name = r.Name
             });
             return Ok(dtos);
+        }
+        [HttpPatch("{id:long}/lock")]
+        public async Task<IActionResult> Lock(long id)
+        {
+            var success = await _reportRepository.LockReportGroupAsync(id);
+            return success ? Ok(true) : NotFound("Không tìm thấy nhóm báo cáo hoặc xóa thất bại");
+        }
+        [HttpPatch("{id:long}/unlock")]
+        public async Task<IActionResult> Unlock(long id)
+        {
+            var success = await _reportRepository.UnlockReportGroupAsync(id);
+            return success ? Ok(true) : NotFound("Không tìm thấy nhóm báo cáo hoặc xóa thất bại");
         }
     }
 }

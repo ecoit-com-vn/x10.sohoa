@@ -11,7 +11,7 @@ using InfrastructureEntity = EvnHanoi.EquipmentService.Core.Entities.Infrastruct
 public interface IEquipmentRepository
 {
     Task<Equipment?> GetByIdAsync(Guid id);
-    Task<Equipment?> GetByCodeAsync(string code);
+    Task<Equipment?> GetByCodeAsync(string code, Guid? infrastructureId);
     Task<EquipmentDto?> GetDtoByIdAsync(Guid id);
     Task<IEnumerable<Equipment>> GetAllAsync(IEnumerable<long>? unitIds = null);
     Task<(IEnumerable<EquipmentDto> Items, int TotalCount)> GetPagedAsync(
@@ -28,6 +28,9 @@ public interface IEquipmentRepository
         IEnumerable<long>? authorizedUnitIds);
     Task<bool> CreateWithAttributesAsync(Equipment equipment, IEnumerable<AttributeValue> attributes);
     Task<bool> CreateAsync(Equipment equipment);
+    Task<bool> CloneForInfrastructureTransferAsync(Equipment sourceEquipment, Equipment replacementEquipment);
+    Task<Equipment?> GetDetailTransferTargetAsync(Equipment sourceEquipment);
+    Task<bool> CloneDossiersAndDocumentsForDetailTransferAsync(Equipment sourceEquipment, Equipment replacementEquipment);
     Task<bool> UpdateAsync(Equipment equipment);
     Task<bool> UpdateAttributesAsync(Guid equipmentId, IEnumerable<AttributeValue> attributes);
     Task<bool> DeleteAsync(Guid id);

@@ -305,14 +305,21 @@ public class DossierService : IDossierService
 
     public async Task<Guid> CreateAsync(DossierCreateDto dto, string userId, string userName, string userFullName, int kindId = 2)
     {
-        var equipmentIds = await ValidateAndNormalizeGroupAsync(dto.DossierGroupId, dto.InfrastructureId, dto.EquipmentIds);
+        var infraIds = dto.InfrastructureIds?.Where(x => x != Guid.Empty).Distinct().ToList() ?? new List<Guid>();
+        if (infraIds.Count == 0 && dto.InfrastructureId.HasValue && dto.InfrastructureId != Guid.Empty)
+        {
+            infraIds.Add(dto.InfrastructureId.Value);
+        }
+
+        var equipmentIds = await ValidateAndNormalizeGroupAsync(dto.DossierGroupId, infraIds, dto.EquipmentIds);
 
         var dossier = new Dossier
         {
             Id = Guid.Parse(UuidHelper.NewUuid()),
             DossierGroupId = dto.DossierGroupId,
             GridTypeId = dto.GridTypeId,
-            InfrastructureId = dto.InfrastructureId,
+            InfrastructureId = infraIds.FirstOrDefault(),
+            InfrastructureIds = infraIds,
             DossierSetId = dto.DossierSetId,
             DossierTypeId = dto.DossierTypeId,
             FormDataJson = dto.FormDataJson,
@@ -356,11 +363,18 @@ public class DossierService : IDossierService
         if (!string.IsNullOrEmpty(dto.FormDataJson))
             await EnsureCanEditFormDataAsync(existing);
 
-        var equipmentIds = await ValidateAndNormalizeGroupAsync(dto.DossierGroupId, dto.InfrastructureId, dto.EquipmentIds);
+        var infraIds = dto.InfrastructureIds?.Where(x => x != Guid.Empty).Distinct().ToList() ?? new List<Guid>();
+        if (infraIds.Count == 0 && dto.InfrastructureId.HasValue && dto.InfrastructureId != Guid.Empty)
+        {
+            infraIds.Add(dto.InfrastructureId.Value);
+        }
+
+        var equipmentIds = await ValidateAndNormalizeGroupAsync(dto.DossierGroupId, infraIds, dto.EquipmentIds);
 
         existing.DossierGroupId = dto.DossierGroupId;
         existing.GridTypeId = dto.GridTypeId;
-        existing.InfrastructureId = dto.InfrastructureId;
+        existing.InfrastructureId = infraIds.FirstOrDefault();
+        existing.InfrastructureIds = infraIds;
         existing.DossierSetId = dto.DossierSetId;
         existing.DossierTypeId = dto.DossierTypeId;
         existing.FormDataJson = dto.FormDataJson ?? existing.FormDataJson;
@@ -380,23 +394,38 @@ public class DossierService : IDossierService
     /// </summary>
     private async Task<List<Guid>> ValidateAndNormalizeGroupAsync(
         int dossierGroupId,
-        Guid? infrastructureId,
+        List<Guid>? infrastructureIds,
         List<Guid>? equipmentIds)
     {
         var group = await _dossierRepository.GetDossierGroupByIdAsync(dossierGroupId);
         if (group == null)
             throw new ArgumentException("Nhóm hồ sơ không hợp lệ.");
 
-        if (infrastructureId.HasValue)
+        var infraList = infrastructureIds?.Where(x => x != Guid.Empty).Distinct().ToList() ?? new List<Guid>();
+        if (infraList.Count > 0)
         {
-            var infra = await _infrastructureRepository.GetByIdAsync(infrastructureId.Value);
-            if (infra == null)
-                throw new ArgumentException("Trạm / đường dây không tồn tại.");
-            if (infra.InfraTypeId != group.InfraTypeId)
-                throw new ArgumentException(
-                    group.InfraTypeId == 1
-                        ? "Nhóm hồ sơ này yêu cầu chọn trạm biến áp."
-                        : "Nhóm hồ sơ này yêu cầu chọn đường dây.");
+            var infras = new List<InfrastructureEntity>();
+            foreach (var infraId in infraList)
+            {
+                var infra = await _infrastructureRepository.GetByIdAsync(infraId);
+                if (infra == null)
+                    throw new ArgumentException($"Trạm / đường dây với ID '{infraId}' không tồn tại.");
+                if (infra.InfraTypeId != group.InfraTypeId)
+                {
+                    throw new ArgumentException(
+                        group.InfraTypeId == 1
+                            ? "Nhóm hồ sơ này yêu cầu chọn trạm biến áp."
+                            : "Nhóm hồ sơ này yêu cầu chọn đường dây.");
+                }
+                infras.Add(infra);
+            }
+
+            // Quy tắc nghiệp vụ: Tất cả các trạm/đường dây trong cùng 1 hồ sơ phải thuộc CÙNG MỘT ĐƠN VỊ quản lý (UnitId)
+            var unitIds = infras.Where(i => i.UnitId.HasValue).Select(i => i.UnitId!.Value).Distinct().ToList();
+            if (unitIds.Count > 1)
+            {
+                throw new ArgumentException("Tất cả các trạm, đường dây trong cùng một hồ sơ phải thuộc cùng một đơn vị quản lý.");
+            }
         }
 
         var ids = equipmentIds?.Where(x => x != Guid.Empty).Distinct().ToList() ?? new List<Guid>();

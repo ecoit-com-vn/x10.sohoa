@@ -101,18 +101,17 @@ public class CatalogController : ControllerBase
         var catalogType = catalogTypeId.HasValue
             ? await _catalogRepository.GetCatalogTypeByIdAsync(catalogTypeId.Value)
             : null;
-        var isUnitScoped = catalogType?.Code == "MUC_LUC";
+        var isUnitScoped = catalogType?.Code == "MUC_LUC" || catalogType?.Code == "PHONG";
         if (isUnitScoped)
         {
             if (!unitId.HasValue || unitId <= 0)
                 return BadRequest(new { statusCode = 400, message = "Dữ liệu đầu vào không hợp lệ.", errors = new { unitId = "Vui lòng chọn một đơn vị" } });
             if (!CanAccessUnit(unitId.Value)) return Forbid();
         }
-
-        var effectiveUnitId = isUnitScoped ? unitId : GetUnitIdFromClaims();
+        long? effectiveUnitId = isPhong ? unitId : unitId ?? GetUnitIdFromClaims();
         var (items, totalCount) = await _catalogRepository.GetPagedAsync(
             page, pageSize, catalogTypeId, keyword, status, effectiveUnitId,
-            strictUnitFilter: isUnitScoped);
+            strictUnitFilter: isPhong);
         return Ok(new { items, totalCount, page, pageSize });
     }
 
@@ -146,7 +145,7 @@ public class CatalogController : ControllerBase
         if (catalogType == null)
             return BadRequest(new { message = $"Loại danh mục với Id '{catalog.CatalogTypeId}' không tồn tại." });
 
-        var isUnitScoped = catalogType.Code == "MUC_LUC";
+        var isUnitScoped = catalogType.Code == "MUC_LUC" || catalogType.Code == "PHONG";
         if (isUnitScoped && (!catalog.UnitId.HasValue || catalog.UnitId <= 0))
             return BadRequest(new { statusCode = 400, message = "Dữ liệu đầu vào không hợp lệ.", errors = new { unitId = "Đơn vị là bắt buộc" } });
         if (isUnitScoped && !CanAccessUnit(catalog.UnitId!.Value)) return Forbid();
@@ -166,6 +165,7 @@ public class CatalogController : ControllerBase
 
         if (!isUnitScoped)
             catalog.UnitId = catalog.UnitId.HasValue ? GetUnitIdFromClaims() : null;
+
         catalog.CreatedBy = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value ?? "system";
         catalog.CreatedAt = DateTime.UtcNow;
 
@@ -203,7 +203,7 @@ public class CatalogController : ControllerBase
         if (dbCatalog.CatalogTypeId != catalog.CatalogTypeId)
             return BadRequest(new { message = "Không được thay đổi loại danh mục." });
 
-        var isUnitScoped = catalogType.Code == "MUC_LUC";
+        var isUnitScoped = catalogType.Code == "MUC_LUC" || catalogType.Code == "PHONG";
         if (isUnitScoped && (!catalog.UnitId.HasValue || catalog.UnitId <= 0))
             return BadRequest(new { statusCode = 400, message = "Dữ liệu đầu vào không hợp lệ.", errors = new { unitId = "Đơn vị là bắt buộc" } });
         if (isUnitScoped && !CanAccessUnit(catalog.UnitId!.Value)) return Forbid();
@@ -335,5 +335,15 @@ public class CatalogController : ControllerBase
             ancestorId = (await _catalogRepository.GetByIdAsync(ancestorId.Value))?.ParentId;
         }
         return ancestorId.HasValue ? "Dữ liệu cây hiện tại có vòng lặp" : null;
+    }
+    private bool CanAccessPhongUnit(long unitId)
+    {
+        var isAdmin = User.IsInRole("ADMIN") ||
+            User.Claims.Any(c => c.Type == System.Security.Claims.ClaimTypes.Role &&
+                                 string.Equals(c.Value, "ADMIN", StringComparison.OrdinalIgnoreCase));
+        if (isAdmin) return true;
+
+        var currentUnitId = GetUnitIdFromClaims();
+        return currentUnitId.HasValue && currentUnitId.Value == unitId;
     }
 }
