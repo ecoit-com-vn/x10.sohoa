@@ -150,25 +150,88 @@ export class WorkflowBuilderComponent implements OnInit {
   ngOnInit(): void {
     if (isPlatformBrowser(this.platformId)) {
       this.loadList();
-      this.loadRoles();
+      this.loadSystemPermissionGroups();
+      this.loadUnitPermissionGroups();
       this.loadWorkflowTypes();
     }
   }
 
-  rolesList: any[] = [];
+  // ─── Danh sách nhóm quyền hệ thống & đơn vị ─────────────────────────────────
+  systemGroupList: any[] = [];
+  unitGroupList: any[] = [];
 
-  loadRoles(): void {
-    const apiUrl = `${environment.apiGatewayUrl}/api/v1/roles/lookup`;
+  loadSystemPermissionGroups(): void {
+    const apiUrl = `${environment.apiGatewayUrl}/api/v1/system-permission-groups/lookup`;
     this.http.get<any>(apiUrl).subscribe({
       next: (res) => {
-        this.rolesList = Array.isArray(res) ? res : (res && Array.isArray(res.items) ? res.items : (res && Array.isArray(res.value) ? res.value : []));
+        this.systemGroupList = Array.isArray(res) ? res : [];
         this.cdr.detectChanges();
       },
-      error: (err) => {
-        console.error('Failed to load roles list:', err);
-        this.cdr.detectChanges();
-      }
+      error: (err) => console.error('Không tải được nhóm quyền hệ thống:', err)
     });
+  }
+
+  loadUnitPermissionGroups(): void {
+    const apiUrl = `${environment.apiGatewayUrl}/api/v1/unit-permission-groups/lookup`;
+    this.http.get<any>(apiUrl).subscribe({
+      next: (res) => {
+        this.unitGroupList = Array.isArray(res) ? res : [];
+        this.cdr.detectChanges();
+      },
+      error: (err) => console.error('Không tải được nhóm quyền đơn vị:', err)
+    });
+  }
+
+  // ─── Autocomplete tìm kiếm người dùng đích danh ────────────────────────────────
+  userSearchResults: any[] = [];
+  userSearchLoading = false;
+  private userSearchTimeout: any;
+
+  onUserSearchInput(keyword: string): void {
+    clearTimeout(this.userSearchTimeout);
+    if (!keyword || keyword.length < 2) {
+      this.userSearchResults = [];
+      this.cdr.detectChanges();
+      return;
+    }
+    this.userSearchLoading = true;
+    this.userSearchTimeout = setTimeout(() => {
+      const apiUrl = `${environment.apiGatewayUrl}/api/v1/users?keyword=${encodeURIComponent(keyword)}&page=1&pageSize=20`;
+      this.http.get<any>(apiUrl).subscribe({
+        next: (res) => {
+          this.userSearchResults = res?.items || [];
+          this.userSearchLoading = false;
+          this.cdr.detectChanges();
+        },
+        error: () => {
+          this.userSearchResults = [];
+          this.userSearchLoading = false;
+          this.cdr.detectChanges();
+        }
+      });
+    }, 300);
+  }
+
+  selectAssignee(user: any): void {
+    if (!this.selectedBpmnElement || !this.selectedElementProps) return;
+    this.selectedElementProps.assigneeId = user.id;
+    this.selectedElementProps.assigneeName = `${user.fullName} (${user.username})`;
+    this.selectedElementProps.assigneeSearch = this.selectedElementProps.assigneeName;
+    this.userSearchResults = [];
+    const modeling = this.bpmnModeler.get('modeling');
+    modeling.updateProperties(this.selectedBpmnElement, { assigneeId: user.id, assigneeName: user.fullName });
+    this.cdr.detectChanges();
+  }
+
+  clearAssignee(): void {
+    if (!this.selectedBpmnElement || !this.selectedElementProps) return;
+    this.selectedElementProps.assigneeId = '';
+    this.selectedElementProps.assigneeName = '';
+    this.selectedElementProps.assigneeSearch = '';
+    this.userSearchResults = [];
+    const modeling = this.bpmnModeler.get('modeling');
+    modeling.updateProperties(this.selectedBpmnElement, { assigneeId: '', assigneeName: '' });
+    this.cdr.detectChanges();
   }
 
   loadWorkflowTypes(): void {
@@ -651,14 +714,24 @@ export class WorkflowBuilderComponent implements OnInit {
 
   openStepConfig(element: any) {
     this.selectedBpmnElement = element;
+    const bo = element.businessObject;
+    // Giải mã danh sách ID nhóm quyền từ BPMN attrs (lưu dạng CSV)
+    const sysGroupIds = (bo.$attrs['systemPermissionGroupIds'] || '').split(',').map((s: string) => Number(s.trim())).filter((n: number) => n > 0);
+    const unitGroupIds = (bo.$attrs['unitPermissionGroupIds'] || '').split(',').map((s: string) => Number(s.trim())).filter((n: number) => n > 0);
     this.selectedElementProps = {
       id: element.id,
       type: element.type,
-      name: element.businessObject.name || '',
-      stepNum: element.businessObject.$attrs['stepNum'] || '',
-      requiredRole: element.businessObject.$attrs['requiredRole'] || '',
-      actionType: element.businessObject.$attrs['actionType'] || 'Approve'
+      name: bo.name || '',
+      stepNum: bo.$attrs['stepNum'] || '',
+      actionType: bo.$attrs['actionType'] || 'Approve',
+      selectedSystemGroupIds: sysGroupIds,
+      selectedUnitGroupIds: unitGroupIds,
+      requireSameUnit: bo.$attrs['requireSameUnit'] === 'true',
+      assigneeId: bo.$attrs['assigneeId'] || '',
+      assigneeName: bo.$attrs['assigneeName'] || '',
+      assigneeSearch: bo.$attrs['assigneeName'] || ''
     };
+    this.userSearchResults = [];
     this.cdr.detectChanges();
   }
 
@@ -682,6 +755,11 @@ export class WorkflowBuilderComponent implements OnInit {
         conditionExpression: conditionExpression
       });
       this.selectedElementProps.condition = value;
+    } else if (prop === 'requireSameUnit') {
+      // Giá trị từ checkbox
+      const checked = event?.target ? event.target.checked : Boolean(value);
+      modeling.updateProperties(this.selectedBpmnElement, { requireSameUnit: String(checked) });
+      this.selectedElementProps.requireSameUnit = checked;
     } else {
       const attrs: any = {};
       attrs[prop] = value;
@@ -691,36 +769,38 @@ export class WorkflowBuilderComponent implements OnInit {
     this.cdr.detectChanges();
   }
 
-  isRoleSelected(roleCode: string): boolean {
-    if (!this.selectedElementProps?.requiredRole) return false;
-    const roles = this.selectedElementProps.requiredRole.split(',').map((r: string) => r.trim());
-    return roles.includes(roleCode);
-  }
-
-  toggleRoleSelection(roleCode: string, event: any): void {
+  // Cập nhật nhóm quyền hệ thống khi người dùng chọn/bỏ chọn
+  toggleSystemGroup(groupId: number, event: any): void {
     if (!this.selectedBpmnElement || !this.selectedElementProps) return;
     const checked = event.target.checked;
-    let roles = this.selectedElementProps.requiredRole
-      ? this.selectedElementProps.requiredRole.split(',').map((r: string) => r.trim()).filter((r: string) => r)
-      : [];
-
-    if (checked) {
-      if (!roles.includes(roleCode)) {
-        roles.push(roleCode);
-      }
-    } else {
-      roles = roles.filter((r: string) => r !== roleCode);
-    }
-
-    const newValue = roles.join(',');
-    this.selectedElementProps.requiredRole = newValue;
-
-    const modeling = this.bpmnModeler.get('modeling');
-    modeling.updateProperties(this.selectedBpmnElement, {
-      requiredRole: newValue
-    });
+    let ids: number[] = this.selectedElementProps.selectedSystemGroupIds || [];
+    ids = checked ? [...new Set([...ids, groupId])] : ids.filter((id: number) => id !== groupId);
+    this.selectedElementProps.selectedSystemGroupIds = ids;
+    const csv = ids.join(',');
+    this.bpmnModeler.get('modeling').updateProperties(this.selectedBpmnElement, { systemPermissionGroupIds: csv });
     this.cdr.detectChanges();
   }
+
+  // Cập nhật nhóm quyền đơn vị khi người dùng chọn/bỏ chọn
+  toggleUnitGroup(groupId: number, event: any): void {
+    if (!this.selectedBpmnElement || !this.selectedElementProps) return;
+    const checked = event.target.checked;
+    let ids: number[] = this.selectedElementProps.selectedUnitGroupIds || [];
+    ids = checked ? [...new Set([...ids, groupId])] : ids.filter((id: number) => id !== groupId);
+    this.selectedElementProps.selectedUnitGroupIds = ids;
+    const csv = ids.join(',');
+    this.bpmnModeler.get('modeling').updateProperties(this.selectedBpmnElement, { unitPermissionGroupIds: csv });
+    this.cdr.detectChanges();
+  }
+
+  isSystemGroupSelected(groupId: number): boolean {
+    return (this.selectedElementProps?.selectedSystemGroupIds || []).includes(groupId);
+  }
+
+  isUnitGroupSelected(groupId: number): boolean {
+    return (this.selectedElementProps?.selectedUnitGroupIds || []).includes(groupId);
+  }
+
 
   bpmnElementsToSteps(): WorkflowStep[] {
     if (!this.bpmnModeler) return [];
@@ -736,7 +816,12 @@ export class WorkflowBuilderComponent implements OnInit {
         stepName: bo.name || 'Bước mới',
         order: stepNum,
         requiredRole: bo.$attrs['requiredRole'] || '',
-        actionType: bo.$attrs['actionType'] || 'Approve'
+        actionType: bo.$attrs['actionType'] || 'Approve',
+        // Bổ sung 4 thuộc tính mới
+        systemPermissionGroupIds: bo.$attrs['systemPermissionGroupIds'] || '',
+        unitPermissionGroupIds: bo.$attrs['unitPermissionGroupIds'] || '',
+        requireSameUnit: bo.$attrs['requireSameUnit'] === 'true',
+        assigneeId: bo.$attrs['assigneeId'] || ''
       };
     }).sort((a: any, b: any) => a.order - b.order);
   }

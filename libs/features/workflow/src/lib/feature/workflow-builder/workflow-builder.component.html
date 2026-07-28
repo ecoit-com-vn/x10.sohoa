@@ -261,71 +261,9 @@
 
     <!-- ── TAB 2: THIẾT KẾ QUY TRÌNH (BPMN) ──────────────── -->
     <div [hidden]="activeTab !== 'design'" class="tab-content bpmn-section">
-      <div class="bpmn-workspace">
-        <!-- Canvas container for Bpmn.io Modeler -->
+      <!-- Vùng Canvas BPMN -->
+      <div class="bpmn-canvas-area">
         <div id="canvas" class="bpmn-canvas"></div>
-
-        <!-- Properties panel -->
-        <div class="prop-panel" *ngIf="selectedElementProps">
-          <div class="prop-header">
-            <span>Thuộc tính phần tử</span>
-            <button class="prop-close" (click)="selectedBpmnElement = null; selectedElementProps = null">
-              <i class="pi pi-times"></i>
-            </button>
-          </div>
-          <div class="prop-body">
-            <div class="prop-row">
-              <label>{{ selectedElementProps.type === 'bpmn:SequenceFlow' ? 'Nhãn đường đi' : 'Tên phần tử' }}</label>
-              <input type="text" class="prop-input" [value]="selectedElementProps.name" (input)="updateElementProperty('name', $event)" placeholder="Ví dụ: Đồng ý, Từ chối,..." />
-            </div>
-            
-            <!-- Task / UserTask Specific -->
-            <div class="prop-row" *ngIf="selectedElementProps.type === 'bpmn:Task' || selectedElementProps.type === 'bpmn:UserTask'">
-              <label>Thứ tự bước</label>
-              <input type="number" class="prop-input" [value]="selectedElementProps.stepNum" (input)="updateElementProperty('stepNum', $event)" min="1" />
-            </div>
-            <div class="prop-row" *ngIf="selectedElementProps.type === 'bpmn:Task' || selectedElementProps.type === 'bpmn:UserTask'">
-              <label>Vai trò phụ trách</label>
-              <div class="role-checkbox-list">
-                <label *ngFor="let role of rolesList" class="role-checkbox-item">
-                  <input type="checkbox" 
-                    [checked]="isRoleSelected(role.code)" 
-                    (change)="toggleRoleSelection(role.code, $event)" />
-                  <span>{{ role.name }}</span>
-                </label>
-                <div *ngIf="rolesList.length === 0" class="no-roles-text">Không có vai trò nào.</div>
-              </div>
-            </div>
-            <div class="prop-row" *ngIf="selectedElementProps.type === 'bpmn:Task' || selectedElementProps.type === 'bpmn:UserTask'">
-              <label>Loại hành động</label>
-              <select class="prop-select" [value]="selectedElementProps.actionType" (change)="updateElementProperty('actionType', $event)">
-                <option value="Scan">Quét tài liệu</option>
-                <option value="DataEntry">Nhập liệu</option>
-                <option value="Review">Kiểm soát</option>
-                <option value="Approve">Phê duyệt</option>
-              </select>
-            </div>
-
-            <!-- SequenceFlow Condition Specific -->
-            <div class="prop-row" *ngIf="selectedElementProps.type === 'bpmn:SequenceFlow'">
-              <label>Điều kiện chuyển tiếp</label>
-              <input type="text" class="prop-input" [value]="selectedElementProps.condition" (input)="updateElementProperty('condition', $event)" placeholder="Ví dụ: status == 'Approve'" />
-              <div class="prop-help-text">Đặt điều kiện khi đi ra từ Gateway phân nhánh.</div>
-            </div>
-
-            <!-- Gateway Selection Hint -->
-            <div class="prop-help-box" *ngIf="selectedElementProps.type.includes('Gateway')">
-              <i class="pi pi-info-circle"></i>
-              <span>Hãy chọn các <b>đường mũi tên đi ra</b> từ Gateway này để cấu hình điều kiện chuyển tiếp cho từng nhánh.</span>
-            </div>
-
-            <div class="prop-type-row">
-              <span class="prop-type-badge prop-type-task">
-                {{ selectedElementProps.type }}
-              </span>
-            </div>
-          </div>
-        </div>
 
         <!-- Controls overlay -->
         <div class="canvas-controls">
@@ -340,7 +278,150 @@
           </button>
         </div>
       </div>
+
+      <!-- Panel cấu hình bước — đặt dưới canvas, full width -->
+      <div class="bpmn-config-panel" *ngIf="selectedElementProps">
+        <div class="config-panel-header">
+          <span class="config-panel-title">
+            <i class="pi pi-cog"></i>
+            Cấu hình: <b>{{ selectedElementProps.name || selectedElementProps.id }}</b>
+            <span class="prop-type-badge">{{ selectedElementProps.type }}</span>
+          </span>
+          <button class="prop-close" (click)="selectedBpmnElement = null; selectedElementProps = null">
+            <i class="pi pi-times"></i>
+          </button>
+        </div>
+
+        <div class="config-panel-body">
+          <!-- Hàng 1: Tên và thứ tự -->
+          <div class="config-row">
+            <div class="config-field">
+              <label>{{ selectedElementProps.type === 'bpmn:SequenceFlow' ? 'Nhãn đường đi' : 'Tên bước' }}</label>
+              <input type="text" class="prop-input" [value]="selectedElementProps.name"
+                     (input)="updateElementProperty('name', $event)" placeholder="Ví dụ: Phê duyệt lần 1..." />
+            </div>
+            <div class="config-field config-field-sm"
+                 *ngIf="selectedElementProps.type === 'bpmn:Task' || selectedElementProps.type === 'bpmn:UserTask'">
+              <label>Thứ tự bước</label>
+              <input type="number" class="prop-input" [value]="selectedElementProps.stepNum"
+                     (input)="updateElementProperty('stepNum', $event)" min="1" />
+            </div>
+            <div class="config-field config-field-sm"
+                 *ngIf="selectedElementProps.type === 'bpmn:Task' || selectedElementProps.type === 'bpmn:UserTask'">
+              <label>Loại hành động</label>
+              <select class="prop-select" [value]="selectedElementProps.actionType"
+                      (change)="updateElementProperty('actionType', $event)">
+                <option value="Scan">Quét tài liệu</option>
+                <option value="DataEntry">Nhập liệu</option>
+                <option value="Review">Kiểm soát</option>
+                <option value="Approve">Phê duyệt</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Hàng 2: Nhóm quyền (chỉ hiện với Task/UserTask) -->
+          <ng-container *ngIf="selectedElementProps.type === 'bpmn:Task' || selectedElementProps.type === 'bpmn:UserTask'">
+            <div class="config-row config-row-groups">
+              <!-- Cột nhóm quyền hệ thống -->
+              <div class="config-field config-field-group">
+                <label><i class="pi pi-shield"></i> Nhóm quyền hệ thống</label>
+                <div class="group-checkbox-list">
+                  <label *ngFor="let g of systemGroupList" class="group-checkbox-item">
+                    <input type="checkbox"
+                           [checked]="isSystemGroupSelected(g.id)"
+                           (change)="toggleSystemGroup(g.id, $event)" />
+                    <span>{{ g.name }}</span>
+                  </label>
+                  <div *ngIf="systemGroupList.length === 0" class="no-groups-text">Không có dữ liệu.</div>
+                </div>
+              </div>
+
+              <!-- Cột nhóm quyền đơn vị -->
+              <div class="config-field config-field-group">
+                <label><i class="pi pi-building"></i> Nhóm quyền đơn vị</label>
+                <div class="group-checkbox-list">
+                  <label *ngFor="let g of unitGroupList" class="group-checkbox-item">
+                    <input type="checkbox"
+                           [checked]="isUnitGroupSelected(g.id)"
+                           (change)="toggleUnitGroup(g.id, $event)" />
+                    <span>{{ g.name }}</span>
+                  </label>
+                  <div *ngIf="unitGroupList.length === 0" class="no-groups-text">Không có dữ liệu.</div>
+                </div>
+              </div>
+
+              <!-- Cột điều kiện & giao việc đích danh -->
+              <div class="config-field config-field-options">
+                <!-- Checkbox: Cùng đơn vị -->
+                <div class="same-unit-check">
+                  <label class="check-label">
+                    <input type="checkbox"
+                           [checked]="selectedElementProps.requireSameUnit"
+                           (change)="updateElementProperty('requireSameUnit', $event)" />
+                    <span>Chỉ người xử lý <b>cùng đơn vị</b></span>
+                  </label>
+                  <div class="check-hint">Khi chuyển bước, chỉ hiển thị người thuộc cùng đơn vị với người đang xử lý.</div>
+                </div>
+
+                <!-- Autocomplete: Giao việc đích danh -->
+                <div class="assignee-field">
+                  <label><i class="pi pi-user"></i> Giao việc đích danh <span class="optional-badge">Tuỳ chọn</span></label>
+                  <div class="assignee-input-wrapper">
+                    <input type="text" class="prop-input"
+                           placeholder="Nhập tên hoặc tài khoản để tìm..."
+                           [value]="selectedElementProps.assigneeSearch || ''"
+                           (input)="onUserSearchInput($any($event.target).value)"
+                           autocomplete="off" />
+                    <button *ngIf="selectedElementProps.assigneeId" class="clear-assignee-btn"
+                            (click)="clearAssignee()" title="Xoá người được giao">
+                      <i class="pi pi-times-circle"></i>
+                    </button>
+                  </div>
+                  <!-- Dropdown kết quả tìm kiếm -->
+                  <div class="user-dropdown" *ngIf="userSearchResults.length > 0">
+                    <div *ngFor="let u of userSearchResults" class="user-option"
+                         (click)="selectAssignee(u)">
+                      <i class="pi pi-user"></i>
+                      <span class="user-fullname">{{ u.fullName }}</span>
+                      <span class="user-username">{{ u.username }}</span>
+                    </div>
+                  </div>
+                  <div class="loading-hint" *ngIf="userSearchLoading">Đang tìm kiếm...</div>
+                  <!-- Hiển thị người đã chọn -->
+                  <div class="assigned-user-badge" *ngIf="selectedElementProps.assigneeId && !userSearchLoading">
+                    <i class="pi pi-user-check"></i>
+                    <span>{{ selectedElementProps.assigneeName }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </ng-container>
+
+          <!-- SequenceFlow: Điều kiện chuyển tiếp -->
+          <div class="config-row" *ngIf="selectedElementProps.type === 'bpmn:SequenceFlow'">
+            <div class="config-field">
+              <label>Điều kiện chuyển tiếp</label>
+              <input type="text" class="prop-input" [value]="selectedElementProps.condition"
+                     (input)="updateElementProperty('condition', $event)"
+                     placeholder="Ví dụ: status == 'Approve'" />
+              <div class="prop-help-text">Đặt điều kiện khi đi ra từ Gateway phân nhánh.</div>
+            </div>
+          </div>
+
+          <!-- Gateway hint -->
+          <div class="prop-help-box" *ngIf="selectedElementProps.type.includes('Gateway')">
+            <i class="pi pi-info-circle"></i>
+            <span>Hãy chọn các <b>đường mũi tên đi ra</b> từ Gateway này để cấu hình điều kiện chuyển tiếp cho từng nhánh.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Gợi ý khi chưa chọn phần tử -->
+      <div class="config-panel-empty" *ngIf="!selectedElementProps">
+        <i class="pi pi-mouse-pointer"></i>
+        <span>Nhấp đúp vào một Task/UserTask trong sơ đồ để cấu hình bước xử lý</span>
+      </div>
     </div>
 
   </div>
-</div>
+</div>
