@@ -748,3 +748,78 @@
     filter: grayscale(40%);
   }
 }
+
+// The page layout already owns vertical scrolling. This wrapper only provides
+// horizontal overflow on narrow viewports to avoid nested vertical scrollbars.
+.form-list-table-wrap {
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+.form-list-table {
+  width: 100%;
+  min-width: 1100px;
+  table-layout: auto;
+
+  // Fixed columns required by the form-list specification.
+  .form-col-stt {
+    width: 64px;
+  }
+
+  .form-col-updated {
+    width: 165px;
+  }
+
+  .form-col-status {
+    width: 150px;
+  }
+
+  .form-col-actions {
+    width: 90px;
+  }
+
+  .form-cell-stt,
+  .form-cell-updated,
+  .form-cell-status,
+  .form-cell-actions {
+    white-space: nowrap;
+  }
+
+  .form-cell-stt,
+  .form-cell-status,
+  .form-cell-actions {
+    text-align: center;
+  }
+
+  .form-cell-stt {
+    width: 64px;
+    min-width: 64px;
+    max-width: 64px;
+  }
+
+  .form-cell-updated {
+    width: 165px;
+    min-width: 165px;
+    max-width: 165px;
+  }
+
+  .form-cell-status {
+    width: 150px;
+    min-width: 150px;
+    max-width: 150px;
+  }
+
+  .form-cell-actions {
+    width: 90px;
+    min-width: 90px;
+    max-width: 90px;
+  }
+
+  .form-cell-content {
+    width: auto;
+
+    .badge {
+      vertical-align: middle;
+    }
+  }
+}
