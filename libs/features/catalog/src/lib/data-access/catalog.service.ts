@@ -51,7 +51,7 @@ export class CatalogService {
     return this.http.get<any>(base, { params });
   }
 
-  getItemsByTypeId(catalogTypeId: number, page: number, pageSize: number, keyword?: string, status?: string): Observable<any> {
+  getItemsByTypeId(catalogTypeId: number, page: number, pageSize: number, keyword?: string, status?: string, unitId?: number | null): Observable<any> {
     let params = new HttpParams()
       .set('catalogTypeId', catalogTypeId.toString())
       .set('page', page.toString())
@@ -63,7 +63,10 @@ export class CatalogService {
     if (status) {
       params = params.set('status', status);
     }
-    
+    if (unitId != null && unitId > 0) {
+      params = params.set('unitId', unitId.toString());
+    }
+
     return this.http.get<any>(this.base, { params });
   }
 
@@ -120,4 +123,9 @@ export class CatalogService {
     const suffix = isPrivate ? 'private' : 'shared';
     return this.http.post<any>(`${this.base}/${suffix}/${id}/${action}`, {});
   }
+
+  getOrganizationUnits(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.config.apiGatewayUrl}/api/v1/equipment/get-organization-units`);
+  }
+
 }

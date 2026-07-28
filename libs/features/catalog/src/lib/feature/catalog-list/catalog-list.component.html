@@ -2,7 +2,22 @@
   <p-toast></p-toast>
   <div class="list-toolbar">
     <div class="toolbar-left">
-      <wf-breadcrumb [viewMode]="currentView()" (listClick)="currentView.set('list')" />
+      <div class="breadcrumb" *ngIf="isPhongCatalog(); else defaultCatalogBreadcrumb">
+        <i class="pi pi-home bc-icon"></i>
+        <a class="bc-text bc-link" href="#/dashboard">Trang chủ</a>
+        <span class="bc-sep">/</span>
+        <span class="bc-text">Quản lý danh mục</span>
+        <span class="bc-sep">/</span>
+        <span class="bc-current" *ngIf="currentView() === 'list'; else phongActionBreadcrumb">Danh mục phông</span>
+        <ng-template #phongActionBreadcrumb>
+          <span class="bc-text bc-link" (click)="currentView.set('list')">Danh mục phông</span>
+          <span class="bc-sep">/</span>
+          <span class="bc-current">{{ currentView() === 'add' ? 'Thêm mới' : 'Chỉnh sửa' }}</span>
+        </ng-template>
+      </div>
+      <ng-template #defaultCatalogBreadcrumb>
+        <wf-breadcrumb [viewMode]="currentView()" (listClick)="currentView.set('list')" />
+      </ng-template>
     </div>
     <div class="toolbar-right" *ngIf="canCreate()">
       <button class="btn-green" (click)="onAddNew()">
@@ -31,6 +46,13 @@
             <option value="0">Ngừng hoạt động</option>
           </select>
 
+          <select *ngIf="isPhongCatalog()" class="wf-input"
+            style="height: 38px; min-width: 210px; padding: 0 10px; border-radius: 6px;"
+            [ngModel]="searchUnitId()" (ngModelChange)="onSearchUnitChange($event)">
+            <option [ngValue]="null">-- Tất cả đơn vị --</option>
+            <option *ngFor="let unit of organizationUnits()" [ngValue]="unit.id">{{ unit.name }}</option>
+          </select>
+
           <button class="btn-tim" (click)="onSearch()">
             <i class="pi pi-search"></i> Tìm
           </button>
@@ -50,6 +72,7 @@
               <th class="col-stt">STT</th>
               <th>Mã danh mục</th>
               <th>Tên danh mục</th>
+              <th *ngIf="isPhongCatalog()">Đơn vị</th>
               <th *ngIf="hasParent()">Danh mục cha</th>
               <th style="width: 100px; text-align: center;">Thứ tự</th>
               <th>Trạng thái</th>
@@ -67,6 +90,9 @@
                 <ng-template #viewOnlyName>
                   <b>{{ item.name }}</b>
                 </ng-template>
+              </td>
+              <td *ngIf="isPhongCatalog()">
+                {{ item.unitName || getUnitLabel(item.unitId) || '-' }}
               </td>
               <td *ngIf="hasParent()">
                 <span class="text-primary font-semibold" *ngIf="item.parentId">
@@ -91,7 +117,7 @@
               </td>
             </tr>
             <tr *ngIf="items().length === 0">
-              <td [attr.colspan]="hasParent() ? 9 : 8" class="empty-row">
+              <td [attr.colspan]="(hasParent() ? 7 : 6) + (isPhongCatalog() ? 1 : 0)" class="empty-row">
                 <i class="pi pi-inbox"></i>
                 <div>Không tìm thấy dữ liệu danh mục nào.</div>
               </td>
@@ -152,6 +178,16 @@
           <span class="field-error" *ngIf="nameError()">{{ nameError() }}</span>
         </div>
 
+        <div class="form-group" *ngIf="isPhongCatalog()">
+          <label class="form-label">Đơn vị <span class="required">*</span></label>
+          <select class="wf-input w-full" [(ngModel)]="currentItem().unitId"
+            (ngModelChange)="onFieldChange('unitId')" [disabled]="isSaving()">
+            <option [ngValue]="null">-- Chọn đơn vị --</option>
+            <option *ngFor="let unit of organizationUnits()" [ngValue]="unit.id">{{ unit.name }}</option>
+          </select>
+          <span class="field-error" *ngIf="unitError()">{{ unitError() }}</span>
+        </div>
+
         <!-- Priority field -->
         <div class="form-group">
           <label class="form-label">Thứ tự ưu tiên</label>
@@ -174,7 +210,7 @@
             placeholder="Mô tả phạm vi áp dụng, thông tin chi tiết..." [disabled]="isSaving()"></textarea>
         </div>
 
-        <div class="form-group" style="display: flex; align-items: center; gap: 8px; padding-top: 5px;">
+        <div class="form-group" *ngIf="!isPhongCatalog()" style="display: flex; align-items: center; gap: 8px; padding-top: 5px;">
           <input type="checkbox" id="chkPrivate" [ngModel]="isPrivate()" (ngModelChange)="isPrivate.set($event)"
             style="scale: 1.1; cursor: pointer;" [disabled]="isSaving()" />
           <label for="chkPrivate"
