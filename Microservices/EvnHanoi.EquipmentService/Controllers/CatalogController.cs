@@ -108,10 +108,10 @@ public class CatalogController : ControllerBase
                 return BadRequest(new { statusCode = 400, message = "Dữ liệu đầu vào không hợp lệ.", errors = new { unitId = "Vui lòng chọn một đơn vị" } });
             if (!CanAccessUnit(unitId.Value)) return Forbid();
         }
-        long? effectiveUnitId = isPhong ? unitId : unitId ?? GetUnitIdFromClaims();
+        long? effectiveUnitId = unitId ?? GetUnitIdFromClaims();
         var (items, totalCount) = await _catalogRepository.GetPagedAsync(
             page, pageSize, catalogTypeId, keyword, status, effectiveUnitId,
-            strictUnitFilter: isPhong);
+            strictUnitFilter: isUnitScoped);
         return Ok(new { items, totalCount, page, pageSize });
     }
 
