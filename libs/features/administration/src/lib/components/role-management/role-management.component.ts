@@ -10,7 +10,10 @@ import { MenuItem, MessageService, ConfirmationService } from 'primeng/api';
 import { environment } from '@env/environment';
 import { finalize } from 'rxjs';
 import { AuthService } from '@sohoa.frontend/shared/core';
-import { buildMenuPermissionTree as buildMenuPermissionTreeFromLookup } from '../../utils/menu-permission-tree.util';
+import {
+  buildAssignedMenuSummary,
+  buildMenuPermissionTree as buildMenuPermissionTreeFromLookup,
+} from '../../utils/menu-permission-tree.util';
 
 @Component({
   selector: 'app-role-management',
@@ -40,6 +43,18 @@ export class RoleManagement implements OnInit {
   activeRoleForPermission = signal<any>(null);
   availablePermissionGroups = signal<any[]>([]);
   selectedPermissionGroupIds = signal<number[]>([]);
+  expandedPermissionGroupIds = signal<Set<number>>(new Set<number>());
+  permissionGroupsLoading = signal<boolean>(false);
+  permissionGroupMenuSummaries = computed(() => {
+    const summaries = new Map<number, ReturnType<typeof buildAssignedMenuSummary>>();
+    for (const group of this.availablePermissionGroups()) {
+      summaries.set(
+        group.id,
+        buildAssignedMenuSummary(this.menus(), this.systemPermissions(), group.permissionCodes || [])
+      );
+    }
+    return summaries;
+  });
 
   roleUsers = signal<any[]>([]);
   roleUsersKeyword = signal<string>('');
@@ -431,44 +446,64 @@ export class RoleManagement implements OnInit {
     this.roleUsersPage.set(1);
     this.selectedPermissionGroupIds.set([]);
     this.availablePermissionGroups.set([]);
+    this.expandedPermissionGroupIds.set(new Set<number>());
+    this.permissionGroupsLoading.set(true);
 
-    this.loadAvailablePermissionGroups(role);
-    this.http.get<any>(`${this.apiUrl}/${role.id}/permission-groups`).subscribe({
+    this.http.get<any[]>(`${this.apiUrl}/${role.id}/available-permission-groups`)
+      .pipe(finalize(() => this.permissionGroupsLoading.set(false)))
+      .subscribe({
       next: (res) => {
         const list = Array.isArray(res) ? res : [];
-        this.selectedPermissionGroupIds.set(list.map((g: any) => g.id));
+        const normalized = list.map((group: any) => ({
+          ...group,
+          id: Number(group.id ?? group.Id),
+          code: group.code ?? group.Code ?? '',
+          name: group.name ?? group.Name ?? '',
+          groupType: group.groupType ?? group.GroupType ?? '',
+          organizationUnitId: group.organizationUnitId ?? group.OrganizationUnitId ?? null,
+          organizationUnitName: group.organizationUnitName ?? group.OrganizationUnitName ?? null,
+          organizationUnitIds: group.organizationUnitIds ?? group.OrganizationUnitIds ?? [],
+          organizationUnitNames: group.organizationUnitNames ?? group.OrganizationUnitNames ?? null,
+          permissionCodes: group.permissionCodes || group.PermissionCodes || [],
+          isAssigned: group.isAssigned ?? group.IsAssigned ?? false
+        })).filter((group: any) => Number.isFinite(group.id) && group.id > 0);
+        this.availablePermissionGroups.set(normalized);
+        this.selectedPermissionGroupIds.set(
+          normalized.filter((group: any) => group.isAssigned).map((group: any) => group.id)
+        );
         this.currentView.set('permission');
       },
       error: () => {
-        this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể tải nhóm quyền đã gán.' });
+        this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể tải danh sách nhóm quyền khả dụng.' });
       }
     });
   }
 
-  private loadAvailablePermissionGroups(role: any) {
-    let unitLookupUrl = `${environment.apiGatewayUrl}/api/v1/unit-permission-groups/lookup`;
-    // Vai trò UNIT: chỉ lấy nhóm ĐV có mapping chứa đơn vị của vai trò
-    if (role?.scopeTypeId === 2 && role?.organizationUnitId) {
-      unitLookupUrl += `?organizationUnitId=${role.organizationUnitId}`;
-    }
-    this.http.get<any[]>(unitLookupUrl).subscribe({
-      next: (unitGroups) => {
-        const normalized = Array.isArray(unitGroups) ? unitGroups : [];
-        if (this.authService.hasPermission('SYSTEM_PERMISSION_GROUP_VIEW') && role.scopeTypeId === 1) {
-          const systemLookupUrl = `${environment.apiGatewayUrl}/api/v1/system-permission-groups/lookup`;
-          this.http.get<any[]>(systemLookupUrl).subscribe({
-            next: (systemGroups) => {
-              const sys = Array.isArray(systemGroups) ? systemGroups : [];
-              this.availablePermissionGroups.set([...sys, ...normalized]);
-            },
-            error: () => this.availablePermissionGroups.set(normalized)
-          });
-        } else {
-          this.availablePermissionGroups.set(normalized);
-        }
-      },
-      error: () => this.availablePermissionGroups.set([])
+  isPermissionGroupExpanded(groupId: number): boolean {
+    return this.expandedPermissionGroupIds().has(groupId);
+  }
+
+  togglePermissionGroupDetails(groupId: number, event: Event): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.expandedPermissionGroupIds.update((current) => {
+      const next = new Set(current);
+      if (next.has(groupId)) {
+        next.delete(groupId);
+      } else {
+        next.add(groupId);
+      }
+      return next;
     });
+  }
+
+  getPermissionGroupMenuSummary(groupId: number) {
+    return this.permissionGroupMenuSummaries().get(groupId) || [];
+  }
+
+  getPermissionGroupMenuCount(groupId: number): number {
+    return this.getPermissionGroupMenuSummary(groupId)
+      .reduce((total, parent) => total + (parent.children.length || 1), 0);
   }
 
   isPermissionGroupSelected(groupId: number): boolean {

@@ -199,19 +199,69 @@
           <p class="text-muted" style="margin-bottom: 16px;">
             Chọn nhóm quyền gán vào vai trò. Quản trị đơn vị chỉ thấy nhóm quyền đơn vị thuộc phạm vi quản lý.
           </p>
-          <label *ngFor="let g of availablePermissionGroups()" class="permission-row" style="display: flex; align-items: center; gap: 12px; padding: 6px 0; margin-bottom: 6px; cursor: pointer;">
-            <input
-              type="checkbox"
-              class="perm-checkbox"
-              [checked]="isPermissionGroupSelected(g.id)"
-              [disabled]="savingPermissions()"
-              (change)="togglePermissionGroup(g.id)"
-            />
-            <span>
-              <b>{{ g.name }}</b>
-            </span>
-          </label>
-          <div *ngIf="availablePermissionGroups().length === 0" class="text-muted" style="padding: 10px 0;">Không có nhóm quyền khả dụng.</div>
+          <div *ngIf="permissionGroupsLoading()" class="permission-groups-loading">
+            <i class="pi pi-spin pi-spinner"></i>
+            <span>Đang tải nhóm quyền...</span>
+          </div>
+
+          <div *ngFor="let g of availablePermissionGroups()" class="role-permission-group-card">
+            <div class="role-permission-group-header">
+              <label class="role-permission-group-select">
+                <input
+                  type="checkbox"
+                  class="perm-checkbox"
+                  [checked]="isPermissionGroupSelected(g.id)"
+                  [disabled]="savingPermissions()"
+                  (change)="togglePermissionGroup(g.id)"
+                />
+                <span class="role-permission-group-title">
+                  <b>{{ g.name || g.code || ('Nhóm quyền #' + g.id) }}</b>
+                  <small *ngIf="g.code">{{ g.code }}</small>
+                </span>
+              </label>
+
+              <button
+                type="button"
+                class="permission-group-detail-toggle"
+                [attr.aria-expanded]="isPermissionGroupExpanded(g.id)"
+                (click)="togglePermissionGroupDetails(g.id, $event)"
+              >
+                <span>
+                  {{ isPermissionGroupExpanded(g.id) ? 'Ẩn menu chức năng' : 'Xem menu chức năng' }}
+                  ({{ getPermissionGroupMenuCount(g.id) }})
+                </span>
+                <i class="pi" [ngClass]="isPermissionGroupExpanded(g.id) ? 'pi-chevron-up' : 'pi-chevron-down'"></i>
+              </button>
+            </div>
+
+            <div *ngIf="isPermissionGroupExpanded(g.id)" class="permission-group-menu-detail">
+              <div class="permission-group-menu-detail-title">
+                <i class="pi pi-sitemap"></i>
+                <span>Menu chức năng được phân trong nhóm</span>
+              </div>
+              <div class="permission-group-menu-detail-content">
+                <ng-container *ngIf="getPermissionGroupMenuSummary(g.id).length > 0; else noAssignedMenus">
+                  <div *ngFor="let parentMenu of getPermissionGroupMenuSummary(g.id)" class="assigned-menu-parent">
+                    <div class="assigned-menu-parent-name">
+                      <i class="pi pi-folder"></i>
+                      <span>{{ parentMenu.name }}</span>
+                    </div>
+                    <div *ngIf="parentMenu.children.length > 0" class="assigned-menu-children">
+                      <div *ngFor="let childMenu of parentMenu.children" class="assigned-menu-child">
+                        <i class="pi pi-circle-fill"></i>
+                        <span>{{ childMenu.name }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </ng-container>
+                <ng-template #noAssignedMenus>
+                  <div class="no-assigned-menus">Nhóm quyền này chưa được phân menu chức năng nào.</div>
+                </ng-template>
+              </div>
+            </div>
+          </div>
+
+          <div *ngIf="!permissionGroupsLoading() && availablePermissionGroups().length === 0" class="text-muted" style="padding: 10px 0;">Không có nhóm quyền khả dụng.</div>
         </div>
       </div>
 
