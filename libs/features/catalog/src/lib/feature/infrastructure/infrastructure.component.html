@@ -28,12 +28,31 @@
             (keyup.enter)="onSearch()" />
 
           <!-- Unit Filter -->
-          <select class="wf-input" style="height: 38px; min-width: 180px; padding: 0 10px; border-radius: 6px;"
-            [ngModel]="searchUnitId()"
-            (ngModelChange)="searchUnitId.set($event); onSearch()">
-            <option [value]="null">-- Tất cả đơn vị --</option>
-            <option *ngFor="let unit of orgUnits()" [value]="unit.id">{{ unit.name }}</option>
-          </select>
+          <div class="org-tree-picker" style="width: 320px;">
+            <div class="org-tree-trigger" (click)="toggleSearchOrgTree($event)"
+              [class.has-value]="searchUnitId()" [class.open]="searchOrgTreeOpen()">
+              <span class="org-tree-selected-label">
+                <i class="pi pi-building" style="margin-right: 6px; color: #6b7280;"></i>
+                {{ getUnitLabel(searchUnitId()) || '-- Tất cả đơn vị --' }}
+              </span>
+              <span style="display: flex; align-items: center; gap: 8px;">
+                <i class="pi pi-times-circle clear-btn" *ngIf="searchUnitId()" (click)="clearSearchOrgUnit($event)"
+                  style="color: #94a3b8; font-size: 0.95rem; cursor: pointer;"></i>
+                <i class="pi" [class.pi-chevron-down]="!searchOrgTreeOpen()" [class.pi-chevron-up]="searchOrgTreeOpen()"></i>
+              </span>
+            </div>
+            <div class="org-tree-dropdown" *ngIf="searchOrgTreeOpen()" (click)="$event.stopPropagation()">
+              <div class="org-tree-search">
+                <i class="pi pi-search"></i>
+                <input type="text" placeholder="Tìm kiếm đơn vị..." [ngModel]="searchOrgSearchKeyword()"
+                  (ngModelChange)="searchOrgSearchKeyword.set($event)" />
+              </div>
+              <ng-container *ngFor="let node of searchOrgUnitTree()">
+                <ng-container *ngTemplateOutlet="searchOrgTreeNode; context: { $implicit: node, depth: 0 }"></ng-container>
+              </ng-container>
+              <div *ngIf="searchOrgUnitTree().length === 0" class="org-tree-empty">Không có đơn vị phù hợp.</div>
+            </div>
+          </div>
 
           <!-- Status Filter -->
           <select class="wf-input" style="height: 38px; width: 160px; padding: 0 10px; border-radius: 6px;"
@@ -250,6 +269,27 @@
               </ng-container>
             </ng-container>
           </ng-template>
+
+          <ng-template #searchOrgTreeNode let-node let-depth="depth">
+            <div class="org-tree-node" [style.padding-left.px]="depth * 18 + 8"
+              [class.selected]="searchUnitId() == node.id">
+              <button type="button" class="org-tree-expand-btn" *ngIf="node.children && node.children.length > 0"
+                (click)="toggleSearchUnitNode(node.id, $event)">
+                <i class="pi" [class.pi-chevron-right]="!isSearchNodeExpanded(node.id)"
+                  [class.pi-chevron-down]="isSearchNodeExpanded(node.id)"></i>
+              </button>
+              <span class="org-tree-node-spacer" *ngIf="!node.children || node.children.length === 0"></span>
+              <span class="org-tree-node-label" (click)="selectSearchOrgUnit(node.id)">
+                <i class="pi pi-building" style="margin-right: 5px; font-size: 0.8rem; color: #6b7280;"></i>
+                {{ node.name }}
+              </span>
+            </div>
+            <ng-container *ngIf="(searchOrgSearchKeyword() || isSearchNodeExpanded(node.id)) && node.children?.length">
+              <ng-container *ngFor="let child of node.children">
+                <ng-container *ngTemplateOutlet="searchOrgTreeNode; context: { $implicit: child, depth: depth + 1 }"></ng-container>
+              </ng-container>
+            </ng-container>
+          </ng-template>
         </div>
 
         <div class="form-group" style="display: flex; align-items: center; gap: 8px; padding-top: 5px;">
@@ -284,11 +324,17 @@
                [style.color]="activeTab() === 0 ? '#2563eb' : '#64748b'">
             <i class="pi pi-info-circle"></i> Thông tin chung
           </div>
-          <div class="tab-item" [class.tab-active]="activeTab() === 1" (click)="activeTab.set(1)"
+           <div class="tab-item" [class.tab-active]="activeTab() === 1" (click)="activeTab.set(1)"
                style="padding: 12px 16px; cursor: pointer; font-weight: 500; font-size: 0.95rem; display: flex; align-items: center; gap: 6px; border-bottom: 2px solid transparent;"
                [style.border-bottom-color]="activeTab() === 1 ? '#2563eb' : 'transparent'"
                [style.color]="activeTab() === 1 ? '#2563eb' : '#64748b'">
-            <i class="pi pi-folder-open"></i> Hồ sơ liên quan
+            <i class="pi pi-paperclip"></i> Tài liệu đính kèm
+          </div>
+          <div class="tab-item" [class.tab-active]="activeTab() === 2" (click)="activeTab.set(2)"
+               style="padding: 12px 16px; cursor: pointer; font-weight: 500; font-size: 0.95rem; display: flex; align-items: center; gap: 6px; border-bottom: 2px solid transparent;"
+               [style.border-bottom-color]="activeTab() === 2 ? '#2563eb' : 'transparent'"
+               [style.color]="activeTab() === 2 ? '#2563eb' : '#64748b'">
+            <i class="pi pi-folder-open"></i> Hồ sơ kỹ thuật
           </div>
         </div>
         <div style="padding-right: 8px;">
@@ -362,12 +408,11 @@
             </div>
             <div style="display: flex; flex-direction: column; gap: 6px; flex: 1; max-width: 300px; min-width: 200px;">
               <label style="font-size: 0.875rem; color: #475569; font-weight: 500;">Loại thiết bị</label>
-              <select class="wf-input" style="height: 38px; border-radius: 6px; border: 1px solid #cbd5e1; padding: 0 12px; width: 100%; background-color: #fff;"
-                [ngModel]="equipmentSearchTypeId()"
-                (ngModelChange)="equipmentSearchTypeId.set($event); onEquipmentFilterChange()">
-                <option value="">-- Chọn loại thiết bị --</option>
-                <option *ngFor="let et of equipmentTypes()" [value]="et.id">{{ et.name }}</option>
-              </select>
+              <p-select [options]="equipmentTypesForCurrentInfrastructure()" [ngModel]="equipmentSearchTypeId()"
+                (ngModelChange)="equipmentSearchTypeId.set($event); onEquipmentFilterChange()" optionLabel="name" optionValue="id"
+                placeholder="-- Chọn loại thiết bị --" [filter]="true" [disabled]="!currentItem().gridTypeId"
+                [style]="{'width':'100%', 'height':'38px', 'line-height':'24px', 'border':'1px solid #cbd5e1', 'border-radius':'6px', 'background-color':'#ffffff', 'color':'#374151'}">
+              </p-select>
             </div>
           </div>
 
@@ -404,11 +449,8 @@
                   <td>{{ eq.equipmentTypeName || getEquipmentTypeName(eq.equipmentTypeId) }}</td>
                   <td>{{ eq.serialNumber || '-' }}</td>
                   <td>
-                    <span *ngIf="eq.isActive === 1 || eq.isActive === true" class="status-pill status-active">
-                      Hoạt động
-                    </span>
-                    <span *ngIf="eq.isActive === 0 || eq.isActive === false" class="status-pill status-inactive">
-                      Ngừng hoạt động
+                    <span class="status-pill" [ngClass]="getEquipmentStatusClass(eq)">
+                      {{ getEquipmentStatusLabel(eq) }}
                     </span>
                   </td>
                   <td class="col-hd">
@@ -434,6 +476,22 @@
                             (click)="onEditEquipment(eq); activeEquipmentMenu.set(null)">
                             <i class="pi pi-pencil color-teal"></i>
                             <span>Chỉnh sửa</span>
+                          </button>
+
+                          <!-- Chuyển thiết bị -->
+                          <button type="button" class="dropdown-item-btn"
+                            *ngIf="canManage() && canShowTransferEquipment(eq)"
+                            (click)="openTransferDialog(eq); activeEquipmentMenu.set(null)">
+                            <i class="pi pi-send color-blue"></i>
+                            <span>Chuyển thiết bị</span>
+                          </button>
+
+                          <!-- Chuyển hồ sơ -->
+                          <button type="button" class="dropdown-item-btn"
+                            *ngIf="canManage() && canShowTransferDossier(eq)"
+                            (click)="onTransferDossier(eq); activeEquipmentMenu.set(null)">
+                            <i class="pi pi-folder-open color-blue"></i>
+                            <span>Chuyển hồ sơ</span>
                           </button>
 
                           <!-- Khóa / Mở khóa -->
@@ -511,9 +569,104 @@
           </div>
         </div>
       </div>
+  <!-- ======= TAB 2: TÀI LIỆU ĐÍNH KÈM ======= -->
+      <div *ngIf="activeTab() === 1" class="tab-content animate-fade-in technical-folder-tree">
+        <div class="technical-folder-search">
+          <i class="pi pi-search"></i>
+          <input type="text" placeholder="Tìm loại tài liệu..." [ngModel]="attachmentFolderSearchKeyword()"
+            (ngModelChange)="attachmentFolderSearchKeyword.set($event)" />
+        </div>
+
+        <div *ngIf="loadingAttachmentDocuments()" class="technical-folder-loading">
+          <i class="pi pi-spin pi-spinner"></i> Đang tải tài liệu đính kèm...
+        </div>
+
+        <div *ngIf="!loadingAttachmentDocuments()" class="technical-folder-root">
+          <div class="technical-folder-root-label">
+            <i class="pi pi-folder-open"></i>
+            <span>Kho tài liệu</span>
+          </div>
+
+          <div *ngIf="attachmentDocumentFolders().length === 0" class="technical-folder-empty">
+            Chưa có tài liệu đính kèm cho trạm biến áp này.
+          </div>
+
+          <div *ngFor="let folder of attachmentDocumentFolders()" class="technical-folder-node">
+            <button type="button" class="technical-folder-row" (click)="toggleAttachmentFolder(folder.id)">
+              <i class="pi" [class.pi-chevron-right]="!isAttachmentFolderExpanded(folder.id)"
+                [class.pi-chevron-down]="isAttachmentFolderExpanded(folder.id)"></i>
+              <i class="pi" [class.pi-folder]="!isAttachmentFolderExpanded(folder.id)"
+                [class.pi-folder-open]="isAttachmentFolderExpanded(folder.id)"></i>
+              <span>{{ folder.name }}</span>
+              <small>{{ folder.documents.length }} tài liệu</small>
+            </button>
+
+            <div *ngIf="isAttachmentFolderExpanded(folder.id)" class="technical-folder-children">
+              <div *ngFor="let item of folder.documents" class="technical-file-row">
+                <i class="pi pi-file"></i>
+                <button type="button" (click)="openTechnicalDocumentPreview(item.dossier.id, item.document)"
+                  title="Xem trước tài liệu">
+                  {{ item.document.name || item.document.fileName || 'Tài liệu chưa đặt tên' }}
+                </button>
+                <span>{{ getDossierCode(item.dossier) }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <!-- ======= TAB 1: HỒ SƠ LIÊN QUAN ======= -->
-      <div *ngIf="activeTab() === 1" class="tab-content animate-fade-in">
+      <div *ngIf="activeTab() === 2" class="tab-content animate-fade-in technical-folder-tree">
+        <div class="technical-folder-search">
+          <i class="pi pi-search"></i>
+          <input type="text" placeholder="Tìm thư mục..." [ngModel]="technicalFolderSearchKeyword()"
+            (ngModelChange)="technicalFolderSearchKeyword.set($event)" />
+        </div>
+
+        <div *ngIf="isLoadingRelatedDossiers()" class="technical-folder-loading">
+          <i class="pi pi-spin pi-spinner"></i> Đang tải hồ sơ kỹ thuật...
+        </div>
+
+        <div *ngIf="!isLoadingRelatedDossiers()" class="technical-folder-root">
+          <div class="technical-folder-root-label">
+            <i class="pi pi-folder-open"></i>
+            <span>Kho tài liệu</span>
+          </div>
+
+          <div *ngIf="technicalDossierFolders().length === 0" class="technical-folder-empty">
+            Không có hồ sơ kỹ thuật phù hợp.
+          </div>
+
+          <div *ngFor="let folder of technicalDossierFolders()" class="technical-folder-node">
+            <button type="button" class="technical-folder-row" (click)="toggleTechnicalFolder(folder)">
+              <i class="pi" [class.pi-chevron-right]="!isTechnicalFolderExpanded(folder.id)"
+                [class.pi-chevron-down]="isTechnicalFolderExpanded(folder.id)"></i>
+              <i class="pi" [class.pi-folder]="!isTechnicalFolderExpanded(folder.id)"
+                [class.pi-folder-open]="isTechnicalFolderExpanded(folder.id)"></i>
+              <span>{{ folder.name }}</span>
+              <small>{{ folder.dossiers.length }} hồ sơ</small>
+            </button>
+
+            <div *ngIf="isTechnicalFolderExpanded(folder.id)" class="technical-folder-children">
+              <div *ngIf="isTechnicalFolderLoading(folder.id)" class="technical-folder-loading">
+                <i class="pi pi-spin pi-spinner"></i> Đang tải tài liệu...
+              </div>
+              <div *ngFor="let item of getTechnicalFolderDocuments(folder)" class="technical-file-row">
+                <i class="pi pi-file-pdf"></i>
+                <button type="button" (click)="openTechnicalDocumentPreview(item.dossier.id, item.document)"
+                  title="Xem trước tài liệu">
+                  {{ item.document.name || item.document.fileName || 'Tài liệu chưa đặt tên' }}
+                </button>
+                <span>{{ getDossierCode(item.dossier) }}</span>
+              </div>
+              <div *ngIf="!isTechnicalFolderLoading(folder.id) && getTechnicalFolderDocuments(folder).length === 0"
+                class="technical-folder-empty">Chưa có tài liệu trong loại hồ sơ này.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div *ngIf="false" class="tab-content animate-fade-in">
         <div style="background: #ffffff; padding: 0 8px 24px 8px;">
           <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #cbd5e1; padding-bottom: 12px; margin-bottom: 20px;">
             <span style="font-size: 1.05rem; font-weight: 700; color: #002D72; display: flex; align-items: center;">
@@ -646,6 +799,44 @@
     </div>
   </div>
 
+  <p-dialog
+    [visible]="showTechnicalDocumentPreview()"
+    (visibleChange)="$event ? null : closeTechnicalDocumentPreview()"
+    [header]="'Xem trước: ' + (technicalPreviewTarget()?.document?.name || technicalPreviewTarget()?.document?.fileName || 'Tài liệu')"
+    [modal]="true"
+    [style]="{ width: '90vw', maxWidth: '1400px' }"
+    [contentStyle]="{ height: '72vh', padding: '20px 30px' }"
+    styleClass="evn-dialog-custom technical-document-preview-dialog"
+    [draggable]="false">
+    <div *ngIf="loadingTechnicalDocumentPreview()" class="technical-preview-loading">
+      <i class="pi pi-spin pi-spinner"></i>
+      <span>Đang tải tài liệu...</span>
+    </div>
+
+    <div *ngIf="!loadingTechnicalDocumentPreview() && technicalPreviewSrc() as previewSrc" class="technical-preview-body">
+      <img *ngIf="isTechnicalPreviewImage()" [src]="previewSrc" [alt]="technicalPreviewTarget()?.document?.name || 'Tài liệu'" />
+      <iframe *ngIf="!isTechnicalPreviewImage()" [src]="previewSrc" title="Xem trước tài liệu"></iframe>
+    </div>
+
+    <div *ngIf="!loadingTechnicalDocumentPreview() && !technicalPreviewSrc()" class="technical-preview-empty">
+      Không có nội dung để xem trước.
+    </div>
+
+    <ng-template pTemplate="footer">
+      <div class="technical-preview-footer">
+        <span><i class="pi pi-info-circle"></i> {{ technicalPreviewTarget()?.document?.name || technicalPreviewTarget()?.document?.fileName }}</span>
+        <div>
+          <button type="button" class="technical-preview-download" (click)="downloadTechnicalDocument(technicalPreviewTarget()?.dossierId, technicalPreviewTarget()?.document)">
+            <i class="pi pi-download"></i> Tải về
+          </button>
+          <button type="button" class="technical-preview-close" (click)="closeTechnicalDocumentPreview()">
+            <i class="pi pi-times"></i> Đóng
+          </button>
+        </div>
+      </div>
+    </ng-template>
+  </p-dialog>
+
   <!-- ==================== DIALOG XÁC NHẬN XÓA ==================== -->
     <p-dialog
       [visible]="showDeleteConfirm()"
@@ -711,6 +902,121 @@
             <i class="pi pi-lock" *ngIf="!lockUnlockLoading() && (lockUnlockTarget()?.isActive === 1 || lockUnlockTarget()?.isActive === true)"></i>
             <i class="pi pi-lock-open" *ngIf="!lockUnlockLoading() && !(lockUnlockTarget()?.isActive === 1 || lockUnlockTarget()?.isActive === true)"></i>
             Đồng ý
+          </button>
+        </div>
+      </ng-template>
+    </p-dialog>
+
+    <!-- ==================== DIALOG CHUYỂN THIẾT BỊ ==================== -->
+    <p-dialog [visible]="showTransferDialog()" (visibleChange)="$event ? null : closeTransferDialog()"
+      header="Chuyển thiết bị" [modal]="true" [style]="{ width: '560px' }" styleClass="evn-dialog-custom"
+      [closable]="!transferLoading()">
+      <div style="padding: 8px 0 16px; display: flex; flex-direction: column; gap: 16px;">
+        <div class="form-group">
+          <label class="form-label" style="font-weight: 600; margin-bottom: 6px; display: block; color: #374151;">
+            Đơn vị quản lý <span class="required" style="color: #ef4444;">*</span>
+          </label>
+          <div class="org-tree-picker" [class.disabled]="transferLoading()">
+            <div class="org-tree-trigger" (click)="toggleTransferOrgTree($event)"
+              [class.has-value]="transferForm().unitId" [class.open]="transferOrgTreeOpen()">
+              <span class="org-tree-selected-label">
+                <i class="pi pi-building" style="margin-right: 6px; color: #6b7280;"></i>
+                {{ getUnitLabel(transferForm().unitId) || '-- Chọn đơn vị quản lý --' }}
+              </span>
+              <i class="pi" [class.pi-chevron-down]="!transferOrgTreeOpen()" [class.pi-chevron-up]="transferOrgTreeOpen()"></i>
+            </div>
+            <div class="org-tree-dropdown" *ngIf="transferOrgTreeOpen()" (click)="$event.stopPropagation()">
+              <div class="org-tree-search">
+                <i class="pi pi-search"></i>
+                <input type="text" placeholder="Tìm kiếm đơn vị..." [ngModel]="transferOrgSearchKeyword()"
+                  (ngModelChange)="transferOrgSearchKeyword.set($event)" />
+              </div>
+              <ng-container *ngFor="let node of transferOrgUnitTree()">
+                <ng-container *ngTemplateOutlet="transferOrgTreeNode; context: { $implicit: node, depth: 0 }"></ng-container>
+              </ng-container>
+              <div *ngIf="transferOrgUnitTree().length === 0" class="org-tree-empty">Không có đơn vị phù hợp.</div>
+            </div>
+          </div>
+          <span class="field-error" *ngIf="transferUnitError"
+            style="color: #ef4444; font-size: 0.8rem; margin-top: 4px; display: block;">{{ transferUnitError }}</span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" style="font-weight: 600; margin-bottom: 6px; display: block; color: #374151;">
+            Trạm/Đường dây <span class="required" style="color: #ef4444;">*</span>
+          </label>
+          <p-select [options]="transferInfrastructures()" [ngModel]="transferForm().infrastructureId"
+            (ngModelChange)="onTransferInfrastructureChange($event)" optionLabel="name" optionValue="id"
+            [placeholder]="transferForm().unitId ? '-- Chọn Trạm/Đường dây --' : '-- Vui lòng chọn Đơn vị quản lý --'"
+            [disabled]="!transferForm().unitId || transferLoading()" [filter]="true"
+            [style]="{'width':'100%', 'height':'38px', 'line-height':'24px', 'border':'1px solid #cbd5e1', 'border-radius':'6px', 'background-color':'#ffffff', 'color':'#374151'}">
+          </p-select>
+          <span class="field-error" *ngIf="transferInfrastructureError"
+            style="color: #ef4444; font-size: 0.8rem; margin-top: 4px; display: block;">{{ transferInfrastructureError }}</span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" style="font-weight: 600; margin-bottom: 6px; display: block; color: #374151;">
+            Ghi chú
+          </label>
+          <textarea class="wf-input w-full" rows="4" placeholder="Nhập ghi chú..."
+            [ngModel]="transferForm().note" (ngModelChange)="onTransferNoteChange($event)"
+            [disabled]="transferLoading()"
+            style="min-height: 96px; resize: vertical; padding: 10px 12px; background-color: #ffffff !important; color: #374151 !important; border-radius: 6px;"></textarea>
+        </div>
+      </div>
+      <ng-template #footer>
+        <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+          <button class="btn-cancel btn-small" (click)="closeTransferDialog()" [disabled]="transferLoading()">
+            <i class="pi pi-times"></i> Đóng
+          </button>
+          <button class="btn-save btn-small" (click)="confirmTransferEquipment()" [disabled]="transferLoading()">
+            <i class="pi pi-spin pi-spinner" *ngIf="transferLoading()" style="margin-right: 4px;"></i>
+            <i class="pi pi-check" *ngIf="!transferLoading()" style="margin-right: 4px;"></i>
+            Chuyển TBA
+          </button>
+        </div>
+      </ng-template>
+    </p-dialog>
+
+    <ng-template #transferOrgTreeNode let-node let-depth="depth">
+      <div class="org-tree-node" [class.selected]="transferForm().unitId == node.id" [style.padding-left.px]="8 + depth * 16">
+        <button type="button" class="org-tree-expand-btn" *ngIf="node.children && node.children.length > 0"
+          (click)="toggleTransferUnitNode(node.id, $event)">
+          <i class="pi" [class.pi-chevron-right]="!isTransferNodeExpanded(node.id)" [class.pi-chevron-down]="isTransferNodeExpanded(node.id)"></i>
+        </button>
+        <span class="org-tree-node-spacer" *ngIf="!node.children || node.children.length === 0"></span>
+        <span class="org-tree-node-label" (click)="selectTransferOrgUnit(node.id)">{{ node.name }}</span>
+      </div>
+      <div *ngIf="(transferOrgSearchKeyword() || isTransferNodeExpanded(node.id)) && node.children && node.children.length > 0">
+        <ng-container *ngFor="let child of node.children">
+          <ng-container *ngTemplateOutlet="transferOrgTreeNode; context: { $implicit: child, depth: depth + 1 }"></ng-container>
+        </ng-container>
+      </div>
+    </ng-template>
+
+    <!-- ==================== DIALOG XÁC NHẬN CHUYỂN HỒ SƠ ==================== -->
+    <p-dialog [visible]="showTransferDossierConfirm()" (visibleChange)="$event ? null : onCancelTransferDossier()"
+      header="Xác nhận chuyển hồ sơ" [modal]="true" [style]="{ width: '460px' }" styleClass="evn-dialog-custom"
+      [closable]="!transferDossierLoading()">
+      <div style="display: flex; align-items: flex-start; gap: 12px; padding: 8px 0 16px;">
+        <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #f59e0b;"></i>
+        <div>
+          <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">Bạn có chắc chắn muốn chuyển hồ sơ?</p>
+          <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
+            Hồ sơ của thiết bị <b style="color: #1e293b;">{{ transferDossierTarget()?.name || transferDossierTarget()?.code }}</b> sẽ được chuyển theo thiết bị đã chọn.
+          </p>
+        </div>
+      </div>
+      <ng-template #footer>
+        <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+          <button class="btn-cancel btn-small" (click)="onCancelTransferDossier()" [disabled]="transferDossierLoading()">
+            <i class="pi pi-times"></i> Hủy
+          </button>
+          <button class="btn-save btn-small" (click)="onConfirmTransferDossier()" [disabled]="transferDossierLoading()">
+            <i class="pi pi-spin pi-spinner" *ngIf="transferDossierLoading()" style="margin-right: 4px;"></i>
+            <i class="pi pi-check" *ngIf="!transferDossierLoading()" style="margin-right: 4px;"></i>
+            Xác nhận chuyển
           </button>
         </div>
       </ng-template>

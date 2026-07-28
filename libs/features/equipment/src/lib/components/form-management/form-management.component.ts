@@ -163,7 +163,10 @@ export class FormManagementComponent implements OnInit {
       .pipe(takeUntilDestroyed())
       .subscribe(([params, query]) => {
         const url = this.router.url;
-        this.isFromCompletedForms.set(url.includes('/completed-forms'));
+        const formContext = this.route.snapshot.data['formContext'];
+        this.isFromCompletedForms.set(
+          formContext === 'completed' || url.includes('/completed-forms')
+        );
 
         if (url.includes('/form-management/new')) {
           this.setupAddNew();
@@ -761,7 +764,15 @@ export class FormManagementComponent implements OnInit {
       this.eavFormService.updateTemplate(tId, fName, fCode, fCategory, desc, fDescInfo, schemaStr, 'admin', undefined, undefined, extractProc, extPos)
         .pipe(finalize(() => this.loadingService.hide()))
         .subscribe({
-          next: () => {
+          next: (updatedForm) => {
+            if (this.isFromCompletedForms() && updatedForm?.status !== 'Hoàn thành') {
+              this.messageService.add({
+                severity: 'error',
+                summary: 'Trạng thái không hợp lệ',
+                detail: 'Form sau khi cập nhật không giữ được trạng thái Hoàn thành. Vui lòng kiểm tra lại.'
+              });
+              return;
+            }
             this.messageService.add({
               severity: 'success',
               summary: 'Thành công',

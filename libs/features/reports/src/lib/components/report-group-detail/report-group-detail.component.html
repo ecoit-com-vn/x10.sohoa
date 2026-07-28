@@ -1,30 +1,31 @@
 <!-- sohoa.frontend/libs/features/reports/src/lib/components/report-group-detail/report-group-detail.component.html -->
 <p-toast></p-toast>
-<div class="wf-page">
-  <wf-breadcrumb></wf-breadcrumb>
+  <div class="wf-page">
+    <div class="page-header mt-0 pt-0">
+      <wf-breadcrumb
+        [viewMode]="!isEdit() ? 'edit' : 'detail'"
+        (listClick)="goBack()">
+      </wf-breadcrumb>
 
-  <div class="wf-card mt-3">
-    <!-- Toolbar Header -->
-    <div class="detail-header mb-4" style="border-bottom: 1px solid #f1f5f9; padding-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
-      <h3 class="text-lg font-bold m-0" style="color: #002D72;">
-        <i class="pi pi-file-edit mr-2 text-xl" style="vertical-align: middle;"></i>
-        {{ isEdit() ? 'Thông Tin Chi Tiết Nhóm Báo Cáo' : 'Thêm Mới Nhóm Báo Cáo Hệ Thống' }}
-      </h3>
-      <div class="header-buttons" style="display: flex; gap: 8px;">
-        <button class="btn-outlined btn-small" (click)="goBack()">
-          <i class="pi pi-arrow-left mr-1"></i> Quay lại
+      <div class="header-buttons mt-0 pt-0">
+        <button type="button" class="btn-outlined btn-small" (click)="goBack()">
+          <i class="pi pi-arrow-left mr-1"></i>
+          Quay lại
         </button>
-        <button 
-          class="btn-save btn-small" 
+
+        <button
+          type="button"
+          class="btn-save btn-small"
           *ngIf="!isEdit() ? authService.hasPermission('REPORT_GROUP_CREATE') : authService.hasPermission('REPORT_GROUP_EDIT')"
-          [disabled]="saving() || loading()" 
+          [disabled]="saving() || loading()"
           (click)="saveGroup()">
           <i class="pi pi-spin pi-spinner mr-1" *ngIf="saving()"></i>
-          <i class="pi pi-save mr-1" *ngIf="!saving()"></i> Lưu lại
+          <i class="pi pi-save mr-1" *ngIf="!saving()"></i>
+          Lưu lại
         </button>
       </div>
     </div>
-
+  <div class="wf-card mt-1"> 
     <!-- Loading State -->
     <div *ngIf="loading()" class="text-center py-5 text-muted">
       <i class="pi pi-spin pi-spinner text-3xl mb-2" style="color: #002D72;"></i>

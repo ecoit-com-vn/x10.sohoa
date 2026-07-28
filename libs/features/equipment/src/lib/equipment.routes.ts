@@ -76,6 +76,7 @@ export const EQUIPMENT_ROUTES: Routes = [
   {
     path: 'completed-forms/:id/edit',
     canActivate: [eavFormCompletedEditGuard],
+    data: { formContext: 'completed' },
     loadComponent: () => import('./components/form-management/form-management.component').then(m => m.FormManagementComponent)
   },
   {

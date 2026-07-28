@@ -30,19 +30,30 @@
       </div>
 
       <!-- Table -->
-      <div class="wf-table-wrap">
-        <table class="wf-table">
+      <div class="wf-table-wrap form-list-table-wrap">
+        <table class="wf-table form-list-table">
+          <colgroup>
+            <col class="form-col-stt" />
+            <col class="form-col-auto" />
+            <col class="form-col-auto" />
+            <col class="form-col-auto" />
+            <col class="form-col-auto" />
+            <col class="form-col-auto" />
+            <col class="form-col-updated" />
+            <col class="form-col-status" />
+            <col class="form-col-actions" />
+          </colgroup>
           <thead>
             <tr>
-              <th style="width: 60px; text-align: center;">STT</th>
-              <th style="width: 150px;">Mã form</th>
-              <th>Tên form</th>
-              <th>Hạng mục áp dụng</th>
-              <th style="width: 100px; text-align: center;">Phiên bản</th>
-              <th>Người tạo</th>
-              <th>Cập nhật lần cuối</th>
-              <th class="col-tt">Trạng thái</th>
-              <th class="col-hd">Thao tác</th>
+              <th class="form-cell-stt">STT</th>
+              <th class="form-cell-content">Mã form</th>
+              <th class="form-cell-content">Tên form</th>
+              <th class="form-cell-content">Hạng mục áp dụng</th>
+              <th class="form-cell-content">Phiên bản</th>
+              <th class="form-cell-content">Người tạo</th>
+              <th class="form-cell-updated">Cập nhật lần cuối</th>
+              <th class="col-tt form-cell-status">Trạng thái</th>
+              <th class="col-hd form-cell-actions">Thao tác</th>
             </tr>
           </thead>
           <tbody>
@@ -53,19 +64,19 @@
               </td>
             </tr>
             <tr *ngFor="let form of paginatedForms(); let i = index">
-              <td style="text-align: center;">{{ first() + i + 1 }}</td>
-              <td>{{ form.code || '' }}</td>
-              <td>{{ form.name }}</td>
-              <td>
+              <td class="form-cell-stt">{{ first() + i + 1 }}</td>
+              <td class="form-cell-content" [title]="form.code || ''">{{ form.code || '' }}</td>
+              <td class="form-cell-content" [title]="form.name || ''">{{ form.name }}</td>
+              <td class="form-cell-content" [title]="getCategoryName(form)">
                 <span class="badge">
                   {{ getCategoryName(form) }}
                 </span>
               </td>
-              <td>v{{
+              <td class="form-cell-content">v{{
                 form.version }}.0</td>
-              <td>{{ form.createdBy || '' }}</td>
-              <td>{{ form.createdAt | date:'dd/MM/yyyy HH:mm' }}</td>
-              <td class="col-tt">
+              <td class="form-cell-content" [title]="form.createdBy || ''">{{ form.createdBy || '' }}</td>
+              <td class="form-cell-updated">{{ form.createdAt | date:'dd/MM/yyyy HH:mm' }}</td>
+              <td class="col-tt form-cell-status">
                 <span class="status-pill" [class.status-draft]="form.status === 'Tạo mới' || !form.status"
                   [class.status-pending]="form.status === 'Chờ duyệt'"
                   [class.status-approved]="form.status === 'Hoàn thành'"
@@ -73,7 +84,7 @@
                   {{ form.status || 'Tạo mới' }}
                 </span>
               </td>
-              <td class="col-hd">
+              <td class="col-hd form-cell-actions">
                 <button type="button" class="act-btn act-more" (click)="openActionMenu(form, $event, actionMenu)" title="Thao tác khác">
                   <i class="pi pi-ellipsis-h"></i>
                 </button>

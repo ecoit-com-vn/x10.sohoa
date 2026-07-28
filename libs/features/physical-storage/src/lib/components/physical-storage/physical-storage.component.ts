@@ -39,6 +39,9 @@ import { forkJoin, of, finalize, catchError } from 'rxjs';
 })
 export class PhysicalStorageComponent implements OnInit {
   private readonly authService = inject(AuthService);
+  private readonly storageCodePattern = /^[A-Za-z0-9_-]{1,50}$/;
+  private readonly storageCodeErrorMessage =
+    'Mã chỉ được nhập chữ cái không dấu, số, dấu gạch ngang (-), dấu gạch dưới (_), không được có dấu cách.';
 
   shelves = signal<PhysicalShelfDto[]>([]);
   floors = signal<PhysicalFloorDto[]>([]);
@@ -56,6 +59,7 @@ export class PhysicalStorageComponent implements OnInit {
   dialogHeader = signal('');
   currentType = signal('');
   currentData = signal<any>({});
+  codeValidationError = signal('');
   isEdit = signal(false);
 
   loading = signal(false);
@@ -77,6 +81,14 @@ export class PhysicalStorageComponent implements OnInit {
   boxFloorFilterId = signal<number | null>(null);
   boxPage = signal(1);
   boxPageSize = signal(10);
+
+  /** Kệ đang chọn trên form thêm/sửa Hộp; chỉ phục vụ lọc Tầng, không gửi lên API. */
+  boxShelfId = signal<number | null>(null);
+  boxAvailableFloors = computed(() => {
+    const shelfId = this.boxShelfId();
+    if (shelfId == null) return [];
+    return this.floors().filter(floor => floor.shelfId === shelfId);
+  });
 
   filteredShelves = computed(() => {
     const kw = this.shelfSearchKeyword().trim().toLowerCase();
@@ -237,6 +249,11 @@ export class PhysicalStorageComponent implements OnInit {
     this.boxPage.set(1);
   }
 
+  onBoxShelfChange(shelfId: number | null) {
+    this.boxShelfId.set(shelfId);
+    this.currentData.update(data => ({ ...data, floorId: null }));
+  }
+
   prevShelfPage() {
     if (this.shelfPage() > 1) this.shelfPage.update(p => p - 1);
   }
@@ -327,7 +344,9 @@ export class PhysicalStorageComponent implements OnInit {
   showDialog(type: string) {
     this.currentType.set(type);
     this.isEdit.set(false);
+    this.codeValidationError.set('');
     this.formOrgTreeOpen.set(false);
+    this.boxShelfId.set(null);
     this.currentData.set({
       code: '',
       name: '',
@@ -335,7 +354,7 @@ export class PhysicalStorageComponent implements OnInit {
       priority: null,
       unitId: this.currentUnitId(),
       shelfId: this.shelves().length > 0 ? this.shelves()[0].id : null,
-      floorId: this.floors().length > 0 ? this.floors()[0].id : null,
+      floorId: null,
       capacity: 50,
       status: 1
     });
@@ -346,8 +365,18 @@ export class PhysicalStorageComponent implements OnInit {
   editItem(type: string, item: any) {
     this.currentType.set(type);
     this.isEdit.set(true);
+    this.codeValidationError.set('');
     this.formOrgTreeOpen.set(false);
     this.currentData.set({ ...item });
+    if (type === 'box') {
+      const currentFloor = this.floors().find(floor => floor.id === item.floorId);
+      this.boxShelfId.set(currentFloor?.shelfId ?? null);
+      if (!currentFloor) {
+        this.currentData.update(data => ({ ...data, floorId: null }));
+      }
+    } else {
+      this.boxShelfId.set(null);
+    }
     this.dialogHeader.set('Chỉnh sửa ' + this.getTypeName(type));
     this.displayDialog.set(true);
   }
@@ -384,7 +413,11 @@ export class PhysicalStorageComponent implements OnInit {
     const data = { ...this.currentData() };
     const type = this.currentType();
 
-    if (!data.code?.trim() || !data.name?.trim()) {
+    if (!this.validateStorageCode(data.code)) {
+      return;
+    }
+
+    if (!data.name?.trim()) {
       this.messageService.add({ severity: 'error', summary: 'Thiếu thông tin', detail: 'Vui lòng điền đầy đủ Mã và Tên bắt buộc!' });
       return;
     }
@@ -396,9 +429,22 @@ export class PhysicalStorageComponent implements OnInit {
       this.messageService.add({ severity: 'error', summary: 'Thiếu thông tin', detail: 'Vui lòng chọn kệ lưu trữ.' });
       return;
     }
-    if (type === 'box' && !data.floorId) {
-      this.messageService.add({ severity: 'error', summary: 'Thiếu thông tin', detail: 'Vui lòng chọn tầng kệ.' });
-      return;
+    if (type === 'box') {
+      if (!this.boxShelfId()) {
+        this.messageService.add({ severity: 'error', summary: 'Thiếu thông tin', detail: 'Vui lòng chọn kệ lưu trữ.' });
+        return;
+      }
+      if (!data.floorId) {
+        this.messageService.add({ severity: 'error', summary: 'Thiếu thông tin', detail: 'Vui lòng chọn tầng kệ.' });
+        return;
+      }
+      const isFloorOfShelf = this.floors().some(
+        floor => floor.id === data.floorId && floor.shelfId === this.boxShelfId()
+      );
+      if (!isFloorOfShelf) {
+        this.messageService.add({ severity: 'error', summary: 'Dữ liệu không hợp lệ', detail: 'Tầng kệ không thuộc kệ lưu trữ đã chọn.' });
+        return;
+      }
     }
 
     // Priority không bắt buộc — trống thì mặc định 1
@@ -433,10 +479,39 @@ export class PhysicalStorageComponent implements OnInit {
         this.loadAllData();
         this.displayDialog.set(false);
       },
-      error: () => {
-        this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Lưu thông tin thất bại.' });
+      error: (err) => {
+        const codeError = err?.error?.errors?.code;
+        if (codeError) {
+          this.codeValidationError.set(codeError);
+          return;
+        }
+
+        const detail = err?.error?.message || 'Lưu thông tin thất bại.';
+        this.messageService.add({ severity: 'error', summary: 'Lỗi', detail });
       }
     });
+  }
+
+  onStorageCodeChange(code: string) {
+    this.currentData.update(data => ({ ...data, code }));
+    if (this.codeValidationError()) {
+      this.validateStorageCode(code);
+    }
+  }
+
+  private validateStorageCode(code: string | null | undefined): boolean {
+    if (!code?.trim()) {
+      this.codeValidationError.set('Mã định danh là bắt buộc');
+      return false;
+    }
+
+    if (!this.storageCodePattern.test(code)) {
+      this.codeValidationError.set(this.storageCodeErrorMessage);
+      return false;
+    }
+
+    this.codeValidationError.set('');
+    return true;
   }
 
   private getTypeName(type: string): string {
