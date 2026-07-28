@@ -118,8 +118,9 @@
       <div style="display: flex; flex-direction: column; gap: 16px; padding: 10px 0;">
         <div class="form-group">
           <label class="form-label">Mã vai trò <span class="required">*</span></label>
-          <input type="text" class="wf-input w-full" [(ngModel)]="currentRole().code" (ngModelChange)="onFieldChange('code')" placeholder="Ví dụ: QUAN_TRI, CAN_BO..." [disabled]="isEdit() || saving()" />
+          <input type="text" class="wf-input w-full" [(ngModel)]="currentRole().code" (ngModelChange)="onFieldChange('code')" placeholder="Ví dụ: QUAN_TRI, CAN_BO..." maxlength="50" [disabled]="isEdit() || saving()" />
           <span class="field-error" *ngIf="codeError()">{{ codeError() }}</span>
+          <small class="text-muted" *ngIf="!codeError()">Chỉ dùng chữ không dấu, chữ số và dấu gạch dưới (_).</small>
         </div>
         
         <div class="form-group">
