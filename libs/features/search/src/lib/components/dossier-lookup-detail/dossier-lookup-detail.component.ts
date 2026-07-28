@@ -344,6 +344,27 @@ export class DossierLookupDetailComponent implements OnInit {
     window.open(`/#/search/dossier-by-equipment/${rel.id}`, '_blank');
   }
 
+  getDossierTitle(dossier: unknown): string {
+    if (!dossier || typeof dossier !== 'object') return '-';
+
+    const dossierRecord = dossier as Record<string, unknown>;
+    const catalogDataValue = dossierRecord['catalogData'] ?? dossierRecord['CatalogData'];
+    const catalogData = catalogDataValue && typeof catalogDataValue === 'object'
+      ? catalogDataValue as Record<string, unknown>
+      : {};
+    const candidates = [
+      catalogData['Tiêu đề hồ sơ'],
+      catalogData['tieude_hoso'],
+      catalogData['tieu_de_ho_so'],
+      catalogData['tieude'],
+      dossierRecord['title'],
+      dossierRecord['Title'],
+    ];
+    const title = candidates.find(value => typeof value === 'string' && value.trim().length > 0);
+
+    return typeof title === 'string' ? title.trim() : '-';
+  }
+
   getGridTypeName(gridTypeId: number | null): string {
     if (gridTypeId == null) return '-';
     const found = this.gridTypes().find(t => t.id === gridTypeId);

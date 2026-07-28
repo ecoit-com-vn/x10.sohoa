@@ -229,7 +229,7 @@
                     {{ rel.catalogData?.['ma_ho_so'] || rel.code || 'HS-' + rel.id.substring(0, 8) }}
                   </span>
                 </td>
-                <td>{{ rel.dossierSetName || rel.label || '-' }}</td>
+                <td>{{ getDossierTitle(rel) }}</td>
                 <td>{{ rel.infrastructureName || '-' }}</td>
                 <td>{{ rel.dossierTypeName || '-' }}</td>
                 <td>{{ rel.documentCount || 0 }}</td>
