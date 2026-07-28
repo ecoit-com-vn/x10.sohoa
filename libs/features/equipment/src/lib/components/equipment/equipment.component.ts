@@ -66,6 +66,8 @@ export class EquipmentComponent implements OnInit {
   @HostListener('document:click')
   closeMoreMenu() {
     this.activeRowMenu.set(null);
+    this.formOrgTreeOpen.set(false);
+    this.transferOrgTreeOpen.set(false);
   }
 
   toggleMoreMenu(item: any, event: Event) {
@@ -101,6 +103,17 @@ export class EquipmentComponent implements OnInit {
   gridTypes = signal<any[]>([]);
   equipmentTypes = signal<any[]>([]);
   equipmentStatuses = signal<any[]>([]);
+
+  orgUnitTree = computed(() => this.buildOrgTree(this.organizationUnits()));
+  formOrgTreeOpen = signal<boolean>(false);
+  formOrgSearchKeyword = signal<string>('');
+  expandedFormUnitNodes = signal<Set<number>>(new Set<number>());
+  transferOrgTreeOpen = signal<boolean>(false);
+  transferOrgSearchKeyword = signal<string>('');
+  expandedTransferUnitNodes = signal<Set<number>>(new Set<number>());
+
+  formOrgUnitTree = computed(() => this.filterOrgTree(this.orgUnitTree(), this.formOrgSearchKeyword()));
+  transferOrgUnitTree = computed(() => this.filterOrgTree(this.orgUnitTree(), this.transferOrgSearchKeyword()));
 
   // Transfer Equipment Dialog State
   showTransferDialog = signal<boolean>(false);
@@ -560,6 +573,38 @@ export class EquipmentComponent implements OnInit {
     });
   }
 
+  private buildOrgTree(units: any[]): any[] {
+    const map = new Map<number, any>();
+    const roots: any[] = [];
+    units.forEach(unit => map.set(unit.id, { ...unit, children: [] }));
+    map.forEach(node => {
+      if (node.parentId && map.has(node.parentId)) {
+        map.get(node.parentId)!.children.push(node);
+      } else {
+        roots.push(node);
+      }
+    });
+    return roots;
+  }
+
+  private filterOrgTree(nodes: any[], value: string): any[] {
+    const keyword = value.trim().toLocaleLowerCase();
+    if (!keyword) return nodes;
+
+    return nodes.reduce<any[]>((filtered, node) => {
+      const children = this.filterOrgTree(node.children || [], value);
+      const label = `${node.name || ''} ${node.code || ''}`.toLocaleLowerCase();
+      if (label.includes(keyword) || children.length > 0) {
+        filtered.push({ ...node, children });
+      }
+      return filtered;
+    }, []);
+  }
+
+  getUnitLabel(unitId: number | null): string {
+    return this.organizationUnits().find(unit => Number(unit.id) === Number(unitId))?.name || '';
+  }
+
   loadSearchInfrastructuresOnDemand() {
     if (this.infrastructures().length === 0) {
       this.equipmentService.getInfrastructures().pipe(catchError(() => of([]))).subscribe(data => {
@@ -584,13 +629,65 @@ export class EquipmentComponent implements OnInit {
     }
   }
 
+  toggleFormOrgTree(event?: Event) {
+    if (event) event.stopPropagation();
+    if (this.isSaving()) return;
+
+    if (this.organizationUnits().length === 0) {
+      this.equipmentService.getOrganizationUnits().pipe(catchError(() => of([]))).subscribe(data => {
+        this.organizationUnits.set(Array.isArray(data) ? data : []);
+        this.formOrgTreeOpen.set(true);
+      });
+      return;
+    }
+    this.formOrgTreeOpen.update(open => !open);
+  }
+
+  toggleFormUnitNode(unitId: number, event?: Event) {
+    if (event) event.stopPropagation();
+    const expanded = new Set(this.expandedFormUnitNodes());
+    expanded.has(unitId) ? expanded.delete(unitId) : expanded.add(unitId);
+    this.expandedFormUnitNodes.set(expanded);
+  }
+
+  isFormNodeExpanded(unitId: number): boolean {
+    return this.expandedFormUnitNodes().has(unitId);
+  }
+
   selectFormOrgUnit(unitId: number) {
     this.currentItem.update(item => ({
       ...item,
       unitId: unitId,
       infrastructureId: null
     }));
+    this.formOrgTreeOpen.set(false);
+    this.formOrgSearchKeyword.set('');
     this.onFieldChange('unitId');
+  }
+
+  toggleTransferOrgTree(event?: Event) {
+    if (event) event.stopPropagation();
+    if (this.transferLoading()) return;
+
+    if (this.organizationUnits().length === 0) {
+      this.equipmentService.getOrganizationUnits().pipe(catchError(() => of([]))).subscribe(data => {
+        this.organizationUnits.set(Array.isArray(data) ? data : []);
+        this.transferOrgTreeOpen.set(true);
+      });
+      return;
+    }
+    this.transferOrgTreeOpen.update(open => !open);
+  }
+
+  toggleTransferUnitNode(unitId: number, event?: Event) {
+    if (event) event.stopPropagation();
+    const expanded = new Set(this.expandedTransferUnitNodes());
+    expanded.has(unitId) ? expanded.delete(unitId) : expanded.add(unitId);
+    this.expandedTransferUnitNodes.set(expanded);
+  }
+
+  isTransferNodeExpanded(unitId: number): boolean {
+    return this.expandedTransferUnitNodes().has(unitId);
   }
 
   selectTransferOrgUnit(unitId: number) {
@@ -599,6 +696,8 @@ export class EquipmentComponent implements OnInit {
       infrastructureId: null,
       note: this.transferForm().note
     });
+    this.transferOrgTreeOpen.set(false);
+    this.transferOrgSearchKeyword.set('');
   }
 
   onTransferInfrastructureChange(value: string | null) {
@@ -657,6 +756,7 @@ export class EquipmentComponent implements OnInit {
       note: ''
     });
     this.transferSubmitted.set(false);
+    this.transferOrgSearchKeyword.set('');
     this.showTransferDialog.set(true);
 
     if (this.organizationUnits().length === 0 || this.infrastructures().length === 0) {
@@ -678,6 +778,7 @@ export class EquipmentComponent implements OnInit {
     if (this.transferLoading()) return;
     this.showTransferDialog.set(false);
     this.transferSubmitted.set(false);
+    this.transferOrgSearchKeyword.set('');
     this.transferTarget.set(null);
   }
 

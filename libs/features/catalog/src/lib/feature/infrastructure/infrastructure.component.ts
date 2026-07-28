@@ -2,6 +2,7 @@ import { Component, OnInit, signal, computed, inject, effect, HostListener } fro
 import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { DomSanitizer } from '@angular/platform-browser';
 import { ToastModule } from 'primeng/toast';
 import { SelectModule } from 'primeng/select';
 import { DatePickerModule } from 'primeng/datepicker';
@@ -12,7 +13,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { AuthService, BreadcrumbTrailItem } from '@sohoa.frontend/shared/core';
 import { InfrastructureService } from '../../data-access/infrastructure.service';
 import { EquipmentService } from '@sohoa.frontend/features/equipment';
-import { DossierManagementService } from '@sohoa.frontend/features/dossier-management';
+import { DossierDocumentService, DossierManagementService } from '@sohoa.frontend/features/dossier-management';
 import { forkJoin, of } from 'rxjs';
 import { catchError, finalize } from 'rxjs/operators';
 
@@ -32,6 +33,8 @@ export class InfrastructureComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private dossierService = inject(DossierManagementService);
+  private dossierDocumentService = inject(DossierDocumentService);
+  private sanitizer = inject(DomSanitizer);
 
   protected readonly Math = Math;
 
@@ -112,6 +115,14 @@ export class InfrastructureComponent implements OnInit {
   orgUnitTree = computed(() => this.buildOrgTree(this.orgUnits()));
   expandedUnitNodes = signal<Set<any>>(new Set<any>());
   orgTreePickerOpen = signal<boolean>(false);
+  searchOrgTreeOpen = signal<boolean>(false);
+  searchOrgSearchKeyword = signal<string>('');
+  expandedSearchUnitNodes = signal<Set<any>>(new Set<any>());
+  searchOrgUnitTree = computed(() => this.filterOrgTree(this.orgUnitTree(), this.searchOrgSearchKeyword()));
+  transferOrgTreeOpen = signal<boolean>(false);
+  transferOrgSearchKeyword = signal<string>('');
+  expandedTransferUnitNodes = signal<Set<any>>(new Set<any>());
+  transferOrgUnitTree = computed(() => this.filterOrgTree(this.orgUnitTree(), this.transferOrgSearchKeyword()));
 
   // Pagination Computeds
   paginatedItems = computed(() => {
@@ -144,9 +155,58 @@ export class InfrastructureComponent implements OnInit {
   relatedDossiersPageSize = signal<number>(10);
   isLoadingRelatedDossiers = signal<boolean>(false);
   relatedDossiersSearchKeyword = signal<string>('');
+  technicalFolderSearchKeyword = signal<string>('');
+  expandedTechnicalFolders = signal<Set<string>>(new Set<string>());
+  technicalDocumentsByDossier = signal<Record<string, any[]>>({});
+  loadingTechnicalFolders = signal<Set<string>>(new Set<string>());
+  showTechnicalDocumentPreview = signal<boolean>(false);
+  technicalPreviewTarget = signal<{ dossierId: string; document: any } | null>(null);
+  technicalPreviewUrl = signal<string | null>(null);
+  loadingTechnicalDocumentPreview = signal<boolean>(false);
+  attachmentFolderSearchKeyword = signal<string>('');
+  attachmentDossierDocuments = signal<Array<{ dossier: any; document: any }>>([]);
+  loadingAttachmentDocuments = signal<boolean>(false);
+  expandedAttachmentFolders = signal<Set<string>>(new Set<string>());
+
+  technicalPreviewSrc = computed(() => {
+    const url = this.technicalPreviewUrl();
+    return url ? this.sanitizer.bypassSecurityTrustResourceUrl(url) : null;
+  });
+
+  attachmentDocumentFolders = computed(() => {
+    const keyword = this.attachmentFolderSearchKeyword().trim().toLocaleLowerCase();
+    const groups = new Map<string, { id: string; name: string; documents: Array<{ dossier: any; document: any }> }>();
+
+    this.attachmentDossierDocuments().forEach(item => {
+      const name = item.document.documentTypeName || 'Chưa phân loại';
+      const id = String(item.document.documentTypeId || name);
+      if (!groups.has(id)) groups.set(id, { id, name, documents: [] });
+      groups.get(id)!.documents.push(item);
+    });
+
+    return Array.from(groups.values())
+      .filter(folder => !keyword || folder.name.toLocaleLowerCase().includes(keyword))
+      .sort((a, b) => a.name.localeCompare(b.name, 'vi'));
+  });
   relatedDossiersTotalPages = computed(() =>
     Math.ceil(this.relatedDossiersTotalCount() / this.relatedDossiersPageSize())
   );
+
+  technicalDossierFolders = computed(() => {
+    const keyword = this.technicalFolderSearchKeyword().trim().toLocaleLowerCase();
+    const groups = new Map<string, { id: string; name: string; dossiers: any[] }>();
+
+    this.relatedDossiers().forEach(dossier => {
+      const name = dossier.dossierTypeName || 'Chưa phân loại';
+      const id = String(dossier.dossierTypeId || name);
+      if (!groups.has(id)) groups.set(id, { id, name, dossiers: [] });
+      groups.get(id)!.dossiers.push(dossier);
+    });
+
+    return Array.from(groups.values())
+      .filter(folder => !keyword || folder.name.toLocaleLowerCase().includes(keyword))
+      .sort((a, b) => a.name.localeCompare(b.name, 'vi'));
+  });
 
   // Danh sách thiết bị trong tab chi tiết
   equipmentItems = signal<any[]>([]);
@@ -163,6 +223,12 @@ export class InfrastructureComponent implements OnInit {
   equipmentTotalPages = computed(() =>
     Math.ceil(this.equipmentTotalCount() / this.equipmentPageSize())
   );
+
+  equipmentTypesForCurrentInfrastructure = computed(() => {
+    const gridTypeId = this.currentItem()?.gridTypeId;
+    if (!gridTypeId) return [];
+    return this.equipmentTypes().filter(type => this.matchesGridTypeId(type, gridTypeId));
+  });
 
   transferInfrastructures = computed(() => {
     const unitId = this.transferForm().unitId;
@@ -183,6 +249,8 @@ export class InfrastructureComponent implements OnInit {
   @HostListener('document:click')
   closeActionMenus() {
     this.activeEquipmentMenu.set(null);
+    this.searchOrgTreeOpen.set(false);
+    this.transferOrgTreeOpen.set(false);
   }
 
   openActionMenu(item: any, event: Event, menu: Menu): void {
@@ -243,14 +311,21 @@ export class InfrastructureComponent implements OnInit {
     }, { allowSignalWrites: true });
 
     effect(() => {
-      if (this.currentView() === 'detail' && this.activeTab() === 1) {
+      if (this.currentView() === 'detail' && this.activeTab() === 2) {
         this.loadRelatedDossiers();
+      }
+    }, { allowSignalWrites: true });
+
+    effect(() => {
+      if (this.currentView() === 'detail' && this.activeTab() === 1 && this.currentItem()?.id) {
+        this.loadInfrastructureAttachmentDocuments();
       }
     }, { allowSignalWrites: true });
 
     if (typeof window !== 'undefined') {
       window.addEventListener('click', () => {
         this.orgTreePickerOpen.set(false);
+        this.searchOrgTreeOpen.set(false);
       });
     }
   }
@@ -271,6 +346,7 @@ export class InfrastructureComponent implements OnInit {
         this.searchKeyword.set('');
         this.searchStatus.set('');
         this.searchUnitId.set(null);
+        this.searchOrgSearchKeyword.set('');
       }
     });
 
@@ -361,6 +437,20 @@ export class InfrastructureComponent implements OnInit {
     return roots;
   }
 
+  private filterOrgTree(nodes: any[], value: string): any[] {
+    const keyword = value.trim().toLocaleLowerCase();
+    if (!keyword) return nodes;
+
+    return nodes.reduce<any[]>((filtered, node) => {
+      const children = this.filterOrgTree(node.children || [], value);
+      const label = `${node.name || ''} ${node.code || ''}`.toLocaleLowerCase();
+      if (label.includes(keyword) || children.length > 0) {
+        filtered.push({ ...node, children });
+      }
+      return filtered;
+    }, []);
+  }
+
   toggleUnitNode(unitId: any, event?: Event) {
     if (event) event.stopPropagation();
     const current = new Set(this.expandedUnitNodes());
@@ -385,6 +475,37 @@ export class InfrastructureComponent implements OnInit {
   toggleOrgTreePicker(event?: Event) {
     if (event) event.stopPropagation();
     this.orgTreePickerOpen.update(v => !v);
+  }
+
+  toggleSearchOrgTree(event?: Event) {
+    if (event) event.stopPropagation();
+    this.searchOrgTreeOpen.update(open => !open);
+  }
+
+  toggleSearchUnitNode(unitId: any, event?: Event) {
+    if (event) event.stopPropagation();
+    const expanded = new Set(this.expandedSearchUnitNodes());
+    expanded.has(unitId) ? expanded.delete(unitId) : expanded.add(unitId);
+    this.expandedSearchUnitNodes.set(expanded);
+  }
+
+  isSearchNodeExpanded(unitId: any): boolean {
+    return this.expandedSearchUnitNodes().has(unitId);
+  }
+
+  selectSearchOrgUnit(unitId: any) {
+    this.searchUnitId.set(Number(unitId));
+    this.searchOrgTreeOpen.set(false);
+    this.searchOrgSearchKeyword.set('');
+    this.onSearch();
+  }
+
+  clearSearchOrgUnit(event: Event) {
+    event.stopPropagation();
+    this.searchUnitId.set(null);
+    this.searchOrgTreeOpen.set(false);
+    this.searchOrgSearchKeyword.set('');
+    this.onSearch();
   }
 
   getUnitLabel(unitId: any): string {
@@ -443,6 +564,7 @@ export class InfrastructureComponent implements OnInit {
     this.searchKeyword.set('');
     this.searchStatus.set('');
     this.searchUnitId.set(null);
+    this.searchOrgSearchKeyword.set('');
     this.currentPage.set(1);
     this.loadItems();
   }
@@ -868,12 +990,31 @@ export class InfrastructureComponent implements OnInit {
     return '';
   }
 
+  toggleTransferOrgTree(event?: Event) {
+    if (event) event.stopPropagation();
+    if (this.transferLoading()) return;
+    this.transferOrgTreeOpen.update(open => !open);
+  }
+
+  toggleTransferUnitNode(unitId: any, event?: Event) {
+    if (event) event.stopPropagation();
+    const expanded = new Set(this.expandedTransferUnitNodes());
+    expanded.has(unitId) ? expanded.delete(unitId) : expanded.add(unitId);
+    this.expandedTransferUnitNodes.set(expanded);
+  }
+
+  isTransferNodeExpanded(unitId: any): boolean {
+    return this.expandedTransferUnitNodes().has(unitId);
+  }
+
   selectTransferOrgUnit(unitId: any) {
     this.transferForm.update(form => ({
       ...form,
       unitId: Number(unitId),
       infrastructureId: null
     }));
+    this.transferOrgTreeOpen.set(false);
+    this.transferOrgSearchKeyword.set('');
   }
 
   onTransferInfrastructureChange(value: string | null) {
@@ -892,6 +1033,8 @@ export class InfrastructureComponent implements OnInit {
       note: ''
     });
     this.transferSubmitted.set(false);
+    this.transferOrgTreeOpen.set(false);
+    this.transferOrgSearchKeyword.set('');
     this.showTransferDialog.set(true);
 
     if (this.orgUnits().length === 0 || this.transferInfrastructuresSource().length === 0) {
@@ -913,6 +1056,8 @@ export class InfrastructureComponent implements OnInit {
     if (this.transferLoading()) return;
     this.showTransferDialog.set(false);
     this.transferSubmitted.set(false);
+    this.transferOrgTreeOpen.set(false);
+    this.transferOrgSearchKeyword.set('');
     this.transferTarget.set(null);
   }
 
@@ -1003,18 +1148,160 @@ export class InfrastructureComponent implements OnInit {
     this.dossierService.getCatalogDossiers({
       keyword: keyword || undefined,
       infrastructureId: String(item.id),
-      page: this.relatedDossiersPage(),
-      pageSize: this.relatedDossiersPageSize()
+      page: 1,
+      pageSize: 500
     }).pipe(finalize(() => this.isLoadingRelatedDossiers.set(false)))
       .subscribe({
         next: (res) => {
           this.relatedDossiers.set(res?.items || []);
           this.relatedDossiersTotalCount.set(res?.totalCount || 0);
+          this.technicalDocumentsByDossier.set({});
+          this.expandedTechnicalFolders.set(new Set<string>());
+          if (this.activeTab() === 1) {
+            this.loadInfrastructureAttachmentDocuments(res?.items || []);
+          }
         },
         error: () => {
           this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể tải danh sách hồ sơ liên quan.' });
         }
       });
+  }
+
+  loadInfrastructureAttachmentDocuments(dossiers = this.relatedDossiers()) {
+    const item = this.currentItem();
+    if (!item?.id) return;
+
+    this.attachmentDossierDocuments.set([]);
+    this.expandedAttachmentFolders.set(new Set<string>());
+    if (!dossiers.length) return;
+
+    this.loadingAttachmentDocuments.set(true);
+    forkJoin(dossiers.map(dossier =>
+      this.dossierDocumentService.getDocuments(String(dossier.id), { page: 1, pageSize: 1000 }, true).pipe(
+        catchError(() => of({ items: [] }))
+      )
+    )).pipe(finalize(() => this.loadingAttachmentDocuments.set(false))).subscribe(results => {
+      const documents = dossiers.flatMap((dossier, index) =>
+        (results[index]?.items || []).map(document => ({ dossier, document }))
+      );
+      this.attachmentDossierDocuments.set(documents);
+    });
+  }
+
+  toggleAttachmentFolder(folderId: string) {
+    const expanded = new Set(this.expandedAttachmentFolders());
+    if (expanded.has(folderId)) {
+      expanded.delete(folderId);
+    } else {
+      expanded.add(folderId);
+    }
+    this.expandedAttachmentFolders.set(expanded);
+  }
+
+  isAttachmentFolderExpanded(folderId: string): boolean {
+    return this.expandedAttachmentFolders().has(folderId);
+  }
+
+  toggleTechnicalFolder(folder: { id: string; dossiers: any[] }) {
+    const expanded = new Set(this.expandedTechnicalFolders());
+    if (expanded.has(folder.id)) {
+      expanded.delete(folder.id);
+      this.expandedTechnicalFolders.set(expanded);
+      return;
+    }
+
+    expanded.add(folder.id);
+    this.expandedTechnicalFolders.set(expanded);
+
+    const missingDossiers = folder.dossiers.filter(dossier => !this.technicalDocumentsByDossier()[dossier.id]);
+    if (!missingDossiers.length) return;
+
+    const loading = new Set(this.loadingTechnicalFolders());
+    loading.add(folder.id);
+    this.loadingTechnicalFolders.set(loading);
+
+    forkJoin(missingDossiers.map(dossier =>
+      this.dossierDocumentService.getDocuments(String(dossier.id), { page: 1, pageSize: 1000 }, true).pipe(
+        catchError(() => of({ items: [] })),
+        finalize(() => undefined)
+      )
+    )).pipe(finalize(() => {
+      const next = new Set(this.loadingTechnicalFolders());
+      next.delete(folder.id);
+      this.loadingTechnicalFolders.set(next);
+    })).subscribe(results => {
+      this.technicalDocumentsByDossier.update(current => {
+        const next = { ...current };
+        missingDossiers.forEach((dossier, index) => next[dossier.id] = results[index]?.items || []);
+        return next;
+      });
+    });
+  }
+
+  isTechnicalFolderExpanded(folderId: string): boolean {
+    return this.expandedTechnicalFolders().has(folderId);
+  }
+
+  isTechnicalFolderLoading(folderId: string): boolean {
+    return this.loadingTechnicalFolders().has(folderId);
+  }
+
+  getTechnicalFolderDocuments(folder: { dossiers: any[] }): Array<{ dossier: any; document: any }> {
+    return folder.dossiers.flatMap(dossier =>
+      (this.technicalDocumentsByDossier()[dossier.id] || []).map(document => ({ dossier, document }))
+    );
+  }
+
+  downloadTechnicalDocument(dossierId: string | undefined, document: any) {
+    if (!dossierId || !document?.latestVersionId) return;
+    void this.dossierDocumentService.downloadFile(dossierId, document.latestVersionId, document.name, true);
+  }
+
+  openTechnicalDocumentPreview(dossierId: string, document: any) {
+    if (!document?.latestVersionId) {
+      this.messageService.add({ severity: 'warn', summary: 'Xem trước', detail: 'Tài liệu chưa có phiên bản để xem.' });
+      return;
+    }
+
+    this.cleanupTechnicalDocumentPreview();
+    this.technicalPreviewTarget.set({ dossierId, document });
+    this.showTechnicalDocumentPreview.set(true);
+    this.loadingTechnicalDocumentPreview.set(true);
+
+    const versionId = document.latestVersionId;
+    void this.dossierDocumentService.getPreviewBlobUrl(dossierId, versionId, true)
+      .then(url => {
+        if (this.technicalPreviewTarget()?.document?.latestVersionId === versionId) {
+          this.technicalPreviewUrl.set(url);
+        } else {
+          this.dossierDocumentService.revokePreviewBlobUrl(url);
+        }
+      })
+      .catch(() => {
+        this.messageService.add({ severity: 'error', summary: 'Xem trước', detail: 'Không thể tải tài liệu để xem trước.' });
+      })
+      .finally(() => this.loadingTechnicalDocumentPreview.set(false));
+  }
+
+  closeTechnicalDocumentPreview() {
+    this.showTechnicalDocumentPreview.set(false);
+    this.loadingTechnicalDocumentPreview.set(false);
+    this.technicalPreviewTarget.set(null);
+    this.cleanupTechnicalDocumentPreview();
+  }
+
+  isTechnicalPreviewImage(): boolean {
+    const document = this.technicalPreviewTarget()?.document;
+    return document?.mimeType?.startsWith('image/')
+      || /\.(png|jpe?g|gif|webp|bmp)$/i.test(document?.name || document?.fileName || '');
+  }
+
+  private cleanupTechnicalDocumentPreview() {
+    const url = this.technicalPreviewUrl();
+    if (url) {
+      this.dossierDocumentService.revokePreviewBlobUrl(url);
+      this.technicalPreviewUrl.set(null);
+    }
   }
 
   onRelatedDossierFilterChange() {

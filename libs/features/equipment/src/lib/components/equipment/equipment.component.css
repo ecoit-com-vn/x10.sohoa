@@ -111,6 +111,39 @@
   font-size: 0.82rem;
 }
 
+.org-tree-picker .org-tree-search {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #fff;
+}
+
+.org-tree-picker .org-tree-search .pi {
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
+.org-tree-picker .org-tree-search input {
+  width: 100%;
+  min-width: 0;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  color: #334155;
+  font-size: 0.82rem;
+  outline: none;
+}
+
+.org-tree-picker .org-tree-search input:focus {
+  border-color: #3b82f6;
+}
+
 .org-tree-picker .org-tree-node {
   display: flex;
   align-items: center;
