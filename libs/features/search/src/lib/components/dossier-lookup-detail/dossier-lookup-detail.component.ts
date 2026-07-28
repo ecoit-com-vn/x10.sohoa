@@ -1,7 +1,7 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { MessageService } from 'primeng/api';
 import { PaginatorModule } from 'primeng/paginator';
@@ -14,6 +14,7 @@ import {
   DossierManagementService,
   EavField,
   normalizeDossierDetail,
+  readApiField,
   parseFormDataJson,
   readFormSchemaJson,
   normalizeField,
@@ -29,6 +30,7 @@ import {
     PaginatorModule,
     ToastModule,
     WfBreadcrumbComponent,
+    RouterLink,
     DossierDocumentEditDialogComponent,
   ],
   providers: [MessageService],
@@ -133,6 +135,34 @@ export class DossierLookupDetailComponent implements OnInit {
   filterDossierTypeId = '';
 
   dossierMeta = computed(() => normalizeDossierDetail(this.dossier()));
+  dossierViewMeta = computed(() => {
+    const meta = this.dossierMeta();
+    const raw = meta?.raw ?? {};
+
+    const shelfName = readApiField<string>(raw, 'shelfName', 'ShelfName');
+    const shelfCode = readApiField<string>(raw, 'shelfCode', 'ShelfCode');
+    const floorName = readApiField<string>(raw, 'floorName', 'FloorName');
+    const floorCode = readApiField<string>(raw, 'floorCode', 'FloorCode');
+    const boxName = readApiField<string>(raw, 'boxName', 'BoxName');
+    const boxCode = readApiField<string>(raw, 'boxCode', 'BoxCode');
+    const boxId = readApiField<string>(raw, 'boxId', 'BoxId');
+    const directStorageLabel = readApiField<string>(raw, 'storageLabel', 'StorageLabel');
+    const storageParts = [shelfName || shelfCode, floorName || floorCode, boxName || boxCode].filter(Boolean);
+
+    return {
+      dossierGroupName: readApiField<string>(raw, 'dossierGroupName', 'DossierGroupName') ?? '',
+      gridTypeName: readApiField<string>(raw, 'gridTypeName', 'GridTypeName')
+        ?? this.getGridTypeName(meta?.gridTypeId ?? null),
+      infrastructureName: meta?.infrastructureName
+        || readApiField<string>(raw, 'infrastructureName', 'InfrastructureName')
+        || '',
+      infrastructureCode: readApiField<string>(raw, 'infrastructureCode', 'InfrastructureCode') ?? '',
+      storageLabel: directStorageLabel
+        || storageParts.join(' / ')
+        || (boxId ? `Hộp #${boxId}` : ''),
+      dossierTypeName: meta?.dossierTypeName ?? '',
+    };
+  });
 
   loadCatalogColumns() {
     this.dossierService.getBhsCatalogColumns().subscribe({
@@ -338,6 +368,11 @@ export class DossierLookupDetailComponent implements OnInit {
   onRelatedPageChange(event: any) {
     this.relatedFirst.set(event.first);
     this.relatedRows.set(event.rows);
+  }
+
+  getEquipmentId(equipment: any): string {
+    const id = equipment?.equipmentId ?? equipment?.EquipmentId ?? equipment?.id ?? equipment?.Id;
+    return id == null ? '' : String(id).trim();
   }
 
   openRelatedDetail(rel: any) {
