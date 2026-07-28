@@ -449,6 +449,50 @@ public class PermissionGroupRepository : IPermissionGroupRepository
 
     }
 
+    public async Task<IReadOnlyDictionary<long, IReadOnlyCollection<string>>> GetPermissionCodesByGroupIdsAsync(
+        IEnumerable<long> permissionGroupIds)
+    {
+        var ids = permissionGroupIds
+            .Where(id => id > 0)
+            .Distinct()
+            .ToArray();
+
+        if (ids.Length == 0)
+        {
+            return new Dictionary<long, IReadOnlyCollection<string>>();
+        }
+
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+
+        const string sql = @"
+            SELECT pgp.PermissionGroupId, p.Code AS PermissionCode
+            FROM PERMISSION_GROUP_PERMISSION pgp
+            INNER JOIN PERMISSION p ON pgp.PermissionId = p.Id
+            WHERE pgp.PermissionGroupId IN :PermissionGroupIds
+              AND p.IsActive = 1
+            ORDER BY pgp.PermissionGroupId, p.Code";
+
+        var rows = await _connection.QueryAsync<PermissionGroupCodeRow>(
+            sql,
+            new { PermissionGroupIds = ids });
+
+        return rows
+            .GroupBy(row => row.PermissionGroupId)
+            .ToDictionary(
+                group => group.Key,
+                group => (IReadOnlyCollection<string>)group
+                    .Select(row => row.PermissionCode)
+                    .Where(code => !string.IsNullOrWhiteSpace(code))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToArray());
+    }
+
+    private sealed class PermissionGroupCodeRow
+    {
+        public long PermissionGroupId { get; set; }
+        public string PermissionCode { get; set; } = string.Empty;
+    }
+
 
 
     public async Task<bool> AssignPermissionsToGroupAsync(long permissionGroupId, IEnumerable<string> permissionCodes)

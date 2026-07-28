@@ -13,6 +13,8 @@ namespace EvnHanoi.ReportService.Core.Interfaces
         Task<long> CreateReportGroupAsync(ReportGroup group, List<long> reportIds, List<long> unitIds);
         Task<bool> UpdateReportGroupAsync(ReportGroup group, List<long> reportIds, List<long> unitIds);
         Task<bool> DeleteReportGroupAsync(long id);
+        Task<bool> LockReportGroupAsync(long id);
+        Task<bool> UnlockReportGroupAsync(long id);
 
         // System Reports Lookup
         Task<IEnumerable<Report>> GetSystemReportsAsync();
