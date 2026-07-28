@@ -14,6 +14,7 @@ import { TooltipModule } from 'primeng/tooltip';
 
 import { MenuItem, MessageService } from 'primeng/api';
 import { Menu, MenuModule } from 'primeng/menu';
+import { SelectModule } from 'primeng/select';
 
 import { AuthService } from '@sohoa.frontend/shared/core';
 
@@ -39,7 +40,7 @@ import { LookupTrackingService } from '../../data-access/lookup-tracking.service
 
   standalone: true,
 
-  imports: [CommonModule, FormsModule, ToastModule, TooltipModule, MenuModule, WfBreadcrumbComponent],
+  imports: [CommonModule, FormsModule, ToastModule, TooltipModule, MenuModule, SelectModule, WfBreadcrumbComponent],
 
   providers: [MessageService],
 
@@ -228,8 +229,6 @@ export class DossierLookupComponent implements OnInit {
 
     this.filterDossierTypeId.set(null);
 
-    this.loadDependentLookups();
-
     this.onSearch();
 
   }
@@ -242,8 +241,6 @@ export class DossierLookupComponent implements OnInit {
 
     this.filterDossierTypeId.set(null);
 
-    this.loadDependentLookups();
-
     this.onSearch();
 
   }
@@ -253,8 +250,6 @@ export class DossierLookupComponent implements OnInit {
   onEquipmentTypeChange() {
 
     this.filterDossierTypeId.set(null);
-
-    this.loadDependentLookups();
 
     this.onSearch();
 

@@ -28,25 +28,47 @@
         </div>
         <div class="lookup-filters__field">
           <label class="form-label">Trạm / Đường dây</label>
-          <select
-            class="wf-select"
+          <p-select
+            [options]="infrastructures()"
             [ngModel]="filterInfrastructureId()"
             (ngModelChange)="filterInfrastructureId.set($event); onInfrastructureChange()"
+            optionLabel="name"
+            optionValue="id"
+            placeholder="-- Tất cả trạm/đường dây --"
+            [filter]="true"
+            filterBy="name,code"
+            filterPlaceholder="Tìm theo mã hoặc tên..."
+            [showClear]="true"
+            appendTo="body"
+            styleClass="lookup-search-select"
           >
-            <option [ngValue]="null">-- Tất cả trạm/đường dây --</option>
-            <option *ngFor="let item of infrastructures()" [value]="item.id">{{ item.name }}</option>
-          </select>
+            <ng-template #item let-item>
+              <span>{{ item.name }}</span>
+              <small *ngIf="item.code" class="lookup-option-code">({{ item.code }})</small>
+            </ng-template>
+          </p-select>
         </div>
         <div class="lookup-filters__field">
           <label class="form-label">Loại thiết bị</label>
-          <select
-            class="wf-select"
+          <p-select
+            [options]="equipmentTypes()"
             [ngModel]="filterEquipmentTypeId()"
             (ngModelChange)="filterEquipmentTypeId.set($event); onEquipmentTypeChange()"
+            optionLabel="name"
+            optionValue="id"
+            placeholder="-- Tất cả loại thiết bị --"
+            [filter]="true"
+            filterBy="name,code"
+            filterPlaceholder="Tìm theo mã hoặc tên..."
+            [showClear]="true"
+            appendTo="body"
+            styleClass="lookup-search-select"
           >
-            <option [ngValue]="null">-- Tất cả loại thiết bị --</option>
-            <option *ngFor="let item of equipmentTypes()" [value]="item.id">{{ item.name }}</option>
-          </select>
+            <ng-template #item let-item>
+              <span>{{ item.name }}</span>
+              <small *ngIf="item.code" class="lookup-option-code">({{ item.code }})</small>
+            </ng-template>
+          </p-select>
         </div>
       </div>
 

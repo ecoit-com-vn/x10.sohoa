@@ -39,9 +39,26 @@
 }
 
 .lookup-filters__field .wf-search-input,
-.lookup-filters__field .wf-select {
+.lookup-filters__field .wf-select,
+.lookup-filters__field p-select {
   width: 100%;
   box-sizing: border-box;
+}
+
+:host ::ng-deep .lookup-search-select {
+  width: 100%;
+  min-height: 34px;
+}
+
+:host ::ng-deep .lookup-search-select .p-select-label {
+  padding-top: 7px;
+  padding-bottom: 7px;
+  font-size: 0.875rem;
+}
+
+.lookup-option-code {
+  margin-left: 6px;
+  color: #64748b;
 }
 
 .lookup-filters__field .wf-select[type='date'] {
