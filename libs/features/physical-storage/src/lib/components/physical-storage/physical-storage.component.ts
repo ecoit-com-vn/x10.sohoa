@@ -39,6 +39,9 @@ import { forkJoin, of, finalize, catchError } from 'rxjs';
 })
 export class PhysicalStorageComponent implements OnInit {
   private readonly authService = inject(AuthService);
+  private readonly storageCodePattern = /^[A-Za-z0-9_-]{1,50}$/;
+  private readonly storageCodeErrorMessage =
+    'Mã chỉ được nhập chữ cái không dấu, số, dấu gạch ngang (-), dấu gạch dưới (_), không được có dấu cách.';
 
   shelves = signal<PhysicalShelfDto[]>([]);
   floors = signal<PhysicalFloorDto[]>([]);
@@ -56,6 +59,7 @@ export class PhysicalStorageComponent implements OnInit {
   dialogHeader = signal('');
   currentType = signal('');
   currentData = signal<any>({});
+  codeValidationError = signal('');
   isEdit = signal(false);
 
   loading = signal(false);
@@ -327,6 +331,7 @@ export class PhysicalStorageComponent implements OnInit {
   showDialog(type: string) {
     this.currentType.set(type);
     this.isEdit.set(false);
+    this.codeValidationError.set('');
     this.formOrgTreeOpen.set(false);
     this.currentData.set({
       code: '',
@@ -346,6 +351,7 @@ export class PhysicalStorageComponent implements OnInit {
   editItem(type: string, item: any) {
     this.currentType.set(type);
     this.isEdit.set(true);
+    this.codeValidationError.set('');
     this.formOrgTreeOpen.set(false);
     this.currentData.set({ ...item });
     this.dialogHeader.set('Chỉnh sửa ' + this.getTypeName(type));
@@ -384,7 +390,11 @@ export class PhysicalStorageComponent implements OnInit {
     const data = { ...this.currentData() };
     const type = this.currentType();
 
-    if (!data.code?.trim() || !data.name?.trim()) {
+    if (!this.validateStorageCode(data.code)) {
+      return;
+    }
+
+    if (!data.name?.trim()) {
       this.messageService.add({ severity: 'error', summary: 'Thiếu thông tin', detail: 'Vui lòng điền đầy đủ Mã và Tên bắt buộc!' });
       return;
     }
@@ -433,10 +443,39 @@ export class PhysicalStorageComponent implements OnInit {
         this.loadAllData();
         this.displayDialog.set(false);
       },
-      error: () => {
-        this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Lưu thông tin thất bại.' });
+      error: (err) => {
+        const codeError = err?.error?.errors?.code;
+        if (codeError) {
+          this.codeValidationError.set(codeError);
+          return;
+        }
+
+        const detail = err?.error?.message || 'Lưu thông tin thất bại.';
+        this.messageService.add({ severity: 'error', summary: 'Lỗi', detail });
       }
     });
+  }
+
+  onStorageCodeChange(code: string) {
+    this.currentData.update(data => ({ ...data, code }));
+    if (this.codeValidationError()) {
+      this.validateStorageCode(code);
+    }
+  }
+
+  private validateStorageCode(code: string | null | undefined): boolean {
+    if (!code?.trim()) {
+      this.codeValidationError.set('Mã định danh là bắt buộc');
+      return false;
+    }
+
+    if (!this.storageCodePattern.test(code)) {
+      this.codeValidationError.set(this.storageCodeErrorMessage);
+      return false;
+    }
+
+    this.codeValidationError.set('');
+    return true;
   }
 
   private getTypeName(type: string): string {
