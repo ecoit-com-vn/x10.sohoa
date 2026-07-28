@@ -101,15 +101,13 @@ public class CatalogController : ControllerBase
         var catalogType = catalogTypeId.HasValue
             ? await _catalogRepository.GetCatalogTypeByIdAsync(catalogTypeId.Value)
             : null;
-        var isPhong = catalogType?.Code == "PHONG";
-        if (isPhong)
+        var isUnitScoped = catalogType?.Code == "MUC_LUC" || catalogType?.Code == "PHONG";
+        if (isUnitScoped)
         {
             if (!unitId.HasValue || unitId <= 0)
-                return BadRequest(new { message = "Vui lòng chọn một đơn vị." });
-            if (!CanAccessPhongUnit(unitId.Value))
-                return Forbid();
+                return BadRequest(new { statusCode = 400, message = "Dữ liệu đầu vào không hợp lệ.", errors = new { unitId = "Vui lòng chọn một đơn vị" } });
+            if (!CanAccessUnit(unitId.Value)) return Forbid();
         }
-
         long? effectiveUnitId = isPhong ? unitId : unitId ?? GetUnitIdFromClaims();
         var (items, totalCount) = await _catalogRepository.GetPagedAsync(
             page, pageSize, catalogTypeId, keyword, status, effectiveUnitId,
@@ -123,6 +121,9 @@ public class CatalogController : ControllerBase
     {
         var result = await _catalogRepository.GetByIdAsync(id);
         if (result == null) return NotFound();
+        if (await IsMucLucAsync(result.CatalogTypeId) &&
+            (!result.UnitId.HasValue || !CanAccessUnit(result.UnitId.Value)))
+            return Forbid();
         return Ok(result);
     }
 
@@ -130,6 +131,9 @@ public class CatalogController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] Catalog catalog)
     {
+        catalog.Code = catalog.Code?.Trim() ?? string.Empty;
+        catalog.Name = catalog.Name?.Trim() ?? string.Empty;
+        catalog.Description = catalog.Description?.Trim();
         if (string.IsNullOrWhiteSpace(catalog.Code) || string.IsNullOrWhiteSpace(catalog.Name))
             return BadRequest(new { message = "Mã danh mục và Tên danh mục là bắt buộc." });
 
@@ -141,22 +145,27 @@ public class CatalogController : ControllerBase
         if (catalogType == null)
             return BadRequest(new { message = $"Loại danh mục với Id '{catalog.CatalogTypeId}' không tồn tại." });
 
-        // Kiểm tra trùng mã trong cùng nhóm CatalogTypeId
-        var existing = await _catalogRepository.GetByCodeAsync(catalog.CatalogTypeId, catalog.Code);
-        if (existing != null)
-            return BadRequest(new { message = $"Mã danh mục '{catalog.Code}' đã tồn tại trong nhóm '{catalogType.Name}'." });
+        var isUnitScoped = catalogType.Code == "MUC_LUC" || catalogType.Code == "PHONG";
+        if (isUnitScoped && (!catalog.UnitId.HasValue || catalog.UnitId <= 0))
+            return BadRequest(new { statusCode = 400, message = "Dữ liệu đầu vào không hợp lệ.", errors = new { unitId = "Đơn vị là bắt buộc" } });
+        if (isUnitScoped && !CanAccessUnit(catalog.UnitId!.Value)) return Forbid();
 
-        if (catalogType.Code == "PHONG")
+        var existing = isUnitScoped
+            ? await _catalogRepository.GetByCodeForUnitAsync(catalog.CatalogTypeId, catalog.Code, catalog.UnitId!.Value)
+            : await _catalogRepository.GetByCodeAsync(catalog.CatalogTypeId, catalog.Code);
+        if (existing != null)
+            return BadRequest(new { statusCode = 400, message = "Dữ liệu đầu vào không hợp lệ.", errors = new { code = $"Mã danh mục '{catalog.Code}' đã tồn tại" } });
+
+        if (isUnitScoped)
         {
-            if (!catalog.UnitId.HasValue || catalog.UnitId <= 0)
-                return BadRequest(new { message = "Đơn vị là bắt buộc.", errors = new { unitId = "Đơn vị là bắt buộc" } });
-            if (!CanAccessPhongUnit(catalog.UnitId.Value))
-                return Forbid();
+            var parentError = await ValidateParentAsync(catalog, null);
+            if (parentError != null)
+                return BadRequest(new { statusCode = 400, message = "Dữ liệu đầu vào không hợp lệ.", errors = new { parentId = parentError } });
         }
-        else
-        {
+
+        if (!isUnitScoped)
             catalog.UnitId = catalog.UnitId.HasValue ? GetUnitIdFromClaims() : null;
-        }
+
         catalog.CreatedBy = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value ?? "system";
         catalog.CreatedAt = DateTime.UtcNow;
 
@@ -169,6 +178,9 @@ public class CatalogController : ControllerBase
     [HttpPut("{id:long}")]
     public async Task<IActionResult> Update(long id, [FromBody] Catalog catalog)
     {
+        catalog.Code = catalog.Code?.Trim() ?? string.Empty;
+        catalog.Name = catalog.Name?.Trim() ?? string.Empty;
+        catalog.Description = catalog.Description?.Trim();
         if (id != catalog.Id)
             return BadRequest(new { message = "ID không trùng khớp." });
 
@@ -183,25 +195,38 @@ public class CatalogController : ControllerBase
         if (catalogType == null)
             return BadRequest(new { message = $"Loại danh mục với Id '{catalog.CatalogTypeId}' không tồn tại." });
 
-        // Kiểm tra trùng mã với bản ghi khác trong cùng nhóm
-        var existing = await _catalogRepository.GetByCodeAsync(catalog.CatalogTypeId, catalog.Code);
-        if (existing != null && existing.Id != id)
-            return BadRequest(new { message = $"Mã danh mục '{catalog.Code}' đã được sử dụng bởi bản ghi khác trong nhóm '{catalogType.Name}'." });
-
         var dbCatalog = await _catalogRepository.GetByIdAsync(id);
         if (dbCatalog == null) return NotFound();
+        if (await IsMucLucAsync(dbCatalog.CatalogTypeId) &&
+            (!dbCatalog.UnitId.HasValue || !CanAccessUnit(dbCatalog.UnitId.Value)))
+            return Forbid();
+        if (dbCatalog.CatalogTypeId != catalog.CatalogTypeId)
+            return BadRequest(new { message = "Không được thay đổi loại danh mục." });
 
-        if (catalogType.Code == "PHONG")
+        var isUnitScoped = catalogType.Code == "MUC_LUC" || catalogType.Code == "PHONG";
+        if (isUnitScoped && (!catalog.UnitId.HasValue || catalog.UnitId <= 0))
+            return BadRequest(new { statusCode = 400, message = "Dữ liệu đầu vào không hợp lệ.", errors = new { unitId = "Đơn vị là bắt buộc" } });
+        if (isUnitScoped && !CanAccessUnit(catalog.UnitId!.Value)) return Forbid();
+
+        var existing = isUnitScoped
+            ? await _catalogRepository.GetByCodeForUnitAsync(catalog.CatalogTypeId, catalog.Code, catalog.UnitId!.Value)
+            : await _catalogRepository.GetByCodeAsync(catalog.CatalogTypeId, catalog.Code);
+        if (existing != null && existing.Id != id)
+            return BadRequest(new { statusCode = 400, message = "Dữ liệu đầu vào không hợp lệ.", errors = new { code = $"Mã danh mục '{catalog.Code}' đã tồn tại" } });
+
+        if (isUnitScoped)
         {
-            if (!catalog.UnitId.HasValue || catalog.UnitId <= 0)
-                return BadRequest(new { message = "Đơn vị là bắt buộc.", errors = new { unitId = "Đơn vị là bắt buộc" } });
-            if (!CanAccessPhongUnit(catalog.UnitId.Value))
-                return Forbid();
+            if (dbCatalog.UnitId != catalog.UnitId &&
+                (dbCatalog.ParentId.HasValue || await _catalogRepository.HasChildrenAsync(id)))
+                return BadRequest(new { statusCode = 400, message = "Dữ liệu đầu vào không hợp lệ.", errors = new { unitId = "Không thể đổi đơn vị khi danh mục đang có quan hệ cha-con" } });
+
+            var parentError = await ValidateParentAsync(catalog, id);
+            if (parentError != null)
+                return BadRequest(new { statusCode = 400, message = "Dữ liệu đầu vào không hợp lệ.", errors = new { parentId = parentError } });
         }
-        else
-        {
+
+        if (!isUnitScoped)
             catalog.UnitId = catalog.UnitId.HasValue ? GetUnitIdFromClaims() : null;
-        }
         catalog.UpdatedBy = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value ?? "system";
 
         var success = await _catalogRepository.UpdateAsync(catalog);
@@ -213,6 +238,11 @@ public class CatalogController : ControllerBase
     [HttpDelete("{id:long}")]
     public async Task<IActionResult> Delete(long id)
     {
+        var catalog = await _catalogRepository.GetByIdAsync(id);
+        if (catalog == null) return NotFound();
+        if (await IsMucLucAsync(catalog.CatalogTypeId) &&
+            (!catalog.UnitId.HasValue || !CanAccessUnit(catalog.UnitId.Value)))
+            return Forbid();
         if (await _catalogRepository.HasChildrenAsync(id))
             return BadRequest(new { message = "Không thể xóa danh mục này vì đang có các danh mục con tham chiếu tới." });
 
@@ -228,6 +258,9 @@ public class CatalogController : ControllerBase
     {
         var catalog = await _catalogRepository.GetByIdAsync(id);
         if (catalog == null) return NotFound();
+        if (await IsMucLucAsync(catalog.CatalogTypeId) &&
+            (!catalog.UnitId.HasValue || !CanAccessUnit(catalog.UnitId.Value)))
+            return Forbid();
 
         catalog.Status = 0;
         catalog.UpdatedBy = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value ?? "system";
@@ -244,6 +277,9 @@ public class CatalogController : ControllerBase
     {
         var catalog = await _catalogRepository.GetByIdAsync(id);
         if (catalog == null) return NotFound();
+        if (await IsMucLucAsync(catalog.CatalogTypeId) &&
+            (!catalog.UnitId.HasValue || !CanAccessUnit(catalog.UnitId.Value)))
+            return Forbid();
 
         catalog.Status = 1;
         catalog.UpdatedBy = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value ?? "system";
@@ -262,6 +298,44 @@ public class CatalogController : ControllerBase
         return long.TryParse(claim, out var unitId) ? unitId : null;
     }
 
+    private bool CanAccessUnit(long unitId)
+    {
+        var isAdmin = User.IsInRole("ADMIN") || User.Claims.Any(c =>
+            c.Type == System.Security.Claims.ClaimTypes.Role &&
+            string.Equals(c.Value, "ADMIN", StringComparison.OrdinalIgnoreCase));
+        if (isAdmin) return true;
+        return GetUnitIdFromClaims() == unitId;
+    }
+
+    private async Task<bool> IsMucLucAsync(long catalogTypeId)
+        => (await _catalogRepository.GetCatalogTypeByIdAsync(catalogTypeId))?.Code == "MUC_LUC";
+
+    private async Task<string?> ValidateParentAsync(Catalog catalog, long? currentId)
+    {
+        if (!catalog.ParentId.HasValue) return null;
+        if (currentId.HasValue && catalog.ParentId.Value == currentId.Value)
+            return "Danh mục không thể là cha của chính nó";
+
+        var parent = await _catalogRepository.GetByIdAsync(catalog.ParentId.Value);
+        if (parent == null) return "Danh mục cha không tồn tại";
+        if (parent.CatalogTypeId != catalog.CatalogTypeId)
+            return "Danh mục cha không cùng loại";
+        if (parent.UnitId != catalog.UnitId)
+            return "Danh mục cha không cùng đơn vị";
+        if (parent.Status != 1)
+            return "Danh mục cha đang ngừng hoạt động";
+
+        if (!currentId.HasValue) return null;
+        var visited = new HashSet<long>();
+        long? ancestorId = catalog.ParentId;
+        while (ancestorId.HasValue && visited.Add(ancestorId.Value))
+        {
+            if (ancestorId.Value == currentId.Value)
+                return "Quan hệ cha-con tạo thành vòng lặp";
+            ancestorId = (await _catalogRepository.GetByIdAsync(ancestorId.Value))?.ParentId;
+        }
+        return ancestorId.HasValue ? "Dữ liệu cây hiện tại có vòng lặp" : null;
+    }
     private bool CanAccessPhongUnit(long unitId)
     {
         var isAdmin = User.IsInRole("ADMIN") ||

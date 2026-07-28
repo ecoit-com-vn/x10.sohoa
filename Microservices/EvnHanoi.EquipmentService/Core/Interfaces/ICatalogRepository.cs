@@ -8,6 +8,7 @@ public interface ICatalogRepository
     Task<(IEnumerable<Catalog> Items, int TotalCount)> GetPagedAsync(int page, int pageSize, long? catalogTypeId = null, string? keyword = null, int? status = null, long? unitId = null, string? username = null, bool strictUnitFilter = false);
     Task<Catalog?> GetByIdAsync(long id);
     Task<Catalog?> GetByCodeAsync(long catalogTypeId, string code);
+    Task<Catalog?> GetByCodeForUnitAsync(long catalogTypeId, string code, long unitId);
     Task<Catalog?> GetByCodeIncludingDeletedAsync(long catalogTypeId, string code);
     Task<bool> HasChildrenAsync(long id);
     Task<long> CreateAsync(Catalog catalog);
