@@ -14,6 +14,18 @@ namespace EvnHanoi.WorkflowService.Models
         public bool AllowEdit { get; set; }
         public bool RequireSignature { get; set; }
 
+        /// <summary>Danh sách ID nhóm quyền hệ thống được phép xử lý (phân cách bởi dấu phẩy).</summary>
+        public string? SystemPermissionGroupIds { get; set; }
+
+        /// <summary>Danh sách ID nhóm quyền đơn vị được phép xử lý (phân cách bởi dấu phẩy).</summary>
+        public string? UnitPermissionGroupIds { get; set; }
+
+        /// <summary>Bắt buộc người xử lý tiếp theo phải cùng đơn vị với người đang chuyển bước.</summary>
+        public bool RequireSameUnit { get; set; }
+
+        /// <summary>ID người dùng được giao việc đích danh. Nếu có thì bỏ qua bước chọn người trên UI.</summary>
+        public string? AssigneeId { get; set; }
+
         [JsonIgnore]
         public WorkflowDefinition? WorkflowDefinition { get; set; }
     }

@@ -23,4 +23,16 @@ public interface IUserRepository
     Task<IEnumerable<long>> GetDirectRoleIdsByUserIdAsync(string userId);
     Task<bool> AssignRolesToUserAsync(string userId, IEnumerable<long> roleIds);
     Task<IEnumerable<UserLookupDto>> GetUsersLookupAsync(string? roleCodeFilter);
+
+    /// <summary>
+    /// Lấy danh sách người dùng đủ điều kiện xử lý bước tiếp theo của luồng.
+    /// Lọc theo nhóm quyền hệ thống, nhóm quyền đơn vị, và tuỳ chọn giới hạn theo đơn vị (RequireSameUnit).
+    /// </summary>
+    Task<IEnumerable<UserLookupDto>> GetEligibleAssigneesAsync(
+        List<long> systemGroupIds,
+        List<long> unitGroupIds,
+        long? unitId,
+        string? keyword,
+        int page,
+        int pageSize);
 }

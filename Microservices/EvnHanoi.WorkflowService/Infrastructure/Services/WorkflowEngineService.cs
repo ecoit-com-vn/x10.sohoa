@@ -492,9 +492,17 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
                 }
                 else
                 {
-                    if (string.IsNullOrWhiteSpace(nextAssigneeUserId))
-                        throw new ArgumentException("Vui lòng chọn người xử lý bước tiếp theo.");
-                    assigneeUserId = nextAssigneeUserId.Trim();
+                    // Nếu bước có cấu hình AssigneeId đích danh → dùng ngay, không cần FE chọn người
+                    if (!string.IsNullOrWhiteSpace(targetStep?.AssigneeId))
+                    {
+                        assigneeUserId = targetStep!.AssigneeId.Trim();
+                    }
+                    else
+                    {
+                        if (string.IsNullOrWhiteSpace(nextAssigneeUserId))
+                            throw new ArgumentException("Vui lòng chọn người xử lý bước tiếp theo.");
+                        assigneeUserId = nextAssigneeUserId.Trim();
+                    }
                 }
 
                 var nextTask = new WorkflowTask
@@ -827,7 +835,10 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
             if (step.AllowEdit)
                 return true;
 
-            return string.IsNullOrWhiteSpace(step.RequiredRole);
+            // Tự gán người submit nếu bước không yêu cầu bất kỳ nhóm quyền hoặc vai trò nào
+            return string.IsNullOrWhiteSpace(step.RequiredRole)
+                && string.IsNullOrWhiteSpace(step.SystemPermissionGroupIds)
+                && string.IsNullOrWhiteSpace(step.UnitPermissionGroupIds);
         }
     }
 }

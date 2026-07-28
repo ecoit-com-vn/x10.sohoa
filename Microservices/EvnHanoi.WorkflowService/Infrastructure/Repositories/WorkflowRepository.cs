@@ -331,9 +331,13 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
                                             {nameof(WorkflowStep.RequiredRole)}, 
                                             {nameof(WorkflowStep.ActionType)},
                                             {nameof(WorkflowStep.AllowEdit)},
-                                            {nameof(WorkflowStep.RequireSignature)}
+                                            {nameof(WorkflowStep.RequireSignature)},
+                                            SYSTEM_PERMISSION_GROUP_IDS,
+                                            UNIT_PERMISSION_GROUP_IDS,
+                                            REQUIRE_SAME_UNIT,
+                                            ASSIGNEE_ID
                                          )
-                                         VALUES (:Id, :WorkflowDefinitionId, :StepName, :OrderVal, :RequiredRole, :ActionType, :AllowEdit, :RequireSignature)";
+                                         VALUES (:Id, :WorkflowDefinitionId, :StepName, :OrderVal, :RequiredRole, :ActionType, :AllowEdit, :RequireSignature, :SystemPermissionGroupIds, :UnitPermissionGroupIds, :RequireSameUnit, :AssigneeId)";
                     foreach (var step in definition.Steps)
                     {
                         if (step.Id == Guid.Empty)
@@ -351,6 +355,10 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
                         stepParams.Add("ActionType", string.IsNullOrEmpty(step.ActionType) ? null : step.ActionType);
                         stepParams.Add("AllowEdit", step.AllowEdit ? 1 : 0);
                         stepParams.Add("RequireSignature", step.RequireSignature ? 1 : 0);
+                        stepParams.Add("SystemPermissionGroupIds", string.IsNullOrEmpty(step.SystemPermissionGroupIds) ? null : step.SystemPermissionGroupIds);
+                        stepParams.Add("UnitPermissionGroupIds", string.IsNullOrEmpty(step.UnitPermissionGroupIds) ? null : step.UnitPermissionGroupIds);
+                        stepParams.Add("RequireSameUnit", step.RequireSameUnit ? 1 : 0);
+                        stepParams.Add("AssigneeId", string.IsNullOrEmpty(step.AssigneeId) ? null : step.AssigneeId);
 
                         await _connection.ExecuteAsync(sqlInsertStep, stepParams, transaction);
                     }
@@ -436,9 +444,13 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
                                         {nameof(WorkflowStep.RequiredRole)}, 
                                         {nameof(WorkflowStep.ActionType)},
                                         {nameof(WorkflowStep.AllowEdit)},
-                                        {nameof(WorkflowStep.RequireSignature)}
+                                        {nameof(WorkflowStep.RequireSignature)},
+                                        SYSTEM_PERMISSION_GROUP_IDS,
+                                        UNIT_PERMISSION_GROUP_IDS,
+                                        REQUIRE_SAME_UNIT,
+                                        ASSIGNEE_ID
                                      )
-                                     VALUES (:Id, :WorkflowDefinitionId, :StepName, :OrderVal, :RequiredRole, :ActionType, :AllowEdit, :RequireSignature)";
+                                     VALUES (:Id, :WorkflowDefinitionId, :StepName, :OrderVal, :RequiredRole, :ActionType, :AllowEdit, :RequireSignature, :SystemPermissionGroupIds, :UnitPermissionGroupIds, :RequireSameUnit, :AssigneeId)";
 
                 var sqlUpdateStep = $@"UPDATE WORKFLOWSTEPS 
                                       SET {nameof(WorkflowStep.StepName)} = :StepName, 
@@ -446,7 +458,11 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
                                           {nameof(WorkflowStep.RequiredRole)} = :RequiredRole, 
                                           {nameof(WorkflowStep.ActionType)} = :ActionType,
                                           {nameof(WorkflowStep.AllowEdit)} = :AllowEdit,
-                                          {nameof(WorkflowStep.RequireSignature)} = :RequireSignature 
+                                          {nameof(WorkflowStep.RequireSignature)} = :RequireSignature,
+                                          SYSTEM_PERMISSION_GROUP_IDS = :SystemPermissionGroupIds,
+                                          UNIT_PERMISSION_GROUP_IDS = :UnitPermissionGroupIds,
+                                          REQUIRE_SAME_UNIT = :RequireSameUnit,
+                                          ASSIGNEE_ID = :AssigneeId
                                       WHERE {nameof(WorkflowStep.Id)} = :Id";
 
                 foreach (var step in incomingSteps)
@@ -458,16 +474,20 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
                     stepParams.Add("ActionType", string.IsNullOrEmpty(step.ActionType) ? null : step.ActionType);
                     stepParams.Add("AllowEdit", step.AllowEdit ? 1 : 0);
                     stepParams.Add("RequireSignature", step.RequireSignature ? 1 : 0);
+                    stepParams.Add("SystemPermissionGroupIds", string.IsNullOrEmpty(step.SystemPermissionGroupIds) ? null : step.SystemPermissionGroupIds);
+                    stepParams.Add("UnitPermissionGroupIds", string.IsNullOrEmpty(step.UnitPermissionGroupIds) ? null : step.UnitPermissionGroupIds);
+                    stepParams.Add("RequireSameUnit", step.RequireSameUnit ? 1 : 0);
+                    stepParams.Add("AssigneeId", string.IsNullOrEmpty(step.AssigneeId) ? null : step.AssigneeId);
 
                     if (step.Id != Guid.Empty && existingStepIds.Contains(step.Id))
                     {
-                        // Update existing step
+                        // Cập nhật step đã tồn tại
                         stepParams.Add("Id", step.Id.ToString());
                         await _connection.ExecuteAsync(sqlUpdateStep, stepParams, transaction);
                     }
                     else
                     {
-                        // Insert new step
+                        // Thêm step mới
                         if (step.Id == Guid.Empty)
                         {
                             step.Id = Guid.CreateVersion7();
@@ -1167,7 +1187,11 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
                                      {nameof(WorkflowStep.RequiredRole)},
                                      {nameof(WorkflowStep.ActionType)},
                                      {nameof(WorkflowStep.AllowEdit)},
-                                     {nameof(WorkflowStep.RequireSignature)}
+                                     {nameof(WorkflowStep.RequireSignature)},
+                                     SYSTEM_PERMISSION_GROUP_IDS AS {nameof(WorkflowStep.SystemPermissionGroupIds)},
+                                     UNIT_PERMISSION_GROUP_IDS   AS {nameof(WorkflowStep.UnitPermissionGroupIds)},
+                                     REQUIRE_SAME_UNIT           AS {nameof(WorkflowStep.RequireSameUnit)},
+                                     ASSIGNEE_ID                 AS {nameof(WorkflowStep.AssigneeId)}
                               FROM WORKFLOWSTEPS
                               WHERE {nameof(WorkflowStep.WorkflowDefinitionId)} IN :DefinitionIds
                               ORDER BY {nameof(WorkflowStep.WorkflowDefinitionId)}, ""{nameof(WorkflowStep.Order)}""";
