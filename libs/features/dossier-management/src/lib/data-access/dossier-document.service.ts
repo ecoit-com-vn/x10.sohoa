@@ -57,6 +57,8 @@ export interface DossierDocumentItem {
   latestVersionId?: string | null;
   documentTypeId?: string | null;
   documentTypeName?: string | null;
+  equipmentId?: string | null;
+  equipmentName?: string | null;
   ocrProgress?: DocumentOcrProgress | null;
   extractionResult?: DocumentExtractionResultSummary | null;
 }
@@ -596,6 +598,8 @@ function normalizeDossierDocumentItem(raw: unknown): DossierDocumentItem {
     latestVersionId: readField<string>(o, 'latestVersionId', 'LatestVersionId') ?? null,
     documentTypeId: readField<string>(o, 'documentTypeId', 'DocumentTypeId') ?? null,
     documentTypeName: readField<string>(o, 'documentTypeName', 'DocumentTypeName') ?? null,
+    equipmentId: readField<string>(o, 'equipmentId', 'EquipmentId') ?? null,
+    equipmentName: readField<string>(o, 'equipmentName', 'EquipmentName') ?? null,
     ocrProgress: normalizeOcrProgress(readField(o, 'ocrProgress', 'OcrProgress')),
     extractionResult: normalizeExtractionSummary(readField(o, 'extractionResult', 'ExtractionResult')),
   };
