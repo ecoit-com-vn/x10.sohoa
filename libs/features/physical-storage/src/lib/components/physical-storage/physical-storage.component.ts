@@ -82,6 +82,14 @@ export class PhysicalStorageComponent implements OnInit {
   boxPage = signal(1);
   boxPageSize = signal(10);
 
+  /** Kệ đang chọn trên form thêm/sửa Hộp; chỉ phục vụ lọc Tầng, không gửi lên API. */
+  boxShelfId = signal<number | null>(null);
+  boxAvailableFloors = computed(() => {
+    const shelfId = this.boxShelfId();
+    if (shelfId == null) return [];
+    return this.floors().filter(floor => floor.shelfId === shelfId);
+  });
+
   filteredShelves = computed(() => {
     const kw = this.shelfSearchKeyword().trim().toLowerCase();
     if (!kw) return this.shelves();
@@ -241,6 +249,11 @@ export class PhysicalStorageComponent implements OnInit {
     this.boxPage.set(1);
   }
 
+  onBoxShelfChange(shelfId: number | null) {
+    this.boxShelfId.set(shelfId);
+    this.currentData.update(data => ({ ...data, floorId: null }));
+  }
+
   prevShelfPage() {
     if (this.shelfPage() > 1) this.shelfPage.update(p => p - 1);
   }
@@ -333,6 +346,7 @@ export class PhysicalStorageComponent implements OnInit {
     this.isEdit.set(false);
     this.codeValidationError.set('');
     this.formOrgTreeOpen.set(false);
+    this.boxShelfId.set(null);
     this.currentData.set({
       code: '',
       name: '',
@@ -340,7 +354,7 @@ export class PhysicalStorageComponent implements OnInit {
       priority: null,
       unitId: this.currentUnitId(),
       shelfId: this.shelves().length > 0 ? this.shelves()[0].id : null,
-      floorId: this.floors().length > 0 ? this.floors()[0].id : null,
+      floorId: null,
       capacity: 50,
       status: 1
     });
@@ -354,6 +368,15 @@ export class PhysicalStorageComponent implements OnInit {
     this.codeValidationError.set('');
     this.formOrgTreeOpen.set(false);
     this.currentData.set({ ...item });
+    if (type === 'box') {
+      const currentFloor = this.floors().find(floor => floor.id === item.floorId);
+      this.boxShelfId.set(currentFloor?.shelfId ?? null);
+      if (!currentFloor) {
+        this.currentData.update(data => ({ ...data, floorId: null }));
+      }
+    } else {
+      this.boxShelfId.set(null);
+    }
     this.dialogHeader.set('Chỉnh sửa ' + this.getTypeName(type));
     this.displayDialog.set(true);
   }
@@ -406,9 +429,22 @@ export class PhysicalStorageComponent implements OnInit {
       this.messageService.add({ severity: 'error', summary: 'Thiếu thông tin', detail: 'Vui lòng chọn kệ lưu trữ.' });
       return;
     }
-    if (type === 'box' && !data.floorId) {
-      this.messageService.add({ severity: 'error', summary: 'Thiếu thông tin', detail: 'Vui lòng chọn tầng kệ.' });
-      return;
+    if (type === 'box') {
+      if (!this.boxShelfId()) {
+        this.messageService.add({ severity: 'error', summary: 'Thiếu thông tin', detail: 'Vui lòng chọn kệ lưu trữ.' });
+        return;
+      }
+      if (!data.floorId) {
+        this.messageService.add({ severity: 'error', summary: 'Thiếu thông tin', detail: 'Vui lòng chọn tầng kệ.' });
+        return;
+      }
+      const isFloorOfShelf = this.floors().some(
+        floor => floor.id === data.floorId && floor.shelfId === this.boxShelfId()
+      );
+      if (!isFloorOfShelf) {
+        this.messageService.add({ severity: 'error', summary: 'Dữ liệu không hợp lệ', detail: 'Tầng kệ không thuộc kệ lưu trữ đã chọn.' });
+        return;
+      }
     }
 
     // Priority không bắt buộc — trống thì mặc định 1
