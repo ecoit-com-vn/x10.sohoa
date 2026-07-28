@@ -30,6 +30,9 @@ public interface IPermissionGroupRepository
 
     Task<IEnumerable<string>> GetPermissionCodesByGroupIdAsync(long permissionGroupId);
 
+    Task<IReadOnlyDictionary<long, IReadOnlyCollection<string>>> GetPermissionCodesByGroupIdsAsync(
+        IEnumerable<long> permissionGroupIds);
+
     Task<bool> AssignPermissionsToGroupAsync(long permissionGroupId, IEnumerable<string> permissionCodes);
 
     Task<IEnumerable<long>> GetPermissionGroupIdsByRoleIdAsync(long roleId);

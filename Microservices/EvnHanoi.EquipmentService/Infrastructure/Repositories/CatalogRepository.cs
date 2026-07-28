@@ -64,14 +64,23 @@ public class CatalogRepository : ICatalogRepository
         string? keyword = null,
         int? status = null,
         long? unitId = null,
-        string? username = null)
+        string? username = null,
+        bool strictUnitFilter = false)
     {
         if (_connection.State != ConnectionState.Open) _connection.Open();
 
-        var filterSql = $" WHERE {nameof(Catalog.IsDeleted)} = 0 AND ({nameof(Catalog.UnitId)} IS NULL";
-        if (unitId.HasValue)
-            filterSql += $" OR {nameof(Catalog.UnitId)} = :UnitId";
-        filterSql += ")";
+        var filterSql = $" WHERE {nameof(Catalog.IsDeleted)} = 0";
+        if (strictUnitFilter)
+        {
+            filterSql += $" AND {nameof(Catalog.UnitId)} = :UnitId";
+        }
+        else
+        {
+            filterSql += $" AND ({nameof(Catalog.UnitId)} IS NULL";
+            if (unitId.HasValue)
+                filterSql += $" OR {nameof(Catalog.UnitId)} = :UnitId";
+            filterSql += ")";
+        }
 
         if (catalogTypeId.HasValue)
             filterSql += $" AND {nameof(Catalog.CatalogTypeId)} = :CatalogTypeId";
@@ -128,6 +137,18 @@ public class CatalogRepository : ICatalogRepository
                        AND {nameof(Catalog.Code)} = :Code
                        AND {nameof(Catalog.IsDeleted)} = 0";
         return await _connection.QuerySingleOrDefaultAsync<Catalog>(sql, new { CatalogTypeId = catalogTypeId, Code = code });
+    }
+
+    public async Task<Catalog?> GetByCodeForUnitAsync(long catalogTypeId, string code, long unitId)
+    {
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+
+        var sql = $@"SELECT * FROM {nameof(Catalog)}
+                     WHERE {nameof(Catalog.CatalogTypeId)} = :CatalogTypeId
+                       AND LOWER({nameof(Catalog.Code)}) = LOWER(:Code)
+                       AND {nameof(Catalog.UnitId)} = :UnitId
+                       AND {nameof(Catalog.IsDeleted)} = 0";
+        return await _connection.QuerySingleOrDefaultAsync<Catalog>(sql, new { CatalogTypeId = catalogTypeId, Code = code, UnitId = unitId });
     }
 
     public async Task<Catalog?> GetByCodeIncludingDeletedAsync(long catalogTypeId, string code)
@@ -244,7 +265,7 @@ public class CatalogRepository : ICatalogRepository
 
         if (isPrivate && !string.IsNullOrEmpty(username))
         {
-            sql += $" AND {nameof(CatalogType.CreatedBy)} = :Username";
+            sql += $" AND ({nameof(CatalogType.CreatedBy)} = :Username OR {nameof(CatalogType.Code)} = 'PHONG')";
         }
 
         if (!string.IsNullOrEmpty(keyword))
@@ -277,7 +298,7 @@ public class CatalogRepository : ICatalogRepository
 
         if (isPrivate && !string.IsNullOrEmpty(username))
         {
-            sql += $" AND {nameof(CatalogType.CreatedBy)} = :Username";
+            sql += $" AND ({nameof(CatalogType.CreatedBy)} = :Username OR {nameof(CatalogType.Code)} = 'PHONG')";
         }
 
         return await _connection.QuerySingleOrDefaultAsync<CatalogType>(sql, new { Id = id, IsPrivate = isPrivate ? 1 : 0, Username = username });

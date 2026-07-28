@@ -53,6 +53,7 @@ public class EquipmentDto
     public long? EquipmentStatusId { get; set; }
     public string EquipmentStatusName { get; set; } = string.Empty;
     public bool IsActive { get; set; }
+    public int? StatusTransition { get; set; }
     public CreatorInfoDto? Creator { get; set; }
     
     // Audit logs

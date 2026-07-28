@@ -94,6 +94,14 @@ public interface IFileStorageService
         string? destinationBucketName = null,
         CancellationToken cancellationToken = default);
 
+    Task<(string ObjectKey, string VersionId)> CopyFileWithVersionAsync(
+        string sourceObjectKey,
+        string destinationObjectKey,
+        string? sourceBucketName = null,
+        string? destinationBucketName = null,
+        string? sourceVersionId = null,
+        CancellationToken cancellationToken = default);
+
     string DocumentBucketName { get; }
     string DossierBucketName { get; }
 
@@ -422,6 +430,24 @@ public class FileStorageService : IFileStorageService
         string? destinationBucketName = null,
         CancellationToken cancellationToken = default)
     {
+        var (objectKey, _) = await CopyFileWithVersionAsync(
+            sourceObjectKey,
+            destinationObjectKey,
+            sourceBucketName,
+            destinationBucketName,
+            cancellationToken: cancellationToken);
+
+        return objectKey;
+    }
+
+    public async Task<(string ObjectKey, string VersionId)> CopyFileWithVersionAsync(
+        string sourceObjectKey,
+        string destinationObjectKey,
+        string? sourceBucketName = null,
+        string? destinationBucketName = null,
+        string? sourceVersionId = null,
+        CancellationToken cancellationToken = default)
+    {
         var sourceBucket = ResolveBucket(sourceBucketName);
         var destBucket = ResolveBucket(destinationBucketName ?? sourceBucketName);
 
@@ -431,16 +457,26 @@ public class FileStorageService : IFileStorageService
             .WithBucket(sourceBucket)
             .WithObject(sourceObjectKey);
 
+        if (!string.IsNullOrWhiteSpace(sourceVersionId))
+            cpSrc = cpSrc.WithVersionId(sourceVersionId);
+
         var args = new CopyObjectArgs()
             .WithBucket(destBucket)
             .WithObject(destinationObjectKey)
             .WithCopyObjectSource(cpSrc);
 
         await _minioClient.CopyObjectAsync(args, cancellationToken);
+
+        var stat = await _minioClient.StatObjectAsync(
+            new StatObjectArgs()
+                .WithBucket(destBucket)
+                .WithObject(destinationObjectKey),
+            cancellationToken);
+
         _logger.LogInformation(
-            "Copied MinIO object {SourceBucket}/{Source} -> {DestBucket}/{Dest}",
-            sourceBucket, sourceObjectKey, destBucket, destinationObjectKey);
-        return destinationObjectKey;
+            "Copied MinIO object {SourceBucket}/{Source} -> {DestBucket}/{Dest} (Version: {Version})",
+            sourceBucket, sourceObjectKey, destBucket, destinationObjectKey, stat.VersionId);
+        return (destinationObjectKey, stat.VersionId ?? string.Empty);
     }
 
     public string BuildDossierObjectKey(string unitCode, Guid dossierId, string fileName)
