@@ -46,6 +46,8 @@ export class WorkflowBuilderComponent implements OnInit {
   private http = inject(HttpClient);
   private cdr = inject(ChangeDetectorRef);
 
+  @ViewChild('bpmnCanvasRef') bpmnCanvasRef?: ElementRef<HTMLDivElement>;
+
   // ─── View state ─────────────────────────────────────────────────────────────
   viewMode: 'list' | 'edit' = 'list';
   activeTab: 'general' | 'design' = 'general';
@@ -137,6 +139,7 @@ export class WorkflowBuilderComponent implements OnInit {
 
   // ─── Bpmn.io Modeler state ──────────────────────────────────────────────────
   bpmnModeler: any = null;
+  private canvasResizeObserver?: ResizeObserver;
   selectedBpmnElement: any = null;
   selectedElementProps: any = null;
 
@@ -620,17 +623,50 @@ export class WorkflowBuilderComponent implements OnInit {
 
   // ─── Bpmn.io Modeler Integration ───────────────────────────────────────────
 
+  // Dùng @ViewChild (bpmnCanvasRef) làm nguồn tin cậy chính thay vì getElementById —
+  // Angular cập nhật ViewChild ngay trong lần detectChanges() render ra phần tử đó,
+  // nên không cần đoán setTimeout bao nhiêu ms là "đủ". Vẫn giữ vài lần retry ngắn
+  // qua requestAnimationFrame để phòng trường hợp initModeler() được gọi sớm hơn
+  // detectChanges() một nhịp render.
+  private waitForCanvasElement(maxWaitMs = 3000): Promise<HTMLElement | null> {
+    return new Promise((resolve) => {
+      const start = Date.now();
+      const check = () => {
+        const el = this.bpmnCanvasRef?.nativeElement || document.getElementById('canvas');
+        if (el) {
+          resolve(el);
+          return;
+        }
+        if (Date.now() - start > maxWaitMs) {
+          resolve(null);
+          return;
+        }
+        requestAnimationFrame(check);
+      };
+      check();
+    });
+  }
+
   async initModeler() {
-    if (this.bpmnModeler) return;
+    if (this.bpmnModeler) {
+      return;
+    }
+
+    const canvasEl = await this.waitForCanvasElement();
+    if (!canvasEl) {
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Lỗi tải BPMN modeler',
+        detail: 'Không tìm thấy vùng canvas để khởi tạo sơ đồ.'
+      });
+      return;
+    }
 
     try {
       const Modeler = (await import('bpmn-js/lib/Modeler')).default;
 
       this.bpmnModeler = new Modeler({
-        container: '#canvas',
-        keyboard: {
-          bindTo: window
-        }
+        container: canvasEl
       });
 
       // Set default connection name when sequence flows are created from Gateway
@@ -658,8 +694,17 @@ export class WorkflowBuilderComponent implements OnInit {
         const newSelection = event.newSelection;
         if (newSelection && newSelection.length === 1) {
           const element = newSelection[0];
+
+          if (element.type === 'bpmn:Task' || element.type === 'bpmn:UserTask') {
+            // Dùng chung logic với dblclick để tránh 2 nguồn dựng selectedElementProps
+            // lệch nhau (bản rút gọn ở đây từng thiếu 4 thuộc tính nhóm quyền/giao việc,
+            // khiến panel hiện trống dù dữ liệu đã lưu đúng).
+            this.openStepConfig(element);
+            return;
+          }
+
           this.selectedBpmnElement = element;
-          
+
           let condition = '';
           if (element.type === 'bpmn:SequenceFlow') {
             const condExp = element.businessObject.conditionExpression;
@@ -691,9 +736,33 @@ export class WorkflowBuilderComponent implements OnInit {
         return;
       });
 
+      // Vẽ lại số thứ tự bước mỗi khi sơ đồ thay đổi (thêm/xoá bước, đổi thứ tự...)
+      this.bpmnModeler.on('commandStack.changed', () => this.refreshStepBadges());
+
       const xml = this.draft.bpmnXml || DEFAULT_BPMN_XML;
       await this.bpmnModeler.importXML(xml);
+      this.refreshStepBadges();
       // Viewport zoom will be handled when the tab is switched to 'design' and container is visible.
+
+      // Panel cấu hình bên phải hiện/ẩn theo lựa chọn phần tử làm canvas đổi chiều rộng.
+      // bpmn-js không tự phát hiện việc này nên cần ResizeObserver để fit lại sơ đồ.
+      if ('ResizeObserver' in window) {
+        this.canvasResizeObserver = new ResizeObserver((entries) => {
+          if (!this.bpmnModeler) return;
+          const { width, height } = entries[0].contentRect;
+          // Container tạm thời có kích thước 0 khi bị ẩn/đang chuyển layout —
+          // gọi fit-viewport lúc này khiến bpmn-js tính tỉ lệ vô hạn/NaN và crash.
+          if (!width || !height) return;
+          try {
+            const canvas = this.bpmnModeler.get('canvas');
+            canvas.resized();
+            canvas.zoom('fit-viewport');
+          } catch (e) {
+            console.error('Error resizing BPMN canvas:', e);
+          }
+        });
+        this.canvasResizeObserver.observe(canvasEl);
+      }
     } catch (err: any) {
       this.messageService.add({
         severity: 'error',
@@ -704,6 +773,8 @@ export class WorkflowBuilderComponent implements OnInit {
   }
 
   destroyModeler() {
+    this.canvasResizeObserver?.disconnect();
+    this.canvasResizeObserver = undefined;
     if (this.bpmnModeler) {
       this.bpmnModeler.destroy();
       this.bpmnModeler = null;
@@ -826,10 +897,39 @@ export class WorkflowBuilderComponent implements OnInit {
     }).sort((a: any, b: any) => a.order - b.order);
   }
 
+  // Vẽ badge số thứ tự (●1, ●2...) ở góc trên-trái mỗi bước Task/UserTask trên sơ đồ.
+  private refreshStepBadges(): void {
+    if (!this.bpmnModeler) return;
+    const overlays = this.bpmnModeler.get('overlays');
+    const elementRegistry = this.bpmnModeler.get('elementRegistry');
+
+    overlays.remove({ type: 'step-order-badge' });
+
+    const tasks = elementRegistry.filter((el: any) =>
+      el.type === 'bpmn:Task' || el.type === 'bpmn:UserTask'
+    );
+
+    tasks.forEach((el: any, i: number) => {
+      const bo = el.businessObject;
+      const stepNum = bo.$attrs['stepNum'] ? parseInt(bo.$attrs['stepNum'], 10) : (i + 1);
+      // Style inline vì overlay được diagram-js chèn thẳng vào DOM, không đi qua
+      // template Angular nên CSS scoped (view encapsulation) của component sẽ không áp dụng.
+      const style = 'display:flex;align-items:center;justify-content:center;' +
+        'width:20px;height:20px;border-radius:50%;background:#000;color:#fff;' +
+        'font-size:11px;font-weight:600;font-family:inherit;line-height:1;' +
+        'box-shadow:0 0 0 2px #fff;';
+      overlays.add(el, 'step-order-badge', {
+        position: { top: -10, left: -10 },
+        html: `<div style="${style}">${stepNum}</div>`
+      });
+    });
+  }
+
   onZoom(delta: number) {
     if (!this.bpmnModeler) return;
     const canvas = this.bpmnModeler.get('canvas');
     if (delta === 0) {
+      canvas.resized();
       canvas.zoom('fit-viewport');
     } else {
       canvas.zoom(canvas.zoom() + delta);

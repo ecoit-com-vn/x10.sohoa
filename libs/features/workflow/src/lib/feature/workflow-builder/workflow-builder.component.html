@@ -261,9 +261,11 @@
 
     <!-- ── TAB 2: THIẾT KẾ QUY TRÌNH (BPMN) ──────────────── -->
     <div [hidden]="activeTab !== 'design'" class="tab-content bpmn-section">
+      <!-- Layout ngang: canvas bên trái, panel cấu hình bên phải -->
+      <div class="bpmn-designer-layout">
       <!-- Vùng Canvas BPMN -->
       <div class="bpmn-canvas-area">
-        <div id="canvas" class="bpmn-canvas"></div>
+        <div #bpmnCanvasRef id="canvas" class="bpmn-canvas"></div>
 
         <!-- Controls overlay -->
         <div class="canvas-controls">
@@ -279,7 +281,7 @@
         </div>
       </div>
 
-      <!-- Panel cấu hình bước — đặt dưới canvas, full width -->
+      <!-- Panel cấu hình bước — đặt bên phải canvas -->
       <div class="bpmn-config-panel" *ngIf="selectedElementProps">
         <div class="config-panel-header">
           <span class="config-panel-title">
@@ -420,6 +422,7 @@
       <div class="config-panel-empty" *ngIf="!selectedElementProps">
         <i class="pi pi-mouse-pointer"></i>
         <span>Nhấp đúp vào một Task/UserTask trong sơ đồ để cấu hình bước xử lý</span>
+      </div>
       </div>
     </div>
 
