@@ -14,8 +14,8 @@
     <div class="tab-bar">
       <button class="tab-item" [class.tab-active]="activeDetailTab() === 'info'"
         (click)="activeDetailTab.set('info')">
-        <i class="pi pi-clock"></i>
-        Thông tin chung
+        <i class="pi pi-info-circle"></i>
+        Dữ liệu Hồ sơ
       </button>
       <button class="tab-item" [class.tab-active]="activeDetailTab() === 'documents'"
         (click)="activeDetailTab.set('documents')">
@@ -40,16 +40,25 @@
         <div *ngIf="!loadingForm()" class="info-two-column-layout">
           <div class="info-column">
             <div class="info-text-row">
+              <span class="info-text-label">Nhóm hồ sơ:</span>
+              <span class="info-text-value">{{ dossierViewMeta().dossierGroupName || '—' }}</span>
+            </div>
+            <div class="info-text-row">
               <span class="info-text-label">Loại lưới điện:</span>
-              <span class="info-text-value">{{ getGridTypeName(dossier().gridTypeId) }}</span>
+              <span class="info-text-value">{{ dossierViewMeta().gridTypeName || '—' }}</span>
             </div>
             <div class="info-text-row">
               <span class="info-text-label">Trạm / Đường dây:</span>
-              <span class="info-text-value">{{ dossier().infrastructureName || '-' }}</span>
+              <span class="info-text-value">
+                {{ dossierViewMeta().infrastructureName || '—' }}
+                <span *ngIf="dossierViewMeta().infrastructureCode" class="text-muted" style="font-size: 0.85rem;">
+                  ({{ dossierViewMeta().infrastructureCode }})
+                </span>
+              </span>
             </div>
             <div class="info-text-row">
-              <span class="info-text-label">Loại hồ sơ:</span>
-              <span class="info-text-value">{{ dossier().dossierTypeName }}</span>
+              <span class="info-text-label">Hộp lưu trữ:</span>
+              <span class="info-text-value">{{ dossierViewMeta().storageLabel || '—' }}</span>
             </div>
 
             <ng-container *ngFor="let field of leftDynamicFields()">
@@ -60,6 +69,10 @@
             </ng-container>
           </div>
           <div class="info-column">
+            <div class="info-text-row">
+              <span class="info-text-label">Loại hồ sơ:</span>
+              <span class="info-text-value">{{ dossierViewMeta().dossierTypeName || '—' }}</span>
+            </div>
             <ng-container *ngFor="let field of rightDynamicFields()">
               <div class="info-text-row">
                 <span class="info-text-label">{{ field.label }}:</span>
@@ -73,6 +86,11 @@
               </span>
             </div>
           </div>
+        </div>
+
+        <div *ngIf="dynamicFields().length === 0"
+          style="padding: 24px; text-align: center; color: #9ca3af; background: #f8fafc; border-radius: 8px; border: 1px dashed #e2e8f0; font-size: 0.85rem; margin-top: 16px;">
+          Loại hồ sơ này chưa được cấu hình mẫu dữ liệu động.
         </div>
 
         <div class="section-subtitle-header">
@@ -100,11 +118,23 @@
               <tr *ngFor="let eq of paginatedEquipments(); let i = index" [hidden]="loadingEquipments()">
                 <td class="col-stt text-muted">{{ equipmentFirst() + i + 1 }}</td>
                 <td>
-                  <b class="wf-name-link">{{ eq.equipmentCode || eq.code || '-' }}</b>
+                  <ng-container *ngIf="getEquipmentId(eq) as equipmentId; else equipmentCodeText">
+                    <a class="wf-name-link"
+                      [routerLink]="['/equipment/device-list', equipmentId]"
+                      [queryParams]="{ mode: 'view-specs' }"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="Mở chi tiết thiết bị trong tab mới">
+                      {{ eq.equipmentCode || eq.EquipmentCode || eq.code || eq.Code || '—' }}
+                    </a>
+                  </ng-container>
+                  <ng-template #equipmentCodeText>
+                    <b>{{ eq.equipmentCode || eq.EquipmentCode || eq.code || eq.Code || '—' }}</b>
+                  </ng-template>
                 </td>
-                <td>{{ eq.equipmentName || eq.name || '-' }}</td>
-                <td>{{ eq.equipmentTypeName || eq.typeName || '-' }}</td>
-                <td>{{ eq.serialNumber || eq.serial || '-' }}</td>
+                <td>{{ eq.equipmentName || eq.EquipmentName || eq.name || eq.Name || '—' }}</td>
+                <td>{{ eq.equipmentTypeName || eq.EquipmentTypeName || eq.typeName || eq.TypeName || '—' }}</td>
+                <td>{{ eq.serialNumber || eq.SerialNumber || eq.serial || eq.Serial || '—' }}</td>
               </tr>
               <tr *ngIf="!loadingEquipments() && relatedEquipments().length === 0">
                 <td colspan="5" class="empty-row" style="padding: 32px 0;">
