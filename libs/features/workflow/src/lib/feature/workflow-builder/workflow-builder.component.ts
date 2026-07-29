@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, inject, PLATFORM_ID, ChangeDetectorRef, signal } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef, inject, PLATFORM_ID, ChangeDetectorRef, signal } from '@angular/core';
 import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -57,6 +57,7 @@ export class WorkflowBuilderComponent implements OnInit, OnDestroy {
   private routeSub?: Subscription;
 
   @ViewChild('bpmnCanvasRef') bpmnCanvasRef?: ElementRef<HTMLDivElement>;
+  @ViewChild('previewCanvasRef') previewCanvasRef?: ElementRef<HTMLDivElement>;
 
   // ─── View state ─────────────────────────────────────────────────────────────
   viewMode: 'list' | 'edit' = 'list';
@@ -108,6 +109,117 @@ export class WorkflowBuilderComponent implements OnInit, OnDestroy {
   previewVersion = '';
   previewLoading = false;
   bpmnViewer: any = null;
+
+  onClosePreviewDialog(): void {
+    this.displayPreviewDialog = false;
+    this.previewVersion = '';
+    this.previewLoading = false;
+    if (this.bpmnViewer) {
+      this.bpmnViewer.destroy();
+      this.bpmnViewer = null;
+    }
+  }
+
+  // Danh sách lịch sử chỉ trả về thông tin tóm tắt (không kèm bpmnXml),
+  // nên phải gọi lại getById() để lấy sơ đồ đầy đủ cho phiên bản được chọn.
+  onPreviewVersion(version: WorkflowDefinition): void {
+    if (!version.id) return;
+    this.previewVersion = version.version;
+    this.displayPreviewDialog = true;
+    this.previewLoading = true;
+    this.cdr.detectChanges();
+
+    this.workflowSvc.getById(version.id)
+      .subscribe({
+        next: (detail) => {
+          this.renderPreviewDiagram(detail.bpmnXml || DEFAULT_BPMN_XML);
+        },
+        error: (err) => {
+          this.previewLoading = false;
+          this.messageService.add({ severity: 'error', summary: 'Lỗi xem trước', detail: err.message });
+          this.cdr.detectChanges();
+        }
+      });
+  }
+
+  private async renderPreviewDiagram(xml: string): Promise<void> {
+    const canvasEl = await this.waitForPreviewCanvasElement();
+    if (!canvasEl) {
+      this.previewLoading = false;
+      this.messageService.add({ severity: 'error', summary: 'Lỗi xem trước', detail: 'Không tìm thấy vùng canvas để hiển thị sơ đồ.' });
+      this.cdr.detectChanges();
+      return;
+    }
+    try {
+      if (this.bpmnViewer) {
+        this.bpmnViewer.destroy();
+        this.bpmnViewer = null;
+      }
+      const NavigatedViewer = (await import('bpmn-js/lib/NavigatedViewer')).default;
+      this.bpmnViewer = new NavigatedViewer({ container: canvasEl });
+      await this.bpmnViewer.importXML(xml);
+      this.bpmnViewer.get('canvas').zoom('fit-viewport');
+    } catch (err: any) {
+      this.messageService.add({ severity: 'error', summary: 'Lỗi hiển thị sơ đồ', detail: err.message });
+    } finally {
+      this.previewLoading = false;
+      this.cdr.detectChanges();
+    }
+  }
+
+  private waitForPreviewCanvasElement(maxWaitMs = 3000): Promise<HTMLElement | null> {
+    return new Promise((resolve) => {
+      const start = Date.now();
+      const check = () => {
+        const el = this.previewCanvasRef?.nativeElement;
+        if (el) {
+          resolve(el);
+          return;
+        }
+        if (Date.now() - start > maxWaitMs) {
+          resolve(null);
+          return;
+        }
+        requestAnimationFrame(check);
+      };
+      check();
+    });
+  }
+
+  onReactivate(version: WorkflowDefinition): void {
+    if (!this.authService.hasPermission('WORKFLOW_DEFINITION_EDIT')) {
+      this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền tái kích hoạt quy trình.' });
+      return;
+    }
+    this.reactivateTarget.set(version);
+    this.showReactivateConfirm.set(true);
+  }
+
+  onConfirmReactivate(): void {
+    const version = this.reactivateTarget();
+    if (!version?.id) return;
+    this.reactivating.set(true);
+    this.workflowSvc.reactivate(version.id)
+      .pipe(finalize(() => this.reactivating.set(false)))
+      .subscribe({
+        next: () => {
+          this.messageService.add({ severity: 'success', summary: 'Thành công', detail: `Đã tái kích hoạt phiên bản ${version.version}.` });
+          this.showReactivateConfirm.set(false);
+          this.reactivateTarget.set(null);
+          this.loadVersions();
+          this.loadList();
+        },
+        error: (err) => {
+          this.showReactivateConfirm.set(false);
+          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: err.message });
+        }
+      });
+  }
+
+  onCancelReactivate(): void {
+    this.showReactivateConfirm.set(false);
+    this.reactivateTarget.set(null);
+  }
 
   loadVersions(): void {
     if (!this.draft.workflowTypeId) {

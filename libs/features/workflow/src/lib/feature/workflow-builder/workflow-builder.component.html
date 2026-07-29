@@ -14,10 +14,10 @@
   <!-- ══════════════════════════════════════════════════════════
        LOADING OVERLAY
   ══════════════════════════════════════════════════════════ -->
-  <div class="loading-overlay" *ngIf="loading || saving || deleting">
+  <div class="loading-overlay" *ngIf="loading || saving || deleting()">
     <div class="loading-spinner">
       <i class="pi pi-spin pi-spinner"></i>
-      <span>{{ saving ? 'Đang lưu quy trình...' : deleting ? 'Đang xóa quy trình...' : loadingMsg }}</span>
+      <span>{{ saving ? 'Đang lưu quy trình...' : deleting() ? 'Đang xóa quy trình...' : loadingMsg }}</span>
     </div>
   </div>
 
@@ -51,7 +51,7 @@
         </button>
         <button id="btn-xoa-nhieu" class="btn-outlined btn-xoa-outlined"
           [disabled]="selectedIds.length === 0"
-          (click)="promptDeleteSelected()"
+          (click)="onDeleteSelected()"
           *ngIf="authService.hasPermission('WORKFLOW_DELETE')">
           <i class="pi pi-trash"></i> Xóa
         </button>
@@ -132,7 +132,7 @@
                 <button class="act-btn act-edit" (click)="onEdit(wf)" title="Sửa quy trình" *ngIf="authService.hasPermission('WORKFLOW_EDIT')">
                   <i class="pi pi-pencil"></i>
                 </button>
-                <button class="act-btn act-delete" (click)="promptDeleteOne(wf)" title="Xóa quy trình" *ngIf="authService.hasPermission('WORKFLOW_DELETE')">
+                <button class="act-btn act-delete" (click)="onDelete(wf)" title="Xóa quy trình" *ngIf="authService.hasPermission('WORKFLOW_DELETE')">
                   <i class="pi pi-trash"></i>
                 </button>
                 <span *ngIf="!authService.hasPermission('WORKFLOW_EDIT') && !authService.hasPermission('WORKFLOW_DELETE')" class="text-muted">—</span>
@@ -206,6 +206,12 @@
         [class.tab-active]="activeTab === 'design'"
         (click)="selectTab('design')">
         Thiết kế quy trình
+      </button>
+      <button class="tab-item" id="tab-history"
+        *ngIf="isEditMode"
+        [class.tab-active]="activeTab === 'history'"
+        (click)="selectTab('history')">
+        Lịch sử phiên bản
       </button>
     </div>
 
@@ -426,5 +432,89 @@
       </div>
     </div>
 
+    <!-- ── TAB 3: LỊCH SỬ PHIÊN BẢN ──────────────────────────── -->
+    <div [hidden]="activeTab !== 'history'" class="tab-content">
+      <div class="history-loading" *ngIf="loadingHistory">
+        <i class="pi pi-spin pi-spinner"></i> Đang tải lịch sử phiên bản...
+      </div>
+      <div class="wf-table-wrap" *ngIf="!loadingHistory">
+        <table class="wf-table">
+          <thead>
+            <tr>
+              <th class="col-stt">STT</th>
+              <th>Phiên bản</th>
+              <th>Mô tả</th>
+              <th class="col-tt">Trạng thái</th>
+              <th>Người tạo</th>
+              <th>Ngày tạo</th>
+              <th>Người cập nhật</th>
+              <th>Ngày cập nhật</th>
+              <th class="col-hd">Hành động</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let v of versionsList; let i = index">
+              <td class="col-stt text-muted">{{ i + 1 }}</td>
+              <td><b>{{ v.version }}</b></td>
+              <td>{{ v.description }}</td>
+              <td class="col-tt">
+                <span class="status-pill"
+                  [class.status-active]="v.isActive"
+                  [class.status-inactive]="!v.isActive">
+                  <i class="pi pi-clock"></i>
+                  {{ v.isActive ? 'Đang hoạt động' : 'Ngưng hoạt động' }}
+                </span>
+              </td>
+              <td>{{ v.createdByFullName }}</td>
+              <td>{{ v.createdAt | date:'dd/MM/yyyy HH:mm' }}</td>
+              <td>{{ v.updatedByFullName }}</td>
+              <td>{{ v.updatedAt | date:'dd/MM/yyyy HH:mm' }}</td>
+              <td class="col-hd">
+                <div class="action-buttons-group">
+                  <button class="act-btn act-view" title="Xem sơ đồ" (click)="onPreviewVersion(v)">
+                    <i class="pi pi-eye"></i>
+                  </button>
+                  <button class="act-btn act-reactivate" title="Tái kích hoạt phiên bản này"
+                    (click)="onReactivate(v)"
+                    *ngIf="!v.isActive && authService.hasPermission('WORKFLOW_DEFINITION_EDIT')">
+                    <i class="pi pi-check-circle"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+            <tr *ngIf="versionsList.length === 0">
+              <td colspan="9" class="empty-row">
+                <i class="pi pi-inbox"></i>
+                <div>Chưa có lịch sử phiên bản.</div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
   </div>
+
+  <!-- Dialog xem trước sơ đồ của một phiên bản trong lịch sử -->
+  <p-dialog header="Xem sơ đồ - Phiên bản {{ previewVersion }}" [(visible)]="displayPreviewDialog"
+    [modal]="true" [style]="{ width: '70vw', height: '80vh' }" (onHide)="onClosePreviewDialog()">
+    <div class="preview-loading" *ngIf="previewLoading">
+      <i class="pi pi-spin pi-spinner"></i> Đang tải sơ đồ...
+    </div>
+    <div #previewCanvasRef class="preview-canvas" [hidden]="previewLoading"></div>
+  </p-dialog>
+
+  <!-- Dialog xác nhận tái kích hoạt phiên bản cũ -->
+  <p-dialog header="Xác nhận tái kích hoạt" [visible]="showReactivateConfirm()" [modal]="true"
+    [style]="{ width: '420px' }" (onHide)="onCancelReactivate()">
+    <p>Bạn có chắc chắn muốn tái kích hoạt phiên bản <b>{{ reactivateTarget()?.version }}</b>?
+      Phiên bản đang hoạt động hiện tại của quy trình này (nếu có) sẽ bị vô hiệu hóa.</p>
+    <ng-template pTemplate="footer">
+      <button class="btn-cancel" (click)="onCancelReactivate()">Hủy</button>
+      <button class="btn-save" (click)="onConfirmReactivate()" [disabled]="reactivating()">
+        <i class="pi pi-spin pi-spinner" *ngIf="reactivating()"></i>
+        Xác nhận
+      </button>
+    </ng-template>
+  </p-dialog>
 </div>
