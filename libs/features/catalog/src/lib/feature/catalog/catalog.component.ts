@@ -26,12 +26,16 @@ export class CatalogComponent implements OnInit {
   private messageService = inject(MessageService);
   private route = inject(ActivatedRoute);
 
-  readonly catalogBreadcrumbItems = this.route.snapshot.data['selectedTypeCode'] === 'PHONG'
-    ? [
-        { label: 'Quản lý danh mục' },
-        { label: 'Danh mục phông' }
-      ]
-    : null;
+  readonly catalogBreadcrumbItems = (() => {
+    const selectedTypeCode = this.route.snapshot.data['selectedTypeCode'];
+    if (selectedTypeCode === 'PHONG') {
+      return [{ label: 'Quản lý danh mục' }, { label: 'Danh mục phông' }];
+    }
+    if (selectedTypeCode === 'MUC_LUC') {
+      return [{ label: 'Quản lý danh mục' }, { label: 'Danh mục mục lục hồ sơ' }];
+    }
+    return null;
+  })();
 
   // Mode state
   isPrivate = signal<boolean>(false);
@@ -116,7 +120,7 @@ export class CatalogComponent implements OnInit {
     return this.catalogServerErrors().name || this.catalogServerErrors().Name || '';
   });
   catalogUnitError = computed(() => {
-    if (this.isPhongSelected() && this.catalogFormSubmitted() && !this.currentCatalogItem().unitId) return 'Đơn vị là bắt buộc';
+    if (this.isUnitScopedSelected() && this.catalogFormSubmitted() && !this.currentCatalogItem().unitId) return 'Đơn vị là bắt buộc';
     return this.catalogServerErrors().unitId || this.catalogServerErrors().UnitId || '';
   });
 
@@ -131,7 +135,7 @@ export class CatalogComponent implements OnInit {
   canEditCatalog = computed(() => this.authService.hasPermission('CATALOG_EDIT'));
   canDeleteCatalog = computed(() => this.authService.hasPermission('CATALOG_DELETE'));
   canManageCatalog = computed(() => this.authService.hasPermission('CATALOG_MANAGE'));
-  isPhongSelected = computed(() => this.selectedTypeCode() === 'PHONG');
+  isUnitScopedSelected = computed(() => ['PHONG', 'MUC_LUC'].includes(this.selectedTypeCode()));
 
   // Pagination computed signals
   totalPages = computed(() => {
@@ -231,7 +235,7 @@ export class CatalogComponent implements OnInit {
     this.catalogSearchCode.set('');
     this.searchStatus.set('');
     this.catalogSearchUnitId.set(null);
-    if (type.code === 'PHONG') {
+    if (['PHONG', 'MUC_LUC'].includes(type.code)) {
       this.loadOrganizationUnits();
     }
     this.loadCatalogs();
@@ -461,7 +465,7 @@ export class CatalogComponent implements OnInit {
     const typeId = this.selectedTypeId();
     if (!typeId) return;
 
-    if (this.isPhongSelected() && !this.catalogSearchUnitId()) {
+    if (this.isUnitScopedSelected() && !this.catalogSearchUnitId()) {
       this.items.set([]);
       this.totalCount.set(0);
       return;
@@ -475,7 +479,7 @@ export class CatalogComponent implements OnInit {
       this.pageSize(), 
       queryKeyword, 
       this.searchStatus(),
-      this.isPhongSelected() ? this.catalogSearchUnitId() : null
+      this.isUnitScopedSelected() ? this.catalogSearchUnitId() : null
     ).subscribe({
       next: (res) => {
         const list = res?.items || [];
@@ -503,7 +507,7 @@ export class CatalogComponent implements OnInit {
     this.searchKeyword.set('');
     this.catalogSearchCode.set('');
     this.searchStatus.set('');
-    this.catalogSearchUnitId.set(this.isPhongSelected() ? this.getDefaultPhongUnitId() : null);
+    this.catalogSearchUnitId.set(this.isUnitScopedSelected() ? this.getDefaultUnitId() : null);
     this.currentPage.set(1);
     this.loadCatalogs();
   }
@@ -524,7 +528,7 @@ export class CatalogComponent implements OnInit {
       description: '',
       priority: 1,
       status: 1,
-      unitId: this.isPhongSelected() ? this.catalogSearchUnitId() : null
+      unitId: this.isUnitScopedSelected() ? this.catalogSearchUnitId() : null
     });
     if (this.selectedTypeHasParent() === 1) {
       this.loadParentsList();
@@ -569,7 +573,15 @@ export class CatalogComponent implements OnInit {
     const typeId = this.selectedTypeId();
     if (!typeId) return;
 
-    this.catalogService.getItemsByTypeId(typeId, 1, 9999, undefined, '1').subscribe({
+    const unitId = this.isUnitScopedSelected()
+      ? Number(this.currentCatalogItem().unitId || this.catalogSearchUnitId())
+      : null;
+    if (this.isUnitScopedSelected() && !unitId) {
+      this.parentsList.set([]);
+      return;
+    }
+
+    this.catalogService.getItemsByTypeId(typeId, 1, 9999, undefined, '1', unitId).subscribe({
       next: (data) => {
         let list = data?.items || [];
         if (excludeId) {
@@ -583,6 +595,14 @@ export class CatalogComponent implements OnInit {
     });
   }
 
+  onCatalogUnitChange() {
+    this.onCatalogFieldChange('unitId');
+    this.currentCatalogItem().parentId = null;
+    if (this.selectedTypeHasParent() === 1) {
+      this.loadParentsList(this.currentCatalogItem().id);
+    }
+  }
+
   onSaveCatalog() {
     this.catalogFormSubmitted.set(true);
     this.catalogServerErrors.set({});
@@ -594,7 +614,7 @@ export class CatalogComponent implements OnInit {
     if (catalogDraft.priority === undefined || catalogDraft.priority === null) {
       catalogDraft.priority = 1;
     }
-    if (this.isPhongSelected()) {
+    if (this.isUnitScopedSelected()) {
       catalogDraft.unitId = Number(catalogDraft.unitId);
     }
 
@@ -782,8 +802,8 @@ export class CatalogComponent implements OnInit {
           : allUnits.filter(unit => Number(unit.id) === Number(currentUnitId));
 
         this.organizationUnits.set(selectableUnits);
-        if (this.isPhongSelected() && !this.catalogSearchUnitId()) {
-          const defaultUnitId = this.getDefaultPhongUnitId();
+        if (this.isUnitScopedSelected() && !this.catalogSearchUnitId()) {
+          const defaultUnitId = this.getDefaultUnitId();
           this.catalogSearchUnitId.set(defaultUnitId);
           if (defaultUnitId) this.loadCatalogs();
         }
@@ -792,7 +812,7 @@ export class CatalogComponent implements OnInit {
     });
   }
 
-  private getDefaultPhongUnitId(): number | null {
+  private getDefaultUnitId(): number | null {
     const currentUnitId = this.authService.getUserUnitId();
     if (currentUnitId && this.organizationUnits().some(unit => Number(unit.id) === currentUnitId)) {
       return currentUnitId;

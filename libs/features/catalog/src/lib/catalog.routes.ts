@@ -42,6 +42,11 @@ export const CATALOG_ROUTES: Route[] = [
     data: { isPrivate: true, selectedTypeCode: 'PHONG', title: 'Danh mục phông' }
   },
   {
+    path: 'muc-luc-ho-so',
+    loadComponent: () => import('./feature/catalog/catalog.component').then(m => m.CatalogComponent),
+    data: { isPrivate: false, selectedTypeCode: 'MUC_LUC', title: 'Danh mục mục lục hồ sơ' }
+  },
+  {
     path: 'fond',
     redirectTo: 'phong',
     pathMatch: 'full'
