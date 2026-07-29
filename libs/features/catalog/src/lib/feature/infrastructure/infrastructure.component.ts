@@ -167,6 +167,15 @@ export class InfrastructureComponent implements OnInit {
   attachmentDossierDocuments = signal<Array<{ dossier: any; document: any }>>([]);
   loadingAttachmentDocuments = signal<boolean>(false);
   expandedAttachmentFolders = signal<Set<string>>(new Set<string>());
+  selectedAttachmentFolderId = signal<string | null>(null);
+  attachmentStationFolderExpanded = signal<boolean>(false);
+  attachmentDocumentKeyword = signal<string>('');
+  attachmentSelectedEquipmentId = signal<string>('');
+  attachmentEquipmentOptions = signal<any[]>([]);
+  selectedTechnicalFolderId = signal<string | null>(null);
+  technicalStationFolderExpanded = signal<boolean>(false);
+  technicalDocumentKeyword = signal<string>('');
+  technicalSelectedDocumentTypeId = signal<string>('');
 
   technicalPreviewSrc = computed(() => {
     const url = this.technicalPreviewUrl();
@@ -188,6 +197,31 @@ export class InfrastructureComponent implements OnInit {
       .filter(folder => !keyword || folder.name.toLocaleLowerCase().includes(keyword))
       .sort((a, b) => a.name.localeCompare(b.name, 'vi'));
   });
+
+  selectedAttachmentFolder = computed(() =>
+    this.attachmentDocumentFolders().find(folder => folder.id === this.selectedAttachmentFolderId()) ?? null
+  );
+
+  selectedAttachmentDocuments = computed(() => {
+    const keyword = this.attachmentDocumentKeyword().trim().toLocaleLowerCase();
+    const equipmentId = this.attachmentSelectedEquipmentId();
+    const equipment = this.attachmentEquipmentOptions().find(item => String(item.id) === equipmentId);
+    const equipmentName = (equipment?.name || equipment?.equipmentName || '').toLocaleLowerCase();
+
+    return (this.selectedAttachmentFolder()?.documents ?? []).filter(item => {
+      const documentName = (item.document.name || item.document.fileName || '').toLocaleLowerCase();
+      const itemEquipmentId = String(
+        item.document.equipmentId
+        || item.document.equipment?.id
+        || item.dossier.equipmentId
+        || item.dossier.equipment?.id
+        || ''
+      );
+      const itemEquipmentName = this.getAttachmentEquipmentName(item).toLocaleLowerCase();
+      return (!keyword || documentName.includes(keyword))
+        && (!equipmentId || itemEquipmentId === equipmentId || (!!equipmentName && itemEquipmentName === equipmentName));
+    });
+  });
   relatedDossiersTotalPages = computed(() =>
     Math.ceil(this.relatedDossiersTotalCount() / this.relatedDossiersPageSize())
   );
@@ -206,6 +240,31 @@ export class InfrastructureComponent implements OnInit {
     return Array.from(groups.values())
       .filter(folder => !keyword || folder.name.toLocaleLowerCase().includes(keyword))
       .sort((a, b) => a.name.localeCompare(b.name, 'vi'));
+  });
+
+  selectedTechnicalFolder = computed(() =>
+    this.technicalDossierFolders().find(folder => folder.id === this.selectedTechnicalFolderId()) ?? null
+  );
+
+  selectedTechnicalDocuments = computed(() => {
+    const keyword = this.technicalDocumentKeyword().trim().toLocaleLowerCase();
+    const documentTypeId = this.technicalSelectedDocumentTypeId();
+
+    return this.getTechnicalFolderDocuments(this.selectedTechnicalFolder() ?? { dossiers: [] }).filter(item => {
+      const documentName = (item.document.name || item.document.fileName || '').toLocaleLowerCase();
+      return (!keyword || documentName.includes(keyword))
+        && (!documentTypeId || String(item.document.documentTypeId || '') === documentTypeId);
+    });
+  });
+
+  technicalDocumentTypeOptions = computed(() => {
+    const types = new Map<string, { id: string; name: string }>();
+    this.attachmentDossierDocuments().forEach(item => {
+      const id = item.document.documentTypeId;
+      const name = item.document.documentTypeName;
+      if (id && name) types.set(String(id), { id: String(id), name });
+    });
+    return Array.from(types.values()).sort((a, b) => a.name.localeCompare(b.name, 'vi'));
   });
 
   // Danh sách thiết bị trong tab chi tiết
@@ -1137,6 +1196,21 @@ export class InfrastructureComponent implements OnInit {
     return et ? et.name : '-';
   }
 
+  getTransmissionLineLength(): string {
+    const item = this.currentItem();
+    const value = item?.length
+      ?? item?.lineLength
+      ?? item?.lengthKm
+      ?? item?.Length
+      ?? item?.LineLength
+      ?? item?.LengthKm
+      ?? item?.address;
+
+    if (value === null || value === undefined || value === '') return '-';
+    const displayValue = String(value);
+    return /\bkm\b/i.test(displayValue) ? displayValue : `${displayValue} km`;
+  }
+
   // Tải danh sách hồ sơ liên quan (đã xuất bản của cùng trạm/đường dây)
   loadRelatedDossiers() {
     const item = this.currentItem();
@@ -1157,7 +1231,11 @@ export class InfrastructureComponent implements OnInit {
           this.relatedDossiersTotalCount.set(res?.totalCount || 0);
           this.technicalDocumentsByDossier.set({});
           this.expandedTechnicalFolders.set(new Set<string>());
-          if (this.activeTab() === 1) {
+          this.selectedTechnicalFolderId.set(null);
+          this.technicalStationFolderExpanded.set(false);
+          this.technicalDocumentKeyword.set('');
+          this.technicalSelectedDocumentTypeId.set('');
+          if (this.activeTab() === 1 || this.activeTab() === 2) {
             this.loadInfrastructureAttachmentDocuments(res?.items || []);
           }
         },
@@ -1173,6 +1251,11 @@ export class InfrastructureComponent implements OnInit {
 
     this.attachmentDossierDocuments.set([]);
     this.expandedAttachmentFolders.set(new Set<string>());
+    this.selectedAttachmentFolderId.set(null);
+    this.attachmentStationFolderExpanded.set(false);
+    this.attachmentDocumentKeyword.set('');
+    this.attachmentSelectedEquipmentId.set('');
+    this.loadAttachmentEquipmentOptions();
     if (!dossiers.length) return;
 
     this.loadingAttachmentDocuments.set(true);
@@ -1185,6 +1268,7 @@ export class InfrastructureComponent implements OnInit {
         (results[index]?.items || []).map(document => ({ dossier, document }))
       );
       this.attachmentDossierDocuments.set(documents);
+      this.selectedAttachmentFolderId.set(null);
     });
   }
 
@@ -1200,6 +1284,36 @@ export class InfrastructureComponent implements OnInit {
 
   isAttachmentFolderExpanded(folderId: string): boolean {
     return this.expandedAttachmentFolders().has(folderId);
+  }
+
+  selectAttachmentFolder(folderId: string) {
+    this.selectedAttachmentFolderId.set(folderId);
+    const expanded = new Set(this.expandedAttachmentFolders());
+    expanded.add(folderId);
+    this.expandedAttachmentFolders.set(expanded);
+  }
+
+  toggleAttachmentStationFolder() {
+    this.attachmentStationFolderExpanded.update(expanded => !expanded);
+  }
+
+  private loadAttachmentEquipmentOptions() {
+    const item = this.currentItem();
+    if (!item?.id) return;
+
+    this.equipmentService.getEquipments(1, 1000, undefined, undefined, undefined, String(item.id)).pipe(
+      catchError(() => of({ items: [] }))
+    ).subscribe(res => this.attachmentEquipmentOptions.set(res?.items || []));
+  }
+
+  getAttachmentEquipmentName(item: { dossier: any; document: any }): string {
+    const document = item?.document ?? {};
+    const dossier = item?.dossier ?? {};
+    return document.equipmentName
+      || document.equipment?.name
+      || dossier.equipmentName
+      || dossier.equipment?.name
+      || '-';
   }
 
   toggleTechnicalFolder(folder: { id: string; dossiers: any[] }) {
@@ -1236,6 +1350,18 @@ export class InfrastructureComponent implements OnInit {
         return next;
       });
     });
+  }
+
+  selectTechnicalFolder(folder: { id: string; dossiers: any[] }) {
+    this.selectedTechnicalFolderId.set(folder.id);
+    this.technicalStationFolderExpanded.set(true);
+    if (!this.isTechnicalFolderExpanded(folder.id)) {
+      this.toggleTechnicalFolder(folder);
+    }
+  }
+
+  toggleTechnicalStationFolder() {
+    this.technicalStationFolderExpanded.update(expanded => !expanded);
   }
 
   isTechnicalFolderExpanded(folderId: string): boolean {

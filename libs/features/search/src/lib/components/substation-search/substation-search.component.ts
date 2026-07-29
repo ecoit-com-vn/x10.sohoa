@@ -2,6 +2,7 @@ import { Component, OnInit, signal, computed, inject, effect, HostListener } fro
 import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { DomSanitizer } from '@angular/platform-browser';
 import { ToastModule } from 'primeng/toast';
 import { SelectModule } from 'primeng/select';
 import { DialogModule } from 'primeng/dialog';
@@ -9,9 +10,10 @@ import { MessageService } from 'primeng/api';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AuthService, APP_CONFIG } from '@sohoa.frontend/shared/core';
 import { EquipmentService } from '@sohoa.frontend/features/equipment';
-import { DossierManagementService } from '@sohoa.frontend/features/dossier-management';
+import { DossierDocumentService, DossierManagementService } from '@sohoa.frontend/features/dossier-management';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { finalize } from 'rxjs/operators';
+import { forkJoin, of } from 'rxjs';
+import { catchError, finalize } from 'rxjs/operators';
 import { LookupTrackingService } from '../../data-access/lookup-tracking.service';
 
 @Component({
@@ -31,6 +33,8 @@ export class SubstationSearchComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private dossierService = inject(DossierManagementService);
+  private dossierDocumentService = inject(DossierDocumentService);
+  private sanitizer = inject(DomSanitizer);
   private lookupTrackingService = inject(LookupTrackingService);
 
   // States
@@ -64,6 +68,57 @@ export class SubstationSearchComponent implements OnInit {
   relatedDossiersTotalPages = computed(() =>
     Math.ceil(this.relatedDossiersTotalCount() / this.relatedDossiersPageSize())
   );
+
+  attachmentFolderSearchKeyword = signal<string>('');
+  attachmentDossierDocuments = signal<Array<{ dossier: any; document: any }>>([]);
+  loadingAttachmentDocuments = signal<boolean>(false);
+  expandedAttachmentFolders = signal<Set<string>>(new Set<string>());
+  showAttachmentDocumentPreview = signal<boolean>(false);
+  attachmentPreviewTarget = signal<{ dossierId: string; document: any } | null>(null);
+  attachmentPreviewUrl = signal<string | null>(null);
+  loadingAttachmentDocumentPreview = signal<boolean>(false);
+  technicalFolderSearchKeyword = signal<string>('');
+  technicalDossiers = signal<any[]>([]);
+  loadingTechnicalDossiers = signal<boolean>(false);
+  expandedTechnicalFolders = signal<Set<string>>(new Set<string>());
+  technicalDocumentsByDossier = signal<Record<string, any[]>>({});
+  loadingTechnicalFolders = signal<Set<string>>(new Set<string>());
+  attachmentDocumentFolders = computed(() => {
+    const keyword = this.attachmentFolderSearchKeyword().trim().toLocaleLowerCase();
+    const groups = new Map<string, { id: string; name: string; documents: Array<{ dossier: any; document: any }> }>();
+
+    this.attachmentDossierDocuments().forEach(item => {
+      const name = item.document.documentTypeName || 'Chưa phân loại';
+      const id = String(item.document.documentTypeId || name);
+      if (!groups.has(id)) groups.set(id, { id, name, documents: [] });
+      groups.get(id)!.documents.push(item);
+    });
+
+    return Array.from(groups.values())
+      .filter(folder => !keyword || folder.name.toLocaleLowerCase().includes(keyword))
+      .sort((a, b) => a.name.localeCompare(b.name, 'vi'));
+  });
+
+  attachmentPreviewSrc = computed(() => {
+    const url = this.attachmentPreviewUrl();
+    return url ? this.sanitizer.bypassSecurityTrustResourceUrl(url) : null;
+  });
+
+  technicalDossierFolders = computed(() => {
+    const keyword = this.technicalFolderSearchKeyword().trim().toLocaleLowerCase();
+    const groups = new Map<string, { id: string; name: string; dossiers: any[] }>();
+
+    this.technicalDossiers().forEach(dossier => {
+      const name = dossier.dossierTypeName || 'Chưa phân loại';
+      const id = String(dossier.dossierTypeId || name);
+      if (!groups.has(id)) groups.set(id, { id, name, dossiers: [] });
+      groups.get(id)!.dossiers.push(dossier);
+    });
+
+    return Array.from(groups.values())
+      .filter(folder => !keyword || folder.name.toLocaleLowerCase().includes(keyword))
+      .sort((a, b) => a.name.localeCompare(b.name, 'vi'));
+  });
 
   // Danh sách thiết bị trong tab chi tiết
   equipmentItems = signal<any[]>([]);
@@ -108,7 +163,13 @@ export class SubstationSearchComponent implements OnInit {
 
     effect(() => {
       if (this.currentView() === 'detail' && this.activeTab() === 1) {
-        this.loadRelatedDossiers();
+        this.loadAttachmentDocuments();
+      }
+    }, { allowSignalWrites: true });
+
+    effect(() => {
+      if (this.currentView() === 'detail' && this.activeTab() === 2 && this.currentItem()?.id) {
+        this.loadTechnicalDossiers();
       }
     }, { allowSignalWrites: true });
   }
@@ -420,6 +481,179 @@ export class SubstationSearchComponent implements OnInit {
   getEquipmentTypeName(typeId: any): string {
     const et = this.equipmentTypes().find(t => t.id == typeId);
     return et ? et.name : '-';
+  }
+
+  loadAttachmentDocuments() {
+    const item = this.currentItem();
+    if (!item?.id) return;
+
+    this.attachmentDossierDocuments.set([]);
+    this.expandedAttachmentFolders.set(new Set<string>());
+    this.loadingAttachmentDocuments.set(true);
+
+    this.dossierService.getCatalogDossiers({
+      infrastructureId: String(item.id),
+      page: 1,
+      pageSize: 500
+    }).pipe(
+      catchError(() => of({ items: [] }))
+    ).subscribe(res => {
+      const dossiers: any[] = res?.items || [];
+      if (!dossiers.length) {
+        this.loadingAttachmentDocuments.set(false);
+        return;
+      }
+
+      const documentRequests = dossiers.map((dossier: any) =>
+        this.dossierDocumentService.getDocuments(String(dossier.id), { page: 1, pageSize: 1000 }, true).pipe(
+          catchError(() => of({ items: [] }))
+        )
+      );
+
+      forkJoin(documentRequests).pipe(finalize(() => this.loadingAttachmentDocuments.set(false))).subscribe((results: Array<{ items?: any[] }>) => {
+        const documents = dossiers.flatMap((dossier: any, index: number) =>
+          (results[index]?.items || []).map((document: any) => ({ dossier, document }))
+        );
+        this.attachmentDossierDocuments.set(documents);
+      });
+    });
+  }
+
+  toggleAttachmentFolder(folderId: string) {
+    const expanded = new Set(this.expandedAttachmentFolders());
+    if (expanded.has(folderId)) {
+      expanded.delete(folderId);
+    } else {
+      expanded.add(folderId);
+    }
+    this.expandedAttachmentFolders.set(expanded);
+  }
+
+  isAttachmentFolderExpanded(folderId: string): boolean {
+    return this.expandedAttachmentFolders().has(folderId);
+  }
+
+  downloadAttachmentDocument(dossierId: string | undefined, document: any) {
+    if (!dossierId || !document?.latestVersionId) return;
+    void this.dossierDocumentService.downloadFile(dossierId, document.latestVersionId, document.name, true);
+  }
+
+  openAttachmentDocumentPreview(dossierId: string, document: any) {
+    if (!dossierId || !document?.latestVersionId) {
+      this.messageService.add({ severity: 'warn', summary: 'Xem trước', detail: 'Tài liệu chưa có phiên bản để xem.' });
+      return;
+    }
+
+    this.cleanupAttachmentDocumentPreview();
+    this.attachmentPreviewTarget.set({ dossierId, document });
+    this.showAttachmentDocumentPreview.set(true);
+    this.loadingAttachmentDocumentPreview.set(true);
+
+    const versionId = document.latestVersionId;
+    void this.dossierDocumentService.getPreviewBlobUrl(dossierId, versionId, true)
+      .then(url => {
+        if (this.attachmentPreviewTarget()?.document?.latestVersionId === versionId) {
+          this.attachmentPreviewUrl.set(url);
+        } else {
+          this.dossierDocumentService.revokePreviewBlobUrl(url);
+        }
+      })
+      .catch(() => {
+        this.messageService.add({ severity: 'error', summary: 'Xem trước', detail: 'Không thể tải tài liệu để xem trước.' });
+      })
+      .finally(() => this.loadingAttachmentDocumentPreview.set(false));
+  }
+
+  closeAttachmentDocumentPreview() {
+    this.showAttachmentDocumentPreview.set(false);
+    this.loadingAttachmentDocumentPreview.set(false);
+    this.attachmentPreviewTarget.set(null);
+    this.cleanupAttachmentDocumentPreview();
+  }
+
+  isAttachmentPreviewImage(): boolean {
+    const document = this.attachmentPreviewTarget()?.document;
+    return document?.mimeType?.startsWith('image/')
+      || /\.(png|jpe?g|gif|webp|bmp)$/i.test(document?.name || document?.fileName || '');
+  }
+
+  private cleanupAttachmentDocumentPreview() {
+    const url = this.attachmentPreviewUrl();
+    if (url) {
+      this.dossierDocumentService.revokePreviewBlobUrl(url);
+      this.attachmentPreviewUrl.set(null);
+    }
+  }
+
+  loadTechnicalDossiers() {
+    const item = this.currentItem();
+    if (!item?.id) return;
+
+    this.loadingTechnicalDossiers.set(true);
+    this.technicalDocumentsByDossier.set({});
+    this.expandedTechnicalFolders.set(new Set<string>());
+    this.dossierService.getCatalogDossiers({
+      infrastructureId: String(item.id),
+      page: 1,
+      pageSize: 500
+    }).pipe(finalize(() => this.loadingTechnicalDossiers.set(false))).subscribe({
+      next: res => this.technicalDossiers.set(res?.items || []),
+      error: () => {
+        this.technicalDossiers.set([]);
+        this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể tải hồ sơ kỹ thuật của trạm biến áp.' });
+      }
+    });
+  }
+
+  toggleTechnicalFolder(folder: { id: string; dossiers: any[] }) {
+    const expanded = new Set(this.expandedTechnicalFolders());
+    if (expanded.has(folder.id)) {
+      expanded.delete(folder.id);
+      this.expandedTechnicalFolders.set(expanded);
+      return;
+    }
+
+    expanded.add(folder.id);
+    this.expandedTechnicalFolders.set(expanded);
+
+    const missingDossiers = folder.dossiers.filter(dossier => !this.technicalDocumentsByDossier()[dossier.id]);
+    if (!missingDossiers.length) return;
+
+    const loading = new Set(this.loadingTechnicalFolders());
+    loading.add(folder.id);
+    this.loadingTechnicalFolders.set(loading);
+
+    const documentRequests = missingDossiers.map((dossier: any) =>
+      this.dossierDocumentService.getDocuments(String(dossier.id), { page: 1, pageSize: 1000 }, true).pipe(
+        catchError(() => of({ items: [] }))
+      )
+    );
+
+    forkJoin(documentRequests).pipe(finalize(() => {
+      const next = new Set(this.loadingTechnicalFolders());
+      next.delete(folder.id);
+      this.loadingTechnicalFolders.set(next);
+    })).subscribe((results: Array<{ items?: any[] }>) => {
+      this.technicalDocumentsByDossier.update(current => {
+        const next = { ...current };
+        missingDossiers.forEach((dossier: any, index: number) => next[dossier.id] = results[index]?.items || []);
+        return next;
+      });
+    });
+  }
+
+  isTechnicalFolderExpanded(folderId: string): boolean {
+    return this.expandedTechnicalFolders().has(folderId);
+  }
+
+  isTechnicalFolderLoading(folderId: string): boolean {
+    return this.loadingTechnicalFolders().has(folderId);
+  }
+
+  getTechnicalFolderDocuments(folder: { dossiers: any[] }): Array<{ dossier: any; document: any }> {
+    return folder.dossiers.flatMap((dossier: any) =>
+      (this.technicalDocumentsByDossier()[dossier.id] || []).map((document: any) => ({ dossier, document }))
+    );
   }
 
   // Tải danh sách hồ sơ liên quan (đã xuất bản của cùng trạm/đường dây)

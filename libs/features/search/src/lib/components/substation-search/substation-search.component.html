@@ -158,11 +158,17 @@
                [style.color]="activeTab() === 0 ? '#2563eb' : '#64748b'">
             <i class="pi pi-info-circle"></i> Thông tin chung
           </div>
-          <div class="tab-item" [class.tab-active]="activeTab() === 1" (click)="activeTab.set(1)"
+           <div class="tab-item" [class.tab-active]="activeTab() === 1" (click)="activeTab.set(1)"
                style="padding: 12px 16px; cursor: pointer; font-weight: 500; font-size: 0.95rem; display: flex; align-items: center; gap: 6px; border-bottom: 2px solid transparent;"
                [style.border-bottom-color]="activeTab() === 1 ? '#2563eb' : 'transparent'"
                [style.color]="activeTab() === 1 ? '#2563eb' : '#64748b'">
-            <i class="pi pi-folder-open"></i> Hồ sơ liên quan
+            <i class="pi pi-paperclip"></i> Tài liệu đính kèm
+          </div>
+          <div class="tab-item" [class.tab-active]="activeTab() === 2" (click)="activeTab.set(2)"
+               style="padding: 12px 16px; cursor: pointer; font-weight: 500; font-size: 0.95rem; display: flex; align-items: center; gap: 6px; border-bottom: 2px solid transparent;"
+               [style.border-bottom-color]="activeTab() === 2 ? '#2563eb' : 'transparent'"
+               [style.color]="activeTab() === 2 ? '#2563eb' : '#64748b'">
+            <i class="pi pi-folder-open"></i> Hồ sơ kỹ thuật
           </div>
         </div>
         <div style="padding-right: 8px;">
@@ -344,9 +350,104 @@
           </div>
         </div>
       </div>
+  <!-- ======= TAB 1: TÀI LIỆU ĐÍNH KÈM ======= -->
+      <div *ngIf="activeTab() === 1" class="tab-content animate-fade-in substation-attachment-tree">
+        <div class="substation-attachment-search">
+          <i class="pi pi-search"></i>
+          <input type="text" placeholder="Tìm loại tài liệu..." [ngModel]="attachmentFolderSearchKeyword()"
+            (ngModelChange)="attachmentFolderSearchKeyword.set($event)" />
+        </div>
 
-      <!-- ======= TAB 1: HỒ SƠ LIÊN QUAN (chỉ đọc) ======= -->
-      <div *ngIf="activeTab() === 1" class="tab-content animate-fade-in">
+        <div *ngIf="loadingAttachmentDocuments()" class="substation-attachment-loading">
+          <i class="pi pi-spin pi-spinner"></i> Đang tải tài liệu đính kèm...
+        </div>
+
+        <div *ngIf="!loadingAttachmentDocuments()" class="substation-attachment-root">
+          <div class="substation-attachment-root-label">
+            <i class="pi pi-folder-open"></i>
+            <span>Kho tài liệu</span>
+          </div>
+
+          <div *ngIf="attachmentDocumentFolders().length === 0" class="substation-attachment-empty">
+            Chưa có tài liệu đính kèm cho trạm biến áp này.
+          </div>
+
+          <div *ngFor="let folder of attachmentDocumentFolders()" class="substation-attachment-node">
+            <button type="button" class="substation-attachment-folder" (click)="toggleAttachmentFolder(folder.id)">
+              <i class="pi" [class.pi-chevron-right]="!isAttachmentFolderExpanded(folder.id)"
+                [class.pi-chevron-down]="isAttachmentFolderExpanded(folder.id)"></i>
+              <i class="pi" [class.pi-folder]="!isAttachmentFolderExpanded(folder.id)"
+                [class.pi-folder-open]="isAttachmentFolderExpanded(folder.id)"></i>
+              <span>{{ folder.name }}</span>
+              <small>{{ folder.documents.length }} tài liệu</small>
+            </button>
+
+            <div *ngIf="isAttachmentFolderExpanded(folder.id)" class="substation-attachment-children">
+              <div *ngFor="let item of folder.documents" class="substation-attachment-file">
+                <i class="pi pi-file-pdf"></i>
+                <button type="button" (click)="openAttachmentDocumentPreview(item.dossier.id, item.document)"
+                  title="Xem trước tài liệu">
+                  {{ item.document.name || item.document.fileName || 'Tài liệu chưa đặt tên' }}
+                </button>
+                <span>{{ getDossierCode(item.dossier) }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ======= TAB 2: HỒ SƠ KỸ THUẬT (chỉ đọc) ======= -->
+      <div *ngIf="activeTab() === 2" class="tab-content animate-fade-in substation-attachment-tree">
+        <div class="substation-attachment-search">
+          <i class="pi pi-search"></i>
+          <input type="text" placeholder="Tìm loại hồ sơ..." [ngModel]="technicalFolderSearchKeyword()"
+            (ngModelChange)="technicalFolderSearchKeyword.set($event)" />
+        </div>
+
+        <div *ngIf="loadingTechnicalDossiers()" class="substation-attachment-loading">
+          <i class="pi pi-spin pi-spinner"></i> Đang tải hồ sơ kỹ thuật...
+        </div>
+
+        <div *ngIf="!loadingTechnicalDossiers()" class="substation-attachment-root">
+          <div class="substation-attachment-root-label">
+            <i class="pi pi-folder-open"></i>
+            <span>Kho tài liệu</span>
+          </div>
+
+          <div *ngIf="technicalDossierFolders().length === 0" class="substation-attachment-empty">
+            Chưa có hồ sơ kỹ thuật cho trạm biến áp này.
+          </div>
+
+          <div *ngFor="let folder of technicalDossierFolders()" class="substation-attachment-node">
+            <button type="button" class="substation-attachment-folder" (click)="toggleTechnicalFolder(folder)">
+              <i class="pi" [class.pi-chevron-right]="!isTechnicalFolderExpanded(folder.id)"
+                [class.pi-chevron-down]="isTechnicalFolderExpanded(folder.id)"></i>
+              <i class="pi" [class.pi-folder]="!isTechnicalFolderExpanded(folder.id)"
+                [class.pi-folder-open]="isTechnicalFolderExpanded(folder.id)"></i>
+              <span>{{ folder.name }}</span>
+              <small>{{ folder.dossiers.length }} hồ sơ</small>
+            </button>
+
+            <div *ngIf="isTechnicalFolderExpanded(folder.id)" class="substation-attachment-children">
+              <div *ngIf="isTechnicalFolderLoading(folder.id)" class="substation-attachment-loading">
+                <i class="pi pi-spin pi-spinner"></i> Đang tải tài liệu...
+              </div>
+              <div *ngFor="let item of getTechnicalFolderDocuments(folder)" class="substation-attachment-file">
+                <i class="pi pi-file-pdf"></i>
+                <button type="button" (click)="openAttachmentDocumentPreview(item.dossier.id, item.document)"
+                  title="Xem trước tài liệu">
+                  {{ item.document.name || item.document.fileName || 'Tài liệu chưa đặt tên' }}
+                </button>
+                <span>{{ getDossierCode(item.dossier) }}</span>
+              </div>
+              <div *ngIf="!isTechnicalFolderLoading(folder.id) && getTechnicalFolderDocuments(folder).length === 0"
+                class="substation-attachment-empty">Chưa có tài liệu trong loại hồ sơ này.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div *ngIf="false" class="tab-content animate-fade-in">
         <div style="background: #ffffff; padding: 0 8px 24px 8px;">
           <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #cbd5e1; padding-bottom: 12px; margin-bottom: 20px;">
             <span style="font-size: 1.05rem; font-weight: 700; color: #002D72; display: flex; align-items: center;">
@@ -552,6 +653,44 @@
   <ng-template #footer>
     <div style="display: flex; justify-content: flex-end; padding-top: 12px; border-top: 1px solid #f1f5f9;">
       <button class="btn-cancel btn-small" (click)="showEquipmentDetail.set(false)"><i class="pi pi-times"></i> Đóng</button>
+    </div>
+  </ng-template>
+</p-dialog>
+
+<p-dialog
+  [visible]="showAttachmentDocumentPreview()"
+  (visibleChange)="$event ? null : closeAttachmentDocumentPreview()"
+  [header]="'Xem trước: ' + (attachmentPreviewTarget()?.document?.name || attachmentPreviewTarget()?.document?.fileName || 'Tài liệu')"
+  [modal]="true"
+  [style]="{ width: '90vw', maxWidth: '1400px' }"
+  [contentStyle]="{ height: '72vh', padding: '20px 30px' }"
+  styleClass="evn-dialog-custom substation-document-preview-dialog"
+  [draggable]="false">
+  <div *ngIf="loadingAttachmentDocumentPreview()" class="substation-preview-loading">
+    <i class="pi pi-spin pi-spinner"></i>
+    <span>Đang tải tài liệu...</span>
+  </div>
+
+  <div *ngIf="!loadingAttachmentDocumentPreview() && attachmentPreviewSrc() as previewSrc" class="substation-preview-body">
+    <img *ngIf="isAttachmentPreviewImage()" [src]="previewSrc" [alt]="attachmentPreviewTarget()?.document?.name || 'Tài liệu'" />
+    <iframe *ngIf="!isAttachmentPreviewImage()" [src]="previewSrc" title="Xem trước tài liệu"></iframe>
+  </div>
+
+  <div *ngIf="!loadingAttachmentDocumentPreview() && !attachmentPreviewSrc()" class="substation-preview-empty">
+    Không có nội dung để xem trước.
+  </div>
+
+  <ng-template pTemplate="footer">
+    <div class="substation-preview-footer">
+      <span><i class="pi pi-info-circle"></i> {{ attachmentPreviewTarget()?.document?.name || attachmentPreviewTarget()?.document?.fileName }}</span>
+      <div>
+        <button type="button" class="substation-preview-download" (click)="downloadAttachmentDocument(attachmentPreviewTarget()?.dossierId, attachmentPreviewTarget()?.document)">
+          <i class="pi pi-download"></i> Tải về
+        </button>
+        <button type="button" class="substation-preview-close" (click)="closeAttachmentDocumentPreview()">
+          <i class="pi pi-times"></i> Đóng
+        </button>
+      </div>
     </div>
   </ng-template>
 </p-dialog>
