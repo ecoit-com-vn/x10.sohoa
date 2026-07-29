@@ -922,6 +922,13 @@
   </ng-template>
 </p-dialog>
 
+<input
+  #quickNewVersionFileInput
+  type="file"
+  style="display: none;"
+  (change)="onUploadNewVersionSelected($event)"
+/>
+
 <!-- Preview Document Dialog -->
 <p-dialog
   [header]="'Xem trước: ' + previewTitle()"
