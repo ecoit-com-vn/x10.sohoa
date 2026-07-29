@@ -359,35 +359,37 @@
 
 .attachment-workspace {
   display: grid;
-  grid-template-columns: 300px minmax(0, 1fr);
+  grid-template-columns: minmax(300px, 32%) minmax(0, 1fr);
+  gap: 16px;
   min-height: 430px;
-  border: 1px solid #dbe3ee;
-  border-radius: 6px;
-  overflow: hidden;
-  background: #fff;
+  background: transparent;
 }
 
 .attachment-list-pane {
   order: 2;
   min-width: 0;
-  padding: 18px;
-  background: #f8fafc;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .attachment-list-header {
   display: flex;
   align-items: center;
   min-height: 42px;
-  margin-bottom: 12px;
-  padding: 0 4px;
+  margin-bottom: 14px;
+  padding: 0 0 12px;
+  border-bottom: 1px solid #dbe3ee;
 
   > div { display: flex; align-items: baseline; gap: 10px; }
   small { color: #64748b; font-size: 0.8rem; }
 }
 
 .attachment-list-title {
-  color: #1e3a8a;
-  font-size: 1rem;
+  color: #1e293b;
+  font-size: 1.05rem;
   font-weight: 700;
 }
 
@@ -395,7 +397,7 @@
   display: grid;
   grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr);
   gap: 14px;
-  margin-bottom: 14px;
+  max-width: 540px;
 
   label {
     display: flex;
@@ -422,11 +424,21 @@
   p-select { width: 100%; font-weight: 400; }
 }
 
+.attachment-filter-card {
+  margin-bottom: 14px;
+  padding: 14px 16px;
+  border: 1px solid #d5dfed;
+  border-radius: 7px;
+  background: #fff;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+}
+
 .attachment-table-wrap {
   overflow-x: auto;
-  border: 1px solid #e2e8f0;
-  border-radius: 5px;
+  border: 1px solid #dbe3ee;
+  border-radius: 8px 8px 0 0;
   background: #fff;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
 }
 
 .attachment-table {
@@ -434,8 +446,8 @@
   min-width: 660px;
   border-collapse: collapse;
 
-  th, td { padding: 11px 12px; border-bottom: 1px solid #edf2f7; text-align: left; font-size: 0.88rem; }
-  th { background: #f8fafc; color: #475569; font-weight: 600; }
+  th, td { padding: 12px 14px; border-bottom: 1px solid #e2e8f0; text-align: left; font-size: 0.9rem; }
+  th { background: #f8fafc; color: #475569; font-weight: 700; }
   th:first-child, td:first-child { width: 56px; text-align: center; }
   tr:last-child td { border-bottom: 0; }
 }
@@ -466,22 +478,82 @@
   font-size: 0.9rem;
 }
 
+.attachment-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 18px;
+  min-height: 48px;
+  margin-top: -1px;
+  padding: 10px 12px;
+  border: 1px solid #dbe3ee;
+  border-radius: 0 0 8px 8px;
+  background: #fff;
+  color: #64748b;
+  font-size: 0.78rem;
+}
+
+.attachment-pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 1px solid #dbe3ee;
+    border-radius: 50%;
+    background: #fff;
+    color: #64748b;
+    font-size: 0.74rem;
+    cursor: pointer;
+
+    &:hover:not(:disabled) { border-color: #60a5fa; color: #2563eb; }
+    &.active { border-color: #3b82f6; background: #3b82f6; color: #fff; }
+    &:disabled { cursor: default; opacity: 0.45; }
+  }
+
+  select {
+    height: 25px;
+    margin-left: 6px;
+    padding: 0 5px;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    background: #fff;
+    color: #64748b;
+    font-size: 0.75rem;
+  }
+}
+.wf-card{
+  padding:0px;
+}
 .attachment-tree-pane {
   order: 1;
-  padding: 16px 12px;
-  border-right: 1px solid #dbe3ee;
+  min-width: 0;
+  // padding: 20px;
+  border: 1px solid #dbe3ee;
+  border-radius: 8px;
   background: #fff;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.05);
 }
 
 .attachment-tree-title {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 2px 6px 14px;
-  color: #1e3a8a;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 7px;
+  background: #3b82f6;
+  color: #fff;
+  font-size: 0.95rem;
   font-weight: 700;
 
-  .pi { color: #f5ae00; font-size: 1.2rem; }
+  .pi { color: #fff; font-size: 1.1rem; }
 }
 
 .attachment-tree-search {
@@ -498,20 +570,20 @@
   input { min-width: 0; flex: 1; border: 0; outline: 0; color: #334155; font-size: 0.88rem; }
 }
 
-.attachment-tree-nodes { border-left: 1px dashed #93c5fd; }
+.attachment-tree-nodes { padding: 0 2px; }
 
 .attachment-tree-station {
   display: flex;
   align-items: center;
   gap: 8px;
   width: 100%;
-  min-height: 40px;
-  padding: 7px 8px;
+  min-height: 42px;
+  padding: 8px 10px;
   border: 0;
   background: transparent;
-  color: #1e3a8a;
-  font-size: 0.9rem;
-  font-weight: 700;
+  color: #1e293b;
+  font-size: 0.95rem;
+  font-weight: 400;
   text-align: left;
   cursor: pointer;
 
@@ -521,8 +593,17 @@
 }
 
 .attachment-tree-children {
-  margin-left: 16px;
-  border-left: 1px dashed #93c5fd;
+  position: relative;
+  margin: 0 0 0 22px;
+
+  &::before {
+    position: absolute;
+    top: 0;
+    bottom: 21px;
+    left: 0;
+    border-left: 1px dashed #60a5fa;
+    content: '';
+  }
 }
 
 .attachment-tree-node {
@@ -531,17 +612,17 @@
   align-items: center;
   gap: 8px;
   width: 100%;
-  min-height: 38px;
-  padding: 7px 8px 7px 16px;
+  min-height: 42px;
+  padding: 8px 8px 8px 22px;
   border: 0;
   background: transparent;
   color: #334155;
-  font-size: 0.88rem;
+  font-size: 0.92rem;
   text-align: left;
   cursor: pointer;
 
-  &::before { content: ''; position: absolute; left: 0; width: 12px; border-top: 1px dashed #93c5fd; }
-  .pi { color: #f5ae00; }
+  &::before { content: ''; position: absolute; left: 0; width: 16px; border-top: 1px dashed #60a5fa; }
+  .pi { color: #f5ae00; font-size: 1.15rem; }
   span { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   small { color: #94a3b8; font-size: 0.75rem; }
 
@@ -553,9 +634,10 @@
 
 @media (max-width: 640px) {
   .attachment-workspace { grid-template-columns: 1fr; }
-  .attachment-tree-pane { order: 1; border-right: 0; border-bottom: 1px solid #dbe3ee; }
+  .attachment-tree-pane { order: 1; }
   .attachment-list-pane { order: 2; }
   .attachment-list-filters { grid-template-columns: 1fr; }
+  .attachment-pagination { align-items: flex-start; flex-direction: column; gap: 8px; }
   .technical-preview-footer {
     align-items: flex-start;
     flex-direction: column;
