@@ -721,6 +721,8 @@ public class DossierRepository : IDossierRepository
         using var transaction = _connection.BeginTransaction();
         try
         {
+            var publishStatusColumn = dossier.PublishStatusId.HasValue ? ", PUBLISHSTATUSID" : string.Empty;
+            var publishStatusValue = dossier.PublishStatusId.HasValue ? ", :PublishStatusId" : string.Empty;
             var sql = $@"INSERT INTO DOSSIERS (
                             {nameof(Dossier.Id)},
                             DOSSIER_GROUP_ID,
@@ -740,12 +742,12 @@ public class DossierRepository : IDossierRepository
                             {nameof(Dossier.IsDeleted)},
                             {nameof(Dossier.ShelfId)},
                             {nameof(Dossier.FloorId)},
-                            {nameof(Dossier.BoxId)}
+                            {nameof(Dossier.BoxId)}{publishStatusColumn}
                         ) VALUES (
                             :Id, :DossierGroupId, :GridTypeId, :InfrastructureId, :DossierSetId, :DossierTypeId,
                             :FormDataJson, :StatusId, :KindId, :RowVersion, :CreatorId, :CreatorUsername,
                             :CreatorName, :CreatedBy, :CreatedDate, :IsDeleted,
-                            :ShelfId, :FloorId, :BoxId
+                            :ShelfId, :FloorId, :BoxId{publishStatusValue}
                         )";
             await _connection.ExecuteAsync(sql, new
             {
@@ -767,7 +769,8 @@ public class DossierRepository : IDossierRepository
                 IsDeleted = dossier.IsDeleted ? 1 : 0,
                 dossier.ShelfId,
                 dossier.FloorId,
-                dossier.BoxId
+                dossier.BoxId,
+                dossier.PublishStatusId
             }, transaction);
             // Insert infrastructure links
             var infraIdsToInsert = dossier.InfrastructureIds != null && dossier.InfrastructureIds.Count > 0
