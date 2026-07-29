@@ -125,7 +125,16 @@ public abstract class DossierWorkflowControllerBase : ControllerBase
                 nextNodeId,
                 stepName = step2.StepName,
                 requiredRole = step2.RequiredRole,
-                requiresNextAssignee = !string.IsNullOrEmpty(step2.RequiredRole)
+                // Cần chọn người nếu có cấu hình nhóm quyền VÀ không có sẵn người đích danh
+                requiresNextAssignee = (!string.IsNullOrEmpty(step2.RequiredRole)
+                                        || !string.IsNullOrEmpty(step2.SystemPermissionGroupIds)
+                                        || !string.IsNullOrEmpty(step2.UnitPermissionGroupIds))
+                                       && string.IsNullOrEmpty(step2.AssigneeId),
+                // Cờ và dữ liệu bổ sung cho Frontend lọc danh sách người xử lý
+                requireSameUnit = step2.RequireSameUnit,
+                systemGroupIds = step2.SystemPermissionGroupIds,
+                unitGroupIds = step2.UnitPermissionGroupIds,
+                staticAssigneeId = step2.AssigneeId
             });
         }
         catch (Exception ex)

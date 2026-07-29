@@ -70,6 +70,42 @@ public class UsersController : ControllerBase
         return Ok(new { items, totalCount, page, pageSize });
     }
 
+    /// <summary>
+    /// Lấy danh sách người dùng đủ điều kiện xử lý bước tiếp theo của luồng.
+    /// Dùng tại màn hình chuyển xử lý hồ sơ để lọc người nhận theo nhóm quyền và đơn vị.
+    /// </summary>
+    [HttpGet("eligible-assignees")]
+    [Authorize]
+    [BypassDynamicPermission]
+    public async Task<IActionResult> GetEligibleAssignees(
+        [FromQuery] string? systemGroupIds = null,
+        [FromQuery] string? unitGroupIds = null,
+        [FromQuery] long? unitId = null,
+        [FromQuery] string? keyword = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20)
+    {
+        // Parse danh sách ID từ chuỗi CSV
+        var systemIds = ParseLongList(systemGroupIds);
+        var unitIds   = ParseLongList(unitGroupIds);
+
+        if (systemIds.Count == 0 && unitIds.Count == 0)
+            return Ok(Array.Empty<object>());
+
+        var result = await _userRepository.GetEligibleAssigneesAsync(systemIds, unitIds, unitId, keyword, page, pageSize);
+        return Ok(result);
+    }
+
+    private static List<long> ParseLongList(string? csv)
+    {
+        if (string.IsNullOrWhiteSpace(csv)) return new List<long>();
+        return csv.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                  .Select(s => s.Trim())
+                  .Where(s => long.TryParse(s, out _))
+                  .Select(long.Parse)
+                  .ToList();
+    }
+
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(string id)
     {
