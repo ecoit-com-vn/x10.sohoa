@@ -374,10 +374,10 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
     </p-dialog>
 
     <!-- Dialog xác nhận hoàn thành nhập liệu nhanh -->
-    <p-dialog [visible]="showQuickCompleteConfirm()" 
+    <p-dialog [visible]="showQuickCompleteConfirm()"
               (visibleChange)="$event ? null : showQuickCompleteConfirm.set(false)"
-              header="Xác nhận hoàn thành" 
-              [modal]="true" 
+              header="Xác nhận hoàn thành"
+              [modal]="true"
               [style]="{ width: '420px' }"
               styleClass="evn-dialog-custom"
               [closable]="!quickActionSubmitting()">
@@ -1234,7 +1234,7 @@ export class DossierListComponent implements OnInit {
 
   isAssignedToCurrentUser(item: any): boolean {
     if (!item) return false;
-    
+
     const userId = this.authService.getUserId();
     const roles = this.authService.getUserRoles() || [];
 
@@ -1282,7 +1282,7 @@ export class DossierListComponent implements OnInit {
     const status = item.status ?? item.Status;
     const isDraftState = this.activeTab() === 'draft' || status === 'Draft' || status === 'New' || status === 'CompletedInput' || status === 'Returned';
     const stepAllowEdit = item.currentStepAllowEdit ?? item.CurrentStepAllowEdit;
-    
+
     if (isDraftState || stepAllowEdit) {
       return this.isAssignedToCurrentUser(item);
     }
