@@ -134,9 +134,9 @@ public class CatalogRepository : ICatalogRepository
 
         var sql = $@"SELECT * FROM {nameof(Catalog)}
                      WHERE {nameof(Catalog.CatalogTypeId)} = :CatalogTypeId
-                       AND {nameof(Catalog.Code)} = :Code
+                       AND LOWER({nameof(Catalog.Code)}) = LOWER(:Code)
                        AND {nameof(Catalog.IsDeleted)} = 0";
-        return await _connection.QuerySingleOrDefaultAsync<Catalog>(sql, new { CatalogTypeId = catalogTypeId, Code = code });
+        return await _connection.QueryFirstOrDefaultAsync<Catalog>(sql, new { CatalogTypeId = catalogTypeId, Code = code });
     }
 
     public async Task<Catalog?> GetByCodeForUnitAsync(long catalogTypeId, string code, long unitId)
@@ -159,6 +159,47 @@ public class CatalogRepository : ICatalogRepository
                      WHERE {nameof(Catalog.CatalogTypeId)} = :CatalogTypeId
                        AND {nameof(Catalog.Code)} = :Code";
         return await _connection.QuerySingleOrDefaultAsync<Catalog>(sql, new { CatalogTypeId = catalogTypeId, Code = code });
+    }
+
+    public async Task<Catalog?> GetDeletedByCodeAsync(
+        long catalogTypeId,
+        string code,
+        long? unitId = null,
+        bool strictUnitFilter = false)
+    {
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+
+        var sql = $@"SELECT * FROM {nameof(Catalog)}
+                     WHERE {nameof(Catalog.CatalogTypeId)} = :CatalogTypeId
+                       AND LOWER({nameof(Catalog.Code)}) = LOWER(:Code)
+                       AND {nameof(Catalog.IsDeleted)} = 1";
+        if (strictUnitFilter)
+            sql += $" AND {nameof(Catalog.UnitId)} = :UnitId";
+
+        return await _connection.QueryFirstOrDefaultAsync<Catalog>(
+            sql,
+            new { CatalogTypeId = catalogTypeId, Code = code, UnitId = unitId });
+    }
+
+    public async Task<bool> RestoreAsync(Catalog catalog)
+    {
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+
+        var sql = $@"UPDATE {nameof(Catalog)}
+                     SET {nameof(Catalog.IsDeleted)} = 0,
+                         {nameof(Catalog.Code)} = :Code,
+                         {nameof(Catalog.Name)} = :Name,
+                         {nameof(Catalog.ParentId)} = :ParentId,
+                         {nameof(Catalog.Description)} = :Description,
+                         {nameof(Catalog.UnitId)} = :UnitId,
+                         {nameof(Catalog.Priority)} = :Priority,
+                         {nameof(Catalog.Status)} = :Status,
+                         {nameof(Catalog.UpdatedAt)} = CURRENT_TIMESTAMP,
+                         {nameof(Catalog.UpdatedBy)} = :UpdatedBy
+                     WHERE {nameof(Catalog.Id)} = :Id
+                       AND {nameof(Catalog.IsDeleted)} = 1";
+        var affected = await _connection.ExecuteAsync(sql, catalog);
+        return affected == 1;
     }
 
     public async Task<bool> HasChildrenAsync(long id)
