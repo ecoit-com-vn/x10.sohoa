@@ -2,7 +2,7 @@ import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
@@ -16,7 +16,7 @@ import { LookupTrackingService } from '../../data-access/lookup-tracking.service
 @Component({
   selector: 'app-document-fulltext-search',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule, WfBreadcrumbComponent],
+  imports: [CommonModule, FormsModule, RouterLink, ToastModule, WfBreadcrumbComponent],
   providers: [MessageService],
   templateUrl: './document-fulltext-search.component.html',
   styleUrl: './document-fulltext-search.component.scss'
@@ -46,6 +46,7 @@ export class DocumentFulltextSearchComponent implements OnInit {
       const q = (params.get('keyword') || params.get('q') || '').trim();
       this.keyword.set(q);
       this.activeKeyword.set(q);
+      this.sort.set(q ? 'relevance' : 'newest');
       this.currentPage.set(1);
       this.loadData();
     });

@@ -121,6 +121,17 @@
     padding: 2px 8px;
   }
 
+  .meta-tag--link {
+    color: #1d4ed8;
+    text-decoration: none;
+    cursor: pointer;
+
+    &:hover {
+      text-decoration: underline;
+      background: #eff6ff;
+    }
+  }
+
   .doc-search-empty {
     padding: 24px 12px;
     text-align: center;
