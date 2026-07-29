@@ -152,6 +152,23 @@ public class DossierService : IDossierService
             .ToList();
     }
 
+
+    public async Task<IEnumerable<Guid>> GetListDocumentIdsAsync(
+        string? keyword,
+        Guid? infrastructureId,
+        Guid? dossierTypeId,
+        long? unitId,
+        int page,
+        int pageSize)
+    {
+        return await _dossierRepository.GetListDocumentIdsAsync(
+        keyword,
+        infrastructureId,
+        dossierTypeId,
+        unitId,
+        page,
+        pageSize);
+    }
     public async Task<IEnumerable<GridTypeEntity>> GetGridTypesLookupAsync()
     {
         return await _dossierRepository.GetGridTypesLookupAsync();

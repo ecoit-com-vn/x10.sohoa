@@ -38,6 +38,28 @@ public class ReportDossierRepository : IReportDossierRepository
         return await _connection.QueryAsync<ReportDossierLookupItem>(allSql);
     }
 
+    public async Task<IEnumerable<ReportDossierLookupItem>> GetOrganizationUnitsWithStatusAsync(bool isAdmin, long? userUnitId, int isactive)
+    {
+        EnsureOpen();
+
+        if (!isAdmin && userUnitId.HasValue)
+        {
+            const string sql = @"
+                SELECT CAST(Id AS VARCHAR2(50)) AS Id, Name, Code, ParentId
+                FROM ORGANIZATION_UNIT
+                START WITH Id = :StartUnitId
+                CONNECT BY PRIOR Id = ParentId
+                ORDER SIBLINGS BY Name";
+            return await _connection.QueryAsync<ReportDossierLookupItem>(sql, new { StartUnitId = userUnitId.Value });
+        }
+
+        const string allSql = @"
+            SELECT CAST(Id AS VARCHAR2(50)) AS Id, Name, Code, ParentId
+            FROM ORGANIZATION_UNIT WHERE ISACTIVE = :IsActive
+            ORDER BY Name";
+        return await _connection.QueryAsync<ReportDossierLookupItem>(allSql, new { IsActive = isactive });
+    }
+
     public async Task<IEnumerable<ReportDossierLookupItem>> GetGridTypesAsync(long? unitScopeRoot)
     {
         EnsureOpen();
