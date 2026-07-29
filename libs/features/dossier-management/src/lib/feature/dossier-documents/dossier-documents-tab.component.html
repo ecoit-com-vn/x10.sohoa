@@ -195,32 +195,17 @@
   </div>
 </div>
 
-<p-dialog
+<!-- Popup xác nhận xóa dùng chung toàn hệ thống. -->
+<app-delete-confirm-dialog
   [visible]="showDeleteConfirm()"
-  (visibleChange)="$event ? null : cancelDelete()"
   header="Xác nhận xóa tài liệu"
-  [modal]="true"
-  [style]="{ width: '420px' }"
-  styleClass="evn-dialog-custom"
-  [closable]="!deleting()"
->
-  <div style="padding: 8px 0 16px; color: #374151;">
-    Bạn có chắc muốn xóa tài liệu
-    <strong>{{ deleteTarget()?.name }}</strong> khỏi hồ sơ? Hành động này không thể hoàn tác.
-  </div>
-  <ng-template #footer>
-    <p-button label="Hủy" severity="secondary" size="small" (onClick)="cancelDelete()" [disabled]="deleting()"></p-button>
-    <p-button
-      label="Xóa"
-      severity="danger"
-      size="small"
-      icon="pi pi-trash"
-      (onClick)="confirmDelete()"
-      [disabled]="deleting()"
-      [loading]="deleting()"
-    ></p-button>
-  </ng-template>
-</p-dialog>
+  entityLabel="Tài liệu"
+  [targetName]="deleteTargetLabel()"
+  consequence="sẽ bị xóa khỏi hồ sơ và không thể khôi phục."
+  [loading]="deleting()"
+  (cancelled)="cancelDelete()"
+  (confirmed)="confirmDelete()"
+/>
 
 <p-dialog
   [visible]="showReExtractConfirm()"

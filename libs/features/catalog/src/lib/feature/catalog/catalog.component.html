@@ -351,71 +351,27 @@
     </ng-template>
   </p-dialog>
 
-  <!-- Dialog Xác nhận Xóa Loại Danh mục -->
-  <p-dialog
+  <!-- Popup xác nhận xóa loại danh mục dùng chung toàn hệ thống. -->
+  <app-delete-confirm-dialog
     [visible]="showTypeDeleteConfirm()"
-    (visibleChange)="$event ? null : onCancelDeleteType()"
     header="Xác nhận xóa loại danh mục"
-    [modal]="true"
-    [style]="{ width: '420px' }"
-    styleClass="evn-dialog-custom"
-    [closable]="!typeDeleting()">
-    <div style="display: flex; align-items: flex-start; gap: 12px; padding: 8px 0 16px;">
-      <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #f59e0b;"></i>
-      <div>
-        <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">Bạn có chắc chắn muốn xóa loại danh mục?</p>
-        <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
-          Loại danh mục <b style="color: #1e293b;">{{ typeDeleteTarget()?.name }}</b> sẽ bị xóa vĩnh viễn.
-        </p>
-      </div>
-    </div>
-    <ng-template #footer>
-      <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
-        <button class="btn-cancel btn-small" (click)="onCancelDeleteType()" [disabled]="typeDeleting()">
-          <i class="pi pi-times"></i> Hủy
-        </button>
-        <button class="btn-save btn-small" (click)="onConfirmDeleteType()" [disabled]="typeDeleting()"
-                style="background-color: #dc2626; border-color: #dc2626; color: #ffffff;">
-          <i class="pi pi-spin pi-spinner" *ngIf="typeDeleting()"></i>
-          <i class="pi pi-trash" *ngIf="!typeDeleting()"></i>
-          Xóa
-        </button>
-      </div>
-    </ng-template>
-  </p-dialog>
+    entityLabel="Loại danh mục"
+    [targetName]="typeDeleteTargetLabel()"
+    [loading]="typeDeleting()"
+    (cancelled)="onCancelDeleteType()"
+    (confirmed)="onConfirmDeleteType()"
+  />
 
-  <!-- Dialog Xác nhận Xóa Danh mục -->
-  <p-dialog
+  <!-- Popup xác nhận xóa danh mục dùng chung toàn hệ thống. -->
+  <app-delete-confirm-dialog
     [visible]="showCatalogDeleteConfirm()"
-    (visibleChange)="$event ? null : onCancelDeleteCatalog()"
     header="Xác nhận xóa danh mục"
-    [modal]="true"
-    [style]="{ width: '420px' }"
-    styleClass="evn-dialog-custom"
-    [closable]="!catalogDeleting()">
-    <div style="display: flex; align-items: flex-start; gap: 12px; padding: 8px 0 16px;">
-      <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #f59e0b;"></i>
-      <div>
-        <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">Bạn có chắc chắn muốn xóa?</p>
-        <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
-          Bản ghi <b style="color: #1e293b;">{{ catalogDeleteTarget()?.name }}</b> sẽ bị xóa vĩnh viễn.
-        </p>
-      </div>
-    </div>
-    <ng-template #footer>
-      <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
-        <button class="btn-cancel btn-small" (click)="onCancelDeleteCatalog()" [disabled]="catalogDeleting()">
-          <i class="pi pi-times"></i> Hủy
-        </button>
-        <button class="btn-save btn-small" (click)="onConfirmDeleteCatalog()" [disabled]="catalogDeleting()"
-                style="background-color: #dc2626; border-color: #dc2626; color: #ffffff;">
-          <i class="pi pi-spin pi-spinner" *ngIf="catalogDeleting()"></i>
-          <i class="pi pi-trash" *ngIf="!catalogDeleting()"></i>
-          Xóa
-        </button>
-      </div>
-    </ng-template>
-  </p-dialog>
+    entityLabel="Danh mục"
+    [targetName]="catalogDeleteTargetLabel()"
+    [loading]="catalogDeleting()"
+    (cancelled)="onCancelDeleteCatalog()"
+    (confirmed)="onConfirmDeleteCatalog()"
+  />
 
   <!-- Dialog Xác nhận Khóa / Mở khóa Loại Danh mục -->
   <p-dialog

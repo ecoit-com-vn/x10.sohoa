@@ -1,5 +1,8 @@
 import { Component, OnInit, inject, signal, computed, effect } from '@angular/core';
-import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
+import {
+    DeleteConfirmDialogComponent,
+    WfBreadcrumbComponent
+} from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -36,6 +39,7 @@ import {
         PaginatorModule,
         DialogModule,
         WfBreadcrumbComponent,
+        DeleteConfirmDialogComponent,
     ],
     providers: [MessageService],
     templateUrl: './completed-form-list.component.html',
@@ -56,6 +60,10 @@ export class CompletedFormListComponent implements OnInit {
     showConfirmLock = signal<boolean>(false);
     showConfirmUnlock = signal<boolean>(false);
     showConfirmDelete = signal<boolean>(false);
+    deleteTarget = signal<EavFormTemplate | null>(null);
+    deleteLoading = signal<boolean>(false);
+    // Tách target xóa khỏi state khóa/mở khóa và chuẩn hóa tên cho popup dùng chung.
+    readonly deleteTargetLabel = computed(() => this.deleteTarget()?.name ?? '');
     viewState = signal<'list' | 'detail'>('list');
     targetForm: EavFormTemplate | null = null;
     selectedForm = signal<EavFormTemplate | null>(null);
@@ -393,15 +401,27 @@ export class CompletedFormListComponent implements OnInit {
     }
 
     deactivateForm(form: EavFormTemplate) {
-        this.targetForm = form;
+        this.deleteTarget.set(form);
         this.showConfirmDelete.set(true);
     }
 
+    onCancelDelete(): void {
+        // Không đóng popup khi request xóa đang được xử lý.
+        if (this.deleteLoading()) return;
+
+        this.showConfirmDelete.set(false);
+        this.deleteTarget.set(null);
+    }
+
     onConfirmDelete() {
-        if (!this.targetForm) return;
-        this.loadingService.show();
-        this.eavFormService.deleteCompletedTemplate(this.targetForm.id)
-            .pipe(finalize(() => this.loadingService.hide()))
+        const target = this.deleteTarget();
+
+        // Chặn target không hợp lệ hoặc request xóa bị gửi trùng.
+        if (!target || this.deleteLoading()) return;
+
+        this.deleteLoading.set(true);
+        this.eavFormService.deleteCompletedTemplate(target.id)
+            .pipe(finalize(() => this.deleteLoading.set(false)))
             .subscribe({
                 next: () => {
                     this.messageService.add({
@@ -410,17 +430,15 @@ export class CompletedFormListComponent implements OnInit {
                         detail: 'Đã xóa form thành công!'
                     });
                     this.showConfirmDelete.set(false);
-                    this.targetForm = null;
+                    this.deleteTarget.set(null);
                     this.loadForms();
                 },
-                error: () => {
+                error: (err) => {
                     this.messageService.add({
                         severity: 'error',
                         summary: 'Lỗi',
-                        detail: 'Không thể xóa form.'
+                        detail: err?.error?.message || err?.error?.Message || 'Không thể xóa form.'
                     });
-                    this.showConfirmDelete.set(false);
-                    this.targetForm = null;
                 }
             });
     }

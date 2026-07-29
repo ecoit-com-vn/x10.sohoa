@@ -1,0 +1,110 @@
+/* Prefix riêng tránh ảnh hưởng các PrimeNG Dialog khác. */
+
+.app-delete-confirm-dialog {
+    .p-dialog-header {
+        padding: 18px 24px;
+        border-bottom: 1px solid #e2e8f0;
+        background-color: #ffffff;
+    }
+    .p-dialog-title {
+        color: #002d72 !important;
+        font-size: 1.15rem !important;
+        font-weight: 700 !important;
+    }
+    .p-dialog-header-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        color: #64748b;
+        transition: color 0.2s ease, background-color 0.2s ease;
+        &:hover {
+            color: #0f172a;
+            background-color: #f1f5f9;
+        }
+    }
+    .p-dialog-content {
+        padding: 16px 24px;
+    }
+    .p-dialog-footer {
+        padding: 14px 24px;
+        border-top: 1px solid #e2e8f0;
+        background-color: #f8fafc;
+    }
+}
+
+.app-delete-confirm-dialog__content {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 8px 0 16px;
+}
+
+.app-delete-confirm-dialog__icon {
+    flex-shrink: 0;
+    margin-top: 2px;
+    color: #f59e0b;
+    font-size: 1.8rem;
+}
+
+.app-delete-confirm-dialog__question {
+    margin: 0 0 6px;
+    color: #1e293b;
+    font-size: 0.95rem;
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+.app-delete-confirm-dialog__description {
+    margin: 0;
+    color: #64748b;
+    font-size: 0.875rem;
+    line-height: 1.45;
+    strong {
+        color: #1e293b;
+        font-weight: 700;
+    }
+}
+
+.app-delete-confirm-dialog__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    width: 100%;
+}
+
+.app-delete-confirm-dialog__button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-width: 78px;
+    height: 36px;
+    padding: 0 12px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    color: #ffffff;
+    font-family: inherit;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    &:disabled {
+        cursor: not-allowed;
+        opacity: 0.65;
+    }
+}
+
+.app-delete-confirm-dialog__button--cancel {
+    border-color: #f2a900;
+    background-color: #f2a900;
+    &:hover:not(:disabled) {
+        background-color: #d99a00;
+    }
+}
+
+.app-delete-confirm-dialog__button--delete {
+    border-color: #dc2626;
+    background-color: #dc2626;
+    &:hover:not(:disabled) {
+        background-color: #b91c1c;
+    }
+}

@@ -1,5 +1,8 @@
 import { Component, OnInit, signal, computed, inject, effect } from '@angular/core';
-import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
+import {
+  DeleteConfirmDialogComponent,
+  WfBreadcrumbComponent
+} from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ToastModule } from 'primeng/toast';
@@ -11,11 +14,21 @@ import { MessageService } from 'primeng/api';
 import { ActivatedRoute } from '@angular/router';
 import { AuthService } from '@sohoa.frontend/shared/core';
 import { CatalogService } from '../../data-access/catalog.service';
+import { finalize } from 'rxjs/operators';
 
 @Component({
   selector: 'app-catalog',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule, SelectModule, DialogModule, MenuModule, WfBreadcrumbComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    ToastModule,
+    SelectModule,
+    DialogModule,
+    MenuModule,
+    WfBreadcrumbComponent,
+    DeleteConfirmDialogComponent
+  ],
   providers: [MessageService],
   templateUrl: './catalog.component.html',
   styleUrl: './catalog.component.css'
@@ -59,6 +72,8 @@ export class CatalogComponent implements OnInit {
   showTypeDeleteConfirm = signal<boolean>(false);
   typeDeleteTarget = signal<any>(null);
   typeDeleting = signal<boolean>(false);
+  // Chuẩn hóa tên loại danh mục hiển thị trong popup xóa dùng chung.
+  readonly typeDeleteTargetLabel = computed(() => this.typeDeleteTarget()?.name ?? '');
 
   // Right Panel - Child Catalogs State
   items = signal<any[]>([]);
@@ -85,6 +100,8 @@ export class CatalogComponent implements OnInit {
   showCatalogDeleteConfirm = signal<boolean>(false);
   catalogDeleteTarget = signal<any>(null);
   catalogDeleting = signal<boolean>(false);
+  // Chuẩn hóa tên danh mục hiển thị trong popup xóa dùng chung.
+  readonly catalogDeleteTargetLabel = computed(() => this.catalogDeleteTarget()?.name ?? '');
 
   // Lock/Unlock Confirmation for Catalog Type
   showTypeLockConfirm = signal<boolean>(false);
@@ -417,12 +434,14 @@ export class CatalogComponent implements OnInit {
 
   onConfirmDeleteType() {
     const type = this.typeDeleteTarget();
-    if (!type) return;
+    // Chặn target không hợp lệ hoặc request xóa bị gửi trùng.
+    if (!type || this.typeDeleting()) return;
 
     this.typeDeleting.set(true);
-    this.catalogService.deleteCatalogType(type.id, this.isPrivate()).subscribe({
+    this.catalogService.deleteCatalogType(type.id, this.isPrivate())
+      .pipe(finalize(() => this.typeDeleting.set(false)))
+      .subscribe({
       next: () => {
-        this.typeDeleting.set(false);
         this.messageService.add({
           severity: 'success',
           summary: 'Xóa thành công',
@@ -438,8 +457,6 @@ export class CatalogComponent implements OnInit {
         this.loadCatalogTypes();
       },
       error: (err) => {
-        this.typeDeleting.set(false);
-        this.showTypeDeleteConfirm.set(false);
         const errorMsg = err.error?.message || 'Xóa loại danh mục thất bại.';
         this.messageService.add({
           severity: 'error',
@@ -451,6 +468,9 @@ export class CatalogComponent implements OnInit {
   }
 
   onCancelDeleteType() {
+    // Không đóng popup khi request xóa đang được xử lý.
+    if (this.typeDeleting()) return;
+
     this.showTypeDeleteConfirm.set(false);
     this.typeDeleteTarget.set(null);
   }
@@ -713,12 +733,14 @@ export class CatalogComponent implements OnInit {
 
   onConfirmDeleteCatalog() {
     const catalog = this.catalogDeleteTarget();
-    if (!catalog) return;
+    // Chặn target không hợp lệ hoặc request xóa bị gửi trùng.
+    if (!catalog || this.catalogDeleting()) return;
 
     this.catalogDeleting.set(true);
-    this.catalogService.deleteItem(catalog.id).subscribe({
+    this.catalogService.deleteItem(catalog.id)
+      .pipe(finalize(() => this.catalogDeleting.set(false)))
+      .subscribe({
       next: () => {
-        this.catalogDeleting.set(false);
         this.messageService.add({
           severity: 'success',
           summary: 'Xóa thành công',
@@ -729,8 +751,6 @@ export class CatalogComponent implements OnInit {
         this.loadCatalogs();
       },
       error: (err) => {
-        this.catalogDeleting.set(false);
-        this.showCatalogDeleteConfirm.set(false);
         const errorMsg = err.error?.message || 'Xóa danh mục thất bại.';
         this.messageService.add({
           severity: 'error',
@@ -742,6 +762,9 @@ export class CatalogComponent implements OnInit {
   }
 
   onCancelDeleteCatalog() {
+    // Không đóng popup khi request xóa đang được xử lý.
+    if (this.catalogDeleting()) return;
+
     this.showCatalogDeleteConfirm.set(false);
     this.catalogDeleteTarget.set(null);
   }

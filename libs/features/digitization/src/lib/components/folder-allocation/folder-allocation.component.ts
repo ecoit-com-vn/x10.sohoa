@@ -1,5 +1,8 @@
 import { Component, OnInit, inject, signal, computed, effect } from '@angular/core';
-import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
+import {
+  DeleteConfirmDialogComponent,
+  WfBreadcrumbComponent
+} from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ToastModule } from 'primeng/toast';
@@ -22,6 +25,7 @@ import { AuthService } from '@sohoa.frontend/shared/core';
     MenuModule,
     FolderAllocationDialogComponent,
     WfBreadcrumbComponent,
+    DeleteConfirmDialogComponent,
   ],
   providers: [MessageService],
   templateUrl: './folder-allocation.component.html',
@@ -38,6 +42,15 @@ export class FolderAllocationComponent implements OnInit {
   showDeleteConfirm = signal<boolean>(false);
   deleteTarget = signal<FolderAllocationItem | null>(null);
   deleting = signal<boolean>(false);
+
+  // Chuẩn hóa phân bổ thư mục và người xử lý hiển thị trong popup dùng chung.
+  readonly deleteTargetLabel = computed(() => {
+    const target = this.deleteTarget();
+
+    return target
+      ? `${target.folder_name} cho ${target.user_full_name}`
+      : '';
+  });
 
   showRevokeConfirm = signal<boolean>(false);
   revokeTarget = signal<FolderAllocationItem | null>(null);
@@ -178,7 +191,11 @@ export class FolderAllocationComponent implements OnInit {
 
   onConfirmDelete(): void {
     const item = this.deleteTarget();
-    if (!item) return;
+
+    // Chặn request không hợp lệ hoặc gửi trùng.
+    if (!item || this.deleting()) {
+      return;
+    }
 
     this.deleting.set(true);
     this.service.delete(item.id).pipe(
@@ -195,17 +212,21 @@ export class FolderAllocationComponent implements OnInit {
         this.loadAllocations();
       },
       error: (err) => {
-        this.showDeleteConfirm.set(false);
         this.messageService.add({
           severity: 'error',
           summary: 'Lỗi',
-          detail: err?.error?.message || 'Không thể xóa phân bổ.'
+          detail: err?.error?.message || err?.message || 'Không thể xóa phân bổ.'
         });
       }
     });
   }
 
   onCancelDelete(): void {
+    // Không cho đóng popup khi request xóa đang được xử lý.
+    if (this.deleting()) {
+      return;
+    }
+
     this.showDeleteConfirm.set(false);
     this.deleteTarget.set(null);
   }

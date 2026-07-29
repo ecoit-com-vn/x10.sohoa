@@ -14,6 +14,7 @@ import { MessageService, MenuItem } from 'primeng/api';
 
 import { BhsCatalogColumn, DossierManagementService, DossierWorkflowAction, normalizeDossierWorkflowAction } from '../../data-access/dossier-management.service';
 import { AuthService } from '@sohoa.frontend/shared/core';
+import { DeleteConfirmDialogComponent } from '@sohoa.frontend/shared/layout';
 import {
   isRejectWorkflowLabel,
   isApproveWorkflowLabel,
@@ -65,7 +66,7 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
 
   standalone: true,
 
-  imports: [CommonModule, FormsModule, ToastModule, DialogModule, MenuModule],
+  imports: [CommonModule, FormsModule, ToastModule, DialogModule, MenuModule, DeleteConfirmDialogComponent],
 
   template: `
 

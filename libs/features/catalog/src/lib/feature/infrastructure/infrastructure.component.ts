@@ -1,5 +1,8 @@
 import { Component, OnInit, signal, computed, inject, effect, HostListener } from '@angular/core';
-import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
+import {
+  DeleteConfirmDialogComponent,
+  WfBreadcrumbComponent
+} from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer } from '@angular/platform-browser';
@@ -20,7 +23,17 @@ import { catchError, finalize } from 'rxjs/operators';
 @Component({
   selector: 'app-infrastructure',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule, SelectModule, DatePickerModule, DialogModule, MenuModule, WfBreadcrumbComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    ToastModule,
+    SelectModule,
+    DatePickerModule,
+    DialogModule,
+    MenuModule,
+    WfBreadcrumbComponent,
+    DeleteConfirmDialogComponent
+  ],
   providers: [MessageService],
   templateUrl: './infrastructure.component.html',
   styleUrl: './infrastructure.component.scss'
@@ -110,6 +123,12 @@ export class InfrastructureComponent implements OnInit {
   showDeleteConfirm = signal<boolean>(false);
   deleteTarget = signal<any>(null);
   deleting = signal<boolean>(false);
+  // Chuẩn hóa loại hạ tầng theo route để popup xóa dùng đúng ngữ cảnh.
+  readonly deleteEntityLabel = computed(() =>
+    this.infraTypeId() === 1 ? 'Trạm biến áp' : 'Đường dây'
+  );
+  // Chuẩn hóa tên hạ tầng hiển thị trong popup xóa dùng chung.
+  readonly deleteTargetLabel = computed(() => this.deleteTarget()?.name ?? '');
 
   // Org-unit tree picker signals
   orgUnitTree = computed(() => this.buildOrgTree(this.orgUnits()));
@@ -828,7 +847,8 @@ export class InfrastructureComponent implements OnInit {
 
   onConfirmDelete() {
     const item = this.deleteTarget();
-    if (!item) return;
+    // Chặn target không hợp lệ hoặc request xóa bị gửi trùng.
+    if (!item || this.deleting()) return;
 
     this.deleting.set(true);
     this.infraService.deleteInfrastructure(this.infraTypeId(), item.id)
@@ -845,7 +865,6 @@ export class InfrastructureComponent implements OnInit {
           this.loadItems();
         },
         error: (err) => {
-          this.showDeleteConfirm.set(false);
           this.messageService.add({
             severity: 'error',
             summary: 'Lỗi',
@@ -856,6 +875,9 @@ export class InfrastructureComponent implements OnInit {
   }
 
   onCancelDelete() {
+    // Không đóng popup khi request xóa đang được xử lý.
+    if (this.deleting()) return;
+
     this.showDeleteConfirm.set(false);
     this.deleteTarget.set(null);
   }

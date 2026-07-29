@@ -1,5 +1,8 @@
 import { Component, OnInit, signal, computed, inject, effect } from '@angular/core';
-import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
+import {
+  DeleteConfirmDialogComponent,
+  WfBreadcrumbComponent
+} from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ToastModule } from 'primeng/toast';
@@ -14,7 +17,16 @@ import { finalize } from 'rxjs/operators';
 @Component({
   selector: 'app-document-type',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule, MenuModule, SelectModule, DialogModule, WfBreadcrumbComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    ToastModule,
+    MenuModule,
+    SelectModule,
+    DialogModule,
+    WfBreadcrumbComponent,
+    DeleteConfirmDialogComponent
+  ],
   providers: [MessageService],
   templateUrl: './document-type.component.html',
   styleUrl: './document-type.component.scss'
@@ -43,6 +55,8 @@ export class DocumentTypeComponent implements OnInit {
   showDeleteConfirm = signal<boolean>(false);
   deleteTarget = signal<any>(null);
   deleting = signal<boolean>(false);
+  // Chuẩn hóa tên loại văn bản hiển thị trong popup xóa dùng chung.
+  readonly deleteTargetLabel = computed(() => this.deleteTarget()?.name ?? '');
 
   showToggleConfirm = signal<boolean>(false);
   toggleTarget = signal<any>(null);
@@ -307,7 +321,8 @@ export class DocumentTypeComponent implements OnInit {
 
   onConfirmDelete() {
     const item = this.deleteTarget();
-    if (!item) return;
+    // Chặn target không hợp lệ hoặc request xóa bị gửi trùng.
+    if (!item || this.deleting()) return;
 
     this.deleting.set(true);
     this.documentTypeService.deleteDocumentType(item.id)
@@ -324,7 +339,6 @@ export class DocumentTypeComponent implements OnInit {
           this.loadItems();
         },
         error: (err) => {
-          this.showDeleteConfirm.set(false);
           this.messageService.add({
             severity: 'error',
             summary: 'Lỗi',
@@ -335,6 +349,9 @@ export class DocumentTypeComponent implements OnInit {
   }
 
   onCancelDelete() {
+    // Không đóng popup khi request xóa đang được xử lý.
+    if (this.deleting()) return;
+
     this.showDeleteConfirm.set(false);
     this.deleteTarget.set(null);
   }
