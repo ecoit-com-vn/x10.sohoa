@@ -48,11 +48,25 @@
 
           <!-- Bottom Row: Code and Actions -->
           <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; gap: 8px;">
-            <span class="type-item-code" style="font-size: 0.75rem; color: #64748b; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Mã: <code>{{ type.code }}</code></span>
+            <span class="type-item-code" style="font-size: 0.75rem; color: #64748b; flex: 1; min-width: 0; white-space: nowrap; text-overflow: ellipsis;">Mã: <code>{{ type.code }}</code></span>
 
-            <div class="type-item-actions dropdown-actions-container" style="display: inline-flex; gap: 4px; flex-shrink: 0; position: relative;">
-              <button type="button" class="act-btn act-more" title="Thao tác khác" style="width: 26px; height: 26px; font-size: 0.75rem;" (click)="openTypeMenu(type, $event, actionMenu)">
-                <i class="pi pi-ellipsis-h"></i>
+            <div class="type-item-actions action-buttons-group" style="display: inline-flex; gap: 4px; flex-shrink: 0;">
+              <button type="button" class="act-btn btn-view-detail" title="Xem chi tiết"
+                (click)="$event.stopPropagation(); onViewType(type)">
+                <i class="pi pi-eye"></i>
+              </button>
+              <button type="button" class="act-btn act-edit" title="Chỉnh sửa" *ngIf="canEditType()"
+                (click)="$event.stopPropagation(); onEditType(type)">
+                <i class="pi pi-pencil"></i>
+              </button>
+              <button type="button" class="act-btn" [class.act-lock]="type.status === 1" [class.act-unlock]="type.status !== 1"
+                [title]="type.status === 1 ? 'Khóa' : 'Mở khóa'" *ngIf="canManageType()"
+                (click)="$event.stopPropagation(); onToggleTypeStatusRequest(type)">
+                <i class="pi" [ngClass]="type.status === 1 ? 'pi-lock' : 'pi-lock-open'"></i>
+              </button>
+              <button type="button" class="act-btn act-delete" title="Xóa" *ngIf="canDeleteType()"
+                (click)="$event.stopPropagation(); onDeleteType(type)">
+                <i class="pi pi-trash"></i>
               </button>
             </div>
           </div>
@@ -75,56 +89,56 @@
           </button>
         </div>
 
-        <!-- Right Panel Toolbar -->
-        <div class="list-toolbar" style="margin-bottom: 12px; padding: 12px; background-color: #f8fafc; border-radius: 6px; border: 1px solid #e2e8f0;">
-          <div class="toolbar-left" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-            <div style="display: flex; flex-direction: column; gap: 4px;">
-              <span style="font-size: 0.75rem; font-weight: 600; color: #64748b;">Tên danh mục</span>
-              <input type="text" class="wf-search-input" style="height: 38px; width: 180px;"
+        <!-- Catalog search: layout synchronized with "Tìm kiếm hồ sơ trong kho". -->
+        <div class="wf-card dossier-search-bar catalog-search-bar">
+          <div class="search-form-grid catalog-search-grid">
+            <div class="search-form-item catalog-search-item">
+              <label class="search-field-label">Tên danh mục</label>
+              <input type="text" class="wf-search-input"
                 placeholder="Tên danh mục..."
                 [ngModel]="searchKeyword()"
                 (ngModelChange)="searchKeyword.set($event)"
                 (keyup.enter)="onSearchCatalogs()" />
             </div>
 
-            <div style="display: flex; flex-direction: column; gap: 4px;">
-              <span style="font-size: 0.75rem; font-weight: 600; color: #64748b;">Mã danh mục</span>
-              <input type="text" class="wf-search-input" style="height: 38px; width: 180px;"
+            <div class="search-form-item catalog-search-item">
+              <label class="search-field-label">Mã danh mục</label>
+              <input type="text" class="wf-search-input"
                 placeholder="Mã danh mục..."
                 [ngModel]="catalogSearchCode()"
                 (ngModelChange)="catalogSearchCode.set($event)"
                 (keyup.enter)="onSearchCatalogs()" />
             </div>
 
-            <div style="display: flex; flex-direction: column; gap: 4px;">
-              <span style="font-size: 0.75rem; font-weight: 600; color: #64748b;">Trạng thái</span>
-              <select class="wf-input" style="height: 38px; width: 160px; padding: 0 10px; border-radius: 6px;"
+            <div class="search-form-item catalog-search-item">
+              <label class="search-field-label">Trạng thái</label>
+              <select class="wf-input"
                 [ngModel]="searchStatus()"
-                (ngModelChange)="searchStatus.set($event); onSearchCatalogs()">
+                (ngModelChange)="searchStatus.set($event)">
                 <option value="">-- Trạng thái --</option>
                 <option value="1">Hoạt động</option>
                 <option value="0">Ngừng hoạt động</option>
               </select>
             </div>
 
-            <div *ngIf="isPhongSelected()" style="display: flex; flex-direction: column; gap: 4px;">
-              <span style="font-size: 0.75rem; font-weight: 600; color: #64748b;">Đơn vị</span>
-              <select class="wf-input" style="height: 38px; width: 220px; padding: 0 10px; border-radius: 6px;"
+            <div *ngIf="isPhongSelected()" class="search-form-item catalog-search-item">
+              <label class="search-field-label">Đơn vị</label>
+              <select class="wf-input"
                 [ngModel]="catalogSearchUnitId()"
                 (ngModelChange)="onCatalogSearchUnitChange($event)">
-                <option [ngValue]="null" disabled>-- Chọn một đơn vị --</option>
+                <option [ngValue]="null">-- Tất cả đơn vị --</option>
                 <option *ngFor="let unit of organizationUnits()" [ngValue]="unit.id">{{ unit.name }}</option>
               </select>
             </div>
+          </div>
 
-            <div style="display: flex; gap: 8px; margin-top: auto; padding-bottom: 2px;">
-              <button class="btn-tim" (click)="onSearchCatalogs()" style="height: 38px; padding: 0 16px;">
-                <i class="pi pi-search"></i> Tìm
-              </button>
-              <button class="btn-outlined" style="height: 38px; padding: 0 16px;" (click)="onResetSearchCatalogs()">
-                Làm mới
-              </button>
-            </div>
+          <div class="catalog-search-actions">
+            <button type="button" class="btn-outlined" (click)="onResetSearchCatalogs()">
+              <i class="pi pi-refresh"></i> Làm mới
+            </button>
+            <button type="button" class="btn-tim" (click)="onSearchCatalogs()">
+              <i class="pi pi-check"></i> Áp dụng
+            </button>
           </div>
         </div>
 
@@ -185,30 +199,15 @@
         </div>
 
         <!-- Pagination -->
-        <div class="table-footer" *ngIf="items().length > 0" style="margin-top: 12px; border-top: 1px solid #f1f5f9; padding-top: 12px; display: flex; justify-content: space-between; align-items: center;">
-          <span class="record-count" style="font-size: 0.875rem; color: #64748b;">
-            Hiển thị 1 đến {{ items().length }} của <b>{{ totalCount() }}</b> bản ghi.
-          </span>
-          <div class="pagination" style="display: flex; align-items: center; gap: 8px;">
-            <button class="page-btn" (click)="prevPage()" [disabled]="currentPage() === 1">
-              <i class="pi pi-chevron-left"></i>
-            </button>
-            <span class="page-current" style="font-size: 0.875rem; font-weight: 500;">Trang {{ currentPage() }} / {{ totalPages() || 1 }}</span>
-            <button class="page-btn" (click)="nextPage()" [disabled]="currentPage() >= totalPages()">
-              <i class="pi pi-chevron-right"></i>
-            </button>
-
-            <span style="display: inline-flex; align-items: center; gap: 5px; font-size: 0.8rem; color: #6b7280; margin-left: 10px;">
-              Đi tới:
-              <input type="number" class="page-jump-input" [value]="currentPage()" (change)="goToPage($any($event.target).value)" style="width: 50px; height: 28px; text-align: center; border: 1px solid #e5e7eb; border-radius: 4px; padding: 0 4px;" [min]="1" [max]="totalPages() || 1" />
-            </span>
-
-            <select class="page-size-sel" [ngModel]="pageSize()" (change)="onPageSizeChange($event)" style="height: 28px; padding: 0 4px; border-radius: 4px; border: 1px solid #e5e7eb; font-size: 0.8rem;">
-              <option [value]="10">10 / trang</option>
-              <option [value]="20">20 / trang</option>
-              <option [value]="50">50 / trang</option>
-            </select>
-          </div>
+        <div class="table-footer-paginator" *ngIf="items().length > 0">
+          <span class="record-count">Tổng số: <b>{{ totalCount() }}</b> bản ghi.</span>
+          <p-paginator
+            [first]="(currentPage() - 1) * pageSize()"
+            [rows]="pageSize()"
+            [totalRecords]="totalCount()"
+            [rowsPerPageOptions]="[5, 10, 20, 50]"
+            (onPageChange)="onCatalogPageChange($event)">
+          </p-paginator>
         </div>
       </div>
 
