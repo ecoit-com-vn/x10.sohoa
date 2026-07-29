@@ -70,6 +70,10 @@
             <span class="meta-tag" *ngIf="item.documentTypeName">
               <i class="pi pi-file"></i>{{ item.documentTypeName }}
             </span>
+            <a class="meta-tag meta-tag--link" *ngIf="item.dossierId" [routerLink]="['/search/dossier/detail', item.dossierId]"
+              target="_blank" title="Mở trang chi tiết hồ sơ ở tab mới">
+              <i class="pi pi-folder-open"></i>Xem hồ sơ
+            </a>
           </div>
         </div>
       </article>

@@ -7,6 +7,7 @@ import { DialogModule } from 'primeng/dialog';
 import { SelectModule } from 'primeng/select';
 import { MultiSelectModule } from 'primeng/multiselect';
 import { DossierManagementService } from '../../data-access/dossier-management.service';
+import { DossierPublishService } from '../../data-access/dossier-publish.service';
 import { DossierDocumentsTabComponent } from '../dossier-documents/dossier-documents-tab.component';
 import { DossierVersionsTabComponent } from '../dossier-versions-tab/dossier-versions-tab.component';
 import { DossierWorkflowTabComponent } from '../dossier-workflow-tab/dossier-workflow-tab.component';
@@ -19,7 +20,7 @@ import {
   readFormSchemaJson,
   serializeFormDataForSchema,
 } from '../../utils/dossier-form-schema.util';
-import { forkJoin } from 'rxjs';
+import { finalize, forkJoin } from 'rxjs';
 import { DatePickerModule } from 'primeng/datepicker';
 import { AuthService } from '../../../../../../shared/core/src/lib/services/auth.service';
 import { EavFormService } from '../../../../../../shared/core/src/lib/services/eav-form.service';
@@ -40,7 +41,7 @@ import { normalizeDossierKindId } from '../../utils/dossier-permission.util';
       <!-- Header -->
       <div class="edit-header">
         <div style="display: flex; align-items: center; gap: 10px;">
-          <button (click)="onCancel()" class="btn-back btn-small" title="Quay lại">
+          <button *ngIf="showHeaderBackButton" (click)="onCancel()" class="btn-back btn-small" title="Quay lại">
             <i class="pi pi-arrow-left"></i>
           </button>
           <h2 class="edit-title">{{ isEditMode() ? 'Cập nhật Thông tin Hồ sơ' : 'Tạo Hồ sơ mới' }}</h2>
@@ -125,6 +126,24 @@ import { normalizeDossierKindId } from '../../utils/dossier-permission.util';
               filterBy="name,code"
               [showClear]="false"
               placeholder="-- Chọn nhóm hồ sơ --"
+              appendTo="body"
+              styleClass="w-full"
+              [style]="{'width':'100%'}">
+            </p-select>
+          </div>
+
+          <div class="form-group" style="flex: 1 1 240px; min-width: 220px;">
+            <label class="form-label">Loại lưới điện</label>
+            <p-select
+              [options]="gridTypes()"
+              [(ngModel)]="dossier.gridTypeId"
+              (ngModelChange)="onGridTypeChange($event)"
+              optionLabel="name"
+              optionValue="id"
+              [filter]="true"
+              filterBy="name,code"
+              [showClear]="true"
+              placeholder="-- Chọn loại lưới điện --"
               appendTo="body"
               styleClass="w-full"
               [style]="{'width':'100%'}">
@@ -689,6 +708,9 @@ import { normalizeDossierKindId } from '../../utils/dossier-permission.util';
   `]
 })
 export class DossierFormComponent implements OnInit {
+
+  @Input() usePublishApi = false;
+  @Input() showHeaderBackButton = true;
   @Input() dossierId: string | null = null;
   @Input() set kindId(value: number | undefined) {
     const id = normalizeDossierKindId(value, this.kindIdSignal());
@@ -700,6 +722,7 @@ export class DossierFormComponent implements OnInit {
   @Output() saved = new EventEmitter<string>();
 
   private service = inject(DossierManagementService);
+  private publishService = inject(DossierPublishService);
   private messageService = inject(MessageService);
   private authService = inject(AuthService);
   private eavFormService = inject(EavFormService);
@@ -1030,7 +1053,9 @@ export class DossierFormComponent implements OnInit {
   loadDossierDetail(id: string) {
     this.loading.set(true);
     forkJoin({
-      detail: this.service.getDossierById(id),
+      detail: this.usePublishApi
+        ? this.publishService.getDetail(id)
+        : this.service.getDossierById(id),
       types: this.service.getDossierTypeLookup(),
     }).subscribe({
       next: ({ detail: res, types }) => {
@@ -1572,19 +1597,45 @@ export class DossierFormComponent implements OnInit {
 
     const req$ = this.isEditMode()
       ? this.service.updateDossier(this.dossier.id, dto)
-      : this.service.createDossier(dto);
+      : this.usePublishApi
+        ? this.publishService.create(dto)
+        : this.service.createDossier(dto);
 
-    req$.subscribe({
+    req$.pipe(finalize(() => this.isSaving.set(false))).subscribe({
       next: (res: any) => {
         this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã lưu thông tin hồ sơ' });
-        this.saved.emit(this.isEditMode() ? this.dossier.id : (res.id || res));
-        this.isSaving.set(false);
+        const savedId = this.isEditMode()
+          ? this.dossier.id
+          : this.getSavedDossierId(res);
+
+        if (savedId) {
+          this.saved.emit(savedId);
+          return;
+        }
+
+        // Một số API POST chỉ trả về thông báo thành công. Khi không có ID,
+        // trở về danh sách để tránh điều hướng tới URL không hợp lệ.
+        this.cancel.emit();
       },
-      error: (err: any) => {
-        this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: err.error?.message || 'Không thể lưu hồ sơ' });
-        this.isSaving.set(false);
+      error: () => {
+        // Lỗi HTTP đã được hiển thị thống nhất bởi httpErrorInterceptor.
       }
     });
+  }
+
+  private getSavedDossierId(response: unknown): string | null {
+    if (typeof response === 'string' || typeof response === 'number') {
+      return String(response);
+    }
+
+    if (!response || typeof response !== 'object') return null;
+
+    const result = response as Record<string, any>;
+    const payload = result['data'] ?? result['Data'] ?? result['result'] ?? result['Result'] ?? result;
+    if (!payload || typeof payload !== 'object') return null;
+
+    const id = payload['id'] ?? payload['Id'] ?? payload['dossierId'] ?? payload['DossierId'];
+    return id != null && String(id).trim() ? String(id) : null;
   }
 
   onCancel() {
