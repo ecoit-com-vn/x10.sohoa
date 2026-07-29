@@ -73,6 +73,11 @@ export class SubstationSearchComponent implements OnInit {
   attachmentDossierDocuments = signal<Array<{ dossier: any; document: any }>>([]);
   loadingAttachmentDocuments = signal<boolean>(false);
   expandedAttachmentFolders = signal<Set<string>>(new Set<string>());
+  selectedAttachmentFolderId = signal<string | null>(null);
+  attachmentStationFolderExpanded = signal<boolean>(false);
+  attachmentDocumentKeyword = signal<string>('');
+  attachmentSelectedEquipmentId = signal<string>('');
+  attachmentEquipmentOptions = signal<any[]>([]);
   showAttachmentDocumentPreview = signal<boolean>(false);
   attachmentPreviewTarget = signal<{ dossierId: string; document: any } | null>(null);
   attachmentPreviewUrl = signal<string | null>(null);
@@ -83,6 +88,10 @@ export class SubstationSearchComponent implements OnInit {
   expandedTechnicalFolders = signal<Set<string>>(new Set<string>());
   technicalDocumentsByDossier = signal<Record<string, any[]>>({});
   loadingTechnicalFolders = signal<Set<string>>(new Set<string>());
+  selectedTechnicalFolderId = signal<string | null>(null);
+  technicalStationFolderExpanded = signal<boolean>(false);
+  technicalDocumentKeyword = signal<string>('');
+  technicalSelectedDocumentTypeId = signal<string>('');
   attachmentDocumentFolders = computed(() => {
     const keyword = this.attachmentFolderSearchKeyword().trim().toLocaleLowerCase();
     const groups = new Map<string, { id: string; name: string; documents: Array<{ dossier: any; document: any }> }>();
@@ -104,6 +113,20 @@ export class SubstationSearchComponent implements OnInit {
     return url ? this.sanitizer.bypassSecurityTrustResourceUrl(url) : null;
   });
 
+  selectedAttachmentFolder = computed(() =>
+    this.attachmentDocumentFolders().find(folder => folder.id === this.selectedAttachmentFolderId()) ?? null
+  );
+
+  selectedAttachmentDocuments = computed(() => {
+    const keyword = this.attachmentDocumentKeyword().trim().toLocaleLowerCase();
+    const equipmentId = this.attachmentSelectedEquipmentId();
+    return (this.selectedAttachmentFolder()?.documents ?? []).filter(item => {
+      const name = (item.document.name || item.document.fileName || '').toLocaleLowerCase();
+      const itemEquipmentId = String(item.document.equipmentId || item.dossier.equipmentId || '');
+      return (!keyword || name.includes(keyword)) && (!equipmentId || itemEquipmentId === equipmentId);
+    });
+  });
+
   technicalDossierFolders = computed(() => {
     const keyword = this.technicalFolderSearchKeyword().trim().toLocaleLowerCase();
     const groups = new Map<string, { id: string; name: string; dossiers: any[] }>();
@@ -118,6 +141,30 @@ export class SubstationSearchComponent implements OnInit {
     return Array.from(groups.values())
       .filter(folder => !keyword || folder.name.toLocaleLowerCase().includes(keyword))
       .sort((a, b) => a.name.localeCompare(b.name, 'vi'));
+  });
+
+  selectedTechnicalFolder = computed(() =>
+    this.technicalDossierFolders().find(folder => folder.id === this.selectedTechnicalFolderId()) ?? null
+  );
+
+  selectedTechnicalDocuments = computed(() => {
+    const keyword = this.technicalDocumentKeyword().trim().toLocaleLowerCase();
+    const documentTypeId = this.technicalSelectedDocumentTypeId();
+    return this.getTechnicalFolderDocuments(this.selectedTechnicalFolder() ?? { dossiers: [] }).filter(item => {
+      const name = (item.document.name || item.document.fileName || '').toLocaleLowerCase();
+      return (!keyword || name.includes(keyword))
+        && (!documentTypeId || String(item.document.documentTypeId || '') === documentTypeId);
+    });
+  });
+
+  technicalDocumentTypeOptions = computed(() => {
+    const types = new Map<string, { id: string; name: string }>();
+    this.attachmentDossierDocuments().forEach(item => {
+      if (item.document.documentTypeId && item.document.documentTypeName) {
+        types.set(String(item.document.documentTypeId), { id: String(item.document.documentTypeId), name: item.document.documentTypeName });
+      }
+    });
+    return Array.from(types.values()).sort((a, b) => a.name.localeCompare(b.name, 'vi'));
   });
 
   // Danh sách thiết bị trong tab chi tiết
@@ -489,6 +536,11 @@ export class SubstationSearchComponent implements OnInit {
 
     this.attachmentDossierDocuments.set([]);
     this.expandedAttachmentFolders.set(new Set<string>());
+    this.selectedAttachmentFolderId.set(null);
+    this.attachmentStationFolderExpanded.set(false);
+    this.attachmentDocumentKeyword.set('');
+    this.attachmentSelectedEquipmentId.set('');
+    this.loadAttachmentEquipmentOptions();
     this.loadingAttachmentDocuments.set(true);
 
     this.dossierService.getCatalogDossiers({
@@ -531,6 +583,27 @@ export class SubstationSearchComponent implements OnInit {
 
   isAttachmentFolderExpanded(folderId: string): boolean {
     return this.expandedAttachmentFolders().has(folderId);
+  }
+
+  selectAttachmentFolder(folderId: string) {
+    this.selectedAttachmentFolderId.set(folderId);
+    this.attachmentStationFolderExpanded.set(true);
+  }
+
+  toggleAttachmentStationFolder() {
+    this.attachmentStationFolderExpanded.update(expanded => !expanded);
+  }
+
+  private loadAttachmentEquipmentOptions() {
+    const item = this.currentItem();
+    if (!item?.id) return;
+    this.equipmentService.getEquipments(1, 1000, undefined, undefined, undefined, String(item.id)).pipe(
+      catchError(() => of({ items: [] }))
+    ).subscribe(res => this.attachmentEquipmentOptions.set(res?.items || []));
+  }
+
+  getAttachmentEquipmentName(item: { dossier: any; document: any }): string {
+    return item.document.equipmentName || item.dossier.equipmentName || '-';
   }
 
   downloadAttachmentDocument(dossierId: string | undefined, document: any) {
@@ -597,7 +670,14 @@ export class SubstationSearchComponent implements OnInit {
       page: 1,
       pageSize: 500
     }).pipe(finalize(() => this.loadingTechnicalDossiers.set(false))).subscribe({
-      next: res => this.technicalDossiers.set(res?.items || []),
+      next: res => {
+        this.technicalDossiers.set(res?.items || []);
+        this.selectedTechnicalFolderId.set(null);
+        this.technicalStationFolderExpanded.set(false);
+        this.technicalDocumentKeyword.set('');
+        this.technicalSelectedDocumentTypeId.set('');
+        this.loadAttachmentDocuments();
+      },
       error: () => {
         this.technicalDossiers.set([]);
         this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể tải hồ sơ kỹ thuật của trạm biến áp.' });
@@ -640,6 +720,18 @@ export class SubstationSearchComponent implements OnInit {
         return next;
       });
     });
+  }
+
+  selectTechnicalFolder(folder: { id: string; dossiers: any[] }) {
+    this.selectedTechnicalFolderId.set(folder.id);
+    this.technicalStationFolderExpanded.set(true);
+    if (!this.isTechnicalFolderExpanded(folder.id)) {
+      this.toggleTechnicalFolder(folder);
+    }
+  }
+
+  toggleTechnicalStationFolder() {
+    this.technicalStationFolderExpanded.update(expanded => !expanded);
   }
 
   isTechnicalFolderExpanded(folderId: string): boolean {

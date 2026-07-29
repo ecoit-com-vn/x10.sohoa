@@ -199,10 +199,16 @@ function tabLabel(tab: PublishTab): string {
       background: #dbeafe;
       color: #1d4ed8;
     }
+    .toolbar-right {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+    }
   `]
 })
 export class DossierPublishComponent implements OnInit {
   @Output() viewDetail = new EventEmitter<string>();
+  @Output() edit = new EventEmitter<string>();
 
   tabs: PublishTab[] = ['pending-publish', 'published', 'unpublished'];
   tabLabel = tabLabel;
@@ -387,6 +393,12 @@ export class DossierPublishComponent implements OnInit {
         title: 'Xem chi tiết',
         icon: 'pi pi-eye color-teal',
         command: () => this.viewDetail.emit(item.id),
+      },
+      {
+        label: 'Sửa thông tin',
+        title: 'Sửa thông tin',
+        icon: 'pi pi-pencil color-blue',
+        command: () => this.edit.emit(item.id),
       },
     ];
 

@@ -30,11 +30,20 @@ import { DossierMenuScope } from '../utils/dossier-status.util';
   template: `
 
     <div class="wf-page">
-      <wf-breadcrumb
-        [leafLabel]="listTitle()"
-        [suffix]="currentView() === 'list' ? null : breadcrumbCurrent()"
-        (listClick)="onBackToList()"
-      />
+      <div class="dossier-page-header">
+        <wf-breadcrumb
+          [leafLabel]="listTitle()"
+          [suffix]="currentView() === 'list' ? null : breadcrumbCurrent()"
+          (listClick)="onBackToList()"
+        />
+        <button
+          *ngIf="currentView() === 'list' && menuScope() === 'publisher'"
+          type="button"
+          class="btn-green"
+          (click)="onCreate()">
+          <i class="pi pi-plus"></i> Thêm mới
+        </button>
+      </div>
 
       <app-dossier-list
         *ngIf="routeReady() && currentView() === 'list' && menuScope() !== 'publisher'"
@@ -48,6 +57,7 @@ import { DossierMenuScope } from '../utils/dossier-status.util';
       <app-dossier-publish
         *ngIf="currentView() === 'list' && menuScope() === 'publisher'"
         (viewDetail)="onViewDetail($event)"
+        (edit)="onEdit($event)"
       ></app-dossier-publish>
 
 
@@ -56,6 +66,7 @@ import { DossierMenuScope } from '../utils/dossier-status.util';
         *ngIf="currentView() === 'form'"
         [dossierId]="selectedDossierId()"
         [kindId]="kindId()"
+        [usePublishApi]="menuScope() === 'publisher'"
         (cancel)="onBackToList()"
         (saved)="onSaved($event)"
       ></app-dossier-form>
@@ -74,7 +85,14 @@ import { DossierMenuScope } from '../utils/dossier-status.util';
 
   `,
 
-  styles: [],
+  styles: [`
+    .dossier-page-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+  `],
 
 })
 
@@ -183,7 +201,12 @@ export class DossierManagementComponent implements OnInit {
       return;
     }
 
-    if (routePath === `${root}/new` || url.endsWith(`/${root}/new`)) {
+    if (
+      routePath === `${root}/new` ||
+      routePath === `${root}/add` ||
+      url.endsWith(`/${root}/new`) ||
+      url.endsWith(`/${root}/add`)
+    ) {
       this.selectedDossierId.set(null);
       this.currentView.set('form');
       return;
@@ -236,7 +259,7 @@ export class DossierManagementComponent implements OnInit {
 
   onEdit(id: string): void {
 
-    if (this.menuScope() !== 'creator') return;
+    if (this.menuScope() !== 'creator' && this.menuScope() !== 'publisher') return;
 
     void this.router.navigate(['/dossier-management', ...this.routeSegments(), id, 'edit']);
 
@@ -246,9 +269,14 @@ export class DossierManagementComponent implements OnInit {
 
   onCreate(): void {
 
-    if (this.menuScope() !== 'creator') return;
+    const isPublisher = this.menuScope() === 'publisher';
+    if (this.menuScope() !== 'creator' && !isPublisher) return;
 
-    void this.router.navigate(['/dossier-management', ...this.routeSegments(), 'new']);
+    void this.router.navigate([
+      '/dossier-management',
+      ...this.routeSegments(),
+      isPublisher ? 'add' : 'new'
+    ]);
 
   }
 

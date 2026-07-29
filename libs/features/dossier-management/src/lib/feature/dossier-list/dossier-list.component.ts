@@ -103,20 +103,44 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
 
           />
 
-          <select class="wf-select" [(ngModel)]="filterGridTypeId" (change)="onSearch()">
+          <select class="wf-select" [ngModel]="filterDossierTypeId()" (ngModelChange)="onDossierTypeFilterChange($event)">
 
-            <option [ngValue]="null">-- Tất cả loại lưới điện --</option>
+            <option [ngValue]="null">-- Tất cả loại hồ sơ --</option>
 
-            <option *ngFor="let item of gridTypes()" [value]="item.id">{{ item.name }}</option>
+            <option *ngFor="let item of dossierTypes()" [value]="item.id">{{ item.name }}</option>
 
           </select>
 
-          <select class="wf-select" [(ngModel)]="filterInfrastructureId" (change)="onSearch()">
+          <div class="searchable-select">
+            <button type="button" class="wf-select searchable-select-trigger" (click)="toggleInfrastructureDropdown()">
+              <span>{{ selectedInfrastructureLabel() }}</span>
+              <i class="pi pi-chevron-down"></i>
+            </button>
 
-            <option [ngValue]="null">-- Tất cả trạm/đường dây --</option>
+            <div class="searchable-select-panel" *ngIf="isInfrastructureDropdownOpen()">
+              <input
+                type="text"
+                class="searchable-select-input"
+                placeholder="Tìm trên trạm/đường dây..."
+                [ngModel]="infrastructureSearchKeyword()"
+                (ngModelChange)="infrastructureSearchKeyword.set($event)" />
+              <button type="button" class="searchable-select-option" (click)="selectInfrastructure(null)">
+                -- Tất cả trạm/đường dây --
+              </button>
+              <button
+                type="button"
+                class="searchable-select-option"
+                *ngFor="let item of filteredInfrastructures()"
+                (click)="selectInfrastructure(item.id)">
+                {{ item.name }}
+              </button>
+              <div class="searchable-select-empty" *ngIf="filteredInfrastructures().length === 0">Không có dữ liệu</div>
+            </div>
+          </div>
 
-            <option *ngFor="let item of infrastructures()" [value]="item.id">{{ item.name }}</option>
-
+          <select class="wf-select" [ngModel]="filterEquipmentId()" (ngModelChange)="onEquipmentFilterChange($event)" [disabled]="!filterInfrastructureId()">
+            <option [ngValue]="null">-- Tất cả thiết bị --</option>
+            <option *ngFor="let item of equipments()" [value]="item.id">{{ item.name }}</option>
           </select>
 
           <button (click)="onSearch()" class="btn-tim">
@@ -461,11 +485,16 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
         </div>
       </div>
       <ng-template #footer>
-        <button class="btn-cancel btn-small" (click)="closeQuickActionDialog()" [disabled]="quickActionSubmitting()">Hủy</button>
+        <button class="btn-small" style="background-color: #fb923c; border-color: #fb923c; color: #ffffff;"
+                (click)="closeQuickActionDialog()" [disabled]="quickActionSubmitting()">
+          <i class="pi pi-times"></i> Hủy
+        </button>
         <button class="btn-small"
-                [class.btn-cancel]="isRejectLabel(pendingQuickActionMeta()?.label)"
-                [class.btn-save]="isApproveLabel(pendingQuickActionMeta()?.label)"
+                [class.btn-save]="isRejectLabel(pendingQuickActionMeta()?.label) || isApproveLabel(pendingQuickActionMeta()?.label)"
                 [class.btn-green]="!isRejectLabel(pendingQuickActionMeta()?.label) && !isApproveLabel(pendingQuickActionMeta()?.label)"
+                [style.background-color]="isRejectLabel(pendingQuickActionMeta()?.label) ? '#4790e9' : null"
+                [style.border-color]="isRejectLabel(pendingQuickActionMeta()?.label) ? '#4790e9' : null"
+                [style.color]="isRejectLabel(pendingQuickActionMeta()?.label) ? '#ffffff' : null"
                 (click)="confirmQuickAction()"
                 [disabled]="quickActionSubmitting() || quickActionLoading() || quickActionUsersLoading()">
           <i class="pi pi-spin pi-spinner" *ngIf="quickActionSubmitting()"></i>
@@ -581,6 +610,65 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
     .handler-cell {
       max-width: 160px;
     }
+    .searchable-select {
+      position: relative;
+      min-width: 220px;
+    }
+    .searchable-select-trigger {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      text-align: left;
+    }
+    .searchable-select-trigger span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .searchable-select-panel {
+      position: absolute;
+      z-index: 20;
+      top: calc(100% + 4px);
+      left: 0;
+      width: 100%;
+      max-height: 280px;
+      overflow-y: auto;
+      padding: 8px;
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      box-shadow: 0 8px 16px rgba(15, 23, 42, 0.15);
+    }
+    .searchable-select-input {
+      width: 100%;
+      box-sizing: border-box;
+      margin-bottom: 6px;
+      padding: 8px 10px;
+      border: 1px solid #cbd5e1;
+      border-radius: 4px;
+      outline: none;
+    }
+    .searchable-select-option {
+      display: block;
+      width: 100%;
+      padding: 8px 10px;
+      border: 0;
+      border-radius: 4px;
+      background: transparent;
+      color: #334155;
+      text-align: left;
+      cursor: pointer;
+    }
+    .searchable-select-option:hover {
+      background: #eff6ff;
+      color: #1d4ed8;
+    }
+    .searchable-select-empty {
+      padding: 8px 10px;
+      color: #64748b;
+      font-size: 0.9rem;
+    }
     ::ng-deep .quick-action-approve .p-menuitem-text,
     ::ng-deep .quick-action-approve .p-menuitem-icon,
     ::ng-deep .quick-action-approve span,
@@ -667,15 +755,31 @@ export class DossierListComponent implements OnInit {
 
   searchKeyword = signal<string>('');
 
-  filterGridTypeId = signal<number | null>(null);
-
   filterInfrastructureId = signal<string | null>(null);
 
+  filterDossierTypeId = signal<string | null>(null);
+
+  filterEquipmentId = signal<string | null>(null);
+
+  infrastructureSearchKeyword = signal<string>('');
+
+  isInfrastructureDropdownOpen = signal<boolean>(false);
 
 
-  gridTypes = signal<any[]>([]);
 
   infrastructures = signal<any[]>([]);
+
+  dossierTypes = signal<any[]>([]);
+
+  equipments = signal<any[]>([]);
+
+  filteredInfrastructures = computed(() => {
+    const keyword = this.infrastructureSearchKeyword().trim().toLocaleLowerCase();
+    if (!keyword) return this.infrastructures();
+    return this.infrastructures().filter((item) =>
+      String(item.name ?? '').toLocaleLowerCase().includes(keyword)
+    );
+  });
 
   bhsColumns = signal<BhsCatalogColumn[]>([]);
 
@@ -814,6 +918,47 @@ export class DossierListComponent implements OnInit {
 
   }
 
+  toggleInfrastructureDropdown() {
+    this.isInfrastructureDropdownOpen.update((open) => !open);
+  }
+
+  onDossierTypeFilterChange(dossierTypeId: string | null) {
+    this.filterDossierTypeId.set(dossierTypeId || null);
+    this.onSearch();
+  }
+
+  onEquipmentFilterChange(equipmentId: string | null) {
+    this.filterEquipmentId.set(equipmentId || null);
+    this.onSearch();
+  }
+
+  selectInfrastructure(infrastructureId: string | null) {
+    this.filterInfrastructureId.set(infrastructureId);
+    this.filterEquipmentId.set(null);
+    this.equipments.set([]);
+    this.infrastructureSearchKeyword.set('');
+    this.isInfrastructureDropdownOpen.set(false);
+
+    if (infrastructureId) {
+      this.service.getEquipmentLookup({ infrastructureId, pageSize: 1000 }).subscribe({
+        next: (res) => this.equipments.set(Array.isArray(res) ? res : (res?.items ?? [])),
+        error: () => {
+          this.equipments.set([]);
+          console.error('Failed to load equipments');
+        },
+      });
+    }
+
+    this.onSearch();
+  }
+
+  selectedInfrastructureLabel(): string {
+    const infrastructureId = this.filterInfrastructureId();
+    if (!infrastructureId) return '-- Tất cả trạm/đường dây --';
+    return this.infrastructures().find((item) => String(item.id) === String(infrastructureId))?.name
+      ?? '-- Tất cả trạm/đường dây --';
+  }
+
 
 
   refreshList() {
@@ -874,19 +1019,40 @@ export class DossierListComponent implements OnInit {
 
 
   loadTabCounts() {
-
-    this.service.getDossierTabCounts({
+    const tabs = this.visibleTabs();
+    const baseFilter = {
       menuScope: this.menuScopeSignal(),
       kindId: this.kindIdSignal(),
       keyword: this.searchKeyword(),
-      gridTypeId: this.filterGridTypeId() !== null ? this.filterGridTypeId()! : undefined,
       infrastructureId: this.filterInfrastructureId() || undefined,
-    }).subscribe({
+      dossierTypeId: this.filterDossierTypeId() || undefined,
+      equipmentId: this.filterEquipmentId() || undefined,
+      page: 1,
+      pageSize: 1,
+    };
 
-      next: (counts) => this.tabCounts.set(normalizeTabCounts(counts)),
+    forkJoin(tabs.map((tab) => this.service.getDossiers({ ...baseFilter, tab }))).subscribe({
+      next: (responses) => {
+        const counts: DossierTabCounts = {
+          draft: 0,
+          pendingAction: 0,
+          inProgress: 0,
+          completed: 0,
+          returned: 0,
+        };
 
-      error: () => console.error('Failed to load dossier tab counts')
+        tabs.forEach((tab, index) => {
+          const total = Number(responses[index]?.totalCount ?? responses[index]?.TotalCount ?? 0);
+          if (tab === 'draft') counts.draft = total;
+          if (tab === 'pending-action') counts.pendingAction = total;
+          if (tab === 'in-progress') counts.inProgress = total;
+          if (tab === 'completed') counts.completed = total;
+          if (tab === 'returned') counts.returned = total;
+        });
 
+        this.tabCounts.set(counts);
+      },
+      error: () => console.error('Failed to load dossier tab counts'),
     });
 
   }
@@ -895,19 +1061,19 @@ export class DossierListComponent implements OnInit {
 
   loadLookups() {
 
-    this.service.getGridTypeLookup().subscribe({
-
-      next: (res) => this.gridTypes.set(res),
-
-      error: () => console.error('Failed to load grid types')
-
-    });
-
     this.service.getInfrastructureLookup().subscribe({
 
       next: (res) => this.infrastructures.set(res),
 
       error: () => console.error('Failed to load infrastructures')
+
+    });
+
+    this.service.getDossierTypeLookup().subscribe({
+
+      next: (res) => this.dossierTypes.set(res),
+
+      error: () => console.error('Failed to load dossier types')
 
     });
 
@@ -933,8 +1099,9 @@ export class DossierListComponent implements OnInit {
       kindId: this.kindIdSignal(),
       tab: this.activeTab(),
       keyword: this.searchKeyword(),
-      gridTypeId: this.filterGridTypeId() !== null ? this.filterGridTypeId()! : undefined,
       infrastructureId: this.filterInfrastructureId() || undefined,
+      dossierTypeId: this.filterDossierTypeId() || undefined,
+      equipmentId: this.filterEquipmentId() || undefined,
       page: this.currentPage(),
       pageSize: this.pageSize()
     };

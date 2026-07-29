@@ -108,6 +108,7 @@ export class DossierManagementService {
     unitId?: number;
     statusId?: number;
     dossierTypeId?: string;
+    equipmentId?: string;
     page: number;
     pageSize: number;
   }): Observable<any> {
@@ -126,6 +127,7 @@ export class DossierManagementService {
     if (filter.unitId != null) params = params.set('unitId', filter.unitId.toString());
     if (filter.statusId != null) params = params.set('statusId', filter.statusId.toString());
     if (filter.dossierTypeId) params = params.set('dossierTypeId', filter.dossierTypeId);
+    if (filter.equipmentId) params = params.set('equipmentId', filter.equipmentId);
 
     const isDraftCreator = filter.tab === 'draft' && filter.menuScope === 'creator';
     const url = isDraftCreator ? this.base : this.searchBase;
@@ -169,6 +171,8 @@ export class DossierManagementService {
     infrastructureId?: string;
     gridTypeId?: number;
     unitId?: number;
+    dossierTypeId?: string;
+    equipmentId?: string;
   }): Observable<DossierTabCounts> {
     let params = new HttpParams().set('menuScope', filter.menuScope);
     const effectiveKindId = filter.kindId ?? this.kindId;
@@ -177,6 +181,8 @@ export class DossierManagementService {
     if (filter.infrastructureId) params = params.set('infrastructureId', filter.infrastructureId);
     if (filter.gridTypeId != null) params = params.set('gridTypeId', filter.gridTypeId.toString());
     if (filter.unitId != null) params = params.set('unitId', filter.unitId.toString());
+    if (filter.dossierTypeId) params = params.set('dossierTypeId', filter.dossierTypeId);
+    if (filter.equipmentId) params = params.set('equipmentId', filter.equipmentId);
 
     return this.http.get<DossierTabCounts>(`${this.searchBase}/tab-counts`, { params });
   }

@@ -45,6 +45,10 @@ export class DossierPublishService {
     return this.http.get<unknown>(`${this.mutationBase}/${id}`);
   }
 
+  create(dto: unknown): Observable<unknown> {
+    return this.http.post<unknown>(this.mutationBase, dto);
+  }
+
   getTabCounts(filter: {
     keyword?: string;
     infrastructureId?: string;
