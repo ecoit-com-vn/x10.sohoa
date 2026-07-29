@@ -1,9 +1,12 @@
 import { Component, OnInit, signal, computed, inject, effect } from '@angular/core';
+import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ToastModule } from 'primeng/toast';
 import { SelectModule } from 'primeng/select';
 import { DialogModule } from 'primeng/dialog';
+import { Menu, MenuModule } from 'primeng/menu';
+import { MenuItem } from 'primeng/api';
 import { MessageService } from 'primeng/api';
 import { ActivatedRoute } from '@angular/router';
 import { AuthService } from '@sohoa.frontend/shared/core';
@@ -12,7 +15,7 @@ import { CatalogService } from '../../data-access/catalog.service';
 @Component({
   selector: 'app-catalog',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule, SelectModule, DialogModule],
+  imports: [CommonModule, FormsModule, ToastModule, SelectModule, DialogModule, MenuModule, WfBreadcrumbComponent],
   providers: [MessageService],
   templateUrl: './catalog.component.html',
   styleUrl: './catalog.component.css'
@@ -22,6 +25,13 @@ export class CatalogComponent implements OnInit {
   private authService = inject(AuthService);
   private messageService = inject(MessageService);
   private route = inject(ActivatedRoute);
+
+  readonly catalogBreadcrumbItems = this.route.snapshot.data['selectedTypeCode'] === 'PHONG'
+    ? [
+        { label: 'Quản lý danh mục' },
+        { label: 'Danh mục phông' }
+      ]
+    : null;
 
   // Mode state
   isPrivate = signal<boolean>(false);
@@ -34,10 +44,12 @@ export class CatalogComponent implements OnInit {
   selectedTypeCode = signal<string>('');
   selectedTypeName = signal<string>('');
   selectedTypeHasParent = signal<number>(0);
+  actionMenuItems: MenuItem[] = [];
 
   // Catalog Type Form Dialog
   showTypeDialog = signal<boolean>(false);
   isEditingType = signal<boolean>(false);
+  isViewingType = signal<boolean>(false);
   currentTypeItem = signal<any>({});
   typeFormSubmitted = signal<boolean>(false);
   typeServerErrors = signal<any>({});
@@ -51,9 +63,11 @@ export class CatalogComponent implements OnInit {
   // Right Panel - Child Catalogs State
   items = signal<any[]>([]);
   parentsList = signal<any[]>([]);
+  organizationUnits = signal<any[]>([]);
   searchKeyword = signal<string>('');
   catalogSearchCode = signal<string>('');
   searchStatus = signal<string>(''); // '', '1', '0'
+  catalogSearchUnitId = signal<number | null>(null);
   totalCount = signal<number>(0);
 
   // Right Panel Pagination
@@ -61,7 +75,7 @@ export class CatalogComponent implements OnInit {
   pageSize = signal<number>(10);
 
   // Right Panel Catalog Form Dialog
-  currentCatalogView = signal<'list' | 'add' | 'edit'>('list');
+  currentCatalogView = signal<'list' | 'add' | 'edit' | 'view'>('list');
   currentCatalogItem = signal<any>({});
   catalogFormSubmitted = signal<boolean>(false);
   catalogServerErrors = signal<any>({});
@@ -71,6 +85,16 @@ export class CatalogComponent implements OnInit {
   showCatalogDeleteConfirm = signal<boolean>(false);
   catalogDeleteTarget = signal<any>(null);
   catalogDeleting = signal<boolean>(false);
+
+  // Lock/Unlock Confirmation for Catalog Type
+  showTypeLockConfirm = signal<boolean>(false);
+  typeLockTarget = signal<any>(null);
+  typeLockLoading = signal<boolean>(false);
+
+  // Lock/Unlock Confirmation for Catalog Item
+  showCatalogLockConfirm = signal<boolean>(false);
+  catalogLockTarget = signal<any>(null);
+  catalogLockLoading = signal<boolean>(false);
 
   // Catalog Type Form Client Validation
   typeCodeError = computed(() => {
@@ -91,6 +115,10 @@ export class CatalogComponent implements OnInit {
     if (this.catalogFormSubmitted() && !this.currentCatalogItem().name) return 'Tên danh mục là bắt buộc';
     return this.catalogServerErrors().name || this.catalogServerErrors().Name || '';
   });
+  catalogUnitError = computed(() => {
+    if (this.isPhongSelected() && this.catalogFormSubmitted() && !this.currentCatalogItem().unitId) return 'Đơn vị là bắt buộc';
+    return this.catalogServerErrors().unitId || this.catalogServerErrors().UnitId || '';
+  });
 
   // Catalog Type permissions
   canCreateType = computed(() => this.authService.hasPermission(this.isPrivate() ? 'PRIVATE_CATALOG_CREATE' : 'SHARED_CATALOG_CREATE'));
@@ -103,6 +131,7 @@ export class CatalogComponent implements OnInit {
   canEditCatalog = computed(() => this.authService.hasPermission('CATALOG_EDIT'));
   canDeleteCatalog = computed(() => this.authService.hasPermission('CATALOG_DELETE'));
   canManageCatalog = computed(() => this.authService.hasPermission('CATALOG_MANAGE'));
+  isPhongSelected = computed(() => this.selectedTypeCode() === 'PHONG');
 
   // Pagination computed signals
   totalPages = computed(() => {
@@ -126,19 +155,67 @@ export class CatalogComponent implements OnInit {
     const isPriv = this.route.snapshot.data['isPrivate'] ?? false;
     this.isPrivate.set(isPriv);
     this.loadCatalogTypes();
+    this.loadOrganizationUnits();
   }
 
+  openTypeMenu(type: any, event: Event, menu: Menu): void {
+    event.stopPropagation();
+    this.actionMenuItems = [
+      { label: 'Xem chi tiết', title:'Xem chi tiết', icon: 'pi pi-eye color-teal', command: () => this.onViewType(type) },
+      ...(this.canEditType() ? [{ label: 'Chỉnh sửa', title:'Chỉnh sửa', icon: 'pi pi-pencil color-blue', command: () => this.onEditType(type) }] : []),
+      ...(this.canManageType() ? [{ label: type.status === 1 ? 'Khóa' : 'Mở khóa', title: type.status === 1 ? 'Khóa' : 'Mở khóa', icon: type.status === 1 ? 'pi pi-lock color-red' : 'pi pi-lock-open color-teal', command: () => this.onToggleTypeStatusRequest(type) }] : []),
+      ...(this.canDeleteType() ? [{ label: 'Xóa', title:'Xóa', icon: 'pi pi-trash color-red', command: () => this.onDeleteType(type) }] : []),
+    ];
+    menu.toggle(event);
+  }
+
+  openCatalogMenu(item: any, event: Event, menu: Menu): void {
+    event.stopPropagation();
+    this.actionMenuItems = [
+      { label: 'Xem chi tiết', title:'Xem chi tiết', icon: 'pi pi-eye color-teal', command: () => this.onViewCatalog(item) },
+      ...(this.canEditCatalog() ? [{ label: 'Chỉnh sửa', title:'Chỉnh sửa', icon: 'pi pi-pencil color-blue', command: () => this.onEditCatalog(item) }] : []),
+      ...(this.canManageCatalog() ? [{ label: item.status === 1 ? 'Khóa' : 'Mở khóa', title: item.status === 1 ? 'Khóa' : 'Mở khóa', icon: item.status === 1 ? 'pi pi-lock color-red' : 'pi pi-lock-open color-teal', command: () => this.onToggleCatalogStatusRequest(item) }] : []),
+      ...(this.canDeleteCatalog() ? [{ label: 'Xóa', title:'Xóa', icon: 'pi pi-trash color-red', command: () => this.onDeleteCatalog(item) }] : []),
+    ];
+    menu.toggle(event);
+  }
   // ─── LEFT PANEL: CATALOG TYPES ─────────────────────────────
 
   loadCatalogTypes(callback?: () => void) {
     this.catalogService.getSharedCatalogTypes(this.typeSearchKeyword(), undefined, this.isPrivate()).subscribe({
       next: (res: any) => {
-        this.types.set(Array.isArray(res) ? res : []);
+        const list = Array.isArray(res) ? res : [];
+        this.types.set(list);
+        
+        if (list.length > 0) {
+          const currentId = this.selectedTypeId();
+          const stillExists = currentId !== null && list.some(t => t.id === currentId);
+          if (!stillExists) {
+            const selectedTypeCode = this.route.snapshot.data['selectedTypeCode'];
+            const defaultType = selectedTypeCode
+              ? list.find(t => t.code === selectedTypeCode) || list[0]
+              : list[0];
+            this.onSelectType(defaultType);
+          }
+        } else {
+          this.selectedTypeId.set(null);
+          this.selectedTypeCode.set('');
+          this.selectedTypeName.set('');
+          this.selectedTypeHasParent.set(0);
+          this.items.set([]);
+          this.totalCount.set(0);
+        }
         if (callback) callback();
       },
       error: (err) => {
         console.error('Không thể tải danh sách loại danh mục.', err);
         this.types.set([]);
+        this.selectedTypeId.set(null);
+        this.selectedTypeCode.set('');
+        this.selectedTypeName.set('');
+        this.selectedTypeHasParent.set(0);
+        this.items.set([]);
+        this.totalCount.set(0);
         if (callback) callback();
       }
     });
@@ -153,6 +230,10 @@ export class CatalogComponent implements OnInit {
     this.searchKeyword.set('');
     this.catalogSearchCode.set('');
     this.searchStatus.set('');
+    this.catalogSearchUnitId.set(null);
+    if (type.code === 'PHONG') {
+      this.loadOrganizationUnits();
+    }
     this.loadCatalogs();
   }
 
@@ -167,6 +248,16 @@ export class CatalogComponent implements OnInit {
       status: 1
     });
     this.isEditingType.set(false);
+    this.isViewingType.set(false);
+    this.typeFormSubmitted.set(false);
+    this.typeServerErrors.set({});
+    this.showTypeDialog.set(true);
+  }
+
+  onViewType(type: any) {
+    this.currentTypeItem.set({ ...type });
+    this.isEditingType.set(false);
+    this.isViewingType.set(true);
     this.typeFormSubmitted.set(false);
     this.typeServerErrors.set({});
     this.showTypeDialog.set(true);
@@ -176,6 +267,7 @@ export class CatalogComponent implements OnInit {
     if (!this.canEditType()) return;
     this.currentTypeItem.set({ ...type });
     this.isEditingType.set(true);
+    this.isViewingType.set(false);
     this.typeFormSubmitted.set(false);
     this.typeServerErrors.set({});
     this.showTypeDialog.set(true);
@@ -183,6 +275,7 @@ export class CatalogComponent implements OnInit {
 
   onCloseTypeDialog() {
     this.showTypeDialog.set(false);
+    this.isViewingType.set(false);
   }
 
   onTypeFieldChange(field: string) {
@@ -237,6 +330,7 @@ export class CatalogComponent implements OnInit {
             detail: 'Thêm mới loại danh mục thành công!'
           });
           this.showTypeDialog.set(false);
+          this.selectedTypeId.set(null);
           this.loadCatalogTypes();
         },
         error: (err) => {
@@ -272,19 +366,39 @@ export class CatalogComponent implements OnInit {
     });
   }
 
-  onToggleTypeStatus(type: any) {
+  onToggleTypeStatusRequest(type: any) {
     if (!this.canManageType()) return;
+    this.typeLockTarget.set(type);
+    this.showTypeLockConfirm.set(true);
+  }
+
+  onCancelTypeLock() {
+    this.showTypeLockConfirm.set(false);
+    this.typeLockTarget.set(null);
+  }
+
+  onConfirmTypeLock() {
+    const type = this.typeLockTarget();
+    if (!type) return;
+
+    this.typeLockLoading.set(true);
     const isLocking = type.status === 1;
     this.catalogService.toggleCatalogTypeStatus(type.id, isLocking, this.isPrivate()).subscribe({
       next: (res: any) => {
+        this.typeLockLoading.set(false);
+        this.showTypeLockConfirm.set(false);
+        this.typeLockTarget.set(null);
         this.messageService.add({
           severity: 'success',
-          summary: isLocking ? 'Đã khóa' : 'Đã mở khóa',
+          summary: isLocking ? 'Ngừng hoạt động' : 'Kích hoạt',
           detail: res.message || 'Thay đổi trạng thái loại danh mục thành công!'
         });
         this.loadCatalogTypes();
       },
       error: (err) => {
+        this.typeLockLoading.set(false);
+        this.showTypeLockConfirm.set(false);
+        this.typeLockTarget.set(null);
         const errorMsg = err.error?.message || 'Không thể thay đổi trạng thái loại danh mục.';
         this.messageService.add({
           severity: 'error',
@@ -347,6 +461,12 @@ export class CatalogComponent implements OnInit {
     const typeId = this.selectedTypeId();
     if (!typeId) return;
 
+    if (this.isPhongSelected() && !this.catalogSearchUnitId()) {
+      this.items.set([]);
+      this.totalCount.set(0);
+      return;
+    }
+
     const queryKeyword = this.searchKeyword() || this.catalogSearchCode();
 
     this.catalogService.getItemsByTypeId(
@@ -354,7 +474,8 @@ export class CatalogComponent implements OnInit {
       this.currentPage(), 
       this.pageSize(), 
       queryKeyword, 
-      this.searchStatus()
+      this.searchStatus(),
+      this.isPhongSelected() ? this.catalogSearchUnitId() : null
     ).subscribe({
       next: (res) => {
         const list = res?.items || [];
@@ -382,8 +503,15 @@ export class CatalogComponent implements OnInit {
     this.searchKeyword.set('');
     this.catalogSearchCode.set('');
     this.searchStatus.set('');
+    this.catalogSearchUnitId.set(this.isPhongSelected() ? this.getDefaultPhongUnitId() : null);
     this.currentPage.set(1);
     this.loadCatalogs();
+  }
+
+  onCatalogSearchUnitChange(unitId: number | string | null) {
+    const normalizedUnitId = unitId === null || unitId === '' ? null : Number(unitId);
+    this.catalogSearchUnitId.set(normalizedUnitId);
+    this.onSearchCatalogs();
   }
 
   onAddNewCatalog() {
@@ -395,7 +523,8 @@ export class CatalogComponent implements OnInit {
       parentId: null,
       description: '',
       priority: 1,
-      status: 1
+      status: 1,
+      unitId: this.isPhongSelected() ? this.catalogSearchUnitId() : null
     });
     if (this.selectedTypeHasParent() === 1) {
       this.loadParentsList();
@@ -403,6 +532,16 @@ export class CatalogComponent implements OnInit {
     this.catalogFormSubmitted.set(false);
     this.catalogServerErrors.set({});
     this.currentCatalogView.set('add');
+  }
+
+  onViewCatalog(catalog: any) {
+    this.currentCatalogItem.set({ ...catalog });
+    if (this.selectedTypeHasParent() === 1) {
+      this.loadParentsList(catalog.id);
+    }
+    this.catalogFormSubmitted.set(false);
+    this.catalogServerErrors.set({});
+    this.currentCatalogView.set('view');
   }
 
   onEditCatalog(catalog: any) {
@@ -447,13 +586,16 @@ export class CatalogComponent implements OnInit {
   onSaveCatalog() {
     this.catalogFormSubmitted.set(true);
     this.catalogServerErrors.set({});
-    if (this.catalogCodeError() || this.catalogNameError()) {
+    if (this.catalogCodeError() || this.catalogNameError() || this.catalogUnitError()) {
       return;
     }
 
     const catalogDraft = this.currentCatalogItem();
     if (catalogDraft.priority === undefined || catalogDraft.priority === null) {
       catalogDraft.priority = 1;
+    }
+    if (this.isPhongSelected()) {
+      catalogDraft.unitId = Number(catalogDraft.unitId);
     }
 
     this.catalogSaving.set(true);
@@ -520,19 +662,39 @@ export class CatalogComponent implements OnInit {
     });
   }
 
-  onToggleCatalogStatus(catalog: any) {
+  onToggleCatalogStatusRequest(catalog: any) {
     if (!this.canManageCatalog()) return;
+    this.catalogLockTarget.set(catalog);
+    this.showCatalogLockConfirm.set(true);
+  }
+
+  onCancelCatalogLock() {
+    this.showCatalogLockConfirm.set(false);
+    this.catalogLockTarget.set(null);
+  }
+
+  onConfirmCatalogLock() {
+    const catalog = this.catalogLockTarget();
+    if (!catalog) return;
+
+    this.catalogLockLoading.set(true);
     const isLocking = catalog.status === 1;
     this.catalogService.toggleStatus(catalog.id, isLocking).subscribe({
       next: (res: any) => {
+        this.catalogLockLoading.set(false);
+        this.showCatalogLockConfirm.set(false);
+        this.catalogLockTarget.set(null);
         this.messageService.add({
           severity: 'success',
-          summary: isLocking ? 'Đã khóa' : 'Đã mở khóa',
+          summary: isLocking ? 'Ngừng hoạt động' : 'Kích hoạt',
           detail: res.message || 'Thay đổi trạng thái danh mục thành công!'
         });
         this.loadCatalogs();
       },
       error: (err) => {
+        this.catalogLockLoading.set(false);
+        this.showCatalogLockConfirm.set(false);
+        this.catalogLockTarget.set(null);
         const errorMsg = err.error?.message || 'Không thể thay đổi trạng thái danh mục.';
         this.messageService.add({
           severity: 'error',
@@ -607,5 +769,41 @@ export class CatalogComponent implements OnInit {
   onPageSizeChange(event: any) {
     this.pageSize.set(Number(event.target.value));
     this.currentPage.set(1);
+  }
+
+  loadOrganizationUnits() {
+    this.catalogService.getOrganizationUnits().subscribe({
+      next: (units) => {
+        const allUnits = Array.isArray(units) ? units : [];
+        const isAdmin = this.authService.getUserRoles().some(role => role.toUpperCase() === 'ADMIN');
+        const currentUnitId = this.authService.getUserUnitId();
+        const selectableUnits = isAdmin || !currentUnitId
+          ? allUnits
+          : allUnits.filter(unit => Number(unit.id) === Number(currentUnitId));
+
+        this.organizationUnits.set(selectableUnits);
+        if (this.isPhongSelected() && !this.catalogSearchUnitId()) {
+          const defaultUnitId = this.getDefaultPhongUnitId();
+          this.catalogSearchUnitId.set(defaultUnitId);
+          if (defaultUnitId) this.loadCatalogs();
+        }
+      },
+      error: () => this.organizationUnits.set([])
+    });
+  }
+
+  private getDefaultPhongUnitId(): number | null {
+    const currentUnitId = this.authService.getUserUnitId();
+    if (currentUnitId && this.organizationUnits().some(unit => Number(unit.id) === currentUnitId)) {
+      return currentUnitId;
+    }
+    const firstUnit = this.organizationUnits()[0];
+    return firstUnit ? Number(firstUnit.id) : null;
+  }
+
+  getUnitLabel(unitId: number | string | null | undefined): string {
+    if (!unitId) return '';
+    const unit = this.organizationUnits().find(x => Number(x.id) === Number(unitId));
+    return unit?.name || '';
   }
 }

@@ -1,0 +1,138 @@
+<p-toast></p-toast>
+
+<div class="wf-page dossier-report-page operation-year-report">
+  <div class="breadcrumb-container">
+    <wf-breadcrumb [suffix]="'Báo cáo thống kê hồ sơ theo năm vận hành'"></wf-breadcrumb>
+  </div>
+
+  <div class="filter-card">
+    <div class="filter-row">
+      <div class="filter-col">
+        <label class="filter-label">Đơn vị</label>
+        <eco-input-tree-select
+          [showLabel]="false"
+          placeholder="-- Chọn đơn vị --"
+          [nodes]="primengOrgUnitTree()"
+          [ngModel]="selectedUnitId()"
+          (ngModelChange)="selectedUnitId.set($event)"
+          [showClear]="true"
+          [enableSearch]="true"
+          [border]="true"
+        ></eco-input-tree-select>
+      </div>
+
+      <div class="filter-col">
+        <label class="filter-label">Đối tượng</label>
+        <p-select
+          [options]="objectTypes()"
+          [ngModel]="selectedObjectType()"
+          (ngModelChange)="selectedObjectType.set($event)"
+          optionLabel="name"
+          optionValue="id"
+          placeholder="Chọn"
+          styleClass="w-full wf-select-custom"
+        ></p-select>
+      </div>
+
+      <div class="filter-col">
+        <label class="filter-label">Năm báo cáo</label>
+        <p-select
+          [options]="yearOptions()"
+          [ngModel]="selectedYear()"
+          (ngModelChange)="selectedYear.set($event)"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="Chọn"
+          styleClass="w-full wf-select-custom"
+        ></p-select>
+      </div>
+
+      <div class="filter-actions">
+        <button type="button" class="btn-tim" (click)="onFilter()" [disabled]="loading()">
+          <i class="pi pi-search"></i> Tìm kiếm
+        </button>
+        <button
+          *ngIf="activeTab() === 'list'"
+          type="button"
+          class="btn-green"
+          (click)="exportExcel()"
+          [disabled]="exporting() || loading()"
+        >
+          <i class="pi pi-file-excel"></i> Xuất Excel
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="main-tabs-bar">
+    <button
+      type="button"
+      class="tab-item"
+      [class.active]="activeTab() === 'stats'"
+      (click)="switchTab('stats')"
+    >
+      <i class="pi pi-chart-bar"></i> Báo cáo thống kê
+    </button>
+
+    <button
+      type="button"
+      class="tab-item"
+      [class.active]="activeTab() === 'list'"
+      (click)="switchTab('list')"
+    >
+      <i class="pi pi-file"></i> Danh sách hồ sơ
+    </button>
+  </div>
+
+  <ng-container *ngIf="activeTab() === 'stats'">
+    <div *ngIf="loading()" class="loading-box">
+      <i class="pi pi-spin pi-spinner"></i>
+      <p>Đang tải dữ liệu báo cáo...</p>
+    </div>
+
+    <div *ngIf="!loading()" class="stats-section">
+      <div class="kpi-grid" *ngIf="summaryStats() as stats">
+        <div class="kpi-card kpi-card-dossier">
+          <div class="kpi-label">Tổng số hồ sơ</div>
+          <div class="kpi-value">{{ stats.dossierCount | number }}</div>
+          <div *ngIf="stats.showGrowth" class="kpi-growth" [ngClass]="growthClass(stats.dossierGrowthPercent)">
+            {{ formatGrowth(stats.dossierGrowthPercent) }} so với năm trước
+          </div>
+        </div>
+
+        <div class="kpi-card kpi-card-document">
+          <div class="kpi-label">Tổng số tài liệu</div>
+          <div class="kpi-value">{{ stats.documentCount | number }}</div>
+          <div *ngIf="stats.showGrowth" class="kpi-growth" [ngClass]="growthClass(stats.documentGrowthPercent)">
+            {{ formatGrowth(stats.documentGrowthPercent) }} so với năm trước
+          </div>
+        </div>
+
+        <div class="kpi-card kpi-card-page">
+          <div class="kpi-label">Tổng số trang tài liệu</div>
+          <div class="kpi-value">{{ stats.pageCount | number }}</div>
+          <div *ngIf="stats.showGrowth" class="kpi-growth" [ngClass]="growthClass(stats.pageGrowthPercent)">
+            {{ formatGrowth(stats.pageGrowthPercent) }} so với năm trước
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <app-report-statistics-station-grid
+      [gridConfig]="stationGridConfig"
+      [filter]="reportFilter()"
+      [active]="activeTab() === 'stats'"
+      [filterVersion]="filterVersion()"
+      gridTitle="Lưới hồ sơ theo trạm/đường dây"
+      [showGridTypeColumn]="false"
+    />
+  </ng-container>
+
+  <app-report-statistics-dossier-list
+    *ngIf="activeTab() === 'list'"
+    [listConfig]="dossierListConfig"
+    [filter]="reportFilter()"
+    [active]="activeTab() === 'list'"
+    [filterVersion]="filterVersion()"
+  />
+</div>

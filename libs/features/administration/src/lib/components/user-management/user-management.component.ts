@@ -1,17 +1,20 @@
 import { Component, OnInit, inject, signal, computed, effect } from '@angular/core';
+import { WfBreadcrumbComponent, EcoInputTreeSelectComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DialogModule } from 'primeng/dialog';
 import { ToastModule } from 'primeng/toast';
-import { MessageService } from 'primeng/api';
+import { Menu, MenuModule } from 'primeng/menu';
+import { MenuItem, MessageService } from 'primeng/api';
 import { UserService } from '../../services/user.service';
 import { finalize } from 'rxjs';
 import { AuthService } from '@sohoa.frontend/shared/core';
+import { buildMenuPermissionTree as buildMenuPermissionTreeFromLookup } from '../../utils/menu-permission-tree.util';
 
 @Component({
   selector: 'app-user-management',
   standalone: true,
-  imports: [CommonModule, FormsModule, DialogModule, ToastModule],
+  imports: [CommonModule, FormsModule, DialogModule, ToastModule, MenuModule, WfBreadcrumbComponent, EcoInputTreeSelectComponent],
   providers: [MessageService],
   templateUrl: './user-management.component.html',
   styleUrl: './user-management.component.scss'
@@ -19,6 +22,8 @@ import { AuthService } from '@sohoa.frontend/shared/core';
 export class UserManagement implements OnInit {
   users = signal<any[]>([]);
   searchKeyword = signal<string>('');
+  searchUnitId = signal<number | null>(null);
+  searchStatus = signal<string>(''); // '' (All), 'active' (Hoạt động), 'inactive' (Ngưng hoạt động)
   totalCount = signal<number>(0);
 
   currentView = signal<'list' | 'add' | 'edit' | 'unit-role' | 'permission' | 'role'>('list');
@@ -76,8 +81,17 @@ export class UserManagement implements OnInit {
 
   // Org-unit tree picker
   orgUnitTree = computed(() => this.buildOrgTree(this.organizationUnits()));
-  expandedUnitNodes = signal<Set<number>>(new Set<number>());
-  orgTreePickerOpen = signal<boolean>(false);
+  primengOrgUnitTree = computed(() => {
+    const buildPrimeNGNodes = (nodes: any[]): any[] => {
+      return nodes.map(n => ({
+        key: n.id,
+        label: n.name,
+        data: n,
+        children: n.children && n.children.length ? buildPrimeNGNodes(n.children) : []
+      }));
+    };
+    return buildPrimeNGNodes(this.orgUnitTree());
+  });
 
   // Vai trò trong form add/edit (chọn nhiều)
   selectedRoleIdsInForm = signal<number[]>([]);
@@ -97,6 +111,11 @@ export class UserManagement implements OnInit {
   showDeleteConfirm = signal<boolean>(false);
   deleteTarget = signal<any>(null);
   deleting = signal<boolean>(false);
+
+  // Lock/Unlock Confirmation
+  showLockUnlockConfirm = signal<boolean>(false);
+  lockUnlockTarget = signal<any>(null);
+  lockUnlockLoading = signal<boolean>(false);
   
   unitRoleDialogHeader = signal<string>('');
   activeUserForUnitRole = signal<any>(null);
@@ -120,37 +139,40 @@ export class UserManagement implements OnInit {
   selectedRoleIds = signal<number[]>([]);
   savingRoles = signal<boolean>(false);
 
-  activeDropdownUserId = signal<string | null>(null);
+  actionMenuItems: MenuItem[] = [];
 
   constructor() {
     effect(() => {
-      const kw = this.searchKeyword();
+      this.searchKeyword();
+      this.searchUnitId();
+      this.searchStatus();
       this.currentPage.set(1);
     }, { allowSignalWrites: true });
 
     effect(() => {
       const page = this.currentPage();
       const size = this.pageSize();
-      const kw = this.searchKeyword();
+      this.searchKeyword();
+      this.searchUnitId();
+      this.searchStatus();
       this.loadUsers();
     }, { allowSignalWrites: true });
 
-    if (typeof window !== 'undefined') {
-      window.addEventListener('click', () => {
-        this.activeDropdownUserId.set(null);
-        this.orgTreePickerOpen.set(false);
-        this.rolesDropdownOpen.set(false);
-      });
-    }
   }
 
-  toggleDropdown(userId: string, event: Event) {
+  openActionMenu(user: any, event: Event, menu: Menu): void {
     event.stopPropagation();
-    if (this.activeDropdownUserId() === userId) {
-      this.activeDropdownUserId.set(null);
-    } else {
-      this.activeDropdownUserId.set(userId);
-    }
+    this.actionMenuItems = [
+      ...(this.authService.hasPermission('USER_MANAGE') ? [
+        { label: 'Quyền theo đơn vị', title: 'Quyền theo đơn vị', icon: 'pi pi-sitemap', command: () => this.onManageUnitRoles(user) },
+        { label: 'Gán vai trò trực tiếp', title: 'Gán vai trò trực tiếp', icon: 'pi pi-shield', command: () => this.onManageRoles(user) },
+      ] : []),
+      ...(this.authService.hasPermission('USER_MANAGE') || this.authService.hasPermission('PERMISSION_MANAGE') ? [{ label: 'Phân quyền trực tiếp', title: 'Phân quyền trực tiếp', icon: 'pi pi-key color-blue', command: () => this.onManagePermissions(user) }] : []),
+      ...(this.authService.hasPermission('USER_EDIT') ? [{ label: 'Chỉnh sửa', title: 'Chỉnh sửa', icon: 'pi pi-pencil color-teal', command: () => this.onEdit(user) }] : []),
+      ...(this.authService.hasPermission('USER_EDIT') ? [{ label: user.isActive ? 'Khóa tài khoản' : 'Mở khóa tài khoản', title: user.isActive ? 'Khóa tài khoản' : 'Mở khóa tài khoản', icon: user.isActive ? 'pi pi-lock color-red' : 'pi pi-lock-open color-teal', command: () => this.onToggleStatusRequest(user) }] : []),
+      ...(this.authService.hasPermission('USER_DELETE') ? [{ label: 'Xóa', title: 'Xóa', icon: 'pi pi-trash color-red', command: () => this.onDelete(user) }] : []),
+    ];
+    menu.toggle(event);
   }
 
   private userService = inject(UserService);
@@ -206,7 +228,16 @@ export class UserManagement implements OnInit {
 
   loadUsers() {
     this.loading.set(true);
-    this.userService.getUsers(this.currentPage(), this.pageSize(), this.searchKeyword())
+    const statusVal = this.searchStatus();
+    const isActiveParam = statusVal === 'active' ? true : (statusVal === 'inactive' ? false : null);
+    
+    this.userService.getUsers(
+      this.currentPage(),
+      this.pageSize(),
+      this.searchKeyword(),
+      this.searchUnitId(),
+      isActiveParam
+    )
       .pipe(
         finalize(() => {
           this.loading.set(false);
@@ -301,41 +332,11 @@ export class UserManagement implements OnInit {
     return roots;
   }
 
-  toggleUnitNode(unitId: number, event?: Event) {
-    if (event) event.stopPropagation();
-    const current = new Set(this.expandedUnitNodes());
-    if (current.has(unitId)) {
-      current.delete(unitId);
-    } else {
-      current.add(unitId);
-    }
-    this.expandedUnitNodes.set(current);
-  }
 
-  isNodeExpanded(unitId: number): boolean {
-    return this.expandedUnitNodes().has(unitId);
-  }
-
-  selectOrgUnit(unitId: number) {
-    this.currentUser.update(u => ({ ...u, organizationUnitId: unitId }));
-    this.orgTreePickerOpen.set(false);
-    this.onFieldChange('organizationUnitId');
-  }
-
-  toggleOrgTreePicker(event?: Event) {
-    if (event) event.stopPropagation();
-    this.orgTreePickerOpen.update(v => !v);
-    this.rolesDropdownOpen.set(false);
-  }
 
   toggleRolesDropdown(event?: Event) {
     if (event) event.stopPropagation();
     this.rolesDropdownOpen.update(v => !v);
-    this.orgTreePickerOpen.set(false);
-  }
-
-  closeOrgTreePicker() {
-    this.orgTreePickerOpen.set(false);
   }
 
   // ── Vai trò trong form ───────────────────────────────────────────────────
@@ -366,12 +367,54 @@ export class UserManagement implements OnInit {
     this.isEdit.set(false);
     this.currentUser.set({ username: '', fullName: '', email: '', organizationUnitId: null, positionId: null, positionName: '', isActive: true });
     this.selectedRoleIdsInForm.set([]);
-    this.orgTreePickerOpen.set(false);
     this.rolesDropdownOpen.set(false);
     this.formSubmitted.set(false);
     this.serverErrors.set({});
     this.dialogHeader.set('Thêm mới tài khoản');
     this.currentView.set('add');
+  }
+
+  onSearchUnitChange(val: any) {
+    this.searchUnitId.set(val && val !== 'null' ? Number(val) : null);
+  }
+
+  onToggleStatusRequest(user: any) {
+    this.lockUnlockTarget.set(user);
+    this.showLockUnlockConfirm.set(true);
+  }
+
+  onCancelLockUnlock() {
+    this.showLockUnlockConfirm.set(false);
+    this.lockUnlockTarget.set(null);
+  }
+
+  onConfirmLockUnlock() {
+    const user = this.lockUnlockTarget();
+    if (!user) return;
+    if (!this.authService.hasPermission('USER_EDIT')) {
+      this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền thay đổi trạng thái người dùng.' });
+      return;
+    }
+    const updated = { ...user, isActive: !user.isActive };
+    this.lockUnlockLoading.set(true);
+    this.userService.updateUser(user.id, updated).subscribe({
+      next: () => {
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Thành công',
+          detail: `${user.isActive ? 'Khóa' : 'Mở khóa'} tài khoản thành công!`
+        });
+        this.showLockUnlockConfirm.set(false);
+        this.lockUnlockTarget.set(null);
+        this.lockUnlockLoading.set(false);
+        this.loadUsers();
+      },
+      error: (err) => {
+        this.lockUnlockLoading.set(false);
+        const detailMsg = err?.error?.message || err?.message || `Không thể ${user.isActive ? 'khóa' : 'mở khóa'} tài khoản.`;
+        this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: detailMsg });
+      }
+    });
   }
 
   onEdit(user: any) {
@@ -383,7 +426,6 @@ export class UserManagement implements OnInit {
     this.currentUser.set({ ...user });
     this.formSubmitted.set(false);
     this.serverErrors.set({});
-    this.orgTreePickerOpen.set(false);
     this.rolesDropdownOpen.set(false);
     // Load roles hiện tại của user vào form
     this.userService.getUserRoles(user.id).subscribe({
@@ -634,141 +676,13 @@ export class UserManagement implements OnInit {
   }
 
   buildMenuPermissionTree(menusList: any[], permissions: any[]) {
-    // 1. Group permissions by target menu URL
-    const permGroups = new Map<string, any[]>();
-    const unmappedPerms: any[] = [];
-
-    permissions.forEach(p => {
-      const targetUrl = this.getMenuTargetForPermissionDynamic(p.code, menusList);
-      if (targetUrl) {
-        if (!permGroups.has(targetUrl)) {
-          permGroups.set(targetUrl, []);
-        }
-        permGroups.get(targetUrl)!.push(p);
-      } else {
-        unmappedPerms.push(p);
-      }
-    });
-
-    // 2. Build the tree
-    const parentMenus = menusList.filter(m => !m.parentId && m.isActive);
-    const subMenusList = menusList.filter(m => m.parentId && m.isActive);
-
-    const tree: any[] = [];
-
-    parentMenus.forEach(pm => {
-      const pmSubs = subMenusList.filter(sm => sm.parentId === pm.id);
-      
-      const subNodes: any[] = [];
-      pmSubs.forEach(sm => {
-        const smPerms = permGroups.get(sm.url || '') || [];
-        // Only show submenus that have mapped permissions
-        if (smPerms.length > 0) {
-          subNodes.push({
-            id: sm.id,
-            name: sm.name,
-            url: sm.url,
-            icon: sm.icon,
-            permissions: smPerms
-          });
-        }
-      });
-
-      const directPerms = permGroups.get(pm.url || '') || [];
-
-      // Only display the parent menu card if it contains direct permissions or child menus with permissions
-      if (directPerms.length > 0 || subNodes.length > 0) {
-        tree.push({
-          id: pm.id,
-          name: pm.name,
-          icon: pm.icon,
-          url: pm.url,
-          subMenus: subNodes,
-          permissions: directPerms,
-          expanded: false // Collapsed by default as requested
-        });
-      }
-    });
-
-    // Add unmapped permissions to a special group
-    if (unmappedPerms.length > 0) {
-      tree.push({
-        id: -999,
-        name: 'Hệ thống dùng chung / Quyền khác',
-        icon: 'pi pi-key',
-        url: '',
-        subMenus: [],
-        permissions: unmappedPerms,
-        expanded: false // Collapsed by default as well
-      });
-    }
-
-    this.menuPermissionTree.set(tree);
+    this.menuPermissionTree.set(buildMenuPermissionTreeFromLookup(menusList, permissions));
   }
 
   toggleParentMenu(parent: any) {
     parent.expanded = !parent.expanded;
     // Force signal update by recreating the array reference to trigger UI re-render
     this.menuPermissionTree.set([...this.menuPermissionTree()]);
-  }
-
-  getMenuTargetForPermissionDynamic(code: string, menusList: any[]): string {
-    const parts = code.split('_');
-    if (parts.length < 2) return '';
-    const prefix = parts.slice(0, parts.length - 1).join('_');
-
-    const matchingMenu = menusList.find(m => {
-      if (!m.permissionCode) return false;
-      const mParts = m.permissionCode.split('_');
-      if (mParts.length < 2) return false;
-      const mPrefix = mParts.slice(0, mParts.length - 1).join('_');
-      return mPrefix === prefix;
-    });
-
-    if (matchingMenu) {
-      return matchingMenu.url || '';
-    }
-
-    return this.getMenuTargetForPermission(code);
-  }
-
-  getMenuTargetForPermission(code: string): string {
-    const parts = code.split('_');
-    if (parts.length < 2) return '';
-    const prefix = parts.slice(0, parts.length - 1).join('_');
-    
-    switch(prefix) {
-      case 'USER': return '/administration/user-management';
-      case 'ROLE':
-      case 'PERMISSION': return '/administration/role-management';
-      case 'MENU': return '/administration/menu-management';
-      case 'USER_GROUP': return '/administration/user-groups';
-      case 'UPLOAD_CONFIG': return '/administration/upload-configuration';
-      case 'ORGANIZATION': return '/administration/organization-settings';
-      case 'AUDIT_LOG': return '/administration/audit-log';
-      case 'SHARED_CATALOG': return '/catalog/shared';
-      case 'PRIVATE_CATALOG': return '/catalog/private';
-      case 'CATALOG': return '/catalog/position';
-      case 'EAV_FORM_TEMPLATE':
-      case 'EQUIPMENT_TYPE':
-      case 'EQUIPMENT': return '/equipment/form-management';
-      case 'VIRTUAL_FOLDER': return '/digitization/virtual-folders';
-      case 'OCR_TRAINING_DATA': return '/digitization/ocr-training';
-      case 'DIGITIZATION_TASK': return '/digitization/ocr-upload'; 
-      case 'DIGITIZATION': return '/ocr-correction';
-      case 'WORKFLOW':
-      case 'WORKFLOW_DEFINITION': return '/workflow/borrow-return';
-      case 'BORROW_RECORD': return '/borrow-records';
-      case 'REPORT':
-      case 'DYNAMIC_REPORT':
-      case 'REPORT_GROUP': return '/reports';
-      case 'PHYSICAL_STORAGE': return '/physical-storage';
-      case 'SYNC': return '/administration/sync-config';
-      case 'VIEW':
-        if (code === 'VIEW_DASHBOARD') return '/dashboard';
-        break;
-    }
-    return '';
   }
 
   onManagePermissions(user: any) {

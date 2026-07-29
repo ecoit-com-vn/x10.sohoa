@@ -1,0 +1,272 @@
+.dossier-documents-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.form-template-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  color: #1e3a8a;
+  font-size: 0.85rem;
+
+  .pi {
+    color: #2563eb;
+  }
+
+  b {
+    color: #0f172a;
+  }
+
+  &--warn {
+    background: #fffbeb;
+    border-color: #fde68a;
+    color: #92400e;
+
+    .pi {
+      color: #d97706;
+    }
+  }
+}
+
+.readonly-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  color: #64748b;
+  font-size: 0.83rem;
+
+  .pi-lock {
+    color: #94a3b8;
+  }
+}
+
+.action-buttons-group {
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: nowrap;
+}
+
+.dossier-documents-tab .wf-table-wrap {
+  overflow-x: auto;
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  --actions-col-width: 124px;
+}
+
+.dossier-documents-tab .wf-table {
+  width: max-content;
+  min-width: 100%;
+
+  th.col-actions-sticky,
+  td.col-actions-sticky {
+    position: sticky;
+    right: 0;
+    z-index: 4;
+    width: var(--actions-col-width);
+    min-width: var(--actions-col-width);
+    padding: 0;
+    vertical-align: middle;
+    background: #fff;
+    overflow: visible;
+  }
+
+  thead th.col-actions-sticky {
+    background: #f8fafc;
+    z-index: 6;
+  }
+
+  tbody tr:hover td.col-actions-sticky {
+    background: #f8faff;
+  }
+
+  .col-actions-sticky-panel {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    width: 100%;
+    min-height: 100%;
+    padding: 9px 10px 9px 12px;
+    background: #fff;
+    overflow: visible;
+  }
+
+  thead th.col-actions-sticky .col-actions-sticky-panel--head {
+    background: #f8fafc;
+  }
+
+  tbody tr:hover td.col-actions-sticky .col-actions-sticky-panel {
+    background: #f8faff;
+  }
+
+  .col-actions-sticky-panel--head {
+    padding: 10px 10px 10px 12px;
+    font-weight: 600;
+    color: #475569;
+    font-size: 0.82rem;
+  }
+}
+
+.dossier-documents-tab .wf-table-wrap.has-horizontal-scroll {
+  .col-actions-sticky-panel::before {
+    content: '';
+    position: absolute;
+    left: -32px;
+    top: 0;
+    bottom: 0;
+    width: 32px;
+    pointer-events: none;
+    background: linear-gradient(to left, rgba(15, 23, 42, 0.16), rgba(15, 23, 42, 0));
+  }
+
+  .col-actions-sticky-panel {
+    box-shadow: inset 10px 0 12px -10px rgba(15, 23, 42, 0.1);
+  }
+}
+
+.act-btn {
+  width: 23px;
+  height: 23px;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  &.act-download:hover:not(:disabled) i {
+    color: #3b82f6;
+  }
+
+  &.act-delete:hover:not(:disabled) i {
+    color: #ef4444;
+  }
+
+  &.act-result:hover:not(:disabled) i {
+    color: #059669;
+  }
+
+  &.act-retry:hover:not(:disabled) i {
+    color: #d97706;
+  }
+
+  &.act-reextract:hover:not(:disabled) i {
+    color: #7c3aed;
+  }
+
+  &.act-edit:hover:not(:disabled) i {
+    color: #2563eb;
+  }
+
+  &.act-view:hover:not(:disabled) i {
+    color: #0891b2;
+  }
+
+  &.act-more:hover:not(:disabled) i {
+    color: #64748b;
+  }
+}
+
+.col-digitization {
+  text-align: center;
+  vertical-align: middle;
+}
+
+.digitization-progress-cell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 120px;
+  min-height: 15px;
+}
+
+.digitization-bar-wrap {
+  position: relative;
+  width: 120px;
+  height: 15px;
+  background: #e5e7eb;
+  border-radius: 999px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.digitization-bar-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  height: 100%;
+  background: #22c55e;
+  border-radius: 999px;
+  transition: width 0.3s ease;
+  min-width: 0;
+}
+
+.digitization-bar-fill.digitization-bar-active {
+  background: #3b82f6;
+}
+
+.digitization-bar-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: #1f2937;
+  line-height: 1;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.digitization-done-icon {
+  font-size: 1.1rem;
+  color: #22c55e;
+}
+
+.digitization-failed-icon {
+  font-size: 1.1rem;
+  color: #ef4444;
+}
+
+.result-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #64748b;
+  padding: 12px 0;
+}
+
+.result-json {
+  margin: 0;
+  max-height: 420px;
+  overflow: auto;
+  font-size: 0.78rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

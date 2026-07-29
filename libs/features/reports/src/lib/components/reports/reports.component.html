@@ -1,56 +1,65 @@
+<!-- sohoa.frontend/libs/features/reports/src/lib/components/reports/reports.component.html -->
+<p-toast></p-toast>
+<div class="wf-page">
+  <wf-breadcrumb></wf-breadcrumb>
 
-    <div class="wf-page">
-      <p-toast></p-toast>
-      <div class="wf-card">
-        
-        <!-- Breadcrumb -->
-        <div class="breadcrumb mb-4">
-          <i class="pi pi-home bc-icon"></i>
-          <span class="bc-text">Trang chủ</span>
-          <span class="bc-sep">/</span>
-          <span class="bc-text">Báo cáo thống kê</span>
-          <span class="bc-sep">/</span>
-          <span class="bc-current">Báo cáo động</span>
-        </div>
+  <div class="wf-card mt-3">
+    <div class="edit-header mb-4" style="border-bottom: 1px solid #f1f5f9; padding-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+      <h2 class="edit-title" style="color: #002D72; font-size: 1.5rem; font-weight: 700; margin: 0; display: flex; align-items: center; gap: 8px;">
+        <i class="pi pi-chart-bar text-2xl"></i> Hệ thống Báo cáo Thống kê EVNHANOI
+      </h2>
+      <button *ngIf="authService.hasPermission('REPORT_GROUP_VIEW')" 
+              class="btn-outlined btn-small" 
+              (click)="navigateToReport('/reports/groups')"
+              style="display: flex; align-items: center; gap: 6px;">
+        <i class="pi pi-cog"></i> Cấu hình nhóm báo cáo
+      </button>
+    </div>
 
-        <div class="edit-header mb-4">
-          <h2 class="edit-title" style="color: #002D72; font-size: 1.5rem; font-weight: 700;">Hệ thống Báo cáo Động EVNHANOI</h2>
-        </div>
+    <div style="margin-top: 24px;">
+      <p class="text-muted mb-4" style="font-size: 14px; line-height: 1.6;">
+        Chào mừng đến với phân hệ Báo cáo và Thống kê. Dưới đây là danh sách các báo cáo nghiệp vụ hệ thống. Hãy chọn báo cáo phù hợp để tra cứu và xuất dữ liệu.
+      </p>
 
-        <!-- Tab Bar -->
-        <div class="flex border-b border-gray-200 mb-6">
-          <button 
-            class="py-2.5 px-5 text-sm font-semibold border-b-2 transition-colors focus:outline-none flex items-center" 
-            [ngClass]="activeTab === 'view' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
-            (click)="activeTab = 'view'"
-          >
-            <i class="pi pi-chart-bar mr-2"></i> Xem Báo cáo
-          </button>
-          
-          <button 
-            class="py-2.5 px-5 text-sm font-semibold border-b-2 transition-colors focus:outline-none flex items-center" 
-            [ngClass]="activeTab === 'designer' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
-            (click)="activeTab = 'designer'"
-          >
-            <i class="pi pi-cog mr-2"></i> Thiết kế Báo cáo Động
-          </button>
-          
-          <button 
-            class="py-2.5 px-5 text-sm font-semibold border-b-2 transition-colors focus:outline-none flex items-center" 
-            [ngClass]="activeTab === 'group' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
-            (click)="activeTab = 'group'"
-          >
-            <i class="pi pi-folder-open mr-2"></i> Quản lý Nhóm Báo cáo
-          </button>
-        </div>
+      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px;">
+        <ng-container *ngFor="let rep of reportsList">
+          <div 
+            *ngIf="authService.hasPermission('SUPER_ADMIN') || authService.hasPermission(rep.permission)"
+            class="report-card" 
+            (click)="navigateToReport(rep.url)"
+            style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; background-color: #ffffff; cursor: pointer; transition: all 0.2s ease-in-out; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; flex-direction: column; justify-content: space-between;">
+            
+            <div>
+              <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                <div style="width: 42px; height: 42px; border-radius: 8px; background-color: #eff6ff; color: #1d4ed8; display: flex; align-items: center; justify-content: center;">
+                  <i [class]="rep.icon" style="font-size: 20px;"></i>
+                </div>
+                <h4 style="font-size: 15px; font-weight: 700; color: #1e293b; margin: 0; line-height: 1.4;">
+                  {{ rep.name }}
+                </h4>
+              </div>
+              <p style="font-size: 13px; color: #64748b; line-height: 1.5; margin: 0 0 16px 0;">
+                {{ rep.description }}
+              </p>
+            </div>
 
-        <!-- Tab Contents -->
-        <div class="tab-content">
-          <app-report-viewer *ngIf="activeTab === 'view'"></app-report-viewer>
-          <app-report-designer *ngIf="activeTab === 'designer'"></app-report-designer>
-          <app-report-group-manager *ngIf="activeTab === 'group'"></app-report-group-manager>
-        </div>
-
+            <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #f1f5f9; padding-top: 12px; margin-top: auto;">
+              <span style="font-size: 12px; color: #1d4ed8; font-weight: 600; display: flex; align-items: center; gap: 4px;">
+                Truy cập báo cáo <i class="pi pi-arrow-right" style="font-size: 10px;"></i>
+              </span>
+              <i class="pi pi-chevron-right text-muted" style="font-size: 12px;"></i>
+            </div>
+          </div>
+        </ng-container>
       </div>
     </div>
-  
+  </div>
+</div>
+
+<style>
+  .report-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.05);
+    border-color: #3b82f6;
+  }
+</style>

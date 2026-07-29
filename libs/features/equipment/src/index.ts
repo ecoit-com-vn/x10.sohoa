@@ -1,4 +1,20 @@
 export * from './lib/equipment.routes';
-export * from './lib/components/form-management/components/form-management/form-management.component';
-export * from './lib/components/form-builder/components/form-builder/form-builder.component';
-export * from './lib/components/form-renderer/components/form-renderer/form-renderer.component';
+export * from './lib/components/form-management/form-management.component';
+export * from './lib/components/form-builder/form-builder.component';
+export * from './lib/components/form-template/form-template.component';
+export * from './lib/components/form-renderer/form-renderer.component';
+export * from './lib/components/equipment-type/equipment-type.component';
+export * from './lib/components/equipment/equipment.component';
+export * from './lib/components/file-upload/file-upload-zone.component';
+export type { FileUploadHandler } from './lib/components/file-upload/file-upload-zone.component';
+export * from './lib/components/scanner/scanner-panel.component';
+export * from './lib/constants/upload-source.constants';
+export * from './lib/data-access/eco-scanner.service';
+export * from './lib/data-access/equipment-type.service';
+export * from './lib/data-access/equipment.service';
+export * from './lib/data-access/file-upload.service';
+export * from './lib/data-access/file-download.service';
+export * from './lib/models/creator-info.model';
+export * from './lib/components/equipment-documents/equipment-documents.component';
+export * from './lib/components/equipment-document-detail-dialog/equipment-document-detail-dialog.component';
+

@@ -1,0 +1,55 @@
+<div class="table-card">
+  <div class="card-header flex-header">
+    <h3 class="card-title">Lưới hồ sơ được tra cứu nhiều nhất</h3>
+    <span class="total-badge" *ngIf="!loading()">
+      Tổng số hồ sơ: <strong>{{ totalCount() | number }}</strong>
+    </span>
+  </div>
+
+  <div class="wf-table-wrap">
+    <p-table
+      [value]="items()"
+      [lazy]="true"
+      [paginator]="true"
+      [rows]="pageSize()"
+      [totalRecords]="totalCount()"
+      [first]="(page() - 1) * pageSize()"
+      (onPage)="onPageChange($event)"
+      [rowsPerPageOptions]="[10, 20, 50]"
+      [loading]="loading()"
+      styleClass="wf-table-custom p-datatable-gridlines"
+    >
+      <ng-template pTemplate="header">
+        <tr>
+          <th class="col-stt text-center">STT</th>
+          <th *ngFor="let col of bhsColumns()">{{ col.label }}</th>
+          <th>Trạm / Đường dây</th>
+          <th class="text-center" style="width: 130px;">Số lượt tra cứu</th>
+          <th class="text-center" style="width: 90px;">Thao tác</th>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="body" let-item>
+        <tr>
+          <td class="text-center font-medium">{{ item.stt }}</td>
+          <td *ngFor="let col of bhsColumns()">{{ getCatalogValue(item, col) }}</td>
+          <td class="font-medium text-gray-800">{{ item.infrastructureName || '-' }}</td>
+          <td class="text-center font-semibold">{{ item.viewCount }}</td>
+          <td class="text-center">
+            <button type="button" class="btn-view" (click)="openDetail(item)" title="Xem hồ sơ">
+              <i class="pi pi-eye"></i>
+            </button>
+          </td>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td [attr.colspan]="tableColSpan()" class="text-center py-8 text-gray-500 text-xs">
+            Không tìm thấy dữ liệu phù hợp.
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </div>
+</div>

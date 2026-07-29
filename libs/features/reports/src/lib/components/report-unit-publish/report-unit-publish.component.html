@@ -1,0 +1,158 @@
+<!-- sohoa.frontend/libs/features/reports/src/lib/components/report-unit-publish/report-unit-publish.component.html -->
+<p-toast></p-toast>
+<div class="wf-page">
+  <wf-breadcrumb></wf-breadcrumb>
+
+  <div class="wf-card mt-3">
+    <!-- Filters Toolbar -->
+    <div class="list-toolbar mb-4" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 12px; gap: 12px; flex-wrap: wrap;">
+      <div class="toolbar-left" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+        <input
+          type="text"
+          class="wf-input"
+          [ngModel]="searchKeyword()"
+          (ngModelChange)="searchKeyword.set($event)"
+          placeholder="Tìm theo tên hoặc mã báo cáo..."
+          style="width: 280px;" />
+
+        <select
+          class="wf-input"
+          [ngModel]="filterStatus()"
+          (ngModelChange)="filterStatus.set($event)"
+          style="width: 180px;">
+          <option value="ALL">Tất cả trạng thái</option>
+          <option value="PUBLISHED">Công bố</option>
+          <option value="DRAFT">Lưu nháp</option>
+          <option value="UNCONFIGURED">Chưa cấu hình</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Table Grid -->
+    <div class="wf-table-wrap" *ngIf="!loading(); else loadingTemplate">
+      <table class="wf-table">
+        <thead>
+          <tr>
+            <th style="width: 60px;" class="text-center">STT</th>
+            <th style="width: 220px;">Mã báo cáo</th>
+            <th>Tên báo cáo</th>
+            <th style="width: 140px;" class="text-center">Trạng thái</th>
+            <th>Vai trò được xem</th>
+            <th style="width: 90px;" class="text-center">Thao tác</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let report of filteredReports(); let i = index">
+            <td class="text-center text-muted font-semibold">{{ i + 1 }}</td>
+            <td><span style="font-weight: 400; color: #0284c7;">{{ report.reportCode }}</span></td>
+            <td style="font-weight: 400; color: #1e293b;">{{ report.reportName }}</td>
+            <td class="text-center">
+              <span
+                class="badge"
+                [style.background-color]="statusColor(report).bg"
+                [style.color]="statusColor(report).color"
+                style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">
+                {{ statusLabel(report) }}
+              </span>
+            </td>
+            <td style="max-width: 280px;">
+              <div
+                *ngIf="roleNamesOf(report); else noRole"
+                [title]="roleNamesOf(report)"
+                style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #334155; font-weight: 400;">
+                {{ roleNamesOf(report) }}
+              </div>
+              <ng-template #noRole><span class="text-muted" style="font-weight: 400;">Chưa gán vai trò</span></ng-template>
+            </td>
+            <td class="text-center">
+              <button
+                type="button"
+                class="act-btn-dot"
+                *ngIf="canEdit() || canRelease()"
+                (click)="openActionMenu(report, $event, actionMenu)"
+                title="Thao tác"
+                style="background: transparent; border: none; cursor: pointer; padding: 6px 10px; border-radius: 4px; color: #64748b; transition: all 0.2s;">
+                <i class="pi pi-ellipsis-h" style="font-size: 1.1rem; vertical-align: middle;"></i>
+              </button>
+            </td>
+          </tr>
+          <tr *ngIf="filteredReports().length === 0">
+            <td colspan="6" class="empty-row text-center py-5 text-muted">
+              <i class="pi pi-inbox block text-3xl mb-2" style="color: #cbd5e1;"></i>
+              Đơn vị chưa được gán Nhóm báo cáo hệ thống nào.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Loading state -->
+    <ng-template #loadingTemplate>
+      <div class="text-center py-5 text-muted">
+        <i class="pi pi-spin pi-spinner text-3xl mb-2" style="color: #002D72;"></i>
+        <div>Đang tải dữ liệu...</div>
+      </div>
+    </ng-template>
+  </div>
+</div>
+
+<!-- Menu Thao tác Popup của PrimeNG -->
+<p-menu #actionMenu [model]="actionMenuItems" [popup]="true" appendTo="body"></p-menu>
+
+<!-- Dialog cấu hình vai trò xem báo cáo -->
+<p-dialog
+  [(visible)]="displayConfigDialog"
+  [header]="'Cấu hình vai trò xem báo cáo: ' + (currentReport?.reportName || '')"
+  [modal]="true"
+  [style]="{ width: '640px' }"
+  styleClass="evn-dialog-custom"
+  [draggable]="false"
+  [resizable]="false">
+  <div style="display: flex; flex-direction: column; gap: 10px; padding: 6px 0;">
+    <label class="form-label font-bold text-sm">Vai trò được phép xem báo cáo này</label>
+
+    <div
+      class="role-grid"
+      style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px 16px; max-height: 320px; overflow-y: auto; padding: 4px 2px;">
+      <div
+        *ngFor="let role of roles()"
+        style="display: flex; align-items: center; gap: 8px;">
+        <input
+          type="checkbox"
+          [id]="'role-' + role.id"
+          [checked]="isRoleSelected(role.id)"
+          (change)="toggleRole(role.id)"
+          style="width: 18px; height: 18px; cursor: pointer; accent-color: #002D72; margin: 0;" />
+        <label
+          [for]="'role-' + role.id"
+          style="cursor: pointer; margin: 0; user-select: none; color: #334155; font-size: 13.5px; font-weight: 500;">
+          {{ role.name }}
+        </label>
+      </div>
+
+      <div *ngIf="roles().length === 0" class="text-muted" style="grid-column: 1 / -1;">
+        Không có vai trò nào khả dụng.
+      </div>
+    </div>
+  </div>
+
+  <ng-template #footer>
+    <div class="flex gap-2 justify-end pt-3" style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9;">
+      <button class="btn-outlined btn-small" (click)="hideConfigDialog()">Hủy</button>
+      <button
+        class="btn-outlined btn-small"
+        *ngIf="canEdit()"
+        [disabled]="saving()"
+        (click)="saveDraft()">
+        <i class="pi pi-spin pi-spinner mr-1" *ngIf="saving()"></i> Lưu nháp
+      </button>
+      <button
+        class="btn-save btn-small"
+        *ngIf="canRelease()"
+        [disabled]="saving()"
+        (click)="publishConfig()">
+        <i class="pi pi-spin pi-spinner mr-1" *ngIf="saving()"></i> Công bố
+      </button>
+    </div>
+  </ng-template>
+</p-dialog>

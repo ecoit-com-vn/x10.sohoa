@@ -1,191 +1,204 @@
 
-    <div class="wf-page">
-      <div class="dashboard-welcome mb-4">
-        <h2 class="welcome-title">Tổng quan Hệ thống Số hóa EVNHANOI</h2>
-        <p class="welcome-subtitle">Chào mừng bạn quay lại, <b>{{ username }}</b>! Dưới đây là thông số đo lường hiệu suất số hóa và vận hành thời gian thực.</p>
+<div class="wf-page">
+  <div class="dashboard-welcome mb-4">
+    <h2 class="welcome-title">Tổng quan Hệ thống Số hóa hồ sơ kỹ thuật đường dây và trạm EVNHANOI</h2>
+    <p class="welcome-subtitle">Chào mừng bạn quay lại, <b>{{ username }}</b>! Dữ liệu hệ thống đã sẵn sàng để bạn khai thác.</p>
+  </div>
+
+  <!-- Grid metric cards -->
+  <div class="metric-grid mb-4">
+    <div class="metric-card card-blue">
+      <div class="metric-icon-wrap">
+        <i class="pi pi-folder-open"></i>
+      </div>
+      <div class="metric-info">
+        <span class="metric-label">Tổng hồ sơ số hóa</span>
+        <h3 class="metric-val">{{ totalOcrDocs | number }}</h3>
+        <span class="metric-trend text-green">
+          <i class="pi pi-arrow-up"></i> +12% so với tháng trước
+        </span>
+      </div>
+    </div>
+
+    <div class="metric-card card-orange">
+      <div class="metric-icon-wrap">
+        <i class="pi pi-file-edit"></i>
+      </div>
+      <div class="metric-info">
+        <span class="metric-label">Tổng số tài liệu số hóa</span>
+        <h3 class="metric-val">{{ pendingOcrCount | number }}</h3>
+        <span class="metric-trend text-green">
+          <i class="pi pi-arrow-up"></i> tăng 20% so với tháng trước
+        </span>
+      </div>
+    </div>
+
+    <div class="metric-card card-green">
+      <div class="metric-icon-wrap">
+        <i class="pi pi-search"></i>
+      </div>
+      <div class="metric-info">
+        <span class="metric-label">Lượt tra cứu hồ sơ, tài liệu</span>
+        <h3 class="metric-val">{{ totalEquipment | number }}</h3>
+        <span class="metric-trend text-orange">
+          <i class="pi pi-arrow-down"></i> giảm 5% so với tháng trước
+        </span>
+      </div>
+    </div>
+
+    <div class="metric-card card-indigo">
+      <div class="metric-icon-wrap">
+        <i class="pi pi-download"></i>
+      </div>
+      <div class="metric-info">
+        <span class="metric-label">Lượt tải tài liệu</span>
+        <h3 class="metric-val">{{ ocrAccuracy }}</h3>
+        <span class="metric-trend text-orange">
+          <i class="pi pi-arrow-down"></i> giảm 10% so với tháng trước
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section Biểu đồ và thông số -->
+  <div class="dashboard-section-grid mb-4">
+    <!-- Cột trái: Biểu đồ Tiến độ số hóa 7 ngày qua -->
+    <div class="wf-card chart-card">
+      <div class="chart-card-header mb-3">
+        <h3 class="section-title">
+          <i class="pi pi-chart-bar text-bluemr"></i> Thống kê số lượng số hóa hồ sơ, tài liệu
+        </h3>
+        <button type="button" class="chart-period-button">Tuần này</button>
       </div>
 
-      <!-- Grid metric cards -->
-      <div class="metric-grid mb-4">
-        <div class="metric-card card-blue">
-          <div class="metric-icon-wrap">
-            <i class="pi pi-folder-open"></i>
+      <div class="chart-container">
+        <div class="chart-main">
+          <div class="chart-y-axis">
+            <span class="chart-y-axis-title">Số lượng</span>
+            <div class="chart-y-axis-labels">
+              <span>600</span>
+              <span>500</span>
+              <span>400</span>
+              <span>300</span>
+              <span>200</span>
+              <span>100</span>
+              <span>0</span>
+            </div>
           </div>
-          <div class="metric-info">
-            <span class="metric-label">Tổng hồ sơ số hóa</span>
-            <h3 class="metric-val">{{ totalOcrDocs | number }}</h3>
-            <span class="metric-trend text-green">
-              <i class="pi pi-arrow-up"></i> +12% so với tháng trước
-            </span>
-          </div>
-        </div>
 
-        <div class="metric-card card-orange">
-          <div class="metric-icon-wrap">
-            <i class="pi pi-file-edit"></i>
-          </div>
-          <div class="metric-info">
-            <span class="metric-label">Hồ sơ chờ hiệu đính OCR</span>
-            <h3 class="metric-val">{{ pendingOcrCount | number }}</h3>
-            <span class="metric-trend text-orange">
-              <i class="pi pi-exclamation-triangle"></i> 12 hồ sơ khẩn cấp
-            </span>
-          </div>
-        </div>
-
-        <div class="metric-card card-green">
-          <div class="metric-icon-wrap">
-            <i class="pi pi-sync"></i>
-          </div>
-          <div class="metric-info">
-            <span class="metric-label">Thiết bị đồng bộ PMIS</span>
-            <h3 class="metric-val">{{ totalEquipment | number }}</h3>
-            <span class="metric-trend text-green">
-              <i class="pi pi-check-circle"></i> Tự động đồng bộ lúc 06:00
-            </span>
-          </div>
-        </div>
-
-        <div class="metric-card card-indigo">
-          <div class="metric-icon-wrap">
-            <i class="pi pi-chart-bar"></i>
-          </div>
-          <div class="metric-info">
-            <span class="metric-label">Độ chính xác OCR trung bình</span>
-            <h3 class="metric-val">{{ ocrAccuracy }}%</h3>
-            <span class="metric-trend text-blue">
-              <i class="pi pi-sparkles"></i> Model AI v2.5 hoạt động tốt
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Section Biểu đồ và thông số -->
-      <div class="dashboard-section-grid mb-4">
-        <!-- Cột trái: Biểu đồ Tiến độ số hóa 7 ngày qua -->
-        <div class="wf-card chart-card">
-          <h3 class="section-title mb-3">
-            <i class="pi pi-calendar-times text-bluemr"></i> Tiến độ Quét & Số hóa hồ sơ (7 ngày qua)
-          </h3>
-          
-          <div class="chart-container">
-            <div class="bar-chart-y">
-              <!-- Grid lines -->
+          <div class="bar-chart-y">
+            <div class="chart-plot-area">
               <div class="chart-grid-line" style="bottom: 0%;"></div>
-              <div class="chart-grid-line" style="bottom: 25%;"></div>
+              <div class="chart-grid-line" style="bottom: 16.6667%;"></div>
+              <div class="chart-grid-line" style="bottom: 33.3333%;"></div>
               <div class="chart-grid-line" style="bottom: 50%;"></div>
-              <div class="chart-grid-line" style="bottom: 75%;"></div>
+              <div class="chart-grid-line" style="bottom: 66.6667%;"></div>
+              <div class="chart-grid-line" style="bottom: 83.3333%;"></div>
               <div class="chart-grid-line" style="bottom: 100%;"></div>
-
-              <!-- Bars -->
-              <div class="chart-bar-group" *ngFor="let data of weeklyData">
-                <div class="chart-bar-wrap">
-                  <div class="chart-bar bar-active" [style.height]="data.percent + '%'" [title]="data.value + ' hồ sơ'">
-                    <span class="bar-tooltip">{{ data.value }} hồ sơ</span>
-                  </div>
-                </div>
-                <span class="chart-bar-label">{{ data.day }}</span>
-              </div>
             </div>
-            
-            <!-- Chart Legend -->
-            <div class="chart-legend mt-3">
-              <div class="legend-item">
-                <span class="legend-color-dot" style="background-color: #002D72;"></span>
-                <span class="legend-text">Hồ sơ hoàn tất số hóa (đơn vị: tệp)</span>
+
+            <!-- Bars -->
+            <div class="chart-bar-group" *ngFor="let data of weeklyData">
+              <div class="chart-bar-wrap">
+                <div class="chart-bar chart-bar-blue" [style.height]="data.dossierPercent + '%'" [title]="data.dossierValue + ' hồ sơ'">
+                  <span class="bar-tooltip">{{ data.dossierValue }} hồ sơ</span>
+                </div>
+                <div class="chart-bar chart-bar-orange" [style.height]="data.documentPercent + '%'" [title]="data.documentValue + ' tài liệu'">
+                  <span class="bar-tooltip">{{ data.documentValue }} tài liệu</span>
+                </div>
               </div>
+              <span class="chart-bar-label">{{ data.day }}</span>
             </div>
           </div>
         </div>
 
-        <!-- Cột phải: Phân bổ hồ sơ theo loại thiết bị -->
-        <div class="wf-card status-card">
-          <h3 class="section-title mb-3">
-            <i class="pi pi-chart-pie text-orangemr"></i> Phân bổ hồ sơ theo loại thiết bị
-          </h3>
-          
-          <div class="donut-chart-simulate">
-            <div class="ratio-bar-list">
-              <div class="ratio-item" *ngFor="let cat of categories">
-                <div class="ratio-header">
-                  <span class="ratio-name">
-                    <span class="ratio-color-indicator" [style.background-color]="cat.color"></span>
-                    {{ cat.name }}
-                  </span>
-                  <span class="ratio-val"><b>{{ cat.value }}</b> ({{ cat.percent }}%)</span>
-                </div>
-                <div class="ratio-track">
-                  <div class="ratio-fill" [style.width]="cat.percent + '%'" [style.background-color]="cat.color"></div>
-                </div>
-              </div>
-            </div>
-            
-            <div class="dashboard-brief-stats mt-4">
-              <div class="brief-stat-box">
-                <span class="brief-stat-num text-blue">MBA</span>
-                <span class="brief-stat-label">Máy biến áp dầu & khô</span>
-              </div>
-              <div class="brief-stat-box">
-                <span class="brief-stat-num text-orange">TBA</span>
-                <span class="brief-stat-label">Trạm biến áp 110kV</span>
-              </div>
-              <div class="brief-stat-box">
-                <span class="brief-stat-num text-green">ĐD</span>
-                <span class="brief-stat-label">Đường dây truyền tải</span>
-              </div>
-            </div>
+        <!-- Chart Legend -->
+        <div class="chart-legend mt-3">
+          <div class="legend-item">
+            <span class="legend-color-dot" style="background-color: #002D72;"></span>
+            <span class="legend-text">Hồ sơ</span>
           </div>
-        </div>
-      </div>
-
-      <!-- Danh sách hoạt động nổi bật của hệ thống -->
-      <div class="wf-card">
-        <div class="section-header-flex mb-3">
-          <h3 class="section-title">
-            <i class="pi pi-bell text-greenmr"></i> Nhật ký hoạt động nổi bật hôm nay
-          </h3>
-          <button class="btn-outlined btn-small" [routerLink]="['/administration/audit-log']">
-            <i class="pi pi-external-link"></i> Xem toàn bộ nhật ký
-          </button>
-        </div>
-
-        <div class="wf-table-wrap">
-          <table class="wf-table">
-            <thead>
-              <tr>
-                <th style="width: 120px;">Mã thao tác</th>
-                <th style="width: 180px;">Hành động</th>
-                <th style="width: 140px;">Người thao tác</th>
-                <th style="width: 150px;">Thời gian</th>
-                <th>Chi tiết mô tả hoạt động</th>
-                <th style="width: 130px; text-align: center;">Trạng thái</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let log of recentActivities">
-                <td><code class="text-muted">{{ log.id }}</code></td>
-                <td><b>{{ log.action }}</b></td>
-                <td><span class="wf-name-link">{{ log.user }}</span></td>
-                <td>{{ log.time }}</td>
-                <td class="mota-text">{{ log.detail }}</td>
-                <td style="text-align: center;">
-                  <span class="status-pill" [ngClass]="{
-                    'status-active': log.status === 'success',
-                    'status-pending': log.status === 'info',
-                    'status-inactive': log.status === 'warning'
-                  }">
-                    <i class="pi" [ngClass]="{
-                      'pi-check-circle': log.status === 'success',
-                      'pi-clock': log.status === 'info',
-                      'pi-exclamation-triangle': log.status === 'warning'
-                    }"></i>
-                    {{ log.status === 'success' ? 'Thành công' : log.status === 'info' ? 'Đang chạy' : 'Cảnh báo' }}
-                  </span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+          <div class="legend-item">
+            <span class="legend-color-dot" style="background-color: #FF6B00;"></span>
+            <span class="legend-text">Tài liệu</span>
+          </div>
         </div>
       </div>
     </div>
-  
+
+    <!-- Cột phải: Thống kê theo loại hồ sơ -->
+    <div class="wf-card status-card">
+      <h3 class="section-title category-title">
+        <span class="category-title-icon">
+          <i class="pi pi-chart-bar"></i>
+        </span>
+        Thống kê theo loại hồ sơ
+      </h3>
+
+      <div class="category-statistics">
+        <div class="ratio-bar-list">
+          <div class="ratio-item" *ngFor="let cat of categories">
+            <div class="ratio-header">
+              <span class="ratio-name">{{ cat.name }}</span>
+              <span class="ratio-value-group">
+                <b class="ratio-value" [style.color]="cat.color">{{ cat.value }}</b>
+                <small>{{ cat.percent }}% tổng số</small>
+              </span>
+            </div>
+            <div class="ratio-track">
+              <div class="ratio-fill" [style.width]="cat.percent + '%'" [style.background-color]="cat.color"></div>
+            </div>
+          </div>
+        </div>
+
+        <button type="button" class="category-detail-button">Xem chi tiết</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Danh sách hồ sơ mới nhất -->
+  <div class="wf-card latest-dossier-card">
+    <div class="section-header-flex mb-3">
+      <h3 class="section-title">
+        <i class="pi pi-clock text-greenmr"></i> Danh sách hồ sơ mới nhất
+      </h3>
+    </div>
+
+    <div class="wf-table-wrap">
+      <table class="wf-table latest-dossier-table">
+        <thead>
+          <tr>
+            <th>MÃ HỒ SƠ</th>
+            <th>TIÊU ĐỀ HỒ SƠ</th>
+            <th>TRẠM/ĐƯỜNG DÂY</th>
+            <th>SỐ LƯỢNG TÀI LIỆU</th>
+            <th>NGƯỜI TẠO</th>
+            <th>NGÀY TẠO</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let dossier of recentDossiers">
+            <td><a class="dossier-code">{{ dossier.code }}</a></td>
+            <td>{{ dossier.title }}</td>
+            <td>{{ dossier.station }}</td>
+            <td>{{ dossier.documentCount }}</td>
+            <td>{{ dossier.creator }}</td>
+            <td>{{ dossier.createdDate }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="latest-dossier-footer">
+      <span>Hiển thị 5 trong số 128 bản ghi</span>
+      <div class="latest-dossier-pagination">
+        <button type="button" aria-label="Trang trước" disabled>
+          <i class="pi pi-chevron-left"></i>
+        </button>
+        <button type="button" aria-label="Trang sau">
+          <i class="pi pi-chevron-right"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

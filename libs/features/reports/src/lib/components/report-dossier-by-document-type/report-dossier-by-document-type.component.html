@@ -1,0 +1,196 @@
+<p-toast></p-toast>
+
+<div class="wf-page dossier-report-page document-type-report">
+  <div class="breadcrumb-container">
+    <wf-breadcrumb [suffix]="'Báo cáo thống kê hồ sơ theo loại văn bản'"></wf-breadcrumb>
+  </div>
+
+  <div class="filter-card">
+    <div class="filter-row">
+      <div class="filter-col">
+        <label class="filter-label">Đơn vị</label>
+        <eco-input-tree-select
+          [showLabel]="false"
+          placeholder="-- Chọn đơn vị --"
+          [nodes]="primengOrgUnitTree()"
+          [ngModel]="selectedUnitId()"
+          (ngModelChange)="selectedUnitId.set($event)"
+          [showClear]="true"
+          [enableSearch]="true"
+          [border]="true"
+        ></eco-input-tree-select>
+      </div>
+
+      <div class="filter-col">
+        <label class="filter-label">Loại văn bản</label>
+        <p-multiSelect
+          [options]="documentTypeOptions()"
+          [ngModel]="selectedDocumentTypeIds()"
+          (ngModelChange)="selectedDocumentTypeIds.set($event ?? [])"
+          optionLabel="name"
+          optionValue="id"
+          placeholder="-- Chọn loại văn bản --"
+          [filter]="true"
+          filterBy="name"
+          filterPlaceholder="Tìm kiếm..."
+          [showClear]="true"
+          display="comma"
+          [maxSelectedLabels]="2"
+          selectedItemsLabel="{0} loại đã chọn"
+          styleClass="w-full wf-select-custom document-type-multiselect"
+          appendTo="body"
+        ></p-multiSelect>
+      </div>
+
+      <div class="filter-col">
+        <label class="filter-label">Năm báo cáo</label>
+        <p-select
+          [options]="yearOptions()"
+          [ngModel]="selectedYear()"
+          (ngModelChange)="selectedYear.set($event)"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="Chọn"
+          styleClass="w-full wf-select-custom"
+        ></p-select>
+      </div>
+
+      <div class="filter-actions">
+        <button type="button" class="btn-tim" (click)="onFilter()" [disabled]="loading()">
+          <i class="pi pi-search"></i> Tìm kiếm
+        </button>
+        <button
+          *ngIf="activeTab() === 'list'"
+          type="button"
+          class="btn-green"
+          (click)="exportExcel()"
+          [disabled]="exporting() || loading()"
+        >
+          <i class="pi pi-file-excel"></i> Xuất Excel
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="main-tabs-bar">
+    <button
+      type="button"
+      class="tab-item"
+      [class.active]="activeTab() === 'stats'"
+      (click)="switchTab('stats')"
+    >
+      <i class="pi pi-chart-bar"></i> Báo cáo thống kê
+    </button>
+
+    <button
+      type="button"
+      class="tab-item"
+      [class.active]="activeTab() === 'list'"
+      (click)="switchTab('list')"
+    >
+      <i class="pi pi-file"></i> Danh sách tài liệu
+    </button>
+  </div>
+
+  <ng-container *ngIf="activeTab() === 'stats'">
+    <div *ngIf="loading()" class="loading-box">
+      <i class="pi pi-spin pi-spinner"></i>
+      <p>Đang tải dữ liệu báo cáo...</p>
+    </div>
+
+    <div *ngIf="!loading()" class="stats-section">
+      <div class="card-box chart-box chart-box-full">
+        <div class="card-header flex-header">
+          <h3 class="card-title">Biểu đồ thống kê số lượng Tài liệu, Trang tài liệu theo từng loại văn bản</h3>
+          <div class="top-legend">
+            <span class="legend-dot-item"><span class="dot bg-green"></span> Tài liệu</span>
+            <span class="legend-dot-item"><span class="dot bg-orange"></span> Trang tài liệu</span>
+          </div>
+        </div>
+
+        <div *ngIf="chartStats().length === 0" class="empty-chart-msg">
+          Không có dữ liệu biểu đồ phù hợp bộ lọc.
+        </div>
+
+        <div *ngIf="chartStats().length > 0" class="hbar-chart-container">
+          <div class="hbar-chart-layout">
+            <div class="hbar-type-names">
+              <div class="hbar-axis-spacer" aria-hidden="true"></div>
+              <div
+                #chartRowsScroll
+                class="hbar-type-scroll"
+                (scroll)="syncRowScroll('labels', $event)"
+              >
+                <div
+                  *ngFor="let stat of chartStats()"
+                  class="hbar-type-name"
+                  [pTooltip]="getTypeLabel(stat)"
+                >
+                  {{ getTypeLabel(stat) }}
+                </div>
+              </div>
+            </div>
+
+            <div class="hbar-chart-panel">
+              <div class="hbar-x-ticks">
+                <span>0</span>
+                <span>{{ maxChartValue() * 0.25 | number:'1.0-0' }}</span>
+                <span>{{ maxChartValue() * 0.5 | number:'1.0-0' }}</span>
+                <span>{{ maxChartValue() * 0.75 | number:'1.0-0' }}</span>
+                <span>{{ maxChartValue() }}</span>
+              </div>
+
+              <div class="hbar-bars-viewport">
+                <div class="hbar-grid-lines" aria-hidden="true">
+                  <div class="hbar-grid-line"></div>
+                  <div class="hbar-grid-line"></div>
+                  <div class="hbar-grid-line"></div>
+                  <div class="hbar-grid-line"></div>
+                  <div class="hbar-grid-line line-zero"></div>
+                </div>
+
+                <div
+                  #chartBarsScroll
+                  class="hbar-bars-scroll"
+                  (scroll)="syncRowScroll('bars', $event)"
+                >
+                  <div class="hbar-rows">
+                    <div *ngFor="let stat of chartStats()" class="hbar-row">
+                      <div
+                        class="hbar-bar bg-green"
+                        [style.width.%]="getBarWidthPercent(stat.documentCount)"
+                        [pTooltip]="getTypeLabel(stat) + ' — Tài liệu: ' + stat.documentCount"
+                      ></div>
+                      <div
+                        class="hbar-bar bg-orange"
+                        [style.width.%]="getBarWidthPercent(stat.pageCount)"
+                        [pTooltip]="getTypeLabel(stat) + ' — Trang tài liệu: ' + stat.pageCount"
+                      ></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="hbar-x-title">Số lượng</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <app-report-statistics-document-type-grid
+      [gridConfig]="documentTypeGridConfig"
+      [filter]="reportFilter()"
+      [active]="activeTab() === 'stats'"
+      [filterVersion]="filterVersion()"
+    />
+  </ng-container>
+
+  <app-report-statistics-document-list
+    *ngIf="activeTab() === 'list'"
+    [listConfig]="documentListConfig"
+    [filter]="reportFilter()"
+    [active]="activeTab() === 'list'"
+    [filterVersion]="filterVersion()"
+  />
+</div>

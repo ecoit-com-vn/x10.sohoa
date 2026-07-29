@@ -16,6 +16,14 @@ export const appRoutes: Route[] = [
         loadComponent: () => import('@sohoa.frontend/features/dashboard').then(m => m.DashboardComponent)
       },
       {
+        path: 'profile',
+        loadComponent: () => import('@sohoa.frontend/features/administration').then(m => m.UserProfileComponent)
+      },
+      {
+        path: 'profile/change-password',
+        loadComponent: () => import('@sohoa.frontend/features/administration').then(m => m.ChangePasswordComponent)
+      },
+      {
         path: 'administration/user-management',
         loadComponent: () => import('@sohoa.frontend/features/administration').then(m => m.UserManagement)
       },
@@ -32,8 +40,21 @@ export const appRoutes: Route[] = [
         loadComponent: () => import('@sohoa.frontend/features/administration').then(m => m.UploadConfigComponent)
       },
       {
-        path: 'administration/role-management',
+        path: 'administration/system-permission-groups',
+        loadComponent: () => import('@sohoa.frontend/features/administration').then(m => m.SystemPermissionGroupManagement)
+      },
+      {
+        path: 'administration/unit-permission-groups',
+        loadComponent: () => import('@sohoa.frontend/features/administration').then(m => m.UnitPermissionGroupManagement)
+      },
+      {
+        path: 'administration/roles',
         loadComponent: () => import('@sohoa.frontend/features/administration').then(m => m.RoleManagement)
+      },
+      {
+        path: 'administration/role-management',
+        redirectTo: 'administration/system-permission-groups',
+        pathMatch: 'full'
       },
       {
         path: 'administration/system-param',
@@ -50,6 +71,14 @@ export const appRoutes: Route[] = [
       {
         path: 'administration/sync-config',
         loadComponent: () => import('@sohoa.frontend/features/administration').then(m => m.SyncConfigComponent)
+      },
+      {
+        path: 'administration/workflow-builder/new',
+        loadComponent: () => import('@sohoa.frontend/features/workflow').then(m => m.WorkflowBuilderComponent)
+      },
+      {
+        path: 'administration/workflow-builder/:id',
+        loadComponent: () => import('@sohoa.frontend/features/workflow').then(m => m.WorkflowBuilderComponent)
       },
       {
         path: 'administration/workflow-builder',
@@ -90,6 +119,14 @@ export const appRoutes: Route[] = [
       {
         path: 'ocr-correction',
         loadChildren: () => import('@sohoa.frontend/features/ocr-correction').then(m => m.OCR_CORRECTION_ROUTES)
+      },
+      {
+        path: 'dossier-management',
+        loadChildren: () => import('@sohoa.frontend/features/dossier-management').then(m => m.DOSSIER_MANAGEMENT_ROUTES)
+      },
+      {
+        path: 'documents',
+        loadChildren: () => import('@sohoa.frontend/features/document-management').then(m => m.DOCUMENT_MANAGEMENT_ROUTES)
       },
       {
         path: 'error',

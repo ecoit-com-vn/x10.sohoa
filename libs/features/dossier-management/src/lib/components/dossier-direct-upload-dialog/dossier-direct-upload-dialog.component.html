@@ -1,0 +1,138 @@
+<p-dialog
+  [visible]="visible"
+  (visibleChange)="onVisibleChange($event)"
+  (onShow)="onShow()"
+  [header]="dialogTitle"
+  [modal]="true"
+  appendTo="body"
+  [style]="dialogWidthStyle"
+  [styleClass]="dialogStyleClass"
+  [closable]="!submitting()"
+  [draggable]="false"
+  [blockScroll]="true"
+>
+  <div class="upload-steps">
+    <section class="upload-step">
+      <h4 class="step-title">Bước 1 — Loại văn bản <span class="required">*</span></h4>
+      <select
+        class="wf-select w-full"
+        [ngModel]="selectedDocumentTypeId()"
+        (ngModelChange)="selectedDocumentTypeId.set($event)"
+        [disabled]="loadingDocTypes() || submitting()"
+      >
+        <option value="">-- Chọn loại văn bản --</option>
+        <option *ngFor="let dt of documentTypes()" [value]="dt.id">
+          {{ dt.name }}<ng-container *ngIf="dt.code"> ({{ dt.code }})</ng-container>
+        </option>
+      </select>
+      <p class="ocr-note" *ngIf="loadingDocTypes()"><i class="pi pi-spin pi-spinner"></i> Đang tải danh mục...</p>
+      <p class="ocr-note" *ngIf="selectedDocumentType()?.formName">
+        Form EAV: {{ selectedDocumentType()?.formName }}
+      </p>
+    </section>
+
+    <section class="upload-step ocr-step">
+      <h4 class="step-title">Bước 2 — Xử lý OCR &amp; bóc tách</h4>
+      <p class="ocr-note step-hint">
+        Chọn file ở bước 3. File chỉ được thêm vào hồ sơ khi bạn bấm <strong>Xong</strong>.
+      </p>
+
+      <div class="ocr-options">
+        <label class="ocr-option">
+          <input type="radio" name="ocrMode" value="none" [(ngModel)]="ocrMode" [disabled]="submitting()" />
+          <span>Không xử lý OCR</span>
+        </label>
+        <label class="ocr-option" [class.disabled]="!hasDocumentTypeForm()">
+          <input
+            type="radio"
+            name="ocrMode"
+            value="OcrAndExtract"
+            [(ngModel)]="ocrMode"
+            [disabled]="!hasDocumentTypeForm() || submitting()"
+          />
+          <span>OCR + bóc tách dữ liệu</span>
+        </label>
+        <label class="ocr-option" [class.disabled]="!hasDocumentTypeForm()">
+          <input
+            type="radio"
+            name="ocrMode"
+            value="ExtractOnly"
+            [(ngModel)]="ocrMode"
+            [disabled]="!hasDocumentTypeForm() || submitting()"
+          />
+          <span>Chỉ bóc tách dữ liệu (PDF đã có lớp text)</span>
+        </label>
+      </div>
+
+      <p class="ocr-note" *ngIf="hasDocumentTypeForm()">
+        <i class="pi pi-info-circle"></i>
+        Form EAV sẽ được lấy từ loại văn bản đã chọn khi gửi sang DigitizationService.
+      </p>
+      <p class="ocr-note ocr-warn" *ngIf="selectedDocumentTypeId() && !hasDocumentTypeForm()">
+        <i class="pi pi-exclamation-triangle"></i>
+        Loại văn bản chưa gắn biểu mẫu EAV — không thể bóc tách dữ liệu.
+      </p>
+    </section>
+
+    <section class="upload-step">
+      <h4 class="step-title">
+        Bước 3 —
+        <ng-container *ngIf="isScanMode">Quét tài liệu</ng-container>
+        <ng-container *ngIf="!isScanMode">Upload file</ng-container>
+      </h4>
+
+      <div *ngIf="!canUpload()" class="upload-blocked">
+        <i class="pi pi-info-circle"></i>
+        Chọn loại văn bản ở bước 1 trước khi {{ isScanMode ? 'quét' : 'upload' }} file.
+      </div>
+
+      <ng-container *ngIf="canUpload()">
+        <app-scanner-panel
+          #scannerPanel
+          *ngIf="isScanMode"
+          [disabled]="submitting()"
+          (fileReady)="onScannedFile($event)"
+          (scanningChange)="onScanInProgress($event)"
+        ></app-scanner-panel>
+
+        <app-file-upload-zone
+          *ngIf="!isScanMode"
+          #uploadZone
+          [uploadHandler]="uploadHandler"
+          [deferUpload]="true"
+          [maxFileSize]="524288000"
+          (uploadError)="onUploadError($event)"
+        ></app-file-upload-zone>
+
+        <app-file-upload-zone
+          *ngIf="isScanMode"
+          #uploadZone
+          class="scan-upload-hidden"
+          [uploadHandler]="uploadHandler"
+          [deferUpload]="true"
+          [hideDropZone]="true"
+          [maxFileSize]="524288000"
+          (uploadError)="onUploadError($event)"
+        ></app-file-upload-zone>
+      </ng-container>
+    </section>
+  </div>
+
+  <ng-template #footer>
+    <p-button
+      label="Đóng"
+      severity="secondary"
+      size="small"
+      (onClick)="close()"
+      [disabled]="submitting()"
+    ></p-button>
+    <p-button
+      label="Xong"
+      size="small"
+      icon="pi pi-check"
+      (onClick)="done()"
+      [loading]="submitting()"
+      [disabled]="submitting()"
+    ></p-button>
+  </ng-template>
+</p-dialog>

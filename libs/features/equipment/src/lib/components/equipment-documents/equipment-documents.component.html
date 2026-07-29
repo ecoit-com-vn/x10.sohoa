@@ -1,0 +1,195 @@
+<div class="dossier-documents-tab">
+  <div class="list-toolbar" style="margin-bottom: 8px;">
+    <div class="toolbar-left">
+      <input
+        type="text"
+        class="wf-search-input"
+        placeholder="Tìm tài liệu..."
+        [ngModel]="searchKeyword()"
+        (ngModelChange)="onSearchChange($event)"
+        style="min-width: 220px;"
+      />
+    </div>
+    <div class="toolbar-right">
+      <!-- Toolbar right empty since documents are linked from associated dossiers -->
+    </div>
+  </div>
+
+  <div class="form-template-banner" *ngIf="formTemplateName() as templateName">
+    <i class="pi pi-table"></i>
+    <span>Biểu mẫu bóc tách:</span>
+    <b>{{ templateName }}</b>
+  </div>
+  <div class="form-template-banner form-template-banner--warn" *ngIf="formTemplateMissing()">
+    <i class="pi pi-exclamation-triangle"></i>
+    <span>Loại thiết bị chưa gắn biểu mẫu thông số (TEMPLATE) — không thể OCR/bóc tách.</span>
+  </div>
+
+  <div
+    #tableWrap
+    class="wf-table-wrap"
+    [class.loading]="loading()"
+    [class.has-horizontal-scroll]="hasHorizontalScroll()"
+  >
+    <table class="wf-table">
+      <thead>
+        <tr>
+          <th class="col-stt">STT</th>
+          <th>Tên tài liệu</th>
+          <th>Loại tài liệu</th>
+          <th class="col-digitization" style="width: 130px;">OCR</th>
+          <th class="col-digitization" style="width: 130px;">Bóc tách</th>
+          <th class="col-hd col-actions-sticky">
+            <div class="col-actions-sticky-panel col-actions-sticky-panel--head">Thao tác</div>
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngIf="loading()">
+          <td colspan="6" class="empty-row">
+            <i class="pi pi-spin pi-spinner"></i>
+            <div>Đang tải danh sách tài liệu...</div>
+          </td>
+        </tr>
+        <tr
+          *ngFor="let doc of documents(); let i = index; trackBy: trackByDocumentId"
+          [hidden]="loading()"
+        >
+          <td class="col-stt text-muted">{{ (page() - 1) * pageSize() + i + 1 }}</td>
+          <td>
+            <div style="display: flex; align-items: center; gap: 8px; min-width: 0;">
+              <i class="pi" [ngClass]="fileIcon(doc.name)" style="color: #3b82f6; flex-shrink: 0;"></i>
+              <span
+                style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"
+                [title]="doc.name"
+              >
+                {{ doc.name }}
+              </span>
+            </div>
+          </td>
+          <td>{{ doc.documentTypeName || '—' }}</td>
+          <td class="col-digitization">
+            <ng-container *ngIf="getOcrProgress(doc) as ocr; else noOcr">
+              <div class="digitization-progress-cell">
+                <i
+                  *ngIf="isOcrComplete(ocr)"
+                  class="pi pi-check-circle digitization-done-icon"
+                  title="OCR hoàn thành"
+                ></i>
+                <i
+                  *ngIf="isOcrBarFailed(ocr)"
+                  class="pi pi-times-circle digitization-failed-icon"
+                  title="Lỗi OCR"
+                ></i>
+                <div
+                  *ngIf="!isOcrComplete(ocr) && !isOcrBarFailed(ocr)"
+                  class="digitization-bar-wrap"
+                >
+                  <div
+                    class="digitization-bar-fill"
+                    [style.width.%]="getOcrBarPercent(ocr) ?? 0"
+                    [class.digitization-bar-active]="isOcrBarActive(ocr)"
+                  ></div>
+                  <span class="digitization-bar-label">{{ getOcrBarPercent(ocr) ?? 0 }}%</span>
+                </div>
+              </div>
+            </ng-container>
+            <ng-template #noOcr>
+              <span class="text-muted">—</span>
+            </ng-template>
+          </td>
+          <td class="col-digitization">
+            <ng-container *ngIf="shouldShowExtractionProgress(doc); else noExtraction">
+              <div class="digitization-progress-cell">
+                <i
+                  *ngIf="isExtractionComplete(doc)"
+                  class="pi pi-check-circle digitization-done-icon"
+                  title="Bóc tách hoàn thành"
+                ></i>
+                <i
+                  *ngIf="isExtractionFailed(doc)"
+                  class="pi pi-times-circle digitization-failed-icon"
+                  title="Lỗi bóc tách"
+                ></i>
+                <div
+                  *ngIf="!isExtractionComplete(doc) && !isExtractionFailed(doc)"
+                  class="digitization-bar-wrap"
+                >
+                  <div
+                    class="digitization-bar-fill digitization-bar-active"
+                    [style.width.%]="getExtractionBarPercent(doc) ?? 0"
+                  ></div>
+                  <span class="digitization-bar-label">{{ getExtractionBarPercent(doc) ?? 0 }}%</span>
+                </div>
+              </div>
+            </ng-container>
+            <ng-template #noExtraction>
+              <span class="text-muted">—</span>
+            </ng-template>
+          </td>
+          <td class="col-hd col-actions-sticky">
+            <div class="col-actions-sticky-panel">
+              <div class="action-buttons-group">
+                <button
+                  type="button"
+                  class="act-btn act-more"
+                  title="Thao tác"
+                  (click)="openDocActionMenu(doc, $event)"
+                >
+                  <i class="pi pi-ellipsis-h"></i>
+                </button>
+              </div>
+            </div>
+          </td>
+        </tr>
+        <tr *ngIf="!loading() && documents().length === 0">
+          <td colspan="6" class="empty-row">
+            <i class="pi pi-inbox"></i>
+            <div>Không tìm thấy tài liệu lý lịch thiết bị kỹ thuật nào.</div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="table-footer" *ngIf="totalDocuments() > 0">
+    <span class="record-count">
+      Tổng số: <b>{{ totalDocuments() }}</b> tài liệu.
+    </span>
+    <div class="pagination">
+      <button class="page-btn" (click)="prevPage()" [disabled]="page() === 1">
+        <i class="pi pi-chevron-left"></i>
+      </button>
+      <span class="page-current">Trang {{ page() }} / {{ totalPages() || 1 }}</span>
+      <button class="page-btn" (click)="nextPage()" [disabled]="page() >= totalPages()">
+        <i class="pi pi-chevron-right"></i>
+      </button>
+      <select class="page-size-sel" [ngModel]="pageSize()" (ngModelChange)="onPageSizeChange($event)">
+        <option [ngValue]="10">10 / trang</option>
+        <option [ngValue]="20">20 / trang</option>
+        <option [ngValue]="50">50 / trang</option>
+      </select>
+    </div>
+  </div>
+</div>
+
+<p-menu
+  #docActionMenu
+  [model]="docActionMenuItems()"
+  [popup]="true"
+  appendTo="body"
+  styleClass="doc-action-overflow-menu"
+></p-menu>
+
+<app-equipment-document-detail-dialog
+  *ngIf="editTarget()?.latestVersionId as versionId"
+  [equipmentId]="equipmentId()"
+  [versionId]="versionId"
+  [documentName]="editTarget()?.name ?? ''"
+  [mimeType]="editTarget()?.mimeType ?? null"
+  [canEdit]="canEdit()"
+  [totalPagesHint]="editTarget()?.ocrProgress?.totalPages ?? 0"
+  [visible]="showEditDocument()"
+  (visibleChange)="showEditDocument.set($event)"
+  (applied)="onDocumentEdited()"
+></app-equipment-document-detail-dialog>

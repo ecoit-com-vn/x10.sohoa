@@ -7,6 +7,14 @@ export const WORKFLOW_ROUTES: Routes = [
     component: BorrowReturnComponent,
   },
   {
+    path: 'builder/new',
+    loadComponent: () => import('./feature/workflow-builder/workflow-builder.component').then(m => m.WorkflowBuilderComponent)
+  },
+  {
+    path: 'builder/:id',
+    loadComponent: () => import('./feature/workflow-builder/workflow-builder.component').then(m => m.WorkflowBuilderComponent)
+  },
+  {
     path: 'builder',
     loadComponent: () => import('./feature/workflow-builder/workflow-builder.component').then(m => m.WorkflowBuilderComponent)
   },

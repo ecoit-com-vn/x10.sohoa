@@ -1,7 +1,44 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, of, throwError } from 'rxjs';
+import { catchError, finalize, map, shareReplay, tap } from 'rxjs/operators';
 import { APP_CONFIG } from '../config/app-config.token';
+
+export interface UserProfile {
+  id: string;
+  username: string;
+  fullName: string;
+  email: string;
+  positionId?: number | null;
+  positionName?: string | null;
+  organizationUnitId?: number | null;
+  unitId?: number | null;
+  organizationUnit?: { id: number; name: string } | null;
+  avatarObjectKey?: string | null;
+  avatarUrl?: string | null;
+  isActive?: boolean;
+  roles?: string[];
+  permissions?: string[];
+}
+
+export interface UpdateProfileRequest {
+  fullName: string;
+  email: string;
+  positionId?: number | null;
+  positionName?: string | null;
+}
+
+export interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
+export interface AvatarResponse {
+  message: string;
+  avatarObjectKey?: string | null;
+  avatarUrl?: string | null;
+}
 
 @Injectable({
   providedIn: 'root'
@@ -9,8 +46,15 @@ import { APP_CONFIG } from '../config/app-config.token';
 export class AuthService {
   private http = inject(HttpClient);
   private config = inject(APP_CONFIG);
+  private static readonly PERMISSIONS_STORAGE_KEY = 'userPermissions';
 
   currentUserPermissions = signal<string[]>([]);
+  currentUserProfile = signal<UserProfile | null>(null);
+  private refreshInFlight: Observable<string> | null = null;
+
+  constructor() {
+    this.restorePermissionsFromStorage();
+  }
 
   private get base() {
     return `${this.config.apiGatewayUrl}/api/v1/auth`;
@@ -34,6 +78,77 @@ export class AuthService {
     }
   }
 
+  isTokenExpired(token?: string | null, bufferSeconds = 60): boolean {
+    const value = token ?? this.getToken();
+    if (!value) return true;
+    const payload = this.decodeTokenPayload(value);
+    if (!payload?.exp) return true;
+    const expiresAtMs = payload.exp * 1000;
+    return Date.now() >= expiresAtMs - bufferSeconds * 1000;
+  }
+
+  getRefreshToken(): string | null {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('refreshToken');
+    }
+    return null;
+  }
+
+  private storeTokens(accessToken: string, refreshToken?: string | null): void {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem('token', accessToken);
+    if (refreshToken) {
+      localStorage.setItem('refreshToken', refreshToken);
+    }
+  }
+
+  refreshAccessToken(): Observable<string> {
+    const refreshToken = this.getRefreshToken();
+    if (!refreshToken) {
+      return throwError(() => new Error('No refresh token'));
+    }
+
+    if (this.refreshInFlight) {
+      return this.refreshInFlight;
+    }
+
+    this.refreshInFlight = this.http.post<any>(`${this.base}/refresh`, { refreshToken }).pipe(
+      map((res) => {
+        const accessToken = res.AccessToken || res.accessToken || res.access_token;
+        const newRefreshToken = res.RefreshToken || res.refreshToken || res.refresh_token;
+        if (!accessToken) {
+          throw new Error('Refresh response missing access token');
+        }
+        this.storeTokens(accessToken, newRefreshToken ?? refreshToken);
+        return accessToken as string;
+      }),
+      catchError((err) => {
+        this.logout();
+        return throwError(() => err);
+      }),
+      finalize(() => {
+        this.refreshInFlight = null;
+      }),
+      shareReplay(1)
+    );
+
+    return this.refreshInFlight;
+  }
+
+  ensureValidToken(): Observable<boolean> {
+    const token = this.getToken();
+    if (!token) {
+      return of(false);
+    }
+    if (!this.isTokenExpired(token)) {
+      return of(true);
+    }
+    return this.refreshAccessToken().pipe(
+      map(() => true),
+      catchError(() => of(false))
+    );
+  }
+
   getUserRoles(): string[] {
     const token = this.getToken();
     if (!token) return [];
@@ -42,25 +157,125 @@ export class AuthService {
     const roles = payload['role'] || payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] || [];
     return Array.isArray(roles) ? roles : [roles];
   }
+  getUserId(): string | null {
+    const token = this.getToken();
+    if (!token) return null;
+    const payload = this.decodeTokenPayload(token);
+    if (!payload) return null;
+    return payload['id'] || 
+           payload['nameid'] || 
+           payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'] || 
+           payload['sub'] || 
+           payload['unique_name'] || 
+           null;
+  }
   getPermissions(): Observable<string[]> {
     return this.http.get<string[]>(`${this.base}/permissions`);
+  }
+
+  getProfile(): Observable<UserProfile> {
+    return this.http.get<UserProfile>(`${this.base}/profile`).pipe(
+      tap((profile) => this.currentUserProfile.set(profile))
+    );
+  }
+
+  loadProfile(): Observable<UserProfile> {
+    return this.getProfile();
+  }
+
+  updateProfile(dto: UpdateProfileRequest): Observable<UserProfile> {
+    return this.http.put<UserProfile>(`${this.base}/profile`, dto).pipe(
+      tap((profile) => this.currentUserProfile.set(profile))
+    );
+  }
+
+  changePassword(dto: ChangePasswordRequest): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.base}/change-password`, dto);
+  }
+
+  getAvatarBlob(): Observable<Blob> {
+    return this.http.get(`${this.base}/avatar`, { responseType: 'blob' });
+  }
+
+  uploadAvatar(file: File): Observable<AvatarResponse> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.http.post<AvatarResponse>(`${this.base}/avatar`, formData).pipe(
+      tap((res) => {
+        this.currentUserProfile.update(profile => profile ? {
+          ...profile,
+          avatarObjectKey: res.avatarObjectKey ?? null,
+          avatarUrl: res.avatarUrl ?? null
+        } : profile);
+      })
+    );
+  }
+
+  deleteAvatar(): Observable<{ message: string }> {
+    return this.http.delete<{ message: string }>(`${this.base}/avatar`).pipe(
+      tap(() => {
+        this.currentUserProfile.update(profile => profile ? {
+          ...profile,
+          avatarObjectKey: null,
+          avatarUrl: null
+        } : profile);
+      })
+    );
+  }
+
+  setPermissions(perms: string[]): void {
+    const normalized = perms || [];
+    this.currentUserPermissions.set(normalized);
+    if (typeof window !== 'undefined') {
+      if (normalized.length > 0) {
+        sessionStorage.setItem(AuthService.PERMISSIONS_STORAGE_KEY, JSON.stringify(normalized));
+      } else {
+        sessionStorage.removeItem(AuthService.PERMISSIONS_STORAGE_KEY);
+      }
+    }
+  }
+
+  private restorePermissionsFromStorage(): void {
+    if (typeof window === 'undefined' || this.currentUserPermissions().length > 0) {
+      return;
+    }
+    const raw = sessionStorage.getItem(AuthService.PERMISSIONS_STORAGE_KEY);
+    if (!raw) {
+      return;
+    }
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        this.currentUserPermissions.set(parsed);
+      }
+    } catch {
+      sessionStorage.removeItem(AuthService.PERMISSIONS_STORAGE_KEY);
+    }
+  }
+
+  ensurePermissionsLoaded(): Observable<string[]> {
+    this.restorePermissionsFromStorage();
+    const cached = this.currentUserPermissions();
+    if (cached.length > 0) {
+      return of(cached);
+    }
+    if (!this.getToken()) {
+      return of([]);
+    }
+    return this.getPermissions().pipe(
+      tap((perms) => this.setPermissions(perms || [])),
+      catchError(() => of(this.currentUserPermissions()))
+    );
   }
 
   loadPermissions(): void {
     const token = this.getToken();
     if (token) {
       if (this.currentUserPermissions().length === 0) {
-        this.getPermissions().subscribe({
-          next: (perms) => {
-            this.currentUserPermissions.set(perms || []);
-          },
-          error: () => {
-            this.currentUserPermissions.set([]);
-          }
-        });
+        this.ensurePermissionsLoaded().subscribe();
       }
     } else {
-      this.currentUserPermissions.set([]);
+      this.setPermissions([]);
     }
   }
 
@@ -91,8 +306,10 @@ export class AuthService {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('token');
       localStorage.removeItem('refreshToken');
+      sessionStorage.removeItem(AuthService.PERMISSIONS_STORAGE_KEY);
     }
     this.currentUserPermissions.set([]);
+    this.currentUserProfile.set(null);
   }
 
   getToken(): string | null {
@@ -100,5 +317,14 @@ export class AuthService {
       return localStorage.getItem('token');
     }
     return null;
+  }
+
+  getUserUnitId(): number | null {
+    const token = this.getToken();
+    if (!token) return null;
+    const payload = this.decodeTokenPayload(token);
+    if (!payload) return null;
+    const unitId = payload['unit_id'] || payload['UnitId'] || payload['Unit_Id'];
+    return unitId ? parseInt(unitId, 10) : null;
   }
 }

@@ -1,0 +1,391 @@
+<div class="wf-page" [class.preview-mode]="viewState() === 'preview'">
+  <p-toast></p-toast>
+  <wf-breadcrumb />
+  <div class="wf-card" *ngIf="viewState() === 'list'">
+
+    <div class="loading-overlay" *ngIf="loading()">
+      <div class="loading-content">
+        <i class="pi pi-spin pi-spinner text-4xl mr-3" style="color: #002D72;"></i>
+        <span class="text-base font-semibold" style="color: #002D72;">Đang xử lý dữ liệu...</span>
+      </div>
+    </div>
+
+    <div class="approval-tabs mb-4">
+      <button class="tab-btn" 
+              [class.active]="activeTab() === 'pending'"
+              (click)="switchTab('pending')">
+        <i class="pi pi-clock mr-2"></i>Chờ phê duyệt
+        <span class="tab-badge" *ngIf="pendingCount() > 0">
+          {{ pendingCount() }}
+        </span>
+      </button>
+      <button class="tab-btn" 
+              [class.active]="activeTab() === 'history'"
+              (click)="switchTab('history')">
+        <i class="pi pi-history mr-2"></i>Lịch sử phê duyệt
+      </button>
+    </div>
+
+    <div class="list-toolbar">
+      <div class="toolbar-left">
+        <input type="text" class="wf-search-input"
+          placeholder="Tìm kiếm biểu mẫu..."
+          [ngModel]="searchKeyword()"
+          (ngModelChange)="searchKeyword.set($event)"
+          (keyup.enter)="onSearch()" />
+        <button class="btn-tim" (click)="onSearch()">
+          <i class="pi pi-search"></i> Tìm
+        </button>
+      </div>
+    </div>
+
+    <div class="wf-table-wrap">
+      <table class="wf-table">
+        <thead>
+          <tr>
+            <th style="width: 60px; text-align: center;">STT</th>
+            <th style="width: 150px;">Mã biểu mẫu</th>
+            <th>Tên biểu mẫu thuộc tính thiết bị</th>
+            <th>Hạng mục áp dụng</th>
+            <th style="width: 100px; text-align: center;">Phiên bản</th>
+            <th>Người tạo</th>
+            <th class="col-tt">Trạng thái</th>
+            <th>Cập nhật lần cuối</th>
+            <th class="col-hd" style="width: 200px;">Thao tác</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngIf="loading()">
+            <td colspan="9" class="skeleton-row" style="padding: 30px; text-align: center;">
+              <i class="pi pi-spin pi-spinner mr-2" style="font-size: 1.5rem; color: #002D72;"></i>
+              <span>Đang tải dữ liệu biểu mẫu...</span>
+            </td>
+          </tr>
+          
+          <tr *ngFor="let form of paginatedForms(); let i = index">
+            <td>{{ first() + i + 1 }}</td>
+            <td>{{ form.code }}</td>
+            <td><span class="wf-name-link" (click)="onPreview(form)">{{ form.name }}</span></td>
+            <td>
+              <span class="badge">
+                {{ getCategoryName(form) }}
+              </span>
+            </td>
+            <td>v{{ form.version }}.0</td>
+            <td>{{ form.createdBy || 'admin' }}</td>
+            <td class="col-tt">
+              <span class="status-pill"
+                [class.status-pending]="form.status === 'Chờ duyệt'"
+                [class.status-approved]="form.status === 'Hoàn thành'"
+                [class.status-rejected]="form.status === 'Từ chối'" >
+                {{ form.status || 'Chờ duyệt' }}
+              </span>
+            </td>
+            <td>{{ form.createdAt | date:'dd/MM/yyyy' }}</td>
+            <td class="col-hd">
+              <button type="button" class="act-btn act-more" (click)="openActionMenu(form, $event, actionMenu)" title="Thao tác khác">
+                <i class="pi pi-ellipsis-h"></i>
+              </button>
+              <button class="act-btn btn-view-history" (click)="viewVersions(form)" title="Lịch sử phiên bản">
+                <i class="pi pi-history"></i>
+              </button>
+              
+              <ng-container *ngIf="form.status === 'Chờ duyệt' && canApprove()">
+                <button class="act-btn act-approve" (click)="approveForm(form)" title="Phê duyệt">
+                  <i class="pi pi-check"></i>
+                </button>
+                <button class="act-btn act-reject" (click)="rejectForm(form)" title="Từ chối">
+                  <i class="pi pi-times"></i>
+                </button>
+              </ng-container>
+            </td>
+          </tr>
+          
+          <tr *ngIf="filteredForms().length === 0 && !loading()">
+            <td colspan="9" class="empty-row">
+              <i class="pi pi-inbox"></i>
+              <div>Không tìm thấy biểu mẫu nào trong danh sách này.</div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p-menu #actionMenu [model]="actionMenuItems" [popup]="true" appendTo="body" styleClass="row-action-menu"></p-menu>
+
+    <div class="table-footer-paginator" *ngIf="filteredForms().length > 0">
+      <span class="record-count">Tổng số: <b>{{ filteredForms().length }}</b> bản ghi.</span>
+      <p-paginator 
+          [first]="first()" 
+          [rows]="rows()" 
+          [totalRecords]="filteredForms().length" 
+          [rowsPerPageOptions]="[5, 10, 20, 50]" 
+          (onPageChange)="onPageChange($event)">
+      </p-paginator>
+    </div>
+  </div>
+
+  <div class="wf-card preview-card" *ngIf="viewState() === 'preview' && selectedForm() as form">
+    <div class="loading-overlay" *ngIf="loading()">
+      <div class="loading-content">
+        <i class="pi pi-spin pi-spinner text-4xl mr-3" style="color: #002D72;"></i>
+        <span class="text-base font-semibold" style="color: #002D72;">Đang xử lý biểu mẫu...</span>
+      </div>
+    </div>
+
+    <div class="builder-header" style="margin-bottom: 1.25rem;">
+      <div class="header-left">
+        <div>
+          <span class="badge mb-2" style="background: #e0f2fe; color: #0369a1; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 700;">
+            PHÂN HỆ KIỂM DUYỆT
+          </span>
+          <h2 class="builder-title">Xem trước cấu hình: {{ form.name }}</h2>
+          <p class="builder-subtitle">{{ form.descriptionInfo || form.description || 'Vui lòng kiểm tra kỹ cấu trúc các thuộc tính kỹ thuật bên dưới trước khi duyệt.' }}</p>
+        </div>
+      </div>
+      <div class="header-right" style="display: flex; gap: 8px;">
+        <p-button label="Quay lại" icon="pi pi-arrow-left" severity="secondary" [rounded]="true" (onClick)="goToList()"></p-button>
+        
+        <ng-container *ngIf="form.status === 'Chờ duyệt' && canApprove()">
+          <p-button label="Từ chối duyệt" icon="pi pi-times" severity="danger" [rounded]="true" (onClick)="rejectForm(form)"></p-button>
+          <p-button label="Phê duyệt" icon="pi pi-check" severity="success" [rounded]="true" (onClick)="approveForm(form)"></p-button>
+        </ng-container>
+      </div>
+    </div>
+
+    <div class="card p-5 preview-body-card" style="background: white; border-radius: 12px; border: 1px solid #e2e8f0; margin-top: 15px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #FF6B00; padding-bottom: 8px; margin-bottom: 20px;">
+        <h3 class="font-bold text-lg" style="color: #002D72; margin: 0;">Thông số kỹ thuật biểu mẫu (Preview)</h3>
+        <span class="text-sm font-semibold" style="color: #64748b;">
+          Mã biểu mẫu: <b style="color: #000;">{{ form.code }}</b> | Hạng mục: <b style="color: #000;">{{ getCategoryName(form) }}</b>
+        </span>
+      </div>
+      
+      <div style="display: flex; flex-wrap: wrap; gap: 20px;">
+        <div *ngFor="let field of fields()" 
+             [style.width]="field.width === 50 ? 'calc(50% - 10px)' : '100%'" 
+             style="display: flex; flex-direction: column; gap: 6px;">
+          
+          <label class="font-semibold text-sm" style="color: #374151;">
+            {{ field.label }}
+            <span *ngIf="field.required" class="text-danger">*</span>
+          </label>
+
+          <div>
+            <input *ngIf="field.type === 'text'" type="text" pInputText class="w-full" [placeholder]="field.placeholder || ''" [ngModel]="simulatedValues()[field.name]" (ngModelChange)="updateSimulatedValue(field.name, $event)" />
+            <input *ngIf="field.type === 'number'" type="number" pInputText class="w-full" [placeholder]="field.placeholder || ''" [ngModel]="simulatedValues()[field.name]" (ngModelChange)="updateSimulatedValue(field.name, $event)" />
+            <p-datepicker *ngIf="field.type === 'date'" class="w-full" dateFormat="dd/mm/yy" [showIcon]="true" icon="pi pi-calendar" appendTo="body" styleClass="w-full" [style]="{'width':'100%'}" placeholder="dd/mm/yyyy" [ngModel]="simulatedValues()[field.name]" (ngModelChange)="updateSimulatedValue(field.name, $event)"></p-datepicker>
+            
+            <p-select *ngIf="field.type === 'dropdown'" 
+                      [options]="field.dataSourceType === 'catalog' ? (catalogOptionsMap()[field.catalogType || ''] || ['Đang tải...']) : (field.options || [])" 
+                      [placeholder]="field.placeholder || 'Chọn giá trị...'"
+                      [ngModel]="simulatedValues()[field.name]"
+                      (ngModelChange)="updateSimulatedValue(field.name, $event)"
+                      styleClass="w-full" 
+                      appendTo="body">
+            </p-select>
+
+            <textarea *ngIf="field.type === 'textarea'" pTextarea class="w-full" rows="3" [placeholder]="field.placeholder || ''" [ngModel]="simulatedValues()[field.name]" (ngModelChange)="updateSimulatedValue(field.name, $event)"></textarea>
+
+            <!-- Radio -->
+            <div *ngIf="field.type === 'radio'" style="display: flex; flex-direction: column; gap: 8px; padding: 4px 0;">
+              <ng-container *ngIf="field.dataSourceType === 'catalog'">
+                <div *ngFor="let opt of (catalogOptionsMap()[field.catalogType || ''] || ['Đang tải...']); let oIdx = index" style="display: flex; align-items: center; gap: 8px;">
+                  <input type="radio" [id]="'sim_radio_' + field.id + '_' + oIdx" [name]="'sim_radio_' + field.id" [value]="opt" [ngModel]="simulatedValues()[field.name]" (ngModelChange)="updateSimulatedValue(field.name, $event)" style="scale: 1.1; cursor: pointer;" />
+                  <label [for]="'sim_radio_' + field.id + '_' + oIdx" class="text-sm select-none" style="cursor: pointer;">{{ opt }}</label>
+                </div>
+              </ng-container>
+              <ng-container *ngIf="field.dataSourceType !== 'catalog'">
+                <div *ngFor="let opt of (field.options || []); let oIdx = index" style="display: flex; align-items: center; gap: 8px;">
+                  <input type="radio" [id]="'sim_radio_' + field.id + '_' + oIdx" [name]="'sim_radio_' + field.id" [value]="opt" [ngModel]="simulatedValues()[field.name]" (ngModelChange)="updateSimulatedValue(field.name, $event)" style="scale: 1.1; cursor: pointer;" />
+                  <label [for]="'sim_radio_' + field.id + '_' + oIdx" class="text-sm select-none" style="cursor: pointer;">{{ opt }}</label>
+                </div>
+              </ng-container>
+            </div>
+
+            <!-- Checkbox -->
+            <div *ngIf="field.type === 'checkbox'">
+              <!-- Case 1: Nhóm checkbox (nếu có options hoặc catalog) -->
+              <div *ngIf="field.dataSourceType === 'catalog' || (field.options && field.options.length > 0); else singleCheckboxPreview"
+                   style="display: flex; flex-direction: column; gap: 8px; padding: 4px 0;">
+                
+                <ng-container *ngIf="field.dataSourceType === 'catalog'">
+                  <div *ngFor="let opt of (catalogOptionsMap()[field.catalogType || ''] || ['Đang tải...']); let oIdx = index" style="display: flex; align-items: center; gap: 8px;">
+                    <input type="checkbox" [id]="'sim_chk_' + field.id + '_' + oIdx" [ngModel]="simulatedValues()[field.name + '_' + opt] || false" (ngModelChange)="updateSimulatedValue(field.name + '_' + opt, $event)" style="scale: 1.1; cursor: pointer;" />
+                    <label [for]="'sim_chk_' + field.id + '_' + oIdx" class="text-sm select-none" style="cursor: pointer;">{{ opt }}</label>
+                  </div>
+                </ng-container>
+
+                <ng-container *ngIf="field.dataSourceType !== 'catalog'">
+                  <!-- "Chọn tất cả" preview -->
+                  <div *ngIf="field.selectAll" style="display: flex; align-items: center; gap: 8px;">
+                    <input type="checkbox" [id]="'sim_chk_all_' + field.id" [ngModel]="isAllChecked(field)" (ngModelChange)="toggleSelectAll(field, $event)" style="scale: 1.1; cursor: pointer;" />
+                    <label [for]="'sim_chk_all_' + field.id" class="text-sm select-none" style="cursor: pointer; font-weight: 600; color: #002D72;">Chọn tất cả</label>
+                  </div>
+
+                  <div *ngFor="let opt of (field.options || []); let oIdx = index" style="display: flex; align-items: center; gap: 8px;">
+                    <input type="checkbox" [id]="'sim_chk_' + field.id + '_' + oIdx" [ngModel]="simulatedValues()[field.name + '_' + opt] || false" (ngModelChange)="updateSimulatedValue(field.name + '_' + opt, $event)" style="scale: 1.1; cursor: pointer;" />
+                    <label [for]="'sim_chk_' + field.id + '_' + oIdx" class="text-sm select-none" style="cursor: pointer;">{{ opt }}</label>
+                  </div>
+                </ng-container>
+              </div>
+
+              <!-- Case 2: Checkbox đơn -->
+              <ng-template #singleCheckboxPreview>
+                <div style="display: flex; align-items: center; gap: 8px; padding: 8px 0;">
+                  <input type="checkbox" [id]="'sim_chk_single_' + field.id" [ngModel]="simulatedValues()[field.name] || false" (ngModelChange)="updateSimulatedValue(field.name, $event)" style="scale: 1.1; cursor: pointer;" />
+                  <label [for]="'sim_chk_single_' + field.id" class="text-sm select-none" style="cursor: pointer;">{{ field.placeholder || 'Đồng ý / Xác nhận' }}</label>
+                </div>
+              </ng-template>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <div style="margin-top: 30px; display: flex; justify-content: flex-end; border-top: 1px solid #e2e8f0; padding-top: 20px;">
+        <p-button label="Kiểm nghiệm cấu trúc biểu mẫu (Simulate)" icon="pi pi-check-circle" [rounded]="true" styleClass="btn-evn-blue" (onClick)="onSimulateSubmit()"></p-button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== DIALOG XÁC NHẬN PHÊ DUYỆT ==================== -->
+  <p-dialog
+    [visible]="showConfirmApprove()"
+    (visibleChange)="$event ? null : showConfirmApprove.set(false)"
+    header="Xác nhận phê duyệt"
+    [modal]="true"
+    [style]="{ width: '420px' }"
+    styleClass="evn-dialog-custom"
+    [closable]="true">
+    <div style="display: flex; align-items: flex-start; gap: 12px; padding: 8px 0 16px;">
+      <i class="pi pi-check-circle" style="font-size: 1.8rem; color: #22c55e;"></i>
+      <div>
+        <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">Bạn có chắc chắn muốn phê duyệt?</p>
+        <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
+          Biểu mẫu <b style="color: #1e293b;">{{ targetForm?.name }}</b> sẽ được phê duyệt và chuyển sang trạng thái <b>Hoàn thành</b>.
+        </p>
+      </div>
+    </div>
+    <ng-template #footer>
+      <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+        <button class="btn-cancel btn-small" (click)="showConfirmApprove.set(false)">
+          <i class="pi pi-times"></i> Hủy
+        </button>
+        <button class="btn-save btn-small" (click)="onConfirmApprove()" style="background-color: #22c55e; border-color: #22c55e;">
+          <i class="pi pi-check"></i> Phê duyệt
+        </button>
+      </div>
+    </ng-template>
+  </p-dialog>
+
+  <!-- ==================== DIALOG XÁC NHẬN TỪ CHỐI ==================== -->
+  <p-dialog
+    [visible]="showConfirmReject()"
+    (visibleChange)="$event ? null : showConfirmReject.set(false)"
+    header="Xác nhận từ chối"
+    [modal]="true"
+    [style]="{ width: '420px' }"
+    styleClass="evn-dialog-custom"
+    [closable]="true">
+    <div style="display: flex; align-items: flex-start; gap: 12px; padding: 8px 0 16px;">
+      <i class="pi pi-times-circle" style="font-size: 1.8rem; color: #ef4444;"></i>
+      <div>
+        <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">Bạn có chắc chắn muốn từ chối?</p>
+        <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
+          Biểu mẫu <b style="color: #1e293b;">{{ targetForm?.name }}</b> sẽ bị từ chối phê duyệt và chuyển về trạng thái <b>Từ chối</b>.
+        </p>
+      </div>
+    </div>
+    <ng-template #footer>
+      <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+        <button class="btn-cancel btn-small" (click)="showConfirmReject.set(false)">
+          <i class="pi pi-times"></i> Hủy
+        </button>
+        <button class="btn-save btn-small" (click)="onConfirmReject()" style="background-color: #ef4444; border-color: #ef4444;">
+          <i class="pi pi-times"></i> Từ chối
+        </button>
+      </div>
+    </ng-template>
+  </p-dialog>
+
+  <!-- ==================== DIALOG LỊCH SỬ PHIÊN BẢN ==================== -->
+  <p-dialog [visible]="showVersionsDialog()" (visibleChange)="$event ? null : showVersionsDialog.set(false)"
+    header="Lịch sử phiên bản form" [modal]="true" [style]="{ width: '900px' }" styleClass="evn-dialog-custom"
+    [closable]="true">
+    <div *ngIf="selectedTemplateForVersions() as template" class="version-dialog-wrapper" style="padding: 10px 0;">
+      <div class="wf-table-wrap">
+        <table class="wf-table">
+          <thead>
+            <tr>
+              <th class="col-ver-width text-center" style="width: 100px; text-align: center;">Phiên bản</th>
+              <th>Mã form</th>
+              <th>Tên form</th>
+              <th>Người cập nhật</th>
+              <th>Ngày cập nhật</th>
+              <th class="col-tt-width text-center" style="width: 150px; text-align: center;">Trạng thái sử dụng</th>
+              <th style="width: 110px; text-align: center;">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let ver of versionList()">
+              <td class="text-center font-bold" style="text-align: center; font-weight: bold; color: #002D72;">
+                v{{ ver.version }}.0
+              </td>
+              <td>{{ ver.code }}</td>
+              <td>{{ ver.name }}</td>
+              <td>{{ ver.creatorFullName }}</td>
+              <td>{{ ver.createdAt | date:'dd/MM/yyyy HH:mm' }}</td>
+              <td class="text-center" style="text-align: center;">
+                <span class="status-pill" [class.status-active]="ver.isActive" [class.status-inactive]="!ver.isActive">
+                  {{ ver.isActive ? 'Hoạt động' : 'Ngưng hoạt động' }}
+                </span>
+              </td>
+              <td class="text-center" style="text-align: center;">
+                <div style="display: inline-flex; gap: 6px; justify-content: center;">
+                  <button class="act-btn btn-view-detail" (click)="viewVersionDetail(ver)" title="Xem chi tiết">
+                    <i class="pi pi-eye"></i>
+                  </button>
+                  <button *ngIf="canApprove() && !ver.isActive" class="act-btn act-history" (click)="confirmRestoreVersion(ver)"
+                    title="Khôi phục phiên bản này" [disabled]="restoringVersion()"
+                    style="background-color: #f59e0b; color: white;">
+                    <i class="pi pi-refresh" [class.pi-spin]="restoringVersion()"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+            <tr *ngIf="versionList().length === 0">
+              <td colspan="7" class="empty-row text-center">Không tải được lịch sử phiên bản.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <ng-template #footer>
+      <div style="display: flex; justify-content: flex-end; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+        <button class="btn-cancel btn-small" (click)="showVersionsDialog.set(false)">
+          <i class="pi pi-times"></i> Đóng
+        </button>
+      </div>
+    </ng-template>
+  </p-dialog>
+
+  <p-dialog [visible]="showConfirmRestore()" (visibleChange)="$event ? null : showConfirmRestore.set(false)"
+    header="Xác nhận khôi phục" [modal]="true" [style]="{ width: '480px' }" styleClass="evn-dialog-custom"
+    [closable]="true">
+    <p *ngIf="restoreTarget() as ver" style="margin: 8px 0 16px; line-height: 1.5;">
+      Khôi phục form về phiên bản <b>v{{ ver.version }}.0</b>?
+      Phiên bản này sẽ trở thành phiên bản đang sử dụng.
+    </p>
+    <ng-template #footer>
+      <div style="display: flex; justify-content: flex-end; gap: 8px;">
+        <button class="btn-cancel btn-small" (click)="showConfirmRestore.set(false)" [disabled]="restoringVersion()">
+          Hủy
+        </button>
+        <button class="btn-save btn-small" (click)="onConfirmRestoreVersion()" [disabled]="restoringVersion()">
+          <i class="pi pi-refresh" [class.pi-spin]="restoringVersion()"></i> Khôi phục
+        </button>
+      </div>
+    </ng-template>
+  </p-dialog>
+</div>

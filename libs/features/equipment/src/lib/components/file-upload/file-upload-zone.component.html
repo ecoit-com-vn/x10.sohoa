@@ -1,0 +1,80 @@
+<div class="file-upload-zone">
+  <!-- Drop Zone -->
+  <div
+    *ngIf="!hideDropZone()"
+    class="drop-zone"
+    [class.drag-over]="isDragOver()"
+    (dragover)="onDragOver($event)"
+    (dragleave)="onDragLeave($event)"
+    (drop)="onDrop($event)"
+  >
+    <div class="drop-zone-content">
+      <i class="pi pi-cloud-upload"></i>
+      <p class="drop-zone-text">
+        Kéo và thả tệp vào đây hoặc
+        <label class="upload-link">
+          chọn từ máy tính
+          <input
+            type="file"
+            multiple
+            hidden
+            (change)="onFileSelected($event)"
+          />
+        </label>
+      </p>
+      <p class="drop-zone-hint">
+        Tối đa {{ formatFileSize(maxFileSize()) }} | Các định dạng được hỗ trợ: {{ allowedExtensions().join(', ') }}
+      </p>
+    </div>
+  </div>
+
+  <!-- Upload List -->
+  <div class="upload-list" *ngIf="getUploadItems().length > 0">
+    <div class="upload-item" *ngFor="let item of getUploadItems()">
+      <div class="upload-header">
+        <div class="upload-info">
+          <i class="pi" [ngClass]="item.progress.status === 'completed' ? 'pi-check-circle' : (item.progress.status === 'error' ? 'pi-exclamation-circle' : 'pi-file')"></i>
+          <div class="file-details">
+            <p class="file-name">{{ item.file.name }}</p>
+            <p class="file-size">{{ formatFileSize(item.file.size) }}</p>
+          </div>
+        </div>
+        <div class="upload-status">
+          <span class="status-text" [ngClass]="'status-' + item.progress.status">
+            {{ getStatusText(item.progress) }}
+          </span>
+          <button
+            *ngIf="item.progress.status !== 'completed'"
+            (click)="cancelUpload(item.id)"
+            class="btn-cancel"
+            title="Hủy"
+          >
+            <i class="pi pi-times"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Progress Bar -->
+      <div class="upload-progress" *ngIf="item.progress.status === 'uploading' || item.progress.status === 'pending'">
+        <p-progressBar
+          [value]="item.progress.progress"
+          [showValue]="false"
+          [class.progress-pending]="item.progress.status === 'pending'"
+        ></p-progressBar>
+        <p class="progress-details">
+          {{ formatFileSize(item.progress.uploadedBytes) }} / {{ formatFileSize(item.progress.totalBytes) }}
+        </p>
+      </div>
+
+      <!-- Error Message -->
+      <p class="error-message" *ngIf="item.progress.status === 'error'">
+        {{ item.progress.error }}
+      </p>
+    </div>
+  </div>
+
+  <!-- Empty State -->
+  <p class="empty-state" *ngIf="getUploadItems().length === 0 && !isUploading()">
+    Chưa có tệp nào được tải lên
+  </p>
+</div>

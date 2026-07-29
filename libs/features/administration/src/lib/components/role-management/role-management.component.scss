@@ -13,34 +13,33 @@
       background-size: 200% 100%;
     }
 
-    /* Custom styles for role permission assignment dialog */
     :host ::ng-deep {
       .evn-dialog-custom {
         .p-dialog-header {
           background-color: #ffffff;
           border-bottom: 1px solid #e2e8f0;
           padding: 18px 24px;
-          
+
           .p-dialog-title {
-            color: #002D72 !important; /* Bold branding deep blue */
+            color: #002D72 !important;
             font-weight: 700 !important;
             font-size: 1.15rem !important;
           }
-          
+
           .p-dialog-header-icon {
             color: #64748b;
             width: 32px;
             height: 32px;
             border-radius: 50%;
             transition: all 0.2s ease;
-            
+
             &:hover {
               background-color: #f1f5f9;
               color: #0f172a;
             }
           }
         }
-        
+
         .p-dialog-content {
           padding: 16px 24px;
         }
@@ -53,208 +52,331 @@
       }
     }
 
-    .dialog-permissions-body {
-      padding-top: 4px;
-    }
-
-    .dialog-subtitle {
-      font-size: 0.875rem;
-      color: #64748b;
-    }
-
-    /* Scrollable Container with custom scrollbar */
-    .permissions-scroll-container {
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-      max-height: 520px;
-      overflow-y: auto;
-      padding-right: 8px;
-      margin-right: -8px;
-
-      &::-webkit-scrollbar {
-        width: 6px;
-      }
-      &::-webkit-scrollbar-track {
-        background: #f8fafc;
-        border-radius: 8px;
-      }
-      &::-webkit-scrollbar-thumb {
-        background: #cbd5e1;
-        border-radius: 8px;
-        transition: background 0.15s ease;
-        
-        &:hover {
-          background: #94a3b8;
-        }
-      }
-    }
-
-    /* Parent Menu styling */
-    .parent-menu-section {
-      flex-shrink: 0;
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      overflow: hidden;
-      background-color: #ffffff;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02), 0 1px 2px rgba(0, 0, 0, 0.04);
-      transition: border-color 0.2s ease, box-shadow 0.2s ease;
-
-      &:hover {
-        border-color: #cbd5e1;
-      }
-    }
-
-    .parent-menu-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 12px 16px;
-      background-color: #f8fafc;
-      cursor: pointer;
-      border-bottom: 1px solid #e2e8f0;
-      user-select: none;
-      transition: background-color 0.15s ease;
-
-      &:hover {
-        background-color: #f1f5f9;
-      }
-
-      .header-title-wrap {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-      }
-
-      .header-icon {
-        color: #002D72;
-        font-size: 1.1rem;
-      }
-
-      .header-text {
-        font-weight: 700;
-        color: #002D72;
-        font-size: 0.9rem;
-      }
-
-      .chevron-icon {
-        color: #64748b;
-        font-size: 0.85rem;
-        transition: transform 0.2s ease;
-      }
-    }
-
-    .parent-menu-body {
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-      background-color: #ffffff;
-    }
-
-    /* Submenu Section */
-    .submenu-section {
-      border-left: 3px solid #0284c7;
-      padding-left: 14px;
-      margin-bottom: 4px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-
-      .submenu-header {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-      }
-
-      .submenu-icon {
-        color: #0284c7;
-        font-size: 0.95rem;
-      }
-
-      .submenu-title {
-        font-weight: 600;
-        color: #0f172a;
-        font-size: 0.875rem;
-      }
-    }
-
-    /* Grid layout for checkbox permission items */
-    .permissions-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-      gap: 10px;
-      width: 100%;
-    }
-
-    /* Checkbox item cards */
-    .permission-checkbox-item {
-      display: flex;
-      align-items: flex-start;
-      gap: 10px;
-      padding: 10px 12px;
-      border: 1px solid #e2e8f0;
-      border-radius: 6px;
-      background-color: #f8fafc;
-      transition: all 0.15s ease;
-
-      &:hover {
-        border-color: #cbd5e1;
-        background-color: #f1f5f9;
-        transform: translateY(-1px);
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
-      }
-
-      .perm-checkbox {
-        margin-top: 3px;
-        width: 16px;
-        height: 16px;
-        accent-color: #002D72;
-        cursor: pointer;
-      }
-
-      .perm-label-wrap {
-        display: flex;
-        flex-direction: column;
-        cursor: pointer;
-        flex: 1;
-      }
-
-      .perm-name {
-        font-weight: 600;
-        color: #0f172a;
-        margin: 0;
-        cursor: pointer;
-        font-size: 0.85rem;
-        line-height: 1.25;
-      }
-
-      .perm-desc {
-        font-size: 0.75rem;
-        color: #64748b;
-        margin-top: 3px;
-        line-height: 1.35;
-      }
-    }
-
-    .no-perms-hint {
-      font-size: 0.75rem;
-      color: #94a3b8;
-      font-style: italic;
-      grid-column: 1 / -1;
-    }
-
-    .dialog-footer-actions {
-      display: flex;
-      justify-content: flex-end;
-      gap: 8px;
-    }
-
-    /* Action buttons row alignment */
     .action-buttons-group {
       display: flex;
       align-items: center;
       gap: 8px;
       flex-wrap: nowrap;
       white-space: nowrap;
-    }
+    }
+
+    .permission-tab-content,
+    .accounts-tab-content {
+      min-height: 320px;
+    }
+
+    .permissions-scroll-container {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      max-height: calc(100vh - 280px);
+      overflow-y: auto;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      background: #ffffff;
+
+      &::-webkit-scrollbar {
+        width: 6px;
+      }
+      &::-webkit-scrollbar-track {
+        background: #f8fafc;
+      }
+      &::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 8px;
+      }
+    }
+
+    .permission-group-card {
+      border: none;
+      border-radius: 0;
+      background: transparent;
+      overflow: visible;
+
+      &:not(:last-child) {
+        border-bottom: 1px solid #e5e7eb;
+      }
+    }
+
+    .permission-group-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: #f9fafb;
+      cursor: pointer;
+      user-select: none;
+      transition: background-color 0.15s ease;
+
+      &:hover {
+        background: #f3f4f6;
+      }
+    }
+
+    .group-header-left,
+    .column-header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .group-title {
+      font-size: 0.875rem;
+      font-weight: 700;
+      color: #111827;
+      text-transform: uppercase;
+      letter-spacing: 0.01em;
+      line-height: 1.3;
+    }
+
+    .chevron-icon,
+    .column-chevron {
+      color: #6b7280;
+      font-size: 0.75rem;
+      flex-shrink: 0;
+      width: 14px;
+      text-align: center;
+    }
+
+    .permission-group-body {
+      padding: 16px 16px 20px 42px;
+      background: #ffffff;
+      border-top: 1px solid #eef2f7;
+    }
+
+    .permission-columns {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 18px;
+      align-items: start;
+    }
+
+    .permission-column {
+      min-width: 0;
+      border-right: 1px solid #eef2f7;
+      padding-right: 16px;
+
+      &:last-child {
+        border-right: none;
+        padding-right: 0;
+      }
+    }
+
+    .column-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 12px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .column-title {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: #1f2937;
+      line-height: 1.3;
+    }
+
+    .permission-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .permission-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      cursor: pointer;
+      margin: 0;
+    }
+
+    .perm-checkbox {
+      width: 16px;
+      height: 16px;
+      margin-top: 2px;
+      accent-color: #2563eb;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .group-checkbox {
+      margin-top: 0;
+    }
+
+    .perm-name {
+      font-size: 0.875rem;
+      font-weight: 400;
+      color: #374151;
+      line-height: 1.45;
+    }
+
+    .no-perms-hint {
+      font-size: 0.8rem;
+      color: #94a3b8;
+      font-style: italic;
+    }
+
+    .permission-groups-loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 120px;
+      color: #64748b;
+    }
+
+    .role-permission-group-card {
+      display: block !important;
+      flex: 0 0 auto;
+      width: 100%;
+      min-height: 54px;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      background: #ffffff;
+      margin-bottom: 10px;
+      overflow: hidden;
+    }
+
+    .role-permission-group-header {
+      display: flex !important;
+      min-height: 52px;
+      visibility: visible !important;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 12px 14px;
+    }
+
+    .role-permission-group-select {
+      display: flex !important;
+      flex: 1 1 auto;
+      visibility: visible !important;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+      cursor: pointer;
+    }
+
+    .role-permission-group-title {
+      display: flex !important;
+      visibility: visible !important;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+      color: #1f2937;
+
+      small {
+        color: #64748b;
+        font-size: 0.75rem;
+        font-weight: 400;
+      }
+    }
+
+    .permission-group-detail-toggle {
+      display: inline-flex !important;
+      visibility: visible !important;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+      padding: 6px 10px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      background: #f8fafc;
+      color: #334155;
+      cursor: pointer;
+      font-size: 0.8rem;
+
+      &:hover {
+        border-color: #2563eb;
+        color: #1d4ed8;
+        background: #eff6ff;
+      }
+    }
+
+    .permission-group-menu-detail {
+      display: block !important;
+      height: auto !important;
+      min-height: 72px;
+      overflow: visible;
+      border-top: 1px solid #e2e8f0;
+      background: #f8fafc;
+    }
+
+    .permission-group-menu-detail-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 18px 8px 42px;
+      color: #1e3a5f;
+      font-size: 0.85rem;
+      font-weight: 700;
+    }
+
+    .permission-group-menu-detail-content {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px 20px;
+      padding: 6px 18px 16px 42px;
+    }
+
+    .assigned-menu-parent-name {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #1e3a5f;
+      font-size: 0.875rem;
+      font-weight: 600;
+    }
+
+    .assigned-menu-children {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin: 8px 0 0 24px;
+    }
+
+    .assigned-menu-child {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #475569;
+      font-size: 0.82rem;
+
+      .pi-circle-fill {
+        color: #94a3b8;
+        font-size: 0.35rem;
+      }
+    }
+
+    .no-assigned-menus {
+      grid-column: 1 / -1;
+      color: #94a3b8;
+      font-size: 0.82rem;
+      font-style: italic;
+    }
+
+    @media (max-width: 768px) {
+      .role-permission-group-header {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .permission-group-detail-toggle {
+        margin-left: 28px;
+      }
+
+      .permission-group-menu-detail {
+        padding-left: 0;
+      }
+
+      .permission-group-menu-detail-title,
+      .permission-group-menu-detail-content {
+        padding-left: 20px;
+      }
+
+      .permission-group-menu-detail-content {
+        grid-template-columns: 1fr;
+      }
+    }

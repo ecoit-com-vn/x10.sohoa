@@ -1,0 +1,119 @@
+<p-toast></p-toast>
+
+<div class="wf-page dossier-report-page most-viewed-report">
+  <div class="breadcrumb-container">
+    <wf-breadcrumb [suffix]="'Báo cáo thống kê tổng hợp hồ sơ được tra cứu nhiều nhất'"></wf-breadcrumb>
+  </div>
+
+  <div class="filter-card">
+    <div class="filter-row">
+      <div class="filter-col">
+        <label class="filter-label">Đơn vị</label>
+        <eco-input-tree-select
+          [showLabel]="false"
+          placeholder="-- Chọn đơn vị --"
+          [nodes]="primengOrgUnitTree()"
+          [ngModel]="selectedUnitId()"
+          (ngModelChange)="selectedUnitId.set($event)"
+          [showClear]="true"
+          [enableSearch]="true"
+          [border]="true"
+        ></eco-input-tree-select>
+      </div>
+
+      <div class="filter-col">
+        <label class="filter-label">Loại đối tượng</label>
+        <p-select
+          [options]="objectTypes()"
+          [ngModel]="selectedObjectType()"
+          (ngModelChange)="selectedObjectType.set($event)"
+          optionLabel="name"
+          optionValue="id"
+          placeholder="-- Chọn loại đối tượng --"
+          styleClass="w-full wf-select-custom"
+        ></p-select>
+      </div>
+
+      <div class="filter-col">
+        <label class="filter-label">Từ ngày</label>
+        <eco-input-date
+          [showLabel]="false"
+          label="Từ ngày"
+          view="date"
+          dateFormat="dd/mm/yy"
+          [border]="true"
+          [disabled]="false"
+          [showClear]="true"
+          [maxDate]="selectedToDate() ?? undefined"
+          [ngModel]="selectedFromDate()"
+          (ngModelChange)="onFromDateChange($event)"
+        ></eco-input-date>
+      </div>
+
+      <div class="filter-col">
+        <label class="filter-label">Đến ngày</label>
+        <eco-input-date
+          [showLabel]="false"
+          label="Đến ngày"
+          view="date"
+          dateFormat="dd/mm/yy"
+          [border]="true"
+          [disabled]="false"
+          [showClear]="true"
+          [minDate]="selectedFromDate() ?? undefined"
+          [ngModel]="selectedToDate()"
+          (ngModelChange)="onToDateChange($event)"
+        ></eco-input-date>
+      </div>
+
+      <div class="filter-actions">
+        <button type="button" class="btn-tim" (click)="onFilter()" [disabled]="loading()">
+          <i class="pi pi-search"></i> Tìm kiếm
+        </button>
+        <button type="button" class="btn-green" (click)="exportExcel()" [disabled]="exporting() || loading()">
+          <i class="pi pi-file-excel"></i> Xuất Excel
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div *ngIf="loading()" class="loading-box">
+    <i class="pi pi-spin pi-spinner"></i>
+    <p>Đang tải dữ liệu báo cáo...</p>
+  </div>
+
+  <div *ngIf="!loading()" class="stats-section">
+    <div class="kpi-grid" *ngIf="summaryStats() as stats">
+      <div class="kpi-card kpi-card-dossier">
+        <div class="kpi-label">Lượt tra cứu hồ sơ TBA</div>
+        <div class="kpi-value">{{ stats.stationViewCount | number }}</div>
+        <div class="kpi-growth" [ngClass]="growthClass(stats.stationGrowthPercent)">
+          {{ formatGrowth(stats.stationGrowthPercent) }} so với tháng trước
+        </div>
+      </div>
+
+      <div class="kpi-card kpi-card-document">
+        <div class="kpi-label">Lượt tra cứu hồ sơ đường dây</div>
+        <div class="kpi-value">{{ stats.lineViewCount | number }}</div>
+        <div class="kpi-growth" [ngClass]="growthClass(stats.lineGrowthPercent)">
+          {{ formatGrowth(stats.lineGrowthPercent) }} so với tháng trước
+        </div>
+      </div>
+
+      <div class="kpi-card kpi-card-page">
+        <div class="kpi-label">Lượt tra cứu tài liệu theo từ khóa</div>
+        <div class="kpi-value">{{ stats.documentViewCount | number }}</div>
+        <div class="kpi-growth" [ngClass]="growthClass(stats.documentGrowthPercent)">
+          {{ formatGrowth(stats.documentGrowthPercent) }} so với tháng trước
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <app-report-statistics-dossier-view-grid
+    [gridConfig]="gridConfig"
+    [filter]="reportFilter()"
+    [active]="true"
+    [filterVersion]="filterVersion()"
+  />
+</div>

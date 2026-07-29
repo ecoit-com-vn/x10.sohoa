@@ -1,4 +1,5 @@
 import { Component, OnInit, inject } from '@angular/core';
+import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -12,7 +13,7 @@ import { VirtualFoldersComponent } from '@sohoa.frontend/features/digitization';
 @Component({
   selector: 'app-equipment-search',
   standalone: true,
-  imports: [CommonModule, FormsModule, DialogModule, ToastModule, ButtonModule, VirtualFoldersComponent],
+  imports: [CommonModule, FormsModule, DialogModule, ToastModule, ButtonModule, VirtualFoldersComponent, WfBreadcrumbComponent],
   providers: [MessageService],
   templateUrl: './equipment-search.component.html',
   styleUrl: './equipment-search.component.scss'
@@ -49,7 +50,7 @@ export class EquipmentSearchComponent implements OnInit {
   }
 
   loadEquipmentTypes() {
-    this.http.get<any[]>(`${environment.apiGatewayUrl}/api/equipmenttype`).subscribe({
+    this.http.get<any[]>(`${environment.apiGatewayUrl}/api/v1/equipmenttype`).subscribe({
       next: (res) => {
         this.equipmentTypes = res || [];
       },
@@ -73,7 +74,7 @@ export class EquipmentSearchComponent implements OnInit {
       this.messageService.add({ severity: 'warn', summary: 'Cảnh báo', detail: 'Vui lòng chọn loại thiết bị.' });
       return;
     }
-    const url = `${environment.apiGatewayUrl}/api/equipment/import-template/${this.selectedTypeIdForTemplate}`;
+    const url = `${environment.apiGatewayUrl}/api/v1/equipment/import-template/${this.selectedTypeIdForTemplate}`;
     this.http.get(url, { responseType: 'blob' }).subscribe({
       next: (blob) => {
         const urlObj = window.URL.createObjectURL(blob);
@@ -123,8 +124,8 @@ export class EquipmentSearchComponent implements OnInit {
 
     this.importing = true;
     this.importResult = null;
-    const url = `${environment.apiGatewayUrl}/api/equipment/import?equipmentTypeId=${this.selectedTypeIdForImport}`;
-    
+    const url = `${environment.apiGatewayUrl}/api/v1/equipment/import?equipmentTypeId=${this.selectedTypeIdForImport}`;
+
     this.http.post<any>(url, formData).subscribe({
       next: (res) => {
         this.importing = false;

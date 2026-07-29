@@ -1,0 +1,80 @@
+<!-- sohoa.frontend/libs/features/reports/src/lib/components/report-statistics/report-statistics.component.html -->
+<p-toast></p-toast>
+<div class="wf-page">
+  <wf-breadcrumb></wf-breadcrumb>
+
+  <div class="wf-card mt-3">
+    <!-- Filters Toolbar -->
+    <div class="list-toolbar mb-4" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 12px; gap: 12px; flex-wrap: wrap;">
+      <div class="toolbar-left" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+        <input
+          type="text"
+          class="wf-input"
+          [ngModel]="searchKeyword()"
+          (ngModelChange)="searchKeyword.set($event)"
+          placeholder="Tìm theo mã hoặc tên báo cáo..."
+          style="width: 280px;" />
+      </div>
+      <div class="toolbar-right" style="display: flex; align-items: center; gap: 8px;">
+        <button
+          type="button"
+          class="btn-outlined btn-small"
+          (click)="loadReports()"
+          [disabled]="loading()">
+          <i class="pi pi-refresh" [class.pi-spin]="loading()"></i> Tải lại
+        </button>
+      </div>
+    </div>
+
+    <!-- Table Grid -->
+    <div class="wf-table-wrap" *ngIf="!loading(); else loadingTemplate">
+      <table class="wf-table">
+        <thead>
+          <tr>
+            <th style="width: 60px;" class="text-center">STT</th>
+            <th style="width: 240px;">Mã báo cáo</th>
+            <th>Tên báo cáo</th>
+            <th style="width: 100px;" class="text-center">Thao tác</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let report of filteredReports(); let i = index">
+            <td class="text-center text-muted">{{ i + 1 }}</td>
+            <td><span style="color: #0284c7; font-weight: 400;">{{ report.code }}</span></td>
+            <td>
+              <span class="wf-name-link" style="cursor: pointer; color: #334155; font-weight: 400;" (click)="viewReport(report)">
+                {{ report.name }}
+              </span>
+            </td>
+            <td class="text-center">
+              <button
+                type="button"
+                class="act-btn-dot"
+                (click)="viewReport(report)"
+                pTooltip="Xem báo cáo"
+                tooltipPosition="top"
+                title="Xem báo cáo"
+                style="background: transparent; border: none; cursor: pointer; padding: 4px 6px; border-radius: 4px; color: #64748b; transition: all 0.2s;">
+                <i class="pi pi-eye" style="font-size: 0.875rem; vertical-align: middle;"></i>
+              </button>
+            </td>
+          </tr>
+          <tr *ngIf="filteredReports().length === 0">
+            <td colspan="4" class="empty-row text-center py-5 text-muted">
+              <i class="pi pi-inbox block text-3xl mb-2" style="color: #cbd5e1;"></i>
+              Không tìm thấy báo cáo nào được phân quyền cho bạn.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Loading state -->
+    <ng-template #loadingTemplate>
+      <div class="text-center py-5 text-muted">
+        <i class="pi pi-spin pi-spinner text-3xl mb-2" style="color: #002D72;"></i>
+        <div>Đang tải dữ liệu...</div>
+      </div>
+    </ng-template>
+  </div>
+</div>

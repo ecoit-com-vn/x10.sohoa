@@ -1,157 +1,192 @@
 <div class="wf-page">
   <p-toast></p-toast>
-  
-  <!-- Breadcrumb (Isolated above card) -->
-  <div class="breadcrumb">
-    <i class="pi pi-home bc-icon"></i>
-    <span class="bc-text">Trang chủ</span>
-    <span class="bc-sep">/</span>
-    <span class="bc-text">Quản trị hệ thống</span>
-    <span class="bc-sep">/</span>
-    <span class="bc-current">Quản lý Menu</span>
-  </div>
+
+  <wf-breadcrumb />
 
   <div class="wf-card">
-    
-    <!-- MÀN HÌNH DANH SÁCH -->
     <div *ngIf="currentView() === 'list' || currentView() === 'add' || currentView() === 'edit'" class="animate-fade-in">
-      <p class="text-muted mb-4">
-        Thiết lập sơ đồ Menu chức năng hiển thị tại Sidebar của người dùng theo quyền hạn cụ thể.
-      </p>
-
-      <!-- Toolbar -->
       <div class="list-toolbar">
         <div class="toolbar-left">
-          <input type="text" class="wf-search-input"
+          <input
+            type="text"
+            class="wf-search-input"
             placeholder="Tìm nhanh menu..."
             [ngModel]="searchKeyword()"
-            (ngModelChange)="searchKeyword.set($event)" />
+            (ngModelChange)="searchKeyword.set($event)"
+          />
           <button class="btn-tim" (click)="onSearch()">
             <i class="pi pi-search"></i> Tìm
           </button>
         </div>
         <div class="toolbar-right">
           <button *ngIf="authService.hasPermission('MENU_CREATE')" class="btn-green" (click)="onAddNew()">
-            <i class="pi pi-plus"></i> Thêm menu mới
+            <i class="pi pi-plus"></i> Thêm menu gốc
           </button>
         </div>
       </div>
 
-      <!-- Table -->
       <div class="wf-table-wrap">
         <table class="wf-table">
           <thead>
             <tr>
-              <th style="width: 80px;">STT</th>
+              <th style="width: 70px; text-align: center;">STT</th>
               <th>Tên hiển thị (Name)</th>
               <th>Đường dẫn (URL)</th>
-              <th>Biểu tượng (Icon)</th>
-              <th>Quyền yêu cầu (Permission)</th>
-              <th style="width: 100px;">Thứ tự</th>
+              <th style="width: 100px; text-align: center;">Thứ tự</th>
+              <th class="col-tt">Trạng thái</th>
               <th class="col-hd">Thao tác</th>
             </tr>
           </thead>
           <tbody>
-            <!-- skeleton loading rows -->
             <ng-container *ngIf="loading()">
               <tr *ngFor="let item of [1, 2, 3, 4]">
-                <td class="col-stt"><div class="skeleton-shimmer" style="height: 16px; width: 24px; border-radius: 4px;"></div></td>
+                <td style="text-align: center;"><div class="skeleton-shimmer" style="height: 16px; width: 24px; margin: 0 auto; border-radius: 4px;"></div></td>
                 <td><div class="skeleton-shimmer" style="height: 16px; width: 150px; border-radius: 4px;"></div></td>
                 <td><div class="skeleton-shimmer" style="height: 16px; width: 120px; border-radius: 4px;"></div></td>
-                <td><div class="skeleton-shimmer" style="height: 16px; width: 60px; border-radius: 4px;"></div></td>
-                <td><div class="skeleton-shimmer" style="height: 16px; width: 100px; border-radius: 4px;"></div></td>
-                <td><div class="skeleton-shimmer" style="height: 16px; width: 40px; border-radius: 4px;"></div></td>
+                <td style="text-align: center;"><div class="skeleton-shimmer" style="height: 16px; width: 30px; margin: 0 auto; border-radius: 4px;"></div></td>
+                <td style="text-align: center;"><div class="skeleton-shimmer" style="height: 16px; width: 80px; margin: 0 auto; border-radius: 12px;"></div></td>
                 <td class="col-hd"><div class="skeleton-shimmer" style="height: 24px; width: 60px; border-radius: 4px;"></div></td>
               </tr>
             </ng-container>
 
             <ng-container *ngIf="!loading()">
-              <tr *ngFor="let m of filteredMenus(); let i = index">
-                <td class="col-stt text-muted">{{ i + 1 }}</td>
-                <td>
-                  <div [style.padding-left.px]="getIndentLevel(m) * 20" style="display: flex; align-items: center; gap: 8px;">
-                    <i [class]="m.icon ? m.icon : 'pi pi-folder'" style="color: #002D72;"></i>
-                    <b *ngIf="authService.hasPermission('MENU_EDIT')" class="wf-name-link" (click)="onEdit(m)">{{ m.name }}</b>
-                    <span *ngIf="!authService.hasPermission('MENU_EDIT')">{{ m.name }}</span>
-                  </div>
-                </td>
-                <td><code>{{ m.url || '-' }}</code></td>
-                <td>
-                  <span *ngIf="m.icon"><i [class]="m.icon"></i> <code>{{ m.icon }}</code></span>
-                  <span *ngIf="!m.icon" class="text-muted">-</span>
-                </td>
-                <td>
-                  <span class="status-pill status-active" *ngIf="m.permission" style="background-color: #eff6ff; color: #1e40af; border-color: #bfdbfe;">
-                    {{ m.permission }}
-                  </span>
-                  <span class="text-muted" *ngIf="!m.permission">Không yêu cầu</span>
-                </td>
-                <td>{{ m.orderNum }}</td>
-                <td class="col-hd">
-                  <button *ngIf="authService.hasPermission('MENU_EDIT')" class="act-btn act-edit" (click)="onEdit(m)" title="Chỉnh sửa"><i class="pi pi-pencil"></i></button>
-                  <button *ngIf="authService.hasPermission('MENU_DELETE')" class="act-btn act-delete" (click)="onDelete(m)" title="Xóa"><i class="pi pi-trash"></i></button>
-                </td>
-              </tr>
-              <tr *ngIf="filteredMenus().length === 0">
-                <td colspan="7" class="empty-row">
-                  <i class="pi pi-inbox"></i>
-                  <div>Không tìm thấy menu nào phù hợp.</div>
-                </td>
-              </tr>
+              <ng-container *ngIf="menuTree().length > 0; else emptyMenuTree">
+                <ng-container *ngTemplateOutlet="menuRowsTpl; context: { $implicit: menuTree(), level: 0 }"></ng-container>
+              </ng-container>
+
+              <ng-template #emptyMenuTree>
+                <tr>
+                  <td colspan="6" class="empty-row">
+                    <i class="pi pi-inbox"></i>
+                    <div>Không tìm thấy menu nào phù hợp.</div>
+                  </td>
+                </tr>
+              </ng-template>
             </ng-container>
           </tbody>
         </table>
       </div>
 
-      <!-- Footer -->
       <div class="table-footer">
         <span class="record-count">Tổng số: <b>{{ menus().length }}</b> menu.</span>
       </div>
     </div>
 
-    <!-- Dialog Thêm/Sửa Menu -->
-    <p-dialog [visible]="currentView() === 'add' || currentView() === 'edit'" (visibleChange)="$event ? null : currentView.set('list')" [header]="dialogHeader()" [modal]="true" [style]="{ width: '500px' }" styleClass="evn-dialog-custom">
+    <ng-template #menuRowsTpl let-nodes let-level="level">
+      <ng-container *ngFor="let node of nodes">
+        <tr
+          class="menu-row"
+          [class.menu-row-parent]="level === 0"
+          [class.menu-row-child]="level > 0"
+          [class.menu-row-expandable]="node.children.length > 0"
+          (click)="level === 0 && onParentRowClick(node)"
+        >
+          <td style="text-align: center;" class="text-muted">{{ getGlobalSTT(node) }}</td>
+          <td>
+            <div class="menu-name-cell" [style.padding-left.px]="level * 20">
+              <i
+                *ngIf="level === 0 && node.children.length > 0"
+                class="pi chevron-icon"
+                [class.pi-angle-down]="!isMenuExpanded(node.id)"
+                [class.pi-angle-up]="isMenuExpanded(node.id)"
+              ></i>
+              <span *ngIf="level === 0 && node.children.length === 0" class="chevron-placeholder"></span>
+              <i [class]="node.icon ? node.icon : (level === 0 ? 'pi pi-folder' : 'pi pi-file')" class="menu-item-icon"></i>
+              <b *ngIf="authService.hasPermission('MENU_EDIT')" class="wf-name-link" (click)="onEdit(node); $event.stopPropagation()">{{ node.name }}</b>
+              <span *ngIf="!authService.hasPermission('MENU_EDIT')">{{ node.name }}</span>
+            </div>
+          </td>
+          <td><code>{{ node.url || '-' }}</code></td>
+          <td style="text-align: center;">{{ node.sortOrder }}</td>
+          <td style="text-align: center;">
+            <span class="status-pill"
+              [class.status-active]="node.isActive"
+              [class.status-inactive]="!node.isActive">
+              {{ node.isActive ? 'Hoạt động' : 'Ngưng hoạt động' }}
+            </span>
+          </td>
+          <td class="col-hd" (click)="$event.stopPropagation()">
+            <button type="button" class="act-btn act-more" (click)="openActionMenu(node, $event, actionMenu)" title="Thao tác khác">
+              <i class="pi pi-ellipsis-h"></i>
+            </button>
+          </td>
+        </tr>
+
+        <ng-container *ngIf="level === 0 && node.children.length > 0 && isMenuExpanded(node.id)">
+          <ng-container *ngTemplateOutlet="menuRowsTpl; context: { $implicit: node.children, level: 1 }"></ng-container>
+        </ng-container>
+
+        <ng-container *ngIf="level > 0 && node.children.length > 0">
+          <ng-container *ngTemplateOutlet="menuRowsTpl; context: { $implicit: node.children, level: level + 1 }"></ng-container>
+        </ng-container>
+      </ng-container>
+    </ng-template>
+
+    <p-menu #actionMenu [model]="actionMenuItems" [popup]="true" appendTo="body" styleClass="row-action-menu"></p-menu>
+
+    <p-dialog
+      [visible]="currentView() === 'add' || currentView() === 'edit'"
+      (visibleChange)="$event ? null : currentView.set('list')"
+      [header]="dialogHeader()"
+      [modal]="true"
+      [style]="{ width: '520px' }"
+      styleClass="evn-dialog-custom"
+    >
       <div style="display: flex; flex-direction: column; gap: 16px; padding: 10px 0;">
         <div class="form-group">
           <label class="form-label">Tên menu <span class="required">*</span></label>
-          <input type="text" class="wf-input w-full" [(ngModel)]="currentMenu().name" (ngModelChange)="onFieldChange('name')" placeholder="Ví dụ: Quản lý thiết bị..." [disabled]="saving()" />
+          <input
+            type="text"
+            class="wf-input w-full"
+            [(ngModel)]="currentMenu().name"
+            (ngModelChange)="onFieldChange('name')"
+            placeholder="Ví dụ: Quản lý thiết bị..."
+            [disabled]="saving()"
+          />
           <span class="field-error" *ngIf="nameError()">{{ nameError() }}</span>
         </div>
-        
+
         <div class="form-group">
           <label class="form-label">Đường dẫn (URL)</label>
-          <input type="text" class="wf-input w-full" [(ngModel)]="currentMenu().url" placeholder="Ví dụ: /search, /catalog/units..." [disabled]="saving()" />
+          <input type="text" class="wf-input w-full" [(ngModel)]="currentMenu().url" placeholder="Ví dụ: /equipment/list..." [disabled]="saving()" />
         </div>
 
         <div class="form-group">
           <label class="form-label">Biểu tượng (Icon class PrimeNG)</label>
-          <input type="text" class="wf-input w-full" [(ngModel)]="currentMenu().icon" placeholder="Ví dụ: pi pi-cog, pi pi-user..." [disabled]="saving()" />
+          <input type="text" class="wf-input w-full" [(ngModel)]="currentMenu().icon" placeholder="Ví dụ: pi pi-cog..." [disabled]="saving()" />
         </div>
 
-        <div class="form-group">
-          <label class="form-label">Quyền hạn yêu cầu</label>
-          <select class="wf-select w-full" [(ngModel)]="currentMenu().permission" [disabled]="saving()">
-            <option [value]="null">-- Không yêu cầu (Cho phép tất cả) --</option>
-            <option *ngFor="let p of permissions()" [value]="p.code">{{ p.name }} ({{ p.code }})</option>
+        <div class="form-group" style="display: none;">
+          <label class="form-label">Quyền hạn yêu cầu (VIEW)</label>
+          <select class="wf-select w-full" [(ngModel)]="currentMenu().permissionCode" [disabled]="saving()">
+            <option [ngValue]="null">-- Không yêu cầu (Cho phép tất cả) --</option>
+            <option *ngFor="let p of menuViewPermissions()" [ngValue]="p.code || p.Code">
+              {{ p.name || p.Name }} ({{ p.code || p.Code }})
+            </option>
           </select>
+          <small class="field-hint">Chọn quyền VIEW khớp module (vd. EQUIPMENT_VIEW, EQUIPMENT_TYPE_VIEW, EAV_FORM_TEMPLATE_VIEW).</small>
         </div>
 
         <div class="form-group">
           <label class="form-label">Menu cấp trên</label>
           <select class="wf-select w-full" [(ngModel)]="currentMenu().parentId" [disabled]="saving()">
-            <option [value]="null">-- Menu gốc --</option>
-            <option *ngFor="let m of getEligibleParents(currentMenu().id)" [value]="m.id">{{ m.name }}</option>
+            <option [ngValue]="null">-- Menu gốc --</option>
+            <option *ngFor="let m of getEligibleParents(currentMenu().id ?? null)" [ngValue]="m.id">
+              {{ getParentOptionLabel(m) }}
+            </option>
           </select>
         </div>
 
         <div class="form-group">
           <label class="form-label">Thứ tự sắp xếp</label>
-          <input type="number" class="wf-input w-full" [(ngModel)]="currentMenu().orderNum" [disabled]="saving()" />
+          <input type="number" class="wf-input w-full" [(ngModel)]="currentMenu().sortOrder" [disabled]="saving()" />
         </div>
       </div>
       <ng-template #footer>
-        <div class="flex gap-2 justify-content-end pt-3" style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
-          <button class="btn-cancel btn-small" (click)="currentView.set('list')" [disabled]="saving()"><i class="pi pi-times"></i> Đóng</button>
+        <div class="dialog-footer-actions">
+          <button class="btn-cancel btn-small" (click)="currentView.set('list')" [disabled]="saving()">
+            <i class="pi pi-times"></i> Đóng
+          </button>
           <button class="btn-save btn-small" (click)="onSaveMenu()" [disabled]="saving()">
             <i class="pi pi-spin pi-spinner" *ngIf="saving()" style="margin-right: 4px;"></i>
             <i class="pi pi-save" *ngIf="!saving()" style="margin-right: 4px;"></i>
@@ -161,5 +196,43 @@
       </ng-template>
     </p-dialog>
 
+    <!-- Dialog Xác nhận Khóa/Mở khóa -->
+    <p-dialog 
+      [visible]="showLockUnlockConfirm()" 
+      (visibleChange)="$event ? null : onCancelLockUnlock()" 
+      [header]="lockUnlockTarget()?.isActive ? 'Xác nhận khóa' : 'Xác nhận mở khóa'" 
+      [modal]="true" 
+      [style]="{ width: '420px' }" 
+      styleClass="evn-dialog-custom"
+      [closable]="!lockUnlockLoading()">
+      <div style="padding: 8px 0 16px 0; display: flex; flex-direction: column; gap: 12px;">
+        <div style="display: flex; align-items: flex-start; gap: 12px;">
+          <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #f59e0b; margin-top: 2px; flex-shrink: 0;"></i>
+          <div>
+            <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b; font-size: 0.95rem;">
+              {{ lockUnlockTarget()?.isActive ? 'Bạn có chắc muốn khóa menu này?' : 'Bạn có chắc muốn mở khóa menu này?' }}
+            </p>
+            <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
+              Menu <b style="color: #1e293b;">{{ lockUnlockTarget()?.name }}</b> sẽ được 
+              {{ lockUnlockTarget()?.isActive ? 'khóa và ngừng hoạt động' : 'mở khóa và hoạt động trở lại' }}.
+            </p>
+          </div>
+        </div>
+      </div>
+      <ng-template #footer>
+        <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+          <button class="btn-cancel btn-small" (click)="onCancelLockUnlock()" [disabled]="lockUnlockLoading()">
+            <i class="pi pi-times"></i> Hủy
+          </button>
+          <button class="btn-save btn-small" (click)="onConfirmLockUnlock()" [disabled]="lockUnlockLoading()"
+            [style.background-color]="lockUnlockTarget()?.isActive ? '#dc2626' : '#4790e9'"
+            [style.border-color]="lockUnlockTarget()?.isActive ? '#dc2626' : '#4790e9'">
+            <i class="pi pi-spin pi-spinner" *ngIf="lockUnlockLoading()" style="margin-right: 4px;"></i>
+            <i class="pi" [ngClass]="lockUnlockTarget()?.isActive ? 'pi-lock' : 'pi-lock-open'" *ngIf="!lockUnlockLoading()" style="margin-right: 4px;"></i>
+            {{ lockUnlockTarget()?.isActive ? 'Khóa' : 'Mở khóa' }}
+          </button>
+        </div>
+      </ng-template>
+    </p-dialog>
   </div>
 </div>

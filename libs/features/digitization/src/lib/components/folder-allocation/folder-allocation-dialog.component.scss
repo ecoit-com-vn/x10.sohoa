@@ -1,0 +1,19 @@
+.dialog-form-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 10px 0;
+}
+
+.dialog-form-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  border-top: 1px solid #f1f5f9;
+  padding-top: 12px;
+}
+
+:host ::ng-deep .p-treeselect,
+:host ::ng-deep .p-select {
+  width: 100%;
+}

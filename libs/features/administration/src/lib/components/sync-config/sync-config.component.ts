@@ -1,17 +1,17 @@
-import { Component, OnInit, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, inject, PLATFORM_ID } from '@angular/core';
+import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
+import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ToastModule } from 'primeng/toast';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { MessageService } from 'primeng/api';
-import { HttpClient, HttpClientModule } from '@angular/common/http';
-import { environment } from '@env/environment';
+import { HttpClientModule } from '@angular/common/http';
 import { AuthService } from '@sohoa.frontend/shared/core';
 
 @Component({
   selector: 'app-sync-config',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule, ProgressSpinnerModule, HttpClientModule],
+  imports: [CommonModule, FormsModule, ToastModule, ProgressSpinnerModule, HttpClientModule, WfBreadcrumbComponent],
   providers: [MessageService],
   templateUrl: './sync-config.component.html',
   styleUrl: './sync-config.component.scss'
@@ -37,18 +37,20 @@ export class SyncConfigComponent implements OnInit {
     this.syncNow();
   }
 
-  private http = inject(HttpClient);
   private messageService = inject(MessageService);
   public authService = inject(AuthService);
+  private platformId = inject(PLATFORM_ID);
 
   ngOnInit() {
     this.loadConfig();
   }
 
   loadConfig() {
-    this.http.get<any>(`${environment.apiGatewayUrl}/api/v1/sync/config`).subscribe({
-      next: (config) => {
-        if (config) {
+    if (isPlatformBrowser(this.platformId)) {
+      try {
+        const savedConfig = localStorage.getItem('pmis_sync_config');
+        if (savedConfig) {
+          const config = JSON.parse(savedConfig);
           this.syncConfig = {
             apiUrl: config.apiUrl || this.syncConfig.apiUrl,
             syncInterval: config.syncInterval || this.syncConfig.syncInterval,
@@ -56,49 +58,57 @@ export class SyncConfigComponent implements OnInit {
             forceOverwrite: config.forceOverwrite ?? this.syncConfig.forceOverwrite
           };
         }
-      },
-      error: (err) => {
-        console.warn('Không thể tải cấu hình PMIS từ backend, dùng mặc định:', err);
+      } catch (err) {
+        console.warn('Không thể tải cấu hình PMIS từ localStorage:', err);
       }
-    });
+    }
   }
 
   saveConfig() {
     this.saving = true;
-    this.http.post(`${environment.apiGatewayUrl}/api/v1/sync/config`, this.syncConfig).subscribe({
-      next: () => {
-        this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã lưu cấu hình tham số đồng bộ PMIS!' });
+    if (isPlatformBrowser(this.platformId)) {
+      setTimeout(() => {
+        try {
+          localStorage.setItem('pmis_sync_config', JSON.stringify(this.syncConfig));
+          this.messageService.add({ 
+            severity: 'success', 
+            summary: 'Thành công', 
+            detail: 'Đã lưu cấu hình tham số đồng bộ PMIS (Lưu cục bộ)!' 
+          });
+        } catch (err) {
+          console.error('Lỗi khi lưu cấu hình', err);
+          this.messageService.add({ 
+            severity: 'error', 
+            summary: 'Lỗi', 
+            detail: 'Không thể lưu cấu hình tham số đồng bộ.' 
+          });
+        }
         this.saving = false;
-      },
-      error: (err) => {
-        this.saving = false;
-        this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể lưu cấu hình tham số đồng bộ.' });
-      }
-    });
+      }, 800);
+    } else {
+      this.saving = false;
+    }
   }
 
   syncNow() {
     this.isSyncing = true;
-    this.messageService.add({ severity: 'info', summary: 'Kích hoạt', detail: 'Đang gửi yêu cầu kích hoạt đồng bộ nền lên máy chủ...' });
+    this.messageService.add({ 
+      severity: 'info', 
+      summary: 'Kích hoạt', 
+      detail: 'Đang giả lập kết nối và đồng bộ dữ liệu từ PMIS...' 
+    });
     
-    this.http.post(`${environment.apiGatewayUrl}/api/v1/sync/trigger-now`, {}).subscribe({
-      next: (res: any) => {
+    if (isPlatformBrowser(this.platformId)) {
+      setTimeout(() => {
         this.isSyncing = false;
         this.messageService.add({ 
           severity: 'success', 
           summary: 'Đồng bộ hoàn tất', 
-          detail: 'Yêu cầu đồng bộ PMIS đã được kích hoạt chạy ngầm thành công!' 
+          detail: 'Đồng bộ dữ liệu PMIS giả lập đã được thực hiện thành công!' 
         });
-      },
-      error: (err) => {
-        this.isSyncing = false;
-        console.error('Trigger sync error', err);
-        this.messageService.add({ 
-          severity: 'error', 
-          summary: 'Lỗi đồng bộ', 
-          detail: 'Kích hoạt tiến trình đồng bộ ngầm thất bại. Vui lòng thử lại.' 
-        });
-      }
-    });
+      }, 2000);
+    } else {
+      this.isSyncing = false;
+    }
   }
 }

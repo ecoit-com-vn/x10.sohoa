@@ -6,11 +6,6 @@
       min-height: 100vh;
     }
 
-    /* ─── Breadcrumb ──────────────────────────────────────────────── */
-    .breadcrumb { display: flex; align-items: center; gap: 6px; font-size: 0.82rem; color: #6b7280; }
-    .bc-sep { color: #9ca3af; }
-    .bc-item.active { color: #002D72; font-weight: 600; }
-
     /* ─── Stats Cards ──────────────────────────────────────────────── */
     .stats-grid {
       display: grid;
@@ -172,7 +167,6 @@
 
     .verified-icon   { color: #10b981; font-size: 1rem; }
     .unverified-icon { color: #d1d5db; font-size: 1rem; }
-    .text-muted { color: #9ca3af; }
 
     /* ─── Action Buttons ──────────────────────────────────────────────── */
     .action-buttons { display: flex; gap: 5px; justify-content: center; }

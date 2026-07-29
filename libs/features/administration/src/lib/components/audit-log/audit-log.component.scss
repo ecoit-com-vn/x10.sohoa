@@ -1,15 +1,201 @@
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
 
-    @keyframes shimmer {
-      0% { background-position: -200% 0; }
-      100% { background-position: 200% 0; }
-    }
-    .skeleton-shimmer {
-      background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
-      background-size: 200% 100%;
-      animation: shimmer 1.5s infinite;
-    }
-    :global(html.dark-mode) .skeleton-shimmer {
-      background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
-      background-size: 200% 100%;
-    }
-  
+.skeleton-shimmer {
+  height: 16px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+:global(html.dark-mode) .skeleton-shimmer {
+  background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+  background-size: 200% 100%;
+}
+
+.skeleton-sm { width: 24px; }
+.skeleton-md { width: 120px; }
+.skeleton-lg { width: 250px; }
+
+.audit-filter-card {
+  margin-bottom: 16px;
+}
+
+.audit-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px 16px;
+}
+
+.filter-item {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+
+  ::ng-deep .p-treeselect {
+    width: 100%;
+  }
+
+  ::ng-deep .label-select-tree {
+    display: none !important;
+  }
+}
+
+.filter-label {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 5px;
+}
+
+.w-full {
+  width: 100%;
+}
+
+.audit-filter-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+::ng-deep .tab-bar-custom {
+  display: flex;
+  border-bottom: 2px solid #e2e8f0 !important;
+  margin-bottom: 16px !important;
+  background: transparent !important;
+}
+
+::ng-deep .tab-item-custom {
+  padding: 12px 20px !important;
+  background: none !important;
+  border: none !important;
+  font-size: 0.88rem !important;
+  color: #6b7280 !important;
+  cursor: pointer !important;
+  font-weight: 500 !important;
+  transition: all 0.15s !important;
+  border-bottom: 2px solid transparent !important;
+  margin-bottom: -2px !important;
+}
+
+::ng-deep .tab-item-custom:hover {
+  color: #002D72 !important;
+}
+
+::ng-deep .p-tab-active {
+  color: #002D72 !important;
+  border-bottom: 2px solid #002D72 !important;
+  font-weight: 600 !important;
+}
+
+.col-check {
+  width: 42px;
+  text-align: center;
+}
+
+.col-actions {
+  width: 60px;
+  text-align: center;
+}
+
+.audit-row-checkbox {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.btn-icon-danger {
+  background: none;
+  border: none;
+  color: #dc2626;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+
+.btn-icon-danger:hover {
+  background: #fee2e2;
+}
+
+.page-jump {
+  margin-left: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+.audit-delete-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-top: 10px;
+}
+
+.audit-delete-warning {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  background-color: #fee2e2;
+  color: #991b1b;
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid #fca5a5;
+  font-size: 0.85rem;
+}
+
+.dialog-footer-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  border-top: 1px solid #f1f5f9;
+  padding-top: 12px;
+}
+
+.btn-toolbar-danger {
+  height: 34px;
+  padding: 0 14px;
+  background: #dc2626;
+  color: #ffffff;
+  border: 1px solid #dc2626;
+  border-radius: 5px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: background 0.2s;
+}
+
+.btn-toolbar-danger:hover:not(:disabled) {
+  background: #b91c1c;
+  border-color: #b91c1c;
+}
+
+.btn-toolbar-danger-outline {
+  background: #ffffff;
+  color: #dc2626;
+}
+
+.btn-toolbar-danger-outline:hover:not(:disabled) {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.btn-danger {
+  background-color: #dc2626;
+  color: #fff;
+  border-color: #dc2626;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background-color: #b91c1c;
+  border-color: #b91c1c;
+}

@@ -1,0 +1,26 @@
+<div class="input-radio">
+  <label class="label-input" *ngIf="showLabel">
+    <span *ngIf="showLabel"> {{ label }}</span>
+    <span *ngIf="checkRequire()" class="p-errors" style="color: red; margin-left: 3px">*</span></label
+  >
+  <div class="group-radio-item" [style.flex-direction]="styleOption === 'horizontal' ? 'row' : 'column'">
+    <div *ngFor="let option of options; let i = index" style="margin-right: 15px; margin-bottom: 6px; display: inline-flex; align-items: center; gap: 6px;">
+      <p-radioButton
+        [formControl]="control"
+        [inputId]="'rb_' + i + '_' + (option[optionValue] ?? option)"
+        [value]="option[optionValue] ?? option"
+        (onClick)="emitChange($event)"
+      ></p-radioButton>
+      <label [htmlFor]="'rb_' + i + '_' + (option[optionValue] ?? option)" style="cursor: pointer;">
+        {{ option[optionLabel] ?? option }}
+      </label>
+    </div>
+  </div>
+  <div class="relative b-errors">
+    <ng-container *ngIf="errors">
+      <small class="p-error error-msg block fadeinup animation-duration-300">
+        <span class="block">{{ getError().key }}</span>
+      </small>
+    </ng-container>
+  </div>
+</div>

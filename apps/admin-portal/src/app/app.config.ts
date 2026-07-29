@@ -1,5 +1,10 @@
 import { ApplicationConfig, provideBrowserGlobalErrorListeners } from '@angular/core';
-import { provideRouter } from '@angular/router';
+import {
+  provideRouter,
+  withEnabledBlockingInitialNavigation,
+  withHashLocation,
+  withRouterConfig
+} from '@angular/router';
 
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { provideHttpClient, withInterceptors, withFetch } from '@angular/common/http';
@@ -8,15 +13,20 @@ import { MessageService, ConfirmationService } from 'primeng/api';
 import Aura from '@primeuix/themes/aura';
 
 import { appRoutes } from './app.routes';
-import { authInterceptor, httpErrorInterceptor, APP_CONFIG } from '@sohoa.frontend/shared/core';
+import { authInterceptor, authRefreshInterceptor, httpErrorInterceptor, APP_CONFIG } from '@sohoa.frontend/shared/core';
 import { environment } from '../environments/environment';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
-    provideRouter(appRoutes),
+    provideRouter(
+      appRoutes,
+      withHashLocation(),
+      withEnabledBlockingInitialNavigation(),
+      withRouterConfig({ onSameUrlNavigation: 'reload' })
+    ),
     provideAnimationsAsync(),
-    provideHttpClient(withInterceptors([authInterceptor, httpErrorInterceptor]), withFetch()),
+    provideHttpClient(withInterceptors([authInterceptor, authRefreshInterceptor, httpErrorInterceptor]), withFetch()),
     MessageService,
     ConfirmationService,
     providePrimeNG({

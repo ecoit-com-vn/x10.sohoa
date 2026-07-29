@@ -1,0 +1,61 @@
+.bc-sep {
+  color: #cbd5e1;
+}
+
+.bc-current {
+  color: #002D72;
+  font-weight: 600;
+}
+
+.act-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 23px;
+  height: 23px;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background-color: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #64748b;
+  margin-right: 6px;
+  vertical-align: middle;
+
+  i {
+    font-size: 0.95rem;
+  }
+
+  &:hover {
+    background-color: #f1f5f9;
+    transform: translateY(-1px);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+}
+
+.act-edit {
+  color: #002D72 !important;
+  border-color: #dbeafe !important;
+  background-color: #eff6ff !important;
+
+  &:hover {
+    background-color: #dbeafe !important;
+    color: #001e4e !important;
+    box-shadow: 0 2px 4px rgba(0, 45, 114, 0.15);
+  }
+}
+
+.act-delete {
+  color: #ef4444 !important;
+  border-color: #fee2e2 !important;
+  background-color: #fef2f2 !important;
+
+  &:hover {
+    background-color: #fee2e2 !important;
+    color: #b91c1c !important;
+    box-shadow: 0 2px 4px rgba(239, 68, 68, 0.15);
+  }
+}

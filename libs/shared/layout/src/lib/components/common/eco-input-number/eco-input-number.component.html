@@ -1,0 +1,32 @@
+<div>
+  <label class="label-input" *ngIf="showLabel">
+    <span *ngIf="showLabel"> {{ label }}</span>
+    <span *ngIf="checkRequire()" class="p-errors" style="color: red; margin-left: 3px">*</span></label
+  >
+  <p-inputNumber
+    styleClass="w-full"
+    (onBlur)="onTouched()"
+    (onValueChange)="handleValueChange($event)"
+    (keydown.enter)="handleEnter()"
+    [formControl]="control"
+    [maxFractionDigits]="maxFractionDigits"
+    [minFractionDigits]="minFractionDigits"
+    [ngClass]="{ 'ng-invalid ng-dirty': errors, readonly: readonly }"
+    [prefix]="prefix"
+    [readonly]="readonly"
+    [suffix]="suffix"
+    [useGrouping]="useGrouping"
+    locale="en-US"
+    [placeholder]="placeholder"
+  ></p-inputNumber>
+  <div class="relative b-errors">
+    <ng-container *ngIf="errors">
+      <small class="p-error error-msg block fadeinup animation-duration-300">
+        <span class="block">{{ displayedErrorMessage }}</span>
+      </small>
+    </ng-container>
+  </div>
+</div>
+
+
+

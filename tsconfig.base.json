@@ -56,6 +56,12 @@
       "@sohoa.frontend/features/digitization": [
         "./libs/features/digitization/src/index.ts"
       ],
+      "@sohoa.frontend/features/dossier-management": [
+        "./libs/features/dossier-management/src/index.ts"
+      ],
+      "@sohoa.frontend/features/document-management": [
+        "./libs/features/document-management/src/index.ts"
+      ],
       "@env/environment": [
         "./apps/admin-portal/src/environments/environment.ts"
       ]

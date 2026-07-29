@@ -35,12 +35,6 @@
     .bc-link { color: #002D72; cursor: pointer; }
     .bc-link:hover { text-decoration: underline; }
     /* ─── Toolbar ─────────────────────────────────────────────── */
-    .list-toolbar {
-      display: flex; align-items: center; justify-content: space-between;
-      gap: 10px; flex-wrap: wrap; margin-bottom: 12px;
-    }
-    .toolbar-left { display: flex; align-items: center; gap: 8px; }
-    .toolbar-right { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
     .wf-search-input {
       height: 34px; padding: 0 12px; width: 270px;
       border: 1px solid #d1d5db; border-radius: 5px;
@@ -112,9 +106,7 @@
     .col-loai { min-width: 200px; }
     .col-mota { min-width: 180px; }
     .col-phien { width: 90px; text-align: center; font-family: 'Courier New',monospace; font-weight: 600; }
-    .col-tt { width: 155px; text-align: center; }
     .col-hd { width: 90px; text-align: center; }
-    .text-muted { color: #9ca3af; }
     .wf-name-link { color: #002D72; font-weight: 500; cursor: pointer; }
     .wf-name-link:hover { text-decoration: underline; color: #FF6B00; }
     .mota-text { color: #6b7280; }
@@ -128,7 +120,7 @@
     .status-pill .pi { font-size: 0.72rem; }
     /* Action buttons */
     .act-btn {
-      width: 30px; height: 30px; border: none; border-radius: 5px; cursor: pointer;
+      width: 23px; height: 23px; border: none; border-radius: 5px; cursor: pointer;
       background: transparent; display: inline-flex; align-items: center;
       justify-content: center; font-size: 0.9rem; transition: background .15s; margin: 0 2px;
     }
@@ -162,11 +154,6 @@
     }
     .page-btn:hover:not(:disabled) { background: #002D72; color: #fff; border-color: #002D72; }
     .page-btn:disabled { opacity: 0.4; cursor: default; }
-    .page-current {
-      min-width: 28px; height: 28px; border: 1px solid #002D72; border-radius: 4px;
-      background: #002D72; color: #fff; display: inline-flex; align-items: center;
-      justify-content: center; font-size: 0.82rem; font-weight: 600;
-    }
     .page-size-sel {
       height: 28px; padding: 0 6px; border: 1px solid #e5e7eb;
       border-radius: 4px; font-size: 0.8rem; background: #fff;

@@ -1,0 +1,149 @@
+.edit-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 24px;
+  color: #6b7280;
+}
+
+.edit-split {
+  display: grid;
+  grid-template-columns: minmax(360px, 1.3fr) minmax(320px, 1fr);
+  gap: 16px;
+  height: calc(85vh - 120px);
+  min-height: 520px;
+}
+
+.pane-title {
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #111827;
+}
+
+.preview-pane,
+.form-pane {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px;
+  height: 100%;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.preview-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 8px;
+  font-size: 0.875rem;
+  color: #4b5563;
+}
+
+.preview-body {
+  flex: 1;
+  background: #f9fafb;
+  border-radius: 6px;
+  overflow: hidden;
+  height: 100%;
+}
+
+.preview-frame {
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.preview-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  display: block;
+  margin: 0 auto;
+}
+
+.preview-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #9ca3af;
+}
+
+.form-pane {
+  overflow: auto;
+}
+
+.confirm-intro {
+  font-size: 0.875rem;
+  color: #4b5563;
+  margin: 0 0 12px;
+}
+
+.apply-mode-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.mode-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.875rem;
+}
+
+.selection-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  font-size: 0.875rem;
+}
+
+.selection-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.confirm-form-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.confirm-field {
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 10px;
+}
+
+.field-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.current-value {
+  font-size: 0.8rem;
+  color: #6b7280;
+  margin-bottom: 6px;
+}
+
+.meta-label {
+  font-weight: 600;
+}
+
+.empty-fields {
+  color: #9ca3af;
+  padding: 16px 0;
+}
+
+@media (max-width: 900px) {
+  .edit-split {
+    grid-template-columns: 1fr;
+  }
+}

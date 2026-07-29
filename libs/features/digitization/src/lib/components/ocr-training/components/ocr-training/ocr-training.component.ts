@@ -11,6 +11,7 @@ import { DialogModule } from 'primeng/dialog';
 import { ProgressBarModule } from 'primeng/progressbar';
 import { TooltipModule } from 'primeng/tooltip';
 import { MessageService } from 'primeng/api';
+import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { environment } from '@env/environment';
 
 // ─── Models ─────────────────────────────────────────────────────────────────
@@ -63,7 +64,7 @@ interface Statistics {
   imports: [
     CommonModule, FormsModule, HttpClientModule,
     TableModule, ButtonModule, CardModule, ToastModule,
-    DialogModule, ProgressBarModule, TooltipModule
+    DialogModule, ProgressBarModule, TooltipModule, WfBreadcrumbComponent
   ],
   providers: [MessageService],
   templateUrl: './ocr-training.component.html',

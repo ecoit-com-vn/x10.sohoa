@@ -1,3 +1,4 @@
+<app-loading *ngIf="loadingService.loading$ | async"></app-loading>
 <div class="layout-wrapper">
   <div class="layout-header">
     <div class="header-container">
@@ -8,24 +9,39 @@
         <img src="/logo-white.svg" alt="EVNHANOI" class="header-logo" />
         <span class="header-divider">|</span>
         <h1 class="header-title">HỆ THỐNG SỐ HÓA HỒ SƠ KỸ THUẬT ĐƯỜNG DÂY VÀ TRẠM EVNHANOI</h1>
-        <div class="header-search-container">
+        <div class="header-search-container" *ngIf="canUseHeaderSearch()">
           <i class="pi pi-search search-icon"></i>
-          <input type="text" placeholder="Tìm kiếm nhanh..." class="header-search-input" />
+          <input type="text" placeholder="Nhập thông tin tên tài liệu, giấy phép, mã định danh..."
+            class="header-search-input" [(ngModel)]="headerSearchKeyword" (keyup.enter)="onHeaderSearch()" />
         </div>
       </div>
       <div class="header-right">
-        <button class="theme-toggle-btn" (click)="toggleTheme()" [title]="isDarkMode ? 'Bật chế độ sáng' : 'Bật chế độ tối'">
+        <button class="theme-toggle-btn" (click)="toggleTheme()"
+          [title]="isDarkMode ? 'Bật chế độ sáng' : 'Bật chế độ tối'">
           <i [class]="isDarkMode ? 'pi pi-sun' : 'pi pi-moon'"></i>
         </button>
         <div class="header-bell-wrapper">
           <app-notification-bell></app-notification-bell>
         </div>
-        <div class="user-profile">
-          <div class="avatar-circle">
-            <i class="pi pi-user"></i>
+        <div class="user-profile-wrapper" (click)="$event.stopPropagation()">
+          <div class="user-profile" (click)="toggleProfileMenu($event)">
+            <div class="avatar-circle">
+              <img *ngIf="headerAvatarUrl()" [src]="headerAvatarUrl()" alt="Ảnh đại diện" />
+              <span *ngIf="!headerAvatarUrl()">{{ headerInitials() }}</span>
+            </div>
+            <span class="username-text">{{ displayName() }}</span>
+            <i class="pi pi-chevron-down profile-arrow"></i>
           </div>
-          <span class="username-text">{{ username }}</span>
-          <i class="pi pi-chevron-down profile-arrow"></i>
+          <div class="profile-menu" *ngIf="profileMenuOpen()">
+            <button type="button" class="profile-menu-item" (click)="goToProfile($event)">
+              <i class="pi pi-user-edit"></i>
+              <span>Thông tin cá nhân</span>
+            </button>
+            <button type="button" class="profile-menu-item" (click)="goToChangePassword($event)">
+              <i class="pi pi-key"></i>
+              <span>Đổi mật khẩu</span>
+            </button>
+          </div>
         </div>
         <button class="logout-btn" (click)="logout()" title="Đăng xuất">
           <i class="pi pi-sign-out"></i>
@@ -37,28 +53,36 @@
     <!-- Sidebar Menu CSKH EVNHANOI style -->
     <div class="layout-sidebar" [class.collapsed]="isSidebarCollapsed" [class.mobile-open]="isMobileSidebarOpen">
       <div class="sidebar-menu-list">
-        <div *ngFor="let item of items" class="menu-group-item" [class.group-active]="isGroupActive(item)">
-          <!-- Dòng nhóm menu -->
-          <div class="menu-row" (click)="toggleGroup(item)" [title]="isSidebarCollapsed ? item.label : ''">
-            <span class="menu-left">
-              <i [class]="'menu-icon ' + item.icon"></i>
-              <span class="menu-label">{{ item.label }}</span>
-            </span>
-            <i class="pi pi-chevron-right menu-chevron" *ngIf="!item.items && !isSidebarCollapsed"></i>
-            <i class="pi menu-chevron" [class.pi-chevron-down]="item.expanded" [class.pi-chevron-right]="!item.expanded" *ngIf="item.items && !isSidebarCollapsed"></i>
-          </div>
+        <ng-container *ngIf="items().length > 0; else sidebarMenuLoading">
+          <div *ngFor="let item of items(); trackBy: trackByMenuId" class="menu-group-item"
+            [class.group-active]="isGroupActive(item)">
+            <!-- Dòng nhóm menu -->
+            <div class="menu-row" (click)="toggleGroup(item)" [title]="isSidebarCollapsed ? item.label : ''">
+              <span class="menu-left">
+                <i [class]="'menu-icon ' + item.icon"></i>
+                <span class="menu-label">{{ item.label }}</span>
+              </span>
+              <i class="pi menu-chevron" [class.pi-chevron-down]="item.items && item.items.length > 0 && item.expanded"
+                [class.pi-chevron-right]="!(item.items && item.items.length > 0 && item.expanded)"
+                *ngIf="((item.items && item.items.length > 0) || (item.routerLink && item.routerLink[0] === '/dashboard')) && !isSidebarCollapsed"></i>
+            </div>
 
-          <!-- Menu con (Submenu) -->
-          <div class="submenu-list" *ngIf="item.items && item.expanded && !isSidebarCollapsed">
-            <a *ngFor="let sub of item.items"
-               [routerLink]="sub.routerLink"
-               routerLinkActive="sub-active"
-               class="submenu-item">
-              <i [class]="'sub-icon ' + sub.icon"></i>
-              <span class="sub-label">{{ sub.label }}</span>
-            </a>
+            <!-- Menu con (Submenu) -->
+            <div class="submenu-list" *ngIf="item.items && item.expanded && !isSidebarCollapsed">
+              <a *ngFor="let sub of item.items" [routerLink]="sub.routerLink"
+                [class.sub-active]="isSubMenuActive(sub, item.items!)" class="submenu-item">
+                <span class="sub-dot"></span>
+                <span class="sub-label">{{ sub.label }}</span>
+              </a>
+            </div>
           </div>
-        </div>
+        </ng-container>
+        <ng-template #sidebarMenuLoading>
+          <div class="sidebar-menu-loading" *ngIf="!menuLoaded()">
+            <i class="pi pi-spin pi-spinner"></i>
+            <span>Đang tải menu...</span>
+          </div>
+        </ng-template>
       </div>
     </div>
     <div class="layout-content">

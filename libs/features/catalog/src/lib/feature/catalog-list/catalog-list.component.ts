@@ -1,18 +1,20 @@
 import { Component, OnInit, signal, computed, inject, effect } from '@angular/core';
+import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { ToastModule } from 'primeng/toast';
 import { SelectModule } from 'primeng/select';
 import { DialogModule } from 'primeng/dialog';
-import { MessageService } from 'primeng/api';
+import { Menu, MenuModule } from 'primeng/menu';
+import { MenuItem, MessageService } from 'primeng/api';
 import { AuthService } from '@sohoa.frontend/shared/core';
 import { CatalogService } from '../../data-access/catalog.service';
 
 @Component({
   selector: 'app-catalog-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule, SelectModule, DialogModule],
+  imports: [CommonModule, FormsModule, ToastModule, MenuModule, SelectModule, DialogModule, WfBreadcrumbComponent],
   providers: [MessageService],
   templateUrl: './catalog-list.component.html'
 })
@@ -28,8 +30,10 @@ export class CatalogListComponent implements OnInit {
 
   items = signal<any[]>([]);
   parentsList = signal<any[]>([]);
+  organizationUnits = signal<any[]>([]);
   searchKeyword = signal<string>('');
   searchStatus = signal<string>(''); // '', '1', '0'
+  searchUnitId = signal<number | null>(null);
   totalCount = signal<number>(0);
 
   currentView = signal<'list' | 'add' | 'edit'>('list');
@@ -38,6 +42,33 @@ export class CatalogListComponent implements OnInit {
   isSaving = signal<boolean>(false);
 
   catalogTypes = signal<any[]>([]);
+  actionMenuItems: MenuItem[] = [];
+
+  openActionMenu(item: any, event: Event, menu: Menu): void {
+    event.stopPropagation();
+    const active = item.status === 1;
+    this.actionMenuItems = [
+      ...(this.canManage() ? [{
+        label: active ? 'Khóa danh mục' : 'Mở khóa danh mục',
+        title: active ? 'Khóa danh mục' : 'Mở khóa danh mục',
+        icon: active ? 'pi pi-lock color-red' : 'pi pi-lock-open color-teal',
+        command: () => this.onToggleStatus(item)
+      }] : []),
+      ...(this.canEdit() ? [{ label: 'Chỉnh sửa', title: 'Chỉnh sửa', icon: 'pi pi-pencil color-blue', command: () => this.onEdit(item) }] : []),
+      ...(this.canDelete() ? [{ label: 'Xóa', title: 'Xóa', icon: 'pi pi-trash color-red', command: () => this.onDelete(item) }] : []),
+    ];
+    menu.toggle(event);
+  }
+
+  // Delete confirmation
+  showDeleteConfirm = signal<boolean>(false);
+  deleteTarget = signal<any>(null);
+  deleting = signal<boolean>(false);
+
+  // Lock/Unlock confirmation
+  showStatusConfirm = signal<boolean>(false);
+  statusTarget = signal<any>(null);
+  togglingStatus = signal<boolean>(false);
 
   // Pagination
   currentPage = signal<number>(1);
@@ -53,6 +84,10 @@ export class CatalogListComponent implements OnInit {
   nameError = computed(() => {
     if (this.formSubmitted() && !this.currentItem().name) return 'Tên danh mục là bắt buộc';
     return this.serverErrors().name || this.serverErrors().Name || '';
+  });
+  unitError = computed(() => {
+    if (this.isPhongCatalog() && this.formSubmitted() && !this.currentItem().unitId) return 'Đơn vị là bắt buộc';
+    return this.serverErrors().unitId || this.serverErrors().UnitId || '';
   });
 
   onFieldChange(field: string) {
@@ -71,6 +106,14 @@ export class CatalogListComponent implements OnInit {
     const typeObj = this.catalogTypes().find(t => t.code === type);
     return typeObj ? typeObj.hasParent === 1 : false;
   });
+
+  isPhongCatalog = computed(() => this.catalogType() === 'PHONG');
+  customBreadcrumbItems = computed(() => this.isPhongCatalog()
+    ? [
+        { label: 'Quản lý danh mục' },
+        { label: 'Danh mục phông' }
+      ]
+    : null);
 
   // Paginated items
   paginatedItems = computed(() => {
@@ -105,11 +148,28 @@ export class CatalogListComponent implements OnInit {
     this.currentPage.set(1);
   }
 
+  // Map catalogType → permission prefix (mỗi controller riêng = 1 nhóm quyền riêng)
+  private readonly PERMISSION_PREFIX_MAP: Record<string, string> = {
+    KE: 'SHELF',
+    TANG: 'FLOOR',
+    HOP: 'BOX',
+    CHUC_VU: 'POSITION',
+    PROCESSING_CATEGORY: 'PROCESSING_CATEGORY',
+    LINH_VUC: 'DOMAIN',
+    TINH_TRANG_VAT_LY: 'PHYSICAL_STATUS',
+  };
+
+  permissionPrefix = computed(() =>
+    this.PERMISSION_PREFIX_MAP[this.catalogType()] ?? 'CATALOG'
+  );
+
   // Fine-grained permission computed signals
-  canCreate = computed(() => this.authService.hasPermission('CATALOG_CREATE'));
-  canEdit = computed(() => this.authService.hasPermission('CATALOG_EDIT'));
-  canDelete = computed(() => this.authService.hasPermission('CATALOG_DELETE'));
-  canManage = computed(() => this.authService.hasPermission('CATALOG_MANAGE'));
+  canCreate = computed(() => this.authService.hasPermission(`${this.permissionPrefix()}_CREATE`));
+  canEdit = computed(() => this.authService.hasPermission(`${this.permissionPrefix()}_EDIT`));
+  canDelete = computed(() => this.authService.hasPermission(`${this.permissionPrefix()}_DELETE`));
+  canManage = computed(() => this.catalogType() === 'PROCESSING_CATEGORY'
+    ? this.authService.hasPermission('PROCESSING_CATEGORY_EDIT')
+    : this.authService.hasPermission(`${this.permissionPrefix()}_MANAGE`));
 
   constructor() {
     // Listen to changes in route data to reload catalog configurations
@@ -119,11 +179,15 @@ export class CatalogListComponent implements OnInit {
       this.currentView.set('list');
       this.searchKeyword.set('');
       this.searchStatus.set('');
+      this.searchUnitId.set(null);
       this.currentPage.set(1);
+      if ((data['type'] || '') === 'PHONG') {
+        this.loadOrganizationUnits();
+      }
       
       // Load types first if not loaded
       if (this.catalogTypes().length === 0) {
-        this.loadCatalogTypes();
+        this.loadCatalogTypes(() => this.loadItems());
       }
     });
 
@@ -140,7 +204,10 @@ export class CatalogListComponent implements OnInit {
   ngOnInit() {
     this.authService.loadPermissions();
     if (this.catalogTypes().length === 0) {
-      this.loadCatalogTypes();
+      this.loadCatalogTypes(() => this.loadItems());
+    }
+    if (this.isPhongCatalog()) {
+      this.loadOrganizationUnits();
     }
   }
 
@@ -161,6 +228,35 @@ export class CatalogListComponent implements OnInit {
     const type = this.catalogType();
     if (!type) return;
 
+    if (this.isPhongCatalog()) {
+      const typeObj = this.catalogTypes().find(t => t.code === type);
+      if (!typeObj?.id) return;
+
+      this.catalogService.getItemsByTypeId(
+        typeObj.id,
+        this.currentPage(),
+        this.pageSize(),
+        this.searchKeyword(),
+        this.searchStatus(),
+        this.searchUnitId()
+      ).subscribe({
+        next: (res) => {
+          this.items.set(res?.items || []);
+          this.totalCount.set(res?.totalCount || 0);
+        },
+        error: () => {
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi tải dữ liệu',
+            detail: 'Không thể tải danh sách danh mục.'
+          });
+          this.items.set([]);
+          this.totalCount.set(0);
+        }
+      });
+      return;
+    }
+
     this.catalogService.getItems(type, this.currentPage(), this.pageSize(), this.searchKeyword(), this.searchStatus()).subscribe({
       next: (res) => {
         const list = res?.items || [];
@@ -176,6 +272,13 @@ export class CatalogListComponent implements OnInit {
         this.items.set([]);
         this.totalCount.set(0);
       }
+    });
+  }
+
+  loadOrganizationUnits() {
+    this.catalogService.getOrganizationUnits().subscribe({
+      next: (units) => this.organizationUnits.set(Array.isArray(units) ? units : []),
+      error: () => this.organizationUnits.set([])
     });
   }
 
@@ -206,9 +309,16 @@ export class CatalogListComponent implements OnInit {
     this.loadItems();
   }
 
+  onSearchUnitChange(unitId: number | string | null) {
+    const normalizedUnitId = unitId === null || unitId === '' ? null : Number(unitId);
+    this.searchUnitId.set(normalizedUnitId);
+    this.onSearch();
+  }
+
   onResetSearch() {
     this.searchKeyword.set('');
     this.searchStatus.set('');
+    this.searchUnitId.set(null);
     this.currentPage.set(1);
     this.loadItems();
   }
@@ -224,7 +334,8 @@ export class CatalogListComponent implements OnInit {
       description: '',
       priority: 1,
       status: 1,
-      unitId: null
+      unitId: null,
+      catalogTypeId: this.catalogTypes().find(t => t.code === this.catalogType())?.id
     });
     if (this.hasParent()) {
       this.loadParentsList();
@@ -249,7 +360,7 @@ export class CatalogListComponent implements OnInit {
   onSaveItem() {
     this.formSubmitted.set(true);
     this.serverErrors.set({});
-    if (this.codeError() || this.nameError()) {
+    if (this.codeError() || this.nameError() || this.unitError()) {
       return;
     }
 
@@ -259,7 +370,12 @@ export class CatalogListComponent implements OnInit {
       itemDraft.priority = 1;
     }
 
-    itemDraft.unitId = this.isPrivate() ? -1 : null;
+    if (this.isPhongCatalog()) {
+      itemDraft.catalogTypeId = this.catalogTypes().find(t => t.code === this.catalogType())?.id;
+      itemDraft.unitId = Number(itemDraft.unitId);
+    } else {
+      itemDraft.unitId = this.isPrivate() ? -1 : null;
+    }
     this.isSaving.set(true);
 
     if (this.currentView() === 'edit') {
@@ -343,54 +459,76 @@ export class CatalogListComponent implements OnInit {
 
   onDelete(item: any) {
     if (!this.canDelete()) return;
-    if (confirm(`Bạn có chắc chắn muốn xóa danh mục ${item.name} (${item.code})?`)) {
-      this.catalogService.deleteItem(item.id, this.catalogType()).subscribe({
-        next: () => {
-          this.messageService.add({
-            severity: 'success',
-            summary: 'Xóa thành công',
-            detail: 'Đã xóa danh mục thành công!'
-          });
-          this.loadItems();
-        },
-        error: (err) => {
-          const errorMsg = err.error?.message || 'Xóa danh mục thất bại.';
-          this.messageService.add({
-            severity: 'error',
-            summary: 'Lỗi xóa',
-            detail: errorMsg
-          });
-        }
-      });
-    }
+    this.deleteTarget.set(item);
+    this.showDeleteConfirm.set(true);
+  }
+
+  onConfirmDelete() {
+    const item = this.deleteTarget();
+    if (!item) return;
+    this.deleting.set(true);
+    this.catalogService.deleteItem(item.id, this.catalogType()).subscribe({
+      next: () => {
+        this.deleting.set(false);
+        this.showDeleteConfirm.set(false);
+        this.deleteTarget.set(null);
+        this.messageService.add({ severity: 'success', summary: 'Xóa thành công', detail: `Đã xóa "${item.name}" thành công!` });
+        this.loadItems();
+      },
+      error: (err) => {
+        this.deleting.set(false);
+        this.showDeleteConfirm.set(false);
+        const errorMsg = err.error?.message || 'Xóa danh mục thất bại.';
+        this.messageService.add({ severity: 'error', summary: 'Lỗi xóa', detail: errorMsg });
+      }
+    });
+  }
+
+  onCancelDelete() {
+    this.showDeleteConfirm.set(false);
+    this.deleteTarget.set(null);
   }
 
   onToggleStatus(item: any) {
     if (!this.canManage()) return;
-    const isLocking = item.status === 1;
-    const confirmMsg = isLocking 
-      ? `Bạn có chắc muốn KHÓA danh mục ${item.name} (${item.code})?`
-      : `Bạn có chắc muốn MỞ KHÓA danh mục ${item.name} (${item.code})?`;
+    this.statusTarget.set(item);
+    this.showStatusConfirm.set(true);
+  }
 
-    if (confirm(confirmMsg)) {
-      this.catalogService.toggleStatus(item.id, isLocking, this.catalogType()).subscribe({
-        next: (res: any) => {
-          this.messageService.add({
-            severity: 'success',
-            summary: isLocking ? 'Đã khóa' : 'Đã mở khóa',
-            detail: res.message || 'Thay đổi trạng thái danh mục thành công!'
-          });
-          this.loadItems();
-        },
-        error: (err) => {
-          const errorMsg = err.error?.message || 'Không thể thay đổi trạng thái danh mục.';
-          this.messageService.add({
-            severity: 'error',
-            summary: 'Lỗi thao tác',
-            detail: errorMsg
-          });
-        }
-      });
-    }
+  onConfirmToggleStatus() {
+    const item = this.statusTarget();
+    if (!item) return;
+    const isLocking = item.status === 1;
+    this.togglingStatus.set(true);
+    this.catalogService.toggleStatus(item.id, isLocking, this.catalogType()).subscribe({
+      next: (res: any) => {
+        this.togglingStatus.set(false);
+        this.showStatusConfirm.set(false);
+        this.statusTarget.set(null);
+        this.messageService.add({
+          severity: 'success',
+          summary: isLocking ? 'Đã khóa' : 'Đã mở khóa',
+          detail: res.message || 'Thay đổi trạng thái danh mục thành công!'
+        });
+        this.loadItems();
+      },
+      error: (err) => {
+        this.togglingStatus.set(false);
+        this.showStatusConfirm.set(false);
+        const errorMsg = err.error?.message || 'Không thể thay đổi trạng thái danh mục.';
+        this.messageService.add({ severity: 'error', summary: 'Lỗi thao tác', detail: errorMsg });
+      }
+    });
+  }
+
+  onCancelToggleStatus() {
+    this.showStatusConfirm.set(false);
+    this.statusTarget.set(null);
+  }
+
+  getUnitLabel(unitId: number | string | null | undefined): string {
+    if (!unitId) return '';
+    const unit = this.organizationUnits().find(x => Number(x.id) === Number(unitId));
+    return unit?.name || '';
   }
 }

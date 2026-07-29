@@ -10,6 +10,10 @@ export const DIGITIZATION_ROUTES: Routes = [
     loadComponent: () => import('./components/ocr-allocation/ocr-allocation.component').then(m => m.OcrAllocationComponent)
   },
   {
+    path: 'folder-allocation',
+    loadComponent: () => import('./components/folder-allocation/folder-allocation.component').then(m => m.FolderAllocationComponent)
+  },
+  {
     path: 'ocr-training',
     loadComponent: () => import('./components/ocr-training/components/ocr-training/ocr-training.component').then(m => m.OcrTrainingComponent)
   },

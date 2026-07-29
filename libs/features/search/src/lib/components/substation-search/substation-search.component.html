@@ -1,0 +1,696 @@
+<div class="wf-page">
+  <p-toast></p-toast>
+
+  <wf-breadcrumb [viewMode]="currentView()" [leafLabel]="pageTitle()" (listClick)="goBack()" />
+
+  <div class="wf-card">
+
+    <!-- ==================== MÀN HÌNH DANH SÁCH ==================== -->
+    <div *ngIf="currentView() === 'list'" class="animate-fade-in">
+
+      <!-- Toolbar -->
+      <div class="list-toolbar">
+        <div class="toolbar-left" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+          <!-- Keyword input -->
+          <input type="text" class="wf-search-input"
+            placeholder="Tìm theo mã hoặc tên..."
+            [ngModel]="searchKeyword()"
+            (ngModelChange)="searchKeyword.set($event)"
+            (keyup.enter)="onSearch()" />
+
+          <!-- Unit Filter -->
+          <select class="wf-input" style="height: 38px; min-width: 180px; padding: 0 10px; border-radius: 6px;"
+            [ngModel]="searchUnitId()"
+            (ngModelChange)="searchUnitId.set($event); onSearch()">
+            <option [value]="null">-- Tất cả đơn vị --</option>
+            <option *ngFor="let unit of orgUnits()" [value]="unit.id">{{ unit.name }}</option>
+          </select>
+
+          <!-- Grid Type Filter -->
+          <select class="wf-input" style="height: 38px; width: 160px; padding: 0 10px; border-radius: 6px;"
+            [ngModel]="searchGridTypeId()"
+            (ngModelChange)="searchGridTypeId.set($event); onSearch()">
+            <option [value]="null">-- Loại lưới điện --</option>
+            <option *ngFor="let gt of gridTypes()" [value]="gt.id">{{ gt.name }}</option>
+          </select>
+
+          <!-- Status Filter -->
+          <select class="wf-input" style="height: 38px; width: 160px; padding: 0 10px; border-radius: 6px;"
+            [ngModel]="searchStatus()"
+            (ngModelChange)="searchStatus.set($event); onSearch()">
+            <option value="">-- Trạng thái --</option>
+            <option value="1">Hoạt động</option>
+            <option value="0">Ngừng hoạt động</option>
+          </select>
+
+          <button class="btn-tim" (click)="onSearch()">
+            <i class="pi pi-search"></i> Tìm
+          </button>
+
+          <button class="btn-outlined" style="height: 38px;" (click)="onResetSearch()">
+            Làm mới
+          </button>
+        </div>
+      </div>
+
+      <!-- Table Grid -->
+      <div class="wf-table-wrap">
+        <table class="wf-table">
+          <thead>
+            <tr>
+              <th class="col-stt">STT</th>
+              <th>Mã trạm</th>
+              <th>Tên trạm</th>
+              <th>Địa chỉ</th>
+              <th>Loại lưới điện</th>
+              <th>Đơn vị quản lý</th>
+              <th>Trạng thái</th>
+              <th class="col-hd" style="width: 80px;">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let item of paginatedItems(); let i = index">
+              <td class="col-stt text-muted">{{ (currentPage() - 1) * pageSize() + i + 1 }}</td>
+              <td>
+                <a class="wf-link" style="color: #2563eb; cursor: pointer; font-weight: 600; text-decoration: none;"
+                   (click)="onViewDetail(item)">{{ item.code }}</a>
+              </td>
+              <td>
+                <b class="wf-name-link" style="cursor: pointer;" (click)="onViewDetail(item)">{{ item.name }}</b>
+              </td>
+              <td>{{ item.address || '-' }}</td>
+              <td>
+                <span class="status-pill"
+                  [style.background-color]="item.gridTypeId === 1 ? '#eff6ff' : (item.gridTypeId === 2 ? '#f5f3ff' : '#f9fafb')"
+                  [style.color]="item.gridTypeId === 1 ? '#1e40af' : (item.gridTypeId === 2 ? '#5b21b6' : '#6b7280')"
+                  [style.border-color]="item.gridTypeId === 1 ? '#bfdbfe' : (item.gridTypeId === 2 ? '#ddd6fe' : '#e5e7eb')">
+                  {{ item.gridTypeId === 1 ? 'Cao áp' : (item.gridTypeId === 2 ? 'Trung áp' : '-') }}
+                </span>
+              </td>
+              <td>
+                <span class="text-primary font-semibold" *ngIf="item.organization">
+                  {{ item.organization.name }}
+                </span>
+                <span class="text-muted italic" *ngIf="!item.organization">Chưa phân bổ</span>
+              </td>
+              <td>
+                <span *ngIf="item.isActive === 1 || item.isActive === true" class="status-pill status-active"
+                  style="background-color: #ecfdf5; color: #065f46; border-color: #a7f3d0;">
+                  Hoạt động
+                </span>
+                <span *ngIf="item.isActive === 0 || item.isActive === false" class="status-pill status-locked"
+                  style="background-color: #fef2f2; color: #991b1b; border-color: #fee2e2;">
+                  Ngừng hoạt động
+                </span>
+              </td>
+              <td class="col-hd">
+                <div class="action-buttons-group">
+                  <button class="act-btn" style="background-color: #eff6ff; color: #1d4ed8; border-color: #bfdbfe;"
+                    title="Xem chi tiết" (click)="onViewDetail(item)">
+                    <i class="pi pi-eye"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+            <tr *ngIf="items().length === 0">
+              <td colspan="8" class="empty-row">
+                <i class="pi pi-inbox"></i>
+                <div>Không tìm thấy bản ghi nào.</div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Footer with Pagination -->
+      <div class="table-footer" *ngIf="items().length > 0">
+        <span class="record-count">Tổng số: <b>{{ totalCount() }}</b> bản ghi.</span>
+        <div class="pagination">
+          <button class="page-btn" (click)="prevPage()" [disabled]="currentPage() === 1">
+            <i class="pi pi-chevron-left"></i>
+          </button>
+          <span class="page-current">Trang {{ currentPage() }} / {{ totalPages() || 1 }}</span>
+          <button class="page-btn" (click)="nextPage()" [disabled]="currentPage() >= totalPages()">
+            <i class="pi pi-chevron-right"></i>
+          </button>
+          <span style="margin-left: 10px; display: inline-flex; align-items: center; gap: 5px; font-size: 0.8rem; color: #6b7280;">
+            Đi tới trang:
+            <input type="number" class="page-jump-input" [value]="currentPage()" (change)="goToPage($any($event.target).value)" style="width: 50px; height: 28px; text-align: center; border: 1px solid #e5e7eb; border-radius: 4px; padding: 0 4px;" [min]="1" [max]="totalPages() || 1" />
+          </span>
+          <select class="page-size-sel" [ngModel]="pageSize()" (change)="onPageSizeChange($event)">
+            <option [value]="10">10 / trang</option>
+            <option [value]="20">20 / trang</option>
+            <option [value]="50">50 / trang</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== VIEW CHI TIẾT ==================== -->
+    <div *ngIf="currentView() === 'detail'" class="animate-fade-in sub-view-container">
+
+      <!-- Tab Bar -->
+      <div class="tab-bar" style="margin-bottom: 24px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; gap: 8px;">
+          <div class="tab-item" [class.tab-active]="activeTab() === 0" (click)="activeTab.set(0)"
+               style="padding: 12px 16px; cursor: pointer; font-weight: 500; font-size: 0.95rem; display: flex; align-items: center; gap: 6px; border-bottom: 2px solid transparent;"
+               [style.border-bottom-color]="activeTab() === 0 ? '#2563eb' : 'transparent'"
+               [style.color]="activeTab() === 0 ? '#2563eb' : '#64748b'">
+            <i class="pi pi-info-circle"></i> Thông tin chung
+          </div>
+           <div class="tab-item" [class.tab-active]="activeTab() === 1" (click)="activeTab.set(1)"
+               style="padding: 12px 16px; cursor: pointer; font-weight: 500; font-size: 0.95rem; display: flex; align-items: center; gap: 6px; border-bottom: 2px solid transparent;"
+               [style.border-bottom-color]="activeTab() === 1 ? '#2563eb' : 'transparent'"
+               [style.color]="activeTab() === 1 ? '#2563eb' : '#64748b'">
+            <i class="pi pi-paperclip"></i> Tài liệu đính kèm
+          </div>
+          <div class="tab-item" [class.tab-active]="activeTab() === 2" (click)="activeTab.set(2)"
+               style="padding: 12px 16px; cursor: pointer; font-weight: 500; font-size: 0.95rem; display: flex; align-items: center; gap: 6px; border-bottom: 2px solid transparent;"
+               [style.border-bottom-color]="activeTab() === 2 ? '#2563eb' : 'transparent'"
+               [style.color]="activeTab() === 2 ? '#2563eb' : '#64748b'">
+            <i class="pi pi-folder-open"></i> Hồ sơ kỹ thuật
+          </div>
+        </div>
+        <div style="padding-right: 8px;">
+          <button class="btn-outlined btn-small" (click)="goBack()" style="height: 34px; padding: 0 12px; border-radius: 6px; display: inline-flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+            <i class="pi pi-arrow-left"></i> Quay lại
+          </button>
+        </div>
+      </div>
+
+      <!-- ======= TAB 0: THÔNG TIN CHUNG & THIẾT BỊ ======= -->
+      <div *ngIf="activeTab() === 0" class="tab-content animate-fade-in">
+
+        <!-- Thông tin cơ sở hạ tầng (chỉ đọc) -->
+        <div class="info-block" style="padding: 0 8px 32px 8px; display: flex; flex-direction: column; gap: 14px; border-bottom: 1px solid #cbd5e1; margin-bottom: 24px;">
+          <div style="display: flex; font-size: 0.95rem; line-height: 1.6; align-items: baseline;">
+            <span style="width: 160px; color: #0f172a; font-weight: 600; flex-shrink: 0;">Mã trạm biến áp:</span>
+            <span style="color: #334155;">{{ currentItem().code || '-' }}</span>
+          </div>
+          <div style="display: flex; font-size: 0.95rem; line-height: 1.6; align-items: baseline;">
+            <span style="width: 160px; color: #0f172a; font-weight: 600; flex-shrink: 0;">Tên trạm biến áp:</span>
+            <span style="color: #334155;">{{ currentItem().name || '-' }}</span>
+          </div>
+          <div style="display: flex; font-size: 0.95rem; line-height: 1.6; align-items: baseline;">
+            <span style="width: 160px; color: #0f172a; font-weight: 600; flex-shrink: 0;">Địa chỉ:</span>
+            <span style="color: #334155;">{{ currentItem().address || '-' }}</span>
+          </div>
+          <div style="display: flex; font-size: 0.95rem; line-height: 1.6; align-items: baseline;">
+            <span style="width: 160px; color: #0f172a; font-weight: 600; flex-shrink: 0;">Loại lưới điện:</span>
+            <span style="color: #334155;">{{ currentItem().gridTypeName || (currentItem().gridTypeId === 1 ? 'Lưới điện cao áp' : (currentItem().gridTypeId === 2 ? 'Lưới điện trung áp' : '-')) }}</span>
+          </div>
+          <div style="display: flex; font-size: 0.95rem; line-height: 1.6; align-items: baseline;">
+            <span style="width: 160px; color: #0f172a; font-weight: 600; flex-shrink: 0;">Đơn vị quản lý:</span>
+            <span style="color: #334155;">{{ currentItem().organization?.name || currentItem().unitName || 'Chưa phân bổ' }}</span>
+          </div>
+          <div style="display: flex; font-size: 0.95rem; line-height: 1.6; align-items: baseline;">
+            <span style="width: 160px; color: #0f172a; font-weight: 600; flex-shrink: 0;">Trạng thái:</span>
+            <span style="color: #334155;">{{ (currentItem().isActive === 1 || currentItem().isActive === true) ? 'Đang vận hành' : 'Ngừng hoạt động' }}</span>
+          </div>
+        </div>
+
+        <!-- Danh sách thiết bị (chỉ đọc) -->
+        <div style="background: #ffffff; padding: 0 8px;">
+
+          <!-- Section header -->
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <span style="font-size: 1.05rem; font-weight: 700; color: #002D72; display: flex; align-items: center;">
+              <i class="pi pi-link" style="color: #2563eb; margin-right: 8px; font-weight: bold;"></i>
+              Danh sách thiết bị
+            </span>
+          </div>
+
+          <!-- Divider line -->
+          <div style="border-bottom: 1px solid #e2e8f0; margin-bottom: 20px;"></div>
+
+          <!-- Search bar (Auto search) -->
+          <div style="display: flex; gap: 24px; align-items: center; margin-bottom: 24px; flex-wrap: wrap;">
+            <div style="display: flex; flex-direction: column; gap: 6px; flex: 1; max-width: 300px; min-width: 200px;">
+              <label style="font-size: 0.875rem; color: #475569; font-weight: 500;">Từ khóa</label>
+              <input type="text" class="wf-search-input" style="height: 38px; border-radius: 6px; border: 1px solid #cbd5e1; padding: 0 12px; width: 100%;"
+                placeholder="Nhập từ khóa tìm kiếm"
+                [ngModel]="equipmentSearchKeyword()"
+                (ngModelChange)="equipmentSearchKeyword.set($event); onEquipmentFilterChange()" />
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px; flex: 1; max-width: 300px; min-width: 200px;">
+              <label style="font-size: 0.875rem; color: #475569; font-weight: 500;">Loại thiết bị</label>
+              <select class="wf-input" style="height: 38px; border-radius: 6px; border: 1px solid #cbd5e1; padding: 0 12px; width: 100%; background-color: #fff;"
+                [ngModel]="equipmentSearchTypeId()"
+                (ngModelChange)="equipmentSearchTypeId.set($event); onEquipmentFilterChange()">
+                <option value="">-- Chọn loại thiết bị --</option>
+                <option *ngFor="let et of equipmentTypes()" [value]="et.id">{{ et.name }}</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Loading -->
+          <div *ngIf="isLoadingEquipments()" style="text-align: center; padding: 30px 0;">
+            <i class="pi pi-spin pi-spinner" style="font-size: 1.8rem; color: #002D72;"></i>
+            <div style="margin-top: 8px; color: #64748b;">Đang tải danh sách thiết bị...</div>
+          </div>
+
+          <!-- Equipment Table -->
+          <div *ngIf="!isLoadingEquipments()">
+            <table class="wf-table" style="width: 100%; border-collapse: collapse; margin-top: 16px;">
+              <thead>
+                <tr style="border-bottom: 1px solid #cbd5e1;">
+                  <th class="col-stt">STT</th>
+                  <th>Mã thiết bị</th>
+                  <th>Tên thiết bị</th>
+                  <th>Ngăn lộ</th>
+                  <th>Loại thiết bị</th>
+                  <th>Số serial</th>
+                  <th>Trạng thái</th>
+                  <th class="col-hd" style="width: 80px;">Thao tác</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let eq of equipmentItems(); let i = index">
+                  <td class="col-stt text-muted">{{ (equipmentPage() - 1) * equipmentPageSize() + i + 1 }}</td>
+                  <td>
+                    <a class="wf-link" style="color: #2563eb; cursor: pointer; font-weight: 600; text-decoration: none;"
+                       (click)="onViewEquipment(eq)">{{ eq.code }}</a>
+                  </td>
+                  <td>{{ eq.name }}</td>
+                  <td>{{ currentItem().code || '-' }}</td>
+                  <td>{{ eq.equipmentTypeName || getEquipmentTypeName(eq.equipmentTypeId) }}</td>
+                  <td>{{ eq.serialNumber || '-' }}</td>
+                  <td>
+                    <span *ngIf="eq.isActive === 1 || eq.isActive === true" class="status-pill status-active">
+                      Hoạt động
+                    </span>
+                    <span *ngIf="eq.isActive === 0 || eq.isActive === false" class="status-pill status-inactive">
+                      Ngừng hoạt động
+                    </span>
+                  </td>
+                  <td class="col-hd">
+                    <div class="action-buttons-group">
+                      <button class="act-btn" style="background-color: #eff6ff; color: #1d4ed8; border-color: #bfdbfe;"
+                        title="Xem chi tiết thiết bị" (click)="onViewEquipment(eq)">
+                        <i class="pi pi-eye"></i>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+                <tr *ngIf="equipmentItems().length === 0">
+                  <td colspan="8" class="empty-row" style="text-align: center; padding: 32px; color: #64748b;">
+                    <i class="pi pi-inbox" style="font-size: 2rem; margin-bottom: 8px; display: block;"></i>
+                    <div>Không có thiết bị nào thuộc trạm biến áp này.</div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            <!-- Equipment Pagination -->
+            <div style="display: flex; justify-content: center; align-items: center; gap: 20px; padding: 24px 0; margin-top: 16px; font-size: 0.875rem; color: #64748b;" *ngIf="equipmentItems().length > 0">
+              <span>Hiển thị {{ equipmentItems().length }} trên tổng số {{ equipmentTotalCount() }} bản ghi</span>
+
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <button (click)="goToEquipmentPage(1)" [disabled]="equipmentPage() === 1"
+                  style="border: none; background: none; color: #64748b; cursor: pointer; padding: 4px 8px; font-size: 1rem; font-weight: bold;"
+                  [style.opacity]="equipmentPage() === 1 ? '0.4' : '1'">
+                  «
+                </button>
+                <button (click)="equipmentPrevPage()" [disabled]="equipmentPage() === 1"
+                  style="border: none; background: none; color: #64748b; cursor: pointer; padding: 4px 8px; font-size: 1.1rem; font-weight: bold;"
+                  [style.opacity]="equipmentPage() === 1 ? '0.4' : '1'">
+                  ‹
+                </button>
+
+                <ng-container *ngFor="let pageNum of [].constructor(equipmentTotalPages()); let pageIndex = index">
+                  <button *ngIf="pageIndex + 1 >= equipmentPage() - 2 && pageIndex + 1 <= equipmentPage() + 2"
+                    (click)="goToEquipmentPage(pageIndex + 1)"
+                    [style.background-color]="equipmentPage() === pageIndex + 1 ? '#2563eb' : 'transparent'"
+                    [style.color]="equipmentPage() === pageIndex + 1 ? '#fff' : '#64748b'"
+                    [style.font-weight]="equipmentPage() === pageIndex + 1 ? '600' : '400'"
+                    style="border: none; border-radius: 9999px; width: 28px; height: 28px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 0.875rem;">
+                    {{ pageIndex + 1 }}
+                  </button>
+                </ng-container>
+
+                <button (click)="equipmentNextPage()" [disabled]="equipmentPage() >= equipmentTotalPages()"
+                  style="border: none; background: none; color: #64748b; cursor: pointer; padding: 4px 8px; font-size: 1.1rem; font-weight: bold;"
+                  [style.opacity]="equipmentPage() >= equipmentTotalPages() ? '0.4' : '1'">
+                  ›
+                </button>
+                <button (click)="goToEquipmentPage(equipmentTotalPages())" [disabled]="equipmentPage() >= equipmentTotalPages()"
+                  style="border: none; background: none; color: #64748b; cursor: pointer; padding: 4px 8px; font-size: 1rem; font-weight: bold;"
+                  [style.opacity]="equipmentPage() >= equipmentTotalPages() ? '0.4' : '1'">
+                  »
+                </button>
+              </div>
+
+              <select [ngModel]="equipmentPageSize()" (change)="onEquipmentPageSizeChange($event)"
+                style="border: 1px solid #cbd5e1; border-radius: 4px; padding: 2px 6px; height: 28px; color: #64748b; background-color: #fff; cursor: pointer;">
+                <option [value]="10">10</option>
+                <option [value]="20">20</option>
+                <option [value]="50">50</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+  <!-- ======= TAB 1: TÀI LIỆU ĐÍNH KÈM ======= -->
+      <div *ngIf="activeTab() === 1" class="tab-content animate-fade-in substation-attachment-tree">
+        <div class="substation-attachment-search">
+          <i class="pi pi-search"></i>
+          <input type="text" placeholder="Tìm loại tài liệu..." [ngModel]="attachmentFolderSearchKeyword()"
+            (ngModelChange)="attachmentFolderSearchKeyword.set($event)" />
+        </div>
+
+        <div *ngIf="loadingAttachmentDocuments()" class="substation-attachment-loading">
+          <i class="pi pi-spin pi-spinner"></i> Đang tải tài liệu đính kèm...
+        </div>
+
+        <div *ngIf="!loadingAttachmentDocuments()" class="substation-attachment-root">
+          <div class="substation-attachment-root-label">
+            <i class="pi pi-folder-open"></i>
+            <span>Kho tài liệu</span>
+          </div>
+
+          <div *ngIf="attachmentDocumentFolders().length === 0" class="substation-attachment-empty">
+            Chưa có tài liệu đính kèm cho trạm biến áp này.
+          </div>
+
+          <div *ngFor="let folder of attachmentDocumentFolders()" class="substation-attachment-node">
+            <button type="button" class="substation-attachment-folder" (click)="toggleAttachmentFolder(folder.id)">
+              <i class="pi" [class.pi-chevron-right]="!isAttachmentFolderExpanded(folder.id)"
+                [class.pi-chevron-down]="isAttachmentFolderExpanded(folder.id)"></i>
+              <i class="pi" [class.pi-folder]="!isAttachmentFolderExpanded(folder.id)"
+                [class.pi-folder-open]="isAttachmentFolderExpanded(folder.id)"></i>
+              <span>{{ folder.name }}</span>
+              <small>{{ folder.documents.length }} tài liệu</small>
+            </button>
+
+            <div *ngIf="isAttachmentFolderExpanded(folder.id)" class="substation-attachment-children">
+              <div *ngFor="let item of folder.documents" class="substation-attachment-file">
+                <i class="pi pi-file-pdf"></i>
+                <button type="button" (click)="openAttachmentDocumentPreview(item.dossier.id, item.document)"
+                  title="Xem trước tài liệu">
+                  {{ item.document.name || item.document.fileName || 'Tài liệu chưa đặt tên' }}
+                </button>
+                <span>{{ getDossierCode(item.dossier) }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ======= TAB 2: HỒ SƠ KỸ THUẬT (chỉ đọc) ======= -->
+      <div *ngIf="activeTab() === 2" class="tab-content animate-fade-in substation-attachment-tree">
+        <div class="substation-attachment-search">
+          <i class="pi pi-search"></i>
+          <input type="text" placeholder="Tìm loại hồ sơ..." [ngModel]="technicalFolderSearchKeyword()"
+            (ngModelChange)="technicalFolderSearchKeyword.set($event)" />
+        </div>
+
+        <div *ngIf="loadingTechnicalDossiers()" class="substation-attachment-loading">
+          <i class="pi pi-spin pi-spinner"></i> Đang tải hồ sơ kỹ thuật...
+        </div>
+
+        <div *ngIf="!loadingTechnicalDossiers()" class="substation-attachment-root">
+          <div class="substation-attachment-root-label">
+            <i class="pi pi-folder-open"></i>
+            <span>Kho tài liệu</span>
+          </div>
+
+          <div *ngIf="technicalDossierFolders().length === 0" class="substation-attachment-empty">
+            Chưa có hồ sơ kỹ thuật cho trạm biến áp này.
+          </div>
+
+          <div *ngFor="let folder of technicalDossierFolders()" class="substation-attachment-node">
+            <button type="button" class="substation-attachment-folder" (click)="toggleTechnicalFolder(folder)">
+              <i class="pi" [class.pi-chevron-right]="!isTechnicalFolderExpanded(folder.id)"
+                [class.pi-chevron-down]="isTechnicalFolderExpanded(folder.id)"></i>
+              <i class="pi" [class.pi-folder]="!isTechnicalFolderExpanded(folder.id)"
+                [class.pi-folder-open]="isTechnicalFolderExpanded(folder.id)"></i>
+              <span>{{ folder.name }}</span>
+              <small>{{ folder.dossiers.length }} hồ sơ</small>
+            </button>
+
+            <div *ngIf="isTechnicalFolderExpanded(folder.id)" class="substation-attachment-children">
+              <div *ngIf="isTechnicalFolderLoading(folder.id)" class="substation-attachment-loading">
+                <i class="pi pi-spin pi-spinner"></i> Đang tải tài liệu...
+              </div>
+              <div *ngFor="let item of getTechnicalFolderDocuments(folder)" class="substation-attachment-file">
+                <i class="pi pi-file-pdf"></i>
+                <button type="button" (click)="openAttachmentDocumentPreview(item.dossier.id, item.document)"
+                  title="Xem trước tài liệu">
+                  {{ item.document.name || item.document.fileName || 'Tài liệu chưa đặt tên' }}
+                </button>
+                <span>{{ getDossierCode(item.dossier) }}</span>
+              </div>
+              <div *ngIf="!isTechnicalFolderLoading(folder.id) && getTechnicalFolderDocuments(folder).length === 0"
+                class="substation-attachment-empty">Chưa có tài liệu trong loại hồ sơ này.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div *ngIf="false" class="tab-content animate-fade-in">
+        <div style="background: #ffffff; padding: 0 8px 24px 8px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #cbd5e1; padding-bottom: 12px; margin-bottom: 20px;">
+            <span style="font-size: 1.05rem; font-weight: 700; color: #002D72; display: flex; align-items: center;">
+              <i class="pi pi-folder-open" style="color: #FF6B00; margin-right: 8px;"></i>
+              Hồ sơ liên quan
+            </span>
+            <button class="btn-green" (click)="exportToExcel()" *ngIf="relatedDossiers().length > 0"
+              style="background-color: #10b981; border-color: #10b981; color: #ffffff; font-weight: 500; font-size: 0.9rem; padding: 8px 16px; border-radius: 6px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; border: 1px solid transparent;">
+              <i class="pi pi-file-excel"></i> Xuất Excel
+            </button>
+          </div>
+
+          <!-- Search bar cho Hồ sơ -->
+          <div style="display: flex; gap: 24px; align-items: center; margin-bottom: 24px; flex-wrap: wrap;">
+            <div style="display: flex; flex-direction: column; gap: 6px; flex: 1; max-width: 300px; min-width: 200px;">
+              <label style="font-size: 0.875rem; color: #475569; font-weight: 500;">Từ khóa</label>
+              <input type="text" class="wf-search-input" style="height: 38px; border-radius: 6px; border: 1px solid #cbd5e1; padding: 0 12px; width: 100%;"
+                placeholder="Tìm theo mã hoặc tiêu đề..."
+                [ngModel]="relatedDossiersSearchKeyword()"
+                (ngModelChange)="relatedDossiersSearchKeyword.set($event); onRelatedDossierFilterChange()" />
+            </div>
+          </div>
+
+          <!-- Loading -->
+          <div *ngIf="isLoadingRelatedDossiers()" style="text-align: center; padding: 30px 0;">
+            <i class="pi pi-spin pi-spinner" style="font-size: 1.8rem; color: #002D72;"></i>
+            <div style="margin-top: 8px; color: #64748b;">Đang tải danh sách hồ sơ liên quan...</div>
+          </div>
+
+          <!-- Dossier Table -->
+          <div *ngIf="!isLoadingRelatedDossiers()">
+            <table class="wf-table" style="width: 100%; border-collapse: collapse; margin-top: 16px;">
+              <thead>
+                <tr style="border-bottom: 1px solid #cbd5e1;">
+                  <th class="col-stt">STT</th>
+                  <th>Mã hồ sơ</th>
+                  <th>Tiêu đề hồ sơ</th>
+                  <th>Loại hồ sơ</th>
+                  <th style="width: 120px; text-align: center;">Số tài liệu</th>
+                  <th class="col-hd" style="width: 100px; text-align: center;">Thao tác</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let doc of relatedDossiers(); let i = index">
+                  <td class="col-stt text-muted">{{ (relatedDossiersPage() - 1) * relatedDossiersPageSize() + i + 1 }}</td>
+                  <td>
+                    <a class="wf-link" style="color: #2563eb; cursor: pointer; font-weight: 600; text-decoration: none;"
+                       (click)="onViewDossier(doc)">{{ getDossierCode(doc) }}</a>
+                  </td>
+                  <td>
+                    <a class="wf-name-link" style="cursor: pointer;"
+                       (click)="onViewDossier(doc)">{{ getDossierTitle(doc) }}</a>
+                  </td>
+                  <td>{{ doc.dossierTypeName || '-' }}</td>
+                  <td style="text-align: center;">{{ doc.documentCount ?? 0 }}</td>
+                  <td class="col-hd">
+                    <div class="action-buttons-group" style="justify-content: center;">
+                      <button class="act-btn" style="background-color: #eff6ff; color: #1d4ed8; border-color: #bfdbfe;"
+                        title="Xem chi tiết hồ sơ" (click)="onViewDossier(doc)">
+                        <i class="pi pi-eye"></i>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+                <tr *ngIf="relatedDossiers().length === 0">
+                  <td colspan="6" class="empty-row" style="text-align: center; padding: 32px; color: #64748b;">
+                    <i class="pi pi-inbox" style="font-size: 2rem; margin-bottom: 8px; display: block;"></i>
+                    <div>Không có hồ sơ nào thuộc trạm biến áp này đã được xuất bản.</div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            <!-- Pagination -->
+            <div *ngIf="relatedDossiers().length > 0" style="display: flex; justify-content: center; align-items: center; gap: 20px; padding: 24px 0; margin-top: 16px; font-size: 0.875rem; color: #64748b;">
+              <span>Hiển thị {{ relatedDossiers().length }} trên tổng số {{ relatedDossiersTotalCount() }} bản ghi</span>
+
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <button (click)="goToRelatedDossiersPage(1)" [disabled]="relatedDossiersPage() === 1"
+                  style="border: none; background: none; color: #64748b; cursor: pointer; padding: 4px 8px; font-size: 1rem; font-weight: bold;"
+                  [style.opacity]="relatedDossiersPage() === 1 ? '0.4' : '1'">
+                  «
+                </button>
+                <button (click)="relatedDossiersPrevPage()" [disabled]="relatedDossiersPage() === 1"
+                  style="border: none; background: none; color: #64748b; cursor: pointer; padding: 4px 8px; font-size: 1.1rem; font-weight: bold;"
+                  [style.opacity]="relatedDossiersPage() === 1 ? '0.4' : '1'">
+                  ‹
+                </button>
+
+                <ng-container *ngFor="let pageNum of [].constructor(relatedDossiersTotalPages()); let pageIndex = index">
+                  <button *ngIf="pageIndex + 1 >= relatedDossiersPage() - 2 && pageIndex + 1 <= relatedDossiersPage() + 2"
+                    (click)="goToRelatedDossiersPage(pageIndex + 1)"
+                    [style.background-color]="relatedDossiersPage() === pageIndex + 1 ? '#2563eb' : 'transparent'"
+                    [style.color]="relatedDossiersPage() === pageIndex + 1 ? '#fff' : '#64748b'"
+                    [style.font-weight]="relatedDossiersPage() === pageIndex + 1 ? '600' : '400'"
+                    style="border: none; border-radius: 9999px; width: 28px; height: 28px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 0.875rem;">
+                    {{ pageIndex + 1 }}
+                  </button>
+                </ng-container>
+
+                <button (click)="relatedDossiersNextPage()" [disabled]="relatedDossiersPage() >= relatedDossiersTotalPages()"
+                  style="border: none; background: none; color: #64748b; cursor: pointer; padding: 4px 8px; font-size: 1.1rem; font-weight: bold;"
+                  [style.opacity]="relatedDossiersPage() >= relatedDossiersTotalPages() ? '0.4' : '1'">
+                  ›
+                </button>
+                <button (click)="goToRelatedDossiersPage(relatedDossiersTotalPages())" [disabled]="relatedDossiersPage() >= relatedDossiersTotalPages()"
+                  style="border: none; background: none; color: #64748b; cursor: pointer; padding: 4px 8px; font-size: 1rem; font-weight: bold;"
+                  [style.opacity]="relatedDossiersPage() >= relatedDossiersTotalPages() ? '0.4' : '1'">
+                  »
+                </button>
+              </div>
+
+              <select [ngModel]="relatedDossiersPageSize()" (change)="onRelatedDossiersPageSizeChange($event)"
+                style="border: 1px solid #cbd5e1; border-radius: 4px; padding: 2px 6px; height: 28px; color: #64748b; background-color: #fff; cursor: pointer;">
+                <option [value]="10">10</option>
+                <option [value]="20">20</option>
+                <option [value]="50">50</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+</div>
+
+<!-- ==================== DIALOG XEM CHI TIẾT THIẾT BỊ ==================== -->
+<p-dialog
+  [visible]="showEquipmentDetail()"
+  (visibleChange)="$event ? null : showEquipmentDetail.set(false)"
+  header="Thông tin chi tiết Thiết bị"
+  [modal]="true"
+  [style]="{ width: '600px' }"
+  styleClass="evn-dialog-custom">
+  <div style="display: flex; flex-direction: column; gap: 16px; padding: 10px 0; max-height: 480px; overflow-y: auto;" *ngIf="selectedEquipment()">
+    <!-- Thông tin chung thiết bị -->
+    <div style="border-bottom: 1px dashed #cbd5e1; padding-bottom: 14px; display: flex; flex-direction: column; gap: 10px;">
+      <div style="font-weight: bold; color: #002D72; font-size: 0.95rem; margin-bottom: 4px;">Thông tin chung</div>
+      <div style="display: flex; justify-content: space-between; font-size: 0.9rem;">
+        <span style="color: #64748b; width: 140px;">Mã thiết bị:</span>
+        <span style="font-weight: 600; color: #1e293b; flex: 1; text-align: right;">{{ selectedEquipment().code || '-' }}</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; font-size: 0.9rem;">
+        <span style="color: #64748b; width: 140px;">Tên thiết bị:</span>
+        <span style="font-weight: 600; color: #1e293b; flex: 1; text-align: right;">{{ selectedEquipment().name || '-' }}</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; font-size: 0.9rem;">
+        <span style="color: #64748b; width: 140px;">Loại thiết bị:</span>
+        <span style="font-weight: 600; color: #1e293b; flex: 1; text-align: right;">{{ selectedEquipment().equipmentTypeName || getEquipmentTypeName(selectedEquipment().equipmentTypeId) }}</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; font-size: 0.9rem;">
+        <span style="color: #64748b; width: 140px;">Số Serial:</span>
+        <span style="font-weight: 600; color: #1e293b; flex: 1; text-align: right;">{{ selectedEquipment().serialNumber || '-' }}</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; font-size: 0.9rem;">
+        <span style="color: #64748b; width: 140px;">Nhà sản xuất:</span>
+        <span style="font-weight: 600; color: #1e293b; flex: 1; text-align: right;">{{ selectedEquipment().manufacturer || '-' }}</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; font-size: 0.9rem;">
+        <span style="color: #64748b; width: 140px;">Nước sản xuất:</span>
+        <span style="font-weight: 600; color: #1e293b; flex: 1; text-align: right;">{{ selectedEquipment().countryName || selectedEquipment().countryCode || '-' }}</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; font-size: 0.9rem;">
+        <span style="color: #64748b; width: 140px;">Năm sản xuất:</span>
+        <span style="font-weight: 600; color: #1e293b; flex: 1; text-align: right;">{{ selectedEquipment().manufactureYear || '-' }}</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; font-size: 0.9rem;">
+        <span style="color: #64748b; width: 140px;">Ngày vận hành:</span>
+        <span style="font-weight: 600; color: #1e293b; flex: 1; text-align: right;">{{ selectedEquipment().operationDate | date:'dd/MM/yyyy' }}</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; font-size: 0.9rem;">
+        <span style="color: #64748b; width: 140px;">Mô tả:</span>
+        <span style="font-weight: 600; color: #1e293b; flex: 1; text-align: right;">{{ selectedEquipment().description || '-' }}</span>
+      </div>
+    </div>
+
+    <!-- Thông số kỹ thuật EAV -->
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+      <div style="font-weight: bold; color: #002D72; font-size: 0.95rem; margin-bottom: 4px;">Thông số kỹ thuật</div>
+      <div *ngIf="getEavFields().length === 0" style="color: #64748b; font-style: italic; font-size: 0.9rem;">
+        Chưa cấu hình thông số kỹ thuật.
+      </div>
+      <div class="wf-table-wrap" *ngIf="getEavFields().length > 0" style="border: 1px solid #cbd5e1; border-radius: 6px;">
+        <table class="wf-table" style="width: 100%; border-collapse: collapse;">
+          <thead>
+            <tr style="background-color: #f8fafc; border-bottom: 1px solid #cbd5e1;">
+              <th style="font-weight: 600; color: #475569; padding: 8px 12px; font-size: 0.85rem;">Tên thông số</th>
+              <th style="font-weight: 600; color: #475569; padding: 8px 12px; font-size: 0.85rem; text-align: right;">Giá trị</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let field of getEavFields()" style="border-bottom: 1px solid #f1f5f9;">
+              <td style="padding: 8px 12px; font-size: 0.875rem; color: #475569;">{{ field.label }}</td>
+              <td style="padding: 8px 12px; font-size: 0.875rem; color: #1e293b; font-weight: 600; text-align: right;">{{ field.value }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <ng-template #footer>
+    <div style="display: flex; justify-content: flex-end; padding-top: 12px; border-top: 1px solid #f1f5f9;">
+      <button class="btn-cancel btn-small" (click)="showEquipmentDetail.set(false)"><i class="pi pi-times"></i> Đóng</button>
+    </div>
+  </ng-template>
+</p-dialog>
+
+<p-dialog
+  [visible]="showAttachmentDocumentPreview()"
+  (visibleChange)="$event ? null : closeAttachmentDocumentPreview()"
+  [header]="'Xem trước: ' + (attachmentPreviewTarget()?.document?.name || attachmentPreviewTarget()?.document?.fileName || 'Tài liệu')"
+  [modal]="true"
+  [style]="{ width: '90vw', maxWidth: '1400px' }"
+  [contentStyle]="{ height: '72vh', padding: '20px 30px' }"
+  styleClass="evn-dialog-custom substation-document-preview-dialog"
+  [draggable]="false">
+  <div *ngIf="loadingAttachmentDocumentPreview()" class="substation-preview-loading">
+    <i class="pi pi-spin pi-spinner"></i>
+    <span>Đang tải tài liệu...</span>
+  </div>
+
+  <div *ngIf="!loadingAttachmentDocumentPreview() && attachmentPreviewSrc() as previewSrc" class="substation-preview-body">
+    <img *ngIf="isAttachmentPreviewImage()" [src]="previewSrc" [alt]="attachmentPreviewTarget()?.document?.name || 'Tài liệu'" />
+    <iframe *ngIf="!isAttachmentPreviewImage()" [src]="previewSrc" title="Xem trước tài liệu"></iframe>
+  </div>
+
+  <div *ngIf="!loadingAttachmentDocumentPreview() && !attachmentPreviewSrc()" class="substation-preview-empty">
+    Không có nội dung để xem trước.
+  </div>
+
+  <ng-template pTemplate="footer">
+    <div class="substation-preview-footer">
+      <span><i class="pi pi-info-circle"></i> {{ attachmentPreviewTarget()?.document?.name || attachmentPreviewTarget()?.document?.fileName }}</span>
+      <div>
+        <button type="button" class="substation-preview-download" (click)="downloadAttachmentDocument(attachmentPreviewTarget()?.dossierId, attachmentPreviewTarget()?.document)">
+          <i class="pi pi-download"></i> Tải về
+        </button>
+        <button type="button" class="substation-preview-close" (click)="closeAttachmentDocumentPreview()">
+          <i class="pi pi-times"></i> Đóng
+        </button>
+      </div>
+    </div>
+  </ng-template>
+</p-dialog>

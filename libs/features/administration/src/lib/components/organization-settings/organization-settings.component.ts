@@ -1,10 +1,12 @@
 import { Component, OnInit, signal, computed } from '@angular/core';
+import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { DialogModule } from 'primeng/dialog';
 import { ToastModule } from 'primeng/toast';
-import { MessageService, ConfirmationService } from 'primeng/api';
+import { Menu, MenuModule } from 'primeng/menu';
+import { MenuItem, MessageService, ConfirmationService } from 'primeng/api';
 import { environment } from '@env/environment';
 import { finalize } from 'rxjs';
 import { AuthService } from '@sohoa.frontend/shared/core';
@@ -12,7 +14,7 @@ import { AuthService } from '@sohoa.frontend/shared/core';
 @Component({
   selector: 'app-organization-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule, DialogModule, ToastModule],
+  imports: [CommonModule, FormsModule, DialogModule, ToastModule, MenuModule, WfBreadcrumbComponent],
   providers: [MessageService],
   templateUrl: './organization-settings.component.html',
   styleUrl: './organization-settings.component.scss'
@@ -28,6 +30,12 @@ export class OrganizationSettings implements OnInit {
   
   loading = signal<boolean>(false);
   saving = signal<boolean>(false);
+  actionMenuItems: MenuItem[] = [];
+
+  // Lock/Unlock Confirmation
+  showLockUnlockConfirm = signal<boolean>(false);
+  lockUnlockTarget = signal<any>(null);
+  lockUnlockLoading = signal<boolean>(false);
 
   // Form Validation
   formSubmitted = signal<boolean>(false);
@@ -53,12 +61,22 @@ export class OrganizationSettings implements OnInit {
 
   private apiUrl = `${environment.apiGatewayUrl}/api/v1/organization-units`;
 
+  searchStatus = signal<string>('');
+
   // Computed signal for filteredUnits
   filteredUnits = computed(() => {
     const kw = this.searchKeyword().toLowerCase().trim();
-    const allUnits = this.units() || [];
+    const statusVal = this.searchStatus();
+    let allUnits = this.units() || [];
+
+    if (statusVal === 'active') {
+      allUnits = allUnits.filter(u => u.isActive);
+    } else if (statusVal === 'inactive') {
+      allUnits = allUnits.filter(u => !u.isActive);
+    }
+
     if (!kw) {
-      return this.buildHierarchicalList();
+      return this.buildHierarchicalList(allUnits);
     }
     return allUnits.filter(u => 
       (u.code?.toLowerCase().includes(kw) ?? false) || 
@@ -76,6 +94,16 @@ export class OrganizationSettings implements OnInit {
 
   ngOnInit() {
     this.loadUnits();
+  }
+
+  openActionMenu(unit: any, event: Event, menu: Menu): void {
+    event.stopPropagation();
+    this.actionMenuItems = [
+      ...(this.authService.hasPermission('ORGANIZATION_EDIT') ? [{ label: unit.isActive ? 'Khóa đơn vị' : 'Mở khóa đơn vị', title: unit.isActive ? 'Khóa đơn vị' : 'Mở khóa đơn vị', icon: unit.isActive ? 'pi pi-lock color-red' : 'pi pi-lock-open color-teal', command: () => this.onToggleStatusRequest(unit) }] : []),
+      ...(this.authService.hasPermission('ORGANIZATION_EDIT') ? [{ label: 'Chỉnh sửa', title: 'Chỉnh sửa', icon: 'pi pi-pencil color-blue', command: () => this.onEdit(unit) }] : []),
+      ...(this.authService.hasPermission('ORGANIZATION_DELETE') ? [{ label: 'Xóa', title: 'Xóa', icon: 'pi pi-trash color-red', command: () => this.onDelete(unit) }] : []),
+    ];
+    menu.toggle(event);
   }
 
   loadUnits() {
@@ -96,17 +124,19 @@ export class OrganizationSettings implements OnInit {
   }
 
   // Thuật toán DFS xây dựng danh sách phẳng thụt lề
-  buildHierarchicalList(): any[] {
+  buildHierarchicalList(unitsList: any[] = this.units()): any[] {
     const result: any[] = [];
-    const unitsSafe = this.units() || [];
-    const rootNodes = unitsSafe.filter(u => !u.parentId);
+    const unitsSafe = unitsList || [];
+    const rootNodes = unitsSafe.filter(u => !u.parentId || !unitsSafe.some(parent => parent.id === u.parentId));
     
     const visit = (node: any) => {
       result.push(node);
       const children = unitsSafe.filter(u => u.parentId === node.id);
+      children.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
       children.forEach(visit);
     };
 
+    rootNodes.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
     rootNodes.forEach(visit);
 
     // Thêm các nút bị mồ côi nếu có lỗi dữ liệu để tránh mất bản ghi hiển thị
@@ -165,11 +195,50 @@ export class OrganizationSettings implements OnInit {
       return;
     }
     this.isEdit.set(false);
-    this.currentUnit.set({ code: '', name: '', parentId: null, description: '' });
+    this.currentUnit.set({ code: '', name: '', parentId: null, description: '', identifier: '', sortOrder: 0, isActive: true });
     this.formSubmitted.set(false);
     this.serverErrors.set({});
     this.dialogHeader.set('Thêm mới đơn vị phòng ban');
     this.currentView.set('add');
+  }
+
+  onToggleStatusRequest(unit: any) {
+    this.lockUnlockTarget.set(unit);
+    this.showLockUnlockConfirm.set(true);
+  }
+
+  onCancelLockUnlock() {
+    this.showLockUnlockConfirm.set(false);
+    this.lockUnlockTarget.set(null);
+  }
+
+  onConfirmLockUnlock() {
+    const unit = this.lockUnlockTarget();
+    if (!unit) return;
+    if (!this.authService.hasPermission('ORGANIZATION_EDIT')) {
+      this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền chỉnh sửa đơn vị phòng ban.' });
+      return;
+    }
+    const updated = { ...unit, isActive: !unit.isActive };
+    this.lockUnlockLoading.set(true);
+    this.http.put(`${this.apiUrl}/${unit.id}`, updated)
+      .pipe(finalize(() => this.lockUnlockLoading.set(false)))
+      .subscribe({
+        next: () => {
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Thành công',
+            detail: `${unit.isActive ? 'Khóa' : 'Mở khóa'} đơn vị thành công!`
+          });
+          this.showLockUnlockConfirm.set(false);
+          this.lockUnlockTarget.set(null);
+          this.loadUnits();
+        },
+        error: (err) => {
+          const detailMsg = err?.error?.message || err?.message || `Không thể ${unit.isActive ? 'khóa' : 'mở khóa'} đơn vị.`;
+          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: detailMsg });
+        }
+      });
   }
 
   onEdit(unit: any) {
@@ -269,7 +338,7 @@ export class OrganizationSettings implements OnInit {
     // Kiểm tra xem đơn vị này có đơn vị con không trước khi xóa
     const hasChildren = this.units().some(u => u.parentId === unit.id);
     if (hasChildren) {
-      this.messageService.add({ severity: 'warn', summary: 'Cảnh báo', detail: 'Không thể xóa đơn vị này vì có các đơn vị trực thuộc bên dưới!' });
+      this.messageService.add({ severity: 'warn', summary: 'Cảnh báo', detail: 'Không thể xóa đơn vị này vì còn đơn vị trực thuộc chưa được xóa.' });
       return;
     }
 
@@ -286,7 +355,8 @@ export class OrganizationSettings implements OnInit {
             this.loadUnits();
           },
           error: (err) => {
-            this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Xóa đơn vị thất bại.' });
+            const detailMsg = err?.error?.message || err?.message || 'Xóa đơn vị thất bại.';
+            this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: detailMsg });
           }
         });
       }

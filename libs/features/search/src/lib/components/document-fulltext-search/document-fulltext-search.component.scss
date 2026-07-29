@@ -1,0 +1,129 @@
+.doc-search-page {
+  .doc-search-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .doc-search-title {
+    margin: 0;
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #1e293b;
+  }
+
+  .doc-search-subtitle {
+    margin: 4px 0 0;
+    color: #64748b;
+    font-size: 0.88rem;
+  }
+
+  .doc-search-toolbar {
+    margin-bottom: 12px;
+  }
+
+  .doc-search-input {
+    min-width: 280px;
+  }
+
+  .sort-label {
+    font-size: 0.85rem;
+    color: #64748b;
+    margin-right: 6px;
+  }
+
+  .doc-search-summary {
+    margin-bottom: 12px;
+    color: #475569;
+    font-size: 0.9rem;
+  }
+
+  .doc-result-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .doc-result-card {
+    display: flex;
+    gap: 12px;
+    padding: 14px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: #fff;
+  }
+
+  .doc-result-icon {
+    flex: 0 0 40px;
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    background: #fef2f2;
+    color: #dc2626;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .doc-result-body {
+    flex: 1;
+    min-width: 0;
+    text-align: left;
+  }
+
+  .doc-result-title {
+    border: 0;
+    background: none;
+    padding: 0;
+    margin: 0 0 6px;
+    font-size: 0.98rem;
+    font-weight: 700;
+    color: #1d4ed8;
+    text-align: left;
+    cursor: pointer;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+
+  .doc-result-snippet {
+    margin: 0 0 8px;
+    color: #475569;
+    font-size: 0.88rem;
+    line-height: 1.45;
+    text-align: left;
+
+    ::ng-deep em {
+      font-style: normal;
+      background: #fef08a;
+      padding: 0 2px;
+      border-radius: 2px;
+    }
+  }
+
+  .doc-result-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .meta-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.78rem;
+    color: #64748b;
+    background: #f8fafc;
+    border-radius: 999px;
+    padding: 2px 8px;
+  }
+
+  .doc-search-empty {
+    padding: 24px 12px;
+    text-align: center;
+    color: #94a3b8;
+  }
+}

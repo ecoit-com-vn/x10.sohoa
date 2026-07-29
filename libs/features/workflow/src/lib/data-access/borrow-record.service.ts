@@ -22,12 +22,15 @@ export class BorrowRecordService {
     return `${this.config.apiGatewayUrl}/api/workflowdefinitions`;
   }
 
-  getBorrowRecords(page: number, pageSize: number, keyword?: string): Observable<any> {
+  getBorrowRecords(page: number, pageSize: number, keyword?: string, state?: string): Observable<any> {
     let params = new HttpParams()
       .set('page', page.toString())
       .set('pageSize', pageSize.toString());
     if (keyword && keyword.trim()) {
       params = params.set('keyword', keyword.trim());
+    }
+    if (state !== undefined && state !== null && state !== '') {
+      params = params.set('state', state);
     }
     return this.http.get<any>(this.baseBorrow, { params });
   }
@@ -45,7 +48,7 @@ export class BorrowRecordService {
   }
 
   getDossiers(): Observable<any[]> {
-    return this.http.get<any[]>(`${this.config.apiGatewayUrl}/api/equipment/dossiers`);
+    return this.http.get<any[]>(`${this.config.apiGatewayUrl}/api/v1/equipment/dossiers`);
   }
 
   updateState(id: string, state: number): Observable<any> {
@@ -56,8 +59,8 @@ export class BorrowRecordService {
     return this.http.get<any[]>(`${this.baseBorrow}/get-my-tasks`);
   }
 
-  getWorkflowByEntity(recordId: string, entityType: string = 'BorrowRecord'): Observable<any> {
-    const params = new HttpParams().set('entityType', entityType);
+  getWorkflowByEntity(recordId: string, workflowTypeId: number = 2): Observable<any> {
+    const params = new HttpParams().set('workflowTypeId', workflowTypeId.toString());
     return this.http.get<any>(`${this.baseBorrow}/get-workflow-by-entity/${recordId}`, { params });
   }
 
@@ -68,20 +71,17 @@ export class BorrowRecordService {
     return this.http.get<WorkflowDefinition[]>(this.baseDefinition, { params });
   }
 
-  submitWorkflow(definitionId: string, dossierId: string, entityType: string = 'BorrowRecord'): Observable<any> {
-    const params = new HttpParams()
-      .set('definitionId', definitionId)
-      .set('dossierId', dossierId)
-      .set('entityType', entityType);
-    return this.http.post<any>(`${this.baseWorkflow}/submit`, null, { params });
+  submitWorkflow(entityId: string, workflowTypeId: number = 2): Observable<any> {
+    const body = { entityId, workflowTypeId };
+    return this.http.post<any>(`${this.baseWorkflow}/submit`, body);
   }
 
   getWorkflowDefinition(id: string): Observable<WorkflowDefinition> {
     return this.http.get<WorkflowDefinition>(`${this.baseBorrow}/get-workflow-definition/${id}`);
   }
 
-  moveWorkflow(dossierId: string, nextNodeId: string, actionLabel: string, comment?: string): Observable<any> {
-    const body = { dossierId, nextNodeId, actionLabel, comment };
+  moveWorkflow(dossierId: string, nextNodeId: string, actionLabel: string, comment?: string, nextAssigneeUserId?: string): Observable<any> {
+    const body = { dossierId, nextNodeId, actionLabel, comment, nextAssigneeUserId };
     return this.http.post<any>(`${this.baseBorrow}/move`, body);
   }
 

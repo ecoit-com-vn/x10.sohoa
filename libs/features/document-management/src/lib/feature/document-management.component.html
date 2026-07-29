@@ -1,0 +1,997 @@
+<div class="wf-page document-management-page">
+  <wf-breadcrumb />
+
+  <!-- TWO SEPARATE CARDS -->
+  <div class="document-layout">
+    <!-- LEFT CARD: Folder Tree -->
+    <div class="wf-card document-folder-panel">
+      <!-- Header with colored background -->
+      <div
+        style="
+          background-color: #3b82f6;
+          color: white;
+          padding: 8px 12px;
+          border-radius: 6px;
+          margin-bottom: 12px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+        "
+      >
+        <div style="display: flex; align-items: center; gap: 8px; flex: 1;">
+          <i class="pi pi-fw pi-folder" style="font-size: 1.1rem;"></i>
+          <strong style="font-size: 0.95rem;">KHO TÀI LIỆU THIẾT BỊ</strong>
+        </div>
+        <!-- Dropdown menu button -->
+        <div style="position: relative;">
+          <button
+            (click)="toggleFolderMenu($event)"
+            style="
+              background: rgba(255,255,255,0.2);
+              border: none;
+              color: white;
+              width: 28px;
+              height: 28px;
+              border-radius: 4px;
+              cursor: pointer;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-size: 1rem;
+            "
+            title="Thêm"
+          >
+            <i class="pi pi-plus"></i>
+          </button>
+
+          <!-- Dropdown menu -->
+          <div
+            *ngIf="showFolderMenu()"
+            style="
+              position: absolute;
+              top: 100%;
+              right: 0;
+              background: white;
+              border: 1px solid #e5e7eb;
+              border-radius: 6px;
+              box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+              z-index: 1000;
+              min-width: 180px;
+              margin-top: 4px;
+            "
+          >
+            <button
+              (click)="onAddFolder(); showFolderMenu.set(false)"
+              style="
+                width: 100%;
+                text-align: left;
+                padding: 10px 12px;
+                border: none;
+                background: none;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                color: #374151;
+                font-size: 0.9rem;
+              "
+            >
+              <i class="pi pi-folder-plus"></i>
+              <span>Thư mục mới</span>
+            </button>
+            <div style="border-top: 1px solid #e5e7eb;"></div>
+            <button
+              (click)="onUploadDocuments(); showFolderMenu.set(false)"
+              style="
+                width: 100%;
+                text-align: left;
+                padding: 10px 12px;
+                border: none;
+                background: none;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                color: #374151;
+                font-size: 0.9rem;
+              "
+            >
+              <i class="pi pi-upload"></i>
+              <span>Upload tài liệu</span>
+            </button>
+            <button
+              (click)="onDownloadFolder()"
+              style="
+                width: 100%;
+                text-align: left;
+                padding: 10px 12px;
+                border: none;
+                background: none;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                color: #374151;
+                font-size: 0.9rem;
+              "
+            >
+              <i class="pi pi-download"></i>
+              <span>Download thư mục (ZIP)</span>
+            </button>
+            <div style="border-top: 1px solid #e5e7eb;"></div>
+            <button
+              (click)="onScanDocuments()"
+              style="
+                width: 100%;
+                text-align: left;
+                padding: 10px 12px;
+                border: none;
+                background: none;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                color: #374151;
+                font-size: 0.9rem;
+              "
+            >
+              <i class="pi pi-print"></i>
+              <span>Upload từ máy scan</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 12px;">
+        <input
+          type="text"
+          class="wf-search-input"
+          placeholder="Tìm thư mục..."
+          style="width: 100%; padding: 6px 8px; font-size: 0.85rem;"
+        />
+      </div>
+
+      <!-- Folder tree (simplified list view) -->
+      <div *ngIf="!loadingTree(); else loadingTreeSpinner">
+        <div *ngIf="folderTree().length === 0" style="color: #999; font-size: 0.85rem;">
+          Chưa có thư mục nào
+        </div>
+
+        <!-- Recursive tree rendering -->
+        <ng-container *ngTemplateOutlet="folderTreeTemplate; context: { $implicit: folderTree(), isRoot: true }"></ng-container>
+      </div>
+
+      <!-- Template để render cây thư mục (recursive) -->
+      <ng-template #folderTreeTemplate let-folders let-isRoot="isRoot">
+        <div *ngFor="let folder of folders; first as isFirst; last as isLast; trackBy: trackByFolderId" [class.first-node]="isFirst" [class.last-node]="isLast">
+          <!-- Folder row -->
+          <div class="folder-row">
+            <!-- Connector space (for tree lines) -->
+            <div class="connector-space" *ngIf="!isRoot">
+              <!-- Horizontal dotted line only -->
+              <div class="connector-line"></div>
+            </div>
+
+            <!-- Folder name button -->
+            <button
+              (click)="toggleFolderExpand(folder, $event)"
+              class="folder-tree-btn"
+              [class.active]="selectedFolder()?.id === folder.id"
+              [class.root-node]="isRoot"
+              [title]="folder.name"
+            >
+              <i
+                class="pi"
+                [ngClass]="((folder.children && folder.children.length > 0) ? expandedFolders().has(folder.id) : selectedFolder()?.id === folder.id) ? 'pi-folder-open' : 'pi-folder'"
+              ></i>
+              <span class="folder-name-text">
+                {{ folder.name }}
+              </span>
+            </button>
+          </div>
+
+          <!-- Children (recursive) -->
+          <div
+            *ngIf="folder.children && folder.children.length > 0 && expandedFolders().has(folder.id)"
+            class="folder-children-wrapper"
+            [class.root-children]="isRoot"
+          >
+            <ng-container *ngTemplateOutlet="folderTreeTemplate; context: { $implicit: folder.children, isRoot: false }"></ng-container>
+          </div>
+        </div>
+      </ng-template>
+
+      <ng-template #loadingTreeSpinner>
+        <div style="text-align: center; color: #999;">
+          <i class="pi pi-spin pi-spinner" style="font-size: 1.2rem;"></i>
+          <p style="margin-top: 8px; font-size: 0.85rem;">Đang tải...</p>
+        </div>
+      </ng-template>
+    </div>
+
+    <!-- RIGHT CARD: List View / Form View -->
+    <div class="wf-card document-right-panel">
+      <!-- LIST VIEW (giữ hiển thị khi mở popup upload / thêm-sửa thư mục) -->
+      <ng-container *ngIf="currentView() === 'list' || currentView() === 'upload' || currentView() === 'add_folder' || currentView() === 'edit_folder'">
+        <!-- Breadcrumb path (clickable) -->
+        <div class="location-header">
+          <div class="location-breadcrumb">
+            <span class="location-label">Vị trí:</span>
+            <ng-container *ngIf="breadcrumbPath().length > 0; else emptyBreadcrumb">
+              <button
+                *ngFor="let folder of breadcrumbPath(); let isLast = last"
+                (click)="selectFolder(folder)"
+                class="breadcrumb-item-btn"
+                [style.font-weight]="selectedFolder()?.id === folder.id ? 'bold' : 'normal'"
+                [style.color]="selectedFolder()?.id === folder.id ? '#3b82f6' : '#6b7280'"
+              >
+                {{ folder.name }}
+                <span *ngIf="!isLast" class="breadcrumb-separator">/</span>
+              </button>
+            </ng-container>
+            <ng-template #emptyBreadcrumb>
+              <span class="location-current">Kho tài liệu thiết bị</span>
+            </ng-template>
+          </div>
+          <button
+            type="button"
+            class="btn-outlined btn-small location-download-btn"
+            [disabled]="!selectedFolder() || downloadingFolderZip()"
+            (click)="onDownloadFolder()"
+            title="Tải thư mục dưới dạng ZIP"
+          >
+            <i class="pi" [ngClass]="downloadingFolderZip() ? 'pi-spin pi-spinner' : 'pi-download'"></i>
+            Tải ZIP
+          </button>
+        </div>
+
+        <!-- Advanced Search Filter Bar -->
+        <div class="grid-filter-bar" style="display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; background: #f8fafc; padding: 12px; border-radius: 6px; border: 1px solid #e2e8f0; align-items: flex-end;">
+          <div class="filter-item" style="flex: 1; min-width: 180px;">
+            <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #475569; margin-bottom: 4px;">Từ khóa</label>
+            <div style="position: relative;">
+              <i class="pi pi-search" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 0.85rem;"></i>
+              <input
+                type="text"
+                class="wf-input"
+                style="padding-left: 30px; width: 100%; height: 32px; font-size: 0.85rem;"
+                placeholder="Tên thư mục, tài liệu..."
+                [ngModel]="filterKeyword()"
+                (ngModelChange)="filterKeyword.set($event)"
+                (keyup.enter)="onSearch()"
+              />
+            </div>
+          </div>
+          
+          <div class="filter-item" style="width: 150px;">
+            <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #475569; margin-bottom: 4px;">Người đăng tải</label>
+            <div style="position: relative;">
+              <i class="pi pi-user" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 0.85rem;"></i>
+              <input
+                type="text"
+                class="wf-input"
+                style="padding-left: 30px; width: 100%; height: 32px; font-size: 0.85rem;"
+                placeholder="Tài khoản..."
+                [ngModel]="filterCreator()"
+                (ngModelChange)="filterCreator.set($event)"
+                (keyup.enter)="onSearch()"
+              />
+            </div>
+          </div>
+
+          <div class="filter-item" style="width: 130px;">
+            <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #475569; margin-bottom: 4px;">Từ ngày</label>
+            <input
+              type="date"
+              class="wf-input"
+              style="width: 100%; height: 32px; font-size: 0.85rem; padding: 4px 8px;"
+              [ngModel]="filterStartDate()"
+              (ngModelChange)="filterStartDate.set($event)"
+              (keyup.enter)="onSearch()"
+            />
+          </div>
+
+          <div class="filter-item" style="width: 130px;">
+            <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #475569; margin-bottom: 4px;">Đến ngày</label>
+            <input
+              type="date"
+              class="wf-input"
+              style="width: 100%; height: 32px; font-size: 0.85rem; padding: 4px 8px;"
+              [ngModel]="filterEndDate()"
+              (ngModelChange)="filterEndDate.set($event)"
+              (keyup.enter)="onSearch()"
+            />
+          </div>
+
+          <div class="filter-buttons" style="display: flex; gap: 8px;">
+            <button class="btn-tim btn-small" style="height: 32px; display: flex; align-items: center; gap: 6px;" (click)="onSearch()">
+              <i class="pi pi-search"></i> Tìm kiếm
+            </button>
+            <button class="btn-outlined btn-small" style="height: 32px; display: flex; align-items: center; gap: 6px; border-color: #cbd5e1; color: #475569;" (click)="onResetFilters()">
+              <i class="pi pi-refresh"></i> Reset
+            </button>
+          </div>
+        </div>
+
+        <!-- Document & subfolder list table -->
+        <div class="wf-table-wrap" [class.loading]="loadingDocuments()">
+          <table class="wf-table">
+            <thead>
+              <tr>
+                <th class="col-stt">STT</th>
+                <th (click)="onSort('name')" style="cursor: pointer; user-select: none;">
+                  Tên
+                  <i class="pi" [ngClass]="sortField() === 'name' ? (sortOrder() === 'asc' ? 'pi-sort-amount-up' : 'pi-sort-amount-down') : 'pi-sort-alt'" style="font-size: 0.75rem; margin-left: 4px; color: #94a3b8;"></i>
+                </th>
+                <th (click)="onSort('filesize')" style="width: 110px; cursor: pointer; user-select: none;">
+                  Kích thước
+                  <i class="pi" [ngClass]="sortField() === 'filesize' ? (sortOrder() === 'asc' ? 'pi-sort-amount-up' : 'pi-sort-amount-down') : 'pi-sort-alt'" style="font-size: 0.75rem; margin-left: 4px; color: #94a3b8;"></i>
+                </th>
+                <th (click)="onSort('createdDate')" style="width: 150px; cursor: pointer; user-select: none;">
+                  Ngày tạo
+                  <i class="pi" [ngClass]="sortField() === 'createdDate' ? (sortOrder() === 'asc' ? 'pi-sort-amount-up' : 'pi-sort-amount-down') : 'pi-sort-alt'" style="font-size: 0.75rem; margin-left: 4px; color: #94a3b8;"></i>
+                </th>
+                <th (click)="onSort('createdBy')" style="width: 120px; cursor: pointer; user-select: none;">
+                  Người tạo
+                  <i class="pi" [ngClass]="sortField() === 'createdBy' ? (sortOrder() === 'asc' ? 'pi-sort-amount-up' : 'pi-sort-amount-down') : 'pi-sort-alt'" style="font-size: 0.75rem; margin-left: 4px; color: #94a3b8;"></i>
+                </th>
+                <th class="col-hd">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngIf="loadingDocuments()">
+                <td colspan="6" class="empty-row">
+                  <i class="pi pi-spin pi-spinner"></i>
+                  <div>Đang tải danh sách...</div>
+                </td>
+              </tr>
+
+              <!-- Subfolders -->
+              <tr
+                *ngFor="let folder of subFolders(); let i = index; trackBy: trackByFolderId"
+                [hidden]="loadingDocuments()"
+                class="folder-row-table"
+              >
+                <td class="col-stt text-muted">{{ i + 1 }}</td>
+                <td>
+                  <div class="table-item-name-container">
+                    <i class="pi pi-folder table-item-icon folder-icon-yellow"></i>
+                    <a
+                      (click)="onSelectSubFolder(folder)"
+                      class="wf-name-link"
+                      [title]="folder.name"
+                    >
+                      {{ folder.name }}
+                    </a>
+                  </div>
+                </td>
+                <td>-</td>
+                <td>{{ formatDate(folder.createdDate) }}</td>
+                <td>
+                  <span
+                    style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: inline-block; max-width: 110px;"
+                    [title]="folder.createdBy || '-'"
+                  >
+                    {{ folder.createdBy || '-' }}
+                  </span>
+                </td>
+                <td class="col-hd">
+                  <div class="action-buttons-group">
+                    <button
+                      type="button"
+                      class="act-btn act-more"
+                      title="Thao tác"
+                      (click)="openFolderActionMenu(folder, $event, folderActionMenu)"
+                    >
+                      <i class="pi pi-ellipsis-h"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+
+              <!-- Documents -->
+              <tr
+                *ngFor="let doc of documents(); let i = index; trackBy: trackByDocumentId"
+                [hidden]="loadingDocuments()"
+              >
+                <td class="col-stt text-muted">{{ subFolders().length + first() + i + 1 }}</td>
+                <td>
+                  <div style="display: flex; align-items: center; gap: 8px; min-width: 0;">
+                    <i class="pi" [ngClass]="getFileIcon(doc.name)" style="color: #3b82f6; flex-shrink: 0;"></i>
+                    <a
+                      (click)="onPreviewDocument(doc)"
+                      style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; color: #2563eb; font-weight: 500;"
+                      [title]="'Xem trước: ' + doc.name"
+                    >
+                      {{ doc.name }}
+                    </a>
+                  </div>
+                </td>
+                <td>{{ formatFileSize(doc.fileSize) }}</td>
+                <td>{{ formatDate(doc.createdDate) }}</td>
+                <td>
+                  <span
+                    style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: inline-block; max-width: 110px;"
+                    [title]="doc.createdByName || doc.createdBy || '-'"
+                  >
+                    {{ doc.createdByName || doc.createdBy || '-' }}
+                  </span>
+                </td>
+                <td class="col-hd">
+                  <div class="action-buttons-group">
+                    <button
+                      type="button"
+                      class="act-btn act-more"
+                      title="Thao tác"
+                      (click)="openDocumentActionMenu(doc, $event, documentActionMenu)"
+                    >
+                      <i class="pi pi-ellipsis-h"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+
+              <tr *ngIf="!loadingDocuments() && subFolders().length === 0 && documents().length === 0">
+                <td colspan="6" class="empty-row">
+                  <i class="pi pi-inbox"></i>
+                  <div>Thư mục này chưa có thư mục con hoặc tài liệu nào.</div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Footer / Paginator -->
+        <div class="table-footer-paginator" *ngIf="totalItems() > 0">
+          <span class="record-count">
+            Tổng số:
+            <b>{{ subFolders().length }}</b> thư mục,
+            <b>{{ totalDocuments() }}</b> tài liệu.
+          </span>
+          <p-paginator
+              *ngIf="totalDocuments() > 0"
+              [first]="first()" 
+              [rows]="rows()" 
+              [totalRecords]="totalDocuments()" 
+              [rowsPerPageOptions]="[5, 10, 20, 50]" 
+              (onPageChange)="onPageChange($event)">
+          </p-paginator>
+        </div>
+      </ng-container>
+
+      <!-- ADD/EDIT FOLDER FORM VIEW -->
+      <ng-container *ngIf="currentView() === 'add_folder' || currentView() === 'edit_folder'">
+        <div
+          style="
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 999;
+          "
+          (click)="onCancelFolder()"
+        >
+          <div
+            class="wf-card"
+            style="
+              max-width: 450px;
+              width: 90%;
+              max-height: 90vh;
+              overflow-y: auto;
+              box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            "
+            (click)="$event.stopPropagation()"
+          >
+            <h3 style="margin-top: 0; margin-bottom: 20px; color: #1e293b;">
+              {{
+                currentView() === 'add_folder' ? 'Thêm thư mục mới' : 'Sửa thư mục'
+              }}
+            </h3>
+
+            <div class="form-group">
+              <label class="form-label required" style="color: #1e293b;">Tên thư mục</label>
+              <input
+                #folderNameInput
+                type="text"
+                class="wf-input"
+                [ngModel]="folderFormName()"
+                (ngModelChange)="folderFormName.set($event)"
+                placeholder="Nhập tên thư mục..."
+                [disabled]="savingFolder()"
+                style="border-color: #e5e7eb;"
+                autocomplete="off"
+              />
+            </div>
+
+            <div style="display: flex; gap: 8px; margin-top: 24px; justify-content: flex-end;">
+              <button
+                (click)="onCancelFolder()"
+                class="btn-cancel btn-small"
+                [disabled]="savingFolder()"
+              >
+                <i class="pi pi-times"></i> Hủy
+              </button>
+              <button
+                (click)="onSaveFolder()"
+                class="btn-save btn-small"
+                [disabled]="savingFolder()"
+              >
+                <i class="pi pi-spin pi-spinner" *ngIf="savingFolder()"></i>
+                <i class="pi pi-check" *ngIf="!savingFolder()"></i>
+                Lưu
+              </button>
+            </div>
+          </div>
+        </div>
+      </ng-container>
+    </div>
+  </div>
+
+  <!-- UPLOAD POPUP — overlay chỉ trong view Kho tài liệu thiết bị -->
+  <div
+    *ngIf="currentView() === 'upload'"
+    class="upload-overlay"
+    (click)="closeUploadModal()"
+  >
+    <div
+      class="upload-modal-panel wf-card"
+      [class.upload-modal-panel--scan]="uploadMode() === 'scan'"
+      (click)="$event.stopPropagation()"
+    >
+      <div class="upload-modal-header">
+        <h3>
+          <ng-container *ngIf="uploadMode() === 'scan'">Quét tài liệu vào:</ng-container>
+          <ng-container *ngIf="uploadMode() === 'web'">Upload tài liệu vào:</ng-container>
+          <strong>{{ selectedFolder()?.name }}</strong>
+        </h3>
+        <button
+          type="button"
+          class="upload-modal-close"
+          (click)="closeUploadModal()"
+          title="Đóng"
+        >
+          <i class="pi pi-times"></i>
+        </button>
+      </div>
+
+      <app-scanner-panel
+        #scannerPanel
+        *ngIf="uploadMode() === 'scan'"
+        (fileReady)="onScannedFile($event)"
+        (scanningChange)="onScanInProgress($event)"
+      ></app-scanner-panel>
+
+      <app-file-upload-zone
+        *ngIf="uploadMode() === 'web'"
+        [folderId]="selectedFolder()?.id || ''"
+        [maxFileSize]="500000000"
+        (fileUploaded)="onFileUploaded($event)"
+        (uploadError)="onUploadError($event)"
+        (allUploadsFinished)="onAllUploadsFinished($event)"
+      ></app-file-upload-zone>
+
+      <!-- Pipeline upload ẩn khi quét — không hiển thị UI kéo-thả -->
+      <app-file-upload-zone
+        *ngIf="uploadMode() === 'scan'"
+        #uploadZone
+        class="scan-upload-hidden"
+        [hideDropZone]="true"
+        [folderId]="selectedFolder()?.id || ''"
+        [maxFileSize]="500000000"
+        (fileUploaded)="onFileUploaded($event)"
+        (uploadError)="onUploadError($event)"
+        (allUploadsFinished)="onAllUploadsFinished($event)"
+      ></app-file-upload-zone>
+
+      <div class="upload-modal-footer">
+        <button
+          type="button"
+          (click)="closeUploadModal()"
+          class="btn-cancel btn-small"
+        >
+          <i class="pi pi-arrow-left"></i> Quay lại
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<p-menu
+  #folderActionMenu
+  [model]="folderActionMenuItems"
+  [popup]="true"
+  appendTo="body"
+  styleClass="row-action-menu"
+></p-menu>
+
+<p-menu
+  #documentActionMenu
+  [model]="documentActionMenuItems"
+  [popup]="true"
+  appendTo="body"
+  styleClass="row-action-menu"
+></p-menu>
+
+<!-- Delete Folder Confirmation Dialog -->
+<p-dialog
+  [visible]="showDeleteFolderConfirm()"
+  (visibleChange)="$event ? null : onCancelDeleteFolder()"
+  header="Xác nhận xóa"
+  [modal]="true"
+  [style]="{ width: '420px' }"
+  styleClass="evn-dialog-custom"
+  [closable]="!deletingFolder()"
+>
+  <div style="display: flex; align-items: flex-start; gap: 12px; padding: 8px 0 16px;">
+    <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #f59e0b;"></i>
+    <div>
+      <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">
+        Bạn có chắc chắn muốn xóa?
+      </p>
+      <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
+        Thư mục <b style="color: #1e293b;">{{ deleteTargetFolder()?.name }}</b> sẽ bị xóa
+        vĩnh viễn.
+      </p>
+    </div>
+  </div>
+  <ng-template #footer>
+    <div
+      style="
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        border-top: 1px solid #f1f5f9;
+        padding-top: 12px;
+      "
+    >
+      <button
+        class="btn-cancel btn-small"
+        (click)="onCancelDeleteFolder()"
+        [disabled]="deletingFolder()"
+      >
+        <i class="pi pi-times"></i> Hủy
+      </button>
+      <button
+        class="btn-save btn-small"
+        (click)="onConfirmDeleteFolder()"
+        [disabled]="deletingFolder()"
+        style="background-color: #dc2626; border-color: #dc2626;"
+      >
+        <i class="pi pi-spin pi-spinner" *ngIf="deletingFolder()"></i>
+        <i class="pi pi-trash" *ngIf="!deletingFolder()"></i>
+        Xóa
+      </button>
+    </div>
+  </ng-template>
+</p-dialog>
+
+<!-- Delete Document Confirmation Dialog -->
+<p-dialog
+  [visible]="showDeleteDocumentConfirm()"
+  (visibleChange)="$event ? null : onCancelDeleteDocument()"
+  header="Xác nhận xóa"
+  [modal]="true"
+  [style]="{ width: '420px' }"
+  styleClass="evn-dialog-custom"
+  [closable]="!deletingDocument()"
+>
+  <div style="display: flex; align-items: flex-start; gap: 12px; padding: 8px 0 16px;">
+    <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #f59e0b;"></i>
+    <div>
+      <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">
+        Bạn có chắc chắn muốn xóa?
+      </p>
+      <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
+        Tài liệu <b style="color: #1e293b;">{{ deleteTargetDocument()?.name }}</b> sẽ bị xóa
+        vĩnh viễn.
+      </p>
+    </div>
+  </div>
+  <ng-template #footer>
+    <div
+      style="
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        border-top: 1px solid #f1f5f9;
+        padding-top: 12px;
+      "
+    >
+      <button
+        class="btn-cancel btn-small"
+        (click)="onCancelDeleteDocument()"
+        [disabled]="deletingDocument()"
+      >
+        <i class="pi pi-times"></i> Hủy
+      </button>
+      <button
+        class="btn-save btn-small"
+        (click)="onConfirmDeleteDocument()"
+        [disabled]="deletingDocument()"
+        style="background-color: #dc2626; border-color: #dc2626;"
+      >
+        <i class="pi pi-spin pi-spinner" *ngIf="deletingDocument()"></i>
+        <i class="pi pi-trash" *ngIf="!deletingDocument()"></i>
+        Xóa
+      </button>
+    </div>
+  </ng-template>
+</p-dialog>
+
+<!-- Edit Document Dialog -->
+<p-dialog
+  [visible]="showEditDocument()"
+  (visibleChange)="$event ? null : onCancelEditDocument()"
+  header="Sửa tên tài liệu"
+  [modal]="true"
+  [style]="{ width: '450px' }"
+  styleClass="evn-dialog-custom"
+  [closable]="!savingDocument()"
+>
+  <div class="form-group" style="padding: 8px 0 16px;">
+    <label class="form-label required" style="color: #1e293b; font-weight: 600; margin-bottom: 8px; display: block;">Tên tài liệu</label>
+    <input
+      #documentNameInput
+      type="text"
+      class="wf-input"
+      [ngModel]="documentFormName()"
+      (ngModelChange)="documentFormName.set($event)"
+      placeholder="Nhập tên tài liệu..."
+      [disabled]="savingDocument()"
+      style="border-color: #e5e7eb; width: 100%;"
+      autocomplete="off"
+    />
+  </div>
+  <ng-template #footer>
+    <div
+      style="
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        border-top: 1px solid #f1f5f9;
+        padding-top: 12px;
+      "
+    >
+      <button
+        class="btn-cancel btn-small"
+        (click)="onCancelEditDocument()"
+        [disabled]="savingDocument()"
+      >
+        <i class="pi pi-times"></i> Hủy
+      </button>
+      <button
+        class="btn-save btn-small"
+        (click)="onSaveDocument()"
+        [disabled]="savingDocument()"
+      >
+        <i class="pi pi-spin pi-spinner" *ngIf="savingDocument()"></i>
+        <i class="pi pi-check" *ngIf="!savingDocument()"></i>
+        Lưu
+      </button>
+    </div>
+  </ng-template>
+</p-dialog>
+
+<!-- dialog Lịch sử phiên bản -->
+<p-dialog
+  [header]="'Lịch sử phiên bản: ' + (historyTargetDocument()?.name || '')"
+  [visible]="showHistoryDialog()"
+  (visibleChange)="$event ? null : onCloseHistoryDialog()"
+  [modal]="true"
+  [resizable]="false"
+  [draggable]="false"
+  [style]="{ width: '70vw', maxWidth: '900px' }"
+  styleClass="evn-dialog-no-modal"
+>
+  <div class="version-history-container" style="padding: 10px 0;">
+    <div *ngIf="loadingVersions()" class="loading-overlay-dialog" style="text-align: center; padding: 20px;">
+      <i class="pi pi-spin pi-spinner" style="font-size: 2rem; color: var(--primary-color);"></i>
+      <div style="margin-top: 8px;">Đang tải danh sách phiên bản...</div>
+    </div>
+
+    <div *ngIf="!loadingVersions() && documentVersions().length === 0" style="text-align: center; padding: 20px; color: #64748b;">
+      Không tìm thấy thông tin phiên bản nào cho tài liệu này.
+    </div>
+
+    <!-- Search bar for version history -->
+    <div *ngIf="!loadingVersions() && documentVersions().length > 0" style="margin-bottom: 16px; padding: 0 4px;">
+      <div style="position: relative; width: 100%;">
+        <i class="pi pi-search" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 0.9rem;"></i>
+        <input
+          type="text"
+          class="wf-input"
+          [ngModel]="versionSearchQuery()"
+          (ngModelChange)="versionSearchQuery.set($event)"
+          placeholder="Tìm kiếm theo phiên bản, người tạo, nguồn tải..."
+          style="padding-left: 36px; width: 100%; border-color: #e2e8f0; height: 36px; font-size: 0.9rem;"
+        />
+      </div>
+    </div>
+
+    <div *ngIf="!loadingVersions() && documentVersions().length > 0 && filteredDocumentVersions().length === 0" style="text-align: center; padding: 30px; color: #64748b;">
+      <i class="pi pi-search" style="font-size: 1.5rem; margin-bottom: 8px; display: block; color: #94a3b8;"></i>
+      Không tìm thấy phiên bản nào phù hợp với từ khóa "{{ versionSearchQuery() }}"
+    </div>
+
+    <div class="wf-table-wrap" *ngIf="!loadingVersions() && filteredDocumentVersions().length > 0">
+      <table class="wf-table" style="width: 100%; border-collapse: collapse;">
+        <thead>
+          <tr>
+            <th class="col-stt" style="text-align: center; width: 80px;">Phiên bản</th>
+            <th style="width: 150px;">Nguồn tải lên</th>
+            <th style="width: 120px; text-align: right;">Kích thước</th>
+            <th style="width: 150px;">Người tạo</th>
+            <th style="width: 180px; text-align: center;">Ngày tạo</th>
+            <th class="col-hd" style="text-align: center; width: 160px;">Thao tác</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let ver of filteredDocumentVersions(); let first = first">
+            <td style="text-align: center; font-weight: bold;">
+              v{{ ver.versionNumber }}
+              <span *ngIf="first" class="latest-badge" style="background: #22c55e; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 4px;">Mới nhất</span>
+            </td>
+            <td>
+              <span [ngSwitch]="ver.uploadSource">
+                <span *ngSwitchCase="1"><i class="pi pi-folder" style="color: #f59e0b; margin-right: 4px;"></i>Thư mục</span>
+                <span *ngSwitchCase="2"><i class="pi pi-print" style="color: #3b82f6; margin-right: 4px;"></i>Scan</span>
+                <span *ngSwitchCase="3"><i class="pi pi-globe" style="color: #10b981; margin-right: 4px;"></i>Web</span>
+                <span *ngSwitchDefault>Khác</span>
+              </span>
+            </td>
+            <td style="text-align: right;">
+              {{ (ver.fileSize || 0) / 1024 | number:'1.0-1' }} KB
+            </td>
+            <td>{{ ver.createdByName || ver.createdBy || 'Hệ thống' }}</td>
+            <td style="text-align: center;">
+              {{ ver.createdDate | date:'dd/MM/yyyy HH:mm:ss' }}
+            </td>
+            <td style="text-align: center;">
+              <div style="display: flex; justify-content: center; gap: 6px;">
+                <button
+                  class="act-btn act-edit"
+                  title="Xem trước phiên bản này"
+                  (click)="historyTargetDocument() && onPreviewDocument(historyTargetDocument()!, ver.id)"
+                  style="background-color: #0284c7; color: white;"
+                >
+                  <i class="pi pi-eye"></i>
+                </button>
+                <button
+                  class="act-btn act-download"
+                  title="Tải phiên bản này"
+                  (click)="onDownloadVersion(ver)"
+                >
+                  <i class="pi pi-download"></i>
+                </button>
+                <button
+                  class="act-btn act-history"
+                  title="Khôi phục về phiên bản này"
+                  [disabled]="first || rollingBack()"
+                  (click)="onRollbackVersion(ver)"
+                  style="background-color: #f59e0b; color: white;"
+                >
+                  <i class="pi pi-refresh" [class.pi-spin]="rollingBack()"></i>
+                </button>
+                <button
+                  class="act-btn act-delete"
+                  title="Xóa phiên bản này"
+                  [disabled]="deletingVersion()"
+                  (click)="onDeleteVersion(ver)"
+                >
+                  <i class="pi pi-trash" [class.pi-spin]="deletingVersion()"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 12px; border-top: 1px solid #e2e8f0;">
+      <div>
+        <input
+          #newVersionFileInput
+          type="file"
+          style="display: none;"
+          (change)="onUploadNewVersionSelected($event)"
+        />
+        <button
+          type="button"
+          class="btn-save btn-small"
+          [disabled]="uploadingNewVersion()"
+          (click)="newVersionFileInput.click()"
+        >
+          <i class="pi pi-spin pi-spinner" *ngIf="uploadingNewVersion()"></i>
+          <i class="pi pi-upload" *ngIf="!uploadingNewVersion()"></i>
+          Upload bản mới
+        </button>
+      </div>
+      <button class="btn-cancel btn-small" (click)="onCloseHistoryDialog()">
+        <i class="pi pi-times"></i> Đóng
+      </button>
+    </div>
+  </ng-template>
+</p-dialog>
+
+<!-- Preview Document Dialog -->
+<p-dialog
+  [header]="'Xem trước: ' + previewTitle()"
+  [visible]="showPreviewDialog()"
+  (visibleChange)="$event ? null : closePreviewDialog()"
+  [modal]="true"
+  [resizable]="true"
+  [draggable]="true"
+  [style]="{ width: '80vw', maxWidth: '1100px' }"
+  styleClass="evn-dialog-custom"
+  [closable]="true"
+>
+  <div style="min-height: 400px; display: flex; flex-direction: column; justify-content: center; align-items: center; position: relative;">
+    <div *ngIf="previewLoading()" style="text-align: center; padding: 40px;">
+      <i class="pi pi-spin pi-spinner" style="font-size: 2.5rem; color: #3b82f6;"></i>
+      <div style="margin-top: 12px; color: #64748b; font-size: 0.95rem;">Đang tải dữ liệu xem trước...</div>
+    </div>
+
+    <ng-container *ngIf="!previewLoading() && previewBlobUrl()">
+      <!-- PDF View -->
+      <iframe
+        *ngIf="previewFileType() === 'pdf'"
+        [src]="getSafePreviewUrl()"
+        style="width: 100%; height: 75vh; border: 1px solid #e2e8f0; border-radius: 6px;"
+      ></iframe>
+
+      <!-- Image View -->
+      <div *ngIf="previewFileType() === 'image'" style="width: 100%; max-height: 75vh; overflow: auto; text-align: center; background: #0f172a; padding: 16px; border-radius: 6px;">
+        <img
+          [src]="getSafePreviewUrl()"
+          [alt]="previewTitle()"
+          style="max-width: 100%; max-height: 70vh; object-fit: contain; box-shadow: 0 4px 20px rgba(0,0,0,0.3); border-radius: 4px;"
+        />
+      </div>
+
+      <!-- Unsupported File Format View -->
+      <div *ngIf="previewFileType() === 'unsupported'" style="text-align: center; padding: 50px 20px;">
+        <i class="pi pi-file" style="font-size: 4rem; color: #94a3b8; margin-bottom: 16px; display: block;"></i>
+        <h4 style="margin: 0 0 8px 0; color: #334155;">Định dạng file không hỗ trợ xem trực tiếp</h4>
+        <p style="color: #64748b; margin-bottom: 20px; font-size: 0.9rem;">
+          Trình duyệt không hỗ trợ xem trực tiếp định dạng tệp này. Vui lòng tải về máy để xem nội dung đầy đủ.
+        </p>
+        <button
+          *ngIf="previewTargetDoc()"
+          class="btn-save btn-small"
+          (click)="onDownloadDocument(previewTargetDoc()!)"
+        >
+          <i class="pi pi-download"></i> Tải file về máy
+        </button>
+      </div>
+    </ng-container>
+  </div>
+
+  <ng-template #footer>
+    <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 12px; border-top: 1px solid #e2e8f0;">
+      <span style="font-size: 0.85rem; color: #64748b;" *ngIf="previewTargetDoc()">
+        <i class="pi pi-info-circle"></i> {{ previewTitle() }}
+      </span>
+      <div style="display: flex; gap: 8px;">
+        <button
+          *ngIf="previewTargetDoc()"
+          class="btn-outlined btn-small"
+          (click)="onDownloadDocument(previewTargetDoc()!)"
+        >
+          <i class="pi pi-download"></i> Tải về
+        </button>
+        <button class="btn-cancel btn-small" (click)="closePreviewDialog()">
+          <i class="pi pi-times"></i> Đóng
+        </button>
+      </div>
+    </div>
+  </ng-template>
+</p-dialog>

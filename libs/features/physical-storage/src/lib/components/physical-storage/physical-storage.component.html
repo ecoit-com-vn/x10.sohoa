@@ -1,341 +1,452 @@
+<div class="wf-page">
+  <p-toast></p-toast>
+  <p-confirmDialog></p-confirmDialog>
+  <wf-breadcrumb />
 
-    <div class="wf-page">
-      <p-toast></p-toast>
-      <div class="wf-card">
-        
-        <!-- Breadcrumb -->
-        <div class="breadcrumb">
-          <i class="pi pi-home bc-icon"></i>
-          <span class="bc-text">Trang chủ</span>
-          <span class="bc-sep">/</span>
-          <span class="bc-text">Lưu trữ Vật lý & OCR</span>
-          <span class="bc-sep">/</span>
-          <span class="bc-current">Quản lý Lưu trữ</span>
+  <div class="wf-card">
+
+    <!-- PrimeNG Tabs v21 -->
+    <p-tabs value="0" class="evn-tabs">
+      <p-tablist class="tab-bar-custom">
+        <p-tab value="0" class="tab-item-custom"><i class="pi pi-server mr-1"></i>Kệ lưu trữ</p-tab>
+        <p-tab value="1" class="tab-item-custom"><i class="pi pi-list mr-1"></i>Tầng kệ</p-tab>
+        <p-tab value="2" class="tab-item-custom"><i class="pi pi-box mr-1"></i>Hộp hồ sơ</p-tab>
+      </p-tablist>
+
+      <p-tabpanels class="tab-panels-custom">
+
+        <!-- ── TAB KỆ LƯU TRỮ ── -->
+        <p-tabpanel value="0">
+          <div class="list-toolbar">
+            <div class="toolbar-left">
+              <input type="text" class="wf-search-input"
+                placeholder="Tìm theo mã hoặc tên kệ..."
+                [ngModel]="shelfSearchKeyword()"
+                (ngModelChange)="onShelfSearch($event)" />
+            </div>
+            <div class="toolbar-right">
+              <button class="btn-green btn-small" (click)="showDialog('shelf')">
+                <i class="pi pi-plus"></i> Thêm kệ mới
+              </button>
+            </div>
+          </div>
+
+          <div class="wf-table-wrap">
+            <table class="wf-table">
+              <thead>
+                <tr>
+                  <th style="width: 80px;">STT</th>
+                  <th>Mã số kệ</th>
+                  <th>Tên kệ lưu trữ</th>
+                  <th>Đơn vị</th>
+                  <th style="width: 90px;">Ưu tiên</th>
+                  <th>Mô tả</th>
+                  <th class="col-hd">Thao tác</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngIf="loading()">
+                  <td colspan="7" class="empty-row" style="padding: 0;">
+                    <div *ngFor="let item of [1,2,3]"
+                      style="display: flex; gap: 10px; padding: 12px; border-bottom: 1px solid #f1f5f9;">
+                      <div class="skeleton-shimmer" style="height: 16px; flex: 1; border-radius: 4px;"></div>
+                      <div class="skeleton-shimmer" style="height: 16px; flex: 2; border-radius: 4px;"></div>
+                      <div class="skeleton-shimmer" style="height: 16px; flex: 1.5; border-radius: 4px;"></div>
+                    </div>
+                  </td>
+                </tr>
+                <ng-container *ngIf="!loading()">
+                  <tr *ngFor="let item of pagedShelves(); let idx = index">
+                    <td class="col-stt text-muted">{{ (shelfPage() - 1) * shelfPageSize() + idx + 1 }}</td>
+                    <td><code>{{ item.code }}</code></td>
+                    <td><b class="wf-name-link" (click)="editItem('shelf', item)">{{ item.name }}</b></td>
+                    <td><span class="status-pill status-pending">{{ item.unitName || getUnitLabel(item.unitId) || '—' }}</span></td>
+                    <td class="text-muted">{{ item.priority ?? '—' }}</td>
+                    <td><span class="mota-text">{{ item.description }}</span></td>
+                    <td class="col-hd">
+                      <button class="act-btn act-edit" (click)="editItem('shelf', item)" title="Sửa">
+                        <i class="pi pi-pencil"></i>
+                      </button>
+                      <button class="act-btn act-delete" (click)="deleteItem('shelf', item)" title="Xóa">
+                        <i class="pi pi-trash"></i>
+                      </button>
+                    </td>
+                  </tr>
+                  <tr *ngIf="shelves().length === 0">
+                    <td colspan="7" class="empty-row">
+                      <i class="pi pi-inbox"></i>
+                      <div>Chưa có kệ lưu trữ nào.</div>
+                    </td>
+                  </tr>
+                  <tr *ngIf="shelves().length > 0 && filteredShelves().length === 0">
+                    <td colspan="7" class="empty-row">
+                      <i class="pi pi-search"></i>
+                      <div>Không tìm thấy kệ phù hợp.</div>
+                    </td>
+                  </tr>
+                </ng-container>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="table-footer" *ngIf="filteredShelves().length > 0">
+            <span class="record-count">Tổng số: <b>{{ filteredShelves().length }}</b> bản ghi.</span>
+            <div class="pagination">
+              <button class="page-btn" (click)="prevShelfPage()" [disabled]="shelfPage() === 1">
+                <i class="pi pi-chevron-left"></i>
+              </button>
+              <span class="page-current">Trang {{ shelfPage() }} / {{ shelfTotalPages() }}</span>
+              <button class="page-btn" (click)="nextShelfPage()" [disabled]="shelfPage() >= shelfTotalPages()">
+                <i class="pi pi-chevron-right"></i>
+              </button>
+              <span class="page-jump-label">
+                Đi tới trang:
+                <input type="number" class="page-jump-input" [value]="shelfPage()"
+                  (change)="goToShelfPage($any($event.target).value)"
+                  [min]="1" [max]="shelfTotalPages()" />
+              </span>
+              <select class="page-size-sel" [ngModel]="shelfPageSize()" (change)="onShelfPageSizeChange($event)">
+                <option [value]="10">10 / trang</option>
+                <option [value]="20">20 / trang</option>
+                <option [value]="50">50 / trang</option>
+              </select>
+            </div>
+          </div>
+        </p-tabpanel>
+
+        <!-- ── TAB TẦNG KỆ ── -->
+        <p-tabpanel value="1">
+          <div class="list-toolbar">
+            <div class="toolbar-left">
+              <input type="text" class="wf-search-input"
+                placeholder="Tìm theo mã hoặc tên tầng..."
+                [ngModel]="floorSearchKeyword()"
+                (ngModelChange)="onFloorSearch($event)" />
+              <select class="wf-select filter-select"
+                [ngModel]="floorShelfFilterId()"
+                (ngModelChange)="onFloorShelfFilter($event)">
+                <option [ngValue]="null">-- Tất cả kệ --</option>
+                <option *ngFor="let s of shelves()" [ngValue]="s.id">{{ s.name }} ({{ s.code }})</option>
+              </select>
+            </div>
+            <div class="toolbar-right">
+              <button class="btn-green btn-small" (click)="showDialog('floor')">
+                <i class="pi pi-plus"></i> Thêm tầng mới
+              </button>
+            </div>
+          </div>
+
+          <div class="wf-table-wrap">
+            <table class="wf-table">
+              <thead>
+                <tr>
+                  <th style="width: 80px;">STT</th>
+                  <th>Mã số tầng</th>
+                  <th>Tên tầng kệ</th>
+                  <th>Thuộc kệ</th>
+                  <th style="width: 90px;">Ưu tiên</th>
+                  <th>Mô tả</th>
+                  <th class="col-hd">Thao tác</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngIf="loading()">
+                  <td colspan="7" class="empty-row" style="padding: 0;">
+                    <div *ngFor="let item of [1,2,3]"
+                      style="display: flex; gap: 10px; padding: 12px; border-bottom: 1px solid #f1f5f9;">
+                      <div class="skeleton-shimmer" style="height: 16px; flex: 1; border-radius: 4px;"></div>
+                      <div class="skeleton-shimmer" style="height: 16px; flex: 2; border-radius: 4px;"></div>
+                      <div class="skeleton-shimmer" style="height: 16px; flex: 1.5; border-radius: 4px;"></div>
+                    </div>
+                  </td>
+                </tr>
+                <ng-container *ngIf="!loading()">
+                  <tr *ngFor="let item of pagedFloors(); let idx = index">
+                    <td class="col-stt text-muted">{{ (floorPage() - 1) * floorPageSize() + idx + 1 }}</td>
+                    <td><code>{{ item.code }}</code></td>
+                    <td><b class="wf-name-link" (click)="editItem('floor', item)">{{ item.name }}</b></td>
+                    <td><span class="status-pill status-pending">{{ getShelfName(item.shelfId) }}</span></td>
+                    <td class="text-muted">{{ item.priority ?? '—' }}</td>
+                    <td><span class="text-muted">{{ item.description }}</span></td>
+                    <td class="col-hd">
+                      <button class="act-btn act-edit" (click)="editItem('floor', item)" title="Sửa">
+                        <i class="pi pi-pencil"></i>
+                      </button>
+                      <button class="act-btn act-delete" (click)="deleteItem('floor', item)" title="Xóa">
+                        <i class="pi pi-trash"></i>
+                      </button>
+                    </td>
+                  </tr>
+                  <tr *ngIf="floors().length === 0">
+                    <td colspan="7" class="empty-row">
+                      <i class="pi pi-inbox"></i>
+                      <div>Chưa có tầng kệ nào.</div>
+                    </td>
+                  </tr>
+                  <tr *ngIf="floors().length > 0 && filteredFloors().length === 0">
+                    <td colspan="7" class="empty-row">
+                      <i class="pi pi-search"></i>
+                      <div>Không tìm thấy tầng kệ phù hợp.</div>
+                    </td>
+                  </tr>
+                </ng-container>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="table-footer" *ngIf="filteredFloors().length > 0">
+            <span class="record-count">Tổng số: <b>{{ filteredFloors().length }}</b> bản ghi.</span>
+            <div class="pagination">
+              <button class="page-btn" (click)="prevFloorPage()" [disabled]="floorPage() === 1">
+                <i class="pi pi-chevron-left"></i>
+              </button>
+              <span class="page-current">Trang {{ floorPage() }} / {{ floorTotalPages() }}</span>
+              <button class="page-btn" (click)="nextFloorPage()" [disabled]="floorPage() >= floorTotalPages()">
+                <i class="pi pi-chevron-right"></i>
+              </button>
+              <span class="page-jump-label">
+                Đi tới trang:
+                <input type="number" class="page-jump-input" [value]="floorPage()"
+                  (change)="goToFloorPage($any($event.target).value)"
+                  [min]="1" [max]="floorTotalPages()" />
+              </span>
+              <select class="page-size-sel" [ngModel]="floorPageSize()" (change)="onFloorPageSizeChange($event)">
+                <option [value]="10">10 / trang</option>
+                <option [value]="20">20 / trang</option>
+                <option [value]="50">50 / trang</option>
+              </select>
+            </div>
+          </div>
+        </p-tabpanel>
+
+        <!-- ── TAB HỘP HỒ SƠ ── -->
+        <p-tabpanel value="2">
+          <div class="list-toolbar">
+            <div class="toolbar-left">
+              <input type="text" class="wf-search-input"
+                placeholder="Tìm theo mã hoặc tên hộp..."
+                [ngModel]="boxSearchKeyword()"
+                (ngModelChange)="onBoxSearch($event)" />
+              <select class="wf-select filter-select"
+                [ngModel]="boxFloorFilterId()"
+                (ngModelChange)="onBoxFloorFilter($event)">
+                <option [ngValue]="null">-- Tất cả tầng --</option>
+                <option *ngFor="let f of floors()" [ngValue]="f.id">{{ f.name }} ({{ f.code }})</option>
+              </select>
+            </div>
+            <div class="toolbar-right">
+              <button class="btn-green btn-small" (click)="showDialog('box')">
+                <i class="pi pi-plus"></i> Thêm hộp mới
+              </button>
+            </div>
+          </div>
+
+          <div class="wf-table-wrap">
+            <table class="wf-table">
+              <thead>
+                <tr>
+                  <th style="width: 80px;">STT</th>
+                  <th>Mã số hộp</th>
+                  <th>Tên hộp hồ sơ</th>
+                  <th>Thuộc tầng kệ</th>
+                  <th style="width: 90px;">Ưu tiên</th>
+                  <th>Mô tả</th>
+                  <th class="col-hd">Thao tác</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngIf="loading()">
+                  <td colspan="7" class="empty-row" style="padding: 0;">
+                    <div *ngFor="let item of [1,2,3]"
+                      style="display: flex; gap: 10px; padding: 12px; border-bottom: 1px solid #f1f5f9;">
+                      <div class="skeleton-shimmer" style="height: 16px; flex: 1; border-radius: 4px;"></div>
+                      <div class="skeleton-shimmer" style="height: 16px; flex: 2; border-radius: 4px;"></div>
+                      <div class="skeleton-shimmer" style="height: 16px; flex: 1.5; border-radius: 4px;"></div>
+                    </div>
+                  </td>
+                </tr>
+                <ng-container *ngIf="!loading()">
+                  <tr *ngFor="let item of pagedBoxes(); let idx = index">
+                    <td class="col-stt text-muted">{{ (boxPage() - 1) * boxPageSize() + idx + 1 }}</td>
+                    <td><code>{{ item.code }}</code></td>
+                    <td><b class="wf-name-link" (click)="editItem('box', item)">{{ item.name }}</b></td>
+                    <td><span class="status-pill status-active">{{ getFloorName(item.floorId) }}</span></td>
+                    <td class="text-muted">{{ item.priority ?? '—' }}</td>
+                    <td><span class="mota-text">{{ item.description }}</span></td>
+                    <td class="col-hd">
+                      <button class="act-btn act-edit" (click)="editItem('box', item)" title="Sửa">
+                        <i class="pi pi-pencil"></i>
+                      </button>
+                      <button class="act-btn act-delete" (click)="deleteItem('box', item)" title="Xóa">
+                        <i class="pi pi-trash"></i>
+                      </button>
+                    </td>
+                  </tr>
+                  <tr *ngIf="boxes().length === 0">
+                    <td colspan="7" class="empty-row">
+                      <i class="pi pi-inbox"></i>
+                      <div>Chưa có hộp hồ sơ nào.</div>
+                    </td>
+                  </tr>
+                  <tr *ngIf="boxes().length > 0 && filteredBoxes().length === 0">
+                    <td colspan="7" class="empty-row">
+                      <i class="pi pi-search"></i>
+                      <div>Không tìm thấy hộp hồ sơ phù hợp.</div>
+                    </td>
+                  </tr>
+                </ng-container>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="table-footer" *ngIf="filteredBoxes().length > 0">
+            <span class="record-count">Tổng số: <b>{{ filteredBoxes().length }}</b> bản ghi.</span>
+            <div class="pagination">
+              <button class="page-btn" (click)="prevBoxPage()" [disabled]="boxPage() === 1">
+                <i class="pi pi-chevron-left"></i>
+              </button>
+              <span class="page-current">Trang {{ boxPage() }} / {{ boxTotalPages() }}</span>
+              <button class="page-btn" (click)="nextBoxPage()" [disabled]="boxPage() >= boxTotalPages()">
+                <i class="pi pi-chevron-right"></i>
+              </button>
+              <span class="page-jump-label">
+                Đi tới trang:
+                <input type="number" class="page-jump-input" [value]="boxPage()"
+                  (change)="goToBoxPage($any($event.target).value)"
+                  [min]="1" [max]="boxTotalPages()" />
+              </span>
+              <select class="page-size-sel" [ngModel]="boxPageSize()" (change)="onBoxPageSizeChange($event)">
+                <option [value]="10">10 / trang</option>
+                <option [value]="20">20 / trang</option>
+                <option [value]="50">50 / trang</option>
+              </select>
+            </div>
+          </div>
+        </p-tabpanel>
+
+      </p-tabpanels>
+    </p-tabs>
+
+  </div>
+</div>
+
+<!-- Dialog Thêm/Sửa -->
+<p-dialog [visible]="displayDialog()" (visibleChange)="displayDialog.set($event)" [header]="dialogHeader()" [modal]="true" [style]="{ width: '450px' }"
+  styleClass="evn-dialog-custom">
+  <div style="display: flex; flex-direction: column; gap: 14px; padding-top: 10px;">
+
+    <div class="form-group">
+      <label class="form-label">Mã định danh <span class="required">*</span></label>
+      <input type="text" class="wf-input w-full" [ngModel]="currentData().code"
+        (ngModelChange)="onStorageCodeChange($event)"
+        placeholder="Ví dụ: K03, T05, H10..." maxlength="50" pattern="[A-Za-z0-9_-]*"
+        autocomplete="off" [disabled]="saving()" />
+      <span class="field-error" *ngIf="codeValidationError()">
+        {{ codeValidationError() }}
+      </span>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Tên gọi thực tế <span class="required">*</span></label>
+      <input type="text" class="wf-input w-full" [(ngModel)]="currentData().name"
+        placeholder="Tên kệ, tên tầng, tên hộp..." [disabled]="saving()" />
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Thứ tự ưu tiên</label>
+      <input type="number" class="wf-input w-full" [(ngModel)]="currentData().priority"
+        placeholder="Số nhỏ hơn = ưu tiên cao hơn (không bắt buộc)" min="1" max="999"
+        [disabled]="saving()" />
+    </div>
+
+    <!-- Shelf: chọn đơn vị (cây) -->
+    <div class="form-group" *ngIf="currentType() === 'shelf'">
+      <label class="form-label">Đơn vị <span class="required">*</span></label>
+      <div class="org-tree-picker" [class.disabled]="saving()">
+        <div class="org-tree-trigger" (click)="!saving() && toggleFormOrgTree($event)"
+          [class.has-value]="!!currentData().unitId" [class.open]="formOrgTreeOpen()">
+          <span class="org-tree-selected-label">
+            <i class="pi pi-building" style="margin-right: 6px; color: #6b7280;"></i>
+            {{ getUnitLabel(currentData().unitId) || '-- Chọn đơn vị --' }}
+          </span>
+          <i class="pi" [class.pi-chevron-down]="!formOrgTreeOpen()"
+            [class.pi-chevron-up]="formOrgTreeOpen()"></i>
         </div>
-
-        <p class="text-muted mb-4">
-          Thiết lập sơ đồ kho vật lý và danh mục hồ sơ của EVNHANOI để định vị chính xác vị trí lưu trữ thực tế của tài liệu kỹ thuật gốc sau khi quét số hóa.
-        </p>
-
-        <!-- PrimeNG Tabs styled premium -->
-        <p-tabs value="0" styleClass="evn-tabs">
-          <p-tablist styleClass="tab-bar-custom">
-            <p-tab value="0" styleClass="tab-item-custom"><i class="pi pi-server mr-1"></i> Kệ lưu trữ (Shelf)</p-tab>
-            <p-tab value="1" styleClass="tab-item-custom"><i class="pi pi-list mr-1"></i> Tầng kệ (Floor)</p-tab>
-            <p-tab value="2" styleClass="tab-item-custom"><i class="pi pi-box mr-1"></i> Hộp hồ sơ (Box)</p-tab>
-            <p-tab value="3" styleClass="tab-item-custom"><i class="pi pi-bookmark mr-1"></i> Danh mục (Category)</p-tab>
-          </p-tablist>
-
-          <p-tabpanels styleClass="tab-panels-custom">
-            
-            <!-- ── TAB KỆ LƯU TRỮ ── -->
-            <p-tabpanel value="0">
-              <div class="list-toolbar">
-                <div class="toolbar-left">
-                  <h3 class="font-bold m-0" style="color: #002D72; font-size: 1.05rem;">Danh sách kệ hồ sơ</h3>
-                </div>
-                <div class="toolbar-right">
-                  <button class="btn-green btn-small" (click)="showDialog('shelf')">
-                    <i class="pi pi-plus"></i> Thêm kệ mới
-                  </button>
-                </div>
-              </div>
-              
-              <div class="wf-table-wrap">
-                <table class="wf-table">
-                  <thead>
-                    <tr>
-                      <th style="width: 100px;">STT</th>
-                      <th>Mã số kệ</th>
-                      <th>Tên kệ lưu trữ</th>
-                      <th>Thuộc danh mục</th>
-                      <th>Vị trí kho thực tế</th>
-                      <th class="col-hd">Thao tác</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <!-- skeleton loading rows -->
-                    <tr *ngIf="loading">
-                      <td colspan="6" class="empty-row" style="padding: 0;">
-                        <div *ngFor="let item of [1,2,3]" style="display: flex; gap: 10px; padding: 12px; border-bottom: 1px solid #f1f5f9;">
-                          <div class="skeleton-shimmer" style="height: 16px; flex: 1; border-radius: 4px;"></div>
-                          <div class="skeleton-shimmer" style="height: 16px; flex: 2; border-radius: 4px;"></div>
-                          <div class="skeleton-shimmer" style="height: 16px; flex: 1.5; border-radius: 4px;"></div>
-                        </div>
-                      </td>
-                    </tr>
-
-                    <ng-container *ngIf="!loading">
-                      <tr *ngFor="let item of shelves; let idx = index">
-                        <td class="col-stt text-muted">{{ idx + 1 }}</td>
-                        <td><code>{{ item.code }}</code></td>
-                        <td><b class="wf-name-link" (click)="editItem('shelf', item)">{{ item.name }}</b></td>
-                        <td><span class="status-pill status-active">{{ getFondName(item.fondsId) }}</span></td>
-                        <td><span class="mota-text">{{ item.location }}</span></td>
-                        <td class="col-hd">
-                          <button class="act-btn act-edit" (click)="editItem('shelf', item)" title="Sửa"><i class="pi pi-pencil"></i></button>
-                          <button class="act-btn act-delete" (click)="deleteItem('shelf', item)" title="Xóa"><i class="pi pi-trash"></i></button>
-                        </td>
-                      </tr>
-                      <tr *ngIf="shelves.length === 0">
-                        <td colspan="6" class="empty-row">
-                          <i class="pi pi-inbox"></i>
-                          <div>Không có dữ liệu kệ lưu trữ.</div>
-                        </td>
-                      </tr>
-                    </ng-container>
-                  </tbody>
-                </table>
-              </div>
-            </p-tabpanel>
-
-            <!-- ── TAB TẦNG KỆ ── -->
-            <p-tabpanel value="1">
-              <div class="list-toolbar">
-                <div class="toolbar-left">
-                  <h3 class="font-bold m-0" style="color: #002D72; font-size: 1.05rem;">Danh sách tầng trong kệ</h3>
-                </div>
-                <div class="toolbar-right">
-                  <button class="btn-green btn-small" (click)="showDialog('floor')">
-                    <i class="pi pi-plus"></i> Thêm tầng mới
-                  </button>
-                </div>
-              </div>
-
-              <div class="wf-table-wrap">
-                <table class="wf-table">
-                  <thead>
-                    <tr>
-                      <th style="width: 100px;">STT</th>
-                      <th>Mã số tầng</th>
-                      <th>Tên tầng kệ</th>
-                      <th>Thuộc kệ</th>
-                      <th>Mô tả</th>
-                      <th class="col-hd">Thao tác</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <!-- skeleton loading rows -->
-                    <tr *ngIf="loading">
-                      <td colspan="6" class="empty-row" style="padding: 0;">
-                        <div *ngFor="let item of [1,2,3]" style="display: flex; gap: 10px; padding: 12px; border-bottom: 1px solid #f1f5f9;">
-                          <div class="skeleton-shimmer" style="height: 16px; flex: 1; border-radius: 4px;"></div>
-                          <div class="skeleton-shimmer" style="height: 16px; flex: 2; border-radius: 4px;"></div>
-                          <div class="skeleton-shimmer" style="height: 16px; flex: 1.5; border-radius: 4px;"></div>
-                        </div>
-                      </td>
-                    </tr>
-
-                    <ng-container *ngIf="!loading">
-                      <tr *ngFor="let item of floors; let idx = index">
-                        <td class="col-stt text-muted">{{ idx + 1 }}</td>
-                        <td><code>{{ item.code }}</code></td>
-                        <td><b class="wf-name-link" (click)="editItem('floor', item)">{{ item.name }}</b></td>
-                        <td><span class="status-pill status-pending">{{ getShelfName(item.shelfId) }}</span></td>
-                        <td><span class="text-muted">{{ item.description }}</span></td>
-                        <td class="col-hd">
-                          <button class="act-btn act-edit" (click)="editItem('floor', item)" title="Sửa"><i class="pi pi-pencil"></i></button>
-                          <button class="act-btn act-delete" (click)="deleteItem('floor', item)" title="Xóa"><i class="pi pi-trash"></i></button>
-                        </td>
-                      </tr>
-                      <tr *ngIf="floors.length === 0">
-                        <td colspan="6" class="empty-row">
-                          <i class="pi pi-inbox"></i>
-                          <div>Không có dữ liệu tầng kệ.</div>
-                        </td>
-                      </tr>
-                    </ng-container>
-                  </tbody>
-                </table>
-              </div>
-            </p-tabpanel>
-
-            <!-- ── TAB HỘP HỒ SƠ ── -->
-            <p-tabpanel value="2">
-              <div class="list-toolbar">
-                <div class="toolbar-left">
-                  <h3 class="font-bold m-0" style="color: #002D72; font-size: 1.05rem;">Danh sách hộp/thùng hồ sơ</h3>
-                </div>
-                <div class="toolbar-right">
-                  <button class="btn-green btn-small" (click)="showDialog('box')">
-                    <i class="pi pi-plus"></i> Thêm hộp mới
-                  </button>
-                </div>
-              </div>
-
-              <div class="wf-table-wrap">
-                <table class="wf-table">
-                  <thead>
-                    <tr>
-                      <th style="width: 100px;">STT</th>
-                      <th>Mã số hộp</th>
-                      <th>Tên hộp hồ sơ</th>
-                      <th>Thuộc tầng kệ</th>
-                      <th>Sức chứa (tối đa bản ghi)</th>
-                      <th class="col-hd">Thao tác</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <!-- skeleton loading rows -->
-                    <tr *ngIf="loading">
-                      <td colspan="6" class="empty-row" style="padding: 0;">
-                        <div *ngFor="let item of [1,2,3]" style="display: flex; gap: 10px; padding: 12px; border-bottom: 1px solid #f1f5f9;">
-                          <div class="skeleton-shimmer" style="height: 16px; flex: 1; border-radius: 4px;"></div>
-                          <div class="skeleton-shimmer" style="height: 16px; flex: 2; border-radius: 4px;"></div>
-                          <div class="skeleton-shimmer" style="height: 16px; flex: 1.5; border-radius: 4px;"></div>
-                        </div>
-                      </td>
-                    </tr>
-
-                    <ng-container *ngIf="!loading">
-                      <tr *ngFor="let item of boxes; let idx = index">
-                        <td class="col-stt text-muted">{{ idx + 1 }}</td>
-                        <td><code>{{ item.code }}</code></td>
-                        <td><b class="wf-name-link" (click)="editItem('box', item)">{{ item.name }}</b></td>
-                        <td><span class="status-pill status-active">{{ getFloorName(item.floorId) }}</span></td>
-                        <td>{{ item.capacity }} tài liệu</td>
-                        <td class="col-hd">
-                          <button class="act-btn act-edit" (click)="editItem('box', item)" title="Sửa"><i class="pi pi-pencil"></i></button>
-                          <button class="act-btn act-delete" (click)="deleteItem('box', item)" title="Xóa"><i class="pi pi-trash"></i></button>
-                        </td>
-                      </tr>
-                      <tr *ngIf="boxes.length === 0">
-                        <td colspan="6" class="empty-row">
-                          <i class="pi pi-inbox"></i>
-                          <div>Không có dữ liệu hộp hồ sơ.</div>
-                        </td>
-                      </tr>
-                    </ng-container>
-                  </tbody>
-                </table>
-              </div>
-            </p-tabpanel>
-
-            <!-- ── TAB DANH MỤC ── -->
-            <p-tabpanel value="3">
-              <div class="list-toolbar">
-                <div class="toolbar-left">
-                  <h3 class="font-bold m-0" style="color: #002D72; font-size: 1.05rem;">Phân loại danh mục hồ sơ kỹ thuật (Fonds)</h3>
-                </div>
-                <div class="toolbar-right">
-                  <button class="btn-green btn-small" (click)="showDialog('category')">
-                    <i class="pi pi-plus"></i> Thêm danh mục mới
-                  </button>
-                </div>
-              </div>
-
-              <div class="wf-table-wrap">
-                <table class="wf-table">
-                  <thead>
-                    <tr>
-                      <th style="width: 100px;">STT</th>
-                      <th>Mã danh mục</th>
-                      <th>Tên danh mục</th>
-                      <th>Mô tả chi tiết</th>
-                      <th class="col-hd">Thao tác</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <!-- skeleton loading rows -->
-                    <tr *ngIf="loading">
-                      <td colspan="5" class="empty-row" style="padding: 0;">
-                        <div *ngFor="let item of [1,2,3]" style="display: flex; gap: 10px; padding: 12px; border-bottom: 1px solid #f1f5f9;">
-                          <div class="skeleton-shimmer" style="height: 16px; flex: 1; border-radius: 4px;"></div>
-                          <div class="skeleton-shimmer" style="height: 16px; flex: 2; border-radius: 4px;"></div>
-                          <div class="skeleton-shimmer" style="height: 16px; flex: 1.5; border-radius: 4px;"></div>
-                        </div>
-                      </td>
-                    </tr>
-
-                    <ng-container *ngIf="!loading">
-                      <tr *ngFor="let item of categories; let idx = index">
-                        <td class="col-stt text-muted">{{ idx + 1 }}</td>
-                        <td><code>{{ item.code }}</code></td>
-                        <td><b class="wf-name-link" (click)="editItem('category', item)">{{ item.name }}</b></td>
-                        <td><span class="mota-text">{{ item.description }}</span></td>
-                        <td class="col-hd">
-                          <button class="act-btn act-edit" (click)="editItem('category', item)" title="Sửa"><i class="pi pi-pencil"></i></button>
-                          <button class="act-btn act-delete" (click)="deleteItem('category', item)" title="Xóa"><i class="pi pi-trash"></i></button>
-                        </td>
-                      </tr>
-                      <tr *ngIf="categories.length === 0">
-                        <td colspan="5" class="empty-row">
-                          <i class="pi pi-inbox"></i>
-                          <div>Không có dữ liệu danh mục.</div>
-                        </td>
-                      </tr>
-                    </ng-container>
-                  </tbody>
-                </table>
-              </div>
-            </p-tabpanel>
-
-          </p-tabpanels>
-        </p-tabs>
-
+        <div class="org-tree-dropdown" *ngIf="formOrgTreeOpen()" (click)="$event.stopPropagation()">
+          <ng-container *ngFor="let node of orgUnitTree()">
+            <ng-container
+              *ngTemplateOutlet="formOrgTreeNode; context: { $implicit: node, depth: 0 }"></ng-container>
+          </ng-container>
+          <div *ngIf="orgUnitTree().length === 0" class="org-tree-empty">Chưa có đơn vị nào.</div>
+        </div>
       </div>
     </div>
 
-    <!-- Dialog Thêm/Sửa Cấu hình lưu trữ -->
-    <p-dialog [(visible)]="displayDialog" [header]="dialogHeader" [modal]="true" [style]="{ width: '450px' }" styleClass="evn-dialog-custom">
-      <div style="display: flex; flex-direction: column; gap: 14px; padding-top: 10px;">
-        
-        <div class="form-group">
-          <label class="form-label">Mã định danh <span class="required">*</span></label>
-          <input type="text" class="wf-input w-full" [(ngModel)]="currentData.code" placeholder="Ví dụ: K03, T05, H10..." [disabled]="saving" />
-        </div>
-        
-        <div class="form-group">
-          <label class="form-label">Tên gọi thực tế <span class="required">*</span></label>
-          <input type="text" class="wf-input w-full" [(ngModel)]="currentData.name" placeholder="Tên kệ, tên tầng, tên hộp..." [disabled]="saving" />
-        </div>
-        
-        <!-- Shelf field -->
-        <div class="form-group" *ngIf="currentType === 'shelf'">
-          <label class="form-label">Thuộc danh mục (Fonds) <span class="required">*</span></label>
-          <select class="wf-select w-full" [(ngModel)]="currentData.fondsId" [disabled]="saving">
-            <option *ngFor="let c of categories" [value]="c.id">{{ c.name }} ({{ c.code }})</option>
-          </select>
-          <label class="form-label mt-2">Vị trí kho thực tế</label>
-          <input type="text" class="wf-input w-full" [(ngModel)]="currentData.location" placeholder="Ví dụ: Kho A, Tầng 2..." [disabled]="saving" />
-        </div>
-        
-        <!-- Floor field -->
-        <div class="form-group" *ngIf="currentType === 'floor'">
-          <label class="form-label">Thuộc kệ lưu trữ <span class="required">*</span></label>
-          <select class="wf-select w-full" [(ngModel)]="currentData.shelfId" [disabled]="saving">
-            <option *ngFor="let s of shelves" [value]="s.id">{{ s.name }} ({{ s.code }})</option>
-          </select>
-          <label class="form-label mt-2">Mô tả / Vị trí</label>
-          <input type="text" class="wf-input w-full" [(ngModel)]="currentData.description" placeholder="Vị trí trong kệ..." [disabled]="saving" />
-        </div>
-        
-        <!-- Box field -->
-        <div class="form-group" *ngIf="currentType === 'box'">
-          <label class="form-label">Thuộc tầng kệ <span class="required">*</span></label>
-          <select class="wf-select w-full" [(ngModel)]="currentData.floorId" [disabled]="saving">
-            <option *ngFor="let f of floors" [value]="f.id">{{ f.name }} ({{ f.code }})</option>
-          </select>
-          <label class="form-label mt-2">Sức chứa tối đa (tài liệu)</label>
-          <input type="number" class="wf-input w-full" [(ngModel)]="currentData.capacity" placeholder="Ví dụ: 50, 100..." [disabled]="saving" />
-        </div>
-        
-        <!-- Category field -->
-        <div class="form-group" *ngIf="currentType === 'category'">
-          <label class="form-label">Mô tả phân loại hồ sơ</label>
-          <textarea class="wf-textarea" rows="3" [(ngModel)]="currentData.description" placeholder="Ghi chú phân loại hồ sơ..." [disabled]="saving"></textarea>
-        </div>
-        
-      </div>
-      
-      <ng-template #footer>
-        <div class="flex gap-2 justify-content-end pt-3" style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9;">
-          <button class="btn-outlined btn-small" (click)="displayDialog = false" [disabled]="saving">Hủy</button>
-          <button class="btn-save btn-small" (click)="saveData()" [disabled]="saving">
-            <i class="pi pi-spin pi-spinner" *ngIf="saving" style="margin-right: 4px;"></i>
-            Lưu
-          </button>
-        </div>
-      </ng-template>
-    </p-dialog>
-  
+    <!-- Floor: chọn kệ -->
+    <div class="form-group" *ngIf="currentType() === 'floor'">
+      <label class="form-label">Thuộc kệ lưu trữ <span class="required">*</span></label>
+      <select class="wf-select w-full" [(ngModel)]="currentData().shelfId" [disabled]="saving()">
+        <option *ngFor="let s of shelves()" [ngValue]="s.id">{{ s.name }} ({{ s.code }})</option>
+      </select>
+    </div>
+
+    <!-- Box: chọn kệ trước, sau đó chọn tầng thuộc kệ -->
+    <div class="form-group" *ngIf="currentType() === 'box'">
+      <label class="form-label">Thuộc kệ lưu trữ <span class="required">*</span></label>
+      <select class="wf-select w-full" [ngModel]="boxShelfId()"
+        (ngModelChange)="onBoxShelfChange($event)" [disabled]="saving()">
+        <option [ngValue]="null">-- Chọn kệ lưu trữ --</option>
+        <option *ngFor="let s of shelves()" [ngValue]="s.id">{{ s.name }} ({{ s.code }})</option>
+      </select>
+    </div>
+
+    <div class="form-group" *ngIf="currentType() === 'box'">
+      <label class="form-label">Thuộc tầng kệ <span class="required">*</span></label>
+      <select class="wf-select w-full" [(ngModel)]="currentData().floorId"
+        [disabled]="saving() || boxShelfId() == null">
+        <option [ngValue]="null">-- Chọn tầng kệ --</option>
+        <option *ngFor="let f of boxAvailableFloors()" [ngValue]="f.id">{{ f.name }} ({{ f.code }})</option>
+      </select>
+      <small class="text-muted" *ngIf="boxShelfId() != null && boxAvailableFloors().length === 0">
+        Kệ đã chọn chưa có tầng kệ.
+      </small>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Mô tả / Ghi chú</label>
+      <textarea class="wf-textarea" rows="3" [(ngModel)]="currentData().description"
+        placeholder="Thông tin bổ sung..." [disabled]="saving()"></textarea>
+    </div>
+
+  </div>
+
+  <ng-template pTemplate="footer">
+    <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+      <button class="btn-outlined btn-small" (click)="displayDialog.set(false)" [disabled]="saving()">Hủy</button>
+      <button class="btn-save btn-small" (click)="saveData()" [disabled]="saving()">
+        <i class="pi pi-spin pi-spinner" *ngIf="saving()" style="margin-right: 4px;"></i>
+        Lưu
+      </button>
+    </div>
+  </ng-template>
+</p-dialog>
+
+<!-- Recursive template: đơn vị dạng cây -->
+<ng-template #formOrgTreeNode let-node let-depth="depth">
+  <div class="org-tree-node" [style.padding-left.px]="depth * 14 + 8"
+    [class.selected]="currentData().unitId == node.id">
+    <button type="button" class="org-tree-expand-btn" *ngIf="node.children && node.children.length > 0"
+      (click)="toggleFormUnitNode(node.id, $event)">
+      <i class="pi" [class.pi-chevron-right]="!isFormNodeExpanded(node.id)"
+        [class.pi-chevron-down]="isFormNodeExpanded(node.id)"></i>
+    </button>
+    <span class="org-tree-node-spacer" *ngIf="!node.children || node.children.length === 0"></span>
+    <span class="org-tree-node-label" (click)="selectFormOrgUnit(node.id)">{{ node.name }}</span>
+  </div>
+  <div *ngIf="isFormNodeExpanded(node.id) && node.children && node.children.length > 0">
+    <ng-container *ngFor="let child of node.children">
+      <ng-container
+        *ngTemplateOutlet="formOrgTreeNode; context: { $implicit: child, depth: depth + 1 }"></ng-container>
+    </ng-container>
+  </div>
+</ng-template>

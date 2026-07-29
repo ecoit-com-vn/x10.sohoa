@@ -1,16 +1,24 @@
 import { Component, OnInit, signal, computed, inject } from '@angular/core';
+import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DialogModule } from 'primeng/dialog';
 import { ToastModule } from 'primeng/toast';
-import { MessageService, ConfirmationService } from 'primeng/api';
+import { Menu, MenuModule } from 'primeng/menu';
+import { MenuItem, MessageService, ConfirmationService } from 'primeng/api';
 import { finalize } from 'rxjs';
 import { AuthService, MenuService } from '@sohoa.frontend/shared/core';
+import {
+  buildMenuDisplayTree,
+  isMenuViewPermission,
+  MenuDisplayTreeNode,
+  normalizeMenuLookupList
+} from '../../utils/menu-permission-tree.util';
 
 @Component({
   selector: 'app-menu-management',
   standalone: true,
-  imports: [CommonModule, FormsModule, DialogModule, ToastModule],
+  imports: [CommonModule, FormsModule, DialogModule, ToastModule, MenuModule, WfBreadcrumbComponent],
   providers: [MessageService],
   templateUrl: './menu-management.component.html',
   styleUrl: './menu-management.component.scss'
@@ -19,16 +27,17 @@ export class MenuManagement implements OnInit {
   menus = signal<any[]>([]);
   searchKeyword = signal<string>('');
   permissions = signal<any[]>([]);
+  expandedMenuIds = signal<Set<number>>(new Set<number>());
 
   currentView = signal<'list' | 'add' | 'edit'>('list');
   dialogHeader = signal<string>('');
   isEdit = signal<boolean>(false);
   currentMenu = signal<any>({});
-  
+
   loading = signal<boolean>(false);
   saving = signal<boolean>(false);
+  actionMenuItems: MenuItem[] = [];
 
-  // Form Validation
   formSubmitted = signal<boolean>(false);
   serverErrors = signal<any>({});
   nameError = computed(() => {
@@ -36,38 +45,45 @@ export class MenuManagement implements OnInit {
     return this.serverErrors().name || this.serverErrors().Name || '';
   });
 
-  onFieldChange(field: string) {
-    this.serverErrors.update(errs => {
-      const copy = { ...errs };
-      delete copy[field];
-      const capitalized = field.charAt(0).toUpperCase() + field.slice(1);
-      delete copy[capitalized];
-      return copy;
-    });
-  }
+  menuViewPermissions = computed(() => {
+    const viewPermissions = this.permissions().filter((p) => isMenuViewPermission(p.code || p.Code));
+    const currentCode = this.currentMenu()?.permissionCode;
+
+    if (currentCode && !viewPermissions.some((p) => (p.code || p.Code) === currentCode)) {
+      const currentPermission = this.permissions().find((p) => (p.code || p.Code) === currentCode);
+      if (currentPermission) {
+        return [currentPermission, ...viewPermissions];
+      }
+    }
+
+    return viewPermissions;
+  });
+
+  menuTree = computed(() => buildMenuDisplayTree(this.menus(), this.searchKeyword()));
+
+  showLockUnlockConfirm = signal<boolean>(false);
+  lockUnlockTarget = signal<any>(null);
+  lockUnlockLoading = signal<boolean>(false);
 
   private menuService = inject(MenuService);
   private messageService = inject(MessageService);
   private confirmationService = inject(ConfirmationService);
   public authService = inject(AuthService);
 
-  // Computed signal for filteredMenus
-  filteredMenus = computed(() => {
-    const kw = this.searchKeyword().toLowerCase().trim();
-    const allMenus = this.menus() || [];
-    if (!kw) {
-      return this.buildHierarchicalList();
-    }
-    return allMenus.filter(m => 
-      (m.name?.toLowerCase().includes(kw) ?? false) || 
-      (m.url?.toLowerCase().includes(kw) ?? false) ||
-      (m.permission?.toLowerCase().includes(kw) ?? false)
-    );
-  });
-
   ngOnInit() {
     this.loadMenus();
     this.loadPermissions();
+  }
+
+  openActionMenu(menuItem: any, event: Event, menu: Menu): void {
+    event.stopPropagation();
+    this.actionMenuItems = [
+      ...(this.authService.hasPermission('MENU_CREATE') ? [{ label: 'Thêm menu con', title: 'Thêm menu con', icon: 'pi pi-plus', command: () => this.onAddNew(menuItem.id) }] : []),
+      ...(this.authService.hasPermission('MENU_EDIT') ? [{ label: menuItem.isActive ? 'Khóa menu' : 'Mở khóa menu', title: menuItem.isActive ? 'Khóa menu' : 'Mở khóa menu' ,icon: menuItem.isActive ? 'pi pi-lock color-red' : 'pi pi-lock-open color-teal', command: () => this.onToggleStatusRequest(menuItem) }] : []),
+      ...(this.authService.hasPermission('MENU_EDIT') ? [{ label: 'Chỉnh sửa', title: 'Chỉnh sửa' ,icon: 'pi pi-pencil color-blue', command: () => this.onEdit(menuItem) }] : []),
+      ...(this.authService.hasPermission('MENU_DELETE') ? [{ label: 'Xóa', title: 'Xóa' ,icon: 'pi pi-trash color-red', command: () => this.onDelete(menuItem) }] : []),
+    ];
+    menu.toggle(event);
   }
 
   loadMenus() {
@@ -76,9 +92,11 @@ export class MenuManagement implements OnInit {
       .pipe(finalize(() => this.loading.set(false)))
       .subscribe({
         next: (res) => {
-          this.menus.set(Array.isArray(res) ? res : (res && Array.isArray(res.items) ? res.items : (res && Array.isArray(res.value) ? res.value : [])));
+          const raw = Array.isArray(res) ? res : (res && Array.isArray(res.items) ? res.items : (res && Array.isArray(res.value) ? res.value : []));
+          this.menus.set(normalizeMenuLookupList(raw));
+          this.syncExpandedMenus();
         },
-        error: (err) => {
+        error: () => {
           this.messageService.add({ severity: 'error', summary: 'Lỗi tải dữ liệu', detail: 'Không thể tải danh sách menu.' });
         }
       });
@@ -95,33 +113,98 @@ export class MenuManagement implements OnInit {
     });
   }
 
-  onSearch() {
-    // Tự động thông qua computed
+  syncExpandedMenus() {
+    const kw = this.searchKeyword().trim();
+    if (!kw) {
+      return;
+    }
+
+    const ids = new Set<number>();
+    const collect = (nodes: MenuDisplayTreeNode[]) => {
+      nodes.forEach((node) => {
+        if (node.children.length > 0) {
+          ids.add(node.id);
+        }
+        collect(node.children);
+      });
+    };
+    collect(this.menuTree());
+    this.expandedMenuIds.set(ids);
   }
 
-  buildHierarchicalList(): any[] {
-    const result: any[] = [];
-    const menusSafe = this.menus() || [];
-    const rootNodes = menusSafe.filter(m => !m.parentId);
-    // Sắp xếp theo orderNum
-    rootNodes.sort((a, b) => a.orderNum - b.orderNum);
-    
-    const visit = (node: any) => {
-      result.push(node);
-      const children = menusSafe.filter(m => m.parentId === node.id);
-      children.sort((a, b) => a.orderNum - b.orderNum);
-      children.forEach(visit);
-    };
-
-    rootNodes.forEach(visit);
-
-    menusSafe.forEach(m => {
-      if (!result.includes(m)) {
-        result.push(m);
-      }
+  onFieldChange(field: string) {
+    this.serverErrors.update(errs => {
+      const copy = { ...errs };
+      delete copy[field];
+      const capitalized = field.charAt(0).toUpperCase() + field.slice(1);
+      delete copy[capitalized];
+      return copy;
     });
+  }
 
-    return result;
+  onSearch() {
+    this.syncExpandedMenus();
+  }
+
+  toggleMenuGroup(menuId: number) {
+    this.expandedMenuIds.update((prev) => {
+      const next = new Set(prev);
+      if (next.has(menuId)) {
+        next.delete(menuId);
+      } else {
+        next.add(menuId);
+      }
+      return next;
+    });
+  }
+
+  isMenuExpanded(menuId: number): boolean {
+    return this.expandedMenuIds().has(menuId);
+  }
+
+  onParentRowClick(node: MenuDisplayTreeNode) {
+    if (node.children.length > 0) {
+      this.toggleMenuGroup(node.id);
+    }
+  }
+
+  getEligibleParents(currentId: number | null): any[] {
+    const allMenus = this.menus() || [];
+    if (!currentId) {
+      return [...allMenus].sort((a, b) => {
+        const levelDiff = this.getIndentLevel(a) - this.getIndentLevel(b);
+        if (levelDiff !== 0) {
+          return levelDiff;
+        }
+        return (a.sortOrder ?? 0) - (b.sortOrder ?? 0);
+      });
+    }
+
+    const excludedIds = new Set<number>([currentId]);
+    const collectDescendants = (parentId: number) => {
+      allMenus.forEach((menu) => {
+        if (menu.parentId === parentId && !excludedIds.has(menu.id)) {
+          excludedIds.add(menu.id);
+          collectDescendants(menu.id);
+        }
+      });
+    };
+    collectDescendants(currentId);
+
+    return allMenus
+      .filter((menu) => !excludedIds.has(menu.id))
+      .sort((a, b) => {
+        const levelDiff = this.getIndentLevel(a) - this.getIndentLevel(b);
+        if (levelDiff !== 0) {
+          return levelDiff;
+        }
+        return (a.sortOrder ?? 0) - (b.sortOrder ?? 0);
+      });
+  }
+
+  getParentOptionLabel(menu: any): string {
+    const level = this.getIndentLevel(menu);
+    return `${'— '.repeat(level)}${menu.name}`;
   }
 
   getIndentLevel(menu: any): number {
@@ -139,23 +222,71 @@ export class MenuManagement implements OnInit {
     return level;
   }
 
-  getEligibleParents(currentId: number | null): any[] {
-    const allMenus = this.menus() || [];
-    if (!currentId) return allMenus.filter(m => !m.parentId);
-    return allMenus.filter(m => m.id !== currentId && !m.parentId);
-  }
-
-  onAddNew() {
+  onAddNew(parentId: number | null = null) {
     if (!this.authService.hasPermission('MENU_CREATE')) {
       this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền thêm mới menu.' });
       return;
     }
     this.isEdit.set(false);
-    this.currentMenu.set({ name: '', url: '', icon: '', permission: null, parentId: null, orderNum: 0 });
+    this.currentMenu.set({ name: '', url: '', icon: '', permissionCode: null, parentId, sortOrder: 0, isActive: true });
     this.formSubmitted.set(false);
     this.serverErrors.set({});
-    this.dialogHeader.set('Thêm mới Menu');
+    this.dialogHeader.set(parentId ? 'Thêm menu con' : 'Thêm menu gốc');
     this.currentView.set('add');
+  }
+
+  onToggleStatusRequest(menu: any) {
+    this.lockUnlockTarget.set(menu);
+    this.showLockUnlockConfirm.set(true);
+  }
+
+  onConfirmLockUnlock() {
+    const menu = this.lockUnlockTarget();
+    if (!menu) return;
+    if (!this.authService.hasPermission('MENU_EDIT')) {
+      this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền chỉnh sửa menu.' });
+      return;
+    }
+    const updated = { ...menu, isActive: !menu.isActive };
+    this.lockUnlockLoading.set(true);
+    this.menuService.updateMenu(menu.id, updated)
+      .pipe(finalize(() => this.lockUnlockLoading.set(false)))
+      .subscribe({
+        next: () => {
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Thành công',
+            detail: `${menu.isActive ? 'Khóa' : 'Mở khóa'} menu thành công!`
+          });
+          this.showLockUnlockConfirm.set(false);
+          this.lockUnlockTarget.set(null);
+          this.loadMenus();
+        },
+        error: (err: any) => {
+          const detailMsg = err?.error?.message || err?.message || `Không thể ${menu.isActive ? 'khóa' : 'mở khóa'} menu.`;
+          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: detailMsg });
+        }
+      });
+  }
+
+  onCancelLockUnlock() {
+    this.showLockUnlockConfirm.set(false);
+    this.lockUnlockTarget.set(null);
+  }
+
+  getGlobalSTT(node: any): number {
+    const flatList: any[] = [];
+    const collect = (nodes: any[]) => {
+      nodes.forEach((n) => {
+        flatList.push(n);
+        if (n.children && n.children.length > 0 && this.expandedMenuIds().has(n.id)) {
+          collect(n.children);
+        }
+      });
+    };
+    collect(this.menuTree());
+    const idx = flatList.findIndex(n => n.id === node.id);
+    return idx >= 0 ? idx + 1 : 1;
   }
 
   onEdit(menu: any) {
@@ -178,18 +309,17 @@ export class MenuManagement implements OnInit {
       return;
     }
 
-    const menuDraft = this.currentMenu();
-
+    const menuDraft = { ...this.currentMenu() };
     this.saving.set(true);
-    // Đảm bảo parentId là null hoặc số
-    if (menuDraft.parentId === 'null' || menuDraft.parentId === null) {
+
+    if (menuDraft.parentId === 'null' || menuDraft.parentId === null || menuDraft.parentId === undefined) {
       menuDraft.parentId = null;
     } else {
       menuDraft.parentId = Number(menuDraft.parentId);
     }
 
-    if (menuDraft.permission === 'null' || menuDraft.permission === '') {
-      menuDraft.permission = null;
+    if (menuDraft.permissionCode === 'null' || menuDraft.permissionCode === '') {
+      menuDraft.permissionCode = null;
     }
 
     if (this.isEdit()) {
@@ -202,22 +332,7 @@ export class MenuManagement implements OnInit {
             this.currentView.set('list');
           },
           error: (err) => {
-            let errorsObj = {};
-            if (err?.error) {
-              if (typeof err.error === 'object') {
-                errorsObj = err.error.errors || err.error;
-              } else if (typeof err.error === 'string') {
-                try {
-                  const parsed = JSON.parse(err.error);
-                  errorsObj = parsed.errors || parsed;
-                } catch (e) {
-                  // ignore
-                }
-              }
-            } else if (err?.errors) {
-              errorsObj = err.errors;
-            }
-            this.serverErrors.set(errorsObj);
+            this.serverErrors.set(this.extractErrors(err));
             const detailMsg = err?.error?.message || err?.message || 'Không thể cập nhật menu.';
             this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: detailMsg });
           }
@@ -232,22 +347,7 @@ export class MenuManagement implements OnInit {
             this.currentView.set('list');
           },
           error: (err) => {
-            let errorsObj = {};
-            if (err?.error) {
-              if (typeof err.error === 'object') {
-                errorsObj = err.error.errors || err.error;
-              } else if (typeof err.error === 'string') {
-                try {
-                  const parsed = JSON.parse(err.error);
-                  errorsObj = parsed.errors || parsed;
-                } catch (e) {
-                  // ignore
-                }
-              }
-            } else if (err?.errors) {
-              errorsObj = err.errors;
-            }
-            this.serverErrors.set(errorsObj);
+            this.serverErrors.set(this.extractErrors(err));
             const detailMsg = err?.error?.message || err?.message || 'Không thể thêm mới menu.';
             this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: detailMsg });
           }
@@ -274,11 +374,31 @@ export class MenuManagement implements OnInit {
             this.messageService.add({ severity: 'success', summary: 'Xóa thành công', detail: 'Đã xóa Menu thành công!' });
             this.loadMenus();
           },
-          error: (err) => {
+          error: () => {
             this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Xóa Menu thất bại.' });
           }
         });
       }
     });
+  }
+
+  private extractErrors(err: any): Record<string, string> {
+    if (err?.error) {
+      if (typeof err.error === 'object') {
+        return err.error.errors || err.error;
+      }
+      if (typeof err.error === 'string') {
+        try {
+          const parsed = JSON.parse(err.error);
+          return parsed.errors || parsed;
+        } catch {
+          return {};
+        }
+      }
+    }
+    if (err?.errors) {
+      return err.errors;
+    }
+    return {};
   }
 }

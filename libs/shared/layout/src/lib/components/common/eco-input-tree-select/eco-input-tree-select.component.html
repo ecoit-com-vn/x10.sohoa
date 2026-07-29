@@ -1,0 +1,40 @@
+<div class="p-ng">
+  <div [ngClass]="{ 'p-input-filled mb-0': !border, field: true }">
+    <label class="block label-select-tree">
+      <span *ngIf="showLabel"> {{ label }}</span>
+      <span
+        *ngIf="checkRequire()"
+        class="p-errors"
+        style="color: red; margin-left: 3px"
+        >*</span
+      ></label
+    >
+    <p-treeSelect
+      (onShow)="onTreePanelShow()"
+      [filter]="enableSearch"
+      [ngModel]="selectedNode"
+      (ngModelChange)="onInternalModelChange($event)"
+      [metaKeySelection]="metaKeySelection"
+      [options]="nodes"
+      [selectionMode]="selectionMode"
+      [placeholder]="placeholder"
+      [showClear]="!readonly && showClear"
+      [disabled]="readonly"
+      [ngClass]="{ 'ng-invalid ng-dirty': errors, readonly: readonly }"
+      [scrollHeight]="scrollHeight"
+      [panelStyle]="{ 'min-width': '100%' }"
+      appendTo="body"
+      [propagateSelectionUp]="selectionMode === 'checkbox' && !isFiltering"
+      [propagateSelectionDown]="selectionMode === 'checkbox' && !isFiltering"
+      (onFilter)="onFilter($event)"
+    ></p-treeSelect>
+
+    <div class="relative b-errors">
+      <ng-container *ngIf="errors">
+        <small class="p-error error-msg block fadeinup animation-duration-300">
+          <span class="block">{{ displayedErrorMessage }}</span>
+        </small>
+      </ng-container>
+    </div>
+  </div>
+</div>

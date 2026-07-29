@@ -1,12 +1,14 @@
 // E:\ecoit\sohoax10\sohoa.frontend\apps\admin-portal\src\app\features\administration\user-group.component.ts
 import { Component, OnInit, signal, computed, effect } from '@angular/core';
+import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { DialogModule } from 'primeng/dialog';
 import { ToastModule } from 'primeng/toast';
 import { PickListModule } from 'primeng/picklist';
-import { MessageService, ConfirmationService } from 'primeng/api';
+import { Menu, MenuModule } from 'primeng/menu';
+import { MenuItem, MessageService, ConfirmationService } from 'primeng/api';
 import { environment } from '@env/environment';
 import { finalize } from 'rxjs';
 import { AuthService } from '@sohoa.frontend/shared/core';
@@ -14,7 +16,7 @@ import { AuthService } from '@sohoa.frontend/shared/core';
 @Component({
   selector: 'app-user-group',
   standalone: true,
-  imports: [CommonModule, FormsModule, DialogModule, ToastModule, PickListModule],
+  imports: [CommonModule, FormsModule, DialogModule, ToastModule, PickListModule, MenuModule, WfBreadcrumbComponent],
   providers: [MessageService],
   templateUrl: './user-group.component.html',
   styleUrl: './user-group.component.scss'
@@ -22,6 +24,7 @@ import { AuthService } from '@sohoa.frontend/shared/core';
 export class UserGroupComponent implements OnInit {
   groups = signal<any[]>([]);
   searchKeyword = signal<string>('');
+  searchStatus = signal<string>(''); // '' (All), 'active' (Hoạt động), 'inactive' (Ngưng hoạt động)
   totalCount = signal<number>(0);
 
   currentView = signal<'list' | 'add' | 'edit' | 'member' | 'role' | 'permission'>('list');
@@ -115,7 +118,7 @@ export class UserGroupComponent implements OnInit {
     this.currentPage.set(1);
   }
 
-  activeDropdownGroupId = signal<string | null>(null);
+  actionMenuItems: MenuItem[] = [];
 
   constructor(
     private http: HttpClient,
@@ -123,31 +126,34 @@ export class UserGroupComponent implements OnInit {
     private confirmationService: ConfirmationService,
     public authService: AuthService
   ) {
-    if (typeof window !== 'undefined') {
-      window.addEventListener('click', () => {
-        this.activeDropdownGroupId.set(null);
-      });
-    }
     effect(() => {
-      const kw = this.searchKeyword();
+      this.searchKeyword();
+      this.searchStatus();
       this.currentPage.set(1);
     }, { allowSignalWrites: true });
 
     effect(() => {
       const page = this.currentPage();
       const size = this.pageSize();
-      const kw = this.searchKeyword();
+      this.searchKeyword();
+      this.searchStatus();
       this.loadGroups();
     }, { allowSignalWrites: true });
   }
 
-  toggleDropdown(groupId: string, event: Event) {
+  openActionMenu(group: any, event: Event, menu: Menu): void {
     event.stopPropagation();
-    if (this.activeDropdownGroupId() === groupId) {
-      this.activeDropdownGroupId.set(null);
-    } else {
-      this.activeDropdownGroupId.set(groupId);
-    }
+    this.actionMenuItems = [
+      ...(this.authService.hasPermission('USER_GROUP_MANAGE') ? [
+        { label: 'Thành viên', title:'Thành viên', icon: 'pi pi-users color-blue', command: () => this.onManageMembers(group) },
+        { label: 'Vai trò', title:'Vai trò', icon: 'pi pi-shield', command: () => this.onManageRoles(group) },
+        { label: 'Phân quyền trực tiếp', title: 'Phân quyền trực tiếp', icon: 'pi pi-key color-blue', command: () => this.onManagePermissions(group) },
+      ] : []),
+      ...(this.authService.hasPermission('USER_GROUP_EDIT') ? [{ label: 'Chỉnh sửa', title:'Chỉnh sửa', icon: 'pi pi-pencil color-teal', command: () => this.onEdit(group) }] : []),
+      ...(this.authService.hasPermission('USER_GROUP_EDIT') ? [{ label: group.isActive ? 'Khóa nhóm' : 'Mở khóa', title: group.isActive ? 'Khóa nhóm' : 'Mở khóa', icon: group.isActive ? 'pi pi-lock color-red' : 'pi pi-lock-open color-teal', command: () => this.onToggleStatusRequest(group) }] : []),
+      ...(this.authService.hasPermission('USER_GROUP_DELETE') ? [{ label: 'Xóa', title:'Xóa', icon: 'pi pi-trash color-red', command: () => this.onDelete(group) }] : []),
+    ];
+    menu.toggle(event);
   }
 
   ngOnInit() {
@@ -157,7 +163,12 @@ export class UserGroupComponent implements OnInit {
 
   loadGroups() {
     this.loading.set(true);
-    this.http.get<any>(`${this.apiUrl}?page=${this.currentPage()}&pageSize=${this.pageSize()}&keyword=${this.searchKeyword() || ''}`)
+    let url = `${this.apiUrl}?page=${this.currentPage()}&pageSize=${this.pageSize()}&keyword=${this.searchKeyword() || ''}`;
+    const statusVal = this.searchStatus();
+    if (statusVal !== '') {
+      url += `&isActive=${statusVal === 'active'}`;
+    }
+    this.http.get<any>(url)
       .pipe(finalize(() => this.loading.set(false)))
       .subscribe({
         next: (res) => {
@@ -183,11 +194,50 @@ export class UserGroupComponent implements OnInit {
       return;
     }
     this.isEdit.set(false);
-    this.currentGroup.set({ name: '', description: '' });
+    this.currentGroup.set({ name: '', description: '', isActive: true });
     this.formSubmitted.set(false);
     this.serverErrors.set({});
     this.dialogHeader.set('Thêm mới nhóm người dùng');
     this.currentView.set('add');
+  }
+
+  onToggleStatusRequest(group: any) {
+    this.lockUnlockTarget.set(group);
+    this.showLockUnlockConfirm.set(true);
+  }
+
+  onConfirmLockUnlock() {
+    const group = this.lockUnlockTarget();
+    if (!group) return;
+    if (!this.authService.hasPermission('USER_GROUP_EDIT')) {
+      this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền chỉnh sửa nhóm người dùng.' });
+      return;
+    }
+    const updated = { ...group, isActive: !group.isActive };
+    this.lockUnlockLoading.set(true);
+    this.http.put(`${this.apiUrl}/${group.id}`, updated)
+      .pipe(finalize(() => this.lockUnlockLoading.set(false)))
+      .subscribe({
+        next: () => {
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Thành công',
+            detail: `${group.isActive ? 'Khóa' : 'Mở khóa'} nhóm người dùng thành công!`
+          });
+          this.showLockUnlockConfirm.set(false);
+          this.lockUnlockTarget.set(null);
+          this.loadGroups();
+        },
+        error: (err) => {
+          const detailMsg = err?.error?.message || err?.message || `Không thể ${group.isActive ? 'khóa' : 'mở khóa'} nhóm người dùng.`;
+          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: detailMsg });
+        }
+      });
+  }
+
+  onCancelLockUnlock() {
+    this.showLockUnlockConfirm.set(false);
+    this.lockUnlockTarget.set(null);
   }
 
   onEdit(group: any) {
@@ -278,6 +328,10 @@ export class UserGroupComponent implements OnInit {
   showDeleteConfirm = signal<boolean>(false);
   deleteTarget = signal<any>(null);
   deleting = signal<boolean>(false);
+
+  showLockUnlockConfirm = signal<boolean>(false);
+  lockUnlockTarget = signal<any>(null);
+  lockUnlockLoading = signal<boolean>(false);
 
   onDelete(group: any) {
     this.deleteTarget.set(group);

@@ -1,26 +1,39 @@
 import { Component, OnInit, signal, computed, effect } from '@angular/core';
+import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { DialogModule } from 'primeng/dialog';
 import { ToastModule } from 'primeng/toast';
-import { MessageService, ConfirmationService } from 'primeng/api';
+import { Menu, MenuModule } from 'primeng/menu';
+import { MenuItem, MessageService, ConfirmationService } from 'primeng/api';
 import { environment } from '@env/environment';
 import { finalize } from 'rxjs';
 import { AuthService } from '@sohoa.frontend/shared/core';
+import {
+  buildAssignedMenuSummary,
+  buildMenuPermissionTree as buildMenuPermissionTreeFromLookup,
+} from '../../utils/menu-permission-tree.util';
 
 @Component({
   selector: 'app-role-management',
   standalone: true,
-  imports: [CommonModule, FormsModule, DialogModule, ToastModule],
+  imports: [CommonModule, FormsModule, DialogModule, ToastModule, MenuModule, WfBreadcrumbComponent],
   providers: [MessageService],
   templateUrl: './role-management.component.html',
   styleUrl: './role-management.component.scss'
 })
 export class RoleManagement implements OnInit {
+  private static readonly ROLE_CODE_PATTERN = /^[A-Za-z0-9_]+$/;
+
   roles = signal<any[]>([]);
   searchKeyword = signal<string>('');
   totalCount = signal<number>(0);
+  organizationUnits = signal<any[]>([]);
+  isCentralAdmin = computed(() => {
+    const userRoles = this.authService.getUserRoles();
+    return userRoles.includes('ADMIN') || userRoles.includes('SUPER_ADMIN');
+  });
   
   currentView = signal<'list' | 'add' | 'edit' | 'permission'>('list');
   dialogHeader = signal<string>('');
@@ -28,13 +41,39 @@ export class RoleManagement implements OnInit {
   currentRole = signal<any>({});
 
   permissionDialogHeader = signal<string>('');
+  permissionTab = signal<'permissions' | 'accounts'>('permissions');
   activeRoleForPermission = signal<any>(null);
-  systemPermissions = signal<any[]>([]);
-  selectedPermissionCodes = signal<string[]>([]);
+  availablePermissionGroups = signal<any[]>([]);
+  selectedPermissionGroupIds = signal<number[]>([]);
+  expandedPermissionGroupIds = signal<Set<number>>(new Set<number>());
+  permissionGroupsLoading = signal<boolean>(false);
+  permissionGroupMenuSummaries = computed(() => {
+    const summaries = new Map<number, ReturnType<typeof buildAssignedMenuSummary>>();
+    for (const group of this.availablePermissionGroups()) {
+      summaries.set(
+        group.id,
+        buildAssignedMenuSummary(this.menus(), this.systemPermissions(), group.permissionCodes || [])
+      );
+    }
+    return summaries;
+  });
+
+  roleUsers = signal<any[]>([]);
+  roleUsersKeyword = signal<string>('');
+  roleUsersTotal = signal<number>(0);
+  roleUsersPage = signal<number>(1);
+  roleUsersPageSize = signal<number>(10);
+  roleUsersLoading = signal<boolean>(false);
   
   loading = signal<boolean>(false);
   saving = signal<boolean>(false);
   savingPermissions = signal<boolean>(false);
+  actionMenuItems: MenuItem[] = [];
+
+  // Lock/Unlock Confirmation
+  showLockUnlockConfirm = signal<boolean>(false);
+  lockUnlockTarget = signal<any>(null);
+  lockUnlockLoading = signal<boolean>(false);
 
   // Pagination
   currentPage = signal<number>(1);
@@ -44,7 +83,12 @@ export class RoleManagement implements OnInit {
   formSubmitted = signal<boolean>(false);
   serverErrors = signal<any>({});
   codeError = computed(() => {
-    if (this.formSubmitted() && !this.currentRole().code) return 'Mã vai trò là bắt buộc';
+    const code = this.currentRole().code ?? '';
+    if (this.formSubmitted() && !code) return 'Mã vai trò là bắt buộc';
+    if (this.formSubmitted() && code.length > 50) return 'Mã vai trò không được vượt quá 50 ký tự';
+    if (this.formSubmitted() && !RoleManagement.ROLE_CODE_PATTERN.test(code)) {
+      return 'Mã vai trò chỉ được chứa chữ cái không dấu, chữ số và dấu gạch dưới; không được chứa khoảng trắng';
+    }
     return this.serverErrors().code || this.serverErrors().Code || '';
   });
   nameError = computed(() => {
@@ -63,6 +107,7 @@ export class RoleManagement implements OnInit {
   }
 
   menus = signal<any[]>([]);
+  systemPermissions = signal<any[]>([]);
   menuPermissionTree = signal<any[]>([]);
 
   private apiUrl = `${environment.apiGatewayUrl}/api/v1/roles`;
@@ -79,6 +124,10 @@ export class RoleManagement implements OnInit {
 
   totalPages = computed(() => {
     return Math.ceil(this.totalCount() / this.pageSize());
+  });
+
+  roleUsersTotalPages = computed(() => {
+    return Math.ceil(this.roleUsersTotal() / this.roleUsersPageSize()) || 1;
   });
 
   nextPage() {
@@ -122,12 +171,44 @@ export class RoleManagement implements OnInit {
       const kw = this.searchKeyword();
       this.loadRoles();
     }, { allowSignalWrites: true });
+
+    effect(() => {
+      const tab = this.permissionTab();
+      const role = this.activeRoleForPermission();
+      const page = this.roleUsersPage();
+      const size = this.roleUsersPageSize();
+      const kw = this.roleUsersKeyword();
+      if (this.currentView() === 'permission' && tab === 'accounts' && role?.id) {
+        this.loadRoleUsers();
+      }
+    }, { allowSignalWrites: true });
   }
 
   ngOnInit() {
     this.loadRoles();
     this.loadMenus();
     this.loadSystemPermissions();
+    if (this.isCentralAdmin()) {
+      this.loadOrganizationUnits();
+    }
+  }
+
+  openActionMenu(role: any, event: Event, menu: Menu): void {
+    event.stopPropagation();
+    this.actionMenuItems = [
+      ...(this.authService.hasPermission('ROLE_MANAGE') || this.authService.hasPermission('PERMISSION_MANAGE') ? [{ label: 'Phân quyền', title:'Phân quyền', icon: 'pi pi-shield', command: () => this.onAssignPermissions(role) }] : []),
+      ...(this.authService.hasPermission('ROLE_EDIT') ? [{ label: role.isActive ? 'Khóa vai trò' : 'Mở khóa vai trò', title: role.isActive ? 'Khóa vai trò' : 'Mở khóa vai trò', icon: role.isActive ? 'pi pi-lock color-red' : 'pi pi-lock-open color-teal', command: () => this.onToggleStatusRequest(role) }] : []),
+      ...(this.authService.hasPermission('ROLE_EDIT') ? [{ label: 'Chỉnh sửa', title:'Chỉnh sửa', icon: 'pi pi-pencil color-blue', command: () => this.onEdit(role) }] : []),
+      ...(this.authService.hasPermission('ROLE_DELETE') ? [{ label: 'Xóa', title:'Xóa', icon: 'pi pi-trash color-red', command: () => this.onDelete(role) }] : []),
+    ];
+    menu.toggle(event);
+  }
+
+  loadOrganizationUnits() {
+    this.http.get<any[]>(`${environment.apiGatewayUrl}/api/v1/organization-units/lookup`).subscribe({
+      next: (res) => this.organizationUnits.set(Array.isArray(res) ? res : []),
+      error: () => this.organizationUnits.set([])
+    });
   }
 
   loadRoles() {
@@ -141,7 +222,7 @@ export class RoleManagement implements OnInit {
           this.totalCount.set(res?.totalCount || 0);
         },
         error: (err) => {
-          this.messageService.add({ severity: 'error', summary: 'Lỗi tải dữ liệu', detail: 'Không thể tải danh sách nhóm quyền.' });
+          this.messageService.add({ severity: 'error', summary: 'Lỗi tải dữ liệu', detail: 'Không thể tải danh sách vai trò.' });
           this.roles.set([]);
           this.totalCount.set(0);
         }
@@ -179,169 +260,89 @@ export class RoleManagement implements OnInit {
   }
 
   buildMenuPermissionTree(menusList: any[], permissions: any[]) {
-    // 1. Group permissions by target menu URL
-    const permGroups = new Map<string, any[]>();
-    const unmappedPerms: any[] = [];
-
-    permissions.forEach(p => {
-      const targetUrl = this.getMenuTargetForPermissionDynamic(p.code, menusList);
-      if (targetUrl) {
-        if (!permGroups.has(targetUrl)) {
-          permGroups.set(targetUrl, []);
-        }
-        permGroups.get(targetUrl)!.push(p);
-      } else {
-        unmappedPerms.push(p);
-      }
-    });
-
-    // 2. Build the tree
-    const parentMenus = menusList.filter(m => !m.parentId && m.isActive);
-    const subMenusList = menusList.filter(m => m.parentId && m.isActive);
-
-    const tree: any[] = [];
-
-    parentMenus.forEach(pm => {
-      const pmSubs = subMenusList.filter(sm => sm.parentId === pm.id);
-      
-      const subNodes: any[] = [];
-      pmSubs.forEach(sm => {
-        const smPerms = permGroups.get(sm.url || '') || [];
-        // Only show submenus that have mapped permissions
-        if (smPerms.length > 0) {
-          subNodes.push({
-            id: sm.id,
-            name: sm.name,
-            url: sm.url,
-            icon: sm.icon,
-            permissions: smPerms
-          });
-        }
-      });
-
-      const directPerms = permGroups.get(pm.url || '') || [];
-
-      // Only display the parent menu card if it contains direct permissions or child menus with permissions
-      if (directPerms.length > 0 || subNodes.length > 0) {
-        tree.push({
-          id: pm.id,
-          name: pm.name,
-          icon: pm.icon,
-          url: pm.url,
-          subMenus: subNodes,
-          permissions: directPerms,
-          expanded: false // Collapsed by default as requested
-        });
-      }
-    });
-
-    // Add unmapped permissions to a special group
-    if (unmappedPerms.length > 0) {
-      tree.push({
-        id: -999,
-        name: 'Hệ thống dùng chung / Quyền khác',
-        icon: 'pi pi-key',
-        url: '',
-        subMenus: [],
-        permissions: unmappedPerms,
-        expanded: false // Collapsed by default as well
-      });
-    }
-
-    this.menuPermissionTree.set(tree);
-  }
-
-  toggleParentMenu(parent: any) {
-    parent.expanded = !parent.expanded;
-    // Force signal update by recreating the array reference to trigger UI re-render
-    this.menuPermissionTree.set([...this.menuPermissionTree()]);
-  }
-
-  getMenuTargetForPermissionDynamic(code: string, menusList: any[]): string {
-    const parts = code.split('_');
-    if (parts.length < 2) return '';
-    const prefix = parts.slice(0, parts.length - 1).join('_');
-
-    const matchingMenu = menusList.find(m => {
-      if (!m.permissionCode) return false;
-      const mParts = m.permissionCode.split('_');
-      if (mParts.length < 2) return false;
-      const mPrefix = mParts.slice(0, mParts.length - 1).join('_');
-      return mPrefix === prefix;
-    });
-
-    if (matchingMenu) {
-      return matchingMenu.url || '';
-    }
-
-    return this.getMenuTargetForPermission(code);
-  }
-
-  getMenuTargetForPermission(code: string): string {
-    const parts = code.split('_');
-    if (parts.length < 2) return '';
-    const prefix = parts.slice(0, parts.length - 1).join('_');
-    
-    switch(prefix) {
-      case 'USER': return '/administration/user-management';
-      case 'ROLE':
-      case 'PERMISSION': return '/administration/role-management';
-      case 'MENU': return '/administration/menu-management';
-      case 'USER_GROUP': return '/administration/user-groups';
-      case 'UPLOAD_CONFIG': return '/administration/upload-configuration';
-      case 'ORGANIZATION': return '/administration/organization-settings';
-      case 'AUDIT_LOG': return '/administration/audit-log';
-      case 'SHARED_CATALOG': return '/catalog/shared';
-      case 'PRIVATE_CATALOG': return '/catalog/private';
-      case 'CATALOG': return '/catalog/position';
-      case 'EAV_FORM_TEMPLATE':
-      case 'EQUIPMENT_TYPE':
-      case 'EQUIPMENT': return '/equipment/form-management';
-      case 'VIRTUAL_FOLDER': return '/digitization/virtual-folders';
-      case 'OCR_TRAINING_DATA': return '/digitization/ocr-training';
-      case 'DIGITIZATION_TASK': return '/digitization/ocr-upload'; 
-      case 'DIGITIZATION': return '/ocr-correction';
-      case 'WORKFLOW':
-      case 'WORKFLOW_DEFINITION': return '/workflow/borrow-return';
-      case 'BORROW_RECORD': return '/borrow-records';
-      case 'REPORT':
-      case 'DYNAMIC_REPORT':
-      case 'REPORT_GROUP': return '/reports';
-      case 'PHYSICAL_STORAGE': return '/physical-storage';
-      case 'SYNC': return '/administration/sync-config';
-      case 'VIEW':
-        if (code === 'VIEW_DASHBOARD') return '/dashboard';
-        break;
-    }
-    return '';
+    this.menuPermissionTree.set(buildMenuPermissionTreeFromLookup(menusList, permissions));
   }
 
   onSearch() {
+    this.currentPage.set(1);
+    this.loadRoles();
   }
 
   onAddNew() {
     if (!this.authService.hasPermission('ROLE_CREATE')) {
-      this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền thêm mới nhóm quyền.' });
+      this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền thêm mới vai trò.' });
       return;
     }
     this.isEdit.set(false);
-    this.currentRole.set({ code: '', name: '', description: '' });
+    
+    if (this.isCentralAdmin()) {
+      this.currentRole.set({ code: '', name: '', description: '', scopeTypeId: 1, organizationUnitId: null, isActive: true });
+    } else {
+      this.currentRole.set({ 
+        code: '', 
+        name: '', 
+        description: '', 
+        scopeTypeId: 2, 
+        organizationUnitId: this.authService.getUserUnitId(), 
+        isActive: true 
+      });
+    }
+
     this.formSubmitted.set(false);
     this.serverErrors.set({});
-    this.dialogHeader.set('Thêm mới nhóm quyền');
+    this.dialogHeader.set('Thêm mới vai trò');
     this.currentView.set('add');
+  }
+
+  onToggleStatusRequest(role: any) {
+    this.lockUnlockTarget.set(role);
+    this.showLockUnlockConfirm.set(true);
+  }
+
+  onCancelLockUnlock() {
+    this.showLockUnlockConfirm.set(false);
+    this.lockUnlockTarget.set(null);
+  }
+
+  onConfirmLockUnlock() {
+    const role = this.lockUnlockTarget();
+    if (!role) return;
+    if (!this.authService.hasPermission('ROLE_EDIT')) {
+      this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền chỉnh sửa nhóm quyền.' });
+      return;
+    }
+    const updated = { ...role, isActive: !role.isActive };
+    this.lockUnlockLoading.set(true);
+    this.http.put(`${this.apiUrl}/${role.id}`, updated)
+      .pipe(finalize(() => this.lockUnlockLoading.set(false)))
+      .subscribe({
+        next: () => {
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Thành công',
+            detail: `${role.isActive ? 'Khóa' : 'Mở khóa'} vai trò thành công!`
+          });
+          this.showLockUnlockConfirm.set(false);
+          this.lockUnlockTarget.set(null);
+          this.loadRoles();
+        },
+        error: (err) => {
+          const detailMsg = err?.error?.message || err?.message || `Không thể ${role.isActive ? 'khóa' : 'mở khóa'} vai trò.`;
+          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: detailMsg });
+        }
+      });
   }
 
   onEdit(role: any) {
     if (!this.authService.hasPermission('ROLE_EDIT')) {
-      this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền chỉnh sửa nhóm quyền.' });
+      this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền chỉnh sửa vai trò.' });
       return;
     }
     this.isEdit.set(true);
     this.currentRole.set({ ...role });
     this.formSubmitted.set(false);
     this.serverErrors.set({});
-    this.dialogHeader.set('Chỉnh sửa nhóm quyền');
+    this.dialogHeader.set('Chỉnh sửa vai trò');
     this.currentView.set('edit');
   }
 
@@ -359,7 +360,7 @@ export class RoleManagement implements OnInit {
         .pipe(finalize(() => this.saving.set(false)))
         .subscribe({
           next: () => {
-            this.messageService.add({ severity: 'success', summary: 'Cập nhật', detail: 'Cập nhật thông tin nhóm quyền thành công!' });
+            this.messageService.add({ severity: 'success', summary: 'Cập nhật', detail: 'Cập nhật thông tin vai trò thành công!' });
             this.loadRoles();
             this.currentView.set('list');
           },
@@ -380,7 +381,7 @@ export class RoleManagement implements OnInit {
               errorsObj = err.errors;
             }
             this.serverErrors.set(errorsObj);
-            const detailMsg = err?.error?.message || err?.message || 'Cập nhật nhóm quyền thất bại.';
+            const detailMsg = err?.error?.message || err?.message || 'Cập nhật vai trò thất bại.';
             this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: detailMsg });
           }
         });
@@ -389,7 +390,7 @@ export class RoleManagement implements OnInit {
         .pipe(finalize(() => this.saving.set(false)))
         .subscribe({
           next: (created) => {
-            this.messageService.add({ severity: 'success', summary: 'Thêm mới', detail: 'Tạo nhóm quyền mới thành công!' });
+            this.messageService.add({ severity: 'success', summary: 'Thêm mới', detail: 'Tạo vai trò mới thành công!' });
             this.loadRoles();
             this.currentView.set('list');
           },
@@ -410,7 +411,7 @@ export class RoleManagement implements OnInit {
               errorsObj = err.errors;
             }
             this.serverErrors.set(errorsObj);
-            const detailMsg = err?.error?.message || err?.message || 'Tạo nhóm quyền thất bại.';
+            const detailMsg = err?.error?.message || err?.message || 'Tạo vai trò thất bại.';
             this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: detailMsg });
           }
         });
@@ -441,42 +442,142 @@ export class RoleManagement implements OnInit {
   }
 
   onAssignPermissions(role: any) {
-    if (!this.authService.hasPermission('ROLE_MANAGE') && !this.authService.hasPermission('PERMISSION_MANAGE')) {
-      this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền cấu hình nhóm quyền này.' });
+    if (!this.authService.hasPermission('ROLE_MANAGE')) {
+      this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền phân bổ nhóm quyền cho vai trò.' });
       return;
     }
-    this.activeRoleForPermission.set(role);
-    this.permissionDialogHeader.set(`Phân quyền nhóm: ${role.name}`);
-    this.selectedPermissionCodes.set([]);
-    
-    // Load existing permissions of role
-    this.http.get<any>(`${this.apiUrl}/${role.id}/permissions`).subscribe({
+    this.activeRoleForPermission.set({ ...role });
+    this.permissionDialogHeader.set(`Phân bổ nhóm quyền: ${role.name}`);
+    this.permissionTab.set('permissions');
+    this.roleUsersKeyword.set('');
+    this.roleUsersPage.set(1);
+    this.selectedPermissionGroupIds.set([]);
+    this.availablePermissionGroups.set([]);
+    this.expandedPermissionGroupIds.set(new Set<number>());
+    this.permissionGroupsLoading.set(true);
+
+    this.http.get<any[]>(`${this.apiUrl}/${role.id}/available-permission-groups`)
+      .pipe(finalize(() => this.permissionGroupsLoading.set(false)))
+      .subscribe({
       next: (res) => {
-        const list = Array.isArray(res) ? res : (res && Array.isArray(res.items) ? res.items : (res && Array.isArray(res.value) ? res.value : []));
-        this.selectedPermissionCodes.set(list);
+        const list = Array.isArray(res) ? res : [];
+        const normalized = list.map((group: any) => ({
+          ...group,
+          id: Number(group.id ?? group.Id),
+          code: group.code ?? group.Code ?? '',
+          name: group.name ?? group.Name ?? '',
+          groupType: group.groupType ?? group.GroupType ?? '',
+          organizationUnitId: group.organizationUnitId ?? group.OrganizationUnitId ?? null,
+          organizationUnitName: group.organizationUnitName ?? group.OrganizationUnitName ?? null,
+          organizationUnitIds: group.organizationUnitIds ?? group.OrganizationUnitIds ?? [],
+          organizationUnitNames: group.organizationUnitNames ?? group.OrganizationUnitNames ?? null,
+          permissionCodes: group.permissionCodes || group.PermissionCodes || [],
+          isAssigned: group.isAssigned ?? group.IsAssigned ?? false
+        })).filter((group: any) => Number.isFinite(group.id) && group.id > 0);
+        this.availablePermissionGroups.set(normalized);
+        this.selectedPermissionGroupIds.set(
+          normalized.filter((group: any) => group.isAssigned).map((group: any) => group.id)
+        );
         this.currentView.set('permission');
       },
-      error: (err) => {
-        this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể tải quyền đã gán.' });
+      error: () => {
+        this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể tải danh sách nhóm quyền khả dụng.' });
       }
     });
   }
 
-  isPermissionChecked(code: string): boolean {
-    return this.selectedPermissionCodes().includes(code);
+  isPermissionGroupExpanded(groupId: number): boolean {
+    return this.expandedPermissionGroupIds().has(groupId);
   }
 
-  togglePermission(code: string) {
-    this.selectedPermissionCodes.update(prev => {
-      const idx = prev.indexOf(code);
+  togglePermissionGroupDetails(groupId: number, event: Event): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.expandedPermissionGroupIds.update((current) => {
+      const next = new Set(current);
+      if (next.has(groupId)) {
+        next.delete(groupId);
+      } else {
+        next.add(groupId);
+      }
+      return next;
+    });
+  }
+
+  getPermissionGroupMenuSummary(groupId: number) {
+    return this.permissionGroupMenuSummaries().get(groupId) || [];
+  }
+
+  getPermissionGroupMenuCount(groupId: number): number {
+    return this.getPermissionGroupMenuSummary(groupId)
+      .reduce((total, parent) => total + (parent.children.length || 1), 0);
+  }
+
+  isPermissionGroupSelected(groupId: number): boolean {
+    return this.selectedPermissionGroupIds().includes(groupId);
+  }
+
+  togglePermissionGroup(groupId: number) {
+    this.selectedPermissionGroupIds.update((prev) => {
+      const idx = prev.indexOf(groupId);
       if (idx > -1) {
         const copy = [...prev];
         copy.splice(idx, 1);
         return copy;
-      } else {
-        return [...prev, code];
       }
+      return [...prev, groupId];
     });
+  }
+
+  switchPermissionTab(tab: 'permissions' | 'accounts') {
+    this.permissionTab.set(tab);
+    if (tab === 'accounts') {
+      this.roleUsersPage.set(1);
+    }
+  }
+
+  loadRoleUsers() {
+    const role = this.activeRoleForPermission();
+    if (!role?.id) return;
+
+    this.roleUsersLoading.set(true);
+    this.http.get<any>(
+      `${this.apiUrl}/${role.id}/users?page=${this.roleUsersPage()}&pageSize=${this.roleUsersPageSize()}&keyword=${encodeURIComponent(this.roleUsersKeyword() || '')}`
+    )
+      .pipe(finalize(() => this.roleUsersLoading.set(false)))
+      .subscribe({
+        next: (res) => {
+          this.roleUsers.set(res?.items || []);
+          this.roleUsersTotal.set(res?.totalCount || 0);
+        },
+        error: () => {
+          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể tải danh sách tài khoản.' });
+          this.roleUsers.set([]);
+          this.roleUsersTotal.set(0);
+        }
+      });
+  }
+
+  onRoleUsersSearch() {
+    this.roleUsersPage.set(1);
+    this.loadRoleUsers();
+  }
+
+  roleUsersPrevPage() {
+    if (this.roleUsersPage() > 1) {
+      this.roleUsersPage.update((p) => p - 1);
+    }
+  }
+
+  roleUsersNextPage() {
+    if (this.roleUsersPage() < this.roleUsersTotalPages()) {
+      this.roleUsersPage.update((p) => p + 1);
+    }
+  }
+
+  onRoleUsersPageSizeChange(event: Event) {
+    this.roleUsersPageSize.set(Number((event.target as HTMLSelectElement).value));
+    this.roleUsersPage.set(1);
   }
 
   onSavePermissions() {
@@ -484,15 +585,16 @@ export class RoleManagement implements OnInit {
     if (!activeRole) return;
     
     this.savingPermissions.set(true);
-    this.http.post(`${this.apiUrl}/${activeRole.id}/permissions`, this.selectedPermissionCodes())
+    this.http.put(`${this.apiUrl}/${activeRole.id}/permission-groups`, this.selectedPermissionGroupIds())
       .pipe(finalize(() => this.savingPermissions.set(false)))
       .subscribe({
         next: () => {
-          this.messageService.add({ severity: 'success', summary: 'Phân quyền thành công', detail: 'Đã lưu thay đổi phân quyền hệ thống!' });
+          this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã phân bổ nhóm quyền cho vai trò!' });
           this.currentView.set('list');
         },
         error: (err) => {
-          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Lưu phân quyền vai trò thất bại.' });
+          const detail = err?.error?.message || 'Lưu phân bổ nhóm quyền thất bại.';
+          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail });
         }
       });
   }
