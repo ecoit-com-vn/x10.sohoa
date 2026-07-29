@@ -303,7 +303,36 @@ public class DossierService : IDossierService
         return await _dossierRepository.GetDetailByIdAsync(id);
     }
 
-    public async Task<Guid> CreateAsync(DossierCreateDto dto, string userId, string userName, string userFullName, int kindId = 2)
+    public Task<Guid> CreateAsync(
+        DossierCreateDto dto,
+        string userId,
+        string userName,
+        string userFullName,
+        int kindId = 2) =>
+        CreateInternalAsync(dto, userId, userName, userFullName, kindId, DossierStatusConstants.New, null);
+
+    public Task<Guid> CreateForPublishingAsync(
+        DossierCreateDto dto,
+        string userId,
+        string userName,
+        string userFullName) =>
+        CreateInternalAsync(
+            dto,
+            userId,
+            userName,
+            userFullName,
+            kindId: 2,
+            statusId: DossierStatusConstants.Approved,
+            publishStatusId: DossierPublishStatusConstants.Pending);
+
+    private async Task<Guid> CreateInternalAsync(
+        DossierCreateDto dto,
+        string userId,
+        string userName,
+        string userFullName,
+        int kindId,
+        int statusId,
+        int? publishStatusId)
     {
         var infraIds = dto.InfrastructureIds?.Where(x => x != Guid.Empty).Distinct().ToList() ?? new List<Guid>();
         if (infraIds.Count == 0 && dto.InfrastructureId.HasValue && dto.InfrastructureId != Guid.Empty)
@@ -323,7 +352,8 @@ public class DossierService : IDossierService
             DossierSetId = dto.DossierSetId,
             DossierTypeId = dto.DossierTypeId,
             FormDataJson = dto.FormDataJson,
-            StatusId = DossierStatusConstants.New,
+            StatusId = statusId,
+            PublishStatusId = publishStatusId,
             KindId = kindId,
             RowVersion = 1,
             CreatorId = string.IsNullOrEmpty(userId) ? null : Guid.TryParse(userId, out var uid) ? uid : null,

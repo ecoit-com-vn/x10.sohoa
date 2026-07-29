@@ -3,6 +3,8 @@ namespace EvnHanoi.NotificationService.Models;
 public class DossierEsDocument
 {
     public string Id { get; set; } = string.Empty;
+    public string? DossierCode { get; set; }
+    public string? DossierTitle { get; set; }
     public int? GridTypeId { get; set; }
     public string? GridTypeName { get; set; }
     public string? InfrastructureId { get; set; }

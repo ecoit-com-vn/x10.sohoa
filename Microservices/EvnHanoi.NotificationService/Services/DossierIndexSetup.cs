@@ -79,6 +79,8 @@ public static class DossierIndexSetup
         return new Properties
         {
             { "id", new KeywordProperty() },
+            { "dossierCode", searchableText },
+            { "dossierTitle", searchableText },
             { "gridTypeId", new IntegerNumberProperty() },
             { "gridTypeName", new KeywordProperty() },
             { "infrastructureId", new KeywordProperty() },
@@ -176,6 +178,20 @@ public static class DossierIndexSetup
             .Properties(new Properties
             {
                 { "statusId", new IntegerNumberProperty() },
+                { "dossierCode", new TextProperty
+                    {
+                        Analyzer = VietnameseAnalysisSetup.AnalyzerName,
+                        SearchAnalyzer = VietnameseAnalysisSetup.SearchAnalyzerName,
+                        Fields = new Properties { { "keyword", new KeywordProperty() } }
+                    }
+                },
+                { "dossierTitle", new TextProperty
+                    {
+                        Analyzer = VietnameseAnalysisSetup.AnalyzerName,
+                        SearchAnalyzer = VietnameseAnalysisSetup.SearchAnalyzerName,
+                        Fields = new Properties { { "keyword", new KeywordProperty() } }
+                    }
+                },
                 { "statusCode", new KeywordProperty() },
                 { "statusName", new KeywordProperty() },
                 { "pendingAssignedRoles", new KeywordProperty() },
