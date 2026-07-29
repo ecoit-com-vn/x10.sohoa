@@ -109,6 +109,18 @@ export const DOSSIER_MANAGEMENT_ROUTES: Route[] = [
     data: publisherData,
   },
   {
+    path: 'publish/add',
+    loadComponent: loadShell,
+    canActivate: [dossierPublisherMenuGuard],
+    data: publisherData,
+  },
+  {
+    path: 'publish/:id/edit',
+    loadComponent: loadShell,
+    canActivate: [dossierPublisherMenuGuard],
+    data: publisherData,
+  },
+  {
     path: 'publish/:id',
     loadComponent: loadShell,
     canActivate: [dossierPublisherMenuGuard],
