@@ -220,7 +220,7 @@ public class DossierSearchRepository : IDossierSearchRepository
             if (filter.DossierTypeId.HasValue)
             {
                 var dossierTypeVariants = DossierIndexIdNormalizer.GetGuidTermVariants(filter.DossierTypeId.Value.ToString());
-                b.Filter(f => f.Terms(t => t
+                filterQueries.Add(new QueryDescriptor<DossierEsDocument>().Terms(t => t
                     .Field(DossierEsFieldNames.DossierTypeId)
                     .Terms(new TermsQueryField(dossierTypeVariants.Select(FieldValue.String).ToArray()))));
             }
@@ -262,25 +262,57 @@ public class DossierSearchRepository : IDossierSearchRepository
                 mustQueries.Add(new QueryDescriptor<DossierEsDocument>().Bool(bb => bb
                     .MinimumShouldMatch(1)
                     .Should(
+                        sh => sh.Match(mq => mq.Field(DossierEsFieldNames.DossierCode).Query(keyword)),
+                        sh => sh.Match(mq => mq.Field(DossierEsFieldNames.DossierTitle).Query(keyword)),
                         sh => sh.Nested(n => n
                             .Path(p => p.FormFields)
-                            .Query(nq => nq.Match(mq => mq
-                                .Field("formFields.textValue")
-                                .Query(keyword)
-                            ))
+                            .Query(nq => nq.Bool(nb => nb.Must(
+                                mq => mq.Terms(t => t
+                                    .Field("formFields.fieldCode")
+                                    .Terms(new TermsQueryField(new[]
+                                    {
+                                        "CODE", "code", "MAHOSO", "mahoso", "MA_HO_SO", "ma_ho_so"
+                                    }
+                                        .Select(FieldValue.String)
+                                        .ToArray()))),
+                                mq => mq.Match(m => m
+                                    .Field("formFields.textValue")
+                                    .Query(keyword)))))
+                        ),
+                        sh => sh.Nested(n => n
+                            .Path(p => p.FormFields)
+                            .Query(nq => nq.Bool(nb => nb.Must(
+                                mq => mq.Terms(t => t
+                                    .Field("formFields.fieldCode")
+                                    .Terms(new TermsQueryField(new[]
+                                    {
+                                        "TITLE", "title", "TIEUDE", "tieude", "TIEUDEHOSO", "tieudehoso",
+                                        "TIEUDE_HOSO", "tieude_hoso", "TENHOSO", "tenhoso", "TEN_HO_SO", "ten_ho_so"
+                                    }.Select(FieldValue.String).ToArray()))),
+                                mq => mq.Match(m => m
+                                    .Field("formFields.textValue")
+                                    .Query(keyword)))))
                         ),
                         sh => sh.Nested(n => n
                             .Path(p => p.CatalogFields)
-                            .Query(nq => nq.Match(mq => mq
-                                .Field("catalogFields.value")
-                                .Query(keyword)
-                            ))
+                            .Query(nq => nq.Bool(nb => nb.Must(
+                                mq => mq.Term(t => t
+                                    .Field("catalogFields.catalogName")
+                                    .Value("M\u00e3 h\u1ed3 s\u01a1")),
+                                mq => mq.Match(m => m
+                                    .Field("catalogFields.value")
+                                    .Query(keyword)))))
                         ),
-                        sh => sh.Match(mq => mq.Field(f => f.InfrastructureName).Query(keyword)),
-                        sh => sh.Match(mq => mq.Field(f => f.InfrastructureCode).Query(keyword)),
-                        sh => sh.Match(mq => mq.Field(f => f.CreatorName).Query(keyword)),
-                        sh => sh.Match(mq => mq.Field(f => f.DossierSetName).Query(keyword)),
-                        sh => sh.Match(mq => mq.Field(f => f.DossierTypeName).Query(keyword))
+                        sh => sh.Nested(n => n
+                            .Path(p => p.CatalogFields)
+                            .Query(nq => nq.Bool(nb => nb.Must(
+                                mq => mq.Term(t => t
+                                    .Field("catalogFields.catalogName")
+                                    .Value("Ti\u00eau \u0111\u1ec1 h\u1ed3 s\u01a1")),
+                                mq => mq.Match(m => m
+                                    .Field("catalogFields.value")
+                                    .Query(keyword)))))
+                        )
                     )
                 ));
             }
