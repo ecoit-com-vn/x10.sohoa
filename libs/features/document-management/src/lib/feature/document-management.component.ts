@@ -70,6 +70,7 @@ export class DocumentManagementComponent implements OnInit {
   @ViewChild('folderNameInput') folderNameInput?: ElementRef<HTMLInputElement>;
   @ViewChild('uploadZone') uploadZone?: FileUploadZoneComponent;
   @ViewChild('scannerPanel') scannerPanel?: ScannerPanelComponent;
+  @ViewChild('quickNewVersionFileInput') quickNewVersionFileInput?: ElementRef<HTMLInputElement>;
 
   readonly UPLOAD_SOURCE = UPLOAD_SOURCE;
   scanInProgress = signal(false);
@@ -597,6 +598,13 @@ export class DocumentManagementComponent implements OnInit {
         command: () => this.onDownloadDocument(doc),
       },
       {
+        label: 'Tải phiên bản mới',
+        title: 'Tải phiên bản mới',
+        icon: 'pi pi-upload color-blue',
+        disabled: this.uploadingNewVersion(),
+        command: () => this.onOpenQuickNewVersionUpload(doc),
+      },
+      {
         label: 'Lịch sử phiên bản',
         title: 'Lịch sử phiên bản',
         icon: 'pi pi-history color-blue',
@@ -969,6 +977,15 @@ export class DocumentManagementComponent implements OnInit {
   // ===== DOCUMENT VERSION LOGIC =====
 
   uploadingNewVersion = signal(false);
+
+  onOpenQuickNewVersionUpload(doc: Document): void {
+    const fileInput = this.quickNewVersionFileInput?.nativeElement;
+    if (!fileInput) return;
+
+    this.historyTargetDocument.set(doc);
+    fileInput.value = '';
+    fileInput.click();
+  }
 
   onViewHistory(doc: Document) {
     this.historyTargetDocument.set(doc);
