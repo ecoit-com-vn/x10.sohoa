@@ -232,16 +232,20 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
             var def = await _connection.QuerySingleOrDefaultAsync<WorkflowDefinition>(sqlDef, new { Id = id.ToString() });
             if (def == null) return null;
 
-            var sqlSteps = $@"SELECT {nameof(WorkflowStep.Id)}, 
-                                     {nameof(WorkflowStep.WorkflowDefinitionId)}, 
-                                     {nameof(WorkflowStep.StepName)}, 
-                                     ""{nameof(WorkflowStep.Order)}"", 
-                                     {nameof(WorkflowStep.RequiredRole)}, 
+            var sqlSteps = $@"SELECT {nameof(WorkflowStep.Id)},
+                                     {nameof(WorkflowStep.WorkflowDefinitionId)},
+                                     {nameof(WorkflowStep.StepName)},
+                                     ""{nameof(WorkflowStep.Order)}"",
+                                     {nameof(WorkflowStep.RequiredRole)},
                                      {nameof(WorkflowStep.ActionType)},
                                      {nameof(WorkflowStep.AllowEdit)},
-                                     {nameof(WorkflowStep.RequireSignature)} 
-                              FROM WORKFLOWSTEPS 
-                              WHERE {nameof(WorkflowStep.WorkflowDefinitionId)} = :Id 
+                                     {nameof(WorkflowStep.RequireSignature)},
+                                     SYSTEM_PERMISSION_GROUP_IDS AS {nameof(WorkflowStep.SystemPermissionGroupIds)},
+                                     UNIT_PERMISSION_GROUP_IDS   AS {nameof(WorkflowStep.UnitPermissionGroupIds)},
+                                     REQUIRE_SAME_UNIT           AS {nameof(WorkflowStep.RequireSameUnit)},
+                                     ASSIGNEE_ID                 AS {nameof(WorkflowStep.AssigneeId)}
+                              FROM WORKFLOWSTEPS
+                              WHERE {nameof(WorkflowStep.WorkflowDefinitionId)} = :Id
                               ORDER BY ""{nameof(WorkflowStep.Order)}""";
             var steps = await _connection.QueryAsync<WorkflowStep>(sqlSteps, new { Id = id.ToString() });
             def.Steps = steps.ToList();
@@ -255,14 +259,18 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
         public async Task<WorkflowStep?> GetStepByIdAsync(Guid id)
         {
             if (_connection.State != ConnectionState.Open) _connection.Open();
-            var sql = $@"SELECT {nameof(WorkflowStep.Id)}, 
-                                {nameof(WorkflowStep.WorkflowDefinitionId)}, 
-                                {nameof(WorkflowStep.StepName)}, 
-                                ""{nameof(WorkflowStep.Order)}"", 
-                                {nameof(WorkflowStep.RequiredRole)}, 
+            var sql = $@"SELECT {nameof(WorkflowStep.Id)},
+                                {nameof(WorkflowStep.WorkflowDefinitionId)},
+                                {nameof(WorkflowStep.StepName)},
+                                ""{nameof(WorkflowStep.Order)}"",
+                                {nameof(WorkflowStep.RequiredRole)},
                                 {nameof(WorkflowStep.ActionType)},
                                 {nameof(WorkflowStep.AllowEdit)},
-                                {nameof(WorkflowStep.RequireSignature)} 
+                                {nameof(WorkflowStep.RequireSignature)},
+                                SYSTEM_PERMISSION_GROUP_IDS AS {nameof(WorkflowStep.SystemPermissionGroupIds)},
+                                UNIT_PERMISSION_GROUP_IDS   AS {nameof(WorkflowStep.UnitPermissionGroupIds)},
+                                REQUIRE_SAME_UNIT           AS {nameof(WorkflowStep.RequireSameUnit)},
+                                ASSIGNEE_ID                 AS {nameof(WorkflowStep.AssigneeId)}
                         FROM WORKFLOWSTEPS WHERE {nameof(WorkflowStep.Id)} = :Id";
             return await _connection.QuerySingleOrDefaultAsync<WorkflowStep>(sql, new { Id = id.ToString() });
         }
