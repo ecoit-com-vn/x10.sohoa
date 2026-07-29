@@ -3,6 +3,7 @@ using EvnHanoi.EquipmentService.Core.Interfaces;
 using EvnHanoi.Infrastructure.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Oracle.ManagedDataAccess.Client;
 
 namespace EvnHanoi.EquipmentService.Controllers;
 
@@ -166,13 +167,53 @@ public class CatalogController : ControllerBase
         if (!isUnitScoped)
             catalog.UnitId = catalog.UnitId.HasValue ? GetUnitIdFromClaims() : null;
 
-        catalog.CreatedBy = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value ?? "system";
+        var username = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value ?? "system";
+        var deletedCatalog = await _catalogRepository.GetDeletedByCodeAsync(
+            catalog.CatalogTypeId,
+            catalog.Code,
+            catalog.UnitId,
+            strictUnitFilter: isUnitScoped);
+        if (deletedCatalog != null)
+        {
+            catalog.Id = deletedCatalog.Id;
+            catalog.CreatedAt = deletedCatalog.CreatedAt;
+            catalog.CreatedBy = deletedCatalog.CreatedBy;
+            catalog.UpdatedBy = username;
+
+            if (await _catalogRepository.RestoreAsync(catalog))
+                return CreatedAtAction(nameof(GetById), new { id = catalog.Id }, catalog);
+
+            var concurrentCatalog = isUnitScoped
+                ? await _catalogRepository.GetByCodeForUnitAsync(catalog.CatalogTypeId, catalog.Code, catalog.UnitId!.Value)
+                : await _catalogRepository.GetByCodeAsync(catalog.CatalogTypeId, catalog.Code);
+            if (concurrentCatalog != null)
+                return CatalogCodeConflict(catalog.Code);
+
+            return Conflict(new { message = "Không thể khôi phục danh mục. Vui lòng thử lại." });
+        }
+
+        catalog.CreatedBy = username;
         catalog.CreatedAt = DateTime.UtcNow;
 
-        var id = await _catalogRepository.CreateAsync(catalog);
-        catalog.Id = id;
-        return CreatedAtAction(nameof(GetById), new { id }, catalog);
+        try
+        {
+            var id = await _catalogRepository.CreateAsync(catalog);
+            catalog.Id = id;
+            return CreatedAtAction(nameof(GetById), new { id }, catalog);
+        }
+        catch (OracleException ex) when (ex.Number == 1)
+        {
+            return CatalogCodeConflict(catalog.Code);
+        }
     }
+
+    private static BadRequestObjectResult CatalogCodeConflict(string code) =>
+        new(new
+        {
+            statusCode = 400,
+            message = "Dữ liệu đầu vào không hợp lệ.",
+            errors = new { code = $"Mã danh mục '{code}' đã tồn tại" }
+        });
 
     /// <summary>Cập nhật danh mục. Body phải có CatalogTypeId (long).</summary>
     [HttpPut("{id:long}")]

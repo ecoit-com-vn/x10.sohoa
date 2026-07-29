@@ -10,6 +10,8 @@ public interface ICatalogRepository
     Task<Catalog?> GetByCodeAsync(long catalogTypeId, string code);
     Task<Catalog?> GetByCodeForUnitAsync(long catalogTypeId, string code, long unitId);
     Task<Catalog?> GetByCodeIncludingDeletedAsync(long catalogTypeId, string code);
+    Task<Catalog?> GetDeletedByCodeAsync(long catalogTypeId, string code, long? unitId = null, bool strictUnitFilter = false);
+    Task<bool> RestoreAsync(Catalog catalog);
     Task<bool> HasChildrenAsync(long id);
     Task<long> CreateAsync(Catalog catalog);
     Task<bool> UpdateAsync(Catalog catalog);
