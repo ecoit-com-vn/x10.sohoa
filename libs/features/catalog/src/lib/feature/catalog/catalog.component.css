@@ -89,6 +89,15 @@
   margin-top: 2px;
 }
 
+.type-item-actions.action-buttons-group {
+  gap: 2px;
+  width: auto;
+}
+
+.type-item-actions.action-buttons-group .act-btn {
+  margin-right: 0 !important;
+}
+
 .catalog-search-bar {
   margin-bottom: 16px;
   padding: 16px;
