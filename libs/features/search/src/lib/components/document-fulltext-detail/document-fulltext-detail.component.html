@@ -8,7 +8,7 @@
 
     <ng-container *ngIf="!loading() && detail()">
       <div class="doc-ft-split">
-        <div class="doc-ft-preview-wrap">
+        <div id="doc-ft-preview-anchor" class="doc-ft-preview-wrap">
           <div class="doc-ft-preview-body">
             <div *ngIf="previewLoading()" class="doc-ft-preview-state">
               <i class="pi pi-spin pi-spinner"></i>
@@ -86,15 +86,15 @@
 
         <div class="tab-bar doc-ft-tabs">
           <button type="button" class="tab-item" [class.tab-active]="dossierTab() === 'info'"
-            (click)="dossierTab.set('info')">
+            (click)="selectDossierTab('info')">
             <i class="pi pi-info-circle"></i> Thông tin chung
           </button>
           <button type="button" class="tab-item" [class.tab-active]="dossierTab() === 'documents'"
-            (click)="dossierTab.set('documents')" [disabled]="!dossierId()">
+            (click)="selectDossierTab('documents')" [disabled]="!dossierId()">
             <i class="pi pi-paperclip"></i> Tài liệu đính kèm
           </button>
           <button type="button" class="tab-item" [class.tab-active]="dossierTab() === 'related'"
-            (click)="dossierTab.set('related')">
+            (click)="selectDossierTab('related')" [disabled]="!dossierId()">
             <i class="pi pi-copy"></i> Hồ sơ liên quan
           </button>
         </div>
@@ -201,12 +201,51 @@
 
           <div *ngIf="dossierTab() === 'documents' && dossierId()">
             <app-dossier-lookup-documents-tab [dossierId]="dossierId()!" apiMode="fulltext"
-              [returnKeyword]="returnKeyword()" />
+              [returnKeyword]="returnKeyword()" [currentVersionId]="versionId()" />
           </div>
 
-          <div *ngIf="dossierTab() === 'related'" class="doc-ft-related-empty">
-            <i class="pi pi-copy"></i>
-            <span>Chưa có hồ sơ liên quan được liên kết.</span>
+          <div *ngIf="dossierTab() === 'related'">
+            <div *ngIf="loadingRelated()" class="doc-ft-inline-loading">
+              <i class="pi pi-spin pi-spinner"></i> Đang tải hồ sơ liên quan...
+            </div>
+            <div *ngIf="!loadingRelated() && relatedDossiers().length === 0" class="doc-ft-related-empty">
+              <i class="pi pi-copy"></i>
+              <span>Không có hồ sơ liên quan (cùng trạm/đường dây) đã xuất bản.</span>
+            </div>
+            <div *ngIf="!loadingRelated() && relatedDossiers().length > 0" class="wf-table-wrap">
+              <table class="wf-table">
+                <thead>
+                  <tr>
+                    <th class="col-stt">STT</th>
+                    <th>Mã hồ sơ</th>
+                    <th>Loại hồ sơ</th>
+                    <th>Trạm / Đường dây</th>
+                    <th>Số lượng tài liệu</th>
+                    <th class="col-action">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let rel of relatedDossiers(); let i = index">
+                    <td class="col-stt text-muted">{{ i + 1 }}</td>
+                    <td>
+                      <a class="wf-name-link" [routerLink]="['/search/dossier/detail', rel['id'] || rel['Id']]"
+                        target="_blank">
+                        {{ relatedDossierCode(rel) }}
+                      </a>
+                    </td>
+                    <td>{{ rel['dossierTypeName'] || rel['DossierTypeName'] || '—' }}</td>
+                    <td>{{ rel['infrastructureName'] || rel['InfrastructureName'] || '—' }}</td>
+                    <td>{{ rel['documentCount'] ?? rel['DocumentCount'] ?? 0 }}</td>
+                    <td class="col-action">
+                      <a class="action-icon-btn" title="Xem hồ sơ"
+                        [routerLink]="['/search/dossier/detail', rel['id'] || rel['Id']]" target="_blank">
+                        <i class="pi pi-eye"></i>
+                      </a>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
         </div>

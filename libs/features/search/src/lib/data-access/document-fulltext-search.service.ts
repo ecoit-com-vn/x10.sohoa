@@ -115,6 +115,25 @@ export class DocumentFulltextSearchService {
     );
   }
 
+  getRelatedDossiers(
+    dossierId: string,
+    filter: { keyword?: string; dossierTypeId?: string; page?: number; pageSize?: number }
+  ): Observable<{ items: unknown[]; totalCount: number; page: number; pageSize: number }> {
+    let params = new HttpParams()
+      .set('page', String(filter.page ?? 1))
+      .set('pageSize', String(filter.pageSize ?? 10));
+    if (filter.keyword?.trim()) {
+      params = params.set('keyword', filter.keyword.trim());
+    }
+    if (filter.dossierTypeId) {
+      params = params.set('dossierTypeId', filter.dossierTypeId);
+    }
+    return this.http.get<{ items: unknown[]; totalCount: number; page: number; pageSize: number }>(
+      `${this.apiBase}/dossiers/${dossierId}/related`,
+      { params }
+    );
+  }
+
   getDocumentFormTemplate(dossierId: string, versionId: string): Observable<unknown> {
     return this.http.get<unknown>(
       `${this.apiBase}/dossiers/${dossierId}/documents/${versionId}/form-template`
