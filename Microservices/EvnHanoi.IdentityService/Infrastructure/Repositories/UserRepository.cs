@@ -513,4 +513,78 @@ public class UserRepository : IUserRepository
         }
         return result;
     }
+
+    public async Task<IEnumerable<UserLookupDto>> GetEligibleAssigneesAsync(
+        List<long> systemGroupIds,
+        List<long> unitGroupIds,
+        long? unitId,
+        string? keyword,
+        int page,
+        int pageSize)
+    {
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+
+        // Hợp nhất hai danh sách nhóm quyền
+        var allGroupIds = systemGroupIds.Union(unitGroupIds).Distinct().ToList();
+
+        // Xây dựng câu truy vấn lấy người dùng thuộc ít nhất 1 nhóm quyền được yêu cầu
+        // Kênh 1: Qua USER_ROLE → ROLE_PERMISSION_GROUP
+        // Kênh 2: Qua USER_UNIT_ROLE → ROLE_PERMISSION_GROUP
+        // Kênh 3: Qua USER_GROUP_MEMBER → USER_GROUP_ROLE → ROLE_PERMISSION_GROUP
+        var sql = @"
+            SELECT DISTINCT u.Id, u.UserName AS Username, u.FullName,
+                            u.OrganizationUnitId, o.Name AS OrganizationUnitName
+            FROM APP_USER u
+            LEFT JOIN ORGANIZATION_UNIT o ON u.OrganizationUnitId = o.Id AND o.IsDeleted = 0
+            WHERE u.IsDeleted = 0
+              AND u.IsActive = 1
+              AND (
+                  -- Kênh 1: gán trực tiếp qua USER_ROLE
+                  EXISTS (
+                      SELECT 1 FROM USER_ROLE ur
+                      INNER JOIN ROLE_PERMISSION_GROUP rpg ON ur.RoleId = rpg.RoleId
+                      WHERE ur.UserId = u.Id AND rpg.PermissionGroupId IN :GroupIds
+                  )
+                  -- Kênh 2: gán qua USER_UNIT_ROLE (vai trò theo đơn vị)
+                  OR EXISTS (
+                      SELECT 1 FROM USER_UNIT_ROLE uur
+                      INNER JOIN ROLE_PERMISSION_GROUP rpg ON uur.RoleId = rpg.RoleId
+                      WHERE uur.UserId = u.Id AND rpg.PermissionGroupId IN :GroupIds
+                  )
+                  -- Kênh 3: gán qua nhóm người dùng
+                  OR EXISTS (
+                      SELECT 1 FROM USER_GROUP_MEMBER ugm
+                      INNER JOIN USER_GROUP_ROLE ugr ON ugm.UserGroupId = ugr.UserGroupId
+                      INNER JOIN ROLE_PERMISSION_GROUP rpg ON ugr.RoleId = rpg.RoleId
+                      WHERE ugm.UserId = u.Id AND rpg.PermissionGroupId IN :GroupIds
+                  )
+              )";
+
+        var parameters = new DynamicParameters();
+        parameters.Add("GroupIds", allGroupIds.Count > 0 ? allGroupIds : new List<long> { -1 });
+
+        // Lọc theo đơn vị nếu RequireSameUnit = true
+        if (unitId.HasValue)
+        {
+            sql += " AND u.OrganizationUnitId = :UnitId";
+            parameters.Add("UnitId", unitId.Value);
+        }
+
+        // Lọc theo từ khóa
+        if (!string.IsNullOrWhiteSpace(keyword))
+        {
+            sql += @" AND (LOWER(u.FullName) LIKE :Keyword OR LOWER(u.UserName) LIKE :Keyword)";
+            parameters.Add("Keyword", $"%{keyword.ToLowerInvariant()}%");
+        }
+
+        sql += " ORDER BY u.FullName ASC";
+
+        // Phân trang thủ công (Oracle 12c+ hỗ trợ OFFSET/FETCH)
+        sql += " OFFSET :Offset ROWS FETCH NEXT :PageSize ROWS ONLY";
+        parameters.Add("Offset", (page - 1) * pageSize);
+        parameters.Add("PageSize", pageSize);
+
+        var result = await _connection.QueryAsync<UserLookupDto>(sql, parameters);
+        return result;
+    }
 }

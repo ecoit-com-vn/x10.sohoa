@@ -57,6 +57,7 @@ public class DocumentListItemDto
     public string Name { get; set; } = string.Empty;
     public Guid? FolderId { get; set; }
     public Guid? DossierId { get; set; }
+    public string? EquipmentName { get; set; }
     public string? CreatedBy { get; set; }
     public string? CreatedByName { get; set; }
     public DateTime CreatedDate { get; set; }

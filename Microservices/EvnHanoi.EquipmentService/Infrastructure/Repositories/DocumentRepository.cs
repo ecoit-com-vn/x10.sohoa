@@ -920,6 +920,7 @@ public class DocumentRepository : IDocumentRepository
                 d.NAME,
                 d.FOLDER_ID AS FolderId,
                 d.DOSSIER_ID AS DossierId,
+                equipment.EquipmentName AS EquipmentName,
                 d.DOCUMENT_TYPE_ID AS DocumentTypeId,
                 dt.NAME AS DocumentTypeName,
                 d.CREATED_BY AS CreatedBy,
@@ -953,6 +954,14 @@ public class DocumentRepository : IDocumentRepository
                 ) mx ON mx.DOCUMENT_ID = dv.DOCUMENT_ID AND mx.MAX_VER = dv.VERSION_NUMBER
                 WHERE dv.IS_DELETED = 0
             ) latest ON latest.DOCUMENT_ID = d.ID
+            LEFT JOIN (
+                SELECT de.DossierId,
+                       LISTAGG(e.NAME, ', ') WITHIN GROUP (ORDER BY e.NAME) AS EquipmentName
+                FROM DOSSIER_EQUIPMENTS de
+                INNER JOIN EQUIPMENTS e ON e.ID = de.EquipmentId
+                    AND e.ISDELETED = 0
+                GROUP BY de.DossierId
+            ) equipment ON equipment.DossierId = d.DOSSIER_ID
             LEFT JOIN (
                 SELECT ID, DOCUMENT_VERSION_ID, PHASE, CURRENT_PAGE, TOTAL_PAGES, PROGRESS, STATUS, PROCESS_OPTION
                 FROM (
@@ -1009,6 +1018,7 @@ public class DocumentRepository : IDocumentRepository
             Name = row.Name,
             FolderId = string.IsNullOrEmpty(row.FolderId) ? null : Guid.Parse(row.FolderId),
             DossierId = string.IsNullOrEmpty(row.DossierId) ? null : Guid.Parse(row.DossierId),
+            EquipmentName = row.EquipmentName,
             CreatedBy = row.CreatedBy,
             CreatedByName = row.CreatedByName,
             CreatedDate = row.CreatedDate,
@@ -1054,6 +1064,7 @@ public class DocumentRepository : IDocumentRepository
         public string Name { get; set; } = string.Empty;
         public string? FolderId { get; set; }
         public string? DossierId { get; set; }
+        public string? EquipmentName { get; set; }
         public string? CreatedBy { get; set; }
         public string? CreatedByName { get; set; }
         public DateTime CreatedDate { get; set; }
