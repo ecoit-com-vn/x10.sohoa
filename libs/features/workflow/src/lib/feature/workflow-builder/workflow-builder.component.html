@@ -1,32 +1,23 @@
 <div class="wf-page">
   <p-toast></p-toast>
-<div class="list-toolbar">
-  <div class="toolbar-left">
-<wf-breadcrumb />
+
+  <!-- Breadcrumb (Isolated above cards) -->
+  <div class="breadcrumb">
+    <i class="pi pi-home bc-icon"></i>
+    <span class="bc-text" (click)="viewMode !== 'list' && onBackToList()" [class.bc-link]="viewMode !== 'list'">Trang chủ</span>
+    <span class="bc-sep">/</span>
+    <span class="bc-text" (click)="viewMode !== 'list' && onBackToList()" [class.bc-link]="viewMode !== 'list'">Cài đặt quy trình</span>
+    <span class="bc-sep" *ngIf="viewMode !== 'list'">/</span>
+    <span class="bc-current" *ngIf="viewMode === 'edit'">{{ isEditMode ? 'Sửa quy trình' : 'Thêm mới' }}</span>
   </div>
-  <div class="toolbar-right">
-<button id="btn-them" class="btn-green" (click)="onAddNew()"
-          *ngIf="authService.hasPermission('WORKFLOW_DEFINITION_CREATE')">
-          <i class="pi pi-plus"></i> Thêm
-        </button>
-        <button id="btn-excel" class="btn-excel" (click)="onExportExcel()">
-          <i class="pi pi-file-excel"></i> Excel
-        </button>
-        <button id="btn-xoa-nhieu" class="btn-outlined btn-xoa-outlined" [disabled]="selectedIds.length === 0"
-          (click)="onDeleteSelected()" *ngIf="authService.hasPermission('WORKFLOW_DEFINITION_DELETE')">
-          <i class="pi pi-trash"></i> Xóa
-        </button>
-  </div>
-</div>
-  
 
   <!-- ══════════════════════════════════════════════════════════
        LOADING OVERLAY
   ══════════════════════════════════════════════════════════ -->
-  <div class="loading-overlay" *ngIf="loading || saving || deleting()">
+  <div class="loading-overlay" *ngIf="loading || saving || deleting">
     <div class="loading-spinner">
       <i class="pi pi-spin pi-spinner"></i>
-      <span>{{ saving ? 'Đang lưu quy trình...' : deleting() ? 'Đang xóa quy trình...' : loadingMsg }}</span>
+      <span>{{ saving ? 'Đang lưu quy trình...' : deleting ? 'Đang xóa quy trình...' : loadingMsg }}</span>
     </div>
   </div>
 
@@ -38,29 +29,42 @@
     <!-- Toolbar -->
     <div class="list-toolbar">
       <div class="toolbar-left">
-        <input id="wf-search" type="text" class="wf-search-input" placeholder="Tìm kiếm theo tên, mô tả..."
-          [(ngModel)]="searchKeyword" (keyup.enter)="loadList()" />
-          <select class="wf-select" [(ngModel)]="filterIsActive" (change)="loadList()">
-        <option value="">-- Tất cả trạng thái --</option>
-        <option value="true">Hoạt động</option>
-        <option value="false">Ngưng hoạt động</option>
-      </select>
+        <input id="wf-search" type="text" class="wf-search-input"
+          placeholder="Tìm kiếm theo tên, mô tả..."
+          [(ngModel)]="searchKeyword"
+          (keyup.enter)="loadList()" />
         <button id="btn-tim" class="btn-tim" (click)="loadList()">
           <i class="pi pi-search"></i> Tìm
         </button>
       </div>
-      <!-- <div class="toolbar-right">
-        <button id="btn-loc" class="btn-outlined" [class.btn-filter-active]="showFilter"
+      <div class="toolbar-right">
+        <button id="btn-loc" class="btn-outlined"
+          [class.btn-filter-active]="showFilter"
           (click)="showFilter = !showFilter">
           <i class="pi pi-filter"></i> Lọc
         </button>
-        
-      </div> -->
+        <button id="btn-them" class="btn-green" (click)="onAddNew()" *ngIf="authService.hasPermission('WORKFLOW_CREATE')">
+          <i class="pi pi-plus"></i> Thêm
+        </button>
+        <button id="btn-excel" class="btn-excel" (click)="onExportExcel()">
+          <i class="pi pi-file-excel"></i> Excel
+        </button>
+        <button id="btn-xoa-nhieu" class="btn-outlined btn-xoa-outlined"
+          [disabled]="selectedIds.length === 0"
+          (click)="promptDeleteSelected()"
+          *ngIf="authService.hasPermission('WORKFLOW_DELETE')">
+          <i class="pi pi-trash"></i> Xóa
+        </button>
+      </div>
     </div>
 
     <!-- Filter row -->
     <div class="filter-row" *ngIf="showFilter">
-      
+      <select class="wf-select" [(ngModel)]="filterIsActive" (change)="loadList()">
+        <option value="">-- Tất cả trạng thái --</option>
+        <option value="true">Đang hoạt động</option>
+        <option value="false">Ngưng hoạt động</option>
+      </select>
       <button class="btn-outlined btn-small" (click)="resetFilter()">
         <i class="pi pi-times"></i> Xóa lọc
       </button>
@@ -78,7 +82,9 @@
         <thead>
           <tr>
             <th class="col-chk">
-              <input type="checkbox" [checked]="isAllSelected()" (change)="toggleSelectAll($event)" />
+              <input type="checkbox"
+                [checked]="isAllSelected()"
+                (change)="toggleSelectAll($event)" />
             </th>
             <th class="col-stt">STT</th>
             <th class="col-loai">Loại quy trình</th>
@@ -97,30 +103,39 @@
             </td>
           </tr>
 
-          <tr *ngFor="let wf of paginatedWorkflows; let i = index" [class.row-selected]="isSelected(wf.id!)">
+          <tr *ngFor="let wf of paginatedWorkflows; let i = index"
+            [class.row-selected]="isSelected(wf.id!)">
             <td class="col-chk">
-              <input type="checkbox" [checked]="isSelected(wf.id!)" (change)="toggleSelect(wf.id!)" />
+              <input type="checkbox"
+                [checked]="isSelected(wf.id!)"
+                (change)="toggleSelect(wf.id!)" />
             </td>
             <td class="col-stt text-muted">{{ (currentPage - 1) * pageSize + i + 1 }}</td>
             <td class="col-loai">
-              <span class="wf-name-link" *ngIf="authService.hasPermission('WORKFLOW_DEFINITION_EDIT')" (click)="onEdit(wf)">{{
-                wf.name }}</span>
-              <span *ngIf="!authService.hasPermission('WORKFLOW_DEFINITION_EDIT')">{{ wf.name }}</span>
+              <span class="wf-name-link" *ngIf="authService.hasPermission('WORKFLOW_EDIT')" (click)="onEdit(wf)">{{ wf.name }}</span>
+              <span *ngIf="!authService.hasPermission('WORKFLOW_EDIT')">{{ wf.name }}</span>
             </td>
             <td class="col-mota">
               <span class="mota-text" [title]="wf.description">{{ truncate(wf.description, 60) || '—' }}</span>
             </td>
             <td class="col-phien">{{ wf.version }}</td>
             <td class="col-tt">
-              <span class="status-pill" [class.status-active]="wf.isActive" [class.status-inactive]="!wf.isActive">
-                {{ wf.isActive ? 'Hoạt động' : 'Ngừng hoạt động' }}
+              <span class="status-pill"
+                [class.status-active]="wf.isActive"
+                [class.status-inactive]="!wf.isActive">
+                <i class="pi pi-clock"></i>
+                {{ wf.isActive ? 'Đang hoạt động' : 'Ngưng hoạt động' }}
               </span>
             </td>
             <td class="col-hd">
-              <div class="action-buttons-group dropdown-actions-container">
-                <button class="act-btn act-more" title="Thao tác khác" (click)="openActionMenu(wf, $event, actionMenu)">
-                  <i class="pi pi-ellipsis-h"></i>
+              <div class="action-buttons-group">
+                <button class="act-btn act-edit" (click)="onEdit(wf)" title="Sửa quy trình" *ngIf="authService.hasPermission('WORKFLOW_EDIT')">
+                  <i class="pi pi-pencil"></i>
                 </button>
+                <button class="act-btn act-delete" (click)="promptDeleteOne(wf)" title="Xóa quy trình" *ngIf="authService.hasPermission('WORKFLOW_DELETE')">
+                  <i class="pi pi-trash"></i>
+                </button>
+                <span *ngIf="!authService.hasPermission('WORKFLOW_EDIT') && !authService.hasPermission('WORKFLOW_DELETE')" class="text-muted">—</span>
               </div>
             </td>
           </tr>
@@ -135,8 +150,6 @@
       </table>
     </div>
 
-    <p-menu #actionMenu [model]="actionMenuItems" [popup]="true" appendTo="body" styleClass="row-action-menu"></p-menu>
-
     <!-- Footer with Pagination -->
     <div class="table-footer" *ngIf="workflows.length > 0 && !loading">
       <span class="record-count">Tổng số: <b>{{ totalCount }}</b> bản ghi.</span>
@@ -148,13 +161,9 @@
         <button class="page-btn" (click)="nextPage()" [disabled]="currentPage >= totalPages">
           <i class="pi pi-chevron-right"></i>
         </button>
-        <span
-          style="margin-left: 10px; display: inline-flex; align-items: center; gap: 5px; font-size: 0.8rem; color: #6b7280;">
+        <span style="margin-left: 10px; display: inline-flex; align-items: center; gap: 5px; font-size: 0.8rem; color: #6b7280;">
           Đi tới trang:
-          <input type="number" class="page-jump-input" [value]="currentPage"
-            (change)="goToPage($any($event.target).value)"
-            style="width: 50px; height: 28px; text-align: center; border: 1px solid #e5e7eb; border-radius: 4px; padding: 0 4px;"
-            [min]="1" [max]="totalPages || 1" />
+          <input type="number" class="page-jump-input" [value]="currentPage" (change)="goToPage($any($event.target).value)" style="width: 50px; height: 28px; text-align: center; border: 1px solid #e5e7eb; border-radius: 4px; padding: 0 4px;" [min]="1" [max]="totalPages || 1" />
         </span>
         <select class="page-size-sel" [ngModel]="pageSize" (change)="onPageSizeChange($event)">
           <option [value]="10">10 / trang</option>
@@ -176,7 +185,9 @@
         <button id="btn-quaylai" class="btn-cancel btn-small" (click)="onBackToList()">
           <i class="pi pi-times"></i> Đóng
         </button>
-        <button id="btn-luu" class="btn-save btn-small" [disabled]="saving" (click)="onSave()">
+        <button id="btn-luu" class="btn-save btn-small"
+          [disabled]="saving"
+          (click)="onSave()">
           <i class="pi pi-spin pi-spinner" *ngIf="saving" style="margin-right: 4px;"></i>
           <i class="pi pi-save" *ngIf="!saving" style="margin-right: 4px;"></i>
           {{ saving ? 'Đang lưu...' : 'Lưu' }}
@@ -186,17 +197,15 @@
 
     <!-- Tabs -->
     <div class="tab-bar">
-      <button class="tab-item" id="tab-general" [class.tab-active]="activeTab === 'general'"
+      <button class="tab-item" id="tab-general"
+        [class.tab-active]="activeTab === 'general'"
         (click)="selectTab('general')">
         Thông tin quy trình
       </button>
-      <button class="tab-item" id="tab-design" [class.tab-active]="activeTab === 'design'"
+      <button class="tab-item" id="tab-design"
+        [class.tab-active]="activeTab === 'design'"
         (click)="selectTab('design')">
         Thiết kế quy trình
-      </button>
-      <button class="tab-item" id="tab-history" *ngIf="isEditMode" [class.tab-active]="activeTab === 'history'"
-        (click)="selectTab('history')">
-        Lịch sử phiên bản
       </button>
     </div>
 
@@ -205,14 +214,11 @@
       <div class="form-grid-3">
         <div class="form-group">
           <label class="form-label">Loại quy trình <span class="required">*</span></label>
-          <select *ngIf="!isEditMode" class="wf-select w-full" [(ngModel)]="draft.workflowTypeId" id="sel-loai">
-            <option [ngValue]="null" disabled>-- Chọn loại quy trình --</option>
-            <option *ngFor="let opt of loaiOptions" [ngValue]="opt.id">{{ opt.name }}</option>
+          <select class="wf-select w-full" [(ngModel)]="draft.name" id="sel-loai">
+            <option value="" disabled>-- Chọn loại quy trình --</option>
+            <option *ngFor="let opt of loaiOptions" [value]="opt">{{ opt }}</option>
           </select>
-          <select *ngIf="isEditMode" class="wf-select w-full" [ngModel]="draft.workflowTypeId" id="sel-loai" disabled>
-            <option [ngValue]="draft.workflowTypeId">{{ workflowTypeLabel }}</option>
-          </select>
-          <div class="field-error" *ngIf="formSubmitted && !draft.workflowTypeId">
+          <div class="field-error" *ngIf="formSubmitted && !draft.name">
             Vui lòng chọn loại quy trình.
           </div>
         </div>
@@ -225,143 +231,41 @@
         </div>
         <div class="form-group">
           <label class="form-label">Phiên bản</label>
-          <input id="inp-phienban" type="text" class="wf-input w-full phienban-input" [(ngModel)]="draft.version"
+          <input id="inp-phienban" type="text" class="wf-input w-full phienban-input"
+            [(ngModel)]="draft.version"
             placeholder="1.0" />
         </div>
       </div>
 
       <div class="epbuoc-box">
         <label class="epbuoc-wrap" for="chk-epbuoc">
-          <input type="checkbox" id="chk-epbuoc" class="epbuoc-cb" [(ngModel)]="draft.forceActivate" />
+          <input type="checkbox" id="chk-epbuoc" class="epbuoc-cb"
+            [(ngModel)]="draft.forceActivate" />
           <span class="epbuoc-label">Ép buộc kích hoạt</span>
         </label>
         <div class="epbuoc-note">
-          Nếu chọn, các quy trình cũ cùng loại sẽ bị xóa tự động.
+          Nếu chọn, các quy trình cũ cùng loại sẽ bị vô hiệu hóa tự động.
         </div>
       </div>
 
       <div class="form-group mt-4">
         <label class="form-label">Mô tả</label>
-        <textarea id="ta-mota" class="wf-textarea" rows="5" placeholder="Nhập mô tả quy trình (tối đa 500 ký tự)"
-          [(ngModel)]="draft.description" maxlength="500">
+        <textarea id="ta-mota" class="wf-textarea" rows="5"
+          placeholder="Nhập mô tả quy trình (tối đa 500 ký tự)"
+          [(ngModel)]="draft.description"
+          maxlength="500">
         </textarea>
         <div class="char-count">{{ draft.description.length || 0 }} / 500</div>
-      </div>
-
-      <!-- Audit info (Edit mode only) -->
-      <div class="audit-info-grid" *ngIf="isEditMode"
-        style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; padding: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 0.8rem; color: #4b5563;">
-        <div>
-          <span style="font-weight: 600;">Người tạo:</span>
-          <span [title]="draft.createdByUsername ? 'Tên đăng nhập: ' + draft.createdByUsername : ''">
-            {{ draft.createdByFullName || draft.createdByUsername || draft.createdBy || 'Hệ thống' }}
-          </span>
-          <span style="margin-left: 8px; font-weight: 600;">Ngày tạo:</span> {{ draft.createdAt | date:'dd/MM/yyyy
-          HH:mm' }}
-        </div>
-        <div>
-          <span style="font-weight: 600;">Người cập nhật:</span>
-          <span [title]="draft.updatedByUsername ? 'Tên đăng nhập: ' + draft.updatedByUsername : ''">
-            {{ draft.updatedByFullName || draft.updatedByUsername || draft.updatedBy || 'Hệ thống' }}
-          </span>
-          <span style="margin-left: 8px; font-weight: 600;">Ngày cập nhật:</span> {{ draft.updatedAt | date:'dd/MM/yyyy
-          HH:mm' }}
-        </div>
       </div>
     </div>
 
     <!-- ── TAB 2: THIẾT KẾ QUY TRÌNH (BPMN) ──────────────── -->
     <div [hidden]="activeTab !== 'design'" class="tab-content bpmn-section">
-      <div class="bpmn-workspace">
-        <!-- Canvas container for Bpmn.io Modeler -->
-        <div id="canvas" class="bpmn-canvas"></div>
-
-        <!-- Properties panel -->
-        <div class="prop-panel" *ngIf="selectedElementProps">
-          <div class="prop-header">
-            <span>Thuộc tính phần tử</span>
-            <button class="prop-close" (click)="selectedBpmnElement = null; selectedElementProps = null">
-              <i class="pi pi-times"></i>
-            </button>
-          </div>
-          <div class="prop-body">
-            <div class="prop-row">
-              <label>{{ selectedElementProps.type === 'bpmn:SequenceFlow' ? 'Nhãn đường đi' : 'Tên phần tử' }}</label>
-              <input type="text" class="prop-input" [value]="selectedElementProps.name"
-                (input)="updateElementProperty('name', $event)" placeholder="Ví dụ: Đồng ý, Từ chối,..." />
-            </div>
-
-            <!-- Task / UserTask Specific -->
-            <div class="prop-row"
-              *ngIf="selectedElementProps.type === 'bpmn:Task' || selectedElementProps.type === 'bpmn:UserTask'">
-              <label>Thứ tự bước</label>
-              <input type="number" class="prop-input" [value]="selectedElementProps.stepNum"
-                (input)="updateElementProperty('stepNum', $event)" min="1" />
-            </div>
-            <div class="prop-row"
-              *ngIf="selectedElementProps.type === 'bpmn:Task' || selectedElementProps.type === 'bpmn:UserTask'">
-              <label>Vai trò phụ trách</label>
-              <div class="role-checkbox-list">
-                <label *ngFor="let role of rolesList" class="role-checkbox-item">
-                  <input type="checkbox" [checked]="isRoleSelected(role.code)"
-                    (change)="toggleRoleSelection(role.code, $event)" />
-                  <span>{{ role.name }}</span>
-                </label>
-                <div *ngIf="rolesList.length === 0" class="no-roles-text">Không có vai trò nào.</div>
-              </div>
-            </div>
-            <div class="prop-row"
-              *ngIf="selectedElementProps.type === 'bpmn:Task' || selectedElementProps.type === 'bpmn:UserTask'">
-              <label>Loại hành động</label>
-              <select class="prop-select" [value]="selectedElementProps.actionType"
-                (change)="updateElementProperty('actionType', $event)">
-                <option value="Scan">Quét tài liệu</option>
-                <option value="DataEntry">Nhập liệu</option>
-                <option value="Review">Kiểm soát</option>
-                <option value="Approve">Phê duyệt</option>
-                <option value="AiAssist">AI hỗ trợ</option>
-              </select>
-            </div>
-
-            <div class="prop-row"
-              *ngIf="selectedElementProps.type === 'bpmn:Task' || selectedElementProps.type === 'bpmn:UserTask'">
-              <label>Cấu hình bổ sung</label>
-              <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
-                <label class="role-checkbox-item" style="cursor: pointer;">
-                  <input type="checkbox" [checked]="selectedElementProps.allowEdit"
-                    (change)="updateElementCheckboxProperty('allowEdit', $event)" />
-                  <span>Cho phép sửa</span>
-                </label>
-                <label class="role-checkbox-item" style="cursor: pointer;">
-                  <input type="checkbox" [checked]="selectedElementProps.requireSignature"
-                    (change)="updateElementCheckboxProperty('requireSignature', $event)" />
-                  <span>Ký số</span>
-                </label>
-              </div>
-            </div>
-
-            <!-- SequenceFlow Condition Specific -->
-            <div class="prop-row" *ngIf="selectedElementProps.type === 'bpmn:SequenceFlow'">
-              <label>Điều kiện chuyển tiếp</label>
-              <input type="text" class="prop-input" [value]="selectedElementProps.condition"
-                (input)="updateElementProperty('condition', $event)" placeholder="Ví dụ: status == 'Approve'" />
-              <div class="prop-help-text">Đặt điều kiện khi đi ra từ Gateway phân nhánh.</div>
-            </div>
-
-            <!-- Gateway Selection Hint -->
-            <div class="prop-help-box" *ngIf="selectedElementProps.type.includes('Gateway')">
-              <i class="pi pi-info-circle"></i>
-              <span>Hãy chọn các <b>đường mũi tên đi ra</b> từ Gateway này để cấu hình điều kiện chuyển tiếp cho từng
-                nhánh.</span>
-            </div>
-
-            <div class="prop-type-row">
-              <span class="prop-type-badge prop-type-task">
-                {{ selectedElementProps.type }}
-              </span>
-            </div>
-          </div>
-        </div>
+      <!-- Layout ngang: canvas bên trái, panel cấu hình bên phải -->
+      <div class="bpmn-designer-layout">
+      <!-- Vùng Canvas BPMN -->
+      <div class="bpmn-canvas-area">
+        <div #bpmnCanvasRef id="canvas" class="bpmn-canvas"></div>
 
         <!-- Controls overlay -->
         <div class="canvas-controls">
@@ -376,184 +280,151 @@
           </button>
         </div>
       </div>
-    </div>
 
-    <!-- ── TAB 3: LỊCH SỬ PHIÊN BẢN ──────────────────────── -->
-    <div [hidden]="activeTab !== 'history'" class="tab-content">
-      <div class="loading-history-spinner" *ngIf="loadingHistory"
-        style="text-align: center; padding: 30px; color: #4b5563;">
-        <i class="pi pi-spin pi-spinner" style="font-size: 2rem; margin-bottom: 8px;"></i>
-        <div>Đang tải lịch sử phiên bản...</div>
+      <!-- Panel cấu hình bước — đặt bên phải canvas -->
+      <div class="bpmn-config-panel" *ngIf="selectedElementProps">
+        <div class="config-panel-header">
+          <span class="config-panel-title">
+            <i class="pi pi-cog"></i>
+            Cấu hình: <b>{{ selectedElementProps.name || selectedElementProps.id }}</b>
+            <span class="prop-type-badge">{{ selectedElementProps.type }}</span>
+          </span>
+          <button class="prop-close" (click)="selectedBpmnElement = null; selectedElementProps = null">
+            <i class="pi pi-times"></i>
+          </button>
+        </div>
+
+        <div class="config-panel-body">
+          <!-- Hàng 1: Tên và thứ tự -->
+          <div class="config-row">
+            <div class="config-field">
+              <label>{{ selectedElementProps.type === 'bpmn:SequenceFlow' ? 'Nhãn đường đi' : 'Tên bước' }}</label>
+              <input type="text" class="prop-input" [value]="selectedElementProps.name"
+                     (input)="updateElementProperty('name', $event)" placeholder="Ví dụ: Phê duyệt lần 1..." />
+            </div>
+            <div class="config-field config-field-sm"
+                 *ngIf="selectedElementProps.type === 'bpmn:Task' || selectedElementProps.type === 'bpmn:UserTask'">
+              <label>Thứ tự bước</label>
+              <input type="number" class="prop-input" [value]="selectedElementProps.stepNum"
+                     (input)="updateElementProperty('stepNum', $event)" min="1" />
+            </div>
+            <div class="config-field config-field-sm"
+                 *ngIf="selectedElementProps.type === 'bpmn:Task' || selectedElementProps.type === 'bpmn:UserTask'">
+              <label>Loại hành động</label>
+              <select class="prop-select" [value]="selectedElementProps.actionType"
+                      (change)="updateElementProperty('actionType', $event)">
+                <option value="Scan">Quét tài liệu</option>
+                <option value="DataEntry">Nhập liệu</option>
+                <option value="Review">Kiểm soát</option>
+                <option value="Approve">Phê duyệt</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Hàng 2: Nhóm quyền (chỉ hiện với Task/UserTask) -->
+          <ng-container *ngIf="selectedElementProps.type === 'bpmn:Task' || selectedElementProps.type === 'bpmn:UserTask'">
+            <div class="config-row config-row-groups">
+              <!-- Cột nhóm quyền hệ thống -->
+              <div class="config-field config-field-group">
+                <label><i class="pi pi-shield"></i> Nhóm quyền hệ thống</label>
+                <div class="group-checkbox-list">
+                  <label *ngFor="let g of systemGroupList" class="group-checkbox-item">
+                    <input type="checkbox"
+                           [checked]="isSystemGroupSelected(g.id)"
+                           (change)="toggleSystemGroup(g.id, $event)" />
+                    <span>{{ g.name }}</span>
+                  </label>
+                  <div *ngIf="systemGroupList.length === 0" class="no-groups-text">Không có dữ liệu.</div>
+                </div>
+              </div>
+
+              <!-- Cột nhóm quyền đơn vị -->
+              <div class="config-field config-field-group">
+                <label><i class="pi pi-building"></i> Nhóm quyền đơn vị</label>
+                <div class="group-checkbox-list">
+                  <label *ngFor="let g of unitGroupList" class="group-checkbox-item">
+                    <input type="checkbox"
+                           [checked]="isUnitGroupSelected(g.id)"
+                           (change)="toggleUnitGroup(g.id, $event)" />
+                    <span>{{ g.name }}</span>
+                  </label>
+                  <div *ngIf="unitGroupList.length === 0" class="no-groups-text">Không có dữ liệu.</div>
+                </div>
+              </div>
+
+              <!-- Cột điều kiện & giao việc đích danh -->
+              <div class="config-field config-field-options">
+                <!-- Checkbox: Cùng đơn vị -->
+                <div class="same-unit-check">
+                  <label class="check-label">
+                    <input type="checkbox"
+                           [checked]="selectedElementProps.requireSameUnit"
+                           (change)="updateElementProperty('requireSameUnit', $event)" />
+                    <span>Chỉ người xử lý <b>cùng đơn vị</b></span>
+                  </label>
+                  <div class="check-hint">Khi chuyển bước, chỉ hiển thị người thuộc cùng đơn vị với người đang xử lý.</div>
+                </div>
+
+                <!-- Autocomplete: Giao việc đích danh -->
+                <div class="assignee-field">
+                  <label><i class="pi pi-user"></i> Giao việc đích danh <span class="optional-badge">Tuỳ chọn</span></label>
+                  <div class="assignee-input-wrapper">
+                    <input type="text" class="prop-input"
+                           placeholder="Nhập tên hoặc tài khoản để tìm..."
+                           [value]="selectedElementProps.assigneeSearch || ''"
+                           (input)="onUserSearchInput($any($event.target).value)"
+                           autocomplete="off" />
+                    <button *ngIf="selectedElementProps.assigneeId" class="clear-assignee-btn"
+                            (click)="clearAssignee()" title="Xoá người được giao">
+                      <i class="pi pi-times-circle"></i>
+                    </button>
+                  </div>
+                  <!-- Dropdown kết quả tìm kiếm -->
+                  <div class="user-dropdown" *ngIf="userSearchResults.length > 0">
+                    <div *ngFor="let u of userSearchResults" class="user-option"
+                         (click)="selectAssignee(u)">
+                      <i class="pi pi-user"></i>
+                      <span class="user-fullname">{{ u.fullName }}</span>
+                      <span class="user-username">{{ u.username }}</span>
+                    </div>
+                  </div>
+                  <div class="loading-hint" *ngIf="userSearchLoading">Đang tìm kiếm...</div>
+                  <!-- Hiển thị người đã chọn -->
+                  <div class="assigned-user-badge" *ngIf="selectedElementProps.assigneeId && !userSearchLoading">
+                    <i class="pi pi-user-check"></i>
+                    <span>{{ selectedElementProps.assigneeName }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </ng-container>
+
+          <!-- SequenceFlow: Điều kiện chuyển tiếp -->
+          <div class="config-row" *ngIf="selectedElementProps.type === 'bpmn:SequenceFlow'">
+            <div class="config-field">
+              <label>Điều kiện chuyển tiếp</label>
+              <input type="text" class="prop-input" [value]="selectedElementProps.condition"
+                     (input)="updateElementProperty('condition', $event)"
+                     placeholder="Ví dụ: status == 'Approve'" />
+              <div class="prop-help-text">Đặt điều kiện khi đi ra từ Gateway phân nhánh.</div>
+            </div>
+          </div>
+
+          <!-- Gateway hint -->
+          <div class="prop-help-box" *ngIf="selectedElementProps.type.includes('Gateway')">
+            <i class="pi pi-info-circle"></i>
+            <span>Hãy chọn các <b>đường mũi tên đi ra</b> từ Gateway này để cấu hình điều kiện chuyển tiếp cho từng nhánh.</span>
+          </div>
+        </div>
       </div>
 
-      <div class="wf-table-wrap" *ngIf="!loadingHistory">
-        <table class="wf-table">
-          <thead>
-            <tr>
-              <th class="col-stt" style="width: 60px;">STT</th>
-              <th class="col-phien" style="width: 100px;">Phiên bản</th>
-              <th class="col-mota">Mô tả</th>
-              <th style="width: 150px;">Trạng thái</th>
-              <th>Người tạo</th>
-              <th>Ngày tạo</th>
-              <th>Người cập nhật</th>
-              <th>Ngày cập nhật</th>
-              <th style="width: 120px;">Hành động</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let ver of versionsList; let idx = index">
-              <td class="text-muted">{{ idx + 1 }}</td>
-              <td>
-                <span style="font-weight: 600; color: #3b82f6;">{{ ver.version }}</span>
-              </td>
-              <td>
-                <span class="mota-text" [title]="ver.description">{{ ver.description || '—' }}</span>
-              </td>
-              <td>
-                <span class="status-pill" [class.status-active]="ver.isActive" [class.status-inactive]="!ver.isActive">
-                  {{ ver.isActive ? 'Đang hoạt động' : 'Ngưng hoạt động' }}
-                </span>
-              </td>
-              <td>
-                <span [title]="ver.createdByUsername ? 'Tên đăng nhập: ' + ver.createdByUsername : ''">
-                  {{ ver.createdByFullName || ver.createdByUsername || ver.createdBy || 'Hệ thống' }}
-                </span>
-              </td>
-              <td class="text-muted">{{ ver.createdAt | date:'dd/MM/yyyy HH:mm' }}</td>
-              <td>
-                <span [title]="ver.updatedByUsername ? 'Tên đăng nhập: ' + ver.updatedByUsername : ''">
-                  {{ ver.updatedByFullName || ver.updatedByUsername || ver.updatedBy || 'Hệ thống' }}
-                </span>
-              </td>
-              <td class="text-muted">{{ ver.updatedAt | date:'dd/MM/yyyy HH:mm' }}</td>
-              <td>
-                <div class="action-buttons-group">
-                  <button class="act-btn act-edit" (click)="onPreviewVersion(ver)" title="Xem sơ đồ quy trình">
-                    <i class="pi pi-eye"></i>
-                  </button>
-                  <button *ngIf="authService.hasPermission('WORKFLOW_DEFINITION_EDIT') && !ver.isActive" class="act-btn act-unlock"
-                    (click)="onReactivateVersion(ver)" title="Tái kích hoạt phiên bản">
-                    <i class="pi pi-check-circle color-green"></i>
-                  </button>
-                </div>
-              </td>
-            </tr>
-
-            <tr *ngIf="versionsList.length === 0">
-              <td colspan="8" class="empty-row" style="text-align: center; padding: 24px; color: #9ca3af;">
-                <i class="pi pi-inbox" style="font-size: 2rem; margin-bottom: 8px;"></i>
-                <div>Không tìm thấy phiên bản nào khác.</div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+      <!-- Gợi ý khi chưa chọn phần tử -->
+      <div class="config-panel-empty" *ngIf="!selectedElementProps">
+        <i class="pi pi-mouse-pointer"></i>
+        <span>Nhấp đúp vào một Task/UserTask trong sơ đồ để cấu hình bước xử lý</span>
+      </div>
       </div>
     </div>
 
   </div>
-  <p-dialog header="Xem sơ đồ quy trình phiên bản {{ previewVersion }}" [(visible)]="displayPreviewDialog"
-    [modal]="true" [style]="{width: '80vw', height: '80vh'}" styleClass="evn-dialog-no-modal"
-    (onHide)="onClosePreviewDialog()">
-    <div *ngIf="previewLoading" class="loading-history-spinner"
-      style="text-align: center; padding: 40px; color: #4b5563;">
-      <i class="pi pi-spin pi-spinner" style="font-size: 2rem; margin-bottom: 8px;"></i>
-      <div>Đang tải sơ đồ quy trình...</div>
-    </div>
-    <div class="bpmn-preview-workspace" *ngIf="!previewLoading"
-      style="position: relative; width: 100%; height: calc(100% - 10px);">
-      <div id="preview-canvas" style="width: 100%; height: 100%; border: 1px solid #e2e8f0; border-radius: 6px;"></div>
-    </div>
-  </p-dialog>
-  <!-- Dialog Xác nhận Xóa -->
-  <p-dialog [visible]="showDeleteConfirm()" (visibleChange)="$event ? null : onCancelDelete()" header="Xác nhận xóa"
-    [modal]="true" [style]="{ width: '420px' }" styleClass="evn-dialog-custom" appendTo="body" [closable]="!deleting()">
-    <div style="padding: 8px 0 16px 0; display: flex; align-items: flex-start; gap: 12px;">
-      <i class="pi pi-exclamation-triangle"
-        style="font-size: 1.8rem; color: #f59e0b; margin-top: 2px; flex-shrink: 0;"></i>
-      <div>
-        <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b; font-size: 0.95rem;">Bạn có chắc chắn muốn xóa?
-        </p>
-        <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
-          Quy trình <b style="color: #1e293b;">{{ deleteTarget()?.name }}</b> sẽ bị xóa khỏi hệ thống.
-        </p>
-      </div>
-    </div>
-    <ng-template #footer>
-      <div
-        style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
-        <button class="btn-cancel btn-small" (click)="onCancelDelete()" [disabled]="deleting()">
-          <i class="pi pi-times"></i> Hủy
-        </button>
-        <button class="btn-save btn-small" (click)="onConfirmDelete()" [disabled]="deleting()"
-          style="background-color: #dc2626; border-color: #dc2626;">
-          <i class="pi pi-spin pi-spinner" *ngIf="deleting()" style="margin-right: 4px;"></i>
-          <i class="pi pi-trash" *ngIf="!deleting()" style="margin-right: 4px;"></i>
-          Xóa
-        </button>
-      </div>
-    </ng-template>
-  </p-dialog>
-
-  <!-- Dialog Xác nhận Xóa Nhiều -->
-  <p-dialog [visible]="showDeleteSelectedConfirm()" (visibleChange)="$event ? null : onCancelDeleteSelected()"
-    header="Xác nhận xóa nhiều" [modal]="true" [style]="{ width: '420px' }" styleClass="evn-dialog-custom"
-    appendTo="body" [closable]="!deleting()">
-    <div style="padding: 8px 0 16px 0; display: flex; align-items: flex-start; gap: 12px;">
-      <i class="pi pi-exclamation-triangle"
-        style="font-size: 1.8rem; color: #f59e0b; margin-top: 2px; flex-shrink: 0;"></i>
-      <div>
-        <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b; font-size: 0.95rem;">Bạn có chắc chắn muốn xóa?
-        </p>
-        <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
-          <b style="color: #1e293b;">{{ selectedIds.length }}</b> quy trình đã chọn sẽ bị xóa khỏi hệ thống.
-        </p>
-      </div>
-    </div>
-    <ng-template #footer>
-      <div
-        style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
-        <button class="btn-cancel btn-small" (click)="onCancelDeleteSelected()" [disabled]="deleting()">
-          <i class="pi pi-times"></i> Hủy
-        </button>
-        <button class="btn-save btn-small" (click)="onConfirmDeleteSelected()" [disabled]="deleting()"
-          style="background-color: #dc2626; border-color: #dc2626;">
-          <i class="pi pi-spin pi-spinner" *ngIf="deleting()" style="margin-right: 4px;"></i>
-          <i class="pi pi-trash" *ngIf="!deleting()" style="margin-right: 4px;"></i>
-          Xóa
-        </button>
-      </div>
-    </ng-template>
-  </p-dialog>
-
-  <!-- Dialog Xác nhận Tái kích hoạt -->
-  <p-dialog [visible]="showReactivateConfirm()" (visibleChange)="$event ? null : onCancelReactivate()"
-    header="Xác nhận tái kích hoạt" [modal]="true" [style]="{ width: '420px' }" styleClass="evn-dialog-custom"
-    appendTo="body" [closable]="!reactivating()">
-    <div style="padding: 8px 0 16px 0; display: flex; align-items: flex-start; gap: 12px;">
-      <i class="pi pi-exclamation-triangle"
-        style="font-size: 1.8rem; color: #f59e0b; margin-top: 2px; flex-shrink: 0;"></i>
-      <div>
-        <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b; font-size: 0.95rem;">Bạn có chắc chắn muốn tái
-          kích hoạt?</p>
-        <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
-          Phiên bản <b style="color: #1e293b;">{{ reactivateTarget()?.version }}</b> sẽ được kích hoạt lại.
-          Phiên bản đang hoạt động hiện tại sẽ chuyển sang ngừng hoạt động.
-        </p>
-      </div>
-    </div>
-    <ng-template #footer>
-      <div
-        style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
-        <button class="btn-cancel btn-small" (click)="onCancelReactivate()" [disabled]="reactivating()">
-          <i class="pi pi-times"></i> Hủy
-        </button>
-        <button class="btn-save btn-small" (click)="onConfirmReactivate()" [disabled]="reactivating()">
-          <i class="pi pi-spin pi-spinner" *ngIf="reactivating()" style="margin-right: 4px;"></i>
-          <i class="pi pi-check" *ngIf="!reactivating()" style="margin-right: 4px;"></i>
-          Đồng ý
-        </button>
-      </div>
-    </ng-template>
-  </p-dialog>
-</div>
+</div>

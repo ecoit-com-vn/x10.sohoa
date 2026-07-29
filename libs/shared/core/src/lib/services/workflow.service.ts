@@ -12,9 +12,15 @@ export interface WorkflowStep {
   stepName: string;
   order: number;
   requiredRole: string;
-  actionType: string; // 'Scan' | 'DataEntry' | 'Approve' | 'Review' | 'AiAssist'
-  allowEdit?: boolean;
-  requireSignature?: boolean;
+  actionType: string; // 'Scan' | 'DataEntry' | 'Approve' | 'Review'
+  /** Danh sách ID nhóm quyền hệ thống (CSV) */
+  systemPermissionGroupIds?: string;
+  /** Danh sách ID nhóm quyền đơn vị (CSV) */
+  unitPermissionGroupIds?: string;
+  /** Bắt buộc cùng đơn vị với người chuyển bước */
+  requireSameUnit?: boolean;
+  /** ID người dùng được giao việc đích danh */
+  assigneeId?: string;
 }
 
 export interface WorkflowDefinition {
@@ -155,6 +161,17 @@ export class WorkflowService {
   getInstanceByEntity(entityId: string, workflowTypeId: number = 2): Observable<any> {
     const params = new HttpParams().set('workflowTypeId', workflowTypeId.toString());
     return this.http.get<any>(`${this.EXEC_BASE}/get-workflow-by-entity/${entityId}`, { params })
+      .pipe(catchError(this.handleError));
+  }
+
+  /** Lấy danh sách người dùng đủ điều kiện nhận bàn giao/chuyển xử lý */
+  getEligibleAssignees(systemGroupIds?: string, unitGroupIds?: string, unitId?: number | string, keyword?: string): Observable<any[]> {
+    let params = new HttpParams();
+    if (systemGroupIds) params = params.set('systemGroupIds', systemGroupIds);
+    if (unitGroupIds)   params = params.set('unitGroupIds', unitGroupIds);
+    if (unitId)          params = params.set('unitId', unitId.toString());
+    if (keyword)         params = params.set('keyword', keyword);
+    return this.http.get<any[]>(`${this.config.apiGatewayUrl}/api/v1/users/eligible-assignees`, { params })
       .pipe(catchError(this.handleError));
   }
 
