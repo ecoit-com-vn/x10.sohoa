@@ -922,6 +922,41 @@
   </ng-template>
 </p-dialog>
 
+<!-- Delete Version Confirmation Dialog -->
+<p-dialog
+  [visible]="showDeleteVersionConfirm()"
+  (visibleChange)="$event ? null : onCancelDeleteVersion()"
+  header="Xác nhận xóa"
+  [modal]="true"
+  [style]="{ width: '420px' }"
+  styleClass="evn-dialog-custom"
+  [closable]="!deletingVersion()"
+>
+  <div style="display: flex; align-items: flex-start; gap: 12px; padding: 8px 0 16px;">
+    <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #f59e0b;"></i>
+    <div>
+      <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">
+        Bạn có chắc chắn muốn xóa?
+      </p>
+      <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
+        Phiên bản <b style="color: #1e293b;">v{{ deleteTargetVersion()?.versionNumber }}</b> sẽ bị xóa vĩnh viễn.
+      </p>
+    </div>
+  </div>
+  <ng-template #footer>
+    <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+      <button class="btn-cancel btn-small" (click)="onCancelDeleteVersion()" [disabled]="deletingVersion()">
+        <i class="pi pi-times"></i> Hủy
+      </button>
+      <button class="btn-save btn-small" (click)="onConfirmDeleteVersion()" [disabled]="deletingVersion()" style="background-color: #dc2626; border-color: #dc2626;">
+        <i class="pi pi-spin pi-spinner" *ngIf="deletingVersion()"></i>
+        <i class="pi pi-trash" *ngIf="!deletingVersion()"></i>
+        Xóa
+      </button>
+    </div>
+  </ng-template>
+</p-dialog>
+
 <!-- Preview Document Dialog -->
 <p-dialog
   [header]="'Xem trước: ' + previewTitle()"
