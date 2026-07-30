@@ -141,10 +141,36 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
             </div>
           </div>
 
-          <select class="wf-select" [ngModel]="filterEquipmentId()" (ngModelChange)="onEquipmentFilterChange($event)" [disabled]="!filterInfrastructureId()">
-            <option [ngValue]="null">-- Tất cả thiết bị --</option>
-            <option *ngFor="let item of equipments()" [value]="item.id">{{ item.name }}</option>
-          </select>
+          <div class="searchable-select">
+            <button
+              type="button"
+              class="wf-select searchable-select-trigger"
+              [disabled]="!filterInfrastructureId()"
+              (click)="toggleEquipmentDropdown()">
+              <span>{{ selectedEquipmentLabel() }}</span>
+              <i class="pi pi-chevron-down"></i>
+            </button>
+
+            <div class="searchable-select-panel" *ngIf="isEquipmentDropdownOpen()">
+              <input
+                type="text"
+                class="searchable-select-input"
+                placeholder="Tìm theo mã, tên thiết bị..."
+                [ngModel]="equipmentSearchKeyword()"
+                (ngModelChange)="equipmentSearchKeyword.set($event)" />
+              <button type="button" class="searchable-select-option" (click)="selectEquipment(null)">
+                -- Tất cả thiết bị --
+              </button>
+              <button
+                type="button"
+                class="searchable-select-option"
+                *ngFor="let item of filteredEquipments()"
+                (click)="selectEquipment(item.id)">
+                {{ item.name }}
+              </button>
+              <div class="searchable-select-empty" *ngIf="filteredEquipments().length === 0">Không có dữ liệu</div>
+            </div>
+          </div>
 
           <button (click)="onSearch()" class="btn-tim">
 
@@ -494,7 +520,7 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
         </div>
       </div>
       <ng-template #footer>
-        <button class="btn-small" style="background-color: #fb923c; border-color: #fb923c; color: #ffffff;"
+        <button class="btn-cancel btn-small"
                 (click)="closeQuickActionDialog()" [disabled]="quickActionSubmitting()">
           <i class="pi pi-times"></i> Hủy
         </button>
@@ -776,6 +802,10 @@ export class DossierListComponent implements OnInit {
 
   isInfrastructureDropdownOpen = signal<boolean>(false);
 
+  equipmentSearchKeyword = signal<string>('');
+
+  isEquipmentDropdownOpen = signal<boolean>(false);
+
 
 
   infrastructures = signal<any[]>([]);
@@ -790,6 +820,16 @@ export class DossierListComponent implements OnInit {
     return this.infrastructures().filter((item) =>
       String(item.name ?? '').toLocaleLowerCase().includes(keyword)
     );
+  });
+
+  filteredEquipments = computed(() => {
+    const keyword = this.equipmentSearchKeyword().trim().toLocaleLowerCase();
+    if (!keyword) return this.equipments();
+    return this.equipments().filter((item) => {
+      const name = String(item.name ?? '').toLocaleLowerCase();
+      const code = String(item.code ?? '').toLocaleLowerCase();
+      return name.includes(keyword) || code.includes(keyword);
+    });
   });
 
   bhsColumns = signal<BhsCatalogColumn[]>([]);
@@ -834,7 +874,13 @@ export class DossierListComponent implements OnInit {
     targetNodeId: string;
     requiresUser: boolean;
     requiredRole: string;
+    unitGroupIds?: string | null;
+    systemGroupIds?: string | null;
+    requireSameUnit?: boolean;
+    staticAssigneeId?: string | null;
   } | null>(null);
+  eligibleQuickActionUsers = signal<any[]>([]);
+  loadingEligibleQuickActionUsers = signal<boolean>(false);
   users = signal<any[]>([]);
   showQuickCompleteConfirm = signal<boolean>(false);
   showQuickSubmitConfirm = signal<boolean>(false);
@@ -872,9 +918,31 @@ export class DossierListComponent implements OnInit {
       });
   }
 
-  filteredNextUsers = computed(() =>
-    filterUsersByRequiredRole(this.users(), this.pendingQuickActionMeta()?.requiredRole)
-  );
+  // Hợp nhất nhóm quyền hệ thống/đơn vị/người cụ thể đã cấu hình trên bước đích; nếu không cấu
+  // hình gì cả, danh sách để trống (xem resolveNextUserCandidates).
+  filteredNextUsers = computed(() => resolveNextUserCandidates({
+    info: this.pendingQuickActionMeta(),
+    allUsers: this.users(),
+    eligibleUsers: this.eligibleQuickActionUsers(),
+  }));
+
+  private loadEligibleQuickActionUsers(meta: any): void {
+    this.eligibleQuickActionUsers.set([]);
+    const groupParams = resolveEligibleAssigneeGroupParams(meta);
+    if (!groupParams) return;
+    const unitId = meta?.requireSameUnit ? (this.authService.getUserUnitId() ?? undefined) : undefined;
+    this.loadingEligibleQuickActionUsers.set(true);
+    this.workflowSvc.getEligibleAssignees(groupParams.systemGroupIds, groupParams.unitGroupIds, unitId, undefined, groupParams.assigneeIds)
+      .pipe(finalize(() => this.loadingEligibleQuickActionUsers.set(false)))
+      .subscribe({
+        next: (list) => {
+          const arr = Array.isArray(list) ? list : [];
+          this.eligibleQuickActionUsers.set(arr);
+          this.selectedNextUserId.set(resolveDefaultNextAssignee(meta, arr));
+        },
+        error: () => this.eligibleQuickActionUsers.set([])
+      });
+  }
 
 
 
@@ -951,6 +1019,13 @@ export class DossierListComponent implements OnInit {
 
   toggleInfrastructureDropdown() {
     this.isInfrastructureDropdownOpen.update((open) => !open);
+    this.isEquipmentDropdownOpen.set(false);
+  }
+
+  toggleEquipmentDropdown() {
+    if (!this.filterInfrastructureId()) return;
+    this.isEquipmentDropdownOpen.update((open) => !open);
+    this.isInfrastructureDropdownOpen.set(false);
   }
 
   onDossierTypeFilterChange(dossierTypeId: string | null) {
@@ -963,12 +1038,20 @@ export class DossierListComponent implements OnInit {
     this.onSearch();
   }
 
+  selectEquipment(equipmentId: string | null) {
+    this.equipmentSearchKeyword.set('');
+    this.isEquipmentDropdownOpen.set(false);
+    this.onEquipmentFilterChange(equipmentId);
+  }
+
   selectInfrastructure(infrastructureId: string | null) {
     this.filterInfrastructureId.set(infrastructureId);
     this.filterEquipmentId.set(null);
     this.equipments.set([]);
     this.infrastructureSearchKeyword.set('');
+    this.equipmentSearchKeyword.set('');
     this.isInfrastructureDropdownOpen.set(false);
+    this.isEquipmentDropdownOpen.set(false);
 
     if (infrastructureId) {
       this.service.getEquipmentLookup({ infrastructureId, pageSize: 1000 }).subscribe({
@@ -988,6 +1071,14 @@ export class DossierListComponent implements OnInit {
     if (!infrastructureId) return '-- Tất cả trạm/đường dây --';
     return this.infrastructures().find((item) => String(item.id) === String(infrastructureId))?.name
       ?? '-- Tất cả trạm/đường dây --';
+  }
+
+  selectedEquipmentLabel(): string {
+    const equipmentId = this.filterEquipmentId();
+    if (!equipmentId) return '-- Tất cả thiết bị --';
+    const selected = this.equipments().find((item) => String(item.id) === String(equipmentId));
+    if (!selected) return '-- Tất cả thiết bị --';
+    return selected.code ? `${selected.code} - ${selected.name}` : selected.name;
   }
 
 
@@ -1536,6 +1627,7 @@ export class DossierListComponent implements OnInit {
     this.showQuickActionDialog.set(true);
     this.quickActionLoading.set(false);
     this.loadQuickActionUsers(meta);
+    this.loadEligibleQuickActionUsers(meta);
   }
 
   private getItemAvailableActions(item: any): any[] {
@@ -1549,6 +1641,10 @@ export class DossierListComponent implements OnInit {
       targetNodeId: action.nextNodeId,
       requiresUser: !!action.requiresNextAssignee,
       requiredRole: action.nextStepRole ?? '',
+      unitGroupIds: action.unitGroupIds ?? null,
+      systemGroupIds: action.systemGroupIds ?? null,
+      requireSameUnit: !!action.requireSameUnit,
+      staticAssigneeId: action.staticAssigneeId ?? null,
     };
   }
 

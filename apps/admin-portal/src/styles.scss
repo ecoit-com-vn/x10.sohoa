@@ -912,7 +912,7 @@ td:has(.act-btn) {
 
   .p-dialog-content {
     padding: 16px 24px !important;
-    overflow-y: auto;
+    overflow-y: clip;
   }
 
   .p-dialog-footer {
