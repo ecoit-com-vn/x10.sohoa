@@ -2,6 +2,7 @@ using EvnHanoi.EquipmentService.Core.DTOs;
 using EvnHanoi.EquipmentService.Core.Entities;
 using EvnHanoi.EquipmentService.Core.Interfaces;
 using EvnHanoi.EquipmentService.Core.Services;
+using EvnHanoi.Infrastructure.Messaging;
 using EvnHanoi.Infrastructure.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -216,6 +217,30 @@ public partial class EquipmentController : ControllerBase
             Serilog.Log.Error(ex, "Failed to publish sync messages for equipment transfer from {SourceEquipmentId} to {ReplacementEquipmentId}.", id, replacementEquipment.Id);
         }
 
+        try
+        {
+            // Đơn vị mới lấy từ TBA đích (Infrastructure.UnitId) — KHÔNG dùng replacementEquipment.UnitId vì
+            // trường đó được copy nguyên từ đơn vị cũ, chưa phản ánh TBA mới.
+            var newUnitId = infrastructures.FirstOrDefault(infra => infra.Id == InfrastructureId)?.UnitId;
+
+            await _messageProducer.PublishToExchangeAsync(
+                new EquipmentTbaTransferredEvent
+                {
+                    EquipmentId = replacementEquipment.Id,
+                    EquipmentCode = replacementEquipment.Code,
+                    OldUnitId = sourceEquipment.UnitId,
+                    NewUnitId = newUnitId,
+                    ActorUserId = userId,
+                    Timestamp = DateTime.UtcNow
+                },
+                NotificationTopicTopology.ExchangeName,
+                NotificationTopicTopology.EquipmentTbaTransferredRoutingKey);
+        }
+        catch (Exception ex)
+        {
+            Serilog.Log.Error(ex, "Failed to publish notification event for equipment transfer from {SourceEquipmentId} to {ReplacementEquipmentId}.", id, replacementEquipment.Id);
+        }
+
         var createdDto = await _equipmentRepository.GetDtoByIdAsync(replacementEquipment.Id);
         return CreatedAtAction(nameof(GetById), new { id = replacementEquipment.Id }, createdDto);
     }
@@ -259,6 +284,32 @@ public partial class EquipmentController : ControllerBase
 
         if (!result)
             return BadRequest(new { message = "Không thể chuyển hồ sơ thiết bị sang bản ghi mới." });
+
+        try
+        {
+            // replacementEquipment.UnitId cũng không đáng tin (xem ghi chú ở copy-byid) — lấy đơn vị nhận
+            // thật sự từ Infrastructure.UnitId của TBA đích.
+            var actorUserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var infrastructures = await _equipmentRepository.GetInfrastructuresLookupAsync(null);
+            var newUnitId = infrastructures.FirstOrDefault(infra => infra.Id == replacementEquipment.InfrastructureId)?.UnitId;
+
+            await _messageProducer.PublishToExchangeAsync(
+                new EquipmentDossierTransferredEvent
+                {
+                    EquipmentId = replacementEquipment.Id,
+                    EquipmentCode = replacementEquipment.Code,
+                    OldUnitId = sourceEquipment.UnitId,
+                    NewUnitId = newUnitId,
+                    ActorUserId = actorUserId,
+                    Timestamp = DateTime.UtcNow
+                },
+                NotificationTopicTopology.ExchangeName,
+                NotificationTopicTopology.EquipmentDossierTransferredRoutingKey);
+        }
+        catch (Exception ex)
+        {
+            Serilog.Log.Error(ex, "Failed to publish notification event for dossier transfer from {SourceEquipmentId} to {ReplacementEquipmentId}.", id, replacementEquipment.Id);
+        }
 
         var targetDto = await _equipmentRepository.GetDtoByIdAsync(replacementEquipment.Id);
         return Ok(new

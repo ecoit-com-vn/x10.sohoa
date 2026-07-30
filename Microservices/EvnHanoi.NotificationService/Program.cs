@@ -126,12 +126,17 @@ builder.Services.AddHttpClient("IdentityService", client =>
 {
     var identityUrl = builder.Configuration["Services:IdentityService"] ?? "http://identityservice";
     client.BaseAddress = new Uri(identityUrl);
+    client.DefaultRequestHeaders.Add("X-Internal-Token", builder.Configuration["Internal:Token"] ?? "");
 });
+
+builder.Services.AddScoped<EvnHanoi.NotificationService.Repositories.INotificationRepository, EvnHanoi.NotificationService.Repositories.NotificationRepository>();
+builder.Services.AddSingleton<EvnHanoi.NotificationService.Services.IIdentityServiceClient, EvnHanoi.NotificationService.Services.IdentityServiceClient>();
 
 builder.Services.AddHostedService<EquipmentIndexWorker>();
 builder.Services.AddHostedService<DossierIndexWorker>();
 builder.Services.AddHostedService<DocumentIndexWorker>();
 builder.Services.AddHostedService<AuditEventWorker>();
+builder.Services.AddHostedService<NotificationEventsConsumer>();
 
 var app = builder.Build();
 
