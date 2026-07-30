@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { ToastModule } from 'primeng/toast';
 import { SelectModule } from 'primeng/select';
 import { DialogModule } from 'primeng/dialog';
+import { PaginatorModule } from 'primeng/paginator';
 import { Menu, MenuModule } from 'primeng/menu';
 import { MenuItem } from 'primeng/api';
 import { MessageService } from 'primeng/api';
@@ -15,7 +16,7 @@ import { CatalogService } from '../../data-access/catalog.service';
 @Component({
   selector: 'app-catalog',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule, SelectModule, DialogModule, MenuModule, WfBreadcrumbComponent],
+  imports: [CommonModule, FormsModule, ToastModule, SelectModule, DialogModule, PaginatorModule, MenuModule, WfBreadcrumbComponent],
   providers: [MessageService],
   templateUrl: './catalog.component.html',
   styleUrl: './catalog.component.css'
@@ -515,7 +516,6 @@ export class CatalogComponent implements OnInit {
   onCatalogSearchUnitChange(unitId: number | string | null) {
     const normalizedUnitId = unitId === null || unitId === '' ? null : Number(unitId);
     this.catalogSearchUnitId.set(normalizedUnitId);
-    this.onSearchCatalogs();
   }
 
   onAddNewCatalog() {
@@ -789,6 +789,13 @@ export class CatalogComponent implements OnInit {
   onPageSizeChange(event: any) {
     this.pageSize.set(Number(event.target.value));
     this.currentPage.set(1);
+  }
+
+  onCatalogPageChange(event: { first?: number; rows?: number }) {
+    const rows = Number(event.rows) || this.pageSize();
+    const first = Number(event.first) || 0;
+    this.pageSize.set(rows);
+    this.currentPage.set(Math.floor(first / rows) + 1);
   }
 
   loadOrganizationUnits() {
