@@ -134,6 +134,8 @@ export class InfrastructureComponent implements OnInit {
   orgUnitTree = computed(() => this.buildOrgTree(this.orgUnits()));
   expandedUnitNodes = signal<Set<any>>(new Set<any>());
   orgTreePickerOpen = signal<boolean>(false);
+  orgTreeSearchKeyword = signal<string>('');
+  filteredOrgUnitTree = computed(() => this.filterOrgTree(this.orgUnitTree(), this.orgTreeSearchKeyword()));
   searchOrgTreeOpen = signal<boolean>(false);
   searchOrgSearchKeyword = signal<string>('');
   expandedSearchUnitNodes = signal<Set<any>>(new Set<any>());
@@ -569,12 +571,17 @@ export class InfrastructureComponent implements OnInit {
   selectOrgUnit(unitId: any) {
     this.currentItem.update(u => ({ ...u, unitId: unitId }));
     this.orgTreePickerOpen.set(false);
+    this.orgTreeSearchKeyword.set('');
     this.onFieldChange('unitId');
   }
 
   toggleOrgTreePicker(event?: Event) {
     if (event) event.stopPropagation();
-    this.orgTreePickerOpen.update(v => !v);
+    this.orgTreePickerOpen.update(open => {
+      const nextOpen = !open;
+      if (!nextOpen) this.orgTreeSearchKeyword.set('');
+      return nextOpen;
+    });
   }
 
   toggleSearchOrgTree(event?: Event) {
@@ -704,6 +711,7 @@ export class InfrastructureComponent implements OnInit {
       organization: null
     });
     this.orgTreePickerOpen.set(false);
+    this.orgTreeSearchKeyword.set('');
     this.formSubmitted.set(false);
     this.serverErrors.set({});
     this.currentView.set('add');
@@ -715,6 +723,7 @@ export class InfrastructureComponent implements OnInit {
       operationDate: item.operationDate ? new Date(item.operationDate) : null
     });
     this.orgTreePickerOpen.set(false);
+    this.orgTreeSearchKeyword.set('');
     this.formSubmitted.set(false);
     this.serverErrors.set({});
     this.currentView.set('edit');
