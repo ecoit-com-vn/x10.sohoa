@@ -198,12 +198,15 @@
         <span class="required">*</span> Người xử lý bước tiếp theo
       </label>
       <select class="wf-select w-full" [ngModel]="selectedNextUserId()"
-        (ngModelChange)="selectedNextUserId.set($event)">
+        (ngModelChange)="selectedNextUserId.set($event)"
+        [disabled]="loadingEligibleNextUsers()">
         <option value="" disabled selected>-- Chọn người xử lý --</option>
-        <option *ngFor="let u of filteredNextUsers()" [value]="u.id">
+        <option *ngFor="let u of filteredNextUsers()" [value]="u.id || u.Id || u.userId || u.username">
           {{ u.fullName }} ({{ u.username }})
         </option>
       </select>
+      <div class="field-hint" *ngIf="pendingActionBtn()?.staticAssigneeId">Bước này có cấu hình giao việc đích danh — đã chọn sẵn, có thể đổi người khác nếu cần.</div>
+      <div class="field-hint" *ngIf="loadingEligibleNextUsers()">Đang tải danh sách người đủ điều kiện...</div>
     </div>
     <div class="form-group">
       <label class="form-label">Ý kiến xử lý <span style="color: #94a3b8; font-weight: 400;">(tuỳ chọn)</span></label>
@@ -301,12 +304,18 @@
     <!-- Chọn người xử lý tiếp theo nếu được yêu cầu -->
     <div *ngIf="nextStepInfo()?.requiresNextAssignee" class="form-group">
       <label class="form-label required">Người duyệt tiếp theo ({{ nextStepInfo()?.stepName }})</label>
-      <select class="wf-select" [value]="selectedNextUser()" (change)="onNextUserChange($event)">
+      <select class="wf-select" [value]="selectedNextUser()" (change)="onNextUserChange($event)"
+        [disabled]="loadingEligibleSubmitUsers()">
         <option value="">-- Chọn người phê duyệt --</option>
         <option *ngFor="let u of filteredSubmitNextUsers()" [value]="u.id || u.Id || u.userId || u.username">
           {{ u.fullName || u.FullName || u.name || u.username }}
         </option>
       </select>
+      <div class="field-hint" *ngIf="nextStepInfo()?.staticAssigneeId">Bước này có cấu hình giao việc đích danh — đã chọn sẵn, có thể đổi người khác nếu cần.</div>
+      <div class="field-hint" *ngIf="loadingEligibleSubmitUsers()">Đang tải danh sách người đủ điều kiện...</div>
+      <div class="field-hint" *ngIf="!loadingEligibleSubmitUsers() && filteredSubmitNextUsers().length === 0">
+        Không có người dùng nào đủ điều kiện xử lý bước này.
+      </div>
     </div>
   </div>
   <ng-template #footer>

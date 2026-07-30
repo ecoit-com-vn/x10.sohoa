@@ -70,6 +70,7 @@ export class DocumentManagementComponent implements OnInit {
   @ViewChild('folderNameInput') folderNameInput?: ElementRef<HTMLInputElement>;
   @ViewChild('uploadZone') uploadZone?: FileUploadZoneComponent;
   @ViewChild('scannerPanel') scannerPanel?: ScannerPanelComponent;
+  @ViewChild('quickNewVersionFileInput') quickNewVersionFileInput?: ElementRef<HTMLInputElement>;
 
   readonly UPLOAD_SOURCE = UPLOAD_SOURCE;
   scanInProgress = signal(false);
@@ -172,6 +173,8 @@ export class DocumentManagementComponent implements OnInit {
   loadingVersions = signal(false);
   rollingBack = signal(false);
   deletingVersion = signal(false);
+  showDeleteVersionConfirm = signal(false);
+  deleteTargetVersion = signal<DocumentVersion | null>(null);
 
   @ViewChild('documentNameInput') documentNameInput?: ElementRef<HTMLInputElement>;
 
@@ -597,6 +600,13 @@ export class DocumentManagementComponent implements OnInit {
         command: () => this.onDownloadDocument(doc),
       },
       {
+        label: 'Tải phiên bản mới',
+        title: 'Tải phiên bản mới',
+        icon: 'pi pi-upload color-blue',
+        disabled: this.uploadingNewVersion(),
+        command: () => this.onOpenQuickNewVersionUpload(doc),
+      },
+      {
         label: 'Lịch sử phiên bản',
         title: 'Lịch sử phiên bản',
         icon: 'pi pi-history color-blue',
@@ -970,6 +980,15 @@ export class DocumentManagementComponent implements OnInit {
 
   uploadingNewVersion = signal(false);
 
+  onOpenQuickNewVersionUpload(doc: Document): void {
+    const fileInput = this.quickNewVersionFileInput?.nativeElement;
+    if (!fileInput) return;
+
+    this.historyTargetDocument.set(doc);
+    fileInput.value = '';
+    fileInput.click();
+  }
+
   onViewHistory(doc: Document) {
     this.historyTargetDocument.set(doc);
     this.showHistoryDialog.set(true);
@@ -1119,8 +1138,24 @@ export class DocumentManagementComponent implements OnInit {
   }
 
   onDeleteVersion(version: DocumentVersion) {
+    const versions = this.documentVersions();
+    const isLatest = versions.length > 0 && versions[0].id === version.id;
+    if (isLatest) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Không thể xóa',
+        detail: 'Phiên bản đang áp dụng không thể bị xóa',
+      });
+      return;
+    }
+    this.deleteTargetVersion.set(version);
+    this.showDeleteVersionConfirm.set(true);
+  }
+
+  onConfirmDeleteVersion() {
+    const version = this.deleteTargetVersion();
     const doc = this.historyTargetDocument();
-    if (!doc) return;
+    if (!version || !doc) return;
 
     this.deletingVersion.set(true);
     this.documentService.deleteDocumentVersion(version.id)
@@ -1132,6 +1167,8 @@ export class DocumentManagementComponent implements OnInit {
             summary: 'Thành công',
             detail: `Đã xóa phiên bản số ${version.versionNumber} của tài liệu`,
           });
+          this.showDeleteVersionConfirm.set(false);
+          this.deleteTargetVersion.set(null);
           this.loadDocuments();
           this.loadDocumentVersions(doc.id);
         },
@@ -1143,6 +1180,11 @@ export class DocumentManagementComponent implements OnInit {
           });
         }
       });
+  }
+
+  onCancelDeleteVersion() {
+    this.showDeleteVersionConfirm.set(false);
+    this.deleteTargetVersion.set(null);
   }
 
   onDownloadVersion(version: DocumentVersion) {

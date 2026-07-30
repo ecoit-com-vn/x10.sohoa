@@ -11,6 +11,8 @@ import { InputTextModule } from 'primeng/inputtext';
 import { DialogModule } from 'primeng/dialog';
 import { PaginatorModule } from 'primeng/paginator';
 import { ToastModule } from 'primeng/toast';
+import { SelectModule } from 'primeng/select';
+import { Router } from '@angular/router';
 import { FileDownloadService } from '../../data-access/file-download.service';
 import { DocumentManagementService } from '../../data-access/document-management.service';
 import { FolderNode, Document, DocumentFilter } from '../../models/document.models';
@@ -38,6 +40,7 @@ import { LookupTrackingService } from '../../data-access/lookup-tracking.service
     DialogModule,
     PaginatorModule,
     ToastModule,
+    SelectModule,
     MenuModule,
     DossierDocumentEditDialogComponent,
     WfBreadcrumbComponent,
@@ -52,7 +55,8 @@ export class DossierSearchComponent implements OnInit, OnDestroy {
   private fileDownloadService = inject(FileDownloadService);
   private authService = inject(AuthService);
   private http = inject(HttpClient);
-  private config = inject(APP_CONFIG);
+  private config = inject(APP_CONFIG); 
+  private router = inject(Router);
   private dossierService = inject(DossierManagementService);
   private dossierDocumentService = inject(DossierDocumentService);
   private lookupTrackingService = inject(LookupTrackingService);
@@ -458,6 +462,7 @@ export class DossierSearchComponent implements OnInit, OnDestroy {
 
   loadDossiers() {
     this.loadingDocuments.set(true);
+
     const selected = this.selectedFolder();
     if (!selected || !selected.id.startsWith('type_')) {
       this.loadingDocuments.set(false);
@@ -466,7 +471,14 @@ export class DossierSearchComponent implements OnInit, OnDestroy {
 
     const id = selected.id;
     let cleanId = id.substring('type_'.length);
-    const prefixes = ['tba-cao-ap_', 'tba-trung-ap_', 'dd-cao-ap_', 'dd-trung-ap_'];
+
+    const prefixes = [
+      'tba-cao-ap_',
+      'tba-trung-ap_',
+      'dd-cao-ap_',
+      'dd-trung-ap_'
+    ];
+
     for (const prefix of prefixes) {
       if (cleanId.startsWith(prefix)) {
         cleanId = cleanId.substring(prefix.length);
@@ -479,34 +491,35 @@ export class DossierSearchComponent implements OnInit, OnDestroy {
       this.loadingDocuments.set(false);
       return;
     }
-    const infraId = parts[0];
+
+    const infrastructureId = parts[0];
     const dossierTypeId = parts[1];
 
-    console.log('[DEBUG] selected folder id:', id);
-    console.log('[DEBUG] parsed infraId:', infraId);
-    console.log('[DEBUG] parsed dossierTypeId:', dossierTypeId);
-
-    const filter = {
-      infrastructureId: infraId,
-      dossierTypeId: dossierTypeId,
-      unitId: this.selectedUnitId() || undefined,
+    const params: any = {
+      infrastructureId,
+      dossierTypeId,
       page: this.page(),
-      pageSize: this.pageSize(),
+      pageSize: this.pageSize()
     };
 
-    console.log('[DEBUG] sending filter to API:', filter);
+    if (this.selectedUnitId()) {
+      params.unitId = this.selectedUnitId();
+    }
 
-    this.dossierService.getCatalogDossiers(filter).subscribe({
+    this.http.get<any>(
+      `${this.config.apiGatewayUrl}/api/v1/dossiers/search/getlistdocument`,
+      { params }
+    ).subscribe({
       next: (response) => {
-        this.dossiersList.set(response.items || []);
-        this.totalDossiersList.set(response.totalCount || 0);
+        this.dossiersList.set(response.items ?? []);
+        this.totalDossiersList.set(response.totalCount ?? 0);
         this.loadingDocuments.set(false);
       },
-      error: (err) => {
+      error: () => {
         this.messageService.add({
           severity: 'error',
           summary: 'Lỗi',
-          detail: 'Không thể tải danh sách hồ sơ',
+          detail: 'Không thể tải danh sách hồ sơ'
         });
         this.loadingDocuments.set(false);
       }
@@ -604,32 +617,21 @@ export class DossierSearchComponent implements OnInit, OnDestroy {
   }
 
   onViewDocumentDetail(doc: any) {
-    this.cleanupPreview();
-    this.selectedDocument.set(doc);
-    if (!doc.latestVersionId) {
-      return;
-    }
-
-    const dossierId = doc.dossierId || this.selectedDossier()?.id;
-    if (!dossierId) {
-      return;
-    }
-
-    this.loadingPreview.set(true);
-    this.dossierDocumentService.getPreviewBlobUrl(dossierId, doc.latestVersionId)
-      .then((url: string) => {
-        this.previewUrl.set(url);
-      })
-      .catch((err: any) => {
-        console.error(err);
+    const versionId = (doc.latestVersionId || '').trim();
+      if (!versionId) {
         this.messageService.add({
-          severity: 'warn',
-          summary: 'Xem trước',
-          detail: 'Không thể tải bản xem trước tài liệu',
+          severity: 'error',
+          summary: 'Lỗi',
+          detail: 'Không xác định được phiên bản tài liệu.'
         });
-      })
-      .finally(() => {
-        this.loadingPreview.set(false);
+        return;
+      }
+      if (doc.latestVersionId) {
+        this.lookupTrackingService.recordView('DOCUMENT', doc.latestVersionId);
+      }
+  
+      this.router.navigate(['/search/documents', versionId], {
+        queryParams: { keyword: null }
       });
   }
 

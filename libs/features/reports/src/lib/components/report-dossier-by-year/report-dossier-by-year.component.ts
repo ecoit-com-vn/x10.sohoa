@@ -13,6 +13,7 @@ import { Router } from '@angular/router';
 import { MessageService } from 'primeng/api';
 import { ToastModule } from 'primeng/toast';
 import { SelectModule } from 'primeng/select';
+import { DatePickerModule } from 'primeng/datepicker';
 import { TooltipModule } from 'primeng/tooltip';
 import { TreeNode } from 'primeng/api';
 import { WfBreadcrumbComponent, EcoInputTreeSelectComponent } from '@sohoa.frontend/shared/layout';
@@ -53,6 +54,7 @@ interface OrgTreeNode {
     FormsModule,
     ToastModule,
     SelectModule,
+    DatePickerModule,
     TooltipModule,
     WfBreadcrumbComponent,
     EcoInputTreeSelectComponent,
@@ -109,7 +111,10 @@ export class ReportDossierByYearComponent implements OnInit, AfterViewInit {
   selectedUnitId = signal<number | null>(null);
   selectedObjectType = signal<number | null>(0);
   selectedYear = signal<number>(new Date().getFullYear());
-
+  selectedYearDate = computed(() => {
+      const year = this.selectedYear();
+      return year ? new Date(year, 0, 1) : null;
+    });
   /** Chỉ cập nhật khi Tìm kiếm (trong loadStatsData) — dùng cho legend/donut, tránh đổi ngay khi user chỉnh dropdown. */
   appliedObjectType = signal<number | null>(0);
 
@@ -137,9 +142,10 @@ export class ReportDossierByYearComponent implements OnInit, AfterViewInit {
   loadLookups(): void {
     this.loading.set(true);
 
-    this.reportService.getUnitsLookup().subscribe({
+    this.reportService.getUnitsLookup(1).subscribe({
       next: (units) => {
-        this.units.set(units || []);
+        const filteredUnits = this.filterOrphanUnits(units || []); 
+        this.units.set(filteredUnits);
         this.applyDefaultUnitFilter();
         this.loadSecondaryLookups();
       },
@@ -149,7 +155,6 @@ export class ReportDossierByYearComponent implements OnInit, AfterViewInit {
       }
     });
   }
-
   private loadSecondaryLookups(): void {
     this.reportService.getObjectTypesLookup().subscribe({
       next: (types) => this.objectTypes.set(types || []),
@@ -173,7 +178,41 @@ export class ReportDossierByYearComponent implements OnInit, AfterViewInit {
       }
     });
   }
+  private filterOrphanUnits(units: any[]): any[] {
+    const map = new Map(units.map(x => [String(x.id), x]));
 
+    const cache = new Map<string, boolean>();
+
+    const isValid = (unit: any): boolean => {
+      const id = String(unit.id);
+
+      if (cache.has(id)) {
+        return cache.get(id)!;
+      }
+
+      // Node gốc
+      if (unit.parentId == null) {
+        cache.set(id, true);
+        return true;
+      }
+
+      const parent = map.get(String(unit.parentId));
+
+      // Không tìm thấy cha
+      if (!parent) {
+        cache.set(id, false);
+        return false;
+      }
+
+      // Cha hợp lệ thì con mới hợp lệ
+      const result = isValid(parent);
+      cache.set(id, result);
+
+      return result;
+    };
+
+    return units.filter(isValid);
+  }
   private applyDefaultUnitFilter(): void {
     const userUnitId = this.authService.getUserUnitId();
     if (!userUnitId) return;
@@ -221,7 +260,19 @@ export class ReportDossierByYearComponent implements OnInit, AfterViewInit {
       }
     });
   }
-
+  // Xử lý khi người dùng chọn năm
+  onYearChange(date: Date) {
+    if (date) {
+      this.selectedYear.set(date.getFullYear());
+    } else {
+      this.selectedYear.set(new Date().getFullYear()); 
+    }
+  }
+  // Hàm chuyển số năm thành đối tượng Date để p-calendar hiểu được
+  getYearDate(year: number | string | null): Date | null {
+    if (!year) return null;
+    return new Date(Number(year), 0, 1);
+  }
   loadStatsData(): void {
     this.appliedObjectType.set(this.selectedObjectType());
 
