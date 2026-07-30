@@ -7,6 +7,8 @@ namespace EvnHanoi.ReportService.Core.DTOs
     {
         public int Stt { get; set; }
         public string DossierId { get; set; } = string.Empty;
+        public string DossierCode { get; set; } = string.Empty;
+        public string DossierTitle { get; set; } = string.Empty;
         public string InfrastructureName { get; set; } = string.Empty;
         public string DossierTypeName { get; set; } = string.Empty;
         public Dictionary<string, string> CatalogData { get; set; } = new();
