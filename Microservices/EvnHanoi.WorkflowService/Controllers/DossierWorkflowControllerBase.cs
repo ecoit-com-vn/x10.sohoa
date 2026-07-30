@@ -125,7 +125,18 @@ public abstract class DossierWorkflowControllerBase : ControllerBase
                 nextNodeId,
                 stepName = step2.StepName,
                 requiredRole = step2.RequiredRole,
+                // Hiện ô chọn người xử lý khi bước có bất kỳ cấu hình nào liên quan đến việc
+                // xác định người xử lý (kể cả giao việc đích danh — khi đó FE hiện đúng 1 người,
+                // đã khoá sẵn, để người dùng biết hồ sơ sẽ được giao cho ai).
                 requiresNextAssignee = !string.IsNullOrEmpty(step2.RequiredRole)
+                                       || !string.IsNullOrEmpty(step2.SystemPermissionGroupIds)
+                                       || !string.IsNullOrEmpty(step2.UnitPermissionGroupIds)
+                                       || !string.IsNullOrEmpty(step2.AssigneeId),
+                // Cờ và dữ liệu bổ sung cho Frontend lọc danh sách người xử lý
+                requireSameUnit = step2.RequireSameUnit,
+                systemGroupIds = step2.SystemPermissionGroupIds,
+                unitGroupIds = step2.UnitPermissionGroupIds,
+                staticAssigneeId = step2.AssigneeId
             });
         }
         catch (Exception ex)
@@ -210,12 +221,15 @@ public abstract class DossierWorkflowControllerBase : ControllerBase
 
         try
         {
-            var updatedInstance = await _workflowEngine.MoveWithValidationAsync(
+            // Dùng MoveAsync (bỏ qua kiểm tra "nhiệm vụ đã được gán cho đúng người") vì đây là
+            // bước di chuyển ngay sau khi CHÍNH request này vừa tạo task bước 1 — không có khả năng
+            // người khác đã nhận nhiệm vụ đó, nên việc kiểm tra AssigneeUserId ở đây chỉ gây lỗi giả
+            // khi bước 1 có cấu hình RequiredRole/nhóm quyền (khi đó SubmitByWorkflowTypeIdAsync không
+            // tự gán người nộp làm assignee bước 1, dẫn tới false positive "chưa được gán người xử lý").
+            var updatedInstance = await _workflowEngine.MoveAsync(
                 id.ToString(),
                 request.NextNodeId,
                 UserId,
-                UserRoles,
-                IsAdmin,
                 request.ActionLabel,
                 request.Comment,
                 request.NextAssigneeUserId,

@@ -492,9 +492,22 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
                 }
                 else
                 {
-                    if (string.IsNullOrWhiteSpace(nextAssigneeUserId))
+                    // Giao việc đích danh chỉ là gợi ý mặc định (FE đã chọn sẵn) — người chuyển bước
+                    // vẫn có quyền chọn người khác, nên ưu tiên nextAssigneeUserId do FE gửi lên trước;
+                    // chỉ dùng targetStep.AssigneeId khi caller không gửi kèm người xử lý (vd. các luồng
+                    // cũ không có picker chọn người).
+                    if (!string.IsNullOrWhiteSpace(nextAssigneeUserId))
+                    {
+                        assigneeUserId = nextAssigneeUserId.Trim();
+                    }
+                    else if (!string.IsNullOrWhiteSpace(targetStep?.AssigneeId))
+                    {
+                        assigneeUserId = targetStep!.AssigneeId.Trim();
+                    }
+                    else
+                    {
                         throw new ArgumentException("Vui lòng chọn người xử lý bước tiếp theo.");
-                    assigneeUserId = nextAssigneeUserId.Trim();
+                    }
                 }
 
                 var nextTask = new WorkflowTask
@@ -827,7 +840,10 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
             if (step.AllowEdit)
                 return true;
 
-            return string.IsNullOrWhiteSpace(step.RequiredRole);
+            // Tự gán người submit nếu bước không yêu cầu bất kỳ nhóm quyền hoặc vai trò nào
+            return string.IsNullOrWhiteSpace(step.RequiredRole)
+                && string.IsNullOrWhiteSpace(step.SystemPermissionGroupIds)
+                && string.IsNullOrWhiteSpace(step.UnitPermissionGroupIds);
         }
     }
 }

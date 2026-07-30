@@ -1,13 +1,14 @@
+using EvnHanoi.EquipmentService.Core.DTOs;
+using EvnHanoi.EquipmentService.Core.Entities;
+using EvnHanoi.EquipmentService.Core.Interfaces;
+using EvnHanoi.EquipmentService.Core.Services;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
-using EvnHanoi.EquipmentService.Core.DTOs;
-using EvnHanoi.EquipmentService.Core.Interfaces;
-using EvnHanoi.EquipmentService.Core.Services;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
 
 namespace EvnHanoi.EquipmentService.Controllers;
 
@@ -105,6 +106,27 @@ public class DossierSearchController : ControllerBase
 
         var (items, totalCount) = await _dossierService.GetCatalogDossiersAsync(
             keyword, infrastructureId, dossierTypeId, unitId, page, pageSize);
+        return Ok(new { items, totalCount, page, pageSize });
+    }
+
+    [HttpGet("getlistdocument")]
+    public async Task<IActionResult> GetListDocuments(
+        [FromQuery] string? keyword,
+        [FromQuery] Guid? infrastructureId,
+        [FromQuery] Guid? dossierTypeId,
+        [FromQuery] long? unitId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10)
+    {
+        if (page < 1) page = 1;
+        if (pageSize < 1) pageSize = 10;
+
+        var dossierIds = await _dossierService.GetListDocumentIdsAsync(
+            keyword, infrastructureId, dossierTypeId, unitId, page, pageSize);
+
+        var (items, totalCount) = await _documentService.GetDocumentsByDossierIdsAsync(
+            dossierIds, keyword, page, pageSize);
+
         return Ok(new { items, totalCount, page, pageSize });
     }
 

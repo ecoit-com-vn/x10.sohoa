@@ -152,6 +152,23 @@ public class DossierService : IDossierService
             .ToList();
     }
 
+
+    public async Task<IEnumerable<Guid>> GetListDocumentIdsAsync(
+        string? keyword,
+        Guid? infrastructureId,
+        Guid? dossierTypeId,
+        long? unitId,
+        int page,
+        int pageSize)
+    {
+        return await _dossierRepository.GetListDocumentIdsAsync(
+        keyword,
+        infrastructureId,
+        dossierTypeId,
+        unitId,
+        page,
+        pageSize);
+    }
     public async Task<IEnumerable<GridTypeEntity>> GetGridTypesLookupAsync()
     {
         return await _dossierRepository.GetGridTypesLookupAsync();
@@ -303,7 +320,36 @@ public class DossierService : IDossierService
         return await _dossierRepository.GetDetailByIdAsync(id);
     }
 
-    public Task<Guid> CreateAsync(DossierCreateDto dto, string userId, string userName, string userFullName, int kindId = 2)
+    public Task<Guid> CreateAsync(
+        DossierCreateDto dto,
+        string userId,
+        string userName,
+        string userFullName,
+        int kindId = 2) =>
+        CreateInternalAsync(dto, userId, userName, userFullName, kindId, DossierStatusConstants.New, null);
+
+    public Task<Guid> CreateForPublishingAsync(
+        DossierCreateDto dto,
+        string userId,
+        string userName,
+        string userFullName) =>
+        CreateInternalAsync(
+            dto,
+            userId,
+            userName,
+            userFullName,
+            kindId: 2,
+            statusId: DossierStatusConstants.Approved,
+            publishStatusId: DossierPublishStatusConstants.Pending);
+
+    private async Task<Guid> CreateInternalAsync(
+        DossierCreateDto dto,
+        string userId,
+        string userName,
+        string userFullName,
+        int kindId,
+        int statusId,
+        int? publishStatusId)
     {
         return CreateInternalAsync(dto, userId, userName, userFullName, kindId, DossierStatusConstants.New, null);
     }

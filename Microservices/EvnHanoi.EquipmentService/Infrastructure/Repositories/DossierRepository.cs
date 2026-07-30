@@ -273,6 +273,79 @@ public class DossierRepository : IDossierRepository
         return (resultList, totalCount);
     }
 
+    public async Task<IEnumerable<Guid>> GetListDocumentIdsAsync(
+    string? keyword,
+    Guid? infrastructureId,
+    Guid? dossierTypeId,
+    long? unitId,
+    int page,
+    int pageSize)
+    {
+        _connection.EnsureOpen();
+
+        var parameters = new DynamicParameters();
+
+        var sqlBase = $@"
+        FROM DOSSIERS d
+        LEFT JOIN INFRASTRUCTURE i
+            ON d.{nameof(Dossier.InfrastructureId)} = i.ID
+        WHERE d.{nameof(Dossier.IsDeleted)} = 0
+          AND d.PUBLISHSTATUSID = 2";
+
+        if (infrastructureId.HasValue)
+        {
+            sqlBase += $" AND d.{nameof(Dossier.InfrastructureId)} = :InfrastructureId";
+            parameters.Add("InfrastructureId", infrastructureId.Value.ToString());
+        }
+
+        if (dossierTypeId.HasValue)
+        {
+            sqlBase += $" AND d.{nameof(Dossier.DossierTypeId)} = :DossierTypeId";
+            parameters.Add("DossierTypeId", dossierTypeId.Value.ToString());
+        }
+
+        if (unitId.HasValue)
+        {
+            sqlBase += @"
+            AND i.UNIT_ID IN (
+                SELECT Id
+                FROM ORGANIZATION_UNIT
+                START WITH Id = :UnitId
+                CONNECT BY PRIOR Id = ParentId
+            )";
+
+            parameters.Add("UnitId", unitId.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(keyword))
+        {
+            sqlBase += $" AND UPPER(d.{nameof(Dossier.FormDataJson)}) LIKE :Keyword";
+            parameters.Add("Keyword", $"%{keyword.ToUpper().Trim()}%");
+        }
+
+        parameters.Add("Offset", (page - 1) * pageSize);
+        parameters.Add("PageSize", pageSize);
+
+        var selectSql = $@"
+        SELECT d.{nameof(Dossier.Id)} AS ID
+        {sqlBase}
+        ORDER BY d.{nameof(Dossier.CreatedDate)} DESC
+        OFFSET :Offset ROWS
+        FETCH NEXT :PageSize ROWS ONLY";
+
+        var rawIds = await _connection.QueryAsync<dynamic>(selectSql, parameters);
+
+        return rawIds
+            .Select(x =>
+            {
+                if (x.ID is Guid guid) return guid;
+                if (x.ID is string str && Guid.TryParse(str, out var parsed)) return parsed;
+                return Guid.Empty;
+            })
+            .Where(x => x != Guid.Empty)
+            .ToList();
+    }
+
     public async Task<IEnumerable<BhsCatalogColumnDto>> GetBhsCatalogColumnsAsync()
     {
         _connection.EnsureOpen();
@@ -1131,13 +1204,14 @@ public class DossierRepository : IDossierRepository
     {
         _connection.EnsureOpen();
 
-        // Query 1: Get latest workflow instance and JOIN with definition name
-        var sqlInstance = @"SELECT wi.ID, wi.WORKFLOWDEFINITIONID, wi.TARGETENTITYID, wi.ENTITYTYPE, 
+        // Query 1: Get latest Dossier workflow instance and its definition.
+        var sqlInstance = @"SELECT wi.ID, wi.WORKFLOWDEFINITIONID, wi.TARGETENTITYID,
                                    wi.STATUS, wi.CURRENTSTEPORDER, wi.CURRENTNODEID, wi.CURRENTNODENAME, 
                                    wi.CREATEDAT, wi.UPDATEDAT, wd.NAME as DefinitionName
                             FROM WORKFLOWINSTANCES wi
                             LEFT JOIN WORKFLOWDEFINITIONS wd ON wi.WORKFLOWDEFINITIONID = wd.ID
-                            WHERE wi.TARGETENTITYID = :EntityId AND wi.ENTITYTYPE = 'Dossier'
+                            INNER JOIN WORKFLOW_TYPES wt ON wi.WORKFLOW_TYPE_ID = wt.ID
+                            WHERE wi.TARGETENTITYID = :EntityId AND wt.CODE = 'Dossier'
                             ORDER BY wi.CREATEDAT DESC";
         
         var instance = await _connection.QueryFirstOrDefaultAsync<dynamic>(sqlInstance, new { EntityId = entityId });

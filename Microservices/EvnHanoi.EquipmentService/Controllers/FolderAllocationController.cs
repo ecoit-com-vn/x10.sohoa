@@ -179,6 +179,34 @@ public class FolderAllocationController : ControllerBase
     }
 
     /// <summary>
+    /// Thu hồi phân bổ (Status -> Revoked)
+    /// </summary>
+    [HttpPost("{id:guid}/reactivate")]
+    public async Task<IActionResult> Reactivate(Guid id)
+    {
+        var userUnitId = GetUserUnitId();
+        if (userUnitId == 0)
+            return Unauthorized(new { message = "Không thể xác định đơn vị của người dùng" });
+
+        try
+        {
+            var success = await _folderAllocationService.ReactivateAsync(id, UserName, userUnitId);
+            if (!success)
+                return BadRequest(new { message = "Không thể phân bổ." });
+
+            return Ok(new { success = true });
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
     /// Xóa phân bổ (Soft Delete)
     /// </summary>
     [HttpDelete("{id:guid}")]

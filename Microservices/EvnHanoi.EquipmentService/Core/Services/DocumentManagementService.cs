@@ -52,6 +52,7 @@ public interface IDocumentManagementService
         string? keyword,
         int page,
         int pageSize);
+    Task<(IEnumerable<DocumentListItemDto> Items, int TotalCount)> GetDocumentsByDossierIdsAsync(IEnumerable<Guid> dossierIds, string? keyword, int page, int pageSize);
 }
 
 public class DocumentManagementService : IDocumentManagementService
@@ -804,6 +805,16 @@ public class DocumentManagementService : IDocumentManagementService
 
         return (Enumerable.Empty<DocumentListItemDto>(), 0);
     }
+
+    public async Task<(IEnumerable<DocumentListItemDto> Items, int TotalCount)> GetDocumentsByDossierIdsAsync(
+        IEnumerable<Guid> dossierIds,
+        string? keyword,
+        int page,
+        int pageSize)
+    {
+        return await _documentRepository.GetDocumentsByDossierIdsAsync(dossierIds, keyword, page, pageSize);
+    }
+
     private async Task<FolderNodeDto> ValidateFolderPermissionAsync(Guid folderId, long userUnitId)
     {
         var folder = await _documentRepository.GetFolderByIdAsync(folderId);
