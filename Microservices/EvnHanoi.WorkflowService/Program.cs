@@ -74,6 +74,7 @@ builder.Services.AddHttpClient("EquipmentService", client =>
     client.DefaultRequestHeaders.Add("X-Internal-Token", builder.Configuration["Internal:Token"] ?? "");
 });
 
+builder.Services.AddScoped<IMessageProducer, EvnHanoi.WorkflowService.Infrastructure.Messaging.RabbitMQProducer>();
 builder.Services.AddScoped<IBorrowRecordRepository, BorrowRecordRepository>();
 builder.Services.AddScoped<IBorrowRecordService, BorrowRecordService>();
 builder.Services.AddScoped<IWorkflowRepository, WorkflowRepository>();

@@ -492,16 +492,21 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
                 }
                 else
                 {
-                    // Nếu bước có cấu hình AssigneeId đích danh → dùng ngay, không cần FE chọn người
-                    if (!string.IsNullOrWhiteSpace(targetStep?.AssigneeId))
+                    // Giao việc đích danh chỉ là gợi ý mặc định (FE đã chọn sẵn) — người chuyển bước
+                    // vẫn có quyền chọn người khác, nên ưu tiên nextAssigneeUserId do FE gửi lên trước;
+                    // chỉ dùng targetStep.AssigneeId khi caller không gửi kèm người xử lý (vd. các luồng
+                    // cũ không có picker chọn người).
+                    if (!string.IsNullOrWhiteSpace(nextAssigneeUserId))
+                    {
+                        assigneeUserId = nextAssigneeUserId.Trim();
+                    }
+                    else if (!string.IsNullOrWhiteSpace(targetStep?.AssigneeId))
                     {
                         assigneeUserId = targetStep!.AssigneeId.Trim();
                     }
                     else
                     {
-                        if (string.IsNullOrWhiteSpace(nextAssigneeUserId))
-                            throw new ArgumentException("Vui lòng chọn người xử lý bước tiếp theo.");
-                        assigneeUserId = nextAssigneeUserId.Trim();
+                        throw new ArgumentException("Vui lòng chọn người xử lý bước tiếp theo.");
                     }
                 }
 

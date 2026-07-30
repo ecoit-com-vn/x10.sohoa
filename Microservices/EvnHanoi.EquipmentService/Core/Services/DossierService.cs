@@ -152,6 +152,23 @@ public class DossierService : IDossierService
             .ToList();
     }
 
+
+    public async Task<IEnumerable<Guid>> GetListDocumentIdsAsync(
+        string? keyword,
+        Guid? infrastructureId,
+        Guid? dossierTypeId,
+        long? unitId,
+        int page,
+        int pageSize)
+    {
+        return await _dossierRepository.GetListDocumentIdsAsync(
+        keyword,
+        infrastructureId,
+        dossierTypeId,
+        unitId,
+        page,
+        pageSize);
+    }
     public async Task<IEnumerable<GridTypeEntity>> GetGridTypesLookupAsync()
     {
         return await _dossierRepository.GetGridTypesLookupAsync();
@@ -334,6 +351,30 @@ public class DossierService : IDossierService
         int statusId,
         int? publishStatusId)
     {
+        return CreateInternalAsync(dto, userId, userName, userFullName, kindId, DossierStatusConstants.New, null);
+    }
+
+    public Task<Guid> CreateForPublishingAsync(DossierCreateDto dto, string userId, string userName, string userFullName)
+    {
+        return CreateInternalAsync(
+            dto,
+            userId,
+            userName,
+            userFullName,
+            kindId: 2,
+            statusId: DossierStatusConstants.Approved,
+            publishStatusId: DossierPublishStatusConstants.Pending);
+    }
+
+    private async Task<Guid> CreateInternalAsync(
+        DossierCreateDto dto,
+        string userId,
+        string userName,
+        string userFullName,
+        int kindId,
+        int statusId,
+        int? publishStatusId)
+    {
         var infraIds = dto.InfrastructureIds?.Where(x => x != Guid.Empty).Distinct().ToList() ?? new List<Guid>();
         if (infraIds.Count == 0 && dto.InfrastructureId.HasValue && dto.InfrastructureId != Guid.Empty)
         {
@@ -385,12 +426,31 @@ public class DossierService : IDossierService
         return newId;
     }
 
-    public async Task<bool> UpdateAsync(Guid id, DossierUpdateDto dto, string userId)
+    public Task<bool> UpdateAsync(Guid id, DossierUpdateDto dto, string userId)
+    {
+        return UpdateInternalAsync(id, dto, userId, allowPendingPublishEdit: false);
+    }
+
+    public Task<bool> UpdateForPublishingAsync(Guid id, DossierUpdateDto dto, string userId)
+    {
+        return UpdateInternalAsync(id, dto, userId, allowPendingPublishEdit: true);
+    }
+
+    private async Task<bool> UpdateInternalAsync(
+        Guid id,
+        DossierUpdateDto dto,
+        string userId,
+        bool allowPendingPublishEdit)
     {
         var existing = await _dossierRepository.GetByIdAsync(id);
         if (existing == null) throw new KeyNotFoundException($"Không tìm thấy hồ sơ với ID = {id}");
 
-        if (!string.IsNullOrEmpty(dto.FormDataJson))
+        var canEditPendingPublish = allowPendingPublishEdit
+                                    && existing.PublishStatusId == DossierPublishStatusConstants.Pending;
+        if (allowPendingPublishEdit && !canEditPendingPublish)
+            throw new InvalidOperationException("Chỉ có thể chỉnh sửa hồ sơ đang ở trạng thái Chờ xuất bản.");
+
+        if (!string.IsNullOrEmpty(dto.FormDataJson) && !canEditPendingPublish)
             await EnsureCanEditFormDataAsync(existing);
 
         var infraIds = dto.InfrastructureIds?.Where(x => x != Guid.Empty).Distinct().ToList() ?? new List<Guid>();

@@ -15,8 +15,9 @@ public class DossierDigitizationWorkflowHandler : DossierWorkflowHandler
     public DossierDigitizationWorkflowHandler(
         IWorkflowRepository workflowRepository,
         IHttpClientFactory httpClientFactory,
+        IMessageProducer messageProducer,
         ILogger<DossierWorkflowHandler> logger)
-        : base(workflowRepository, httpClientFactory, logger)
+        : base(workflowRepository, httpClientFactory, messageProducer, logger)
     {
     }
 }
