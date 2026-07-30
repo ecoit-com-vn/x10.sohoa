@@ -30,12 +30,12 @@ public class DossierPublishController : ControllerBase
                            ?? User.Identity?.Name ?? "system";
 
     private string UserName => User.FindFirst("preferred_username")?.Value
-                               ?? User.FindFirst(ClaimTypes.Name)?.Value
-                               ?? User.Identity?.Name ?? "system";
+                             ?? User.FindFirst(ClaimTypes.Name)?.Value
+                             ?? User.Identity?.Name ?? "system";
 
     private string UserFullName => User.FindFirst("name")?.Value
-                                   ?? User.FindFirst(ClaimTypes.GivenName)?.Value
-                                   ?? UserName;
+                                 ?? User.FindFirst(ClaimTypes.GivenName)?.Value
+                                 ?? UserName;
 
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] DossierCreateDto dto)
@@ -48,17 +48,39 @@ public class DossierPublishController : ControllerBase
             var newId = await _dossierService.CreateForPublishingAsync(dto, UserId, UserName, UserFullName);
             HttpContext.SetAudit(resourceId: newId.ToString(), resourceType: "DOSSIER_PUBLISH", action: AuditActions.Create);
 
-            return CreatedAtAction(
-                nameof(GetDetail),
-                new { id = newId },
-                new
-                {
-                    id = newId,
-                    statusId = DossierStatusConstants.Approved,
-                    publishStatusId = DossierPublishStatusConstants.Pending
-                });
+            return CreatedAtAction(nameof(GetDetail), new { id = newId }, new
+            {
+                id = newId,
+                statusId = DossierStatusConstants.Approved,
+                publishStatusId = DossierPublishStatusConstants.Pending
+            });
         }
         catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpPut("{id:guid}")]
+    public async Task<IActionResult> Edit(Guid id, [FromBody] DossierUpdateDto dto)
+    {
+        if (dto == null)
+            return BadRequest(new { message = "Dữ liệu không hợp lệ" });
+
+        try
+        {
+            var updated = await _dossierService.UpdateForPublishingAsync(id, dto, UserId);
+            if (!updated)
+                return BadRequest(new { message = "Không thể cập nhật hồ sơ." });
+
+            HttpContext.SetAudit(resourceId: id.ToString(), resourceType: "DOSSIER_PUBLISH", action: AuditActions.Update);
+            return Ok(new { success = true });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
         {
             return BadRequest(new { message = ex.Message });
         }
