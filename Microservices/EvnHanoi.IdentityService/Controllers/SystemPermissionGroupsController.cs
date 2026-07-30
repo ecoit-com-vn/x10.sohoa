@@ -48,12 +48,34 @@ public class SystemPermissionGroupsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] string? keyword = null)
+    public async Task<IActionResult> GetAll(
+     [FromQuery] int page = 1,
+     [FromQuery] int pageSize = 10,
+     [FromQuery] string? keyword = null,
+     [FromQuery] bool? isActive = null)
     {
-        var (items, totalCount, allCount) = await _permissionGroupRepository.GetPagedAsync(PermissionGroupTypes.System, page, pageSize, keyword);
-        return Ok(new { items, totalCount, allCount, page, pageSize });
-    }
+        // Trim khoảng trắng đầu cuối trước khi tìm kiếm.
+        var normalizedKeyword = string.IsNullOrWhiteSpace(keyword)
+            ? null
+            : keyword.Trim();
 
+        var (items, totalCount, allCount) =
+            await _permissionGroupRepository.GetPagedAsync(
+                PermissionGroupTypes.System,
+                page,
+                pageSize,
+                normalizedKeyword,
+                isActive: isActive);
+
+        return Ok(new
+        {
+            items,
+            totalCount,
+            allCount,
+            page,
+            pageSize
+        });
+    }
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(long id)
     {
