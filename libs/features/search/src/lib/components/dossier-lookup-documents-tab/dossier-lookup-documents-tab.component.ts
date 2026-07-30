@@ -47,6 +47,8 @@ export class DossierLookupDocumentsTabComponent implements OnInit, OnChanges {
   @Input() apiMode: 'equipment' | 'fulltext' | 'report' = 'equipment';
   @Input() reportApiSegment = '';
   @Input() returnKeyword = '';
+  /** apiMode='fulltext': versionId của tài liệu đang được xem trước ở trang chi tiết, dùng để tránh điều hướng vào chính URL hiện tại. */
+  @Input() currentVersionId?: string | null;
 
   documents = signal<LookupDocumentItem[]>([]);
   loading = signal<boolean>(false);
@@ -135,9 +137,18 @@ export class DossierLookupDocumentsTabComponent implements OnInit, OnChanges {
       return;
     }
     if (this.apiMode === 'fulltext') {
+      if (this.currentVersionId && doc.latestVersionId === this.currentVersionId) {
+        document.getElementById('doc-ft-preview-anchor')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        this.messageService.add({
+          severity: 'info',
+          summary: 'Xem tài liệu',
+          detail: 'Đây là tài liệu đang được xem trước ở phía trên.'
+        });
+        return;
+      }
       void this.router.navigate(['/search/documents', doc.latestVersionId], {
         queryParams: this.returnKeyword ? { keyword: this.returnKeyword } : {}
-      });
+      }).then(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
       return;
     }
     this.editTarget.set(doc);

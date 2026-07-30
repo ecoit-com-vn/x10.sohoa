@@ -93,6 +93,10 @@ export class FolderAllocationService {
     return this.http.post<{ success: boolean }>(`${this.baseUrl}/${id}/revoke`, {});
   }
 
+  reactivate(id: string): Observable<{ success: boolean }> {
+    return this.http.post<{ success: boolean }>(`${this.baseUrl}/${id}/reactivate`, {});
+  }
+
   delete(id: string): Observable<{ success: boolean }> {
     return this.http.delete<{ success: boolean }>(`${this.baseUrl}/${id}`);
   }
