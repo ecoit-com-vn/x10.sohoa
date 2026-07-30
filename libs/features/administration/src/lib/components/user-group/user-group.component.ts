@@ -1,5 +1,5 @@
 // E:\ecoit\sohoax10\sohoa.frontend\apps\admin-portal\src\app\features\administration\user-group.component.ts
-import { Component, OnInit, signal, computed, effect } from '@angular/core';
+import { Component, OnInit, signal, computed } from '@angular/core';
 import {
   DeleteConfirmDialogComponent,
   WfBreadcrumbComponent
@@ -10,6 +10,7 @@ import { HttpClient } from '@angular/common/http';
 import { DialogModule } from 'primeng/dialog';
 import { ToastModule } from 'primeng/toast';
 import { PickListModule } from 'primeng/picklist';
+import { PaginatorModule } from 'primeng/paginator';
 import { Menu, MenuModule } from 'primeng/menu';
 import { MenuItem, MessageService } from 'primeng/api';
 import { environment } from '@env/environment';
@@ -25,6 +26,7 @@ import { AuthService } from '@sohoa.frontend/shared/core';
     DialogModule,
     ToastModule,
     PickListModule,
+    PaginatorModule,
     MenuModule,
     WfBreadcrumbComponent,
     DeleteConfirmDialogComponent
@@ -98,37 +100,7 @@ export class UserGroupComponent implements OnInit {
   });
 
   // Paginated groups
-  paginatedGroups = computed(() => {
-    return this.groups();
-  });
-
-  totalPages = computed(() => {
-    return Math.ceil(this.totalCount() / this.pageSize());
-  });
-
-  nextPage() {
-    if (this.currentPage() < this.totalPages()) {
-      this.currentPage.update(p => p + 1);
-    }
-  }
-
-  prevPage() {
-    if (this.currentPage() > 1) {
-      this.currentPage.update(p => p - 1);
-    }
-  }
-
-  goToPage(page: any) {
-    const p = Number(page);
-    if (p >= 1 && p <= this.totalPages()) {
-      this.currentPage.set(p);
-    }
-  }
-
-  onPageSizeChange(event: any) {
-    this.pageSize.set(Number(event.target.value));
-    this.currentPage.set(1);
-  }
+  paginatedGroups = computed(() => this.groups());
 
   actionMenuItems: MenuItem[] = [];
 
@@ -136,21 +108,7 @@ export class UserGroupComponent implements OnInit {
     private http: HttpClient,
     private messageService: MessageService,
     public authService: AuthService
-  ) {
-    effect(() => {
-      this.searchKeyword();
-      this.searchStatus();
-      this.currentPage.set(1);
-    }, { allowSignalWrites: true });
-
-    effect(() => {
-      const page = this.currentPage();
-      const size = this.pageSize();
-      this.searchKeyword();
-      this.searchStatus();
-      this.loadGroups();
-    }, { allowSignalWrites: true });
-  }
+  ) {}
 
   openActionMenu(group: any, event: Event, menu: Menu): void {
     event.stopPropagation();
@@ -158,7 +116,6 @@ export class UserGroupComponent implements OnInit {
       ...(this.authService.hasPermission('USER_GROUP_MANAGE') ? [
         { label: 'Thành viên', title:'Thành viên', icon: 'pi pi-users color-blue', command: () => this.onManageMembers(group) },
         { label: 'Vai trò', title:'Vai trò', icon: 'pi pi-shield', command: () => this.onManageRoles(group) },
-        { label: 'Phân quyền trực tiếp', title: 'Phân quyền trực tiếp', icon: 'pi pi-key color-blue', command: () => this.onManagePermissions(group) },
       ] : []),
       ...(this.authService.hasPermission('USER_GROUP_EDIT') ? [{ label: 'Chỉnh sửa', title:'Chỉnh sửa', icon: 'pi pi-pencil color-teal', command: () => this.onEdit(group) }] : []),
       ...(this.authService.hasPermission('USER_GROUP_EDIT') ? [{ label: group.isActive ? 'Khóa nhóm' : 'Mở khóa', title: group.isActive ? 'Khóa nhóm' : 'Mở khóa', icon: group.isActive ? 'pi pi-lock color-red' : 'pi pi-lock-open color-teal', command: () => this.onToggleStatusRequest(group) }] : []),
@@ -174,7 +131,8 @@ export class UserGroupComponent implements OnInit {
 
   loadGroups() {
     this.loading.set(true);
-    let url = `${this.apiUrl}?page=${this.currentPage()}&pageSize=${this.pageSize()}&keyword=${this.searchKeyword() || ''}`;
+    const keyword = this.searchKeyword().trim();
+    let url = `${this.apiUrl}?page=${this.currentPage()}&pageSize=${this.pageSize()}&keyword=${encodeURIComponent(keyword)}`;
     const statusVal = this.searchStatus();
     if (statusVal !== '') {
       url += `&isActive=${statusVal === 'active'}`;
@@ -196,7 +154,23 @@ export class UserGroupComponent implements OnInit {
   }
 
   onSearch() {
-    // Tự động thông qua computed
+    this.currentPage.set(1);
+    this.loadGroups();
+  }
+
+  onResetSearch() {
+    this.searchKeyword.set('');
+    this.searchStatus.set('');
+    this.currentPage.set(1);
+    this.loadGroups();
+  }
+
+  onGroupPageChange(event: { first?: number; rows?: number }) {
+    const rows = Number(event.rows) || this.pageSize();
+    const first = Number(event.first) || 0;
+    this.pageSize.set(rows);
+    this.currentPage.set(Math.floor(first / rows) + 1);
+    this.loadGroups();
   }
 
   onAddNew() {
