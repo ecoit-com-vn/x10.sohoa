@@ -337,9 +337,10 @@ public class DossierService : IDossierService
         string userId,
         string userName,
         string userFullName,
-        int kindId = 2) =>
-        CreateInternalAsync(dto, userId, userName, userFullName, kindId, DossierStatusConstants.New, null);
-
+        int kindId = 2)
+    {
+        return CreateInternalAsync(dto, userId, userName, userFullName, kindId, DossierStatusConstants.New, null);
+    }
     public Task<Guid> CreateForPublishingAsync(DossierCreateDto dto, string userId, string userName, string userFullName)
     {
         return CreateInternalAsync(
