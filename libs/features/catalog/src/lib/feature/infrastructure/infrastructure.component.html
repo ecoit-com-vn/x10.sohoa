@@ -242,10 +242,19 @@
             </div>
             <!-- Tree dropdown -->
             <div class="org-tree-dropdown" *ngIf="orgTreePickerOpen()" (click)="$event.stopPropagation()">
-              <ng-container *ngFor="let node of orgUnitTree()">
+              <div class="org-tree-search">
+                <i class="pi pi-search"></i>
+                <input
+                  type="text"
+                  placeholder="Tìm kiếm đơn vị..."
+                  [ngModel]="orgTreeSearchKeyword()"
+                  (ngModelChange)="orgTreeSearchKeyword.set($event)"
+                />
+              </div>
+              <ng-container *ngFor="let node of filteredOrgUnitTree()">
                 <ng-container *ngTemplateOutlet="orgTreeNode; context: { $implicit: node, depth: 0 }"></ng-container>
               </ng-container>
-              <div *ngIf="orgUnitTree().length === 0" class="org-tree-empty">Chưa có đơn vị nào.</div>
+              <div *ngIf="filteredOrgUnitTree().length === 0" class="org-tree-empty">Không có đơn vị phù hợp.</div>
             </div>
           </div>
           <!-- Template cây node (đệ quy) -->
@@ -267,7 +276,7 @@
               </span>
             </div>
             <!-- Cây con — chỉ hiện khi mở rộng -->
-            <ng-container *ngIf="isNodeExpanded(node.id) && node.children?.length">
+            <ng-container *ngIf="(orgTreeSearchKeyword() || isNodeExpanded(node.id)) && node.children?.length">
               <ng-container *ngFor="let child of node.children">
                 <ng-container *ngTemplateOutlet="orgTreeNode; context: { $implicit: child, depth: depth + 1 }"></ng-container>
               </ng-container>

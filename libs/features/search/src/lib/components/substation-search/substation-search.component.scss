@@ -97,7 +97,9 @@
   button:hover { text-decoration: underline; }
   span { margin-left: auto; color: #94a3b8; font-size: 0.78rem; }
 }
-
+.wf-card{
+  padding: 0px;
+}
 .substation-attachment-loading,
 .substation-attachment-empty {
   padding: 12px 0 12px 26px;
@@ -193,7 +195,216 @@
 .substation-tree-search { display: flex; align-items: center; gap: 7px; height: 38px; margin-bottom: 12px; padding: 0 10px; border: 1px solid #cbd5e1; border-radius: 5px; }.substation-tree-search input { min-width: 0; flex: 1; border: 0; outline: 0; font-size: .88rem; }
 .substation-tree-parent, .substation-tree-node { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 38px; padding: 7px 8px; border: 0; background: transparent; text-align: left; cursor: pointer; }.substation-tree-parent { color: #1e3a8a; font-weight: 700; }.substation-tree-parent .pi, .substation-tree-node .pi { color: #f5ae00; }.substation-tree-parent span, .substation-tree-node span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.substation-tree-children { margin-left: 16px; border-left: 1px dashed #93c5fd; }.substation-tree-node { padding-left: 16px; color: #334155; font-size: .88rem; }.substation-tree-node.selected, .substation-tree-node:hover { background: #eff6ff; color: #1d4ed8; }.substation-tree-node.selected { font-weight: 600; }
 
+// Keep the document trees visually consistent with the substation catalog detail view.
+.substation-document-workspace {
+  grid-template-columns: minmax(300px, 32%) minmax(0, 1fr);
+  gap: 16px;
+  min-height: 430px;
+  border: 0;
+  border-radius: 0;
+  overflow: visible;
+  background: transparent;
+}
+
+.substation-document-list {
+  padding: 0;
+  background: transparent;
+}
+
+.substation-document-filter-card {
+  margin-bottom: 14px;
+  padding: 14px 16px;
+  border: 1px solid #d5dfed;
+  border-radius: 7px;
+  background: #fff;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+}
+
+.substation-document-filters {
+  margin-bottom: 14px;
+  padding: 14px 16px;
+  border: 1px solid #d5dfed;
+  border-radius: 7px;
+  background: #fff;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+}
+
+.substation-document-table-card {
+  overflow-x: auto;
+  border: 1px solid #dbe3ee;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+}
+
+.substation-document-table {
+  width: 100%;
+  min-width: 660px;
+  border: 1px solid #dbe3ee;
+  border-collapse: collapse;
+  background: #fff;
+}
+
+.substation-document-table th,
+.substation-document-table td {
+  border-right: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.substation-document-table th:last-child,
+.substation-document-table td:last-child {
+  border-right: 0;
+}
+
+.substation-document-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.substation-document-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 18px;
+  min-height: 48px;
+  margin-top: -1px;
+  padding: 10px 12px;
+  border: 1px solid #dbe3ee;
+  border-radius: 0 0 8px 8px;
+  background: #fff;
+  color: #64748b;
+  font-size: 0.78rem;
+}
+
+.substation-document-pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.substation-document-pagination-controls button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid #dbe3ee;
+  border-radius: 50%;
+  background: #fff;
+  color: #64748b;
+  font-size: 0.74rem;
+  cursor: pointer;
+}
+
+.substation-document-pagination-controls button:hover:not(:disabled) {
+  border-color: #60a5fa;
+  color: #2563eb;
+}
+
+.substation-document-pagination-controls button.active {
+  border-color: #3b82f6;
+  background: #3b82f6;
+  color: #fff;
+}
+
+.substation-document-pagination-controls button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.substation-document-pagination-controls select {
+  height: 25px;
+  margin-left: 6px;
+  padding: 0 5px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  background: #fff;
+  color: #64748b;
+  font-size: 0.75rem;
+}
+
+.substation-document-tree {
+  width: auto;
+  padding: 0;
+  border: 1px solid #dbe3ee;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.05);
+}
+
+.substation-tree-title {
+  min-height: 44px;
+  margin: 0;
+  padding: 0 16px;
+  border-radius: 7px;
+  background: #3b82f6;
+  color: #fff;
+  font-size: 0.95rem;
+}
+
+.substation-tree-title .pi {
+  color: #fff;
+  font-size: 1.1rem;
+}
+
+.substation-tree-parent {
+  min-height: 42px;
+  padding: 8px 10px;
+  color: #1e293b;
+  font-size: 0.95rem;
+  font-weight: 400;
+}
+
+.substation-tree-parent > .pi:first-child {
+  display: none;
+}
+
+.substation-tree-parent .pi-folder,
+.substation-tree-parent .pi-folder-open,
+.substation-tree-node .pi {
+  color: #f5ae00;
+  font-size: 1.15rem;
+}
+
+.substation-tree-children {
+  position: relative;
+  margin: 0 0 0 22px;
+  border-left: 0;
+}
+
+.substation-tree-children::before {
+  position: absolute;
+  top: 0;
+  bottom: 21px;
+  left: 0;
+  border-left: 1px dashed #60a5fa;
+  content: '';
+}
+
+.substation-tree-node {
+  position: relative;
+  min-height: 42px;
+  padding: 8px 8px 8px 22px;
+  color: #334155;
+  font-size: 0.92rem;
+}
+
+.substation-tree-node::before {
+  position: absolute;
+  left: 0;
+  width: 16px;
+  border-top: 1px dashed #60a5fa;
+  content: '';
+}
+
+.substation-tree-node:hover,
+.substation-tree-node.selected {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
 @media (max-width: 640px) {
   .substation-document-workspace { grid-template-columns: 1fr; }.substation-document-tree { border-right: 0; border-bottom: 1px solid #dbe3ee; }.substation-document-filters { grid-template-columns: 1fr; }
+  .substation-document-pagination { align-items: flex-start; flex-direction: column; gap: 8px; }
   .substation-preview-footer { align-items: flex-start; flex-direction: column; }
 }

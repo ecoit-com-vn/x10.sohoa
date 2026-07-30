@@ -45,17 +45,44 @@ function tabLabel(tab: PublishTab): string {
           <input
             type="text"
             class="wf-search-input"
-            placeholder="Tìm kiếm theo thông tin hồ sơ..."
+            placeholder="Tìm theo mã hồ sơ, tiêu đề hồ sơ..."
             [(ngModel)]="searchKeyword"
             (keyup.enter)="onSearch()"
           />
-          <select class="wf-select" [(ngModel)]="filterGridTypeId" (change)="onSearch()">
-            <option [ngValue]="null">-- Tất cả loại lưới điện --</option>
-            <option *ngFor="let item of gridTypes()" [value]="item.id">{{ item.name }}</option>
+          <select class="wf-select" [ngModel]="filterDossierTypeId()" (ngModelChange)="onDossierTypeFilterChange($event)">
+            <option [ngValue]="null">-- Tất cả loại hồ sơ --</option>
+            <option *ngFor="let item of dossierTypes()" [value]="item.id">{{ item.name }}</option>
           </select>
-          <select class="wf-select" [(ngModel)]="filterInfrastructureId" (change)="onSearch()">
-            <option [ngValue]="null">-- Tất cả trạm/đường dây --</option>
-            <option *ngFor="let item of infrastructures()" [value]="item.id">{{ item.name }}</option>
+          <div class="searchable-select">
+            <button type="button" class="wf-select searchable-select-trigger" (click)="toggleInfrastructureDropdown()">
+              <span>{{ selectedInfrastructureLabel() }}</span>
+              <i class="pi pi-chevron-down"></i>
+            </button>
+            <div class="searchable-select-panel" *ngIf="isInfrastructureDropdownOpen()">
+              <input
+                type="text"
+                class="searchable-select-input"
+                placeholder="Tìm trên trạm/đường dây..."
+                [ngModel]="infrastructureSearchKeyword()"
+                (ngModelChange)="infrastructureSearchKeyword.set($event)"
+              />
+              <button type="button" class="searchable-select-option" (click)="selectInfrastructure(null)">
+                -- Tất cả trạm/đường dây --
+              </button>
+              <button
+                type="button"
+                class="searchable-select-option"
+                *ngFor="let item of filteredInfrastructures()"
+                (click)="selectInfrastructure(item.id)"
+              >
+                {{ item.name }}
+              </button>
+              <div class="searchable-select-empty" *ngIf="filteredInfrastructures().length === 0">Không có dữ liệu</div>
+            </div>
+          </div>
+          <select class="wf-select" [ngModel]="filterEquipmentId()" (ngModelChange)="onEquipmentFilterChange($event)" [disabled]="!filterInfrastructureId()">
+            <option [ngValue]="null">-- Tất cả thiết bị --</option>
+            <option *ngFor="let item of equipments()" [value]="item.id">{{ item.name }}</option>
           </select>
           <button (click)="onSearch()" class="btn-tim">
             <i class="pi pi-search"></i> Tìm
@@ -159,7 +186,10 @@ function tabLabel(tab: PublishTab): string {
         <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #3b82f6;"></i>
         <div>
           <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">{{ confirmTitle() }}</p>
-          <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
+          <p *ngIf="confirmActionType() === 'delete'" style="margin: 0; color: #64748b; font-size: 0.875rem;">
+            Hồ sơ <b style="color: #1e293b;">{{ actionTargetLabel() }}</b> sẽ bị xóa và không thể khôi phục.
+          </p>
+          <p *ngIf="confirmActionType() !== 'delete'" style="margin: 0; color: #64748b; font-size: 0.875rem;">
             Hồ sơ <b style="color: #1e293b;">{{ actionTargetLabel() }}</b> sẽ được thay đổi trạng thái xuất bản.
           </p>
         </div>
@@ -204,6 +234,65 @@ function tabLabel(tab: PublishTab): string {
       display: flex;
       align-items: center;
     }
+    .searchable-select {
+      position: relative;
+      min-width: 220px;
+    }
+    .searchable-select-trigger {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      text-align: left;
+    }
+    .searchable-select-trigger span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .searchable-select-panel {
+      position: absolute;
+      z-index: 20;
+      top: calc(100% + 4px);
+      left: 0;
+      width: 100%;
+      max-height: 280px;
+      overflow-y: auto;
+      padding: 8px;
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      box-shadow: 0 8px 16px rgba(15, 23, 42, 0.15);
+    }
+    .searchable-select-input {
+      width: 100%;
+      box-sizing: border-box;
+      margin-bottom: 6px;
+      padding: 8px 10px;
+      border: 1px solid #cbd5e1;
+      border-radius: 4px;
+      outline: none;
+    }
+    .searchable-select-option {
+      display: block;
+      width: 100%;
+      padding: 8px 10px;
+      border: 0;
+      border-radius: 4px;
+      background: transparent;
+      color: #334155;
+      text-align: left;
+      cursor: pointer;
+    }
+    .searchable-select-option:hover {
+      background: #eff6ff;
+      color: #1d4ed8;
+    }
+    .searchable-select-empty {
+      padding: 8px 10px;
+      color: #64748b;
+      font-size: 0.9rem;
+    }
   `]
 })
 export class DossierPublishComponent implements OnInit {
@@ -226,11 +315,22 @@ export class DossierPublishComponent implements OnInit {
   pageSize = signal<number>(10);
 
   searchKeyword = signal<string>('');
-  filterGridTypeId = signal<number | null>(null);
   filterInfrastructureId = signal<string | null>(null);
+  filterDossierTypeId = signal<string | null>(null);
+  filterEquipmentId = signal<string | null>(null);
+  infrastructureSearchKeyword = signal<string>('');
+  isInfrastructureDropdownOpen = signal<boolean>(false);
 
-  gridTypes = signal<any[]>([]);
   infrastructures = signal<any[]>([]);
+  dossierTypes = signal<any[]>([]);
+  equipments = signal<any[]>([]);
+  filteredInfrastructures = computed(() => {
+    const keyword = this.infrastructureSearchKeyword().trim().toLocaleLowerCase();
+    if (!keyword) return this.infrastructures();
+    return this.infrastructures().filter((item) =>
+      String(item.name ?? '').toLocaleLowerCase().includes(keyword)
+    );
+  });
   bhsColumns = signal<BhsCatalogColumn[]>([]);
 
   activeTab = signal<PublishTab>('pending-publish');
@@ -238,7 +338,7 @@ export class DossierPublishComponent implements OnInit {
 
   // Action Confirm Dialog State
   showConfirmDialog = signal<boolean>(false);
-  confirmActionType = signal<'publish' | 'unpublish' | 'republish' | null>(null);
+  confirmActionType = signal<'publish' | 'unpublish' | 'republish' | 'delete' | null>(null);
   actionTarget = signal<any>(null);
   actionSubmitting = signal<boolean>(false);
   publishActionMenuItems = signal<MenuItem[]>([]);
@@ -258,6 +358,8 @@ export class DossierPublishComponent implements OnInit {
   });
 
   confirmHeader() {
+    if (this.confirmActionType() === 'delete') return 'Xác nhận xóa hồ sơ';
+
     switch (this.confirmActionType()) {
       case 'publish': return 'Xác nhận xuất bản';
       case 'unpublish': return 'Xác nhận hủy xuất bản';
@@ -267,6 +369,8 @@ export class DossierPublishComponent implements OnInit {
   }
 
   confirmTitle() {
+    if (this.confirmActionType() === 'delete') return 'Bạn có chắc chắn muốn xóa hồ sơ này?';
+
     switch (this.confirmActionType()) {
       case 'publish': return 'Bạn có chắc chắn muốn xuất bản hồ sơ này?';
       case 'unpublish': return 'Bạn có chắc chắn muốn hủy xuất bản hồ sơ này?';
@@ -276,7 +380,7 @@ export class DossierPublishComponent implements OnInit {
   }
 
   confirmButtonColor() {
-    return this.confirmActionType() === 'unpublish' ? '#dc2626' : '#22c55e';
+    return this.confirmActionType() === 'unpublish' || this.confirmActionType() === 'delete' ? '#dc2626' : '#22c55e';
   }
 
   getTabBadgeCount(tab: PublishTab): number {
@@ -307,6 +411,44 @@ export class DossierPublishComponent implements OnInit {
     this.refreshList();
   }
 
+  toggleInfrastructureDropdown(): void {
+    this.isInfrastructureDropdownOpen.update((open) => !open);
+  }
+
+  onDossierTypeFilterChange(dossierTypeId: string | null): void {
+    this.filterDossierTypeId.set(dossierTypeId || null);
+    this.onSearch();
+  }
+
+  onEquipmentFilterChange(equipmentId: string | null): void {
+    this.filterEquipmentId.set(equipmentId || null);
+    this.onSearch();
+  }
+
+  selectInfrastructure(infrastructureId: string | null): void {
+    this.filterInfrastructureId.set(infrastructureId);
+    this.filterEquipmentId.set(null);
+    this.equipments.set([]);
+    this.infrastructureSearchKeyword.set('');
+    this.isInfrastructureDropdownOpen.set(false);
+
+    if (infrastructureId) {
+      this.service.getEquipmentLookup({ infrastructureId, pageSize: 1000 }).subscribe({
+        next: (res) => this.equipments.set(Array.isArray(res) ? res : (res?.items ?? [])),
+        error: () => this.equipments.set([]),
+      });
+    }
+
+    this.onSearch();
+  }
+
+  selectedInfrastructureLabel(): string {
+    const infrastructureId = this.filterInfrastructureId();
+    if (!infrastructureId) return '-- Tất cả trạm/đường dây --';
+    return this.infrastructures().find((item) => String(item.id) === String(infrastructureId))?.name
+      ?? '-- Tất cả trạm/đường dây --';
+  }
+
   refreshList() {
     this.loadTabCounts();
     this.loadData();
@@ -315,8 +457,9 @@ export class DossierPublishComponent implements OnInit {
   loadTabCounts() {
     this.publishService.getTabCounts({
       keyword: this.searchKeyword(),
-      gridTypeId: this.filterGridTypeId() !== null ? this.filterGridTypeId()! : undefined,
+      dossierTypeId: this.filterDossierTypeId() || undefined,
       infrastructureId: this.filterInfrastructureId() || undefined,
+      equipmentId: this.filterEquipmentId() || undefined,
     }).subscribe({
       next: (counts) => this.tabCounts.set(counts),
       error: () => console.error('Failed to load publish dossier tab counts')
@@ -324,9 +467,9 @@ export class DossierPublishComponent implements OnInit {
   }
 
   loadLookups() {
-    this.service.getGridTypeLookup().subscribe({
-      next: (res) => this.gridTypes.set(res),
-      error: () => console.error('Failed to load grid types')
+    this.service.getDossierTypeLookup().subscribe({
+      next: (res) => this.dossierTypes.set(res),
+      error: () => console.error('Failed to load dossier types')
     });
     this.service.getInfrastructureLookup().subscribe({
       next: (res) => this.infrastructures.set(res),
@@ -341,18 +484,34 @@ export class DossierPublishComponent implements OnInit {
   loadData() {
     this.loading.set(true);
     this.items.set([]);
+    const dossierTypeId = this.filterDossierTypeId();
 
     this.publishService.getPaged({
       tab: this.activeTab() as DossierListTab,
       keyword: this.searchKeyword(),
-      gridTypeId: this.filterGridTypeId() !== null ? this.filterGridTypeId()! : undefined,
+      dossierTypeId: dossierTypeId || undefined,
       infrastructureId: this.filterInfrastructureId() || undefined,
+      equipmentId: this.filterEquipmentId() || undefined,
       page: this.currentPage(),
-      pageSize: this.pageSize()
+      pageSize: dossierTypeId ? 1000 : this.pageSize()
     }).subscribe({
       next: (res) => {
-        this.items.set(res.items || []);
-        this.totalCount.set(res.totalCount || 0);
+        const sourceItems = res.items || [];
+        const matchingItems = dossierTypeId
+          ? sourceItems.filter((item: any) =>
+              String(item.dossierTypeId ?? item.DossierTypeId ?? '').toLowerCase()
+              === String(dossierTypeId).toLowerCase()
+            )
+          : sourceItems;
+
+        if (dossierTypeId) {
+          const start = (this.currentPage() - 1) * this.pageSize();
+          this.items.set(matchingItems.slice(start, start + this.pageSize()));
+          this.totalCount.set(matchingItems.length);
+        } else {
+          this.items.set(matchingItems);
+          this.totalCount.set(res.totalCount || 0);
+        }
         this.loading.set(false);
       },
       error: () => {
@@ -380,7 +539,7 @@ export class DossierPublishComponent implements OnInit {
     }
   }
 
-  requestAction(type: 'publish' | 'unpublish' | 'republish', item: any) {
+  requestAction(type: 'publish' | 'unpublish' | 'republish' | 'delete', item: any) {
     this.confirmActionType.set(type);
     this.actionTarget.set(item);
     this.showConfirmDialog.set(true);
@@ -427,6 +586,15 @@ export class DossierPublishComponent implements OnInit {
       }
     }
 
+    if (this.activeTab() === 'unpublished') {
+      items.push({
+        label: 'Xóa',
+        title: 'Xóa',
+        icon: 'pi pi-trash color-red',
+        command: () => this.requestAction('delete', item),
+      });
+    }
+
     this.publishActionMenuItems.set(items);
     menu.toggle(event);
   }
@@ -445,7 +613,9 @@ export class DossierPublishComponent implements OnInit {
     this.actionSubmitting.set(true);
     let obs$;
 
-    if (type === 'publish') {
+    if (type === 'delete') {
+      obs$ = this.service.deleteDossier(item.id);
+    } else if (type === 'publish') {
       obs$ = this.publishService.publish(item.id);
     } else if (type === 'unpublish') {
       obs$ = this.publishService.unpublish(item.id);
@@ -460,6 +630,12 @@ export class DossierPublishComponent implements OnInit {
       })
     ).subscribe({
       next: () => {
+        if (type === 'delete') {
+          this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã xóa hồ sơ' });
+          this.refreshList();
+          return;
+        }
+
         this.messageService.add({
           severity: 'success',
           summary: 'Thành công',

@@ -1,7 +1,17 @@
 <div class="wf-page">
   <p-toast></p-toast>
 
-  <wf-breadcrumb [viewMode]="currentView()" [leafLabel]="pageTitle()" (listClick)="goBack()" />
+  <div class="list-toolbar">
+    <div class="toolbar-left">
+      <wf-breadcrumb [viewMode]="currentView()" [leafLabel]="pageTitle()" (listClick)="goBack()" />
+    </div>
+    <div class="toolbar-right" *ngIf="currentView() === 'detail'" style="display: flex; align-items: center; gap: 8px;">
+      <button class="btn-outlined btn-small" (click)="goBack()"
+        style="height: 36px; padding: 0 12px; border-radius: 6px; display: inline-flex; align-items: center; gap: 6px;">
+        <i class="pi pi-arrow-left"></i> Quay lại
+      </button>
+    </div>
+  </div>
 
   <div class="wf-card">
 
@@ -150,7 +160,7 @@
     <div *ngIf="currentView() === 'detail'" class="animate-fade-in sub-view-container">
 
       <!-- Tab Bar -->
-      <div class="tab-bar" style="margin-bottom: 24px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+      <div class="tab-bar" style="margin-bottom: 10px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
         <div style="display: flex; gap: 8px;">
           <div class="tab-item" [class.tab-active]="activeTab() === 0" (click)="activeTab.set(0)"
                style="padding: 12px 16px; cursor: pointer; font-weight: 500; font-size: 0.95rem; display: flex; align-items: center; gap: 6px; border-bottom: 2px solid transparent;"
@@ -170,11 +180,6 @@
                [style.color]="activeTab() === 2 ? '#2563eb' : '#64748b'">
             <i class="pi pi-folder-open"></i> Hồ sơ kỹ thuật
           </div>
-        </div>
-        <div style="padding-right: 8px;">
-          <button class="btn-outlined btn-small" (click)="goBack()" style="height: 34px; padding: 0 12px; border-radius: 6px; display: inline-flex; align-items: center; gap: 6px; margin-bottom: 4px;">
-            <i class="pi pi-arrow-left"></i> Quay lại
-          </button>
         </div>
       </div>
 
@@ -349,21 +354,30 @@
         <section class="substation-document-list">
           <div class="substation-document-heading">{{ selectedAttachmentFolder()?.name || 'Tài liệu đính kèm' }}</div>
           <div class="substation-document-filters">
-            <label>Từ khóa<input type="text" placeholder="Tìm theo tên tài liệu" [ngModel]="attachmentDocumentKeyword()" (ngModelChange)="attachmentDocumentKeyword.set($event)" /></label>
-            <label>Thiết bị<p-select [options]="attachmentEquipmentOptions()" [ngModel]="attachmentSelectedEquipmentId()" (ngModelChange)="attachmentSelectedEquipmentId.set($event)" optionLabel="name" optionValue="id" placeholder="-- Chọn thiết bị --" [filter]="true" [showClear]="true" appendTo="body"></p-select></label>
+            <label>Từ khóa<input type="text" placeholder="Tìm theo tên tài liệu" [ngModel]="attachmentDocumentKeyword()" (ngModelChange)="attachmentDocumentKeyword.set($event); onAttachmentDocumentFiltersChange()" /></label>
+            <label>Thiết bị<p-select [options]="attachmentEquipmentOptions()" [ngModel]="attachmentSelectedEquipmentId()" (ngModelChange)="attachmentSelectedEquipmentId.set($event); onAttachmentDocumentFiltersChange()" optionLabel="name" optionValue="id" placeholder="-- Chọn thiết bị --" [filter]="true" [showClear]="true" appendTo="body"></p-select></label>
           </div>
           <div *ngIf="loadingAttachmentDocuments()" class="substation-document-empty"><i class="pi pi-spin pi-spinner"></i> Đang tải tài liệu...</div>
-          <table *ngIf="!loadingAttachmentDocuments() && selectedAttachmentDocuments().length > 0" class="wf-table substation-document-table"><thead><tr><th>STT</th><th>Tài liệu</th><th>Thiết bị</th><th>Ngày tài liệu</th><th>Người tạo</th></tr></thead><tbody><tr *ngFor="let item of selectedAttachmentDocuments(); let i = index"><td>{{ i + 1 }}</td><td><button class="substation-document-link" (click)="openAttachmentDocumentPreview(item.dossier.id, item.document)"><i class="pi pi-file-pdf"></i>{{ item.document.name || item.document.fileName || 'Tài liệu chưa đặt tên' }}</button></td><td>{{ getAttachmentEquipmentName(item) }}</td><td>{{ item.document.createdDate ? (item.document.createdDate | date:'dd/MM/yyyy') : '-' }}</td><td>{{ item.document.createdByName || item.document.createdBy || '-' }}</td></tr></tbody></table>
+          <table *ngIf="!loadingAttachmentDocuments() && selectedAttachmentDocuments().length > 0" class="wf-table substation-document-table"><thead><tr><th>STT</th><th>Tài liệu</th><th>Thiết bị</th><th>Ngày tài liệu</th><th>Người tạo</th></tr></thead><tbody><tr *ngFor="let item of pagedAttachmentDocuments(); let i = index"><td>{{ (attachmentDocumentPage() - 1) * attachmentDocumentPageSize() + i + 1 }}</td><td><button class="substation-document-link" (click)="openAttachmentDocumentPreview(item.dossier.id, item.document)"><i class="pi pi-file-pdf"></i>{{ item.document.name || item.document.fileName || 'Tài liệu chưa đặt tên' }}</button></td><td>{{ getAttachmentEquipmentName(item) }}</td><td>{{ item.document.createdDate ? (item.document.createdDate | date:'dd/MM/yyyy') : '-' }}</td><td>{{ item.document.createdByName || item.document.createdBy || '-' }}</td></tr></tbody></table>
           <div *ngIf="!loadingAttachmentDocuments() && selectedAttachmentDocuments().length === 0" class="substation-document-empty">Chọn một thư mục để xem danh sách tài liệu.</div>
+          <div *ngIf="!loadingAttachmentDocuments() && selectedAttachmentDocuments().length > 0" class="substation-document-pagination">
+            <span>Hiển thị {{ pagedAttachmentDocuments().length }} trên tổng số {{ selectedAttachmentDocuments().length }} bản ghi</span>
+            <div class="substation-document-pagination-controls">
+              <button type="button" (click)="changeAttachmentDocumentPage(attachmentDocumentPage() - 1)" [disabled]="attachmentDocumentPage() === 1"><i class="pi pi-angle-left"></i></button>
+              <button type="button" *ngFor="let page of getVisibleDocumentPages(attachmentDocumentPage(), attachmentDocumentTotalPages())" [class.active]="page === attachmentDocumentPage()" (click)="changeAttachmentDocumentPage(page)">{{ page }}</button>
+              <button type="button" (click)="changeAttachmentDocumentPage(attachmentDocumentPage() + 1)" [disabled]="attachmentDocumentPage() === attachmentDocumentTotalPages()"><i class="pi pi-angle-right"></i></button>
+              <select [ngModel]="attachmentDocumentPageSize()" (change)="onAttachmentDocumentPageSizeChange($event)"><option [value]="10">10</option><option [value]="20">20</option><option [value]="50">50</option></select>
+            </div>
+          </div>
         </section>
-        <aside class="substation-document-tree"><div class="substation-tree-title"><i class="pi pi-folder-open"></i> HỒ SƠ KỸ THUẬT</div>
+        <aside class="substation-document-tree"><div class="substation-tree-title"><i class="pi pi-folder"></i> TÀI LIỆU ĐÍNH KÈM</div>
           
           <button class="substation-tree-parent" (click)="toggleAttachmentStationFolder()"><i class="pi" [class.pi-chevron-right]="!attachmentStationFolderExpanded()" [class.pi-chevron-down]="attachmentStationFolderExpanded()"></i><i class="pi" [class.pi-folder]="!attachmentStationFolderExpanded()" [class.pi-folder-open]="attachmentStationFolderExpanded()"></i><span>{{ currentItem().name || 'Trạm biến áp' }}</span></button><div *ngIf="attachmentStationFolderExpanded()" class="substation-tree-children"><button *ngFor="let folder of attachmentDocumentFolders()" class="substation-tree-node" [class.selected]="selectedAttachmentFolderId() === folder.id" (click)="selectAttachmentFolder(folder.id)"><i class="pi" [class.pi-folder]="selectedAttachmentFolderId() !== folder.id" [class.pi-folder-open]="selectedAttachmentFolderId() === folder.id"></i><span>{{ folder.name }}</span></button></div></aside>
       </div>
 
       <!-- ======= TAB 2: HỒ SƠ KỸ THUẬT (chỉ đọc) ======= -->
       <div *ngIf="activeTab() === 2" class="tab-content animate-fade-in substation-document-workspace">
-        <section class="substation-document-list"><div class="substation-document-heading">{{ selectedTechnicalFolder()?.name || 'Hồ sơ kỹ thuật' }}</div><div class="substation-document-filters"><label>Từ khóa<input type="text" placeholder="Tìm theo tên tài liệu" [ngModel]="technicalDocumentKeyword()" (ngModelChange)="technicalDocumentKeyword.set($event)" /></label><label>Loại tài liệu<p-select [options]="technicalDocumentTypeOptions()" [ngModel]="technicalSelectedDocumentTypeId()" (ngModelChange)="technicalSelectedDocumentTypeId.set($event)" optionLabel="name" optionValue="id" placeholder="-- Chọn loại tài liệu --" [filter]="true" [showClear]="true" appendTo="body"></p-select></label></div><div *ngIf="loadingTechnicalDossiers() || (selectedTechnicalFolder() && isTechnicalFolderLoading(selectedTechnicalFolder()!.id))" class="substation-document-empty"><i class="pi pi-spin pi-spinner"></i> Đang tải tài liệu...</div><table *ngIf="!loadingTechnicalDossiers() && !isTechnicalFolderLoading(selectedTechnicalFolder()?.id || '') && selectedTechnicalDocuments().length > 0" class="wf-table substation-document-table"><thead><tr><th>STT</th><th>Tài liệu</th><th>Loại tài liệu</th><th>Ngày tài liệu</th><th>Người tạo</th></tr></thead><tbody><tr *ngFor="let item of selectedTechnicalDocuments(); let i = index"><td>{{ i + 1 }}</td><td><button class="substation-document-link" (click)="openAttachmentDocumentPreview(item.dossier.id, item.document)"><i class="pi pi-file-pdf"></i>{{ item.document.name || item.document.fileName || 'Tài liệu chưa đặt tên' }}</button></td><td>{{ item.document.documentTypeName || '-' }}</td><td>{{ item.document.createdDate ? (item.document.createdDate | date:'dd/MM/yyyy') : '-' }}</td><td>{{ item.document.createdByName || item.document.createdBy || '-' }}</td></tr></tbody></table><div *ngIf="!loadingTechnicalDossiers() && !isTechnicalFolderLoading(selectedTechnicalFolder()?.id || '') && selectedTechnicalDocuments().length === 0" class="substation-document-empty">Chọn một thư mục để xem danh sách tài liệu.</div></section>
+        <section class="substation-document-list"><div class="substation-document-heading">{{ selectedTechnicalFolder()?.name || 'Hồ sơ kỹ thuật' }}</div><div class="substation-document-filters"><label>Từ khóa<input type="text" placeholder="Tìm theo tên tài liệu" [ngModel]="technicalDocumentKeyword()" (ngModelChange)="technicalDocumentKeyword.set($event); onTechnicalDocumentFiltersChange()" /></label><label>Loại tài liệu<p-select [options]="technicalDocumentTypeOptions()" [ngModel]="technicalSelectedDocumentTypeId()" (ngModelChange)="technicalSelectedDocumentTypeId.set($event); onTechnicalDocumentFiltersChange()" optionLabel="name" optionValue="id" placeholder="-- Chọn loại tài liệu --" [filter]="true" [showClear]="true" appendTo="body"></p-select></label></div><div *ngIf="loadingTechnicalDossiers() || (selectedTechnicalFolder() && isTechnicalFolderLoading(selectedTechnicalFolder()!.id))" class="substation-document-empty"><i class="pi pi-spin pi-spinner"></i> Đang tải tài liệu...</div><table *ngIf="!loadingTechnicalDossiers() && !isTechnicalFolderLoading(selectedTechnicalFolder()?.id || '') && selectedTechnicalDocuments().length > 0" class="wf-table substation-document-table"><thead><tr><th>STT</th><th>Tài liệu</th><th>Loại tài liệu</th><th>Ngày tài liệu</th><th>Người tạo</th></tr></thead><tbody><tr *ngFor="let item of pagedTechnicalDocuments(); let i = index"><td>{{ (technicalDocumentPage() - 1) * technicalDocumentPageSize() + i + 1 }}</td><td><button class="substation-document-link" (click)="openAttachmentDocumentPreview(item.dossier.id, item.document)"><i class="pi pi-file-pdf"></i>{{ item.document.name || item.document.fileName || 'Tài liệu chưa đặt tên' }}</button></td><td>{{ item.document.documentTypeName || '-' }}</td><td>{{ item.document.createdDate ? (item.document.createdDate | date:'dd/MM/yyyy') : '-' }}</td><td>{{ item.document.createdByName || item.document.createdBy || '-' }}</td></tr></tbody></table><div *ngIf="!loadingTechnicalDossiers() && !isTechnicalFolderLoading(selectedTechnicalFolder()?.id || '') && selectedTechnicalDocuments().length === 0" class="substation-document-empty">Chọn một thư mục để xem danh sách tài liệu.</div><div *ngIf="!loadingTechnicalDossiers() && !isTechnicalFolderLoading(selectedTechnicalFolder()?.id || '') && selectedTechnicalDocuments().length > 0" class="substation-document-pagination"><span>Hiển thị {{ pagedTechnicalDocuments().length }} trên tổng số {{ selectedTechnicalDocuments().length }} bản ghi</span><div class="substation-document-pagination-controls"><button type="button" (click)="changeTechnicalDocumentPage(technicalDocumentPage() - 1)" [disabled]="technicalDocumentPage() === 1"><i class="pi pi-angle-left"></i></button><button type="button" *ngFor="let page of getVisibleDocumentPages(technicalDocumentPage(), technicalDocumentTotalPages())" [class.active]="page === technicalDocumentPage()" (click)="changeTechnicalDocumentPage(page)">{{ page }}</button><button type="button" (click)="changeTechnicalDocumentPage(technicalDocumentPage() + 1)" [disabled]="technicalDocumentPage() === technicalDocumentTotalPages()"><i class="pi pi-angle-right"></i></button><select [ngModel]="technicalDocumentPageSize()" (change)="onTechnicalDocumentPageSizeChange($event)"><option [value]="10">10</option><option [value]="20">20</option><option [value]="50">50</option></select></div></div></section>
         <aside class="substation-document-tree"><div class="substation-tree-title"><i class="pi pi-folder-open"></i> Hồ sơ kỹ thuật</div>
           <button class="substation-tree-parent" (click)="toggleTechnicalStationFolder()"><i class="pi" [class.pi-chevron-right]="!technicalStationFolderExpanded()" [class.pi-chevron-down]="technicalStationFolderExpanded()"></i><i class="pi" [class.pi-folder]="!technicalStationFolderExpanded()" [class.pi-folder-open]="technicalStationFolderExpanded()"></i><span>{{ currentItem().name || 'Trạm biến áp' }}</span></button><div *ngIf="technicalStationFolderExpanded()" class="substation-tree-children"><button *ngFor="let folder of technicalDossierFolders()" class="substation-tree-node" [class.selected]="selectedTechnicalFolderId() === folder.id" (click)="selectTechnicalFolder(folder)"><i class="pi" [class.pi-folder]="selectedTechnicalFolderId() !== folder.id" [class.pi-folder-open]="selectedTechnicalFolderId() === folder.id"></i><span>{{ folder.name }}</span></button></div></aside>
       </div>

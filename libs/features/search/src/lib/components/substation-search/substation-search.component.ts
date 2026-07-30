@@ -74,10 +74,12 @@ export class SubstationSearchComponent implements OnInit {
   loadingAttachmentDocuments = signal<boolean>(false);
   expandedAttachmentFolders = signal<Set<string>>(new Set<string>());
   selectedAttachmentFolderId = signal<string | null>(null);
-  attachmentStationFolderExpanded = signal<boolean>(false);
+  attachmentStationFolderExpanded = signal<boolean>(true);
   attachmentDocumentKeyword = signal<string>('');
   attachmentSelectedEquipmentId = signal<string>('');
   attachmentEquipmentOptions = signal<any[]>([]);
+  attachmentDocumentPage = signal<number>(1);
+  attachmentDocumentPageSize = signal<number>(10);
   showAttachmentDocumentPreview = signal<boolean>(false);
   attachmentPreviewTarget = signal<{ dossierId: string; document: any } | null>(null);
   attachmentPreviewUrl = signal<string | null>(null);
@@ -89,9 +91,11 @@ export class SubstationSearchComponent implements OnInit {
   technicalDocumentsByDossier = signal<Record<string, any[]>>({});
   loadingTechnicalFolders = signal<Set<string>>(new Set<string>());
   selectedTechnicalFolderId = signal<string | null>(null);
-  technicalStationFolderExpanded = signal<boolean>(false);
+  technicalStationFolderExpanded = signal<boolean>(true);
   technicalDocumentKeyword = signal<string>('');
   technicalSelectedDocumentTypeId = signal<string>('');
+  technicalDocumentPage = signal<number>(1);
+  technicalDocumentPageSize = signal<number>(10);
   attachmentDocumentFolders = computed(() => {
     const keyword = this.attachmentFolderSearchKeyword().trim().toLocaleLowerCase();
     const groups = new Map<string, { id: string; name: string; documents: Array<{ dossier: any; document: any }> }>();
@@ -127,6 +131,15 @@ export class SubstationSearchComponent implements OnInit {
     });
   });
 
+  attachmentDocumentTotalPages = computed(() =>
+    Math.max(1, Math.ceil(this.selectedAttachmentDocuments().length / this.attachmentDocumentPageSize()))
+  );
+
+  pagedAttachmentDocuments = computed(() => {
+    const start = (this.attachmentDocumentPage() - 1) * this.attachmentDocumentPageSize();
+    return this.selectedAttachmentDocuments().slice(start, start + this.attachmentDocumentPageSize());
+  });
+
   technicalDossierFolders = computed(() => {
     const keyword = this.technicalFolderSearchKeyword().trim().toLocaleLowerCase();
     const groups = new Map<string, { id: string; name: string; dossiers: any[] }>();
@@ -155,6 +168,15 @@ export class SubstationSearchComponent implements OnInit {
       return (!keyword || name.includes(keyword))
         && (!documentTypeId || String(item.document.documentTypeId || '') === documentTypeId);
     });
+  });
+
+  technicalDocumentTotalPages = computed(() =>
+    Math.max(1, Math.ceil(this.selectedTechnicalDocuments().length / this.technicalDocumentPageSize()))
+  );
+
+  pagedTechnicalDocuments = computed(() => {
+    const start = (this.technicalDocumentPage() - 1) * this.technicalDocumentPageSize();
+    return this.selectedTechnicalDocuments().slice(start, start + this.technicalDocumentPageSize());
   });
 
   technicalDocumentTypeOptions = computed(() => {
@@ -537,9 +559,10 @@ export class SubstationSearchComponent implements OnInit {
     this.attachmentDossierDocuments.set([]);
     this.expandedAttachmentFolders.set(new Set<string>());
     this.selectedAttachmentFolderId.set(null);
-    this.attachmentStationFolderExpanded.set(false);
+    this.attachmentStationFolderExpanded.set(true);
     this.attachmentDocumentKeyword.set('');
     this.attachmentSelectedEquipmentId.set('');
+    this.attachmentDocumentPage.set(1);
     this.loadAttachmentEquipmentOptions();
     this.loadingAttachmentDocuments.set(true);
 
@@ -587,6 +610,7 @@ export class SubstationSearchComponent implements OnInit {
 
   selectAttachmentFolder(folderId: string) {
     this.selectedAttachmentFolderId.set(folderId);
+    this.attachmentDocumentPage.set(1);
     this.attachmentStationFolderExpanded.set(true);
   }
 
@@ -673,9 +697,10 @@ export class SubstationSearchComponent implements OnInit {
       next: res => {
         this.technicalDossiers.set(res?.items || []);
         this.selectedTechnicalFolderId.set(null);
-        this.technicalStationFolderExpanded.set(false);
+        this.technicalStationFolderExpanded.set(true);
         this.technicalDocumentKeyword.set('');
         this.technicalSelectedDocumentTypeId.set('');
+        this.technicalDocumentPage.set(1);
         this.loadAttachmentDocuments();
       },
       error: () => {
@@ -724,6 +749,7 @@ export class SubstationSearchComponent implements OnInit {
 
   selectTechnicalFolder(folder: { id: string; dossiers: any[] }) {
     this.selectedTechnicalFolderId.set(folder.id);
+    this.technicalDocumentPage.set(1);
     this.technicalStationFolderExpanded.set(true);
     if (!this.isTechnicalFolderExpanded(folder.id)) {
       this.toggleTechnicalFolder(folder);
@@ -740,6 +766,42 @@ export class SubstationSearchComponent implements OnInit {
 
   isTechnicalFolderLoading(folderId: string): boolean {
     return this.loadingTechnicalFolders().has(folderId);
+  }
+
+  onAttachmentDocumentFiltersChange() {
+    this.attachmentDocumentPage.set(1);
+  }
+
+  onTechnicalDocumentFiltersChange() {
+    this.technicalDocumentPage.set(1);
+  }
+
+  changeAttachmentDocumentPage(page: number) {
+    if (page >= 1 && page <= this.attachmentDocumentTotalPages()) {
+      this.attachmentDocumentPage.set(page);
+    }
+  }
+
+  changeTechnicalDocumentPage(page: number) {
+    if (page >= 1 && page <= this.technicalDocumentTotalPages()) {
+      this.technicalDocumentPage.set(page);
+    }
+  }
+
+  onAttachmentDocumentPageSizeChange(event: Event) {
+    this.attachmentDocumentPageSize.set(Number((event.target as HTMLSelectElement).value) || 10);
+    this.attachmentDocumentPage.set(1);
+  }
+
+  onTechnicalDocumentPageSizeChange(event: Event) {
+    this.technicalDocumentPageSize.set(Number((event.target as HTMLSelectElement).value) || 10);
+    this.technicalDocumentPage.set(1);
+  }
+
+  getVisibleDocumentPages(currentPage: number, totalPages: number): number[] {
+    const start = Math.max(1, Math.min(currentPage - 2, totalPages - 4));
+    const end = Math.min(totalPages, start + 4);
+    return Array.from({ length: end - start + 1 }, (_, index) => start + index);
   }
 
   getTechnicalFolderDocuments(folder: { dossiers: any[] }): Array<{ dossier: any; document: any }> {
