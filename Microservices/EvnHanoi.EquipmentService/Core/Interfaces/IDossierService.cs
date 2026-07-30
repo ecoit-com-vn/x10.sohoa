@@ -76,6 +76,7 @@ public interface IDossierService
     Task<Guid> CreateAsync(DossierCreateDto dto, string userId, string userName, string userFullName, int kindId = 2);
     Task<Guid> CreateForPublishingAsync(DossierCreateDto dto, string userId, string userName, string userFullName);
     Task<bool> UpdateAsync(Guid id, DossierUpdateDto dto, string userId);
+    Task<bool> UpdateForPublishingAsync(Guid id, DossierUpdateDto dto, string userId);
     Task<bool> DeleteAsync(Guid id, string userId);
     Task<bool> CompleteInputAsync(Guid id, string userId);
 
