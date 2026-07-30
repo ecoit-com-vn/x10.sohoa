@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { DialogModule } from 'primeng/dialog';
 import { ToastModule } from 'primeng/toast';
+import { PaginatorModule } from 'primeng/paginator';
 import { Menu, MenuModule } from 'primeng/menu';
 import { MenuItem, MessageService, ConfirmationService } from 'primeng/api';
 import { environment } from '@env/environment';
@@ -14,7 +15,8 @@ import { AuthService } from '@sohoa.frontend/shared/core';
 @Component({
   selector: 'app-organization-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule, DialogModule, ToastModule, MenuModule, WfBreadcrumbComponent],
+  imports: [CommonModule, FormsModule, DialogModule, ToastModule, PaginatorModule, MenuModule, WfBreadcrumbComponent],
+
   providers: [MessageService],
   templateUrl: './organization-settings.component.html',
   styleUrl: './organization-settings.component.scss'
@@ -60,8 +62,9 @@ export class OrganizationSettings implements OnInit {
   }
 
   private apiUrl = `${environment.apiGatewayUrl}/api/v1/organization-units`;
-
   searchStatus = signal<string>('');
+  currentPage = signal(1);
+  pageSize = signal(10);
 
   // Computed signal for filteredUnits
   filteredUnits = computed(() => {
@@ -83,6 +86,11 @@ export class OrganizationSettings implements OnInit {
       (u.name?.toLowerCase().includes(kw) ?? false) || 
       (u.description?.toLowerCase().includes(kw) ?? false)
     );
+  });
+
+  pagedUnits = computed(() => {
+    const first = (this.currentPage() - 1) * this.pageSize();
+    return this.filteredUnits().slice(first, first + this.pageSize());
   });
 
   constructor(
@@ -121,6 +129,20 @@ export class OrganizationSettings implements OnInit {
   }
 
   onSearch() {
+    this.currentPage.set(1);
+  }
+
+  onResetSearch() {
+    this.searchKeyword.set('');
+    this.searchStatus.set('');
+    this.currentPage.set(1);
+  }
+
+  onUnitPageChange(event: { first?: number; rows?: number }) {
+    const rows = Number(event.rows) || this.pageSize();
+    const first = Number(event.first) || 0;
+    this.pageSize.set(rows);
+    this.currentPage.set(Math.floor(first / rows) + 1);
   }
 
   // Thuật toán DFS xây dựng danh sách phẳng thụt lề
