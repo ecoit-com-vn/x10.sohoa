@@ -1,3 +1,4 @@
+using DocumentFormat.OpenXml.Wordprocessing;
 using EvnHanoi.ReportService.Core.DTOs;
 using EvnHanoi.ReportService.Core.Models;
 
@@ -6,6 +7,7 @@ namespace EvnHanoi.ReportService.Core.Interfaces;
 public interface IReportDossierRepository
 {
     Task<IEnumerable<ReportDossierLookupItem>> GetOrganizationUnitsAsync(bool isAdmin, long? userUnitId);
+    Task<IEnumerable<ReportDossierLookupItem>> GetOrganizationUnitsWithStatusAsync(bool isAdmin, long? userUnitId, int isactive);
     Task<IEnumerable<ReportDossierLookupItem>> GetGridTypesAsync(long? unitScopeRoot);
     Task<IEnumerable<ReportDossierLookupItem>> GetEquipmentTypesAsync(long? unitScopeRoot);
     Task<IEnumerable<ReportDossierLookupItem>> GetDossierTypesAsync(long? unitScopeRoot);

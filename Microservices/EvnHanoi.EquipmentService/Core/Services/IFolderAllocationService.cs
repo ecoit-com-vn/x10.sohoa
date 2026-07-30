@@ -22,6 +22,7 @@ public interface IFolderAllocationService
     Task<bool> UpdateAsync(Guid id, UpdateFolderAllocationRequest request, string modifiedBy, long userUnitId);
 
     Task<bool> RevokeAsync(Guid id, string modifiedBy, long userUnitId);
+    Task<bool> ReactivateAsync(Guid id, string modifiedBy, long userUnitId);
 
     Task<bool> DeleteAsync(Guid id, string modifiedBy, long userUnitId);
 
