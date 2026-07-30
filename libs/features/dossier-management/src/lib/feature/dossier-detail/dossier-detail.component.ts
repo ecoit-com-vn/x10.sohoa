@@ -13,6 +13,7 @@ import { DossierDocumentsTabComponent } from '../dossier-documents/dossier-docum
 import { DossierVersionsTabComponent } from '../dossier-versions-tab/dossier-versions-tab.component';
 import { DossierWorkflowTabComponent } from '../dossier-workflow-tab/dossier-workflow-tab.component';
 import { AuthService } from '../../../../../../shared/core/src/lib/services/auth.service';
+import { WorkflowService } from '@sohoa.frontend/shared/core';
 import {
   EavField,
   formatFieldDisplayValue,
@@ -27,6 +28,9 @@ import {
   isApproveWorkflowLabel,
   isRejectWorkflowLabel,
   parseWorkflowActionButtons,
+  resolveEligibleAssigneeGroupParams,
+  resolveDefaultNextAssignee,
+  resolveNextUserCandidates,
 } from '../../utils/dossier-workflow-bpmn.util';
 import { DossierMenuScope, getDossierStatusLabel, getDossierStatusPillClass } from '../../utils/dossier-status.util';
 import {
@@ -66,6 +70,7 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
   private service = inject(DossierManagementService);
   private publishService = inject(DossierPublishService);
   private authService = inject(AuthService);
+  private workflowSvc = inject(WorkflowService);
   private router = inject(Router);
 
   // Related Dossiers tab state
@@ -310,6 +315,8 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
   publishActionSubmitting = signal<boolean>(false);
   nextStepInfo = signal<any>(null);
   selectedNextUser = signal<string>('');
+  eligibleSubmitUsers = signal<any[]>([]);
+  loadingEligibleSubmitUsers = signal<boolean>(false);
 
   // Workflow — core
   workflowDetail = signal<any>(null);
@@ -334,27 +341,60 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
     )
   );
 
+  eligibleNextUsers = signal<any[]>([]);
+  loadingEligibleNextUsers = signal<boolean>(false);
+
+  // Danh sách người xử lý bước tiếp theo (nút chuyển bước giữa luồng), ưu tiên theo cấu hình
+  // của bước ĐÍCH: Nhóm quyền đơn vị > Nhóm quyền hệ thống > requiredRole cũ > toàn bộ user.
+  // Giao việc đích danh không giới hạn danh sách — chỉ chọn sẵn mặc định (xem openActionDialog).
   filteredNextUsers = computed(() => {
     const forwardBtn = this.detailDynamicButtons().find(btn =>
       btn.requiresUser && !this.isRejectLabel(btn.label)
     );
-    if (!forwardBtn?.requiredRole) return this.users();
-    const roles = forwardBtn.requiredRole.split(',').map((r: string) => r.trim().toUpperCase());
-    return this.users().filter((u: any) => {
-      const uRoles: string[] = (u.roles || u.Roles || []).map((r: string) => r.toUpperCase());
-      return uRoles.some(r => roles.includes(r));
+    return resolveNextUserCandidates({
+      info: forwardBtn ?? null,
+      allUsers: this.users(),
+      eligibleUsers: this.eligibleNextUsers(),
     });
   });
 
-  filteredSubmitNextUsers = computed(() => {
-    const info = this.nextStepInfo();
-    if (!info || !info.requiredRole) return [];
-    const roles = info.requiredRole.split(',').map((r: string) => r.trim().toUpperCase());
-    return this.users().filter((u: any) => {
-      const uRoles: string[] = (u.roles || u.Roles || []).map((r: string) => r.toUpperCase());
-      return uRoles.some(r => roles.includes(r));
-    });
-  });
+  private loadEligibleNextUsers(info: any): void {
+    this.eligibleNextUsers.set([]);
+    const groupParams = resolveEligibleAssigneeGroupParams(info);
+    if (!groupParams) return;
+    const unitId = info?.requireSameUnit ? (this.authService.getUserUnitId() ?? undefined) : undefined;
+    this.loadingEligibleNextUsers.set(true);
+    this.workflowSvc.getEligibleAssignees(groupParams.systemGroupIds, groupParams.unitGroupIds, unitId)
+      .pipe(finalize(() => this.loadingEligibleNextUsers.set(false)))
+      .subscribe({
+        next: (list) => this.eligibleNextUsers.set(Array.isArray(list) ? list : []),
+        error: () => this.eligibleNextUsers.set([])
+      });
+  }
+
+  // Danh sách người xử lý tiếp theo, ưu tiên theo đúng thứ tự nghiệp vụ:
+  // Nhóm quyền đơn vị > Nhóm quyền hệ thống > (cũ) requiredRole > toàn bộ user.
+  // Giao việc đích danh không giới hạn danh sách — chỉ chọn sẵn mặc định (xem loadEligibleSubmitUsers).
+  filteredSubmitNextUsers = computed(() => resolveNextUserCandidates({
+    info: this.nextStepInfo(),
+    allUsers: this.users(),
+    eligibleUsers: this.eligibleSubmitUsers(),
+  }));
+
+  private loadEligibleSubmitUsers(info: any): void {
+    this.eligibleSubmitUsers.set([]);
+    this.selectedNextUser.set(resolveDefaultNextAssignee(info));
+    const groupParams = resolveEligibleAssigneeGroupParams(info);
+    if (!groupParams) return;
+    const unitId = info?.requireSameUnit ? (this.authService.getUserUnitId() ?? undefined) : undefined;
+    this.loadingEligibleSubmitUsers.set(true);
+    this.workflowSvc.getEligibleAssignees(groupParams.systemGroupIds, groupParams.unitGroupIds, unitId)
+      .pipe(finalize(() => this.loadingEligibleSubmitUsers.set(false)))
+      .subscribe({
+        next: (list) => this.eligibleSubmitUsers.set(Array.isArray(list) ? list : []),
+        error: () => this.eligibleSubmitUsers.set([])
+      });
+  }
 
   // Dialog xác nhận hành động
   showActionDialog = signal<boolean>(false);
@@ -686,8 +726,11 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
   openActionDialog(btn: any) {
     this.pendingActionBtn.set(btn);
     this.detailActionComment.set('');
-    this.selectedNextUserId.set('');
+    this.selectedNextUserId.set(resolveDefaultNextAssignee(btn));
     this.showActionDialog.set(true);
+    if (btn?.requiresUser && !this.isRejectLabel(btn?.label)) {
+      this.loadEligibleNextUsers(btn);
+    }
   }
 
   confirmAction() {
@@ -849,6 +892,7 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
       next: (res) => {
         this.nextStepInfo.set(res);
         this.selectedNextUser.set('');
+        this.loadEligibleSubmitUsers(res);
         this.showSubmitConfirm.set(true);
         this.submitting.set(false);
       },
