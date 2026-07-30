@@ -466,7 +466,7 @@ export class EquipmentComponent implements OnInit {
       equipmentStatuses: this.loadEquipmentStatusesLookup()
     }).subscribe({
       next: (data) => {
-        this.organizationUnits.set(Array.isArray(data.organizationUnits) ? data.organizationUnits : []);
+        this.organizationUnits.set(this.getAvailableOrganizationUnits(data.organizationUnits));
         this.infrastructures.set(Array.isArray(data.infrastructures) ? data.infrastructures : []);
         this.gridTypes.set(Array.isArray(data.gridTypes) ? data.gridTypes : []);
         this.equipmentTypes.set(Array.isArray(data.equipmentTypes) ? data.equipmentTypes : []);
@@ -587,6 +587,19 @@ export class EquipmentComponent implements OnInit {
     return roots;
   }
 
+  private getAvailableOrganizationUnits(data: unknown): any[] {
+    const units = Array.isArray(data) ? data : [];
+    return units.filter(unit => {
+      const deleted = unit?.isDeleted ?? unit?.IsDeleted;
+      const status = unit?.isActive ?? unit?.IsActive ?? unit?.status ?? unit?.Status;
+      const isDeleted = deleted === true || deleted === 1 || String(deleted).toLowerCase() === 'true';
+      const isInactive = status === false || status === 0
+        || ['0', 'false', 'inactive', 'deleted'].includes(String(status).toLowerCase());
+
+      return !isDeleted && !isInactive;
+    });
+  }
+
   private filterOrgTree(nodes: any[], value: string): any[] {
     const keyword = value.trim().toLocaleLowerCase();
     if (!keyword) return nodes;
@@ -635,7 +648,7 @@ export class EquipmentComponent implements OnInit {
 
     if (this.organizationUnits().length === 0) {
       this.equipmentService.getOrganizationUnits().pipe(catchError(() => of([]))).subscribe(data => {
-        this.organizationUnits.set(Array.isArray(data) ? data : []);
+        this.organizationUnits.set(this.getAvailableOrganizationUnits(data));
         this.formOrgTreeOpen.set(true);
       });
       return;
@@ -671,7 +684,7 @@ export class EquipmentComponent implements OnInit {
 
     if (this.organizationUnits().length === 0) {
       this.equipmentService.getOrganizationUnits().pipe(catchError(() => of([]))).subscribe(data => {
-        this.organizationUnits.set(Array.isArray(data) ? data : []);
+        this.organizationUnits.set(this.getAvailableOrganizationUnits(data));
         this.transferOrgTreeOpen.set(true);
       });
       return;
@@ -751,8 +764,8 @@ export class EquipmentComponent implements OnInit {
     const item = targetItem || this.currentItem();
     this.transferTarget.set(item);
     this.transferForm.set({
-      unitId: item?.unitId ? Number(item.unitId) : null,
-      infrastructureId: item?.infrastructureId ?? null,
+      unitId: null,
+      infrastructureId: null,
       note: ''
     });
     this.transferSubmitted.set(false);
@@ -768,7 +781,7 @@ export class EquipmentComponent implements OnInit {
           ? this.equipmentService.getInfrastructures().pipe(catchError(() => of([])))
           : of(this.infrastructures())
       }).subscribe(data => {
-        this.organizationUnits.set(Array.isArray(data.organizationUnits) ? data.organizationUnits : []);
+        this.organizationUnits.set(this.getAvailableOrganizationUnits(data.organizationUnits));
         this.infrastructures.set(Array.isArray(data.infrastructures) ? data.infrastructures : []);
       });
     }
@@ -787,6 +800,15 @@ export class EquipmentComponent implements OnInit {
     const item = this.transferTarget() || this.currentItem();
     const form = this.transferForm();
     if (!item?.id || !form.unitId || !form.infrastructureId) return;
+
+    if (String(item.infrastructureId || '').toLowerCase() === String(form.infrastructureId).toLowerCase()) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Chuyển TBA',
+        detail: 'Vui lòng chọn Trạm/Đường dây đích khác với Trạm/Đường dây hiện tại.'
+      });
+      return;
+    }
 
     this.transferLoading.set(true);
     this.equipmentService.copyById(item.id, form.infrastructureId, form.note.trim())
@@ -920,7 +942,7 @@ export class EquipmentComponent implements OnInit {
         }
 
         return isAdd
-          ? this.equipmentService.create(payload)
+          ? this.equipmentService.create({ ...payload, statusTransition: null })
           : this.equipmentService.update(item.id, payload);
       }),
       finalize(() => this.isSaving.set(false))

@@ -858,7 +858,7 @@
 
   <!-- Dialog Chuyển thiết bị -->
   <p-dialog [visible]="showTransferDialog()" (visibleChange)="$event ? null : closeTransferDialog()"
-    header="Chuyển thiết bị" [modal]="true" [style]="{ width: '560px' }" styleClass="evn-dialog-custom"
+    header="Chuyển thiết bị" [modal]="true" [style]="{ width: '560px', height: '550px' }" styleClass="evn-dialog-custom"
     [closable]="!transferLoading()">
     <div style="padding: 8px 0 16px; display: flex; flex-direction: column; gap: 16px;">
       <div class="form-group">
@@ -908,7 +908,7 @@
         <label class="form-label" style="font-weight: 600; margin-bottom: 6px; display: block; color: #374151;">
           Ghi chú
         </label>
-        <textarea class="wf-input w-full" rows="4" placeholder="Nhập ghi chú..."
+        <textarea class="wf-input w-full" rows="5" placeholder="Nhập ghi chú..."
           [ngModel]="transferForm().note"
           (ngModelChange)="onTransferNoteChange($event)"
           [disabled]="transferLoading()"
