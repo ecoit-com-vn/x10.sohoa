@@ -4,6 +4,16 @@ import { Subject } from 'rxjs';
 import * as signalR from '@microsoft/signalr';
 import { APP_CONFIG } from '../config/app-config.token';
 
+export interface NotificationCreatedEvent {
+  id: string | null;
+  notificationType: string;
+  title: string;
+  body?: string | null;
+  relatedEntityType?: string | null;
+  relatedEntityId?: string | null;
+  isRead: boolean;
+}
+
 export interface DigitizationProgressEvent {
   dossierId: string;
   documentId: string;
@@ -29,10 +39,14 @@ export class SignalRService {
   private digitizationProgressSubject = new Subject<DigitizationProgressEvent>();
   public digitizationProgress$ = this.digitizationProgressSubject.asObservable();
 
+  private notificationCreatedSubject = new Subject<NotificationCreatedEvent>();
+  public notificationCreated$ = this.notificationCreatedSubject.asObservable();
+
   private hubConnection: signalR.HubConnection | undefined;
   private startPromise: Promise<void> | null = null;
   private listenersRegistered = false;
   private joinedDossierGroups = new Set<string>();
+  private joinedUserGroup: string | null = null;
 
   private get isBrowser(): boolean {
     return isPlatformBrowser(this.platformId);
@@ -93,6 +107,7 @@ export class SignalRService {
         await this.hubConnection!.start();
         console.log('[SignalR] Connected to /hubs/notifications');
         await this.rejoinDossierGroups();
+        await this.rejoinUserGroup();
       } catch (err) {
         console.error('[SignalR] Connection failed:', err);
         this.hubConnection = undefined;
@@ -125,9 +140,14 @@ export class SignalRService {
       }
     });
 
+    this.hubConnection.on('NotificationCreated', (payload: NotificationCreatedEvent) => {
+      this.zone.run(() => this.notificationCreatedSubject.next(payload));
+    });
+
     this.hubConnection.onreconnected(async () => {
       console.log('[SignalR] Reconnected — rejoin dossier groups');
       await this.rejoinDossierGroups();
+      await this.rejoinUserGroup();
     });
 
     this.hubConnection.onclose((err) => {
@@ -166,6 +186,43 @@ export class SignalRService {
     }
 
     return false;
+  }
+
+  public async joinUserGroup(userId: string): Promise<boolean> {
+    const normalizedId = userId?.trim().toLowerCase() ?? '';
+    if (!this.isBrowser || !normalizedId) return false;
+
+    await this.ensureConnection();
+    if (!this.hubConnection || !this.isConnected()) {
+      console.warn('[SignalR] Cannot join user group — hub not connected');
+      return false;
+    }
+
+    if (this.joinedUserGroup === normalizedId) return true;
+
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        await this.hubConnection.invoke('JoinUserGroup', normalizedId);
+        this.joinedUserGroup = normalizedId;
+        console.log('[SignalR] Joined user group', normalizedId);
+        return true;
+      } catch (err) {
+        console.warn(`[SignalR] JoinUserGroup attempt ${attempt} failed:`, err);
+        if (attempt < 3) {
+          await new Promise((r) => setTimeout(r, 500 * attempt));
+          await this.ensureConnection();
+        }
+      }
+    }
+
+    return false;
+  }
+
+  private async rejoinUserGroup(): Promise<void> {
+    const userId = this.joinedUserGroup;
+    if (!userId) return;
+    this.joinedUserGroup = null;
+    await this.joinUserGroup(userId);
   }
 
   private async rejoinDossierGroups(): Promise<void> {
