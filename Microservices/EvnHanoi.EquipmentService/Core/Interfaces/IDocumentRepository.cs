@@ -42,6 +42,7 @@ public interface IDocumentRepository
 
     // Dossier document operations
     Task<(IEnumerable<DocumentListItemDto> Items, int TotalCount)> GetDocumentsByDossierAsync(Guid dossierId, DossierDocumentFilterDto filter);
+    Task<(IEnumerable<DocumentListItemDto> Items, int TotalCount)> GetDocumentsByDossierIdsAsync(IEnumerable<Guid> dossierIds, string? keyword, int page, int pageSize);
     Task<bool> AssignDocumentToDossierAsync(Guid documentId, Guid dossierId, Guid documentTypeId, string modifiedBy);
     Task<bool> UpdateDocumentVersionFilePathAsync(Guid versionId, string filePath, string modifiedBy);
     Task<bool> SoftDeleteDocumentVersionsAsync(Guid documentId, string modifiedBy);

@@ -55,10 +55,19 @@ namespace EvnHanoi.ReportService.Controllers
         /// GET /api/v1/reports/statistics/lookups/units
         /// </summary>
         [HttpGet("lookups/units")]
-        public async Task<IActionResult> GetUnitsLookup()
+        public async Task<IActionResult> GetUnitsLookup([FromQuery] int? isactive)
         {
             var scope = ResolveUserScope();
-            var units = await _dossierRepository.GetOrganizationUnitsAsync(scope.IsAdmin, scope.UnitId);
+
+            var units = isactive.HasValue
+                ? await _dossierRepository.GetOrganizationUnitsWithStatusAsync(
+                    scope.IsAdmin,
+                    scope.UnitId,
+                    isactive.Value)
+                : await _dossierRepository.GetOrganizationUnitsAsync(
+                    scope.IsAdmin,
+                    scope.UnitId);
+
             return Ok(units);
         }
 

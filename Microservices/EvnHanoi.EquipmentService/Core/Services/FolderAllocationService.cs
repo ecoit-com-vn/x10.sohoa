@@ -173,6 +173,28 @@ public class FolderAllocationService : IFolderAllocationService
         return await _folderAllocationRepository.UpdateAsync(entity);
     }
 
+    public async Task<bool> ReactivateAsync(Guid id, string modifiedBy, long userUnitId)
+    {
+        var unitScopeIds = await GetUnitScopeIdsAsync(userUnitId);
+
+        var entity = await _folderAllocationRepository.GetEntityByIdAsync(id);
+        if (entity == null)
+        {
+            throw new KeyNotFoundException("Không tìm thấy thông tin phân bổ.");
+        }
+
+        if (!unitScopeIds.Contains(entity.UnitId))
+        {
+            throw new UnauthorizedAccessException("Bạn không có quyền phân bổ của đơn vị khác.");
+        }
+
+        entity.Status = "Active";
+        entity.ModifiedBy = modifiedBy;
+        entity.ModifiedDate = DateTime.UtcNow;
+
+        return await _folderAllocationRepository.UpdateAsync(entity);
+    }
+
     public async Task<bool> DeleteAsync(Guid id, string modifiedBy, long userUnitId)
     {
         var unitScopeIds = await GetUnitScopeIdsAsync(userUnitId);

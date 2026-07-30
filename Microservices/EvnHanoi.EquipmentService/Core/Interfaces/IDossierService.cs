@@ -23,6 +23,15 @@ public interface IDossierService
         long? userUnitId,
         IReadOnlyList<long>? fallbackUnitIds);
 
+    Task<IEnumerable<Guid>> GetListDocumentIdsAsync(
+        string? keyword,
+        Guid? infrastructureId,
+        Guid? dossierTypeId,
+        long? unitId,
+        int page,
+        int pageSize);
+
+
     // CRUD cơ bản
     Task<(IEnumerable<DossierListItemDto> Items, int TotalCount)> GetPagedAsync(DossierFilterDto filter);
     Task<(IEnumerable<DossierListItemDto> Items, int TotalCount)> GetCatalogDossiersAsync(

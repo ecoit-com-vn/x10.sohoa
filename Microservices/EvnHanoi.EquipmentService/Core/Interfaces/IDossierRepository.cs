@@ -24,6 +24,14 @@ public interface IDossierRepository
         int page,
         int pageSize);
 
+    Task<IEnumerable<Guid>> GetListDocumentIdsAsync(
+        string? keyword,
+        Guid? infrastructureId,
+        Guid? dossierTypeId,
+        long? unitId,
+        int page,
+        int pageSize);
+
     Task<IEnumerable<DossierByEquipmentLookupItemDto>> GetEquipmentLookupInfrastructuresAsync(
         DossierByEquipmentFilterDto filter,
         long? unitId);

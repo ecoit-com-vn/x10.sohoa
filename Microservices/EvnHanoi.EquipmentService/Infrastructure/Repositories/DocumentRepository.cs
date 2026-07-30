@@ -34,6 +34,107 @@ public class DocumentRepository : IDocumentRepository
         _connection = connection ?? throw new ArgumentNullException(nameof(connection));
     }
 
+    public async Task<(IEnumerable<DocumentListItemDto> Items, int TotalCount)> GetDocumentsByDossierIdsAsync(
+        IEnumerable<Guid> dossierIds,
+        string? keyword,
+        int page,
+        int pageSize)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        var idList = dossierIds.Select(x => x.ToString()).ToList();
+        if (idList.Count == 0)
+            return (Enumerable.Empty<DocumentListItemDto>(), 0);
+
+        var parameters = new DynamicParameters();
+        parameters.Add("DossierIds", idList.ToArray());
+
+        var whereClause = "d.IS_DELETED = 0 AND d.DOSSIER_ID IN :DossierIds";
+        if (!string.IsNullOrWhiteSpace(keyword))
+        {
+            whereClause += " AND d.NAME LIKE :Keyword";
+            parameters.Add("Keyword", $"%{keyword}%");
+        }
+
+        var countSql = $"SELECT COUNT(*) FROM DOCUMENTS d WHERE {whereClause}";
+        var countResult = await _connection.ExecuteScalarAsync(countSql, parameters);
+        var totalCount = countResult != null && countResult != DBNull.Value ? Convert.ToInt32(countResult) : 0;
+
+        if (totalCount == 0)
+            return (Enumerable.Empty<DocumentListItemDto>(), 0);
+
+        parameters.Add("Offset", (page - 1) * pageSize);
+        parameters.Add("PageSize", pageSize);
+
+        var listSql = $@"
+            SELECT 
+                d.ID,
+                d.NAME,
+                d.FOLDER_ID AS FolderId,
+                d.DOSSIER_ID AS DossierId,
+                d.DOCUMENT_TYPE_ID AS DocumentTypeId,
+                dt.NAME AS DocumentTypeName,
+                d.CREATED_BY AS CreatedBy,
+                {DocumentCreatedByNameSelect},
+                d.CREATED_DATE AS CreatedDate,
+                NVL(latest.FILE_SIZE, 0) AS FileSize,
+                latest.MIME_TYPE AS MimeType,
+                latest.LATEST_VERSION_ID AS LatestVersionId,
+                ocr.ID AS OcrProgressId,
+                ocr.DOCUMENT_VERSION_ID AS OcrDocumentVersionId,
+                ocr.PHASE AS OcrPhase,
+                ocr.CURRENT_PAGE AS OcrCurrentPage,
+                ocr.TOTAL_PAGES AS OcrTotalPages,
+                ocr.PROGRESS AS OcrProgress,
+                ocr.STATUS AS OcrStatus,
+                ocr.PROCESS_OPTION AS OcrProcessOption,
+                ext.ID AS ExtractionResultId,
+                ext.DOCUMENT_VERSION_ID AS ExtractionDocumentVersionId,
+                ext.STATUS AS ExtractionStatus
+            FROM DOCUMENTS d
+            {DocumentCreatorJoin}
+            LEFT JOIN DOCUMENT_TYPES dt ON {DocumentTypeActiveJoin}
+            LEFT JOIN (
+                SELECT dv.DOCUMENT_ID, dv.ID AS LATEST_VERSION_ID, dv.FILE_SIZE, dv.MIME_TYPE
+                FROM DOCUMENT_VERSIONS dv
+                INNER JOIN (
+                    SELECT DOCUMENT_ID, MAX(VERSION_NUMBER) AS MAX_VER
+                    FROM DOCUMENT_VERSIONS
+                    WHERE IS_DELETED = 0
+                    GROUP BY DOCUMENT_ID
+                ) mx ON mx.DOCUMENT_ID = dv.DOCUMENT_ID AND mx.MAX_VER = dv.VERSION_NUMBER
+                WHERE dv.IS_DELETED = 0
+            ) latest ON latest.DOCUMENT_ID = d.ID
+            LEFT JOIN (
+                SELECT ID, DOCUMENT_VERSION_ID, PHASE, CURRENT_PAGE, TOTAL_PAGES, PROGRESS, STATUS, PROCESS_OPTION
+                FROM (
+                    SELECT p.ID, p.DOCUMENT_VERSION_ID, p.PHASE, p.CURRENT_PAGE, p.TOTAL_PAGES, p.PROGRESS,
+                           p.STATUS, p.PROCESS_OPTION,
+                           ROW_NUMBER() OVER (PARTITION BY p.DOCUMENT_VERSION_ID ORDER BY p.CREATED_DATE DESC) AS RN
+                    FROM DOCUMENT_OCR_PROGRESS p
+                    WHERE p.IS_DELETED = 0
+                ) ranked WHERE RN = 1
+            ) ocr ON ocr.DOCUMENT_VERSION_ID = latest.LATEST_VERSION_ID
+            LEFT JOIN (
+                SELECT ID, DOCUMENT_VERSION_ID, STATUS
+                FROM (
+                    SELECT e.ID, e.DOCUMENT_VERSION_ID, e.STATUS,
+                           ROW_NUMBER() OVER (PARTITION BY e.DOCUMENT_VERSION_ID ORDER BY e.CREATED_DATE DESC) AS RN
+                    FROM DOCUMENT_EXTRACTION_RESULTS e
+                    WHERE e.IS_DELETED = 0
+                ) ranked WHERE RN = 1
+            ) ext ON ext.DOCUMENT_VERSION_ID = latest.LATEST_VERSION_ID
+            WHERE {whereClause}
+            ORDER BY d.CREATED_DATE DESC, d.NAME ASC
+            OFFSET :Offset ROWS
+            FETCH NEXT :PageSize ROWS ONLY";
+
+        var rows = await _connection.QueryAsync<DossierDocumentListRow>(listSql, parameters);
+        return (rows.Select(MapDossierDocumentListRow), totalCount);
+    }
+
+
     // ===== FOLDER OPERATIONS =====
 
     public async Task<IEnumerable<FolderNodeDto>> GetFolderTreeByUnitAsync(long unitId)
