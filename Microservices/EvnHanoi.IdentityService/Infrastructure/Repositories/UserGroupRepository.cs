@@ -24,8 +24,12 @@ public class UserGroupRepository : IUserGroupRepository
             SELECT {nameof(UserGroup.Id)}, 
                    {nameof(UserGroup.Name)}, 
                    {nameof(UserGroup.Description)}, 
-                   {nameof(UserGroup.IsActive)} 
-            FROM USER_GROUP 
+                   {nameof(UserGroup.IsActive)},
+                   ug.CreatedAt,
+                   ug.CreatedBy,
+                   creator.FullName AS CreatedByName
+            FROM USER_GROUP ug
+            LEFT JOIN APP_USER creator ON creator.Id = ug.CreatedBy
             ORDER BY {nameof(UserGroup.Id)}";
         return await _connection.QueryAsync<UserGroup>(sql);
     }
@@ -37,10 +41,12 @@ public class UserGroupRepository : IUserGroupRepository
         var conditions = new List<string>();
         var parameters = new DynamicParameters();
         
-        if (!string.IsNullOrWhiteSpace(keyword))
+        var normalizedKeyword = keyword?.Trim();
+
+        if (!string.IsNullOrWhiteSpace(normalizedKeyword))
         {
             conditions.Add("(UPPER(ug.Name) LIKE UPPER(:Keyword) OR UPPER(ug.Description) LIKE UPPER(:Keyword))");
-            parameters.Add("Keyword", $"%{keyword}%");
+            parameters.Add("Keyword", $"%{normalizedKeyword}%");
         }
         
         if (isActive.HasValue)
@@ -60,8 +66,12 @@ public class UserGroupRepository : IUserGroupRepository
                        ug.{nameof(UserGroup.Name)}, 
                        ug.{nameof(UserGroup.Description)}, 
                        ug.{nameof(UserGroup.IsActive)},
+                       ug.CreatedAt,
+                       ug.CreatedBy,
+                       creator.FullName AS CreatedByName,
                        ROW_NUMBER() OVER (ORDER BY ug.{nameof(UserGroup.Id)} ASC) AS RN
                 FROM USER_GROUP ug
+                LEFT JOIN APP_USER creator ON creator.Id = ug.CreatedBy
                 {whereClause}
             ) WHERE RN > :Offset AND RN <= :OffsetPlusSize";
             
@@ -81,9 +91,13 @@ public class UserGroupRepository : IUserGroupRepository
             SELECT {nameof(UserGroup.Id)}, 
                    {nameof(UserGroup.Name)}, 
                    {nameof(UserGroup.Description)}, 
-                   {nameof(UserGroup.IsActive)} 
-            FROM USER_GROUP 
-            WHERE {nameof(UserGroup.Id)} = :Id";
+                   {nameof(UserGroup.IsActive)},
+                   ug.CreatedAt,
+                   ug.CreatedBy,
+                   creator.FullName AS CreatedByName
+            FROM USER_GROUP ug
+            LEFT JOIN APP_USER creator ON creator.Id = ug.CreatedBy
+            WHERE ug.{nameof(UserGroup.Id)} = :Id";
         return await _connection.QuerySingleOrDefaultAsync<UserGroup>(sql, new { Id = id });
     }
 
@@ -94,15 +108,17 @@ public class UserGroupRepository : IUserGroupRepository
             INSERT INTO USER_GROUP (
                 {nameof(UserGroup.Name)}, 
                 {nameof(UserGroup.Description)}, 
-                {nameof(UserGroup.IsActive)}
+                {nameof(UserGroup.IsActive)},
+                {nameof(UserGroup.CreatedBy)}
             )
-            VALUES (:Name, :Description, :IsActive)
+            VALUES (:Name, :Description, :IsActive, :CreatedBy)
             RETURNING {nameof(UserGroup.Id)} INTO :Id";
             
         var parameters = new DynamicParameters();
         parameters.Add("Name", group.Name);
         parameters.Add("Description", group.Description);
         parameters.Add("IsActive", group.IsActive ? 1 : 0);
+        parameters.Add("CreatedBy", group.CreatedBy);
         parameters.Add("Id", dbType: DbType.Int64, direction: ParameterDirection.Output);
         
         await _connection.ExecuteAsync(sql, parameters);
