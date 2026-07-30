@@ -212,7 +212,7 @@ export class UnitPermissionGroupManagement implements OnInit {
     event.stopPropagation();
     this.actionMenuItems = [
       ...(this.authService.hasPermission('UNIT_PERMISSION_GROUP_MANAGE') || this.authService.hasPermission('PERMISSION_MANAGE') ? [{ label: 'Phân quyền', title:'Phân quyền', icon: 'pi pi-shield', command: () => this.onAssignPermissions(role) }] : []),
-      ...(this.authService.hasPermission('UNIT_PERMISSION_GROUP_MANAGE') ? [{ label: role.isActive ? 'Khóa vai trò' : 'Mở khóa vai trò', title: role.isActive ? 'Khóa vai trò' : 'Mở khóa vai trò', icon: role.isActive ? 'pi pi-lock color-red' : 'pi pi-lock-open color-teal', command: () => this.onToggleStatusRequest(role) }] : []),
+      ...(this.authService.hasPermission('UNIT_PERMISSION_GROUP_MANAGE') ? [{ label: role.isActive ? 'Khóa' : 'Mở khóa', title: role.isActive ? 'Khóa' : 'Mở khóa', icon: role.isActive ? 'pi pi-lock color-red' : 'pi pi-lock-open color-teal', command: () => this.onToggleStatusRequest(role) }] : []),
       ...(this.authService.hasPermission('UNIT_PERMISSION_GROUP_MANAGE') ? [{ label: 'Chỉnh sửa', title:'Chỉnh sửa', icon: 'pi pi-pencil color-blue', command: () => this.onEdit(role) }] : []),
       ...(this.authService.hasPermission('UNIT_PERMISSION_GROUP_MANAGE') ? [{ label: 'Xóa', title:'Xóa', icon: 'pi pi-trash color-red', command: () => this.onDelete(role) }] : []),
     ];

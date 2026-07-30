@@ -45,7 +45,7 @@ export class RoleManagement implements OnInit {
     const userRoles = this.authService.getUserRoles();
     return userRoles.includes('ADMIN') || userRoles.includes('SUPER_ADMIN');
   });
-  
+
   currentView = signal<'list' | 'add' | 'edit' | 'permission'>('list');
   dialogHeader = signal<string>('');
   isEdit = signal<boolean>(false);
@@ -75,7 +75,7 @@ export class RoleManagement implements OnInit {
   roleUsersPage = signal<number>(1);
   roleUsersPageSize = signal<number>(10);
   roleUsersLoading = signal<boolean>(false);
-  
+
   loading = signal<boolean>(false);
   saving = signal<boolean>(false);
   savingPermissions = signal<boolean>(false);
@@ -218,7 +218,7 @@ export class RoleManagement implements OnInit {
     event.stopPropagation();
     this.actionMenuItems = [
       ...(this.authService.hasPermission('ROLE_MANAGE') || this.authService.hasPermission('PERMISSION_MANAGE') ? [{ label: 'Phân quyền', title:'Phân quyền', icon: 'pi pi-shield', command: () => this.onAssignPermissions(role) }] : []),
-      ...(this.authService.hasPermission('ROLE_EDIT') ? [{ label: role.isActive ? 'Khóa vai trò' : 'Mở khóa vai trò', title: role.isActive ? 'Khóa vai trò' : 'Mở khóa vai trò', icon: role.isActive ? 'pi pi-lock color-red' : 'pi pi-lock-open color-teal', command: () => this.onToggleStatusRequest(role) }] : []),
+      ...(this.authService.hasPermission('ROLE_EDIT') ? [{ label: role.isActive ? 'Khóa' : 'Mở khóa', title: role.isActive ? 'Khóa' : 'Mở khóa', icon: role.isActive ? 'pi pi-lock color-red' : 'pi pi-lock-open color-teal', command: () => this.onToggleStatusRequest(role) }] : []),
       ...(this.authService.hasPermission('ROLE_EDIT') ? [{ label: 'Chỉnh sửa', title:'Chỉnh sửa', icon: 'pi pi-pencil color-blue', command: () => this.onEdit(role) }] : []),
       ...(this.authService.hasPermission('ROLE_DELETE') ? [{ label: 'Xóa', title:'Xóa', icon: 'pi pi-trash color-red', command: () => this.onDelete(role) }] : []),
     ];
@@ -295,17 +295,17 @@ export class RoleManagement implements OnInit {
       return;
     }
     this.isEdit.set(false);
-    
+
     if (this.isCentralAdmin()) {
       this.currentRole.set({ code: '', name: '', description: '', scopeTypeId: 1, organizationUnitId: null, isActive: true });
     } else {
-      this.currentRole.set({ 
-        code: '', 
-        name: '', 
-        description: '', 
-        scopeTypeId: 2, 
-        organizationUnitId: this.authService.getUserUnitId(), 
-        isActive: true 
+      this.currentRole.set({
+        code: '',
+        name: '',
+        description: '',
+        scopeTypeId: 2,
+        organizationUnitId: this.authService.getUserUnitId(),
+        isActive: true
       });
     }
 
@@ -630,7 +630,7 @@ export class RoleManagement implements OnInit {
   onSavePermissions() {
     const activeRole = this.activeRoleForPermission();
     if (!activeRole) return;
-    
+
     this.savingPermissions.set(true);
     this.http.put(`${this.apiUrl}/${activeRole.id}/permission-groups`, this.selectedPermissionGroupIds())
       .pipe(finalize(() => this.savingPermissions.set(false)))
