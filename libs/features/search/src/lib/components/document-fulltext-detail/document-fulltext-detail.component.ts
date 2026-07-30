@@ -1,6 +1,6 @@
 import { Component, OnDestroy, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { of, catchError, switchMap } from 'rxjs';
@@ -24,7 +24,7 @@ import { DossierLookupDocumentsTabComponent } from '../dossier-lookup-documents-
 @Component({
   selector: 'app-document-fulltext-detail',
   standalone: true,
-  imports: [CommonModule, ToastModule, DossierLookupDocumentsTabComponent],
+  imports: [CommonModule, RouterLink, ToastModule, DossierLookupDocumentsTabComponent],
   providers: [MessageService],
   templateUrl: './document-fulltext-detail.component.html',
   styleUrl: './document-fulltext-detail.component.scss'
@@ -46,6 +46,10 @@ export class DocumentFulltextDetailComponent implements OnDestroy {
   previewUrl = signal<string | null>(null);
   previewLoading = signal(false);
   dossierTab = signal<'info' | 'documents' | 'related'>('info');
+
+  relatedDossiers = signal<Record<string, unknown>[]>([]);
+  loadingRelated = signal(false);
+  private relatedLoadedForDossierId: string | null = null;
 
   private previewLoadedKey: string | null = null;
 
@@ -122,6 +126,8 @@ export class DocumentFulltextDetailComponent implements OnDestroy {
     this.loadingDossier.set(false);
     this.loadingTemplate.set(false);
     this.dossierTab.set('info');
+    this.relatedDossiers.set([]);
+    this.relatedLoadedForDossierId = null;
   }
 
   private loadDetail(versionId: string) {
@@ -278,6 +284,36 @@ export class DocumentFulltextDetailComponent implements OnDestroy {
       },
       error: () => this.dossierFields.set([])
     });
+  }
+
+  selectDossierTab(tab: 'info' | 'documents' | 'related') {
+    this.dossierTab.set(tab);
+    if (tab === 'related') {
+      this.loadRelatedDossiersIfNeeded();
+    }
+  }
+
+  private loadRelatedDossiersIfNeeded() {
+    const dossierId = this.dossierId();
+    if (!dossierId || this.relatedLoadedForDossierId === dossierId) return;
+
+    this.loadingRelated.set(true);
+    this.searchService
+      .getRelatedDossiers(dossierId, { page: 1, pageSize: 50 })
+      .pipe(catchError(() => of({ items: [], totalCount: 0, page: 1, pageSize: 50 })))
+      .subscribe((res) => {
+        this.relatedLoadedForDossierId = dossierId;
+        this.relatedDossiers.set((res?.items || []) as Record<string, unknown>[]);
+        this.loadingRelated.set(false);
+      });
+  }
+
+  relatedDossierCode(rel: Record<string, unknown>): string {
+    const catalogData = (rel['catalogData'] ?? rel['CatalogData']) as Record<string, unknown> | undefined;
+    const code = catalogData?.['ma_ho_so'] ?? rel['code'] ?? rel['Code'];
+    if (code) return String(code);
+    const id = String(rel['id'] ?? rel['Id'] ?? '');
+    return id ? `HS-${id.substring(0, 8)}` : '—';
   }
 
   onBack() {

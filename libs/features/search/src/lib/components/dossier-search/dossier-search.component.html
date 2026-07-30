@@ -39,17 +39,19 @@
       <!-- Tiêu chí 3: Trạm / Đường dây -->
       <div class="search-form-item" style="display: flex; flex-direction: column; gap: 6px;">
         <label class="search-field-label" >Trạm / Đường dây</label>
-        <select
-          class="wf-select w-full"
+        <p-select
+          [options]="infrastructures()"
           [ngModel]="searchInfraName()"
           (ngModelChange)="searchInfraName.set($event)"
-          style="height: 38px; border-radius: 6px; border: 1px solid #cbd5e1; padding: 0 12px; outline: none;"
-        >
-          <option value="">Tất cả</option>
-          <option *ngFor="let infra of infrastructures()" [value]="infra.name">
-            {{ infra.name }}
-          </option>
-        </select>
+          optionLabel="name"
+          optionValue="name"
+          placeholder="Tất cả"
+          [showClear]="true"
+          [filter]="true"
+          filterPlaceholder="Tìm kiếm..."
+          appendTo="body"
+          [style]="{'width':'100%','height':'38px','border-radius':'6px','border':'1px solid #cbd5e1'}"
+        ></p-select>
       </div>
 
       <!-- Tiêu chí 4: Hộp hồ sơ -->
@@ -212,7 +214,7 @@
       </div>
 
       <!-- Dossier list table -->
-      <div class="wf-table-wrap" [class.loading]="loadingDocuments()" *ngIf="selectedFolder() && isSelectableFolder(selectedFolder()!.id) && !selectedDossier()">
+      <div class="wf-table-wrap" [class.loading]="loadingDocuments()" *ngIf="false">
         <table class="wf-table">
           <thead>
             <tr>
@@ -265,11 +267,49 @@
           </tbody>
         </table>
       </div>
-
+      
+      <!-- File list table -->
+      <div class="wf-table-wrap" [class.loading]="loadingDocuments()" *ngIf="selectedFolder() && isSelectableFolder(selectedFolder()!.id) && !selectedDossier()">
+        <div class="wf-table-wrap">
+          <table class="wf-table">
+            <thead>
+              <tr>
+                <th class="col-stt">STT</th>
+                <th>Tên tài liệu</th>
+                <th>Loại tài liệu</th>
+                <th>Ngày tài liệu</th>
+                <th>Người tạo</th> 
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngIf="loadingDossierDocuments()">
+                <td colspan="5" class="empty-row">
+                  <i class="pi pi-spin pi-spinner"></i>
+                  <div>Đang tải tài liệu...</div>
+                </td>
+              </tr>
+              <tr *ngFor="let doc of dossiersList(); let i = index" [hidden]="loadingDossierDocuments()">
+                <td class="col-stt text-muted">{{ i + 1 }}</td>
+                <td>
+                  <span class="wf-name-link" (click)="onViewDocumentDetail(doc)">{{ doc.name }}</span>
+                </td>
+                <td>{{ doc.documentTypeName || doc.mimeType || '-' }}</td>
+                <td>{{ formatDate(doc.createdDate) }}</td>
+                <td>{{ doc.createdByName || '' }}</td> 
+              </tr>
+              <tr *ngIf="!loadingDocuments() && dossiersList().length === 0">
+                <td colspan="5" class="empty-row">
+                  <i class="pi pi-info-circle"></i>
+                  <div>Không có tài liệu đính kèm.</div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+      </div>
 
       <!-- Footer / Paginator for Dossier List -->
       <div class="table-footer-paginator" *ngIf="selectedFolder() && isSelectableFolder(selectedFolder()!.id) && !selectedDossier() && totalDossiersList() > 0">
-        <span class="record-count">Tổng số: <b>{{ totalDossiersList() }}</b> hồ sơ.</span>
+        <span class="record-count">Tổng số: <b>{{ totalDossiersList() }}</b> tài liệu.</span>
         <p-paginator 
             [first]="first()" 
             [rows]="rows()" 

@@ -3,6 +3,11 @@ export interface WorkflowActionButton {
   targetNodeId: string;
   requiresUser: boolean;
   requiredRole: string;
+  /** Cấu hình bổ sung của bước ĐÍCH (targetNodeId) — dùng để lọc/gợi ý người xử lý theo đúng ưu tiên nghiệp vụ. */
+  unitGroupIds?: string;
+  systemGroupIds?: string;
+  requireSameUnit?: boolean;
+  staticAssigneeId?: string;
 }
 
 export function isRejectWorkflowLabel(label?: string | null): boolean {
@@ -89,6 +94,17 @@ export function parseWorkflowActionButtons(
 
     const getRole = (id: string) => getElementById(id)?.getAttribute('requiredRole') || '';
 
+    // Cấu hình người xử lý của bước ĐÍCH — khớp đúng tên thuộc tính BPMN do workflow-builder ghi ra.
+    const getAssigneeConfig = (id: string) => {
+      const el = getElementById(id);
+      return {
+        unitGroupIds: el?.getAttribute('unitPermissionGroupIds') || '',
+        systemGroupIds: el?.getAttribute('systemPermissionGroupIds') || '',
+        requireSameUnit: el?.getAttribute('requireSameUnit') === 'true',
+        staticAssigneeId: el?.getAttribute('assigneeId') || '',
+      };
+    };
+
     const tasks = [...byLocalName('task'), ...byLocalName('userTask')];
     const seqFlows = byLocalName('sequenceFlow');
 
@@ -132,6 +148,7 @@ export function parseWorkflowActionButtons(
           targetNodeId: ftRef,
           requiresUser: !isReject && isTask(ftRef),
           requiredRole: isReject ? '' : getRole(ftRef),
+          ...(isReject ? {} : getAssigneeConfig(ftRef)),
         };
       }));
     }
@@ -146,6 +163,7 @@ export function parseWorkflowActionButtons(
       targetNodeId: targetRef,
       requiresUser: isTask(targetRef),
       requiredRole: getRole(targetRef),
+      ...getAssigneeConfig(targetRef),
     }];
   } catch {
     return sortWorkflowButtonsRejectLast([
@@ -207,6 +225,65 @@ export function resolveRequiredRoleFromDefinition(
     String(s['stepName'] ?? s['StepName'] ?? '').toLowerCase() === normalized
   );
   return String(match?.['requiredRole'] ?? match?.['RequiredRole'] ?? '').trim();
+}
+
+export interface NextStepAssigneeInfo {
+  staticAssigneeId?: string | null;
+  unitGroupIds?: string | null;
+  systemGroupIds?: string | null;
+}
+
+/**
+ * Tham số gọi API eligible-assignees để xây danh sách người xử lý của bước tiếp theo,
+ * ưu tiên: Nhóm quyền đơn vị > Nhóm quyền hệ thống.
+ * Lưu ý: giao việc đích danh KHÔNG rút gọn danh sách xuống 1 người — người chuyển bước vẫn
+ * được chọn người khác — nó chỉ quyết định giá trị được CHỌN SẴN (xem resolveDefaultNextAssignee).
+ * Trả về null khi bước không cấu hình nhóm quyền nào (dropdown khi đó dùng danh sách người dùng đầy đủ).
+ */
+export function resolveEligibleAssigneeGroupParams(
+  info: NextStepAssigneeInfo | null | undefined
+): { unitGroupIds?: string; systemGroupIds?: string } | null {
+  if (!info) return null;
+  if (info.unitGroupIds) return { unitGroupIds: info.unitGroupIds };
+  if (info.systemGroupIds) return { systemGroupIds: info.systemGroupIds };
+  return null;
+}
+
+/** Giá trị chọn sẵn mặc định cho dropdown người xử lý — ưu tiên hàng đầu là người được giao việc đích danh. */
+export function resolveDefaultNextAssignee(info: NextStepAssigneeInfo | null | undefined): string {
+  return info?.staticAssigneeId ? String(info.staticAssigneeId) : '';
+}
+
+const getUserKey = (u: any): string => String(u?.id ?? u?.Id ?? u?.userId ?? u?.username ?? '');
+
+/**
+ * Danh sách người xử lý hiển thị trong dropdown theo đúng ưu tiên nghiệp vụ:
+ * Nhóm quyền đơn vị/hệ thống (nếu cấu hình) > requiredRole cũ > toàn bộ người dùng.
+ * Người được giao việc đích danh LUÔN có mặt trong danh sách (dù có khớp nhóm quyền hay không) —
+ * vì đây là lựa chọn ưu tiên hàng đầu theo nghiệp vụ, chỉ là không bắt buộc phải chọn đúng người đó.
+ */
+export function resolveNextUserCandidates(params: {
+  info: NextStepAssigneeInfo & { requiredRole?: string | null } | null | undefined;
+  allUsers: any[];
+  eligibleUsers: any[];
+}): any[] {
+  const { info, allUsers, eligibleUsers } = params;
+  if (!info) return [];
+
+  let list: any[];
+  if (info.unitGroupIds || info.systemGroupIds) list = eligibleUsers;
+  else if (info.requiredRole) list = filterUsersByRequiredRole(allUsers, info.requiredRole);
+  else list = allUsers;
+
+  if (info.staticAssigneeId) {
+    const key = String(info.staticAssigneeId);
+    if (!list.some((u) => getUserKey(u) === key)) {
+      const known = allUsers.find((u) => getUserKey(u) === key);
+      list = [known ?? { id: info.staticAssigneeId, fullName: info.staticAssigneeId }, ...list];
+    }
+  }
+
+  return list;
 }
 
 /** Lọc user theo role (hỗ trợ nhiều role phân tách bằng dấu phẩy). */
