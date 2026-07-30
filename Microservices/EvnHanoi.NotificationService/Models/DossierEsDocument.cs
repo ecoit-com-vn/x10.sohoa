@@ -59,6 +59,10 @@ public class WorkflowActionEsDto
     public string NextNodeId { get; set; } = string.Empty;
     public bool RequiresNextAssignee { get; set; }
     public string? NextStepRole { get; set; }
+    public string? UnitGroupIds { get; set; }
+    public string? SystemGroupIds { get; set; }
+    public bool RequireSameUnit { get; set; }
+    public string? StaticAssigneeId { get; set; }
 }
 
 public class DossierCatalogFieldEs
