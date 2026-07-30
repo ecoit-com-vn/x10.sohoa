@@ -435,7 +435,7 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
               {{ u.fullName || u.FullName || u.name || u.username }}
             </option>
           </select>
-          <div style="margin-top: 4px; font-size: 0.8rem; color: #64748b;" *ngIf="quickSubmitNextStepInfo()?.staticAssigneeId">Bước này có cấu hình giao việc đích danh — đã chọn sẵn, có thể đổi người khác nếu cần.</div>
+          <div style="margin-top: 4px; font-size: 0.8rem; color: #64748b;" *ngIf="quickSubmitNextStepInfo()?.staticAssigneeId">Bước này có cấu hình người xử lý cụ thể — có thể chọn trong danh sách bên dưới.</div>
           <div style="margin-top: 4px; font-size: 0.8rem; color: #64748b;" *ngIf="loadingEligibleQuickSubmitUsers()">Đang tải danh sách người đủ điều kiện...</div>
           <div style="margin-top: 4px; font-size: 0.8rem; color: #64748b;" *ngIf="!loadingEligibleQuickSubmitUsers() && filteredQuickSubmitNextUsers().length === 0">
             Không có người dùng nào đủ điều kiện xử lý bước này.
@@ -845,8 +845,8 @@ export class DossierListComponent implements OnInit {
   eligibleQuickSubmitUsers = signal<any[]>([]);
   loadingEligibleQuickSubmitUsers = signal<boolean>(false);
 
-  // Ưu tiên cấu hình bước tiếp theo: Nhóm quyền đơn vị > Nhóm quyền hệ thống > (cũ) requiredRole > toàn bộ user.
-  // Giao việc đích danh không giới hạn danh sách — chỉ chọn sẵn mặc định (xem loadEligibleQuickSubmitUsers).
+  // Hợp nhất nhóm quyền hệ thống/đơn vị/người cụ thể đã cấu hình trên bước; nếu không cấu hình
+  // gì cả, danh sách để trống — không dùng toàn bộ user làm dự phòng (xem resolveNextUserCandidates).
   filteredQuickSubmitNextUsers = computed(() => resolveNextUserCandidates({
     info: this.quickSubmitNextStepInfo(),
     allUsers: this.users(),
@@ -855,15 +855,19 @@ export class DossierListComponent implements OnInit {
 
   private loadEligibleQuickSubmitUsers(info: any): void {
     this.eligibleQuickSubmitUsers.set([]);
-    this.quickSubmitSelectedNextUser.set(resolveDefaultNextAssignee(info));
+    this.quickSubmitSelectedNextUser.set('');
     const groupParams = resolveEligibleAssigneeGroupParams(info);
     if (!groupParams) return;
     const unitId = info.requireSameUnit ? (this.authService.getUserUnitId() ?? undefined) : undefined;
     this.loadingEligibleQuickSubmitUsers.set(true);
-    this.workflowSvc.getEligibleAssignees(groupParams.systemGroupIds, groupParams.unitGroupIds, unitId)
+    this.workflowSvc.getEligibleAssignees(groupParams.systemGroupIds, groupParams.unitGroupIds, unitId, undefined, groupParams.assigneeIds)
       .pipe(finalize(() => this.loadingEligibleQuickSubmitUsers.set(false)))
       .subscribe({
-        next: (list) => this.eligibleQuickSubmitUsers.set(Array.isArray(list) ? list : []),
+        next: (list) => {
+          const arr = Array.isArray(list) ? list : [];
+          this.eligibleQuickSubmitUsers.set(arr);
+          this.quickSubmitSelectedNextUser.set(resolveDefaultNextAssignee(info, arr));
+        },
         error: () => this.eligibleQuickSubmitUsers.set([])
       });
   }

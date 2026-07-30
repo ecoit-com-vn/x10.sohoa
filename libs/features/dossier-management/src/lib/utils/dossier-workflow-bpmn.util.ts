@@ -228,39 +228,65 @@ export function resolveRequiredRoleFromDefinition(
 }
 
 export interface NextStepAssigneeInfo {
+  /** ID người xử lý cụ thể ("Người cụ thể") — có thể là 1 ID hoặc CSV nhiều ID nếu bước cấu hình nhiều người. */
   staticAssigneeId?: string | null;
   unitGroupIds?: string | null;
   systemGroupIds?: string | null;
 }
 
-/**
- * Tham số gọi API eligible-assignees để xây danh sách người xử lý của bước tiếp theo,
- * ưu tiên: Nhóm quyền đơn vị > Nhóm quyền hệ thống.
- * Lưu ý: giao việc đích danh KHÔNG rút gọn danh sách xuống 1 người — người chuyển bước vẫn
- * được chọn người khác — nó chỉ quyết định giá trị được CHỌN SẴN (xem resolveDefaultNextAssignee).
- * Trả về null khi bước không cấu hình nhóm quyền nào (dropdown khi đó dùng danh sách người dùng đầy đủ).
- */
-export function resolveEligibleAssigneeGroupParams(
-  info: NextStepAssigneeInfo | null | undefined
-): { unitGroupIds?: string; systemGroupIds?: string } | null {
-  if (!info) return null;
-  if (info.unitGroupIds) return { unitGroupIds: info.unitGroupIds };
-  if (info.systemGroupIds) return { systemGroupIds: info.systemGroupIds };
-  return null;
-}
-
-/** Giá trị chọn sẵn mặc định cho dropdown người xử lý — ưu tiên hàng đầu là người được giao việc đích danh. */
-export function resolveDefaultNextAssignee(info: NextStepAssigneeInfo | null | undefined): string {
-  return info?.staticAssigneeId ? String(info.staticAssigneeId) : '';
+/** Tách CSV "Người cụ thể" thành mảng ID, loại khoảng trắng và phần tử rỗng. */
+export function getStaticAssigneeIds(info: NextStepAssigneeInfo | null | undefined): string[] {
+  return String(info?.staticAssigneeId ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
 }
 
 const getUserKey = (u: any): string => String(u?.id ?? u?.Id ?? u?.userId ?? u?.username ?? '');
 
 /**
- * Danh sách người xử lý hiển thị trong dropdown theo đúng ưu tiên nghiệp vụ:
- * Nhóm quyền đơn vị/hệ thống (nếu cấu hình) > requiredRole cũ > toàn bộ người dùng.
- * Người được giao việc đích danh LUÔN có mặt trong danh sách (dù có khớp nhóm quyền hay không) —
- * vì đây là lựa chọn ưu tiên hàng đầu theo nghiệp vụ, chỉ là không bắt buộc phải chọn đúng người đó.
+ * Tham số gọi API eligible-assignees để xây danh sách người xử lý của bước tiếp theo.
+ * Hợp nhất (OR) cả 3 nguồn đã cấu hình trên bước — Nhóm quyền hệ thống, Nhóm quyền đơn vị,
+ * "Người cụ thể" — thành 1 lệnh gọi duy nhất (server tự hợp nhất + áp dụng unitId cuối cùng,
+ * xem UserRepository.GetEligibleAssigneesAsync). Trả về null khi bước không cấu hình bất kỳ
+ * nguồn nào trong 3 nguồn trên — khi đó dropdown phải để TRỐNG (không dùng danh sách toàn bộ
+ * người dùng làm phương án dự phòng).
+ */
+export function resolveEligibleAssigneeGroupParams(
+  info: NextStepAssigneeInfo | null | undefined
+): { unitGroupIds?: string; systemGroupIds?: string; assigneeIds?: string } | null {
+  const staticIds = getStaticAssigneeIds(info);
+  if (!info?.unitGroupIds && !info?.systemGroupIds && staticIds.length === 0) return null;
+  return {
+    unitGroupIds: info?.unitGroupIds || undefined,
+    systemGroupIds: info?.systemGroupIds || undefined,
+    assigneeIds: staticIds.length > 0 ? staticIds.join(',') : undefined,
+  };
+}
+
+/**
+ * Giá trị chọn sẵn mặc định cho dropdown người xử lý — chỉ tự chọn khi bước cấu hình ĐÚNG 1
+ * người cụ thể VÀ người đó thực sự có mặt trong danh sách ứng viên đã tải (có thể bị loại bởi
+ * điều kiện "chỉ cùng đơn vị"). Nếu cấu hình nhiều người, hoặc người duy nhất đó không nằm
+ * trong danh sách, không có mặc định — buộc người thao tác tự chọn.
+ */
+export function resolveDefaultNextAssignee(
+  info: NextStepAssigneeInfo | null | undefined,
+  candidates?: any[]
+): string {
+  const ids = getStaticAssigneeIds(info);
+  if (ids.length !== 1) return '';
+  if (!candidates) return ids[0];
+  return candidates.some((u) => getUserKey(u) === ids[0]) ? ids[0] : '';
+}
+
+/**
+ * Danh sách người xử lý hiển thị trong dropdown.
+ * Khi bước cấu hình bất kỳ nguồn nào trong 3 nguồn (nhóm quyền hệ thống/đơn vị, người cụ thể),
+ * dùng thẳng kết quả đã tải từ eligible-assignees — server đã hợp nhất cả 3 nguồn và áp dụng
+ * "chỉ cùng đơn vị" như điều kiện lọc cuối cùng, không cần xử lý gì thêm ở đây.
+ * requiredRole là đường lọc cũ (hợp lệ, không đổi); nếu bước không cấu hình gì cả → trả về rỗng,
+ * KHÔNG dùng toàn bộ danh sách người dùng làm phương án dự phòng.
  */
 export function resolveNextUserCandidates(params: {
   info: NextStepAssigneeInfo & { requiredRole?: string | null } | null | undefined;
@@ -270,20 +296,11 @@ export function resolveNextUserCandidates(params: {
   const { info, allUsers, eligibleUsers } = params;
   if (!info) return [];
 
-  let list: any[];
-  if (info.unitGroupIds || info.systemGroupIds) list = eligibleUsers;
-  else if (info.requiredRole) list = filterUsersByRequiredRole(allUsers, info.requiredRole);
-  else list = allUsers;
-
-  if (info.staticAssigneeId) {
-    const key = String(info.staticAssigneeId);
-    if (!list.some((u) => getUserKey(u) === key)) {
-      const known = allUsers.find((u) => getUserKey(u) === key);
-      list = [known ?? { id: info.staticAssigneeId, fullName: info.staticAssigneeId }, ...list];
-    }
+  if (info.unitGroupIds || info.systemGroupIds || getStaticAssigneeIds(info).length > 0) {
+    return eligibleUsers;
   }
-
-  return list;
+  if (info.requiredRole) return filterUsersByRequiredRole(allUsers, info.requiredRole);
+  return [];
 }
 
 /** Lọc user theo role (hỗ trợ nhiều role phân tách bằng dấu phẩy). */
