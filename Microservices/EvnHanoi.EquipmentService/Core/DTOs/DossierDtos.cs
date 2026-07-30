@@ -350,5 +350,13 @@ public class WorkflowActionDto
     public bool RequiresNextAssignee { get; set; }
     /// <summary>Role bước tiếp theo (requiredRole trên BPMN / WORKFLOWSTEPS).</summary>
     public string? NextStepRole { get; set; }
+    /// <summary>Danh sách ID nhóm quyền đơn vị của bước tiếp theo (CSV).</summary>
+    public string? UnitGroupIds { get; set; }
+    /// <summary>Danh sách ID nhóm quyền hệ thống của bước tiếp theo (CSV).</summary>
+    public string? SystemGroupIds { get; set; }
+    /// <summary>Bắt buộc người xử lý tiếp theo phải cùng đơn vị với người chuyển bước.</summary>
+    public bool RequireSameUnit { get; set; }
+    /// <summary>ID "Người cụ thể" của bước tiếp theo — 1 ID hoặc CSV nhiều ID.</summary>
+    public string? StaticAssigneeId { get; set; }
 }
 

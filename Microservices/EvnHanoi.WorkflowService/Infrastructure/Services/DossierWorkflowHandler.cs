@@ -237,6 +237,9 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
             var isReject = IsRejectActionName(actionName);
             var requiresNext = !isReject && IsUserTaskNode(process, nextNodeId);
             var nextRole = isReject ? null : GetNodeRequiredRole(process, nextNodeId);
+            var assigneeConfig = isReject
+                ? default
+                : GetNodeAssigneeConfig(process, nextNodeId);
 
             return new WorkflowActionDto
             {
@@ -244,7 +247,11 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
                 Name = actionName,
                 NextNodeId = nextNodeId,
                 RequiresNextAssignee = requiresNext,
-                NextStepRole = string.IsNullOrWhiteSpace(nextRole) ? null : nextRole.Trim()
+                NextStepRole = string.IsNullOrWhiteSpace(nextRole) ? null : nextRole.Trim(),
+                UnitGroupIds = string.IsNullOrWhiteSpace(assigneeConfig.unitGroupIds) ? null : assigneeConfig.unitGroupIds,
+                SystemGroupIds = string.IsNullOrWhiteSpace(assigneeConfig.systemGroupIds) ? null : assigneeConfig.systemGroupIds,
+                RequireSameUnit = assigneeConfig.requireSameUnit,
+                StaticAssigneeId = string.IsNullOrWhiteSpace(assigneeConfig.staticAssigneeId) ? null : assigneeConfig.staticAssigneeId
             };
         }
 
@@ -271,6 +278,26 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
             var node = process.Descendants()
                 .FirstOrDefault(e => e.Attribute("id")?.Value == nodeId);
             return node?.Attribute("requiredRole")?.Value;
+        }
+
+        /// <summary>
+        /// Đọc cấu hình nhóm quyền hệ thống/đơn vị, "chỉ cùng đơn vị" và "Người cụ thể" từ attribute
+        /// BPMN của bước đích — khớp đúng tên attribute mà workflow-builder ghi ra (xem
+        /// dossier-workflow-bpmn.util.ts:getAssigneeConfig phía frontend).
+        /// </summary>
+        private static (string? unitGroupIds, string? systemGroupIds, bool requireSameUnit, string? staticAssigneeId)
+            GetNodeAssigneeConfig(System.Xml.Linq.XElement process, string nodeId)
+        {
+            var node = process.Descendants()
+                .FirstOrDefault(e => e.Attribute("id")?.Value == nodeId);
+            if (node == null) return (null, null, false, null);
+
+            return (
+                node.Attribute("unitPermissionGroupIds")?.Value,
+                node.Attribute("systemPermissionGroupIds")?.Value,
+                node.Attribute("requireSameUnit")?.Value == "true",
+                node.Attribute("assigneeId")?.Value
+            );
         }
 
         private async Task<int> DeriveDossierStatusAsync(Models.WorkflowInstance instance)
@@ -345,6 +372,10 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
             public string NextNodeId { get; set; } = string.Empty;
             public bool RequiresNextAssignee { get; set; }
             public string? NextStepRole { get; set; }
+            public string? UnitGroupIds { get; set; }
+            public string? SystemGroupIds { get; set; }
+            public bool RequireSameUnit { get; set; }
+            public string? StaticAssigneeId { get; set; }
         }
     }
 }
