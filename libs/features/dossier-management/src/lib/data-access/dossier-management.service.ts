@@ -10,24 +10,39 @@ export interface DossierWorkflowAction {
   nextNodeId: string;
   requiresNextAssignee?: boolean;
   nextStepRole?: string | null;
+  /** Danh sách ID nhóm quyền đơn vị của bước tiếp theo (CSV). */
+  unitGroupIds?: string | null;
+  /** Danh sách ID nhóm quyền hệ thống của bước tiếp theo (CSV). */
+  systemGroupIds?: string | null;
+  /** Bắt buộc người xử lý tiếp theo phải cùng đơn vị với người chuyển bước. */
+  requireSameUnit?: boolean;
+  /** ID "Người cụ thể" của bước tiếp theo — 1 ID hoặc CSV nhiều ID. */
+  staticAssigneeId?: string | null;
+}
+
+function normalizeCsvField(raw: Record<string, unknown>, camelKey: string, pascalKey: string): string | null {
+  const value = raw[camelKey] ?? raw[pascalKey];
+  return value != null && String(value).trim() !== '' ? String(value).trim() : null;
+}
+
+function normalizeBooleanField(raw: Record<string, unknown>, camelKey: string, pascalKey: string): boolean {
+  const value = raw[camelKey] ?? raw[pascalKey];
+  return value === true
+    || value === 1
+    || (typeof value === 'string' && ['true', '1', 'yes'].includes(value.trim().toLowerCase()));
 }
 
 export function normalizeDossierWorkflowAction(raw: Record<string, unknown>): DossierWorkflowAction {
-  const nextStepRole = raw['nextStepRole'] ?? raw['NextStepRole'];
-  const requiresRaw = raw['requiresNextAssignee'] ?? raw['RequiresNextAssignee'];
-  const requiresNextAssignee =
-    requiresRaw === true
-    || requiresRaw === 1
-    || (typeof requiresRaw === 'string' && ['true', '1', 'yes'].includes(requiresRaw.trim().toLowerCase()));
-
   return {
     code: String(raw['code'] ?? raw['Code'] ?? ''),
     name: String(raw['name'] ?? raw['Name'] ?? ''),
     nextNodeId: String(raw['nextNodeId'] ?? raw['NextNodeId'] ?? ''),
-    requiresNextAssignee,
-    nextStepRole: nextStepRole != null && String(nextStepRole).trim() !== ''
-      ? String(nextStepRole).trim()
-      : null,
+    requiresNextAssignee: normalizeBooleanField(raw, 'requiresNextAssignee', 'RequiresNextAssignee'),
+    nextStepRole: normalizeCsvField(raw, 'nextStepRole', 'NextStepRole'),
+    unitGroupIds: normalizeCsvField(raw, 'unitGroupIds', 'UnitGroupIds'),
+    systemGroupIds: normalizeCsvField(raw, 'systemGroupIds', 'SystemGroupIds'),
+    requireSameUnit: normalizeBooleanField(raw, 'requireSameUnit', 'RequireSameUnit'),
+    staticAssigneeId: normalizeCsvField(raw, 'staticAssigneeId', 'StaticAssigneeId'),
   };
 }
 
