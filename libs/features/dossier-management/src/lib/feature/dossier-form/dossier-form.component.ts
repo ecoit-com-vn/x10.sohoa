@@ -24,10 +24,14 @@ import { finalize, forkJoin } from 'rxjs';
 import { DatePickerModule } from 'primeng/datepicker';
 import { AuthService } from '../../../../../../shared/core/src/lib/services/auth.service';
 import { EavFormService } from '../../../../../../shared/core/src/lib/services/eav-form.service';
+import { WorkflowService } from '@sohoa.frontend/shared/core';
 import {
   isApproveWorkflowLabel,
   isRejectWorkflowLabel,
   parseWorkflowActionButtons,
+  resolveEligibleAssigneeGroupParams,
+  resolveDefaultNextAssignee,
+  resolveNextUserCandidates,
 } from '../../utils/dossier-workflow-bpmn.util';
 import { isUserAuthorizedForWorkflowAction } from '../../utils/dossier-workflow-auth.util';
 import { normalizeDossierKindId } from '../../utils/dossier-permission.util';
@@ -132,7 +136,7 @@ import { normalizeDossierKindId } from '../../utils/dossier-permission.util';
             </p-select>
           </div>
 
-          <div class="form-group" style="flex: 1 1 240px; min-width: 220px;">
+          <div *ngIf="isEditMode() && !usePublishApi" class="form-group" style="flex: 1 1 240px; min-width: 220px;">
             <label class="form-label">Loại lưới điện</label>
             <p-select
               [options]="gridTypes()"
@@ -556,12 +560,18 @@ import { normalizeDossierKindId } from '../../utils/dossier-permission.util';
         <!-- Chọn người xử lý tiếp theo nếu được yêu cầu -->
         <div *ngIf="nextStepInfo()?.requiresNextAssignee" class="form-group">
           <label class="form-label required">Người duyệt tiếp theo ({{ nextStepInfo()?.stepName }})</label>
-          <select class="wf-select" [value]="selectedNextUser()" (change)="onNextUserChange($event)">
+          <select class="wf-select" [value]="selectedNextUser()" (change)="onNextUserChange($event)"
+            [disabled]="loadingEligibleSubmitUsers()">
             <option value="">-- Chọn người phê duyệt --</option>
             <option *ngFor="let u of filteredSubmitNextUsers()" [value]="u.id || u.Id || u.userId || u.username">
               {{ u.fullName || u.FullName || u.name || u.username }}
             </option>
           </select>
+          <div style="margin-top: 4px; font-size: 0.8rem; color: #64748b;" *ngIf="nextStepInfo()?.staticAssigneeId">Bước này có cấu hình giao việc đích danh — đã chọn sẵn, có thể đổi người khác nếu cần.</div>
+          <div style="margin-top: 4px; font-size: 0.8rem; color: #64748b;" *ngIf="loadingEligibleSubmitUsers()">Đang tải danh sách người đủ điều kiện...</div>
+          <div style="margin-top: 4px; font-size: 0.8rem; color: #64748b;" *ngIf="!loadingEligibleSubmitUsers() && filteredSubmitNextUsers().length === 0">
+            Không có người dùng nào đủ điều kiện xử lý bước này.
+          </div>
         </div>
       </div>
       <ng-template #footer>
@@ -594,10 +604,13 @@ import { normalizeDossierKindId } from '../../utils/dossier-permission.util';
         
         <div class="form-group" *ngIf="pendingActionBtn()?.requiresUser && !isRejectLabel(pendingActionBtn()?.label || '')" style="display: flex; flex-direction: column; gap: 6px;">
           <label class="form-label required">Người xử lý tiếp theo</label>
-          <select class="wf-select w-full" [ngModel]="selectedNextUserId()" (ngModelChange)="selectedNextUserId.set($event)">
+          <select class="wf-select w-full" [ngModel]="selectedNextUserId()" (ngModelChange)="selectedNextUserId.set($event)"
+            [disabled]="loadingEligibleFormNextUsers()">
             <option value="" disabled selected>-- Chọn người xử lý --</option>
-            <option *ngFor="let u of filteredFormNextUsers()" [value]="u.id">{{ u.fullName || u.name }} ({{ u.username }})</option>
+            <option *ngFor="let u of filteredFormNextUsers()" [value]="u.id || u.Id || u.userId || u.username">{{ u.fullName || u.name }} ({{ u.username }})</option>
           </select>
+          <div style="margin-top: 4px; font-size: 0.8rem; color: #64748b;" *ngIf="pendingActionBtn()?.staticAssigneeId">Bước này có cấu hình giao việc đích danh — đã chọn sẵn, có thể đổi người khác nếu cần.</div>
+          <div style="margin-top: 4px; font-size: 0.8rem; color: #64748b;" *ngIf="loadingEligibleFormNextUsers()">Đang tải danh sách người đủ điều kiện...</div>
         </div>
       </div>
       <ng-template #footer>
@@ -710,6 +723,7 @@ import { normalizeDossierKindId } from '../../utils/dossier-permission.util';
 export class DossierFormComponent implements OnInit {
 
   @Input() usePublishApi = false;
+  @Input() hideInfrastructureField = false;
   @Input() showHeaderBackButton = true;
   @Input() dossierId: string | null = null;
   @Input() set kindId(value: number | undefined) {
@@ -726,6 +740,7 @@ export class DossierFormComponent implements OnInit {
   private messageService = inject(MessageService);
   private authService = inject(AuthService);
   private eavFormService = inject(EavFormService);
+  private workflowSvc = inject(WorkflowService);
 
   isEditMode = computed(() => !!this.dossierId);
   activeTab = signal<'info' | 'documents' | 'versions' | 'workflow'>('info');
@@ -748,32 +763,61 @@ export class DossierFormComponent implements OnInit {
   selectedNextUserId = signal<string>('');
   formActionSubmitting = signal<boolean>(false);
   formWorkflowUsers = signal<any[]>([]);
+  eligibleFormNextUsers = signal<any[]>([]);
+  loadingEligibleFormNextUsers = signal<boolean>(false);
 
-  filteredFormNextUsers = computed(() => {
-    const btn = this.pendingActionBtn();
-    if (!btn || !btn.requiredRole) return [];
-    const roles = btn.requiredRole.split(',').map((r: string) => r.trim().toUpperCase());
-    return this.formWorkflowUsers().filter((u: any) => {
-      const uRoles: string[] = (u.roles || u.Roles || []).map((r: string) => r.toUpperCase());
-      return uRoles.some(r => roles.includes(r));
-    });
-  });
+  // Ưu tiên cấu hình bước ĐÍCH: Nhóm quyền đơn vị > Nhóm quyền hệ thống > requiredRole cũ > toàn bộ user.
+  // Giao việc đích danh không giới hạn danh sách — chỉ chọn sẵn mặc định (xem openFormActionDialog).
+  filteredFormNextUsers = computed(() => resolveNextUserCandidates({
+    info: this.pendingActionBtn(),
+    allUsers: this.formWorkflowUsers(),
+    eligibleUsers: this.eligibleFormNextUsers(),
+  }));
+
+  private loadEligibleFormNextUsers(info: any): void {
+    this.eligibleFormNextUsers.set([]);
+    const groupParams = resolveEligibleAssigneeGroupParams(info);
+    if (!groupParams) return;
+    const unitId = info?.requireSameUnit ? (this.authService.getUserUnitId() ?? undefined) : undefined;
+    this.loadingEligibleFormNextUsers.set(true);
+    this.workflowSvc.getEligibleAssignees(groupParams.systemGroupIds, groupParams.unitGroupIds, unitId)
+      .pipe(finalize(() => this.loadingEligibleFormNextUsers.set(false)))
+      .subscribe({
+        next: (list) => this.eligibleFormNextUsers.set(Array.isArray(list) ? list : []),
+        error: () => this.eligibleFormNextUsers.set([])
+      });
+  }
 
   submitting = signal<boolean>(false);
   showSubmitConfirm = signal<boolean>(false);
   nextStepInfo = signal<any>(null);
   selectedNextUser = signal<string>('');
   users = signal<any[]>([]);
+  eligibleSubmitUsers = signal<any[]>([]);
+  loadingEligibleSubmitUsers = signal<boolean>(false);
 
-  filteredSubmitNextUsers = computed(() => {
-    const info = this.nextStepInfo();
-    if (!info || !info.requiredRole) return [];
-    const roles = info.requiredRole.split(',').map((r: string) => r.trim().toUpperCase());
-    return this.users().filter((u: any) => {
-      const uRoles: string[] = (u.roles || u.Roles || []).map((r: string) => r.toUpperCase());
-      return uRoles.some(r => roles.includes(r));
-    });
-  });
+  // Ưu tiên cấu hình bước tiếp theo: Nhóm quyền đơn vị > Nhóm quyền hệ thống > (cũ) requiredRole > toàn bộ user.
+  // Giao việc đích danh không giới hạn danh sách — chỉ chọn sẵn mặc định (xem loadEligibleSubmitUsers).
+  filteredSubmitNextUsers = computed(() => resolveNextUserCandidates({
+    info: this.nextStepInfo(),
+    allUsers: this.users(),
+    eligibleUsers: this.eligibleSubmitUsers(),
+  }));
+
+  private loadEligibleSubmitUsers(info: any): void {
+    this.eligibleSubmitUsers.set([]);
+    this.selectedNextUser.set(resolveDefaultNextAssignee(info));
+    const groupParams = resolveEligibleAssigneeGroupParams(info);
+    if (!groupParams) return;
+    const unitId = info.requireSameUnit ? (this.authService.getUserUnitId() ?? undefined) : undefined;
+    this.loadingEligibleSubmitUsers.set(true);
+    this.workflowSvc.getEligibleAssignees(groupParams.systemGroupIds, groupParams.unitGroupIds, unitId)
+      .pipe(finalize(() => this.loadingEligibleSubmitUsers.set(false)))
+      .subscribe({
+        next: (list) => this.eligibleSubmitUsers.set(Array.isArray(list) ? list : []),
+        error: () => this.eligibleSubmitUsers.set([])
+      });
+  }
 
   dossier = {
     id: '',
@@ -931,7 +975,20 @@ export class DossierFormComponent implements OnInit {
 
   loadLookups() {
     this.service.getDossierTypeLookup().subscribe(res => this.dossierTypes.set(res || []));
-    this.service.getDossierGroupLookup().subscribe(res => this.dossierGroups.set(res || []));
+    this.service.getDossierGroupLookup().subscribe(res => {
+      const groups = res || [];
+      this.dossierGroups.set(groups);
+
+      if (!this.isEditMode() && !this.dossier.dossierGroupId) {
+        const defaultGroup = groups.find((group: any) =>
+          String(group.name ?? group.Name ?? '').trim().toLocaleLowerCase('vi-VN') === 'hồ sơ trạm biến áp'
+        );
+
+        if (defaultGroup) {
+          this.onDossierGroupChange(defaultGroup.id ?? defaultGroup.Id);
+        }
+      }
+    });
     this.service.getGridTypeLookup().subscribe(res => this.gridTypes.set(res || []));
     this.service.getDossierSets().subscribe(res => this.dossierSets.set(res || []));
     this.loadInfrastructures();
@@ -1441,6 +1498,7 @@ export class DossierFormComponent implements OnInit {
         }
         this.nextStepInfo.set(res);
         this.selectedNextUser.set('');
+        this.loadEligibleSubmitUsers(res);
         this.showSubmitConfirm.set(true);
         this.submitting.set(false);
       },
@@ -1583,6 +1641,8 @@ export class DossierFormComponent implements OnInit {
       infrastructureId: infraIds[0] || null,
       dossierGroupId: Number(this.dossier.dossierGroupId),
       gridTypeId: this.dossier.gridTypeId != null ? Number(this.dossier.gridTypeId) : null,
+      statusId: this.usePublishApi && !this.isEditMode() ? 6 : undefined,
+      publishStatusId: this.usePublishApi && !this.isEditMode() ? 1 : undefined,
       equipmentIds: this.isEquipmentDossier()
         ? this.selectedEquipments().map(e => e.equipmentId || e.id)
         : [],
@@ -1596,7 +1656,9 @@ export class DossierFormComponent implements OnInit {
     };
 
     const req$ = this.isEditMode()
-      ? this.service.updateDossier(this.dossier.id, dto)
+      ? this.usePublishApi
+        ? this.publishService.update(this.dossier.id, dto)
+        : this.service.updateDossier(this.dossier.id, dto)
       : this.usePublishApi
         ? this.publishService.create(dto)
         : this.service.createDossier(dto);
@@ -1775,9 +1837,10 @@ export class DossierFormComponent implements OnInit {
   openFormActionDialog(btn: any) {
     this.pendingActionBtn.set(btn);
     this.formActionComment.set('');
-    this.selectedNextUserId.set('');
+    this.selectedNextUserId.set(resolveDefaultNextAssignee(btn));
 
     if (btn.requiresUser && !this.isRejectLabel(btn.label)) {
+      this.loadEligibleFormNextUsers(btn);
       this.service.getUsersLookup(btn.requiredRole).subscribe({
         next: (users: any) => {
           this.formWorkflowUsers.set(Array.isArray(users) ? users : []);

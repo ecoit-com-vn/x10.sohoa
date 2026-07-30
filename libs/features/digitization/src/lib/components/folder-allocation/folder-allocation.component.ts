@@ -43,6 +43,10 @@ export class FolderAllocationComponent implements OnInit {
   revokeTarget = signal<FolderAllocationItem | null>(null);
   revoking = signal<boolean>(false);
 
+  showReactivateConfirm = signal<boolean>(false);
+  reactivateTarget = signal<FolderAllocationItem | null>(null);
+  reactivating = signal<boolean>(false);
+
   currentPage = signal<number>(1);
   pageSize = signal<number>(10);
   totalCount = signal<number>(0);
@@ -123,6 +127,9 @@ export class FolderAllocationComponent implements OnInit {
     if (item.status === 'Active' && canManage) {
       items.push({ label: 'Thu hồi quyền phân bổ', title: 'Thu hồi quyền phân bổ', icon: 'pi pi-ban color-teal', command: () => this.onRevoke(item) });
     }
+    if (item.status !== 'Active' && canManage) {
+      items.push({ label: 'Phân bổ thư mục', title: 'Phân bổ thư mục', icon: 'pi pi-check-circle color-teal', command: () => this.onReactivate(item) });
+    }
     if (this.authService.hasPermission('FOLDER_ALLOCATION_DELETE')
       || this.authService.hasPermission('FOLDER_ALLOCATION_MANAGE')) {
       items.push({ label: 'Xóa phân bổ', title: 'Xóa phân bổ', icon: 'pi pi-trash color-red', command: () => this.onDelete(item) });
@@ -169,6 +176,45 @@ export class FolderAllocationComponent implements OnInit {
   onCancelRevoke(): void {
     this.showRevokeConfirm.set(false);
     this.revokeTarget.set(null);
+  }
+
+  onReactivate(item: FolderAllocationItem): void {
+    this.reactivateTarget.set(item);
+    this.showReactivateConfirm.set(true);
+  }
+
+  onConfirmReactivate(): void {
+    const item = this.reactivateTarget();
+    if (!item) return;
+
+    this.reactivating.set(true);
+    this.service.reactivate(item.id).pipe(
+      finalize(() => this.reactivating.set(false))
+    ).subscribe({
+      next: () => {
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Thành công',
+          detail: 'Phân bổ thư mục thành công.'
+        });
+        this.showReactivateConfirm.set(false);
+        this.reactivateTarget.set(null);
+        this.loadAllocations();
+      },
+      error: (err) => {
+        this.showReactivateConfirm.set(false);
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Lỗi',
+          detail: err?.error?.message || 'Không thể phân bổ thư mục.'
+        });
+      }
+    });
+  }
+
+  onCancelReactivate(): void {
+    this.showReactivateConfirm.set(false);
+    this.reactivateTarget.set(null);
   }
 
   onDelete(item: FolderAllocationItem): void {
