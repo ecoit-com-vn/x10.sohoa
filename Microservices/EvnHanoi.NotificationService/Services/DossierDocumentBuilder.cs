@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text;
 using System.Text.Json;
 using EvnHanoi.Infrastructure.Messaging;
 using EvnHanoi.NotificationService.Models;
@@ -21,12 +22,16 @@ public class DossierDocumentBuilder : IDossierDocumentBuilder
             .Where(f => f is not null)
             .Cast<DossierFormFieldEs>()
             .ToList();
+        var dossierCode = GetFormTextValue(formData, "CODE", "MAHOSO");
+        var dossierTitle = GetFormTextValue(formData, "TITLE", "TIEUDE", "TIEUDEHOSO", "TENHOSO");
 
         var hasActiveWorkflowTask = HasActiveWorkflowTask(data);
 
         return new DossierEsDocument
         {
             Id = DossierIndexIdNormalizer.Normalize(data.Id),
+            DossierCode = dossierCode,
+            DossierTitle = dossierTitle,
             GridTypeId = data.GridTypeId,
             GridTypeName = data.GridTypeName,
             InfrastructureId = data.InfrastructureId,
@@ -136,6 +141,35 @@ public class DossierDocumentBuilder : IDossierDocumentBuilder
         {
             return new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
         }
+    }
+
+    private static string? GetFormTextValue(
+        IReadOnlyDictionary<string, object?> formData,
+        params string[] expectedKeys)
+    {
+        foreach (var (key, value) in formData)
+        {
+            if (value is null || !expectedKeys.Contains(NormalizeFieldKey(key), StringComparer.Ordinal))
+                continue;
+
+            var text = FormatValue(value).Trim();
+            if (!string.IsNullOrWhiteSpace(text))
+                return text;
+        }
+
+        return null;
+    }
+
+    private static string NormalizeFieldKey(string key)
+    {
+        var normalized = key.Replace('đ', 'd').Replace('Đ', 'D').Normalize(NormalizationForm.FormD);
+        var characters = normalized
+            .Where(character =>
+                CharUnicodeInfo.GetUnicodeCategory(character) != UnicodeCategory.NonSpacingMark &&
+                char.IsLetterOrDigit(character))
+            .Select(char.ToUpperInvariant);
+
+        return new string(characters.ToArray());
     }
 
     private static object? JsonElementToValue(JsonElement element)

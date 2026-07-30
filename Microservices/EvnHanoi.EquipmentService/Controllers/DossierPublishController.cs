@@ -1,8 +1,10 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using EvnHanoi.EquipmentService.Core.DTOs;
 using EvnHanoi.EquipmentService.Core.Entities;
 using EvnHanoi.EquipmentService.Core.Interfaces;
+using EvnHanoi.Infrastructure.Audit;
 using EvnHanoi.Infrastructure.Security;
 
 namespace EvnHanoi.EquipmentService.Controllers;
@@ -26,6 +28,41 @@ public class DossierPublishController : ControllerBase
     private string UserId => User.FindFirst(ClaimTypes.NameIdentifier)?.Value
                            ?? User.FindFirst("sub")?.Value
                            ?? User.Identity?.Name ?? "system";
+
+    private string UserName => User.FindFirst("preferred_username")?.Value
+                               ?? User.FindFirst(ClaimTypes.Name)?.Value
+                               ?? User.Identity?.Name ?? "system";
+
+    private string UserFullName => User.FindFirst("name")?.Value
+                                   ?? User.FindFirst(ClaimTypes.GivenName)?.Value
+                                   ?? UserName;
+
+    [HttpPost]
+    public async Task<IActionResult> Create([FromBody] DossierCreateDto dto)
+    {
+        if (dto == null)
+            return BadRequest(new { message = "Dữ liệu không hợp lệ." });
+
+        try
+        {
+            var newId = await _dossierService.CreateForPublishingAsync(dto, UserId, UserName, UserFullName);
+            HttpContext.SetAudit(resourceId: newId.ToString(), resourceType: "DOSSIER_PUBLISH", action: AuditActions.Create);
+
+            return CreatedAtAction(
+                nameof(GetDetail),
+                new { id = newId },
+                new
+                {
+                    id = newId,
+                    statusId = DossierStatusConstants.Approved,
+                    publishStatusId = DossierPublishStatusConstants.Pending
+                });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
 
     /// <summary>Chi tiết hồ sơ trong menu xuất bản (Oracle).</summary>
     [HttpGet("{id:guid}")]

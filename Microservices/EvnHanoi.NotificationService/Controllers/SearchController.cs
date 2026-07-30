@@ -52,6 +52,7 @@ public class SearchController : ControllerBase
         [FromQuery] int? statusId,
         [FromQuery] string? menuScope,
         [FromQuery] Guid? dossierTypeId,
+        [FromQuery] Guid? equipmentId,
         [FromQuery] int? kindId,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10)
@@ -93,6 +94,7 @@ public class SearchController : ControllerBase
             StatusId = statusId,
             MenuScope = DossierMenuScopes.Normalize(menuScope),
             DossierTypeId = dossierTypeId,
+            EquipmentId = equipmentId,
             KindId = kindId,
             UserId = userId,
             UserRoles = roles,

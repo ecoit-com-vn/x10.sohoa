@@ -6,6 +6,8 @@ namespace EvnHanoi.NotificationService.Models;
 public static class DossierEsFieldNames
 {
     public const string Id = "id";
+    public const string DossierCode = "dossierCode";
+    public const string DossierTitle = "dossierTitle";
     public const string Status = "status";
     public const string StatusId = "statusId";
     public const string StatusCode = "statusCode";
