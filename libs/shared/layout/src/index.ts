@@ -20,3 +20,4 @@ export * from './lib/components/common/loading/loading.component';
 export * from './lib/components/common/tabletree/tabletree.component';
 export * from './lib/components/pipes/map.pipe';
 export * from './lib/components/pipes/table-field.pipe';
+export * from './lib/components/delete-confirm-dialog/delete-confirm-dialog.component';

@@ -72,7 +72,8 @@ export class ReportStatisticsComponent implements OnInit {
     REPORT_DOSSIER_BY_SHELF: '/reports/dossier-by-shelf',
     REPORT_DOSSIER_BY_BOX: '/reports/dossier-by-box',
     REPORT_DOSSIER_BY_FLOOR: '/reports/dossier-by-floor',
-    REPORT_DOSSIER_BY_DOCUMENT_TYPE: '/reports/dossier-by-document-type'
+    REPORT_DOSSIER_BY_DOCUMENT_TYPE: '/reports/dossier-by-document-type',
+    REPORT_DOSSIER_BY_INPUT_OFFICER: '/reports/dossier-by-input-officer'
   };
 
   ngOnInit(): void {

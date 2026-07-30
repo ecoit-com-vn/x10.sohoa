@@ -1,12 +1,16 @@
-import { Component, OnInit, signal, computed, effect } from '@angular/core';
-import { WfBreadcrumbComponent, EcoInputTreeSelectComponent } from '@sohoa.frontend/shared/layout';
+import { Component, OnInit, signal, computed } from '@angular/core';
+import {
+  DeleteConfirmDialogComponent,
+  EcoInputTreeSelectComponent,
+  WfBreadcrumbComponent
+} from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { DialogModule } from 'primeng/dialog';
 import { ToastModule } from 'primeng/toast';
 import { Menu, MenuModule } from 'primeng/menu';
-import { MenuItem, MessageService, ConfirmationService, TreeNode  } from 'primeng/api';
+import { MenuItem, MessageService, TreeNode } from 'primeng/api';
 import { TreeSelectModule } from 'primeng/treeselect';
 import { environment } from '@env/environment';
 import { finalize } from 'rxjs';
@@ -16,7 +20,17 @@ import { buildMenuPermissionTree as buildMenuPermissionTreeFromLookup } from '..
 @Component({
   selector: 'app-unit-permission-group-management',
   standalone: true,
-  imports: [CommonModule, FormsModule, DialogModule, ToastModule, MenuModule, TreeSelectModule, WfBreadcrumbComponent, EcoInputTreeSelectComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    DialogModule,
+    ToastModule,
+    MenuModule,
+    TreeSelectModule,
+    WfBreadcrumbComponent,
+    EcoInputTreeSelectComponent,
+    DeleteConfirmDialogComponent
+  ],
   providers: [MessageService],
   templateUrl: './unit-permission-group-management.component.html',
   styleUrl: './unit-permission-group-management.component.scss'
@@ -24,6 +38,7 @@ import { buildMenuPermissionTree as buildMenuPermissionTreeFromLookup } from '..
 export class UnitPermissionGroupManagement implements OnInit {
   organizationUnits = signal<any[]>([]);
   filterOrganizationUnitId = signal<number | null>(null);
+  filterIsActive = signal<boolean | null>(null);
   selectedOrganizationUnitIds = signal<number[]>([]);
   selectedUnitNodes = signal<TreeNode[]>([]);
 
@@ -46,7 +61,8 @@ export class UnitPermissionGroupManagement implements OnInit {
   roles = signal<any[]>([]);
   searchKeyword = signal<string>('');
   totalCount = signal<number>(0);
-  
+  allCount = signal<number>(0);
+
   currentView = signal<'list' | 'add' | 'edit' | 'permission'>('list');
   dialogHeader = signal<string>('');
   isEdit = signal<boolean>(false);
@@ -56,7 +72,7 @@ export class UnitPermissionGroupManagement implements OnInit {
   activeRoleForPermission = signal<any>(null);
   systemPermissions = signal<any[]>([]);
   selectedPermissionCodes = signal<string[]>([]);
-  
+
   loading = signal<boolean>(false);
   saving = signal<boolean>(false);
   savingPermissions = signal<boolean>(false);
@@ -66,6 +82,17 @@ export class UnitPermissionGroupManagement implements OnInit {
   showLockUnlockConfirm = signal<boolean>(false);
   lockUnlockTarget = signal<any>(null);
   lockUnlockLoading = signal<boolean>(false);
+
+  // Quản lý trạng thái popup, nhóm quyền được chọn và request xóa.
+  showDeleteConfirm = signal<boolean>(false);
+  deleteTarget = signal<any>(null);
+  deleteLoading = signal<boolean>(false);
+
+  // Chuẩn hóa tên nhóm quyền hiển thị trong popup xác nhận xóa dùng chung.
+  readonly deleteTargetLabel = computed(() => {
+    const role = this.deleteTarget();
+    return role ? `${role.name} (${role.code})` : '';
+  });
 
   // Pagination
   currentPage = signal<number>(1);
@@ -122,50 +149,57 @@ export class UnitPermissionGroupManagement implements OnInit {
 
 
 
-  nextPage() {
-    if (this.currentPage() < this.totalPages()) {
-      this.currentPage.update(p => p + 1);
+  nextPage(): void {
+    if (this.currentPage() >= this.totalPages()) {
+      return;
     }
+
+    this.currentPage.update(page => page + 1);
+    this.loadRoles();
   }
 
-  prevPage() {
-    if (this.currentPage() > 1) {
-      this.currentPage.update(p => p - 1);
+  prevPage(): void {
+    if (this.currentPage() <= 1) {
+      return;
     }
+
+    this.currentPage.update(page => page - 1);
+    this.loadRoles();
   }
 
-  goToPage(page: any) {
-    const p = Number(page);
-    if (p >= 1 && p <= this.totalPages()) {
-      this.currentPage.set(p);
+  goToPage(page: unknown): void {
+    const targetPage = Number(page);
+
+    if (
+      !Number.isInteger(targetPage)
+      || targetPage < 1
+      || targetPage > this.totalPages()
+    ) {
+      return;
     }
+
+    this.currentPage.set(targetPage);
+    this.loadRoles();
   }
 
-  onPageSizeChange(event: any) {
-    this.pageSize.set(Number(event.target.value));
+  onPageSizeChange(event: Event): void {
+    const target = event.target as HTMLSelectElement | null;
+    const selectedPageSize = Number(target?.value);
+
+    if (![10, 20, 50].includes(selectedPageSize)) {
+      return;
+    }
+
+    this.pageSize.set(selectedPageSize);
     this.currentPage.set(1);
+    this.loadRoles();
   }
 
   constructor(
     private http: HttpClient,
     private messageService: MessageService,
-    private confirmationService: ConfirmationService,
     public authService: AuthService
-  ) {
-    effect(() => {
-      const kw = this.searchKeyword();
-      this.currentPage.set(1);
-    }, { allowSignalWrites: true });
-
-    effect(() => {
-      const page = this.currentPage();
-      const size = this.pageSize();
-      const kw = this.searchKeyword();
-      this.loadRoles();
-    }, { allowSignalWrites: true });
-
-
-  }
+  ) {}
 
   ngOnInit() {
     this.loadOrganizationUnits();
@@ -178,7 +212,7 @@ export class UnitPermissionGroupManagement implements OnInit {
     event.stopPropagation();
     this.actionMenuItems = [
       ...(this.authService.hasPermission('UNIT_PERMISSION_GROUP_MANAGE') || this.authService.hasPermission('PERMISSION_MANAGE') ? [{ label: 'Phân quyền', title:'Phân quyền', icon: 'pi pi-shield', command: () => this.onAssignPermissions(role) }] : []),
-      ...(this.authService.hasPermission('UNIT_PERMISSION_GROUP_MANAGE') ? [{ label: role.isActive ? 'Khóa vai trò' : 'Mở khóa vai trò', title: role.isActive ? 'Khóa vai trò' : 'Mở khóa vai trò', icon: role.isActive ? 'pi pi-lock color-red' : 'pi pi-lock-open color-teal', command: () => this.onToggleStatusRequest(role) }] : []),
+      ...(this.authService.hasPermission('UNIT_PERMISSION_GROUP_MANAGE') ? [{ label: role.isActive ? 'Khóa' : 'Mở khóa', title: role.isActive ? 'Khóa' : 'Mở khóa', icon: role.isActive ? 'pi pi-lock color-red' : 'pi pi-lock-open color-teal', command: () => this.onToggleStatusRequest(role) }] : []),
       ...(this.authService.hasPermission('UNIT_PERMISSION_GROUP_MANAGE') ? [{ label: 'Chỉnh sửa', title:'Chỉnh sửa', icon: 'pi pi-pencil color-blue', command: () => this.onEdit(role) }] : []),
       ...(this.authService.hasPermission('UNIT_PERMISSION_GROUP_MANAGE') ? [{ label: 'Xóa', title:'Xóa', icon: 'pi pi-trash color-red', command: () => this.onDelete(role) }] : []),
     ];
@@ -252,24 +286,63 @@ export class UnitPermissionGroupManagement implements OnInit {
     return [];
   }
 
-  loadRoles() {
+  loadRoles(): void {
     this.loading.set(true);
-    let url = `${this.apiUrl}?page=${this.currentPage()}&pageSize=${this.pageSize()}&keyword=${this.searchKeyword() || ''}`;
-    if (this.filterOrganizationUnitId()) {
-      url += `&organizationUnitId=${this.filterOrganizationUnitId()}`;
+
+ const keyword = this.searchKeyword()
+  .trim()
+  .normalize('NFC');
+    const organizationUnitId = this.filterOrganizationUnitId();
+    const isActive = this.filterIsActive();
+
+    let params = new HttpParams()
+      .set('page', this.currentPage())
+      .set('pageSize', this.pageSize());
+
+    if (keyword) {
+      params = params.set('keyword', keyword);
     }
-    this.http.get<any>(url)
+
+    if (organizationUnitId !== null) {
+      params = params.set('organizationUnitId', organizationUnitId);
+    }
+
+    if (isActive !== null) {
+      params = params.set('isActive', isActive);
+    }
+
+    this.http
+      .get<any>(this.apiUrl, { params })
       .pipe(finalize(() => this.loading.set(false)))
       .subscribe({
-        next: (res) => {
-          const list = res?.items || [];
-          this.roles.set(list);
-          this.totalCount.set(res?.totalCount || 0);
+        next: (response) => {
+          const items = Array.isArray(response?.items)
+            ? response.items
+            : [];
+
+          const totalCount = Number(response?.totalCount ?? 0);
+          const allCount = Number(response?.allCount ?? totalCount);
+
+          this.roles.set(items);
+          this.totalCount.set(totalCount);
+          this.allCount.set(allCount);
+
+          const lastPage = Math.max(1, Math.ceil(totalCount / this.pageSize()));
+          if (totalCount > 0 && this.currentPage() > lastPage) {
+            this.currentPage.set(lastPage);
+            this.loadRoles();
+          }
         },
-        error: (err) => {
-          this.messageService.add({ severity: 'error', summary: 'Lỗi tải dữ liệu', detail: 'Không thể tải danh sách nhóm quyền.' });
+        error: () => {
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi tải dữ liệu',
+            detail: 'Không thể tải danh sách nhóm quyền.'
+          });
+
           this.roles.set([]);
           this.totalCount.set(0);
+          this.allCount.set(0);
         }
       });
   }
@@ -308,10 +381,14 @@ export class UnitPermissionGroupManagement implements OnInit {
     this.menuPermissionTree.set(buildMenuPermissionTreeFromLookup(menusList, permissions));
   }
 
-  onSearch() {
-    this.currentPage.set(1);
-    this.loadRoles();
-  }
+onSearch(): void {
+  this.searchKeyword.update(keyword =>
+    keyword.trim().normalize('NFC')
+  );
+
+  this.currentPage.set(1);
+  this.loadRoles();
+}
 
   onAddNew() {
     if (!this.authService.hasPermission('UNIT_PERMISSION_GROUP_MANAGE')) {
@@ -469,27 +546,53 @@ export class UnitPermissionGroupManagement implements OnInit {
     }
   }
 
-  onDelete(role: any) {
-    this.confirmationService.confirm({
-      message: `Bạn có chắc chắn muốn xóa vai trò ${role.name} (${role.code})?`,
-      header: 'Xác nhận xóa',
-      icon: 'pi pi-exclamation-triangle',
-      acceptLabel: 'Đồng ý',
-      rejectLabel: 'Hủy',
-      acceptButtonStyleClass: 'btn-save',
-      rejectButtonStyleClass: 'btn-cancel',
-      accept: () => {
-        this.http.delete(`${this.apiUrl}/${role.id}`).subscribe({
-          next: () => {
-            this.messageService.add({ severity: 'success', summary: 'Xóa thành công', detail: 'Đã xóa vai trò thành công!' });
-            this.loadRoles();
-          },
-          error: (err) => {
-            this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể xóa vai trò.' });
-          }
-        });
-      }
-    });
+  onDelete(role: any): void {
+    // Lưu nhóm quyền được chọn và mở popup xác nhận xóa.
+    this.deleteTarget.set(role);
+    this.showDeleteConfirm.set(true);
+  }
+
+  onCancelDelete(): void {
+    // Không cho đóng popup khi request xóa đang được xử lý.
+    if (this.deleteLoading()) {
+      return;
+    }
+
+    this.closeDeleteDialog();
+  }
+
+  onConfirmDelete(): void {
+    const role = this.deleteTarget();
+
+    // Chặn request trùng khi người dùng bấm nút Xóa nhiều lần.
+    if (!role || this.deleteLoading()) {
+      return;
+    }
+
+    this.deleteLoading.set(true);
+
+    this.http.delete(`${this.apiUrl}/${role.id}`)
+      .pipe(
+        // Luôn tắt loading dù request thành công hay thất bại.
+        finalize(() => this.deleteLoading.set(false))
+      )
+      .subscribe({
+        next: () => {
+          this.closeDeleteDialog();
+          this.messageService.add({ severity: 'success', summary: 'Xóa thành công', detail: 'Đã xóa vai trò thành công!' });
+          this.loadRoles();
+        },
+        error: (err: any) => {
+          const detailMsg = err?.error?.message || err?.message || 'Không thể xóa vai trò.';
+          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: detailMsg });
+        }
+      });
+  }
+
+  private closeDeleteDialog(): void {
+    // Đóng popup và giải phóng bản ghi đang được chọn.
+    this.showDeleteConfirm.set(false);
+    this.deleteTarget.set(null);
   }
 
   onAssignPermissions(role: any) {
@@ -596,7 +699,7 @@ export class UnitPermissionGroupManagement implements OnInit {
   onSavePermissions() {
     const activeRole = this.activeRoleForPermission();
     if (!activeRole) return;
-    
+
     this.savingPermissions.set(true);
     this.http.post(`${this.apiUrl}/${activeRole.id}/permissions`, this.selectedPermissionCodes())
       .pipe(finalize(() => this.savingPermissions.set(false)))

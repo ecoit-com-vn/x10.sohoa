@@ -300,29 +300,17 @@
     </div>
   </ng-container>
 
-  <p-dialog [visible]="showConfirmDelete()" (visibleChange)="$event ? null : showConfirmDelete.set(false)"
-    header="Xác nhận xóa biểu mẫu" [modal]="true" [style]="{ width: '420px' }" styleClass="evn-dialog-custom"
-    [closable]="true">
-    <div class="confirm-dialog-content">
-      <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #f59e0b; margin-top: 2px; flex-shrink: 0;"></i>
-      <div>
-        <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b; font-size: 0.95rem;">Bạn có chắc chắn muốn xóa?</p>
-        <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
-          Biểu mẫu <b class="text-highlight">{{ targetForm?.name }}</b> sẽ bị xóa trong hệ thống.
-        </p>
-      </div>
-    </div>
-    <ng-template #footer>
-      <div class="dialog-footer-right gap-2">
-        <button class="btn-cancel btn-small" (click)="showConfirmDelete.set(false)">
-          <i class="pi pi-times"></i> Hủy
-        </button>
-        <button class="btn-save btn-small btn-confirm-delete" (click)="onConfirmDelete()">
-          <i class="pi pi-check"></i> Xác nhận
-        </button>
-      </div>
-    </ng-template>
-  </p-dialog>
+  <!-- Popup xác nhận xóa biểu mẫu dùng chung toàn hệ thống. -->
+  <app-delete-confirm-dialog
+    [visible]="showConfirmDelete()"
+    header="Xác nhận xóa biểu mẫu"
+    entityLabel="Biểu mẫu"
+    [targetName]="deleteTargetLabel()"
+    consequence="sẽ bị xóa trong hệ thống."
+    [loading]="deleteLoading()"
+    (cancelled)="onCancelDelete()"
+    (confirmed)="onConfirmDelete()"
+  />
 
   <!-- ==================== DIALOG XÁC NHẬN KHÓA ==================== -->
   <p-dialog [visible]="showConfirmLock()" (visibleChange)="$event ? null : showConfirmLock.set(false)"

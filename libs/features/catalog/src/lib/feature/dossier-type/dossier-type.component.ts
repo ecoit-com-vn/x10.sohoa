@@ -1,5 +1,8 @@
 import { Component, OnInit, signal, computed, inject, effect } from '@angular/core';
-import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
+import {
+  DeleteConfirmDialogComponent,
+  WfBreadcrumbComponent
+} from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ToastModule } from 'primeng/toast';
@@ -16,7 +19,17 @@ import { finalize } from 'rxjs/operators';
 @Component({
   selector: 'app-dossier-type',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule, MenuModule, SelectModule, DialogModule, MultiSelectModule, WfBreadcrumbComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    ToastModule,
+    MenuModule,
+    SelectModule,
+    DialogModule,
+    MultiSelectModule,
+    WfBreadcrumbComponent,
+    DeleteConfirmDialogComponent
+  ],
   providers: [MessageService],
   templateUrl: './dossier-type.component.html',
   styleUrl: './dossier-type.component.scss'
@@ -100,6 +113,8 @@ export class DossierTypeComponent implements OnInit {
   showDeleteConfirm = signal<boolean>(false);
   deleteTarget = signal<any>(null);
   deleting = signal<boolean>(false);
+  // Chuẩn hóa tên loại hồ sơ hiển thị trong popup xóa dùng chung.
+  readonly deleteTargetLabel = computed(() => this.deleteTarget()?.name ?? '');
 
   // Pagination Computeds
   paginatedItems = computed(() => {
@@ -366,7 +381,8 @@ export class DossierTypeComponent implements OnInit {
 
   onConfirmDelete() {
     const item = this.deleteTarget();
-    if (!item) return;
+    // Chặn target không hợp lệ hoặc request xóa bị gửi trùng.
+    if (!item || this.deleting()) return;
 
     this.deleting.set(true);
     this.dossierTypeService.deleteDossierType(item.id)
@@ -383,7 +399,6 @@ export class DossierTypeComponent implements OnInit {
           this.loadItems();
         },
         error: (err) => {
-          this.showDeleteConfirm.set(false);
           this.messageService.add({
             severity: 'error',
             summary: 'Lỗi',
@@ -394,6 +409,9 @@ export class DossierTypeComponent implements OnInit {
   }
 
   onCancelDelete() {
+    // Không đóng popup khi request xóa đang được xử lý.
+    if (this.deleting()) return;
+
     this.showDeleteConfirm.set(false);
     this.deleteTarget.set(null);
   }

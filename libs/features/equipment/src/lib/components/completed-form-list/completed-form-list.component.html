@@ -294,29 +294,17 @@
         </ng-template>
     </p-dialog>
 
-    <p-dialog [visible]="showConfirmDelete()" (visibleChange)="$event ? null : showConfirmDelete.set(false)"
-        header="Xác nhận xóa form" [modal]="true" [style]="{ width: '420px' }" styleClass="evn-dialog-custom"
-        [closable]="true">
-        <div class="confirm-dialog-content">
-            <i class="pi pi-exclamation-triangle confirm-icon-delete" style="font-size: 1.8rem; color: #ef4444;"></i>
-            <div>
-                <p class="confirm-dialog-title" style="font-weight: 600; color: #1e293b;">Bạn có chắc chắn xóa?</p>
-                <p class="confirm-dialog-message" style="color: #64748b; font-size: 0.875rem;">
-                    Form <b class="text-highlight" style="color: #1e293b;">{{ targetForm?.name }}</b> sẽ xóa trong hệ thống.
-                </p>
-            </div>
-        </div>
-        <ng-template #footer>
-            <div class="confirm-dialog-footer" style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
-                <button class="btn-small btn-cancel" (click)="showConfirmDelete.set(false)">
-                    <i class="pi pi-times"></i> Hủy
-                </button>
-                <button class="btn-small btn-confirm btn-confirm-delete" (click)="onConfirmDelete()" style="background-color: #dc2626; border-color: #dc2626; color: white;">
-                    <i class="pi pi-check"></i> Xác nhận
-                </button>
-            </div>
-        </ng-template>
-    </p-dialog>
+    <!-- Popup xác nhận xóa biểu mẫu hoàn thành dùng chung toàn hệ thống. -->
+    <app-delete-confirm-dialog
+        [visible]="showConfirmDelete()"
+        header="Xác nhận xóa biểu mẫu hoàn thành"
+        entityLabel="Biểu mẫu hoàn thành"
+        [targetName]="deleteTargetLabel()"
+        consequence="sẽ bị xóa trong hệ thống."
+        [loading]="deleteLoading()"
+        (cancelled)="onCancelDelete()"
+        (confirmed)="onConfirmDelete()"
+    />
 
     <!-- ==================== DIALOG XEM PHIÊN BẢN BIỂU MẪU ==================== -->
     <p-dialog [visible]="showVersionsDialog()" (visibleChange)="$event ? null : showVersionsDialog.set(false)"
