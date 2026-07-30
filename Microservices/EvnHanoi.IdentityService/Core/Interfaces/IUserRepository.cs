@@ -26,11 +26,14 @@ public interface IUserRepository
 
     /// <summary>
     /// Lấy danh sách người dùng đủ điều kiện xử lý bước tiếp theo của luồng.
-    /// Lọc theo nhóm quyền hệ thống, nhóm quyền đơn vị, và tuỳ chọn giới hạn theo đơn vị (RequireSameUnit).
+    /// Hợp nhất (OR) 3 nguồn: nhóm quyền hệ thống, nhóm quyền đơn vị, và "Người cụ thể" (assigneeIds).
+    /// Tuỳ chọn giới hạn theo đơn vị (RequireSameUnit) — áp dụng như điều kiện lọc cuối cùng trên
+    /// toàn bộ tập hợp đã hợp nhất.
     /// </summary>
     Task<IEnumerable<UserLookupDto>> GetEligibleAssigneesAsync(
         List<long> systemGroupIds,
         List<long> unitGroupIds,
+        List<string> assigneeIds,
         long? unitId,
         string? keyword,
         int page,
