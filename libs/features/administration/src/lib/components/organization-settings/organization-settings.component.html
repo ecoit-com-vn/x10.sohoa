@@ -1,87 +1,102 @@
 <div class="wf-page">
-    <p-toast></p-toast>
+  <p-toast></p-toast>
+  
+  <!-- Breadcrumb (legacy markup kept only for reference
+  <div class="breadcrumb">
+    <i class="pi pi-home bc-icon"></i>
+    <span class="bc-text">Trang chủ</span>
+    <span class="bc-sep">/</span>
+    <span class="bc-text">Quản trị hệ thống</span>
+    <span class="bc-sep">/</span>
+    <span class="bc-current">Cài đặt tổ chức</span>
 
-    <wf-breadcrumb />
+  -->
+  <div class="list-toolbar unit-page-toolbar">
+    <div class="toolbar-left">
+      <wf-breadcrumb />
+    </div>
+    <div class="toolbar-right">
+      <button *ngIf="authService.hasPermission('ORGANIZATION_CREATE')" class="btn-green" (click)="onAddNew()">
+        <i class="pi pi-plus"></i> Thêm mới
+      </button>
+    </div>
+  </div>
 
-    <div class="wf-card">
+  <div class="wf-card">
+    
+    <!-- MÀN HÌNH DANH SÁCH -->
+    <div *ngIf="currentView() === 'list' || currentView() === 'add' || currentView() === 'edit'" class="animate-fade-in">
+      <div class="dossier-search-bar unit-search-bar">
+        <div class="search-form-grid unit-search-grid">
+          <div class="search-form-item">
+            <label class="search-field-label">Từ khóa</label>
+            <input type="text" class="wf-search-input"
+              placeholder="Tìm theo mã, tên đơn vị..."
+              [ngModel]="searchKeyword()"
+              (ngModelChange)="searchKeyword.set($event)"
+              (keyup.enter)="onSearch()" />
+          </div>
 
-        <!-- MÀN HÌNH DANH SÁCH -->
-        <div *ngIf="currentView() === 'list' || currentView() === 'add' || currentView() === 'edit'" class="animate-fade-in">
+          <div class="search-form-item">
+            <label class="search-field-label">Trạng thái</label>
+            <select class="wf-input" [ngModel]="searchStatus()" (ngModelChange)="searchStatus.set($event)">
+              <option value="">-- Tất cả trạng thái --</option>
+              <option value="active">Hoạt động</option>
+              <option value="inactive">Ngưng hoạt động</option>
+            </select>
+          </div>
+        </div>
 
-            <!-- Toolbar -->
-            <div class="list-toolbar">
-                <div class="toolbar-left">
-                    <input type="text" class="wf-search-input" placeholder="Tìm nhanh đơn vị..." [ngModel]="searchKeyword()" (ngModelChange)="searchKeyword.set($event)" />
-
-                    <select class="wf-select" [ngModel]="searchStatus()" (ngModelChange)="searchStatus.set($event)" style="min-width: 160px;">
-            <option value="">-- Tất cả trạng thái --</option>
-            <option value="active">Hoạt động</option>
-            <option value="inactive">Ngưng hoạt động</option>
-          </select>
-
-                    <button class="btn-tim" (click)="onSearch()">
-            <i class="pi pi-search"></i> Tìm
+        <div class="unit-search-actions">
+          <button type="button" class="btn-outlined" (click)="onResetSearch()">
+            <i class="pi pi-refresh"></i> Làm mới
           </button>
-                </div>
-                <div class="toolbar-right">
-                    <button *ngIf="authService.hasPermission('ORGANIZATION_CREATE')" class="btn-green" (click)="onAddNew()">
-            <i class="pi pi-plus"></i> Thêm đơn vị mới
+          <button type="button" class="btn-save" (click)="onSearch()">
+            <i class="pi pi-check"></i> Áp dụng
           </button>
-                </div>
-            </div>
+        </div>
+      </div>
 
-            <!-- Tree List Table -->
-            <div class="wf-table-wrap">
-                <table class="wf-table">
-                    <thead>
-                        <tr>
-                            <th style="width: 100px;">STT</th>
-                            <th>Mã đơn vị</th>
-                            <th>Cơ cấu Tổ chức / Phòng ban</th>
-                            <th>Thuộc đơn vị cấp trên</th>
-                            <th>Mô tả</th>
-                            <th style="min-width: 130px; white-space: nowrap;">Trạng thái</th>
-                            <th class="col-hd">Thao tác</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <!-- skeleton loading rows -->
-                        <ng-container *ngIf="loading()">
-                            <tr *ngFor="let item of [1, 2, 3, 4]">
-                                <td class="col-stt">
-                                    <div class="skeleton-shimmer" style="height: 16px; width: 24px; border-radius: 4px;"></div>
-                                </td>
-                                <td>
-                                    <div class="skeleton-shimmer" style="height: 16px; width: 100px; border-radius: 4px;"></div>
-                                </td>
-                                <td>
-                                    <div class="skeleton-shimmer" style="height: 16px; width: 200px; border-radius: 4px;"></div>
-                                </td>
-                                <td>
-                                    <div class="skeleton-shimmer" style="height: 24px; width: 120px; border-radius: 12px;"></div>
-                                </td>
-                                <td>
-                                    <div class="skeleton-shimmer" style="height: 16px; width: 180px; border-radius: 4px;"></div>
-                                </td>
-                                <td class="col-hd">
-                                    <div class="skeleton-shimmer" style="height: 24px; width: 60px; border-radius: 4px;"></div>
-                                </td>
-                            </tr>
-                        </ng-container>
+      <!-- Tree List Table -->
+      <div class="wf-table-wrap">
+        <table class="wf-table">
+          <thead>
+            <tr>
+              <th style="width: 100px;">STT</th>
+              <th>Mã đơn vị</th>
+              <th>Cơ cấu Tổ chức / Phòng ban</th>
+              <th>Thuộc đơn vị cấp trên</th>
+              <th>Mô tả</th>
+              <th style="min-width: 130px; white-space: nowrap;">Trạng thái</th>
+              <th class="col-hd">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- skeleton loading rows -->
+            <ng-container *ngIf="loading()">
+              <tr *ngFor="let item of [1, 2, 3, 4]">
+                <td class="col-stt"><div class="skeleton-shimmer" style="height: 16px; width: 24px; border-radius: 4px;"></div></td>
+                <td><div class="skeleton-shimmer" style="height: 16px; width: 100px; border-radius: 4px;"></div></td>
+                <td><div class="skeleton-shimmer" style="height: 16px; width: 200px; border-radius: 4px;"></div></td>
+                <td><div class="skeleton-shimmer" style="height: 24px; width: 120px; border-radius: 12px;"></div></td>
+                <td><div class="skeleton-shimmer" style="height: 16px; width: 180px; border-radius: 4px;"></div></td>
+                <td class="col-hd"><div class="skeleton-shimmer" style="height: 24px; width: 60px; border-radius: 4px;"></div></td>
+              </tr>
+            </ng-container>
 
-                        <ng-container *ngIf="!loading()">
-                            <tr *ngFor="let unit of filteredUnits(); let i = index">
-                                <td class="col-stt text-muted">{{ i + 1 }}</td>
-                                <td><code>{{ unit.code }}</code></td>
-                                <td>
-                                    <div [style.padding-left.px]="getIndentLevel(unit) * 20" style="display: flex; align-items: center; gap: 8px;">
-                                        <i class="pi" [class.pi-building]="getIndentLevel(unit) === 0" [class.pi-users]="getIndentLevel(unit) > 0" style="color: #002D72;"></i>
-                                        <b *ngIf="authService.hasPermission('ORGANIZATION_EDIT')" class="wf-name-link" (click)="onEdit(unit)">{{ unit.name }}</b>
-                                        <span *ngIf="!authService.hasPermission('ORGANIZATION_EDIT')">{{ unit.name }}</span>
-                                    </div>
-                                </td>
-                                <td>
-                                    <span *ngIf="unit.parentId">
+            <ng-container *ngIf="!loading()">
+              <tr *ngFor="let unit of pagedUnits(); let i = index">
+                <td class="col-stt text-muted">{{ (currentPage() - 1) * pageSize() + i + 1 }}</td>
+                <td><code>{{ unit.code }}</code></td>
+                <td>
+                  <div [style.padding-left.px]="getIndentLevel(unit) * 20" style="display: flex; align-items: center; gap: 8px;">
+                    <i class="pi" [class.pi-building]="getIndentLevel(unit) === 0" [class.pi-users]="getIndentLevel(unit) > 0" style="color: #002D72;"></i>
+                    <b *ngIf="authService.hasPermission('ORGANIZATION_EDIT')" class="wf-name-link" (click)="onEdit(unit)">{{ unit.name }}</b>
+                    <span *ngIf="!authService.hasPermission('ORGANIZATION_EDIT')">{{ unit.name }}</span>
+                  </div>
+                </td>
+                <td>
+                  <span *ngIf="unit.parentId">
                     {{ getUnitName(unit.parentId) }}
                   </span>
                                 </td>
@@ -95,18 +110,30 @@
                                     <button type="button" class="act-btn act-more" (click)="openActionMenu(unit, $event, actionMenu)" title="Thao tác khác">
                     <i class="pi pi-ellipsis-h"></i>
                   </button>
-                                </td>
-                            </tr>
-                            <tr *ngIf="filteredUnits().length === 0">
-                                <td colspan="6" class="empty-row">
-                                    <i class="pi pi-inbox"></i>
-                                    <div>Không tìm thấy đơn vị nào phù hợp.</div>
-                                </td>
-                            </tr>
-                        </ng-container>
-                    </tbody>
-                </table>
-            </div>
+                </td>
+              </tr>
+              <tr *ngIf="filteredUnits().length === 0">
+                <td colspan="7" class="empty-row">
+                  <i class="pi pi-inbox"></i>
+                  <div>Không tìm thấy đơn vị nào phù hợp.</div>
+                </td>
+              </tr>
+            </ng-container>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="table-footer-paginator" *ngIf="filteredUnits().length > 0">
+        <span class="record-count">Tổng số: <b>{{ filteredUnits().length }}</b> phòng ban / đơn vị trực thuộc.</span>
+        <p-paginator
+          [first]="(currentPage() - 1) * pageSize()"
+          [rows]="pageSize()"
+          [totalRecords]="filteredUnits().length"
+          [rowsPerPageOptions]="[5, 10, 20, 50]"
+          (onPageChange)="onUnitPageChange($event)">
+        </p-paginator>
+      </div>
+    </div>
 
             <!-- Footer -->
             <div class="table-footer">
