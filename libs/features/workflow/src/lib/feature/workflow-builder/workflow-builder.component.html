@@ -371,22 +371,23 @@
                   <div class="check-hint">Khi chuyển bước, chỉ hiển thị người thuộc cùng đơn vị với người đang xử lý.</div>
                 </div>
 
-                <!-- Autocomplete: Giao việc đích danh -->
+                <!-- Autocomplete: Người cụ thể (có thể chọn nhiều người) -->
                 <div class="assignee-field">
-                  <label><i class="pi pi-user"></i> Giao việc đích danh <span class="optional-badge">Tuỳ chọn</span></label>
+                  <label><i class="pi pi-user"></i> Người cụ thể <span class="optional-badge">Tuỳ chọn</span></label>
                   <div class="assignee-input-wrapper">
                     <input type="text" class="prop-input"
-                           placeholder="Nhập tên hoặc tài khoản để tìm..."
+                           placeholder="Nhập tên hoặc tài khoản để tìm và thêm..."
                            [value]="selectedElementProps.assigneeSearch || ''"
-                           (input)="onUserSearchInput($any($event.target).value)"
+                           (input)="onUserSearchInput($event)"
                            autocomplete="off" />
-                    <button *ngIf="selectedElementProps.assigneeId" class="clear-assignee-btn"
-                            (click)="clearAssignee()" title="Xoá người được giao">
-                      <i class="pi pi-times-circle"></i>
-                    </button>
                   </div>
-                  <!-- Dropdown kết quả tìm kiếm -->
-                  <div class="user-dropdown" *ngIf="userSearchResults.length > 0">
+                  <!-- Dropdown kết quả tìm kiếm — position:fixed theo toạ độ viewport để không bị
+                       vùng cuộn của bpmn-config-panel cắt mất, tự mở lên/xuống tuỳ khoảng trống -->
+                  <div class="user-dropdown" *ngIf="userSearchResults.length > 0"
+                       [style.top]="assigneeDropdownStyle.top"
+                       [style.bottom]="assigneeDropdownStyle.bottom"
+                       [style.left]="assigneeDropdownStyle.left"
+                       [style.width]="assigneeDropdownStyle.width">
                     <div *ngFor="let u of userSearchResults" class="user-option"
                          (click)="selectAssignee(u)">
                       <i class="pi pi-user"></i>
@@ -395,10 +396,15 @@
                     </div>
                   </div>
                   <div class="loading-hint" *ngIf="userSearchLoading">Đang tìm kiếm...</div>
-                  <!-- Hiển thị người đã chọn -->
-                  <div class="assigned-user-badge" *ngIf="selectedElementProps.assigneeId && !userSearchLoading">
-                    <i class="pi pi-user-check"></i>
-                    <span>{{ selectedElementProps.assigneeName }}</span>
+                  <!-- Danh sách người đã chọn -->
+                  <div class="assignee-chips" *ngIf="selectedElementProps.selectedAssignees?.length > 0">
+                    <div class="assigned-user-badge" *ngFor="let a of selectedElementProps.selectedAssignees">
+                      <i class="pi pi-user-check"></i>
+                      <span>{{ a.label }}</span>
+                      <button type="button" class="chip-remove-btn" (click)="removeAssignee(a.id)" title="Bỏ người này">
+                        <i class="pi pi-times-circle"></i>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
