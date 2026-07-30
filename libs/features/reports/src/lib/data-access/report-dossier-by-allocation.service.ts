@@ -68,18 +68,21 @@ export class ReportDossierByAllocationService {
     return this.http.get<number[]>(`${this.baseUrl}/lookups/years`);
   }
 
-  getInputUsersLookup(): Observable<InputUserLookupItem[]> {
-    return this.http.get<InputUserLookupItem[]>(`${this.baseUrl}/lookups/input-users`);
+  getInputUsersLookup(segment?: string): Observable<InputUserLookupItem[]> {
+    const url = segment
+      ? `${this.baseUrl}/${segment}/input-users`
+      : `${this.baseUrl}/lookups/input-users`;
+    return this.http.get<InputUserLookupItem[]>(url);
   }
 
-  getChartStats(filter: DossierByAllocationFilter): Observable<DossierByAllocationChartStat[]> {
+  getChartStats(filter: DossierByAllocationFilter, segment = 'dossier-by-allocation'): Observable<DossierByAllocationChartStat[]> {
     const params = this.buildParams(filter);
-    return this.http.get<DossierByAllocationChartStat[]>(`${this.baseUrl}/dossier-by-allocation/chart-stats`, { params });
+    return this.http.get<DossierByAllocationChartStat[]>(`${this.baseUrl}/${segment}/chart-stats`, { params });
   }
 
-  getRatioStats(filter: DossierByAllocationFilter): Observable<DossierByAllocationRatioStat[]> {
+  getRatioStats(filter: DossierByAllocationFilter, segment = 'dossier-by-allocation'): Observable<DossierByAllocationRatioStat[]> {
     const params = this.buildParams(filter);
-    return this.http.get<DossierByAllocationRatioStat[]>(`${this.baseUrl}/dossier-by-allocation/ratio-stats`, { params });
+    return this.http.get<DossierByAllocationRatioStat[]>(`${this.baseUrl}/${segment}/ratio-stats`, { params });
   }
 
   exportExcel(filter: DossierByAllocationFilter): Observable<Blob> {
