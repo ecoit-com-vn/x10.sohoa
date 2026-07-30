@@ -8,7 +8,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { MessageService } from 'primeng/api';
 import { ToastModule } from 'primeng/toast';
 import { SelectModule } from 'primeng/select';
@@ -68,6 +68,13 @@ export class ReportDossierByAllocationComponent implements OnInit {
   private messageService = inject(MessageService);
   private authService = inject(AuthService);
   private router = inject(Router);
+  private route = inject(ActivatedRoute);
+
+  readonly inputOfficerMode = this.route.snapshot.data['reportMode'] === 'input-officer';
+  readonly reportSegment = this.inputOfficerMode ? 'dossier-by-input-officer' : 'dossier-by-allocation';
+  readonly reportTitle = this.inputOfficerMode
+    ? 'Báo cáo hồ sơ thiết bị theo cán bộ nhập liệu'
+    : 'Báo cáo thống kê hồ sơ nhập liệu theo phân bổ hồ sơ';
 
   @ViewChild(ReportStatisticsDossierListComponent)
   dossierList?: ReportStatisticsDossierListComponent;
@@ -75,8 +82,12 @@ export class ReportDossierByAllocationComponent implements OnInit {
   @ViewChild(ReportStatisticsCreatorGridComponent)
   creatorGrid?: ReportStatisticsCreatorGridComponent;
 
-  readonly dossierListConfig = REPORT_STATISTICS_DOSSIER_LIST_CONFIGS.DOSSIER_BY_ALLOCATION;
-  readonly creatorGridConfig = REPORT_STATISTICS_CREATOR_GRID_CONFIGS.DOSSIER_BY_ALLOCATION;
+  readonly dossierListConfig = this.inputOfficerMode
+    ? REPORT_STATISTICS_DOSSIER_LIST_CONFIGS.DOSSIER_BY_INPUT_OFFICER
+    : REPORT_STATISTICS_DOSSIER_LIST_CONFIGS.DOSSIER_BY_ALLOCATION;
+  readonly creatorGridConfig = this.inputOfficerMode
+    ? REPORT_STATISTICS_CREATOR_GRID_CONFIGS.DOSSIER_BY_INPUT_OFFICER
+    : REPORT_STATISTICS_CREATOR_GRID_CONFIGS.DOSSIER_BY_ALLOCATION;
   filterVersion = signal(0);
 
   /** Filter đã áp dụng — chỉ cập nhật khi bấm Tìm kiếm hoặc load lần đầu. */
@@ -154,7 +165,7 @@ export class ReportDossierByAllocationComponent implements OnInit {
       error: (err) => console.error('Lỗi tải loại đối tượng:', err)
     });
 
-    this.reportService.getInputUsersLookup().subscribe({
+    this.reportService.getInputUsersLookup(this.inputOfficerMode ? this.reportSegment : undefined).subscribe({
       next: (users) => this.inputUsers.set(users || []),
       error: (err) => console.error('Lỗi tải cán bộ nhập liệu:', err)
     });
@@ -245,8 +256,8 @@ export class ReportDossierByAllocationComponent implements OnInit {
     this.loading.set(true);
 
     forkJoin({
-      chart: this.reportService.getChartStats(filter),
-      ratio: this.reportService.getRatioStats(filter)
+      chart: this.reportService.getChartStats(filter, this.reportSegment),
+      ratio: this.reportService.getRatioStats(filter, this.reportSegment)
     })
       .pipe(finalize(() => this.loading.set(false)))
       .subscribe({
