@@ -522,6 +522,7 @@ public class EquipmentRepository : IEquipmentRepository
                         CreatedAt,
                         IsDeleted,
                         UnitId,
+StatusTransition,
                         FORM_VALUES
                     )
                     VALUES (
@@ -538,6 +539,7 @@ public class EquipmentRepository : IEquipmentRepository
                         :CreatedAt,
                         0,
                         :UnitId,
+:StatusTransition,
                         :FormValues
                     )";
 
@@ -555,6 +557,7 @@ public class EquipmentRepository : IEquipmentRepository
             equipment.CreatedBy,
             equipment.CreatedAt,
             equipment.UnitId,
+            StatusTransition = equipment.StatusTransition = null,
             FormValues = OracleClob.Param(equipment.FormValues)
         };
 
@@ -590,7 +593,7 @@ public class EquipmentRepository : IEquipmentRepository
                 UnitId,
                 FORM_VALUES,
                 Note,
-                StatusTransition,
+                StatusTransition
             )
             VALUES (
                 :Id,
@@ -608,7 +611,7 @@ public class EquipmentRepository : IEquipmentRepository
                 0,
                 :UnitId,
                 :FormValues,
-:Note,
+                :Note,
                 NULL
             )";
 
@@ -1262,13 +1265,19 @@ public class EquipmentRepository : IEquipmentRepository
         {
             var sql = @"SELECT Id, Code, Name, ParentId 
                         FROM ORGANIZATION_UNIT
+                        WHERE IsActive = 1
+                          AND IsDeleted = 0
                         START WITH Id = :StartUnitId
                         CONNECT BY PRIOR Id = ParentId";
             return await _connection.QueryAsync<OrganizationDto>(sql, new { StartUnitId = startUnitId.Value });
         }
         else
         {
-            var sql = "SELECT Id, Code, Name, ParentId FROM ORGANIZATION_UNIT ORDER BY Name ASC";
+            var sql = @"SELECT Id, Code, Name, ParentId
+                        FROM ORGANIZATION_UNIT
+                        WHERE IsActive = 1
+                          AND IsDeleted = 0
+                        ORDER BY Name ASC";
             return await _connection.QueryAsync<OrganizationDto>(sql);
         }
     }
