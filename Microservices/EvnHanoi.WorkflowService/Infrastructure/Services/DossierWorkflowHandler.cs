@@ -25,6 +25,7 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
 
         private readonly IWorkflowRepository _workflowRepository;
         private readonly IHttpClientFactory _httpClientFactory;
+        private readonly IMessageProducer _messageProducer;
         private readonly ILogger<DossierWorkflowHandler> _logger;
 
         public virtual int WorkflowTypeId => EntityType.Dossier.Id;
@@ -32,10 +33,12 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
         public DossierWorkflowHandler(
             IWorkflowRepository workflowRepository,
             IHttpClientFactory httpClientFactory,
+            IMessageProducer messageProducer,
             ILogger<DossierWorkflowHandler> logger)
         {
             _workflowRepository = workflowRepository ?? throw new ArgumentNullException(nameof(workflowRepository));
             _httpClientFactory = httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory));
+            _messageProducer = messageProducer ?? throw new ArgumentNullException(nameof(messageProducer));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
@@ -84,6 +87,28 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
             currentAssignees = currentAssignees.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
 
             var isRunning = string.Equals(instance.Status, "Running", StringComparison.OrdinalIgnoreCase);
+
+            if (isRunning && currentAssignees.Count > 0)
+            {
+                try
+                {
+                    await _messageProducer.PublishToExchangeAsync(
+                        new EvnHanoi.Infrastructure.Messaging.DossierMovedEvent
+                        {
+                            DossierId = entityId,
+                            InstanceId = instanceId,
+                            StepName = instance.CurrentNodeName,
+                            RecipientUserIds = currentAssignees,
+                            Timestamp = DateTime.UtcNow
+                        },
+                        EvnHanoi.Infrastructure.Messaging.NotificationTopicTopology.ExchangeName,
+                        EvnHanoi.Infrastructure.Messaging.NotificationTopicTopology.DossierMovedRoutingKey);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "DossierWorkflowHandler: không thể phát sự kiện thông báo cho hồ sơ {EntityId}.", entityId);
+                }
+            }
 
             // Bóc tách các action khả dụng từ BPMN XML (chỉ khi WF còn chạy)
             var availableActions = new List<WorkflowActionDto>();

@@ -70,6 +70,37 @@ public class DocumentFullTextSearchController : ControllerBase
         return Ok(detail);
     }
 
+    [HttpGet("dossiers/{id:guid}/related")]
+    public async Task<IActionResult> GetRelatedDossiers(
+        Guid id,
+        [FromQuery] string? keyword,
+        [FromQuery] Guid? dossierTypeId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10)
+    {
+        var (isAdmin, unitId) = ResolveUserScope();
+        if (!isAdmin && unitId is null)
+            return Unauthorized(new { message = "Không thể xác định đơn vị của người dùng" });
+
+        var dossier = await _dossierService.GetPublishedDetailByIdAsync(id, isAdmin, unitId);
+        if (dossier is null)
+            return NotFound(new { message = $"Không tìm thấy hồ sơ đã xuất bản với ID = {id}" });
+
+        var scopedUnitId = isAdmin ? null : unitId;
+        var (items, totalCount) = await _dossierService.GetCatalogDossiersAsync(
+            keyword, dossier.InfrastructureId, dossierTypeId, scopedUnitId, page, pageSize);
+
+        // Loại bỏ hồ sơ hiện tại khỏi danh sách hồ sơ liên quan để tránh tự hiển thị chính nó
+        var filteredItems = items.Where(item => item.Id != id).ToList();
+        var count = totalCount;
+        if (items.Count() != filteredItems.Count)
+        {
+            count = Math.Max(0, totalCount - 1);
+        }
+
+        return Ok(new { items = filteredItems, totalCount = count, page, pageSize });
+    }
+
     [HttpGet("dossiers/{id:guid}/documents")]
     public async Task<IActionResult> GetDocuments(
         Guid id,

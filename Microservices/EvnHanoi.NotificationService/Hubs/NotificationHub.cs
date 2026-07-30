@@ -44,6 +44,25 @@ public class NotificationHub : Hub
     internal static string BuildDossierGroup(string dossierId) =>
         $"dossier-{dossierId.Trim().ToLowerInvariant()}";
 
+    public async Task JoinUserGroup(string userId)
+    {
+        if (string.IsNullOrWhiteSpace(userId)) return;
+        var group = BuildUserGroup(userId);
+        await Groups.AddToGroupAsync(Context.ConnectionId, group);
+        _logger.LogInformation("Client {ConnectionId} joined group {Group}", Context.ConnectionId, group);
+    }
+
+    public async Task LeaveUserGroup(string userId)
+    {
+        if (string.IsNullOrWhiteSpace(userId)) return;
+        var group = BuildUserGroup(userId);
+        await Groups.RemoveFromGroupAsync(Context.ConnectionId, group);
+        _logger.LogDebug("Client {ConnectionId} left group {Group}", Context.ConnectionId, group);
+    }
+
+    internal static string BuildUserGroup(string userId) =>
+        $"user-{userId.Trim().ToLowerInvariant()}";
+
     public async Task SendNotification(string message)
     {
         await Clients.All.SendAsync("ReceiveNotification", message);
