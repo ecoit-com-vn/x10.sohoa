@@ -217,10 +217,13 @@
     </div>
   </div>
   <ng-template #footer>
-    <button class="btn-cancel btn-small" (click)="showActionDialog.set(false)"
-      [disabled]="detailActionSubmitting()">Hủy</button>
-    <button class="btn-small" [class.btn-cancel]="isRejectLabel(pendingActionBtn()?.label)"
-      [class.btn-save]="isApproveLabel(pendingActionBtn()?.label)"
+    <button class="btn-cancel btn-small"
+      (click)="showActionDialog.set(false)"
+      [disabled]="detailActionSubmitting()">
+      <i class="pi pi-times"></i> Hủy
+    </button>
+    <button class="btn-small"
+      [class.btn-save]="isRejectLabel(pendingActionBtn()?.label) || isApproveLabel(pendingActionBtn()?.label)"
       [class.btn-green]="!isRejectLabel(pendingActionBtn()?.label) && !isApproveLabel(pendingActionBtn()?.label)"
       (click)="confirmAction()" [disabled]="detailActionSubmitting()">
       <i class="pi pi-spin pi-spinner" *ngIf="detailActionSubmitting()"></i>
