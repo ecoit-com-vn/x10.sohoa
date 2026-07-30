@@ -134,12 +134,7 @@
         </p-paginator>
       </div>
     </div>
-
-            <!-- Footer -->
-            <div class="table-footer">
-                <span class="record-count">Tổng số: <b>{{ units().length }}</b> phòng ban / đơn vị trực thuộc.</span>
-            </div>
-        </div>
+  </div>
 
         <p-menu #actionMenu [model]="actionMenuItems" [popup]="true" appendTo="body" styleClass="row-action-menu"></p-menu>
 
@@ -231,5 +226,5 @@
             [loading]="deleteLoading()"
             (cancelled)="onCancelDelete()"
             (confirmed)="onConfirmDelete()"
-        />
-    </div>
+         />
+</div>
