@@ -1,5 +1,8 @@
 import { Component, OnInit, signal, computed, effect } from '@angular/core';
-import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
+import {
+  DeleteConfirmDialogComponent,
+  WfBreadcrumbComponent
+} from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -7,7 +10,7 @@ import { DialogModule } from 'primeng/dialog';
 import { ToastModule } from 'primeng/toast';
 import { Menu, MenuModule } from 'primeng/menu';
 import { MenuItem } from 'primeng/api';
-import { MessageService, ConfirmationService } from 'primeng/api';
+import { MessageService } from 'primeng/api';
 import { environment } from '@env/environment';
 import { finalize } from 'rxjs';
 import { AuthService } from '@sohoa.frontend/shared/core';
@@ -16,7 +19,15 @@ import { buildMenuPermissionTree as buildMenuPermissionTreeFromLookup } from '..
 @Component({
   selector: 'app-system-permission-group-management',
   standalone: true,
-  imports: [CommonModule, FormsModule, DialogModule, ToastModule, MenuModule, WfBreadcrumbComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    DialogModule,
+    ToastModule,
+    MenuModule,
+    WfBreadcrumbComponent,
+    DeleteConfirmDialogComponent
+  ],
   providers: [MessageService],
   templateUrl: './system-permission-group-management.component.html',
   styleUrl: './system-permission-group-management.component.scss'
@@ -45,6 +56,17 @@ export class SystemPermissionGroupManagement implements OnInit {
   showLockUnlockConfirm = signal<boolean>(false);
   lockUnlockTarget = signal<any>(null);
   lockUnlockLoading = signal<boolean>(false);
+
+  // Quản lý trạng thái popup, nhóm quyền được chọn và request xóa.
+  showDeleteConfirm = signal<boolean>(false);
+  deleteTarget = signal<any>(null);
+  deleteLoading = signal<boolean>(false);
+
+  // Chuẩn hóa tên nhóm quyền hiển thị trong popup xác nhận xóa dùng chung.
+  readonly deleteTargetLabel = computed(() => {
+    const role = this.deleteTarget();
+    return role ? `${role.name} (${role.code})` : '';
+  });
 
   // Pagination
   currentPage = signal<number>(1);
@@ -120,7 +142,6 @@ export class SystemPermissionGroupManagement implements OnInit {
   constructor(
     private http: HttpClient,
     private messageService: MessageService,
-    private confirmationService: ConfirmationService,
     public authService: AuthService
   ) {
     effect(() => {
@@ -349,27 +370,53 @@ export class SystemPermissionGroupManagement implements OnInit {
     }
   }
 
-  onDelete(role: any) {
-    this.confirmationService.confirm({
-      message: `Bạn có chắc chắn muốn xóa vai trò ${role.name} (${role.code})?`,
-      header: 'Xác nhận xóa',
-      icon: 'pi pi-exclamation-triangle',
-      acceptLabel: 'Đồng ý',
-      rejectLabel: 'Hủy',
-      acceptButtonStyleClass: 'btn-save',
-      rejectButtonStyleClass: 'btn-cancel',
-      accept: () => {
-        this.http.delete(`${this.apiUrl}/${role.id}`).subscribe({
-          next: () => {
-            this.messageService.add({ severity: 'success', summary: 'Xóa thành công', detail: 'Đã xóa vai trò thành công!' });
-            this.loadRoles();
-          },
-          error: (err) => {
-            this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể xóa vai trò.' });
-          }
-        });
-      }
-    });
+  onDelete(role: any): void {
+    // Lưu nhóm quyền được chọn và mở popup xác nhận xóa.
+    this.deleteTarget.set(role);
+    this.showDeleteConfirm.set(true);
+  }
+
+  onCancelDelete(): void {
+    // Không cho đóng popup khi request xóa đang được xử lý.
+    if (this.deleteLoading()) {
+      return;
+    }
+
+    this.closeDeleteDialog();
+  }
+
+  onConfirmDelete(): void {
+    const role = this.deleteTarget();
+
+    // Chặn request trùng khi người dùng bấm nút Xóa nhiều lần.
+    if (!role || this.deleteLoading()) {
+      return;
+    }
+
+    this.deleteLoading.set(true);
+
+    this.http.delete(`${this.apiUrl}/${role.id}`)
+      .pipe(
+        // Luôn tắt loading dù request thành công hay thất bại.
+        finalize(() => this.deleteLoading.set(false))
+      )
+      .subscribe({
+        next: () => {
+          this.closeDeleteDialog();
+          this.messageService.add({ severity: 'success', summary: 'Xóa thành công', detail: 'Đã xóa vai trò thành công!' });
+          this.loadRoles();
+        },
+        error: (err: any) => {
+          const detailMsg = err?.error?.message || err?.message || 'Không thể xóa vai trò.';
+          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: detailMsg });
+        }
+      });
+  }
+
+  private closeDeleteDialog(): void {
+    // Đóng popup và giải phóng bản ghi đang được chọn.
+    this.showDeleteConfirm.set(false);
+    this.deleteTarget.set(null);
   }
 
   onAssignPermissions(role: any) {

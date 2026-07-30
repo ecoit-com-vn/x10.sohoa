@@ -1,5 +1,8 @@
 import { Component, OnInit, signal, computed } from '@angular/core';
-import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
+import {
+  DeleteConfirmDialogComponent,
+  WfBreadcrumbComponent
+} from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -15,7 +18,15 @@ import { AuthService } from '@sohoa.frontend/shared/core';
 @Component({
   selector: 'app-upload-config',
   standalone: true,
-  imports: [CommonModule, FormsModule, DialogModule, ToastModule, MenuModule, WfBreadcrumbComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    DialogModule,
+    ToastModule,
+    MenuModule,
+    WfBreadcrumbComponent,
+    DeleteConfirmDialogComponent
+  ],
   providers: [MessageService],
   templateUrl: './upload-config.component.html',
   styleUrl: './upload-config.component.scss'
@@ -36,6 +47,9 @@ export class UploadConfigComponent implements OnInit {
   showDeleteConfirm = signal<boolean>(false);
   deleteTarget = signal<any>(null);
   deleting = signal<boolean>(false);
+
+  // Chuẩn hóa tên cấu hình hiển thị trong popup xác nhận xóa dùng chung.
+  readonly deleteTargetLabel = computed(() => this.deleteTarget()?.name || '');
 
   // Custom inline lock/unlock confirm dialog
   showLockUnlockConfirm = signal<boolean>(false);
@@ -229,14 +243,19 @@ export class UploadConfigComponent implements OnInit {
     }
   }
 
-  onDelete(config: any) {
+  onDelete(config: any): void {
     this.deleteTarget.set(config);
     this.showDeleteConfirm.set(true);
   }
 
-  onConfirmDelete() {
+  onConfirmDelete(): void {
     const config = this.deleteTarget();
-    if (!config) return;
+
+    // Chặn target không hợp lệ hoặc request xóa bị gửi trùng.
+    if (!config || this.deleting()) {
+      return;
+    }
+
     this.deleting.set(true);
     this.http.delete(`${this.apiUrl}/${config.id}`)
       .pipe(finalize(() => this.deleting.set(false)))
@@ -247,14 +266,24 @@ export class UploadConfigComponent implements OnInit {
           this.deleteTarget.set(null);
           this.loadConfigs();
         },
-        error: () => {
-          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể xóa cấu hình này.' });
-          this.showDeleteConfirm.set(false);
+        error: (err) => {
+          const detail =
+            err?.error?.message ||
+            err?.message ||
+            'Không thể xóa cấu hình này.';
+
+          // Giữ popup mở để hiển thị lỗi backend và cho phép thử lại.
+          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail });
         }
       });
   }
 
-  onCancelDelete() {
+  onCancelDelete(): void {
+    // Không đóng popup khi request xóa đang được xử lý.
+    if (this.deleting()) {
+      return;
+    }
+
     this.showDeleteConfirm.set(false);
     this.deleteTarget.set(null);
   }

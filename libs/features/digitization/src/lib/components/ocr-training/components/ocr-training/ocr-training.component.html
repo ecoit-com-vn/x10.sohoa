@@ -357,28 +357,17 @@
         </ng-template>
       </p-dialog>
 
-      <!-- DELETE CONFIRM DIALOG -->
-      <p-dialog
-        header="Xác nhận xóa"
-        [(visible)]="showDeleteDialog"
-        [modal]="true"
-        [style]="{width: '400px'}"
-        styleClass="evn-dialog">
-        <div class="dialog-body">
-          <div class="delete-warning">
-            <i class="pi pi-exclamation-triangle warn-icon"></i>
-            <p>Bạn có chắc chắn muốn xóa bản ghi dữ liệu huấn luyện này không?</p>
-            <p class="delete-file-name" *ngIf="selectedItem">{{ selectedItem.fileName }}</p>
-            <p class="warn-note">Hành động này không thể hoàn tác.</p>
-          </div>
-        </div>
-        <ng-template pTemplate="footer">
-          <button class="btn-cancel" (click)="showDeleteDialog = false">Hủy</button>
-          <button class="btn-delete-confirm" (click)="doDelete()">
-            <i class="pi pi-trash"></i> Xóa
-          </button>
-        </ng-template>
-      </p-dialog>
+      <!-- Popup xác nhận xóa dùng chung toàn hệ thống. -->
+      <app-delete-confirm-dialog
+        [visible]="showDeleteConfirm()"
+        header="Xác nhận xóa dữ liệu huấn luyện"
+        entityLabel="Bản ghi dữ liệu huấn luyện"
+        [targetName]="deleteTargetLabel()"
+        consequence="sẽ bị xóa và không thể khôi phục."
+        [loading]="deleteLoading()"
+        (cancelled)="onCancelDelete()"
+        (confirmed)="doDelete()"
+      />
 
     </div>
   

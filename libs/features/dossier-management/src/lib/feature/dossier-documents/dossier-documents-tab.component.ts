@@ -18,11 +18,11 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DialogModule } from 'primeng/dialog';
-import { ButtonModule } from 'primeng/button';
 import { MessageService, MenuItem } from 'primeng/api';
 import { Menu, MenuModule } from 'primeng/menu';
 import { SignalRService, DigitizationProgressEvent } from '../../../../../../shared/core/src/lib/services/signalr.service';
 import { AuthService } from '../../../../../../shared/core/src/lib/services/auth.service';
+import { DeleteConfirmDialogComponent } from '@sohoa.frontend/shared/layout';
 
 import {
   Subject,
@@ -91,8 +91,8 @@ const MAX_INLINE_DOCUMENT_ACTIONS = 3;
     CommonModule,
     FormsModule,
     DialogModule,
-    ButtonModule,
     MenuModule,
+    DeleteConfirmDialogComponent,
     DossierUploadMenuComponent,
     DossierFolderPickerDialogComponent,
     DossierDirectUploadDialogComponent,
@@ -138,6 +138,9 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
 
   showDeleteConfirm = signal(false);
   deleteTarget = signal<DossierDocumentItem | null>(null);
+
+  // Chuẩn hóa tên tài liệu hiển thị trong popup xác nhận xóa dùng chung.
+  readonly deleteTargetLabel = computed(() => this.deleteTarget()?.name ?? '');
 
   showReExtractConfirm = signal(false);
   reExtractTarget = signal<DossierDocumentItem | null>(null);
@@ -646,7 +649,11 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
 
   confirmDelete(): void {
     const target = this.deleteTarget();
-    if (!target) return;
+
+    // Chặn request không hợp lệ hoặc gửi trùng.
+    if (!target || this.deleting()) {
+      return;
+    }
 
     this.deleting.set(true);
     this.documentService
@@ -667,7 +674,7 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
           this.messageService.add({
             severity: 'error',
             summary: 'Lỗi',
-            detail: err?.error?.message || 'Không thể xóa tài liệu',
+            detail: err?.error?.message || err?.message || 'Không thể xóa tài liệu',
           });
         },
       });

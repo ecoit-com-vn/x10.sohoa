@@ -1,20 +1,31 @@
 import { Component, OnInit, signal, computed } from '@angular/core';
-import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { DialogModule } from 'primeng/dialog';
 import { ToastModule } from 'primeng/toast';
 import { Menu, MenuModule } from 'primeng/menu';
-import { MenuItem, MessageService, ConfirmationService } from 'primeng/api';
+import { MenuItem, MessageService } from 'primeng/api';
 import { environment } from '@env/environment';
 import { finalize } from 'rxjs';
 import { AuthService } from '@sohoa.frontend/shared/core';
+import {
+  DeleteConfirmDialogComponent,
+  WfBreadcrumbComponent
+} from '@sohoa.frontend/shared/layout';
 
 @Component({
   selector: 'app-organization-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule, DialogModule, ToastModule, MenuModule, WfBreadcrumbComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    DialogModule,
+    ToastModule,
+    MenuModule,
+    WfBreadcrumbComponent,
+    DeleteConfirmDialogComponent
+  ],
   providers: [MessageService],
   templateUrl: './organization-settings.component.html',
   styleUrl: './organization-settings.component.scss'
@@ -27,7 +38,7 @@ export class OrganizationSettings implements OnInit {
   dialogHeader = signal<string>('');
   isEdit = signal<boolean>(false);
   currentUnit = signal<any>({});
-  
+
   loading = signal<boolean>(false);
   saving = signal<boolean>(false);
   actionMenuItems: MenuItem[] = [];
@@ -36,6 +47,22 @@ export class OrganizationSettings implements OnInit {
   showLockUnlockConfirm = signal<boolean>(false);
   lockUnlockTarget = signal<any>(null);
   lockUnlockLoading = signal<boolean>(false);
+
+  // Quản lý trạng thái popup, đơn vị được chọn và request xóa.
+  showDeleteConfirm = signal<boolean>(false);
+  deleteTarget = signal<any>(null);
+  deleteLoading = signal<boolean>(false);
+
+  // Chuẩn hóa tên đơn vị hiển thị trong popup xác nhận xóa dùng chung.
+  readonly deleteTargetLabel = computed(() => {
+    const unit = this.deleteTarget();
+
+    if (!unit) {
+      return '';
+    }
+
+    return `${unit.name} (${unit.code})`;
+  });
 
   // Form Validation
   formSubmitted = signal<boolean>(false);
@@ -78,9 +105,9 @@ export class OrganizationSettings implements OnInit {
     if (!kw) {
       return this.buildHierarchicalList(allUnits);
     }
-    return allUnits.filter(u => 
-      (u.code?.toLowerCase().includes(kw) ?? false) || 
-      (u.name?.toLowerCase().includes(kw) ?? false) || 
+    return allUnits.filter(u =>
+      (u.code?.toLowerCase().includes(kw) ?? false) ||
+      (u.name?.toLowerCase().includes(kw) ?? false) ||
       (u.description?.toLowerCase().includes(kw) ?? false)
     );
   });
@@ -88,7 +115,6 @@ export class OrganizationSettings implements OnInit {
   constructor(
     private http: HttpClient,
     private messageService: MessageService,
-    private confirmationService: ConfirmationService,
     public authService: AuthService
   ) {}
 
@@ -128,7 +154,7 @@ export class OrganizationSettings implements OnInit {
     const result: any[] = [];
     const unitsSafe = unitsList || [];
     const rootNodes = unitsSafe.filter(u => !u.parentId || !unitsSafe.some(parent => parent.id === u.parentId));
-    
+
     const visit = (node: any) => {
       result.push(node);
       const children = unitsSafe.filter(u => u.parentId === node.id);
@@ -173,7 +199,7 @@ export class OrganizationSettings implements OnInit {
   getEligibleParents(currentId: number | null): any[] {
     const allUnits = this.units() || [];
     if (!currentId) return allUnits;
-    
+
     // Tìm danh sách ID con trực tiếp và gián tiếp
     const childrenIds = new Set<number>();
     const findChildren = (pid: number) => {
@@ -334,32 +360,82 @@ export class OrganizationSettings implements OnInit {
     }
   }
 
-  onDelete(unit: any) {
-    // Kiểm tra xem đơn vị này có đơn vị con không trước khi xóa
-    const hasChildren = this.units().some(u => u.parentId === unit.id);
+  onDelete(unit: any): void {
+    // Không cho phép xóa đơn vị vẫn còn đơn vị con trực thuộc.
+    const hasChildren = this.units().some(
+      child => child.parentId === unit.id
+    );
+
     if (hasChildren) {
-      this.messageService.add({ severity: 'warn', summary: 'Cảnh báo', detail: 'Không thể xóa đơn vị này vì còn đơn vị trực thuộc chưa được xóa.' });
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Cảnh báo',
+        detail: 'Không thể xóa đơn vị này vì còn đơn vị trực thuộc chưa được xóa.'
+      });
       return;
     }
 
-    this.confirmationService.confirm({
-      message: `Bạn có chắc chắn muốn xóa phòng ban/đơn vị ${unit.name} (${unit.code})?`,
-      header: 'Xác nhận xóa',
-      icon: 'pi pi-exclamation-triangle',
-      acceptLabel: 'Đồng ý',
-      rejectLabel: 'Hủy',
-      accept: () => {
-        this.http.delete(`${this.apiUrl}/${unit.id}`).subscribe({
-          next: () => {
-            this.messageService.add({ severity: 'success', summary: 'Xóa thành công', detail: 'Đã xóa đơn vị thành công!' });
-            this.loadUnits();
-          },
-          error: (err) => {
-            const detailMsg = err?.error?.message || err?.message || 'Xóa đơn vị thất bại.';
-            this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: detailMsg });
-          }
-        });
-      }
-    });
+    // Lưu đơn vị được chọn và mở popup xác nhận xóa.
+    this.deleteTarget.set(unit);
+    this.showDeleteConfirm.set(true);
+  }
+
+  onCancelDelete(): void {
+    // Không cho đóng popup khi request xóa đang được xử lý.
+    if (this.deleteLoading()) {
+      return;
+    }
+
+    this.closeDeleteDialog();
+  }
+
+  onConfirmDelete(): void {
+    const unit = this.deleteTarget();
+
+    // Chặn request trùng khi người dùng bấm nút Xóa nhiều lần.
+    if (!unit || this.deleteLoading()) {
+      return;
+    }
+
+    this.deleteLoading.set(true);
+
+    this.http
+      .delete(`${this.apiUrl}/${unit.id}`)
+      .pipe(
+        // Luôn tắt loading dù request thành công hay thất bại.
+        finalize(() => this.deleteLoading.set(false))
+      )
+      .subscribe({
+        next: () => {
+          this.closeDeleteDialog();
+
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Xóa thành công',
+            detail: 'Đã xóa đơn vị thành công!'
+          });
+
+          this.loadUnits();
+        },
+        error: (err) => {
+          const detailMsg =
+            err?.error?.message ||
+            err?.message ||
+            'Xóa đơn vị thất bại.';
+
+          // Giữ popup mở để người dùng có thể xem lỗi hoặc thử lại.
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi',
+            detail: detailMsg
+          });
+        }
+      });
+  }
+
+  private closeDeleteDialog(): void {
+    // Đóng popup và giải phóng bản ghi đang được chọn.
+    this.showDeleteConfirm.set(false);
+    this.deleteTarget.set(null);
   }
 }

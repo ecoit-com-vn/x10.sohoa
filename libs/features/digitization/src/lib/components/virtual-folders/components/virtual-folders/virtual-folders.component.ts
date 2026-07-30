@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, Input } from '@angular/core';
+import { Component, OnInit, computed, inject, Input, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -8,8 +8,12 @@ import { DialogModule } from 'primeng/dialog';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { TooltipModule } from 'primeng/tooltip';
-import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
+import {
+  DeleteConfirmDialogComponent,
+  WfBreadcrumbComponent
+} from '@sohoa.frontend/shared/layout';
 import { environment } from '@env/environment';
+import { finalize } from 'rxjs';
 
 interface FolderNode {
   id: number;
@@ -23,6 +27,12 @@ interface FolderNode {
   isExpanded?: boolean;
 }
 
+interface FolderFileDeleteTarget {
+  fileId: number | string;
+  fileName: string;
+  folderId: number;
+}
+
 @Component({
   selector: 'app-virtual-folders',
   standalone: true,
@@ -34,7 +44,8 @@ interface FolderNode {
     ButtonModule,
     InputTextModule,
     TooltipModule,
-    WfBreadcrumbComponent
+    WfBreadcrumbComponent,
+    DeleteConfirmDialogComponent
   ],
   providers: [MessageService],
   templateUrl: './virtual-folders.component.html',
@@ -60,6 +71,16 @@ export class VirtualFoldersComponent implements OnInit {
   isEditFolderMode = false;
 
   draggedFolder: FolderNode | null = null;
+
+  showDeleteFolderConfirm = signal(false);
+  deleteFolderTarget = signal<FolderNode | null>(null);
+  deleteFolderLoading = signal(false);
+  readonly deleteFolderTargetLabel = computed(() => this.deleteFolderTarget()?.name ?? '');
+
+  showRemoveFileConfirm = signal(false);
+  removeFileTarget = signal<FolderFileDeleteTarget | null>(null);
+  removeFileLoading = signal(false);
+  readonly removeFileTargetLabel = computed(() => this.removeFileTarget()?.fileName ?? '');
 
   private http = inject(HttpClient);
   private messageService = inject(MessageService);
@@ -190,21 +211,47 @@ export class VirtualFoldersComponent implements OnInit {
   }
 
   deleteFolder(node: FolderNode) {
-    if (confirm(`Bạn có chắc chắn muốn xóa thư mục '${node.name}'? Mọi thư mục con và liên kết tài liệu sẽ bị xóa.`)) {
-      this.http.delete(`${this.apiUrl}/${node.id}`).subscribe({
+    this.deleteFolderTarget.set(node);
+    this.showDeleteFolderConfirm.set(true);
+  }
+
+  onConfirmDeleteFolder(): void {
+    const target = this.deleteFolderTarget();
+
+    // Chặn request không hợp lệ hoặc gửi trùng.
+    if (!target || this.deleteFolderLoading()) {
+      return;
+    }
+
+    this.deleteFolderLoading.set(true);
+    this.http.delete(`${this.apiUrl}/${target.id}`)
+      .pipe(finalize(() => this.deleteFolderLoading.set(false)))
+      .subscribe({
         next: () => {
           this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã xóa thư mục!' });
-          if (this.selectedFolder?.id === node.id) {
+          this.showDeleteFolderConfirm.set(false);
+          this.deleteFolderTarget.set(null);
+          if (this.selectedFolder?.id === target.id) {
             this.selectedFolder = null;
             this.files = [];
           }
           this.loadFolderTree();
         },
-        error: () => {
-          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể xóa thư mục.' });
+        error: (error) => {
+          const detail = error?.error?.message || error?.message || 'Không thể xóa thư mục.';
+          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail });
         }
       });
+  }
+
+  onCancelDeleteFolder(): void {
+    // Không cho đóng popup khi request xóa đang được xử lý.
+    if (this.deleteFolderLoading()) {
+      return;
     }
+
+    this.showDeleteFolderConfirm.set(false);
+    this.deleteFolderTarget.set(null);
   }
 
   onDragStartFolder(event: DragEvent, node: FolderNode) {
@@ -301,17 +348,49 @@ export class VirtualFoldersComponent implements OnInit {
 
   removeFile(file: any) {
     if (!this.selectedFolder) return;
-    if (confirm(`Bạn có chắc muốn gỡ bỏ tài liệu '${file.fileName}' khỏi thư mục này?`)) {
-      this.http.delete(`${this.apiUrl}/${this.selectedFolder.id}/files/${file.id}`).subscribe({
+
+    // Chụp folderId khi mở popup để request không phụ thuộc selection thay đổi sau đó.
+    this.removeFileTarget.set({
+      fileId: file.id,
+      fileName: file.fileName,
+      folderId: this.selectedFolder.id
+    });
+    this.showRemoveFileConfirm.set(true);
+  }
+
+  onConfirmRemoveFile(): void {
+    const target = this.removeFileTarget();
+
+    // Chặn request không hợp lệ hoặc gửi trùng.
+    if (!target || this.removeFileLoading()) {
+      return;
+    }
+
+    this.removeFileLoading.set(true);
+    this.http.delete(`${this.apiUrl}/${target.folderId}/files/${target.fileId}`)
+      .pipe(finalize(() => this.removeFileLoading.set(false)))
+      .subscribe({
         next: () => {
           this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã gỡ tài liệu khỏi thư mục!' });
-          this.loadFilesInFolder(this.selectedFolder!.id);
+          this.showRemoveFileConfirm.set(false);
+          this.removeFileTarget.set(null);
+          this.loadFilesInFolder(target.folderId);
         },
-        error: () => {
-          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể gỡ tài liệu.' });
+        error: (error) => {
+          const detail = error?.error?.message || error?.message || 'Không thể gỡ tài liệu.';
+          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail });
         }
       });
+  }
+
+  onCancelRemoveFile(): void {
+    // Không cho đóng popup khi request xóa đang được xử lý.
+    if (this.removeFileLoading()) {
+      return;
     }
+
+    this.showRemoveFileConfirm.set(false);
+    this.removeFileTarget.set(null);
   }
 
   downloadSingleFile(file: any) {

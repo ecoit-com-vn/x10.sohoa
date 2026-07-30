@@ -1,5 +1,8 @@
 import { Component, OnInit, signal, computed, inject, effect } from '@angular/core';
-import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
+import {
+  DeleteConfirmDialogComponent,
+  WfBreadcrumbComponent
+} from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
@@ -10,11 +13,21 @@ import { Menu, MenuModule } from 'primeng/menu';
 import { MenuItem, MessageService } from 'primeng/api';
 import { AuthService } from '@sohoa.frontend/shared/core';
 import { CatalogService } from '../../data-access/catalog.service';
+import { finalize } from 'rxjs/operators';
 
 @Component({
   selector: 'app-catalog-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule, MenuModule, SelectModule, DialogModule, WfBreadcrumbComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    ToastModule,
+    MenuModule,
+    SelectModule,
+    DialogModule,
+    WfBreadcrumbComponent,
+    DeleteConfirmDialogComponent
+  ],
   providers: [MessageService],
   templateUrl: './catalog-list.component.html'
 })
@@ -64,6 +77,14 @@ export class CatalogListComponent implements OnInit {
   showDeleteConfirm = signal<boolean>(false);
   deleteTarget = signal<any>(null);
   deleting = signal<boolean>(false);
+  // Ghép tên và mã để giữ đầy đủ ngữ cảnh trong popup xóa dùng chung.
+  readonly deleteTargetLabel = computed(() => {
+    const target = this.deleteTarget();
+
+    if (!target) return '';
+
+    return target.code ? `${target.name} (${target.code})` : target.name;
+  });
 
   // Lock/Unlock confirmation
   showStatusConfirm = signal<boolean>(false);
@@ -465,19 +486,20 @@ export class CatalogListComponent implements OnInit {
 
   onConfirmDelete() {
     const item = this.deleteTarget();
-    if (!item) return;
+    // Chặn target không hợp lệ hoặc request xóa bị gửi trùng.
+    if (!item || this.deleting()) return;
+
     this.deleting.set(true);
-    this.catalogService.deleteItem(item.id, this.catalogType()).subscribe({
+    this.catalogService.deleteItem(item.id, this.catalogType())
+      .pipe(finalize(() => this.deleting.set(false)))
+      .subscribe({
       next: () => {
-        this.deleting.set(false);
         this.showDeleteConfirm.set(false);
         this.deleteTarget.set(null);
         this.messageService.add({ severity: 'success', summary: 'Xóa thành công', detail: `Đã xóa "${item.name}" thành công!` });
         this.loadItems();
       },
       error: (err) => {
-        this.deleting.set(false);
-        this.showDeleteConfirm.set(false);
         const errorMsg = err.error?.message || 'Xóa danh mục thất bại.';
         this.messageService.add({ severity: 'error', summary: 'Lỗi xóa', detail: errorMsg });
       }
@@ -485,6 +507,9 @@ export class CatalogListComponent implements OnInit {
   }
 
   onCancelDelete() {
+    // Không đóng popup khi request xóa đang được xử lý.
+    if (this.deleting()) return;
+
     this.showDeleteConfirm.set(false);
     this.deleteTarget.set(null);
   }
