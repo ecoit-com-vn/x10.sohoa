@@ -1322,7 +1322,16 @@ public class DossierRepository : IDossierRepository
 
         return await _connection.QuerySingleOrDefaultAsync<EavFormTemplate>(sql, new { DossierId = dossierId.ToString() });
     }
-
+    /// <summary>
+    /// Escape các ký tự wildcard của Oracle LIKE để từ khóa được tìm theo giá trị literal.
+    /// </summary>
+    private static string EscapeLikePattern(string value)
+    {
+        return value
+            .Replace(@"\", @"\\", StringComparison.Ordinal)
+            .Replace("%", @"\%", StringComparison.Ordinal)
+            .Replace("_", @"\_", StringComparison.Ordinal);
+    }
     public async Task<(IEnumerable<DossierListItemDto> Items, int TotalCount)> GetDraftPagedFromDbAsync(DossierFilterDto filter, string userId)
     {
         _connection.EnsureOpen();
@@ -1375,9 +1384,32 @@ public class DossierRepository : IDossierRepository
 
         if (!string.IsNullOrWhiteSpace(filter.Keyword))
         {
-            var keyword = $"%{filter.Keyword.Trim().ToUpperInvariant()}%";
-            sqlBase += " AND (UPPER(d.Id) LIKE :Keyword OR UPPER(i.NAME) LIKE :Keyword OR UPPER(i.CODE) LIKE :Keyword OR UPPER(dt.NAME) LIKE :Keyword)";
-            parameters.Add("Keyword", keyword);
+            var normalizedKeyword = EscapeLikePattern(filter.Keyword.Trim())
+                .ToUpperInvariant();
+
+            sqlBase += " " + """
+        AND (
+            UPPER(TRIM(
+                JSON_VALUE(
+                    d.FormDataJson,
+                    '$.CODE'
+                    RETURNING VARCHAR2(4000)
+                    NULL ON ERROR
+                )
+            )) LIKE :Keyword ESCAPE '\'
+
+            OR UPPER(TRIM(
+                JSON_VALUE(
+                    d.FormDataJson,
+                    '$.NAME'
+                    RETURNING VARCHAR2(4000)
+                    NULL ON ERROR
+                )
+            )) LIKE :Keyword ESCAPE '\'
+        )
+        """;
+
+            parameters.Add("Keyword", $"%{normalizedKeyword}%");
         }
 
         var countSql = $"SELECT COUNT(1) {sqlBase}";
@@ -1415,7 +1447,7 @@ public class DossierRepository : IDossierRepository
         parameters.Add("Offset", (filter.Page - 1) * filter.PageSize);
         parameters.Add("PageSize", filter.PageSize);
 
-        var rawItems = await _connection.QueryAsync<dynamic>(selectSql, parameters);
+        var rawItems = await _connection.QueryAsync<dynamic>(selectSql, parameters);    
         var bhsCatalogs = await GetBhsCatalogDefinitionsAsync();
 
         var mappedItems = rawItems.Select(d => {

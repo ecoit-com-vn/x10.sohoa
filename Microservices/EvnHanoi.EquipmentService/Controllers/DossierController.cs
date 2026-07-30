@@ -80,7 +80,10 @@ public abstract partial class DossierControllerBase : ControllerBase
     {
         var filter = new DossierFilterDto
         {
-            Keyword = keyword,
+            Keyword = string.IsNullOrWhiteSpace(keyword)
+        ? null
+        : keyword.Trim(),
+
             InfrastructureId = infrastructureId,
             GridTypeId = gridTypeId,
             UnitId = unitId,

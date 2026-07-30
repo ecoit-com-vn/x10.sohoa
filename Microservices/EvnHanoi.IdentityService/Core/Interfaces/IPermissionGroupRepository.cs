@@ -16,9 +16,9 @@ public interface IPermissionGroupRepository
 
     Task<IEnumerable<PermissionGroup>> GetAllAsync(string groupType, long? organizationUnitId = null);
 
-    Task<(IEnumerable<PermissionGroup> Items, int TotalCount)> GetPagedAsync(
+    Task<(IEnumerable<PermissionGroup> Items, int TotalCount, int AllCount)> GetPagedAsync(
 
-        string groupType, int page, int pageSize, string? keyword = null, long? organizationUnitId = null);
+        string groupType, int page, int pageSize, string? keyword = null, long? organizationUnitId = null, bool? isActive = null);
 
     Task<PermissionGroup?> GetByIdAsync(long id, string groupType);
 
