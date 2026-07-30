@@ -502,7 +502,19 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
                     }
                     else if (!string.IsNullOrWhiteSpace(targetStep?.AssigneeId))
                     {
-                        assigneeUserId = targetStep!.AssigneeId.Trim();
+                        // "Người cụ thể" có thể là danh sách nhiều ID (CSV). Chỉ tự gán khi bước
+                        // chỉ cấu hình đúng 1 người — nhiều người thì bắt buộc FE phải gửi kèm
+                        // nextAssigneeUserId (người thao tác đã chọn tường minh 1 trong số họ).
+                        var candidateIds = targetStep!.AssigneeId
+                            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                        if (candidateIds.Length == 1)
+                        {
+                            assigneeUserId = candidateIds[0];
+                        }
+                        else
+                        {
+                            throw new ArgumentException("Vui lòng chọn người xử lý bước tiếp theo.");
+                        }
                     }
                     else
                     {

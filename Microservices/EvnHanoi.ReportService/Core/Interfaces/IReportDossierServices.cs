@@ -121,6 +121,13 @@ public interface IReportDossierRepository
     Task<IEnumerable<DossierByAllocationRatioStatDto>> GetDossierByAllocationRatioStatsAsync(DossierByAllocationFilterDto filter, bool isAdmin, long? userUnitId);
     Task<ReportStatisticsDossierListResponseDto> GetDossierByAllocationListAsync(DossierByAllocationFilterDto filter, bool isAdmin, long? userUnitId);
     Task<ReportStatisticsCreatorGridResponseDto> GetDossierByAllocationCreatorGridAsync(DossierByAllocationFilterDto filter, bool isAdmin, long? userUnitId);
+
+    // Báo cáo hồ sơ thiết bị theo cán bộ nhập liệu (không giới hạn KIND_ID)
+    Task<IEnumerable<DossierByAllocationChartStatDto>> GetDossierByInputOfficerChartStatsAsync(DossierByInputOfficerFilterDto filter, bool isAdmin, long? userUnitId);
+    Task<IEnumerable<DossierByAllocationRatioStatDto>> GetDossierByInputOfficerRatioStatsAsync(DossierByInputOfficerFilterDto filter, bool isAdmin, long? userUnitId);
+    Task<ReportStatisticsDossierListResponseDto> GetDossierByInputOfficerListAsync(DossierByInputOfficerFilterDto filter, bool isAdmin, long? userUnitId);
+    Task<ReportStatisticsCreatorGridResponseDto> GetDossierByInputOfficerCreatorGridAsync(DossierByInputOfficerFilterDto filter, bool isAdmin, long? userUnitId);
+    Task<IEnumerable<ReportInputUserLookupDto>> GetDossierByInputOfficerUsersAsync(bool isAdmin, long? userUnitId);
 }
 
 public interface IReportDossierSearchService
