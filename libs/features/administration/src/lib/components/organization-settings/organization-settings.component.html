@@ -99,17 +99,15 @@
                   <span *ngIf="unit.parentId">
                     {{ getUnitName(unit.parentId) }}
                   </span>
-                </td>
-                <td><span class="text-muted" style="font-size: 0.82rem;">{{ unit.description }}</span></td>
-                <td>
-                  <span class="status-pill"
-                    [class.status-active]="unit.isActive"
-                    [class.status-inactive]="!unit.isActive">
+                                </td>
+                                <td><span class="text-muted" style="font-size: 0.82rem;">{{ unit.description }}</span></td>
+                                <td>
+                                    <span class="status-pill" [class.status-active]="unit.isActive" [class.status-inactive]="!unit.isActive">
                     {{ unit.isActive ? 'Hoạt động' : 'Ngưng hoạt động' }}
                   </span>
-                </td>
-                <td class="col-hd">
-                  <button type="button" class="act-btn act-more" (click)="openActionMenu(unit, $event, actionMenu)" title="Thao tác khác">
+                                </td>
+                                <td class="col-hd">
+                                    <button type="button" class="act-btn act-more" (click)="openActionMenu(unit, $event, actionMenu)" title="Thao tác khác">
                     <i class="pi pi-ellipsis-h"></i>
                   </button>
                 </td>
@@ -137,96 +135,102 @@
       </div>
     </div>
 
-    <p-menu #actionMenu [model]="actionMenuItems" [popup]="true" appendTo="body" styleClass="row-action-menu"></p-menu>
-
-    <!-- Dialog Thêm/Sửa Đơn vị -->
-    <p-dialog [visible]="currentView() === 'add' || currentView() === 'edit'" (visibleChange)="$event ? null : currentView.set('list')" [header]="dialogHeader()" [modal]="true" [style]="{ width: '500px' }" styleClass="evn-dialog-custom">
-      <div style="display: flex; flex-direction: column; gap: 16px; padding: 10px 0;">
-        <div class="form-group">
-          <label class="form-label">Mã phòng ban / đơn vị <span class="required">*</span></label>
-          <input type="text" class="wf-input w-full" [(ngModel)]="currentUnit().code" (ngModelChange)="onFieldChange('code')" placeholder="Ví dụ: P_KTDY, CT_DLDONGANH..." [disabled]="saving()" />
-          <span class="field-error" *ngIf="codeError()">{{ codeError() }}</span>
-        </div>
-        
-        <div class="form-group">
-          <label class="form-label">Tên phòng ban / đơn vị <span class="required">*</span></label>
-          <input type="text" class="wf-input w-full" [(ngModel)]="currentUnit().name" (ngModelChange)="onFieldChange('name')" placeholder="Ví dụ: Phòng Kỹ thuật dây, Công ty Điện lực..." [disabled]="saving()" />
-          <span class="field-error" *ngIf="nameError()">{{ nameError() }}</span>
+            <!-- Footer -->
+            <div class="table-footer">
+                <span class="record-count">Tổng số: <b>{{ units().length }}</b> phòng ban / đơn vị trực thuộc.</span>
+            </div>
         </div>
 
-        <div class="form-group">
-          <label class="form-label">Thuộc đơn vị cấp trên (Parent Unit)</label>
-          <select class="wf-select w-full" [(ngModel)]="currentUnit().parentId" [disabled]="saving()">
+        <p-menu #actionMenu [model]="actionMenuItems" [popup]="true" appendTo="body" styleClass="row-action-menu"></p-menu>
+
+        <!-- Dialog Thêm/Sửa Đơn vị -->
+        <p-dialog [visible]="currentView() === 'add' || currentView() === 'edit'" (visibleChange)="$event ? null : currentView.set('list')" [header]="dialogHeader()" [modal]="true" [style]="{ width: '500px' }" styleClass="evn-dialog-custom">
+            <div style="display: flex; flex-direction: column; gap: 16px; padding: 10px 0;">
+                <div class="form-group">
+                    <label class="form-label">Mã phòng ban / đơn vị <span class="required">*</span></label>
+                    <input type="text" class="wf-input w-full" [(ngModel)]="currentUnit().code" (ngModelChange)="onFieldChange('code')" placeholder="Ví dụ: P_KTDY, CT_DLDONGANH..." [disabled]="saving()" />
+                    <span class="field-error" *ngIf="codeError()">{{ codeError() }}</span>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Tên phòng ban / đơn vị <span class="required">*</span></label>
+                    <input type="text" class="wf-input w-full" [(ngModel)]="currentUnit().name" (ngModelChange)="onFieldChange('name')" placeholder="Ví dụ: Phòng Kỹ thuật dây, Công ty Điện lực..." [disabled]="saving()" />
+                    <span class="field-error" *ngIf="nameError()">{{ nameError() }}</span>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Thuộc đơn vị cấp trên (Parent Unit)</label>
+                    <select class="wf-select w-full" [(ngModel)]="currentUnit().parentId" [disabled]="saving()">
             <option [value]="null">-- Chọn đơn vị gốc / cấp trên --</option>
             <option *ngFor="let u of getEligibleParents(currentUnit().id)" [value]="u.id">{{ u.name }} ({{ u.code }})</option>
           </select>
-        </div>
-        
-        <div class="form-group">
-          <label class="form-label">Mã định danh</label>
-          <input type="text" class="wf-input w-full" [(ngModel)]="currentUnit().identifier" placeholder="Ví dụ: MDD01, ORG_ID_02..." [disabled]="saving()" />
-        </div>
+                </div>
 
-        <div class="form-group">
-          <label class="form-label">Thứ tự sắp xếp</label>
-          <input type="number" class="wf-input w-full" [(ngModel)]="currentUnit().sortOrder" placeholder="Ví dụ: 1, 2, 3..." [disabled]="saving()" />
-        </div>
+                <div class="form-group">
+                    <label class="form-label">Mã định danh</label>
+                    <input type="text" class="wf-input w-full" [(ngModel)]="currentUnit().identifier" placeholder="Ví dụ: MDD01, ORG_ID_02..." [disabled]="saving()" />
+                </div>
 
-        <div class="form-group">
-          <label class="form-label">Mô tả chi tiết</label>
-          <textarea class="wf-textarea w-full" rows="3" [(ngModel)]="currentUnit().description" placeholder="Ghi chú chi tiết phòng ban này..." [disabled]="saving()"></textarea>
-        </div>
-      </div>
-      <ng-template #footer>
-        <div class="flex gap-2 justify-content-end pt-3" style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
-          <button class="btn-cancel btn-small" (click)="currentView.set('list')" [disabled]="saving()"><i class="pi pi-times"></i> Đóng</button>
-          <button class="btn-save btn-small" (click)="onSaveUnit()" [disabled]="saving()">
+                <div class="form-group">
+                    <label class="form-label">Thứ tự sắp xếp</label>
+                    <input type="number" class="wf-input w-full" [(ngModel)]="currentUnit().sortOrder" placeholder="Ví dụ: 1, 2, 3..." [disabled]="saving()" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Mô tả chi tiết</label>
+                    <textarea class="wf-textarea w-full" rows="3" [(ngModel)]="currentUnit().description" placeholder="Ghi chú chi tiết phòng ban này..." [disabled]="saving()"></textarea>
+                </div>
+            </div>
+            <ng-template #footer>
+                <div class="flex gap-2 justify-content-end pt-3" style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+                    <button class="btn-cancel btn-small" (click)="currentView.set('list')" [disabled]="saving()"><i class="pi pi-times"></i> Đóng</button>
+                    <button class="btn-save btn-small" (click)="onSaveUnit()" [disabled]="saving()">
             <i class="pi pi-spin pi-spinner" *ngIf="saving()" style="margin-right: 4px;"></i>
             <i class="pi pi-save" *ngIf="!saving()" style="margin-right: 4px;"></i>
             Lưu
           </button>
-        </div>
-      </ng-template>
-    </p-dialog>
+                </div>
+            </ng-template>
+        </p-dialog>
 
-    <!-- Dialog Xác nhận Khóa/Mở khóa -->
-    <p-dialog 
-      [visible]="showLockUnlockConfirm()" 
-      (visibleChange)="$event ? null : onCancelLockUnlock()" 
-      [header]="lockUnlockTarget()?.isActive ? 'Xác nhận khóa' : 'Xác nhận mở khóa'" 
-      [modal]="true" 
-      [style]="{ width: '420px' }" 
-      styleClass="evn-dialog-custom"
-      [closable]="!lockUnlockLoading()">
-      <div style="padding: 8px 0 16px 0; display: flex; flex-direction: column; gap: 12px;">
-        <div style="display: flex; align-items: flex-start; gap: 12px;">
-          <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #f59e0b; margin-top: 2px; flex-shrink: 0;"></i>
-          <div>
-            <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b; font-size: 0.95rem;">
-              {{ lockUnlockTarget()?.isActive ? 'Bạn có chắc muốn khóa đơn vị này?' : 'Bạn có chắc muốn mở khóa đơn vị này?' }}
-            </p>
-            <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
-              Đơn vị <b style="color: #1e293b;">{{ lockUnlockTarget()?.name }}</b> sẽ được 
-              {{ lockUnlockTarget()?.isActive ? 'khóa và ngừng hoạt động' : 'mở khóa và hoạt động trở lại' }}.
-            </p>
-          </div>
-        </div>
-      </div>
-      <ng-template #footer>
-        <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
-          <button class="btn-cancel btn-small" (click)="onCancelLockUnlock()" [disabled]="lockUnlockLoading()">
+        <!-- Dialog Xác nhận Khóa/Mở khóa -->
+        <p-dialog [visible]="showLockUnlockConfirm()" (visibleChange)="$event ? null : onCancelLockUnlock()" [header]="lockUnlockTarget()?.isActive ? 'Xác nhận khóa' : 'Xác nhận mở khóa'" [modal]="true" [style]="{ width: '420px' }" styleClass="evn-dialog-custom"
+            [closable]="!lockUnlockLoading()">
+            <div style="padding: 8px 0 16px 0; display: flex; flex-direction: column; gap: 12px;">
+                <div style="display: flex; align-items: flex-start; gap: 12px;">
+                    <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #f59e0b; margin-top: 2px; flex-shrink: 0;"></i>
+                    <div>
+                        <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b; font-size: 0.95rem;">
+                            {{ lockUnlockTarget()?.isActive ? 'Bạn có chắc muốn khóa đơn vị này?' : 'Bạn có chắc muốn mở khóa đơn vị này?' }}
+                        </p>
+                        <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
+                            Đơn vị <b style="color: #1e293b;">{{ lockUnlockTarget()?.name }}</b> sẽ được {{ lockUnlockTarget()?.isActive ? 'khóa và ngừng hoạt động' : 'mở khóa và hoạt động trở lại' }}.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <ng-template #footer>
+                <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+                    <button class="btn-cancel btn-small" (click)="onCancelLockUnlock()" [disabled]="lockUnlockLoading()">
             <i class="pi pi-times"></i> Hủy
           </button>
-          <button class="btn-save btn-small" (click)="onConfirmLockUnlock()" [disabled]="lockUnlockLoading()"
-            [style.background-color]="lockUnlockTarget()?.isActive ? '#dc2626' : '#4790e9'"
-            [style.border-color]="lockUnlockTarget()?.isActive ? '#dc2626' : '#4790e9'">
+                    <button class="btn-save btn-small" (click)="onConfirmLockUnlock()" [disabled]="lockUnlockLoading()" [style.background-color]="lockUnlockTarget()?.isActive ? '#dc2626' : '#4790e9'" [style.border-color]="lockUnlockTarget()?.isActive ? '#dc2626' : '#4790e9'">
             <i class="pi pi-spin pi-spinner" *ngIf="lockUnlockLoading()" style="margin-right: 4px;"></i>
             <i class="pi" [ngClass]="lockUnlockTarget()?.isActive ? 'pi-lock' : 'pi-lock-open'" *ngIf="!lockUnlockLoading()" style="margin-right: 4px;"></i>
             {{ lockUnlockTarget()?.isActive ? 'Khóa' : 'Mở khóa' }}
           </button>
-        </div>
-      </ng-template>
-    </p-dialog>
-
-  </div>
+                </div>
+            </ng-template>
+        </p-dialog>
+        <!-- Popup xác nhận xóa dùng chung. -->
+        <app-delete-confirm-dialog
+            [visible]="showDeleteConfirm()"
+            header="Xác nhận xóa đơn vị"
+            entityLabel="Đơn vị"
+            [targetName]="deleteTargetLabel()"
+            [loading]="deleteLoading()"
+            (cancelled)="onCancelDelete()"
+            (confirmed)="onConfirmDelete()"
+        />
+    </div>
 </div>

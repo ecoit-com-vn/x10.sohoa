@@ -15,13 +15,13 @@ import { TableModule } from 'primeng/table';
 import { InputTextModule } from 'primeng/inputtext';
 import { PaginatorModule } from 'primeng/paginator';
 import { ToastModule } from 'primeng/toast';
-import { MessageService, ConfirmationService } from 'primeng/api';
-import { ConfirmDialogModule } from 'primeng/confirmdialog';
+import { MessageService } from 'primeng/api';
 import { TooltipModule } from 'primeng/tooltip';
 import { FileDownloadService, DocumentVersionInfo } from '../../data-access/file-download.service';
 import { FileService } from '../../data-access/file.service';
 import { Subject } from 'rxjs';
-import { takeUntil } from 'rxjs/operators';
+import { finalize, takeUntil } from 'rxjs/operators';
+import { DeleteConfirmDialogComponent } from '@sohoa.frontend/shared/layout';
 
 @Component({
   selector: 'app-file-list',
@@ -34,10 +34,10 @@ import { takeUntil } from 'rxjs/operators';
     InputTextModule,
     PaginatorModule,
     ToastModule,
-    ConfirmDialogModule,
-    TooltipModule
+    TooltipModule,
+    DeleteConfirmDialogComponent
   ],
-  providers: [MessageService, ConfirmationService],
+  providers: [MessageService],
   templateUrl: './file-list.component.html',
   styleUrl: './file-list.component.scss'
 })
@@ -45,7 +45,6 @@ export class FileListComponent implements OnInit, OnDestroy {
   private fileDownloadService = inject(FileDownloadService);
   private fileService = inject(FileService);
   private messageService = inject(MessageService);
-  private confirmService = inject(ConfirmationService);
   private destroy$ = new Subject<void>();
 
   // Inputs
@@ -59,12 +58,21 @@ export class FileListComponent implements OnInit, OnDestroy {
   searchKeyword = signal<string>('');
   isLoading = signal<boolean>(false);
   isDownloading = signal<Set<string>>(new Set());
+  showDeleteConfirm = signal<boolean>(false);
+  deleteTarget = signal<DocumentVersionInfo | null>(null);
+  deleteLoading = signal<boolean>(false);
 
   // Computed
   filteredFiles = computed(() => {
     const keyword = this.searchKeyword().toLowerCase().trim();
     if (!keyword) return this.files();
     return this.files().filter(f => f.fileName.toLowerCase().includes(keyword));
+  });
+  // Giữ cả tên tệp và số phiên bản trong popup xóa dùng chung.
+  readonly deleteTargetLabel = computed(() => {
+    const file = this.deleteTarget();
+
+    return file ? `${file.fileName} (phiên bản ${file.versionNumber})` : '';
   });
 
   ngOnInit() {
@@ -153,24 +161,34 @@ export class FileListComponent implements OnInit, OnDestroy {
    * Delete file version
    */
   deleteFile(file: DocumentVersionInfo) {
-    this.confirmService.confirm({
-      message: `Bạn có chắc chắn muốn xóa tệp '${file.fileName}' (phiên bản ${file.versionNumber})?`,
-      header: 'Xác nhận xóa',
-      icon: 'pi pi-exclamation-triangle',
-      accept: () => {
-        this.performDelete(file);
-      }
-    });
+    this.deleteTarget.set(file);
+    this.showDeleteConfirm.set(true);
   }
 
-  /**
-   * Perform delete operation
-   */
-  private performDelete(file: DocumentVersionInfo) {
+  onCancelDelete(): void {
+    // Không đóng popup khi request xóa đang được xử lý.
+    if (this.deleteLoading()) return;
+
+    this.showDeleteConfirm.set(false);
+    this.deleteTarget.set(null);
+  }
+
+  onConfirmDelete(): void {
+    const file = this.deleteTarget();
+
+    // Chặn target không hợp lệ hoặc request xóa bị gửi trùng.
+    if (!file || this.deleteLoading()) return;
+
+    this.deleteLoading.set(true);
     this.fileService.deleteFileVersion(file.id)
-      .pipe(takeUntil(this.destroy$))
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => this.deleteLoading.set(false))
+      )
       .subscribe({
         next: () => {
+          this.showDeleteConfirm.set(false);
+          this.deleteTarget.set(null);
           this.messageService.add({
             severity: 'success',
             summary: 'Xóa thành công',
@@ -183,7 +201,7 @@ export class FileListComponent implements OnInit, OnDestroy {
           this.messageService.add({
             severity: 'error',
             summary: 'Lỗi xóa tệp',
-            detail: error?.message || 'Không thể xóa tệp'
+            detail: error?.error?.message || error?.message || 'Không thể xóa tệp'
           });
         }
       });

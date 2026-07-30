@@ -7,6 +7,8 @@ import { BhsCatalogColumn } from '@sohoa.frontend/features/dossier-management';
 export interface ReportStatisticsDossierListItem {
   stt: number;
   dossierId: string;
+  dossierCode: string;
+  dossierTitle: string;
   catalogData?: Record<string, string>;
   infrastructureName: string;
   dossierTypeName: string;

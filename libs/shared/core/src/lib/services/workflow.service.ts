@@ -19,7 +19,7 @@ export interface WorkflowStep {
   unitPermissionGroupIds?: string;
   /** Bắt buộc cùng đơn vị với người chuyển bước */
   requireSameUnit?: boolean;
-  /** ID người dùng được giao việc đích danh */
+  /** ID (các) người dùng "Người cụ thể" — 1 ID hoặc CSV nhiều ID nếu cấu hình nhiều người */
   assigneeId?: string;
 }
 
@@ -165,10 +165,11 @@ export class WorkflowService {
   }
 
   /** Lấy danh sách người dùng đủ điều kiện nhận bàn giao/chuyển xử lý */
-  getEligibleAssignees(systemGroupIds?: string, unitGroupIds?: string, unitId?: number | string, keyword?: string): Observable<any[]> {
+  getEligibleAssignees(systemGroupIds?: string, unitGroupIds?: string, unitId?: number | string, keyword?: string, assigneeIds?: string): Observable<any[]> {
     let params = new HttpParams();
     if (systemGroupIds) params = params.set('systemGroupIds', systemGroupIds);
     if (unitGroupIds)   params = params.set('unitGroupIds', unitGroupIds);
+    if (assigneeIds)     params = params.set('assigneeIds', assigneeIds);
     if (unitId)          params = params.set('unitId', unitId.toString());
     if (keyword)         params = params.set('keyword', keyword);
     return this.http.get<any[]>(`${this.config.apiGatewayUrl}/api/v1/users/eligible-assignees`, { params })

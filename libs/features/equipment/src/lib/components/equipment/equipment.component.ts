@@ -1,5 +1,8 @@
 import { Component, OnInit, signal, computed, inject, effect, HostListener } from '@angular/core';
-import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
+import {
+  DeleteConfirmDialogComponent,
+  WfBreadcrumbComponent
+} from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ToastModule } from 'primeng/toast';
@@ -22,7 +25,19 @@ import { EavFormService } from '../../../../../../shared/core/src/lib/services/e
 @Component({
   selector: 'app-equipment-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule, MenuModule, SelectModule, DialogModule, ToggleSwitch, WfBreadcrumbComponent, EquipmentDocumentsComponent, DatePickerModule],
+  imports: [
+    CommonModule,
+    FormsModule,
+    ToastModule,
+    MenuModule,
+    SelectModule,
+    DialogModule,
+    ToggleSwitch,
+    WfBreadcrumbComponent,
+    DeleteConfirmDialogComponent,
+    EquipmentDocumentsComponent,
+    DatePickerModule
+  ],
   providers: [MessageService],
   templateUrl: './equipment.component.html',
   styleUrls: ['./equipment.component.css']
@@ -267,6 +282,8 @@ export class EquipmentComponent implements OnInit {
   showDeleteConfirm = signal<boolean>(false);
   deleteTarget = signal<any>(null);
   deleting = signal<boolean>(false);
+  // Chuẩn hóa tên thiết bị hiển thị trong popup xóa dùng chung.
+  readonly deleteTargetLabel = computed(() => this.deleteTarget()?.name ?? '');
 
   // Lock/Unlock Confirmation Dialog Signals
   showLockUnlockConfirm = signal<boolean>(false);
@@ -1031,7 +1048,8 @@ export class EquipmentComponent implements OnInit {
 
   onConfirmDelete() {
     const item = this.deleteTarget();
-    if (!item) return;
+    // Chặn target không hợp lệ hoặc request xóa bị gửi trùng.
+    if (!item || this.deleting()) return;
 
     this.deleting.set(true);
     this.equipmentService.delete(item.id)
@@ -1048,7 +1066,6 @@ export class EquipmentComponent implements OnInit {
           this.loadItems();
         },
         error: (err) => {
-          this.showDeleteConfirm.set(false);
           this.messageService.add({
             severity: 'error',
             summary: 'Lỗi',
@@ -1059,6 +1076,9 @@ export class EquipmentComponent implements OnInit {
   }
 
   onCancelDelete() {
+    // Không đóng popup khi request xóa đang được xử lý.
+    if (this.deleting()) return;
+
     this.showDeleteConfirm.set(false);
     this.deleteTarget.set(null);
   }

@@ -9,6 +9,7 @@ export interface ScanOptions {
   mode?: ScanMode;
   wsUrl?: string;
   timeoutMs?: number;
+  fileName?: string;
 }
 
 export type ScanPhase = 'idle' | 'connecting' | 'scanning' | 'receiving' | 'done' | 'error';
@@ -125,7 +126,7 @@ export class EcoScannerService {
 
         log('Binary frame', { bytes: data.byteLength });
         emit({ phase: 'receiving', message: 'Đang nhận file quét...' });
-        files.push(this.bufferToFile(data, format, files.length + 1));
+        files.push(this.bufferToFile(data, format, files.length + 1, options?.fileName));
         tryComplete(socket);
       };
 
@@ -380,11 +381,18 @@ export class EcoScannerService {
     return base + ' Kiểm tra EcoScanner đã bật, cổng 8282 không bị firewall chặn.';
   }
 
-  private bufferToFile(data: ArrayBuffer, format: ScanFormat, index: number): File {
+  private bufferToFile(
+    data: ArrayBuffer,
+    format: ScanFormat,
+    index: number,
+    fileNameInput?: string
+  ): File {
     const mimeType = format === 'pdf' ? 'application/pdf' : `image/${format === 'jpg' ? 'jpeg' : format}`;
     const ext = format === 'jpeg' ? 'jpg' : format;
-    const fileName = `scan_${this.buildTimestamp()}_${index}.${ext}`;
-    return new File([data], fileName, { type: mimeType });
+    const finalFileName = fileNameInput
+      ? `${fileNameInput.trim()}.${ext}`
+      : `scan_${this.buildTimestamp()}_${index}.${ext}`;
+    return new File([data], finalFileName, { type: mimeType });
   }
 
   private buildTimestamp(): string {

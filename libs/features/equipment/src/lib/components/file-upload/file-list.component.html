@@ -141,8 +141,17 @@
     <div class="skeleton-bar" *ngFor="let item of [1, 2, 3]"></div>
   </div>
 
-  <!-- Confirm Dialog -->
-  <p-confirmDialog></p-confirmDialog>
+  <!-- Popup xác nhận xóa phiên bản tệp dùng chung toàn hệ thống. -->
+  <app-delete-confirm-dialog
+    [visible]="showDeleteConfirm()"
+    header="Xác nhận xóa phiên bản tệp"
+    entityLabel="Phiên bản tệp"
+    [targetName]="deleteTargetLabel()"
+    consequence="sẽ bị xóa khỏi danh sách."
+    [loading]="deleteLoading()"
+    (cancelled)="onCancelDelete()"
+    (confirmed)="onConfirmDelete()"
+  />
 
   <!-- Toast Messages -->
   <p-toast></p-toast>

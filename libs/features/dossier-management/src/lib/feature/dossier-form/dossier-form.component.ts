@@ -567,7 +567,7 @@ import { normalizeDossierKindId } from '../../utils/dossier-permission.util';
               {{ u.fullName || u.FullName || u.name || u.username }}
             </option>
           </select>
-          <div style="margin-top: 4px; font-size: 0.8rem; color: #64748b;" *ngIf="nextStepInfo()?.staticAssigneeId">Bước này có cấu hình giao việc đích danh — đã chọn sẵn, có thể đổi người khác nếu cần.</div>
+          <div style="margin-top: 4px; font-size: 0.8rem; color: #64748b;" *ngIf="nextStepInfo()?.staticAssigneeId">Bước này có cấu hình người xử lý cụ thể — có thể chọn trong danh sách bên dưới.</div>
           <div style="margin-top: 4px; font-size: 0.8rem; color: #64748b;" *ngIf="loadingEligibleSubmitUsers()">Đang tải danh sách người đủ điều kiện...</div>
           <div style="margin-top: 4px; font-size: 0.8rem; color: #64748b;" *ngIf="!loadingEligibleSubmitUsers() && filteredSubmitNextUsers().length === 0">
             Không có người dùng nào đủ điều kiện xử lý bước này.
@@ -609,7 +609,7 @@ import { normalizeDossierKindId } from '../../utils/dossier-permission.util';
             <option value="" disabled selected>-- Chọn người xử lý --</option>
             <option *ngFor="let u of filteredFormNextUsers()" [value]="u.id || u.Id || u.userId || u.username">{{ u.fullName || u.name }} ({{ u.username }})</option>
           </select>
-          <div style="margin-top: 4px; font-size: 0.8rem; color: #64748b;" *ngIf="pendingActionBtn()?.staticAssigneeId">Bước này có cấu hình giao việc đích danh — đã chọn sẵn, có thể đổi người khác nếu cần.</div>
+          <div style="margin-top: 4px; font-size: 0.8rem; color: #64748b;" *ngIf="pendingActionBtn()?.staticAssigneeId">Bước này có cấu hình người xử lý cụ thể — có thể chọn trong danh sách bên dưới.</div>
           <div style="margin-top: 4px; font-size: 0.8rem; color: #64748b;" *ngIf="loadingEligibleFormNextUsers()">Đang tải danh sách người đủ điều kiện...</div>
         </div>
       </div>
@@ -766,8 +766,8 @@ export class DossierFormComponent implements OnInit {
   eligibleFormNextUsers = signal<any[]>([]);
   loadingEligibleFormNextUsers = signal<boolean>(false);
 
-  // Ưu tiên cấu hình bước ĐÍCH: Nhóm quyền đơn vị > Nhóm quyền hệ thống > requiredRole cũ > toàn bộ user.
-  // Giao việc đích danh không giới hạn danh sách — chỉ chọn sẵn mặc định (xem openFormActionDialog).
+  // Hợp nhất nhóm quyền hệ thống/đơn vị/người cụ thể đã cấu hình trên bước ĐÍCH; nếu bước không
+  // cấu hình gì cả, danh sách để trống — không dùng toàn bộ user làm dự phòng (xem resolveNextUserCandidates).
   filteredFormNextUsers = computed(() => resolveNextUserCandidates({
     info: this.pendingActionBtn(),
     allUsers: this.formWorkflowUsers(),
@@ -780,10 +780,14 @@ export class DossierFormComponent implements OnInit {
     if (!groupParams) return;
     const unitId = info?.requireSameUnit ? (this.authService.getUserUnitId() ?? undefined) : undefined;
     this.loadingEligibleFormNextUsers.set(true);
-    this.workflowSvc.getEligibleAssignees(groupParams.systemGroupIds, groupParams.unitGroupIds, unitId)
+    this.workflowSvc.getEligibleAssignees(groupParams.systemGroupIds, groupParams.unitGroupIds, unitId, undefined, groupParams.assigneeIds)
       .pipe(finalize(() => this.loadingEligibleFormNextUsers.set(false)))
       .subscribe({
-        next: (list) => this.eligibleFormNextUsers.set(Array.isArray(list) ? list : []),
+        next: (list) => {
+          const arr = Array.isArray(list) ? list : [];
+          this.eligibleFormNextUsers.set(arr);
+          this.selectedNextUserId.set(resolveDefaultNextAssignee(info, arr));
+        },
         error: () => this.eligibleFormNextUsers.set([])
       });
   }
@@ -796,8 +800,8 @@ export class DossierFormComponent implements OnInit {
   eligibleSubmitUsers = signal<any[]>([]);
   loadingEligibleSubmitUsers = signal<boolean>(false);
 
-  // Ưu tiên cấu hình bước tiếp theo: Nhóm quyền đơn vị > Nhóm quyền hệ thống > (cũ) requiredRole > toàn bộ user.
-  // Giao việc đích danh không giới hạn danh sách — chỉ chọn sẵn mặc định (xem loadEligibleSubmitUsers).
+  // Hợp nhất nhóm quyền hệ thống/đơn vị/người cụ thể đã cấu hình trên bước; nếu không cấu hình
+  // gì cả, danh sách để trống — không dùng toàn bộ user làm dự phòng (xem resolveNextUserCandidates).
   filteredSubmitNextUsers = computed(() => resolveNextUserCandidates({
     info: this.nextStepInfo(),
     allUsers: this.users(),
@@ -806,15 +810,19 @@ export class DossierFormComponent implements OnInit {
 
   private loadEligibleSubmitUsers(info: any): void {
     this.eligibleSubmitUsers.set([]);
-    this.selectedNextUser.set(resolveDefaultNextAssignee(info));
+    this.selectedNextUser.set('');
     const groupParams = resolveEligibleAssigneeGroupParams(info);
     if (!groupParams) return;
     const unitId = info.requireSameUnit ? (this.authService.getUserUnitId() ?? undefined) : undefined;
     this.loadingEligibleSubmitUsers.set(true);
-    this.workflowSvc.getEligibleAssignees(groupParams.systemGroupIds, groupParams.unitGroupIds, unitId)
+    this.workflowSvc.getEligibleAssignees(groupParams.systemGroupIds, groupParams.unitGroupIds, unitId, undefined, groupParams.assigneeIds)
       .pipe(finalize(() => this.loadingEligibleSubmitUsers.set(false)))
       .subscribe({
-        next: (list) => this.eligibleSubmitUsers.set(Array.isArray(list) ? list : []),
+        next: (list) => {
+          const arr = Array.isArray(list) ? list : [];
+          this.eligibleSubmitUsers.set(arr);
+          this.selectedNextUser.set(resolveDefaultNextAssignee(info, arr));
+        },
         error: () => this.eligibleSubmitUsers.set([])
       });
   }
@@ -1837,7 +1845,7 @@ export class DossierFormComponent implements OnInit {
   openFormActionDialog(btn: any) {
     this.pendingActionBtn.set(btn);
     this.formActionComment.set('');
-    this.selectedNextUserId.set(resolveDefaultNextAssignee(btn));
+    this.selectedNextUserId.set('');
 
     if (btn.requiresUser && !this.isRejectLabel(btn.label)) {
       this.loadEligibleFormNextUsers(btn);

@@ -443,12 +443,35 @@ export class WorkflowBuilderComponent implements OnInit, OnDestroy {
     });
   }
 
-  // ─── Autocomplete tìm kiếm người dùng đích danh ────────────────────────────────
+  // ─── Autocomplete tìm kiếm "Người cụ thể" (cho phép chọn nhiều người) ──────────
   userSearchResults: any[] = [];
   userSearchLoading = false;
   private userSearchTimeout: any;
+  // Toạ độ tuyệt đối theo viewport (position: fixed) để dropdown kết quả không bị
+  // cắt bởi vùng cuộn (overflow-y: auto) của bpmn-config-panel — tự chọn mở xuống
+  // dưới hoặc lên trên tuỳ khoảng trống còn lại quanh ô nhập liệu. Khi mở lên trên,
+  // neo theo "bottom" (không phải "top" trừ đi chiều cao giả định) để hộp kết quả
+  // luôn sát ngay trên ô nhập liệu dù số lượng kết quả (chiều cao thực) ít hơn max-height.
+  assigneeDropdownStyle: { top: string; bottom: string; left: string; width: string } =
+    { top: '0px', bottom: 'auto', left: '0px', width: '0px' };
 
-  onUserSearchInput(keyword: string): void {
+  private updateAssigneeDropdownPosition(inputEl: HTMLElement): void {
+    const rect = inputEl.getBoundingClientRect();
+    const dropdownMaxHeight = 180;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const openUpward = spaceBelow < dropdownMaxHeight && rect.top > dropdownMaxHeight;
+    this.assigneeDropdownStyle = {
+      left: `${rect.left}px`,
+      width: `${rect.width}px`,
+      top: openUpward ? 'auto' : `${rect.bottom + 4}px`,
+      bottom: openUpward ? `${window.innerHeight - rect.top + 4}px` : 'auto',
+    };
+  }
+
+  onUserSearchInput(event: Event): void {
+    const inputEl = event.target as HTMLInputElement;
+    const keyword = inputEl.value;
+    this.updateAssigneeDropdownPosition(inputEl);
     clearTimeout(this.userSearchTimeout);
     if (!keyword || keyword.length < 2) {
       this.userSearchResults = [];
@@ -475,24 +498,34 @@ export class WorkflowBuilderComponent implements OnInit, OnDestroy {
 
   selectAssignee(user: any): void {
     if (!this.selectedBpmnElement || !this.selectedElementProps) return;
-    this.selectedElementProps.assigneeId = user.id;
-    this.selectedElementProps.assigneeName = `${user.fullName} (${user.username})`;
-    this.selectedElementProps.assigneeSearch = this.selectedElementProps.assigneeName;
+    const list: Array<{ id: string; label: string }> = this.selectedElementProps.selectedAssignees || [];
+    if (!list.some((a) => a.id === user.id)) {
+      const label = `${user.fullName} (${user.username})`;
+      this.selectedElementProps.selectedAssignees = [...list, { id: user.id, label }];
+    }
+    this.selectedElementProps.assigneeSearch = '';
     this.userSearchResults = [];
-    const modeling = this.bpmnModeler.get('modeling');
-    modeling.updateProperties(this.selectedBpmnElement, { assigneeId: user.id, assigneeName: user.fullName });
+    this.syncAssigneeAttrs();
     this.cdr.detectChanges();
   }
 
-  clearAssignee(): void {
+  removeAssignee(id: string): void {
     if (!this.selectedBpmnElement || !this.selectedElementProps) return;
-    this.selectedElementProps.assigneeId = '';
-    this.selectedElementProps.assigneeName = '';
-    this.selectedElementProps.assigneeSearch = '';
-    this.userSearchResults = [];
-    const modeling = this.bpmnModeler.get('modeling');
-    modeling.updateProperties(this.selectedBpmnElement, { assigneeId: '', assigneeName: '' });
+    this.selectedElementProps.selectedAssignees = (this.selectedElementProps.selectedAssignees || [])
+      .filter((a: { id: string }) => a.id !== id);
+    this.syncAssigneeAttrs();
     this.cdr.detectChanges();
+  }
+
+  // Ghi lại danh sách "Người cụ thể" (mảng ↔ CSV) vào BPMN attrs, theo đúng pattern
+  // toggleSystemGroup/toggleUnitGroup (id CSV bằng ",", nhãn hiển thị CSV bằng "|").
+  private syncAssigneeAttrs(): void {
+    if (!this.selectedBpmnElement) return;
+    const list: Array<{ id: string; label: string }> = this.selectedElementProps?.selectedAssignees || [];
+    const idsCsv = list.map((a) => a.id).join(',');
+    const labelsCsv = list.map((a) => a.label).join('|');
+    const modeling = this.bpmnModeler.get('modeling');
+    modeling.updateProperties(this.selectedBpmnElement, { assigneeId: idsCsv, assigneeName: labelsCsv });
   }
 
   loadWorkflowTypes(): void {
@@ -1074,6 +1107,9 @@ export class WorkflowBuilderComponent implements OnInit, OnDestroy {
     // Giải mã danh sách ID nhóm quyền từ BPMN attrs (lưu dạng CSV)
     const sysGroupIds = (bo.$attrs['systemPermissionGroupIds'] || '').split(',').map((s: string) => Number(s.trim())).filter((n: number) => n > 0);
     const unitGroupIds = (bo.$attrs['unitPermissionGroupIds'] || '').split(',').map((s: string) => Number(s.trim())).filter((n: number) => n > 0);
+    // "Người cụ thể" — có thể nhiều người, ID CSV bằng ",", nhãn hiển thị CSV bằng "|"
+    const assigneeIds = (bo.$attrs['assigneeId'] || '').split(',').map((s: string) => s.trim()).filter(Boolean);
+    const assigneeLabels = (bo.$attrs['assigneeName'] || '').split('|').map((s: string) => s.trim());
     this.selectedElementProps = {
       id: element.id,
       type: element.type,
@@ -1083,9 +1119,8 @@ export class WorkflowBuilderComponent implements OnInit, OnDestroy {
       selectedSystemGroupIds: sysGroupIds,
       selectedUnitGroupIds: unitGroupIds,
       requireSameUnit: bo.$attrs['requireSameUnit'] === 'true',
-      assigneeId: bo.$attrs['assigneeId'] || '',
-      assigneeName: bo.$attrs['assigneeName'] || '',
-      assigneeSearch: bo.$attrs['assigneeName'] || ''
+      selectedAssignees: assigneeIds.map((id: string, i: number) => ({ id, label: assigneeLabels[i] || id })),
+      assigneeSearch: ''
     };
     this.userSearchResults = [];
     this.cdr.detectChanges();

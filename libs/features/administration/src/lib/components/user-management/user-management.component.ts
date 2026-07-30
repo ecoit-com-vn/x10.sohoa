@@ -1,5 +1,9 @@
 import { Component, OnInit, inject, signal, computed, effect } from '@angular/core';
-import { WfBreadcrumbComponent, EcoInputTreeSelectComponent } from '@sohoa.frontend/shared/layout';
+import {
+  DeleteConfirmDialogComponent,
+  EcoInputTreeSelectComponent,
+  WfBreadcrumbComponent
+} from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DialogModule } from 'primeng/dialog';
@@ -14,7 +18,16 @@ import { buildMenuPermissionTree as buildMenuPermissionTreeFromLookup } from '..
 @Component({
   selector: 'app-user-management',
   standalone: true,
-  imports: [CommonModule, FormsModule, DialogModule, ToastModule, MenuModule, WfBreadcrumbComponent, EcoInputTreeSelectComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    DialogModule,
+    ToastModule,
+    MenuModule,
+    WfBreadcrumbComponent,
+    EcoInputTreeSelectComponent,
+    DeleteConfirmDialogComponent
+  ],
   providers: [MessageService],
   templateUrl: './user-management.component.html',
   styleUrl: './user-management.component.scss'
@@ -111,6 +124,9 @@ export class UserManagement implements OnInit {
   showDeleteConfirm = signal<boolean>(false);
   deleteTarget = signal<any>(null);
   deleting = signal<boolean>(false);
+
+  // Chuẩn hóa tên tài khoản hiển thị trong popup xác nhận xóa dùng chung.
+  readonly deleteTargetLabel = computed(() => this.deleteTarget()?.username || '');
 
   // Lock/Unlock Confirmation
   showLockUnlockConfirm = signal<boolean>(false);
@@ -523,14 +539,19 @@ export class UserManagement implements OnInit {
     }
   }
 
-  onDelete(user: any) {
+  onDelete(user: any): void {
     this.deleteTarget.set(user);
     this.showDeleteConfirm.set(true);
   }
 
-  onConfirmDelete() {
+  onConfirmDelete(): void {
     const user = this.deleteTarget();
-    if (!user) return;
+
+    // Chặn target không hợp lệ hoặc request xóa bị gửi trùng.
+    if (!user || this.deleting()) {
+      return;
+    }
+
     this.deleting.set(true);
     this.userService.deleteUser(user.id)
       .pipe(finalize(() => this.deleting.set(false)))
@@ -541,14 +562,24 @@ export class UserManagement implements OnInit {
           this.deleteTarget.set(null);
           this.loadUsers();
         },
-        error: () => {
-          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Xóa tài khoản thất bại.' });
-          this.showDeleteConfirm.set(false);
+        error: (err) => {
+          const detail =
+            err?.error?.message ||
+            err?.message ||
+            'Xóa tài khoản thất bại.';
+
+          // Giữ popup mở để hiển thị lỗi backend và cho phép thử lại.
+          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail });
         }
       });
   }
 
-  onCancelDelete() {
+  onCancelDelete(): void {
+    // Không đóng popup khi request xóa đang được xử lý.
+    if (this.deleting()) {
+      return;
+    }
+
     this.showDeleteConfirm.set(false);
     this.deleteTarget.set(null);
   }

@@ -10,7 +10,10 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
-import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
+import {
+  DeleteConfirmDialogComponent,
+  WfBreadcrumbComponent
+} from '@sohoa.frontend/shared/layout';
 import { FormsModule } from '@angular/forms';
 import { MessageService, MenuItem } from 'primeng/api';
 import { Menu, MenuModule } from 'primeng/menu';
@@ -57,6 +60,7 @@ type FolderUploadMode = 'web' | 'scan';
     FileUploadZoneComponent,
     ScannerPanelComponent,
     WfBreadcrumbComponent,
+    DeleteConfirmDialogComponent,
   ],
   templateUrl: './document-management.component.html',
   styleUrl: './document-management.component.css',
@@ -110,6 +114,10 @@ export class DocumentManagementComponent implements OnInit {
   showFolderMenu = signal(false);
   deleteTargetFolder = signal<FolderNode | null>(null);
   deleteTargetDocument = signal<Document | null>(null);
+  // Chuẩn hóa tên thư mục hiển thị trong popup xóa dùng chung.
+  readonly deleteTargetFolderLabel = computed(() => this.deleteTargetFolder()?.name ?? '');
+  // Chuẩn hóa tên tài liệu hiển thị trong popup xóa dùng chung.
+  readonly deleteTargetDocumentLabel = computed(() => this.deleteTargetDocument()?.name ?? '');
 
   // Form states
   folderFormName = signal('');
@@ -697,10 +705,13 @@ export class DocumentManagementComponent implements OnInit {
 
   onConfirmDeleteFolder() {
     const folder = this.deleteTargetFolder();
-    if (!folder) return;
+    // Chặn target không hợp lệ hoặc request xóa bị gửi trùng.
+    if (!folder || this.deletingFolder()) return;
 
     this.deletingFolder.set(true);
-    this.documentService.deleteFolder(folder.id).subscribe({
+    this.documentService.deleteFolder(folder.id).pipe(
+      finalize(() => this.deletingFolder.set(false)),
+    ).subscribe({
       next: () => {
         this.messageService.add({
           severity: 'success',
@@ -709,7 +720,6 @@ export class DocumentManagementComponent implements OnInit {
         });
         this.showDeleteFolderConfirm.set(false);
         this.deleteTargetFolder.set(null);
-        this.deletingFolder.set(false);
 
         if (this.selectedFolder()?.id === folder.id) {
           const parent = folder.parentId
@@ -727,12 +737,14 @@ export class DocumentManagementComponent implements OnInit {
           summary: 'Lỗi',
           detail: err.error?.message || 'Xóa thư mục thất bại',
         });
-        this.deletingFolder.set(false);
       },
     });
   }
 
   onCancelDeleteFolder() {
+    // Không đóng popup khi request xóa đang được xử lý.
+    if (this.deletingFolder()) return;
+
     this.showDeleteFolderConfirm.set(false);
     this.deleteTargetFolder.set(null);
   }
@@ -862,10 +874,13 @@ export class DocumentManagementComponent implements OnInit {
 
   onConfirmDeleteDocument() {
     const doc = this.deleteTargetDocument();
-    if (!doc) return;
+    // Chặn target không hợp lệ hoặc request xóa bị gửi trùng.
+    if (!doc || this.deletingDocument()) return;
 
     this.deletingDocument.set(true);
-    this.documentService.deleteDocument(doc.id).subscribe({
+    this.documentService.deleteDocument(doc.id).pipe(
+      finalize(() => this.deletingDocument.set(false)),
+    ).subscribe({
       next: () => {
         this.messageService.add({
           severity: 'success',
@@ -874,7 +889,6 @@ export class DocumentManagementComponent implements OnInit {
         });
         this.showDeleteDocumentConfirm.set(false);
         this.deleteTargetDocument.set(null);
-        this.deletingDocument.set(false);
         this.loadDocuments();
       },
       error: (err) => {
@@ -883,12 +897,14 @@ export class DocumentManagementComponent implements OnInit {
           summary: 'Lỗi',
           detail: err.error?.message || 'Xóa tài liệu thất bại',
         });
-        this.deletingDocument.set(false);
       },
     });
   }
 
   onCancelDeleteDocument() {
+    // Không đóng popup khi request xóa đang được xử lý.
+    if (this.deletingDocument()) return;
+
     this.showDeleteDocumentConfirm.set(false);
     this.deleteTargetDocument.set(null);
   }

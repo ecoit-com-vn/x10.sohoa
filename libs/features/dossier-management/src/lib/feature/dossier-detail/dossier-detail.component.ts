@@ -344,9 +344,9 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
   eligibleNextUsers = signal<any[]>([]);
   loadingEligibleNextUsers = signal<boolean>(false);
 
-  // Danh sách người xử lý bước tiếp theo (nút chuyển bước giữa luồng), ưu tiên theo cấu hình
-  // của bước ĐÍCH: Nhóm quyền đơn vị > Nhóm quyền hệ thống > requiredRole cũ > toàn bộ user.
-  // Giao việc đích danh không giới hạn danh sách — chỉ chọn sẵn mặc định (xem openActionDialog).
+  // Danh sách người xử lý bước tiếp theo (nút chuyển bước giữa luồng) — hợp nhất nhóm quyền hệ
+  // thống/đơn vị/người cụ thể đã cấu hình trên bước ĐÍCH (xem resolveNextUserCandidates); nếu bước
+  // không cấu hình gì cả, danh sách để trống — không dùng toàn bộ user làm dự phòng.
   filteredNextUsers = computed(() => {
     const forwardBtn = this.detailDynamicButtons().find(btn =>
       btn.requiresUser && !this.isRejectLabel(btn.label)
@@ -364,17 +364,20 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
     if (!groupParams) return;
     const unitId = info?.requireSameUnit ? (this.authService.getUserUnitId() ?? undefined) : undefined;
     this.loadingEligibleNextUsers.set(true);
-    this.workflowSvc.getEligibleAssignees(groupParams.systemGroupIds, groupParams.unitGroupIds, unitId)
+    this.workflowSvc.getEligibleAssignees(groupParams.systemGroupIds, groupParams.unitGroupIds, unitId, undefined, groupParams.assigneeIds)
       .pipe(finalize(() => this.loadingEligibleNextUsers.set(false)))
       .subscribe({
-        next: (list) => this.eligibleNextUsers.set(Array.isArray(list) ? list : []),
+        next: (list) => {
+          const arr = Array.isArray(list) ? list : [];
+          this.eligibleNextUsers.set(arr);
+          this.selectedNextUserId.set(resolveDefaultNextAssignee(info, arr));
+        },
         error: () => this.eligibleNextUsers.set([])
       });
   }
 
-  // Danh sách người xử lý tiếp theo, ưu tiên theo đúng thứ tự nghiệp vụ:
-  // Nhóm quyền đơn vị > Nhóm quyền hệ thống > (cũ) requiredRole > toàn bộ user.
-  // Giao việc đích danh không giới hạn danh sách — chỉ chọn sẵn mặc định (xem loadEligibleSubmitUsers).
+  // Danh sách người xử lý tiếp theo — hợp nhất nhóm quyền hệ thống/đơn vị/người cụ thể đã cấu
+  // hình trên bước; nếu không cấu hình gì cả, danh sách để trống (xem resolveNextUserCandidates).
   filteredSubmitNextUsers = computed(() => resolveNextUserCandidates({
     info: this.nextStepInfo(),
     allUsers: this.users(),
@@ -383,15 +386,19 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
 
   private loadEligibleSubmitUsers(info: any): void {
     this.eligibleSubmitUsers.set([]);
-    this.selectedNextUser.set(resolveDefaultNextAssignee(info));
+    this.selectedNextUser.set('');
     const groupParams = resolveEligibleAssigneeGroupParams(info);
     if (!groupParams) return;
     const unitId = info?.requireSameUnit ? (this.authService.getUserUnitId() ?? undefined) : undefined;
     this.loadingEligibleSubmitUsers.set(true);
-    this.workflowSvc.getEligibleAssignees(groupParams.systemGroupIds, groupParams.unitGroupIds, unitId)
+    this.workflowSvc.getEligibleAssignees(groupParams.systemGroupIds, groupParams.unitGroupIds, unitId, undefined, groupParams.assigneeIds)
       .pipe(finalize(() => this.loadingEligibleSubmitUsers.set(false)))
       .subscribe({
-        next: (list) => this.eligibleSubmitUsers.set(Array.isArray(list) ? list : []),
+        next: (list) => {
+          const arr = Array.isArray(list) ? list : [];
+          this.eligibleSubmitUsers.set(arr);
+          this.selectedNextUser.set(resolveDefaultNextAssignee(info, arr));
+        },
         error: () => this.eligibleSubmitUsers.set([])
       });
   }
@@ -726,7 +733,7 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
   openActionDialog(btn: any) {
     this.pendingActionBtn.set(btn);
     this.detailActionComment.set('');
-    this.selectedNextUserId.set(resolveDefaultNextAssignee(btn));
+    this.selectedNextUserId.set('');
     this.showActionDialog.set(true);
     if (btn?.requiresUser && !this.isRejectLabel(btn?.label)) {
       this.loadEligibleNextUsers(btn);

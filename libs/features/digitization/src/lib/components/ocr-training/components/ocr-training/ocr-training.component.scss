@@ -274,27 +274,12 @@
     .verify-option strong { font-size: 0.9rem; color: #1e293b; }
     .verify-option p { font-size: 0.8rem; color: #6b7280; margin: 3px 0 0; }
 
-    /* ─── Delete Dialog ──────────────────────────────────────────────── */
-    .delete-warning { text-align: center; padding: 10px 0; }
-    .warn-icon { font-size: 3rem; color: #f59e0b; display: block; margin-bottom: 14px; }
-    .delete-warning p { color: #374151; font-size: 0.9rem; margin: 0 0 6px; }
-    .delete-file-name { font-weight: 600; color: #002D72 !important; }
-    .warn-note { color: #ef4444 !important; font-size: 0.82rem !important; }
-
     .btn-cancel {
       height: 36px; padding: 0 16px; background: #f3f4f6; color: #374151;
       border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.85rem;
       cursor: pointer; transition: all .2s;
     }
     .btn-cancel:hover { background: #e5e7eb; }
-
-    .btn-delete-confirm {
-      height: 36px; padding: 0 16px; background: #dc2626; color: #fff;
-      border: none; border-radius: 6px; font-size: 0.85rem;
-      cursor: pointer; display: flex; align-items: center; gap: 6px;
-      font-weight: 600; transition: background .2s;
-    }
-    .btn-delete-confirm:hover { background: #b91c1c; }
 
     .mt-3 { margin-top: 12px; }
   

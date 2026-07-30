@@ -1,6 +1,9 @@
 // E:\ecoit\sohoax10\sohoa.frontend\apps\admin-portal\src\app\features\administration\user-group.component.ts
 import { Component, OnInit, signal, computed, effect } from '@angular/core';
-import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
+import {
+  DeleteConfirmDialogComponent,
+  WfBreadcrumbComponent
+} from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -8,7 +11,7 @@ import { DialogModule } from 'primeng/dialog';
 import { ToastModule } from 'primeng/toast';
 import { PickListModule } from 'primeng/picklist';
 import { Menu, MenuModule } from 'primeng/menu';
-import { MenuItem, MessageService, ConfirmationService } from 'primeng/api';
+import { MenuItem, MessageService } from 'primeng/api';
 import { environment } from '@env/environment';
 import { finalize } from 'rxjs';
 import { AuthService } from '@sohoa.frontend/shared/core';
@@ -16,7 +19,16 @@ import { AuthService } from '@sohoa.frontend/shared/core';
 @Component({
   selector: 'app-user-group',
   standalone: true,
-  imports: [CommonModule, FormsModule, DialogModule, ToastModule, PickListModule, MenuModule, WfBreadcrumbComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    DialogModule,
+    ToastModule,
+    PickListModule,
+    MenuModule,
+    WfBreadcrumbComponent,
+    DeleteConfirmDialogComponent
+  ],
   providers: [MessageService],
   templateUrl: './user-group.component.html',
   styleUrl: './user-group.component.scss'
@@ -123,7 +135,6 @@ export class UserGroupComponent implements OnInit {
   constructor(
     private http: HttpClient,
     private messageService: MessageService,
-    private confirmationService: ConfirmationService,
     public authService: AuthService
   ) {
     effect(() => {
@@ -329,18 +340,26 @@ export class UserGroupComponent implements OnInit {
   deleteTarget = signal<any>(null);
   deleting = signal<boolean>(false);
 
+  // Chuẩn hóa tên nhóm hiển thị trong popup xác nhận xóa dùng chung.
+  readonly deleteTargetLabel = computed(() => this.deleteTarget()?.name || '');
+
   showLockUnlockConfirm = signal<boolean>(false);
   lockUnlockTarget = signal<any>(null);
   lockUnlockLoading = signal<boolean>(false);
 
-  onDelete(group: any) {
+  onDelete(group: any): void {
     this.deleteTarget.set(group);
     this.showDeleteConfirm.set(true);
   }
 
-  onConfirmDelete() {
+  onConfirmDelete(): void {
     const group = this.deleteTarget();
-    if (!group) return;
+
+    // Chặn target không hợp lệ hoặc request xóa bị gửi trùng.
+    if (!group || this.deleting()) {
+      return;
+    }
+
     this.deleting.set(true);
     this.http.delete(`${this.apiUrl}/${group.id}`)
       .pipe(finalize(() => this.deleting.set(false)))
@@ -351,14 +370,24 @@ export class UserGroupComponent implements OnInit {
           this.deleteTarget.set(null);
           this.loadGroups();
         },
-        error: () => {
-          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Xóa nhóm người dùng thất bại.' });
-          this.showDeleteConfirm.set(false);
+        error: (err) => {
+          const detail =
+            err?.error?.message ||
+            err?.message ||
+            'Xóa nhóm người dùng thất bại.';
+
+          // Giữ popup mở để hiển thị lỗi backend và cho phép thử lại.
+          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail });
         }
       });
   }
 
-  onCancelDelete() {
+  onCancelDelete(): void {
+    // Không đóng popup khi request xóa đang được xử lý.
+    if (this.deleting()) {
+      return;
+    }
+
     this.showDeleteConfirm.set(false);
     this.deleteTarget.set(null);
   }

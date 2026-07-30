@@ -12,7 +12,10 @@ import { Menu, MenuModule } from 'primeng/menu';
 import { environment } from '@env/environment';
 import { finalize } from 'rxjs';
 import { AuthService } from '@sohoa.frontend/shared/core';
-import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
+import {
+  DeleteConfirmDialogComponent,
+  WfBreadcrumbComponent
+} from '@sohoa.frontend/shared/layout';
 
 export interface Report {
   id: number;
@@ -45,7 +48,8 @@ export interface ReportGroup {
     DialogModule,
     TreeSelectModule,
     MenuModule,
-    WfBreadcrumbComponent
+    WfBreadcrumbComponent,
+    DeleteConfirmDialogComponent
   ],
   providers: [MessageService],
   templateUrl: './report-groups.component.html',
@@ -86,6 +90,13 @@ export class ReportGroupsComponent implements OnInit {
   showDeleteConfirm = signal<boolean>(false);
   deleteTarget = signal<ReportGroup | null>(null);
   deleting = signal<boolean>(false);
+
+  // Chuẩn hóa tên nhóm báo cáo hiển thị trong popup dùng chung.
+  readonly deleteTargetLabel = computed(() => {
+    const group = this.deleteTarget();
+
+    return group ? `${group.name} (${group.code})` : '';
+  });
 
   // Popup Create Variables
   displayCreateDialog = false;
@@ -267,14 +278,24 @@ export class ReportGroupsComponent implements OnInit {
     this.showDeleteConfirm.set(true);
   }
 
-  onCancelDelete() {
+  onCancelDelete(): void {
+    // Không cho đóng popup khi request xóa đang được xử lý.
+    if (this.deleting()) {
+      return;
+    }
+
     this.showDeleteConfirm.set(false);
     this.deleteTarget.set(null);
   }
 
-  onConfirmDelete() {
+  onConfirmDelete(): void {
     const group = this.deleteTarget();
-    if (!group) return;
+
+    // Chặn request không hợp lệ hoặc gửi trùng.
+    if (!group || this.deleting()) {
+      return;
+    }
+
     this.deleting.set(true);
     this.http.delete(`${this.apiUrl}/${group.id}`)
       .pipe(finalize(() => this.deleting.set(false)))
@@ -286,7 +307,7 @@ export class ReportGroupsComponent implements OnInit {
           this.loadGroups();
         },
         error: (err) => {
-          const msg = err?.error?.message || 'Xóa nhóm báo cáo thất bại.';
+          const msg = err?.error?.message || err?.message || 'Xóa nhóm báo cáo thất bại.';
           this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: msg });
         }
       });

@@ -1,11 +1,14 @@
 import { Component, OnInit, signal, computed, inject } from '@angular/core';
-import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
+import {
+  DeleteConfirmDialogComponent,
+  WfBreadcrumbComponent
+} from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DialogModule } from 'primeng/dialog';
 import { ToastModule } from 'primeng/toast';
 import { Menu, MenuModule } from 'primeng/menu';
-import { MenuItem, MessageService, ConfirmationService } from 'primeng/api';
+import { MenuItem, MessageService } from 'primeng/api';
 import { finalize } from 'rxjs';
 import { AuthService, MenuService } from '@sohoa.frontend/shared/core';
 import {
@@ -18,7 +21,15 @@ import {
 @Component({
   selector: 'app-menu-management',
   standalone: true,
-  imports: [CommonModule, FormsModule, DialogModule, ToastModule, MenuModule, WfBreadcrumbComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    DialogModule,
+    ToastModule,
+    MenuModule,
+    WfBreadcrumbComponent,
+    DeleteConfirmDialogComponent
+  ],
   providers: [MessageService],
   templateUrl: './menu-management.component.html',
   styleUrl: './menu-management.component.scss'
@@ -65,9 +76,16 @@ export class MenuManagement implements OnInit {
   lockUnlockTarget = signal<any>(null);
   lockUnlockLoading = signal<boolean>(false);
 
+  // Quản lý trạng thái popup, menu được chọn và request xóa.
+  showDeleteConfirm = signal<boolean>(false);
+  deleteTarget = signal<MenuDisplayTreeNode | null>(null);
+  deleteLoading = signal<boolean>(false);
+
+  // Chuẩn hóa tên menu hiển thị trong popup xác nhận xóa dùng chung.
+  readonly deleteTargetLabel = computed(() => this.deleteTarget()?.name ?? '');
+
   private menuService = inject(MenuService);
   private messageService = inject(MessageService);
-  private confirmationService = inject(ConfirmationService);
   public authService = inject(AuthService);
 
   ngOnInit() {
@@ -355,31 +373,59 @@ export class MenuManagement implements OnInit {
     }
   }
 
-  onDelete(menu: any) {
+  onDelete(menu: MenuDisplayTreeNode): void {
     const hasChildren = this.menus().some(m => m.parentId === menu.id);
     if (hasChildren) {
       this.messageService.add({ severity: 'warn', summary: 'Cảnh báo', detail: 'Không thể xóa Menu này vì có Menu con bên dưới!' });
       return;
     }
 
-    this.confirmationService.confirm({
-      message: `Bạn có chắc chắn muốn xóa Menu ${menu.name}?`,
-      header: 'Xác nhận xóa',
-      icon: 'pi pi-exclamation-triangle',
-      acceptLabel: 'Đồng ý',
-      rejectLabel: 'Hủy',
-      accept: () => {
-        this.menuService.deleteMenu(menu.id).subscribe({
-          next: () => {
-            this.messageService.add({ severity: 'success', summary: 'Xóa thành công', detail: 'Đã xóa Menu thành công!' });
-            this.loadMenus();
-          },
-          error: () => {
-            this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Xóa Menu thất bại.' });
-          }
-        });
-      }
-    });
+    // Lưu menu được chọn và mở popup xác nhận xóa.
+    this.deleteTarget.set(menu);
+    this.showDeleteConfirm.set(true);
+  }
+
+  onCancelDelete(): void {
+    // Không cho đóng popup khi request xóa đang được xử lý.
+    if (this.deleteLoading()) {
+      return;
+    }
+
+    this.closeDeleteDialog();
+  }
+
+  onConfirmDelete(): void {
+    const menu = this.deleteTarget();
+
+    // Chặn request trùng khi người dùng bấm nút Xóa nhiều lần.
+    if (!menu || this.deleteLoading()) {
+      return;
+    }
+
+    this.deleteLoading.set(true);
+
+    this.menuService.deleteMenu(menu.id)
+      .pipe(
+        // Luôn tắt loading dù request thành công hay thất bại.
+        finalize(() => this.deleteLoading.set(false))
+      )
+      .subscribe({
+        next: () => {
+          this.closeDeleteDialog();
+          this.messageService.add({ severity: 'success', summary: 'Xóa thành công', detail: 'Đã xóa Menu thành công!' });
+          this.loadMenus();
+        },
+        error: (err: any) => {
+          const detailMsg = err?.error?.message || err?.message || 'Xóa Menu thất bại.';
+          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: detailMsg });
+        }
+      });
+  }
+
+  private closeDeleteDialog(): void {
+    // Đóng popup và giải phóng bản ghi đang được chọn.
+    this.showDeleteConfirm.set(false);
+    this.deleteTarget.set(null);
   }
 
   private extractErrors(err: any): Record<string, string> {

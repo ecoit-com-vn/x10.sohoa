@@ -45,7 +45,8 @@ export class ReportStatisticsDossierListComponent implements OnInit {
   page = signal(1);
   pageSize = signal(10);
 
-  tableColSpan = computed(() => this.bhsColumns().length + 4);
+  fixedColumns = computed(() => this.listConfig().columnMode === 'fixed-dossier');
+  tableColSpan = computed(() => this.fixedColumns() ? 6 : this.bhsColumns().length + 4);
 
   constructor() {
     effect(() => {
@@ -62,6 +63,8 @@ export class ReportStatisticsDossierListComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    if (this.fixedColumns()) return;
+
     this.statisticsService.getBhsColumns().subscribe({
       next: (cols) => this.bhsColumns.set(cols || []),
       error: (err) => console.error('Lỗi tải cột BHS:', err)
