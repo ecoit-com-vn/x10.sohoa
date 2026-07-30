@@ -23,7 +23,8 @@ export class DossierPublishService {
     tab?: DossierListTab;
     keyword?: string;
     infrastructureId?: string;
-    gridTypeId?: number;
+    dossierTypeId?: string;
+    equipmentId?: string;
     unitId?: number;
     page: number;
     pageSize: number;
@@ -35,7 +36,8 @@ export class DossierPublishService {
     if (filter.tab) params = params.set('tab', filter.tab);
     if (filter.keyword?.trim()) params = params.set('keyword', filter.keyword.trim());
     if (filter.infrastructureId) params = params.set('infrastructureId', filter.infrastructureId);
-    if (filter.gridTypeId != null) params = params.set('gridTypeId', filter.gridTypeId.toString());
+    if (filter.dossierTypeId) params = params.set('dossierTypeId', filter.dossierTypeId);
+    if (filter.equipmentId) params = params.set('equipmentId', filter.equipmentId);
     if (filter.unitId != null) params = params.set('unitId', filter.unitId.toString());
 
     return this.http.get<{ items: unknown[]; totalCount: number; page: number; pageSize: number }>(this.searchBase, { params });
@@ -56,14 +58,16 @@ export class DossierPublishService {
   getTabCounts(filter: {
     keyword?: string;
     infrastructureId?: string;
-    gridTypeId?: number;
+    dossierTypeId?: string;
+    equipmentId?: string;
     unitId?: number;
   }): Observable<DossierTabCounts> {
     let params = new HttpParams();
 
     if (filter.keyword?.trim()) params = params.set('keyword', filter.keyword.trim());
     if (filter.infrastructureId) params = params.set('infrastructureId', filter.infrastructureId);
-    if (filter.gridTypeId != null) params = params.set('gridTypeId', filter.gridTypeId.toString());
+    if (filter.dossierTypeId) params = params.set('dossierTypeId', filter.dossierTypeId);
+    if (filter.equipmentId) params = params.set('equipmentId', filter.equipmentId);
     if (filter.unitId != null) params = params.set('unitId', filter.unitId.toString());
 
     return this.http.get<DossierTabCounts>(`${this.searchBase}/tab-counts`, { params });

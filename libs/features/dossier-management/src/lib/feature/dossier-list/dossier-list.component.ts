@@ -141,10 +141,36 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
             </div>
           </div>
 
-          <select class="wf-select" [ngModel]="filterEquipmentId()" (ngModelChange)="onEquipmentFilterChange($event)" [disabled]="!filterInfrastructureId()">
-            <option [ngValue]="null">-- Tất cả thiết bị --</option>
-            <option *ngFor="let item of equipments()" [value]="item.id">{{ item.name }}</option>
-          </select>
+          <div class="searchable-select">
+            <button
+              type="button"
+              class="wf-select searchable-select-trigger"
+              [disabled]="!filterInfrastructureId()"
+              (click)="toggleEquipmentDropdown()">
+              <span>{{ selectedEquipmentLabel() }}</span>
+              <i class="pi pi-chevron-down"></i>
+            </button>
+
+            <div class="searchable-select-panel" *ngIf="isEquipmentDropdownOpen()">
+              <input
+                type="text"
+                class="searchable-select-input"
+                placeholder="Tìm theo mã, tên thiết bị..."
+                [ngModel]="equipmentSearchKeyword()"
+                (ngModelChange)="equipmentSearchKeyword.set($event)" />
+              <button type="button" class="searchable-select-option" (click)="selectEquipment(null)">
+                -- Tất cả thiết bị --
+              </button>
+              <button
+                type="button"
+                class="searchable-select-option"
+                *ngFor="let item of filteredEquipments()"
+                (click)="selectEquipment(item.id)">
+                {{ item.name }}
+              </button>
+              <div class="searchable-select-empty" *ngIf="filteredEquipments().length === 0">Không có dữ liệu</div>
+            </div>
+          </div>
 
           <button (click)="onSearch()" class="btn-tim">
 
@@ -494,7 +520,7 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
         </div>
       </div>
       <ng-template #footer>
-        <button class="btn-small" style="background-color: #fb923c; border-color: #fb923c; color: #ffffff;"
+        <button class="btn-cancel btn-small"
                 (click)="closeQuickActionDialog()" [disabled]="quickActionSubmitting()">
           <i class="pi pi-times"></i> Hủy
         </button>
@@ -776,6 +802,10 @@ export class DossierListComponent implements OnInit {
 
   isInfrastructureDropdownOpen = signal<boolean>(false);
 
+  equipmentSearchKeyword = signal<string>('');
+
+  isEquipmentDropdownOpen = signal<boolean>(false);
+
 
 
   infrastructures = signal<any[]>([]);
@@ -790,6 +820,16 @@ export class DossierListComponent implements OnInit {
     return this.infrastructures().filter((item) =>
       String(item.name ?? '').toLocaleLowerCase().includes(keyword)
     );
+  });
+
+  filteredEquipments = computed(() => {
+    const keyword = this.equipmentSearchKeyword().trim().toLocaleLowerCase();
+    if (!keyword) return this.equipments();
+    return this.equipments().filter((item) => {
+      const name = String(item.name ?? '').toLocaleLowerCase();
+      const code = String(item.code ?? '').toLocaleLowerCase();
+      return name.includes(keyword) || code.includes(keyword);
+    });
   });
 
   bhsColumns = signal<BhsCatalogColumn[]>([]);
@@ -951,6 +991,13 @@ export class DossierListComponent implements OnInit {
 
   toggleInfrastructureDropdown() {
     this.isInfrastructureDropdownOpen.update((open) => !open);
+    this.isEquipmentDropdownOpen.set(false);
+  }
+
+  toggleEquipmentDropdown() {
+    if (!this.filterInfrastructureId()) return;
+    this.isEquipmentDropdownOpen.update((open) => !open);
+    this.isInfrastructureDropdownOpen.set(false);
   }
 
   onDossierTypeFilterChange(dossierTypeId: string | null) {
@@ -963,12 +1010,20 @@ export class DossierListComponent implements OnInit {
     this.onSearch();
   }
 
+  selectEquipment(equipmentId: string | null) {
+    this.equipmentSearchKeyword.set('');
+    this.isEquipmentDropdownOpen.set(false);
+    this.onEquipmentFilterChange(equipmentId);
+  }
+
   selectInfrastructure(infrastructureId: string | null) {
     this.filterInfrastructureId.set(infrastructureId);
     this.filterEquipmentId.set(null);
     this.equipments.set([]);
     this.infrastructureSearchKeyword.set('');
+    this.equipmentSearchKeyword.set('');
     this.isInfrastructureDropdownOpen.set(false);
+    this.isEquipmentDropdownOpen.set(false);
 
     if (infrastructureId) {
       this.service.getEquipmentLookup({ infrastructureId, pageSize: 1000 }).subscribe({
@@ -988,6 +1043,14 @@ export class DossierListComponent implements OnInit {
     if (!infrastructureId) return '-- Tất cả trạm/đường dây --';
     return this.infrastructures().find((item) => String(item.id) === String(infrastructureId))?.name
       ?? '-- Tất cả trạm/đường dây --';
+  }
+
+  selectedEquipmentLabel(): string {
+    const equipmentId = this.filterEquipmentId();
+    if (!equipmentId) return '-- Tất cả thiết bị --';
+    const selected = this.equipments().find((item) => String(item.id) === String(equipmentId));
+    if (!selected) return '-- Tất cả thiết bị --';
+    return selected.code ? `${selected.code} - ${selected.name}` : selected.name;
   }
 
 
