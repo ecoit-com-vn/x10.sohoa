@@ -48,3 +48,84 @@
     object-fit: contain;
   }
 }
+.scanner-controls{
+    display:flex;
+    flex-direction:column;
+    gap:18px;
+}
+
+.scanner-filename-input{
+    width:100%;
+}
+
+.input-label{
+    font-size:15px;
+    font-weight:600;
+    margin-bottom:6px;
+}
+
+.filename-box{
+
+    display:flex;
+    align-items:center;
+
+    border:1px solid #d1d5db;
+    border-radius:8px;
+
+    padding:0 14px;
+
+    height:40px;
+
+    transition:.2s;
+    background:#fff;
+}
+
+.filename-box:focus-within{
+    border-color:#16a34a;
+    box-shadow:0 0 0 3px rgba(22,163,74,.15);
+}
+
+.filename-box i{
+
+    color:#6b7280;
+    font-size:18px;
+    margin-right:10px;
+
+}
+
+.filename-box input{
+
+    flex:1;
+
+    border:none;
+    outline:none;
+
+    font-size:15px;
+
+    background:transparent;
+
+}
+
+.filename-box span{
+
+    color:#9ca3af;
+    font-weight:600;
+
+}
+
+.scanner-filename-input small{
+
+    display:block;
+    margin-top:6px;
+
+    color:#6b7280;
+    font-size:13px;
+
+}
+
+.scan-btn{
+
+    width:max-content;
+    align-self:flex-start;
+
+}

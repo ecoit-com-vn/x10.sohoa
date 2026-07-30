@@ -8,8 +8,10 @@ import {
   NgZone,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { ButtonModule } from 'primeng/button';
+import { InputTextModule } from 'primeng/inputtext';
 import { MessageService } from 'primeng/api';
 import {
   EcoScannerService,
@@ -21,7 +23,7 @@ import {
 @Component({
   selector: 'app-scanner-panel',
   standalone: true,
-  imports: [CommonModule, ButtonModule],
+  imports: [CommonModule, FormsModule, ButtonModule, InputTextModule],
   templateUrl: './scanner-panel.component.html',
   styleUrl: './scanner-panel.component.scss',
 })
@@ -34,6 +36,7 @@ export class ScannerPanelComponent implements OnDestroy {
   disabled = input(false);
   format = input<ScanFormat>('pdf');
   mode = input<ScanMode>('s');
+  fileName = '';
 
   /** Phát ra từng file sau khi quét xong (mode 'm' có thể nhiều lần). */
   fileReady = output<File>();
@@ -60,6 +63,25 @@ export class ScannerPanelComponent implements OnDestroy {
   async startScan(): Promise<void> {
     if (this.disabled() || this.scanning()) return;
 
+    if (!this.fileName || this.fileName.trim().length === 0) {
+      this.scheduleToast({
+        severity: 'error',
+        summary: 'Thiếu thông tin',
+        detail: 'Vui lòng nhập tên file',
+      });
+      return;
+    }
+
+    const validationError = this.validateFileName(this.fileName);
+    if (validationError) {
+      this.scheduleToast({
+        severity: 'error',
+        summary: 'Tên file không hợp lệ',
+        detail: validationError,
+      });
+      return;
+    }
+
     this.scanning.set(true);
     this.scanningChange.emit(true);
     this.revokePreview();
@@ -67,7 +89,7 @@ export class ScannerPanelComponent implements OnDestroy {
 
     try {
       const files = await this.ecoScanner.scan(
-        { format: this.format(), mode: this.mode() },
+        { format: this.format(), mode: this.mode(), fileName: this.fileName },
         (progress) => this.scheduleProgressUpdate(progress)
       );
 
@@ -135,5 +157,28 @@ export class ScannerPanelComponent implements OnDestroy {
     this.previewUrl.set(null);
     this.safePreviewUrl.set(null);
     this.previewKind.set(null);
+  }
+
+  private validateFileName(name: string): string | null {
+    const invalidCharsRegex = /[\\/:*?"<>|]/;
+    if (invalidCharsRegex.test(name)) {
+      return 'Tên file không được chứa các ký tự đặc biệt: \\ / : * ? " < > |';
+    }
+    if (name.trim() !== name) {
+      return 'Tên file không được có khoảng trắng ở đầu hoặc cuối.';
+    }
+    // This regex allows common printable ASCII and extended Latin characters, including Vietnamese diacritics.
+    // It specifically disallows control characters (0x00-0x1F) and delete (0x7F).
+    // The range \u0020-\u007E covers basic ASCII printable characters.
+    // The range \u00A0-\uFFFF covers extended characters including Latin-1 Supplement, Latin Extended-A/B, etc.
+    // This is a broad check to catch most non-printable or system-level control characters, while allowing international characters.
+    const controlCharsRegex = /[\x00-\x1F\x7F]/;
+    if (controlCharsRegex.test(name)) {
+      return 'Tên file chứa các ký tự điều khiển không hợp lệ.';
+    }
+    if (name.length > 200) { // Arbitrary length limit, can be adjusted based on requirements
+      return 'Tên file quá dài (tối đa 200 ký tự).';
+    }
+    return null; // Valid
   }
 }
