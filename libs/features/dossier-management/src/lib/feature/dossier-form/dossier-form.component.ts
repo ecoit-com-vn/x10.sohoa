@@ -132,7 +132,7 @@ import { normalizeDossierKindId } from '../../utils/dossier-permission.util';
             </p-select>
           </div>
 
-          <div class="form-group" style="flex: 1 1 240px; min-width: 220px;">
+          <div *ngIf="isEditMode() && !usePublishApi" class="form-group" style="flex: 1 1 240px; min-width: 220px;">
             <label class="form-label">Loại lưới điện</label>
             <p-select
               [options]="gridTypes()"
@@ -710,6 +710,7 @@ import { normalizeDossierKindId } from '../../utils/dossier-permission.util';
 export class DossierFormComponent implements OnInit {
 
   @Input() usePublishApi = false;
+  @Input() hideInfrastructureField = false;
   @Input() showHeaderBackButton = true;
   @Input() dossierId: string | null = null;
   @Input() set kindId(value: number | undefined) {
@@ -931,7 +932,20 @@ export class DossierFormComponent implements OnInit {
 
   loadLookups() {
     this.service.getDossierTypeLookup().subscribe(res => this.dossierTypes.set(res || []));
-    this.service.getDossierGroupLookup().subscribe(res => this.dossierGroups.set(res || []));
+    this.service.getDossierGroupLookup().subscribe(res => {
+      const groups = res || [];
+      this.dossierGroups.set(groups);
+
+      if (!this.isEditMode() && !this.dossier.dossierGroupId) {
+        const defaultGroup = groups.find((group: any) =>
+          String(group.name ?? group.Name ?? '').trim().toLocaleLowerCase('vi-VN') === 'hồ sơ trạm biến áp'
+        );
+
+        if (defaultGroup) {
+          this.onDossierGroupChange(defaultGroup.id ?? defaultGroup.Id);
+        }
+      }
+    });
     this.service.getGridTypeLookup().subscribe(res => this.gridTypes.set(res || []));
     this.service.getDossierSets().subscribe(res => this.dossierSets.set(res || []));
     this.loadInfrastructures();
@@ -1583,6 +1597,8 @@ export class DossierFormComponent implements OnInit {
       infrastructureId: infraIds[0] || null,
       dossierGroupId: Number(this.dossier.dossierGroupId),
       gridTypeId: this.dossier.gridTypeId != null ? Number(this.dossier.gridTypeId) : null,
+      statusId: this.usePublishApi && !this.isEditMode() ? 6 : undefined,
+      publishStatusId: this.usePublishApi && !this.isEditMode() ? 1 : undefined,
       equipmentIds: this.isEquipmentDossier()
         ? this.selectedEquipments().map(e => e.equipmentId || e.id)
         : [],
@@ -1596,7 +1612,9 @@ export class DossierFormComponent implements OnInit {
     };
 
     const req$ = this.isEditMode()
-      ? this.service.updateDossier(this.dossier.id, dto)
+      ? this.usePublishApi
+        ? this.publishService.update(this.dossier.id, dto)
+        : this.service.updateDossier(this.dossier.id, dto)
       : this.usePublishApi
         ? this.publishService.create(dto)
         : this.service.createDossier(dto);
