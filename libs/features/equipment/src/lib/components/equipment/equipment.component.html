@@ -961,33 +961,16 @@
     </div>
   </ng-template>
 
-  <!-- ==================== DIALOG XÁC NHẬN XÓA (CUSTOM INLINE SIGNAL) ==================== -->
-  <p-dialog [visible]="showDeleteConfirm()" (visibleChange)="$event ? null : onCancelDelete()" header="Xác nhận xóa"
-    [modal]="true" [style]="{ width: '420px' }" styleClass="evn-dialog-custom" [closable]="!deleting()">
-    <div style="display: flex; align-items: flex-start; gap: 12px; padding: 8px 0 16px;">
-      <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #f59e0b;"></i>
-      <div>
-        <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">Bạn có chắc chắn muốn xóa?</p>
-        <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
-          Thiết bị <b style="color: #1e293b;">{{ deleteTarget()?.name }}</b> sẽ bị xóa vĩnh viễn khỏi hệ thống.
-        </p>
-      </div>
-    </div>
-    <ng-template #footer>
-      <div
-        style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
-        <button class="btn-cancel btn-small" (click)="onCancelDelete()" [disabled]="deleting()">
-          <i class="pi pi-times"></i> Hủy
-        </button>
-        <button class="btn-save btn-small" (click)="onConfirmDelete()" [disabled]="deleting()"
-          style="background-color: #dc2626; border-color: #dc2626;">
-          <i class="pi pi-spin pi-spinner" *ngIf="deleting()"></i>
-          <i class="pi pi-trash" *ngIf="!deleting()"></i>
-          Xóa
-        </button>
-      </div>
-    </ng-template>
-  </p-dialog>
+  <!-- Popup xác nhận xóa thiết bị dùng chung toàn hệ thống. -->
+  <app-delete-confirm-dialog
+    [visible]="showDeleteConfirm()"
+    header="Xác nhận xóa thiết bị"
+    entityLabel="Thiết bị"
+    [targetName]="deleteTargetLabel()"
+    [loading]="deleting()"
+    (cancelled)="onCancelDelete()"
+    (confirmed)="onConfirmDelete()"
+  />
 
   <!-- Dialog Xác nhận Chuyển hồ sơ -->
   <p-dialog [visible]="showTransferDossierConfirm()" (visibleChange)="$event ? null : onCancelTransferDossier()"

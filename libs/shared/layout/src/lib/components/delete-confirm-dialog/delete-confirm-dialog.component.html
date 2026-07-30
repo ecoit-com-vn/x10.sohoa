@@ -1,0 +1,40 @@
+<p-dialog [visible]="visible()" (visibleChange)="onVisibleChange($event)" [header]="header()" [modal]="true" [draggable]="false" [resizable]="false" [dismissableMask]="false" [closable]="!loading()" [closeOnEscape]="!loading()" [style]="{ width: '420px' }"
+    [breakpoints]="{ '640px': 'calc(100vw - 2rem)' }" styleClass="app-delete-confirm-dialog" appendTo="body">
+    <!-- Nội dung chuẩn dùng chung cho toàn bộ thao tác xóa -->
+    <div class="app-delete-confirm-dialog__content">
+        <i class="pi pi-exclamation-triangle app-delete-confirm-dialog__icon" aria-hidden="true"></i>
+
+        <div>
+            <p class="app-delete-confirm-dialog__question">
+                Bạn có chắc chắn muốn xóa {{ entityLabel().toLowerCase() }} này?
+            </p>
+
+            <p class="app-delete-confirm-dialog__description">
+                {{ entityLabel() }}
+                <strong>{{ targetName() }}</strong> {{ consequence() }}
+            </p>
+        </div>
+    </div>
+
+    <ng-template #footer>
+        <div class="app-delete-confirm-dialog__actions">
+            <button type="button" class="app-delete-confirm-dialog__button app-delete-confirm-dialog__button--cancel" [disabled]="loading()" (click)="onCancel()">
+        <i class="pi pi-times" aria-hidden="true"></i>
+        Hủy
+      </button>
+
+            <button type="button" class="app-delete-confirm-dialog__button app-delete-confirm-dialog__button--delete" [disabled]="loading()" (click)="onConfirm()">
+        @if (loading()) {
+          <i
+            class="pi pi-spin pi-spinner"
+            aria-hidden="true"
+          ></i>
+          Đang xóa...
+        } @else {
+          <i class="pi pi-trash" aria-hidden="true"></i>
+          Xóa
+        }
+      </button>
+        </div>
+    </ng-template>
+</p-dialog>

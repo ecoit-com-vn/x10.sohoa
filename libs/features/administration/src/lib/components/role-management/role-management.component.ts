@@ -1,12 +1,15 @@
 import { Component, OnInit, signal, computed, effect } from '@angular/core';
-import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
+import {
+  DeleteConfirmDialogComponent,
+  WfBreadcrumbComponent
+} from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { DialogModule } from 'primeng/dialog';
 import { ToastModule } from 'primeng/toast';
 import { Menu, MenuModule } from 'primeng/menu';
-import { MenuItem, MessageService, ConfirmationService } from 'primeng/api';
+import { MenuItem, MessageService } from 'primeng/api';
 import { environment } from '@env/environment';
 import { finalize } from 'rxjs';
 import { AuthService } from '@sohoa.frontend/shared/core';
@@ -18,7 +21,15 @@ import {
 @Component({
   selector: 'app-role-management',
   standalone: true,
-  imports: [CommonModule, FormsModule, DialogModule, ToastModule, MenuModule, WfBreadcrumbComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    DialogModule,
+    ToastModule,
+    MenuModule,
+    WfBreadcrumbComponent,
+    DeleteConfirmDialogComponent
+  ],
   providers: [MessageService],
   templateUrl: './role-management.component.html',
   styleUrl: './role-management.component.scss'
@@ -34,7 +45,7 @@ export class RoleManagement implements OnInit {
     const userRoles = this.authService.getUserRoles();
     return userRoles.includes('ADMIN') || userRoles.includes('SUPER_ADMIN');
   });
-  
+
   currentView = signal<'list' | 'add' | 'edit' | 'permission'>('list');
   dialogHeader = signal<string>('');
   isEdit = signal<boolean>(false);
@@ -64,7 +75,7 @@ export class RoleManagement implements OnInit {
   roleUsersPage = signal<number>(1);
   roleUsersPageSize = signal<number>(10);
   roleUsersLoading = signal<boolean>(false);
-  
+
   loading = signal<boolean>(false);
   saving = signal<boolean>(false);
   savingPermissions = signal<boolean>(false);
@@ -74,6 +85,17 @@ export class RoleManagement implements OnInit {
   showLockUnlockConfirm = signal<boolean>(false);
   lockUnlockTarget = signal<any>(null);
   lockUnlockLoading = signal<boolean>(false);
+
+  // Quản lý trạng thái popup, vai trò được chọn và request xóa.
+  showDeleteConfirm = signal<boolean>(false);
+  deleteTarget = signal<any>(null);
+  deleteLoading = signal<boolean>(false);
+
+  // Chuẩn hóa tên vai trò hiển thị trong popup xác nhận xóa dùng chung.
+  readonly deleteTargetLabel = computed(() => {
+    const role = this.deleteTarget();
+    return role ? `${role.name} (${role.code})` : '';
+  });
 
   // Pagination
   currentPage = signal<number>(1);
@@ -157,7 +179,6 @@ export class RoleManagement implements OnInit {
   constructor(
     private http: HttpClient,
     private messageService: MessageService,
-    private confirmationService: ConfirmationService,
     public authService: AuthService
   ) {
     effect(() => {
@@ -197,7 +218,7 @@ export class RoleManagement implements OnInit {
     event.stopPropagation();
     this.actionMenuItems = [
       ...(this.authService.hasPermission('ROLE_MANAGE') || this.authService.hasPermission('PERMISSION_MANAGE') ? [{ label: 'Phân quyền', title:'Phân quyền', icon: 'pi pi-shield', command: () => this.onAssignPermissions(role) }] : []),
-      ...(this.authService.hasPermission('ROLE_EDIT') ? [{ label: role.isActive ? 'Khóa vai trò' : 'Mở khóa vai trò', title: role.isActive ? 'Khóa vai trò' : 'Mở khóa vai trò', icon: role.isActive ? 'pi pi-lock color-red' : 'pi pi-lock-open color-teal', command: () => this.onToggleStatusRequest(role) }] : []),
+      ...(this.authService.hasPermission('ROLE_EDIT') ? [{ label: role.isActive ? 'Khóa' : 'Mở khóa', title: role.isActive ? 'Khóa' : 'Mở khóa', icon: role.isActive ? 'pi pi-lock color-red' : 'pi pi-lock-open color-teal', command: () => this.onToggleStatusRequest(role) }] : []),
       ...(this.authService.hasPermission('ROLE_EDIT') ? [{ label: 'Chỉnh sửa', title:'Chỉnh sửa', icon: 'pi pi-pencil color-blue', command: () => this.onEdit(role) }] : []),
       ...(this.authService.hasPermission('ROLE_DELETE') ? [{ label: 'Xóa', title:'Xóa', icon: 'pi pi-trash color-red', command: () => this.onDelete(role) }] : []),
     ];
@@ -274,17 +295,17 @@ export class RoleManagement implements OnInit {
       return;
     }
     this.isEdit.set(false);
-    
+
     if (this.isCentralAdmin()) {
       this.currentRole.set({ code: '', name: '', description: '', scopeTypeId: 1, organizationUnitId: null, isActive: true });
     } else {
-      this.currentRole.set({ 
-        code: '', 
-        name: '', 
-        description: '', 
-        scopeTypeId: 2, 
-        organizationUnitId: this.authService.getUserUnitId(), 
-        isActive: true 
+      this.currentRole.set({
+        code: '',
+        name: '',
+        description: '',
+        scopeTypeId: 2,
+        organizationUnitId: this.authService.getUserUnitId(),
+        isActive: true
       });
     }
 
@@ -418,27 +439,53 @@ export class RoleManagement implements OnInit {
     }
   }
 
-  onDelete(role: any) {
-    this.confirmationService.confirm({
-      message: `Bạn có chắc chắn muốn xóa vai trò ${role.name} (${role.code})?`,
-      header: 'Xác nhận xóa',
-      icon: 'pi pi-exclamation-triangle',
-      acceptLabel: 'Đồng ý',
-      rejectLabel: 'Hủy',
-      acceptButtonStyleClass: 'btn-save',
-      rejectButtonStyleClass: 'btn-cancel',
-      accept: () => {
-        this.http.delete(`${this.apiUrl}/${role.id}`).subscribe({
-          next: () => {
-            this.messageService.add({ severity: 'success', summary: 'Xóa thành công', detail: 'Đã xóa vai trò thành công!' });
-            this.loadRoles();
-          },
-          error: (err) => {
-            this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể xóa vai trò.' });
-          }
-        });
-      }
-    });
+  onDelete(role: any): void {
+    // Lưu vai trò được chọn và mở popup xác nhận xóa.
+    this.deleteTarget.set(role);
+    this.showDeleteConfirm.set(true);
+  }
+
+  onCancelDelete(): void {
+    // Không cho đóng popup khi request xóa đang được xử lý.
+    if (this.deleteLoading()) {
+      return;
+    }
+
+    this.closeDeleteDialog();
+  }
+
+  onConfirmDelete(): void {
+    const role = this.deleteTarget();
+
+    // Chặn request trùng khi người dùng bấm nút Xóa nhiều lần.
+    if (!role || this.deleteLoading()) {
+      return;
+    }
+
+    this.deleteLoading.set(true);
+
+    this.http.delete(`${this.apiUrl}/${role.id}`)
+      .pipe(
+        // Luôn tắt loading dù request thành công hay thất bại.
+        finalize(() => this.deleteLoading.set(false))
+      )
+      .subscribe({
+        next: () => {
+          this.closeDeleteDialog();
+          this.messageService.add({ severity: 'success', summary: 'Xóa thành công', detail: 'Đã xóa vai trò thành công!' });
+          this.loadRoles();
+        },
+        error: (err: any) => {
+          const detailMsg = err?.error?.message || err?.message || 'Không thể xóa vai trò.';
+          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: detailMsg });
+        }
+      });
+  }
+
+  private closeDeleteDialog(): void {
+    // Đóng popup và giải phóng bản ghi đang được chọn.
+    this.showDeleteConfirm.set(false);
+    this.deleteTarget.set(null);
   }
 
   onAssignPermissions(role: any) {
@@ -583,7 +630,7 @@ export class RoleManagement implements OnInit {
   onSavePermissions() {
     const activeRole = this.activeRoleForPermission();
     if (!activeRole) return;
-    
+
     this.savingPermissions.set(true);
     this.http.put(`${this.apiUrl}/${activeRole.id}/permission-groups`, this.selectedPermissionGroupIds())
       .pipe(finalize(() => this.savingPermissions.set(false)))

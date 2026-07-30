@@ -1,6 +1,10 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { WfBreadcrumbComponent, EcoInputTreeSelectComponent } from '@sohoa.frontend/shared/layout';
+import {
+  DeleteConfirmDialogComponent,
+  EcoInputTreeSelectComponent,
+  WfBreadcrumbComponent
+} from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
@@ -29,7 +33,16 @@ interface AuditLogView {
 @Component({
   selector: 'app-audit-log',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule, DialogModule, TabsModule, WfBreadcrumbComponent, EcoInputTreeSelectComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    ToastModule,
+    DialogModule,
+    TabsModule,
+    WfBreadcrumbComponent,
+    EcoInputTreeSelectComponent,
+    DeleteConfirmDialogComponent
+  ],
   providers: [MessageService],
   templateUrl: './audit-log.component.html',
   styleUrl: './audit-log.component.scss'
@@ -95,6 +108,13 @@ export class AuditLogComponent implements OnInit {
 
   selectedIds = signal<string[]>([]);
   selectedCount = computed(() => this.selectedIds().length);
+
+  // Chuẩn hóa nhãn hiển thị theo số lượng nhật ký được chọn.
+  readonly deleteEntityLabel = computed(() => {
+    const count = this.selectedCount();
+
+    return count > 1 ? `${count} nhật ký` : 'Nhật ký';
+  });
 
   filteredLogs = computed(() => this.logs());
 
@@ -453,9 +473,11 @@ export class AuditLogComponent implements OnInit {
     this.displayDeleteSelectedDialog.set(true);
   }
 
-  onConfirmDeleteSelected() {
+  onConfirmDeleteSelected(): void {
     const ids = this.selectedIds();
-    if (ids.length === 0) {
+
+    // Chặn danh sách rỗng hoặc request xóa bị gửi trùng.
+    if (ids.length === 0 || this.deleting()) {
       return;
     }
 
@@ -474,10 +496,22 @@ export class AuditLogComponent implements OnInit {
           this.loadAuditLogs();
         },
         error: (err) => {
-          const msg = err.error?.message || 'Không thể xóa nhật ký đã chọn.';
+          const msg =
+            err?.error?.message ||
+            err?.message ||
+            'Không thể xóa nhật ký đã chọn.';
           this.messageService.add({ severity: 'error', summary: 'Lỗi xóa nhật ký', detail: msg });
         }
       });
+  }
+
+  onCancelDeleteSelected(): void {
+    // Giữ nguyên lựa chọn hiện tại và không đóng popup khi request đang chạy.
+    if (this.deleting()) {
+      return;
+    }
+
+    this.displayDeleteSelectedDialog.set(false);
   }
 
   onOpenDeleteDialog() {
@@ -492,7 +526,21 @@ export class AuditLogComponent implements OnInit {
     this.displayDeleteDialog.set(true);
   }
 
-  onConfirmDelete() {
+  onCancelDeleteByDate(): void {
+    // Không đóng dialog nghiệp vụ khi request xóa đang được xử lý.
+    if (this.deleting()) {
+      return;
+    }
+
+    this.displayDeleteDialog.set(false);
+  }
+
+  onConfirmDelete(): void {
+    // Chặn request xóa theo khoảng ngày bị gửi trùng.
+    if (this.deleting()) {
+      return;
+    }
+
     if (!this.deleteParams.fromDate || !this.deleteParams.toDate) {
       this.messageService.add({ severity: 'warn', summary: 'Cảnh báo', detail: 'Vui lòng chọn khoảng thời gian cần xóa.' });
       return;
@@ -522,7 +570,10 @@ export class AuditLogComponent implements OnInit {
           this.loadAuditLogs();
         },
         error: (err) => {
-          const msg = err.error?.message || 'Không thể xóa nhật ký do lỗi kết nối.';
+          const msg =
+            err?.error?.message ||
+            err?.message ||
+            'Không thể xóa nhật ký do lỗi kết nối.';
           this.messageService.add({ severity: 'error', summary: 'Lỗi xóa nhật ký', detail: msg });
         }
       });

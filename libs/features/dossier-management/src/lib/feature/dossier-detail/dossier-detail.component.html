@@ -205,7 +205,7 @@
           {{ u.fullName }} ({{ u.username }})
         </option>
       </select>
-      <div class="field-hint" *ngIf="pendingActionBtn()?.staticAssigneeId">Bước này có cấu hình giao việc đích danh — đã chọn sẵn, có thể đổi người khác nếu cần.</div>
+      <div class="field-hint" *ngIf="pendingActionBtn()?.staticAssigneeId">Bước này có cấu hình người xử lý cụ thể — có thể chọn trong danh sách bên dưới.</div>
       <div class="field-hint" *ngIf="loadingEligibleNextUsers()">Đang tải danh sách người đủ điều kiện...</div>
     </div>
     <div class="form-group">
@@ -314,7 +314,7 @@
           {{ u.fullName || u.FullName || u.name || u.username }}
         </option>
       </select>
-      <div class="field-hint" *ngIf="nextStepInfo()?.staticAssigneeId">Bước này có cấu hình giao việc đích danh — đã chọn sẵn, có thể đổi người khác nếu cần.</div>
+      <div class="field-hint" *ngIf="nextStepInfo()?.staticAssigneeId">Bước này có cấu hình người xử lý cụ thể — có thể chọn trong danh sách bên dưới.</div>
       <div class="field-hint" *ngIf="loadingEligibleSubmitUsers()">Đang tải danh sách người đủ điều kiện...</div>
       <div class="field-hint" *ngIf="!loadingEligibleSubmitUsers() && filteredSubmitNextUsers().length === 0">
         Không có người dùng nào đủ điều kiện xử lý bước này.

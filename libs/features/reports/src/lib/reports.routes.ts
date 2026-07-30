@@ -105,6 +105,15 @@ export const REPORTS_ROUTES: Routes = [
     canActivate: [reportDossierGuard('REPORT_STATISTICS_VIEW')]
   },
   {
+    path: 'dossier-by-input-officer',
+    loadComponent: () =>
+      import('./components/report-dossier-by-allocation/report-dossier-by-allocation.component').then(
+        (m) => m.ReportDossierByAllocationComponent
+      ),
+    canActivate: [reportDossierGuard('REPORT_STATISTICS_VIEW')],
+    data: { reportMode: 'input-officer' }
+  },
+  {
     path: 'dossier-by-dossier-type',
     loadComponent: () =>
       import('./components/report-dossier-by-dossier-type/report-dossier-by-dossier-type.component').then(

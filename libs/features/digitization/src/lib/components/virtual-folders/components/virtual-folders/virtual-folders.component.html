@@ -176,5 +176,29 @@
         </ng-template>
       </p-dialog>
 
+      <!-- Popup xác nhận xóa dùng chung toàn hệ thống. -->
+      <app-delete-confirm-dialog
+        [visible]="showDeleteFolderConfirm()"
+        header="Xác nhận xóa thư mục"
+        entityLabel="Thư mục"
+        [targetName]="deleteFolderTargetLabel()"
+        consequence="cùng mọi thư mục con và liên kết tài liệu sẽ bị xóa."
+        [loading]="deleteFolderLoading()"
+        (cancelled)="onCancelDeleteFolder()"
+        (confirmed)="onConfirmDeleteFolder()"
+      />
+
+      <!-- Popup xác nhận gỡ tài liệu dùng chung toàn hệ thống. -->
+      <app-delete-confirm-dialog
+        [visible]="showRemoveFileConfirm()"
+        header="Xác nhận gỡ tài liệu"
+        entityLabel="Tài liệu"
+        [targetName]="removeFileTargetLabel()"
+        consequence="sẽ bị gỡ khỏi thư mục này."
+        [loading]="removeFileLoading()"
+        (cancelled)="onCancelRemoveFile()"
+        (confirmed)="onConfirmRemoveFile()"
+      />
+
     </div>
   

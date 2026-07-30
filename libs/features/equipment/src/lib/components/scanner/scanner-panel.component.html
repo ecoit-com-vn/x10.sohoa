@@ -1,23 +1,47 @@
 <div class="scanner-panel">
-  <div class="scanner-actions">
+  <div class="scanner-controls">
+
+    <div class="scanner-filename-input">
+
+        <p class="input-label">
+            Tên file lưu sau khi quét
+        </p>
+
+        <div class="filename-box">
+
+            <i class="pi pi-file"></i>
+
+            <input
+                id="scan-filename"
+                type="text"
+                [(ngModel)]="fileName"
+                placeholder="VD: VanBanTrinhDuyet_So1"
+                [disabled]="scanning()"
+            />
+
+            <span>.pdf</span>
+
+        </div>
+
+        <small>Không cần nhập phần mở rộng (.pdf)</small>
+
+    </div>
+
     <button
-      type="button"
-      class="btn-green btn-small"
-      [disabled]="disabled() || scanning()"
-      (click)="startScan()"
+        type="button"
+        class="btn-green btn-small scan-btn"
+        [disabled]="disabled() || scanning()"
+        (click)="startScan()"
     >
-      <i class="pi" [ngClass]="scanning() ? 'pi-spin pi-spinner' : 'pi-print'"></i>
-      {{ scanning() ? 'Đang quét...' : 'Quét tài liệu (PDF)' }}
+        <i class="pi"
+            [ngClass]="scanning() ? 'pi-spin pi-spinner' : 'pi-print'">
+        </i>
+
+        {{ scanning() ? 'Đang quét...' : 'Quét tài liệu (PDF)' }}
+
     </button>
-    <button
-      type="button"
-      class="btn-outlined btn-small"
-      *ngIf="scanning()"
-      (click)="cancelScan()"
-    >
-      <i class="pi pi-times"></i> Hủy
-    </button>
-  </div>
+
+</div>
 
   <p class="scanner-status">
     <i class="pi pi-info-circle"></i>

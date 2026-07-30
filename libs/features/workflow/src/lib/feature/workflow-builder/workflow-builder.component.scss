@@ -6,6 +6,7 @@
       font-size: 0.875rem; color: #374151;
       background: #f5f7fb; min-height: calc(100vh - 56px);
       padding: 20px; position: relative;
+      display: flex; flex-direction: column;
     }
     /* ─── Loading overlay ──────────────────────────────────────── */
     .loading-overlay {
@@ -22,6 +23,7 @@
     .wf-card {
       background: #fff; border-radius: 8px;
       box-shadow: 0 1px 6px rgba(0,0,0,.07); padding: 20px 24px;
+      display: flex; flex-direction: column; flex: 1; min-height: 0;
     }
     /* ─── Breadcrumb ──────────────────────────────────────────── */
     .breadcrumb {
@@ -244,17 +246,24 @@
     .epbuoc-label { font-size: 0.875rem; font-weight: 600; color: #1e293b; }
     .epbuoc-note { font-size: 0.78rem; color: #6b7280; margin-left: 22px; }
     /* ─── BPMN Designer Layout ────────────────────────────────── */
-    .bpmn-section { padding-top: 0; }
+    .bpmn-section {
+      padding-top: 0;
+      flex: 1; min-height: 0;
+      display: flex; flex-direction: column;
+    }
+    // display:flex ở trên có độ đặc hiệu cao hơn display:none mặc định của [hidden] —
+    // phải khai báo lại tường minh để tab ẩn thực sự biến mất, không đè lên tab khác.
+    .bpmn-section[hidden] { display: none; }
     .bpmn-designer-layout {
       display: flex;
-      align-items: flex-start;
+      align-items: stretch;
       gap: 16px;
+      flex: 1; min-height: 500px;
     }
     .bpmn-canvas-area {
       position: relative;
       flex: 1 1 auto;
       min-width: 0;
-      height: 640px;
       border: 1px solid #e5e7eb;
       border-radius: 8px;
       overflow: hidden;
@@ -269,7 +278,6 @@
     .bpmn-config-panel {
       flex: 0 0 380px;
       max-width: 380px;
-      max-height: 640px;
       overflow-y: auto;
       background: #ffffff;
       border: 1px solid #cbd5e1;
@@ -347,16 +355,13 @@
     .assignee-field { position: relative; display: flex; flex-direction: column; gap: 6px; }
     .optional-badge { font-size: 0.7rem; font-weight: 400; color: #94a3b8; margin-left: 4px; }
     .assignee-input-wrapper { position: relative; width: 100%; }
-    .clear-assignee-btn {
-      position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
-      background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 1rem;
-    }
-    .clear-assignee-btn:hover { color: #ef4444; }
 
     .user-dropdown {
-      position: absolute; top: 100%; left: 0; right: 0; z-index: 1000;
+      /* position: fixed theo toạ độ viewport (xem assigneeDropdownStyle) để không bị
+         overflow-y: auto của .bpmn-config-panel cắt mất — không phụ thuộc vị trí trong DOM. */
+      position: fixed; z-index: 3000;
       background: #fff; border: 1px solid #cbd5e1; border-radius: 6px;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.1); max-height: 180px; overflow-y: auto; margin-top: 2px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.1); max-height: 180px; overflow-y: auto;
     }
     .user-option {
       padding: 8px 12px; display: flex; align-items: center; gap: 8px;
@@ -366,11 +371,17 @@
     .user-fullname { font-weight: 600; color: #1e293b; }
     .user-username { color: #64748b; font-size: 0.75rem; }
     .loading-hint { font-size: 0.75rem; color: #002D72; margin-top: 2px; }
+    .assignee-chips { display: flex; flex-wrap: wrap; gap: 6px; }
     .assigned-user-badge {
       display: inline-flex; align-items: center; gap: 6px;
       padding: 4px 10px; background: #dcfce7; color: #15803d;
       border: 1px solid #bbf7d0; border-radius: 20px; font-size: 0.8rem; font-weight: 600;
     }
+    .chip-remove-btn {
+      display: inline-flex; align-items: center; background: none; border: none;
+      color: #15803d; opacity: 0.7; cursor: pointer; font-size: 0.9rem; padding: 0;
+    }
+    .chip-remove-btn:hover { opacity: 1; color: #ef4444; }
 
     .config-panel-empty {
       display: flex; align-items: center; justify-content: center; gap: 10px;

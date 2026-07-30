@@ -9,7 +9,7 @@ import {
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { provideHttpClient, withInterceptors, withFetch } from '@angular/common/http';
 import { providePrimeNG } from 'primeng/config';
-import { MessageService, ConfirmationService } from 'primeng/api';
+import { MessageService } from 'primeng/api';
 import Aura from '@primeuix/themes/aura';
 
 import { appRoutes } from './app.routes';
@@ -28,7 +28,6 @@ export const appConfig: ApplicationConfig = {
     provideAnimationsAsync(),
     provideHttpClient(withInterceptors([authInterceptor, authRefreshInterceptor, httpErrorInterceptor]), withFetch()),
     MessageService,
-    ConfirmationService,
     providePrimeNG({
         theme: {
             preset: Aura,

@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpClientModule } from '@angular/common/http';
@@ -11,8 +11,12 @@ import { DialogModule } from 'primeng/dialog';
 import { ProgressBarModule } from 'primeng/progressbar';
 import { TooltipModule } from 'primeng/tooltip';
 import { MessageService } from 'primeng/api';
-import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
+import {
+  DeleteConfirmDialogComponent,
+  WfBreadcrumbComponent
+} from '@sohoa.frontend/shared/layout';
 import { environment } from '@env/environment';
+import { finalize } from 'rxjs';
 
 // ─── Models ─────────────────────────────────────────────────────────────────
 
@@ -64,7 +68,8 @@ interface Statistics {
   imports: [
     CommonModule, FormsModule, HttpClientModule,
     TableModule, ButtonModule, CardModule, ToastModule,
-    DialogModule, ProgressBarModule, TooltipModule, WfBreadcrumbComponent
+    DialogModule, ProgressBarModule, TooltipModule, WfBreadcrumbComponent,
+    DeleteConfirmDialogComponent
   ],
   providers: [MessageService],
   templateUrl: './ocr-training.component.html',
@@ -93,8 +98,14 @@ export class OcrTrainingComponent implements OnInit {
   showUploadDialog = false;
   showLabelDialog = false;
   showVerifyDialog = false;
-  showDeleteDialog = false;
   selectedItem: OcrTrainingItem | null = null;
+
+  showDeleteConfirm = signal(false);
+  deleteTarget = signal<OcrTrainingItem | null>(null);
+  deleteLoading = signal(false);
+
+  // Chuẩn hóa tên tệp huấn luyện hiển thị trong popup dùng chung.
+  readonly deleteTargetLabel = computed(() => this.deleteTarget()?.fileName ?? '');
 
   // Upload
   selectedFile: File | null = null;
@@ -300,29 +311,48 @@ export class OcrTrainingComponent implements OnInit {
   }
 
   confirmDelete(item: OcrTrainingItem): void {
-    this.selectedItem = item;
-    this.showDeleteDialog = true;
+    this.deleteTarget.set(item);
+    this.showDeleteConfirm.set(true);
   }
 
   doDelete(): void {
-    if (!this.selectedItem) return;
-    this.http.delete(`${this.API_BASE}/${this.selectedItem.id}`).subscribe({
-      next: () => {
-        this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã xóa bản ghi dữ liệu huấn luyện.' });
-        this.showDeleteDialog = false;
-        this.loadData();
-        this.loadStatistics();
-      },
-      error: (err) => {
-        console.error('Delete error', err);
-        this.messageService.add({ 
-          severity: 'error', 
-          summary: 'Lỗi', 
-          detail: 'Xóa bản ghi dữ liệu huấn luyện thất bại.' 
-        });
-        this.showDeleteDialog = false;
-      }
-    });
+    const target = this.deleteTarget();
+
+    // Chặn request không hợp lệ hoặc gửi trùng.
+    if (!target || this.deleteLoading()) {
+      return;
+    }
+
+    this.deleteLoading.set(true);
+    this.http.delete(`${this.API_BASE}/${target.id}`)
+      .pipe(finalize(() => this.deleteLoading.set(false)))
+      .subscribe({
+        next: () => {
+          this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã xóa bản ghi dữ liệu huấn luyện.' });
+          this.showDeleteConfirm.set(false);
+          this.deleteTarget.set(null);
+          this.loadData();
+          this.loadStatistics();
+        },
+        error: (err) => {
+          console.error('Delete error', err);
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi',
+            detail: err?.error?.message || err?.message || 'Xóa bản ghi dữ liệu huấn luyện thất bại.'
+          });
+        }
+      });
+  }
+
+  onCancelDelete(): void {
+    // Không cho đóng popup khi request xóa đang được xử lý.
+    if (this.deleteLoading()) {
+      return;
+    }
+
+    this.showDeleteConfirm.set(false);
+    this.deleteTarget.set(null);
   }
 
   resetUpload(): void {

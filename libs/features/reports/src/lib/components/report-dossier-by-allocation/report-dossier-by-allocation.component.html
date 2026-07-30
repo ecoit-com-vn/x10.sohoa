@@ -2,7 +2,7 @@
 
 <div class="wf-page dossier-report-page">
   <div class="breadcrumb-container">
-    <wf-breadcrumb [suffix]="'Báo cáo thống kê hồ sơ nhập liệu theo phân bổ hồ sơ'"></wf-breadcrumb>
+    <wf-breadcrumb [suffix]="reportTitle"></wf-breadcrumb>
   </div>
 
   <div class="filter-card">
@@ -66,7 +66,7 @@
           <i class="pi pi-search"></i> Tìm kiếm
         </button>
         <button
-          *ngIf="activeTab() === 'list'"
+          *ngIf="activeTab() === 'list' && !inputOfficerMode"
           type="button"
           class="btn-green"
           (click)="exportExcel()"
