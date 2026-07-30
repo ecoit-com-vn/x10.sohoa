@@ -1,11 +1,11 @@
-import { Component, OnInit, signal, computed, effect } from '@angular/core';
+import { Component, OnInit, signal, computed } from '@angular/core';
 import {
   DeleteConfirmDialogComponent,
   WfBreadcrumbComponent
 } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { DialogModule } from 'primeng/dialog';
 import { ToastModule } from 'primeng/toast';
 import { Menu, MenuModule } from 'primeng/menu';
@@ -35,8 +35,11 @@ import { buildMenuPermissionTree as buildMenuPermissionTreeFromLookup } from '..
 export class SystemPermissionGroupManagement implements OnInit {
   roles = signal<any[]>([]);
   searchKeyword = signal<string>('');
+  filterIsActive = signal<boolean | null>(null);
+  appliedKeyword = signal<string>('');
+  appliedIsActive = signal<boolean | null>(null);
   totalCount = signal<number>(0);
-  
+
   currentView = signal<'list' | 'add' | 'edit' | 'permission'>('list');
   dialogHeader = signal<string>('');
   isEdit = signal<boolean>(false);
@@ -46,7 +49,7 @@ export class SystemPermissionGroupManagement implements OnInit {
   activeRoleForPermission = signal<any>(null);
   systemPermissions = signal<any[]>([]);
   selectedPermissionCodes = signal<string[]>([]);
-  
+
   loading = signal<boolean>(false);
   saving = signal<boolean>(false);
   savingPermissions = signal<boolean>(false);
@@ -118,12 +121,14 @@ export class SystemPermissionGroupManagement implements OnInit {
   nextPage() {
     if (this.currentPage() < this.totalPages()) {
       this.currentPage.update(p => p + 1);
+      this.loadRoles();
     }
   }
 
   prevPage() {
     if (this.currentPage() > 1) {
       this.currentPage.update(p => p - 1);
+      this.loadRoles();
     }
   }
 
@@ -131,33 +136,21 @@ export class SystemPermissionGroupManagement implements OnInit {
     const p = Number(page);
     if (p >= 1 && p <= this.totalPages()) {
       this.currentPage.set(p);
+      this.loadRoles();
     }
   }
 
   onPageSizeChange(event: any) {
     this.pageSize.set(Number(event.target.value));
     this.currentPage.set(1);
+    this.loadRoles();
   }
 
   constructor(
     private http: HttpClient,
     private messageService: MessageService,
     public authService: AuthService
-  ) {
-    effect(() => {
-      const kw = this.searchKeyword();
-      this.currentPage.set(1);
-    }, { allowSignalWrites: true });
-
-    effect(() => {
-      const page = this.currentPage();
-      const size = this.pageSize();
-      const kw = this.searchKeyword();
-      this.loadRoles();
-    }, { allowSignalWrites: true });
-
-
-  }
+  ) {}
 
   ngOnInit() {
     this.loadRoles();
@@ -169,8 +162,8 @@ export class SystemPermissionGroupManagement implements OnInit {
     event.stopPropagation();
     this.actionMenuItems = [
       ...(this.authService.hasPermission('SYSTEM_PERMISSION_GROUP_MANAGE') || this.authService.hasPermission('PERMISSION_MANAGE') ? [{ label: 'Phân quyền', title:'Phân quyền', icon: 'pi pi-shield', command: () => this.onAssignPermissions(role) }] : []),
-      ...(this.authService.hasPermission('SYSTEM_PERMISSION_GROUP_EDIT') || this.authService.hasPermission('SYSTEM_PERMISSION_GROUP_MANAGE') ? [{ label: role.isActive ? 'Khóa nhóm quyền' : 'Mở khóa nhóm quyền', title: role.isActive ? 'Khóa nhóm quyền' : 'Mở khóa nhóm quyền', icon: role.isActive ? 'pi pi-lock color-red' : 'pi pi-lock-open color-blue', command: () => this.onToggleStatusRequest(role) }] : []),
       ...(this.authService.hasPermission('SYSTEM_PERMISSION_GROUP_EDIT') || this.authService.hasPermission('SYSTEM_PERMISSION_GROUP_MANAGE') ? [{ label: 'Chỉnh sửa', title:'Chỉnh sửa', icon: 'pi pi-pencil color-blue', command: () => this.onEdit(role) }] : []),
+      ...(this.authService.hasPermission('SYSTEM_PERMISSION_GROUP_EDIT') || this.authService.hasPermission('SYSTEM_PERMISSION_GROUP_MANAGE') ? [{ label: role.isActive ? 'Khóa' : 'Mở khóa', title: role.isActive ? 'Khóa nhóm quyền' : 'Mở khóa nhóm quyền', icon: role.isActive ? 'pi pi-lock color-red' : 'pi pi-lock-open color-blue', command: () => this.onToggleStatusRequest(role) }] : []),
       ...(this.authService.hasPermission('SYSTEM_PERMISSION_GROUP_DELETE') || this.authService.hasPermission('SYSTEM_PERMISSION_GROUP_MANAGE') ? [{ label: 'Xóa', title:'Xóa', icon: 'pi pi-trash color-red', command: () => this.onDelete(role) }] : []),
     ];
     menu.toggle(event);
@@ -178,7 +171,21 @@ export class SystemPermissionGroupManagement implements OnInit {
 
   loadRoles() {
     this.loading.set(true);
-    this.http.get<any>(`${this.apiUrl}?page=${this.currentPage()}&pageSize=${this.pageSize()}&keyword=${this.searchKeyword() || ''}`)
+    const keyword = this.appliedKeyword();
+    const isActive = this.appliedIsActive();
+    let params = new HttpParams()
+      .set('page', this.currentPage())
+      .set('pageSize', this.pageSize());
+
+    if (keyword) {
+      params = params.set('keyword', keyword);
+    }
+
+    if (isActive !== null) {
+      params = params.set('isActive', isActive);
+    }
+
+    this.http.get<any>(this.apiUrl, { params })
       .pipe(finalize(() => this.loading.set(false)))
       .subscribe({
         next: (res) => {
@@ -229,6 +236,19 @@ export class SystemPermissionGroupManagement implements OnInit {
   }
 
   onSearch() {
+    const keyword = this.searchKeyword().trim();
+    this.searchKeyword.set(keyword);
+    this.appliedKeyword.set(keyword);
+    this.appliedIsActive.set(this.filterIsActive());
+    this.currentPage.set(1);
+    this.loadRoles();
+  }
+
+  onResetSearch(): void {
+    this.searchKeyword.set('');
+    this.filterIsActive.set(null);
+    this.appliedKeyword.set('');
+    this.appliedIsActive.set(null);
     this.currentPage.set(1);
     this.loadRoles();
   }
@@ -474,6 +494,11 @@ export class SystemPermissionGroupManagement implements OnInit {
     return codes.length > 0 && codes.every((code) => this.isPermissionChecked(code));
   }
 
+  isPartiallyChecked(codes: string[]): boolean {
+    const checkedCount = codes.filter((code) => this.isPermissionChecked(code)).length;
+    return checkedCount > 0 && checkedCount < codes.length;
+  }
+
   getPermissionInputId(parentId: number, subId: number | null, code: string): string {
     return `perm-${parentId}-${subId ?? 'root'}-${code}`;
   }
@@ -518,7 +543,7 @@ export class SystemPermissionGroupManagement implements OnInit {
   onSavePermissions() {
     const activeRole = this.activeRoleForPermission();
     if (!activeRole) return;
-    
+
     this.savingPermissions.set(true);
     this.http.post(`${this.apiUrl}/${activeRole.id}/permissions`, this.selectedPermissionCodes())
       .pipe(finalize(() => this.savingPermissions.set(false)))
