@@ -94,8 +94,8 @@ export class UploadConfigComponent implements OnInit {
   openActionMenu(config: any, event: Event, menu: Menu): void {
     event.stopPropagation();
     this.actionMenuItems = [
-      ...(this.authService.hasPermission('UPLOAD_CONFIG_EDIT') ? [{ label: config.isActive ? 'Khóa cấu hình' : 'Mở khóa cấu hình', title: config.isActive ? 'Khóa cấu hình' : 'Mở khóa cấu hình', icon: config.isActive ? 'pi pi-lock color-red' : 'pi pi-lock-open color-blue', command: () => this.onToggleStatusRequest(config) }] : []),
       ...(this.authService.hasPermission('UPLOAD_CONFIG_EDIT') ? [{ label: 'Chỉnh sửa', title:'Chỉnh sửa', icon: 'pi pi-pencil color-blue', command: () => this.onEdit(config) }] : []),
+      ...(this.authService.hasPermission('UPLOAD_CONFIG_EDIT') ? [{ label: config.isActive ? 'Khóa cấu hình' : 'Mở khóa cấu hình', title: config.isActive ? 'Khóa cấu hình' : 'Mở khóa cấu hình', icon: config.isActive ? 'pi pi-lock color-red' : 'pi pi-lock-open color-blue', command: () => this.onToggleStatusRequest(config) }] : []),
       ...(this.authService.hasPermission('UPLOAD_CONFIG_DELETE') ? [{ label: 'Xóa', title:'Xóa', icon: 'pi pi-trash color-red', command: () => this.onDelete(config) }] : []),
     ];
     menu.toggle(event);
