@@ -235,19 +235,31 @@ public class DossierService : IDossierService
 
     // ===== CRUD =====
 
-    public async Task<(IEnumerable<DossierListItemDto> Items, int TotalCount)> GetPagedAsync(DossierFilterDto filter)
+    public async Task<(IEnumerable<DossierListItemDto> Items, int TotalCount)>
+       GetPagedAsync(DossierFilterDto filter)
     {
+        // Chuẩn hóa từ khóa một lần trước khi phân nhánh repository.
+        filter.Keyword = string.IsNullOrWhiteSpace(filter.Keyword)
+            ? null
+            : filter.Keyword.Trim();
+
         if (filter.UnitId.HasValue)
         {
-            var units = await _equipmentRepository.GetOrganizationUnitsHierarchicalAsync(filter.UnitId);
-            filter.UnitScopeIds = units.Select(u => u.Id).Distinct().ToList();
+            var units = await _equipmentRepository
+                .GetOrganizationUnitsHierarchicalAsync(filter.UnitId);
+
+            filter.UnitScopeIds = units
+                .Select(unit => unit.Id)
+                .Distinct()
+                .ToList();
         }
 
         if (string.Equals(filter.Tab, "draft", StringComparison.OrdinalIgnoreCase) &&
             string.Equals(filter.MenuScope, "creator", StringComparison.OrdinalIgnoreCase) &&
             !string.IsNullOrEmpty(filter.UserId))
         {
-            return await _dossierRepository.GetDraftPagedFromDbAsync(filter, filter.UserId);
+            return await _dossierRepository
+                .GetDraftPagedFromDbAsync(filter, filter.UserId);
         }
 
         return await _dossierSearchRepository.GetPagedAsync(filter);

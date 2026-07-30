@@ -50,8 +50,8 @@ public class SystemPermissionGroupsController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] string? keyword = null)
     {
-        var (items, totalCount) = await _permissionGroupRepository.GetPagedAsync(PermissionGroupTypes.System, page, pageSize, keyword);
-        return Ok(new { items, totalCount, page, pageSize });
+        var (items, totalCount, allCount) = await _permissionGroupRepository.GetPagedAsync(PermissionGroupTypes.System, page, pageSize, keyword);
+        return Ok(new { items, totalCount, allCount, page, pageSize });
     }
 
     [HttpGet("{id}")]

@@ -23,7 +23,7 @@ namespace EvnHanoi.WorkflowService.Models
         /// <summary>Bắt buộc người xử lý tiếp theo phải cùng đơn vị với người đang chuyển bước.</summary>
         public bool RequireSameUnit { get; set; }
 
-        /// <summary>ID người dùng được giao việc đích danh. Nếu có thì bỏ qua bước chọn người trên UI.</summary>
+        /// <summary>ID "Người cụ thể" — 1 ID hoặc danh sách nhiều ID (phân cách bởi dấu phẩy) nếu bước cấu hình nhiều người.</summary>
         public string? AssigneeId { get; set; }
 
         [JsonIgnore]

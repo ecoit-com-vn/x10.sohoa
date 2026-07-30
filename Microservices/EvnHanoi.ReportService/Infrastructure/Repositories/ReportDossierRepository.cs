@@ -911,6 +911,39 @@ public class ReportDossierRepository : IReportDossierRepository
         return await _connection.QueryAsync<ReportInputUserLookupDto>(sql, parameters);
     }
 
+    public async Task<IEnumerable<ReportInputUserLookupDto>> GetDossierByInputOfficerUsersAsync(
+        bool isAdmin, long? userUnitId)
+    {
+        EnsureOpen();
+        var parameters = new DynamicParameters();
+        var sql = @"
+            SELECT
+                d.CreatorUsername AS Id,
+                NVL(MAX(d.CreatorName), NVL(MAX(u.FullName), d.CreatorUsername)) AS Name
+            FROM DOSSIERS d
+            INNER JOIN INFRASTRUCTURE i ON d.InfrastructureId = i.ID
+            LEFT JOIN APP_USER u ON LOWER(TRIM(u.UserName)) = LOWER(TRIM(d.CreatorUsername))
+                AND NVL(u.IsDeleted, 0) = 0
+            WHERE d.IsDeleted = 0
+              AND d.STATUS_ID = 6
+              AND d.PUBLISHSTATUSID = 2
+              AND d.CreatorUsername IS NOT NULL";
+
+        if (!isAdmin && userUnitId.HasValue)
+        {
+            sql += @" AND i.UNIT_ID IN (
+                SELECT Id FROM ORGANIZATION_UNIT START WITH Id = :UnitId CONNECT BY PRIOR Id = ParentId
+            )";
+            parameters.Add("UnitId", userUnitId.Value);
+        }
+
+        sql += @"
+            GROUP BY d.CreatorUsername
+            ORDER BY Name";
+
+        return await _connection.QueryAsync<ReportInputUserLookupDto>(sql, parameters);
+    }
+
     public async Task<IEnumerable<DossierByAllocationChartStatDto>> GetDossierByAllocationChartStatsAsync(
         DossierByAllocationFilterDto filter,
         bool isAdmin,
@@ -940,8 +973,12 @@ public class ReportDossierRepository : IReportDossierRepository
             LEFT JOIN DOCUMENT_VERSIONS dv ON dv.DOCUMENT_ID = doc.ID AND dv.IS_DELETED = 0
             WHERE d.IsDeleted = 0
               AND d.STATUS_ID = 6
-              AND d.PUBLISHSTATUSID = 2
-              AND NVL(d.KIND_ID, 2) = 2" + GetReportYearSqlClause(allYears);
+              AND d.PUBLISHSTATUSID = 2";
+
+        if (!filter.IncludeAllDossierKinds)
+            sql += " AND NVL(d.KIND_ID, 2) = 2";
+
+        sql += GetReportYearSqlClause(allYears);
 
         if (effectiveUnitId.HasValue)
         {
@@ -1043,6 +1080,8 @@ public class ReportDossierRepository : IReportDossierRepository
             {
                 Stt = stt++,
                 DossierId = Convert.ToString(r.DOSSIERID ?? r.DossierId),
+                DossierCode = GetFormTextValue(formDataJson, "CODE", "MAHOSO", "MA_HO_SO"),
+                DossierTitle = GetFormTextValue(formDataJson, "TITLE", "TIEUDE", "TIEUDEHOSO", "TENHOSO"),
                 InfrastructureName = Convert.ToString(r.INFRASTRUCTURENAME ?? r.InfrastructureName),
                 DossierTypeName = Convert.ToString(r.DOSSIERTYPENAME ?? r.DossierTypeName),
                 DocumentCount = Convert.ToInt64(r.DOCUMENTCOUNT ?? r.DocumentCount ?? 0),
@@ -1145,6 +1184,32 @@ public class ReportDossierRepository : IReportDossierRepository
             Page = page,
             PageSize = pageSize
         };
+    }
+
+    public Task<IEnumerable<DossierByAllocationChartStatDto>> GetDossierByInputOfficerChartStatsAsync(
+        DossierByInputOfficerFilterDto filter, bool isAdmin, long? userUnitId)
+        => GetDossierByAllocationChartStatsAsync(BuildInputOfficerSharedFilter(filter, isAdmin, userUnitId), isAdmin, userUnitId);
+
+    public Task<IEnumerable<DossierByAllocationRatioStatDto>> GetDossierByInputOfficerRatioStatsAsync(
+        DossierByInputOfficerFilterDto filter, bool isAdmin, long? userUnitId)
+        => GetDossierByAllocationRatioStatsAsync(BuildInputOfficerSharedFilter(filter, isAdmin, userUnitId), isAdmin, userUnitId);
+
+    public Task<ReportStatisticsDossierListResponseDto> GetDossierByInputOfficerListAsync(
+        DossierByInputOfficerFilterDto filter, bool isAdmin, long? userUnitId)
+        => GetDossierByAllocationListAsync(BuildInputOfficerSharedFilter(filter, isAdmin, userUnitId), isAdmin, userUnitId);
+
+    public Task<ReportStatisticsCreatorGridResponseDto> GetDossierByInputOfficerCreatorGridAsync(
+        DossierByInputOfficerFilterDto filter, bool isAdmin, long? userUnitId)
+        => GetDossierByAllocationCreatorGridAsync(BuildInputOfficerSharedFilter(filter, isAdmin, userUnitId), isAdmin, userUnitId);
+
+    private static DossierByAllocationFilterDto BuildInputOfficerSharedFilter(
+        DossierByInputOfficerFilterDto filter, bool isAdmin, long? userUnitId)
+    {
+        var sharedFilter = filter.ToSharedFilter();
+        if (!isAdmin)
+            sharedFilter.UnitId = userUnitId;
+
+        return sharedFilter;
     }
 
     public async Task<IEnumerable<DossierByVoltageGridChartStatDto>> GetDossierByVoltageGridChartStatsAsync(
@@ -1583,8 +1648,10 @@ public class ReportDossierRepository : IReportDossierRepository
         var baseWhere = @"
             d.IsDeleted = 0
             AND d.STATUS_ID = 6
-            AND d.PUBLISHSTATUSID = 2
-            AND NVL(d.KIND_ID, 2) = 2";
+            AND d.PUBLISHSTATUSID = 2";
+
+        if (!filter.IncludeAllDossierKinds)
+            baseWhere += " AND NVL(d.KIND_ID, 2) = 2";
 
         if (effectiveUnitId.HasValue)
         {
@@ -1747,6 +1814,38 @@ public class ReportDossierRepository : IReportDossierRepository
         }
 
         return result;
+    }
+
+    private static string GetFormTextValue(string? formDataJson, params string[] aliases)
+    {
+        if (string.IsNullOrWhiteSpace(formDataJson) || aliases.Length == 0)
+            return string.Empty;
+
+        try
+        {
+            using var document = JsonDocument.Parse(formDataJson);
+            if (document.RootElement.ValueKind != JsonValueKind.Object)
+                return string.Empty;
+
+            foreach (var property in document.RootElement.EnumerateObject())
+            {
+                if (!aliases.Any(alias => string.Equals(property.Name, alias, StringComparison.OrdinalIgnoreCase)))
+                    continue;
+
+                return property.Value.ValueKind switch
+                {
+                    JsonValueKind.String => property.Value.GetString() ?? string.Empty,
+                    JsonValueKind.Number => property.Value.GetRawText(),
+                    _ => string.Empty
+                };
+            }
+        }
+        catch (JsonException)
+        {
+            // Dữ liệu form cũ không hợp lệ: trả rỗng để báo cáo vẫn tải được.
+        }
+
+        return string.Empty;
     }
 
     /// <summary>

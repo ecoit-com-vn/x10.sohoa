@@ -126,13 +126,14 @@ public abstract class DossierWorkflowControllerBase : ControllerBase
                 stepName = step2.StepName,
                 requiredRole = step2.RequiredRole,
                 // Hiện ô chọn người xử lý khi bước có bất kỳ cấu hình nào liên quan đến việc
-                // xác định người xử lý (kể cả giao việc đích danh — khi đó FE hiện đúng 1 người,
-                // đã khoá sẵn, để người dùng biết hồ sơ sẽ được giao cho ai).
+                // xác định người xử lý (kể cả "Người cụ thể" — khi đó FE hiện đúng danh sách
+                // những người đã cấu hình, chọn sẵn mặc định nếu chỉ có 1 người).
                 requiresNextAssignee = !string.IsNullOrEmpty(step2.RequiredRole)
                                        || !string.IsNullOrEmpty(step2.SystemPermissionGroupIds)
                                        || !string.IsNullOrEmpty(step2.UnitPermissionGroupIds)
                                        || !string.IsNullOrEmpty(step2.AssigneeId),
-                // Cờ và dữ liệu bổ sung cho Frontend lọc danh sách người xử lý
+                // Cờ và dữ liệu bổ sung cho Frontend lọc danh sách người xử lý.
+                // staticAssigneeId: có thể là 1 ID hoặc CSV nhiều ID ("Người cụ thể" cho phép chọn nhiều người).
                 requireSameUnit = step2.RequireSameUnit,
                 systemGroupIds = step2.SystemPermissionGroupIds,
                 unitGroupIds = step2.UnitPermissionGroupIds,
