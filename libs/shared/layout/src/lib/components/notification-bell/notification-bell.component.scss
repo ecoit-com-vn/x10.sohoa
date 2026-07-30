@@ -1,16 +1,39 @@
 .notification-container {
   position: relative;
   display: inline-block;
+  overflow: visible;
 }
 ::ng-deep .notification-badge {
   position: absolute !important;
-  top: -5px;
-  right: -5px;
+  top: -2px;
+  right: -2px;
+  pointer-events: none;
+  z-index: 1;
+  min-width: 1.1rem !important;
+  height: 1.1rem !important;
+  line-height: 1.1rem !important;
+  font-size: 0.65rem !important;
+  padding: 0 0.3rem !important;
 }
 .notification-item {
   border-bottom: 1px solid #dee2e6;
-  
+  cursor: pointer;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+
   &:last-child {
+    margin-bottom: 0;
     border-bottom: none;
   }
+}
+.notification-time {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.7rem;
+  color: #6c757d;
+}
+::ng-deep .notification-delete-btn.p-button {
+  width: 1.75rem;
+  height: 1.75rem;
+  flex-shrink: 0;
 }
