@@ -67,6 +67,7 @@ import { DossierMenuScope } from '../utils/dossier-status.util';
         [dossierId]="selectedDossierId()"
         [kindId]="kindId()"
         [usePublishApi]="menuScope() === 'publisher'"
+        [hideInfrastructureField]="menuScope() === 'publisher'"
         (cancel)="onBackToList()"
         (saved)="onSaved($event)"
       ></app-dossier-form>
@@ -291,6 +292,11 @@ export class DossierManagementComponent implements OnInit {
 
 
   onSaved(id: string): void {
+
+    if (this.menuScope() === 'publisher') {
+      this.onBackToList();
+      return;
+    }
 
     void this.router.navigate(['/dossier-management', ...this.routeSegments(), id]);
 

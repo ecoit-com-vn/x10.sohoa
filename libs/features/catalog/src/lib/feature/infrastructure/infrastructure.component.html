@@ -6,8 +6,12 @@
       <wf-breadcrumb [viewMode]="currentView() === 'detail' ? null : currentView()" [leafLabel]="pageTitle()"
         [customItems]="currentView() === 'detail' ? detailBreadcrumbItems() : null" (listClick)="goBack()" />
   </div>
-  <div class="toolbar-right" *ngIf="canCreate()">
-    <button class="btn-green" (click)="onAddNew()">
+  <div class="toolbar-right" *ngIf="canCreate() || currentView() === 'detail'" style="display: flex; align-items: center; gap: 8px;">
+    <button *ngIf="currentView() === 'detail'" class="btn-outlined btn-small" (click)="goBack()"
+      style="height: 36px; padding: 0 12px; border-radius: 6px; display: inline-flex; align-items: center; gap: 6px;">
+      <i class="pi pi-arrow-left"></i> Quay lại
+    </button>
+    <button *ngIf="canCreate()" class="btn-green" (click)="onAddNew()">
       <i class="pi pi-plus"></i> Thêm mới
     </button>
     </div>
@@ -316,7 +320,7 @@
     <div *ngIf="currentView() === 'detail'" class="animate-fade-in sub-view-container">
 
       <!-- Tab Bar (đặt trực tiếp ở đầu card) -->
-      <div class="tab-bar" style="margin-bottom: 24px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+      <div class="tab-bar" style="margin-bottom: 10px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
         <div style="display: flex; gap: 8px;">
           <div class="tab-item" [class.tab-active]="activeTab() === 0" (click)="activeTab.set(0)"
                style="padding: 12px 16px; cursor: pointer; font-weight: 500; font-size: 0.95rem; display: flex; align-items: center; gap: 6px; border-bottom: 2px solid transparent;"
@@ -336,11 +340,6 @@
                [style.color]="activeTab() === 2 ? '#2563eb' : '#64748b'">
             <i class="pi pi-folder-open"></i> Hồ sơ kỹ thuật
           </div>
-        </div>
-        <div style="padding-right: 8px;">
-          <button class="btn-outlined btn-small" (click)="goBack()" style="height: 34px; padding: 0 12px; border-radius: 6px; display: inline-flex; align-items: center; gap: 6px; margin-bottom: 4px;">
-            <i class="pi pi-arrow-left"></i> Quay lại
-          </button>
         </div>
       </div>
 
@@ -570,26 +569,22 @@
   <!-- ======= TAB 1: TÀI LIỆU ĐÍNH KÈM ======= -->
       <div *ngIf="activeTab() === 1" class="tab-content animate-fade-in attachment-workspace">
         <section class="attachment-list-pane">
-          <div class="attachment-list-header">
-            <div>
-              <span class="attachment-list-title">{{ selectedAttachmentFolder()?.name || 'Tài liệu đính kèm' }}</span>
-              <small>{{ selectedAttachmentDocuments().length }} tài liệu</small>
+          
+          <div class="attachment-filter-card">
+            <div class="attachment-list-filters">
+              <label>
+                <span>Từ khóa</span>
+                <input type="text" placeholder="Nhập từ khóa tìm kiếm" [ngModel]="attachmentDocumentKeyword()"
+                  (ngModelChange)="attachmentDocumentKeyword.set($event); onAttachmentDocumentFiltersChange()" />
+              </label>
+              <label>
+                <span>Thiết bị</span>
+                <p-select [options]="attachmentEquipmentOptions()" [ngModel]="attachmentSelectedEquipmentId()"
+                  (ngModelChange)="attachmentSelectedEquipmentId.set($event); onAttachmentDocumentFiltersChange()" optionLabel="name" optionValue="id"
+                  placeholder="-- Chọn thiết bị --" [filter]="true" [showClear]="true" appendTo="body">
+                </p-select>
+              </label>
             </div>
-          </div>
-
-          <div class="attachment-list-filters">
-            <label>
-              <span>Từ khóa</span>
-              <input type="text" placeholder="Tìm theo tên tài liệu" [ngModel]="attachmentDocumentKeyword()"
-                (ngModelChange)="attachmentDocumentKeyword.set($event)" />
-            </label>
-            <label>
-              <span>Thiết bị</span>
-              <p-select [options]="attachmentEquipmentOptions()" [ngModel]="attachmentSelectedEquipmentId()"
-                (ngModelChange)="attachmentSelectedEquipmentId.set($event)" optionLabel="name" optionValue="id"
-                placeholder="-- Chọn thiết bị --" [filter]="true" [showClear]="true" appendTo="body">
-              </p-select>
-            </label>
           </div>
 
           <div *ngIf="loadingAttachmentDocuments()" class="attachment-list-loading">
@@ -608,8 +603,8 @@
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let item of selectedAttachmentDocuments(); let i = index">
-                  <td>{{ i + 1 }}</td>
+                <tr *ngFor="let item of pagedAttachmentDocuments(); let i = index">
+                  <td>{{ (attachmentDocumentPage() - 1) * attachmentDocumentPageSize() + i + 1 }}</td>
                   <td>
                     <button type="button" class="attachment-document-link"
                       (click)="openTechnicalDocumentPreview(item.dossier.id, item.document)"
@@ -629,18 +624,29 @@
               Chọn một thư mục để xem danh sách tài liệu.
             </div>
           </div>
+
+          <div *ngIf="selectedAttachmentDocuments().length > 0" class="attachment-pagination">
+            <span>Hiển thị {{ pagedAttachmentDocuments().length }} trên tổng số {{ selectedAttachmentDocuments().length }} bản ghi</span>
+            <div class="attachment-pagination-controls">
+              <button type="button" (click)="changeAttachmentDocumentPage(attachmentDocumentPage() - 1)" [disabled]="attachmentDocumentPage() === 1"><i class="pi pi-angle-left"></i></button>
+              <button type="button" *ngFor="let page of getVisibleDocumentPages(attachmentDocumentPage(), attachmentDocumentTotalPages())"
+                [class.active]="page === attachmentDocumentPage()" (click)="changeAttachmentDocumentPage(page)">{{ page }}</button>
+              <button type="button" (click)="changeAttachmentDocumentPage(attachmentDocumentPage() + 1)" [disabled]="attachmentDocumentPage() === attachmentDocumentTotalPages()"><i class="pi pi-angle-right"></i></button>
+              <select [ngModel]="attachmentDocumentPageSize()" (change)="onAttachmentDocumentPageSizeChange($event)">
+                <option [value]="10">10</option><option [value]="20">20</option><option [value]="50">50</option>
+              </select>
+            </div>
+          </div>
         </section>
 
         <aside class="attachment-tree-pane">
-          <div class="attachment-tree-title"><i class="pi pi-folder-open"></i> HỒ SƠ KỸ THUẬT</div>
+          <div class="attachment-tree-title"><i class="pi pi-folder"></i> TÀI LIỆU ĐÍNH KÈM</div>
           <div *ngIf="attachmentDocumentFolders().length === 0 && !loadingAttachmentDocuments()" class="attachment-tree-empty">
             Chưa có thư mục tài liệu.
           </div>
 
           <div class="attachment-tree-nodes">
             <button type="button" class="attachment-tree-station" (click)="toggleAttachmentStationFolder()">
-              <i class="pi" [class.pi-chevron-right]="!attachmentStationFolderExpanded()"
-                [class.pi-chevron-down]="attachmentStationFolderExpanded()"></i>
               <i class="pi" [class.pi-folder]="!attachmentStationFolderExpanded()"
                 [class.pi-folder-open]="attachmentStationFolderExpanded()"></i>
               <span>{{ currentItem().name || 'Trạm biến áp' }}</span>
@@ -661,26 +667,21 @@
       <!-- ======= TAB 2: HỒ SƠ LIÊN QUAN ======= -->
       <div *ngIf="activeTab() === 2" class="tab-content animate-fade-in attachment-workspace">
         <section class="attachment-list-pane">
-          <div class="attachment-list-header">
-            <div>
-              <span class="attachment-list-title">{{ selectedTechnicalFolder()?.name || 'Hồ sơ kỹ thuật' }}</span>
-              <small>{{ selectedTechnicalDocuments().length }} tài liệu</small>
+          <div class="attachment-filter-card">
+            <div class="attachment-list-filters">
+              <label>
+                <span>Từ khóa</span>
+                <input type="text" placeholder="Nhập từ khóa tìm kiếm" [ngModel]="technicalDocumentKeyword()"
+                  (ngModelChange)="technicalDocumentKeyword.set($event); onTechnicalDocumentFiltersChange()" />
+              </label>
+              <label>
+                <span>Loại tài liệu</span>
+                <p-select [options]="technicalDocumentTypeOptions()" [ngModel]="technicalSelectedDocumentTypeId()"
+                  (ngModelChange)="technicalSelectedDocumentTypeId.set($event); onTechnicalDocumentFiltersChange()" optionLabel="name" optionValue="id"
+                  placeholder="-- Chọn loại tài liệu --" [filter]="true" [showClear]="true" appendTo="body">
+                </p-select>
+              </label>
             </div>
-          </div>
-
-          <div class="attachment-list-filters">
-            <label>
-              <span>Từ khóa</span>
-              <input type="text" placeholder="Tìm theo tên tài liệu" [ngModel]="technicalDocumentKeyword()"
-                (ngModelChange)="technicalDocumentKeyword.set($event)" />
-            </label>
-            <label>
-              <span>Loại tài liệu</span>
-              <p-select [options]="technicalDocumentTypeOptions()" [ngModel]="technicalSelectedDocumentTypeId()"
-                (ngModelChange)="technicalSelectedDocumentTypeId.set($event)" optionLabel="name" optionValue="id"
-                placeholder="-- Chọn loại tài liệu --" [filter]="true" [showClear]="true" appendTo="body">
-              </p-select>
-            </label>
           </div>
 
           <div *ngIf="isLoadingRelatedDossiers()" class="attachment-list-loading">
@@ -703,8 +704,8 @@
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let item of selectedTechnicalDocuments(); let i = index">
-                  <td>{{ i + 1 }}</td>
+                <tr *ngFor="let item of pagedTechnicalDocuments(); let i = index">
+                  <td>{{ (technicalDocumentPage() - 1) * technicalDocumentPageSize() + i + 1 }}</td>
                   <td>
                     <button type="button" class="attachment-document-link"
                       (click)="openTechnicalDocumentPreview(item.dossier.id, item.document)" title="Xem trước tài liệu">
@@ -723,6 +724,19 @@
               Chọn một thư mục để xem danh sách tài liệu.
             </div>
           </div>
+
+          <div *ngIf="!isTechnicalFolderLoading(selectedTechnicalFolder()?.id || '') && selectedTechnicalDocuments().length > 0" class="attachment-pagination">
+            <span>Hiển thị {{ pagedTechnicalDocuments().length }} trên tổng số {{ selectedTechnicalDocuments().length }} bản ghi</span>
+            <div class="attachment-pagination-controls">
+              <button type="button" (click)="changeTechnicalDocumentPage(technicalDocumentPage() - 1)" [disabled]="technicalDocumentPage() === 1"><i class="pi pi-angle-left"></i></button>
+              <button type="button" *ngFor="let page of getVisibleDocumentPages(technicalDocumentPage(), technicalDocumentTotalPages())"
+                [class.active]="page === technicalDocumentPage()" (click)="changeTechnicalDocumentPage(page)">{{ page }}</button>
+              <button type="button" (click)="changeTechnicalDocumentPage(technicalDocumentPage() + 1)" [disabled]="technicalDocumentPage() === technicalDocumentTotalPages()"><i class="pi pi-angle-right"></i></button>
+              <select [ngModel]="technicalDocumentPageSize()" (change)="onTechnicalDocumentPageSizeChange($event)">
+                <option [value]="10">10</option><option [value]="20">20</option><option [value]="50">50</option>
+              </select>
+            </div>
+          </div>
         </section>
 
         <aside class="attachment-tree-pane">
@@ -734,8 +748,6 @@
 
           <div class="attachment-tree-nodes">
             <button type="button" class="attachment-tree-station" (click)="toggleTechnicalStationFolder()">
-              <i class="pi" [class.pi-chevron-right]="!technicalStationFolderExpanded()"
-                [class.pi-chevron-down]="technicalStationFolderExpanded()"></i>
               <i class="pi" [class.pi-folder]="!technicalStationFolderExpanded()"
                 [class.pi-folder-open]="technicalStationFolderExpanded()"></i>
               <span>{{ currentItem().name || 'Trạm biến áp' }}</span>

@@ -107,7 +107,7 @@
               </select>
             </div>
 
-            <div *ngIf="isPhongSelected()" style="display: flex; flex-direction: column; gap: 4px;">
+            <div *ngIf="isUnitScopedSelected()" style="display: flex; flex-direction: column; gap: 4px;">
               <span style="font-size: 0.75rem; font-weight: 600; color: #64748b;">Đơn vị</span>
               <select class="wf-input" style="height: 38px; width: 220px; padding: 0 10px; border-radius: 6px;"
                 [ngModel]="catalogSearchUnitId()"
@@ -136,7 +136,7 @@
                 <th class="col-stt" style="text-align: center;">STT</th>
                 <th>Tên danh mục</th>
                 <th>Mã danh mục</th>
-                <th *ngIf="isPhongSelected()">Đơn vị</th>
+                <th *ngIf="isUnitScopedSelected()">Đơn vị</th>
                 <th style="width: 120px; text-align: center;">Thứ tự ưu tiên</th>
                 <th>Trạng thái</th>
                 <th class="col-hd" style="width: 100px; text-align: center;">Thao tác</th>
@@ -154,7 +154,7 @@
                   </ng-template>
                 </td>
                 <td><code>{{ item.code }}</code></td>
-                <td *ngIf="isPhongSelected()">{{ item.unitName || getUnitLabel(item.unitId) || '-' }}</td>
+                <td *ngIf="isUnitScopedSelected()">{{ item.unitName || getUnitLabel(item.unitId) || '-' }}</td>
                 <td style="text-align: center;">{{ item.priority }}</td>
                 <td>
                   <span *ngIf="item.status === 1" class="status-pill"
@@ -175,7 +175,7 @@
                 </td>
               </tr>
               <tr *ngIf="items().length === 0">
-                <td [attr.colspan]="isPhongSelected() ? 7 : 6" class="empty-row" style="text-align: center; padding: 30px; color: #64748b;">
+                <td [attr.colspan]="isUnitScopedSelected() ? 7 : 6" class="empty-row" style="text-align: center; padding: 30px; color: #64748b;">
                   <i class="pi pi-inbox" style="font-size: 2rem; color: #94a3b8; display: block; margin-bottom: 8px;"></i>
                   <div>Không tìm thấy dữ liệu danh mục nào.</div>
                 </td>
@@ -303,10 +303,10 @@
         <span class="field-error" *ngIf="catalogNameError()">{{ catalogNameError() }}</span>
       </div>
 
-      <div class="form-group" *ngIf="isPhongSelected()">
+      <div class="form-group" *ngIf="isUnitScopedSelected()">
         <label class="form-label">Đơn vị <span class="required">*</span></label>
         <select class="wf-input w-full" [(ngModel)]="currentCatalogItem().unitId"
-          (ngModelChange)="onCatalogFieldChange('unitId')"
+          (ngModelChange)="onCatalogUnitChange()"
           [disabled]="currentCatalogView() === 'view' || catalogSaving()">
           <option [ngValue]="null">-- Chọn đơn vị --</option>
           <option *ngFor="let unit of organizationUnits()" [ngValue]="unit.id">{{ unit.name }}</option>
@@ -365,7 +365,8 @@
       <div>
         <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">Bạn có chắc chắn muốn xóa loại danh mục?</p>
         <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
-          Loại danh mục <b style="color: #1e293b;">{{ typeDeleteTarget()?.name }}</b> sẽ bị xóa vĩnh viễn.
+          Loại danh mục <b style="color: #1e293b;">{{ typeDeleteTarget()?.name }}</b>
+          và toàn bộ danh mục trực thuộc sẽ bị xóa khỏi danh sách sử dụng.
         </p>
       </div>
     </div>

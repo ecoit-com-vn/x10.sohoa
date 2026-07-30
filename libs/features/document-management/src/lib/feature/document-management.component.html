@@ -922,6 +922,13 @@
   </ng-template>
 </p-dialog>
 
+<input
+  #quickNewVersionFileInput
+  type="file"
+  style="display: none;"
+  (change)="onUploadNewVersionSelected($event)"
+/>
+
 <!-- Delete Version Confirmation Dialog -->
 <p-dialog
   [visible]="showDeleteVersionConfirm()"
