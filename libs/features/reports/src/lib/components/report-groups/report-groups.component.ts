@@ -229,12 +229,6 @@ export class ReportGroupsComponent implements OnInit {
     event.stopPropagation();
     const active = group.isActive === true;
     this.actionMenuItems = [
-      ...([{
-        label: active ? 'Khóa nhóm báo cáo' : 'Mở khóa nhóm báo cáo',
-        title: active ? 'Khóa nhóm báo cáo' : 'Mở khóa nhóm báo cáo',
-        icon: active ? 'pi pi-lock color-red' : 'pi pi-lock-open color-teal',
-        command: () => this.onToggleStatus(group)
-      }]),
       ...(this.authService.hasPermission('REPORT_GROUP_EDIT') ? [
         { 
           label: 'Cấu hình báo cáo', 
@@ -247,6 +241,12 @@ export class ReportGroupsComponent implements OnInit {
           command: () => this.goToEdit(group, 0) 
         }
       ] : []),
+      ...([{
+        label: active ? 'Khóa nhóm báo cáo' : 'Mở khóa nhóm báo cáo',
+        title: active ? 'Khóa nhóm báo cáo' : 'Mở khóa nhóm báo cáo',
+        icon: active ? 'pi pi-lock color-red' : 'pi pi-lock-open color-teal',
+        command: () => this.onToggleStatus(group)
+      }]),
       ...(this.authService.hasPermission('REPORT_GROUP_DELETE') ? [
         { 
           label: 'Xóa nhóm', 

@@ -49,9 +49,18 @@ export class ReportDossierByYearService {
   private get baseUrl(): string {
     return `${this.config.apiGatewayUrl}/api/v1/reports/statistics`;
   }
+  
+  getUnitsLookup(isactive?: number): Observable<UnitLookupItem[]> {
+    let params = new HttpParams();
 
-  getUnitsLookup(): Observable<UnitLookupItem[]> {
-    return this.http.get<UnitLookupItem[]>(`${this.baseUrl}/lookups/units`);
+    if (isactive !== undefined && isactive !== null) {
+      params = params.set('isactive', isactive);
+    }
+
+    return this.http.get<UnitLookupItem[]>(
+      `${this.baseUrl}/lookups/units`,
+      { params }
+    );
   }
 
   getObjectTypesLookup(): Observable<ObjectTypeLookupItem[]> {

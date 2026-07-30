@@ -26,7 +26,7 @@
 
       <!-- Loại đối tượng -->
       <div class="filter-col">
-        <label class="filter-label">Loại đối tượng</label>
+        <label class="filter-label">Loại đối tượnggggg</label>
         <p-select
           [options]="objectTypes()"
           [ngModel]="selectedObjectType()"
@@ -41,15 +41,14 @@
       <!-- Năm báo cáo -->
       <div class="filter-col">
         <label class="filter-label">Năm báo cáo</label>
-        <p-select
-          [options]="yearOptions()"
-          [ngModel]="selectedYear()"
-          (ngModelChange)="selectedYear.set($event)"
-          optionLabel="label"
-          optionValue="value"
+        <p-datepicker
+          [ngModel]="selectedYearDate()"
+          (ngModelChange)="onYearChange($event)"
+          view="year"
+          dateFormat="yy"
           placeholder="Chọn"
           styleClass="w-full wf-select-custom"
-        ></p-select>
+        ></p-datepicker>
       </div>
 
       <!-- Actions -->

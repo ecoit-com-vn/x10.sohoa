@@ -173,6 +173,8 @@ export class DocumentManagementComponent implements OnInit {
   loadingVersions = signal(false);
   rollingBack = signal(false);
   deletingVersion = signal(false);
+  showDeleteVersionConfirm = signal(false);
+  deleteTargetVersion = signal<DocumentVersion | null>(null);
 
   @ViewChild('documentNameInput') documentNameInput?: ElementRef<HTMLInputElement>;
 
@@ -1136,8 +1138,24 @@ export class DocumentManagementComponent implements OnInit {
   }
 
   onDeleteVersion(version: DocumentVersion) {
+    const versions = this.documentVersions();
+    const isLatest = versions.length > 0 && versions[0].id === version.id;
+    if (isLatest) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Không thể xóa',
+        detail: 'Phiên bản đang áp dụng không thể bị xóa',
+      });
+      return;
+    }
+    this.deleteTargetVersion.set(version);
+    this.showDeleteVersionConfirm.set(true);
+  }
+
+  onConfirmDeleteVersion() {
+    const version = this.deleteTargetVersion();
     const doc = this.historyTargetDocument();
-    if (!doc) return;
+    if (!version || !doc) return;
 
     this.deletingVersion.set(true);
     this.documentService.deleteDocumentVersion(version.id)
@@ -1149,6 +1167,8 @@ export class DocumentManagementComponent implements OnInit {
             summary: 'Thành công',
             detail: `Đã xóa phiên bản số ${version.versionNumber} của tài liệu`,
           });
+          this.showDeleteVersionConfirm.set(false);
+          this.deleteTargetVersion.set(null);
           this.loadDocuments();
           this.loadDocumentVersions(doc.id);
         },
@@ -1160,6 +1180,11 @@ export class DocumentManagementComponent implements OnInit {
           });
         }
       });
+  }
+
+  onCancelDeleteVersion() {
+    this.showDeleteVersionConfirm.set(false);
+    this.deleteTargetVersion.set(null);
   }
 
   onDownloadVersion(version: DocumentVersion) {
