@@ -9,7 +9,7 @@ using EvnHanoi.Infrastructure.Audit;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
-
+using System.Security.Claims;
 namespace EvnHanoi.IdentityService.Controllers;
 
 [ApiController]
@@ -74,18 +74,45 @@ public class SystemPermissionGroupsController : ControllerBase
             return StatusCode(403, new { message = ex.Message });
         }
 
-        if (string.IsNullOrWhiteSpace(group.Code) || string.IsNullOrWhiteSpace(group.Name))
+        if (string.IsNullOrWhiteSpace(group.Code) ||
+            string.IsNullOrWhiteSpace(group.Name))
         {
-            return BadRequest(new { message = "Mã và Tên nhóm quyền là bắt buộc." });
+            return BadRequest(new
+            {
+                message = "Mã và Tên nhóm quyền là bắt buộc."
+            });
         }
 
         group.GroupType = PermissionGroupTypes.System;
         group.OrganizationUnitId = null;
+
+        try
+        {
+            // Lưu username từ JWT, không nhận CreatedBy từ request body
+            // để tránh giả mạo thông tin người tạo.
+            group.CreatedBy = CurrentUsername;
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(new { message = ex.Message });
+        }
+
         var newId = await _permissionGroupRepository.CreateAsync(group);
         group.Id = newId;
+
         _cache.Remove("SystemPermissionGroupsLookup");
-        HttpContext.SetAudit(newId.ToString(), group.Code, $"Tạo nhóm quyền HT {group.Code}", "PERMISSION_GROUP", AuditActions.Create);
-        return CreatedAtAction(nameof(GetById), new { id = newId }, group);
+
+        HttpContext.SetAudit(
+            newId.ToString(),
+            group.Code,
+            $"Tạo nhóm quyền HT {group.Code}",
+            "PERMISSION_GROUP",
+            AuditActions.Create);
+
+        return CreatedAtAction(
+            nameof(GetById),
+            new { id = newId },
+            group);
     }
 
     [HttpPut("{id}")]
@@ -165,5 +192,29 @@ public class SystemPermissionGroupsController : ControllerBase
             .Where(p => p.IsActive)
             .Select(p => new { p.Code, p.Name, p.Description });
         return Ok(result);
+    }
+    /// <summary>
+    /// Lấy username của người dùng đang đăng nhập từ JWT.
+    /// Không fallback sang SYSTEM vì đây là thao tác trực tiếp của người dùng.
+    /// </summary>
+    private string CurrentUsername
+    {
+        get
+        {
+            var username =
+                User.FindFirst("preferred_username")?.Value
+                ?? User.FindFirst("username")?.Value
+                ?? User.FindFirst(ClaimTypes.Name)?.Value
+                ?? User.Identity?.Name;
+
+            if (string.IsNullOrWhiteSpace(username))
+            {
+                throw new UnauthorizedAccessException(
+                    "Không xác định được người dùng hiện tại.");
+            }
+
+            // Chuẩn hóa username trước khi lưu vào PERMISSION_GROUP.CreatedBy.
+            return username.Trim();
+        }
     }
 }
