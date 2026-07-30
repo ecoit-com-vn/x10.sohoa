@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 
 using System.Data;
-
+using System.Text;
 using System.Linq;
 
 using System.Threading.Tasks;
@@ -90,123 +90,152 @@ public class PermissionGroupRepository : IPermissionGroupRepository
 
 
 
-    public async Task<(IEnumerable<PermissionGroup> Items, int TotalCount)> GetPagedAsync(
+    public async Task<(IEnumerable<PermissionGroup> Items, int TotalCount, int AllCount)> GetPagedAsync(
 
-        string groupType, int page, int pageSize, string? keyword = null, long? organizationUnitId = null)
+        string groupType, int page, int pageSize, string? keyword = null, long? organizationUnitId = null, bool? isActive = null)
 
     {
 
-        if (_connection.State != ConnectionState.Open) _connection.Open();
+         if (_connection.State != ConnectionState.Open)
+    {
+        _connection.Open();
+    }
 
+    var normalizedPage = Math.Max(page, 1);
+    var normalizedPageSize = Math.Clamp(pageSize, 1, 100);
+        var normalizedKeyword = string.IsNullOrWhiteSpace(keyword)
+        ? null
+        : keyword.Trim().Normalize(NormalizationForm.FormC);
 
+        var dbGroupType = string.Equals(
+        groupType,
+        "SYSTEM",
+        StringComparison.OrdinalIgnoreCase)
+        ? "GLOBAL"
+        : groupType;
 
-        var conditions = new List<string> { "st.Code = :GroupType" };
+    var conditions = new List<string>
+    {
+        "st.Code = :GroupType"
+    };
 
-        var parameters = new DynamicParameters();
+    var parameters = new DynamicParameters();
+    parameters.Add("GroupType", dbGroupType);
 
-        var dbGroupType = string.Equals(groupType, "SYSTEM", StringComparison.OrdinalIgnoreCase) ? "GLOBAL" : groupType;
-
-        parameters.Add("GroupType", dbGroupType);
-
-
-
-        if (!string.IsNullOrWhiteSpace(keyword))
-
+        if (!string.IsNullOrWhiteSpace(normalizedKeyword))
         {
+            conditions.Add(@"
+        (
+            UPPER(COMPOSE(TRIM(pg.Code))) LIKE UPPER(COMPOSE(:Keyword))
+            OR UPPER(COMPOSE(TRIM(pg.Name))) LIKE UPPER(COMPOSE(:Keyword))
+        )");
 
-            conditions.Add("(UPPER(pg.Code) LIKE UPPER(:Keyword) OR UPPER(pg.Name) LIKE UPPER(:Keyword) OR UPPER(pg.Description) LIKE UPPER(:Keyword))");
-
-            parameters.Add("Keyword", $"%{keyword.Trim()}%");
-
+            parameters.Add("Keyword", $"%{normalizedKeyword}%");
         }
-
-
 
         if (organizationUnitId.HasValue)
+    {
+        conditions.Add("""
+            EXISTS (
+                SELECT 1
+                FROM PERMISSION_GROUP_UNIT pgu
+                WHERE pgu.PermissionGroupId = pg.Id
+                  AND pgu.OrganizationUnitId = :OrganizationUnitId
+            )
+            """);
 
-        {
-
-            conditions.Add(@"EXISTS (
-
-                SELECT 1 FROM PERMISSION_GROUP_UNIT pgu
-
-                WHERE pgu.PermissionGroupId = pg.Id AND pgu.OrganizationUnitId = :OrganizationUnitId
-
-            )");
-
-            parameters.Add("OrganizationUnitId", organizationUnitId.Value);
-
-        }
-
-
-
-        var whereClause = "WHERE " + string.Join(" AND ", conditions);
-
-        var countSql = $"SELECT COUNT(*) FROM PERMISSION_GROUP pg INNER JOIN SCOPE_TYPE st ON pg.ScopeTypeId = st.Id {whereClause}";
-
-        var offset = (page - 1) * pageSize;
-
-
-
-        var sql = $@"
-
-            SELECT * FROM (
-
-                SELECT pg.Id, pg.Code, pg.Name, pg.Description, pg.ScopeTypeId,
-
-                       CASE WHEN st.Code = 'GLOBAL' THEN 'SYSTEM' ELSE st.Code END AS GroupType,
-
-                       st.Name AS ScopeTypeName, pg.OrganizationUnitId,
-
-                       o.Name AS OrganizationUnitName,
-
-                       (SELECT LISTAGG(ou.Name, ', ') WITHIN GROUP (ORDER BY ou.Name)
-
-                          FROM PERMISSION_GROUP_UNIT pgu2
-
-                          INNER JOIN ORGANIZATION_UNIT ou ON ou.Id = pgu2.OrganizationUnitId
-
-                         WHERE pgu2.PermissionGroupId = pg.Id) AS OrganizationUnitNames,
-
-                       pg.CreatedAt,
-
-                       pg.CreatedBy,
-
-                       creator.FullName AS CreatedByName,
-
-                       pg.IsActive,
-
-                       ROW_NUMBER() OVER (ORDER BY pg.Id ASC) AS RN
-
-                FROM PERMISSION_GROUP pg
-
-                INNER JOIN SCOPE_TYPE st ON pg.ScopeTypeId = st.Id
-
-                LEFT JOIN ORGANIZATION_UNIT o ON pg.OrganizationUnitId = o.Id
-
-                LEFT JOIN APP_USER creator ON creator.Id = pg.CreatedBy
-
-                {whereClause}
-
-            ) WHERE RN > :Offset AND RN <= :OffsetPlusSize";
-
-
-
-        parameters.Add("Offset", offset);
-
-        parameters.Add("OffsetPlusSize", offset + pageSize);
-
-
-
-        var totalCount = await _connection.ExecuteScalarAsync<int>(countSql, parameters);
-
-        var items = (await _connection.QueryAsync<PermissionGroup>(sql, parameters)).ToList();
-
-        await HydrateOrganizationUnitsAsync(items);
-
-        return (items, totalCount);
-
+        parameters.Add("OrganizationUnitId", organizationUnitId.Value);
     }
+
+    if (isActive.HasValue)
+    {
+        conditions.Add("pg.IsActive = :IsActive");
+        parameters.Add("IsActive", isActive.Value ? 1 : 0);
+    }
+
+    var whereClause = $"WHERE {string.Join(" AND ", conditions)}";
+
+    var filteredCountSql = $"""
+        SELECT COUNT(*)
+        FROM PERMISSION_GROUP pg
+        INNER JOIN SCOPE_TYPE st ON pg.ScopeTypeId = st.Id
+        {whereClause}
+        """;
+
+    const string allCountSql = """
+        SELECT COUNT(*)
+        FROM PERMISSION_GROUP pg
+        INNER JOIN SCOPE_TYPE st ON pg.ScopeTypeId = st.Id
+        WHERE st.Code = :GroupType
+        """;
+
+    var offset = (normalizedPage - 1) * normalizedPageSize;
+
+    var dataSql = $"""
+        SELECT *
+        FROM (
+            SELECT
+                pg.Id,
+                pg.Code,
+                pg.Name,
+                pg.Description,
+                pg.ScopeTypeId,
+                CASE
+                    WHEN st.Code = 'GLOBAL' THEN 'SYSTEM'
+                    ELSE st.Code
+                END AS GroupType,
+                st.Name AS ScopeTypeName,
+                pg.OrganizationUnitId,
+                o.Name AS OrganizationUnitName,
+                (
+                    SELECT LISTAGG(ou.Name, ', ')
+                           WITHIN GROUP (ORDER BY ou.Name)
+                    FROM PERMISSION_GROUP_UNIT pgu2
+                    INNER JOIN ORGANIZATION_UNIT ou
+                        ON ou.Id = pgu2.OrganizationUnitId
+                    WHERE pgu2.PermissionGroupId = pg.Id
+                ) AS OrganizationUnitNames,
+                pg.CreatedAt,
+                pg.CreatedBy,
+                creator.FullName AS CreatedByName,
+                pg.IsActive,
+                ROW_NUMBER() OVER (ORDER BY pg.Id ASC) AS RN
+            FROM PERMISSION_GROUP pg
+            INNER JOIN SCOPE_TYPE st ON pg.ScopeTypeId = st.Id
+            LEFT JOIN ORGANIZATION_UNIT o
+                ON pg.OrganizationUnitId = o.Id
+            LEFT JOIN APP_USER creator
+                ON creator.Id = pg.CreatedBy
+            {whereClause}
+        )
+        WHERE RN > :Offset
+          AND RN <= :OffsetPlusSize
+        """;
+
+    parameters.Add("Offset", offset);
+    parameters.Add("OffsetPlusSize", offset + normalizedPageSize);
+
+    var allCountParameters = new DynamicParameters();
+    allCountParameters.Add("GroupType", dbGroupType);
+
+    var totalCount = await _connection.ExecuteScalarAsync<int>(
+        filteredCountSql,
+        parameters);
+
+    var allCount = await _connection.ExecuteScalarAsync<int>(
+        allCountSql,
+        allCountParameters);
+
+    var items = (
+        await _connection.QueryAsync<PermissionGroup>(
+            dataSql,
+            parameters)
+    ).ToList();
+
+    await HydrateOrganizationUnitsAsync(items);
+
+    return (items, totalCount, allCount);
+}
 
 
 

@@ -517,6 +517,7 @@ public class UserRepository : IUserRepository
     public async Task<IEnumerable<UserLookupDto>> GetEligibleAssigneesAsync(
         List<long> systemGroupIds,
         List<long> unitGroupIds,
+        List<string> assigneeIds,
         long? unitId,
         string? keyword,
         int page,
@@ -526,11 +527,13 @@ public class UserRepository : IUserRepository
 
         // Hợp nhất hai danh sách nhóm quyền
         var allGroupIds = systemGroupIds.Union(unitGroupIds).Distinct().ToList();
+        var hasAssigneeIds = assigneeIds.Count > 0;
 
-        // Xây dựng câu truy vấn lấy người dùng thuộc ít nhất 1 nhóm quyền được yêu cầu
+        // Xây dựng câu truy vấn lấy người dùng thuộc ít nhất 1 trong các nguồn được yêu cầu
         // Kênh 1: Qua USER_ROLE → ROLE_PERMISSION_GROUP
         // Kênh 2: Qua USER_UNIT_ROLE → ROLE_PERMISSION_GROUP
         // Kênh 3: Qua USER_GROUP_MEMBER → USER_GROUP_ROLE → ROLE_PERMISSION_GROUP
+        // Kênh 4: "Người cụ thể" — ID người dùng được cấu hình trực tiếp trên bước
         var sql = @"
             SELECT DISTINCT u.Id, u.UserName AS Username, u.FullName,
                             u.OrganizationUnitId, o.Name AS OrganizationUnitName
@@ -557,11 +560,13 @@ public class UserRepository : IUserRepository
                       INNER JOIN USER_GROUP_ROLE ugr ON ugm.UserGroupId = ugr.UserGroupId
                       INNER JOIN ROLE_PERMISSION_GROUP rpg ON ugr.RoleId = rpg.RoleId
                       WHERE ugm.UserId = u.Id AND rpg.PermissionGroupId IN :GroupIds
-                  )
+                  )"
+                  + (hasAssigneeIds ? " OR u.Id IN :AssigneeIds" : "") + @"
               )";
 
         var parameters = new DynamicParameters();
         parameters.Add("GroupIds", allGroupIds.Count > 0 ? allGroupIds : new List<long> { -1 });
+        if (hasAssigneeIds) parameters.Add("AssigneeIds", assigneeIds);
 
         // Lọc theo đơn vị nếu RequireSameUnit = true
         if (unitId.HasValue)

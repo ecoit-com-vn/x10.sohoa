@@ -72,7 +72,10 @@ public class UsersController : ControllerBase
 
     /// <summary>
     /// Lấy danh sách người dùng đủ điều kiện xử lý bước tiếp theo của luồng.
-    /// Dùng tại màn hình chuyển xử lý hồ sơ để lọc người nhận theo nhóm quyền và đơn vị.
+    /// Dùng tại màn hình chuyển xử lý hồ sơ để lọc người nhận theo nhóm quyền hệ thống,
+    /// nhóm quyền đơn vị và/hoặc "Người cụ thể" (assigneeIds) — hợp nhất (OR) cả 3 nguồn,
+    /// sau đó lọc cùng đơn vị (unitId) như điều kiện cuối cùng nếu có yêu cầu.
+    /// Nếu không cấu hình nguồn nào cả 3 → trả về danh sách rỗng (không có gợi ý).
     /// </summary>
     [HttpGet("eligible-assignees")]
     [Authorize]
@@ -80,6 +83,7 @@ public class UsersController : ControllerBase
     public async Task<IActionResult> GetEligibleAssignees(
         [FromQuery] string? systemGroupIds = null,
         [FromQuery] string? unitGroupIds = null,
+        [FromQuery] string? assigneeIds = null,
         [FromQuery] long? unitId = null,
         [FromQuery] string? keyword = null,
         [FromQuery] int page = 1,
@@ -88,11 +92,12 @@ public class UsersController : ControllerBase
         // Parse danh sách ID từ chuỗi CSV
         var systemIds = ParseLongList(systemGroupIds);
         var unitIds   = ParseLongList(unitGroupIds);
+        var userIds   = ParseStringList(assigneeIds);
 
-        if (systemIds.Count == 0 && unitIds.Count == 0)
+        if (systemIds.Count == 0 && unitIds.Count == 0 && userIds.Count == 0)
             return Ok(Array.Empty<object>());
 
-        var result = await _userRepository.GetEligibleAssigneesAsync(systemIds, unitIds, unitId, keyword, page, pageSize);
+        var result = await _userRepository.GetEligibleAssigneesAsync(systemIds, unitIds, userIds, unitId, keyword, page, pageSize);
         return Ok(result);
     }
 
@@ -103,6 +108,15 @@ public class UsersController : ControllerBase
                   .Select(s => s.Trim())
                   .Where(s => long.TryParse(s, out _))
                   .Select(long.Parse)
+                  .ToList();
+    }
+
+    private static List<string> ParseStringList(string? csv)
+    {
+        if (string.IsNullOrWhiteSpace(csv)) return new List<string>();
+        return csv.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                  .Select(s => s.Trim())
+                  .Where(s => s.Length > 0)
                   .ToList();
     }
 

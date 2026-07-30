@@ -1,7 +1,7 @@
 using System;
 
 using System.Collections.Generic;
-
+using System.Text;
 using System.Linq;
 
 using System.Security.Claims;
@@ -116,39 +116,50 @@ public class UnitPermissionGroupsController : ControllerBase
 
 
 
+
     [HttpGet]
-
     public async Task<IActionResult> GetAll(
-
-        [FromQuery] int page = 1,
-
-        [FromQuery] int pageSize = 10,
-
-        [FromQuery] string? keyword = null,
-
-        [FromQuery] long? organizationUnitId = null)
-
+    [FromQuery] int page = 1,
+    [FromQuery] int pageSize = 10,
+    [FromQuery] string? keyword = null,
+    [FromQuery] long? organizationUnitId = null,
+    [FromQuery] bool? isActive = null)
     {
-
         if (!_rbacScope.IsCentralAdmin(User))
-
         {
-
-            return StatusCode(403, new { message = "Chỉ quản trị đơn vị tổng mới được xem danh sách quản trị nhóm quyền đơn vị." });
-
+            return StatusCode(
+                StatusCodes.Status403Forbidden,
+                new
+                {
+                    message = "Chỉ quản trị đơn vị tổng mới được xem danh sách quản trị nhóm quyền đơn vị."
+                });
         }
 
+        var normalizedPage = Math.Max(page, 1);
+        var normalizedPageSize = Math.Clamp(pageSize, 1, 100);
 
+        var normalizedKeyword = string.IsNullOrWhiteSpace(keyword)
+            ? null
+            : keyword.Trim().Normalize(NormalizationForm.FormC);
 
-        var (items, totalCount) = await _permissionGroupRepository.GetPagedAsync(
+        var (items, totalCount, allCount) =
+            await _permissionGroupRepository.GetPagedAsync(
+                PermissionGroupTypes.Unit,
+                normalizedPage,
+                normalizedPageSize,
+                normalizedKeyword,
+                organizationUnitId,
+                isActive);
 
-            PermissionGroupTypes.Unit, page, pageSize, keyword, organizationUnitId);
-
-        return Ok(new { items, totalCount, page, pageSize });
-
+        return Ok(new
+        {
+            items,
+            totalCount,
+            allCount,
+            page = normalizedPage,
+            pageSize = normalizedPageSize
+        });
     }
-
-
 
     [HttpGet("{id}")]
 
