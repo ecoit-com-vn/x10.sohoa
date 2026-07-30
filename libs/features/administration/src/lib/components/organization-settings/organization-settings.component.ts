@@ -18,7 +18,7 @@ import {
 @Component({
   selector: 'app-organization-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule, DialogModule, ToastModule, PaginatorModule, MenuModule, WfBreadcrumbComponent],
+  imports: [CommonModule, FormsModule, DialogModule, ToastModule, PaginatorModule, MenuModule, WfBreadcrumbComponent, DeleteConfirmDialogComponent],
 
   providers: [MessageService],
   templateUrl: './organization-settings.component.html',
