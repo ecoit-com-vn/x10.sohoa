@@ -1350,7 +1350,13 @@ public class DossierRepository : IDossierRepository
 
         if (filter.KindId.HasValue)
         {
-            if (filter.KindId.Value == 2)
+            if (filter.KindId.Value == 1)
+            {
+                // Màn nhập liệu số hóa lấy cả hồ sơ số hóa
+                // và hồ sơ nháp tạo từ Quản lý hồ sơ kỹ thuật.
+                sqlBase += " AND (d.KIND_ID IN (1, 2) OR d.KIND_ID IS NULL)";
+            }
+            else if (filter.KindId.Value == 2)
             {
                 sqlBase += " AND (d.KIND_ID = 2 OR d.KIND_ID IS NULL)";
             }
