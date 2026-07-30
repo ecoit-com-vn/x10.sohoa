@@ -104,6 +104,7 @@ public class DocumentSearchRepository : IDocumentSearchRepository
         q.Bool(b =>
         {
             var mustQueries = new List<Query>();
+            var shouldQueries = new List<Query>();
             var filterQueries = new List<Query>
             {
                 new QueryDescriptor<DocumentEsDocument>().Term(t => t
@@ -130,7 +131,7 @@ public class DocumentSearchRepository : IDocumentSearchRepository
                     .Query(keyword)
                     .Fields(new[]
                     {
-                        $"{DocumentEsFieldNames.DocumentName}^3",
+                        $"{DocumentEsFieldNames.DocumentName}^2",
                         DocumentEsFieldNames.FullText,
                         "extractionSummary",
                         DocumentEsFieldNames.InfrastructureName,
@@ -138,10 +139,24 @@ public class DocumentSearchRepository : IDocumentSearchRepository
                         "dossierTypeName",
                         "documentTypeName"
                     })));
+
+                shouldQueries.Add(new QueryDescriptor<DocumentEsDocument>().MatchPhrase(mp => mp
+                    .Field(DocumentEsFieldNames.FullText)
+                    .Query(keyword)
+                    .Slop(2)
+                    .Boost(8)));
+
+                shouldQueries.Add(new QueryDescriptor<DocumentEsDocument>().MatchPhrase(mp => mp
+                    .Field(DocumentEsFieldNames.DocumentName)
+                    .Query(keyword)
+                    .Slop(2)
+                    .Boost(4)));
             }
 
             if (mustQueries.Count > 0)
                 b.Must(mustQueries);
+            if (shouldQueries.Count > 0)
+                b.Should(shouldQueries);
             if (filterQueries.Count > 0)
                 b.Filter(filterQueries);
         });
