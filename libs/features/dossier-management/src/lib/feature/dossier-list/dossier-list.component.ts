@@ -13,14 +13,16 @@ import { MenuModule } from 'primeng/menu';
 import { MessageService, MenuItem } from 'primeng/api';
 
 import { BhsCatalogColumn, DossierManagementService, DossierWorkflowAction, normalizeDossierWorkflowAction } from '../../data-access/dossier-management.service';
-import { AuthService } from '@sohoa.frontend/shared/core';
-import { DeleteConfirmDialogComponent } from '@sohoa.frontend/shared/layout';
+import { AuthService, WorkflowService } from '@sohoa.frontend/shared/core';
 import {
   isRejectWorkflowLabel,
   isApproveWorkflowLabel,
   isRejectWorkflowAction,
   sortWorkflowActionsRejectLast,
   filterUsersByRequiredRole,
+  resolveEligibleAssigneeGroupParams,
+  resolveDefaultNextAssignee,
+  resolveNextUserCandidates,
 } from '../../utils/dossier-workflow-bpmn.util';
 import {
   DossierListTab,
@@ -66,7 +68,7 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
 
   standalone: true,
 
-  imports: [CommonModule, FormsModule, ToastModule, DialogModule, MenuModule, DeleteConfirmDialogComponent],
+  imports: [CommonModule, FormsModule, ToastModule, DialogModule, MenuModule],
 
   template: `
 
@@ -374,10 +376,10 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
     </p-dialog>
 
     <!-- Dialog xác nhận hoàn thành nhập liệu nhanh -->
-    <p-dialog [visible]="showQuickCompleteConfirm()"
+    <p-dialog [visible]="showQuickCompleteConfirm()" 
               (visibleChange)="$event ? null : showQuickCompleteConfirm.set(false)"
-              header="Xác nhận hoàn thành"
-              [modal]="true"
+              header="Xác nhận hoàn thành" 
+              [modal]="true" 
               [style]="{ width: '420px' }"
               styleClass="evn-dialog-custom"
               [closable]="!quickActionSubmitting()">
@@ -426,12 +428,18 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
 
         <div *ngIf="quickSubmitNextStepInfo()?.requiresNextAssignee" class="form-group">
           <label class="form-label required">Người duyệt tiếp theo ({{ quickSubmitNextStepInfo()?.stepName }})</label>
-          <select class="wf-select" [value]="quickSubmitSelectedNextUser()" (change)="onQuickSubmitNextUserChange($event)">
+          <select class="wf-select" [value]="quickSubmitSelectedNextUser()" (change)="onQuickSubmitNextUserChange($event)"
+            [disabled]="loadingEligibleQuickSubmitUsers()">
             <option value="">-- Chọn người phê duyệt --</option>
             <option *ngFor="let u of filteredQuickSubmitNextUsers()" [value]="u.id || u.Id || u.userId || u.username">
               {{ u.fullName || u.FullName || u.name || u.username }}
             </option>
           </select>
+          <div style="margin-top: 4px; font-size: 0.8rem; color: #64748b;" *ngIf="quickSubmitNextStepInfo()?.staticAssigneeId">Bước này có cấu hình giao việc đích danh — đã chọn sẵn, có thể đổi người khác nếu cần.</div>
+          <div style="margin-top: 4px; font-size: 0.8rem; color: #64748b;" *ngIf="loadingEligibleQuickSubmitUsers()">Đang tải danh sách người đủ điều kiện...</div>
+          <div style="margin-top: 4px; font-size: 0.8rem; color: #64748b;" *ngIf="!loadingEligibleQuickSubmitUsers() && filteredQuickSubmitNextUsers().length === 0">
+            Không có người dùng nào đủ điều kiện xử lý bước này.
+          </div>
         </div>
       </div>
       <ng-template #footer>
@@ -732,6 +740,8 @@ export class DossierListComponent implements OnInit {
 
   authService = inject(AuthService);
 
+  private workflowSvc = inject(WorkflowService);
+
   @Output() viewDetail = new EventEmitter<string>();
 
   @Output() edit = new EventEmitter<string>();
@@ -832,15 +842,31 @@ export class DossierListComponent implements OnInit {
   quickSubmitNextStepInfo = signal<any>(null);
   quickSubmitSelectedNextUser = signal<string>('');
   quickSubmitSubmitting = signal<boolean>(false);
-  filteredQuickSubmitNextUsers = computed(() => {
-    const info = this.quickSubmitNextStepInfo();
-    if (!info || !info.requiredRole) return [];
-    const roles = info.requiredRole.split(',').map((r: string) => r.trim().toUpperCase());
-    return this.users().filter((u: any) => {
-      const uRoles: string[] = (u.roles || u.Roles || []).map((r: string) => r.toUpperCase());
-      return uRoles.some(r => roles.includes(r));
-    });
-  });
+  eligibleQuickSubmitUsers = signal<any[]>([]);
+  loadingEligibleQuickSubmitUsers = signal<boolean>(false);
+
+  // Ưu tiên cấu hình bước tiếp theo: Nhóm quyền đơn vị > Nhóm quyền hệ thống > (cũ) requiredRole > toàn bộ user.
+  // Giao việc đích danh không giới hạn danh sách — chỉ chọn sẵn mặc định (xem loadEligibleQuickSubmitUsers).
+  filteredQuickSubmitNextUsers = computed(() => resolveNextUserCandidates({
+    info: this.quickSubmitNextStepInfo(),
+    allUsers: this.users(),
+    eligibleUsers: this.eligibleQuickSubmitUsers(),
+  }));
+
+  private loadEligibleQuickSubmitUsers(info: any): void {
+    this.eligibleQuickSubmitUsers.set([]);
+    this.quickSubmitSelectedNextUser.set(resolveDefaultNextAssignee(info));
+    const groupParams = resolveEligibleAssigneeGroupParams(info);
+    if (!groupParams) return;
+    const unitId = info.requireSameUnit ? (this.authService.getUserUnitId() ?? undefined) : undefined;
+    this.loadingEligibleQuickSubmitUsers.set(true);
+    this.workflowSvc.getEligibleAssignees(groupParams.systemGroupIds, groupParams.unitGroupIds, unitId)
+      .pipe(finalize(() => this.loadingEligibleQuickSubmitUsers.set(false)))
+      .subscribe({
+        next: (list) => this.eligibleQuickSubmitUsers.set(Array.isArray(list) ? list : []),
+        error: () => this.eligibleQuickSubmitUsers.set([])
+      });
+  }
 
   filteredNextUsers = computed(() =>
     filterUsersByRequiredRole(this.users(), this.pendingQuickActionMeta()?.requiredRole)
@@ -1234,7 +1260,7 @@ export class DossierListComponent implements OnInit {
 
   isAssignedToCurrentUser(item: any): boolean {
     if (!item) return false;
-
+    
     const userId = this.authService.getUserId();
     const roles = this.authService.getUserRoles() || [];
 
@@ -1282,7 +1308,7 @@ export class DossierListComponent implements OnInit {
     const status = item.status ?? item.Status;
     const isDraftState = this.activeTab() === 'draft' || status === 'Draft' || status === 'New' || status === 'CompletedInput' || status === 'Returned';
     const stepAllowEdit = item.currentStepAllowEdit ?? item.CurrentStepAllowEdit;
-
+    
     if (isDraftState || stepAllowEdit) {
       return this.isAssignedToCurrentUser(item);
     }
@@ -1689,6 +1715,7 @@ export class DossierListComponent implements OnInit {
         }
         this.quickSubmitNextStepInfo.set(res);
         this.quickSubmitSelectedNextUser.set('');
+        this.loadEligibleQuickSubmitUsers(res);
         this.service.getUsersLookup().subscribe({
           next: (users) => {
             this.users.set(Array.isArray(users) ? users : []);
