@@ -2,6 +2,8 @@
 export interface ReportStatisticsDossierListConfig {
   reportCode: string;
   listSegment: string;
+  columnMode?: 'dynamic-bhs' | 'fixed-dossier';
+  title?: string;
 }
 
 /** Cấu hình tab Danh sách tài liệu — báo cáo thống kê theo loại văn bản. */
@@ -140,6 +142,12 @@ export const REPORT_STATISTICS_DOSSIER_LIST_CONFIGS = {
   DOSSIER_GENERAL_INPUT: {
     reportCode: 'REPORT_DOSSIER_GENERAL_INPUT',
     listSegment: 'dossier-general-input'
+  },
+  DOSSIER_BY_INPUT_OFFICER: {
+    reportCode: 'REPORT_DOSSIER_BY_INPUT_OFFICER',
+    listSegment: 'dossier-by-input-officer',
+    columnMode: 'fixed-dossier',
+    title: 'Danh sách hồ sơ'
   }
 } as const satisfies Record<string, ReportStatisticsDossierListConfig>;
 
@@ -189,6 +197,10 @@ export const REPORT_STATISTICS_CREATOR_GRID_CONFIGS = {
   DOSSIER_BY_ALLOCATION: {
     reportCode: 'REPORT_DOSSIER_BY_ALLOCATION',
     gridSegment: 'dossier-by-allocation'
+  },
+  DOSSIER_BY_INPUT_OFFICER: {
+    reportCode: 'REPORT_DOSSIER_BY_INPUT_OFFICER',
+    gridSegment: 'dossier-by-input-officer'
   }
 } as const satisfies Record<string, ReportStatisticsCreatorGridConfig>;
 
