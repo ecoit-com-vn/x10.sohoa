@@ -22,7 +22,7 @@
     </div>
   </div>
 
-  <div class="wf-card">
+  <div class="unit-search-card">
     
     <!-- MÀN HÌNH DANH SÁCH -->
     <div *ngIf="currentView() === 'list' || currentView() === 'add' || currentView() === 'edit'" class="animate-fade-in">
@@ -56,7 +56,11 @@
           </button>
         </div>
       </div>
+    </div>
+  </div>
 
+    <div class="wf-card unit-list-card">
+      <div *ngIf="currentView() === 'list' || currentView() === 'add' || currentView() === 'edit'" class="animate-fade-in">
       <!-- Tree List Table -->
       <div class="wf-table-wrap">
         <table class="wf-table">

@@ -18,14 +18,14 @@ import { catchError, finalize } from 'rxjs/operators';
 import { LookupTrackingService } from '../../data-access/lookup-tracking.service';
 
 @Component({
-  selector: 'app-substation-search',
+  selector: 'app-transmission-line-search',
   standalone: true,
   imports: [CommonModule, FormsModule, ToastModule, SelectModule, DialogModule, PaginatorModule, WfBreadcrumbComponent],
   providers: [MessageService],
-  templateUrl: './substation-search.component.html',
-  styleUrl: './substation-search.component.scss'
+  templateUrl: './transmission-line-search.component.html',
+  styleUrl: './transmission-line-search.component.scss'
 })
-export class SubstationSearchComponent implements OnInit {
+export class TransmissionLineSearchComponent implements OnInit {
   private http = inject(HttpClient);
   private config = inject(APP_CONFIG);
   private equipmentService = inject(EquipmentService);
@@ -39,7 +39,7 @@ export class SubstationSearchComponent implements OnInit {
   private lookupTrackingService = inject(LookupTrackingService);
 
   // States
-  pageTitle = signal<string>('Tra cứu tìm kiếm Trạm biến áp');
+  pageTitle = signal<string>('Tra cứu tìm kiếm Đường dây');
   items = signal<any[]>([]);
   orgUnits = signal<any[]>([]);
   gridTypes = signal<any[]>([]);
@@ -245,7 +245,7 @@ export class SubstationSearchComponent implements OnInit {
         this.equipmentSearchKeyword.set('');
         this.equipmentSearchTypeId.set('');
         // Load item detail
-        this.loadSubstationById(id);
+        this.loadLineById(id);
       } else {
         this.currentView.set('list');
         this.loadItems();
@@ -308,7 +308,7 @@ export class SubstationSearchComponent implements OnInit {
       params = params.set('gridTypeId', this.searchGridTypeId()!.toString());
     }
 
-    this.http.get<any>(`${this.config.apiGatewayUrl}/api/catalog/substation-search`, { params }).subscribe({
+    this.http.get<any>(`${this.config.apiGatewayUrl}/api/catalog/transmission-line-search`, { params }).subscribe({
       next: (res) => {
         if (res) {
           this.items.set(res.items || []);
@@ -319,14 +319,14 @@ export class SubstationSearchComponent implements OnInit {
         this.messageService.add({
           severity: 'error',
           summary: 'Lỗi',
-          detail: 'Không thể tải danh sách trạm biến áp'
+          detail: 'Không thể tải danh sách đường dây'
         });
       }
     });
   }
 
-  loadSubstationById(id: string) {
-    this.http.get<any>(`${this.config.apiGatewayUrl}/api/catalog/substation-search/${id}`).subscribe({
+  loadLineById(id: string) {
+    this.http.get<any>(`${this.config.apiGatewayUrl}/api/catalog/transmission-line-search/${id}`).subscribe({
       next: (res) => {
         this.currentItem.set(res || {});
         this.loadEquipments();
@@ -360,11 +360,11 @@ export class SubstationSearchComponent implements OnInit {
   }
 
   onViewDetail(item: any) {
-    this.router.navigate(['/search/substation', item.id]);
+    this.router.navigate(['/search/transmission-line', item.id]);
   }
 
   goBack() {
-    this.router.navigate(['/search/substation']);
+    this.router.navigate(['/search/transmission-line']);
   }
 
   // ── DETAIL VIEW METHODS ────────────────────────────────────────────────────
@@ -388,7 +388,7 @@ export class SubstationSearchComponent implements OnInit {
       params = params.set('equipmentTypeId', typeId);
     }
 
-    this.http.get<any>(`${this.config.apiGatewayUrl}/api/catalog/substation-search/${item.id}/equipments`, { params })
+    this.http.get<any>(`${this.config.apiGatewayUrl}/api/catalog/transmission-line-search/${item.id}/equipments`, { params })
       .pipe(finalize(() => this.isLoadingEquipments.set(false)))
       .subscribe({
         next: (res) => {
@@ -423,7 +423,7 @@ export class SubstationSearchComponent implements OnInit {
 
   // Xem chi tiết thiết bị chỉ đọc qua Dialog
   onViewEquipment(equipment: any) {
-    this.http.get<any>(`${this.config.apiGatewayUrl}/api/catalog/substation-search/equipments/${equipment.id}`).subscribe({
+    this.http.get<any>(`${this.config.apiGatewayUrl}/api/catalog/transmission-line-search/equipments/${equipment.id}`).subscribe({
       next: (res) => {
         this.selectedEquipment.set(res);
         // Parse FormValues (EAV thông số kỹ thuật)
@@ -439,7 +439,7 @@ export class SubstationSearchComponent implements OnInit {
 
         // Lấy form template schema để biết tên hiển thị của các thông số kỹ thuật EAV
         this.equipmentFormSchema.set([]);
-        this.http.get<any>(`${this.config.apiGatewayUrl}/api/catalog/substation-search/equipments/${equipment.id}/form-template`).subscribe({
+        this.http.get<any>(`${this.config.apiGatewayUrl}/api/catalog/transmission-line-search/equipments/${equipment.id}/form-template`).subscribe({
           next: (tpl) => {
             if (tpl?.formSchema) {
               try {
@@ -653,7 +653,7 @@ export class SubstationSearchComponent implements OnInit {
       },
       error: () => {
         this.technicalDossiers.set([]);
-        this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể tải hồ sơ kỹ thuật của trạm biến áp.' });
+        this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể tải hồ sơ kỹ thuật của đường dây.' });
       }
     });
   }
@@ -827,7 +827,7 @@ export class SubstationSearchComponent implements OnInit {
 
     import('xlsx').then(XLSX => {
       const workbook = XLSX.utils.book_new();
-      
+
       const dataRows = this.relatedDossiers().map((doc, index) => ({
         'STT': index + 1,
         'Mã hồ sơ': this.getDossierCode(doc),
@@ -855,7 +855,7 @@ export class SubstationSearchComponent implements OnInit {
       const url = URL.createObjectURL(workbookBlob);
       const link = document.createElement('a');
       link.setAttribute('href', url);
-      const fileName = `HoSoLienQuan_${item.code || 'Tram'}_${new Date().getTime()}.xlsx`;
+      const fileName = `HoSoLienQuan_${item.code || 'DuongDay'}_${new Date().getTime()}.xlsx`;
       link.setAttribute('download', fileName);
       document.body.appendChild(link);
       link.click();

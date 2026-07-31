@@ -203,6 +203,43 @@
       </ng-template>
     </p-dialog>
 
+    <p-dialog [visible]="showLockUnlockConfirm()" (visibleChange)="$event ? null : onCancelLockUnlock()"
+      [header]="lockUnlockIsLocking() ? 'Xác nhận khóa loại hồ sơ' : 'Xác nhận mở khóa loại hồ sơ'" [modal]="true"
+      [style]="{ width: '420px' }" styleClass="evn-dialog-custom" [closable]="!lockUnlockLoading()"
+      [closeOnEscape]="!lockUnlockLoading()">
+      <div style="padding: 8px 0 16px 0; display: flex; flex-direction: column; gap: 12px;">
+        <div style="display: flex; align-items: flex-start; gap: 12px;">
+          <i class="pi pi-exclamation-triangle"
+            style="font-size: 1.8rem; color: #f59e0b; margin-top: 2px; flex-shrink: 0;"></i>
+          <div>
+            <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b; font-size: 0.95rem;">
+              {{ lockUnlockIsLocking() ? 'Bạn có chắc muốn khóa loại hồ sơ này?' : 'Bạn có chắc muốn mở khóa loại hồ sơ này?' }}
+            </p>
+            <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
+              Loại hồ sơ <b style="color: #1e293b;">{{ lockUnlockTarget()?.name }}</b> sẽ được
+              {{ lockUnlockIsLocking() ? 'khóa và ngừng hoạt động' : 'mở khóa và hoạt động trở lại' }}.
+            </p>
+          </div>
+        </div>
+      </div>
+      <ng-template #footer>
+        <div
+          style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+          <button class="btn-cancel btn-small" (click)="onCancelLockUnlock()" [disabled]="lockUnlockLoading()">
+            <i class="pi pi-times"></i> Hủy
+          </button>
+          <button class="btn-save btn-small" (click)="onConfirmLockUnlock()" [disabled]="lockUnlockLoading()"
+            [style.background-color]="lockUnlockIsLocking() ? '#dc2626' : '#4790e9'"
+            [style.border-color]="lockUnlockIsLocking() ? '#dc2626' : '#4790e9'">
+            <i class="pi pi-spin pi-spinner" *ngIf="lockUnlockLoading()" style="margin-right: 4px;"></i>
+            <i class="pi" [ngClass]="lockUnlockIsLocking() ? 'pi-lock' : 'pi-lock-open'"
+              *ngIf="!lockUnlockLoading()" style="margin-right: 4px;"></i>
+            {{ lockUnlockIsLocking() ? 'Khóa' : 'Mở khóa' }}
+          </button>
+        </div>
+      </ng-template>
+    </p-dialog>
+
     <!-- Popup xác nhận xóa loại hồ sơ dùng chung toàn hệ thống. -->
     <app-delete-confirm-dialog
       [visible]="showDeleteConfirm()"

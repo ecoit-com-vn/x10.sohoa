@@ -19,6 +19,7 @@ export class CatalogService {
     if (type === 'TANG') return `${this.config.apiGatewayUrl}/api/catalog/floor`;
     if (type === 'HOP') return `${this.config.apiGatewayUrl}/api/catalog/box`;
     if (type === 'CHUC_VU') return `${this.config.apiGatewayUrl}/api/catalog/position`;
+    if (type === 'PHONG') return `${this.config.apiGatewayUrl}/api/catalog/phong`;
     if (type === 'PROCESSING_CATEGORY') return `${this.config.apiGatewayUrl}/api/catalog/processing-category`;
     if (type === 'LINH_VUC') return `${this.config.apiGatewayUrl}/api/catalog/domain`;
     if (type === 'TINH_TRANG_VAT_LY') return `${this.config.apiGatewayUrl}/api/catalog/physical-status`;
@@ -29,8 +30,9 @@ export class CatalogService {
     return this.http.get<any[]>(`${this.base}/types`);
   }
 
-  getItems(catalogType: string, page: number, pageSize: number, keyword?: string, status?: string): Observable<any> {
-    const isMappedType = ['KE', 'TANG', 'HOP', 'CHUC_VU', 'PROCESSING_CATEGORY', 'LINH_VUC', 'TINH_TRANG_VAT_LY'].includes(catalogType);
+  getItems(catalogType: string, page: number, pageSize: number, keyword?: string, status?: string,
+    unitId?: number | null, name?: string, code?: string): Observable<any> {
+    const isMappedType = ['KE', 'TANG', 'HOP', 'CHUC_VU', 'PHONG', 'PROCESSING_CATEGORY', 'LINH_VUC', 'TINH_TRANG_VAT_LY'].includes(catalogType);
     const base = this.getBase(catalogType);
     
     let params = new HttpParams()
@@ -47,6 +49,11 @@ export class CatalogService {
     if (status) {
       params = params.set('status', status);
     }
+    if (unitId != null && unitId > 0) {
+      params = params.set('unitId', unitId.toString());
+    }
+    if (name?.trim()) params = params.set('name', name.trim());
+    if (code?.trim()) params = params.set('code', code.trim());
     
     return this.http.get<any>(base, { params });
   }
