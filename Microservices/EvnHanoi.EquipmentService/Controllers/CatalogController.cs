@@ -102,6 +102,7 @@ public class CatalogController : ControllerBase
         var catalogType = catalogTypeId.HasValue
             ? await _catalogRepository.GetCatalogTypeByIdAsync(catalogTypeId.Value)
             : null;
+        if (catalogType?.Code == "PHONG") return NotFound();
         var isUnitScoped = catalogType?.Code == "MUC_LUC" || catalogType?.Code == "PHONG";
         if (isUnitScoped)
         {
@@ -122,6 +123,7 @@ public class CatalogController : ControllerBase
     {
         var result = await _catalogRepository.GetByIdAsync(id);
         if (result == null) return NotFound();
+        if (await IsPhongAsync(result.CatalogTypeId)) return NotFound();
         if (await IsMucLucAsync(result.CatalogTypeId) &&
             (!result.UnitId.HasValue || !CanAccessUnit(result.UnitId.Value)))
             return Forbid();
@@ -145,6 +147,7 @@ public class CatalogController : ControllerBase
         var catalogType = await _catalogRepository.GetCatalogTypeByIdAsync(catalog.CatalogTypeId);
         if (catalogType == null)
             return BadRequest(new { message = $"Loại danh mục với Id '{catalog.CatalogTypeId}' không tồn tại." });
+        if (catalogType.Code == "PHONG") return NotFound();
 
         var isUnitScoped = catalogType.Code == "MUC_LUC" || catalogType.Code == "PHONG";
         if (isUnitScoped && (!catalog.UnitId.HasValue || catalog.UnitId <= 0))
@@ -235,6 +238,7 @@ public class CatalogController : ControllerBase
         var catalogType = await _catalogRepository.GetCatalogTypeByIdAsync(catalog.CatalogTypeId);
         if (catalogType == null)
             return BadRequest(new { message = $"Loại danh mục với Id '{catalog.CatalogTypeId}' không tồn tại." });
+        if (catalogType.Code == "PHONG") return NotFound();
 
         var dbCatalog = await _catalogRepository.GetByIdAsync(id);
         if (dbCatalog == null) return NotFound();
@@ -281,6 +285,7 @@ public class CatalogController : ControllerBase
     {
         var catalog = await _catalogRepository.GetByIdAsync(id);
         if (catalog == null) return NotFound();
+        if (await IsPhongAsync(catalog.CatalogTypeId)) return NotFound();
         if (await IsMucLucAsync(catalog.CatalogTypeId) &&
             (!catalog.UnitId.HasValue || !CanAccessUnit(catalog.UnitId.Value)))
             return Forbid();
@@ -299,6 +304,7 @@ public class CatalogController : ControllerBase
     {
         var catalog = await _catalogRepository.GetByIdAsync(id);
         if (catalog == null) return NotFound();
+        if (await IsPhongAsync(catalog.CatalogTypeId)) return NotFound();
         if (await IsMucLucAsync(catalog.CatalogTypeId) &&
             (!catalog.UnitId.HasValue || !CanAccessUnit(catalog.UnitId.Value)))
             return Forbid();
@@ -318,6 +324,7 @@ public class CatalogController : ControllerBase
     {
         var catalog = await _catalogRepository.GetByIdAsync(id);
         if (catalog == null) return NotFound();
+        if (await IsPhongAsync(catalog.CatalogTypeId)) return NotFound();
         if (await IsMucLucAsync(catalog.CatalogTypeId) &&
             (!catalog.UnitId.HasValue || !CanAccessUnit(catalog.UnitId.Value)))
             return Forbid();
@@ -350,6 +357,9 @@ public class CatalogController : ControllerBase
 
     private async Task<bool> IsMucLucAsync(long catalogTypeId)
         => (await _catalogRepository.GetCatalogTypeByIdAsync(catalogTypeId))?.Code == "MUC_LUC";
+
+    private async Task<bool> IsPhongAsync(long catalogTypeId)
+        => (await _catalogRepository.GetCatalogTypeByIdAsync(catalogTypeId))?.Code == "PHONG";
 
     private async Task<string?> ValidateParentAsync(Catalog catalog, long? currentId)
     {

@@ -1263,20 +1263,18 @@ StatusTransition,
 
         if (startUnitId.HasValue)
         {
-            var sql = @"SELECT Id, Code, Name, ParentId 
+            var sql = @"SELECT Id, Code, Name, ParentId, IsActive, IsDeleted
                         FROM ORGANIZATION_UNIT
-                        WHERE IsActive = 1
-                          AND IsDeleted = 0
+                        WHERE IsActive = 1 AND IsDeleted = 0
                         START WITH Id = :StartUnitId
                         CONNECT BY PRIOR Id = ParentId";
             return await _connection.QueryAsync<OrganizationDto>(sql, new { StartUnitId = startUnitId.Value });
         }
         else
         {
-            var sql = @"SELECT Id, Code, Name, ParentId
+            var sql = @"SELECT Id, Code, Name, ParentId, IsActive, IsDeleted
                         FROM ORGANIZATION_UNIT
-                        WHERE IsActive = 1
-                          AND IsDeleted = 0
+                        WHERE IsActive = 1 AND IsDeleted = 0
                         ORDER BY Name ASC";
             return await _connection.QueryAsync<OrganizationDto>(sql);
         }
