@@ -94,6 +94,11 @@ export class SystemPermissionGroupManagement implements OnInit {
     });
   }
 
+  onRoleFieldChange(field: 'code' | 'name' | 'description', value: string): void {
+    this.currentRole.update(role => ({ ...role, [field]: value }));
+    this.onFieldChange(field);
+  }
+
   menus = signal<any[]>([]);
   menuPermissionTree = signal<any[]>([]);
 
