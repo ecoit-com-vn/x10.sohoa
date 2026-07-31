@@ -9,6 +9,7 @@ using EvnHanoi.Infrastructure.Audit;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
+using System.Security.Claims;
 
 namespace EvnHanoi.IdentityService.Controllers;
 
@@ -81,6 +82,9 @@ public class SystemPermissionGroupsController : ControllerBase
 
         group.GroupType = PermissionGroupTypes.System;
         group.OrganizationUnitId = null;
+        group.CreatedBy = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue(ClaimTypes.Name)
+            ?? "SYSTEM";
         var newId = await _permissionGroupRepository.CreateAsync(group);
         group.Id = newId;
         _cache.Remove("SystemPermissionGroupsLookup");
