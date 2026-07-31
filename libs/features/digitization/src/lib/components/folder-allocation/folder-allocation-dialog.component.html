@@ -63,7 +63,7 @@
         type="button"
         class="btn-save btn-small"
         (click)="save()"
-        [disabled]="saving() || loading() || !isDataReady()">
+        [disabled]="saving()">
         <i class="pi pi-spin pi-spinner" *ngIf="saving()" style="margin-right: 4px;"></i>
         <i class="pi pi-pencil" *ngIf="!saving() && allocationId" style="margin-right: 4px;"></i>
         <i class="pi pi-plus" *ngIf="!saving() && !allocationId" style="margin-right: 4px;"></i>

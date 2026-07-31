@@ -1,7 +1,7 @@
 import { Component, OnInit, inject, signal, computed, effect } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
-import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
+import { EcoPaginatorComponent, WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ToastModule } from 'primeng/toast';
@@ -13,7 +13,6 @@ import { Select } from 'primeng/select';
 import { CheckboxModule } from 'primeng/checkbox';
 import { CardModule } from 'primeng/card';
 import { TextareaModule } from 'primeng/textarea';
-import { Paginator } from 'primeng/paginator';
 import { EavFormService, EavFormTemplate, AuthService } from '@sohoa.frontend/shared/core';
 import { combineLatest, finalize } from 'rxjs';
 import { Dialog } from 'primeng/dialog';
@@ -42,6 +41,7 @@ interface FormField {
   standalone: true,
   imports: [
     CommonModule, 
+    EcoPaginatorComponent,
     FormsModule, 
     ToastModule, 
     MenuModule,
@@ -51,7 +51,6 @@ interface FormField {
     CheckboxModule,
     CardModule,
     TextareaModule,
-    Paginator,
     Dialog,
     WfBreadcrumbComponent,
     DatePickerModule,

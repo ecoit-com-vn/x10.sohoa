@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy, inject, signal, computed, effect } from '@angular/core';
-import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
+import { EcoPaginatorComponent, WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
@@ -39,6 +39,7 @@ import { LookupTrackingService } from '../../data-access/lookup-tracking.service
     InputTextModule,
     DialogModule,
     PaginatorModule,
+    EcoPaginatorComponent,
     ToastModule,
     SelectModule,
     MenuModule,

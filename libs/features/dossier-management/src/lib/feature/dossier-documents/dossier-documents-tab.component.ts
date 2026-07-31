@@ -135,6 +135,7 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
   totalDocuments = signal(0);
   searchKeyword = signal('');
   downloadingIds = signal<Set<string>>(new Set());
+  exporting = signal(false);
   retryingIds = signal<Set<string>>(new Set());
   reExtractingIds = signal<Set<string>>(new Set());
 
@@ -638,6 +639,31 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
         const next = new Set(this.downloadingIds());
         next.delete(doc.id);
         this.downloadingIds.set(next);
+      });
+  }
+
+  onExportDocuments(): void {
+    if (!this.dossierId || this.exporting()) return;
+
+    this.exporting.set(true);
+    this.documentService.exportDocuments(this.dossierId)
+      .pipe(finalize(() => this.exporting.set(false)))
+      .subscribe({
+        next: (blob) => {
+          const objectUrl = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = objectUrl;
+          link.download = 'Danh_sach_tai_lieu.xlsx';
+          link.rel = 'noopener';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(objectUrl);
+          this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã xuất danh sách tài liệu' });
+        },
+        error: () => {
+          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể xuất danh sách tài liệu' });
+        },
       });
   }
 

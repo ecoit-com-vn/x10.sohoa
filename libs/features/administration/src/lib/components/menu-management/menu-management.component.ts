@@ -151,6 +151,7 @@ export class MenuManagement implements OnInit {
   }
 
   onFieldChange(field: string) {
+    this.currentMenu.update(menu => ({ ...menu }));
     this.serverErrors.update(errs => {
       const copy = { ...errs };
       delete copy[field];

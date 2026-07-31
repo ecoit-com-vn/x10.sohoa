@@ -1,6 +1,7 @@
 import { Component, OnInit, inject, signal, computed, effect } from '@angular/core';
 import {
   DeleteConfirmDialogComponent,
+  EcoPaginatorComponent,
   WfBreadcrumbComponent
 } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
@@ -13,7 +14,6 @@ import { InputTextModule } from 'primeng/inputtext';
 import { CheckboxModule } from 'primeng/checkbox';
 import { CardModule } from 'primeng/card';
 import { TextareaModule } from 'primeng/textarea';
-import { Paginator } from 'primeng/paginator';
 import { Dialog } from 'primeng/dialog';
 import { Select } from 'primeng/select';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -46,6 +46,7 @@ interface FormField {
   standalone: true,
   imports: [
     CommonModule,
+    EcoPaginatorComponent,
     FormsModule,
     ToastModule,
     MenuModule,
@@ -54,7 +55,6 @@ interface FormField {
     CheckboxModule,
     CardModule,
     TextareaModule,
-    Paginator,
     Dialog,
     Select,
     WfBreadcrumbComponent,
@@ -608,7 +608,7 @@ export class FormTemplateComponent implements OnInit {
       `v${form.version}.0`,
       form.createdBy,
       form.createdAt ? new Date(form.createdAt).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '',
-      form.isActive ? 'Đang hoạt động' : 'Ngưng hoạt động'
+      form.isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'
     ]);
 
     import('xlsx').then(XLSX => {

@@ -14,6 +14,8 @@ import { DossierFormComponent } from './dossier-form/dossier-form.component';
 import { DossierDetailComponent } from './dossier-detail/dossier-detail.component';
 import { DossierPublishComponent } from './dossier-publish/dossier-publish.component';
 import { DossierManagementService } from '../data-access/dossier-management.service';
+import { AuthService } from '@sohoa.frontend/shared/core';
+import { hasDossierCreatePermission } from '../utils/dossier-permission.util';
 
 import { DossierMenuScope } from '../utils/dossier-status.util';
 
@@ -37,11 +39,11 @@ import { DossierMenuScope } from '../utils/dossier-status.util';
           (listClick)="onBackToList()"
         />
         <button
-          *ngIf="currentView() === 'list' && menuScope() === 'publisher'"
+          *ngIf="showHeaderCreateButton()"
           type="button"
           class="btn-green"
           (click)="onCreate()">
-          <i class="pi pi-plus"></i> Thêm mới
+          <i class="pi pi-plus"></i> {{ kindId() === 1 ? 'Tạo hồ sơ mới' : 'Thêm mới' }}
         </button>
       </div>
 
@@ -109,6 +111,7 @@ export class DossierManagementComponent implements OnInit {
 
 
   private dossierService = inject(DossierManagementService);
+  private authService = inject(AuthService);
 
   currentView = signal<'list' | 'form' | 'detail'>('list');
   selectedDossierId = signal<string | null>(null);
@@ -117,6 +120,18 @@ export class DossierManagementComponent implements OnInit {
   /** Chờ sync route trước khi mount list — chỉ cần cho digitization (kindId=1); hồ sơ mới mặc định kindId=2. */
   routeReady = signal(false);
   listTitle = signal('Quản lý hồ sơ');
+
+  showHeaderCreateButton = computed(() =>
+    this.currentView() === 'list'
+    && (
+      this.menuScope() === 'publisher'
+      || (
+        this.menuScope() === 'creator'
+        && this.kindId() === 1
+        && hasDossierCreatePermission(this.authService, true)
+      )
+    )
+  );
 
 
 

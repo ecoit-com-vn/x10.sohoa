@@ -2,6 +2,7 @@
 import { Component, OnInit, signal, computed } from '@angular/core';
 import {
   DeleteConfirmDialogComponent,
+  EcoPaginatorComponent,
   WfBreadcrumbComponent
 } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
@@ -27,6 +28,7 @@ import { AuthService } from '@sohoa.frontend/shared/core';
     ToastModule,
     PickListModule,
     PaginatorModule,
+    EcoPaginatorComponent,
     MenuModule,
     WfBreadcrumbComponent,
     DeleteConfirmDialogComponent
@@ -62,6 +64,7 @@ export class UserGroupComponent implements OnInit {
   });
 
   onFieldChange(field: string) {
+    this.currentGroup.update(group => ({ ...group }));
     this.serverErrors.update(errs => {
       const copy = { ...errs };
       delete copy[field];

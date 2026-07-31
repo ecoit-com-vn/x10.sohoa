@@ -1,6 +1,6 @@
 <div class="wf-page">
   <p-toast></p-toast>
-  <div class="list-toolbar">
+  <div class="list-toolbar standard-page-toolbar">
     <div class="toolbar-left">
       <wf-breadcrumb  />
     </div>
@@ -16,10 +16,10 @@
     <div *ngIf="currentView() === 'list'" class="animate-fade-in">
 
       <!-- Toolbar Tìm kiếm & Thao tác -->
-      <div class="list-toolbar">
-        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; width: 100%;">
+      <div class="standard-search-card">
+        <div class="standard-search-grid">
           <!-- Cột 1: Từ khóa -->
-          <div class="form-group" style="margin: 0;">
+          <div class="form-group standard-search-field" style="margin: 0;">
             <label class="form-label" style="font-weight: 600; margin-bottom: 6px; display: block; color: #374151;">Từ
               khóa</label>
             <input type="text" class="wf-input w-full"
@@ -29,7 +29,7 @@
           </div>
 
           <!-- Cột 2: Trạm / đường dây -->
-          <div class="form-group" style="margin: 0;">
+          <div class="form-group standard-search-field" style="margin: 0;">
             <label class="form-label" style="font-weight: 600; margin-bottom: 6px; display: block; color: #374151;">Trạm
               / đường dây</label>
             <select class="wf-input w-full"
@@ -42,7 +42,7 @@
           </div>
 
           <!-- Cột 3: Loại thiết bị -->
-          <div class="form-group" style="margin: 0;">
+          <div class="form-group standard-search-field" style="margin: 0;">
             <label class="form-label" style="font-weight: 600; margin-bottom: 6px; display: block; color: #374151;">Loại
               thiết bị</label>
             <select class="wf-input w-full"
@@ -55,7 +55,7 @@
           </div>
 
           <!-- Cột 4: Trạng thái -->
-          <div class="form-group" style="margin: 0;">
+          <div class="form-group standard-search-field" style="margin: 0;">
             <label class="form-label"
               style="font-weight: 600; margin-bottom: 6px; display: block; color: #374151;">Trạng thái</label>
             <select class="wf-input w-full"
@@ -69,14 +69,12 @@
         </div>
 
         <!-- Hàng nút hành động: Thêm mới, Làm mới -->
-        <div
-          style="display: flex; gap: 8px; justify-content: flex-end; align-items: center; width: 100%; border-top: 1px solid #e2e8f0; padding-top: 12px; margin-top: 4px;">
-          <button class="btn-outlined" style="height: 36px; padding: 0 16px;" (click)="onResetSearch()">
-            Làm mới bộ lọc
+        <div class="standard-search-actions">
+          <button class="btn-outlined" (click)="onResetSearch()">
+            <i class="pi pi-refresh"></i> Làm mới
           </button>
-          <button class="btn-tim" (click)="onSearch()"
-            style="height: 36px; padding: 0 16px; background-color: #002D72; border-color: #002D72;">
-            <i class="pi pi-search"></i> Tìm kiếm
+          <button class="btn-save" (click)="onSearch()">
+            <i class="pi pi-check"></i> Áp dụng
           </button>
         </div>
       </div>
@@ -870,7 +868,7 @@
             [class.has-value]="transferForm().unitId" [class.open]="transferOrgTreeOpen()">
             <span class="org-tree-selected-label">
               <i class="pi pi-building" style="margin-right: 6px; color: #6b7280;"></i>
-              {{ getUnitLabel(transferForm().unitId) || '-- Chọn đơn vị quản lý --' }}
+              {{ getTransferUnitLabel(transferForm().unitId) || '-- Chọn đơn vị quản lý --' }}
             </span>
             <i class="pi" [class.pi-chevron-down]="!transferOrgTreeOpen()" [class.pi-chevron-up]="transferOrgTreeOpen()"></i>
           </div>

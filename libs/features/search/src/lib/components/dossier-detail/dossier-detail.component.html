@@ -121,9 +121,9 @@
             Hiển thị <b>{{ paginatedEquipments().length }}</b> trên tổng số <b>{{ relatedEquipments().length }}</b>
             bản ghi
           </span>
-          <p-paginator [first]="equipmentFirst()" [rows]="equipmentRows()" [totalRecords]="relatedEquipments().length"
+          <app-eco-paginator [first]="equipmentFirst()" [rows]="equipmentRows()" [totalRecords]="relatedEquipments().length"
             [rowsPerPageOptions]="[5, 10, 20, 50]" (onPageChange)="onEquipmentPageChange($event)">
-          </p-paginator>
+          </app-eco-paginator>
         </div>
       </div>
 
@@ -251,9 +251,9 @@
             Hiển thị <b>{{ paginatedRelatedDossiers().length }}</b> trên tổng số <b>{{ relatedDossiers().length }}</b>
             bản ghi
           </span>
-          <p-paginator [first]="relatedFirst()" [rows]="relatedRows()" [totalRecords]="relatedDossiers().length"
+          <app-eco-paginator [first]="relatedFirst()" [rows]="relatedRows()" [totalRecords]="relatedDossiers().length"
             [rowsPerPageOptions]="[5, 10, 20, 50]" (onPageChange)="onRelatedPageChange($event)">
-          </p-paginator>
+          </app-eco-paginator>
         </div>
       </div>
     </div>
