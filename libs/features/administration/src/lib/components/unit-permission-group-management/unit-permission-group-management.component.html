@@ -14,25 +14,27 @@
                     <input type="text" class="wf-search-input" placeholder="Tìm theo mã hoặc tên nhóm quyền..." [ngModel]="searchKeyword()" (ngModelChange)="searchKeyword.set($event)" (keyup.enter)="onSearch()" />
 
                     <div style="min-width: 180px; width: 240px;">
-                        <eco-input-tree-select [showLabel]="false" placeholder="-- Tất cả đơn vị --" [nodes]="primengOrgUnitTree()" [ngModel]="filterOrganizationUnitId()" (ngModelChange)="filterOrganizationUnitId.set($event)" [showClear]="true" [enableSearch]="true" [border]="true">
+                        <eco-input-tree-select [showLabel]="false" placeholder="-- Tất cả đơn vị --" [nodes]="primengOrgUnitTree()" [ngModel]="filterOrganizationUnitId()" (ngModelChange)="onOrganizationUnitFilterChange($event)" [showClear]="true" [enableSearch]="true" [border]="true">
                         </eco-input-tree-select>
                     </div>
 
-                    <select class="wf-select" [ngModel]="filterIsActive()" (ngModelChange)="filterIsActive.set($event)">
+                    <select class="wf-select" [ngModel]="filterIsActive()" (ngModelChange)="onStatusFilterChange($event)">
                       <option [ngValue]="null">-- Tất cả trạng thái --</option>
                       <option [ngValue]="true">Hoạt động</option>
-                      <option [ngValue]="false">Ngưng hoạt động</option>
+                      <option [ngValue]="false">Ngừng hoạt động</option>
                     </select>
 
-                    <button type="button" class="btn-tim" (click)="onSearch()">
-                      <i class="pi pi-search"></i>
-                      Tìm
+                    <button type="button" class="btn-outlined" (click)="onResetSearch()">
+                      <i class="pi pi-refresh"></i> Làm mới
+                    </button>
+                    <button class="btn-tim" (click)="onSearch()">
+                      <i class="pi pi-check"></i> Áp dụng
                     </button>
                 </div>
 
                 <div class="toolbar-right">
                     <button *ngIf="authService.hasPermission('UNIT_PERMISSION_GROUP_MANAGE')" class="btn-green" (click)="onAddNew()">
-            <i class="pi pi-plus"></i> Thêm mới 
+            <i class="pi pi-plus"></i> Thêm mới
           </button>
                 </div>
             </div>
@@ -91,7 +93,7 @@
                                 <td>{{ role.createdByName || role.createdBy || '—' }}</td>
                                 <td style="text-align: center;">
                                     <span class="status-pill" [class.status-active]="role.isActive" [class.status-inactive]="!role.isActive">
-                    {{ role.isActive ? 'Hoạt động' : 'Ngưng hoạt động' }}
+                    {{ role.isActive ? 'Hoạt động' : 'Ngừng hoạt động' }}
                   </span>
                                 </td>
                                 <td class="col-hd">

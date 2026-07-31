@@ -381,14 +381,44 @@ export class UnitPermissionGroupManagement implements OnInit {
     this.menuPermissionTree.set(buildMenuPermissionTreeFromLookup(menusList, permissions));
   }
 
-onSearch(): void {
-  this.searchKeyword.update(keyword =>
-    keyword.trim().normalize('NFC')
-  );
+  onSearch() {
+    const keyword = this.searchKeyword().trim();
+    this.searchKeyword.set(keyword);
+    this.currentPage.set(1);
+    this.loadRoles();
+  }
 
-  this.currentPage.set(1);
-  this.loadRoles();
-}
+  onResetSearch(): void {
+    this.searchKeyword.set('');
+    this.filterOrganizationUnitId.set(null);
+    this.filterIsActive.set(null);
+    this.currentPage.set(1);
+    this.loadRoles();
+  }
+
+  onOrganizationUnitFilterChange(organizationUnitId: number | null): void {
+    const normalizedId = organizationUnitId == null
+      ? null
+      : Number(organizationUnitId);
+
+    if (this.filterOrganizationUnitId() === normalizedId) {
+      return;
+    }
+
+    this.filterOrganizationUnitId.set(normalizedId);
+    this.currentPage.set(1);
+    this.loadRoles();
+  }
+
+  onStatusFilterChange(isActive: boolean | null): void {
+    if (this.filterIsActive() === isActive) {
+      return;
+    }
+
+    this.filterIsActive.set(isActive);
+    this.currentPage.set(1);
+    this.loadRoles();
+  }
 
   onAddNew() {
     if (!this.authService.hasPermission('UNIT_PERMISSION_GROUP_MANAGE')) {

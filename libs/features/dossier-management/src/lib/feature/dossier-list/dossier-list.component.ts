@@ -102,7 +102,7 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
 
             [(ngModel)]="searchKeyword"
 
-            (keyup.enter)="onSearch()"
+            (keyup.enter)="onApplyFilters()"
 
           />
 
@@ -172,10 +172,14 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
             </div>
           </div>
 
-          <button (click)="onSearch()" class="btn-tim">
+          <button (click)="onApplyFilters()" class="btn-tim">
 
-            <i class="pi pi-search"></i> Tìm
+            <i class="pi pi-check"></i> Áp dụng
 
+          </button>
+
+          <button (click)="onResetFilters()" class="btn-outlined">
+            <i class="pi pi-refresh"></i> Làm mới
           </button>
 
         </div>
@@ -188,7 +192,7 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
           <button (click)="fileInput.click()" class="btn-outlined" style="margin-right: 8px;">
             <i class="pi pi-upload"></i> Import
           </button>
-          <button (click)="onCreateNew()" class="btn-green">
+          <button *ngIf="!isDigitization()" (click)="onCreateNew()" class="btn-green">
             <i class="pi pi-plus"></i> Tạo hồ sơ mới
           </button>
         </div>
@@ -310,26 +314,27 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
 
 
 
-      <div class="table-footer" *ngIf="!loading()">
+      <div class="table-footer" *ngIf="items().length > 0">
 
-        <span class="record-count">Tổng số: <b>{{ totalCount() }}</b> hồ sơ.</span>
+        <span class="record-count">Tổng số: <b>{{ totalCount() }}</b> bản ghi.</span>
 
         <div class="pagination">
-
-          <button class="page-btn" [disabled]="currentPage() === 1" (click)="changePage(currentPage() - 1)">
-
+          <button class="page-btn" (click)="prevPage()" [disabled]="currentPage() === 1">
             <i class="pi pi-chevron-left"></i>
-
           </button>
-
           <span class="page-current">Trang {{ currentPage() }} / {{ totalPages() || 1 }}</span>
-
-          <button class="page-btn" [disabled]="currentPage() >= totalPages() || totalPages() === 0" (click)="changePage(currentPage() + 1)">
-
+          <button class="page-btn" (click)="nextPage()" [disabled]="currentPage() >= totalPages()">
             <i class="pi pi-chevron-right"></i>
-
           </button>
-
+          <span style="margin-left: 10px; display: inline-flex; align-items: center; gap: 5px; font-size: 0.8rem; color: #6b7280;">
+            Đi tới trang:
+            <input type="number" class="page-jump-input" [value]="currentPage()" (change)="goToPage($any($event.target).value)" style="width: 50px; height: 28px; text-align: center; border: 1px solid #e5e7eb; border-radius: 4px; padding: 0 4px;" [min]="1" [max]="totalPages() || 1" />
+          </span>
+          <select class="page-size-sel" [ngModel]="pageSize()" (change)="onPageSizeChange($event)">
+            <option [value]="10">10 / trang</option>
+            <option [value]="20">20 / trang</option>
+            <option [value]="50">50 / trang</option>
+          </select>
         </div>
 
       </div>
@@ -798,6 +803,20 @@ export class DossierListComponent implements OnInit {
 
   filterEquipmentId = signal<string | null>(null);
 
+  private appliedFilters = signal<{
+    keyword: string;
+    infrastructureId: string | null;
+    dossierTypeId: string | null;
+    equipmentId: string | null;
+  }>({
+    keyword: '',
+    infrastructureId: null,
+    dossierTypeId: null,
+    equipmentId: null,
+  });
+
+  totalPages = computed(() => Math.ceil(this.totalCount() / this.pageSize()));
+
   infrastructureSearchKeyword = signal<string>('');
 
   isInfrastructureDropdownOpen = signal<boolean>(false);
@@ -946,8 +965,6 @@ export class DossierListComponent implements OnInit {
 
 
 
-  totalPages = computed(() => Math.ceil(this.totalCount() / this.pageSize()));
-
   tableColSpan = computed(() => this.bhsColumns().length + 6);
 
   getDossierStatusPillClass = getDossierStatusPillClass;
@@ -1009,12 +1026,39 @@ export class DossierListComponent implements OnInit {
 
 
 
-  onSearch() {
+  onApplyFilters() {
 
     this.currentPage.set(1);
 
+    this.appliedFilters.set({
+      keyword: this.searchKeyword().trim(),
+      infrastructureId: this.filterInfrastructureId(),
+      dossierTypeId: this.filterDossierTypeId(),
+      equipmentId: this.filterEquipmentId(),
+    });
+
     this.refreshList();
 
+  }
+
+  onResetFilters() {
+    this.searchKeyword.set('');
+    this.filterInfrastructureId.set(null);
+    this.filterDossierTypeId.set(null);
+    this.filterEquipmentId.set(null);
+    this.infrastructureSearchKeyword.set('');
+    this.equipmentSearchKeyword.set('');
+    this.isInfrastructureDropdownOpen.set(false);
+    this.isEquipmentDropdownOpen.set(false);
+    this.equipments.set([]);
+    this.currentPage.set(1);
+    this.appliedFilters.set({
+      keyword: '',
+      infrastructureId: null,
+      dossierTypeId: null,
+      equipmentId: null,
+    });
+    this.refreshList();
   }
 
   toggleInfrastructureDropdown() {
@@ -1030,12 +1074,10 @@ export class DossierListComponent implements OnInit {
 
   onDossierTypeFilterChange(dossierTypeId: string | null) {
     this.filterDossierTypeId.set(dossierTypeId || null);
-    this.onSearch();
   }
 
   onEquipmentFilterChange(equipmentId: string | null) {
     this.filterEquipmentId.set(equipmentId || null);
-    this.onSearch();
   }
 
   selectEquipment(equipmentId: string | null) {
@@ -1063,7 +1105,6 @@ export class DossierListComponent implements OnInit {
       });
     }
 
-    this.onSearch();
   }
 
   selectedInfrastructureLabel(): string {
@@ -1142,13 +1183,14 @@ export class DossierListComponent implements OnInit {
 
   loadTabCounts() {
     const tabs = this.visibleTabs();
+    const appliedFilters = this.appliedFilters();
     const baseFilter = {
       menuScope: this.menuScopeSignal(),
       kindId: this.kindIdSignal(),
-      keyword: this.searchKeyword(),
-      infrastructureId: this.filterInfrastructureId() || undefined,
-      dossierTypeId: this.filterDossierTypeId() || undefined,
-      equipmentId: this.filterEquipmentId() || undefined,
+      keyword: appliedFilters.keyword,
+      infrastructureId: appliedFilters.infrastructureId || undefined,
+      dossierTypeId: appliedFilters.dossierTypeId || undefined,
+      equipmentId: appliedFilters.equipmentId || undefined,
       page: 1,
       pageSize: 1,
     };
@@ -1215,15 +1257,16 @@ export class DossierListComponent implements OnInit {
 
     this.loading.set(true);
     this.items.set([]);
+    const appliedFilters = this.appliedFilters();
 
     const filter = {
       menuScope: this.menuScopeSignal(),
       kindId: this.kindIdSignal(),
       tab: this.activeTab(),
-      keyword: this.searchKeyword(),
-      infrastructureId: this.filterInfrastructureId() || undefined,
-      dossierTypeId: this.filterDossierTypeId() || undefined,
-      equipmentId: this.filterEquipmentId() || undefined,
+      keyword: appliedFilters.keyword,
+      infrastructureId: appliedFilters.infrastructureId || undefined,
+      dossierTypeId: appliedFilters.dossierTypeId || undefined,
+      equipmentId: appliedFilters.equipmentId || undefined,
       page: this.currentPage(),
       pageSize: this.pageSize()
     };
@@ -1307,16 +1350,33 @@ export class DossierListComponent implements OnInit {
 
 
 
-  changePage(page: number) {
-
-    if (page >= 1 && page <= this.totalPages()) {
-
-      this.currentPage.set(page);
-
+  nextPage() {
+    if (this.currentPage() < this.totalPages()) {
+      this.currentPage.update(page => page + 1);
       this.loadData();
-
     }
+  }
 
+  prevPage() {
+    if (this.currentPage() > 1) {
+      this.currentPage.update(page => page - 1);
+      this.loadData();
+    }
+  }
+
+  goToPage(page: any) {
+    const targetPage = Number(page);
+    if (targetPage >= 1 && targetPage <= this.totalPages()) {
+      this.currentPage.set(targetPage);
+      this.loadData();
+    }
+  }
+
+  onPageSizeChange(event: Event) {
+    const target = event.target as HTMLSelectElement | null;
+    this.pageSize.set(Number(target?.value) || 10);
+    this.currentPage.set(1);
+    this.loadData();
   }
 
 
