@@ -42,7 +42,7 @@
             <select class="wf-input" [ngModel]="searchStatus()" (ngModelChange)="searchStatus.set($event)">
               <option value="">-- Tất cả trạng thái --</option>
               <option value="active">Hoạt động</option>
-              <option value="inactive">Ngưng hoạt động</option>
+              <option value="inactive">Ngừng hoạt động</option>
             </select>
           </div>
         </div>
@@ -107,7 +107,7 @@
                                 <td><span class="text-muted" style="font-size: 0.82rem;">{{ unit.description }}</span></td>
                                 <td>
                                     <span class="status-pill" [class.status-active]="unit.isActive" [class.status-inactive]="!unit.isActive">
-                    {{ unit.isActive ? 'Hoạt động' : 'Ngưng hoạt động' }}
+                    {{ unit.isActive ? 'Hoạt động' : 'Ngừng hoạt động' }}
                   </span>
                                 </td>
                                 <td class="col-hd">
@@ -129,13 +129,13 @@
 
       <div class="table-footer-paginator" *ngIf="filteredUnits().length > 0">
         <span class="record-count">Tổng số: <b>{{ filteredUnits().length }}</b> phòng ban / đơn vị trực thuộc.</span>
-        <p-paginator
+        <app-eco-paginator
           [first]="(currentPage() - 1) * pageSize()"
           [rows]="pageSize()"
           [totalRecords]="filteredUnits().length"
           [rowsPerPageOptions]="[5, 10, 20, 50]"
           (onPageChange)="onUnitPageChange($event)">
-        </p-paginator>
+        </app-eco-paginator>
       </div>
     </div>
   </div>

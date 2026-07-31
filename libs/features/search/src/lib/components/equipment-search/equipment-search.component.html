@@ -59,7 +59,7 @@
                   [class.status-active]="item.status === 'Đang hoạt động' || item.isActive"
                   [class.status-pending]="item.status === 'Đang bảo trì' || !item.isActive">
                   <i class="pi pi-clock"></i>
-                  {{ item.status || (item.isActive ? 'Đang hoạt động' : 'Ngưng hoạt động') }}
+                  {{ item.status || (item.isActive ? 'Đang hoạt động' : 'Ngừng hoạt động') }}
                 </span>
               </td>
             </tr>
@@ -121,7 +121,7 @@
         <span style="font-size: 0.8rem; color: #64748b; display: block;">Trạng thái vận hành:</span>
         <p style="margin: 4px 0 0 0;">
           <span class="status-pill" [class.status-active]="selectedEquipment.status === 'Đang hoạt động' || selectedEquipment.isActive" [class.status-pending]="selectedEquipment.status === 'Đang bảo trì' || !selectedEquipment.isActive" style="display: inline-block; padding: 2px 8px; font-size: 0.75rem;">
-            {{ selectedEquipment.status || (selectedEquipment.isActive ? 'Đang hoạt động' : 'Ngưng hoạt động') }}
+            {{ selectedEquipment.status || (selectedEquipment.isActive ? 'Đang hoạt động' : 'Ngừng hoạt động') }}
           </span>
         </p>
       </div>

@@ -1,7 +1,14 @@
 <div class="wf-page">
     <p-toast></p-toast>
 
-    <wf-breadcrumb />
+    <div class="list-toolbar standard-page-toolbar">
+      <div class="toolbar-left"><wf-breadcrumb /></div>
+      <div class="toolbar-right">
+        <button *ngIf="authService.hasPermission('UNIT_PERMISSION_GROUP_MANAGE')" class="btn-green" (click)="onAddNew()">
+          <i class="pi pi-plus"></i> Thêm mới
+        </button>
+      </div>
+    </div>
 
     <div class="wf-card">
 
@@ -9,7 +16,7 @@
         <div *ngIf="currentView() === 'list' || currentView() === 'add' || currentView() === 'edit'" class="animate-fade-in">
 
             <!-- Toolbar -->
-            <div class="list-toolbar">
+            <div class="standard-search-card">
                 <div class="toolbar-left">
                     <input type="text" class="wf-search-input" placeholder="Tìm theo mã hoặc tên nhóm quyền..." [ngModel]="searchKeyword()" (ngModelChange)="searchKeyword.set($event)" (keyup.enter)="onSearch()" />
 
@@ -24,19 +31,16 @@
                       <option [ngValue]="false">Ngừng hoạt động</option>
                     </select>
 
-                    <button type="button" class="btn-outlined" (click)="onResetSearch()">
-                      <i class="pi pi-refresh"></i> Làm mới
-                    </button>
-                    <button class="btn-tim" (click)="onSearch()">
-                      <i class="pi pi-check"></i> Áp dụng
-                    </button>
+                    <div class="standard-search-actions">
+                      <button type="button" class="btn-outlined" (click)="onResetSearch()">
+                        <i class="pi pi-refresh"></i> Làm mới
+                      </button>
+                      <button class="btn-save" (click)="onSearch()">
+                        <i class="pi pi-check"></i> Áp dụng
+                      </button>
+                    </div>
                 </div>
 
-                <div class="toolbar-right">
-                    <button *ngIf="authService.hasPermission('UNIT_PERMISSION_GROUP_MANAGE')" class="btn-green" (click)="onAddNew()">
-            <i class="pi pi-plus"></i> Thêm mới
-          </button>
-                </div>
             </div>
 
             <!-- Table -->
@@ -115,29 +119,13 @@
                 </table>
             </div>
 
-            <!-- Footer with Pagination -->
-            <div class="table-footer" *ngIf="filteredRoles().length > 0 && !loading()">
-                <span class="record-count">  Đang hiện <b>{{ totalCount() }}</b>/<b>{{ allCount() }}</b> hàng</span>
-
-                <div class="pagination">
-                    <button class="page-btn" (click)="prevPage()" [disabled]="currentPage() === 1">
-            <i class="pi pi-chevron-left"></i>
-          </button>
-                    <span class="page-current">Trang {{ currentPage() }} / {{ totalPages() || 1 }}</span>
-                    <button class="page-btn" (click)="nextPage()" [disabled]="currentPage() >= totalPages()">
-            <i class="pi pi-chevron-right"></i>
-          </button>
-                    <span style="margin-left: 10px; display: inline-flex; align-items: center; gap: 5px; font-size: 0.8rem; color: #6b7280;">
-            Đi tới trang:
-            <input type="number" class="page-jump-input" [value]="currentPage()" (change)="goToPage($any($event.target).value)" style="width: 50px; height: 28px; text-align: center; border: 1px solid #e5e7eb; border-radius: 4px; padding: 0 4px;" [min]="1" [max]="totalPages() || 1" />
-          </span>
-                    <select class="page-size-sel" [ngModel]="pageSize()" (change)="onPageSizeChange($event)">
-            <option [value]="10">10 / trang</option>
-            <option [value]="20">20 / trang</option>
-            <option [value]="50">50 / trang</option>
-          </select>
-                </div>
-            </div>
+            <app-eco-paginator
+                *ngIf="totalCount() > 0 && !loading()"
+                [currentPage]="currentPage()"
+                [pageSize]="pageSize()"
+                [totalRecords]="totalCount()"
+                (pageChange)="goToPage($event)"
+                (pageSizeChange)="onPageSizeChange($event)" />
         </div>
 
         <p-menu #actionMenu [model]="actionMenuItems" [popup]="true" appendTo="body" styleClass="row-action-menu"></p-menu>

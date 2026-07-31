@@ -1,4 +1,100 @@
-::ng-deep .p-paginator .p-paginator-pages .p-paginator-page.p-highlight {
-    background-color: rgb(235, 171, 52) !important; 
-    color: white !important;
-  }
+:host {
+    display: block;
+}
+
+.eco-paginator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 32px;
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid #e2e8f0;
+    color: #64748b;
+    font-size: 0.75rem;
+    line-height: 1;
+}
+
+.eco-paginator__summary {
+    white-space: nowrap;
+}
+
+.eco-paginator__pages {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+}
+
+.eco-paginator__button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    height: 24px;
+    padding: 0 5px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: #6b7280;
+    font: inherit;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.eco-paginator__button:hover:not(:disabled):not(.eco-paginator__button--active) {
+    background: #89b5f8;
+    color: #ffffff;
+}
+
+.eco-paginator__button--active {
+    background: #89b5f8;
+    color: #ffffff;
+}
+
+.eco-paginator__button:disabled {
+    color: #cbd5e1;
+    opacity: 1;
+    cursor: not-allowed;
+}
+
+.eco-paginator__nav-button {
+    min-width: 20px;
+    padding: 0;
+    font-size: 1rem;
+    font-weight: 400;
+}
+
+.eco-paginator__page-size {
+    display: flex;
+    align-items: center;
+    margin-left: 2px;
+}
+
+.eco-paginator__page-size select {
+    width: 48px;
+    height: 24px;
+    padding: 0 4px;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    background: #ffffff;
+    color: #374151;
+    font: inherit;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.eco-paginator__button:focus-visible,
+.eco-paginator__page-size select:focus-visible {
+    outline: 2px solid rgba(0, 45, 114, 0.25);
+    outline-offset: 2px;
+}
+
+@media (max-width: 900px) {
+    .eco-paginator {
+        flex-wrap: wrap;
+    }
+}

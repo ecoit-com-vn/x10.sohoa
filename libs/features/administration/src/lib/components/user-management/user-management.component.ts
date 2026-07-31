@@ -75,6 +75,7 @@ export class UserManagement implements OnInit {
   });
 
   onFieldChange(field: string) {
+    this.currentUser.update(user => ({ ...user }));
     this.serverErrors.update(errs => {
       const copy = { ...errs };
       delete copy[field];
@@ -542,6 +543,14 @@ export class UserManagement implements OnInit {
   onDelete(user: any): void {
     this.deleteTarget.set(user);
     this.showDeleteConfirm.set(true);
+  }
+
+  onResetSearch() {
+    this.searchKeyword.set('');
+    this.searchUnitId.set(null);
+    this.searchStatus.set('');
+    this.currentPage.set(1);
+    this.loadUsers();
   }
 
   onConfirmDelete(): void {

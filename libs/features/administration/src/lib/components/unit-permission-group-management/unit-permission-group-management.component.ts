@@ -1,6 +1,7 @@
 import { Component, OnInit, signal, computed } from '@angular/core';
 import {
   DeleteConfirmDialogComponent,
+  EcoPaginatorComponent,
   EcoInputTreeSelectComponent,
   WfBreadcrumbComponent
 } from '@sohoa.frontend/shared/layout';
@@ -28,6 +29,7 @@ import { buildMenuPermissionTree as buildMenuPermissionTreeFromLookup } from '..
     MenuModule,
     TreeSelectModule,
     WfBreadcrumbComponent,
+    EcoPaginatorComponent,
     EcoInputTreeSelectComponent,
     DeleteConfirmDialogComponent
   ],
@@ -119,6 +121,7 @@ export class UnitPermissionGroupManagement implements OnInit {
   });
 
   onFieldChange(field: string) {
+    this.currentRole.update(role => ({ ...role }));
     this.serverErrors.update(errs => {
       const copy = { ...errs };
       delete copy[field];
@@ -182,10 +185,7 @@ export class UnitPermissionGroupManagement implements OnInit {
     this.loadRoles();
   }
 
-  onPageSizeChange(event: Event): void {
-    const target = event.target as HTMLSelectElement | null;
-    const selectedPageSize = Number(target?.value);
-
+  onPageSizeChange(selectedPageSize: number): void {
     if (![10, 20, 50].includes(selectedPageSize)) {
       return;
     }

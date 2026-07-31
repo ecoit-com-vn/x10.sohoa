@@ -1,6 +1,6 @@
 <div class="wf-page">
   <p-toast></p-toast>
-  <div class="list-toolbar">
+  <div class="list-toolbar standard-page-toolbar">
     <div class="toolbar-left">
       <div class="breadcrumb" style="margin-bottom: 0;" *ngIf="isPhongCatalog(); else defaultCatalogBreadcrumb">
         <i class="pi pi-home bc-icon"></i>
@@ -32,7 +32,7 @@
       class="animate-fade-in">
 
       <!-- Toolbar -->
-      <div class="list-toolbar" *ngIf="isPhongCatalog(); else defaultCatalogFilters">
+      <div class="standard-search-card" *ngIf="isPhongCatalog(); else defaultCatalogFilters">
         <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; width: 100%; padding: 16px; border: 1px solid #dbe4f0; border-radius: 8px;">
             <div class="form-group" style="margin: 0; min-width: 0;">
               <label class="form-label">Tên danh mục</label>
@@ -53,7 +53,7 @@
                 <option value="0">Ngừng hoạt động</option>
               </select>
             </div>
-            <div style="grid-column: 3; display: flex; justify-content: flex-end; gap: 8px;">
+            <div class="standard-search-actions">
               <button class="btn-outlined" style="height: 38px;" (click)="onResetSearch()">
                 <i class="pi pi-refresh"></i> Làm mới
               </button>
@@ -65,7 +65,7 @@
       </div>
 
       <ng-template #defaultCatalogFilters>
-        <div class="list-toolbar">
+        <div class="standard-search-card">
           <div class="toolbar-left" style="display: flex; gap: 8px; align-items: center;">
             <input type="text" class="wf-search-input" placeholder="Tìm theo mã hoặc tên..." [ngModel]="searchKeyword()"
               (ngModelChange)="searchKeyword.set($event)" (keyup.enter)="onSearch()" />
@@ -77,8 +77,10 @@
                 <option value="0">Ngừng hoạt động</option>
               </select>
             </div>
-            <button class="btn-tim" style="height: 38px;" (click)="onSearch()"><i class="pi pi-search"></i> Tìm</button>
-            <button class="btn-outlined" style="height: 38px;" (click)="onResetSearch()">Làm mới</button>
+            <div class="standard-search-actions">
+              <button class="btn-outlined" style="height: 38px;" (click)="onResetSearch()"><i class="pi pi-refresh"></i> Làm mới</button>
+              <button class="btn-save" style="height: 38px;" (click)="onSearch()"><i class="pi pi-check"></i> Áp dụng</button>
+            </div>
           </div>
         </div>
       </ng-template>
