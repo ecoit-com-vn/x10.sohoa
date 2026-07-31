@@ -8,6 +8,8 @@ public class OrganizationDto
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public long? ParentId { get; set; }
+    public bool IsActive { get; set; }
+    public bool IsDeleted { get; set; }
 
     // Map helpers for Dapper matching Oracle SQL select aliases
     public long OrgId { get => Id; set => Id = value; }
