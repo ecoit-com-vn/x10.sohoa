@@ -117,7 +117,7 @@ public partial class EquipmentController : ControllerBase
         return Ok(dto);
     }
     [HttpPost("{id}/copy-byid")]
-    public async Task<IActionResult> CreateFromById(Guid id, Guid InfrastructureId, string note)
+    public async Task<IActionResult> CreateFromById(Guid id, Guid InfrastructureId, string? note)
     {
         var dto = await _equipmentRepository.GetDtoByIdAsync(id);
         if (dto == null)

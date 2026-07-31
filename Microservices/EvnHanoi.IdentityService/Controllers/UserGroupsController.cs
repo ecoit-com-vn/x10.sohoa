@@ -1,5 +1,6 @@
 // E:\ecoit\sohoax10\sohoa.backend\Microservices\EvnHanoi.IdentityService\Controllers\UserGroupsController.cs
 using System.Collections.Generic;
+using System.Security.Claims;
 using System.Threading.Tasks;
 using EvnHanoi.IdentityService.Core.Domain.Models;
 using EvnHanoi.IdentityService.Core.Interfaces;
@@ -40,6 +41,9 @@ public class UserGroupsController : ControllerBase
         {
             return BadRequest(new { message = "Tên nhóm người dùng là bắt buộc." });
         }
+        group.CreatedBy = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue(ClaimTypes.Name)
+            ?? "SYSTEM";
         var newId = await _userGroupRepository.CreateAsync(group);
         group.Id = newId;
         return CreatedAtAction(nameof(GetById), new { id = newId }, group);
