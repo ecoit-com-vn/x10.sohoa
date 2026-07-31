@@ -91,12 +91,14 @@
             <ng-container *ngIf="!loading()">
               <tr *ngFor="let unit of pagedUnits(); let i = index">
                 <td class="col-stt text-muted">{{ (currentPage() - 1) * pageSize() + i + 1 }}</td>
-                <td><code>{{ unit.code }}</code></td>
+                <td class="unit-code-cell">
+                  <span *ngIf="authService.hasPermission('ORGANIZATION_EDIT')" class="wf-name-link" (click)="onEdit(unit)">{{ unit.code }}</span>
+                  <span *ngIf="!authService.hasPermission('ORGANIZATION_EDIT')">{{ unit.code }}</span>
+                </td>
                 <td>
                   <div [style.padding-left.px]="getIndentLevel(unit) * 20" style="display: flex; align-items: center; gap: 8px;">
                     <i class="pi" [class.pi-building]="getIndentLevel(unit) === 0" [class.pi-users]="getIndentLevel(unit) > 0" style="color: #002D72;"></i>
-                    <b *ngIf="authService.hasPermission('ORGANIZATION_EDIT')" class="wf-name-link" (click)="onEdit(unit)">{{ unit.name }}</b>
-                    <span *ngIf="!authService.hasPermission('ORGANIZATION_EDIT')">{{ unit.name }}</span>
+                    <span>{{ unit.name }}</span>
                   </div>
                 </td>
                 <td>
@@ -147,19 +149,19 @@
             <div style="display: flex; flex-direction: column; gap: 16px; padding: 10px 0;">
                 <div class="form-group">
                     <label class="form-label">Mã phòng ban / đơn vị <span class="required">*</span></label>
-                    <input type="text" class="wf-input w-full" [(ngModel)]="currentUnit().code" (ngModelChange)="onFieldChange('code')" placeholder="Ví dụ: P_KTDY, CT_DLDONGANH..." [disabled]="saving()" />
+                    <input type="text" class="wf-input w-full" [ngModel]="currentUnit().code" (ngModelChange)="onUnitFieldChange('code', $event)" placeholder="Ví dụ: P_KTDY, CT_DLDONGANH..." [disabled]="saving()" />
                     <span class="field-error" *ngIf="codeError()">{{ codeError() }}</span>
                 </div>
 
                 <div class="form-group">
                     <label class="form-label">Tên phòng ban / đơn vị <span class="required">*</span></label>
-                    <input type="text" class="wf-input w-full" [(ngModel)]="currentUnit().name" (ngModelChange)="onFieldChange('name')" placeholder="Ví dụ: Phòng Kỹ thuật dây, Công ty Điện lực..." [disabled]="saving()" />
+                    <input type="text" class="wf-input w-full" [ngModel]="currentUnit().name" (ngModelChange)="onUnitFieldChange('name', $event)" placeholder="Ví dụ: Phòng Kỹ thuật dây, Công ty Điện lực..." [disabled]="saving()" />
                     <span class="field-error" *ngIf="nameError()">{{ nameError() }}</span>
                 </div>
 
                 <div class="form-group">
                     <label class="form-label">Thuộc đơn vị cấp trên (Parent Unit)</label>
-                    <select class="wf-select w-full" [(ngModel)]="currentUnit().parentId" [disabled]="saving()">
+                    <select class="wf-select w-full" [ngModel]="currentUnit().parentId" (ngModelChange)="onUnitFieldChange('parentId', $event)" [disabled]="saving()">
             <option [value]="null">-- Chọn đơn vị gốc / cấp trên --</option>
             <option *ngFor="let u of getEligibleParents(currentUnit().id)" [value]="u.id">{{ u.name }} ({{ u.code }})</option>
           </select>
@@ -167,17 +169,17 @@
 
                 <div class="form-group">
                     <label class="form-label">Mã định danh</label>
-                    <input type="text" class="wf-input w-full" [(ngModel)]="currentUnit().identifier" placeholder="Ví dụ: MDD01, ORG_ID_02..." [disabled]="saving()" />
+                    <input type="text" class="wf-input w-full" [ngModel]="currentUnit().identifier" (ngModelChange)="onUnitFieldChange('identifier', $event)" placeholder="Ví dụ: MDD01, ORG_ID_02..." [disabled]="saving()" />
                 </div>
 
                 <div class="form-group">
                     <label class="form-label">Thứ tự sắp xếp</label>
-                    <input type="number" class="wf-input w-full" [(ngModel)]="currentUnit().sortOrder" placeholder="Ví dụ: 1, 2, 3..." [disabled]="saving()" />
+                    <input type="number" class="wf-input w-full" [ngModel]="currentUnit().sortOrder" (ngModelChange)="onUnitFieldChange('sortOrder', $event)" placeholder="Ví dụ: 1, 2, 3..." [disabled]="saving()" />
                 </div>
 
                 <div class="form-group">
                     <label class="form-label">Mô tả chi tiết</label>
-                    <textarea class="wf-textarea w-full" rows="3" [(ngModel)]="currentUnit().description" placeholder="Ghi chú chi tiết phòng ban này..." [disabled]="saving()"></textarea>
+                    <textarea class="wf-textarea w-full" rows="3" [ngModel]="currentUnit().description" (ngModelChange)="onUnitFieldChange('description', $event)" placeholder="Ghi chú chi tiết phòng ban này..." [disabled]="saving()"></textarea>
                 </div>
             </div>
             <ng-template #footer>
