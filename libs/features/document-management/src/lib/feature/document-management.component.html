@@ -451,14 +451,14 @@
             <b>{{ subFolders().length }}</b> thư mục,
             <b>{{ totalDocuments() }}</b> tài liệu.
           </span>
-          <p-paginator
+          <app-eco-paginator
               *ngIf="totalDocuments() > 0"
               [first]="first()" 
               [rows]="rows()" 
               [totalRecords]="totalDocuments()" 
               [rowsPerPageOptions]="[5, 10, 20, 50]" 
               (onPageChange)="onPageChange($event)">
-          </p-paginator>
+          </app-eco-paginator>
         </div>
       </ng-container>
 

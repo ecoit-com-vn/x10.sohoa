@@ -110,6 +110,10 @@ export class EquipmentService {
     return this.http.get<any[]>(`${this.config.apiGatewayUrl}/api/v1/organization-units/lookup`);
   }
 
+  getAllOrganizationUnits(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.config.apiGatewayUrl}/api/v1/organization-units/lookup-all-active`);
+  }
+
   getInfrastructures(): Observable<any[]> {
     return this.http.get<any[]>(`${this.base}/get-infrastructures`);
   }

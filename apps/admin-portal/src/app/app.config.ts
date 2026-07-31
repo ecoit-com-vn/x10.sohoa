@@ -26,7 +26,7 @@ export const appConfig: ApplicationConfig = {
       withRouterConfig({ onSameUrlNavigation: 'reload' })
     ),
     provideAnimationsAsync(),
-    provideHttpClient(withInterceptors([authInterceptor, authRefreshInterceptor, httpErrorInterceptor]), withFetch()),
+    provideHttpClient(withInterceptors([authInterceptor, httpErrorInterceptor, authRefreshInterceptor]), withFetch()),
     MessageService,
     providePrimeNG({
         theme: {

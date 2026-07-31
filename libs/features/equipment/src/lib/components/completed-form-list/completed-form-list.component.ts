@@ -1,6 +1,7 @@
 import { Component, OnInit, inject, signal, computed, effect } from '@angular/core';
 import {
     DeleteConfirmDialogComponent,
+    EcoPaginatorComponent,
     WfBreadcrumbComponent
 } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
@@ -37,6 +38,7 @@ import {
         TextareaModule,
         SelectModule,
         PaginatorModule,
+        EcoPaginatorComponent,
         DialogModule,
         WfBreadcrumbComponent,
         DeleteConfirmDialogComponent,

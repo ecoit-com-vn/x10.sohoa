@@ -119,6 +119,7 @@ export class CatalogListComponent implements OnInit {
   });
 
   onFieldChange(field: string) {
+    this.currentItem.update(item => ({ ...item }));
     this.serverErrors.update(errs => {
       const copy = { ...errs };
       delete copy[field];

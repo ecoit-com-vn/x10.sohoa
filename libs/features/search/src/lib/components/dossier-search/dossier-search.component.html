@@ -310,13 +310,13 @@
       <!-- Footer / Paginator for Dossier List -->
       <div class="table-footer-paginator" *ngIf="selectedFolder() && isSelectableFolder(selectedFolder()!.id) && !selectedDossier() && totalDossiersList() > 0">
         <span class="record-count">Tổng số: <b>{{ totalDossiersList() }}</b> tài liệu.</span>
-        <p-paginator 
+        <app-eco-paginator
             [first]="first()" 
             [rows]="rows()" 
             [totalRecords]="totalDossiersList()" 
             [rowsPerPageOptions]="[5, 10, 20, 50]" 
             (onPageChange)="onDossierPageChange($event)">
-        </p-paginator>
+        </app-eco-paginator>
       </div>
     </div>
   </div>
