@@ -31,6 +31,7 @@ public static class PermissionCodeResolver
             "DossierByEquipment" => "SEARCH_DOSSIERS_BY_EQUIPMENT",
             "SearchDossiersByEquipment" => "SEARCH_DOSSIERS_BY_EQUIPMENT",
             "SubstationSearch" => "SEARCH_SUBSTATION",
+            "TransmissionLineSearch" => "SEARCH_TRANSMISSION_LINE",
             "DossierSearch" => "SEARCH_DOSSIERS_IN_WAREHOUSE",
             "DossierCatalog" => "SEARCH_DOSSIERS_IN_WAREHOUSE",
             "ReportDossierByGridType" => "REPORT_DOSSIER_BY_GRIDTYPE",
@@ -90,6 +91,13 @@ public static class PermissionCodeResolver
 
         // Tra cứu trạm biến áp: mọi GET → VIEW
         if (string.Equals(controllerKey, "SubstationSearch", StringComparison.OrdinalIgnoreCase) &&
+            httpMethod.Equals("GET", StringComparison.OrdinalIgnoreCase))
+        {
+            return "VIEW";
+        }
+
+        // Tra cứu đường dây: mọi GET → VIEW
+        if (string.Equals(controllerKey, "TransmissionLineSearch", StringComparison.OrdinalIgnoreCase) &&
             httpMethod.Equals("GET", StringComparison.OrdinalIgnoreCase))
         {
             return "VIEW";

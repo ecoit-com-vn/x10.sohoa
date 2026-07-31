@@ -120,6 +120,42 @@ public class CatalogRepository : ICatalogRepository
         return (items, totalCount);
     }
 
+    public async Task<(IEnumerable<Catalog> Items, int TotalCount)> GetPhongPagedAsync(
+        int page, int pageSize, long catalogTypeId, long? unitId,
+        string? name = null, string? code = null, int? status = null)
+    {
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+
+        var filterSql = $@" WHERE {nameof(Catalog.IsDeleted)} = 0
+                            AND {nameof(Catalog.CatalogTypeId)} = :CatalogTypeId";
+        if (unitId.HasValue)
+            filterSql += $" AND {nameof(Catalog.UnitId)} = :UnitId";
+        if (!string.IsNullOrWhiteSpace(name))
+            filterSql += $" AND LOWER({nameof(Catalog.Name)}) LIKE :Name";
+        if (!string.IsNullOrWhiteSpace(code))
+            filterSql += $" AND LOWER({nameof(Catalog.Code)}) LIKE :Code";
+        if (status.HasValue)
+            filterSql += $" AND {nameof(Catalog.Status)} = :Status";
+
+        var parameters = new DynamicParameters();
+        parameters.Add("CatalogTypeId", catalogTypeId);
+        parameters.Add("UnitId", unitId);
+        parameters.Add("Name", string.IsNullOrWhiteSpace(name) ? null : $"%{name.Trim().ToLower()}%");
+        parameters.Add("Code", string.IsNullOrWhiteSpace(code) ? null : $"%{code.Trim().ToLower()}%");
+        parameters.Add("Status", status);
+        parameters.Add("Offset", (page - 1) * pageSize);
+        parameters.Add("OffsetPlusSize", page * pageSize);
+
+        var totalCount = await _connection.ExecuteScalarAsync<int>(
+            $"SELECT COUNT(*) FROM {nameof(Catalog)}{filterSql}", parameters);
+        var items = await _connection.QueryAsync<Catalog>($@"
+            SELECT * FROM (
+                SELECT c.*, ROW_NUMBER() OVER (ORDER BY c.{nameof(Catalog.Priority)}, c.{nameof(Catalog.CreatedAt)} DESC) RN
+                  FROM {nameof(Catalog)} c {filterSql}
+            ) WHERE RN > :Offset AND RN <= :OffsetPlusSize", parameters);
+        return (items, totalCount);
+    }
+
     public async Task<Catalog?> GetByIdAsync(long id)
     {
         if (_connection.State != ConnectionState.Open) _connection.Open();

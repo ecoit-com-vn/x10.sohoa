@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
 using System.Security.Claims;
+
 namespace EvnHanoi.IdentityService.Controllers;
 
 [ApiController]
@@ -107,18 +108,9 @@ public class SystemPermissionGroupsController : ControllerBase
 
         group.GroupType = PermissionGroupTypes.System;
         group.OrganizationUnitId = null;
-
-        try
-        {
-            // Lưu username từ JWT, không nhận CreatedBy từ request body
-            // để tránh giả mạo thông tin người tạo.
-            group.CreatedBy = CurrentUsername;
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            return Unauthorized(new { message = ex.Message });
-        }
-
+        group.CreatedBy = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue(ClaimTypes.Name)
+            ?? "SYSTEM";
         var newId = await _permissionGroupRepository.CreateAsync(group);
         group.Id = newId;
 
