@@ -546,10 +546,10 @@ public partial class EquipmentController : ControllerBase
         long? startUnitId = null;
         if (!isAdmin)
         {
-            var unitIdClaim = User.FindFirst("unit_id")?.Value;
-            if (!string.IsNullOrEmpty(unitIdClaim) && long.TryParse(unitIdClaim, out var userUnitId))
+            var userUnitId = GetUserUnitIdFromClaims();
+            if (userUnitId.HasValue)
             {
-                startUnitId = userUnitId;
+                startUnitId = userUnitId.Value;
             }
             else
             {
@@ -584,10 +584,10 @@ public partial class EquipmentController : ControllerBase
         long? startUnitId = null;
         if (!isAdmin)
         {
-            var unitIdClaim = User.FindFirst("unit_id")?.Value;
-            if (!string.IsNullOrEmpty(unitIdClaim) && long.TryParse(unitIdClaim, out var userUnitId))
+            var userUnitId = GetUserUnitIdFromClaims();
+            if (userUnitId.HasValue)
             {
-                startUnitId = userUnitId;
+                startUnitId = userUnitId.Value;
             }
             else
             {
@@ -636,10 +636,10 @@ public partial class EquipmentController : ControllerBase
             return null;
         }
 
-        var unitIdClaim = User.FindFirst("unit_id")?.Value;
-        if (!string.IsNullOrEmpty(unitIdClaim) && long.TryParse(unitIdClaim, out var userUnitId))
+        var userUnitId = GetUserUnitIdFromClaims();
+        if (userUnitId.HasValue)
         {
-            var allowedUnits = await _equipmentRepository.GetOrganizationUnitsHierarchicalAsync(userUnitId);
+            var allowedUnits = await _equipmentRepository.GetOrganizationUnitsHierarchicalAsync(userUnitId.Value);
             return allowedUnits.Select(u => u.Id).ToList();
         }
 
@@ -656,6 +656,29 @@ public partial class EquipmentController : ControllerBase
         }
 
         return new List<long> { -1 };
+    }
+
+    private long? GetUserUnitIdFromClaims()
+    {
+        var claimNames = new[]
+        {
+            "unit_id",
+            "UnitId",
+            "unitId",
+            "Unit_Id",
+            "organization_unit_id",
+            "organizationUnitId",
+            "OrganizationUnitId"
+        };
+
+        foreach (var claimName in claimNames)
+        {
+            var value = User.FindFirst(claimName)?.Value;
+            if (long.TryParse(value, out var unitId) && unitId > 0)
+                return unitId;
+        }
+
+        return null;
     }
 
     private List<long>? GetAuthorizedUnitIds()

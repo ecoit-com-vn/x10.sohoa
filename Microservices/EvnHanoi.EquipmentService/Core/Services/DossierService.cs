@@ -977,7 +977,9 @@ public class DossierService : IDossierService
             new string[] { "Hộp lưu trữ", "Không", "Mã hộp lưu trữ vật lý, phân biệt hoa thường. Ví dụ: 'BOX-001'" },
             new string[] { "Loại hồ sơ", "Có", "Mã loại hồ sơ, phân biệt hoa thường. Ví dụ: 'LH-001'" },
             new string[] { "Thiết bị", "Bắt buộc đối với nhóm hồ sơ 3 và 4", "Mã các thiết bị ngăn cách nhau bằng dấu chấm phẩy (;), phân biệt hoa thường. Các thiết bị phải thuộc Trạm/đường dây đã chọn. Ví dụ: 'TB-001;TB-002'" },
-            new string[] { "Ghi chú", "Không", "Ghi chú thêm cho hồ sơ, thông tin này được lưu vào trường dữ liệu động với key là 'NOTE'. Ví dụ: 'Hồ sơ lắp đặt bổ sung'" }
+            new string[] { "Ghi chú", "Không", "Ghi chú thêm cho hồ sơ, thông tin này được lưu vào trường dữ liệu động với key là 'NOTE'. Ví dụ: 'Hồ sơ lắp đặt bổ sung'" },
+            new string[] { "Mã hồ sơ", "Tự sinh", "Hệ thống tự sinh khi import: <Mã đơn vị>.<Mã trạm/đường dây>.<Mã loại hồ sơ>.<Số thứ tự>." },
+            new string[] { "Tiêu đề hồ sơ", "Tự sinh", "Hệ thống tự sinh khi import: <Tên loại hồ sơ> <Tên trạm/đường dây>." }
         };
 
         for (int r = 0; r < ruleRows.Length; r++)
@@ -1057,6 +1059,26 @@ public class DossierService : IDossierService
             {
                 if (!infras.ContainsKey(x.Code))
                     infras.Add(x.Code, x);
+            }
+        }
+
+        var unitCodes = new Dictionary<long, string>();
+        var unitIds = infras.Values
+            .Where(infra => infra.UnitId.HasValue)
+            .Select(infra => infra.UnitId!.Value)
+            .Distinct()
+            .ToArray();
+        if (unitIds.Length > 0)
+        {
+            var sql = @"SELECT Id, Code
+                        FROM ORGANIZATION_UNIT
+                        WHERE Id IN :Ids
+                          AND NVL(IsDeleted, 0) = 0";
+            var units = await _dbConnection.QueryAsync<OrganizationDto>(sql, new { Ids = unitIds });
+            foreach (var unit in units)
+            {
+                if (!string.IsNullOrWhiteSpace(unit.Code))
+                    unitCodes[unit.Id] = unit.Code.Trim();
             }
         }
 
@@ -1230,6 +1252,12 @@ public class DossierService : IDossierService
                 }
             }
 
+            string? unitCode = null;
+            if (infra?.UnitId.HasValue == true)
+                unitCodes.TryGetValue(infra.UnitId.Value, out unitCode);
+            if (infra != null && string.IsNullOrWhiteSpace(unitCode))
+                errors.Add($"Không tìm thấy mã đơn vị quản lý của trạm/đường dây '{infraCodeText}'.");
+
             // 6. Thiết bị
             var listEquipIds = new List<Guid>();
             if (group != null)
@@ -1279,8 +1307,16 @@ public class DossierService : IDossierService
             {
                 try
                 {
-                    // Chuẩn bị FormDataJson chứa ghi chú
+                    var sequence = string.IsNullOrWhiteSpace(sttText)
+                        ? (rowIndex - 1).ToString()
+                        : sttText;
+                    var dossierCode = string.Join('.', unitCode, infra!.Code, dossierType!.Code, sequence);
+                    var dossierTitle = $"{dossierType.Name} {infra.Name}";
+
+                    // Chuẩn bị FormDataJson chứa các trường tự sinh và ghi chú.
                     var formDataObj = new Dictionary<string, object>();
+                    formDataObj.Add("CODE", dossierCode);
+                    formDataObj.Add("TITLE", dossierTitle);
                     if (!string.IsNullOrEmpty(noteText))
                     {
                         formDataObj.Add("NOTE", noteText);
