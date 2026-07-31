@@ -78,6 +78,9 @@ public class OrganizationUnitsController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] OrganizationUnit unit)
     {
+        unit.Code = unit.Code?.Trim() ?? string.Empty;
+        unit.Name = unit.Name?.Trim() ?? string.Empty;
+        unit.Description = unit.Description?.Trim() ?? string.Empty;
         if (string.IsNullOrWhiteSpace(unit.Code) || string.IsNullOrWhiteSpace(unit.Name))
         {
             return BadRequest(new { message = "Mã và Tên đơn vị là bắt buộc." });
@@ -94,6 +97,9 @@ public class OrganizationUnitsController : ControllerBase
     public async Task<IActionResult> Update(long id, [FromBody] OrganizationUnit unit)
     {
         if (id != unit.Id) return BadRequest(new { message = "ID không trùng khớp." });
+        unit.Code = unit.Code?.Trim() ?? string.Empty;
+        unit.Name = unit.Name?.Trim() ?? string.Empty;
+        unit.Description = unit.Description?.Trim() ?? string.Empty;
         if (string.IsNullOrWhiteSpace(unit.Code) || string.IsNullOrWhiteSpace(unit.Name))
         {
             return BadRequest(new { message = "Mã và Tên đơn vị là bắt buộc." });
