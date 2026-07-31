@@ -217,7 +217,7 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
 
               <th style="width: 130px; text-align: center; white-space: normal !important;">Số lượng tài liệu</th>
 
-              <th style="width: 140px; white-space: nowrap !important;">Người xử lý hiện tại</th>
+              <th style="width: 140px; white-space: nowrap !important;">{{ activeTab() === 'draft' ? 'Ngày tạo' : 'Người xử lý hiện tại' }}</th>
 
               <th style="width: 160px; text-align: center; white-space: normal !important;">Trạng thái duyệt</th>
 
@@ -285,7 +285,10 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
 
                 <td class="text-center">{{ item.documentCount ?? 0 }}</td>
 
-                <td class="handler-cell" [title]="getCurrentHandlerName(item)">{{ getCurrentHandlerName(item) }}</td>
+                <td [class.handler-cell]="activeTab() !== 'draft'"
+                    [title]="activeTab() === 'draft' ? formatCreatedDate(item?.createdDate ?? item?.CreatedDate) : getCurrentHandlerName(item)">
+                  {{ activeTab() === 'draft' ? formatCreatedDate(item?.createdDate ?? item?.CreatedDate) : getCurrentHandlerName(item) }}
+                </td>
 
                 <td class="text-center">
                   <span [class]="getDossierStatusPillClass(item.statusId)">
@@ -1341,6 +1344,15 @@ export class DossierListComponent implements OnInit {
     }
 
     return '-';
+  }
+
+  formatCreatedDate(value: unknown): string {
+    if (!value) return '-';
+    const date = new Date(String(value));
+    if (Number.isNaN(date.getTime())) return '-';
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    return `${day}/${month}/${date.getFullYear()}`;
   }
 
   onQuickSubmitNextUserChange(event: Event) {

@@ -1,8 +1,11 @@
-import { HttpInterceptorFn, HttpErrorResponse } from '@angular/common/http';
+import { HttpContextToken, HttpInterceptorFn, HttpErrorResponse } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { catchError, throwError } from 'rxjs';
 import { MessageService } from 'primeng/api';
+
+/** Lets an expected background request fail without showing a global toast. */
+export const SUPPRESS_HTTP_ERROR_TOAST = new HttpContextToken<boolean>(() => false);
 
 function isAuthEndpoint(url: string): boolean {
   return url.includes('/auth/login') || url.includes('/auth/refresh');
@@ -27,6 +30,10 @@ export const httpErrorInterceptor: HttpInterceptorFn = (req, next) => {
 
   return next(req).pipe(
     catchError((error: HttpErrorResponse) => {
+      if (req.context.get(SUPPRESS_HTTP_ERROR_TOAST)) {
+        return throwError(() => error);
+      }
+
       if (typeof ErrorEvent !== 'undefined' && error.error instanceof ErrorEvent) {
         messageService.add({
           severity: 'error',
