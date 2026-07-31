@@ -1,34 +1,49 @@
 <div class="wf-page">
   <p-toast></p-toast>
   
-  <wf-breadcrumb />
+  <div class="list-toolbar unit-page-toolbar">
+    <div class="toolbar-left">
+      <wf-breadcrumb />
+    </div>
+    <div class="toolbar-right">
+      <button *ngIf="authService.hasPermission('USER_GROUP_CREATE')" class="btn-green" (click)="onAddNew()">
+        <i class="pi pi-plus"></i> Thêm mới
+      </button>
+    </div>
+  </div>
 
   <div class="wf-card">
     
     <!-- MÀN HÌNH DANH SÁCH -->
     <div *ngIf="currentView() === 'list' || currentView() === 'add' || currentView() === 'edit'" class="animate-fade-in">
 
-      <!-- Toolbar -->
-      <div class="list-toolbar">
-        <div class="toolbar-left">
+      <div class="dossier-search-bar unit-search-bar">
+        <div class="search-form-grid unit-search-grid">
+          <div class="search-form-item">
+            <label class="search-field-label">Từ khóa</label>
           <input type="text" class="wf-search-input"
-            placeholder="Tìm kiếm nhóm..."
+            placeholder="Tìm theo tên nhóm người dùng..."
             [ngModel]="searchKeyword()"
-            (ngModelChange)="searchKeyword.set($event)" />
+            (ngModelChange)="searchKeyword.set($event)"
+            (keyup.enter)="onSearch()" />
+          </div>
 
-          <select class="wf-select" [ngModel]="searchStatus()" (ngModelChange)="searchStatus.set($event)" style="min-width: 160px;">
-            <option value="">-- Tất cả trạng thái --</option>
-            <option value="active">Hoạt động</option>
-            <option value="inactive">Ngưng hoạt động</option>
-          </select>
-
-          <button class="btn-tim" (click)="loadGroups()">
-            <i class="pi pi-search"></i> Tìm
-          </button>
+          <div class="search-form-item">
+            <label class="search-field-label">Trạng thái</label>
+            <select class="wf-input" [ngModel]="searchStatus()" (ngModelChange)="searchStatus.set($event)">
+              <option value="">-- Tất cả trạng thái --</option>
+              <option value="active">Hoạt động</option>
+              <option value="inactive">Ngưng hoạt động</option>
+            </select>
+          </div>
         </div>
-        <div class="toolbar-right">
-          <button *ngIf="authService.hasPermission('USER_GROUP_CREATE')" class="btn-green" (click)="onAddNew()">
-            <i class="pi pi-plus"></i> Thêm nhóm mới
+
+        <div class="unit-search-actions">
+          <button type="button" class="btn-outlined" (click)="onResetSearch()">
+            <i class="pi pi-refresh"></i> Làm mới
+          </button>
+          <button type="button" class="btn-save" (click)="onSearch()">
+            <i class="pi pi-check"></i> Áp dụng
           </button>
         </div>
       </div>
@@ -40,7 +55,8 @@
             <tr>
               <th style="width: 80px;">STT</th>
               <th>Tên nhóm người dùng</th>
-              <th>Mô tả</th>
+              <th>Ngày tạo</th>
+              <th>Người tạo</th>
               <th class="col-tt">Trạng thái</th>
               <th class="col-hd">Thao tác</th>
             </tr>
@@ -51,7 +67,8 @@
               <tr *ngFor="let item of [1, 2, 3]">
                 <td class="col-stt"><div class="skeleton-shimmer" style="height: 16px; width: 24px; border-radius: 4px;"></div></td>
                 <td><div class="skeleton-shimmer" style="height: 16px; width: 150px; border-radius: 4px;"></div></td>
-                <td><div class="skeleton-shimmer" style="height: 16px; width: 250px; border-radius: 4px;"></div></td>
+                <td><div class="skeleton-shimmer" style="height: 16px; width: 120px; border-radius: 4px;"></div></td>
+                <td><div class="skeleton-shimmer" style="height: 16px; width: 120px; border-radius: 4px;"></div></td>
                 <td style="text-align: center;"><div class="skeleton-shimmer" style="height: 16px; width: 80px; margin: 0 auto; border-radius: 12px;"></div></td>
                 <td class="col-hd"><div class="skeleton-shimmer" style="height: 24px; width: 200px; border-radius: 4px;"></div></td>
               </tr>
@@ -64,7 +81,8 @@
                   <b *ngIf="authService.hasPermission('USER_GROUP_EDIT')" class="wf-name-link" (click)="onEdit(g)">{{ g.name }}</b>
                   <span *ngIf="!authService.hasPermission('USER_GROUP_EDIT')">{{ g.name }}</span>
                 </td>
-                <td><span class="text-muted">{{ g.description || '-' }}</span></td>
+                <td>{{ (g.createdAt || g.CreatedAt) ? ((g.createdAt || g.CreatedAt) | date: 'dd/MM/yyyy HH:mm') : '-' }}</td>
+                <td>{{ g.createdByName || g.CreatedByName || g.createdBy || g.CreatedBy || '-' }}</td>
                 <td style="text-align: center;">
                   <span class="status-pill"
                     [class.status-active]="g.isActive"
@@ -81,7 +99,7 @@
                 </td>
               </tr>
               <tr *ngIf="filteredGroups().length === 0">
-                <td colspan="5" class="empty-row">
+                <td colspan="6" class="empty-row">
                   <i class="pi pi-inbox"></i>
                   <div>Không tìm thấy nhóm người dùng nào phù hợp.</div>
                 </td>
@@ -93,27 +111,16 @@
 
       <p-menu #actionMenu [model]="actionMenuItems" [popup]="true" appendTo="body" styleClass="row-action-menu"></p-menu>
 
-      <!-- Footer with Pagination -->
-      <div class="table-footer" *ngIf="filteredGroups().length > 0 && !loading()">
+      <div class="table-footer-paginator" *ngIf="totalCount() > 0 && !loading()">
         <span class="record-count">Tổng số: <b>{{ totalCount() }}</b> nhóm người dùng.</span>
-        <div class="pagination">
-          <button class="page-btn" (click)="prevPage()" [disabled]="currentPage() === 1">
-            <i class="pi pi-chevron-left"></i>
-          </button>
-          <span class="page-current">Trang {{ currentPage() }} / {{ totalPages() || 1 }}</span>
-          <button class="page-btn" (click)="nextPage()" [disabled]="currentPage() >= totalPages()">
-            <i class="pi pi-chevron-right"></i>
-          </button>
-          <span style="margin-left: 10px; display: inline-flex; align-items: center; gap: 5px; font-size: 0.8rem; color: #6b7280;">
-            Đi tới trang:
-            <input type="number" class="page-jump-input" [value]="currentPage()" (change)="goToPage($any($event.target).value)" style="width: 50px; height: 28px; text-align: center; border: 1px solid #e5e7eb; border-radius: 4px; padding: 0 4px;" [min]="1" [max]="totalPages() || 1" />
-          </span>
-          <select class="page-size-sel" [ngModel]="pageSize()" (change)="onPageSizeChange($event)">
-            <option [value]="10">10 / trang</option>
-            <option [value]="20">20 / trang</option>
-            <option [value]="50">50 / trang</option>
-          </select>
-        </div>
+        <p-paginator
+          [first]="(currentPage() - 1) * pageSize()"
+          [rows]="pageSize()"
+          [totalRecords]="totalCount()"
+          [rowsPerPageOptions]="[5, 10, 20, 50]"
+          dropdownAppendTo="body"
+          (onPageChange)="onGroupPageChange($event)">
+        </p-paginator>
       </div>
     </div>
 
