@@ -11,6 +11,8 @@ public interface IDossierDocumentService
         Guid dossierId,
         DossierDocumentFilterDto filter);
 
+    Task<byte[]> ExportDocumentsAsync(Guid dossierId);
+
     Task<DownloadTokenResponse> GetDownloadTokenAsync(
         Guid dossierId,
         Guid versionId,
@@ -140,6 +142,69 @@ public class DossierDocumentService : IDossierDocumentService
     {
         await EnsureDossierExistsAsync(dossierId);
         return await _documentRepository.GetDocumentsByDossierAsync(dossierId, filter);
+    }
+
+    public async Task<byte[]> ExportDocumentsAsync(Guid dossierId)
+    {
+        var filter = new DossierDocumentFilterDto
+        {
+            Page = 1,
+            PageSize = int.MaxValue
+        };
+        var (items, _) = await GetDocumentsAsync(dossierId, filter);
+
+        using var workbook = new ClosedXML.Excel.XLWorkbook();
+        var worksheet = workbook.Worksheets.Add("Danh sach tai lieu");
+        string[] headers =
+        {
+            "STT",
+            "Ten tai lieu",
+            "Loai van ban",
+            "Dinh dang",
+            "Nguoi tao",
+            "Ngay tao",
+            "Trang thai OCR",
+            "Trang thai boc tach"
+        };
+
+        for (var column = 0; column < headers.Length; column++)
+            worksheet.Cell(1, column + 1).Value = headers[column];
+
+        var headerRange = worksheet.Range(1, 1, 1, headers.Length);
+        headerRange.Style.Font.Bold = true;
+        headerRange.Style.Fill.BackgroundColor = ClosedXML.Excel.XLColor.LightGray;
+        headerRange.Style.Border.OutsideBorder = ClosedXML.Excel.XLBorderStyleValues.Thin;
+        headerRange.Style.Border.InsideBorder = ClosedXML.Excel.XLBorderStyleValues.Thin;
+
+        var rowIndex = 2;
+        var sequence = 0;
+        foreach (var item in items)
+        {
+            worksheet.Cell(rowIndex, 1).Value = ++sequence;
+            worksheet.Cell(rowIndex, 2).Value = item.Name;
+            worksheet.Cell(rowIndex, 3).Value = item.DocumentTypeName ?? string.Empty;
+            worksheet.Cell(rowIndex, 4).Value = item.MimeType ?? string.Empty;
+            worksheet.Cell(rowIndex, 5).Value = item.CreatedByName ?? item.CreatedBy ?? string.Empty;
+            worksheet.Cell(rowIndex, 6).Value = item.CreatedDate;
+            worksheet.Cell(rowIndex, 6).Style.DateFormat.Format = "dd/MM/yyyy HH:mm";
+            worksheet.Cell(rowIndex, 7).Value = item.OcrProgress?.Status ?? string.Empty;
+            worksheet.Cell(rowIndex, 8).Value = item.ExtractionResult?.Status ?? string.Empty;
+            rowIndex++;
+        }
+
+        if (rowIndex > 2)
+        {
+            var dataRange = worksheet.Range(1, 1, rowIndex - 1, headers.Length);
+            dataRange.Style.Border.OutsideBorder = ClosedXML.Excel.XLBorderStyleValues.Thin;
+            dataRange.Style.Border.InsideBorder = ClosedXML.Excel.XLBorderStyleValues.Thin;
+        }
+
+        worksheet.SheetView.FreezeRows(1);
+        worksheet.Columns().AdjustToContents();
+
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        return stream.ToArray();
     }
 
     public async Task<DownloadTokenResponse> GetDownloadTokenAsync(

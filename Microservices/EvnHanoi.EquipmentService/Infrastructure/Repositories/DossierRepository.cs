@@ -1352,9 +1352,11 @@ public class DossierRepository : IDossierRepository
         {
             if (filter.KindId.Value == 1)
             {
+                // Enforce a strict digitization-only list for this screen.
                 // Màn nhập liệu số hóa lấy cả hồ sơ số hóa
                 // và hồ sơ nháp tạo từ Quản lý hồ sơ kỹ thuật.
-                sqlBase += " AND (d.KIND_ID IN (1, 2) OR d.KIND_ID IS NULL)";
+                sqlBase += " AND d.KIND_ID = :KindId";
+                parameters.Add("KindId", filter.KindId.Value);
             }
             else if (filter.KindId.Value == 2)
             {

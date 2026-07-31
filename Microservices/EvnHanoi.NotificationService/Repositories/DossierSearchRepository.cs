@@ -286,7 +286,7 @@ public class DossierSearchRepository : IDossierSearchRepository
                                     .Field("formFields.fieldCode")
                                     .Terms(new TermsQueryField(new[]
                                     {
-                                        "TITLE", "title", "TIEUDE", "tieude", "TIEUDEHOSO", "tieudehoso",
+                                        "NAME", "name", "TITLE", "title", "TIEUDE", "tieude", "TIEUDEHOSO", "tieudehoso",
                                         "TIEUDE_HOSO", "tieude_hoso", "TENHOSO", "tenhoso", "TEN_HO_SO", "ten_ho_so"
                                     }.Select(FieldValue.String).ToArray()))),
                                 mq => mq.Match(m => m
