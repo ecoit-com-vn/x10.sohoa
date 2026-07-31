@@ -171,48 +171,64 @@ public class PermissionGroupRepository : IPermissionGroupRepository
 
     var offset = (normalizedPage - 1) * normalizedPageSize;
 
-    var dataSql = $"""
-        SELECT *
-        FROM (
-            SELECT
-                pg.Id,
-                pg.Code,
-                pg.Name,
-                pg.Description,
-                pg.ScopeTypeId,
-                CASE
-                    WHEN st.Code = 'GLOBAL' THEN 'SYSTEM'
-                    ELSE st.Code
-                END AS GroupType,
-                st.Name AS ScopeTypeName,
-                pg.OrganizationUnitId,
-                o.Name AS OrganizationUnitName,
-                (
-                    SELECT LISTAGG(ou.Name, ', ')
-                           WITHIN GROUP (ORDER BY ou.Name)
-                    FROM PERMISSION_GROUP_UNIT pgu2
-                    INNER JOIN ORGANIZATION_UNIT ou
-                        ON ou.Id = pgu2.OrganizationUnitId
-                    WHERE pgu2.PermissionGroupId = pg.Id
-                ) AS OrganizationUnitNames,
-                pg.CreatedAt,
-                pg.CreatedBy,
-                creator.FullName AS CreatedByName,
-                pg.IsActive,
-                ROW_NUMBER() OVER (ORDER BY pg.Id ASC) AS RN
-            FROM PERMISSION_GROUP pg
-            INNER JOIN SCOPE_TYPE st ON pg.ScopeTypeId = st.Id
-            LEFT JOIN ORGANIZATION_UNIT o
-                ON pg.OrganizationUnitId = o.Id
-            LEFT JOIN APP_USER creator
-                ON creator.Id = pg.CreatedBy
-            {whereClause}
-        )
-        WHERE RN > :Offset
-          AND RN <= :OffsetPlusSize
-        """;
+        var dataSql = $"""
+    SELECT *
+    FROM (
+        SELECT
+            pg.Id,
+            pg.Code,
+            pg.Name,
+            pg.Description,
+            pg.ScopeTypeId,
+            CASE
+                WHEN st.Code = 'GLOBAL' THEN 'SYSTEM'
+                ELSE st.Code
+            END AS GroupType,
+            st.Name AS ScopeTypeName,
+            pg.OrganizationUnitId,
+            o.Name AS OrganizationUnitName,
+            (
+                SELECT LISTAGG(ou.Name, ', ')
+                       WITHIN GROUP (ORDER BY ou.Name)
+                FROM PERMISSION_GROUP_UNIT pgu2
+                INNER JOIN ORGANIZATION_UNIT ou
+                    ON ou.Id = pgu2.OrganizationUnitId
+                WHERE pgu2.PermissionGroupId = pg.Id
+            ) AS OrganizationUnitNames,
+            pg.CreatedAt,
+            pg.CreatedBy,
+            CASE
+                WHEN pg.CreatedBy IS NULL THEN NULL
+                WHEN UPPER(TRIM(pg.CreatedBy)) = 'SYSTEM' THEN 'SYSTEM'
+                ELSE COALESCE(
+                    TRIM(creatorById.FullName),
+                    TRIM(creatorByUserName.FullName),
+                    TRIM(creatorById.UserName),
+                    TRIM(creatorByUserName.UserName),
+                    TRIM(pg.CreatedBy)
+                )
+            END AS CreatedByName,
+            pg.IsActive,
+            ROW_NUMBER() OVER (ORDER BY pg.Id ASC) AS RN
+        FROM PERMISSION_GROUP pg
+        INNER JOIN SCOPE_TYPE st
+            ON pg.ScopeTypeId = st.Id
+        LEFT JOIN ORGANIZATION_UNIT o
+            ON pg.OrganizationUnitId = o.Id
+        LEFT JOIN APP_USER creatorById
+            ON creatorById.Id = pg.CreatedBy
+           AND creatorById.IsDeleted = 0
+        LEFT JOIN APP_USER creatorByUserName
+            ON UPPER(TRIM(creatorByUserName.UserName)) =
+               UPPER(TRIM(pg.CreatedBy))
+           AND creatorByUserName.IsDeleted = 0
+        {whereClause}
+    )
+    WHERE RN > :Offset
+      AND RN <= :OffsetPlusSize
+    """;
 
-    parameters.Add("Offset", offset);
+        parameters.Add("Offset", offset);
     parameters.Add("OffsetPlusSize", offset + normalizedPageSize);
 
     var allCountParameters = new DynamicParameters();
@@ -286,12 +302,13 @@ public class PermissionGroupRepository : IPermissionGroupRepository
         {
 
             var sql = @"
-
-                INSERT INTO PERMISSION_GROUP (Code, Name, Description, ScopeTypeId, OrganizationUnitId, IsActive, CreatedBy)
-
-                VALUES (:Code, :Name, :Description, :ScopeTypeId, :OrganizationUnitId, :IsActive, :CreatedBy)
-
-                RETURNING Id INTO :Id";
+    INSERT INTO PERMISSION_GROUP
+        (Code, Name, Description, ScopeTypeId,
+         OrganizationUnitId, IsActive, CreatedBy)
+    VALUES
+        (:Code, :Name, :Description, :ScopeTypeId,
+         :OrganizationUnitId, :IsActive, :CreatedBy)
+    RETURNING Id INTO :Id";
 
 
 
@@ -900,41 +917,57 @@ public class PermissionGroupRepository : IPermissionGroupRepository
 
 
 
+    /// <summary>
+    /// Query dùng chung cho GetAllAsync và GetByIdAsync.
+    /// PERMISSION_GROUP.CreatedBy lưu username nên JOIN theo APP_USER.UserName.
+    /// </summary>
     private static string BuildSelectSql(string whereClause) => $@"
+    SELECT
+        pg.Id,
+        pg.Code,
+        pg.Name,
+        pg.Description,
+        pg.ScopeTypeId,
+        CASE
+            WHEN st.Code = 'GLOBAL' THEN 'SYSTEM'
+            ELSE st.Code
+        END AS GroupType,
+        st.Name AS ScopeTypeName,
+        pg.OrganizationUnitId,
+        o.Name AS OrganizationUnitName,
+        (
+            SELECT LISTAGG(ou.Name, ', ')
+                   WITHIN GROUP (ORDER BY ou.Name)
+            FROM PERMISSION_GROUP_UNIT pgu2
+            INNER JOIN ORGANIZATION_UNIT ou
+                ON ou.Id = pgu2.OrganizationUnitId
+            WHERE pgu2.PermissionGroupId = pg.Id
+        ) AS OrganizationUnitNames,
+        pg.CreatedAt,
+        pg.CreatedBy,
 
-        SELECT pg.Id, pg.Code, pg.Name, pg.Description, pg.ScopeTypeId,
+        -- CreatedBy lưu username, không phải APP_USER.Id.
+        -- SYSTEM giữ nguyên; nếu chưa có FullName thì fallback về username.
+        CASE
+            WHEN pg.CreatedBy IS NULL THEN NULL
+            WHEN UPPER(TRIM(pg.CreatedBy)) = 'SYSTEM' THEN 'SYSTEM'
+            ELSE NVL(TRIM(creator.FullName), TRIM(pg.CreatedBy))
+        END AS CreatedByName,
 
-               CASE WHEN st.Code = 'GLOBAL' THEN 'SYSTEM' ELSE st.Code END AS GroupType,
+        pg.IsActive
+    FROM PERMISSION_GROUP pg
+    INNER JOIN SCOPE_TYPE st
+        ON pg.ScopeTypeId = st.Id
+    LEFT JOIN ORGANIZATION_UNIT o
+        ON pg.OrganizationUnitId = o.Id
 
-               st.Name AS ScopeTypeName, pg.OrganizationUnitId,
+    -- JOIN người tạo theo tên đăng nhập.
+    LEFT JOIN APP_USER creator
+        ON UPPER(TRIM(creator.UserName)) =
+           UPPER(TRIM(pg.CreatedBy))
+       AND creator.IsDeleted = 0
 
-               o.Name AS OrganizationUnitName,
-
-               (SELECT LISTAGG(ou.Name, ', ') WITHIN GROUP (ORDER BY ou.Name)
-
-                  FROM PERMISSION_GROUP_UNIT pgu2
-
-                  INNER JOIN ORGANIZATION_UNIT ou ON ou.Id = pgu2.OrganizationUnitId
-
-                 WHERE pgu2.PermissionGroupId = pg.Id) AS OrganizationUnitNames,
-
-               pg.CreatedAt,
-
-               pg.CreatedBy,
-
-               creator.FullName AS CreatedByName,
-
-               pg.IsActive
-
-        FROM PERMISSION_GROUP pg
-
-        INNER JOIN SCOPE_TYPE st ON pg.ScopeTypeId = st.Id
-
-        LEFT JOIN ORGANIZATION_UNIT o ON pg.OrganizationUnitId = o.Id
-
-        LEFT JOIN APP_USER creator ON creator.Id = pg.CreatedBy
-
-        {whereClause}";
+    {whereClause}";
 
 }
 
