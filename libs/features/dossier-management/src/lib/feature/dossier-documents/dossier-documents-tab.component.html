@@ -1,5 +1,5 @@
 <div class="dossier-documents-tab">
-  <div *ngIf="!canEdit" class="readonly-notice">
+  <div *ngIf="!canEdit && !canUpload" class="readonly-notice">
     <i class="pi pi-lock"></i>
     <span>Chỉ xem — không thể thêm, sửa hoặc xóa tài liệu.</span>
   </div>
@@ -15,9 +15,9 @@
         style="min-width: 220px;"
       />
     </div>
-    <div class="toolbar-right" *ngIf="canEdit">
+    <div class="toolbar-right" *ngIf="canEdit || canUpload">
       <app-dossier-upload-menu
-        [disabled]="!canEdit"
+        [disabled]="!canEdit && !canUpload"
         (actionSelected)="onUploadAction($event)"
       ></app-dossier-upload-menu>
     </div>

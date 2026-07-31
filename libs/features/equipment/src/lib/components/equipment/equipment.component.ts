@@ -443,6 +443,7 @@ export class EquipmentComponent implements OnInit {
         });
       } else {
         this.currentView.set('list');
+        this.applyLoggedInUserUnitFilter();
         this.loadItems();
       }
     });
@@ -484,6 +485,7 @@ export class EquipmentComponent implements OnInit {
     }).subscribe({
       next: (data) => {
         this.organizationUnits.set(this.getAvailableOrganizationUnits(data.organizationUnits));
+        this.applyLoggedInUserUnitForAdd();
         this.infrastructures.set(Array.isArray(data.infrastructures) ? data.infrastructures : []);
         this.gridTypes.set(Array.isArray(data.gridTypes) ? data.gridTypes : []);
         this.equipmentTypes.set(Array.isArray(data.equipmentTypes) ? data.equipmentTypes : []);
@@ -558,7 +560,7 @@ export class EquipmentComponent implements OnInit {
   }
 
   loadItems() {
-    const unitId = this.searchUnitId() ? Number(this.searchUnitId()) : undefined;
+    const unitId = this.getEquipmentListUnitId();
     const gridTypeId = this.searchGridTypeId() ? Number(this.searchGridTypeId()) : undefined;
     const isActive = this.searchStatus() !== '' ? this.searchStatus() === '1' : undefined;
 
@@ -605,7 +607,19 @@ export class EquipmentComponent implements OnInit {
   }
 
   private getAvailableOrganizationUnits(data: unknown): any[] {
-    const units = Array.isArray(data) ? data : [];
+    const source = Array.isArray(data)
+      ? data
+      : (data as any)?.items ?? (data as any)?.Items ?? (data as any)?.data ?? (data as any)?.Data ?? [];
+    const units = Array.isArray(source)
+      ? source.map(unit => ({
+        ...unit,
+        id: unit?.id ?? unit?.Id,
+        code: unit?.code ?? unit?.Code,
+        name: unit?.name ?? unit?.Name,
+        parentId: unit?.parentId ?? unit?.ParentId ?? null,
+      }))
+      : [];
+
     return units.filter(unit => {
       const deleted = unit?.isDeleted ?? unit?.IsDeleted;
       const status = unit?.isActive ?? unit?.IsActive ?? unit?.status ?? unit?.Status;
@@ -615,6 +629,33 @@ export class EquipmentComponent implements OnInit {
 
       return !isDeleted && !isInactive;
     });
+  }
+
+  private applyLoggedInUserUnitForAdd(): void {
+    if (this.currentView() !== 'add' || this.currentItem().unitId) return;
+
+    const userUnitId = this.authService.getUserUnitId();
+    if (!userUnitId) return;
+
+    const hasUserUnit = this.organizationUnits().some(unit => Number(unit.id) === Number(userUnitId));
+    if (hasUserUnit) {
+      this.currentItem.update(item => ({ ...item, unitId: userUnitId }));
+    }
+  }
+
+  private applyLoggedInUserUnitFilter(): void {
+    const userUnitId = this.authService.getUserUnitId();
+    if (userUnitId) {
+      this.searchUnitId.set(String(userUnitId));
+    }
+  }
+
+  private getEquipmentListUnitId(): number | undefined {
+    const userUnitId = this.authService.getUserUnitId();
+    if (userUnitId) return userUnitId;
+
+    const selectedUnitId = this.searchUnitId();
+    return selectedUnitId ? Number(selectedUnitId) : undefined;
   }
 
   private filterOrgTree(nodes: any[], value: string): any[] {
@@ -882,6 +923,7 @@ export class EquipmentComponent implements OnInit {
     this.searchGridTypeId.set('');
     this.searchEquipmentTypeId.set('');
     this.searchStatus.set('');
+    this.applyLoggedInUserUnitFilter();
     this.currentPage.set(1);
     this.loadItems();
   }
