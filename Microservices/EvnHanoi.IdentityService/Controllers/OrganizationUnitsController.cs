@@ -60,6 +60,18 @@ public class OrganizationUnitsController : ControllerBase
         return Ok(result);
     }
 
+    [HttpGet("lookup-all-active")]
+    [Authorize]
+    [BypassDynamicPermission]
+    public async Task<IActionResult> GetAllActiveLookup()
+    {
+        var units = await _unitRepository.GetAllAsync();
+        return Ok(units
+            .Where(unit => unit.IsActive && !unit.IsDeleted)
+            .Select(unit => new { unit.Id, unit.Code, unit.Name, unit.ParentId })
+            .ToList());
+    }
+
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {

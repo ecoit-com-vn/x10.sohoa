@@ -45,6 +45,25 @@ public abstract partial class DossierControllerBase
         }
     }
 
+    [HttpGet("{id:guid}/documents/export")]
+    [BypassDynamicPermission]
+    public async Task<IActionResult> ExportDocuments(Guid id)
+    {
+        try
+        {
+            var content = await _dossierDocumentService.ExportDocumentsAsync(id);
+            var fileName = $"Danh_sach_tai_lieu_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+            return File(
+                content,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                fileName);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+    }
+
     /// <summary>
     /// Loại văn bản gắn với loại hồ sơ của dossier — dùng combobox tab Tài liệu.
     /// Map quyền DOSSIER_VIEW / DOSSIER_DIGITIZATION_VIEW (không dùng catalog/dossier-type).
