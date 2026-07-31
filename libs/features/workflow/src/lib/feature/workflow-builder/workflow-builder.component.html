@@ -1,7 +1,9 @@
 <div class="wf-page">
   <p-toast></p-toast>
 
-  <!-- Breadcrumb (Isolated above cards) -->
+  <!-- Breadcrumb and primary action -->
+  <div class="list-toolbar standard-page-toolbar">
+  <div class="toolbar-left">
   <div class="breadcrumb">
     <i class="pi pi-home bc-icon"></i>
     <span class="bc-text" (click)="viewMode !== 'list' && onBackToList()" [class.bc-link]="viewMode !== 'list'">Trang chủ</span>
@@ -9,6 +11,13 @@
     <span class="bc-text" (click)="viewMode !== 'list' && onBackToList()" [class.bc-link]="viewMode !== 'list'">Cài đặt quy trình</span>
     <span class="bc-sep" *ngIf="viewMode !== 'list'">/</span>
     <span class="bc-current" *ngIf="viewMode === 'edit'">{{ isEditMode ? 'Sửa quy trình' : 'Thêm mới' }}</span>
+  </div>
+  </div>
+  <div class="toolbar-right" *ngIf="viewMode === 'list'">
+    <button id="btn-them" class="btn-green" (click)="onAddNew()" *ngIf="authService.hasPermission('WORKFLOW_CREATE')">
+      <i class="pi pi-plus"></i> Thêm mới
+    </button>
+  </div>
   </div>
 
   <!-- ══════════════════════════════════════════════════════════
@@ -27,25 +36,27 @@
   <div *ngIf="viewMode === 'list'" class="wf-card">
 
     <!-- Toolbar -->
-    <div class="list-toolbar">
+    <div class="standard-search-card">
       <div class="toolbar-left">
         <input id="wf-search" type="text" class="wf-search-input"
           placeholder="Tìm kiếm theo tên, mô tả..."
           [(ngModel)]="searchKeyword"
           (keyup.enter)="loadList()" />
-        <button id="btn-tim" class="btn-tim" (click)="loadList()">
-          <i class="pi pi-search"></i> Tìm
-        </button>
+        <select class="wf-select" [(ngModel)]="filterIsActive">
+          <option value="">-- Tất cả trạng thái --</option>
+          <option value="true">Đang hoạt động</option>
+          <option value="false">Ngừng hoạt động</option>
+        </select>
+        <div class="standard-search-actions">
+          <button class="btn-outlined" (click)="resetFilter()">
+            <i class="pi pi-refresh"></i> Làm mới
+          </button>
+          <button id="btn-tim" class="btn-save" (click)="loadList(true)">
+            <i class="pi pi-check"></i> Áp dụng
+          </button>
+        </div>
       </div>
       <div class="toolbar-right">
-        <button id="btn-loc" class="btn-outlined"
-          [class.btn-filter-active]="showFilter"
-          (click)="showFilter = !showFilter">
-          <i class="pi pi-filter"></i> Lọc
-        </button>
-        <button id="btn-them" class="btn-green" (click)="onAddNew()" *ngIf="authService.hasPermission('WORKFLOW_CREATE')">
-          <i class="pi pi-plus"></i> Thêm
-        </button>
         <button id="btn-excel" class="btn-excel" (click)="onExportExcel()">
           <i class="pi pi-file-excel"></i> Excel
         </button>
@@ -56,18 +67,6 @@
           <i class="pi pi-trash"></i> Xóa
         </button>
       </div>
-    </div>
-
-    <!-- Filter row -->
-    <div class="filter-row" *ngIf="showFilter">
-      <select class="wf-select" [(ngModel)]="filterIsActive" (change)="loadList()">
-        <option value="">-- Tất cả trạng thái --</option>
-        <option value="true">Đang hoạt động</option>
-        <option value="false">Ngưng hoạt động</option>
-      </select>
-      <button class="btn-outlined btn-small" (click)="resetFilter()">
-        <i class="pi pi-times"></i> Xóa lọc
-      </button>
     </div>
 
     <!-- Error banner -->
@@ -124,7 +123,7 @@
                 [class.status-active]="wf.isActive"
                 [class.status-inactive]="!wf.isActive">
                 <i class="pi pi-clock"></i>
-                {{ wf.isActive ? 'Đang hoạt động' : 'Ngưng hoạt động' }}
+                {{ wf.isActive ? 'Đang hoạt động' : 'Ngừng hoạt động' }}
               </span>
             </td>
             <td class="col-hd">
@@ -232,7 +231,7 @@
           <label class="form-label">Trạng thái <span class="required">*</span></label>
           <select class="wf-select w-full" [(ngModel)]="draft.isActive" id="sel-trangthai">
             <option [ngValue]="true">Đang hoạt động</option>
-            <option [ngValue]="false">Ngưng hoạt động</option>
+            <option [ngValue]="false">Ngừng hoạt động</option>
           </select>
         </div>
         <div class="form-group">
@@ -468,7 +467,7 @@
                   [class.status-active]="v.isActive"
                   [class.status-inactive]="!v.isActive">
                   <i class="pi pi-clock"></i>
-                  {{ v.isActive ? 'Đang hoạt động' : 'Ngưng hoạt động' }}
+                  {{ v.isActive ? 'Đang hoạt động' : 'Ngừng hoạt động' }}
                 </span>
               </td>
               <td>{{ v.createdByFullName }}</td>

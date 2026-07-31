@@ -12,6 +12,7 @@ import { CommonModule } from '@angular/common';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import {
   DeleteConfirmDialogComponent,
+  EcoPaginatorComponent,
   WfBreadcrumbComponent
 } from '@sohoa.frontend/shared/layout';
 import { FormsModule } from '@angular/forms';
@@ -57,6 +58,7 @@ type FolderUploadMode = 'web' | 'scan';
     InputTextModule,
     DialogModule,
     PaginatorModule,
+    EcoPaginatorComponent,
     MenuModule,
     FileUploadZoneComponent,
     ScannerPanelComponent,

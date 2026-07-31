@@ -12,13 +12,14 @@ import { finalize } from 'rxjs';
 import { AuthService } from '@sohoa.frontend/shared/core';
 import {
   DeleteConfirmDialogComponent,
+  EcoPaginatorComponent,
   WfBreadcrumbComponent
 } from '@sohoa.frontend/shared/layout';
 
 @Component({
   selector: 'app-organization-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule, DialogModule, ToastModule, PaginatorModule, MenuModule, WfBreadcrumbComponent, DeleteConfirmDialogComponent],
+  imports: [CommonModule, FormsModule, DialogModule, ToastModule, PaginatorModule, MenuModule, WfBreadcrumbComponent, EcoPaginatorComponent, DeleteConfirmDialogComponent],
 
   providers: [MessageService],
   templateUrl: './organization-settings.component.html',
@@ -71,6 +72,7 @@ export class OrganizationSettings implements OnInit {
   });
 
   onFieldChange(field: string) {
+    this.currentUnit.update(unit => ({ ...unit }));
     this.serverErrors.update(errs => {
       const copy = { ...errs };
       delete copy[field];

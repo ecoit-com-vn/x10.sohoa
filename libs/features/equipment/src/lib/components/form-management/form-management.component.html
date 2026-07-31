@@ -1,7 +1,7 @@
 <div class="wf-page builder-mode">
   <p-toast></p-toast>
   <ng-container *ngIf="viewState() === 'list'">
-    <div class="list-toolbar">
+    <div class="list-toolbar standard-page-toolbar">
       <div class="toolbar-left">
         <wf-breadcrumb />
       </div>
@@ -11,7 +11,7 @@
         </button>
       </div>
     </div>
-    <div class="wf-card">
+    <div class="wf-card standard-list-card">
       <!-- Loading Overlay -->
       <div class="loading-overlay" *ngIf="loading()">
         <div class="loading-content">
@@ -19,13 +19,18 @@
           <span class="text-base font-semibold" style="color: #002D72;">Đang tải danh sách biểu mẫu...</span>
         </div>
       </div>
-      <div class="list-toolbar">
+      <div class="standard-search-card">
         <div class="toolbar-left">
           <input type="text" class="wf-search-input" placeholder="Tìm kiếm form..." [ngModel]="searchKeyword()"
             (ngModelChange)="searchKeyword.set($event)" (keyup.enter)="onSearch()" />
-          <button class="btn-tim" (click)="onSearch()">
-            <i class="pi pi-search"></i> Tìm
-          </button>
+          <div class="standard-search-actions">
+            <button class="btn-outlined" (click)="onResetSearch()">
+              <i class="pi pi-refresh"></i> Làm mới
+            </button>
+            <button class="btn-save" (click)="onSearch()">
+              <i class="pi pi-check"></i> Áp dụng
+            </button>
+          </div>
         </div>
       </div>
 
@@ -105,9 +110,9 @@
       <!-- Footer / Paginator -->
       <div class="table-footer-paginator" *ngIf="filteredForms().length > 0">
         <span class="record-count">Tổng số: <b>{{ filteredForms().length }}</b> bản ghi.</span>
-        <p-paginator [first]="first()" [rows]="rows()" [totalRecords]="filteredForms().length"
+        <app-eco-paginator [first]="first()" [rows]="rows()" [totalRecords]="filteredForms().length"
           [rowsPerPageOptions]="[5, 10, 20, 50]" (onPageChange)="onPageChange($event)">
-        </p-paginator>
+        </app-eco-paginator>
       </div>
     </div>
   </ng-container>
@@ -754,7 +759,7 @@
             <td>{{ ver.createdAt | date:'dd/MM/yyyy HH:mm' }}</td>
             <td class="text-center text-center-align" style="text-align: center;">
               <span class="status-pill" [class.status-active]="ver.isActive" [class.status-inactive]="!ver.isActive">
-                {{ ver.isActive ? 'Hoạt động' : 'Ngưng hoạt động' }}
+                {{ ver.isActive ? 'Hoạt động' : 'Ngừng hoạt động' }}
               </span>
             </td>
             <td class="text-center" style="text-align: center;">

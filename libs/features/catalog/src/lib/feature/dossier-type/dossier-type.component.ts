@@ -182,6 +182,7 @@ export class DossierTypeComponent implements OnInit {
   }
 
   onFieldChange(field: string) {
+    this.currentItem.update(item => ({ ...item }));
     this.serverErrors.update(errs => {
       const copy = { ...errs };
       delete copy[field];
@@ -297,6 +298,7 @@ export class DossierTypeComponent implements OnInit {
 
   onSaveItem() {
     this.formSubmitted.set(true);
+    this.serverErrors.set({});
     const item = this.currentItem();
 
     if (!item.code || !item.name) {

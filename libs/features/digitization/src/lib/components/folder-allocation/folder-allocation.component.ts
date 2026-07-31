@@ -118,6 +118,12 @@ export class FolderAllocationComponent implements OnInit {
     });
   }
 
+  onResetSearch(): void {
+    this.searchKeyword.set('');
+    this.selectedStatus.set('');
+    this.currentPage.set(1);
+  }
+
   openCreate(): void {
     this.editingId.set(null);
     this.dialogVisible.set(true);

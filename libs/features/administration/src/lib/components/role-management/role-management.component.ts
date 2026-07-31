@@ -119,6 +119,7 @@ export class RoleManagement implements OnInit {
   });
 
   onFieldChange(field: string) {
+    this.currentRole.update(role => ({ ...role }));
     this.serverErrors.update(errs => {
       const copy = { ...errs };
       delete copy[field];

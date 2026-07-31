@@ -1,7 +1,7 @@
 <div class="wf-page">
   <p-toast></p-toast>
   
-  <div class="list-toolbar">
+  <div class="list-toolbar standard-page-toolbar">
     <div class="toolbar-left">
       <wf-breadcrumb [viewMode]="currentView() === 'detail' ? null : currentView()" [leafLabel]="pageTitle()"
         [customItems]="currentView() === 'detail' ? detailBreadcrumbItems() : null" (listClick)="goBack()" />
@@ -22,7 +22,7 @@
     <div *ngIf="currentView() === 'list' || currentView() === 'add' || currentView() === 'edit'" class="animate-fade-in">
 
       <!-- Toolbar -->
-      <div class="list-toolbar">
+      <div class="standard-search-card">
         <div class="toolbar-left" style="display: flex; gap: 8px; align-items: center;">
           <!-- Keyword input -->
           <input type="text" class="wf-search-input"
@@ -67,13 +67,14 @@
             <option value="0">Ngừng hoạt động</option>
           </select>
 
-          <button class="btn-tim" (click)="onSearch()">
-            <i class="pi pi-search"></i> Tìm
-          </button>
-
-          <button class="btn-outlined" style="height: 38px;" (click)="onResetSearch()">
-            Làm mới
-          </button>
+          <div class="standard-search-actions">
+            <button class="btn-outlined" style="height: 38px;" (click)="onResetSearch()">
+              <i class="pi pi-refresh"></i> Làm mới
+            </button>
+            <button class="btn-save" (click)="onSearch()">
+              <i class="pi pi-check"></i> Áp dụng
+            </button>
+          </div>
         </div>
     </div>
 

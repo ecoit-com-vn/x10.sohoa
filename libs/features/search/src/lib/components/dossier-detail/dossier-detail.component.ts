@@ -9,7 +9,7 @@ import { PaginatorModule } from 'primeng/paginator';
 import { DialogModule } from 'primeng/dialog';
 import { ToastModule } from 'primeng/toast';
 import { of, switchMap, finalize, catchError } from 'rxjs';
-import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
+import { EcoPaginatorComponent, WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { getDossierStatusLabel } from '../../utils/dossier-status.util';
 import { DocumentManagementService } from '../../data-access/document-management.service';
 import { FileDownloadService } from '../../data-access/file-download.service';
@@ -33,6 +33,7 @@ import {
     FormsModule,
     TableModule,
     PaginatorModule,
+    EcoPaginatorComponent,
     DialogModule,
     ToastModule,
     WfBreadcrumbComponent,

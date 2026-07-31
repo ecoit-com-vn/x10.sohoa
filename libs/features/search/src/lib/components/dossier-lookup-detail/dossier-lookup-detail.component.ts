@@ -7,7 +7,7 @@ import { MessageService } from 'primeng/api';
 import { PaginatorModule } from 'primeng/paginator';
 import { ToastModule } from 'primeng/toast';
 import { of, switchMap, finalize, catchError } from 'rxjs';
-import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
+import { EcoPaginatorComponent, WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { APP_CONFIG } from '@sohoa.frontend/shared/core';
 import { getDossierStatusLabel } from '../../utils/dossier-status.util';
 import {
@@ -28,6 +28,7 @@ import {
     CommonModule,
     FormsModule,
     PaginatorModule,
+    EcoPaginatorComponent,
     ToastModule,
     WfBreadcrumbComponent,
     RouterLink,
