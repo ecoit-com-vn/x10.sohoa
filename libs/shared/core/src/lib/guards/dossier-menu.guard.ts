@@ -140,3 +140,17 @@ function resolveSubstationSearchAccess(auth: AuthService, router: Router): boole
 
 /** Menu Tra cứu tìm kiếm Trạm biến áp */
 export const substationSearchGuard = withPermissionsLoaded(resolveSubstationSearchAccess);
+
+function resolveLineSearchAccess(auth: AuthService, router: Router): boolean | UrlTree {
+  if (
+    auth.hasPermission('SUPER_ADMIN') ||
+    auth.hasPermission('SEARCH_TRANSMISSION_LINE_VIEW')
+  ) {
+    return true;
+  }
+
+  return router.createUrlTree(['/error'], { queryParams: { code: '403' } });
+}
+
+/** Menu Tra cứu tìm kiếm Đường dây */
+export const lineSearchGuard = withPermissionsLoaded(resolveLineSearchAccess);
