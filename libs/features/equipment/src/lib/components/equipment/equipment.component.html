@@ -870,7 +870,7 @@
             [class.has-value]="transferForm().unitId" [class.open]="transferOrgTreeOpen()">
             <span class="org-tree-selected-label">
               <i class="pi pi-building" style="margin-right: 6px; color: #6b7280;"></i>
-              {{ getUnitLabel(transferForm().unitId) || '-- Chọn đơn vị quản lý --' }}
+              {{ getTransferUnitLabel(transferForm().unitId) || '-- Chọn đơn vị quản lý --' }}
             </span>
             <i class="pi" [class.pi-chevron-down]="!transferOrgTreeOpen()" [class.pi-chevron-up]="transferOrgTreeOpen()"></i>
           </div>

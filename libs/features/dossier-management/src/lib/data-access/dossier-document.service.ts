@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient, HttpParams, HttpErrorResponse } from '@angular/common/http';
+import { HttpClient, HttpParams, HttpErrorResponse, HttpContext } from '@angular/common/http';
 import { Observable, firstValueFrom, map, catchError, throwError, of } from 'rxjs';
-import { APP_CONFIG } from '@sohoa.frontend/shared/core';
+import { APP_CONFIG, SUPPRESS_HTTP_ERROR_TOAST } from '@sohoa.frontend/shared/core';
 import {
   extractApiErrorMessage,
   FileUploadResponse,
@@ -148,7 +148,8 @@ export class DossierDocumentService {
   getDocuments(
     dossierId: string,
     filter: { keyword?: string; page: number; pageSize: number },
-    lookupMode = false
+    lookupMode = false,
+    suppressErrorToast = false
   ): Observable<DossierDocumentListResponse> {
     let params = new HttpParams()
       .set('page', filter.page.toString())
@@ -158,12 +159,20 @@ export class DossierDocumentService {
       params = params.set('keyword', filter.keyword.trim());
     }
 
-    return this.http.get<DossierDocumentListResponse>(this.dossierBase(dossierId, lookupMode), { params }).pipe(
+    const context = suppressErrorToast
+      ? new HttpContext().set(SUPPRESS_HTTP_ERROR_TOAST, true)
+      : undefined;
+
+    return this.http.get<DossierDocumentListResponse>(this.dossierBase(dossierId, lookupMode), { params, context }).pipe(
       map((res) => ({
         ...res,
         items: (res.items ?? []).map((item) => normalizeDossierDocumentItem(item)),
       }))
     );
+  }
+
+  exportDocuments(dossierId: string): Observable<Blob> {
+    return this.http.get(`${this.dossierBase(dossierId)}/export`, { responseType: 'blob' });
   }
 
   deleteDocument(dossierId: string, documentId: string): Observable<void> {

@@ -1314,7 +1314,7 @@ export class InfrastructureComponent implements OnInit {
 
     this.loadingAttachmentDocuments.set(true);
     forkJoin(dossiers.map(dossier =>
-      this.dossierDocumentService.getDocuments(String(dossier.id), { page: 1, pageSize: 1000 }, true).pipe(
+      this.dossierDocumentService.getDocuments(String(dossier.id), { page: 1, pageSize: 1000 }, true, true).pipe(
         catchError(() => of({ items: [] }))
       )
     )).pipe(finalize(() => this.loadingAttachmentDocuments.set(false))).subscribe(results => {
@@ -1390,7 +1390,7 @@ export class InfrastructureComponent implements OnInit {
     this.loadingTechnicalFolders.set(loading);
 
     forkJoin(missingDossiers.map(dossier =>
-      this.dossierDocumentService.getDocuments(String(dossier.id), { page: 1, pageSize: 1000 }, true).pipe(
+      this.dossierDocumentService.getDocuments(String(dossier.id), { page: 1, pageSize: 1000 }, true, true).pipe(
         catchError(() => of({ items: [] })),
         finalize(() => undefined)
       )
