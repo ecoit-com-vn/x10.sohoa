@@ -454,6 +454,17 @@
       cursor: pointer;
     }
 
+    .dossier-status-pill {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: #1769e0;
+      background: #e8f0fe;
+      white-space: nowrap;
+    }
+
     .latest-dossier-footer {
       min-height: 42px;
       padding: 8px 18px 12px;
