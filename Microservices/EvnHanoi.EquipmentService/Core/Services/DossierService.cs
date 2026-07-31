@@ -978,7 +978,7 @@ public class DossierService : IDossierService
             new string[] { "Loại hồ sơ", "Có", "Mã loại hồ sơ, phân biệt hoa thường. Ví dụ: 'LH-001'" },
             new string[] { "Thiết bị", "Bắt buộc đối với nhóm hồ sơ 3 và 4", "Mã các thiết bị ngăn cách nhau bằng dấu chấm phẩy (;), phân biệt hoa thường. Các thiết bị phải thuộc Trạm/đường dây đã chọn. Ví dụ: 'TB-001;TB-002'" },
             new string[] { "Ghi chú", "Không", "Ghi chú thêm cho hồ sơ, thông tin này được lưu vào trường dữ liệu động với key là 'NOTE'. Ví dụ: 'Hồ sơ lắp đặt bổ sung'" },
-            new string[] { "Mã hồ sơ", "Tự sinh", "Hệ thống tự sinh khi import: <Mã đơn vị>.<Mã trạm/đường dây>.<Mã loại hồ sơ>.<Số thứ tự>." },
+            new string[] { "Mã hồ sơ", "Tự sinh", "Hệ thống tự sinh khi import: <Mã đơn vị>.<Mã trạm/đường dây>.<Mã loại hồ sơ>.<Số thứ tự>. Số thứ tự tự tăng theo tổ hợp ba mã trên và có 3 chữ số (ví dụ: 001)." },
             new string[] { "Tiêu đề hồ sơ", "Tự sinh", "Hệ thống tự sinh khi import: <Tên loại hồ sơ> <Tên trạm/đường dây>." }
         };
 
@@ -1307,16 +1307,17 @@ public class DossierService : IDossierService
             {
                 try
                 {
-                    var sequence = string.IsNullOrWhiteSpace(sttText)
-                        ? (rowIndex - 1).ToString()
-                        : sttText;
+                    var sequence = await GetNextDossierCodeSequenceAsync(
+                        unitCode!,
+                        infra!,
+                        dossierType!);
                     var dossierCode = string.Join('.', unitCode, infra!.Code, dossierType!.Code, sequence);
                     var dossierTitle = $"{dossierType.Name} {infra.Name}";
 
                     // Chuẩn bị FormDataJson chứa các trường tự sinh và ghi chú.
                     var formDataObj = new Dictionary<string, object>();
                     formDataObj.Add("CODE", dossierCode);
-                    formDataObj.Add("TITLE", dossierTitle);
+                    formDataObj.Add("NAME", dossierTitle);
                     if (!string.IsNullOrEmpty(noteText))
                     {
                         formDataObj.Add("NOTE", noteText);
@@ -1373,6 +1374,44 @@ public class DossierService : IDossierService
         }
 
         return result;
+    }
+
+    private async Task<string> GetNextDossierCodeSequenceAsync(
+        string unitCode,
+        InfrastructureEntity infrastructure,
+        DossierType dossierType)
+    {
+        var codePrefix = string.Join('.', unitCode, infrastructure.Code, dossierType.Code);
+        const string sql = @"
+            SELECT NVL(MAX(
+                CASE
+                    WHEN SUBSTR(
+                        JSON_VALUE(d.FormDataJson, '$.CODE' RETURNING VARCHAR2(4000) NULL ON ERROR),
+                        1,
+                        LENGTH(:CodePrefix) + 1) = :CodePrefix || '.'
+                    AND REGEXP_LIKE(
+                        JSON_VALUE(d.FormDataJson, '$.CODE' RETURNING VARCHAR2(4000) NULL ON ERROR),
+                        '\.[0-9]+$')
+                    THEN TO_NUMBER(REGEXP_SUBSTR(
+                        JSON_VALUE(d.FormDataJson, '$.CODE' RETURNING VARCHAR2(4000) NULL ON ERROR),
+                        '[0-9]+$'))
+                END), 0)
+            FROM DOSSIERS d
+            WHERE d.IsDeleted = 0
+              AND d.InfrastructureId = :InfrastructureId
+              AND d.DossierTypeId = :DossierTypeId";
+
+        var latestSequence = await _dbConnection.ExecuteScalarAsync<int>(sql, new
+        {
+            CodePrefix = codePrefix,
+            InfrastructureId = infrastructure.Id.ToString(),
+            DossierTypeId = dossierType.Id.ToString()
+        });
+
+        if (latestSequence == int.MaxValue)
+            throw new InvalidOperationException($"Đã hết số thứ tự cho mã hồ sơ '{codePrefix}'.");
+
+        return (latestSequence + 1).ToString("D3");
     }
 
     /// <summary>

@@ -23,7 +23,7 @@ public class DossierDocumentBuilder : IDossierDocumentBuilder
             .Cast<DossierFormFieldEs>()
             .ToList();
         var dossierCode = GetFormTextValue(formData, "CODE", "MAHOSO");
-        var dossierTitle = GetFormTextValue(formData, "TITLE", "TIEUDE", "TIEUDEHOSO", "TENHOSO");
+        var dossierTitle = GetFormTextValue(formData, "NAME", "TITLE", "TIEUDE", "TIEUDEHOSO", "TENHOSO");
 
         var hasActiveWorkflowTask = HasActiveWorkflowTask(data);
 
