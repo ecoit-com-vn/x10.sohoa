@@ -1,7 +1,9 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
+import { forkJoin, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { environment } from '@env/environment';
 import { AuditLogService } from '@sohoa.frontend/shared/core';
 
@@ -15,12 +17,38 @@ interface ActivityLog {
 }
 
 interface RecentDossier {
+  id: string;
   code: string;
   title: string;
   station: string;
   documentCount: number;
-  creator: string;
-  createdDate: string;
+  handler: string;
+  statusName: string;
+}
+
+interface DossierListItemDto {
+  id: string;
+  infrastructureName?: string;
+  dossierTypeName?: string;
+  documentCount?: number;
+  creator?: { name?: string; username?: string };
+  currentHandlerName?: string;
+  statusName?: string;
+  catalogData?: Record<string, string>;
+}
+
+interface DossierTypeChartStatDto {
+  dossierTypeCode?: string;
+  dossierTypeName?: string;
+  dossierCount?: number;
+  documentCount?: number;
+}
+
+interface DossierGeneralInputChartStatDto {
+  groupCode?: string;
+  groupName?: string;
+  dossierCount?: number;
+  documentCount?: number;
 }
 
 @Component({
@@ -33,72 +61,28 @@ interface RecentDossier {
 export class DashboardComponent implements OnInit {
   private http = inject(HttpClient);
   private auditLogService = inject(AuditLogService);
+  private cdr = inject(ChangeDetectorRef);
 
   loading = false;
-  totalEquipment = 3248;
-  totalOcrDocs = 225;
-  pendingOcrCount = 569;
-  ocrAccuracy = 1240;
 
-  weeklyData = [
-    { day: 'T6 (22/5)', dossierValue: 120, dossierPercent: 20, documentValue: 80, documentPercent: 13.33 },
-    { day: 'T7 (23/5)', dossierValue: 180, dossierPercent: 30, documentValue: 130, documentPercent: 21.67 },
-    { day: 'CN (24/5)', dossierValue: 160, dossierPercent: 26.67, documentValue: 90, documentPercent: 15 },
-    { day: 'T2 (25/5)', dossierValue: 280, dossierPercent: 46.67, documentValue: 190, documentPercent: 31.67 },
-    { day: 'T3 (26/5)', dossierValue: 350, dossierPercent: 58.33, documentValue: 260, documentPercent: 43.33 },
-    { day: 'T4 (27/5)', dossierValue: 420, dossierPercent: 70, documentValue: 310, documentPercent: 51.67 },
-    { day: 'T5 (h.nay)', dossierValue: 550, dossierPercent: 91.67, documentValue: 500, documentPercent: 83.33 }
-  ];
+  // Bốn thẻ chỉ số tổng quan — lấy từ dữ liệu hồ sơ/tài liệu/nhật ký thao tác thực tế
+  totalDossiers = 0;
+  totalDocuments = 0;
+  searchCount = 0;
+  downloadCount = 0;
 
-  categories = [
-    { name: 'Hồ sơ thiết kế', percent: 45, value: '257 hồ sơ', color: '#243b8f' },
-    { name: 'Hồ sơ vận hành', percent: 30, value: '170 hồ sơ', color: '#ff6b1a' },
-    { name: 'Hồ sơ nghiệm thu', percent: 25, value: '142 hồ sơ', color: '#20bd68' }
-  ];
+  weeklyData: Array<{
+    day: string;
+    dossierValue: number;
+    dossierPercent: number;
+    documentValue: number;
+    documentPercent: number;
+  }> = [];
+
+  categories: Array<{ name: string; percent: number; value: string; color: string }> = [];
 
   recentActivities: ActivityLog[] = [];
-  recentDossiers: RecentDossier[] = [
-    {
-      code: 'HS-2024-001',
-      title: 'Hồ sơ thiết kế TBA 110kV Nghĩa Đô',
-      station: 'TBA 110kV Nghĩa Đô',
-      documentCount: 12,
-      creator: 'Quản trị hệ thống',
-      createdDate: '20/06/2026'
-    },
-    {
-      code: 'HS-2024-002',
-      title: 'Bản vẽ hoàn công lộ 471 E1.1',
-      station: 'Lộ 471 E1.1',
-      documentCount: 45,
-      creator: 'Quản trị hệ thống',
-      createdDate: '20/06/2026'
-    },
-    {
-      code: 'HS-2024-003',
-      title: 'Hồ sơ nghiệm thu TBA 110kV Tây Hồ',
-      station: 'TBA 110kV Tây Hồ',
-      documentCount: 28,
-      creator: 'Nguyễn Văn An',
-      createdDate: '19/06/2026'
-    },
-    {
-      code: 'HS-2024-004',
-      title: 'Hồ sơ vận hành đường dây 22kV',
-      station: 'Đường dây 22kV',
-      documentCount: 36,
-      creator: 'Trần Minh Đức',
-      createdDate: '19/06/2026'
-    },
-    {
-      code: 'HS-2024-005',
-      title: 'Hồ sơ bảo trì thiết bị PMIS',
-      station: 'TBA 110kV Chèm',
-      documentCount: 18,
-      creator: 'Quản trị hệ thống',
-      createdDate: '18/06/2026'
-    }
-  ];
+  recentDossiers: RecentDossier[] = [];
   username = 'Người dùng';
 
   ngOnInit() {
@@ -117,108 +101,208 @@ export class DashboardComponent implements OnInit {
 
       // Chỉ tải dữ liệu Dashboard trên môi trường client (nơi có localStorage chứa token JWT) để tránh lỗi 401 Unauthorized trong SSR
       this.loadDashboardData();
-
     }
   }
 
   loadDashboardData() {
     this.loading = true;
 
-    // 1. Tải dữ liệu OCR statistics
-    this.http.get<any>(`${environment.apiGatewayUrl}/api/v1/ocr-training/statistics`).subscribe({
-      next: (stats) => {
-        if (stats) {
-          this.pendingOcrCount = stats.pending || stats.Pending || 0;
-          this.totalOcrDocs = stats.total || stats.Total || 0;
+    this.loadRecentDossiers();
+    this.loadDossierTypeStatistics();
+    this.loadWeeklyTrend();
+    this.loadUsageCounters();
+    this.loadRecentActivities();
+  }
 
-          const total = stats.total || stats.Total || 1;
-          const verified = stats.verified || stats.Verified || 0;
-          this.ocrAccuracy = Number(((verified / total) * 100).toFixed(1)) || 96.8;
-          if (this.ocrAccuracy < 50) this.ocrAccuracy = 96.8;
-        }
-      },
-      error: (err) => console.warn('Không thể tải OCR statistics:', err)
-    });
-
-    // 2. Thiết bị — dùng lookup (bypass quyền) thay GET /equipment + /equipmenttype
-    this.http.get<{
-      equipmentTypes?: Array<{ id?: string; Id?: string; name?: string; Name?: string }>;
-      EquipmentTypes?: Array<{ id?: string; Id?: string; name?: string; Name?: string }>;
-    }>(`${environment.apiGatewayUrl}/api/v1/equipment/lookup`).subscribe({
-      next: (lookup) => {
-        const types = lookup?.equipmentTypes ?? lookup?.EquipmentTypes ?? [];
-        if (types.length > 0) {
-          const colors = ['#002D72', '#FF6B00', '#22c55e', '#6366f1', '#a855f7'];
-          const share = Math.round(100 / Math.min(types.length, 5));
-          this.categories = types.slice(0, 5).map((t, idx) => ({
-            name: t.name ?? t.Name ?? 'Loại thiết bị',
-            percent: idx === Math.min(types.length, 5) - 1
-              ? 100 - share * (Math.min(types.length, 5) - 1)
-              : share,
-            value: t.name ?? t.Name ?? 'Loại thiết bị',
-            color: colors[idx % colors.length],
-          }));
-        }
-      },
-      error: (err) => console.warn('Không thể tải equipment lookup:', err),
-    });
-
-    // 3. Biểu mẫu EAV — dùng lookup thay GET /eav-form-templates
-    this.http.get<any[]>(`${environment.apiGatewayUrl}/api/v1/eav-form-templates/lookup`).subscribe({
-      next: (templates) => {
-        if (templates) {
-          const days = ['T6', 'T7', 'CN', 'T2', 'T3', 'T4', 'T5 (h.nay)'];
-          let maxVal = templates.length * 2 + 10;
-          if (maxVal < 50) maxVal = 265;
-          this.weeklyData = days.map((day, index) => {
-            const dossierValue = Math.round((index + 1) * (maxVal / 7) + Math.random() * 20);
-            const documentValue = Math.max(0, Math.round(dossierValue * (0.65 + Math.random() * 0.2)));
-            return {
-              day: day,
-              dossierValue,
-              dossierPercent: Math.min(100, Number(((dossierValue / 600) * 100).toFixed(2))),
-              documentValue,
-              documentPercent: Math.min(100, Number(((documentValue / 600) * 100).toFixed(2)))
-            };
+  /** Tổng hồ sơ + danh sách hồ sơ mới nhất (đã sắp xếp theo ngày tạo giảm dần ở backend, không lọc theo trạng thái/tab) */
+  private loadRecentDossiers() {
+    this.http
+      .get<any>(`${environment.apiGatewayUrl}/api/v1/search/dossiers`, {
+        params: { page: '1', pageSize: '5' }
+      })
+      .subscribe({
+        next: (res) => {
+          const rawItems: DossierListItemDto[] = res?.items ?? res?.Items ?? [];
+          const seenIds = new Set<string>();
+          const items = rawItems.filter((item) => {
+            if (!item.id || seenIds.has(item.id)) return false;
+            seenIds.add(item.id);
+            return true;
           });
+          this.totalDossiers = res?.totalCount ?? res?.TotalCount ?? 0;
+          this.recentDossiers = items.map((item) => this.mapDossier(item));
+          this.cdr.markForCheck();
+        },
+        error: (err) => {
+          console.warn('Không thể tải danh sách hồ sơ mới nhất:', err);
+          this.totalDossiers = 0;
+          this.recentDossiers = [];
+          this.cdr.markForCheck();
         }
-      },
-      error: (err) => console.warn('Không thể tải EAV Templates:', err)
+      });
+  }
+
+  /** Tìm giá trị trong catalogData theo tên cột hiển thị (vd. "Mã hồ sơ", "Tiêu đề hồ sơ") — không phân biệt hoa/thường. */
+  private findCatalogValue(item: DossierListItemDto, label: string): string | undefined {
+    const data = item.catalogData ?? {};
+    const key = Object.keys(data).find((k) => k.trim().toLowerCase() === label.toLowerCase());
+    return key ? data[key] || undefined : undefined;
+  }
+
+  private mapDossier(item: DossierListItemDto): RecentDossier {
+    // Mã hồ sơ / tiêu đề hồ sơ thật do hệ thống sinh khi tạo hồ sơ, lưu trong catalogData (EAV) theo tên cột.
+    const realCode = this.findCatalogValue(item, 'Mã hồ sơ');
+    const realTitle = this.findCatalogValue(item, 'Tiêu đề hồ sơ');
+    return {
+      id: item.id,
+      code: realCode || '—',
+      title: realTitle || [item.dossierTypeName, item.infrastructureName].filter(Boolean).join(' — ') || 'Hồ sơ',
+      station: item.infrastructureName || '—',
+      documentCount: item.documentCount ?? 0,
+      // Cùng logic với trang "Quản lý hồ sơ": ưu tiên người xử lý hiện tại, fallback người tạo
+      handler: item.currentHandlerName || item.creator?.name || item.creator?.username || '—',
+      statusName: item.statusName || '—'
+    };
+  }
+
+  /** Tổng số tài liệu + thống kê theo loại hồ sơ */
+  private loadDossierTypeStatistics() {
+    this.http
+      .get<DossierTypeChartStatDto[]>(
+        `${environment.apiGatewayUrl}/api/v1/reports/statistics/dossier-by-dossier-type/chart-stats`
+      )
+      .subscribe({
+        next: (stats) => {
+          const list = Array.isArray(stats) ? stats : [];
+
+          this.totalDocuments = list.reduce((sum, s) => sum + (s.documentCount ?? 0), 0);
+
+          const totalDossierCount = list.reduce((sum, s) => sum + (s.dossierCount ?? 0), 0);
+          const colors = ['#243b8f', '#ff6b1a', '#20bd68', '#6366f1', '#a855f7'];
+          this.categories = [...list]
+            .sort((a, b) => (b.dossierCount ?? 0) - (a.dossierCount ?? 0))
+            .slice(0, 5)
+            .map((s, idx) => {
+              const count = s.dossierCount ?? 0;
+              return {
+                name: s.dossierTypeName || 'Loại hồ sơ',
+                percent: totalDossierCount > 0 ? Math.round((count / totalDossierCount) * 100) : 0,
+                value: `${count} hồ sơ`,
+                color: colors[idx % colors.length]
+              };
+            });
+          this.cdr.markForCheck();
+        },
+        error: (err) => {
+          console.warn('Không thể tải thống kê theo loại hồ sơ:', err);
+          this.totalDocuments = 0;
+          this.categories = [];
+          this.cdr.markForCheck();
+        }
+      });
+  }
+
+  /** Số lượng hồ sơ/tài liệu tạo mới theo từng ngày trong 7 ngày qua */
+  private loadWeeklyTrend() {
+    const dayLabels = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+    const today = new Date();
+    const days = Array.from({ length: 7 }, (_, i) => {
+      const date = new Date(today);
+      date.setDate(today.getDate() - (6 - i));
+      const label = i === 6 ? `${dayLabels[date.getDay()]} (h.nay)` : dayLabels[date.getDay()];
+      return { date, label };
     });
 
-    // 4. Tải danh sách thao tác (Audit Logs) thực tế
-    this.auditLogService.getRecent().subscribe({
-      next: (res) => {
-        const logs = res.logs || res.Logs || [];
-        if (logs.length > 0) {
-          this.recentActivities = logs.slice(0, 5).map((item: any, idx: number) => ({
-            id: item.id ? item.id.substring(0, 8) : `AL-${100 + idx}`,
-            action: item.action || 'USER_ACTION',
-            user: item.userName || item.user || 'system',
-            time: new Date(item.timestamp || item.occurredAt || item['@timestamp'] || Date.now()).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
-            status: item.statusCode && item.statusCode >= 400 ? 'warning' : 'success',
-            detail: [item.serviceName, item.resourceName, item.details].filter(Boolean).join(' — ') || 'Thao tác hệ thống'
-          }));
-        } else {
-          this.fallbackActivities();
-        }
-        this.loading = false;
-      },
-      error: (err) => {
-        console.warn('Không thể tải audit logs:', err);
-        this.fallbackActivities();
-        this.loading = false;
-      }
+    const requests = days.map(({ date }) => {
+      const from = new Date(date);
+      from.setHours(0, 0, 0, 0);
+      const to = new Date(date);
+      to.setHours(23, 59, 59, 999);
+      return this.http
+        .get<DossierGeneralInputChartStatDto[]>(
+          `${environment.apiGatewayUrl}/api/v1/reports/statistics/dossier-general-input/chart-stats`,
+          { params: { fromDate: from.toISOString(), toDate: to.toISOString() } }
+        )
+        .pipe(catchError(() => of([] as DossierGeneralInputChartStatDto[])));
+    });
+
+    forkJoin(requests).subscribe((results) => {
+      const totals = results.map((groups) => ({
+        dossier: (groups ?? []).reduce((sum, g) => sum + (g.dossierCount ?? 0), 0),
+        document: (groups ?? []).reduce((sum, g) => sum + (g.documentCount ?? 0), 0)
+      }));
+
+      const maxVal = Math.max(600, ...totals.map((t) => Math.max(t.dossier, t.document)));
+      this.weeklyData = days.map((d, idx) => ({
+        day: d.label,
+        dossierValue: totals[idx].dossier,
+        dossierPercent: Math.min(100, Number(((totals[idx].dossier / maxVal) * 100).toFixed(2))),
+        documentValue: totals[idx].document,
+        documentPercent: Math.min(100, Number(((totals[idx].document / maxVal) * 100).toFixed(2)))
+      }));
+      this.cdr.markForCheck();
     });
   }
 
-  fallbackActivities() {
-    this.recentActivities = [
-      { id: 'HS-001', action: 'UPLOAD_HO_SO', user: 'admin', time: '08:10', status: 'success', detail: 'Tải lên hồ sơ thiết kế TBA 110kV Nghĩa Đô' },
-      { id: 'HS-002', action: 'SCAN_OCR', user: 'user1', time: '08:25', status: 'success', detail: 'Quét OCR bản vẽ hoàn công lộ 471 E1.1' },
-      { id: 'HS-003', action: 'CORRECT_OCR', user: 'user2', time: '09:05', status: 'success', detail: 'Hiệu đính hồ sơ nghiệm thu TBA 110kV Tây Hồ' },
-      { id: 'HS-004', action: 'SYNC_PMIS', user: 'system', time: '09:40', status: 'info', detail: 'Đồng bộ dữ liệu thiết bị đường dây 22kV từ PMIS' },
-      { id: 'HS-005', action: 'APPROVE_HO_SO', user: 'admin', time: '10:15', status: 'success', detail: 'Duyệt hồ sơ bảo trì thiết bị PMIS' }
-    ];
+  /** Lượt tra cứu — cộng dồn từ LOOKUP_VIEW_DAILY_COUNTS (ghi nhận mỗi khi mở hồ sơ/tài liệu qua tra cứu/tìm kiếm) */
+  private loadUsageCounters() {
+    this.http
+      .get<any>(`${environment.apiGatewayUrl}/api/v1/reports/statistics/dossier-most-viewed/summary-stats`)
+      .subscribe({
+        next: (res) => {
+          const station = res?.stationViewCount ?? res?.StationViewCount ?? 0;
+          const line = res?.lineViewCount ?? res?.LineViewCount ?? 0;
+          const doc = res?.documentViewCount ?? res?.DocumentViewCount ?? 0;
+          this.searchCount = station + line + doc;
+          this.cdr.markForCheck();
+        },
+        error: (err) => {
+          console.warn('Không thể tải lượt tra cứu:', err);
+          this.searchCount = 0;
+          this.cdr.markForCheck();
+        }
+      });
+
+    // Lượt tải tài liệu — suy ra từ nhật ký thao tác hệ thống (audit log). Lưu ý: một số API tải file
+    // cho phép truy cập ẩn danh (one-time token) nên không được audit, số này có thể thấp hơn thực tế.
+    this.http
+      .get<any>(`${environment.apiGatewayUrl}/api/v1/audit-logs`, {
+        params: { keyword: 'download', page: '1', pageSize: '1' }
+      })
+      .subscribe({
+        next: (res) => {
+          this.downloadCount = res?.totalCount ?? res?.TotalCount ?? 0;
+          this.cdr.markForCheck();
+        },
+        error: (err) => {
+          console.warn('Không thể tải lượt tải tài liệu:', err);
+          this.downloadCount = 0;
+          this.cdr.markForCheck();
+        }
+      });
+  }
+
+  private loadRecentActivities() {
+    this.auditLogService.getRecent().subscribe({
+      next: (res) => {
+        const logs = res.logs || res.Logs || [];
+        this.recentActivities = logs.slice(0, 5).map((item: any, idx: number) => ({
+          id: item.id ? item.id.substring(0, 8) : `AL-${100 + idx}`,
+          action: item.action || 'USER_ACTION',
+          user: item.userName || item.user || 'system',
+          time: new Date(item.timestamp || item.occurredAt || item['@timestamp'] || Date.now()).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+          status: item.statusCode && item.statusCode >= 400 ? 'warning' : 'success',
+          detail: [item.serviceName, item.resourceName, item.details].filter(Boolean).join(' — ') || 'Thao tác hệ thống'
+        }));
+        this.loading = false;
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        console.warn('Không thể tải audit logs:', err);
+        this.recentActivities = [];
+        this.loading = false;
+        this.cdr.markForCheck();
+      }
+    });
   }
 }
