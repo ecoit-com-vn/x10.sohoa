@@ -1,15 +1,22 @@
 
-    @keyframes shimmer {
-      0% { background-position: -200% 0; }
-      100% { background-position: 200% 0; }
-    }
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
 .skeleton-shimmer {
-      background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
-      background-size: 200% 100%;
-      animation: shimmer 1.5s infinite;
-    }
+  background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
 
 .unit-page-toolbar { margin-bottom: 12px; }
+
+.unit-search-card { margin-bottom: 12px; }
+
+.unit-list-card {
+  margin-bottom: 0;
+}
 
 .unit-search-bar {
   margin-bottom: 16px;

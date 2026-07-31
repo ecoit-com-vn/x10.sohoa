@@ -2,7 +2,7 @@
   <p-toast></p-toast>
   <div class="list-toolbar">
     <div class="toolbar-left">
-      <div class="breadcrumb" *ngIf="isPhongCatalog(); else defaultCatalogBreadcrumb">
+      <div class="breadcrumb" style="margin-bottom: 0;" *ngIf="isPhongCatalog(); else defaultCatalogBreadcrumb">
         <i class="pi pi-home bc-icon"></i>
         <a class="bc-text bc-link" href="#/dashboard">Trang chủ</a>
         <span class="bc-sep">/</span>
@@ -32,37 +32,56 @@
       class="animate-fade-in">
 
       <!-- Toolbar -->
-      <div class="list-toolbar">
-        <div class="toolbar-left" style="display: flex; gap: 8px; align-items: center;">
-          <!-- Keyword input -->
-          <input type="text" class="wf-search-input" placeholder="Tìm theo mã hoặc tên..." [ngModel]="searchKeyword()"
-            (ngModelChange)="searchKeyword.set($event)" (keyup.enter)="onSearch()" />
-
-          <!-- Status Dropdown Filter -->
-          <select class="wf-input" style="height: 38px; width: 140px; padding: 0 10px; border-radius: 6px;"
-            [ngModel]="searchStatus()" (ngModelChange)="searchStatus.set($event); onSearch()">
-            <option value="">-- Trạng thái --</option>
-            <option value="1">Hoạt động </option>
-            <option value="0">Ngừng hoạt động</option>
-          </select>
-
-          <select *ngIf="isPhongCatalog()" class="wf-input"
-            style="height: 38px; min-width: 210px; padding: 0 10px; border-radius: 6px;"
-            [ngModel]="searchUnitId()" (ngModelChange)="onSearchUnitChange($event)">
-            <option [ngValue]="null">-- Tất cả đơn vị --</option>
-            <option *ngFor="let unit of organizationUnits()" [ngValue]="unit.id">{{ unit.name }}</option>
-          </select>
-
-          <button class="btn-tim" (click)="onSearch()">
-            <i class="pi pi-search"></i> Tìm
-          </button>
-
-          <button class="btn-outlined" style="height: 38px;" (click)="onResetSearch()">
-            Làm mới
-          </button>
+      <div class="list-toolbar" *ngIf="isPhongCatalog(); else defaultCatalogFilters">
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; width: 100%; padding: 16px; border: 1px solid #dbe4f0; border-radius: 8px;">
+            <div class="form-group" style="margin: 0; min-width: 0;">
+              <label class="form-label">Tên danh mục</label>
+              <input type="text" class="wf-search-input" style="width: 100%;" placeholder="Tên danh mục..." [ngModel]="searchName()"
+                (ngModelChange)="searchName.set($event)" (keyup.enter)="onSearch()" />
+            </div>
+            <div class="form-group" style="margin: 0; min-width: 0;">
+              <label class="form-label">Mã danh mục</label>
+              <input type="text" class="wf-search-input" style="width: 100%;" placeholder="Mã danh mục..." [ngModel]="searchCode()"
+                (ngModelChange)="searchCode.set($event)" (keyup.enter)="onSearch()" />
+            </div>
+            <div class="form-group" style="margin: 0; min-width: 0;">
+              <label class="form-label">Trạng thái</label>
+              <select class="wf-input" style="height: 38px; width: 100%; padding: 0 10px; border-radius: 6px;"
+                [ngModel]="searchStatus()" (ngModelChange)="searchStatus.set($event)">
+                <option value="">-- Trạng thái --</option>
+                <option value="1">Hoạt động</option>
+                <option value="0">Ngừng hoạt động</option>
+              </select>
+            </div>
+            <div style="grid-column: 3; display: flex; justify-content: flex-end; gap: 8px;">
+              <button class="btn-outlined" style="height: 38px;" (click)="onResetSearch()">
+                <i class="pi pi-refresh"></i> Làm mới
+              </button>
+              <button class="btn-tim" style="height: 38px;" (click)="onSearch()">
+                <i class="pi pi-check"></i> Áp dụng
+              </button>
+            </div>
         </div>
-
       </div>
+
+      <ng-template #defaultCatalogFilters>
+        <div class="list-toolbar">
+          <div class="toolbar-left" style="display: flex; gap: 8px; align-items: center;">
+            <input type="text" class="wf-search-input" placeholder="Tìm theo mã hoặc tên..." [ngModel]="searchKeyword()"
+              (ngModelChange)="searchKeyword.set($event)" (keyup.enter)="onSearch()" />
+            <div class="form-group">
+              <select class="wf-input" style="height: 38px; width: 205px; padding: 0 10px; border-radius: 6px;"
+                [ngModel]="searchStatus()" (ngModelChange)="searchStatus.set($event); onSearch()">
+                <option value="">-- Trạng thái --</option>
+                <option value="1">Hoạt động</option>
+                <option value="0">Ngừng hoạt động</option>
+              </select>
+            </div>
+            <button class="btn-tim" style="height: 38px;" (click)="onSearch()"><i class="pi pi-search"></i> Tìm</button>
+            <button class="btn-outlined" style="height: 38px;" (click)="onResetSearch()">Làm mới</button>
+          </div>
+        </div>
+      </ng-template>
 
       <!-- Table -->
       <div class="wf-table-wrap">
@@ -179,12 +198,21 @@
         </div>
 
         <div class="form-group" *ngIf="isPhongCatalog()">
-          <label class="form-label">Đơn vị <span class="required">*</span></label>
-          <select class="wf-input w-full" [(ngModel)]="currentItem().unitId"
-            (ngModelChange)="onFieldChange('unitId')" [disabled]="isSaving()">
-            <option [ngValue]="null">-- Chọn đơn vị --</option>
-            <option *ngFor="let unit of organizationUnits()" [ngValue]="unit.id">{{ unit.name }}</option>
-          </select>
+          <label class="form-label">Đơn vị tạo <span class="required">*</span></label>
+          <p-treeSelect [options]="organizationUnitTree()" [ngModel]="selectedUnitNodes()"
+            (ngModelChange)="onUnitNodeChange($event)" placeholder="-- Chọn đơn vị --"
+            [filter]="true" filterPlaceholder="Tìm đơn vị..." selectionMode="multiple" [metaKeySelection]="false"
+            appendTo="body" scrollHeight="260px" styleClass="w-full" [style]="{ width: '100%' }"
+            [disabled]="isSaving() || !isAdmin()">
+            <ng-template pTemplate="default" let-node>
+              <span style="display: inline-flex; align-items: center; gap: 8px;">
+                <span style="width: 18px; height: 18px; border: 1px solid #cbd5e1; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; background: #fff;">
+                  <i *ngIf="isUnitNodeSelected(node)" class="pi pi-check" style="font-size: 11px; color: #2563eb;"></i>
+                </span>
+                <span>{{ node.label }}</span>
+              </span>
+            </ng-template>
+          </p-treeSelect>
           <span class="field-error" *ngIf="unitError()">{{ unitError() }}</span>
         </div>
 

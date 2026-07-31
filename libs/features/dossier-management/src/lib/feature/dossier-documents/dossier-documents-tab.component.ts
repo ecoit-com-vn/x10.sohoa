@@ -119,10 +119,12 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
 
   @Input({ required: true }) dossierId!: string;
   @Input() canEdit = false;
+  @Input() canUpload = false;
   @Input() kindId = 2;
   @Input() hasFormTemplate = false;
   @Input() formId: string | null = null;
   @Input() menuScope: 'creator' | 'approver' | 'publisher' = 'creator';
+  @Input() showVersionHistory = true;
   @Output() formDataSaved = new EventEmitter<void>();
 
   documents = signal<DossierDocumentItem[]>([]);
@@ -429,7 +431,10 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
         disabled: !doc.latestVersionId || this.isDownloading(doc.id),
         run: (d) => this.onDownload(d),
       },
-      {
+    ];
+
+    if (this.showVersionHistory) {
+      actions.push({
         key: 'history',
         title: 'Lịch sử phiên bản',
         btnClass: 'act-history',
@@ -437,8 +442,8 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
         disabled: !doc.latestVersionId,
         overflowOnly: true,
         run: (d) => this.onViewHistory(d),
-      },
-    ];
+      });
+    }
 
     if (showDigitization && this.canSubmitOcrAndExtract(doc)) {
       actions.push({

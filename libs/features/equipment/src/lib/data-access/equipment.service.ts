@@ -107,7 +107,7 @@ export class EquipmentService {
   }
 
   getOrganizationUnits(): Observable<any[]> {
-    return this.http.get<any[]>(`${this.base}/get-organization-units`);
+    return this.http.get<any[]>(`${this.config.apiGatewayUrl}/api/v1/organization-units/lookup`);
   }
 
   getInfrastructures(): Observable<any[]> {
