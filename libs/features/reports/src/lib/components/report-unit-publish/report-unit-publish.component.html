@@ -138,20 +138,25 @@
 
   <ng-template #footer>
     <div class="flex gap-2 justify-end pt-3" style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9;">
-      <button class="btn-outlined btn-small" (click)="hideConfigDialog()">Hủy</button>
+      <button class="btn-cancel btn-small" (click)="hideConfigDialog()"><i class="pi pi-times"></i> Đóng</button>
       <button
-        class="btn-outlined btn-small"
+        class="btn-save btn-small"
         *ngIf="canEdit()"
         [disabled]="saving()"
         (click)="saveDraft()">
-        <i class="pi pi-spin pi-spinner mr-1" *ngIf="saving()"></i> Lưu nháp
+        <i class="pi pi-spin pi-spinner mr-1" *ngIf="saving()"></i>
+        <i class="pi pi-save" *ngIf="!saving()" style="margin-right: 4px;"></i>
+         Lưu nháp
       </button>
       <button
         class="btn-save btn-small"
+        style="background-color:forestgreen;"
         *ngIf="canRelease()"
         [disabled]="saving()"
         (click)="publishConfig()">
-        <i class="pi pi-spin pi-spinner mr-1" *ngIf="saving()"></i> Công bố
+        <i class="pi pi-spin pi-spinner mr-1" *ngIf="saving()"></i>
+        <i class="pi pi-check-circle" *ngIf="!saving()" style="margin-right: 4px;"></i>
+         Công bố
       </button>
     </div>
   </ng-template>

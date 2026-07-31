@@ -97,8 +97,8 @@ export class MenuManagement implements OnInit {
     event.stopPropagation();
     this.actionMenuItems = [
       ...(this.authService.hasPermission('MENU_CREATE') ? [{ label: 'Thêm menu con', title: 'Thêm menu con', icon: 'pi pi-plus', command: () => this.onAddNew(menuItem.id) }] : []),
-      ...(this.authService.hasPermission('MENU_EDIT') ? [{ label: menuItem.isActive ? 'Khóa menu' : 'Mở khóa menu', title: menuItem.isActive ? 'Khóa menu' : 'Mở khóa menu' ,icon: menuItem.isActive ? 'pi pi-lock color-red' : 'pi pi-lock-open color-teal', command: () => this.onToggleStatusRequest(menuItem) }] : []),
       ...(this.authService.hasPermission('MENU_EDIT') ? [{ label: 'Chỉnh sửa', title: 'Chỉnh sửa' ,icon: 'pi pi-pencil color-blue', command: () => this.onEdit(menuItem) }] : []),
+      ...(this.authService.hasPermission('MENU_EDIT') ? [{ label: menuItem.isActive ? 'Khóa menu' : 'Mở khóa menu', title: menuItem.isActive ? 'Khóa menu' : 'Mở khóa menu' ,icon: menuItem.isActive ? 'pi pi-lock color-red' : 'pi pi-lock-open color-teal', command: () => this.onToggleStatusRequest(menuItem) }] : []),
       ...(this.authService.hasPermission('MENU_DELETE') ? [{ label: 'Xóa', title: 'Xóa' ,icon: 'pi pi-trash color-red', command: () => this.onDelete(menuItem) }] : []),
     ];
     menu.toggle(event);
@@ -321,6 +321,7 @@ export class MenuManagement implements OnInit {
   }
 
   onSaveMenu() {
+    this.currentMenu.set({ ...this.currentMenu() }); 
     this.formSubmitted.set(true);
     this.serverErrors.set({});
     if (this.nameError()) {

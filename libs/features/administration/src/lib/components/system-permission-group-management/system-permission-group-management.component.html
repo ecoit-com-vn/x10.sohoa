@@ -11,9 +11,17 @@
             <!-- Toolbar -->
             <div class="list-toolbar">
                 <div class="toolbar-left">
-                    <input type="text" class="wf-search-input" placeholder="Tìm kiếm nhóm quyền..." [ngModel]="searchKeyword()" (ngModelChange)="searchKeyword.set($event)" />zz
+                    <input type="text" class="wf-search-input" placeholder="Tìm theo mã hoặc tên nhóm quyền..." [ngModel]="searchKeyword()" (ngModelChange)="searchKeyword.set($event)" (keyup.enter)="onSearch()" />
+                    <select class="wf-select" [ngModel]="filterIsActive()" (ngModelChange)="filterIsActive.set($event)">
+                      <option [ngValue]="null">-- Tất cả trạng thái --</option>
+                      <option [ngValue]="true">Hoạt động</option>
+                      <option [ngValue]="false">Ngừng hoạt động</option>
+                    </select>
+                    <button type="button" class="btn-outlined" (click)="onResetSearch()">
+                      <i class="pi pi-refresh"></i> Làm mới
+                    </button>
                     <button class="btn-tim" (click)="onSearch()">
-            <i class="pi pi-search"></i> Tìm
+            <i class="pi pi-check"></i> Áp dụng
           </button>
                 </div>
                 <div class="toolbar-right">
@@ -90,10 +98,10 @@
                                         <button *ngIf="authService.hasPermission('SYSTEM_PERMISSION_GROUP_MANAGE') || authService.hasPermission('PERMISSION_MANAGE')" class="act-btn act-assign" (click)="onAssignPermissions(role)" title="Phân quyền">
                       <i class="pi pi-shield"></i>
                     </button>
-                                        <button *ngIf="(authService.hasPermission('SYSTEM_PERMISSION_GROUP_EDIT') || authService.hasPermission('SYSTEM_PERMISSION_GROUP_MANAGE')) && role.isActive" class="act-btn act-lock" (click)="onToggleStatusRequest(role)" title="Khóa nhóm quyền">
+                                        <button *ngIf="(authService.hasPermission('SYSTEM_PERMISSION_GROUP_EDIT') || authService.hasPermission('SYSTEM_PERMISSION_GROUP_MANAGE')) && role.isActive" class="act-btn act-lock" (click)="onToggleStatusRequest(role)" title="Khóa">
                       <i class="pi pi-lock"></i>
                     </button>
-                                        <button *ngIf="(authService.hasPermission('SYSTEM_PERMISSION_GROUP_EDIT') || authService.hasPermission('SYSTEM_PERMISSION_GROUP_MANAGE')) && !role.isActive" class="act-btn act-unlock" (click)="onToggleStatusRequest(role)" title="Mở khóa nhóm quyền">
+                                        <button *ngIf="(authService.hasPermission('SYSTEM_PERMISSION_GROUP_EDIT') || authService.hasPermission('SYSTEM_PERMISSION_GROUP_MANAGE')) && !role.isActive" class="act-btn act-unlock" (click)="onToggleStatusRequest(role)" title="Mở khóa">
                       <i class="pi pi-lock-open"></i>
                     </button>
                                         <button *ngIf="authService.hasPermission('SYSTEM_PERMISSION_GROUP_EDIT') || authService.hasPermission('SYSTEM_PERMISSION_GROUP_MANAGE')" class="act-btn act-edit" (click)="onEdit(role)" title="Chỉnh sửa">
@@ -147,19 +155,19 @@
             <div style="display: flex; flex-direction: column; gap: 16px; padding: 10px 0;">
                 <div class="form-group">
                     <label class="form-label">Mã nhóm quyền <span class="required">*</span></label>
-                    <input type="text" class="wf-input w-full" [(ngModel)]="currentRole().code" (ngModelChange)="onFieldChange('code')" placeholder="Ví dụ: QUAN_TRI, CAN_BO..." [disabled]="isEdit() || saving()" />
+                    <input type="text" class="wf-input w-full" [ngModel]="currentRole().code" (ngModelChange)="onRoleFieldChange('code', $event)" placeholder="Ví dụ: QUAN_TRI, CAN_BO..." [disabled]="isEdit() || saving()" />
                     <span class="field-error" *ngIf="codeError()">{{ codeError() }}</span>
                 </div>
 
                 <div class="form-group">
                     <label class="form-label">Tên nhóm quyền <span class="required">*</span></label>
-                    <input type="text" class="wf-input w-full" [(ngModel)]="currentRole().name" (ngModelChange)="onFieldChange('name')" placeholder="Ví dụ: Quản trị viên hệ thống..." [disabled]="saving()" />
+                    <input type="text" class="wf-input w-full" [ngModel]="currentRole().name" (ngModelChange)="onRoleFieldChange('name', $event)" placeholder="Ví dụ: Quản trị viên hệ thống..." [disabled]="saving()" />
                     <span class="field-error" *ngIf="nameError()">{{ nameError() }}</span>
                 </div>
 
                 <div class="form-group">
                     <label class="form-label">Mô tả chi tiết</label>
-                    <textarea class="wf-textarea w-full" rows="3" [(ngModel)]="currentRole().description" placeholder="Ghi chú về phạm vi của nhóm quyền này..." [disabled]="saving()"></textarea>
+                    <textarea class="wf-textarea w-full" rows="3" [ngModel]="currentRole().description" (ngModelChange)="onRoleFieldChange('description', $event)" placeholder="Ghi chú về phạm vi của nhóm quyền này..." [disabled]="saving()"></textarea>
                 </div>
             </div>
             <ng-template #footer>
@@ -205,7 +213,7 @@
                             <div class="permission-group-header" (click)="toggleParentMenu(parent)">
                                 <div class="group-header-left">
                                     <i class="pi chevron-icon" [class.pi-angle-up]="parent.expanded" [class.pi-angle-down]="!parent.expanded"></i>
-                                    <input type="checkbox" class="perm-checkbox group-checkbox" [checked]="isAllPermissionsChecked(parentCodes)" [disabled]="savingPermissions() || parentCodes.length === 0" (click)="$event.stopPropagation()" (change)="toggleAllPermissions(parentCodes)" />
+                                    <input type="checkbox" class="perm-checkbox group-checkbox" [checked]="isAllPermissionsChecked(parentCodes)" [indeterminate]="isPartiallyChecked(parentCodes)" [disabled]="savingPermissions() || parentCodes.length === 0" (click)="$event.stopPropagation()" (change)="toggleAllPermissions(parentCodes)" />
                                     <span class="group-title">{{ parent.name }}</span>
                                 </div>
                             </div>
@@ -217,7 +225,7 @@
                                             <div class="column-header" (click)="toggleSubMenu(sub)">
                                                 <div class="column-header-left">
                                                     <i class="pi chevron-icon column-chevron" [class.pi-angle-up]="sub.expanded !== false" [class.pi-angle-down]="sub.expanded === false"></i>
-                                                    <input type="checkbox" class="perm-checkbox group-checkbox" [checked]="isAllPermissionsChecked(subCodes)" [disabled]="savingPermissions() || subCodes.length === 0" (click)="$event.stopPropagation()" (change)="toggleAllPermissions(subCodes)" />
+                                                    <input type="checkbox" class="perm-checkbox group-checkbox" [checked]="isAllPermissionsChecked(subCodes)" [indeterminate]="isPartiallyChecked(subCodes)" [disabled]="savingPermissions() || subCodes.length === 0" (click)="$event.stopPropagation()" (change)="toggleAllPermissions(subCodes)" />
                                                     <span class="column-title">{{ sub.name }}</span>
                                                 </div>
                                             </div>
@@ -296,5 +304,8 @@
             </div>
         </ng-template>
     </p-dialog>
+
+    <app-delete-confirm-dialog [visible]="showDeleteConfirm()" header="Xác nhận xóa nhóm quyền hệ thống" entityLabel="Nhóm quyền hệ thống" [targetName]="deleteTargetLabel()" [loading]="deleteLoading()" (cancelled)="onCancelDelete()" (confirmed)="onConfirmDelete()"
+    />
 
 </div>

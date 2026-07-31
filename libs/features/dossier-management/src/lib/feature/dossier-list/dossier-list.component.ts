@@ -874,7 +874,13 @@ export class DossierListComponent implements OnInit {
     targetNodeId: string;
     requiresUser: boolean;
     requiredRole: string;
+    unitGroupIds?: string | null;
+    systemGroupIds?: string | null;
+    requireSameUnit?: boolean;
+    staticAssigneeId?: string | null;
   } | null>(null);
+  eligibleQuickActionUsers = signal<any[]>([]);
+  loadingEligibleQuickActionUsers = signal<boolean>(false);
   users = signal<any[]>([]);
   showQuickCompleteConfirm = signal<boolean>(false);
   showQuickSubmitConfirm = signal<boolean>(false);
@@ -912,9 +918,31 @@ export class DossierListComponent implements OnInit {
       });
   }
 
-  filteredNextUsers = computed(() =>
-    filterUsersByRequiredRole(this.users(), this.pendingQuickActionMeta()?.requiredRole)
-  );
+  // Hợp nhất nhóm quyền hệ thống/đơn vị/người cụ thể đã cấu hình trên bước đích; nếu không cấu
+  // hình gì cả, danh sách để trống (xem resolveNextUserCandidates).
+  filteredNextUsers = computed(() => resolveNextUserCandidates({
+    info: this.pendingQuickActionMeta(),
+    allUsers: this.users(),
+    eligibleUsers: this.eligibleQuickActionUsers(),
+  }));
+
+  private loadEligibleQuickActionUsers(meta: any): void {
+    this.eligibleQuickActionUsers.set([]);
+    const groupParams = resolveEligibleAssigneeGroupParams(meta);
+    if (!groupParams) return;
+    const unitId = meta?.requireSameUnit ? (this.authService.getUserUnitId() ?? undefined) : undefined;
+    this.loadingEligibleQuickActionUsers.set(true);
+    this.workflowSvc.getEligibleAssignees(groupParams.systemGroupIds, groupParams.unitGroupIds, unitId, undefined, groupParams.assigneeIds)
+      .pipe(finalize(() => this.loadingEligibleQuickActionUsers.set(false)))
+      .subscribe({
+        next: (list) => {
+          const arr = Array.isArray(list) ? list : [];
+          this.eligibleQuickActionUsers.set(arr);
+          this.selectedNextUserId.set(resolveDefaultNextAssignee(meta, arr));
+        },
+        error: () => this.eligibleQuickActionUsers.set([])
+      });
+  }
 
 
 
@@ -1599,6 +1627,7 @@ export class DossierListComponent implements OnInit {
     this.showQuickActionDialog.set(true);
     this.quickActionLoading.set(false);
     this.loadQuickActionUsers(meta);
+    this.loadEligibleQuickActionUsers(meta);
   }
 
   private getItemAvailableActions(item: any): any[] {
@@ -1612,6 +1641,10 @@ export class DossierListComponent implements OnInit {
       targetNodeId: action.nextNodeId,
       requiresUser: !!action.requiresNextAssignee,
       requiredRole: action.nextStepRole ?? '',
+      unitGroupIds: action.unitGroupIds ?? null,
+      systemGroupIds: action.systemGroupIds ?? null,
+      requireSameUnit: !!action.requireSameUnit,
+      staticAssigneeId: action.staticAssigneeId ?? null,
     };
   }
 

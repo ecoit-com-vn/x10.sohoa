@@ -123,12 +123,18 @@
 
             <div *ngIf="isUnitScopedSelected()" class="search-form-item catalog-search-item">
               <label class="search-field-label">Đơn vị</label>
-              <select class="wf-input"
-                [ngModel]="catalogSearchUnitId()"
-                (ngModelChange)="onCatalogSearchUnitChange($event)">
-                <option [ngValue]="null">-- Tất cả đơn vị --</option>
-                <option *ngFor="let unit of organizationUnits()" [ngValue]="unit.id">{{ unit.name }}</option>
-              </select>
+              <p-treeSelect [options]="organizationUnitTree()" [ngModel]="catalogSearchUnitNodes()"
+                (ngModelChange)="onCatalogSearchUnitNodeChange($event)" placeholder="-- Chọn đơn vị --"
+                [filter]="true" filterPlaceholder="Tìm đơn vị..." selectionMode="multiple" [metaKeySelection]="false"
+                appendTo="body" scrollHeight="260px" styleClass="w-full" [style]="{ width: '100%' }">
+                <ng-template pTemplate="default" let-node>
+                  <span style="display: inline-flex; align-items: center; gap: 8px;">
+                    <span style="width: 18px; height: 18px; border: 1px solid #cbd5e1; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; background: #fff;">
+                      <i *ngIf="isCatalogUnitNodeSelected(node)" class="pi pi-check" style="font-size: 11px; color: #2563eb;"></i>
+                    </span><span>{{ node.label }}</span>
+                  </span>
+                </ng-template>
+              </p-treeSelect>
             </div>
           </div>
 
@@ -304,12 +310,19 @@
 
       <div class="form-group" *ngIf="isUnitScopedSelected()">
         <label class="form-label">Đơn vị <span class="required">*</span></label>
-        <select class="wf-input w-full" [(ngModel)]="currentCatalogItem().unitId"
-          (ngModelChange)="onCatalogUnitChange()"
+        <p-treeSelect [options]="organizationUnitTree()" [ngModel]="selectedCatalogUnitNodes()"
+          (ngModelChange)="onCatalogUnitNodeChange($event)" placeholder="-- Chọn đơn vị --"
+          [filter]="true" filterPlaceholder="Tìm đơn vị..." selectionMode="multiple" [metaKeySelection]="false"
+          appendTo="body" scrollHeight="260px" styleClass="w-full" [style]="{ width: '100%' }"
           [disabled]="currentCatalogView() === 'view' || catalogSaving()">
-          <option [ngValue]="null">-- Chọn đơn vị --</option>
-          <option *ngFor="let unit of organizationUnits()" [ngValue]="unit.id">{{ unit.name }}</option>
-        </select>
+          <ng-template pTemplate="default" let-node>
+            <span style="display: inline-flex; align-items: center; gap: 8px;">
+              <span style="width: 18px; height: 18px; border: 1px solid #cbd5e1; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; background: #fff;">
+                <i *ngIf="isCatalogUnitNodeSelected(node, true)" class="pi pi-check" style="font-size: 11px; color: #2563eb;"></i>
+              </span><span>{{ node.label }}</span>
+            </span>
+          </ng-template>
+        </p-treeSelect>
         <span class="field-error" *ngIf="catalogUnitError()">{{ catalogUnitError() }}</span>
       </div>
 

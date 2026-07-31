@@ -38,8 +38,8 @@ export const CATALOG_ROUTES: Route[] = [
   },
   {
     path: 'phong',
-    loadComponent: () => import('./feature/catalog/catalog.component').then(m => m.CatalogComponent),
-    data: { isPrivate: true, selectedTypeCode: 'PHONG', title: 'Danh mục phông' }
+    loadComponent: () => import('./feature/catalog-list/catalog-list.component').then(m => m.CatalogListComponent),
+    data: { type: 'PHONG', title: 'Danh mục phông' }
   },
   {
     path: 'muc-luc-ho-so',
