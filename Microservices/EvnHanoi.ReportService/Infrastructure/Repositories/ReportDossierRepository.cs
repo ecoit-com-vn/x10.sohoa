@@ -1081,7 +1081,7 @@ public class ReportDossierRepository : IReportDossierRepository
                 Stt = stt++,
                 DossierId = Convert.ToString(r.DOSSIERID ?? r.DossierId),
                 DossierCode = GetFormTextValue(formDataJson, "CODE", "MAHOSO", "MA_HO_SO"),
-                DossierTitle = GetFormTextValue(formDataJson, "TITLE", "TIEUDE", "TIEUDEHOSO", "TENHOSO"),
+                DossierTitle = GetFormTextValue(formDataJson, "NAME", "TITLE", "TIEUDE", "TIEUDEHOSO", "TENHOSO"),
                 InfrastructureName = Convert.ToString(r.INFRASTRUCTURENAME ?? r.InfrastructureName),
                 DossierTypeName = Convert.ToString(r.DOSSIERTYPENAME ?? r.DossierTypeName),
                 DocumentCount = Convert.ToInt64(r.DOCUMENTCOUNT ?? r.DocumentCount ?? 0),
