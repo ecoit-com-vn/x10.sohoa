@@ -1,6 +1,7 @@
 import { Component, OnInit, signal, computed, inject, effect, HostListener } from '@angular/core';
 import {
   DeleteConfirmDialogComponent,
+  EcoPaginatorComponent,
   WfBreadcrumbComponent
 } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
@@ -34,6 +35,7 @@ import { EavFormService } from '../../../../../../shared/core/src/lib/services/e
     DialogModule,
     ToggleSwitch,
     WfBreadcrumbComponent,
+    EcoPaginatorComponent,
     DeleteConfirmDialogComponent,
     EquipmentDocumentsComponent,
     DatePickerModule
@@ -1294,6 +1296,11 @@ export class EquipmentComponent implements OnInit {
 
   onDossierPageChange(page: number) {
     this.dossierPage.set(page);
+  }
+
+  onRelatedDossierPageChange(event: { page: number; rows: number }) {
+    this.dossierPage.set(event.page + 1);
+    this.dossierPageSize.set(event.rows);
   }
 
   // --- View Doc Helpers ---

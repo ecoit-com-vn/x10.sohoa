@@ -152,11 +152,11 @@
     </table>
   </div>
 
-  <div class="table-footer" *ngIf="totalDocuments() > 0">
+  <div class="table-footer-paginator" *ngIf="totalDocuments() > 0">
     <span class="record-count">
       Tổng số: <b>{{ totalDocuments() }}</b> tài liệu.
     </span>
-    <div class="pagination">
+    <div class="pagination" hidden>
       <button class="page-btn" (click)="prevPage()" [disabled]="page() === 1">
         <i class="pi pi-chevron-left"></i>
       </button>
@@ -170,6 +170,13 @@
         <option [ngValue]="50">50 / trang</option>
       </select>
     </div>
+    <app-eco-paginator
+      [first]="(page() - 1) * pageSize()"
+      [rows]="pageSize()"
+      [totalRecords]="totalDocuments()"
+      [rowsPerPageOptions]="[5, 10, 20, 50]"
+      (onPageChange)="onDocumentPageChange($event)"
+    ></app-eco-paginator>
   </div>
 </div>
 
