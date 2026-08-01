@@ -51,6 +51,7 @@ public interface IDocumentRepository
     Task<bool> DocumentBelongsToDossierAsync(Guid documentId, Guid dossierId);
     Task<bool> VersionBelongsToDossierAsync(Guid versionId, Guid dossierId);
     Task<bool> IsEquipmentProfileDocumentVersionForEquipmentAsync(Guid equipmentId, Guid versionId);
+    Task<bool> IsPublishedEquipmentProfileDocumentVersionForEquipmentAsync(Guid equipmentId, Guid versionId);
     Task<Guid?> GetDossierIdByVersionIdAsync(Guid versionId);
     Task<int?> GetDossierPublishStatusIdByVersionIdAsync(Guid versionId);
 
@@ -70,5 +71,6 @@ public interface IDocumentRepository
     Task<IEnumerable<DocumentOcrIndexHintDto>> GetOcrVersionIndexHintsByDossierIdAsync(Guid dossierId);
     Task<IEnumerable<Guid>> GetActiveVersionIdsByDossierIdAsync(Guid dossierId);
     Task<(IEnumerable<DocumentListItemDto> Items, int TotalCount)> GetProfileDocumentsByEquipmentAsync(Guid equipmentId, DossierDocumentFilterDto filter);
+    Task<(IEnumerable<DocumentListItemDto> Items, int TotalCount)> GetPublishedProfileDocumentsByEquipmentAsync(Guid equipmentId, DossierDocumentFilterDto filter);
 }
 

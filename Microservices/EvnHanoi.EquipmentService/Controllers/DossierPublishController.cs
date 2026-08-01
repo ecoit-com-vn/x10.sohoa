@@ -86,6 +86,29 @@ public class DossierPublishController : ControllerBase
         }
     }
 
+    [HttpDelete("{id:guid}")]
+    [BypassDynamicPermission]
+    public async Task<IActionResult> Delete(Guid id)
+    {
+        try
+        {
+            var deleted = await _dossierService.DeleteForPublishingAsync(id, UserId);
+            if (!deleted)
+                return NotFound(new { message = "Không tìm thấy hồ sơ để xóa." });
+
+            HttpContext.SetAudit(resourceId: id.ToString(), resourceType: "DOSSIER_PUBLISH", action: AuditActions.Delete);
+            return NoContent();
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
     /// <summary>Chi tiết hồ sơ trong menu xuất bản (Oracle).</summary>
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetDetail(Guid id)

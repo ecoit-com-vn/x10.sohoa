@@ -4,6 +4,7 @@ using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
 using EvnHanoi.EquipmentService.Core.DTOs;
+using EvnHanoi.Infrastructure.Security;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EvnHanoi.EquipmentService.Controllers;
@@ -133,6 +134,32 @@ public partial class EquipmentController
         }
     }
 
+    /// <summary>Danh sách tài liệu lý lịch chỉ thuộc hồ sơ đã xuất bản.</summary>
+    [HttpGet("{equipmentId:guid}/published-profile-documents")]
+    [BypassDynamicPermission]
+    public async Task<IActionResult> GetPublishedProfileDocuments(
+        Guid equipmentId,
+        [FromQuery] DossierDocumentFilterDto filter)
+    {
+        var dto = await _equipmentRepository.GetDtoByIdAsync(equipmentId);
+        if (dto == null)
+            return NotFound(new { message = "Không tìm thấy thiết bị." });
+
+        var allowedUnitIds = await GetAllowedUnitIdsAsync();
+        if (allowedUnitIds != null && (!dto.UnitId.HasValue || !allowedUnitIds.Contains(dto.UnitId.Value)))
+            return Forbid();
+
+        try
+        {
+            var (items, totalCount) = await _documentRepository.GetPublishedProfileDocumentsByEquipmentAsync(equipmentId, filter);
+            return Ok(new { items, totalCount, page = filter.Page, pageSize = filter.PageSize });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
     /// <summary>Tạo download token tài liệu lý lịch thiết bị (thuộc hồ sơ liên quan) — quyền EQUIPMENT_VIEW.</summary>
     [HttpGet("{equipmentId:guid}/documents/{versionId:guid}/download-url")]
     public async Task<IActionResult> GetProfileDocumentDownloadUrl(
@@ -148,7 +175,7 @@ public partial class EquipmentController
         if (allowedUnitIds != null && (!dto.UnitId.HasValue || !allowedUnitIds.Contains(dto.UnitId.Value)))
             return Forbid();
 
-        if (!await _documentRepository.IsEquipmentProfileDocumentVersionForEquipmentAsync(equipmentId, versionId))
+        if (!await _documentRepository.IsPublishedEquipmentProfileDocumentVersionForEquipmentAsync(equipmentId, versionId))
             return NotFound(new { message = "Tài liệu lý lịch không thuộc thiết bị này hoặc không tồn tại." });
 
         var version = await _documentRepository.GetDocumentVersionByIdAsync(versionId);
