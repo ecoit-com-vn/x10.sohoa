@@ -34,6 +34,51 @@ public class MenuRepository : IMenuRepository
         return await _connection.QueryAsync<Menu>(sql);
     }
 
+    public async Task<IEnumerable<Menu>> GetCoditionsAsync(string? keyword = null, bool? isActive = null)
+    { 
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+         
+        var conditions = new List<string>();
+        var parameters = new DynamicParameters();
+
+        if (!string.IsNullOrWhiteSpace(keyword))
+        {
+            conditions.Add("(UPPER(ug.Name) LIKE UPPER(:Keyword) OR UPPER(ug.Url) LIKE UPPER(:Keyword))");
+            parameters.Add("Keyword", $"%{keyword.Trim()}%");
+        }
+
+        if (isActive.HasValue)
+        {
+            conditions.Add("ug.IsActive = :IsActive");
+            parameters.Add("IsActive", isActive.Value ? 1 : 0);
+        }
+
+        var whereClause = conditions.Any()
+            ? $"WHERE {string.Join(" AND ", conditions)}"
+            : string.Empty;
+
+        var countSql = $@"
+                        SELECT COUNT(*)
+                        FROM APP_MENU ug
+                        {whereClause}";
+
+        var sql = $@"
+                    SELECT
+                        ug.{nameof(Menu.Id)}, 
+                        ug.{nameof(Menu.Name)}, 
+                        ug.{nameof(Menu.Url)}, 
+                        ug.{nameof(Menu.Icon)}, 
+                        ug.{nameof(Menu.ParentId)}, 
+                        ug.{nameof(Menu.SortOrder)}, 
+                        ug.{nameof(Menu.IsActive)}, 
+                        ug.{nameof(Menu.PermissionCode)}
+                    FROM APP_MENU ug
+                    {whereClause}
+                    ORDER BY ug.SortOrder, ug.Id";  
+
+        return (await _connection.QueryAsync<Menu>(sql, parameters));
+    }
+
     public async Task<Menu?> GetByIdAsync(long id)
     {
         if (_connection.State != ConnectionState.Open) _connection.Open();

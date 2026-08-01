@@ -8,6 +8,7 @@ namespace EvnHanoi.IdentityService.Core.Interfaces;
 public interface IMenuRepository
 {
     Task<IEnumerable<Menu>> GetAllAsync();
+    Task<IEnumerable<Menu>> GetCoditionsAsync(string? keyword = null, bool? isActive = null);
     Task<Menu?> GetByIdAsync(long id);
     Task<long> CreateAsync(Menu menu);
     Task<bool> UpdateAsync(Menu menu);

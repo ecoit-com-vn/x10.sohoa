@@ -36,10 +36,10 @@ public class MenusController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAll()
+    public async Task<IActionResult> GetAll([FromQuery] string? keyword = null, [FromQuery] bool? isActive = null)
     {
-        var result = await _menuRepository.GetAllAsync();
-        return Ok(result);
+        var items = await _menuRepository.GetCoditionsAsync(keyword, isActive);
+        return Ok(items); 
     }
 
     [HttpGet("sidebar")]
