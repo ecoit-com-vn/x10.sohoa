@@ -1,7 +1,16 @@
 <div class="wf-page">
   <p-toast></p-toast>
 
-  <wf-breadcrumb />
+  <div class="list-toolbar standard-page-toolbar">
+    <div class="toolbar-left">
+      <wf-breadcrumb />
+    </div>
+    <div class="toolbar-right">
+      <button *ngIf="authService.hasPermission('MENU_CREATE')" class="btn-green" (click)="onAddNew()">
+        <i class="pi pi-plus"></i> Thêm menu gốc
+      </button>
+    </div>
+  </div>
 
   <div class="wf-card">
     <div *ngIf="currentView() === 'list' || currentView() === 'add' || currentView() === 'edit'" class="animate-fade-in">
@@ -16,11 +25,6 @@
           />
           <button class="btn-tim" (click)="onSearch()">
             <i class="pi pi-search"></i> Tìm
-          </button>
-        </div>
-        <div class="toolbar-right">
-          <button *ngIf="authService.hasPermission('MENU_CREATE')" class="btn-green" (click)="onAddNew()">
-            <i class="pi pi-plus"></i> Thêm menu gốc
           </button>
         </div>
       </div>

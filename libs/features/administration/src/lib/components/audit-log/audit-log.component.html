@@ -1,7 +1,7 @@
 <div class="wf-page">
   <p-toast></p-toast>
 
-  <div class="list-toolbar">
+  <div class="list-toolbar standard-page-toolbar">
     <div class="toolbar-left">
       <wf-breadcrumb />
     </div>
@@ -19,61 +19,69 @@
     </div>
   </div>
 
-  <div class="wf-card audit-filter-card">
-    <div class="audit-filter-grid">
-      <div class="filter-item">
+  <div class="standard-search-card audit-filter-card">
+    <div class="standard-search-grid audit-filter-grid">
+      <div class="standard-search-field filter-item">
         <label class="filter-label">Tên đăng nhập / Họ và tên</label>
         <input type="text" class="wf-search-input w-full"
           [ngModel]="searchTerm()"
           (ngModelChange)="searchTerm.set($event)"
           (keyup.enter)="onSearch()" />
       </div>
-      <div class="filter-item">
+      <div class="standard-search-field filter-item">
         <label class="filter-label">Đơn vị</label>
         <eco-input-tree-select
           [showLabel]="false"
           selectionMode="checkbox"
           [nodes]="primengOrgUnitTree()"
           [ngModel]="filterUnitIds()"
-          (ngModelChange)="filterUnitIds.set($event)"
+          (ngModelChange)="filterUnitIds.set($event); onSelectFilterChange()"
           [showClear]="true"
           [enableSearch]="true"
           [border]="true">
         </eco-input-tree-select>
       </div>
-      <div class="filter-item">
+      <div class="standard-search-field filter-item">
         <label class="filter-label">Loại hành động</label>
-        <select class="wf-select w-full" [ngModel]="filterAction()" (ngModelChange)="filterAction.set($event)">
+        <select class="wf-select w-full" [ngModel]="filterAction()" (ngModelChange)="filterAction.set($event); onSelectFilterChange()">
           <option value="">Tất cả hành động</option>
           <option *ngFor="let a of actionLookups()" [value]="a.code">{{ a.label }}</option>
         </select>
       </div>
-      <div class="filter-item">
+      <div class="standard-search-field filter-item">
         <label class="filter-label">Loại đối tượng</label>
-        <select class="wf-select w-full" [ngModel]="filterResourceType()" (ngModelChange)="filterResourceType.set($event)">
+        <select class="wf-select w-full" [ngModel]="filterResourceType()" (ngModelChange)="filterResourceType.set($event); onSelectFilterChange()">
           <option value="">Tất cả đối tượng</option>
           <option *ngFor="let r of resourceTypeLookups()" [value]="r.code">{{ r.label }}</option>
         </select>
       </div>
-      <div class="filter-item">
+      <div class="standard-search-field filter-item">
         <label class="filter-label">Từ ngày</label>
-        <input type="date" class="wf-input w-full"
+        <p-datepicker class="audit-date-picker w-full"
           [ngModel]="filterFromDate()"
-          (ngModelChange)="filterFromDate.set($event)" />
+          (ngModelChange)="filterFromDate.set($event)"
+          dateFormat="dd/mm/yy"
+          placeholder="dd/MM/yyyy"
+          [showIcon]="true"
+          appendTo="body" />
       </div>
-      <div class="filter-item">
+      <div class="standard-search-field filter-item">
         <label class="filter-label">Đến ngày</label>
-        <input type="date" class="wf-input w-full"
+        <p-datepicker class="audit-date-picker w-full"
           [ngModel]="filterToDate()"
-          (ngModelChange)="filterToDate.set($event)" />
+          (ngModelChange)="filterToDate.set($event)"
+          dateFormat="dd/mm/yy"
+          placeholder="dd/MM/yyyy"
+          [showIcon]="true"
+          appendTo="body" />
       </div>
     </div>
-    <div class="audit-filter-actions">
-      <button class="btn-cancel" (click)="onReset()">
+    <div class="standard-search-actions audit-filter-actions">
+      <button type="button" class="btn-outlined" (click)="onReset()">
         <i class="pi pi-refresh"></i> Làm mới
       </button>
-      <button class="btn-tim" (click)="onSearch()">
-        <i class="pi pi-search"></i> Áp dụng
+      <button type="button" class="btn-save" (click)="onSearch()">
+        <i class="pi pi-check"></i> Áp dụng
       </button>
     </div>
   </div>
@@ -129,7 +137,7 @@
                   (change)="toggleSelect(log.id)" />
               </td>
               <td class="col-stt text-muted">{{ (currentPage() - 1) * pageSize() + i + 1 }}</td>
-              <td><span class="wf-name-link">{{ log.userName }}</span></td>
+              <td><span>{{ log.userName }}</span></td>
               <td>{{ log.fullName }}</td>
               <td><b>{{ getActionLabel(log.action) }}</b></td>
               <td>{{ getResourceTypeLabel(log.resourceType) }}</td>
@@ -152,27 +160,9 @@
       </table>
     </div>
 
-    <div class="table-footer" *ngIf="totalCount() > 0 && !loading()">
-      <span class="record-count">Tổng số: <b>{{ totalCount() }}</b> bản ghi.</span>
-      <div class="pagination">
-        <button class="page-btn" (click)="prevPage()" [disabled]="currentPage() === 1">
-          <i class="pi pi-chevron-left"></i>
-        </button>
-        <span class="page-current">Trang {{ currentPage() }} / {{ totalPages || 1 }}</span>
-        <button class="page-btn" (click)="nextPage()" [disabled]="currentPage() >= totalPages">
-          <i class="pi pi-chevron-right"></i>
-        </button>
-        <span class="page-jump">
-          Đi tới trang:
-          <input type="number" class="page-jump-input" [value]="currentPage()" (change)="goToPage($any($event.target).value)" [min]="1" [max]="totalPages || 1" />
-        </span>
-        <select class="page-size-sel" [ngModel]="pageSize()" (change)="onPageSizeChange($event)">
-          <option [value]="10">10 / trang</option>
-          <option [value]="20">20 / trang</option>
-          <option [value]="50">50 / trang</option>
-        </select>
-      </div>
-    </div>
+    <app-eco-paginator *ngIf="totalCount() > 0 && !loading()"
+      [currentPage]="currentPage()" [pageSize]="pageSize()" [totalRecords]="totalCount()"
+      (pageChange)="goToPage($event)" (pageSizeChange)="onPageSizeChange($event)" />
   </div>
 </div>
 

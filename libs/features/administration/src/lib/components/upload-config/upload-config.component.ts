@@ -1,6 +1,7 @@
 import { Component, OnInit, signal, computed } from '@angular/core';
 import {
   DeleteConfirmDialogComponent,
+  EcoPaginatorComponent,
   WfBreadcrumbComponent
 } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
@@ -25,6 +26,7 @@ import { AuthService } from '@sohoa.frontend/shared/core';
     ToastModule,
     MenuModule,
     WfBreadcrumbComponent,
+    EcoPaginatorComponent,
     DeleteConfirmDialogComponent
   ],
   providers: [MessageService],
@@ -35,7 +37,11 @@ export class UploadConfigComponent implements OnInit {
   configs = signal<any[]>([]);
   filteredConfigs = signal<any[]>([]); // computed instead
   searchKeyword = signal<string>('');
+  appliedKeyword = signal<string>('');
   searchUnitId = signal<number | null>(null);
+  searchStatus = signal<string>('');
+  currentPage = signal(1);
+  pageSize = signal(10);
   orgUnits = signal<any[]>([]);
 
   displayDialog = signal<boolean>(false);
@@ -64,8 +70,9 @@ export class UploadConfigComponent implements OnInit {
 
   // Computed signal for filteredConfigs
   computedFilteredConfigs = computed(() => {
-    const kw = this.searchKeyword().toLowerCase().trim();
+    const kw = this.appliedKeyword().toLowerCase().trim();
     const unitId = this.searchUnitId();
+    const status = this.searchStatus();
     const allConfigs = this.configs() || [];
     
     return allConfigs.filter(c => {
@@ -75,10 +82,19 @@ export class UploadConfigComponent implements OnInit {
         
       const matchesUnit = unitId === null || unitId === undefined || String(unitId) === 'null' || String(unitId) === '' ||
         c.organizationUnitId === Number(unitId);
-        
-      return matchesKeyword && matchesUnit;
+
+      const matchesStatus = !status || c.isActive === (status === 'active');
+
+      return matchesKeyword && matchesUnit && matchesStatus;
     });
   });
+
+  paginatedConfigs = computed(() => {
+    const first = (this.currentPage() - 1) * this.pageSize();
+    return this.computedFilteredConfigs().slice(first, first + this.pageSize());
+  });
+
+  totalFilteredConfigs = computed(() => this.computedFilteredConfigs().length);
 
   constructor(
     private http: HttpClient,
@@ -108,6 +124,10 @@ export class UploadConfigComponent implements OnInit {
       .subscribe({
         next: (data) => {
           this.configs.set(data || []);
+          const totalPages = Math.max(1, Math.ceil(this.totalFilteredConfigs() / this.pageSize()));
+          if (this.currentPage() > totalPages) {
+            this.currentPage.set(totalPages);
+          }
         },
         error: (err) => {
           this.messageService.add({ severity: 'error', summary: 'Lỗi tải dữ liệu', detail: 'Không thể tải cấu hình tải lên.' });
@@ -128,7 +148,37 @@ export class UploadConfigComponent implements OnInit {
   }
 
   onSearch() {
-    // Tự động thông qua computed
+    this.appliedKeyword.set(this.searchKeyword().trim());
+    this.currentPage.set(1);
+  }
+
+  onResetSearch(): void {
+    this.searchKeyword.set('');
+    this.appliedKeyword.set('');
+    this.searchUnitId.set(null);
+    this.searchStatus.set('');
+    this.currentPage.set(1);
+    this.loadConfigs();
+  }
+
+  onUnitFilterChange(unitId: number | null): void {
+    this.searchUnitId.set(unitId);
+    this.currentPage.set(1);
+    this.loadConfigs();
+  }
+
+  onStatusFilterChange(status: string): void {
+    this.searchStatus.set(status);
+    this.currentPage.set(1);
+  }
+
+  onPageChange(page: number): void {
+    this.currentPage.set(page);
+  }
+
+  onPageSizeChange(pageSize: number): void {
+    this.pageSize.set(pageSize);
+    this.currentPage.set(1);
   }
 
   splitExtensions(allowedExtensions: string): string[] {

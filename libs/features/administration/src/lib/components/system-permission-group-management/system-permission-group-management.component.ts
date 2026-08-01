@@ -251,6 +251,13 @@ export class SystemPermissionGroupManagement implements OnInit {
     this.loadRoles();
   }
 
+  onStatusFilterChange(isActive: boolean | null): void {
+    this.filterIsActive.set(isActive);
+    this.appliedIsActive.set(isActive);
+    this.currentPage.set(1);
+    this.loadRoles();
+  }
+
   onResetSearch(): void {
     this.searchKeyword.set('');
     this.filterIsActive.set(null);
