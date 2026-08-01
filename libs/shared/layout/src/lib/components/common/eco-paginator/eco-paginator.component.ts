@@ -15,6 +15,7 @@ export class EcoPaginatorComponent {
   @Input() rows: number | null = null;
   @Input() totalRecords = 0;
   @Input() rowsPerPageOptions: readonly number[] = [10, 20, 50];
+  @Input() recordLabel = 'bản ghi';
 
   @Output() pageChange = new EventEmitter<number>();
   @Output() pageSizeChange = new EventEmitter<number>();
@@ -84,5 +85,18 @@ export class EcoPaginatorComponent {
       page: 0,
       pageCount: Math.max(1, Math.ceil(this.totalRecords / selectedPageSize))
     });
+  }
+
+  goToPage(event: Event): void {
+    const requestedPage = Number((event.target as HTMLInputElement | null)?.value);
+    if (!Number.isInteger(requestedPage) || requestedPage < 1 || requestedPage > this.totalPages) {
+      const input = event.target as HTMLInputElement | null;
+      if (input) {
+        input.value = String(this.effectiveCurrentPage);
+      }
+      return;
+    }
+
+    this.selectPage(requestedPage);
   }
 }
