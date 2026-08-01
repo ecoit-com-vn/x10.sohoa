@@ -86,9 +86,21 @@
                 />
                 {{ field.placeholder || field.label }}
               </label>
+              <p-datepicker
+                *ngSwitchCase="'date'"
+                [ngModel]="getDraftDateValue(field.key)"
+                (ngModelChange)="setDraftDateValue(field.key, $event)"
+                dateFormat="dd/mm/yy"
+                [showIcon]="true"
+                icon="pi pi-calendar"
+                appendTo="body"
+                styleClass="w-full dossier-document-date-picker"
+                placeholder="dd/mm/yyyy"
+                [disabled]="!canEdit"
+              ></p-datepicker>
               <input
                 *ngSwitchDefault
-                [type]="field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : 'text'"
+                [type]="field.type === 'number' ? 'number' : 'text'"
                 class="wf-input w-full"
                 [ngModel]="draftData()[field.key] ?? ''"
                 (ngModelChange)="setDraftFieldValue(field.key, $event)"

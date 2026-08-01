@@ -6,6 +6,7 @@
   [modal]="true"
   appendTo="body"
   [style]="dialogWidthStyle"
+  [contentStyle]="{ 'max-height': 'calc(100vh - 180px)', 'overflow-y': 'auto', 'overscroll-behavior': 'contain' }"
   [styleClass]="dialogStyleClass"
   [closable]="!submitting()"
   [draggable]="false"
@@ -26,9 +27,6 @@
         </option>
       </select>
       <p class="ocr-note" *ngIf="loadingDocTypes()"><i class="pi pi-spin pi-spinner"></i> Đang tải danh mục...</p>
-      <p class="ocr-note" *ngIf="selectedDocumentType()?.formName">
-        Form EAV: {{ selectedDocumentType()?.formName }}
-      </p>
     </section>
 
     <section class="upload-step ocr-step">
@@ -64,10 +62,6 @@
         </label>
       </div>
 
-      <p class="ocr-note" *ngIf="hasDocumentTypeForm()">
-        <i class="pi pi-info-circle"></i>
-        Form EAV sẽ được lấy từ loại văn bản đã chọn khi gửi sang DigitizationService.
-      </p>
       <p class="ocr-note ocr-warn" *ngIf="selectedDocumentTypeId() && !hasDocumentTypeForm()">
         <i class="pi pi-exclamation-triangle"></i>
         Loại văn bản chưa gắn biểu mẫu EAV — không thể bóc tách dữ liệu.

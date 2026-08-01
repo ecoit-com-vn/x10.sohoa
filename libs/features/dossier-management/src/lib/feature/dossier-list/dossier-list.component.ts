@@ -1077,10 +1077,12 @@ export class DossierListComponent implements OnInit {
 
   onDossierTypeFilterChange(dossierTypeId: string | null) {
     this.filterDossierTypeId.set(dossierTypeId || null);
+    this.onApplyFilters();
   }
 
   onEquipmentFilterChange(equipmentId: string | null) {
     this.filterEquipmentId.set(equipmentId || null);
+    this.onApplyFilters();
   }
 
   selectEquipment(equipmentId: string | null) {
@@ -1097,6 +1099,8 @@ export class DossierListComponent implements OnInit {
     this.equipmentSearchKeyword.set('');
     this.isInfrastructureDropdownOpen.set(false);
     this.isEquipmentDropdownOpen.set(false);
+
+    this.onApplyFilters();
 
     if (infrastructureId) {
       this.service.getEquipmentLookup({ infrastructureId, pageSize: 1000 }).subscribe({

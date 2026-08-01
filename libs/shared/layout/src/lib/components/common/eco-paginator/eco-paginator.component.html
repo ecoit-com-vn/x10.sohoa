@@ -1,65 +1,37 @@
 <nav class="eco-paginator" aria-label="Phân trang">
-  <div class="eco-paginator__summary">
-    Hiển thị {{ fromRecord }}-{{ toRecord }} trên tổng số {{ totalRecords }} bản ghi
-  </div>
+    <div class="eco-paginator__summary">
+        Tổng số: <strong>{{ totalRecords }}</strong> {{ recordLabel }}.
+    </div>
 
-  <div class="eco-paginator__pages">
-    <button
-      type="button"
-      class="eco-paginator__button eco-paginator__nav-button"
-      [disabled]="effectiveCurrentPage <= 1"
-      aria-label="Trang đầu"
-      (click)="selectPage(1)">
-      <span aria-hidden="true">«</span>
+    <div class="eco-paginator__pages">
+        <button type="button" class="eco-paginator__button eco-paginator__nav-button" [disabled]="effectiveCurrentPage <= 1" aria-label="Trang trước" (click)="selectPage(effectiveCurrentPage - 1)">
+      <i class="pi pi-chevron-left" aria-hidden="true"></i>
     </button>
 
-    <button
-      type="button"
-      class="eco-paginator__button eco-paginator__nav-button"
-      [disabled]="effectiveCurrentPage <= 1"
-      aria-label="Trang trước"
-      (click)="selectPage(effectiveCurrentPage - 1)">
-      <span aria-hidden="true">‹</span>
-    </button>
+        <span class="eco-paginator__page-indicator">Trang {{ effectiveCurrentPage }} / {{ totalPages }}</span>
 
-    <button
-      *ngFor="let page of visiblePages"
-      type="button"
-      class="eco-paginator__button"
-      [class.eco-paginator__button--active]="page === effectiveCurrentPage"
-      [attr.aria-current]="page === effectiveCurrentPage ? 'page' : null"
-      [attr.aria-label]="'Trang ' + page"
-      (click)="selectPage(page)">
-      {{ page }}
+        <button type="button" class="eco-paginator__button eco-paginator__nav-button" [disabled]="effectiveCurrentPage >= totalPages" aria-label="Trang sau" (click)="selectPage(effectiveCurrentPage + 1)">
+      <i class="pi pi-chevron-right" aria-hidden="true"></i>
     </button>
+    </div>
 
-    <button
-      type="button"
-      class="eco-paginator__button eco-paginator__nav-button"
-      [disabled]="effectiveCurrentPage >= totalPages"
-      aria-label="Trang sau"
-      (click)="selectPage(effectiveCurrentPage + 1)">
-      <span aria-hidden="true">›</span>
-    </button>
+    <label class="eco-paginator__go-to">
+    Đi tới trang:
+    <input
+      type="number"
+      min="1"
+      [max]="totalPages"
+      [value]="effectiveCurrentPage"
+      aria-label="Đi tới trang"
+      (change)="goToPage($event)" />
+  </label>
 
-    <button
-      type="button"
-      class="eco-paginator__button eco-paginator__nav-button"
-      [disabled]="effectiveCurrentPage >= totalPages"
-      aria-label="Trang cuối"
-      (click)="selectPage(totalPages)">
-      <span aria-hidden="true">»</span>
-    </button>
-  </div>
-
-  <div class="eco-paginator__page-size">
-    <select
-      aria-label="Số bản ghi trên mỗi trang"
-      [value]="effectivePageSize"
-      (change)="selectPageSize($event)">
+    <div class="eco-paginator__page-size">
+        <span class="eco-paginator__page-size-label">{{ effectivePageSize }} / trang</span>
+        <select aria-label="Số bản ghi trên mỗi trang" [value]="effectivePageSize" (change)="selectPageSize($event)">
       <option *ngFor="let option of rowsPerPageOptions" [value]="option">
         {{ option }}
       </option>
     </select>
-  </div>
+    </div>
 </nav>
