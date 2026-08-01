@@ -151,6 +151,21 @@ export class EquipmentService {
     return this.http.get<any>(`${this.base}/${equipmentId}/profile-documents`, { params });
   }
 
+  getPublishedProfileDocuments(
+    equipmentId: string,
+    page: number,
+    pageSize: number,
+    keyword?: string
+  ): Observable<any> {
+    let params = new HttpParams()
+      .set('page', page.toString())
+      .set('pageSize', pageSize.toString());
+    if (keyword && keyword.trim()) {
+      params = params.set('keyword', keyword.trim());
+    }
+    return this.http.get<any>(`${this.base}/${equipmentId}/published-profile-documents`, { params });
+  }
+
   /** Gửi OCR + Bóc tách tài liệu lý lịch theo biểu mẫu thiết bị. */
   submitDocumentDigitizationOnly(equipmentId: string, versionId: string): Observable<any> {
     return this.http.post<any>(`${this.base}/${equipmentId}/documents/${versionId}/digitization`, {});

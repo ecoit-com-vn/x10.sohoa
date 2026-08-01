@@ -55,6 +55,10 @@ export class DossierPublishService {
     return this.http.put<unknown>(`${this.mutationBase}/${id}`, dto);
   }
 
+  delete(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.mutationBase}/${id}`);
+  }
+
   getTabCounts(filter: {
     keyword?: string;
     infrastructureId?: string;

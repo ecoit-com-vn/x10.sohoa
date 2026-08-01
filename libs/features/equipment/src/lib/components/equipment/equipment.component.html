@@ -831,9 +831,16 @@
             </table>
 
             <!-- Phân trang hồ sơ BHS -->
-            <div class="table-footer" *ngIf="dossierItems().length > 0" style="margin-top: 15px;">
+            <div class="table-footer-paginator" *ngIf="dossierTotalCount() > 0" style="margin-top: 15px;">
               <span class="record-count">Tổng số: <b>{{ dossierTotalCount() }}</b> hồ sơ liên quan.</span>
-              <div class="pagination">
+              <app-eco-paginator
+                [first]="(dossierPage() - 1) * dossierPageSize()"
+                [rows]="dossierPageSize()"
+                [totalRecords]="dossierTotalCount()"
+                [rowsPerPageOptions]="[5, 10, 20, 50]"
+                (onPageChange)="onRelatedDossierPageChange($event)"
+              ></app-eco-paginator>
+              <div class="pagination" hidden>
                 <button class="page-btn" (click)="onDossierPageChange(dossierPage() - 1)"
                   [disabled]="dossierPage() === 1">
                   <i class="pi pi-chevron-left"></i>

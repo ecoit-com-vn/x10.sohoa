@@ -16,8 +16,8 @@
       />
     </div>
     <div class="toolbar-right" *ngIf="canEdit || canUpload">
-      <button type="button" class="btn-outlined" [disabled]="exporting()" (click)="onExportDocuments()">
-        <i class="pi" [ngClass]="exporting() ? 'pi-spin pi-spinner' : 'pi-upload'"></i>
+      <button type="button" class="btn-save btn-small" [disabled]="exporting()" (click)="onExportDocuments()">
+        <i class="pi" [ngClass]="exporting() ? 'pi-spin pi-spinner' : 'pi-download'"></i>
         Export
       </button>
       <app-dossier-upload-menu

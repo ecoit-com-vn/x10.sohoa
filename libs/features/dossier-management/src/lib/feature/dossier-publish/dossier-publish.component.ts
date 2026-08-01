@@ -9,7 +9,7 @@ import { BhsCatalogColumn, DossierManagementService } from '../../data-access/do
 import { DossierPublishService } from '../../data-access/dossier-publish.service';
 import { DossierListTab } from '../../utils/dossier-status.util';
 import { AuthService } from '@sohoa.frontend/shared/core';
-import { finalize } from 'rxjs';
+import { finalize, Observable } from 'rxjs';
 
 type PublishTab = 'pending-publish' | 'published' | 'unpublished';
 
@@ -586,7 +586,7 @@ export class DossierPublishComponent implements OnInit {
       }
     }
 
-    if (this.activeTab() === 'unpublished') {
+    if (this.activeTab() === 'pending-publish' || this.activeTab() === 'unpublished') {
       items.push({
         label: 'Xóa',
         title: 'Xóa',
@@ -611,10 +611,10 @@ export class DossierPublishComponent implements OnInit {
     if (!type || !item) return;
 
     this.actionSubmitting.set(true);
-    let obs$;
+    let obs$: Observable<unknown>;
 
     if (type === 'delete') {
-      obs$ = this.service.deleteDossier(item.id);
+      obs$ = this.publishService.delete(item.id);
     } else if (type === 'publish') {
       obs$ = this.publishService.publish(item.id);
     } else if (type === 'unpublish') {
