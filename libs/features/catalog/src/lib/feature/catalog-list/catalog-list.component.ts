@@ -1,6 +1,7 @@
 import { Component, OnInit, signal, computed, inject, effect } from '@angular/core';
 import {
   DeleteConfirmDialogComponent,
+  EcoPaginatorComponent,
   WfBreadcrumbComponent
 } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
@@ -28,6 +29,7 @@ import { finalize } from 'rxjs/operators';
     TreeSelectModule,
     DialogModule,
     WfBreadcrumbComponent,
+    EcoPaginatorComponent,
     DeleteConfirmDialogComponent
   ],
   providers: [MessageService],
@@ -67,13 +69,13 @@ export class CatalogListComponent implements OnInit {
     event.stopPropagation();
     const active = item.status === 1;
     this.actionMenuItems = [
+      ...(this.canEdit() ? [{ label: 'Chỉnh sửa', title: 'Chỉnh sửa', icon: 'pi pi-pencil color-blue', command: () => this.onEdit(item) }] : []),
       ...(this.canManage() ? [{
         label: active ? 'Khóa danh mục' : 'Mở khóa danh mục',
         title: active ? 'Khóa danh mục' : 'Mở khóa danh mục',
         icon: active ? 'pi pi-lock color-red' : 'pi pi-lock-open color-teal',
         command: () => this.onToggleStatus(item)
       }] : []),
-      ...(this.canEdit() ? [{ label: 'Chỉnh sửa', title: 'Chỉnh sửa', icon: 'pi pi-pencil color-blue', command: () => this.onEdit(item) }] : []),
       ...(this.canDelete() ? [{ label: 'Xóa', title: 'Xóa', icon: 'pi pi-trash color-red', command: () => this.onDelete(item) }] : []),
     ];
     menu.toggle(event);
@@ -204,8 +206,8 @@ export class CatalogListComponent implements OnInit {
     }
   }
 
-  onPageSizeChange(event: any) {
-    this.pageSize.set(Number(event.target.value));
+  onPageSizeChange(pageSize: number) {
+    this.pageSize.set(pageSize);
     this.currentPage.set(1);
   }
 
@@ -594,12 +596,13 @@ export class CatalogListComponent implements OnInit {
 
   onConfirmToggleStatus() {
     const item = this.statusTarget();
-    if (!item) return;
+    if (!item || this.togglingStatus()) return;
     const isLocking = item.status === 1;
     this.togglingStatus.set(true);
-    this.catalogService.toggleStatus(item.id, isLocking, this.catalogType()).subscribe({
+    this.catalogService.toggleStatus(item.id, isLocking, this.catalogType())
+      .pipe(finalize(() => this.togglingStatus.set(false)))
+      .subscribe({
       next: (res: any) => {
-        this.togglingStatus.set(false);
         this.showStatusConfirm.set(false);
         this.statusTarget.set(null);
         this.messageService.add({
@@ -610,8 +613,6 @@ export class CatalogListComponent implements OnInit {
         this.loadItems();
       },
       error: (err) => {
-        this.togglingStatus.set(false);
-        this.showStatusConfirm.set(false);
         const errorMsg = err.error?.message || 'Không thể thay đổi trạng thái danh mục.';
         this.messageService.add({ severity: 'error', summary: 'Lỗi thao tác', detail: errorMsg });
       }
@@ -619,6 +620,8 @@ export class CatalogListComponent implements OnInit {
   }
 
   onCancelToggleStatus() {
+    if (this.togglingStatus()) return;
+
     this.showStatusConfirm.set(false);
     this.statusTarget.set(null);
   }

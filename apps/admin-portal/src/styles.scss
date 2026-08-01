@@ -245,7 +245,26 @@ body {
 /* Shared list/search layout based on Administration > Organization. */
 
 .standard-page-toolbar {
+    width: 100%;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 12px;
     margin-bottom: 12px;
+}
+
+.standard-page-toolbar>.toolbar-left {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.standard-page-toolbar>.toolbar-right {
+    flex: 0 0 auto;
+    margin-left: auto;
+}
+
+.standard-page-toolbar .breadcrumb {
+    flex-wrap: nowrap;
+    margin-bottom: 0;
 }
 
 .standard-search-card {
@@ -375,7 +394,7 @@ body {
 .btn-tim {
     height: 34px;
     padding: 0 14px;
-    background: #002D72;
+    background: #4790e9;
     /* EVN Deep Blue */
     color: #ffffff;
     border: none;
@@ -837,8 +856,10 @@ body {
 }
 
 .wf-name-link {
+    color: #6297e7;
     cursor: pointer;
     text-decoration: none;
+    font-weight: 500;
 }
 
 .wf-name-link:hover {
