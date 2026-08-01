@@ -1,30 +1,48 @@
+
 <div class="wf-page">
   <p-toast></p-toast>
 
-  <div class="list-toolbar standard-page-toolbar">
+  <div class="list-toolbar unit-page-toolbar">
     <div class="toolbar-left">
       <wf-breadcrumb />
     </div>
     <div class="toolbar-right">
       <button *ngIf="authService.hasPermission('MENU_CREATE')" class="btn-green" (click)="onAddNew()">
-        <i class="pi pi-plus"></i> Thêm menu gốc
+            <i class="pi pi-plus"></i> Thêm menu gốc
       </button>
     </div>
   </div>
 
   <div class="wf-card">
     <div *ngIf="currentView() === 'list' || currentView() === 'add' || currentView() === 'edit'" class="animate-fade-in">
-      <div class="list-toolbar">
-        <div class="toolbar-left">
-          <input
-            type="text"
-            class="wf-search-input"
-            placeholder="Tìm nhanh menu..."
-            [ngModel]="searchKeyword()"
-            (ngModelChange)="searchKeyword.set($event)"
-          />
-          <button class="btn-tim" (click)="onSearch()">
-            <i class="pi pi-search"></i> Tìm
+      <div class="dossier-search-bar unit-search-bar">
+        <div class="search-form-grid unit-search-grid">
+          <div class="search-form-item">
+            <label class="search-field-label">Từ khóa</label>
+            <input
+              type="text"
+              class="wf-search-input"
+              placeholder="Tìm nhanh menu..."
+              [ngModel]="searchKeyword()"
+              (ngModelChange)="searchKeyword.set($event)"
+            />
+          </div>
+          
+          <div class="search-form-item">
+            <label class="search-field-label">Trạng thái</label>
+            <select class="wf-input" [ngModel]="searchStatus()" (ngModelChange)="searchStatus.set($event)">
+              <option value="">-- Tất cả trạng thái --</option>
+              <option value="active">Hoạt động</option>
+              <option value="inactive">Ngưng hoạt động</option>
+            </select>
+          </div>
+        </div> 
+        <div class="unit-search-actions">
+          <button type="button" class="btn-outlined" (click)="onResetSearch()">
+            <i class="pi pi-refresh"></i> Làm mới
+          </button>
+          <button type="button" class="btn-save" (click)="onSearch()">
+            <i class="pi pi-check"></i> Áp dụng
           </button>
         </div>
       </div>
@@ -106,7 +124,7 @@
             <span class="status-pill"
               [class.status-active]="node.isActive"
               [class.status-inactive]="!node.isActive">
-              {{ node.isActive ? 'Hoạt động' : 'Ngừng hoạt động' }}
+              {{ node.isActive ? 'Hoạt động' : 'Ngưng hoạt động' }}
             </span>
           </td>
           <td class="col-hd" (click)="$event.stopPropagation()">
@@ -218,7 +236,7 @@
             </p>
             <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
               Menu <b style="color: #1e293b;">{{ lockUnlockTarget()?.name }}</b> sẽ được 
-              {{ lockUnlockTarget()?.isActive ? 'khóa và ngừng hoạt động' : 'mở khóa và hoạt động trở lại' }}.
+              {{ lockUnlockTarget()?.isActive ? 'khóa và ngưng hoạt động' : 'mở khóa và hoạt động trở lại' }}.
             </p>
           </div>
         </div>

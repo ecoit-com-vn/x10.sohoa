@@ -37,9 +37,10 @@ import {
 export class MenuManagement implements OnInit {
   menus = signal<any[]>([]);
   searchKeyword = signal<string>('');
+  searchStatus = signal<string>(''); // '' (All), 'active' (Hoạt động), 'inactive' (Ngưng hoạt động) 
   permissions = signal<any[]>([]);
   expandedMenuIds = signal<Set<number>>(new Set<number>());
-
+ 
   currentView = signal<'list' | 'add' | 'edit'>('list');
   dialogHeader = signal<string>('');
   isEdit = signal<boolean>(false);
@@ -105,8 +106,8 @@ export class MenuManagement implements OnInit {
   }
 
   loadMenus() {
-    this.loading.set(true);
-    this.menuService.getMenus()
+    this.loading.set(true); 
+    this.menuService.getMenus(this.searchKeyword(), this.searchStatus() === 'active' ? true : (this.searchStatus() === 'inactive' ? false : undefined))
       .pipe(finalize(() => this.loading.set(false)))
       .subscribe({
         next: (res) => {
@@ -120,6 +121,16 @@ export class MenuManagement implements OnInit {
       });
   }
 
+  onSearch() { 
+    this.loadMenus(); 
+  }
+
+  onResetSearch() {
+    this.searchKeyword.set('');
+    this.searchStatus.set(''); 
+    this.loadMenus(); 
+  }
+  
   loadPermissions() {
     this.menuService.getPermissions().subscribe({
       next: (res) => {
@@ -160,11 +171,7 @@ export class MenuManagement implements OnInit {
       return copy;
     });
   }
-
-  onSearch() {
-    this.syncExpandedMenus();
-  }
-
+  
   toggleMenuGroup(menuId: number) {
     this.expandedMenuIds.update((prev) => {
       const next = new Set(prev);
