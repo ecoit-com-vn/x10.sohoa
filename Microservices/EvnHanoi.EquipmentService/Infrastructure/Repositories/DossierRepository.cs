@@ -168,11 +168,23 @@ public class DossierRepository : IDossierRepository
                          LEFT JOIN DOSSIER_SETS ds ON d.{nameof(Dossier.DossierSetId)} = ds.ID
                          LEFT JOIN PUBLISH_STATUSES ps ON d.PUBLISHSTATUSID = ps.ID
                          LEFT JOIN DOSSIER_STATUSES dstat ON d.STATUS_ID = dstat.ID
-                         WHERE d.{nameof(Dossier.IsDeleted)} = 0 AND d.PUBLISHSTATUSID = 2";
+                         WHERE d.{nameof(Dossier.IsDeleted)} = 0
+                           AND d.PUBLISHSTATUSID = {DossierPublishStatusConstants.Published}";
 
         if (infrastructureId.HasValue)
         {
-            sqlBase += $" AND d.{nameof(Dossier.InfrastructureId)} = :InfrastructureId";
+            // A dossier may be associated with several substations/transmission lines.
+            // Keep the legacy primary field for older data, and also honour the
+            // normalized many-to-many association used by newly created dossiers.
+            sqlBase += $@" AND (
+                d.{nameof(Dossier.InfrastructureId)} = :InfrastructureId
+                OR EXISTS (
+                    SELECT 1
+                    FROM DOSSIER_INFRASTRUCTURE di
+                    WHERE di.DossierId = d.{nameof(Dossier.Id)}
+                      AND di.InfrastructureId = :InfrastructureId
+                )
+            )";
             parameters.Add("InfrastructureId", infrastructureId.Value.ToString());
         }
 
@@ -294,7 +306,15 @@ public class DossierRepository : IDossierRepository
 
         if (infrastructureId.HasValue)
         {
-            sqlBase += $" AND d.{nameof(Dossier.InfrastructureId)} = :InfrastructureId";
+            sqlBase += $@" AND (
+                d.{nameof(Dossier.InfrastructureId)} = :InfrastructureId
+                OR EXISTS (
+                    SELECT 1
+                    FROM DOSSIER_INFRASTRUCTURE di
+                    WHERE di.DossierId = d.{nameof(Dossier.Id)}
+                      AND di.InfrastructureId = :InfrastructureId
+                )
+            )";
             parameters.Add("InfrastructureId", infrastructureId.Value.ToString());
         }
 
