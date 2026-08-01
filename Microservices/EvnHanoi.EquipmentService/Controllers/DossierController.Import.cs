@@ -5,11 +5,33 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using EvnHanoi.EquipmentService.Core.DTOs;
 using EvnHanoi.Infrastructure.Audit;
+using EvnHanoi.Infrastructure.Security;
 
 namespace EvnHanoi.EquipmentService.Controllers;
 
 public abstract partial class DossierControllerBase
 {
+    [HttpGet("next-code")]
+    [BypassDynamicPermission]
+    public async Task<IActionResult> GetNextDossierCode(
+        [FromQuery] Guid? infrastructureId,
+        [FromQuery] Guid? dossierTypeId)
+    {
+        if (!infrastructureId.HasValue || !dossierTypeId.HasValue)
+            return BadRequest(new { message = "Trạm / đường dây và loại hồ sơ là bắt buộc." });
+
+        try
+        {
+            return Ok(await _dossierService.GenerateDossierCodeAsync(
+                infrastructureId.Value,
+                dossierTypeId.Value));
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
     [HttpGet("import/template")]
     public IActionResult DownloadImportTemplate()
     {

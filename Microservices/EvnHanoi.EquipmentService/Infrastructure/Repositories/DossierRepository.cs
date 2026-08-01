@@ -1390,6 +1390,15 @@ public class DossierRepository : IDossierRepository
             parameters.Add("DossierTypeId", filter.DossierTypeId.Value.ToString());
         }
 
+        if (filter.EquipmentId.HasValue)
+        {
+            sqlBase += @" AND EXISTS (
+                SELECT 1 FROM DOSSIER_EQUIPMENTS de
+                WHERE de.DossierId = d.Id AND de.EquipmentId = :EquipmentId
+            )";
+            parameters.Add("EquipmentId", filter.EquipmentId.Value.ToString());
+        }
+
         if (!string.IsNullOrWhiteSpace(filter.Keyword))
         {
             var normalizedKeyword = EscapeLikePattern(filter.Keyword.Trim())

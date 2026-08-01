@@ -164,6 +164,12 @@ public class DossierCreateDto
     public long? BoxId { get; set; }
 }
 
+/// <summary>Mã hồ sơ xem trước được sinh theo cùng quy tắc Import Excel.</summary>
+public class DossierCodePreviewDto
+{
+    public string Code { get; set; } = string.Empty;
+}
+
 /// <summary>
 /// DTO chỉnh sửa hồ sơ — bao gồm cả FormDataJson từ biểu mẫu động EAV
 /// </summary>
@@ -266,6 +272,7 @@ public class DossierFilterDto
     public IReadOnlyList<long>? UnitScopeIds { get; set; }
     public int? StatusId { get; set; }
     public Guid? DossierTypeId { get; set; }
+    public Guid? EquipmentId { get; set; }
     public int Page { get; set; } = 1;
     public int PageSize { get; set; } = 10;
     public string? Tab { get; set; }
