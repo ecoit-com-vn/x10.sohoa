@@ -1335,6 +1335,32 @@ public class DocumentRepository : IDocumentRepository
         return count > 0;
     }
 
+    public async Task<bool> IsPublishedEquipmentProfileDocumentVersionForEquipmentAsync(Guid equipmentId, Guid versionId)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        const string sql = $@"
+            SELECT COUNT(1)
+            FROM DOCUMENT_VERSIONS dv
+            INNER JOIN DOCUMENTS d ON d.ID = dv.DOCUMENT_ID AND d.IS_DELETED = 0
+            INNER JOIN DOSSIERS dossier ON d.DOSSIER_ID = dossier.ID
+            INNER JOIN DOSSIER_EQUIPMENTS de ON d.DOSSIER_ID = de.DossierId AND de.EquipmentId = :EquipmentId
+            INNER JOIN DOCUMENT_TYPES dt ON {DocumentTypeActiveJoin} AND dt.IS_EQUIPMENT_PROFILE = 1
+            WHERE dv.ID = :VersionId
+              AND dv.IS_DELETED = 0
+              AND dossier.IsDeleted = 0
+              AND dossier.STATUS_ID = 6
+              AND dossier.PUBLISHSTATUSID = 2";
+
+        var count = await _connection.ExecuteScalarAsync<int>(sql, new
+        {
+            EquipmentId = equipmentId.ToString(),
+            VersionId = versionId.ToString()
+        });
+        return count > 0;
+    }
+
     public async Task<Guid?> GetDossierIdByVersionIdAsync(Guid versionId)
     {
         if (_connection.State != ConnectionState.Open)
@@ -1610,14 +1636,31 @@ public class DocumentRepository : IDocumentRepository
         return rows.Select(Guid.Parse).ToList();
     }
 
-    public async Task<(IEnumerable<DocumentListItemDto> Items, int TotalCount)> GetProfileDocumentsByEquipmentAsync(
+    public Task<(IEnumerable<DocumentListItemDto> Items, int TotalCount)> GetProfileDocumentsByEquipmentAsync(
         Guid equipmentId,
-        DossierDocumentFilterDto filter)
+        DossierDocumentFilterDto filter) =>
+        GetProfileDocumentsByEquipmentAsync(equipmentId, filter, publishedOnly: false);
+
+    public Task<(IEnumerable<DocumentListItemDto> Items, int TotalCount)> GetPublishedProfileDocumentsByEquipmentAsync(
+        Guid equipmentId,
+        DossierDocumentFilterDto filter) =>
+        GetProfileDocumentsByEquipmentAsync(equipmentId, filter, publishedOnly: true);
+
+    private async Task<(IEnumerable<DocumentListItemDto> Items, int TotalCount)> GetProfileDocumentsByEquipmentAsync(
+        Guid equipmentId,
+        DossierDocumentFilterDto filter,
+        bool publishedOnly)
     {
         if (_connection.State != ConnectionState.Open)
             _connection.Open();
 
-        var aliasedWhere = "d.IS_DELETED = 0 AND dt.IS_EQUIPMENT_PROFILE = 1 AND de.EquipmentId = :EquipmentId";
+        var dossierJoin = publishedOnly
+            ? " INNER JOIN DOSSIERS dossier ON d.DOSSIER_ID = dossier.ID"
+            : string.Empty;
+        var publishedDossierFilter = publishedOnly
+            ? " AND dossier.IsDeleted = 0 AND dossier.STATUS_ID = 6 AND dossier.PUBLISHSTATUSID = 2"
+            : string.Empty;
+        var aliasedWhere = "d.IS_DELETED = 0" + publishedDossierFilter + " AND dt.IS_EQUIPMENT_PROFILE = 1 AND de.EquipmentId = :EquipmentId";
         if (!string.IsNullOrWhiteSpace(filter.Keyword))
             aliasedWhere += " AND d.NAME LIKE :Keyword";
 
@@ -1629,6 +1672,7 @@ public class DocumentRepository : IDocumentRepository
         var countSql = $@"
             SELECT COUNT(*) 
             FROM DOCUMENTS d 
+            {dossierJoin}
             INNER JOIN DOSSIER_EQUIPMENTS de ON d.DOSSIER_ID = de.DossierId
             INNER JOIN DOCUMENT_TYPES dt ON {DocumentTypeActiveJoin}
             WHERE {aliasedWhere}";
@@ -1662,6 +1706,7 @@ public class DocumentRepository : IDocumentRepository
                 ext.DOCUMENT_VERSION_ID AS ExtractionDocumentVersionId,
                 ext.STATUS AS ExtractionStatus
             FROM DOCUMENTS d
+            {dossierJoin}
             INNER JOIN DOSSIER_EQUIPMENTS de ON d.DOSSIER_ID = de.DossierId
             {DocumentCreatorJoin}
             INNER JOIN DOCUMENT_TYPES dt ON {DocumentTypeActiveJoin}

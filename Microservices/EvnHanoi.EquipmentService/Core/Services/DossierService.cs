@@ -178,6 +178,40 @@ public class DossierService : IDossierService
         return await _dossierRepository.GetDossierTypesLookupAsync();
     }
 
+    public async Task<DossierCodePreviewDto> GenerateDossierCodeAsync(Guid infrastructureId, Guid dossierTypeId)
+    {
+        var infrastructure = await _infrastructureRepository.GetByIdAsync(infrastructureId)
+            ?? throw new ArgumentException("Trạm / đường dây không tồn tại.");
+
+        if (!infrastructure.UnitId.HasValue)
+            throw new ArgumentException("Trạm / đường dây chưa được gán đơn vị quản lý.");
+
+        var dossierType = (await _dossierRepository.GetDossierTypesLookupAsync())
+            .FirstOrDefault(item => item.Id == dossierTypeId)
+            ?? throw new ArgumentException("Loại hồ sơ không tồn tại hoặc không hoạt động.");
+
+        const string unitSql = @"
+            SELECT Code
+            FROM ORGANIZATION_UNIT
+            WHERE Id = :UnitId
+              AND NVL(IsDeleted, 0) = 0";
+        var unitCode = await _dbConnection.QuerySingleOrDefaultAsync<string>(unitSql, new
+        {
+            UnitId = infrastructure.UnitId.Value
+        });
+
+        if (string.IsNullOrWhiteSpace(unitCode))
+            throw new ArgumentException("Không tìm thấy mã đơn vị quản lý của trạm / đường dây.");
+        if (string.IsNullOrWhiteSpace(infrastructure.Code) || string.IsNullOrWhiteSpace(dossierType.Code))
+            throw new ArgumentException("Thiếu mã trạm / đường dây hoặc mã loại hồ sơ.");
+
+        var sequence = await GetNextDossierCodeSequenceAsync(unitCode.Trim(), infrastructure, dossierType);
+        return new DossierCodePreviewDto
+        {
+            Code = string.Join('.', unitCode.Trim(), infrastructure.Code.Trim(), dossierType.Code.Trim(), sequence)
+        };
+    }
+
     public async Task<IEnumerable<DossierGroupDto>> GetDossierGroupsLookupAsync()
     {
         var items = await _dossierRepository.GetDossierGroupsLookupAsync();
@@ -545,6 +579,24 @@ public class DossierService : IDossierService
         }
         return deleted;
     }
+
+    public async Task<bool> DeleteForPublishingAsync(Guid id, string userId)
+    {
+        var existing = await _dossierRepository.GetByIdAsync(id);
+        if (existing == null) throw new KeyNotFoundException($"Không tìm thấy hồ sơ với ID = {id}");
+
+        var canDelete = existing.PublishStatusId == DossierPublishStatusConstants.Pending
+                        || existing.PublishStatusId == DossierPublishStatusConstants.Unpublished;
+        if (!canDelete)
+            throw new InvalidOperationException("Chỉ có thể xóa hồ sơ ở trạng thái Chờ xuất bản hoặc Hủy xuất bản.");
+
+        var deleted = await _dossierRepository.SoftDeleteAsync(id, userId);
+        if (deleted)
+            await PublishDossierChangedAsync(id, DossierChangedActions.Deleted);
+
+        return deleted;
+    }
+
     public async Task<bool> CompleteInputAsync(Guid id, string userId)
     {
         var existing = await _dossierRepository.GetByIdAsync(id);
@@ -853,6 +905,10 @@ public class DossierService : IDossierService
     /// </summary>
     private async Task EnsureCanEditFormDataAsync(Dossier dossier)
     {
+        // Pending-publication dossiers remain editable until they are released.
+        if (dossier.PublishStatusId == DossierPublishStatusConstants.Pending)
+            return;
+
         // Trả lại về bước người tạo — cho phép sửa dù instance WF vẫn đang chạy.
         if (dossier.StatusId == DossierStatusConstants.Returned)
             return;
