@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { forkJoin, of } from 'rxjs';
-import { catchError } from 'rxjs/operators';
+import { catchError, map } from 'rxjs/operators';
 import { environment } from '@env/environment';
 import { AuditLogService } from '@sohoa.frontend/shared/core';
 
@@ -51,6 +51,14 @@ interface DossierGeneralInputChartStatDto {
   documentCount?: number;
 }
 
+interface TrendInfo {
+  /** Trị tuyệt đối để hiển thị, ví dụ 12.3 nghĩa là "12.3%" */
+  displayPercent: number;
+  isUp: boolean;
+}
+
+const NEUTRAL_TREND: TrendInfo = { displayPercent: 0, isUp: true };
+
 @Component({
   selector: 'app-dashboard',
   standalone: true,
@@ -70,6 +78,12 @@ export class DashboardComponent implements OnInit {
   totalDocuments = 0;
   searchCount = 0;
   downloadCount = 0;
+
+  // % tăng/giảm thật so với tháng trước cho từng chỉ số
+  dossierTrend: TrendInfo = NEUTRAL_TREND;
+  documentTrend: TrendInfo = NEUTRAL_TREND;
+  searchTrend: TrendInfo = NEUTRAL_TREND;
+  downloadTrend: TrendInfo = NEUTRAL_TREND;
 
   weeklyData: Array<{
     day: string;
@@ -112,6 +126,16 @@ export class DashboardComponent implements OnInit {
     this.loadWeeklyTrend();
     this.loadUsageCounters();
     this.loadRecentActivities();
+    this.loadMonthlyTrends();
+  }
+
+  /** So sánh giá trị hiện tại với kỳ trước, trả về % chênh lệch (trị tuyệt đối) + chiều tăng/giảm. */
+  private computeTrend(current: number, previous: number): TrendInfo {
+    if (previous <= 0) {
+      return { displayPercent: current > 0 ? 100 : 0, isUp: true };
+    }
+    const percent = ((current - previous) / previous) * 100;
+    return { displayPercent: Math.abs(Math.round(percent * 10) / 10), isUp: percent >= 0 };
   }
 
   /** Tổng hồ sơ + danh sách hồ sơ mới nhất (đã sắp xếp theo ngày tạo giảm dần ở backend, không lọc theo trạng thái/tab) */
@@ -254,11 +278,22 @@ export class DashboardComponent implements OnInit {
           const line = res?.lineViewCount ?? res?.LineViewCount ?? 0;
           const doc = res?.documentViewCount ?? res?.DocumentViewCount ?? 0;
           this.searchCount = station + line + doc;
+
+          // Suy ra tổng lượt tra cứu tháng trước từ % tăng trưởng thật của từng box (đã tính sẵn ở backend),
+          // rồi tính % tăng/giảm tổng hợp — thay vì lấy trung bình cộng 3 số % (sai lệch vì khác quy mô).
+          const stationGrowth = res?.stationGrowthPercent ?? res?.StationGrowthPercent;
+          const lineGrowth = res?.lineGrowthPercent ?? res?.LineGrowthPercent;
+          const docGrowth = res?.documentGrowthPercent ?? res?.DocumentGrowthPercent;
+          const previousOf = (current: number, growthPercent: number | null | undefined) =>
+            growthPercent == null || growthPercent <= -100 ? current : current / (1 + growthPercent / 100);
+          const previousTotal = previousOf(station, stationGrowth) + previousOf(line, lineGrowth) + previousOf(doc, docGrowth);
+          this.searchTrend = this.computeTrend(this.searchCount, previousTotal);
           this.cdr.markForCheck();
         },
         error: (err) => {
           console.warn('Không thể tải lượt tra cứu:', err);
           this.searchCount = 0;
+          this.searchTrend = NEUTRAL_TREND;
           this.cdr.markForCheck();
         }
       });
@@ -280,6 +315,56 @@ export class DashboardComponent implements OnInit {
           this.cdr.markForCheck();
         }
       });
+  }
+
+  /** % tăng/giảm thật so với tháng trước cho tổng hồ sơ, tổng tài liệu và lượt tải tài liệu. */
+  private loadMonthlyTrends() {
+    const now = new Date();
+    const startOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0, 0);
+    const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+
+    const fetchDossierDocTotals = (from: Date, to: Date) =>
+      this.http
+        .get<DossierGeneralInputChartStatDto[]>(
+          `${environment.apiGatewayUrl}/api/v1/reports/statistics/dossier-general-input/chart-stats`,
+          { params: { fromDate: from.toISOString(), toDate: to.toISOString() } }
+        )
+        .pipe(
+          map((groups) => ({
+            dossier: (groups ?? []).reduce((sum, g) => sum + (g.dossierCount ?? 0), 0),
+            document: (groups ?? []).reduce((sum, g) => sum + (g.documentCount ?? 0), 0)
+          })),
+          catchError(() => of({ dossier: 0, document: 0 }))
+        );
+
+    forkJoin([
+      fetchDossierDocTotals(startOfThisMonth, endOfToday),
+      fetchDossierDocTotals(startOfLastMonth, endOfLastMonth)
+    ]).subscribe(([current, previous]) => {
+      this.dossierTrend = this.computeTrend(current.dossier, previous.dossier);
+      this.documentTrend = this.computeTrend(current.document, previous.document);
+      this.cdr.markForCheck();
+    });
+
+    const fetchDownloadCount = (from: Date, to: Date) =>
+      this.http
+        .get<any>(`${environment.apiGatewayUrl}/api/v1/audit-logs`, {
+          params: { keyword: 'download', page: '1', pageSize: '1', fromDate: from.toISOString(), toDate: to.toISOString() }
+        })
+        .pipe(
+          map((res) => res?.totalCount ?? res?.TotalCount ?? 0),
+          catchError(() => of(0))
+        );
+
+    forkJoin([
+      fetchDownloadCount(startOfThisMonth, endOfToday),
+      fetchDownloadCount(startOfLastMonth, endOfLastMonth)
+    ]).subscribe(([current, previous]) => {
+      this.downloadTrend = this.computeTrend(current, previous);
+      this.cdr.markForCheck();
+    });
   }
 
   private loadRecentActivities() {

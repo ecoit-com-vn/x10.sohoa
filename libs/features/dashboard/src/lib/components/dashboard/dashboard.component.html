@@ -14,8 +14,9 @@
       <div class="metric-info">
         <span class="metric-label">Tổng hồ sơ số hóa</span>
         <h3 class="metric-val">{{ totalDossiers | number }}</h3>
-        <span class="metric-trend text-green">
-          <i class="pi pi-arrow-up"></i> +12% so với tháng trước
+        <span class="metric-trend" [class.text-green]="dossierTrend.isUp" [class.text-orange]="!dossierTrend.isUp">
+          <i class="pi" [class.pi-arrow-up]="dossierTrend.isUp" [class.pi-arrow-down]="!dossierTrend.isUp"></i>
+          {{ dossierTrend.isUp ? 'tăng' : 'giảm' }} {{ dossierTrend.displayPercent }}% so với tháng trước
         </span>
       </div>
     </div>
@@ -27,8 +28,9 @@
       <div class="metric-info">
         <span class="metric-label">Tổng số tài liệu số hóa</span>
         <h3 class="metric-val">{{ totalDocuments | number }}</h3>
-        <span class="metric-trend text-green">
-          <i class="pi pi-arrow-up"></i> tăng 20% so với tháng trước
+        <span class="metric-trend" [class.text-green]="documentTrend.isUp" [class.text-orange]="!documentTrend.isUp">
+          <i class="pi" [class.pi-arrow-up]="documentTrend.isUp" [class.pi-arrow-down]="!documentTrend.isUp"></i>
+          {{ documentTrend.isUp ? 'tăng' : 'giảm' }} {{ documentTrend.displayPercent }}% so với tháng trước
         </span>
       </div>
     </div>
@@ -40,8 +42,9 @@
       <div class="metric-info">
         <span class="metric-label">Lượt tra cứu hồ sơ, tài liệu</span>
         <h3 class="metric-val">{{ searchCount | number }}</h3>
-        <span class="metric-trend text-orange">
-          <i class="pi pi-arrow-down"></i> giảm 5% so với tháng trước
+        <span class="metric-trend" [class.text-green]="searchTrend.isUp" [class.text-orange]="!searchTrend.isUp">
+          <i class="pi" [class.pi-arrow-up]="searchTrend.isUp" [class.pi-arrow-down]="!searchTrend.isUp"></i>
+          {{ searchTrend.isUp ? 'tăng' : 'giảm' }} {{ searchTrend.displayPercent }}% so với tháng trước
         </span>
       </div>
     </div>
@@ -53,8 +56,9 @@
       <div class="metric-info">
         <span class="metric-label">Lượt tải tài liệu</span>
         <h3 class="metric-val">{{ downloadCount | number }}</h3>
-        <span class="metric-trend text-orange">
-          <i class="pi pi-arrow-down"></i> giảm 10% so với tháng trước
+        <span class="metric-trend" [class.text-green]="downloadTrend.isUp" [class.text-orange]="!downloadTrend.isUp">
+          <i class="pi" [class.pi-arrow-up]="downloadTrend.isUp" [class.pi-arrow-down]="!downloadTrend.isUp"></i>
+          {{ downloadTrend.isUp ? 'tăng' : 'giảm' }} {{ downloadTrend.displayPercent }}% so với tháng trước
         </span>
       </div>
     </div>
@@ -150,8 +154,6 @@
             </div>
           </div>
         </div>
-
-        <button type="button" class="category-detail-button">Xem chi tiết</button>
       </div>
     </div>
   </div>
