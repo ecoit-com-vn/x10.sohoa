@@ -1,7 +1,14 @@
 <div class="wf-page">
   <p-toast></p-toast>
   
-  <wf-breadcrumb />
+  <div class="list-toolbar standard-page-toolbar">
+    <div class="toolbar-left"><wf-breadcrumb /></div>
+    <div class="toolbar-right">
+      <button *ngIf="authService.hasPermission('ROLE_CREATE')" class="btn-green" (click)="onAddNew()">
+        <i class="pi pi-plus"></i> Thêm vai trò mới
+      </button>
+    </div>
+  </div>
 
   <div class="wf-card">
     
@@ -9,20 +16,18 @@
     <div *ngIf="currentView() === 'list' || currentView() === 'add' || currentView() === 'edit'" class="animate-fade-in">
 
       <!-- Toolbar -->
-      <div class="list-toolbar">
+      <div class="standard-search-card">
         <div class="toolbar-left">
           <input type="text" class="wf-search-input"
             placeholder="Tìm kiếm vai trò..."
             [ngModel]="searchKeyword()"
             (ngModelChange)="searchKeyword.set($event)" />
-          <button class="btn-tim" (click)="onSearch()">
-            <i class="pi pi-search"></i> Tìm
-          </button>
-        </div>
-        <div class="toolbar-right">
-          <button *ngIf="authService.hasPermission('ROLE_CREATE')" class="btn-green" (click)="onAddNew()">
-            <i class="pi pi-plus"></i> Thêm vai trò mới
-          </button>
+          <div class="standard-search-actions">
+            <button type="button" class="btn-outlined" (click)="searchKeyword.set(''); onSearch()">
+              <i class="pi pi-refresh"></i> Làm mới
+            </button>
+            <button class="btn-save" (click)="onSearch()"><i class="pi pi-check"></i> Áp dụng</button>
+          </div>
         </div>
       </div>
 
@@ -55,10 +60,12 @@
             <ng-container *ngIf="!loading()">
               <tr *ngFor="let role of paginatedRoles(); let i = index">
                 <td class="col-stt text-muted">{{ (currentPage() - 1) * pageSize() + i + 1 }}</td>
-                <td><code>{{ role.code }}</code></td>
                 <td>
-                  <b *ngIf="authService.hasPermission('ROLE_EDIT')" class="wf-name-link" (click)="onEdit(role)">{{ role.name }}</b>
-                  <span *ngIf="!authService.hasPermission('ROLE_EDIT')">{{ role.name }}</span>
+                  <b *ngIf="authService.hasPermission('ROLE_EDIT')" class="wf-name-link" (click)="onEdit(role)">{{ role.code }}</b>
+                  <span *ngIf="!authService.hasPermission('ROLE_EDIT')">{{ role.code }}</span>
+                </td>
+                <td>
+                  <span>{{ role.name }}</span>
                 </td>
                 <td><span class="text-muted">{{ role.description }}</span></td>
                 <td style="text-align: center;">
@@ -88,27 +95,9 @@
       </div>
 
       <!-- Footer with Pagination -->
-      <div class="table-footer" *ngIf="filteredRoles().length > 0 && !loading()">
-        <span class="record-count">Tổng số: <b>{{ totalCount() }}</b> vai trò.</span>
-        <div class="pagination">
-          <button class="page-btn" (click)="prevPage()" [disabled]="currentPage() === 1">
-            <i class="pi pi-chevron-left"></i>
-          </button>
-          <span class="page-current">Trang {{ currentPage() }} / {{ totalPages() || 1 }}</span>
-          <button class="page-btn" (click)="nextPage()" [disabled]="currentPage() >= totalPages()">
-            <i class="pi pi-chevron-right"></i>
-          </button>
-          <span style="margin-left: 10px; display: inline-flex; align-items: center; gap: 5px; font-size: 0.8rem; color: #6b7280;">
-            Đi tới trang:
-            <input type="number" class="page-jump-input" [value]="currentPage()" (change)="goToPage($any($event.target).value)" style="width: 50px; height: 28px; text-align: center; border: 1px solid #e5e7eb; border-radius: 4px; padding: 0 4px;" [min]="1" [max]="totalPages() || 1" />
-          </span>
-          <select class="page-size-sel" [ngModel]="pageSize()" (change)="onPageSizeChange($event)">
-            <option [value]="10">10 / trang</option>
-            <option [value]="20">20 / trang</option>
-            <option [value]="50">50 / trang</option>
-          </select>
-        </div>
-      </div>
+      <app-eco-paginator *ngIf="totalCount() > 0 && !loading()"
+        [currentPage]="currentPage()" [pageSize]="pageSize()" [totalRecords]="totalCount()"
+        (pageChange)="goToPage($event)" (pageSizeChange)="onPageSizeChange($event)" />
     </div>
 
     <p-menu #actionMenu [model]="actionMenuItems" [popup]="true" appendTo="body" styleClass="row-action-menu"></p-menu>
@@ -330,23 +319,9 @@
           </table>
         </div>
 
-        <div class="table-footer" *ngIf="roleUsersTotal() > 0 && !roleUsersLoading()">
-          <span class="record-count">Tổng số: <b>{{ roleUsersTotal() }}</b> tài khoản.</span>
-          <div class="pagination">
-            <button class="page-btn" (click)="roleUsersPrevPage()" [disabled]="roleUsersPage() === 1">
-              <i class="pi pi-chevron-left"></i>
-            </button>
-            <span class="page-current">Trang {{ roleUsersPage() }} / {{ roleUsersTotalPages() }}</span>
-            <button class="page-btn" (click)="roleUsersNextPage()" [disabled]="roleUsersPage() >= roleUsersTotalPages()">
-              <i class="pi pi-chevron-right"></i>
-            </button>
-            <select class="page-size-sel" [ngModel]="roleUsersPageSize()" (change)="onRoleUsersPageSizeChange($event)">
-              <option [value]="10">10 / trang</option>
-              <option [value]="20">20 / trang</option>
-              <option [value]="50">50 / trang</option>
-            </select>
-          </div>
-        </div>
+        <app-eco-paginator *ngIf="roleUsersTotal() > 0 && !roleUsersLoading()"
+          [currentPage]="roleUsersPage()" [pageSize]="roleUsersPageSize()" [totalRecords]="roleUsersTotal()"
+          (pageChange)="onRoleUsersPageChange($event)" (pageSizeChange)="onRoleUsersPageSizeChange($event)" />
       </div>
     </div>
 

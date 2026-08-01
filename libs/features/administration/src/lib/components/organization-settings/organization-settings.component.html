@@ -11,7 +11,7 @@
     <span class="bc-current">Cài đặt tổ chức</span>
 
   -->
-  <div class="list-toolbar unit-page-toolbar">
+  <div class="list-toolbar unit-page-toolbar standard-page-toolbar">
     <div class="toolbar-left">
       <wf-breadcrumb />
     </div>
@@ -39,7 +39,7 @@
 
           <div class="search-form-item">
             <label class="search-field-label">Trạng thái</label>
-            <select class="wf-input" [ngModel]="searchStatus()" (ngModelChange)="searchStatus.set($event)">
+            <select class="wf-input" [ngModel]="searchStatus()" (ngModelChange)="onStatusFilterChange($event)">
               <option value="">-- Tất cả trạng thái --</option>
               <option value="active">Hoạt động</option>
               <option value="inactive">Ngừng hoạt động</option>
@@ -91,12 +91,14 @@
             <ng-container *ngIf="!loading()">
               <tr *ngFor="let unit of pagedUnits(); let i = index">
                 <td class="col-stt text-muted">{{ (currentPage() - 1) * pageSize() + i + 1 }}</td>
-                <td><code>{{ unit.code }}</code></td>
+                <td>
+                  <b *ngIf="authService.hasPermission('ORGANIZATION_EDIT')" class="wf-name-link" (click)="onEdit(unit)">{{ unit.code }}</b>
+                  <span *ngIf="!authService.hasPermission('ORGANIZATION_EDIT')">{{ unit.code }}</span>
+                </td>
                 <td>
                   <div [style.padding-left.px]="getIndentLevel(unit) * 20" style="display: flex; align-items: center; gap: 8px;">
                     <i class="pi" [class.pi-building]="getIndentLevel(unit) === 0" [class.pi-users]="getIndentLevel(unit) > 0" style="color: #002D72;"></i>
-                    <b *ngIf="authService.hasPermission('ORGANIZATION_EDIT')" class="wf-name-link" (click)="onEdit(unit)">{{ unit.name }}</b>
-                    <span *ngIf="!authService.hasPermission('ORGANIZATION_EDIT')">{{ unit.name }}</span>
+                    <span>{{ unit.name }}</span>
                   </div>
                 </td>
                 <td>

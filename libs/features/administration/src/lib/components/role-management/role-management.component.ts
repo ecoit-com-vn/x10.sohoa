@@ -1,6 +1,7 @@
 import { Component, OnInit, signal, computed, effect } from '@angular/core';
 import {
   DeleteConfirmDialogComponent,
+  EcoPaginatorComponent,
   WfBreadcrumbComponent
 } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
@@ -28,6 +29,7 @@ import {
     ToastModule,
     MenuModule,
     WfBreadcrumbComponent,
+    EcoPaginatorComponent,
     DeleteConfirmDialogComponent
   ],
   providers: [MessageService],
@@ -39,6 +41,7 @@ export class RoleManagement implements OnInit {
 
   roles = signal<any[]>([]);
   searchKeyword = signal<string>('');
+  appliedKeyword = signal<string>('');
   totalCount = signal<number>(0);
   organizationUnits = signal<any[]>([]);
   isCentralAdmin = computed(() => {
@@ -172,8 +175,8 @@ export class RoleManagement implements OnInit {
     }
   }
 
-  onPageSizeChange(event: any) {
-    this.pageSize.set(Number(event.target.value));
+  onPageSizeChange(pageSize: number) {
+    this.pageSize.set(pageSize);
     this.currentPage.set(1);
   }
 
@@ -183,14 +186,9 @@ export class RoleManagement implements OnInit {
     public authService: AuthService
   ) {
     effect(() => {
-      const kw = this.searchKeyword();
-      this.currentPage.set(1);
-    }, { allowSignalWrites: true });
-
-    effect(() => {
       const page = this.currentPage();
       const size = this.pageSize();
-      const kw = this.searchKeyword();
+      this.appliedKeyword();
       this.loadRoles();
     }, { allowSignalWrites: true });
 
@@ -235,7 +233,7 @@ export class RoleManagement implements OnInit {
 
   loadRoles() {
     this.loading.set(true);
-    this.http.get<any>(`${this.apiUrl}?page=${this.currentPage()}&pageSize=${this.pageSize()}&keyword=${this.searchKeyword() || ''}`)
+    this.http.get<any>(`${this.apiUrl}?page=${this.currentPage()}&pageSize=${this.pageSize()}&keyword=${this.appliedKeyword() || ''}`)
       .pipe(finalize(() => this.loading.set(false)))
       .subscribe({
         next: (res) => {
@@ -286,8 +284,8 @@ export class RoleManagement implements OnInit {
   }
 
   onSearch() {
+    this.appliedKeyword.set(this.searchKeyword().trim());
     this.currentPage.set(1);
-    this.loadRoles();
   }
 
   onAddNew() {
@@ -623,8 +621,12 @@ export class RoleManagement implements OnInit {
     }
   }
 
-  onRoleUsersPageSizeChange(event: Event) {
-    this.roleUsersPageSize.set(Number((event.target as HTMLSelectElement).value));
+  onRoleUsersPageChange(page: number): void {
+    this.roleUsersPage.set(page);
+  }
+
+  onRoleUsersPageSizeChange(pageSize: number) {
+    this.roleUsersPageSize.set(pageSize);
     this.roleUsersPage.set(1);
   }
 

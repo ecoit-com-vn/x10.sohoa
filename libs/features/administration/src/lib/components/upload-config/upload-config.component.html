@@ -1,24 +1,32 @@
 <div class="wf-page">
     <p-toast></p-toast>
+    <div class="list-toolbar standard-page-toolbar">
+      <div class="toolbar-left"><wf-breadcrumb /></div>
+      <div class="toolbar-right">
+        <button *ngIf="authService.hasPermission('UPLOAD_CONFIG_CREATE')" class="btn-green" (click)="onAddNew()">
+          <i class="pi pi-plus"></i> Thêm cấu hình mới
+        </button>
+      </div>
+    </div>
     <div class="wf-card">
-        <wf-breadcrumb />
 
         <!-- Toolbar -->
-        <div class="list-toolbar">
+        <div class="standard-search-card">
             <div class="toolbar-left">
                 <input type="text" class="wf-search-input" placeholder="Tìm theo tên cấu hình..." [ngModel]="searchKeyword()" (ngModelChange)="searchKeyword.set($event)" />
-                <select class="wf-select" style="min-width: 220px; height: 38px; padding: 0 12px; border: 1px solid #cbd5e1; border-radius: 6px; background-color: #fff; font-size: 0.875rem; color: #334155; cursor: pointer; outline: none;" [ngModel]="searchUnitId()" (ngModelChange)="searchUnitId.set($event)">
+                <select class="wf-select" style="min-width: 220px; height: 38px; padding: 0 12px; border: 1px solid #cbd5e1; border-radius: 6px; background-color: #fff; font-size: 0.875rem; color: #334155; cursor: pointer; outline: none;" [ngModel]="searchUnitId()" (ngModelChange)="onUnitFilterChange($event)">
           <option [value]="null">-- Tất cả đơn vị --</option>
           <option *ngFor="let org of orgUnits()" [value]="org.id">{{ org.name }}</option>
         </select>
-                <button class="btn-tim" (click)="onSearch()">
-          <i class="pi pi-search"></i> Tìm
-        </button>
-            </div>
-            <div class="toolbar-right">
-                <button *ngIf="authService.hasPermission('UPLOAD_CONFIG_CREATE')" class="btn-green" (click)="onAddNew()">
-          <i class="pi pi-plus"></i> Thêm cấu hình mới
-        </button>
+                <select class="wf-select" style="min-width: 180px; height: 38px; padding: 0 12px; border: 1px solid #cbd5e1; border-radius: 6px; background-color: #fff; font-size: 0.875rem; color: #334155; cursor: pointer; outline: none;" [ngModel]="searchStatus()" (ngModelChange)="onStatusFilterChange($event)">
+                  <option value="">Tất cả</option>
+                  <option value="active">Hoạt động</option>
+                  <option value="inactive">Ngừng hoạt động</option>
+                </select>
+                <div class="standard-search-actions">
+                  <button type="button" class="btn-outlined" (click)="onResetSearch()"><i class="pi pi-refresh"></i> Làm mới</button>
+                  <button class="btn-save" (click)="onSearch()"><i class="pi pi-check"></i> Áp dụng</button>
+                </div>
             </div>
         </div>
 
@@ -65,8 +73,8 @@
                     </ng-container>
 
                     <ng-container *ngIf="!loading()">
-                        <tr *ngFor="let c of computedFilteredConfigs(); let i = index">
-                            <td class="col-stt text-muted">{{ i + 1 }}</td>
+                        <tr *ngFor="let c of paginatedConfigs(); let i = index">
+                            <td class="col-stt text-muted">{{ (currentPage() - 1) * pageSize() + i + 1 }}</td>
                             <td>{{ c.name }}</td>
                             <td>
                                 <span *ngIf="c.organizationUnitId; else allUnits" class="unit-tag">
@@ -112,10 +120,12 @@
 
         <p-menu #actionMenu [model]="actionMenuItems" [popup]="true" appendTo="body" styleClass="row-action-menu"></p-menu>
 
-        <!-- Footer -->
-        <div class="table-footer">
-            <span class="record-count">Tổng số: <b>{{ configs().length }}</b> cấu hình.</span>
-        </div>
+        <app-eco-paginator *ngIf="totalFilteredConfigs() > 0 && !loading()"
+          [currentPage]="currentPage()"
+          [pageSize]="pageSize()"
+          [totalRecords]="totalFilteredConfigs()"
+          (pageChange)="onPageChange($event)"
+          (pageSizeChange)="onPageSizeChange($event)" />
     </div>
 </div>
 

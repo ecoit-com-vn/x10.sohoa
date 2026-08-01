@@ -88,10 +88,12 @@
                         <ng-container *ngIf="!loading()">
                             <tr *ngFor="let role of paginatedRoles(); let i = index">
                                 <td class="col-stt text-muted">{{ (currentPage() - 1) * pageSize() + i + 1 }}</td>
-                                <td><code>{{ role.code }}</code></td>
                                 <td>
-                                    <b *ngIf="authService.hasPermission('UNIT_PERMISSION_GROUP_MANAGE')" class="wf-name-link" (click)="onEdit(role)">{{ role.name }}</b>
-                                    <span *ngIf="!authService.hasPermission('UNIT_PERMISSION_GROUP_MANAGE')">{{ role.name }}</span>
+                                    <b *ngIf="authService.hasPermission('UNIT_PERMISSION_GROUP_MANAGE')" class="wf-name-link" (click)="onEdit(role)">{{ role.code }}</b>
+                                    <span *ngIf="!authService.hasPermission('UNIT_PERMISSION_GROUP_MANAGE')">{{ role.code }}</span>
+                                </td>
+                                <td>
+                                    <span>{{ role.name }}</span>
                                 </td>
                                 <td>{{ role.createdAt ? (role.createdAt | date:'dd/MM/yyyy HH:mm') : '—' }}</td>
                                 <td>{{ role.createdByName || role.createdBy || '—' }}</td>

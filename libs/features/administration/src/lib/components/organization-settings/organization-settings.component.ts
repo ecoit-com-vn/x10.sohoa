@@ -84,12 +84,13 @@ export class OrganizationSettings implements OnInit {
 
   private apiUrl = `${environment.apiGatewayUrl}/api/v1/organization-units`;
   searchStatus = signal<string>('');
+  appliedKeyword = signal<string>('');
   currentPage = signal(1);
   pageSize = signal(10);
 
   // Computed signal for filteredUnits
   filteredUnits = computed(() => {
-    const kw = this.searchKeyword().toLowerCase().trim();
+    const kw = this.appliedKeyword().toLowerCase().trim();
     const statusVal = this.searchStatus();
     let allUnits = this.units() || [];
 
@@ -149,11 +150,19 @@ export class OrganizationSettings implements OnInit {
   }
 
   onSearch() {
+    this.appliedKeyword.set(this.searchKeyword().trim());
     this.currentPage.set(1);
+  }
+
+  onStatusFilterChange(status: string): void {
+    this.searchStatus.set(status);
+    this.currentPage.set(1);
+    this.loadUnits();
   }
 
   onResetSearch() {
     this.searchKeyword.set('');
+    this.appliedKeyword.set('');
     this.searchStatus.set('');
     this.currentPage.set(1);
   }

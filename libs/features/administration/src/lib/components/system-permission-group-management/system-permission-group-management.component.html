@@ -25,7 +25,7 @@
                     </div>
                     <div class="standard-search-field">
                         <label>Trạng thái</label>
-                        <select class="wf-select" [ngModel]="filterIsActive()" (ngModelChange)="filterIsActive.set($event)">
+          <select class="wf-select" [ngModel]="filterIsActive()" (ngModelChange)="onStatusFilterChange($event)">
                           <option [ngValue]="null">-- Tất cả trạng thái --</option>
                           <option [ngValue]="true">Hoạt động</option>
                           <option [ngValue]="false">Ngừng hoạt động</option>
@@ -88,10 +88,12 @@
                             <ng-container *ngIf="!loading()">
                                 <tr *ngFor="let role of paginatedRoles(); let i = index">
                                     <td class="col-stt text-muted">{{ (currentPage() - 1) * pageSize() + i + 1 }}</td>
-                                    <td><code>{{ role.code }}</code></td>
                                     <td>
-                                        <b *ngIf="authService.hasPermission('SYSTEM_PERMISSION_GROUP_EDIT') || authService.hasPermission('SYSTEM_PERMISSION_GROUP_MANAGE')" class="wf-name-link" (click)="onEdit(role)">{{ role.name }}</b>
-                                        <span *ngIf="!(authService.hasPermission('SYSTEM_PERMISSION_GROUP_EDIT') || authService.hasPermission('SYSTEM_PERMISSION_GROUP_MANAGE'))">{{ role.name }}</span>
+                                        <b *ngIf="authService.hasPermission('SYSTEM_PERMISSION_GROUP_EDIT') || authService.hasPermission('SYSTEM_PERMISSION_GROUP_MANAGE')" class="wf-name-link" (click)="onEdit(role)">{{ role.code }}</b>
+                                        <span *ngIf="!(authService.hasPermission('SYSTEM_PERMISSION_GROUP_EDIT') || authService.hasPermission('SYSTEM_PERMISSION_GROUP_MANAGE'))">{{ role.code }}</span>
+                                    </td>
+                                    <td>
+                                        <span>{{ role.name }}</span>
                                     </td>
                                     <td>{{ role.createdAt ? (role.createdAt | date:'dd/MM/yyyy HH:mm') : '—' }}</td>
                                     <td>{{ role.createdByName || role.createdBy || '—' }}</td>
