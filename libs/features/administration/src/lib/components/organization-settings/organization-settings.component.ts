@@ -63,11 +63,11 @@ export class OrganizationSettings implements OnInit {
   formSubmitted = signal<boolean>(false);
   serverErrors = signal<any>({});
   codeError = computed(() => {
-    if (this.formSubmitted() && !this.currentUnit().code) return 'Mã phòng ban là bắt buộc';
+    if (this.formSubmitted() && !String(this.currentUnit().code ?? '').trim()) return 'Mã phòng ban là bắt buộc';
     return this.serverErrors().code || this.serverErrors().Code || '';
   });
   nameError = computed(() => {
-    if (this.formSubmitted() && !this.currentUnit().name) return 'Tên phòng ban là bắt buộc';
+    if (this.formSubmitted() && !String(this.currentUnit().name ?? '').trim()) return 'Tên phòng ban là bắt buộc';
     return this.serverErrors().name || this.serverErrors().Name || '';
   });
 
@@ -80,6 +80,11 @@ export class OrganizationSettings implements OnInit {
       delete copy[capitalized];
       return copy;
     });
+  }
+
+  onUnitFieldChange(field: string, value: any) {
+    this.currentUnit.update(unit => ({ ...unit, [field]: value }));
+    this.onFieldChange(field);
   }
 
   private apiUrl = `${environment.apiGatewayUrl}/api/v1/organization-units`;
@@ -128,8 +133,8 @@ export class OrganizationSettings implements OnInit {
   openActionMenu(unit: any, event: Event, menu: Menu): void {
     event.stopPropagation();
     this.actionMenuItems = [
-      ...(this.authService.hasPermission('ORGANIZATION_EDIT') ? [{ label: unit.isActive ? 'Khóa đơn vị' : 'Mở khóa đơn vị', title: unit.isActive ? 'Khóa đơn vị' : 'Mở khóa đơn vị', icon: unit.isActive ? 'pi pi-lock color-red' : 'pi pi-lock-open color-teal', command: () => this.onToggleStatusRequest(unit) }] : []),
       ...(this.authService.hasPermission('ORGANIZATION_EDIT') ? [{ label: 'Chỉnh sửa', title: 'Chỉnh sửa', icon: 'pi pi-pencil color-blue', command: () => this.onEdit(unit) }] : []),
+      ...(this.authService.hasPermission('ORGANIZATION_EDIT') ? [{ label: unit.isActive ? 'Khóa đơn vị' : 'Mở khóa đơn vị', title: unit.isActive ? 'Khóa đơn vị' : 'Mở khóa đơn vị', icon: unit.isActive ? 'pi pi-lock color-red' : 'pi pi-lock-open color-teal', command: () => this.onToggleStatusRequest(unit) }] : []),
       ...(this.authService.hasPermission('ORGANIZATION_DELETE') ? [{ label: 'Xóa', title: 'Xóa', icon: 'pi pi-trash color-red', command: () => this.onDelete(unit) }] : []),
     ];
     menu.toggle(event);
@@ -313,17 +318,23 @@ export class OrganizationSettings implements OnInit {
     }
 
     const unitDraft = this.currentUnit();
+    const normalizedParentId = unitDraft.parentId === 'null' || unitDraft.parentId === null
+      ? null
+      : Number(unitDraft.parentId);
+    const payload = {
+      ...unitDraft,
+      code: String(unitDraft.code ?? '').trim(),
+      name: String(unitDraft.name ?? '').trim(),
+      description: String(unitDraft.description ?? '').trim(),
+      parentId: normalizedParentId
+    };
+    this.currentUnit.update(unit => ({ ...unit, ...payload }));
 
     this.saving.set(true);
     // Đảm bảo parentId là null hoặc số
-    if (unitDraft.parentId === 'null' || unitDraft.parentId === null) {
-      unitDraft.parentId = null;
-    } else {
-      unitDraft.parentId = Number(unitDraft.parentId);
-    }
 
     if (this.isEdit()) {
-      this.http.put(`${this.apiUrl}/${unitDraft.id}`, unitDraft)
+      this.http.put(`${this.apiUrl}/${payload.id}`, payload)
         .pipe(finalize(() => this.saving.set(false)))
         .subscribe({
           next: () => {
@@ -353,7 +364,7 @@ export class OrganizationSettings implements OnInit {
           }
         });
     } else {
-      this.http.post<any>(this.apiUrl, unitDraft)
+      this.http.post<any>(this.apiUrl, payload)
         .pipe(finalize(() => this.saving.set(false)))
         .subscribe({
           next: (created) => {
