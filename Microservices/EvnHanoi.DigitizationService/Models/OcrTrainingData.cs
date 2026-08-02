@@ -37,5 +37,14 @@ namespace EvnHanoi.DigitizationService.Models
         public string UploadedBy { get; set; } = string.Empty;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+        /// <summary>Gán nhãn theo từng trường (JSON: [{fieldName, value}]) — mở rộng thay vì chỉ LabelText cả tài liệu.</summary>
+        public string? FieldLabelsJson { get; set; }
+
+        /// <summary>Liên kết tới job huấn luyện lại đã dùng bản ghi này.</summary>
+        public string? RetrainJobId { get; set; }
+
+        /// <summary>Nhãn phiên bản dataset export gần nhất chứa bản ghi này.</summary>
+        public string? DatasetVersion { get; set; }
     }
 }

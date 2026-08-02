@@ -201,6 +201,69 @@ namespace EvnHanoi.DigitizationService.Controllers
         }
 
         // ─────────────────────────────────────────────────────────────────────────
+        // PUT /api/v1/ocr-training/{id}/field-labels
+        // Yêu cầu 91 (mở rộng) — gán nhãn theo từng trường thay vì cả tài liệu
+        // ─────────────────────────────────────────────────────────────────────────
+        [HttpPut("{id:long}/field-labels")]
+        public async Task<IActionResult> UpdateFieldLabels(long id, [FromBody] UpdateFieldLabelsRequest request)
+        {
+            var existing = await _repository.GetByIdAsync(id);
+            if (existing == null)
+                return NotFound(new { Message = $"Không tìm thấy bản ghi với ID = {id}" });
+
+            await _repository.UpdateFieldLabelsAsync(id, request.FieldLabelsJson);
+            return Ok(new { Message = "Cập nhật gán nhãn theo từng trường thành công." });
+        }
+
+        // ─────────────────────────────────────────────────────────────────────────
+        // POST /api/v1/ocr-training/{id}/link-retraining-job
+        // Yêu cầu 91 (mở rộng) — liên kết bản ghi với 1 job huấn luyện lại
+        // ─────────────────────────────────────────────────────────────────────────
+        [HttpPost("{id:long}/link-retraining-job")]
+        public async Task<IActionResult> LinkRetrainingJob(long id, [FromBody] LinkRetrainingJobRequest request)
+        {
+            var existing = await _repository.GetByIdAsync(id);
+            if (existing == null)
+                return NotFound(new { Message = $"Không tìm thấy bản ghi với ID = {id}" });
+
+            var job = new EvnHanoi.DigitizationService.Models.OcrModule.OcrTrainingRetrainJob
+            {
+                DatasetVersion = request.DatasetVersion,
+                Notes = request.Notes,
+                TriggeredBy = request.TriggeredBy,
+                Status = "Pending",
+            };
+
+            var jobId = await _repository.CreateRetrainJobAsync(job);
+            await _repository.LinkRetrainJobAsync(id, jobId, request.DatasetVersion);
+
+            return Ok(new { RetrainJobId = jobId, Message = "Đã liên kết job huấn luyện lại." });
+        }
+
+        // ─────────────────────────────────────────────────────────────────────────
+        // GET /api/v1/ocr-training/dataset-versions
+        // Yêu cầu 91 (mở rộng) — danh sách phiên bản dataset đã export
+        // ─────────────────────────────────────────────────────────────────────────
+        [HttpGet("dataset-versions")]
+        public async Task<IActionResult> GetDatasetVersions()
+        {
+            var versions = await _repository.GetDatasetVersionsAsync();
+            return Ok(versions);
+        }
+
+        // ─────────────────────────────────────────────────────────────────────────
+        // GET /api/v1/ocr-training/export?datasetVersion=
+        // Yêu cầu 91 (mở rộng) — export dữ liệu huấn luyện theo phiên bản dataset
+        // (không truyền datasetVersion → export toàn bộ bản ghi đã Verified)
+        // ─────────────────────────────────────────────────────────────────────────
+        [HttpGet("export")]
+        public async Task<IActionResult> Export([FromQuery] string? datasetVersion)
+        {
+            var data = await _repository.GetForExportAsync(datasetVersion);
+            return Ok(new { TotalCount = data.Count, Items = data });
+        }
+
+        // ─────────────────────────────────────────────────────────────────────────
         // GET /api/v1/ocr-training/statistics
         // Thống kê tổng quan dữ liệu huấn luyện (dùng cho dashboard)
         // ─────────────────────────────────────────────────────────────────────────

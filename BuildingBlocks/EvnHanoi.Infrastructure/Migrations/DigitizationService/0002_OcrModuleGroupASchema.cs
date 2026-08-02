@@ -1,0 +1,198 @@
+using DbUp.Engine;
+using System;
+using System.Data;
+
+namespace EvnHanoi.Infrastructure.Migrations.DigitizationService;
+
+/// <summary>
+/// Phân hệ Module OCR — Nhóm A (88, 90, 91, 92, 93, 94, 95).
+/// Toàn bộ bảng mới, độc lập với DOCUMENT/DOSSIER của EquipmentService — không FK sang bảng dịch vụ khác.
+/// </summary>
+public class Migration0002_OcrModuleGroupASchema : IScript
+{
+    public string ProvideScript(Func<IDbCommand> dbCommandFactory)
+    {
+        using var cmd = dbCommandFactory();
+
+        void ExecuteNonQuery(string sql, params int[] ignoreErrorCodes)
+        {
+            try
+            {
+                cmd.CommandText = sql;
+                cmd.ExecuteNonQuery();
+            }
+            catch (Exception ex)
+            {
+                var ignored = false;
+                foreach (var code in ignoreErrorCodes)
+                {
+                    if (ex.Message.Contains($"ORA-{code:D5}", StringComparison.OrdinalIgnoreCase)
+                        || ex.Message.Contains($"ORA-0{code}", StringComparison.OrdinalIgnoreCase)
+                        || ex.Message.Contains($"ORA-{code}", StringComparison.OrdinalIgnoreCase))
+                    {
+                        ignored = true;
+                        break;
+                    }
+                }
+
+                if (!ignored)
+                    throw new Exception($"Failed executing SQL: {sql}. Error: {ex.Message}", ex);
+            }
+        }
+
+        // OCR_MODULE_JOB — trục trung tâm: 1 Job = 1 lần chạy phân tích trên 1 file scan
+        // (mới upload qua phân hệ, hoặc tài liệu hồ sơ/thiết bị đã số hóa từ trước).
+        ExecuteNonQuery(@"
+CREATE TABLE OCR_MODULE_JOB (
+    ID VARCHAR2(36) PRIMARY KEY,
+    SOURCE_TYPE VARCHAR2(20) DEFAULT 'NewUpload' NOT NULL,
+    SOURCE_BUCKET VARCHAR2(255) NOT NULL,
+    SOURCE_FILE_PATH VARCHAR2(2000) NOT NULL,
+    SOURCE_DOCUMENT_VERSION_ID VARCHAR2(36),
+    TOTAL_PAGES NUMBER DEFAULT 0 NOT NULL,
+    STATE VARCHAR2(20) DEFAULT 'Materializing' NOT NULL,
+    ERROR_MESSAGE VARCHAR2(2000),
+    CREATED_BY VARCHAR2(100),
+    CREATED_DATE TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL,
+    MODIFIED_BY VARCHAR2(100),
+    MODIFIED_DATE TIMESTAMP,
+    IS_DELETED NUMBER(1) DEFAULT 0 NOT NULL,
+    ROW_VERSION NUMBER DEFAULT 1 NOT NULL
+)", 955);
+
+        ExecuteNonQuery("CREATE INDEX IDX_OCR_MOD_JOB_SRC_DOC ON OCR_MODULE_JOB(SOURCE_DOCUMENT_VERSION_ID)", 955, 1408);
+        ExecuteNonQuery("CREATE INDEX IDX_OCR_MOD_JOB_STATE ON OCR_MODULE_JOB(STATE)", 955, 1408);
+
+        // OCR_MODULE_REGION — mỗi dòng là 1 vùng văn bản/trang, materialize từ file JSON OCR đã có sẵn trên MinIO.
+        // Gộp sẵn toàn bộ cột dùng cho 88/90/92/93/94/95 ngay từ đầu để tránh phải migrate nhiều lần.
+        ExecuteNonQuery(@"
+CREATE TABLE OCR_MODULE_REGION (
+    ID VARCHAR2(36) PRIMARY KEY,
+    JOB_ID VARCHAR2(36) NOT NULL,
+    PAGE_NUMBER NUMBER NOT NULL,
+    BOX_X0 NUMBER,
+    BOX_Y0 NUMBER,
+    BOX_X1 NUMBER,
+    BOX_Y1 NUMBER,
+    TEXT_RAW CLOB,
+    CONFIDENCE NUMBER(6,4),
+    SCRIPT_TYPE VARCHAR2(20),
+    REGION_TYPE VARCHAR2(20) DEFAULT 'Text' NOT NULL,
+    FORMULA_TEXT CLOB,
+    SEAL_SIGNATURE_SCORE NUMBER(6,4),
+    SPELLCHECK_SUGGESTION CLOB,
+    SPELLCHECK_STATUS VARCHAR2(20),
+    STATUS VARCHAR2(20) DEFAULT 'Detected' NOT NULL,
+    CREATED_BY VARCHAR2(100),
+    CREATED_DATE TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL,
+    MODIFIED_BY VARCHAR2(100),
+    MODIFIED_DATE TIMESTAMP,
+    IS_DELETED NUMBER(1) DEFAULT 0 NOT NULL,
+    ROW_VERSION NUMBER DEFAULT 1 NOT NULL,
+    CONSTRAINT FK_OCR_MOD_REGION_JOB FOREIGN KEY (JOB_ID) REFERENCES OCR_MODULE_JOB(ID)
+)", 955);
+
+        ExecuteNonQuery("CREATE INDEX IDX_OCR_MOD_REGION_JOB ON OCR_MODULE_REGION(JOB_ID)", 955, 1408);
+        ExecuteNonQuery("CREATE INDEX IDX_OCR_MOD_REGION_TYPE ON OCR_MODULE_REGION(REGION_TYPE)", 955, 1408);
+
+        // OCR_MODULE_TEMPLATE_SNAPSHOT — mẫu tham chiếu (90), lưu layout box+text từ 1 Job được chọn làm mẫu chuẩn.
+        ExecuteNonQuery(@"
+CREATE TABLE OCR_MODULE_TEMPLATE_SNAPSHOT (
+    ID VARCHAR2(36) PRIMARY KEY,
+    NAME VARCHAR2(255) NOT NULL,
+    DOCUMENT_TYPE_CODE VARCHAR2(100),
+    SOURCE_JOB_ID VARCHAR2(36),
+    REFERENCE_REGIONS_JSON CLOB NOT NULL,
+    CREATED_BY VARCHAR2(100),
+    CREATED_DATE TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL,
+    MODIFIED_BY VARCHAR2(100),
+    MODIFIED_DATE TIMESTAMP,
+    IS_DELETED NUMBER(1) DEFAULT 0 NOT NULL
+)", 955);
+
+        ExecuteNonQuery("CREATE INDEX IDX_OCR_MOD_TPL_DOC_TYPE ON OCR_MODULE_TEMPLATE_SNAPSHOT(DOCUMENT_TYPE_CODE)", 955, 1408);
+
+        // OCR_MODULE_TEMPLATE_DIFF_RESULT — kết quả so sánh 1 Job với 1 mẫu tham chiếu (90).
+        ExecuteNonQuery(@"
+CREATE TABLE OCR_MODULE_TEMPLATE_DIFF_RESULT (
+    ID VARCHAR2(36) PRIMARY KEY,
+    JOB_ID VARCHAR2(36) NOT NULL,
+    TEMPLATE_SNAPSHOT_ID VARCHAR2(36) NOT NULL,
+    REGION_ID VARCHAR2(36),
+    PAGE_NUMBER NUMBER,
+    DIFF_TYPE VARCHAR2(20) NOT NULL,
+    DETAIL VARCHAR2(2000),
+    STATUS VARCHAR2(20) DEFAULT 'Flagged' NOT NULL,
+    CREATED_BY VARCHAR2(100),
+    CREATED_DATE TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL,
+    MODIFIED_BY VARCHAR2(100),
+    MODIFIED_DATE TIMESTAMP,
+    IS_DELETED NUMBER(1) DEFAULT 0 NOT NULL,
+    CONSTRAINT FK_OCR_MOD_TPLDIFF_JOB FOREIGN KEY (JOB_ID) REFERENCES OCR_MODULE_JOB(ID),
+    CONSTRAINT FK_OCR_MOD_TPLDIFF_TPL FOREIGN KEY (TEMPLATE_SNAPSHOT_ID) REFERENCES OCR_MODULE_TEMPLATE_SNAPSHOT(ID),
+    CONSTRAINT FK_OCR_MOD_TPLDIFF_REGION FOREIGN KEY (REGION_ID) REFERENCES OCR_MODULE_REGION(ID)
+)", 955);
+
+        ExecuteNonQuery("CREATE INDEX IDX_OCR_MOD_TPLDIFF_JOB ON OCR_MODULE_TEMPLATE_DIFF_RESULT(JOB_ID)", 955, 1408);
+
+        // OCR_MODULE_ERROR_ANALYSIS — tổng hợp lỗi có cấu trúc theo Job (92), gom tín hiệu từ 88/90/93/94/95.
+        ExecuteNonQuery(@"
+CREATE TABLE OCR_MODULE_ERROR_ANALYSIS (
+    ID VARCHAR2(36) PRIMARY KEY,
+    JOB_ID VARCHAR2(36) NOT NULL,
+    REGION_ID VARCHAR2(36),
+    PAGE_NUMBER NUMBER,
+    ERROR_CATEGORY VARCHAR2(40) NOT NULL,
+    SEVERITY VARCHAR2(10) DEFAULT 'Medium' NOT NULL,
+    DETAIL VARCHAR2(2000),
+    RESOLVED_STATUS VARCHAR2(20) DEFAULT 'Open' NOT NULL,
+    CREATED_BY VARCHAR2(100),
+    CREATED_DATE TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL,
+    MODIFIED_BY VARCHAR2(100),
+    MODIFIED_DATE TIMESTAMP,
+    IS_DELETED NUMBER(1) DEFAULT 0 NOT NULL,
+    CONSTRAINT FK_OCR_MOD_ERR_JOB FOREIGN KEY (JOB_ID) REFERENCES OCR_MODULE_JOB(ID),
+    CONSTRAINT FK_OCR_MOD_ERR_REGION FOREIGN KEY (REGION_ID) REFERENCES OCR_MODULE_REGION(ID)
+)", 955);
+
+        ExecuteNonQuery("CREATE INDEX IDX_OCR_MOD_ERR_JOB ON OCR_MODULE_ERROR_ANALYSIS(JOB_ID)", 955, 1408);
+
+        // Mở rộng OCR_TRAINING_DATA (91) — liên kết job huấn luyện lại + phiên bản dataset export.
+        ExecuteNonQuery(@"
+CREATE TABLE OCR_TRAINING_RETRAIN_JOB (
+    ID VARCHAR2(36) PRIMARY KEY,
+    DATASET_VERSION VARCHAR2(50),
+    STATUS VARCHAR2(20) DEFAULT 'Pending' NOT NULL,
+    TRIGGERED_BY VARCHAR2(100),
+    STARTED_AT TIMESTAMP,
+    COMPLETED_AT TIMESTAMP,
+    NOTES VARCHAR2(2000),
+    CREATED_BY VARCHAR2(100),
+    CREATED_DATE TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL,
+    MODIFIED_BY VARCHAR2(100),
+    MODIFIED_DATE TIMESTAMP,
+    IS_DELETED NUMBER(1) DEFAULT 0 NOT NULL
+)", 955);
+
+        ExecuteNonQuery(@"
+CREATE TABLE OCR_TRAINING_DATASET_VERSION (
+    ID VARCHAR2(36) PRIMARY KEY,
+    VERSION_LABEL VARCHAR2(50) NOT NULL,
+    RECORD_COUNT NUMBER DEFAULT 0 NOT NULL,
+    EXPORT_FILE_PATH VARCHAR2(1000),
+    EXPORT_BUCKET VARCHAR2(255),
+    CREATED_BY VARCHAR2(100),
+    CREATED_DATE TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL,
+    MODIFIED_BY VARCHAR2(100),
+    MODIFIED_DATE TIMESTAMP,
+    IS_DELETED NUMBER(1) DEFAULT 0 NOT NULL
+)", 955);
+
+        // OCR_TRAINING_DATA (đã có từ 0001_Schema.sql) — thêm cột gán nhãn theo từng trường + liên kết retrain job.
+        ExecuteNonQuery("ALTER TABLE OCR_TRAINING_DATA ADD FIELD_LABELS_JSON CLOB", 1430);
+        ExecuteNonQuery("ALTER TABLE OCR_TRAINING_DATA ADD RETRAIN_JOB_ID VARCHAR2(36)", 1430);
+        ExecuteNonQuery("ALTER TABLE OCR_TRAINING_DATA ADD DATASET_VERSION VARCHAR2(50)", 1430);
+
+        return string.Empty;
+    }
+}

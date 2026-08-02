@@ -309,6 +309,31 @@ public partial class EquipmentController
         }
     }
 
+    /// <summary>
+    /// Lấy tiến trình OCR (kèm bucket/filePath nguồn) của tài liệu theo thiết bị — quyền EQUIPMENT_VIEW.
+    /// Dùng cho phân hệ Module OCR (Nhóm A) để đọc lại kết quả OCR đã có, không xử lý lại.
+    /// </summary>
+    [HttpGet("{equipmentId:guid}/documents/{versionId:guid}/digitization/progress")]
+    [BypassDynamicPermission]
+    public async Task<IActionResult> GetEquipmentDocumentDigitizationProgress(
+        Guid equipmentId,
+        Guid versionId)
+    {
+        var dto = await _equipmentRepository.GetDtoByIdAsync(equipmentId);
+        if (dto == null)
+            return NotFound(new { message = "Không tìm thấy thiết bị." });
+
+        var allowedUnitIds = await GetAllowedUnitIdsAsync();
+        if (allowedUnitIds != null && (!dto.UnitId.HasValue || !allowedUnitIds.Contains(dto.UnitId.Value)))
+            return Forbid();
+
+        var progress = await _documentDigitizationService.GetProgressByVersionIdAsync(versionId);
+        if (progress == null)
+            return NotFound(new { message = "Chưa có tiến trình OCR cho phiên bản tài liệu này." });
+
+        return Ok(progress);
+    }
+
     /// <summary>Lưu kết quả bóc tách đã chỉnh sửa; tùy chọn thay FormValues thiết bị — quyền EQUIPMENT_EDIT.</summary>
     [HttpPut("{equipmentId:guid}/documents/{versionId:guid}/digitization/result")]
     public async Task<IActionResult> SaveEquipmentDocumentDigitizationResult(
