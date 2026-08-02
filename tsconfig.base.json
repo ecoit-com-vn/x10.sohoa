@@ -23,12 +23,6 @@
       "@sohoa.frontend/shared/layout": [
         "./libs/shared/layout/src/index.ts"
       ],
-      "@sohoa.frontend/shared/ocr-viewer": [
-        "./libs/shared/ocr-viewer/src/index.ts"
-      ],
-      "@sohoa.frontend/features/ocr-module": [
-        "./libs/features/ocr-module/src/index.ts"
-      ],
       "@sohoa.frontend/features/administration": [
         "./libs/features/administration/src/index.ts"
       ],

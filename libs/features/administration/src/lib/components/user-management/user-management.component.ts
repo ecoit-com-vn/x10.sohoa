@@ -9,6 +9,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DialogModule } from 'primeng/dialog';
 import { ToastModule } from 'primeng/toast';
+import { SelectModule } from 'primeng/select';
 import { Menu, MenuModule } from 'primeng/menu';
 import { MenuItem, MessageService } from 'primeng/api';
 import { UserService } from '../../services/user.service';
@@ -24,6 +25,7 @@ import { buildMenuPermissionTree as buildMenuPermissionTreeFromLookup } from '..
     FormsModule,
     DialogModule,
     ToastModule,
+    SelectModule,
     MenuModule,
     WfBreadcrumbComponent,
     EcoInputTreeSelectComponent,
@@ -92,6 +94,10 @@ export class UserManagement implements OnInit {
 
   // Quyền theo đơn vị
   organizationUnits = signal<any[]>([]);
+  organizationUnitFilterOptions = computed(() => [
+    { id: null, name: '-- Tất cả đơn vị --' },
+    ...this.organizationUnits()
+  ]);
   systemRoles = signal<any[]>([]);
 
   // Danh mục chức vụ (từ EquipmentService Catalog)

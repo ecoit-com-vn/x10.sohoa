@@ -268,8 +268,8 @@ body {
 }
 
 .standard-search-card {
-    margin-bottom: 12px;
-    padding: 16px;
+    margin-bottom: 16px;
+    padding: 8px 16px;
     border: 1px solid #e2e8f0;
     border-radius: 8px;
     background: #ffffff;
@@ -293,6 +293,8 @@ body {
     color: #475569;
     font-size: 0.8rem;
     font-weight: 600;
+    margin-top: 18px;
+    margin-bottom: 4px;
 }
 
 .standard-search-field .wf-search-input,
@@ -314,7 +316,7 @@ body {
     justify-content: flex-end;
     align-items: flex-end;
     gap: 8px;
-    margin-top: 16px;
+    //margin-top: 16px;
     width: 100%;
     flex-basis: 100%;
 }
@@ -392,7 +394,7 @@ body {
 /* Buttons */
 
 .btn-tim {
-    height: 34px;
+    height: 30px;
     padding: 0 14px;
     background: #4790e9;
     /* EVN Deep Blue */
@@ -413,7 +415,7 @@ body {
 }
 
 .btn-outlined {
-    height: 34px;
+    height: 30px;
     padding: 0 12px;
     background: #ffffff;
     color: #374151;
@@ -527,10 +529,11 @@ body {
     align-items: center;
     gap: 5px;
     transition: background .2s;
+    border: 1px solid #94a3b8;
 }
 
 .btn-save:hover:not(:disabled) {
-    background: #357bc8;
+    background: #001e4e;
 }
 
 .btn-save:disabled {

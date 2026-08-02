@@ -8,7 +8,9 @@
     <i class="pi pi-home bc-icon"></i>
     <span class="bc-text" (click)="viewMode !== 'list' && onBackToList()" [class.bc-link]="viewMode !== 'list'">Trang chủ</span>
     <span class="bc-sep">/</span>
-    <span class="bc-text" (click)="viewMode !== 'list' && onBackToList()" [class.bc-link]="viewMode !== 'list'">Cài đặt quy trình</span>
+    <span class="bc-text">Quản trị hệ thống</span>
+    <span class="bc-sep">/</span>
+    <span class="bc-text" [class.bc-current]="viewMode === 'list'" (click)="viewMode !== 'list' && onBackToList()" [class.bc-link]="viewMode !== 'list'">Quản lý luồng</span>
     <span class="bc-sep" *ngIf="viewMode !== 'list'">/</span>
     <span class="bc-current" *ngIf="viewMode === 'edit'">{{ isEditMode ? 'Sửa quy trình' : 'Thêm mới' }}</span>
   </div>
@@ -38,15 +40,21 @@
     <!-- Toolbar -->
     <div class="standard-search-card">
       <div class="toolbar-left">
-        <input id="wf-search" type="text" class="wf-search-input"
-          placeholder="Tìm kiếm theo tên, mô tả..."
-          [(ngModel)]="searchKeyword"
-          (keyup.enter)="loadList()" />
-        <select class="wf-select" [(ngModel)]="filterIsActive">
-          <option value="">-- Tất cả trạng thái --</option>
-          <option value="true">Đang hoạt động</option>
-          <option value="false">Ngừng hoạt động</option>
-        </select>
+        <div class="standard-search-field">
+          <label class="search-field-label">Từ khóa</label>
+          <input id="wf-search" type="text" class="wf-search-input"
+            placeholder="Tìm kiếm theo tên, mô tả..."
+            [(ngModel)]="searchKeyword"
+            (keyup.enter)="loadList()" />
+        </div>
+        <div class="standard-search-field">
+          <label class="search-field-label">Trạng thái</label>
+          <select class="wf-select" [(ngModel)]="filterIsActive">
+            <option value="">-- Tất cả trạng thái --</option>
+            <option value="true">Đang hoạt động</option>
+            <option value="false">Ngừng hoạt động</option>
+          </select>
+        </div>
         <div class="standard-search-actions">
           <button class="btn-outlined" (click)="resetFilter()">
             <i class="pi pi-refresh"></i> Làm mới
@@ -384,17 +392,6 @@
                   <div class="check-hint">Khi chuyển bước, chỉ hiển thị người thuộc cùng đơn vị với người đang xử lý.</div>
                 </div>
 
-                <!-- Checkbox: Cho phép chỉnh sửa nội dung hồ sơ ở bước này -->
-                <div class="same-unit-check">
-                  <label class="check-label">
-                    <input type="checkbox"
-                           [checked]="selectedElementProps.allowEdit"
-                           (change)="updateElementProperty('allowEdit', $event)" />
-                    <span>Cho phép <b>chỉnh sửa nội dung</b></span>
-                  </label>
-                  <div class="check-hint">Người xử lý bước này được sửa nội dung hồ sơ (biểu mẫu, tài liệu).</div>
-                </div>
-
                 <!-- Autocomplete: Người cụ thể (có thể chọn nhiều người) -->
                 <div class="assignee-field">
                   <label><i class="pi pi-user"></i> Người cụ thể <span class="optional-badge">Tuỳ chọn</span></label>
@@ -545,6 +542,64 @@
         <i class="pi pi-spin pi-spinner" *ngIf="reactivating()"></i>
         Xác nhận
       </button>
+    </ng-template>
+  </p-dialog>
+
+  <app-delete-confirm-dialog
+    [visible]="showDeleteConfirm()"
+    header="Xác nhận xóa luồng"
+    entityLabel="Luồng"
+    [targetName]="deleteTarget()?.name || ''"
+    [loading]="deleting()"
+    (cancelled)="onCancelDelete()"
+    (confirmed)="onConfirmDelete()" />
+
+  <app-delete-confirm-dialog
+    [visible]="showDeleteSelectedConfirm()"
+    header="Xác nhận xóa các luồng đã chọn"
+    entityLabel="Danh sách luồng"
+    [targetName]="selectedIds.length + ' luồng đã chọn'"
+    [loading]="deleting()"
+    (cancelled)="onCancelDeleteSelected()"
+    (confirmed)="onConfirmDeleteSelected()" />
+
+  <p-dialog
+    [visible]="showToggleStatusConfirm()"
+    (visibleChange)="$event ? null : onCancelToggleStatus()"
+    [header]="toggleStatusTarget()?.isActive ? 'Xác nhận khóa luồng' : 'Xác nhận mở khóa luồng'"
+    [modal]="true"
+    [style]="{ width: '420px' }"
+    styleClass="evn-dialog-custom"
+    [closable]="!togglingStatus()">
+    <div style="padding: 8px 0 16px 0; display: flex; flex-direction: column; gap: 12px;">
+      <div style="display: flex; align-items: flex-start; gap: 12px;">
+        <i class="pi pi-exclamation-triangle"
+          style="font-size: 1.8rem; color: #f59e0b; margin-top: 2px; flex-shrink: 0;"></i>
+        <div>
+          <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b; font-size: 0.95rem;">
+            {{ toggleStatusTarget()?.isActive ? 'Bạn có chắc muốn khóa luồng này?' : 'Bạn có chắc muốn mở khóa luồng này?' }}
+          </p>
+          <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
+            Luồng <b style="color: #1e293b;">{{ toggleStatusTarget()?.name }}</b> sẽ được
+            {{ toggleStatusTarget()?.isActive ? 'khóa và ngừng hoạt động' : 'mở khóa và hoạt động trở lại' }}.
+          </p>
+        </div>
+      </div>
+    </div>
+    <ng-template #footer>
+      <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+        <button class="btn-cancel btn-small" (click)="onCancelToggleStatus()" [disabled]="togglingStatus()">
+          <i class="pi pi-times"></i> Hủy
+        </button>
+        <button class="btn-save btn-small" (click)="onConfirmToggleStatus()" [disabled]="togglingStatus()"
+          [style.background-color]="toggleStatusTarget()?.isActive ? '#dc2626' : '#4790e9'"
+          [style.border-color]="toggleStatusTarget()?.isActive ? '#dc2626' : '#4790e9'">
+          <i class="pi pi-spin pi-spinner" *ngIf="togglingStatus()" style="margin-right: 4px;"></i>
+          <i class="pi" [ngClass]="toggleStatusTarget()?.isActive ? 'pi-lock' : 'pi-lock-open'"
+            *ngIf="!togglingStatus()" style="margin-right: 4px;"></i>
+          {{ toggleStatusTarget()?.isActive ? 'Khóa' : 'Mở khóa' }}
+        </button>
+      </div>
     </ng-template>
   </p-dialog>
 </div>

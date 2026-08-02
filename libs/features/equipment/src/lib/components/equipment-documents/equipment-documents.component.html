@@ -200,9 +200,3 @@
   (visibleChange)="showEditDocument.set($event)"
   (applied)="onDocumentEdited()"
 ></app-equipment-document-detail-dialog>
-
-<lib-ocr-insights-panel
-  [visible]="ocrInsightsVisible()"
-  (visibleChange)="ocrInsightsVisible.set($event)"
-  [sourceDocument]="ocrInsightsSource()"
-></lib-ocr-insights-panel>

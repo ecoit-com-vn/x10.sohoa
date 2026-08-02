@@ -10,7 +10,7 @@ import { Menu, MenuModule } from 'primeng/menu';
 import { environment } from '@env/environment';
 import { finalize } from 'rxjs';
 import { AuthService } from '@sohoa.frontend/shared/core';
-import { WfBreadcrumbComponent, EcoPaginatorComponent, } from '@sohoa.frontend/shared/layout';
+import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 
 export interface RoleLookupItem {
   id: number;
@@ -33,7 +33,7 @@ type ReportUnitStatusKey = Exclude<ReportUnitStatusFilter, 'ALL'>;
 @Component({
   selector: 'app-report-unit-publish',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule, DialogModule, MenuModule, WfBreadcrumbComponent, EcoPaginatorComponent,],
+  imports: [CommonModule, FormsModule, ToastModule, DialogModule, MenuModule, WfBreadcrumbComponent],
   providers: [MessageService],
   templateUrl: './report-unit-publish.component.html',
   styleUrls: ['./report-unit-publish.component.scss']
@@ -46,9 +46,6 @@ export class ReportUnitPublishComponent implements OnInit {
 
   searchKeyword = signal<string>('');
   filterStatus = signal<ReportUnitStatusFilter>('ALL');
-  
-  currentPage = signal(1);
-  pageSize = signal(10);
 
   filteredReports = computed(() => {
     const kw = this.searchKeyword().toLowerCase().trim();
@@ -61,18 +58,7 @@ export class ReportUnitPublishComponent implements OnInit {
       return matchKeyword && matchStatus;
     });
   });
-  
-  pagedReports = computed(() => {
-    const first = (this.currentPage() - 1) * this.pageSize();
-    return this.filteredReports().slice(first, first + this.pageSize());
-  }); 
-  
-  onUnitPageChange(event: { first?: number; rows?: number }) {
-    const rows = Number(event.rows) || this.pageSize();
-    const first = Number(event.first) || 0;
-    this.pageSize.set(rows);
-    this.currentPage.set(Math.floor(first / rows) + 1);
-  }
+
   roleMapById = computed(() => {
     const map = new Map<number, RoleLookupItem>();
     this.roles().forEach((r) => map.set(r.id, r));
@@ -110,15 +96,6 @@ export class ReportUnitPublishComponent implements OnInit {
           this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: msg });
         }
       });
-  }
-  
-  onResetSearch() {
-    this.searchKeyword.set(''); 
-    this.filterStatus.set('ALL');
-    this.loadReports();
-  }
-  onSearch() {
-    this.loadReports();
   }
 
   loadRoles(): void {

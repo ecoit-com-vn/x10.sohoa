@@ -52,31 +52,40 @@
         <!-- Toolbar -->
         <div class="toolbar mb-3">
           <div class="toolbar-left">
-            <input
-              type="text"
-              class="search-input"
-              placeholder="Tìm kiếm tên file, người upload..."
-              [(ngModel)]="keyword"
-              (keyup.enter)="loadData()"
-            />
+            <div class="standard-search-field">
+              <label class="search-field-label">Từ khóa</label>
+              <input
+                type="text"
+                class="search-input wf-search-input"
+                placeholder="Tìm kiếm tên file, người upload..."
+                [(ngModel)]="keyword"
+                (keyup.enter)="loadData()"
+              />
+            </div>
             <button class="btn-search" (click)="loadData()">
               <i class="pi pi-search"></i> Tìm
             </button>
-            <select class="filter-select" [(ngModel)]="filterDocType" (change)="loadData()">
-              <option value="">-- Loại tài liệu --</option>
-              <option value="SoDoLuoi">Sơ đồ lưới</option>
-              <option value="SoDoTram">Sơ đồ trạm</option>
-              <option value="BanVeKyThuat">Bản vẽ kỹ thuật</option>
-              <option value="KetQuaKiemTra">Kết quả kiểm tra</option>
-              <option value="Other">Khác</option>
-            </select>
-            <select class="filter-select" [(ngModel)]="filterStatus" (change)="loadData()">
-              <option value="">-- Trạng thái --</option>
-              <option value="Pending">Chờ gán nhãn</option>
-              <option value="Labeled">Đã gán nhãn</option>
-              <option value="Verified">Đã xác nhận</option>
-              <option value="Rejected">Từ chối</option>
-            </select>
+            <div class="standard-search-field">
+              <label class="search-field-label">Loại tài liệu</label>
+              <select class="filter-select wf-select" [(ngModel)]="filterDocType" (change)="loadData()">
+                <option value="">-- Loại tài liệu --</option>
+                <option value="SoDoLuoi">Sơ đồ lưới</option>
+                <option value="SoDoTram">Sơ đồ trạm</option>
+                <option value="BanVeKyThuat">Bản vẽ kỹ thuật</option>
+                <option value="KetQuaKiemTra">Kết quả kiểm tra</option>
+                <option value="Other">Khác</option>
+              </select>
+            </div>
+            <div class="standard-search-field">
+              <label class="search-field-label">Trạng thái</label>
+              <select class="filter-select wf-select" [(ngModel)]="filterStatus" (change)="loadData()">
+                <option value="">-- Trạng thái --</option>
+                <option value="Pending">Chờ gán nhãn</option>
+                <option value="Labeled">Đã gán nhãn</option>
+                <option value="Verified">Đã xác nhận</option>
+                <option value="Rejected">Từ chối</option>
+              </select>
+            </div>
           </div>
           <div class="toolbar-right">
             <button class="btn-upload" (click)="showUploadDialog = true">
@@ -84,9 +93,6 @@
             </button>
             <button class="btn-refresh" (click)="loadData(); loadStatistics()">
               <i class="pi pi-refresh"></i>
-            </button>
-            <button class="btn-refresh" (click)="exportDataset()" pTooltip="Xuất dataset (yêu cầu 91)" tooltipPosition="top">
-              <i class="pi pi-download"></i>
             </button>
           </div>
         </div>
@@ -354,15 +360,6 @@
 
         <ng-template pTemplate="footer">
           <button class="btn-cancel" (click)="showVerifyDialog = false">Hủy</button>
-          <button
-            class="btn-cancel"
-            *ngIf="selectedItem?.isVerified"
-            (click)="linkRetrainingJob()"
-            pTooltip="Yêu cầu 91 (mở rộng) — liên kết bản ghi này với 1 job huấn luyện lại"
-            tooltipPosition="top"
-          >
-            <i class="pi pi-sync"></i> Liên kết retrain job
-          </button>
           <button class="btn-upload" (click)="saveVerify()">
             <i class="pi pi-shield"></i> Xác nhận
           </button>

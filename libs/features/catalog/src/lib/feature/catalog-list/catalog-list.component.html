@@ -33,31 +33,30 @@
 
       <!-- Toolbar -->
       <div class="standard-search-card" *ngIf="isPhongCatalog(); else defaultCatalogFilters">
-        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; width: 100%; padding: 16px; border: 1px solid #dbe4f0; border-radius: 8px;">
-            <div class="form-group" style="margin: 0; min-width: 0;">
-              <label class="form-label">Tên danh mục</label>
-              <input type="text" class="wf-search-input" style="width: 100%;" placeholder="Tên danh mục..." [ngModel]="searchName()"
+        <div class="toolbar-left">
+            <div class="standard-search-field">
+              <label class="search-field-label">Tên danh mục</label>
+              <input type="text" class="wf-search-input" placeholder="Tên danh mục..." [ngModel]="searchName()"
                 (ngModelChange)="searchName.set($event)" (keyup.enter)="onSearch()" />
             </div>
-            <div class="form-group" style="margin: 0; min-width: 0;">
-              <label class="form-label">Mã danh mục</label>
-              <input type="text" class="wf-search-input" style="width: 100%;" placeholder="Mã danh mục..." [ngModel]="searchCode()"
+            <div class="standard-search-field">
+              <label class="search-field-label">Mã danh mục</label>
+              <input type="text" class="wf-search-input" placeholder="Mã danh mục..." [ngModel]="searchCode()"
                 (ngModelChange)="searchCode.set($event)" (keyup.enter)="onSearch()" />
             </div>
-            <div class="form-group" style="margin: 0; min-width: 0;">
-              <label class="form-label">Trạng thái</label>
-              <select class="wf-input" style="height: 38px; width: 100%; padding: 0 10px; border-radius: 6px;"
-                [ngModel]="searchStatus()" (ngModelChange)="searchStatus.set($event)">
+            <div class="standard-search-field">
+              <label class="search-field-label">Trạng thái</label>
+              <select class="wf-input" [ngModel]="searchStatus()" (ngModelChange)="searchStatus.set($event)">
                 <option value="">-- Trạng thái --</option>
                 <option value="1">Hoạt động</option>
                 <option value="0">Ngừng hoạt động</option>
               </select>
             </div>
             <div class="standard-search-actions">
-              <button class="btn-outlined" style="height: 38px;" (click)="onResetSearch()">
+              <button type="button" class="btn-outlined" (click)="onResetSearch()">
                 <i class="pi pi-refresh"></i> Làm mới
               </button>
-              <button class="btn-tim" style="height: 38px;" (click)="onSearch()">
+              <button type="button" class="btn-save" (click)="onSearch()">
                 <i class="pi pi-check"></i> Áp dụng
               </button>
             </div>
@@ -66,20 +65,23 @@
 
       <ng-template #defaultCatalogFilters>
         <div class="standard-search-card">
-          <div class="toolbar-left" style="display: flex; gap: 8px; align-items: center;">
-            <input type="text" class="wf-search-input" placeholder="Tìm theo mã hoặc tên..." [ngModel]="searchKeyword()"
-              (ngModelChange)="searchKeyword.set($event)" (keyup.enter)="onSearch()" />
-            <div class="form-group">
-              <select class="wf-input" style="height: 38px; width: 205px; padding: 0 10px; border-radius: 6px;"
-                [ngModel]="searchStatus()" (ngModelChange)="searchStatus.set($event); onSearch()">
+          <div class="toolbar-left">
+            <div class="standard-search-field">
+              <label class="search-field-label">Từ khóa</label>
+              <input type="text" class="wf-search-input" placeholder="Tìm theo mã hoặc tên..." [ngModel]="searchKeyword()"
+                (ngModelChange)="searchKeyword.set($event)" (keyup.enter)="onSearch()" />
+            </div>
+            <div class="standard-search-field">
+              <label class="search-field-label">Trạng thái</label>
+              <select class="wf-input" [ngModel]="searchStatus()" (ngModelChange)="searchStatus.set($event); onSearch()">
                 <option value="">-- Trạng thái --</option>
                 <option value="1">Hoạt động</option>
                 <option value="0">Ngừng hoạt động</option>
               </select>
             </div>
             <div class="standard-search-actions">
-              <button class="btn-outlined" style="height: 38px;" (click)="onResetSearch()"><i class="pi pi-refresh"></i> Làm mới</button>
-              <button class="btn-save" style="height: 38px;" (click)="onSearch()"><i class="pi pi-check"></i> Áp dụng</button>
+              <button type="button" class="btn-outlined" (click)="onResetSearch()"><i class="pi pi-refresh"></i> Làm mới</button>
+              <button type="button" class="btn-save" (click)="onSearch()"><i class="pi pi-check"></i> Áp dụng</button>
             </div>
           </div>
         </div>

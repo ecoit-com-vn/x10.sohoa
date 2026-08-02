@@ -3,7 +3,7 @@
 
   <div class="list-toolbar standard-page-toolbar">
     <div class="toolbar-left">
-      <wf-breadcrumb />
+      <wf-breadcrumb [customItems]="[{ label: 'Quản trị hệ thống' }, { label: 'Nhật ký thao tác', url: '/administration/audit-log' }]" />
     </div>
     <div class="toolbar-right">
       <button class="btn-toolbar-danger" (click)="onOpenDeleteSelectedDialog()" *ngIf="canDelete()"

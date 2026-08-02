@@ -247,15 +247,15 @@
         </div>
 
         <!-- Advanced Search Filter Bar -->
-        <div class="grid-filter-bar">
-          <!-- Từ khóa -->
-          <div class="filter-item">
-            <label>Từ khóa</label>
-            <div class="input-icon">
-              <i class="pi pi-search"></i>
+        <div class="grid-filter-bar" style="display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; background: #f8fafc; padding: 12px; border-radius: 6px; border: 1px solid #e2e8f0; align-items: flex-end;">
+          <div class="filter-item" style="flex: 1; min-width: 180px;">
+            <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #475569; margin-bottom: 4px;">Từ khóa</label>
+            <div style="position: relative;">
+              <i class="pi pi-search" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 0.85rem;"></i>
               <input
                 type="text"
                 class="wf-input"
+                style="padding-left: 30px; width: 100%; height: 32px; font-size: 0.85rem;"
                 placeholder="Tên thư mục, tài liệu..."
                 [ngModel]="filterKeyword()"
                 (ngModelChange)="filterKeyword.set($event)"
@@ -263,51 +263,56 @@
               />
             </div>
           </div>
-
-          <!-- Người đăng tải -->
-          <div class="filter-item">
-            <label>Người đăng tải</label>
-            <div class="input-icon">
-              <i class="pi pi-user"></i>
+          
+          <div class="filter-item" style="width: 150px;">
+            <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #475569; margin-bottom: 4px;">Người đăng tải</label>
+            <div style="position: relative;">
+              <i class="pi pi-user" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 0.85rem;"></i>
               <input
                 type="text"
                 class="wf-input"
+                style="padding-left: 30px; width: 100%; height: 32px; font-size: 0.85rem;"
                 placeholder="Tài khoản..."
                 [ngModel]="filterCreator()"
                 (ngModelChange)="filterCreator.set($event)"
                 (keyup.enter)="onSearch()"
               />
             </div>
-          </div>
-
-          <!-- Từ ngày -->
-          <div class="filter-item">
-            <label>Từ ngày</label>
+          </div> 
+          
+          <div class="filter-item" style="width: 130px;">
+            <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #475569; margin-bottom: 4px;">Từ ngày</label>
             <p-datepicker
-              appendTo="body"
-              dateFormat="dd/mm/yy"
-              [showIcon]="true"
-              placeholder="dd/mm/yyyy"
-              inputId="startDate"
-              styleClass="wf-input full-width-datepicker"
-              [ngModel]="filterStartDate()"
-              (ngModelChange)="filterStartDate.set($event)">
+                styleClass="wf-input"
+                appendTo="body"
+                dateFormat="dd/mm/yy"
+                [showIcon]="true"
+                inputId="startDate"
+                [ngModel]="filterStartDate()"
+                (ngModelChange)="filterStartDate.set($event)">
             </p-datepicker>
           </div>
 
-          <!-- Đến ngày -->
-          <div class="filter-item">
-            <label>Đến ngày</label>
+          <div class="filter-item" style="width: 130px;">
+            <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #475569; margin-bottom: 4px;">Đến ngày</label>
             <p-datepicker
-              appendTo="body"
-              dateFormat="dd/mm/yy"
-            placeholder="dd/mm/yyyy"
-              [showIcon]="true"
-              inputId="endDate"
-              styleClass="wf-input full-width-datepicker"
-              [ngModel]="filterEndDate()"
-              (ngModelChange)="filterEndDate.set($event)">
+                styleClass="wf-input"
+                appendTo="body"
+                dateFormat="dd/mm/yy"
+                [showIcon]="true"
+                inputId="endDate"
+                [ngModel]="filterEndDate()"
+                (ngModelChange)="filterEndDate.set($event)">
             </p-datepicker>
+          </div>
+
+          <div class="filter-buttons" style="display: flex; gap: 8px;">
+            <button class="btn-tim btn-small" style="height: 32px; display: flex; align-items: center; gap: 6px;" (click)="onSearch()">
+              <i class="pi pi-search"></i> Tìm kiếm
+            </button>
+            <button class="btn-outlined btn-small" style="height: 32px; display: flex; align-items: center; gap: 6px; border-color: #cbd5e1; color: #475569;" (click)="onResetFilters()">
+              <i class="pi pi-refresh"></i> Reset
+            </button>
           </div>
         </div>
 
@@ -346,11 +351,11 @@
 
               <!-- Subfolders -->
               <tr
-                *ngFor="let folder of paginatedSubFolders(); let i = index; trackBy: trackByFolderId"
+                *ngFor="let folder of subFolders(); let i = index; trackBy: trackByFolderId"
                 [hidden]="loadingDocuments()"
                 class="folder-row-table"
               >
-                <td class="col-stt text-muted">{{ folderFirst() + i + 1 }}</td>
+                <td class="col-stt text-muted">{{ i + 1 }}</td>
                 <td>
                   <div class="table-item-name-container">
                     <i class="pi pi-folder table-item-icon folder-icon-yellow"></i>
@@ -443,33 +448,17 @@
         <div class="table-footer-paginator" *ngIf="totalItems() > 0">
           <span class="record-count">
             Tổng số:
-            <b>{{ folderTotalRecords() }}</b> thư mục,
+            <b>{{ subFolders().length }}</b> thư mục,
             <b>{{ totalDocuments() }}</b> tài liệu.
           </span>
-
-          <div class="table-footer-paginator__actions">
-            <ng-container *ngIf="folderTotalRecords() > 0">
-              <app-eco-paginator
-                [first]="folderFirst()"
-                [rows]="folderRows()"
-                [totalRecords]="folderTotalRecords()"
-                [rowsPerPageOptions]="[10, 20, 50]"
-                [recordLabel]="'thư mục'"
-                (onPageChange)="onFolderPageChange($event)">
-              </app-eco-paginator>
-            </ng-container>
-
-            <ng-container *ngIf="totalDocuments() > 0">
-              <app-eco-paginator
-                [first]="first()"
-                [rows]="rows()"
-                [totalRecords]="totalDocuments()"
-                [rowsPerPageOptions]="[5, 10, 20, 50]"
-                [recordLabel]="'tài liệu'"
-                (onPageChange)="onPageChange($event)">
-              </app-eco-paginator>
-            </ng-container>
-          </div>
+          <app-eco-paginator
+              *ngIf="totalDocuments() > 0"
+              [first]="first()" 
+              [rows]="rows()" 
+              [totalRecords]="totalDocuments()" 
+              [rowsPerPageOptions]="[5, 10, 20, 50]" 
+              (onPageChange)="onPageChange($event)">
+          </app-eco-paginator>
         </div>
       </ng-container>
 
