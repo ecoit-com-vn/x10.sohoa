@@ -33,11 +33,11 @@
             <select class="wf-input" [ngModel]="searchStatus()" (ngModelChange)="searchStatus.set($event)">
               <option value="">-- Tất cả trạng thái --</option>
               <option value="active">Hoạt động</option>
-              <option value="inactive">Ngưng hoạt động</option>
+              <option value="inactive">Ngừng hoạt động</option>
             </select>
           </div>
         </div> 
-        <div class="unit-search-actions">
+        <div class="standard-search-actions audit-filter-actions">
           <button type="button" class="btn-outlined" (click)="onResetSearch()">
             <i class="pi pi-refresh"></i> Làm mới
           </button>
@@ -124,7 +124,7 @@
             <span class="status-pill"
               [class.status-active]="node.isActive"
               [class.status-inactive]="!node.isActive">
-              {{ node.isActive ? 'Hoạt động' : 'Ngưng hoạt động' }}
+              {{ node.isActive ? 'Hoạt động' : 'Ngừng hoạt động' }}
             </span>
           </td>
           <td class="col-hd" (click)="$event.stopPropagation()">
@@ -236,7 +236,7 @@
             </p>
             <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
               Menu <b style="color: #1e293b;">{{ lockUnlockTarget()?.name }}</b> sẽ được 
-              {{ lockUnlockTarget()?.isActive ? 'khóa và ngưng hoạt động' : 'mở khóa và hoạt động trở lại' }}.
+              {{ lockUnlockTarget()?.isActive ? 'khóa và ngừng hoạt động' : 'mở khóa và hoạt động trở lại' }}.
             </p>
           </div>
         </div>
