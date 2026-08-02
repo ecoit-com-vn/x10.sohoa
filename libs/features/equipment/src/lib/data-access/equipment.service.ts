@@ -209,6 +209,11 @@ export class EquipmentService {
     return this.http.get<any>(`${this.base}/${equipmentId}/documents/${versionId}/digitization/result`);
   }
 
+  /** Lấy tiến trình OCR (kèm bucket/filePath nguồn) — dùng cho phân hệ Module OCR (Nhóm A). */
+  getDigitizationProgressForEquipment(equipmentId: string, versionId: string): Observable<any> {
+    return this.http.get<any>(`${this.base}/${equipmentId}/documents/${versionId}/digitization/progress`);
+  }
+
   /** 404 = chưa có kết quả bóc tách (null). */
   getDigitizationResultForEquipmentOrNull(equipmentId: string, versionId: string): Observable<any | null> {
     return this.getDigitizationResultForEquipment(equipmentId, versionId).pipe(
