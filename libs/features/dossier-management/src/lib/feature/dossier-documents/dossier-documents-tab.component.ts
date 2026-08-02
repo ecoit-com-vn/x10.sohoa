@@ -70,6 +70,7 @@ import { DossierUploadMenuComponent, DossierUploadAction } from '../../component
 import { DossierFolderPickerDialogComponent } from '../../components/dossier-folder-picker-dialog/dossier-folder-picker-dialog.component';
 import { DossierDirectUploadDialogComponent } from '../../components/dossier-direct-upload-dialog/dossier-direct-upload-dialog.component';
 import { DossierDocumentEditDialogComponent } from '../../components/dossier-document-edit-dialog/dossier-document-edit-dialog.component';
+import { OcrInsightsPanelComponent, OcrInsightsSourceDocument } from '@sohoa.frontend/features/ocr-module';
 
 interface DocumentTableAction {
   key: string;
@@ -97,6 +98,7 @@ const MAX_INLINE_DOCUMENT_ACTIONS = 3;
     DossierFolderPickerDialogComponent,
     DossierDirectUploadDialogComponent,
     DossierDocumentEditDialogComponent,
+    OcrInsightsPanelComponent,
   ],
   templateUrl: './dossier-documents-tab.component.html',
   styleUrl: './dossier-documents-tab.component.scss',
@@ -148,6 +150,10 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
   showReExtractConfirm = signal(false);
   reExtractTarget = signal<DossierDocumentItem | null>(null);
   reExtractSubmitting = signal(false);
+
+  // Phân hệ Module OCR (Nhóm A) — chỉ đọc kết quả OCR đã có, không đụng logic OCR/bóc tách ở trên.
+  ocrInsightsVisible = signal(false);
+  ocrInsightsSource = signal<OcrInsightsSourceDocument | null>(null);
 
   showFolderPicker = signal(false);
   showDirectUpload = signal(false);
@@ -496,6 +502,18 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
       });
     }
 
+    if (showDigitization && this.canReExtract(doc)) {
+      actions.push({
+        key: 'ocr-insights',
+        title: 'Phân tích OCR nâng cao',
+        btnClass: 'act-ocr-insights',
+        iconClasses: 'pi pi-chart-bar',
+        disabled: false,
+        overflowOnly: true,
+        run: (d) => this.onOpenOcrInsights(d),
+      });
+    }
+
     if (this.canEditDocument(doc) && this.canEdit) {
       actions.push({
         key: 'edit',
@@ -808,6 +826,44 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
     if (!doc.latestVersionId || !this.canEdit) return;
     this.reExtractTarget.set(doc);
     this.showReExtractConfirm.set(true);
+  }
+
+  /**
+   * Mở panel "Phân tích OCR nâng cao" (phân hệ Module OCR, Nhóm A) — chỉ đọc lại kết quả OCR
+   * đã có sẵn của tài liệu này, không gọi lại pipeline OCR/bóc tách ở trên.
+   */
+  onOpenOcrInsights(doc: DossierDocumentItem): void {
+    if (!doc.latestVersionId) return;
+
+    // Danh sách tài liệu không mang sẵn bucket/filePath — tái dùng endpoint tiến độ OCR đã có
+    // (đã trả về đủ 2 trường này) thay vì mở rộng câu SELECT của danh sách.
+    this.documentService.getDigitizationProgress(this.dossierId, doc.latestVersionId).subscribe({
+      next: (progress) => {
+        if (!progress.bucketName || !progress.filePath) {
+          this.messageService.add({
+            severity: 'warn',
+            summary: 'Chưa thể phân tích',
+            detail: 'Tài liệu này chưa có đủ thông tin vị trí lưu trữ file OCR.',
+          });
+          return;
+        }
+        this.ocrInsightsSource.set({
+          bucket: progress.bucketName,
+          filePath: progress.filePath,
+          documentVersionId: doc.latestVersionId ?? undefined,
+          totalPages: progress.totalPages,
+          documentLabel: doc.name,
+        });
+        this.ocrInsightsVisible.set(true);
+      },
+      error: () => {
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Lỗi',
+          detail: 'Không tải được thông tin OCR của tài liệu để phân tích.',
+        });
+      },
+    });
   }
 
   cancelReExtract(): void {

@@ -392,6 +392,17 @@
                   <div class="check-hint">Khi chuyển bước, chỉ hiển thị người thuộc cùng đơn vị với người đang xử lý.</div>
                 </div>
 
+                <!-- Checkbox: Cho phép chỉnh sửa nội dung hồ sơ ở bước này -->
+                <div class="same-unit-check">
+                  <label class="check-label">
+                    <input type="checkbox"
+                           [checked]="selectedElementProps.allowEdit"
+                           (change)="updateElementProperty('allowEdit', $event)" />
+                    <span>Cho phép <b>chỉnh sửa nội dung</b></span>
+                  </label>
+                  <div class="check-hint">Người xử lý bước này được sửa nội dung hồ sơ (biểu mẫu, tài liệu).</div>
+                </div>
+
                 <!-- Autocomplete: Người cụ thể (có thể chọn nhiều người) -->
                 <div class="assignee-field">
                   <label><i class="pi pi-user"></i> Người cụ thể <span class="optional-badge">Tuỳ chọn</span></label>
