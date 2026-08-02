@@ -22,6 +22,10 @@ export const DIGITIZATION_ROUTES: Routes = [
     loadComponent: () => import('./components/virtual-folders/components/virtual-folders/virtual-folders.component').then(m => m.VirtualFoldersComponent)
   },
   {
+    path: 'ocr-jobs',
+    loadComponent: () => import('@sohoa.frontend/features/administration').then(m => m.OcrJobsMonitorComponent)
+  },
+  {
     path: '',
     redirectTo: 'ocr-upload',
     pathMatch: 'full'
