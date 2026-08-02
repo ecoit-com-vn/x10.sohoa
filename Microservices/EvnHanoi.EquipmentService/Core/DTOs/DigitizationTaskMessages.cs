@@ -118,6 +118,9 @@ public class DocumentOcrProgressDto
     public string? ProcessOption { get; set; }
     public DateTime CreatedDate { get; set; }
     public DateTime? ModifiedDate { get; set; }
+    /// <summary>Dùng cho phân hệ Module OCR (Nhóm A) — đọc lại kết quả OCR đã có, không xử lý lại.</summary>
+    public string? BucketName { get; set; }
+    public string? FilePath { get; set; }
 }
 
 public class DocumentExtractionResultDto

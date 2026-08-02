@@ -33,6 +33,20 @@ namespace EvnHanoi.DigitizationService.Models.Dto
         public string? Notes { get; set; }
     }
 
+    /// <summary>Yêu cầu 91 (mở rộng) — gán nhãn theo từng trường thay vì cả tài liệu.</summary>
+    public class UpdateFieldLabelsRequest
+    {
+        public string FieldLabelsJson { get; set; } = "[]";
+    }
+
+    /// <summary>Yêu cầu 91 (mở rộng) — liên kết bản ghi với 1 job huấn luyện lại.</summary>
+    public class LinkRetrainingJobRequest
+    {
+        public string? DatasetVersion { get; set; }
+        public string? Notes { get; set; }
+        public string TriggeredBy { get; set; } = "System";
+    }
+
     // ─── RESPONSE DTOs ────────────────────────────────────────────────────────────
 
     /// <summary>Thông tin tóm tắt của một bản ghi dữ liệu huấn luyện (dùng trong danh sách)</summary>

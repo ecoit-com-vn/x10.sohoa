@@ -55,6 +55,11 @@ builder.Services.AddScoped<IFileAttachmentRepository, FileAttachmentRepository>(
 builder.Services.AddScoped<IDigitizationTaskRepository, DigitizationTaskRepository>();
 builder.Services.AddScoped<IOcrTrainingDataRepository, OcrTrainingDataRepository>();
 builder.Services.AddScoped<IVirtualFolderRepository, VirtualFolderRepository>();
+builder.Services.AddScoped<EvnHanoi.DigitizationService.Repositories.OcrModule.IOcrModuleRepository, EvnHanoi.DigitizationService.Repositories.OcrModule.OcrModuleRepository>();
+builder.Services.AddScoped<EvnHanoi.DigitizationService.Services.OcrModule.IOcrJsonMaterializer, EvnHanoi.DigitizationService.Services.OcrModule.OcrJsonMaterializer>();
+builder.Services.AddScoped<EvnHanoi.DigitizationService.Core.Services.OcrModule.IOcrModuleSealSignatureService, EvnHanoi.DigitizationService.Core.Services.OcrModule.OcrModuleSealSignatureService>();
+builder.Services.AddScoped<EvnHanoi.DigitizationService.Core.Services.OcrModule.IOcrModuleSpellcheckService, EvnHanoi.DigitizationService.Core.Services.OcrModule.OcrModuleSpellcheckService>();
+builder.Services.AddScoped<EvnHanoi.DigitizationService.Core.Services.OcrModule.IOcrModuleErrorAnalysisAggregator, EvnHanoi.DigitizationService.Core.Services.OcrModule.OcrModuleErrorAnalysisAggregator>();
 
 builder.Services.AddHttpClient("OcrVlClient", client => 
 {

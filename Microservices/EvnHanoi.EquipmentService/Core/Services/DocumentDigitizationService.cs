@@ -834,7 +834,9 @@ public class DocumentDigitizationService : IDocumentDigitizationService
         Status = p.Status,
         ProcessOption = p.ProcessOption,
         CreatedDate = p.CreatedDate,
-        ModifiedDate = p.ModifiedDate
+        ModifiedDate = p.ModifiedDate,
+        BucketName = p.BucketName,
+        FilePath = p.FilePath
     };
 
     private static DocumentExtractionResultDto MapResult(DocumentExtractionResult r) => new()

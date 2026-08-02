@@ -215,5 +215,92 @@ namespace EvnHanoi.DigitizationService.Repositories
             var sql = "SELECT COUNT(*) FROM OCR_TRAINING_DATA WHERE TRAINING_STATUS = :Status";
             return await _connection.ExecuteScalarAsync<int>(sql, new { Status = status });
         }
+
+        public async Task UpdateFieldLabelsAsync(long id, string fieldLabelsJson)
+        {
+            var sql = "UPDATE OCR_TRAINING_DATA SET FIELD_LABELS_JSON = :FieldLabelsJson, UPDATED_AT = :UpdatedAt WHERE ID = :Id";
+            await _connection.ExecuteAsync(sql, new { Id = id, FieldLabelsJson = fieldLabelsJson, UpdatedAt = DateTime.UtcNow });
+        }
+
+        public async Task<string> CreateRetrainJobAsync(EvnHanoi.DigitizationService.Models.OcrModule.OcrTrainingRetrainJob job)
+        {
+            job.Id = EvnHanoi.Infrastructure.Database.UuidHelper.NewUuid();
+            var sql = @"
+                INSERT INTO OCR_TRAINING_RETRAIN_JOB (ID, DATASET_VERSION, STATUS, TRIGGERED_BY, NOTES, CREATED_DATE)
+                VALUES (:Id, :DatasetVersion, :Status, :TriggeredBy, :Notes, SYSTIMESTAMP)";
+
+            await _connection.ExecuteAsync(sql, new
+            {
+                job.Id,
+                job.DatasetVersion,
+                job.Status,
+                job.TriggeredBy,
+                job.Notes
+            });
+
+            return job.Id;
+        }
+
+        public async Task LinkRetrainJobAsync(long trainingDataId, string retrainJobId, string? datasetVersion)
+        {
+            var sql = @"
+                UPDATE OCR_TRAINING_DATA
+                   SET RETRAIN_JOB_ID = :RetrainJobId, DATASET_VERSION = :DatasetVersion, UPDATED_AT = :UpdatedAt
+                 WHERE ID = :Id";
+
+            await _connection.ExecuteAsync(sql, new
+            {
+                Id = trainingDataId,
+                RetrainJobId = retrainJobId,
+                DatasetVersion = datasetVersion,
+                UpdatedAt = DateTime.UtcNow
+            });
+        }
+
+        public async Task<string> CreateDatasetVersionAsync(EvnHanoi.DigitizationService.Models.OcrModule.OcrTrainingDatasetVersion version)
+        {
+            version.Id = EvnHanoi.Infrastructure.Database.UuidHelper.NewUuid();
+            var sql = @"
+                INSERT INTO OCR_TRAINING_DATASET_VERSION (ID, VERSION_LABEL, RECORD_COUNT, EXPORT_FILE_PATH, EXPORT_BUCKET, CREATED_DATE)
+                VALUES (:Id, :VersionLabel, :RecordCount, :ExportFilePath, :ExportBucket, SYSTIMESTAMP)";
+
+            await _connection.ExecuteAsync(sql, new
+            {
+                version.Id,
+                version.VersionLabel,
+                version.RecordCount,
+                version.ExportFilePath,
+                version.ExportBucket
+            });
+
+            return version.Id;
+        }
+
+        public async Task<List<EvnHanoi.DigitizationService.Models.OcrModule.OcrTrainingDatasetVersion>> GetDatasetVersionsAsync()
+        {
+            var sql = @"
+                SELECT ID AS Id, VERSION_LABEL AS VersionLabel, RECORD_COUNT AS RecordCount,
+                       EXPORT_FILE_PATH AS ExportFilePath, EXPORT_BUCKET AS ExportBucket, CREATED_DATE AS CreatedDate
+                FROM OCR_TRAINING_DATASET_VERSION
+                ORDER BY CREATED_DATE DESC";
+
+            return (await _connection.QueryAsync<EvnHanoi.DigitizationService.Models.OcrModule.OcrTrainingDatasetVersion>(sql)).ToList();
+        }
+
+        public async Task<List<OcrTrainingData>> GetForExportAsync(string? datasetVersion)
+        {
+            var where = string.IsNullOrWhiteSpace(datasetVersion) ? "WHERE TRAINING_STATUS = 'Verified'" : "WHERE DATASET_VERSION = :DatasetVersion";
+            var sql = $@"
+                SELECT ID AS {nameof(OcrTrainingData.Id)}, FILE_NAME AS {nameof(OcrTrainingData.FileName)},
+                       FILE_PATH AS {nameof(OcrTrainingData.FilePath)}, BUCKET_NAME AS {nameof(OcrTrainingData.BucketName)},
+                       DOCUMENT_TYPE AS {nameof(OcrTrainingData.DocumentType)}, LABEL_TEXT AS {nameof(OcrTrainingData.LabelText)},
+                       FIELD_LABELS_JSON AS {nameof(OcrTrainingData.FieldLabelsJson)},
+                       CASE IS_VERIFIED WHEN 1 THEN 1 ELSE 0 END AS {nameof(OcrTrainingData.IsVerified)},
+                       DATASET_VERSION AS {nameof(OcrTrainingData.DatasetVersion)}
+                FROM OCR_TRAINING_DATA {where}
+                ORDER BY UPLOADED_AT DESC";
+
+            return (await _connection.QueryAsync<OcrTrainingData>(sql, new { DatasetVersion = datasetVersion })).ToList();
+        }
     }
 }
