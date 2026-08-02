@@ -222,5 +222,92 @@ public class DocumentDigitizationRepository : IDocumentDigitizationRepository
         return rows > 0;
     }
 
+    public async Task<(IEnumerable<EvnHanoi.EquipmentService.Core.DTOs.OcrJobListItemDto> items, int totalCount)> GetJobsPagedAsync(
+        EvnHanoi.EquipmentService.Core.DTOs.OcrJobListFilter filter)
+    {
+        EnsureOpen();
+
+        var conditions = new List<string> { "ocr.IS_DELETED = 0" };
+        var parameters = new DynamicParameters();
+
+        if (!string.IsNullOrWhiteSpace(filter.Status))
+        {
+            conditions.Add("ocr.STATUS = :Status");
+            parameters.Add("Status", filter.Status);
+        }
+        if (!string.IsNullOrWhiteSpace(filter.Phase))
+        {
+            conditions.Add("ocr.PHASE = :Phase");
+            parameters.Add("Phase", filter.Phase);
+        }
+        if (!string.IsNullOrWhiteSpace(filter.Keyword))
+        {
+            conditions.Add("LOWER(d.NAME) LIKE :Keyword");
+            parameters.Add("Keyword", $"%{filter.Keyword.ToLower().Trim()}%");
+        }
+        if (filter.FromDate.HasValue)
+        {
+            conditions.Add("ocr.CREATED_DATE >= :FromDate");
+            parameters.Add("FromDate", filter.FromDate.Value);
+        }
+        if (filter.ToDate.HasValue)
+        {
+            conditions.Add("ocr.CREATED_DATE <= :ToDate");
+            parameters.Add("ToDate", filter.ToDate.Value);
+        }
+
+        var whereClause = string.Join(" AND ", conditions);
+
+        var countSql = $@"
+            SELECT COUNT(1)
+            FROM DOCUMENT_OCR_PROGRESS ocr
+            JOIN DOCUMENTS d ON d.ID = ocr.DOCUMENT_ID
+            WHERE {whereClause}";
+
+        var totalCount = Convert.ToInt32(await _connection.ExecuteScalarAsync(countSql, parameters));
+        if (totalCount == 0)
+        {
+            return (Enumerable.Empty<EvnHanoi.EquipmentService.Core.DTOs.OcrJobListItemDto>(), 0);
+        }
+
+        var offset = (filter.Page - 1) * filter.PageSize;
+        parameters.Add("Offset", offset);
+        parameters.Add("PageSize", filter.PageSize);
+
+        var listSql = $@"
+            SELECT
+                ocr.ID AS ProgressId,
+                ocr.DOCUMENT_ID AS DocumentId,
+                ocr.DOCUMENT_VERSION_ID AS DocumentVersionId,
+                d.NAME AS DocumentName,
+                dt.NAME AS DocumentTypeName,
+                d.DOSSIER_ID AS DossierId,
+                infra.NAME AS DossierInfrastructureName,
+                infra.CODE AS DossierInfrastructureCode,
+                ext.EQUIPMENT_ID AS EquipmentId,
+                eq.Name AS EquipmentName,
+                ocr.PHASE AS Phase,
+                ocr.STATUS AS Status,
+                ocr.PROGRESS AS Progress,
+                ocr.CURRENT_PAGE AS CurrentPage,
+                ocr.TOTAL_PAGES AS TotalPages,
+                ocr.ERROR_MESSAGE AS ErrorMessage,
+                ocr.CREATED_DATE AS CreatedDate,
+                ocr.MODIFIED_DATE AS ModifiedDate
+            FROM DOCUMENT_OCR_PROGRESS ocr
+            JOIN DOCUMENTS d ON d.ID = ocr.DOCUMENT_ID
+            LEFT JOIN DOCUMENT_TYPES dt ON dt.ID = d.DOCUMENT_TYPE_ID
+            LEFT JOIN DOSSIERS dos ON dos.Id = d.DOSSIER_ID
+            LEFT JOIN INFRASTRUCTURE infra ON infra.ID = dos.InfrastructureId
+            LEFT JOIN DOCUMENT_EXTRACTION_RESULTS ext ON ext.OCR_PROGRESS_ID = ocr.ID AND ext.IS_DELETED = 0
+            LEFT JOIN Equipments eq ON eq.Id = ext.EQUIPMENT_ID
+            WHERE {whereClause}
+            ORDER BY ocr.CREATED_DATE DESC
+            OFFSET :Offset ROWS FETCH NEXT :PageSize ROWS ONLY";
+
+        var items = await _connection.QueryAsync<EvnHanoi.EquipmentService.Core.DTOs.OcrJobListItemDto>(listSql, parameters);
+        return (items, totalCount);
+    }
+
     private void EnsureOpen() => _connection.EnsureOpen();
 }
