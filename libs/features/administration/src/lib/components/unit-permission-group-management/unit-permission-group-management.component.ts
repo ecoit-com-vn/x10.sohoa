@@ -2,7 +2,6 @@ import { Component, OnInit, signal, computed } from '@angular/core';
 import {
   DeleteConfirmDialogComponent,
   EcoPaginatorComponent,
-  EcoInputTreeSelectComponent,
   WfBreadcrumbComponent
 } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
@@ -10,6 +9,7 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { DialogModule } from 'primeng/dialog';
 import { ToastModule } from 'primeng/toast';
+import { SelectModule } from 'primeng/select';
 import { Menu, MenuModule } from 'primeng/menu';
 import { MenuItem, MessageService, TreeNode } from 'primeng/api';
 import { TreeSelectModule } from 'primeng/treeselect';
@@ -26,11 +26,11 @@ import { buildMenuPermissionTree as buildMenuPermissionTreeFromLookup } from '..
     FormsModule,
     DialogModule,
     ToastModule,
+    SelectModule,
     MenuModule,
     TreeSelectModule,
     WfBreadcrumbComponent,
     EcoPaginatorComponent,
-    EcoInputTreeSelectComponent,
     DeleteConfirmDialogComponent
   ],
   providers: [MessageService],
@@ -39,6 +39,10 @@ import { buildMenuPermissionTree as buildMenuPermissionTreeFromLookup } from '..
 })
 export class UnitPermissionGroupManagement implements OnInit {
   organizationUnits = signal<any[]>([]);
+  organizationUnitFilterOptions = computed(() => [
+    { id: null, name: '-- Tất cả đơn vị --' },
+    ...this.organizationUnits()
+  ]);
   filterOrganizationUnitId = signal<number | null>(null);
   filterIsActive = signal<boolean | null>(null);
   selectedOrganizationUnitIds = signal<number[]>([]);

@@ -3,7 +3,7 @@
 
     <div class="list-toolbar standard-page-toolbar">
         <div class="toolbar-left">
-            <wf-breadcrumb />
+            <wf-breadcrumb [customItems]="[{ label: 'Quản trị hệ thống' }, { label: 'Nhóm quyền hệ thống', url: '/administration/system-permission-groups' }]" />
         </div>
         <div class="toolbar-right">
             <button *ngIf="authService.hasPermission('SYSTEM_PERMISSION_GROUP_CREATE') || authService.hasPermission('SYSTEM_PERMISSION_GROUP_MANAGE')" class="btn-green" (click)="onAddNew()">
@@ -20,11 +20,11 @@
             <div class="standard-search-card">
                 <div class="standard-search-grid">
                     <div class="standard-search-field">
-                        <label>Từ khóa</label>
+                        <label class="search-field-label">Từ khóa</label>
                         <input type="text" class="wf-search-input" placeholder="Tìm theo mã hoặc tên nhóm quyền..." [ngModel]="searchKeyword()" (ngModelChange)="searchKeyword.set($event)" (keyup.enter)="onSearch()" />
                     </div>
                     <div class="standard-search-field">
-                        <label>Trạng thái</label>
+                        <label class="search-field-label">Trạng thái</label>
           <select class="wf-select" [ngModel]="filterIsActive()" (ngModelChange)="onStatusFilterChange($event)">
                           <option [ngValue]="null">-- Tất cả trạng thái --</option>
                           <option [ngValue]="true">Hoạt động</option>

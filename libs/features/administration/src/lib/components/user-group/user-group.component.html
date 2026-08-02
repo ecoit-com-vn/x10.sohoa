@@ -3,7 +3,7 @@
   
   <div class="list-toolbar unit-page-toolbar standard-page-toolbar">
     <div class="toolbar-left">
-      <wf-breadcrumb />
+      <wf-breadcrumb [customItems]="[{ label: 'Quản trị hệ thống' }, { label: 'Nhóm người dùng', url: '/administration/user-groups' }]" />
     </div>
     <div class="toolbar-right">
       <button *ngIf="authService.hasPermission('USER_GROUP_CREATE')" class="btn-green" (click)="onAddNew()">

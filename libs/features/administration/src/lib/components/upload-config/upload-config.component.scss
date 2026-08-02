@@ -1,18 +1,26 @@
+@keyframes shimmer {
+    0% {
+        background-position: -200% 0;
+    }
+    100% {
+        background-position: 200% 0;
+    }
+}
 
-    @keyframes shimmer {
-      0% { background-position: -200% 0; }
-      100% { background-position: 200% 0; }
-    }
-    .skeleton-shimmer {
-      background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
-      background-size: 200% 100%;
-      animation: shimmer 1.5s infinite;
-    }
+.skeleton-shimmer {
+    background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+}
 
-    .upload-config-actions > .act-btn:not(.act-more) {
-      display: none;
-    }
+.upload-config-actions>.act-btn:not(.act-more) {
+    display: none;
+}
 
-    .col-hd > .act-btn {
-      display: none;
-    }
+.col-hd>.act-btn {
+    display: none;
+}
+
+:host ::ng-deep .upload-config-unit-select .p-select-label {
+    font-size: 0.85rem;
+}
