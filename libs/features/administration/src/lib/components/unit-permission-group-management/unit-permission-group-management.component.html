@@ -3,7 +3,7 @@
 
     <div class="list-toolbar standard-page-toolbar">
         <div class="toolbar-left">
-            <wf-breadcrumb [customItems]="[{ label: 'Quản trị hệ thống' }, { label: 'Nhóm quyền đơn vị', url: '/administration/unit-permission-groups' }]" />
+            <wf-breadcrumb />
         </div>
         <div class="toolbar-right">
             <button *ngIf="authService.hasPermission('UNIT_PERMISSION_GROUP_MANAGE')" class="btn-green" (click)="onAddNew()">
@@ -24,9 +24,10 @@
                         <label class="search-field-label">Từ khóa</label>
                         <input type="text" class="wf-search-input" placeholder="Tìm theo mã hoặc tên nhóm quyền..." [ngModel]="searchKeyword()" (ngModelChange)="searchKeyword.set($event)" (keyup.enter)="onSearch()" />
                     </div>
-                    <div class="standard-search-field">
+                    <div class="standard-search-field" style="gap: 0px;">
                         <label class="search-field-label">Đơn vị</label>
-                        <p-select [options]="organizationUnitFilterOptions()" [ngModel]="filterOrganizationUnitId()" (ngModelChange)="onOrganizationUnitFilterChange($event)" optionLabel="name" optionValue="id" [filter]="true" filterBy="name" filterPlaceholder="Tìm theo tên đơn vị..." styleClass="wf-select w-full upload-config-unit-select" />
+                        <eco-input-tree-select [showLabel]="false" placeholder="-- Tất cả đơn vị --" [nodes]="primengOrgUnitTree()" [ngModel]="filterOrganizationUnitId()" (ngModelChange)="onOrganizationUnitFilterChange($event)" [showClear]="true" [enableSearch]="true" [border]="true">
+                        </eco-input-tree-select>
                     </div>
                     <div class="standard-search-field">
                         <label class="search-field-label">Trạng thái</label>
