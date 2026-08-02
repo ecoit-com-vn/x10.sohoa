@@ -3,7 +3,7 @@
 
     <div class="list-toolbar standard-page-toolbar">
         <div class="toolbar-left">
-            <wf-breadcrumb [customItems]="[{ label: 'Quản trị hệ thống' }, { label: 'Nhóm quyền hệ thống', url: '/administration/system-permission-groups' }]" />
+            <wf-breadcrumb />
         </div>
         <div class="toolbar-right">
             <button *ngIf="authService.hasPermission('SYSTEM_PERMISSION_GROUP_CREATE') || authService.hasPermission('SYSTEM_PERMISSION_GROUP_MANAGE')" class="btn-green" (click)="onAddNew()">
@@ -12,13 +12,13 @@
         </div>
     </div>
 
-    <div>
+    <div class="wf-card">
 
         <!-- MÀN HÌNH DANH SÁCH -->
         <div *ngIf="currentView() === 'list' || currentView() === 'add' || currentView() === 'edit'" class="animate-fade-in">
 
             <div class="standard-search-card">
-                <div class="standard-search-grid">
+                <div class="toolbar-left">
                     <div class="standard-search-field">
                         <label class="search-field-label">Từ khóa</label>
                         <input type="text" class="wf-search-input" placeholder="Tìm theo mã hoặc tên nhóm quyền..." [ngModel]="searchKeyword()" (ngModelChange)="searchKeyword.set($event)" (keyup.enter)="onSearch()" />
@@ -31,19 +31,18 @@
                           <option [ngValue]="false">Ngừng hoạt động</option>
                         </select>
                     </div>
-                </div>
-                <div class="standard-search-actions">
+                    <div class="standard-search-actions">
                     <button type="button" class="btn-outlined" (click)="onResetSearch()">
                         <i class="pi pi-refresh"></i> Làm mới
                     </button>
                     <button class="btn-save" (click)="onSearch()">
                         <i class="pi pi-check"></i> Áp dụng
                     </button>
+                    </div>
                 </div>
             </div>
 
-            <div class="wf-card standard-list-card">
-                <!-- Table -->
+            <!-- Table -->
                 <div class="wf-table-wrap">
                     <table class="wf-table system-permission-group-table">
                         <thead>
@@ -138,8 +137,7 @@
                     </table>
                 </div>
 
-                <app-eco-paginator *ngIf="totalCount() > 0 && !loading()" [currentPage]="currentPage()" [pageSize]="pageSize()" [totalRecords]="totalCount()" (pageChange)="goToPage($event)" (pageSizeChange)="onPageSizeChange($event)" />
-            </div>
+            <app-eco-paginator *ngIf="totalCount() > 0 && !loading()" [currentPage]="currentPage()" [pageSize]="pageSize()" [totalRecords]="totalCount()" (pageChange)="goToPage($event)" (pageSizeChange)="onPageSizeChange($event)" />
         </div>
 
         <p-menu #actionMenu [model]="actionMenuItems" [popup]="true" appendTo="body" styleClass="row-action-menu"></p-menu>

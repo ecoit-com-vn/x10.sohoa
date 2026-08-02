@@ -1,6 +1,7 @@
 import { Component, OnInit, signal, computed } from '@angular/core';
 import {
   DeleteConfirmDialogComponent,
+  EcoInputTreeSelectComponent,
   EcoPaginatorComponent,
   WfBreadcrumbComponent
 } from '@sohoa.frontend/shared/layout';
@@ -30,6 +31,7 @@ import { buildMenuPermissionTree as buildMenuPermissionTreeFromLookup } from '..
     MenuModule,
     TreeSelectModule,
     WfBreadcrumbComponent,
+    EcoInputTreeSelectComponent,
     EcoPaginatorComponent,
     DeleteConfirmDialogComponent
   ],

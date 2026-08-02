@@ -85,118 +85,99 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
           <span class="tab-badge" *ngIf="getTabBadgeCount(tab)">{{ getTabBadgeCount(tab) }}</span>
         </button>
       </div>
-
-
-
-      <div class="list-toolbar">
-
+      <div class="standard-search-card">
         <div class="toolbar-left">
+          <div class="standard-search-field">
+            <label class="search-field-label">Từ khóa</label>
+            <input
+              type="text"
+              class="wf-search-input"
+              placeholder="Tìm kiếm theo thông tin hồ sơ..."
+              [(ngModel)]="searchKeyword"
+              (keyup.enter)="onApplyFilters()" />
+          </div>
 
-          <input
+          <div class="standard-search-field">
+            <label class="search-field-label">Loại hồ sơ</label>
+            <select class="wf-select" [ngModel]="filterDossierTypeId()" (ngModelChange)="onDossierTypeFilterChange($event)">
+              <option [ngValue]="null">-- Tất cả loại hồ sơ --</option>
+              <option *ngFor="let item of dossierTypes()" [value]="item.id">{{ item.name }}</option>
+            </select>
+          </div>
 
-            type="text"
-
-            class="wf-search-input"
-
-            placeholder="Tìm kiếm theo thông tin hồ sơ..."
-
-            [(ngModel)]="searchKeyword"
-
-            (keyup.enter)="onApplyFilters()"
-
-          />
-
-          <select class="wf-select" [ngModel]="filterDossierTypeId()" (ngModelChange)="onDossierTypeFilterChange($event)">
-
-            <option [ngValue]="null">-- Tất cả loại hồ sơ --</option>
-
-            <option *ngFor="let item of dossierTypes()" [value]="item.id">{{ item.name }}</option>
-
-          </select>
-
-          <div class="searchable-select">
-            <button type="button" class="wf-select searchable-select-trigger" (click)="toggleInfrastructureDropdown()">
-              <span>{{ selectedInfrastructureLabel() }}</span>
-              <i class="pi pi-chevron-down"></i>
-            </button>
-
-            <div class="searchable-select-panel" *ngIf="isInfrastructureDropdownOpen()">
-              <input
-                type="text"
-                class="searchable-select-input"
-                placeholder="Tìm trên trạm/đường dây..."
-                [ngModel]="infrastructureSearchKeyword()"
-                (ngModelChange)="infrastructureSearchKeyword.set($event)" />
-              <button type="button" class="searchable-select-option" (click)="selectInfrastructure(null)">
-                -- Tất cả trạm/đường dây --
+          <div class="standard-search-field">
+            <label class="search-field-label">Trạm / Đường dây</label>
+            <div class="searchable-select">
+              <button type="button" class="wf-select searchable-select-trigger" (click)="toggleInfrastructureDropdown()">
+                <span>{{ selectedInfrastructureLabel() }}</span>
+                <i class="pi pi-chevron-down"></i>
               </button>
-              <button
-                type="button"
-                class="searchable-select-option"
-                *ngFor="let item of filteredInfrastructures()"
-                (click)="selectInfrastructure(item.id)">
-                {{ item.name }}
-              </button>
-              <div class="searchable-select-empty" *ngIf="filteredInfrastructures().length === 0">Không có dữ liệu</div>
+
+              <div class="searchable-select-panel" *ngIf="isInfrastructureDropdownOpen()">
+                <input
+                  type="text"
+                  class="searchable-select-input"
+                  placeholder="Tìm trên trạm/đường dây..."
+                  [ngModel]="infrastructureSearchKeyword()"
+                  (ngModelChange)="infrastructureSearchKeyword.set($event)" />
+                <button type="button" class="searchable-select-option" (click)="selectInfrastructure(null)">
+                  -- Tất cả trạm/đường dây --
+                </button>
+                <button
+                  type="button"
+                  class="searchable-select-option"
+                  *ngFor="let item of filteredInfrastructures()"
+                  (click)="selectInfrastructure(item.id)">
+                  {{ item.name }}
+                </button>
+                <div class="searchable-select-empty" *ngIf="filteredInfrastructures().length === 0">Không có dữ liệu</div>
+              </div>
             </div>
           </div>
 
-          <div class="searchable-select">
-            <button
-              type="button"
-              class="wf-select searchable-select-trigger"
-              [disabled]="!filterInfrastructureId()"
-              (click)="toggleEquipmentDropdown()">
-              <span>{{ selectedEquipmentLabel() }}</span>
-              <i class="pi pi-chevron-down"></i>
-            </button>
-
-            <div class="searchable-select-panel" *ngIf="isEquipmentDropdownOpen()">
-              <input
-                type="text"
-                class="searchable-select-input"
-                placeholder="Tìm theo mã, tên thiết bị..."
-                [ngModel]="equipmentSearchKeyword()"
-                (ngModelChange)="equipmentSearchKeyword.set($event)" />
-              <button type="button" class="searchable-select-option" (click)="selectEquipment(null)">
-                -- Tất cả thiết bị --
-              </button>
+          <div class="standard-search-field">
+            <label class="search-field-label">Thiết bị</label>
+            <div class="searchable-select">
               <button
                 type="button"
-                class="searchable-select-option"
-                *ngFor="let item of filteredEquipments()"
-                (click)="selectEquipment(item.id)">
-                {{ item.name }}
+                class="wf-select searchable-select-trigger"
+                [disabled]="!filterInfrastructureId()"
+                (click)="toggleEquipmentDropdown()">
+                <span>{{ selectedEquipmentLabel() }}</span>
+                <i class="pi pi-chevron-down"></i>
               </button>
-              <div class="searchable-select-empty" *ngIf="filteredEquipments().length === 0">Không có dữ liệu</div>
+
+              <div class="searchable-select-panel" *ngIf="isEquipmentDropdownOpen()">
+                <input
+                  type="text"
+                  class="searchable-select-input"
+                  placeholder="Tìm theo mã, tên thiết bị..."
+                  [ngModel]="equipmentSearchKeyword()"
+                  (ngModelChange)="equipmentSearchKeyword.set($event)" />
+                <button type="button" class="searchable-select-option" (click)="selectEquipment(null)">
+                  -- Tất cả thiết bị --
+                </button>
+                <button
+                  type="button"
+                  class="searchable-select-option"
+                  *ngFor="let item of filteredEquipments()"
+                  (click)="selectEquipment(item.id)">
+                  {{ item.name }}
+                </button>
+                <div class="searchable-select-empty" *ngIf="filteredEquipments().length === 0">Không có dữ liệu</div>
+              </div>
             </div>
           </div>
 
-          <button (click)="onApplyFilters()" class="btn-tim">
-
-            <i class="pi pi-check"></i> Áp dụng
-
-          </button>
-
-          <button (click)="onResetFilters()" class="btn-outlined">
-            <i class="pi pi-refresh"></i> Làm mới
-          </button>
-
+          <div class="standard-search-actions">
+            <button type="button" class="btn-outlined" (click)="onResetFilters()">
+              <i class="pi pi-refresh"></i> Làm mới
+            </button>
+            <button type="button" class="btn-save" (click)="onApplyFilters()">
+              <i class="pi pi-check"></i> Áp dụng
+            </button>
+          </div>
         </div>
-
-        <div class="toolbar-right" *ngIf="isCreatorMenu() && activeTab() === 'draft' && canCreateDossier()">
-          <input type="file" #fileInput style="display: none;" (change)="onFileSelected($event)" accept=".xlsx" />
-          <button (click)="onExportTemplate()" class="btn-outlined" style="margin-right: 8px;">
-            <i class="pi pi-download"></i> Xuất mẫu import
-          </button>
-          <button (click)="fileInput.click()" class="btn-outlined" style="margin-right: 8px;">
-            <i class="pi pi-upload"></i> Import
-          </button>
-          <button *ngIf="!isDigitization()" (click)="onCreateNew()" class="btn-green">
-            <i class="pi pi-plus"></i> Tạo hồ sơ mới
-          </button>
-        </div>
-
       </div>
 
 
@@ -535,9 +516,6 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
         <button class="btn-small"
                 [class.btn-save]="isRejectLabel(pendingQuickActionMeta()?.label) || isApproveLabel(pendingQuickActionMeta()?.label)"
                 [class.btn-green]="!isRejectLabel(pendingQuickActionMeta()?.label) && !isApproveLabel(pendingQuickActionMeta()?.label)"
-                [style.background-color]="isRejectLabel(pendingQuickActionMeta()?.label) ? '#4790e9' : null"
-                [style.border-color]="isRejectLabel(pendingQuickActionMeta()?.label) ? '#4790e9' : null"
-                [style.color]="isRejectLabel(pendingQuickActionMeta()?.label) ? '#ffffff' : null"
                 (click)="confirmQuickAction()"
                 [disabled]="quickActionSubmitting() || quickActionLoading() || quickActionUsersLoading()">
           <i class="pi pi-spin pi-spinner" *ngIf="quickActionSubmitting()"></i>

@@ -16,24 +16,28 @@
     <div class="standard-search-card">
       <div class="toolbar-left">
         <!-- Lọc theo Trạng thái -->
-        <select 
-          class="wf-select" 
-          [ngModel]="selectedStatus()" 
-          (ngModelChange)="selectedStatus.set($event)" 
-          style="width: 160px; height: 36px; padding: 4px 10px;">
-          <option value="">-- Tất cả trạng thái --</option>
-          <option value="Active">Đang phân bổ</option>
-          <option value="Revoked">Thu hồi</option>
-        </select>
+        <div class="standard-search-field" style="width: 160px;">
+          <label class="search-field-label">Trạng thái</label>
+          <select
+            class="wf-select"
+            [ngModel]="selectedStatus()"
+            (ngModelChange)="selectedStatus.set($event)">
+            <option value="">-- Tất cả trạng thái --</option>
+            <option value="Active">Đang phân bổ</option>
+            <option value="Revoked">Thu hồi</option>
+          </select>
+        </div>
 
         <!-- Tìm kiếm từ khóa -->
-        <input 
-          type="text" 
-          class="wf-input" 
-          [ngModel]="searchKeyword()" 
-          (ngModelChange)="searchKeyword.set($event)" 
-          placeholder="Tìm kiếm thư mục, người xử lý..." 
-          style="width: 260px; height: 36px;" />
+        <div class="standard-search-field" style="width: 260px;">
+          <label class="search-field-label">Từ khóa</label>
+          <input
+            type="text"
+            class="wf-input"
+            [ngModel]="searchKeyword()"
+            (ngModelChange)="searchKeyword.set($event)"
+            placeholder="Tìm kiếm thư mục, người xử lý..." />
+        </div>
 
         <div class="standard-search-actions">
           <button class="btn-outlined" (click)="onResetSearch()">

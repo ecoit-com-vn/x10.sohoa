@@ -11,9 +11,9 @@
     <span class="bc-current">Cài đặt tổ chức</span>
 
   -->
-    <div class="list-toolbar unit-page-toolbar standard-page-toolbar">
+    <div class="list-toolbar standard-page-toolbar">
         <div class="toolbar-left">
-            <wf-breadcrumb [customItems]="[{ label: 'Quản trị hệ thống' }, { label: 'Cài đặt tổ chức', url: '/administration/organization-settings' }]" />
+            <wf-breadcrumb />
         </div>
         <div class="toolbar-right">
             <button *ngIf="authService.hasPermission('ORGANIZATION_CREATE')" class="btn-green" (click)="onAddNew()">
@@ -22,41 +22,36 @@
         </div>
     </div>
 
-    <div class="unit-search-card">
+    <div class="wf-card">
 
         <!-- MÀN HÌNH DANH SÁCH -->
         <div *ngIf="currentView() === 'list' || currentView() === 'add' || currentView() === 'edit'" class="animate-fade-in">
-            <div class="dossier-search-bar unit-search-bar">
-                <div class="search-form-grid unit-search-grid">
-                    <div class="search-form-item">
+            <div class="standard-search-card">
+                <div class="toolbar-left">
+                    <div class="standard-search-field">
                         <label class="search-field-label">Từ khóa</label>
                         <input type="text" class="wf-search-input" placeholder="Tìm theo mã, tên đơn vị..." [ngModel]="searchKeyword()" (ngModelChange)="searchKeyword.set($event)" (keyup.enter)="onSearch()" />
                     </div>
 
-                    <div class="search-form-item">
+                    <div class="standard-search-field">
                         <label class="search-field-label">Trạng thái</label>
-                        <select class="wf-input" [ngModel]="searchStatus()" (ngModelChange)="onStatusFilterChange($event)">
+                        <select class="wf-select" [ngModel]="searchStatus()" (ngModelChange)="onStatusFilterChange($event)">
               <option value="">-- Tất cả trạng thái --</option>
               <option value="active">Hoạt động</option>
               <option value="inactive">Ngừng hoạt động</option>
             </select>
                     </div>
-                </div>
-
-                <div class="unit-search-actions">
+                    <div class="standard-search-actions">
                     <button type="button" class="btn-outlined" (click)="onResetSearch()">
             <i class="pi pi-refresh"></i> Làm mới
           </button>
                     <button type="button" class="btn-save" (click)="onSearch()">
             <i class="pi pi-check"></i> Áp dụng
           </button>
+                    </div>
                 </div>
             </div>
-        </div>
-    </div>
 
-    <div class="wf-card unit-list-card">
-        <div *ngIf="currentView() === 'list' || currentView() === 'add' || currentView() === 'edit'" class="animate-fade-in">
             <!-- Tree List Table -->
             <div class="wf-table-wrap">
                 <table class="wf-table">

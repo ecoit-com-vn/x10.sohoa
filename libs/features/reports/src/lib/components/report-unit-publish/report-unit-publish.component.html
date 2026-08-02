@@ -7,24 +7,28 @@
     <!-- Filters Toolbar -->
     <div class="list-toolbar mb-4" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 12px; gap: 12px; flex-wrap: wrap;">
       <div class="toolbar-left" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-        <input
-          type="text"
-          class="wf-input"
-          [ngModel]="searchKeyword()"
-          (ngModelChange)="searchKeyword.set($event)"
-          placeholder="Tìm theo tên hoặc mã báo cáo..."
-          style="width: 280px;" />
+        <div class="standard-search-field" style="width: 280px;">
+          <label class="search-field-label">Từ khóa</label>
+          <input
+            type="text"
+            class="wf-input"
+            [ngModel]="searchKeyword()"
+            (ngModelChange)="searchKeyword.set($event)"
+            placeholder="Tìm theo tên hoặc mã báo cáo..." />
+        </div>
 
-        <select
-          class="wf-input"
-          [ngModel]="filterStatus()"
-          (ngModelChange)="filterStatus.set($event)"
-          style="width: 180px;">
-          <option value="ALL">Tất cả trạng thái</option>
-          <option value="PUBLISHED">Công bố</option>
-          <option value="DRAFT">Lưu nháp</option>
-          <option value="UNCONFIGURED">Chưa cấu hình</option>
-        </select>
+        <div class="standard-search-field" style="width: 180px;">
+          <label class="search-field-label">Trạng thái</label>
+          <select
+            class="wf-input"
+            [ngModel]="filterStatus()"
+            (ngModelChange)="filterStatus.set($event)">
+            <option value="ALL">Tất cả trạng thái</option>
+            <option value="PUBLISHED">Công bố</option>
+            <option value="DRAFT">Lưu nháp</option>
+            <option value="UNCONFIGURED">Chưa cấu hình</option>
+          </select>
+        </div>
       </div>
     </div>
 

@@ -7,23 +7,27 @@
     <!-- Filters Toolbar -->
     <div class="list-toolbar mb-4" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 12px; gap: 12px; flex-wrap: wrap;">
       <div class="toolbar-left" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-        <input 
-          type="text" 
-          class="wf-input" 
-          [ngModel]="searchKeyword()" 
-          (ngModelChange)="searchKeyword.set($event)" 
-          placeholder="Tìm theo mã hoặc tên..." 
-          style="width: 260px;" />
+        <div class="standard-search-field" style="width: 260px;">
+          <label class="search-field-label">Từ khóa</label>
+          <input
+            type="text"
+            class="wf-input"
+            [ngModel]="searchKeyword()"
+            (ngModelChange)="searchKeyword.set($event)"
+            placeholder="Tìm theo mã hoặc tên..." />
+        </div>
 
-        <select 
-          class="wf-input" 
-          [ngModel]="filterStatus()" 
-          (ngModelChange)="filterStatus.set($event)" 
-          style="width: 180px;">
-          <option value="ALL">Tất cả trạng thái</option>
-          <option value="ACTIVE">Hoạt động</option>
-          <option value="INACTIVE">Ngừng hoạt động</option>
-        </select>
+        <div class="standard-search-field" style="width: 180px;">
+          <label class="search-field-label">Trạng thái</label>
+          <select
+            class="wf-input"
+            [ngModel]="filterStatus()"
+            (ngModelChange)="filterStatus.set($event)">
+            <option value="ALL">Tất cả trạng thái</option>
+            <option value="ACTIVE">Hoạt động</option>
+            <option value="INACTIVE">Ngừng hoạt động</option>
+          </select>
+        </div>
       </div>
       <div class="toolbar-right" *ngIf="authService.hasPermission('REPORT_GROUP_CREATE')">
         <button class="btn-green btn-small" (click)="showCreatePopup()">
