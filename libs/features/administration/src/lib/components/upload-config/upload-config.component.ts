@@ -1,7 +1,6 @@
 import { Component, OnInit, signal, computed } from '@angular/core';
 import {
   DeleteConfirmDialogComponent,
-  EcoInputTreeSelectComponent,
   EcoPaginatorComponent,
   WfBreadcrumbComponent
 } from '@sohoa.frontend/shared/layout';
@@ -29,7 +28,6 @@ import { AuthService } from '@sohoa.frontend/shared/core';
     SelectModule,
     MenuModule,
     WfBreadcrumbComponent,
-    EcoInputTreeSelectComponent,
     EcoPaginatorComponent,
     DeleteConfirmDialogComponent
   ],
@@ -41,34 +39,16 @@ export class UploadConfigComponent implements OnInit {
   configs = signal<any[]>([]);
   filteredConfigs = signal<any[]>([]); // computed instead
   searchKeyword = signal<string>('');
-  searchTypeFile = signal<string>('');
   appliedKeyword = signal<string>('');
-  appliedTypeFile = signal<string>('');
   searchUnitId = signal<number | null>(null);
-  searchStatus = signal<boolean | null>(null);
+  searchStatus = signal<string>('');
   currentPage = signal(1);
   pageSize = signal(10);
   orgUnits = signal<any[]>([]);
-<<<<<<< HEAD
   orgUnitFilterOptions = computed(() => [
     { id: null, name: '-- Tất cả đơn vị --' },
     ...this.orgUnits()
   ]);
-=======
-  orgUnitTree = computed(() => this.buildOrgTree(this.orgUnits()));
-  primengOrgUnitTree = computed(() => {
-    const buildPrimeNGNodes = (nodes: any[]): any[] => {
-      return nodes.map((n) => ({
-        key: n.id,
-        label: n.name,
-        data: n,
-        children: n.children && n.children.length ? buildPrimeNGNodes(n.children) : []
-      }));
-    };
-
-    return buildPrimeNGNodes(this.orgUnitTree());
-  });
->>>>>>> 09a1593140c4999c5f83c49e2b9b9a2e0e9ef4f1
 
   displayDialog = signal<boolean>(false);
   dialogHeader = signal<string>('');
@@ -91,34 +71,12 @@ export class UploadConfigComponent implements OnInit {
   loading = signal<boolean>(false);
   saving = signal<boolean>(false);
   actionMenuItems: MenuItem[] = [];
-  serverErrors = signal<any>({});
-  formSubmitted = signal<boolean>(false);
-
-  configNameError = computed(() => {
-    if (this.formSubmitted() && !this.currentConfig().name) return 'Tên cấu hình là bắt buộc';
-    return this.serverErrors().name || this.serverErrors().Name || '';
-  });
-
-  configMaxFileSizeMbError = computed(() => {
-    if (this.formSubmitted() && !this.currentConfig().maxFileSizeMb) return 'Dung lượng tối đa là bắt buộc';
-    return this.serverErrors().maxFileSizeMb || this.serverErrors().MaxFileSizeMb || '';
-  });
-
-  configAllowedExtensionsError = computed(() => {
-    if (this.formSubmitted() && !this.currentConfig().allowedExtensions) return 'Định dạng file được phép là bắt buộc';
-    return this.serverErrors().allowedExtensions || this.serverErrors().AllowedExtensions || '';
-  });
-
-  formHasErrors = computed(() => {
-    return !!this.configNameError() || !!this.configMaxFileSizeMbError() || !!this.configAllowedExtensionsError();
-  });
 
   private apiUrl = `${environment.apiGatewayUrl}/api/v1/upload-configs`;
 
   // Computed signal for filteredConfigs
   computedFilteredConfigs = computed(() => {
     const kw = this.appliedKeyword().toLowerCase().trim();
-    const type = this.appliedTypeFile().toLowerCase().trim();
     const unitId = this.searchUnitId();
     const status = this.searchStatus();
     const allConfigs = this.configs() || [];
@@ -127,20 +85,13 @@ export class UploadConfigComponent implements OnInit {
       const matchesKeyword = !kw ||
         (c.name?.toLowerCase().includes(kw) ?? false) ||
         (c.allowedExtensions?.toLowerCase().includes(kw) ?? false);
-<<<<<<< HEAD
 
-=======
-      const matchesTypeFile = !type || 
-        (c.allowedExtensions?.toLowerCase().includes(type) ?? false) || 
-        (c.allowedExtensions?.toLowerCase().includes(type) ?? false);
-        
->>>>>>> 09a1593140c4999c5f83c49e2b9b9a2e0e9ef4f1
       const matchesUnit = unitId === null || unitId === undefined || String(unitId) === 'null' || String(unitId) === '' ||
         c.organizationUnitId === Number(unitId);
 
-      const matchesStatus = status === null || c.isActive === status;
+      const matchesStatus = !status || c.isActive === (status === 'active');
 
-      return matchesKeyword && matchesTypeFile && matchesUnit && matchesStatus;
+      return matchesKeyword && matchesUnit && matchesStatus;
     });
   });
 
@@ -204,17 +155,14 @@ export class UploadConfigComponent implements OnInit {
 
   onSearch() {
     this.appliedKeyword.set(this.searchKeyword().trim());
-    this.appliedTypeFile.set(this.searchTypeFile().trim());
     this.currentPage.set(1);
   }
 
   onResetSearch(): void {
     this.searchKeyword.set('');
     this.appliedKeyword.set('');
-    this.searchTypeFile.set('');
-    this.appliedTypeFile.set('');
     this.searchUnitId.set(null);
-    this.searchStatus.set(null);
+    this.searchStatus.set('');
     this.currentPage.set(1);
     this.loadConfigs();
   }
@@ -225,15 +173,8 @@ export class UploadConfigComponent implements OnInit {
     this.loadConfigs();
   }
 
-  onStatusFilterChange(status: string | boolean | null): void {
-    const normalizedStatus =
-      status === true || status === 'true'
-        ? true
-        : status === false || status === 'false'
-          ? false
-          : null;
-
-    this.searchStatus.set(normalizedStatus);
+  onStatusFilterChange(status: string): void {
+    this.searchStatus.set(status);
     this.currentPage.set(1);
   }
 
@@ -244,22 +185,6 @@ export class UploadConfigComponent implements OnInit {
   onPageSizeChange(pageSize: number): void {
     this.pageSize.set(pageSize);
     this.currentPage.set(1);
-  }
-
-  buildOrgTree(units: any[]): any[] {
-    const map = new Map<number, any>();
-    const roots: any[] = [];
-
-    units.forEach((u) => map.set(u.id, { ...u, children: [] }));
-    map.forEach((node) => {
-      if (node.parentId && map.has(node.parentId)) {
-        map.get(node.parentId)!.children.push(node);
-      } else {
-        roots.push(node);
-      }
-    });
-
-    return roots;
   }
 
   splitExtensions(allowedExtensions: string): string[] {
@@ -276,8 +201,6 @@ export class UploadConfigComponent implements OnInit {
       organizationUnitId: null,
       isActive: true
     });
-    this.formSubmitted.set(false);
-    this.serverErrors.set({});
     this.dialogHeader.set('Thêm mới cấu hình Upload');
     this.displayDialog.set(true);
   }
@@ -324,31 +247,11 @@ export class UploadConfigComponent implements OnInit {
   onEdit(config: any) {
     this.isEdit.set(true);
     this.currentConfig.set({ ...config });
-    this.formSubmitted.set(false);
-    this.serverErrors.set({});
     this.dialogHeader.set('Chỉnh sửa cấu hình Upload');
     this.displayDialog.set(true);
   }
 
-  updateCurrentConfig(field: string, value: any) {
-    this.currentConfig.update(config => ({ ...config, [field]: value }));
-    this.serverErrors.update(errors => {
-      const copy = { ...errors };
-      delete copy[field];
-      const capitalized = field.charAt(0).toUpperCase() + field.slice(1);
-      delete copy[capitalized];
-      return copy;
-    });
-  }
-
   onSaveConfig() {
-    this.formSubmitted.set(true);
-    this.serverErrors.set({});
-
-    if (this.formHasErrors()) {
-      return;
-    }
-
     const configDraft = this.currentConfig();
     if (!configDraft.name || !configDraft.allowedExtensions || !configDraft.maxFileSizeMb) {
       this.messageService.add({ severity: 'error', summary: 'Thiếu thông tin', detail: 'Vui lòng nhập đầy đủ thông tin bắt buộc.' });

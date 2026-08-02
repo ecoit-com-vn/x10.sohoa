@@ -15,30 +15,22 @@
         <!-- Toolbar -->
         <div class="standard-search-card">
             <div class="toolbar-left">
-                <div class="search-form-item">
-                    <label class="search-field-label">Từ khóa</label>
-                    <input type="text" class="wf-search-input" placeholder="Tìm theo tên cấu hình..." [ngModel]="searchKeyword()" (ngModelChange)="searchKeyword.set($event)" (keyup.enter)="onSearch()" />
+                <div class="standard-search-field">
+                    <label>Từ khóa</label>
+                    <input type="text" class="wf-search-input" placeholder="Tìm theo tên cấu hình..." [ngModel]="searchKeyword()" (ngModelChange)="searchKeyword.set($event)" />
                 </div>
-                <div class="search-form-item" style="min-width: 240px; width: 260px;">
-                    <label class="search-field-label">Đơn vị</label>
-                    <eco-input-tree-select [showLabel]="false" placeholder="-- Tất cả đơn vị --" [nodes]="primengOrgUnitTree()" [ngModel]="searchUnitId()" (ngModelChange)="onUnitFilterChange($event)" [showClear]="true" [enableSearch]="true" [border]="true">
-                    </eco-input-tree-select>
+                <div class="standard-search-field">
+                    <label>Đơn vị</label>
+                    <p-select [options]="orgUnitFilterOptions()" [ngModel]="searchUnitId()" (ngModelChange)="onUnitFilterChange($event)" optionLabel="name" optionValue="id" [filter]="true" filterBy="name" filterPlaceholder="Tìm theo tên đơn vị..." styleClass="wf-select w-full upload-config-unit-select" />
                 </div>
-
-                <div class="search-form-item">
-                    <label class="search-field-label">Định dạng file</label>
-                    <input type="text" class="wf-search-input" placeholder="Tìm theo định dạng file..." [ngModel]="searchTypeFile()" (ngModelChange)="searchTypeFile.set($event)" (keyup.enter)="onSearch()" />
-                </div>
-
-                <div class="search-form-item">
-                    <label class="search-field-label">Trạng thái</label>
-                    <select class="wf-select" style="min-width: 220px; height: 38px; padding: 0 12px; border: 1px solid #cbd5e1; border-radius: 6px; background-color: #fff; font-size: 0.875rem; color: #334155; cursor: pointer; outline: none;" [ngModel]="searchStatus()" (ngModelChange)="onStatusFilterChange($event)">
-                        <option [value]="null">-- Tất cả trạng thái --</option>
-                        <option [value]="true">Hoạt động</option>
-                        <option [value]="false">Không hoạt động</option>
+                <div class="standard-search-field">
+                    <label>Trạng thái</label>
+                    <select class="wf-select" [ngModel]="searchStatus()" (ngModelChange)="onStatusFilterChange($event)">
+                        <option value="">Tất cả</option>
+                        <option value="active">Hoạt động</option>
+                        <option value="inactive">Ngừng hoạt động</option>
                     </select>
                 </div>
-
                 <div class="standard-search-actions">
                     <button type="button" class="btn-outlined" (click)="onResetSearch()"><i class="pi pi-refresh"></i> Làm mới</button>
                     <button class="btn-save" (click)="onSearch()"><i class="pi pi-check"></i> Áp dụng</button>
@@ -145,28 +137,27 @@
     <div style="display: flex; flex-direction: column; gap: 14px; padding-top: 10px;">
         <div class="form-group">
             <label class="form-label">Tên cấu hình <span class="required">*</span></label>
-            <span class="field-error" *ngIf="configNameError()">{{ configNameError() }}</span>
-            <input type="text" class="wf-input w-full" [ngModel]="currentConfig().name" (ngModelChange)="updateCurrentConfig('name', $event)" placeholder="Ví dụ: Cấu hình tài liệu, Cấu hình hình ảnh..." [disabled]="saving()" />
+            <input type="text" class="wf-input w-full" [(ngModel)]="currentConfig().name" placeholder="Ví dụ: Cấu hình tài liệu, Cấu hình hình ảnh..." [disabled]="saving()" />
         </div>
 
         <div class="form-group">
             <label class="form-label">Đơn vị liên kết</label>
-            <eco-input-tree-select [showLabel]="false" placeholder="-- Chọn đơn vị liên kết --" [nodes]="primengOrgUnitTree()" [ngModel]="currentConfig().organizationUnitId" (ngModelChange)="updateCurrentConfig('organizationUnitId', $event)" [showClear]="true" [enableSearch]="true"
-                [border]="true" [disabled]="saving()">
-            </eco-input-tree-select>
+            <select class="wf-select w-full" style="height: 38px; padding: 0 12px; border: 1px solid #cbd5e1; border-radius: 6px; background-color: #fff; font-size: 0.875rem; color: #334155; outline: none; box-sizing: border-box;" [(ngModel)]="currentConfig().organizationUnitId"
+                [disabled]="saving()">
+        <option [ngValue]="null">-- Tất cả đơn vị (Chung) --</option>
+        <option *ngFor="let org of orgUnits()" [ngValue]="org.id">{{ org.name }}</option>
+      </select>
         </div>
 
         <div class="form-group">
             <label class="form-label">Định dạng file được phép (Phân tách bằng dấu phẩy) <span class="required">*</span></label>
-            <span class="field-error" *ngIf="configAllowedExtensionsError()">{{ configAllowedExtensionsError() }}</span>
-            <input type="text" class="wf-input w-full" [ngModel]="currentConfig().allowedExtensions" (ngModelChange)="updateCurrentConfig('allowedExtensions', $event)" placeholder="Ví dụ: pdf,docx,xlsx,jpg" [disabled]="saving()" />
+            <input type="text" class="wf-input w-full" [(ngModel)]="currentConfig().allowedExtensions" placeholder="Ví dụ: pdf,docx,xlsx,jpg" [disabled]="saving()" />
             <small class="text-muted" style="font-size: 0.75rem;">Chỉ nhập phần mở rộng của file, không chứa dấu chấm.</small>
         </div>
 
         <div class="form-group">
             <label class="form-label">Dung lượng tối đa của một file (MB) <span class="required">*</span></label>
-            <span class="field-error" *ngIf="configMaxFileSizeMbError()">{{ configMaxFileSizeMbError() }}</span>
-            <input type="number" class="wf-input w-full" [ngModel]="currentConfig().maxFileSizeMb" (ngModelChange)="updateCurrentConfig('maxFileSizeMb', $event)" min="1" [disabled]="saving()" />
+            <input type="number" class="wf-input w-full" [(ngModel)]="currentConfig().maxFileSizeMb" min="1" [disabled]="saving()" />
         </div>
 
         <div class="form-group">

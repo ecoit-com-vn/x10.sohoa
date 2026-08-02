@@ -22,9 +22,6 @@ export interface DocumentOcrProgress {
   processOption?: string;
   createdDate?: string;
   modifiedDate?: string;
-  /** Dùng cho phân hệ Module OCR (Nhóm A) — đọc lại kết quả OCR đã có, không xử lý lại. */
-  bucketName?: string;
-  filePath?: string;
 }
 
 export interface DocumentVersion {
@@ -555,8 +552,6 @@ function normalizeOcrProgress(raw: unknown): DocumentOcrProgress | null {
     processOption: readField<string>(o, 'processOption', 'ProcessOption'),
     createdDate: readField<string>(o, 'createdDate', 'CreatedDate'),
     modifiedDate: readField<string>(o, 'modifiedDate', 'ModifiedDate'),
-    bucketName: readField<string>(o, 'bucketName', 'BucketName'),
-    filePath: readField<string>(o, 'filePath', 'FilePath'),
   };
 }
 

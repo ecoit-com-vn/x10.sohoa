@@ -1143,7 +1143,6 @@ export class WorkflowBuilderComponent implements OnInit, OnDestroy {
       selectedSystemGroupIds: sysGroupIds,
       selectedUnitGroupIds: unitGroupIds,
       requireSameUnit: bo.$attrs['requireSameUnit'] === 'true',
-      allowEdit: bo.$attrs['allowEdit'] === 'true',
       selectedAssignees: assigneeIds.map((id: string, i: number) => ({ id, label: assigneeLabels[i] || id })),
       assigneeSearch: ''
     };
@@ -1176,11 +1175,6 @@ export class WorkflowBuilderComponent implements OnInit, OnDestroy {
       const checked = event?.target ? event.target.checked : Boolean(value);
       modeling.updateProperties(this.selectedBpmnElement, { requireSameUnit: String(checked) });
       this.selectedElementProps.requireSameUnit = checked;
-    } else if (prop === 'allowEdit') {
-      // Giá trị từ checkbox
-      const checked = event?.target ? event.target.checked : Boolean(value);
-      modeling.updateProperties(this.selectedBpmnElement, { allowEdit: String(checked) });
-      this.selectedElementProps.allowEdit = checked;
     } else {
       const attrs: any = {};
       attrs[prop] = value;
@@ -1242,7 +1236,6 @@ export class WorkflowBuilderComponent implements OnInit, OnDestroy {
         systemPermissionGroupIds: bo.$attrs['systemPermissionGroupIds'] || '',
         unitPermissionGroupIds: bo.$attrs['unitPermissionGroupIds'] || '',
         requireSameUnit: bo.$attrs['requireSameUnit'] === 'true',
-        allowEdit: bo.$attrs['allowEdit'] === 'true',
         assigneeId: bo.$attrs['assigneeId'] || ''
       };
     }).sort((a: any, b: any) => a.order - b.order);

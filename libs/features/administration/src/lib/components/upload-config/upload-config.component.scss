@@ -20,3 +20,7 @@
 .col-hd>.act-btn {
     display: none;
 }
+
+:host ::ng-deep .upload-config-unit-select .p-select-label {
+    font-size: 0.85rem;
+}

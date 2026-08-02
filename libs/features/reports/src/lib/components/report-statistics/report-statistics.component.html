@@ -12,23 +12,16 @@
           class="wf-input"
           [ngModel]="searchKeyword()"
           (ngModelChange)="searchKeyword.set($event)"
-          (keyup.enter)="onSearch()"
           placeholder="Tìm theo mã hoặc tên báo cáo..."
           style="width: 280px;" />
       </div>
       <div class="toolbar-right" style="display: flex; align-items: center; gap: 8px;">
         <button
           type="button"
-          class="btn-save btn-small"
-          (click)="onSearch()"
-          [disabled]="loading()">
-          <i class="pi pi-check"></i> Áp dụng
-        </button>
-         <button
-          type="button"
           class="btn-outlined btn-small"
-          (click)="onResetSearch()">
-          <i class="pi pi-refresh"></i> Làm mới
+          (click)="loadReports()"
+          [disabled]="loading()">
+          <i class="pi pi-refresh" [class.pi-spin]="loading()"></i> Tải lại
         </button>
       </div>
     </div>
@@ -45,8 +38,8 @@
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let report of pagedReports(); let i = index">
-            <td class="text-center text-muted">{{ (currentPage() - 1) * pageSize() + i + 1 }}</td>
+          <tr *ngFor="let report of filteredReports(); let i = index">
+            <td class="text-center text-muted">{{ i + 1 }}</td>
             <td><span style="color: #0284c7; font-weight: 400;">{{ report.code }}</span></td>
             <td>
               <span class="wf-name-link" style="cursor: pointer; color: #334155; font-weight: 400;" (click)="viewReport(report)">
@@ -74,19 +67,6 @@
           </tr>
         </tbody>
       </table>
-    </div>
-
-    <div class="table-footer-paginator" *ngIf="filteredReports().length > 0">
-        <span class="record-count">
-          Tổng số: <b>{{ filteredReports().length }}</b> báo cáo.
-        </span>
-        <app-eco-paginator 
-          [first]="(currentPage() - 1) * pageSize()" 
-          [rows]="pageSize()" 
-          [totalRecords]="filteredReports().length" 
-          [rowsPerPageOptions]="[5, 10, 20, 50]" 
-          (onPageChange)="onUnitPageChange($event)">
-        </app-eco-paginator>
     </div>
 
     <!-- Loading state -->

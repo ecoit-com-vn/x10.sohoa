@@ -101,8 +101,6 @@ export class DocumentManagementComponent implements OnInit {
   documents = signal<Document[]>([]);
   first = signal(0);
   rows = signal(10);
-  folderFirst = signal(0);
-  folderRows = signal(10);
   page = computed(() => Math.floor(this.first() / this.rows()) + 1);
   pageSize = computed(() => this.rows());
   totalDocuments = signal(0);
@@ -283,21 +281,12 @@ export class DocumentManagementComponent implements OnInit {
     return list;
   });
 
-  folderTotalRecords = computed(() => this.subFolders().length);
-  paginatedSubFolders = computed(() => {
-    const folders = this.subFolders();
-    const start = this.folderFirst();
-    const end = start + this.folderRows();
-    return folders.slice(start, end);
-  });
-
   onSearch() {
     this.appliedKeyword.set(this.filterKeyword());
     this.appliedCreator.set(this.filterCreator());
     this.appliedStartDate.set(this.filterStartDate());
     this.appliedEndDate.set(this.filterEndDate());
     this.first.set(0); // Reset page to 1
-    this.folderFirst.set(0);
     this.loadDocuments();
   }
 
@@ -316,7 +305,6 @@ export class DocumentManagementComponent implements OnInit {
     this.sortOrder.set('desc');
     
     this.first.set(0); // Reset page to 1
-    this.folderFirst.set(0);
     this.loadDocuments();
   }
 
@@ -328,11 +316,10 @@ export class DocumentManagementComponent implements OnInit {
       this.sortOrder.set('asc');
     }
     this.first.set(0); // Reset page to 1
-    this.folderFirst.set(0);
     this.loadDocuments();
   }
 
-  totalItems = computed(() => this.folderTotalRecords() + this.totalDocuments());
+  totalItems = computed(() => this.subFolders().length + this.totalDocuments());
 
   totalPages = computed(() => {
     const total = this.totalDocuments();
@@ -390,7 +377,6 @@ export class DocumentManagementComponent implements OnInit {
   selectFolder(folder: FolderNode) {
     this.selectedFolder.set(folder);
     this.first.set(0);
-    this.folderFirst.set(0);
     this.loadDocuments();
   }
 
@@ -804,11 +790,6 @@ export class DocumentManagementComponent implements OnInit {
     this.first.set(event.first);
     this.rows.set(event.rows);
     this.loadDocuments();
-  }
-
-  onFolderPageChange(event: any) {
-    this.folderFirst.set(event.first);
-    this.folderRows.set(event.rows);
   }
 
   formatFileSize(bytes?: number): string {

@@ -3,7 +3,7 @@
 
     <div class="list-toolbar standard-page-toolbar">
         <div class="toolbar-left">
-            <wf-breadcrumb />
+            <wf-breadcrumb [customItems]="[{ label: 'Quản trị hệ thống' }, { label: 'Quản lý menu', url: '/administration/menu-management' }]" />
         </div>
         <div class="toolbar-right">
             <button *ngIf="authService.hasPermission('MENU_CREATE')" class="btn-green" (click)="onAddNew()">
@@ -14,12 +14,20 @@
 
     <div class="wf-card">
         <div *ngIf="currentView() === 'list' || currentView() === 'add' || currentView() === 'edit'" class="animate-fade-in">
-            <div class="list-toolbar">
-                <div class="toolbar-left">
-                    <input type="text" class="wf-search-input" placeholder="Tìm nhanh menu..." [ngModel]="searchKeyword()" (ngModelChange)="searchKeyword.set($event)" />
-                    <button class="btn-tim" (click)="onSearch()">
-            <i class="pi pi-search"></i> Tìm
-          </button>
+            <div class="standard-search-card">
+                <div class="standard-search-grid">
+                    <div class="standard-search-field">
+                        <label class="search-field-label">Từ khóa</label>
+                        <input type="text" class="wf-search-input" placeholder="Tìm nhanh menu..." [ngModel]="searchKeyword()" (ngModelChange)="searchKeyword.set($event)" />
+                    </div>
+                </div>
+                <div class="standard-search-actions">
+                    <button type="button" class="btn-outlined" (click)="onResetSearch()">
+                        <i class="pi pi-refresh"></i> Làm mới
+                    </button>
+                    <button type="button" class="btn-save" (click)="onSearch()">
+                        <i class="pi pi-check"></i> Áp dụng
+                    </button>
                 </div>
             </div>
 

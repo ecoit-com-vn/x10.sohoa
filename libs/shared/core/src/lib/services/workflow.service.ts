@@ -21,8 +21,6 @@ export interface WorkflowStep {
   requireSameUnit?: boolean;
   /** ID (các) người dùng "Người cụ thể" — 1 ID hoặc CSV nhiều ID nếu cấu hình nhiều người */
   assigneeId?: string;
-  /** Cho phép chỉnh sửa nội dung hồ sơ ở bước này */
-  allowEdit?: boolean;
 }
 
 export interface WorkflowDefinition {

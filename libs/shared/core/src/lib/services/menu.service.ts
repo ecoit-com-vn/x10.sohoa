@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { APP_CONFIG } from '../config/app-config.token'; 
+import { APP_CONFIG } from '../config/app-config.token';
 
 @Injectable({
   providedIn: 'root'
@@ -18,18 +18,8 @@ export class MenuService {
     return this.http.get<any>(`${this.base}/sidebar`);
   }
 
-  getMenus(keyword?: string, isActive?: boolean ): Observable<any> { 
-    let params = new HttpParams();
-
-    if (keyword?.trim()) {
-      params = params.set('keyword', keyword.trim());
-    }
-
-    if (isActive !== undefined && isActive !== null) {
-      params = params.set('isActive', isActive);
-    }
-
-    return this.http.get<any>(this.base, { params });
+  getMenus(): Observable<any> {
+    return this.http.get<any>(this.base);
   }
 
   getPermissions(): Observable<any> {

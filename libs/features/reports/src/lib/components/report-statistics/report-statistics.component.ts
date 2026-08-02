@@ -12,7 +12,7 @@ import { InputTextModule } from 'primeng/inputtext';
 import { environment } from '@env/environment';
 import { finalize } from 'rxjs';
 import { AuthService } from '@sohoa.frontend/shared/core';
-import { WfBreadcrumbComponent, EcoPaginatorComponent, } from '@sohoa.frontend/shared/layout';
+import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 
 export interface UserReportItem {
   id: number;
@@ -28,8 +28,7 @@ export interface UserReportItem {
     FormsModule,
     ToastModule,
     TooltipModule,
-    WfBreadcrumbComponent,
-    EcoPaginatorComponent
+    WfBreadcrumbComponent
   ],
   providers: [MessageService],
   templateUrl: './report-statistics.component.html',
@@ -39,22 +38,13 @@ export class ReportStatisticsComponent implements OnInit {
   reports = signal<UserReportItem[]>([]);
   loading = signal<boolean>(false);
   searchKeyword = signal<string>('');
-  appliedKeyword = signal<string>('');
-
-  currentPage = signal(1);
-  pageSize = signal(10);
 
   filteredReports = computed(() => {
-    const kw = this.appliedKeyword().toLowerCase().trim();
+    const kw = this.searchKeyword().toLowerCase().trim();
     if (!kw) return this.reports();
     return this.reports().filter(
       (r) => r.name.toLowerCase().includes(kw) || r.code.toLowerCase().includes(kw)
     );
-  });
-
-  pagedReports = computed(() => {
-    const first = (this.currentPage() - 1) * this.pageSize();
-    return this.filteredReports().slice(first, first + this.pageSize());
   });
 
   private http = inject(HttpClient);
@@ -88,24 +78,6 @@ export class ReportStatisticsComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadReports();
-  }
-
-  onSearch(): void {
-    this.appliedKeyword.set(this.searchKeyword().trim());
-    this.currentPage.set(1);
-  }
-
-  onResetSearch(): void {
-    this.searchKeyword.set('');
-    this.appliedKeyword.set('');
-    this.currentPage.set(1);
-  }
-
-  onUnitPageChange(event: { first?: number; rows?: number }) {
-    const rows = Number(event.rows) || this.pageSize();
-    const first = Number(event.first) || 0;
-    this.pageSize.set(rows);
-    this.currentPage.set(Math.floor(first / rows) + 1);
   }
 
   loadReports(): void {

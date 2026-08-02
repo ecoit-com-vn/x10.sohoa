@@ -41,7 +41,6 @@ export class MenuManagement implements OnInit {
   ];
   menus = signal<any[]>([]);
   searchKeyword = signal<string>('');
-  searchStatus = signal<string>(''); // '' (All), 'active' (Hoạt động), 'inactive' (Ngưng hoạt động)
   permissions = signal<any[]>([]);
   expandedMenuIds = signal<Set<number>>(new Set<number>());
 
@@ -111,7 +110,7 @@ export class MenuManagement implements OnInit {
 
   loadMenus() {
     this.loading.set(true);
-    this.menuService.getMenus(this.searchKeyword(), this.searchStatus() === 'active' ? true : (this.searchStatus() === 'inactive' ? false : undefined))
+    this.menuService.getMenus()
       .pipe(finalize(() => this.loading.set(false)))
       .subscribe({
         next: (res) => {
@@ -123,16 +122,6 @@ export class MenuManagement implements OnInit {
           this.messageService.add({ severity: 'error', summary: 'Lỗi tải dữ liệu', detail: 'Không thể tải danh sách menu.' });
         }
       });
-  }
-
-  onSearch() {
-    this.loadMenus();
-  }
-
-  onResetSearch() {
-    this.searchKeyword.set('');
-    this.searchStatus.set('');
-    this.loadMenus();
   }
 
   loadPermissions() {
@@ -342,7 +331,7 @@ export class MenuManagement implements OnInit {
   }
 
   onSaveMenu() {
-    this.currentMenu.set({ ...this.currentMenu() });
+    this.currentMenu.set({ ...this.currentMenu() }); 
     this.formSubmitted.set(true);
     this.serverErrors.set({});
     if (this.nameError()) {

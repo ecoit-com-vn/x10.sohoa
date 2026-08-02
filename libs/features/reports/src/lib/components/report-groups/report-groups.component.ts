@@ -14,8 +14,7 @@ import { finalize } from 'rxjs';
 import { AuthService } from '@sohoa.frontend/shared/core';
 import {
   DeleteConfirmDialogComponent,
-  WfBreadcrumbComponent,
-  EcoPaginatorComponent,
+  WfBreadcrumbComponent
 } from '@sohoa.frontend/shared/layout';
 
 export interface Report {
@@ -49,7 +48,6 @@ export interface ReportGroup {
     DialogModule,
     TreeSelectModule,
     MenuModule,
-    EcoPaginatorComponent,
     WfBreadcrumbComponent,
     DeleteConfirmDialogComponent
   ],
@@ -66,9 +64,6 @@ export class ReportGroupsComponent implements OnInit {
   searchKeyword = signal<string>('');
   filterStatus = signal<string>('ALL'); // ALL, ACTIVE, INACTIVE
 
-  currentPage = signal(1);
-  pageSize = signal(10);
-  
   // Action Menu Items
   actionMenuItems: MenuItem[] = [];
 
@@ -149,27 +144,6 @@ export class ReportGroupsComponent implements OnInit {
   ngOnInit(): void {
     this.loadGroups();
     this.loadOrganizationUnits();
-  }
-
-  pagedGroups = computed(() => {
-    const first = (this.currentPage() - 1) * this.pageSize();
-    return this.filteredGroups().slice(first, first + this.pageSize());
-  });
-
-  onUnitPageChange(event: { first?: number; rows?: number }) {
-    const rows = Number(event.rows) || this.pageSize();
-    const first = Number(event.first) || 0;
-    this.pageSize.set(rows);
-    this.currentPage.set(Math.floor(first / rows) + 1);
-  }
-
-  onResetSearch() {
-    this.searchKeyword.set(''); 
-    this.filterStatus.set('ALL');
-    this.loadOrganizationUnits();
-  }
-  onSearch() {
-    this.loadGroups();
   }
 
   loadGroups() {

@@ -47,7 +47,6 @@ export class FolderAllocationDialogComponent {
   loading = signal<boolean>(false);
   saving = signal<boolean>(false);
   isDataReady = signal<boolean>(false); // Cờ kiểm soát việc render cây thư mục
-  submitted = signal<boolean>(false);
 
   /** Style đồng bộ với p-select Loại lưới điện — form thêm thiết bị kỹ thuật */
   readonly selectFieldStyle = {
@@ -120,7 +119,6 @@ export class FolderAllocationDialogComponent {
   });
 
   onShow(): void {
-    this.submitted.set(false);
     this.selectedUserId.set('');
     this.selectedFolderNode.set(null);
     this.isDataReady.set(false);
@@ -188,10 +186,14 @@ export class FolderAllocationDialogComponent {
   }
 
   save(): void {
-    this.submitted.set(true);
     const folderId = this.selectedFolderNode()?.key;
 
     if (!folderId || !this.selectedUserId()) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Cảnh báo',
+        detail: 'Vui lòng chọn đầy đủ Thư mục và Người xử lý.'
+      });
       return;
     }
 
