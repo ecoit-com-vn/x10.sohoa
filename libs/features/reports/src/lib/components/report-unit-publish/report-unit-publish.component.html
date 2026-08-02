@@ -5,8 +5,8 @@
 
   <div class="wf-card mt-3">
     <!-- Filters Toolbar -->
-    <div class="list-toolbar mb-4" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 12px; gap: 12px; flex-wrap: wrap;">
-      <div class="toolbar-left" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+    <div class="standard-search-card">
+      <div class="toolbar-left">
         <input
           type="text"
           class="wf-input"
@@ -25,9 +25,18 @@
           <option value="DRAFT">Lưu nháp</option>
           <option value="UNCONFIGURED">Chưa cấu hình</option>
         </select>
+
+        <div class="standard-search-actions">
+          <button type="button" class="btn-outlined" (click)="onResetSearch()">
+            <i class="pi pi-refresh"></i> Làm mới
+          </button>
+          <button class="btn-save" (click)="onSearch()">
+            <i class="pi pi-check"></i> Áp dụng
+          </button>
+        </div>
       </div>
     </div>
-
+  
     <!-- Table Grid -->
     <div class="wf-table-wrap" *ngIf="!loading(); else loadingTemplate">
       <table class="wf-table">
@@ -42,8 +51,8 @@
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let report of filteredReports(); let i = index">
-            <td class="text-center text-muted font-semibold">{{ i + 1 }}</td>
+          <tr *ngFor="let report of pagedReports(); let i = index">
+            <td class="text-center text-muted">{{ (currentPage() - 1) * pageSize() + i + 1 }}</td>
             <td><span style="font-weight: 400; color: #0284c7;">{{ report.reportCode }}</span></td>
             <td style="font-weight: 400; color: #1e293b;">{{ report.reportName }}</td>
             <td class="text-center">
@@ -86,6 +95,19 @@
       </table>
     </div>
 
+
+    <div class="table-footer-paginator" *ngIf="filteredReports().length > 0">
+        <span class="record-count">
+          Tổng số: <b>{{ filteredReports().length }}</b> báo cáo.
+        </span>
+        <app-eco-paginator 
+          [first]="(currentPage() - 1) * pageSize()" 
+          [rows]="pageSize()" 
+          [totalRecords]="filteredReports().length" 
+          [rowsPerPageOptions]="[10, 20, 50]" 
+          (onPageChange)="onUnitPageChange($event)">
+        </app-eco-paginator>
+    </div>
     <!-- Loading state -->
     <ng-template #loadingTemplate>
       <div class="text-center py-5 text-muted">
