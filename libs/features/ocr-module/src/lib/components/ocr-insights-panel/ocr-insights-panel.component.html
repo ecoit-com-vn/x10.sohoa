@@ -1,0 +1,341 @@
+<p-toast></p-toast>
+
+<p-dialog
+  [visible]="visible"
+  (visibleChange)="onHide()"
+  [modal]="true"
+  [style]="{ width: '960px' }"
+  styleClass="evn-dialog-custom"
+  [header]="'Phân tích OCR nâng cao' + (sourceDocument?.documentLabel ? ' — ' + sourceDocument?.documentLabel : '')"
+>
+  @if (loading()) {
+    <div class="insights-loading">
+      <i class="pi pi-spin pi-spinner"></i>
+      Đang nạp kết quả OCR đã có của tài liệu...
+    </div>
+  } @else if (errorMessage()) {
+    <div class="insights-error">
+      <i class="pi pi-exclamation-triangle"></i>
+      <span>{{ errorMessage() }}</span>
+      <button type="button" class="btn-retry" (click)="retry()">Thử lại</button>
+    </div>
+  } @else {
+    <p-tabs [value]="activeTab()" (valueChange)="onTabChange($event)" class="evn-tabs">
+      <p-tablist>
+        <p-tab value="0"><i class="pi pi-list mr-1"></i>Tổng quan ({{ regionCount() }} vùng)</p-tab>
+        <p-tab value="1"><i class="pi pi-exclamation-circle mr-1"></i>Lỗi OCR</p-tab>
+        <p-tab value="2"><i class="pi pi-pencil mr-1"></i>Loại chữ viết</p-tab>
+        <p-tab value="3"><i class="pi pi-copy mr-1"></i>So sánh mẫu</p-tab>
+        <p-tab value="4"><i class="pi pi-check-square mr-1"></i>Chính tả</p-tab>
+        <p-tab value="5"><i class="pi pi-calculator mr-1"></i>Công thức</p-tab>
+        <p-tab value="6"><i class="pi pi-verified mr-1"></i>Con dấu/Chữ ký</p-tab>
+      </p-tablist>
+    </p-tabs>
+
+    <div class="tab-content">
+      @switch (activeTab()) {
+        @case ('0') {
+          @if (regions().length === 0) {
+            <p class="empty-hint">Tài liệu này chưa có dữ liệu OCR chi tiết theo từng vùng để hiển thị.</p>
+          } @else {
+            <table class="region-table">
+              <thead>
+                <tr>
+                  <th>Trang</th>
+                  <th>Nội dung</th>
+                  <th>Độ tin cậy</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (region of regions(); track region.id) {
+                  <tr>
+                    <td>{{ region.pageNumber }}</td>
+                    <td class="text-cell">{{ region.textRaw }}</td>
+                    <td>{{ region.confidence != null ? (region.confidence * 100).toFixed(0) + '%' : '—' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          }
+        }
+        @case ('1') {
+          <div class="script-type-toolbar">
+            <button type="button" class="btn-action" [disabled]="errorAnalysisLoading()" (click)="runErrorAnalysis()">
+              <i class="pi" [ngClass]="errorAnalysisLoading() ? 'pi-spin pi-spinner' : 'pi-play'"></i>
+              Phân tích lỗi
+            </button>
+            <button type="button" class="btn-chip" [disabled]="errorAnalysisList().length === 0" (click)="exportErrorAnalysis()">
+              <i class="pi pi-download"></i> Xuất báo cáo
+            </button>
+            @if (errorAnalysisList().length > 0) {
+              <span class="script-type-summary">Tổng cộng <b>{{ errorAnalysisList().length }}</b> lỗi</span>
+            }
+          </div>
+          <p class="hint-note">
+            Tổng hợp tín hiệu từ các bước đã chạy: độ tin cậy OCR thấp, gợi ý chính tả bị từ chối, sai khác so
+            với mẫu, vùng công thức/con dấu-chữ ký nghi ngờ. Nên chạy các bước đó trước để có kết quả đầy đủ.
+          </p>
+          @if (errorAnalysisList().length === 0) {
+            <p class="empty-hint">Chưa có dữ liệu lỗi. Bấm "Phân tích lỗi" để tổng hợp.</p>
+          } @else {
+            <table class="region-table">
+              <thead>
+                <tr>
+                  <th>Trang</th>
+                  <th>Danh mục lỗi</th>
+                  <th>Mức độ</th>
+                  <th>Chi tiết</th>
+                  <th>Trạng thái</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (error of errorAnalysisList(); track error.id) {
+                  <tr>
+                    <td>{{ error.pageNumber }}</td>
+                    <td><span class="script-badge badge-diff">{{ error.errorCategory }}</span></td>
+                    <td>{{ error.severity }}</td>
+                    <td class="text-cell">{{ error.detail }}</td>
+                    <td>{{ error.resolvedStatus }}</td>
+                    <td>
+                      @if (error.resolvedStatus !== 'Resolved') {
+                        <button type="button" class="btn-chip btn-accept" (click)="resolveError(error)">
+                          <i class="pi pi-check"></i> Hoàn tất
+                        </button>
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          }
+        }
+        @case ('2') {
+          <div class="script-type-toolbar">
+            <button type="button" class="btn-action" [disabled]="scriptTypeLoading()" (click)="classifyScriptType()">
+              <i class="pi" [ngClass]="scriptTypeLoading() ? 'pi-spin pi-spinner' : 'pi-play'"></i>
+              Phân loại loại chữ viết
+            </button>
+            @if (scriptTypeSummary(); as summary) {
+              <span class="script-type-summary">
+                Chữ in: <b>{{ summary.printedCount }}</b> · Viết tay: <b>{{ summary.handwrittenCount }}</b> · Hỗn hợp: <b>{{ summary.mixedCount }}</b>
+              </span>
+            }
+          </div>
+          @if (regions().length === 0) {
+            <p class="empty-hint">Chưa có vùng văn bản để phân loại.</p>
+          } @else {
+            <table class="region-table">
+              <thead>
+                <tr>
+                  <th>Trang</th>
+                  <th>Nội dung</th>
+                  <th>Loại chữ viết</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (region of regions(); track region.id) {
+                  <tr>
+                    <td>{{ region.pageNumber }}</td>
+                    <td class="text-cell">{{ region.textRaw }}</td>
+                    <td>
+                      @if (region.scriptType) {
+                        <span class="script-badge" [ngClass]="'badge-' + region.scriptType.toLowerCase()">{{ region.scriptType }}</span>
+                      } @else {
+                        <span class="empty-hint">—</span>
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          }
+        }
+        @case ('3') {
+          <div class="script-type-toolbar">
+            <select
+              class="template-select"
+              [ngModel]="selectedTemplateId()"
+              (ngModelChange)="onSelectTemplate($event)"
+            >
+              <option [ngValue]="null">— Chọn mẫu tham chiếu —</option>
+              @for (tpl of templates(); track tpl.id) {
+                <option [ngValue]="tpl.id">{{ tpl.name }}</option>
+              }
+            </select>
+            <button type="button" class="btn-action" [disabled]="templateDiffLoading() || !selectedTemplateId()" (click)="runTemplateDiff()">
+              <i class="pi" [ngClass]="templateDiffLoading() ? 'pi-spin pi-spinner' : 'pi-play'"></i>
+              So sánh
+            </button>
+          </div>
+
+          @if (templateDiffResults().length > 0) {
+            <table class="region-table">
+              <thead>
+                <tr>
+                  <th>Trang</th>
+                  <th>Loại sai khác</th>
+                  <th>Chi tiết</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (diff of templateDiffResults(); track diff.id) {
+                  <tr>
+                    <td>{{ diff.pageNumber }}</td>
+                    <td><span class="script-badge badge-diff">{{ diff.diffType }}</span></td>
+                    <td class="text-cell">{{ diff.detail }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          } @else {
+            <p class="empty-hint">Chọn 1 mẫu tham chiếu rồi bấm "So sánh" để xem sai khác.</p>
+          }
+
+          <div class="save-template-row">
+            <input
+              type="text"
+              class="template-name-input"
+              placeholder="Tên mẫu mới..."
+              [ngModel]="newTemplateName()"
+              (ngModelChange)="newTemplateName.set($event)"
+            />
+            <button type="button" class="btn-action" [disabled]="savingTemplate() || !newTemplateName().trim()" (click)="saveCurrentAsTemplate()">
+              <i class="pi" [ngClass]="savingTemplate() ? 'pi-spin pi-spinner' : 'pi-save'"></i>
+              Lưu layout hiện tại làm mẫu mới
+            </button>
+          </div>
+        }
+        @case ('4') {
+          <div class="script-type-toolbar">
+            <button type="button" class="btn-action" [disabled]="spellcheckLoading()" (click)="runSpellcheck()">
+              <i class="pi" [ngClass]="spellcheckLoading() ? 'pi-spin pi-spinner' : 'pi-play'"></i>
+              Kiểm tra chính tả
+            </button>
+            @if (spellcheckSummary(); as summary) {
+              <span class="script-type-summary">
+                Tìm thấy <b>{{ summary.suggestionCount }}</b>/{{ summary.totalRegionsChecked }} vùng có gợi ý
+              </span>
+            }
+          </div>
+
+          @if (spellcheckRegions().length === 0) {
+            <p class="empty-hint">Chưa có gợi ý chính tả nào. Bấm "Kiểm tra chính tả" để bắt đầu.</p>
+          } @else {
+            <div class="spellcheck-list">
+              @for (region of spellcheckRegions(); track region.id) {
+                <div class="spellcheck-item">
+                  <div class="spellcheck-original">{{ region.textRaw }}</div>
+                  <div class="spellcheck-suggestion">→ {{ region.spellcheckSuggestion }}</div>
+                  <div class="spellcheck-actions">
+                    <button type="button" class="btn-chip btn-accept" (click)="acceptSuggestion(region)">
+                      <i class="pi pi-check"></i> Chấp nhận
+                    </button>
+                    <button type="button" class="btn-chip btn-reject" (click)="rejectSuggestion(region)">
+                      <i class="pi pi-times"></i> Từ chối
+                    </button>
+                    <input
+                      type="text"
+                      class="template-name-input manual-edit-input"
+                      placeholder="Sửa tay..."
+                      [ngModel]="manualEditText()[region.id] ?? ''"
+                      (ngModelChange)="onManualEditChange(region.id, $event)"
+                    />
+                    <button type="button" class="btn-chip" (click)="saveManualEdit(region)">Lưu</button>
+                  </div>
+                  @if (region.spellcheckStatus) {
+                    <span class="script-badge badge-diff">{{ region.spellcheckStatus }}</span>
+                  }
+                </div>
+              }
+            </div>
+          }
+        }
+        @case ('5') {
+          <div class="script-type-toolbar">
+            <button type="button" class="btn-action" [disabled]="formulaLoading()" (click)="runFormulaRecognition()">
+              <i class="pi" [ngClass]="formulaLoading() ? 'pi-spin pi-spinner' : 'pi-play'"></i>
+              Nhận dạng công thức
+            </button>
+            @if (formulaSummary(); as summary) {
+              <span class="script-type-summary">
+                Tìm thấy <b>{{ summary.formulaRegionCount }}</b>/{{ summary.totalRegions }} vùng giống công thức
+              </span>
+            }
+          </div>
+          <p class="hint-note">
+            Lưu ý: đây là nhận diện + chuẩn hóa định dạng text công thức bằng heuristic, không phải dựng lại
+            công thức toán học phức tạp bằng thị giác máy tính.
+          </p>
+          @if (formulaRegions().length === 0) {
+            <p class="empty-hint">Chưa có vùng nào được nhận dạng là công thức. Bấm "Nhận dạng công thức" để bắt đầu.</p>
+          } @else {
+            <table class="region-table">
+              <thead>
+                <tr>
+                  <th>Trang</th>
+                  <th>Nội dung gốc</th>
+                  <th>Công thức đã chuẩn hóa</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (region of formulaRegions(); track region.id) {
+                  <tr>
+                    <td>{{ region.pageNumber }}</td>
+                    <td class="text-cell">{{ region.textRaw }}</td>
+                    <td class="text-cell formula-cell">{{ region.formulaText }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          }
+        }
+        @case ('6') {
+          <div class="script-type-toolbar">
+            <button type="button" class="btn-action" [disabled]="sealSignatureLoading()" (click)="runSealSignatureDetection()">
+              <i class="pi" [ngClass]="sealSignatureLoading() ? 'pi-spin pi-spinner' : 'pi-play'"></i>
+              Tách vùng con dấu/chữ ký
+            </button>
+            @if (sealSignatureSummary(); as summary) {
+              <span class="script-type-summary">
+                Con dấu: <b>{{ summary.sealCount }}</b> · Chữ ký (gợi ý): <b>{{ summary.signatureCount }}</b>
+              </span>
+            }
+          </div>
+          <p class="hint-note">
+            Lưu ý: điểm số hiển thị là "độ khớp heuristic" tự tính (màu mực đỏ, vị trí, độ tin cậy OCR bất
+            thường) — không phải độ tin cậy của một mô hình AI nhận diện chuyên dụng.
+          </p>
+          @if (sealSignatureRegions().length === 0) {
+            <p class="empty-hint">Chưa có vùng con dấu/chữ ký nào. Bấm "Tách vùng con dấu/chữ ký" để bắt đầu.</p>
+          } @else {
+            <table class="region-table">
+              <thead>
+                <tr>
+                  <th>Trang</th>
+                  <th>Loại</th>
+                  <th>Nội dung</th>
+                  <th>Độ khớp heuristic</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (region of sealSignatureRegions(); track region.id) {
+                  <tr>
+                    <td>{{ region.pageNumber }}</td>
+                    <td>
+                      <span class="script-badge" [ngClass]="region.regionType === 'Seal' ? 'badge-seal' : 'badge-signature'">
+                        {{ region.regionType === 'Seal' ? 'Con dấu' : 'Chữ ký' }}
+                      </span>
+                    </td>
+                    <td class="text-cell">{{ region.textRaw }}</td>
+                    <td>{{ region.sealSignatureScore != null ? (region.sealSignatureScore * 100).toFixed(0) + '%' : '—' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          }
+        }
+      }
+    </div>
+  }
+</p-dialog>
