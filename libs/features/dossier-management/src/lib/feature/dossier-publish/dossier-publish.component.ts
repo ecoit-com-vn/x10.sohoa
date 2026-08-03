@@ -233,6 +233,9 @@ function tabLabel(tab: PublishTab): string {
       background: #ffffff;
       border-radius: 8px;
       box-shadow: 0 1px 3px rgba(15, 23, 42, 0.1);
+      overflow: visible;
+      position: relative;
+      z-index: 5;
     }
     .search-form-grid {
       display: grid;
@@ -309,6 +312,8 @@ function tabLabel(tab: PublishTab): string {
     .searchable-select {
       position: relative;
       min-width: 220px;
+      width: 100%;
+      z-index: 10;
     }
     .searchable-select-trigger {
       display: flex;
@@ -324,12 +329,13 @@ function tabLabel(tab: PublishTab): string {
     }
     .searchable-select-panel {
       position: absolute;
-      z-index: 20;
+      z-index: 1000;
       top: calc(100% + 4px);
       left: 0;
       width: 100%;
       max-height: 280px;
       overflow-y: auto;
+      box-sizing: border-box;
       padding: 8px;
       background: #ffffff;
       border: 1px solid #cbd5e1;
