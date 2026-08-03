@@ -26,7 +26,7 @@
 
                     <div class="standard-search-field">
                         <label class="search-field-label">Trạng thái</label>
-                        <select class="wf-select" [ngModel]="searchStatus()" (ngModelChange)="searchStatus.set($event)">
+                        <select class="wf-select" [ngModel]="searchStatus()" (ngModelChange)="onSearchStatusChange($event)">
               <option value="">-- Tất cả trạng thái --</option>
               <option value="active">Hoạt động</option>
               <option value="inactive">Ngừng hoạt động</option>

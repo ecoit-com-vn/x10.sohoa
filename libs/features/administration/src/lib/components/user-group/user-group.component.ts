@@ -199,6 +199,12 @@ export class UserGroupComponent implements OnInit {
     this.loadGroups();
   }
 
+  onSearchStatusChange(status: string) {
+    this.searchStatus.set(status);
+    this.currentPage.set(1);
+    this.loadGroups();
+  }
+
   onResetSearch() {
     this.searchKeyword.set('');
     this.searchStatus.set('');
