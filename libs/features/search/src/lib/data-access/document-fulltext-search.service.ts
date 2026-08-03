@@ -148,9 +148,14 @@ export class DocumentFulltextSearchService {
     return this.http.get<unknown[]>(`${this.apiBase}/dossier-types/lookup`);
   }
 
-  getDownloadToken(dossierId: string, versionId: string): Observable<DownloadTokenResponse> {
+  getDownloadToken(
+    dossierId: string,
+    versionId: string,
+    purpose: 'DOWNLOAD' | 'PREVIEW' = 'DOWNLOAD'
+  ): Observable<DownloadTokenResponse> {
     return this.http.get<DownloadTokenResponse>(
-      `${this.apiBase}/dossiers/${dossierId}/documents/${versionId}/download-url`
+      `${this.apiBase}/dossiers/${dossierId}/documents/${versionId}/download-url`,
+      { params: { purpose } }
     );
   }
 
@@ -159,7 +164,7 @@ export class DocumentFulltextSearchService {
   }
 
   async getPreviewBlobUrl(dossierId: string, versionId: string): Promise<string> {
-    const tokenResponse = await firstValueFrom(this.getDownloadToken(dossierId, versionId));
+    const tokenResponse = await firstValueFrom(this.getDownloadToken(dossierId, versionId, 'PREVIEW'));
     if (!tokenResponse?.token) {
       throw new Error('Không thể tạo link xem trước');
     }

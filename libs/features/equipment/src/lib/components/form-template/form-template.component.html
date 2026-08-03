@@ -1,7 +1,7 @@
 <div class="wf-page">
   <p-toast></p-toast>
   <ng-container *ngIf="viewState() === 'list'">
-    <div class="list-toolbar">
+    <div class="list-toolbar standard-page-toolbar">
       <div class="toolbar-left">
         <wf-breadcrumb />
       </div>
@@ -15,7 +15,7 @@
       </div>
     </div>
 
-    <div class="wf-card">
+    <div>
       <div class="loading-overlay" *ngIf="loading()">
         <div class="loading-content">
           <i class="pi pi-spin pi-spinner text-4xl mr-3 evn-spinner-color"></i>
@@ -23,12 +23,17 @@
         </div>
       </div>
 
-      <div class="template-search-toolbar">
-        <div class="search-controls">
-          <input type="text" pInputText class="search-input-width" placeholder="Tên hoặc mã biểu mẫu..." [ngModel]="searchKeyword()"
-            (ngModelChange)="searchKeyword.set($event)" (keyup.enter)="onSearch()" style="height: 38px;" />
+      <div class="standard-search-card">
+        <div class="standard-search-grid">
+          <div class="standard-search-field">
+            <label class="search-field-label">Từ khóa</label>
+            <input type="text" pInputText class="wf-search-input" placeholder="Tên hoặc mã biểu mẫu..." [ngModel]="searchKeyword()"
+              (ngModelChange)="searchKeyword.set($event)" (keyup.enter)="onSearch()" />
+          </div>
 
-          <p-select [options]="gridTypes()"
+          <div class="standard-search-field">
+            <label class="search-field-label">Loại lưới điện</label>
+            <p-select [options]="gridTypes()"
             [ngModel]="selectedGridTypeId()"
             (ngModelChange)="onGridTypeChange($event)"
             optionLabel="name"
@@ -36,9 +41,12 @@
             placeholder="-- Loại lưới điện --"
             [showClear]="true"
             filterBy="name">
-          </p-select>
+            </p-select>
+          </div>
 
-          <p-select [options]="equipmentTypes()"
+          <div class="standard-search-field">
+            <label class="search-field-label">Loại thiết bị</label>
+            <p-select [options]="equipmentTypes()"
             [ngModel]="selectedEquipmentTypeId()"
             (ngModelChange)="selectedEquipmentTypeId.set($event)"
             optionLabel="name"
@@ -47,9 +55,12 @@
             [showClear]="true"
             [filter]="true"
             filterBy="name,code">
-          </p-select>
+            </p-select>
+          </div>
 
-          <p-select [options]="[
+          <div class="standard-search-field">
+            <label class="search-field-label">Trạng thái</label>
+            <p-select [options]="[
               { label: 'Hoạt động', value: true },
               { label: 'Ngừng hoạt động', value: false }
             ]"
@@ -59,14 +70,18 @@
             optionValue="value"
             placeholder="-- Trạng thái --"
             [showClear]="true">
-          </p-select>
+            </p-select>
+          </div>
+        </div>
 
-          <button class="btn-tim btn-search-trigger" (click)="onSearch()">
-            <i class="pi pi-search"></i> Tìm kiếm
+        <div class="standard-search-actions">
+          <button class="btn-save" (click)="onSearch()">
+            <i class="pi pi-check"></i> Áp dụng
           </button>
         </div>
       </div>
 
+      <div class="wf-card">
       <div class="wf-table-wrap">
         <table class="wf-table">
           <thead>
@@ -133,6 +148,7 @@
         <app-eco-paginator [first]="first()" [rows]="rows()" [totalRecords]="filteredForms().length"
           [rowsPerPageOptions]="[5, 10, 20, 50]" (onPageChange)="onPageChange($event)">
         </app-eco-paginator>
+      </div>
       </div>
     </div>
   </ng-container>

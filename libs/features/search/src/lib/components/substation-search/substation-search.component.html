@@ -1,7 +1,7 @@
 <div class="wf-page">
   <p-toast></p-toast>
 
-  <div class="list-toolbar">
+  <div class="list-toolbar standard-page-toolbar">
     <div class="toolbar-left">
       <wf-breadcrumb [viewMode]="currentView()" [leafLabel]="pageTitle()" (listClick)="goBack()" />
     </div>
@@ -13,15 +13,15 @@
     </div>
   </div>
 
-  <div class="wf-card p-3">
+  <div>
 
     <!-- ==================== MÀN HÌNH DANH SÁCH ==================== -->
     <div *ngIf="currentView() === 'list'" class="animate-fade-in">
 
       <!-- Khung tìm kiếm -->
-      <div class="search-bar-box">
-        <div class="search-form-grid">
-          <div class="search-form-item">
+      <div class="standard-search-card">
+        <div class="standard-search-grid">
+          <div class="standard-search-field">
             <label class="search-field-label">Từ khóa</label>
             <input type="text" class="wf-search-input"
               placeholder="Tìm theo mã hoặc tên..."
@@ -30,7 +30,7 @@
               (keyup.enter)="onSearch()" />
           </div>
 
-          <div class="search-form-item">
+          <div class="standard-search-field">
             <label class="search-field-label">Đơn vị quản lý</label>
             <select class="wf-input"
               [ngModel]="searchUnitId()"
@@ -40,7 +40,7 @@
             </select>
           </div>
 
-          <div class="search-form-item">
+          <div class="standard-search-field">
             <label class="search-field-label">Loại lưới điện</label>
             <select class="wf-input"
               [ngModel]="searchGridTypeId()"
@@ -50,7 +50,7 @@
             </select>
           </div>
 
-          <div class="search-form-item">
+          <div class="standard-search-field">
             <label class="search-field-label">Trạng thái</label>
             <select class="wf-input"
               [ngModel]="searchStatus()"
@@ -62,7 +62,7 @@
           </div>
         </div>
 
-        <div class="search-bar-actions">
+        <div class="standard-search-actions">
           <button type="button" class="btn-outlined" (click)="onResetSearch()">
             <i class="pi pi-refresh"></i> Làm mới
           </button>
@@ -73,6 +73,7 @@
       </div>
 
       <!-- Table Grid -->
+      <div class="wf-card">
       <div class="wf-table-wrap">
         <table class="wf-table">
           <thead>
@@ -153,10 +154,11 @@
           (onPageChange)="onListPageChange($event)">
         </p-paginator>
       </div>
+      </div>
     </div>
 
     <!-- ==================== VIEW CHI TIẾT ==================== -->
-    <div *ngIf="currentView() === 'detail'" class="animate-fade-in sub-view-container">
+    <div *ngIf="currentView() === 'detail'" class="wf-card animate-fade-in sub-view-container">
 
       <!-- Tab Bar -->
       <div class="tab-bar" style="margin-bottom: 10px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">

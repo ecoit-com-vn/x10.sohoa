@@ -1,33 +1,41 @@
 <div class="wf-page">
   <p-toast></p-toast>
   
-  <wf-breadcrumb />
+  <div class="list-toolbar standard-page-toolbar">
+    <div class="toolbar-left"><wf-breadcrumb /></div>
+    <div class="toolbar-right">
+      <button class="btn-outlined" (click)="openTemplateDialog()">
+        <i class="pi pi-download mr-1"></i> Tải file mẫu Excel
+      </button>
+      <button class="btn-green" (click)="openImportDialog()">
+        <i class="pi pi-file-excel mr-1"></i> Nhập từ Excel
+      </button>
+    </div>
+  </div>
 
-  <div class="wf-card">
+  <div>
 
     <!-- Search & Import Bar -->
-    <div class="list-toolbar" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-      <div class="toolbar-left" style="display: flex; gap: 8px; width: 100%; max-width: 600px;">
+    <div class="standard-search-card">
+      <div class="standard-search-grid">
+        <div class="standard-search-field">
+          <label class="search-field-label">Từ khóa</label>
         <input type="text" class="wf-search-input"
           placeholder="Nhập từ khóa tìm tên, mã định danh, hãng sản xuất..."
           [(ngModel)]="searchQuery"
           (keyup.enter)="onSearch()" 
-          style="flex: 1;" />
-        <button class="btn-tim" (click)="onSearch()" [disabled]="loading">
-          <i class="pi pi-search"></i> Tìm kiếm
-        </button>
+          />
+        </div>
       </div>
-      <div class="toolbar-right" style="display: flex; gap: 8px;">
-        <button class="btn-outlined" (click)="openTemplateDialog()">
-          <i class="pi pi-download mr-1"></i> Tải file mẫu Excel
-        </button>
-        <button class="btn-green" (click)="openImportDialog()">
-          <i class="pi pi-file-excel mr-1"></i> Nhập từ Excel
+      <div class="standard-search-actions">
+        <button class="btn-save" (click)="onSearch()" [disabled]="loading">
+          <i class="pi pi-check"></i> Áp dụng
         </button>
       </div>
     </div>
 
     <!-- Table -->
+    <div class="wf-card">
     <div class="wf-table-wrap mt-3">
       <table class="wf-table">
         <thead>
@@ -95,6 +103,7 @@
           <option [value]="50">50 / trang</option>
         </select>
       </div>
+    </div>
     </div>
 
   </div>

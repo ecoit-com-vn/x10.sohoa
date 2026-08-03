@@ -10,7 +10,6 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { DialogModule } from 'primeng/dialog';
 import { ToastModule } from 'primeng/toast';
-import { SelectModule } from 'primeng/select';
 import { Menu, MenuModule } from 'primeng/menu';
 import { MenuItem } from 'primeng/api';
 import { MessageService } from 'primeng/api';
@@ -26,7 +25,6 @@ import { AuthService } from '@sohoa.frontend/shared/core';
     FormsModule,
     DialogModule,
     ToastModule,
-    SelectModule,
     MenuModule,
     WfBreadcrumbComponent,
     EcoInputTreeSelectComponent,
@@ -121,7 +119,9 @@ export class UploadConfigComponent implements OnInit {
         (c.name?.toLowerCase().includes(kw) ?? false) ||
         (c.allowedExtensions?.toLowerCase().includes(kw) ?? false);
       const matchesTypeFile = !type ||
+        (c.allowedExtensions?.toLowerCase().includes(type) ?? false) ||
         (c.allowedExtensions?.toLowerCase().includes(type) ?? false);
+
       const matchesUnit = unitId === null || unitId === undefined || String(unitId) === 'null' || String(unitId) === '' ||
         c.organizationUnitId === Number(unitId);
 

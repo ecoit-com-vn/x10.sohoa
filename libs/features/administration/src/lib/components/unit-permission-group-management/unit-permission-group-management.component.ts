@@ -41,11 +41,7 @@ import { buildMenuPermissionTree as buildMenuPermissionTreeFromLookup } from '..
 })
 export class UnitPermissionGroupManagement implements OnInit {
   organizationUnits = signal<any[]>([]);
-  organizationUnitFilterOptions = computed(() => [
-    { id: null, name: '-- Tất cả đơn vị --' },
-    ...this.organizationUnits()
-  ]);
-  filterOrganizationUnitId = signal<number | null>(null);
+  filterOrganizationUnitIds = signal<number[]>([]);
   filterIsActive = signal<boolean | null>(null);
   selectedOrganizationUnitIds = signal<number[]>([]);
   selectedUnitNodes = signal<TreeNode[]>([]);
@@ -298,7 +294,7 @@ export class UnitPermissionGroupManagement implements OnInit {
  const keyword = this.searchKeyword()
   .trim()
   .normalize('NFC');
-    const organizationUnitId = this.filterOrganizationUnitId();
+    const organizationUnitIds = this.filterOrganizationUnitIds();
     const isActive = this.filterIsActive();
 
     let params = new HttpParams()
@@ -309,9 +305,7 @@ export class UnitPermissionGroupManagement implements OnInit {
       params = params.set('keyword', keyword);
     }
 
-    if (organizationUnitId !== null) {
-      params = params.set('organizationUnitId', organizationUnitId);
-    }
+    organizationUnitIds.forEach(organizationUnitId => params = params.append('organizationUnitIds', organizationUnitId));
 
     if (isActive !== null) {
       params = params.set('isActive', isActive);
@@ -396,22 +390,22 @@ export class UnitPermissionGroupManagement implements OnInit {
 
   onResetSearch(): void {
     this.searchKeyword.set('');
-    this.filterOrganizationUnitId.set(null);
+    this.filterOrganizationUnitIds.set([]);
     this.filterIsActive.set(null);
     this.currentPage.set(1);
     this.loadRoles();
   }
 
-  onOrganizationUnitFilterChange(organizationUnitId: number | null): void {
-    const normalizedId = organizationUnitId == null
-      ? null
-      : Number(organizationUnitId);
+  onOrganizationUnitFilterChange(organizationUnitIds: number[]): void {
+    const normalizedIds = Array.isArray(organizationUnitIds)
+      ? organizationUnitIds.map(Number).filter(Number.isFinite)
+      : [];
 
-    if (this.filterOrganizationUnitId() === normalizedId) {
+    if (this.filterOrganizationUnitIds().join(',') === normalizedIds.join(',')) {
       return;
     }
 
-    this.filterOrganizationUnitId.set(normalizedId);
+    this.filterOrganizationUnitIds.set(normalizedIds);
     this.currentPage.set(1);
     this.loadRoles();
   }

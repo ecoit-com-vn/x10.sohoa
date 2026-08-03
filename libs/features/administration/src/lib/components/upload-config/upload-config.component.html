@@ -10,29 +10,29 @@
         </button>
         </div>
     </div>
-    <div class="wf-card">
+    <div>
 
         <!-- Toolbar -->
         <div class="standard-search-card">
-            <div class="toolbar-left">
-                <div class="search-form-item">
+            <div class="standard-search-grid">
+                <div class="standard-search-field">
                     <label class="search-field-label">Từ khóa</label>
                     <input type="text" class="wf-search-input" placeholder="Tìm theo tên cấu hình..." [ngModel]="searchKeyword()" (ngModelChange)="searchKeyword.set($event)" (keyup.enter)="onSearch()" />
                 </div>
-                <div class="search-form-item" style="min-width: 240px; width: 260px;">
+                <div class="standard-search-field">
                     <label class="search-field-label">Đơn vị</label>
-                    <eco-input-tree-select [showLabel]="false" placeholder="-- Tất cả đơn vị --" [nodes]="primengOrgUnitTree()" [ngModel]="searchUnitId()" (ngModelChange)="onUnitFilterChange($event)" [showClear]="true" [enableSearch]="true" [border]="true">
+                    <eco-input-tree-select class="unit-filter-select" [showLabel]="false" placeholder="-- Tất cả đơn vị --" [nodes]="primengOrgUnitTree()" [ngModel]="searchUnitId()" (ngModelChange)="onUnitFilterChange($event)" [showClear]="true" [enableSearch]="true" [border]="true">
                     </eco-input-tree-select>
                 </div>
 
-                <div class="search-form-item">
+                <div class="standard-search-field">
                     <label class="search-field-label">Định dạng file</label>
                     <input type="text" class="wf-search-input" placeholder="Tìm theo định dạng file..." [ngModel]="searchTypeFile()" (ngModelChange)="searchTypeFile.set($event)" (keyup.enter)="onSearch()" />
                 </div>
 
-                <div class="search-form-item">
+                <div class="standard-search-field">
                     <label class="search-field-label">Trạng thái</label>
-                    <select class="wf-select" style="min-width: 220px; height: 38px; padding: 0 12px; border: 1px solid #cbd5e1; border-radius: 6px; background-color: #fff; font-size: 0.875rem; color: #334155; cursor: pointer; outline: none;" [ngModel]="searchStatus()" (ngModelChange)="onStatusFilterChange($event)">
+                    <select class="wf-select" [ngModel]="searchStatus()" (ngModelChange)="onStatusFilterChange($event)">
                         <option [value]="null">-- Tất cả trạng thái --</option>
                         <option [value]="true">Hoạt động</option>
                         <option [value]="false">Không hoạt động</option>
@@ -47,6 +47,7 @@
         </div>
 
         <!-- Table -->
+        <div class="wf-card">
         <div class="wf-table-wrap">
             <table class="wf-table">
                 <thead>
@@ -117,10 +118,6 @@
                     <i class="pi pi-ellipsis-h"></i>
                   </button>
                                 </div>
-                                <button *ngIf="authService.hasPermission('UPLOAD_CONFIG_EDIT') && c.isActive" class="act-btn act-lock" (click)="onToggleStatusRequest(c)" title="Khóa cấu hình"><i class="pi pi-lock"></i></button>
-                                <button *ngIf="authService.hasPermission('UPLOAD_CONFIG_EDIT')" class="act-btn act-edit" (click)="onEdit(c)" title="Chỉnh sửa"><i class="pi pi-pencil"></i></button>
-                                <button *ngIf="authService.hasPermission('UPLOAD_CONFIG_EDIT') && !c.isActive" class="act-btn act-unlock" (click)="onToggleStatusRequest(c)" title="Mở khóa cấu hình"><i class="pi pi-lock-open"></i></button>
-                                <button *ngIf="authService.hasPermission('UPLOAD_CONFIG_DELETE')" class="act-btn act-delete" (click)="onDelete(c)" title="Xóa"><i class="pi pi-trash"></i></button>
                             </td>
                         </tr>
                         <tr *ngIf="computedFilteredConfigs().length === 0">
@@ -136,7 +133,10 @@
 
         <p-menu #actionMenu [model]="actionMenuItems" [popup]="true" appendTo="body" styleClass="row-action-menu"></p-menu>
 
-        <app-eco-paginator *ngIf="totalFilteredConfigs() > 0 && !loading()" [currentPage]="currentPage()" [pageSize]="pageSize()" [totalRecords]="totalFilteredConfigs()" (pageChange)="onPageChange($event)" (pageSizeChange)="onPageSizeChange($event)" />
+        <div class="table-footer-paginator" *ngIf="totalFilteredConfigs() > 0 && !loading()">
+            <app-eco-paginator [currentPage]="currentPage()" [pageSize]="pageSize()" [totalRecords]="totalFilteredConfigs()" (pageChange)="onPageChange($event)" (pageSizeChange)="onPageSizeChange($event)" />
+        </div>
+        </div>
     </div>
 </div>
 

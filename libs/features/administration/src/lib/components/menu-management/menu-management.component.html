@@ -7,22 +7,40 @@
         </div>
         <div class="toolbar-right">
             <button *ngIf="authService.hasPermission('MENU_CREATE')" class="btn-green" (click)="onAddNew()">
-        <i class="pi pi-plus"></i> Thêm menu gốc
+            <i class="pi pi-plus"></i> Thêm menu gốc
       </button>
         </div>
     </div>
 
-    <div class="wf-card">
+    <div>
         <div *ngIf="currentView() === 'list' || currentView() === 'add' || currentView() === 'edit'" class="animate-fade-in">
-            <div class="list-toolbar">
-                <div class="toolbar-left">
-                    <input type="text" class="wf-search-input" placeholder="Tìm nhanh menu..." [ngModel]="searchKeyword()" (ngModelChange)="searchKeyword.set($event)" />
-                    <button class="btn-tim" (click)="onSearch()">
-            <i class="pi pi-search"></i> Tìm
+            <div class="standard-search-card">
+                <div class="standard-search-grid">
+                    <div class="standard-search-field">
+                        <label class="search-field-label">Từ khóa</label>
+                        <input type="text" class="wf-search-input" placeholder="Tìm nhanh menu..." [ngModel]="searchKeyword()" (ngModelChange)="searchKeyword.set($event)" />
+                    </div>
+
+                    <div class="standard-search-field">
+                        <label class="search-field-label">Trạng thái</label>
+                        <select class="wf-select" [ngModel]="searchStatus()" (ngModelChange)="searchStatus.set($event)">
+              <option value="">-- Tất cả trạng thái --</option>
+              <option value="active">Hoạt động</option>
+              <option value="inactive">Ngừng hoạt động</option>
+            </select>
+                    </div>
+                <div class="standard-search-actions">
+                    <button type="button" class="btn-outlined" (click)="onResetSearch()">
+            <i class="pi pi-refresh"></i> Làm mới
           </button>
+                    <button type="button" class="btn-save" (click)="onSearch()">
+            <i class="pi pi-check"></i> Áp dụng
+          </button>
+                </div>
                 </div>
             </div>
 
+            <div class="wf-card">
             <div class="wf-table-wrap">
                 <table class="wf-table">
                     <thead>
@@ -79,6 +97,7 @@
 
             <div class="table-footer">
                 <span class="record-count">Tổng số: <b>{{ menus().length }}</b> menu.</span>
+            </div>
             </div>
         </div>
 

@@ -72,7 +72,7 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
 
   template: `
 
-    <div class="wf-card">
+    <div>
 
       <div class="tab-bar">
         <button
@@ -86,7 +86,7 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
         </button>
       </div>
       <div class="standard-search-card">
-        <div class="toolbar-left">
+        <div class="standard-search-grid">
           <div class="standard-search-field">
             <label class="search-field-label">Từ khóa</label>
             <input
@@ -182,6 +182,7 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
 
 
 
+      <div class="wf-card">
       <div class="wf-table-wrap">
 
         <table class="wf-table">
@@ -322,6 +323,8 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
         </div>
 
       </div>
+
+    </div>
 
     </div>
 

@@ -1,13 +1,15 @@
 <div class="wf-page document-management-page">
   <p-toast></p-toast>
 
-  <wf-breadcrumb leafLabel="Tìm kiếm hồ sơ trong kho" />
+  <div class="list-toolbar standard-page-toolbar">
+    <div class="toolbar-left"><wf-breadcrumb leafLabel="Tìm kiếm hồ sơ trong kho" /></div>
+  </div>
 
     <!-- Vùng tìm kiếm riêng biệt mới phía dưới breadcrumb -->
-  <div class="wf-card dossier-search-bar" style="margin-bottom: 16px; padding: 16px; background: #ffffff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-    <div class="search-form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; align-items: flex-end;">
+  <div class="standard-search-card dossier-search-bar">
+    <div class="standard-search-grid">
       <!-- Tiêu chí 1: Đơn vị quản lý -->
-      <div class="search-form-item" style="display: flex; flex-direction: column; gap: 6px;">
+      <div class="standard-search-field">
         <label class="search-field-label">Đơn vị quản lý</label>
         <select 
           class="wf-select w-full"
@@ -22,7 +24,7 @@
       </div>
 
       <!-- Tiêu chí 2: Loại lưới điện -->
-      <div class="search-form-item" style="display: flex; flex-direction: column; gap: 6px;">
+      <div class="standard-search-field">
         <label class="search-field-label">Loại lưới điện</label>
         <select
           class="wf-select w-full"
@@ -37,7 +39,7 @@
       </div>
 
       <!-- Tiêu chí 3: Trạm / Đường dây -->
-      <div class="search-form-item" style="display: flex; flex-direction: column; gap: 6px;">
+      <div class="standard-search-field">
         <label class="search-field-label" >Trạm / Đường dây</label>
         <p-select
           [options]="infrastructures()"
@@ -55,7 +57,7 @@
       </div>
 
       <!-- Tiêu chí 4: Hộp hồ sơ -->
-      <div class="search-form-item" style="display: flex; flex-direction: column; gap: 6px;">
+      <div class="standard-search-field">
         <label class="search-field-label">Tên hộp hồ sơ</label>
         <div class="search-input-with-icon" style="position: relative; display: flex; align-items: center;">
           <i class="pi pi-box search-icon" style="position: absolute; left: 12px; color: #94a3b8;"></i>
@@ -69,7 +71,15 @@
           />
         </div>
       </div>
-      
+    </div>
+
+    <div class="standard-search-actions">
+      <button type="button" class="btn-outlined" (click)="onClearFilters()">
+        <i class="pi pi-refresh"></i> Làm mới
+      </button>
+      <button type="button" class="btn-save" (click)="onSearch()">
+        <i class="pi pi-check"></i> Áp dụng
+      </button>
     </div>
   </div>
 

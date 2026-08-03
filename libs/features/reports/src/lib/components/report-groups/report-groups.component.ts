@@ -61,14 +61,14 @@ export class ReportGroupsComponent implements OnInit {
   groups = signal<ReportGroup[]>([]);
   loading = signal<boolean>(false);
   saving = signal<boolean>(false);
-  
+
   // Filter variables
   searchKeyword = signal<string>('');
   filterStatus = signal<string>('ALL'); // ALL, ACTIVE, INACTIVE
 
   currentPage = signal(1);
   pageSize = signal(10);
-  
+
   // Action Menu Items
   actionMenuItems: MenuItem[] = [];
 
@@ -78,13 +78,13 @@ export class ReportGroupsComponent implements OnInit {
     const status = this.filterStatus();
 
     return this.groups().filter(g => {
-      const matchKeyword = !kw || 
-        g.code.toLowerCase().includes(kw) || 
+      const matchKeyword = !kw ||
+        g.code.toLowerCase().includes(kw) ||
         g.name.toLowerCase().includes(kw) ||
         (g.description && g.description.toLowerCase().includes(kw));
 
-      const matchStatus = status === 'ALL' || 
-        (status === 'ACTIVE' && g.isActive) || 
+      const matchStatus = status === 'ALL' ||
+        (status === 'ACTIVE' && g.isActive) ||
         (status === 'INACTIVE' && !g.isActive);
 
       return matchKeyword && matchStatus;
@@ -164,7 +164,7 @@ export class ReportGroupsComponent implements OnInit {
   }
 
   onResetSearch() {
-    this.searchKeyword.set(''); 
+    this.searchKeyword.set('');
     this.filterStatus.set('ALL');
     this.loadOrganizationUnits();
   }
@@ -272,15 +272,15 @@ export class ReportGroupsComponent implements OnInit {
     const active = group.isActive === true;
     this.actionMenuItems = [
       ...(this.authService.hasPermission('REPORT_GROUP_EDIT') ? [
-        { 
-          label: 'Cấu hình báo cáo', 
-          icon: 'pi pi-cog text-sky-600', 
-          command: () => this.goToEdit(group, 1) 
+        {
+          label: 'Cấu hình báo cáo',
+          icon: 'pi pi-cog text-sky-600',
+          command: () => this.goToEdit(group, 1)
         },
-        { 
-          label: 'Chỉnh sửa thông tin', 
-          icon: 'pi pi-pencil text-amber-600', 
-          command: () => this.goToEdit(group, 0) 
+        {
+          label: 'Chỉnh sửa thông tin',
+          icon: 'pi pi-pencil text-amber-600',
+          command: () => this.goToEdit(group, 0)
         }
       ] : []),
       ...([{
@@ -290,10 +290,10 @@ export class ReportGroupsComponent implements OnInit {
         command: () => this.onToggleStatus(group)
       }]),
       ...(this.authService.hasPermission('REPORT_GROUP_DELETE') ? [
-        { 
-          label: 'Xóa nhóm', 
-          icon: 'pi pi-trash text-red-600', 
-          command: () => this.deleteGroup(group) 
+        {
+          label: 'Xóa nhóm',
+          icon: 'pi pi-trash text-red-600',
+          command: () => this.deleteGroup(group)
         }
       ] : [])
     ];
@@ -379,7 +379,7 @@ export class ReportGroupsComponent implements OnInit {
         }
       });
   }
-  
+
   onCodeInput(event: Event): void {
     const input = event.target as HTMLInputElement;
     const invalid = input.value.match(/[^a-zA-Z0-9_]/g);
@@ -389,14 +389,14 @@ export class ReportGroupsComponent implements OnInit {
     input.value = input.value.replace(/[^a-zA-Z0-9_]/g, '');
     this.currentNewGroup.code = input.value;
   }
-  
+
 onToggleStatus(group: ReportGroup) {
     const isLocking = group.isActive === true;
     if (isLocking) {
       this.lockTarget.set(group);
       this.showLockConfirm.set(true);
       return;
-    } 
+    }
     const action = 'unlock';
     this.http
       .patch(`${this.apiUrl}/${group.id}/${action}`, {})
@@ -420,5 +420,5 @@ onToggleStatus(group: ReportGroup) {
           });
         }
       });
-  } 
+  }
 }

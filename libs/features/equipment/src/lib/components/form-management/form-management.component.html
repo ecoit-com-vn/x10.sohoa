@@ -11,7 +11,7 @@
         </button>
       </div>
     </div>
-    <div class="wf-card standard-list-card">
+    <div>
       <!-- Loading Overlay -->
       <div class="loading-overlay" *ngIf="loading()">
         <div class="loading-content">
@@ -20,9 +20,12 @@
         </div>
       </div>
       <div class="standard-search-card">
-        <div class="toolbar-left">
-          <input type="text" class="wf-search-input" placeholder="Tìm kiếm form..." [ngModel]="searchKeyword()"
-            (ngModelChange)="searchKeyword.set($event)" (keyup.enter)="onSearch()" />
+        <div class="standard-search-grid">
+          <div class="standard-search-field">
+            <label class="search-field-label">Từ khóa</label>
+            <input type="text" class="wf-search-input" placeholder="Tìm kiếm form..." [ngModel]="searchKeyword()"
+              (ngModelChange)="searchKeyword.set($event)" (keyup.enter)="onSearch()" />
+          </div>
           <div class="standard-search-actions">
             <button class="btn-outlined" (click)="onResetSearch()">
               <i class="pi pi-refresh"></i> Làm mới
@@ -35,6 +38,7 @@
       </div>
 
       <!-- Table -->
+      <div class="wf-card standard-list-card">
       <div class="wf-table-wrap form-list-table-wrap">
         <table class="wf-table form-list-table">
           <colgroup>
@@ -113,6 +117,7 @@
         <app-eco-paginator [first]="first()" [rows]="rows()" [totalRecords]="filteredForms().length"
           [rowsPerPageOptions]="[5, 10, 20, 50]" (onPageChange)="onPageChange($event)">
         </app-eco-paginator>
+      </div>
       </div>
     </div>
   </ng-container>

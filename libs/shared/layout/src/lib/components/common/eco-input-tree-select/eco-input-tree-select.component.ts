@@ -66,6 +66,7 @@ export class EcoInputTreeSelectComponent
   @Input() readonly: boolean = false;
   @Input() border: boolean = false;
   @Input() selectionMode: 'single' | 'multiple' | 'checkbox' = 'single';
+  @Input() display: 'comma' | 'chip' = 'comma';
   @Input() metaKeySelection: boolean = false;
   @Input() required?: boolean | string;
   @Input() nodes: any;
@@ -220,6 +221,7 @@ export class EcoInputTreeSelectComponent
       if (!value) return this.isStringValue ? '' : [];
       const arr = Array.isArray(value) ? value : [value];
       const keys = arr
+        .filter((o: any) => !o?.partialSelected)
         .map((o: any) => (o && typeof o === 'object' ? o.key : o))
         .filter((k: any) => k !== null && k !== undefined && k !== '');
       if (this.isStringValue) return keys.join(';');

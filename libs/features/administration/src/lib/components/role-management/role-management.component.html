@@ -12,14 +12,14 @@
         </div>
     </div>
 
-    <div class="wf-card">
+    <div>
 
         <!-- MÀN HÌNH DANH SÁCH -->
         <div *ngIf="currentView() === 'list' || currentView() === 'add' || currentView() === 'edit'" class="animate-fade-in">
 
             <!-- Toolbar -->
             <div class="standard-search-card">
-                <div class="toolbar-left">
+                <div class="standard-search-grid">
                     <div class="standard-search-field">
                         <label class="search-field-label">Từ khóa</label>
                         <input type="text" class="wf-search-input" placeholder="Tìm kiếm vai trò..." [ngModel]="searchKeyword()" (ngModelChange)="searchKeyword.set($event)" />
@@ -34,6 +34,7 @@
             </div>
 
             <!-- Table -->
+            <div class="wf-card">
             <div class="wf-table-wrap">
                 <table class="wf-table">
                     <thead>
@@ -108,6 +109,7 @@
 
             <!-- Footer with Pagination -->
             <app-eco-paginator *ngIf="totalCount() > 0 && !loading()" [currentPage]="currentPage()" [pageSize]="pageSize()" [totalRecords]="totalCount()" (pageChange)="goToPage($event)" (pageSizeChange)="onPageSizeChange($event)" />
+            </div>
         </div>
 
         <p-menu #actionMenu [model]="actionMenuItems" [popup]="true" appendTo="body" styleClass="row-action-menu"></p-menu>

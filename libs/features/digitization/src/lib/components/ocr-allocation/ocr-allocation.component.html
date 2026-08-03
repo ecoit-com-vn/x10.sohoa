@@ -1,16 +1,18 @@
 <div class="wf-page">
   <p-toast></p-toast>
   
-  <wf-breadcrumb />
+  <div class="list-toolbar standard-page-toolbar">
+    <div class="toolbar-left"><wf-breadcrumb /></div>
+  </div>
 
-  <div class="wf-card">
+  <div>
     
-    <div class="edit-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+    <div class="standard-search-card">
       <h2 class="edit-title" style="margin: 0;">Phân bổ công việc nhập liệu OCR</h2>
-      <div class="edit-actions" style="display: flex; align-items: center; gap: 12px;">
-        <div class="standard-search-field" style="width: 220px;">
+      <div class="standard-search-grid">
+        <div class="standard-search-field">
           <label class="search-field-label">Từ khóa</label>
-          <input type="text" class="wf-input" [ngModel]="searchKeyword()" (ngModelChange)="searchKeyword.set($event)" placeholder="Tìm kiếm nhanh..." style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; width: 220px;" />
+          <input type="text" class="wf-search-input" [ngModel]="searchKeyword()" (ngModelChange)="searchKeyword.set($event)" placeholder="Tìm kiếm nhanh..." />
         </div>
         <button class="btn-green" (click)="onAutoAssign()" [disabled]="loading()">
           <i class="pi pi-bolt"></i> Tự động phân bổ
@@ -18,6 +20,7 @@
       </div>
     </div>
 
+    <div class="wf-card">
     <p class="text-muted mb-4">
       Quản lý và phân công các tài liệu cần nhận dạng ký tự quang học (OCR) hoặc hiệu đính kết quả sau OCR cho các kiểm soát viên và nhân viên kỹ thuật.
     </p>
@@ -110,5 +113,6 @@
       </div>
     </div>
 
+    </div>
   </div>
 </div>

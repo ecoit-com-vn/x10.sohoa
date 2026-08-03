@@ -1,13 +1,15 @@
 <!-- sohoa.frontend/libs/features/reports/src/lib/components/report-statistics/report-statistics.component.html -->
 <p-toast></p-toast>
 <div class="wf-page">
-  <wf-breadcrumb></wf-breadcrumb>
+  <div class="list-toolbar standard-page-toolbar">
+    <div class="toolbar-left"><wf-breadcrumb></wf-breadcrumb></div>
+  </div>
 
-  <div class="wf-card mt-3">
+  <div>
     <!-- Filters Toolbar -->
-    <div class="list-toolbar mb-4" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 12px; gap: 12px; flex-wrap: wrap;">
-      <div class="toolbar-left" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-        <div class="standard-search-field" style="width: 280px;">
+    <div class="standard-search-card">
+      <div class="standard-search-grid">
+        <div class="standard-search-field">
           <label class="search-field-label">Từ khóa</label>
           <input
             type="text"
@@ -17,18 +19,18 @@
             placeholder="Tìm theo mã hoặc tên báo cáo..." />
         </div>
       </div>
-      <div class="toolbar-right" style="display: flex; align-items: center; gap: 8px;">
-        <button
-          type="button"
-          class="btn-outlined btn-small"
-          (click)="loadReports()"
-          [disabled]="loading()">
-          <i class="pi pi-refresh" [class.pi-spin]="loading()"></i> Tải lại
+      <div class="standard-search-actions">
+        <button type="button" class="btn-outlined" (click)="onResetSearch()">
+          <i class="pi pi-refresh"></i> Làm mới
+        </button>
+        <button type="button" class="btn-save" (click)="onSearch()">
+          <i class="pi pi-check"></i> Áp dụng
         </button>
       </div>
     </div>
 
     <!-- Table Grid -->
+    <div class="wf-card">
     <div class="wf-table-wrap" *ngIf="!loading(); else loadingTemplate">
       <table class="wf-table">
         <thead>
@@ -78,5 +80,6 @@
         <div>Đang tải dữ liệu...</div>
       </div>
     </ng-template>
+    </div>
   </div>
 </div>

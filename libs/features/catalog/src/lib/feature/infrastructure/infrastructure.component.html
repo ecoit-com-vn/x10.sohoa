@@ -16,14 +16,12 @@
     </button>
     </div>
   </div>
-  <div class="wf-card">
-
     <!-- ==================== MÀN HÌNH DANH SÁCH ==================== -->
     <div *ngIf="currentView() === 'list' || currentView() === 'add' || currentView() === 'edit'" class="animate-fade-in">
 
       <!-- Toolbar -->
       <div class="standard-search-card">
-        <div class="toolbar-left">
+        <div class="standard-search-grid">
           <!-- Keyword input -->
           <div class="standard-search-field">
             <label class="search-field-label">Từ khóa</label>
@@ -75,18 +73,19 @@
             </select>
           </div>
 
-          <div class="standard-search-actions">
-            <button type="button" class="btn-outlined" (click)="onResetSearch()">
-              <i class="pi pi-refresh"></i> Làm mới
-            </button>
-            <button type="button" class="btn-save" (click)="onSearch()">
-              <i class="pi pi-check"></i> Áp dụng
-            </button>
-          </div>
+        </div>
+        <div class="standard-search-actions">
+          <button type="button" class="btn-outlined" (click)="onResetSearch()">
+            <i class="pi pi-refresh"></i> Làm mới
+          </button>
+          <button type="button" class="btn-save" (click)="onSearch()">
+            <i class="pi pi-check"></i> Áp dụng
+          </button>
         </div>
     </div>
 
       <!-- Table Grid -->
+      <div class="wf-card">
       <div class="wf-table-wrap">
         <table class="wf-table">
           <thead>
@@ -182,6 +181,7 @@
             <option [value]="50">50 / trang</option>
           </select>
         </div>
+      </div>
       </div>
     </div>
 
@@ -335,7 +335,7 @@
     </p-dialog>
 
     <!-- ==================== VIEW CHI TIẾT ==================== -->
-    <div *ngIf="currentView() === 'detail'" class="animate-fade-in sub-view-container">
+    <div *ngIf="currentView() === 'detail'" class="wf-card infrastructure-detail-card animate-fade-in sub-view-container">
 
       <!-- Tab Bar (đặt trực tiếp ở đầu card) -->
       <div class="tab-bar" style="margin-bottom: 10px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
@@ -914,7 +914,6 @@
       </div>
 
     </div>
-  </div>
 
   <p-dialog
     [visible]="showTechnicalDocumentPreview()"
@@ -1154,4 +1153,3 @@
       </ng-template>
     </p-dialog>
 </div>
-

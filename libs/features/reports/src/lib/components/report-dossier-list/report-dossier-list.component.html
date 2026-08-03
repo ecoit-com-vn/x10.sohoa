@@ -1,23 +1,17 @@
 <div class="wf-page">
-  <wf-breadcrumb />
-
-  <div class="wf-card">
-    <div class="report-toolbar">
-      <div></div>
-      <button
-        type="button"
-        class="btn-green"
-        *ngIf="canExport()"
-        [disabled]="exporting() || loading()"
-        (click)="exportExcel()"
-      >
+  <div class="list-toolbar standard-page-toolbar">
+    <div class="toolbar-left"><wf-breadcrumb /></div>
+    <div class="toolbar-right">
+      <button type="button" class="btn-green" *ngIf="canExport()" [disabled]="exporting() || loading()" (click)="exportExcel()">
         <i class="pi pi-file-excel"></i> Xuất excel
       </button>
     </div>
+  </div>
 
-    <div class="lookup-filters" *ngIf="reportConfig() as cfg">
-      <div class="lookup-filters__row lookup-filters__row--dropdowns">
-        <div class="lookup-filters__field">
+  <div>
+    <div class="standard-search-card lookup-filters" *ngIf="reportConfig() as cfg">
+      <div class="standard-search-grid lookup-filters__row lookup-filters__row--dropdowns">
+        <div class="standard-search-field lookup-filters__field">
           <label class="form-label">Đơn vị</label>
           <select
             class="wf-select"
@@ -28,7 +22,7 @@
             <option *ngFor="let item of units()" [value]="item.id">{{ item.name }}</option>
           </select>
         </div>
-        <div class="lookup-filters__field">
+        <div class="standard-search-field lookup-filters__field">
           <label class="form-label">{{ cfg.secondaryFilterLabel }}</label>
           <select
             class="wf-select"
@@ -40,8 +34,14 @@
           </select>
         </div>
       </div>
+      <div class="standard-search-actions">
+        <button type="button" class="btn-save" (click)="onSearch()">
+          <i class="pi pi-check"></i> Áp dụng
+        </button>
+      </div>
     </div>
 
+    <div class="wf-card">
     <div class="wf-table-wrap">
       <table class="wf-table">
         <thead>
@@ -116,6 +116,7 @@
           <i class="pi pi-chevron-right"></i>
         </button>
       </div>
+    </div>
     </div>
   </div>
 </div>

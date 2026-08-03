@@ -10,7 +10,7 @@
       </button>
     </div>
   </div>
-  <div class="wf-card">
+  <div>
 
     <!-- ==================== VIEW 1: MÀN HÌNH DANH SÁCH ==================== -->
     <div *ngIf="currentView() === 'list'" class="animate-fade-in">
@@ -80,6 +80,7 @@
       </div>
 
       <!-- Bảng Grid dữ liệu -->
+      <div class="wf-card">
       <div class="wf-table-wrap">
         <table class="wf-table">
           <thead>
@@ -171,6 +172,7 @@
             <option [value]="50">50 / trang</option>
           </select>
         </div>
+      </div>
       </div>
     </div>
 

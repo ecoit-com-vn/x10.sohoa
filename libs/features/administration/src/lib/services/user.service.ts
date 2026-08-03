@@ -18,11 +18,9 @@ export class UserService {
     return `${this.config.apiGatewayUrl}/api/catalog`;
   }
 
-  getUsers(page: number, pageSize: number, keyword?: string, organizationUnitId?: number | null, isActive?: boolean | null): Observable<any> {
+  getUsers(page: number, pageSize: number, keyword?: string, organizationUnitIds: number[] = [], isActive?: boolean | null): Observable<any> {
     let url = `${this.base}/users?page=${page}&pageSize=${pageSize}&keyword=${keyword || ''}`;
-    if (organizationUnitId !== undefined && organizationUnitId !== null && String(organizationUnitId) !== 'null') {
-      url += `&organizationUnitId=${organizationUnitId}`;
-    }
+    organizationUnitIds.forEach(organizationUnitId => url += `&organizationUnitIds=${organizationUnitId}`);
     if (isActive !== undefined && isActive !== null) {
       url += `&isActive=${isActive}`;
     }

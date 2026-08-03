@@ -9,7 +9,6 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DialogModule } from 'primeng/dialog';
 import { ToastModule } from 'primeng/toast';
-import { SelectModule } from 'primeng/select';
 import { Menu, MenuModule } from 'primeng/menu';
 import { MenuItem, MessageService } from 'primeng/api';
 import { UserService } from '../../services/user.service';
@@ -25,7 +24,6 @@ import { buildMenuPermissionTree as buildMenuPermissionTreeFromLookup } from '..
     FormsModule,
     DialogModule,
     ToastModule,
-    SelectModule,
     MenuModule,
     WfBreadcrumbComponent,
     EcoInputTreeSelectComponent,
@@ -39,10 +37,10 @@ import { buildMenuPermissionTree as buildMenuPermissionTreeFromLookup } from '..
 export class UserManagement implements OnInit {
   users = signal<any[]>([]);
   searchKeyword = signal<string>('');
-  searchUnitId = signal<number | null>(null);
+  searchUnitIds = signal<number[]>([]);
   searchStatus = signal<string>(''); // '' (All), 'active' (Hoạt động), 'inactive' (Ngưng hoạt động)
   appliedKeyword = signal<string>('');
-  appliedUnitId = signal<number | null>(null);
+  appliedUnitIds = signal<number[]>([]);
   appliedStatus = signal<string>('');
   totalCount = signal<number>(0);
 
@@ -94,10 +92,6 @@ export class UserManagement implements OnInit {
 
   // Quyền theo đơn vị
   organizationUnits = signal<any[]>([]);
-  organizationUnitFilterOptions = computed(() => [
-    { id: null, name: '-- Tất cả đơn vị --' },
-    ...this.organizationUnits()
-  ]);
   systemRoles = signal<any[]>([]);
 
   // Danh mục chức vụ (từ EquipmentService Catalog)
@@ -253,7 +247,7 @@ export class UserManagement implements OnInit {
       this.currentPage(),
       this.pageSize(),
       this.appliedKeyword(),
-      this.appliedUnitId(),
+      this.appliedUnitIds(),
       isActiveParam
     )
       .pipe(
@@ -395,8 +389,9 @@ export class UserManagement implements OnInit {
   }
 
   onSearchUnitChange(val: any) {
-    this.searchUnitId.set(val && val !== 'null' ? Number(val) : null);
-    this.appliedUnitId.set(this.searchUnitId());
+    const unitIds = Array.isArray(val) ? val.map(Number).filter(Number.isFinite) : [];
+    this.searchUnitIds.set(unitIds);
+    this.appliedUnitIds.set(unitIds);
     this.reloadUsersFromFirstPage();
   }
 
@@ -566,10 +561,10 @@ export class UserManagement implements OnInit {
 
   onResetSearch() {
     this.searchKeyword.set('');
-    this.searchUnitId.set(null);
+    this.searchUnitIds.set([]);
     this.searchStatus.set('');
     this.appliedKeyword.set('');
-    this.appliedUnitId.set(null);
+    this.appliedUnitIds.set([]);
     this.appliedStatus.set('');
     this.reloadUsersFromFirstPage();
   }

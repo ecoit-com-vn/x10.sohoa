@@ -1,13 +1,13 @@
 <p-toast></p-toast>
 
 <div class="wf-page dossier-report-page equipment-type-report">
-  <div class="breadcrumb-container">
+  <div class="list-toolbar standard-page-toolbar breadcrumb-container">
     <wf-breadcrumb [suffix]="'Báo cáo thống kê hồ sơ nhập liệu theo loại thiết bị'"></wf-breadcrumb>
   </div>
 
-  <div class="filter-card">
-    <div class="filter-row">
-      <div class="filter-col">
+  <div class="standard-search-card filter-card">
+    <div class="standard-search-grid filter-row">
+      <div class="standard-search-field filter-col">
         <label class="filter-label">Đơn vị</label>
         <eco-input-tree-select
           [showLabel]="false"
@@ -21,7 +21,7 @@
         ></eco-input-tree-select>
       </div>
 
-      <div class="filter-col">
+      <div class="standard-search-field filter-col">
         <label class="filter-label">Loại đối tượng</label>
         <p-select
           [options]="objectTypes()"
@@ -34,7 +34,7 @@
         ></p-select>
       </div>
 
-      <div class="filter-col">
+      <div class="standard-search-field filter-col">
         <label class="filter-label">Loại thiết bị</label>
         <p-multiSelect
           [options]="equipmentTypeOptions()"
@@ -55,7 +55,7 @@
         ></p-multiSelect>
       </div>
 
-      <div class="filter-col">
+      <div class="standard-search-field filter-col">
         <label class="filter-label">Năm báo cáo</label>
         <p-select
           [options]="yearOptions()"
@@ -68,7 +68,7 @@
         ></p-select>
       </div>
 
-      <div class="filter-actions">
+      <div class="standard-search-actions filter-actions">
         <button type="button" class="btn-tim" (click)="onFilter()" [disabled]="loading()">
           <i class="pi pi-search"></i> Tìm kiếm
         </button>
