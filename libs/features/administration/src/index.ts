@@ -3,6 +3,7 @@ export * from './lib/components/user-management/user-management.component';
 export * from './lib/components/user-profile/user-profile.component';
 export * from './lib/components/change-password/change-password.component';
 export * from './lib/components/audit-log/audit-log.component';
+export * from './lib/components/ocr-jobs-monitor/ocr-jobs-monitor.component';
 export * from './lib/components/menu-management/menu-management.component';
 export * from './lib/components/organization-settings/organization-settings.component';
 export * from './lib/components/system-permission-group-management/system-permission-group-management.component';

@@ -481,6 +481,7 @@ export class InfrastructureComponent implements OnInit {
   }
 
   onFieldChange(field: string) {
+    this.currentItem.update(item => ({ ...item }));
     this.serverErrors.update(errs => {
       const copy = { ...errs };
       delete copy[field];
@@ -765,6 +766,7 @@ export class InfrastructureComponent implements OnInit {
 
   onSaveItem() {
     this.formSubmitted.set(true);
+    this.serverErrors.set({});
     const item = this.currentItem();
 
     if (!item.code || !item.name || !item.gridTypeId) {
@@ -1314,7 +1316,7 @@ export class InfrastructureComponent implements OnInit {
 
     this.loadingAttachmentDocuments.set(true);
     forkJoin(dossiers.map(dossier =>
-      this.dossierDocumentService.getDocuments(String(dossier.id), { page: 1, pageSize: 1000 }, true).pipe(
+      this.dossierDocumentService.getDocuments(String(dossier.id), { page: 1, pageSize: 1000 }, true, true).pipe(
         catchError(() => of({ items: [] }))
       )
     )).pipe(finalize(() => this.loadingAttachmentDocuments.set(false))).subscribe(results => {
@@ -1390,7 +1392,7 @@ export class InfrastructureComponent implements OnInit {
     this.loadingTechnicalFolders.set(loading);
 
     forkJoin(missingDossiers.map(dossier =>
-      this.dossierDocumentService.getDocuments(String(dossier.id), { page: 1, pageSize: 1000 }, true).pipe(
+      this.dossierDocumentService.getDocuments(String(dossier.id), { page: 1, pageSize: 1000 }, true, true).pipe(
         catchError(() => of({ items: [] })),
         finalize(() => undefined)
       )

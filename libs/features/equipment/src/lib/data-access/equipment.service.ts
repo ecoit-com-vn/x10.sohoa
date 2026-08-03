@@ -110,6 +110,10 @@ export class EquipmentService {
     return this.http.get<any[]>(`${this.config.apiGatewayUrl}/api/v1/organization-units/lookup`);
   }
 
+  getAllOrganizationUnits(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.config.apiGatewayUrl}/api/v1/organization-units/lookup-all-active`);
+  }
+
   getInfrastructures(): Observable<any[]> {
     return this.http.get<any[]>(`${this.base}/get-infrastructures`);
   }
@@ -145,6 +149,21 @@ export class EquipmentService {
       params = params.set('keyword', keyword.trim());
     }
     return this.http.get<any>(`${this.base}/${equipmentId}/profile-documents`, { params });
+  }
+
+  getPublishedProfileDocuments(
+    equipmentId: string,
+    page: number,
+    pageSize: number,
+    keyword?: string
+  ): Observable<any> {
+    let params = new HttpParams()
+      .set('page', page.toString())
+      .set('pageSize', pageSize.toString());
+    if (keyword && keyword.trim()) {
+      params = params.set('keyword', keyword.trim());
+    }
+    return this.http.get<any>(`${this.base}/${equipmentId}/published-profile-documents`, { params });
   }
 
   /** Gửi OCR + Bóc tách tài liệu lý lịch theo biểu mẫu thiết bị. */

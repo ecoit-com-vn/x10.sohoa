@@ -1,6 +1,7 @@
 import { Component, OnInit, signal, computed, inject, effect } from '@angular/core';
 import {
   DeleteConfirmDialogComponent,
+  EcoPaginatorComponent,
   WfBreadcrumbComponent
 } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
@@ -28,6 +29,7 @@ import { finalize } from 'rxjs/operators';
     TreeSelectModule,
     DialogModule,
     WfBreadcrumbComponent,
+    EcoPaginatorComponent,
     DeleteConfirmDialogComponent
   ],
   providers: [MessageService],
@@ -122,6 +124,7 @@ export class CatalogListComponent implements OnInit {
   parentError = computed(() => this.serverErrors().parentId || this.serverErrors().ParentId || '');
 
   onFieldChange(field: string) {
+    this.currentItem.update(item => ({ ...item }));
     this.serverErrors.update(errs => {
       const copy = { ...errs };
       delete copy[field];
@@ -208,8 +211,8 @@ export class CatalogListComponent implements OnInit {
     }
   }
 
-  onPageSizeChange(event: any) {
-    this.pageSize.set(Number(event.target.value));
+  onPageSizeChange(pageSize: number) {
+    this.pageSize.set(pageSize);
     this.currentPage.set(1);
   }
 
@@ -655,12 +658,13 @@ export class CatalogListComponent implements OnInit {
 
   onConfirmToggleStatus() {
     const item = this.statusTarget();
-    if (!item) return;
+    if (!item || this.togglingStatus()) return;
     const isLocking = item.status === 1;
     this.togglingStatus.set(true);
-    this.catalogService.toggleStatus(item.id, isLocking, this.catalogType()).subscribe({
+    this.catalogService.toggleStatus(item.id, isLocking, this.catalogType())
+      .pipe(finalize(() => this.togglingStatus.set(false)))
+      .subscribe({
       next: (res: any) => {
-        this.togglingStatus.set(false);
         this.showStatusConfirm.set(false);
         this.statusTarget.set(null);
         this.messageService.add({
@@ -671,8 +675,6 @@ export class CatalogListComponent implements OnInit {
         this.loadItems();
       },
       error: (err) => {
-        this.togglingStatus.set(false);
-        this.showStatusConfirm.set(false);
         const errorMsg = err.error?.message || 'Không thể thay đổi trạng thái danh mục.';
         this.messageService.add({ severity: 'error', summary: 'Lỗi thao tác', detail: errorMsg });
       }
@@ -680,6 +682,8 @@ export class CatalogListComponent implements OnInit {
   }
 
   onCancelToggleStatus() {
+    if (this.togglingStatus()) return;
+
     this.showStatusConfirm.set(false);
     this.statusTarget.set(null);
   }

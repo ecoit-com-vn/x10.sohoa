@@ -1,6 +1,7 @@
 import { Component, OnInit, inject, signal, computed, effect } from '@angular/core';
 import {
   DeleteConfirmDialogComponent,
+  EcoPaginatorComponent,
   EcoInputTreeSelectComponent,
   WfBreadcrumbComponent
 } from '@sohoa.frontend/shared/layout';
@@ -8,6 +9,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DialogModule } from 'primeng/dialog';
 import { ToastModule } from 'primeng/toast';
+import { SelectModule } from 'primeng/select';
 import { Menu, MenuModule } from 'primeng/menu';
 import { MenuItem, MessageService } from 'primeng/api';
 import { UserService } from '../../services/user.service';
@@ -23,9 +25,11 @@ import { buildMenuPermissionTree as buildMenuPermissionTreeFromLookup } from '..
     FormsModule,
     DialogModule,
     ToastModule,
+    SelectModule,
     MenuModule,
     WfBreadcrumbComponent,
     EcoInputTreeSelectComponent,
+    EcoPaginatorComponent,
     DeleteConfirmDialogComponent
   ],
   providers: [MessageService],
@@ -37,6 +41,9 @@ export class UserManagement implements OnInit {
   searchKeyword = signal<string>('');
   searchUnitId = signal<number | null>(null);
   searchStatus = signal<string>(''); // '' (All), 'active' (Hoạt động), 'inactive' (Ngưng hoạt động)
+  appliedKeyword = signal<string>('');
+  appliedUnitId = signal<number | null>(null);
+  appliedStatus = signal<string>('');
   totalCount = signal<number>(0);
 
   currentView = signal<'list' | 'add' | 'edit' | 'unit-role' | 'permission' | 'role'>('list');
@@ -75,6 +82,7 @@ export class UserManagement implements OnInit {
   });
 
   onFieldChange(field: string) {
+    this.currentUser.update(user => ({ ...user }));
     this.serverErrors.update(errs => {
       const copy = { ...errs };
       delete copy[field];
@@ -86,6 +94,10 @@ export class UserManagement implements OnInit {
 
   // Quyền theo đơn vị
   organizationUnits = signal<any[]>([]);
+  organizationUnitFilterOptions = computed(() => [
+    { id: null, name: '-- Tất cả đơn vị --' },
+    ...this.organizationUnits()
+  ]);
   systemRoles = signal<any[]>([]);
 
   // Danh mục chức vụ (từ EquipmentService Catalog)
@@ -159,18 +171,8 @@ export class UserManagement implements OnInit {
 
   constructor() {
     effect(() => {
-      this.searchKeyword();
-      this.searchUnitId();
-      this.searchStatus();
-      this.currentPage.set(1);
-    }, { allowSignalWrites: true });
-
-    effect(() => {
       const page = this.currentPage();
       const size = this.pageSize();
-      this.searchKeyword();
-      this.searchUnitId();
-      this.searchStatus();
       this.loadUsers();
     }, { allowSignalWrites: true });
 
@@ -228,8 +230,8 @@ export class UserManagement implements OnInit {
     }
   }
 
-  onPageSizeChange(event: any) {
-    this.pageSize.set(Number(event.target.value));
+  onPageSizeChange(pageSize: number) {
+    this.pageSize.set(pageSize);
     this.currentPage.set(1);
   }
 
@@ -244,14 +246,14 @@ export class UserManagement implements OnInit {
 
   loadUsers() {
     this.loading.set(true);
-    const statusVal = this.searchStatus();
+    const statusVal = this.appliedStatus();
     const isActiveParam = statusVal === 'active' ? true : (statusVal === 'inactive' ? false : null);
     
     this.userService.getUsers(
       this.currentPage(),
       this.pageSize(),
-      this.searchKeyword(),
-      this.searchUnitId(),
+      this.appliedKeyword(),
+      this.appliedUnitId(),
       isActiveParam
     )
       .pipe(
@@ -373,6 +375,8 @@ export class UserManagement implements OnInit {
   }
 
   onSearch() {
+    this.appliedKeyword.set(this.searchKeyword().trim());
+    this.reloadUsersFromFirstPage();
   }
 
   onAddNew() {
@@ -392,6 +396,22 @@ export class UserManagement implements OnInit {
 
   onSearchUnitChange(val: any) {
     this.searchUnitId.set(val && val !== 'null' ? Number(val) : null);
+    this.appliedUnitId.set(this.searchUnitId());
+    this.reloadUsersFromFirstPage();
+  }
+
+  onSearchStatusChange(status: string): void {
+    this.searchStatus.set(status);
+    this.appliedStatus.set(status);
+    this.reloadUsersFromFirstPage();
+  }
+
+  private reloadUsersFromFirstPage(): void {
+    if (this.currentPage() === 1) {
+      this.loadUsers();
+      return;
+    }
+    this.currentPage.set(1);
   }
 
   onToggleStatusRequest(user: any) {
@@ -542,6 +562,16 @@ export class UserManagement implements OnInit {
   onDelete(user: any): void {
     this.deleteTarget.set(user);
     this.showDeleteConfirm.set(true);
+  }
+
+  onResetSearch() {
+    this.searchKeyword.set('');
+    this.searchUnitId.set(null);
+    this.searchStatus.set('');
+    this.appliedKeyword.set('');
+    this.appliedUnitId.set(null);
+    this.appliedStatus.set('');
+    this.reloadUsersFromFirstPage();
   }
 
   onConfirmDelete(): void {

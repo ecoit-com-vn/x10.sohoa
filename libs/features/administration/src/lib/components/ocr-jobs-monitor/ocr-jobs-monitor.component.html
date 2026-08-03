@@ -1,0 +1,113 @@
+<p-toast></p-toast>
+
+<div class="wf-page">
+  <wf-breadcrumb leafLabel="Giám sát job OCR/bóc tách" />
+
+  @if (!canView()) {
+    <p class="no-permission">Bạn không có quyền xem màn hình này.</p>
+  } @else {
+    <div class="wf-card">
+      <div class="filter-bar">
+        <select class="filter-input" [(ngModel)]="filterStatus">
+          <option value="">-- Tất cả trạng thái --</option>
+          @for (s of statusOptions; track s) {
+            <option [value]="s">{{ s }}</option>
+          }
+        </select>
+
+        <select class="filter-input" [(ngModel)]="filterPhase">
+          <option value="">-- Tất cả giai đoạn --</option>
+          @for (p of phaseOptions; track p.value) {
+            <option [value]="p.value">{{ p.label }}</option>
+          }
+        </select>
+
+        <input
+          type="text"
+          class="filter-input filter-keyword"
+          placeholder="Tên tài liệu..."
+          [(ngModel)]="filterKeyword"
+          (keyup.enter)="onSearch()"
+        />
+
+        <p-datepicker [(ngModel)]="filterFromDate" placeholder="Từ ngày" [showIcon]="true" dateFormat="dd/mm/yy"></p-datepicker>
+        <p-datepicker [(ngModel)]="filterToDate" placeholder="Đến ngày" [showIcon]="true" dateFormat="dd/mm/yy"></p-datepicker>
+
+        <button type="button" class="btn-search" (click)="onSearch()">
+          <i class="pi pi-search"></i> Tìm
+        </button>
+        <button type="button" class="btn-refresh" (click)="onRefresh()" [disabled]="loading()">
+          <i class="pi pi-refresh" [class.pi-spin]="loading()"></i>
+        </button>
+      </div>
+
+      <div class="wf-table-wrap">
+        <table class="wf-table">
+          <thead>
+            <tr>
+              <th>Tài liệu</th>
+              <th>Loại</th>
+              <th>Hồ sơ / Thiết bị</th>
+              <th>Giai đoạn</th>
+              <th>Trạng thái</th>
+              <th>Tiến độ</th>
+              <th>Lỗi</th>
+              <th>Thời gian</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @if (loading()) {
+              <tr><td colspan="9" class="empty-row"><i class="pi pi-spin pi-spinner"></i> Đang tải...</td></tr>
+            } @else if (jobs().length === 0) {
+              <tr><td colspan="9" class="empty-row">Không có job nào phù hợp bộ lọc.</td></tr>
+            } @else {
+              @for (job of jobs(); track job.progressId) {
+                <tr>
+                  <td>{{ job.documentName }}</td>
+                  <td>{{ job.documentTypeName || '—' }}</td>
+                  <td>
+                    @if (job.dossierInfrastructureName) {
+                      {{ job.dossierInfrastructureName }} ({{ job.dossierInfrastructureCode }})
+                    } @else if (job.equipmentName) {
+                      {{ job.equipmentName }}
+                    } @else {
+                      —
+                    }
+                  </td>
+                  <td>{{ job.phase === 'ocr' ? 'OCR' : 'Bóc tách' }}</td>
+                  <td><span class="status-badge" [ngClass]="getStatusBadgeClass(job.status)">{{ job.status }}</span></td>
+                  <td>{{ job.progress }}% @if (job.totalPages > 0) { ({{ job.currentPage }}/{{ job.totalPages }}) }</td>
+                  <td class="error-cell" [title]="job.errorMessage || ''">{{ job.errorMessage || '—' }}</td>
+                  <td>{{ job.createdDate | date: 'dd/MM/yyyy HH:mm' }}</td>
+                  <td>
+                    @if (canRetryJob(job)) {
+                      <button
+                        type="button"
+                        class="act-btn act-retry"
+                        [disabled]="isRetrying(job)"
+                        title="Chạy lại"
+                        (click)="retryJob(job)"
+                      >
+                        <i class="pi" [ngClass]="isRetrying(job) ? 'pi-spin pi-spinner' : 'pi-replay'"></i>
+                      </button>
+                    }
+                  </td>
+                </tr>
+              }
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <app-eco-paginator
+        [currentPage]="page()"
+        [pageSize]="pageSize()"
+        [totalRecords]="totalCount()"
+        recordLabel="job"
+        (pageChange)="onPageChange($event)"
+        (pageSizeChange)="onPageSizeChange($event)"
+      ></app-eco-paginator>
+    </div>
+  }
+</div>

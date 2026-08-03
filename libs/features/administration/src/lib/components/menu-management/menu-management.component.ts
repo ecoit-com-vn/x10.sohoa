@@ -10,7 +10,7 @@ import { ToastModule } from 'primeng/toast';
 import { Menu, MenuModule } from 'primeng/menu';
 import { MenuItem, MessageService } from 'primeng/api';
 import { finalize } from 'rxjs';
-import { AuthService, MenuService } from '@sohoa.frontend/shared/core';
+import { AuthService, MenuService, BreadcrumbTrailItem } from '@sohoa.frontend/shared/core';
 import {
   buildMenuDisplayTree,
   isMenuViewPermission,
@@ -35,6 +35,10 @@ import {
   styleUrl: './menu-management.component.scss'
 })
 export class MenuManagement implements OnInit {
+  breadcrumbItems: BreadcrumbTrailItem[] = [
+    { label: 'Quản trị' },
+    { label: 'Quản lý menu', url: '/administration/menu-management' }
+  ];
   menus = signal<any[]>([]);
   searchKeyword = signal<string>('');
   permissions = signal<any[]>([]);
@@ -151,6 +155,7 @@ export class MenuManagement implements OnInit {
   }
 
   onFieldChange(field: string) {
+    this.currentMenu.update(menu => ({ ...menu }));
     this.serverErrors.update(errs => {
       const copy = { ...errs };
       delete copy[field];
@@ -162,6 +167,11 @@ export class MenuManagement implements OnInit {
 
   onSearch() {
     this.syncExpandedMenus();
+  }
+
+  onResetSearch() {
+    this.searchKeyword.set('');
+    this.loadMenus();
   }
 
   toggleMenuGroup(menuId: number) {

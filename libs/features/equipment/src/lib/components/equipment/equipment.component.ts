@@ -1,6 +1,7 @@
 import { Component, OnInit, signal, computed, inject, effect, HostListener } from '@angular/core';
 import {
   DeleteConfirmDialogComponent,
+  EcoPaginatorComponent,
   WfBreadcrumbComponent
 } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
@@ -34,6 +35,7 @@ import { EavFormService } from '../../../../../../shared/core/src/lib/services/e
     DialogModule,
     ToggleSwitch,
     WfBreadcrumbComponent,
+    EcoPaginatorComponent,
     DeleteConfirmDialogComponent,
     EquipmentDocumentsComponent,
     DatePickerModule
@@ -114,6 +116,7 @@ export class EquipmentComponent implements OnInit {
 
   // Lists from lookup
   organizationUnits = signal<any[]>([]);
+  transferOrganizationUnits = signal<any[]>([]);
   infrastructures = signal<any[]>([]);
   gridTypes = signal<any[]>([]);
   equipmentTypes = signal<any[]>([]);
@@ -128,7 +131,9 @@ export class EquipmentComponent implements OnInit {
   expandedTransferUnitNodes = signal<Set<number>>(new Set<number>());
 
   formOrgUnitTree = computed(() => this.filterOrgTree(this.orgUnitTree(), this.formOrgSearchKeyword()));
-  transferOrgUnitTree = computed(() => this.filterOrgTree(this.orgUnitTree(), this.transferOrgSearchKeyword()));
+  transferOrgUnitTree = computed(() =>
+    this.filterOrgTree(this.buildOrgTree(this.transferOrganizationUnits()), this.transferOrgSearchKeyword())
+  );
 
   // Transfer Equipment Dialog State
   showTransferDialog = signal<boolean>(false);
@@ -455,6 +460,7 @@ export class EquipmentComponent implements OnInit {
   }
 
   onFieldChange(field: string) {
+    this.currentItem.update(item => ({ ...item }));
     this.serverErrors.update(errs => {
       const copy = { ...errs };
       delete copy[field];
@@ -676,6 +682,10 @@ export class EquipmentComponent implements OnInit {
     return this.organizationUnits().find(unit => Number(unit.id) === Number(unitId))?.name || '';
   }
 
+  getTransferUnitLabel(unitId: number | null): string {
+    return this.transferOrganizationUnits().find(unit => Number(unit.id) === Number(unitId))?.name || '';
+  }
+
   loadSearchInfrastructuresOnDemand() {
     if (this.infrastructures().length === 0) {
       this.equipmentService.getInfrastructures().pipe(catchError(() => of([]))).subscribe(data => {
@@ -740,9 +750,9 @@ export class EquipmentComponent implements OnInit {
     if (event) event.stopPropagation();
     if (this.transferLoading()) return;
 
-    if (this.organizationUnits().length === 0) {
-      this.equipmentService.getOrganizationUnits().pipe(catchError(() => of([]))).subscribe(data => {
-        this.organizationUnits.set(this.getAvailableOrganizationUnits(data));
+    if (this.transferOrganizationUnits().length === 0) {
+      this.equipmentService.getAllOrganizationUnits().pipe(catchError(() => of([]))).subscribe(data => {
+        this.transferOrganizationUnits.set(this.getAvailableOrganizationUnits(data));
         this.transferOrgTreeOpen.set(true);
       });
       return;
@@ -830,16 +840,16 @@ export class EquipmentComponent implements OnInit {
     this.transferOrgSearchKeyword.set('');
     this.showTransferDialog.set(true);
 
-    if (this.organizationUnits().length === 0 || this.infrastructures().length === 0) {
+    if (this.transferOrganizationUnits().length === 0 || this.infrastructures().length === 0) {
       forkJoin({
-        organizationUnits: this.organizationUnits().length === 0
-          ? this.equipmentService.getOrganizationUnits().pipe(catchError(() => of([])))
-          : of(this.organizationUnits()),
+        organizationUnits: this.transferOrganizationUnits().length === 0
+          ? this.equipmentService.getAllOrganizationUnits().pipe(catchError(() => of([])))
+          : of(this.transferOrganizationUnits()),
         infrastructures: this.infrastructures().length === 0
           ? this.equipmentService.getInfrastructures().pipe(catchError(() => of([])))
           : of(this.infrastructures())
       }).subscribe(data => {
-        this.organizationUnits.set(this.getAvailableOrganizationUnits(data.organizationUnits));
+        this.transferOrganizationUnits.set(this.getAvailableOrganizationUnits(data.organizationUnits));
         this.infrastructures.set(Array.isArray(data.infrastructures) ? data.infrastructures : []);
       });
     }
@@ -962,6 +972,7 @@ export class EquipmentComponent implements OnInit {
 
   onSaveItem() {
     this.formSubmitted.set(true);
+    this.serverErrors.set({});
     const item = this.currentItem();
 
     if (!item.code || !item.name || !item.unitId || !item.gridTypeId || !item.infrastructureId || !item.equipmentTypeId
@@ -1285,6 +1296,11 @@ export class EquipmentComponent implements OnInit {
 
   onDossierPageChange(page: number) {
     this.dossierPage.set(page);
+  }
+
+  onRelatedDossierPageChange(event: { page: number; rows: number }) {
+    this.dossierPage.set(event.page + 1);
+    this.dossierPageSize.set(event.rows);
   }
 
   // --- View Doc Helpers ---

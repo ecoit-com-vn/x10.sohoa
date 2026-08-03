@@ -1,6 +1,7 @@
 import { Component, OnInit, signal, computed, inject, effect } from '@angular/core';
 import {
   DeleteConfirmDialogComponent,
+  EcoPaginatorComponent,
   WfBreadcrumbComponent
 } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
@@ -28,6 +29,7 @@ import { finalize } from 'rxjs/operators';
     DialogModule,
     MultiSelectModule,
     WfBreadcrumbComponent,
+    EcoPaginatorComponent,
     DeleteConfirmDialogComponent
   ],
   providers: [MessageService],
@@ -182,6 +184,7 @@ export class DossierTypeComponent implements OnInit {
   }
 
   onFieldChange(field: string) {
+    this.currentItem.update(item => ({ ...item }));
     this.serverErrors.update(errs => {
       const copy = { ...errs };
       delete copy[field];
@@ -245,8 +248,8 @@ export class DossierTypeComponent implements OnInit {
     }
   }
 
-  onPageSizeChange(event: any) {
-    this.pageSize.set(Number(event.target.value));
+  onPageSizeChange(pageSize: number) {
+    this.pageSize.set(pageSize);
     this.currentPage.set(1);
   }
 
@@ -297,6 +300,7 @@ export class DossierTypeComponent implements OnInit {
 
   onSaveItem() {
     this.formSubmitted.set(true);
+    this.serverErrors.set({});
     const item = this.currentItem();
 
     if (!item.code || !item.name) {

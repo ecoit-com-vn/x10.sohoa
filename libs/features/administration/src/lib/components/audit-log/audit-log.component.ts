@@ -2,6 +2,7 @@ import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   DeleteConfirmDialogComponent,
+  EcoPaginatorComponent,
   EcoInputTreeSelectComponent,
   WfBreadcrumbComponent
 } from '@sohoa.frontend/shared/layout';
@@ -11,6 +12,7 @@ import { FormsModule } from '@angular/forms';
 import { ToastModule } from 'primeng/toast';
 import { MessageService, TreeNode } from 'primeng/api';
 import { DialogModule } from 'primeng/dialog';
+import { DatePickerModule } from 'primeng/datepicker';
 import { TabsModule } from 'primeng/tabs';
 import { Subject, catchError, finalize, of, switchMap } from 'rxjs';
 import { AuthService, AuditLogService, AuditLogLookupItem, AuditLogQueryParams } from '@sohoa.frontend/shared/core';
@@ -38,9 +40,11 @@ interface AuditLogView {
     FormsModule,
     ToastModule,
     DialogModule,
+    DatePickerModule,
     TabsModule,
     WfBreadcrumbComponent,
     EcoInputTreeSelectComponent,
+    EcoPaginatorComponent,
     DeleteConfirmDialogComponent
   ],
   providers: [MessageService],
@@ -54,8 +58,8 @@ export class AuditLogComponent implements OnInit {
   searchTerm = signal('');
   filterAction = signal('');
   filterResourceType = signal('');
-  filterFromDate = signal('');
-  filterToDate = signal('');
+  filterFromDate = signal<Date | null>(null);
+  filterToDate = signal<Date | null>(null);
   filterUnitIds = signal<number[]>([]);
 
   appliedSearchTerm = signal('');
@@ -149,12 +153,10 @@ export class AuditLogComponent implements OnInit {
     const monthAgo = new Date();
     monthAgo.setDate(today.getDate() - 30);
 
-    const from = this.toDateInputValue(monthAgo);
-    const to = this.toDateInputValue(today);
-    this.filterFromDate.set(from);
-    this.filterToDate.set(to);
-    this.appliedFromDate.set(from);
-    this.appliedToDate.set(to);
+    this.filterFromDate.set(monthAgo);
+    this.filterToDate.set(today);
+    this.appliedFromDate.set(this.toDateInputValue(monthAgo));
+    this.appliedToDate.set(this.toDateInputValue(today));
 
     this.loadLookups(this.appliedLogGroup());
     this.loadOrganizationUnits();
@@ -301,8 +303,17 @@ export class AuditLogComponent implements OnInit {
     this.appliedSearchTerm.set(this.searchTerm());
     this.appliedAction.set(this.filterAction());
     this.appliedResourceType.set(this.filterResourceType());
-    this.appliedFromDate.set(this.filterFromDate());
-    this.appliedToDate.set(this.filterToDate());
+    this.appliedFromDate.set(this.filterFromDate() ? this.toDateInputValue(this.filterFromDate()!) : '');
+    this.appliedToDate.set(this.filterToDate() ? this.toDateInputValue(this.filterToDate()!) : '');
+    this.appliedUnitIds.set(this.filterUnitIds());
+    this.currentPage.set(1);
+    this.selectedIds.set([]);
+    this.loadAuditLogs();
+  }
+
+  onSelectFilterChange(): void {
+    this.appliedAction.set(this.filterAction());
+    this.appliedResourceType.set(this.filterResourceType());
     this.appliedUnitIds.set(this.filterUnitIds());
     this.currentPage.set(1);
     this.selectedIds.set([]);
@@ -318,8 +329,8 @@ export class AuditLogComponent implements OnInit {
     this.filterAction.set('');
     this.filterResourceType.set('');
     this.filterUnitIds.set([]);
-    this.filterFromDate.set(this.toDateInputValue(monthAgo));
-    this.filterToDate.set(this.toDateInputValue(today));
+    this.filterFromDate.set(monthAgo);
+    this.filterToDate.set(today);
     this.onSearch();
   }
 
@@ -386,9 +397,8 @@ export class AuditLogComponent implements OnInit {
     }
   }
 
-  onPageSizeChange(event: Event) {
-    const target = event.target as HTMLSelectElement;
-    this.pageSize.set(Number(target.value));
+  onPageSizeChange(pageSize: number) {
+    this.pageSize.set(pageSize);
     this.currentPage.set(1);
     this.loadAuditLogs();
   }

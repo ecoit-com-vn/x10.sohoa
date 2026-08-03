@@ -115,13 +115,13 @@
 
     <div class="table-footer-paginator" *ngIf="filteredForms().length > 0">
       <span class="record-count">Tổng số: <b>{{ filteredForms().length }}</b> bản ghi.</span>
-      <p-paginator 
+      <app-eco-paginator
           [first]="first()" 
           [rows]="rows()" 
           [totalRecords]="filteredForms().length" 
           [rowsPerPageOptions]="[5, 10, 20, 50]" 
           (onPageChange)="onPageChange($event)">
-      </p-paginator>
+      </app-eco-paginator>
     </div>
   </div>
 
@@ -338,7 +338,7 @@
               <td>{{ ver.createdAt | date:'dd/MM/yyyy HH:mm' }}</td>
               <td class="text-center" style="text-align: center;">
                 <span class="status-pill" [class.status-active]="ver.isActive" [class.status-inactive]="!ver.isActive">
-                  {{ ver.isActive ? 'Hoạt động' : 'Ngưng hoạt động' }}
+                  {{ ver.isActive ? 'Hoạt động' : 'Ngừng hoạt động' }}
                 </span>
               </td>
               <td class="text-center" style="text-align: center;">

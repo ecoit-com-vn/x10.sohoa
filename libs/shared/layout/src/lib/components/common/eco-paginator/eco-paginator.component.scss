@@ -1,4 +1,157 @@
-::ng-deep .p-paginator .p-paginator-pages .p-paginator-page.p-highlight {
-    background-color: rgb(235, 171, 52) !important; 
-    color: white !important;
-  }
+:host {
+    display: block;
+}
+
+.eco-paginator {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding-top: 12px;
+    margin-top: 6px;
+    border-top: 1px solid #f1f5f9;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+
+/* Tổng số bản ghi */
+
+.eco-paginator__summary {
+    margin-right: auto;
+    font-size: 0.83rem;
+    color: #6b7280;
+    white-space: nowrap;
+}
+
+.eco-paginator__summary strong {
+    color: #374151;
+    font-weight: 600;
+}
+
+
+/* Khu vực phân trang */
+
+.eco-paginator__pages {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+
+/* Button */
+
+.eco-paginator__button {
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    padding: 0;
+    border: 1px solid #e5e7eb;
+    border-radius: 4px;
+    background: #ffffff;
+    color: #6b7280;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all .15s ease;
+}
+
+.eco-paginator__button:hover:not(:disabled) {
+    background: #1a3593;
+    color: #ffffff;
+    border-color: #1a3593;
+}
+
+.eco-paginator__button:disabled {
+    opacity: .4;
+    cursor: default;
+}
+
+
+/* Bỏ style riêng của nút điều hướng */
+
+.eco-paginator__nav-button {
+    width: 28px;
+    height: 28px;
+    border: 1px solid #e5e7eb;
+    border-radius: 4px;
+}
+
+
+/* Trang hiện tại */
+
+.eco-paginator__page-indicator {
+    min-width: 28px;
+    height: 28px;
+    padding: 0 6px;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #374151;
+    white-space: nowrap;
+}
+
+
+/* Go to page */
+
+.eco-paginator__go-to {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.eco-paginator__go-to input {
+    width: 56px;
+    height: 28px;
+    padding: 0 6px;
+    border: 1px solid #e5e7eb;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    text-align: center;
+}
+
+
+/* Page size */
+
+.eco-paginator__page-size {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.eco-paginator__page-size select {
+    height: 28px;
+    padding: 0 6px;
+    border: 1px solid #e5e7eb;
+    border-radius: 4px;
+    background: #ffffff;
+    color: #374151;
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+.eco-paginator__page-size-label {
+    display: none;
+}
+
+.eco-paginator__button:focus-visible,
+.eco-paginator__go-to input:focus-visible,
+.eco-paginator__page-size select:focus-visible {
+    outline: 2px solid rgba(26, 53, 147, 0.25);
+    outline-offset: 2px;
+}
+
+@media (max-width: 900px) {
+    .eco-paginator {
+        flex-wrap: wrap;
+    }
+    .eco-paginator__summary {
+        width: 100%;
+    }
+}

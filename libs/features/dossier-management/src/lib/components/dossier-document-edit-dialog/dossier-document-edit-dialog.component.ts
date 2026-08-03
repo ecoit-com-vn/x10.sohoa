@@ -8,6 +8,8 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 
 import { DialogModule } from 'primeng/dialog';
 
+import { DatePickerModule } from 'primeng/datepicker';
+
 import { ButtonModule } from 'primeng/button';
 
 import { MessageService } from 'primeng/api';
@@ -44,7 +46,7 @@ import {
 
   standalone: true,
 
-  imports: [CommonModule, FormsModule, DialogModule, ButtonModule],
+  imports: [CommonModule, FormsModule, DialogModule, ButtonModule, DatePickerModule],
 
   templateUrl: './dossier-document-edit-dialog.component.html',
 
@@ -448,6 +450,30 @@ export class DossierDocumentEditDialogComponent implements OnDestroy {
 
     this.draftData.update((data) => ({ ...data, [key]: value }));
 
+  }
+
+  getDraftDateValue(key: string): Date | null {
+    const value = this.draftData()[key];
+    if (!value) return null;
+
+    const text = String(value);
+    const date = /^\d{4}-\d{2}-\d{2}$/.test(text)
+      ? new Date(Number(text.slice(0, 4)), Number(text.slice(5, 7)) - 1, Number(text.slice(8, 10)))
+      : new Date(text);
+
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  setDraftDateValue(key: string, value: Date | null): void {
+    if (!value) {
+      this.setDraftFieldValue(key, '');
+      return;
+    }
+
+    const year = value.getFullYear();
+    const month = String(value.getMonth() + 1).padStart(2, '0');
+    const day = String(value.getDate()).padStart(2, '0');
+    this.setDraftFieldValue(key, `${year}-${month}-${day}`);
   }
 
 

@@ -85,114 +85,99 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
           <span class="tab-badge" *ngIf="getTabBadgeCount(tab)">{{ getTabBadgeCount(tab) }}</span>
         </button>
       </div>
-
-
-
-      <div class="list-toolbar">
-
+      <div class="standard-search-card">
         <div class="toolbar-left">
+          <div class="standard-search-field">
+            <label class="search-field-label">Từ khóa</label>
+            <input
+              type="text"
+              class="wf-search-input"
+              placeholder="Tìm kiếm theo thông tin hồ sơ..."
+              [(ngModel)]="searchKeyword"
+              (keyup.enter)="onApplyFilters()" />
+          </div>
 
-          <input
+          <div class="standard-search-field">
+            <label class="search-field-label">Loại hồ sơ</label>
+            <select class="wf-select" [ngModel]="filterDossierTypeId()" (ngModelChange)="onDossierTypeFilterChange($event)">
+              <option [ngValue]="null">-- Tất cả loại hồ sơ --</option>
+              <option *ngFor="let item of dossierTypes()" [value]="item.id">{{ item.name }}</option>
+            </select>
+          </div>
 
-            type="text"
-
-            class="wf-search-input"
-
-            placeholder="Tìm kiếm theo thông tin hồ sơ..."
-
-            [(ngModel)]="searchKeyword"
-
-            (keyup.enter)="onSearch()"
-
-          />
-
-          <select class="wf-select" [ngModel]="filterDossierTypeId()" (ngModelChange)="onDossierTypeFilterChange($event)">
-
-            <option [ngValue]="null">-- Tất cả loại hồ sơ --</option>
-
-            <option *ngFor="let item of dossierTypes()" [value]="item.id">{{ item.name }}</option>
-
-          </select>
-
-          <div class="searchable-select">
-            <button type="button" class="wf-select searchable-select-trigger" (click)="toggleInfrastructureDropdown()">
-              <span>{{ selectedInfrastructureLabel() }}</span>
-              <i class="pi pi-chevron-down"></i>
-            </button>
-
-            <div class="searchable-select-panel" *ngIf="isInfrastructureDropdownOpen()">
-              <input
-                type="text"
-                class="searchable-select-input"
-                placeholder="Tìm trên trạm/đường dây..."
-                [ngModel]="infrastructureSearchKeyword()"
-                (ngModelChange)="infrastructureSearchKeyword.set($event)" />
-              <button type="button" class="searchable-select-option" (click)="selectInfrastructure(null)">
-                -- Tất cả trạm/đường dây --
+          <div class="standard-search-field">
+            <label class="search-field-label">Trạm / Đường dây</label>
+            <div class="searchable-select">
+              <button type="button" class="wf-select searchable-select-trigger" (click)="toggleInfrastructureDropdown()">
+                <span>{{ selectedInfrastructureLabel() }}</span>
+                <i class="pi pi-chevron-down"></i>
               </button>
-              <button
-                type="button"
-                class="searchable-select-option"
-                *ngFor="let item of filteredInfrastructures()"
-                (click)="selectInfrastructure(item.id)">
-                {{ item.name }}
-              </button>
-              <div class="searchable-select-empty" *ngIf="filteredInfrastructures().length === 0">Không có dữ liệu</div>
+
+              <div class="searchable-select-panel" *ngIf="isInfrastructureDropdownOpen()">
+                <input
+                  type="text"
+                  class="searchable-select-input"
+                  placeholder="Tìm trên trạm/đường dây..."
+                  [ngModel]="infrastructureSearchKeyword()"
+                  (ngModelChange)="infrastructureSearchKeyword.set($event)" />
+                <button type="button" class="searchable-select-option" (click)="selectInfrastructure(null)">
+                  -- Tất cả trạm/đường dây --
+                </button>
+                <button
+                  type="button"
+                  class="searchable-select-option"
+                  *ngFor="let item of filteredInfrastructures()"
+                  (click)="selectInfrastructure(item.id)">
+                  {{ item.name }}
+                </button>
+                <div class="searchable-select-empty" *ngIf="filteredInfrastructures().length === 0">Không có dữ liệu</div>
+              </div>
             </div>
           </div>
 
-          <div class="searchable-select">
-            <button
-              type="button"
-              class="wf-select searchable-select-trigger"
-              [disabled]="!filterInfrastructureId()"
-              (click)="toggleEquipmentDropdown()">
-              <span>{{ selectedEquipmentLabel() }}</span>
-              <i class="pi pi-chevron-down"></i>
-            </button>
-
-            <div class="searchable-select-panel" *ngIf="isEquipmentDropdownOpen()">
-              <input
-                type="text"
-                class="searchable-select-input"
-                placeholder="Tìm theo mã, tên thiết bị..."
-                [ngModel]="equipmentSearchKeyword()"
-                (ngModelChange)="equipmentSearchKeyword.set($event)" />
-              <button type="button" class="searchable-select-option" (click)="selectEquipment(null)">
-                -- Tất cả thiết bị --
-              </button>
+          <div class="standard-search-field">
+            <label class="search-field-label">Thiết bị</label>
+            <div class="searchable-select">
               <button
                 type="button"
-                class="searchable-select-option"
-                *ngFor="let item of filteredEquipments()"
-                (click)="selectEquipment(item.id)">
-                {{ item.name }}
+                class="wf-select searchable-select-trigger"
+                [disabled]="!filterInfrastructureId()"
+                (click)="toggleEquipmentDropdown()">
+                <span>{{ selectedEquipmentLabel() }}</span>
+                <i class="pi pi-chevron-down"></i>
               </button>
-              <div class="searchable-select-empty" *ngIf="filteredEquipments().length === 0">Không có dữ liệu</div>
+
+              <div class="searchable-select-panel" *ngIf="isEquipmentDropdownOpen()">
+                <input
+                  type="text"
+                  class="searchable-select-input"
+                  placeholder="Tìm theo mã, tên thiết bị..."
+                  [ngModel]="equipmentSearchKeyword()"
+                  (ngModelChange)="equipmentSearchKeyword.set($event)" />
+                <button type="button" class="searchable-select-option" (click)="selectEquipment(null)">
+                  -- Tất cả thiết bị --
+                </button>
+                <button
+                  type="button"
+                  class="searchable-select-option"
+                  *ngFor="let item of filteredEquipments()"
+                  (click)="selectEquipment(item.id)">
+                  {{ item.name }}
+                </button>
+                <div class="searchable-select-empty" *ngIf="filteredEquipments().length === 0">Không có dữ liệu</div>
+              </div>
             </div>
           </div>
 
-          <button (click)="onSearch()" class="btn-tim">
-
-            <i class="pi pi-search"></i> Tìm
-
-          </button>
-
+          <div class="standard-search-actions">
+            <button type="button" class="btn-outlined" (click)="onResetFilters()">
+              <i class="pi pi-refresh"></i> Làm mới
+            </button>
+            <button type="button" class="btn-save" (click)="onApplyFilters()">
+              <i class="pi pi-check"></i> Áp dụng
+            </button>
+          </div>
         </div>
-
-        <div class="toolbar-right" *ngIf="isCreatorMenu() && activeTab() === 'draft' && canCreateDossier()">
-          <input type="file" #fileInput style="display: none;" (change)="onFileSelected($event)" accept=".xlsx" />
-          <button (click)="onExportTemplate()" class="btn-outlined" style="margin-right: 8px;">
-            <i class="pi pi-download"></i> Xuất mẫu import
-          </button>
-          <button (click)="fileInput.click()" class="btn-outlined" style="margin-right: 8px;">
-            <i class="pi pi-upload"></i> Import
-          </button>
-          <button (click)="onCreateNew()" class="btn-green">
-            <i class="pi pi-plus"></i> Tạo hồ sơ mới
-          </button>
-        </div>
-
       </div>
 
 
@@ -213,7 +198,7 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
 
               <th style="width: 130px; text-align: center; white-space: normal !important;">Số lượng tài liệu</th>
 
-              <th style="width: 140px; white-space: nowrap !important;">Người xử lý hiện tại</th>
+              <th style="width: 140px; white-space: nowrap !important;">{{ activeTab() === 'draft' ? 'Ngày tạo' : 'Người xử lý hiện tại' }}</th>
 
               <th style="width: 160px; text-align: center; white-space: normal !important;">Trạng thái duyệt</th>
 
@@ -281,7 +266,10 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
 
                 <td class="text-center">{{ item.documentCount ?? 0 }}</td>
 
-                <td class="handler-cell" [title]="getCurrentHandlerName(item)">{{ getCurrentHandlerName(item) }}</td>
+                <td [class.handler-cell]="activeTab() !== 'draft'"
+                    [title]="activeTab() === 'draft' ? formatCreatedDate(item?.createdDate ?? item?.CreatedDate) : getCurrentHandlerName(item)">
+                  {{ activeTab() === 'draft' ? formatCreatedDate(item?.createdDate ?? item?.CreatedDate) : getCurrentHandlerName(item) }}
+                </td>
 
                 <td class="text-center">
                   <span [class]="getDossierStatusPillClass(item.statusId)">
@@ -310,26 +298,27 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
 
 
 
-      <div class="table-footer" *ngIf="!loading()">
+      <div class="table-footer" *ngIf="items().length > 0">
 
-        <span class="record-count">Tổng số: <b>{{ totalCount() }}</b> hồ sơ.</span>
+        <span class="record-count">Tổng số: <b>{{ totalCount() }}</b> bản ghi.</span>
 
         <div class="pagination">
-
-          <button class="page-btn" [disabled]="currentPage() === 1" (click)="changePage(currentPage() - 1)">
-
+          <button class="page-btn" (click)="prevPage()" [disabled]="currentPage() === 1">
             <i class="pi pi-chevron-left"></i>
-
           </button>
-
           <span class="page-current">Trang {{ currentPage() }} / {{ totalPages() || 1 }}</span>
-
-          <button class="page-btn" [disabled]="currentPage() >= totalPages() || totalPages() === 0" (click)="changePage(currentPage() + 1)">
-
+          <button class="page-btn" (click)="nextPage()" [disabled]="currentPage() >= totalPages()">
             <i class="pi pi-chevron-right"></i>
-
           </button>
-
+          <span style="margin-left: 10px; display: inline-flex; align-items: center; gap: 5px; font-size: 0.8rem; color: #6b7280;">
+            Đi tới trang:
+            <input type="number" class="page-jump-input" [value]="currentPage()" (change)="goToPage($any($event.target).value)" style="width: 50px; height: 28px; text-align: center; border: 1px solid #e5e7eb; border-radius: 4px; padding: 0 4px;" [min]="1" [max]="totalPages() || 1" />
+          </span>
+          <select class="page-size-sel" [ngModel]="pageSize()" (change)="onPageSizeChange($event)">
+            <option [value]="10">10 / trang</option>
+            <option [value]="20">20 / trang</option>
+            <option [value]="50">50 / trang</option>
+          </select>
         </div>
 
       </div>
@@ -527,9 +516,6 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
         <button class="btn-small"
                 [class.btn-save]="isRejectLabel(pendingQuickActionMeta()?.label) || isApproveLabel(pendingQuickActionMeta()?.label)"
                 [class.btn-green]="!isRejectLabel(pendingQuickActionMeta()?.label) && !isApproveLabel(pendingQuickActionMeta()?.label)"
-                [style.background-color]="isRejectLabel(pendingQuickActionMeta()?.label) ? '#4790e9' : null"
-                [style.border-color]="isRejectLabel(pendingQuickActionMeta()?.label) ? '#4790e9' : null"
-                [style.color]="isRejectLabel(pendingQuickActionMeta()?.label) ? '#ffffff' : null"
                 (click)="confirmQuickAction()"
                 [disabled]="quickActionSubmitting() || quickActionLoading() || quickActionUsersLoading()">
           <i class="pi pi-spin pi-spinner" *ngIf="quickActionSubmitting()"></i>
@@ -798,6 +784,20 @@ export class DossierListComponent implements OnInit {
 
   filterEquipmentId = signal<string | null>(null);
 
+  private appliedFilters = signal<{
+    keyword: string;
+    infrastructureId: string | null;
+    dossierTypeId: string | null;
+    equipmentId: string | null;
+  }>({
+    keyword: '',
+    infrastructureId: null,
+    dossierTypeId: null,
+    equipmentId: null,
+  });
+
+  totalPages = computed(() => Math.ceil(this.totalCount() / this.pageSize()));
+
   infrastructureSearchKeyword = signal<string>('');
 
   isInfrastructureDropdownOpen = signal<boolean>(false);
@@ -946,8 +946,6 @@ export class DossierListComponent implements OnInit {
 
 
 
-  totalPages = computed(() => Math.ceil(this.totalCount() / this.pageSize()));
-
   tableColSpan = computed(() => this.bhsColumns().length + 6);
 
   getDossierStatusPillClass = getDossierStatusPillClass;
@@ -1009,12 +1007,39 @@ export class DossierListComponent implements OnInit {
 
 
 
-  onSearch() {
+  onApplyFilters() {
 
     this.currentPage.set(1);
 
+    this.appliedFilters.set({
+      keyword: this.searchKeyword().trim(),
+      infrastructureId: this.filterInfrastructureId(),
+      dossierTypeId: this.filterDossierTypeId(),
+      equipmentId: this.filterEquipmentId(),
+    });
+
     this.refreshList();
 
+  }
+
+  onResetFilters() {
+    this.searchKeyword.set('');
+    this.filterInfrastructureId.set(null);
+    this.filterDossierTypeId.set(null);
+    this.filterEquipmentId.set(null);
+    this.infrastructureSearchKeyword.set('');
+    this.equipmentSearchKeyword.set('');
+    this.isInfrastructureDropdownOpen.set(false);
+    this.isEquipmentDropdownOpen.set(false);
+    this.equipments.set([]);
+    this.currentPage.set(1);
+    this.appliedFilters.set({
+      keyword: '',
+      infrastructureId: null,
+      dossierTypeId: null,
+      equipmentId: null,
+    });
+    this.refreshList();
   }
 
   toggleInfrastructureDropdown() {
@@ -1030,12 +1055,12 @@ export class DossierListComponent implements OnInit {
 
   onDossierTypeFilterChange(dossierTypeId: string | null) {
     this.filterDossierTypeId.set(dossierTypeId || null);
-    this.onSearch();
+    this.onApplyFilters();
   }
 
   onEquipmentFilterChange(equipmentId: string | null) {
     this.filterEquipmentId.set(equipmentId || null);
-    this.onSearch();
+    this.onApplyFilters();
   }
 
   selectEquipment(equipmentId: string | null) {
@@ -1053,6 +1078,8 @@ export class DossierListComponent implements OnInit {
     this.isInfrastructureDropdownOpen.set(false);
     this.isEquipmentDropdownOpen.set(false);
 
+    this.onApplyFilters();
+
     if (infrastructureId) {
       this.service.getEquipmentLookup({ infrastructureId, pageSize: 1000 }).subscribe({
         next: (res) => this.equipments.set(Array.isArray(res) ? res : (res?.items ?? [])),
@@ -1063,7 +1090,6 @@ export class DossierListComponent implements OnInit {
       });
     }
 
-    this.onSearch();
   }
 
   selectedInfrastructureLabel(): string {
@@ -1142,13 +1168,14 @@ export class DossierListComponent implements OnInit {
 
   loadTabCounts() {
     const tabs = this.visibleTabs();
+    const appliedFilters = this.appliedFilters();
     const baseFilter = {
       menuScope: this.menuScopeSignal(),
       kindId: this.kindIdSignal(),
-      keyword: this.searchKeyword(),
-      infrastructureId: this.filterInfrastructureId() || undefined,
-      dossierTypeId: this.filterDossierTypeId() || undefined,
-      equipmentId: this.filterEquipmentId() || undefined,
+      keyword: appliedFilters.keyword,
+      infrastructureId: appliedFilters.infrastructureId || undefined,
+      dossierTypeId: appliedFilters.dossierTypeId || undefined,
+      equipmentId: appliedFilters.equipmentId || undefined,
       page: 1,
       pageSize: 1,
     };
@@ -1215,15 +1242,16 @@ export class DossierListComponent implements OnInit {
 
     this.loading.set(true);
     this.items.set([]);
+    const appliedFilters = this.appliedFilters();
 
     const filter = {
       menuScope: this.menuScopeSignal(),
       kindId: this.kindIdSignal(),
       tab: this.activeTab(),
-      keyword: this.searchKeyword(),
-      infrastructureId: this.filterInfrastructureId() || undefined,
-      dossierTypeId: this.filterDossierTypeId() || undefined,
-      equipmentId: this.filterEquipmentId() || undefined,
+      keyword: appliedFilters.keyword,
+      infrastructureId: appliedFilters.infrastructureId || undefined,
+      dossierTypeId: appliedFilters.dossierTypeId || undefined,
+      equipmentId: appliedFilters.equipmentId || undefined,
       page: this.currentPage(),
       pageSize: this.pageSize()
     };
@@ -1300,6 +1328,15 @@ export class DossierListComponent implements OnInit {
     return '-';
   }
 
+  formatCreatedDate(value: unknown): string {
+    if (!value) return '-';
+    const date = new Date(String(value));
+    if (Number.isNaN(date.getTime())) return '-';
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    return `${day}/${month}/${date.getFullYear()}`;
+  }
+
   onQuickSubmitNextUserChange(event: Event) {
     const target = event.target as HTMLSelectElement | null;
     this.quickSubmitSelectedNextUser.set(target?.value || '');
@@ -1307,16 +1344,33 @@ export class DossierListComponent implements OnInit {
 
 
 
-  changePage(page: number) {
-
-    if (page >= 1 && page <= this.totalPages()) {
-
-      this.currentPage.set(page);
-
+  nextPage() {
+    if (this.currentPage() < this.totalPages()) {
+      this.currentPage.update(page => page + 1);
       this.loadData();
-
     }
+  }
 
+  prevPage() {
+    if (this.currentPage() > 1) {
+      this.currentPage.update(page => page - 1);
+      this.loadData();
+    }
+  }
+
+  goToPage(page: any) {
+    const targetPage = Number(page);
+    if (targetPage >= 1 && targetPage <= this.totalPages()) {
+      this.currentPage.set(targetPage);
+      this.loadData();
+    }
+  }
+
+  onPageSizeChange(event: Event) {
+    const target = event.target as HTMLSelectElement | null;
+    this.pageSize.set(Number(target?.value) || 10);
+    this.currentPage.set(1);
+    this.loadData();
   }
 
 

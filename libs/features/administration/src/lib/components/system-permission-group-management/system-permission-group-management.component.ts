@@ -1,6 +1,7 @@
 import { Component, OnInit, signal, computed } from '@angular/core';
 import {
   DeleteConfirmDialogComponent,
+  EcoPaginatorComponent,
   WfBreadcrumbComponent
 } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
@@ -26,6 +27,7 @@ import { buildMenuPermissionTree as buildMenuPermissionTreeFromLookup } from '..
     ToastModule,
     MenuModule,
     WfBreadcrumbComponent,
+    EcoPaginatorComponent,
     DeleteConfirmDialogComponent
   ],
   providers: [MessageService],
@@ -145,8 +147,8 @@ export class SystemPermissionGroupManagement implements OnInit {
     }
   }
 
-  onPageSizeChange(event: any) {
-    this.pageSize.set(Number(event.target.value));
+  onPageSizeChange(pageSize: number) {
+    this.pageSize.set(pageSize);
     this.currentPage.set(1);
     this.loadRoles();
   }
@@ -245,6 +247,13 @@ export class SystemPermissionGroupManagement implements OnInit {
     this.searchKeyword.set(keyword);
     this.appliedKeyword.set(keyword);
     this.appliedIsActive.set(this.filterIsActive());
+    this.currentPage.set(1);
+    this.loadRoles();
+  }
+
+  onStatusFilterChange(isActive: boolean | null): void {
+    this.filterIsActive.set(isActive);
+    this.appliedIsActive.set(isActive);
     this.currentPage.set(1);
     this.loadRoles();
   }

@@ -1,40 +1,52 @@
 <div class="wf-page">
   <p-toast></p-toast>
 
-  <wf-breadcrumb />
+  <div class="list-toolbar standard-page-toolbar">
+    <div class="toolbar-left"><wf-breadcrumb /></div>
+    <div class="toolbar-right">
+      <button *ngIf="authService.hasPermission('FOLDER_ALLOCATION_CREATE') || authService.hasPermission('FOLDER_ALLOCATION_EDIT') || authService.hasPermission('FOLDER_ALLOCATION_MANAGE')" class="btn-green" (click)="openCreate()">
+        <i class="pi pi-user-plus"></i> Thêm mới
+      </button>
+    </div>
+  </div>
 
   <div class="wf-card">
     
     <!-- Toolbar/Header -->
-    <div class="list-toolbar" style="margin-bottom: 20px;">
+    <div class="standard-search-card">
       <div class="toolbar-left">
-        <h2 class="edit-title" style="margin: 0; font-size: 1.5rem;">Quản lý phân bổ nhập liệu thư mục</h2>
-      </div>
-      <div class="toolbar-right" style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
         <!-- Lọc theo Trạng thái -->
-        <select 
-          class="wf-select" 
-          [ngModel]="selectedStatus()" 
-          (ngModelChange)="selectedStatus.set($event)" 
-          style="width: 160px; height: 36px; padding: 4px 10px;">
-          <option value="">-- Tất cả trạng thái --</option>
-          <option value="Active">Đang phân bổ</option>
-          <option value="Revoked">Thu hồi</option>
-        </select>
+        <div class="standard-search-field" style="width: 160px;">
+          <label class="search-field-label">Trạng thái</label>
+          <select
+            class="wf-select"
+            [ngModel]="selectedStatus()"
+            (ngModelChange)="selectedStatus.set($event)">
+            <option value="">-- Tất cả trạng thái --</option>
+            <option value="Active">Đang phân bổ</option>
+            <option value="Revoked">Thu hồi</option>
+          </select>
+        </div>
 
         <!-- Tìm kiếm từ khóa -->
-        <input 
-          type="text" 
-          class="wf-input" 
-          [ngModel]="searchKeyword()" 
-          (ngModelChange)="searchKeyword.set($event)" 
-          placeholder="Tìm kiếm thư mục, người xử lý..." 
-          style="width: 260px; height: 36px;" />
+        <div class="standard-search-field" style="width: 260px;">
+          <label class="search-field-label">Từ khóa</label>
+          <input
+            type="text"
+            class="wf-input"
+            [ngModel]="searchKeyword()"
+            (ngModelChange)="searchKeyword.set($event)"
+            placeholder="Tìm kiếm thư mục, người xử lý..." />
+        </div>
 
-        <!-- Nút Thêm mới -->
-        <button *ngIf="authService.hasPermission('FOLDER_ALLOCATION_CREATE') || authService.hasPermission('FOLDER_ALLOCATION_EDIT') || authService.hasPermission('FOLDER_ALLOCATION_MANAGE')" class="btn-green" (click)="openCreate()" style="height: 36px; padding: 0 16px;">
-          <i class="pi pi-user-plus"></i> Thêm phân bổ
-        </button>
+        <div class="standard-search-actions">
+          <button class="btn-outlined" (click)="onResetSearch()">
+            <i class="pi pi-refresh"></i> Làm mới
+          </button>
+          <button class="btn-save" (click)="loadAllocations()">
+            <i class="pi pi-check"></i> Áp dụng
+          </button>
+        </div>
       </div>
     </div>
 

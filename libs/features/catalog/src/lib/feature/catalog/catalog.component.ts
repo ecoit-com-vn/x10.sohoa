@@ -1,5 +1,5 @@
 import { Component, OnInit, signal, computed, inject, effect } from '@angular/core';
-import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
+import { EcoPaginatorComponent, WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ToastModule } from 'primeng/toast';
@@ -17,7 +17,7 @@ import { CatalogService } from '../../data-access/catalog.service';
 @Component({
   selector: 'app-catalog',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule, SelectModule, TreeSelectModule, DialogModule, PaginatorModule, MenuModule, WfBreadcrumbComponent],
+  imports: [CommonModule, FormsModule, ToastModule, SelectModule, TreeSelectModule, DialogModule, PaginatorModule, MenuModule, WfBreadcrumbComponent, EcoPaginatorComponent],
   providers: [MessageService],
   templateUrl: './catalog.component.html',
   styleUrl: './catalog.component.css'
@@ -318,6 +318,7 @@ export class CatalogComponent implements OnInit {
   }
 
   onTypeFieldChange(field: string) {
+    this.currentTypeItem.update(item => ({ ...item }));
     this.typeServerErrors.update(errs => {
       const copy = { ...errs };
       delete copy[field];
@@ -612,6 +613,7 @@ export class CatalogComponent implements OnInit {
   }
 
   onCatalogFieldChange(field: string) {
+    this.currentCatalogItem.update(item => ({ ...item }));
     this.catalogServerErrors.update(errs => {
       const copy = { ...errs };
       delete copy[field];

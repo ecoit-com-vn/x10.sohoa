@@ -3,7 +3,7 @@
       <p-toast></p-toast>
       <div class="wf-card">
         
-        <wf-breadcrumb />
+        <wf-breadcrumb [customItems]="[{ label: 'Quản trị hệ thống' }, { label: 'Tham số hệ thống', url: '/administration/system-param' }]" />
 
   <p class="text-muted mb-4">
           Xem danh sách các tham số cài đặt hệ thống EVNHANOI và chỉnh sửa các giá trị cấu hình tương ứng. (Lưu ý: Để đảm bảo an toàn hệ thống, các khóa tham số được thiết lập cố định và không thể thêm mới hoặc xóa bỏ).
@@ -15,7 +15,7 @@
             <thead>
               <tr>
                 <th class="col-stt">STT</th>
-                <th>Tên cấu hình (Key)</th>
+                <th>Mã cấu hình (Key)</th>
                 <th>Giá trị cài đặt (Value)</th>
                 <th>Kiểu dữ liệu</th>
                 <th>Mô tả chức năng</th>
@@ -25,7 +25,10 @@
             <tbody>
               <tr *ngFor="let param of params; let i = index">
                 <td class="col-stt text-muted">{{ i + 1 }}</td>
-                <td><code>{{ param.paramKey }}</code></td>
+                <td>
+                  <b *ngIf="authService.hasPermission('SYSTEM_PARAM_EDIT')" class="wf-name-link" (click)="onEdit(param)">{{ param.paramKey }}</b>
+                  <span *ngIf="!authService.hasPermission('SYSTEM_PARAM_EDIT')">{{ param.paramKey }}</span>
+                </td>
                 <td>
                   <span style="font-weight: 600; color: #002D72;">{{ param.paramValue }}</span>
                 </td>
@@ -85,4 +88,3 @@
         </div>
       </ng-template>
     </p-dialog>
-  

@@ -51,7 +51,7 @@
 
           <p-select [options]="[
               { label: 'Hoạt động', value: true },
-              { label: 'Ngưng hoạt động', value: false }
+              { label: 'Ngừng hoạt động', value: false }
             ]"
             [ngModel]="selectedStatus()"
             (ngModelChange)="selectedStatus.set($event)"
@@ -130,9 +130,9 @@
       <!-- Footer / Paginator -->
       <div class="table-footer-paginator" *ngIf="filteredForms().length > 0">
         <span class="record-count">Tổng số: <b>{{ filteredForms().length }}</b> bản ghi.</span>
-        <p-paginator [first]="first()" [rows]="rows()" [totalRecords]="filteredForms().length"
+        <app-eco-paginator [first]="first()" [rows]="rows()" [totalRecords]="filteredForms().length"
           [rowsPerPageOptions]="[5, 10, 20, 50]" (onPageChange)="onPageChange($event)">
-        </p-paginator>
+        </app-eco-paginator>
       </div>
     </div>
   </ng-container>
@@ -389,7 +389,7 @@
               <td>{{ ver.createdAt | date:'dd/MM/yyyy' }}</td>
               <td class="text-center">
                 <span class="status-pill" [class.status-active]="ver.isActive" [class.status-inactive]="!ver.isActive">
-                  {{ ver.isActive ? 'Hoạt động' : 'Ngưng hoạt động' }}
+                  {{ ver.isActive ? 'Hoạt động' : 'Ngừng hoạt động' }}
                 </span>
               </td>
               <td class="text-center" style="text-align: center;">

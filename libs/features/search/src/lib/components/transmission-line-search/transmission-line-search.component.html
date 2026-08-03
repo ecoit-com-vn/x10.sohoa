@@ -78,8 +78,8 @@
           <thead>
             <tr>
               <th class="col-stt">STT</th>
-              <th>Mã trạm</th>
-              <th>Tên trạm</th>
+              <th>Mã đường dây</th>
+              <th>Tên đường dây</th>
               <th>Địa chỉ</th>
               <th>Loại lưới điện</th>
               <th>Đơn vị quản lý</th>
@@ -188,11 +188,11 @@
         <!-- Thông tin cơ sở hạ tầng (chỉ đọc) -->
         <div class="info-block substation-info-panel">
           <div style="display: flex; font-size: 0.95rem; line-height: 1.6; align-items: baseline;">
-            <span style="width: 160px; color: #0f172a; font-weight: 600; flex-shrink: 0;">Mã trạm biến áp:</span>
+            <span style="width: 160px; color: #0f172a; font-weight: 600; flex-shrink: 0;">Mã đường dây:</span>
             <span style="color: #334155;">{{ currentItem().code || '-' }}</span>
           </div>
           <div style="display: flex; font-size: 0.95rem; line-height: 1.6; align-items: baseline;">
-            <span style="width: 160px; color: #0f172a; font-weight: 600; flex-shrink: 0;">Tên trạm biến áp:</span>
+            <span style="width: 160px; color: #0f172a; font-weight: 600; flex-shrink: 0;">Tên đường dây:</span>
             <span style="color: #334155;">{{ currentItem().name || '-' }}</span>
           </div>
           <div style="display: flex; font-size: 0.95rem; line-height: 1.6; align-items: baseline;">
@@ -305,7 +305,7 @@
                 <tr *ngIf="equipmentItems().length === 0">
                   <td colspan="7" class="empty-row" style="text-align: center; padding: 32px; color: #64748b;">
                     <i class="pi pi-inbox" style="font-size: 2rem; margin-bottom: 8px; display: block;"></i>
-                    <div>Không có thiết bị nào thuộc trạm biến áp này.</div>
+                    <div>Không có thiết bị nào thuộc đường dây này.</div>
                   </td>
                 </tr>
               </tbody>
@@ -350,15 +350,15 @@
           </div>
         </section>
         <aside class="substation-document-tree"><div class="substation-tree-title"><i class="pi pi-folder"></i> TÀI LIỆU ĐÍNH KÈM</div>
-          
-          <button class="substation-tree-parent" (click)="toggleAttachmentStationFolder()"><i class="pi" [class.pi-chevron-right]="!attachmentStationFolderExpanded()" [class.pi-chevron-down]="attachmentStationFolderExpanded()"></i><i class="pi" [class.pi-folder]="!attachmentStationFolderExpanded()" [class.pi-folder-open]="attachmentStationFolderExpanded()"></i><span>{{ currentItem().name || 'Trạm biến áp' }}</span></button><div *ngIf="attachmentStationFolderExpanded()" class="substation-tree-children"><button *ngFor="let folder of attachmentDocumentFolders()" class="substation-tree-node" [class.selected]="selectedAttachmentFolderId() === folder.id" (click)="selectAttachmentFolder(folder.id)"><i class="pi" [class.pi-folder]="selectedAttachmentFolderId() !== folder.id" [class.pi-folder-open]="selectedAttachmentFolderId() === folder.id"></i><span>{{ folder.name }}</span></button></div></aside>
+
+          <button class="substation-tree-parent" (click)="toggleAttachmentStationFolder()"><i class="pi" [class.pi-chevron-right]="!attachmentStationFolderExpanded()" [class.pi-chevron-down]="attachmentStationFolderExpanded()"></i><i class="pi" [class.pi-folder]="!attachmentStationFolderExpanded()" [class.pi-folder-open]="attachmentStationFolderExpanded()"></i><span>{{ currentItem().name || 'Đường dây' }}</span></button><div *ngIf="attachmentStationFolderExpanded()" class="substation-tree-children"><button *ngFor="let folder of attachmentDocumentFolders()" class="substation-tree-node" [class.selected]="selectedAttachmentFolderId() === folder.id" (click)="selectAttachmentFolder(folder.id)"><i class="pi" [class.pi-folder]="selectedAttachmentFolderId() !== folder.id" [class.pi-folder-open]="selectedAttachmentFolderId() === folder.id"></i><span>{{ folder.name }}</span></button></div></aside>
       </div>
 
       <!-- ======= TAB 2: HỒ SƠ KỸ THUẬT (chỉ đọc) ======= -->
       <div *ngIf="activeTab() === 2" class="tab-content animate-fade-in substation-document-workspace">
         <section class="substation-document-list"><div class="substation-document-heading">{{ selectedTechnicalFolder()?.name || 'Hồ sơ kỹ thuật' }}</div><div class="substation-document-filters"><label>Từ khóa<input type="text" placeholder="Tìm theo tên tài liệu" [ngModel]="technicalDocumentKeyword()" (ngModelChange)="technicalDocumentKeyword.set($event); onTechnicalDocumentFiltersChange()" /></label><label>Loại tài liệu<p-select [options]="technicalDocumentTypeOptions()" [ngModel]="technicalSelectedDocumentTypeId()" (ngModelChange)="technicalSelectedDocumentTypeId.set($event); onTechnicalDocumentFiltersChange()" optionLabel="name" optionValue="id" placeholder="-- Chọn loại tài liệu --" [filter]="true" [showClear]="true" appendTo="body"></p-select></label></div><div *ngIf="loadingTechnicalDossiers() || (selectedTechnicalFolder() && isTechnicalFolderLoading(selectedTechnicalFolder()!.id))" class="substation-document-empty"><i class="pi pi-spin pi-spinner"></i> Đang tải tài liệu...</div><table *ngIf="!loadingTechnicalDossiers() && !isTechnicalFolderLoading(selectedTechnicalFolder()?.id || '') && selectedTechnicalDocuments().length > 0" class="wf-table substation-document-table"><thead><tr><th>STT</th><th>Tài liệu</th><th>Loại tài liệu</th><th>Ngày tài liệu</th><th>Người tạo</th></tr></thead><tbody><tr *ngFor="let item of pagedTechnicalDocuments(); let i = index"><td>{{ (technicalDocumentPage() - 1) * technicalDocumentPageSize() + i + 1 }}</td><td><button class="substation-document-link" (click)="openAttachmentDocumentPreview(item.dossier.id, item.document)"><i class="pi pi-file-pdf"></i>{{ item.document.name || item.document.fileName || 'Tài liệu chưa đặt tên' }}</button></td><td>{{ item.document.documentTypeName || '-' }}</td><td>{{ item.document.createdDate ? (item.document.createdDate | date:'dd/MM/yyyy') : '-' }}</td><td>{{ item.document.createdByName || item.document.createdBy || '-' }}</td></tr></tbody></table><div *ngIf="!loadingTechnicalDossiers() && !isTechnicalFolderLoading(selectedTechnicalFolder()?.id || '') && selectedTechnicalDocuments().length === 0" class="substation-document-empty">Chọn một thư mục để xem danh sách tài liệu.</div><div *ngIf="!loadingTechnicalDossiers() && !isTechnicalFolderLoading(selectedTechnicalFolder()?.id || '') && selectedTechnicalDocuments().length > 0" class="table-footer-paginator"><span class="record-count">Tổng số: <b>{{ selectedTechnicalDocuments().length }}</b> tài liệu.</span><p-paginator [first]="(technicalDocumentPage() - 1) * technicalDocumentPageSize()" [rows]="technicalDocumentPageSize()" [totalRecords]="selectedTechnicalDocuments().length" [rowsPerPageOptions]="[10, 20, 50]" dropdownAppendTo="body" (onPageChange)="onTechnicalDocumentPageChange($event)"></p-paginator></div></section>
         <aside class="substation-document-tree"><div class="substation-tree-title"><i class="pi pi-folder-open"></i> Hồ sơ kỹ thuật</div>
-          <button class="substation-tree-parent" (click)="toggleTechnicalStationFolder()"><i class="pi" [class.pi-chevron-right]="!technicalStationFolderExpanded()" [class.pi-chevron-down]="technicalStationFolderExpanded()"></i><i class="pi" [class.pi-folder]="!technicalStationFolderExpanded()" [class.pi-folder-open]="technicalStationFolderExpanded()"></i><span>{{ currentItem().name || 'Trạm biến áp' }}</span></button><div *ngIf="technicalStationFolderExpanded()" class="substation-tree-children"><button *ngFor="let folder of technicalDossierFolders()" class="substation-tree-node" [class.selected]="selectedTechnicalFolderId() === folder.id" (click)="selectTechnicalFolder(folder)"><i class="pi" [class.pi-folder]="selectedTechnicalFolderId() !== folder.id" [class.pi-folder-open]="selectedTechnicalFolderId() === folder.id"></i><span>{{ folder.name }}</span></button></div></aside>
+          <button class="substation-tree-parent" (click)="toggleTechnicalStationFolder()"><i class="pi" [class.pi-chevron-right]="!technicalStationFolderExpanded()" [class.pi-chevron-down]="technicalStationFolderExpanded()"></i><i class="pi" [class.pi-folder]="!technicalStationFolderExpanded()" [class.pi-folder-open]="technicalStationFolderExpanded()"></i><span>{{ currentItem().name || 'Đường dây' }}</span></button><div *ngIf="technicalStationFolderExpanded()" class="substation-tree-children"><button *ngFor="let folder of technicalDossierFolders()" class="substation-tree-node" [class.selected]="selectedTechnicalFolderId() === folder.id" (click)="selectTechnicalFolder(folder)"><i class="pi" [class.pi-folder]="selectedTechnicalFolderId() !== folder.id" [class.pi-folder-open]="selectedTechnicalFolderId() === folder.id"></i><span>{{ folder.name }}</span></button></div></aside>
       </div>
 
       <div *ngIf="false" class="tab-content animate-fade-in">
@@ -429,7 +429,7 @@
                 <tr *ngIf="relatedDossiers().length === 0">
                   <td colspan="6" class="empty-row" style="text-align: center; padding: 32px; color: #64748b;">
                     <i class="pi pi-inbox" style="font-size: 2rem; margin-bottom: 8px; display: block;"></i>
-                    <div>Không có hồ sơ nào thuộc trạm biến áp này đã được xuất bản.</div>
+                    <div>Không có hồ sơ nào thuộc đường dây này đã được xuất bản.</div>
                   </td>
                 </tr>
               </tbody>

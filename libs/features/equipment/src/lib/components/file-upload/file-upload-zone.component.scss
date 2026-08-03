@@ -12,12 +12,13 @@
 .drop-zone {
   border: 2px dashed #d1d5db;
   border-radius: 6px;
-  padding: 40px 20px;
+  //padding: 40px 20px;
+  padding: 0px;
   text-align: center;
   background-color: #f9fafb;
   cursor: pointer;
   transition: all 0.3s ease;
-  min-height: 200px;
+  min-height: 150px;
   display: flex;
   align-items: center;
   justify-content: center;

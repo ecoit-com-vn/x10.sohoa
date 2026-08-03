@@ -13,9 +13,10 @@
       </div>
       <div class="metric-info">
         <span class="metric-label">Tổng hồ sơ số hóa</span>
-        <h3 class="metric-val">{{ totalOcrDocs | number }}</h3>
-        <span class="metric-trend text-green">
-          <i class="pi pi-arrow-up"></i> +12% so với tháng trước
+        <h3 class="metric-val">{{ totalDossiers | number }}</h3>
+        <span class="metric-trend" [class.text-green]="dossierTrend.isUp" [class.text-orange]="!dossierTrend.isUp">
+          <i class="pi" [class.pi-arrow-up]="dossierTrend.isUp" [class.pi-arrow-down]="!dossierTrend.isUp"></i>
+          {{ dossierTrend.isUp ? 'tăng' : 'giảm' }} {{ dossierTrend.displayPercent }}% so với tháng trước
         </span>
       </div>
     </div>
@@ -26,9 +27,10 @@
       </div>
       <div class="metric-info">
         <span class="metric-label">Tổng số tài liệu số hóa</span>
-        <h3 class="metric-val">{{ pendingOcrCount | number }}</h3>
-        <span class="metric-trend text-green">
-          <i class="pi pi-arrow-up"></i> tăng 20% so với tháng trước
+        <h3 class="metric-val">{{ totalDocuments | number }}</h3>
+        <span class="metric-trend" [class.text-green]="documentTrend.isUp" [class.text-orange]="!documentTrend.isUp">
+          <i class="pi" [class.pi-arrow-up]="documentTrend.isUp" [class.pi-arrow-down]="!documentTrend.isUp"></i>
+          {{ documentTrend.isUp ? 'tăng' : 'giảm' }} {{ documentTrend.displayPercent }}% so với tháng trước
         </span>
       </div>
     </div>
@@ -39,9 +41,10 @@
       </div>
       <div class="metric-info">
         <span class="metric-label">Lượt tra cứu hồ sơ, tài liệu</span>
-        <h3 class="metric-val">{{ totalEquipment | number }}</h3>
-        <span class="metric-trend text-orange">
-          <i class="pi pi-arrow-down"></i> giảm 5% so với tháng trước
+        <h3 class="metric-val">{{ searchCount | number }}</h3>
+        <span class="metric-trend" [class.text-green]="searchTrend.isUp" [class.text-orange]="!searchTrend.isUp">
+          <i class="pi" [class.pi-arrow-up]="searchTrend.isUp" [class.pi-arrow-down]="!searchTrend.isUp"></i>
+          {{ searchTrend.isUp ? 'tăng' : 'giảm' }} {{ searchTrend.displayPercent }}% so với tháng trước
         </span>
       </div>
     </div>
@@ -52,9 +55,10 @@
       </div>
       <div class="metric-info">
         <span class="metric-label">Lượt tải tài liệu</span>
-        <h3 class="metric-val">{{ ocrAccuracy }}</h3>
-        <span class="metric-trend text-orange">
-          <i class="pi pi-arrow-down"></i> giảm 10% so với tháng trước
+        <h3 class="metric-val">{{ downloadCount | number }}</h3>
+        <span class="metric-trend" [class.text-green]="downloadTrend.isUp" [class.text-orange]="!downloadTrend.isUp">
+          <i class="pi" [class.pi-arrow-up]="downloadTrend.isUp" [class.pi-arrow-down]="!downloadTrend.isUp"></i>
+          {{ downloadTrend.isUp ? 'tăng' : 'giảm' }} {{ downloadTrend.displayPercent }}% so với tháng trước
         </span>
       </div>
     </div>
@@ -150,8 +154,6 @@
             </div>
           </div>
         </div>
-
-        <button type="button" class="category-detail-button">Xem chi tiết</button>
       </div>
     </div>
   </div>
@@ -172,25 +174,25 @@
             <th>TIÊU ĐỀ HỒ SƠ</th>
             <th>TRẠM/ĐƯỜNG DÂY</th>
             <th>SỐ LƯỢNG TÀI LIỆU</th>
-            <th>NGƯỜI TẠO</th>
-            <th>NGÀY TẠO</th>
+            <th>NGƯỜI XỬ LÝ HIỆN TẠI</th>
+            <th>TRẠNG THÁI DUYỆT</th>
           </tr>
         </thead>
         <tbody>
           <tr *ngFor="let dossier of recentDossiers">
-            <td><a class="dossier-code">{{ dossier.code }}</a></td>
-            <td>{{ dossier.title }}</td>
+            <td><a class="dossier-code" [routerLink]="['/dossier-management', 'my-dossiers', dossier.id]">{{ dossier.code }}</a></td>
+            <td><a [routerLink]="['/dossier-management', 'my-dossiers', dossier.id]">{{ dossier.title }}</a></td>
             <td>{{ dossier.station }}</td>
             <td>{{ dossier.documentCount }}</td>
-            <td>{{ dossier.creator }}</td>
-            <td>{{ dossier.createdDate }}</td>
+            <td>{{ dossier.handler }}</td>
+            <td><span class="dossier-status-pill">{{ dossier.statusName }}</span></td>
           </tr>
         </tbody>
       </table>
     </div>
 
     <div class="latest-dossier-footer">
-      <span>Hiển thị 5 trong số 128 bản ghi</span>
+      <span>Hiển thị {{ recentDossiers.length }} trong số {{ totalDossiers | number }} bản ghi</span>
       <div class="latest-dossier-pagination">
         <button type="button" aria-label="Trang trước" disabled>
           <i class="pi pi-chevron-left"></i>

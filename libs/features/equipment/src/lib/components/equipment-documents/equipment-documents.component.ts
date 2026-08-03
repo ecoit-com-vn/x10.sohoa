@@ -19,6 +19,7 @@ import { ButtonModule } from 'primeng/button';
 import { MessageService, MenuItem } from 'primeng/api';
 import { Menu, MenuModule } from 'primeng/menu';
 import { SignalRService, DigitizationProgressEvent } from '@sohoa.frontend/shared/core';
+import { EcoPaginatorComponent } from '@sohoa.frontend/shared/layout';
 import { Subject, debounceTime, distinctUntilChanged, finalize, takeUntil } from 'rxjs';
 import { EquipmentService } from '../../data-access/equipment.service';
 import { FileDownloadService } from '../../data-access/file-download.service';
@@ -95,6 +96,7 @@ const MAX_INLINE_DOCUMENT_ACTIONS = 3;
     DialogModule,
     ButtonModule,
     MenuModule,
+    EcoPaginatorComponent,
     EquipmentDocumentDetailDialogComponent,
   ],
   templateUrl: './equipment-documents.component.html',
@@ -168,7 +170,7 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
     this.loading.set(true);
 
     this.equipmentService
-      .getProfileDocuments(equipmentId, this.page(), this.pageSize(), this.searchKeyword())
+      .getPublishedProfileDocuments(equipmentId, this.page(), this.pageSize(), this.searchKeyword())
       .pipe(
         finalize(() => this.loading.set(false)),
         takeUntil(this.destroy$)
@@ -295,6 +297,16 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
   onPageSizeChange(size: number): void {
     this.pageSize.set(size);
     this.page.set(1);
+    this.loadDocuments();
+  }
+
+  onDocumentPageChange(event: { page: number; rows: number }): void {
+    const nextPage = event.page + 1;
+    const nextPageSize = event.rows;
+    if (nextPage === this.page() && nextPageSize === this.pageSize()) return;
+
+    this.page.set(nextPage);
+    this.pageSize.set(nextPageSize);
     this.loadDocuments();
   }
 

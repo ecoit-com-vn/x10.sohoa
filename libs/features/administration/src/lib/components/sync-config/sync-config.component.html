@@ -3,7 +3,7 @@
       <p-toast></p-toast>
       <div class="wf-card">
         
-        <wf-breadcrumb />
+        <wf-breadcrumb [customItems]="[{ label: 'Quản trị hệ thống' }, { label: 'Đồng bộ PMIS', url: '/administration/sync-config' }]" />
 
   <div class="edit-header">
           <h2 class="edit-title">Thiết lập kết nối PMIS</h2>
@@ -83,4 +83,3 @@
         </div>
       </div>
     </div>
-  

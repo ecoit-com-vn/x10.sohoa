@@ -17,7 +17,8 @@
       </div>
 
       <!-- Left Panel Search Filter -->
-      <div class="filter-row" style="margin-bottom: 12px;">
+      <div class="filter-row standard-search-field" style="margin-bottom: 12px;">
+        <label class="search-field-label">Tên loại danh mục</label>
         <input type="text" class="wf-search-input" style="width: 100%; box-sizing: border-box; height: 38px;"
           placeholder="Tên loại danh mục..."
           [ngModel]="typeSearchKeyword()"
@@ -90,9 +91,9 @@
         </div>
 
         <!-- Catalog search: layout synchronized with "Tìm kiếm hồ sơ trong kho". -->
-        <div class="wf-card dossier-search-bar catalog-search-bar">
+      <div class="standard-search-card dossier-search-bar catalog-search-bar">
           <div class="search-form-grid catalog-search-grid">
-            <div class="search-form-item catalog-search-item">
+            <div class="search-form-item catalog-search-item standard-search-field">
               <label class="search-field-label">Tên danh mục</label>
               <input type="text" class="wf-search-input"
                 placeholder="Tên danh mục..."
@@ -101,7 +102,7 @@
                 (keyup.enter)="onSearchCatalogs()" />
             </div>
 
-            <div class="search-form-item catalog-search-item">
+            <div class="search-form-item catalog-search-item standard-search-field">
               <label class="search-field-label">Mã danh mục</label>
               <input type="text" class="wf-search-input"
                 placeholder="Mã danh mục..."
@@ -110,7 +111,7 @@
                 (keyup.enter)="onSearchCatalogs()" />
             </div>
 
-            <div class="search-form-item catalog-search-item">
+            <div class="search-form-item catalog-search-item standard-search-field">
               <label class="search-field-label">Trạng thái</label>
               <select class="wf-input"
                 [ngModel]="searchStatus()"
@@ -121,7 +122,7 @@
               </select>
             </div>
 
-            <div *ngIf="isUnitScopedSelected()" class="search-form-item catalog-search-item">
+            <div *ngIf="isUnitScopedSelected()" class="search-form-item catalog-search-item standard-search-field">
               <label class="search-field-label">Đơn vị</label>
               <p-treeSelect [options]="organizationUnitTree()" [ngModel]="catalogSearchUnitNodes()"
                 (ngModelChange)="onCatalogSearchUnitNodeChange($event)" placeholder="-- Chọn đơn vị --"
@@ -138,11 +139,11 @@
             </div>
           </div>
 
-          <div class="catalog-search-actions">
+          <div class="standard-search-actions">
             <button type="button" class="btn-outlined" (click)="onResetSearchCatalogs()">
               <i class="pi pi-refresh"></i> Làm mới
             </button>
-            <button type="button" class="btn-tim" (click)="onSearchCatalogs()">
+            <button type="button" class="btn-save" (click)="onSearchCatalogs()">
               <i class="pi pi-check"></i> Áp dụng
             </button>
           </div>
@@ -207,13 +208,13 @@
         <!-- Pagination -->
         <div class="table-footer-paginator" *ngIf="items().length > 0">
           <span class="record-count">Tổng số: <b>{{ totalCount() }}</b> bản ghi.</span>
-          <p-paginator
+          <app-eco-paginator
             [first]="(currentPage() - 1) * pageSize()"
             [rows]="pageSize()"
             [totalRecords]="totalCount()"
             [rowsPerPageOptions]="[5, 10, 20, 50]"
             (onPageChange)="onCatalogPageChange($event)">
-          </p-paginator>
+          </app-eco-paginator>
         </div>
       </div>
 

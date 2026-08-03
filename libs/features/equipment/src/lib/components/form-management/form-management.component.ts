@@ -2,6 +2,7 @@ import { Component, OnInit, inject, signal, computed, effect } from '@angular/co
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   DeleteConfirmDialogComponent,
+  EcoPaginatorComponent,
   WfBreadcrumbComponent
 } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
@@ -15,7 +16,6 @@ import { Select } from 'primeng/select';
 import { CheckboxModule } from 'primeng/checkbox';
 import { CardModule } from 'primeng/card';
 import { TextareaModule } from 'primeng/textarea';
-import { Paginator } from 'primeng/paginator';
 import { EavFormService, EavFormTemplate, LoadingService, AuthService } from '@sohoa.frontend/shared/core';
 import { combineLatest, finalize } from 'rxjs';
 import { Dialog } from 'primeng/dialog';
@@ -57,6 +57,7 @@ interface ToolboxItem {
   standalone: true,
   imports: [
     CommonModule,
+    EcoPaginatorComponent,
     FormsModule,
     ToastModule,
     MenuModule,
@@ -66,7 +67,6 @@ interface ToolboxItem {
     CheckboxModule,
     CardModule,
     TextareaModule,
-    Paginator,
     Dialog,
     ToggleSwitch,
     WfBreadcrumbComponent,
@@ -351,6 +351,11 @@ export class FormManagementComponent implements OnInit {
 
   onSearch() {
     // Search is handled reactively by computed signal filteredForms
+  }
+
+  onResetSearch() {
+    this.searchKeyword.set('');
+    this.first.set(0);
   }
 
   goToList() {

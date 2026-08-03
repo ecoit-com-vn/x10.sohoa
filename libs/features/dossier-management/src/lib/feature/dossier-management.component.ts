@@ -1,5 +1,6 @@
 ﻿import { Component, computed, DestroyRef, inject, OnInit, signal } from '@angular/core';
 import { WfBreadcrumbComponent } from '../../../../../shared/layout/src/lib/components/common/wf-breadcrumb/wf-breadcrumb.component';
+import { viewChild } from '@angular/core';
 
 import { CommonModule } from '@angular/common';
 
@@ -14,6 +15,8 @@ import { DossierFormComponent } from './dossier-form/dossier-form.component';
 import { DossierDetailComponent } from './dossier-detail/dossier-detail.component';
 import { DossierPublishComponent } from './dossier-publish/dossier-publish.component';
 import { DossierManagementService } from '../data-access/dossier-management.service';
+import { AuthService } from '@sohoa.frontend/shared/core';
+import { hasDossierCreatePermission } from '../utils/dossier-permission.util';
 
 import { DossierMenuScope } from '../utils/dossier-status.util';
 
@@ -30,19 +33,32 @@ import { DossierMenuScope } from '../utils/dossier-status.util';
   template: `
 
     <div class="wf-page">
-      <div class="dossier-page-header">
-        <wf-breadcrumb
-          [leafLabel]="listTitle()"
-          [suffix]="currentView() === 'list' ? null : breadcrumbCurrent()"
-          (listClick)="onBackToList()"
-        />
-        <button
-          *ngIf="currentView() === 'list' && menuScope() === 'publisher'"
-          type="button"
-          class="btn-green"
-          (click)="onCreate()">
-          <i class="pi pi-plus"></i> Thêm mới
-        </button>
+      <div class="list-toolbar standard-page-toolbar">
+        <div class="toolbar-left">
+          <wf-breadcrumb
+            [leafLabel]="listTitle()"
+            [suffix]="currentView() === 'list' ? null : breadcrumbCurrent()"
+            (listClick)="onBackToList()"
+          />
+        </div>
+        <div class="toolbar-right">
+          <ng-container *ngIf="showHeaderImportActions()">
+            <input type="file" #fileInput style="display: none;" (change)="onFileSelected($event)" accept=".xlsx" />
+            <button type="button" class="btn-outlined" style="padding: 0 14px;" (click)="onExportTemplate()">
+              <i class="pi pi-download"></i> Xuất mẫu import
+            </button>
+            <button type="button" class="btn-outlined" style="padding: 0 14px;" (click)="fileInput.click()">
+              <i class="pi pi-upload"></i> Import
+            </button>
+          </ng-container>
+          <button
+            *ngIf="showHeaderCreateButton()"
+            type="button"
+            class="btn-green"
+            (click)="onCreate()">
+            <i class="pi pi-plus"></i> {{ menuScope() === 'creator' ? 'Tạo hồ sơ mới' : 'Thêm mới' }}
+          </button>
+        </div>
       </div>
 
       <app-dossier-list
@@ -87,18 +103,11 @@ import { DossierMenuScope } from '../utils/dossier-status.util';
 
   `,
 
-  styles: [`
-    .dossier-page-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-    }
-  `],
-
 })
 
 export class DossierManagementComponent implements OnInit {
+
+  private dossierList = viewChild(DossierListComponent);
 
   private router = inject(Router);
 
@@ -109,6 +118,7 @@ export class DossierManagementComponent implements OnInit {
 
 
   private dossierService = inject(DossierManagementService);
+  private authService = inject(AuthService);
 
   currentView = signal<'list' | 'form' | 'detail'>('list');
   selectedDossierId = signal<string | null>(null);
@@ -117,6 +127,26 @@ export class DossierManagementComponent implements OnInit {
   /** Chờ sync route trước khi mount list — chỉ cần cho digitization (kindId=1); hồ sơ mới mặc định kindId=2. */
   routeReady = signal(false);
   listTitle = signal('Quản lý hồ sơ');
+
+  showHeaderCreateButton = computed(() => {
+    if (this.currentView() !== 'list') return false;
+    if (this.menuScope() === 'publisher') return true;
+    if (this.menuScope() !== 'creator') return false;
+
+    const list = this.dossierList();
+    if (!list || !hasDossierCreatePermission(this.authService, this.kindId() === 1)) return false;
+
+    return this.kindId() === 1 || list.activeTab() === 'draft';
+  });
+
+  showHeaderImportActions = computed(() => {
+    const list = this.dossierList();
+    if (!list) return false;
+    return this.currentView() === 'list'
+      && this.menuScope() === 'creator'
+      && (this.kindId() === 1 || list.activeTab() === 'draft')
+      && list.canCreateDossier();
+  });
 
 
 
@@ -265,6 +295,14 @@ export class DossierManagementComponent implements OnInit {
 
     void this.router.navigate(['/dossier-management', ...this.routeSegments(), id, 'edit']);
 
+  }
+
+  onExportTemplate(): void {
+    this.dossierList()?.onExportTemplate();
+  }
+
+  onFileSelected(event: Event): void {
+    this.dossierList()?.onFileSelected(event);
   }
 
 
