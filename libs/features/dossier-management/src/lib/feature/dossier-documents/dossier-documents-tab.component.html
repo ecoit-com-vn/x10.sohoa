@@ -401,3 +401,9 @@
   appendTo="body"
   styleClass="doc-action-overflow-menu"
 ></p-menu>
+
+<lib-ocr-insights-panel
+  [visible]="ocrInsightsVisible()"
+  (visibleChange)="ocrInsightsVisible.set($event)"
+  [sourceDocument]="ocrInsightsSource()"
+></lib-ocr-insights-panel>

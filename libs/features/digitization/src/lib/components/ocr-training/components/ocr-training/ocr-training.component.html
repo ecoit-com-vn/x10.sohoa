@@ -94,6 +94,9 @@
             <button class="btn-refresh" (click)="loadData(); loadStatistics()">
               <i class="pi pi-refresh"></i>
             </button>
+            <button class="btn-refresh" (click)="exportDataset()" pTooltip="Xuất dataset (yêu cầu 91)" tooltipPosition="top">
+              <i class="pi pi-download"></i>
+            </button>
           </div>
         </div>
 
@@ -360,6 +363,15 @@
 
         <ng-template pTemplate="footer">
           <button class="btn-cancel" (click)="showVerifyDialog = false">Hủy</button>
+          <button
+            class="btn-cancel"
+            *ngIf="selectedItem?.isVerified"
+            (click)="linkRetrainingJob()"
+            pTooltip="Yêu cầu 91 (mở rộng) — liên kết bản ghi này với 1 job huấn luyện lại"
+            tooltipPosition="top"
+          >
+            <i class="pi pi-sync"></i> Liên kết retrain job
+          </button>
           <button class="btn-upload" (click)="saveVerify()">
             <i class="pi pi-shield"></i> Xác nhận
           </button>
