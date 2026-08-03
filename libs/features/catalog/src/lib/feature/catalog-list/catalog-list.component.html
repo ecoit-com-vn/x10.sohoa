@@ -2,15 +2,15 @@
   <p-toast></p-toast>
   <div class="list-toolbar">
     <div class="toolbar-left">
-      <div class="breadcrumb" style="margin-bottom: 0;" *ngIf="isPhongCatalog(); else defaultCatalogBreadcrumb">
+      <div class="breadcrumb" style="margin-bottom: 0;" *ngIf="isUnitScopedCatalog(); else defaultCatalogBreadcrumb">
         <i class="pi pi-home bc-icon"></i>
         <a class="bc-text bc-link" href="#/dashboard">Trang chủ</a>
         <span class="bc-sep">/</span>
         <span class="bc-text">Quản lý danh mục</span>
         <span class="bc-sep">/</span>
-        <span class="bc-current" *ngIf="currentView() === 'list'; else phongActionBreadcrumb">Danh mục phông</span>
+        <span class="bc-current" *ngIf="currentView() === 'list'; else phongActionBreadcrumb">{{ catalogTitle() }}</span>
         <ng-template #phongActionBreadcrumb>
-          <span class="bc-text bc-link" (click)="currentView.set('list')">Danh mục phông</span>
+          <span class="bc-text bc-link" (click)="currentView.set('list')">{{ catalogTitle() }}</span>
           <span class="bc-sep">/</span>
           <span class="bc-current">{{ currentView() === 'add' ? 'Thêm mới' : 'Chỉnh sửa' }}</span>
         </ng-template>
@@ -32,8 +32,9 @@
       class="animate-fade-in">
 
       <!-- Toolbar -->
-      <div class="list-toolbar" *ngIf="isPhongCatalog(); else defaultCatalogFilters">
-        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; width: 100%; padding: 16px; border: 1px solid #dbe4f0; border-radius: 8px;">
+      <div class="list-toolbar" *ngIf="isUnitScopedCatalog(); else defaultCatalogFilters">
+        <div style="display: grid; gap: 16px; width: 100%; padding: 16px; border: 1px solid #dbe4f0; border-radius: 8px;"
+          [style.grid-template-columns]="isMucLucCatalog() ? 'repeat(4, minmax(0, 1fr))' : 'repeat(3, minmax(0, 1fr))'">
             <div class="form-group" style="margin: 0; min-width: 0;">
               <label class="form-label">Tên danh mục</label>
               <input type="text" class="wf-search-input" style="width: 100%;" placeholder="Tên danh mục..." [ngModel]="searchName()"
@@ -53,7 +54,18 @@
                 <option value="0">Ngừng hoạt động</option>
               </select>
             </div>
-            <div style="grid-column: 3; display: flex; justify-content: flex-end; gap: 8px;">
+            <div class="form-group" style="margin: 0; min-width: 0;" *ngIf="isMucLucCatalog()">
+              <label class="form-label">Đơn vị</label>
+              <p-treeSelect [options]="organizationUnitTree()" [ngModel]="searchUnitNodes()"
+                (ngModelChange)="onSearchUnitNodeChange($event)" placeholder="-- Chọn đơn vị --"
+                [filter]="true" filterPlaceholder="Tìm đơn vị..." selectionMode="multiple" [metaKeySelection]="false"
+                appendTo="body" scrollHeight="260px" styleClass="w-full" [style]="{ width: '100%' }">
+                <ng-template pTemplate="default" let-node>
+                  <span style="display:inline-flex;align-items:center;gap:8px"><span style="width:18px;height:18px;border:1px solid #cbd5e1;border-radius:4px;display:inline-flex;align-items:center;justify-content:center"><i *ngIf="isSearchUnitNodeSelected(node)" class="pi pi-check" style="font-size:11px;color:#2563eb"></i></span>{{ node.label }}</span>
+                </ng-template>
+              </p-treeSelect>
+            </div>
+            <div [style.grid-column]="isMucLucCatalog() ? '4' : '3'" style="display: flex; justify-content: flex-end; gap: 8px;">
               <button class="btn-outlined" style="height: 38px;" (click)="onResetSearch()">
                 <i class="pi pi-refresh"></i> Làm mới
               </button>
@@ -91,7 +103,7 @@
               <th class="col-stt">STT</th>
               <th>Mã danh mục</th>
               <th>Tên danh mục</th>
-              <th *ngIf="isPhongCatalog()">Đơn vị</th>
+              <th *ngIf="isUnitScopedCatalog()">Đơn vị</th>
               <th *ngIf="hasParent()">Danh mục cha</th>
               <th style="width: 100px; text-align: center;">Thứ tự</th>
               <th>Trạng thái</th>
@@ -110,7 +122,7 @@
                   <b>{{ item.name }}</b>
                 </ng-template>
               </td>
-              <td *ngIf="isPhongCatalog()">
+              <td *ngIf="isUnitScopedCatalog()">
                 {{ item.unitName || getUnitLabel(item.unitId) || '-' }}
               </td>
               <td *ngIf="hasParent()">
@@ -136,7 +148,7 @@
               </td>
             </tr>
             <tr *ngIf="items().length === 0">
-              <td [attr.colspan]="(hasParent() ? 7 : 6) + (isPhongCatalog() ? 1 : 0)" class="empty-row">
+              <td [attr.colspan]="(hasParent() ? 7 : 6) + (isUnitScopedCatalog() ? 1 : 0)" class="empty-row">
                 <i class="pi pi-inbox"></i>
                 <div>Không tìm thấy dữ liệu danh mục nào.</div>
               </td>
@@ -180,7 +192,8 @@
     <p-dialog [visible]="currentView() === 'add' || currentView() === 'edit'"
       (visibleChange)="$event ? null : currentView.set('list')"
       [header]="currentView() === 'add' ? 'Thêm mới ' + catalogTitle() : 'Chỉnh sửa ' + catalogTitle()" [modal]="true"
-      [style]="{ width: '500px' }" styleClass="evn-dialog-custom">
+      [style]="{ width: '500px', 'max-height': 'calc(100vh - 32px)' }"
+      [contentStyle]="{ 'max-height': 'calc(100vh - 190px)', overflow: 'auto' }" styleClass="evn-dialog-custom">
       <div style="display: flex; flex-direction: column; gap: 16px; padding: 10px 0;">
         <div class="form-group">
           <label class="form-label">Mã danh mục <span class="required">*</span></label>
@@ -197,7 +210,7 @@
           <span class="field-error" *ngIf="nameError()">{{ nameError() }}</span>
         </div>
 
-        <div class="form-group" *ngIf="isPhongCatalog()">
+        <div class="form-group" *ngIf="isUnitScopedCatalog()">
           <label class="form-label">Đơn vị tạo <span class="required">*</span></label>
           <p-treeSelect [options]="organizationUnitTree()" [ngModel]="selectedUnitNodes()"
             (ngModelChange)="onUnitNodeChange($event)" placeholder="-- Chọn đơn vị --"
@@ -230,6 +243,7 @@
             [showClear]="true" placeholder="-- Chọn danh mục cha (không bắt buộc) --" [disabled]="isSaving()"
             [style]="{'width':'100%', 'height':'38px', 'line-height':'24px', 'border':'1px solid #cbd5e1', 'border-radius':'6px'}">
           </p-select>
+          <span class="field-error" *ngIf="parentError()">{{ parentError() }}</span>
         </div>
 
         <div class="form-group">
@@ -238,7 +252,7 @@
             placeholder="Mô tả phạm vi áp dụng, thông tin chi tiết..." [disabled]="isSaving()"></textarea>
         </div>
 
-        <div class="form-group" *ngIf="!isPhongCatalog()" style="display: flex; align-items: center; gap: 8px; padding-top: 5px;">
+        <div class="form-group" *ngIf="!isUnitScopedCatalog()" style="display: flex; align-items: center; gap: 8px; padding-top: 5px;">
           <input type="checkbox" id="chkPrivate" [ngModel]="isPrivate()" (ngModelChange)="isPrivate.set($event)"
             style="scale: 1.1; cursor: pointer;" [disabled]="isSaving()" />
           <label for="chkPrivate"
