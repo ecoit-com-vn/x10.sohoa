@@ -247,8 +247,8 @@
         </div>
 
         <!-- Advanced Search Filter Bar -->
-        <div class="grid-filter-bar" style="display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; background: #f8fafc; padding: 12px; border-radius: 6px; border: 1px solid #e2e8f0; align-items: flex-end;">
-          <div class="filter-item" style="flex: 1; min-width: 180px;">
+        <div class="grid-filter-bar">
+          <div class="filter-item filter-keyword">
             <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #475569; margin-bottom: 4px;">Từ khóa</label>
             <div style="position: relative;">
               <i class="pi pi-search" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 0.85rem;"></i>
@@ -264,7 +264,7 @@
             </div>
           </div>
           
-          <div class="filter-item" style="width: 150px;">
+          <div class="filter-item filter-creator">
             <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #475569; margin-bottom: 4px;">Người đăng tải</label>
             <div style="position: relative;">
               <i class="pi pi-user" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 0.85rem;"></i>
@@ -280,27 +280,31 @@
             </div>
           </div> 
           
-          <div class="filter-item" style="width: 130px;">
+          <div class="filter-item filter-start-date" style="width: 130px;">
             <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #475569; margin-bottom: 4px;">Từ ngày</label>
             <p-datepicker
-                styleClass="wf-input"
+                styleClass="w-full"
                 appendTo="body"
                 dateFormat="dd/mm/yy"
                 [showIcon]="true"
+                icon="pi pi-calendar"
                 inputId="startDate"
+                placeholder="dd/mm/yyyy"
                 [ngModel]="filterStartDate()"
                 (ngModelChange)="filterStartDate.set($event)">
             </p-datepicker>
           </div>
 
-          <div class="filter-item" style="width: 130px;">
+          <div class="filter-item filter-end-date" style="width: 130px;">
             <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #475569; margin-bottom: 4px;">Đến ngày</label>
             <p-datepicker
-                styleClass="wf-input"
+                styleClass="w-full"
                 appendTo="body"
                 dateFormat="dd/mm/yy"
                 [showIcon]="true"
+                icon="pi pi-calendar"
                 inputId="endDate"
+                placeholder="dd/mm/yyyy"
                 [ngModel]="filterEndDate()"
                 (ngModelChange)="filterEndDate.set($event)">
             </p-datepicker>

@@ -840,18 +840,6 @@
                 [rowsPerPageOptions]="[5, 10, 20, 50]"
                 (onPageChange)="onRelatedDossierPageChange($event)"
               ></app-eco-paginator>
-              <div class="pagination" hidden>
-                <button class="page-btn" (click)="onDossierPageChange(dossierPage() - 1)"
-                  [disabled]="dossierPage() === 1">
-                  <i class="pi pi-chevron-left"></i>
-                </button>
-                <span class="page-current">Trang {{ dossierPage() }} / {{ Math.ceil(dossierTotalCount() /
-                  dossierPageSize()) || 1 }}</span>
-                <button class="page-btn" (click)="onDossierPageChange(dossierPage() + 1)"
-                  [disabled]="dossierPage() >= Math.ceil(dossierTotalCount() / dossierPageSize())">
-                  <i class="pi pi-chevron-right"></i>
-                </button>
-              </div>
             </div>
           </div>
 

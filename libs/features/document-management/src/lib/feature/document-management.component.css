@@ -4,6 +4,72 @@
   display: block;
 }
 
+.grid-filter-bar {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.45fr) minmax(150px, 0.65fr) repeat(2, minmax(190px, 0.9fr));
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 16px;
+  padding: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+}
+
+.filter-keyword,
+.filter-creator,
+.filter-start-date,
+.filter-end-date {
+  min-width: 0;
+}
+
+.filter-start-date {
+  grid-column: 3;
+  width: 100% !important;
+}
+
+.filter-end-date {
+  grid-column: 4;
+  width: 100% !important;
+}
+
+.filter-buttons {
+  grid-column: 1 / -1;
+}
+
+:host ::ng-deep .filter-start-date .p-datepicker,
+:host ::ng-deep .filter-end-date .p-datepicker,
+:host ::ng-deep .filter-start-date .w-full,
+:host ::ng-deep .filter-end-date .w-full,
+:host ::ng-deep .filter-start-date .p-inputtext,
+:host ::ng-deep .filter-end-date .p-inputtext {
+  width: 100%;
+}
+
+.filter-start-date label,
+.filter-end-date label {
+  font-size: 0.83rem !important;
+  font-weight: 500 !important;
+  color: #374151 !important;
+}
+
+@media (max-width: 960px) {
+  .grid-filter-bar {
+    grid-template-columns: repeat(2, minmax(220px, 1fr));
+  }
+
+  .filter-start-date,
+  .filter-end-date {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 560px) {
+  .grid-filter-bar {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Overlay fullscreen — căn giữa popup trên viewport (kể cả chế độ quét) */
 .document-management-page {
   position: relative;
