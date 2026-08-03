@@ -1,6 +1,6 @@
 <div class="wf-page">
   <p-toast></p-toast>
-  <div class="list-toolbar">
+  <div class="list-toolbar standard-page-toolbar">
     <div class="toolbar-left">
       <wf-breadcrumb [viewMode]="currentView()" (listClick)="currentView.set('list')" />
     </div>
@@ -12,25 +12,31 @@
   </div>
   <div class="wf-card">
     <div class="animate-fade-in">
-      <div class="list-toolbar">
-        <div class="toolbar-left" style="display: flex; gap: 8px; align-items: center;">
-          <input type="text" class="wf-search-input" placeholder="Tìm theo mã hoặc tên..." [ngModel]="searchKeyword()"
-            (ngModelChange)="searchKeyword.set($event)" (keyup.enter)="onSearch()" />
+      <div class="standard-search-card">
+        <div class="toolbar-left">
+          <div class="standard-search-field">
+            <label class="search-field-label">Từ khóa</label>
+            <input type="text" class="wf-search-input" placeholder="Tìm theo mã hoặc tên..." [ngModel]="searchKeyword()"
+              (ngModelChange)="searchKeyword.set($event)" (keyup.enter)="onSearch()" />
+          </div>
 
-          <select class="wf-input" style="height: 38px; width: 140px; padding: 0 10px; border-radius: 6px;"
-            [ngModel]="searchStatus()" (ngModelChange)="searchStatus.set($event); onSearch()">
-            <option value="">-- Trạng thái --</option>
-            <option value="1">Hoạt động</option>
-            <option value="0">Ngừng hoạt động</option>
-          </select>
+          <div class="standard-search-field">
+            <label class="search-field-label">Trạng thái</label>
+            <select class="wf-input" [ngModel]="searchStatus()" (ngModelChange)="searchStatus.set($event); onSearch()">
+              <option value="">-- Trạng thái --</option>
+              <option value="1">Hoạt động</option>
+              <option value="0">Ngừng hoạt động</option>
+            </select>
+          </div>
 
-          <button class="btn-tim" (click)="onSearch()">
-            <i class="pi pi-search"></i> Tìm
-          </button>
-
-          <button class="btn-outlined" style="height: 38px;" (click)="onResetSearch()">
-            Làm mới
-          </button>
+          <div class="standard-search-actions">
+            <button type="button" class="btn-outlined" (click)="onResetSearch()">
+              <i class="pi pi-refresh"></i> Làm mới
+            </button>
+            <button type="button" class="btn-save" (click)="onSearch()">
+              <i class="pi pi-check"></i> Áp dụng
+            </button>
+          </div>
         </div>
 
       </div>

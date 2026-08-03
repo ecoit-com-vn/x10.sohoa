@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy, ViewChild, ElementRef, inject, PLATFORM_ID, ChangeDetectorRef, signal } from '@angular/core';
-import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
+import { WfBreadcrumbComponent, DeleteConfirmDialogComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -41,7 +41,7 @@ const WORKFLOW_BUILDER_BASE = '/administration/workflow-builder';
 @Component({
   selector: 'app-workflow-builder',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule, DialogModule, MenuModule, WfBreadcrumbComponent],
+  imports: [CommonModule, FormsModule, ToastModule, DialogModule, MenuModule, WfBreadcrumbComponent, DeleteConfirmDialogComponent],
   providers: [MessageService],
   templateUrl: './workflow-builder.component.html',
   styleUrl: './workflow-builder.component.scss'
@@ -298,6 +298,10 @@ export class WorkflowBuilderComponent implements OnInit, OnDestroy {
   reactivateTarget = signal<WorkflowDefinition | null>(null);
   reactivating = signal<boolean>(false);
   actionMenuItems: MenuItem[] = [];
+
+  showToggleStatusConfirm = signal<boolean>(false);
+  toggleStatusTarget = signal<WorkflowDefinition | null>(null);
+  togglingStatus = signal<boolean>(false);
 
   // ─── Bpmn.io Modeler state ──────────────────────────────────────────────────
   bpmnModeler: any = null;
@@ -834,9 +838,27 @@ export class WorkflowBuilderComponent implements OnInit, OnDestroy {
       this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền thay đổi trạng thái quy trình.' });
       return;
     }
-    this.loading = true;
+    this.toggleStatusTarget.set(wf);
+    this.showToggleStatusConfirm.set(true);
+  }
+
+  onCancelToggleStatus(): void {
+    if (this.togglingStatus()) return;
+    this.showToggleStatusConfirm.set(false);
+    this.toggleStatusTarget.set(null);
+  }
+
+  onConfirmToggleStatus(): void {
+    const wf = this.toggleStatusTarget();
+    if (!wf?.id) return;
+    if (!this.authService.hasPermission('WORKFLOW_DEFINITION_EDIT')) {
+      this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền thay đổi trạng thái quy trình.' });
+      return;
+    }
+
+    this.togglingStatus.set(true);
     this.workflowSvc.toggleStatus(wf.id!)
-      .pipe(finalize(() => this.loading = false))
+      .pipe(finalize(() => this.togglingStatus.set(false)))
       .subscribe({
         next: (res) => {
           this.messageService.add({
@@ -844,6 +866,8 @@ export class WorkflowBuilderComponent implements OnInit, OnDestroy {
             summary: 'Thành công',
             detail: `Đã ${res.isActive ? 'kích hoạt / mở khóa' : 'vô hiệu hóa / khóa'} quy trình "${wf.name}" thành công!`
           });
+          this.showToggleStatusConfirm.set(false);
+          this.toggleStatusTarget.set(null);
           this.loadList();
         },
         error: (err) => {

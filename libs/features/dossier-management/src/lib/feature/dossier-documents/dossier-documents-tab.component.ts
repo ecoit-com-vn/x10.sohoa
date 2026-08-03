@@ -119,10 +119,12 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
 
   @Input({ required: true }) dossierId!: string;
   @Input() canEdit = false;
+  @Input() canUpload = false;
   @Input() kindId = 2;
   @Input() hasFormTemplate = false;
   @Input() formId: string | null = null;
   @Input() menuScope: 'creator' | 'approver' | 'publisher' = 'creator';
+  @Input() showVersionHistory = true;
   @Output() formDataSaved = new EventEmitter<void>();
 
   documents = signal<DossierDocumentItem[]>([]);
@@ -133,6 +135,7 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
   totalDocuments = signal(0);
   searchKeyword = signal('');
   downloadingIds = signal<Set<string>>(new Set());
+  exporting = signal(false);
   retryingIds = signal<Set<string>>(new Set());
   reExtractingIds = signal<Set<string>>(new Set());
 
@@ -429,7 +432,10 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
         disabled: !doc.latestVersionId || this.isDownloading(doc.id),
         run: (d) => this.onDownload(d),
       },
-      {
+    ];
+
+    if (this.showVersionHistory) {
+      actions.push({
         key: 'history',
         title: 'Lịch sử phiên bản',
         btnClass: 'act-history',
@@ -437,8 +443,8 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
         disabled: !doc.latestVersionId,
         overflowOnly: true,
         run: (d) => this.onViewHistory(d),
-      },
-    ];
+      });
+    }
 
     if (showDigitization && this.canSubmitOcrAndExtract(doc)) {
       actions.push({
@@ -633,6 +639,31 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
         const next = new Set(this.downloadingIds());
         next.delete(doc.id);
         this.downloadingIds.set(next);
+      });
+  }
+
+  onExportDocuments(): void {
+    if (!this.dossierId || this.exporting()) return;
+
+    this.exporting.set(true);
+    this.documentService.exportDocuments(this.dossierId)
+      .pipe(finalize(() => this.exporting.set(false)))
+      .subscribe({
+        next: (blob) => {
+          const objectUrl = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = objectUrl;
+          link.download = 'Danh_sach_tai_lieu.xlsx';
+          link.rel = 'noopener';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(objectUrl);
+          this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã xuất danh sách tài liệu' });
+        },
+        error: () => {
+          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể xuất danh sách tài liệu' });
+        },
       });
   }
 

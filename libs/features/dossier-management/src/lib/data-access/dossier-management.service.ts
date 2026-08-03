@@ -229,6 +229,13 @@ export class DossierManagementService {
     return this.http.get<any>(`${this.base}/${id}`);
   }
 
+  getNextDossierCode(infrastructureId: string, dossierTypeId: string): Observable<{ code: string }> {
+    const params = new HttpParams()
+      .set('infrastructureId', infrastructureId)
+      .set('dossierTypeId', dossierTypeId);
+    return this.http.get<{ code: string }>(`${this.base}/next-code`, { params });
+  }
+
   /** Chi tiết hồ sơ đã xuất bản — màn tra cứu hồ sơ thiết bị */
   getDossierByEquipmentLookup(id: string): Observable<any> {
     return this.http.get<any>(`${this.config.apiGatewayUrl}/api/v1/dossiers-by-equipment/${id}`);
@@ -404,6 +411,10 @@ export class DossierManagementService {
 
   getDossierGroupLookup(): Observable<any[]> {
     return this.http.get<any[]>(`${this.config.apiGatewayUrl}/api/v1/dossiers/dossier-groups/lookup`);
+  }
+
+  getOrganizationUnitsLookup(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.config.apiGatewayUrl}/api/v1/organization-units/lookup`);
   }
 
   getEquipmentLookup(params?: { infrastructureId?: string; gridTypeId?: number; keyword?: string; code?: string; name?: string; unitId?: number; isActive?: boolean; page?: number; pageSize?: number }): Observable<any> {

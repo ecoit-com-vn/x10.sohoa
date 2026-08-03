@@ -12,6 +12,7 @@ import { CommonModule } from '@angular/common';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import {
   DeleteConfirmDialogComponent,
+  EcoPaginatorComponent,
   WfBreadcrumbComponent
 } from '@sohoa.frontend/shared/layout';
 import { FormsModule } from '@angular/forms';
@@ -21,6 +22,7 @@ import { TableModule } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { DialogModule } from 'primeng/dialog';
+import { DatePickerModule } from 'primeng/datepicker';
 import { PaginatorModule } from 'primeng/paginator';
 import { FileUploadZoneComponent, FileDownloadService, ScannerPanelComponent, UPLOAD_SOURCE, extractApiErrorMessage } from '@sohoa.frontend/features/equipment';
 import { finalize, lastValueFrom } from 'rxjs';
@@ -56,11 +58,13 @@ type FolderUploadMode = 'web' | 'scan';
     InputTextModule,
     DialogModule,
     PaginatorModule,
+    EcoPaginatorComponent,
     MenuModule,
     FileUploadZoneComponent,
     ScannerPanelComponent,
     WfBreadcrumbComponent,
     DeleteConfirmDialogComponent,
+    DatePickerModule,
   ],
   templateUrl: './document-management.component.html',
   styleUrl: './document-management.component.css',

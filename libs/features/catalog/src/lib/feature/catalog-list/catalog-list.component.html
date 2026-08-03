@@ -1,8 +1,8 @@
 <div class="wf-page">
   <p-toast></p-toast>
-  <div class="list-toolbar">
+  <div class="list-toolbar standard-page-toolbar">
     <div class="toolbar-left">
-      <div class="breadcrumb" *ngIf="isPhongCatalog(); else defaultCatalogBreadcrumb">
+      <div class="breadcrumb" style="margin-bottom: 0;" *ngIf="isPhongCatalog(); else defaultCatalogBreadcrumb">
         <i class="pi pi-home bc-icon"></i>
         <a class="bc-text bc-link" href="#/dashboard">Trang chủ</a>
         <span class="bc-sep">/</span>
@@ -32,37 +32,60 @@
       class="animate-fade-in">
 
       <!-- Toolbar -->
-      <div class="list-toolbar">
-        <div class="toolbar-left" style="display: flex; gap: 8px; align-items: center;">
-          <!-- Keyword input -->
-          <input type="text" class="wf-search-input" placeholder="Tìm theo mã hoặc tên..." [ngModel]="searchKeyword()"
-            (ngModelChange)="searchKeyword.set($event)" (keyup.enter)="onSearch()" />
-
-          <!-- Status Dropdown Filter -->
-          <select class="wf-input" style="height: 38px; width: 140px; padding: 0 10px; border-radius: 6px;"
-            [ngModel]="searchStatus()" (ngModelChange)="searchStatus.set($event); onSearch()">
-            <option value="">-- Trạng thái --</option>
-            <option value="1">Hoạt động </option>
-            <option value="0">Ngừng hoạt động</option>
-          </select>
-
-          <select *ngIf="isPhongCatalog()" class="wf-input"
-            style="height: 38px; min-width: 210px; padding: 0 10px; border-radius: 6px;"
-            [ngModel]="searchUnitId()" (ngModelChange)="onSearchUnitChange($event)">
-            <option [ngValue]="null">-- Tất cả đơn vị --</option>
-            <option *ngFor="let unit of organizationUnits()" [ngValue]="unit.id">{{ unit.name }}</option>
-          </select>
-
-          <button class="btn-tim" (click)="onSearch()">
-            <i class="pi pi-search"></i> Tìm
-          </button>
-
-          <button class="btn-outlined" style="height: 38px;" (click)="onResetSearch()">
-            Làm mới
-          </button>
+      <div class="standard-search-card" *ngIf="isPhongCatalog(); else defaultCatalogFilters">
+        <div class="toolbar-left">
+            <div class="standard-search-field">
+              <label class="search-field-label">Tên danh mục</label>
+              <input type="text" class="wf-search-input" placeholder="Tên danh mục..." [ngModel]="searchName()"
+                (ngModelChange)="searchName.set($event)" (keyup.enter)="onSearch()" />
+            </div>
+            <div class="standard-search-field">
+              <label class="search-field-label">Mã danh mục</label>
+              <input type="text" class="wf-search-input" placeholder="Mã danh mục..." [ngModel]="searchCode()"
+                (ngModelChange)="searchCode.set($event)" (keyup.enter)="onSearch()" />
+            </div>
+            <div class="standard-search-field">
+              <label class="search-field-label">Trạng thái</label>
+              <select class="wf-input" [ngModel]="searchStatus()" (ngModelChange)="searchStatus.set($event)">
+                <option value="">-- Trạng thái --</option>
+                <option value="1">Hoạt động</option>
+                <option value="0">Ngừng hoạt động</option>
+              </select>
+            </div>
+            <div class="standard-search-actions">
+              <button type="button" class="btn-outlined" (click)="onResetSearch()">
+                <i class="pi pi-refresh"></i> Làm mới
+              </button>
+              <button type="button" class="btn-save" (click)="onSearch()">
+                <i class="pi pi-check"></i> Áp dụng
+              </button>
+            </div>
         </div>
-
       </div>
+
+      <ng-template #defaultCatalogFilters>
+        <div class="standard-search-card">
+          <div class="toolbar-left">
+            <div class="standard-search-field">
+              <label class="search-field-label">Từ khóa</label>
+              <input type="text" class="wf-search-input" placeholder="Tìm theo mã hoặc tên..." [ngModel]="searchKeyword()"
+                (ngModelChange)="searchKeyword.set($event)" (keyup.enter)="onSearch()" />
+            </div>
+            <div class="standard-search-field">
+              <label class="search-field-label">Trạng thái</label>
+              <select class="wf-input" [ngModel]="searchStatus()" (ngModelChange)="searchStatus.set($event); onSearch()">
+                <option value="">-- Trạng thái --</option>
+                <option value="1">Hoạt động</option>
+                <option value="0">Ngừng hoạt động</option>
+              </select>
+            </div>
+            <div class="standard-search-actions">
+              <button type="button" class="btn-outlined" (click)="onResetSearch()"><i class="pi pi-refresh"></i> Làm mới</button>
+              <button type="button" class="btn-save" (click)="onSearch()"><i class="pi pi-check"></i> Áp dụng</button>
+            </div>
+          </div>
+        </div>
+      </ng-template>
 
       <!-- Table -->
       <div class="wf-table-wrap">
@@ -129,32 +152,12 @@
       <p-menu #actionMenu [model]="actionMenuItems" [popup]="true" appendTo="body"
         styleClass="row-action-menu"></p-menu>
 
-      <!-- Footer with Pagination -->
-      <div class="table-footer" *ngIf="items().length > 0">
-        <span class="record-count">Tổng số: <b>{{ totalCount() }}</b> bản ghi.</span>
-        <div class="pagination">
-          <button class="page-btn" (click)="prevPage()" [disabled]="currentPage() === 1">
-            <i class="pi pi-chevron-left"></i>
-          </button>
-          <span class="page-current">Trang {{ currentPage() }} / {{ totalPages() || 1 }}</span>
-          <button class="page-btn" (click)="nextPage()" [disabled]="currentPage() >= totalPages()">
-            <i class="pi pi-chevron-right"></i>
-          </button>
-          <span
-            style="margin-left: 10px; display: inline-flex; align-items: center; gap: 5px; font-size: 0.8rem; color: #6b7280;">
-            Đi tới trang:
-            <input type="number" class="page-jump-input" [value]="currentPage()"
-              (change)="goToPage($any($event.target).value)"
-              style="width: 50px; height: 28px; text-align: center; border: 1px solid #e5e7eb; border-radius: 4px; padding: 0 4px;"
-              [min]="1" [max]="totalPages() || 1" />
-          </span>
-          <select class="page-size-sel" [ngModel]="pageSize()" (change)="onPageSizeChange($event)">
-            <option [value]="10">10 / trang</option>
-            <option [value]="20">20 / trang</option>
-            <option [value]="50">50 / trang</option>
-          </select>
-        </div>
-      </div>
+      <app-eco-paginator *ngIf="totalCount() > 0"
+        [currentPage]="currentPage()"
+        [pageSize]="pageSize()"
+        [totalRecords]="totalCount()"
+        (pageChange)="goToPage($event)"
+        (pageSizeChange)="onPageSizeChange($event)" />
     </div>
 
     <!-- Dialog Thêm/Sửa Danh mục -->
@@ -179,12 +182,21 @@
         </div>
 
         <div class="form-group" *ngIf="isPhongCatalog()">
-          <label class="form-label">Đơn vị <span class="required">*</span></label>
-          <select class="wf-input w-full" [(ngModel)]="currentItem().unitId"
-            (ngModelChange)="onFieldChange('unitId')" [disabled]="isSaving()">
-            <option [ngValue]="null">-- Chọn đơn vị --</option>
-            <option *ngFor="let unit of organizationUnits()" [ngValue]="unit.id">{{ unit.name }}</option>
-          </select>
+          <label class="form-label">Đơn vị tạo <span class="required">*</span></label>
+          <p-treeSelect [options]="organizationUnitTree()" [ngModel]="selectedUnitNodes()"
+            (ngModelChange)="onUnitNodeChange($event)" placeholder="-- Chọn đơn vị --"
+            [filter]="true" filterPlaceholder="Tìm đơn vị..." selectionMode="multiple" [metaKeySelection]="false"
+            appendTo="body" scrollHeight="260px" styleClass="w-full" [style]="{ width: '100%' }"
+            [disabled]="isSaving() || !isAdmin()">
+            <ng-template pTemplate="default" let-node>
+              <span style="display: inline-flex; align-items: center; gap: 8px;">
+                <span style="width: 18px; height: 18px; border: 1px solid #cbd5e1; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; background: #fff;">
+                  <i *ngIf="isUnitNodeSelected(node)" class="pi pi-check" style="font-size: 11px; color: #2563eb;"></i>
+                </span>
+                <span>{{ node.label }}</span>
+              </span>
+            </ng-template>
+          </p-treeSelect>
           <span class="field-error" *ngIf="unitError()">{{ unitError() }}</span>
         </div>
 
@@ -247,20 +259,22 @@
 
     <!-- Dialog Xác nhận Khóa / Mở khóa -->
     <p-dialog [visible]="showStatusConfirm()" (visibleChange)="$event ? null : onCancelToggleStatus()"
-      [header]="statusTarget()?.status === 1 ? 'Xác nhận khóa' : 'Xác nhận mở khóa'" [modal]="true"
+      [header]="statusTarget()?.status === 1 ? 'Xác nhận khóa ' + catalogTitle().toLowerCase() : 'Xác nhận mở khóa ' + catalogTitle().toLowerCase()" [modal]="true"
       [style]="{ width: '420px' }" styleClass="evn-dialog-custom" [closable]="!togglingStatus()">
-      <div style="display: flex; align-items: flex-start; gap: 12px; padding: 8px 0 16px;">
-        <i class="pi" [ngClass]="statusTarget()?.status === 1 ? 'pi-lock' : 'pi-lock-open'"
-          style="font-size: 1.8rem; color: #4790e9;"></i>
-        <div>
-          <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">
-            {{ statusTarget()?.status === 1 ? 'Bạn có chắc chắn muốn khóa?' : 'Bạn có chắc chắn muốn mở khóa?' }}
-          </p>
-          <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
-            Danh mục <b style="color: #1e293b;">{{ statusTarget()?.name }}</b>
-            ({{ statusTarget()?.code }})
-            sẽ được {{ statusTarget()?.status === 1 ? 'ngừng hoạt động' : 'kích hoạt trở lại' }}.
-          </p>
+      <div style="padding: 8px 0 16px 0; display: flex; flex-direction: column; gap: 12px;">
+        <div style="display: flex; align-items: flex-start; gap: 12px;">
+          <i class="pi pi-exclamation-triangle"
+            style="font-size: 1.8rem; color: #f59e0b; margin-top: 2px; flex-shrink: 0;"></i>
+          <div>
+            <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b; font-size: 0.95rem;">
+              {{ statusTarget()?.status === 1 ? 'Bạn có chắc muốn khóa danh mục này?' : 'Bạn có chắc muốn mở khóa danh mục này?' }}
+            </p>
+            <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
+              {{ catalogTitle() }} <b style="color: #1e293b;">{{ statusTarget()?.name }}</b>
+              ({{ statusTarget()?.code }}) sẽ được
+              {{ statusTarget()?.status === 1 ? 'khóa và ngừng hoạt động' : 'mở khóa và hoạt động trở lại' }}.
+            </p>
+          </div>
         </div>
       </div>
       <ng-template #footer>
@@ -269,10 +283,12 @@
           <button class="btn-cancel btn-small" (click)="onCancelToggleStatus()" [disabled]="togglingStatus()">
             <i class="pi pi-times"></i> Hủy
           </button>
-          <button class="btn-save btn-small" (click)="onConfirmToggleStatus()" [disabled]="togglingStatus()">
-            <i class="pi pi-spin pi-spinner" *ngIf="togglingStatus()"></i>
+          <button class="btn-save btn-small" (click)="onConfirmToggleStatus()" [disabled]="togglingStatus()"
+            [style.background-color]="statusTarget()?.status === 1 ? '#dc2626' : '#4790e9'"
+            [style.border-color]="statusTarget()?.status === 1 ? '#dc2626' : '#4790e9'">
+            <i class="pi pi-spin pi-spinner" *ngIf="togglingStatus()" style="margin-right: 4px;"></i>
             <i class="pi" *ngIf="!togglingStatus()"
-              [ngClass]="statusTarget()?.status === 1 ? 'pi-lock' : 'pi-lock-open'"></i>
+              [ngClass]="statusTarget()?.status === 1 ? 'pi-lock' : 'pi-lock-open'" style="margin-right: 4px;"></i>
             {{ statusTarget()?.status === 1 ? 'Khóa' : 'Mở khóa' }}
           </button>
         </div>

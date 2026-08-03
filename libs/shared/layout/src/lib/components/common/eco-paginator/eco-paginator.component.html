@@ -1,8 +1,37 @@
-<div class="card flex justify-content-center">
-  <p-paginator
-    (onPageChange)="onPageChange($event)"
-    [first]="paging.page"
-    [rows]="paging.rows"
-    [totalRecords]="paging.totalRecords"
-    />
-</div>
+<nav class="eco-paginator" aria-label="Phân trang">
+    <div class="eco-paginator__summary">
+        Tổng số: <strong>{{ totalRecords }}</strong> {{ recordLabel }}.
+    </div>
+
+    <div class="eco-paginator__pages">
+        <button type="button" class="eco-paginator__button eco-paginator__nav-button" [disabled]="effectiveCurrentPage <= 1" aria-label="Trang trước" (click)="selectPage(effectiveCurrentPage - 1)">
+      <i class="pi pi-chevron-left" aria-hidden="true"></i>
+    </button>
+
+        <span class="eco-paginator__page-indicator">Trang {{ effectiveCurrentPage }} / {{ totalPages }}</span>
+
+        <button type="button" class="eco-paginator__button eco-paginator__nav-button" [disabled]="effectiveCurrentPage >= totalPages" aria-label="Trang sau" (click)="selectPage(effectiveCurrentPage + 1)">
+      <i class="pi pi-chevron-right" aria-hidden="true"></i>
+    </button>
+    </div>
+
+    <label class="eco-paginator__go-to">
+    Đi tới trang:
+    <input
+      type="number"
+      min="1"
+      [max]="totalPages"
+      [value]="effectiveCurrentPage"
+      aria-label="Đi tới trang"
+      (change)="goToPage($event)" />
+  </label>
+
+    <div class="eco-paginator__page-size">
+        <span class="eco-paginator__page-size-label">{{ effectivePageSize }} / trang</span>
+        <select aria-label="Số bản ghi trên mỗi trang" [value]="effectivePageSize" (change)="selectPageSize($event)">
+      <option *ngFor="let option of rowsPerPageOptions" [value]="option">
+        {{ option }}
+      </option>
+    </select>
+    </div>
+</nav>

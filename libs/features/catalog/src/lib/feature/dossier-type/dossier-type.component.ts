@@ -1,6 +1,7 @@
 import { Component, OnInit, signal, computed, inject, effect } from '@angular/core';
 import {
   DeleteConfirmDialogComponent,
+  EcoPaginatorComponent,
   WfBreadcrumbComponent
 } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
@@ -28,6 +29,7 @@ import { finalize } from 'rxjs/operators';
     DialogModule,
     MultiSelectModule,
     WfBreadcrumbComponent,
+    EcoPaginatorComponent,
     DeleteConfirmDialogComponent
   ],
   providers: [MessageService],
@@ -116,6 +118,14 @@ export class DossierTypeComponent implements OnInit {
   // Chuẩn hóa tên loại hồ sơ hiển thị trong popup xóa dùng chung.
   readonly deleteTargetLabel = computed(() => this.deleteTarget()?.name ?? '');
 
+  showLockUnlockConfirm = signal<boolean>(false);
+  lockUnlockTarget = signal<any>(null);
+  lockUnlockLoading = signal<boolean>(false);
+  readonly lockUnlockIsLocking = computed(() => {
+    const item = this.lockUnlockTarget();
+    return item?.isActive === 1 || item?.isActive === true;
+  });
+
   // Pagination Computeds
   paginatedItems = computed(() => {
     return this.items();
@@ -136,14 +146,14 @@ export class DossierTypeComponent implements OnInit {
     event.stopPropagation();
     const active = item.isActive === 1 || item.isActive === true;
     this.actionMenuItems = [
-      ...(this.canManage() ? [{
-        label: active ? 'Khóa loại hồ sơ' : 'Mở khóa loại hồ sơ',
-        title: active ? 'Khóa loại hồ sơ' : 'Mở khóa loại hồ sơ',
-        icon: active ? 'pi pi-lock color-red' : 'pi pi-lock-open color-teal',
-        command: () => this.onToggleStatus(item)
-      }] : []),
       ...(this.canEdit() ? [{ label: 'Cấu hình biểu mẫu EAV', title: 'Cấu hình biểu mẫu EAV', icon: 'pi pi-cog color-teal', command: () => this.onConfigureEav(item) }] : []),
       ...(this.canEdit() ? [{ label: 'Chỉnh sửa', title: 'Chỉnh sửa', icon: 'pi pi-pencil color-blue', command: () => this.onEdit(item) }] : []),
+      ...(this.canManage() ? [{
+        label: active ? 'Khóa ' : 'Mở khóa ',
+        title: active ? 'Khóa ' : 'Mở khóa ',
+        icon: active ? 'pi pi-lock color-red' : 'pi pi-lock-open color-teal',
+        command: () => this.onToggleStatusRequest(item)
+      }] : []),
       ...(this.canDelete() ? [{ label: 'Xóa', title: 'Xóa', icon: 'pi pi-trash color-red', command: () => this.onDelete(item) }] : []),
     ];
     menu.toggle(event);
@@ -174,6 +184,7 @@ export class DossierTypeComponent implements OnInit {
   }
 
   onFieldChange(field: string) {
+    this.currentItem.update(item => ({ ...item }));
     this.serverErrors.update(errs => {
       const copy = { ...errs };
       delete copy[field];
@@ -237,8 +248,8 @@ export class DossierTypeComponent implements OnInit {
     }
   }
 
-  onPageSizeChange(event: any) {
-    this.pageSize.set(Number(event.target.value));
+  onPageSizeChange(pageSize: number) {
+    this.pageSize.set(pageSize);
     this.currentPage.set(1);
   }
 
@@ -289,6 +300,7 @@ export class DossierTypeComponent implements OnInit {
 
   onSaveItem() {
     this.formSubmitted.set(true);
+    this.serverErrors.set({});
     const item = this.currentItem();
 
     if (!item.code || !item.name) {
@@ -340,7 +352,7 @@ export class DossierTypeComponent implements OnInit {
           errorsObj = err.errors;
         }
         this.serverErrors.set(errorsObj);
-        
+
         // Show validation/error message
         const errMsg = err?.error?.message || 'Có lỗi xảy ra khi lưu thông tin.';
         this.messageService.add({
@@ -352,15 +364,35 @@ export class DossierTypeComponent implements OnInit {
     });
   }
 
-  onToggleStatus(item: any) {
+  onToggleStatusRequest(item: any): void {
+    if (this.lockUnlockLoading()) return;
+    this.lockUnlockTarget.set(item);
+    this.showLockUnlockConfirm.set(true);
+  }
+
+  onCancelLockUnlock(): void {
+    if (this.lockUnlockLoading()) return;
+    this.showLockUnlockConfirm.set(false);
+    this.lockUnlockTarget.set(null);
+  }
+
+  onConfirmLockUnlock(): void {
+    const item = this.lockUnlockTarget();
+    if (!item || this.lockUnlockLoading()) return;
+
     const isLocking = item.isActive === 1 || item.isActive === true;
-    this.dossierTypeService.toggleStatus(item.id, isLocking).subscribe({
+    this.lockUnlockLoading.set(true);
+    this.dossierTypeService.toggleStatus(item.id, isLocking)
+      .pipe(finalize(() => this.lockUnlockLoading.set(false)))
+      .subscribe({
       next: (res) => {
         this.messageService.add({
           severity: 'success',
           summary: 'Thành công',
           detail: res.message || (isLocking ? 'Khóa thành công!' : 'Mở khóa thành công!')
         });
+        this.showLockUnlockConfirm.set(false);
+        this.lockUnlockTarget.set(null);
         this.loadItems();
       },
       error: (err) => {
@@ -538,7 +570,7 @@ export class DossierTypeComponent implements OnInit {
   onCanvasDrop(event: DragEvent, targetIndex: number) {
     event.preventDefault();
     event.stopPropagation();
-    
+
     if (this.draggedType) {
       this.addNewFieldAtIndex(this.draggedType, targetIndex);
       this.draggedType = null;

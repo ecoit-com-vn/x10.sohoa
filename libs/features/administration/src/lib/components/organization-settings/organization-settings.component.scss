@@ -7,12 +7,16 @@
     }
 }
 
-.unit-page-toolbar { margin-bottom: 12px; }
+.unit-page-toolbar {
+    margin-bottom: 12px;
+}
 
-.unit-search-card { margin-bottom: 12px; }
+.unit-search-card {
+    margin-bottom: 12px;
+}
 
 .unit-list-card {
-  margin-bottom: 0;
+    margin-bottom: 0;
 }
 
 .unit-code-cell .wf-name-link,
@@ -25,95 +29,109 @@
 }
 
 .unit-code-cell .wf-name-link {
-  cursor: pointer;
+    cursor: pointer;
 }
 
-    .unit-search-bar {
-      margin-bottom: 16px;
-      padding: 16px;
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      background: #ffffff;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    }
+.unit-search-bar {
+    margin-bottom: 8px;
+    padding: 8px 16px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: #ffffff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
 
-    .unit-search-grid {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 16px;
-    }
+.unit-search-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+}
 
-    .search-form-item { display: flex; flex-direction: column; gap: 6px; }
+.search-form-item {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
 
-    .search-field-label { font-size: 0.8rem; font-weight: 600; color: #475569; }
+.search-field-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #475569;
+}
 
-    .search-form-item .wf-search-input,
-    .search-form-item .wf-input {
-      width: 100%;
-      height: 38px;
-      box-sizing: border-box;
-      border: 1px solid #cbd5e1;
-      border-radius: 6px;
-    }
+.search-form-item .wf-search-input,
+.search-form-item .wf-input {
+    width: 100%;
+    height: 38px;
+    box-sizing: border-box;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+}
 
-    .unit-search-actions {
-      display: flex;
-      justify-content: flex-end;
-      gap: 8px;
-      margin-top: 16px;
-    }
+.unit-search-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 16px;
+}
 
+.table-footer-paginator {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid #e2e8f0;
+}
+
+ :host ::ng-deep .table-footer-paginator .p-paginator {
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+}
+
+ :host ::ng-deep .table-footer-paginator .p-paginator .p-paginator-page,
+ :host ::ng-deep .table-footer-paginator .p-paginator .p-paginator-first,
+ :host ::ng-deep .table-footer-paginator .p-paginator .p-paginator-prev,
+ :host ::ng-deep .table-footer-paginator .p-paginator .p-paginator-next,
+ :host ::ng-deep .table-footer-paginator .p-paginator .p-paginator-last,
+ :host ::ng-deep .table-footer-paginator .p-paginator .p-paginator-rpp-select {
+    min-width: 32px;
+    height: 32px;
+    padding: 0 8px;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    background: #ffffff;
+    color: #374151;
+    font-weight: 500;
+}
+
+ :host ::ng-deep .table-footer-paginator .p-paginator .p-paginator-page:hover:not(.p-disabled),
+ :host ::ng-deep .table-footer-paginator .p-paginator .p-paginator-first:hover:not(.p-disabled),
+ :host ::ng-deep .table-footer-paginator .p-paginator .p-paginator-prev:hover:not(.p-disabled),
+ :host ::ng-deep .table-footer-paginator .p-paginator .p-paginator-next:hover:not(.p-disabled),
+ :host ::ng-deep .table-footer-paginator .p-paginator .p-paginator-last:hover:not(.p-disabled) {
+    border-color: #cbd5e1;
+    background: #f1f5f9;
+    color: #000000;
+}
+
+ :host ::ng-deep .table-footer-paginator .p-paginator .p-paginator-page.p-highlight {
+    border-color: #002D72;
+    background: #002D72;
+    color: #ffffff;
+}
+
+@media (max-width: 768px) {
     .table-footer-paginator {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-top: 20px;
-      padding-top: 16px;
-      border-top: 1px solid #e2e8f0;
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 12px;
     }
+}
 
-    :host ::ng-deep .table-footer-paginator .p-paginator {
-      background: transparent !important;
-      border: none !important;
-      padding: 0 !important;
+@media (max-width: 768px) {
+    .unit-search-grid {
+        grid-template-columns: 1fr;
     }
-
-    :host ::ng-deep .table-footer-paginator .p-paginator .p-paginator-page,
-    :host ::ng-deep .table-footer-paginator .p-paginator .p-paginator-first,
-    :host ::ng-deep .table-footer-paginator .p-paginator .p-paginator-prev,
-    :host ::ng-deep .table-footer-paginator .p-paginator .p-paginator-next,
-    :host ::ng-deep .table-footer-paginator .p-paginator .p-paginator-last,
-    :host ::ng-deep .table-footer-paginator .p-paginator .p-paginator-rpp-select {
-      min-width: 32px;
-      height: 32px;
-      padding: 0 8px;
-      border: 1px solid #e2e8f0;
-      border-radius: 6px;
-      background: #ffffff;
-      color: #374151;
-      font-weight: 500;
-    }
-
-    :host ::ng-deep .table-footer-paginator .p-paginator .p-paginator-page:hover:not(.p-disabled),
-    :host ::ng-deep .table-footer-paginator .p-paginator .p-paginator-first:hover:not(.p-disabled),
-    :host ::ng-deep .table-footer-paginator .p-paginator .p-paginator-prev:hover:not(.p-disabled),
-    :host ::ng-deep .table-footer-paginator .p-paginator .p-paginator-next:hover:not(.p-disabled),
-    :host ::ng-deep .table-footer-paginator .p-paginator .p-paginator-last:hover:not(.p-disabled) {
-      border-color: #cbd5e1;
-      background: #f1f5f9;
-      color: #000000;
-    }
-
-    :host ::ng-deep .table-footer-paginator .p-paginator .p-paginator-page.p-highlight {
-      border-color: #002D72;
-      background: #002D72;
-      color: #ffffff;
-    }
-
-    @media (max-width: 768px) {
-      .table-footer-paginator { align-items: flex-start; flex-direction: column; gap: 12px; }
-    }
-
-    @media (max-width: 768px) {
-      .unit-search-grid { grid-template-columns: 1fr; }
-    }
+}

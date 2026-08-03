@@ -12,13 +12,14 @@ import { finalize } from 'rxjs';
 import { AuthService } from '@sohoa.frontend/shared/core';
 import {
   DeleteConfirmDialogComponent,
+  EcoPaginatorComponent,
   WfBreadcrumbComponent
 } from '@sohoa.frontend/shared/layout';
 
 @Component({
   selector: 'app-organization-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule, DialogModule, ToastModule, PaginatorModule, MenuModule, WfBreadcrumbComponent, DeleteConfirmDialogComponent],
+  imports: [CommonModule, FormsModule, DialogModule, ToastModule, PaginatorModule, MenuModule, WfBreadcrumbComponent, EcoPaginatorComponent, DeleteConfirmDialogComponent],
 
   providers: [MessageService],
   templateUrl: './organization-settings.component.html',
@@ -71,6 +72,7 @@ export class OrganizationSettings implements OnInit {
   });
 
   onFieldChange(field: string) {
+    this.currentUnit.update(unit => ({ ...unit }));
     this.serverErrors.update(errs => {
       const copy = { ...errs };
       delete copy[field];
@@ -87,12 +89,13 @@ export class OrganizationSettings implements OnInit {
 
   private apiUrl = `${environment.apiGatewayUrl}/api/v1/organization-units`;
   searchStatus = signal<string>('');
+  appliedKeyword = signal<string>('');
   currentPage = signal(1);
   pageSize = signal(10);
 
   // Computed signal for filteredUnits
   filteredUnits = computed(() => {
-    const kw = this.searchKeyword().toLowerCase().trim();
+    const kw = this.appliedKeyword().toLowerCase().trim();
     const statusVal = this.searchStatus();
     let allUnits = this.units() || [];
 
@@ -152,11 +155,19 @@ export class OrganizationSettings implements OnInit {
   }
 
   onSearch() {
+    this.appliedKeyword.set(this.searchKeyword().trim());
     this.currentPage.set(1);
+  }
+
+  onStatusFilterChange(status: string): void {
+    this.searchStatus.set(status);
+    this.currentPage.set(1);
+    this.loadUnits();
   }
 
   onResetSearch() {
     this.searchKeyword.set('');
+    this.appliedKeyword.set('');
     this.searchStatus.set('');
     this.currentPage.set(1);
   }

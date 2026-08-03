@@ -86,6 +86,11 @@ export class ReportGroupsComponent implements OnInit {
     });
   });
 
+  // Lock Confirmation
+  showLockConfirm = signal<boolean>(false);
+  lockTarget = signal<ReportGroup | null>(null);
+  locking = signal<boolean>(false);
+
   // Delete Confirmation
   showDeleteConfirm = signal<boolean>(false);
   deleteTarget = signal<ReportGroup | null>(null);
@@ -288,6 +293,42 @@ export class ReportGroupsComponent implements OnInit {
     this.deleteTarget.set(null);
   }
 
+  onCancelLock() {
+    this.showLockConfirm.set(false);
+    this.lockTarget.set(null);
+  }
+
+  onConfirmLock() {
+    const group = this.lockTarget();
+    if (!group) return;
+
+    this.locking.set(true);
+    this.http.patch(`${this.apiUrl}/${group.id}/lock`, {})
+      .pipe(finalize(() => {
+        this.locking.set(false);
+        this.onCancelLock(); // Hide dialog and reset target
+      }))
+      .subscribe({
+        next: () => {
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Thành công',
+            detail: 'Khóa nhóm báo cáo thành công.'
+          });
+          this.loadGroups();
+        },
+        error: (err) => {
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi',
+            detail:
+              err?.error?.message ??
+              'Không thể cập nhật trạng thái nhóm báo cáo.'
+          });
+        }
+      });
+  }
+
   onConfirmDelete(): void {
     const group = this.deleteTarget();
 
@@ -323,10 +364,14 @@ export class ReportGroupsComponent implements OnInit {
     this.currentNewGroup.code = input.value;
   }
   
-  onToggleStatus(group: ReportGroup) {
+onToggleStatus(group: ReportGroup) {
     const isLocking = group.isActive === true;
-    const action = isLocking ? 'lock' : 'unlock';
-
+    if (isLocking) {
+      this.lockTarget.set(group);
+      this.showLockConfirm.set(true);
+      return;
+    } 
+    const action = 'unlock';
     this.http
       .patch(`${this.apiUrl}/${group.id}/${action}`, {})
       .subscribe({
@@ -334,9 +379,7 @@ export class ReportGroupsComponent implements OnInit {
           this.messageService.add({
             severity: 'success',
             summary: 'Thành công',
-            detail: isLocking
-              ? 'Khóa nhóm báo cáo thành công.'
-              : 'Mở khóa nhóm báo cáo thành công.'
+            detail: 'Mở khóa nhóm báo cáo thành công.'
           });
 
           this.loadGroups();
@@ -351,6 +394,5 @@ export class ReportGroupsComponent implements OnInit {
           });
         }
       });
-  }
-
+  } 
 }

@@ -1,13 +1,14 @@
 import { Component, OnInit, signal, computed, inject, effect } from '@angular/core';
-import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
+import { EcoPaginatorComponent, WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ToastModule } from 'primeng/toast';
 import { SelectModule } from 'primeng/select';
+import { TreeSelectModule } from 'primeng/treeselect';
 import { DialogModule } from 'primeng/dialog';
 import { PaginatorModule } from 'primeng/paginator';
 import { Menu, MenuModule } from 'primeng/menu';
-import { MenuItem } from 'primeng/api';
+import { MenuItem, TreeNode } from 'primeng/api';
 import { MessageService } from 'primeng/api';
 import { ActivatedRoute } from '@angular/router';
 import { AuthService } from '@sohoa.frontend/shared/core';
@@ -16,7 +17,7 @@ import { CatalogService } from '../../data-access/catalog.service';
 @Component({
   selector: 'app-catalog',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule, SelectModule, DialogModule, PaginatorModule, MenuModule, WfBreadcrumbComponent],
+  imports: [CommonModule, FormsModule, ToastModule, SelectModule, TreeSelectModule, DialogModule, PaginatorModule, MenuModule, WfBreadcrumbComponent, EcoPaginatorComponent],
   providers: [MessageService],
   templateUrl: './catalog.component.html',
   styleUrl: './catalog.component.css'
@@ -69,6 +70,10 @@ export class CatalogComponent implements OnInit {
   items = signal<any[]>([]);
   parentsList = signal<any[]>([]);
   organizationUnits = signal<any[]>([]);
+  catalogSearchUnitNode = signal<TreeNode | null>(null);
+  selectedCatalogUnitNode = signal<TreeNode | null>(null);
+  catalogSearchUnitNodes = computed<TreeNode[]>(() => this.catalogSearchUnitNode() ? [this.catalogSearchUnitNode()!] : []);
+  selectedCatalogUnitNodes = computed<TreeNode[]>(() => this.selectedCatalogUnitNode() ? [this.selectedCatalogUnitNode()!] : []);
   searchKeyword = signal<string>('');
   catalogSearchCode = signal<string>('');
   searchStatus = signal<string>(''); // '', '1', '0'
@@ -132,11 +137,38 @@ export class CatalogComponent implements OnInit {
   canManageType = computed(() => this.authService.hasPermission(this.isPrivate() ? 'PRIVATE_CATALOG_MANAGE' : 'SHARED_CATALOG_MANAGE'));
 
   // Catalog permissions
-  canCreateCatalog = computed(() => this.authService.hasPermission('CATALOG_CREATE'));
-  canEditCatalog = computed(() => this.authService.hasPermission('CATALOG_EDIT'));
-  canDeleteCatalog = computed(() => this.authService.hasPermission('CATALOG_DELETE'));
-  canManageCatalog = computed(() => this.authService.hasPermission('CATALOG_MANAGE'));
+  canCreateCatalog = computed(() => this.authService.hasPermission(this.selectedTypeCode() === 'PHONG' ? 'PHONG_CREATE' : 'CATALOG_CREATE'));
+  canEditCatalog = computed(() => this.authService.hasPermission(this.selectedTypeCode() === 'PHONG' ? 'PHONG_EDIT' : 'CATALOG_EDIT'));
+  canDeleteCatalog = computed(() => this.authService.hasPermission(this.selectedTypeCode() === 'PHONG' ? 'PHONG_DELETE' : 'CATALOG_DELETE'));
+  canManageCatalog = computed(() => this.authService.hasPermission(this.selectedTypeCode() === 'PHONG' ? 'PHONG_MANAGE' : 'CATALOG_MANAGE'));
   isUnitScopedSelected = computed(() => ['PHONG', 'MUC_LUC'].includes(this.selectedTypeCode()));
+  isAdmin = computed(() => this.authService.getUserRoles().some(role =>
+    ['ADMIN', 'SUPER_ADMIN'].includes(role.toUpperCase())));
+  organizationUnitTree = computed<TreeNode[]>(() => {
+    const activeUnits = this.organizationUnits().filter(unit =>
+      unit.isActive !== false && unit.isActive !== 0 && unit.isDeleted !== true && unit.isDeleted !== 1);
+    const nodes = new Map<number, TreeNode>();
+    const roots: TreeNode[] = [];
+    activeUnits.forEach(unit => nodes.set(Number(unit.id), {
+      key: String(unit.id), label: unit.name, data: unit, expanded: !unit.parentId, children: []
+    }));
+    const rootUnit = activeUnits.find(unit =>
+      unit.parentId == null || String(unit.name).toUpperCase().includes('TỔNG CÔNG TY ĐIỆN LỰC TP.HÀ NỘI'));
+    activeUnits.forEach(unit => {
+      const node = nodes.get(Number(unit.id))!;
+      if (rootUnit && Number(unit.id) !== Number(rootUnit.id)) {
+        nodes.get(Number(rootUnit.id))!.children!.push(node);
+      } else {
+        roots.push(node);
+      }
+    });
+    const sortTree = (items: TreeNode[]) => {
+      items.sort((a, b) => String(a.label).localeCompare(String(b.label), 'vi'));
+      items.forEach(item => sortTree(item.children ?? []));
+    };
+    sortTree(roots);
+    return roots;
+  });
 
   // Pagination computed signals
   totalPages = computed(() => {
@@ -236,6 +268,8 @@ export class CatalogComponent implements OnInit {
     this.catalogSearchCode.set('');
     this.searchStatus.set('');
     this.catalogSearchUnitId.set(null);
+    this.catalogSearchUnitNode.set(null);
+    this.selectedCatalogUnitNode.set(null);
     if (['PHONG', 'MUC_LUC'].includes(type.code)) {
       this.loadOrganizationUnits();
     }
@@ -284,6 +318,7 @@ export class CatalogComponent implements OnInit {
   }
 
   onTypeFieldChange(field: string) {
+    this.currentTypeItem.update(item => ({ ...item }));
     this.typeServerErrors.update(errs => {
       const copy = { ...errs };
       delete copy[field];
@@ -466,22 +501,22 @@ export class CatalogComponent implements OnInit {
     const typeId = this.selectedTypeId();
     if (!typeId) return;
 
-    if (this.isUnitScopedSelected() && !this.catalogSearchUnitId()) {
+    if (this.selectedTypeCode() === 'MUC_LUC' && !this.catalogSearchUnitId()) {
       this.items.set([]);
       this.totalCount.set(0);
       return;
     }
 
-    const queryKeyword = this.searchKeyword() || this.catalogSearchCode();
+    const request = this.selectedTypeCode() === 'PHONG'
+      ? this.catalogService.getItems(
+          'PHONG', this.currentPage(), this.pageSize(), undefined, this.searchStatus(),
+          this.catalogSearchUnitId(), this.searchKeyword(), this.catalogSearchCode())
+      : this.catalogService.getItemsByTypeId(
+          typeId, this.currentPage(), this.pageSize(),
+          this.searchKeyword() || this.catalogSearchCode(), this.searchStatus(),
+          this.isUnitScopedSelected() ? this.catalogSearchUnitId() : null);
 
-    this.catalogService.getItemsByTypeId(
-      typeId, 
-      this.currentPage(), 
-      this.pageSize(), 
-      queryKeyword, 
-      this.searchStatus(),
-      this.isUnitScopedSelected() ? this.catalogSearchUnitId() : null
-    ).subscribe({
+    request.subscribe({
       next: (res) => {
         const list = res?.items || [];
         this.items.set(list);
@@ -508,7 +543,8 @@ export class CatalogComponent implements OnInit {
     this.searchKeyword.set('');
     this.catalogSearchCode.set('');
     this.searchStatus.set('');
-    this.catalogSearchUnitId.set(this.isUnitScopedSelected() ? this.getDefaultUnitId() : null);
+    this.catalogSearchUnitId.set(this.selectedTypeCode() === 'MUC_LUC' ? this.getDefaultUnitId() : null);
+    this.catalogSearchUnitNode.set(this.findOrganizationUnitNode(this.catalogSearchUnitId()));
     this.currentPage.set(1);
     this.loadCatalogs();
   }
@@ -516,6 +552,24 @@ export class CatalogComponent implements OnInit {
   onCatalogSearchUnitChange(unitId: number | string | null) {
     const normalizedUnitId = unitId === null || unitId === '' ? null : Number(unitId);
     this.catalogSearchUnitId.set(normalizedUnitId);
+  }
+
+  onCatalogSearchUnitNodeChange(value: TreeNode | TreeNode[] | null): void {
+    const node = Array.isArray(value) ? value[value.length - 1] ?? null : value;
+    this.catalogSearchUnitNode.set(node);
+    this.onCatalogSearchUnitChange(node?.data?.id ?? null);
+  }
+
+  onCatalogUnitNodeChange(value: TreeNode | TreeNode[] | null): void {
+    const node = Array.isArray(value) ? value[value.length - 1] ?? null : value;
+    this.selectedCatalogUnitNode.set(node);
+    this.currentCatalogItem().unitId = node?.data?.id == null ? null : Number(node.data.id);
+    this.onCatalogUnitChange();
+  }
+
+  isCatalogUnitNodeSelected(node: TreeNode, formSelection = false): boolean {
+    const selected = formSelection ? this.selectedCatalogUnitNode() : this.catalogSearchUnitNode();
+    return Number(selected?.key) === Number(node.key);
   }
 
   onAddNewCatalog() {
@@ -528,8 +582,11 @@ export class CatalogComponent implements OnInit {
       description: '',
       priority: 1,
       status: 1,
-      unitId: this.isUnitScopedSelected() ? this.catalogSearchUnitId() : null
+      // Form thêm mới phải yêu cầu người dùng chủ động chọn đơn vị,
+      // không kế thừa đơn vị đang lọc hoặc đơn vị mặc định của tài khoản.
+      unitId: null
     });
+    this.selectedCatalogUnitNode.set(this.findOrganizationUnitNode(this.currentCatalogItem().unitId));
     if (this.selectedTypeHasParent() === 1) {
       this.loadParentsList();
     }
@@ -540,6 +597,7 @@ export class CatalogComponent implements OnInit {
 
   onViewCatalog(catalog: any) {
     this.currentCatalogItem.set({ ...catalog });
+    this.selectedCatalogUnitNode.set(this.findOrganizationUnitNode(catalog.unitId));
     if (this.selectedTypeHasParent() === 1) {
       this.loadParentsList(catalog.id);
     }
@@ -551,6 +609,7 @@ export class CatalogComponent implements OnInit {
   onEditCatalog(catalog: any) {
     if (!this.canEditCatalog()) return;
     this.currentCatalogItem.set({ ...catalog });
+    this.selectedCatalogUnitNode.set(this.findOrganizationUnitNode(catalog.unitId));
     if (this.selectedTypeHasParent() === 1) {
       this.loadParentsList(catalog.id);
     }
@@ -560,6 +619,7 @@ export class CatalogComponent implements OnInit {
   }
 
   onCatalogFieldChange(field: string) {
+    this.currentCatalogItem.update(item => ({ ...item }));
     this.catalogServerErrors.update(errs => {
       const copy = { ...errs };
       delete copy[field];
@@ -621,7 +681,7 @@ export class CatalogComponent implements OnInit {
     this.catalogSaving.set(true);
 
     if (this.currentCatalogView() === 'edit') {
-      this.catalogService.updateItem(catalogDraft.id, catalogDraft).subscribe({
+      this.catalogService.updateItem(catalogDraft.id, catalogDraft, this.selectedTypeCode() === 'PHONG' ? 'PHONG' : undefined).subscribe({
         next: () => {
           this.catalogSaving.set(false);
           this.messageService.add({
@@ -638,7 +698,7 @@ export class CatalogComponent implements OnInit {
         }
       });
     } else {
-      this.catalogService.createItem(catalogDraft).subscribe({
+      this.catalogService.createItem(catalogDraft, this.selectedTypeCode() === 'PHONG' ? 'PHONG' : undefined).subscribe({
         next: () => {
           this.catalogSaving.set(false);
           this.messageService.add({
@@ -699,7 +759,7 @@ export class CatalogComponent implements OnInit {
 
     this.catalogLockLoading.set(true);
     const isLocking = catalog.status === 1;
-    this.catalogService.toggleStatus(catalog.id, isLocking).subscribe({
+    this.catalogService.toggleStatus(catalog.id, isLocking, this.selectedTypeCode() === 'PHONG' ? 'PHONG' : undefined).subscribe({
       next: (res: any) => {
         this.catalogLockLoading.set(false);
         this.showCatalogLockConfirm.set(false);
@@ -736,7 +796,7 @@ export class CatalogComponent implements OnInit {
     if (!catalog) return;
 
     this.catalogDeleting.set(true);
-    this.catalogService.deleteItem(catalog.id).subscribe({
+    this.catalogService.deleteItem(catalog.id, this.selectedTypeCode() === 'PHONG' ? 'PHONG' : undefined).subscribe({
       next: () => {
         this.catalogDeleting.set(false);
         this.messageService.add({
@@ -809,11 +869,14 @@ export class CatalogComponent implements OnInit {
           : allUnits.filter(unit => Number(unit.id) === Number(currentUnitId));
 
         this.organizationUnits.set(selectableUnits);
-        if (this.isUnitScopedSelected() && !this.catalogSearchUnitId()) {
+        if (this.selectedTypeCode() === 'MUC_LUC' && !this.catalogSearchUnitId()) {
           const defaultUnitId = this.getDefaultUnitId();
           this.catalogSearchUnitId.set(defaultUnitId);
+          this.catalogSearchUnitNode.set(this.findOrganizationUnitNode(defaultUnitId));
           if (defaultUnitId) this.loadCatalogs();
         }
+        this.catalogSearchUnitNode.set(this.findOrganizationUnitNode(this.catalogSearchUnitId()));
+        this.selectedCatalogUnitNode.set(this.findOrganizationUnitNode(this.currentCatalogItem()?.unitId));
       },
       error: () => this.organizationUnits.set([])
     });
@@ -832,5 +895,18 @@ export class CatalogComponent implements OnInit {
     if (!unitId) return '';
     const unit = this.organizationUnits().find(x => Number(x.id) === Number(unitId));
     return unit?.name || '';
+  }
+
+  private findOrganizationUnitNode(unitId: number | string | null | undefined): TreeNode | null {
+    if (!unitId) return null;
+    const find = (nodes: TreeNode[]): TreeNode | null => {
+      for (const node of nodes) {
+        if (Number(node.key) === Number(unitId)) return node;
+        const child = find(node.children ?? []);
+        if (child) return child;
+      }
+      return null;
+    };
+    return find(this.organizationUnitTree());
   }
 }

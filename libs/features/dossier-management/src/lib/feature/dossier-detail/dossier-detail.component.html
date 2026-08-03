@@ -85,10 +85,6 @@
                 <span class="info-text-value">{{ viewMeta()?.dossierGroupName || '—' }}</span>
               </div>
               <div class="info-text-row">
-                <span class="info-text-label">Loại lưới điện:</span>
-                <span class="info-text-value">{{ viewMeta()?.gridTypeName || '—' }}</span>
-              </div>
-              <div class="info-text-row">
                 <span class="info-text-label">Trạm / Đường dây:</span>
                 <span class="info-text-value">
                   {{ viewMeta()?.infrastructureName || '—' }}
@@ -171,7 +167,8 @@
       </div>
 
       <div *ngIf="activeTab() === 'documents'">
-        <app-dossier-documents-tab [dossierId]="dossierId" [canEdit]="canEditDossier()" [menuScope]="menuScope"
+        <app-dossier-documents-tab [dossierId]="dossierId" [canEdit]="canEditDossier()" [canUpload]="menuScope === 'publisher'" [menuScope]="menuScope"
+          [showVersionHistory]="menuScope !== 'creator'"
           [kindId]="dossierKindId()" [hasFormTemplate]="!!dossierMeta()?.formId" [formId]="dossierMeta()?.formId ?? null"
           (formDataSaved)="loadDetail()"></app-dossier-documents-tab>
       </div>

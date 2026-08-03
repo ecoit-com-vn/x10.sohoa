@@ -1,6 +1,7 @@
 import { Component, OnInit, signal, computed, inject, effect } from '@angular/core';
 import {
   DeleteConfirmDialogComponent,
+  EcoPaginatorComponent,
   WfBreadcrumbComponent
 } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
@@ -8,9 +9,10 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { ToastModule } from 'primeng/toast';
 import { SelectModule } from 'primeng/select';
+import { TreeSelectModule } from 'primeng/treeselect';
 import { DialogModule } from 'primeng/dialog';
 import { Menu, MenuModule } from 'primeng/menu';
-import { MenuItem, MessageService } from 'primeng/api';
+import { MenuItem, MessageService, TreeNode } from 'primeng/api';
 import { AuthService } from '@sohoa.frontend/shared/core';
 import { CatalogService } from '../../data-access/catalog.service';
 import { finalize } from 'rxjs/operators';
@@ -24,8 +26,10 @@ import { finalize } from 'rxjs/operators';
     ToastModule,
     MenuModule,
     SelectModule,
+    TreeSelectModule,
     DialogModule,
     WfBreadcrumbComponent,
+    EcoPaginatorComponent,
     DeleteConfirmDialogComponent
   ],
   providers: [MessageService],
@@ -44,7 +48,11 @@ export class CatalogListComponent implements OnInit {
   items = signal<any[]>([]);
   parentsList = signal<any[]>([]);
   organizationUnits = signal<any[]>([]);
+  selectedUnitNode = signal<TreeNode | null>(null);
+  selectedUnitNodes = computed<TreeNode[]>(() => this.selectedUnitNode() ? [this.selectedUnitNode()!] : []);
   searchKeyword = signal<string>('');
+  searchName = signal<string>('');
+  searchCode = signal<string>('');
   searchStatus = signal<string>(''); // '', '1', '0'
   searchUnitId = signal<number | null>(null);
   totalCount = signal<number>(0);
@@ -61,13 +69,13 @@ export class CatalogListComponent implements OnInit {
     event.stopPropagation();
     const active = item.status === 1;
     this.actionMenuItems = [
+      ...(this.canEdit() ? [{ label: 'Chỉnh sửa', title: 'Chỉnh sửa', icon: 'pi pi-pencil color-blue', command: () => this.onEdit(item) }] : []),
       ...(this.canManage() ? [{
         label: active ? 'Khóa danh mục' : 'Mở khóa danh mục',
         title: active ? 'Khóa danh mục' : 'Mở khóa danh mục',
         icon: active ? 'pi pi-lock color-red' : 'pi pi-lock-open color-teal',
         command: () => this.onToggleStatus(item)
       }] : []),
-      ...(this.canEdit() ? [{ label: 'Chỉnh sửa', title: 'Chỉnh sửa', icon: 'pi pi-pencil color-blue', command: () => this.onEdit(item) }] : []),
       ...(this.canDelete() ? [{ label: 'Xóa', title: 'Xóa', icon: 'pi pi-trash color-red', command: () => this.onDelete(item) }] : []),
     ];
     menu.toggle(event);
@@ -107,11 +115,13 @@ export class CatalogListComponent implements OnInit {
     return this.serverErrors().name || this.serverErrors().Name || '';
   });
   unitError = computed(() => {
-    if (this.isPhongCatalog() && this.formSubmitted() && !this.currentItem().unitId) return 'Đơn vị là bắt buộc';
+    if (this.isPhongCatalog() && this.formSubmitted() && !this.currentItem().unitId)
+      return 'Đơn vị tạo là bắt buộc';
     return this.serverErrors().unitId || this.serverErrors().UnitId || '';
   });
 
   onFieldChange(field: string) {
+    this.currentItem.update(item => ({ ...item }));
     this.serverErrors.update(errs => {
       const copy = { ...errs };
       delete copy[field];
@@ -129,6 +139,38 @@ export class CatalogListComponent implements OnInit {
   });
 
   isPhongCatalog = computed(() => this.catalogType() === 'PHONG');
+  organizationUnitTree = computed<TreeNode[]>(() => {
+    const activeUnits = this.organizationUnits().filter(unit =>
+      unit.isActive !== false && unit.isActive !== 0 && unit.isDeleted !== true && unit.isDeleted !== 1);
+    const nodes = new Map<number, TreeNode>();
+    const roots: TreeNode[] = [];
+
+    activeUnits.forEach(unit => nodes.set(Number(unit.id), {
+      key: String(unit.id),
+      label: unit.name,
+      data: unit,
+      expanded: !unit.parentId,
+      children: []
+    }));
+    const rootUnit = activeUnits.find(unit =>
+      unit.parentId == null || String(unit.name).toUpperCase().includes('TỔNG CÔNG TY ĐIỆN LỰC TP.HÀ NỘI'));
+    activeUnits.forEach(unit => {
+      const node = nodes.get(Number(unit.id))!;
+      if (rootUnit && Number(unit.id) !== Number(rootUnit.id)) {
+        nodes.get(Number(rootUnit.id))!.children!.push(node);
+      } else {
+        roots.push(node);
+      }
+    });
+    const sortTree = (items: TreeNode[]) => {
+      items.sort((a, b) => String(a.label).localeCompare(String(b.label), 'vi'));
+      items.forEach(item => sortTree(item.children ?? []));
+    };
+    sortTree(roots);
+    return roots;
+  });
+  isAdmin = computed(() => this.authService.getUserRoles().some(role =>
+    ['ADMIN', 'SUPER_ADMIN'].includes(role.toUpperCase())));
   customBreadcrumbItems = computed(() => this.isPhongCatalog()
     ? [
         { label: 'Quản lý danh mục' },
@@ -164,8 +206,8 @@ export class CatalogListComponent implements OnInit {
     }
   }
 
-  onPageSizeChange(event: any) {
-    this.pageSize.set(Number(event.target.value));
+  onPageSizeChange(pageSize: number) {
+    this.pageSize.set(pageSize);
     this.currentPage.set(1);
   }
 
@@ -175,6 +217,7 @@ export class CatalogListComponent implements OnInit {
     TANG: 'FLOOR',
     HOP: 'BOX',
     CHUC_VU: 'POSITION',
+    PHONG: 'PHONG',
     PROCESSING_CATEGORY: 'PROCESSING_CATEGORY',
     LINH_VUC: 'DOMAIN',
     TINH_TRANG_VAT_LY: 'PHYSICAL_STATUS',
@@ -250,16 +293,21 @@ export class CatalogListComponent implements OnInit {
     if (!type) return;
 
     if (this.isPhongCatalog()) {
-      const typeObj = this.catalogTypes().find(t => t.code === type);
-      if (!typeObj?.id) return;
-
-      this.catalogService.getItemsByTypeId(
-        typeObj.id,
+      const creatorUnitId = this.authService.getUserUnitId();
+      if (!creatorUnitId && !this.isAdmin()) {
+        this.items.set([]);
+        this.totalCount.set(0);
+        return;
+      }
+      this.catalogService.getItems(
+        type,
         this.currentPage(),
         this.pageSize(),
-        this.searchKeyword(),
+        undefined,
         this.searchStatus(),
-        this.searchUnitId()
+        undefined,
+        this.searchName(),
+        this.searchCode()
       ).subscribe({
         next: (res) => {
           this.items.set(res?.items || []);
@@ -298,7 +346,21 @@ export class CatalogListComponent implements OnInit {
 
   loadOrganizationUnits() {
     this.catalogService.getOrganizationUnits().subscribe({
-      next: (units) => this.organizationUnits.set(Array.isArray(units) ? units : []),
+      next: (units) => {
+        const allUnits = Array.isArray(units) ? units : [];
+        const isAdmin = this.authService.getUserRoles().some(role =>
+          ['ADMIN', 'SUPER_ADMIN'].includes(role.toUpperCase()));
+        const userUnitId = this.authService.getUserUnitId();
+        const selectableUnits = isAdmin || !userUnitId
+          ? allUnits
+          : allUnits.filter(unit => Number(unit.id) === Number(userUnitId));
+        this.organizationUnits.set(selectableUnits);
+        this.syncSelectedUnitNode();
+        if (!isAdmin && userUnitId) {
+          this.searchUnitId.set(Number(userUnitId));
+          this.loadItems();
+        }
+      },
       error: () => this.organizationUnits.set([])
     });
   }
@@ -338,8 +400,12 @@ export class CatalogListComponent implements OnInit {
 
   onResetSearch() {
     this.searchKeyword.set('');
+    this.searchName.set('');
+    this.searchCode.set('');
     this.searchStatus.set('');
-    this.searchUnitId.set(null);
+    const isAdmin = this.authService.getUserRoles().some(role =>
+      ['ADMIN', 'SUPER_ADMIN'].includes(role.toUpperCase()));
+    this.searchUnitId.set(this.authService.getUserUnitId() ?? null);
     this.currentPage.set(1);
     this.loadItems();
   }
@@ -355,9 +421,10 @@ export class CatalogListComponent implements OnInit {
       description: '',
       priority: 1,
       status: 1,
-      unitId: null,
+      unitId: this.isAdmin() ? null : (this.authService.getUserUnitId() ?? null),
       catalogTypeId: this.catalogTypes().find(t => t.code === this.catalogType())?.id
     });
+    this.syncSelectedUnitNode();
     if (this.hasParent()) {
       this.loadParentsList();
     }
@@ -370,6 +437,7 @@ export class CatalogListComponent implements OnInit {
     if (!this.canEdit()) return;
     this.isPrivate.set(!!item.unitId);
     this.currentItem.set({ ...item });
+    this.syncSelectedUnitNode();
     if (this.hasParent()) {
       this.loadParentsList(item.id);
     }
@@ -392,8 +460,14 @@ export class CatalogListComponent implements OnInit {
     }
 
     if (this.isPhongCatalog()) {
-      itemDraft.catalogTypeId = this.catalogTypes().find(t => t.code === this.catalogType())?.id;
-      itemDraft.unitId = Number(itemDraft.unitId);
+      // Backend xác định loại PHONG và đơn vị tạo từ token, không tin dữ liệu scope do client gửi lên.
+      delete itemDraft.catalogTypeId;
+      if (this.isAdmin()) {
+        // API trả id đơn vị có thể ở dạng chuỗi; chuẩn hóa để model long? của backend bind được.
+        itemDraft.unitId = Number(itemDraft.unitId);
+      } else {
+        delete itemDraft.unitId;
+      }
     } else {
       itemDraft.unitId = this.isPrivate() ? -1 : null;
     }
@@ -522,12 +596,13 @@ export class CatalogListComponent implements OnInit {
 
   onConfirmToggleStatus() {
     const item = this.statusTarget();
-    if (!item) return;
+    if (!item || this.togglingStatus()) return;
     const isLocking = item.status === 1;
     this.togglingStatus.set(true);
-    this.catalogService.toggleStatus(item.id, isLocking, this.catalogType()).subscribe({
+    this.catalogService.toggleStatus(item.id, isLocking, this.catalogType())
+      .pipe(finalize(() => this.togglingStatus.set(false)))
+      .subscribe({
       next: (res: any) => {
-        this.togglingStatus.set(false);
         this.showStatusConfirm.set(false);
         this.statusTarget.set(null);
         this.messageService.add({
@@ -538,8 +613,6 @@ export class CatalogListComponent implements OnInit {
         this.loadItems();
       },
       error: (err) => {
-        this.togglingStatus.set(false);
-        this.showStatusConfirm.set(false);
         const errorMsg = err.error?.message || 'Không thể thay đổi trạng thái danh mục.';
         this.messageService.add({ severity: 'error', summary: 'Lỗi thao tác', detail: errorMsg });
       }
@@ -547,6 +620,8 @@ export class CatalogListComponent implements OnInit {
   }
 
   onCancelToggleStatus() {
+    if (this.togglingStatus()) return;
+
     this.showStatusConfirm.set(false);
     this.statusTarget.set(null);
   }
@@ -555,5 +630,29 @@ export class CatalogListComponent implements OnInit {
     if (!unitId) return '';
     const unit = this.organizationUnits().find(x => Number(x.id) === Number(unitId));
     return unit?.name || '';
+  }
+
+  onUnitNodeChange(value: TreeNode | TreeNode[] | null): void {
+    const node = Array.isArray(value) ? value[value.length - 1] ?? null : value;
+    this.selectedUnitNode.set(node);
+    this.currentItem().unitId = node?.data?.id == null ? null : Number(node.data.id);
+    this.onFieldChange('unitId');
+  }
+
+  isUnitNodeSelected(node: TreeNode): boolean {
+    return Number(this.selectedUnitNode()?.key) === Number(node.key);
+  }
+
+  private syncSelectedUnitNode(): void {
+    const unitId = Number(this.currentItem()?.unitId);
+    const findNode = (nodes: TreeNode[]): TreeNode | null => {
+      for (const node of nodes) {
+        if (Number(node.key) === unitId) return node;
+        const child = findNode(node.children ?? []);
+        if (child) return child;
+      }
+      return null;
+    };
+    this.selectedUnitNode.set(unitId ? findNode(this.organizationUnitTree()) : null);
   }
 }

@@ -1,7 +1,7 @@
 <div class="wf-page">
   <p-toast></p-toast>
   
-  <div class="list-toolbar">
+  <div class="list-toolbar standard-page-toolbar">
     <div class="toolbar-left">
       <wf-breadcrumb [viewMode]="currentView() === 'detail' ? null : currentView()" [leafLabel]="pageTitle()"
         [customItems]="currentView() === 'detail' ? detailBreadcrumbItems() : null" (listClick)="goBack()" />
@@ -22,58 +22,67 @@
     <div *ngIf="currentView() === 'list' || currentView() === 'add' || currentView() === 'edit'" class="animate-fade-in">
 
       <!-- Toolbar -->
-      <div class="list-toolbar">
-        <div class="toolbar-left" style="display: flex; gap: 8px; align-items: center;">
+      <div class="standard-search-card">
+        <div class="toolbar-left">
           <!-- Keyword input -->
-          <input type="text" class="wf-search-input"
-            placeholder="Tìm theo mã hoặc tên..."
-            [ngModel]="searchKeyword()"
-            (ngModelChange)="searchKeyword.set($event)"
-            (keyup.enter)="onSearch()" />
+          <div class="standard-search-field">
+            <label class="search-field-label">Từ khóa</label>
+            <input type="text" class="wf-search-input"
+              placeholder="Tìm theo mã hoặc tên..."
+              [ngModel]="searchKeyword()"
+              (ngModelChange)="searchKeyword.set($event)"
+              (keyup.enter)="onSearch()" />
+          </div>
 
           <!-- Unit Filter -->
-          <div class="org-tree-picker" style="width: 320px;">
-            <div class="org-tree-trigger" (click)="toggleSearchOrgTree($event)"
-              [class.has-value]="searchUnitId()" [class.open]="searchOrgTreeOpen()">
-              <span class="org-tree-selected-label">
-                <i class="pi pi-building" style="margin-right: 6px; color: #6b7280;"></i>
-                {{ getUnitLabel(searchUnitId()) || '-- Tất cả đơn vị --' }}
-              </span>
-              <span style="display: flex; align-items: center; gap: 8px;">
-                <i class="pi pi-times-circle clear-btn" *ngIf="searchUnitId()" (click)="clearSearchOrgUnit($event)"
-                  style="color: #94a3b8; font-size: 0.95rem; cursor: pointer;"></i>
-                <i class="pi" [class.pi-chevron-down]="!searchOrgTreeOpen()" [class.pi-chevron-up]="searchOrgTreeOpen()"></i>
-              </span>
-            </div>
-            <div class="org-tree-dropdown" *ngIf="searchOrgTreeOpen()" (click)="$event.stopPropagation()">
-              <div class="org-tree-search">
-                <i class="pi pi-search"></i>
-                <input type="text" placeholder="Tìm kiếm đơn vị..." [ngModel]="searchOrgSearchKeyword()"
-                  (ngModelChange)="searchOrgSearchKeyword.set($event)" />
+          <div class="standard-search-field">
+            <label class="search-field-label">Đơn vị</label>
+            <div class="org-tree-picker">
+              <div class="org-tree-trigger" (click)="toggleSearchOrgTree($event)"
+                [class.has-value]="searchUnitId()" [class.open]="searchOrgTreeOpen()">
+                <span class="org-tree-selected-label">
+                  <i class="pi pi-building" style="margin-right: 6px; color: #6b7280;"></i>
+                  {{ getUnitLabel(searchUnitId()) || '-- Tất cả đơn vị --' }}
+                </span>
+                <span style="display: flex; align-items: center; gap: 8px;">
+                  <i class="pi pi-times-circle clear-btn" *ngIf="searchUnitId()" (click)="clearSearchOrgUnit($event)"
+                    style="color: #94a3b8; font-size: 0.95rem; cursor: pointer;"></i>
+                  <i class="pi" [class.pi-chevron-down]="!searchOrgTreeOpen()" [class.pi-chevron-up]="searchOrgTreeOpen()"></i>
+                </span>
               </div>
-              <ng-container *ngFor="let node of searchOrgUnitTree()">
-                <ng-container *ngTemplateOutlet="searchOrgTreeNode; context: { $implicit: node, depth: 0 }"></ng-container>
-              </ng-container>
-              <div *ngIf="searchOrgUnitTree().length === 0" class="org-tree-empty">Không có đơn vị phù hợp.</div>
+              <div class="org-tree-dropdown" *ngIf="searchOrgTreeOpen()" (click)="$event.stopPropagation()">
+                <div class="org-tree-search">
+                  <i class="pi pi-search"></i>
+                  <input type="text" placeholder="Tìm kiếm đơn vị..." [ngModel]="searchOrgSearchKeyword()"
+                    (ngModelChange)="searchOrgSearchKeyword.set($event)" />
+                </div>
+                <ng-container *ngFor="let node of searchOrgUnitTree()">
+                  <ng-container *ngTemplateOutlet="searchOrgTreeNode; context: { $implicit: node, depth: 0 }"></ng-container>
+                </ng-container>
+                <div *ngIf="searchOrgUnitTree().length === 0" class="org-tree-empty">Không có đơn vị phù hợp.</div>
+              </div>
             </div>
           </div>
 
           <!-- Status Filter -->
-          <select class="wf-input" style="height: 38px; width: 160px; padding: 0 10px; border-radius: 6px;"
-            [ngModel]="searchStatus()"
-            (ngModelChange)="searchStatus.set($event); onSearch()">
-            <option value="">-- Trạng thái --</option>
-            <option value="1">Hoạt động</option>
-            <option value="0">Ngừng hoạt động</option>
-          </select>
+          <div class="standard-search-field">
+            <label class="search-field-label">Trạng thái</label>
+            <select class="wf-input" [ngModel]="searchStatus()"
+              (ngModelChange)="searchStatus.set($event); onSearch()">
+              <option value="">-- Trạng thái --</option>
+              <option value="1">Hoạt động</option>
+              <option value="0">Ngừng hoạt động</option>
+            </select>
+          </div>
 
-          <button class="btn-tim" (click)="onSearch()">
-            <i class="pi pi-search"></i> Tìm
-          </button>
-
-          <button class="btn-outlined" style="height: 38px;" (click)="onResetSearch()">
-            Làm mới
-          </button>
+          <div class="standard-search-actions">
+            <button type="button" class="btn-outlined" (click)="onResetSearch()">
+              <i class="pi pi-refresh"></i> Làm mới
+            </button>
+            <button type="button" class="btn-save" (click)="onSearch()">
+              <i class="pi pi-check"></i> Áp dụng
+            </button>
+          </div>
         </div>
     </div>
 

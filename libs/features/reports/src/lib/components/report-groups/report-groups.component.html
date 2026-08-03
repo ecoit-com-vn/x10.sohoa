@@ -7,23 +7,27 @@
     <!-- Filters Toolbar -->
     <div class="list-toolbar mb-4" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 12px; gap: 12px; flex-wrap: wrap;">
       <div class="toolbar-left" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-        <input 
-          type="text" 
-          class="wf-input" 
-          [ngModel]="searchKeyword()" 
-          (ngModelChange)="searchKeyword.set($event)" 
-          placeholder="Tìm theo mã hoặc tên..." 
-          style="width: 260px;" />
+        <div class="standard-search-field" style="width: 260px;">
+          <label class="search-field-label">Từ khóa</label>
+          <input
+            type="text"
+            class="wf-input"
+            [ngModel]="searchKeyword()"
+            (ngModelChange)="searchKeyword.set($event)"
+            placeholder="Tìm theo mã hoặc tên..." />
+        </div>
 
-        <select 
-          class="wf-input" 
-          [ngModel]="filterStatus()" 
-          (ngModelChange)="filterStatus.set($event)" 
-          style="width: 180px;">
-          <option value="ALL">Tất cả trạng thái</option>
-          <option value="ACTIVE">Hoạt động</option>
-          <option value="INACTIVE">Ngừng hoạt động</option>
-        </select>
+        <div class="standard-search-field" style="width: 180px;">
+          <label class="search-field-label">Trạng thái</label>
+          <select
+            class="wf-input"
+            [ngModel]="filterStatus()"
+            (ngModelChange)="filterStatus.set($event)">
+            <option value="ALL">Tất cả trạng thái</option>
+            <option value="ACTIVE">Hoạt động</option>
+            <option value="INACTIVE">Ngừng hoạt động</option>
+          </select>
+        </div>
       </div>
       <div class="toolbar-right" *ngIf="authService.hasPermission('REPORT_GROUP_CREATE')">
         <button class="btn-green btn-small" (click)="showCreatePopup()">
@@ -72,7 +76,7 @@
                 [style.background-color]="group.isActive ? '#f0fdf4' : '#f1f5f9'"
                 [style.color]="group.isActive ? '#15803d' : '#475569'"
                 style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">
-                {{ group.isActive ? 'Hoạt động' : 'Khóa' }}
+                {{ group.isActive ? 'Hoạt động' : 'Ngừng hoạt động' }}
               </span>
             </td>
             <td class="text-center">
@@ -120,7 +124,41 @@
   (cancelled)="onCancelDelete()"
   (confirmed)="onConfirmDelete()"
 />
- (Chỉ cấu hình thông tin chung theo đúng Mockup) -->
+<!-- Dialog Xác nhận Khóa -->
+<p-dialog
+  [visible]="showLockConfirm()"
+  (visibleChange)="$event ? null : onCancelLock()"
+  header="Xác nhận khóa"
+  [modal]="true"
+  [style]="{ width: '420px' }"
+  styleClass="evn-dialog-custom"
+  [closable]="!locking()">
+  <div style="padding: 8px 0 16px 0; display: flex; flex-direction: column; gap: 12px;">
+    <div style="display: flex; align-items: flex-start; gap: 12px;">
+      <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #f59e0b; margin-top: 2px; flex-shrink: 0;"></i>
+      <div>
+        <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b; font-size: 0.95rem;">Bạn có chắc chắn muốn khóa nhóm báo cáo này?</p>
+        <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
+          Nhóm <b style="color: #1e293b;">{{ lockTarget()?.name }}</b> ({{ lockTarget()?.code }}) sẽ bị khóa.
+        </p>
+      </div>
+    </div>
+  </div>
+  <ng-template #footer>
+    <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+      <button class="btn-cancel btn-small" (click)="onCancelLock()" [disabled]="locking()">
+        <i class="pi pi-times"></i> Hủy
+      </button>
+      <button class="btn-save btn-small" (click)="onConfirmLock()" [disabled]="locking()" style="background-color: #dc2626; border-color: #dc2626;">
+        <i class="pi pi-spin pi-spinner" *ngIf="locking()" style="margin-right: 4px;"></i>
+        <i class="pi pi-lock" *ngIf="!locking()" style="margin-right: 4px;"></i>
+        Khóa
+      </button>
+    </div>
+  </ng-template>
+</p-dialog>
+
+ <!-- (Chỉ cấu hình thông tin chung theo đúng Mockup) -->
 <p-dialog [(visible)]="displayCreateDialog" header="Thêm Mới Nhóm Báo Cáo Hệ Thống" [modal]="true" [style]="{width: '600px'}" styleClass="evn-dialog-custom" [draggable]="false" [resizable]="false">
   <div style="display: flex; flex-direction: column; gap: 14px; padding: 10px 0;">
     
