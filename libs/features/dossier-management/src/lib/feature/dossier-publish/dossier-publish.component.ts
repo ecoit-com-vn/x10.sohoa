@@ -9,6 +9,7 @@ import { BhsCatalogColumn, DossierManagementService } from '../../data-access/do
 import { DossierPublishService } from '../../data-access/dossier-publish.service';
 import { DossierListTab } from '../../utils/dossier-status.util';
 import { AuthService } from '@sohoa.frontend/shared/core';
+import { EcoPaginatorComponent } from '@sohoa.frontend/shared/layout';
 import { finalize, Observable } from 'rxjs';
 
 type PublishTab = 'pending-publish' | 'published' | 'unpublished';
@@ -25,7 +26,7 @@ function tabLabel(tab: PublishTab): string {
 @Component({
   selector: 'app-dossier-publish',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule, DialogModule, MenuModule],
+  imports: [CommonModule, FormsModule, ToastModule, DialogModule, MenuModule, EcoPaginatorComponent],
   template: `
     <div class="wf-card">
       <div class="tab-bar">
@@ -40,8 +41,10 @@ function tabLabel(tab: PublishTab): string {
         </button>
       </div>
 
-      <div class="list-toolbar">
-        <div class="toolbar-left">
+      <div class="wf-card dossier-publish-search-bar">
+        <div class="search-form-grid">
+          <div class="search-form-item">
+            <label class="search-field-label">Từ khóa</label>
           <input
             type="text"
             class="wf-search-input"
@@ -49,10 +52,16 @@ function tabLabel(tab: PublishTab): string {
             [(ngModel)]="searchKeyword"
             (keyup.enter)="onSearch()"
           />
+          </div>
+          <div class="search-form-item">
+            <label class="search-field-label">Loại hồ sơ</label>
           <select class="wf-select" [ngModel]="filterDossierTypeId()" (ngModelChange)="onDossierTypeFilterChange($event)">
             <option [ngValue]="null">-- Tất cả loại hồ sơ --</option>
             <option *ngFor="let item of dossierTypes()" [value]="item.id">{{ item.name }}</option>
           </select>
+          </div>
+          <div class="search-form-item">
+            <label class="search-field-label">Trạm / Đường dây</label>
           <div class="searchable-select">
             <button type="button" class="wf-select searchable-select-trigger" (click)="toggleInfrastructureDropdown()">
               <span>{{ selectedInfrastructureLabel() }}</span>
@@ -80,13 +89,22 @@ function tabLabel(tab: PublishTab): string {
               <div class="searchable-select-empty" *ngIf="filteredInfrastructures().length === 0">Không có dữ liệu</div>
             </div>
           </div>
+          </div>
+          <div class="search-form-item">
+            <label class="search-field-label">Thiết bị</label>
           <select class="wf-select" [ngModel]="filterEquipmentId()" (ngModelChange)="onEquipmentFilterChange($event)" [disabled]="!filterInfrastructureId()">
             <option [ngValue]="null">-- Tất cả thiết bị --</option>
             <option *ngFor="let item of equipments()" [value]="item.id">{{ item.name }}</option>
           </select>
-          <button (click)="onSearch()" class="btn-tim">
-            <i class="pi pi-search"></i> Tìm
+          </div>
+          <div class="search-actions">
+          <button type="button" class="btn-outlined" (click)="onResetSearch()">
+            <i class="pi pi-refresh"></i> Làm mới
           </button>
+          <button type="button" (click)="onSearch()" class="btn-tim">
+            <i class="pi pi-check"></i> Áp dụng
+          </button>
+          </div>
         </div>
       </div>
 
@@ -151,17 +169,16 @@ function tabLabel(tab: PublishTab): string {
         </table>
       </div>
 
-      <div class="table-footer" *ngIf="!loading()">
+      <div class="table-footer-paginator" *ngIf="!loading() && totalCount() > 0">
         <span class="record-count">Tổng số: <b>{{ totalCount() }}</b> hồ sơ.</span>
-        <div class="pagination">
-          <button class="page-btn" [disabled]="currentPage() === 1" (click)="changePage(currentPage() - 1)">
-            <i class="pi pi-chevron-left"></i>
-          </button>
-          <span class="page-current">Trang {{ currentPage() }} / {{ totalPages() || 1 }}</span>
-          <button class="page-btn" [disabled]="currentPage() >= totalPages() || totalPages() === 0" (click)="changePage(currentPage() + 1)">
-            <i class="pi pi-chevron-right"></i>
-          </button>
-        </div>
+        <app-eco-paginator
+          [first]="first()"
+          [rows]="pageSize()"
+          [totalRecords]="totalCount()"
+          [rowsPerPageOptions]="[5, 10, 20, 50]"
+          recordLabel="hồ sơ"
+          (onPageChange)="onPublishPageChange($event)">
+        </app-eco-paginator>
       </div>
     </div>
 
@@ -210,6 +227,61 @@ function tabLabel(tab: PublishTab): string {
     </p-dialog>
   `,
   styles: [`
+    .dossier-publish-search-bar {
+      margin-bottom: 16px;
+      padding: 16px;
+      background: #ffffff;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.1);
+    }
+    .search-form-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 16px;
+      align-items: end;
+    }
+    .search-form-item {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 0;
+    }
+    .search-form-item > .wf-search-input,
+    .search-form-item > .wf-select,
+    .searchable-select-trigger {
+      width: 100%;
+      height: 38px;
+      box-sizing: border-box;
+    }
+    .search-actions {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 8px;
+      grid-column: 1 / -1;
+    }
+    .table-footer-paginator {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-top: 20px;
+      padding-top: 16px;
+      border-top: 1px solid #e2e8f0;
+    }
+    .table-footer-paginator .record-count {
+      color: #374151;
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+    @media (max-width: 1100px) {
+      .search-form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 640px) {
+      .search-form-grid { grid-template-columns: 1fr; }
+      .search-actions { justify-content: flex-start; }
+      .table-footer-paginator { flex-direction: column; align-items: stretch; }
+    }
     .tab-badge {
       display: inline-flex;
       align-items: center;
@@ -344,6 +416,7 @@ export class DossierPublishComponent implements OnInit {
   publishActionMenuItems = signal<MenuItem[]>([]);
 
   totalPages = computed(() => Math.ceil(this.totalCount() / this.pageSize()));
+  first = computed(() => (this.currentPage() - 1) * this.pageSize());
   tableColSpan = computed(() => this.bhsColumns().length + 5);
 
   actionTargetLabel = computed(() => {
@@ -407,6 +480,19 @@ export class DossierPublishComponent implements OnInit {
   }
 
   onSearch() {
+    this.searchKeyword.set(this.searchKeyword().trim());
+    this.currentPage.set(1);
+    this.refreshList();
+  }
+
+  onResetSearch(): void {
+    this.searchKeyword.set('');
+    this.filterDossierTypeId.set(null);
+    this.filterInfrastructureId.set(null);
+    this.filterEquipmentId.set(null);
+    this.infrastructureSearchKeyword.set('');
+    this.isInfrastructureDropdownOpen.set(false);
+    this.equipments.set([]);
     this.currentPage.set(1);
     this.refreshList();
   }
@@ -417,12 +503,10 @@ export class DossierPublishComponent implements OnInit {
 
   onDossierTypeFilterChange(dossierTypeId: string | null): void {
     this.filterDossierTypeId.set(dossierTypeId || null);
-    this.onSearch();
   }
 
   onEquipmentFilterChange(equipmentId: string | null): void {
     this.filterEquipmentId.set(equipmentId || null);
-    this.onSearch();
   }
 
   selectInfrastructure(infrastructureId: string | null): void {
@@ -439,7 +523,6 @@ export class DossierPublishComponent implements OnInit {
       });
     }
 
-    this.onSearch();
   }
 
   selectedInfrastructureLabel(): string {
@@ -537,6 +620,14 @@ export class DossierPublishComponent implements OnInit {
       this.currentPage.set(page);
       this.loadData();
     }
+  }
+
+  onPublishPageChange(event: { first?: number; rows?: number }): void {
+    const rows = Number(event.rows) || this.pageSize();
+    const first = Number(event.first) || 0;
+    this.pageSize.set(rows);
+    this.currentPage.set(Math.floor(first / rows) + 1);
+    this.loadData();
   }
 
   requestAction(type: 'publish' | 'unpublish' | 'republish' | 'delete', item: any) {
