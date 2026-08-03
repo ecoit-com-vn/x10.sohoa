@@ -309,5 +309,23 @@ public class DocumentDigitizationRepository : IDocumentDigitizationRepository
         return (items, totalCount);
     }
 
+    public async Task<IEnumerable<DocumentOcrProgress>> GetStaleJobsAsync(TimeSpan staleThreshold)
+    {
+        EnsureOpen();
+        var cutoff = DateTime.UtcNow - staleThreshold;
+        const string sql = @"
+            SELECT ID, DOCUMENT_ID AS DocumentId, DOCUMENT_VERSION_ID AS DocumentVersionId,
+                   ACTION, PHASE, CURRENT_PAGE AS CurrentPage, TOTAL_PAGES AS TotalPages,
+                   PROGRESS, STATUS, PROCESS_OPTION AS ProcessOption,
+                   BUCKET_NAME AS BucketName, FILE_PATH AS FilePath, FORM_JSON AS FormJson,
+                   ERROR_MESSAGE AS ErrorMessage, CREATED_BY AS CreatedBy, CREATED_DATE AS CreatedDate,
+                   MODIFIED_BY AS ModifiedBy, MODIFIED_DATE AS ModifiedDate, IS_DELETED AS IsDeleted
+            FROM DOCUMENT_OCR_PROGRESS
+            WHERE IS_DELETED = 0
+              AND STATUS IN ('Pending', 'Running', 'Extracting')
+              AND COALESCE(MODIFIED_DATE, CREATED_DATE) < :Cutoff";
+        return await _connection.QueryAsync<DocumentOcrProgress>(sql, new { Cutoff = cutoff });
+    }
+
     private void EnsureOpen() => _connection.EnsureOpen();
 }

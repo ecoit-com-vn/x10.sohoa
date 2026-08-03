@@ -21,6 +21,7 @@ using EvnHanoi.DigitizationService.Models;
 using EvnHanoi.DigitizationService.Repositories;
 using EvnHanoi.DigitizationService.Services;
 using EvnHanoi.DigitizationService.Helpers;
+using EvnHanoi.Infrastructure.Messaging;
 
 namespace EvnHanoi.DigitizationService.Workers
 {
@@ -61,6 +62,10 @@ namespace EvnHanoi.DigitizationService.Workers
                 await _channel.ExchangeDeclareAsync(exchange: exchangeName, type: ExchangeType.Topic, durable: true, autoDelete: false, arguments: null, cancellationToken: stoppingToken);
                 await _channel.QueueDeclareAsync(queue: queueName, durable: true, exclusive: false, autoDelete: false, arguments: null, cancellationToken: stoppingToken);
                 await _channel.QueueBindAsync(queue: queueName, exchange: exchangeName, routingKey: routingKey, cancellationToken: stoppingToken);
+
+                // Giới hạn số message xử lý đồng thời/1 kết nối bằng đúng ConsumerDispatchConcurrency
+                // (xem Program.cs) — để RabbitMQ không dồn quá nhiều message chưa ack cho worker.
+                await _channel.BasicQosAsync(prefetchSize: 0, prefetchCount: 4, global: false, cancellationToken: stoppingToken);
 
                 var consumer = new AsyncEventingBasicConsumer(_channel);
                 consumer.ReceivedAsync += async (model, ea) =>
@@ -618,7 +623,7 @@ Trước khi xuất câu trả lời cuối cùng, tự rà soát: (a) mỗi gi�
                     catch (Exception ex)
                     {
                         _logger.LogError(ex, "Lỗi khi xử lý Extraction task.");
-                        await _channel.BasicNackAsync(ea.DeliveryTag, false, false);
+                        await HandleTaskFailureAsync(ea, body, messageText, ex, stoppingToken);
                     }
                 };
 
@@ -639,6 +644,97 @@ Trước khi xuất câu trả lời cuối cùng, tự rà soát: (a) mỗi gi�
         {
             if (_channel is not null) await _channel.CloseAsync(cancellationToken: cancellationToken);
             await base.StopAsync(cancellationToken);
+        }
+
+        private const int MaxRetries = 3;
+
+        /// <summary>
+        /// Trước đây lỗi bị nack không requeue (mất message âm thầm, không DLQ, không báo trạng thái).
+        /// Nay thử lại tối đa <see cref="MaxRetries"/> lần (đếm qua header "x-retry-count"), vượt quá thì
+        /// đẩy sang hàng đợi lỗi (DLQ) và báo ngay cho EquipmentService để đánh dấu Failed.
+        /// </summary>
+        private async Task HandleTaskFailureAsync(
+            BasicDeliverEventArgs ea,
+            byte[] body,
+            string messageText,
+            Exception ex,
+            CancellationToken cancellationToken)
+        {
+            var retryCount = GetRetryCount(ea.BasicProperties?.Headers) + 1;
+
+            if (retryCount <= MaxRetries)
+            {
+                _logger.LogWarning("Extraction task lỗi, thử lại lần {RetryCount}/{MaxRetries}.", retryCount, MaxRetries);
+                await _channel!.BasicAckAsync(ea.DeliveryTag, false, cancellationToken);
+                await RepublishRawAsync(body, DigitizationTopicTopology.ExtractionTaskRoutingKey, retryCount, cancellationToken);
+                return;
+            }
+
+            _logger.LogError(
+                "Extraction task vượt quá {MaxRetries} lần thử — chuyển sang hàng đợi lỗi {DlqQueue}.",
+                MaxRetries, DigitizationTopicTopology.ExtractionTaskDeadLetterQueue);
+            await _channel!.BasicAckAsync(ea.DeliveryTag, false, cancellationToken);
+            await RepublishRawAsync(body, DigitizationTopicTopology.ExtractionTaskDeadLetterRoutingKey, retryCount, cancellationToken);
+
+            var fileId = TryExtractFileId(messageText);
+            if (fileId.HasValue)
+            {
+                using var scope = _serviceProvider.CreateScope();
+                var publisher = scope.ServiceProvider.GetRequiredService<IMessagePublisher>();
+                var failedMsg = new
+                {
+                    FileId = fileId.Value,
+                    Action = "extraction.process.failed",
+                    CurrentPage = 0,
+                    TotalPages = 0,
+                    Progress = 0,
+                    ErrorMessage = ex.Message
+                };
+                await publisher.PublishMessageAsync(failedMsg, "digitization.topic", "extraction.process.progress");
+            }
+        }
+
+        private async Task RepublishRawAsync(byte[] body, string routingKey, int retryCount, CancellationToken cancellationToken)
+        {
+            var props = new BasicProperties
+            {
+                Headers = new Dictionary<string, object?> { ["x-retry-count"] = retryCount }
+            };
+            await _channel!.BasicPublishAsync(
+                exchange: "digitization.topic",
+                routingKey: routingKey,
+                mandatory: false,
+                basicProperties: props,
+                body: body,
+                cancellationToken: cancellationToken);
+        }
+
+        private static int GetRetryCount(IDictionary<string, object?>? headers)
+        {
+            if (headers == null || !headers.TryGetValue("x-retry-count", out var raw) || raw == null)
+                return 0;
+
+            try
+            {
+                return Convert.ToInt32(raw is byte[] bytes ? Encoding.UTF8.GetString(bytes) : raw);
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        private static Guid? TryExtractFileId(string messageText)
+        {
+            try
+            {
+                var task = JsonSerializer.Deserialize<ExtractionTaskMessage>(messageText, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                return task?.FileId;
+            }
+            catch
+            {
+                return null;
+            }
         }
     }
 }
