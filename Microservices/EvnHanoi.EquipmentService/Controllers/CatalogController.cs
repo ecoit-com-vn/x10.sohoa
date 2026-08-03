@@ -106,14 +106,29 @@ public class CatalogController : ControllerBase
         var isUnitScoped = catalogType?.Code == "MUC_LUC" || catalogType?.Code == "PHONG";
         if (isUnitScoped)
         {
-            if (!unitId.HasValue || unitId <= 0)
-                return BadRequest(new { statusCode = 400, message = "Dữ liệu đầu vào không hợp lệ.", errors = new { unitId = "Vui lòng chọn một đơn vị" } });
-            if (!CanAccessUnit(unitId.Value)) return Forbid();
+            if (catalogType?.Code == "MUC_LUC" && IsAdmin())
+            {
+                if (unitId.HasValue && unitId <= 0)
+                    return BadRequest(new { statusCode = 400, message = "Dữ liệu đầu vào không hợp lệ.", errors = new { unitId = "Đơn vị không hợp lệ" } });
+            }
+            else
+            {
+                unitId = GetUnitIdFromClaims();
+                if (!unitId.HasValue || unitId <= 0)
+                    return BadRequest(new { statusCode = 400, message = "Dữ liệu đầu vào không hợp lệ.", errors = new { unitId = "Không xác định được đơn vị người dùng" } });
+            }
+            if (unitId.HasValue && !CanAccessUnit(unitId.Value)) return Forbid();
         }
-        long? effectiveUnitId = unitId ?? GetUnitIdFromClaims();
+        // Với MUC_LUC, quản trị viên không chọn đơn vị thì phải xem được toàn bộ
+        // danh mục của các đơn vị. Không được tự động thay bằng UnitId trong token,
+        // nếu không bản ghi vừa tạo cho đơn vị khác sẽ bị ẩn ngay sau khi lưu.
+        long? effectiveUnitId = catalogType?.Code == "MUC_LUC" && IsAdmin()
+            ? unitId
+            : unitId ?? GetUnitIdFromClaims();
         var (items, totalCount) = await _catalogRepository.GetPagedAsync(
             page, pageSize, catalogTypeId, keyword, status, effectiveUnitId,
-            strictUnitFilter: isUnitScoped);
+            strictUnitFilter: isUnitScoped && effectiveUnitId.HasValue,
+            includeAllUnits: catalogType?.Code == "MUC_LUC" && IsAdmin() && !effectiveUnitId.HasValue);
         return Ok(new { items, totalCount, page, pageSize });
     }
 
@@ -348,12 +363,14 @@ public class CatalogController : ControllerBase
 
     private bool CanAccessUnit(long unitId)
     {
-        var isAdmin = User.IsInRole("ADMIN") || User.Claims.Any(c =>
-            c.Type == System.Security.Claims.ClaimTypes.Role &&
-            string.Equals(c.Value, "ADMIN", StringComparison.OrdinalIgnoreCase));
-        if (isAdmin) return true;
+        if (IsAdmin()) return true;
         return GetUnitIdFromClaims() == unitId;
     }
+
+    private bool IsAdmin() => User.IsInRole("ADMIN") || User.IsInRole("SUPER_ADMIN") || User.Claims.Any(c =>
+        c.Type == System.Security.Claims.ClaimTypes.Role &&
+        (string.Equals(c.Value, "ADMIN", StringComparison.OrdinalIgnoreCase) ||
+         string.Equals(c.Value, "SUPER_ADMIN", StringComparison.OrdinalIgnoreCase)));
 
     private async Task<bool> IsMucLucAsync(long catalogTypeId)
         => (await _catalogRepository.GetCatalogTypeByIdAsync(catalogTypeId))?.Code == "MUC_LUC";

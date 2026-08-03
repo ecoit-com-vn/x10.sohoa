@@ -24,8 +24,29 @@ public class PrivateCatalogController : ControllerBase
         [FromQuery] int? status = null)
     {
         var username = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value ?? "system";
-        var result = await _catalogRepository.GetCatalogTypesFilteredAsync(true, keyword, status, username);
-        return Ok(result);
+        var result = (await _catalogRepository.GetCatalogTypesFilteredAsync(true, keyword, status, username)).ToList();
+
+        // PHONG và MUC_LUC là loại danh mục hệ thống dùng chung nhưng được phép quản lý
+        // từ màn Danh mục riêng. Gộp tường minh theo mã để không phụ thuộc IsPrivate.
+        foreach (var code in new[] { "PHONG", "MUC_LUC" })
+        {
+            var specialType = await _catalogRepository.GetCatalogTypeByCodeAsync(code);
+            if (specialType == null || result.Any(x => x.Id == specialType.Id)) continue;
+            if (code == "MUC_LUC")
+            {
+                specialType.Name = "Danh mục mục lục hồ sơ";
+                specialType.HasParent = 1;
+            }
+            if (status.HasValue && specialType.Status != status.Value) continue;
+            if (!string.IsNullOrWhiteSpace(keyword) &&
+                !specialType.Name.Contains(keyword.Trim(), StringComparison.OrdinalIgnoreCase) &&
+                !specialType.Code.Contains(keyword.Trim(), StringComparison.OrdinalIgnoreCase)) continue;
+            result.Add(specialType);
+        }
+
+        return Ok(result
+            .OrderByDescending(x => x.Status)
+            .ThenByDescending(x => x.CreatedAt));
     }
 
     [HttpGet("{id:long}")]
