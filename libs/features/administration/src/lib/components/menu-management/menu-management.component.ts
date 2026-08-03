@@ -1,7 +1,8 @@
 import { Component, OnInit, signal, computed, inject } from '@angular/core';
 import {
   DeleteConfirmDialogComponent,
-  WfBreadcrumbComponent
+  EcoPaginatorComponent,
+  WfBreadcrumbComponent,
 } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -28,7 +29,8 @@ import {
     ToastModule,
     MenuModule,
     WfBreadcrumbComponent,
-    DeleteConfirmDialogComponent
+    DeleteConfirmDialogComponent,
+    EcoPaginatorComponent,
   ],
   providers: [MessageService],
   templateUrl: './menu-management.component.html',
@@ -45,6 +47,11 @@ export class MenuManagement implements OnInit {
   dialogHeader = signal<string>('');
   isEdit = signal<boolean>(false);
   currentMenu = signal<any>({});
+
+  // Pagination
+  currentPage = signal<number>(1);
+  pageSize = signal<number>(10);
+  totalCount = signal<number>(0);
 
   loading = signal<boolean>(false);
   saving = signal<boolean>(false);
@@ -82,6 +89,10 @@ export class MenuManagement implements OnInit {
   deleteTarget = signal<MenuDisplayTreeNode | null>(null);
   deleteLoading = signal<boolean>(false);
 
+  groups = signal<any[]>([]);
+  // Paginated groups
+  paginatedGroups = computed(() => this.groups());
+
   // Chuẩn hóa tên menu hiển thị trong popup xác nhận xóa dùng chung.
   readonly deleteTargetLabel = computed(() => this.deleteTarget()?.name ?? '');
 
@@ -112,10 +123,12 @@ export class MenuManagement implements OnInit {
       .subscribe({
         next: (res) => {
           const raw = Array.isArray(res) ? res : (res && Array.isArray(res.items) ? res.items : (res && Array.isArray(res.value) ? res.value : []));
+          this.totalCount.set(raw.length); // Cập nhật totalCount
           this.menus.set(normalizeMenuLookupList(raw));
           this.syncExpandedMenus();
         },
         error: () => {
+          this.totalCount.set(0);
           this.messageService.add({ severity: 'error', summary: 'Lỗi tải dữ liệu', detail: 'Không thể tải danh sách menu.' });
         }
       });
@@ -131,6 +144,14 @@ export class MenuManagement implements OnInit {
     this.loadMenus(); 
   }
   
+  onPageChange(event: { first?: number; rows?: number }) {
+    const rows = Number(event.rows) || this.pageSize();
+    const first = Number(event.first) || 0;
+    this.pageSize.set(rows);
+    this.currentPage.set(Math.floor(first / rows) + 1);
+    this.loadMenus();
+  }
+
   loadPermissions() {
     this.menuService.getPermissions().subscribe({
       next: (res) => {

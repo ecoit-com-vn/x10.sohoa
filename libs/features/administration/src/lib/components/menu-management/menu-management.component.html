@@ -89,8 +89,16 @@
         </table>
       </div>
 
-      <div class="table-footer">
-        <span class="record-count">Tổng số: <b>{{ menus().length }}</b> menu.</span>
+      <div class="table-footer-paginator" *ngIf="totalCount() > 0">
+        <span class="record-count">Tổng số: <b>{{ totalCount() }}</b> menu.</span>
+        <app-eco-paginator
+          [currentPage]="currentPage()"
+          [pageSize]="pageSize()"
+          [totalRecords]="totalCount()"
+          [rowsPerPageOptions]="[10, 20, 50, 100]"
+          recordLabel="menu"
+          (onPageChange)="onPageChange($event)">
+        </app-eco-paginator>
       </div>
     </div>
 
