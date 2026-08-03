@@ -43,8 +43,8 @@ export const CATALOG_ROUTES: Route[] = [
   },
   {
     path: 'muc-luc-ho-so',
-    loadComponent: () => import('./feature/catalog/catalog.component').then(m => m.CatalogComponent),
-    data: { isPrivate: false, selectedTypeCode: 'MUC_LUC', title: 'Danh mục mục lục hồ sơ' }
+    loadComponent: () => import('./feature/catalog-list/catalog-list.component').then(m => m.CatalogListComponent),
+    data: { type: 'MUC_LUC', title: 'Danh mục mục lục hồ sơ' }
   },
   {
     path: 'fond',
