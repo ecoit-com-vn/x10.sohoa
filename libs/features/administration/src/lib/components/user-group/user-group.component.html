@@ -116,31 +116,37 @@
 
             <p-menu #actionMenu [model]="actionMenuItems" [popup]="true" appendTo="body" styleClass="row-action-menu"></p-menu>
 
-            <div class="table-footer-paginator" *ngIf="totalCount() > 0 && !loading()">
-                <span class="record-count">Tổng số: <b>{{ totalCount() }}</b> nhóm người dùng.</span>
-                <app-eco-paginator [first]="(currentPage() - 1) * pageSize()" [rows]="pageSize()" [totalRecords]="totalCount()" [rowsPerPageOptions]="[5, 10, 20, 50]" dropdownAppendTo="body" (onPageChange)="onGroupPageChange($event)">
-                </app-eco-paginator>
-            </div>
+      <div class="table-footer-paginator" *ngIf="totalCount() > 0">
+        <span class="record-count">Tổng số: <b>{{ totalCount() }}</b> nhóm người dùng.</span>
+        <p-paginator
+          [first]="(currentPage() - 1) * pageSize()"
+          [rows]="pageSize()"
+          [totalRecords]="totalCount()"
+          [rowsPerPageOptions]="[10, 20, 50]"
+          dropdownAppendTo="body"
+          (onPageChange)="onGroupPageChange($event)">
+        </p-paginator>
+      </div>
+    </div>
+
+    <!-- Dialog Thêm/Sửa Nhóm người dùng -->
+    <p-dialog [visible]="currentView() === 'add' || currentView() === 'edit'" (visibleChange)="$event ? null : currentView.set('list')" [header]="dialogHeader()" [modal]="true" [style]="{ width: '500px' }" styleClass="evn-dialog-custom">
+      <div style="display: flex; flex-direction: column; gap: 16px; padding: 10px 0;">
+        <div class="form-group">
+          <label class="form-label">Tên nhóm <span class="required">*</span></label>
+          <input type="text" class="wf-input w-full" [ngModel]="currentGroup().name" (ngModelChange)="onGroupFieldChange('name', $event)" placeholder="Nhập tên nhóm..." [disabled]="saving()" />
+          <span class="field-error" *ngIf="nameError()">{{ nameError() }}</span>
         </div>
-
-        <!-- Dialog Thêm/Sửa Nhóm người dùng -->
-        <p-dialog [visible]="currentView() === 'add' || currentView() === 'edit'" (visibleChange)="$event ? null : currentView.set('list')" [header]="dialogHeader()" [modal]="true" [style]="{ width: '500px' }" styleClass="evn-dialog-custom">
-            <div style="display: flex; flex-direction: column; gap: 16px; padding: 10px 0;">
-                <div class="form-group">
-                    <label class="form-label">Tên nhóm <span class="required">*</span></label>
-                    <input type="text" class="wf-input w-full" [(ngModel)]="currentGroup().name" (ngModelChange)="onFieldChange('name')" placeholder="Nhập tên nhóm..." [disabled]="saving()" />
-                    <span class="field-error" *ngIf="nameError()">{{ nameError() }}</span>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label">Mô tả chi tiết</label>
-                    <textarea class="wf-textarea w-full" rows="3" [(ngModel)]="currentGroup().description" placeholder="Nhập mô tả nhóm người dùng..." [disabled]="saving()"></textarea>
-                </div>
-            </div>
-            <ng-template #footer>
-                <div class="flex gap-2 justify-content-end pt-3" style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
-                    <button class="btn-cancel btn-small" (click)="currentView.set('list')" [disabled]="saving()"><i class="pi pi-times"></i> Đóng</button>
-                    <button class="btn-save btn-small" (click)="onSaveGroup()" [disabled]="saving()">
+        
+        <div class="form-group">
+          <label class="form-label">Mô tả chi tiết</label>
+          <textarea class="wf-textarea w-full" rows="3" [ngModel]="currentGroup().description" (ngModelChange)="onGroupFieldChange('description', $event)" placeholder="Nhập mô tả nhóm người dùng..." [disabled]="saving()"></textarea>
+        </div>
+      </div>
+      <ng-template #footer>
+        <div class="flex gap-2 justify-content-end pt-3" style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+          <button class="btn-cancel btn-small" (click)="currentView.set('list')" [disabled]="saving()"><i class="pi pi-times"></i> Đóng</button>
+          <button class="btn-save btn-small" (click)="onSaveGroup()" [disabled]="saving()">
             <i class="pi pi-spin pi-spinner" *ngIf="saving()" style="margin-right: 4px;"></i>
             <i class="pi pi-save" *ngIf="!saving()" style="margin-right: 4px;"></i>
             Lưu
