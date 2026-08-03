@@ -49,12 +49,6 @@ export class UploadConfigComponent implements OnInit {
   currentPage = signal(1);
   pageSize = signal(10);
   orgUnits = signal<any[]>([]);
-<<<<<<< HEAD
-  orgUnitFilterOptions = computed(() => [
-    { id: null, name: '-- Tất cả đơn vị --' },
-    ...this.orgUnits()
-  ]);
-=======
   orgUnitTree = computed(() => this.buildOrgTree(this.orgUnits()));
   primengOrgUnitTree = computed(() => {
     const buildPrimeNGNodes = (nodes: any[]): any[] => {
@@ -68,7 +62,6 @@ export class UploadConfigComponent implements OnInit {
 
     return buildPrimeNGNodes(this.orgUnitTree());
   });
->>>>>>> 09a1593140c4999c5f83c49e2b9b9a2e0e9ef4f1
 
   displayDialog = signal<boolean>(false);
   dialogHeader = signal<string>('');
@@ -127,14 +120,8 @@ export class UploadConfigComponent implements OnInit {
       const matchesKeyword = !kw ||
         (c.name?.toLowerCase().includes(kw) ?? false) ||
         (c.allowedExtensions?.toLowerCase().includes(kw) ?? false);
-<<<<<<< HEAD
-
-=======
-      const matchesTypeFile = !type || 
-        (c.allowedExtensions?.toLowerCase().includes(type) ?? false) || 
+      const matchesTypeFile = !type ||
         (c.allowedExtensions?.toLowerCase().includes(type) ?? false);
-        
->>>>>>> 09a1593140c4999c5f83c49e2b9b9a2e0e9ef4f1
       const matchesUnit = unitId === null || unitId === undefined || String(unitId) === 'null' || String(unitId) === '' ||
         c.organizationUnitId === Number(unitId);
 
