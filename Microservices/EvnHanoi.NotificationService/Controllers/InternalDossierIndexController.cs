@@ -1,5 +1,6 @@
 using EvnHanoi.Infrastructure.Security;
 using EvnHanoi.NotificationService.Services;
+using EvnHanoi.NotificationService.Repositories;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EvnHanoi.NotificationService.Controllers;
@@ -13,17 +14,56 @@ namespace EvnHanoi.NotificationService.Controllers;
 public class InternalDossierIndexController : ControllerBase
 {
     private readonly IDossierIndexer _indexer;
+    private readonly IDossierEnrichmentRepository _enrichmentRepository;
     private readonly IConfiguration _configuration;
     private readonly ILogger<InternalDossierIndexController> _logger;
 
     public InternalDossierIndexController(
         IDossierIndexer indexer,
+        IDossierEnrichmentRepository enrichmentRepository,
         IConfiguration configuration,
         ILogger<InternalDossierIndexController> logger)
     {
         _indexer = indexer;
+        _enrichmentRepository = enrichmentRepository;
         _configuration = configuration;
         _logger = logger;
+    }
+
+    [HttpPost("reindex-all")]
+    public async Task<IActionResult> ReindexAll(
+        [FromHeader(Name = "X-Internal-Token")] string? internalToken,
+        CancellationToken cancellationToken)
+    {
+        var expected = _configuration["Internal:Token"];
+        if (string.IsNullOrEmpty(expected))
+            return StatusCode(503, new { message = "Internal:Token chưa được cấu hình trên NotificationService." });
+
+        if (!string.Equals(internalToken, expected, StringComparison.Ordinal))
+            return Unauthorized(new { message = "Token nội bộ không hợp lệ." });
+
+        var dossierIds = (await _enrichmentRepository.GetAllIdsAsync()).ToList();
+        var indexed = 0;
+        var failed = 0;
+
+        foreach (var dossierId in dossierIds)
+        {
+            if (cancellationToken.IsCancellationRequested)
+                break;
+
+            if (await _indexer.IndexByIdAsync(dossierId, cancellationToken))
+                indexed++;
+            else
+                failed++;
+        }
+
+        _logger.LogInformation(
+            "Dossier reindex-all completed: total={Total}, indexed={Indexed}, failed={Failed}",
+            dossierIds.Count,
+            indexed,
+            failed);
+
+        return Ok(new { total = dossierIds.Count, indexed, failed });
     }
 
     [HttpPost("{id}/reindex")]
