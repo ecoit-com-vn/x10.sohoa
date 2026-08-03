@@ -71,11 +71,9 @@
               </span>
             </td>
             <td class="text-center">
-              <span 
-                class="badge" 
-                [style.background-color]="group.isActive ? '#f0fdf4' : '#f1f5f9'"
-                [style.color]="group.isActive ? '#15803d' : '#475569'"
-                style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">
+              <span
+                class="status-badge"
+                [ngClass]="group.isActive ? 'status-active' : 'status-inactive'"> 
                 {{ group.isActive ? 'Hoạt động' : 'Ngừng hoạt động' }}
               </span>
             </td>

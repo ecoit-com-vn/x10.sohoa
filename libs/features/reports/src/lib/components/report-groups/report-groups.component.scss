@@ -14,3 +14,30 @@
     color: #0f172a !important;
   }
 }
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+
+    min-width: 95px;      /* trước 120px */
+    padding: 4px 10px;    /* trước 6px 12px */
+
+    border-radius: 999px;
+
+    font-size: 11px;      /* trước 12px */
+    font-weight: 600;
+    line-height: 1.2;
+
+    white-space: nowrap;
+}
+
+.status-active {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.status-inactive {
+    background: #fee2e2;
+    color: #dc2626;
+} 
