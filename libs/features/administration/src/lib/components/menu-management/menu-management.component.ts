@@ -176,15 +176,6 @@ export class MenuManagement implements OnInit {
     });
   }
 
-  onSearch() {
-    this.syncExpandedMenus();
-  }
-
-  onResetSearch() {
-    this.searchKeyword.set('');
-    this.loadMenus();
-  }
-
   toggleMenuGroup(menuId: number) {
     this.expandedMenuIds.update((prev) => {
       const next = new Set(prev);
