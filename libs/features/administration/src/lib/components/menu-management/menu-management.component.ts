@@ -10,7 +10,7 @@ import { ToastModule } from 'primeng/toast';
 import { Menu, MenuModule } from 'primeng/menu';
 import { MenuItem, MessageService } from 'primeng/api';
 import { finalize } from 'rxjs';
-import { AuthService, MenuService, BreadcrumbTrailItem } from '@sohoa.frontend/shared/core';
+import { AuthService, MenuService } from '@sohoa.frontend/shared/core';
 import {
   buildMenuDisplayTree,
   isMenuViewPermission,
@@ -35,16 +35,12 @@ import {
   styleUrl: './menu-management.component.scss'
 })
 export class MenuManagement implements OnInit {
-  breadcrumbItems: BreadcrumbTrailItem[] = [
-    { label: 'Quản trị' },
-    { label: 'Quản lý menu', url: '/administration/menu-management' }
-  ];
   menus = signal<any[]>([]);
   searchKeyword = signal<string>('');
-  searchStatus = signal<string>(''); // '' (All), 'active' (Hoạt động), 'inactive' (Ngưng hoạt động)
+  searchStatus = signal<string>(''); // '' (All), 'active' (Hoạt động), 'inactive' (Ngưng hoạt động) 
   permissions = signal<any[]>([]);
   expandedMenuIds = signal<Set<number>>(new Set<number>());
-
+ 
   currentView = signal<'list' | 'add' | 'edit'>('list');
   dialogHeader = signal<string>('');
   isEdit = signal<boolean>(false);
@@ -110,7 +106,7 @@ export class MenuManagement implements OnInit {
   }
 
   loadMenus() {
-    this.loading.set(true);
+    this.loading.set(true); 
     this.menuService.getMenus(this.searchKeyword(), this.searchStatus() === 'active' ? true : (this.searchStatus() === 'inactive' ? false : undefined))
       .pipe(finalize(() => this.loading.set(false)))
       .subscribe({
@@ -125,16 +121,16 @@ export class MenuManagement implements OnInit {
       });
   }
 
-  onSearch() {
-    this.loadMenus();
+  onSearch() { 
+    this.loadMenus(); 
   }
 
   onResetSearch() {
     this.searchKeyword.set('');
-    this.searchStatus.set('');
-    this.loadMenus();
+    this.searchStatus.set(''); 
+    this.loadMenus(); 
   }
-
+  
   loadPermissions() {
     this.menuService.getPermissions().subscribe({
       next: (res) => {
@@ -175,7 +171,7 @@ export class MenuManagement implements OnInit {
       return copy;
     });
   }
-
+  
   toggleMenuGroup(menuId: number) {
     this.expandedMenuIds.update((prev) => {
       const next = new Set(prev);
@@ -333,7 +329,7 @@ export class MenuManagement implements OnInit {
   }
 
   onSaveMenu() {
-    this.currentMenu.set({ ...this.currentMenu() });
+    this.currentMenu.set({ ...this.currentMenu() }); 
     this.formSubmitted.set(true);
     this.serverErrors.set({});
     if (this.nameError()) {
