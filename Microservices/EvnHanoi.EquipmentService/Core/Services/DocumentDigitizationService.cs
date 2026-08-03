@@ -378,10 +378,22 @@ public class DocumentDigitizationService : IDocumentDigitizationService
         }
 
         progress.Action = message.Action;
+        progress.ModifiedDate = DateTime.UtcNow;
+
+        // Worker (OcrWorker/ExtractionWorker) đã thử lại hết số lần cho phép và đẩy message sang
+        // hàng đợi lỗi (DLQ) — đóng job lại ngay là Failed, không cần chờ watchdog quét theo thời gian.
+        if (message.Action.Contains("process.failed", StringComparison.OrdinalIgnoreCase))
+        {
+            progress.Status = "Failed";
+            progress.ErrorMessage = message.ErrorMessage ?? "Xử lý thất bại sau nhiều lần thử lại.";
+            await _repository.UpdateProgressAsync(progress);
+            await PublishProgressNotificationAsync(progress);
+            return;
+        }
+
         progress.CurrentPage = message.CurrentPage;
         progress.TotalPages = message.TotalPages;
         progress.Progress = message.Progress;
-        progress.ModifiedDate = DateTime.UtcNow;
 
         if (message.Action.Contains("ocr.process.progress", StringComparison.OrdinalIgnoreCase))
         {
