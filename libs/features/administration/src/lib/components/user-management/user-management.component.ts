@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, computed, effect } from '@angular/core';
+import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import {
   DeleteConfirmDialogComponent,
   EcoPaginatorComponent,
@@ -48,7 +48,7 @@ export class UserManagement implements OnInit {
   dialogHeader = signal<string>('');
   isEdit = signal<boolean>(false);
   currentUser = signal<any>({});
-  
+
   loading = signal<boolean>(false);
   saving = signal<boolean>(false);
 
@@ -138,7 +138,7 @@ export class UserManagement implements OnInit {
   showLockUnlockConfirm = signal<boolean>(false);
   lockUnlockTarget = signal<any>(null);
   lockUnlockLoading = signal<boolean>(false);
-  
+
   unitRoleDialogHeader = signal<string>('');
   activeUserForUnitRole = signal<any>(null);
   assignedUnitRoles = signal<any[]>([]);
@@ -163,23 +163,12 @@ export class UserManagement implements OnInit {
 
   actionMenuItems: MenuItem[] = [];
 
-  constructor() {
-    effect(() => {
-      const page = this.currentPage();
-      const size = this.pageSize();
-      this.loadUsers();
-    }, { allowSignalWrites: true });
-
-  }
-
   openActionMenu(user: any, event: Event, menu: Menu): void {
     event.stopPropagation();
     this.actionMenuItems = [
       ...(this.authService.hasPermission('USER_MANAGE') ? [
-        { label: 'Quyền theo đơn vị', title: 'Quyền theo đơn vị', icon: 'pi pi-sitemap', command: () => this.onManageUnitRoles(user) },
         { label: 'Gán vai trò trực tiếp', title: 'Gán vai trò trực tiếp', icon: 'pi pi-shield', command: () => this.onManageRoles(user) },
       ] : []),
-      ...(this.authService.hasPermission('USER_MANAGE') || this.authService.hasPermission('PERMISSION_MANAGE') ? [{ label: 'Phân quyền trực tiếp', title: 'Phân quyền trực tiếp', icon: 'pi pi-key color-blue', command: () => this.onManagePermissions(user) }] : []),
       ...(this.authService.hasPermission('USER_EDIT') ? [{ label: 'Chỉnh sửa', title: 'Chỉnh sửa', icon: 'pi pi-pencil color-teal', command: () => this.onEdit(user) }] : []),
       ...(this.authService.hasPermission('USER_EDIT') ? [{ label: user.isActive ? 'Khóa tài khoản' : 'Mở khóa tài khoản', title: user.isActive ? 'Khóa tài khoản' : 'Mở khóa tài khoản', icon: user.isActive ? 'pi pi-lock color-red' : 'pi pi-lock-open color-teal', command: () => this.onToggleStatusRequest(user) }] : []),
       ...(this.authService.hasPermission('USER_DELETE') ? [{ label: 'Xóa', title: 'Xóa', icon: 'pi pi-trash color-red', command: () => this.onDelete(user) }] : []),
@@ -208,12 +197,14 @@ export class UserManagement implements OnInit {
   nextPage() {
     if (this.currentPage() < this.totalPages()) {
       this.currentPage.update(p => p + 1);
+      this.loadUsers();
     }
   }
 
   prevPage() {
     if (this.currentPage() > 1) {
       this.currentPage.update(p => p - 1);
+      this.loadUsers();
     }
   }
 
@@ -221,12 +212,14 @@ export class UserManagement implements OnInit {
     const p = Number(page);
     if (p >= 1 && p <= this.totalPages()) {
       this.currentPage.set(p);
+      this.loadUsers();
     }
   }
 
   onPageSizeChange(pageSize: number) {
     this.pageSize.set(pageSize);
     this.currentPage.set(1);
+    this.loadUsers();
   }
 
   ngOnInit() {
@@ -242,7 +235,7 @@ export class UserManagement implements OnInit {
     this.loading.set(true);
     const statusVal = this.appliedStatus();
     const isActiveParam = statusVal === 'active' ? true : (statusVal === 'inactive' ? false : null);
-    
+
     this.userService.getUsers(
       this.currentPage(),
       this.pageSize(),
@@ -369,9 +362,11 @@ export class UserManagement implements OnInit {
   }
 
   onSearch() {
-    const keyword = this.searchKeyword().trim();
-    this.searchKeyword.set(keyword);
-    this.appliedKeyword.set(keyword);
+    const normalizedKeyword = this.searchKeyword().trim();
+    this.searchKeyword.set(normalizedKeyword);
+    this.appliedKeyword.set(normalizedKeyword);
+    this.appliedUnitId.set(this.searchUnitId());
+    this.appliedStatus.set(this.searchStatus());
     this.reloadUsersFromFirstPage();
   }
 
@@ -391,16 +386,11 @@ export class UserManagement implements OnInit {
   }
 
   onSearchUnitChange(val: any) {
-    const unitIds = Array.isArray(val) ? val.map(Number).filter(Number.isFinite) : [];
-    this.searchUnitIds.set(unitIds);
-    this.appliedUnitIds.set(unitIds);
-    this.reloadUsersFromFirstPage();
+    this.searchUnitId.set(val && val !== 'null' ? Number(val) : null);
   }
 
   onSearchStatusChange(status: string): void {
     this.searchStatus.set(status);
-    this.appliedStatus.set(status);
-    this.reloadUsersFromFirstPage();
   }
 
   private reloadUsersFromFirstPage(): void {
@@ -409,6 +399,7 @@ export class UserManagement implements OnInit {
       return;
     }
     this.currentPage.set(1);
+    this.loadUsers();
   }
 
   onToggleStatusRequest(user: any) {
@@ -640,7 +631,7 @@ export class UserManagement implements OnInit {
       this.messageService.add({ severity: 'warn', summary: 'Cảnh báo', detail: 'Vui lòng chọn cả Đơn vị và Vai trò.' });
       return;
     }
-    
+
     // Đảm bảo không add trùng
     const currentRoles = this.assignedUnitRoles();
     const exists = currentRoles.some(x => x.unitId === Number(draftUnitRole.unitId) && x.roleId === Number(draftUnitRole.roleId));
@@ -657,7 +648,7 @@ export class UserManagement implements OnInit {
         roleId: Number(draftUnitRole.roleId)
       }
     ]);
-    
+
     this.newUnitRole.set({ unitId: null, roleId: null });
   }
 
@@ -673,7 +664,7 @@ export class UserManagement implements OnInit {
     const activeUser = this.activeUserForUnitRole();
     if (!activeUser) return;
     this.savingUnitRoles.set(true);
-    
+
     this.userService.saveUserUnitRoles(activeUser.id, this.assignedUnitRoles()).subscribe({
       next: () => {
         this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Cập nhật phân quyền theo đơn vị thành công!' });
@@ -693,7 +684,7 @@ export class UserManagement implements OnInit {
       summary: 'Xuất dữ liệu',
       detail: 'Đang chuẩn bị dữ liệu xuất Excel...'
     });
-    
+
     setTimeout(() => {
       this.messageService.add({
         severity: 'success',
@@ -751,7 +742,7 @@ export class UserManagement implements OnInit {
     this.activeUserForPermission.set(user);
     this.permissionDialogHeader.set(`Phân quyền trực tiếp cho tài khoản: ${user?.username || ''}`);
     this.selectedPermissionCodes.set([]);
-    
+
     this.userService.getUserPermissions(user.id).subscribe({
       next: (res: any) => {
         const list = Array.isArray(res) ? res : (res && Array.isArray(res.items) ? res.items : (res && Array.isArray(res.value) ? res.value : []));
@@ -784,7 +775,7 @@ export class UserManagement implements OnInit {
   onSavePermissions() {
     const activeUser = this.activeUserForPermission();
     if (!activeUser) return;
-    
+
     this.savingPermissions.set(true);
     this.userService.saveUserPermissions(activeUser.id, this.selectedPermissionCodes())
       .pipe(finalize(() => this.savingPermissions.set(false)))
@@ -807,7 +798,7 @@ export class UserManagement implements OnInit {
     this.activeUserForRole.set(user);
     this.roleDialogHeader.set(`Gán vai trò trực tiếp cho tài khoản: ${user?.username || ''}`);
     this.selectedRoleIds.set([]);
-    
+
     this.userService.getUserRoles(user.id).subscribe({
       next: (res: any) => {
         const list = Array.isArray(res) ? res : (res && Array.isArray(res.items) ? res.items : (res && Array.isArray(res.value) ? res.value : []));
@@ -840,7 +831,7 @@ export class UserManagement implements OnInit {
   onSaveRoles() {
     const activeUser = this.activeUserForRole();
     if (!activeUser) return;
-    
+
     this.savingRoles.set(true);
     this.userService.saveUserRoles(activeUser.id, this.selectedRoleIds())
       .pipe(finalize(() => this.savingRoles.set(false)))

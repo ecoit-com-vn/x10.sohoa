@@ -115,7 +115,7 @@
       <div class="table-footer-paginator" *ngIf="filteredForms().length > 0">
         <span class="record-count">Tổng số: <b>{{ filteredForms().length }}</b> bản ghi.</span>
         <app-eco-paginator [first]="first()" [rows]="rows()" [totalRecords]="filteredForms().length"
-          [rowsPerPageOptions]="[5, 10, 20, 50]" (onPageChange)="onPageChange($event)">
+          [rowsPerPageOptions]="[10, 20, 50]" (onPageChange)="onPageChange($event)">
         </app-eco-paginator>
       </div>
       </div>

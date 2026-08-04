@@ -19,9 +19,9 @@
                     <label class="search-field-label">Từ khóa</label>
                     <input type="text" class="wf-search-input" placeholder="Tìm theo tên cấu hình..." [ngModel]="searchKeyword()" (ngModelChange)="searchKeyword.set($event)" (keyup.enter)="onSearch()" />
                 </div>
-                <div class="standard-search-field">
+                <div class="search-form-item">
                     <label class="search-field-label">Đơn vị</label>
-                    <eco-input-tree-select class="unit-filter-select" [showLabel]="false" placeholder="-- Tất cả đơn vị --" [nodes]="primengOrgUnitTree()" [ngModel]="searchUnitId()" (ngModelChange)="onUnitFilterChange($event)" [showClear]="true" [enableSearch]="true" [border]="true">
+                    <eco-input-tree-select [showLabel]="false" placeholder="-- Tất cả đơn vị --" [nodes]="primengOrgUnitTree()" [ngModel]="searchUnitId()" (ngModelChange)="onUnitFilterChange($event)" [showClear]="true" [enableSearch]="true" [border]="true">
                     </eco-input-tree-select>
                 </div>
 
@@ -32,7 +32,7 @@
 
                 <div class="standard-search-field">
                     <label class="search-field-label">Trạng thái</label>
-                    <select class="wf-select" [ngModel]="searchStatus()" (ngModelChange)="onStatusFilterChange($event)">
+                    <select class="wf-select" style="min-width: 220px; height: 38px; padding: 0 12px; border: 1px solid #cbd5e1; border-radius: 6px; background-color: #fff; font-size: 0.875rem; color: #334155; cursor: pointer; outline: none;" [ngModel]="searchStatus()" (ngModelChange)="onStatusFilterChange($event)">
                         <option [value]="null">-- Tất cả trạng thái --</option>
                         <option [value]="true">Hoạt động</option>
                         <option [value]="false">Không hoạt động</option>
@@ -48,178 +48,175 @@
 
         <!-- Table -->
         <div class="wf-card">
-        <div class="wf-table-wrap">
-            <table class="wf-table">
-                <thead>
-                    <tr>
-                        <th style="width: 80px;">STT</th>
-                        <th>Tên cấu hình</th>
-                        <th>Đơn vị liên kết</th>
-                        <th>Định dạng được phép</th>
-                        <th>Dung lượng tối đa (MB)</th>
-                        <th class="col-tt">Trạng thái</th>
-                        <th class="col-hd">Thao tác</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <!-- skeleton loading rows -->
-                    <ng-container *ngIf="loading()">
-                        <tr *ngFor="let item of [1, 2, 3]">
-                            <td class="col-stt">
-                                <div class="skeleton-shimmer" style="height: 16px; width: 24px; border-radius: 4px;"></div>
-                            </td>
-                            <td>
-                                <div class="skeleton-shimmer" style="height: 16px; width: 150px; border-radius: 4px;"></div>
-                            </td>
-                            <td>
-                                <div class="skeleton-shimmer" style="height: 16px; width: 150px; border-radius: 4px;"></div>
-                            </td>
-                            <td>
-                                <div class="skeleton-shimmer" style="height: 16px; width: 150px; border-radius: 4px;"></div>
-                            </td>
-                            <td>
-                                <div class="skeleton-shimmer" style="height: 16px; width: 60px; border-radius: 4px;"></div>
-                            </td>
-                            <td>
-                                <div class="skeleton-shimmer" style="height: 16px; width: 80px; border-radius: 4px;"></div>
-                            </td>
-                            <td class="col-hd">
-                                <div class="skeleton-shimmer" style="height: 24px; width: 60px; border-radius: 4px;"></div>
-                            </td>
+            <div class="wf-table-wrap">
+                <table class="wf-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 80px;">STT</th>
+                            <th>Tên cấu hình</th>
+                            <th>Đơn vị liên kết</th>
+                            <th>Định dạng được phép</th>
+                            <th>Dung lượng tối đa (MB)</th>
+                            <th class="col-tt">Trạng thái</th>
+                            <th class="col-hd">Thao tác</th>
                         </tr>
-                    </ng-container>
+                    </thead>
+                    <tbody>
+                        <!-- skeleton loading rows -->
+                        <ng-container *ngIf="loading()">
+                            <tr *ngFor="let item of [1, 2, 3]">
+                                <td class="col-stt">
+                                    <div class="skeleton-shimmer" style="height: 16px; width: 24px; border-radius: 4px;"></div>
+                                </td>
+                                <td>
+                                    <div class="skeleton-shimmer" style="height: 16px; width: 150px; border-radius: 4px;"></div>
+                                </td>
+                                <td>
+                                    <div class="skeleton-shimmer" style="height: 16px; width: 150px; border-radius: 4px;"></div>
+                                </td>
+                                <td>
+                                    <div class="skeleton-shimmer" style="height: 16px; width: 150px; border-radius: 4px;"></div>
+                                </td>
+                                <td>
+                                    <div class="skeleton-shimmer" style="height: 16px; width: 60px; border-radius: 4px;"></div>
+                                </td>
+                                <td>
+                                    <div class="skeleton-shimmer" style="height: 16px; width: 80px; border-radius: 4px;"></div>
+                                </td>
+                                <td class="col-hd">
+                                    <div class="skeleton-shimmer" style="height: 24px; width: 60px; border-radius: 4px;"></div>
+                                </td>
+                            </tr>
+                        </ng-container>
 
-                    <ng-container *ngIf="!loading()">
-                        <tr *ngFor="let c of paginatedConfigs(); let i = index">
-                            <td class="col-stt text-muted">{{ (currentPage() - 1) * pageSize() + i + 1 }}</td>
-                            <td>{{ c.name }}</td>
-                            <td>
-                                <span *ngIf="c.organizationUnitId; else allUnits" class="unit-tag">
+                        <ng-container *ngIf="!loading()">
+                            <tr *ngFor="let c of paginatedConfigs(); let i = index">
+                                <td class="col-stt text-muted">{{ (currentPage() - 1) * pageSize() + i + 1 }}</td>
+                                <td>{{ c.name }}</td>
+                                <td>
+                                    <span *ngIf="c.organizationUnitId; else allUnits" class="unit-tag">
                   {{ c.organizationUnitName }}
                 </span>
-                                <ng-template #allUnits>
-                                    <span class="text-muted" style="font-size: 0.8rem;">Tất cả đơn vị</span>
-                                </ng-template>
-                            </td>
-                            <td>
-                                <span *ngFor="let ext of splitExtensions(c.allowedExtensions)" class="status-pill status-active" style="background-color: #f1f5f9; color: #334155; border-color: #cbd5e1; margin-right: 4px; font-size: 0.78rem;">
+                                    <ng-template #allUnits>
+                                        <span class="text-muted" style="font-size: 0.8rem;">Tất cả đơn vị</span>
+                                    </ng-template>
+                                </td>
+                                <td>
+                                    <span *ngFor="let ext of splitExtensions(c.allowedExtensions)" class="status-pill status-active" style="background-color: #f1f5f9; color: #334155; border-color: #cbd5e1; margin-right: 4px; font-size: 0.78rem;">
                   {{ ext }}
                 </span>
-                            </td>
-                            <td><b class="text-orange" style="color: #FF6B00;">{{ c.maxFileSizeMb }} MB</b></td>
-                            <td>
-                                <span [class]="c.isActive ? 'status-pill status-active' : 'status-pill status-inactive'" [style]="c.isActive ? 'background-color: #dcfce7; color: #15803d; border-color: #bbf7d0;' : 'background-color: #fee2e2; color: #b91c1c; border-color: #fca5a5;'">
+                                </td>
+                                <td><b class="text-orange" style="color: #FF6B00;">{{ c.maxFileSizeMb }} MB</b></td>
+                                <td>
+                                    <span [class]="c.isActive ? 'status-pill status-active' : 'status-pill status-inactive'" [style]="c.isActive ? 'background-color: #dcfce7; color: #15803d; border-color: #bbf7d0;' : 'background-color: #fee2e2; color: #b91c1c; border-color: #fca5a5;'">
                   {{ c.isActive ? 'Hoạt động' : 'Ngừng hoạt động' }}
                 </span>
-                            </td>
-                            <td class="col-hd">
-                                <div class="action-buttons-group dropdown-actions-container upload-config-actions" (click)="$event.stopPropagation()">
-                                    <button type="button" class="act-btn act-more" title="Thao tác khác" (click)="openActionMenu(c, $event, actionMenu)">
+                                </td>
+                                <td class="col-hd">
+                                    <div class="action-buttons-group dropdown-actions-container upload-config-actions" (click)="$event.stopPropagation()">
+                                        <button type="button" class="act-btn act-more" title="Thao tác khác" (click)="openActionMenu(c, $event, actionMenu)">
                     <i class="pi pi-ellipsis-h"></i>
                   </button>
-                                </div>
-                            </td>
-                        </tr>
-                        <tr *ngIf="computedFilteredConfigs().length === 0">
-                            <td colspan="7" class="empty-row">
-                                <i class="pi pi-inbox"></i>
-                                <div>Không tìm thấy cấu hình nào phù hợp.</div>
-                            </td>
-                        </tr>
-                    </ng-container>
-                </tbody>
-            </table>
-        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr *ngIf="computedFilteredConfigs().length === 0">
+                                <td colspan="7" class="empty-row">
+                                    <i class="pi pi-inbox"></i>
+                                    <div>Không tìm thấy cấu hình nào phù hợp.</div>
+                                </td>
+                            </tr>
+                        </ng-container>
+                    </tbody>
+                </table>
+            </div>
 
-        <p-menu #actionMenu [model]="actionMenuItems" [popup]="true" appendTo="body" styleClass="row-action-menu"></p-menu>
+            <p-menu #actionMenu [model]="actionMenuItems" [popup]="true" appendTo="body" styleClass="row-action-menu"></p-menu>
 
-        <div class="table-footer-paginator" *ngIf="totalFilteredConfigs() > 0 && !loading()">
-            <app-eco-paginator [currentPage]="currentPage()" [pageSize]="pageSize()" [totalRecords]="totalFilteredConfigs()" (pageChange)="onPageChange($event)" (pageSizeChange)="onPageSizeChange($event)" />
-        </div>
+            <app-eco-paginator *ngIf="totalFilteredConfigs() > 0 && !loading()" [currentPage]="currentPage()" [pageSize]="pageSize()" [totalRecords]="totalFilteredConfigs()" (pageChange)="onPageChange($event)" (pageSizeChange)="onPageSizeChange($event)" />
         </div>
     </div>
-</div>
 
-<!-- Dialog Thêm/Sửa Cấu hình -->
-<p-dialog [visible]="displayDialog()" (visibleChange)="displayDialog.set($event)" [header]="dialogHeader()" [modal]="true" [style]="{ width: '450px' }" styleClass="evn-dialog-custom">
-    <div style="display: flex; flex-direction: column; gap: 14px; padding-top: 10px;">
-        <div class="form-group">
-            <label class="form-label">Tên cấu hình <span class="required">*</span></label>
-            <span class="field-error" *ngIf="configNameError()">{{ configNameError() }}</span>
-            <input type="text" class="wf-input w-full" [ngModel]="currentConfig().name" (ngModelChange)="updateCurrentConfig('name', $event)" placeholder="Ví dụ: Cấu hình tài liệu, Cấu hình hình ảnh..." [disabled]="saving()" />
-        </div>
+    <!-- Dialog Thêm/Sửa Cấu hình -->
+    <p-dialog [visible]="displayDialog()" (visibleChange)="displayDialog.set($event)" [header]="dialogHeader()" [modal]="true" [style]="{ width: '450px' }" styleClass="evn-dialog-custom">
+        <div style="display: flex; flex-direction: column; gap: 14px; padding-top: 10px;">
+            <div class="form-group">
+                <label class="form-label">Tên cấu hình <span class="required">*</span></label>
+                <span class="field-error" *ngIf="configNameError()">{{ configNameError() }}</span>
+                <input type="text" class="wf-input w-full" [ngModel]="currentConfig().name" (ngModelChange)="updateCurrentConfig('name', $event)" placeholder="Ví dụ: Cấu hình tài liệu, Cấu hình hình ảnh..." [disabled]="saving()" />
+            </div>
 
-        <div class="form-group">
-            <label class="form-label">Đơn vị liên kết</label>
-            <eco-input-tree-select [showLabel]="false" placeholder="-- Chọn đơn vị liên kết --" [nodes]="primengOrgUnitTree()" [ngModel]="currentConfig().organizationUnitId" (ngModelChange)="updateCurrentConfig('organizationUnitId', $event)" [showClear]="true" [enableSearch]="true"
-                [border]="true" [disabled]="saving()">
-            </eco-input-tree-select>
-        </div>
+            <div class="form-group">
+                <label class="form-label">Đơn vị liên kết</label>
+                <eco-input-tree-select [showLabel]="false" placeholder="-- Chọn đơn vị liên kết --" [nodes]="primengOrgUnitTree()" [ngModel]="currentConfig().organizationUnitId" (ngModelChange)="updateCurrentConfig('organizationUnitId', $event)" [showClear]="true" [enableSearch]="true"
+                    [border]="true" [disabled]="saving()">
+                </eco-input-tree-select>
+            </div>
 
-        <div class="form-group">
-            <label class="form-label">Định dạng file được phép (Phân tách bằng dấu phẩy) <span class="required">*</span></label>
-            <span class="field-error" *ngIf="configAllowedExtensionsError()">{{ configAllowedExtensionsError() }}</span>
-            <input type="text" class="wf-input w-full" [ngModel]="currentConfig().allowedExtensions" (ngModelChange)="updateCurrentConfig('allowedExtensions', $event)" placeholder="Ví dụ: pdf,docx,xlsx,jpg" [disabled]="saving()" />
-            <small class="text-muted" style="font-size: 0.75rem;">Chỉ nhập phần mở rộng của file, không chứa dấu chấm.</small>
-        </div>
+            <div class="form-group">
+                <label class="form-label">Định dạng file được phép (Phân tách bằng dấu phẩy) <span class="required">*</span></label>
+                <span class="field-error" *ngIf="configAllowedExtensionsError()">{{ configAllowedExtensionsError() }}</span>
+                <input type="text" class="wf-input w-full" [ngModel]="currentConfig().allowedExtensions" (ngModelChange)="updateCurrentConfig('allowedExtensions', $event)" placeholder="Ví dụ: pdf,docx,xlsx,jpg" [disabled]="saving()" />
+                <small class="text-muted" style="font-size: 0.75rem;">Chỉ nhập phần mở rộng của file, không chứa dấu chấm.</small>
+            </div>
 
-        <div class="form-group">
-            <label class="form-label">Dung lượng tối đa của một file (MB) <span class="required">*</span></label>
-            <span class="field-error" *ngIf="configMaxFileSizeMbError()">{{ configMaxFileSizeMbError() }}</span>
-            <input type="number" class="wf-input w-full" [ngModel]="currentConfig().maxFileSizeMb" (ngModelChange)="updateCurrentConfig('maxFileSizeMb', $event)" min="1" [disabled]="saving()" />
-        </div>
+            <div class="form-group">
+                <label class="form-label">Dung lượng tối đa của một file (MB) <span class="required">*</span></label>
+                <span class="field-error" *ngIf="configMaxFileSizeMbError()">{{ configMaxFileSizeMbError() }}</span>
+                <input type="number" class="wf-input w-full" [ngModel]="currentConfig().maxFileSizeMb" (ngModelChange)="updateCurrentConfig('maxFileSizeMb', $event)" min="1" [disabled]="saving()" />
+            </div>
 
-        <div class="form-group">
-            <label class="form-label">Trạng thái hoạt động</label>
-            <select class="wf-select w-full" style="height: 38px; padding: 0 12px; border: 1px solid #cbd5e1; border-radius: 6px; background-color: #fff; font-size: 0.875rem; color: #334155; outline: none; box-sizing: border-box;" [(ngModel)]="currentConfig().isActive"
-                [disabled]="saving()">
+            <div class="form-group">
+                <label class="form-label">Trạng thái hoạt động</label>
+                <select class="wf-select w-full" style="height: 38px; padding: 0 12px; border: 1px solid #cbd5e1; border-radius: 6px; background-color: #fff; font-size: 0.875rem; color: #334155; outline: none; box-sizing: border-box;" [(ngModel)]="currentConfig().isActive"
+                    [disabled]="saving()">
         <option [ngValue]="true">Hoạt động</option>
         <option [ngValue]="false">Ngừng hoạt động</option>
       </select>
+            </div>
         </div>
-    </div>
 
-    <ng-template #footer>
-        <div class="flex gap-2 justify-content-end pt-3" style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9;">
-            <button class="btn-outlined btn-small" (click)="displayDialog.set(false)" [disabled]="saving()">Hủy</button>
-            <button class="btn-save btn-small" (click)="onSaveConfig()" [disabled]="saving()">
+        <ng-template #footer>
+            <div class="flex gap-2 justify-content-end pt-3" style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9;">
+                <button class="btn-outlined btn-small" (click)="displayDialog.set(false)" [disabled]="saving()">Hủy</button>
+                <button class="btn-save btn-small" (click)="onSaveConfig()" [disabled]="saving()">
         <i class="pi pi-spin pi-spinner" *ngIf="saving()" style="margin-right: 4px;"></i>
         Lưu
       </button>
-        </div>
-    </ng-template>
-</p-dialog>
+            </div>
+        </ng-template>
+    </p-dialog>
 
-<!-- Popup xác nhận xóa dùng chung toàn hệ thống. -->
-<app-delete-confirm-dialog [visible]="showDeleteConfirm()" header="Xác nhận xóa cấu hình" entityLabel="Cấu hình" [targetName]="deleteTargetLabel()" consequence="sẽ bị xóa vĩnh viễn và không thể khôi phục." [loading]="deleting()" (cancelled)="onCancelDelete()"
-    (confirmed)="onConfirmDelete()" />
+    <!-- Popup xác nhận xóa dùng chung toàn hệ thống. -->
+    <app-delete-confirm-dialog [visible]="showDeleteConfirm()" header="Xác nhận xóa cấu hình" entityLabel="Cấu hình" [targetName]="deleteTargetLabel()" consequence="sẽ bị xóa vĩnh viễn và không thể khôi phục." [loading]="deleting()" (cancelled)="onCancelDelete()"
+        (confirmed)="onConfirmDelete()" />
 
-<!-- Dialog Xác nhận Khóa/Mở khóa -->
-<p-dialog [visible]="showLockUnlockConfirm()" (visibleChange)="$event ? null : onCancelLockUnlock()" [header]="lockUnlockTarget()?.isActive ? 'Xác nhận khóa cấu hình' : 'Xác nhận mở khóa cấu hình'" [modal]="true" [style]="{ width: '420px' }" styleClass="evn-dialog-custom"
-    [closable]="!lockUnlockLoading()">
-    <div style="padding: 8px 0 16px 0; display: flex; flex-direction: column; gap: 12px;">
-        <div style="display: flex; align-items: flex-start; gap: 12px;">
-            <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #f59e0b; margin-top: 2px; flex-shrink: 0;"></i>
-            <div>
-                <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b; font-size: 0.95rem;">
-                    {{ lockUnlockTarget()?.isActive ? 'Bạn có chắc muốn khóa cấu hình này?' : 'Bạn có chắc muốn mở khóa cấu hình này?' }}
-                </p>
-                <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
-                    Cấu hình <b style="color: #1e293b;">{{ lockUnlockTarget()?.name }}</b> sẽ được {{ lockUnlockTarget()?.isActive ? 'khóa và tạm dừng' : 'mở khóa và hoạt động trở lại' }}.
-                </p>
+    <!-- Dialog Xác nhận Khóa/Mở khóa -->
+    <p-dialog [visible]="showLockUnlockConfirm()" (visibleChange)="$event ? null : onCancelLockUnlock()" [header]="lockUnlockTarget()?.isActive ? 'Xác nhận khóa cấu hình' : 'Xác nhận mở khóa cấu hình'" [modal]="true" [style]="{ width: '420px' }" styleClass="evn-dialog-custom"
+        [closable]="!lockUnlockLoading()">
+        <div style="padding: 8px 0 16px 0; display: flex; flex-direction: column; gap: 12px;">
+            <div style="display: flex; align-items: flex-start; gap: 12px;">
+                <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #f59e0b; margin-top: 2px; flex-shrink: 0;"></i>
+                <div>
+                    <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b; font-size: 0.95rem;">
+                        {{ lockUnlockTarget()?.isActive ? 'Bạn có chắc muốn khóa cấu hình này?' : 'Bạn có chắc muốn mở khóa cấu hình này?' }}
+                    </p>
+                    <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
+                        Cấu hình <b style="color: #1e293b;">{{ lockUnlockTarget()?.name }}</b> sẽ được {{ lockUnlockTarget()?.isActive ? 'khóa và tạm dừng' : 'mở khóa và hoạt động trở lại' }}.
+                    </p>
+                </div>
             </div>
         </div>
-    </div>
-    <ng-template #footer>
-        <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
-            <button class="btn-cancel btn-small" (click)="onCancelLockUnlock()" [disabled]="lockUnlockLoading()">
+        <ng-template #footer>
+            <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+                <button class="btn-cancel btn-small" (click)="onCancelLockUnlock()" [disabled]="lockUnlockLoading()">
         <i class="pi pi-times"></i> Hủy
       </button>
-            <button class="btn-save btn-small" (click)="onConfirmLockUnlock()" [disabled]="lockUnlockLoading()" [style.background-color]="lockUnlockTarget()?.isActive ? '#dc2626' : '#4790e9'" [style.border-color]="lockUnlockTarget()?.isActive ? '#dc2626' : '#4790e9'">
+                <button class="btn-save btn-small" (click)="onConfirmLockUnlock()" [disabled]="lockUnlockLoading()" [style.background-color]="lockUnlockTarget()?.isActive ? '#dc2626' : '#4790e9'" [style.border-color]="lockUnlockTarget()?.isActive ? '#dc2626' : '#4790e9'">
         <i class="pi pi-spin pi-spinner" *ngIf="lockUnlockLoading()" style="margin-right: 4px;"></i>
         <i class="pi" [ngClass]="lockUnlockTarget()?.isActive ? 'pi-lock' : 'pi-lock-open'" *ngIf="!lockUnlockLoading()" style="margin-right: 4px;"></i>
         {{ lockUnlockTarget()?.isActive ? 'Khóa' : 'Mở khóa' }}
       </button>
-        </div>
-    </ng-template>
-</p-dialog>
+            </div>
+        </ng-template>
+    </p-dialog>

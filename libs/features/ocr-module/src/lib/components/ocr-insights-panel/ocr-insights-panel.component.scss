@@ -40,6 +40,18 @@
   margin-bottom: 12px;
 }
 
+.page-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+lib-bounding-box-overlay {
+  display: block;
+  margin-bottom: 16px;
+}
+
 .btn-action {
   display: inline-flex;
   align-items: center;
