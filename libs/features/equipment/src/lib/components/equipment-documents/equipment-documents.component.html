@@ -15,12 +15,12 @@
     </div>
   </div>
 
-  <div class="form-template-banner" *ngIf="formTemplateName() as templateName">
+  <div class="form-template-banner" *ngIf="!factoryAcceptanceOnly() && formTemplateName() as templateName">
     <i class="pi pi-table"></i>
     <span>Biểu mẫu bóc tách:</span>
     <b>{{ templateName }}</b>
   </div>
-  <div class="form-template-banner form-template-banner--warn" *ngIf="formTemplateMissing()">
+  <div class="form-template-banner form-template-banner--warn" *ngIf="!factoryAcceptanceOnly() && formTemplateMissing()">
     <i class="pi pi-exclamation-triangle"></i>
     <span>Loại thiết bị chưa gắn biểu mẫu thông số (TEMPLATE) — không thể OCR/bóc tách.</span>
   </div>
