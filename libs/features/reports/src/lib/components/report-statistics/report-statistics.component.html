@@ -5,33 +5,58 @@
 
   <div class="wf-card mt-3">
     <!-- Filters Toolbar -->
-    <div class="list-toolbar mb-4" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 12px; gap: 12px; flex-wrap: wrap;">
-      <div class="toolbar-left" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-        <input
-          type="text"
-          class="wf-input"
-          [ngModel]="searchKeyword()"
-          (ngModelChange)="searchKeyword.set($event)"
-          (keyup.enter)="onSearch()"
-          placeholder="Tìm theo mã hoặc tên báo cáo..."
-          style="width: 280px;" />
-      </div>
-      <div class="toolbar-right" style="display: flex; align-items: center; gap: 8px;">
-        <button
-          type="button"
-          class="btn-save btn-small"
-          (click)="onSearch()"
-          [disabled]="loading()">
-          <i class="pi pi-check"></i> Áp dụng
-        </button>
-         <button
-          type="button"
-          class="btn-outlined btn-small"
-          (click)="onResetSearch()">
-          <i class="pi pi-refresh"></i> Làm mới
-        </button>
-      </div>
+    <!-- Filters Toolbar -->
+<div class="list-toolbar">
+
+  <!-- Bộ lọc -->
+  <div class="toolbar-filters">
+
+    <div class="filter-item search-item">
+      <label>Từ khóa</label>
+      <input
+        type="text"
+        class="wf-input"
+        [ngModel]="searchKeyword()"
+        (ngModelChange)="searchKeyword.set($event)"
+        (keyup.enter)="onSearch()"
+        placeholder="Tìm theo mã hoặc tên báo cáo..." />
     </div>
+
+    <div class="filter-item">
+      <label>Trạng thái</label>
+      <select
+        class="wf-select"
+        [ngModel]="searchStatus()"
+        (ngModelChange)="onStatusFilterChange($event)">
+        <option value="">-- Tất cả trạng thái --</option>
+        <option value="published">Công bố</option>
+        <option value="draft">Lưu nháp</option>
+        <option value="not_configured">Chưa cấu hình</option>
+      </select>
+    </div>
+
+  </div>
+
+  <!-- Nút -->
+  <div class="toolbar-actions">
+    <button
+      type="button"
+      class="btn-outlined btn-small"
+      (click)="onResetSearch()">
+      <i class="pi pi-refresh"></i>
+      Làm mới
+    </button>
+    <button
+      type="button"
+      class="btn-save btn-small"
+      (click)="onSearch()"
+      [disabled]="loading()">
+      <i class="pi pi-check"></i>
+      Áp dụng
+    </button> 
+  </div>
+
+</div>
 
     <!-- Table Grid -->
     <div class="wf-table-wrap" *ngIf="!loading(); else loadingTemplate">
@@ -41,6 +66,7 @@
             <th style="width: 60px;" class="text-center">STT</th>
             <th style="width: 240px;">Mã báo cáo</th>
             <th>Tên báo cáo</th>
+            <th style="width: 150px;" class="text-center">Trạng thái</th>
             <th style="width: 100px;" class="text-center">Thao tác</th>
           </tr>
         </thead>
@@ -52,6 +78,13 @@
               <span class="wf-name-link" style="cursor: pointer; color: #334155; font-weight: 400;" (click)="viewReport(report)">
                 {{ report.name }}
               </span>
+            </td>
+            <td class="text-center">
+                <span [ngSwitch]="report.status">
+                  <span *ngSwitchCase="'published'" class="badge status-published">Công bố</span>
+                  <span *ngSwitchCase="'draft'" class="badge status-draft">Lưu nháp</span>
+                  <span *ngSwitchCase="'not_configured'" class="badge status-not-configured">Chưa cấu hình</span>
+                </span>
             </td>
             <td class="text-center">
               <button
@@ -67,7 +100,7 @@
             </td>
           </tr>
           <tr *ngIf="filteredReports().length === 0">
-            <td colspan="4" class="empty-row text-center py-5 text-muted">
+            <td colspan="5" class="empty-row text-center py-5 text-muted">
               <i class="pi pi-inbox block text-3xl mb-2" style="color: #cbd5e1;"></i>
               Không tìm thấy báo cáo nào được phân quyền cho bạn.
             </td>
