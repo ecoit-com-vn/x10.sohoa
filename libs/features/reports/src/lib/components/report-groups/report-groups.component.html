@@ -1,41 +1,57 @@
 <!-- sohoa.frontend/libs/features/reports/src/lib/components/report-groups/report-groups.component.html -->
 <p-toast></p-toast>
 <div class="wf-page">
-  <wf-breadcrumb></wf-breadcrumb>
-
-  <div class="wf-card mt-3">
-    <!-- Filters Toolbar -->
-    <div class="list-toolbar mb-4" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 12px; gap: 12px; flex-wrap: wrap;">
-      <div class="toolbar-left" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-        <div class="standard-search-field" style="width: 260px;">
-          <label class="search-field-label">Từ khóa</label>
-          <input
-            type="text"
-            class="wf-input"
-            [ngModel]="searchKeyword()"
-            (ngModelChange)="searchKeyword.set($event)"
-            placeholder="Tìm theo mã hoặc tên..." />
-        </div>
-
-        <div class="standard-search-field" style="width: 180px;">
-          <label class="search-field-label">Trạng thái</label>
-          <select
-            class="wf-input"
-            [ngModel]="filterStatus()"
-            (ngModelChange)="filterStatus.set($event)">
-            <option value="ALL">Tất cả trạng thái</option>
-            <option value="ACTIVE">Hoạt động</option>
-            <option value="INACTIVE">Ngừng hoạt động</option>
-          </select>
-        </div>
-      </div>
+  <div class="list-toolbar standard-page-toolbar">
+    <div class="toolbar-left">
+      <wf-breadcrumb />
+    </div>
+    <div class="toolbar-right">
       <div class="toolbar-right" *ngIf="authService.hasPermission('REPORT_GROUP_CREATE')">
         <button class="btn-green btn-small" (click)="showCreatePopup()">
           <i class="pi pi-plus mr-1"></i> Thêm Nhóm Mới
         </button>
       </div>
     </div>
+  </div>
 
+  <div class="wf-card mt-3">
+    <!-- Filters Toolbar -->
+
+    <div class="dossier-search-bar unit-search-bar">
+      <div class="search-form-grid unit-search-grid">
+        <div class="search-form-item">
+          <label class="search-field-label">Từ khóa</label>
+          <input 
+            type="text" 
+            class="wf-input" 
+            [ngModel]="searchKeyword()" 
+            (ngModelChange)="searchKeyword.set($event)" 
+            placeholder="Tìm theo mã hoặc tên..." 
+            />
+        </div>
+        
+        <div class="search-form-item">
+          <label class="search-field-label">Trạng thái</label>
+          <select 
+            class="wf-input" 
+            [ngModel]="filterStatus()" 
+            (ngModelChange)="filterStatus.set($event)">
+            <option value="ALL">Tất cả trạng thái</option>
+            <option value="ACTIVE">Hoạt động</option>
+            <option value="INACTIVE">Ngừng hoạt động</option>
+          </select> 
+        </div>
+      </div> 
+      <div class="standard-search-actions audit-filter-actions">
+        <button type="button" class="btn-outlined" (click)="onResetSearch()">
+          <i class="pi pi-refresh"></i> Làm mới
+        </button>
+        <button type="button" class="btn-save" (click)="onSearch()">
+          <i class="pi pi-check"></i> Áp dụng
+        </button>
+      </div>
+    </div>
+ 
     <!-- Table Grid -->
     <div class="wf-table-wrap" *ngIf="!loading(); else loadingTemplate">
       <table class="wf-table">
@@ -50,9 +66,9 @@
             <th style="width: 100px;" class="text-center">Thao tác</th>
           </tr>
         </thead>
-        <tbody>
-          <tr *ngFor="let group of filteredGroups()">
-            <td class="text-center text-muted font-semibold">{{ group.id }}</td>
+        <tbody> 
+          <tr *ngFor="let group of pagedGroups(); let i = index">
+            <td class="text-center text-muted">{{ (currentPage() - 1) * pageSize() + i + 1 }}</td>
             <td><span style="font-weight: 400; color: #0284c7;">{{ group.code }}</span></td>
             <td>
               <span class="wf-name-link" style="cursor: pointer; color: #334155; font-weight: 400;" 
@@ -97,6 +113,19 @@
           </tr>
         </tbody>
       </table>
+    </div>
+
+    <div class="table-footer-paginator" *ngIf="filteredGroups().length > 0">
+        <span class="record-count">
+          Tổng số: <b>{{ filteredGroups().length }}</b> báo cáo.
+        </span>
+        <app-eco-paginator 
+          [first]="(currentPage() - 1) * pageSize()" 
+          [rows]="pageSize()" 
+          [totalRecords]="filteredGroups().length" 
+          [rowsPerPageOptions]="[5, 10, 20, 50]" 
+          (onPageChange)="onUnitPageChange($event)">
+        </app-eco-paginator>
     </div>
 
     <!-- Loading state -->

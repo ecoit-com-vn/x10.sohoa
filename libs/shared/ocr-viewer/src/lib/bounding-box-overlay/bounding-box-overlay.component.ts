@@ -9,7 +9,17 @@ export interface OcrOverlayRegion {
   boxY1: number;
   label?: string;
   /** Lớp CSS quyết định màu khoanh vùng — xem các lớp region-* định nghĩa sẵn trong component. */
-  colorClass?: 'region-text' | 'region-seal' | 'region-signature' | 'region-formula' | 'region-diff' | 'region-handwritten';
+  colorClass?:
+    | 'region-text'
+    | 'region-seal'
+    | 'region-signature'
+    | 'region-formula'
+    | 'region-diff'
+    | 'region-handwritten'
+    | 'region-conf-high'
+    | 'region-conf-medium'
+    | 'region-conf-low'
+    | 'region-conf-unknown';
   tooltip?: string;
 }
 
@@ -34,6 +44,19 @@ export class BoundingBoxOverlayComponent {
 
   zoom = signal(1);
 
+  /** Kích thước ảnh thật lấy từ sự kiện (load) của thẻ img — ưu tiên hơn @Input naturalWidth/Height
+   *  (chỉ dùng làm giá trị fallback trong lúc ảnh chưa tải xong). */
+  private loadedWidth = signal(0);
+  private loadedHeight = signal(0);
+
+  get effectiveWidth(): number {
+    return this.loadedWidth() || this.naturalWidth;
+  }
+
+  get effectiveHeight(): number {
+    return this.loadedHeight() || this.naturalHeight;
+  }
+
   zoomIn(): void {
     this.zoom.update((z) => Math.min(z + 0.25, 3));
   }
@@ -46,20 +69,26 @@ export class BoundingBoxOverlayComponent {
     this.zoom.set(1);
   }
 
+  onImageLoad(event: Event): void {
+    const img = event.target as HTMLImageElement;
+    this.loadedWidth.set(img.naturalWidth);
+    this.loadedHeight.set(img.naturalHeight);
+  }
+
   leftPercent(region: OcrOverlayRegion): number {
-    return this.naturalWidth > 0 ? (region.boxX0 / this.naturalWidth) * 100 : 0;
+    return this.effectiveWidth > 0 ? (region.boxX0 / this.effectiveWidth) * 100 : 0;
   }
 
   topPercent(region: OcrOverlayRegion): number {
-    return this.naturalHeight > 0 ? (region.boxY0 / this.naturalHeight) * 100 : 0;
+    return this.effectiveHeight > 0 ? (region.boxY0 / this.effectiveHeight) * 100 : 0;
   }
 
   widthPercent(region: OcrOverlayRegion): number {
-    return this.naturalWidth > 0 ? ((region.boxX1 - region.boxX0) / this.naturalWidth) * 100 : 0;
+    return this.effectiveWidth > 0 ? ((region.boxX1 - region.boxX0) / this.effectiveWidth) * 100 : 0;
   }
 
   heightPercent(region: OcrOverlayRegion): number {
-    return this.naturalHeight > 0 ? ((region.boxY1 - region.boxY0) / this.naturalHeight) * 100 : 0;
+    return this.effectiveHeight > 0 ? ((region.boxY1 - region.boxY0) / this.effectiveHeight) * 100 : 0;
   }
 
   onRegionClick(region: OcrOverlayRegion): void {
