@@ -55,6 +55,8 @@ export class CatalogListComponent implements OnInit {
   searchCode = signal<string>('');
   searchStatus = signal<string>(''); // '', '1', '0'
   searchUnitId = signal<number | null>(null);
+  searchUnitNode = signal<TreeNode | null>(null);
+  searchUnitNodes = computed<TreeNode[]>(() => this.searchUnitNode() ? [this.searchUnitNode()!] : []);
   totalCount = signal<number>(0);
 
   currentView = signal<'list' | 'add' | 'edit'>('list');
@@ -115,10 +117,11 @@ export class CatalogListComponent implements OnInit {
     return this.serverErrors().name || this.serverErrors().Name || '';
   });
   unitError = computed(() => {
-    if (this.isPhongCatalog() && this.formSubmitted() && !this.currentItem().unitId)
+    if (this.isUnitScopedCatalog() && this.formSubmitted() && !this.currentItem().unitId)
       return 'Đơn vị tạo là bắt buộc';
     return this.serverErrors().unitId || this.serverErrors().UnitId || '';
   });
+  parentError = computed(() => this.serverErrors().parentId || this.serverErrors().ParentId || '');
 
   onFieldChange(field: string) {
     this.currentItem.update(item => ({ ...item }));
@@ -139,6 +142,8 @@ export class CatalogListComponent implements OnInit {
   });
 
   isPhongCatalog = computed(() => this.catalogType() === 'PHONG');
+  isMucLucCatalog = computed(() => this.catalogType() === 'MUC_LUC');
+  isUnitScopedCatalog = computed(() => this.isPhongCatalog() || this.isMucLucCatalog());
   organizationUnitTree = computed<TreeNode[]>(() => {
     const activeUnits = this.organizationUnits().filter(unit =>
       unit.isActive !== false && unit.isActive !== 0 && unit.isDeleted !== true && unit.isDeleted !== 1);
@@ -245,7 +250,7 @@ export class CatalogListComponent implements OnInit {
       this.searchStatus.set('');
       this.searchUnitId.set(null);
       this.currentPage.set(1);
-      if ((data['type'] || '') === 'PHONG') {
+      if (['PHONG', 'MUC_LUC'].includes(data['type'] || '')) {
         this.loadOrganizationUnits();
       }
       
@@ -270,7 +275,7 @@ export class CatalogListComponent implements OnInit {
     if (this.catalogTypes().length === 0) {
       this.loadCatalogTypes(() => this.loadItems());
     }
-    if (this.isPhongCatalog()) {
+    if (this.isUnitScopedCatalog()) {
       this.loadOrganizationUnits();
     }
   }
@@ -326,6 +331,31 @@ export class CatalogListComponent implements OnInit {
       return;
     }
 
+    if (this.isMucLucCatalog()) {
+      const typeId = this.catalogTypes().find(t => t.code === type)?.id;
+      if (!typeId) {
+        this.items.set([]);
+        this.totalCount.set(0);
+        return;
+      }
+      this.catalogService.getItemsByTypeId(
+        Number(typeId), this.currentPage(), this.pageSize(),
+        this.searchName() || this.searchCode(), this.searchStatus(), this.searchUnitId()
+      ).subscribe({
+        next: (res) => {
+          this.items.set(res?.items || []);
+          this.totalCount.set(res?.totalCount || 0);
+          this.loadParentsList();
+        },
+        error: () => {
+          this.items.set([]);
+          this.totalCount.set(0);
+          this.messageService.add({ severity: 'error', summary: 'Lỗi tải dữ liệu', detail: 'Không thể tải danh sách mục lục hồ sơ.' });
+        }
+      });
+      return;
+    }
+
     this.catalogService.getItems(type, this.currentPage(), this.pageSize(), this.searchKeyword(), this.searchStatus()).subscribe({
       next: (res) => {
         const list = res?.items || [];
@@ -358,6 +388,7 @@ export class CatalogListComponent implements OnInit {
         this.syncSelectedUnitNode();
         if (!isAdmin && userUnitId) {
           this.searchUnitId.set(Number(userUnitId));
+          this.searchUnitNode.set(this.findUnitNode(userUnitId));
           this.loadItems();
         }
       },
@@ -366,12 +397,26 @@ export class CatalogListComponent implements OnInit {
   }
 
   getParentName(parentId: number): string {
-    const parent = this.items().find(item => item.id === parentId);
+    const parent = this.items().find(item => item.id === parentId) ||
+      this.parentsList().find(item => item.id === parentId);
     return parent ? parent.name : '';
   }
 
   loadParentsList(excludeId?: number) {
     const type = this.catalogType();
+    if (this.isMucLucCatalog()) {
+      const typeId = this.catalogTypes().find(t => t.code === type)?.id;
+      const unitId = Number(this.currentItem().unitId || this.searchUnitId());
+      if (!typeId || !unitId) {
+        this.parentsList.set([]);
+        return;
+      }
+      this.catalogService.getItemsByTypeId(Number(typeId), 1, 9999, undefined, '1', unitId).subscribe({
+        next: data => this.parentsList.set((data?.items || []).filter((item: any) => !excludeId || item.id !== excludeId)),
+        error: () => this.parentsList.set([])
+      });
+      return;
+    }
     // Fetch only active items (status = 1) of the same catalog type using page=1 and pageSize=9999 (all)
     this.catalogService.getItems(type, 1, 9999, undefined, '1').subscribe({
       next: (data) => {
@@ -398,6 +443,12 @@ export class CatalogListComponent implements OnInit {
     this.onSearch();
   }
 
+  onSearchUnitNodeChange(value: TreeNode | TreeNode[] | null): void {
+    const node = Array.isArray(value) ? value[value.length - 1] ?? null : value;
+    this.searchUnitNode.set(node);
+    this.onSearchUnitChange(node?.data?.id ?? null);
+  }
+
   onResetSearch() {
     this.searchKeyword.set('');
     this.searchName.set('');
@@ -405,7 +456,8 @@ export class CatalogListComponent implements OnInit {
     this.searchStatus.set('');
     const isAdmin = this.authService.getUserRoles().some(role =>
       ['ADMIN', 'SUPER_ADMIN'].includes(role.toUpperCase()));
-    this.searchUnitId.set(this.authService.getUserUnitId() ?? null);
+    this.searchUnitId.set(isAdmin ? null : (this.authService.getUserUnitId() ?? null));
+    this.searchUnitNode.set(this.findUnitNode(this.searchUnitId()));
     this.currentPage.set(1);
     this.loadItems();
   }
@@ -468,6 +520,8 @@ export class CatalogListComponent implements OnInit {
       } else {
         delete itemDraft.unitId;
       }
+    } else if (this.isMucLucCatalog()) {
+      itemDraft.unitId = Number(itemDraft.unitId);
     } else {
       itemDraft.unitId = this.isPrivate() ? -1 : null;
     }
@@ -482,6 +536,10 @@ export class CatalogListComponent implements OnInit {
             summary: 'Cập nhật',
             detail: 'Cập nhật danh mục thành công!'
           });
+          if (this.isMucLucCatalog()) {
+            this.searchUnitId.set(Number(itemDraft.unitId));
+            this.searchUnitNode.set(this.findUnitNode(itemDraft.unitId));
+          }
           this.loadItems();
           this.currentView.set('list');
         },
@@ -520,6 +578,10 @@ export class CatalogListComponent implements OnInit {
             summary: 'Thêm mới',
             detail: 'Thêm mới danh mục thành công!'
           });
+          if (this.isMucLucCatalog()) {
+            this.searchUnitId.set(Number(itemDraft.unitId));
+            this.searchUnitNode.set(this.findUnitNode(itemDraft.unitId));
+          }
           this.loadItems();
           this.currentView.set('list');
         },
@@ -637,6 +699,10 @@ export class CatalogListComponent implements OnInit {
     this.selectedUnitNode.set(node);
     this.currentItem().unitId = node?.data?.id == null ? null : Number(node.data.id);
     this.onFieldChange('unitId');
+    if (this.isMucLucCatalog()) {
+      this.currentItem().parentId = null;
+      this.loadParentsList(this.currentItem().id);
+    }
   }
 
   isUnitNodeSelected(node: TreeNode): boolean {
@@ -654,5 +720,22 @@ export class CatalogListComponent implements OnInit {
       return null;
     };
     this.selectedUnitNode.set(unitId ? findNode(this.organizationUnitTree()) : null);
+  }
+
+  isSearchUnitNodeSelected(node: TreeNode): boolean {
+    return Number(this.searchUnitNode()?.key) === Number(node.key);
+  }
+
+  private findUnitNode(unitId: number | string | null | undefined): TreeNode | null {
+    if (!unitId) return null;
+    const find = (nodes: TreeNode[]): TreeNode | null => {
+      for (const node of nodes) {
+        if (Number(node.key) === Number(unitId)) return node;
+        const child = find(node.children ?? []);
+        if (child) return child;
+      }
+      return null;
+    };
+    return find(this.organizationUnitTree());
   }
 }

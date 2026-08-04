@@ -73,6 +73,10 @@ export const appRoutes: Route[] = [
         loadComponent: () => import('@sohoa.frontend/features/administration').then(m => m.SyncConfigComponent)
       },
       {
+        path: 'administration/external-api-keys',
+        loadComponent: () => import('@sohoa.frontend/features/administration').then(m => m.ExternalApiKeyComponent)
+      },
+      {
         path: 'administration/workflow-builder/new',
         loadComponent: () => import('@sohoa.frontend/features/workflow').then(m => m.WorkflowBuilderComponent)
       },

@@ -1,199 +1,163 @@
 <div class="wf-page">
-  <wf-breadcrumb />
-
-  <div class="wf-card">
-    <div class="lookup-filters">
-      <div class="lookup-filters__row lookup-filters__row--primary">
-        <div class="lookup-filters__field">
-          <label class="form-label">Từ khóa</label>
-          <input
-            type="text"
-            class="wf-search-input"
-            placeholder="Tìm kiếm theo từ khóa..."
-            [ngModel]="searchKeyword()"
-            (ngModelChange)="searchKeyword.set($event)"
-            (keyup.enter)="onSearch()"
-          />
+    <div class="list-toolbar standard-page-toolbar">
+        <div class="toolbar-left">
+            <wf-breadcrumb />
         </div>
-        <div class="lookup-filters__field">
-          <label class="form-label">Loại lưới điện</label>
-          <select
-            class="wf-select"
-            [ngModel]="filterGridTypeId()"
-            (ngModelChange)="filterGridTypeId.set($event); onGridTypeChange()"
-          >
+    </div>
+
+    <div>
+        <div class="standard-search-card lookup-filters">
+            <div class="standard-search-grid lookup-filters__row lookup-filters__row--primary">
+                <div class="standard-search-field lookup-filters__field">
+                    <label class="form-label">Từ khóa</label>
+                    <input type="text" class="wf-search-input" placeholder="Nhập mã hoặc tiêu đề hồ sơ..." [ngModel]="searchKeyword()" (ngModelChange)="searchKeyword.set($event)" (keyup.enter)="onSearch()" />
+                </div>
+                <div class="standard-search-field lookup-filters__field">
+                    <label class="form-label">Loại lưới điện</label>
+                    <select class="wf-select" [ngModel]="filterGridTypeId()" (ngModelChange)="filterGridTypeId.set($event); onGridTypeChange()">
             <option [ngValue]="null">-- Tất cả loại lưới điện --</option>
             <option *ngFor="let item of gridTypes()" [ngValue]="item.id">{{ item.name }}</option>
           </select>
-        </div>
-        <div class="lookup-filters__field">
-          <label class="form-label">Trạm / Đường dây</label>
-          <p-select
-            [options]="infrastructures()"
-            [ngModel]="filterInfrastructureId()"
-            (ngModelChange)="filterInfrastructureId.set($event); onInfrastructureChange()"
-            optionLabel="name"
-            optionValue="id"
-            placeholder="-- Tất cả trạm/đường dây --"
-            [filter]="true"
-            filterBy="name,code"
-            filterPlaceholder="Tìm theo mã hoặc tên..."
-            [showClear]="true"
-            appendTo="body"
-            styleClass="lookup-search-select"
-          >
-            <ng-template #item let-item>
-              <span>{{ item.name }}</span>
-              <small *ngIf="item.code" class="lookup-option-code">({{ item.code }})</small>
-            </ng-template>
-          </p-select>
-        </div>
-        <div class="lookup-filters__field">
-          <label class="form-label">Loại thiết bị</label>
-          <p-select
-            [options]="equipmentTypes()"
-            [ngModel]="filterEquipmentTypeId()"
-            (ngModelChange)="filterEquipmentTypeId.set($event); onEquipmentTypeChange()"
-            optionLabel="name"
-            optionValue="id"
-            placeholder="-- Tất cả loại thiết bị --"
-            [filter]="true"
-            filterBy="name,code"
-            filterPlaceholder="Tìm theo mã hoặc tên..."
-            [showClear]="true"
-            appendTo="body"
-            styleClass="lookup-search-select"
-          >
-            <ng-template #item let-item>
-              <span>{{ item.name }}</span>
-              <small *ngIf="item.code" class="lookup-option-code">({{ item.code }})</small>
-            </ng-template>
-          </p-select>
-        </div>
-      </div>
+                </div>
+                <div class="standard-search-field lookup-filters__field">
+                    <label class="form-label">Trạm / Đường dây</label>
+                    <p-select [options]="infrastructures()" [ngModel]="filterInfrastructureId()" (ngModelChange)="filterInfrastructureId.set($event); onInfrastructureChange()" optionLabel="name" optionValue="id" placeholder="-- Tất cả trạm/đường dây --" [filter]="true" filterBy="name,code"
+                        filterPlaceholder="Tìm theo mã hoặc tên..." [showClear]="true" appendTo="body" styleClass="lookup-search-select">
+                        <ng-template #item let-item>
+                            <span>{{ item.name }}</span>
+                            <small *ngIf="item.code" class="lookup-option-code">({{ item.code }})</small>
+                        </ng-template>
+                    </p-select>
+                </div>
+                <div class="standard-search-field lookup-filters__field">
+                    <label class="form-label">Loại thiết bị</label>
+                    <p-select [options]="equipments()" [ngModel]="filterEquipmentId()" (ngModelChange)="filterEquipmentId.set($event)" optionLabel="name" optionValue="id" placeholder="-- Tất cả thiết bị --" [filter]="true" filterBy="name,code" filterPlaceholder="Tìm theo mã hoặc tên..."
+                        [showClear]="true" appendTo="body" styleClass="lookup-search-select">
+                        <ng-template #item let-item>
+                            <span>{{ item.name }}</span>
+                            <small *ngIf="item.code" class="lookup-option-code">({{ item.code }})</small>
+                        </ng-template>
+                    </p-select>
+                </div>
+                <div class="lookup-filters__field">
+                    <label class="form-label">Vị trí lưu</label>
+                    <p-treeSelect [options]="storageTree()" [ngModel]="filterStorageNode()" (ngModelChange)="filterStorageNode.set($event)" placeholder="-- Chọn Kệ / Tầng / Hộp --" [filter]="true" filterPlaceholder="Tìm vị trí lưu..." [showClear]="true" appendTo="body" scrollHeight="280px"
+                        styleClass="lookup-storage-tree" />
+                </div>
+            </div>
 
-      <div class="lookup-filters__row lookup-filters__row--secondary">
-        <div class="lookup-filters__field">
-          <label class="form-label">Loại hồ sơ</label>
-          <select
-            class="wf-select"
-            [ngModel]="filterDossierTypeId()"
-            (ngModelChange)="filterDossierTypeId.set($event); onSearch()"
-          >
+            <div class="standard-search-grid lookup-filters__row lookup-filters__row--secondary">
+                <div class="standard-search-field lookup-filters__field">
+                    <label class="form-label">Loại hồ sơ</label>
+                    <select class="wf-select" [ngModel]="filterDossierTypeId()" (ngModelChange)="filterDossierTypeId.set($event); onSearch()">
             <option [ngValue]="null">-- Tất cả loại hồ sơ --</option>
             <option *ngFor="let item of dossierTypes()" [value]="item.id">{{ item.name }}</option>
           </select>
-        </div>
-        <div class="lookup-filters__field">
-          <label class="form-label">Từ ngày</label>
-          <input
-            type="date"
-            class="wf-select"
-            [ngModel]="publishDateFrom()"
-            (ngModelChange)="publishDateFrom.set($event); onSearch()"
-          />
-        </div>
-        <div class="lookup-filters__field">
-          <label class="form-label">Đến ngày</label>
-          <input
-            type="date"
-            class="wf-select"
-            [ngModel]="publishDateTo()"
-            (ngModelChange)="publishDateTo.set($event); onSearch()"
-          />
-        </div>
-        <div class="lookup-filters__action">
-          <button type="button" (click)="onSearch()" class="btn-tim">
-            <i class="pi pi-search"></i> Tìm kiếm
+                </div>
+                <div class="standard-search-field lookup-filters__field">
+                    <label class="form-label">Từ ngày</label>
+                    <input type="date" class="wf-select" [ngModel]="createdDateFrom()" (ngModelChange)="createdDateFrom.set($event)" />
+                </div>
+                <div class="standard-search-field lookup-filters__field">
+                    <label class="form-label">Đến ngày</label>
+                    <input type="date" class="wf-select" [ngModel]="createdDateTo()" (ngModelChange)="createdDateTo.set($event)" />
+                </div>
+                <div class="standard-search-actions lookup-filters__action">
+                    <button type="button" (click)="onSearch()" class="btn-save">
+            <i class="pi pi-check"></i> Áp dụng
           </button>
+                </div>
+            </div>
         </div>
-      </div>
-    </div>
 
-    <!-- Data Table -->
-    <div class="wf-table-wrap">
-      <table class="wf-table">
-        <thead>
-          <tr>
-            <th class="col-stt">STT</th>
-            <th *ngFor="let col of bhsColumns()">{{ col.label }}</th>
-            <th>Loại hồ sơ</th>
-            <th>Trạm / Đường dây</th>
-            <th style="width: 100px; text-align: center;">Số tài liệu</th>
-            <th class="col-hd">Thao tác</th>
-          </tr>
-        </thead>
-        <tbody>
-          <!-- Skeleton Loading -->
-          <ng-container *ngIf="loading()">
-            <tr *ngFor="let r of [1,2,3,4,5]" class="skeleton-row">
-              <td class="col-stt"><div class="skeleton-bar short" style="margin: 0 auto; width: 24px;"></div></td>
-              <td *ngFor="let col of bhsColumns()"><div class="skeleton-bar"></div></td>
-              <td><div class="skeleton-bar"></div></td>
-              <td><div class="skeleton-bar"></div></td>
-              <td style="width: 100px;"><div class="skeleton-bar short" style="margin: 0 auto; width: 40px;"></div></td>
-              <td class="col-hd"><div class="skeleton-bar short" style="margin-left: auto; width: 32px;"></div></td>
-            </tr>
-          </ng-container>
+        <!-- Data Table -->
+        <div class="wf-card">
+            <div class="wf-table-wrap">
+                <table class="wf-table">
+                    <thead>
+                        <tr>
+                            <th class="col-stt">STT</th>
+                            <th *ngFor="let col of bhsColumns()">{{ col.label }}</th>
+                            <th>Loại hồ sơ</th>
+                            <th>Trạm / Đường dây</th>
+                            <th style="width: 100px; text-align: center;">Số tài liệu</th>
+                            <th class="col-hd">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Skeleton Loading -->
+                        <ng-container *ngIf="loading()">
+                            <tr *ngFor="let r of [1,2,3,4,5]" class="skeleton-row">
+                                <td class="col-stt">
+                                    <div class="skeleton-bar short" style="margin: 0 auto; width: 24px;"></div>
+                                </td>
+                                <td *ngFor="let col of bhsColumns()">
+                                    <div class="skeleton-bar"></div>
+                                </td>
+                                <td>
+                                    <div class="skeleton-bar"></div>
+                                </td>
+                                <td>
+                                    <div class="skeleton-bar"></div>
+                                </td>
+                                <td style="width: 100px;">
+                                    <div class="skeleton-bar short" style="margin: 0 auto; width: 40px;"></div>
+                                </td>
+                                <td class="col-hd">
+                                    <div class="skeleton-bar short" style="margin-left: auto; width: 32px;"></div>
+                                </td>
+                            </tr>
+                        </ng-container>
 
-          <!-- Real Data -->
-          <ng-container *ngIf="!loading()">
-            <tr *ngIf="items().length === 0">
-              <td [attr.colspan]="tableColSpan()" class="empty-row">
-                <i class="pi pi-inbox"></i>
-                <div>Không tìm thấy hồ sơ nào phù hợp.</div>
-              </td>
-            </tr>
+                        <!-- Real Data -->
+                        <ng-container *ngIf="!loading()">
+                            <tr *ngIf="items().length === 0">
+                                <td [attr.colspan]="tableColSpan()" class="empty-row">
+                                    <i class="pi pi-inbox"></i>
+                                    <div>Không tìm thấy hồ sơ nào phù hợp.</div>
+                                </td>
+                            </tr>
 
-            <tr *ngFor="let item of items(); let i = index">
-              <td class="col-stt text-muted">{{ (currentPage() - 1) * pageSize() + i + 1 }}</td>
-              <td *ngFor="let col of bhsColumns(); let first = first">
-                <b *ngIf="first" class="wf-name-link" (click)="viewDetail(item)">{{ getCatalogValue(item, col) }}</b>
-                <span *ngIf="!first">{{ getCatalogValue(item, col) }}</span>
-              </td>
-              <td>{{ getDossierTypeName(item) }}</td>
-              <td>{{ item.infrastructureName || '-' }}</td>
-              <td class="text-center" style="width: 100px;">{{ item.documentCount ?? 0 }}</td>
-              <td class="col-hd">
-                <div class="action-buttons-group">
-                  <button
-                    type="button"
-                    class="act-btn act-more"
-                    title="Thao tác"
-                    (click)="openActionMenu(item, $event, actionMenu)"
-                  >
+                            <tr *ngFor="let item of items(); let i = index">
+                                <td class="col-stt text-muted">{{ (currentPage() - 1) * pageSize() + i + 1 }}</td>
+                                <td *ngFor="let col of bhsColumns(); let first = first">
+                                    <b *ngIf="first" class="wf-name-link" (click)="viewDetail(item)">{{ getCatalogValue(item, col) }}</b>
+                                    <span *ngIf="!first">{{ getCatalogValue(item, col) }}</span>
+                                </td>
+                                <td>{{ getDossierTypeName(item) }}</td>
+                                <td>{{ item.infrastructureName || '-' }}</td>
+                                <td class="text-center" style="width: 100px;">{{ item.documentCount ?? 0 }}</td>
+                                <td class="col-hd">
+                                    <div class="action-buttons-group">
+                                        <button type="button" class="act-btn act-more" title="Thao tác" (click)="openActionMenu(item, $event, actionMenu)">
                     <i class="pi pi-ellipsis-h"></i>
                   </button>
-                </div>
-              </td>
-            </tr>
-          </ng-container>
-        </tbody>
-      </table>
-  </div>
+                                    </div>
+                                </td>
+                            </tr>
+                        </ng-container>
+                    </tbody>
+                </table>
+            </div>
 
-  <p-menu
-    #actionMenu
-    [model]="actionMenuItems"
-    [popup]="true"
-    appendTo="body"
-    styleClass="row-action-menu">
-  </p-menu>
+            <p-menu #actionMenu [model]="actionMenuItems" [popup]="true" appendTo="body" styleClass="row-action-menu">
+            </p-menu>
 
-  <!-- Pagination Footer -->
-    <div class="table-footer" *ngIf="!loading()">
-      <span class="record-count">Tổng số: <b>{{ totalCount() }}</b> hồ sơ.</span>
-      <div class="pagination">
-        <button class="page-btn" [disabled]="currentPage() === 1" (click)="changePage(currentPage() - 1)">
+            <!-- Pagination Footer -->
+            <div class="table-footer" *ngIf="!loading()">
+                <span class="record-count">Tổng số: <b>{{ totalCount() }}</b> hồ sơ.</span>
+                <div class="pagination">
+                    <button class="page-btn" [disabled]="currentPage() === 1" (click)="changePage(currentPage() - 1)">
           <i class="pi pi-chevron-left"></i>
         </button>
-        <span class="page-current">Trang {{ currentPage() }} / {{ totalPages() || 1 }}</span>
-        <button class="page-btn" [disabled]="currentPage() >= totalPages() || totalPages() === 0" (click)="changePage(currentPage() + 1)">
+                    <span class="page-current">Trang {{ currentPage() }} / {{ totalPages() || 1 }}</span>
+                    <button class="page-btn" [disabled]="currentPage() >= totalPages() || totalPages() === 0" (click)="changePage(currentPage() + 1)">
           <i class="pi pi-chevron-right"></i>
         </button>
-      </div>
+                </div>
+            </div>
+        </div>
     </div>
-  </div>
 </div>
 
 <p-toast></p-toast>

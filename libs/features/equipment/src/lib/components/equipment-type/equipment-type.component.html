@@ -12,39 +12,49 @@
   </div>
 
 
-  <div class="wf-card">
+  <div>
 
     <!-- ==================== VIEW 1: MÀN HÌNH DANH SÁCH ==================== -->
     <div *ngIf="currentView() === 'list'" class="animate-fade-in">
 
       <!-- Toolbar Tìm kiếm & Thao tác -->
       <div class="standard-search-card">
-        <div class="toolbar-left" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+        <div class="standard-search-grid">
           <!-- Mã loại thiết bị -->
-          <input type="text" class="wf-search-input" style="width: 150px;" placeholder="Mã loại thiết bị..."
-            [ngModel]="searchCode()" (ngModelChange)="searchCode.set($event)" (keyup.enter)="onSearch()" />
+          <div class="standard-search-field">
+            <label class="search-field-label">Mã loại thiết bị</label>
+            <input type="text" class="wf-search-input" placeholder="Mã loại thiết bị..."
+              [ngModel]="searchCode()" (ngModelChange)="searchCode.set($event)" (keyup.enter)="onSearch()" />
+          </div>
 
           <!-- Tên loại thiết bị -->
-          <input type="text" class="wf-search-input" style="width: 180px;" placeholder="Tên loại thiết bị..."
-            [ngModel]="searchName()" (ngModelChange)="searchName.set($event)" (keyup.enter)="onSearch()" />
+          <div class="standard-search-field">
+            <label class="search-field-label">Tên loại thiết bị</label>
+            <input type="text" class="wf-search-input" placeholder="Tên loại thiết bị..."
+              [ngModel]="searchName()" (ngModelChange)="searchName.set($event)" (keyup.enter)="onSearch()" />
+          </div>
 
           <!-- Dropdown Loại lưới điện (Bypass permission) -->
-          <select class="wf-input" style="height: 38px; width: 160px; padding: 0 10px; border-radius: 6px;"
-            [ngModel]="searchGridTypeId()" (ngModelChange)="searchGridTypeId.set($event); onSearch()">
-            <option value="">-- Loại lưới điện --</option>
-            <option *ngFor="let gt of gridTypes()" [value]="gt.id">{{ gt.name }}</option>
-          </select>
+          <div class="standard-search-field">
+            <label class="search-field-label">Loại lưới điện</label>
+            <select class="wf-input" [ngModel]="searchGridTypeId()" (ngModelChange)="searchGridTypeId.set($event); onSearch()">
+              <option value="">-- Loại lưới điện --</option>
+              <option *ngFor="let gt of gridTypes()" [value]="gt.id">{{ gt.name }}</option>
+            </select>
+          </div>
 
           <!-- Dropdown Trạng thái -->
-          <select class="wf-input" style="height: 38px; width: 140px; padding: 0 10px; border-radius: 6px;"
-            [ngModel]="searchStatus()" (ngModelChange)="searchStatus.set($event); onSearch()">
-            <option value="">-- Trạng thái --</option>
-            <option value="1">Hoạt động</option>
-            <option value="0">Ngừng hoạt động</option>
-          </select>
+          <div class="standard-search-field">
+            <label class="search-field-label">Trạng thái</label>
+            <select class="wf-input" [ngModel]="searchStatus()" (ngModelChange)="searchStatus.set($event); onSearch()">
+              <option value="">-- Trạng thái --</option>
+              <option value="1">Hoạt động</option>
+              <option value="0">Ngừng hoạt động</option>
+            </select>
+          </div>
 
           <div class="standard-search-actions">
-            <button class="btn-outlined" style="height: 38px;" (click)="onResetSearch()">
+            <button class="btn-outlined" (click)="onResetSearch()">
               <i class="pi pi-refresh"></i> Làm mới
             </button>
             <button class="btn-save" (click)="onSearch()">
@@ -56,6 +66,7 @@
       </div>
 
       <!-- Bảng Grid dữ liệu -->
+      <div class="wf-card">
       <div class="wf-table-wrap">
         <table class="wf-table">
           <thead>
@@ -146,6 +157,7 @@
             <option [value]="50">50 / trang</option>
           </select>
         </div>
+      </div>
       </div>
     </div>
 

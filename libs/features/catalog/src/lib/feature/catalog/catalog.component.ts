@@ -501,12 +501,6 @@ export class CatalogComponent implements OnInit {
     const typeId = this.selectedTypeId();
     if (!typeId) return;
 
-    if (this.selectedTypeCode() === 'MUC_LUC' && !this.catalogSearchUnitId()) {
-      this.items.set([]);
-      this.totalCount.set(0);
-      return;
-    }
-
     const request = this.selectedTypeCode() === 'PHONG'
       ? this.catalogService.getItems(
           'PHONG', this.currentPage(), this.pageSize(), undefined, this.searchStatus(),
@@ -543,7 +537,7 @@ export class CatalogComponent implements OnInit {
     this.searchKeyword.set('');
     this.catalogSearchCode.set('');
     this.searchStatus.set('');
-    this.catalogSearchUnitId.set(this.selectedTypeCode() === 'MUC_LUC' ? this.getDefaultUnitId() : null);
+    this.catalogSearchUnitId.set(null);
     this.catalogSearchUnitNode.set(this.findOrganizationUnitNode(this.catalogSearchUnitId()));
     this.currentPage.set(1);
     this.loadCatalogs();
@@ -862,19 +856,13 @@ export class CatalogComponent implements OnInit {
     this.catalogService.getOrganizationUnits().subscribe({
       next: (units) => {
         const allUnits = Array.isArray(units) ? units : [];
-        const isAdmin = this.authService.getUserRoles().some(role => role.toUpperCase() === 'ADMIN');
+        const isAdmin = this.isAdmin();
         const currentUnitId = this.authService.getUserUnitId();
         const selectableUnits = isAdmin || !currentUnitId
           ? allUnits
           : allUnits.filter(unit => Number(unit.id) === Number(currentUnitId));
 
         this.organizationUnits.set(selectableUnits);
-        if (this.selectedTypeCode() === 'MUC_LUC' && !this.catalogSearchUnitId()) {
-          const defaultUnitId = this.getDefaultUnitId();
-          this.catalogSearchUnitId.set(defaultUnitId);
-          this.catalogSearchUnitNode.set(this.findOrganizationUnitNode(defaultUnitId));
-          if (defaultUnitId) this.loadCatalogs();
-        }
         this.catalogSearchUnitNode.set(this.findOrganizationUnitNode(this.catalogSearchUnitId()));
         this.selectedCatalogUnitNode.set(this.findOrganizationUnitNode(this.currentCatalogItem()?.unitId));
       },

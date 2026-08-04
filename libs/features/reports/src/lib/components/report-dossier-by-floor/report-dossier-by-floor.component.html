@@ -1,13 +1,13 @@
 <p-toast></p-toast>
 
 <div class="wf-page dossier-report-page floor-report">
-  <div class="breadcrumb-container">
+  <div class="list-toolbar standard-page-toolbar breadcrumb-container">
     <wf-breadcrumb [suffix]="'Báo cáo thống kê hồ sơ theo tầng lưu trữ'"></wf-breadcrumb>
   </div>
 
-  <div class="filter-card">
-    <div class="filter-row">
-      <div class="filter-col">
+  <div class="standard-search-card filter-card">
+    <div class="standard-search-grid filter-row">
+      <div class="standard-search-field filter-col">
         <label class="filter-label">Đơn vị</label>
         <eco-input-tree-select
           [showLabel]="false"
@@ -21,28 +21,23 @@
         ></eco-input-tree-select>
       </div>
 
-      <div class="filter-col">
+      <div class="standard-search-field filter-col">
         <label class="filter-label">Tầng hồ sơ</label>
-        <p-multiSelect
-          [options]="floorOptions()"
-          [ngModel]="selectedFloorIds()"
-          (ngModelChange)="selectedFloorIds.set($event ?? [])"
-          optionLabel="name"
-          optionValue="id"
+        <eco-input-tree-select
+          [showLabel]="false"
           placeholder="-- Chọn tầng hồ sơ --"
-          [filter]="true"
-          filterBy="name"
-          filterPlaceholder="Tìm kiếm..."
+          [nodes]="shelfFloorTree()"
+          [ngModel]="selectedFloorNodeKeys()"
+          (ngModelChange)="selectedFloorNodeKeys.set($event ?? [])"
+          selectionMode="checkbox"
+          [enableSearch]="true"
           [showClear]="true"
+          [border]="true"
           display="comma"
-          [maxSelectedLabels]="2"
-          selectedItemsLabel="{0} tầng đã chọn"
-          styleClass="w-full wf-select-custom floor-multiselect"
-          appendTo="body"
-        ></p-multiSelect>
+        ></eco-input-tree-select>
       </div>
 
-      <div class="filter-col">
+      <div class="standard-search-field filter-col">
         <label class="filter-label">Năm báo cáo</label>
         <p-select
           [options]="yearOptions()"
@@ -55,7 +50,7 @@
         ></p-select>
       </div>
 
-      <div class="filter-actions">
+      <div class="standard-search-actions filter-actions">
         <button type="button" class="btn-tim" (click)="onFilter()" [disabled]="loading()">
           <i class="pi pi-search"></i> Tìm kiếm
         </button>

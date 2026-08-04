@@ -12,12 +12,15 @@ import { InputTextModule } from 'primeng/inputtext';
 import { environment } from '@env/environment';
 import { finalize } from 'rxjs';
 import { AuthService } from '@sohoa.frontend/shared/core';
-import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
+import { WfBreadcrumbComponent, EcoPaginatorComponent, } from '@sohoa.frontend/shared/layout';
 
 export interface UserReportItem {
   id: number;
   code: string;
   name: string;
+  is_published: boolean;
+  is_configured: boolean;
+  status: 'published' | 'draft' | 'not_configured';
 }
 
 @Component({
@@ -28,23 +31,39 @@ export interface UserReportItem {
     FormsModule,
     ToastModule,
     TooltipModule,
-    WfBreadcrumbComponent
+    TableModule,
+    InputTextModule,
+    WfBreadcrumbComponent,
+    EcoPaginatorComponent,
   ],
   providers: [MessageService],
   templateUrl: './report-statistics.component.html',
-  styleUrls: ['./report-statistics.component.scss']
+  styleUrls: ['./report-statistics.component.scss'],
 })
 export class ReportStatisticsComponent implements OnInit {
   reports = signal<UserReportItem[]>([]);
   loading = signal<boolean>(false);
   searchKeyword = signal<string>('');
+  appliedKeyword = signal<string>('');
+  searchStatus = signal<string>('');
+  appliedStatus = signal<string>('');
+
+  currentPage = signal(1);
+  pageSize = signal(10);
 
   filteredReports = computed(() => {
-    const kw = this.searchKeyword().toLowerCase().trim();
-    if (!kw) return this.reports();
-    return this.reports().filter(
-      (r) => r.name.toLowerCase().includes(kw) || r.code.toLowerCase().includes(kw)
-    );
+    const kw = this.appliedKeyword().toLowerCase().trim();
+    const status = this.appliedStatus();
+    return this.reports().filter(r => {
+      const isKwMatch = !kw || r.name.toLowerCase().includes(kw) || r.code.toLowerCase().includes(kw);
+      const isStatusMatch = !status || r.status === status;
+      return isKwMatch && isStatusMatch;
+    });
+  });
+
+  pagedReports = computed(() => {
+    const first = (this.currentPage() - 1) * this.pageSize();
+    return this.filteredReports().slice(first, first + this.pageSize());
   });
 
   private http = inject(HttpClient);
@@ -80,19 +99,61 @@ export class ReportStatisticsComponent implements OnInit {
     this.loadReports();
   }
 
+  onSearch(): void {
+    this.appliedKeyword.set(this.searchKeyword().trim());
+    this.appliedStatus.set(this.searchStatus());
+    this.currentPage.set(1);
+  }
+
+  onStatusFilterChange(status: string): void {
+    this.searchStatus.set(status);
+    this.onSearch();
+  }
+
+  onResetSearch(): void {
+    this.searchKeyword.set('');
+    this.appliedKeyword.set('');
+    this.searchStatus.set('');
+    this.appliedStatus.set('');
+    this.currentPage.set(1);
+  }
+
+  onUnitPageChange(event: { first?: number; rows?: number }) {
+    const rows = Number(event.rows) || this.pageSize();
+    const first = Number(event.first) || 0;
+    this.pageSize.set(rows);
+    this.currentPage.set(Math.floor(first / rows) + 1);
+  }
+
   loadReports(): void {
     this.loading.set(true);
     this.http
-      .get<UserReportItem[]>(`${this.apiUrl}/my-reports`)
+      .get<Omit<UserReportItem, 'status'>[]>(`${this.apiUrl}/my-reports`)
       .pipe(finalize(() => this.loading.set(false)))
       .subscribe({
-        next: (data) => this.reports.set(data || []),
+        next: (data) => {
+          const reportsWithStatus = (data || []).map(r => ({
+            ...r,
+            status: this.getReportStatus(r)
+          }));
+          this.reports.set(reportsWithStatus);
+        },
         error: (err) => {
           console.error('Lỗi tải danh sách báo cáo:', err);
           const msg = err?.error?.message || 'Không thể tải danh sách báo cáo được phép xem.';
           this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: msg });
         }
       });
+  }
+
+  getReportStatus(report: Omit<UserReportItem, 'status'>): 'published' | 'draft' | 'not_configured' {
+    if (report.is_published) {
+      return 'published';
+    }
+    if (report.is_configured) {
+      return 'draft';
+    }
+    return 'not_configured';
   }
 
   viewReport(report: UserReportItem): void {
@@ -108,3 +169,4 @@ export class ReportStatisticsComponent implements OnInit {
     }
   }
 }
+

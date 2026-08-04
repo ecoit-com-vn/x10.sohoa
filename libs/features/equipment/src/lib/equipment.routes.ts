@@ -20,6 +20,14 @@ export const EQUIPMENT_ROUTES: Routes = [
     loadComponent: () => import('./components/equipment/equipment.component').then(m => m.EquipmentComponent)
   },
   {
+    path: 'equipment-external',
+    loadComponent: () => import('./components/equipment-external/equipment-external.component').then(m => m.EquipmentExternalComponent)
+  },
+  {
+    path: 'equipment-factory',
+    loadComponent: () => import('./components/equipment-factory/equipment-factory.component').then(m => m.EquipmentFactoryComponent)
+  },
+  {
     path: 'equipment-type',
     loadComponent: () => import('./components/equipment-type/equipment-type.component').then(m => m.EquipmentTypeComponent)
   },

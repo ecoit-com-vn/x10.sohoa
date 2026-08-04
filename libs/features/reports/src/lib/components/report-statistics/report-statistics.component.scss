@@ -1,7 +1,85 @@
-:host {
-  display: block;
+.badge {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 12px;
+  }
+  
+  .status-published {
+    background-color: #dcfce7;
+    color: #166534;
+  }
+  
+  .status-draft {
+    background-color: #fef3c7;
+    color: #92400e;
+  }
+  
+  .status-not-configured {
+    background-color: #f3f4f6;
+    color: #4b5563;
+  }
+  .list-toolbar {
+  display: flex;
+  flex-direction: column; /* Dòng trên là Filter, dòng dưới là Buttons */
+  gap: 16px;
+  padding-bottom: 16px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid #e2e8f0;
 }
 
-.wf-table-wrap {
-  overflow-x: auto;
+/* Khối bộ lọc: Chia làm 4 cột bằng nhau */
+.toolbar-filters {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr); /* 4 cột tỉ lệ 1:1:1:1 */
+  gap: 16px;
+  width: 100%;
+}
+
+/* Mỗi ô filter chiếm đúng 1 cột */
+.filter-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.filter-item label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+}
+
+/* Đồng bộ input/select */
+.filter-item .wf-input,
+.filter-item .wf-select {
+  width: 100%;
+  height: 38px;
+  border-radius: 6px;
+}
+
+/* Khối nút bấm sát phải bên dưới */
+/* Khối nút bấm sát phải bên dưới */
+.toolbar-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  width: 100%;
+}
+
+/* Chỉnh kích thước nút nhỏ gọn lại */
+.toolbar-actions button {
+  height: 32px;            /* Giảm chiều cao xuống 32px (thay vì 38px) */
+  min-width: 90px;          /* Giảm chiều rộng tối thiểu (thay vì 110px) */
+  padding: 0 12px;          /* Thêm padding ngang gọn gàng */
+  font-size: 13px;          /* Chữ nhỏ nhắn hơn */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;                 /* Khoảng cách giữa icon và chữ */
+}
+
+/* Thu nhỏ nhẹ icon bên trong nút nếu cần */
+.toolbar-actions button i {
+  font-size: 12px;
 }

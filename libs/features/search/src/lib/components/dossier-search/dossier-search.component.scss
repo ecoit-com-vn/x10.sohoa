@@ -648,6 +648,13 @@
   font-weight: 500;
 }
 
+.search-bar-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
 /* Redesigned 3-Tab Bar */
 .detail-tab-bar {
   display: flex;
