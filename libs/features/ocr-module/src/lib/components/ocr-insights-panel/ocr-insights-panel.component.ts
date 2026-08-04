@@ -5,6 +5,7 @@ import { TabsModule } from 'primeng/tabs';
 import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
 import { FormsModule } from '@angular/forms';
+import { BoundingBoxOverlayComponent, OcrOverlayRegion } from '@sohoa.frontend/shared/ocr-viewer';
 import {
   FormulaRunResponse,
   OcrModuleErrorAnalysis,
@@ -33,7 +34,7 @@ export interface OcrInsightsSourceDocument {
 @Component({
   selector: 'lib-ocr-insights-panel',
   standalone: true,
-  imports: [CommonModule, FormsModule, DialogModule, TabsModule, ToastModule],
+  imports: [CommonModule, FormsModule, DialogModule, TabsModule, ToastModule, BoundingBoxOverlayComponent],
   providers: [MessageService],
   templateUrl: './ocr-insights-panel.component.html',
   styleUrl: './ocr-insights-panel.component.scss',
@@ -49,6 +50,16 @@ export class OcrInsightsPanelComponent implements OnChanges {
   jobId = signal<string | null>(null);
   regionCount = signal(0);
   regions = signal<OcrModuleRegionDto[]>([]);
+
+  selectedPage = signal(1);
+  pageImageUrl = signal<string | null>(null);
+  pageImageLoading = signal(false);
+  pageNumbers = computed(() => [...new Set(this.regions().map((r) => r.pageNumber))].sort((a, b) => a - b));
+  overviewOverlayRegions = computed(() =>
+    this.regions()
+      .filter((r) => r.pageNumber === this.selectedPage())
+      .map((r) => this.toOverlayRegion(r)),
+  );
 
   scriptTypeLoading = signal(false);
   scriptTypeSummary = signal<ScriptTypeClassifyResponse | null>(null);
@@ -172,7 +183,68 @@ export class OcrInsightsPanelComponent implements OnChanges {
     const id = this.jobId();
     if (!id) return;
 
-    this.ocrModuleService.getRegions(id, 1, 50).subscribe((res) => this.regions.set(res.items));
+    this.ocrModuleService.getRegions(id, 1, 1000).subscribe((res) => {
+      this.regions.set(res.items);
+      const pages = this.pageNumbers();
+      if (pages.length > 0) {
+        this.selectedPage.set(pages[0]);
+        this.loadPageImage();
+      }
+    });
+  }
+
+  private toOverlayRegion(region: OcrModuleRegionDto): OcrOverlayRegion {
+    const confidence = region.confidence;
+    const colorClass =
+      confidence == null
+        ? 'region-conf-unknown'
+        : confidence >= 0.9
+          ? 'region-conf-high'
+          : confidence >= 0.7
+            ? 'region-conf-medium'
+            : 'region-conf-low';
+
+    return {
+      id: region.id,
+      boxX0: region.boxX0,
+      boxY0: region.boxY0,
+      boxX1: region.boxX1,
+      boxY1: region.boxY1,
+      colorClass,
+      tooltip: `${region.textRaw} — ${confidence != null ? (confidence * 100).toFixed(0) + '%' : 'Không rõ độ tin cậy'}`,
+    };
+  }
+
+  onSelectPage(page: number): void {
+    if (page === this.selectedPage()) return;
+    this.selectedPage.set(page);
+    this.loadPageImage();
+  }
+
+  private loadPageImage(): void {
+    const jobId = this.jobId();
+    const page = this.selectedPage();
+    if (!jobId) return;
+
+    this.revokePageImageUrl();
+    this.pageImageLoading.set(true);
+    this.ocrModuleService.getPageImage(jobId, page).subscribe({
+      next: (blob) => {
+        this.pageImageUrl.set(URL.createObjectURL(blob));
+        this.pageImageLoading.set(false);
+      },
+      error: () => {
+        this.pageImageLoading.set(false);
+      },
+    });
+  }
+
+  private revokePageImageUrl(): void {
+    const url = this.pageImageUrl();
+    if (url) {
+      URL.revokeObjectURL(url);
+      this.pageImageUrl.set(null);
+    }
   }
 
   runFormulaRecognition(): void {
@@ -418,6 +490,9 @@ export class OcrInsightsPanelComponent implements OnChanges {
   }
 
   private reset(): void {
+    this.revokePageImageUrl();
+    this.selectedPage.set(1);
+    this.pageImageLoading.set(false);
     this.jobId.set(null);
     this.regionCount.set(0);
     this.regions.set([]);

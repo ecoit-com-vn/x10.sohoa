@@ -124,6 +124,10 @@ export class OcrModuleService {
     });
   }
 
+  getPageImage(jobId: string, pageNumber: number): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/jobs/${jobId}/pages/${pageNumber}/image`, { responseType: 'blob' });
+  }
+
   classifyScriptType(jobId: string): Observable<ScriptTypeClassifyResponse> {
     return this.http.post<ScriptTypeClassifyResponse>(`${this.baseUrl}/jobs/${jobId}/script-type/classify`, {});
   }

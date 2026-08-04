@@ -72,6 +72,26 @@
     background-color: rgba(220, 38, 38, 0.15);
   }
 
+  &.region-conf-high {
+    border-color: #16a34a;
+    background-color: rgba(22, 163, 74, 0.12);
+  }
+
+  &.region-conf-medium {
+    border-color: #d97706;
+    background-color: rgba(217, 119, 6, 0.15);
+  }
+
+  &.region-conf-low {
+    border-color: #dc2626;
+    background-color: rgba(220, 38, 38, 0.15);
+  }
+
+  &.region-conf-unknown {
+    border-color: #9ca3af;
+    background-color: rgba(156, 163, 175, 0.15);
+  }
+
   &:hover {
     filter: brightness(0.92);
   }
