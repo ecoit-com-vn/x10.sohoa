@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Claims;
 using System.Threading.Tasks;
 using EvnHanoi.IdentityService.Core.Domain.Models;
 using EvnHanoi.IdentityService.Core.Interfaces;
@@ -62,11 +63,14 @@ public class RolesController : ControllerBase
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10,
         [FromQuery] string? keyword = null,
-        [FromQuery] int? scopeTypeId = null)
+        [FromQuery] int? scopeTypeId = null,
+        [FromQuery] bool? isActive = null)
     {
+        var normalizedKeyword = string.IsNullOrWhiteSpace(keyword) ? null : keyword.Trim();
         if (_rbacScope.IsCentralAdmin(User))
         {
-            var (allItems, allTotal) = await _roleRepository.GetPagedAsync(page, pageSize, keyword, scopeTypeId);
+            var (allItems, allTotal) = await _roleRepository.GetPagedAsync(
+                page, pageSize, normalizedKeyword, scopeTypeId, isActive: isActive);
             return Ok(new { items = allItems, totalCount = allTotal, page, pageSize });
         }
 
@@ -77,7 +81,8 @@ public class RolesController : ControllerBase
         }
 
         var (items, totalCount) = await _roleRepository.GetPagedAsync(
-            page, pageSize, keyword, RoleScopeTypes.UNIT.Id, unitId, includeDescendants: true);
+            page, pageSize, normalizedKeyword, RoleScopeTypes.UNIT.Id, unitId,
+            includeDescendants: true, isActive: isActive);
         return Ok(new { items, totalCount, page, pageSize });
     }
 
@@ -106,6 +111,10 @@ public class RolesController : ControllerBase
         {
             return BadRequest(new { message = "Mã và Tên vai trò là bắt buộc." });
         }
+
+        role.CreatedBy = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue(ClaimTypes.Name)
+            ?? "SYSTEM";
 
         if (_rbacScope.IsCentralAdmin(User))
         {

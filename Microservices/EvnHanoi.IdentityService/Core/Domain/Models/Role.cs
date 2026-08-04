@@ -1,3 +1,4 @@
+using System;
 using EvnHanoi.Infrastructure.Enums;
 
 namespace EvnHanoi.IdentityService.Core.Domain.Models;
@@ -13,6 +14,9 @@ public class Role
     public long? OrganizationUnitId { get; set; }
     public string? OrganizationUnitName { get; set; }
     public bool IsActive { get; set; } = true;
+    public DateTime? CreatedAt { get; set; }
+    public string? CreatedBy { get; set; }
+    public string? CreatedByName { get; set; }
 }
 public static class RoleScopeTypes
 {

@@ -35,21 +35,29 @@ public class RoleRepository : IRoleRepository
 
     public async Task<(IEnumerable<Role> Items, int TotalCount)> GetPagedAsync(
         int page, int pageSize, string? keyword = null, int? scopeTypeId = null,
-        long? organizationUnitId = null, bool includeDescendants = false)
+        long? organizationUnitId = null, bool includeDescendants = false, bool? isActive = null)
     {
         if (_connection.State != ConnectionState.Open) _connection.Open();
-        var (whereClause, parameters) = BuildFilter(scopeTypeId, organizationUnitId, includeDescendants, keyword);
+        var (whereClause, parameters) = BuildFilter(scopeTypeId, organizationUnitId, includeDescendants, keyword, isActive);
         var countSql = $"SELECT COUNT(*) FROM ROLE r INNER JOIN SCOPE_TYPE st ON r.ScopeTypeId = st.Id {whereClause}";
         var offset = (page - 1) * pageSize;
 
         var sql = $@"
             SELECT * FROM (
                 SELECT r.Id, r.Code, r.Name, r.Description, r.ScopeTypeId, st.Code AS ScopeType, st.Name AS ScopeTypeName, r.OrganizationUnitId,
-                       o.Name AS OrganizationUnitName, r.IsActive,
-                       ROW_NUMBER() OVER (ORDER BY r.Id ASC) AS RN
+                       o.Name AS OrganizationUnitName, r.IsActive, r.CreatedAt, r.CreatedBy,
+                       {BuildCreatedByNameSql("r")} AS CreatedByName,
+                       ROW_NUMBER() OVER (
+                           ORDER BY
+                               r.IsActive DESC,
+                               r.CreatedAt DESC NULLS LAST,
+                               r.Id DESC
+                       ) AS RN
                 FROM ROLE r
                 INNER JOIN SCOPE_TYPE st ON r.ScopeTypeId = st.Id
                 LEFT JOIN ORGANIZATION_UNIT o ON r.OrganizationUnitId = o.Id
+                LEFT JOIN APP_USER creatorById ON creatorById.Id = r.CreatedBy AND creatorById.IsDeleted = 0
+                LEFT JOIN APP_USER creatorByUserName ON UPPER(TRIM(creatorByUserName.UserName)) = UPPER(TRIM(r.CreatedBy)) AND creatorByUserName.IsDeleted = 0
                 {whereClause}
             ) WHERE RN > :Offset AND RN <= :OffsetPlusSize";
 
@@ -78,8 +86,8 @@ public class RoleRepository : IRoleRepository
     {
         if (_connection.State != ConnectionState.Open) _connection.Open();
         const string sql = @"
-            INSERT INTO ROLE (Code, Name, Description, ScopeTypeId, OrganizationUnitId, IsActive)
-            VALUES (:Code, :Name, :Description, :ScopeTypeId, :OrganizationUnitId, :IsActive)
+            INSERT INTO ROLE (Code, Name, Description, ScopeTypeId, OrganizationUnitId, IsActive, CreatedBy)
+            VALUES (:Code, :Name, :Description, :ScopeTypeId, :OrganizationUnitId, :IsActive, :CreatedBy)
             RETURNING Id INTO :Id";
 
         var parameters = new DynamicParameters();
@@ -89,6 +97,7 @@ public class RoleRepository : IRoleRepository
         parameters.Add("ScopeTypeId", role.ScopeTypeId);
         parameters.Add("OrganizationUnitId", role.OrganizationUnitId);
         parameters.Add("IsActive", role.IsActive ? 1 : 0);
+        parameters.Add("CreatedBy", role.CreatedBy);
         parameters.Add("Id", dbType: DbType.Int64, direction: ParameterDirection.Output);
 
         await _connection.ExecuteAsync(sql, parameters);
@@ -211,7 +220,8 @@ public class RoleRepository : IRoleRepository
     }
 
     private static (string WhereClause, DynamicParameters Parameters) BuildFilter(
-        int? scopeTypeId, long? organizationUnitId, bool includeDescendants, string? keyword)
+        int? scopeTypeId, long? organizationUnitId, bool includeDescendants, string? keyword,
+        bool? isActive = null)
     {
         var conditions = new List<string>();
         var parameters = new DynamicParameters();
@@ -242,11 +252,30 @@ public class RoleRepository : IRoleRepository
 
         if (!string.IsNullOrWhiteSpace(keyword))
         {
-            conditions.Add("(UPPER(r.Code) LIKE UPPER(:Keyword) OR UPPER(r.Name) LIKE UPPER(:Keyword) OR UPPER(r.Description) LIKE UPPER(:Keyword))");
+            conditions.Add("(UPPER(r.Code) LIKE UPPER(:Keyword) OR UPPER(r.Name) LIKE UPPER(:Keyword))");
             parameters.Add("Keyword", $"%{keyword.Trim()}%");
+        }
+
+        if (isActive.HasValue)
+        {
+            conditions.Add("r.IsActive = :IsActive");
+            parameters.Add("IsActive", isActive.Value ? 1 : 0);
         }
 
         var whereClause = conditions.Count > 0 ? "WHERE " + string.Join(" AND ", conditions) : "";
         return (whereClause, parameters);
     }
+
+    private static string BuildCreatedByNameSql(string roleAlias) => $@"
+        CASE
+            WHEN {roleAlias}.CreatedBy IS NULL THEN NULL
+            WHEN UPPER(TRIM({roleAlias}.CreatedBy)) = 'SYSTEM' THEN 'SYSTEM'
+            ELSE COALESCE(
+                TRIM(creatorById.FullName),
+                TRIM(creatorByUserName.FullName),
+                TRIM(creatorById.UserName),
+                TRIM(creatorByUserName.UserName),
+                TRIM({roleAlias}.CreatedBy)
+            )
+        END";
 }
