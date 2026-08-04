@@ -174,6 +174,10 @@ public class DossierSearchRepository : IDossierSearchRepository
         EquipmentScopeIds = source.EquipmentScopeIds,
         PublishDateFrom = source.PublishDateFrom,
         PublishDateTo = source.PublishDateTo,
+        CreatedDateFrom = source.CreatedDateFrom,
+        CreatedDateToExclusive = source.CreatedDateToExclusive,
+        StorageLevel = source.StorageLevel,
+        StorageId = source.StorageId,
         Tab = tab,
         Page = 1,
         PageSize = 1
@@ -227,6 +231,8 @@ public class DossierSearchRepository : IDossierSearchRepository
 
             ApplyEquipmentFilters(filterQueries, filter);
             ApplyPublishDateFilters(filterQueries, filter);
+            ApplyCreatedDateFilters(filterQueries, filter);
+            ApplyStorageFilter(filterQueries, filter);
 
             if (filter.UnitScopeIds is { Count: > 0 })
             {
@@ -789,5 +795,43 @@ public class DossierSearchRepository : IDossierSearchRepository
                 if (to is not null)
                     dr.Lte(to);
             })));
+    }
+
+    private static void ApplyCreatedDateFilters(List<Query> filterQueries, DossierFilterDto filter)
+    {
+        if (!filter.CreatedDateFrom.HasValue && !filter.CreatedDateToExclusive.HasValue)
+            return;
+
+        var from = filter.CreatedDateFrom?.ToString("yyyy-MM-ddTHH:mm:ss");
+        var toExclusive = filter.CreatedDateToExclusive?.ToString("yyyy-MM-ddTHH:mm:ss");
+
+        filterQueries.Add(new QueryDescriptor<DossierEsDocument>().Range(r => r
+            .DateRange(dr =>
+            {
+                dr.Field(DossierEsFieldNames.CreatedDate);
+                if (from is not null)
+                    dr.Gte(from);
+                if (toExclusive is not null)
+                    dr.Lt(toExclusive);
+            })));
+    }
+
+    private static void ApplyStorageFilter(List<Query> filterQueries, DossierFilterDto filter)
+    {
+        if (!filter.StorageId.HasValue)
+            return;
+
+        var field = filter.StorageLevel?.ToLowerInvariant() switch
+        {
+            "shelf" => DossierEsFieldNames.ShelfId,
+            "floor" => DossierEsFieldNames.FloorId,
+            "box" => DossierEsFieldNames.BoxId,
+            _ => null
+        };
+
+        if (field is not null)
+            filterQueries.Add(new QueryDescriptor<DossierEsDocument>().Term(t => t
+                .Field(field)
+                .Value(filter.StorageId.Value)));
     }
 }

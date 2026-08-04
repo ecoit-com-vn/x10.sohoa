@@ -32,6 +32,9 @@ public static class DossierEsFieldNames
     public const string KindId = "kindId";
     public const string KindCode = "kindCode";
     public const string ModifiedDate = "modifiedDate";
+    public const string ShelfId = "shelfId";
+    public const string FloorId = "floorId";
+    public const string BoxId = "boxId";
     public const string EquipmentsPath = "equipments";
     public const string EquipmentId = "equipments.equipmentId";
 }

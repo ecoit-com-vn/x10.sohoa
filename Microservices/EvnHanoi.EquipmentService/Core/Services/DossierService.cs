@@ -96,15 +96,14 @@ public class DossierService : IDossierService
     }
 
     /// <summary>
-    /// Cây kệ → tầng → hộp chỉ theo đúng đơn vị hiện tại (không gồm đơn vị con).
-    /// Không có unitId → danh sách rỗng. Sắp xếp theo Priority rồi Code.
+    /// Cây kệ → tầng → hộp theo đúng đơn vị hiện tại (không gồm đơn vị con).
+    /// Không có unitId (admin) → toàn bộ vị trí. Sắp xếp theo Priority rồi Code.
     /// </summary>
     public async Task<IReadOnlyList<PhysicalStorageTreeShelfDto>> GetPhysicalStorageTreeAsync(long? currentUnitId)
     {
-        if (currentUnitId is null or <= 0)
-            return Array.Empty<PhysicalStorageTreeShelfDto>();
-
-        var unitIds = new List<long> { currentUnitId.Value };
+        IReadOnlyList<long>? unitIds = currentUnitId is > 0
+            ? new List<long> { currentUnitId.Value }
+            : null;
         var shelves = (await _physicalStorageRepository.GetShelvesAsync(unitIds)).ToList();
         var floors = (await _physicalStorageRepository.GetFloorsByUnitIdsAsync(unitIds)).ToList();
         var boxes = (await _physicalStorageRepository.GetBoxesByUnitIdsAsync(unitIds)).ToList();
