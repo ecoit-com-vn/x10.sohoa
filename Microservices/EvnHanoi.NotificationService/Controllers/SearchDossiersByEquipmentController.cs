@@ -34,16 +34,27 @@ public class SearchDossiersByEquipmentController : ControllerBase
         [FromQuery] string? keyword,
         [FromQuery] DateTime? publishDateFrom,
         [FromQuery] DateTime? publishDateTo,
+        [FromQuery] DateTime? createdDateFrom,
+        [FromQuery] DateTime? createdDateTo,
         [FromQuery] int? gridTypeId,
         [FromQuery] Guid? infrastructureId,
         [FromQuery] Guid? equipmentTypeId,
         [FromQuery] Guid? equipmentId,
         [FromQuery] Guid? dossierTypeId,
+        [FromQuery] string? storageLevel,
+        [FromQuery] long? storageId,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10)
     {
         if (page < 1) page = 1;
         if (pageSize < 1) pageSize = 10;
+
+        if (createdDateFrom.HasValue && createdDateTo.HasValue && createdDateFrom.Value.Date > createdDateTo.Value.Date)
+            return BadRequest(new { message = "Từ ngày không được lớn hơn Đến ngày." });
+
+        var normalizedStorageLevel = storageLevel?.Trim().ToLowerInvariant();
+        if (storageId.HasValue && (storageId.Value <= 0 || normalizedStorageLevel is not ("shelf" or "floor" or "box")))
+            return BadRequest(new { message = "Vị trí lưu không hợp lệ." });
 
         var roles = GetUserRoles();
         var userId = GetUserId();
@@ -71,11 +82,15 @@ public class SearchDossiersByEquipmentController : ControllerBase
             Keyword = keyword,
             PublishDateFrom = publishDateFrom,
             PublishDateTo = publishDateTo,
+            CreatedDateFrom = createdDateFrom?.Date,
+            CreatedDateToExclusive = createdDateTo?.Date.AddDays(1),
             GridTypeId = gridTypeId,
             InfrastructureId = infrastructureId,
             EquipmentTypeId = equipmentTypeId,
             EquipmentId = equipmentId,
             DossierTypeId = dossierTypeId,
+            StorageLevel = storageId.HasValue ? normalizedStorageLevel : null,
+            StorageId = storageId,
             UnitId = effectiveUnitId,
             Tab = DossierListTabs.Published,
             MenuScope = DossierMenuScopes.EquipmentLookup,

@@ -21,6 +21,7 @@ using EvnHanoi.DigitizationService.Models;
 using EvnHanoi.DigitizationService.Repositories;
 using EvnHanoi.DigitizationService.Services;
 using EvnHanoi.DigitizationService.Helpers;
+using EvnHanoi.Infrastructure.Messaging;
 
 namespace EvnHanoi.DigitizationService.Workers
 {
@@ -61,6 +62,10 @@ namespace EvnHanoi.DigitizationService.Workers
                 await _channel.ExchangeDeclareAsync(exchange: exchangeName, type: ExchangeType.Topic, durable: true, autoDelete: false, arguments: null, cancellationToken: stoppingToken);
                 await _channel.QueueDeclareAsync(queue: queueName, durable: true, exclusive: false, autoDelete: false, arguments: null, cancellationToken: stoppingToken);
                 await _channel.QueueBindAsync(queue: queueName, exchange: exchangeName, routingKey: routingKey, cancellationToken: stoppingToken);
+
+                // Giới hạn số message xử lý đồng thời/1 kết nối bằng đúng ConsumerDispatchConcurrency
+                // (xem Program.cs) — để RabbitMQ không dồn quá nhiều message chưa ack cho worker.
+                await _channel.BasicQosAsync(prefetchSize: 0, prefetchCount: 4, global: false, cancellationToken: stoppingToken);
 
                 var consumer = new AsyncEventingBasicConsumer(_channel);
                 consumer.ReceivedAsync += async (model, ea) =>
@@ -191,7 +196,10 @@ namespace EvnHanoi.DigitizationService.Workers
                                     BucketName = taskMsg.BucketName,
                                     Status = "Failed"
                                 };
-                                await publisher.PublishMessageAsync(failedCompletedMsg, "digitization.topic", "extraction.process.completed");
+                                // Tín hiệu hoàn thành cuối cùng — thử lại có backoff; nếu vẫn thất bại, vẫn ack
+                                // (đã cố hết sức) và để watchdog (dựa ModifiedDate, độc lập RabbitMQ) đóng job.
+                                await publisher.TryPublishMessageAsync(failedCompletedMsg, "digitization.topic", "extraction.process.completed",
+                                    maxAttempts: 3, initialDelay: TimeSpan.FromSeconds(2));
                                 _logger.LogInformation("Đã gửi bản tin báo lỗi (Failed) cho {FileId} do không có nội dung OCR.", taskMsg.FileId);
 
                                 // Tự động ack message nếu file không có để tránh kẹt queue
@@ -471,6 +479,8 @@ Trước khi xuất câu trả lời cuối cùng, tự rà soát: (a) mỗi gi�
                                     {
                                         semaphore.Release();
                                         int currentCompleted = Interlocked.Increment(ref completedPages);
+                                        // Best-effort — nằm trong finally, throw ở đây sẽ làm hỏng cả
+                                        // Task.WhenAll bên dưới; mất 1 lần publish tiến trình vô hại.
                                         var progressMsg = new
                                         {
                                             FileId = taskMsg.FileId,
@@ -479,7 +489,7 @@ Trước khi xuất câu trả lời cuối cùng, tự rà soát: (a) mỗi gi�
                                             TotalPages = totalPages,
                                             Progress = (int)Math.Round((double)currentCompleted / totalPages * 100)
                                         };
-                                        await publisher.PublishMessageAsync(progressMsg, "digitization.topic", "extraction.process.progress");
+                                        await publisher.TryPublishMessageAsync(progressMsg, "digitization.topic", "extraction.process.progress");
                                     }
                                 }
 
@@ -604,7 +614,11 @@ Trước khi xuất câu trả lời cuối cùng, tự rà soát: (a) mỗi gi�
                                 Status = status,
                                 EquipmentId = taskMsg.EquipmentId
                             };
-                            await publisher.PublishMessageAsync(completedMsg, "digitization.topic", "extraction.process.completed");
+                            // Tín hiệu hoàn thành cuối cùng của tài liệu — thử lại có backoff; nếu vẫn thất
+                            // bại, chấp nhận (đã cố hết sức) và để watchdog đóng job thay vì làm lại toàn bộ
+                            // (làm lại tốn kém hơn OCR nhiều vì phải gọi LLM lại từ đầu).
+                            await publisher.TryPublishMessageAsync(completedMsg, "digitization.topic", "extraction.process.completed",
+                                maxAttempts: 3, initialDelay: TimeSpan.FromSeconds(2));
                             _logger.LogInformation("Đã gửi bản tin hoàn thành lên RabbitMQ (Routing key: extraction.process.completed) với Status: {Status}.", status);
 
                             await _channel.BasicAckAsync(ea.DeliveryTag, false);
@@ -618,7 +632,26 @@ Trước khi xuất câu trả lời cuối cùng, tự rà soát: (a) mỗi gi�
                     catch (Exception ex)
                     {
                         _logger.LogError(ex, "Lỗi khi xử lý Extraction task.");
-                        await _channel.BasicNackAsync(ea.DeliveryTag, false, false);
+                        try
+                        {
+                            await HandleTaskFailureAsync(ea, body, messageText, ex, stoppingToken);
+                        }
+                        catch (Exception fatalEx)
+                        {
+                            // Lưới bảo vệ cuối cùng — tuyệt đối không để exception thoát khỏi callback này,
+                            // vì làm vậy sẽ khiến consumer ngừng nhận message mới vĩnh viễn (đã xảy ra thực tế).
+                            _logger.LogCritical(fatalEx,
+                                "HandleTaskFailureAsync thất bại nghiêm trọng — thử nack (requeue) message gốc để tránh mất dữ liệu/treo consumer.");
+                            try
+                            {
+                                await _channel!.BasicNackAsync(ea.DeliveryTag, false, true, stoppingToken);
+                            }
+                            catch (Exception nackEx)
+                            {
+                                _logger.LogCritical(nackEx,
+                                    "Nack cũng thất bại — message có thể bị kẹt ở trạng thái unacked, cần kiểm tra RabbitMQ management UI thủ công.");
+                            }
+                        }
                     }
                 };
 
@@ -639,6 +672,123 @@ Trước khi xuất câu trả lời cuối cùng, tự rà soát: (a) mỗi gi�
         {
             if (_channel is not null) await _channel.CloseAsync(cancellationToken: cancellationToken);
             await base.StopAsync(cancellationToken);
+        }
+
+        private const int MaxRetries = 3;
+
+        /// <summary>
+        /// Trước đây lỗi bị nack không requeue (mất message âm thầm, không DLQ, không báo trạng thái).
+        /// Nay thử lại tối đa <see cref="MaxRetries"/> lần (đếm qua header "x-retry-count"), vượt quá thì
+        /// đẩy sang hàng đợi lỗi (DLQ) và báo ngay cho EquipmentService để đánh dấu Failed.
+        /// </summary>
+        private async Task HandleTaskFailureAsync(
+            BasicDeliverEventArgs ea,
+            byte[] body,
+            string messageText,
+            Exception ex,
+            CancellationToken cancellationToken)
+        {
+            var retryCount = GetRetryCount(ea.BasicProperties?.Headers) + 1;
+            var isFinalAttempt = retryCount > MaxRetries;
+            var targetRoutingKey = isFinalAttempt
+                ? DigitizationTopicTopology.ExtractionTaskDeadLetterRoutingKey
+                : DigitizationTopicTopology.ExtractionTaskRoutingKey;
+
+            // Publish/republish TRƯỚC, chỉ ack message gốc SAU KHI thành công — nếu đảo ngược thứ tự,
+            // ack thất bại-republish sẽ làm mất message vĩnh viễn (đã ack nhưng bản republish chưa vào queue).
+            var republished = await RepublishRawAsync(body, targetRoutingKey, retryCount, cancellationToken);
+            if (!republished)
+            {
+                _logger.LogError(
+                    "Không thể publish lại/DLQ message Extraction (routing key {RoutingKey}) — trả message về queue gốc (nack requeue) để không mất dữ liệu.",
+                    targetRoutingKey);
+                await _channel!.BasicNackAsync(ea.DeliveryTag, false, true, cancellationToken);
+                return;
+            }
+
+            await _channel!.BasicAckAsync(ea.DeliveryTag, false, cancellationToken);
+
+            if (!isFinalAttempt)
+            {
+                _logger.LogWarning("Extraction task lỗi, thử lại lần {RetryCount}/{MaxRetries}.", retryCount, MaxRetries);
+                return;
+            }
+
+            _logger.LogError(
+                "Extraction task vượt quá {MaxRetries} lần thử — đã chuyển sang hàng đợi lỗi {DlqQueue}.",
+                MaxRetries, DigitizationTopicTopology.ExtractionTaskDeadLetterQueue);
+
+            var fileId = TryExtractFileId(messageText);
+            if (fileId.HasValue)
+            {
+                using var scope = _serviceProvider.CreateScope();
+                var publisher = scope.ServiceProvider.GetRequiredService<IMessagePublisher>();
+                var failedMsg = new
+                {
+                    FileId = fileId.Value,
+                    Action = "extraction.process.failed",
+                    CurrentPage = 0,
+                    TotalPages = 0,
+                    Progress = 0,
+                    ErrorMessage = ex.Message
+                };
+                // Thử lại có backoff — nếu vẫn thất bại sau cùng, watchdog (dựa trên ModifiedDate, độc
+                // lập RabbitMQ) sẽ tự đóng job này sau tối đa 30 phút, nên không cần throw/chặn ở đây.
+                await publisher.TryPublishMessageAsync(failedMsg, "digitization.topic", "extraction.process.progress",
+                    maxAttempts: 3, initialDelay: TimeSpan.FromSeconds(2));
+            }
+        }
+
+        private async Task<bool> RepublishRawAsync(byte[] body, string routingKey, int retryCount, CancellationToken cancellationToken)
+        {
+            try
+            {
+                var props = new BasicProperties
+                {
+                    Headers = new Dictionary<string, object?> { ["x-retry-count"] = retryCount }
+                };
+                await _channel!.BasicPublishAsync(
+                    exchange: "digitization.topic",
+                    routingKey: routingKey,
+                    mandatory: false,
+                    basicProperties: props,
+                    body: body,
+                    cancellationToken: cancellationToken);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "RepublishRawAsync thất bại cho routing key {RoutingKey}.", routingKey);
+                return false;
+            }
+        }
+
+        private static int GetRetryCount(IDictionary<string, object?>? headers)
+        {
+            if (headers == null || !headers.TryGetValue("x-retry-count", out var raw) || raw == null)
+                return 0;
+
+            try
+            {
+                return Convert.ToInt32(raw is byte[] bytes ? Encoding.UTF8.GetString(bytes) : raw);
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        private static Guid? TryExtractFileId(string messageText)
+        {
+            try
+            {
+                var task = JsonSerializer.Deserialize<ExtractionTaskMessage>(messageText, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                return task?.FileId;
+            }
+            catch
+            {
+                return null;
+            }
         }
     }
 }

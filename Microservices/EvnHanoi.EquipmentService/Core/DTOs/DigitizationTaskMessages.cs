@@ -42,7 +42,7 @@ public class ExtractionTaskPublishMessage
     public Guid? EquipmentId { get; set; }
 }
 
-/// <summary>ocr.process.progress / extraction.process.progress</summary>
+/// <summary>ocr.process.progress / extraction.process.progress / *.process.failed</summary>
 public class DigitizationProgressMessage
 {
     public Guid FileId { get; set; }
@@ -50,6 +50,8 @@ public class DigitizationProgressMessage
     public int CurrentPage { get; set; }
     public int TotalPages { get; set; }
     public int Progress { get; set; }
+    /// <summary>Chỉ có giá trị khi Action là "*.process.failed" — worker đã thử lại hết số lần cho phép.</summary>
+    public string? ErrorMessage { get; set; }
 }
 
 /// <summary>Payload push SignalR — khớp NotificationService.DigitizationProgressPushDto.</summary>

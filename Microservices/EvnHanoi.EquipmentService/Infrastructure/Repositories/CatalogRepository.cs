@@ -65,12 +65,17 @@ public class CatalogRepository : ICatalogRepository
         int? status = null,
         long? unitId = null,
         string? username = null,
-        bool strictUnitFilter = false)
+        bool strictUnitFilter = false,
+        bool includeAllUnits = false)
     {
         if (_connection.State != ConnectionState.Open) _connection.Open();
 
         var filterSql = $" WHERE {nameof(Catalog.IsDeleted)} = 0";
-        if (strictUnitFilter)
+        if (includeAllUnits)
+        {
+            // Không thêm điều kiện UnitId: quản trị viên được xem toàn bộ đơn vị.
+        }
+        else if (strictUnitFilter)
         {
             filterSql += $" AND {nameof(Catalog.UnitId)} = :UnitId";
         }
@@ -342,7 +347,7 @@ public class CatalogRepository : ICatalogRepository
 
         if (isPrivate && !string.IsNullOrEmpty(username))
         {
-            sql += $" AND ({nameof(CatalogType.CreatedBy)} = :Username OR {nameof(CatalogType.Code)} = 'PHONG')";
+            sql += $" AND {nameof(CatalogType.CreatedBy)} = :Username";
         }
 
         if (!string.IsNullOrEmpty(keyword))
@@ -370,12 +375,14 @@ public class CatalogRepository : ICatalogRepository
 
         var sql = $@"SELECT * FROM CATALOG_TYPE 
                      WHERE {nameof(CatalogType.Id)} = :Id 
-                       AND {nameof(CatalogType.IsPrivate)} = :IsPrivate
                        AND {nameof(CatalogType.IsDeleted)} = 0";
+        sql += isPrivate
+            ? $" AND ({nameof(CatalogType.IsPrivate)} = 1 OR {nameof(CatalogType.Code)} IN ('PHONG', 'MUC_LUC'))"
+            : $" AND {nameof(CatalogType.IsPrivate)} = 0";
 
         if (isPrivate && !string.IsNullOrEmpty(username))
         {
-            sql += $" AND ({nameof(CatalogType.CreatedBy)} = :Username OR {nameof(CatalogType.Code)} = 'PHONG')";
+            sql += $" AND ({nameof(CatalogType.CreatedBy)} = :Username OR {nameof(CatalogType.Code)} IN ('PHONG', 'MUC_LUC'))";
         }
 
         return await _connection.QuerySingleOrDefaultAsync<CatalogType>(sql, new { Id = id, IsPrivate = isPrivate ? 1 : 0, Username = username });

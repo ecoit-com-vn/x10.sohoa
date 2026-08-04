@@ -41,7 +41,10 @@ var rabbitFactory = new ConnectionFactory
     VirtualHost = builder.Configuration["RabbitMQ:VirtualHost"] ?? "/",
     UserName = builder.Configuration["RabbitMQ:Username"] ?? "guest",
     Password = builder.Configuration["RabbitMQ:Password"] ?? "guest",
-    Port = int.TryParse(builder.Configuration["RabbitMQ:Port"], out var port) ? port : 5672
+    Port = int.TryParse(builder.Configuration["RabbitMQ:Port"], out var port) ? port : 5672,
+    // Cho phép OcrWorker/ExtractionWorker xử lý nhiều message song song — 1 message treo/chậm
+    // không còn chặn toàn bộ các message khác phía sau trong cùng queue.
+    ConsumerDispatchConcurrency = 4
 };
 var rabbitConnection = await rabbitFactory.CreateConnectionAsync();
 builder.Services.AddSingleton<IConnection>(rabbitConnection);
@@ -61,9 +64,21 @@ builder.Services.AddScoped<EvnHanoi.DigitizationService.Core.Services.OcrModule.
 builder.Services.AddScoped<EvnHanoi.DigitizationService.Core.Services.OcrModule.IOcrModuleSpellcheckService, EvnHanoi.DigitizationService.Core.Services.OcrModule.OcrModuleSpellcheckService>();
 builder.Services.AddScoped<EvnHanoi.DigitizationService.Core.Services.OcrModule.IOcrModuleErrorAnalysisAggregator, EvnHanoi.DigitizationService.Core.Services.OcrModule.OcrModuleErrorAnalysisAggregator>();
 
-builder.Services.AddHttpClient("OcrVlClient", client => 
+// Timeout gọi ocr_vl_server/LLM đọc từ cấu hình (AIModelServers) thay vì hard-code — điều chỉnh
+// được qua appsettings mà không cần build lại. Áp dụng CHO TỪNG LỆNH GỌI (mỗi trang PDF một lệnh
+// gọi riêng trong OcrWorker), không cộng dồn theo số trang của tài liệu.
+var ocrPageAttemptTimeout = TimeSpan.FromSeconds(builder.Configuration.GetValue("AIModelServers:OcrPageAttemptTimeoutSeconds", 60));
+var ocrPageTotalTimeout = TimeSpan.FromSeconds(builder.Configuration.GetValue("AIModelServers:OcrPageTotalTimeoutSeconds", 180));
+var ocrPageSamplingDuration = TimeSpan.FromMinutes(builder.Configuration.GetValue("AIModelServers:OcrPageCircuitBreakerSamplingMinutes", 10));
+var llmAttemptTimeout = TimeSpan.FromMinutes(builder.Configuration.GetValue("AIModelServers:LlmAttemptTimeoutMinutes", 3));
+var llmTotalTimeout = TimeSpan.FromMinutes(builder.Configuration.GetValue("AIModelServers:LlmTotalTimeoutMinutes", 6));
+var llmSamplingDuration = TimeSpan.FromMinutes(builder.Configuration.GetValue("AIModelServers:LlmCircuitBreakerSamplingMinutes", 12));
+
+// Dùng cho lệnh gọi OCR từng trang (POST /ocr_page) trong OcrWorker — trước đây tên "NoTimeout"
+// nhưng thực chất bị treo tới 1 giờ/lần gọi, gây nghẽn cả hàng đợi khi ocr_vl_server không phản hồi.
+builder.Services.AddHttpClient("OcrPageClient", client =>
 {
-    client.Timeout = Timeout.InfiniteTimeSpan;
+    client.Timeout = Timeout.InfiniteTimeSpan; // HttpClient.Timeout tắt — để AddStandardResilienceHandler bên dưới kiểm soát
 })
 .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
 {
@@ -71,16 +86,19 @@ builder.Services.AddHttpClient("OcrVlClient", client =>
     KeepAlivePingDelay = TimeSpan.FromSeconds(30),
     KeepAlivePingTimeout = TimeSpan.FromSeconds(15)
 })
-.AddStandardResilienceHandler(options => 
+.AddStandardResilienceHandler(options =>
 {
-    options.AttemptTimeout.Timeout = TimeSpan.FromHours(1);
-    options.TotalRequestTimeout.Timeout = TimeSpan.FromHours(1);
+    options.AttemptTimeout.Timeout = ocrPageAttemptTimeout;
+    options.TotalRequestTimeout.Timeout = ocrPageTotalTimeout;
     // SamplingDuration phải >= 2 × AttemptTimeout
-    options.CircuitBreaker.SamplingDuration = TimeSpan.FromHours(2);
+    options.CircuitBreaker.SamplingDuration = ocrPageSamplingDuration;
     options.CircuitBreaker.BreakDuration = TimeSpan.FromSeconds(30);
 });
 
-builder.Services.AddHttpClient("LlmClient", client => 
+// Dùng cho lệnh gọi LLM (trích xuất, sửa chính tả) — OcrWorker (spellcheck), ExtractionWorker
+// (trích xuất), OcrModuleSpellcheckService. Cho phép thời gian rộng rãi hơn OCR ảnh vì sinh nội
+// dung dài có thể chậm hơn, nhưng vẫn phải hữu hạn.
+builder.Services.AddHttpClient("LlmClient", client =>
 {
     client.Timeout = Timeout.InfiniteTimeSpan;
 })
@@ -90,29 +108,11 @@ builder.Services.AddHttpClient("LlmClient", client =>
     KeepAlivePingDelay = TimeSpan.FromSeconds(30),
     KeepAlivePingTimeout = TimeSpan.FromSeconds(15)
 })
-.AddStandardResilienceHandler(options => 
+.AddStandardResilienceHandler(options =>
 {
-    options.AttemptTimeout.Timeout = TimeSpan.FromHours(1);
-    options.TotalRequestTimeout.Timeout = TimeSpan.FromHours(1);
-    options.CircuitBreaker.SamplingDuration = TimeSpan.FromHours(2);
-    options.CircuitBreaker.BreakDuration = TimeSpan.FromSeconds(30);
-});
-
-builder.Services.AddHttpClient("NoTimeout", client => 
-{
-    client.Timeout = Timeout.InfiniteTimeSpan;
-})
-.ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
-{
-    PooledConnectionLifetime = TimeSpan.FromMinutes(15),
-    KeepAlivePingDelay = TimeSpan.FromSeconds(30),
-    KeepAlivePingTimeout = TimeSpan.FromSeconds(15)
-})
-.AddStandardResilienceHandler(options => 
-{
-    options.AttemptTimeout.Timeout = TimeSpan.FromHours(1);
-    options.TotalRequestTimeout.Timeout = TimeSpan.FromHours(1);
-    options.CircuitBreaker.SamplingDuration = TimeSpan.FromHours(2);
+    options.AttemptTimeout.Timeout = llmAttemptTimeout;
+    options.TotalRequestTimeout.Timeout = llmTotalTimeout;
+    options.CircuitBreaker.SamplingDuration = llmSamplingDuration;
     options.CircuitBreaker.BreakDuration = TimeSpan.FromSeconds(30);
 });
 

@@ -85,6 +85,11 @@ public class DossierFilterDto
     public IReadOnlyList<string>? EquipmentScopeIds { get; set; }
     public DateTime? PublishDateFrom { get; set; }
     public DateTime? PublishDateTo { get; set; }
+    public DateTime? CreatedDateFrom { get; set; }
+    /// <summary>Exclusive upper bound (start of the day after the selected end date).</summary>
+    public DateTime? CreatedDateToExclusive { get; set; }
+    public string? StorageLevel { get; set; }
+    public long? StorageId { get; set; }
     public int Page { get; set; } = 1;
     public int PageSize { get; set; } = 10;
     public int? KindId { get; set; }

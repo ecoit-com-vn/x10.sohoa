@@ -89,6 +89,7 @@ builder.Services.AddScoped<IDossierDocumentService, DossierDocumentService>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IDocumentDigitizationRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.DocumentDigitizationRepository>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IDocumentDigitizationService, DocumentDigitizationService>();
 builder.Services.AddHostedService<EvnHanoi.EquipmentService.Infrastructure.Messaging.DocumentDigitizationConsumer>();
+builder.Services.AddHostedService<EvnHanoi.EquipmentService.Infrastructure.Messaging.OcrJobWatchdogService>();
 builder.Services.AddScoped<IClamAvService, ClamAvService>();
 builder.Services.AddScoped<IMimeTypeValidationService, MimeTypeValidationService>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IEquipmentRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.EquipmentRepository>();

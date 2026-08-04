@@ -38,22 +38,19 @@ public static class SealSignatureDetector
         var gridH = (height / SampleStep) + 1;
         var isRed = new bool[gridW, gridH];
 
-        image.ProcessPixelRows(accessor =>
+        for (var y = 0; y < height; y += SampleStep)
         {
-            for (var y = 0; y < height; y += SampleStep)
+            var row = image.GetPixelRowSpan(y);
+            var gy = y / SampleStep;
+            for (var x = 0; x < width; x += SampleStep)
             {
-                var row = accessor.GetRowSpan(y);
-                var gy = y / SampleStep;
-                for (var x = 0; x < width; x += SampleStep)
+                var p = row[x];
+                if (IsRedInk(p.R, p.G, p.B))
                 {
-                    var p = row[x];
-                    if (IsRedInk(p.R, p.G, p.B))
-                    {
-                        isRed[x / SampleStep, gy] = true;
-                    }
+                    isRed[x / SampleStep, gy] = true;
                 }
             }
-        });
+        }
 
         var visited = new bool[gridW, gridH];
         var candidates = new List<SealCandidate>();

@@ -5,7 +5,7 @@ namespace EvnHanoi.EquipmentService.Core.Interfaces;
 public interface ICatalogRepository
 {
     Task<IEnumerable<Catalog>> GetAllAsync(long? catalogTypeId = null, string? keyword = null, int? status = null, long? unitId = null, string? username = null);
-    Task<(IEnumerable<Catalog> Items, int TotalCount)> GetPagedAsync(int page, int pageSize, long? catalogTypeId = null, string? keyword = null, int? status = null, long? unitId = null, string? username = null, bool strictUnitFilter = false);
+    Task<(IEnumerable<Catalog> Items, int TotalCount)> GetPagedAsync(int page, int pageSize, long? catalogTypeId = null, string? keyword = null, int? status = null, long? unitId = null, string? username = null, bool strictUnitFilter = false, bool includeAllUnits = false);
     Task<(IEnumerable<Catalog> Items, int TotalCount)> GetPhongPagedAsync(int page, int pageSize, long catalogTypeId, long? unitId, string? name = null, string? code = null, int? status = null);
     Task<Catalog?> GetByIdAsync(long id);
     Task<Catalog?> GetByCodeAsync(long catalogTypeId, string code);
