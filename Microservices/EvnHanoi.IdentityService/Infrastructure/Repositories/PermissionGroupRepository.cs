@@ -92,7 +92,8 @@ public class PermissionGroupRepository : IPermissionGroupRepository
 
     public async Task<(IEnumerable<PermissionGroup> Items, int TotalCount, int AllCount)> GetPagedAsync(
 
-        string groupType, int page, int pageSize, string? keyword = null, long? organizationUnitId = null, bool? isActive = null)
+        string groupType, int page, int pageSize, string? keyword = null, long? organizationUnitId = null, bool? isActive = null,
+        IReadOnlyCollection<long>? organizationUnitIds = null)
 
     {
 
@@ -133,8 +134,27 @@ public class PermissionGroupRepository : IPermissionGroupRepository
             parameters.Add("Keyword", $"%{normalizedKeyword}%");
         }
 
-        if (organizationUnitId.HasValue)
-    {
+        var normalizedUnitIds = organizationUnitIds?
+            .Where(id => id > 0)
+            .Distinct()
+            .ToArray()
+            ?? Array.Empty<long>();
+
+        if (normalizedUnitIds.Length > 0)
+        {
+            conditions.Add("""
+                EXISTS (
+                    SELECT 1
+                    FROM PERMISSION_GROUP_UNIT pgu
+                    WHERE pgu.PermissionGroupId = pg.Id
+                      AND pgu.OrganizationUnitId IN :OrganizationUnitIds
+                )
+                """);
+
+            parameters.Add("OrganizationUnitIds", normalizedUnitIds);
+        }
+        else if (organizationUnitId.HasValue)
+        {
         conditions.Add("""
             EXISTS (
                 SELECT 1
