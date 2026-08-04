@@ -10,8 +10,6 @@
       </button>
         </div>
     </div>
-    <div class="wf-card">
-
         <!-- MÀN HÌNH DANH SÁCH -->
         <div *ngIf="currentView() === 'list' || currentView() === 'add' || currentView() === 'edit'" class="animate-fade-in">
 
@@ -38,6 +36,7 @@
             </div>
 
             <!-- Table Grid -->
+            <div class="wf-card">
             <div class="wf-table-wrap">
                 <table class="wf-table">
                     <thead>
@@ -99,6 +98,7 @@
             <p-menu #actionMenu [model]="actionMenuItems" [popup]="true" appendTo="body" styleClass="row-action-menu"></p-menu>
 
             <app-eco-paginator *ngIf="totalCount() > 0" [currentPage]="currentPage()" [pageSize]="pageSize()" [totalRecords]="totalCount()" (pageChange)="goToPage($event)" (pageSizeChange)="onPageSizeChange($event)" />
+            </div>
         </div>
 
         <!-- Dialog Thêm/Sửa loại hồ sơ -->
@@ -470,5 +470,4 @@
                 </div>
             </div>
         </div>
-    </div>
 </div>

@@ -78,6 +78,11 @@ export class UserGroupComponent implements OnInit {
     });
   }
 
+  onGroupFieldChange(field: string, value: any) {
+    this.currentGroup.update(group => ({ ...group, [field]: value }));
+    this.onFieldChange(field);
+  }
+
   // Thành viên
   memberDialogHeader = signal<string>('');
   activeGroupForMember = signal<any>(null);
@@ -189,6 +194,13 @@ export class UserGroupComponent implements OnInit {
   }
 
   onSearch() {
+    this.searchKeyword.set(this.searchKeyword().trim());
+    this.currentPage.set(1);
+    this.loadGroups();
+  }
+
+  onSearchStatusChange(status: string) {
+    this.searchStatus.set(status);
     this.currentPage.set(1);
     this.loadGroups();
   }
@@ -277,11 +289,16 @@ export class UserGroupComponent implements OnInit {
   onSaveGroup() {
     this.formSubmitted.set(true);
     this.serverErrors.set({});
-    if (this.nameError()) {
+    const groupDraft = {
+      ...this.currentGroup(),
+      name: String(this.currentGroup().name ?? '').trim(),
+      description: String(this.currentGroup().description ?? '').trim()
+    };
+    this.currentGroup.set(groupDraft);
+    if (!groupDraft.name) {
       return;
     }
 
-    const groupDraft = this.currentGroup();
     this.saving.set(true);
     if (this.isEdit()) {
       this.http.put(`${this.apiUrl}/${groupDraft.id}`, groupDraft)

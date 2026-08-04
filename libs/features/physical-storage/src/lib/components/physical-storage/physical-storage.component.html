@@ -1,12 +1,98 @@
 <div class="wf-page">
   <p-toast></p-toast>
-  <p-confirmDialog></p-confirmDialog>
-  <wf-breadcrumb />
+
+  <div class="list-toolbar standard-page-toolbar">
+    <div class="toolbar-left">
+      <wf-breadcrumb />
+    </div>
+    <div class="toolbar-right">
+      <ng-container [ngSwitch]="activeTab()">
+        <button *ngSwitchCase="'0'" class="btn-green btn-small" (click)="showDialog('shelf')">
+          <i class="pi pi-plus"></i> Thêm kệ mới
+        </button>
+        <button *ngSwitchCase="'1'" class="btn-green btn-small" (click)="showDialog('floor')">
+          <i class="pi pi-plus"></i> Thêm tầng mới
+        </button>
+        <button *ngSwitchCase="'2'" class="btn-green btn-small" (click)="showDialog('box')">
+          <i class="pi pi-plus"></i> Thêm hộp mới
+        </button>
+      </ng-container>
+    </div>
+  </div>
+
+  <div class="standard-search-card">
+        <div class="standard-search-grid">
+          <div class="standard-search-field" *ngIf="activeTab() === '0'">
+            <label class="search-field-label">Từ khóa</label>
+            <input
+              type="text"
+              class="wf-search-input"
+              #shelfSearchInput
+              placeholder="Tìm theo mã hoặc tên kệ..."
+              [value]="shelfSearchKeyword()"
+              (input)="onShelfSearch(shelfSearchInput.value)"
+            />
+          </div>
+
+          <div class="standard-search-field" *ngIf="activeTab() === '1'">
+            <label class="search-field-label">Từ khóa</label>
+            <input
+              type="text"
+              class="wf-search-input"
+              #floorSearchInput
+              placeholder="Tìm theo mã hoặc tên tầng..."
+              [value]="floorSearchKeyword()"
+              (input)="onFloorSearch(floorSearchInput.value)"
+            />
+          </div>
+          <div class="standard-search-field" *ngIf="activeTab() === '1'">
+            <label class="search-field-label">Kệ lưu trữ</label>
+            <select
+              class="wf-select filter-select"
+              [ngModel]="floorShelfFilterId()"
+              (ngModelChange)="onFloorShelfFilter($event)"
+            >
+              <option [ngValue]="null">-- Tất cả kệ --</option>
+              <option *ngFor="let s of shelves()" [ngValue]="s.id">{{ s.name }} ({{ s.code }})</option>
+            </select>
+          </div>
+
+          <div class="standard-search-field" *ngIf="activeTab() === '2'">
+            <label class="search-field-label">Từ khóa</label>
+            <input
+              type="text"
+              class="wf-search-input"
+              #boxSearchInput
+              placeholder="Tìm theo mã hoặc tên hộp..."
+              [value]="boxSearchKeyword()"
+              (input)="onBoxSearch(boxSearchInput.value)"
+            />
+          </div>
+          <div class="standard-search-field" *ngIf="activeTab() === '2'">
+            <label class="search-field-label">Tầng kệ</label>
+            <select
+              class="wf-select filter-select"
+              [ngModel]="boxFloorFilterId()"
+              (ngModelChange)="onBoxFloorFilter($event)"
+            >
+              <option [ngValue]="null">-- Tất cả tầng --</option>
+              <option *ngFor="let f of floors()" [ngValue]="f.id">{{ f.name }} ({{ f.code }})</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="standard-search-actions">
+          <button type="button" class="btn-outlined" (click)="refreshData()">
+            <i class="pi pi-refresh"></i> Làm mới
+          </button>
+          <button type="button" class="btn-save" (click)="applyFilters()">
+            <i class="pi pi-check"></i> Áp dụng
+          </button>
+        </div>
+  </div>
 
   <div class="wf-card">
-
-    <!-- PrimeNG Tabs v21 -->
-    <p-tabs value="0" class="evn-tabs">
+    <p-tabs [value]="activeTab()" (valueChange)="setActiveTab($event)" class="evn-tabs">
       <p-tablist class="tab-bar-custom">
         <p-tab value="0" class="tab-item-custom"><i class="pi pi-server mr-1"></i>Kệ lưu trữ</p-tab>
         <p-tab value="1" class="tab-item-custom"><i class="pi pi-list mr-1"></i>Tầng kệ</p-tab>
@@ -16,21 +102,7 @@
       <p-tabpanels class="tab-panels-custom">
 
         <!-- ── TAB KỆ LƯU TRỮ ── -->
-        <p-tabpanel value="0">
-          <div class="list-toolbar">
-            <div class="toolbar-left">
-              <input type="text" class="wf-search-input"
-                placeholder="Tìm theo mã hoặc tên kệ..."
-                [ngModel]="shelfSearchKeyword()"
-                (ngModelChange)="onShelfSearch($event)" />
-            </div>
-            <div class="toolbar-right">
-              <button class="btn-green btn-small" (click)="showDialog('shelf')">
-                <i class="pi pi-plus"></i> Thêm kệ mới
-              </button>
-            </div>
-          </div>
-
+        <p-tabpanel value="0">  
           <div class="wf-table-wrap">
             <table class="wf-table">
               <thead>
@@ -89,52 +161,20 @@
             </table>
           </div>
 
-          <div class="table-footer" *ngIf="filteredShelves().length > 0">
+          <div class="table-footer-paginator" *ngIf="filteredShelves().length > 0">
             <span class="record-count">Tổng số: <b>{{ filteredShelves().length }}</b> bản ghi.</span>
-            <div class="pagination">
-              <button class="page-btn" (click)="prevShelfPage()" [disabled]="shelfPage() === 1">
-                <i class="pi pi-chevron-left"></i>
-              </button>
-              <span class="page-current">Trang {{ shelfPage() }} / {{ shelfTotalPages() }}</span>
-              <button class="page-btn" (click)="nextShelfPage()" [disabled]="shelfPage() >= shelfTotalPages()">
-                <i class="pi pi-chevron-right"></i>
-              </button>
-              <span class="page-jump-label">
-                Đi tới trang:
-                <input type="number" class="page-jump-input" [value]="shelfPage()"
-                  (change)="goToShelfPage($any($event.target).value)"
-                  [min]="1" [max]="shelfTotalPages()" />
-              </span>
-              <select class="page-size-sel" [ngModel]="shelfPageSize()" (change)="onShelfPageSizeChange($event)">
-                <option [value]="10">10 / trang</option>
-                <option [value]="20">20 / trang</option>
-                <option [value]="50">50 / trang</option>
-              </select>
-            </div>
+            <app-eco-paginator
+              [first]="(shelfPage() - 1) * shelfPageSize()"
+              [rows]="shelfPageSize()"
+              [totalRecords]="filteredShelves().length"
+              [rowsPerPageOptions]="[10, 20, 50]"
+              (onPageChange)="onShelfPageChange($event)">
+            </app-eco-paginator>
           </div>
         </p-tabpanel>
 
         <!-- ── TAB TẦNG KỆ ── -->
         <p-tabpanel value="1">
-          <div class="list-toolbar">
-            <div class="toolbar-left">
-              <input type="text" class="wf-search-input"
-                placeholder="Tìm theo mã hoặc tên tầng..."
-                [ngModel]="floorSearchKeyword()"
-                (ngModelChange)="onFloorSearch($event)" />
-              <select class="wf-select filter-select"
-                [ngModel]="floorShelfFilterId()"
-                (ngModelChange)="onFloorShelfFilter($event)">
-                <option [ngValue]="null">-- Tất cả kệ --</option>
-                <option *ngFor="let s of shelves()" [ngValue]="s.id">{{ s.name }} ({{ s.code }})</option>
-              </select>
-            </div>
-            <div class="toolbar-right">
-              <button class="btn-green btn-small" (click)="showDialog('floor')">
-                <i class="pi pi-plus"></i> Thêm tầng mới
-              </button>
-            </div>
-          </div>
 
           <div class="wf-table-wrap">
             <table class="wf-table">
@@ -194,53 +234,20 @@
             </table>
           </div>
 
-          <div class="table-footer" *ngIf="filteredFloors().length > 0">
+          <div class="table-footer-paginator" *ngIf="filteredFloors().length > 0">
             <span class="record-count">Tổng số: <b>{{ filteredFloors().length }}</b> bản ghi.</span>
-            <div class="pagination">
-              <button class="page-btn" (click)="prevFloorPage()" [disabled]="floorPage() === 1">
-                <i class="pi pi-chevron-left"></i>
-              </button>
-              <span class="page-current">Trang {{ floorPage() }} / {{ floorTotalPages() }}</span>
-              <button class="page-btn" (click)="nextFloorPage()" [disabled]="floorPage() >= floorTotalPages()">
-                <i class="pi pi-chevron-right"></i>
-              </button>
-              <span class="page-jump-label">
-                Đi tới trang:
-                <input type="number" class="page-jump-input" [value]="floorPage()"
-                  (change)="goToFloorPage($any($event.target).value)"
-                  [min]="1" [max]="floorTotalPages()" />
-              </span>
-              <select class="page-size-sel" [ngModel]="floorPageSize()" (change)="onFloorPageSizeChange($event)">
-                <option [value]="10">10 / trang</option>
-                <option [value]="20">20 / trang</option>
-                <option [value]="50">50 / trang</option>
-              </select>
-            </div>
+            <app-eco-paginator
+              [first]="(floorPage() - 1) * floorPageSize()"
+              [rows]="floorPageSize()"
+              [totalRecords]="filteredFloors().length"
+              [rowsPerPageOptions]="[10, 20, 50]"
+              (onPageChange)="onFloorPageChange($event)">
+            </app-eco-paginator>
           </div>
         </p-tabpanel>
 
         <!-- ── TAB HỘP HỒ SƠ ── -->
         <p-tabpanel value="2">
-          <div class="list-toolbar">
-            <div class="toolbar-left">
-              <input type="text" class="wf-search-input"
-                placeholder="Tìm theo mã hoặc tên hộp..."
-                [ngModel]="boxSearchKeyword()"
-                (ngModelChange)="onBoxSearch($event)" />
-              <select class="wf-select filter-select"
-                [ngModel]="boxFloorFilterId()"
-                (ngModelChange)="onBoxFloorFilter($event)">
-                <option [ngValue]="null">-- Tất cả tầng --</option>
-                <option *ngFor="let f of floors()" [ngValue]="f.id">{{ f.name }} ({{ f.code }})</option>
-              </select>
-            </div>
-            <div class="toolbar-right">
-              <button class="btn-green btn-small" (click)="showDialog('box')">
-                <i class="pi pi-plus"></i> Thêm hộp mới
-              </button>
-            </div>
-          </div>
-
           <div class="wf-table-wrap">
             <table class="wf-table">
               <thead>
@@ -299,28 +306,15 @@
             </table>
           </div>
 
-          <div class="table-footer" *ngIf="filteredBoxes().length > 0">
+          <div class="table-footer-paginator" *ngIf="filteredBoxes().length > 0">
             <span class="record-count">Tổng số: <b>{{ filteredBoxes().length }}</b> bản ghi.</span>
-            <div class="pagination">
-              <button class="page-btn" (click)="prevBoxPage()" [disabled]="boxPage() === 1">
-                <i class="pi pi-chevron-left"></i>
-              </button>
-              <span class="page-current">Trang {{ boxPage() }} / {{ boxTotalPages() }}</span>
-              <button class="page-btn" (click)="nextBoxPage()" [disabled]="boxPage() >= boxTotalPages()">
-                <i class="pi pi-chevron-right"></i>
-              </button>
-              <span class="page-jump-label">
-                Đi tới trang:
-                <input type="number" class="page-jump-input" [value]="boxPage()"
-                  (change)="goToBoxPage($any($event.target).value)"
-                  [min]="1" [max]="boxTotalPages()" />
-              </span>
-              <select class="page-size-sel" [ngModel]="boxPageSize()" (change)="onBoxPageSizeChange($event)">
-                <option [value]="10">10 / trang</option>
-                <option [value]="20">20 / trang</option>
-                <option [value]="50">50 / trang</option>
-              </select>
-            </div>
+            <app-eco-paginator
+              [first]="(boxPage() - 1) * boxPageSize()"
+              [rows]="boxPageSize()"
+              [totalRecords]="filteredBoxes().length"
+              [rowsPerPageOptions]="[10, 20, 50]"
+              (onPageChange)="onBoxPageChange($event)">
+            </app-eco-paginator>
           </div>
         </p-tabpanel>
 
@@ -431,6 +425,15 @@
   </ng-template>
 </p-dialog>
 
+<app-delete-confirm-dialog
+  [visible]="showDeleteConfirm()"
+  [header]="'Xác nhận xóa ' + deleteEntityTypeLabel()"
+  [entityLabel]="deleteEntityTypeLabel()"
+  [targetName]="deleteTargetLabel()"
+  [loading]="deleting()"
+  (cancelled)="onCancelDelete()"
+  (confirmed)="onConfirmDelete()"
+></app-delete-confirm-dialog>
 <!-- Recursive template: đơn vị dạng cây -->
 <ng-template #formOrgTreeNode let-node let-depth="depth">
   <div class="org-tree-node" [style.padding-left.px]="depth * 14 + 8"

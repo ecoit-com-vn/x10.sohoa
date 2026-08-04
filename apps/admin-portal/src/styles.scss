@@ -249,7 +249,11 @@ body {
     align-items: center;
     flex-wrap: nowrap;
     gap: 12px;
-    margin-bottom: 12px;
+    margin-bottom: 3px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 12px 16px;
 }
 
 .standard-page-toolbar>.toolbar-left {
@@ -268,7 +272,7 @@ body {
 }
 
 .standard-search-card {
-    margin-bottom: 16px;
+    margin-bottom: 3px;
     padding: 8px 16px;
     border: 1px solid #e2e8f0;
     border-radius: 8px;
@@ -308,6 +312,29 @@ body {
     border-radius: 6px;
 }
 
+.standard-search-field p-select,
+.standard-search-field p-multiselect,
+.standard-search-field p-datepicker,
+.standard-search-field p-treeselect,
+.standard-search-field eco-input-date,
+.standard-search-field eco-input-tree-select,
+.standard-search-field .p-select,
+.standard-search-field .p-multiselect,
+.standard-search-field .p-datepicker,
+.standard-search-field .p-treeselect {
+    width: 100%;
+}
+
+.standard-search-field .p-select,
+.standard-search-field .p-multiselect,
+.standard-search-field .p-datepicker,
+.standard-search-field .p-datepicker-input,
+.standard-search-field .p-treeselect,
+.standard-search-field .p-inputtext {
+    min-height: 38px;
+    box-sizing: border-box;
+}
+
 .standard-search-actions,
 .unit-search-actions,
 .catalog-search-actions,
@@ -316,7 +343,7 @@ body {
     justify-content: flex-end;
     align-items: flex-end;
     gap: 8px;
-    //margin-top: 16px;
+    margin-top: 16px;
     width: 100%;
     flex-basis: 100%;
 }
@@ -343,6 +370,50 @@ body {
 .standard-search-card>.toolbar-left>div {
     width: 100% !important;
     min-width: 0 !important;
+}
+
+.unit-scoped-search-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: end;
+    gap: 16px;
+    width: 100%;
+    padding: 16px;
+    border: 1px solid #dbe4f0;
+    border-radius: 8px;
+}
+
+.unit-scoped-search-grid--muc-luc {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.unit-scoped-search-grid .standard-search-field > label {
+    margin-top: 0;
+}
+
+.unit-scoped-search-actions {
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-end;
+    gap: 8px;
+    grid-column: 1 / -1;
+}
+
+.unit-scoped-search-actions .btn-outlined,
+.unit-scoped-search-actions .btn-save {
+    height: 38px;
+    white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+    .unit-scoped-search-grid,
+    .unit-scoped-search-grid--muc-luc {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .unit-scoped-search-actions {
+        grid-column: 1 / -1;
+    }
 }
 
 .standard-list-card {
@@ -1154,7 +1225,8 @@ td:has(.act-btn) {
 .tab-bar {
     display: flex;
     border-bottom: 2px solid #e5e7eb;
-    margin-bottom: 20px;
+    margin-bottom: 3px;
+    margin-top: 3px;
 }
 
 .tab-item {

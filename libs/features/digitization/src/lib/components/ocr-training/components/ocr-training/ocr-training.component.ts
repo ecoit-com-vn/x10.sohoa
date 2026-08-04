@@ -310,6 +310,45 @@ export class OcrTrainingComponent implements OnInit {
     });
   }
 
+  /** Yêu cầu 91 (mở rộng) — liên kết bản ghi đang xem với 1 job huấn luyện lại. */
+  linkRetrainingJob(): void {
+    if (!this.selectedItem) return;
+
+    this.http.post<{ retrainJobId: string }>(`${this.API_BASE}/${this.selectedItem.id}/link-retraining-job`, {
+      triggeredBy: this.verifyForm.verifiedBy || 'System',
+    }).subscribe({
+      next: (res) => {
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Đã liên kết',
+          detail: `Đã tạo job huấn luyện lại #${res.retrainJobId}.`,
+        });
+      },
+      error: () => {
+        this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không liên kết được job huấn luyện lại.' });
+      },
+    });
+  }
+
+  /** Yêu cầu 91 (mở rộng) — export dữ liệu huấn luyện đã Verified (hoặc theo dataset version). */
+  exportDataset(): void {
+    this.http.get<{ totalCount: number; items: unknown[] }>(`${this.API_BASE}/export`).subscribe({
+      next: (res) => {
+        const blob = new Blob([JSON.stringify(res.items, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `ocr-training-dataset-${new Date().toISOString().slice(0, 10)}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        this.messageService.add({ severity: 'success', summary: 'Đã xuất dataset', detail: `${res.totalCount} bản ghi.` });
+      },
+      error: () => {
+        this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không xuất được dataset.' });
+      },
+    });
+  }
+
   confirmDelete(item: OcrTrainingItem): void {
     this.deleteTarget.set(item);
     this.showDeleteConfirm.set(true);

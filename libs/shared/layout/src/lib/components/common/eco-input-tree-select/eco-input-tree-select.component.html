@@ -17,6 +17,7 @@
       [metaKeySelection]="metaKeySelection"
       [options]="nodes"
       [selectionMode]="selectionMode"
+      [display]="display"
       [placeholder]="placeholder"
       [showClear]="!readonly && showClear"
       [disabled]="readonly"
@@ -24,8 +25,8 @@
       [scrollHeight]="scrollHeight"
       [panelStyle]="{ 'min-width': '100%' }"
       appendTo="body"
-      [propagateSelectionUp]="selectionMode === 'checkbox' && !isFiltering"
-      [propagateSelectionDown]="selectionMode === 'checkbox' && !isFiltering"
+      [propagateSelectionUp]="selectionMode === 'checkbox'"
+      [propagateSelectionDown]="selectionMode === 'checkbox'"
       (onFilter)="onFilter($event)"
     ></p-treeSelect>
 

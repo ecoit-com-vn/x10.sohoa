@@ -3,16 +3,16 @@
 
     <div class="list-toolbar standard-page-toolbar">
         <div class="toolbar-left">
-            <wf-breadcrumb [customItems]="[{ label: 'Quản trị hệ thống' }, { label: 'Quản lý menu', url: '/administration/menu-management' }]" />
+            <wf-breadcrumb />
         </div>
         <div class="toolbar-right">
             <button *ngIf="authService.hasPermission('MENU_CREATE')" class="btn-green" (click)="onAddNew()">
-        <i class="pi pi-plus"></i> Thêm menu gốc
+            <i class="pi pi-plus"></i> Thêm menu gốc
       </button>
         </div>
     </div>
 
-    <div class="wf-card">
+    <div>
         <div *ngIf="currentView() === 'list' || currentView() === 'add' || currentView() === 'edit'" class="animate-fade-in">
             <div class="standard-search-card">
                 <div class="standard-search-grid">
@@ -20,73 +20,84 @@
                         <label class="search-field-label">Từ khóa</label>
                         <input type="text" class="wf-search-input" placeholder="Tìm nhanh menu..." [ngModel]="searchKeyword()" (ngModelChange)="searchKeyword.set($event)" />
                     </div>
-                </div>
-                <div class="standard-search-actions">
-                    <button type="button" class="btn-outlined" (click)="onResetSearch()">
-                        <i class="pi pi-refresh"></i> Làm mới
-                    </button>
-                    <button type="button" class="btn-save" (click)="onSearch()">
-                        <i class="pi pi-check"></i> Áp dụng
-                    </button>
+
+                    <div class="standard-search-field">
+                        <label class="search-field-label">Trạng thái</label>
+                        <select class="wf-select" [ngModel]="searchStatus()" (ngModelChange)="searchStatus.set($event)">
+              <option value="">-- Tất cả trạng thái --</option>
+              <option value="active">Hoạt động</option>
+              <option value="inactive">Ngừng hoạt động</option>
+            </select>
+                    </div>
+                    <div class="standard-search-actions">
+                        <button type="button" class="btn-outlined" (click)="onResetSearch()">
+            <i class="pi pi-refresh"></i> Làm mới
+          </button>
+                        <button type="button" class="btn-save" (click)="onSearch()">
+            <i class="pi pi-check"></i> Áp dụng
+          </button>
+                    </div>
                 </div>
             </div>
 
-            <div class="wf-table-wrap">
-                <table class="wf-table">
-                    <thead>
-                        <tr>
-                            <th style="width: 70px; text-align: center;">STT</th>
-                            <th>Tên hiển thị (Name)</th>
-                            <th>Đường dẫn (URL)</th>
-                            <th style="width: 100px; text-align: center;">Thứ tự</th>
-                            <th class="col-tt">Trạng thái</th>
-                            <th class="col-hd">Thao tác</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <ng-container *ngIf="loading()">
-                            <tr *ngFor="let item of [1, 2, 3, 4]">
-                                <td style="text-align: center;">
-                                    <div class="skeleton-shimmer" style="height: 16px; width: 24px; margin: 0 auto; border-radius: 4px;"></div>
-                                </td>
-                                <td>
-                                    <div class="skeleton-shimmer" style="height: 16px; width: 150px; border-radius: 4px;"></div>
-                                </td>
-                                <td>
-                                    <div class="skeleton-shimmer" style="height: 16px; width: 120px; border-radius: 4px;"></div>
-                                </td>
-                                <td style="text-align: center;">
-                                    <div class="skeleton-shimmer" style="height: 16px; width: 30px; margin: 0 auto; border-radius: 4px;"></div>
-                                </td>
-                                <td style="text-align: center;">
-                                    <div class="skeleton-shimmer" style="height: 16px; width: 80px; margin: 0 auto; border-radius: 12px;"></div>
-                                </td>
-                                <td class="col-hd">
-                                    <div class="skeleton-shimmer" style="height: 24px; width: 60px; border-radius: 4px;"></div>
-                                </td>
+            <div class="wf-card">
+                <div class="wf-table-wrap">
+                    <table class="wf-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 70px; text-align: center;">STT</th>
+                                <th>Tên hiển thị (Name)</th>
+                                <th>Đường dẫn (URL)</th>
+                                <th style="width: 100px; text-align: center;">Thứ tự</th>
+                                <th class="col-tt">Trạng thái</th>
+                                <th class="col-hd">Thao tác</th>
                             </tr>
-                        </ng-container>
-
-                        <ng-container *ngIf="!loading()">
-                            <ng-container *ngIf="menuTree().length > 0; else emptyMenuTree">
-                                <ng-container *ngTemplateOutlet="menuRowsTpl; context: { $implicit: menuTree(), level: 0 }"></ng-container>
-                            </ng-container>
-
-                            <ng-template #emptyMenuTree>
-                                <tr>
-                                    <td colspan="6" class="empty-row">
-                                        <i class="pi pi-inbox"></i>
-                                        <div>Không tìm thấy menu nào phù hợp.</div>
+                        </thead>
+                        <tbody>
+                            <ng-container *ngIf="loading()">
+                                <tr *ngFor="let item of [1, 2, 3, 4]">
+                                    <td style="text-align: center;">
+                                        <div class="skeleton-shimmer" style="height: 16px; width: 24px; margin: 0 auto; border-radius: 4px;"></div>
+                                    </td>
+                                    <td>
+                                        <div class="skeleton-shimmer" style="height: 16px; width: 150px; border-radius: 4px;"></div>
+                                    </td>
+                                    <td>
+                                        <div class="skeleton-shimmer" style="height: 16px; width: 120px; border-radius: 4px;"></div>
+                                    </td>
+                                    <td style="text-align: center;">
+                                        <div class="skeleton-shimmer" style="height: 16px; width: 30px; margin: 0 auto; border-radius: 4px;"></div>
+                                    </td>
+                                    <td style="text-align: center;">
+                                        <div class="skeleton-shimmer" style="height: 16px; width: 80px; margin: 0 auto; border-radius: 12px;"></div>
+                                    </td>
+                                    <td class="col-hd">
+                                        <div class="skeleton-shimmer" style="height: 24px; width: 60px; border-radius: 4px;"></div>
                                     </td>
                                 </tr>
-                            </ng-template>
-                        </ng-container>
-                    </tbody>
-                </table>
-            </div>
+                            </ng-container>
 
-            <div class="table-footer">
-                <span class="record-count">Tổng số: <b>{{ menus().length }}</b> menu.</span>
+                            <ng-container *ngIf="!loading()">
+                                <ng-container *ngIf="menuTree().length > 0; else emptyMenuTree">
+                                    <ng-container *ngTemplateOutlet="menuRowsTpl; context: { $implicit: menuTree(), level: 0 }"></ng-container>
+                                </ng-container>
+
+                                <ng-template #emptyMenuTree>
+                                    <tr>
+                                        <td colspan="6" class="empty-row">
+                                            <i class="pi pi-inbox"></i>
+                                            <div>Không tìm thấy menu nào phù hợp.</div>
+                                        </td>
+                                    </tr>
+                                </ng-template>
+                            </ng-container>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="table-footer">
+                    <span class="record-count">Tổng số: <b>{{ menus().length }}</b> menu.</span>
+                </div>
             </div>
         </div>
 

@@ -219,19 +219,34 @@
   justify-content: center;
 }
 
-::ng-deep .table-footer-paginator .p-paginator .p-paginator-page:hover:not(.p-disabled),
-::ng-deep .table-footer-paginator .p-paginator .p-paginator-first:hover:not(.p-disabled),
-::ng-deep .table-footer-paginator .p-paginator .p-paginator-prev:hover:not(.p-disabled),
-::ng-deep .table-footer-paginator .p-paginator .p-paginator-next:hover:not(.p-disabled),
-::ng-deep .table-footer-paginator .p-paginator .p-paginator-last:hover:not(.p-disabled) {
+::ng-deep
+  .table-footer-paginator
+  .p-paginator
+  .p-paginator-page:hover:not(.p-disabled),
+::ng-deep
+  .table-footer-paginator
+  .p-paginator
+  .p-paginator-first:hover:not(.p-disabled),
+::ng-deep
+  .table-footer-paginator
+  .p-paginator
+  .p-paginator-prev:hover:not(.p-disabled),
+::ng-deep
+  .table-footer-paginator
+  .p-paginator
+  .p-paginator-next:hover:not(.p-disabled),
+::ng-deep
+  .table-footer-paginator
+  .p-paginator
+  .p-paginator-last:hover:not(.p-disabled) {
   background-color: #f1f5f9 !important;
   border-color: #cbd5e1 !important;
   color: #000000 !important;
 }
 
 ::ng-deep .table-footer-paginator .p-paginator .p-paginator-page.p-highlight {
-  background-color: #002D72 !important;
-  border-color: #002D72 !important;
+  background-color: #002d72 !important;
+  border-color: #002d72 !important;
   color: white !important;
 }
 
@@ -325,7 +340,7 @@
 }
 
 .last-node > .folder-row > .connector-space::before {
-  content: "";
+  content: '';
   position: absolute;
   left: -2px;
   top: 50%;
@@ -336,7 +351,7 @@
 }
 
 .last-node > .folder-children-wrapper::after {
-  content: "";
+  content: '';
   position: absolute;
   left: -39px;
   top: 0;
@@ -358,7 +373,7 @@
 }
 
 .folder-children-wrapper::before {
-  content: "";
+  content: '';
   position: absolute;
   left: -1.5px;
   top: -14px;
@@ -448,4 +463,70 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+.grid-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  align-items: flex-end;
+}
+
+.filter-item {
+  flex: 1 1 calc(25% - 9px);
+  min-width: 220px;
+}
+
+.filter-item label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.input-icon {
+  position: relative;
+}
+
+.input-icon i {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  font-size: 0.85rem;
+}
+
+.input-icon input {
+  width: 100%;
+  height: 32px;
+  padding-left: 30px;
+  font-size: 0.85rem;
+  box-sizing: border-box;
+}
+
+.full-width-datepicker {
+  width: 100%;
+}
+
+/* PrimeNG DatePicker */
+:host ::ng-deep .full-width-datepicker {
+  width: 100%;
+}
+
+:host ::ng-deep .full-width-datepicker .p-datepicker-input,
+:host ::ng-deep .full-width-datepicker input {
+  width: 100%;
+  height: 32px;
+  font-size: 0.85rem;
+  box-sizing: border-box;
+}
+
+:host ::ng-deep .full-width-datepicker .p-inputtext {
+  width: 100%;
 }

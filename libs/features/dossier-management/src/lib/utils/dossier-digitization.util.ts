@@ -121,16 +121,35 @@ export function isOcrComplete(ocr: DocumentOcrProgress | undefined | null): bool
   );
 }
 
-export function isExtractionComplete(doc: DossierDocumentItem): boolean {
-  const ext = doc.extractionResult;
+type ExtractionResolvedState = 'None' | 'InProgress' | 'Completed' | 'Failed';
+
+/**
+ * Trạng thái bóc tách "gộp" từ 2 nguồn độc lập (ocrProgress realtime + extractionResult đã lưu).
+ * Ưu tiên tín hiệu realtime mới nhất (Extracting/Failed ở phase extraction) trước, vì nó phản ánh
+ * lần chạy gần nhất — tránh trường hợp extractionResult còn "Completed" cũ trong khi lần bóc tách
+ * lại vừa lỗi (2 icon thành công + lỗi cùng hiện).
+ */
+function resolveExtractionState(doc: DossierDocumentItem): ExtractionResolvedState {
   const ocr = doc.ocrProgress;
-  return ext?.status === 'Completed' || ocr?.status === 'Completed';
+  const ext = doc.extractionResult;
+
+  if (!ocr && !ext) return 'None';
+  if (ocr?.status === 'Extracting') return 'InProgress';
+  if (ocr?.status === 'Failed' && ocr.phase === 'extraction') return 'Failed';
+  if (ext?.status === 'Completed') return 'Completed';
+  if (ext?.status === 'Failed') return 'Failed';
+  if (ext?.status === 'Pending' || ext?.status === 'Running') return 'InProgress';
+  if (ocr?.status === 'OcrCompleted') return 'InProgress';
+  if (ocr?.status === 'Completed') return 'Completed';
+  return 'None';
+}
+
+export function isExtractionComplete(doc: DossierDocumentItem): boolean {
+  return resolveExtractionState(doc) === 'Completed';
 }
 
 export function isExtractionFailed(doc: DossierDocumentItem): boolean {
-  const ext = doc.extractionResult;
-  const ocr = doc.ocrProgress;
-  return ext?.status === 'Failed' || (!!ocr && ocr.status === 'Failed' && ocr.phase === 'extraction');
+  return resolveExtractionState(doc) === 'Failed';
 }
 
 /** Phần trăm thanh tiến độ bóc tách (0–100); null nếu chưa bắt đầu hoặc đã kết thúc. */
@@ -235,41 +254,3 @@ export function getRetryProcessOption(doc: DossierDocumentItem): DigitizationPro
   return 'OcrAndExtract';
 }
 
-export function getExtractionColumnState(doc: DossierDocumentItem): {
-  label: string;
-  statusClass: string;
-  showProgress: boolean;
-} {
-  const ocr = doc.ocrProgress;
-  const ext = doc.extractionResult;
-
-  if (!ocr && !ext) {
-    return { label: '—', statusClass: '', showProgress: false };
-  }
-
-  if (ocr?.status === 'Extracting') {
-    return { label: 'Đang bóc tách', statusClass: 'status-pending', showProgress: true };
-  }
-
-  if (ext?.status) {
-    return {
-      label: getExtractionStatusLabel(ext.status),
-      statusClass: getDigitizationStatusClass(ext.status === 'Failed' ? 'Failed' : ext.status === 'Completed' ? 'Completed' : 'Pending'),
-      showProgress: ext.status !== 'Completed' && ext.status !== 'Failed',
-    };
-  }
-
-  if (ocr?.status === 'OcrCompleted') {
-    return { label: 'Chờ bóc tách', statusClass: 'status-pending', showProgress: true };
-  }
-
-  if (ocr?.status === 'Completed') {
-    return { label: 'Hoàn tất', statusClass: 'status-active', showProgress: false };
-  }
-
-  if (ocr?.status === 'Failed' && ocr.phase === 'extraction') {
-    return { label: 'Lỗi', statusClass: 'status-inactive', showProgress: false };
-  }
-
-  return { label: '—', statusClass: '', showProgress: false };
-}

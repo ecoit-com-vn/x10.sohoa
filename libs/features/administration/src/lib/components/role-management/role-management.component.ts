@@ -217,8 +217,8 @@ export class RoleManagement implements OnInit {
     event.stopPropagation();
     this.actionMenuItems = [
       ...(this.authService.hasPermission('ROLE_MANAGE') || this.authService.hasPermission('PERMISSION_MANAGE') ? [{ label: 'Phân quyền', title:'Phân quyền', icon: 'pi pi-shield', command: () => this.onAssignPermissions(role) }] : []),
-      ...(this.authService.hasPermission('ROLE_EDIT') ? [{ label: role.isActive ? 'Khóa' : 'Mở khóa', title: role.isActive ? 'Khóa' : 'Mở khóa', icon: role.isActive ? 'pi pi-lock color-red' : 'pi pi-lock-open color-teal', command: () => this.onToggleStatusRequest(role) }] : []),
       ...(this.authService.hasPermission('ROLE_EDIT') ? [{ label: 'Chỉnh sửa', title:'Chỉnh sửa', icon: 'pi pi-pencil color-blue', command: () => this.onEdit(role) }] : []),
+      ...(this.authService.hasPermission('ROLE_EDIT') ? [{ label: role.isActive ? 'Khóa' : 'Mở khóa', title: role.isActive ? 'Khóa' : 'Mở khóa', icon: role.isActive ? 'pi pi-lock color-red' : 'pi pi-lock-open color-teal', command: () => this.onToggleStatusRequest(role) }] : []),
       ...(this.authService.hasPermission('ROLE_DELETE') ? [{ label: 'Xóa', title:'Xóa', icon: 'pi pi-trash color-red', command: () => this.onDelete(role) }] : []),
     ];
     menu.toggle(event);

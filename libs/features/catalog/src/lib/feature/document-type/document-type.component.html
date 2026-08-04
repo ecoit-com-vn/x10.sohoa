@@ -10,10 +10,9 @@
       </button>
     </div>
   </div>
-  <div class="wf-card">
     <div class="animate-fade-in">
       <div class="standard-search-card">
-        <div class="toolbar-left">
+        <div class="standard-search-grid">
           <div class="standard-search-field">
             <label class="search-field-label">Từ khóa</label>
             <input type="text" class="wf-search-input" placeholder="Tìm theo mã hoặc tên..." [ngModel]="searchKeyword()"
@@ -29,18 +28,18 @@
             </select>
           </div>
 
-          <div class="standard-search-actions">
-            <button type="button" class="btn-outlined" (click)="onResetSearch()">
-              <i class="pi pi-refresh"></i> Làm mới
-            </button>
-            <button type="button" class="btn-save" (click)="onSearch()">
-              <i class="pi pi-check"></i> Áp dụng
-            </button>
-          </div>
         </div>
-
+        <div class="standard-search-actions">
+          <button type="button" class="btn-outlined" (click)="onResetSearch()">
+            <i class="pi pi-refresh"></i> Làm mới
+          </button>
+          <button type="button" class="btn-save" (click)="onSearch()">
+            <i class="pi pi-check"></i> Áp dụng
+          </button>
+        </div>
       </div>
 
+      <div class="wf-card">
       <div class="wf-table-wrap">
         <table class="wf-table">
           <thead>
@@ -134,6 +133,7 @@
             <option [value]="50">50 / trang</option>
           </select>
         </div>
+      </div>
       </div>
     </div>
 
@@ -268,6 +268,5 @@
         </div>
       </ng-template>
     </p-dialog>
-  </div>
 </div>
 

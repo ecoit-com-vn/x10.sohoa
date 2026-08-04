@@ -580,8 +580,10 @@ export class WorkflowBuilderComponent implements OnInit, OnDestroy {
     const isActive = this.filterIsActive === 'true'  ? true
                    : this.filterIsActive === 'false' ? false
                    : undefined;
+    const keyword = this.searchKeyword.trim().normalize('NFC');
+    this.searchKeyword = keyword;
 
-    this.workflowSvc.getAll(this.currentPage, this.pageSize, this.searchKeyword || undefined, isActive)
+    this.workflowSvc.getAll(this.currentPage, this.pageSize, keyword || undefined, isActive)
       .pipe(finalize(() => {
         this.loading = false;
         this.cdr.detectChanges();
@@ -600,6 +602,19 @@ export class WorkflowBuilderComponent implements OnInit, OnDestroy {
           this.cdr.detectChanges();
         }
       });
+  }
+
+  onSearch(): void {
+    this.loadList(true);
+  }
+
+  onStatusFilterChange(isActive: string): void {
+    if (this.filterIsActive === isActive) {
+      return;
+    }
+
+    this.filterIsActive = isActive;
+    this.loadList(true);
   }
 
   resetFilter(): void {
@@ -1143,6 +1158,7 @@ export class WorkflowBuilderComponent implements OnInit, OnDestroy {
       selectedSystemGroupIds: sysGroupIds,
       selectedUnitGroupIds: unitGroupIds,
       requireSameUnit: bo.$attrs['requireSameUnit'] === 'true',
+      allowEdit: bo.$attrs['allowEdit'] === 'true',
       selectedAssignees: assigneeIds.map((id: string, i: number) => ({ id, label: assigneeLabels[i] || id })),
       assigneeSearch: ''
     };
@@ -1175,6 +1191,11 @@ export class WorkflowBuilderComponent implements OnInit, OnDestroy {
       const checked = event?.target ? event.target.checked : Boolean(value);
       modeling.updateProperties(this.selectedBpmnElement, { requireSameUnit: String(checked) });
       this.selectedElementProps.requireSameUnit = checked;
+    } else if (prop === 'allowEdit') {
+      // Giá trị từ checkbox
+      const checked = event?.target ? event.target.checked : Boolean(value);
+      modeling.updateProperties(this.selectedBpmnElement, { allowEdit: String(checked) });
+      this.selectedElementProps.allowEdit = checked;
     } else {
       const attrs: any = {};
       attrs[prop] = value;
@@ -1236,6 +1257,7 @@ export class WorkflowBuilderComponent implements OnInit, OnDestroy {
         systemPermissionGroupIds: bo.$attrs['systemPermissionGroupIds'] || '',
         unitPermissionGroupIds: bo.$attrs['unitPermissionGroupIds'] || '',
         requireSameUnit: bo.$attrs['requireSameUnit'] === 'true',
+        allowEdit: bo.$attrs['allowEdit'] === 'true',
         assigneeId: bo.$attrs['assigneeId'] || ''
       };
     }).sort((a: any, b: any) => a.order - b.order);

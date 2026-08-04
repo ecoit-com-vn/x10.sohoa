@@ -1,0 +1,98 @@
+.overlay-toolbar {
+  display: flex;
+  gap: 6px;
+  padding: 6px 0;
+
+  .btn-zoom {
+    min-width: 32px;
+    height: 32px;
+    padding: 0 8px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background-color: #ffffff !important;
+    color: #374151 !important;
+    cursor: pointer;
+
+    &:hover {
+      background-color: #f3f4f6 !important;
+    }
+  }
+}
+
+.overlay-scroll {
+  overflow: auto;
+  max-height: 70vh;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background-color: #f9fafb;
+}
+
+.overlay-canvas {
+  position: relative;
+  display: inline-block;
+
+  img {
+    display: block;
+  }
+}
+
+.overlay-box {
+  position: absolute;
+  border: 2px solid;
+  cursor: pointer;
+  box-sizing: border-box;
+
+  &.region-text {
+    border-color: #4790e9;
+    background-color: rgba(71, 144, 233, 0.12);
+  }
+
+  &.region-handwritten {
+    border-color: #9333ea;
+    background-color: rgba(147, 51, 234, 0.12);
+  }
+
+  &.region-seal {
+    border-color: #ECAE0F;
+    background-color: rgba(236, 174, 15, 0.15);
+  }
+
+  &.region-signature {
+    border-color: #4790e9;
+    background-color: rgba(71, 144, 233, 0.2);
+  }
+
+  &.region-formula {
+    border-color: #3BA962;
+    background-color: rgba(59, 169, 98, 0.12);
+  }
+
+  &.region-diff {
+    border-color: #dc2626;
+    background-color: rgba(220, 38, 38, 0.15);
+  }
+
+  &.region-conf-high {
+    border-color: #16a34a;
+    background-color: rgba(22, 163, 74, 0.12);
+  }
+
+  &.region-conf-medium {
+    border-color: #d97706;
+    background-color: rgba(217, 119, 6, 0.15);
+  }
+
+  &.region-conf-low {
+    border-color: #dc2626;
+    background-color: rgba(220, 38, 38, 0.15);
+  }
+
+  &.region-conf-unknown {
+    border-color: #9ca3af;
+    background-color: rgba(156, 163, 175, 0.15);
+  }
+
+  &:hover {
+    filter: brightness(0.92);
+  }
+}

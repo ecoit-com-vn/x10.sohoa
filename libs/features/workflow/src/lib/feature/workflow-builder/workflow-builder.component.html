@@ -35,21 +35,21 @@
   <!-- ══════════════════════════════════════════════════════════
        VIEW: DANH SÁCH QUY TRÌNH
   ══════════════════════════════════════════════════════════ -->
-  <div *ngIf="viewMode === 'list'" class="wf-card">
+  <div *ngIf="viewMode === 'list'">
 
     <!-- Toolbar -->
     <div class="standard-search-card">
-      <div class="toolbar-left">
+      <div class="standard-search-grid">
         <div class="standard-search-field">
           <label class="search-field-label">Từ khóa</label>
           <input id="wf-search" type="text" class="wf-search-input"
             placeholder="Tìm kiếm theo tên, mô tả..."
             [(ngModel)]="searchKeyword"
-            (keyup.enter)="loadList()" />
+            (keyup.enter)="onSearch()" />
         </div>
         <div class="standard-search-field">
           <label class="search-field-label">Trạng thái</label>
-          <select class="wf-select" [(ngModel)]="filterIsActive">
+          <select class="wf-select" [ngModel]="filterIsActive" (ngModelChange)="onStatusFilterChange($event)">
             <option value="">-- Tất cả trạng thái --</option>
             <option value="true">Đang hoạt động</option>
             <option value="false">Ngừng hoạt động</option>
@@ -59,7 +59,7 @@
           <button class="btn-outlined" (click)="resetFilter()">
             <i class="pi pi-refresh"></i> Làm mới
           </button>
-          <button id="btn-tim" class="btn-save" (click)="loadList(true)">
+          <button id="btn-tim" class="btn-save" (click)="onSearch()">
             <i class="pi pi-check"></i> Áp dụng
           </button>
         </div>
@@ -85,6 +85,7 @@
       </div>
     </div>
 
+    <div class="wf-card">
     <!-- Error banner -->
     <div class="error-banner" *ngIf="listError">
       <i class="pi pi-exclamation-circle"></i> {{ listError }}
@@ -192,6 +193,7 @@
           <option [value]="50">50 / trang</option>
         </select>
       </div>
+    </div>
     </div>
   </div>
 
@@ -390,6 +392,17 @@
                     <span>Chỉ người xử lý <b>cùng đơn vị</b></span>
                   </label>
                   <div class="check-hint">Khi chuyển bước, chỉ hiển thị người thuộc cùng đơn vị với người đang xử lý.</div>
+                </div>
+
+                <!-- Checkbox: Cho phép chỉnh sửa nội dung hồ sơ ở bước này -->
+                <div class="same-unit-check">
+                  <label class="check-label">
+                    <input type="checkbox"
+                           [checked]="selectedElementProps.allowEdit"
+                           (change)="updateElementProperty('allowEdit', $event)" />
+                    <span>Cho phép <b>chỉnh sửa nội dung</b></span>
+                  </label>
+                  <div class="check-hint">Người xử lý bước này được sửa nội dung hồ sơ (biểu mẫu, tài liệu).</div>
                 </div>
 
                 <!-- Autocomplete: Người cụ thể (có thể chọn nhiều người) -->
