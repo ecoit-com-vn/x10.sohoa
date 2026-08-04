@@ -184,8 +184,19 @@
   height: 38px;
 }
 
+// Keep the search actions aligned with the shared search toolbar buttons.
+.template-search-card .standard-search-actions .btn-outlined,
+.template-search-card .standard-search-actions .btn-tim {
+  height: 32px !important;
+  font-size: 0.85rem !important;
+  border-radius: 5px !important;
+}
+
 .btn-export-excel {
-  height: 38px;
+  height: 30px;
+  padding: 0 14px;
+  border-radius: 5px;
+  font-size: 0.85rem;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -199,6 +210,14 @@
   &:hover {
     background-color: #059669 !important;
   }
+}
+
+.list-toolbar .btn-green,
+.list-toolbar .btn-export-excel {
+  height: 30px !important;
+  padding: 0 14px !important;
+  font-size: 0.85rem !important;
+  border-radius: 5px !important;
 }
 
 .version-dialog-wrapper {

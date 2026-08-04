@@ -23,61 +23,64 @@
         </div>
       </div>
 
-      <div class="standard-search-card">
+      <div class="standard-search-card template-search-card">
         <div class="standard-search-grid">
           <div class="standard-search-field">
-            <label class="search-field-label">Từ khóa</label>
+            <label>Từ khóa</label>
             <input type="text" pInputText class="wf-search-input" placeholder="Tên hoặc mã biểu mẫu..." [ngModel]="searchKeyword()"
               (ngModelChange)="searchKeyword.set($event)" (keyup.enter)="onSearch()" />
           </div>
 
           <div class="standard-search-field">
-            <label class="search-field-label">Loại lưới điện</label>
+            <label>Loại lưới điện</label>
             <p-select [options]="gridTypes()"
-            [ngModel]="selectedGridTypeId()"
-            (ngModelChange)="onGridTypeChange($event)"
-            optionLabel="name"
-            optionValue="id"
-            placeholder="-- Loại lưới điện --"
-            [showClear]="true"
-            filterBy="name">
+              [ngModel]="selectedGridTypeId()"
+              (ngModelChange)="onGridTypeChange($event)"
+              optionLabel="name"
+              optionValue="id"
+              placeholder="-- Loại lưới điện --"
+              [showClear]="true"
+              filterBy="name">
             </p-select>
           </div>
 
           <div class="standard-search-field">
-            <label class="search-field-label">Loại thiết bị</label>
+            <label>Loại thiết bị</label>
             <p-select [options]="equipmentTypes()"
-            [ngModel]="selectedEquipmentTypeId()"
-            (ngModelChange)="selectedEquipmentTypeId.set($event)"
-            optionLabel="name"
-            optionValue="value"
-            placeholder="-- Loại thiết bị --"
-            [showClear]="true"
-            [filter]="true"
-            filterBy="name,code">
+              [ngModel]="selectedEquipmentTypeId()"
+              (ngModelChange)="selectedEquipmentTypeId.set($event)"
+              optionLabel="name"
+              optionValue="value"
+              placeholder="-- Loại thiết bị --"
+              [showClear]="true"
+              [filter]="true"
+              filterBy="name,code">
             </p-select>
           </div>
 
           <div class="standard-search-field">
-            <label class="search-field-label">Trạng thái</label>
+            <label>Trạng thái</label>
             <p-select [options]="[
-              { label: 'Hoạt động', value: true },
-              { label: 'Ngừng hoạt động', value: false }
-            ]"
-            [ngModel]="selectedStatus()"
-            (ngModelChange)="selectedStatus.set($event)"
-            optionLabel="label"
-            optionValue="value"
-            placeholder="-- Trạng thái --"
-            [showClear]="true">
+                { label: 'Hoạt động', value: true },
+                { label: 'Ngừng hoạt động', value: false }
+              ]"
+              [ngModel]="selectedStatus()"
+              (ngModelChange)="selectedStatus.set($event)"
+              optionLabel="label"
+              optionValue="value"
+              placeholder="-- Trạng thái --"
+              [showClear]="true">
             </p-select>
           </div>
-        </div>
 
-        <div class="standard-search-actions">
-          <button class="btn-save" (click)="onSearch()">
-            <i class="pi pi-check"></i> Áp dụng
-          </button>
+          <div class="standard-search-actions">
+            <button type="button" class="btn-outlined" (click)="onResetSearch()">
+              <i class="pi pi-refresh"></i> Làm mới
+            </button>
+            <button type="button" class="btn-tim" (click)="onSearch()">
+              <i class="pi pi-check"></i> Áp dụng
+            </button>
+          </div>
         </div>
       </div>
 
@@ -146,7 +149,7 @@
       <div class="table-footer-paginator" *ngIf="filteredForms().length > 0">
         <span class="record-count">Tổng số: <b>{{ filteredForms().length }}</b> bản ghi.</span>
         <app-eco-paginator [first]="first()" [rows]="rows()" [totalRecords]="filteredForms().length"
-          [rowsPerPageOptions]="[5, 10, 20, 50]" (onPageChange)="onPageChange($event)">
+          [rowsPerPageOptions]="[10, 20, 50]" (onPageChange)="onPageChange($event)">
         </app-eco-paginator>
       </div>
       </div>

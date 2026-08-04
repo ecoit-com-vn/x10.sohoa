@@ -347,7 +347,18 @@ export class FormTemplateComponent implements OnInit {
     this.rows.set(event.rows);
   }
 
-  onSearch() { }
+  onSearch() {
+    this.first.set(0);
+  }
+
+  onResetSearch() {
+    this.searchKeyword.set('');
+    this.selectedGridTypeId.set(null);
+    this.selectedEquipmentTypeId.set('');
+    this.selectedStatus.set(null);
+    this.first.set(0);
+    this.loadEquipmentTypes();
+  }
 
   onAddNew() {
     this.router.navigate(['/equipment/form-builder']);
