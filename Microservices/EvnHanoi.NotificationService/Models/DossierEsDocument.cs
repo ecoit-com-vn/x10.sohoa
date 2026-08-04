@@ -27,6 +27,9 @@ public class DossierEsDocument
     public string? CreatorName { get; set; }
     public DateTime CreatedDate { get; set; }
     public DateTime? ModifiedDate { get; set; }
+    public long? ShelfId { get; set; }
+    public long? FloorId { get; set; }
+    public long? BoxId { get; set; }
     public int DocumentCount { get; set; }
     public List<string> PendingAssignedRoles { get; set; } = new();
     public string? PendingAssigneeUserId { get; set; }

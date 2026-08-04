@@ -103,6 +103,9 @@ public static class DossierIndexSetup
             { "creatorName", textField },
             { "createdDate", new DateProperty() },
             { "modifiedDate", new DateProperty() },
+            { "shelfId", new LongNumberProperty() },
+            { "floorId", new LongNumberProperty() },
+            { "boxId", new LongNumberProperty() },
             { "documentCount", new IntegerNumberProperty() },
             { "pendingAssignedRoles", new KeywordProperty() },
             { "pendingAssigneeUserId", new KeywordProperty() },
@@ -204,6 +207,9 @@ public static class DossierIndexSetup
                 { "currentStepOrder", new IntegerNumberProperty() },
                 { "workflowLastAction", new KeywordProperty() },
                 { "isReturnedToCreatorStep", new BooleanProperty() },
+                { "shelfId", new LongNumberProperty() },
+                { "floorId", new LongNumberProperty() },
+                { "boxId", new LongNumberProperty() },
                 { "currentAssignees", new KeywordProperty() },
                 {
                     "availableActions", new NestedProperty

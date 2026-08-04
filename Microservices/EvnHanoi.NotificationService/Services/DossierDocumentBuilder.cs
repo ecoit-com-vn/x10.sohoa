@@ -54,6 +54,9 @@ public class DossierDocumentBuilder : IDossierDocumentBuilder
             CreatorName = data.CreatorName,
             CreatedDate = data.CreatedDate,
             ModifiedDate = data.ModifiedDate,
+            ShelfId = data.ShelfId,
+            FloorId = data.FloorId,
+            BoxId = data.BoxId,
             DocumentCount = data.DocumentCount,
             PendingAssignedRoles = data.PendingAssignedRoles
                 .Where(r => !string.IsNullOrWhiteSpace(r))

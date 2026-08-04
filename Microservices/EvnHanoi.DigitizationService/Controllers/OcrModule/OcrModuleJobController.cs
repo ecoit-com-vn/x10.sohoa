@@ -1,6 +1,7 @@
 using EvnHanoi.DigitizationService.Models.Dto;
 using EvnHanoi.DigitizationService.Models.OcrModule;
 using EvnHanoi.DigitizationService.Repositories.OcrModule;
+using EvnHanoi.DigitizationService.Services;
 using EvnHanoi.DigitizationService.Services.OcrModule;
 using EvnHanoi.Infrastructure.Database;
 using Microsoft.AspNetCore.Mvc;
@@ -17,15 +18,18 @@ public class OcrModuleJobController : ControllerBase
 {
     private readonly IOcrModuleRepository _repository;
     private readonly IOcrJsonMaterializer _materializer;
+    private readonly IMinioStorageService _minioStorageService;
     private readonly ILogger<OcrModuleJobController> _logger;
 
     public OcrModuleJobController(
         IOcrModuleRepository repository,
         IOcrJsonMaterializer materializer,
+        IMinioStorageService minioStorageService,
         ILogger<OcrModuleJobController> logger)
     {
         _repository = repository;
         _materializer = materializer;
+        _minioStorageService = minioStorageService;
         _logger = logger;
     }
 
@@ -89,5 +93,39 @@ public class OcrModuleJobController : ControllerBase
 
         var result = await _repository.GetRegionsPagedAsync(jobId, page, pageSize);
         return Ok(result);
+    }
+
+    /// <summary>
+    /// Render 1 trang của file nguồn (PDF) ra ảnh JPEG ở 200 DPI — cùng DPI với OcrWorker dùng lúc OCR,
+    /// nên tọa độ box (BoxX0/Y0/X1/Y1) đã lưu khớp pixel tuyệt đối với ảnh trả về ở đây.
+    /// </summary>
+    [HttpGet("{jobId}/pages/{pageNumber}/image")]
+    public async Task<IActionResult> GetPageImage(string jobId, int pageNumber)
+    {
+        var job = await _repository.GetJobByIdAsync(jobId);
+        if (job == null)
+            return NotFound(new { code = "ERR_OCR_MODULE_JOB_NOT_FOUND", message = "Không tìm thấy Job." });
+
+        if (pageNumber < 1 || pageNumber > job.TotalPages)
+            return BadRequest(new { code = "ERR_OCR_MODULE_INVALID_PAGE", message = "Số trang không hợp lệ." });
+
+        try
+        {
+            using var fileStream = await _minioStorageService.DownloadFileAsync(job.SourceBucket, job.SourceFilePath);
+            using var msPdf = new MemoryStream();
+            await fileStream.CopyToAsync(msPdf);
+            byte[] pdfBytes = msPdf.ToArray();
+
+            using var imgStream = new MemoryStream();
+            var renderOptions = new PDFtoImage.RenderOptions { Dpi = 200, WithAnnotations = true };
+            PDFtoImage.Conversion.SaveJpeg(imgStream, pdfBytes, password: null, page: pageNumber - 1, options: renderOptions);
+
+            return File(imgStream.ToArray(), "image/jpeg");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Lỗi render ảnh trang {PageNumber} cho Job {JobId}", pageNumber, jobId);
+            return StatusCode(500, new { code = "ERR_OCR_MODULE_PAGE_IMAGE_FAILED", message = "Không render được ảnh trang tài liệu.", details = new[] { ex.Message } });
+        }
     }
 }

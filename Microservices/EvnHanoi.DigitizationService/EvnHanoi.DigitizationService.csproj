@@ -16,9 +16,18 @@
     <PackageReference Include="PDFtoImage" Version="4.0.1" />
     <PackageReference Include="RabbitMQ.Client" Version="7.2.1" />
     <PackageReference Include="Scalar.AspNetCore" Version="2.14.14" />
-    <!-- Ghim ở nhánh 3.x: từ v4 trở đi Six Labors yêu cầu license thương mại trả phí khi build
-         (xem SixLabors.ImageSharp.targets) — không phù hợp cho phần mềm nội bộ không mua license. -->
-    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
+    <!-- Ghim đúng bằng version PdfSharpCore 1.3.67 biên dịch sẵn để gọi (xem pdfsharpcore.nuspec) —
+         PdfSharpCore gắn chặt với API ImageSharp 1.x ở NHIỀU điểm nội bộ (Image.Load, JpegEncoder.Quality,
+         v.v.), không chỉ 1 chỗ — đã kiểm chứng bằng test độc lập rằng dùng bản 3.x sẽ vỡ ở nhiều bước khác
+         nhau (MissingMethodException) khi PdfSharpCore tự gọi vào ImageSharp lúc runtime. Seal/signature
+         detector chỉ dùng Image.Load<Rgba32>(byte[]), API ổn định có sẵn từ 1.0.4 nên không bị ảnh hưởng.
+         LƯU Ý BẢO MẬT: 1.0.4 là bản 1.x cuối cùng từng phát hành (không có bản vá 1.0.5+), có các CVE đã
+         biết (xem cảnh báo NU1902/NU1903 lúc restore) — rủi ro được giảm nhẹ vì luồng OCR chỉ đưa vào đây
+         ảnh JPEG do PDFtoImage tự render từ PDF, không phải file người dùng tải lên trực tiếp. Cần theo dõi
+         nâng cấp PdfSharpCore/thay thế thư viện nếu có bản mới hỗ trợ ImageSharp hiện đại. Từ v4 trở đi Six
+         Labors yêu cầu license thương mại trả phí khi build (xem SixLabors.ImageSharp.targets) — 1.0.4
+         không nằm trong phạm vi đó. -->
+    <PackageReference Include="SixLabors.ImageSharp" Version="1.0.4" />
     <PackageReference Include="UglyToad.PdfPig" Version="1.7.0-custom-5" />
   </ItemGroup>
 
