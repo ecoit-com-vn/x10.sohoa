@@ -197,6 +197,7 @@ export class DocumentTypeComponent implements OnInit {
     this.currentItem.set({
       isActive: true,
       isEquipmentProfile: false,
+      isFactoryAcceptanceReport: false,
       piority: 1,
       formId: null
     });
@@ -230,7 +231,8 @@ export class DocumentTypeComponent implements OnInit {
       formId: item.formId || null,
       piority: item.piority || 1,
       isActive: item.isActive,
-      isEquipmentProfile: item.isEquipmentProfile || false
+      isEquipmentProfile: item.isEquipmentProfile || false,
+      isFactoryAcceptanceReport: item.isFactoryAcceptanceReport || false
     };
 
     const request$ = this.currentView() === 'add'

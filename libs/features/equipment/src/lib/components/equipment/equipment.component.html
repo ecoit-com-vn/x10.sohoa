@@ -10,7 +10,7 @@
       </button>
     </div>
   </div>
-  <div class="wf-card">
+  <div>
 
     <!-- ==================== VIEW 1: MÀN HÌNH DANH SÁCH ==================== -->
     <div *ngIf="currentView() === 'list'" class="animate-fade-in">
@@ -80,6 +80,7 @@
       </div>
 
       <!-- Bảng Grid dữ liệu -->
+      <div class="wf-card">
       <div class="wf-table-wrap">
         <table class="wf-table">
           <thead>
@@ -171,6 +172,7 @@
             <option [value]="50">50 / trang</option>
           </select>
         </div>
+      </div>
       </div>
     </div>
 
@@ -840,18 +842,6 @@
                 [rowsPerPageOptions]="[5, 10, 20, 50]"
                 (onPageChange)="onRelatedDossierPageChange($event)"
               ></app-eco-paginator>
-              <div class="pagination" hidden>
-                <button class="page-btn" (click)="onDossierPageChange(dossierPage() - 1)"
-                  [disabled]="dossierPage() === 1">
-                  <i class="pi pi-chevron-left"></i>
-                </button>
-                <span class="page-current">Trang {{ dossierPage() }} / {{ Math.ceil(dossierTotalCount() /
-                  dossierPageSize()) || 1 }}</span>
-                <button class="page-btn" (click)="onDossierPageChange(dossierPage() + 1)"
-                  [disabled]="dossierPage() >= Math.ceil(dossierTotalCount() / dossierPageSize())">
-                  <i class="pi pi-chevron-right"></i>
-                </button>
-              </div>
             </div>
           </div>
 

@@ -1,8 +1,10 @@
 
-    <div class="ocr-training-page p-4">
+    <div class="wf-page ocr-training-page">
       <p-toast></p-toast>
 
-      <wf-breadcrumb />
+      <div class="list-toolbar standard-page-toolbar">
+        <div class="toolbar-left"><wf-breadcrumb /></div>
+      </div>
 
       <!-- ═══════════════════════════════════════════════════════════════════
            STATISTICS CARDS
@@ -48,10 +50,10 @@
       <!-- ═══════════════════════════════════════════════════════════════════
            MAIN CARD
       ═══════════════════════════════════════════════════════════════════ -->
-      <div class="main-card">
+      <div>
         <!-- Toolbar -->
-        <div class="toolbar mb-3">
-          <div class="toolbar-left">
+        <div class="standard-search-card">
+          <div class="standard-search-grid">
             <div class="standard-search-field">
               <label class="search-field-label">Từ khóa</label>
               <input
@@ -62,9 +64,6 @@
                 (keyup.enter)="loadData()"
               />
             </div>
-            <button class="btn-search" (click)="loadData()">
-              <i class="pi pi-search"></i> Tìm
-            </button>
             <div class="standard-search-field">
               <label class="search-field-label">Loại tài liệu</label>
               <select class="filter-select wf-select" [(ngModel)]="filterDocType" (change)="loadData()">
@@ -87,19 +86,26 @@
               </select>
             </div>
           </div>
-          <div class="toolbar-right">
+          <div class="standard-search-actions">
+            <button class="btn-outlined" (click)="loadData(); loadStatistics()">
+              <i class="pi pi-refresh"></i> Làm mới
+            </button>
+            <button class="btn-save" (click)="loadData()">
+              <i class="pi pi-check"></i> Áp dụng
+            </button>
             <button class="btn-upload" (click)="showUploadDialog = true">
               <i class="pi pi-upload"></i> Upload dữ liệu
             </button>
-            <button class="btn-refresh" (click)="loadData(); loadStatistics()">
-              <i class="pi pi-refresh"></i>
+            <button class="btn-refresh" (click)="exportDataset()" pTooltip="Xuất dataset (yêu cầu 91)" tooltipPosition="top">
+              <i class="pi pi-download"></i>
             </button>
           </div>
         </div>
 
         <!-- Data Table -->
-        <div class="table-wrapper">
-          <table class="evn-table">
+        <div class="wf-card">
+        <div class="wf-table-wrap table-wrapper">
+          <table class="wf-table evn-table">
             <thead>
               <tr>
                 <th class="col-num">STT</th>
@@ -188,6 +194,8 @@
       <!-- ═══════════════════════════════════════════════════════════════════
            UPLOAD DIALOG
       ═══════════════════════════════════════════════════════════════════ -->
+      </div>
+
       <p-dialog
         header="Upload dữ liệu huấn luyện OCR"
         [(visible)]="showUploadDialog"
@@ -360,6 +368,15 @@
 
         <ng-template pTemplate="footer">
           <button class="btn-cancel" (click)="showVerifyDialog = false">Hủy</button>
+          <button
+            class="btn-cancel"
+            *ngIf="selectedItem?.isVerified"
+            (click)="linkRetrainingJob()"
+            pTooltip="Yêu cầu 91 (mở rộng) — liên kết bản ghi này với 1 job huấn luyện lại"
+            tooltipPosition="top"
+          >
+            <i class="pi pi-sync"></i> Liên kết retrain job
+          </button>
           <button class="btn-upload" (click)="saveVerify()">
             <i class="pi pi-shield"></i> Xác nhận
           </button>

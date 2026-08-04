@@ -9,7 +9,7 @@ import { ToastModule } from 'primeng/toast';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
-import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
+import { WfBreadcrumbComponent, DeleteConfirmDialogComponent, EcoPaginatorComponent } from '@sohoa.frontend/shared/layout';
 import { AuthService } from '@sohoa.frontend/shared/core';
 import { MessageService, ConfirmationService } from 'primeng/api';
 import { forkJoin, of, finalize, catchError } from 'rxjs';
@@ -31,7 +31,9 @@ import { forkJoin, of, finalize, catchError } from 'rxjs';
     ToastModule,
     ConfirmDialogModule,
     FormsModule,
-    WfBreadcrumbComponent
+    WfBreadcrumbComponent,
+    DeleteConfirmDialogComponent,
+    EcoPaginatorComponent
   ],
   providers: [MessageService, ConfirmationService],
   templateUrl: './physical-storage.component.html',
@@ -63,9 +65,27 @@ export class PhysicalStorageComponent implements OnInit {
   isEdit = signal(false);
 
   loading = signal(false);
-  saving = signal(false);
+  saving = signal(false); 
+  
+  showDeleteConfirm = signal<boolean>(false);
+  deleteTarget = signal<any>(null);
+  deleting = signal<boolean>(false);
+  
+  // Chuẩn hóa tên tài khoản hiển thị trong popup xác nhận xóa dùng chung.
+  readonly deleteTargetLabel = computed(() => this.deleteTarget()?.item?.name || this.deleteTarget()?.item?.code || '');
+  readonly deleteEntityTypeLabel = computed(() => {
+    const type = this.deleteTarget()?.type;
+    switch (type) {
+      case 'shelf': return 'Kệ lưu trữ';
+      case 'floor': return 'Tầng kệ';
+      case 'box': return 'Hộp hồ sơ';
+      default: return 'bản ghi';
+    }
+  });
 
   // ── Bộ lọc + phân trang tab Kệ ──
+  activeTab = signal<string>('0');
+
   shelfSearchKeyword = signal('');
   shelfPage = signal(1);
   shelfPageSize = signal(10);
@@ -143,6 +163,23 @@ export class PhysicalStorageComponent implements OnInit {
     this.currentUnitId.set(this.authService.getUserUnitId());
     this.loadOrganizationUnits();
     this.loadAllData();
+  }
+
+  refreshData(): void { 
+    this.shelfSearchKeyword.set('');
+    this.floorSearchKeyword.set('');
+    this.floorShelfFilterId.set(null);
+    this.boxSearchKeyword.set('');
+    this.boxFloorFilterId.set(null);
+    this.loadAllData();
+  }
+
+  applyFilters(): void { 
+    this.loadAllData();
+  }
+
+  setActiveTab(value: string | number | undefined): void {
+    this.activeTab.set((value ?? '0').toString());
   }
 
   getShelfName(id: number): string {
@@ -267,9 +304,11 @@ export class PhysicalStorageComponent implements OnInit {
     if (p >= 1 && p <= this.shelfTotalPages()) this.shelfPage.set(p);
   }
 
-  onShelfPageSizeChange(event: Event) {
-    this.shelfPageSize.set(Number((event.target as HTMLSelectElement).value));
-    this.shelfPage.set(1);
+  onShelfPageChange(event: { first?: number; rows?: number }) {
+    const rows = Number(event.rows) || this.shelfPageSize();
+    const first = Number(event.first) || 0;
+    this.shelfPageSize.set(rows);
+    this.shelfPage.set(Math.floor(first / rows) + 1);
   }
 
   prevFloorPage() {
@@ -285,9 +324,11 @@ export class PhysicalStorageComponent implements OnInit {
     if (p >= 1 && p <= this.floorTotalPages()) this.floorPage.set(p);
   }
 
-  onFloorPageSizeChange(event: Event) {
-    this.floorPageSize.set(Number((event.target as HTMLSelectElement).value));
-    this.floorPage.set(1);
+  onFloorPageChange(event: { first?: number; rows?: number }) {
+    const rows = Number(event.rows) || this.floorPageSize();
+    const first = Number(event.first) || 0;
+    this.floorPageSize.set(rows);
+    this.floorPage.set(Math.floor(first / rows) + 1);
   }
 
   prevBoxPage() {
@@ -303,9 +344,11 @@ export class PhysicalStorageComponent implements OnInit {
     if (p >= 1 && p <= this.boxTotalPages()) this.boxPage.set(p);
   }
 
-  onBoxPageSizeChange(event: Event) {
-    this.boxPageSize.set(Number((event.target as HTMLSelectElement).value));
-    this.boxPage.set(1);
+  onBoxPageChange(event: { first?: number; rows?: number }) {
+    const rows = Number(event.rows) || this.boxPageSize();
+    const first = Number(event.first) || 0;
+    this.boxPageSize.set(rows);
+    this.boxPage.set(Math.floor(first / rows) + 1);
   }
 
   loadAllData() {
@@ -382,31 +425,53 @@ export class PhysicalStorageComponent implements OnInit {
   }
 
   deleteItem(type: string, item: any) {
-    this.confirmationService.confirm({
-      message: `Bạn có chắc chắn muốn xóa bản ghi này không?`,
-      header: 'Xác nhận xóa',
-      icon: 'pi pi-exclamation-triangle',
-      acceptLabel: 'Đồng ý',
-      rejectLabel: 'Hủy',
-      acceptButtonStyleClass: 'btn-save',
-      rejectButtonStyleClass: 'btn-cancel',
-      accept: () => {
-        let obs$;
-        switch (type) {
-          case 'shelf': obs$ = this.physicalStorageService.deleteShelf(item.id); break;
-          case 'floor': obs$ = this.physicalStorageService.deleteFloor(item.id); break;
-          case 'box':   obs$ = this.physicalStorageService.deleteBox(item.id);   break;
-          default: return;
-        }
-        obs$.subscribe({
-          next: () => {
-            this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã xóa thành công.' });
-            this.loadAllData();
-          },
-          error: () => this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Xóa thất bại.' })
+    this.deleteTarget.set({ type, item });
+    this.showDeleteConfirm.set(true);
+  }
+  
+  onConfirmDelete(): void {
+    const target = this.deleteTarget();
+    if (!target || !target.item || this.deleting()) {
+      return;
+    }
+
+    const { type, item } = target;
+    let obs$;
+    switch (type) {
+      case 'shelf': obs$ = this.physicalStorageService.deleteShelf(item.id); break;
+      case 'floor': obs$ = this.physicalStorageService.deleteFloor(item.id); break;
+      case 'box':   obs$ = this.physicalStorageService.deleteBox(item.id);   break;
+      default: return;
+    }
+
+    this.deleting.set(true);
+    obs$.pipe(
+      finalize(() => this.deleting.set(false))
+    ).subscribe({
+      next: () => {
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Thành công',
+          detail: 'Đã xóa thành công.'
         });
+        this.showDeleteConfirm.set(false);
+        this.deleteTarget.set(null);
+        this.loadAllData();
+      },
+      error: (err) => {
+        const detail = err?.error?.message || 'Xóa thất bại.';
+        this.messageService.add({ severity: 'error', summary: 'Lỗi', detail });
       }
     });
+  }
+
+  onCancelDelete(): void {
+    if (this.deleting()) {
+      return;
+    }
+
+    this.showDeleteConfirm.set(false);
+    this.deleteTarget.set(null);
   }
 
   saveData() {

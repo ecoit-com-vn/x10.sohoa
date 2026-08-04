@@ -255,7 +255,6 @@
               <input
                 type="text"
                 class="wf-input"
-                style="padding-left: 30px; width: 100%; height: 32px; font-size: 0.85rem;"
                 placeholder="Tên thư mục, tài liệu..."
                 [ngModel]="filterKeyword()"
                 (ngModelChange)="filterKeyword.set($event)"
@@ -271,7 +270,6 @@
               <input
                 type="text"
                 class="wf-input"
-                style="padding-left: 30px; width: 100%; height: 32px; font-size: 0.85rem;"
                 placeholder="Tài khoản..."
                 [ngModel]="filterCreator()"
                 (ngModelChange)="filterCreator.set($event)"
@@ -304,15 +302,6 @@
                 [ngModel]="filterEndDate()"
                 (ngModelChange)="filterEndDate.set($event)">
             </p-datepicker>
-          </div>
-
-          <div class="filter-buttons" style="display: flex; gap: 8px;">
-            <button class="btn-tim btn-small" style="height: 32px; display: flex; align-items: center; gap: 6px;" (click)="onSearch()">
-              <i class="pi pi-search"></i> Tìm kiếm
-            </button>
-            <button class="btn-outlined btn-small" style="height: 32px; display: flex; align-items: center; gap: 6px; border-color: #cbd5e1; color: #475569;" (click)="onResetFilters()">
-              <i class="pi pi-refresh"></i> Reset
-            </button>
           </div>
         </div>
 
@@ -351,11 +340,11 @@
 
               <!-- Subfolders -->
               <tr
-                *ngFor="let folder of subFolders(); let i = index; trackBy: trackByFolderId"
+                *ngFor="let folder of paginatedSubFolders(); let i = index; trackBy: trackByFolderId"
                 [hidden]="loadingDocuments()"
                 class="folder-row-table"
               >
-                <td class="col-stt text-muted">{{ i + 1 }}</td>
+                <td class="col-stt text-muted">{{ folderFirst() + i + 1 }}</td>
                 <td>
                   <div class="table-item-name-container">
                     <i class="pi pi-folder table-item-icon folder-icon-yellow"></i>
@@ -448,17 +437,33 @@
         <div class="table-footer-paginator" *ngIf="totalItems() > 0">
           <span class="record-count">
             Tổng số:
-            <b>{{ subFolders().length }}</b> thư mục,
+            <b>{{ folderTotalRecords() }}</b> thư mục,
             <b>{{ totalDocuments() }}</b> tài liệu.
           </span>
-          <app-eco-paginator
-              *ngIf="totalDocuments() > 0"
-              [first]="first()" 
-              [rows]="rows()" 
-              [totalRecords]="totalDocuments()" 
-              [rowsPerPageOptions]="[5, 10, 20, 50]" 
-              (onPageChange)="onPageChange($event)">
-          </app-eco-paginator>
+
+          <div class="table-footer-paginator__actions">
+            <ng-container *ngIf="folderTotalRecords() > 0">
+              <app-eco-paginator
+                [first]="folderFirst()"
+                [rows]="folderRows()"
+                [totalRecords]="folderTotalRecords()"
+                [rowsPerPageOptions]="[10, 20, 50]"
+                [recordLabel]="'thư mục'"
+                (onPageChange)="onFolderPageChange($event)">
+              </app-eco-paginator>
+            </ng-container>
+
+            <ng-container *ngIf="totalDocuments() > 0">
+              <app-eco-paginator
+                [first]="first()"
+                [rows]="rows()"
+                [totalRecords]="totalDocuments()"
+                [rowsPerPageOptions]="[5, 10, 20, 50]"
+                [recordLabel]="'tài liệu'"
+                (onPageChange)="onPageChange($event)">
+              </app-eco-paginator>
+            </ng-container>
+          </div>
         </div>
       </ng-container>
 

@@ -1,9 +1,11 @@
 <div class="wf-page">
   <p-toast></p-toast>
   
-  <wf-breadcrumb />
+  <div class="list-toolbar standard-page-toolbar">
+    <div class="toolbar-left"><wf-breadcrumb /></div>
+  </div>
 
-  <div class="wf-card">
+  <div>
 
     <ng-container *ngIf="currentSubView() === 'list'">
       <!-- Tabs Navigation -->
@@ -22,7 +24,7 @@
       <!-- ───────────────────────────────────────────────────────────────── -->
       <!-- TAB 1: CÔNG VIỆC CẦN XỬ LÝ -->
       <!-- ───────────────────────────────────────────────────────────────── -->
-      <div *ngIf="activeTab() === 'my-tasks'">
+      <div *ngIf="activeTab() === 'my-tasks'" class="wf-card">
         <div class="wf-table-wrap">
           <table class="wf-table">
             <thead>
@@ -88,22 +90,31 @@
       <!-- ───────────────────────────────────────────────────────────────── -->
       <div *ngIf="activeTab() === 'records'">
         <!-- Search and Button to create request -->
-        <div class="table-actions" style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; gap: 16px;">
-          <div class="search-box" style="display: flex; gap: 8px; max-width: 650px; width: 100%;">
-            <input type="text" class="wf-input" [ngModel]="searchKeyword()" (ngModelChange)="searchKeyword.set($event)" placeholder="Tìm kiếm nhanh..." style="flex: 2; padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px;" />
-            <select class="wf-input" [ngModel]="filterState()" (ngModelChange)="filterState.set($event)" style="flex: 1.2; min-width: 220px; padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; background-color: #ffffff;">
+        <div class="standard-search-card">
+          <div class="standard-search-grid">
+            <div class="standard-search-field">
+              <label class="search-field-label">Từ khóa</label>
+              <input type="text" class="wf-search-input" [ngModel]="searchKeyword()" (ngModelChange)="searchKeyword.set($event)" placeholder="Tìm kiếm nhanh..." />
+            </div>
+            <div class="standard-search-field">
+              <label class="search-field-label">Trạng thái</label>
+              <select class="wf-input" [ngModel]="filterState()" (ngModelChange)="filterState.set($event)">
               <option value="">-- Tất cả trạng thái --</option>
               <option value="0">Yêu cầu mượn (Requested)</option>
               <option value="1">Đã phê duyệt (Approved)</option>
               <option value="2">Đang mượn (Borrowed)</option>
               <option value="3">Bị trả lại (Returned)</option>
             </select>
+            </div>
           </div>
-          <button class="btn-green btn-small" (click)="openCreateView()">
+          <div class="standard-search-actions">
+          <button class="btn-green" (click)="openCreateView()">
             <i class="pi pi-plus" style="margin-right: 6px;"></i> Tạo đơn mượn trả
           </button>
+          </div>
         </div>
 
+        <div class="wf-card">
         <div class="wf-table-wrap">
           <table class="wf-table">
             <thead>
@@ -214,6 +225,7 @@
               <option [value]="50">50 / trang</option>
             </select>
           </div>
+        </div>
         </div>
       </div>
     </ng-container>

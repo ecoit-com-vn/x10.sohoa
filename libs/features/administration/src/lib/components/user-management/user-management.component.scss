@@ -1,3 +1,47 @@
+:host ::ng-deep .unit-filter-select {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+
+  .p-ng,
+  .field {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    gap: 0;
+  }
+
+  .label-select-tree {
+    display: none;
+    margin: 0;
+  }
+
+  .p-treeselect {
+    height: 38px;
+    min-height: 38px;
+    padding: 0;
+    font-size: 0.85rem;
+    line-height: 1.2;
+    align-items: center;
+  }
+
+  .p-treeselect-label {
+    display: flex;
+    align-items: center;
+    height: 100%;
+    padding: 0 12px;
+    line-height: 1.2;
+  }
+
+  .p-treeselect-dropdown {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+  }
+}
+
 @keyframes shimmer {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }

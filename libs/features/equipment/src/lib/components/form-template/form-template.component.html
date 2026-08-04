@@ -1,7 +1,7 @@
 <div class="wf-page">
   <p-toast></p-toast>
   <ng-container *ngIf="viewState() === 'list'">
-    <div class="list-toolbar">
+    <div class="list-toolbar standard-page-toolbar">
       <div class="toolbar-left">
         <wf-breadcrumb />
       </div>
@@ -15,7 +15,7 @@
       </div>
     </div>
 
-    <div class="wf-card">
+    <div>
       <div class="loading-overlay" *ngIf="loading()">
         <div class="loading-content">
           <i class="pi pi-spin pi-spinner text-4xl mr-3 evn-spinner-color"></i>
@@ -84,6 +84,7 @@
         </div>
       </div>
 
+      <div class="wf-card">
       <div class="wf-table-wrap">
         <table class="wf-table">
           <thead>
@@ -150,6 +151,7 @@
         <app-eco-paginator [first]="first()" [rows]="rows()" [totalRecords]="filteredForms().length"
           [rowsPerPageOptions]="[10, 20, 50]" (onPageChange)="onPageChange($event)">
         </app-eco-paginator>
+      </div>
       </div>
     </div>
   </ng-container>
