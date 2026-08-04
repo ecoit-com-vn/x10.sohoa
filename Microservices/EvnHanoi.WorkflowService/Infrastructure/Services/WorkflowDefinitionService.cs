@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using EvnHanoi.WorkflowService.Core.Interfaces;
@@ -18,6 +19,16 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
         {
             _workflowRepository = workflowRepository ?? throw new ArgumentNullException(nameof(workflowRepository));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        }
+
+        public Task<(IEnumerable<WorkflowDefinition> Items, int TotalCount)> GetPagedDefinitionsAsync(
+            int page,
+            int pageSize,
+            string? keyword = null,
+            bool? isActive = null)
+        {
+            var normalizedKeyword = string.IsNullOrWhiteSpace(keyword) ? null : keyword.Trim();
+            return _workflowRepository.GetPagedDefinitionsAsync(page, pageSize, normalizedKeyword, isActive);
         }
 
         public async Task<WorkflowDefinition?> UpdateDefinitionWithVersioningAsync(Guid id, WorkflowDefinition dto, string userId)

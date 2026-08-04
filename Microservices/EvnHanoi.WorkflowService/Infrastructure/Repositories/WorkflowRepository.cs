@@ -145,26 +145,27 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
         public async Task<(IEnumerable<WorkflowDefinition> Items, int TotalCount)> GetPagedDefinitionsAsync(int page, int pageSize, string? keyword = null, bool? isActive = null)
         {
             if (_connection.State != ConnectionState.Open) _connection.Open();
-            
-            var filterSql = " WHERE w.RN_LATEST = 1";
+
+            var normalizedKeyword = string.IsNullOrWhiteSpace(keyword) ? null : keyword.Trim();
+            var filterSql = $@" WHERE w.RN_LATEST = 1
+                AND (:Keyword IS NULL OR (
+                    UPPER(TRIM(w.{nameof(WorkflowDefinition.Name)})) LIKE '%' || UPPER(TRIM(:Keyword)) || '%'
+                    OR UPPER(TRIM(wt.CODE)) LIKE '%' || UPPER(TRIM(:Keyword)) || '%'
+                    OR UPPER(TRIM(wt.NAME)) LIKE '%' || UPPER(TRIM(:Keyword)) || '%'
+                ))
+                AND (:IsActive IS NULL OR w.{nameof(WorkflowDefinition.IsActive)} = :IsActive)";
             var parameters = new DynamicParameters();
-            if (!string.IsNullOrWhiteSpace(keyword))
-            {
-                filterSql += $@" AND (w.{nameof(WorkflowDefinition.Name)} LIKE :Keyword OR w.{nameof(WorkflowDefinition.Description)} LIKE :Keyword)";
-                parameters.Add("Keyword", $"%{keyword}%");
-            }
-            if (isActive.HasValue)
-            {
-                filterSql += $@" AND w.{nameof(WorkflowDefinition.IsActive)} = :IsActive";
-                parameters.Add("IsActive", isActive.Value ? 1 : 0);
-            }
+            parameters.Add("Keyword", normalizedKeyword, DbType.String);
+            parameters.Add("IsActive", isActive.HasValue ? (isActive.Value ? 1 : 0) : (int?)null, DbType.Int32);
             
             var countSql = $@"SELECT COUNT(*) FROM (
                 SELECT w.*, 
                        ROW_NUMBER() OVER (PARTITION BY w.WORKFLOW_TYPE_ID ORDER BY w.IsActive DESC, w.CreatedAt DESC) AS RN_LATEST
                 FROM WORKFLOWDEFINITIONS w
                 WHERE w.IsDeleted = 0
-            ) w {filterSql}";
+            ) w
+            LEFT JOIN WORKFLOW_TYPES wt ON wt.ID = w.WORKFLOW_TYPE_ID
+            {filterSql}";
             
             var offset = (page - 1) * pageSize;
             var pagedSql = $@"
@@ -191,6 +192,7 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
                         FROM WORKFLOWDEFINITIONS w
                         WHERE w.IsDeleted = 0
                     ) w
+                    LEFT JOIN WORKFLOW_TYPES wt ON wt.ID = w.WORKFLOW_TYPE_ID
                     LEFT JOIN APP_USER u1 ON w.CreatedBy = u1.Id
                     LEFT JOIN APP_USER u2 ON w.UpdatedBy = u2.Id
                     {filterSql}
