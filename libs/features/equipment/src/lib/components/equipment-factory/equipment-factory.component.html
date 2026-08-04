@@ -1,0 +1,71 @@
+<div class="wf-page factory-acceptance-page">
+  <div class="factory-page-header">
+    <h2>Thông tin tài liệu Lý lịch thiết bị</h2>
+  </div>
+  <div class="factory-content-shell">
+  <ng-container *ngIf="selectedEquipment() as equipment; else selectionEmpty">
+    <div class="tab-bar factory-tab-bar">
+      <button type="button" class="tab-item" [class.tab-active]="activeTab() === 'info'" (click)="activeTab.set('info')">
+        <i class="pi pi-info-circle"></i> Thông tin thiết bị
+      </button>
+      <button type="button" class="tab-item" [class.tab-active]="activeTab() === 'documents'" (click)="activeTab.set('documents')">
+        <i class="pi pi-paperclip"></i> Tài liệu đính kèm
+      </button>
+    </div>
+
+    <section *ngIf="activeTab() === 'info'" class="equipment-information-card">
+      <header class="information-card-header">
+        <h3><i class="pi pi-file"></i> Hồ sơ thông tin thiết bị</h3>
+      </header>
+
+      <div class="information-rows">
+        <div class="information-row"><span>Mã thiết bị:</span><strong class="equipment-code">{{ equipment.code || '---' }}</strong></div>
+        <div class="information-row"><span>Tên thiết bị:</span><b>{{ equipment.name || '---' }}</b></div>
+        <div class="information-row"><span>Loại thiết bị:</span><b class="equipment-type">{{ equipment.equipmentTypeName || '---' }}</b></div>
+        <div class="information-row"><span>Thuộc Lưới điện:</span><b>{{ equipment.gridTypeName || '---' }}</b></div>
+        <div class="information-row"><span>Trạm / Đường dây:</span><b>{{ equipment.infrastructureName || '---' }}</b></div>
+        <div class="information-row"><span>Đơn vị quản lý:</span><b>{{ equipment.unitName || '---' }}</b></div>
+        <div class="information-row"><span>Năm sản xuất:</span><b>{{ equipment.manufactureYear || '---' }}</b></div>
+        <div class="information-row"><span>Tình trạng:</span><b>{{ equipment.equipmentStatusName || '---' }}</b></div>
+        <div class="information-row"><span>Trạng thái hoạt động:</span><b class="status-pill" [class.status-active]="isActive(equipment)" [class.status-inactive]="!isActive(equipment)">{{ isActive(equipment) ? 'Đang hoạt động' : 'Ngừng hoạt động' }}</b></div>
+        <div class="information-row information-row-last"><span>Người tạo bản ghi:</span><b>{{ creatorLabel(equipment) }}</b></div>
+      </div>
+    </section>
+
+    <section *ngIf="activeTab() === 'info'" class="technical-parameters-section">
+        <header class="information-card-header">
+          <h3><i class="pi pi-sliders-h"></i> Thông số kỹ thuật chi tiết</h3>
+        </header>
+
+        <div *ngIf="hasAnyTechnicalValue(); else noTechnicalParameters" class="technical-parameter-rows">
+          <ng-container *ngFor="let field of technicalFields()">
+            <div *ngIf="hasTechnicalValue(field)" class="information-row">
+              <span>{{ field.label || field.name }}:</span>
+              <b>{{ formatTechnicalValue(field) }}</b>
+            </div>
+          </ng-container>
+        </div>
+
+        <ng-template #noTechnicalParameters>
+          <div class="technical-parameters-empty">
+            Chưa có thông số kỹ thuật được cấu hình cho thiết bị này.
+          </div>
+        </ng-template>
+    </section>
+
+    <section *ngIf="activeTab() === 'documents'" class="factory-documents-section">
+      <app-equipment-documents
+        [equipmentId]="equipment.id"
+        [factoryAcceptanceOnly]="true"
+        [factoryProfileAccess]="true"
+      ></app-equipment-documents>
+    </section>
+  </ng-container>
+
+  <ng-template #selectionEmpty>
+    <div class="factory-empty-state" *ngIf="!loadingEquipment()">
+      Chọn thiết bị để xem thông tin và tài liệu Biên bản xuất xưởng.
+    </div>
+  </ng-template>
+</div>
+</div>
