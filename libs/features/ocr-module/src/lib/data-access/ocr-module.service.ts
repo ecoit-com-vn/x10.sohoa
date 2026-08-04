@@ -128,16 +128,28 @@ export class OcrModuleService {
     return this.http.get(`${this.baseUrl}/jobs/${jobId}/pages/${pageNumber}/image`, { responseType: 'blob' });
   }
 
-  classifyScriptType(jobId: string): Observable<ScriptTypeClassifyResponse> {
-    return this.http.post<ScriptTypeClassifyResponse>(`${this.baseUrl}/jobs/${jobId}/script-type/classify`, {});
+  classifyScriptType(jobId: string, pageNumber?: number): Observable<ScriptTypeClassifyResponse> {
+    return this.http.post<ScriptTypeClassifyResponse>(
+      `${this.baseUrl}/jobs/${jobId}/script-type/classify`,
+      {},
+      { params: pageNumber != null ? { pageNumber } : {} },
+    );
   }
 
-  runFormulaRecognition(jobId: string): Observable<FormulaRunResponse> {
-    return this.http.post<FormulaRunResponse>(`${this.baseUrl}/jobs/${jobId}/formula/run`, {});
+  runFormulaRecognition(jobId: string, pageNumber?: number): Observable<FormulaRunResponse> {
+    return this.http.post<FormulaRunResponse>(
+      `${this.baseUrl}/jobs/${jobId}/formula/run`,
+      {},
+      { params: pageNumber != null ? { pageNumber } : {} },
+    );
   }
 
-  runSealSignatureDetection(jobId: string): Observable<SealSignatureRunResponse> {
-    return this.http.post<SealSignatureRunResponse>(`${this.baseUrl}/jobs/${jobId}/seal-signature/run`, {});
+  runSealSignatureDetection(jobId: string, pageNumber?: number): Observable<SealSignatureRunResponse> {
+    return this.http.post<SealSignatureRunResponse>(
+      `${this.baseUrl}/jobs/${jobId}/seal-signature/run`,
+      {},
+      { params: pageNumber != null ? { pageNumber } : {} },
+    );
   }
 
   getTemplates(): Observable<OcrModuleTemplateSnapshot[]> {
@@ -148,9 +160,10 @@ export class OcrModuleService {
     return this.http.post<OcrModuleTemplateSnapshot>(`${this.baseUrl}/templates`, payload);
   }
 
-  runTemplateDiff(jobId: string, templateSnapshotId: string): Observable<TemplateDiffRunResponse> {
+  runTemplateDiff(jobId: string, templateSnapshotId: string, pageNumber?: number): Observable<TemplateDiffRunResponse> {
     return this.http.post<TemplateDiffRunResponse>(`${this.baseUrl}/jobs/${jobId}/template-diff/run`, {
       templateSnapshotId,
+      pageNumber: pageNumber ?? null,
     });
   }
 
@@ -158,8 +171,12 @@ export class OcrModuleService {
     return this.http.get<OcrModuleTemplateDiffResult[]>(`${this.baseUrl}/jobs/${jobId}/template-diff/results`);
   }
 
-  runSpellcheck(jobId: string): Observable<SpellcheckRunResult> {
-    return this.http.post<SpellcheckRunResult>(`${this.baseUrl}/jobs/${jobId}/spellcheck/run`, {});
+  runSpellcheck(jobId: string, pageNumber?: number): Observable<SpellcheckRunResult> {
+    return this.http.post<SpellcheckRunResult>(
+      `${this.baseUrl}/jobs/${jobId}/spellcheck/run`,
+      {},
+      { params: pageNumber != null ? { pageNumber } : {} },
+    );
   }
 
   updateSpellcheckStatus(
@@ -170,8 +187,12 @@ export class OcrModuleService {
     return this.http.put<void>(`${this.baseUrl}/jobs/${jobId}/regions/${regionId}/spellcheck`, payload);
   }
 
-  runErrorAnalysis(jobId: string): Observable<OcrModuleErrorAnalysis[]> {
-    return this.http.post<OcrModuleErrorAnalysis[]>(`${this.baseUrl}/jobs/${jobId}/error-analysis/run`, {});
+  runErrorAnalysis(jobId: string, pageNumber?: number): Observable<OcrModuleErrorAnalysis[]> {
+    return this.http.post<OcrModuleErrorAnalysis[]>(
+      `${this.baseUrl}/jobs/${jobId}/error-analysis/run`,
+      {},
+      { params: pageNumber != null ? { pageNumber } : {} },
+    );
   }
 
   resolveErrorAnalysis(jobId: string, errorId: string): Observable<void> {

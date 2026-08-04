@@ -4,6 +4,11 @@ import { dossierApproverMenuGuard, dossierCreatorMenuGuard, dossierDigitizationA
 const loadShell = () =>
   import('./feature/dossier-management.component').then((m) => m.DossierManagementComponent);
 
+const loadOcrInsightsPage = () =>
+  import('./feature/dossier-ocr-insights-page/dossier-ocr-insights-page.component').then(
+    (m) => m.DossierOcrInsightsPageComponent
+  );
+
 const creatorData = { menuScope: 'creator' as const, listTitle: 'Quản lý hồ sơ' };
 const approverData = { menuScope: 'approver' as const, listTitle: 'Phê duyệt hồ sơ' };
 const publisherData = { menuScope: 'publisher' as const, listTitle: 'Xuất bản hồ sơ' };
@@ -53,6 +58,12 @@ export const DOSSIER_MANAGEMENT_ROUTES: Route[] = [
         data: digitizationCreatorData,
       },
       {
+        path: 'my-dossiers/:id/documents/:documentVersionId/ocr-analysis',
+        loadComponent: loadOcrInsightsPage,
+        canActivate: [dossierDigitizationCreatorMenuGuard],
+        data: digitizationCreatorData,
+      },
+      {
         path: 'approve',
         loadComponent: loadShell,
         canActivate: [dossierDigitizationApproverMenuGuard],
@@ -87,6 +98,12 @@ export const DOSSIER_MANAGEMENT_ROUTES: Route[] = [
   {
     path: 'my-dossiers/:id',
     loadComponent: loadShell,
+    canActivate: [dossierCreatorMenuGuard],
+    data: creatorData,
+  },
+  {
+    path: 'my-dossiers/:id/documents/:documentVersionId/ocr-analysis',
+    loadComponent: loadOcrInsightsPage,
     canActivate: [dossierCreatorMenuGuard],
     data: creatorData,
   },
