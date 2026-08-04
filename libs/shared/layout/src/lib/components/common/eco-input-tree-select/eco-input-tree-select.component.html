@@ -25,8 +25,8 @@
       [scrollHeight]="scrollHeight"
       [panelStyle]="{ 'min-width': '100%' }"
       appendTo="body"
-      [propagateSelectionUp]="selectionMode === 'checkbox'"
-      [propagateSelectionDown]="selectionMode === 'checkbox'"
+      [propagateSelectionUp]="selectionMode === 'checkbox' && propagateSelectionUp"
+      [propagateSelectionDown]="selectionMode === 'checkbox' && propagateSelectionDown"
       (onFilter)="onFilter($event)"
     ></p-treeSelect>
 

@@ -26,8 +26,8 @@
                     </div>
                     <div class="standard-search-field">
                         <label class="search-field-label">Đơn vị</label>
-                        <eco-input-tree-select class="unit-filter-select" [showLabel]="false" placeholder="-- Tất cả đơn vị --" selectionMode="checkbox" display="chip" [nodes]="primengOrgUnitTree()" [ngModel]="filterOrganizationUnitIds()" (ngModelChange)="onOrganizationUnitFilterChange($event)" [showClear]="true"
-                            [enableSearch]="true" [border]="true">
+                        <eco-input-tree-select class="unit-filter-select" [showLabel]="false" placeholder="-- Tất cả đơn vị --" selectionMode="checkbox" display="chip" [nodes]="primengOrgUnitTree()" [ngModel]="filterOrganizationUnitIds()" (ngModelChange)="onOrganizationUnitFilterChange($event)"
+                            [showClear]="true" [enableSearch]="true" [border]="true" [propagateSelectionUp]="false" [propagateSelectionDown]="false">
                         </eco-input-tree-select>
                     </div>
                     <div class="standard-search-field">
@@ -52,84 +52,84 @@
 
             <!-- Table -->
             <div class="wf-card">
-            <div class="wf-table-wrap">
-                <table class="wf-table unit-permission-group-table">
-                    <thead>
-                        <tr>
-                            <th class="col-stt">STT</th>
-                            <th class="col-code">Mã nhóm quyền</th>
-                            <th class="col-name">Tên nhóm quyền</th>
-                            <th class="col-created">Ngày tạo</th>
-                            <th class="col-creator">Người tạo</th>
-                            <th class="col-tt">Trạng thái</th>
-                            <th class="col-hd" style="width: 250px;">Thao tác</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <!-- skeleton loading rows -->
-                        <ng-container *ngIf="loading()">
-                            <tr *ngFor="let item of [1, 2, 3, 4]">
-                                <td class="col-stt">
-                                    <div class="skeleton-shimmer" style="height: 16px; width: 24px; border-radius: 4px;"></div>
-                                </td>
-                                <td>
-                                    <div class="skeleton-shimmer" style="height: 16px; width: 100px; border-radius: 4px;"></div>
-                                </td>
-                                <td>
-                                    <div class="skeleton-shimmer" style="height: 16px; width: 180px; border-radius: 4px;"></div>
-                                </td>
-                                <td>
-                                    <div class="skeleton-shimmer" style="height: 16px; width: 130px; border-radius: 4px;"></div>
-                                </td>
-                                <td>
-                                    <div class="skeleton-shimmer" style="height: 16px; width: 120px; border-radius: 4px;"></div>
-                                </td>
-                                <td style="text-align: center;">
-                                    <div class="skeleton-shimmer" style="height: 16px; width: 80px; margin: 0 auto; border-radius: 12px;"></div>
-                                </td>
-                                <td class="col-hd">
-                                    <div class="skeleton-shimmer" style="height: 24px; width: 180px; border-radius: 4px;"></div>
-                                </td>
+                <div class="wf-table-wrap">
+                    <table class="wf-table unit-permission-group-table">
+                        <thead>
+                            <tr>
+                                <th class="col-stt">STT</th>
+                                <th class="col-code">Mã nhóm quyền</th>
+                                <th class="col-name">Tên nhóm quyền</th>
+                                <th class="col-created">Ngày tạo</th>
+                                <th class="col-creator">Người tạo</th>
+                                <th class="col-tt">Trạng thái</th>
+                                <th class="col-hd" style="width: 250px;">Thao tác</th>
                             </tr>
-                        </ng-container>
+                        </thead>
+                        <tbody>
+                            <!-- skeleton loading rows -->
+                            <ng-container *ngIf="loading()">
+                                <tr *ngFor="let item of [1, 2, 3, 4]">
+                                    <td class="col-stt">
+                                        <div class="skeleton-shimmer" style="height: 16px; width: 24px; border-radius: 4px;"></div>
+                                    </td>
+                                    <td>
+                                        <div class="skeleton-shimmer" style="height: 16px; width: 100px; border-radius: 4px;"></div>
+                                    </td>
+                                    <td>
+                                        <div class="skeleton-shimmer" style="height: 16px; width: 180px; border-radius: 4px;"></div>
+                                    </td>
+                                    <td>
+                                        <div class="skeleton-shimmer" style="height: 16px; width: 130px; border-radius: 4px;"></div>
+                                    </td>
+                                    <td>
+                                        <div class="skeleton-shimmer" style="height: 16px; width: 120px; border-radius: 4px;"></div>
+                                    </td>
+                                    <td style="text-align: center;">
+                                        <div class="skeleton-shimmer" style="height: 16px; width: 80px; margin: 0 auto; border-radius: 12px;"></div>
+                                    </td>
+                                    <td class="col-hd">
+                                        <div class="skeleton-shimmer" style="height: 24px; width: 180px; border-radius: 4px;"></div>
+                                    </td>
+                                </tr>
+                            </ng-container>
 
-                        <ng-container *ngIf="!loading()">
-                            <tr *ngFor="let role of paginatedRoles(); let i = index">
-                                <td class="col-stt text-muted">{{ (currentPage() - 1) * pageSize() + i + 1 }}</td>
-                                <td>
-                                    <b *ngIf="authService.hasPermission('UNIT_PERMISSION_GROUP_MANAGE')" class="wf-name-link" (click)="onEdit(role)">{{ role.code }}</b>
-                                    <span *ngIf="!authService.hasPermission('UNIT_PERMISSION_GROUP_MANAGE')">{{ role.code }}</span>
-                                </td>
-                                <td>
-                                    <span>{{ role.name }}</span>
-                                </td>
-                                <td>{{ role.createdAt ? (role.createdAt | date:'dd/MM/yyyy HH:mm') : '—' }}</td>
-                                <td>{{ role.createdByName || role.createdBy || '—' }}</td>
-                                <td style="text-align: center;">
-                                    <span class="status-pill" [class.status-active]="role.isActive" [class.status-inactive]="!role.isActive">
+                            <ng-container *ngIf="!loading()">
+                                <tr *ngFor="let role of paginatedRoles(); let i = index">
+                                    <td class="col-stt text-muted">{{ (currentPage() - 1) * pageSize() + i + 1 }}</td>
+                                    <td>
+                                        <b *ngIf="authService.hasPermission('UNIT_PERMISSION_GROUP_MANAGE')" class="wf-name-link" (click)="onEdit(role)">{{ role.code }}</b>
+                                        <span *ngIf="!authService.hasPermission('UNIT_PERMISSION_GROUP_MANAGE')">{{ role.code }}</span>
+                                    </td>
+                                    <td>
+                                        <span>{{ role.name }}</span>
+                                    </td>
+                                    <td>{{ role.createdAt ? (role.createdAt | date:'dd/MM/yyyy HH:mm') : '—' }}</td>
+                                    <td>{{ role.createdByName || role.createdBy || '—' }}</td>
+                                    <td style="text-align: center;">
+                                        <span class="status-pill" [class.status-active]="role.isActive" [class.status-inactive]="!role.isActive">
                     {{ role.isActive ? 'Hoạt động' : 'Ngừng hoạt động' }}
                   </span>
-                                </td>
-                                <td class="col-hd">
-                                    <div class="action-buttons-group">
-                                        <button type="button" class="act-btn act-more" (click)="openActionMenu(role, $event, actionMenu)" title="Thao tác khác">
+                                    </td>
+                                    <td class="col-hd">
+                                        <div class="action-buttons-group">
+                                            <button type="button" class="act-btn act-more" (click)="openActionMenu(role, $event, actionMenu)" title="Thao tác khác">
                       <i class="pi pi-ellipsis-h"></i>
                     </button>
-                                    </div>
-                                </td>
-                            </tr>
-                            <tr *ngIf="filteredRoles().length === 0">
-                                <td colspan="7" class="empty-row">
-                                    <i class="pi pi-inbox"></i>
-                                    <div>Không tìm thấy nhóm quyền phù hợp.</div>
-                                </td>
-                            </tr>
-                        </ng-container>
-                    </tbody>
-                </table>
-            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr *ngIf="filteredRoles().length === 0">
+                                    <td colspan="7" class="empty-row">
+                                        <i class="pi pi-inbox"></i>
+                                        <div>Không tìm thấy nhóm quyền phù hợp.</div>
+                                    </td>
+                                </tr>
+                            </ng-container>
+                        </tbody>
+                    </table>
+                </div>
 
-            <app-eco-paginator *ngIf="totalCount() > 0 && !loading()" [currentPage]="currentPage()" [pageSize]="pageSize()" [totalRecords]="totalCount()" (pageChange)="goToPage($event)" (pageSizeChange)="onPageSizeChange($event)" />
+                <app-eco-paginator *ngIf="totalCount() > 0 && !loading()" [currentPage]="currentPage()" [pageSize]="pageSize()" [totalRecords]="totalCount()" (pageChange)="goToPage($event)" (pageSizeChange)="onPageSizeChange($event)" />
             </div>
         </div>
 
