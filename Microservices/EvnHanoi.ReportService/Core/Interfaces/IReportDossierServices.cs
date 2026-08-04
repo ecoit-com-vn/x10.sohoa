@@ -14,6 +14,7 @@ public interface IReportDossierRepository
     Task<IEnumerable<ReportDossierLookupItem>> GetDocumentTypesAsync();
     Task<IEnumerable<ReportDossierLookupItem>> GetShelvesAsync(long? unitScopeRoot, long? filterUnitId);
     Task<IEnumerable<ReportDossierLookupItem>> GetFloorsAsync(long? unitScopeRoot, long? filterUnitId);
+    Task<IReadOnlyList<ReportShelfFloorLookupDto>> GetShelfFloorsAsync(long? unitScopeRoot, long? filterUnitId);
     Task<IEnumerable<ReportDossierLookupItem>> GetBoxesAsync(long? unitScopeRoot, long? filterUnitId);
     Task<IEnumerable<ReportDossierLookupItem>> GetEquipmentsAsync(long? unitScopeRoot, long? filterUnitId);
     Task<IEnumerable<ReportDossierLookupItem>> GetInfrastructuresAsync(long? unitScopeRoot, long? filterUnitId, int infraTypeId);

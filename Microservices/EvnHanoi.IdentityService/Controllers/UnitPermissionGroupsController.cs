@@ -123,6 +123,7 @@ public class UnitPermissionGroupsController : ControllerBase
     [FromQuery] int pageSize = 10,
     [FromQuery] string? keyword = null,
     [FromQuery] long? organizationUnitId = null,
+    [FromQuery] long[]? organizationUnitIds = null,
     [FromQuery] bool? isActive = null)
     {
         if (!_rbacScope.IsCentralAdmin(User))
@@ -149,7 +150,8 @@ public class UnitPermissionGroupsController : ControllerBase
                 normalizedPageSize,
                 normalizedKeyword,
                 organizationUnitId,
-                isActive);
+                isActive,
+                organizationUnitIds);
 
         return Ok(new
         {

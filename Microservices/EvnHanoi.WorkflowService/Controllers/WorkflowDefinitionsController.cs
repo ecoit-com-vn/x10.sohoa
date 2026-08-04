@@ -48,7 +48,7 @@ namespace EvnHanoi.WorkflowService.Controllers
             [FromQuery] string? keyword = null,
             [FromQuery] bool? isActive = null)
         {
-            var (items, totalCount) = await _workflowRepository.GetPagedDefinitionsAsync(page, pageSize, keyword, isActive);
+            var (items, totalCount) = await _workflowDefinitionService.GetPagedDefinitionsAsync(page, pageSize, keyword, isActive);
             return Ok(new { items, totalCount, page, pageSize });
         }
 

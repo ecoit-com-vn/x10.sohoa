@@ -152,6 +152,60 @@ public class ReportDossierRepository : IReportDossierRepository
         return await _connection.QueryAsync<ReportDossierLookupItem>(sql, parameters);
     }
 
+    public async Task<IReadOnlyList<ReportShelfFloorLookupDto>> GetShelfFloorsAsync(
+        long? unitScopeRoot,
+        long? filterUnitId)
+    {
+        EnsureOpen();
+        var parameters = new DynamicParameters();
+        var sql = @"
+            SELECT
+                CAST(s.Id AS VARCHAR2(50)) AS ShelfId,
+                s.Code AS ShelfCode,
+                s.Name AS ShelfName,
+                CAST(f.Id AS VARCHAR2(50)) AS FloorId,
+                f.Code AS FloorCode,
+                f.Name AS FloorName
+            FROM PHYSICAL_SHELF s
+            LEFT JOIN PHYSICAL_FLOOR f
+                ON f.ShelfId = s.Id
+               AND NVL(f.IS_DELETED, 0) = 0
+            WHERE NVL(s.IS_DELETED, 0) = 0";
+
+        var effectiveUnitId = filterUnitId ?? unitScopeRoot;
+        if (effectiveUnitId.HasValue)
+        {
+            sql += @" AND s.UnitId IN (
+                SELECT Id FROM ORGANIZATION_UNIT START WITH Id = :UnitId CONNECT BY PRIOR Id = ParentId
+            )";
+            parameters.Add("UnitId", effectiveUnitId.Value);
+        }
+
+        sql += " ORDER BY s.Name ASC, s.Id ASC, f.Name ASC, f.Id ASC";
+
+        var rows = await _connection.QueryAsync<ShelfFloorLookupRow>(sql, parameters);
+
+        return rows
+            .GroupBy(row => new { row.ShelfId, row.ShelfCode, row.ShelfName })
+            .Select(group => new ReportShelfFloorLookupDto
+            {
+                Id = group.Key.ShelfId,
+                Code = group.Key.ShelfCode,
+                Name = group.Key.ShelfName,
+                Floors = group
+                    .Where(row => !string.IsNullOrWhiteSpace(row.FloorId))
+                    .Select(row => new ReportFloorLookupDto
+                    {
+                        Id = row.FloorId!,
+                        Code = row.FloorCode ?? string.Empty,
+                        Name = row.FloorName ?? string.Empty,
+                        ShelfId = row.ShelfId
+                    })
+                    .ToList()
+            })
+            .ToList();
+    }
+
     public async Task<IEnumerable<ReportDossierLookupItem>> GetBoxesAsync(long? unitScopeRoot, long? filterUnitId)
     {
         EnsureOpen();
@@ -5741,5 +5795,15 @@ public class ReportDossierRepository : IReportDossierRepository
         AppendObjectTypeFilterToWhere(filter.ObjectType, ref dossierWhere);
 
         return (page, pageSize, parameters, logDateWhere, dossierWhere);
+    }
+
+    private sealed class ShelfFloorLookupRow
+    {
+        public string ShelfId { get; set; } = string.Empty;
+        public string ShelfCode { get; set; } = string.Empty;
+        public string ShelfName { get; set; } = string.Empty;
+        public string? FloorId { get; set; }
+        public string? FloorCode { get; set; }
+        public string? FloorName { get; set; }
     }
 }
