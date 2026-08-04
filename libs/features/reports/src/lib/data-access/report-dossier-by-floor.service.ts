@@ -4,10 +4,18 @@ import { Observable } from 'rxjs';
 import { APP_CONFIG } from '@sohoa.frontend/shared/core';
 import { UnitLookupItem } from './report-dossier-by-year.service';
 
+export interface ShelfFloorLookupItem {
+  id: string;
+  name: string;
+  code?: string;
+  floors: FloorLookupItem[];
+}
+
 export interface FloorLookupItem {
   id: string;
   name: string;
   code?: string;
+  shelfId: string;
 }
 
 export interface DossierByFloorFilter {
@@ -41,12 +49,12 @@ export class ReportDossierByFloorService {
     return this.http.get<UnitLookupItem[]>(`${this.baseUrl}/lookups/units`);
   }
 
-  getFloorsLookup(unitId?: number | null): Observable<FloorLookupItem[]> {
+  getShelfFloorsLookup(unitId?: number | null): Observable<ShelfFloorLookupItem[]> {
     let params = new HttpParams();
     if (unitId != null && unitId > 0) {
       params = params.set('unitId', unitId.toString());
     }
-    return this.http.get<FloorLookupItem[]>(`${this.baseUrl}/lookups/floors`, { params });
+    return this.http.get<ShelfFloorLookupItem[]>(`${this.baseUrl}/lookups/shelf-floors`, { params });
   }
 
   getYearsLookup(): Observable<number[]> {

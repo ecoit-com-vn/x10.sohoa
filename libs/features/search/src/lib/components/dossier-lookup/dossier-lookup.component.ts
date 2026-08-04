@@ -258,6 +258,8 @@ export class DossierLookupComponent implements OnInit {
 
     this.filterEquipmentId.set(null);
 
+    this.filterDossierTypeId.set(null);
+
     this.loadDependentLookups();
 
   }

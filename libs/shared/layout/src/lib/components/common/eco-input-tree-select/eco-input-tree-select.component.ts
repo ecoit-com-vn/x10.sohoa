@@ -68,6 +68,8 @@ export class EcoInputTreeSelectComponent
   @Input() selectionMode: 'single' | 'multiple' | 'checkbox' = 'single';
   @Input() display: 'comma' | 'chip' = 'comma';
   @Input() metaKeySelection: boolean = false;
+  @Input() propagateSelectionUp: boolean = true;
+  @Input() propagateSelectionDown: boolean = true;
   @Input() required?: boolean | string;
   @Input() nodes: any;
   @Input() showClear: boolean = true;

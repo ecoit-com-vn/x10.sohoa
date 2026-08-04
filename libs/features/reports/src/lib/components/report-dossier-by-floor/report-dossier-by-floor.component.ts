@@ -14,14 +14,13 @@ import { Router } from '@angular/router';
 import { MessageService } from 'primeng/api';
 import { ToastModule } from 'primeng/toast';
 import { SelectModule } from 'primeng/select';
-import { MultiSelectModule } from 'primeng/multiselect';
 import { TooltipModule } from 'primeng/tooltip';
 import { TreeNode } from 'primeng/api';
 import { WfBreadcrumbComponent, EcoInputTreeSelectComponent } from '@sohoa.frontend/shared/layout';
 import { AuthService } from '@sohoa.frontend/shared/core';
 import {
   ReportDossierByFloorService,
-  FloorLookupItem,
+  ShelfFloorLookupItem,
   DossierByFloorFilter,
   DossierByFloorChartStat
 } from '../../data-access/report-dossier-by-floor.service';
@@ -48,10 +47,8 @@ interface OrgTreeNode {
   children: OrgTreeNode[];
 }
 
-interface FloorOption {
-  id: string;
-  name: string;
-}
+const FLOOR_NODE_KEY_PREFIX = 'floor:';
+const SHELF_NODE_KEY_PREFIX = 'shelf:';
 
 @Component({
   selector: 'app-report-dossier-by-floor',
@@ -61,7 +58,6 @@ interface FloorOption {
     FormsModule,
     ToastModule,
     SelectModule,
-    MultiSelectModule,
     TooltipModule,
     WfBreadcrumbComponent,
     EcoInputTreeSelectComponent,
@@ -80,6 +76,7 @@ export class ReportDossierByFloorComponent implements OnInit, AfterViewInit {
   private messageService = inject(MessageService);
   private authService = inject(AuthService);
   private router = inject(Router);
+  private shelfFloorLookupRequestId = 0;
 
   @ViewChild(ReportStatisticsDossierListComponent)
   dossierList?: ReportStatisticsDossierListComponent;
@@ -96,12 +93,12 @@ export class ReportDossierByFloorComponent implements OnInit, AfterViewInit {
 
   reportFilter = computed(() => ({
     unitId: this.selectedUnitId(),
-    floorIds: this.selectedFloorIds().filter((id) => id?.trim()),
+    floorIds: this.selectedFloorIds(),
     ...yearToFilterParam(this.selectedYear())
   }));
 
   units = signal<UnitLookupItem[]>([]);
-  floorOptions = signal<FloorOption[]>([]);
+  shelfFloorTree = signal<TreeNode[]>([]);
   years = signal<number[]>([]);
   yearOptions = computed(() => buildYearOptions(this.years()));
 
@@ -120,7 +117,13 @@ export class ReportDossierByFloorComponent implements OnInit, AfterViewInit {
   });
 
   selectedUnitId = signal<number | null>(null);
-  selectedFloorIds = signal<string[]>([]);
+  selectedFloorNodeKeys = signal<string[]>([]);
+  selectedFloorIds = computed(() =>
+    this.selectedFloorNodeKeys()
+      .filter((key) => key.startsWith(FLOOR_NODE_KEY_PREFIX))
+      .map((key) => key.slice(FLOOR_NODE_KEY_PREFIX.length).trim())
+      .filter((id) => id.length > 0)
+  );
   selectedYear = signal<number>(new Date().getFullYear());
 
   activeTab = signal<MainTabMode>('stats');
@@ -148,12 +151,12 @@ export class ReportDossierByFloorComponent implements OnInit, AfterViewInit {
       next: (units) => {
         this.units.set(units || []);
         this.applyDefaultUnitFilter();
-        this.loadFloorOptions();
+        this.loadShelfFloorTree();
         this.loadYearsLookup();
       },
       error: (err) => {
         console.error('Lỗi tải danh sách đơn vị:', err);
-        this.loadFloorOptions();
+        this.loadShelfFloorTree();
         this.loadYearsLookup();
       }
     });
@@ -161,20 +164,40 @@ export class ReportDossierByFloorComponent implements OnInit, AfterViewInit {
 
   onUnitChange(unitId: number | null): void {
     this.selectedUnitId.set(unitId);
-    this.selectedFloorIds.set([]);
-    this.loadFloorOptions();
+    this.selectedFloorNodeKeys.set([]);
+    this.shelfFloorTree.set([]);
+    this.loadShelfFloorTree();
   }
 
-  private loadFloorOptions(): void {
-    this.reportService.getFloorsLookup(this.selectedUnitId()).subscribe({
-      next: (floors) => {
-        const options: FloorOption[] = (floors || []).map((f: FloorLookupItem) => ({
-          id: String(f.id),
-          name: f.code ? `${f.code} — ${f.name}` : f.name
-        }));
-        this.floorOptions.set(options);
+  private loadShelfFloorTree(): void {
+    const requestId = ++this.shelfFloorLookupRequestId;
+    this.reportService.getShelfFloorsLookup(this.selectedUnitId()).subscribe({
+      next: (shelves) => {
+        if (requestId !== this.shelfFloorLookupRequestId) return;
+
+        const nodes: TreeNode[] = (shelves || []).map((shelf: ShelfFloorLookupItem) => {
+          const children: TreeNode[] = (shelf.floors || []).map((floor) => ({
+            key: `${FLOOR_NODE_KEY_PREFIX}${floor.id}`,
+            label: floor.code ? `${floor.code} — ${floor.name}` : floor.name,
+            data: floor,
+            leaf: true
+          }));
+
+          return {
+            key: `${SHELF_NODE_KEY_PREFIX}${shelf.id}`,
+            label: shelf.code ? `${shelf.code} — ${shelf.name}` : shelf.name,
+            data: shelf,
+            leaf: children.length === 0,
+            children: children.length ? children : undefined
+          };
+        });
+        this.shelfFloorTree.set(nodes);
       },
-      error: (err) => console.error('Lỗi tải tầng hồ sơ:', err)
+      error: (err) => {
+        if (requestId !== this.shelfFloorLookupRequestId) return;
+        this.shelfFloorTree.set([]);
+        console.error('Lỗi tải cây kệ, tầng hồ sơ:', err);
+      }
     });
   }
 
