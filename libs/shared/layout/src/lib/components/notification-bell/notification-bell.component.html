@@ -15,28 +15,30 @@
       <div *ngIf="notifications().length === 0" class="text-gray-500">
         Không có thông báo mới.
       </div>
-      <div
-        *ngFor="let notif of notifications()"
-        class="notification-item p-2 border-round surface-100 flex justify-content-between align-items-start"
-        [class.font-bold]="!notif.isRead"
-        (click)="onOpenNotification(notif)">
-        <div>
-          <strong>{{ notif.title }}</strong>
-          <p class="m-0 text-sm">{{ notif.body }}</p>
-          <span class="notification-time">{{ notif.createdAt | date:'dd/MM/yyyy HH:mm' }}</span>
+      <div class="notification-list">
+        <div
+          *ngFor="let notif of notifications()"
+          class="notification-item p-2 border-round surface-100 flex justify-content-between align-items-center"
+          (click)="onOpenNotification(notif)">
+          <div>
+            <strong class="notification-title">{{ notif.title }}</strong>
+            <p class="notification-body m-0 text-sm">{{ notif.body }}</p>
+            <span class="notification-time">{{ notif.createdAt | date:'dd/MM/yyyy HH:mm' }}</span>
+          </div>
+          <button
+            type="button"
+            class="notification-delete-btn"
+            title="Xóa thông báo"
+            aria-label="Xóa thông báo"
+            (click)="deleteNotification(notif, $event)">
+            <i class="pi pi-trash"></i>
+          </button>
         </div>
-        <p-button
-          icon="pi pi-times"
-          [text]="true"
-          [rounded]="true"
-          size="small"
-          styleClass="notification-delete-btn"
-          title="Xóa thông báo"
-          (onClick)="deleteNotification(notif, $event)">
-        </p-button>
       </div>
-      <div *ngIf="notifications().length > 0" class="mt-2 text-right">
-        <p-button label="Xóa tất cả" [text]="true" size="small" (onClick)="clearNotifications()"></p-button>
+      <div *ngIf="notifications().length > 0" class="notification-footer">
+        <button type="button" class="clear-notifications-btn" (click)="clearNotifications()">
+          Xóa tất cả thông báo
+        </button>
       </div>
     </div>
   </p-popover>
