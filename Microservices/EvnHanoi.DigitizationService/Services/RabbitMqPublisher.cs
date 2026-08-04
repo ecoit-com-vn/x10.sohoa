@@ -52,5 +52,33 @@ namespace EvnHanoi.DigitizationService.Services
                 throw;
             }
         }
+
+        public async Task<bool> TryPublishMessageAsync<T>(T message, string exchange, string routingKey,
+            int maxAttempts = 1, TimeSpan? initialDelay = null)
+        {
+            var delay = initialDelay ?? TimeSpan.Zero;
+
+            for (var attempt = 1; attempt <= maxAttempts; attempt++)
+            {
+                try
+                {
+                    await PublishMessageAsync(message, exchange, routingKey);
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex,
+                        "TryPublishMessageAsync thất bại (lần {Attempt}/{MaxAttempts}) tới exchange {Exchange}, routing key {RoutingKey}.",
+                        attempt, maxAttempts, exchange, routingKey);
+
+                    if (attempt >= maxAttempts) return false;
+
+                    await Task.Delay(delay);
+                    delay += delay;
+                }
+            }
+
+            return false;
+        }
     }
 }
