@@ -275,6 +275,20 @@ namespace EvnHanoi.ReportService.Controllers
         }
 
         /// <summary>
+        /// Lookup cây kệ và tầng hồ sơ — dùng cho báo cáo thống kê theo tầng lưu trữ.
+        /// GET /api/v1/reports/statistics/lookups/shelf-floors
+        /// </summary>
+        [HttpGet("lookups/shelf-floors")]
+        public async Task<IActionResult> GetShelfFloorsLookup([FromQuery] long? unitId)
+        {
+            var scope = ResolveUserScope();
+            var unitScopeRoot = scope.IsAdmin ? null : scope.UnitId;
+            var effectiveUnitId = scope.IsAdmin ? unitId : (unitId ?? scope.UnitId);
+            var shelves = await _dossierRepository.GetShelfFloorsAsync(unitScopeRoot, effectiveUnitId);
+            return Ok(shelves);
+        }
+
+        /// <summary>
         /// Lookup cán bộ nhập liệu (người tạo hồ sơ) — dùng cho báo cáo thống kê theo phân bổ hồ sơ.
         /// GET /api/v1/reports/statistics/lookups/input-users
         /// </summary>

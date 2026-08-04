@@ -209,7 +209,12 @@ public class PermissionGroupRepository : IPermissionGroupRepository
                 )
             END AS CreatedByName,
             pg.IsActive,
-            ROW_NUMBER() OVER (ORDER BY pg.Id ASC) AS RN
+            ROW_NUMBER() OVER (
+                ORDER BY
+                    CASE WHEN pg.IsActive = 1 THEN 0 ELSE 1 END,
+                    pg.CreatedAt DESC NULLS LAST,
+                    pg.Id DESC
+            ) AS RN
         FROM PERMISSION_GROUP pg
         INNER JOIN SCOPE_TYPE st
             ON pg.ScopeTypeId = st.Id
