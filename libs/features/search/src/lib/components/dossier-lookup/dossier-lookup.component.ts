@@ -176,7 +176,7 @@ export class DossierLookupComponent implements OnInit {
 
     this.dossierByEquipmentService.getGridTypes().subscribe({
 
-      next: (res) => this.gridTypes.set(res || []),
+      next: (items) => this.gridTypes.set(items || []),
 
       error: () => this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không tải được loại lưới điện' })
 
@@ -228,6 +228,8 @@ export class DossierLookupComponent implements OnInit {
 
     });
 
+
+
     this.dossierByEquipmentService.getDossierTypes(filter).subscribe({
 
       next: (res) => this.dossierTypes.set(res || []),
@@ -246,9 +248,7 @@ export class DossierLookupComponent implements OnInit {
 
     this.filterEquipmentId.set(null);
 
-    this.filterDossierTypeId.set(null);
-
-    this.onSearch();
+    this.loadDependentLookups();
 
   }
 

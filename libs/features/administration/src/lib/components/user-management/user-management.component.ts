@@ -365,7 +365,7 @@ export class UserManagement implements OnInit {
     const normalizedKeyword = this.searchKeyword().trim();
     this.searchKeyword.set(normalizedKeyword);
     this.appliedKeyword.set(normalizedKeyword);
-    this.appliedUnitIds.set([...this.searchUnitIds()]);
+    this.appliedUnitIds.set(this.searchUnitIds());
     this.appliedStatus.set(this.searchStatus());
     this.reloadUsersFromFirstPage();
   }
@@ -385,13 +385,8 @@ export class UserManagement implements OnInit {
     this.currentView.set('add');
   }
 
-  onSearchUnitChange(val: any) {
-    const values = Array.isArray(val) ? val : [val];
-    const unitIds = values
-      .filter(value => value !== null && value !== undefined && value !== '' && value !== 'null')
-      .map(value => Number(value))
-      .filter(Number.isFinite);
-    this.searchUnitIds.set(unitIds);
+  onSearchUnitChange(val: number[] | null) {
+    this.searchUnitIds.set(val ?? []);
   }
 
   onSearchStatusChange(status: string): void {
