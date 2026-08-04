@@ -135,7 +135,7 @@
 
             <div class="table-footer-paginator" *ngIf="filteredUnits().length > 0">
                 <span class="record-count">Tổng số: <b>{{ filteredUnits().length }}</b> phòng ban / đơn vị trực thuộc.</span>
-                <app-eco-paginator [first]="(currentPage() - 1) * pageSize()" [rows]="pageSize()" [totalRecords]="filteredUnits().length" [rowsPerPageOptions]="[5, 10, 20, 50]" (onPageChange)="onUnitPageChange($event)">
+                <app-eco-paginator [first]="(currentPage() - 1) * pageSize()" [rows]="pageSize()" [totalRecords]="filteredUnits().length" [rowsPerPageOptions]="[10, 20, 50]" (onPageChange)="onUnitPageChange($event)">
                 </app-eco-paginator>
             </div>
         </div>

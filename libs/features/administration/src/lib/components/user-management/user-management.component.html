@@ -135,9 +135,10 @@
       <p-menu #actionMenu [model]="actionMenuItems" [popup]="true" appendTo="body" styleClass="row-action-menu"></p-menu>
 
       <!-- Footer with Pagination -->
-      <app-eco-paginator *ngIf="totalCount() > 0 && !loading()"
-        [currentPage]="currentPage()" [pageSize]="pageSize()" [totalRecords]="totalCount()"
-        (pageChange)="goToPage($event)" (pageSizeChange)="onPageSizeChange($event)" />
+      <app-eco-paginator *ngIf="totalCount() > 0"
+        [first]="(currentPage() - 1) * pageSize()" [rows]="pageSize()"
+        [totalRecords]="totalCount()" [rowsPerPageOptions]="[10, 20, 50]"
+        (onPageChange)="onUserPageChange($event)" />
     </div>
 
     <!-- Dialog Thêm/Sửa Người dùng -->

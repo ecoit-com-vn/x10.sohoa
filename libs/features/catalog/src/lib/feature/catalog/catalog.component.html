@@ -212,7 +212,7 @@
             [first]="(currentPage() - 1) * pageSize()"
             [rows]="pageSize()"
             [totalRecords]="totalCount()"
-            [rowsPerPageOptions]="[5, 10, 20, 50]"
+            [rowsPerPageOptions]="[10, 20, 50]"
             (onPageChange)="onCatalogPageChange($event)">
           </app-eco-paginator>
         </div>

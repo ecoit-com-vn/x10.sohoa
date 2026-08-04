@@ -235,6 +235,13 @@ export class UserManagement implements OnInit {
     this.currentPage.set(1);
   }
 
+  onUserPageChange(event: { first?: number; rows?: number }): void {
+    const rows = Number(event.rows) || this.pageSize();
+    const first = Number(event.first) || 0;
+    this.pageSize.set(rows);
+    this.currentPage.set(Math.floor(first / rows) + 1);
+  }
+
   ngOnInit() {
     this.loadUsers();
     this.loadOrganizationUnits();
