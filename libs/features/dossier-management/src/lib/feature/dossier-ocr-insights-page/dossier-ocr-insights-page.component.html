@@ -1,0 +1,35 @@
+<div class="wf-page">
+  <div class="list-toolbar">
+    <div class="toolbar-left">
+      <wf-breadcrumb suffix="Phân tích OCR nâng cao" />
+    </div>
+    <div class="toolbar-right">
+      <button type="button" (click)="goBack()" class="btn-back btn-small">
+        <i class="pi pi-arrow-left"></i> Quay lại
+      </button>
+    </div>
+  </div>
+
+  <div class="wf-card">
+    <h2 class="ocr-page-title">
+      Phân tích OCR nâng cao
+      @if (documentLabel()) {
+        <span class="ocr-page-title-doc"> — {{ documentLabel() }}</span>
+      }
+    </h2>
+
+    @if (loading()) {
+      <div class="ocr-page-loading">
+        <i class="pi pi-spin pi-spinner"></i>
+        Đang tải thông tin tài liệu...
+      </div>
+    } @else if (errorMessage()) {
+      <div class="ocr-page-error">
+        <i class="pi pi-exclamation-triangle"></i>
+        <span>{{ errorMessage() }}</span>
+      </div>
+    } @else if (sourceDocument(); as doc) {
+      <lib-ocr-insights-content [sourceDocument]="doc"></lib-ocr-insights-content>
+    }
+  </div>
+</div>
