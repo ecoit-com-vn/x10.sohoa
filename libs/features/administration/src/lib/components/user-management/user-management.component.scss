@@ -100,8 +100,6 @@
     }
   }
 }
-
-
 .dialog-permissions-body {
   padding-top: 4px;
 }
@@ -437,104 +435,4 @@
   }
 }
 
-// ── Roles Dropdown (multi-select dropdown) ───────────────────────────────────
-.roles-dropdown-container {
-  position: relative;
-  width: 100%;
-
-  &.disabled {
-    opacity: 0.6;
-    pointer-events: none;
-  }
-
-  .roles-dropdown-trigger {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    border: 1.5px solid #e2e8f0;
-    border-radius: 8px;
-    padding: 0 12px;
-    height: 38px;
-    cursor: pointer;
-    background: #fff;
-    font-size: 0.875rem;
-    color: #94a3b8;
-    transition: border-color 0.2s, box-shadow 0.2s;
-    user-select: none;
-
-    &.has-value {
-      color: #1e293b;
-    }
-
-    &:hover, &.open {
-      border-color: #3b82f6;
-      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
-    }
-
-    .roles-dropdown-label {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      flex: 1;
-    }
-
-    .pi-chevron-down, .pi-chevron-up {
-      font-size: 0.75rem;
-      color: #6b7280;
-      flex-shrink: 0;
-      margin-left: 8px;
-    }
-  }
-
-  .roles-dropdown-menu {
-    position: absolute;
-    top: calc(100% + 4px);
-    left: 0;
-    right: 0;
-    z-index: 1000;
-    background: #fff;
-    border: 1.5px solid #e2e8f0;
-    border-radius: 8px;
-    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
-    max-height: 200px;
-    overflow-y: auto;
-    animation: fadeInDown 0.15s ease;
-    padding: 4px 0;
-
-    .roles-dropdown-empty {
-      padding: 12px 16px;
-      text-align: center;
-      color: #94a3b8;
-      font-size: 0.82rem;
-    }
-  }
-
-  .roles-dropdown-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 12px;
-    cursor: pointer;
-    font-size: 0.85rem;
-    color: #374151;
-    transition: background-color 0.15s;
-
-    input[type="checkbox"] {
-      cursor: pointer;
-      accent-color: #2563eb;
-      width: 14px;
-      height: 14px;
-    }
-
-    &:hover {
-      background-color: #f0f9ff;
-    }
-
-    &.checked {
-      background-color: #eff6ff;
-      color: #1d4ed8;
-      font-weight: 600;
-    }
-  }
-}
 

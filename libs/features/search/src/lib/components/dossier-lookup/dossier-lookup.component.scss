@@ -16,7 +16,7 @@
 }
 
 .lookup-filters__row--primary {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .lookup-filters__row--secondary {
@@ -69,6 +69,7 @@
 .lookup-filters__action {
   display: flex;
   align-items: flex-end;
+  justify-content: flex-end;
   gap: 8px;
 }
 
@@ -83,7 +84,7 @@
   font-size: 0.875rem;
 }
 
-.lookup-filters__action .btn-tim,
+.lookup-filters__action .btn-save,
 .lookup-filters__action .btn-lam-moi {
   height: 34px;
   white-space: nowrap;
