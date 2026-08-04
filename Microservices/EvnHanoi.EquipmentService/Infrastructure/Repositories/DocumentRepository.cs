@@ -1646,10 +1646,83 @@ public class DocumentRepository : IDocumentRepository
         DossierDocumentFilterDto filter) =>
         GetProfileDocumentsByEquipmentAsync(equipmentId, filter, publishedOnly: true);
 
+    public Task<(IEnumerable<DocumentListItemDto> Items, int TotalCount)> GetPublishedFactoryAcceptanceDocumentsByEquipmentAsync(
+        Guid equipmentId,
+        DossierDocumentFilterDto filter) =>
+        GetProfileDocumentsByEquipmentAsync(equipmentId, filter, publishedOnly: true, factoryAcceptanceOnly: true);
+
+    public async Task<(IEnumerable<DocumentListItemDto> Items, int TotalCount)> GetPublishedFactoryAcceptanceDocumentsAsync(
+        DossierDocumentFilterDto filter)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        var whereClause = @"d.IS_DELETED = 0
+                            AND dossier.IsDeleted = 0
+                            AND dossier.STATUS_ID = 6
+                            AND dossier.PUBLISHSTATUSID = 2
+                            AND e.IsDeleted = 0
+                            AND dt.IS_FACTORY_ACCEPTANCE_REPORT = 1";
+        var parameters = new DynamicParameters();
+        if (!string.IsNullOrWhiteSpace(filter.Keyword))
+        {
+            whereClause += " AND d.NAME LIKE :Keyword";
+            parameters.Add("Keyword", $"%{filter.Keyword.Trim()}%");
+        }
+
+        var fromClause = $@"FROM DOCUMENTS d
+                            INNER JOIN DOSSIERS dossier ON d.DOSSIER_ID = dossier.ID
+                            INNER JOIN DOSSIER_EQUIPMENTS de ON dossier.ID = de.DossierId
+                            INNER JOIN EQUIPMENTS e ON de.EquipmentId = e.ID
+                            INNER JOIN DOCUMENT_TYPES dt ON {DocumentTypeActiveJoin}";
+
+        var totalCount = await _connection.ExecuteScalarAsync<int>(
+            $"SELECT COUNT(1) {fromClause} WHERE {whereClause}",
+            parameters);
+
+        var listSql = $@"SELECT d.ID,
+                                d.NAME,
+                                d.FOLDER_ID AS FolderId,
+                                d.DOSSIER_ID AS DossierId,
+                                d.DOCUMENT_TYPE_ID AS DocumentTypeId,
+                                dt.NAME AS DocumentTypeName,
+                                dt.IS_EQUIPMENT_PROFILE AS IsEquipmentProfile,
+                                e.NAME AS EquipmentName,
+                                d.CREATED_BY AS CreatedBy,
+                                {DocumentCreatedByNameSelect},
+                                d.CREATED_DATE AS CreatedDate,
+                                NVL(latest.FILE_SIZE, 0) AS FileSize,
+                                latest.MIME_TYPE AS MimeType,
+                                latest.LATEST_VERSION_ID AS LatestVersionId
+                         {fromClause}
+                         {DocumentCreatorJoin}
+                         LEFT JOIN (
+                             SELECT dv.DOCUMENT_ID, dv.ID AS LATEST_VERSION_ID, dv.FILE_SIZE, dv.MIME_TYPE
+                             FROM DOCUMENT_VERSIONS dv
+                             INNER JOIN (
+                                 SELECT DOCUMENT_ID, MAX(VERSION_NUMBER) AS MAX_VER
+                                 FROM DOCUMENT_VERSIONS
+                                 WHERE IS_DELETED = 0
+                                 GROUP BY DOCUMENT_ID
+                             ) latestVersion ON dv.DOCUMENT_ID = latestVersion.DOCUMENT_ID
+                                              AND dv.VERSION_NUMBER = latestVersion.MAX_VER
+                             WHERE dv.IS_DELETED = 0
+                         ) latest ON latest.DOCUMENT_ID = d.ID
+                         WHERE {whereClause}
+                         ORDER BY d.CREATED_DATE DESC, d.NAME ASC
+                         OFFSET :Offset ROWS FETCH NEXT :PageSize ROWS ONLY";
+
+        parameters.Add("Offset", (filter.Page - 1) * filter.PageSize);
+        parameters.Add("PageSize", filter.PageSize);
+        var rows = await _connection.QueryAsync<DossierDocumentListRow>(listSql, parameters);
+        return (rows.Select(MapDossierDocumentListRow), totalCount);
+    }
+
     private async Task<(IEnumerable<DocumentListItemDto> Items, int TotalCount)> GetProfileDocumentsByEquipmentAsync(
         Guid equipmentId,
         DossierDocumentFilterDto filter,
-        bool publishedOnly)
+        bool publishedOnly,
+        bool factoryAcceptanceOnly = false)
     {
         if (_connection.State != ConnectionState.Open)
             _connection.Open();
@@ -1660,7 +1733,10 @@ public class DocumentRepository : IDocumentRepository
         var publishedDossierFilter = publishedOnly
             ? " AND dossier.IsDeleted = 0 AND dossier.STATUS_ID = 6 AND dossier.PUBLISHSTATUSID = 2"
             : string.Empty;
-        var aliasedWhere = "d.IS_DELETED = 0" + publishedDossierFilter + " AND dt.IS_EQUIPMENT_PROFILE = 1 AND de.EquipmentId = :EquipmentId";
+        var documentTypeFilter = factoryAcceptanceOnly
+            ? "dt.IS_FACTORY_ACCEPTANCE_REPORT = 1"
+            : "dt.IS_EQUIPMENT_PROFILE = 1";
+        var aliasedWhere = "d.IS_DELETED = 0" + publishedDossierFilter + $" AND {documentTypeFilter} AND de.EquipmentId = :EquipmentId";
         if (!string.IsNullOrWhiteSpace(filter.Keyword))
             aliasedWhere += " AND d.NAME LIKE :Keyword";
 

@@ -80,7 +80,7 @@ public partial class EquipmentController : ControllerBase
             unitId, 
             infrastructureId, 
             gridTypeId, 
-            equipmentTypeId, 
+            equipmentTypeId,
             isActive,
             allowedUnitIds);
 
@@ -791,6 +791,7 @@ public partial class EquipmentController : ControllerBase
             formSchema = dto.FormSchema
         });
     }
+
 }
 
 public class UpdateFormValuesRequest

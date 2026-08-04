@@ -161,6 +161,79 @@ public partial class EquipmentController
     }
 
     /// <summary>Tạo download token tài liệu lý lịch thiết bị (thuộc hồ sơ liên quan) — quyền EQUIPMENT_VIEW.</summary>
+    /// <summary>Thông tin thiết bị và biên bản xuất xưởng thuộc hồ sơ đã xuất bản.</summary>
+    [HttpGet("factory-acceptance/{equipmentId:guid}")]
+    [BypassDynamicPermission]
+    public async Task<IActionResult> GetFactoryAcceptanceEquipmentDetail(
+        Guid equipmentId,
+        [FromQuery] DossierDocumentFilterDto filter)
+    {
+        var equipment = await _equipmentRepository.GetDtoByIdAsync(equipmentId);
+        if (equipment == null)
+            return NotFound(new { message = "Không tìm thấy thiết bị." });
+
+        var (documents, totalCount) = await _documentRepository
+            .GetPublishedFactoryAcceptanceDocumentsByEquipmentAsync(equipmentId, filter);
+
+        return Ok(new
+        {
+            equipment,
+            documents,
+            totalCount,
+            page = filter.Page,
+            pageSize = filter.PageSize
+        });
+    }
+
+    /// <summary>Thông tin thiết bị và tài liệu lý lịch thuộc hồ sơ đã xuất bản.</summary>
+    [HttpGet("factory-profile/{equipmentId:guid}")]
+    [BypassDynamicPermission]
+    public async Task<IActionResult> GetFactoryProfileEquipmentDetail(
+        Guid equipmentId,
+        [FromQuery] DossierDocumentFilterDto filter)
+    {
+        var equipment = await _equipmentRepository.GetDtoByIdAsync(equipmentId);
+        if (equipment == null)
+            return NotFound(new { message = "Khong tim thay thiet bi." });
+
+        var (documents, totalCount) = await _documentRepository
+            .GetPublishedProfileDocumentsByEquipmentAsync(equipmentId, filter);
+
+        return Ok(new
+        {
+            equipment,
+            documents,
+            totalCount,
+            page = filter.Page,
+            pageSize = filter.PageSize
+        });
+    }
+
+    [HttpGet("{equipmentId:guid}/factory-acceptance-documents")]
+    [BypassDynamicPermission]
+    public async Task<IActionResult> GetPublishedFactoryAcceptanceDocuments(
+        Guid equipmentId,
+        [FromQuery] DossierDocumentFilterDto filter)
+    {
+        var dto = await _equipmentRepository.GetDtoByIdAsync(equipmentId);
+        if (dto == null)
+            return NotFound(new { message = "Không tìm thấy thiết bị." });
+
+        var allowedUnitIds = await GetAllowedUnitIdsAsync();
+        if (allowedUnitIds != null && (!dto.UnitId.HasValue || !allowedUnitIds.Contains(dto.UnitId.Value)))
+            return Forbid();
+
+        try
+        {
+            var (items, totalCount) = await _documentRepository.GetPublishedFactoryAcceptanceDocumentsByEquipmentAsync(equipmentId, filter);
+            return Ok(new { items, totalCount, page = filter.Page, pageSize = filter.PageSize });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
     [HttpGet("{equipmentId:guid}/documents/{versionId:guid}/download-url")]
     public async Task<IActionResult> GetProfileDocumentDownloadUrl(
         Guid equipmentId,
