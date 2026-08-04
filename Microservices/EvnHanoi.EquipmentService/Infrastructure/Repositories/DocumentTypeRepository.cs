@@ -64,9 +64,10 @@ public class DocumentTypeRepository : IDocumentTypeRepository
                             f.Name as {nameof(DocumentType.FormName)}
                      FROM DOCUMENT_TYPES dt
                      LEFT JOIN EavFormTemplates f ON dt.FORM_ID = f.Id
-                     WHERE LOWER(dt.{nameof(DocumentType.Code)}) = :Code AND dt.{nameof(DocumentType.IsDeleted)} = 0";
+                     WHERE UPPER(TRIM(dt.{nameof(DocumentType.Code)})) = UPPER(TRIM(:Code))
+                       AND dt.{nameof(DocumentType.IsDeleted)} = 0";
 
-        return await _connection.QuerySingleOrDefaultAsync<DocumentType>(sql, new { Code = code.ToLower().Trim() });
+        return await _connection.QuerySingleOrDefaultAsync<DocumentType>(sql, new { Code = code });
     }
 
     public async Task<(IEnumerable<DocumentType> Items, int TotalCount)> GetPagedAsync(

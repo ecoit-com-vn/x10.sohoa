@@ -81,9 +81,9 @@ public class DossierTypeRepository : IDossierTypeRepository
                             f.Name as {nameof(DossierType.FormName)}
                      FROM DOSSIER_TYPES dt
                      LEFT JOIN EavFormTemplates f ON dt.FORM_ID = f.Id
-                     WHERE LOWER(dt.{nameof(DossierType.Code)}) = :Code AND dt.{nameof(DossierType.IsDeleted)} = 0";
+                     WHERE UPPER(TRIM(dt.{nameof(DossierType.Code)})) = UPPER(TRIM(:Code)) AND dt.{nameof(DossierType.IsDeleted)} = 0";
 
-        var dossierType = await _connection.QuerySingleOrDefaultAsync<DossierType>(sql, new { Code = code.ToLower().Trim() });
+        var dossierType = await _connection.QuerySingleOrDefaultAsync<DossierType>(sql, new { Code = code });
         if (dossierType != null)
         {
             await PopulateDocumentTypeIdsAsync(dossierType);
