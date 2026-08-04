@@ -8,8 +8,10 @@ export interface DossierByEquipmentFilter {
   keyword?: string;
   createdDateFrom?: string;
   createdDateTo?: string;
+  gridTypeId?: number | null;
   infrastructureId?: string | null;
   equipmentId?: string | null;
+  dossierTypeId?: string | null;
   storageLevel?: 'shelf' | 'floor' | 'box' | null;
   storageId?: number | null;
 }
@@ -38,8 +40,10 @@ export class DossierByEquipmentService {
     if (filter.keyword?.trim()) params = params.set('keyword', filter.keyword.trim());
     if (filter.createdDateFrom) params = params.set('createdDateFrom', filter.createdDateFrom);
     if (filter.createdDateTo) params = params.set('createdDateTo', filter.createdDateTo);
+    if (filter.gridTypeId != null) params = params.set('gridTypeId', filter.gridTypeId.toString());
     if (filter.infrastructureId) params = params.set('infrastructureId', filter.infrastructureId);
     if (filter.equipmentId) params = params.set('equipmentId', filter.equipmentId);
+    if (filter.dossierTypeId) params = params.set('dossierTypeId', filter.dossierTypeId);
     if (filter.storageLevel && filter.storageId != null) {
       params = params.set('storageLevel', filter.storageLevel).set('storageId', filter.storageId.toString());
     }
