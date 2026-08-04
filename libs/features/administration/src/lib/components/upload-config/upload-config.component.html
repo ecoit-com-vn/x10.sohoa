@@ -19,9 +19,9 @@
                     <label class="search-field-label">Từ khóa</label>
                     <input type="text" class="wf-search-input" placeholder="Tìm theo tên cấu hình..." [ngModel]="searchKeyword()" (ngModelChange)="searchKeyword.set($event)" (keyup.enter)="onSearch()" />
                 </div>
-                <div class="search-form-item">
+                <div class="standard-search-field">
                     <label class="search-field-label">Đơn vị</label>
-                    <eco-input-tree-select [showLabel]="false" placeholder="-- Tất cả đơn vị --" [nodes]="primengOrgUnitTree()" [ngModel]="searchUnitId()" (ngModelChange)="onUnitFilterChange($event)" [showClear]="true" [enableSearch]="true" [border]="true">
+                    <eco-input-tree-select class="upload-config-unit-select" [showLabel]="false" placeholder="-- Tất cả đơn vị --" [nodes]="primengOrgUnitTree()" [ngModel]="searchUnitId()" (ngModelChange)="onUnitFilterChange($event)" [showClear]="true" [enableSearch]="true" [border]="true">
                     </eco-input-tree-select>
                 </div>
 
@@ -35,7 +35,7 @@
                     <select class="wf-select" style="min-width: 220px; height: 38px; padding: 0 12px; border: 1px solid #cbd5e1; border-radius: 6px; background-color: #fff; font-size: 0.875rem; color: #334155; cursor: pointer; outline: none;" [ngModel]="searchStatus()" (ngModelChange)="onStatusFilterChange($event)">
                         <option [value]="null">-- Tất cả trạng thái --</option>
                         <option [value]="true">Hoạt động</option>
-                        <option [value]="false">Không hoạt động</option>
+                        <option [value]="false">Ngừng hoạt động</option>
                     </select>
                 </div>
 

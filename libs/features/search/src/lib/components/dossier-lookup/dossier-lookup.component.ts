@@ -84,9 +84,13 @@ export class DossierLookupComponent implements OnInit {
 
   createdDateTo = signal<string>('');
 
+  filterGridTypeId = signal<number | null>(null);
+
   filterInfrastructureId = signal<string | null>(null);
 
   filterEquipmentId = signal<string | null>(null);
+
+  filterDossierTypeId = signal<string | null>(null);
 
   filterStorageNode = signal<TreeNode | null>(null);
 
@@ -94,9 +98,13 @@ export class DossierLookupComponent implements OnInit {
 
 
 
+  gridTypes = signal<DossierByEquipmentLookupItem[]>([]);
+
   infrastructures = signal<DossierByEquipmentLookupItem[]>([]);
 
   equipments = signal<DossierByEquipmentLookupItem[]>([]);
+
+  dossierTypes = signal<DossierByEquipmentLookupItem[]>([]);
 
   storageTree = signal<TreeNode[]>([]);
 
@@ -146,9 +154,13 @@ export class DossierLookupComponent implements OnInit {
 
       createdDateTo: this.createdDateTo() || undefined,
 
+      gridTypeId: this.filterGridTypeId(),
+
       infrastructureId: this.filterInfrastructureId(),
 
       equipmentId: this.filterEquipmentId(),
+
+      dossierTypeId: this.filterDossierTypeId(),
 
       storageLevel: this.filterStorageNode()?.data?.level ?? null,
 
@@ -161,6 +173,14 @@ export class DossierLookupComponent implements OnInit {
 
 
   private loadStaticLookups() {
+
+    this.dossierByEquipmentService.getGridTypes().subscribe({
+
+      next: (res) => this.gridTypes.set(res || []),
+
+      error: () => this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không tải được loại lưới điện' })
+
+    });
 
     this.dossierByEquipmentService.getBhsColumns().subscribe({
 
@@ -208,6 +228,28 @@ export class DossierLookupComponent implements OnInit {
 
     });
 
+    this.dossierByEquipmentService.getDossierTypes(filter).subscribe({
+
+      next: (res) => this.dossierTypes.set(res || []),
+
+      error: () => this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không tải được loại hồ sơ' })
+
+    });
+
+  }
+
+
+
+  onGridTypeChange() {
+
+    this.filterInfrastructureId.set(null);
+
+    this.filterEquipmentId.set(null);
+
+    this.filterDossierTypeId.set(null);
+
+    this.onSearch();
+
   }
 
 
@@ -215,6 +257,8 @@ export class DossierLookupComponent implements OnInit {
   onInfrastructureChange() {
 
     this.filterEquipmentId.set(null);
+
+    this.filterDossierTypeId.set(null);
 
     this.loadDependentLookups();
 
@@ -268,9 +312,13 @@ export class DossierLookupComponent implements OnInit {
 
     this.createdDateTo.set('');
 
+    this.filterGridTypeId.set(null);
+
     this.filterInfrastructureId.set(null);
 
     this.filterEquipmentId.set(null);
+
+    this.filterDossierTypeId.set(null);
 
     this.filterStorageNode.set(null);
 

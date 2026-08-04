@@ -23,23 +23,18 @@
 
       <div class="standard-search-field filter-col">
         <label class="filter-label">Tầng hồ sơ</label>
-        <p-multiSelect
-          [options]="floorOptions()"
-          [ngModel]="selectedFloorIds()"
-          (ngModelChange)="selectedFloorIds.set($event ?? [])"
-          optionLabel="name"
-          optionValue="id"
+        <eco-input-tree-select
+          [showLabel]="false"
           placeholder="-- Chọn tầng hồ sơ --"
-          [filter]="true"
-          filterBy="name"
-          filterPlaceholder="Tìm kiếm..."
+          [nodes]="shelfFloorTree()"
+          [ngModel]="selectedFloorNodeKeys()"
+          (ngModelChange)="selectedFloorNodeKeys.set($event ?? [])"
+          selectionMode="checkbox"
+          [enableSearch]="true"
           [showClear]="true"
+          [border]="true"
           display="comma"
-          [maxSelectedLabels]="2"
-          selectedItemsLabel="{0} tầng đã chọn"
-          styleClass="w-full wf-select-custom floor-multiselect"
-          appendTo="body"
-        ></p-multiSelect>
+        ></eco-input-tree-select>
       </div>
 
       <div class="standard-search-field filter-col">
