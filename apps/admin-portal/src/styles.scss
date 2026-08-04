@@ -345,6 +345,50 @@ body {
     min-width: 0 !important;
 }
 
+.unit-scoped-search-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: end;
+    gap: 16px;
+    width: 100%;
+    padding: 16px;
+    border: 1px solid #dbe4f0;
+    border-radius: 8px;
+}
+
+.unit-scoped-search-grid--muc-luc {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.unit-scoped-search-grid .standard-search-field > label {
+    margin-top: 0;
+}
+
+.unit-scoped-search-actions {
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-end;
+    gap: 8px;
+    grid-column: 1 / -1;
+}
+
+.unit-scoped-search-actions .btn-outlined,
+.unit-scoped-search-actions .btn-save {
+    height: 38px;
+    white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+    .unit-scoped-search-grid,
+    .unit-scoped-search-grid--muc-luc {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .unit-scoped-search-actions {
+        grid-column: 1 / -1;
+    }
+}
+
 .standard-list-card {
     margin-bottom: 0;
 }

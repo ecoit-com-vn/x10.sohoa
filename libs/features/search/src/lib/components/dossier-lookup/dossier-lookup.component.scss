@@ -40,7 +40,8 @@
 
 .lookup-filters__field .wf-search-input,
 .lookup-filters__field .wf-select,
-.lookup-filters__field p-select {
+.lookup-filters__field p-select,
+.lookup-filters__field p-treeSelect {
   width: 100%;
   box-sizing: border-box;
 }
@@ -68,9 +69,22 @@
 .lookup-filters__action {
   display: flex;
   align-items: flex-end;
+  gap: 8px;
 }
 
-.lookup-filters__action .btn-tim {
+:host ::ng-deep .lookup-storage-tree {
+  width: 100%;
+  min-height: 34px;
+}
+
+:host ::ng-deep .lookup-storage-tree .p-treeselect-label {
+  padding-top: 7px;
+  padding-bottom: 7px;
+  font-size: 0.875rem;
+}
+
+.lookup-filters__action .btn-tim,
+.lookup-filters__action .btn-lam-moi {
   height: 34px;
   white-space: nowrap;
 }

@@ -6,13 +6,12 @@ import { BhsCatalogColumn } from '../../../../dossier-management/src/lib/data-ac
 
 export interface DossierByEquipmentFilter {
   keyword?: string;
-  publishDateFrom?: string;
-  publishDateTo?: string;
-  gridTypeId?: number | null;
+  createdDateFrom?: string;
+  createdDateTo?: string;
   infrastructureId?: string | null;
-  equipmentTypeId?: string | null;
   equipmentId?: string | null;
-  dossierTypeId?: string | null;
+  storageLevel?: 'shelf' | 'floor' | 'box' | null;
+  storageId?: number | null;
 }
 
 export interface DossierByEquipmentLookupItem {
@@ -37,13 +36,13 @@ export class DossierByEquipmentService {
   private buildFilterParams(filter: DossierByEquipmentFilter): HttpParams {
     let params = new HttpParams();
     if (filter.keyword?.trim()) params = params.set('keyword', filter.keyword.trim());
-    if (filter.publishDateFrom) params = params.set('publishDateFrom', new Date(filter.publishDateFrom).toISOString());
-    if (filter.publishDateTo) params = params.set('publishDateTo', new Date(filter.publishDateTo).toISOString());
-    if (filter.gridTypeId != null) params = params.set('gridTypeId', filter.gridTypeId.toString());
+    if (filter.createdDateFrom) params = params.set('createdDateFrom', filter.createdDateFrom);
+    if (filter.createdDateTo) params = params.set('createdDateTo', filter.createdDateTo);
     if (filter.infrastructureId) params = params.set('infrastructureId', filter.infrastructureId);
-    if (filter.equipmentTypeId) params = params.set('equipmentTypeId', filter.equipmentTypeId);
     if (filter.equipmentId) params = params.set('equipmentId', filter.equipmentId);
-    if (filter.dossierTypeId) params = params.set('dossierTypeId', filter.dossierTypeId);
+    if (filter.storageLevel && filter.storageId != null) {
+      params = params.set('storageLevel', filter.storageLevel).set('storageId', filter.storageId.toString());
+    }
     return params;
   }
 
@@ -63,6 +62,10 @@ export class DossierByEquipmentService {
     return this.http.get<DossierByEquipmentLookupItem[]>(`${this.lookupBase}/equipments`, {
       params: this.buildFilterParams(filter)
     });
+  }
+
+  getPhysicalStorageTree(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.config.apiGatewayUrl}/api/v1/dossiers/physical-storage/tree`);
   }
 
   getDossierTypes(filter: DossierByEquipmentFilter): Observable<DossierByEquipmentLookupItem[]> {

@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, computed, effect } from '@angular/core';
+import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import {
   DeleteConfirmDialogComponent,
   EcoPaginatorComponent,
@@ -169,23 +169,12 @@ export class UserManagement implements OnInit {
 
   actionMenuItems: MenuItem[] = [];
 
-  constructor() {
-    effect(() => {
-      const page = this.currentPage();
-      const size = this.pageSize();
-      this.loadUsers();
-    }, { allowSignalWrites: true });
-
-  }
-
   openActionMenu(user: any, event: Event, menu: Menu): void {
     event.stopPropagation();
     this.actionMenuItems = [
       ...(this.authService.hasPermission('USER_MANAGE') ? [
-        { label: 'Quyền theo đơn vị', title: 'Quyền theo đơn vị', icon: 'pi pi-sitemap', command: () => this.onManageUnitRoles(user) },
         { label: 'Gán vai trò trực tiếp', title: 'Gán vai trò trực tiếp', icon: 'pi pi-shield', command: () => this.onManageRoles(user) },
       ] : []),
-      ...(this.authService.hasPermission('USER_MANAGE') || this.authService.hasPermission('PERMISSION_MANAGE') ? [{ label: 'Phân quyền trực tiếp', title: 'Phân quyền trực tiếp', icon: 'pi pi-key color-blue', command: () => this.onManagePermissions(user) }] : []),
       ...(this.authService.hasPermission('USER_EDIT') ? [{ label: 'Chỉnh sửa', title: 'Chỉnh sửa', icon: 'pi pi-pencil color-teal', command: () => this.onEdit(user) }] : []),
       ...(this.authService.hasPermission('USER_EDIT') ? [{ label: user.isActive ? 'Khóa tài khoản' : 'Mở khóa tài khoản', title: user.isActive ? 'Khóa tài khoản' : 'Mở khóa tài khoản', icon: user.isActive ? 'pi pi-lock color-red' : 'pi pi-lock-open color-teal', command: () => this.onToggleStatusRequest(user) }] : []),
       ...(this.authService.hasPermission('USER_DELETE') ? [{ label: 'Xóa', title: 'Xóa', icon: 'pi pi-trash color-red', command: () => this.onDelete(user) }] : []),
@@ -214,12 +203,14 @@ export class UserManagement implements OnInit {
   nextPage() {
     if (this.currentPage() < this.totalPages()) {
       this.currentPage.update(p => p + 1);
+      this.loadUsers();
     }
   }
 
   prevPage() {
     if (this.currentPage() > 1) {
       this.currentPage.update(p => p - 1);
+      this.loadUsers();
     }
   }
 
@@ -227,12 +218,14 @@ export class UserManagement implements OnInit {
     const p = Number(page);
     if (p >= 1 && p <= this.totalPages()) {
       this.currentPage.set(p);
+      this.loadUsers();
     }
   }
 
   onPageSizeChange(pageSize: number) {
     this.pageSize.set(pageSize);
     this.currentPage.set(1);
+    this.loadUsers();
   }
 
   ngOnInit() {
@@ -375,9 +368,11 @@ export class UserManagement implements OnInit {
   }
 
   onSearch() {
-    const keyword = this.searchKeyword().trim();
-    this.searchKeyword.set(keyword);
-    this.appliedKeyword.set(keyword);
+    const normalizedKeyword = this.searchKeyword().trim();
+    this.searchKeyword.set(normalizedKeyword);
+    this.appliedKeyword.set(normalizedKeyword);
+    this.appliedUnitId.set(this.searchUnitId());
+    this.appliedStatus.set(this.searchStatus());
     this.reloadUsersFromFirstPage();
   }
 
@@ -398,14 +393,10 @@ export class UserManagement implements OnInit {
 
   onSearchUnitChange(val: any) {
     this.searchUnitId.set(val && val !== 'null' ? Number(val) : null);
-    this.appliedUnitId.set(this.searchUnitId());
-    this.reloadUsersFromFirstPage();
   }
 
   onSearchStatusChange(status: string): void {
     this.searchStatus.set(status);
-    this.appliedStatus.set(status);
-    this.reloadUsersFromFirstPage();
   }
 
   private reloadUsersFromFirstPage(): void {
@@ -414,6 +405,7 @@ export class UserManagement implements OnInit {
       return;
     }
     this.currentPage.set(1);
+    this.loadUsers();
   }
 
   onToggleStatusRequest(user: any) {
