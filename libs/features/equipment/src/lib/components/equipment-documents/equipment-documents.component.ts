@@ -118,6 +118,9 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
   /** Id thiết bị — bắt buộc; parent chỉ mount khi đã có id. */
   equipmentId = input.required<string>();
   canEdit = input(false);
+  factoryAcceptanceOnly = input(false);
+  externalAccess = input(false);
+  factoryProfileAccess = input(false);
   documentProcessed = output<void>();
 
   documents = signal<EquipmentDocumentItem[]>([]);
@@ -145,9 +148,15 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
   constructor() {
     effect(() => {
       const id = this.equipmentId();
+      const factoryAcceptanceOnly = this.factoryAcceptanceOnly();
       if (!id) return;
       untracked(() => {
-        this.loadFormTemplate();
+        if (!factoryAcceptanceOnly) {
+          this.loadFormTemplate();
+        } else {
+          this.formTemplateName.set(null);
+          this.formTemplateMissing.set(false);
+        }
         this.loadDocuments();
       });
     });
@@ -175,15 +184,46 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
     if (!equipmentId) return;
     this.loading.set(true);
 
-    this.equipmentService
-      .getPublishedProfileDocuments(equipmentId, this.page(), this.pageSize(), this.searchKeyword())
+    const request$ = this.factoryProfileAccess()
+      ? this.equipmentService.getFactoryProfileEquipmentDetail(
+          equipmentId,
+          this.page(),
+          this.pageSize(),
+          this.searchKeyword()
+        )
+      : this.externalAccess()
+      ? this.equipmentService.getFactoryAcceptanceEquipmentDetail(
+          equipmentId,
+          this.page(),
+          this.pageSize(),
+          this.searchKeyword()
+        )
+      : this.factoryAcceptanceOnly()
+        ? this.equipmentService.getFactoryAcceptanceDocuments(
+            equipmentId,
+            this.page(),
+            this.pageSize(),
+            this.searchKeyword()
+          )
+        : this.equipmentService.getPublishedProfileDocuments(
+            equipmentId,
+            this.page(),
+            this.pageSize(),
+            this.searchKeyword()
+          );
+
+    request$
       .pipe(
         finalize(() => this.loading.set(false)),
         takeUntil(this.destroy$)
       )
       .subscribe({
         next: (res) => {
-          this.documents.set(res?.items || []);
+          this.documents.set(
+            this.externalAccess() || this.factoryProfileAccess()
+              ? res?.documents || []
+              : res?.items || []
+          );
           this.totalDocuments.set(res?.totalCount || 0);
         },
         error: (err) => {

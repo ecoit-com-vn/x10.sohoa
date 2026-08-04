@@ -166,6 +166,61 @@ export class EquipmentService {
     return this.http.get<any>(`${this.base}/${equipmentId}/published-profile-documents`, { params });
   }
 
+  getFactoryAcceptanceDocuments(
+    equipmentId: string,
+    page: number,
+    pageSize: number,
+    keyword?: string
+  ): Observable<any> {
+    let params = new HttpParams()
+      .set('page', page.toString())
+      .set('pageSize', pageSize.toString());
+    if (keyword && keyword.trim()) {
+      params = params.set('keyword', keyword.trim());
+    }
+    return this.http.get<any>(`${this.base}/${equipmentId}/factory-acceptance-documents`, { params });
+  }
+
+  getExternalFactoryAcceptanceEquipments(page = 1, pageSize = 1000, keyword?: string): Observable<any> {
+    let params = new HttpParams()
+      .set('page', page.toString())
+      .set('pageSize', pageSize.toString());
+    if (keyword?.trim()) {
+      params = params.set('keyword', keyword.trim());
+    }
+    return this.http.get<any>(`${this.base}/external/factory-acceptance`, { params });
+  }
+
+  getFactoryAcceptanceEquipmentDetail(
+    equipmentId: string,
+    page = 1,
+    pageSize = 10,
+    keyword?: string
+  ): Observable<any> {
+    let params = new HttpParams()
+      .set('page', page.toString())
+      .set('pageSize', pageSize.toString());
+    if (keyword?.trim()) {
+      params = params.set('keyword', keyword.trim());
+    }
+    return this.http.get<any>(`${this.base}/factory-acceptance/${equipmentId}`, { params });
+  }
+
+  getFactoryProfileEquipmentDetail(
+    equipmentId: string,
+    page = 1,
+    pageSize = 10,
+    keyword?: string
+  ): Observable<any> {
+    let params = new HttpParams()
+      .set('page', page.toString())
+      .set('pageSize', pageSize.toString());
+    if (keyword?.trim()) {
+      params = params.set('keyword', keyword.trim());
+    }
+    return this.http.get<any>(`${this.base}/factory-profile/${equipmentId}`, { params });
+  }
+
   /** Gửi OCR + Bóc tách tài liệu lý lịch theo biểu mẫu thiết bị. */
   submitDocumentDigitizationOnly(equipmentId: string, versionId: string): Observable<any> {
     return this.http.post<any>(`${this.base}/${equipmentId}/documents/${versionId}/digitization`, {});
