@@ -170,6 +170,17 @@ public class OcrModuleRepository : IOcrModuleRepository
         await _connection.ExecuteAsync(sql, updates);
     }
 
+    /// <summary>Xóa mềm các vùng Seal đã nhận diện trước đó của 1 trang — tránh nhân đôi khi người dùng chạy lại phân tích cho đúng trang đó.</summary>
+    public async Task DeleteSealRegionsAsync(string jobId, int pageNumber)
+    {
+        var sql = @"
+            UPDATE OCR_MODULE_REGION
+               SET IS_DELETED = 1, MODIFIED_DATE = SYSTIMESTAMP, ROW_VERSION = ROW_VERSION + 1
+             WHERE JOB_ID = :JobId AND PAGE_NUMBER = :PageNumber AND REGION_TYPE = 'Seal'";
+
+        await _connection.ExecuteAsync(sql, new { JobId = jobId, PageNumber = pageNumber });
+    }
+
     public async Task CreateTemplateSnapshotAsync(OcrModuleTemplateSnapshot snapshot)
     {
         var sql = $@"
@@ -271,11 +282,13 @@ public class OcrModuleRepository : IOcrModuleRepository
         await _connection.ExecuteAsync(sql, new { RegionId = regionId, Status = status, TextRawOverride = textRawOverride });
     }
 
-    public async Task ReplaceErrorAnalysisAsync(string jobId, IReadOnlyList<OcrModuleErrorAnalysis> errors)
+    public async Task ReplaceErrorAnalysisAsync(string jobId, IReadOnlyList<OcrModuleErrorAnalysis> errors, int? pageNumber = null)
     {
+        // pageNumber = null → thay toàn bộ lỗi của Job (hành vi cũ); có giá trị → chỉ thay lỗi của đúng trang đó,
+        // giữ nguyên lỗi đã tổng hợp trước đó ở các trang khác.
         await _connection.ExecuteAsync(
-            "UPDATE OCR_MODULE_ERROR_ANALYSIS SET IS_DELETED = 1 WHERE JOB_ID = :JobId",
-            new { JobId = jobId });
+            "UPDATE OCR_MODULE_ERROR_ANALYSIS SET IS_DELETED = 1 WHERE JOB_ID = :JobId AND (:PageNumber IS NULL OR PAGE_NUMBER = :PageNumber)",
+            new { JobId = jobId, PageNumber = pageNumber });
 
         if (errors.Count == 0) return;
 
