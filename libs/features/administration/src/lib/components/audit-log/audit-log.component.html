@@ -33,6 +33,8 @@
         <eco-input-tree-select
           [showLabel]="false"
           selectionMode="checkbox"
+          display="chip"
+          placeholder="-- Tất cả đơn vị --"
           [nodes]="primengOrgUnitTree()"
           [ngModel]="filterUnitIds()"
           (ngModelChange)="filterUnitIds.set($event); onSelectFilterChange()"
@@ -139,8 +141,11 @@
               <td class="col-stt text-muted">{{ (currentPage() - 1) * pageSize() + i + 1 }}</td>
               <td><span>{{ log.userName }}</span></td>
               <td>{{ log.fullName }}</td>
-              <td><b>{{ getActionLabel(log.action) }}</b></td>
-              <td>{{ getResourceTypeLabel(log.resourceType) }}</td>
+              <td><b>{{ log.actionName }}</b></td>
+              <td>
+                <div>{{ log.resourceTypeName }}</div>
+                <small class="text-muted">{{ log.resourceName }}</small>
+              </td>
               <td>{{ log.timestamp }}</td>
               <td class="mota-text">{{ log.details }}</td>
               <td class="col-actions">

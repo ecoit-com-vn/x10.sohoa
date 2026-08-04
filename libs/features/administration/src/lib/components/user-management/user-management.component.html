@@ -14,14 +14,14 @@
       </button>
     </div>
   </div>
-  <div class="wf-card">
+    <div>
 
     <!-- MÀN HÌNH DANH SÁCH -->
     <div *ngIf="currentView() === 'list' || currentView() === 'add' || currentView() === 'edit'"
       class="animate-fade-in">
       <!-- Toolbar -->
-      <div class="standard-search-card">
-        <div class="toolbar-left">
+            <div class="standard-search-card">
+                <div class="standard-search-grid">
           <div class="standard-search-field">
             <label class="search-field-label">Từ khóa</label>
             <input type="text" class="wf-search-input" placeholder="Tìm kiếm tài khoản, tên..."
@@ -31,7 +31,7 @@
 
           <div class="standard-search-field">
             <label class="search-field-label">Đơn vị</label>
-            <p-select [options]="organizationUnitFilterOptions()" [ngModel]="searchUnitId()" (ngModelChange)="onSearchUnitChange($event)" optionLabel="name" optionValue="id" [filter]="true" filterBy="name" filterPlaceholder="Tìm theo tên đơn vị..." styleClass="wf-select w-full upload-config-unit-select" />
+            <eco-input-tree-select class="unit-filter-select" [showLabel]="false" placeholder="-- Tất cả đơn vị --" selectionMode="checkbox" display="chip" [nodes]="primengOrgUnitTree()" [ngModel]="searchUnitIds()" (ngModelChange)="onSearchUnitChange($event)" [showClear]="true" [enableSearch]="true" [border]="true" />
           </div>
 
           <div class="standard-search-field">
@@ -55,7 +55,8 @@
       </div>
 
       <!-- Table -->
-      <div class="wf-table-wrap">
+            <div class="wf-card">
+            <div class="wf-table-wrap">
         <table class="wf-table">
           <thead>
             <tr>
@@ -135,9 +136,10 @@
       <p-menu #actionMenu [model]="actionMenuItems" [popup]="true" appendTo="body" styleClass="row-action-menu"></p-menu>
 
       <!-- Footer with Pagination -->
-      <app-eco-paginator *ngIf="totalCount() > 0 && !loading()"
-        [currentPage]="currentPage()" [pageSize]="pageSize()" [totalRecords]="totalCount()"
-        (pageChange)="goToPage($event)" (pageSizeChange)="onPageSizeChange($event)" />
+            <app-eco-paginator *ngIf="totalCount() > 0 && !loading()"
+                [currentPage]="currentPage()" [pageSize]="pageSize()" [totalRecords]="totalCount()"
+                (pageChange)="goToPage($event)" (pageSizeChange)="onPageSizeChange($event)" />
+            </div>
     </div>
 
     <!-- Dialog Thêm/Sửa Người dùng -->

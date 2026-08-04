@@ -1,19 +1,28 @@
 <div class="wf-page">
   <p-toast></p-toast>
 
-  <wf-breadcrumb
-    [viewMode]="currentCatalogView()"
-    [customItems]="catalogBreadcrumbItems"
-    (listClick)="currentCatalogView.set('list')" />
+  <div class="list-toolbar standard-page-toolbar">
+    <div class="toolbar-left">
+      <wf-breadcrumb
+        [viewMode]="currentCatalogView()"
+        [customItems]="catalogBreadcrumbItems"
+        (listClick)="currentCatalogView.set('list')" />
+    </div>
+    <div class="toolbar-right">
+      <button class="btn-green" (click)="onAddNewType()" *ngIf="canCreateType()">
+        <i class="pi pi-plus"></i> Thêm loại danh mục
+      </button>
+      <button class="btn-green" (click)="onAddNewCatalog()" *ngIf="selectedTypeId() && canCreateCatalog()">
+        <i class="pi pi-plus"></i> Thêm danh mục
+      </button>
+    </div>
+  </div>
 
   <div class="split-container">
     <!-- LEFT PANEL: Catalog Types (Width: 33%) -->
     <div class="panel-left wf-card" style="padding: 16px; background-color: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; display: flex; flex-direction: column;">
       <div class="panel-header">
         <h3 class="panel-title">Danh sách loại danh mục</h3>
-        <button class="btn-save btn-small" (click)="onAddNewType()" *ngIf="canCreateType()" style="background-color: #3BA962; border-color: #3BA962; color: #ffffff; padding: 6px 12px; font-size: 0.8rem; border-radius: 6px;">
-          <i class="pi pi-plus" style="font-size: 0.8rem;"></i> Thêm mới
-        </button>
       </div>
 
       <!-- Left Panel Search Filter -->
@@ -81,19 +90,16 @@
     </div>
 
     <!-- RIGHT PANEL: Catalogs of Selected Type (Width: 67%) -->
-    <div class="panel-right wf-card" style="padding: 16px; background-color: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; display: flex; flex-direction: column;">
+    <div class="panel-right" style="display: flex; flex-direction: column;">
       <div *ngIf="selectedTypeId(); else noTypeSelected" style="display: flex; flex-direction: column; height: 100%;">
         <div class="panel-header">
           <h3 class="panel-title">Danh sách danh mục: <b>{{ selectedTypeName() }}</b></h3>
-          <button class="btn-save btn-small" (click)="onAddNewCatalog()" *ngIf="canCreateCatalog()" style="background-color: #3BA962; border-color: #3BA962; color: #ffffff; padding: 8px 16px; font-size: 0.85rem; border-radius: 6px;">
-            <i class="pi pi-plus"></i> Thêm mới
-          </button>
         </div>
 
-        <!-- Catalog search: layout synchronized with "Tìm kiếm hồ sơ trong kho". -->
-      <div class="standard-search-card dossier-search-bar catalog-search-bar">
-          <div class="search-form-grid catalog-search-grid">
-            <div class="search-form-item catalog-search-item standard-search-field">
+        <!-- Catalog search -->
+        <div class="standard-search-card">
+          <div class="standard-search-grid">
+            <div class="standard-search-field">
               <label class="search-field-label">Tên danh mục</label>
               <input type="text" class="wf-search-input"
                 placeholder="Tên danh mục..."
@@ -102,7 +108,7 @@
                 (keyup.enter)="onSearchCatalogs()" />
             </div>
 
-            <div class="search-form-item catalog-search-item standard-search-field">
+            <div class="standard-search-field">
               <label class="search-field-label">Mã danh mục</label>
               <input type="text" class="wf-search-input"
                 placeholder="Mã danh mục..."
@@ -111,7 +117,7 @@
                 (keyup.enter)="onSearchCatalogs()" />
             </div>
 
-            <div class="search-form-item catalog-search-item standard-search-field">
+            <div class="standard-search-field">
               <label class="search-field-label">Trạng thái</label>
               <select class="wf-input"
                 [ngModel]="searchStatus()"
@@ -122,12 +128,12 @@
               </select>
             </div>
 
-            <div *ngIf="isUnitScopedSelected()" class="search-form-item catalog-search-item standard-search-field">
+            <div *ngIf="isUnitScopedSelected()" class="standard-search-field">
               <label class="search-field-label">Đơn vị</label>
               <p-treeSelect [options]="organizationUnitTree()" [ngModel]="catalogSearchUnitNodes()"
                 (ngModelChange)="onCatalogSearchUnitNodeChange($event)" placeholder="-- Chọn đơn vị --"
                 [filter]="true" filterPlaceholder="Tìm đơn vị..." selectionMode="multiple" [metaKeySelection]="false"
-                appendTo="body" scrollHeight="260px" styleClass="w-full" [style]="{ width: '100%' }">
+                appendTo="body" scrollHeight="260px" styleClass="w-full" [style]="{ width: '100%', height: '38px' }">
                 <ng-template pTemplate="default" let-node>
                   <span style="display: inline-flex; align-items: center; gap: 8px;">
                     <span style="width: 18px; height: 18px; border: 1px solid #cbd5e1; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; background: #fff;">
@@ -150,6 +156,7 @@
         </div>
 
         <!-- Catalogs Table -->
+        <div class="wf-card" style="display: flex; flex-direction: column; flex: 1; min-height: 0;">
         <div class="wf-table-wrap" style="flex: 1; overflow-y: auto;">
           <table class="wf-table">
             <thead>
@@ -216,10 +223,11 @@
             (onPageChange)="onCatalogPageChange($event)">
           </app-eco-paginator>
         </div>
+        </div>
       </div>
 
       <ng-template #noTypeSelected>
-        <div class="no-selection-wrapper" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center; padding: 40px; color: #64748b;">
+        <div class="wf-card no-selection-wrapper" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center; padding: 40px; color: #64748b;">
           <i class="pi pi-folder-open" style="font-size: 3.5rem; color: #cbd5e1; margin-bottom: 16px;"></i>
           <p style="font-size: 0.95rem; font-weight: 500; max-width: 320px;">Vui lòng chọn một loại danh mục ở danh sách bên trái để quản lý danh mục chi tiết.</p>
         </div>

@@ -22,12 +22,12 @@
         </div>
     </div>
 
-    <div class="wf-card">
+    <div>
 
         <!-- MÀN HÌNH DANH SÁCH -->
         <div *ngIf="currentView() === 'list' || currentView() === 'add' || currentView() === 'edit'" class="animate-fade-in">
             <div class="standard-search-card">
-                <div class="toolbar-left">
+                <div class="standard-search-grid">
                     <div class="standard-search-field">
                         <label class="search-field-label">Từ khóa</label>
                         <input type="text" class="wf-search-input" placeholder="Tìm theo mã, tên đơn vị..." [ngModel]="searchKeyword()" (ngModelChange)="searchKeyword.set($event)" (keyup.enter)="onSearch()" />
@@ -53,6 +53,7 @@
             </div>
 
             <!-- Tree List Table -->
+            <div class="wf-card">
             <div class="wf-table-wrap">
                 <table class="wf-table">
                     <thead>
@@ -135,8 +136,9 @@
 
             <div class="table-footer-paginator" *ngIf="filteredUnits().length > 0">
                 <span class="record-count">Tổng số: <b>{{ filteredUnits().length }}</b> phòng ban / đơn vị trực thuộc.</span>
-                <app-eco-paginator [first]="(currentPage() - 1) * pageSize()" [rows]="pageSize()" [totalRecords]="filteredUnits().length" [rowsPerPageOptions]="[5, 10, 20, 50]" (onPageChange)="onUnitPageChange($event)">
-                </app-eco-paginator>
+            <app-eco-paginator [first]="(currentPage() - 1) * pageSize()" [rows]="pageSize()" [totalRecords]="filteredUnits().length" [rowsPerPageOptions]="[5, 10, 20, 50]" (onPageChange)="onUnitPageChange($event)">
+            </app-eco-paginator>
+            </div>
             </div>
         </div>
     </div>

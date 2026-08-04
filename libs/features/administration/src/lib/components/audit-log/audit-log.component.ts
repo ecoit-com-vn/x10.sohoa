@@ -24,12 +24,15 @@ const LOG_GROUP_BUSINESS = 'NGHIEP_VU';
 interface AuditLogView {
   id: string;
   action: string;
+  actionName: string;
   userName: string;
   fullName: string;
   timestamp: string;
   occurredAtMs: number;
   details: string;
   resourceType?: string;
+  resourceTypeName: string;
+  resourceName: string;
 }
 
 @Component({
@@ -269,24 +272,31 @@ export class AuditLogComponent implements OnInit {
   private mapLog(item: {
     id?: string;
     action?: string;
+    actionName?: string;
     userName?: string;
     actorFullName?: string;
+    fullName?: string;
     timestamp?: string;
     occurredAt?: string;
     details?: string;
     resourceType?: string;
+    resourceTypeName?: string;
+    resourceName?: string;
   }): AuditLogView {
     const rawTime = item.timestamp || item.occurredAt || new Date().toISOString();
     const occurredAt = new Date(rawTime);
     return {
       id: item.id || '',
       action: item.action || 'USER_ACTION',
+      actionName: item.actionName || this.getActionLabel(item.action || 'USER_ACTION'),
       userName: item.userName || 'system',
-      fullName: item.actorFullName || item.userName || 'system',
+      fullName: item.fullName || item.actorFullName || item.userName || 'system',
       timestamp: occurredAt.toLocaleString('vi-VN'),
       occurredAtMs: occurredAt.getTime(),
       details: item.details || 'Thao tác hệ thống',
-      resourceType: item.resourceType
+      resourceType: item.resourceType,
+      resourceTypeName: item.resourceTypeName || this.getResourceTypeLabel(item.resourceType),
+      resourceName: item.resourceName?.trim() || 'Chưa xác định (dữ liệu cũ)'
     };
   }
 

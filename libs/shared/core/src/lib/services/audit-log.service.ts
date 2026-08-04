@@ -6,20 +6,25 @@ import { ApiService } from './api.service';
 export interface AuditLogItem {
   id: string;
   action: string;
+  actionName?: string;
   userName: string;
   timestamp: string;
   details?: string;
   resourceType?: string;
+  resourceTypeName?: string;
   resourceId?: string;
   resourceName?: string;
   serviceName?: string;
   statusCode?: number;
+  status?: string;
+  correlationId?: string;
   httpMethod?: string;
   requestPath?: string;
   logGroup?: string;
   actorUnitId?: string;
   actorUnitName?: string;
   actorFullName?: string;
+  fullName?: string;
 }
 
 export interface AuditLogLookupItem {

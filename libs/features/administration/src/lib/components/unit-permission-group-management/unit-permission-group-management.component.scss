@@ -7,6 +7,16 @@
       .unit-filter-select {
         display: block;
         width: 100%;
+        margin: 0;
+        padding: 0;
+
+        .p-ng,
+        .field {
+          width: 100%;
+          margin: 0;
+          padding: 0;
+          gap: 0;
+        }
 
         .label-select-tree {
           display: none;

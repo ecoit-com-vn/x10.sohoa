@@ -10,13 +10,24 @@
     </div>
   </div>
 
-  <div class="wf-card">
+  <div>
     
     <!-- Toolbar/Header -->
     <div class="standard-search-card">
-      <div class="toolbar-left">
+      <div class="standard-search-grid">
+        <!-- Tìm kiếm từ khóa -->
+        <div class="standard-search-field">
+          <label class="search-field-label">Từ khóa</label>
+          <input
+            type="text"
+            class="wf-input"
+            [ngModel]="searchKeyword()"
+            (ngModelChange)="searchKeyword.set($event)"
+            placeholder="Tìm kiếm thư mục, người xử lý..." />
+        </div>
+
         <!-- Lọc theo Trạng thái -->
-        <div class="standard-search-field" style="width: 160px;">
+        <div class="standard-search-field">
           <label class="search-field-label">Trạng thái</label>
           <select
             class="wf-select"
@@ -26,17 +37,6 @@
             <option value="Active">Đang phân bổ</option>
             <option value="Revoked">Thu hồi</option>
           </select>
-        </div>
-
-        <!-- Tìm kiếm từ khóa -->
-        <div class="standard-search-field" style="width: 260px;">
-          <label class="search-field-label">Từ khóa</label>
-          <input
-            type="text"
-            class="wf-input"
-            [ngModel]="searchKeyword()"
-            (ngModelChange)="searchKeyword.set($event)"
-            placeholder="Tìm kiếm thư mục, người xử lý..." />
         </div>
 
         <div class="standard-search-actions">
@@ -51,6 +51,7 @@
     </div>
 
     <!-- Table -->
+    <div class="wf-card">
     <div class="wf-table-wrap">
       <table class="wf-table">
         <thead>
@@ -165,6 +166,8 @@
     </div>
 
     <!-- Dialog Thêm/Sửa phân bổ -->
+    </div>
+
     <app-folder-allocation-dialog
       [(visible)]="dialogVisible"
       [allocationId]="editingId()"

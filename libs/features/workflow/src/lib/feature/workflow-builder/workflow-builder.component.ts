@@ -580,8 +580,10 @@ export class WorkflowBuilderComponent implements OnInit, OnDestroy {
     const isActive = this.filterIsActive === 'true'  ? true
                    : this.filterIsActive === 'false' ? false
                    : undefined;
+    const keyword = this.searchKeyword.trim().normalize('NFC');
+    this.searchKeyword = keyword;
 
-    this.workflowSvc.getAll(this.currentPage, this.pageSize, this.searchKeyword || undefined, isActive)
+    this.workflowSvc.getAll(this.currentPage, this.pageSize, keyword || undefined, isActive)
       .pipe(finalize(() => {
         this.loading = false;
         this.cdr.detectChanges();
@@ -600,6 +602,19 @@ export class WorkflowBuilderComponent implements OnInit, OnDestroy {
           this.cdr.detectChanges();
         }
       });
+  }
+
+  onSearch(): void {
+    this.loadList(true);
+  }
+
+  onStatusFilterChange(isActive: string): void {
+    if (this.filterIsActive === isActive) {
+      return;
+    }
+
+    this.filterIsActive = isActive;
+    this.loadList(true);
   }
 
   resetFilter(): void {

@@ -1,7 +1,7 @@
 <div class="wf-page">
   <p-toast></p-toast>
 
-  <div class="list-toolbar unit-page-toolbar">
+  <div class="list-toolbar standard-page-toolbar">
     <div class="toolbar-left">
       <wf-breadcrumb />
     </div>
@@ -20,11 +20,10 @@
     </div>
   </div>
 
-  <div class="unit-search-card">
-    <div>
-      <div class="dossier-search-bar unit-search-bar">
-        <div class="search-form-grid unit-search-grid">
-          <div class="search-form-item" *ngIf="activeTab() === '0'">
+  <div class="standard-search-card">
+        <div class="standard-search-grid">
+          <div class="standard-search-field" *ngIf="activeTab() === '0'">
+            <label class="search-field-label">Từ khóa</label>
             <input
               type="text"
               class="wf-search-input"
@@ -35,7 +34,8 @@
             />
           </div>
 
-          <div class="search-form-item" *ngIf="activeTab() === '1'">
+          <div class="standard-search-field" *ngIf="activeTab() === '1'">
+            <label class="search-field-label">Từ khóa</label>
             <input
               type="text"
               class="wf-search-input"
@@ -45,7 +45,8 @@
               (input)="onFloorSearch(floorSearchInput.value)"
             />
           </div>
-          <div class="search-form-item" *ngIf="activeTab() === '1'">
+          <div class="standard-search-field" *ngIf="activeTab() === '1'">
+            <label class="search-field-label">Kệ lưu trữ</label>
             <select
               class="wf-select filter-select"
               [ngModel]="floorShelfFilterId()"
@@ -56,7 +57,8 @@
             </select>
           </div>
 
-          <div class="search-form-item" *ngIf="activeTab() === '2'">
+          <div class="standard-search-field" *ngIf="activeTab() === '2'">
+            <label class="search-field-label">Từ khóa</label>
             <input
               type="text"
               class="wf-search-input"
@@ -66,7 +68,8 @@
               (input)="onBoxSearch(boxSearchInput.value)"
             />
           </div>
-          <div class="search-form-item" *ngIf="activeTab() === '2'">
+          <div class="standard-search-field" *ngIf="activeTab() === '2'">
+            <label class="search-field-label">Tầng kệ</label>
             <select
               class="wf-select filter-select"
               [ngModel]="boxFloorFilterId()"
@@ -78,7 +81,7 @@
           </div>
         </div>
 
-        <div class="standard-search-actions audit-filter-actions">
+        <div class="standard-search-actions">
           <button type="button" class="btn-outlined" (click)="refreshData()">
             <i class="pi pi-refresh"></i> Làm mới
           </button>
@@ -86,8 +89,6 @@
             <i class="pi pi-check"></i> Áp dụng
           </button>
         </div>
-      </div>
-    </div>
   </div>
 
   <div class="wf-card">

@@ -2,15 +2,15 @@
 
 <div class="wf-page dossier-report-page">
   <!-- Breadcrumb -->
-  <div class="breadcrumb-container">
+  <div class="list-toolbar standard-page-toolbar breadcrumb-container">
     <wf-breadcrumb [suffix]="'Báo cáo thống kê hồ sơ nhập liệu theo năm'"></wf-breadcrumb>
   </div>
 
   <!-- Filter Bar Card -->
-  <div class="filter-card">
-    <div class="filter-row">
+  <div class="standard-search-card filter-card">
+    <div class="standard-search-grid filter-row">
       <!-- Đơn vị -->
-      <div class="filter-col">
+      <div class="standard-search-field filter-col">
         <label class="filter-label">Đơn vị</label>
         <eco-input-tree-select
           [showLabel]="false"
@@ -25,7 +25,7 @@
       </div>
 
       <!-- Loại đối tượnggggggggg -->
-      <div class="filter-col">
+      <div class="standard-search-field filter-col">
         <label class="filter-label">Loại đối tượng</label>
         <p-select
           [options]="objectTypes()"
@@ -39,7 +39,7 @@
       </div>
 
       <!-- Năm báo cáo -->
-      <div class="filter-col">
+      <div class="standard-search-field filter-col">
         <label class="filter-label">Năm báo cáo</label>
         <p-datepicker
           [ngModel]="selectedYearDate()"
@@ -52,7 +52,7 @@
       </div>
 
       <!-- Actions -->
-      <div class="filter-actions">
+      <div class="standard-search-actions filter-actions">
         <button type="button" class="btn-tim" (click)="onFilter()" [disabled]="loading()">
           <i class="pi pi-search"></i> Tìm kiếm
         </button>

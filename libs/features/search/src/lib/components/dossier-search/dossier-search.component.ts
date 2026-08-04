@@ -325,9 +325,26 @@ export class DossierSearchComponent implements OnInit, OnDestroy {
     this.searchGridType.set('ALL');
     this.searchInfraName.set('');
     this.searchBoxName.set('');
-    this.expandedFolders.set(new Set<string>([
-      'root-tba', 'root-dd', 'tba-cao-ap', 'dd-cao-ap'
-    ]));
+
+    const userUnitId = this.authService.getUserUnitId();
+    const options = this.unitOptions();
+    const defaultUnit = userUnitId != null
+      ? options.find(unit => unit.id === userUnitId) ?? options[0]
+      : options[0];
+    this.selectedUnitId.set(defaultUnit?.id ?? userUnitId);
+
+    this.onSearch();
+  }
+
+  onSearch() {
+    this.selectedFolder.set(null);
+    this.selectedDossier.set(null);
+    this.documents.set([]);
+    this.totalDocuments.set(0);
+    this.dossiersList.set([]);
+    this.totalDossiersList.set(0);
+    this.first.set(0);
+    this.loadFolderTree();
   }
 
   ngOnInit() {

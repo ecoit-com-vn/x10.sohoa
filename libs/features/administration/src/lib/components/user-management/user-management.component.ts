@@ -9,7 +9,6 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DialogModule } from 'primeng/dialog';
 import { ToastModule } from 'primeng/toast';
-import { SelectModule } from 'primeng/select';
 import { Menu, MenuModule } from 'primeng/menu';
 import { MenuItem, MessageService } from 'primeng/api';
 import { UserService } from '../../services/user.service';
@@ -25,7 +24,6 @@ import { buildMenuPermissionTree as buildMenuPermissionTreeFromLookup } from '..
     FormsModule,
     DialogModule,
     ToastModule,
-    SelectModule,
     MenuModule,
     WfBreadcrumbComponent,
     EcoInputTreeSelectComponent,
@@ -39,10 +37,10 @@ import { buildMenuPermissionTree as buildMenuPermissionTreeFromLookup } from '..
 export class UserManagement implements OnInit {
   users = signal<any[]>([]);
   searchKeyword = signal<string>('');
-  searchUnitId = signal<number | null>(null);
+  searchUnitIds = signal<number[]>([]);
   searchStatus = signal<string>(''); // '' (All), 'active' (Hoạt động), 'inactive' (Ngưng hoạt động)
   appliedKeyword = signal<string>('');
-  appliedUnitId = signal<number | null>(null);
+  appliedUnitIds = signal<number[]>([]);
   appliedStatus = signal<string>('');
   totalCount = signal<number>(0);
 
@@ -50,7 +48,7 @@ export class UserManagement implements OnInit {
   dialogHeader = signal<string>('');
   isEdit = signal<boolean>(false);
   currentUser = signal<any>({});
-  
+
   loading = signal<boolean>(false);
   saving = signal<boolean>(false);
 
@@ -94,10 +92,6 @@ export class UserManagement implements OnInit {
 
   // Quyền theo đơn vị
   organizationUnits = signal<any[]>([]);
-  organizationUnitFilterOptions = computed(() => [
-    { id: null, name: '-- Tất cả đơn vị --' },
-    ...this.organizationUnits()
-  ]);
   systemRoles = signal<any[]>([]);
 
   // Danh mục chức vụ (từ EquipmentService Catalog)
@@ -144,7 +138,7 @@ export class UserManagement implements OnInit {
   showLockUnlockConfirm = signal<boolean>(false);
   lockUnlockTarget = signal<any>(null);
   lockUnlockLoading = signal<boolean>(false);
-  
+
   unitRoleDialogHeader = signal<string>('');
   activeUserForUnitRole = signal<any>(null);
   assignedUnitRoles = signal<any[]>([]);
@@ -241,12 +235,12 @@ export class UserManagement implements OnInit {
     this.loading.set(true);
     const statusVal = this.appliedStatus();
     const isActiveParam = statusVal === 'active' ? true : (statusVal === 'inactive' ? false : null);
-    
+
     this.userService.getUsers(
       this.currentPage(),
       this.pageSize(),
       this.appliedKeyword(),
-      this.appliedUnitId(),
+      this.appliedUnitIds(),
       isActiveParam
     )
       .pipe(
@@ -560,10 +554,10 @@ export class UserManagement implements OnInit {
 
   onResetSearch() {
     this.searchKeyword.set('');
-    this.searchUnitId.set(null);
+    this.searchUnitIds.set([]);
     this.searchStatus.set('');
     this.appliedKeyword.set('');
-    this.appliedUnitId.set(null);
+    this.appliedUnitIds.set([]);
     this.appliedStatus.set('');
     this.reloadUsersFromFirstPage();
   }
@@ -637,7 +631,7 @@ export class UserManagement implements OnInit {
       this.messageService.add({ severity: 'warn', summary: 'Cảnh báo', detail: 'Vui lòng chọn cả Đơn vị và Vai trò.' });
       return;
     }
-    
+
     // Đảm bảo không add trùng
     const currentRoles = this.assignedUnitRoles();
     const exists = currentRoles.some(x => x.unitId === Number(draftUnitRole.unitId) && x.roleId === Number(draftUnitRole.roleId));
@@ -654,7 +648,7 @@ export class UserManagement implements OnInit {
         roleId: Number(draftUnitRole.roleId)
       }
     ]);
-    
+
     this.newUnitRole.set({ unitId: null, roleId: null });
   }
 
@@ -670,7 +664,7 @@ export class UserManagement implements OnInit {
     const activeUser = this.activeUserForUnitRole();
     if (!activeUser) return;
     this.savingUnitRoles.set(true);
-    
+
     this.userService.saveUserUnitRoles(activeUser.id, this.assignedUnitRoles()).subscribe({
       next: () => {
         this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Cập nhật phân quyền theo đơn vị thành công!' });
@@ -690,7 +684,7 @@ export class UserManagement implements OnInit {
       summary: 'Xuất dữ liệu',
       detail: 'Đang chuẩn bị dữ liệu xuất Excel...'
     });
-    
+
     setTimeout(() => {
       this.messageService.add({
         severity: 'success',
@@ -748,7 +742,7 @@ export class UserManagement implements OnInit {
     this.activeUserForPermission.set(user);
     this.permissionDialogHeader.set(`Phân quyền trực tiếp cho tài khoản: ${user?.username || ''}`);
     this.selectedPermissionCodes.set([]);
-    
+
     this.userService.getUserPermissions(user.id).subscribe({
       next: (res: any) => {
         const list = Array.isArray(res) ? res : (res && Array.isArray(res.items) ? res.items : (res && Array.isArray(res.value) ? res.value : []));
@@ -781,7 +775,7 @@ export class UserManagement implements OnInit {
   onSavePermissions() {
     const activeUser = this.activeUserForPermission();
     if (!activeUser) return;
-    
+
     this.savingPermissions.set(true);
     this.userService.saveUserPermissions(activeUser.id, this.selectedPermissionCodes())
       .pipe(finalize(() => this.savingPermissions.set(false)))
@@ -804,7 +798,7 @@ export class UserManagement implements OnInit {
     this.activeUserForRole.set(user);
     this.roleDialogHeader.set(`Gán vai trò trực tiếp cho tài khoản: ${user?.username || ''}`);
     this.selectedRoleIds.set([]);
-    
+
     this.userService.getUserRoles(user.id).subscribe({
       next: (res: any) => {
         const list = Array.isArray(res) ? res : (res && Array.isArray(res.items) ? res.items : (res && Array.isArray(res.value) ? res.value : []));
@@ -837,7 +831,7 @@ export class UserManagement implements OnInit {
   onSaveRoles() {
     const activeUser = this.activeUserForRole();
     if (!activeUser) return;
-    
+
     this.savingRoles.set(true);
     this.userService.saveUserRoles(activeUser.id, this.selectedRoleIds())
       .pipe(finalize(() => this.savingRoles.set(false)))
