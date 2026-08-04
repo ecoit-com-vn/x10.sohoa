@@ -10,7 +10,6 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { DialogModule } from 'primeng/dialog';
 import { ToastModule } from 'primeng/toast';
-import { SelectModule } from 'primeng/select';
 import { Menu, MenuModule } from 'primeng/menu';
 import { MenuItem } from 'primeng/api';
 import { MessageService } from 'primeng/api';
@@ -26,7 +25,6 @@ import { AuthService } from '@sohoa.frontend/shared/core';
     FormsModule,
     DialogModule,
     ToastModule,
-    SelectModule,
     MenuModule,
     WfBreadcrumbComponent,
     EcoInputTreeSelectComponent,
@@ -80,7 +78,7 @@ export class UploadConfigComponent implements OnInit {
   showLockUnlockConfirm = signal<boolean>(false);
   lockUnlockTarget = signal<any>(null);
   lockUnlockLoading = signal<boolean>(false);
-
+  
   loading = signal<boolean>(false);
   saving = signal<boolean>(false);
   actionMenuItems: MenuItem[] = [];
@@ -115,13 +113,15 @@ export class UploadConfigComponent implements OnInit {
     const unitId = this.searchUnitId();
     const status = this.searchStatus();
     const allConfigs = this.configs() || [];
-
+    
     return allConfigs.filter(c => {
-      const matchesKeyword = !kw ||
-        (c.name?.toLowerCase().includes(kw) ?? false) ||
+      const matchesKeyword = !kw || 
+        (c.name?.toLowerCase().includes(kw) ?? false) || 
         (c.allowedExtensions?.toLowerCase().includes(kw) ?? false);
-      const matchesTypeFile = !type ||
+      const matchesTypeFile = !type || 
+        (c.allowedExtensions?.toLowerCase().includes(type) ?? false) || 
         (c.allowedExtensions?.toLowerCase().includes(type) ?? false);
+        
       const matchesUnit = unitId === null || unitId === undefined || String(unitId) === 'null' || String(unitId) === '' ||
         c.organizationUnitId === Number(unitId);
 
@@ -256,12 +256,12 @@ export class UploadConfigComponent implements OnInit {
 
   onAddNew() {
     this.isEdit.set(false);
-    this.currentConfig.set({
-      name: '',
-      allowedExtensions: 'pdf,docx,xlsx,jpg,png',
-      maxFileSizeMb: 10,
-      organizationUnitId: null,
-      isActive: true
+    this.currentConfig.set({ 
+      name: '', 
+      allowedExtensions: 'pdf,docx,xlsx,jpg,png', 
+      maxFileSizeMb: 10, 
+      organizationUnitId: null, 
+      isActive: true 
     });
     this.formSubmitted.set(false);
     this.serverErrors.set({});
