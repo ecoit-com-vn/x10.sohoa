@@ -25,7 +25,8 @@
           <div class="standard-search-field">
             <label class="search-field-label">Từ khóa</label>
             <input type="text" class="wf-search-input" placeholder="Tìm kiếm tài khoản, tên..."
-              [ngModel]="searchKeyword()" (ngModelChange)="searchKeyword.set($event)" />
+              [ngModel]="searchKeyword()" (ngModelChange)="searchKeyword.set($event)"
+              (keydown.enter)="onSearch()" />
           </div>
 
           <div class="standard-search-field">

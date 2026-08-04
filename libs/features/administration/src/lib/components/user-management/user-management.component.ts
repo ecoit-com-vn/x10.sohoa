@@ -369,7 +369,9 @@ export class UserManagement implements OnInit {
   }
 
   onSearch() {
-    this.appliedKeyword.set(this.searchKeyword().trim());
+    const keyword = this.searchKeyword().trim();
+    this.searchKeyword.set(keyword);
+    this.appliedKeyword.set(keyword);
     this.reloadUsersFromFirstPage();
   }
 
