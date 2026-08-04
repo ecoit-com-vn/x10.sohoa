@@ -10,6 +10,7 @@ public class DocumentType
     public Guid? FormId { get; set; }
     public bool IsActive { get; set; } = true;
     public bool IsEquipmentProfile { get; set; }
+    public bool IsFactoryAcceptanceReport { get; set; }
     public int? Piority { get; set; }
 
     public string? FormName { get; set; }

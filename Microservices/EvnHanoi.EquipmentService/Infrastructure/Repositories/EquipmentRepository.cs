@@ -149,6 +149,91 @@ public class EquipmentRepository : IEquipmentRepository
         return result.FirstOrDefault();
     }
 
+    public async Task<(IEnumerable<EquipmentExternalDto> Items, int TotalCount)> GetExternalListAsync(
+        PmisEquipmentListRequestDto filter)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        var sqlBase = @"FROM EQUIPMENTS e
+                        LEFT JOIN EquipmentTypes et ON e.EquipmentTypeId = et.Id
+                        LEFT JOIN INFRASTRUCTURE inf ON e.INFRASTRUCTURE_ID = inf.Id
+                        LEFT JOIN ORGANIZATION_UNIT u ON e.UnitId = u.Id
+                        LEFT JOIN CATALOG equipmentStatus ON e.EQUIPMENT_STATUS_ID = equipmentStatus.Id
+                        WHERE e.IsDeleted = 0";
+
+        var parameters = new DynamicParameters();
+        if (!string.IsNullOrWhiteSpace(filter.MaTB))
+        {
+            sqlBase += " AND e.Code = :MaTB";
+            parameters.Add("MaTB", filter.MaTB.Trim());
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.MaTram))
+        {
+            sqlBase += " AND inf.INFRA_TYPE_ID = 1 AND inf.Code = :MaTram";
+            parameters.Add("MaTram", filter.MaTram.Trim());
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.MaDuongDay))
+        {
+            sqlBase += " AND inf.INFRA_TYPE_ID = 2 AND inf.Code = :MaDuongDay";
+            parameters.Add("MaDuongDay", filter.MaDuongDay.Trim());
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.MaLoaiTB))
+        {
+            sqlBase += " AND et.Code = :MaLoaiTB";
+            parameters.Add("MaLoaiTB", filter.MaLoaiTB.Trim());
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.MaDonVi))
+        {
+            sqlBase += " AND u.Code = :MaDonVi";
+            parameters.Add("MaDonVi", filter.MaDonVi.Trim());
+        }
+
+        if (filter.TuNgay.HasValue)
+        {
+            sqlBase += " AND e.CreatedAt >= :TuNgay";
+            parameters.Add("TuNgay", filter.TuNgay.Value.Date);
+        }
+
+        if (filter.DenNgay.HasValue)
+        {
+            sqlBase += " AND e.CreatedAt < :DenNgayExclusive";
+            parameters.Add("DenNgayExclusive", filter.DenNgay.Value.Date.AddDays(1));
+        }
+
+        if (filter.Loai.HasValue)
+        {
+            sqlBase += " AND inf.INFRA_TYPE_ID = :Loai";
+            parameters.Add("Loai", filter.Loai.Value);
+        }
+
+        var totalCount = await _connection.ExecuteScalarAsync<int>($"SELECT COUNT(1) {sqlBase}", parameters);
+
+        var selectSql = $@"SELECT e.Id AS Id,
+                                  e.Code AS MaTB,
+                                  e.Name AS TenTB,
+                                  et.Code AS MaLoaiTB,
+                                  et.Name AS TenLoaiTB,
+                                  inf.Code AS MaTBA,
+                                  inf.Name AS TenTBA,
+                                  u.Code AS MaDonVi,
+                                  e.MANUFACTURE_YEAR AS NamSanXuat,
+                                  e.SerialNumber AS MaQRCode,
+                                  equipmentStatus.Name AS TrangThai
+                           {sqlBase}
+                           ORDER BY inf.Code ASC NULLS LAST, e.Code ASC
+                           OFFSET :Skip ROWS FETCH NEXT :Take ROWS ONLY";
+
+        parameters.Add("Skip", filter.Skip);
+        parameters.Add("Take", filter.Take);
+        var items = await _connection.QueryAsync<EquipmentExternalDto>(selectSql, parameters);
+        return (items, totalCount);
+    }
+
     public async Task<IEnumerable<Equipment>> GetAllAsync(IEnumerable<long>? unitIds = null)
     {
         if (_connection.State != ConnectionState.Open)

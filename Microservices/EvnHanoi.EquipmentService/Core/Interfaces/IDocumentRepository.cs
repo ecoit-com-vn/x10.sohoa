@@ -72,5 +72,7 @@ public interface IDocumentRepository
     Task<IEnumerable<Guid>> GetActiveVersionIdsByDossierIdAsync(Guid dossierId);
     Task<(IEnumerable<DocumentListItemDto> Items, int TotalCount)> GetProfileDocumentsByEquipmentAsync(Guid equipmentId, DossierDocumentFilterDto filter);
     Task<(IEnumerable<DocumentListItemDto> Items, int TotalCount)> GetPublishedProfileDocumentsByEquipmentAsync(Guid equipmentId, DossierDocumentFilterDto filter);
+    Task<(IEnumerable<DocumentListItemDto> Items, int TotalCount)> GetPublishedFactoryAcceptanceDocumentsByEquipmentAsync(Guid equipmentId, DossierDocumentFilterDto filter);
+    Task<(IEnumerable<DocumentListItemDto> Items, int TotalCount)> GetPublishedFactoryAcceptanceDocumentsAsync(DossierDocumentFilterDto filter);
 }
 

@@ -94,6 +94,7 @@ public class DocumentTypeController : ControllerBase
         dbItem.FormId = documentType.FormId;
         dbItem.IsActive = documentType.IsActive;
         dbItem.IsEquipmentProfile = documentType.IsEquipmentProfile;
+        dbItem.IsFactoryAcceptanceReport = documentType.IsFactoryAcceptanceReport;
         dbItem.Piority = documentType.Piority;
         dbItem.ModifiedBy = User.FindFirst(ClaimTypes.Name)?.Value ?? "system";
         dbItem.ModifiedDate = DateTime.UtcNow;
