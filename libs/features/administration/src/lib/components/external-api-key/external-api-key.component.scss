@@ -1,0 +1,127 @@
+.api-key-actions,
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.api-key-actions {
+  justify-content: center;
+  gap: 0;
+  min-width: 96px;
+}
+
+th.col-hd,
+td.col-hd {
+  text-align: center;
+}
+
+.api-key-actions .act-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.api-key-actions .act-btn i {
+  font-size: 0.9rem;
+}
+
+.api-key-actions .act-view {
+  border-color: #bae6fd;
+  background: #f0f9ff;
+  color: #0369a1;
+}
+
+.api-key-actions .act-view:hover {
+  border-color: #7dd3fc;
+  background: #e0f2fe;
+}
+
+.api-key-actions .act-edit {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.api-key-actions .act-edit:hover {
+  border-color: #93c5fd;
+  background: #dbeafe;
+}
+
+.api-key-actions .act-delete {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.api-key-actions .act-delete:hover {
+  border-color: #fca5a5;
+  background: #fee2e2;
+}
+
+.api-key-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-top: 8px;
+}
+
+.generated-key {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  background: #eff6ff;
+  color: #1e3a8a;
+}
+
+.private-key-input {
+  display: flex;
+  gap: 6px;
+}
+
+.private-key-input input {
+  min-width: 0;
+  flex: 1;
+  color: #1e3a8a;
+  font-family: monospace;
+}
+
+.private-key-input .act-btn {
+  width: 38px;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #2563eb;
+  cursor: pointer;
+}
+
+.generated-key small {
+  color: #64748b;
+}
+
+.regenerate-key-button {
+  align-self: flex-start;
+  margin-top: 4px;
+}
+
+.note-cell {
+  max-width: 260px;
+  white-space: normal;
+}
+
+.loading-row {
+  padding: 28px;
+  color: #64748b;
+  text-align: center;
+}
