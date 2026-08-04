@@ -101,8 +101,10 @@
                             <th>Mã danh mục</th>
                             <th>Tên danh mục</th>
                             <th *ngIf="isUnitScopedCatalog()">Đơn vị</th>
-                            <th *ngIf="hasParent()">Danh mục cha</th>
-                            <th style="width: 100px; text-align: center;">Thứ tự</th>
+                            <th *ngIf="showParentColumn()">Danh mục cha</th>
+                            <th style="width: 100px; text-align: center;">{{ usesStandardAuditColumns() ? 'Số thứ tự' : 'Thứ tự' }}</th>
+                            <th *ngIf="usesStandardAuditColumns()">Ngày tạo</th>
+                            <th *ngIf="usesStandardAuditColumns()">Người tạo</th>
                             <th>Trạng thái</th>
                             <th class="col-hd">Thao tác</th>
                         </tr>
@@ -122,13 +124,15 @@
                             <td *ngIf="isUnitScopedCatalog()">
                                 {{ item.unitName || getUnitLabel(item.unitId) || '-' }}
                             </td>
-                            <td *ngIf="hasParent()">
+                            <td *ngIf="showParentColumn()">
                                 <span class="text-primary font-semibold" *ngIf="item.parentId">
                   {{ getParentName(item.parentId) || 'ID: ' + item.parentId }}
                 </span>
                                 <span class="text-muted italic" *ngIf="!item.parentId">-</span>
                             </td>
                             <td style="text-align: center;">{{ item.priority }}</td>
+                            <td *ngIf="usesStandardAuditColumns()">{{ item.createdAt ? (item.createdAt | date:'dd/MM/yyyy HH:mm') : '-' }}</td>
+                            <td *ngIf="usesStandardAuditColumns()">{{ item.createdBy || '-' }}</td>
                             <td>
                                 <span *ngIf="item.status === 1" class="status-pill status-active">
                   Hoạt động
@@ -144,7 +148,7 @@
                             </td>
                         </tr>
                         <tr *ngIf="items().length === 0">
-                            <td [attr.colspan]="(hasParent() ? 7 : 6) + (isUnitScopedCatalog() ? 1 : 0)" class="empty-row">
+                            <td [attr.colspan]="(showParentColumn() ? 7 : 6) + (isUnitScopedCatalog() ? 1 : 0) + (usesStandardAuditColumns() ? 2 : 0)" class="empty-row">
                                 <i class="pi pi-inbox"></i>
                                 <div>Không tìm thấy dữ liệu danh mục nào.</div>
                             </td>

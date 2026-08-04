@@ -42,9 +42,6 @@ export class UserGroupComponent implements OnInit {
   groups = signal<any[]>([]);
   searchKeyword = signal<string>('');
   searchStatus = signal<string>(''); // '' (All), 'active' (Hoạt động), 'inactive' (Ngưng hoạt động)
-  searchOrganizationUnitId = signal<string | null>(null);
-  orgUnits = signal<any[]>([]); // To store flat list for lookup
-  primengOrgUnitTree = signal<any[]>([]); // For eco-input-tree-select
   totalCount = signal<number>(0);
 
   currentView = signal<'list' | 'add' | 'edit' | 'member' | 'role' | 'permission'>('list');
@@ -105,29 +102,6 @@ export class UserGroupComponent implements OnInit {
   savingPermissions = signal<boolean>(false);
 
   private apiUrl = `${environment.apiGatewayUrl}/api/v1/user-groups`;
-  private organizationUnitApiUrl = `${environment.apiGatewayUrl}/api/v1/organization-units`;
-
-  loadOrganizationUnits() {
-    this.http.get<any[]>(`${this.organizationUnitApiUrl}/lookup-tree`).subscribe({
-      next: (res) => {
-        this.primengOrgUnitTree.set(res || []);
-        // If you need a flat list of org units for other purposes, you can process res here
-        // this.orgUnits.set(this.flattenOrgUnits(res || []));
-      },
-      error: (err) => {
-        console.error('Lỗi tải danh sách đơn vị:', err);
-        this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể tải danh sách đơn vị.' });
-      }
-    });
-  }
-
-  onOrganizationUnitFilterChange(event: any) {
-    // The event from eco-input-tree-select gives the selected node's value.
-    // If it's a multi-select, it might be an array. Assuming single select for search.
-    const selectedId = event?.id || null; // Assuming event is an object with 'id'
-    this.searchOrganizationUnitId.set(selectedId);
-    this.onSearch();
-  }
 
   // Computed signal for filteredGroups
   filteredGroups = computed(() => {
@@ -161,7 +135,6 @@ export class UserGroupComponent implements OnInit {
 
   ngOnInit() {
     this.loadGroups();
-    this.loadOrganizationUnits(); // Load organization units
     this.loadSystemPermissions();
   }
 
@@ -169,10 +142,6 @@ export class UserGroupComponent implements OnInit {
     this.loading.set(true);
     const keyword = this.searchKeyword().trim();
     let url = `${this.apiUrl}?page=${this.currentPage()}&pageSize=${this.pageSize()}&keyword=${encodeURIComponent(keyword)}`;
-    const orgUnitId = this.searchOrganizationUnitId();
-    if (orgUnitId) {
-        url += `&organizationUnitId=${orgUnitId}`;
-    }
     const statusVal = this.searchStatus();
     if (statusVal !== '') {
       url += `&isActive=${statusVal === 'active'}`;
@@ -208,7 +177,6 @@ export class UserGroupComponent implements OnInit {
   onResetSearch() {
     this.searchKeyword.set('');
     this.searchStatus.set('');
-    this.searchOrganizationUnitId.set(null); // Reset organization unit filter
     this.currentPage.set(1);
     this.loadGroups();
   }

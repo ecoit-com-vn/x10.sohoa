@@ -1,4 +1,4 @@
-import { Component, OnInit, signal, computed, effect } from '@angular/core';
+import { Component, OnDestroy, OnInit, signal, computed, effect } from '@angular/core';
 import {
   DeleteConfirmDialogComponent,
   EcoPaginatorComponent,
@@ -6,13 +6,13 @@ import {
 } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { DialogModule } from 'primeng/dialog';
 import { ToastModule } from 'primeng/toast';
 import { Menu, MenuModule } from 'primeng/menu';
 import { MenuItem, MessageService } from 'primeng/api';
 import { environment } from '@env/environment';
-import { finalize } from 'rxjs';
+import { finalize, Subscription } from 'rxjs';
 import { AuthService } from '@sohoa.frontend/shared/core';
 import {
   buildAssignedMenuSummary,
@@ -36,12 +36,15 @@ import {
   templateUrl: './role-management.component.html',
   styleUrl: './role-management.component.scss'
 })
-export class RoleManagement implements OnInit {
+export class RoleManagement implements OnInit, OnDestroy {
   private static readonly ROLE_CODE_PATTERN = /^[A-Za-z0-9_]+$/;
 
   roles = signal<any[]>([]);
   searchKeyword = signal<string>('');
   appliedKeyword = signal<string>('');
+  searchStatus = signal<boolean | null>(null);
+  appliedStatus = signal<boolean | null>(null);
+  searchRevision = signal<number>(0);
   totalCount = signal<number>(0);
   organizationUnits = signal<any[]>([]);
   isCentralAdmin = computed(() => {
@@ -137,6 +140,7 @@ export class RoleManagement implements OnInit {
   menuPermissionTree = signal<any[]>([]);
 
   private apiUrl = `${environment.apiGatewayUrl}/api/v1/roles`;
+  private rolesRequest?: Subscription;
 
   // Computed signal for filteredRoles
   filteredRoles = computed(() => {
@@ -189,6 +193,8 @@ export class RoleManagement implements OnInit {
       const page = this.currentPage();
       const size = this.pageSize();
       this.appliedKeyword();
+      this.appliedStatus();
+      this.searchRevision();
       this.loadRoles();
     }, { allowSignalWrites: true });
 
@@ -205,7 +211,6 @@ export class RoleManagement implements OnInit {
   }
 
   ngOnInit() {
-    this.loadRoles();
     this.loadMenus();
     this.loadSystemPermissions();
     if (this.isCentralAdmin()) {
@@ -232,8 +237,21 @@ export class RoleManagement implements OnInit {
   }
 
   loadRoles() {
+    this.rolesRequest?.unsubscribe();
     this.loading.set(true);
-    this.http.get<any>(`${this.apiUrl}?page=${this.currentPage()}&pageSize=${this.pageSize()}&keyword=${this.appliedKeyword() || ''}`)
+    let params = new HttpParams()
+      .set('page', this.currentPage())
+      .set('pageSize', this.pageSize());
+    const keyword = this.appliedKeyword();
+    if (keyword) {
+      params = params.set('keyword', keyword);
+    }
+    const isActive = this.appliedStatus();
+    if (isActive !== null) {
+      params = params.set('isActive', isActive);
+    }
+
+    this.rolesRequest = this.http.get<any>(this.apiUrl, { params })
       .pipe(finalize(() => this.loading.set(false)))
       .subscribe({
         next: (res) => {
@@ -284,8 +302,27 @@ export class RoleManagement implements OnInit {
   }
 
   onSearch() {
-    this.appliedKeyword.set(this.searchKeyword().trim());
+    const keyword = this.searchKeyword().trim();
+    this.searchKeyword.set(keyword);
+    this.appliedKeyword.set(keyword);
+    this.appliedStatus.set(this.searchStatus());
     this.currentPage.set(1);
+    this.searchRevision.update(value => value + 1);
+  }
+
+  ngOnDestroy() {
+    this.rolesRequest?.unsubscribe();
+  }
+
+  onStatusChange(status: boolean | null) {
+    this.searchStatus.set(status);
+    this.onSearch();
+  }
+
+  onResetSearch() {
+    this.searchKeyword.set('');
+    this.searchStatus.set(null);
+    this.onSearch();
   }
 
   onAddNew() {

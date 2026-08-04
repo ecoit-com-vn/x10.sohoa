@@ -380,3 +380,8 @@
         grid-template-columns: 1fr;
       }
     }
+.col-created-date {
+  width: 120px;
+  min-width: 120px;
+  white-space: nowrap;
+}
