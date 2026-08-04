@@ -11,7 +11,8 @@ namespace EvnHanoi.DigitizationService.Core.Services.OcrModule;
 /// </summary>
 public interface IOcrModuleErrorAnalysisAggregator
 {
-    Task<List<OcrModuleErrorAnalysis>> AggregateAsync(string jobId);
+    /// <summary>pageNumber = null → tổng hợp lại toàn bộ Job; có giá trị → chỉ tổng hợp lại đúng trang đó.</summary>
+    Task<List<OcrModuleErrorAnalysis>> AggregateAsync(string jobId, int? pageNumber = null);
 }
 
 public class OcrModuleErrorAnalysisAggregator : IOcrModuleErrorAnalysisAggregator
@@ -26,10 +27,16 @@ public class OcrModuleErrorAnalysisAggregator : IOcrModuleErrorAnalysisAggregato
         _repository = repository;
     }
 
-    public async Task<List<OcrModuleErrorAnalysis>> AggregateAsync(string jobId)
+    public async Task<List<OcrModuleErrorAnalysis>> AggregateAsync(string jobId, int? pageNumber = null)
     {
         var regions = await _repository.GetAllRegionEntitiesAsync(jobId);
         var templateDiffs = await _repository.GetTemplateDiffResultsAsync(jobId);
+        if (pageNumber.HasValue)
+        {
+            regions = regions.Where(r => r.PageNumber == pageNumber.Value).ToList();
+            templateDiffs = templateDiffs.Where(d => d.PageNumber == pageNumber.Value).ToList();
+        }
+
         var errors = new List<OcrModuleErrorAnalysis>();
 
         foreach (var region in regions)
@@ -56,7 +63,7 @@ public class OcrModuleErrorAnalysisAggregator : IOcrModuleErrorAnalysisAggregato
             }
         }
 
-        var spellcheckRejected = await GetSpellcheckRejectedRegionsAsync(jobId);
+        var spellcheckRejected = await GetSpellcheckRejectedRegionsAsync(jobId, pageNumber);
         errors.AddRange(spellcheckRejected);
 
         foreach (var diff in templateDiffs.Where(d => d.Status == "Flagged"))
@@ -64,15 +71,18 @@ public class OcrModuleErrorAnalysisAggregator : IOcrModuleErrorAnalysisAggregato
             errors.Add(NewError(jobId, diff.RegionId, diff.PageNumber, "TemplateMismatch", "Medium", diff.Detail));
         }
 
-        await _repository.ReplaceErrorAnalysisAsync(jobId, errors);
-        return errors;
+        await _repository.ReplaceErrorAnalysisAsync(jobId, errors, pageNumber);
+
+        // Trả về đầy đủ danh sách lỗi hiện có của Job (không chỉ trang vừa chạy) — các trang khác vẫn
+        // giữ nguyên lỗi đã tổng hợp trước đó nên UI không bị "mất" dữ liệu khi người dùng chỉ chọn 1 trang.
+        return await _repository.GetErrorAnalysisAsync(jobId);
     }
 
-    private async Task<List<OcrModuleErrorAnalysis>> GetSpellcheckRejectedRegionsAsync(string jobId)
+    private async Task<List<OcrModuleErrorAnalysis>> GetSpellcheckRejectedRegionsAsync(string jobId, int? pageNumber)
     {
         var regions = await _repository.GetAllRegionsAsync(jobId);
         return regions
-            .Where(r => r.SpellcheckStatus == "Rejected")
+            .Where(r => r.SpellcheckStatus == "Rejected" && (pageNumber == null || r.PageNumber == pageNumber.Value))
             .Select(r => NewError(jobId, r.Id, r.PageNumber, "SpellcheckRejected", "Low",
                 $"Gợi ý chính tả bị từ chối: \"{Truncate(r.TextRaw)}\""))
             .ToList();

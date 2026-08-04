@@ -21,7 +21,8 @@ public class SealSignatureRunResult
 /// </summary>
 public interface IOcrModuleSealSignatureService
 {
-    Task<SealSignatureRunResult> RunAsync(OcrModuleJob job);
+    /// <summary>pageNumber = null → xử lý toàn bộ Job; có giá trị → chỉ dựng lại ảnh + quét đúng trang đó.</summary>
+    Task<SealSignatureRunResult> RunAsync(OcrModuleJob job, int? pageNumber = null);
 }
 
 public class OcrModuleSealSignatureService : IOcrModuleSealSignatureService
@@ -35,7 +36,7 @@ public class OcrModuleSealSignatureService : IOcrModuleSealSignatureService
         _repository = repository;
     }
 
-    public async Task<SealSignatureRunResult> RunAsync(OcrModuleJob job)
+    public async Task<SealSignatureRunResult> RunAsync(OcrModuleJob job, int? pageNumber = null)
     {
         using var fileStream = await _minioService.DownloadFileAsync(job.SourceBucket, job.SourceFilePath);
         using var ms = new MemoryStream();
@@ -51,7 +52,14 @@ public class OcrModuleSealSignatureService : IOcrModuleSealSignatureService
 
         for (var i = 0; i < pageCount; i++)
         {
-            var pageNumber = i + 1;
+            var currentPageNumber = i + 1;
+            // Chỉ định 1 trang cụ thể → bỏ qua render/quét các trang còn lại (tiết kiệm chi phí đáng kể
+            // với tài liệu nhiều trang, thay vì luôn xử lý lại toàn bộ Job như trước).
+            if (pageNumber.HasValue && pageNumber.Value != currentPageNumber) continue;
+
+            // Chạy lại đúng 1 trang này → xóa mềm các vùng Seal đã nhận diện trước đó của trang đó,
+            // tránh nhân đôi dữ liệu khi người dùng bấm chạy lại nhiều lần.
+            await _repository.DeleteSealRegionsAsync(job.Id, currentPageNumber);
 
             using var imgStream = new MemoryStream();
             var renderOptions = new PDFtoImage.RenderOptions { Dpi = 200, WithAnnotations = true };
@@ -60,7 +68,7 @@ public class OcrModuleSealSignatureService : IOcrModuleSealSignatureService
 
             if (pageImageBytes.Length == 0) continue;
 
-            var seals = SealSignatureDetector.DetectSeals(pageImageBytes, pageNumber);
+            var seals = SealSignatureDetector.DetectSeals(pageImageBytes, currentPageNumber);
             foreach (var seal in seals)
             {
                 newSealRegions.Add(new OcrModuleRegion
@@ -79,7 +87,7 @@ public class OcrModuleSealSignatureService : IOcrModuleSealSignatureService
                 });
             }
 
-            if (regionsByPage.TryGetValue(pageNumber, out var pageRegions))
+            if (regionsByPage.TryGetValue(currentPageNumber, out var pageRegions))
             {
                 using var image = Image.Load<Rgba32>(pageImageBytes);
                 var suggestions = SealSignatureDetector.SuggestSignatureRegions(pageRegions, image.Height);

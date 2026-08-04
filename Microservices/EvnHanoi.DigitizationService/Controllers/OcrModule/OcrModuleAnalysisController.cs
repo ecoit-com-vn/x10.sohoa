@@ -36,12 +36,19 @@ public class OcrModuleAnalysisController : ControllerBase
 
     /// <summary>Yêu cầu 93 — phân loại Printed/Handwritten/Mixed theo từng vùng văn bản.</summary>
     [HttpPost("script-type/classify")]
-    public async Task<ActionResult<ScriptTypeClassifyResponse>> ClassifyScriptType(string jobId)
+    public async Task<ActionResult<ScriptTypeClassifyResponse>> ClassifyScriptType(string jobId, [FromQuery] int? pageNumber)
     {
         var regions = await _repository.GetAllRegionEntitiesAsync(jobId);
+        if (pageNumber.HasValue)
+        {
+            regions = regions.Where(r => r.PageNumber == pageNumber.Value).ToList();
+        }
         if (regions.Count == 0)
         {
-            return NotFound(new { code = "ERR_OCR_MODULE_NO_REGIONS", message = "Job này chưa có vùng văn bản nào để phân loại." });
+            var message = pageNumber.HasValue
+                ? $"Trang {pageNumber} chưa có vùng văn bản nào để phân loại."
+                : "Job này chưa có vùng văn bản nào để phân loại.";
+            return NotFound(new { code = "ERR_OCR_MODULE_NO_REGIONS", message });
         }
 
         var classification = ScriptTypeClassifier.ClassifyRegions(regions);
@@ -65,12 +72,19 @@ public class OcrModuleAnalysisController : ControllerBase
     /// đã có sẵn (không gọi lại ocr_vl_server, không dùng model OCR công thức chuyên dụng).
     /// </summary>
     [HttpPost("formula/run")]
-    public async Task<ActionResult<FormulaRunResponse>> RunFormulaRecognition(string jobId)
+    public async Task<ActionResult<FormulaRunResponse>> RunFormulaRecognition(string jobId, [FromQuery] int? pageNumber)
     {
         var regions = await _repository.GetAllRegionEntitiesAsync(jobId);
+        if (pageNumber.HasValue)
+        {
+            regions = regions.Where(r => r.PageNumber == pageNumber.Value).ToList();
+        }
         if (regions.Count == 0)
         {
-            return NotFound(new { code = "ERR_OCR_MODULE_NO_REGIONS", message = "Job này chưa có vùng văn bản nào để nhận dạng công thức." });
+            var message = pageNumber.HasValue
+                ? $"Trang {pageNumber} chưa có vùng văn bản nào để nhận dạng công thức."
+                : "Job này chưa có vùng văn bản nào để nhận dạng công thức.";
+            return NotFound(new { code = "ERR_OCR_MODULE_NO_REGIONS", message });
         }
 
         var formulaRegions = new Dictionary<string, string>();
@@ -96,7 +110,7 @@ public class OcrModuleAnalysisController : ControllerBase
     /// vùng chữ ký (heuristic vị trí + độ tin cậy OCR trên vùng văn bản đã có) — không dùng model AI.
     /// </summary>
     [HttpPost("seal-signature/run")]
-    public async Task<ActionResult<SealSignatureRunResult>> RunSealSignatureDetection(string jobId)
+    public async Task<ActionResult<SealSignatureRunResult>> RunSealSignatureDetection(string jobId, [FromQuery] int? pageNumber)
     {
         var job = await _repository.GetJobByIdAsync(jobId);
         if (job == null)
@@ -106,7 +120,7 @@ public class OcrModuleAnalysisController : ControllerBase
 
         try
         {
-            var result = await _sealSignatureService.RunAsync(job);
+            var result = await _sealSignatureService.RunAsync(job, pageNumber);
             return Ok(result);
         }
         catch (Exception ex)
@@ -126,12 +140,20 @@ public class OcrModuleAnalysisController : ControllerBase
         }
 
         var currentRegions = await _repository.GetAllRegionEntitiesAsync(jobId);
+        var referenceRegions = JsonSerializer.Deserialize<List<TemplateRegionSnapshot>>(template.ReferenceRegionsJson) ?? [];
+        if (request.PageNumber.HasValue)
+        {
+            currentRegions = currentRegions.Where(r => r.PageNumber == request.PageNumber.Value).ToList();
+            referenceRegions = referenceRegions.Where(r => r.PageNumber == request.PageNumber.Value).ToList();
+        }
         if (currentRegions.Count == 0)
         {
-            return NotFound(new { code = "ERR_OCR_MODULE_NO_REGIONS", message = "Job này chưa có vùng văn bản nào để so sánh." });
+            var message = request.PageNumber.HasValue
+                ? $"Trang {request.PageNumber} chưa có vùng văn bản nào để so sánh."
+                : "Job này chưa có vùng văn bản nào để so sánh.";
+            return NotFound(new { code = "ERR_OCR_MODULE_NO_REGIONS", message });
         }
 
-        var referenceRegions = JsonSerializer.Deserialize<List<TemplateRegionSnapshot>>(template.ReferenceRegionsJson) ?? [];
         var diffs = TemplateDiffService.ComputeDiff(currentRegions, referenceRegions);
 
         foreach (var diff in diffs)
@@ -164,11 +186,11 @@ public class OcrModuleAnalysisController : ControllerBase
     /// Yêu cầu 95 — kiểm tra chính tả các vùng văn bản của Job, dùng lại LLM server hiện có với prompt riêng.
     /// </summary>
     [HttpPost("spellcheck/run")]
-    public async Task<ActionResult<SpellcheckRunResult>> RunSpellcheck(string jobId)
+    public async Task<ActionResult<SpellcheckRunResult>> RunSpellcheck(string jobId, [FromQuery] int? pageNumber)
     {
         try
         {
-            var result = await _spellcheckService.RunAsync(jobId);
+            var result = await _spellcheckService.RunAsync(jobId, pageNumber);
             return Ok(result);
         }
         catch (Exception ex)
@@ -196,9 +218,9 @@ public class OcrModuleAnalysisController : ControllerBase
     /// Yêu cầu 92 — tổng hợp lỗi có cấu trúc từ tín hiệu của các bước 88/90/93/94/95 đã chạy trên Job này.
     /// </summary>
     [HttpPost("error-analysis/run")]
-    public async Task<ActionResult<List<OcrModuleErrorAnalysis>>> RunErrorAnalysis(string jobId)
+    public async Task<ActionResult<List<OcrModuleErrorAnalysis>>> RunErrorAnalysis(string jobId, [FromQuery] int? pageNumber)
     {
-        var errors = await _errorAnalysisAggregator.AggregateAsync(jobId);
+        var errors = await _errorAnalysisAggregator.AggregateAsync(jobId, pageNumber);
         return Ok(errors);
     }
 
@@ -228,6 +250,7 @@ public class UpdateSpellcheckRequest
 public class RunTemplateDiffRequest
 {
     public string TemplateSnapshotId { get; set; } = string.Empty;
+    public int? PageNumber { get; set; }
 }
 
 public class TemplateDiffRunResponse

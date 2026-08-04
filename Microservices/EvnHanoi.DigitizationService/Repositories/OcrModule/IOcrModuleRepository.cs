@@ -16,6 +16,7 @@ public interface IOcrModuleRepository
     Task UpdateRegionScriptTypesAsync(IReadOnlyDictionary<string, string> regionIdToScriptType);
     Task UpdateRegionFormulasAsync(IReadOnlyDictionary<string, string> regionIdToFormulaText);
     Task UpdateRegionsAsSignatureAsync(IReadOnlyDictionary<string, double> regionIdToScore);
+    Task DeleteSealRegionsAsync(string jobId, int pageNumber);
 
     Task CreateTemplateSnapshotAsync(OcrModuleTemplateSnapshot snapshot);
     Task<List<OcrModuleTemplateSnapshot>> GetTemplateSnapshotsAsync(string? documentTypeCode);
@@ -26,7 +27,7 @@ public interface IOcrModuleRepository
     Task UpdateRegionSpellcheckSuggestionsAsync(IReadOnlyDictionary<string, string> regionIdToSuggestion);
     Task UpdateRegionSpellcheckStatusAsync(string regionId, string status, string? textRawOverride);
 
-    Task ReplaceErrorAnalysisAsync(string jobId, IReadOnlyList<OcrModuleErrorAnalysis> errors);
+    Task ReplaceErrorAnalysisAsync(string jobId, IReadOnlyList<OcrModuleErrorAnalysis> errors, int? pageNumber = null);
     Task<List<OcrModuleErrorAnalysis>> GetErrorAnalysisAsync(string jobId);
     Task UpdateErrorAnalysisResolvedStatusAsync(string errorId, string resolvedStatus);
 }

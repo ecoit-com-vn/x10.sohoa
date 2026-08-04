@@ -21,7 +21,8 @@ public class SpellcheckRunResult
 /// </summary>
 public interface IOcrModuleSpellcheckService
 {
-    Task<SpellcheckRunResult> RunAsync(string jobId);
+    /// <summary>pageNumber = null → kiểm tra toàn bộ Job; có giá trị → chỉ kiểm tra đúng trang đó.</summary>
+    Task<SpellcheckRunResult> RunAsync(string jobId, int? pageNumber = null);
 }
 
 public class OcrModuleSpellcheckService : IOcrModuleSpellcheckService
@@ -42,11 +43,12 @@ public class OcrModuleSpellcheckService : IOcrModuleSpellcheckService
         _configuration = configuration;
     }
 
-    public async Task<SpellcheckRunResult> RunAsync(string jobId)
+    public async Task<SpellcheckRunResult> RunAsync(string jobId, int? pageNumber = null)
     {
         var allRegions = await _repository.GetAllRegionsAsync(jobId);
         var textRegions = allRegions
             .Where(r => r.RegionType == "Text" && !string.IsNullOrWhiteSpace(r.TextRaw))
+            .Where(r => pageNumber == null || r.PageNumber == pageNumber.Value)
             .Take(MaxRegionsPerCall)
             .ToList();
 
