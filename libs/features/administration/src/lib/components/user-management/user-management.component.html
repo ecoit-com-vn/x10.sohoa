@@ -1,5 +1,6 @@
 <div class="wf-page">
   <p-toast></p-toast>
+  <p-menu #actionMenu [model]="actionMenuItems" [popup]="true" appendTo="body" styleClass="row-action-menu"></p-menu>
   <div class="list-toolbar standard-page-toolbar">
     <div class="toolbar-left">
       <wf-breadcrumb [customItems]="[{ label: 'Quản trị hệ thống' }, { label: 'Người dùng', url: '/administration/user-management' }]" />
@@ -132,8 +133,6 @@
           </tbody>
         </table>
       </div>
-
-      <p-menu #actionMenu [model]="actionMenuItems" [popup]="true" appendTo="body" styleClass="row-action-menu"></p-menu>
 
       <!-- Footer with Pagination -->
       <app-eco-paginator *ngIf="totalCount() > 0"
