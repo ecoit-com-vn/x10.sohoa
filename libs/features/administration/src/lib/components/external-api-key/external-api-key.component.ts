@@ -7,14 +7,14 @@ import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
 import { finalize } from 'rxjs';
 import { environment } from '@env/environment';
-import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
+import { EcoPaginatorComponent, WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 
 type ApiKeyDialogMode = 'create' | 'view' | 'edit';
 
 @Component({
   selector: 'app-external-api-key',
   standalone: true,
-  imports: [CommonModule, FormsModule, DialogModule, ToastModule, WfBreadcrumbComponent],
+  imports: [CommonModule, FormsModule, DialogModule, ToastModule, WfBreadcrumbComponent, EcoPaginatorComponent],
   providers: [MessageService],
   templateUrl: './external-api-key.component.html',
   styleUrl: './external-api-key.component.scss',
@@ -37,6 +37,14 @@ export class ExternalApiKeyComponent implements OnInit {
   deleteTarget = signal<any | null>(null);
   generatedPrivateKey = signal<string | null>(null);
   showPrivateKey = signal(false);
+
+  historyDialogVisible = signal(false);
+  historyTarget = signal<any | null>(null);
+  callLogs = signal<any[]>([]);
+  callLogsLoading = signal(false);
+  callLogsPage = signal(1);
+  callLogsPageSize = signal(10);
+  callLogsTotal = signal(0);
 
   ngOnInit(): void {
     this.loadApiKeys();
@@ -153,6 +161,78 @@ export class ExternalApiKeyComponent implements OnInit {
 
   closeDialog(): void {
     if (!this.saving()) this.dialogVisible.set(false);
+  }
+
+  openHistory(item: any): void {
+    this.historyTarget.set(item);
+    this.callLogs.set([]);
+    this.callLogsTotal.set(0);
+    this.callLogsPage.set(1);
+    this.historyDialogVisible.set(true);
+    this.loadCallLogs();
+  }
+
+  closeHistoryDialog(): void {
+    this.historyDialogVisible.set(false);
+    this.historyTarget.set(null);
+  }
+
+  loadCallLogs(): void {
+    const item = this.historyTarget();
+    if (!item?.id) return;
+
+    this.callLogsLoading.set(true);
+    this.http.get<any>(`${this.apiUrl}/${item.id}/call-logs`, {
+      params: { page: String(this.callLogsPage()), pageSize: String(this.callLogsPageSize()) },
+    }).pipe(
+      finalize(() => this.callLogsLoading.set(false))
+    ).subscribe({
+      next: response => {
+        const items = response?.items ?? response?.Items ?? (Array.isArray(response) ? response : []);
+        const total = response?.totalCount ?? response?.TotalCount ?? response?.total ?? items.length;
+        this.callLogs.set(items);
+        this.callLogsTotal.set(total);
+      },
+      error: error => this.showError(error, 'Không thể tải lịch sử gọi API.'),
+    });
+  }
+
+  goToCallLogsPage(page: string | number): void {
+    const requestedPage = Number(page);
+    if (!Number.isInteger(requestedPage) || requestedPage < 1) return;
+    this.callLogsPage.set(requestedPage);
+    this.loadCallLogs();
+  }
+
+  onCallLogsPageSizeChange(pageSize: number): void {
+    this.callLogsPageSize.set(pageSize);
+    this.callLogsPage.set(1);
+    this.loadCallLogs();
+  }
+
+  getLogHttpMethod(log: any): string {
+    return log?.httpMethod || log?.method || log?.HttpMethod || '---';
+  }
+
+  getLogEndpoint(log: any): string {
+    return log?.requestPath || log?.endpoint || log?.path || log?.RequestPath || '---';
+  }
+
+  getLogStatusCode(log: any): number | string {
+    return log?.statusCode ?? log?.responseStatusCode ?? log?.StatusCode ?? '---';
+  }
+
+  getLogCalledAt(log: any): string {
+    return this.formatDate(log?.calledAt || log?.createdAt || log?.CalledAt || log?.CreatedAt);
+  }
+
+  getLogIpAddress(log: any): string {
+    return log?.ipAddress || log?.clientIp || log?.IpAddress || '---';
+  }
+
+  getLogDuration(log: any): string {
+    const duration = log?.durationMs ?? log?.duration ?? log?.DurationMs;
+    return duration === undefined || duration === null ? '---' : `${duration} ms`;
   }
 
   formatDate(value: string | null | undefined): string {

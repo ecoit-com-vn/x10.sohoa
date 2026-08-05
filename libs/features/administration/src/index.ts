@@ -14,4 +14,5 @@ export * from './lib/components/system-param/system-param.component';
 export * from './lib/components/upload-config/upload-config.component';
 export * from './lib/components/user-group/user-group.component';
 export * from './lib/components/external-api-key/external-api-key.component';
+export * from './lib/components/external-api-key-history/external-api-key-history.component';
 export * from './lib/services/user.service';
