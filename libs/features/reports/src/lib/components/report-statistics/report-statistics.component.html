@@ -1,50 +1,57 @@
 <!-- sohoa.frontend/libs/features/reports/src/lib/components/report-statistics/report-statistics.component.html -->
 <p-toast></p-toast>
 <div class="wf-page">
-    <div class="list-toolbar standard-page-toolbar">
-        <div class="toolbar-left">
-            <wf-breadcrumb></wf-breadcrumb>
+    <wf-breadcrumb></wf-breadcrumb>
+    <div> 
+        <!-- Filters Toolbar --> 
+        <div class="standard-search-card">
+    <div class="standard-search-grid">
+
+        <div class="standard-search-field">
+            <label>Từ khóa</label>
+            <input
+                type="text"
+                class="wf-input"
+                [ngModel]="searchKeyword()"
+                (ngModelChange)="searchKeyword.set($event)"
+                (keyup.enter)="onSearch()"
+                placeholder="Tìm theo mã hoặc tên báo cáo..." />
         </div>
+
+        <div class="standard-search-field">
+            <label>Trạng thái</label>
+            <select
+                class="wf-select"
+                [ngModel]="searchStatus()"
+                (ngModelChange)="onStatusFilterChange($event)">
+                <option value="">-- Tất cả trạng thái --</option>
+                <option value="published">Công bố</option>
+                <option value="draft">Lưu nháp</option>
+                <option value="not_configured">Chưa cấu hình</option>
+            </select>
+        </div>
+
+        <div class="standard-search-actions">
+            <button
+                type="button"
+                class="btn-outlined"
+                (click)="onResetSearch()">
+                <i class="pi pi-refresh"></i>
+                Làm mới
+            </button>
+
+            <button
+                type="button"
+                class="btn-save"
+                (click)="onSearch()"
+                [disabled]="loading()">
+                <i class="pi pi-check"></i>
+                Áp dụng
+            </button>
+        </div>
+
     </div>
-
-    <div>
-        <!-- Filters Toolbar -->
-        <!-- Filters Toolbar -->
-        <div class="list-toolbar">
-
-            <!-- Bộ lọc -->
-            <div class="toolbar-filters">
-
-                <div class="filter-item search-item">
-                    <label>Từ khóa</label>
-                    <input type="text" class="wf-input" [ngModel]="searchKeyword()" (ngModelChange)="searchKeyword.set($event)" (keyup.enter)="onSearch()" placeholder="Tìm theo mã hoặc tên báo cáo..." />
-                </div>
-
-                <div class="filter-item">
-                    <label>Trạng thái</label>
-                    <select class="wf-select" [ngModel]="searchStatus()" (ngModelChange)="onStatusFilterChange($event)">
-        <option value="">-- Tất cả trạng thái --</option>
-        <option value="published">Công bố</option>
-        <option value="draft">Lưu nháp</option>
-        <option value="not_configured">Chưa cấu hình</option>
-      </select>
-                </div>
-
-            </div>
-
-            <!-- Nút -->
-            <div class="toolbar-actions">
-                <button type="button" class="btn-outlined btn-small" (click)="onResetSearch()">
-      <i class="pi pi-refresh"></i>
-      Làm mới
-    </button>
-                <button type="button" class="btn-save btn-small" (click)="onSearch()" [disabled]="loading()">
-      <i class="pi pi-check"></i>
-      Áp dụng
-    </button>
-            </div>
-
-        </div>
+</div>
 
         <!-- Table Grid -->
         <div class="wf-card">
