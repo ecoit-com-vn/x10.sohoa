@@ -15,8 +15,8 @@ public interface IOcrModuleRepository
     Task<List<OcrModuleRegion>> GetAllRegionEntitiesAsync(string jobId);
     Task UpdateRegionScriptTypesAsync(IReadOnlyDictionary<string, string> regionIdToScriptType);
     Task UpdateRegionFormulasAsync(IReadOnlyDictionary<string, string> regionIdToFormulaText);
-    Task UpdateRegionsAsSignatureAsync(IReadOnlyDictionary<string, double> regionIdToScore);
-    Task DeleteSealRegionsAsync(string jobId, int pageNumber);
+    Task ResetFormulaRegionsAsync(IReadOnlyList<string> regionIds);
+    Task DeleteSealAndSignatureRegionsAsync(string jobId, int pageNumber);
 
     Task CreateTemplateSnapshotAsync(OcrModuleTemplateSnapshot snapshot);
     Task<List<OcrModuleTemplateSnapshot>> GetTemplateSnapshotsAsync(string? documentTypeCode);

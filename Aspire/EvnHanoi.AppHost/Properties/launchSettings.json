@@ -8,6 +8,7 @@
       "applicationUrl": "http://localhost:15234",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
+        "DOTNET_ENVIRONMENT": "Development",
         "DOTNET_DASHBOARD_OTLP_ENDPOINT_URL": "http://localhost:18888",
         "ASPIRE_ALLOW_UNSECURED_TRANSPORT": "true"
       }
@@ -19,6 +20,7 @@
       "applicationUrl": "https://localhost:17234;http://localhost:15234",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
+        "DOTNET_ENVIRONMENT": "Development",
         "DOTNET_DASHBOARD_OTLP_ENDPOINT_URL": "http://localhost:18888",
         "ASPIRE_ALLOW_UNSECURED_TRANSPORT": "true"
       }

@@ -60,12 +60,12 @@ public class OcrModuleRepository : IOcrModuleRepository
         var sql = $@"
             INSERT INTO OCR_MODULE_REGION (
                 ID, JOB_ID, PAGE_NUMBER, BOX_X0, BOX_Y0, BOX_X1, BOX_Y1,
-                TEXT_RAW, CONFIDENCE, REGION_TYPE, STATUS, CREATED_DATE
+                TEXT_RAW, CONFIDENCE, REGION_TYPE, SEAL_SIGNATURE_SCORE, STATUS, CREATED_DATE
             ) VALUES (
                 :{nameof(OcrModuleRegion.Id)}, :{nameof(OcrModuleRegion.JobId)}, :{nameof(OcrModuleRegion.PageNumber)},
                 :{nameof(OcrModuleRegion.BoxX0)}, :{nameof(OcrModuleRegion.BoxY0)}, :{nameof(OcrModuleRegion.BoxX1)}, :{nameof(OcrModuleRegion.BoxY1)},
                 :{nameof(OcrModuleRegion.TextRaw)}, :{nameof(OcrModuleRegion.Confidence)}, :{nameof(OcrModuleRegion.RegionType)},
-                :{nameof(OcrModuleRegion.Status)}, SYSTIMESTAMP
+                :{nameof(OcrModuleRegion.SealSignatureScore)}, :{nameof(OcrModuleRegion.Status)}, SYSTIMESTAMP
             )";
 
         await _connection.ExecuteAsync(sql, regions);
@@ -156,27 +156,30 @@ public class OcrModuleRepository : IOcrModuleRepository
         await _connection.ExecuteAsync(sql, updates);
     }
 
-    public async Task UpdateRegionsAsSignatureAsync(IReadOnlyDictionary<string, double> regionIdToScore)
+    /// <summary>Trả các vùng đã từng bị gắn nhãn Formula về lại Text — dùng khi chạy lại nhận diện công thức
+    /// với logic mới không còn coi các vùng này là công thức nữa (vd. sau khi sửa heuristic loại trừ ngày/số
+    /// trang), tránh nhãn Formula cũ bị kẹt lại vĩnh viễn dù không còn khớp tiêu chí hiện tại.</summary>
+    public async Task ResetFormulaRegionsAsync(IReadOnlyList<string> regionIds)
     {
-        if (regionIdToScore.Count == 0) return;
+        if (regionIds.Count == 0) return;
 
         var sql = @"
             UPDATE OCR_MODULE_REGION
-               SET REGION_TYPE = 'Signature', SEAL_SIGNATURE_SCORE = :Score,
+               SET REGION_TYPE = 'Text', FORMULA_TEXT = NULL,
                    MODIFIED_DATE = SYSTIMESTAMP, ROW_VERSION = ROW_VERSION + 1
              WHERE ID = :RegionId";
 
-        var updates = regionIdToScore.Select(kv => new { RegionId = kv.Key, Score = kv.Value }).ToList();
+        var updates = regionIds.Select(id => new { RegionId = id }).ToList();
         await _connection.ExecuteAsync(sql, updates);
     }
 
-    /// <summary>Xóa mềm các vùng Seal đã nhận diện trước đó của 1 trang — tránh nhân đôi khi người dùng chạy lại phân tích cho đúng trang đó.</summary>
-    public async Task DeleteSealRegionsAsync(string jobId, int pageNumber)
+    /// <summary>Xóa mềm các vùng Seal/Signature đã nhận diện trước đó của 1 trang — tránh nhân đôi khi người dùng chạy lại phân tích cho đúng trang đó. Cả 2 loại đều là kết quả tự động nhận diện lại từ đầu mỗi lần chạy, không phải dữ liệu người dùng chỉnh sửa tay.</summary>
+    public async Task DeleteSealAndSignatureRegionsAsync(string jobId, int pageNumber)
     {
         var sql = @"
             UPDATE OCR_MODULE_REGION
                SET IS_DELETED = 1, MODIFIED_DATE = SYSTIMESTAMP, ROW_VERSION = ROW_VERSION + 1
-             WHERE JOB_ID = :JobId AND PAGE_NUMBER = :PageNumber AND REGION_TYPE = 'Seal'";
+             WHERE JOB_ID = :JobId AND PAGE_NUMBER = :PageNumber AND REGION_TYPE IN ('Seal', 'Signature')";
 
         await _connection.ExecuteAsync(sql, new { JobId = jobId, PageNumber = pageNumber });
     }

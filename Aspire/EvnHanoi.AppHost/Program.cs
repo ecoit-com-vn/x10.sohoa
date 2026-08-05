@@ -1,6 +1,16 @@
 using EvnHanoi.AppHost;
+using Microsoft.Extensions.Configuration;
 
 var builder = DistributedApplication.CreateBuilder(args);
+
+// AppHost là generic host (không phải WebApplicationBuilder) nên chỉ nhận biết DOTNET_ENVIRONMENT,
+// KHÔNG nhận ASPNETCORE_ENVIRONMENT — nếu chỉ set ASPNETCORE_ENVIRONMENT=Development (như launchSettings.json
+// trước đây, hoặc khi chạy thẳng file build thay vì `dotnet run`), AppHost vẫn coi mình đang ở Production và
+// KHÔNG nạp appsettings.Development.json, khiến mọi config["..."] đọc từ đây trả về null (rồi WithEnvironment
+// truyền null xuống service con thành biến môi trường RỖNG, không phải biến bị thiếu — ví dụ new Uri("") crash).
+// AppHost chỉ dùng để orchestrate dev cục bộ (production deploy qua K8s ConfigMap trực tiếp), nên nạp thẳng
+// appsettings.Development.json ở đây luôn an toàn, không phụ thuộc cách khởi động.
+builder.Configuration.AddJsonFile("appsettings.Development.json", optional: true, reloadOnChange: false);
 var config = builder.Configuration;
 
 var identityService = builder.AddProject<Projects.EvnHanoi_IdentityService>("identityservice")
