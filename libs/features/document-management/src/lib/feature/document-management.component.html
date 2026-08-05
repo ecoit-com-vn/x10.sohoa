@@ -452,10 +452,17 @@
         <!-- Footer / Paginator -->
         <div class="table-footer-paginator" *ngIf="totalItems() > 0">
           <span class="record-count">
-            Tổng số:
-            <b>{{ folderTotalRecords() }}</b> thư mục,
-            <b>{{ totalDocuments() }}</b> tài liệu.
-          </span>
+  Tổng số:
+  <ng-container *ngIf="folderTotalRecords() > 0"
+    ><b>{{ folderTotalRecords() }}</b> thư mục<span *ngIf="totalDocuments() > 0">, </span></ng-container
+  >
+  <ng-container *ngIf="totalDocuments() > 0"
+    ><b>{{ totalDocuments() }}</b> tài liệu.</ng-container
+  >
+  <ng-container *ngIf="folderTotalRecords() === 0 && totalDocuments() === 0"
+    >0 thư mục, 0 tài liệu.</ng-container
+  >
+</span>
 
           <div class="table-footer-paginator__actions">
             <ng-container *ngIf="folderTotalRecords() > 0 && totalDocuments() === 0">

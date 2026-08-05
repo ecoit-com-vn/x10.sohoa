@@ -108,18 +108,50 @@
 
 /* Paginator layout */
 .table-footer-paginator {
+  position: relative;
+  width: 100%;
+  min-height: 2.5rem;
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e2e8f0;
+}
+/* Paginator layout */
+.table-footer-paginator {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
+  flex-wrap: nowrap;
+  width: 100%;
+  min-height: 2.5rem;
   margin-top: 1.25rem;
   padding-top: 1rem;
   border-top: 1px solid #e2e8f0;
 }
 
 .table-footer-paginator .record-count {
+  display: inline-flex !important;
+  align-items: center;
   font-size: 0.875rem;
   color: #374151;
   font-weight: 500;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+.record-count b {
+  margin: 0 4px; /* tạo khoảng cách 2 bên số, không phụ thuộc whitespace trong template */
+}
+.table-footer-paginator__actions {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+/* Ẩn phần tóm tắt "Tổng số..." mà chính app-eco-paginator tự render,
+   vì bên ngoài đã có .record-count hiển thị rồi -> tránh trùng lặp
+   khiến bố cục bị lệch trông như record-count "chạy" theo actions */
+:host ::ng-deep .table-footer-paginator__actions .eco-paginator__summary {
+  display: none;
 }
 
 .table-footer-paginator .record-count b {
