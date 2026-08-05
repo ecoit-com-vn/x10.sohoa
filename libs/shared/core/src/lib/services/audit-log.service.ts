@@ -55,6 +55,33 @@ export interface AuditLogDeleteResponse {
   count?: number;
 }
 
+export interface AuditLogRetentionIndex {
+  indexName: string;
+  logDate: string;
+  documentCount: number;
+  sizeBytes: number;
+  estimatedDeleteAtUtc: string;
+  remainingDays: number;
+  status: string;
+}
+
+export interface AuditLogRetentionStatusResponse {
+  retentionDays: number;
+  nextCleanupAtUtc: string;
+  totalIndices: number;
+  totalDocuments: number;
+  totalSizeBytes: number;
+  items: AuditLogRetentionIndex[];
+  totalCount: number;
+  pageNumber: number;
+  pageSize: number;
+}
+
+export interface AuditLogRetentionIndexDeleteResponse {
+  message?: string;
+  deletedDocuments?: number;
+}
+
 export interface AuditLogQueryParams {
   page?: number;
   pageSize?: number;
@@ -85,6 +112,16 @@ export class AuditLogService {
 
   getRecent(count = 5): Observable<AuditLogRecentResponse> {
     return this.api.get<AuditLogRecentResponse>(`${this.base}/recent`);
+  }
+
+  getRetentionStatus(pageNumber: number, pageSize: number): Observable<AuditLogRetentionStatusResponse> {
+    return this.api.get<AuditLogRetentionStatusResponse>(`${this.base}/retention-status`, {
+      params: { pageNumber: String(pageNumber), pageSize: String(pageSize) }
+    });
+  }
+
+  deleteRetentionIndex(logDate: string): Observable<AuditLogRetentionIndexDeleteResponse> {
+    return this.api.delete<AuditLogRetentionIndexDeleteResponse>(`${this.base}/retention-index/${encodeURIComponent(logDate)}`);
   }
 
   getLookups(logGroup?: string): Observable<AuditLogLookups> {
