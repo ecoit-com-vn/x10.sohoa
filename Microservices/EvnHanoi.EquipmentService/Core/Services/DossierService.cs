@@ -496,13 +496,13 @@ public class DossierService : IDossierService
         var existing = await _dossierRepository.GetByIdAsync(id);
         if (existing == null) throw new KeyNotFoundException($"Không tìm thấy hồ sơ với ID = {id}");
 
-        var canEditPendingPublish = allowPendingPublishEdit
-                                    && existing.PublishStatusId == DossierPublishStatusConstants.Pending;
-        if (allowPendingPublishEdit && !canEditPendingPublish)
-            throw new InvalidOperationException("Chỉ có thể chỉnh sửa hồ sơ đang ở trạng thái Chờ xuất bản.");
+        //var canEditPendingPublish = allowPendingPublishEdit
+        //                            && existing.PublishStatusId == DossierPublishStatusConstants.Pending;
+        //if (allowPendingPublishEdit && !canEditPendingPublish)
+        //    throw new InvalidOperationException("Chỉ có thể chỉnh sửa hồ sơ đang ở trạng thái Chờ xuất bản.");
 
-        if (!string.IsNullOrEmpty(dto.FormDataJson) && !canEditPendingPublish)
-            await EnsureCanEditFormDataAsync(existing);
+        //if (!string.IsNullOrEmpty(dto.FormDataJson) && !canEditPendingPublish)
+        //    await EnsureCanEditFormDataAsync(existing);
 
         var infraIds = dto.InfrastructureIds?.Where(x => x != Guid.Empty).Distinct().ToList() ?? new List<Guid>();
         if (infraIds.Count == 0 && dto.InfrastructureId.HasValue && dto.InfrastructureId != Guid.Empty)
