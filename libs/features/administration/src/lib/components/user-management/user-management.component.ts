@@ -218,6 +218,7 @@ export class UserManagement implements OnInit {
     const first = Number(event.first) || 0;
     this.pageSize.set(rows);
     this.currentPage.set(Math.floor(first / rows) + 1);
+    this.loadUsers();
   }
 
   ngOnInit() {
@@ -361,11 +362,20 @@ export class UserManagement implements OnInit {
   }
 
   onSearchUnitChange(val: number[] | null) {
-    this.searchUnitIds.set(val ?? []);
+    this.searchUnitIds.set(Array.isArray(val) ? [...val] : []);
+    this.onSearch();
+  }
+
+  onSearchKeywordChange(value: string): void {
+    this.searchKeyword.set(value ?? '');
+    if ((value ?? '').trim() === '') {
+      this.onSearch();
+    }
   }
 
   onSearchStatusChange(status: string): void {
     this.searchStatus.set(status);
+    this.onSearch();
   }
 
   private reloadUsersFromFirstPage(): void {

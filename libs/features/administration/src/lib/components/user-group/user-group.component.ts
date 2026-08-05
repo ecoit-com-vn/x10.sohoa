@@ -168,10 +168,16 @@ export class UserGroupComponent implements OnInit {
     this.loadGroups();
   }
 
+  onSearchKeywordChange(value: string): void {
+    this.searchKeyword.set(value ?? '');
+    if ((value ?? '').trim() === '') {
+      this.onSearch();
+    }
+  }
+
   onSearchStatusChange(status: string) {
     this.searchStatus.set(status);
-    this.currentPage.set(1);
-    this.loadGroups();
+    this.onSearch();
   }
 
   onResetSearch() {
