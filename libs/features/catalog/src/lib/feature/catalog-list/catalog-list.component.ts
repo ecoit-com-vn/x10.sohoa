@@ -144,6 +144,13 @@ export class CatalogListComponent implements OnInit {
   isPhongCatalog = computed(() => this.catalogType() === 'PHONG');
   isMucLucCatalog = computed(() => this.catalogType() === 'MUC_LUC');
   isUnitScopedCatalog = computed(() => this.isPhongCatalog() || this.isMucLucCatalog());
+  usesStandardAuditColumns = computed(() => [
+    'PROCESSING_CATEGORY',
+    'CHUC_VU',
+    'LINH_VUC',
+    'TINH_TRANG_VAT_LY'
+  ].includes(this.catalogType()));
+  showParentColumn = computed(() => this.hasParent() && !this.usesStandardAuditColumns());
   organizationUnitTree = computed<TreeNode[]>(() => {
     const activeUnits = this.organizationUnits().filter(unit =>
       unit.isActive !== false && unit.isActive !== 0 && unit.isDeleted !== true && unit.isDeleted !== 1);

@@ -22,10 +22,18 @@
                 <div class="standard-search-grid">
                     <div class="standard-search-field">
                         <label class="search-field-label">Từ khóa</label>
-                        <input type="text" class="wf-search-input" placeholder="Tìm kiếm vai trò..." [ngModel]="searchKeyword()" (ngModelChange)="searchKeyword.set($event)" />
+                        <input type="text" class="wf-search-input" placeholder="Tìm theo mã hoặc tên vai trò..." [ngModel]="searchKeyword()" (ngModelChange)="searchKeyword.set($event)" (keyup.enter)="onSearch()" />
+                    </div>
+                    <div class="standard-search-field">
+                        <label class="search-field-label">Trạng thái</label>
+                        <select class="wf-select" [ngModel]="searchStatus()" (ngModelChange)="onStatusChange($event)">
+                            <option [ngValue]="null">-- Tất cả trạng thái --</option>
+                            <option [ngValue]="true">Hoạt động</option>
+                            <option [ngValue]="false">Ngừng hoạt động</option>
+                        </select>
                     </div>
                     <div class="standard-search-actions">
-                        <button type="button" class="btn-outlined" (click)="searchKeyword.set(''); onSearch()">
+                        <button type="button" class="btn-outlined" (click)="onResetSearch()">
               <i class="pi pi-refresh"></i> Làm mới
             </button>
                         <button class="btn-save" (click)="onSearch()"><i class="pi pi-check"></i> Áp dụng</button>
@@ -40,11 +48,12 @@
                     <thead>
                         <tr>
                             <th class="col-stt">STT</th>
-                            <th>Mã vai trò (Code)</th>
-                            <th>Tên vai trò (Name)</th>
-                            <th>Mô tả</th>
+                            <th>Mã vai trò</th>
+                            <th>Tên vai trò</th>
+                            <th class="col-created-date">Ngày tạo</th>
+                            <th>Người tạo</th>
                             <th class="col-tt">Trạng thái</th>
-                            <th class="col-hd" style="width: 250px;">Thao tác</th>
+                            <th class="col-hd">Thao tác</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -62,6 +71,9 @@
                                 </td>
                                 <td>
                                     <div class="skeleton-shimmer" style="height: 16px; width: 200px; border-radius: 4px;"></div>
+                                </td>
+                                <td>
+                                    <div class="skeleton-shimmer" style="height: 16px; width: 120px; border-radius: 4px;"></div>
                                 </td>
                                 <td style="text-align: center;">
                                     <div class="skeleton-shimmer" style="height: 16px; width: 80px; margin: 0 auto; border-radius: 12px;"></div>
@@ -82,7 +94,8 @@
                                 <td>
                                     <span>{{ role.name }}</span>
                                 </td>
-                                <td><span class="text-muted">{{ role.description }}</span></td>
+                                <td class="col-created-date">{{ role.createdAt ? (role.createdAt | date:'dd/MM/yyyy') : '—' }}</td>
+                                <td>{{ role.createdByName || role.createdBy || '—' }}</td>
                                 <td style="text-align: center;">
                                     <span class="status-pill" [class.status-active]="role.isActive" [class.status-inactive]="!role.isActive">
                     {{ role.isActive ? 'Hoạt động' : 'Ngừng hoạt động' }}
@@ -97,7 +110,7 @@
                                 </td>
                             </tr>
                             <tr *ngIf="filteredRoles().length === 0">
-                                <td colspan="6" class="empty-row">
+                                <td colspan="7" class="empty-row">
                                     <i class="pi pi-inbox"></i>
                                     <div>Không tìm thấy vai trò phù hợp.</div>
                                 </td>

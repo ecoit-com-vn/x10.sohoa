@@ -60,7 +60,7 @@
                         <tr>
                             <th style="width: 100px;">STT</th>
                             <th>Mã đơn vị</th>
-                            <th>Cơ cấu Tổ chức / Phòng ban</th>
+                            <th>Tên đơn vị</th>
                             <th>Thuộc đơn vị cấp trên</th>
                             <th>Mô tả</th>
                             <th style="min-width: 130px; white-space: nowrap;">Trạng thái</th>
@@ -102,7 +102,6 @@
                                 <td>
                                     <div [style.padding-left.px]="getIndentLevel(unit) * 20" style="display: flex; align-items: center; gap: 8px;">
                                         <i class="pi" [class.pi-building]="getIndentLevel(unit) === 0" [class.pi-users]="getIndentLevel(unit) > 0" style="color: #002D72;"></i>
-                                        <span>{{ unit.name }}</span>
                                         <span>{{ unit.name }}</span>
                                     </div>
                                 </td>

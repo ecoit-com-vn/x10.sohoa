@@ -169,6 +169,21 @@ export class ReportDossierByFloorComponent implements OnInit, AfterViewInit {
     this.loadShelfFloorTree();
   }
 
+  onFloorSelectionChange(nodeKeys: string[] | null): void {
+    const normalizedKeys = Array.isArray(nodeKeys) ? nodeKeys : [];
+    const selectedKeys = this.selectedFloorNodeKeys();
+
+    if (
+      selectedKeys.length === normalizedKeys.length
+      && selectedKeys.every((key) => normalizedKeys.includes(key))
+    ) {
+      return;
+    }
+
+    this.selectedFloorNodeKeys.set(normalizedKeys);
+    this.onFilter();
+  }
+
   private loadShelfFloorTree(): void {
     const requestId = ++this.shelfFloorLookupRequestId;
     this.reportService.getShelfFloorsLookup(this.selectedUnitId()).subscribe({

@@ -92,8 +92,8 @@
 
         <!-- Catalog search: layout synchronized with "Tìm kiếm hồ sơ trong kho". -->
       <div class="standard-search-card dossier-search-bar catalog-search-bar">
-          <div class="search-form-grid catalog-search-grid">
-            <div class="search-form-item catalog-search-item standard-search-field">
+          <div class="standard-search-grid">
+            <div class="standard-search-field">
               <label class="search-field-label">Tên danh mục</label>
               <input type="text" class="wf-search-input"
                 placeholder="Tên danh mục..."
@@ -102,7 +102,7 @@
                 (keyup.enter)="onSearchCatalogs()" />
             </div>
 
-            <div class="search-form-item catalog-search-item standard-search-field">
+            <div class="standard-search-field">
               <label class="search-field-label">Mã danh mục</label>
               <input type="text" class="wf-search-input"
                 placeholder="Mã danh mục..."
@@ -111,7 +111,7 @@
                 (keyup.enter)="onSearchCatalogs()" />
             </div>
 
-            <div class="search-form-item catalog-search-item standard-search-field">
+            <div class="standard-search-field">
               <label class="search-field-label">Trạng thái</label>
               <select class="wf-input"
                 [ngModel]="searchStatus()"
@@ -122,7 +122,7 @@
               </select>
             </div>
 
-            <div *ngIf="isUnitScopedSelected()" class="search-form-item catalog-search-item standard-search-field">
+            <div *ngIf="isUnitScopedSelected()" class="standard-search-field">
               <label class="search-field-label">Đơn vị</label>
               <p-treeSelect [options]="organizationUnitTree()" [ngModel]="catalogSearchUnitNodes()"
                 (ngModelChange)="onCatalogSearchUnitNodeChange($event)" placeholder="-- Chọn đơn vị --"

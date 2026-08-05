@@ -205,33 +205,22 @@
           <span class="field-error" *ngIf="emailError()">{{ emailError() }}</span>
         </div>
 
-        <!-- Vai trò trực tiếp (multi-select dropdown) -->
+        <!-- Vai trò trực tiếp -->
         <div class="form-group">
-          <label class="form-label">Vai trò trực tiếp</label>
-          <div class="roles-dropdown-container" [class.disabled]="saving()">
-            <!-- Trigger button -->
-            <div class="roles-dropdown-trigger" (click)="!saving() && toggleRolesDropdown($event)"
-              [class.has-value]="selectedRoleIdsInForm().length > 0" [class.open]="rolesDropdownOpen()">
-              <span class="roles-dropdown-label">
-                <i class="pi pi-shield" style="margin-right: 6px; color: #6b7280;"></i>
-                {{ selectedRolesLabel() }}
-              </span>
-              <i class="pi" [class.pi-chevron-down]="!rolesDropdownOpen()"
-                [class.pi-chevron-up]="rolesDropdownOpen()"></i>
-            </div>
-            <!-- Dropdown list -->
-            <div class="roles-dropdown-menu" *ngIf="rolesDropdownOpen()" (click)="$event.stopPropagation()">
-              <div *ngFor="let r of systemRoles()" class="roles-dropdown-item"
-                [class.checked]="isRoleSelectedInForm(r.id)" (click)="toggleRoleInForm(r.id)">
-                <input type="checkbox" [checked]="isRoleSelectedInForm(r.id)"
-                  (click)="$event.stopPropagation(); toggleRoleInForm(r.id)" [disabled]="saving()" />
-                <span class="role-dropdown-label">{{ r.name }}</span>
-              </div>
-              <div *ngIf="systemRoles().length === 0" class="roles-dropdown-empty">
-                Chưa có vai trò nào trong hệ thống.
-              </div>
-            </div>
-          </div>
+          <eco-input-select
+            label="Vai trò trực tiếp"
+            [options]="systemRoles()"
+            [multiSelect]="true"
+            optionLabel="name"
+            optionValue="id"
+            placeholder="-- Chọn vai trò --"
+            [filter]="true"
+            scrollHeight="320px"
+            [ngModel]="selectedRoleIdsInForm()"
+            (ngModelChange)="selectedRoleIdsInForm.set($event || [])"
+            [readonly]="saving()"
+            [border]="true">
+          </eco-input-select>
         </div>
 
         <!-- Trạng thái hoạt động -->

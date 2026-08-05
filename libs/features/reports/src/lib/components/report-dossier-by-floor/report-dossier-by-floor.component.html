@@ -28,7 +28,7 @@
           placeholder="-- Chọn tầng hồ sơ --"
           [nodes]="shelfFloorTree()"
           [ngModel]="selectedFloorNodeKeys()"
-          (ngModelChange)="selectedFloorNodeKeys.set($event ?? [])"
+          (ngModelChange)="onFloorSelectionChange($event)"
           selectionMode="checkbox"
           [enableSearch]="true"
           [showClear]="true"

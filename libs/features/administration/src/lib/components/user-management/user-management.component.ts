@@ -1,6 +1,7 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import {
   DeleteConfirmDialogComponent,
+  EcoInputSelectComponent,
   EcoPaginatorComponent,
   EcoInputTreeSelectComponent,
   WfBreadcrumbComponent
@@ -26,6 +27,7 @@ import { buildMenuPermissionTree as buildMenuPermissionTreeFromLookup } from '..
     ToastModule,
     MenuModule,
     WfBreadcrumbComponent,
+    EcoInputSelectComponent,
     EcoInputTreeSelectComponent,
     EcoPaginatorComponent,
     DeleteConfirmDialogComponent
@@ -114,17 +116,6 @@ export class UserManagement implements OnInit {
 
   // Vai trò trong form add/edit (chọn nhiều)
   selectedRoleIdsInForm = signal<number[]>([]);
-  rolesDropdownOpen = signal<boolean>(false);
-  selectedRolesLabel = computed(() => {
-    const selectedIds = this.selectedRoleIdsInForm();
-    if (selectedIds.length === 0) return '-- Chọn vai trò --';
-    const names = this.systemRoles()
-      .filter(r => selectedIds.includes(r.id))
-      .map(r => r.name);
-    if (names.length === 0) return '-- Chọn vai trò --';
-    if (names.length <= 2) return names.join(', ');
-    return `Đã chọn ${names.length} vai trò`;
-  });
 
   // Inline delete confirm
   showDeleteConfirm = signal<boolean>(false);
@@ -346,28 +337,6 @@ export class UserManagement implements OnInit {
 
 
 
-  toggleRolesDropdown(event?: Event) {
-    if (event) event.stopPropagation();
-    this.rolesDropdownOpen.update(v => !v);
-  }
-
-  // ── Vai trò trong form ───────────────────────────────────────────────────
-  toggleRoleInForm(roleId: number) {
-    this.selectedRoleIdsInForm.update(prev => {
-      const idx = prev.indexOf(roleId);
-      if (idx > -1) {
-        const copy = [...prev];
-        copy.splice(idx, 1);
-        return copy;
-      }
-      return [...prev, roleId];
-    });
-  }
-
-  isRoleSelectedInForm(roleId: number): boolean {
-    return this.selectedRoleIdsInForm().includes(roleId);
-  }
-
   onSearch() {
     const normalizedKeyword = this.searchKeyword().trim();
     this.searchKeyword.set(normalizedKeyword);
@@ -385,7 +354,6 @@ export class UserManagement implements OnInit {
     this.isEdit.set(false);
     this.currentUser.set({ username: '', fullName: '', email: '', organizationUnitId: null, positionId: null, positionName: '', isActive: true });
     this.selectedRoleIdsInForm.set([]);
-    this.rolesDropdownOpen.set(false);
     this.formSubmitted.set(false);
     this.serverErrors.set({});
     this.dialogHeader.set('Thêm mới tài khoản');
@@ -457,7 +425,6 @@ export class UserManagement implements OnInit {
     this.currentUser.set({ ...user });
     this.formSubmitted.set(false);
     this.serverErrors.set({});
-    this.rolesDropdownOpen.set(false);
     // Load roles hiện tại của user vào form
     this.userService.getUserRoles(user.id).subscribe({
       next: (ids: any) => {
