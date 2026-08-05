@@ -4,75 +4,6 @@
   display: block;
 }
 
-.grid-filter-bar {
-  display: grid;
-  grid-template-columns: minmax(220px, 1.45fr) minmax(150px, 0.65fr) repeat(
-      2,
-      minmax(190px, 0.9fr)
-    );
-  gap: 12px;
-  align-items: end;
-  margin-bottom: 16px;
-  padding: 12px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-}
-
-.filter-keyword,
-.filter-creator,
-.filter-start-date,
-.filter-end-date {
-  min-width: 0;
-}
-
-.filter-start-date {
-  grid-column: 3;
-  width: 100% !important;
-}
-
-.filter-end-date {
-  grid-column: 4;
-  width: 100% !important;
-}
-
-.filter-buttons {
-  grid-column: 1 / -1;
-}
-
-:host ::ng-deep .filter-start-date .p-datepicker,
-:host ::ng-deep .filter-end-date .p-datepicker,
-:host ::ng-deep .filter-start-date .w-full,
-:host ::ng-deep .filter-end-date .w-full,
-:host ::ng-deep .filter-start-date .p-inputtext,
-:host ::ng-deep .filter-end-date .p-inputtext {
-  width: 100%;
-}
-
-.filter-start-date label,
-.filter-end-date label {
-  font-size: 0.83rem !important;
-  font-weight: 500 !important;
-  color: #374151 !important;
-}
-
-@media (max-width: 960px) {
-  .grid-filter-bar {
-    grid-template-columns: repeat(2, minmax(220px, 1fr));
-  }
-
-  .filter-start-date,
-  .filter-end-date {
-    grid-column: auto;
-  }
-}
-
-@media (max-width: 560px) {
-  .grid-filter-bar {
-    grid-template-columns: 1fr;
-  }
-}
-
 /* Overlay fullscreen — căn giữa popup trên viewport (kể cả chế độ quét) */
 .document-management-page {
   position: relative;
@@ -466,4 +397,81 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+.grid-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  align-items: flex-end;
+}
+
+.filter-item {
+  flex: 1 1 calc(25% - 9px);
+  min-width: 220px;
+}
+
+.filter-item label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.input-icon {
+  position: relative;
+}
+
+.input-icon i {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  font-size: 0.85rem;
+}
+
+.input-icon input {
+  width: 100%;
+  height: 32px;
+  padding-left: 30px;
+  font-size: 0.85rem;
+  box-sizing: border-box;
+}
+
+.full-width-datepicker {
+  width: 100%;
+}
+
+/* PrimeNG DatePicker */
+:host ::ng-deep .full-width-datepicker {
+  width: 100%;
+}
+
+:host ::ng-deep .full-width-datepicker .p-datepicker-input,
+:host ::ng-deep .full-width-datepicker input {
+  width: 100%;
+  height: 32px;
+  font-size: 0.85rem;
+  box-sizing: border-box;
+}
+
+:host ::ng-deep .full-width-datepicker .p-inputtext {
+  width: 100%;
+}
+
+.filter-buttons {
+  flex: 1 1 auto; /* Allow it to grow and shrink, but take available space */
+  margin-left: auto; /* Push to the right within the flex container */
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  align-items: flex-end; /* Align buttons to the bottom, like input fields */
+  padding-bottom: 2px; /* Visual adjustment to align button text with input text baseline */
+  min-width: 150px; /* Ensure it has enough space */
 }
