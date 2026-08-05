@@ -82,4 +82,66 @@
 /* Thu nhỏ nhẹ icon bên trong nút nếu cần */
 .toolbar-actions button i {
   font-size: 12px;
+}.standard-search-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-bottom: 20px;
+}
+
+.standard-search-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 2fr;
+    gap: 20px;
+    align-items: end;
+}
+
+.standard-search-field {
+    display: flex;
+    flex-direction: column;
+}
+
+.standard-search-field label {
+    margin-bottom: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #475569;
+}
+
+.standard-search-field input,
+.standard-search-field select {
+    width: 100%;
+    height: 38px;
+}
+
+.standard-search-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    align-items: center;
+}
+
+.standard-search-actions button {
+    height: 38px;
+    padding: 0 18px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+}
+
+.btn-save {
+    background: #3b82f6;
+    color: white;
+    border: none;
+}
+
+.btn-save:hover {
+    background: #2563eb;
+}
+
+.btn-outlined {
+    background: white;
+    border: 1px solid #d1d5db;
 }
