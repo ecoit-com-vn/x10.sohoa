@@ -17,6 +17,16 @@ public static class FormulaTextNormalizer
     private static readonly Regex FractionPattern = new(
         @"\d+\s*/\s*\d+", RegexOptions.Compiled);
 
+    // "số/số" cũng khớp định dạng ngày (DD/MM/YYYY) và số trang (Trang: X/Y) — 2 dạng cực kỳ phổ biến
+    // trong biên bản kỹ thuật, KHÔNG phải công thức. Loại rõ các trường hợp này trước khi kết luận.
+    private static readonly Regex DatePattern = new(
+        @"\b\d{1,2}\s*/\s*\d{1,2}\s*/\s*\d{2,4}\b", RegexOptions.Compiled); // DD/MM/YYYY hoặc DD/MM/YY
+
+    private static readonly Regex BareTwoPartFraction = new(
+        @"^\s*(\d{1,2})\s*/\s*(\d{1,2})\s*$", RegexOptions.Compiled);
+
+    private static readonly string[] DateOrPageHintKeywords = ["ngày", "trang", "date", "page"];
+
     private static readonly Regex ExponentCaretPattern = new(
         @"[A-Za-zÀ-ỹ0-9]\^\d+", RegexOptions.Compiled);
 
@@ -34,9 +44,36 @@ public static class FormulaTextNormalizer
     {
         if (string.IsNullOrWhiteSpace(text)) return false;
 
-        return MathSymbolPattern.IsMatch(text)
-            || FractionPattern.IsMatch(text)
-            || ExponentCaretPattern.IsMatch(text);
+        if (MathSymbolPattern.IsMatch(text) || ExponentCaretPattern.IsMatch(text)) return true;
+
+        if (FractionPattern.IsMatch(text) && !LooksLikeDateOrPageReference(text)) return true;
+
+        return false;
+    }
+
+    /// <summary>
+    /// "Ngày : 31/05/2025", "Trang : 02/02", hay "01/02" đứng riêng đều khớp mẫu số/số nhưng là ngày
+    /// tháng/số trang, không phải tỉ số kỹ thuật — tỉ số/công thức thật thường có số lớn hơn hoặc có phần
+    /// thập phân (vd. "22/0.4kV", "4.2/230.94"), không rơi hết vào khoảng ngày (1-31) VÀ tháng (1-12).
+    /// </summary>
+    private static bool LooksLikeDateOrPageReference(string text)
+    {
+        if (DatePattern.IsMatch(text)) return true;
+
+        foreach (var keyword in DateOrPageHintKeywords)
+        {
+            if (text.Contains(keyword, StringComparison.OrdinalIgnoreCase)) return true;
+        }
+
+        var bareMatch = BareTwoPartFraction.Match(text);
+        if (bareMatch.Success)
+        {
+            var first = int.Parse(bareMatch.Groups[1].Value);
+            var second = int.Parse(bareMatch.Groups[2].Value);
+            if (first is >= 1 and <= 31 && second is >= 1 and <= 12) return true;
+        }
+
+        return false;
     }
 
     /// <summary>Chuẩn hóa định dạng: đổi số mũ unicode (x²) thành ký hiệu caret (x^2), gọn khoảng trắng.</summary>

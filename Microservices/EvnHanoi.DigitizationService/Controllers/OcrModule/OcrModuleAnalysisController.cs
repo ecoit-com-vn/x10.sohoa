@@ -96,6 +96,14 @@ public class OcrModuleAnalysisController : ControllerBase
             }
         }
 
+        // Trả về Text các vùng đã từng được gắn Formula ở lần chạy trước nhưng lần này không còn khớp
+        // tiêu chí (vd. logic vừa được sửa để loại trừ ngày/số trang) — tránh nhãn Formula cũ bị kẹt lại.
+        var noLongerFormulaIds = regions
+            .Where(r => r.RegionType == "Formula" && !formulaRegions.ContainsKey(r.Id))
+            .Select(r => r.Id)
+            .ToList();
+        await _repository.ResetFormulaRegionsAsync(noLongerFormulaIds);
+
         await _repository.UpdateRegionFormulasAsync(formulaRegions);
 
         return Ok(new FormulaRunResponse
