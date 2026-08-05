@@ -34,5 +34,13 @@ namespace EvnHanoi.NotificationService.Repositories
             IReadOnlyList<string>? unitIds = null);
         Task<long> DeleteAuditLogsAsync(DateTime fromDate, DateTime toDate, string? username, string? userId);
         Task<long> DeleteAuditLogsByIdsAsync(IReadOnlyList<string> ids, string? username, string? userId);
+        Task<IReadOnlyList<AuditLogIndexMetadata>> GetAuditLogIndexMetadataAsync(
+            CancellationToken cancellationToken = default);
+        Task<long> DeleteAuditLogIndexAsync(
+            DateOnly logDate,
+            CancellationToken cancellationToken = default);
+        Task<(IReadOnlyList<string> DeletedIndices, long DeletedDocuments)> PurgeExpiredAuditLogsAsync(
+            DateTime cutoffUtc,
+            CancellationToken cancellationToken = default);
     }
 }

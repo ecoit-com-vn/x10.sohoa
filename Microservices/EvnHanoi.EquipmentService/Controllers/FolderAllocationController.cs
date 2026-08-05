@@ -46,13 +46,25 @@ public class FolderAllocationController : ControllerBase
         [FromQuery] int page = 1,
         [FromQuery] int page_size = 10,
         [FromQuery] string? keyword = null,
-        [FromQuery] string? status = null)
+        [FromQuery] string? status = null,
+        [FromQuery] DateTime? fromDate = null,
+        [FromQuery] DateTime? toDate = null)
     {
         var userUnitId = GetUserUnitId();
         if (userUnitId == 0)
             return Unauthorized(new { message = "Không thể xác định đơn vị của người dùng" });
 
-        var (items, totalCount) = await _folderAllocationService.GetPagedAsync(page, page_size, keyword, status, userUnitId);
+        if (fromDate.HasValue && toDate.HasValue && fromDate.Value.Date > toDate.Value.Date)
+            return BadRequest(new { message = "Từ ngày phải nhỏ hơn hoặc bằng Đến ngày." });
+
+        var (items, totalCount) = await _folderAllocationService.GetPagedAsync(
+            page,
+            page_size,
+            keyword,
+            status,
+            fromDate?.Date,
+            toDate?.Date,
+            userUnitId);
         return Ok(new
         {
             items,

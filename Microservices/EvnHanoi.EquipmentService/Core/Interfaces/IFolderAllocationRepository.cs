@@ -13,6 +13,8 @@ public interface IFolderAllocationRepository
         int pageSize,
         string? keyword,
         string? status,
+        DateTime? fromDate,
+        DateTime? toDate,
         IEnumerable<long> unitScopeIds);
 
     Task<FolderAllocationListItemDto?> GetByIdAsync(Guid id, IEnumerable<long> unitScopeIds);

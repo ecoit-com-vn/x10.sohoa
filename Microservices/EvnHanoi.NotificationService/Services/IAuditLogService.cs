@@ -34,6 +34,16 @@ namespace EvnHanoi.NotificationService.Services
             IReadOnlyList<string>? unitIds = null);
         Task<long> DeleteAuditLogsAsync(DateTime fromDate, DateTime toDate, string? username, string? userId);
         Task<long> DeleteAuditLogsByIdsAsync(IReadOnlyList<string> ids, string? username, string? userId);
+        Task<AuditLogRetentionStatusDto> GetRetentionStatusAsync(
+            int pageNumber,
+            int pageSize,
+            CancellationToken cancellationToken = default);
+        Task<long> DeleteAuditLogIndexAsync(
+            DateOnly logDate,
+            CancellationToken cancellationToken = default);
+        Task<(IReadOnlyList<string> DeletedIndices, long DeletedDocuments)> PurgeExpiredAuditLogsAsync(
+            DateTime cutoffUtc,
+            CancellationToken cancellationToken = default);
         Task<bool> CheckPermissionAsync(string? authHeader, ClaimsPrincipal user, string permissionCode);
         Task<bool> CheckAnyPermissionAsync(string? authHeader, ClaimsPrincipal user, params string[] permissionCodes);
         AuditLogLookupsDto GetLookups(string? logGroup);
