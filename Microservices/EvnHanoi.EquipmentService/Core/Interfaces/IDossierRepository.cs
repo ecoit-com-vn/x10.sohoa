@@ -75,6 +75,7 @@ public interface IDossierRepository
 
     // Equipments & Infrastructures
     Task<IEnumerable<DossierInfrastructureDto>> GetInfrastructuresAsync(Guid dossierId);
+    Task<IEnumerable<DossierInfrastructureAssignmentDto>> GetInfrastructuresByDossierIdsAsync(IEnumerable<Guid> dossierIds);
     Task<IEnumerable<DossierEquipmentDto>> GetEquipmentsAsync(Guid dossierId);
     Task<bool> AddEquipmentAsync(Guid dossierId, Guid equipmentId);
     Task<bool> RemoveEquipmentAsync(Guid dossierId, Guid equipmentId);
