@@ -658,7 +658,7 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
     if (!this.dossierId || this.exporting()) return;
 
     this.exporting.set(true);
-    this.documentService.exportDocuments(this.dossierId)
+    this.documentService.exportDocuments(this.dossierId, this.searchKeyword())
       .pipe(finalize(() => this.exporting.set(false)))
       .subscribe({
         next: (blob) => {
