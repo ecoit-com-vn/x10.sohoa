@@ -1,336 +1,328 @@
 :host {
-  display: block;
+    display: block;
 }
 
 .system-param-page {
-  --system-primary: #002d72;
-  --system-primary-soft: #eef4ff;
-  --system-border: #e2e8f0;
-  --system-text: #1e293b;
-  --system-muted: #64748b;
-  --system-surface: #ffffff;
-  --system-page: #f8fafc;
-  color: var(--system-text);
+    --system-primary: #002d72;
+    --system-primary-soft: #eef4ff;
+    --system-border: #e2e8f0;
+    --system-text: #1e293b;
+    --system-muted: #64748b;
+    --system-surface: #ffffff;
+    --system-page: #f8fafc;
+    color: var(--system-text);
 }
 
 .system-param-top-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
-  gap: 16px;
-  margin-bottom: 16px;
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
+    gap: 16px;
+    margin-bottom: 16px;
 }
 
 .system-param-card {
-  min-width: 0;
-  padding: 20px;
-  border: 1px solid var(--system-border);
-  border-radius: 10px;
-  background: var(--system-surface);
-  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05);
+    min-width: 0;
+    padding: 20px;
+    border: 1px solid var(--system-border);
+    border-radius: 10px;
+    background: var(--system-surface);
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05);
 }
 
 .section-heading {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  margin-bottom: 20px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 20px;
 }
 
 .section-heading h2 {
-  margin: 0;
-  color: var(--system-primary);
-  font-size: 1rem;
-  font-weight: 700;
-  line-height: 1.35;
+    margin: 0;
+    color: var(--system-primary);
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1.35;
 }
 
 .section-heading p {
-  margin: 4px 0 0;
-  color: var(--system-muted);
-  font-size: 0.82rem;
-  line-height: 1.45;
+    margin: 4px 0 0;
+    color: var(--system-muted);
+    font-size: 0.82rem;
+    line-height: 1.45;
 }
 
 .section-heading-compact {
-  margin-bottom: 18px;
+    margin-bottom: 18px;
 }
 
 .section-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 38px;
-  width: 38px;
-  height: 38px;
-  border-radius: 9px;
-  background: var(--system-primary-soft);
-  color: var(--system-primary);
-  font-size: 1rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 38px;
+    width: 38px;
+    height: 38px;
+    border-radius: 9px;
+    background: var(--system-primary-soft);
+    color: var(--system-primary);
+    font-size: 1rem;
 }
 
 .config-card {
-  display: flex;
-  flex-direction: column;
+    display: flex;
+    flex-direction: column;
 }
 
 .config-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
 }
 
 .config-grid .standard-search-field {
-  min-width: 0;
+    min-width: 0;
 }
 
 .config-grid .wf-input {
-  width: 100%;
+    width: 100%;
 }
 
 :host ::ng-deep .config-grid .p-inputnumber,
 :host ::ng-deep .config-grid .p-inputnumber-input {
-  width: 100%;
+    width: 100%;
 }
 
 .system-param-actions {
-  margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid var(--system-border);
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--system-border);
 }
 
 .panel-state {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 84px;
-  gap: 8px;
-  color: var(--system-muted);
-  font-size: 0.875rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 84px;
+    gap: 8px;
+    color: var(--system-muted);
+    font-size: 0.875rem;
 }
 
 .schedule-card {
-  display: flex;
-  flex-direction: column;
-  background: linear-gradient(145deg, #ffffff 0%, #f7faff 100%);
+    display: flex;
+    flex-direction: column;
+    background: linear-gradient(145deg, #ffffff 0%, #f7faff 100%);
 }
 
 .schedule-state {
-  flex: 1;
+    flex: 1;
 }
 
 .schedule-details {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 14px;
-  flex: 1;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 14px;
+    flex: 1;
 }
 
 .schedule-item {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 6px;
-  min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 6px;
+    min-width: 0;
 }
 
 .schedule-label {
-  color: var(--system-muted);
-  font-size: 0.8rem;
-  font-weight: 500;
+    color: var(--system-muted);
+    font-size: 0.8rem;
+    font-weight: 500;
 }
 
 .schedule-item strong {
-  color: var(--system-primary);
-  font-size: 1rem;
-  font-weight: 700;
-  line-height: 1.4;
-  overflow-wrap: anywhere;
+    color: var(--system-primary);
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
 }
 
 .schedule-divider {
-  height: 1px;
-  background: var(--system-border);
+    height: 1px;
+    background: var(--system-border);
 }
 
 .retention-card {
-  margin-bottom: 0;
+    margin-bottom: 0;
 }
 
 .retention-heading {
-  margin-bottom: 16px;
+    margin-bottom: 16px;
 }
 
 .statistics-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  margin-bottom: 20px;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
 }
 
 .statistic-card {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-  padding: 16px;
-  border: 1px solid #dbe5f3;
-  border-radius: 9px;
-  background: var(--system-page);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+    padding: 16px;
+    border: 1px solid #dbe5f3;
+    border-radius: 9px;
+    background: var(--system-page);
 }
 
 .statistic-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 42px;
-  width: 42px;
-  height: 42px;
-  border-radius: 9px;
-  background: #e7effc;
-  color: var(--system-primary);
-  font-size: 1.05rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 42px;
+    width: 42px;
+    height: 42px;
+    border-radius: 9px;
+    background: #e7effc;
+    color: var(--system-primary);
+    font-size: 1.05rem;
 }
 
 .statistic-value {
-  color: var(--system-primary);
-  font-size: 1.25rem;
-  font-weight: 700;
-  line-height: 1.25;
-  overflow-wrap: anywhere;
+    color: var(--system-primary);
+    font-size: 1.25rem;
+    font-weight: 700;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
 }
 
 .statistic-label {
-  display: block;
-  margin-top: 3px;
-  color: var(--system-muted);
-  font-size: 0.8rem;
+    display: block;
+    margin-top: 3px;
+    color: var(--system-muted);
+    font-size: 0.8rem;
 }
 
 .retention-table-wrap {
-  margin-top: 4px;
-  border: 1px solid var(--system-border);
-  border-radius: 8px;
+    margin-top: 4px;
+    border: 1px solid var(--system-border);
+    border-radius: 8px;
 }
 
 .retention-table-wrap .wf-table {
-  margin: 0;
+    margin: 0;
 }
 
 .retention-table-wrap .wf-table thead tr {
-  background: #f8fafc;
+    background: #f8fafc;
 }
 
 .retention-table-wrap .wf-table tbody tr:last-child td {
-  border-bottom: 0;
+    border-bottom: 0;
 }
 
 .retention-empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  min-height: 170px;
-  padding: 24px;
-  border: 1px dashed #cbd5e1;
-  border-radius: 8px;
-  color: var(--system-muted);
-  text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-height: 170px;
+    padding: 24px;
+    border: 1px dashed #cbd5e1;
+    border-radius: 8px;
+    color: var(--system-muted);
+    text-align: center;
 }
 
-.retention-empty-state > .pi {
-  color: #94a3b8;
-  font-size: 1.75rem;
+.retention-empty-state>.pi {
+    color: #94a3b8;
+    font-size: 1.75rem;
 }
 
 .col-tt {
-  white-space: nowrap;
+    white-space: nowrap;
 }
 
 .col-actions {
-  width: 60px;
-  text-align: center;
+    width: 60px;
+    text-align: center;
 }
 
 .btn-icon-danger {
-  padding: 4px 6px;
-  border: none;
-  border-radius: 4px;
-  background: none;
-  color: #dc2626;
-  cursor: pointer;
-  transition: background 0.15s;
+    padding: 4px 6px;
+    border: none;
+    border-radius: 4px;
+    background: none;
+    color: #dc2626;
+    cursor: pointer;
+    transition: background 0.15s;
 }
 
 .btn-icon-danger:hover,
 .btn-icon-danger:active {
-  background: #fee2e2;
+    background: #fee2e2;
 }
 
 .btn-icon-danger:disabled {
-  cursor: default;
-  opacity: 0.45;
+    cursor: default;
+    //opacity: 0.45;
 }
 
 :host ::ng-deep .retention-card app-eco-paginator {
-  display: block;
-  margin-top: 16px;
+    display: block;
+    margin-top: 16px;
 }
 
 @media (max-width: 1024px) {
-  .system-param-top-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .schedule-details {
-    grid-template-columns: minmax(0, 1fr) 1px minmax(0, 1fr);
-    align-items: stretch;
-  }
-
-  .schedule-divider {
-    width: 1px;
-    height: auto;
-  }
+    .system-param-top-grid {
+        grid-template-columns: 1fr;
+    }
+    .schedule-details {
+        grid-template-columns: minmax(0, 1fr) 1px minmax(0, 1fr);
+        align-items: stretch;
+    }
+    .schedule-divider {
+        width: 1px;
+        height: auto;
+    }
 }
 
 @media (max-width: 768px) {
-  .system-param-card {
-    padding: 16px;
-  }
-
-  .config-grid,
-  .statistics-grid,
-  .schedule-details {
-    grid-template-columns: 1fr;
-  }
-
-  .schedule-divider {
-    width: auto;
-    height: 1px;
-  }
-
-  .system-param-actions {
-    justify-content: flex-start;
-  }
+    .system-param-card {
+        padding: 16px;
+    }
+    .config-grid,
+    .statistics-grid,
+    .schedule-details {
+        grid-template-columns: 1fr;
+    }
+    .schedule-divider {
+        width: auto;
+        height: 1px;
+    }
+    .system-param-actions {
+        justify-content: flex-start;
+    }
 }
 
 @media (max-width: 480px) {
-  .system-param-card {
-    padding: 14px;
-    border-radius: 8px;
-  }
-
-  .section-heading {
-    gap: 10px;
-  }
-
-  .section-icon {
-    flex-basis: 34px;
-    width: 34px;
-    height: 34px;
-  }
-
-  .statistic-card {
-    padding: 14px;
-  }
+    .system-param-card {
+        padding: 14px;
+        border-radius: 8px;
+    }
+    .section-heading {
+        gap: 10px;
+    }
+    .section-icon {
+        flex-basis: 34px;
+        width: 34px;
+        height: 34px;
+    }
+    .statistic-card {
+        padding: 14px;
+    }
 }
