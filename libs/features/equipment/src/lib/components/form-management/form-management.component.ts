@@ -103,6 +103,14 @@ export class FormManagementComponent implements OnInit {
   // Forms list state
   forms = signal<EavFormTemplate[]>([]);
   searchKeyword = signal<string>('');
+  selectedActiveStatus = signal<boolean | null>(null);
+  appliedSearchKeyword = signal<string>('');
+  appliedActiveStatus = signal<boolean | null>(null);
+  readonly activeStatusOptions = [
+    { label: '-- Trạng thái --', value: null },
+    { label: 'Hoạt động', value: true },
+    { label: 'Ngừng hoạt động', value: false },
+  ];
   loading = signal<boolean>(false);
   actionMenuItems: MenuItem[] = [];
 
@@ -153,7 +161,8 @@ export class FormManagementComponent implements OnInit {
 
   constructor() {
     effect(() => {
-      this.searchKeyword();
+      this.appliedSearchKeyword();
+      this.appliedActiveStatus();
       this.first.set(0);
     });
 
@@ -255,7 +264,8 @@ export class FormManagementComponent implements OnInit {
   }
 
   filteredForms = computed(() => {
-    const keyword = this.searchKeyword().trim().toLowerCase();
+    const keyword = this.appliedSearchKeyword().trim().toLowerCase();
+    const activeStatus = this.appliedActiveStatus();
     const allForms = this.forms().filter(f => !f.isDeleted);
 
     // Group forms by code and select the latest version for each unique code
@@ -275,6 +285,9 @@ export class FormManagementComponent implements OnInit {
         (f.code?.toLowerCase().includes(keyword) ?? false) ||
         (f.id?.toLowerCase().includes(keyword) ?? false)
       );
+    }
+    if (activeStatus !== null) {
+      result = result.filter(f => f.isActive === activeStatus);
     }
     return result;
   });
@@ -350,11 +363,16 @@ export class FormManagementComponent implements OnInit {
   }
 
   onSearch() {
-    // Search is handled reactively by computed signal filteredForms
+    this.appliedSearchKeyword.set(this.searchKeyword().trim());
+    this.appliedActiveStatus.set(this.selectedActiveStatus());
+    this.first.set(0);
   }
 
   onResetSearch() {
     this.searchKeyword.set('');
+    this.selectedActiveStatus.set(null);
+    this.appliedSearchKeyword.set('');
+    this.appliedActiveStatus.set(null);
     this.first.set(0);
   }
 
@@ -779,10 +797,11 @@ export class FormManagementComponent implements OnInit {
     const extPos = this.extractionPosition();
     const isEdit = this.isEditMode();
     const tId = this.templateId();
+    const currentUserId = this.authService.getUserId() || 'admin';
 
     this.loadingService.show();
     if (isEdit && tId) {
-      this.eavFormService.updateTemplate(tId, fName, fCode, fCategory, desc, fDescInfo, schemaStr, 'admin', undefined, undefined, extractProc, extPos)
+      this.eavFormService.updateTemplate(tId, fName, fCode, fCategory, desc, fDescInfo, schemaStr, currentUserId, undefined, undefined, extractProc, extPos)
         .pipe(finalize(() => this.loadingService.hide()))
         .subscribe({
           next: (updatedForm) => {
@@ -812,7 +831,7 @@ export class FormManagementComponent implements OnInit {
           }
         });
     } else {
-      this.eavFormService.createTemplate(fName, fCode, fCategory, desc, fDescInfo, schemaStr, 'admin', undefined, undefined, extractProc, extPos)
+      this.eavFormService.createTemplate(fName, fCode, fCategory, desc, fDescInfo, schemaStr, currentUserId, undefined, undefined, extractProc, extPos)
         .pipe(finalize(() => this.loadingService.hide()))
         .subscribe({
           next: () => {

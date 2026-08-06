@@ -6,10 +6,12 @@ import {
   OnInit,
   SimpleChanges,
   PLATFORM_ID,
+  computed,
   inject,
   signal,
 } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { finalize } from 'rxjs';
 import { DossierManagementService } from '../../data-access/dossier-management.service';
 import { isTechnicalWorkflowLabel } from '../../utils/dossier-status.util';
@@ -24,7 +26,7 @@ function pickFirst<T>(...values: T[]): T | undefined {
 @Component({
   selector: 'app-dossier-workflow-tab',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   template: `
     <div style="display: flex; flex-direction: column; gap: 20px;">
       <div *ngIf="loading()" style="text-align: center; padding: 40px 0; color: #6b7280;">
@@ -70,9 +72,32 @@ function pickFirst<T>(...values: T[]): T | undefined {
             <i class="pi pi-history" style="margin-right: 6px; color: #002D72;"></i>Lịch sử xử lý luồng duyệt
           </div>
           <div style="padding: 16px;">
-            <div class="wf-timeline-wrapper" *ngIf="historyLogs().length > 0">
+            <div class="history-search" *ngIf="historyLogs().length > 0">
+              <label class="history-search-label" for="workflow-history-search">Tìm kiếm</label>
+              <div class="history-search-input-wrap">
+                <i class="pi pi-search" aria-hidden="true"></i>
+                <input
+                  id="workflow-history-search"
+                  type="text"
+                  class="history-search-input"
+                  placeholder="Tìm theo họ tên hoặc tên đăng nhập..."
+                  [ngModel]="historySearchKeyword()"
+                  (ngModelChange)="historySearchKeyword.set($event)" />
+                <button
+                  *ngIf="historySearchKeyword()"
+                  type="button"
+                  class="history-search-clear"
+                  title="Xóa từ khóa"
+                  aria-label="Xóa từ khóa tìm kiếm"
+                  (click)="historySearchKeyword.set('')">
+                  <i class="pi pi-times"></i>
+                </button>
+              </div>
+            </div>
+
+            <div class="wf-timeline-wrapper" *ngIf="filteredHistoryLogs().length > 0">
               <div class="wf-timeline">
-                <div class="timeline-item" *ngFor="let h of historyLogs()">
+                <div class="timeline-item" *ngFor="let h of filteredHistoryLogs()">
                   <div class="timeline-badge"
                        [class.badge-submit]="h.action === 'Submit'"
                        [class.badge-approve]="h.action === 'Approve'"
@@ -96,6 +121,11 @@ function pickFirst<T>(...values: T[]): T | undefined {
                   </div>
                 </div>
               </div>
+            </div>
+
+            <div *ngIf="historyLogs().length > 0 && filteredHistoryLogs().length === 0" class="history-empty">
+              <i class="pi pi-search"></i>
+              <p>Không tìm thấy người xử lý phù hợp.</p>
             </div>
 
             <div *ngIf="!historyLogs().length" style="text-align: center; padding: 32px; background: #f8fafc; border-radius: 8px; color: #64748b;">
@@ -142,6 +172,78 @@ function pickFirst<T>(...values: T[]): T | undefined {
       background-color: #e2e8f0; padding: 6px 10px; border-radius: 4px;
       margin-top: 6px; border-left: 3px solid #cbd5e1;
     }
+    .history-search {
+      margin-bottom: 16px;
+      max-width: 420px;
+    }
+    .history-search-label {
+      display: block;
+      margin-bottom: 6px;
+      color: #374151;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+    .history-search-input-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    .history-search-input-wrap > .pi-search {
+      position: absolute;
+      left: 12px;
+      color: #94a3b8;
+      pointer-events: none;
+    }
+    .history-search-input {
+      width: 100%;
+      min-height: 38px;
+      padding: 8px 38px 8px 36px;
+      color: #1f2937;
+      background: #fff;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      outline: none;
+    }
+    .history-search-input:focus {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12);
+    }
+    .history-search-clear {
+      position: absolute;
+      right: 8px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      color: #64748b;
+      background: transparent;
+      border: 0;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .history-search-clear:hover {
+      color: #1f2937;
+      background: #f1f5f9;
+    }
+    .history-empty {
+      padding: 32px;
+      color: #64748b;
+      text-align: center;
+      background: #f8fafc;
+      border-radius: 8px;
+    }
+    .history-empty .pi {
+      display: block;
+      margin-bottom: 10px;
+      color: #94a3b8;
+      font-size: 28px;
+    }
+    .history-empty p {
+      margin: 0;
+      font-weight: 500;
+    }
   `],
 })
 export class DossierWorkflowTabComponent implements OnInit, OnChanges, OnDestroy {
@@ -158,6 +260,24 @@ export class DossierWorkflowTabComponent implements OnInit, OnChanges, OnDestroy
   currentNodeId = signal('');
   pendingTask = signal<any>(null);
   historyLogs = signal<any[]>([]);
+  historySearchKeyword = signal('');
+  filteredHistoryLogs = computed(() => {
+    const keyword = this.historySearchKeyword().trim().toLocaleLowerCase('vi');
+    if (!keyword) {
+      return this.historyLogs();
+    }
+
+    return this.historyLogs().filter((history) => {
+      const username = String(history?.actionByUsername ?? '')
+        .trim()
+        .toLocaleLowerCase('vi');
+      const fullName = String(history?.actionByFullName ?? history?.actorName ?? '')
+        .trim()
+        .toLocaleLowerCase('vi');
+
+      return username.includes(keyword) || fullName.includes(keyword);
+    });
+  });
   instanceStatus = signal('');
   headerStepLabel = signal('');
 

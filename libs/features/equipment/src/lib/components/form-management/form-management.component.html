@@ -26,6 +26,19 @@
             <input type="text" class="wf-search-input" placeholder="Tìm kiếm form..." [ngModel]="searchKeyword()"
               (ngModelChange)="searchKeyword.set($event)" (keyup.enter)="onSearch()" />
           </div>
+          <div class="standard-search-field">
+            <label class="search-field-label">Trạng thái</label>
+            <p-select
+              class="w-full"
+              [options]="activeStatusOptions"
+              optionLabel="label"
+              optionValue="value"
+              [ngModel]="selectedActiveStatus()"
+              (ngModelChange)="selectedActiveStatus.set($event)"
+              placeholder="-- Trạng thái --"
+              appendTo="body">
+            </p-select>
+          </div>
           <div class="standard-search-actions">
             <button class="btn-outlined" (click)="onResetSearch()">
               <i class="pi pi-refresh"></i> Làm mới
@@ -83,7 +96,9 @@
               </td>
               <td class="form-cell-content">v{{
                 form.version }}.0</td>
-              <td class="form-cell-content" [title]="form.createdBy || ''">{{ form.createdBy || '' }}</td>
+              <td class="form-cell-content" [title]="form.creatorFullName || form.createdBy || '-'">
+                {{ form.creatorFullName || form.createdBy || '-' }}
+              </td>
               <td class="form-cell-updated">{{ form.createdAt | date:'dd/MM/yyyy HH:mm' }}</td>
               <td class="col-tt form-cell-status">
                 <span class="status-pill" [class.status-draft]="form.status === 'Tạo mới' || !form.status"
@@ -760,7 +775,7 @@
               ver.version }}.0</td>
             <td>{{ ver.code }}</td>
             <td>{{ ver.name }}</td>
-            <td>{{ ver.creatorFullName }}</td>
+            <td>{{ ver.creatorFullName || ver.createdBy || '-' }}</td>
             <td>{{ ver.createdAt | date:'dd/MM/yyyy HH:mm' }}</td>
             <td class="text-center text-center-align" style="text-align: center;">
               <span class="status-pill" [class.status-active]="ver.isActive" [class.status-inactive]="!ver.isActive">
