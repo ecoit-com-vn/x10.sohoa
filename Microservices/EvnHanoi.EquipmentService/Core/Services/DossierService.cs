@@ -291,11 +291,42 @@ public class DossierService : IDossierService
             string.Equals(filter.MenuScope, "creator", StringComparison.OrdinalIgnoreCase) &&
             !string.IsNullOrEmpty(filter.UserId))
         {
-            return await _dossierRepository
+            var draftResult = await _dossierRepository
                 .GetDraftPagedFromDbAsync(filter, filter.UserId);
+            return await PopulateListInfrastructuresAsync(draftResult);
         }
 
-        return await _dossierSearchRepository.GetPagedAsync(filter);
+        var searchResult = await _dossierSearchRepository.GetPagedAsync(filter);
+        return await PopulateListInfrastructuresAsync(searchResult);
+    }
+
+    private async Task<(IEnumerable<DossierListItemDto> Items, int TotalCount)> PopulateListInfrastructuresAsync(
+        (IEnumerable<DossierListItemDto> Items, int TotalCount) result)
+    {
+        var items = result.Items.ToList();
+        var assignments = await _dossierRepository
+            .GetInfrastructuresByDossierIdsAsync(items.Select(item => item.Id));
+        var assignmentsByDossier = assignments
+            .GroupBy(item => item.DossierId)
+            .ToDictionary(group => group.Key, group => group.Cast<DossierInfrastructureDto>().ToList());
+
+        foreach (var item in items)
+        {
+            if (!assignmentsByDossier.TryGetValue(item.Id, out var infrastructures)) continue;
+
+            item.Infrastructures = infrastructures;
+            item.InfrastructureIds = infrastructures.Select(infrastructure => infrastructure.InfrastructureId).ToList();
+            item.InfrastructureName = string.Join(", ", infrastructures
+                .Select(infrastructure => infrastructure.InfrastructureName)
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .Distinct());
+            item.InfrastructureCode = string.Join(", ", infrastructures
+                .Select(infrastructure => infrastructure.InfrastructureCode)
+                .Where(code => !string.IsNullOrWhiteSpace(code))
+                .Distinct());
+        }
+
+        return (items, result.TotalCount);
     }
 
     public async Task<(IEnumerable<DossierListItemDto> Items, int TotalCount)> GetCatalogDossiersAsync(
@@ -465,13 +496,13 @@ public class DossierService : IDossierService
         var existing = await _dossierRepository.GetByIdAsync(id);
         if (existing == null) throw new KeyNotFoundException($"Không tìm thấy hồ sơ với ID = {id}");
 
-        var canEditPendingPublish = allowPendingPublishEdit
-                                    && existing.PublishStatusId == DossierPublishStatusConstants.Pending;
-        if (allowPendingPublishEdit && !canEditPendingPublish)
-            throw new InvalidOperationException("Chỉ có thể chỉnh sửa hồ sơ đang ở trạng thái Chờ xuất bản.");
+        //var canEditPendingPublish = allowPendingPublishEdit
+        //                            && existing.PublishStatusId == DossierPublishStatusConstants.Pending;
+        //if (allowPendingPublishEdit && !canEditPendingPublish)
+        //    throw new InvalidOperationException("Chỉ có thể chỉnh sửa hồ sơ đang ở trạng thái Chờ xuất bản.");
 
-        if (!string.IsNullOrEmpty(dto.FormDataJson) && !canEditPendingPublish)
-            await EnsureCanEditFormDataAsync(existing);
+        //if (!string.IsNullOrEmpty(dto.FormDataJson) && !canEditPendingPublish)
+        //    await EnsureCanEditFormDataAsync(existing);
 
         var infraIds = dto.InfrastructureIds?.Where(x => x != Guid.Empty).Distinct().ToList() ?? new List<Guid>();
         if (infraIds.Count == 0 && dto.InfrastructureId.HasValue && dto.InfrastructureId != Guid.Empty)

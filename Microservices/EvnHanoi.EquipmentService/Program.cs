@@ -94,6 +94,8 @@ builder.Services.AddScoped<IClamAvService, ClamAvService>();
 builder.Services.AddScoped<IMimeTypeValidationService, MimeTypeValidationService>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IEquipmentRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.EquipmentRepository>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IExternalApiKeyValidator, EvnHanoi.EquipmentService.Infrastructure.Repositories.ExternalApiKeyValidator>();
+builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IExternalApiCallLogRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.ExternalApiCallLogRepository>();
+builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.ISystemParamRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.SystemParamRepository>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IEquipmentTypeRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.EquipmentTypeRepository>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IPhysicalStorageRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.PhysicalStorageRepository>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.ICatalogRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.CatalogRepository>();
