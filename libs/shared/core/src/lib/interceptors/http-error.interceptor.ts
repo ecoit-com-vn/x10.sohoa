@@ -81,6 +81,16 @@ export const httpErrorInterceptor: HttpInterceptorFn = (req, next) => {
               detail: readApiErrorMessage(error, 'Tài nguyên được yêu cầu không tồn tại.')
             });
             break;
+          case 409:
+              messageService.add({
+                severity: 'warn',
+                summary: 'Dữ liệu đã tồn tại',
+                detail: readApiErrorMessage(
+                  error,
+                  'Dữ liệu đã tồn tại trong hệ thống.'
+                )
+              });
+              break;
           case 500:
             messageService.add({
               severity: 'error',
