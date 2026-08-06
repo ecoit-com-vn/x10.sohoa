@@ -34,13 +34,28 @@ public class SubstationSearchController : ControllerBase
         [FromQuery] string? keyword = null,
         [FromQuery] int? status = null,
         [FromQuery] long? unitId = null,
-        [FromQuery] int? gridTypeId = null)
+        [FromQuery] int? gridTypeId = null,
+        [FromQuery] DateTime? fromDate = null,
+        [FromQuery] DateTime? toDate = null)
     {
         if (page < 1) page = 1;
         if (pageSize < 1) pageSize = 10;
 
         var allowedUnitIds = await GetAllowedUnitIdsAsync();
-        var (items, totalCount) = await _infrastructureRepository.GetPagedAsync(page, pageSize, INFRA_TYPE_ID, keyword, status, allowedUnitIds, unitId, gridTypeId);
+        if (fromDate.HasValue && toDate.HasValue && fromDate.Value.Date > toDate.Value.Date)
+            return BadRequest(new { message = "Từ ngày không được lớn hơn Đến ngày." });
+
+        var (items, totalCount) = await _infrastructureRepository.GetPagedAsync(
+            page,
+            pageSize,
+            INFRA_TYPE_ID,
+            keyword,
+            status,
+            allowedUnitIds,
+            unitId,
+            gridTypeId,
+            fromDate,
+            toDate);
 
         return Ok(new { items, totalCount, page, pageSize });
     }
@@ -51,6 +66,11 @@ public class SubstationSearchController : ControllerBase
         var result = await _infrastructureRepository.GetByIdAsync(id);
         if (result == null || result.InfraTypeId != INFRA_TYPE_ID)
             return NotFound();
+
+        var allowedUnitIds = await GetAllowedUnitIdsAsync();
+        if (allowedUnitIds != null && (!result.UnitId.HasValue || !allowedUnitIds.Contains(result.UnitId.Value)))
+            return Forbid();
+
         return Ok(result);
     }
 
@@ -85,7 +105,7 @@ public class SubstationSearchController : ControllerBase
             id, // infrastructureId
             null, // gridTypeId
             equipmentTypeId, 
-            null, // isActive
+            true, // chỉ hiển thị thiết bị đang hoạt động
             allowedUnitIds);
 
         return Ok(new { items, totalCount, page, pageSize });
@@ -99,7 +119,7 @@ public class SubstationSearchController : ControllerBase
             return NotFound();
 
         var allowedUnitIds = await GetAllowedUnitIdsAsync();
-        if (allowedUnitIds != null && dto.UnitId.HasValue && !allowedUnitIds.Contains(dto.UnitId.Value))
+        if (allowedUnitIds != null && (!dto.UnitId.HasValue || !allowedUnitIds.Contains(dto.UnitId.Value)))
         {
             return Forbid();
         }
@@ -115,7 +135,7 @@ public class SubstationSearchController : ControllerBase
             return NotFound(new { message = "Không tìm thấy thiết bị." });
 
         var allowedUnitIds = await GetAllowedUnitIdsAsync();
-        if (allowedUnitIds != null && dto.UnitId.HasValue && !allowedUnitIds.Contains(dto.UnitId.Value))
+        if (allowedUnitIds != null && (!dto.UnitId.HasValue || !allowedUnitIds.Contains(dto.UnitId.Value)))
             return Forbid();
 
         if (string.IsNullOrWhiteSpace(dto.FormSchema))

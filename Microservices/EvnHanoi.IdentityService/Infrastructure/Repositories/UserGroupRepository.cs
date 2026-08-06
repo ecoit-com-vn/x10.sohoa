@@ -69,7 +69,11 @@ public class UserGroupRepository : IUserGroupRepository
                        ug.CreatedAt,
                        ug.CreatedBy,
                        creator.FullName AS CreatedByName,
-                       ROW_NUMBER() OVER (ORDER BY ug.{nameof(UserGroup.Id)} ASC) AS RN
+                       ROW_NUMBER() OVER (
+                           ORDER BY ug.{nameof(UserGroup.IsActive)} DESC,
+                                    ug.{nameof(UserGroup.CreatedAt)} DESC NULLS LAST,
+                                    ug.{nameof(UserGroup.Id)} DESC
+                       ) AS RN
                 FROM USER_GROUP ug
                 LEFT JOIN APP_USER creator ON creator.Id = ug.CreatedBy
                 {whereClause}
