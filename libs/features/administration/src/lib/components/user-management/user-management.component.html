@@ -140,6 +140,7 @@
         [totalRecords]="totalCount()" [rowsPerPageOptions]="[10, 20, 50]"
         (onPageChange)="onUserPageChange($event)" />
     </div>
+    </div>
 
     <!-- Dialog Thêm/Sửa Người dùng -->
     <p-dialog [visible]="currentView() === 'add' || currentView() === 'edit'"
@@ -513,5 +514,4 @@
       </ng-template>
     </p-dialog>
 
-  </div>
 </div>
