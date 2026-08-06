@@ -84,13 +84,13 @@ export class EquipmentTypeComponent implements OnInit {
     event.stopPropagation();
     const active = item.isActive === 1 || item.isActive === true;
     this.actionMenuItems = [
+      ...(this.canEdit() ? [{ label: 'Chỉnh sửa', title: 'Chỉnh sửa', icon: 'pi pi-pencil color-blue', command: () => this.onEdit(item) }] : []),
       ...(this.canManage() ? [{
         label: active ? 'Khóa loại thiết bị' : 'Mở khóa loại thiết bị',
         title: active ? 'Khóa loại thiết bị' : 'Mở khóa loại thiết bị',
         icon: active ? 'pi pi-lock color-red' : 'pi pi-lock-open color-teal',
         command: () => this.onToggleStatus(item)
       }] : []),
-      ...(this.canEdit() ? [{ label: 'Chỉnh sửa', title: 'Chỉnh sửa', icon: 'pi pi-pencil color-blue', command: () => this.onEdit(item) }] : []),
       ...(this.canDelete() ? [{ label: 'Xóa', title: 'Xóa', icon: 'pi pi-trash color-red', command: () => this.onDelete(item) }] : []),
     ];
     menu.toggle(event);
@@ -115,6 +115,10 @@ export class EquipmentTypeComponent implements OnInit {
   canEdit = computed(() => this.authService.hasPermission('EQUIPMENT_TYPE_EDIT') || this.authService.hasPermission('SUPER_ADMIN'));
   canDelete = computed(() => this.authService.hasPermission('EQUIPMENT_TYPE_DELETE') || this.authService.hasPermission('SUPER_ADMIN'));
   canManage = computed(() => this.authService.hasPermission('EQUIPMENT_TYPE_MANAGE') || this.authService.hasPermission('SUPER_ADMIN'));
+  canSaveCurrentView = computed(() =>
+    (this.currentView() === 'add' && this.canCreate()) ||
+    (this.currentView() === 'edit' && this.canEdit())
+  );
 
   constructor() {
     effect(() => {
