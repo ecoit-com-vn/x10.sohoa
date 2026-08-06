@@ -1,0 +1,19 @@
+.col-actions {
+  width: 60px;
+  text-align: center;
+}
+
+.btn-icon-danger {
+  background: none;
+  border: none;
+  color: #dc2626;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+
+.btn-icon-danger:hover,
+.btn-icon-danger:active {
+  background: #fee2e2;
+}

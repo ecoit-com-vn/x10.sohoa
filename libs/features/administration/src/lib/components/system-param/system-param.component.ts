@@ -29,6 +29,7 @@ const AUDIT_LOG_DOMAIN_KEY = 'AuditLogDomain';
   imports: [CommonModule, FormsModule, InputNumberModule, ToastModule, WfBreadcrumbComponent, EcoPaginatorComponent, DeleteConfirmDialogComponent],
   providers: [MessageService],
   templateUrl: './system-param.component.html',
+  styleUrl: './system-param.component.scss',
 })
 export class SystemParam implements OnInit {
   private readonly http = inject(HttpClient);
