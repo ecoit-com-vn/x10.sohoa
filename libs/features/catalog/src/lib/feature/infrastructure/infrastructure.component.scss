@@ -322,6 +322,29 @@
   > div { display: flex; gap: 8px; flex-shrink: 0; }
 }
 
+.table-footer-paginator {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 20px;
+  padding: 16px 0 0;
+  border-top: 1px solid #e2e8f0;
+}
+
+:host ::ng-deep .table-footer-paginator .p-paginator {
+  padding: 0 !important;
+  border: none !important;
+  background: transparent !important;
+}
+
+@media (max-width: 768px) {
+  .table-footer-paginator {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
 .technical-preview-download,
 .technical-preview-close {
   display: inline-flex;

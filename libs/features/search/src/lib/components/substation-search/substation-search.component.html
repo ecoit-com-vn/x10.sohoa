@@ -143,17 +143,13 @@
       </div>
 
       <!-- Footer with Pagination -->
-      <div class="table-footer-paginator" *ngIf="totalCount() > 0">
-        <span class="record-count">Tổng số: <b>{{ totalCount() }}</b> bản ghi.</span>
-        <p-paginator
-          [first]="(currentPage() - 1) * pageSize()"
-          [rows]="pageSize()"
-          [totalRecords]="totalCount()"
-          [rowsPerPageOptions]="[10, 20, 50]"
-          dropdownAppendTo="body"
-          (onPageChange)="onListPageChange($event)">
-        </p-paginator>
-      </div>
+    <app-eco-paginator
+      *ngIf="totalCount() > 0"
+      [first]="(currentPage() - 1) * pageSize()"
+      [rows]="pageSize()"
+      [totalRecords]="totalCount()"
+      [rowsPerPageOptions]="[10, 20, 50]"
+      (onPageChange)="onListPageChange($event)" />
       </div>
     </div>
 
