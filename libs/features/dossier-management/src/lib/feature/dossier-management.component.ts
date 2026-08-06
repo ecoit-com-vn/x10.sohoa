@@ -36,23 +36,45 @@ import { DossierMenuScope } from '../utils/dossier-status.util';
       <div class="list-toolbar standard-page-toolbar">
         <div class="toolbar-left">
           <wf-breadcrumb
-            [customItems]="breadcrumbItems()"
+            [leafLabel]="listTitle()"
             [suffix]="currentView() === 'list' ? null : breadcrumbCurrent()"
             (listClick)="onBackToList()"
           />
         </div>
-        <div class="toolbar-right">
+        <div class="toolbar-right dossier-form-actions">
           <ng-container *ngIf="currentView() === 'form'">
             <button
               type="button"
-              class="btn-cancel"
+              class="btn-cancel dossier-form-action"
               (click)="dossierForm()?.onCancel()"
               title="Hủy">
               <i class="pi pi-times"></i> Hủy
             </button>
             <button
+              *ngIf="menuScope() === 'creator' && selectedDossierId() && !inputCompleted()"
               type="button"
-              class="btn-save"
+              class="btn-green dossier-form-action"
+              (click)="dossierForm()?.onCompleteInput()"
+              [disabled]="dossierForm()?.completingInput()"
+              title="Hoàn thành nhập liệu">
+              <i class="pi pi-check" *ngIf="!dossierForm()?.completingInput()"></i>
+              <i class="pi pi-spin pi-spinner" *ngIf="dossierForm()?.completingInput()"></i>
+              Hoàn thành nhập liệu
+            </button>
+            <button
+              *ngIf="menuScope() === 'creator' && selectedDossierId() && inputCompleted()"
+              type="button"
+              class="btn-green dossier-form-action"
+              (click)="dossierForm()?.openSubmitWorkflowDialog()"
+              [disabled]="dossierForm()?.submitting()"
+              title="Gửi duyệt">
+              <i class="pi pi-send" *ngIf="!dossierForm()?.submitting()"></i>
+              <i class="pi pi-spin pi-spinner" *ngIf="dossierForm()?.submitting()"></i>
+              Gửi duyệt
+            </button>
+            <button
+              type="button"
+              class="btn-save dossier-form-action"
               (click)="dossierForm()?.onSave()"
               [disabled]="!dossierForm() || dossierForm()?.isSaving() || !dossierForm()?.isValid()"
               title="Lưu lại">
@@ -103,6 +125,8 @@ import { DossierMenuScope } from '../utils/dossier-status.util';
         [hideInfrastructureField]="menuScope() === 'publisher'"
         [hideGridTypeField]="menuScope() === 'creator' && kindId() === 2"
         (cancel)="onBackToList()"
+        (inputCompleted)="inputCompleted.set(true)"
+        (statusLoaded)="inputCompleted.set($event === 2)"
         (saved)="onSaved($event)"
       ></app-dossier-form>
 
@@ -140,6 +164,7 @@ export class DossierManagementComponent implements OnInit {
 
   currentView = signal<'list' | 'form' | 'detail'>('list');
   selectedDossierId = signal<string | null>(null);
+  inputCompleted = signal(false);
   menuScope = signal<DossierMenuScope>('creator');
   kindId = signal<number>(2);
   /** Chờ sync route trước khi mount list — chỉ cần cho digitization (kindId=1); hồ sơ mới mặc định kindId=2. */
@@ -316,6 +341,8 @@ export class DossierManagementComponent implements OnInit {
 
   onEdit(id: string): void {
 
+    this.inputCompleted.set(false);
+
     if (this.menuScope() !== 'creator' && this.menuScope() !== 'publisher') return;
 
     void this.router.navigate(['/dossier-management', ...this.routeSegments(), id, 'edit']);
@@ -334,6 +361,8 @@ export class DossierManagementComponent implements OnInit {
 
   onCreate(): void {
 
+    this.inputCompleted.set(false);
+
     const isPublisher = this.menuScope() === 'publisher';
     if (this.menuScope() !== 'creator' && !isPublisher) return;
 
@@ -348,6 +377,8 @@ export class DossierManagementComponent implements OnInit {
 
 
   onBackToList(): void {
+
+    this.inputCompleted.set(false);
 
     void this.router.navigate(['/dossier-management', ...this.routeSegments()]);
 
