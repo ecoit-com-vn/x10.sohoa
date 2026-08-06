@@ -43,21 +43,21 @@ export interface UserReportItem {
 export class ReportStatisticsComponent implements OnInit {
   reports = signal<UserReportItem[]>([]);
   loading = signal<boolean>(false);
-  searchKeyword = signal<string>('');
-  appliedKeyword = signal<string>('');
-  searchStatus = signal<string>('');
-  appliedStatus = signal<string>('');
+  searchCode = signal<string>('');
+  appliedCode = signal<string>('');
+  searchName = signal<string>('');
+  appliedName = signal<string>('');
 
   currentPage = signal(1);
   pageSize = signal(10);
 
   filteredReports = computed(() => {
-    const kw = this.appliedKeyword().toLowerCase().trim();
-    const status = this.appliedStatus();
+    const code = this.appliedCode().toLowerCase().trim();
+    const name = this.appliedName().toLowerCase().trim();
     return this.reports().filter(r => {
-      const isKwMatch = !kw || r.name.toLowerCase().includes(kw) || r.code.toLowerCase().includes(kw);
-      const isStatusMatch = !status || r.status === status;
-      return isKwMatch && isStatusMatch;
+      const isCodeMatch = !code || r.code.toLowerCase().includes(code);
+      const isNameMatch = !name || r.name.toLowerCase().includes(name);
+      return isCodeMatch && isNameMatch;
     });
   });
 
@@ -100,21 +100,16 @@ export class ReportStatisticsComponent implements OnInit {
   }
 
   onSearch(): void {
-    this.appliedKeyword.set(this.searchKeyword().trim());
-    this.appliedStatus.set(this.searchStatus());
+    this.appliedCode.set(this.searchCode().trim());
+    this.appliedName.set(this.searchName().trim());
     this.currentPage.set(1);
   }
 
-  onStatusFilterChange(status: string): void {
-    this.searchStatus.set(status);
-    this.onSearch();
-  }
-
   onResetSearch(): void {
-    this.searchKeyword.set('');
-    this.appliedKeyword.set('');
-    this.searchStatus.set('');
-    this.appliedStatus.set('');
+    this.searchCode.set('');
+    this.appliedCode.set('');
+    this.searchName.set('');
+    this.appliedName.set('');
     this.currentPage.set(1);
   }
 
