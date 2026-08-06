@@ -297,6 +297,33 @@ namespace EvnHanoi.NotificationService.Repositories
             return documentCount;
         }
 
+        public async Task<(int DeletedIndices, long DeletedDocuments)> DeleteAllAuditLogIndicesAsync(
+            DateOnly excludedDate,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var items = await GetAuditLogIndexMetadataAsync(cancellationToken);
+            var deletableItems = items.Where(item => item.LogDate != excludedDate).ToList();
+            if (deletableItems.Count == 0)
+                return (0, 0);
+
+            var indexNames = deletableItems.Select(item => item.IndexName).ToArray();
+            var deletedDocuments = deletableItems.Sum(item => item.DocumentCount);
+
+            cancellationToken.ThrowIfCancellationRequested();
+            var deleteResponse = await _elasticsearchClient.Indices.DeleteAsync(
+                string.Join(",", indexNames),
+                cancellationToken);
+            if (!deleteResponse.IsValidResponse)
+            {
+                throw new InvalidOperationException(
+                    $"Không thể xóa toàn bộ index nhật ký: {deleteResponse.ElasticsearchServerError?.Error?.Reason ?? deleteResponse.DebugInformation}");
+            }
+
+            return (deletableItems.Count, deletedDocuments);
+        }
+
         public async Task<(IReadOnlyList<string> DeletedIndices, long DeletedDocuments)> PurgeExpiredAuditLogsAsync(
             DateTime cutoffUtc,
             CancellationToken cancellationToken = default)

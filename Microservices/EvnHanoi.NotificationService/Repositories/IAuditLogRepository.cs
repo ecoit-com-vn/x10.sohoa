@@ -39,6 +39,9 @@ namespace EvnHanoi.NotificationService.Repositories
         Task<long> DeleteAuditLogIndexAsync(
             DateOnly logDate,
             CancellationToken cancellationToken = default);
+        Task<(int DeletedIndices, long DeletedDocuments)> DeleteAllAuditLogIndicesAsync(
+            DateOnly excludedDate,
+            CancellationToken cancellationToken = default);
         Task<(IReadOnlyList<string> DeletedIndices, long DeletedDocuments)> PurgeExpiredAuditLogsAsync(
             DateTime cutoffUtc,
             CancellationToken cancellationToken = default);

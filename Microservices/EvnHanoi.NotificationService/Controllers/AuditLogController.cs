@@ -135,6 +135,44 @@ namespace EvnHanoi.NotificationService.Controllers
             }
         }
 
+        [HttpDelete("retention-indices")]
+        [Authorize]
+        public async Task<IActionResult> DeleteAllRetentionIndices(
+            CancellationToken cancellationToken = default)
+        {
+            var authHeader = Request.Headers["Authorization"].ToString();
+            if (!await _auditLogService.CheckPermissionAsync(authHeader, User, "AUDIT_LOG_DELETE"))
+                return StatusCode(403, new { message = "Không có quyền xóa index nhật ký." });
+
+            var expiry = TimeSpan.FromHours(2);
+            var wait = TimeSpan.Zero;
+            var retry = TimeSpan.Zero;
+            using var redLock = await _lockFactory.CreateLockAsync(AuditLogRetentionLockResource, expiry, wait, retry);
+            if (!redLock.IsAcquired)
+                return Conflict(new { message = "Tác vụ dọn dẹp nhật ký đang chạy. Vui lòng thử lại sau." });
+
+            try
+            {
+                var (deletedIndices, deletedDocuments) = await _auditLogService.DeleteAllAuditLogIndicesAsync(
+                    DateOnly.FromDateTime(DateTime.UtcNow),
+                    cancellationToken);
+                return Ok(new
+                {
+                    message = $"Đã xóa {deletedIndices} index nhật ký thành công.",
+                    deletedIndices,
+                    deletedDocuments
+                });
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return new EmptyResult();
+            }
+            catch (Exception)
+            {
+                return StatusCode(500, new { message = "Không thể xóa toàn bộ index nhật ký." });
+            }
+        }
+
         [HttpGet("export")]
         [Authorize]
         public async Task<IActionResult> ExportAuditLogs(

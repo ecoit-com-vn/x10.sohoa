@@ -178,6 +178,13 @@ namespace EvnHanoi.NotificationService.Services
             return _auditLogRepository.DeleteAuditLogIndexAsync(logDate, cancellationToken);
         }
 
+        public Task<(int DeletedIndices, long DeletedDocuments)> DeleteAllAuditLogIndicesAsync(
+            DateOnly excludedDate,
+            CancellationToken cancellationToken = default)
+        {
+            return _auditLogRepository.DeleteAllAuditLogIndicesAsync(excludedDate, cancellationToken);
+        }
+
         private static DateTime GetNextCleanupAtUtc(DateTime nowUtc)
         {
             var nextCleanupAtUtc = new DateTime(nowUtc.Year, nowUtc.Month, nowUtc.Day, 1, 0, 0, DateTimeKind.Utc);
