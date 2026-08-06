@@ -116,9 +116,9 @@ public class EavFormTemplateRepository : IEavFormTemplateRepository
         return await _connection.QueryAsync<EavFormTemplate>(sql, new { FormType = formType, IsActive = isActive.HasValue && isActive.Value ? 1 : 0 });
     }
 
-    public async Task<IEnumerable<EavFormTemplate>> GetDesignFormsAsync()
+    public async Task<(IEnumerable<EavFormTemplate> Items, int TotalCount)> GetDesignFormsAsync(EavFormTemplateFilterDto filterDto)
     {
-        return await GetFormsByScopeAsync(null);
+        return await GetFormsByConditionAsync(filterDto);
     }
 
     public async Task<IEnumerable<EavFormTemplate>> GetApprovalFormsAsync()
@@ -178,6 +178,125 @@ public class EavFormTemplateRepository : IEavFormTemplateRepository
             Statuses = statuses,
             IsActive = isActive.HasValue && isActive.Value ? 1 : 0
         });
+    }
+
+    private async Task<(IEnumerable<EavFormTemplate> Items, int TotalCount)> GetFormsByConditionAsync(EavFormTemplateFilterDto filterDto)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        var whereClause = @"
+        WHERE t.IsDeleted = 0
+          AND t.FormType = 'FORM'";
+
+        var parameters = new DynamicParameters();
+
+        if (!string.IsNullOrWhiteSpace(filterDto.Keyword))
+        {
+            whereClause += @"
+            AND (
+                LOWER(v.Code) LIKE :Keyword
+                OR LOWER(v.Name) LIKE :Keyword
+            )";
+
+            parameters.Add("Keyword", $"%{filterDto.Keyword.Trim().ToLower()}%");
+        }
+
+        if (!string.IsNullOrWhiteSpace(filterDto.Status))
+        {
+            whereClause += " AND t.Status = :Status";
+            parameters.Add("Status", filterDto.Status);
+        }
+
+        if (filterDto.StartDate.HasValue)
+        {
+            whereClause += " AND CREATED_DATE >= :StartDate";
+            parameters.Add("StartDate", filterDto.StartDate.Value);
+        }
+
+        if (filterDto.EndDate.HasValue)
+        {
+            whereClause += " AND CREATED_DATE <= :EndDate";
+            parameters.Add("EndDate", filterDto.EndDate.Value);
+        }
+
+        var countSql = $@"
+        SELECT COUNT(*)
+        FROM EavFormTemplates t
+        LEFT JOIN EavFormTemplateVersions v
+            ON t.Id = v.FormTemplateId
+           AND v.IsActive = 1
+           AND v.IsDeleted = 0
+           AND v.Version = (
+                SELECT MAX(Version)
+                FROM EavFormTemplateVersions
+                WHERE FormTemplateId = t.Id
+                  AND IsActive = 1
+                  AND IsDeleted = 0
+           )
+        {whereClause}";
+
+        var sql = $@"
+        SELECT
+            t.Id,
+            v.Code,
+            v.Name,
+            v.Category,
+            v.Description,
+            v.DescriptionInfo,
+            t.ExtractionProcess,
+            t.EquipmentTypeId,
+            t.GridTypeId,
+            t.FormType,
+            v.Version,
+            t.IsActive,
+            t.CreatedAt,
+            us.FullName AS CreatedBy,
+            t.Status,
+            t.IsDeleted,
+            gt.Name AS {nameof(EavFormTemplate.GridTypeName)},
+            et.Name AS {nameof(EavFormTemplate.EquipmentTypeName)},
+            cat.Name AS {nameof(EavFormTemplate.CategoryName)}
+        FROM EavFormTemplates t
+        LEFT JOIN EavFormTemplateVersions v
+            ON t.Id = v.FormTemplateId
+           AND v.IsActive = 1
+           AND v.IsDeleted = 0
+           AND v.Version = (
+                SELECT MAX(Version)
+                FROM EavFormTemplateVersions
+                WHERE FormTemplateId = t.Id
+                  AND IsActive = 1
+                  AND IsDeleted = 0
+           )
+        LEFT JOIN GridTypes gt
+            ON t.GridTypeId = gt.Id
+        LEFT JOIN EquipmentTypes et
+            ON t.EquipmentTypeId = et.Id
+        LEFT JOIN CATALOG_TYPE hmad
+            ON hmad.Code = 'HMAD'
+           AND hmad.IsDeleted = 0
+        LEFT JOIN APP_USER us
+            ON us.UserName = t.CreatedBy
+        LEFT JOIN Catalog cat
+            ON cat.CatalogTypeId = hmad.Id
+           AND cat.IsDeleted = 0
+           AND (cat.Code = v.Category OR TO_CHAR(cat.Id) = v.Category)
+
+        {whereClause}
+
+        ORDER BY t.CreatedAt DESC
+
+        OFFSET :Offset ROWS FETCH NEXT :PageSize ROWS ONLY";
+
+        parameters.Add("Offset", (filterDto.Page - 1) * filterDto.PageSize);
+        parameters.Add("PageSize", filterDto.PageSize);
+
+        var totalCount = await _connection.ExecuteScalarAsync<int>(countSql, parameters);
+
+        var items = await _connection.QueryAsync<EavFormTemplate>(sql, parameters);
+
+        return (items, totalCount);
     }
 
     public async Task AddAsync(EavFormTemplate template)
