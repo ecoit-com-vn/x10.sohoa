@@ -222,6 +222,180 @@ namespace EvnHanoi.NotificationService.Repositories
             return count;
         }
 
+        public async Task<IReadOnlyList<AuditLogIndexMetadata>> GetAuditLogIndexMetadataAsync(
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var response = await _elasticsearchClient.Indices.StatsAsync(
+                stats => stats.Indices($"{AuditMessaging.IndexPrefix}-*"),
+                cancellationToken);
+            if (!response.IsValidResponse)
+            {
+                throw new InvalidOperationException(
+                    $"Không thể lấy metadata audit index: {response.ElasticsearchServerError?.Error?.Reason ?? response.DebugInformation}");
+            }
+
+            if (response.Indices is null)
+                return Array.Empty<AuditLogIndexMetadata>();
+
+            return response.Indices
+                .Select(pair =>
+                {
+                    var indexName = pair.Key.ToString();
+                    var stats = pair.Value;
+                    return TryParseAuditIndexDate(indexName, out var logDate)
+                        ? new AuditLogIndexMetadata
+                        {
+                            IndexName = indexName,
+                            LogDate = logDate,
+                            DocumentCount = stats.Total?.Docs?.Count ?? 0,
+                            SizeBytes = stats.Total?.Store?.SizeInBytes ?? 0
+                        }
+                        : null;
+                })
+                .Where(item => item is not null)
+                .Cast<AuditLogIndexMetadata>()
+                .OrderByDescending(item => item.LogDate)
+                .ToList();
+        }
+
+        public async Task<long> DeleteAuditLogIndexAsync(
+            DateOnly logDate,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var indexName = $"{AuditMessaging.IndexPrefix}-{logDate:yyyy.MM.dd}";
+            var indexExists = await _elasticsearchClient.Indices.ExistsAsync(indexName, cancellationToken);
+            if (!indexExists.Exists)
+            {
+                throw new KeyNotFoundException("Không tìm thấy index nhật ký cần xóa.");
+            }
+
+            var statsResponse = await _elasticsearchClient.Indices.StatsAsync(
+                stats => stats.Indices(indexName),
+                cancellationToken);
+            if (!statsResponse.IsValidResponse)
+            {
+                throw new InvalidOperationException(
+                    $"Không thể đọc metadata index nhật ký: {statsResponse.ElasticsearchServerError?.Error?.Reason ?? statsResponse.DebugInformation}");
+            }
+
+            var documentCount = statsResponse.Indices?
+                .Select(pair => pair.Value.Total?.Docs?.Count ?? 0)
+                .SingleOrDefault() ?? 0;
+
+            cancellationToken.ThrowIfCancellationRequested();
+            var deleteIndexResponse = await _elasticsearchClient.Indices.DeleteAsync(indexName, cancellationToken);
+            if (!deleteIndexResponse.IsValidResponse)
+            {
+                throw new InvalidOperationException(
+                    $"Không thể xóa index nhật ký: {deleteIndexResponse.ElasticsearchServerError?.Error?.Reason ?? deleteIndexResponse.DebugInformation}");
+            }
+
+            return documentCount;
+        }
+
+        public async Task<(int DeletedIndices, long DeletedDocuments)> DeleteAllAuditLogIndicesAsync(
+            DateOnly excludedDate,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var items = await GetAuditLogIndexMetadataAsync(cancellationToken);
+            var deletableItems = items.Where(item => item.LogDate != excludedDate).ToList();
+            if (deletableItems.Count == 0)
+                return (0, 0);
+
+            var indexNames = deletableItems.Select(item => item.IndexName).ToArray();
+            var deletedDocuments = deletableItems.Sum(item => item.DocumentCount);
+
+            cancellationToken.ThrowIfCancellationRequested();
+            var deleteResponse = await _elasticsearchClient.Indices.DeleteAsync(
+                string.Join(",", indexNames),
+                cancellationToken);
+            if (!deleteResponse.IsValidResponse)
+            {
+                throw new InvalidOperationException(
+                    $"Không thể xóa toàn bộ index nhật ký: {deleteResponse.ElasticsearchServerError?.Error?.Reason ?? deleteResponse.DebugInformation}");
+            }
+
+            return (deletableItems.Count, deletedDocuments);
+        }
+
+        public async Task<(IReadOnlyList<string> DeletedIndices, long DeletedDocuments)> PurgeExpiredAuditLogsAsync(
+            DateTime cutoffUtc,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (cutoffUtc.Kind != DateTimeKind.Utc)
+                throw new ArgumentException("Cutoff phải là thời điểm UTC.", nameof(cutoffUtc));
+
+            var cutoffDate = DateOnly.FromDateTime(cutoffUtc);
+
+            var auditIndicesExist = await _elasticsearchClient.Indices.ExistsAsync($"{AuditMessaging.IndexPrefix}-*");
+            if (!auditIndicesExist.Exists)
+                return (Array.Empty<string>(), 0);
+
+            var getIndicesResponse = await _elasticsearchClient.Indices.GetAsync($"{AuditMessaging.IndexPrefix}-*");
+            if (!getIndicesResponse.IsValidResponse)
+            {
+                throw new InvalidOperationException(
+                    $"Không thể lấy danh sách audit index: {getIndicesResponse.ElasticsearchServerError?.Error?.Reason ?? getIndicesResponse.DebugInformation}");
+            }
+
+            var auditIndexNames = getIndicesResponse.Indices.Keys
+                .Select(index => index.ToString())
+                .Where(indexName => !string.IsNullOrWhiteSpace(indexName))
+                .ToList();
+
+            var expiredIndexNames = auditIndexNames
+                .Where(indexName => TryParseAuditIndexDate(indexName, out var indexDate) && indexDate < cutoffDate)
+                .OrderBy(indexName => indexName, StringComparer.Ordinal)
+                .ToList();
+
+            var deletedIndexNames = new List<string>();
+            foreach (var expiredIndexName in expiredIndexNames)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var deleteIndexResponse = await _elasticsearchClient.Indices.DeleteAsync(expiredIndexName);
+                if (!deleteIndexResponse.IsValidResponse)
+                {
+                    throw new InvalidOperationException(
+                        $"Không thể xóa audit index {expiredIndexName}: {deleteIndexResponse.ElasticsearchServerError?.Error?.Reason ?? deleteIndexResponse.DebugInformation}");
+                }
+
+                deletedIndexNames.Add(expiredIndexName);
+            }
+
+            var cutoffIndexName = $"{AuditMessaging.IndexPrefix}-{cutoffUtc:yyyy.MM.dd}";
+            long deletedDocuments = 0;
+            if (auditIndexNames.Contains(cutoffIndexName, StringComparer.Ordinal))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var deleteByQueryResponse = await _elasticsearchClient.DeleteByQueryAsync<AuditLogDocument>(d => d
+                    .Indices(cutoffIndexName)
+                    .Query(q => q.Range(r => r.DateRange(dr => dr
+                        .Field("occurredAt")
+                        .Lt(cutoffUtc.ToString("O"))))));
+
+                if (!deleteByQueryResponse.IsValidResponse)
+                {
+                    throw new InvalidOperationException(
+                        $"Không thể xóa document quá hạn trong audit index {cutoffIndexName}: {deleteByQueryResponse.ElasticsearchServerError?.Error?.Reason ?? deleteByQueryResponse.DebugInformation}");
+                }
+
+                //deletedDocuments = deleteByQueryResponse.Deleted;
+                deletedDocuments = deleteByQueryResponse.Deleted ?? 0L;
+            }
+
+            return (deletedIndexNames, deletedDocuments);
+        }
+
         private Task<SearchResponse<AuditLogDocument>> SearchAsync(
             int page,
             int pageSize,
@@ -345,6 +519,19 @@ namespace EvnHanoi.NotificationService.Repositories
 
         private static string FormatEsDate(DateTime value) =>
             DateTime.SpecifyKind(value, DateTimeKind.Utc).ToUniversalTime().ToString("O");
+
+        private static bool TryParseAuditIndexDate(string indexName, out DateOnly indexDate)
+        {
+            indexDate = default;
+            var prefix = $"{AuditMessaging.IndexPrefix}-";
+            return indexName.StartsWith(prefix, StringComparison.Ordinal) &&
+                   DateOnly.TryParseExact(
+                       indexName[prefix.Length..],
+                       "yyyy.MM.dd",
+                       System.Globalization.CultureInfo.InvariantCulture,
+                       System.Globalization.DateTimeStyles.None,
+                       out indexDate);
+        }
 
         private static Query BuildIdsQuery(IReadOnlyList<string> ids)
         {
