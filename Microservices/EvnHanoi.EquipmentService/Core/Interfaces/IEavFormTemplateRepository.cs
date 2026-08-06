@@ -1,4 +1,5 @@
 using EvnHanoi.EquipmentService.Core.Entities;
+using static Microsoft.Extensions.Logging.EventSource.LoggingEventSource;
 
 namespace EvnHanoi.EquipmentService.Core.Interfaces;
 
@@ -7,7 +8,7 @@ public interface IEavFormTemplateRepository
     Task<EavFormTemplate?> GetByIdAsync(Guid id);
     Task<EavFormTemplate?> GetActiveByEquipmentTypeIdAsync(Guid equipmentTypeId);
     Task<IEnumerable<EavFormTemplate>> GetAllActiveAsync(string? formType = null, bool? isActive = true);
-    Task<IEnumerable<EavFormTemplate>> GetDesignFormsAsync();
+    Task<(IEnumerable<EavFormTemplate> Items, int TotalCount)> GetDesignFormsAsync(EavFormTemplateFilterDto filter);
     Task<IEnumerable<EavFormTemplate>> GetApprovalFormsAsync();
     Task<IEnumerable<EavFormTemplate>> GetCompletedFormsAsync();
     /// <summary>Lookup biểu mẫu FORM trạng thái Hoàn thành và đang hoạt động.</summary>

@@ -1,12 +1,15 @@
+using DocumentFormat.OpenXml.Spreadsheet;
+using EvnHanoi.EquipmentService.Core.DTOs;
+using EvnHanoi.EquipmentService.Core.Entities;
+using EvnHanoi.EquipmentService.Core.Interfaces;
+using EvnHanoi.Infrastructure.Security;
+using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.AspNetCore.Mvc;
+using Nest;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using EvnHanoi.EquipmentService.Core.Entities;
-using EvnHanoi.EquipmentService.Core.Interfaces;
-using Microsoft.AspNetCore.Mvc;
-
-using EvnHanoi.Infrastructure.Security;
 
 namespace EvnHanoi.EquipmentService.Controllers;
 
@@ -38,10 +41,32 @@ public class EavFormTemplateController : ControllerBase
     }
 
     [HttpGet("design")]
-    public async Task<ActionResult<IEnumerable<EavFormTemplate>>> GetDesignList()
+    public async Task<ActionResult<IEnumerable<EavFormTemplate>>> GetDesignList(
+        [FromQuery] string? keyword,
+        [FromQuery] DateTime? startDate,
+        [FromQuery] DateTime? endDate,
+        [FromQuery] string? status, 
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10)
     {
-        var templates = await _repository.GetDesignFormsAsync();
-        return Ok(templates);
+        if (page < 1) page = 1;
+        if (pageSize < 1) pageSize = 10;
+
+        if (startDate.HasValue && endDate.HasValue && startDate.Value.Date > endDate.Value.Date)
+            return BadRequest(new { message = "Từ ngày không được lớn hơn Đến ngày." });
+
+        var filter = new EavFormTemplateFilterDto
+        {
+            Keyword = keyword,
+            StartDate = startDate,
+            EndDate = endDate,
+            Status = status,
+            Page = page,
+            PageSize = pageSize
+        };
+
+        var (items, totalCount) = await _repository.GetDesignFormsAsync(filter);
+        return Ok(new { items, totalCount, page, pageSize });
     }
 
     [HttpGet("approval")]
@@ -332,4 +357,4 @@ public class UpgradeEavFormTemplateRequest
     public string? UpdatedBy { get; set; }
     public Guid? EquipmentTypeId { get; set; }
     public int? GridTypeId { get; set; }
-}
+} 

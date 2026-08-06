@@ -29,7 +29,7 @@ namespace EvnHanoi.ReportService.Infrastructure.Repositories
                        (SELECT COUNT(1) FROM REPORT_GROUP_UNITS rgu WHERE rgu.ReportGroupId = g.Id) AS UnitCount
                 FROM REPORT_GROUPS g
                 WHERE g.IsDeleted = 0
-                ORDER BY g.SortOrder, g.Name";
+                ORDER BY g.IsActive, g.CREATEDAT, g.SortOrder, g.Name";
 
             return await _connection.QueryAsync<ReportGroup>(sqlGroup);
         }
@@ -82,6 +82,20 @@ namespace EvnHanoi.ReportService.Infrastructure.Repositories
                     p.Add("CreatedBy", group.CreatedBy);
                     p.Add("IsActive", group.IsActive);
                     p.Add("Id", dbType: DbType.Int64, direction: ParameterDirection.Output);
+
+                    var sqlCheck = @"SELECT COUNT(*)
+                                    FROM REPORT_GROUPS
+                                    WHERE CODE = :Code";
+
+                    var count = await _connection.ExecuteScalarAsync<int>(
+                        sqlCheck,
+                        new { Code = group.Code },
+                        transaction);
+
+                    if (count > 0)
+                    {
+                        return -1;
+                    }
 
                     await _connection.ExecuteAsync(sql, p, transaction);
                     long newGroupId = p.Get<long>("Id");

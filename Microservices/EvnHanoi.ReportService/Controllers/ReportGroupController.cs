@@ -90,7 +90,17 @@ namespace EvnHanoi.ReportService.Controllers
             };
 
             var id = await _reportRepository.CreateReportGroupAsync(group, dto.ReportIds, dto.UnitIds);
-            return CreatedAtAction(nameof(GetById), new { id }, id);
+            if(id > 0)
+            { 
+                return CreatedAtAction(nameof(GetById), new { id }, id);
+            }
+            else
+            {
+                return Conflict(new
+                {
+                    message = $"Mã nhóm báo cáo {group.Code} đã tồn tại trong hệ thống."
+                });
+            }
         }
 
         [HttpPut("{id}")]
