@@ -200,6 +200,15 @@
             Biên bản xuất xưởng
           </label>
         </div>
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+          <input type="checkbox" id="chkCbmDocument" [ngModel]="currentItem().isCbmDocument"
+            (ngModelChange)="currentItem().isCbmDocument = $event" style="width: 18px; height: 18px; cursor: pointer; margin: 0;"
+            [disabled]="isSaving()" />
+          <label for="chkCbmDocument"
+            style="font-size: 0.9rem; font-weight: 600; cursor: pointer; user-select: none; margin: 0; line-height: 1;">
+            Tài liệu CBM
+          </label>
+        </div>
 
       </div>
       <ng-template #footer>
