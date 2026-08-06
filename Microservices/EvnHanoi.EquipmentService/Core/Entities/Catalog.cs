@@ -21,6 +21,7 @@ public class Catalog
     public int Status { get; set; } = 1; // 1 = Active, 0 = Locked
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public string? CreatedBy { get; set; }
+    public string? CreatedByName { get; set; }
     public DateTime? UpdatedAt { get; set; }
     public string? UpdatedBy { get; set; }
     public bool IsDeleted { get; set; } = false;

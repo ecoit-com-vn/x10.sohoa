@@ -24,6 +24,8 @@ public class FolderAllocationRepository : IFolderAllocationRepository
         int pageSize,
         string? keyword,
         string? status,
+        DateTime? fromDate,
+        DateTime? toDate,
         IEnumerable<long> unitScopeIds)
     {
         if (_connection.State != ConnectionState.Open)
@@ -50,6 +52,18 @@ public class FolderAllocationRepository : IFolderAllocationRepository
         {
             whereClause += " AND (LOWER(f.NAME) LIKE :Keyword OR LOWER(u.FullName) LIKE :Keyword OR LOWER(u.UserName) LIKE :Keyword)";
             parameters.Add("Keyword", $"%{keyword.ToLower()}%");
+        }
+
+        if (fromDate.HasValue)
+        {
+            whereClause += " AND fua.CREATED_DATE >= :FromDate";
+            parameters.Add("FromDate", fromDate.Value.Date);
+        }
+
+        if (toDate.HasValue)
+        {
+            whereClause += " AND fua.CREATED_DATE < :ToDateExclusive";
+            parameters.Add("ToDateExclusive", toDate.Value.Date.AddDays(1));
         }
 
         var countSql = $@"

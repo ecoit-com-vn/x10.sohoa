@@ -36,10 +36,12 @@ public class FolderAllocationService : IFolderAllocationService
         int pageSize,
         string? keyword,
         string? status,
+        DateTime? fromDate,
+        DateTime? toDate,
         long userUnitId)
     {
         var unitScopeIds = await GetUnitScopeIdsAsync(userUnitId);
-        return await _folderAllocationRepository.GetPagedAsync(page, pageSize, keyword, status, unitScopeIds);
+        return await _folderAllocationRepository.GetPagedAsync(page, pageSize, keyword, status, fromDate, toDate, unitScopeIds);
     }
 
     public async Task<FolderAllocationListItemDto?> GetByIdAsync(Guid id, long userUnitId)

@@ -3,6 +3,7 @@ using EvnHanoi.Infrastructure.Security;
 using EvnHanoi.Infrastructure.Audit;
 using EvnHanoi.Infrastructure.Database;
 using EvnHanoi.NotificationService.Hubs;
+using EvnHanoi.NotificationService.Schedulers;
 using EvnHanoi.NotificationService.Services;
 using EvnHanoi.NotificationService.Workers;
 using Elastic.Clients.Elasticsearch;
@@ -14,6 +15,11 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using System.Net.Http;
 using Scalar.AspNetCore;
+using Quartz;
+using RedLockNet;
+using RedLockNet.SERedis;
+using RedLockNet.SERedis.Configuration;
+using StackExchange.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -57,6 +63,13 @@ var redisConnectionString = builder.Configuration.GetConnectionString("Redis");
 if (!string.IsNullOrWhiteSpace(redisConnectionString) && !redisConnectionString.Contains(':'))
     redisConnectionString = $"{redisConnectionString.Trim()}:6379";
 
+var redLockEndpoints = new List<RedLockMultiplexer>
+{
+    ConnectionMultiplexer.Connect(redisConnectionString ?? "localhost:6379")
+};
+var redLockFactory = RedLockFactory.Create(redLockEndpoints);
+builder.Services.AddSingleton<IDistributedLockFactory>(redLockFactory);
+
 var signalRBuilder = builder.Services.AddSignalR();
 if (!string.IsNullOrEmpty(redisConnectionString))
 {
@@ -74,6 +87,7 @@ builder.Services.AddPermissionDiscovery("NotificationService");
 builder.Services.AddScoped<EvnHanoi.NotificationService.Services.IAuditLogExportService, EvnHanoi.NotificationService.Services.AuditLogExportService>();
 builder.Services.AddScoped<EvnHanoi.NotificationService.Repositories.IAuditLogRepository, EvnHanoi.NotificationService.Repositories.AuditLogRepository>();
 builder.Services.AddScoped<EvnHanoi.NotificationService.Services.IAuditLogService, EvnHanoi.NotificationService.Services.AuditLogService>();
+builder.Services.AddScoped<IAuditLogRetentionSettingsClient, AuditLogRetentionSettingsClient>();
 builder.Services.AddScoped<EvnHanoi.NotificationService.Repositories.IDossierEnrichmentRepository, EvnHanoi.NotificationService.Repositories.DossierEnrichmentRepository>();
 builder.Services.AddScoped<EvnHanoi.NotificationService.Repositories.ILookupTrackingRepository, EvnHanoi.NotificationService.Repositories.LookupTrackingRepository>();
 builder.Services.AddScoped<EvnHanoi.NotificationService.Services.IDossierDocumentBuilder, EvnHanoi.NotificationService.Services.DossierDocumentBuilder>();
@@ -132,6 +146,17 @@ builder.Services.AddHttpClient("IdentityService", client =>
 builder.Services.AddScoped<EvnHanoi.NotificationService.Repositories.INotificationRepository, EvnHanoi.NotificationService.Repositories.NotificationRepository>();
 builder.Services.AddSingleton<EvnHanoi.NotificationService.Services.IIdentityServiceClient, EvnHanoi.NotificationService.Services.IdentityServiceClient>();
 
+var auditLogRetentionJobKey = new JobKey("AuditLogRetentionJob");
+builder.Services.AddQuartz(q =>
+{
+    q.AddJob<AuditLogRetentionJob>(opts => opts.WithIdentity(auditLogRetentionJobKey));
+    q.AddTrigger(opts => opts
+        .ForJob(auditLogRetentionJobKey)
+        .WithIdentity("AuditLogRetentionJob-trigger")
+        .WithCronSchedule("0 0 1 * * ?", x => x.InTimeZone(TimeZoneInfo.Utc)));
+});
+builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
+
 builder.Services.AddHostedService<EquipmentIndexWorker>();
 builder.Services.AddHostedService<DossierIndexWorker>();
 builder.Services.AddHostedService<DocumentIndexWorker>();
@@ -155,5 +180,7 @@ app.UseAuthorization();
 
 app.MapControllers();
 app.MapHub<NotificationHub>("/hubs/notifications");
+
+app.Lifetime.ApplicationStopping.Register(redLockFactory.Dispose);
 
 app.Run();
