@@ -45,6 +45,7 @@ export class EquipmentDocumentDetailDialogComponent implements OnDestroy {
   loading = signal(false);
   saving = signal(false);
   savingMode = signal<'save' | 'apply' | null>(null);
+  confirming = signal(false);
   hasExtractionData = signal(false);
   fields = signal<EavField[]>([]);
   draftData = signal<Record<string, unknown>>({});
@@ -74,6 +75,27 @@ export class EquipmentDocumentDetailDialogComponent implements OnDestroy {
 
   close(): void {
     this.visibleChange.emit(false);
+  }
+
+  onConfirm(): void {
+    if (!this.equipmentId || this.confirming()) return;
+
+    this.confirming.set(true);
+    this.equipmentService.confirmEquipment(this.equipmentId)
+      .pipe(finalize(() => this.confirming.set(false)))
+      .subscribe({
+        next: () => {
+          this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã xác nhận thiết bị.' });
+          this.applied.emit();
+        },
+        error: (err) => {
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi',
+            detail: err?.error?.message || 'Không thể xác nhận thiết bị.',
+          });
+        },
+      });
   }
 
   onShow(): void {

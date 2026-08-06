@@ -169,13 +169,13 @@ function tabLabel(tab: PublishTab): string {
         </table>
       </div>
 
-      <div class="table-footer-paginator" *ngIf="!loading() && totalCount() > 0">
+      <div class="table-footer-paginator" *ngIf=" totalCount() > 0">
         <span class="record-count">Tổng số: <b>{{ totalCount() }}</b> hồ sơ.</span>
         <app-eco-paginator
           [first]="first()"
           [rows]="pageSize()"
           [totalRecords]="totalCount()"
-          [rowsPerPageOptions]="[5, 10, 20, 50]"
+          [rowsPerPageOptions]="[10, 20, 50]"
           recordLabel="hồ sơ"
           (onPageChange)="onPublishPageChange($event)">
         </app-eco-paginator>

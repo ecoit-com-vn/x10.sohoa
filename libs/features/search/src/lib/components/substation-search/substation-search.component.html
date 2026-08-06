@@ -41,25 +41,22 @@
           </div>
 
           <div class="standard-search-field">
-            <label class="search-field-label">Loại lưới điện</label>
-            <select class="wf-input"
-              [ngModel]="searchGridTypeId()"
-              (ngModelChange)="searchGridTypeId.set($event)">
-              <option [value]="null">-- Loại lưới điện --</option>
-              <option *ngFor="let gt of gridTypes()" [value]="gt.id">{{ gt.name }}</option>
-            </select>
+            <label class="search-field-label">Từ ngày</label>
+            <input type="date" class="wf-input"
+              [ngModel]="searchFromDate()"
+              (ngModelChange)="searchFromDate.set($event); onOperationDateChange()" />
           </div>
 
           <div class="standard-search-field">
-            <label class="search-field-label">Trạng thái</label>
-            <select class="wf-input"
-              [ngModel]="searchStatus()"
-              (ngModelChange)="searchStatus.set($event)">
-              <option value="">-- Trạng thái --</option>
-              <option value="1">Hoạt động</option>
-              <option value="0">Ngừng hoạt động</option>
-            </select>
+            <label class="search-field-label">Đến ngày</label>
+            <input type="date" class="wf-input"
+              [ngModel]="searchToDate()"
+              (ngModelChange)="searchToDate.set($event); onOperationDateChange()" />
           </div>
+        </div>
+
+        <div class="search-validation-error" *ngIf="searchDateError()">
+          {{ searchDateError() }}
         </div>
 
         <div class="standard-search-actions">
@@ -95,23 +92,14 @@
                 <a class="wf-link" style="color: #2563eb; cursor: pointer; font-weight: 600; text-decoration: none;"
                    (click)="onViewDetail(item)">{{ item.code }}</a>
               </td>
-              <td>
-                <b class="wf-name-link" style="cursor: pointer;" (click)="onViewDetail(item)">{{ item.name }}</b>
-              </td>
+              <td>{{ item.name }}</td>
               <td>{{ item.address || '-' }}</td>
+              <td>{{ item.gridTypeId === 1 ? 'Cao áp' : (item.gridTypeId === 2 ? 'Trung áp' : '-') }}</td>
               <td>
-                <span class="status-pill"
-                  [style.background-color]="item.gridTypeId === 1 ? '#eff6ff' : (item.gridTypeId === 2 ? '#f5f3ff' : '#f9fafb')"
-                  [style.color]="item.gridTypeId === 1 ? '#1e40af' : (item.gridTypeId === 2 ? '#5b21b6' : '#6b7280')"
-                  [style.border-color]="item.gridTypeId === 1 ? '#bfdbfe' : (item.gridTypeId === 2 ? '#ddd6fe' : '#e5e7eb')">
-                  {{ item.gridTypeId === 1 ? 'Cao áp' : (item.gridTypeId === 2 ? 'Trung áp' : '-') }}
-                </span>
-              </td>
-              <td>
-                <span class="text-primary font-semibold" *ngIf="item.organization">
+                <span *ngIf="item.organization">
                   {{ item.organization.name }}
                 </span>
-                <span class="text-muted italic" *ngIf="!item.organization">Chưa phân bổ</span>
+                <span *ngIf="!item.organization">Chưa phân bổ</span>
               </td>
               <td>
                 <span *ngIf="item.isActive === 1 || item.isActive === true" class="status-pill status-active"
@@ -143,17 +131,13 @@
       </div>
 
       <!-- Footer with Pagination -->
-      <div class="table-footer-paginator" *ngIf="totalCount() > 0">
-        <span class="record-count">Tổng số: <b>{{ totalCount() }}</b> bản ghi.</span>
-        <p-paginator
-          [first]="(currentPage() - 1) * pageSize()"
-          [rows]="pageSize()"
-          [totalRecords]="totalCount()"
-          [rowsPerPageOptions]="[10, 20, 50]"
-          dropdownAppendTo="body"
-          (onPageChange)="onListPageChange($event)">
-        </p-paginator>
-      </div>
+    <app-eco-paginator
+      *ngIf="totalCount() > 0"
+      [first]="(currentPage() - 1) * pageSize()"
+      [rows]="pageSize()"
+      [totalRecords]="totalCount()"
+      [rowsPerPageOptions]="[10, 20, 50]"
+      (onPageChange)="onListPageChange($event)" />
       </div>
     </div>
 
@@ -238,12 +222,19 @@
               </div>
               <div class="search-form-item">
                 <label class="search-field-label">Loại thiết bị</label>
-                <select class="wf-input"
+                <p-select
+                  class="equipment-type-select"
+                  [options]="equipmentTypes()"
                   [ngModel]="equipmentSearchTypeId()"
-                  (ngModelChange)="equipmentSearchTypeId.set($event)">
-                  <option value="">-- Chọn loại thiết bị --</option>
-                  <option *ngFor="let et of equipmentTypes()" [value]="et.id">{{ et.name }}</option>
-                </select>
+                  (ngModelChange)="equipmentSearchTypeId.set($event || '')"
+                  optionLabel="name"
+                  optionValue="id"
+                  placeholder="-- Tất cả loại thiết bị --"
+                  filterPlaceholder="Tìm loại thiết bị..."
+                  [filter]="true"
+                  [showClear]="true"
+                  appendTo="body">
+                </p-select>
               </div>
             </div>
 

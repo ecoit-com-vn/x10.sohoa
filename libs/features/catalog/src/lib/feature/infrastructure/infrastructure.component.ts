@@ -1,6 +1,7 @@
 import { Component, OnInit, signal, computed, inject, effect, HostListener } from '@angular/core';
 import {
   DeleteConfirmDialogComponent,
+  EcoPaginatorComponent,
   WfBreadcrumbComponent
 } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
@@ -31,6 +32,7 @@ import { catchError, finalize } from 'rxjs/operators';
     DatePickerModule,
     DialogModule,
     MenuModule,
+    EcoPaginatorComponent,
     WfBreadcrumbComponent,
     DeleteConfirmDialogComponent
   ],
@@ -735,6 +737,13 @@ export class InfrastructureComponent implements OnInit {
     this.currentPage.set(1);
   }
 
+  onInfrastructurePageChange(event: { first?: number; rows?: number }) {
+    const rows = Number(event.rows) || this.pageSize();
+    const first = Number(event.first) || 0;
+    this.pageSize.set(rows);
+    this.currentPage.set(Math.floor(first / rows) + 1);
+  }
+
   onAddNew() {
     this.currentItem.set({
       isActive: true,
@@ -1191,7 +1200,7 @@ export class InfrastructureComponent implements OnInit {
           ? this.equipmentService.getAllOrganizationUnits().pipe(catchError(() => of([])))
           : of(this.transferOrganizationUnits()),
         infrastructures: this.transferInfrastructuresSource().length === 0
-          ? this.equipmentService.getInfrastructures().pipe(catchError(() => of([])))
+          ? this.equipmentService.getAllInfrastructures().pipe(catchError(() => of([])))
           : of(this.transferInfrastructuresSource())
       }).subscribe(data => {
         this.transferOrganizationUnits.set(this.getAvailableOrganizationUnits(data.organizationUnits));

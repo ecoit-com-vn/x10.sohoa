@@ -1,4 +1,5 @@
 .lookup-filters {
+  overflow: visible;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -16,11 +17,15 @@
 }
 
 .lookup-filters__row--primary {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.lookup-filters__field {
+  overflow: visible;
 }
 
 .lookup-filters__row--secondary {
-  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .lookup-filters__field {
@@ -71,7 +76,31 @@
   align-items: flex-end;
   justify-content: flex-end;
   gap: 8px;
+  grid-column: 1 / -1;
 }
+
+:host ::ng-deep .lookup-date-picker,
+:host ::ng-deep .lookup-date-picker .p-datepicker {
+  width: 100%;
+}
+
+:host ::ng-deep .lookup-date-picker .p-inputtext {
+  width: 100%;
+  height: 34px;
+  font-size: 0.875rem;
+}
+
+:host ::ng-deep .lookup-date-picker .lookup-date-input {
+  cursor: text;
+}
+
+:host ::ng-deep .lookup-date-picker .p-datepicker-panel {
+  top: calc(100% + 4px) !important;
+  bottom: auto !important;
+  width: 100% !important;
+  min-width: 100% !important;
+}
+
 
 :host ::ng-deep .lookup-storage-tree {
   width: 100%;

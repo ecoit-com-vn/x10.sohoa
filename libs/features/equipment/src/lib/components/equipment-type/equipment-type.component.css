@@ -2,6 +2,29 @@
   padding: 5px;
 }
 
+.equipment-type-form-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.equipment-type-form-card {
+  width: 100%;
+  padding: 24px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+}
+
+.equipment-type-form-content {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  max-width: 700px;
+}
+
 .animate-fade-in {
   animation: fadeIn 0.2s ease-out;
 }
@@ -28,10 +51,24 @@
   color: #001e4e;
 }
 
+code.wf-name-link {
+  display: inline-block;
+}
+
 .form-group-row {
   margin-bottom: 5px;
 }
 
 .field-error {
   font-weight: 500;
+}
+
+@media (max-width: 768px) {
+  .equipment-type-form-card {
+    padding: 16px;
+  }
+
+  .equipment-type-form-content .form-group-row {
+    grid-template-columns: 1fr !important;
+  }
 }
