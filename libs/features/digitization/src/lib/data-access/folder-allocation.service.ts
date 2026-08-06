@@ -58,7 +58,9 @@ export class FolderAllocationService {
     page: number,
     pageSize: number,
     keyword?: string,
-    status?: string
+    status?: string,
+    fromDate?: string,
+    toDate?: string
   ): Observable<{ items: FolderAllocationItem[]; total_count: number; page: number; page_size: number }> {
     let params = new HttpParams()
       .set('page', page.toString())
@@ -69,6 +71,12 @@ export class FolderAllocationService {
     }
     if (status) {
       params = params.set('status', status);
+    }
+    if (fromDate) {
+      params = params.set('fromDate', fromDate);
+    }
+    if (toDate) {
+      params = params.set('toDate', toDate);
     }
 
     return this.http.get<{ items: FolderAllocationItem[]; total_count: number; page: number; page_size: number }>(

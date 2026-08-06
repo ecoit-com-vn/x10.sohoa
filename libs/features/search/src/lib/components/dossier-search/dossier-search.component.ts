@@ -128,7 +128,8 @@ export class DossierSearchComponent implements OnInit, OnDestroy {
   // ===== NEW SIGNALS FOR DOSSIER SEARCH FILTER =====
   searchGridType = signal<string>('ALL');
   searchInfraName = signal<string>('');
-  searchBoxName = signal<string>('');
+  searchDossierTypeId = signal<string | null>(null);
+  dossierTypes = signal<any[]>([]);
 
   isPdf = computed(() => {
     const doc = this.selectedDocument();
@@ -157,18 +158,18 @@ export class DossierSearchComponent implements OnInit, OnDestroy {
   // ===== SIGNALS =====
   folderTree = signal<FolderNode[]>([]);
   filteredFolderTree = computed(() => {
-    const boxName = this.searchBoxName().trim().toLowerCase();
+    const dossierTypeId = this.searchDossierTypeId();
     const gridType = this.searchGridType();
     const infraName = this.searchInfraName().trim().toLowerCase();
     const flat = this.flatFolderList();
 
-    if (!boxName && gridType === 'ALL' && !infraName) {
+    if (!dossierTypeId && gridType === 'ALL' && !infraName) {
       return this.folderTree();
     }
 
     const validBoxes = flat.filter(f => {
       if (!f.id.startsWith('type_')) return false;
-      if (boxName && !f.name.toLowerCase().includes(boxName)) return false;
+      if (dossierTypeId && this.getDossierTypeIdFromFolder(f) !== dossierTypeId) return false;
       if (gridType === 'HIGH') {
         if (!f.id.includes('tba-cao-ap_') && !f.id.includes('dd-cao-ap_')) return false;
       } else if (gridType === 'MEDIUM') {
@@ -281,7 +282,7 @@ export class DossierSearchComponent implements OnInit, OnDestroy {
 
   constructor() {
     effect(() => {
-      const boxName = this.searchBoxName();
+      const dossierTypeId = this.searchDossierTypeId();
       const gridType = this.searchGridType();
       const infraName = this.searchInfraName();
       const flat = this.flatFolderList();
@@ -289,7 +290,7 @@ export class DossierSearchComponent implements OnInit, OnDestroy {
 
       const validBoxes = flat.filter(f => {
         if (!f.id.startsWith('type_')) return false;
-        if (boxName && !f.name.toLowerCase().includes(boxName.trim().toLowerCase())) return false;
+        if (dossierTypeId && this.getDossierTypeIdFromFolder(f) !== dossierTypeId) return false;
         if (gridType === 'HIGH') {
           if (!f.id.includes('tba-cao-ap_') && !f.id.includes('dd-cao-ap_')) return false;
         } else if (gridType === 'MEDIUM') {
@@ -302,7 +303,7 @@ export class DossierSearchComponent implements OnInit, OnDestroy {
         return true;
       });
 
-      if (validBoxes.length > 0 && (boxName || gridType !== 'ALL' || infraName)) {
+      if (validBoxes.length > 0 && (dossierTypeId || gridType !== 'ALL' || infraName)) {
         const parentsToExpand = new Set<string>();
         for (const box of validBoxes) {
           let currParentId = box.parentId;
@@ -324,7 +325,7 @@ export class DossierSearchComponent implements OnInit, OnDestroy {
   onClearFilters() {
     this.searchGridType.set('ALL');
     this.searchInfraName.set('');
-    this.searchBoxName.set('');
+    this.searchDossierTypeId.set(null);
 
     const userUnitId = this.authService.getUserUnitId();
     const options = this.unitOptions();
@@ -357,6 +358,10 @@ export class DossierSearchComponent implements OnInit, OnDestroy {
       next: (types) => this.gridTypes.set(types || []),
       error: () => console.error('Failed to load grid types'),
     });
+    this.dossierService.getDossierTypeLookup().subscribe({
+      next: (types) => this.dossierTypes.set(types || []),
+      error: () => console.error('Failed to load dossier types'),
+    });
   }
 
   ngOnDestroy() {
@@ -372,7 +377,7 @@ export class DossierSearchComponent implements OnInit, OnDestroy {
 
   private loadFolderTree() {
     this.loadingTree.set(true);
-    this.documentService.getFolderTree(this.selectedUnitId()).subscribe({
+    this.documentService.getFolderTree(this.selectedUnitId(), this.searchDossierTypeId()).subscribe({
       next: (folders) => {
         this.flatFolderList.set(folders);
         const treeStructure = convertFlatToTree(folders);
@@ -402,6 +407,20 @@ export class DossierSearchComponent implements OnInit, OnDestroy {
 
   isSelectableFolder(id: string): boolean {
     return !!id && id.startsWith('type_');
+  }
+
+  private getDossierTypeIdFromFolder(folder: FolderNode): string | null {
+    let folderId = folder.id.substring('type_'.length);
+    const prefixes = ['tba-cao-ap_', 'tba-trung-ap_', 'dd-cao-ap_', 'dd-trung-ap_'];
+
+    for (const prefix of prefixes) {
+      if (folderId.startsWith(prefix)) {
+        folderId = folderId.substring(prefix.length);
+        break;
+      }
+    }
+
+    return folderId.split('_')[1] ?? null;
   }
 
   getFolderTypeLabel(folder: FolderNode): string {
