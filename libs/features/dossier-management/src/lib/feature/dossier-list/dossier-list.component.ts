@@ -76,20 +76,22 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
 
     <div>
 
-      <div class="tab-bar">
-        <button
-          type="button"
-          class="tab-item"
-          *ngFor="let tab of visibleTabs()"
-          [class.tab-active]="activeTab() === tab"
-          (click)="selectTab(tab)">
-          {{ tabLabel(tab, kindIdSignal()) }}
-          <span class="tab-badge" *ngIf="getTabBadgeCount(tab)">{{ getTabBadgeCount(tab) }}</span>
-        </button>
-      </div>
-      <div class="standard-search-card">
-        <div class="standard-search-grid">
-          <div class="standard-search-field">
+      <div class="wf-card dossier-list-card">
+        <div class="tab-bar">
+          <button
+            type="button"
+            class="tab-item"
+            *ngFor="let tab of visibleTabs()"
+            [class.tab-active]="activeTab() === tab"
+            (click)="selectTab(tab)">
+            {{ tabLabel(tab, kindIdSignal()) }}
+            <span class="tab-badge" *ngIf="getTabBadgeCount(tab)">{{ getTabBadgeCount(tab) }}</span>
+          </button>
+        </div>
+
+        <div class="wf-card dossier-search-card">
+        <div class="search-form-grid">
+          <div class="search-form-item">
             <label class="search-field-label">Từ khóa</label>
             <input
               type="text"
@@ -99,7 +101,7 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
               (keyup.enter)="onApplyFilters()" />
           </div>
 
-          <div class="standard-search-field">
+          <div class="search-form-item">
             <label class="search-field-label">Loại hồ sơ</label>
             <select class="wf-select" [ngModel]="filterDossierTypeId()" (ngModelChange)="onDossierTypeFilterChange($event)">
               <option [ngValue]="null">-- Tất cả loại hồ sơ --</option>
@@ -107,7 +109,7 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
             </select>
           </div>
 
-          <div class="standard-search-field" style="font-size: 0.85rem;">
+          <div class="search-form-item">
             <label class="search-field-label">Trạm / Đường dây</label>
             <p-select
               [options]="infrastructures()"
@@ -129,7 +131,7 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
             </p-select>
           </div>
 
-          <div class="standard-search-field">
+          <div class="search-form-item">
             <label class="search-field-label">Thiết bị</label>
             <div class="searchable-select">
               <button
@@ -163,21 +165,18 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
             </div>
           </div>
 
-          <div class="standard-search-actions">
+          <div class="search-actions">
             <button type="button" class="btn-outlined" (click)="onResetFilters()">
               <i class="pi pi-refresh"></i> Làm mới
             </button>
-            <button type="button" class="btn-save" (click)="onApplyFilters()">
+            <button type="button" class="btn-tim" (click)="onApplyFilters()">
               <i class="pi pi-check"></i> Áp dụng
             </button>
           </div>
         </div>
-      </div>
+        </div>
 
-
-
-      <div class="wf-card">
-      <div class="wf-table-wrap">
+        <div class="wf-table-wrap">
 
         <table class="wf-table">
 
@@ -314,9 +313,9 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
             <input type="number" class="page-jump-input" [value]="currentPage()" (change)="goToPage($any($event.target).value)" style="width: 50px; height: 28px; text-align: center; border: 1px solid #e5e7eb; border-radius: 4px; padding: 0 4px;" [min]="1" [max]="totalPages() || 1" />
           </span>
           <select class="page-size-sel" [ngModel]="pageSize()" (change)="onPageSizeChange($event)">
-            <option [value]="10">10 / trang</option>
-            <option [value]="20">20 / trang</option>
-            <option [value]="50">50 / trang</option>
+            <option [value]="10">10</option>
+            <option [value]="20">20</option>
+            <option [value]="50">50</option>
           </select>
         </div>
 
@@ -597,6 +596,67 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
   `,
 
   styles: [`
+    .dossier-list-card {
+      overflow: visible;
+    }
+
+    .dossier-search-card {
+      margin-bottom: 16px;
+      padding: 16px;
+      background: #ffffff;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.1);
+      overflow: visible;
+      position: relative;
+      z-index: 5;
+    }
+
+    .search-form-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 16px;
+      align-items: end;
+    }
+
+    .search-form-item {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .search-form-item > .wf-search-input,
+    .search-form-item > .wf-select,
+    .search-form-item > .searchable-select .searchable-select-trigger {
+      width: 100%;
+      height: 38px;
+      box-sizing: border-box;
+    }
+
+    .search-actions {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 8px;
+      grid-column: 1 / -1;
+    }
+
+    @media (max-width: 1100px) {
+      .search-form-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 640px) {
+      .search-form-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .search-actions {
+        justify-content: flex-start;
+      }
+    }
+
     .tab-badge {
       display: inline-flex;
       align-items: center;
