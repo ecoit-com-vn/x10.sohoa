@@ -116,7 +116,9 @@ public class InfrastructureRepository : IInfrastructureRepository
         int? status,
         IEnumerable<long>? unitIds = null,
         long? unitId = null,
-        int? gridTypeId = null)
+        int? gridTypeId = null,
+        DateTime? fromOperationDate = null,
+        DateTime? toOperationDate = null)
     {
         if (_connection.State != ConnectionState.Open) 
             _connection.Open();
@@ -145,6 +147,18 @@ public class InfrastructureRepository : IInfrastructureRepository
         {
             sqlBase += $" AND i.GRIDTYPEID = :GridTypeId";
             parameters.Add("GridTypeId", gridTypeId.Value);
+        }
+
+        if (fromOperationDate.HasValue)
+        {
+            sqlBase += " AND i.OPERATION_DATE >= :FromOperationDate";
+            parameters.Add("FromOperationDate", fromOperationDate.Value.Date);
+        }
+
+        if (toOperationDate.HasValue)
+        {
+            sqlBase += " AND i.OPERATION_DATE < :ToOperationDateExclusive";
+            parameters.Add("ToOperationDateExclusive", toOperationDate.Value.Date.AddDays(1));
         }
 
         if (unitId.HasValue && unitId.Value > 0)

@@ -103,11 +103,24 @@ public class CatalogRepository : ICatalogRepository
 
         var offset = (page - 1) * pageSize;
         var pagedSql = $@"
-            SELECT * FROM (
+            SELECT pageData.*,
+                   COALESCE(
+                       creatorById.FullName,
+                       creatorByUserName.FullName,
+                       pageData.{nameof(Catalog.CreatedBy)}
+                   ) AS {nameof(Catalog.CreatedByName)}
+            FROM (
                 SELECT c.*, ROW_NUMBER() OVER (ORDER BY c.{nameof(Catalog.Priority)} ASC, c.{nameof(Catalog.CreatedAt)} DESC) AS RN
                 FROM {nameof(Catalog)} c
                 {filterSql}
-            ) WHERE RN > :Offset AND RN <= :OffsetPlusSize";
+            ) pageData
+            LEFT JOIN APP_USER creatorById
+              ON creatorById.Id = pageData.{nameof(Catalog.CreatedBy)}
+             AND creatorById.IsDeleted = 0
+            LEFT JOIN APP_USER creatorByUserName
+              ON UPPER(TRIM(creatorByUserName.UserName)) = UPPER(TRIM(pageData.{nameof(Catalog.CreatedBy)}))
+             AND creatorByUserName.IsDeleted = 0
+            WHERE pageData.RN > :Offset AND pageData.RN <= :OffsetPlusSize";
 
         var keywordParam = !string.IsNullOrEmpty(keyword) ? $"%{keyword.ToLower()}%" : null;
         var parameters = new DynamicParameters();
