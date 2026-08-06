@@ -1,94 +1,246 @@
+<div class="wf-page system-param-page">
+  <p-toast></p-toast>
 
-    <div class="wf-page">
-      <p-toast></p-toast>
-      <div class="list-toolbar standard-page-toolbar">
-        <div class="toolbar-left">
-          <wf-breadcrumb [customItems]="[{ label: 'Quản trị hệ thống' }, { label: 'Tham số hệ thống', url: '/administration/system-param' }]" />
+  <div class="list-toolbar standard-page-toolbar">
+    <div class="toolbar-left">
+      <wf-breadcrumb [customItems]="[{ label: 'Quản trị hệ thống' }, { label: 'Thiết lập tham số hệ thống', url: '/administration/system-param' }]" />
+    </div>
+    <div class="toolbar-right">
+      <button
+        *ngIf="canDeleteAuditLogs()"
+        type="button"
+        class="btn-delete"
+        title="Xóa tất cả"
+        [disabled]="retentionLoading() || loadingDeleteAllCount() || deletingAllRetentionIndices() || (retentionStatus()?.totalCount ?? 0) === 0"
+        (click)="openDeleteAllRetentionConfirm()">
+        <i class="pi" [ngClass]="loadingDeleteAllCount() ? 'pi-spin pi-spinner' : 'pi-trash'"></i>
+        {{ loadingDeleteAllCount() ? 'Đang kiểm tra...' : 'Xóa tất cả' }}
+      </button>
+      <button type="button" class="btn-excel" title="Xuất Excel" [disabled]="retentionLoading() || exporting()" (click)="exportExcel()">
+        <i class="pi" [ngClass]="exporting() ? 'pi-spin pi-spinner' : 'pi-file-excel'"></i>
+        {{ exporting() ? 'Đang xuất...' : 'Xuất Excel' }}
+      </button>
+    </div>
+  </div>
+
+  <div class="system-param-top-grid">
+    <section class="system-param-card config-card">
+      <div class="section-heading">
+        <span class="section-icon"><i class="pi pi-sliders-h"></i></span>
+        <div>
+          <h2>Cấu hình dọn log</h2>
+          <p>Thiết lập thời gian lưu trữ và địa chỉ dịch vụ nhật ký hệ thống.</p>
         </div>
       </div>
 
-      <div class="wf-card">
+      <div *ngIf="loading()" class="panel-state">
+        <i class="pi pi-spin pi-spinner"></i>
+        <span>Đang tải tham số hệ thống...</span>
+      </div>
 
-  <p class="text-muted mb-4">
-          Xem danh sách các tham số cài đặt hệ thống EVNHANOI và chỉnh sửa các giá trị cấu hình tương ứng. (Lưu ý: Để đảm bảo an toàn hệ thống, các khóa tham số được thiết lập cố định và không thể thêm mới hoặc xóa bỏ).
-        </p>
+      <ng-container *ngIf="!loading()">
+        <div class="config-grid">
+          <div class="standard-search-field">
+            <label class="search-field-label" for="audit-log-retention-days">
+              Thời gian lưu log hệ thống (Ngày) <span class="required">*</span>
+            </label>
+            <p-inputNumber
+              inputId="audit-log-retention-days"
+              styleClass="w-full"
+              [ngModel]="retentionDays()"
+              (ngModelChange)="retentionDays.set($event)"
+              [min]="1"
+              [maxFractionDigits]="0"
+              [useGrouping]="false"
+              [required]="true"
+              [disabled]="saving() || !canEdit()"
+              inputMode="numeric"
+              placeholder="Nhập số ngày lưu log">
+            </p-inputNumber>
+          </div>
 
-        <!-- Table -->
-        <div class="wf-table-wrap">
-          <table class="wf-table">
-            <thead>
-              <tr>
-                <th class="col-stt">STT</th>
-                <th>Mã cấu hình (Key)</th>
-                <th>Giá trị cài đặt (Value)</th>
-                <th>Kiểu dữ liệu</th>
-                <th>Mô tả chức năng</th>
-                <th class="col-hd">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let param of params; let i = index">
-                <td class="col-stt text-muted">{{ i + 1 }}</td>
-                <td>
-                  <b *ngIf="authService.hasPermission('SYSTEM_PARAM_EDIT')" class="wf-name-link" (click)="onEdit(param)">{{ param.paramKey }}</b>
-                  <span *ngIf="!authService.hasPermission('SYSTEM_PARAM_EDIT')">{{ param.paramKey }}</span>
-                </td>
-                <td>
-                  <span style="font-weight: 600; color: #002D72;">{{ param.paramValue }}</span>
-                </td>
-                <td>
-                  <span class="status-pill status-active" style="background-color: #f1f5f9; color: #475569; border-color: #cbd5e1;">
-                    {{ param.dataType }}
-                  </span>
-                </td>
-                <td><span class="text-muted" style="font-size: 0.82rem;">{{ param.description }}</span></td>
-                <td class="col-hd">
-                  <button *ngIf="authService.hasPermission('SYSTEM_PARAM_EDIT')" class="act-btn act-edit" (click)="onEdit(param)" title="Chỉnh sửa cấu hình">
-                    <i class="pi pi-pencil"></i>
-                  </button>
-                </td>
-              </tr>
-              <tr *ngIf="params.length === 0">
-                <td colspan="6" class="empty-row">
-                  <i class="pi pi-inbox"></i>
-                  <div>Không tìm thấy tham số cấu hình hệ thống nào.</div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+          <div class="standard-search-field">
+            <label class="search-field-label" for="audit-log-domain">
+              Domain dịch vụ nhật ký <span class="required">*</span>
+            </label>
+            <input
+              id="audit-log-domain"
+              type="url"
+              class="wf-input"
+              [ngModel]="auditLogDomain()"
+              (ngModelChange)="auditLogDomain.set($event)"
+              [disabled]="saving() || !canEdit()"
+              placeholder="https://example.com" />
+          </div>
         </div>
 
-        <!-- Footer -->
-        <div class="table-footer">
-          <span class="record-count">Tổng số: <b>{{ params.length }}</b> tham số hệ thống cố định.</span>
+        <div class="standard-search-actions system-param-actions">
+          <button type="button" class="btn-outlined" [disabled]="loading() || retentionLoading()" (click)="loadParam(); loadRetentionStatus()">
+            <i class="pi pi-refresh"></i> Làm mới
+          </button>
+          <button *ngIf="canEdit()" type="button" class="btn-save" [disabled]="loading() || saving()" (click)="save()">
+            <i *ngIf="saving()" class="pi pi-spin pi-spinner"></i>
+            <i *ngIf="!saving()" class="pi pi-check"></i>
+            {{ saving() ? 'Đang áp dụng...' : 'Áp dụng' }}
+          </button>
         </div>
+      </ng-container>
+    </section>
 
+    <section class="system-param-card schedule-card">
+      <div class="section-heading section-heading-compact">
+        <span class="section-icon"><i class="pi pi-clock"></i></span>
+        <div>
+          <h2>Lịch dọn log</h2>
+          <p>Thông tin chu kỳ xử lý kế tiếp.</p>
+        </div>
+      </div>
+
+      <div *ngIf="retentionLoading()" class="panel-state schedule-state">
+        <i class="pi pi-spin pi-spinner"></i>
+        <span>Đang cập nhật lịch...</span>
+      </div>
+
+      <div *ngIf="!retentionLoading()" class="schedule-details">
+        <div class="schedule-item">
+          <span class="schedule-label">Lần dọn tiếp theo</span>
+          <strong>{{ nextCleanupAtUtc() ? (nextCleanupAtUtc()! | date:'HH:mm - dd/MM/yyyy') : '--' }}</strong>
+        </div>
+        <div class="schedule-divider"></div>
+        <div class="schedule-item">
+          <span class="schedule-label">Thời gian còn lại</span>
+          <strong>{{ nextCleanupAtUtc() ? ((cleanupCountdownSeconds() ?? 0) * 1000 | date:"H 'giờ' m 'phút' s 'giây'":'UTC') : '--' }}</strong>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <section class="system-param-card retention-card">
+    <div class="section-heading retention-heading">
+      <span class="section-icon"><i class="pi pi-database"></i></span>
+      <div>
+        <h2>Tình trạng lưu trữ nhật ký</h2>
+        <p>Theo dõi dung lượng, số lượng bản ghi và thời hạn của các index nhật ký.</p>
       </div>
     </div>
 
-    <!-- Dialog Chỉnh Sửa Giá Trị Tham Số -->
-    <p-dialog [(visible)]="displayDialog" [header]="dialogHeader" [modal]="true" [style]="{ width: '450px' }" styleClass="evn-dialog-custom">
-      <div style="display: flex; flex-direction: column; gap: 14px; padding-top: 10px;">
-        <div class="form-group">
-          <label class="form-label" style="font-weight: 600;">Khóa tham số</label>
-          <input type="text" class="wf-input w-full" [value]="currentParam.paramKey" disabled style="background-color: #f1f5f9; color: #64748b;" />
+    <div *ngIf="retentionStatus()" class="statistics-grid">
+      <article class="statistic-card">
+        <span class="statistic-icon"><i class="pi pi-server"></i></span>
+        <div>
+          <div class="statistic-value">{{ retentionStatus()?.totalIndices ?? 0 }}</div>
+          <span class="statistic-label">Tổng index</span>
         </div>
-        
-        <div class="form-group">
-          <label class="form-label" style="font-weight: 600;">Giá trị cấu hình <span class="required">*</span></label>
-          <input type="text" class="wf-input w-full" [(ngModel)]="currentParam.paramValue" placeholder="Nhập giá trị mới cho tham số..." />
+      </article>
+      <article class="statistic-card">
+        <span class="statistic-icon"><i class="pi pi-list"></i></span>
+        <div>
+          <div class="statistic-value">{{ (retentionStatus()?.totalDocuments ?? 0).toLocaleString('vi-VN') }}</div>
+          <span class="statistic-label">Tổng bản ghi</span>
         </div>
-        
-        <div class="form-group">
-          <label class="form-label">Mô tả chức năng</label>
-          <textarea class="wf-textarea w-full" rows="3" [(ngModel)]="currentParam.description" placeholder="Ghi chú chi tiết tham số này dùng làm gì..."></textarea>
+      </article>
+      <article class="statistic-card">
+        <span class="statistic-icon"><i class="pi pi-chart-bar"></i></span>
+        <div>
+          <div class="statistic-value">{{ formatSize(retentionStatus()?.totalSizeBytes ?? 0) }}</div>
+          <span class="statistic-label">Tổng dung lượng</span>
         </div>
-      </div>
-      
-      <ng-template #footer>
-        <div class="flex gap-2 justify-content-end pt-3" style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9;">
-          <button class="btn-outlined btn-small" (click)="displayDialog = false">Hủy</button>
-          <button class="btn-save btn-small" (click)="onSaveParam()">Cập nhật</button>
-        </div>
-      </ng-template>
-    </p-dialog>
+      </article>
+    </div>
+
+    <div *ngIf="retentionLoading()" class="wf-table-wrap retention-table-wrap">
+      <table class="wf-table">
+        <tbody>
+          <tr *ngFor="let item of [1, 2, 3]">
+            <td *ngFor="let column of [1, 2, 3, 4, 5, 6, 7]">
+              <div class="skeleton-shimmer skeleton-md"></div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div *ngIf="retentionLoadFailed() && !retentionLoading()" class="retention-empty-state">
+      <i class="pi pi-exclamation-circle"></i>
+      <div>Không thể tải tình trạng lưu trữ nhật ký.</div>
+      <button type="button" class="btn-outlined btn-small" (click)="loadRetentionStatus()">
+        <i class="pi pi-refresh"></i> Thử lại
+      </button>
+    </div>
+
+    <div *ngIf="!retentionLoading() && !retentionLoadFailed()" class="wf-table-wrap retention-table-wrap">
+      <table class="wf-table">
+        <thead>
+          <tr>
+            <th class="col-tt">Ngày nhật ký</th>
+            <th>Số bản ghi</th>
+            <th>Dung lượng</th>
+            <th class="col-tt">Ngày dự kiến xóa</th>
+            <th>Còn lại</th>
+            <th>Trạng thái</th>
+            <th class="col-actions">Thao tác</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let item of retentionItems()">
+            <td class="col-tt">{{ formatDate(item.logDate) }}</td>
+            <td>{{ item.documentCount }}</td>
+            <td>{{ formatSize(item.sizeBytes) }}</td>
+            <td class="col-tt">{{ formatDateTime(item.estimatedDeleteAtUtc) }}</td>
+            <td>{{ formatRemainingDays(item.remainingDays) }}</td>
+            <td>
+              <span class="status-pill" [class.status-pending]="isExpiringSoon(item.status)" [class.status-active]="!isExpiringSoon(item.status)">
+                {{ isExpiringSoon(item.status) ? 'Sắp xóa' : 'Đang lưu' }}
+              </span>
+            </td>
+            <td class="col-actions">
+              <button
+                *ngIf="canDeleteAuditLogs()"
+                type="button"
+                class="btn-icon-danger"
+                title="Xóa"
+                [disabled]="!canDeleteRetentionIndex(item) || deletingRetentionIndex()"
+                (click)="openDeleteRetentionIndexConfirm(item)">
+                <i class="pi pi-trash"></i>
+              </button>
+            </td>
+          </tr>
+          <tr *ngIf="retentionItems().length === 0">
+            <td colspan="7" class="empty-row">
+              <i class="pi pi-inbox"></i>
+              <div>Chưa có index nhật ký nào.</div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <app-eco-paginator
+      *ngIf="!retentionLoading() && !retentionLoadFailed() && (retentionStatus()?.totalCount ?? 0) > 0"
+      [currentPage]="retentionPage()"
+      [pageSize]="retentionPageSize()"
+      [totalRecords]="retentionStatus()?.totalCount ?? 0"
+      (pageChange)="onRetentionPageChange($event)"
+      (pageSizeChange)="onRetentionPageSizeChange($event)" />
+  </section>
+
+  <app-delete-confirm-dialog
+    [visible]="showDeleteAllRetentionConfirm()"
+    header="Xác nhận xóa tất cả index nhật ký"
+    entityLabel="Dữ liệu nhật ký"
+    [targetName]="deleteAllRetentionCount().toLocaleString('vi-VN') + ' index (' + deleteAllRetentionDocumentCount().toLocaleString('vi-VN') + ' bản ghi)'"
+    consequence="sẽ bị xóa vật lý và không thể khôi phục. Index của ngày hiện tại không bị xóa."
+    [loading]="deletingAllRetentionIndices()"
+    (cancelled)="cancelDeleteAllRetention()"
+    (confirmed)="confirmDeleteAllRetention()" />
+
+  <app-delete-confirm-dialog
+    [visible]="showDeleteRetentionIndexConfirm()"
+    header="Xác nhận xóa index nhật ký"
+    entityLabel="Index nhật ký"
+    [targetName]="deleteRetentionIndexTargetName()"
+    consequence="sẽ bị xóa vật lý và không thể khôi phục."
+    [loading]="deletingRetentionIndex()"
+    (cancelled)="cancelDeleteRetentionIndex()"
+    (confirmed)="confirmDeleteRetentionIndex()" />
+</div>

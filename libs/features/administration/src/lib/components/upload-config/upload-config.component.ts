@@ -84,19 +84,27 @@ export class UploadConfigComponent implements OnInit {
   actionMenuItems: MenuItem[] = [];
   serverErrors = signal<any>({});
   formSubmitted = signal<boolean>(false);
+  touchedFields = signal<Record<string, boolean>>({});
+
+  onFieldTouched(field: string) {
+    this.touchedFields.update(fields => ({ ...fields, [field]: true }));
+  }
 
   configNameError = computed(() => {
-    if (this.formSubmitted() && !this.currentConfig().name) return 'Tên cấu hình là bắt buộc';
+    const isTouched = this.touchedFields()['name'];
+    if ((this.formSubmitted() || isTouched) && !this.currentConfig().name) return 'Tên cấu hình là bắt buộc';
     return this.serverErrors().name || this.serverErrors().Name || '';
   });
 
   configMaxFileSizeMbError = computed(() => {
-    if (this.formSubmitted() && !this.currentConfig().maxFileSizeMb) return 'Dung lượng tối đa là bắt buộc';
+    const isTouched = this.touchedFields()['maxFileSizeMb'];
+    if ((this.formSubmitted() || isTouched) && !this.currentConfig().maxFileSizeMb) return 'Dung lượng tối đa là bắt buộc';
     return this.serverErrors().maxFileSizeMb || this.serverErrors().MaxFileSizeMb || '';
   });
 
   configAllowedExtensionsError = computed(() => {
-    if (this.formSubmitted() && !this.currentConfig().allowedExtensions) return 'Định dạng file được phép là bắt buộc';
+    const isTouched = this.touchedFields()['allowedExtensions'];
+    if ((this.formSubmitted() || isTouched) && !this.currentConfig().allowedExtensions) return 'Định dạng file được phép là bắt buộc';
     return this.serverErrors().allowedExtensions || this.serverErrors().AllowedExtensions || '';
   });
 
@@ -265,6 +273,7 @@ export class UploadConfigComponent implements OnInit {
     });
     this.formSubmitted.set(false);
     this.serverErrors.set({});
+    this.touchedFields.set({});
     this.dialogHeader.set('Thêm mới cấu hình Upload');
     this.displayDialog.set(true);
   }
@@ -313,6 +322,7 @@ export class UploadConfigComponent implements OnInit {
     this.currentConfig.set({ ...config });
     this.formSubmitted.set(false);
     this.serverErrors.set({});
+    this.touchedFields.set({});
     this.dialogHeader.set('Chỉnh sửa cấu hình Upload');
     this.displayDialog.set(true);
   }

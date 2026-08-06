@@ -14,13 +14,11 @@
 } @else {
   <p-tabs [value]="activeTab()" (valueChange)="onTabChange($event)" class="evn-tabs">
     <p-tablist>
-      <p-tab value="0"><i class="pi pi-list mr-1"></i>Tổng quan ({{ regionCount() }} vùng)</p-tab>
+      <p-tab value="0"><i class="pi pi-list mr-1"></i>Recognition/Detection văn bản hồ sơ ({{ regionCount() }} vùng)</p-tab>
       <p-tab value="1"><i class="pi pi-exclamation-circle mr-1"></i>Lỗi OCR</p-tab>
-      <p-tab value="2"><i class="pi pi-pencil mr-1"></i>Loại chữ viết</p-tab>
-      <p-tab value="3"><i class="pi pi-copy mr-1"></i>So sánh mẫu</p-tab>
-      <p-tab value="4"><i class="pi pi-check-square mr-1"></i>Chính tả</p-tab>
-      <p-tab value="5"><i class="pi pi-calculator mr-1"></i>Công thức</p-tab>
-      <p-tab value="6"><i class="pi pi-verified mr-1"></i>Con dấu/Chữ ký</p-tab>
+      <p-tab value="4"><i class="pi pi-check-square mr-1"></i>Kiểm tra chính tả và hiệu chỉnh nội dung</p-tab>
+      <p-tab value="5"><i class="pi pi-calculator mr-1"></i>Nhận dạng công thức kỹ thuật</p-tab>
+      <p-tab value="6"><i class="pi pi-verified mr-1"></i>Nhận diện Con dấu/Chữ ký</p-tab>
     </p-tablist>
   </p-tabs>
 
@@ -129,102 +127,6 @@
           </table>
         }
       }
-      @case ('2') {
-        <div class="script-type-toolbar">
-          <button type="button" class="btn-action" [disabled]="scriptTypeLoading()" (click)="classifyScriptType()">
-            <i class="pi" [ngClass]="scriptTypeLoading() ? 'pi-spin pi-spinner' : 'pi-play'"></i>
-            Phân loại loại chữ viết
-          </button>
-          @if (scriptTypeSummary(); as summary) {
-            <span class="script-type-summary">
-              Chữ in: <b>{{ summary.printedCount }}</b> · Viết tay: <b>{{ summary.handwrittenCount }}</b> · Hỗn hợp: <b>{{ summary.mixedCount }}</b>
-            </span>
-          }
-        </div>
-        @if (regions().length === 0) {
-          <p class="empty-hint">Chưa có vùng văn bản để phân loại.</p>
-        } @else {
-          <table class="region-table">
-            <thead>
-              <tr>
-                <th>Trang</th>
-                <th>Nội dung</th>
-                <th>Loại chữ viết</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (region of regions(); track region.id) {
-                <tr>
-                  <td>{{ region.pageNumber }}</td>
-                  <td class="text-cell">{{ region.textRaw }}</td>
-                  <td>
-                    @if (region.scriptType) {
-                      <span class="script-badge" [ngClass]="'badge-' + region.scriptType.toLowerCase()">{{ region.scriptType }}</span>
-                    } @else {
-                      <span class="empty-hint">—</span>
-                    }
-                  </td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        }
-      }
-      @case ('3') {
-        <div class="script-type-toolbar">
-          <select
-            class="template-select"
-            [ngModel]="selectedTemplateId()"
-            (ngModelChange)="onSelectTemplate($event)"
-          >
-            <option [ngValue]="null">— Chọn mẫu tham chiếu —</option>
-            @for (tpl of templates(); track tpl.id) {
-              <option [ngValue]="tpl.id">{{ tpl.name }}</option>
-            }
-          </select>
-          <button type="button" class="btn-action" [disabled]="templateDiffLoading() || !selectedTemplateId()" (click)="runTemplateDiff()">
-            <i class="pi" [ngClass]="templateDiffLoading() ? 'pi-spin pi-spinner' : 'pi-play'"></i>
-            So sánh
-          </button>
-        </div>
-
-        @if (templateDiffResults().length > 0) {
-          <table class="region-table">
-            <thead>
-              <tr>
-                <th>Trang</th>
-                <th>Loại sai khác</th>
-                <th>Chi tiết</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (diff of templateDiffResults(); track diff.id) {
-                <tr>
-                  <td>{{ diff.pageNumber }}</td>
-                  <td><span class="script-badge badge-diff">{{ diff.diffType }}</span></td>
-                  <td class="text-cell">{{ diff.detail }}</td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        } @else {
-          <p class="empty-hint">Chọn 1 mẫu tham chiếu rồi bấm "So sánh" để xem sai khác.</p>
-        }
-
-        <div class="save-template-row">
-          <input
-            type="text"
-            class="template-name-input"
-            placeholder="Tên mẫu mới..."
-            [ngModel]="newTemplateName()"
-            (ngModelChange)="newTemplateName.set($event)"
-          />
-          <button type="button" class="btn-action" [disabled]="savingTemplate() || !newTemplateName().trim()" (click)="saveCurrentAsTemplate()">
-            <i class="pi" [ngClass]="savingTemplate() ? 'pi-spin pi-spinner' : 'pi-save'"></i>
-            Lưu layout hiện tại làm mẫu mới
-          </button>
-        </div>
-      }
       @case ('4') {
         <div class="script-type-toolbar">
           <button type="button" class="btn-action" [disabled]="spellcheckLoading()" (click)="runSpellcheck()">
@@ -322,19 +224,34 @@
           }
         </div>
         <p class="hint-note">
-          Lưu ý: điểm số hiển thị là "độ khớp heuristic" tự tính (màu mực đỏ, vị trí, độ tin cậy OCR bất
-          thường) — không phải độ tin cậy của một mô hình AI nhận diện chuyên dụng.
+          Lưu ý: hệ thống dò vùng nghi vấn bằng xử lý ảnh + vị trí, sau đó xác thực lại từng vùng bằng
+          model AI thị giác trước khi ghi nhận — điểm số hiển thị là độ tin cậy phân loại của model AI.
         </p>
         @if (sealSignatureRegions().length === 0) {
           <p class="empty-hint">Chưa có vùng con dấu/chữ ký nào. Bấm "Tách vùng con dấu/chữ ký" để bắt đầu.</p>
         } @else {
+          @if (pageImageLoading()) {
+            <div class="insights-loading">
+              <i class="pi pi-spin pi-spinner"></i>
+              Đang tải ảnh trang...
+            </div>
+          } @else if (pageImageUrl()) {
+            @if (sealSignatureOverlayRegions().length > 0) {
+              <lib-bounding-box-overlay
+                [imageUrl]="pageImageUrl()!"
+                [regions]="sealSignatureOverlayRegions()"
+              ></lib-bounding-box-overlay>
+            } @else {
+              <p class="empty-hint">Trang {{ selectedPage() }} chưa có vùng con dấu/chữ ký nào — chọn trang khác ở trên để xem.</p>
+            }
+          }
           <table class="region-table">
             <thead>
               <tr>
                 <th>Trang</th>
                 <th>Loại</th>
                 <th>Nội dung</th>
-                <th>Độ khớp heuristic</th>
+                <th>Độ tin cậy</th>
               </tr>
             </thead>
             <tbody>

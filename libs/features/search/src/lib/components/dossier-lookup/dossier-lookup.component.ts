@@ -16,6 +16,7 @@ import { MenuItem, MessageService, TreeNode } from 'primeng/api';
 import { Menu, MenuModule } from 'primeng/menu';
 import { SelectModule } from 'primeng/select';
 import { TreeSelectModule } from 'primeng/treeselect';
+import { DatePickerModule } from 'primeng/datepicker';
 import { Subscription } from 'rxjs';
 
 import { AuthService } from '@sohoa.frontend/shared/core';
@@ -42,7 +43,7 @@ import { LookupTrackingService } from '../../data-access/lookup-tracking.service
 
   standalone: true,
 
-  imports: [CommonModule, FormsModule, ToastModule, TooltipModule, MenuModule, SelectModule, TreeSelectModule, WfBreadcrumbComponent, EcoPaginatorComponent],
+  imports: [CommonModule, FormsModule, ToastModule, TooltipModule, MenuModule, SelectModule, TreeSelectModule, DatePickerModule, WfBreadcrumbComponent, EcoPaginatorComponent],
 
   providers: [MessageService],
 
@@ -80,13 +81,15 @@ export class DossierLookupComponent implements OnInit {
 
   searchKeyword = signal<string>('');
 
-  createdDateFrom = signal<string>('');
+  createdDateFrom = signal<Date | null>(null);
 
-  createdDateTo = signal<string>('');
+  createdDateTo = signal<Date | null>(null);
 
   filterGridTypeId = signal<number | null>(null);
 
   filterInfrastructureId = signal<string | null>(null);
+
+  filterEquipmentTypeId = signal<string | null>(null);
 
   filterEquipmentId = signal<string | null>(null);
 
@@ -101,6 +104,8 @@ export class DossierLookupComponent implements OnInit {
   gridTypes = signal<DossierByEquipmentLookupItem[]>([]);
 
   infrastructures = signal<DossierByEquipmentLookupItem[]>([]);
+
+  equipmentTypes = signal<DossierByEquipmentLookupItem[]>([]);
 
   equipments = signal<DossierByEquipmentLookupItem[]>([]);
 
@@ -150,13 +155,15 @@ export class DossierLookupComponent implements OnInit {
 
       keyword: this.searchKeyword().trim() || undefined,
 
-      createdDateFrom: this.createdDateFrom() || undefined,
+      createdDateFrom: this.formatDateForApi(this.createdDateFrom()),
 
-      createdDateTo: this.createdDateTo() || undefined,
+      createdDateTo: this.formatDateForApi(this.createdDateTo()),
 
       gridTypeId: this.filterGridTypeId(),
 
       infrastructureId: this.filterInfrastructureId(),
+
+      equipmentTypeId: this.filterEquipmentTypeId(),
 
       equipmentId: this.filterEquipmentId(),
 
@@ -220,6 +227,14 @@ export class DossierLookupComponent implements OnInit {
 
     this.equipmentLookupSubscription?.unsubscribe();
 
+    this.dossierByEquipmentService.getEquipmentTypes(filter).subscribe({
+
+      next: (res) => this.equipmentTypes.set(res || []),
+
+      error: () => this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không tải được danh sách loại thiết bị' })
+
+    });
+
     this.equipmentLookupSubscription = this.dossierByEquipmentService.getEquipments(filter).subscribe({
 
       next: (res) => this.equipments.set(res || []),
@@ -256,9 +271,17 @@ export class DossierLookupComponent implements OnInit {
 
   onInfrastructureChange() {
 
+    this.filterEquipmentTypeId.set(null);
+
     this.filterEquipmentId.set(null);
 
-    this.filterDossierTypeId.set(null);
+    this.loadDependentLookups();
+
+  }
+
+  onEquipmentTypeChange() {
+
+    this.filterEquipmentId.set(null);
 
     this.loadDependentLookups();
 
@@ -274,7 +297,7 @@ export class DossierLookupComponent implements OnInit {
 
     const toDate = this.createdDateTo();
 
-    if (fromDate && toDate && fromDate > toDate) {
+    if (fromDate && toDate && fromDate.getTime() > toDate.getTime()) {
 
       this.messageService.add({
 
@@ -308,13 +331,15 @@ export class DossierLookupComponent implements OnInit {
 
     this.searchKeyword.set('');
 
-    this.createdDateFrom.set('');
+    this.createdDateFrom.set(null);
 
-    this.createdDateTo.set('');
+    this.createdDateTo.set(null);
 
     this.filterGridTypeId.set(null);
 
     this.filterInfrastructureId.set(null);
+
+    this.filterEquipmentTypeId.set(null);
 
     this.filterEquipmentId.set(null);
 
@@ -330,6 +355,14 @@ export class DossierLookupComponent implements OnInit {
 
     this.loadData();
 
+  }
+
+  private formatDateForApi(value: Date | null): string | undefined {
+    if (!value) return undefined;
+    const year = value.getFullYear();
+    const month = String(value.getMonth() + 1).padStart(2, '0');
+    const day = String(value.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 
   private buildStorageTree(items: any[]): TreeNode[] {

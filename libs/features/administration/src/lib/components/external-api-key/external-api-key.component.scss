@@ -8,7 +8,7 @@
 .api-key-actions {
   justify-content: center;
   gap: 0;
-  min-width: 96px;
+  min-width: 128px;
 }
 
 th.col-hd,
@@ -54,6 +54,17 @@ td.col-hd {
 .api-key-actions .act-edit:hover {
   border-color: #93c5fd;
   background: #dbeafe;
+}
+
+.api-key-actions .act-history {
+  border-color: #ddd6fe;
+  background: #f5f3ff;
+  color: #6d28d9;
+}
+
+.api-key-actions .act-history:hover {
+  border-color: #c4b5fd;
+  background: #ede9fe;
 }
 
 .api-key-actions .act-delete {

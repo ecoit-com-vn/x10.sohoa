@@ -89,6 +89,7 @@ export class InfrastructureComponent implements OnInit {
   transferLoading = signal<boolean>(false);
   transferTarget = signal<any>(null);
   transferInfrastructuresSource = signal<any[]>([]);
+  transferOrganizationUnits = signal<any[]>([]);
 
   showTransferDossierConfirm = signal<boolean>(false);
   transferDossierTarget = signal<any>(null);
@@ -145,7 +146,9 @@ export class InfrastructureComponent implements OnInit {
   transferOrgTreeOpen = signal<boolean>(false);
   transferOrgSearchKeyword = signal<string>('');
   expandedTransferUnitNodes = signal<Set<any>>(new Set<any>());
-  transferOrgUnitTree = computed(() => this.filterOrgTree(this.orgUnitTree(), this.transferOrgSearchKeyword()));
+  transferOrgUnitTree = computed(() =>
+    this.filterOrgTree(this.buildOrgTree(this.transferOrganizationUnits()), this.transferOrgSearchKeyword())
+  );
 
   // Pagination Computeds
   paginatedItems = computed(() => {
@@ -622,6 +625,37 @@ export class InfrastructureComponent implements OnInit {
     if (!unitId) return '';
     const u = (this.orgUnits() || []).find(x => x.id == unitId);
     return u ? u.name : '';
+  }
+
+  getTransferUnitLabel(unitId: any): string {
+    if (!unitId) return '';
+    const u = (this.transferOrganizationUnits() || []).find(x => Number(x.id) === Number(unitId));
+    return u ? u.name : '';
+  }
+
+  private getAvailableOrganizationUnits(data: unknown): any[] {
+    const source = Array.isArray(data)
+      ? data
+      : (data as any)?.items ?? (data as any)?.Items ?? (data as any)?.data ?? (data as any)?.Data ?? [];
+    const units = Array.isArray(source)
+      ? source.map(unit => ({
+        ...unit,
+        id: unit?.id ?? unit?.Id,
+        code: unit?.code ?? unit?.Code,
+        name: unit?.name ?? unit?.Name,
+        parentId: unit?.parentId ?? unit?.ParentId ?? null,
+      }))
+      : [];
+
+    return units.filter(unit => {
+      const deleted = unit?.isDeleted ?? unit?.IsDeleted;
+      const status = unit?.isActive ?? unit?.IsActive ?? unit?.status ?? unit?.Status;
+      const isDeleted = deleted === true || deleted === 1 || String(deleted).toLowerCase() === 'true';
+      const isInactive = status === false || status === 0
+        || ['0', 'false', 'inactive', 'deleted'].includes(String(status).toLowerCase());
+
+      return !isDeleted && !isInactive;
+    });
   }
 
   private matchesGridTypeId(item: any, gridTypeId: any): boolean {
@@ -1160,16 +1194,16 @@ export class InfrastructureComponent implements OnInit {
     this.transferOrgSearchKeyword.set('');
     this.showTransferDialog.set(true);
 
-    if (this.orgUnits().length === 0 || this.transferInfrastructuresSource().length === 0) {
+    if (this.transferOrganizationUnits().length === 0 || this.transferInfrastructuresSource().length === 0) {
       forkJoin({
-        organizationUnits: this.orgUnits().length === 0
-          ? this.equipmentService.getOrganizationUnits().pipe(catchError(() => of([])))
-          : of(this.orgUnits()),
+        organizationUnits: this.transferOrganizationUnits().length === 0
+          ? this.equipmentService.getAllOrganizationUnits().pipe(catchError(() => of([])))
+          : of(this.transferOrganizationUnits()),
         infrastructures: this.transferInfrastructuresSource().length === 0
           ? this.equipmentService.getInfrastructures().pipe(catchError(() => of([])))
           : of(this.transferInfrastructuresSource())
       }).subscribe(data => {
-        this.orgUnits.set(Array.isArray(data.organizationUnits) ? data.organizationUnits : []);
+        this.transferOrganizationUnits.set(this.getAvailableOrganizationUnits(data.organizationUnits));
         this.transferInfrastructuresSource.set(Array.isArray(data.infrastructures) ? data.infrastructures : []);
       });
     }
