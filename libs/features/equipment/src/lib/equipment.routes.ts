@@ -28,6 +28,14 @@ export const EQUIPMENT_ROUTES: Routes = [
     loadComponent: () => import('./components/equipment-factory/equipment-factory.component').then(m => m.EquipmentFactoryComponent)
   },
   {
+    path: 'equipment-cbm',
+    loadComponent: () => import('./components/equipment-cbm/equipment-cbm.component').then(m => m.EquipmentCbmComponent)
+  },
+  {
+    path: 'equipment-detail',
+    loadComponent: () => import('./components/equipment-detail/equipment-detail.component').then(m => m.EquipmentDetailComponent)
+  },
+  {
     path: 'equipment-type',
     loadComponent: () => import('./components/equipment-type/equipment-type.component').then(m => m.EquipmentTypeComponent)
   },

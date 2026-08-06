@@ -36,12 +36,29 @@ import { DossierMenuScope } from '../utils/dossier-status.util';
       <div class="list-toolbar standard-page-toolbar">
         <div class="toolbar-left">
           <wf-breadcrumb
-            [leafLabel]="listTitle()"
+            [customItems]="breadcrumbItems()"
             [suffix]="currentView() === 'list' ? null : breadcrumbCurrent()"
             (listClick)="onBackToList()"
           />
         </div>
         <div class="toolbar-right">
+          <ng-container *ngIf="currentView() === 'form'">
+            <button
+              type="button"
+              class="btn-cancel"
+              (click)="dossierForm()?.onCancel()"
+              title="Hủy">
+              <i class="pi pi-times"></i> Hủy
+            </button>
+            <button
+              type="button"
+              class="btn-save"
+              (click)="dossierForm()?.onSave()"
+              [disabled]="!dossierForm() || dossierForm()?.isSaving() || !dossierForm()?.isValid()"
+              title="Lưu lại">
+              <i class="pi pi-save"></i> Lưu lại
+            </button>
+          </ng-container>
           <ng-container *ngIf="showHeaderImportActions()">
             <input type="file" #fileInput style="display: none;" (change)="onFileSelected($event)" accept=".xlsx" />
             <button type="button" class="btn-outlined" style="padding: 0 14px;" (click)="onExportTemplate()">
@@ -108,6 +125,7 @@ import { DossierMenuScope } from '../utils/dossier-status.util';
 export class DossierManagementComponent implements OnInit {
 
   private dossierList = viewChild(DossierListComponent);
+  dossierForm = viewChild(DossierFormComponent);
 
   private router = inject(Router);
 
@@ -127,6 +145,13 @@ export class DossierManagementComponent implements OnInit {
   /** Chờ sync route trước khi mount list — chỉ cần cho digitization (kindId=1); hồ sơ mới mặc định kindId=2. */
   routeReady = signal(false);
   listTitle = signal('Quản lý hồ sơ');
+  breadcrumbItems = computed(() => {
+    const title = this.listTitle();
+
+    return title === 'Quản lý hồ sơ'
+      ? [{ label: title }]
+      : [{ label: 'Quản lý hồ sơ' }, { label: title }];
+  });
 
   showHeaderCreateButton = computed(() => {
     if (this.currentView() !== 'list') return false;

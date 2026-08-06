@@ -1,0 +1,86 @@
+<div class="wf-page">
+  <p-toast></p-toast>
+
+  <div class="list-toolbar standard-page-toolbar">
+    <div class="toolbar-left">
+      <wf-breadcrumb [customItems]="[{ label: 'Quản trị hệ thống' }, { label: 'Lịch sử đồng bộ API', url: '/administration/history-api-keys' }]" />
+    </div>
+  </div>
+
+  <div class="standard-search-card">
+    <div class="standard-search-grid">
+      <div class="standard-search-field filter-item">
+        <label class="filter-label">Tên API key</label>
+        <input type="text" class="wf-search-input w-full"
+          [ngModel]="keyName()"
+          (ngModelChange)="keyName.set($event)"
+          (keyup.enter)="onSearch()"
+          placeholder="Nhập tên API key" />
+      </div>
+      <div class="standard-search-field filter-item">
+        <label class="filter-label">Thời gian gọi từ</label>
+        <input type="date" class="wf-input w-full"
+          [ngModel]="fromDate()"
+          (ngModelChange)="fromDate.set($event)" />
+      </div>
+      <div class="standard-search-field filter-item">
+        <label class="filter-label">Thời gian gọi đến</label>
+        <input type="date" class="wf-input w-full"
+          [ngModel]="toDate()"
+          (ngModelChange)="toDate.set($event)" />
+      </div>
+    </div>
+    <div class="standard-search-actions">
+      <button type="button" class="btn-outlined" (click)="onReset()">
+        <i class="pi pi-refresh"></i> Làm mới
+      </button>
+      <button type="button" class="btn-save" (click)="onSearch()">
+        <i class="pi pi-check"></i> Áp dụng
+      </button>
+    </div>
+  </div>
+
+  <div class="wf-card">
+    <div class="wf-table-wrap">
+      <table class="wf-table">
+        <thead>
+          <tr>
+            <th class="col-stt">STT</th>
+            <th>Tên API key</th>
+            <th>Thời gian gọi</th>
+            <th>Phương thức</th>
+            <th>Endpoint</th>
+            <th>Mã trạng thái</th>
+            <th>IP nguồn</th>
+            <th>Thời gian xử lý</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngIf="loading()">
+            <td colspan="8" class="loading-row"><i class="pi pi-spin pi-spinner"></i> Đang tải dữ liệu...</td>
+          </tr>
+          <ng-container *ngIf="!loading()">
+            <tr *ngFor="let log of logs(); let index = index">
+              <td class="col-stt text-muted">{{ (currentPage() - 1) * pageSize() + index + 1 }}</td>
+              <td><b>{{ getLogKeyName(log) }}</b></td>
+              <td>{{ getLogCalledAt(log) }}</td>
+              <td>{{ getLogHttpMethod(log) }}</td>
+              <td class="note-cell">{{ getLogEndpoint(log) }}</td>
+              <td>{{ getLogStatusCode(log) }}</td>
+              <td>{{ getLogIpAddress(log) }}</td>
+              <td>{{ getLogDuration(log) }}</td>
+            </tr>
+            <tr *ngIf="logs().length === 0">
+              <td colspan="8" class="empty-row"><i class="pi pi-inbox"></i><div>Không tìm thấy lịch sử đồng bộ API nào.</div></td>
+            </tr>
+          </ng-container>
+        </tbody>
+      </table>
+    </div>
+
+    <app-eco-paginator *ngIf="totalCount() > 0 && !loading()"
+      [currentPage]="currentPage()" [pageSize]="pageSize()" [totalRecords]="totalCount()"
+      recordLabel="lượt gọi"
+      (pageChange)="goToPage($event)" (pageSizeChange)="onPageSizeChange($event)" />
+  </div>
+</div>

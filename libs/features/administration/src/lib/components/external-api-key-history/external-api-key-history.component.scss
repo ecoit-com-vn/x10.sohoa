@@ -1,0 +1,14 @@
+.standard-search-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.note-cell {
+  max-width: 320px;
+  white-space: normal;
+}
+
+.loading-row {
+  padding: 28px;
+  color: #64748b;
+  text-align: center;
+}

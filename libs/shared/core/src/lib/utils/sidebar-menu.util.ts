@@ -116,6 +116,31 @@ export function augmentSidebarMenus(
     }
   }
 
+  const canViewSystemParams =
+    auth?.hasPermission('SUPER_ADMIN') ||
+    auth?.hasPermission('SYSTEM_PARAM_VIEW') ||
+    auth?.hasPermission('SYSTEM_PARAM_EDIT');
+
+  const hasSystemParamMenu = menusCopy.some((m) => m.url === '/administration/system-param');
+  if (!hasSystemParamMenu && canViewSystemParams) {
+    const administrationParent = menusCopy.find(
+      (m) =>
+        !m.url &&
+        (m.name === 'Quản trị hệ thống' || m.permissionCode === 'USER_VIEW')
+    );
+    if (administrationParent) {
+      menusCopy.push({
+        id: 999995,
+        name: 'Thiết lập tham số hệ thống',
+        icon: 'pi pi-sliders-h',
+        url: '/administration/system-param',
+        parentId: administrationParent.id,
+        sortOrder: 100,
+        permissionCode: 'SYSTEM_PARAM_VIEW',
+      });
+    }
+  }
+
   return menusCopy.map((menu) => {
     if (menu.url === '/dossier-management') {
       return { ...menu, url: '/dossier-management/my-dossiers' };

@@ -128,9 +128,9 @@
               [min]="1" [max]="totalPages() || 1" />
           </span>
           <select class="page-size-sel" [ngModel]="pageSize()" (change)="onPageSizeChange($event)">
-            <option [value]="10">10 / trang</option>
-            <option [value]="20">20 / trang</option>
-            <option [value]="50">50 / trang</option>
+            <option [value]="10">10</option>
+            <option [value]="20">20</option>
+            <option [value]="50">50</option>
           </select>
         </div>
       </div>
@@ -198,6 +198,15 @@
           <label for="chkFactoryAcceptanceReport"
             style="font-size: 0.9rem; font-weight: 600; cursor: pointer; user-select: none; margin: 0; line-height: 1;">
             Biên bản xuất xưởng
+          </label>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+          <input type="checkbox" id="chkCbmDocument" [ngModel]="currentItem().isCbmDocument"
+            (ngModelChange)="currentItem().isCbmDocument = $event" style="width: 18px; height: 18px; cursor: pointer; margin: 0;"
+            [disabled]="isSaving()" />
+          <label for="chkCbmDocument"
+            style="font-size: 0.9rem; font-weight: 600; cursor: pointer; user-select: none; margin: 0; line-height: 1;">
+            Tài liệu CBM
           </label>
         </div>
 
