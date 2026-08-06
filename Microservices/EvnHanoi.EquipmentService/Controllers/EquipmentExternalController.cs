@@ -22,7 +22,8 @@ public class EquipmentExternalController : ControllerBase
     private readonly ILogger<EquipmentExternalController> _logger;
     private const string keyName = "PMIS-BBXX";
     private const string keyNameLLTB = "PMIS-LLTB";
-
+    private const string keyNameCBM = "PMIS-CBM";
+    private const string keyNameTSVH = "PMIS-TSVH";
     public EquipmentExternalController(
         IEquipmentRepository equipmentRepository,
         IDocumentRepository documentRepository,
@@ -219,7 +220,166 @@ public class EquipmentExternalController : ControllerBase
             await LogApiCallAsync("pmis-getlist-factory", keyNameLLTB, apiKeyId, statusCode, errorMessage, responseSummary, stopwatch.ElapsedMilliseconds);
         }
     }
+    [HttpGet("pmis-getlist-cbm")]
+    public async Task<IActionResult> GetPmisListEquipmentCBM(
+     //   [FromHeader(Name = "X-Pmis-Key-Name")] string? keyName,
+     [FromHeader(Name = "X-Pmis-Private-Key")] string? privateKey,
+     [FromQuery] PmisEquipmentListRequestDto request)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        long? apiKeyId = null;
+        int statusCode = StatusCodes.Status200OK;
+        string? errorMessage = null;
+        string? responseSummary = null;
 
+        try
+        {
+            if (string.IsNullOrWhiteSpace(keyNameCBM) || string.IsNullOrWhiteSpace(privateKey))
+            {
+                statusCode = StatusCodes.Status401Unauthorized;
+                errorMessage = "Private key không hợp lệ hoặc đã hết hạn.";
+                return Unauthorized(new { message = errorMessage });
+            }
+
+            apiKeyId = await _externalApiKeyValidator.ValidateAsync(keyNameCBM.Trim(), ComputeSha256(privateKey));
+            if (apiKeyId is null)
+            {
+                statusCode = StatusCodes.Status401Unauthorized;
+                errorMessage = "Private key không hợp lệ hoặc đã hết hạn.";
+                return Unauthorized(new { message = errorMessage });
+            }
+
+            if (request.Loai is not null and not 1 and not 2)
+            {
+                statusCode = StatusCodes.Status400BadRequest;
+                errorMessage = "loai chi nhan gia tri 1 (tram bien ap) hoac 2 (duong day).";
+                return BadRequest(new { message = errorMessage });
+            }
+
+            if (request.Skip < 0 || request.Take is < 1 or > 1000)
+            {
+                statusCode = StatusCodes.Status400BadRequest;
+                errorMessage = "skip phải từ 0 trở lên và take phải từ 1 đến 1000.";
+                return BadRequest(new { message = errorMessage });
+            }
+
+            if (request.TuNgay.HasValue && request.DenNgay.HasValue && request.TuNgay.Value.Date > request.DenNgay.Value.Date)
+            {
+                statusCode = StatusCodes.Status400BadRequest;
+                errorMessage = "Từ ngày không được lớn hơn đến ngày.";
+                return BadRequest(new { message = errorMessage });
+            }
+
+            var pmisUrl = await _systemParamRepository.GetValueAsync("PmisUrl");
+            if (string.IsNullOrWhiteSpace(pmisUrl))
+            {
+                statusCode = StatusCodes.Status500InternalServerError;
+                errorMessage = "Chưa cấu hình tham số hệ thống PmisUrl.";
+                return StatusCode(StatusCodes.Status500InternalServerError, new { message = errorMessage });
+            }
+            pmisUrl = pmisUrl + "/#/equipment/equipment-cbm?equipmentId=";
+            var (items, totalCount) = await _equipmentRepository.GetExternalListAsync(request);
+
+            foreach (var item in items)
+            {
+                item.Link = $"{pmisUrl}{Uri.EscapeDataString(item.Id.ToString())}";
+                // item.MaQRCode = CreateQrCodeBase64(item.Link);
+            }
+
+            responseSummary = $"totalCount={totalCount}";
+            return Ok(new { items, totalCount, request.Skip, request.Take });
+        }
+        catch (Exception ex)
+        {
+            statusCode = StatusCodes.Status500InternalServerError;
+            errorMessage = ex.Message;
+            throw;
+        }
+        finally
+        {
+            await LogApiCallAsync("pmis-getlist-cbm", keyNameCBM, apiKeyId, statusCode, errorMessage, responseSummary, stopwatch.ElapsedMilliseconds);
+        }
+    }
+    [HttpGet("pmis-getlist-tsvh")]
+    public async Task<IActionResult> GetPmisListEquipmentTSVH(
+   //   [FromHeader(Name = "X-Pmis-Key-Name")] string? keyName,
+   [FromHeader(Name = "X-Pmis-Private-Key")] string? privateKey,
+   [FromQuery] PmisEquipmentListRequestDto request)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        long? apiKeyId = null;
+        int statusCode = StatusCodes.Status200OK;
+        string? errorMessage = null;
+        string? responseSummary = null;
+
+        try
+        {
+            if (string.IsNullOrWhiteSpace(keyNameTSVH) || string.IsNullOrWhiteSpace(privateKey))
+            {
+                statusCode = StatusCodes.Status401Unauthorized;
+                errorMessage = "Private key không hợp lệ hoặc đã hết hạn.";
+                return Unauthorized(new { message = errorMessage });
+            }
+
+            apiKeyId = await _externalApiKeyValidator.ValidateAsync(keyNameTSVH.Trim(), ComputeSha256(privateKey));
+            if (apiKeyId is null)
+            {
+                statusCode = StatusCodes.Status401Unauthorized;
+                errorMessage = "Private key không hợp lệ hoặc đã hết hạn.";
+                return Unauthorized(new { message = errorMessage });
+            }
+
+            if (request.Loai is not null and not 1 and not 2)
+            {
+                statusCode = StatusCodes.Status400BadRequest;
+                errorMessage = "loai chi nhan gia tri 1 (tram bien ap) hoac 2 (duong day).";
+                return BadRequest(new { message = errorMessage });
+            }
+
+            if (request.Skip < 0 || request.Take is < 1 or > 1000)
+            {
+                statusCode = StatusCodes.Status400BadRequest;
+                errorMessage = "skip phải từ 0 trở lên và take phải từ 1 đến 1000.";
+                return BadRequest(new { message = errorMessage });
+            }
+
+            if (request.TuNgay.HasValue && request.DenNgay.HasValue && request.TuNgay.Value.Date > request.DenNgay.Value.Date)
+            {
+                statusCode = StatusCodes.Status400BadRequest;
+                errorMessage = "Từ ngày không được lớn hơn đến ngày.";
+                return BadRequest(new { message = errorMessage });
+            }
+
+            var pmisUrl = await _systemParamRepository.GetValueAsync("PmisUrl");
+            if (string.IsNullOrWhiteSpace(pmisUrl))
+            {
+                statusCode = StatusCodes.Status500InternalServerError;
+                errorMessage = "Chưa cấu hình tham số hệ thống PmisUrl.";
+                return StatusCode(StatusCodes.Status500InternalServerError, new { message = errorMessage });
+            }
+            pmisUrl = pmisUrl + "/#/equipment/equipment-detail?equipmentId=";
+            var (items, totalCount) = await _equipmentRepository.GetExternalListAsync(request);
+
+            foreach (var item in items)
+            {
+                item.Link = $"{pmisUrl}{Uri.EscapeDataString(item.Id.ToString())}";
+                // item.MaQRCode = CreateQrCodeBase64(item.Link);
+            }
+
+            responseSummary = $"totalCount={totalCount}";
+            return Ok(new { items, totalCount, request.Skip, request.Take });
+        }
+        catch (Exception ex)
+        {
+            statusCode = StatusCodes.Status500InternalServerError;
+            errorMessage = ex.Message;
+            throw;
+        }
+        finally
+        {
+            await LogApiCallAsync("pmis-getlist-tsvh", keyNameTSVH, apiKeyId, statusCode, errorMessage, responseSummary, stopwatch.ElapsedMilliseconds);
+        }
+    }
     private async Task LogApiCallAsync(
         string endpoint,
         string requestedKeyName,

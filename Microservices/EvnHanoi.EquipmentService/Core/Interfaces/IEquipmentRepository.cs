@@ -33,6 +33,7 @@ public interface IEquipmentRepository
     Task<Equipment?> GetDetailTransferTargetAsync(Equipment sourceEquipment);
     Task<bool> CloneDossiersAndDocumentsForDetailTransferAsync(Equipment sourceEquipment, Equipment replacementEquipment);
     Task<bool> UpdateAsync(Equipment equipment);
+    Task<bool> ConfirmAsync(Guid id, string modifiedBy);
     Task<bool> UpdateAttributesAsync(Guid equipmentId, IEnumerable<AttributeValue> attributes);
     Task<bool> DeleteAsync(Guid id);
     Task<IEnumerable<AttributeValue>> GetAttributesAsync(Guid equipmentId);

@@ -194,10 +194,34 @@ public partial class EquipmentController
     {
         var equipment = await _equipmentRepository.GetDtoByIdAsync(equipmentId);
         if (equipment == null)
-            return NotFound(new { message = "Khong tim thay thiet bi." });
+            return NotFound(new { message = "Không tìm thấy thiết bị." });
 
         var (documents, totalCount) = await _documentRepository
             .GetPublishedProfileDocumentsByEquipmentAsync(equipmentId, filter);
+
+        return Ok(new
+        {
+            equipment,
+            documents,
+            totalCount,
+            page = filter.Page,
+            pageSize = filter.PageSize
+        });
+    }
+
+    /// <summary>Thông tin thiết bị và tài liệu CBM thuộc hồ sơ đã xuất bản.</summary>
+    [HttpGet("cbm-documents/{equipmentId:guid}")]
+    [BypassDynamicPermission]
+    public async Task<IActionResult> GetCbmDocumentsEquipmentDetail(
+        Guid equipmentId,
+        [FromQuery] DossierDocumentFilterDto filter)
+    {
+        var equipment = await _equipmentRepository.GetDtoByIdAsync(equipmentId);
+        if (equipment == null)
+            return NotFound(new { message = "Không tìm thấy thiết bị." });
+
+        var (documents, totalCount) = await _documentRepository
+            .GetPublishedCbmDocumentsByEquipmentAsync(equipmentId, filter);
 
         return Ok(new
         {
