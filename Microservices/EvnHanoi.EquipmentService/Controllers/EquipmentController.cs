@@ -612,6 +612,18 @@ public partial class EquipmentController : ControllerBase
         return Ok(data);
     }
 
+    /// <summary>
+    /// Trạm/Đường dây của TẤT CẢ đơn vị đang hoạt động — dùng riêng cho dialog Chuyển thiết bị,
+    /// không giới hạn theo đơn vị của người dùng vì đích chuyển có thể thuộc đơn vị khác.
+    /// </summary>
+    [HttpGet("get-infrastructures-all")]
+    [BypassDynamicPermission]
+    public async Task<IActionResult> GetAllInfrastructures()
+    {
+        var data = await _equipmentRepository.GetInfrastructuresLookupAsync(null);
+        return Ok(data);
+    }
+
     [HttpGet("get-grid-types")]
     [BypassDynamicPermission]
     public async Task<IActionResult> GetGridTypes()
@@ -765,6 +777,27 @@ public partial class EquipmentController : ControllerBase
         }
 
         return BadRequest(new { message = "Không thể cập nhật thông số thiết bị." });
+    }
+
+    [HttpPut("{id:guid}/confirm")]
+    public async Task<IActionResult> Confirm(Guid id)
+    {
+        var existing = await _equipmentRepository.GetByIdAsync(id);
+        if (existing == null)
+            return NotFound();
+
+        var allowedUnitIds = await GetAllowedUnitIdsAsync();
+        if (allowedUnitIds != null && (!existing.UnitId.HasValue || !allowedUnitIds.Contains(existing.UnitId.Value)))
+        {
+            return Forbid();
+        }
+
+        var modifiedBy = User.FindFirst(ClaimTypes.Name)?.Value ?? User.Identity?.Name ?? "system";
+        var result = await _equipmentRepository.ConfirmAsync(id, modifiedBy);
+        if (!result)
+            return BadRequest(new { message = "Không thể xác nhận thiết bị." });
+
+        return NoContent();
     }
 
     /// <summary>

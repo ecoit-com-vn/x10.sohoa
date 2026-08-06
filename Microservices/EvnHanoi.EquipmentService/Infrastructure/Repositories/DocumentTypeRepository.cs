@@ -29,6 +29,7 @@ public class DocumentTypeRepository : IDocumentTypeRepository
                              dt.IS_ACTIVE as {nameof(DocumentType.IsActive)},
                              dt.IS_EQUIPMENT_PROFILE as {nameof(DocumentType.IsEquipmentProfile)},
                              dt.IS_FACTORY_ACCEPTANCE_REPORT as {nameof(DocumentType.IsFactoryAcceptanceReport)},
+                             dt.IS_CBM_DOCUMENT as {nameof(DocumentType.IsCbmDocument)},
                              dt.PIORITY as {nameof(DocumentType.Piority)},
                             dt.{nameof(DocumentType.CreatedBy)},
                             dt.{nameof(DocumentType.CreatedDate)},
@@ -55,6 +56,7 @@ public class DocumentTypeRepository : IDocumentTypeRepository
                              dt.IS_ACTIVE as {nameof(DocumentType.IsActive)},
                              dt.IS_EQUIPMENT_PROFILE as {nameof(DocumentType.IsEquipmentProfile)},
                              dt.IS_FACTORY_ACCEPTANCE_REPORT as {nameof(DocumentType.IsFactoryAcceptanceReport)},
+                             dt.IS_CBM_DOCUMENT as {nameof(DocumentType.IsCbmDocument)},
                              dt.PIORITY as {nameof(DocumentType.Piority)},
                             dt.{nameof(DocumentType.CreatedBy)},
                             dt.{nameof(DocumentType.CreatedDate)},
@@ -107,6 +109,7 @@ public class DocumentTypeRepository : IDocumentTypeRepository
                                     dt.IS_ACTIVE as {nameof(DocumentType.IsActive)},
                                     dt.IS_EQUIPMENT_PROFILE as {nameof(DocumentType.IsEquipmentProfile)},
                                     dt.IS_FACTORY_ACCEPTANCE_REPORT as {nameof(DocumentType.IsFactoryAcceptanceReport)},
+                                    dt.IS_CBM_DOCUMENT as {nameof(DocumentType.IsCbmDocument)},
                                     dt.PIORITY as {nameof(DocumentType.Piority)},
                                    dt.{nameof(DocumentType.CreatedBy)},
                                    dt.{nameof(DocumentType.CreatedDate)},
@@ -138,6 +141,7 @@ public class DocumentTypeRepository : IDocumentTypeRepository
                              dt.IS_ACTIVE as {nameof(DocumentType.IsActive)},
                              dt.IS_EQUIPMENT_PROFILE as {nameof(DocumentType.IsEquipmentProfile)},
                              dt.IS_FACTORY_ACCEPTANCE_REPORT as {nameof(DocumentType.IsFactoryAcceptanceReport)},
+                             dt.IS_CBM_DOCUMENT as {nameof(DocumentType.IsCbmDocument)},
                              dt.PIORITY as {nameof(DocumentType.Piority)},
                             dt.{nameof(DocumentType.CreatedBy)},
                             dt.{nameof(DocumentType.CreatedDate)},
@@ -178,12 +182,13 @@ public class DocumentTypeRepository : IDocumentTypeRepository
                         IS_ACTIVE,
                         IS_EQUIPMENT_PROFILE,
                         IS_FACTORY_ACCEPTANCE_REPORT,
+                        IS_CBM_DOCUMENT,
                         PIORITY,
                         {nameof(DocumentType.CreatedBy)},
                         {nameof(DocumentType.CreatedDate)},
                         {nameof(DocumentType.IsDeleted)}
                     )
-                    VALUES (:Id, :Name, :Code, :FormId, :IsActive, :IsEquipmentProfile, :IsFactoryAcceptanceReport, :Piority, :CreatedBy, :CreatedDate, :IsDeleted)";
+                    VALUES (:Id, :Name, :Code, :FormId, :IsActive, :IsEquipmentProfile, :IsFactoryAcceptanceReport, :IsCbmDocument, :Piority, :CreatedBy, :CreatedDate, :IsDeleted)";
 
         var param = new
         {
@@ -194,6 +199,7 @@ public class DocumentTypeRepository : IDocumentTypeRepository
             IsActive = documentType.IsActive ? 1 : 0,
             IsEquipmentProfile = documentType.IsEquipmentProfile ? 1 : 0,
             IsFactoryAcceptanceReport = documentType.IsFactoryAcceptanceReport ? 1 : 0,
+            IsCbmDocument = documentType.IsCbmDocument ? 1 : 0,
             documentType.Piority,
             documentType.CreatedBy,
             documentType.CreatedDate,
@@ -216,6 +222,7 @@ public class DocumentTypeRepository : IDocumentTypeRepository
                          IS_ACTIVE = :IsActive,
                          IS_EQUIPMENT_PROFILE = :IsEquipmentProfile,
                          IS_FACTORY_ACCEPTANCE_REPORT = :IsFactoryAcceptanceReport,
+                         IS_CBM_DOCUMENT = :IsCbmDocument,
                          PIORITY = :Piority,
                         {nameof(DocumentType.ModifiedBy)} = :ModifiedBy,
                         {nameof(DocumentType.ModifiedDate)} = :ModifiedDate
@@ -230,6 +237,7 @@ public class DocumentTypeRepository : IDocumentTypeRepository
             IsActive = documentType.IsActive ? 1 : 0,
             IsEquipmentProfile = documentType.IsEquipmentProfile ? 1 : 0,
             IsFactoryAcceptanceReport = documentType.IsFactoryAcceptanceReport ? 1 : 0,
+            IsCbmDocument = documentType.IsCbmDocument ? 1 : 0,
             documentType.Piority,
             documentType.ModifiedBy,
             documentType.ModifiedDate
