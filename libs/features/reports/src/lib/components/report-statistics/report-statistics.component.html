@@ -8,27 +8,25 @@
     <div class="standard-search-grid">
 
         <div class="standard-search-field">
-            <label>Từ khóa</label>
+            <label>Mã báo cáo</label>
             <input
                 type="text"
                 class="wf-input"
-                [ngModel]="searchKeyword()"
-                (ngModelChange)="searchKeyword.set($event)"
+                [ngModel]="searchCode()"
+                (ngModelChange)="searchCode.set($event)"
                 (keyup.enter)="onSearch()"
-                placeholder="Tìm theo mã hoặc tên báo cáo..." />
+                placeholder="Nhập mã báo cáo..." />
         </div>
 
         <div class="standard-search-field">
-            <label>Trạng thái</label>
-            <select
-                class="wf-select"
-                [ngModel]="searchStatus()"
-                (ngModelChange)="onStatusFilterChange($event)">
-                <option value="">-- Tất cả trạng thái --</option>
-                <option value="published">Công bố</option>
-                <option value="draft">Lưu nháp</option>
-                <option value="not_configured">Chưa cấu hình</option>
-            </select>
+            <label>Tên báo cáo</label>
+            <input
+                type="text"
+                class="wf-input"
+                [ngModel]="searchName()"
+                (ngModelChange)="searchName.set($event)"
+                (keyup.enter)="onSearch()"
+                placeholder="Nhập tên báo cáo..." />
         </div>
 
         <div class="standard-search-actions">
@@ -62,7 +60,6 @@
                             <th style="width: 60px;" class="text-center">STT</th>
                             <th style="width: 240px;">Mã báo cáo</th>
                             <th>Tên báo cáo</th>
-                            <th style="width: 150px;" class="text-center">Trạng thái</th>
                             <th style="width: 100px;" class="text-center">Thao tác</th>
                         </tr>
                     </thead>
@@ -76,20 +73,13 @@
               </span>
                             </td>
                             <td class="text-center">
-                                <span [ngSwitch]="report.status">
-                  <span *ngSwitchCase="'published'" class="badge status-published">Công bố</span>
-                                <span *ngSwitchCase="'draft'" class="badge status-draft">Lưu nháp</span>
-                                <span *ngSwitchCase="'not_configured'" class="badge status-not-configured">Chưa cấu hình</span>
-                                </span>
-                            </td>
-                            <td class="text-center">
                                 <button type="button" class="act-btn-dot" (click)="viewReport(report)" pTooltip="Xem báo cáo" tooltipPosition="top" title="Xem báo cáo" style="background: transparent; border: none; cursor: pointer; padding: 4px 6px; border-radius: 4px; color: #64748b; transition: all 0.2s;">
                 <i class="pi pi-eye" style="font-size: 0.875rem; vertical-align: middle;"></i>
               </button>
                             </td>
                         </tr>
                         <tr *ngIf="filteredReports().length === 0">
-                            <td colspan="5" class="empty-row text-center py-5 text-muted">
+                            <td colspan="4" class="empty-row text-center py-5 text-muted">
                                 <i class="pi pi-inbox block text-3xl mb-2" style="color: #cbd5e1;"></i> Không tìm thấy báo cáo nào được phân quyền cho bạn.
                             </td>
                         </tr>
@@ -101,7 +91,7 @@
                 <span class="record-count">
           Tổng số: <b>{{ filteredReports().length }}</b> báo cáo.
         </span>
-                <app-eco-paginator [first]="(currentPage() - 1) * pageSize()" [rows]="pageSize()" [totalRecords]="filteredReports().length" [rowsPerPageOptions]="[5, 10, 20, 50]" (onPageChange)="onUnitPageChange($event)">
+                <app-eco-paginator [first]="(currentPage() - 1) * pageSize()" [rows]="pageSize()" [totalRecords]="filteredReports().length" [rowsPerPageOptions]="[10, 20, 50]" (onPageChange)="onUnitPageChange($event)">
                 </app-eco-paginator>
             </div>
 

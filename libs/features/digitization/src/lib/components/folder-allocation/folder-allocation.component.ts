@@ -65,6 +65,11 @@ export class FolderAllocationComponent implements OnInit {
   totalCount = signal<number>(0);
   searchKeyword = signal<string>('');
   selectedStatus = signal<string>('');
+  selectedFromDate = signal<Date | null>(null);
+  selectedToDate = signal<Date | null>(null);
+  appliedFromDate = signal<Date | null>(null);
+  appliedToDate = signal<Date | null>(null);
+  filterVersion = signal<number>(0);
 
   dialogVisible = signal<boolean>(false);
   editingId = signal<string | null>(null);
@@ -93,12 +98,15 @@ export class FolderAllocationComponent implements OnInit {
   }
 
   loadAllocations(): void {
+    this.filterVersion();
     this.loading.set(true);
     this.service.getPaged(
       this.currentPage(),
       this.pageSize(),
       this.searchKeyword(),
-      this.selectedStatus()
+      this.selectedStatus(),
+      this.toDateOnlyParam(this.appliedFromDate()),
+      this.toDateOnlyParam(this.appliedToDate())
     ).pipe(
       finalize(() => this.loading.set(false))
     ).subscribe({
@@ -121,7 +129,31 @@ export class FolderAllocationComponent implements OnInit {
   onResetSearch(): void {
     this.searchKeyword.set('');
     this.selectedStatus.set('');
+    this.selectedFromDate.set(null);
+    this.selectedToDate.set(null);
+    this.appliedFromDate.set(null);
+    this.appliedToDate.set(null);
     this.currentPage.set(1);
+    this.filterVersion.update(version => version + 1);
+  }
+
+  onApplyFilters(): void {
+    const fromDate = this.selectedFromDate();
+    const toDate = this.selectedToDate();
+
+    if (fromDate && toDate && fromDate > toDate) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Khoảng ngày không hợp lệ',
+        detail: 'Từ ngày phải nhỏ hơn hoặc bằng Đến ngày.'
+      });
+      return;
+    }
+
+    this.appliedFromDate.set(fromDate);
+    this.appliedToDate.set(toDate);
+    this.currentPage.set(1);
+    this.filterVersion.update(version => version + 1);
   }
 
   openCreate(): void {
@@ -149,8 +181,7 @@ export class FolderAllocationComponent implements OnInit {
     if (item.status !== 'Active' && canManage) {
       items.push({ label: 'Phân bổ thư mục', title: 'Phân bổ thư mục', icon: 'pi pi-check-circle color-teal', command: () => this.onReactivate(item) });
     }
-    if (this.authService.hasPermission('FOLDER_ALLOCATION_DELETE')
-      || this.authService.hasPermission('FOLDER_ALLOCATION_MANAGE')) {
+    if (canManage) {
       items.push({ label: 'Xóa phân bổ', title: 'Xóa phân bổ', icon: 'pi pi-trash color-red', command: () => this.onDelete(item) });
     }
 
@@ -290,6 +321,15 @@ export class FolderAllocationComponent implements OnInit {
     const month = String(d.getMonth() + 1).padStart(2, '0');
     const year = d.getFullYear();
     return `${day}/${month}/${year}`;
+  }
+
+  private toDateOnlyParam(date: Date | null): string | undefined {
+    if (!date) return undefined;
+
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 
   nextPage(): void {

@@ -55,6 +55,7 @@ export class TransmissionLineSearchComponent implements OnInit {
   // Pagination
   currentPage = signal<number>(1);
   pageSize = signal<number>(10);
+  totalPages = computed(() => Math.ceil(this.totalCount() / this.pageSize()));
 
   // ── DETAIL VIEW SIGNALS ────────────────────────────────────────────────────
   activeTab = signal<number>(0);
@@ -357,6 +358,40 @@ export class TransmissionLineSearchComponent implements OnInit {
     const first = Number(event.first) || 0;
     this.pageSize.set(rows);
     this.currentPage.set(Math.floor(first / rows) + 1);
+  }
+
+  prevListPage() {
+    if (this.currentPage() > 1) {
+      this.onListPageChange({
+        first: (this.currentPage() - 2) * this.pageSize(),
+        rows: this.pageSize(),
+      });
+    }
+  }
+
+  nextListPage() {
+    if (this.currentPage() < this.totalPages()) {
+      this.onListPageChange({
+        first: this.currentPage() * this.pageSize(),
+        rows: this.pageSize(),
+      });
+    }
+  }
+
+  goToListPage(page: unknown) {
+    const targetPage = Number(page);
+    if (Number.isInteger(targetPage) && targetPage >= 1 && targetPage <= this.totalPages()) {
+      this.onListPageChange({
+        first: (targetPage - 1) * this.pageSize(),
+        rows: this.pageSize(),
+      });
+    }
+  }
+
+  onListPageSizeChange(event: Event) {
+    const target = event.target as HTMLSelectElement | null;
+    const rows = Number(target?.value) || 10;
+    this.onListPageChange({ first: 0, rows });
   }
 
   onViewDetail(item: any) {

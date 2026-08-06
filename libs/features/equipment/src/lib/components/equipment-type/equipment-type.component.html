@@ -4,9 +4,19 @@
     <div class="toolbar-left">
       <wf-breadcrumb [viewMode]="currentView()" (listClick)="goBack()" />
     </div>
-    <div class="toolbar-right" *ngIf="canCreate()">
+    <div class="toolbar-right" *ngIf="currentView() === 'list' && canCreate()">
       <button class="btn-green" (click)="onAddNew()">
         <i class="pi pi-plus"></i> Thêm mới
+      </button>
+    </div>
+    <div class="toolbar-right equipment-type-form-toolbar" *ngIf="currentView() === 'add' || currentView() === 'edit'">
+      <button class="btn-cancel btn-small" (click)="goBack()" [disabled]="isSaving()">
+        <i class="pi pi-times"></i> Hủy bỏ
+      </button>
+      <button *ngIf="canSaveCurrentView()" class="btn-save btn-small" (click)="onSaveItem()" [disabled]="isSaving()">
+        <i class="pi pi-spin pi-spinner" *ngIf="isSaving()"></i>
+        <i class="pi pi-save" *ngIf="!isSaving()"></i>
+        Lưu
       </button>
     </div>
   </div>
@@ -84,14 +94,12 @@
           <tbody>
             <tr *ngFor="let item of paginatedItems(); let i = index">
               <td class="col-stt text-muted">{{ (currentPage() - 1) * pageSize() + i + 1 }}</td>
-              <td><code>{{ item.code }}</code></td>
               <td>
-                <span *ngIf="canEdit(); else viewOnlyName">
-                  <b class="wf-name-link" (click)="onEdit(item)">{{ item.name }}</b>
-                </span>
-                <ng-template #viewOnlyName>
-                  <b>{{ item.name }}</b>
-                </ng-template>
+                <code *ngIf="canEdit(); else viewOnlyCode" class="wf-name-link" (click)="onEdit(item)">{{ item.code }}</code>
+                <ng-template #viewOnlyCode><code>{{ item.code }}</code></ng-template>
+              </td>
+              <td>
+                <b>{{ item.name }}</b>
               </td>
               <td>
                 <span class="font-semibold">
@@ -163,18 +171,9 @@
 
     <!-- ==================== VIEW 2: MÀN HÌNH THÊM MỚI / CHỈNH SỬA (SUB-VIEW KHÔNG POPUP) ==================== -->
     <div *ngIf="currentView() === 'add' || currentView() === 'edit'" class="animate-fade-in sub-view-container">
-      <div class="sub-view-header"
-        style="border-bottom: 2px solid #FF6B00; padding-bottom: 10px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
-        <h3 style="color: #002D72; margin: 0; font-size: 1.25rem; font-weight: 700;">
-          {{ currentView() === 'add' ? 'Thêm mới Loại thiết bị' : 'Chỉnh sửa cấu hình Loại thiết bị' }}
-        </h3>
-        <button class="btn-outlined btn-small" (click)="goBack()">
-          <i class="pi pi-arrow-left"></i> Quay lại danh sách
-        </button>
-      </div>
-
       <!-- Form chi tiết -->
-      <div class="grid-form-layout" style="display: flex; flex-direction: column; gap: 18px; max-width: 700px;">
+      <div class="wf-card equipment-type-form-card">
+        <div class="grid-form-layout equipment-type-form-content">
 
         <div class="form-group-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
           <!-- Mã loại thiết bị -->
@@ -255,20 +254,7 @@
           </div>
         </div>
 
-        <!-- Nút Thao tác -->
-        <div class="form-actions"
-          style="margin-top: 20px; padding-top: 16px; border-top: 1px solid #e2e8f0; display: flex; gap: 10px; justify-content: flex-end;">
-          <button class="btn-cancel" (click)="goBack()" [disabled]="isSaving()">
-            <i class="pi pi-times"></i> Hủy bỏ
-          </button>
-          <button class="btn-save" (click)="onSaveItem()" [disabled]="isSaving()"
-            style="background-color: #4790e9; border-color: #4790e9;">
-            <i class="pi pi-spin pi-spinner" *ngIf="isSaving()" style="margin-right: 4px;"></i>
-            <i class="pi pi-save" *ngIf="!isSaving()" style="margin-right: 4px;"></i>
-            Lưu dữ liệu
-          </button>
         </div>
-
       </div>
     </div>
 

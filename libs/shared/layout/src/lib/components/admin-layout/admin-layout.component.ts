@@ -323,6 +323,30 @@ export class AdminLayout implements OnInit, OnDestroy {
       }
     }
 
+    const canViewSystemParams =
+      this.authService.hasPermission('SUPER_ADMIN') ||
+      this.authService.hasPermission('SYSTEM_PARAM_VIEW') ||
+      this.authService.hasPermission('SYSTEM_PARAM_EDIT');
+    const hasSystemParamMenu = menusCopy.some((m) => m.url === '/administration/system-param');
+    if (!hasSystemParamMenu && canViewSystemParams) {
+      const administrationParent = menusCopy.find(
+        (m) =>
+          !m.url &&
+          (m.name === 'Quản trị hệ thống' || m.permissionCode === 'USER_VIEW')
+      );
+      if (administrationParent) {
+        menusCopy.push({
+          id: 999995,
+          name: 'Thiết lập tham số hệ thống',
+          icon: 'pi pi-sliders-h',
+          url: '/administration/system-param',
+          parentId: administrationParent.id,
+          sortOrder: 100,
+          permissionCode: 'SYSTEM_PARAM_VIEW',
+        });
+      }
+    }
+
     menusCopy.forEach((m) => {
       const url = m.url === '/dossier-management' ? '/dossier-management/my-dossiers' : m.url;
       const item: MenuItem = {
