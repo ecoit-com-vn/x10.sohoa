@@ -48,10 +48,9 @@ import { normalizeDossierKindId } from '../../utils/dossier-permission.util';
           <button *ngIf="showHeaderBackButton" (click)="onCancel()" class="btn-back btn-small" title="Quay lại">
             <i class="pi pi-arrow-left"></i>
           </button>
-          <h2 class="edit-title">{{ isEditMode() ? 'Cập nhật Thông tin Hồ sơ' : 'Tạo Hồ sơ mới' }}</h2>
+          <h2 *ngIf="isEditMode()" class="edit-title">Cập nhật Thông tin Hồ sơ</h2>
         </div>
         <div class="edit-actions">
-          <button (click)="onCancel()" class="btn-cancel"><i class="pi pi-times"></i> Hủy</button>
           <button *ngIf="showCompleteInputButton()"
                   (click)="onCompleteInput()" class="btn-green" [disabled]="completingInput()">
             <i class="pi pi-check" *ngIf="!completingInput()"></i>
@@ -83,11 +82,6 @@ import { normalizeDossierKindId } from '../../utils/dossier-permission.util';
             </button>
           </ng-container>
 
-          <button (click)="onSave()" class="btn-save" [disabled]="isSaving() || !isValid()">
-            <i class="pi pi-save" *ngIf="!isSaving()"></i>
-            <i class="pi pi-spin pi-spinner" *ngIf="isSaving()"></i>
-            Lưu thông tin
-          </button>
         </div>
       </div>
 
@@ -160,15 +154,20 @@ import { normalizeDossierKindId } from '../../utils/dossier-permission.util';
               [options]="formInfrastructures()"
               [(ngModel)]="dossier.infrastructureIds"
               (ngModelChange)="onInfrastructureChange($event)"
-              optionLabel="displayLabel"
+              optionLabel="name"
               optionValue="id"
               [filter]="true"
-              filterBy="name,code,displayLabel"
+              filterBy="name,code"
+              filterPlaceholder="Tìm theo mã hoặc tên..."
               [showClear]="true"
               placeholder="-- Chọn trạm / đường dây --"
               appendTo="body"
-              styleClass="w-full"
+              styleClass="w-full dossier-infrastructure-select"
               [style]="{'width':'100%'}">
+              <ng-template #item let-item>
+                <span>{{ item.name }}</span>
+                <small *ngIf="item.code" class="lookup-option-code">({{ item.code }})</small>
+              </ng-template>
             </p-multiSelect>
           </div>
 
@@ -670,6 +669,13 @@ import { normalizeDossierKindId } from '../../utils/dossier-permission.util';
   `,
   styles: [`
     .w-full { width: 100%; }
+    :host ::ng-deep .dossier-infrastructure-select { width: 100%; min-height: 34px; }
+    :host ::ng-deep .dossier-infrastructure-select .p-multiselect-label {
+      padding-top: 7px;
+      padding-bottom: 7px;
+      font-size: 0.875rem;
+    }
+    .lookup-option-code { margin-left: 6px; color: #64748b; }
     .tab-bar { margin-bottom: 16px; }
     .storage-tree-picker { position: relative; width: 100%; }
     .storage-tree-trigger {

@@ -1,5 +1,5 @@
 import { Component, OnInit, signal, computed, inject, effect, HostListener } from '@angular/core';
-import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
+import { EcoPaginatorComponent, WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer } from '@angular/platform-browser';
@@ -20,7 +20,7 @@ import { LookupTrackingService } from '../../data-access/lookup-tracking.service
 @Component({
   selector: 'app-substation-search',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule, SelectModule, DialogModule, PaginatorModule, WfBreadcrumbComponent],
+  imports: [CommonModule, FormsModule, ToastModule, SelectModule, DialogModule, PaginatorModule, WfBreadcrumbComponent, EcoPaginatorComponent],
   providers: [MessageService],
   templateUrl: './substation-search.component.html',
   styleUrl: './substation-search.component.scss'
@@ -47,6 +47,9 @@ export class SubstationSearchComponent implements OnInit {
   searchStatus = signal<string>(''); // '', '1', '0'
   searchUnitId = signal<number | null>(null);
   searchGridTypeId = signal<number | null>(null);
+  searchFromDate = signal<string>('');
+  searchToDate = signal<string>('');
+  searchDateError = signal<string>('');
   totalCount = signal<number>(0);
 
   currentView = signal<'list' | 'detail'>('list');
@@ -308,6 +311,14 @@ export class SubstationSearchComponent implements OnInit {
       params = params.set('gridTypeId', this.searchGridTypeId()!.toString());
     }
 
+    if (this.searchFromDate()) {
+      params = params.set('fromDate', this.searchFromDate());
+    }
+
+    if (this.searchToDate()) {
+      params = params.set('toDate', this.searchToDate());
+    }
+
     this.http.get<any>(`${this.config.apiGatewayUrl}/api/catalog/substation-search`, { params }).subscribe({
       next: (res) => {
         if (res) {
@@ -339,6 +350,9 @@ export class SubstationSearchComponent implements OnInit {
   }
 
   onSearch() {
+    if (!this.validateOperationDateRange()) {
+      return;
+    }
     this.currentPage.set(1);
     this.loadItems();
   }
@@ -348,8 +362,28 @@ export class SubstationSearchComponent implements OnInit {
     this.searchStatus.set('');
     this.searchUnitId.set(null);
     this.searchGridTypeId.set(null);
+    this.searchFromDate.set('');
+    this.searchToDate.set('');
+    this.searchDateError.set('');
     this.currentPage.set(1);
     this.loadItems();
+  }
+
+  onOperationDateChange() {
+    this.validateOperationDateRange();
+  }
+
+  private validateOperationDateRange(): boolean {
+    const fromDate = this.searchFromDate();
+    const toDate = this.searchToDate();
+
+    if (fromDate && toDate && fromDate > toDate) {
+      this.searchDateError.set('Từ ngày không được lớn hơn Đến ngày.');
+      return false;
+    }
+
+    this.searchDateError.set('');
+    return true;
   }
 
   onListPageChange(event: { first?: number; rows?: number }) {

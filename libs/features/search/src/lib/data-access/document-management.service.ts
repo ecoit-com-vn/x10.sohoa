@@ -20,8 +20,13 @@ export class DocumentManagementService {
 
   // ===== FOLDER OPERATIONS =====
 
-  getFolderTree(unitId?: number | null) {
-    const url = unitId ? `${this.apiUrl}/tree?unitId=${unitId}` : `${this.apiUrl}/tree`;
+  getFolderTree(unitId?: number | null, dossierTypeId?: string | null) {
+    const params = new URLSearchParams();
+    if (unitId != null) params.append('unitId', unitId.toString());
+    if (dossierTypeId) params.append('dossierTypeId', dossierTypeId);
+
+    const queryString = params.toString();
+    const url = queryString ? `${this.apiUrl}/tree?${queryString}` : `${this.apiUrl}/tree`;
     return this.http.get<FolderNode[]>(url);
   }
 
