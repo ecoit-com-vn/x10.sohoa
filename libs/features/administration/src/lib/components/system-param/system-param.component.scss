@@ -13,6 +13,50 @@
     color: var(--system-text);
 }
 
+.system-param-page .toolbar-right .btn-delete {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    box-sizing: border-box;
+    height: 34px;
+    padding: 0 14px;
+    border: 1px solid #dc2626;
+    border-radius: 5px;
+    background: #ffffff;
+    color: #dc2626;
+    font-size: 0.85rem;
+    font-weight: 500;
+    line-height: 1;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: color 0.2s, border-color 0.2s, background 0.2s, opacity 0.2s;
+}
+
+.system-param-page .toolbar-right .btn-delete:hover:not(:disabled) {
+    border-color: #b91c1c;
+    background: #fef2f2;
+    color: #b91c1c;
+}
+
+.system-param-page .toolbar-right .btn-delete:focus-visible {
+    outline: 2px solid rgba(220, 38, 38, 0.25);
+    outline-offset: 2px;
+}
+
+.system-param-page .toolbar-right .btn-delete:disabled {
+    border-color: #fca5a5;
+    background: #fff7f7;
+    color: #ef9a9a;
+    cursor: not-allowed;
+    opacity: 0.75;
+}
+
+.system-param-page .toolbar-right .btn-delete .pi {
+    flex: 0 0 auto;
+    font-size: 0.85rem;
+}
+
 .system-param-top-grid {
     display: grid;
     grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);

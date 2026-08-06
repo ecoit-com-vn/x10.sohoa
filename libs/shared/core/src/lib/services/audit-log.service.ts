@@ -80,6 +80,7 @@ export interface AuditLogRetentionStatusResponse {
 export interface AuditLogRetentionIndexDeleteResponse {
   message?: string;
   deletedDocuments?: number;
+  deletedIndices?: number;
 }
 
 export interface AuditLogQueryParams {
@@ -122,6 +123,10 @@ export class AuditLogService {
 
   deleteRetentionIndex(logDate: string): Observable<AuditLogRetentionIndexDeleteResponse> {
     return this.api.delete<AuditLogRetentionIndexDeleteResponse>(`${this.base}/retention-index/${encodeURIComponent(logDate)}`);
+  }
+
+  deleteAllRetentionIndices(): Observable<AuditLogRetentionIndexDeleteResponse> {
+    return this.api.delete<AuditLogRetentionIndexDeleteResponse>(`${this.base}/retention-indices`);
   }
 
   getLookups(logGroup?: string): Observable<AuditLogLookups> {

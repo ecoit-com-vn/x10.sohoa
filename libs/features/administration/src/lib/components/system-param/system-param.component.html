@@ -5,6 +5,22 @@
     <div class="toolbar-left">
       <wf-breadcrumb [customItems]="[{ label: 'Quản trị hệ thống' }, { label: 'Thiết lập tham số hệ thống', url: '/administration/system-param' }]" />
     </div>
+    <div class="toolbar-right">
+      <button
+        *ngIf="canDeleteAuditLogs()"
+        type="button"
+        class="btn-delete"
+        title="Xóa tất cả"
+        [disabled]="retentionLoading() || loadingDeleteAllCount() || deletingAllRetentionIndices() || (retentionStatus()?.totalCount ?? 0) === 0"
+        (click)="openDeleteAllRetentionConfirm()">
+        <i class="pi" [ngClass]="loadingDeleteAllCount() ? 'pi-spin pi-spinner' : 'pi-trash'"></i>
+        {{ loadingDeleteAllCount() ? 'Đang kiểm tra...' : 'Xóa tất cả' }}
+      </button>
+      <button type="button" class="btn-excel" title="Xuất Excel" [disabled]="retentionLoading() || exporting()" (click)="exportExcel()">
+        <i class="pi" [ngClass]="exporting() ? 'pi-spin pi-spinner' : 'pi-file-excel'"></i>
+        {{ exporting() ? 'Đang xuất...' : 'Xuất Excel' }}
+      </button>
+    </div>
   </div>
 
   <div class="system-param-top-grid">
@@ -207,6 +223,16 @@
       (pageChange)="onRetentionPageChange($event)"
       (pageSizeChange)="onRetentionPageSizeChange($event)" />
   </section>
+
+  <app-delete-confirm-dialog
+    [visible]="showDeleteAllRetentionConfirm()"
+    header="Xác nhận xóa tất cả index nhật ký"
+    entityLabel="Dữ liệu nhật ký"
+    [targetName]="deleteAllRetentionCount().toLocaleString('vi-VN') + ' index (' + deleteAllRetentionDocumentCount().toLocaleString('vi-VN') + ' bản ghi)'"
+    consequence="sẽ bị xóa vật lý và không thể khôi phục. Index của ngày hiện tại không bị xóa."
+    [loading]="deletingAllRetentionIndices()"
+    (cancelled)="cancelDeleteAllRetention()"
+    (confirmed)="confirmDeleteAllRetention()" />
 
   <app-delete-confirm-dialog
     [visible]="showDeleteRetentionIndexConfirm()"

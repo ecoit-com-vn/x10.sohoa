@@ -6,7 +6,7 @@ import { FormsModule } from '@angular/forms';
 import { MessageService } from 'primeng/api';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { ToastModule } from 'primeng/toast';
-import { finalize, forkJoin, timer } from 'rxjs';
+import { finalize, firstValueFrom, forkJoin, timer } from 'rxjs';
 import { environment } from '@env/environment';
 import { AuthService, AuditLogRetentionIndex, AuditLogRetentionStatusResponse, AuditLogService } from '@sohoa.frontend/shared/core';
 import { DeleteConfirmDialogComponent, EcoPaginatorComponent, WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
@@ -41,6 +41,7 @@ export class SystemParam implements OnInit {
 
   readonly loading = signal(false);
   readonly saving = signal(false);
+  readonly exporting = signal(false);
   readonly retentionDays = signal<number | null>(null);
   readonly auditLogDomain = signal('');
   readonly retentionStatus = signal<AuditLogRetentionStatusResponse | null>(null);
@@ -54,6 +55,11 @@ export class SystemParam implements OnInit {
   readonly showDeleteRetentionIndexConfirm = signal(false);
   readonly deletingRetentionIndex = signal(false);
   readonly retentionIndexToDelete = signal<AuditLogRetentionIndex | null>(null);
+  readonly showDeleteAllRetentionConfirm = signal(false);
+  readonly loadingDeleteAllCount = signal(false);
+  readonly deletingAllRetentionIndices = signal(false);
+  readonly deleteAllRetentionCount = signal(0);
+  readonly deleteAllRetentionDocumentCount = signal(0);
   readonly canDeleteAuditLogs = computed(() => this.authService.currentUserPermissions().includes('AUDIT_LOG_DELETE'));
   private nextCleanupAtUtcMs: number | null = null;
   systemParam: SystemParamResponse | null = null;
@@ -187,6 +193,84 @@ export class SystemParam implements OnInit {
     this.loadRetentionStatus();
   }
 
+  async exportExcel(): Promise<void> {
+    if (this.exporting()) {
+      return;
+    }
+
+    const exportPageSize = 50;
+    this.exporting.set(true);
+
+    try {
+      const firstPage = await firstValueFrom(this.auditLogService.getRetentionStatus(1, exportPageSize));
+      const totalPages = Math.ceil(firstPage.totalCount / exportPageSize);
+      const remainingRequests = Array.from(
+        { length: Math.max(0, totalPages - 1) },
+        (_, index) => this.auditLogService.getRetentionStatus(index + 2, exportPageSize)
+      );
+      const remainingPages = remainingRequests.length > 0
+        ? await firstValueFrom(forkJoin(remainingRequests))
+        : [];
+      const items = [
+        ...(firstPage.items ?? []),
+        ...remainingPages.flatMap(page => page.items ?? []),
+      ];
+
+      const XLSX = await import('xlsx');
+      const headers = [
+        'Ngày nhật ký',
+        'Số bản ghi',
+        'Dung lượng',
+        'Ngày dự kiến xóa',
+        'Còn lại',
+        'Trạng thái',
+      ];
+      const rows = items.map(item => ({
+        'Ngày nhật ký': this.formatDate(item.logDate),
+        'Số bản ghi': item.documentCount,
+        'Dung lượng': this.formatSize(item.sizeBytes),
+        'Ngày dự kiến xóa': this.formatDateTime(item.estimatedDeleteAtUtc),
+        'Còn lại': this.formatRemainingDays(item.remainingDays),
+        'Trạng thái': this.isExpiringSoon(item.status) ? 'Sắp xóa' : 'Đang lưu',
+      }));
+      const worksheet = XLSX.utils.json_to_sheet(rows, { header: headers });
+      worksheet['!cols'] = [
+        { wch: 16 },
+        { wch: 16 },
+        { wch: 16 },
+        { wch: 22 },
+        { wch: 14 },
+        { wch: 14 },
+      ];
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Trạng thái dọn log');
+      const workbookBlob = new Blob([XLSX.write(workbook, { bookType: 'xlsx', type: 'array' })], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      const url = URL.createObjectURL(workbookBlob);
+      const link = document.createElement('a');
+      const now = new Date();
+      const timestamp = `${now.getFullYear()}${this.padTime(now.getMonth() + 1)}${this.padTime(now.getDate())}_${this.padTime(now.getHours())}${this.padTime(now.getMinutes())}${this.padTime(now.getSeconds())}`;
+      link.href = url;
+      link.download = `TrangThaiDonLog_${timestamp}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+
+      this.messageService.add({
+        severity: 'success',
+        summary: 'Thành công',
+        detail: `Đã xuất ${items.length.toLocaleString('vi-VN')} bản ghi.`,
+      });
+    } catch (error) {
+      this.showError(error, 'Không thể xuất dữ liệu Excel.');
+    } finally {
+      this.exporting.set(false);
+    }
+  }
+
   canDeleteRetentionIndex(item: AuditLogRetentionIndex): boolean {
     const match = /^audit_logs-(\d{4})\.(\d{2})\.(\d{2})$/.exec(item.indexName);
     if (!match || `${match[1]}-${match[2]}-${match[3]}` !== item.logDate) {
@@ -243,6 +327,84 @@ export class SystemParam implements OnInit {
     if (!item) return '';
 
     return `${this.formatDate(item.logDate)} - ${item.documentCount.toLocaleString('vi-VN')} bản ghi - ${this.formatSize(item.sizeBytes)}`;
+  }
+
+  async openDeleteAllRetentionConfirm(): Promise<void> {
+    if (!this.canDeleteAuditLogs() || this.loadingDeleteAllCount() || this.deletingAllRetentionIndices()) {
+      return;
+    }
+
+    this.loadingDeleteAllCount.set(true);
+    try {
+      const pageSize = 100;
+      const firstPage = await firstValueFrom(this.auditLogService.getRetentionStatus(1, pageSize));
+      const totalPages = Math.ceil(firstPage.totalCount / pageSize);
+      const remainingRequests = Array.from(
+        { length: Math.max(0, totalPages - 1) },
+        (_, index) => this.auditLogService.getRetentionStatus(index + 2, pageSize)
+      );
+      const remainingPages = remainingRequests.length
+        ? await firstValueFrom(forkJoin(remainingRequests))
+        : [];
+      const deletableItems = [firstPage, ...remainingPages]
+        .flatMap(page => page.items ?? [])
+        .filter(item => this.canDeleteRetentionIndex(item));
+      const count = deletableItems.length;
+
+      if (count === 0) {
+        this.messageService.add({
+          severity: 'warn',
+          summary: 'Không có dữ liệu',
+          detail: 'Không có index nhật ký nào có thể xóa.',
+        });
+        return;
+      }
+
+      this.deleteAllRetentionCount.set(count);
+      this.deleteAllRetentionDocumentCount.set(
+        deletableItems.reduce((total, item) => total + item.documentCount, 0)
+      );
+      this.showDeleteAllRetentionConfirm.set(true);
+    } catch (error) {
+      this.showError(error, 'Không thể xác định số index nhật ký sẽ xóa.');
+    } finally {
+      this.loadingDeleteAllCount.set(false);
+    }
+  }
+
+  cancelDeleteAllRetention(): void {
+    if (this.deletingAllRetentionIndices()) {
+      return;
+    }
+
+    this.showDeleteAllRetentionConfirm.set(false);
+    this.deleteAllRetentionCount.set(0);
+    this.deleteAllRetentionDocumentCount.set(0);
+  }
+
+  confirmDeleteAllRetention(): void {
+    if (!this.canDeleteAuditLogs() || this.deletingAllRetentionIndices() || this.deleteAllRetentionCount() <= 0) {
+      return;
+    }
+
+    this.deletingAllRetentionIndices.set(true);
+    this.auditLogService.deleteAllRetentionIndices().pipe(
+      finalize(() => this.deletingAllRetentionIndices.set(false))
+    ).subscribe({
+      next: response => {
+        this.showDeleteAllRetentionConfirm.set(false);
+        this.deleteAllRetentionCount.set(0);
+        this.deleteAllRetentionDocumentCount.set(0);
+        this.retentionPage.set(1);
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Thành công',
+          detail: response.message || `Đã xóa ${response.deletedIndices ?? 0} index nhật ký.`,
+        });
+        this.loadRetentionStatus();
+      },
+      error: error => this.showError(error, 'Không thể xóa toàn bộ index nhật ký.'),
+    });
   }
 
   formatDate(value: string): string {
