@@ -15,13 +15,16 @@ public class ExternalApiKeysController : ControllerBase
 {
     private readonly IExternalApiKeyRepository _externalApiKeyRepository;
     private readonly IExternalApiKeyProtector _externalApiKeyProtector;
+    private readonly IExternalApiCallLogRepository _externalApiCallLogRepository;
 
     public ExternalApiKeysController(
         IExternalApiKeyRepository externalApiKeyRepository,
-        IExternalApiKeyProtector externalApiKeyProtector)
+        IExternalApiKeyProtector externalApiKeyProtector,
+        IExternalApiCallLogRepository externalApiCallLogRepository)
     {
         _externalApiKeyRepository = externalApiKeyRepository;
         _externalApiKeyProtector = externalApiKeyProtector;
+        _externalApiCallLogRepository = externalApiCallLogRepository;
     }
 
     [HttpGet]
@@ -91,6 +94,46 @@ public class ExternalApiKeysController : ControllerBase
 
         await _externalApiKeyRepository.UpdateAsync(existing);
         return NoContent();
+    }
+
+    [HttpGet("call-logs")]
+    public async Task<IActionResult> GetAllCallLogs(
+        [FromQuery] string? keyName = null,
+        [FromQuery] DateTime? fromDate = null,
+        [FromQuery] DateTime? toDate = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20)
+    {
+        if (fromDate.HasValue && toDate.HasValue && fromDate.Value > toDate.Value)
+            return BadRequest(new { message = "fromDate không được lớn hơn toDate." });
+
+        page = Math.Max(page, 1);
+        pageSize = Math.Clamp(pageSize, 1, 200);
+
+        var filter = new ExternalApiCallLogFilter
+        {
+            KeyName = keyName,
+            DateFrom = fromDate,
+            DateTo = toDate
+        };
+
+        var (items, totalCount) = await _externalApiCallLogRepository.GetAllAsync(filter, page, pageSize);
+
+        return Ok(new { items, totalCount, page, pageSize });
+    }
+
+    [HttpGet("{id:long}/call-logs")]
+    public async Task<IActionResult> GetCallLogs(long id, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+    {
+        var existing = await _externalApiKeyRepository.GetByIdAsync(id);
+        if (existing == null) return NotFound(new { message = "Không tìm thấy private key." });
+
+        page = Math.Max(page, 1);
+        pageSize = Math.Clamp(pageSize, 1, 200);
+
+        var (items, totalCount) = await _externalApiCallLogRepository.GetByApiKeyIdAsync(id, page, pageSize);
+
+        return Ok(new { items, totalCount, page, pageSize });
     }
 
     [HttpPost("{id:long}/regenerate")]

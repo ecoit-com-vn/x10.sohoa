@@ -11,7 +11,7 @@ public interface IDossierDocumentService
         Guid dossierId,
         DossierDocumentFilterDto filter);
 
-    Task<byte[]> ExportDocumentsAsync(Guid dossierId);
+    Task<byte[]> ExportDocumentsAsync(Guid dossierId, string? keyword = null);
 
     Task<DownloadTokenResponse> GetDownloadTokenAsync(
         Guid dossierId,
@@ -144,10 +144,11 @@ public class DossierDocumentService : IDossierDocumentService
         return await _documentRepository.GetDocumentsByDossierAsync(dossierId, filter);
     }
 
-    public async Task<byte[]> ExportDocumentsAsync(Guid dossierId)
+    public async Task<byte[]> ExportDocumentsAsync(Guid dossierId, string? keyword = null)
     {
         var filter = new DossierDocumentFilterDto
         {
+            Keyword = keyword,
             Page = 1,
             PageSize = int.MaxValue
         };

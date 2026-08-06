@@ -13,20 +13,19 @@ public class ExternalApiKeyValidator : IExternalApiKeyValidator
         _connection = connection;
     }
 
-    public async Task<bool> IsValidAsync(string keyName, string keyHash)
+    public async Task<long?> ValidateAsync(string keyName, string keyHash)
     {
         if (_connection.State != ConnectionState.Open)
             _connection.Open();
 
         const string sql = @"
-            SELECT COUNT(1)
+            SELECT ID
             FROM EXTERNAL_API_KEYS
             WHERE KEY_NAME = :KeyName
               AND KEY_HASH = :KeyHash
               AND IS_ACTIVE = 1
               AND (EXPIRES_AT IS NULL OR EXPIRES_AT > SYSTIMESTAMP)";
 
-        var count = await _connection.ExecuteScalarAsync<int>(sql, new { KeyName = keyName, KeyHash = keyHash });
-        return count > 0;
+        return await _connection.QuerySingleOrDefaultAsync<long?>(sql, new { KeyName = keyName, KeyHash = keyHash });
     }
 }

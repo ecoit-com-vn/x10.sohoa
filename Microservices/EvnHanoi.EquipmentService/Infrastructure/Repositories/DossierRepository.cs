@@ -1132,6 +1132,37 @@ public class DossierRepository : IDossierRepository
         return await _connection.QueryAsync<DossierInfrastructureDto>(sql, new { DossierId = dossierId.ToString() });
     }
 
+    public async Task<IEnumerable<DossierInfrastructureAssignmentDto>> GetInfrastructuresByDossierIdsAsync(
+        IEnumerable<Guid> dossierIds)
+    {
+        var ids = dossierIds.Distinct().Select(id => id.ToString()).ToArray();
+        if (ids.Length == 0) return Enumerable.Empty<DossierInfrastructureAssignmentDto>();
+
+        _connection.EnsureOpen();
+        const string sql = @"
+            SELECT DISTINCT
+                source.DossierId,
+                source.InfrastructureId,
+                i.CODE AS InfrastructureCode,
+                i.NAME AS InfrastructureName,
+                i.INFRA_TYPE_ID AS InfraTypeId,
+                i.UNIT_ID AS UnitId
+            FROM (
+                SELECT di.DossierId, di.InfrastructureId
+                FROM DOSSIER_INFRASTRUCTURE di
+                WHERE di.DossierId IN :DossierIds
+                UNION
+                SELECT d.Id AS DossierId, d.InfrastructureId
+                FROM DOSSIERS d
+                WHERE d.Id IN :DossierIds
+                  AND d.InfrastructureId IS NOT NULL
+            ) source
+            INNER JOIN INFRASTRUCTURE i ON i.ID = source.InfrastructureId
+            ORDER BY source.DossierId, i.NAME";
+
+        return await _connection.QueryAsync<DossierInfrastructureAssignmentDto>(sql, new { DossierIds = ids });
+    }
+
     public async Task<IEnumerable<DossierEquipmentDto>> GetEquipmentsAsync(Guid dossierId)
     {
         _connection.EnsureOpen();
