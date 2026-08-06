@@ -61,7 +61,7 @@
     display: grid;
     grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
     gap: 16px;
-    margin-bottom: 16px;
+    margin-bottom: 3px;
 }
 
 .system-param-card {
@@ -313,7 +313,7 @@
 
 .btn-icon-danger:disabled {
     cursor: default;
-    //opacity: 0.45;
+    opacity: 0.45;
 }
 
 :host ::ng-deep .retention-card app-eco-paginator {
