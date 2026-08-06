@@ -45,13 +45,10 @@ export class EavFormService {
     return `/api/v1/eav-form-templates`;
   }
 
-  getDesignTemplates(
-    page: number = 1, pageSize: number = 10, 
+  getDesignTemplates( 
     keyword?: string, status?: string,  
     startDate?: string, endDate?: string): Observable<EavFormTemplate[]> {
-    const params: any = {
-      page,
-      pageSize
+    const params: any = { 
     };
 
     if (keyword) params.keyword = keyword;
