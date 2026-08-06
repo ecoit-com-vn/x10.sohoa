@@ -1,5 +1,5 @@
 // sohoa.frontend/libs/features/reports/src/lib/components/report-groups/report-groups.component.ts
-import { Component, OnInit, signal, computed, inject } from '@angular/core';
+import { Component, OnInit, signal, computed, inject, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -71,7 +71,15 @@ export class ReportGroupsComponent implements OnInit {
 
   // Action Menu Items
   actionMenuItems: MenuItem[] = [];
-
+  constructor() { 
+    effect(() => {
+      const total = this.filteredGroups().length;
+      const maxPage = Math.max(1, Math.ceil(total / this.pageSize()));
+      if (this.currentPage() > maxPage) {
+        this.currentPage.set(1);
+      }
+    });
+  }
   // Computed filtered list client-side
   filteredGroups = computed(() => {
     const kw = this.searchKeyword().toLowerCase().trim();
