@@ -47,11 +47,11 @@ public abstract partial class DossierControllerBase
 
     [HttpGet("{id:guid}/documents/export")]
     [BypassDynamicPermission]
-    public async Task<IActionResult> ExportDocuments(Guid id)
+    public async Task<IActionResult> ExportDocuments(Guid id, [FromQuery] string? keyword)
     {
         try
         {
-            var content = await _dossierDocumentService.ExportDocumentsAsync(id);
+            var content = await _dossierDocumentService.ExportDocumentsAsync(id, keyword);
             var fileName = $"Danh_sach_tai_lieu_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
             return File(
                 content,

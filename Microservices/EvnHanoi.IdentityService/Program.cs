@@ -49,6 +49,7 @@ builder.Services.AddScoped<IUserGroupRepository, UserGroupRepository>();
 builder.Services.AddScoped<IUserUnitRoleRepository, UserUnitRoleRepository>();
 builder.Services.AddScoped<IUploadConfigRepository, UploadConfigRepository>();
 builder.Services.AddScoped<IExternalApiKeyRepository, ExternalApiKeyRepository>();
+builder.Services.AddScoped<IExternalApiCallLogRepository, ExternalApiCallLogRepository>();
 builder.Services.AddSingleton<IExternalApiKeyProtector, ExternalApiKeyProtector>();
 builder.Services.AddScoped<IPermissionRepository, PermissionRepository>();
 builder.Services.AddScoped<IAvatarStorageService, AvatarStorageService>();

@@ -48,6 +48,11 @@ public class DossierInfrastructureDto
     public long? UnitId { get; set; }
 }
 
+public class DossierInfrastructureAssignmentDto : DossierInfrastructureDto
+{
+    public Guid DossierId { get; set; }
+}
+
 /// <summary>
 /// DTO dùng cho danh sách hồ sơ — bao gồm catalog columns loại BHS + trạm/đường dây
 /// </summary>

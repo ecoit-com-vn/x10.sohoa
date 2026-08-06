@@ -8,7 +8,8 @@ public interface IRoleRepository
 {
     Task<IEnumerable<Role>> GetAllAsync(int? scopeTypeId = null, long? organizationUnitId = null, bool includeDescendants = false);
     Task<(IEnumerable<Role> Items, int TotalCount)> GetPagedAsync(
-        int page, int pageSize, string? keyword = null, int? scopeTypeId = null, long? organizationUnitId = null, bool includeDescendants = false);
+        int page, int pageSize, string? keyword = null, int? scopeTypeId = null, long? organizationUnitId = null,
+        bool includeDescendants = false, bool? isActive = null);
     Task<Role?> GetByIdAsync(long id);
     Task<long> CreateAsync(Role role);
     Task<bool> UpdateAsync(Role role);

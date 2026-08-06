@@ -16,15 +16,18 @@ namespace EvnHanoi.NotificationService.Services
     {
         private readonly IAuditLogRepository _auditLogRepository;
         private readonly IAuditLogExportService _auditLogExportService;
+        private readonly IAuditLogRetentionSettingsClient _retentionSettingsClient;
         private readonly IHttpClientFactory _httpClientFactory;
 
         public AuditLogService(
             IAuditLogRepository auditLogRepository,
             IAuditLogExportService auditLogExportService,
+            IAuditLogRetentionSettingsClient retentionSettingsClient,
             IHttpClientFactory httpClientFactory)
         {
             _auditLogRepository = auditLogRepository;
             _auditLogExportService = auditLogExportService;
+            _retentionSettingsClient = retentionSettingsClient;
             _httpClientFactory = httpClientFactory;
         }
 
@@ -106,6 +109,86 @@ namespace EvnHanoi.NotificationService.Services
         public Task<long> DeleteAuditLogsByIdsAsync(IReadOnlyList<string> ids, string? username, string? userId)
         {
             return _auditLogRepository.DeleteAuditLogsByIdsAsync(ids, username, userId);
+        }
+
+        public async Task<AuditLogRetentionStatusDto> GetRetentionStatusAsync(
+            int pageNumber,
+            int pageSize,
+            CancellationToken cancellationToken = default)
+        {
+            var retentionDays = await _retentionSettingsClient.GetRetentionDaysAsync(cancellationToken);
+            if (!retentionDays.HasValue)
+                throw new InvalidOperationException("Không thể đọc thời gian lưu nhật ký hệ thống.");
+
+            var nowUtc = DateTime.UtcNow;
+            var nextCleanupAtUtc = GetNextCleanupAtUtc(nowUtc);
+            var items = await _auditLogRepository.GetAuditLogIndexMetadataAsync(cancellationToken);
+            var totalDocuments = items.Sum(item => item.DocumentCount);
+            var totalSizeBytes = items.Sum(item => item.SizeBytes);
+            var offset = (long)(pageNumber - 1) * pageSize;
+
+            var pageItems = items
+                .Skip(offset > int.MaxValue ? int.MaxValue : (int)offset)
+                .Take(pageSize)
+                .Select(item =>
+                {
+                    var estimatedDeleteAtUtc = item.LogDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc)
+                        .AddDays(retentionDays.Value)
+                        .AddHours(1);
+                    var remainingDays = Math.Max(0, (int)Math.Ceiling((estimatedDeleteAtUtc - nowUtc).TotalDays));
+
+                    return new AuditLogRetentionIndexDto
+                    {
+                        IndexName = item.IndexName,
+                        LogDate = item.LogDate,
+                        DocumentCount = item.DocumentCount,
+                        SizeBytes = item.SizeBytes,
+                        EstimatedDeleteAtUtc = estimatedDeleteAtUtc,
+                        RemainingDays = remainingDays,
+                        Status = remainingDays == 0 ? "EXPIRING_SOON" : "ACTIVE"
+                    };
+                })
+                .ToList();
+
+            return new AuditLogRetentionStatusDto
+            {
+                RetentionDays = retentionDays.Value,
+                NextCleanupAtUtc = nextCleanupAtUtc,
+                TotalIndices = items.Count,
+                TotalDocuments = totalDocuments,
+                TotalSizeBytes = totalSizeBytes,
+                Items = pageItems,
+                TotalCount = items.Count,
+                PageNumber = pageNumber,
+                PageSize = pageSize
+            };
+        }
+
+        public Task<(IReadOnlyList<string> DeletedIndices, long DeletedDocuments)> PurgeExpiredAuditLogsAsync(
+            DateTime cutoffUtc,
+            CancellationToken cancellationToken = default)
+        {
+            return _auditLogRepository.PurgeExpiredAuditLogsAsync(cutoffUtc, cancellationToken);
+        }
+
+        public Task<long> DeleteAuditLogIndexAsync(
+            DateOnly logDate,
+            CancellationToken cancellationToken = default)
+        {
+            return _auditLogRepository.DeleteAuditLogIndexAsync(logDate, cancellationToken);
+        }
+
+        public Task<(int DeletedIndices, long DeletedDocuments)> DeleteAllAuditLogIndicesAsync(
+            DateOnly excludedDate,
+            CancellationToken cancellationToken = default)
+        {
+            return _auditLogRepository.DeleteAllAuditLogIndicesAsync(excludedDate, cancellationToken);
+        }
+
+        private static DateTime GetNextCleanupAtUtc(DateTime nowUtc)
+        {
+            var nextCleanupAtUtc = new DateTime(nowUtc.Year, nowUtc.Month, nowUtc.Day, 1, 0, 0, DateTimeKind.Utc);
+            return nextCleanupAtUtc > nowUtc ? nextCleanupAtUtc : nextCleanupAtUtc.AddDays(1);
         }
 
         public async Task<bool> CheckPermissionAsync(string? authHeader, ClaimsPrincipal user, string permissionCode)

@@ -3,6 +3,7 @@ using EvnHanoi.EquipmentService.Core.Interfaces;
 using EvnHanoi.Infrastructure.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Oracle.ManagedDataAccess.Client;
 
 namespace EvnHanoi.EquipmentService.Controllers;
 
@@ -60,6 +61,8 @@ public class DomainController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] Catalog catalog)
     {
+        catalog.Code = catalog.Code?.Trim() ?? string.Empty;
+        catalog.Name = catalog.Name?.Trim() ?? string.Empty;
         if (string.IsNullOrWhiteSpace(catalog.Code) || string.IsNullOrWhiteSpace(catalog.Name))
             return BadRequest(new { message = "Mã danh mục và Tên danh mục là bắt buộc." });
 
@@ -70,20 +73,45 @@ public class DomainController : ControllerBase
         // Verify if Code already exists
         var existing = await _catalogRepository.GetByCodeAsync(catalog.CatalogTypeId, catalog.Code);
         if (existing != null)
-            return BadRequest(new { message = $"Mã danh mục '{catalog.Code}' đã tồn tại trong nhóm này." });
+            return CodeConflict(catalog.Code);
 
         catalog.UnitId = catalog.UnitId.HasValue ? GetUnitIdFromClaims() : null;
-        catalog.CreatedBy = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value ?? "system";
-        catalog.CreatedAt = DateTime.UtcNow;
+        catalog.Priority = catalog.Priority <= 0 ? 1 : catalog.Priority;
+        var username = GetUsername();
+        var deleted = await _catalogRepository.GetDeletedByCodeAsync(catalog.CatalogTypeId, catalog.Code);
+        if (deleted != null)
+        {
+            catalog.Id = deleted.Id;
+            catalog.CreatedAt = deleted.CreatedAt;
+            catalog.CreatedBy = deleted.CreatedBy;
+            catalog.UpdatedBy = username;
+            catalog.IsDeleted = false;
+            if (await _catalogRepository.RestoreAsync(catalog))
+                return CreatedAtAction(nameof(GetById), new { id = catalog.Id }, catalog);
+            if (await _catalogRepository.GetByCodeAsync(catalog.CatalogTypeId, catalog.Code) != null)
+                return CodeConflict(catalog.Code);
+            return Conflict(new { message = "Không thể khôi phục danh mục. Vui lòng thử lại." });
+        }
 
-        var id = await _catalogRepository.CreateAsync(catalog);
-        catalog.Id = id;
-        return CreatedAtAction(nameof(GetById), new { id }, catalog);
+        catalog.CreatedBy = username;
+        catalog.CreatedAt = DateTime.UtcNow;
+        try
+        {
+            var id = await _catalogRepository.CreateAsync(catalog);
+            catalog.Id = id;
+            return CreatedAtAction(nameof(GetById), new { id }, catalog);
+        }
+        catch (OracleException ex) when (ex.Number == 1)
+        {
+            return CodeConflict(catalog.Code);
+        }
     }
 
     [HttpPut("{id:long}")]
     public async Task<IActionResult> Update(long id, [FromBody] Catalog catalog)
     {
+        catalog.Code = catalog.Code?.Trim() ?? string.Empty;
+        catalog.Name = catalog.Name?.Trim() ?? string.Empty;
         if (id != catalog.Id)
             return BadRequest(new { message = "ID không trùng khớp." });
 
@@ -109,6 +137,12 @@ public class DomainController : ControllerBase
         if (!success) return NotFound();
         return NoContent();
     }
+
+    private string GetUsername() =>
+        User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value ?? "system";
+
+    private static BadRequestObjectResult CodeConflict(string code) =>
+        new(new { statusCode = 400, message = "Dữ liệu đầu vào không hợp lệ.", errors = new { code = $"Mã danh mục '{code}' đã tồn tại" } });
 
     [HttpDelete("{id:long}")]
     public async Task<IActionResult> Delete(long id)

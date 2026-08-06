@@ -3,6 +3,7 @@ using EvnHanoi.NotificationService.Models;
 using EvnHanoi.NotificationService.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using RedLockNet;
 
 namespace EvnHanoi.NotificationService.Controllers
 {
@@ -11,11 +12,16 @@ namespace EvnHanoi.NotificationService.Controllers
     [Route("api/v1/audit-logs")]
     public class AuditLogController : ControllerBase
     {
+        private const string AuditLogRetentionLockResource = "lock:audit-log-retention";
         private readonly IAuditLogService _auditLogService;
+        private readonly IDistributedLockFactory _lockFactory;
 
-        public AuditLogController(IAuditLogService auditLogService)
+        public AuditLogController(
+            IAuditLogService auditLogService,
+            IDistributedLockFactory lockFactory)
         {
             _auditLogService = auditLogService;
+            _lockFactory = lockFactory;
         }
 
         [HttpGet("recent")]
@@ -43,6 +49,128 @@ namespace EvnHanoi.NotificationService.Controllers
         public IActionResult GetLookups([FromQuery] string? logGroup = null)
         {
             return Ok(_auditLogService.GetLookups(logGroup));
+        }
+
+        [HttpGet("retention-status")]
+        [Authorize]
+        public async Task<IActionResult> GetRetentionStatus(
+            [FromQuery] int pageNumber = 1,
+            [FromQuery] int pageSize = 10,
+            CancellationToken cancellationToken = default)
+        {
+            var authHeader = Request.Headers["Authorization"].ToString();
+            if (!await _auditLogService.CheckAnyPermissionAsync(authHeader, User, "SYSTEM_PARAM_VIEW", "SYSTEM_PARAM_EDIT"))
+                return StatusCode(403, new { message = "Không có quyền xem tình trạng lưu trữ nhật ký." });
+
+            if (pageNumber < 1)
+                return BadRequest(new { message = "pageNumber phải lớn hơn hoặc bằng 1." });
+
+            if (pageSize < 1 || pageSize > 100)
+                return BadRequest(new { message = "pageSize phải trong khoảng từ 1 đến 100." });
+
+            try
+            {
+                return Ok(await _auditLogService.GetRetentionStatusAsync(pageNumber, pageSize, cancellationToken));
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return new EmptyResult();
+            }
+            catch (Exception)
+            {
+                return StatusCode(500, new { message = "Không thể tải tình trạng lưu trữ nhật ký." });
+            }
+        }
+
+        [HttpDelete("retention-index/{logDate}")]
+        [Authorize]
+        public async Task<IActionResult> DeleteRetentionIndex(
+            string logDate,
+            CancellationToken cancellationToken = default)
+        {
+            var authHeader = Request.Headers["Authorization"].ToString();
+            if (!await _auditLogService.CheckPermissionAsync(authHeader, User, "AUDIT_LOG_DELETE"))
+                return StatusCode(403, new { message = "Không có quyền xóa index nhật ký." });
+
+            if (!DateOnly.TryParseExact(
+                    logDate,
+                    "yyyy-MM-dd",
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.None,
+                    out var indexDate))
+            {
+                return BadRequest(new { message = "Ngày index không hợp lệ." });
+            }
+
+            if (indexDate == DateOnly.FromDateTime(DateTime.UtcNow))
+                return BadRequest(new { message = "Không được xóa index nhật ký của ngày hiện tại." });
+
+            var expiry = TimeSpan.FromHours(2);
+            var wait = TimeSpan.FromSeconds(10);
+            var retry = TimeSpan.FromSeconds(1);
+            using var redLock = await _lockFactory.CreateLockAsync(AuditLogRetentionLockResource, expiry, wait, retry);
+            if (!redLock.IsAcquired)
+                return Conflict(new { message = "Tác vụ dọn dẹp nhật ký đang chạy. Vui lòng thử lại sau." });
+
+            try
+            {
+                var deletedDocuments = await _auditLogService.DeleteAuditLogIndexAsync(indexDate, cancellationToken);
+                return Ok(new
+                {
+                    message = "Đã xóa vật lý index nhật ký thành công.",
+                    deletedDocuments
+                });
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound(new { message = "Không tìm thấy index nhật ký cần xóa." });
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return new EmptyResult();
+            }
+            catch (Exception)
+            {
+                return StatusCode(500, new { message = "Không thể xóa index nhật ký." });
+            }
+        }
+
+        [HttpDelete("retention-indices")]
+        [Authorize]
+        public async Task<IActionResult> DeleteAllRetentionIndices(
+            CancellationToken cancellationToken = default)
+        {
+            var authHeader = Request.Headers["Authorization"].ToString();
+            if (!await _auditLogService.CheckPermissionAsync(authHeader, User, "AUDIT_LOG_DELETE"))
+                return StatusCode(403, new { message = "Không có quyền xóa index nhật ký." });
+
+            var expiry = TimeSpan.FromHours(2);
+            var wait = TimeSpan.Zero;
+            var retry = TimeSpan.Zero;
+            using var redLock = await _lockFactory.CreateLockAsync(AuditLogRetentionLockResource, expiry, wait, retry);
+            if (!redLock.IsAcquired)
+                return Conflict(new { message = "Tác vụ dọn dẹp nhật ký đang chạy. Vui lòng thử lại sau." });
+
+            try
+            {
+                var (deletedIndices, deletedDocuments) = await _auditLogService.DeleteAllAuditLogIndicesAsync(
+                    DateOnly.FromDateTime(DateTime.UtcNow),
+                    cancellationToken);
+                return Ok(new
+                {
+                    message = $"Đã xóa {deletedIndices} index nhật ký thành công.",
+                    deletedIndices,
+                    deletedDocuments
+                });
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return new EmptyResult();
+            }
+            catch (Exception)
+            {
+                return StatusCode(500, new { message = "Không thể xóa toàn bộ index nhật ký." });
+            }
         }
 
         [HttpGet("export")]
