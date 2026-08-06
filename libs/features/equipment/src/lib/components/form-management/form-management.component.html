@@ -26,7 +26,41 @@
             <input type="text" class="wf-search-input" placeholder="Tìm kiếm form..." [ngModel]="searchKeyword()"
               (ngModelChange)="searchKeyword.set($event)" (keyup.enter)="onSearch()" />
           </div>
-          <div class="standard-search-actions" style="margin-top: -8px;">
+          <div class="standard-search-field">
+            <label class="search-field-label">Trạng thái</label>
+            <select class="wf-select" 
+            [ngModel]="searchStatus()" 
+            (ngModelChange)="searchStatus.set($event); onSearch()">
+                <option value="">-- Tất cả trạng thái --</option>
+                <option value="Tạo mới">Tạo mới</option>
+                <option value="Từ chối">Trả lại</option>
+                <option value="Chờ duyệt">Chờ duyệt</option>
+                <option value="Hoàn thành">Hoàn thành</option>
+            </select>
+          </div>
+          <div class="standard-search-field">
+            <label class="filter-label">Từ ngày</label>
+            <p-datepicker class="audit-date-picker w-full"
+              [ngModel]="filterFromDate()"
+              (ngModelChange)="filterFromDate.set($event)"
+              (onSelect)="filterFromDate.set($event)"
+              dateFormat="dd/mm/yy"
+              placeholder="dd/MM/yyyy"
+              [showIcon]="true"
+              [readonlyInput]="false" />
+          </div>
+          <div class="standard-search-field">
+            <label class="filter-label">Đến ngày</label>
+            <p-datepicker class="audit-date-picker w-full"
+              [ngModel]="filterToDate()"
+              (ngModelChange)="filterToDate.set($event)"
+              (onSelect)="filterToDate.set($event)"
+              dateFormat="dd/mm/yy"
+              placeholder="dd/MM/yyyy"
+              [showIcon]="true"
+              [readonlyInput]="false" />
+          </div>
+          <div class="standard-search-actions">
             <button class="btn-outlined" (click)="onResetSearch()">
               <i class="pi pi-refresh"></i> Làm mới
             </button>

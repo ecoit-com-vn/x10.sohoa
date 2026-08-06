@@ -1,205 +1,449 @@
 <!-- sohoa.frontend/libs/features/reports/src/lib/components/report-groups/report-groups.component.html -->
 <p-toast></p-toast>
 <div class="wf-page">
-    <div class="list-toolbar standard-page-toolbar">
-        <div class="toolbar-left">
-            <wf-breadcrumb />
-        </div>
-        <div class="toolbar-right">
-            <div class="toolbar-right" *ngIf="authService.hasPermission('REPORT_GROUP_CREATE')">
-                <button class="btn-green btn-small" (click)="showCreatePopup()">
+  <div class="list-toolbar standard-page-toolbar">
+    <div class="toolbar-left">
+      <wf-breadcrumb />
+    </div>
+    <div class="toolbar-right">
+      <div
+        class="toolbar-right"
+        *ngIf="authService.hasPermission('REPORT_GROUP_CREATE')"
+      >
+        <button class="btn-green btn-small" (click)="showCreatePopup()">
           <i class="pi pi-plus mr-1"></i> Thêm Nhóm Mới
         </button>
-            </div>
-        </div>
+      </div>
     </div>
+  </div>
 
-    <div class="wf-card mt-3">
-        <!-- Filters Toolbar -->
+  <div class="wf-card mt-3">
+    <!-- Filters Toolbar -->
 
-        <div class="dossier-search-bar unit-search-bar">
-            <div class="search-form-grid unit-search-grid">
-                <div class="search-form-item">
-                    <label class="search-field-label">Từ khóa</label>
-                    <input type="text" class="wf-input" [ngModel]="searchKeyword()" (ngModelChange)="searchKeyword.set($event)" placeholder="Tìm theo mã hoặc tên..." />
-                </div>
+    <div class="dossier-search-bar unit-search-bar">
+      <div class="search-form-grid unit-search-grid">
+        <div class="search-form-item">
+          <label class="search-field-label">Từ khóa</label>
+          <input
+            type="text"
+            class="wf-input"
+            [ngModel]="searchKeyword()"
+            (ngModelChange)="searchKeyword.set($event)"
+            placeholder="Tìm theo mã hoặc tên..."
+          />
+        </div>
 
-                <div class="search-form-item">
-                    <label class="search-field-label">Trạng thái</label>
-                    <select class="wf-input" [ngModel]="filterStatus()" (ngModelChange)="filterStatus.set($event)">
+        <div class="search-form-item">
+          <label class="search-field-label">Trạng thái</label>
+          <select
+            class="wf-input"
+            [ngModel]="filterStatus()"
+            (ngModelChange)="filterStatus.set($event)"
+          >
             <option value="ALL">Tất cả trạng thái</option>
             <option value="ACTIVE">Hoạt động</option>
             <option value="INACTIVE">Ngừng hoạt động</option>
           </select>
-                </div>
-            </div>
-            <div class="standard-search-actions audit-filter-actions">
-                <button type="button" class="btn-outlined" (click)="onResetSearch()">
+        </div>
+      </div>
+      <div class="standard-search-actions audit-filter-actions">
+        <button type="button" class="btn-outlined" (click)="onResetSearch()">
           <i class="pi pi-refresh"></i> Làm mới
         </button>
-                <button type="button" class="btn-save" (click)="onSearch()">
+        <button type="button" class="btn-save" (click)="onSearch()">
           <i class="pi pi-check"></i> Áp dụng
         </button>
-            </div>
-        </div>
+      </div>
+    </div>
 
-        <!-- Table Grid -->
-        <div class="wf-table-wrap" *ngIf="!loading(); else loadingTemplate">
-            <table class="wf-table">
-                <thead>
-                    <tr>
-                        <th style="width: 80px;" class="text-center">ID</th>
-                        <th style="width: 200px;">Mã nhóm</th>
-                        <th>Tên nhóm</th>
-                        <th style="width: 150px;" class="text-center">Số báo cáo</th>
-                        <th style="width: 150px;" class="text-center">Số đơn vị</th>
-                        <th style="width: 140px;" class="text-center">Trạng thái</th>
-                        <th style="width: 100px;" class="text-center">Thao tác</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr *ngFor="let group of pagedGroups(); let i = index">
-                        <td class="text-center text-muted">{{ (currentPage() - 1) * pageSize() + i + 1 }}</td>
-                        <td><span style="font-weight: 400; color: #0284c7;">{{ group.code }}</span></td>
-                        <td>
-                            <span class="wf-name-link" style="cursor: pointer; color: #334155; font-weight: 400;" (click)="authService.hasPermission('REPORT_GROUP_EDIT') ? goToEdit(group, 0) : null">
+    <!-- Table Grid -->
+    <div class="wf-table-wrap" *ngIf="!loading(); else loadingTemplate">
+      <table class="wf-table">
+        <thead>
+          <tr>
+            <th style="width: 80px" class="text-center">STT</th>
+            <th style="width: 200px">Mã nhóm</th>
+            <th>Tên nhóm</th>
+            <th style="width: 150px" class="text-center">Số báo cáo</th>
+            <th style="width: 150px" class="text-center">Số đơn vị</th>
+            <th style="width: 140px" class="text-center">Trạng thái</th>
+            <th style="width: 100px" class="text-center">Thao tác</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let group of pagedGroups(); let i = index">
+            <td class="text-center text-muted">
+              {{ (currentPage() - 1) * pageSize() + i + 1 }}
+            </td>
+            <td>
+              <span
+                class="wf-name-link"
+                style="font-weight: 400; cursor: pointer; color: #0284c7"
+                (click)="
+                  authService.hasPermission('REPORT_GROUP_EDIT')
+                    ? goToEdit(group, 1)
+                    : null
+                "
+              >
+                {{ group.code }}
+              </span>
+            </td>
+            <td>
+              <span
+                class="wf-name-link"
+                style="cursor: pointer; color: #334155; font-weight: 400"
+                (click)="
+                  authService.hasPermission('REPORT_GROUP_EDIT')
+                    ? goToEdit(group, 0)
+                    : null
+                "
+              >
                 {{ group.name }}
               </span>
-                        </td>
-                        <td class="text-center">
-                            <span style="font-weight: 500; color: #475569;">
+            </td>
+            <td class="text-center">
+              <span style="font-weight: 500; color: #475569">
                 {{ group.reportCount }} báo cáo
               </span>
-                        </td>
-                        <td class="text-center">
-                            <span style="font-weight: 500; color: #475569;">
+            </td>
+            <td class="text-center">
+              <span style="font-weight: 500; color: #475569">
                 {{ group.unitCount }} đơn vị
               </span>
-                        </td>
-                        <td class="text-center">
-                            <span class="status-badge" [ngClass]="group.isActive ? 'status-active' : 'status-inactive'">
+            </td>
+            <td class="text-center">
+              <span
+                class="status-badge"
+                [ngClass]="group.isActive ? 'status-active' : 'status-inactive'"
+              >
                 {{ group.isActive ? 'Hoạt động' : 'Ngừng hoạt động' }}
               </span>
-                        </td>
-                        <td class="text-center">
-                            <!-- Nút ba chấm ngang thao tác -->
-                            <button type="button" class="act-btn-dot" (click)="openActionMenu(group, $event, actionMenu)" title="Thao tác" style="background: transparent; border: none; cursor: pointer; padding: 6px 10px; border-radius: 4px; color: #64748b; transition: all 0.2s;">
-                <i class="pi pi-ellipsis-h" style="font-size: 1.1rem; vertical-align: middle;"></i>
+            </td>
+            <td class="text-center">
+              <!-- Nút ba chấm ngang thao tác -->
+              <button
+                type="button"
+                class="act-btn-dot"
+                (click)="openActionMenu(group, $event, actionMenu)"
+                title="Thao tác"
+                style="
+                  background: transparent;
+                  border: none;
+                  cursor: pointer;
+                  padding: 6px 10px;
+                  border-radius: 4px;
+                  color: #64748b;
+                  transition: all 0.2s;
+                "
+              >
+                <i
+                  class="pi pi-ellipsis-h"
+                  style="font-size: 1.1rem; vertical-align: middle"
+                ></i>
               </button>
-                        </td>
-                    </tr>
-                    <tr *ngIf="filteredGroups().length === 0">
-                        <td colspan="7" class="empty-row text-center py-5 text-muted">
-                            <i class="pi pi-inbox block text-3xl mb-2" style="color: #cbd5e1;"></i> Không tìm thấy nhóm báo cáo hệ thống nào.
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-
-        <div class="table-footer-paginator" *ngIf="filteredGroups().length > 0">
-            <span class="record-count">
-          Tổng số: <b>{{ filteredGroups().length }}</b> báo cáo.
-        </span>
-            <app-eco-paginator [first]="(currentPage() - 1) * pageSize()" [rows]="pageSize()" [totalRecords]="filteredGroups().length" [rowsPerPageOptions]="[10, 20, 50]" (onPageChange)="onUnitPageChange($event)">
-            </app-eco-paginator>
-        </div>
-
-        <!-- Loading state -->
-        <ng-template #loadingTemplate>
-            <div class="text-center py-5 text-muted">
-                <i class="pi pi-spin pi-spinner text-3xl mb-2" style="color: #002D72;"></i>
-                <div>Đang tải dữ liệu...</div>
-            </div>
-        </ng-template>
+            </td>
+          </tr>
+          <tr *ngIf="filteredGroups().length === 0">
+            <td colspan="7" class="empty-row text-center py-5 text-muted">
+              <i
+                class="pi pi-inbox block text-3xl mb-2"
+                style="color: #cbd5e1"
+              ></i>
+              Không tìm thấy nhóm báo cáo hệ thống nào.
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
+
+    <div class="table-footer-paginator" *ngIf="filteredGroups().length > 0">
+      <span class="record-count">
+        Tổng số: <b>{{ filteredGroups().length }}</b> báo cáo.
+      </span>
+      <app-eco-paginator
+        [first]="(currentPage() - 1) * pageSize()"
+        [rows]="pageSize()"
+        [totalRecords]="filteredGroups().length"
+        [rowsPerPageOptions]="[10, 20, 50]"
+        (onPageChange)="onUnitPageChange($event)"
+      >
+      </app-eco-paginator>
+    </div>
+
+    <!-- Loading state -->
+    <ng-template #loadingTemplate>
+      <div class="text-center py-5 text-muted">
+        <i
+          class="pi pi-spin pi-spinner text-3xl mb-2"
+          style="color: #002d72"
+        ></i>
+        <div>Đang tải dữ liệu...</div>
+      </div>
+    </ng-template>
+  </div>
 </div>
 
 <!-- Menu Thao tác Popup của PrimeNG -->
-<p-menu #actionMenu [model]="actionMenuItems" [popup]="true" appendTo="body"></p-menu>
+<p-menu
+  #actionMenu
+  [model]="actionMenuItems"
+  [popup]="true"
+  appendTo="body"
+></p-menu>
 
 <!-- Popup xác nhận xóa dùng chung toàn hệ thống. -->
-<app-delete-confirm-dialog [visible]="showDeleteConfirm()" header="Xác nhận xóa nhóm báo cáo" entityLabel="Nhóm báo cáo" [targetName]="deleteTargetLabel()" [loading]="deleting()" (cancelled)="onCancelDelete()" (confirmed)="onConfirmDelete()" />
+<app-delete-confirm-dialog
+  [visible]="showDeleteConfirm()"
+  header="Xác nhận xóa nhóm báo cáo"
+  entityLabel="Nhóm báo cáo"
+  [targetName]="deleteTargetLabel()"
+  [loading]="deleting()"
+  (cancelled)="onCancelDelete()"
+  (confirmed)="onConfirmDelete()"
+/>
 <!-- Dialog Xác nhận Khóa -->
-<p-dialog [visible]="showLockConfirm()" (visibleChange)="$event ? null : onCancelLock()" header="Xác nhận khóa" [modal]="true" [style]="{ width: '420px' }" styleClass="evn-dialog-custom" [closable]="!locking()">
-    <div style="padding: 8px 0 16px 0; display: flex; flex-direction: column; gap: 12px;">
-        <div style="display: flex; align-items: flex-start; gap: 12px;">
-            <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #f59e0b; margin-top: 2px; flex-shrink: 0;"></i>
-            <div>
-                <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b; font-size: 0.95rem;">Bạn có chắc chắn muốn khóa nhóm báo cáo này?</p>
-                <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
-                    Nhóm <b style="color: #1e293b;">{{ lockTarget()?.name }}</b> ({{ lockTarget()?.code }}) sẽ bị khóa.
-                </p>
-            </div>
-        </div>
+<p-dialog
+  [visible]="showLockConfirm()"
+  (visibleChange)="$event ? null : onCancelLock()"
+  header="Xác nhận {{ lockTarget()?.isActive ? 'khóa' : 'mở khóa' }}"
+  [modal]="true"
+  [style]="{ width: '420px' }"
+  styleClass="evn-dialog-custom"
+  [closable]="!locking()"
+>
+  <div
+    style="
+      padding: 8px 0 16px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    "
+  >
+    <div style="display: flex; align-items: flex-start; gap: 12px">
+      <i
+        class="pi pi-exclamation-triangle"
+        style="
+          font-size: 1.8rem;
+          color: #f59e0b;
+          margin-top: 2px;
+          flex-shrink: 0;
+        "
+      ></i>
+      <div>
+        <p
+          style="
+            margin: 0 0 6px 0;
+            font-weight: 600;
+            color: #1e293b;
+            font-size: 0.95rem;
+          "
+        >
+          Bạn có chắc chắn muốn
+          {{ lockTarget()?.isActive ? 'khóa' : 'mở khóa' }} nhóm báo cáo này?
+        </p>
+        <p style="margin: 0; color: #64748b; font-size: 0.875rem">
+          Nhóm <b style="color: #1e293b">{{ lockTarget()?.name }}</b> ({{
+            lockTarget()?.code
+          }}) sẽ {{ lockTarget()?.isActive ? ' bị khóa' : 'được mở khóa' }}
+        </p>
+      </div>
     </div>
-    <ng-template #footer>
-        <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
-            <button class="btn-cancel btn-small" (click)="onCancelLock()" [disabled]="locking()">
+  </div>
+  <ng-template #footer>
+    <div
+      style="
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        border-top: 1px solid #f1f5f9;
+        padding-top: 12px;
+      "
+    >
+      <button
+        class="btn-cancel btn-small"
+        (click)="onCancelLock()"
+        [disabled]="locking()"
+      >
         <i class="pi pi-times"></i> Hủy
       </button>
-            <button class="btn-save btn-small" (click)="onConfirmLock()" [disabled]="locking()" style="background-color: #dc2626; border-color: #dc2626;">
-        <i class="pi pi-spin pi-spinner" *ngIf="locking()" style="margin-right: 4px;"></i>
-        <i class="pi pi-lock" *ngIf="!locking()" style="margin-right: 4px;"></i>
-        Khóa
+      <button
+        class="btn-save btn-small"
+        (click)="onConfirmLock()"
+        [disabled]="locking()"
+        style="background-color: #dc2626; border-color: #dc2626"
+      >
+        <i
+          class="pi pi-spin pi-spinner"
+          *ngIf="locking()"
+          style="margin-right: 4px"
+        ></i>
+        <i class="pi pi-lock" *ngIf="!locking()" style="margin-right: 4px"></i>
+        {{ lockTarget()?.isActive ? 'Khóa' : 'Mở khóa' }}
       </button>
-        </div>
-    </ng-template>
+    </div>
+  </ng-template>
 </p-dialog>
 
 <!-- (Chỉ cấu hình thông tin chung theo đúng Mockup) -->
-<p-dialog [(visible)]="displayCreateDialog" header="Thêm Mới Nhóm Báo Cáo Hệ Thống" [modal]="true" [style]="{width: '600px'}" styleClass="evn-dialog-custom" [draggable]="false" [resizable]="false">
-    <div style="display: flex; flex-direction: column; gap: 14px; padding: 10px 0;">
-
-        <!-- Hàng 1: Mã nhóm -->
-        <div class="form-group">
-            <label class="form-label font-bold text-sm">Mã nhóm <span class="required" style="color: red;">*</span></label>
-            <input type="text" class="wf-input w-full" [(ngModel)]="currentNewGroup.code" (input)="onCodeInput($event)" required placeholder="Ví dụ: NHOM_KT..." />
-            <small class="field-error" style="color: red;" *ngIf="formSubmitted && !currentNewGroup.code">Mã nhóm là bắt buộc.</small>
-        </div>
-
-        <!-- Hàng 2: Tên nhóm -->
-        <div class="form-group">
-            <label class="form-label font-bold text-sm">Tên nhóm <span class="required" style="color: red;">*</span></label>
-            <input type="text" class="wf-input w-full" [(ngModel)]="currentNewGroup.name" required placeholder="Nhập tên nhóm báo cáo..." />
-            <small class="field-error" style="color: red;" *ngIf="formSubmitted && !currentNewGroup.name">Tên nhóm là bắt buộc.</small>
-        </div>
-
-        <!-- Hàng 3: Thứ tự -->
-        <div class="form-group">
-            <label class="form-label font-bold text-sm">Thứ tự sắp xếp</label>
-            <input type="number" class="wf-input w-full" [(ngModel)]="currentNewGroup.sortOrder" min="1" placeholder="Thứ tự hiển thị (ví dụ: 1, 2, 3...)" />
-        </div>
-
-        <!-- Hàng 4: Trạng thái kích hoạt (tickbox và label cùng 1 hàng) -->
-        <div style="display: flex !important; flex-direction: row !important; align-items: center !important; gap: 8px !important; margin-top: 4px !important; margin-bottom: 14px !important; width: 100% !important; padding: 4px 0 !important;">
-            <input type="checkbox" id="newIsActive" [(ngModel)]="currentNewGroup.isActive" style="width: 18px !important; height: 18px !important; cursor: pointer !important; accent-color: #002D72 !important; margin: 0 !important; display: inline-block !important;"
-            />
-            <label for="newIsActive" style="cursor: pointer !important; margin: 0 !important; user-select: none !important; color: #334155 !important; font-size: 13.5px !important; font-weight: 600 !important; display: inline-block !important; line-height: 1 !important; vertical-align: middle !important;">Trạng thái kích hoạt</label>
-        </div>
-
-        <!-- Hàng 5: Đơn vị sử dụng -->
-        <div class="form-group">
-            <label class="form-label font-bold text-sm">Đơn vị sử dụng</label>
-            <p-treeSelect [options]="primengOrgUnitTree()" [ngModel]="selectedUnitNodes()" (ngModelChange)="onUnitNodesChange($event)" display="chip" appendTo="body" selectionMode="checkbox" [metaKeySelection]="false" placeholder="Chọn các đơn vị được quyền xem nhóm báo cáo này..."
-                styleClass="w-full wf-select" class="w-full">
-            </p-treeSelect>
-        </div>
-
-        <!-- Hàng 6: Mô tả (đem xuống dưới cùng) -->
-        <div class="form-group">
-            <label class="form-label font-bold text-sm">Mô tả</label>
-            <textarea class="wf-input w-full" [(ngModel)]="currentNewGroup.description" rows="3" placeholder="Nhập mô tả ngắn gọn về nhóm báo cáo này..." style="resize: vertical;"></textarea>
-        </div>
-
+<p-dialog
+  [(visible)]="displayCreateDialog"
+  header="Thêm Mới Nhóm Báo Cáo Hệ Thống"
+  [modal]="true"
+  [style]="{ width: '600px' }"
+  styleClass="evn-dialog-custom"
+  [draggable]="false"
+  [resizable]="false"
+>
+  <div
+    style="display: flex; flex-direction: column; gap: 14px; padding: 10px 0"
+  >
+    <!-- Hàng 1: Mã nhóm -->
+    <div class="form-group">
+      <label class="form-label font-bold text-sm"
+        >Mã nhóm <span class="required" style="color: red">*</span></label
+      >
+      <input
+        type="text"
+        class="wf-input w-full"
+        [(ngModel)]="currentNewGroup.code"
+        (input)="onCodeInput($event)"
+        required
+        placeholder="Ví dụ: NHOM_KT..."
+      />
+      <small
+        class="field-error"
+        style="color: red"
+        *ngIf="formSubmitted && !currentNewGroup.code"
+        >Mã nhóm là bắt buộc.</small
+      >
     </div>
 
-    <ng-template #footer>
-        <div class="flex gap-2 justify-end pt-3" style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9;">
-            <button class="btn-outlined btn-small" (click)="hideCreatePopup()">Hủy</button>
-            <button class="btn-save btn-small" [disabled]="saving()" (click)="saveNewGroup()">
+    <!-- Hàng 2: Tên nhóm -->
+    <div class="form-group">
+      <label class="form-label font-bold text-sm"
+        >Tên nhóm <span class="required" style="color: red">*</span></label
+      >
+      <input
+        type="text"
+        class="wf-input w-full"
+        [(ngModel)]="currentNewGroup.name"
+        required
+        placeholder="Nhập tên nhóm báo cáo..."
+      />
+      <small
+        class="field-error"
+        style="color: red"
+        *ngIf="formSubmitted && !currentNewGroup.name"
+        >Tên nhóm là bắt buộc.</small
+      >
+    </div>
+
+    <!-- Hàng 3: Thứ tự -->
+    <div class="form-group">
+      <label class="form-label font-bold text-sm">Thứ tự sắp xếp</label>
+      <input
+        type="number"
+        class="wf-input w-full"
+        [(ngModel)]="currentNewGroup.sortOrder"
+        min="1"
+        placeholder="Thứ tự hiển thị (ví dụ: 1, 2, 3...)"
+      />
+    </div>
+
+    <!-- Hàng 4: Trạng thái kích hoạt (tickbox và label cùng 1 hàng) -->
+    <div
+      style="
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        gap: 8px !important;
+        margin-top: 4px !important;
+        margin-bottom: 14px !important;
+        width: 100% !important;
+        padding: 4px 0 !important;
+      "
+    >
+      <input
+        type="checkbox"
+        id="newIsActive"
+        [(ngModel)]="currentNewGroup.isActive"
+        style="
+          width: 18px !important;
+          height: 18px !important;
+          cursor: pointer !important;
+          accent-color: #002d72 !important;
+          margin: 0 !important;
+          display: inline-block !important;
+        "
+      />
+      <label
+        for="newIsActive"
+        style="
+          cursor: pointer !important;
+          margin: 0 !important;
+          user-select: none !important;
+          color: #334155 !important;
+          font-size: 13.5px !important;
+          font-weight: 600 !important;
+          display: inline-block !important;
+          line-height: 1 !important;
+          vertical-align: middle !important;
+        "
+        >Trạng thái kích hoạt</label
+      >
+    </div>
+
+    <!-- Hàng 5: Đơn vị sử dụng -->
+    <div class="form-group">
+      <label class="form-label font-bold text-sm">Đơn vị sử dụng</label>
+      <p-treeSelect
+        [options]="primengOrgUnitTree()"
+        [ngModel]="selectedUnitNodes()"
+        (ngModelChange)="onUnitNodesChange($event)"
+        display="chip"
+        appendTo="body"
+        selectionMode="checkbox"
+        [metaKeySelection]="false"
+        placeholder="Chọn các đơn vị được quyền xem nhóm báo cáo này..."
+        styleClass="w-full wf-select"
+        class="w-full"
+      >
+      </p-treeSelect>
+    </div>
+
+    <!-- Hàng 6: Mô tả (đem xuống dưới cùng) -->
+    <div class="form-group">
+      <label class="form-label font-bold text-sm">Mô tả</label>
+      <textarea
+        class="wf-input w-full"
+        [(ngModel)]="currentNewGroup.description"
+        rows="3"
+        placeholder="Nhập mô tả ngắn gọn về nhóm báo cáo này..."
+        style="resize: vertical"
+      ></textarea>
+    </div>
+  </div>
+
+  <ng-template #footer>
+    <div
+      class="flex gap-2 justify-end pt-3"
+      style="
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        border-top: 1px solid #f1f5f9;
+      "
+    >
+      <button class="btn-outlined btn-small" (click)="hideCreatePopup()">
+        Hủy
+      </button>
+      <button
+        class="btn-save btn-small"
+        [disabled]="saving()"
+        (click)="saveNewGroup()"
+      >
         <i class="pi pi-spin pi-spinner mr-1" *ngIf="saving()"></i> Tạo mới
       </button>
-        </div>
-    </ng-template>
+    </div>
+  </ng-template>
 </p-dialog>

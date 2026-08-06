@@ -10,9 +10,6 @@ import {
   OcrModuleErrorAnalysis,
   OcrModuleRegionDto,
   OcrModuleService,
-  OcrModuleTemplateDiffResult,
-  OcrModuleTemplateSnapshot,
-  ScriptTypeClassifyResponse,
   SealSignatureRunResponse,
   SpellcheckRunResult,
 } from '../../data-access/ocr-module.service';
@@ -58,9 +55,6 @@ export class OcrInsightsContentComponent implements OnInit {
       .map((r) => this.toOverlayRegion(r)),
   );
 
-  scriptTypeLoading = signal(false);
-  scriptTypeSummary = signal<ScriptTypeClassifyResponse | null>(null);
-
   formulaLoading = signal(false);
   formulaSummary = signal<FormulaRunResponse | null>(null);
   formulaRegions = computed(() => this.regions().filter((r) => r.regionType === 'Formula'));
@@ -70,13 +64,11 @@ export class OcrInsightsContentComponent implements OnInit {
   sealSignatureRegions = computed(() =>
     this.regions().filter((r) => r.regionType === 'Seal' || r.regionType === 'Signature'),
   );
-
-  templates = signal<OcrModuleTemplateSnapshot[]>([]);
-  selectedTemplateId = signal<string | null>(null);
-  templateDiffLoading = signal(false);
-  templateDiffResults = signal<OcrModuleTemplateDiffResult[]>([]);
-  newTemplateName = signal('');
-  savingTemplate = signal(false);
+  sealSignatureOverlayRegions = computed(() =>
+    this.sealSignatureRegions()
+      .filter((r) => r.pageNumber === this.selectedPage())
+      .map((r) => this.toSealSignatureOverlayRegion(r)),
+  );
 
   spellcheckLoading = signal(false);
   spellcheckSummary = signal<SpellcheckRunResult | null>(null);
@@ -105,33 +97,6 @@ export class OcrInsightsContentComponent implements OnInit {
     this.loadJob();
   }
 
-  classifyScriptType(): void {
-    const id = this.jobId();
-    if (!id) return;
-
-    this.scriptTypeLoading.set(true);
-    this.ocrModuleService.classifyScriptType(id, this.selectedPage()).subscribe({
-      next: (summary) => {
-        this.scriptTypeSummary.set(summary);
-        this.scriptTypeLoading.set(false);
-        this.loadRegions();
-        this.messageService.add({
-          severity: 'success',
-          summary: 'Đã phân loại loại chữ viết',
-          detail: `Chữ in: ${summary.printedCount} · Viết tay: ${summary.handwrittenCount} · Hỗn hợp: ${summary.mixedCount}`,
-        });
-      },
-      error: (err) => {
-        this.scriptTypeLoading.set(false);
-        this.messageService.add({
-          severity: 'error',
-          summary: 'Lỗi',
-          detail: err?.error?.message ?? 'Không phân loại được loại chữ viết.',
-        });
-      },
-    });
-  }
-
   private loadJob(): void {
     if (!this.sourceDocument) return;
 
@@ -156,7 +121,6 @@ export class OcrInsightsContentComponent implements OnInit {
             detail: `Đã nạp ${res.regionCount} vùng văn bản từ kết quả OCR có sẵn của tài liệu này.`,
           });
           this.loadRegions();
-          this.loadTemplates();
         },
         error: (err) => {
           this.loading.set(false);
@@ -200,6 +164,22 @@ export class OcrInsightsContentComponent implements OnInit {
       boxY1: region.boxY1,
       colorClass,
       tooltip: `${region.textRaw} — ${confidence != null ? (confidence * 100).toFixed(0) + '%' : 'Không rõ độ tin cậy'}`,
+    };
+  }
+
+  private toSealSignatureOverlayRegion(region: OcrModuleRegionDto): OcrOverlayRegion {
+    const isSeal = region.regionType === 'Seal';
+    const label = isSeal ? 'Con dấu' : 'Chữ ký';
+    const score = region.sealSignatureScore;
+
+    return {
+      id: region.id,
+      boxX0: region.boxX0,
+      boxY0: region.boxY0,
+      boxX1: region.boxX1,
+      boxY1: region.boxY1,
+      colorClass: isSeal ? 'region-seal' : 'region-signature',
+      tooltip: `${label} — ${score != null ? (score * 100).toFixed(0) + '%' : 'Không rõ độ tin cậy'}`,
     };
   }
 
@@ -284,71 +264,6 @@ export class OcrInsightsContentComponent implements OnInit {
           severity: 'error',
           summary: 'Lỗi',
           detail: err?.error?.message ?? 'Không xử lý được con dấu/chữ ký.',
-        });
-      },
-    });
-  }
-
-  loadTemplates(): void {
-    this.ocrModuleService.getTemplates().subscribe((templates) => this.templates.set(templates));
-  }
-
-  onSelectTemplate(templateId: string): void {
-    this.selectedTemplateId.set(templateId || null);
-  }
-
-  runTemplateDiff(): void {
-    const jobId = this.jobId();
-    const templateId = this.selectedTemplateId();
-    if (!jobId || !templateId) return;
-
-    this.templateDiffLoading.set(true);
-    this.ocrModuleService.runTemplateDiff(jobId, templateId, this.selectedPage()).subscribe({
-      next: (summary) => {
-        this.templateDiffLoading.set(false);
-        this.messageService.add({
-          severity: 'success',
-          summary: 'Đã so sánh với mẫu',
-          detail: `Phát hiện ${summary.totalDiffs} sai khác (Thiếu: ${summary.missingCount}, Thừa: ${summary.extraCount}, Khác nội dung: ${summary.textMismatchCount}, Lệch vị trí: ${summary.positionShiftCount}).`,
-        });
-        this.loadTemplateDiffResults();
-      },
-      error: (err) => {
-        this.templateDiffLoading.set(false);
-        this.messageService.add({
-          severity: 'error',
-          summary: 'Lỗi',
-          detail: err?.error?.message ?? 'Không so sánh được với mẫu tham chiếu.',
-        });
-      },
-    });
-  }
-
-  loadTemplateDiffResults(): void {
-    const jobId = this.jobId();
-    if (!jobId) return;
-    this.ocrModuleService.getTemplateDiffResults(jobId).subscribe((results) => this.templateDiffResults.set(results));
-  }
-
-  saveCurrentAsTemplate(): void {
-    const jobId = this.jobId();
-    const name = this.newTemplateName().trim();
-    if (!jobId || !name) return;
-
-    this.savingTemplate.set(true);
-    this.ocrModuleService.createTemplate({ name, sourceJobId: jobId }).subscribe({
-      next: () => {
-        this.savingTemplate.set(false);
-        this.newTemplateName.set('');
-        this.messageService.add({ severity: 'success', summary: 'Đã lưu mẫu mới', detail: `Mẫu "${name}" đã được lưu.` });
-        this.loadTemplates();
-      },
-      error: (err) => {
-        this.savingTemplate.set(false);
-        this.messageService.add({
-          severity: 'error',
-          summary: 'Lỗi',
-          detail: err?.error?.message ?? 'Không lưu được mẫu mới.',
         });
       },
     });

@@ -132,7 +132,7 @@
                             </td>
                             <td style="text-align: center;">{{ item.priority }}</td>
                             <td *ngIf="usesStandardAuditColumns()">{{ item.createdAt ? (item.createdAt | date:'dd/MM/yyyy HH:mm') : '-' }}</td>
-                            <td *ngIf="usesStandardAuditColumns()">{{ item.createdBy || '-' }}</td>
+                            <td *ngIf="usesStandardAuditColumns()">{{ item.createdByName || item.createdBy || '-' }}</td>
                             <td>
                                 <span *ngIf="item.status === 1" class="status-pill status-active">
                   Hoạt động

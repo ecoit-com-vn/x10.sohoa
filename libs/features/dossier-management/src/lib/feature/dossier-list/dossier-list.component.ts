@@ -10,6 +10,8 @@ import { DialogModule } from 'primeng/dialog';
 
 import { MenuModule } from 'primeng/menu';
 
+import { SelectModule } from 'primeng/select';
+
 import { MessageService, MenuItem } from 'primeng/api';
 
 import { BhsCatalogColumn, DossierManagementService, DossierWorkflowAction, normalizeDossierWorkflowAction } from '../../data-access/dossier-management.service';
@@ -68,7 +70,7 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
 
   standalone: true,
 
-  imports: [CommonModule, FormsModule, ToastModule, DialogModule, MenuModule],
+  imports: [CommonModule, FormsModule, ToastModule, DialogModule, MenuModule, SelectModule],
 
   template: `
 
@@ -109,32 +111,24 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
 
           <div class="search-form-item">
             <label class="search-field-label">Trạm / Đường dây</label>
-            <div class="searchable-select">
-              <button type="button" class="wf-select searchable-select-trigger" (click)="toggleInfrastructureDropdown()">
-                <span>{{ selectedInfrastructureLabel() }}</span>
-                <i class="pi pi-chevron-down"></i>
-              </button>
-
-              <div class="searchable-select-panel" *ngIf="isInfrastructureDropdownOpen()">
-                <input
-                  type="text"
-                  class="searchable-select-input"
-                  placeholder="Tìm trên trạm/đường dây..."
-                  [ngModel]="infrastructureSearchKeyword()"
-                  (ngModelChange)="infrastructureSearchKeyword.set($event)" />
-                <button type="button" class="searchable-select-option" (click)="selectInfrastructure(null)">
-                  -- Tất cả trạm/đường dây --
-                </button>
-                <button
-                  type="button"
-                  class="searchable-select-option"
-                  *ngFor="let item of filteredInfrastructures()"
-                  (click)="selectInfrastructure(item.id)">
-                  {{ item.name }}
-                </button>
-                <div class="searchable-select-empty" *ngIf="filteredInfrastructures().length === 0">Không có dữ liệu</div>
-              </div>
-            </div>
+            <p-select
+              [options]="infrastructures()"
+              [ngModel]="filterInfrastructureId()"
+              (ngModelChange)="selectInfrastructure($event)"
+              optionLabel="name"
+              optionValue="id"
+              placeholder="-- Tất cả trạm/đường dây --"
+              [filter]="true"
+              filterBy="name,code"
+              filterPlaceholder="Tìm theo mã hoặc tên..."
+              [showClear]="true"
+              appendTo="body"
+              styleClass="digitization-infrastructure-select">
+              <ng-template #item let-item>
+                <span>{{ item.name }}</span>
+                <small *ngIf="item.code" class="infrastructure-option-code">({{ item.code }})</small>
+              </ng-template>
+            </p-select>
           </div>
 
           <div class="search-form-item">
@@ -262,7 +256,11 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
 
                 </td>
 
-                <td class="station-cell" [title]="getInfrastructureName(item)">{{ getInfrastructureName(item) }}</td>
+                <td class="station-cell" [title]="getInfrastructureName(item)">
+                  <div *ngFor="let infrastructureName of getInfrastructureNames(item)">
+                    {{ infrastructureName }}
+                  </div>
+                </td>
 
                 <td class="text-center">{{ item.documentCount ?? 0 }}</td>
 
@@ -393,10 +391,10 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
     </p-dialog>
 
     <!-- Dialog xác nhận hoàn thành nhập liệu nhanh -->
-    <p-dialog [visible]="showQuickCompleteConfirm()" 
+    <p-dialog [visible]="showQuickCompleteConfirm()"
               (visibleChange)="$event ? null : showQuickCompleteConfirm.set(false)"
-              header="Xác nhận hoàn thành" 
-              [modal]="true" 
+              header="Xác nhận hoàn thành"
+              [modal]="true"
               [style]="{ width: '420px' }"
               styleClass="evn-dialog-custom"
               [closable]="!quickActionSubmitting()">
@@ -684,15 +682,25 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
     ::ng-deep .quick-action-reject i {
       color: #ef4444 !important;
     }
-    .station-cell,
+    .station-cell {
+      white-space: normal;
+      overflow: visible;
+      text-overflow: clip;
+      max-width: 320px;
+      line-height: 1.5;
+    }
     .handler-cell {
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      max-width: 220px;
-    }
-    .handler-cell {
       max-width: 160px;
+    }
+    .infrastructure-option-code {
+      margin-left: 6px;
+      color: #64748b;
+    }
+    :host ::ng-deep .digitization-infrastructure-select .p-select-label {
+      font-size: 0.85rem;
     }
     .searchable-select {
       position: relative;
@@ -1363,9 +1371,27 @@ export class DossierListComponent implements OnInit {
   }
 
   getInfrastructureName(item: any): string {
+    return this.getInfrastructureNames(item).join(', ');
+  }
+
+  getInfrastructureNames(item: any): string[] {
+    const infrastructures = item?.infrastructures ?? item?.Infrastructures;
+    if (Array.isArray(infrastructures)) {
+      const names = infrastructures
+        .map((infrastructure: any) => infrastructure?.infrastructureName ?? infrastructure?.InfrastructureName)
+        .filter((name: unknown) => name != null && String(name).trim() !== '')
+        .map((name: unknown) => String(name).trim());
+      if (names.length) return [...new Set(names)];
+    }
+
     const name = item?.infrastructureName ?? item?.InfrastructureName;
-    if (name != null && String(name).trim() !== '') return String(name).trim();
-    return '-';
+    if (name != null && String(name).trim() !== '') {
+      return String(name)
+        .split(',')
+        .map((value) => value.trim())
+        .filter(Boolean);
+    }
+    return ['-'];
   }
 
   getCurrentHandlerName(item: any): string {
@@ -1472,7 +1498,7 @@ export class DossierListComponent implements OnInit {
 
   isAssignedToCurrentUser(item: any): boolean {
     if (!item) return false;
-    
+
     const userId = this.authService.getUserId();
     const roles = this.authService.getUserRoles() || [];
 
@@ -1520,7 +1546,7 @@ export class DossierListComponent implements OnInit {
     const status = item.status ?? item.Status;
     const isDraftState = this.activeTab() === 'draft' || status === 'Draft' || status === 'New' || status === 'CompletedInput' || status === 'Returned';
     const stepAllowEdit = item.currentStepAllowEdit ?? item.CurrentStepAllowEdit;
-    
+
     if (isDraftState || stepAllowEdit) {
       return this.isAssignedToCurrentUser(item);
     }

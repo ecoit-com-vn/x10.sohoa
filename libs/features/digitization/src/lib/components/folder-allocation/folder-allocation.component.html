@@ -39,11 +39,31 @@
           </select>
         </div>
 
-        <div class="standard-search-actions" style="margin-top:-8px;">
+        <div class="standard-search-field lookup-filters__field">
+          <label class="form-label">Từ ngày</label>
+          <input
+            type="date"
+            class="wf-select"
+            [value]="selectedFromDate() | date: 'yyyy-MM-dd'"
+            [max]="selectedToDate() | date: 'yyyy-MM-dd'"
+            (change)="selectedFromDate.set($any($event.target).valueAsDate)" />
+        </div>
+
+        <div class="standard-search-field lookup-filters__field">
+          <label class="form-label">Đến ngày</label>
+          <input
+            type="date"
+            class="wf-select"
+            [value]="selectedToDate() | date: 'yyyy-MM-dd'"
+            [min]="selectedFromDate() | date: 'yyyy-MM-dd'"
+            (change)="selectedToDate.set($any($event.target).valueAsDate)" />
+        </div>
+
+        <div class="standard-search-actions">
           <button class="btn-outlined" (click)="onResetSearch()">
             <i class="pi pi-refresh"></i> Làm mới
           </button>
-          <button class="btn-save" (click)="loadAllocations()">
+          <button class="btn-save" (click)="onApplyFilters()">
             <i class="pi pi-check"></i> Áp dụng
           </button>
         </div>

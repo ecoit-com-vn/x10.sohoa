@@ -993,7 +993,7 @@
 
     <!-- ==================== DIALOG CHUYỂN THIẾT BỊ ==================== -->
     <p-dialog [visible]="showTransferDialog()" (visibleChange)="$event ? null : closeTransferDialog()"
-      header="Chuyển thiết bị" [modal]="true" [style]="{ width: '560px' }" styleClass="evn-dialog-custom"
+      header="Chuyển thiết bị" [modal]="true" [style]="{ width: '560px', height: '550px' }" styleClass="evn-dialog-custom"
       [closable]="!transferLoading()">
       <div style="padding: 8px 0 16px; display: flex; flex-direction: column; gap: 16px;">
         <div class="form-group">
@@ -1005,7 +1005,7 @@
               [class.has-value]="transferForm().unitId" [class.open]="transferOrgTreeOpen()">
               <span class="org-tree-selected-label">
                 <i class="pi pi-building" style="margin-right: 6px; color: #6b7280;"></i>
-                {{ getUnitLabel(transferForm().unitId) || '-- Chọn đơn vị quản lý --' }}
+                {{ getTransferUnitLabel(transferForm().unitId) || '-- Chọn đơn vị quản lý --' }}
               </span>
               <i class="pi" [class.pi-chevron-down]="!transferOrgTreeOpen()" [class.pi-chevron-up]="transferOrgTreeOpen()"></i>
             </div>

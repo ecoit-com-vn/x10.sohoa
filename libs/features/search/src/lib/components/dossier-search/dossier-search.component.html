@@ -56,20 +56,18 @@
         ></p-select>
       </div>
 
-      <!-- Tiêu chí 4: Hộp hồ sơ -->
+      <!-- Tiêu chí 4: Loại hồ sơ -->
       <div class="standard-search-field">
-        <label class="search-field-label">Tên hộp hồ sơ</label>
-        <div class="search-input-with-icon" style="position: relative; display: flex; align-items: center;">
-          <i class="pi pi-box search-icon" style="position: absolute; left: 12px; color: #94a3b8;"></i>
-          <input
-            type="text"
-            class="wf-search-input w-full"
-            placeholder="Tìm tên hộp hồ sơ..."
-            [ngModel]="searchBoxName()"
-            (ngModelChange)="searchBoxName.set($event)"
-            style="height: 38px; border-radius: 6px; border: 1px solid #cbd5e1; padding: 0 12px 0 34px; outline: none;"
-          />
-        </div>
+        <label class="search-field-label">Loại hồ sơ</label>
+        <select
+          class="wf-select w-full"
+          [ngModel]="searchDossierTypeId()"
+          (ngModelChange)="searchDossierTypeId.set($event || null)"
+          style="height: 38px; border-radius: 6px; border: 1px solid #cbd5e1; padding: 0 12px; outline: none;"
+        >
+          <option [ngValue]="null">-- Tất cả loại hồ sơ --</option>
+          <option *ngFor="let item of dossierTypes()" [value]="item.id">{{ item.name }}</option>
+        </select>
       </div>
     </div>
 
