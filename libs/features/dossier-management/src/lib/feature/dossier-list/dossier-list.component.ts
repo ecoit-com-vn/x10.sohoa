@@ -263,7 +263,11 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
 
                 </td>
 
-                <td class="station-cell" [title]="getInfrastructureName(item)">{{ getInfrastructureName(item) }}</td>
+                <td class="station-cell" [title]="getInfrastructureName(item)">
+                  <div *ngFor="let infrastructureName of getInfrastructureNames(item)">
+                    {{ infrastructureName }}
+                  </div>
+                </td>
 
                 <td class="text-center">{{ item.documentCount ?? 0 }}</td>
 
@@ -624,14 +628,17 @@ function normalizeTabCounts(raw: unknown): DossierTabCounts {
     ::ng-deep .quick-action-reject i {
       color: #ef4444 !important;
     }
-    .station-cell,
+    .station-cell {
+      white-space: normal;
+      overflow: visible;
+      text-overflow: clip;
+      max-width: 320px;
+      line-height: 1.5;
+    }
     .handler-cell {
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      max-width: 220px;
-    }
-    .handler-cell {
       max-width: 160px;
     }
     .searchable-select {
@@ -1303,9 +1310,27 @@ export class DossierListComponent implements OnInit {
   }
 
   getInfrastructureName(item: any): string {
+    return this.getInfrastructureNames(item).join(', ');
+  }
+
+  getInfrastructureNames(item: any): string[] {
+    const infrastructures = item?.infrastructures ?? item?.Infrastructures;
+    if (Array.isArray(infrastructures)) {
+      const names = infrastructures
+        .map((infrastructure: any) => infrastructure?.infrastructureName ?? infrastructure?.InfrastructureName)
+        .filter((name: unknown) => name != null && String(name).trim() !== '')
+        .map((name: unknown) => String(name).trim());
+      if (names.length) return [...new Set(names)];
+    }
+
     const name = item?.infrastructureName ?? item?.InfrastructureName;
-    if (name != null && String(name).trim() !== '') return String(name).trim();
-    return '-';
+    if (name != null && String(name).trim() !== '') {
+      return String(name)
+        .split(',')
+        .map((value) => value.trim())
+        .filter(Boolean);
+    }
+    return ['-'];
   }
 
   getCurrentHandlerName(item: any): string {

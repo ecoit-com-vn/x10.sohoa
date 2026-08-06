@@ -328,18 +328,27 @@ export class ReportGroupsComponent implements OnInit {
     const group = this.lockTarget();
     if (!group) return;
 
+    const isLocking = group.isActive;
+    const action = isLocking ? 'lock' : 'unlock';
+    const successMessage = isLocking
+      ? 'Khóa nhóm báo cáo thành công.'
+      : 'Mở khóa nhóm báo cáo thành công.';
+
     this.locking.set(true);
-    this.http.patch(`${this.apiUrl}/${group.id}/lock`, {})
-      .pipe(finalize(() => {
-        this.locking.set(false);
-        this.onCancelLock(); // Hide dialog and reset target
-      }))
+    this.http
+      .patch(`${this.apiUrl}/${group.id}/${action}`, {})
+      .pipe(
+        finalize(() => {
+          this.locking.set(false);
+          this.onCancelLock(); // Hide dialog and reset target
+        })
+      )
       .subscribe({
         next: () => {
           this.messageService.add({
             severity: 'success',
             summary: 'Thành công',
-            detail: 'Khóa nhóm báo cáo thành công.'
+            detail: successMessage,
           });
           this.loadGroups();
         },
@@ -349,9 +358,9 @@ export class ReportGroupsComponent implements OnInit {
             summary: 'Lỗi',
             detail:
               err?.error?.message ??
-              'Không thể cập nhật trạng thái nhóm báo cáo.'
+              'Không thể cập nhật trạng thái nhóm báo cáo.',
           });
-        }
+        },
       });
   }
 
@@ -391,34 +400,7 @@ export class ReportGroupsComponent implements OnInit {
   }
 
 onToggleStatus(group: ReportGroup) {
-    const isLocking = group.isActive === true;
-    if (isLocking) {
-      this.lockTarget.set(group);
-      this.showLockConfirm.set(true);
-      return;
-    }
-    const action = 'unlock';
-    this.http
-      .patch(`${this.apiUrl}/${group.id}/${action}`, {})
-      .subscribe({
-        next: () => {
-          this.messageService.add({
-            severity: 'success',
-            summary: 'Thành công',
-            detail: 'Mở khóa nhóm báo cáo thành công.'
-          });
-
-          this.loadGroups();
-        },
-        error: (err) => {
-          this.messageService.add({
-            severity: 'error',
-            summary: 'Lỗi',
-            detail:
-              err?.error?.message ??
-              'Không thể cập nhật trạng thái nhóm báo cáo.'
-          });
-        }
-      });
+    this.lockTarget.set(group);
+    this.showLockConfirm.set(true);
   }
 }

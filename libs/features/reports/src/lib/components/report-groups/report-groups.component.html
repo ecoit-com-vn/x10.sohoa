@@ -101,7 +101,7 @@
             <span class="record-count">
           Tổng số: <b>{{ filteredGroups().length }}</b> báo cáo.
         </span>
-            <app-eco-paginator [first]="(currentPage() - 1) * pageSize()" [rows]="pageSize()" [totalRecords]="filteredGroups().length" [rowsPerPageOptions]="[5, 10, 20, 50]" (onPageChange)="onUnitPageChange($event)">
+            <app-eco-paginator [first]="(currentPage() - 1) * pageSize()" [rows]="pageSize()" [totalRecords]="filteredGroups().length" [rowsPerPageOptions]="[10, 20, 50]" (onPageChange)="onUnitPageChange($event)">
             </app-eco-paginator>
         </div>
 
@@ -121,14 +121,14 @@
 <!-- Popup xác nhận xóa dùng chung toàn hệ thống. -->
 <app-delete-confirm-dialog [visible]="showDeleteConfirm()" header="Xác nhận xóa nhóm báo cáo" entityLabel="Nhóm báo cáo" [targetName]="deleteTargetLabel()" [loading]="deleting()" (cancelled)="onCancelDelete()" (confirmed)="onConfirmDelete()" />
 <!-- Dialog Xác nhận Khóa -->
-<p-dialog [visible]="showLockConfirm()" (visibleChange)="$event ? null : onCancelLock()" header="Xác nhận khóa" [modal]="true" [style]="{ width: '420px' }" styleClass="evn-dialog-custom" [closable]="!locking()">
+<p-dialog [visible]="showLockConfirm()" (visibleChange)="$event ? null : onCancelLock()" header="Xác nhận {{lockTarget()?.isActive? 'khóa' : 'mở khóa'}}"  [modal]="true" [style]="{ width: '420px' }" styleClass="evn-dialog-custom" [closable]="!locking()">
     <div style="padding: 8px 0 16px 0; display: flex; flex-direction: column; gap: 12px;">
         <div style="display: flex; align-items: flex-start; gap: 12px;">
             <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #f59e0b; margin-top: 2px; flex-shrink: 0;"></i>
             <div>
-                <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b; font-size: 0.95rem;">Bạn có chắc chắn muốn khóa nhóm báo cáo này?</p>
+                <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b; font-size: 0.95rem;">Bạn có chắc chắn muốn {{lockTarget()?.isActive? 'khóa' : 'mở khóa'}} nhóm báo cáo này?</p>
                 <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
-                    Nhóm <b style="color: #1e293b;">{{ lockTarget()?.name }}</b> ({{ lockTarget()?.code }}) sẽ bị khóa.
+                    Nhóm <b style="color: #1e293b;">{{ lockTarget()?.name }}</b> ({{ lockTarget()?.code }}) sẽ {{lockTarget()?.isActive? ' bị khóa' : 'được mở khóa'}}
                 </p>
             </div>
         </div>
@@ -141,7 +141,7 @@
             <button class="btn-save btn-small" (click)="onConfirmLock()" [disabled]="locking()" style="background-color: #dc2626; border-color: #dc2626;">
         <i class="pi pi-spin pi-spinner" *ngIf="locking()" style="margin-right: 4px;"></i>
         <i class="pi pi-lock" *ngIf="!locking()" style="margin-right: 4px;"></i>
-        Khóa
+        {{lockTarget()?.isActive? 'Khóa' : 'Mở khóa'}} 
       </button>
         </div>
     </ng-template>

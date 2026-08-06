@@ -88,7 +88,7 @@
               </label>
               <p-datepicker
                 *ngSwitchCase="'date'"
-                [ngModel]="getDraftDateValue(field.key)"
+                [ngModel]="draftDateValues()[field.key] ?? null"
                 (ngModelChange)="setDraftDateValue(field.key, $event)"
                 dateFormat="dd/mm/yy"
                 [showIcon]="true"

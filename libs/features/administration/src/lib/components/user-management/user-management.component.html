@@ -1,5 +1,6 @@
 <div class="wf-page">
   <p-toast></p-toast>
+  <p-menu #actionMenu [model]="actionMenuItems" [popup]="true" appendTo="body" styleClass="row-action-menu"></p-menu>
   <div class="list-toolbar standard-page-toolbar">
     <div class="toolbar-left">
       <wf-breadcrumb [customItems]="[{ label: 'Quản trị hệ thống' }, { label: 'Người dùng', url: '/administration/user-management' }]" />
@@ -25,7 +26,7 @@
           <div class="standard-search-field">
             <label class="search-field-label">Từ khóa</label>
             <input type="text" class="wf-search-input" placeholder="Tìm kiếm tài khoản, tên..."
-              [ngModel]="searchKeyword()" (ngModelChange)="searchKeyword.set($event)"
+              [ngModel]="searchKeyword()" (ngModelChange)="onSearchKeywordChange($event)"
               (keydown.enter)="onSearch()" />
           </div>
 
@@ -133,13 +134,12 @@
         </table>
       </div>
 
-      <p-menu #actionMenu [model]="actionMenuItems" [popup]="true" appendTo="body" styleClass="row-action-menu"></p-menu>
-
       <!-- Footer with Pagination -->
       <app-eco-paginator *ngIf="totalCount() > 0"
         [first]="(currentPage() - 1) * pageSize()" [rows]="pageSize()"
         [totalRecords]="totalCount()" [rowsPerPageOptions]="[10, 20, 50]"
         (onPageChange)="onUserPageChange($event)" />
+    </div>
     </div>
 
     <!-- Dialog Thêm/Sửa Người dùng -->
@@ -514,5 +514,4 @@
       </ng-template>
     </p-dialog>
 
-  </div>
 </div>

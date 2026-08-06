@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { APP_CONFIG } from '@sohoa.frontend/shared/core';
 
@@ -19,12 +19,21 @@ export class UserService {
   }
 
   getUsers(page: number, pageSize: number, keyword?: string, organizationUnitIds: number[] = [], isActive?: boolean | null): Observable<any> {
-    let url = `${this.base}/users?page=${page}&pageSize=${pageSize}&keyword=${keyword || ''}`;
-    organizationUnitIds.forEach(organizationUnitId => url += `&organizationUnitIds=${organizationUnitId}`);
-    if (isActive !== undefined && isActive !== null) {
-      url += `&isActive=${isActive}`;
+    let params = new HttpParams()
+      .set('page', page)
+      .set('pageSize', pageSize)
+      .set('keyword', keyword?.trim() ?? '');
+
+    // The API currently accepts one organizationUnitId, not organizationUnitIds.
+    const organizationUnitId = organizationUnitIds[0];
+    if (organizationUnitId !== undefined && organizationUnitId !== null) {
+      params = params.set('organizationUnitId', organizationUnitId);
     }
-    return this.http.get<any>(url);
+    if (isActive !== undefined && isActive !== null) {
+      params = params.set('isActive', isActive);
+    }
+
+    return this.http.get<any>(`${this.base}/users`, { params });
   }
 
   createUser(user: any): Observable<any> {

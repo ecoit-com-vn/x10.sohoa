@@ -104,6 +104,8 @@ export class DossierDocumentEditDialogComponent implements OnDestroy {
 
   draftData = signal<Record<string, unknown>>({});
 
+  draftDateValues = signal<Record<string, Date | null>>({});
+
   currentFormData = signal<Record<string, unknown>>({});
 
 
@@ -394,9 +396,17 @@ export class DossierDocumentEditDialogComponent implements OnDestroy {
 
           const parsedFields = parseFormSchemaFields(schemaJson);
 
-          this.fields.set(parsedFields);
+          const draft = buildDocumentDraftFromSources(parsedFields, merged, this.currentFormData());
+          const dateValues: Record<string, Date | null> = {};
+          for (const field of parsedFields) {
+            if (field.type === 'date') {
+              dateValues[field.key] = this.toDateValue(draft[field.key]);
+            }
+          }
 
-          this.draftData.set(buildDocumentDraftFromSources(parsedFields, merged, this.currentFormData()));
+          this.fields.set(parsedFields);
+          this.draftData.set(draft);
+          this.draftDateValues.set(dateValues);
 
           const templateId = readApiField<string>(template as Record<string, unknown>, 'id', 'Id');
 
@@ -431,6 +441,7 @@ export class DossierDocumentEditDialogComponent implements OnDestroy {
     this.fields.set([]);
 
     this.draftData.set({});
+    this.draftDateValues.set({});
 
     this.messageService.add({
 
@@ -452,8 +463,7 @@ export class DossierDocumentEditDialogComponent implements OnDestroy {
 
   }
 
-  getDraftDateValue(key: string): Date | null {
-    const value = this.draftData()[key];
+  private toDateValue(value: unknown): Date | null {
     if (!value) return null;
 
     const text = String(value);
@@ -465,6 +475,7 @@ export class DossierDocumentEditDialogComponent implements OnDestroy {
   }
 
   setDraftDateValue(key: string, value: Date | null): void {
+    this.draftDateValues.update((values) => ({ ...values, [key]: value }));
     if (!value) {
       this.setDraftFieldValue(key, '');
       return;
