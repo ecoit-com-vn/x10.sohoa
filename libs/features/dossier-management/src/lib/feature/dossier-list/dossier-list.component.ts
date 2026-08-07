@@ -1544,7 +1544,7 @@ export class DossierListComponent implements OnInit {
     if (!this.canMutateDossierOnCreatorMenu()) return false;
 
     const status = item.status ?? item.Status;
-    const isDraftState = this.activeTab() === 'draft' || status === 'Draft' || status === 'New' || status === 'CompletedInput' || status === 'Returned';
+    const isDraftState = this.activeTab() === 'draft' || this.activeTab() === 'returned' || status === 'Draft' || status === 'New' || status === 'CompletedInput' || status === 'Returned';
     const stepAllowEdit = item.currentStepAllowEdit ?? item.CurrentStepAllowEdit;
 
     if (isDraftState || stepAllowEdit) {
@@ -1873,7 +1873,8 @@ export class DossierListComponent implements OnInit {
             };
           })
         : []),
-      ...(this.isCreatorMenu() && (item.statusId === 1 || item.statusId === 2 || !item.workflowInstanceId)
+      ...(this.isCreatorMenu() && (item.statusId === 1 || item.statusId === 2 || !item.workflowInstanceId
+          || this.activeTab() === 'returned' || (item.status ?? item.Status) === 'Returned')
         ? [{ label: 'Xóa', title: 'Xóa', icon: 'pi pi-trash color-red', command: () => this.onDelete(item) }]
         : []),
     ];
