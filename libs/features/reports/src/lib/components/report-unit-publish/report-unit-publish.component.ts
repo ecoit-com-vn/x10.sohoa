@@ -1,5 +1,5 @@
 // sohoa.frontend/libs/features/reports/src/lib/components/report-unit-publish/report-unit-publish.component.ts
-import { Component, OnInit, signal, computed, inject } from '@angular/core';
+import { Component, OnInit, signal, computed, inject, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -50,6 +50,15 @@ export class ReportUnitPublishComponent implements OnInit {
   currentPage = signal(1);
   pageSize = signal(10);
 
+  constructor() { 
+    effect(() => {
+      const total = this.filteredReports().length;
+      const maxPage = Math.max(1, Math.ceil(total / this.pageSize()));
+      if (this.currentPage() > maxPage) {
+        this.currentPage.set(1);
+      }
+    });
+  }
   filteredReports = computed(() => {
     const kw = this.searchKeyword().toLowerCase().trim();
     const status = this.filterStatus();
