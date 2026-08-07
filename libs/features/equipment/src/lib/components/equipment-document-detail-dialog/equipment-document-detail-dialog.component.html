@@ -83,6 +83,11 @@
   </div>
 
   <ng-template #footer>
+    <button type="button" class="btn-save btn-small" (click)="onConfirm()" [disabled]="loading() || confirming()">
+      <i class="pi pi-spin pi-spinner" *ngIf="confirming()" style="margin-right: 4px;"></i>
+      <i class="pi pi-check" *ngIf="!confirming()" style="margin-right: 4px;"></i>
+      Xác nhận
+    </button>
     <p-button [label]="formEditable() ? 'Hủy' : 'Đóng'" severity="secondary" size="small" (onClick)="close()"
       [disabled]="saving()"></p-button>
     <p-button *ngIf="formEditable()" label="Lưu lại" severity="success" size="small" icon="pi pi-save"

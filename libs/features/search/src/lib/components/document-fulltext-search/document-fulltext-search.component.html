@@ -1,9 +1,7 @@
 <p-toast></p-toast>
 
 <div class="wf-page doc-search-page">
-  <div class="list-toolbar standard-page-toolbar">
-    <div class="toolbar-left"><wf-breadcrumb /></div>
-  </div>
+  <wf-breadcrumb />
 
   <div class="doc-search-header">
     <div>
@@ -17,30 +15,24 @@
     </div>
   </div>
 
-  <div>
-    <div class="standard-search-card doc-search-toolbar">
-      <div class="standard-search-grid">
-        <div class="standard-search-field">
-          <label class="search-field-label">Từ khóa</label>
+  <div class="wf-card">
+    <div class="list-toolbar doc-search-toolbar">
+      <div class="toolbar-left">
         <input type="text" class="wf-search-input doc-search-input"
           placeholder="Nhập thông tin tên tài liệu, giấy phép, mã định danh..." [ngModel]="keyword()"
           (ngModelChange)="keyword.set($event)" (keyup.enter)="onSearch()" />
-        </div>
-        <div class="standard-search-field">
-        <label class="search-field-label sort-label" for="docSort">Sắp xếp</label>
+        <button type="button" class="btn-tim" (click)="onSearch()">Tìm kiếm</button>
+      </div>
+      <div class="toolbar-right">
+        <label class="sort-label" for="docSort">Sắp xếp:</label>
         <select id="docSort" class="wf-select page-size-sel" [ngModel]="sort()" (ngModelChange)="onSortChange($event)">
           <option value="newest">Mới nhất</option>
           <option value="oldest">Cũ nhất</option>
           <option value="relevance" [disabled]="!activeKeyword()">Liên quan nhất</option>
         </select>
-        </div>
-      </div>
-      <div class="standard-search-actions">
-        <button type="button" class="btn-save" (click)="onSearch()"><i class="pi pi-check"></i> Áp dụng</button>
       </div>
     </div>
 
-    <div class="wf-card">
     <div class="doc-search-summary" *ngIf="!loading()">
       Tìm thấy <strong>{{ totalCount() }}</strong> kết quả phù hợp với từ khóa của bạn.
     </div>
@@ -113,7 +105,6 @@
           <option *ngFor="let size of pageSizeOptions" [ngValue]="size">{{ size }}</option>
         </select>
       </div>
-    </div>
     </div>
   </div>
 </div>

@@ -108,11 +108,11 @@ export class OrganizationSettings implements OnInit {
     if (!kw) {
       return this.buildHierarchicalList(allUnits);
     }
-    return allUnits.filter(u =>
+    return this.buildHierarchicalList(allUnits.filter(u =>
       (u.code?.toLowerCase().includes(kw) ?? false) ||
       (u.name?.toLowerCase().includes(kw) ?? false) ||
       (u.description?.toLowerCase().includes(kw) ?? false)
-    );
+    ));
   });
 
   pagedUnits = computed(() => {
@@ -185,22 +185,33 @@ export class OrganizationSettings implements OnInit {
     const unitsSafe = unitsList || [];
     const rootNodes = unitsSafe.filter(u => !u.parentId || !unitsSafe.some(parent => parent.id === u.parentId));
 
+    const compareUnits = (a: any, b: any): number => {
+      const statusComparison = Number(Boolean(b.isActive)) - Number(Boolean(a.isActive));
+      if (statusComparison !== 0) return statusComparison;
+
+      const codeComparison = String(a.code ?? '').localeCompare(String(b.code ?? ''), 'vi', {
+        sensitivity: 'base'
+      });
+      if (codeComparison !== 0) return codeComparison;
+
+      return Number(a.id ?? 0) - Number(b.id ?? 0);
+    };
+
     const visit = (node: any) => {
       result.push(node);
       const children = unitsSafe.filter(u => u.parentId === node.id);
-      children.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+      children.sort(compareUnits);
       children.forEach(visit);
     };
 
-    rootNodes.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+    rootNodes.sort(compareUnits);
     rootNodes.forEach(visit);
 
     // Thêm các nút bị mồ côi nếu có lỗi dữ liệu để tránh mất bản ghi hiển thị
-    unitsSafe.forEach(u => {
-      if (!result.includes(u)) {
-        result.push(u);
-      }
-    });
+    unitsSafe
+      .filter(u => !result.includes(u))
+      .sort(compareUnits)
+      .forEach(u => result.push(u));
 
     return result;
   }

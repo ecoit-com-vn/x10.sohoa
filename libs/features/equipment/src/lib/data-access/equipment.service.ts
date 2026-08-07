@@ -64,6 +64,10 @@ export class EquipmentService {
     return this.http.get<any>(`${this.base}/${id}`);
   }
 
+  confirmEquipment(id: string): Observable<any> {
+    return this.http.put<any>(`${this.base}/${id}/confirm`, null);
+  }
+
   checkCodeExists(code: string, excludeId?: string): Observable<boolean> {
     let params = new HttpParams().set('code', code.trim());
     if (excludeId?.trim()) {
@@ -116,6 +120,11 @@ export class EquipmentService {
 
   getInfrastructures(): Observable<any[]> {
     return this.http.get<any[]>(`${this.base}/get-infrastructures`);
+  }
+
+  /** Trạm/Đường dây của tất cả đơn vị — dùng cho dialog Chuyển thiết bị, không giới hạn theo đơn vị người dùng. */
+  getAllInfrastructures(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.base}/get-infrastructures-all`);
   }
 
   getGridTypes(): Observable<any[]> {
@@ -219,6 +228,21 @@ export class EquipmentService {
       params = params.set('keyword', keyword.trim());
     }
     return this.http.get<any>(`${this.base}/factory-profile/${equipmentId}`, { params });
+  }
+
+  getCbmDocumentsEquipmentDetail(
+    equipmentId: string,
+    page = 1,
+    pageSize = 10,
+    keyword?: string
+  ): Observable<any> {
+    let params = new HttpParams()
+      .set('page', page.toString())
+      .set('pageSize', pageSize.toString());
+    if (keyword?.trim()) {
+      params = params.set('keyword', keyword.trim());
+    }
+    return this.http.get<any>(`${this.base}/cbm-documents/${equipmentId}`, { params });
   }
 
   /** Gửi OCR + Bóc tách tài liệu lý lịch theo biểu mẫu thiết bị. */

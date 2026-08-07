@@ -174,8 +174,12 @@ export class DossierDocumentService {
     );
   }
 
-  exportDocuments(dossierId: string): Observable<Blob> {
-    return this.http.get(`${this.dossierBase(dossierId)}/export`, { responseType: 'blob' });
+  exportDocuments(dossierId: string, keyword?: string): Observable<Blob> {
+    let params = new HttpParams();
+    if (keyword?.trim()) {
+      params = params.set('keyword', keyword.trim());
+    }
+    return this.http.get(`${this.dossierBase(dossierId)}/export`, { params, responseType: 'blob' });
   }
 
   deleteDocument(dossierId: string, documentId: string): Observable<void> {

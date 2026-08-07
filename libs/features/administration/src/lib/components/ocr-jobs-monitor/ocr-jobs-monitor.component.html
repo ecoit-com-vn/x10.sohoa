@@ -14,7 +14,7 @@
       <div class="standard-search-grid">
         <div class="standard-search-field">
           <label class="search-field-label">Trạng thái</label>
-          <select class="wf-select" [(ngModel)]="filterStatus">
+          <select class="wf-select" [(ngModel)]="filterStatus" (ngModelChange)="onComboboxChange()">
           <option value="">-- Tất cả trạng thái --</option>
           @for (s of statusOptions; track s) {
             <option [value]="s">{{ s }}</option>
@@ -24,7 +24,7 @@
 
         <div class="standard-search-field">
           <label class="search-field-label">Giai đoạn</label>
-          <select class="wf-select" [(ngModel)]="filterPhase">
+          <select class="wf-select" [(ngModel)]="filterPhase" (ngModelChange)="onComboboxChange()">
           <option value="">-- Tất cả giai đoạn --</option>
           @for (p of phaseOptions; track p.value) {
             <option [value]="p.value">{{ p.label }}</option>

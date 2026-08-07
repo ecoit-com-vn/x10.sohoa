@@ -88,6 +88,11 @@ export class FormTemplateComponent implements OnInit {
   selectedGridTypeId = signal<number | null>(null);
   selectedEquipmentTypeId = signal<string>('');
   selectedStatus = signal<boolean | null>(null);
+  readonly statusOptions = [
+    { label: '-- Trạng thái --', value: null },
+    { label: 'Hoạt động', value: true },
+    { label: 'Ngừng hoạt động', value: false },
+  ];
 
   viewState = signal<'list' | 'detail'>('list');
   showVersionsDialog = signal<boolean>(false);

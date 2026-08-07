@@ -815,10 +815,11 @@ export class FormManagementComponent implements OnInit {
     const extPos = this.extractionPosition();
     const isEdit = this.isEditMode();
     const tId = this.templateId();
+    const currentUserId = this.authService.getUserId() || 'admin';
 
     this.loadingService.show();
     if (isEdit && tId) {
-      this.eavFormService.updateTemplate(tId, fName, fCode, fCategory, desc, fDescInfo, schemaStr, 'admin', undefined, undefined, extractProc, extPos)
+      this.eavFormService.updateTemplate(tId, fName, fCode, fCategory, desc, fDescInfo, schemaStr, currentUserId, undefined, undefined, extractProc, extPos)
         .pipe(finalize(() => this.loadingService.hide()))
         .subscribe({
           next: (updatedForm) => {
@@ -848,7 +849,7 @@ export class FormManagementComponent implements OnInit {
           }
         });
     } else {
-      this.eavFormService.createTemplate(fName, fCode, fCategory, desc, fDescInfo, schemaStr, 'admin', undefined, undefined, extractProc, extPos)
+      this.eavFormService.createTemplate(fName, fCode, fCategory, desc, fDescInfo, schemaStr, currentUserId, undefined, undefined, extractProc, extPos)
         .pipe(finalize(() => this.loadingService.hide()))
         .subscribe({
           next: () => {
