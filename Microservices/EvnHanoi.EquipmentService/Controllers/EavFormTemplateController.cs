@@ -9,6 +9,7 @@ using Nest;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Claims;
 using System.Threading.Tasks;
 
 namespace EvnHanoi.EquipmentService.Controllers;
@@ -161,6 +162,13 @@ public class EavFormTemplateController : ControllerBase
             return BadRequest("Tên biểu mẫu, mã biểu mẫu, hạng mục áp dụng và cấu trúc Schema không được để trống.");
         }
 
+        var createdBy = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                     ?? User.FindFirst("sub")?.Value;
+        if (string.IsNullOrWhiteSpace(createdBy))
+        {
+            return Unauthorized(new { Message = "Không xác định được người dùng tạo biểu mẫu." });
+        }
+
         try
         {
             var template = await _service.CreateFormTemplateAsync(
@@ -170,7 +178,7 @@ public class EavFormTemplateController : ControllerBase
                 request.Description ?? string.Empty,
                 request.DescriptionInfo ?? string.Empty,
                 request.FormSchema,
-                request.CreatedBy ?? "admin",
+                createdBy,
                 request.EquipmentTypeId,
                 "FORM",
                 request.GridTypeId,
