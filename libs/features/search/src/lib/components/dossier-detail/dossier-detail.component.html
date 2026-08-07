@@ -122,7 +122,7 @@
             bản ghi
           </span>
           <app-eco-paginator [first]="equipmentFirst()" [rows]="equipmentRows()" [totalRecords]="relatedEquipments().length"
-            [rowsPerPageOptions]="[5, 10, 20, 50]" (onPageChange)="onEquipmentPageChange($event)">
+            [rowsPerPageOptions]="[10, 20, 50]" (onPageChange)="onEquipmentPageChange($event)">
           </app-eco-paginator>
         </div>
       </div>
@@ -157,8 +157,9 @@
                   <button class="action-icon-btn" title="Xem chi tiết" (click)="onViewDocumentDetail(doc)">
                     <i class="pi pi-eye"></i>
                   </button>
-                  <button class="action-icon-btn" title="Tải xuống" (click)="downloadDocument(doc)">
-                    <i class="pi pi-download"></i>
+                  <button class="action-icon-btn" title="Tải xuống" [disabled]="isDocumentDownloading(doc)"
+                    (click)="downloadDocument(doc)">
+                    <i class="pi" [ngClass]="isDocumentDownloading(doc) ? 'pi-spin pi-spinner' : 'pi-download'"></i>
                   </button>
                 </td>
               </tr>

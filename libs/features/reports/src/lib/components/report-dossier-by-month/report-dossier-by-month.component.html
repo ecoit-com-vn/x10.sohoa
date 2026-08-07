@@ -14,7 +14,7 @@
           placeholder="-- Chọn đơn vị --"
           [nodes]="primengOrgUnitTree()"
           [ngModel]="selectedUnitId()"
-          (ngModelChange)="selectedUnitId.set($event)"
+          (ngModelChange)="onUnitChange($event)"
           [showClear]="true"
           [enableSearch]="true"
           [border]="true"
@@ -26,7 +26,7 @@
         <p-select
           [options]="objectTypes()"
           [ngModel]="selectedObjectType()"
-          (ngModelChange)="selectedObjectType.set($event)"
+          (ngModelChange)="onObjectTypeChange($event)"
           optionLabel="name"
           optionValue="id"
           placeholder="-- Chọn loại đối tượng --"
@@ -53,8 +53,11 @@
       </div>
 
       <div class="standard-search-actions filter-actions">
+        <button type="button" class="btn-outlined" (click)="onResetFilters()" [disabled]="loading()">
+          <i class="pi pi-refresh"></i> Làm mới
+        </button>
         <button type="button" class="btn-tim" (click)="onFilter()" [disabled]="loading()">
-          <i class="pi pi-search"></i> Tìm kiếm
+          <i class="pi pi-check"></i> Áp dụng
         </button>
         <button
           *ngIf="activeTab() === 'list'"
@@ -214,6 +217,7 @@
       [filter]="reportFilter()"
       [active]="activeTab() === 'stats'"
       [filterVersion]="filterVersion()"
+      [useSystemPaginator]="true"
     />
   </ng-container>
 
@@ -223,5 +227,6 @@
     [filter]="reportFilter()"
     [active]="activeTab() === 'list'"
     [filterVersion]="filterVersion()"
+    [useSystemPaginator]="true"
   />
 </div>

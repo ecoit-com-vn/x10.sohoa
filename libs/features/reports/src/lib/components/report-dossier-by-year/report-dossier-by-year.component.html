@@ -3,7 +3,19 @@
 <div class="wf-page dossier-report-page">
   <!-- Breadcrumb -->
   <div class="list-toolbar standard-page-toolbar breadcrumb-container">
-    <wf-breadcrumb [suffix]="'Báo cáo thống kê hồ sơ nhập liệu theo năm'"></wf-breadcrumb>
+    <div class="toolbar-left">
+      <wf-breadcrumb [suffix]="'Báo cáo thống kê hồ sơ nhập liệu theo năm'"></wf-breadcrumb>
+    </div>
+    <div class="toolbar-right" *ngIf="activeTab() === 'list'">
+      <button
+        type="button"
+        class="btn-green"
+        (click)="exportExcel()"
+        [disabled]="exporting() || loading()"
+      >
+        <i class="pi pi-file-excel"></i> Xuất Excel
+      </button>
+    </div>
   </div>
 
   <!-- Filter Bar Card -->
@@ -17,10 +29,11 @@
           placeholder="-- Chọn đơn vị --"
           [nodes]="primengOrgUnitTree()"
           [ngModel]="selectedUnitId()"
-          (ngModelChange)="selectedUnitId.set($event)"
+          (ngModelChange)="onUnitChange($event)"
           [showClear]="true"
           [enableSearch]="true"
           [border]="true"
+          [readonly]="unitsLoading()"
         ></eco-input-tree-select>
       </div>
 
@@ -30,7 +43,7 @@
         <p-select
           [options]="objectTypes()"
           [ngModel]="selectedObjectType()"
-          (ngModelChange)="selectedObjectType.set($event)"
+          (ngModelChange)="onObjectTypeChange($event)"
           optionLabel="name"
           optionValue="id"
           placeholder="-- Chọn loại đối tượng --"
@@ -53,17 +66,11 @@
 
       <!-- Actions -->
       <div class="standard-search-actions filter-actions">
-        <button type="button" class="btn-tim" (click)="onFilter()" [disabled]="loading()">
-          <i class="pi pi-search"></i> Tìm kiếm
+        <button type="button" class="btn-outlined" (click)="onResetFilters()" [disabled]="loading()">
+          <i class="pi pi-refresh"></i> Làm mới
         </button>
-        <button
-          *ngIf="activeTab() === 'list'"
-          type="button"
-          class="btn-green"
-          (click)="exportExcel()"
-          [disabled]="exporting() || loading()"
-        >
-          <i class="pi pi-file-excel"></i> Xuất Excel
+        <button type="button" class="btn-save" (click)="onFilter()" [disabled]="loading()">
+          <i class="pi pi-check"></i> Áp dụng
         </button>
       </div>
     </div>
@@ -229,6 +236,7 @@
       [filter]="reportFilter()"
       [active]="activeTab() === 'stats'"
       [filterVersion]="filterVersion()"
+      [useSystemPaginator]="true"
     />
   </ng-container>
 
@@ -239,5 +247,6 @@
     [filter]="reportFilter()"
     [active]="activeTab() === 'list'"
     [filterVersion]="filterVersion()"
+    [useSystemPaginator]="true"
   />
 </div>

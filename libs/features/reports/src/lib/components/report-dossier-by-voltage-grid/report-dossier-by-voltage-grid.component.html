@@ -14,7 +14,7 @@
           placeholder="-- Chọn đơn vị --"
           [nodes]="primengOrgUnitTree()"
           [ngModel]="selectedUnitId()"
-          (ngModelChange)="selectedUnitId.set($event)"
+          (ngModelChange)="onUnitChange($event)"
           [showClear]="true"
           [enableSearch]="true"
           [border]="true"
@@ -26,7 +26,7 @@
         <p-select
           [options]="objectTypes()"
           [ngModel]="selectedObjectType()"
-          (ngModelChange)="selectedObjectType.set($event)"
+          (ngModelChange)="onObjectTypeChange($event)"
           optionLabel="name"
           optionValue="id"
           placeholder="-- Chọn loại đối tượng --"
@@ -39,7 +39,7 @@
         <p-select
           [options]="gridTypeOptions()"
           [ngModel]="selectedGridTypeId()"
-          (ngModelChange)="selectedGridTypeId.set($event)"
+          (ngModelChange)="onGridTypeChange($event)"
           optionLabel="name"
           optionValue="id"
           placeholder="-- Chọn loại lưới điện --"
@@ -52,7 +52,7 @@
         <p-select
           [options]="yearOptions()"
           [ngModel]="selectedYear()"
-          (ngModelChange)="selectedYear.set($event)"
+          (ngModelChange)="onYearChange($event)"
           optionLabel="label"
           optionValue="value"
           placeholder="Chọn"
@@ -61,8 +61,11 @@
       </div>
 
       <div class="standard-search-actions filter-actions">
+        <button type="button" class="btn-outlined" (click)="onResetFilters()" [disabled]="loading()">
+          <i class="pi pi-refresh"></i> Làm mới
+        </button>
         <button type="button" class="btn-tim" (click)="onFilter()" [disabled]="loading()">
-          <i class="pi pi-search"></i> Tìm kiếm
+          <i class="pi pi-check"></i> Áp dụng
         </button>
         <button
           *ngIf="activeTab() === 'list'"
@@ -222,6 +225,7 @@
       [filter]="reportFilter()"
       [active]="activeTab() === 'stats'"
       [filterVersion]="filterVersion()"
+      [useSystemPaginator]="true"
     />
   </ng-container>
 
@@ -231,5 +235,6 @@
     [filter]="reportFilter()"
     [active]="activeTab() === 'list'"
     [filterVersion]="filterVersion()"
+    [useSystemPaginator]="true"
   />
 </div>
