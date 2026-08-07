@@ -38,6 +38,9 @@ public class OcrJobListFilter
     public string? Status { get; set; }
     public string? Phase { get; set; }
     public string? Keyword { get; set; }
+    public Guid? DocumentTypeId { get; set; }
+    /// <summary>Tìm theo tên/mã hồ sơ (trạm/đường dây) hoặc tên thiết bị liên quan tới job.</summary>
+    public string? ResourceKeyword { get; set; }
     public DateTime? FromDate { get; set; }
     public DateTime? ToDate { get; set; }
 }

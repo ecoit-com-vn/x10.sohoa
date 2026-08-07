@@ -132,7 +132,10 @@ public partial class EquipmentController : ControllerBase
         if (InfrastructureId == Guid.Empty)
             return BadRequest(new { message = "Trạm không hợp lệ." });
 
-        var infrastructures = await _equipmentRepository.GetInfrastructuresLookupAsync(allowedUnitIds);
+        // Trạm/đường dây đích khi chuyển thiết bị có thể thuộc đơn vị khác với đơn vị của thiết bị nguồn
+        // (chuyển sang đơn vị khác là mục đích chính của chức năng này), nên không giới hạn theo
+        // allowedUnitIds ở đây — chỉ cần kiểm tra trạm đó tồn tại và đang hoạt động.
+        var infrastructures = await _equipmentRepository.GetInfrastructuresLookupAsync(null);
         if (!infrastructures.Any(infrastructure => infrastructure.Id == InfrastructureId))
             return BadRequest(new { message = "Trạm được chọn không tồn tại hoặc bạn không có quyền sử dụng." });
 

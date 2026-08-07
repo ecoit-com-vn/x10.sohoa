@@ -245,6 +245,16 @@ public class DocumentDigitizationRepository : IDocumentDigitizationRepository
             conditions.Add("LOWER(d.NAME) LIKE :Keyword");
             parameters.Add("Keyword", $"%{filter.Keyword.ToLower().Trim()}%");
         }
+        if (filter.DocumentTypeId.HasValue)
+        {
+            conditions.Add("d.DOCUMENT_TYPE_ID = :DocumentTypeId");
+            parameters.Add("DocumentTypeId", filter.DocumentTypeId.Value.ToString());
+        }
+        if (!string.IsNullOrWhiteSpace(filter.ResourceKeyword))
+        {
+            conditions.Add("(LOWER(infra.NAME) LIKE :ResourceKeyword OR LOWER(infra.CODE) LIKE :ResourceKeyword OR LOWER(eq.NAME) LIKE :ResourceKeyword)");
+            parameters.Add("ResourceKeyword", $"%{filter.ResourceKeyword.ToLower().Trim()}%");
+        }
         if (filter.FromDate.HasValue)
         {
             conditions.Add("ocr.CREATED_DATE >= :FromDate");
@@ -262,6 +272,11 @@ public class DocumentDigitizationRepository : IDocumentDigitizationRepository
             SELECT COUNT(1)
             FROM DOCUMENT_OCR_PROGRESS ocr
             JOIN DOCUMENTS d ON d.ID = ocr.DOCUMENT_ID
+            LEFT JOIN DOCUMENT_TYPES dt ON dt.ID = d.DOCUMENT_TYPE_ID
+            LEFT JOIN DOSSIERS dos ON dos.Id = d.DOSSIER_ID
+            LEFT JOIN INFRASTRUCTURE infra ON infra.ID = dos.InfrastructureId
+            LEFT JOIN DOCUMENT_EXTRACTION_RESULTS ext ON ext.OCR_PROGRESS_ID = ocr.ID AND ext.IS_DELETED = 0
+            LEFT JOIN Equipments eq ON eq.Id = ext.EQUIPMENT_ID
             WHERE {whereClause}";
 
         var totalCount = Convert.ToInt32(await _connection.ExecuteScalarAsync(countSql, parameters));
