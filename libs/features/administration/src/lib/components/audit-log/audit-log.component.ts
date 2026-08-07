@@ -14,7 +14,7 @@ import { MessageService, TreeNode } from 'primeng/api';
 import { DialogModule } from 'primeng/dialog';
 import { DatePickerModule } from 'primeng/datepicker';
 import { TabsModule } from 'primeng/tabs';
-import { Subject, catchError, finalize, of, switchMap } from 'rxjs';
+import { Subject, catchError, finalize, forkJoin, map, of, switchMap } from 'rxjs';
 import { AuthService, AuditLogService, AuditLogLookupItem, AuditLogQueryParams } from '@sohoa.frontend/shared/core';
 import { environment } from '@env/environment';
 
@@ -433,37 +433,67 @@ export class AuditLogComponent implements OnInit {
     }
 
     const { page, pageSize, ...exportParams } = this.buildQueryParams();
+    const exportPageSize = 500;
     this.exporting.set(true);
-    this.auditLogService.exportExcel(exportParams)
-      .pipe(finalize(() => this.exporting.set(false)))
+    this.auditLogService.getAuditLogs({ ...exportParams, page: 1, pageSize: exportPageSize })
+      .pipe(
+        switchMap((firstPage) => {
+          const pageCount = Math.ceil((firstPage.totalCount || 0) / exportPageSize);
+          if (pageCount <= 1) return of(firstPage.items || []);
+          const remainingPages = Array.from({ length: pageCount - 1 }, (_, index) =>
+            this.auditLogService.getAuditLogs({
+              ...exportParams,
+              page: index + 2,
+              pageSize: exportPageSize
+            })
+          );
+          return forkJoin(remainingPages).pipe(
+            map((responses) => [
+              ...(firstPage.items || []),
+              ...responses.flatMap((response) => response.items || [])
+            ])
+          );
+        }),
+        finalize(() => this.exporting.set(false))
+      )
       .subscribe({
-        next: (res) => {
-          const blob = res.body;
-          if (!blob) {
-            this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không nhận được dữ liệu file.' });
-            return;
-          }
-          const disposition = res.headers.get('content-disposition') || '';
-          const match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
-          const fileName = match?.[1]?.replace(/['"]/g, '')
-            || `AuditLog_${this.appliedFromDate()}_${this.appliedToDate()}.xlsx`;
+        next: async (items) => {
+          const logs = items
+            .map((item) => this.mapLog(item))
+            .sort((a, b) => b.occurredAtMs - a.occurredAtMs);
+          const worksheetRows = logs.map((log, index) => ({
+            STT: index + 1,
+            'Tên đăng nhập': log.userName,
+            'Họ và tên': log.fullName,
+            'Loại hình hành động': log.actionName,
+            'Đối tượng': `${log.resourceTypeName}${log.resourceName ? ` - ${log.resourceName}` : ''}`,
+            'Thời gian': log.timestamp,
+            'Chi tiết hành động': log.details
+          }));
+          const XLSX = await import('xlsx');
+          const worksheet = XLSX.utils.json_to_sheet(worksheetRows, {
+            header: ['STT', 'Tên đăng nhập', 'Họ và tên', 'Loại hình hành động', 'Đối tượng', 'Thời gian', 'Chi tiết hành động']
+          });
+          worksheet['!cols'] = [
+            { wch: 8 }, { wch: 22 }, { wch: 28 }, { wch: 28 },
+            { wch: 40 }, { wch: 22 }, { wch: 60 }
+          ];
+          const workbook = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(workbook, worksheet, 'Nhật ký hệ thống');
+          const blob = new Blob([XLSX.write(workbook, { bookType: 'xlsx', type: 'array' })], {
+            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+          });
           const url = window.URL.createObjectURL(blob);
           const link = document.createElement('a');
           link.href = url;
-          link.download = fileName;
+          link.download = `AuditLog_${this.appliedFromDate()}_${this.appliedToDate()}.xlsx`;
           link.click();
           window.URL.revokeObjectURL(url);
           this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã xuất tệp tin nhật ký hệ thống.' });
         },
-        error: async (err) => {
+        error: (err) => {
           let detail = 'Không thể xuất nhật ký hệ thống.';
-          if (err.error instanceof Blob) {
-            try {
-              const text = await err.error.text();
-              const json = JSON.parse(text);
-              detail = json.message || detail;
-            } catch { /* ignore */ }
-          } else if (err.error?.message) {
+          if (err.error?.message) {
             detail = err.error.message;
           }
           this.messageService.add({ severity: 'error', summary: 'Lỗi xuất file', detail });

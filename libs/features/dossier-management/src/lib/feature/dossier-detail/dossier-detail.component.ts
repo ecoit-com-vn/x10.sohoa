@@ -1077,7 +1077,7 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
       case 'versions':
         return true;
       case 'workflow':
-        return this.menuScope !== 'publisher' && (!!wfId || this.menuScope === 'approver');
+        return this.menuScope !== 'publisher' && !!wfId;
       default:
         return false;
     }
