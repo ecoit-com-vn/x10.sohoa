@@ -95,7 +95,10 @@ public class EavFormTemplateRepository : IEavFormTemplateRepository
         // Không lấy FormSchema — danh sách chỉ cần metadata; chi tiết JSON qua GetByIdAsync.
         var sql = $@"SELECT t.Id, v.Code as Code, v.Name as Name, v.Category as Category, v.Description as Description, v.DescriptionInfo as DescriptionInfo,
                             t.ExtractionProcess, t.EquipmentTypeId, t.GridTypeId, t.FormType,
-                            v.Version as Version, t.IsActive as IsActive, t.CreatedAt, t.CreatedBy, t.Status, t.IsDeleted,
+                            v.Version as Version, t.IsActive as IsActive, t.CreatedAt,
+                            t.CreatedBy as CreatedBy,
+                            COALESCE(creatorById.FullName, creatorByUserName.FullName, t.CreatedBy) as CreatorFullName,
+                            t.Status, t.IsDeleted,
                             gt.Name as {nameof(EavFormTemplate.GridTypeName)}, et.Name as {nameof(EavFormTemplate.EquipmentTypeName)}
                      FROM {nameof(EavFormTemplate)}s t
                      LEFT JOIN EavFormTemplateVersions v ON t.{nameof(EavFormTemplate.Id)} = v.FormTemplateId AND v.IsActive = 1 AND v.IsDeleted = 0 AND v.Version = (
@@ -103,6 +106,10 @@ public class EavFormTemplateRepository : IEavFormTemplateRepository
                      )
                      LEFT JOIN GridTypes gt ON t.{nameof(EavFormTemplate.GridTypeId)} = gt.Id
                      LEFT JOIN EquipmentTypes et ON t.{nameof(EavFormTemplate.EquipmentTypeId)} = et.Id
+                     LEFT JOIN APP_USER creatorById ON creatorById.Id = t.CreatedBy AND creatorById.IsDeleted = 0
+                     LEFT JOIN APP_USER creatorByUserName
+                          ON UPPER(TRIM(creatorByUserName.UserName)) = UPPER(TRIM(t.CreatedBy))
+                         AND creatorByUserName.IsDeleted = 0
                      WHERE t.IsDeleted = 0";
         if (isActive.HasValue)
         {
@@ -145,7 +152,10 @@ public class EavFormTemplateRepository : IEavFormTemplateRepository
         // CategoryName: LEFT JOIN Catalog HMAD (1 query, không N+1).
         var sql = $@"SELECT t.Id, v.Code as Code, v.Name as Name, v.Category as Category, v.Description as Description, v.DescriptionInfo as DescriptionInfo,
                             t.ExtractionProcess, t.EquipmentTypeId, t.GridTypeId, t.FormType,
-                            v.Version as Version, t.IsActive as IsActive, t.CreatedAt, us.FullName as CreatedBy, t.Status, t.IsDeleted,
+                            v.Version as Version, t.IsActive as IsActive, t.CreatedAt,
+                            t.CreatedBy as CreatedBy,
+                            COALESCE(creatorById.FullName, creatorByUserName.FullName, t.CreatedBy) as CreatorFullName,
+                            t.Status, t.IsDeleted,
                             gt.Name as {nameof(EavFormTemplate.GridTypeName)},
                             et.Name as {nameof(EavFormTemplate.EquipmentTypeName)},
                             cat.Name as {nameof(EavFormTemplate.CategoryName)}
@@ -156,7 +166,10 @@ public class EavFormTemplateRepository : IEavFormTemplateRepository
                      LEFT JOIN GridTypes gt ON t.{nameof(EavFormTemplate.GridTypeId)} = gt.Id
                      LEFT JOIN EquipmentTypes et ON t.{nameof(EavFormTemplate.EquipmentTypeId)} = et.Id
                      LEFT JOIN CATALOG_TYPE hmad ON hmad.Code = 'HMAD' AND hmad.IsDeleted = 0
-                     LEFT JOIN APP_USER us ON us.UserName like t.CreatedBy
+                     LEFT JOIN APP_USER creatorById ON creatorById.Id = t.CreatedBy AND creatorById.IsDeleted = 0
+                     LEFT JOIN APP_USER creatorByUserName
+                          ON UPPER(TRIM(creatorByUserName.UserName)) = UPPER(TRIM(t.CreatedBy))
+                         AND creatorByUserName.IsDeleted = 0
                      LEFT JOIN {nameof(Catalog)} cat ON cat.CatalogTypeId = hmad.Id AND cat.IsDeleted = 0
                           AND (cat.Code = v.Category OR TO_CHAR(cat.Id) = v.Category)
                      WHERE t.IsDeleted = 0
@@ -285,12 +298,7 @@ public class EavFormTemplateRepository : IEavFormTemplateRepository
 
         {whereClause}
 
-        ORDER BY t.CreatedAt DESC
-
-        OFFSET :Offset ROWS FETCH NEXT :PageSize ROWS ONLY";
-
-        parameters.Add("Offset", (filterDto.Page - 1) * filterDto.PageSize);
-        parameters.Add("PageSize", filterDto.PageSize);
+        ORDER BY t.CreatedAt DESC"; 
 
         var totalCount = await _connection.ExecuteScalarAsync<int>(countSql, parameters);
 
