@@ -97,6 +97,10 @@ public class OrganizationUnitsController : ControllerBase
         {
             return BadRequest(new { message = "Mã và Tên đơn vị là bắt buộc." });
         }
+        if (!unit.SortOrder.HasValue || unit.SortOrder.Value < 1)
+        {
+            return BadRequest(new { message = "Thứ tự sắp xếp phải là số nguyên lớn hơn hoặc bằng 1." });
+        }
         var newId = await _unitRepository.CreateAsync(unit);
         unit.Id = newId;
 
@@ -115,6 +119,10 @@ public class OrganizationUnitsController : ControllerBase
         if (string.IsNullOrWhiteSpace(unit.Code) || string.IsNullOrWhiteSpace(unit.Name))
         {
             return BadRequest(new { message = "Mã và Tên đơn vị là bắt buộc." });
+        }
+        if (!unit.SortOrder.HasValue || unit.SortOrder.Value < 1)
+        {
+            return BadRequest(new { message = "Thứ tự sắp xếp phải là số nguyên lớn hơn hoặc bằng 1." });
         }
 
         var success = await _unitRepository.UpdateAsync(unit);
