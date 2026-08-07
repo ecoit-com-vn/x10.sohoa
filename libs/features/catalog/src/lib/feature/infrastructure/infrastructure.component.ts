@@ -150,6 +150,16 @@ export class InfrastructureComponent implements OnInit {
     this.filterOrgTree(this.buildOrgTree(this.transferOrganizationUnits()), this.transferOrgSearchKeyword())
   );
 
+  onSearchKeywordChange(value: string) {
+    this.searchKeyword.set(value);
+    this.currentPage.set(1);
+  }
+
+  onSearchStatusChange(value: string) {
+    this.searchStatus.set(value);
+    this.currentPage.set(1);
+  }
+
   // Pagination Computeds
   paginatedItems = computed(() => {
     return this.items();

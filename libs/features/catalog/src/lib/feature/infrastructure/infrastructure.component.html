@@ -57,7 +57,7 @@
             class="wf-search-input"
             placeholder="Tìm theo mã hoặc tên..."
             [ngModel]="searchKeyword()"
-            (ngModelChange)="searchKeyword.set($event)"
+            (ngModelChange)="onSearchKeywordChange($event)"
             (keyup.enter)="onSearch()"
           />
         </div>
