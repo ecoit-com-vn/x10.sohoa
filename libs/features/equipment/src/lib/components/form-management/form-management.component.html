@@ -162,7 +162,9 @@
     <div class="list-toolbar">
       <div class="toolbar-left">
         <wf-breadcrumb
-          [suffix]="viewState() === 'add' ? 'Thêm mới form' : (viewState() === 'edit' ? 'Chỉnh sửa cấu hình form' : (viewState() === 'preview' ? 'Xem chi tiết & Cấu trúc form' : null))" />
+          [matchUrl]="breadcrumbMatchUrl()"
+          [suffix]="breadcrumbSuffix()"
+          (listClick)="goToList()" />
       </div>
       <div class="toolbar-right" *ngIf="viewState() === 'preview'">
         <button class="btn-save btn-tim" (click)="goToList()"
