@@ -86,13 +86,13 @@ export class DocumentTypeComponent implements OnInit {
     event.stopPropagation();
     const active = item.isActive === 1 || item.isActive === true;
     this.actionMenuItems = [
+      ...(this.canEdit() ? [{ label: 'Chỉnh sửa', title: 'Chỉnh sửa', icon: 'pi pi-pencil color-blue', command: () => this.onEdit(item) }] : []),
       ...(this.canManage() ? [{
-        label: active ? 'Khóa loại văn bản' : 'Mở khóa loại văn bản',
-        title: active ? 'Khóa loại văn bản' : 'Mở khóa loại văn bản',
+        label: active ? 'Khóa ' : 'Mở khóa ',
+        title: active ? 'Khóa ' : 'Mở khóa ',
         icon: active ? 'pi pi-lock color-red' : 'pi pi-lock-open color-teal',
         command: () => this.onToggleStatus(item)
       }] : []),
-      ...(this.canEdit() ? [{ label: 'Chỉnh sửa', title: 'Chỉnh sửa', icon: 'pi pi-pencil color-blue', command: () => this.onEdit(item) }] : []),
       ...(this.canDelete() ? [{ label: 'Xóa', title: 'Xóa', icon: 'pi pi-trash color-red', command: () => this.onDelete(item) }] : []),
     ];
     menu.toggle(event);
@@ -198,6 +198,7 @@ export class DocumentTypeComponent implements OnInit {
       isActive: true,
       isEquipmentProfile: false,
       isFactoryAcceptanceReport: false,
+      isCbmDocument: false,
       piority: 1,
       formId: null
     });
@@ -232,7 +233,8 @@ export class DocumentTypeComponent implements OnInit {
       piority: item.piority || 1,
       isActive: item.isActive,
       isEquipmentProfile: item.isEquipmentProfile || false,
-      isFactoryAcceptanceReport: item.isFactoryAcceptanceReport || false
+      isFactoryAcceptanceReport: item.isFactoryAcceptanceReport || false,
+      isCbmDocument: item.isCbmDocument || false
     };
 
     const request$ = this.currentView() === 'add'

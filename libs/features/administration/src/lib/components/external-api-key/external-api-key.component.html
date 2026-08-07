@@ -7,7 +7,7 @@
     </div>
     <div class="toolbar-right">
       <button class="btn-green" type="button" (click)="openCreate()">
-        <i class="pi pi-plus"></i> Tạo mới
+        <i class="pi pi-plus"></i> Thêm mới
       </button>
     </div>
   </div>
@@ -48,6 +48,7 @@
                 <div class="api-key-actions">
                   <button type="button" class="act-btn act-view" title="Xem chi tiết" (click)="openView(item)"><i class="pi pi-eye"></i></button>
                   <button type="button" class="act-btn act-edit" title="Sửa thông tin" (click)="openEdit(item)"><i class="pi pi-pencil"></i></button>
+                  <button type="button" class="act-btn act-history" title="Lịch sử đồng bộ" (click)="openHistory(item)"><i class="pi pi-history"></i></button>
                   <button type="button" class="act-btn act-delete" title="Xóa" (click)="requestDelete(item)"><i class="pi pi-trash"></i></button>
                 </div>
               </td>
@@ -131,6 +132,59 @@
     <div class="dialog-footer">
       <button type="button" class="btn-cancel btn-small" (click)="deleteDialogVisible.set(false)" [disabled]="deleting()"><i class="pi pi-times"></i> Hủy</button>
       <button type="button" class="btn-save btn-small" style="background-color: #dc2626; border-color: #dc2626;" (click)="confirmDelete()" [disabled]="deleting()"><i *ngIf="deleting(); else deleteIcon" class="pi pi-spin pi-spinner"></i><ng-template #deleteIcon><i class="pi pi-trash"></i></ng-template> Xóa</button>
+    </div>
+  </ng-template>
+</p-dialog>
+
+<p-dialog [visible]="historyDialogVisible()" (visibleChange)="closeHistoryDialog()" [header]="'Lịch sử đồng bộ' + (historyTarget()?.keyName ? ' - ' + historyTarget()?.keyName : '')" [modal]="true" [style]="{ width: '960px' }" styleClass="evn-dialog-custom" [closable]="true">
+  <div class="wf-table-wrap">
+    <table class="wf-table">
+      <thead>
+        <tr>
+          <th class="col-stt">STT</th>
+          <th>Thời gian gọi</th>
+          <th>Phương thức</th>
+          <th>Endpoint</th>
+          <th>Mã trạng thái</th>
+          <th>IP nguồn</th>
+          <th>Thời gian xử lý</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngIf="callLogsLoading()">
+          <td colspan="7" class="loading-row"><i class="pi pi-spin pi-spinner"></i> Đang tải dữ liệu...</td>
+        </tr>
+        <ng-container *ngIf="!callLogsLoading()">
+          <tr *ngFor="let log of callLogs(); let index = index">
+            <td class="col-stt text-muted">{{ (callLogsPage() - 1) * callLogsPageSize() + index + 1 }}</td>
+            <td>{{ getLogCalledAt(log) }}</td>
+            <td>{{ getLogHttpMethod(log) }}</td>
+            <td class="note-cell">{{ getLogEndpoint(log) }}</td>
+            <td>{{ getLogStatusCode(log) }}</td>
+            <td>{{ getLogIpAddress(log) }}</td>
+            <td>{{ getLogDuration(log) }}</td>
+          </tr>
+          <tr *ngIf="callLogs().length === 0">
+            <td colspan="7" class="empty-row"><i class="pi pi-inbox"></i><div>Chưa có lịch sử đồng bộ nào.</div></td>
+          </tr>
+        </ng-container>
+      </tbody>
+    </table>
+  </div>
+
+  <app-eco-paginator
+    *ngIf="callLogsTotal() > 0 && !callLogsLoading()"
+    [currentPage]="callLogsPage()"
+    [pageSize]="callLogsPageSize()"
+    [totalRecords]="callLogsTotal()"
+    recordLabel="lượt gọi"
+    (pageChange)="goToCallLogsPage($event)"
+    (pageSizeChange)="onCallLogsPageSizeChange($event)"
+  />
+
+  <ng-template #footer>
+    <div class="dialog-footer">
+      <button type="button" class="btn-outlined btn-small" (click)="closeHistoryDialog()">Đóng</button>
     </div>
   </ng-template>
 </p-dialog>

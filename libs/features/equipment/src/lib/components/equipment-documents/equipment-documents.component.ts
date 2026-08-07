@@ -123,6 +123,7 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
   factoryAcceptanceOnly = input(false);
   externalAccess = input(false);
   factoryProfileAccess = input(false);
+  cbmDocumentsOnly = input(false);
   documentProcessed = output<void>();
 
   documents = signal<EquipmentDocumentItem[]>([]);
@@ -150,7 +151,7 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
   constructor() {
     effect(() => {
       const id = this.equipmentId();
-      const factoryAcceptanceOnly = this.factoryAcceptanceOnly();
+      const factoryAcceptanceOnly = this.factoryAcceptanceOnly() || this.cbmDocumentsOnly();
       if (!id) return;
       untracked(() => {
         if (!factoryAcceptanceOnly) {
@@ -186,7 +187,14 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
     if (!equipmentId) return;
     this.loading.set(true);
 
-    const request$ = this.factoryProfileAccess()
+    const request$ = this.cbmDocumentsOnly()
+      ? this.equipmentService.getCbmDocumentsEquipmentDetail(
+          equipmentId,
+          this.page(),
+          this.pageSize(),
+          this.searchKeyword()
+        )
+      : this.factoryProfileAccess()
       ? this.equipmentService.getFactoryProfileEquipmentDetail(
           equipmentId,
           this.page(),
@@ -222,7 +230,7 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (res) => {
           this.documents.set(
-            this.externalAccess() || this.factoryProfileAccess()
+            this.externalAccess() || this.factoryProfileAccess() || this.cbmDocumentsOnly()
               ? res?.documents || []
               : res?.items || []
           );

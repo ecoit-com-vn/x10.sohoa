@@ -117,6 +117,7 @@ export class EquipmentComponent implements OnInit {
   // Lists from lookup
   organizationUnits = signal<any[]>([]);
   transferOrganizationUnits = signal<any[]>([]);
+  transferInfrastructuresList = signal<any[]>([]);
   infrastructures = signal<any[]>([]);
   gridTypes = signal<any[]>([]);
   equipmentTypes = signal<any[]>([]);
@@ -205,7 +206,7 @@ export class EquipmentComponent implements OnInit {
     const unitId = this.transferForm().unitId;
     const gridTypeId = this.transferTarget()?.gridTypeId ?? this.currentItem().gridTypeId;
     if (!unitId) return [];
-    return this.infrastructures().filter(inf => {
+    return this.transferInfrastructuresList().filter(inf => {
       const matchUnit = inf.unitId === Number(unitId);
       const matchGridType = !gridTypeId || this.matchesGridTypeId(inf, gridTypeId);
       return matchUnit && matchGridType;
@@ -862,17 +863,17 @@ export class EquipmentComponent implements OnInit {
     this.transferOrgSearchKeyword.set('');
     this.showTransferDialog.set(true);
 
-    if (this.transferOrganizationUnits().length === 0 || this.infrastructures().length === 0) {
+    if (this.transferOrganizationUnits().length === 0 || this.transferInfrastructuresList().length === 0) {
       forkJoin({
         organizationUnits: this.transferOrganizationUnits().length === 0
           ? this.equipmentService.getAllOrganizationUnits().pipe(catchError(() => of([])))
           : of(this.transferOrganizationUnits()),
-        infrastructures: this.infrastructures().length === 0
-          ? this.equipmentService.getInfrastructures().pipe(catchError(() => of([])))
-          : of(this.infrastructures())
+        infrastructures: this.transferInfrastructuresList().length === 0
+          ? this.equipmentService.getAllInfrastructures().pipe(catchError(() => of([])))
+          : of(this.transferInfrastructuresList())
       }).subscribe(data => {
         this.transferOrganizationUnits.set(this.getAvailableOrganizationUnits(data.organizationUnits));
-        this.infrastructures.set(Array.isArray(data.infrastructures) ? data.infrastructures : []);
+        this.transferInfrastructuresList.set(Array.isArray(data.infrastructures) ? data.infrastructures : []);
       });
     }
   }

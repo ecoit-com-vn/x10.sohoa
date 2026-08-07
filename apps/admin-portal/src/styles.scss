@@ -152,7 +152,7 @@ body {
     color: #374151;
     background: #f5f7fb;
     min-height: calc(100vh - 56px);
-    padding: 20px;
+    padding: 5px 20px;
     position: relative;
 }
 
@@ -246,14 +246,15 @@ body {
 
 .standard-page-toolbar {
     width: 100%;
+    height: 40px;
+    box-sizing: border-box;
     align-items: center;
     flex-wrap: nowrap;
     gap: 12px;
     margin-bottom: 3px;
     background: #ffffff;
     border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    padding: 12px 16px;
+    padding: 5px 16px;
 }
 
 .standard-page-toolbar>.toolbar-left {
@@ -297,7 +298,7 @@ body {
     color: #475569;
     font-size: 0.8rem;
     font-weight: 600;
-    margin-top: 18px;
+    margin-top: 0px;
     margin-bottom: 4px;
 }
 
@@ -601,6 +602,12 @@ body {
     gap: 5px;
     transition: background .2s;
     border: 1px solid #94a3b8;
+}
+
+.dossier-form-actions .dossier-form-action {
+  height: 30px;
+  min-height: 30px;
+  box-sizing: border-box;
 }
 
 .btn-save:hover:not(:disabled) {

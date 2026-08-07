@@ -1,6 +1,7 @@
 import { Component, OnInit, signal, computed, inject, effect, HostListener } from '@angular/core';
 import {
   DeleteConfirmDialogComponent,
+  EcoPaginatorComponent,
   WfBreadcrumbComponent
 } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
@@ -31,6 +32,7 @@ import { catchError, finalize } from 'rxjs/operators';
     DatePickerModule,
     DialogModule,
     MenuModule,
+    EcoPaginatorComponent,
     WfBreadcrumbComponent,
     DeleteConfirmDialogComponent
   ],
@@ -87,6 +89,7 @@ export class InfrastructureComponent implements OnInit {
   transferLoading = signal<boolean>(false);
   transferTarget = signal<any>(null);
   transferInfrastructuresSource = signal<any[]>([]);
+  transferOrganizationUnits = signal<any[]>([]);
 
   showTransferDossierConfirm = signal<boolean>(false);
   transferDossierTarget = signal<any>(null);
@@ -143,7 +146,9 @@ export class InfrastructureComponent implements OnInit {
   transferOrgTreeOpen = signal<boolean>(false);
   transferOrgSearchKeyword = signal<string>('');
   expandedTransferUnitNodes = signal<Set<any>>(new Set<any>());
-  transferOrgUnitTree = computed(() => this.filterOrgTree(this.orgUnitTree(), this.transferOrgSearchKeyword()));
+  transferOrgUnitTree = computed(() =>
+    this.filterOrgTree(this.buildOrgTree(this.transferOrganizationUnits()), this.transferOrgSearchKeyword())
+  );
 
   // Pagination Computeds
   paginatedItems = computed(() => {
@@ -622,6 +627,37 @@ export class InfrastructureComponent implements OnInit {
     return u ? u.name : '';
   }
 
+  getTransferUnitLabel(unitId: any): string {
+    if (!unitId) return '';
+    const u = (this.transferOrganizationUnits() || []).find(x => Number(x.id) === Number(unitId));
+    return u ? u.name : '';
+  }
+
+  private getAvailableOrganizationUnits(data: unknown): any[] {
+    const source = Array.isArray(data)
+      ? data
+      : (data as any)?.items ?? (data as any)?.Items ?? (data as any)?.data ?? (data as any)?.Data ?? [];
+    const units = Array.isArray(source)
+      ? source.map(unit => ({
+        ...unit,
+        id: unit?.id ?? unit?.Id,
+        code: unit?.code ?? unit?.Code,
+        name: unit?.name ?? unit?.Name,
+        parentId: unit?.parentId ?? unit?.ParentId ?? null,
+      }))
+      : [];
+
+    return units.filter(unit => {
+      const deleted = unit?.isDeleted ?? unit?.IsDeleted;
+      const status = unit?.isActive ?? unit?.IsActive ?? unit?.status ?? unit?.Status;
+      const isDeleted = deleted === true || deleted === 1 || String(deleted).toLowerCase() === 'true';
+      const isInactive = status === false || status === 0
+        || ['0', 'false', 'inactive', 'deleted'].includes(String(status).toLowerCase());
+
+      return !isDeleted && !isInactive;
+    });
+  }
+
   private matchesGridTypeId(item: any, gridTypeId: any): boolean {
     if (gridTypeId == null || gridTypeId === '') return false;
     const selectedGridType = Number(gridTypeId);
@@ -699,6 +735,13 @@ export class InfrastructureComponent implements OnInit {
   onPageSizeChange(event: any) {
     this.pageSize.set(Number(event.target.value));
     this.currentPage.set(1);
+  }
+
+  onInfrastructurePageChange(event: { first?: number; rows?: number }) {
+    const rows = Number(event.rows) || this.pageSize();
+    const first = Number(event.first) || 0;
+    this.pageSize.set(rows);
+    this.currentPage.set(Math.floor(first / rows) + 1);
   }
 
   onAddNew() {
@@ -1151,16 +1194,16 @@ export class InfrastructureComponent implements OnInit {
     this.transferOrgSearchKeyword.set('');
     this.showTransferDialog.set(true);
 
-    if (this.orgUnits().length === 0 || this.transferInfrastructuresSource().length === 0) {
+    if (this.transferOrganizationUnits().length === 0 || this.transferInfrastructuresSource().length === 0) {
       forkJoin({
-        organizationUnits: this.orgUnits().length === 0
-          ? this.equipmentService.getOrganizationUnits().pipe(catchError(() => of([])))
-          : of(this.orgUnits()),
+        organizationUnits: this.transferOrganizationUnits().length === 0
+          ? this.equipmentService.getAllOrganizationUnits().pipe(catchError(() => of([])))
+          : of(this.transferOrganizationUnits()),
         infrastructures: this.transferInfrastructuresSource().length === 0
-          ? this.equipmentService.getInfrastructures().pipe(catchError(() => of([])))
+          ? this.equipmentService.getAllInfrastructures().pipe(catchError(() => of([])))
           : of(this.transferInfrastructuresSource())
       }).subscribe(data => {
-        this.orgUnits.set(Array.isArray(data.organizationUnits) ? data.organizationUnits : []);
+        this.transferOrganizationUnits.set(this.getAvailableOrganizationUnits(data.organizationUnits));
         this.transferInfrastructuresSource.set(Array.isArray(data.infrastructures) ? data.infrastructures : []);
       });
     }

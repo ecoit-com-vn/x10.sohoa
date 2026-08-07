@@ -1,4 +1,4 @@
-import { Component, OnInit, signal, computed, inject } from '@angular/core';
+import { Component, OnInit, signal, computed, inject, effect } from '@angular/core';
 import {
   DeleteConfirmDialogComponent,
   EcoPaginatorComponent,
@@ -37,6 +37,15 @@ import {
   styleUrl: './menu-management.component.scss'
 })
 export class MenuManagement implements OnInit {
+  constructor() {
+    effect(() => {
+      // Depend on both searchKeyword and searchStatus
+      this.searchKeyword();
+      this.searchStatus();
+      this.loadMenus();
+    });
+  }
+
   menus = signal<any[]>([]);
   searchKeyword = signal<string>('');
   searchStatus = signal<string>(''); // '' (All), 'active' (Hoạt động), 'inactive' (Ngưng hoạt động) 
@@ -78,7 +87,8 @@ export class MenuManagement implements OnInit {
     return viewPermissions;
   });
 
-  menuTree = computed(() => buildMenuDisplayTree(this.menus(), this.searchKeyword()));
+  menuTree = computed(
+    () => buildMenuDisplayTree(this.menus(), this.searchKeyword()));
 
   showLockUnlockConfirm = signal<boolean>(false);
   lockUnlockTarget = signal<any>(null);
@@ -101,7 +111,6 @@ export class MenuManagement implements OnInit {
   public authService = inject(AuthService);
 
   ngOnInit() {
-    this.loadMenus();
     this.loadPermissions();
   }
 
@@ -134,14 +143,13 @@ export class MenuManagement implements OnInit {
       });
   }
 
-  onSearch() { 
-    this.loadMenus(); 
-  }
+  onSearch() {
+    //theo signal
+   }
 
   onResetSearch() {
     this.searchKeyword.set('');
     this.searchStatus.set(''); 
-    this.loadMenus(); 
   }
   
   onPageChange(event: { first?: number; rows?: number }) {
@@ -149,7 +157,6 @@ export class MenuManagement implements OnInit {
     const first = Number(event.first) || 0;
     this.pageSize.set(rows);
     this.currentPage.set(Math.floor(first / rows) + 1);
-    this.loadMenus();
   }
 
   loadPermissions() {

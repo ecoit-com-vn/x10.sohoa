@@ -1,6 +1,13 @@
 import { Injectable, inject } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Observable, map } from 'rxjs';
 import { ApiService } from './api.service';
+
+export interface PagedResponse<T> {
+  items: T[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+}
 
 export interface EavFormTemplate {
   id: string;
@@ -38,9 +45,24 @@ export class EavFormService {
     return `/api/v1/eav-form-templates`;
   }
 
-  getDesignTemplates(): Observable<EavFormTemplate[]> {
-    return this.api.get<EavFormTemplate[]>(`${this.apiUrl}/design`);
-  }
+  getDesignTemplates( 
+    keyword?: string, status?: string,  
+    startDate?: string, endDate?: string): Observable<EavFormTemplate[]> {
+    const params: any = { 
+    };
+
+    if (keyword) params.keyword = keyword;
+    if (status) params.status = status;
+    if (startDate) params.startDate = startDate;
+    if (endDate) params.endDate = endDate;
+
+    return this.api.get<PagedResponse<EavFormTemplate> | EavFormTemplate[]>(
+      `${this.apiUrl}/design`,
+      { params }
+    ).pipe(
+      map(res => Array.isArray(res) ? res : (res as PagedResponse<EavFormTemplate>).items ?? [])
+    );
+  } 
 
   getApprovalTemplates(): Observable<EavFormTemplate[]> {
     return this.getApprovalTemplatesForm();

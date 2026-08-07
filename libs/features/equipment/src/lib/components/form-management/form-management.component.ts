@@ -13,6 +13,7 @@ import { MenuItem, MessageService } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { Select } from 'primeng/select';
+import { DatePickerModule } from 'primeng/datepicker';
 import { CheckboxModule } from 'primeng/checkbox';
 import { CardModule } from 'primeng/card';
 import { TextareaModule } from 'primeng/textarea';
@@ -69,6 +70,7 @@ interface ToolboxItem {
     TextareaModule,
     Dialog,
     ToggleSwitch,
+    DatePickerModule,
     WfBreadcrumbComponent,
     DeleteConfirmDialogComponent,
   ],
@@ -103,17 +105,11 @@ export class FormManagementComponent implements OnInit {
   // Forms list state
   forms = signal<EavFormTemplate[]>([]);
   searchKeyword = signal<string>('');
-  selectedActiveStatus = signal<boolean | null>(null);
-  appliedSearchKeyword = signal<string>('');
-  appliedActiveStatus = signal<boolean | null>(null);
-  readonly activeStatusOptions = [
-    { label: '-- Trạng thái --', value: null },
-    { label: 'Hoạt động', value: true },
-    { label: 'Ngừng hoạt động', value: false },
-  ];
+  searchStatus = signal<string>('');
+  filterFromDate = signal<Date | null>(null);
+  filterToDate = signal<Date | null>(null);
   loading = signal<boolean>(false);
   actionMenuItems: MenuItem[] = [];
-
   // Active builder/preview states
   templateId = signal<string | null>(null);
   formName = signal<string>('');
@@ -139,6 +135,7 @@ export class FormManagementComponent implements OnInit {
   // Pagination states
   first = signal<number>(0);
   rows = signal<number>(10);
+  readonly filterKey = computed(() => `${this.searchKeyword()}|${this.searchStatus()}|${this.filterFromDate()}|${this.filterToDate()}`);
 
   catalogOptionsMap = signal<{ [catalogCode: string]: string[] }>({});
 
@@ -160,11 +157,6 @@ export class FormManagementComponent implements OnInit {
   }
 
   constructor() {
-    effect(() => {
-      this.appliedSearchKeyword();
-      this.appliedActiveStatus();
-      this.first.set(0);
-    });
 
     effect(() => {
       const currentFields = this.fields();
@@ -174,6 +166,15 @@ export class FormManagementComponent implements OnInit {
           this.loadCatalogOptions(f.catalogType);
         }
       });
+    });
+
+    // Mỗi khi điều kiện lọc (keyword/status/fromDate/toDate) thay đổi,
+    // luôn đưa phân trang về trang đầu tiên (first = 0).
+    // Dùng effect() thay vì computed() vì computed() không được phép ghi (set)
+    // vào signal khác trong lúc tính toán (Angular sẽ báo lỗi NG0600 / silently fail).
+    effect(() => {
+      this.filterKey();
+      this.first.set(0);
     });
 
     combineLatest([this.route.paramMap, this.route.queryParamMap])
@@ -264,8 +265,16 @@ export class FormManagementComponent implements OnInit {
   }
 
   filteredForms = computed(() => {
-    const keyword = this.appliedSearchKeyword().trim().toLowerCase();
-    const activeStatus = this.appliedActiveStatus();
+    const keyword = this.searchKeyword().trim().toLowerCase();
+    const status = this.searchStatus();
+    const fromDateVal = this.filterFromDate();
+    const toDateVal = this.filterToDate();
+    
+    const fromDate = fromDateVal ? new Date(fromDateVal) : null;
+    if (fromDate) fromDate.setHours(0, 0, 0, 0);
+    const toDate = toDateVal ? new Date(toDateVal) : null;
+    if (toDate) toDate.setHours(23, 59, 59, 999);
+    
     const allForms = this.forms().filter(f => !f.isDeleted);
 
     // Group forms by code and select the latest version for each unique code
@@ -286,9 +295,19 @@ export class FormManagementComponent implements OnInit {
         (f.id?.toLowerCase().includes(keyword) ?? false)
       );
     }
-    if (activeStatus !== null) {
-      result = result.filter(f => f.isActive === activeStatus);
+    
+    if (status) {
+      result = result.filter(f => (f.status || 'Tạo mới') === status);
     }
+
+    if (fromDate) {
+      result = result.filter(f => f.createdAt && new Date(f.createdAt) >= fromDate);
+    }
+
+    if (toDate) {
+      result = result.filter(f => f.createdAt && new Date(f.createdAt) <= toDate);
+    }
+    
     return result;
   });
 
@@ -363,16 +382,15 @@ export class FormManagementComponent implements OnInit {
   }
 
   onSearch() {
-    this.appliedSearchKeyword.set(this.searchKeyword().trim());
-    this.appliedActiveStatus.set(this.selectedActiveStatus());
     this.first.set(0);
   }
 
+
   onResetSearch() {
     this.searchKeyword.set('');
-    this.selectedActiveStatus.set(null);
-    this.appliedSearchKeyword.set('');
-    this.appliedActiveStatus.set(null);
+    this.searchStatus.set('');
+    this.filterFromDate.set(null);
+    this.filterToDate.set(null);
     this.first.set(0);
   }
 
