@@ -104,7 +104,7 @@
         <!-- ── TAB KỆ LƯU TRỮ ── -->
         <p-tabpanel value="0">  
           <div class="wf-table-wrap">
-            <table class="wf-table">
+            <table class="wf-table storage-table">
               <thead>
                 <tr>
                   <th style="width: 80px;">STT</th>
@@ -130,9 +130,9 @@
                 <ng-container *ngIf="!loading()">
                   <tr *ngFor="let item of pagedShelves(); let idx = index">
                     <td class="col-stt text-muted">{{ (shelfPage() - 1) * shelfPageSize() + idx + 1 }}</td>
-                    <td><code>{{ item.code }}</code></td>
-                    <td><b class="wf-name-link" (click)="editItem('shelf', item)">{{ item.name }}</b></td>
-                    <td><span class="status-pill status-pending">{{ item.unitName || getUnitLabel(item.unitId) || '—' }}</span></td>
+                    <td><a href="#" class="storage-code-link" (click)="$event.preventDefault(); editItem('shelf', item)" [title]="'Xem chi tiết ' + item.code">{{ item.code }}</a></td>
+                    <td>{{ item.name }}</td>
+                    <td>{{ item.unitName || getUnitLabel(item.unitId) || '—' }}</td>
                     <td class="text-muted">{{ item.priority ?? '—' }}</td>
                     <td><span class="mota-text">{{ item.description }}</span></td>
                     <td class="col-hd">
@@ -177,7 +177,7 @@
         <p-tabpanel value="1">
 
           <div class="wf-table-wrap">
-            <table class="wf-table">
+            <table class="wf-table storage-table">
               <thead>
                 <tr>
                   <th style="width: 80px;">STT</th>
@@ -203,9 +203,9 @@
                 <ng-container *ngIf="!loading()">
                   <tr *ngFor="let item of pagedFloors(); let idx = index">
                     <td class="col-stt text-muted">{{ (floorPage() - 1) * floorPageSize() + idx + 1 }}</td>
-                    <td><code>{{ item.code }}</code></td>
-                    <td><b class="wf-name-link" (click)="editItem('floor', item)">{{ item.name }}</b></td>
-                    <td><span class="status-pill status-pending">{{ getShelfName(item.shelfId) }}</span></td>
+                    <td><a href="#" class="storage-code-link" (click)="$event.preventDefault(); editItem('floor', item)" [title]="'Xem chi tiết ' + item.code">{{ item.code }}</a></td>
+                    <td>{{ item.name }}</td>
+                    <td>{{ getShelfName(item.shelfId) }}</td>
                     <td class="text-muted">{{ item.priority ?? '—' }}</td>
                     <td><span class="text-muted">{{ item.description }}</span></td>
                     <td class="col-hd">
@@ -249,7 +249,7 @@
         <!-- ── TAB HỘP HỒ SƠ ── -->
         <p-tabpanel value="2">
           <div class="wf-table-wrap">
-            <table class="wf-table">
+            <table class="wf-table storage-table">
               <thead>
                 <tr>
                   <th style="width: 80px;">STT</th>
@@ -275,9 +275,9 @@
                 <ng-container *ngIf="!loading()">
                   <tr *ngFor="let item of pagedBoxes(); let idx = index">
                     <td class="col-stt text-muted">{{ (boxPage() - 1) * boxPageSize() + idx + 1 }}</td>
-                    <td><code>{{ item.code }}</code></td>
-                    <td><b class="wf-name-link" (click)="editItem('box', item)">{{ item.name }}</b></td>
-                    <td><span class="status-pill status-active">{{ getFloorName(item.floorId) }}</span></td>
+                    <td><a href="#" class="storage-code-link" (click)="$event.preventDefault(); editItem('box', item)" [title]="'Xem chi tiết ' + item.code">{{ item.code }}</a></td>
+                    <td>{{ item.name }}</td>
+                    <td>{{ getFloorName(item.floorId) }}</td>
                     <td class="text-muted">{{ item.priority ?? '—' }}</td>
                     <td><span class="mota-text">{{ item.description }}</span></td>
                     <td class="col-hd">

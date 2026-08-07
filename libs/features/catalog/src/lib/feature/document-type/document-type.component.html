@@ -57,15 +57,11 @@
           <tbody>
             <tr *ngFor="let item of paginatedItems(); let i = index">
               <td class="col-stt text-muted">{{ (currentPage() - 1) * pageSize() + i + 1 }}</td>
-              <td><code>{{ item.code }}</code></td>
               <td>
-                <span *ngIf="canEdit(); else viewOnlyName">
-                  <b class="wf-name-link" (click)="onEdit(item)">{{ item.name }}</b>
-                </span>
-                <ng-template #viewOnlyName>
-                  <b>{{ item.name }}</b>
-                </ng-template>
+                <b *ngIf="canEdit(); else viewOnlyCode" class="wf-name-link" (click)="onEdit(item)">{{ item.code }}</b>
+                <ng-template #viewOnlyCode><span>{{ item.code }}</span></ng-template>
               </td>
+              <td>{{ item.name }}</td>
               <td>
                 <span *ngIf="item.formId">
                   {{ item.formName || 'Biểu mẫu: ' + item.formId }}
