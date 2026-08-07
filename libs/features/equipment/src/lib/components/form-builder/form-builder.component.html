@@ -1,8 +1,11 @@
 <div class="wf-page builder-mode">
   <p-toast></p-toast>
-  <div class="list-toolbar">
+  <div class="list-toolbar standard-page-toolbar">
     <div class="toolbar-left">
-      <wf-breadcrumb [suffix]="isEditMode() ? 'Cập nhật cấu hình biểu mẫu' : 'Tạo mới biểu mẫu'" />
+      <wf-breadcrumb
+        matchUrl="/equipment/form-template"
+        [suffix]="isEditMode() ? 'Chỉnh sửa' : 'Tạo biểu mẫu'"
+        (listClick)="goToList()" />
     </div>
     <div class="toolbar-right">
       <p-button label="Quay lại" icon="pi pi-arrow-left" severity="secondary" size="small" [rounded]="true"

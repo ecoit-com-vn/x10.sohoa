@@ -198,6 +198,7 @@ export class DocumentTypeComponent implements OnInit {
       isActive: true,
       isEquipmentProfile: false,
       isFactoryAcceptanceReport: false,
+      isCbmDocument: false,
       piority: 1,
       formId: null
     });
@@ -232,7 +233,8 @@ export class DocumentTypeComponent implements OnInit {
       piority: item.piority || 1,
       isActive: item.isActive,
       isEquipmentProfile: item.isEquipmentProfile || false,
-      isFactoryAcceptanceReport: item.isFactoryAcceptanceReport || false
+      isFactoryAcceptanceReport: item.isFactoryAcceptanceReport || false,
+      isCbmDocument: item.isCbmDocument || false
     };
 
     const request$ = this.currentView() === 'add'

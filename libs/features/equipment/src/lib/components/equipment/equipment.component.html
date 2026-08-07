@@ -2,7 +2,10 @@
   <p-toast></p-toast>
   <div class="list-toolbar standard-page-toolbar">
     <div class="toolbar-left">
-      <wf-breadcrumb [suffix]="currentView() === 'edit' ? 'Chi tiết thiết bị' : null" />
+      <wf-breadcrumb *ngIf="!searchReadOnly(); else searchReadOnlyBreadcrumb" />
+      <ng-template #searchReadOnlyBreadcrumb>
+        <wf-breadcrumb [customItems]="searchBreadcrumbItems()" />
+      </ng-template>
     </div>
     <div class="toolbar-right">
       <button class="btn-back btn-small" (click)="goBack()" *ngIf="currentView() === 'edit'">
@@ -752,13 +755,13 @@
 
       <!-- ==================== TAB: TÀI LIỆU ĐÍNH KÈM (profile docs) ==================== -->
       <div *ngIf="activeTab() === 'profileDocs'" class="tab-content animate-fade-in">
-        <div *ngIf="currentItem().id as profileEquipmentId">
-          <app-equipment-documents
-            [equipmentId]="profileEquipmentId"
-            [canEdit]="canEdit()"
-            (documentProcessed)="reloadDetail(profileEquipmentId)"
-          ></app-equipment-documents>
-        </div>
+        <app-equipment-documents
+          *ngIf="currentItem().id as profileEquipmentId"
+          [equipmentId]="profileEquipmentId"
+          [canEdit]="canEdit() && !searchReadOnly()"
+          [hideDigitizationColumns]="searchReadOnly()"
+          (documentProcessed)="reloadDetail(profileEquipmentId)"
+        ></app-equipment-documents>
       </div>
 
       <!-- ==================== TAB: HỒ SƠ LIÊN QUAN (ORACLE BHS LIST) ==================== -->

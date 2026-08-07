@@ -119,8 +119,6 @@ export class DossierLookupComponent implements OnInit {
 
 
 
-  totalPages = computed(() => Math.ceil(this.totalCount() / this.pageSize()));
-
   tableColSpan = computed(() => this.bhsColumns().length + 5);
 
   openActionMenu(item: any, event: MouseEvent, menu: Menu): void {
@@ -263,7 +261,7 @@ export class DossierLookupComponent implements OnInit {
 
     this.filterEquipmentId.set(null);
 
-    this.loadDependentLookups();
+    this.onSearch();
 
   }
 
@@ -275,7 +273,7 @@ export class DossierLookupComponent implements OnInit {
 
     this.filterEquipmentId.set(null);
 
-    this.loadDependentLookups();
+    this.onSearch();
 
   }
 
@@ -283,7 +281,7 @@ export class DossierLookupComponent implements OnInit {
 
     this.filterEquipmentId.set(null);
 
-    this.loadDependentLookups();
+    this.onSearch();
 
   }
 
@@ -457,28 +455,13 @@ export class DossierLookupComponent implements OnInit {
 
 
 
-  changePage(page: number) {
+  onListPageChange(event: { first?: number; rows?: number }) {
+    const rows = Number(event.rows) || this.pageSize();
+    const first = Number(event.first) || 0;
 
-    if (page >= 1 && page <= this.totalPages()) {
-
-      this.currentPage.set(page);
-
-      this.loadData();
-
-    }
-
-  }
-
-
-
-  onPageSizeChange(pageSize: number) {
-
-    this.pageSize.set(pageSize);
-
-    this.currentPage.set(1);
-
+    this.pageSize.set(rows);
+    this.currentPage.set(Math.floor(first / rows) + 1);
     this.loadData();
-
   }
 
 

@@ -13,28 +13,43 @@
     <div class="standard-search-card">
       <div class="standard-search-grid">
         <div class="standard-search-field">
+          <label class="search-field-label">Tên tài liệu</label>
+          <input type="text" class="wf-search-input" placeholder="Tên tài liệu..." [(ngModel)]="filterKeyword" (keyup.enter)="onSearch()" />
+        </div>
+
+        <div class="standard-search-field">
+          <label class="search-field-label">Loại tài liệu</label>
+          <select class="wf-select" [(ngModel)]="filterDocumentTypeId" (ngModelChange)="onComboboxChange()">
+          <option value="">-- Tất cả loại tài liệu --</option>
+          @for (dt of documentTypeOptions(); track dt.id) {
+            <option [value]="dt.id">{{ dt.name }}</option>
+          }
+          </select>
+        </div>
+
+        <div class="standard-search-field">
+          <label class="search-field-label">Hồ sơ/thiết bị</label>
+          <input type="text" class="wf-search-input" placeholder="Tên trạm/đường dây hoặc thiết bị..." [(ngModel)]="filterResourceKeyword" (keyup.enter)="onSearch()" />
+        </div>
+
+        <div class="standard-search-field">
           <label class="search-field-label">Trạng thái</label>
-          <select class="wf-select" [(ngModel)]="filterStatus">
+          <select class="wf-select" [(ngModel)]="filterStatus" (ngModelChange)="onComboboxChange()">
           <option value="">-- Tất cả trạng thái --</option>
           @for (s of statusOptions; track s) {
-            <option [value]="s">{{ s }}</option>
+            <option [value]="s">{{ getStatusLabel(s) }}</option>
           }
           </select>
         </div>
 
         <div class="standard-search-field">
           <label class="search-field-label">Giai đoạn</label>
-          <select class="wf-select" [(ngModel)]="filterPhase">
+          <select class="wf-select" [(ngModel)]="filterPhase" (ngModelChange)="onComboboxChange()">
           <option value="">-- Tất cả giai đoạn --</option>
           @for (p of phaseOptions; track p.value) {
             <option [value]="p.value">{{ p.label }}</option>
           }
           </select>
-        </div>
-
-        <div class="standard-search-field">
-          <label class="search-field-label">Tên tài liệu</label>
-          <input type="text" class="wf-search-input" placeholder="Tên tài liệu..." [(ngModel)]="filterKeyword" (keyup.enter)="onSearch()" />
         </div>
 
         <div class="standard-search-field">
@@ -62,6 +77,7 @@
         <table class="wf-table">
           <thead>
             <tr>
+              <th class="col-stt">STT</th>
               <th>Tài liệu</th>
               <th>Loại</th>
               <th>Hồ sơ / Thiết bị</th>
@@ -75,12 +91,13 @@
           </thead>
           <tbody>
             @if (loading()) {
-              <tr><td colspan="9" class="empty-row"><i class="pi pi-spin pi-spinner"></i> Đang tải...</td></tr>
+              <tr><td colspan="10" class="empty-row"><i class="pi pi-spin pi-spinner"></i> Đang tải...</td></tr>
             } @else if (jobs().length === 0) {
-              <tr><td colspan="9" class="empty-row">Không có job nào phù hợp bộ lọc.</td></tr>
+              <tr><td colspan="10" class="empty-row">Không có job nào phù hợp bộ lọc.</td></tr>
             } @else {
-              @for (job of jobs(); track job.progressId) {
+              @for (job of jobs(); track job.progressId; let i = $index) {
                 <tr>
+                  <td class="col-stt text-muted">{{ (page() - 1) * pageSize() + i + 1 }}</td>
                   <td>{{ job.documentName }}</td>
                   <td>{{ job.documentTypeName || '—' }}</td>
                   <td>
@@ -93,7 +110,7 @@
                     }
                   </td>
                   <td>{{ job.phase === 'ocr' ? 'OCR' : 'Bóc tách' }}</td>
-                  <td><span class="status-badge" [ngClass]="getStatusBadgeClass(job.status)">{{ job.status }}</span></td>
+                  <td><span class="status-badge" [ngClass]="getStatusBadgeClass(job.status)">{{ getStatusLabel(job.status) }}</span></td>
                   <td>{{ job.progress }}% @if (job.totalPages > 0) { ({{ job.currentPage }}/{{ job.totalPages }}) }</td>
                   <td class="error-cell" [title]="job.errorMessage || ''">{{ job.errorMessage || '—' }}</td>
                   <td>{{ job.createdDate | date: 'dd/MM/yyyy HH:mm' }}</td>

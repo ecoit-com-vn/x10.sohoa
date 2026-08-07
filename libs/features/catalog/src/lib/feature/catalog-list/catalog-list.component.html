@@ -111,17 +111,40 @@
                     </thead>
                     <tbody>
                         <tr *ngFor="let item of paginatedItems(); let i = index">
-                            <td class="col-stt text-muted">{{ (currentPage() - 1) * pageSize() + i + 1 }}</td>
-                            <td><code>{{ item.code }}</code></td>
+                            <td class="col-stt" [class.text-muted]="!usesStandardCatalogTableStyle()"
+                                [style.color]="usesStandardCatalogTableStyle() ? '#111827' : null">
+                                {{ (currentPage() - 1) * pageSize() + i + 1 }}
+                            </td>
                             <td>
-                                <span *ngIf="canEdit(); else viewOnlyName">
-                  <b class="wf-name-link" (click)="onEdit(item)">{{ item.name }}</b>
-                </span>
-                                <ng-template #viewOnlyName>
-                                    <b>{{ item.name }}</b>
+                                <ng-container *ngIf="usesStandardCatalogTableStyle(); else defaultCatalogCode">
+                                    <button *ngIf="canEdit(); else processingCodeViewOnly"
+                                        type="button"
+                                        class="wf-name-link"
+                                        style="padding: 0; border: 0; background: transparent; color: #2563eb; font: inherit; font-weight: 400; cursor: pointer;"
+                                        (click)="onEdit(item)">
+                                        {{ item.code }}
+                                    </button>
+                                    <ng-template #processingCodeViewOnly>
+                                        <span style="color: #2563eb;">{{ item.code }}</span>
+                                    </ng-template>
+                                </ng-container>
+                                <ng-template #defaultCatalogCode>
+                                    <code>{{ item.code }}</code>
                                 </ng-template>
                             </td>
-                            <td *ngIf="isUnitScopedCatalog()">
+                            <td>
+                                <span *ngIf="usesStandardCatalogTableStyle(); else defaultCatalogName"
+                                    style="color: #111827;">{{ item.name }}</span>
+                                <ng-template #defaultCatalogName>
+                                    <span *ngIf="canEdit(); else viewOnlyName">
+                                        <b class="wf-name-link" (click)="onEdit(item)">{{ item.name }}</b>
+                                    </span>
+                                    <ng-template #viewOnlyName>
+                                        <b>{{ item.name }}</b>
+                                    </ng-template>
+                                </ng-template>
+                            </td>
+                            <td *ngIf="isUnitScopedCatalog()" [style.color]="usesStandardCatalogTableStyle() ? '#111827' : null">
                                 {{ item.unitName || getUnitLabel(item.unitId) || '-' }}
                             </td>
                             <td *ngIf="showParentColumn()">
@@ -130,9 +153,9 @@
                 </span>
                                 <span class="text-muted italic" *ngIf="!item.parentId">-</span>
                             </td>
-                            <td style="text-align: center;">{{ item.priority }}</td>
-                            <td *ngIf="usesStandardAuditColumns()">{{ item.createdAt ? (item.createdAt | date:'dd/MM/yyyy HH:mm') : '-' }}</td>
-                            <td *ngIf="usesStandardAuditColumns()">{{ item.createdByName || item.createdBy || '-' }}</td>
+                            <td style="text-align: center;" [style.color]="usesStandardCatalogTableStyle() ? '#111827' : null">{{ item.priority }}</td>
+                            <td *ngIf="usesStandardAuditColumns()" [style.color]="usesStandardCatalogTableStyle() ? '#111827' : null">{{ item.createdAt ? (item.createdAt | date:'dd/MM/yyyy HH:mm') : '-' }}</td>
+                            <td *ngIf="usesStandardAuditColumns()" [style.color]="usesStandardCatalogTableStyle() ? '#111827' : null">{{ item.createdByName || item.createdBy || '-' }}</td>
                             <td>
                                 <span *ngIf="item.status === 1" class="status-pill status-active">
                   Hoạt động

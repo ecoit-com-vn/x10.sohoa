@@ -108,7 +108,9 @@
             </tr>
             <tr *ngFor="let form of paginatedForms(); let i = index">
               <td class="form-cell-stt">{{ first() + i + 1 }}</td>
-              <td class="form-cell-content" [title]="form.code || ''">{{ form.code || '' }}</td>
+              <td class="form-cell-content" [title]="form.code || ''">
+                <a class="form-code-link" (click)="onPreview(form)">{{ form.code || '' }}</a>
+              </td>
               <td class="form-cell-content" [title]="form.name || ''">{{ form.name }}</td>
               <td class="form-cell-content" [title]="getCategoryName(form)">
                 <span class="badge">
@@ -117,7 +119,9 @@
               </td>
               <td class="form-cell-content">v{{
                 form.version }}.0</td>
-              <td class="form-cell-content" [title]="form.createdBy || ''">{{ form.createdBy || '' }}</td>
+              <td class="form-cell-content" [title]="form.creatorFullName || form.createdBy || '-'">
+                {{ form.creatorFullName || form.createdBy || '-' }}
+              </td>
               <td class="form-cell-updated">{{ form.createdAt | date:'dd/MM/yyyy HH:mm' }}</td>
               <td class="col-tt form-cell-status">
                 <span class="status-pill" [class.status-draft]="form.status === 'Tạo mới' || !form.status"
@@ -160,7 +164,9 @@
     <div class="list-toolbar">
       <div class="toolbar-left">
         <wf-breadcrumb
-          [suffix]="viewState() === 'add' ? 'Thêm mới form' : (viewState() === 'edit' ? 'Chỉnh sửa cấu hình form' : (viewState() === 'preview' ? 'Xem chi tiết & Cấu trúc form' : null))" />
+          [matchUrl]="breadcrumbMatchUrl()"
+          [suffix]="breadcrumbSuffix()"
+          (listClick)="goToList()" />
       </div>
       <div class="toolbar-right" *ngIf="viewState() === 'preview'">
         <button class="btn-save btn-tim" (click)="goToList()"
@@ -794,7 +800,7 @@
               ver.version }}.0</td>
             <td>{{ ver.code }}</td>
             <td>{{ ver.name }}</td>
-            <td>{{ ver.creatorFullName }}</td>
+            <td>{{ ver.creatorFullName || ver.createdBy || '-' }}</td>
             <td>{{ ver.createdAt | date:'dd/MM/yyyy HH:mm' }}</td>
             <td class="text-center text-center-align" style="text-align: center;">
               <span class="status-pill" [class.status-active]="ver.isActive" [class.status-inactive]="!ver.isActive">

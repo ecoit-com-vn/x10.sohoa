@@ -1202,7 +1202,7 @@ export class InfrastructureComponent implements OnInit {
           ? this.equipmentService.getAllOrganizationUnits().pipe(catchError(() => of([])))
           : of(this.transferOrganizationUnits()),
         infrastructures: this.transferInfrastructuresSource().length === 0
-          ? this.equipmentService.getInfrastructures().pipe(catchError(() => of([])))
+          ? this.equipmentService.getAllInfrastructures().pipe(catchError(() => of([])))
           : of(this.transferInfrastructuresSource())
       }).subscribe(data => {
         this.transferOrganizationUnits.set(this.getAvailableOrganizationUnits(data.organizationUnits));

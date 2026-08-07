@@ -70,6 +70,13 @@ export class OrganizationSettings implements OnInit {
     if (this.formSubmitted() && !String(this.currentUnit().name ?? '').trim()) return 'Tên phòng ban là bắt buộc';
     return this.serverErrors().name || this.serverErrors().Name || '';
   });
+  sortOrderError = computed(() => {
+    const sortOrder = Number(this.currentUnit().sortOrder);
+    if (this.formSubmitted() && (!Number.isInteger(sortOrder) || sortOrder < 1)) {
+      return 'Thứ tự sắp xếp phải là số nguyên lớn hơn hoặc bằng 1';
+    }
+    return this.serverErrors().sortOrder || this.serverErrors().SortOrder || '';
+  });
 
   onFieldChange(field: string) {
     this.currentUnit.update(unit => ({ ...unit }));
@@ -106,7 +113,7 @@ export class OrganizationSettings implements OnInit {
     }
 
     if (!kw) {
-      return this.buildHierarchicalList(allUnits);
+      return allUnits;
     }
     return allUnits.filter(u =>
       (u.code?.toLowerCase().includes(kw) ?? false) ||
@@ -179,32 +186,6 @@ export class OrganizationSettings implements OnInit {
     this.currentPage.set(Math.floor(first / rows) + 1);
   }
 
-  // Thuật toán DFS xây dựng danh sách phẳng thụt lề
-  buildHierarchicalList(unitsList: any[] = this.units()): any[] {
-    const result: any[] = [];
-    const unitsSafe = unitsList || [];
-    const rootNodes = unitsSafe.filter(u => !u.parentId || !unitsSafe.some(parent => parent.id === u.parentId));
-
-    const visit = (node: any) => {
-      result.push(node);
-      const children = unitsSafe.filter(u => u.parentId === node.id);
-      children.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
-      children.forEach(visit);
-    };
-
-    rootNodes.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
-    rootNodes.forEach(visit);
-
-    // Thêm các nút bị mồ côi nếu có lỗi dữ liệu để tránh mất bản ghi hiển thị
-    unitsSafe.forEach(u => {
-      if (!result.includes(u)) {
-        result.push(u);
-      }
-    });
-
-    return result;
-  }
-
   getIndentLevel(unit: any): number {
     let level = 0;
     let parentId = unit.parentId;
@@ -251,7 +232,7 @@ export class OrganizationSettings implements OnInit {
       return;
     }
     this.isEdit.set(false);
-    this.currentUnit.set({ code: '', name: '', parentId: null, description: '', identifier: '', sortOrder: 0, isActive: true });
+    this.currentUnit.set({ code: '', name: '', parentId: null, description: '', identifier: '', sortOrder: 1, isActive: true });
     this.formSubmitted.set(false);
     this.serverErrors.set({});
     this.dialogHeader.set('Thêm mới đơn vị phòng ban');
@@ -313,7 +294,7 @@ export class OrganizationSettings implements OnInit {
   onSaveUnit() {
     this.formSubmitted.set(true);
     this.serverErrors.set({});
-    if (this.codeError() || this.nameError()) {
+    if (this.codeError() || this.nameError() || this.sortOrderError()) {
       return;
     }
 
@@ -326,7 +307,8 @@ export class OrganizationSettings implements OnInit {
       code: String(unitDraft.code ?? '').trim(),
       name: String(unitDraft.name ?? '').trim(),
       description: String(unitDraft.description ?? '').trim(),
-      parentId: normalizedParentId
+      parentId: normalizedParentId,
+      sortOrder: Number(unitDraft.sortOrder)
     };
     this.currentUnit.update(unit => ({ ...unit, ...payload }));
 

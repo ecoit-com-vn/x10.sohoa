@@ -1,16 +1,25 @@
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { HttpClient } from '@angular/common/http';
 import { ToastModule } from 'primeng/toast';
 import { DatePickerModule } from 'primeng/datepicker';
 import { MessageService } from 'primeng/api';
 import { Subject, Subscription, catchError, finalize, of, switchMap } from 'rxjs';
 import { EcoPaginatorComponent, WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
-import { AuthService, OcrJobListItem, OcrJobsMonitorService } from '@sohoa.frontend/shared/core';
+import { APP_CONFIG, AuthService, OcrJobListItem, OcrJobsMonitorService } from '@sohoa.frontend/shared/core';
 import { DossierDocumentService } from '@sohoa.frontend/features/dossier-management';
 import { EquipmentService } from '@sohoa.frontend/features/equipment';
 
 const STATUS_OPTIONS = ['Pending', 'Running', 'OcrCompleted', 'Extracting', 'Completed', 'Failed'];
+const STATUS_LABELS: Record<string, string> = {
+  Pending: 'Đang chờ',
+  Running: 'Đang chạy',
+  OcrCompleted: 'OCR hoàn thành',
+  Extracting: 'Đang bóc tách',
+  Completed: 'Hoàn thành',
+  Failed: 'Lỗi',
+};
 const PHASE_OPTIONS: Array<{ value: string; label: string }> = [
   { value: 'ocr', label: 'OCR' },
   { value: 'extraction', label: 'Bóc tách' },
@@ -36,22 +45,29 @@ export class OcrJobsMonitorComponent implements OnInit, OnDestroy {
   private readonly equipmentService = inject(EquipmentService);
   private readonly messageService = inject(MessageService);
   private readonly authService = inject(AuthService);
+  private readonly http = inject(HttpClient);
+  private readonly config = inject(APP_CONFIG);
 
   readonly statusOptions = STATUS_OPTIONS;
   readonly phaseOptions = PHASE_OPTIONS;
+  documentTypeOptions = signal<{ id: string; name: string }[]>([]);
 
   canView = computed(() => this.authService.hasPermission('OCR_JOBS_MONITOR_VIEW'));
 
   // Bộ lọc đang gõ — chỉ áp dụng khi bấm "Tìm" (theo đúng mẫu audit-log).
+  filterKeyword = signal('');
+  filterDocumentTypeId = signal('');
+  filterResourceKeyword = signal('');
   filterStatus = signal('');
   filterPhase = signal('');
-  filterKeyword = signal('');
   filterFromDate: Date | null = null;
   filterToDate: Date | null = null;
 
+  private appliedKeyword = signal('');
+  private appliedDocumentTypeId = signal('');
+  private appliedResourceKeyword = signal('');
   private appliedStatus = signal('');
   private appliedPhase = signal('');
-  private appliedKeyword = signal('');
   private appliedFromDate: Date | null = null;
   private appliedToDate: Date | null = null;
 
@@ -67,6 +83,8 @@ export class OcrJobsMonitorComponent implements OnInit, OnDestroy {
   private loadSub?: Subscription;
 
   ngOnInit(): void {
+    this.loadDocumentTypeOptions();
+
     this.loadSub = this.loadTrigger
       .pipe(
         switchMap(() => {
@@ -78,6 +96,8 @@ export class OcrJobsMonitorComponent implements OnInit, OnDestroy {
               status: this.appliedStatus() || undefined,
               phase: this.appliedPhase() || undefined,
               keyword: this.appliedKeyword() || undefined,
+              documentTypeId: this.appliedDocumentTypeId() || undefined,
+              resourceKeyword: this.appliedResourceKeyword() || undefined,
               fromDate: this.appliedFromDate?.toISOString(),
               toDate: this.appliedToDate?.toISOString(),
             })
@@ -103,10 +123,23 @@ export class OcrJobsMonitorComponent implements OnInit, OnDestroy {
     this.loadSub?.unsubscribe();
   }
 
+  private loadDocumentTypeOptions(): void {
+    this.http
+      .get<any[]>(`${this.config.apiGatewayUrl}/api/catalog/document-type/lookup`)
+      .pipe(catchError(() => of([])))
+      .subscribe((items) => {
+        this.documentTypeOptions.set(
+          (items || []).map((item) => ({ id: item.id ?? item.Id, name: item.name ?? item.Name }))
+        );
+      });
+  }
+
   onSearch(): void {
+    this.appliedKeyword.set(this.filterKeyword());
+    this.appliedDocumentTypeId.set(this.filterDocumentTypeId());
+    this.appliedResourceKeyword.set(this.filterResourceKeyword());
     this.appliedStatus.set(this.filterStatus());
     this.appliedPhase.set(this.filterPhase());
-    this.appliedKeyword.set(this.filterKeyword());
     this.appliedFromDate = this.filterFromDate;
     this.appliedToDate = this.filterToDate;
     this.page.set(1);
@@ -114,7 +147,26 @@ export class OcrJobsMonitorComponent implements OnInit, OnDestroy {
   }
 
   onRefresh(): void {
+    this.filterKeyword.set('');
+    this.filterDocumentTypeId.set('');
+    this.filterResourceKeyword.set('');
+    this.filterStatus.set('');
+    this.filterPhase.set('');
+    this.filterFromDate = null;
+    this.filterToDate = null;
+    this.appliedKeyword.set('');
+    this.appliedDocumentTypeId.set('');
+    this.appliedResourceKeyword.set('');
+    this.appliedStatus.set('');
+    this.appliedPhase.set('');
+    this.appliedFromDate = null;
+    this.appliedToDate = null;
+    this.page.set(1);
     this.loadTrigger.next();
+  }
+
+  onComboboxChange(): void {
+    this.onSearch();
   }
 
   onPageChange(newPage: number): void {
@@ -194,6 +246,10 @@ export class OcrJobsMonitorComponent implements OnInit, OnDestroy {
           this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không gửi được yêu cầu chạy lại.' });
         },
       });
+  }
+
+  getStatusLabel(status: string): string {
+    return STATUS_LABELS[status] ?? status;
   }
 
   getStatusBadgeClass(status: string): string {

@@ -100,6 +100,22 @@
   .table-footer-paginator { align-items: flex-start; flex-direction: column; }
 }
 
+.transmission-line-code-link {
+  color: #2563eb;
+  cursor: pointer;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.transmission-line-code-link:hover {
+  color: #1d4ed8;
+  text-decoration: underline;
+}
+
+.transmission-line-plain-text {
+  color: #000;
+}
+
 .wf-name-link {
   color: #2563eb;
   text-decoration: none;

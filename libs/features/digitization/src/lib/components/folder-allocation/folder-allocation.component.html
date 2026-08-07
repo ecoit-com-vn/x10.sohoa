@@ -41,22 +41,34 @@
 
         <div class="standard-search-field lookup-filters__field">
           <label class="form-label">Từ ngày</label>
-          <input
-            type="date"
-            class="wf-select"
-            [value]="selectedFromDate() | date: 'yyyy-MM-dd'"
-            [max]="selectedToDate() | date: 'yyyy-MM-dd'"
-            (change)="selectedFromDate.set($any($event.target).valueAsDate)" />
+          <eco-input-date
+            [showLabel]="false"
+            label="Từ ngày"
+            view="date"
+            dateFormat="dd/mm/yy"
+            [border]="true"
+            [disabled]="false"
+            [showClear]="true"
+            [maxDate]="selectedToDate() ?? undefined"
+            [ngModel]="selectedFromDate()"
+            (ngModelChange)="selectedFromDate.set($event)"
+          ></eco-input-date>
         </div>
 
         <div class="standard-search-field lookup-filters__field">
           <label class="form-label">Đến ngày</label>
-          <input
-            type="date"
-            class="wf-select"
-            [value]="selectedToDate() | date: 'yyyy-MM-dd'"
-            [min]="selectedFromDate() | date: 'yyyy-MM-dd'"
-            (change)="selectedToDate.set($any($event.target).valueAsDate)" />
+          <eco-input-date
+            [showLabel]="false"
+            label="Đến ngày"
+            view="date"
+            dateFormat="dd/mm/yy"
+            [border]="true"
+            [disabled]="false"
+            [showClear]="true"
+            [minDate]="selectedFromDate() ?? undefined"
+            [ngModel]="selectedToDate()"
+            (ngModelChange)="selectedToDate.set($event)"
+          ></eco-input-date>
         </div>
 
         <div class="standard-search-actions">
