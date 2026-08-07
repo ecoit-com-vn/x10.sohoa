@@ -154,108 +154,208 @@
       <div class="wf-table-wrap">
         <table class="wf-table">
           <thead>
-            <tr>
-              <th class="col-stt">STT</th>
-              <th>Mã Trạm</th>
-              <th>Tên Trạm</th>
-              <th>Ngày vận hành</th>
-              <th>Địa chỉ</th>
-              <th>Đơn vị quản lý</th>
-              <th>Trạng thái</th>
-              <th class="col-hd">Thao tác</th>
-            </tr>
+            <ng-container *ngIf="infraTypeId() === 1">
+              <tr>
+                <th class="col-stt">STT</th>
+                <th>Mã Trạm</th>
+                <th>Tên Trạm</th>
+                <th>Ngày vận hành</th>
+                <th>Địa chỉ</th>
+                <th>Đơn vị quản lý</th>
+                <th>Trạng thái</th>
+                <th class="col-hd">Thao tác</th>
+              </tr>
+            </ng-container>
+            <ng-container *ngIf="infraTypeId() === 2">
+              <tr>
+                <th class="col-stt">STT</th>
+                <th>Mã</th>
+                <th>Tên</th>
+                <th>Địa chỉ</th>
+                <th>Loại lưới điện</th>
+                <th>Đơn vị quản lý</th>
+                <th>Trạng thái</th>
+                <th class="col-hd">Thao tác</th>
+              </tr>
+            </ng-container>
           </thead>
           <tbody>
-            <tr *ngFor="let item of paginatedItems(); let i = index">
-              <td class="col-stt text-muted">
-                {{ (currentPage() - 1) * pageSize() + i + 1 }}
-              </td>
-              <td>
-                <a
-                  class="wf-link"
-                  style="
-                    color: #2563eb;
-                    cursor: pointer;
-                    font-weight: 600;
-                    text-decoration: none;
-                  "
-                  (click)="onViewDetail(item)"
-                  >{{ item.code }}</a
-                >
-              </td>
-              <td>
-                <span *ngIf="canEdit(); else viewOnlyName">
-                  <b class="wf-name-link" (click)="onEdit(item)">{{
-                    item.name
-                  }}</b>
-                </span>
-                <ng-template #viewOnlyName>
-                  <b>{{ item.name }}</b>
-                </ng-template>
-              </td>
-              <td>
-                {{
-                  item.createdDate || item.createdDate
-                    ? (item.createdDate || item.createdDate
-                      | date: 'dd/MM/yyyy HH:mm')
-                    : '-'
-                }}
-              </td>
-              <td>{{ item.address || '-' }}</td>
-              <td>
-                <span
-                  class="text-primary font-semibold"
-                  *ngIf="item.organization"
-                >
-                  {{ item.organization.name }}
-                </span>
-                <span class="text-muted italic" *ngIf="!item.organization"
-                  >Chưa phân bổ</span
-                >
-              </td>
-              <td>
-                <span
-                  *ngIf="item.isActive === 1 || item.isActive === true"
-                  class="status-pill status-active"
-                  style="
-                    background-color: #ecfdf5;
-                    color: #065f46;
-                    border-color: #a7f3d0;
-                  "
-                >
-                  Hoạt động
-                </span>
-                <span
-                  *ngIf="item.isActive === 0 || item.isActive === false"
-                  class="status-pill status-locked"
-                  style="
-                    background-color: #fef2f2;
-                    color: #991b1b;
-                    border-color: #fee2e2;
-                  "
-                >
-                  Ngừng hoạt động
-                </span>
-              </td>
-              <td class="col-hd">
-                <div class="action-buttons-group">
-                  <div
-                    class="dropdown-actions-container"
-                    (click)="$event.stopPropagation()"
+            <ng-container *ngIf="infraTypeId() === 1">
+              <tr *ngFor="let item of paginatedItems(); let i = index">
+                <td class="col-stt text-muted">
+                  {{ (currentPage() - 1) * pageSize() + i + 1 }}
+                </td>
+                <td>
+                  <a
+                    class="wf-link"
+                    style="
+                      color: #2563eb;
+                      cursor: pointer;
+                      font-weight: 600;
+                      text-decoration: none;
+                    "
+                    (click)="onViewDetail(item)"
+                    >{{ item.code }}</a
                   >
-                    <button
-                      class="act-btn act-more"
-                      title="Thao tác khác"
-                      (click)="openActionMenu(item, $event, actionMenu)"
+                </td>
+                <td>
+                  <span *ngIf="canEdit(); else viewOnlyName">
+                    <b class="wf-name-link" (click)="onEdit(item)">{{
+                      item.name
+                    }}</b>
+                  </span>
+                  <ng-template #viewOnlyName>
+                    <b>{{ item.name }}</b>
+                  </ng-template>
+                </td>
+                <td>
+                  {{
+                    item.operationDate
+                      ? (item.operationDate | date: 'dd/MM/yyyy')
+                      : '-'
+                  }}
+                </td>
+                <td>{{ item.address || '-' }}</td>
+                <td>
+                  <span *ngIf="item.organization">
+                    {{ item.organization.name }}
+                  </span>
+                  <span class="text-muted italic" *ngIf="!item.organization"
+                    >Chưa phân bổ</span
+                  >
+                </td>
+                <td>
+                  <span
+                    *ngIf="item.isActive === 1 || item.isActive === true"
+                    class="status-pill status-active"
+                    style="
+                      background-color: #ecfdf5;
+                      color: #065f46;
+                      border-color: #a7f3d0;
+                    "
+                  >
+                    Hoạt động
+                  </span>
+                  <span
+                    *ngIf="item.isActive === 0 || item.isActive === false"
+                    class="status-pill status-locked"
+                    style="
+                      background-color: #fef2f2;
+                      color: #991b1b;
+                      border-color: #fee2e2;
+                    "
+                  >
+                    Ngừng hoạt động
+                  </span>
+                </td>
+                <td class="col-hd">
+                  <div class="action-buttons-group">
+                    <div
+                      class="dropdown-actions-container"
+                      (click)="$event.stopPropagation()"
                     >
-                      <i class="pi pi-ellipsis-h"></i>
-                    </button>
+                      <button
+                        class="act-btn act-more"
+                        title="Thao tác khác"
+                        (click)="openActionMenu(item, $event, actionMenu)"
+                      >
+                        <i class="pi pi-ellipsis-h"></i>
+                      </button>
+                    </div>
                   </div>
-                </div>
-              </td>
-            </tr>
+                </td>
+              </tr>
+            </ng-container>
+            <ng-container *ngIf="infraTypeId() === 2">
+              <tr *ngFor="let item of paginatedItems(); let i = index">
+                <td class="col-stt text-muted">
+                  {{ (currentPage() - 1) * pageSize() + i + 1 }}
+                </td>
+                <td>
+                  <a
+                    class="wf-link"
+                    style="
+                      color: #2563eb;
+                      cursor: pointer;
+                      font-weight: 600;
+                      text-decoration: none;
+                    "
+                    (click)="onViewDetail(item)"
+                    >{{ item.code }}</a
+                  >
+                </td>
+                <td>
+                  <span *ngIf="canEdit(); else viewOnlyName">
+                    <b class="wf-name-link" (click)="onEdit(item)">{{
+                      item.name
+                    }}</b>
+                  </span>
+                  <ng-template #viewOnlyName>
+                    <b>{{ item.name }}</b>
+                  </ng-template>
+                </td>
+                <td>{{ item.address || '-' }}</td>
+                <td>
+                  <span class="status-pill"
+                    [style.background-color]="item.gridTypeId === 1 ? '#eff6ff' : (item.gridTypeId === 2 ? '#f5f3ff' : '#f9fafb')"
+                    [style.color]="item.gridTypeId === 1 ? '#1e40af' : (item.gridTypeId === 2 ? '#5b21b6' : '#6b7280')"
+                    [style.border-color]="item.gridTypeId === 1 ? '#bfdbfe' : (item.gridTypeId === 2 ? '#ddd6fe' : '#e5e7eb')"
+                  >
+                    {{ item.gridTypeId === 1 ? 'Cao áp' : (item.gridTypeId === 2 ? 'Trung áp' : '-') }}
+                  </span>
+                </td>
+                <td>
+                  <span *ngIf="item.organization">
+                    {{ item.organization.name }}
+                  </span>
+                  <span class="text-muted italic" *ngIf="!item.organization"
+                    >Chưa phân bổ</span
+                  >
+                </td>
+                <td>
+                  <span
+                    *ngIf="item.isActive === 1 || item.isActive === true"
+                    class="status-pill status-active"
+                    style="
+                      background-color: #ecfdf5;
+                      color: #065f46;
+                      border-color: #a7f3d0;
+                    "
+                  >
+                    Hoạt động
+                  </span>
+                  <span
+                    *ngIf="item.isActive === 0 || item.isActive === false"
+                    class="status-pill status-locked"
+                    style="
+                      background-color: #fef2f2;
+                      color: #991b1b;
+                      border-color: #fee2e2;
+                    "
+                  >
+                    Ngừng hoạt động
+                  </span>
+                </td>
+                <td class="col-hd">
+                  <div class="action-buttons-group">
+                    <div
+                      class="dropdown-actions-container"
+                      (click)="$event.stopPropagation()"
+                    >
+                      <button
+                        class="act-btn act-more"
+                        title="Thao tác khác"
+                        (click)="openActionMenu(item, $event, actionMenu)"
+                      >
+                        <i class="pi pi-ellipsis-h"></i>
+                      </button>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            </ng-container>
             <tr *ngIf="items().length === 0">
-              <td colspan="8" class="empty-row">
+              <td [attr.colspan]="infraTypeId() === 1 ? 8 : 7" class="empty-row">
                 <i class="pi pi-inbox"></i>
                 <div>Không tìm thấy bản ghi nào.</div>
               </td>
@@ -301,6 +401,7 @@
     "
     [modal]="true"
     [style]="{ width: '500px' }"
+    [contentStyle]="{ overflow: 'visible' }"
     styleClass="evn-dialog-custom"
   >
     <div
