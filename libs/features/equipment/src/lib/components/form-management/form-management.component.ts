@@ -248,6 +248,23 @@ export class FormManagementComponent implements OnInit {
   canEdit = computed(() => canEditForm(this.authService));
   canSubmit = computed(() => canSubmitForm(this.authService));
   canDelete = computed(() => canDeleteForm(this.authService));
+  breadcrumbMatchUrl = computed(() =>
+    this.isFromCompletedForms()
+      ? '/equipment/completed-forms'
+      : '/equipment/form-management'
+  );
+  breadcrumbSuffix = computed(() => {
+    switch (this.viewState()) {
+      case 'add':
+        return 'Thêm mới form';
+      case 'edit':
+        return 'Chỉnh sửa';
+      case 'preview':
+        return 'Xem trước';
+      default:
+        return null;
+    }
+  });
 
   openActionMenu(form: EavFormTemplate, event: Event, menu: Menu): void {
     event.stopPropagation();
@@ -849,7 +866,7 @@ export class FormManagementComponent implements OnInit {
           }
         });
     } else {
-      this.eavFormService.createTemplate(fName, fCode, fCategory, desc, fDescInfo, schemaStr, currentUserId, undefined, undefined, extractProc, extPos)
+      this.eavFormService.createTemplate(fName, fCode, fCategory, desc, fDescInfo, schemaStr, undefined, undefined, undefined, extractProc, extPos)
         .pipe(finalize(() => this.loadingService.hide()))
         .subscribe({
           next: () => {
