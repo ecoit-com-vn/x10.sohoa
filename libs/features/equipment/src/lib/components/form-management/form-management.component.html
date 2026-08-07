@@ -108,7 +108,9 @@
             </tr>
             <tr *ngFor="let form of paginatedForms(); let i = index">
               <td class="form-cell-stt">{{ first() + i + 1 }}</td>
-              <td class="form-cell-content" [title]="form.code || ''">{{ form.code || '' }}</td>
+              <td class="form-cell-content" [title]="form.code || ''">
+                <a class="form-code-link" (click)="onPreview(form)">{{ form.code || '' }}</a>
+              </td>
               <td class="form-cell-content" [title]="form.name || ''">{{ form.name }}</td>
               <td class="form-cell-content" [title]="getCategoryName(form)">
                 <span class="badge">
