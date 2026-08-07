@@ -1281,6 +1281,27 @@ StatusTransition,
         return result > 0;
     }
 
+    public async Task<bool> ConfirmAsync(Guid id, string modifiedBy)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        var sql = @"UPDATE EQUIPMENTS
+                    SET IS_CONFIRM = 1,
+                        ModifiedBy = :ModifiedBy,
+                        ModifiedDate = :ModifiedDate
+                    WHERE Id = :Id AND IsDeleted = 0";
+
+        var result = await _connection.ExecuteAsync(sql, new
+        {
+            Id = id.ToString(),
+            ModifiedBy = modifiedBy,
+            ModifiedDate = DateTime.UtcNow
+        });
+
+        return result > 0;
+    }
+
     public async Task<bool> UpdateAttributesAsync(Guid equipmentId, IEnumerable<AttributeValue> attributes)
     {
         if (_connection.State != ConnectionState.Open)

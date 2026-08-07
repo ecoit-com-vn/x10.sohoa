@@ -1649,7 +1649,12 @@ public class DocumentRepository : IDocumentRepository
     public Task<(IEnumerable<DocumentListItemDto> Items, int TotalCount)> GetPublishedFactoryAcceptanceDocumentsByEquipmentAsync(
         Guid equipmentId,
         DossierDocumentFilterDto filter) =>
-        GetProfileDocumentsByEquipmentAsync(equipmentId, filter, publishedOnly: true, factoryAcceptanceOnly: true);
+        GetProfileDocumentsByEquipmentAsync(equipmentId, filter, publishedOnly: true, documentTypeFlagColumn: "IS_FACTORY_ACCEPTANCE_REPORT");
+
+    public Task<(IEnumerable<DocumentListItemDto> Items, int TotalCount)> GetPublishedCbmDocumentsByEquipmentAsync(
+        Guid equipmentId,
+        DossierDocumentFilterDto filter) =>
+        GetProfileDocumentsByEquipmentAsync(equipmentId, filter, publishedOnly: true, documentTypeFlagColumn: "IS_CBM_DOCUMENT");
 
     public async Task<(IEnumerable<DocumentListItemDto> Items, int TotalCount)> GetPublishedFactoryAcceptanceDocumentsAsync(
         DossierDocumentFilterDto filter)
@@ -1722,7 +1727,7 @@ public class DocumentRepository : IDocumentRepository
         Guid equipmentId,
         DossierDocumentFilterDto filter,
         bool publishedOnly,
-        bool factoryAcceptanceOnly = false)
+        string documentTypeFlagColumn = "IS_EQUIPMENT_PROFILE")
     {
         if (_connection.State != ConnectionState.Open)
             _connection.Open();
@@ -1733,9 +1738,7 @@ public class DocumentRepository : IDocumentRepository
         var publishedDossierFilter = publishedOnly
             ? " AND dossier.IsDeleted = 0 AND dossier.STATUS_ID = 6 AND dossier.PUBLISHSTATUSID = 2"
             : string.Empty;
-        var documentTypeFilter = factoryAcceptanceOnly
-            ? "dt.IS_FACTORY_ACCEPTANCE_REPORT = 1"
-            : "dt.IS_EQUIPMENT_PROFILE = 1";
+        var documentTypeFilter = $"dt.{documentTypeFlagColumn} = 1";
         var aliasedWhere = "d.IS_DELETED = 0" + publishedDossierFilter + $" AND {documentTypeFilter} AND de.EquipmentId = :EquipmentId";
         if (!string.IsNullOrWhiteSpace(filter.Keyword))
             aliasedWhere += " AND d.NAME LIKE :Keyword";

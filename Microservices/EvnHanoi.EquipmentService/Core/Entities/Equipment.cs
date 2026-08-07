@@ -25,4 +25,5 @@ public class Equipment
     public bool IsDeleted { get; set; }
     public string? FormValues { get; set; }
     public long? UnitId { get; set; }
+    public bool IsConfirm { get; set; }
 }

@@ -29,7 +29,7 @@ namespace EvnHanoi.ReportService.Infrastructure.Repositories
                        (SELECT COUNT(1) FROM REPORT_GROUP_UNITS rgu WHERE rgu.ReportGroupId = g.Id) AS UnitCount
                 FROM REPORT_GROUPS g
                 WHERE g.IsDeleted = 0
-                ORDER BY g.IsActive, g.CREATEDAT, g.SortOrder, g.Name";
+                ORDER BY g.IsActive DESC, g.CREATEDAT DESC, g.SortOrder, g.Name";
 
             return await _connection.QueryAsync<ReportGroup>(sqlGroup);
         }
