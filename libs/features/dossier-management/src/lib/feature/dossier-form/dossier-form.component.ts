@@ -5,7 +5,6 @@ import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
 import { DialogModule } from 'primeng/dialog';
 import { SelectModule } from 'primeng/select';
-import { MultiSelectModule } from 'primeng/multiselect';
 import { DossierManagementService } from '../../data-access/dossier-management.service';
 import { DossierPublishService } from '../../data-access/dossier-publish.service';
 import { DossierDocumentsTabComponent } from '../dossier-documents/dossier-documents-tab.component';
@@ -15,6 +14,7 @@ import {
   EavField,
   guidsEqual,
   normalizeField,
+  normalizeDossierDetail,
   parseFormDataJson,
   pickFormDataForSchema,
   readFormSchemaJson,
@@ -39,31 +39,14 @@ import { normalizeDossierKindId } from '../../utils/dossier-permission.util';
 @Component({
   selector: 'app-dossier-form',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule, DialogModule, SelectModule, MultiSelectModule, DossierDocumentsTabComponent, DossierVersionsTabComponent, DossierWorkflowTabComponent, DatePickerModule],
+  imports: [CommonModule, FormsModule, ToastModule, DialogModule, SelectModule, DossierDocumentsTabComponent, DossierVersionsTabComponent, DossierWorkflowTabComponent, DatePickerModule],
   template: `
     <div class="wf-card" style="position: relative;">
       <!-- Header -->
-      <div class="edit-header">
+      <div class="edit-header" *ngIf="showSubmitForApprovalButton() || (formPendingTask() && isUserAuthorizedForFormAction)">
         <div style="display: flex; align-items: center; gap: 10px;">
-          <button *ngIf="showHeaderBackButton" (click)="onCancel()" class="btn-back btn-small" title="Quay lại">
-            <i class="pi pi-arrow-left"></i>
-          </button>
-          <h2 *ngIf="isEditMode()" class="edit-title">Cập nhật Thông tin Hồ sơ</h2>
         </div>
         <div class="edit-actions">
-          <button *ngIf="showCompleteInputButton()"
-                  (click)="onCompleteInput()" class="btn-green" [disabled]="completingInput()">
-            <i class="pi pi-check" *ngIf="!completingInput()"></i>
-            <i class="pi pi-spin pi-spinner" *ngIf="completingInput()"></i>
-            Hoàn thành nhập liệu
-          </button>
-          <button *ngIf="showSubmitForApprovalButton()"
-                  (click)="openSubmitWorkflowDialog()" class="btn-green" [disabled]="submitting()">
-            <i class="pi pi-send" *ngIf="!submitting()"></i>
-            <i class="pi pi-spin pi-spinner" *ngIf="submitting()"></i>
-            Gửi duyệt
-          </button>
-
           <!-- Workflow action buttons for Returned (statusId = 5) -->
           <ng-container *ngIf="formPendingTask() && isUserAuthorizedForFormAction">
             <button *ngFor="let btn of formDynamicButtons()"
@@ -107,9 +90,7 @@ import { normalizeDossierKindId } from '../../utils/dossier-permission.util';
 
       <div class="tab-content" style="position: relative;">
       <div *ngIf="!isEditMode() || activeTab() === 'info'">
-      <!-- Thông tin vị trí: Nhóm / Trạm-ĐZ / Hộp lưu trữ (cùng 1 hàng) → (Thiết bị) -->
       <div style="display: flex; flex-direction: column; gap: 16px; margin-bottom: 24px;">
-        <h3 style="font-size: 0.95rem; font-weight: 700; color: #002D72; padding-bottom: 8px; border-bottom: 1px solid #e2e8f0; margin: 0;">Thông tin vị trí</h3>
 
         <div style="display: flex; gap: 16px; flex-wrap: wrap;">
           <div class="form-group" style="flex: 1 1 240px; min-width: 220px;">
@@ -150,25 +131,25 @@ import { normalizeDossierKindId } from '../../utils/dossier-permission.util';
 
           <div class="form-group" style="flex: 1 1 240px; min-width: 220px;">
             <label class="form-label">Trạm / Đường dây</label>
-            <p-multiSelect
-              [options]="formInfrastructures()"
-              [(ngModel)]="dossier.infrastructureIds"
+            <p-select
+              [options]="formInfrastructureOptions()"
+              [ngModel]="dossier.infrastructureIds?.[0] ?? null"
               (ngModelChange)="onInfrastructureChange($event)"
               optionLabel="name"
               optionValue="id"
               [filter]="true"
               filterBy="name,code"
-              filterPlaceholder="Tìm theo mã hoặc tên..."
+              filterPlaceholder="Tìm tên trạm/đường dây..."
               [showClear]="true"
-              placeholder="-- Chọn trạm / đường dây --"
+              placeholder="-- Tất cả trạm/đường dây --"
               appendTo="body"
-              styleClass="w-full dossier-infrastructure-select"
+              styleClass="w-full lookup-search-select"
               [style]="{'width':'100%'}">
               <ng-template #item let-item>
                 <span>{{ item.name }}</span>
                 <small *ngIf="item.code" class="lookup-option-code">({{ item.code }})</small>
               </ng-template>
-            </p-multiSelect>
+            </p-select>
           </div>
 
           <div class="form-group" style="flex: 1 1 240px; min-width: 220px;">
@@ -669,8 +650,8 @@ import { normalizeDossierKindId } from '../../utils/dossier-permission.util';
   `,
   styles: [`
     .w-full { width: 100%; }
-    :host ::ng-deep .dossier-infrastructure-select { width: 100%; min-height: 34px; }
-    :host ::ng-deep .dossier-infrastructure-select .p-multiselect-label {
+    :host ::ng-deep .lookup-search-select { width: 100%; min-height: 34px; }
+    :host ::ng-deep .lookup-search-select .p-select-label {
       padding-top: 7px;
       padding-bottom: 7px;
       font-size: 0.875rem;
@@ -738,6 +719,8 @@ export class DossierFormComponent implements OnInit {
   kindIdSignal = signal<number>(2);
   @Output() cancel = new EventEmitter<void>();
   @Output() saved = new EventEmitter<string>();
+  @Output() inputCompleted = new EventEmitter<void>();
+  @Output() statusLoaded = new EventEmitter<number>();
 
   private service = inject(DossierManagementService);
   private publishService = inject(DossierPublishService);
@@ -916,6 +899,11 @@ export class DossierFormComponent implements OnInit {
       return true;
     });
   });
+
+  formInfrastructureOptions = computed(() => [
+    { id: null, name: '-- Tất cả trạm/đường dây --', code: null },
+    ...this.formInfrastructures(),
+  ]);
 
   // Lookups
   dossierTypes = signal<any[]>([]);
@@ -1188,8 +1176,25 @@ export class DossierFormComponent implements OnInit {
             });
           }
           this.refreshStorageSelectionLabel();
-          this.dossierStatus.set(String(res.status ?? res.Status ?? ''));
-          this.dossierStatusId.set(Number(res.statusId ?? res.StatusId ?? 0));
+          // Dùng cùng bộ chuẩn hóa với màn Xem chi tiết để không lệch trạng thái
+          // giữa hai màn hình khi API trả về camelCase/PascalCase.
+          const normalizedDetail = normalizeDossierDetail(res);
+          const rawStatus = normalizedDetail?.status ?? res.status ?? res.Status ?? res.dossierStatus ?? res.DossierStatus
+            ?? normalizedDetail?.statusName ?? res.statusName ?? res.StatusName
+            ?? normalizedDetail?.statusCode ?? res.statusCode ?? res.StatusCode ?? '';
+          const rawStatusId = normalizedDetail?.statusId
+            ?? res.statusId ?? res.StatusId ?? res.dossierStatusId ?? res.DossierStatusId;
+          const statusText = String(rawStatus ?? '').trim().toLowerCase();
+          const parsedStatusId = Number(rawStatusId);
+          const normalizedStatusId = Number.isFinite(parsedStatusId) && parsedStatusId > 0
+            ? parsedStatusId
+            : (statusText === 'new' || statusText === 'tạo mới' ? 1
+              : statusText === 'completedinput' || statusText === 'hoàn thành' || statusText === 'hoàn thành nhập liệu' ? 2
+              : statusText === 'returned' || statusText === 'trả lại' ? 5
+              : 0);
+          this.dossierStatus.set(String(rawStatus ?? ''));
+          this.dossierStatusId.set(normalizedStatusId);
+          this.statusLoaded.emit(normalizedStatusId);
           this.workflowInstanceId.set(res.workflowInstanceId ?? res.WorkflowInstanceId ?? null);
           if (res.workflowInstanceId ?? res.WorkflowInstanceId) {
             this.loadWorkflow();
@@ -1614,6 +1619,7 @@ export class DossierFormComponent implements OnInit {
       next: () => {
         this.dossierStatus.set('CompletedInput');
         this.dossierStatusId.set(2);
+        this.inputCompleted.emit();
         this.messageService.add({
           severity: 'success',
           summary: 'Thành công',

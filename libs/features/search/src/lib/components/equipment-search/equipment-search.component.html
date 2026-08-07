@@ -2,7 +2,9 @@
   <p-toast></p-toast>
   
   <div class="list-toolbar standard-page-toolbar">
-    <div class="toolbar-left"><wf-breadcrumb /></div>
+    <div class="toolbar-left">
+      <wf-breadcrumb leafLabel="Tra cứu hồ sơ thiết bị" />
+    </div>
     <div class="toolbar-right">
       <button class="btn-outlined" (click)="openTemplateDialog()">
         <i class="pi pi-download mr-1"></i> Tải file mẫu Excel
@@ -27,7 +29,7 @@
           />
         </div>
       </div>
-      <div class="standard-search-actions">
+      <div class="standard-search-actions" style="margin-top:-8px;">
         <button class="btn-save" (click)="onSearch()" [disabled]="loading">
           <i class="pi pi-check"></i> Áp dụng
         </button>

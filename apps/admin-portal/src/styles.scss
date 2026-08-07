@@ -246,6 +246,8 @@ body {
 
 .standard-page-toolbar {
     width: 100%;
+    height: 40px;
+    box-sizing: border-box;
     align-items: center;
     flex-wrap: nowrap;
     gap: 12px;
@@ -600,6 +602,12 @@ body {
     gap: 5px;
     transition: background .2s;
     border: 1px solid #94a3b8;
+}
+
+.dossier-form-actions .dossier-form-action {
+  height: 30px;
+  min-height: 30px;
+  box-sizing: border-box;
 }
 
 .btn-save:hover:not(:disabled) {
