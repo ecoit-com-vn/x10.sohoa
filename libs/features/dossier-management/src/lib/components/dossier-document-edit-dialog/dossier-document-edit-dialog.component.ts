@@ -82,6 +82,8 @@ export class DossierDocumentEditDialogComponent implements OnDestroy {
 
   @Input() lookupMode = false;
 
+  @Input() warehouseSearchMode = false;
+
   @Input() publishMode = false;
 
   @Input() hasExtractionResult = false;
@@ -278,7 +280,9 @@ export class DossierDocumentEditDialogComponent implements OnDestroy {
     } = {
       dossier: this.lookupMode
         ? this.dossierService.getDossierByEquipmentLookup(this.dossierId)
-        : this.dossierService.getDossierById(this.dossierId),
+        : this.warehouseSearchMode
+          ? this.dossierService.getWarehouseSearchDossierById(this.dossierId)
+          : this.dossierService.getDossierById(this.dossierId),
       result: this.documentService.getDigitizationResultOrNull(
         this.dossierId,
         this.versionId,

@@ -94,8 +94,8 @@ export class ReportStatisticsDossierListComponent implements OnInit {
   openDetail(item: ReportStatisticsDossierListItem): void {
     if (!item.dossierId) return;
     const url = this.router.serializeUrl(
-      this.router.createUrlTree(['/search/dossier/detail', item.dossierId])
-    ); 
+      this.router.createUrlTree(['/search/dossier/detail', item.dossierId], { queryParams: { from: 'report' } })
+    );
     window.open(`/#${url}`, '_blank');
   }
 
