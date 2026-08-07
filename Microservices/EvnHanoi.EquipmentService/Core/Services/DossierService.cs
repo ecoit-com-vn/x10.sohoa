@@ -585,10 +585,21 @@ public class DossierService : IDossierService
         var existing = await _dossierRepository.GetByIdAsync(id);
         if (existing == null) throw new KeyNotFoundException($"Không tìm thấy hồ sơ với ID = {id}");
 
-        var isDraft = existing.StatusId == DossierStatusConstants.New || existing.StatusId == DossierStatusConstants.CompletedInput;
-        var notInWorkflow = !existing.WorkflowInstanceId.HasValue;
-        if (!isDraft && !notInWorkflow)
-            throw new InvalidOperationException("Chỉ có thể xóa hồ sơ ở trạng thái Tạo mới, Hoàn thành nhập liệu hoặc chưa đưa vào quy trình phê duyệt.");
+        //var isDraft = existing.StatusId == DossierStatusConstants.New
+        //    || existing.StatusId == DossierStatusConstants.CompletedInput
+        //    || existing.StatusId == DossierStatusConstants.Returned;
+        //var notInWorkflow = !existing.WorkflowInstanceId.HasValue;
+        //if (!isDraft && !notInWorkflow)
+        //    throw new InvalidOperationException("Chỉ có thể xóa hồ sơ ở trạng thái Tạo mới, Hoàn thành nhập liệu, Trả lại hoặc chưa đưa vào quy trình phê duyệt.");
+
+        //if (existing.StatusId == DossierStatusConstants.Returned)
+        //{
+        //    var isCreator = existing.CreatorId.HasValue
+        //        && Guid.TryParse(userId, out var currentUserId)
+        //        && existing.CreatorId.Value == currentUserId;
+        //    if (!isCreator)
+        //        throw new InvalidOperationException("Chỉ người tạo hồ sơ mới có quyền xóa hồ sơ ở trạng thái Trả lại.");
+        //}
 
         var deleted = await _dossierRepository.SoftDeleteAsync(id, userId);
         if (deleted)
@@ -935,8 +946,12 @@ public class DossierService : IDossierService
     /// </summary>
     private async Task EnsureCanEditFormDataAsync(Dossier dossier)
     {
-        // Pending-publication dossiers remain editable until they are released.
-        if (dossier.PublishStatusId == DossierPublishStatusConstants.Pending)
+        // Hồ sơ thuộc luồng xuất bản (Chờ xuất bản/Đã xuất bản/Hủy xuất bản) luôn cho phép sửa/thêm
+        // tài liệu, không phụ thuộc trạng thái workflow bên dưới — chỉ luồng tạo/duyệt hồ sơ thường
+        // (PublishStatusId = null) mới áp dụng các kiểm tra StatusId/workflow phía dưới.
+        if (dossier.PublishStatusId == DossierPublishStatusConstants.Pending
+            || dossier.PublishStatusId == DossierPublishStatusConstants.Published
+            || dossier.PublishStatusId == DossierPublishStatusConstants.Unpublished)
             return;
 
         // Trả lại về bước người tạo — cho phép sửa dù instance WF vẫn đang chạy.
