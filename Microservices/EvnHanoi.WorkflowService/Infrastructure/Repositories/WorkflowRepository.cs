@@ -367,7 +367,7 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
                         stepParams.Add("WorkflowDefinitionId", step.WorkflowDefinitionId.ToString());
                         stepParams.Add("StepName", string.IsNullOrEmpty(step.StepName) ? null : step.StepName);
                         stepParams.Add("OrderVal", step.Order);
-                        stepParams.Add("RequiredRole", string.IsNullOrEmpty(step.RequiredRole) ? null : step.RequiredRole);
+                        stepParams.Add("RequiredRole", step.RequiredRole ?? string.Empty);
                         stepParams.Add("ActionType", string.IsNullOrEmpty(step.ActionType) ? null : step.ActionType);
                         stepParams.Add("AllowEdit", step.AllowEdit ? 1 : 0);
                         stepParams.Add("RequireSignature", step.RequireSignature ? 1 : 0);
@@ -488,7 +488,7 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Repositories
                     var stepParams = new DynamicParameters();
                     stepParams.Add("StepName", string.IsNullOrEmpty(step.StepName) ? null : step.StepName);
                     stepParams.Add("OrderVal", step.Order);
-                    stepParams.Add("RequiredRole", string.IsNullOrEmpty(step.RequiredRole) ? null : step.RequiredRole);
+                    stepParams.Add("RequiredRole", step.RequiredRole ?? string.Empty);
                     stepParams.Add("ActionType", string.IsNullOrEmpty(step.ActionType) ? null : step.ActionType);
                     stepParams.Add("AllowEdit", step.AllowEdit ? 1 : 0);
                     stepParams.Add("RequireSignature", step.RequireSignature ? 1 : 0);
