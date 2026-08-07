@@ -36,6 +36,8 @@ export interface OcrJobListQueryParams {
   status?: string;
   phase?: string;
   keyword?: string;
+  documentTypeId?: string;
+  resourceKeyword?: string;
   fromDate?: string;
   toDate?: string;
 }
@@ -58,6 +60,8 @@ export class OcrJobsMonitorService {
     if (params.status) query['status'] = params.status;
     if (params.phase) query['phase'] = params.phase;
     if (params.keyword) query['keyword'] = params.keyword;
+    if (params.documentTypeId) query['documentTypeId'] = params.documentTypeId;
+    if (params.resourceKeyword) query['resourceKeyword'] = params.resourceKeyword;
     if (params.fromDate) query['fromDate'] = params.fromDate;
     if (params.toDate) query['toDate'] = params.toDate;
 
