@@ -131,7 +131,7 @@
           <select
             class="wf-input"
             [ngModel]="searchStatus()"
-            (ngModelChange)="searchStatus.set($event); onSearch()"
+            (ngModelChange)="onSearchStatusChange($event); onSearch()"
           >
             <option value="">-- Trạng thái --</option>
             <option value="1">Hoạt động</option>

@@ -70,6 +70,13 @@ export class OrganizationSettings implements OnInit {
     if (this.formSubmitted() && !String(this.currentUnit().name ?? '').trim()) return 'Tên phòng ban là bắt buộc';
     return this.serverErrors().name || this.serverErrors().Name || '';
   });
+  sortOrderError = computed(() => {
+    const sortOrder = Number(this.currentUnit().sortOrder);
+    if (this.formSubmitted() && (!Number.isInteger(sortOrder) || sortOrder < 1)) {
+      return 'Thứ tự sắp xếp phải là số nguyên lớn hơn hoặc bằng 1';
+    }
+    return this.serverErrors().sortOrder || this.serverErrors().SortOrder || '';
+  });
 
   onFieldChange(field: string) {
     this.currentUnit.update(unit => ({ ...unit }));
@@ -106,13 +113,13 @@ export class OrganizationSettings implements OnInit {
     }
 
     if (!kw) {
-      return this.buildHierarchicalList(allUnits);
+      return allUnits;
     }
-    return this.buildHierarchicalList(allUnits.filter(u =>
+    return allUnits.filter(u =>
       (u.code?.toLowerCase().includes(kw) ?? false) ||
       (u.name?.toLowerCase().includes(kw) ?? false) ||
       (u.description?.toLowerCase().includes(kw) ?? false)
-    ));
+    );
   });
 
   pagedUnits = computed(() => {
@@ -179,43 +186,6 @@ export class OrganizationSettings implements OnInit {
     this.currentPage.set(Math.floor(first / rows) + 1);
   }
 
-  // Thuật toán DFS xây dựng danh sách phẳng thụt lề
-  buildHierarchicalList(unitsList: any[] = this.units()): any[] {
-    const result: any[] = [];
-    const unitsSafe = unitsList || [];
-    const rootNodes = unitsSafe.filter(u => !u.parentId || !unitsSafe.some(parent => parent.id === u.parentId));
-
-    const compareUnits = (a: any, b: any): number => {
-      const statusComparison = Number(Boolean(b.isActive)) - Number(Boolean(a.isActive));
-      if (statusComparison !== 0) return statusComparison;
-
-      const codeComparison = String(a.code ?? '').localeCompare(String(b.code ?? ''), 'vi', {
-        sensitivity: 'base'
-      });
-      if (codeComparison !== 0) return codeComparison;
-
-      return Number(a.id ?? 0) - Number(b.id ?? 0);
-    };
-
-    const visit = (node: any) => {
-      result.push(node);
-      const children = unitsSafe.filter(u => u.parentId === node.id);
-      children.sort(compareUnits);
-      children.forEach(visit);
-    };
-
-    rootNodes.sort(compareUnits);
-    rootNodes.forEach(visit);
-
-    // Thêm các nút bị mồ côi nếu có lỗi dữ liệu để tránh mất bản ghi hiển thị
-    unitsSafe
-      .filter(u => !result.includes(u))
-      .sort(compareUnits)
-      .forEach(u => result.push(u));
-
-    return result;
-  }
-
   getIndentLevel(unit: any): number {
     let level = 0;
     let parentId = unit.parentId;
@@ -262,7 +232,7 @@ export class OrganizationSettings implements OnInit {
       return;
     }
     this.isEdit.set(false);
-    this.currentUnit.set({ code: '', name: '', parentId: null, description: '', identifier: '', sortOrder: 0, isActive: true });
+    this.currentUnit.set({ code: '', name: '', parentId: null, description: '', identifier: '', sortOrder: 1, isActive: true });
     this.formSubmitted.set(false);
     this.serverErrors.set({});
     this.dialogHeader.set('Thêm mới đơn vị phòng ban');
@@ -324,7 +294,7 @@ export class OrganizationSettings implements OnInit {
   onSaveUnit() {
     this.formSubmitted.set(true);
     this.serverErrors.set({});
-    if (this.codeError() || this.nameError()) {
+    if (this.codeError() || this.nameError() || this.sortOrderError()) {
       return;
     }
 
@@ -337,7 +307,8 @@ export class OrganizationSettings implements OnInit {
       code: String(unitDraft.code ?? '').trim(),
       name: String(unitDraft.name ?? '').trim(),
       description: String(unitDraft.description ?? '').trim(),
-      parentId: normalizedParentId
+      parentId: normalizedParentId,
+      sortOrder: Number(unitDraft.sortOrder)
     };
     this.currentUnit.update(unit => ({ ...unit, ...payload }));
 

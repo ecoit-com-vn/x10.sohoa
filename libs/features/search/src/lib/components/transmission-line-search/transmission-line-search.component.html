@@ -92,12 +92,10 @@
             <tr *ngFor="let item of paginatedItems(); let i = index">
               <td class="col-stt text-muted">{{ (currentPage() - 1) * pageSize() + i + 1 }}</td>
               <td>
-                <a class="wf-link" style="color: #2563eb; cursor: pointer; font-weight: 600; text-decoration: none;"
+                <a class="transmission-line-code-link"
                    (click)="onViewDetail(item)">{{ item.code }}</a>
               </td>
-              <td>
-                <b class="wf-name-link" style="cursor: pointer;" (click)="onViewDetail(item)">{{ item.name }}</b>
-              </td>
+              <td class="transmission-line-plain-text">{{ item.name }}</td>
               <td>{{ item.address || '-' }}</td>
               <td>
                 <span class="status-pill"
@@ -108,10 +106,10 @@
                 </span>
               </td>
               <td>
-                <span class="text-primary font-semibold" *ngIf="item.organization">
+                <span class="transmission-line-plain-text" *ngIf="item.organization">
                   {{ item.organization.name }}
                 </span>
-                <span class="text-muted italic" *ngIf="!item.organization">Chưa phân bổ</span>
+                <span class="transmission-line-plain-text" *ngIf="!item.organization">Chưa phân bổ</span>
               </td>
               <td>
                 <span *ngIf="item.isActive === 1 || item.isActive === true" class="status-pill status-active"
