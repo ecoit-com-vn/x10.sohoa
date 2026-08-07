@@ -121,6 +121,7 @@ export class ReportDossierByYearComponent implements OnInit, AfterViewInit {
   // Active Tab: 'stats' (Báo cáo thống kê) | 'list' (Danh sách hồ sơ)
   activeTab = signal<MainTabMode>('stats');
   loading = signal<boolean>(false);
+  unitsLoading = signal<boolean>(false);
   exporting = signal<boolean>(false);
 
   // Data states
@@ -141,16 +142,23 @@ export class ReportDossierByYearComponent implements OnInit, AfterViewInit {
 
   loadLookups(): void {
     this.loading.set(true);
+    this.unitsLoading.set(true);
 
-    this.reportService.getUnitsLookup(1).subscribe({
+    this.reportService.getUnitsLookup(1)
+      .pipe(finalize(() => this.unitsLoading.set(false)))
+      .subscribe({
       next: (units) => {
-        const filteredUnits = this.filterOrphanUnits(units || []); 
-        this.units.set(filteredUnits);
+        const validUnits = (units || []).filter(
+          (unit) => unit?.id != null && String(unit.id).trim() !== '' && !!unit.name?.trim()
+        );
+        this.units.set(validUnits);
         this.applyDefaultUnitFilter();
         this.loadSecondaryLookups();
       },
       error: (err) => {
-        console.error('Lỗi tải danh sách đơn vị:', err);
+        this.units.set([]);
+        this.selectedUnitId.set(null);
+        this.showError('Không thể tải danh sách đơn vị.', err);
         this.loadSecondaryLookups();
       }
     });
@@ -177,41 +185,6 @@ export class ReportDossierByYearComponent implements OnInit, AfterViewInit {
         this.loadStatsData();
       }
     });
-  }
-  private filterOrphanUnits(units: any[]): any[] {
-    const map = new Map(units.map(x => [String(x.id), x]));
-
-    const cache = new Map<string, boolean>();
-
-    const isValid = (unit: any): boolean => {
-      const id = String(unit.id);
-
-      if (cache.has(id)) {
-        return cache.get(id)!;
-      }
-
-      // Node gốc
-      if (unit.parentId == null) {
-        cache.set(id, true);
-        return true;
-      }
-
-      const parent = map.get(String(unit.parentId));
-
-      // Không tìm thấy cha
-      if (!parent) {
-        cache.set(id, false);
-        return false;
-      }
-
-      // Cha hợp lệ thì con mới hợp lệ
-      const result = isValid(parent);
-      cache.set(id, result);
-
-      return result;
-    };
-
-    return units.filter(isValid);
   }
   private applyDefaultUnitFilter(): void {
     const userUnitId = this.authService.getUserUnitId();
@@ -250,6 +223,30 @@ export class ReportDossierByYearComponent implements OnInit, AfterViewInit {
     this.loadStatsData();
   }
 
+  onUnitChange(unitId: number | null): void {
+    this.selectedUnitId.set(unitId);
+    this.onFilter();
+  }
+
+  onObjectTypeChange(objectType: number | null): void {
+    this.selectedObjectType.set(objectType);
+    this.onFilter();
+  }
+
+  onResetFilters(): void {
+    this.selectedUnitId.set(null);
+    this.applyDefaultUnitFilter();
+    this.selectedObjectType.set(0);
+
+    const availableYears = this.years();
+    const currentYear = new Date().getFullYear();
+    this.selectedYear.set(
+      availableYears.includes(currentYear) ? currentYear : (availableYears[0] ?? currentYear)
+    );
+
+    this.onFilter();
+  }
+
   switchTab(tab: MainTabMode): void {
     this.activeTab.set(tab);
     queueMicrotask(() => {
@@ -261,12 +258,13 @@ export class ReportDossierByYearComponent implements OnInit, AfterViewInit {
     });
   }
   // Xử lý khi người dùng chọn năm
-  onYearChange(date: Date) {
+  onYearChange(date: Date | null): void {
     if (date) {
       this.selectedYear.set(date.getFullYear());
     } else {
       this.selectedYear.set(new Date().getFullYear()); 
     }
+    this.onFilter();
   }
   // Hàm chuyển số năm thành đối tượng Date để p-calendar hiểu được
   getYearDate(year: number | string | null): Date | null {

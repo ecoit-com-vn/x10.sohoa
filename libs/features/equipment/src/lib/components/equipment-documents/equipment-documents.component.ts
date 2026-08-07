@@ -118,6 +118,8 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
   /** Id thiết bị — bắt buộc; parent chỉ mount khi đã có id. */
   equipmentId = input.required<string>();
   canEdit = input(false);
+  /** Ẩn trạng thái xử lý OCR/bóc tách tại màn chỉ xem thuộc phân hệ Tra cứu. */
+  hideDigitizationColumns = input(false);
   factoryAcceptanceOnly = input(false);
   externalAccess = input(false);
   factoryProfileAccess = input(false);

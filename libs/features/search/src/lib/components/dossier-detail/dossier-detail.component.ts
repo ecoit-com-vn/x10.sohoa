@@ -12,7 +12,6 @@ import { of, switchMap, finalize, catchError } from 'rxjs';
 import { EcoPaginatorComponent, WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { getDossierStatusLabel } from '../../utils/dossier-status.util';
 import { DocumentManagementService } from '../../data-access/document-management.service';
-import { FileDownloadService } from '../../data-access/file-download.service';
 import { DocumentFilter } from '../../models/document.models';
 import {
   DossierManagementService,
@@ -49,7 +48,6 @@ export class DossierDetailComponent implements OnInit {
   private documentService = inject(DocumentManagementService);
   private dossierService = inject(DossierManagementService);
   private dossierDocumentService = inject(DossierDocumentService);
-  private fileDownloadService = inject(FileDownloadService);
   private messageService = inject(MessageService);
   private sanitizer = inject(DomSanitizer);
 
@@ -59,6 +57,7 @@ export class DossierDetailComponent implements OnInit {
   activeDetailTab = signal<'info' | 'documents' | 'related'>('info');
   dossierDocuments = signal<any[]>([]);
   loadingDossierDocuments = signal<boolean>(false);
+  downloadingDocumentIds = signal<Set<string>>(new Set());
   relatedEquipments = signal<any[]>([]);
   loadingEquipments = signal<boolean>(false);
   dynamicFields = signal<EavField[]>([]);
@@ -415,8 +414,17 @@ export class DossierDetailComponent implements OnInit {
     this.viewTarget.set(null);
   }
 
-  downloadDocument(doc: any) {
-    if (!doc.latestVersionId) {
+  isDocumentDownloading(doc: any): boolean {
+    const key = String(doc?.id || doc?.latestVersionId || '');
+    return !!key && this.downloadingDocumentIds().has(key);
+  }
+
+  downloadDocument(doc: any): void {
+    const dossierId = this.dossierId();
+    const versionId = doc?.latestVersionId;
+    const downloadKey = String(doc?.id || versionId || '');
+
+    if (!versionId) {
       this.messageService.add({
         severity: 'warn',
         summary: 'Không thể tải',
@@ -425,7 +433,20 @@ export class DossierDetailComponent implements OnInit {
       return;
     }
 
-    this.fileDownloadService.downloadFile(doc.latestVersionId, doc.name)
+    if (!dossierId || !downloadKey || this.downloadingDocumentIds().has(downloadKey)) {
+      return;
+    }
+
+    const dossier = this.dossier();
+    const rawDossier = dossier?.raw ?? dossier ?? {};
+    const kindId = Number(rawDossier.kindId ?? rawDossier.KindId ?? 2);
+    this.dossierDocumentService.setKindContext(kindId);
+
+    const downloadingIds = new Set(this.downloadingDocumentIds());
+    downloadingIds.add(downloadKey);
+    this.downloadingDocumentIds.set(downloadingIds);
+
+    this.dossierDocumentService.downloadFile(dossierId, versionId, doc.name)
       .then(() => {
         this.messageService.add({
           severity: 'success',
@@ -434,12 +455,18 @@ export class DossierDetailComponent implements OnInit {
         });
       })
       .catch((error: unknown) => {
-        const message = error instanceof Error ? error.message : 'Không thể tải file';
+        const apiError = error as { error?: { message?: string }; message?: string } | null;
+        const message = apiError?.error?.message || apiError?.message || 'Không thể tải file';
         this.messageService.add({
           severity: 'error',
           summary: 'Lỗi tải file',
           detail: `${doc.name}: ${message}`,
         });
+      })
+      .finally(() => {
+        const nextDownloadingIds = new Set(this.downloadingDocumentIds());
+        nextDownloadingIds.delete(downloadKey);
+        this.downloadingDocumentIds.set(nextDownloadingIds);
       });
   }
 }

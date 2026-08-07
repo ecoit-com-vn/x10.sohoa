@@ -130,14 +130,15 @@
         </table>
       </div>
 
-      <!-- Footer with Pagination -->
-    <app-eco-paginator
-      *ngIf="totalCount() > 0"
-      [first]="(currentPage() - 1) * pageSize()"
-      [rows]="pageSize()"
-      [totalRecords]="totalCount()"
-      [rowsPerPageOptions]="[10, 20, 50]"
-      (onPageChange)="onListPageChange($event)" />
+      <app-eco-paginator
+          *ngIf="totalCount() > 0"
+          [first]="(currentPage() - 1) * pageSize()"
+          [rows]="pageSize()"
+          [totalRecords]="totalCount()"
+          [rowsPerPageOptions]="[10, 20, 50]"
+          recordLabel="bản ghi"
+          (onPageChange)="onListPageChange($event)">
+      </app-eco-paginator>
       </div>
     </div>
 

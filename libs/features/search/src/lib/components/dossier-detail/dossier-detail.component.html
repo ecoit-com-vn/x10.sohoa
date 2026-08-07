@@ -234,12 +234,9 @@
                   >
                     <i class="pi pi-eye"></i>
                   </button>
-                  <button
-                    class="action-icon-btn"
-                    title="Tải xuống"
-                    (click)="downloadDocument(doc)"
-                  >
-                    <i class="pi pi-download"></i>
+                  <button class="action-icon-btn" title="Tải xuống" [disabled]="isDocumentDownloading(doc)"
+                    (click)="downloadDocument(doc)">
+                    <i class="pi" [ngClass]="isDocumentDownloading(doc) ? 'pi-spin pi-spinner' : 'pi-download'"></i>
                   </button>
                 </td>
               </tr>
