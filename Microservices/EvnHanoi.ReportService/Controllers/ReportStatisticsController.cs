@@ -59,14 +59,23 @@ namespace EvnHanoi.ReportService.Controllers
         {
             var scope = ResolveUserScope();
 
-            var units = isactive.HasValue
-                ? await _dossierRepository.GetOrganizationUnitsWithStatusAsync(
+            if (isactive.HasValue)
+            {
+                if (!scope.IsAdmin && scope.UnitId is null)
+                    return Unauthorized(new { message = "Không thể xác định đơn vị của người dùng" });
+
+                // Lookup có lọc trạng thái chỉ phục vụ danh sách đơn vị đang hoạt động.
+                // Không nhận trạng thái tùy ý từ client làm nguồn xác định phạm vi dữ liệu.
+                var activeUnits = await _dossierRepository.GetOrganizationUnitsWithStatusAsync(
                     scope.IsAdmin,
                     scope.UnitId,
-                    isactive.Value)
-                : await _dossierRepository.GetOrganizationUnitsAsync(
-                    scope.IsAdmin,
-                    scope.UnitId);
+                    1);
+                return Ok(activeUnits);
+            }
+
+            var units = await _dossierRepository.GetOrganizationUnitsAsync(
+                scope.IsAdmin,
+                scope.UnitId);
 
             return Ok(units);
         }

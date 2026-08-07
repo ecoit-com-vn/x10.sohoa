@@ -84,6 +84,7 @@ public abstract partial class DossierControllerBase
 
     [HttpGet("{id:guid}/documents/{versionId:guid}/download-url")]
     [BypassDynamicPermission]
+    [SkipAudit]
     public async Task<IActionResult> GetDocumentDownloadUrl(
         Guid id,
         Guid versionId,
@@ -92,6 +93,15 @@ public abstract partial class DossierControllerBase
         try
         {
             var result = await _dossierDocumentService.GetDownloadTokenAsync(id, versionId, cancellationToken);
+
+            var dossier = await _dossierService.GetDetailByIdAsync(id);
+            var dossierCode = ExtractDossierCodeFromFormData(dossier?.FormDataJson);
+            var (documents, _) = await _dossierDocumentService.GetDocumentsAsync(
+                id,
+                new DossierDocumentFilterDto { Page = 1, PageSize = int.MaxValue });
+            var fileName = documents.FirstOrDefault(document => document.LatestVersionId == versionId)?.Name;
+
+            RegisterAttachmentDownloadAudit(id, dossierCode, fileName);
             return Ok(result);
         }
         catch (KeyNotFoundException ex)
@@ -102,6 +112,49 @@ public abstract partial class DossierControllerBase
         {
             return BadRequest(new { code = "VALIDATION_ERROR", message = ex.Message });
         }
+    }
+
+    private void RegisterAttachmentDownloadAudit(Guid dossierId, string? dossierCode, string? fileName)
+    {
+        if (string.IsNullOrWhiteSpace(dossierCode) || string.IsNullOrWhiteSpace(fileName))
+            return;
+
+        var actorUserId = UserId;
+        var actorUserName = UserName;
+        var actorFullName = UserFullName;
+        var actorUnitId = User.FindFirst("unit_id")?.Value;
+        var actorIp = HttpContext.Connection.RemoteIpAddress?.ToString();
+        var requestPath = HttpContext.Request.Path.Value;
+        var correlationId = HttpContext.TraceIdentifier;
+
+        HttpContext.Response.OnCompleted(() =>
+        {
+            var statusCode = HttpContext.Response.StatusCode;
+            if (statusCode is >= 200 and < 300)
+            {
+                _auditPublisher.Publish(new AuditEvent(
+                    Id: EvnHanoi.Infrastructure.Database.UuidHelper.NewUuid(),
+                    OccurredAt: DateTime.UtcNow,
+                    ServiceName: _auditServiceMetadata.ServiceName,
+                    ActorUserId: actorUserId,
+                    ActorUserName: actorUserName,
+                    ActorIp: actorIp,
+                    Action: AuditActions.Export,
+                    ResourceType: "DOSSIER",
+                    ResourceId: dossierId.ToString(),
+                    ResourceName: dossierCode,
+                    Details: $"Tải xuống tệp đính kèm \"{fileName}\" của hồ sơ \"{dossierCode}\"",
+                    HttpMethod: HttpMethods.Get,
+                    RequestPath: requestPath,
+                    StatusCode: statusCode,
+                    CorrelationId: correlationId,
+                    LogGroup: AuditLogGroups.Business,
+                    ActorUnitId: actorUnitId,
+                    ActorFullName: actorFullName));
+            }
+
+            return Task.CompletedTask;
+        });
     }
 
     [HttpPost("{id:guid}/documents/upload")]

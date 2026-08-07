@@ -27,11 +27,16 @@ public class OrganizationUnitRepository : IOrganizationUnitRepository
                    {nameof(OrganizationUnit.Name)}, 
                    {nameof(OrganizationUnit.ParentId)}, 
                    {nameof(OrganizationUnit.Description)},
+                   SORTORDER,
                    {nameof(OrganizationUnit.IsActive)},
                    {nameof(OrganizationUnit.IsDeleted)}
             FROM ORGANIZATION_UNIT 
             WHERE {ActiveOnlyFilter}
-            ORDER BY {nameof(OrganizationUnit.Id)}";
+            ORDER BY CASE WHEN SORTORDER IS NULL THEN 1 ELSE 0 END,
+                     SORTORDER ASC NULLS LAST,
+                     CASE WHEN ISACTIVE = 1 THEN 0 ELSE 1 END,
+                     CREATEDAT DESC NULLS LAST,
+                     ID DESC";
         return await _connection.QueryAsync<OrganizationUnit>(sql);
     }
 
@@ -44,6 +49,7 @@ public class OrganizationUnitRepository : IOrganizationUnitRepository
                    {nameof(OrganizationUnit.Name)}, 
                    {nameof(OrganizationUnit.ParentId)}, 
                    {nameof(OrganizationUnit.Description)},
+                   SORTORDER,
                    {nameof(OrganizationUnit.IsActive)},
                    {nameof(OrganizationUnit.IsDeleted)}
             FROM ORGANIZATION_UNIT 
@@ -60,10 +66,11 @@ public class OrganizationUnitRepository : IOrganizationUnitRepository
                 {nameof(OrganizationUnit.Name)}, 
                 {nameof(OrganizationUnit.ParentId)}, 
                 {nameof(OrganizationUnit.Description)},
+                SORTORDER,
                 {nameof(OrganizationUnit.IsActive)},
                 {nameof(OrganizationUnit.IsDeleted)}
             )
-            VALUES (:Code, :Name, :ParentId, :Description, :IsActive, 0)
+            VALUES (:Code, :Name, :ParentId, :Description, :SortOrder, :IsActive, 0)
             RETURNING {nameof(OrganizationUnit.Id)} INTO :Id";
             
         var parameters = new DynamicParameters();
@@ -71,6 +78,7 @@ public class OrganizationUnitRepository : IOrganizationUnitRepository
         parameters.Add("Name", unit.Name);
         parameters.Add("ParentId", unit.ParentId);
         parameters.Add("Description", unit.Description);
+        parameters.Add("SortOrder", unit.SortOrder);
         parameters.Add("IsActive", unit.IsActive ? 1 : 0);
         parameters.Add("Id", dbType: DbType.Int64, direction: ParameterDirection.Output);
         
@@ -87,6 +95,7 @@ public class OrganizationUnitRepository : IOrganizationUnitRepository
                 {nameof(OrganizationUnit.Name)} = :Name, 
                 {nameof(OrganizationUnit.ParentId)} = :ParentId,
                 {nameof(OrganizationUnit.Description)} = :Description,
+                SORTORDER = :SortOrder,
                 {nameof(OrganizationUnit.IsActive)} = :IsActive,
                 UpdatedAt = CURRENT_TIMESTAMP
             WHERE {nameof(OrganizationUnit.Id)} = :Id AND {ActiveOnlyFilter}";
@@ -96,6 +105,7 @@ public class OrganizationUnitRepository : IOrganizationUnitRepository
             unit.Name,
             unit.ParentId,
             unit.Description,
+            unit.SortOrder,
             IsActive = unit.IsActive ? 1 : 0,
             unit.Id
         });
@@ -106,23 +116,27 @@ public class OrganizationUnitRepository : IOrganizationUnitRepository
     {
         if (_connection.State != ConnectionState.Open) _connection.Open();
 
-        if (startUnitId.HasValue)
-        {
-            var sql = $@"SELECT {nameof(OrganizationUnit.Id)}, 
-                               {nameof(OrganizationUnit.Code)}, 
-                               {nameof(OrganizationUnit.Name)}, 
-                               {nameof(OrganizationUnit.ParentId)}, 
-                               {nameof(OrganizationUnit.Description)},
-                               {nameof(OrganizationUnit.IsActive)},
-                               {nameof(OrganizationUnit.IsDeleted)}
-                        FROM ORGANIZATION_UNIT
-                        WHERE {ActiveOnlyFilter}
-                        START WITH Id = :StartUnitId
-                        CONNECT BY PRIOR Id = ParentId";
-            return await _connection.QueryAsync<OrganizationUnit>(sql, new { StartUnitId = startUnitId.Value });
-        }
-
-        return await GetAllAsync();
+        var startCondition = startUnitId.HasValue
+            ? $"{nameof(OrganizationUnit.Id)} = :StartUnitId"
+            : $"{nameof(OrganizationUnit.ParentId)} IS NULL";
+        var sql = $@"SELECT {nameof(OrganizationUnit.Id)},
+                           {nameof(OrganizationUnit.Code)},
+                           {nameof(OrganizationUnit.Name)},
+                           {nameof(OrganizationUnit.ParentId)},
+                           {nameof(OrganizationUnit.Description)},
+                           SORTORDER,
+                           {nameof(OrganizationUnit.IsActive)},
+                           {nameof(OrganizationUnit.IsDeleted)}
+                    FROM ORGANIZATION_UNIT
+                    WHERE {ActiveOnlyFilter}
+                    START WITH {startCondition}
+                    CONNECT BY NOCYCLE PRIOR Id = ParentId
+                    ORDER SIBLINGS BY SORTORDER ASC NULLS LAST,
+                                      {nameof(OrganizationUnit.Code)} ASC,
+                                      {nameof(OrganizationUnit.Id)} ASC";
+        return await _connection.QueryAsync<OrganizationUnit>(
+            sql,
+            startUnitId.HasValue ? new { StartUnitId = startUnitId.Value } : null);
     }
 
     public async Task<bool> HasActiveChildrenAsync(long id)
