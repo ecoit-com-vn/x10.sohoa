@@ -1,5 +1,11 @@
 .wf-page {
-  padding: 24px;
+    font-family: Inter, Segoe UI, sans-serif;
+    font-size: .875rem;
+    color: #374151;
+    background: #f5f7fb;
+    min-height: calc(100vh - 56px);
+    padding: 5px 20px;
+    position: relative;
 }
 
 .wf-search-input {
