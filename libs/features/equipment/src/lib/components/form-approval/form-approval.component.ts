@@ -70,6 +70,9 @@ export class FormApprovalComponent implements OnInit {
   forms = signal<EavFormTemplate[]>([]);
   pendingCount = computed(() => this.forms().filter(f => f.status === 'Chờ duyệt').length);
   searchKeyword = signal<string>('');
+  searchCreator = signal<string>('');
+  filterFromDate = signal<Date | null>(null);
+  filterToDate = signal<Date | null>(null);
   activeTab = signal<'pending' | 'history'>('pending');
   selectedForm = signal<EavFormTemplate | null>(null);
   actionMenuItems: MenuItem[] = [];
@@ -126,7 +129,6 @@ export class FormApprovalComponent implements OnInit {
 
   constructor() {
     effect(() => {
-      this.searchKeyword();
       this.activeTab();
       this.first.set(0);
     });
@@ -209,6 +211,11 @@ export class FormApprovalComponent implements OnInit {
 
   filteredForms = computed(() => {
     const keyword = this.searchKeyword().trim().toLowerCase();
+    const creator = this.searchCreator().trim().toLowerCase();
+    const fromDate = this.filterFromDate() ? new Date(this.filterFromDate()!) : null;
+    const toDate = this.filterToDate() ? new Date(this.filterToDate()!) : null;
+    fromDate?.setHours(0, 0, 0, 0);
+    toDate?.setHours(23, 59, 59, 999);
     const tab = this.activeTab();
     const allForms = this.forms().filter(f => !f.isDeleted);
 
@@ -238,6 +245,18 @@ export class FormApprovalComponent implements OnInit {
         (f.id?.toLowerCase().includes(keyword) ?? false)
       );
     }
+    if (creator) {
+      list = list.filter(f =>
+        (f.createdBy?.toLowerCase().includes(creator) ?? false) ||
+        (f.creatorFullName?.toLowerCase().includes(creator) ?? false)
+      );
+    }
+    if (fromDate) {
+      list = list.filter(f => !!f.createdAt && new Date(f.createdAt) >= fromDate);
+    }
+    if (toDate) {
+      list = list.filter(f => !!f.createdAt && new Date(f.createdAt) <= toDate);
+    }
     return list;
   });
 
@@ -253,7 +272,16 @@ export class FormApprovalComponent implements OnInit {
   }
 
   onSearch() {
-    // Handled reactively by computed filteredForms
+    this.first.set(0);
+  }
+
+  onResetSearch() {
+    this.searchKeyword.set('');
+    this.searchCreator.set('');
+    this.filterFromDate.set(null);
+    this.filterToDate.set(null);
+    this.first.set(0);
+    this.loadForms();
   }
 
   switchTab(tab: 'pending' | 'history') {

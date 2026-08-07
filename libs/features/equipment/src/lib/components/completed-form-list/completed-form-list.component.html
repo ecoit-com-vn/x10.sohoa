@@ -16,8 +16,32 @@
                     <input type="text" class="wf-search-input" placeholder="Tìm kiếm form..." [ngModel]="searchKeyword()"
                         (ngModelChange)="searchKeyword.set($event)" (keyup.enter)="onSearch()" />
                     </div>
+                    <div class="standard-search-field">
+                        <label class="search-field-label">Hạng mục áp dụng</label>
+                        <select class="wf-select" [ngModel]="searchCategory()" (ngModelChange)="searchCategory.set($event)">
+                            <option value="">-- Tất cả hạng mục --</option>
+                            <option *ngFor="let category of categoryOptions()" [value]="category.value">
+                                {{ category.label }}
+                            </option>
+                        </select>
+                    </div>
+                    <div class="standard-search-field">
+                        <label class="search-field-label">Từ ngày</label>
+                        <p-datepicker class="w-full" [ngModel]="filterFromDate()"
+                            (ngModelChange)="filterFromDate.set($event)" dateFormat="dd/mm/yy"
+                            placeholder="dd/MM/yyyy" [showIcon]="true" appendTo="body" />
+                    </div>
+                    <div class="standard-search-field">
+                        <label class="search-field-label">Đến ngày</label>
+                        <p-datepicker class="w-full" [ngModel]="filterToDate()"
+                            (ngModelChange)="filterToDate.set($event)" dateFormat="dd/mm/yy"
+                            placeholder="dd/MM/yyyy" [showIcon]="true" appendTo="body" />
+                    </div>
                 </div>
                 <div class="standard-search-actions">
+                    <button type="button" class="btn-outlined" (click)="onResetSearch()">
+                        <i class="pi pi-refresh"></i> Làm mới
+                    </button>
                     <button class="btn-save" (click)="onSearch()">
                         <i class="pi pi-check"></i> Áp dụng
                     </button>

@@ -17,6 +17,7 @@ import { TextareaModule } from 'primeng/textarea';
 import { SelectModule } from 'primeng/select';
 import { PaginatorModule } from 'primeng/paginator';
 import { DialogModule } from 'primeng/dialog';
+import { DatePickerModule } from 'primeng/datepicker';
 import { combineLatest, finalize } from 'rxjs';
 import { LoadingService, EavFormService, EavFormTemplate, AuthService } from '@sohoa.frontend/shared/core';
 import {
@@ -40,6 +41,7 @@ import {
         PaginatorModule,
         EcoPaginatorComponent,
         DialogModule,
+        DatePickerModule,
         WfBreadcrumbComponent,
         DeleteConfirmDialogComponent,
     ],
@@ -119,13 +121,30 @@ export class CompletedFormListComponent implements OnInit {
 
     forms = signal<EavFormTemplate[]>([]);
     searchKeyword = signal<string>('');
+    searchCategory = signal<string>('');
+    filterFromDate = signal<Date | null>(null);
+    filterToDate = signal<Date | null>(null);
     loading = signal<boolean>(false);
 
     first = signal<number>(0);
     rows = signal<number>(10);
 
+    categoryOptions = computed(() => {
+        const options = new Map<string, string>();
+        this.forms().forEach(form => {
+            const value = form.category || form.equipmentTypeId || '';
+            if (value) options.set(value, this.getCategoryName(form) || value);
+        });
+        return Array.from(options, ([value, label]) => ({ value, label }));
+    });
+
     filteredForms = computed(() => {
         const keyword = this.searchKeyword().trim().toLowerCase();
+        const category = this.searchCategory();
+        const fromDate = this.filterFromDate() ? new Date(this.filterFromDate()!) : null;
+        const toDate = this.filterToDate() ? new Date(this.filterToDate()!) : null;
+        fromDate?.setHours(0, 0, 0, 0);
+        toDate?.setHours(23, 59, 59, 999);
         const allForms = this.forms().filter(form => !form.isDeleted && form.formType === 'FORM');
 
         // Group forms by code and select the latest version for each unique code
@@ -141,6 +160,9 @@ export class CompletedFormListComponent implements OnInit {
 
         return list
             .filter(form => form.status === 'Hoàn thành')
+            .filter(form => !category || form.category === category || form.equipmentTypeId === category)
+            .filter(form => !fromDate || (!!form.createdAt && new Date(form.createdAt) >= fromDate))
+            .filter(form => !toDate || (!!form.createdAt && new Date(form.createdAt) <= toDate))
             .filter(form => {
                 if (!keyword) {
                     return true;
@@ -271,6 +293,16 @@ export class CompletedFormListComponent implements OnInit {
     onSearch() {
         this.first.set(0);
         this.loadForms(this.searchKeyword());
+    }
+
+    onResetSearch() {
+        this.searchKeyword.set('');
+        this.searchCategory.set('');
+        this.filterFromDate.set(null);
+        this.filterToDate.set(null);
+        this.first.set(0);
+        this.rows.set(10);
+        this.loadForms();
     }
 
     onPageChange(event: any) {
