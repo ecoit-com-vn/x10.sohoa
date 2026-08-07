@@ -29,6 +29,8 @@ public class OcrJobsMonitorController : ControllerBase
         [FromQuery] string? status = null,
         [FromQuery] string? phase = null,
         [FromQuery] string? keyword = null,
+        [FromQuery] Guid? documentTypeId = null,
+        [FromQuery] string? resourceKeyword = null,
         [FromQuery] DateTime? fromDate = null,
         [FromQuery] DateTime? toDate = null)
     {
@@ -42,6 +44,8 @@ public class OcrJobsMonitorController : ControllerBase
             Status = status,
             Phase = phase,
             Keyword = keyword,
+            DocumentTypeId = documentTypeId,
+            ResourceKeyword = resourceKeyword,
             FromDate = fromDate,
             ToDate = toDate,
         };

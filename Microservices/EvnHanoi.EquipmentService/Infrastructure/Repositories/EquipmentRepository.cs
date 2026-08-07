@@ -155,11 +155,84 @@ public class EquipmentRepository : IEquipmentRepository
         if (_connection.State != ConnectionState.Open)
             _connection.Open();
 
-        var sqlBase = @"FROM EQUIPMENTS e
+        var (sqlBase, parameters, totalCount) = await BuildExternalListFilterAsync(filter);
+
+        var selectSql = $@"SELECT e.Id AS Id,
+                                  e.Code AS MaTB,
+                                  e.Name AS TenTB,
+                                  et.Code AS MaLoaiTB,
+                                  et.Name AS TenLoaiTB,
+                                  inf.Code AS MaTBA,
+                                  inf.Name AS TenTBA,
+                                  u.Code AS MaDonVi,
+                                  e.MANUFACTURE_YEAR AS NamSanXuat,
+                                  e.SerialNumber AS MaQRCode,
+                                  equipmentStatus.Name AS TrangThai
+                           {sqlBase}
+                           ORDER BY inf.Code ASC NULLS LAST, e.Code ASC
+                           OFFSET :Skip ROWS FETCH NEXT :Take ROWS ONLY";
+
+        parameters.Add("Skip", filter.Skip);
+        parameters.Add("Take", filter.Take);
+        var items = await _connection.QueryAsync<EquipmentExternalDto>(selectSql, parameters);
+        return (items, totalCount);
+    }
+
+    public async Task<(IEnumerable<EquipmentDetailListDto> Items, int TotalCount)> GetExternalListWithItemsAsync(
+        PmisEquipmentListRequestDto filter)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        const string eavFormJoin = @"LEFT JOIN (
+                           SELECT * FROM (
+                               SELECT t.Id, v.Name, v.FormSchema, t.EquipmentTypeId,
+                                      ROW_NUMBER() OVER (
+                                          PARTITION BY t.EquipmentTypeId
+                                          ORDER BY CASE WHEN v.Status = 'Hoàn thành' THEN 0 ELSE 1 END, v.Version DESC
+                                      ) as rn
+                               FROM EavFormTemplates t
+                               INNER JOIN EavFormTemplateVersions v ON t.Id = v.FormTemplateId AND v.IsActive = 1 AND v.IsDeleted = 0
+                               WHERE t.IsDeleted = 0
+                                 AND t.IsActive = 1
+                                 AND t.FormType = 'TEMPLATE'
+                           ) WHERE rn = 1
+                       ) eft ON e.EquipmentTypeId = eft.EquipmentTypeId";
+
+        var (sqlBase, parameters, totalCount) = await BuildExternalListFilterAsync(filter, eavFormJoin);
+
+        var selectSql = $@"SELECT e.Id AS Id,
+                                  e.Code AS MaTB,
+                                  e.Name AS TenTB,
+                                  et.Code AS MaLoaiTB,
+                                  et.Name AS TenLoaiTB,
+                                  inf.Code AS MaTBA,
+                                  inf.Name AS TenTBA,
+                                  u.Code AS MaDonVi,
+                                  e.MANUFACTURE_YEAR AS NamSanXuat,
+                                  equipmentStatus.Name AS TrangThai,
+                                  e.FORM_VALUES AS FormValues,
+                                  eft.FormSchema AS FormSchema
+                           {sqlBase}
+                           ORDER BY inf.Code ASC NULLS LAST, e.Code ASC
+                           OFFSET :Skip ROWS FETCH NEXT :Take ROWS ONLY";
+
+        parameters.Add("Skip", filter.Skip);
+        parameters.Add("Take", filter.Take);
+        var items = await _connection.QueryAsync<EquipmentDetailListDto>(selectSql, parameters);
+        return (items, totalCount);
+    }
+
+    private async Task<(string SqlBase, DynamicParameters Parameters, int TotalCount)> BuildExternalListFilterAsync(
+        PmisEquipmentListRequestDto filter,
+        string? extraJoin = null)
+    {
+        var sqlBase = $@"FROM EQUIPMENTS e
                         LEFT JOIN EquipmentTypes et ON e.EquipmentTypeId = et.Id
                         LEFT JOIN INFRASTRUCTURE inf ON e.INFRASTRUCTURE_ID = inf.Id
                         LEFT JOIN ORGANIZATION_UNIT u ON e.UnitId = u.Id
                         LEFT JOIN CATALOG equipmentStatus ON e.EQUIPMENT_STATUS_ID = equipmentStatus.Id
+                        {extraJoin}
                         WHERE e.IsDeleted = 0";
 
         var parameters = new DynamicParameters();
@@ -212,26 +285,7 @@ public class EquipmentRepository : IEquipmentRepository
         }
 
         var totalCount = await _connection.ExecuteScalarAsync<int>($"SELECT COUNT(1) {sqlBase}", parameters);
-
-        var selectSql = $@"SELECT e.Id AS Id,
-                                  e.Code AS MaTB,
-                                  e.Name AS TenTB,
-                                  et.Code AS MaLoaiTB,
-                                  et.Name AS TenLoaiTB,
-                                  inf.Code AS MaTBA,
-                                  inf.Name AS TenTBA,
-                                  u.Code AS MaDonVi,
-                                  e.MANUFACTURE_YEAR AS NamSanXuat,
-                                  e.SerialNumber AS MaQRCode,
-                                  equipmentStatus.Name AS TrangThai
-                           {sqlBase}
-                           ORDER BY inf.Code ASC NULLS LAST, e.Code ASC
-                           OFFSET :Skip ROWS FETCH NEXT :Take ROWS ONLY";
-
-        parameters.Add("Skip", filter.Skip);
-        parameters.Add("Take", filter.Take);
-        var items = await _connection.QueryAsync<EquipmentExternalDto>(selectSql, parameters);
-        return (items, totalCount);
+        return (sqlBase, parameters, totalCount);
     }
 
     public async Task<IEnumerable<Equipment>> GetAllAsync(IEnumerable<long>? unitIds = null)
