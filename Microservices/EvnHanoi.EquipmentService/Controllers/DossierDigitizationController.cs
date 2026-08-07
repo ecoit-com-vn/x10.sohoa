@@ -1,6 +1,7 @@
 using EvnHanoi.EquipmentService.Core.Entities;
 using EvnHanoi.EquipmentService.Core.Interfaces;
 using EvnHanoi.EquipmentService.Core.Services;
+using EvnHanoi.Infrastructure.Audit;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -18,8 +19,10 @@ public partial class DossierDigitizationController : DossierControllerBase
         IDossierService dossierService,
         IDossierDocumentService dossierDocumentService,
         IDocumentDigitizationService documentDigitizationService,
-        DossierKindGuard kindGuard)
-        : base(dossierService, dossierDocumentService, documentDigitizationService, kindGuard)
+        DossierKindGuard kindGuard,
+        IAuditPublisher auditPublisher,
+        AuditServiceMetadata auditServiceMetadata)
+        : base(dossierService, dossierDocumentService, documentDigitizationService, kindGuard, auditPublisher, auditServiceMetadata)
     {
     }
 }

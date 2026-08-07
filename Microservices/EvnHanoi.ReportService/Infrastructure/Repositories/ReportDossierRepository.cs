@@ -46,16 +46,27 @@ public class ReportDossierRepository : IReportDossierRepository
         {
             const string sql = @"
                 SELECT CAST(Id AS VARCHAR2(50)) AS Id, Name, Code, ParentId
-                FROM ORGANIZATION_UNIT
+                FROM (
+                    SELECT Id, Name, Code, ParentId
+                    FROM ORGANIZATION_UNIT
+                    WHERE NVL(IsActive, 0) = :IsActive
+                      AND NVL(IsDeleted, 0) = 0
+                )
                 START WITH Id = :StartUnitId
                 CONNECT BY PRIOR Id = ParentId
                 ORDER SIBLINGS BY Name";
-            return await _connection.QueryAsync<ReportDossierLookupItem>(sql, new { StartUnitId = userUnitId.Value });
+            return await _connection.QueryAsync<ReportDossierLookupItem>(sql, new
+            {
+                StartUnitId = userUnitId.Value,
+                IsActive = isactive
+            });
         }
 
         const string allSql = @"
             SELECT CAST(Id AS VARCHAR2(50)) AS Id, Name, Code, ParentId
-            FROM ORGANIZATION_UNIT WHERE ISACTIVE = :IsActive
+            FROM ORGANIZATION_UNIT
+            WHERE NVL(IsActive, 0) = :IsActive
+              AND NVL(IsDeleted, 0) = 0
             ORDER BY Name";
         return await _connection.QueryAsync<ReportDossierLookupItem>(allSql, new { IsActive = isactive });
     }
@@ -1530,19 +1541,39 @@ public class ReportDossierRepository : IReportDossierRepository
 
         var parameters = new DynamicParameters();
 
-        var effectiveUnitId = isAdmin ? filter.UnitId : (filter.UnitId ?? userUnitId);
-
         var baseWhere = @"
             d.IsDeleted = 0
             AND d.STATUS_ID = 6
             AND d.PUBLISHSTATUSID = 2";
 
-        if (effectiveUnitId.HasValue)
+        if (isAdmin && filter.UnitId.HasValue)
         {
             baseWhere += @" AND i.UNIT_ID IN (
                 SELECT Id FROM ORGANIZATION_UNIT START WITH Id = :UnitId CONNECT BY PRIOR Id = ParentId
             )";
-            parameters.Add("UnitId", effectiveUnitId.Value);
+            parameters.Add("UnitId", filter.UnitId.Value);
+        }
+        else if (!isAdmin && userUnitId.HasValue)
+        {
+            // Phạm vi từ JWT luôn là hàng rào ngoài cùng. unitId client chỉ được phép
+            // thu hẹp tiếp trong cây con, không thể mở rộng ra ngoài đơn vị đăng nhập.
+            baseWhere += @" AND i.UNIT_ID IN (
+                SELECT Id FROM ORGANIZATION_UNIT START WITH Id = :UserUnitId CONNECT BY PRIOR Id = ParentId
+            )";
+            parameters.Add("UserUnitId", userUnitId.Value);
+
+            if (filter.UnitId.HasValue)
+            {
+                baseWhere += @" AND i.UNIT_ID IN (
+                    SELECT Id FROM ORGANIZATION_UNIT START WITH Id = :UnitId CONNECT BY PRIOR Id = ParentId
+                )";
+                parameters.Add("UnitId", filter.UnitId.Value);
+            }
+        }
+        else if (!isAdmin)
+        {
+            // Fail closed khi JWT không có unit_id hợp lệ.
+            baseWhere += " AND 1 = 0";
         }
 
         AppendObjectTypeFilterToWhere(filter.ObjectType, ref baseWhere);
