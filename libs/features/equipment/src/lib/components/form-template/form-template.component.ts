@@ -164,6 +164,13 @@ export class FormTemplateComponent implements OnInit {
     }
 
     result = [...result].sort((a, b) => {
+      // Ưu tiên biểu mẫu hoạt động; biểu mẫu ngừng hoạt động luôn nằm cuối danh sách.
+      const statusComparison = Number(b.isActive) - Number(a.isActive);
+      if (statusComparison !== 0) {
+        return statusComparison;
+      }
+
+      // Trong cùng một trạng thái, biểu mẫu tạo mới nhất hiển thị trước.
       const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
       const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
       return timeB - timeA;

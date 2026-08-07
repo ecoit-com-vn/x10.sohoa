@@ -2,7 +2,10 @@
   <p-toast></p-toast>
   <div class="list-toolbar standard-page-toolbar">
     <div class="toolbar-left">
-      <wf-breadcrumb [suffix]="currentView() === 'add' ? 'Thêm mới thiết bị' : ''" />
+      <wf-breadcrumb *ngIf="!searchReadOnly(); else searchReadOnlyBreadcrumb" />
+      <ng-template #searchReadOnlyBreadcrumb>
+        <wf-breadcrumb [customItems]="searchBreadcrumbItems()" />
+      </ng-template>
     </div>
     <div class="toolbar-right">
       <button
@@ -1933,7 +1936,8 @@
         <app-equipment-documents
           *ngIf="currentItem().id as profileEquipmentId"
           [equipmentId]="profileEquipmentId"
-          [canEdit]="canEdit()"
+          [canEdit]="canEdit() && !searchReadOnly()"
+          [hideDigitizationColumns]="searchReadOnly()"
           (documentProcessed)="reloadDetail(profileEquipmentId)"
         ></app-equipment-documents>
       </div>
