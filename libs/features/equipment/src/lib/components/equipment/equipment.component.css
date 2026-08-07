@@ -240,3 +240,32 @@
 .more-actions-dropdown .dropdown-item:hover {
   background-color: #f1f5f9;
 }
+.equipment-documents-card {
+  padding: 16px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+.equipment-detail-card {
+  padding: 16px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+.legacy-equipment-pagination {
+  display: none !important;
+}
+
+.equipment-list-paginator {
+  width: 100%;
+  margin-top: 6px;
+  padding: 0 4px;
+}
+
+.equipment-list-paginator > app-eco-paginator {
+  width: 100%;
+}
