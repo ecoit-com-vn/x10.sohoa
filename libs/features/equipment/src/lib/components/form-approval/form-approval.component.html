@@ -12,25 +12,26 @@
       </div>
     </div>
 
-    <div class="approval-tabs mb-4">
-      <button class="tab-btn" 
-              [class.active]="activeTab() === 'pending'"
+    <div class="wf-card approval-list-card">
+    <div class="tab-bar">
+      <button class="tab-item"
+              [class.tab-active]="activeTab() === 'pending'"
               (click)="switchTab('pending')">
         <i class="pi pi-clock mr-2"></i>Chờ phê duyệt
         <span class="tab-badge" *ngIf="pendingCount() > 0">
           {{ pendingCount() }}
         </span>
       </button>
-      <button class="tab-btn" 
-              [class.active]="activeTab() === 'history'"
+      <button class="tab-item"
+              [class.tab-active]="activeTab() === 'history'"
               (click)="switchTab('history')">
         <i class="pi pi-history mr-2"></i>Lịch sử phê duyệt
       </button>
     </div>
 
-    <div class="standard-search-card">
-      <div class="standard-search-grid">
-        <div class="standard-search-field">
+    <div class="wf-card approval-search-card">
+      <div class="search-form-grid">
+        <div class="search-form-item">
           <label class="search-field-label">Từ khóa</label>
         <input type="text" class="wf-search-input"
           placeholder="Tìm kiếm biểu mẫu..."
@@ -38,15 +39,34 @@
           (ngModelChange)="searchKeyword.set($event)"
           (keyup.enter)="onSearch()" />
         </div>
-      </div>
-      <div class="standard-search-actions">
-        <button class="btn-save" (click)="onSearch()">
+        <div class="search-form-item">
+          <label class="search-field-label">Người tạo</label>
+          <input type="text" class="wf-search-input" placeholder="Tên đăng nhập hoặc họ tên..."
+            [ngModel]="searchCreator()" (ngModelChange)="searchCreator.set($event)" (keyup.enter)="onSearch()" />
+        </div>
+        <div class="search-form-item">
+          <label class="search-field-label">Từ ngày</label>
+          <p-datepicker class="w-full" [ngModel]="filterFromDate()"
+            (ngModelChange)="filterFromDate.set($event)" dateFormat="dd/mm/yy"
+            placeholder="dd/MM/yyyy" [showIcon]="true" appendTo="body" />
+        </div>
+        <div class="search-form-item">
+          <label class="search-field-label">Đến ngày</label>
+          <p-datepicker class="w-full" [ngModel]="filterToDate()"
+            (ngModelChange)="filterToDate.set($event)" dateFormat="dd/mm/yy"
+            placeholder="dd/MM/yyyy" [showIcon]="true" appendTo="body" />
+        </div>
+        <div class="search-actions">
+        <button type="button" class="btn-outlined" (click)="onResetSearch()" [disabled]="loading()">
+          <i class="pi pi-refresh"></i> Làm mới
+        </button>
+        <button type="button" class="btn-tim" (click)="onSearch()">
           <i class="pi pi-check"></i> Áp dụng
         </button>
+        </div>
       </div>
     </div>
 
-    <div class="wf-card">
     <div class="wf-table-wrap">
       <table class="wf-table">
         <thead>
@@ -127,12 +147,12 @@
           [first]="first()" 
           [rows]="rows()" 
           [totalRecords]="filteredForms().length" 
-          [rowsPerPageOptions]="[5, 10, 20, 50]" 
+          [rowsPerPageOptions]="[10, 20, 50]"
           (onPageChange)="onPageChange($event)">
       </app-eco-paginator>
     </div>
     </div>
-  </div>
+    </div>
 
   <div class="wf-card preview-card" *ngIf="viewState() === 'preview' && selectedForm() as form">
     <div class="loading-overlay" *ngIf="loading()">

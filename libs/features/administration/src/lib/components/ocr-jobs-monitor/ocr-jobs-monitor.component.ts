@@ -114,7 +114,22 @@ export class OcrJobsMonitorComponent implements OnInit, OnDestroy {
   }
 
   onRefresh(): void {
+    this.filterStatus.set('');
+    this.filterPhase.set('');
+    this.filterKeyword.set('');
+    this.filterFromDate = null;
+    this.filterToDate = null;
+    this.appliedStatus.set('');
+    this.appliedPhase.set('');
+    this.appliedKeyword.set('');
+    this.appliedFromDate = null;
+    this.appliedToDate = null;
+    this.page.set(1);
     this.loadTrigger.next();
+  }
+
+  onComboboxChange(): void {
+    this.onSearch();
   }
 
   onPageChange(newPage: number): void {
