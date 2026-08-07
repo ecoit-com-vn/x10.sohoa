@@ -298,12 +298,7 @@ public class EavFormTemplateRepository : IEavFormTemplateRepository
 
         {whereClause}
 
-        ORDER BY t.CreatedAt DESC
-
-        OFFSET :Offset ROWS FETCH NEXT :PageSize ROWS ONLY";
-
-        parameters.Add("Offset", (filterDto.Page - 1) * filterDto.PageSize);
-        parameters.Add("PageSize", filterDto.PageSize);
+        ORDER BY t.CreatedAt DESC"; 
 
         var totalCount = await _connection.ExecuteScalarAsync<int>(countSql, parameters);
 

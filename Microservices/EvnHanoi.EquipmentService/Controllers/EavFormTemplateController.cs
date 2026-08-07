@@ -45,12 +45,8 @@ public class EavFormTemplateController : ControllerBase
         [FromQuery] string? keyword,
         [FromQuery] DateTime? startDate,
         [FromQuery] DateTime? endDate,
-        [FromQuery] string? status, 
-        [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 10)
+        [FromQuery] string? status)
     {
-        if (page < 1) page = 1;
-        if (pageSize < 1) pageSize = 10;
 
         if (startDate.HasValue && endDate.HasValue && startDate.Value.Date > endDate.Value.Date)
             return BadRequest(new { message = "Từ ngày không được lớn hơn Đến ngày." });
@@ -60,13 +56,11 @@ public class EavFormTemplateController : ControllerBase
             Keyword = keyword,
             StartDate = startDate,
             EndDate = endDate,
-            Status = status,
-            Page = page,
-            PageSize = pageSize
+            Status = status
         };
 
         var (items, totalCount) = await _repository.GetDesignFormsAsync(filter);
-        return Ok(new { items, totalCount, page, pageSize });
+        return Ok(new { items, totalCount});
     }
 
     [HttpGet("approval")]
