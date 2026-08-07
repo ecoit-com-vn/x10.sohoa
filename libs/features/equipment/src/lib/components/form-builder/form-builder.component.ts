@@ -14,6 +14,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { FormTemplateService, EavFormTemplate } from '../../data-access/form-template.service';
 import { EquipmentTypeService } from '../../data-access/equipment-type.service';
 import { ToggleSwitch } from 'primeng/toggleswitch';
+import { AuthService } from '@sohoa.frontend/shared/core';
 
 interface FormField {
   id: string;
@@ -64,6 +65,7 @@ export class FormBuilderComponent implements OnInit {
   private formTemplateService = inject(FormTemplateService);
   private equipmentTypeService = inject(EquipmentTypeService);
   private messageService = inject(MessageService);
+  private authService = inject(AuthService);
 
   templateId = signal<string | null>(null);
   isEditMode = signal<boolean>(false);
@@ -508,9 +510,10 @@ export class FormBuilderComponent implements OnInit {
     const extPos = this.extractionPosition();
     const isEdit = this.isEditMode();
     const tId = this.templateId();
+    const currentUserId = this.authService.getUserId() || 'admin';
     
     if (isEdit && tId) {
-      this.formTemplateService.updateTemplate(tId, fName, fCode, fCategory, desc, fDescInfo, schemaStr, 'admin', eqTypeId, gridId || undefined, extractProc, extPos).subscribe({
+      this.formTemplateService.updateTemplate(tId, fName, fCode, fCategory, desc, fDescInfo, schemaStr, currentUserId, eqTypeId, gridId || undefined, extractProc, extPos).subscribe({
         next: () => {
           this.messageService.add({
             severity: 'success',
@@ -530,7 +533,7 @@ export class FormBuilderComponent implements OnInit {
         }
       });
     } else {
-      this.formTemplateService.createTemplate(fName, fCode, fCategory, desc, fDescInfo, schemaStr, 'admin', eqTypeId, gridId || undefined, extractProc, extPos).subscribe({
+      this.formTemplateService.createTemplate(fName, fCode, fCategory, desc, fDescInfo, schemaStr, currentUserId, eqTypeId, gridId || undefined, extractProc, extPos).subscribe({
         next: () => {
           this.messageService.add({
             severity: 'success',
