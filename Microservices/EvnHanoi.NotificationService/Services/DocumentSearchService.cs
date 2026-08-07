@@ -10,6 +10,7 @@ public interface IDocumentSearchService
 {
     Task<(IReadOnlyList<DocumentSearchItemDto> Items, int TotalCount)> SearchAsync(DocumentSearchFilterDto filter);
     Task<DocumentSearchDetailDto?> GetDetailAsync(string documentVersionId, DocumentSearchFilterDto scope);
+    Task<DocumentSearchDetailDto?> GetDetailFromPrimaryDbAsync(string documentVersionId, DocumentSearchFilterDto scope);
 }
 
 public class DocumentSearchService : IDocumentSearchService
@@ -42,7 +43,12 @@ public class DocumentSearchService : IDocumentSearchService
         await ApplyUnitScopeAsync(scope);
 
         var doc = await _searchRepository.GetByVersionIdAsync(documentVersionId);
-        if (doc is null || doc.IsDeleted)
+        if (doc is null)
+        {
+            return await GetDetailFromPrimaryDbAsync(documentVersionId, scope);
+        }
+        
+        if (doc.IsDeleted)
             return null;
 
         if (!IsPublishedDocument(doc))
@@ -102,6 +108,65 @@ public class DocumentSearchService : IDocumentSearchService
         doc.PublishStatusId == DocumentSearchConstants.PublishedStatusId;
 
     private static bool IsWithinUnitScope(DocumentEsDocument doc, DocumentSearchFilterDto scope)
+    {
+        if (scope.IsAdmin || scope.UnitScopeIds is null || scope.UnitScopeIds.Count == 0)
+            return true;
+
+        return doc.UnitId.HasValue && scope.UnitScopeIds.Contains(doc.UnitId.Value);
+    }
+
+    private static bool IsPublishedDocument(DocumentEnrichmentData doc) =>
+        doc.StatusId == DocumentSearchConstants.ApprovedStatusId &&
+        doc.PublishStatusId == DocumentSearchConstants.PublishedStatusId;
+    
+    public async Task<DocumentSearchDetailDto?> GetDetailFromPrimaryDbAsync(
+        string documentVersionId,
+        DocumentSearchFilterDto scope)
+    {
+        await ApplyUnitScopeAsync(scope);
+
+        var enrichment = await _enrichmentRepository.GetByVersionIdAsync(
+            DossierIndexIdNormalizer.Normalize(documentVersionId));
+        
+        if (enrichment is null || enrichment.DocumentIsDeleted)
+            return null;
+
+        if (!IsPublishedDocument(enrichment))
+            return null;
+        
+        if (!IsWithinUnitScope(enrichment, scope))
+            return null;
+        
+        var equipmentNames = enrichment.DossierId is not null
+            ? await _enrichmentRepository.GetEquipmentNamesByDossierIdAsync(enrichment.DossierId)
+            : Enumerable.Empty<string>();
+
+        return new DocumentSearchDetailDto
+        {
+            DocumentVersionId = enrichment.DocumentVersionId,
+            DocumentId = enrichment.DocumentId,
+            DocumentName = enrichment.DocumentName,
+            MimeType = enrichment.MimeType,
+            FilePath = enrichment.FilePath,
+            BucketName = enrichment.BucketName,
+            DossierId = enrichment.DossierId,
+            DossierTitle = null,
+            InfrastructureId = enrichment.InfrastructureId,
+            InfrastructureName = enrichment.InfrastructureName,
+            InfrastructureCode = enrichment.InfrastructureCode,
+            DossierTypeId = enrichment.DossierTypeId,
+            DossierTypeName = enrichment.DossierTypeName,
+            DocumentTypeId = enrichment.DocumentTypeId,
+            DocumentTypeName = enrichment.DocumentTypeName,
+            EquipmentNames = equipmentNames.ToList(),
+            ExtractionSummary = null, // Not available from primary DB
+            MergedDataJson = enrichment.MergedDataJson,
+            OcrCompletedAt = enrichment.OcrCompletedAt,
+            IndexedAt = null // Not applicable
+        };
+    }
+    
+    private static bool IsWithinUnitScope(DocumentEnrichmentData doc, DocumentSearchFilterDto scope)
     {
         if (scope.IsAdmin || scope.UnitScopeIds is null || scope.UnitScopeIds.Count == 0)
             return true;

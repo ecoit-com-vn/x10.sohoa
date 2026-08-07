@@ -176,28 +176,34 @@ public class InfrastructureRepository : IInfrastructureRepository
         var totalCount = await _connection.ExecuteScalarAsync<int>(countSql, parameters);
 
         var selectSql = $@"SELECT i.{nameof(Infrastructure.Id)},
-                                   i.{nameof(Infrastructure.Code)},
-                                   i.{nameof(Infrastructure.Name)},
-                                   i.{nameof(Infrastructure.Address)},
-                                   i.INFRA_TYPE_ID as {nameof(Infrastructure.InfraTypeId)},
-                                   i.UNIT_ID as {nameof(Infrastructure.UnitId)},
-                                   i.GRIDTYPEID as {nameof(Infrastructure.GridTypeId)},
-                                   i.OPERATION_DATE as {nameof(Infrastructure.OperationDate)},
-                                   i.IS_ACTIVE as {nameof(Infrastructure.IsActive)},
-                                   i.{nameof(Infrastructure.CreatedBy)},
-                                   i.{nameof(Infrastructure.CreatedDate)},
-                                   i.{nameof(Infrastructure.ModifiedBy)},
-                                   i.{nameof(Infrastructure.ModifiedDate)},
-                                   i.{nameof(Infrastructure.IsDeleted)},
-                                   it.NAME as {nameof(Infrastructure.InfraTypeName)},
-                                   u.NAME as {nameof(Infrastructure.UnitName)},
-                                   u.Id as OrgId,
-                                   u.Code as OrgCode,
-                                   u.Name as OrgName,
-                                   (SELECT COUNT(1) FROM EQUIPMENTS eq WHERE eq.INFRASTRUCTURE_ID = i.{nameof(Infrastructure.Id)} AND eq.IsDeleted = 0) AS {nameof(Infrastructure.EquipmentCount)}
-                           {sqlBase}
-                           ORDER BY i.{nameof(Infrastructure.Code)} ASC, i.{nameof(Infrastructure.CreatedDate)} DESC
-                           OFFSET :Offset ROWS FETCH NEXT :PageSize ROWS ONLY";
+                           i.{nameof(Infrastructure.Code)},
+                           i.{nameof(Infrastructure.Name)},
+                           i.{nameof(Infrastructure.Address)},
+                           i.INFRA_TYPE_ID AS {nameof(Infrastructure.InfraTypeId)},
+                           i.UNIT_ID AS {nameof(Infrastructure.UnitId)},
+                           i.GRIDTYPEID AS {nameof(Infrastructure.GridTypeId)},
+                           i.OPERATION_DATE AS {nameof(Infrastructure.OperationDate)},
+                           i.IS_ACTIVE AS {nameof(Infrastructure.IsActive)},
+                           i.{nameof(Infrastructure.CreatedBy)},
+                           i.{nameof(Infrastructure.CreatedDate)},
+                           i.{nameof(Infrastructure.ModifiedBy)},
+                           i.{nameof(Infrastructure.ModifiedDate)},
+                           i.{nameof(Infrastructure.IsDeleted)},
+                           it.NAME AS {nameof(Infrastructure.InfraTypeName)},
+                           u.NAME AS {nameof(Infrastructure.UnitName)},
+                           u.Id AS OrgId,
+                           u.Code AS OrgCode,
+                           u.Name AS OrgName,
+                           (SELECT COUNT(1)
+                              FROM EQUIPMENTS eq
+                             WHERE eq.INFRASTRUCTURE_ID = i.{nameof(Infrastructure.Id)}
+                               AND eq.IsDeleted = 0) AS {nameof(Infrastructure.EquipmentCount)}
+                   {sqlBase}
+                   ORDER BY i.IS_ACTIVE DESC,
+                            i.{nameof(Infrastructure.Code)} ASC,
+                            i.{nameof(Infrastructure.CreatedDate)} DESC
+                   OFFSET :Offset ROWS
+                   FETCH NEXT :PageSize ROWS ONLY";
 
         parameters.Add("Offset", (page - 1) * pageSize);
         parameters.Add("PageSize", pageSize);

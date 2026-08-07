@@ -11,6 +11,7 @@ public static class PermissionImplicationResolver
         ["DOSSIER_EDIT"] = ["DOSSIER_MANAGE", "DOSSIER_CREATE"],
         ["DOSSIER_DIGITIZATION_VIEW"] = ["DOSSIER_DIGITIZATION_MANAGE", "DOSSIER_DIGITIZATION_CREATE", "DOSSIER_DIGITIZATION_EDIT"],
         ["DOSSIER_DIGITIZATION_EDIT"] = ["DOSSIER_DIGITIZATION_MANAGE", "DOSSIER_DIGITIZATION_CREATE"],
+        ["SEARCH_DOSSIERS_IN_WAREHOUSE_VIEW"] = ["REPORT_STATISTICS_VIEW"],
     };
 
     public static IReadOnlyList<string> GetImpliedAlternates(string requiredPermission)

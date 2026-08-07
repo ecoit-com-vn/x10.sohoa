@@ -83,20 +83,39 @@ namespace EvnHanoi.ReportService.Infrastructure.Repositories
                     p.Add("IsActive", group.IsActive);
                     p.Add("Id", dbType: DbType.Int64, direction: ParameterDirection.Output);
 
-                    var sqlCheck = @"SELECT COUNT(*)
-                                    FROM REPORT_GROUPS
-                                    WHERE CODE = :Code";
+                    var groups = (await _connection.QueryAsync<ReportGroup>(
+    @"SELECT Id, Code, IsDeleted
+      FROM REPORT_GROUPS
+      WHERE Code = :Code",
+    new { Code = group.Code.Trim() },
+    transaction)).ToList();
 
-                    var count = await _connection.ExecuteScalarAsync<int>(
-                        sqlCheck,
-                        new { Code = group.Code },
-                        transaction);
-
-                    if (count > 0)
+                    // Có bản ghi chưa xóa => không cho tạo
+                    if (groups.Any(x => x.IsDeleted == 0))
                     {
+                        transaction.Rollback();
                         return -1;
                     }
 
+                    // Có bản ghi đã xóa mềm => đổi Code
+                    var deletedGroup = groups.FirstOrDefault(x => x.IsDeleted == 1);
+                    if (deletedGroup != null)
+                    {
+                        var newCode = $"{deletedGroup.Code}_DEL_{deletedGroup.Id}_{DateTime.UtcNow:yyyyMMddHHmmssfff}";
+
+                        await _connection.ExecuteAsync(
+                            @"UPDATE REPORT_GROUPS
+          SET Code = :NewCode
+          WHERE Id = :Id",
+                            new
+                            {
+                                NewCode = newCode,
+                                Id = deletedGroup.Id
+                            },
+                            transaction);
+                    }
+
+                    // Tiếp tục INSERT...
                     await _connection.ExecuteAsync(sql, p, transaction);
                     long newGroupId = p.Get<long>("Id");
 
