@@ -223,6 +223,21 @@ export class EquipmentComponent implements OnInit {
   items = signal<any[]>([]);
   totalCount = signal<number>(0);
 
+  /** Màn chi tiết mở từ phân hệ Tra cứu: chỉ xem, không cho phép cập nhật dữ liệu. */
+  searchReadOnly = signal<boolean>(false);
+  searchBreadcrumbItems = computed(() => {
+    const dossierId = this.route.snapshot.paramMap.get('dossierId');
+    return [
+      { label: 'Tra cứu tìm kiếm' },
+      { label: 'Tra cứu hồ sơ thiết bị', url: '/search/dossier-by-equipment' },
+      {
+        label: 'Chi tiết',
+        url: dossierId ? `/search/dossier-by-equipment/${dossierId}` : '/search/dossier-by-equipment'
+      },
+      { label: 'Thiết bị' }
+    ];
+  });
+
   currentView = signal<'list' | 'add' | 'edit'>('list');
   currentItem = signal<any>({});
   isSaving = signal<boolean>(false);
@@ -306,7 +321,10 @@ export class EquipmentComponent implements OnInit {
 
   // Permission Computeds
   canCreate = computed(() => this.authService.hasPermission('EQUIPMENT_CREATE') || this.authService.hasPermission('SUPER_ADMIN'));
-  canEdit = computed(() => this.authService.hasPermission('EQUIPMENT_EDIT') || this.authService.hasPermission('SUPER_ADMIN'));
+  canEdit = computed(() =>
+    !this.searchReadOnly()
+    && (this.authService.hasPermission('EQUIPMENT_EDIT') || this.authService.hasPermission('SUPER_ADMIN'))
+  );
   canDelete = computed(() => this.authService.hasPermission('EQUIPMENT_DELETE') || this.authService.hasPermission('SUPER_ADMIN'));
   canManage = computed(() => this.authService.hasPermission('EQUIPMENT_MANAGE') || this.authService.hasPermission('SUPER_ADMIN'));
 
@@ -333,6 +351,7 @@ export class EquipmentComponent implements OnInit {
   }
 
   ngOnInit() {
+    this.searchReadOnly.set(this.route.snapshot.data['searchReadOnly'] === true);
     this.authService.loadPermissions();
 
     this.route.paramMap.subscribe(params => {
@@ -362,7 +381,10 @@ export class EquipmentComponent implements OnInit {
         let mode = '';
         this.route.queryParams.subscribe(qParams => {
           mode = qParams['mode'] || '';
-          if (mode === 'edit-specs') {
+          if (this.searchReadOnly()) {
+            this.isEditingFormValues.set(false);
+            this.isEditingGeneral.set(false);
+          } else if (mode === 'edit-specs') {
             this.isEditingFormValues.set(true);
             this.isEditingGeneral.set(false);
           } else if (mode === 'edit') {
@@ -1343,7 +1365,12 @@ export class EquipmentComponent implements OnInit {
 
   goBack() {
     const url = this.router.url;
-    if (url.includes('/catalog/substation/')) {
+    if (this.searchReadOnly()) {
+      const dossierId = this.route.snapshot.paramMap.get('dossierId');
+      this.router.navigate(dossierId
+        ? ['/search/dossier-by-equipment', dossierId]
+        : ['/search/dossier-by-equipment']);
+    } else if (url.includes('/catalog/substation/')) {
       const parentId = this.route.snapshot.paramMap.get('parentId');
       this.router.navigate(['/catalog/substation', parentId]);
     } else if (url.includes('/catalog/transmission-line/')) {

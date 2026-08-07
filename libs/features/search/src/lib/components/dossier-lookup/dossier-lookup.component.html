@@ -14,7 +14,7 @@
                 </div>
                 <div class="standard-search-field lookup-filters__field">
                     <label class="form-label">Loại hồ sơ</label>
-                    <p-select [options]="dossierTypes()" [ngModel]="filterDossierTypeId()" (ngModelChange)="filterDossierTypeId.set($event)" optionLabel="name" optionValue="id" placeholder="-- Tất cả loại hồ sơ --" [filter]="true" filterBy="name,code"
+                    <p-select [options]="dossierTypes()" [ngModel]="filterDossierTypeId()" (ngModelChange)="filterDossierTypeId.set($event); onSearch()" optionLabel="name" optionValue="id" placeholder="-- Tất cả loại hồ sơ --" [filter]="true" filterBy="name,code"
                         filterPlaceholder="Tìm loại hồ sơ..." [showClear]="true" appendTo="body" styleClass="lookup-search-select">
                         <ng-template #item let-item>
                             <span>{{ item.name }}</span>
@@ -47,7 +47,7 @@
             <div class="standard-search-grid lookup-filters__row lookup-filters__row--secondary">
                 <div class="standard-search-field lookup-filters__field">
                     <label class="form-label">Thiết bị</label>
-                    <p-select [options]="equipments()" [ngModel]="filterEquipmentId()" (ngModelChange)="filterEquipmentId.set($event)" optionLabel="name" optionValue="id" placeholder="-- Tất cả thiết bị --" [filter]="true" filterBy="name,code" filterPlaceholder="Tìm theo mã hoặc tên..."
+                    <p-select [options]="equipments()" [ngModel]="filterEquipmentId()" (ngModelChange)="filterEquipmentId.set($event); onSearch()" optionLabel="name" optionValue="id" placeholder="-- Tất cả thiết bị --" [filter]="true" filterBy="name,code" filterPlaceholder="Tìm theo mã hoặc tên..."
                         [showClear]="true" appendTo="body" styleClass="lookup-search-select">
                         <ng-template #item let-item>
                             <span>{{ item.name }}</span>
@@ -57,7 +57,7 @@
                 </div>
                 <div class="lookup-filters__field">
                     <label class="form-label">Vị trí lưu</label>
-                    <p-treeSelect [options]="storageTree()" [ngModel]="filterStorageNode()" (ngModelChange)="filterStorageNode.set($event)" placeholder="-- Chọn Kệ / Tầng / Hộp --" [filter]="true" filterPlaceholder="Tìm vị trí lưu..." [showClear]="true" appendTo="body" scrollHeight="280px"
+                    <p-treeSelect [options]="storageTree()" [ngModel]="filterStorageNode()" (ngModelChange)="filterStorageNode.set($event); onSearch()" placeholder="-- Chọn Kệ / Tầng / Hộp --" [filter]="true" filterPlaceholder="Tìm vị trí lưu..." [showClear]="true" appendTo="body" scrollHeight="280px"
                         styleClass="lookup-storage-tree" />
                 </div>
                 <div class="standard-search-field lookup-filters__field">
@@ -172,19 +172,15 @@
             <p-menu #actionMenu [model]="actionMenuItems" [popup]="true" appendTo="body" styleClass="row-action-menu">
             </p-menu>
 
-            <!-- Pagination Footer -->
-            <div class="table-footer" *ngIf="!loading()">
-                <span class="record-count">Tổng số: <b>{{ totalCount() }}</b> hồ sơ.</span>
-                <div class="pagination">
-                    <button class="page-btn" [disabled]="currentPage() === 1" (click)="changePage(currentPage() - 1)">
-          <i class="pi pi-chevron-left"></i>
-        </button>
-                    <span class="page-current">Trang {{ currentPage() }} / {{ totalPages() || 1 }}</span>
-                    <button class="page-btn" [disabled]="currentPage() >= totalPages() || totalPages() === 0" (click)="changePage(currentPage() + 1)">
-          <i class="pi pi-chevron-right"></i>
-        </button>
-                </div>
-            </div>
+            <app-eco-paginator
+                *ngIf="totalCount() > 0 && !loading()"
+                [first]="(currentPage() - 1) * pageSize()"
+                [rows]="pageSize()"
+                [totalRecords]="totalCount()"
+                [rowsPerPageOptions]="[10, 20, 50]"
+                recordLabel="hồ sơ"
+                (onPageChange)="onListPageChange($event)">
+            </app-eco-paginator>
         </div>
     </div>
 </div>

@@ -116,8 +116,7 @@
                 <td>
                   <ng-container *ngIf="getEquipmentId(eq) as equipmentId; else equipmentCodeText">
                     <a class="wf-name-link"
-                      [routerLink]="['/equipment/device-list', equipmentId]"
-                      [queryParams]="{ mode: 'view-specs' }"
+                      [routerLink]="['/search/dossier-by-equipment', dossierId(), 'equipment', equipmentId]"
                       target="_blank"
                       rel="noopener noreferrer"
                       title="Mở chi tiết thiết bị trong tab mới">
