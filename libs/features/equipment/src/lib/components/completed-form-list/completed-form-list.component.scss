@@ -9,8 +9,8 @@
 }
 
 .wf-search-input {
-    width: 260px;
-    padding: 10px 12px;
+    width: 100% !important;
+    padding: 16px 16px;
     border: 1px solid #d1d5db;
     border-radius: 8px;
     background: #ffffff;
@@ -382,10 +382,10 @@
 
 // Keep the list breadcrumb identical to Dossier Management without touching shared styles.
 :host .standard-page-toolbar {
-    height: auto;
+    height: 40px;
     min-height: 0;
     margin: 0 0 3px;
-    padding: 5px 16px;
+    padding: 16px 16px;
     box-sizing: border-box;
     align-items: center;
 }
@@ -393,13 +393,13 @@
 :host .standard-page-toolbar>.toolbar-left,
 :host .standard-page-toolbar wf-breadcrumb {
     display: flex;
-    height: auto;
+    height: 40px;
     min-height: 0;
     align-items: center;
 }
 
 :host ::ng-deep .standard-page-toolbar .breadcrumb {
-    height: auto;
+    height: 40px;
     min-height: 0;
     margin: 0;
     padding: 0;
