@@ -985,6 +985,11 @@ export class EquipmentComponent implements OnInit {
     this.currentPage.set(1);
   }
 
+  onEquipmentListPaginatorChange(event: { first: number; rows: number }): void {
+    this.pageSize.set(event.rows);
+    this.currentPage.set(Math.floor(event.first / event.rows) + 1);
+  }
+
   onAddNew() {
     this.router.navigate(['/equipment/device-list/add']);
   }

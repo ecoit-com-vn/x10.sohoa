@@ -237,9 +237,17 @@
                   <button
                     class="action-icon-btn"
                     title="Tải xuống"
+                    [disabled]="isDocumentDownloading(doc)"
                     (click)="downloadDocument(doc)"
                   >
-                    <i class="pi pi-download"></i>
+                    <i
+                      class="pi"
+                      [ngClass]="
+                        isDocumentDownloading(doc)
+                          ? 'pi-spin pi-spinner'
+                          : 'pi-download'
+                      "
+                    ></i>
                   </button>
                 </td>
               </tr>
