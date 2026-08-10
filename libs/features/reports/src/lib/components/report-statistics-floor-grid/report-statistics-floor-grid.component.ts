@@ -7,6 +7,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TableModule } from 'primeng/table';
+import { EcoPaginatorComponent } from '@sohoa.frontend/shared/layout';
 import { ReportStatisticsFloorGridConfig } from '../../data-access/report-statistics.config';
 import {
   ReportStatisticsFloorGridItem,
@@ -17,7 +18,7 @@ import { finalize } from 'rxjs';
 @Component({
   selector: 'app-report-statistics-floor-grid',
   standalone: true,
-  imports: [CommonModule, TableModule],
+  imports: [CommonModule, TableModule, EcoPaginatorComponent],
   templateUrl: './report-statistics-floor-grid.component.html',
   styleUrl: './report-statistics-floor-grid.component.scss'
 })
