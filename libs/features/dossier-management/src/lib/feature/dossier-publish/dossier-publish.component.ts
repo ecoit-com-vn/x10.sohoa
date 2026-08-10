@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ToastModule } from 'primeng/toast';
 import { DialogModule } from 'primeng/dialog';
+import { SelectModule } from 'primeng/select';
 import { MenuItem, MessageService } from 'primeng/api';
 import { Menu, MenuModule } from 'primeng/menu';
 import { BhsCatalogColumn, DossierManagementService } from '../../data-access/dossier-management.service';
@@ -26,7 +27,7 @@ function tabLabel(tab: PublishTab): string {
 @Component({
   selector: 'app-dossier-publish',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule, DialogModule, MenuModule, EcoPaginatorComponent],
+  imports: [CommonModule, FormsModule, ToastModule, DialogModule, SelectModule, MenuModule, EcoPaginatorComponent],
   template: `
     <div class="wf-card">
       <div class="tab-bar">
@@ -61,33 +62,24 @@ function tabLabel(tab: PublishTab): string {
           </div>
           <div class="search-form-item">
             <label class="search-field-label">Trạm / Đường dây</label>
-          <div class="searchable-select">
-            <button type="button" class="wf-select searchable-select-trigger" (click)="toggleInfrastructureDropdown()">
-              <span>{{ selectedInfrastructureLabel() }}</span>
-              <i class="pi pi-chevron-down"></i>
-            </button>
-            <div class="searchable-select-panel" *ngIf="isInfrastructureDropdownOpen()">
-              <input
-                type="text"
-                class="searchable-select-input"
-                placeholder="Tìm trên trạm/đường dây..."
-                [ngModel]="infrastructureSearchKeyword()"
-                (ngModelChange)="infrastructureSearchKeyword.set($event)"
-              />
-              <button type="button" class="searchable-select-option" (click)="selectInfrastructure(null)">
-                -- Tất cả trạm/đường dây --
-              </button>
-              <button
-                type="button"
-                class="searchable-select-option"
-                *ngFor="let item of filteredInfrastructures()"
-                (click)="selectInfrastructure(item.id)"
-              >
-                {{ item.name }}
-              </button>
-              <div class="searchable-select-empty" *ngIf="filteredInfrastructures().length === 0">Không có dữ liệu</div>
-            </div>
-          </div>
+            <p-select
+              [options]="infrastructures()"
+              [ngModel]="filterInfrastructureId()"
+              (ngModelChange)="selectInfrastructure($event)"
+              optionLabel="name"
+              optionValue="id"
+              placeholder="-- Tất cả trạm/đường dây --"
+              [filter]="true"
+              filterBy="name,code"
+              filterPlaceholder="Tìm theo mã hoặc tên..."
+              [showClear]="true"
+              appendTo="body"
+              styleClass="digitization-infrastructure-select">
+              <ng-template #item let-item>
+                <span>{{ item.name }}</span>
+                <small *ngIf="item.code" class="infrastructure-option-code">({{ item.code }})</small>
+              </ng-template>
+            </p-select>
           </div>
           <div class="search-form-item">
             <label class="search-field-label">Thiết bị</label>
@@ -308,6 +300,13 @@ function tabLabel(tab: PublishTab): string {
       display: flex;
       align-items: center;
     }
+    .infrastructure-option-code {
+      margin-left: 6px;
+      color: #64748b;
+    }
+    :host ::ng-deep .digitization-infrastructure-select .p-select-label {
+      font-size: 0.85rem;
+    }
     .searchable-select {
       position: relative;
       min-width: 220px;
@@ -395,19 +394,10 @@ export class DossierPublishComponent implements OnInit {
   filterInfrastructureId = signal<string | null>(null);
   filterDossierTypeId = signal<string | null>(null);
   filterEquipmentId = signal<string | null>(null);
-  infrastructureSearchKeyword = signal<string>('');
-  isInfrastructureDropdownOpen = signal<boolean>(false);
 
   infrastructures = signal<any[]>([]);
   dossierTypes = signal<any[]>([]);
   equipments = signal<any[]>([]);
-  filteredInfrastructures = computed(() => {
-    const keyword = this.infrastructureSearchKeyword().trim().toLocaleLowerCase();
-    if (!keyword) return this.infrastructures();
-    return this.infrastructures().filter((item) =>
-      String(item.name ?? '').toLocaleLowerCase().includes(keyword)
-    );
-  });
   bhsColumns = signal<BhsCatalogColumn[]>([]);
 
   activeTab = signal<PublishTab>('pending-publish');
@@ -495,15 +485,9 @@ export class DossierPublishComponent implements OnInit {
     this.filterDossierTypeId.set(null);
     this.filterInfrastructureId.set(null);
     this.filterEquipmentId.set(null);
-    this.infrastructureSearchKeyword.set('');
-    this.isInfrastructureDropdownOpen.set(false);
     this.equipments.set([]);
     this.currentPage.set(1);
     this.refreshList();
-  }
-
-  toggleInfrastructureDropdown(): void {
-    this.isInfrastructureDropdownOpen.update((open) => !open);
   }
 
   onDossierTypeFilterChange(dossierTypeId: string | null): void {
@@ -518,8 +502,6 @@ export class DossierPublishComponent implements OnInit {
     this.filterInfrastructureId.set(infrastructureId);
     this.filterEquipmentId.set(null);
     this.equipments.set([]);
-    this.infrastructureSearchKeyword.set('');
-    this.isInfrastructureDropdownOpen.set(false);
 
     if (infrastructureId) {
       this.service.getEquipmentLookup({ infrastructureId, pageSize: 1000 }).subscribe({
@@ -528,13 +510,6 @@ export class DossierPublishComponent implements OnInit {
       });
     }
 
-  }
-
-  selectedInfrastructureLabel(): string {
-    const infrastructureId = this.filterInfrastructureId();
-    if (!infrastructureId) return '-- Tất cả trạm/đường dây --';
-    return this.infrastructures().find((item) => String(item.id) === String(infrastructureId))?.name
-      ?? '-- Tất cả trạm/đường dây --';
   }
 
   refreshList() {
