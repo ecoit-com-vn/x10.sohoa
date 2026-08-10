@@ -1,13 +1,15 @@
 <!-- sohoa.frontend/libs/features/reports/src/lib/components/report-group-detail/report-group-detail.component.html -->
 <p-toast></p-toast>
   <div class="wf-page">
-    <div class="page-header mt-0 pt-0">
+    <div class="list-toolbar standard-page-toolbar">
+      <div class="toolbar-left">
       <wf-breadcrumb
         [viewMode]="!isEdit() ? 'edit' : 'detail'"
         (listClick)="goBack()">
       </wf-breadcrumb>
+      </div>
 
-      <div class="header-buttons mt-0 pt-0">
+      <div class="toolbar-right header-buttons">
         <button type="button" class="btn-outlined btn-small" (click)="goBack()">
           <i class="pi pi-arrow-left mr-1"></i>
           Quay lại

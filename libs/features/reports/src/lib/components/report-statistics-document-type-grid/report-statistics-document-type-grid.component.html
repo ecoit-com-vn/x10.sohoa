@@ -10,12 +10,6 @@
     <p-table
       [value]="items()"
       [lazy]="true"
-      [paginator]="true"
-      [rows]="pageSize()"
-      [totalRecords]="totalCount()"
-      [first]="(page() - 1) * pageSize()"
-      (onPage)="onPageChange($event)"
-      [rowsPerPageOptions]="[10, 20, 50]"
       [loading]="loading()"
       styleClass="wf-table-custom p-datatable-gridlines"
     >
@@ -32,8 +26,14 @@
       <ng-template pTemplate="body" let-item>
         <tr>
           <td class="text-center font-medium">{{ item.stt }}</td>
-          <td><span class="document-type-code">{{ item.documentTypeCode || '-' }}</span></td>
-          <td class="font-medium text-gray-800">{{ item.documentTypeName || '-' }}</td>
+          <td>
+            <span class="document-type-code">{{
+              item.documentTypeCode || '-'
+            }}</span>
+          </td>
+          <td class="font-medium text-gray-800">
+            {{ item.documentTypeName || '-' }}
+          </td>
           <td class="text-center font-semibold">{{ item.totalDocuments }}</td>
           <td class="text-center font-semibold">{{ item.totalPages }}</td>
         </tr>
@@ -48,4 +48,13 @@
       </ng-template>
     </p-table>
   </div>
+  <app-eco-paginator
+    *ngIf="totalCount() > 0 && !loading()"
+    [currentPage]="page()"
+    [pageSize]="pageSize()"
+    [totalRecords]="totalCount()"
+    [rowsPerPageOptions]="[10, 20, 50]"
+    (pageChange)="page.set($event)"
+    (pageSizeChange)="pageSize.set($event)"
+  ></app-eco-paginator>
 </div>

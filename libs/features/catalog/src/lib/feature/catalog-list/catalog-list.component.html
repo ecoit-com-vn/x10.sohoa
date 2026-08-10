@@ -2,22 +2,10 @@
     <p-toast></p-toast>
     <div class="list-toolbar standard-page-toolbar">
         <div class="toolbar-left">
-            <div class="breadcrumb" style="margin-bottom: 0;" *ngIf="isUnitScopedCatalog(); else defaultCatalogBreadcrumb">
-                <i class="pi pi-home bc-icon"></i>
-                <a class="bc-text bc-link" href="#/dashboard">Trang chủ</a>
-                <span class="bc-sep">/</span>
-                <span class="bc-text">Quản lý danh mục</span>
-                <span class="bc-sep">/</span>
-                <span class="bc-current" *ngIf="currentView() === 'list'; else phongActionBreadcrumb">{{ catalogTitle() }}</span>
-                <ng-template #phongActionBreadcrumb>
-                    <span class="bc-text bc-link" (click)="currentView.set('list')">{{ catalogTitle() }}</span>
-                    <span class="bc-sep">/</span>
-                    <span class="bc-current">{{ currentView() === 'add' ? 'Thêm mới' : 'Chỉnh sửa' }}</span>
-                </ng-template>
-            </div>
-            <ng-template #defaultCatalogBreadcrumb>
-                <wf-breadcrumb [viewMode]="currentView()" (listClick)="currentView.set('list')" />
-            </ng-template>
+            <wf-breadcrumb
+                [viewMode]="currentView()"
+                [customItems]="sharedCatalogBreadcrumbItems()"
+                (listClick)="currentView.set('list')" />
         </div>
         <div class="toolbar-right" *ngIf="canCreate()">
             <button class="btn-green" (click)="onAddNew()">

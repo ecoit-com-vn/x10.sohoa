@@ -1,12 +1,15 @@
 /* SCSS for ReportUnitPublish Component */
 .wf-page {
-  padding: 16px;
+  padding: 5px 20px;
 }
+
 .wf-card {
   background: #ffffff;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 16px -6px rgba(0, 0, 0, 0.05);
+  padding: 1rem;
+  margin-bottom: 20px;
+  border: 1px solid rgba(226, 232, 240, 0.8);
 }
 .act-btn-dot {
   &:hover {
@@ -20,51 +23,12 @@
   }
 }
 
-.unit-search-card { margin-bottom: 12px; }
-
-.unit-list-card {
-  margin-bottom: 0;
+.standard-search-card {
+  margin-bottom: 3px;
 }
 
-.unit-search-bar {
-  margin-bottom: 16px;
-  padding: 16px;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  background: #ffffff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.unit-search-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 16px;
-}
-
-.search-form-item {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.search-field-label {
-  color: #475569;
-  font-size: 0.8rem;
-  font-weight: 600;
-}
-
-.search-form-item .wf-search-input,
-.search-form-item .wf-input {
-  width: 100%;
-  height: 38px;
-  box-sizing: border-box;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
-}
-
-.unit-search-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 16px;
+@media (max-width: 768px) {
+  .standard-search-grid {
+    grid-template-columns: 1fr;
+  }
 }
