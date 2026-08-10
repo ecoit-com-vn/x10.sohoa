@@ -231,8 +231,7 @@ public class DossierDocumentService : IDossierDocumentService
             document.Name,
             version.MimeType ?? "application/octet-stream",
             _fileStorageService.DossierBucketName,
-            cancellationToken,
-            versionId: version.MinioVersionId);
+            cancellationToken);
     }
 
     public async Task<FileUploadResponse> UploadDirectAsync(
