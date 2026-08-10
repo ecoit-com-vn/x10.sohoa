@@ -8,11 +8,10 @@
       </ng-template>
     </div>
     <div class="toolbar-right">
-      <button
-        class="btn-green"
-        (click)="onAddNew()"
-        *ngIf="canCreate() && currentView() === 'list'"
-      >
+      <button class="btn-back btn-small" (click)="goBack()" *ngIf="currentView() === 'edit'">
+        <i class="pi pi-arrow-left"></i> Quay lại danh sách
+      </button>
+      <button class="btn-green" (click)="onAddNew()" *ngIf="canCreate() && currentView() === 'list'">
         <i class="pi pi-plus"></i> Thêm mới
       </button>
       <button
@@ -198,150 +197,83 @@
 
       <!-- Bảng Grid dữ liệu -->
       <div class="wf-card">
-        <div class="wf-table-wrap">
-          <table class="wf-table">
-            <thead>
-              <tr>
-                <th class="col-stt">STT</th>
-                <th>Mã thiết bị</th>
-                <th>Tên thiết bị</th>
-                <th>Loại thiết bị</th>
-                <th>Trạm/đường dây</th>
-                <th>Đơn vị quản lý</th>
-                <th>Ngày tạo</th>
-                <th>Người tạo</th>
-                <th style="width: 130px; text-align: center">Trạng thái</th>
-                <th class="col-hd">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let item of paginatedItems(); let i = index">
-                <td class="col-stt text-muted">
-                  {{ (currentPage() - 1) * pageSize() + i + 1 }}
-                </td>
-                <td>
-                  <span *ngIf="canEdit(); else viewOnlyCode">
-                    <p (click)="onEdit(item)">{{ item.code }}</p>
-                  </span>
-                  <ng-template #viewOnlyCode>
-                    <span>{{ item.code }}</span>
-                  </ng-template>
-                </td>
-                <td>
-                  {{ item.name }}
-                </td>
-                <td>
-                  {{ item.equipmentTypeName }}
-                </td>
-                <td>{{ item.infrastructureName }}</td>
-                <td>{{ item.unitName }}</td>
-                <td>{{ item.createdAt | date: 'dd/MM/yyyy' }}</td>
-                <td>
-                  <span *ngIf="item.creator" [title]="'ID: ' + item.creator.id">
-                    {{ item.creator.name }}
-                  </span>
-                  <span class="text-muted italic" *ngIf="!item.creator">{{
-                    item.createdBy || ''
-                  }}</span>
-                </td>
-                <td style="text-align: center">
-                  <span
-                    class="status-pill"
-                    [ngClass]="getEquipmentStatusClass(item)"
-                  >
-                    {{ getEquipmentStatusLabel(item) }}
-                  </span>
-                </td>
-                <td class="col-hd">
-                  <button
-                    type="button"
-                    class="act-btn act-more"
-                    title="Thao tác khác"
-                    (click)="openActionMenu(item, $event, actionMenu)"
-                  >
-                    <i class="pi pi-ellipsis-h"></i>
-                  </button>
-                </td>
-              </tr>
-              <tr *ngIf="items().length === 0">
-                <td colspan="10" class="empty-row">
-                  <i class="pi pi-inbox"></i>
-                  <div>Không tìm thấy thiết bị nào phù hợp.</div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <p-menu
-          #actionMenu
-          [model]="actionMenuItems"
-          [popup]="true"
-          appendTo="body"
-          styleClass="row-action-menu"
-        ></p-menu>
+      <div class="wf-table-wrap">
+        <table class="wf-table">
+          <thead>
+            <tr>
+              <th class="col-stt">STT</th>
+              <th>Mã thiết bị</th>
+              <th>Tên thiết bị</th>
+              <th>Loại thiết bị</th>
+              <th>Trạm/đường dây</th>
+              <th>Đơn vị quản lý</th>
+              <th>Ngày tạo</th>
+              <th>Người tạo</th>
+              <th style="width: 130px; text-align: center;">Trạng thái</th>
+              <th class="col-hd">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let item of paginatedItems(); let i = index">
+              <td class="col-stt text-muted">{{ (currentPage() - 1) * pageSize() + i + 1 }}</td>
+              <td>
+                <span *ngIf="canEdit(); else viewOnlyCode">
+                  <p (click)="onEdit(item)">{{ item.code }}</p>
+                </span>
+                <ng-template #viewOnlyCode>
+                  <span>{{ item.code }}</span>
+                </ng-template>
+              </td>
+              <td>
+                {{ item.name }}
+              </td>
+              <td>
+                {{ item.equipmentTypeName }}
+              </td>
+              <td>{{ item.infrastructureName }}</td>
+              <td>{{ item.unitName }}</td>
+              <td>{{ item.createdAt | date:'dd/MM/yyyy' }}</td>
+              <td>
+                <span *ngIf="item.creator" [title]="'ID: ' + item.creator.id">
+                  {{ item.creator.name }}
+                </span>
+                <span class="text-muted italic" *ngIf="!item.creator">{{ item.createdBy || '' }}</span>
+              </td>
+              <td style="text-align: center;">
+                <span class="status-pill" [ngClass]="getEquipmentStatusClass(item)">
+                  {{ getEquipmentStatusLabel(item) }}
+                </span>
+              </td>
+              <td class="col-hd">
+                <button type="button" class="act-btn act-more" title="Thao tác khác"
+                  (click)="openActionMenu(item, $event, actionMenu)">
+                  <i class="pi pi-ellipsis-h"></i>
+                </button>
+              </td>
+            </tr>
+            <tr *ngIf="items().length === 0">
+              <td colspan="10" class="empty-row">
+                <i class="pi pi-inbox"></i>
+                <div>Không tìm thấy thiết bị nào phù hợp.</div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p-menu #actionMenu [model]="actionMenuItems" [popup]="true" appendTo="body"
+        styleClass="row-action-menu"></p-menu>
 
-        <!-- Phân trang -->
-        <div class="table-footer" *ngIf="items().length > 0">
-          <span class="record-count"
-            >Tổng số: <b>{{ totalCount() }}</b> bản ghi.</span
-          >
-          <div class="pagination">
-            <button
-              class="page-btn"
-              (click)="prevPage()"
-              [disabled]="currentPage() === 1"
-            >
-              <i class="pi pi-chevron-left"></i>
-            </button>
-            <span class="page-current"
-              >Trang {{ currentPage() }} / {{ totalPages() || 1 }}</span
-            >
-            <button
-              class="page-btn"
-              (click)="nextPage()"
-              [disabled]="currentPage() >= totalPages()"
-            >
-              <i class="pi pi-chevron-right"></i>
-            </button>
-            <span
-              style="
-                margin-left: 10px;
-                display: inline-flex;
-                align-items: center;
-                gap: 5px;
-                font-size: 0.8rem;
-                color: #6b7280;
-              "
-            >
-              Đi tới trang:
-              <input
-                type="number"
-                class="page-jump-input"
-                [value]="currentPage()"
-                (change)="goToPage($any($event.target).value)"
-                style="
-                  width: 50px;
-                  height: 28px;
-                  text-align: center;
-                  border: 1px solid #e5e7eb;
-                  border-radius: 4px;
-                  padding: 0 4px;
-                "
-                [min]="1"
-                [max]="totalPages() || 1"
-              />
-            </span>
-            <select
-              class="page-size-sel"
-              [ngModel]="pageSize()"
-              (change)="onPageSizeChange($event)"
-            >
-              <option [value]="10">10 / trang</option>
-              <option [value]="20">20 / trang</option>
-              <option [value]="50">50 / trang</option>
-            </select>
-          </div>
-        </div>
+      <!-- Phân trang -->
+      <div class="table-footer-paginator equipment-list-paginator" *ngIf="items().length > 0">
+        <app-eco-paginator
+          [first]="(currentPage() - 1) * pageSize()"
+          [rows]="pageSize()"
+          [totalRecords]="totalCount()"
+          [rowsPerPageOptions]="[10, 20, 50]"
+          recordLabel="thiết bị"
+          (onPageChange)="onEquipmentListPaginatorChange($event)">
+        </app-eco-paginator>
+      </div>
       </div>
     </div>
 
@@ -803,10 +735,10 @@
     </div>
 
     <!-- ==================== VIEW 3: MÀN HÌNH CHI TIẾT 2 TAB (EDIT MODE) ==================== -->
-    <div
-      *ngIf="currentView() === 'edit'"
-      class="animate-fade-in sub-view-container"
-    >
+    <div *ngIf="currentView() === 'edit'" class="animate-fade-in sub-view-container">
+
+      <div class="equipment-detail-card">
+
       <!-- Tab Bar EVN -->
       <div class="tab-bar" style="margin-bottom: 20px">
         <div
@@ -2080,6 +2012,7 @@
             </div>
           </div>
         </div>
+      </div>
       </div>
     </div>
   </div>

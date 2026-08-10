@@ -391,11 +391,11 @@
 .attachment-list-pane {
   order: 2;
   min-width: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
+  padding: 16px;
+  border: 1px solid #dbe3ee;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
 }
 
 .attachment-list-header {
@@ -502,18 +502,17 @@
 }
 
 .attachment-pagination {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 18px;
-  min-height: 48px;
-  margin-top: -1px;
-  padding: 10px 12px;
-  border: 1px solid #dbe3ee;
-  border-radius: 0 0 8px 8px;
-  background: #fff;
-  color: #64748b;
-  font-size: 0.78rem;
+  display: none;
+}
+
+.infrastructure-detail-card .legacy-infrastructure-pagination {
+  display: none !important;
+}
+
+/* Use the shared paginator without changing the existing detail frame. */
+.infrastructure-detail-card app-eco-paginator {
+  display: block;
+  margin-top: 8px;
 }
 
 .attachment-pagination-controls {
@@ -552,7 +551,8 @@
   }
 }
 .infrastructure-detail-card {
-  padding:0px;
+  padding: 0 0 18px;
+  box-sizing: border-box;
 }
 .attachment-tree-pane {
   order: 1;

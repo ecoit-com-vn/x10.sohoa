@@ -215,7 +215,7 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
             this.pageSize(),
             this.searchKeyword()
           )
-        : this.equipmentService.getPublishedProfileDocuments(
+        : this.equipmentService.getProfileDocuments(
             equipmentId,
             this.page(),
             this.pageSize(),
@@ -234,7 +234,8 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
               ? res?.documents || []
               : res?.items || []
           );
-          this.totalDocuments.set(res?.totalCount || 0);
+          const total = res?.totalCount ?? res?.total ?? res?.count ?? res?.totalRecords;
+          this.totalDocuments.set(Number(total ?? this.documents().length) || 0);
         },
         error: (err) => {
           this.messageService.add({
