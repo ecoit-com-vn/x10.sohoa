@@ -41,34 +41,34 @@
 
         <div class="standard-search-field lookup-filters__field">
           <label class="form-label">Từ ngày</label>
-          <eco-input-date
-            [showLabel]="false"
-            label="Từ ngày"
-            view="date"
-            dateFormat="dd/mm/yy"
-            [border]="true"
-            [disabled]="false"
-            [showClear]="true"
-            [maxDate]="selectedToDate() ?? undefined"
+          <p-datepicker class="lookup-date-picker"
             [ngModel]="selectedFromDate()"
             (ngModelChange)="selectedFromDate.set($event)"
-          ></eco-input-date>
+            dateFormat="dd/mm/yy"
+            placeholder="dd/MM/yyyy"
+            [showIcon]="true"
+            [readonlyInput]="false"
+            [showOnFocus]="false"
+            [showButtonBar]="true"
+            [maxDate]="selectedToDate() ?? undefined"
+            inputStyleClass="lookup-date-input"
+            appendTo="self" />
         </div>
 
         <div class="standard-search-field lookup-filters__field">
           <label class="form-label">Đến ngày</label>
-          <eco-input-date
-            [showLabel]="false"
-            label="Đến ngày"
-            view="date"
-            dateFormat="dd/mm/yy"
-            [border]="true"
-            [disabled]="false"
-            [showClear]="true"
-            [minDate]="selectedFromDate() ?? undefined"
+          <p-datepicker class="lookup-date-picker"
             [ngModel]="selectedToDate()"
             (ngModelChange)="selectedToDate.set($event)"
-          ></eco-input-date>
+            dateFormat="dd/mm/yy"
+            placeholder="dd/MM/yyyy"
+            [showIcon]="true"
+            [readonlyInput]="false"
+            [showOnFocus]="false"
+            [showButtonBar]="true"
+            [minDate]="selectedFromDate() ?? undefined"
+            inputStyleClass="lookup-date-input"
+            appendTo="self" />
         </div>
 
         <div class="standard-search-actions">

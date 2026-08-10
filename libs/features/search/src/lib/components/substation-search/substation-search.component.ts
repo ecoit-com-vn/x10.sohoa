@@ -6,6 +6,7 @@ import { DomSanitizer } from '@angular/platform-browser';
 import { ToastModule } from 'primeng/toast';
 import { SelectModule } from 'primeng/select';
 import { DialogModule } from 'primeng/dialog';
+import { DatePickerModule } from 'primeng/datepicker';
 import { MessageService } from 'primeng/api';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AuthService, APP_CONFIG } from '@sohoa.frontend/shared/core';
@@ -19,7 +20,7 @@ import { LookupTrackingService } from '../../data-access/lookup-tracking.service
 @Component({
   selector: 'app-substation-search',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule, SelectModule, DialogModule, WfBreadcrumbComponent, EcoPaginatorComponent],
+  imports: [CommonModule, FormsModule, ToastModule, SelectModule, DialogModule, DatePickerModule, WfBreadcrumbComponent, EcoPaginatorComponent],
   providers: [MessageService],
   templateUrl: './substation-search.component.html',
   styleUrl: './substation-search.component.scss'
@@ -46,8 +47,8 @@ export class SubstationSearchComponent implements OnInit {
   searchStatus = signal<string>(''); // '', '1', '0'
   searchUnitId = signal<number | null>(null);
   searchGridTypeId = signal<number | null>(null);
-  searchFromDate = signal<string>('');
-  searchToDate = signal<string>('');
+  searchFromDate = signal<Date | null>(null);
+  searchToDate = signal<Date | null>(null);
   searchDateError = signal<string>('');
   totalCount = signal<number>(0);
 
@@ -311,11 +312,11 @@ export class SubstationSearchComponent implements OnInit {
     }
 
     if (this.searchFromDate()) {
-      params = params.set('fromDate', this.searchFromDate());
+      params = params.set('fromDate', this.formatDateForApi(this.searchFromDate())!);
     }
 
     if (this.searchToDate()) {
-      params = params.set('toDate', this.searchToDate());
+      params = params.set('toDate', this.formatDateForApi(this.searchToDate())!);
     }
 
     this.http.get<any>(`${this.config.apiGatewayUrl}/api/catalog/substation-search`, { params }).subscribe({
@@ -361,8 +362,8 @@ export class SubstationSearchComponent implements OnInit {
     this.searchStatus.set('');
     this.searchUnitId.set(null);
     this.searchGridTypeId.set(null);
-    this.searchFromDate.set('');
-    this.searchToDate.set('');
+    this.searchFromDate.set(null);
+    this.searchToDate.set(null);
     this.searchDateError.set('');
     this.currentPage.set(1);
     this.loadItems();
@@ -376,13 +377,21 @@ export class SubstationSearchComponent implements OnInit {
     const fromDate = this.searchFromDate();
     const toDate = this.searchToDate();
 
-    if (fromDate && toDate && fromDate > toDate) {
+    if (fromDate && toDate && fromDate.getTime() > toDate.getTime()) {
       this.searchDateError.set('Từ ngày không được lớn hơn Đến ngày.');
       return false;
     }
 
     this.searchDateError.set('');
     return true;
+  }
+
+  private formatDateForApi(value: Date | null): string | undefined {
+    if (!value) return undefined;
+    const year = value.getFullYear();
+    const month = String(value.getMonth() + 1).padStart(2, '0');
+    const day = String(value.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 
   onListPageChange(event: { first?: number; rows?: number }) {

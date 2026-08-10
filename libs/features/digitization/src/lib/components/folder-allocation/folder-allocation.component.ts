@@ -1,7 +1,6 @@
 import { Component, OnInit, inject, signal, computed, effect } from '@angular/core';
 import {
   DeleteConfirmDialogComponent,
-  EcoInputDateComponent,
   WfBreadcrumbComponent
 } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
@@ -10,6 +9,7 @@ import { ToastModule } from 'primeng/toast';
 import { DialogModule } from 'primeng/dialog';
 import { MenuItem, MessageService } from 'primeng/api';
 import { Menu, MenuModule } from 'primeng/menu';
+import { DatePickerModule } from 'primeng/datepicker';
 import { finalize } from 'rxjs';
 import { FolderAllocationService, FolderAllocationItem } from '../../data-access/folder-allocation.service';
 import { FolderAllocationDialogComponent } from './folder-allocation-dialog.component';
@@ -27,7 +27,7 @@ import { AuthService } from '@sohoa.frontend/shared/core';
     FolderAllocationDialogComponent,
     WfBreadcrumbComponent,
     DeleteConfirmDialogComponent,
-    EcoInputDateComponent,
+    DatePickerModule,
   ],
   providers: [MessageService],
   templateUrl: './folder-allocation.component.html',
