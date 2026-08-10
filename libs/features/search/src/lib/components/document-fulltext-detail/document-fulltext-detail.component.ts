@@ -322,8 +322,10 @@ export class DocumentFulltextDetailComponent implements OnDestroy {
   }
 
   onBack() {
+    const checkSource = this.route.snapshot.queryParamMap.get('source');
+    const linkNavigate = checkSource ? '/search/dossier' : '/search/documents' ;
     const keyword = this.returnKeyword();
-    void this.router.navigate(['/search/documents'], {
+    void this.router.navigate([linkNavigate], {
       queryParams: keyword ? { keyword } : {}
     });
   }

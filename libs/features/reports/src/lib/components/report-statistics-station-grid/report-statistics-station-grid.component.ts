@@ -35,8 +35,6 @@ export class ReportStatisticsStationGridComponent implements OnInit {
   filter = input<Record<string, string | number | string[] | null | undefined>>({});
   active = input(false);
   filterVersion = input(0);
-  /** Chỉ bật tại màn cần đồng bộ với paginator dùng chung của hệ thống. */
-  useSystemPaginator = input(false);
   /** Tiêu đề lưới */
   gridTitle = input('Lưới hồ sơ theo trạm/đường dây');
   /** Hiển thị cột Lưới điện */
