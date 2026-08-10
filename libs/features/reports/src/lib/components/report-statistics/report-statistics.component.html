@@ -1,17 +1,20 @@
 <!-- sohoa.frontend/libs/features/reports/src/lib/components/report-statistics/report-statistics.component.html -->
-<p-toast></p-toast>
 <div class="wf-page">
-    <wf-breadcrumb></wf-breadcrumb>
-    <div> 
-        <!-- Filters Toolbar --> 
+    <p-toast></p-toast>
+    <div class="list-toolbar standard-page-toolbar">
+        <div class="toolbar-left">
+            <wf-breadcrumb></wf-breadcrumb>
+        </div>
+    </div>
+    <div class="animate-fade-in">
         <div class="standard-search-card">
-    <div class="standard-search-grid">
+            <div class="standard-search-grid">
 
         <div class="standard-search-field">
             <label>Mã báo cáo</label>
             <input
                 type="text"
-                class="wf-input"
+                class="wf-search-input"
                 [ngModel]="searchCode()"
                 (ngModelChange)="searchCode.set($event)"
                 (keyup.enter)="onSearch()"
@@ -29,7 +32,8 @@
                 placeholder="Nhập tên báo cáo..." />
         </div>
 
-        <div class="standard-search-actions">
+            </div>
+            <div class="standard-search-actions">
             <button
                 type="button"
                 class="btn-outlined"
@@ -47,11 +51,8 @@
                 Áp dụng
             </button>
         </div>
-
     </div>
-</div>
 
-        <!-- Table Grid -->
         <div class="wf-card">
             <div class="wf-table-wrap" *ngIf="!loading(); else loadingTemplate">
                 <table class="wf-table">
@@ -103,5 +104,5 @@
                 </div>
             </ng-template>
         </div>
+        </div>
     </div>
-</div>

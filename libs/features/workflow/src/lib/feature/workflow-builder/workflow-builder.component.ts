@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy, ViewChild, ElementRef, inject, PLATFORM_ID, ChangeDetectorRef, signal } from '@angular/core';
-import { WfBreadcrumbComponent, DeleteConfirmDialogComponent } from '@sohoa.frontend/shared/layout';
+import { WfBreadcrumbComponent, DeleteConfirmDialogComponent, EcoPaginatorComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -41,7 +41,7 @@ const WORKFLOW_BUILDER_BASE = '/administration/workflow-builder';
 @Component({
   selector: 'app-workflow-builder',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule, DialogModule, MenuModule, WfBreadcrumbComponent, DeleteConfirmDialogComponent],
+  imports: [CommonModule, FormsModule, ToastModule, DialogModule, MenuModule, WfBreadcrumbComponent, DeleteConfirmDialogComponent, EcoPaginatorComponent],
   providers: [MessageService],
   templateUrl: './workflow-builder.component.html',
   styleUrl: './workflow-builder.component.scss'
@@ -281,8 +281,8 @@ export class WorkflowBuilderComponent implements OnInit, OnDestroy {
     }
   }
 
-  onPageSizeChange(event: any) {
-    this.pageSize = Number(event.target.value);
+  onPageSizeChange(pageSize: number) {
+    this.pageSize = Number(pageSize);
     this.currentPage = 1;
     this.loadList();
   }
