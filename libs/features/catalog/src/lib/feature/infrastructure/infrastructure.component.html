@@ -200,9 +200,12 @@
                 </td>
                 <td>
                   <span *ngIf="canEdit(); else viewOnlyName">
-                    <b class="wf-name-link" (click)="onEdit(item)">{{
-                      item.name
-                    }}</b>
+                    <b
+                      class="wf-name-link"
+                      style="color: #374151"
+                      (click)="onEdit(item)"
+                      >{{ item.name }}</b
+                    >
                   </span>
                   <ng-template #viewOnlyName>
                     <b>{{ item.name }}</b>
@@ -286,9 +289,12 @@
                 </td>
                 <td>
                   <span *ngIf="canEdit(); else viewOnlyName">
-                    <b class="wf-name-link" (click)="onEdit(item)">{{
-                      item.name
-                    }}</b>
+                    <b
+                      class="wf-name-link"
+                      style="color: #374151"
+                      (click)="onEdit(item)"
+                      >{{ item.name }}</b
+                    >
                   </span>
                   <ng-template #viewOnlyName>
                     <b>{{ item.name }}</b>

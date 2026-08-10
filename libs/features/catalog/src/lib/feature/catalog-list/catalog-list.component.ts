@@ -190,10 +190,10 @@ export class CatalogListComponent implements OnInit {
   });
   isAdmin = computed(() => this.authService.getUserRoles().some(role =>
     ['ADMIN', 'SUPER_ADMIN'].includes(role.toUpperCase())));
-  customBreadcrumbItems = computed(() => this.isPhongCatalog()
+  sharedCatalogBreadcrumbItems = computed(() => this.isUnitScopedCatalog()
     ? [
         { label: 'Quản lý danh mục' },
-        { label: 'Danh mục phông' }
+        { label: this.catalogTitle() }
       ]
     : null);
 
