@@ -18,6 +18,8 @@ public abstract partial class DossierControllerBase : ControllerBase
     private readonly IDossierDocumentService _dossierDocumentService;
     private readonly IDocumentDigitizationService _documentDigitizationService;
     private readonly DossierKindGuard _kindGuard;
+    private readonly IAuditPublisher _auditPublisher;
+    private readonly AuditServiceMetadata _auditServiceMetadata;
 
     protected abstract int ExpectedKindId { get; }
 
@@ -25,12 +27,16 @@ public abstract partial class DossierControllerBase : ControllerBase
         IDossierService dossierService,
         IDossierDocumentService dossierDocumentService,
         IDocumentDigitizationService documentDigitizationService,
-        DossierKindGuard kindGuard)
+        DossierKindGuard kindGuard,
+        IAuditPublisher auditPublisher,
+        AuditServiceMetadata auditServiceMetadata)
     {
         _dossierService = dossierService ?? throw new ArgumentNullException(nameof(dossierService));
         _dossierDocumentService = dossierDocumentService ?? throw new ArgumentNullException(nameof(dossierDocumentService));
         _documentDigitizationService = documentDigitizationService ?? throw new ArgumentNullException(nameof(documentDigitizationService));
         _kindGuard = kindGuard ?? throw new ArgumentNullException(nameof(kindGuard));
+        _auditPublisher = auditPublisher ?? throw new ArgumentNullException(nameof(auditPublisher));
+        _auditServiceMetadata = auditServiceMetadata ?? throw new ArgumentNullException(nameof(auditServiceMetadata));
     }
 
     private async Task<IActionResult?> EnsureKindAsync(Guid id)

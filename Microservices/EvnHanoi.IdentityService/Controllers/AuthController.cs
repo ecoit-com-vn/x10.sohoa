@@ -9,6 +9,7 @@ using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using EvnHanoi.IdentityService.Core.Domain.Models;
 using EvnHanoi.IdentityService.Core.Interfaces;
 using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
@@ -712,12 +713,13 @@ public class AuthController : ControllerBase
     [RequestSizeLimit(2 * 1024 * 1024)]
     public async Task<IActionResult> UploadAvatar([FromForm] IFormFile? file, CancellationToken cancellationToken)
     {
-        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(userId))
+        var user = await GetCurrentUserAsync();
+        if (user == null)
         {
             return Unauthorized();
         }
 
+        var userId = user.Id;
         if (file == null || file.Length == 0)
         {
             return BadRequest(new { message = "Vui lòng chọn ảnh đại diện." });
@@ -726,12 +728,6 @@ public class AuthController : ControllerBase
         if (file.Length > 2 * 1024 * 1024)
         {
             return BadRequest(new { message = "Dung lượng ảnh đại diện không được vượt quá 2MB." });
-        }
-
-        var user = await _userRepository.GetByIdAsync(userId);
-        if (user == null)
-        {
-            return NotFound(new { message = "Không tìm thấy người dùng." });
         }
 
         string objectKey;
@@ -766,14 +762,13 @@ public class AuthController : ControllerBase
     [HttpGet("avatar")]
     public async Task<IActionResult> GetAvatar(CancellationToken cancellationToken)
     {
-        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(userId))
+        var user = await GetCurrentUserAsync();
+        if (user == null)
         {
             return Unauthorized();
         }
 
-        var user = await _userRepository.GetByIdAsync(userId);
-        if (user == null || string.IsNullOrWhiteSpace(user.AvatarObjectKey))
+        if (string.IsNullOrWhiteSpace(user.AvatarObjectKey))
         {
             return NotFound();
         }
@@ -787,25 +782,40 @@ public class AuthController : ControllerBase
     [HttpDelete("avatar")]
     public async Task<IActionResult> DeleteAvatar(CancellationToken cancellationToken)
     {
-        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(userId))
-        {
-            return Unauthorized();
-        }
-
-        var user = await _userRepository.GetByIdAsync(userId);
+        var user = await GetCurrentUserAsync();
         if (user == null)
         {
-            return NotFound(new { message = "Không tìm thấy người dùng." });
+            return Unauthorized();
         }
 
         if (!string.IsNullOrWhiteSpace(user.AvatarObjectKey))
         {
             await _avatarStorageService.DeleteAvatarAsync(user.AvatarObjectKey, cancellationToken);
-            await _userRepository.UpdateAvatarAsync(userId, null);
+            await _userRepository.UpdateAvatarAsync(user.Id, null);
         }
 
         return Ok(new { message = "Xóa ảnh đại diện thành công." });
+    }
+
+    private async Task<User?> GetCurrentUserAsync()
+    {
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                  ?? User.FindFirst("sub")?.Value;
+        if (!string.IsNullOrWhiteSpace(userId))
+        {
+            var userById = await _userRepository.GetByIdAsync(userId);
+            if (userById != null)
+            {
+                return userById;
+            }
+        }
+
+        var username = User.FindFirst("preferred_username")?.Value
+                    ?? User.FindFirst(ClaimTypes.Name)?.Value
+                    ?? User.Identity?.Name;
+        return string.IsNullOrWhiteSpace(username)
+            ? null
+            : await _userRepository.GetUserByUsernameAsync(username);
     }
 
     private string? BuildAvatarUrl(EvnHanoi.IdentityService.Core.Domain.Models.User user)
