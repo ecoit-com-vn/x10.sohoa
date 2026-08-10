@@ -9,6 +9,7 @@ public class OrganizationUnit
     public string Name { get; set; } = string.Empty;
     public long? ParentId { get; set; }
     public string Description { get; set; } = string.Empty;
+    public int? SortOrder { get; set; }
     public bool IsActive { get; set; } = true;
     public bool IsDeleted { get; set; }
 }
