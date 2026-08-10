@@ -1,6 +1,8 @@
 <div class="wf-card table-card">
   <div class="card-header flex-header">
-    <h3 class="card-title">{{ listConfig().title || 'Danh sách hồ sơ nhập liệu' }}</h3>
+    <h3 class="card-title">
+      {{ listConfig().title || 'Danh sách hồ sơ nhập liệu' }}
+    </h3>
     <span class="total-badge" *ngIf="!loading()">
       Tổng số hồ sơ: <strong>{{ totalCount() | number }}</strong>
     </span>
@@ -31,7 +33,7 @@
           </ng-template>
           <th>Trạm / Đường dây</th>
           <th>Loại hồ sơ</th>
-          <th class="text-center" style="width: 120px;">Số tài liệu</th>
+          <th class="text-center" style="width: 120px">Số tài liệu</th>
         </tr>
       </ng-template>
 
@@ -40,21 +42,26 @@
           <td class="text-center font-medium">{{ item.stt }}</td>
           <ng-container *ngIf="fixedColumns(); else dynamicCells">
             <td>
-              <span class="wf-name-link" (click)="openDetail(item)">{{ item.dossierCode || '-' }}</span>
+              <span class="wf-name-link" (click)="openDetail(item)">{{
+                item.dossierCode || '-'
+              }}</span>
             </td>
             <td>{{ item.dossierTitle || '-' }}</td>
           </ng-container>
           <ng-template #dynamicCells>
             <td *ngFor="let col of bhsColumns(); let first = first">
-            <span
-              *ngIf="first"
-              class="wf-name-link"
-              (click)="openDetail(item)"
-            >{{ getCatalogValue(item, col) }}</span>
-            <span *ngIf="!first">{{ getCatalogValue(item, col) }}</span>
+              <span
+                *ngIf="first"
+                class="wf-name-link"
+                (click)="openDetail(item)"
+                >{{ getCatalogValue(item, col) }}</span
+              >
+              <span *ngIf="!first">{{ getCatalogValue(item, col) }}</span>
             </td>
           </ng-template>
-          <td class="font-medium text-gray-800">{{ item.infrastructureName || '-' }}</td>
+          <td class="font-medium text-gray-800">
+            {{ item.infrastructureName || '-' }}
+          </td>
           <td>{{ item.dossierTypeName || '-' }}</td>
           <td class="text-center font-semibold">{{ item.documentCount }}</td>
         </tr>
@@ -62,7 +69,10 @@
 
       <ng-template pTemplate="emptymessage">
         <tr>
-          <td [attr.colspan]="tableColSpan()" class="text-center py-8 text-gray-500 text-xs">
+          <td
+            [attr.colspan]="tableColSpan()"
+            class="text-center py-8 text-gray-500 text-xs"
+          >
             Không tìm thấy dữ liệu hồ sơ phù hợp.
           </td>
         </tr>

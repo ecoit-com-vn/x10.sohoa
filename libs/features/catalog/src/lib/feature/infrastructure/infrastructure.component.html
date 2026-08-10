@@ -1,157 +1,361 @@
 <div class="wf-page">
   <p-toast></p-toast>
-  
+
   <div class="list-toolbar standard-page-toolbar">
     <div class="toolbar-left">
-      <wf-breadcrumb [viewMode]="currentView() === 'detail' ? null : currentView()" [leafLabel]="pageTitle()"
-        [customItems]="currentView() === 'detail' ? detailBreadcrumbItems() : null" (listClick)="goBack()" />
-  </div>
-  <div class="toolbar-right" *ngIf="canCreate() || currentView() === 'detail'" style="display: flex; align-items: center; gap: 8px;">
-    <button *ngIf="currentView() === 'detail'" class="btn-outlined btn-small" (click)="goBack()"
-      style="height: 36px; padding: 0 12px; border-radius: 6px; display: inline-flex; align-items: center; gap: 6px;">
-      <i class="pi pi-arrow-left"></i> Quay lại
-    </button>
-    <button *ngIf="canCreate()" class="btn-green" (click)="onAddNew()">
-      <i class="pi pi-plus"></i> Thêm mới
-    </button>
+      <wf-breadcrumb
+        [viewMode]="currentView() === 'detail' ? null : currentView()"
+        [leafLabel]="pageTitle()"
+        [customItems]="
+          currentView() === 'detail' ? detailBreadcrumbItems() : null
+        "
+        (listClick)="goBack()"
+      />
+    </div>
+    <div
+      class="toolbar-right"
+      *ngIf="canCreate() || currentView() === 'detail'"
+      style="display: flex; align-items: center; gap: 8px"
+    >
+      <button
+        *ngIf="currentView() === 'detail'"
+        class="btn-outlined btn-small"
+        (click)="goBack()"
+        style="
+          height: 36px;
+          padding: 0 12px;
+          border-radius: 6px;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+        "
+      >
+        <i class="pi pi-arrow-left"></i> Quay lại
+      </button>
+      <button *ngIf="canCreate()" class="btn-green" (click)="onAddNew()">
+        <i class="pi pi-plus"></i> Thêm mới
+      </button>
     </div>
   </div>
-    <!-- ==================== MÀN HÌNH DANH SÁCH ==================== -->
-    <div *ngIf="currentView() === 'list' || currentView() === 'add' || currentView() === 'edit'" class="animate-fade-in">
+  <!-- ==================== MÀN HÌNH DANH SÁCH ==================== -->
+  <div
+    *ngIf="
+      currentView() === 'list' ||
+      currentView() === 'add' ||
+      currentView() === 'edit'
+    "
+    class="animate-fade-in"
+  >
+    <!-- Toolbar -->
+    <div class="standard-search-card">
+      <div class="standard-search-grid">
+        <!-- Keyword input -->
+        <div class="standard-search-field">
+          <label class="search-field-label">Từ khóa</label>
+          <input
+            type="text"
+            class="wf-search-input"
+            placeholder="Tìm theo mã hoặc tên..."
+            [ngModel]="searchKeyword()"
+            (ngModelChange)="onSearchKeywordChange($event)"
+            (keyup.enter)="onSearch()"
+          />
+        </div>
 
-      <!-- Toolbar -->
-      <div class="standard-search-card">
-        <div class="standard-search-grid">
-          <!-- Keyword input -->
-          <div class="standard-search-field">
-            <label class="search-field-label">Từ khóa</label>
-            <input type="text" class="wf-search-input"
-              placeholder="Tìm theo mã hoặc tên..."
-              [ngModel]="searchKeyword()"
-              (ngModelChange)="searchKeyword.set($event)"
-              (keyup.enter)="onSearch()" />
-          </div>
-
-          <!-- Unit Filter -->
-          <div class="standard-search-field">
-            <label class="search-field-label">Đơn vị</label>
-            <div class="org-tree-picker">
-              <div class="org-tree-trigger" (click)="toggleSearchOrgTree($event)"
-                [class.has-value]="searchUnitId()" [class.open]="searchOrgTreeOpen()">
-                <span class="org-tree-selected-label">
-                  <i class="pi pi-building" style="margin-right: 6px; color: #6b7280;"></i>
-                  {{ getUnitLabel(searchUnitId()) || '-- Tất cả đơn vị --' }}
-                </span>
-                <span style="display: flex; align-items: center; gap: 8px;">
-                  <i class="pi pi-times-circle clear-btn" *ngIf="searchUnitId()" (click)="clearSearchOrgUnit($event)"
-                    style="color: #94a3b8; font-size: 0.95rem; cursor: pointer;"></i>
-                  <i class="pi" [class.pi-chevron-down]="!searchOrgTreeOpen()" [class.pi-chevron-up]="searchOrgTreeOpen()"></i>
-                </span>
+        <!-- Unit Filter -->
+        <div class="standard-search-field">
+          <label class="search-field-label">Đơn vị</label>
+          <div class="org-tree-picker">
+            <div
+              class="org-tree-trigger"
+              (click)="toggleSearchOrgTree($event)"
+              [class.has-value]="searchUnitId()"
+              [class.open]="searchOrgTreeOpen()"
+            >
+              <span class="org-tree-selected-label">
+                <i
+                  class="pi pi-building"
+                  style="margin-right: 6px; color: #6b7280"
+                ></i>
+                {{ getUnitLabel(searchUnitId()) || '-- Tất cả đơn vị --' }}
+              </span>
+              <span style="display: flex; align-items: center; gap: 8px">
+                <i
+                  class="pi pi-times-circle clear-btn"
+                  *ngIf="searchUnitId()"
+                  (click)="clearSearchOrgUnit($event)"
+                  style="color: #94a3b8; font-size: 0.95rem; cursor: pointer"
+                ></i>
+                <i
+                  class="pi"
+                  [class.pi-chevron-down]="!searchOrgTreeOpen()"
+                  [class.pi-chevron-up]="searchOrgTreeOpen()"
+                ></i>
+              </span>
+            </div>
+            <div
+              class="org-tree-dropdown"
+              *ngIf="searchOrgTreeOpen()"
+              (click)="$event.stopPropagation()"
+            >
+              <div class="org-tree-search">
+                <i class="pi pi-search"></i>
+                <input
+                  type="text"
+                  placeholder="Tìm kiếm đơn vị..."
+                  [ngModel]="searchOrgSearchKeyword()"
+                  (ngModelChange)="searchOrgSearchKeyword.set($event)"
+                />
               </div>
-              <div class="org-tree-dropdown" *ngIf="searchOrgTreeOpen()" (click)="$event.stopPropagation()">
-                <div class="org-tree-search">
-                  <i class="pi pi-search"></i>
-                  <input type="text" placeholder="Tìm kiếm đơn vị..." [ngModel]="searchOrgSearchKeyword()"
-                    (ngModelChange)="searchOrgSearchKeyword.set($event)" />
-                </div>
-                <ng-container *ngFor="let node of searchOrgUnitTree()">
-                  <ng-container *ngTemplateOutlet="searchOrgTreeNode; context: { $implicit: node, depth: 0 }"></ng-container>
-                </ng-container>
-                <div *ngIf="searchOrgUnitTree().length === 0" class="org-tree-empty">Không có đơn vị phù hợp.</div>
+              <ng-container *ngFor="let node of searchOrgUnitTree()">
+                <ng-container
+                  *ngTemplateOutlet="
+                    searchOrgTreeNode;
+                    context: { $implicit: node, depth: 0 }
+                  "
+                ></ng-container>
+              </ng-container>
+              <div
+                *ngIf="searchOrgUnitTree().length === 0"
+                class="org-tree-empty"
+              >
+                Không có đơn vị phù hợp.
               </div>
             </div>
           </div>
-
-          <!-- Status Filter -->
-          <div class="standard-search-field">
-            <label class="search-field-label">Trạng thái</label>
-            <select class="wf-input" [ngModel]="searchStatus()"
-              (ngModelChange)="searchStatus.set($event); onSearch()">
-              <option value="">-- Trạng thái --</option>
-              <option value="1">Hoạt động</option>
-              <option value="0">Ngừng hoạt động</option>
-            </select>
-          </div>
-
         </div>
-        <div class="standard-search-actions">
-          <button type="button" class="btn-outlined" (click)="onResetSearch()">
-            <i class="pi pi-refresh"></i> Làm mới
-          </button>
-          <button type="button" class="btn-save" (click)="onSearch()">
-            <i class="pi pi-check"></i> Áp dụng
-          </button>
+
+        <!-- Status Filter -->
+        <div class="standard-search-field">
+          <label class="search-field-label">Trạng thái</label>
+          <select
+            class="wf-input"
+            [ngModel]="searchStatus()"
+            (ngModelChange)="searchStatus.set($event); onSearch()"
+          >
+            <option value="">-- Trạng thái --</option>
+            <option value="1">Hoạt động</option>
+            <option value="0">Ngừng hoạt động</option>
+          </select>
         </div>
+      </div>
+      <div class="standard-search-actions">
+        <button type="button" class="btn-outlined" (click)="onResetSearch()">
+          <i class="pi pi-refresh"></i> Làm mới
+        </button>
+        <button type="button" class="btn-save" (click)="onSearch()">
+          <i class="pi pi-check"></i> Áp dụng
+        </button>
+      </div>
     </div>
 
-      <!-- Table Grid -->
-      <div class="wf-card">
+    <!-- Table Grid -->
+    <div class="wf-card">
       <div class="wf-table-wrap">
         <table class="wf-table">
           <thead>
-            <tr>
-              <th class="col-stt">STT</th>
-              <th>Mã</th>
-              <th>Tên</th>
-              <th>Địa chỉ</th>
-              <th>Loại lưới điện</th>
-              <th>Đơn vị quản lý</th>
-              <th>Trạng thái</th>
-              <th class="col-hd">Thao tác</th>
-            </tr>
+            <ng-container *ngIf="infraTypeId() === 1">
+              <tr>
+                <th class="col-stt">STT</th>
+                <th>Mã Trạm</th>
+                <th>Tên Trạm</th>
+                <th>Ngày vận hành</th>
+                <th>Địa chỉ</th>
+                <th>Đơn vị quản lý</th>
+                <th>Trạng thái</th>
+                <th class="col-hd">Thao tác</th>
+              </tr>
+            </ng-container>
+            <ng-container *ngIf="infraTypeId() === 2">
+              <tr>
+                <th class="col-stt">STT</th>
+                <th>Mã</th>
+                <th>Tên</th>
+                <th>Địa chỉ</th>
+                <th>Loại lưới điện</th>
+                <th>Đơn vị quản lý</th>
+                <th>Trạng thái</th>
+                <th class="col-hd">Thao tác</th>
+              </tr>
+            </ng-container>
           </thead>
           <tbody>
-            <tr *ngFor="let item of paginatedItems(); let i = index">
-              <td class="col-stt text-muted">{{ (currentPage() - 1) * pageSize() + i + 1 }}</td>
-              <td>
-                <a class="wf-link" style="color: #2563eb; cursor: pointer; font-weight: 600; text-decoration: none;"
-                   (click)="onViewDetail(item)">{{ item.code }}</a>
-              </td>
-              <td>
-                <span *ngIf="canEdit(); else viewOnlyName">
-                  <b class="wf-name-link" (click)="onEdit(item)">{{ item.name }}</b>
-                </span>
-                <ng-template #viewOnlyName>
-                  <b>{{ item.name }}</b>
-                </ng-template>
-              </td>
-              <td>{{ item.address || '-' }}</td>
-              <td>
-                <span class="status-pill"
-                  [style.background-color]="item.gridTypeId === 1 ? '#eff6ff' : (item.gridTypeId === 2 ? '#f5f3ff' : '#f9fafb')"
-                  [style.color]="item.gridTypeId === 1 ? '#1e40af' : (item.gridTypeId === 2 ? '#5b21b6' : '#6b7280')"
-                  [style.border-color]="item.gridTypeId === 1 ? '#bfdbfe' : (item.gridTypeId === 2 ? '#ddd6fe' : '#e5e7eb')">
-                  {{ item.gridTypeId === 1 ? 'Cao áp' : (item.gridTypeId === 2 ? 'Trung áp' : '-') }}
-                </span>
-              </td>
-              <td>
-                <span class="text-primary font-semibold" *ngIf="item.organization">
-                  {{ item.organization.name }}
-                </span>
-                <span class="text-muted italic" *ngIf="!item.organization">Chưa phân bổ</span>
-              </td>
-              <td>
-                <span *ngIf="item.isActive === 1 || item.isActive === true" class="status-pill status-active"
-                  style="background-color: #ecfdf5; color: #065f46; border-color: #a7f3d0;">
-                  Hoạt động
-                </span>
-                <span *ngIf="item.isActive === 0 || item.isActive === false" class="status-pill status-locked"
-                  style="background-color: #fef2f2; color: #991b1b; border-color: #fee2e2;">
-                  Ngừng hoạt động
-                </span>
-              </td>
-              <td class="col-hd">
-                <div class="action-buttons-group">
-                  <div class="dropdown-actions-container" (click)="$event.stopPropagation()">
-                    <button class="act-btn act-more" title="Thao tác khác" (click)="openActionMenu(item, $event, actionMenu)">
-                      <i class="pi pi-ellipsis-h"></i>
-                    </button>
+            <ng-container *ngIf="infraTypeId() === 1">
+              <tr *ngFor="let item of paginatedItems(); let i = index">
+                <td class="col-stt text-muted">
+                  {{ (currentPage() - 1) * pageSize() + i + 1 }}
+                </td>
+                <td>
+                  <a
+                    class="wf-link"
+                    style="
+                      color: #2563eb;
+                      cursor: pointer;
+                      font-weight: 600;
+                      text-decoration: none;
+                    "
+                    (click)="onViewDetail(item)"
+                    >{{ item.code }}</a
+                  >
+                </td>
+                <td>
+                  <span *ngIf="canEdit(); else viewOnlyName">
+                    <b class="wf-name-link" (click)="onEdit(item)">{{
+                      item.name
+                    }}</b>
+                  </span>
+                  <ng-template #viewOnlyName>
+                    <b>{{ item.name }}</b>
+                  </ng-template>
+                </td>
+                <td>
+                  {{
+                    item.operationDate
+                      ? (item.operationDate | date: 'dd/MM/yyyy')
+                      : '-'
+                  }}
+                </td>
+                <td>{{ item.address || '-' }}</td>
+                <td>
+                  <span *ngIf="item.organization">
+                    {{ item.organization.name }}
+                  </span>
+                  <span class="text-muted italic" *ngIf="!item.organization"
+                    >Chưa phân bổ</span
+                  >
+                </td>
+                <td>
+                  <span
+                    *ngIf="item.isActive === 1 || item.isActive === true"
+                    class="status-pill status-active"
+                    style="
+                      background-color: #ecfdf5;
+                      color: #065f46;
+                      border-color: #a7f3d0;
+                    "
+                  >
+                    Hoạt động
+                  </span>
+                  <span
+                    *ngIf="item.isActive === 0 || item.isActive === false"
+                    class="status-pill status-locked"
+                    style="
+                      background-color: #fef2f2;
+                      color: #991b1b;
+                      border-color: #fee2e2;
+                    "
+                  >
+                    Ngừng hoạt động
+                  </span>
+                </td>
+                <td class="col-hd">
+                  <div class="action-buttons-group">
+                    <div
+                      class="dropdown-actions-container"
+                      (click)="$event.stopPropagation()"
+                    >
+                      <button
+                        class="act-btn act-more"
+                        title="Thao tác khác"
+                        (click)="openActionMenu(item, $event, actionMenu)"
+                      >
+                        <i class="pi pi-ellipsis-h"></i>
+                      </button>
+                    </div>
                   </div>
-                </div>
-              </td>
-            </tr>
+                </td>
+              </tr>
+            </ng-container>
+            <ng-container *ngIf="infraTypeId() === 2">
+              <tr *ngFor="let item of paginatedItems(); let i = index">
+                <td class="col-stt text-muted">
+                  {{ (currentPage() - 1) * pageSize() + i + 1 }}
+                </td>
+                <td>
+                  <a
+                    class="wf-link"
+                    style="
+                      color: #2563eb;
+                      cursor: pointer;
+                      font-weight: 600;
+                      text-decoration: none;
+                    "
+                    (click)="onViewDetail(item)"
+                    >{{ item.code }}</a
+                  >
+                </td>
+                <td>
+                  <span *ngIf="canEdit(); else viewOnlyName">
+                    <b class="wf-name-link" (click)="onEdit(item)">{{
+                      item.name
+                    }}</b>
+                  </span>
+                  <ng-template #viewOnlyName>
+                    <b>{{ item.name }}</b>
+                  </ng-template>
+                </td>
+                <td>{{ item.address || '-' }}</td>
+                <td>
+                  <span class="status-pill"
+                    [style.background-color]="item.gridTypeId === 1 ? '#eff6ff' : (item.gridTypeId === 2 ? '#f5f3ff' : '#f9fafb')"
+                    [style.color]="item.gridTypeId === 1 ? '#1e40af' : (item.gridTypeId === 2 ? '#5b21b6' : '#6b7280')"
+                    [style.border-color]="item.gridTypeId === 1 ? '#bfdbfe' : (item.gridTypeId === 2 ? '#ddd6fe' : '#e5e7eb')"
+                  >
+                    {{ item.gridTypeId === 1 ? 'Cao áp' : (item.gridTypeId === 2 ? 'Trung áp' : '-') }}
+                  </span>
+                </td>
+                <td>
+                  <span *ngIf="item.organization">
+                    {{ item.organization.name }}
+                  </span>
+                  <span class="text-muted italic" *ngIf="!item.organization"
+                    >Chưa phân bổ</span
+                  >
+                </td>
+                <td>
+                  <span
+                    *ngIf="item.isActive === 1 || item.isActive === true"
+                    class="status-pill status-active"
+                    style="
+                      background-color: #ecfdf5;
+                      color: #065f46;
+                      border-color: #a7f3d0;
+                    "
+                  >
+                    Hoạt động
+                  </span>
+                  <span
+                    *ngIf="item.isActive === 0 || item.isActive === false"
+                    class="status-pill status-locked"
+                    style="
+                      background-color: #fef2f2;
+                      color: #991b1b;
+                      border-color: #fee2e2;
+                    "
+                  >
+                    Ngừng hoạt động
+                  </span>
+                </td>
+                <td class="col-hd">
+                  <div class="action-buttons-group">
+                    <div
+                      class="dropdown-actions-container"
+                      (click)="$event.stopPropagation()"
+                    >
+                      <button
+                        class="act-btn act-more"
+                        title="Thao tác khác"
+                        (click)="openActionMenu(item, $event, actionMenu)"
+                      >
+                        <i class="pi pi-ellipsis-h"></i>
+                      </button>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            </ng-container>
             <tr *ngIf="items().length === 0">
-              <td colspan="8" class="empty-row">
+              <td [attr.colspan]="infraTypeId() === 1 ? 8 : 7" class="empty-row">
                 <i class="pi pi-inbox"></i>
                 <div>Không tìm thấy bản ghi nào.</div>
               </td>
@@ -162,780 +366,1975 @@
 
       <!-- Footer with Pagination -->
       <div class="table-footer-paginator" *ngIf="totalCount() > 0">
-        <span class="record-count">Tổng số: <b>{{ totalCount() }}</b> bản ghi.</span>
+        <span class="record-count"
+          >Tổng số: <b>{{ totalCount() }}</b> bản ghi.</span
+        >
         <app-eco-paginator
           [first]="(currentPage() - 1) * pageSize()"
           [rows]="pageSize()"
           [totalRecords]="totalCount()"
           [rowsPerPageOptions]="[10, 20, 50]"
           dropdownAppendTo="body"
-          (onPageChange)="onInfrastructurePageChange($event)">
+          (onPageChange)="onInfrastructurePageChange($event)"
+        >
         </app-eco-paginator>
       </div>
+    </div>
+  </div>
+
+  <p-menu
+    #actionMenu
+    [model]="actionMenuItems"
+    [popup]="true"
+    appendTo="body"
+    styleClass="row-action-menu"
+  ></p-menu>
+
+  <!-- ==================== DIALOG THÊM/SỬA ==================== -->
+  <p-dialog
+    [visible]="currentView() === 'add' || currentView() === 'edit'"
+    (visibleChange)="$event ? null : currentView.set('list')"
+    [header]="
+      currentView() === 'add'
+        ? 'Thêm mới ' + (infraTypeId() === 1 ? 'Trạm biến áp' : 'Đường dây')
+        : 'Chỉnh sửa ' + (infraTypeId() === 1 ? 'Trạm biến áp' : 'Đường dây')
+    "
+    [modal]="true"
+    [style]="{ width: '500px' }"
+    [contentStyle]="{ overflow: 'visible' }"
+    styleClass="evn-dialog-custom"
+  >
+    <div
+      style="display: flex; flex-direction: column; gap: 16px; padding: 10px 0"
+    >
+      <div class="form-group">
+        <label class="form-label">Mã <span class="required">*</span></label>
+        <input
+          type="text"
+          class="wf-input w-full"
+          [(ngModel)]="currentItem().code"
+          (ngModelChange)="onFieldChange('code')"
+          placeholder="Ví dụ: TBA_01, DD_110KV..."
+          [disabled]="currentView() === 'edit' || isSaving()"
+        />
+        <span class="field-error" *ngIf="codeError()">{{ codeError() }}</span>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Tên <span class="required">*</span></label>
+        <input
+          type="text"
+          class="wf-input w-full"
+          [(ngModel)]="currentItem().name"
+          (ngModelChange)="onFieldChange('name')"
+          placeholder="Nhập tên hiển thị..."
+          [disabled]="isSaving()"
+        />
+        <span class="field-error" *ngIf="nameError()">{{ nameError() }}</span>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Địa chỉ</label>
+        <input
+          type="text"
+          class="wf-input w-full"
+          [(ngModel)]="currentItem().address"
+          placeholder="Nhập địa chỉ..."
+          [disabled]="isSaving()"
+        />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Ngày vận hành</label>
+        <p-datepicker
+          [(ngModel)]="currentItem().operationDate"
+          dateFormat="dd/mm/yy"
+          [showIcon]="true"
+          icon="pi pi-calendar"
+          appendTo="body"
+          styleClass="w-full"
+          [disabled]="isSaving()"
+          placeholder="dd/mm/yyyy"
+        ></p-datepicker>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label"
+          >Loại lưới điện <span class="required">*</span></label
+        >
+        <select
+          class="wf-select w-full"
+          [(ngModel)]="currentItem().gridTypeId"
+          (ngModelChange)="onFieldChange('gridTypeId')"
+          [disabled]="isSaving() || isGridTypeLocked()"
+        >
+          <option [ngValue]="null">-- Chọn loại lưới điện --</option>
+          <option *ngFor="let gt of gridTypes()" [value]="gt.id">
+            {{ gt.name }}
+          </option>
+        </select>
+        <span class="field-error" *ngIf="gridTypeIdError()">{{
+          gridTypeIdError()
+        }}</span>
+        <span
+          *ngIf="isGridTypeLocked()"
+          style="
+            display: block;
+            margin-top: 6px;
+            font-size: 0.8rem;
+            color: #b45309;
+          "
+        >
+          Không thể thay đổi loại lưới điện vì
+          {{ infraTypeId() === 1 ? 'trạm biến áp' : 'đường dây' }} này đã có
+          thiết bị.
+        </span>
+      </div>
+
+      <!-- Đơn vị quản lý — Tree Picker -->
+      <div class="form-group">
+        <label class="form-label">Đơn vị quản lý</label>
+        <div class="org-tree-picker" [class.disabled]="isSaving()">
+          <!-- Thanh hiển thị đơn vị đã chọn -->
+          <div
+            class="org-tree-trigger"
+            (click)="!isSaving() && toggleOrgTreePicker($event)"
+            [class.has-value]="currentItem().unitId"
+            [class.open]="orgTreePickerOpen()"
+          >
+            <span class="org-tree-selected-label">
+              <i
+                class="pi pi-building"
+                style="margin-right: 6px; color: #6b7280"
+              ></i>
+              {{
+                getUnitLabel(currentItem().unitId) ||
+                  '-- Chọn đơn vị quản lý --'
+              }}
+            </span>
+            <span style="display: flex; align-items: center; gap: 8px">
+              <i
+                class="pi pi-times-circle clear-btn"
+                *ngIf="currentItem().unitId && !isSaving()"
+                (click)="clearOrgUnit($event)"
+                style="
+                  color: #94a3b8;
+                  font-size: 0.95rem;
+                  cursor: pointer;
+                  transition: color 0.15s;
+                "
+                onmouseover="this.style.color='#ef4444'"
+                onmouseout="this.style.color='#94a3b8'"
+              ></i>
+              <i
+                class="pi"
+                [class.pi-chevron-down]="!orgTreePickerOpen()"
+                [class.pi-chevron-up]="orgTreePickerOpen()"
+              ></i>
+            </span>
+          </div>
+          <!-- Tree dropdown -->
+          <div
+            class="org-tree-dropdown"
+            *ngIf="orgTreePickerOpen()"
+            (click)="$event.stopPropagation()"
+          >
+            <div class="org-tree-search">
+              <i class="pi pi-search"></i>
+              <input
+                type="text"
+                placeholder="Tìm kiếm đơn vị..."
+                [ngModel]="orgTreeSearchKeyword()"
+                (ngModelChange)="orgTreeSearchKeyword.set($event)"
+              />
+            </div>
+            <ng-container *ngFor="let node of filteredOrgUnitTree()">
+              <ng-container
+                *ngTemplateOutlet="
+                  orgTreeNode;
+                  context: { $implicit: node, depth: 0 }
+                "
+              ></ng-container>
+            </ng-container>
+            <div
+              *ngIf="filteredOrgUnitTree().length === 0"
+              class="org-tree-empty"
+            >
+              Không có đơn vị phù hợp.
+            </div>
+          </div>
+        </div>
+        <!-- Template cây node (đệ quy) -->
+        <ng-template #orgTreeNode let-node let-depth="depth">
+          <div
+            class="org-tree-node"
+            [style.padding-left.px]="depth * 18 + 8"
+            [class.selected]="currentItem().unitId == node.id"
+          >
+            <!-- Nút mở rộng nếu có con -->
+            <button
+              type="button"
+              class="org-tree-expand-btn"
+              *ngIf="node.children && node.children.length > 0"
+              (click)="toggleUnitNode(node.id, $event)"
+            >
+              <i
+                class="pi"
+                [class.pi-chevron-right]="!isNodeExpanded(node.id)"
+                [class.pi-chevron-down]="isNodeExpanded(node.id)"
+              ></i>
+            </button>
+            <span
+              class="org-tree-node-spacer"
+              *ngIf="!node.children || node.children.length === 0"
+            ></span>
+            <!-- Nhãn đơn vị — click để chọn -->
+            <span class="org-tree-node-label" (click)="selectOrgUnit(node.id)">
+              <i
+                class="pi pi-building"
+                style="margin-right: 5px; font-size: 0.8rem; color: #6b7280"
+              ></i>
+              {{ node.name }}
+            </span>
+          </div>
+          <!-- Cây con — chỉ hiện khi mở rộng -->
+          <ng-container
+            *ngIf="
+              (orgTreeSearchKeyword() || isNodeExpanded(node.id)) &&
+              node.children?.length
+            "
+          >
+            <ng-container *ngFor="let child of node.children">
+              <ng-container
+                *ngTemplateOutlet="
+                  orgTreeNode;
+                  context: { $implicit: child, depth: depth + 1 }
+                "
+              ></ng-container>
+            </ng-container>
+          </ng-container>
+        </ng-template>
+
+        <ng-template #searchOrgTreeNode let-node let-depth="depth">
+          <div
+            class="org-tree-node"
+            [style.padding-left.px]="depth * 18 + 8"
+            [class.selected]="searchUnitId() == node.id"
+          >
+            <button
+              type="button"
+              class="org-tree-expand-btn"
+              *ngIf="node.children && node.children.length > 0"
+              (click)="toggleSearchUnitNode(node.id, $event)"
+            >
+              <i
+                class="pi"
+                [class.pi-chevron-right]="!isSearchNodeExpanded(node.id)"
+                [class.pi-chevron-down]="isSearchNodeExpanded(node.id)"
+              ></i>
+            </button>
+            <span
+              class="org-tree-node-spacer"
+              *ngIf="!node.children || node.children.length === 0"
+            ></span>
+            <span
+              class="org-tree-node-label"
+              (click)="selectSearchOrgUnit(node.id)"
+            >
+              <i
+                class="pi pi-building"
+                style="margin-right: 5px; font-size: 0.8rem; color: #6b7280"
+              ></i>
+              {{ node.name }}
+            </span>
+          </div>
+          <ng-container
+            *ngIf="
+              (searchOrgSearchKeyword() || isSearchNodeExpanded(node.id)) &&
+              node.children?.length
+            "
+          >
+            <ng-container *ngFor="let child of node.children">
+              <ng-container
+                *ngTemplateOutlet="
+                  searchOrgTreeNode;
+                  context: { $implicit: child, depth: depth + 1 }
+                "
+              ></ng-container>
+            </ng-container>
+          </ng-container>
+        </ng-template>
+      </div>
+
+      <div
+        class="form-group"
+        style="display: flex; align-items: center; gap: 8px; padding-top: 5px"
+      >
+        <input
+          type="checkbox"
+          id="chkActive"
+          [ngModel]="currentItem().isActive"
+          (ngModelChange)="currentItem().isActive = $event"
+          style="scale: 1.1; cursor: pointer"
+          [disabled]="isSaving()"
+        />
+        <label
+          for="chkActive"
+          style="
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            user-select: none;
+            margin: 0;
+          "
+        >
+          Kích hoạt sử dụng
+        </label>
+      </div>
+    </div>
+    <ng-template #footer>
+      <div
+        class="flex gap-2 justify-content-end pt-3"
+        style="
+          display: flex;
+          justify-content: flex-end;
+          gap: 8px;
+          border-top: 1px solid #f1f5f9;
+          padding-top: 12px;
+        "
+      >
+        <button
+          class="btn-cancel btn-small"
+          (click)="currentView.set('list')"
+          [disabled]="isSaving()"
+        >
+          <i class="pi pi-times"></i> Đóng
+        </button>
+        <button
+          class="btn-save btn-small"
+          (click)="onSaveItem()"
+          [disabled]="isSaving()"
+        >
+          <i
+            class="pi pi-spin pi-spinner"
+            *ngIf="isSaving()"
+            style="margin-right: 4px"
+          ></i>
+          <i
+            class="pi pi-save"
+            *ngIf="!isSaving()"
+            style="margin-right: 4px"
+          ></i>
+          Lưu
+        </button>
+      </div>
+    </ng-template>
+  </p-dialog>
+
+  <!-- ==================== VIEW CHI TIẾT ==================== -->
+  <div
+    *ngIf="currentView() === 'detail'"
+    class="wf-card infrastructure-detail-card animate-fade-in sub-view-container"
+  >
+    <!-- Tab Bar (đặt trực tiếp ở đầu card) -->
+    <div
+      class="tab-bar"
+      style="
+        margin-bottom: 10px;
+        border-bottom: 1px solid #e2e8f0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      "
+    >
+      <div style="display: flex; gap: 8px">
+        <div
+          class="tab-item"
+          [class.tab-active]="activeTab() === 0"
+          (click)="activeTab.set(0)"
+          style="
+            padding: 12px 16px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            border-bottom: 2px solid transparent;
+          "
+          [style.border-bottom-color]="
+            activeTab() === 0 ? '#2563eb' : 'transparent'
+          "
+          [style.color]="activeTab() === 0 ? '#2563eb' : '#64748b'"
+        >
+          <i class="pi pi-info-circle"></i> Thông tin chung
+        </div>
+        <div
+          class="tab-item"
+          [class.tab-active]="activeTab() === 1"
+          (click)="activeTab.set(1)"
+          style="
+            padding: 12px 16px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            border-bottom: 2px solid transparent;
+          "
+          [style.border-bottom-color]="
+            activeTab() === 1 ? '#2563eb' : 'transparent'
+          "
+          [style.color]="activeTab() === 1 ? '#2563eb' : '#64748b'"
+        >
+          <i class="pi pi-paperclip"></i> Tài liệu đính kèm
+        </div>
+        <div
+          class="tab-item"
+          [class.tab-active]="activeTab() === 2"
+          (click)="activeTab.set(2)"
+          style="
+            padding: 12px 16px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            border-bottom: 2px solid transparent;
+          "
+          [style.border-bottom-color]="
+            activeTab() === 2 ? '#2563eb' : 'transparent'
+          "
+          [style.color]="activeTab() === 2 ? '#2563eb' : '#64748b'"
+        >
+          <i class="pi pi-folder-open"></i> Hồ sơ kỹ thuật
+        </div>
       </div>
     </div>
 
-    <p-menu #actionMenu [model]="actionMenuItems" [popup]="true" appendTo="body" styleClass="row-action-menu"></p-menu>
-
-    <!-- ==================== DIALOG THÊM/SỬA ==================== -->
-    <p-dialog [visible]="currentView() === 'add' || currentView() === 'edit'" (visibleChange)="$event ? null : currentView.set('list')" [header]="currentView() === 'add' ? ('Thêm mới ' + (infraTypeId() === 1 ? 'Trạm biến áp' : 'Đường dây')) : ('Chỉnh sửa ' + (infraTypeId() === 1 ? 'Trạm biến áp' : 'Đường dây'))" [modal]="true" [style]="{ width: '500px' }" styleClass="evn-dialog-custom">
-      <div style="display: flex; flex-direction: column; gap: 16px; padding: 10px 0;">
-
-        <div class="form-group">
-          <label class="form-label">Mã <span class="required">*</span></label>
-          <input type="text" class="wf-input w-full" [(ngModel)]="currentItem().code"
-            (ngModelChange)="onFieldChange('code')"
-            placeholder="Ví dụ: TBA_01, DD_110KV..." [disabled]="currentView() === 'edit' || isSaving()" />
-          <span class="field-error" *ngIf="codeError()">{{ codeError() }}</span>
+    <!-- ======= TAB 0: THÔNG TIN CHUNG ======= -->
+    <div *ngIf="activeTab() === 0" class="tab-content animate-fade-in">
+      <!-- Thông tin cơ sở hạ tầng -->
+      <div class="info-block infrastructure-info-panel">
+        <div
+          style="
+            display: flex;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            align-items: baseline;
+          "
+        >
+          <span
+            style="
+              width: 160px;
+              color: #0f172a;
+              font-weight: 600;
+              flex-shrink: 0;
+            "
+            >Mã {{ infraTypeId() === 1 ? 'trạm biến áp' : 'đường dây' }}:</span
+          >
+          <span style="color: #334155">{{ currentItem().code || '-' }}</span>
         </div>
-
-        <div class="form-group">
-          <label class="form-label">Tên <span class="required">*</span></label>
-          <input type="text" class="wf-input w-full" [(ngModel)]="currentItem().name"
-            (ngModelChange)="onFieldChange('name')"
-            placeholder="Nhập tên hiển thị..." [disabled]="isSaving()" />
-          <span class="field-error" *ngIf="nameError()">{{ nameError() }}</span>
+        <div
+          style="
+            display: flex;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            align-items: baseline;
+          "
+        >
+          <span
+            style="
+              width: 160px;
+              color: #0f172a;
+              font-weight: 600;
+              flex-shrink: 0;
+            "
+            >Tên {{ infraTypeId() === 1 ? 'trạm biến áp' : 'đường dây' }}:</span
+          >
+          <span style="color: #334155">{{ currentItem().name || '-' }}</span>
         </div>
-
-        <div class="form-group">
-          <label class="form-label">Địa chỉ</label>
-          <input type="text" class="wf-input w-full" [(ngModel)]="currentItem().address"
-            placeholder="Nhập địa chỉ..." [disabled]="isSaving()" />
+        <div
+          *ngIf="infraTypeId() !== 1"
+          style="
+            display: flex;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            align-items: baseline;
+          "
+        >
+          <span
+            style="
+              width: 160px;
+              color: #0f172a;
+              font-weight: 600;
+              flex-shrink: 0;
+            "
+            >{{ infraTypeId() === 1 ? 'Địa chỉ' : 'Chiều dài' }}:</span
+          >
+          <span style="color: #334155">{{ getTransmissionLineLength() }}</span>
         </div>
-
-        <div class="form-group">
-          <label class="form-label">Ngày vận hành</label>
-          <p-datepicker [(ngModel)]="currentItem().operationDate" dateFormat="dd/mm/yy" [showIcon]="true"
-            icon="pi pi-calendar" appendTo="body" styleClass="w-full" [disabled]="isSaving()"
-            placeholder="dd/mm/yyyy"></p-datepicker>
+        <div
+          *ngIf="infraTypeId() !== 1"
+          style="
+            display: flex;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            align-items: baseline;
+          "
+        >
+          <span
+            style="
+              width: 160px;
+              color: #0f172a;
+              font-weight: 600;
+              flex-shrink: 0;
+            "
+            >Loại lưới điện:</span
+          >
+          <span style="color: #334155">{{
+            currentItem().gridTypeName ||
+              (currentItem().gridTypeId === 1
+                ? 'Lưới điện cao áp'
+                : currentItem().gridTypeId === 2
+                  ? 'Lưới điện trung áp'
+                  : '-')
+          }}</span>
         </div>
-
-        <div class="form-group">
-          <label class="form-label">Loại lưới điện <span class="required">*</span></label>
-          <select class="wf-select w-full" [(ngModel)]="currentItem().gridTypeId" (ngModelChange)="onFieldChange('gridTypeId')" [disabled]="isSaving() || isGridTypeLocked()">
-            <option [ngValue]="null">-- Chọn loại lưới điện --</option>
-            <option *ngFor="let gt of gridTypes()" [value]="gt.id">{{ gt.name }}</option>
-          </select>
-          <span class="field-error" *ngIf="gridTypeIdError()">{{ gridTypeIdError() }}</span>
-          <span *ngIf="isGridTypeLocked()" style="display: block; margin-top: 6px; font-size: 0.8rem; color: #b45309;">
-            Không thể thay đổi loại lưới điện vì {{ infraTypeId() === 1 ? 'trạm biến áp' : 'đường dây' }} này đã có thiết bị.
-          </span>
+        <div
+          style="
+            display: flex;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            align-items: baseline;
+          "
+        >
+          <span
+            style="
+              width: 160px;
+              color: #0f172a;
+              font-weight: 600;
+              flex-shrink: 0;
+            "
+            >Đơn vị Quản lý:</span
+          >
+          <span style="color: #334155">{{
+            currentItem().organization?.name ||
+              currentItem().unitName ||
+              'Chưa phân bổ'
+          }}</span>
         </div>
-
-        <!-- Đơn vị quản lý — Tree Picker -->
-        <div class="form-group">
-          <label class="form-label">Đơn vị quản lý</label>
-          <div class="org-tree-picker" [class.disabled]="isSaving()">
-            <!-- Thanh hiển thị đơn vị đã chọn -->
-            <div class="org-tree-trigger" (click)="!isSaving() && toggleOrgTreePicker($event)"
-                 [class.has-value]="currentItem().unitId"
-                 [class.open]="orgTreePickerOpen()">
-              <span class="org-tree-selected-label">
-                <i class="pi pi-building" style="margin-right: 6px; color: #6b7280;"></i>
-                {{ getUnitLabel(currentItem().unitId) || '-- Chọn đơn vị quản lý --' }}
-              </span>
-              <span style="display: flex; align-items: center; gap: 8px;">
-                <i class="pi pi-times-circle clear-btn" *ngIf="currentItem().unitId && !isSaving()" (click)="clearOrgUnit($event)" style="color: #94a3b8; font-size: 0.95rem; cursor: pointer; transition: color 0.15s;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#94a3b8'"></i>
-                <i class="pi" [class.pi-chevron-down]="!orgTreePickerOpen()" [class.pi-chevron-up]="orgTreePickerOpen()"></i>
-              </span>
-            </div>
-            <!-- Tree dropdown -->
-            <div class="org-tree-dropdown" *ngIf="orgTreePickerOpen()" (click)="$event.stopPropagation()">
-              <div class="org-tree-search">
-                <i class="pi pi-search"></i>
-                <input
-                  type="text"
-                  placeholder="Tìm kiếm đơn vị..."
-                  [ngModel]="orgTreeSearchKeyword()"
-                  (ngModelChange)="orgTreeSearchKeyword.set($event)"
-                />
-              </div>
-              <ng-container *ngFor="let node of filteredOrgUnitTree()">
-                <ng-container *ngTemplateOutlet="orgTreeNode; context: { $implicit: node, depth: 0 }"></ng-container>
-              </ng-container>
-              <div *ngIf="filteredOrgUnitTree().length === 0" class="org-tree-empty">Không có đơn vị phù hợp.</div>
-            </div>
-          </div>
-          <!-- Template cây node (đệ quy) -->
-          <ng-template #orgTreeNode let-node let-depth="depth">
-            <div class="org-tree-node" [style.padding-left.px]="depth * 18 + 8"
-                 [class.selected]="currentItem().unitId == node.id">
-              <!-- Nút mở rộng nếu có con -->
-              <button type="button" class="org-tree-expand-btn"
-                      *ngIf="node.children && node.children.length > 0"
-                      (click)="toggleUnitNode(node.id, $event)">
-                <i class="pi" [class.pi-chevron-right]="!isNodeExpanded(node.id)"
-                   [class.pi-chevron-down]="isNodeExpanded(node.id)"></i>
-              </button>
-              <span class="org-tree-node-spacer" *ngIf="!node.children || node.children.length === 0"></span>
-              <!-- Nhãn đơn vị — click để chọn -->
-              <span class="org-tree-node-label" (click)="selectOrgUnit(node.id)">
-                <i class="pi pi-building" style="margin-right: 5px; font-size: 0.8rem; color: #6b7280;"></i>
-                {{ node.name }}
-              </span>
-            </div>
-            <!-- Cây con — chỉ hiện khi mở rộng -->
-            <ng-container *ngIf="(orgTreeSearchKeyword() || isNodeExpanded(node.id)) && node.children?.length">
-              <ng-container *ngFor="let child of node.children">
-                <ng-container *ngTemplateOutlet="orgTreeNode; context: { $implicit: child, depth: depth + 1 }"></ng-container>
-              </ng-container>
-            </ng-container>
-          </ng-template>
-
-          <ng-template #searchOrgTreeNode let-node let-depth="depth">
-            <div class="org-tree-node" [style.padding-left.px]="depth * 18 + 8"
-              [class.selected]="searchUnitId() == node.id">
-              <button type="button" class="org-tree-expand-btn" *ngIf="node.children && node.children.length > 0"
-                (click)="toggleSearchUnitNode(node.id, $event)">
-                <i class="pi" [class.pi-chevron-right]="!isSearchNodeExpanded(node.id)"
-                  [class.pi-chevron-down]="isSearchNodeExpanded(node.id)"></i>
-              </button>
-              <span class="org-tree-node-spacer" *ngIf="!node.children || node.children.length === 0"></span>
-              <span class="org-tree-node-label" (click)="selectSearchOrgUnit(node.id)">
-                <i class="pi pi-building" style="margin-right: 5px; font-size: 0.8rem; color: #6b7280;"></i>
-                {{ node.name }}
-              </span>
-            </div>
-            <ng-container *ngIf="(searchOrgSearchKeyword() || isSearchNodeExpanded(node.id)) && node.children?.length">
-              <ng-container *ngFor="let child of node.children">
-                <ng-container *ngTemplateOutlet="searchOrgTreeNode; context: { $implicit: child, depth: depth + 1 }"></ng-container>
-              </ng-container>
-            </ng-container>
-          </ng-template>
+        <div
+          *ngIf="infraTypeId() !== 2"
+          style="
+            display: flex;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            align-items: baseline;
+          "
+        >
+          <span
+            style="
+              width: 160px;
+              color: #0f172a;
+              font-weight: 600;
+              flex-shrink: 0;
+            "
+            >Ngày vận hành:</span
+          >
+          <span style="color: #334155">{{
+            currentItem().operationDate
+              ? (currentItem().operationDate | date: 'dd/MM/yyyy')
+              : '-'
+          }}</span>
         </div>
-
-        <div class="form-group" style="display: flex; align-items: center; gap: 8px; padding-top: 5px;">
-          <input type="checkbox" id="chkActive" [ngModel]="currentItem().isActive" (ngModelChange)="currentItem().isActive = $event" style="scale: 1.1; cursor: pointer;" [disabled]="isSaving()" />
-          <label for="chkActive" style="font-size: 0.9rem; font-weight: 600; cursor: pointer; user-select: none; margin: 0;">
-            Kích hoạt sử dụng
-          </label>
+        <div
+          style="
+            display: flex;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            align-items: baseline;
+          "
+        >
+          <span
+            style="
+              width: 160px;
+              color: #0f172a;
+              font-weight: 600;
+              flex-shrink: 0;
+            "
+            >Trạng thái:</span
+          >
+          <span style="color: #334155">{{
+            currentItem().isActive === 1 || currentItem().isActive === true
+              ? 'Đang vận hành'
+              : 'Ngừng hoạt động'
+          }}</span>
         </div>
-
       </div>
-      <ng-template #footer>
-        <div class="flex gap-2 justify-content-end pt-3" style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
-          <button class="btn-cancel btn-small" (click)="currentView.set('list')" [disabled]="isSaving()"><i class="pi pi-times"></i> Đóng</button>
-          <button class="btn-save btn-small" (click)="onSaveItem()" [disabled]="isSaving()">
-            <i class="pi pi-spin pi-spinner" *ngIf="isSaving()" style="margin-right: 4px;"></i>
-            <i class="pi pi-save" *ngIf="!isSaving()" style="margin-right: 4px;"></i>
-            Lưu
+
+      <!-- Danh sách thiết bị -->
+      <div style="background: #ffffff; padding: 0 8px">
+        <!-- Section header -->
+        <div
+          style="
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+          "
+        >
+          <span
+            style="
+              font-size: 1.05rem;
+              font-weight: 700;
+              color: #002d72;
+              display: flex;
+              align-items: center;
+            "
+          >
+            <i
+              class="pi pi-link"
+              style="color: #2563eb; margin-right: 8px; font-weight: bold"
+            ></i>
+            Danh sách thiết bị
+          </span>
+          <button
+            class="btn-green"
+            (click)="onAddEquipment()"
+            *ngIf="canCreateEquipment()"
+            style="
+              background-color: #2563eb;
+              border-color: #2563eb;
+              color: #ffffff;
+              font-weight: 500;
+              font-size: 0.9rem;
+              padding: 8px 16px;
+              border-radius: 6px;
+              display: inline-flex;
+              align-items: center;
+              gap: 6px;
+            "
+          >
+            <i class="pi pi-plus"></i> Thêm mới
           </button>
         </div>
-      </ng-template>
-    </p-dialog>
 
-    <!-- ==================== VIEW CHI TIẾT ==================== -->
-    <div *ngIf="currentView() === 'detail'" class="wf-card infrastructure-detail-card animate-fade-in sub-view-container">
+        <!-- Divider line -->
+        <div
+          style="border-bottom: 1px solid #e2e8f0; margin-bottom: 20px"
+        ></div>
 
-      <!-- Tab Bar (đặt trực tiếp ở đầu card) -->
-      <div class="tab-bar" style="margin-bottom: 10px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
-        <div style="display: flex; gap: 8px;">
-          <div class="tab-item" [class.tab-active]="activeTab() === 0" (click)="activeTab.set(0)"
-               style="padding: 12px 16px; cursor: pointer; font-weight: 500; font-size: 0.95rem; display: flex; align-items: center; gap: 6px; border-bottom: 2px solid transparent;"
-               [style.border-bottom-color]="activeTab() === 0 ? '#2563eb' : 'transparent'"
-               [style.color]="activeTab() === 0 ? '#2563eb' : '#64748b'">
-            <i class="pi pi-info-circle"></i> Thông tin chung
+        <!-- Search bar (Auto search, không có nút Tìm kiếm/Làm mới) -->
+        <div
+          style="
+            display: flex;
+            gap: 24px;
+            align-items: center;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+          "
+        >
+          <div
+            style="
+              display: flex;
+              flex-direction: column;
+              gap: 6px;
+              flex: 1;
+              max-width: 300px;
+              min-width: 200px;
+            "
+          >
+            <label style="font-size: 0.875rem; color: #475569; font-weight: 500"
+              >Từ khóa</label
+            >
+            <input
+              type="text"
+              class="wf-search-input"
+              style="
+                height: 38px;
+                border-radius: 6px;
+                border: 1px solid #cbd5e1;
+                padding: 0 12px;
+                width: 100%;
+              "
+              placeholder="Nhập từ khóa tìm kiếm"
+              [ngModel]="equipmentSearchKeyword()"
+              (ngModelChange)="
+                equipmentSearchKeyword.set($event); onEquipmentFilterChange()
+              "
+            />
           </div>
-           <div class="tab-item" [class.tab-active]="activeTab() === 1" (click)="activeTab.set(1)"
-               style="padding: 12px 16px; cursor: pointer; font-weight: 500; font-size: 0.95rem; display: flex; align-items: center; gap: 6px; border-bottom: 2px solid transparent;"
-               [style.border-bottom-color]="activeTab() === 1 ? '#2563eb' : 'transparent'"
-               [style.color]="activeTab() === 1 ? '#2563eb' : '#64748b'">
-            <i class="pi pi-paperclip"></i> Tài liệu đính kèm
-          </div>
-          <div class="tab-item" [class.tab-active]="activeTab() === 2" (click)="activeTab.set(2)"
-               style="padding: 12px 16px; cursor: pointer; font-weight: 500; font-size: 0.95rem; display: flex; align-items: center; gap: 6px; border-bottom: 2px solid transparent;"
-               [style.border-bottom-color]="activeTab() === 2 ? '#2563eb' : 'transparent'"
-               [style.color]="activeTab() === 2 ? '#2563eb' : '#64748b'">
-            <i class="pi pi-folder-open"></i> Hồ sơ kỹ thuật
+          <div
+            style="
+              display: flex;
+              flex-direction: column;
+              gap: 6px;
+              flex: 1;
+              max-width: 300px;
+              min-width: 200px;
+            "
+          >
+            <label style="font-size: 0.875rem; color: #475569; font-weight: 500"
+              >Loại thiết bị</label
+            >
+            <p-select
+              [options]="equipmentTypesForCurrentInfrastructure()"
+              [ngModel]="equipmentSearchTypeId()"
+              (ngModelChange)="
+                equipmentSearchTypeId.set($event); onEquipmentFilterChange()
+              "
+              optionLabel="name"
+              optionValue="id"
+              placeholder="-- Chọn loại thiết bị --"
+              [filter]="true"
+              [disabled]="!currentItem().gridTypeId"
+              [style]="{
+                width: '100%',
+                height: '38px',
+                'line-height': '24px',
+                border: '1px solid #cbd5e1',
+                'border-radius': '6px',
+                'background-color': '#ffffff',
+                color: '#374151',
+              }"
+            >
+            </p-select>
           </div>
         </div>
-      </div>
 
-      <!-- ======= TAB 0: THÔNG TIN CHUNG ======= -->
-      <div *ngIf="activeTab() === 0" class="tab-content animate-fade-in">
-
-        <!-- Thông tin cơ sở hạ tầng -->
-        <div class="info-block infrastructure-info-panel">
-          <div style="display: flex; font-size: 0.95rem; line-height: 1.6; align-items: baseline;">
-            <span style="width: 160px; color: #0f172a; font-weight: 600; flex-shrink: 0;">Mã {{ infraTypeId() === 1 ? 'trạm biến áp' : 'đường dây' }}:</span>
-            <span style="color: #334155;">{{ currentItem().code || '-' }}</span>
-          </div>
-          <div style="display: flex; font-size: 0.95rem; line-height: 1.6; align-items: baseline;">
-            <span style="width: 160px; color: #0f172a; font-weight: 600; flex-shrink: 0;">Tên {{ infraTypeId() === 1 ? 'trạm biến áp' : 'đường dây' }}:</span>
-            <span style="color: #334155;">{{ currentItem().name || '-' }}</span>
-          </div>
-          <div *ngIf="infraTypeId() !== 1" style="display: flex; font-size: 0.95rem; line-height: 1.6; align-items: baseline;">
-            <span style="width: 160px; color: #0f172a; font-weight: 600; flex-shrink: 0;">{{ infraTypeId() === 1 ? 'Địa chỉ' : 'Chiều dài' }}:</span>
-            <span style="color: #334155;">{{ getTransmissionLineLength() }}</span>
-          </div>
-          <div *ngIf="infraTypeId() !== 1" style="display: flex; font-size: 0.95rem; line-height: 1.6; align-items: baseline;">
-            <span style="width: 160px; color: #0f172a; font-weight: 600; flex-shrink: 0;">Loại lưới điện:</span>
-            <span style="color: #334155;">{{ currentItem().gridTypeName || (currentItem().gridTypeId === 1 ? 'Lưới điện cao áp' : (currentItem().gridTypeId === 2 ? 'Lưới điện trung áp' : '-')) }}</span>
-          </div>
-          <div style="display: flex; font-size: 0.95rem; line-height: 1.6; align-items: baseline;">
-            <span style="width: 160px; color: #0f172a; font-weight: 600; flex-shrink: 0;">Đơn vị Quản lý:</span>
-            <span style="color: #334155;">{{ currentItem().organization?.name || currentItem().unitName || 'Chưa phân bổ' }}</span>
-          </div>
-          <div *ngIf="infraTypeId() !== 2" style="display: flex; font-size: 0.95rem; line-height: 1.6; align-items: baseline;">
-            <span style="width: 160px; color: #0f172a; font-weight: 600; flex-shrink: 0;">Ngày vận hành:</span>
-            <span style="color: #334155;">{{ currentItem().operationDate ? (currentItem().operationDate | date:'dd/MM/yyyy') : '-' }}</span>
-          </div>
-          <div style="display: flex; font-size: 0.95rem; line-height: 1.6; align-items: baseline;">
-            <span style="width: 160px; color: #0f172a; font-weight: 600; flex-shrink: 0;">Trạng thái:</span>
-            <span style="color: #334155;">{{ (currentItem().isActive === 1 || currentItem().isActive === true) ? 'Đang vận hành' : 'Ngừng hoạt động' }}</span>
+        <!-- Loading -->
+        <div
+          *ngIf="isLoadingEquipments()"
+          style="text-align: center; padding: 30px 0"
+        >
+          <i
+            class="pi pi-spin pi-spinner"
+            style="font-size: 1.8rem; color: #002d72"
+          ></i>
+          <div style="margin-top: 8px; color: #64748b">
+            Đang tải danh sách thiết bị...
           </div>
         </div>
 
-        <!-- Danh sách thiết bị -->
-        <div style="background: #ffffff; padding: 0 8px;">
-
-          <!-- Section header -->
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <span style="font-size: 1.05rem; font-weight: 700; color: #002D72; display: flex; align-items: center;">
-              <i class="pi pi-link" style="color: #2563eb; margin-right: 8px; font-weight: bold;"></i>
-              Danh sách thiết bị
-            </span>
-            <button class="btn-green" (click)="onAddEquipment()" *ngIf="canCreateEquipment()"
-              style="background-color: #2563eb; border-color: #2563eb; color: #ffffff; font-weight: 500; font-size: 0.9rem; padding: 8px 16px; border-radius: 6px; display: inline-flex; align-items: center; gap: 6px;">
-              <i class="pi pi-plus"></i> Thêm mới
-            </button>
-          </div>
-
-          <!-- Divider line -->
-          <div style="border-bottom: 1px solid #e2e8f0; margin-bottom: 20px;"></div>
-
-          <!-- Search bar (Auto search, không có nút Tìm kiếm/Làm mới) -->
-          <div style="display: flex; gap: 24px; align-items: center; margin-bottom: 24px; flex-wrap: wrap;">
-            <div style="display: flex; flex-direction: column; gap: 6px; flex: 1; max-width: 300px; min-width: 200px;">
-              <label style="font-size: 0.875rem; color: #475569; font-weight: 500;">Từ khóa</label>
-              <input type="text" class="wf-search-input" style="height: 38px; border-radius: 6px; border: 1px solid #cbd5e1; padding: 0 12px; width: 100%;"
-                placeholder="Nhập từ khóa tìm kiếm"
-                [ngModel]="equipmentSearchKeyword()"
-                (ngModelChange)="equipmentSearchKeyword.set($event); onEquipmentFilterChange()" />
-            </div>
-            <div style="display: flex; flex-direction: column; gap: 6px; flex: 1; max-width: 300px; min-width: 200px;">
-              <label style="font-size: 0.875rem; color: #475569; font-weight: 500;">Loại thiết bị</label>
-              <p-select [options]="equipmentTypesForCurrentInfrastructure()" [ngModel]="equipmentSearchTypeId()"
-                (ngModelChange)="equipmentSearchTypeId.set($event); onEquipmentFilterChange()" optionLabel="name" optionValue="id"
-                placeholder="-- Chọn loại thiết bị --" [filter]="true" [disabled]="!currentItem().gridTypeId"
-                [style]="{'width':'100%', 'height':'38px', 'line-height':'24px', 'border':'1px solid #cbd5e1', 'border-radius':'6px', 'background-color':'#ffffff', 'color':'#374151'}">
-              </p-select>
-            </div>
-          </div>
-
-          <!-- Loading -->
-          <div *ngIf="isLoadingEquipments()" style="text-align: center; padding: 30px 0;">
-            <i class="pi pi-spin pi-spinner" style="font-size: 1.8rem; color: #002D72;"></i>
-            <div style="margin-top: 8px; color: #64748b;">Đang tải danh sách thiết bị...</div>
-          </div>
-
-          <!-- Equipment Table -->
-          <div *ngIf="!isLoadingEquipments()">
-            <table class="wf-table" style="width: 100%; border-collapse: collapse; margin-top: 16px;">
-              <thead>
-                <tr style="border-bottom: 1px solid #cbd5e1;">
-                  <th class="col-stt">STT</th>
-                  <th>Mã thiết bị</th>
-                  <th>Tên thiết bị</th>
-                  <th>Loại thiết bị</th>
-                  <th>Năm sản xuất</th>
-                  <th>Trạng thái</th>
-                  <th class="col-hd">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let eq of equipmentItems(); let i = index">
-                  <td class="col-stt text-muted">{{ (equipmentPage() - 1) * equipmentPageSize() + i + 1 }}</td>
-                  <td>
-                    <a class="wf-link" 
-                       (click)="onViewEquipment(eq)">{{ eq.code }}</a>
-                  </td>
-                  <td>{{ eq.name }}</td>
-                  <td>{{ eq.equipmentTypeName || getEquipmentTypeName(eq.equipmentTypeId) }}</td>
-                  <td>{{ eq.manufactureYear || '-' }}</td>
-                  <td>
-                    <span class="status-pill" [ngClass]="getEquipmentStatusClass(eq)">
-                      {{ getEquipmentStatusLabel(eq) }}
-                    </span>
-                  </td>
-                  <td class="col-hd">
-                    <div class="action-buttons-group">
-                      <div class="dropdown-actions-container">
-                        <button type="button" class="act-btn act-more" 
-                          (click)="toggleEquipmentMenu(eq, $event)" title="Thao tác khác">
-                          <i class="pi pi-ellipsis-h"></i>
+        <!-- Equipment Table -->
+        <div *ngIf="!isLoadingEquipments()">
+          <table
+            class="wf-table"
+            style="width: 100%; border-collapse: collapse; margin-top: 16px"
+          >
+            <thead>
+              <tr style="border-bottom: 1px solid #cbd5e1">
+                <th class="col-stt">STT</th>
+                <th>Mã thiết bị</th>
+                <th>Tên thiết bị</th>
+                <th>Loại thiết bị</th>
+                <th>Năm sản xuất</th>
+                <th>Trạng thái</th>
+                <th class="col-hd">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let eq of equipmentItems(); let i = index">
+                <td class="col-stt text-muted">
+                  {{ (equipmentPage() - 1) * equipmentPageSize() + i + 1 }}
+                </td>
+                <td>
+                  <a class="wf-link" (click)="onViewEquipment(eq)">{{
+                    eq.code
+                  }}</a>
+                </td>
+                <td>{{ eq.name }}</td>
+                <td>
+                  {{
+                    eq.equipmentTypeName ||
+                      getEquipmentTypeName(eq.equipmentTypeId)
+                  }}
+                </td>
+                <td>{{ eq.manufactureYear || '-' }}</td>
+                <td>
+                  <span
+                    class="status-pill"
+                    [ngClass]="getEquipmentStatusClass(eq)"
+                  >
+                    {{ getEquipmentStatusLabel(eq) }}
+                  </span>
+                </td>
+                <td class="col-hd">
+                  <div class="action-buttons-group">
+                    <div class="dropdown-actions-container">
+                      <button
+                        type="button"
+                        class="act-btn act-more"
+                        (click)="toggleEquipmentMenu(eq, $event)"
+                        title="Thao tác khác"
+                      >
+                        <i class="pi pi-ellipsis-h"></i>
+                      </button>
+                      <div
+                        class="dropdown-actions-menu animate-fade-in"
+                        [class.dropdown-upwards]="
+                          i >= equipmentItems().length - 2
+                        "
+                        *ngIf="activeEquipmentMenu() === eq.id"
+                        (click)="$event.stopPropagation()"
+                      >
+                        <!-- Xem chi tiết -->
+                        <button
+                          type="button"
+                          class="dropdown-item-btn"
+                          (click)="
+                            onViewEquipment(eq); activeEquipmentMenu.set(null)
+                          "
+                        >
+                          <i class="pi pi-eye color-blue"></i>
+                          <span>Xem chi tiết</span>
                         </button>
-                        <div class="dropdown-actions-menu animate-fade-in"
-                          [class.dropdown-upwards]="i >= equipmentItems().length - 2"
-                          *ngIf="activeEquipmentMenu() === eq.id" (click)="$event.stopPropagation()">
-                          
-                          <!-- Xem chi tiết -->
-                          <button type="button" class="dropdown-item-btn"
-                            (click)="onViewEquipment(eq); activeEquipmentMenu.set(null)">
-                            <i class="pi pi-eye color-blue"></i>
-                            <span>Xem chi tiết</span>
-                          </button>
 
-                          <!-- Chỉnh sửa -->
-                          <button type="button" class="dropdown-item-btn"
-                            (click)="onEditEquipment(eq); activeEquipmentMenu.set(null)">
-                            <i class="pi pi-pencil color-teal"></i>
-                            <span>Chỉnh sửa</span>
-                          </button>
+                        <!-- Chỉnh sửa -->
+                        <button
+                          type="button"
+                          class="dropdown-item-btn"
+                          (click)="
+                            onEditEquipment(eq); activeEquipmentMenu.set(null)
+                          "
+                        >
+                          <i class="pi pi-pencil color-teal"></i>
+                          <span>Chỉnh sửa</span>
+                        </button>
 
-                          <!-- Chuyển thiết bị -->
-                          <button type="button" class="dropdown-item-btn"
-                            *ngIf="canManage() && canShowTransferEquipment(eq)"
-                            (click)="openTransferDialog(eq); activeEquipmentMenu.set(null)">
-                            <i class="pi pi-send color-blue"></i>
-                            <span>Chuyển thiết bị</span>
-                          </button>
+                        <!-- Chuyển thiết bị -->
+                        <button
+                          type="button"
+                          class="dropdown-item-btn"
+                          *ngIf="canManage() && canShowTransferEquipment(eq)"
+                          (click)="
+                            openTransferDialog(eq);
+                            activeEquipmentMenu.set(null)
+                          "
+                        >
+                          <i class="pi pi-send color-blue"></i>
+                          <span>Chuyển thiết bị</span>
+                        </button>
 
-                          <!-- Chuyển hồ sơ -->
-                          <button type="button" class="dropdown-item-btn"
-                            *ngIf="canManage() && canShowTransferDossier(eq)"
-                            (click)="onTransferDossier(eq); activeEquipmentMenu.set(null)">
-                            <i class="pi pi-folder-open color-blue"></i>
-                            <span>Chuyển hồ sơ</span>
-                          </button>
+                        <!-- Chuyển hồ sơ -->
+                        <button
+                          type="button"
+                          class="dropdown-item-btn"
+                          *ngIf="canManage() && canShowTransferDossier(eq)"
+                          (click)="
+                            onTransferDossier(eq); activeEquipmentMenu.set(null)
+                          "
+                        >
+                          <i class="pi pi-folder-open color-blue"></i>
+                          <span>Chuyển hồ sơ</span>
+                        </button>
 
-                          <!-- Khóa / Mở khóa -->
-                          <button type="button" class="dropdown-item-btn"
-                            (click)="onToggleEquipmentStatus(eq); activeEquipmentMenu.set(null)">
-                            <i class="pi" [ngClass]="(eq.isActive === 1 || eq.isActive === true) ? 'pi-lock color-red' : 'pi-lock-open color-green'"></i>
-                            <span>{{ (eq.isActive === 1 || eq.isActive === true) ? 'Khóa thiết bị' : 'Mở khóa' }}</span>
-                          </button>
-                        </div>
+                        <!-- Khóa / Mở khóa -->
+                        <button
+                          type="button"
+                          class="dropdown-item-btn"
+                          (click)="
+                            onToggleEquipmentStatus(eq);
+                            activeEquipmentMenu.set(null)
+                          "
+                        >
+                          <i
+                            class="pi"
+                            [ngClass]="
+                              eq.isActive === 1 || eq.isActive === true
+                                ? 'pi-lock color-red'
+                                : 'pi-lock-open color-green'
+                            "
+                          ></i>
+                          <span>{{
+                            eq.isActive === 1 || eq.isActive === true
+                              ? 'Khóa thiết bị'
+                              : 'Mở khóa'
+                          }}</span>
+                        </button>
                       </div>
                     </div>
-                  </td>
-                </tr>
-                <tr *ngIf="equipmentItems().length === 0">
-                  <td colspan="7" class="empty-row" style="text-align: center; padding: 32px; color: #64748b;">
-                    <i class="pi pi-inbox" style="font-size: 2rem; margin-bottom: 8px; display: block;"></i>
-                    <div>Không có thiết bị nào thuộc {{ infraTypeId() === 1 ? 'trạm' : 'đường dây' }} này.</div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+                  </div>
+                </td>
+              </tr>
+              <tr *ngIf="equipmentItems().length === 0">
+                <td
+                  colspan="7"
+                  class="empty-row"
+                  style="text-align: center; padding: 32px; color: #64748b"
+                >
+                  <i
+                    class="pi pi-inbox"
+                    style="font-size: 2rem; margin-bottom: 8px; display: block"
+                  ></i>
+                  <div>
+                    Không có thiết bị nào thuộc
+                    {{ infraTypeId() === 1 ? 'trạm' : 'đường dây' }} này.
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
 
-            <!-- Equipment Pagination (Căn giữa, biểu tượng « ‹ › » giống ảnh mẫu) -->
-            <div style="display: flex; justify-content: center; align-items: center; gap: 20px; padding: 24px 0; margin-top: 16px; font-size: 0.875rem; color: #64748b;">
-              <span>Hiển thị {{ equipmentItems().length }} trên tổng số {{ equipmentTotalCount() }} bản ghi</span>
+          <!-- Equipment Pagination (Căn giữa, biểu tượng « ‹ › » giống ảnh mẫu) -->
+          <div
+            style="
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              gap: 20px;
+              padding: 24px 0;
+              margin-top: 16px;
+              font-size: 0.875rem;
+              color: #64748b;
+            "
+          >
+            <span
+              >Hiển thị {{ equipmentItems().length }} trên tổng số
+              {{ equipmentTotalCount() }} bản ghi</span
+            >
 
-              <div style="display: flex; align-items: center; gap: 6px;">
-                <!-- First Page « -->
-                <button (click)="goToEquipmentPage(1)" [disabled]="equipmentPage() === 1"
-                  style="border: none; background: none; color: #64748b; cursor: pointer; padding: 4px 8px; font-size: 1rem; font-weight: bold;"
-                  [style.opacity]="equipmentPage() === 1 ? '0.4' : '1'">
-                  «
+            <div style="display: flex; align-items: center; gap: 6px">
+              <!-- First Page « -->
+              <button
+                (click)="goToEquipmentPage(1)"
+                [disabled]="equipmentPage() === 1"
+                style="
+                  border: none;
+                  background: none;
+                  color: #64748b;
+                  cursor: pointer;
+                  padding: 4px 8px;
+                  font-size: 1rem;
+                  font-weight: bold;
+                "
+                [style.opacity]="equipmentPage() === 1 ? '0.4' : '1'"
+              >
+                «
+              </button>
+              <!-- Prev Page ‹ -->
+              <button
+                (click)="equipmentPrevPage()"
+                [disabled]="equipmentPage() === 1"
+                style="
+                  border: none;
+                  background: none;
+                  color: #64748b;
+                  cursor: pointer;
+                  padding: 4px 8px;
+                  font-size: 1.1rem;
+                  font-weight: bold;
+                "
+                [style.opacity]="equipmentPage() === 1 ? '0.4' : '1'"
+              >
+                ‹
+              </button>
+
+              <!-- Page numbers -->
+              <ng-container
+                *ngFor="
+                  let pageNum of [].constructor(equipmentTotalPages());
+                  let pageIndex = index
+                "
+              >
+                <button
+                  *ngIf="
+                    pageIndex + 1 >= equipmentPage() - 2 &&
+                    pageIndex + 1 <= equipmentPage() + 2
+                  "
+                  (click)="goToEquipmentPage(pageIndex + 1)"
+                  [style.background-color]="
+                    equipmentPage() === pageIndex + 1
+                      ? '#2563eb'
+                      : 'transparent'
+                  "
+                  [style.color]="
+                    equipmentPage() === pageIndex + 1 ? '#fff' : '#64748b'
+                  "
+                  [style.font-weight]="
+                    equipmentPage() === pageIndex + 1 ? '600' : '400'
+                  "
+                  style="
+                    border: none;
+                    border-radius: 9999px;
+                    width: 28px;
+                    height: 28px;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 0.875rem;
+                  "
+                >
+                  {{ pageIndex + 1 }}
                 </button>
-                <!-- Prev Page ‹ -->
-                <button (click)="equipmentPrevPage()" [disabled]="equipmentPage() === 1"
-                  style="border: none; background: none; color: #64748b; cursor: pointer; padding: 4px 8px; font-size: 1.1rem; font-weight: bold;"
-                  [style.opacity]="equipmentPage() === 1 ? '0.4' : '1'">
-                  ‹
-                </button>
+              </ng-container>
 
-                <!-- Page numbers -->
-                <ng-container *ngFor="let pageNum of [].constructor(equipmentTotalPages()); let pageIndex = index">
-                  <button *ngIf="pageIndex + 1 >= equipmentPage() - 2 && pageIndex + 1 <= equipmentPage() + 2"
-                    (click)="goToEquipmentPage(pageIndex + 1)"
-                    [style.background-color]="equipmentPage() === pageIndex + 1 ? '#2563eb' : 'transparent'"
-                    [style.color]="equipmentPage() === pageIndex + 1 ? '#fff' : '#64748b'"
-                    [style.font-weight]="equipmentPage() === pageIndex + 1 ? '600' : '400'"
-                    style="border: none; border-radius: 9999px; width: 28px; height: 28px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 0.875rem;">
-                    {{ pageIndex + 1 }}
-                  </button>
-                </ng-container>
-
-                <!-- Next Page › -->
-                <button (click)="equipmentNextPage()" [disabled]="equipmentPage() >= equipmentTotalPages()"
-                  style="border: none; background: none; color: #64748b; cursor: pointer; padding: 4px 8px; font-size: 1.1rem; font-weight: bold;"
-                  [style.opacity]="equipmentPage() >= equipmentTotalPages() ? '0.4' : '1'">
-                  ›
-                </button>
-                <!-- Last Page » -->
-                <button (click)="goToEquipmentPage(equipmentTotalPages())" [disabled]="equipmentPage() >= equipmentTotalPages()"
-                  style="border: none; background: none; color: #64748b; cursor: pointer; padding: 4px 8px; font-size: 1rem; font-weight: bold;"
-                  [style.opacity]="equipmentPage() >= equipmentTotalPages() ? '0.4' : '1'">
-                  »
-                </button>
-              </div>
-
-              <!-- Page size select dropdown -->
-              <select [ngModel]="equipmentPageSize()" (change)="onEquipmentPageSizeChange($event)"
-                style="border: 1px solid #cbd5e1; border-radius: 4px; padding: 2px 6px; height: 28px; color: #64748b; background-color: #fff; cursor: pointer;">
-                <option [value]="10">10</option>
-                <option [value]="20">20</option>
-                <option [value]="50">50</option>
-              </select>
+              <!-- Next Page › -->
+              <button
+                (click)="equipmentNextPage()"
+                [disabled]="equipmentPage() >= equipmentTotalPages()"
+                style="
+                  border: none;
+                  background: none;
+                  color: #64748b;
+                  cursor: pointer;
+                  padding: 4px 8px;
+                  font-size: 1.1rem;
+                  font-weight: bold;
+                "
+                [style.opacity]="
+                  equipmentPage() >= equipmentTotalPages() ? '0.4' : '1'
+                "
+              >
+                ›
+              </button>
+              <!-- Last Page » -->
+              <button
+                (click)="goToEquipmentPage(equipmentTotalPages())"
+                [disabled]="equipmentPage() >= equipmentTotalPages()"
+                style="
+                  border: none;
+                  background: none;
+                  color: #64748b;
+                  cursor: pointer;
+                  padding: 4px 8px;
+                  font-size: 1rem;
+                  font-weight: bold;
+                "
+                [style.opacity]="
+                  equipmentPage() >= equipmentTotalPages() ? '0.4' : '1'
+                "
+              >
+                »
+              </button>
             </div>
+
+            <!-- Page size select dropdown -->
+            <select
+              [ngModel]="equipmentPageSize()"
+              (change)="onEquipmentPageSizeChange($event)"
+              style="
+                border: 1px solid #cbd5e1;
+                border-radius: 4px;
+                padding: 2px 6px;
+                height: 28px;
+                color: #64748b;
+                background-color: #fff;
+                cursor: pointer;
+              "
+            >
+              <option [value]="10">10</option>
+              <option [value]="20">20</option>
+              <option [value]="50">50</option>
+            </select>
           </div>
         </div>
       </div>
-  <!-- ======= TAB 1: TÀI LIỆU ĐÍNH KÈM ======= -->
-      <div *ngIf="activeTab() === 1" class="tab-content animate-fade-in attachment-workspace">
-        <section class="attachment-list-pane">
-          
-          <div class="attachment-filter-card">
-            <div class="attachment-list-filters">
-              <label>
-                <span>Từ khóa</span>
-                <input type="text" placeholder="Nhập từ khóa tìm kiếm" [ngModel]="attachmentDocumentKeyword()"
-                  (ngModelChange)="attachmentDocumentKeyword.set($event); onAttachmentDocumentFiltersChange()" />
-              </label>
-              <label>
-                <span>Thiết bị</span>
-                <p-select [options]="attachmentEquipmentOptions()" [ngModel]="attachmentSelectedEquipmentId()"
-                  (ngModelChange)="attachmentSelectedEquipmentId.set($event); onAttachmentDocumentFiltersChange()" optionLabel="name" optionValue="id"
-                  placeholder="-- Chọn thiết bị --" [filter]="true" [showClear]="true" appendTo="body">
-                </p-select>
-              </label>
-            </div>
-          </div>
-
-          <div *ngIf="loadingAttachmentDocuments()" class="attachment-list-loading">
-            <i class="pi pi-spin pi-spinner"></i> Đang tải tài liệu đính kèm...
-          </div>
-
-          <div *ngIf="!loadingAttachmentDocuments()" class="attachment-table-wrap">
-            <table class="wf-table attachment-table" *ngIf="selectedAttachmentDocuments().length > 0">
-              <thead>
-                <tr>
-                  <th>STT</th>
-                  <th>Tên tài liệu</th>
-                  <th>Thiết bị</th>
-                  <th>Ngày tài liệu</th>
-                  <th>Người tạo</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let item of pagedAttachmentDocuments(); let i = index">
-                  <td>{{ (attachmentDocumentPage() - 1) * attachmentDocumentPageSize() + i + 1 }}</td>
-                  <td>
-                    <button type="button" class="attachment-document-link"
-                      (click)="openTechnicalDocumentPreview(item.dossier.id, item.document)"
-                      title="Xem trước tài liệu">
-                      <i class="pi pi-file-pdf"></i>
-                      {{ item.document.name || item.document.fileName || 'Tài liệu chưa đặt tên' }}
-                    </button>
-                  </td>
-                  <td>{{ getAttachmentEquipmentName(item) }}</td>
-                  <td>{{ item.document.createdDate ? (item.document.createdDate | date:'dd/MM/yyyy') : '-' }}</td>
-                  <td>{{ item.document.createdByName || item.document.createdBy || '-' }}</td>
-                </tr>
-              </tbody>
-            </table>
-
-            <div *ngIf="selectedAttachmentDocuments().length === 0" class="attachment-list-empty">
-              Chọn một thư mục để xem danh sách tài liệu.
-            </div>
-          </div>
-
-          <div *ngIf="selectedAttachmentDocuments().length > 0" class="attachment-pagination">
-            <span>Hiển thị {{ pagedAttachmentDocuments().length }} trên tổng số {{ selectedAttachmentDocuments().length }} bản ghi</span>
-            <div class="attachment-pagination-controls">
-              <button type="button" (click)="changeAttachmentDocumentPage(attachmentDocumentPage() - 1)" [disabled]="attachmentDocumentPage() === 1"><i class="pi pi-angle-left"></i></button>
-              <button type="button" *ngFor="let page of getVisibleDocumentPages(attachmentDocumentPage(), attachmentDocumentTotalPages())"
-                [class.active]="page === attachmentDocumentPage()" (click)="changeAttachmentDocumentPage(page)">{{ page }}</button>
-              <button type="button" (click)="changeAttachmentDocumentPage(attachmentDocumentPage() + 1)" [disabled]="attachmentDocumentPage() === attachmentDocumentTotalPages()"><i class="pi pi-angle-right"></i></button>
-              <select [ngModel]="attachmentDocumentPageSize()" (change)="onAttachmentDocumentPageSizeChange($event)">
-                <option [value]="10">10</option><option [value]="20">20</option><option [value]="50">50</option>
-              </select>
-            </div>
-          </div>
-        </section>
-
-        <aside class="attachment-tree-pane">
-          <div class="attachment-tree-title"><i class="pi pi-folder"></i> TÀI LIỆU ĐÍNH KÈM</div>
-          <div *ngIf="attachmentDocumentFolders().length === 0 && !loadingAttachmentDocuments()" class="attachment-tree-empty">
-            Chưa có thư mục tài liệu.
-          </div>
-
-          <div class="attachment-tree-nodes">
-            <button type="button" class="attachment-tree-station" (click)="toggleAttachmentStationFolder()">
-              <i class="pi" [class.pi-folder]="!attachmentStationFolderExpanded()"
-                [class.pi-folder-open]="attachmentStationFolderExpanded()"></i>
-              <span>{{ currentItem().name || 'Trạm biến áp' }}</span>
-            </button>
-
-            <div *ngIf="attachmentStationFolderExpanded()" class="attachment-tree-children">
-              <button type="button" *ngFor="let folder of attachmentDocumentFolders()" class="attachment-tree-node"
-                [class.selected]="selectedAttachmentFolderId() === folder.id" (click)="selectAttachmentFolder(folder.id)">
-                <i class="pi" [class.pi-folder-open]="selectedAttachmentFolderId() === folder.id"
-                  [class.pi-folder]="selectedAttachmentFolderId() !== folder.id"></i>
-                <span>{{ folder.name }}</span>
-              </button>
-            </div>
-          </div>
-        </aside>
-      </div>
-
-      <!-- ======= TAB 2: HỒ SƠ LIÊN QUAN ======= -->
-      <div *ngIf="activeTab() === 2" class="tab-content animate-fade-in attachment-workspace">
-        <section class="attachment-list-pane">
-          <div class="attachment-filter-card">
-            <div class="attachment-list-filters">
-              <label>
-                <span>Từ khóa</span>
-                <input type="text" placeholder="Nhập từ khóa tìm kiếm" [ngModel]="technicalDocumentKeyword()"
-                  (ngModelChange)="technicalDocumentKeyword.set($event); onTechnicalDocumentFiltersChange()" />
-              </label>
-              <label>
-                <span>Loại tài liệu</span>
-                <p-select [options]="technicalDocumentTypeOptions()" [ngModel]="technicalSelectedDocumentTypeId()"
-                  (ngModelChange)="technicalSelectedDocumentTypeId.set($event); onTechnicalDocumentFiltersChange()" optionLabel="name" optionValue="id"
-                  placeholder="-- Chọn loại tài liệu --" [filter]="true" [showClear]="true" appendTo="body">
-                </p-select>
-              </label>
-            </div>
-          </div>
-
-          <div *ngIf="isLoadingRelatedDossiers()" class="attachment-list-loading">
-            <i class="pi pi-spin pi-spinner"></i> Đang tải hồ sơ kỹ thuật...
-          </div>
-
-          <div *ngIf="!isLoadingRelatedDossiers()" class="attachment-table-wrap">
-            <div *ngIf="selectedTechnicalFolder() && isTechnicalFolderLoading(selectedTechnicalFolder()!.id)" class="attachment-list-loading">
-              <i class="pi pi-spin pi-spinner"></i> Đang tải tài liệu...
-            </div>
-
-            <table class="wf-table attachment-table" *ngIf="!isTechnicalFolderLoading(selectedTechnicalFolder()?.id || '') && selectedTechnicalDocuments().length > 0">
-              <thead>
-                <tr>
-                  <th>STT</th>
-                  <th>Tên tài liệu</th>
-                  <th>Loại tài liệu</th>
-                  <th>Ngày tài liệu</th>
-                  <th>Người tạo</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let item of pagedTechnicalDocuments(); let i = index">
-                  <td>{{ (technicalDocumentPage() - 1) * technicalDocumentPageSize() + i + 1 }}</td>
-                  <td>
-                    <button type="button" class="attachment-document-link"
-                      (click)="openTechnicalDocumentPreview(item.dossier.id, item.document)" title="Xem trước tài liệu">
-                      <i class="pi pi-file-pdf"></i>
-                      {{ item.document.name || item.document.fileName || 'Tài liệu chưa đặt tên' }}
-                    </button>
-                  </td>
-                  <td>{{ item.document.documentTypeName || '-' }}</td>
-                  <td>{{ item.document.createdDate ? (item.document.createdDate | date:'dd/MM/yyyy') : '-' }}</td>
-                  <td>{{ item.document.createdByName || item.document.createdBy || '-' }}</td>
-                </tr>
-              </tbody>
-            </table>
-
-            <div *ngIf="!isTechnicalFolderLoading(selectedTechnicalFolder()?.id || '') && selectedTechnicalDocuments().length === 0" class="attachment-list-empty">
-              Chọn một thư mục để xem danh sách tài liệu.
-            </div>
-          </div>
-
-          <div *ngIf="!isTechnicalFolderLoading(selectedTechnicalFolder()?.id || '') && selectedTechnicalDocuments().length > 0" class="attachment-pagination">
-            <span>Hiển thị {{ pagedTechnicalDocuments().length }} trên tổng số {{ selectedTechnicalDocuments().length }} bản ghi</span>
-            <div class="attachment-pagination-controls">
-              <button type="button" (click)="changeTechnicalDocumentPage(technicalDocumentPage() - 1)" [disabled]="technicalDocumentPage() === 1"><i class="pi pi-angle-left"></i></button>
-              <button type="button" *ngFor="let page of getVisibleDocumentPages(technicalDocumentPage(), technicalDocumentTotalPages())"
-                [class.active]="page === technicalDocumentPage()" (click)="changeTechnicalDocumentPage(page)">{{ page }}</button>
-              <button type="button" (click)="changeTechnicalDocumentPage(technicalDocumentPage() + 1)" [disabled]="technicalDocumentPage() === technicalDocumentTotalPages()"><i class="pi pi-angle-right"></i></button>
-              <select [ngModel]="technicalDocumentPageSize()" (change)="onTechnicalDocumentPageSizeChange($event)">
-                <option [value]="10">10</option><option [value]="20">20</option><option [value]="50">50</option>
-              </select>
-            </div>
-          </div>
-        </section>
-
-        <aside class="attachment-tree-pane">
-          <div class="attachment-tree-title"><i class="pi pi-folder-open"></i> HỒ SƠ KỸ THUẬT</div>
-          
-          <div *ngIf="technicalDossierFolders().length === 0 && !isLoadingRelatedDossiers()" class="attachment-tree-empty">
-            Chưa có thư mục hồ sơ.
-          </div>
-
-          <div class="attachment-tree-nodes">
-            <button type="button" class="attachment-tree-station" (click)="toggleTechnicalStationFolder()">
-              <i class="pi" [class.pi-folder]="!technicalStationFolderExpanded()"
-                [class.pi-folder-open]="technicalStationFolderExpanded()"></i>
-              <span>{{ currentItem().name || 'Trạm biến áp' }}</span>
-            </button>
-
-            <div *ngIf="technicalStationFolderExpanded()" class="attachment-tree-children">
-              <button type="button" *ngFor="let folder of technicalDossierFolders()" class="attachment-tree-node"
-                [class.selected]="selectedTechnicalFolderId() === folder.id" (click)="selectTechnicalFolder(folder)">
-                <i class="pi" [class.pi-folder-open]="selectedTechnicalFolderId() === folder.id"
-                  [class.pi-folder]="selectedTechnicalFolderId() !== folder.id"></i>
-                <span>{{ folder.name }}</span>
-              </button>
-            </div>
-          </div>
-        </aside>
-      </div>
-
-      <div *ngIf="false" class="tab-content animate-fade-in">
-        <div style="background: #ffffff; padding: 0 8px 24px 8px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #cbd5e1; padding-bottom: 12px; margin-bottom: 20px;">
-            <span style="font-size: 1.05rem; font-weight: 700; color: #002D72; display: flex; align-items: center;">
-              <i class="pi pi-folder-open" style="color: #FF6B00; margin-right: 8px;"></i>
-              Hồ sơ liên quan
-            </span>
-            <button class="btn-green" (click)="exportToExcel()" *ngIf="relatedDossiers().length > 0"
-              style="background-color: #10b981; border-color: #10b981; color: #ffffff; font-weight: 500; font-size: 0.9rem; padding: 8px 16px; border-radius: 6px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; border: 1px solid transparent; transition: all 0.2s;">
-              <i class="pi pi-file-excel"></i> Xuất Excel
-            </button>
-          </div>
-
-          <!-- Search bar cho Hồ sơ -->
-          <div style="display: flex; gap: 24px; align-items: center; margin-bottom: 24px; flex-wrap: wrap;">
-            <div style="display: flex; flex-direction: column; gap: 6px; flex: 1; max-width: 300px; min-width: 200px;">
-              <label style="font-size: 0.875rem; color: #475569; font-weight: 500;">Từ khóa</label>
-              <input type="text" class="wf-search-input" style="height: 38px; border-radius: 6px; border: 1px solid #cbd5e1; padding: 0 12px; width: 100%;"
-                placeholder="Tìm theo mã hoặc tiêu đề..."
-                [ngModel]="relatedDossiersSearchKeyword()"
-                (ngModelChange)="relatedDossiersSearchKeyword.set($event); onRelatedDossierFilterChange()" />
-            </div>
-          </div>
-
-          <!-- Loading -->
-          <div *ngIf="isLoadingRelatedDossiers()" style="text-align: center; padding: 30px 0;">
-            <i class="pi pi-spin pi-spinner" style="font-size: 1.8rem; color: #002D72;"></i>
-            <div style="margin-top: 8px; color: #64748b;">Đang tải danh sách hồ sơ liên quan...</div>
-          </div>
-
-          <!-- Dossier Table -->
-          <div *ngIf="!isLoadingRelatedDossiers()">
-            <table class="wf-table" style="width: 100%; border-collapse: collapse; margin-top: 16px;">
-              <thead>
-                <tr style="border-bottom: 1px solid #cbd5e1;">
-                  <th class="col-stt">STT</th>
-                  <th>Mã hồ sơ</th>
-                  <th>Tiêu đề hồ sơ</th>
-                  <th>Loại hồ sơ</th>
-                  <th style="width: 120px; text-align: center;">Số tài liệu</th>
-                  <th class="col-hd" style="width: 100px; text-align: center;">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let doc of relatedDossiers(); let i = index">
-                  <td class="col-stt text-muted">{{ (relatedDossiersPage() - 1) * relatedDossiersPageSize() + i + 1 }}</td>
-                  <td>
-                    <a class="wf-link" 
-                       (click)="onViewDossier(doc)">{{ getDossierCode(doc) }}</a>
-                  </td>
-                  <td>
-                    <a class="wf-name-link" 
-                       (click)="onViewDossier(doc)">{{ getDossierTitle(doc) }}</a>
-                  </td>
-                  <td>{{ doc.dossierTypeName || '-' }}</td>
-                  <td style="text-align: center;">{{ doc.documentCount ?? 0 }}</td>
-                  <td class="col-hd">
-                    <div class="action-buttons-group" style="justify-content: center;">
-                      <button class="act-btn" style="background-color: #eff6ff; color: #1d4ed8; border-color: #bfdbfe;"
-                        title="Xem chi tiết hồ sơ" (click)="onViewDossier(doc)">
-                        <i class="pi pi-eye"></i>
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-                <tr *ngIf="relatedDossiers().length === 0">
-                  <td colspan="6" class="empty-row" style="text-align: center; padding: 32px; color: #64748b;">
-                    <i class="pi pi-inbox" style="font-size: 2rem; margin-bottom: 8px; display: block;"></i>
-                    <div>Không có hồ sơ nào thuộc {{ infraTypeId() === 1 ? 'trạm' : 'đường dây' }} này đã được xuất bản.</div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-
-            <!-- Pagination -->
-            <div *ngIf="relatedDossiers().length > 0" style="display: flex; justify-content: center; align-items: center; gap: 20px; padding: 24px 0; margin-top: 16px; font-size: 0.875rem; color: #64748b;">
-              <span>Hiển thị {{ relatedDossiers().length }} trên tổng số {{ relatedDossiersTotalCount() }} bản ghi</span>
-
-              <div style="display: flex; align-items: center; gap: 6px;">
-                <!-- First Page « -->
-                <button (click)="goToRelatedDossiersPage(1)" [disabled]="relatedDossiersPage() === 1"
-                  style="border: none; background: none; color: #64748b; cursor: pointer; padding: 4px 8px; font-size: 1rem; font-weight: bold;"
-                  [style.opacity]="relatedDossiersPage() === 1 ? '0.4' : '1'">
-                  «
-                </button>
-                <!-- Prev Page ‹ -->
-                <button (click)="relatedDossiersPrevPage()" [disabled]="relatedDossiersPage() === 1"
-                  style="border: none; background: none; color: #64748b; cursor: pointer; padding: 4px 8px; font-size: 1.1rem; font-weight: bold;"
-                  [style.opacity]="relatedDossiersPage() === 1 ? '0.4' : '1'">
-                  ‹
-                </button>
-
-                <!-- Page numbers -->
-                <ng-container *ngFor="let pageNum of [].constructor(relatedDossiersTotalPages()); let pageIndex = index">
-                  <button *ngIf="pageIndex + 1 >= relatedDossiersPage() - 2 && pageIndex + 1 <= relatedDossiersPage() + 2"
-                    (click)="goToRelatedDossiersPage(pageIndex + 1)"
-                    [style.background-color]="relatedDossiersPage() === pageIndex + 1 ? '#2563eb' : 'transparent'"
-                    [style.color]="relatedDossiersPage() === pageIndex + 1 ? '#fff' : '#64748b'"
-                    [style.font-weight]="relatedDossiersPage() === pageIndex + 1 ? '600' : '400'"
-                    style="border: none; border-radius: 9999px; width: 28px; height: 28px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 0.875rem;">
-                    {{ pageIndex + 1 }}
-                  </button>
-                </ng-container>
-
-                <!-- Next Page › -->
-                <button (click)="relatedDossiersNextPage()" [disabled]="relatedDossiersPage() >= relatedDossiersTotalPages()"
-                  style="border: none; background: none; color: #64748b; cursor: pointer; padding: 4px 8px; font-size: 1.1rem; font-weight: bold;"
-                  [style.opacity]="relatedDossiersPage() >= relatedDossiersTotalPages() ? '0.4' : '1'">
-                  ›
-                </button>
-                <!-- Last Page » -->
-                <button (click)="goToRelatedDossiersPage(relatedDossiersTotalPages())" [disabled]="relatedDossiersPage() >= relatedDossiersTotalPages()"
-                  style="border: none; background: none; color: #64748b; cursor: pointer; padding: 4px 8px; font-size: 1rem; font-weight: bold;"
-                  [style.opacity]="relatedDossiersPage() >= relatedDossiersTotalPages() ? '0.4' : '1'">
-                  »
-                </button>
-              </div>
-
-              <!-- Page size select dropdown -->
-              <select [ngModel]="relatedDossiersPageSize()" (change)="onRelatedDossiersPageSizeChange($event)"
-                style="border: 1px solid #cbd5e1; border-radius: 4px; padding: 2px 6px; height: 28px; color: #64748b; background-color: #fff; cursor: pointer;">
-                <option [value]="10">10</option>
-                <option [value]="20">20</option>
-                <option [value]="50">50</option>
-              </select>
-            </div>
-          </div>
-        </div>
-      </div>
-
     </div>
+    <!-- ======= TAB 1: TÀI LIỆU ĐÍNH KÈM ======= -->
+    <div
+      *ngIf="activeTab() === 1"
+      class="tab-content animate-fade-in attachment-workspace"
+    >
+      <section class="attachment-list-pane">
+        <div class="attachment-filter-card">
+          <div class="attachment-list-filters">
+            <label>
+              <span>Từ khóa</span>
+              <input
+                type="text"
+                placeholder="Nhập từ khóa tìm kiếm"
+                [ngModel]="attachmentDocumentKeyword()"
+                (ngModelChange)="
+                  attachmentDocumentKeyword.set($event);
+                  onAttachmentDocumentFiltersChange()
+                "
+              />
+            </label>
+            <label>
+              <span>Thiết bị</span>
+              <p-select
+                [options]="attachmentEquipmentOptions()"
+                [ngModel]="attachmentSelectedEquipmentId()"
+                (ngModelChange)="
+                  attachmentSelectedEquipmentId.set($event);
+                  onAttachmentDocumentFiltersChange()
+                "
+                optionLabel="name"
+                optionValue="id"
+                placeholder="-- Chọn thiết bị --"
+                [filter]="true"
+                [showClear]="true"
+                appendTo="body"
+              >
+              </p-select>
+            </label>
+          </div>
+        </div>
+
+        <div
+          *ngIf="loadingAttachmentDocuments()"
+          class="attachment-list-loading"
+        >
+          <i class="pi pi-spin pi-spinner"></i> Đang tải tài liệu đính kèm...
+        </div>
+
+        <div
+          *ngIf="!loadingAttachmentDocuments()"
+          class="attachment-table-wrap"
+        >
+          <table
+            class="wf-table attachment-table"
+            *ngIf="selectedAttachmentDocuments().length > 0"
+          >
+            <thead>
+              <tr>
+                <th>STT</th>
+                <th>Tên tài liệu</th>
+                <th>Thiết bị</th>
+                <th>Ngày tài liệu</th>
+                <th>Người tạo</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                *ngFor="let item of pagedAttachmentDocuments(); let i = index"
+              >
+                <td>
+                  {{
+                    (attachmentDocumentPage() - 1) *
+                      attachmentDocumentPageSize() +
+                      i +
+                      1
+                  }}
+                </td>
+                <td>
+                  <button
+                    type="button"
+                    class="attachment-document-link"
+                    (click)="
+                      openTechnicalDocumentPreview(
+                        item.dossier.id,
+                        item.document
+                      )
+                    "
+                    title="Xem trước tài liệu"
+                  >
+                    <i class="pi pi-file-pdf"></i>
+                    {{
+                      item.document.name ||
+                        item.document.fileName ||
+                        'Tài liệu chưa đặt tên'
+                    }}
+                  </button>
+                </td>
+                <td>{{ getAttachmentEquipmentName(item) }}</td>
+                <td>
+                  {{
+                    item.document.createdDate
+                      ? (item.document.createdDate | date: 'dd/MM/yyyy')
+                      : '-'
+                  }}
+                </td>
+                <td>
+                  {{
+                    item.document.createdByName ||
+                      item.document.createdBy ||
+                      '-'
+                  }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div
+            *ngIf="selectedAttachmentDocuments().length === 0"
+            class="attachment-list-empty"
+          >
+            Chọn một thư mục để xem danh sách tài liệu.
+          </div>
+        </div>
+
+        <div
+          *ngIf="selectedAttachmentDocuments().length > 0"
+          class="attachment-pagination"
+        >
+          <span
+            >Hiển thị {{ pagedAttachmentDocuments().length }} trên tổng số
+            {{ selectedAttachmentDocuments().length }} bản ghi</span
+          >
+          <div class="attachment-pagination-controls">
+            <button
+              type="button"
+              (click)="
+                changeAttachmentDocumentPage(attachmentDocumentPage() - 1)
+              "
+              [disabled]="attachmentDocumentPage() === 1"
+            >
+              <i class="pi pi-angle-left"></i>
+            </button>
+            <button
+              type="button"
+              *ngFor="
+                let page of getVisibleDocumentPages(
+                  attachmentDocumentPage(),
+                  attachmentDocumentTotalPages()
+                )
+              "
+              [class.active]="page === attachmentDocumentPage()"
+              (click)="changeAttachmentDocumentPage(page)"
+            >
+              {{ page }}
+            </button>
+            <button
+              type="button"
+              (click)="
+                changeAttachmentDocumentPage(attachmentDocumentPage() + 1)
+              "
+              [disabled]="
+                attachmentDocumentPage() === attachmentDocumentTotalPages()
+              "
+            >
+              <i class="pi pi-angle-right"></i>
+            </button>
+            <select
+              [ngModel]="attachmentDocumentPageSize()"
+              (change)="onAttachmentDocumentPageSizeChange($event)"
+            >
+              <option [value]="10">10</option>
+              <option [value]="20">20</option>
+              <option [value]="50">50</option>
+            </select>
+          </div>
+        </div>
+      </section>
+
+      <aside class="attachment-tree-pane">
+        <div class="attachment-tree-title">
+          <i class="pi pi-folder"></i> TÀI LIỆU ĐÍNH KÈM
+        </div>
+        <div
+          *ngIf="
+            attachmentDocumentFolders().length === 0 &&
+            !loadingAttachmentDocuments()
+          "
+          class="attachment-tree-empty"
+        >
+          Chưa có thư mục tài liệu.
+        </div>
+
+        <div class="attachment-tree-nodes">
+          <button
+            type="button"
+            class="attachment-tree-station"
+            (click)="toggleAttachmentStationFolder()"
+          >
+            <i
+              class="pi"
+              [class.pi-folder]="!attachmentStationFolderExpanded()"
+              [class.pi-folder-open]="attachmentStationFolderExpanded()"
+            ></i>
+            <span>{{ currentItem().name || 'Trạm biến áp' }}</span>
+          </button>
+
+          <div
+            *ngIf="attachmentStationFolderExpanded()"
+            class="attachment-tree-children"
+          >
+            <button
+              type="button"
+              *ngFor="let folder of attachmentDocumentFolders()"
+              class="attachment-tree-node"
+              [class.selected]="selectedAttachmentFolderId() === folder.id"
+              (click)="selectAttachmentFolder(folder.id)"
+            >
+              <i
+                class="pi"
+                [class.pi-folder-open]="
+                  selectedAttachmentFolderId() === folder.id
+                "
+                [class.pi-folder]="selectedAttachmentFolderId() !== folder.id"
+              ></i>
+              <span>{{ folder.name }}</span>
+            </button>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <!-- ======= TAB 2: HỒ SƠ LIÊN QUAN ======= -->
+    <div
+      *ngIf="activeTab() === 2"
+      class="tab-content animate-fade-in attachment-workspace"
+    >
+      <section class="attachment-list-pane">
+        <div class="attachment-filter-card">
+          <div class="attachment-list-filters">
+            <label>
+              <span>Từ khóa</span>
+              <input
+                type="text"
+                placeholder="Nhập từ khóa tìm kiếm"
+                [ngModel]="technicalDocumentKeyword()"
+                (ngModelChange)="
+                  technicalDocumentKeyword.set($event);
+                  onTechnicalDocumentFiltersChange()
+                "
+              />
+            </label>
+            <label>
+              <span>Loại tài liệu</span>
+              <p-select
+                [options]="technicalDocumentTypeOptions()"
+                [ngModel]="technicalSelectedDocumentTypeId()"
+                (ngModelChange)="
+                  technicalSelectedDocumentTypeId.set($event);
+                  onTechnicalDocumentFiltersChange()
+                "
+                optionLabel="name"
+                optionValue="id"
+                placeholder="-- Chọn loại tài liệu --"
+                [filter]="true"
+                [showClear]="true"
+                appendTo="body"
+              >
+              </p-select>
+            </label>
+          </div>
+        </div>
+
+        <div *ngIf="isLoadingRelatedDossiers()" class="attachment-list-loading">
+          <i class="pi pi-spin pi-spinner"></i> Đang tải hồ sơ kỹ thuật...
+        </div>
+
+        <div *ngIf="!isLoadingRelatedDossiers()" class="attachment-table-wrap">
+          <div
+            *ngIf="
+              selectedTechnicalFolder() &&
+              isTechnicalFolderLoading(selectedTechnicalFolder()!.id)
+            "
+            class="attachment-list-loading"
+          >
+            <i class="pi pi-spin pi-spinner"></i> Đang tải tài liệu...
+          </div>
+
+          <table
+            class="wf-table attachment-table"
+            *ngIf="
+              !isTechnicalFolderLoading(selectedTechnicalFolder()?.id || '') &&
+              selectedTechnicalDocuments().length > 0
+            "
+          >
+            <thead>
+              <tr>
+                <th>STT</th>
+                <th>Tên tài liệu</th>
+                <th>Loại tài liệu</th>
+                <th>Ngày tài liệu</th>
+                <th>Người tạo</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let item of pagedTechnicalDocuments(); let i = index">
+                <td>
+                  {{
+                    (technicalDocumentPage() - 1) *
+                      technicalDocumentPageSize() +
+                      i +
+                      1
+                  }}
+                </td>
+                <td>
+                  <button
+                    type="button"
+                    class="attachment-document-link"
+                    (click)="
+                      openTechnicalDocumentPreview(
+                        item.dossier.id,
+                        item.document
+                      )
+                    "
+                    title="Xem trước tài liệu"
+                  >
+                    <i class="pi pi-file-pdf"></i>
+                    {{
+                      item.document.name ||
+                        item.document.fileName ||
+                        'Tài liệu chưa đặt tên'
+                    }}
+                  </button>
+                </td>
+                <td>{{ item.document.documentTypeName || '-' }}</td>
+                <td>
+                  {{
+                    item.document.createdDate
+                      ? (item.document.createdDate | date: 'dd/MM/yyyy')
+                      : '-'
+                  }}
+                </td>
+                <td>
+                  {{
+                    item.document.createdByName ||
+                      item.document.createdBy ||
+                      '-'
+                  }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div
+            *ngIf="
+              !isTechnicalFolderLoading(selectedTechnicalFolder()?.id || '') &&
+              selectedTechnicalDocuments().length === 0
+            "
+            class="attachment-list-empty"
+          >
+            Chọn một thư mục để xem danh sách tài liệu.
+          </div>
+        </div>
+
+        <div
+          *ngIf="
+            !isTechnicalFolderLoading(selectedTechnicalFolder()?.id || '') &&
+            selectedTechnicalDocuments().length > 0
+          "
+          class="attachment-pagination"
+        >
+          <span
+            >Hiển thị {{ pagedTechnicalDocuments().length }} trên tổng số
+            {{ selectedTechnicalDocuments().length }} bản ghi</span
+          >
+          <div class="attachment-pagination-controls">
+            <button
+              type="button"
+              (click)="changeTechnicalDocumentPage(technicalDocumentPage() - 1)"
+              [disabled]="technicalDocumentPage() === 1"
+            >
+              <i class="pi pi-angle-left"></i>
+            </button>
+            <button
+              type="button"
+              *ngFor="
+                let page of getVisibleDocumentPages(
+                  technicalDocumentPage(),
+                  technicalDocumentTotalPages()
+                )
+              "
+              [class.active]="page === technicalDocumentPage()"
+              (click)="changeTechnicalDocumentPage(page)"
+            >
+              {{ page }}
+            </button>
+            <button
+              type="button"
+              (click)="changeTechnicalDocumentPage(technicalDocumentPage() + 1)"
+              [disabled]="
+                technicalDocumentPage() === technicalDocumentTotalPages()
+              "
+            >
+              <i class="pi pi-angle-right"></i>
+            </button>
+            <select
+              [ngModel]="technicalDocumentPageSize()"
+              (change)="onTechnicalDocumentPageSizeChange($event)"
+            >
+              <option [value]="10">10</option>
+              <option [value]="20">20</option>
+              <option [value]="50">50</option>
+            </select>
+          </div>
+        </div>
+      </section>
+
+      <aside class="attachment-tree-pane">
+        <div class="attachment-tree-title">
+          <i class="pi pi-folder-open"></i> HỒ SƠ KỸ THUẬT
+        </div>
+
+        <div
+          *ngIf="
+            technicalDossierFolders().length === 0 &&
+            !isLoadingRelatedDossiers()
+          "
+          class="attachment-tree-empty"
+        >
+          Chưa có thư mục hồ sơ.
+        </div>
+
+        <div class="attachment-tree-nodes">
+          <button
+            type="button"
+            class="attachment-tree-station"
+            (click)="toggleTechnicalStationFolder()"
+          >
+            <i
+              class="pi"
+              [class.pi-folder]="!technicalStationFolderExpanded()"
+              [class.pi-folder-open]="technicalStationFolderExpanded()"
+            ></i>
+            <span>{{ currentItem().name || 'Trạm biến áp' }}</span>
+          </button>
+
+          <div
+            *ngIf="technicalStationFolderExpanded()"
+            class="attachment-tree-children"
+          >
+            <button
+              type="button"
+              *ngFor="let folder of technicalDossierFolders()"
+              class="attachment-tree-node"
+              [class.selected]="selectedTechnicalFolderId() === folder.id"
+              (click)="selectTechnicalFolder(folder)"
+            >
+              <i
+                class="pi"
+                [class.pi-folder-open]="
+                  selectedTechnicalFolderId() === folder.id
+                "
+                [class.pi-folder]="selectedTechnicalFolderId() !== folder.id"
+              ></i>
+              <span>{{ folder.name }}</span>
+            </button>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <div *ngIf="false" class="tab-content animate-fade-in">
+      <div style="background: #ffffff; padding: 0 8px 24px 8px">
+        <div
+          style="
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #cbd5e1;
+            padding-bottom: 12px;
+            margin-bottom: 20px;
+          "
+        >
+          <span
+            style="
+              font-size: 1.05rem;
+              font-weight: 700;
+              color: #002d72;
+              display: flex;
+              align-items: center;
+            "
+          >
+            <i
+              class="pi pi-folder-open"
+              style="color: #ff6b00; margin-right: 8px"
+            ></i>
+            Hồ sơ liên quan
+          </span>
+          <button
+            class="btn-green"
+            (click)="exportToExcel()"
+            *ngIf="relatedDossiers().length > 0"
+            style="
+              background-color: #10b981;
+              border-color: #10b981;
+              color: #ffffff;
+              font-weight: 500;
+              font-size: 0.9rem;
+              padding: 8px 16px;
+              border-radius: 6px;
+              display: inline-flex;
+              align-items: center;
+              gap: 6px;
+              cursor: pointer;
+              border: 1px solid transparent;
+              transition: all 0.2s;
+            "
+          >
+            <i class="pi pi-file-excel"></i> Xuất Excel
+          </button>
+        </div>
+
+        <!-- Search bar cho Hồ sơ -->
+        <div
+          style="
+            display: flex;
+            gap: 24px;
+            align-items: center;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+          "
+        >
+          <div
+            style="
+              display: flex;
+              flex-direction: column;
+              gap: 6px;
+              flex: 1;
+              max-width: 300px;
+              min-width: 200px;
+            "
+          >
+            <label style="font-size: 0.875rem; color: #475569; font-weight: 500"
+              >Từ khóa</label
+            >
+            <input
+              type="text"
+              class="wf-search-input"
+              style="
+                height: 38px;
+                border-radius: 6px;
+                border: 1px solid #cbd5e1;
+                padding: 0 12px;
+                width: 100%;
+              "
+              placeholder="Tìm theo mã hoặc tiêu đề..."
+              [ngModel]="relatedDossiersSearchKeyword()"
+              (ngModelChange)="
+                relatedDossiersSearchKeyword.set($event);
+                onRelatedDossierFilterChange()
+              "
+            />
+          </div>
+        </div>
+
+        <!-- Loading -->
+        <div
+          *ngIf="isLoadingRelatedDossiers()"
+          style="text-align: center; padding: 30px 0"
+        >
+          <i
+            class="pi pi-spin pi-spinner"
+            style="font-size: 1.8rem; color: #002d72"
+          ></i>
+          <div style="margin-top: 8px; color: #64748b">
+            Đang tải danh sách hồ sơ liên quan...
+          </div>
+        </div>
+
+        <!-- Dossier Table -->
+        <div *ngIf="!isLoadingRelatedDossiers()">
+          <table
+            class="wf-table"
+            style="width: 100%; border-collapse: collapse; margin-top: 16px"
+          >
+            <thead>
+              <tr style="border-bottom: 1px solid #cbd5e1">
+                <th class="col-stt">STT</th>
+                <th>Mã hồ sơ</th>
+                <th>Tiêu đề hồ sơ</th>
+                <th>Loại hồ sơ</th>
+                <th style="width: 120px; text-align: center">Số tài liệu</th>
+                <th class="col-hd" style="width: 100px; text-align: center">
+                  Thao tác
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let doc of relatedDossiers(); let i = index">
+                <td class="col-stt text-muted">
+                  {{
+                    (relatedDossiersPage() - 1) * relatedDossiersPageSize() +
+                      i +
+                      1
+                  }}
+                </td>
+                <td>
+                  <a class="wf-link" (click)="onViewDossier(doc)">{{
+                    getDossierCode(doc)
+                  }}</a>
+                </td>
+                <td>
+                  <a class="wf-name-link" (click)="onViewDossier(doc)">{{
+                    getDossierTitle(doc)
+                  }}</a>
+                </td>
+                <td>{{ doc.dossierTypeName || '-' }}</td>
+                <td style="text-align: center">{{ doc.documentCount ?? 0 }}</td>
+                <td class="col-hd">
+                  <div
+                    class="action-buttons-group"
+                    style="justify-content: center"
+                  >
+                    <button
+                      class="act-btn"
+                      style="
+                        background-color: #eff6ff;
+                        color: #1d4ed8;
+                        border-color: #bfdbfe;
+                      "
+                      title="Xem chi tiết hồ sơ"
+                      (click)="onViewDossier(doc)"
+                    >
+                      <i class="pi pi-eye"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              <tr *ngIf="relatedDossiers().length === 0">
+                <td
+                  colspan="6"
+                  class="empty-row"
+                  style="text-align: center; padding: 32px; color: #64748b"
+                >
+                  <i
+                    class="pi pi-inbox"
+                    style="font-size: 2rem; margin-bottom: 8px; display: block"
+                  ></i>
+                  <div>
+                    Không có hồ sơ nào thuộc
+                    {{ infraTypeId() === 1 ? 'trạm' : 'đường dây' }} này đã được
+                    xuất bản.
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <!-- Pagination -->
+          <div
+            *ngIf="relatedDossiers().length > 0"
+            style="
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              gap: 20px;
+              padding: 24px 0;
+              margin-top: 16px;
+              font-size: 0.875rem;
+              color: #64748b;
+            "
+          >
+            <span
+              >Hiển thị {{ relatedDossiers().length }} trên tổng số
+              {{ relatedDossiersTotalCount() }} bản ghi</span
+            >
+
+            <div style="display: flex; align-items: center; gap: 6px">
+              <!-- First Page « -->
+              <button
+                (click)="goToRelatedDossiersPage(1)"
+                [disabled]="relatedDossiersPage() === 1"
+                style="
+                  border: none;
+                  background: none;
+                  color: #64748b;
+                  cursor: pointer;
+                  padding: 4px 8px;
+                  font-size: 1rem;
+                  font-weight: bold;
+                "
+                [style.opacity]="relatedDossiersPage() === 1 ? '0.4' : '1'"
+              >
+                «
+              </button>
+              <!-- Prev Page ‹ -->
+              <button
+                (click)="relatedDossiersPrevPage()"
+                [disabled]="relatedDossiersPage() === 1"
+                style="
+                  border: none;
+                  background: none;
+                  color: #64748b;
+                  cursor: pointer;
+                  padding: 4px 8px;
+                  font-size: 1.1rem;
+                  font-weight: bold;
+                "
+                [style.opacity]="relatedDossiersPage() === 1 ? '0.4' : '1'"
+              >
+                ‹
+              </button>
+
+              <!-- Page numbers -->
+              <ng-container
+                *ngFor="
+                  let pageNum of [].constructor(relatedDossiersTotalPages());
+                  let pageIndex = index
+                "
+              >
+                <button
+                  *ngIf="
+                    pageIndex + 1 >= relatedDossiersPage() - 2 &&
+                    pageIndex + 1 <= relatedDossiersPage() + 2
+                  "
+                  (click)="goToRelatedDossiersPage(pageIndex + 1)"
+                  [style.background-color]="
+                    relatedDossiersPage() === pageIndex + 1
+                      ? '#2563eb'
+                      : 'transparent'
+                  "
+                  [style.color]="
+                    relatedDossiersPage() === pageIndex + 1 ? '#fff' : '#64748b'
+                  "
+                  [style.font-weight]="
+                    relatedDossiersPage() === pageIndex + 1 ? '600' : '400'
+                  "
+                  style="
+                    border: none;
+                    border-radius: 9999px;
+                    width: 28px;
+                    height: 28px;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 0.875rem;
+                  "
+                >
+                  {{ pageIndex + 1 }}
+                </button>
+              </ng-container>
+
+              <!-- Next Page › -->
+              <button
+                (click)="relatedDossiersNextPage()"
+                [disabled]="
+                  relatedDossiersPage() >= relatedDossiersTotalPages()
+                "
+                style="
+                  border: none;
+                  background: none;
+                  color: #64748b;
+                  cursor: pointer;
+                  padding: 4px 8px;
+                  font-size: 1.1rem;
+                  font-weight: bold;
+                "
+                [style.opacity]="
+                  relatedDossiersPage() >= relatedDossiersTotalPages()
+                    ? '0.4'
+                    : '1'
+                "
+              >
+                ›
+              </button>
+              <!-- Last Page » -->
+              <button
+                (click)="goToRelatedDossiersPage(relatedDossiersTotalPages())"
+                [disabled]="
+                  relatedDossiersPage() >= relatedDossiersTotalPages()
+                "
+                style="
+                  border: none;
+                  background: none;
+                  color: #64748b;
+                  cursor: pointer;
+                  padding: 4px 8px;
+                  font-size: 1rem;
+                  font-weight: bold;
+                "
+                [style.opacity]="
+                  relatedDossiersPage() >= relatedDossiersTotalPages()
+                    ? '0.4'
+                    : '1'
+                "
+              >
+                »
+              </button>
+            </div>
+
+            <!-- Page size select dropdown -->
+            <select
+              [ngModel]="relatedDossiersPageSize()"
+              (change)="onRelatedDossiersPageSizeChange($event)"
+              style="
+                border: 1px solid #cbd5e1;
+                border-radius: 4px;
+                padding: 2px 6px;
+                height: 28px;
+                color: #64748b;
+                background-color: #fff;
+                cursor: pointer;
+              "
+            >
+              <option [value]="10">10</option>
+              <option [value]="20">20</option>
+              <option [value]="50">50</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <p-dialog
     [visible]="showTechnicalDocumentPreview()"
     (visibleChange)="$event ? null : closeTechnicalDocumentPreview()"
-    [header]="'Xem trước: ' + (technicalPreviewTarget()?.document?.name || technicalPreviewTarget()?.document?.fileName || 'Tài liệu')"
+    [header]="
+      'Xem trước: ' +
+      (technicalPreviewTarget()?.document?.name ||
+        technicalPreviewTarget()?.document?.fileName ||
+        'Tài liệu')
+    "
     [modal]="true"
     [style]="{ width: '90vw', maxWidth: '1400px' }"
     [contentStyle]="{ height: '72vh', padding: '20px 30px' }"
     styleClass="evn-dialog-custom technical-document-preview-dialog"
-    [draggable]="false">
-    <div *ngIf="loadingTechnicalDocumentPreview()" class="technical-preview-loading">
+    [draggable]="false"
+  >
+    <div
+      *ngIf="loadingTechnicalDocumentPreview()"
+      class="technical-preview-loading"
+    >
       <i class="pi pi-spin pi-spinner"></i>
       <span>Đang tải tài liệu...</span>
     </div>
 
-    <div *ngIf="!loadingTechnicalDocumentPreview() && technicalPreviewSrc() as previewSrc" class="technical-preview-body">
-      <img *ngIf="isTechnicalPreviewImage()" [src]="previewSrc" [alt]="technicalPreviewTarget()?.document?.name || 'Tài liệu'" />
-      <iframe *ngIf="!isTechnicalPreviewImage()" [src]="previewSrc" title="Xem trước tài liệu"></iframe>
+    <div
+      *ngIf="
+        !loadingTechnicalDocumentPreview() &&
+        technicalPreviewSrc() as previewSrc
+      "
+      class="technical-preview-body"
+    >
+      <img
+        *ngIf="isTechnicalPreviewImage()"
+        [src]="previewSrc"
+        [alt]="technicalPreviewTarget()?.document?.name || 'Tài liệu'"
+      />
+      <iframe
+        *ngIf="!isTechnicalPreviewImage()"
+        [src]="previewSrc"
+        title="Xem trước tài liệu"
+      ></iframe>
     </div>
 
-    <div *ngIf="!loadingTechnicalDocumentPreview() && !technicalPreviewSrc()" class="technical-preview-empty">
+    <div
+      *ngIf="!loadingTechnicalDocumentPreview() && !technicalPreviewSrc()"
+      class="technical-preview-empty"
+    >
       Không có nội dung để xem trước.
     </div>
 
     <ng-template pTemplate="footer">
       <div class="technical-preview-footer">
-        <span><i class="pi pi-info-circle"></i> {{ technicalPreviewTarget()?.document?.name || technicalPreviewTarget()?.document?.fileName }}</span>
+        <span
+          ><i class="pi pi-info-circle"></i>
+          {{
+            technicalPreviewTarget()?.document?.name ||
+              technicalPreviewTarget()?.document?.fileName
+          }}</span
+        >
         <div>
-          <button type="button" class="technical-preview-download" (click)="downloadTechnicalDocument(technicalPreviewTarget()?.dossierId, technicalPreviewTarget()?.document)">
+          <button
+            type="button"
+            class="technical-preview-download"
+            (click)="
+              downloadTechnicalDocument(
+                technicalPreviewTarget()?.dossierId,
+                technicalPreviewTarget()?.document
+              )
+            "
+          >
             <i class="pi pi-download"></i> Tải về
           </button>
-          <button type="button" class="technical-preview-close" (click)="closeTechnicalDocumentPreview()">
+          <button
+            type="button"
+            class="technical-preview-close"
+            (click)="closeTechnicalDocumentPreview()"
+          >
             <i class="pi pi-times"></i> Đóng
           </button>
         </div>
@@ -954,192 +2353,541 @@
     (confirmed)="onConfirmDelete()"
   />
 
-    <!-- ==================== DIALOG XÁC NHẬN KHÓA / MỞ KHÓA ==================== -->
-    <p-dialog
-      [visible]="showLockUnlockConfirm()"
-      (visibleChange)="$event ? null : onCancelLockUnlock()"
-      [header]="(lockUnlockTarget()?.isActive === 1 || lockUnlockTarget()?.isActive === true) ? 'Xác nhận khóa' : 'Xác nhận mở khóa'"
-      [modal]="true"
-      [style]="{ width: '420px' }"
-      styleClass="evn-dialog-custom"
-      [closable]="!lockUnlockLoading()">
-      <div style="display: flex; align-items: flex-start; gap: 12px; padding: 8px 0 16px;">
-        <i class="pi pi-question-circle" style="font-size: 1.8rem; color: #3b82f6;"></i>
-        <div>
-          <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">
-            Bạn có chắc chắn muốn {{ (lockUnlockTarget()?.isActive === 1 || lockUnlockTarget()?.isActive === true) ? 'khóa' : 'mở khóa' }}?
-          </p>
-          <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
-            {{ infraTypeId() === 1 ? 'Trạm biến áp' : 'Đường dây' }} <b style="color: #1e293b;">{{ lockUnlockTarget()?.name }}</b> sẽ được thay đổi trạng thái.
-          </p>
-        </div>
+  <!-- ==================== DIALOG XÁC NHẬN KHÓA / MỞ KHÓA ==================== -->
+  <p-dialog
+    [visible]="showLockUnlockConfirm()"
+    (visibleChange)="$event ? null : onCancelLockUnlock()"
+    [header]="
+      lockUnlockTarget()?.isActive === 1 ||
+      lockUnlockTarget()?.isActive === true
+        ? 'Xác nhận khóa'
+        : 'Xác nhận mở khóa'
+    "
+    [modal]="true"
+    [style]="{ width: '420px' }"
+    styleClass="evn-dialog-custom"
+    [closable]="!lockUnlockLoading()"
+  >
+    <div
+      style="
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 8px 0 16px;
+      "
+    >
+      <i
+        class="pi pi-question-circle"
+        style="font-size: 1.8rem; color: #3b82f6"
+      ></i>
+      <div>
+        <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b">
+          Bạn có chắc chắn muốn
+          {{
+            lockUnlockTarget()?.isActive === 1 ||
+            lockUnlockTarget()?.isActive === true
+              ? 'khóa'
+              : 'mở khóa'
+          }}?
+        </p>
+        <p style="margin: 0; color: #64748b; font-size: 0.875rem">
+          {{ infraTypeId() === 1 ? 'Trạm biến áp' : 'Đường dây' }}
+          <b style="color: #1e293b">{{ lockUnlockTarget()?.name }}</b> sẽ được
+          thay đổi trạng thái.
+        </p>
       </div>
-      <ng-template #footer>
-        <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
-          <button class="btn-cancel btn-small" (click)="onCancelLockUnlock()" [disabled]="lockUnlockLoading()">
-            <i class="pi pi-times"></i> Hủy
-          </button>
-          <button class="btn-save btn-small" (click)="onConfirmLockUnlock()" [disabled]="lockUnlockLoading()"
-                  [style.background-color]="(lockUnlockTarget()?.isActive === 1 || lockUnlockTarget()?.isActive === true) ? '#dc2626' : '#4790e9'"
-                  [style.border-color]="(lockUnlockTarget()?.isActive === 1 || lockUnlockTarget()?.isActive === true) ? '#dc2626' : '#4790e9'">
-            <i class="pi pi-spin pi-spinner" *ngIf="lockUnlockLoading()"></i>
-            <i class="pi pi-lock" *ngIf="!lockUnlockLoading() && (lockUnlockTarget()?.isActive === 1 || lockUnlockTarget()?.isActive === true)"></i>
-            <i class="pi pi-lock-open" *ngIf="!lockUnlockLoading() && !(lockUnlockTarget()?.isActive === 1 || lockUnlockTarget()?.isActive === true)"></i>
-            Đồng ý
-          </button>
-        </div>
-      </ng-template>
-    </p-dialog>
-
-    <!-- ==================== DIALOG CHUYỂN THIẾT BỊ ==================== -->
-    <p-dialog [visible]="showTransferDialog()" (visibleChange)="$event ? null : closeTransferDialog()"
-      header="Chuyển thiết bị" [modal]="true" [style]="{ width: '560px', height: '550px' }" styleClass="evn-dialog-custom"
-      [closable]="!transferLoading()">
-      <div style="padding: 8px 0 16px; display: flex; flex-direction: column; gap: 16px;">
-        <div class="form-group">
-          <label class="form-label" style="font-weight: 600; margin-bottom: 6px; display: block; color: #374151;">
-            Đơn vị quản lý <span class="required" style="color: #ef4444;">*</span>
-          </label>
-          <div class="org-tree-picker" [class.disabled]="transferLoading()">
-            <div class="org-tree-trigger" (click)="toggleTransferOrgTree($event)"
-              [class.has-value]="transferForm().unitId" [class.open]="transferOrgTreeOpen()">
-              <span class="org-tree-selected-label">
-                <i class="pi pi-building" style="margin-right: 6px; color: #6b7280;"></i>
-                {{ getTransferUnitLabel(transferForm().unitId) || '-- Chọn đơn vị quản lý --' }}
-              </span>
-              <i class="pi" [class.pi-chevron-down]="!transferOrgTreeOpen()" [class.pi-chevron-up]="transferOrgTreeOpen()"></i>
-            </div>
-            <div class="org-tree-dropdown" *ngIf="transferOrgTreeOpen()" (click)="$event.stopPropagation()">
-              <div class="org-tree-search">
-                <i class="pi pi-search"></i>
-                <input type="text" placeholder="Tìm kiếm đơn vị..." [ngModel]="transferOrgSearchKeyword()"
-                  (ngModelChange)="transferOrgSearchKeyword.set($event)" />
-              </div>
-              <ng-container *ngFor="let node of transferOrgUnitTree()">
-                <ng-container *ngTemplateOutlet="transferOrgTreeNode; context: { $implicit: node, depth: 0 }"></ng-container>
-              </ng-container>
-              <div *ngIf="transferOrgUnitTree().length === 0" class="org-tree-empty">Không có đơn vị phù hợp.</div>
-            </div>
-          </div>
-          <span class="field-error" *ngIf="transferUnitError"
-            style="color: #ef4444; font-size: 0.8rem; margin-top: 4px; display: block;">{{ transferUnitError }}</span>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label" style="font-weight: 600; margin-bottom: 6px; display: block; color: #374151;">
-            Trạm/Đường dây <span class="required" style="color: #ef4444;">*</span>
-          </label>
-          <p-select [options]="transferInfrastructures()" [ngModel]="transferForm().infrastructureId"
-            (ngModelChange)="onTransferInfrastructureChange($event)" optionLabel="name" optionValue="id"
-            [placeholder]="transferForm().unitId ? '-- Chọn Trạm/Đường dây --' : '-- Vui lòng chọn Đơn vị quản lý --'"
-            [disabled]="!transferForm().unitId || transferLoading()" [filter]="true"
-            [style]="{'width':'100%', 'height':'38px', 'line-height':'24px', 'border':'1px solid #cbd5e1', 'border-radius':'6px', 'background-color':'#ffffff', 'color':'#374151'}">
-          </p-select>
-          <span class="field-error" *ngIf="transferInfrastructureError"
-            style="color: #ef4444; font-size: 0.8rem; margin-top: 4px; display: block;">{{ transferInfrastructureError }}</span>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label" style="font-weight: 600; margin-bottom: 6px; display: block; color: #374151;">
-            Ghi chú
-          </label>
-          <textarea class="wf-input w-full" rows="4" placeholder="Nhập ghi chú..."
-            [ngModel]="transferForm().note" (ngModelChange)="onTransferNoteChange($event)"
-            [disabled]="transferLoading()"
-            style="min-height: 96px; resize: vertical; padding: 10px 12px; background-color: #ffffff !important; color: #374151 !important; border-radius: 6px;"></textarea>
-        </div>
-      </div>
-      <ng-template #footer>
-        <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
-          <button class="btn-cancel btn-small" (click)="closeTransferDialog()" [disabled]="transferLoading()">
-            <i class="pi pi-times"></i> Đóng
-          </button>
-          <button class="btn-save btn-small" (click)="confirmTransferEquipment()" [disabled]="transferLoading()">
-            <i class="pi pi-spin pi-spinner" *ngIf="transferLoading()" style="margin-right: 4px;"></i>
-            <i class="pi pi-check" *ngIf="!transferLoading()" style="margin-right: 4px;"></i>
-            Chuyển TBA
-          </button>
-        </div>
-      </ng-template>
-    </p-dialog>
-
-    <ng-template #transferOrgTreeNode let-node let-depth="depth">
-      <div class="org-tree-node" [class.selected]="transferForm().unitId == node.id" [style.padding-left.px]="8 + depth * 16">
-        <button type="button" class="org-tree-expand-btn" *ngIf="node.children && node.children.length > 0"
-          (click)="toggleTransferUnitNode(node.id, $event)">
-          <i class="pi" [class.pi-chevron-right]="!isTransferNodeExpanded(node.id)" [class.pi-chevron-down]="isTransferNodeExpanded(node.id)"></i>
+    </div>
+    <ng-template #footer>
+      <div
+        style="
+          display: flex;
+          justify-content: flex-end;
+          gap: 8px;
+          border-top: 1px solid #f1f5f9;
+          padding-top: 12px;
+        "
+      >
+        <button
+          class="btn-cancel btn-small"
+          (click)="onCancelLockUnlock()"
+          [disabled]="lockUnlockLoading()"
+        >
+          <i class="pi pi-times"></i> Hủy
         </button>
-        <span class="org-tree-node-spacer" *ngIf="!node.children || node.children.length === 0"></span>
-        <span class="org-tree-node-label" (click)="selectTransferOrgUnit(node.id)">{{ node.name }}</span>
-      </div>
-      <div *ngIf="(transferOrgSearchKeyword() || isTransferNodeExpanded(node.id)) && node.children && node.children.length > 0">
-        <ng-container *ngFor="let child of node.children">
-          <ng-container *ngTemplateOutlet="transferOrgTreeNode; context: { $implicit: child, depth: depth + 1 }"></ng-container>
-        </ng-container>
+        <button
+          class="btn-save btn-small"
+          (click)="onConfirmLockUnlock()"
+          [disabled]="lockUnlockLoading()"
+          [style.background-color]="
+            lockUnlockTarget()?.isActive === 1 ||
+            lockUnlockTarget()?.isActive === true
+              ? '#dc2626'
+              : '#4790e9'
+          "
+          [style.border-color]="
+            lockUnlockTarget()?.isActive === 1 ||
+            lockUnlockTarget()?.isActive === true
+              ? '#dc2626'
+              : '#4790e9'
+          "
+        >
+          <i class="pi pi-spin pi-spinner" *ngIf="lockUnlockLoading()"></i>
+          <i
+            class="pi pi-lock"
+            *ngIf="
+              !lockUnlockLoading() &&
+              (lockUnlockTarget()?.isActive === 1 ||
+                lockUnlockTarget()?.isActive === true)
+            "
+          ></i>
+          <i
+            class="pi pi-lock-open"
+            *ngIf="
+              !lockUnlockLoading() &&
+              !(
+                lockUnlockTarget()?.isActive === 1 ||
+                lockUnlockTarget()?.isActive === true
+              )
+            "
+          ></i>
+          Đồng ý
+        </button>
       </div>
     </ng-template>
+  </p-dialog>
 
-    <!-- ==================== DIALOG XÁC NHẬN CHUYỂN HỒ SƠ ==================== -->
-    <p-dialog [visible]="showTransferDossierConfirm()" (visibleChange)="$event ? null : onCancelTransferDossier()"
-      header="Xác nhận chuyển hồ sơ" [modal]="true" [style]="{ width: '460px' }" styleClass="evn-dialog-custom"
-      [closable]="!transferDossierLoading()">
-      <div style="display: flex; align-items: flex-start; gap: 12px; padding: 8px 0 16px;">
-        <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #f59e0b;"></i>
-        <div>
-          <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">Bạn có chắc chắn muốn chuyển hồ sơ?</p>
-          <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
-            Hồ sơ của thiết bị <b style="color: #1e293b;">{{ transferDossierTarget()?.name || transferDossierTarget()?.code }}</b> sẽ được chuyển theo thiết bị đã chọn.
-          </p>
+  <!-- ==================== DIALOG CHUYỂN THIẾT BỊ ==================== -->
+  <p-dialog
+    [visible]="showTransferDialog()"
+    (visibleChange)="$event ? null : closeTransferDialog()"
+    header="Chuyển thiết bị"
+    [modal]="true"
+    [style]="{ width: '560px', height: '550px' }"
+    styleClass="evn-dialog-custom"
+    [closable]="!transferLoading()"
+  >
+    <div
+      style="
+        padding: 8px 0 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      "
+    >
+      <div class="form-group">
+        <label
+          class="form-label"
+          style="
+            font-weight: 600;
+            margin-bottom: 6px;
+            display: block;
+            color: #374151;
+          "
+        >
+          Đơn vị quản lý <span class="required" style="color: #ef4444">*</span>
+        </label>
+        <div class="org-tree-picker" [class.disabled]="transferLoading()">
+          <div
+            class="org-tree-trigger"
+            (click)="toggleTransferOrgTree($event)"
+            [class.has-value]="transferForm().unitId"
+            [class.open]="transferOrgTreeOpen()"
+          >
+            <span class="org-tree-selected-label">
+              <i
+                class="pi pi-building"
+                style="margin-right: 6px; color: #6b7280"
+              ></i>
+              {{
+                getTransferUnitLabel(transferForm().unitId) ||
+                  '-- Chọn đơn vị quản lý --'
+              }}
+            </span>
+            <i
+              class="pi"
+              [class.pi-chevron-down]="!transferOrgTreeOpen()"
+              [class.pi-chevron-up]="transferOrgTreeOpen()"
+            ></i>
+          </div>
+          <div
+            class="org-tree-dropdown"
+            *ngIf="transferOrgTreeOpen()"
+            (click)="$event.stopPropagation()"
+          >
+            <div class="org-tree-search">
+              <i class="pi pi-search"></i>
+              <input
+                type="text"
+                placeholder="Tìm kiếm đơn vị..."
+                [ngModel]="transferOrgSearchKeyword()"
+                (ngModelChange)="transferOrgSearchKeyword.set($event)"
+              />
+            </div>
+            <ng-container *ngFor="let node of transferOrgUnitTree()">
+              <ng-container
+                *ngTemplateOutlet="
+                  transferOrgTreeNode;
+                  context: { $implicit: node, depth: 0 }
+                "
+              ></ng-container>
+            </ng-container>
+            <div
+              *ngIf="transferOrgUnitTree().length === 0"
+              class="org-tree-empty"
+            >
+              Không có đơn vị phù hợp.
+            </div>
+          </div>
         </div>
+        <span
+          class="field-error"
+          *ngIf="transferUnitError"
+          style="
+            color: #ef4444;
+            font-size: 0.8rem;
+            margin-top: 4px;
+            display: block;
+          "
+          >{{ transferUnitError }}</span
+        >
       </div>
-      <ng-template #footer>
-        <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
-          <button class="btn-cancel btn-small" (click)="onCancelTransferDossier()" [disabled]="transferDossierLoading()">
-            <i class="pi pi-times"></i> Hủy
-          </button>
-          <button class="btn-save btn-small" (click)="onConfirmTransferDossier()" [disabled]="transferDossierLoading()">
-            <i class="pi pi-spin pi-spinner" *ngIf="transferDossierLoading()" style="margin-right: 4px;"></i>
-            <i class="pi pi-check" *ngIf="!transferDossierLoading()" style="margin-right: 4px;"></i>
-            Xác nhận chuyển
-          </button>
-        </div>
-      </ng-template>
-    </p-dialog>
 
-    <!-- ==================== DIALOG XÁC NHẬN KHÓA / MỞ KHÓA THIẾT BỊ ==================== -->
-    <p-dialog
-      [visible]="showEquipmentLockConfirm()"
-      (visibleChange)="$event ? null : onCancelEquipmentLock()"
-      [header]="(equipmentLockTarget()?.isActive === 1 || equipmentLockTarget()?.isActive === true) ? 'Xác nhận khóa thiết bị' : 'Xác nhận mở khóa thiết bị'"
-      [modal]="true"
-      [style]="{ width: '420px' }"
-      styleClass="evn-dialog-custom"
-      [closable]="!equipmentLockLoading()">
-      <div style="display: flex; align-items: flex-start; gap: 12px; padding: 8px 0 16px;">
-        <i class="pi pi-question-circle" style="font-size: 1.8rem; color: #3b82f6;"></i>
-        <div>
-          <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">
-            Bạn có chắc chắn muốn {{ (equipmentLockTarget()?.isActive === 1 || equipmentLockTarget()?.isActive === true) ? 'khóa' : 'mở khóa' }}?
-          </p>
-          <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
-            Thiết bị <b style="color: #1e293b;">{{ equipmentLockTarget()?.name }}</b> sẽ được thay đổi trạng thái hoạt động.
-          </p>
-        </div>
+      <div class="form-group">
+        <label
+          class="form-label"
+          style="
+            font-weight: 600;
+            margin-bottom: 6px;
+            display: block;
+            color: #374151;
+          "
+        >
+          Trạm/Đường dây <span class="required" style="color: #ef4444">*</span>
+        </label>
+        <p-select
+          [options]="transferInfrastructures()"
+          [ngModel]="transferForm().infrastructureId"
+          (ngModelChange)="onTransferInfrastructureChange($event)"
+          optionLabel="name"
+          optionValue="id"
+          [placeholder]="
+            transferForm().unitId
+              ? '-- Chọn Trạm/Đường dây --'
+              : '-- Vui lòng chọn Đơn vị quản lý --'
+          "
+          [disabled]="!transferForm().unitId || transferLoading()"
+          [filter]="true"
+          [style]="{
+            width: '100%',
+            height: '38px',
+            'line-height': '24px',
+            border: '1px solid #cbd5e1',
+            'border-radius': '6px',
+            'background-color': '#ffffff',
+            color: '#374151',
+          }"
+        >
+        </p-select>
+        <span
+          class="field-error"
+          *ngIf="transferInfrastructureError"
+          style="
+            color: #ef4444;
+            font-size: 0.8rem;
+            margin-top: 4px;
+            display: block;
+          "
+          >{{ transferInfrastructureError }}</span
+        >
       </div>
-      <ng-template #footer>
-        <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
-          <button class="btn-cancel btn-small" (click)="onCancelEquipmentLock()" [disabled]="equipmentLockLoading()">
-            <i class="pi pi-times"></i> Hủy
-          </button>
-          <button class="btn-save btn-small" (click)="onConfirmEquipmentLock()" [disabled]="equipmentLockLoading()"
-                  [style.background-color]="(equipmentLockTarget()?.isActive === 1 || equipmentLockTarget()?.isActive === true) ? '#dc2626' : '#4790e9'"
-                  [style.border-color]="(equipmentLockTarget()?.isActive === 1 || equipmentLockTarget()?.isActive === true) ? '#dc2626' : '#4790e9'">
-            <i class="pi pi-spin pi-spinner" *ngIf="equipmentLockLoading()"></i>
-            <i class="pi pi-lock" *ngIf="!equipmentLockLoading() && (equipmentLockTarget()?.isActive === 1 || equipmentLockTarget()?.isActive === true)"></i>
-            <i class="pi pi-lock-open" *ngIf="!equipmentLockLoading() && !(equipmentLockTarget()?.isActive === 1 || equipmentLockTarget()?.isActive === true)"></i>
-            Đồng ý
-          </button>
-        </div>
-      </ng-template>
-    </p-dialog>
+
+      <div class="form-group">
+        <label
+          class="form-label"
+          style="
+            font-weight: 600;
+            margin-bottom: 6px;
+            display: block;
+            color: #374151;
+          "
+        >
+          Ghi chú
+        </label>
+        <textarea
+          class="wf-input w-full"
+          rows="4"
+          placeholder="Nhập ghi chú..."
+          [ngModel]="transferForm().note"
+          (ngModelChange)="onTransferNoteChange($event)"
+          [disabled]="transferLoading()"
+          style="
+            min-height: 96px;
+            resize: vertical;
+            padding: 10px 12px;
+            background-color: #ffffff !important;
+            color: #374151 !important;
+            border-radius: 6px;
+          "
+        ></textarea>
+      </div>
+    </div>
+    <ng-template #footer>
+      <div
+        style="
+          display: flex;
+          justify-content: flex-end;
+          gap: 8px;
+          border-top: 1px solid #f1f5f9;
+          padding-top: 12px;
+        "
+      >
+        <button
+          class="btn-cancel btn-small"
+          (click)="closeTransferDialog()"
+          [disabled]="transferLoading()"
+        >
+          <i class="pi pi-times"></i> Đóng
+        </button>
+        <button
+          class="btn-save btn-small"
+          (click)="confirmTransferEquipment()"
+          [disabled]="transferLoading()"
+        >
+          <i
+            class="pi pi-spin pi-spinner"
+            *ngIf="transferLoading()"
+            style="margin-right: 4px"
+          ></i>
+          <i
+            class="pi pi-check"
+            *ngIf="!transferLoading()"
+            style="margin-right: 4px"
+          ></i>
+          Chuyển TBA
+        </button>
+      </div>
+    </ng-template>
+  </p-dialog>
+
+  <ng-template #transferOrgTreeNode let-node let-depth="depth">
+    <div
+      class="org-tree-node"
+      [class.selected]="transferForm().unitId == node.id"
+      [style.padding-left.px]="8 + depth * 16"
+    >
+      <button
+        type="button"
+        class="org-tree-expand-btn"
+        *ngIf="node.children && node.children.length > 0"
+        (click)="toggleTransferUnitNode(node.id, $event)"
+      >
+        <i
+          class="pi"
+          [class.pi-chevron-right]="!isTransferNodeExpanded(node.id)"
+          [class.pi-chevron-down]="isTransferNodeExpanded(node.id)"
+        ></i>
+      </button>
+      <span
+        class="org-tree-node-spacer"
+        *ngIf="!node.children || node.children.length === 0"
+      ></span>
+      <span
+        class="org-tree-node-label"
+        (click)="selectTransferOrgUnit(node.id)"
+        >{{ node.name }}</span
+      >
+    </div>
+    <div
+      *ngIf="
+        (transferOrgSearchKeyword() || isTransferNodeExpanded(node.id)) &&
+        node.children &&
+        node.children.length > 0
+      "
+    >
+      <ng-container *ngFor="let child of node.children">
+        <ng-container
+          *ngTemplateOutlet="
+            transferOrgTreeNode;
+            context: { $implicit: child, depth: depth + 1 }
+          "
+        ></ng-container>
+      </ng-container>
+    </div>
+  </ng-template>
+
+  <!-- ==================== DIALOG XÁC NHẬN CHUYỂN HỒ SƠ ==================== -->
+  <p-dialog
+    [visible]="showTransferDossierConfirm()"
+    (visibleChange)="$event ? null : onCancelTransferDossier()"
+    header="Xác nhận chuyển hồ sơ"
+    [modal]="true"
+    [style]="{ width: '460px' }"
+    styleClass="evn-dialog-custom"
+    [closable]="!transferDossierLoading()"
+  >
+    <div
+      style="
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 8px 0 16px;
+      "
+    >
+      <i
+        class="pi pi-exclamation-triangle"
+        style="font-size: 1.8rem; color: #f59e0b"
+      ></i>
+      <div>
+        <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b">
+          Bạn có chắc chắn muốn chuyển hồ sơ?
+        </p>
+        <p style="margin: 0; color: #64748b; font-size: 0.875rem">
+          Hồ sơ của thiết bị
+          <b style="color: #1e293b">{{
+            transferDossierTarget()?.name || transferDossierTarget()?.code
+          }}</b>
+          sẽ được chuyển theo thiết bị đã chọn.
+        </p>
+      </div>
+    </div>
+    <ng-template #footer>
+      <div
+        style="
+          display: flex;
+          justify-content: flex-end;
+          gap: 8px;
+          border-top: 1px solid #f1f5f9;
+          padding-top: 12px;
+        "
+      >
+        <button
+          class="btn-cancel btn-small"
+          (click)="onCancelTransferDossier()"
+          [disabled]="transferDossierLoading()"
+        >
+          <i class="pi pi-times"></i> Hủy
+        </button>
+        <button
+          class="btn-save btn-small"
+          (click)="onConfirmTransferDossier()"
+          [disabled]="transferDossierLoading()"
+        >
+          <i
+            class="pi pi-spin pi-spinner"
+            *ngIf="transferDossierLoading()"
+            style="margin-right: 4px"
+          ></i>
+          <i
+            class="pi pi-check"
+            *ngIf="!transferDossierLoading()"
+            style="margin-right: 4px"
+          ></i>
+          Xác nhận chuyển
+        </button>
+      </div>
+    </ng-template>
+  </p-dialog>
+
+  <!-- ==================== DIALOG XÁC NHẬN KHÓA / MỞ KHÓA THIẾT BỊ ==================== -->
+  <p-dialog
+    [visible]="showEquipmentLockConfirm()"
+    (visibleChange)="$event ? null : onCancelEquipmentLock()"
+    [header]="
+      equipmentLockTarget()?.isActive === 1 ||
+      equipmentLockTarget()?.isActive === true
+        ? 'Xác nhận khóa thiết bị'
+        : 'Xác nhận mở khóa thiết bị'
+    "
+    [modal]="true"
+    [style]="{ width: '420px' }"
+    styleClass="evn-dialog-custom"
+    [closable]="!equipmentLockLoading()"
+  >
+    <div
+      style="
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 8px 0 16px;
+      "
+    >
+      <i
+        class="pi pi-question-circle"
+        style="font-size: 1.8rem; color: #3b82f6"
+      ></i>
+      <div>
+        <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b">
+          Bạn có chắc chắn muốn
+          {{
+            equipmentLockTarget()?.isActive === 1 ||
+            equipmentLockTarget()?.isActive === true
+              ? 'khóa'
+              : 'mở khóa'
+          }}?
+        </p>
+        <p style="margin: 0; color: #64748b; font-size: 0.875rem">
+          Thiết bị
+          <b style="color: #1e293b">{{ equipmentLockTarget()?.name }}</b> sẽ
+          được thay đổi trạng thái hoạt động.
+        </p>
+      </div>
+    </div>
+    <ng-template #footer>
+      <div
+        style="
+          display: flex;
+          justify-content: flex-end;
+          gap: 8px;
+          border-top: 1px solid #f1f5f9;
+          padding-top: 12px;
+        "
+      >
+        <button
+          class="btn-cancel btn-small"
+          (click)="onCancelEquipmentLock()"
+          [disabled]="equipmentLockLoading()"
+        >
+          <i class="pi pi-times"></i> Hủy
+        </button>
+        <button
+          class="btn-save btn-small"
+          (click)="onConfirmEquipmentLock()"
+          [disabled]="equipmentLockLoading()"
+          [style.background-color]="
+            equipmentLockTarget()?.isActive === 1 ||
+            equipmentLockTarget()?.isActive === true
+              ? '#dc2626'
+              : '#4790e9'
+          "
+          [style.border-color]="
+            equipmentLockTarget()?.isActive === 1 ||
+            equipmentLockTarget()?.isActive === true
+              ? '#dc2626'
+              : '#4790e9'
+          "
+        >
+          <i class="pi pi-spin pi-spinner" *ngIf="equipmentLockLoading()"></i>
+          <i
+            class="pi pi-lock"
+            *ngIf="
+              !equipmentLockLoading() &&
+              (equipmentLockTarget()?.isActive === 1 ||
+                equipmentLockTarget()?.isActive === true)
+            "
+          ></i>
+          <i
+            class="pi pi-lock-open"
+            *ngIf="
+              !equipmentLockLoading() &&
+              !(
+                equipmentLockTarget()?.isActive === 1 ||
+                equipmentLockTarget()?.isActive === true
+              )
+            "
+          ></i>
+          Đồng ý
+        </button>
+      </div>
+    </ng-template>
+  </p-dialog>
 </div>

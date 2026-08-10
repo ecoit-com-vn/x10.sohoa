@@ -6,7 +6,7 @@ import {
   signal
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { TableModule } from 'primeng/table';
+import { EcoPaginatorComponent } from '@sohoa.frontend/shared/layout';
 import { ReportStatisticsEquipmentTypeGridConfig } from '../../data-access/report-statistics.config';
 import {
   ReportStatisticsEquipmentTypeGridItem,
@@ -17,7 +17,7 @@ import { finalize } from 'rxjs';
 @Component({
   selector: 'app-report-statistics-equipment-type-grid',
   standalone: true,
-  imports: [CommonModule, TableModule],
+  imports: [CommonModule, EcoPaginatorComponent],
   templateUrl: './report-statistics-equipment-type-grid.component.html',
   styleUrl: './report-statistics-equipment-type-grid.component.scss'
 })
@@ -32,7 +32,7 @@ export class ReportStatisticsEquipmentTypeGridComponent {
   items = signal<ReportStatisticsEquipmentTypeGridItem[]>([]);
   loading = signal(false);
   totalCount = signal(0);
-  page = signal(1);
+  currentPage = signal(1);
   pageSize = signal(10);
 
   constructor() {
@@ -42,20 +42,22 @@ export class ReportStatisticsEquipmentTypeGridComponent {
       if (!cfg || !isActive) return;
 
       void this.filterVersion();
-      void this.page();
+      void this.currentPage();
       void this.pageSize();
 
       queueMicrotask(() => this.loadData());
     });
   }
 
-  onPageChange(event: { first: number; rows: number }): void {
-    this.page.set(Math.floor(event.first / event.rows) + 1);
-    this.pageSize.set(event.rows);
+  onPageChange(event: { first?: number; rows?: number }): void {
+    const rows = Number(event.rows) || this.pageSize();
+    const first = Number(event.first) || 0;
+    this.pageSize.set(rows);
+    this.currentPage.set(Math.floor(first / rows) + 1);
   }
 
   resetPagination(): void {
-    this.page.set(1);
+    this.currentPage.set(1);
   }
 
   reload(): void {
@@ -70,7 +72,7 @@ export class ReportStatisticsEquipmentTypeGridComponent {
     this.statisticsService
       .getEquipmentTypeGrid(cfg.gridSegment, {
         ...this.filter(),
-        page: this.page(),
+        page: this.currentPage(),
         pageSize: this.pageSize()
       })
       .pipe(finalize(() => this.loading.set(false)))
