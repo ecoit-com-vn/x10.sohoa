@@ -136,7 +136,8 @@ public partial class EquipmentController : ControllerBase
         // (chuyển sang đơn vị khác là mục đích chính của chức năng này), nên không giới hạn theo
         // allowedUnitIds ở đây — chỉ cần kiểm tra trạm đó tồn tại và đang hoạt động.
         var infrastructures = await _equipmentRepository.GetInfrastructuresLookupAsync(null);
-        if (!infrastructures.Any(infrastructure => infrastructure.Id == InfrastructureId))
+        var targetInfrastructure = infrastructures.FirstOrDefault(infrastructure => infrastructure.Id == InfrastructureId);
+        if (targetInfrastructure == null)
             return BadRequest(new { message = "Trạm được chọn không tồn tại hoặc bạn không có quyền sử dụng." });
 
         var sourceEquipment = await _equipmentRepository.GetByIdAsync(id);
@@ -164,7 +165,10 @@ public partial class EquipmentController : ControllerBase
             ManufactureYear = dto.ManufactureYear,
             EquipmentStatusId = dto.EquipmentStatusId,
             IsActive = true,
-            UnitId = dto.UnitId,
+            // Đơn vị quản lý của thiết bị mới phải theo đúng Trạm/Đường dây đích vừa chọn (mục đích
+            // chính của "Chuyển thiết bị" là chuyển sang đơn vị khác) — không kế thừa đơn vị cũ của
+            // thiết bị nguồn (dto.UnitId).
+            UnitId = targetInfrastructure.UnitId ?? dto.UnitId,
             FormValues = dto.FormValues,
             CreatedBy = userName,
             CreatedAt = DateTime.UtcNow,
@@ -254,10 +258,6 @@ public partial class EquipmentController : ControllerBase
         if (dto == null)
             return NotFound();
 
-        var allowedUnitIds = await GetAllowedUnitIdsAsync();
-        if (allowedUnitIds != null && (!dto.UnitId.HasValue || !allowedUnitIds.Contains(dto.UnitId.Value)))
-            return Forbid();
-
         var sourceEquipment = await _equipmentRepository.GetByIdAsync(id);
         if (sourceEquipment == null)
             return NotFound();
@@ -273,9 +273,6 @@ public partial class EquipmentController : ControllerBase
                 message = "Không tìm thấy thiết bị mới có cùng mã, thuộc hạ tầng khác và chưa nhận hồ sơ."
             });
         }
-
-        if (allowedUnitIds != null && (!replacementEquipment.UnitId.HasValue || !allowedUnitIds.Contains(replacementEquipment.UnitId.Value)))
-            return Forbid();
 
         sourceEquipment.ModifiedBy = User.FindFirst(ClaimTypes.Name)?.Value ?? User.Identity?.Name ?? "system";
         sourceEquipment.ModifiedDate = DateTime.UtcNow;

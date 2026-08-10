@@ -232,6 +232,19 @@ namespace EvnHanoi.NotificationService.Repositories
                 cancellationToken);
             if (!response.IsValidResponse)
             {
+                var serverError = response.ElasticsearchServerError?.Error;
+                var rootCause = string.Join(
+                    " | ",
+                    serverError?.RootCause?.Select(item => $"{item.Type}: {item.Reason}")
+                        ?? Enumerable.Empty<string>());
+                Log.Error(
+                    response.ApiCallDetails?.OriginalException,
+                    "Không thể lấy metadata audit index từ Elasticsearch. " +
+                    "StatusCode: {StatusCode}; ErrorType: {ErrorType}; Reason: {Reason}; RootCause: {RootCause}",
+                    response.ApiCallDetails?.HttpStatusCode,
+                    serverError?.Type,
+                    serverError?.Reason,
+                    rootCause);
                 throw new InvalidOperationException(
                     $"Không thể lấy metadata audit index: {response.ElasticsearchServerError?.Error?.Reason ?? response.DebugInformation}");
             }
