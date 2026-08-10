@@ -10,10 +10,8 @@
     color: #374151;
     background: #f5f7fb;
     min-height: calc(100vh - 56px);
-    padding: 20px;
+    padding: 5px 20px;
     position: relative;
-    display: flex;
-    flex-direction: column;
 }
 
 
@@ -63,13 +61,13 @@
 
 /* ─── Breadcrumb ──────────────────────────────────────────── */
 
-.breadcrumb {
+:host ::ng-deep .standard-page-toolbar .breadcrumb {
     display: flex;
     align-items: center;
     gap: 6px;
     font-size: 0.8rem;
     color: #6b7280;
-    margin-bottom: 16px;
+    margin: 0;
 }
 
 .bc-icon {
@@ -104,7 +102,7 @@
 .wf-search-input {
     height: 34px;
     padding: 0 12px;
-    width: 270px;
+    width: 100%;
     border: 1px solid #d1d5db;
     border-radius: 5px;
     font-size: 0.85rem;
@@ -418,6 +416,65 @@
 .act-delete:hover {
     background: #fef2f2;
 }
+
+/* Dùng kích thước/màu nút chung của màn hình Đơn vị ở thanh breadcrumb. */
+.standard-page-toolbar .btn-green {
+    height: 30px;
+    background: #3BA962;
+}
+
+.standard-page-toolbar .btn-green:hover {
+    background: #2f8c51;
+}
+
+.standard-page-toolbar .btn-outlined,
+.standard-search-card .btn-outlined,
+.standard-search-card .btn-save {
+    height: 30px;
+}
+
+.standard-page-toolbar .btn-green,
+.standard-page-toolbar .btn-excel,
+.standard-page-toolbar .btn-outlined {
+    height: 30px;
+    min-width: 104px;
+    padding: 0 14px;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.standard-page-toolbar .btn-excel {
+    background: #3BA962;
+}
+
+.standard-search-card .standard-search-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.standard-search-card .standard-search-field .wf-search-input,
+.standard-search-card .standard-search-field .wf-select {
+    width: 100%;
+}
+
+.standard-search-card .standard-search-actions {
+    grid-column: 1 / -1;
+}
+
+.standard-page-toolbar .btn-excel:hover {
+    background: #2f8c51;
+}
+
+.standard-search-card .btn-save {
+    background: #4790e9;
+    border-color: #4790e9;
+    color: #ffffff;
+}
+
+.standard-search-card .btn-save:hover {
+    background: #357bd0;
+    border-color: #357bd0;
+}
+
 
 .act-lock {
     color: #dc2626;
