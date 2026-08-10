@@ -121,9 +121,9 @@ public sealed class NotificationEventsConsumer : BackgroundService
         var evt = JsonSerializer.Deserialize<DossierMovedEvent>(body, JsonOptions);
         if (evt == null || evt.RecipientUserIds.Count == 0) return;
 
-        var title = "Hồ sơ mới cần xử lý";
-        var stepText = string.IsNullOrWhiteSpace(evt.StepName) ? "" : $" — bước: {evt.StepName}";
-        var bodyText = $"Hồ sơ {evt.DossierId} vừa được chuyển đến bạn để xử lý theo luồng{stepText}.";
+        var title = "Quản lý hồ sơ: Hồ sơ mới cần xử lý";
+        var stepText = string.IsNullOrWhiteSpace(evt.StepName) ? "" : $" — bước xử lý: {evt.StepName}";
+        var bodyText = $"Hồ sơ {evt.DossierId} vừa được chuyển đến bạn để xử lý theo luồng{stepText}. Vui lòng kiểm tra và thực hiện công việc được giao.";
 
         var notificationId = await repository.CreateWithRecipientsAsync(
             "DOSSIER_ASSIGNED",
@@ -156,8 +156,9 @@ public sealed class NotificationEventsConsumer : BackgroundService
         recipients = recipients.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         if (recipients.Count == 0) return;
 
-        var title = "Thiết bị đã chuyển sang TBA mới";
-        var bodyText = $"Thiết bị {evt.EquipmentCode ?? evt.EquipmentId.ToString()} đã được chuyển sang trạm biến áp mới.";
+        var title = "Chuyển thiết bị sang TBA mới";
+        var bodyText = $"Thiết bị {evt.EquipmentCode ?? evt.EquipmentId.ToString()} đã được chuyển sang TBA mới" +
+                       $" (đơn vị cũ: {FormatUnit(evt.OldUnitId)}, đơn vị mới: {FormatUnit(evt.NewUnitId)}).";
 
         var notificationId = await repository.CreateWithRecipientsAsync(
             "EQUIPMENT_TBA_TRANSFERRED",
@@ -186,8 +187,9 @@ public sealed class NotificationEventsConsumer : BackgroundService
             .ToList();
         if (recipients.Count == 0) return;
 
-        var title = "Hồ sơ thiết bị đã được chuyển đến đơn vị bạn";
-        var bodyText = $"Hồ sơ của thiết bị {evt.EquipmentCode ?? evt.EquipmentId.ToString()} đã được chuyển đến đơn vị bạn tiếp nhận.";
+        var title = "Chuyển hồ sơ thiết bị";
+        var bodyText = $"Hồ sơ của thiết bị {evt.EquipmentCode ?? evt.EquipmentId.ToString()} đã được chuyển đến đơn vị bạn tiếp nhận" +
+                       $" (đơn vị chuyển: {FormatUnit(evt.OldUnitId)}, đơn vị nhận: {FormatUnit(evt.NewUnitId)}).";
 
         var notificationId = await repository.CreateWithRecipientsAsync(
             "EQUIPMENT_DOSSIER_TRANSFERRED",
@@ -221,6 +223,9 @@ public sealed class NotificationEventsConsumer : BackgroundService
             await hubContext.Clients.Group(NotificationHub.BuildUserGroup(userId)).SendAsync("NotificationCreated", payload);
         }
     }
+
+    private static string FormatUnit(long? unitId) =>
+        unitId.HasValue ? unitId.Value.ToString() : "chưa xác định";
 
     public override async Task StopAsync(CancellationToken cancellationToken)
     {
