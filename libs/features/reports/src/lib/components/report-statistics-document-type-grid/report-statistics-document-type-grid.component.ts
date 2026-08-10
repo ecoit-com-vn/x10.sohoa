@@ -7,6 +7,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TableModule } from 'primeng/table';
+import { EcoPaginatorComponent } from '@sohoa.frontend/shared/layout';
 import { ReportStatisticsDocumentTypeGridConfig } from '../../data-access/report-statistics.config';
 import {
   ReportStatisticsDocumentTypeGridItem,
@@ -17,7 +18,7 @@ import { finalize } from 'rxjs';
 @Component({
   selector: 'app-report-statistics-document-type-grid',
   standalone: true,
-  imports: [CommonModule, TableModule],
+  imports: [CommonModule, TableModule, EcoPaginatorComponent],
   templateUrl: './report-statistics-document-type-grid.component.html',
   styleUrl: './report-statistics-document-type-grid.component.scss'
 })

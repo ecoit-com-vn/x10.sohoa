@@ -74,6 +74,7 @@ export class DossierSearchComponent implements OnInit, OnDestroy {
   previewUrl = signal<string | null>(null);
   loadingPreview = signal<boolean>(false);
   gridTypes = signal<any[]>([]);
+  
 
   // Phân trang thiết bị liên quan
   equipmentFirst = signal<number>(0);
@@ -213,6 +214,18 @@ export class DossierSearchComponent implements OnInit, OnDestroy {
   viewTarget = signal<Document | null>(null);
   unitOptions = signal<any[]>([]);
   selectedUnitId = signal<number | null>(null);
+  unitTreeOpen = signal<boolean>(false);
+  unitSearchKeyword = signal<string>('');
+  expandedUnitNodes = signal<Set<number>>(new Set<number>());
+
+  unitTree = computed(() => this.buildUnitTree(this.unitOptions()));
+
+  filteredUnitTree = computed(() =>
+    this.filterUnitTree(
+      this.unitTree(),
+      this.unitSearchKeyword()
+    )
+  );
 
   // ===== DOSSIER SIGNALS =====
   dossiersList = signal<any[]>([]);
@@ -888,7 +901,118 @@ export class DossierSearchComponent implements OnInit, OnDestroy {
     this.expandedFolders.set(new Set<string>());
     this.loadFolderTree();
   }
+buildUnitTree(units: any[]): any[] {
+  const map = new Map<number, any>();
+  const roots: any[] = [];
 
+  units.forEach(unit => {
+    map.set(unit.id, {
+      ...unit,
+      children: []
+    });
+  });
+
+  map.forEach(node => {
+    if (node.parentId != null && map.has(node.parentId)) {
+      map.get(node.parentId).children.push(node);
+    } else {
+      roots.push(node);
+    }
+  });
+
+  return roots;
+}
+
+filterUnitTree(nodes: any[], keyword: string): any[] {
+  const search = keyword.trim().toLocaleLowerCase();
+
+  if (!search) {
+    return nodes;
+  }
+
+  return nodes.reduce<any[]>((result, node) => {
+    const children = this.filterUnitTree(
+      node.children || [],
+      keyword
+    );
+
+    const label = `${node.name || ''} ${node.code || ''}`
+      .toLocaleLowerCase();
+
+    if (
+      label.includes(search) ||
+      children.length > 0
+    ) {
+      result.push({
+        ...node,
+        children
+      });
+    }
+
+    return result;
+  }, []);
+}
+
+toggleUnitTree(event?: Event) {
+  if (event) {
+    event.stopPropagation();
+  }
+
+  this.unitTreeOpen.update(open => {
+    const next = !open;
+
+    if (!next) {
+      this.unitSearchKeyword.set('');
+    }
+
+    return next;
+  });
+}
+
+toggleUnitNode(unitId: number, event?: Event) {
+  if (event) {
+    event.stopPropagation();
+  }
+
+  const expanded = new Set(this.expandedUnitNodes());
+
+  if (expanded.has(unitId)) {
+    expanded.delete(unitId);
+  } else {
+    expanded.add(unitId);
+  }
+
+  this.expandedUnitNodes.set(expanded);
+}
+
+isUnitNodeExpanded(unitId: number): boolean {
+  return this.expandedUnitNodes().has(unitId);
+}
+
+selectUnitFromTree(unitId: number, event?: Event) {
+  if (event) {
+    event.stopPropagation();
+  }
+
+  this.onUnitChange(unitId);
+
+  this.unitTreeOpen.set(false);
+  this.unitSearchKeyword.set('');
+}
+
+getSelectedUnitLabel(): string {
+  const unitId = this.selectedUnitId();
+
+  if (unitId == null) {
+    return '';
+  }
+
+  const unit = this.unitOptions().find(
+    x => Number(x.id) === Number(unitId)
+  );
+
+  return unit?.name || '';
+}
   trackByFolderId(index: number, folder: FolderNode): string {
     return folder.id;
   }
