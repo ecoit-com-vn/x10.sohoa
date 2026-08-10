@@ -40,7 +40,9 @@ frontend-deploy:
 
 frontend-backup-github:
   stage: backup
-  image: alpine/git:latest
+  image:
+    name: alpine/git:latest
+    entrypoint: [""]
   needs:
     - job: frontend-deploy
       artifacts: false
