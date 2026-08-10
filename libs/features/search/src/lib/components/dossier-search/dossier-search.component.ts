@@ -668,7 +668,7 @@ export class DossierSearchComponent implements OnInit, OnDestroy {
       }
   
       this.router.navigate(['/search/documents', versionId], {
-        queryParams: { keyword: null }
+        queryParams: { keyword: null, source: 'dossier' }
       });
   }
 
