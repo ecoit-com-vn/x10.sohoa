@@ -36,10 +36,10 @@ internal static class OcrPageContentHelper
         }
     }
 
-    internal static TextBoxResponse CreateFullPageBox(string text) => new()
+    internal static TextBoxResponse CreateFullPageBox(string text, double widthPx, double heightPx) => new()
     {
         Text = NormalizeUtf8Text(text),
-        Box = [0, 0, 1000, 1000],
+        Box = [0, 0, (float)widthPx, (float)heightPx],
         Confidence = 1.0f,
     };
 
