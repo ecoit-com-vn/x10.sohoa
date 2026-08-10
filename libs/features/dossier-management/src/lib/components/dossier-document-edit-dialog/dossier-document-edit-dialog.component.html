@@ -3,7 +3,10 @@
   (visibleChange)="visibleChange.emit($event)"
   (onShow)="onShow()"
   (onHide)="onHide()"
-  [header]="(canEdit ? 'Sửa tài liệu — ' : 'Chi tiết tài liệu — ') + (documentName || 'Tài liệu')"
+  [header]="
+    (canEdit ? 'Sửa tài liệu — ' : 'Chi tiết tài liệu — ') +
+    (documentName || 'Tài liệu')
+  "
   [modal]="true"
   [style]="{ width: '90vw', maxWidth: '95vw' }"
   styleClass="evn-dialog-custom dossier-document-edit-dialog"
@@ -17,7 +20,7 @@
 
   <div class="edit-split" *ngIf="!loading()">
     <section class="preview-pane">
-      <div class="pane-title">Bản scan / file gốc</div>
+      <div class="pane-title">Bản scan / file gốcccc</div>
       <!-- <div class="preview-toolbar" *ngIf="isPdf() && totalPages() > 1">
         <button type="button" class="page-btn" (click)="prevPage()" [disabled]="currentPage() <= 1">
           <i class="pi pi-chevron-left"></i>
@@ -29,9 +32,24 @@
       </div> -->
       <div class="preview-body">
         <ng-container *ngIf="previewUrl(); else noPreview">
-          <iframe *ngIf="isPdf()" class="preview-frame" [src]="previewSrc()" title="Xem trước PDF"></iframe>
-          <img *ngIf="isImage()" class="preview-image" [src]="previewSrc()" [alt]="documentName" />
-          <iframe *ngIf="!isPdf() && !isImage()" class="preview-frame" [src]="previewSrc()" title="Xem trước"></iframe>
+          <iframe
+            *ngIf="isPdf()"
+            class="preview-frame"
+            [src]="previewSrc()"
+            title="Xem trước PDF"
+          ></iframe>
+          <img
+            *ngIf="isImage()"
+            class="preview-image"
+            [src]="previewSrc()"
+            [alt]="documentName"
+          />
+          <iframe
+            *ngIf="!isPdf() && !isImage()"
+            class="preview-frame"
+            [src]="previewSrc()"
+            title="Xem trước"
+          ></iframe>
         </ng-container>
         <ng-template #noPreview>
           <div class="preview-empty">Không có bản xem trước</div>
@@ -42,7 +60,8 @@
     <section class="form-pane">
       <div class="pane-title">Thông tin tài liệu</div>
       <p class="confirm-intro">
-        Các trường được sinh theo biểu mẫu loại văn bản. Dữ liệu bóc tách (nếu có) được điền sẵn — bạn có thể chỉnh sửa trước khi lưu vào hồ sơ.
+        Các trường được sinh theo biểu mẫu loại văn bản. Dữ liệu bóc tách (nếu
+        có) được điền sẵn — bạn có thể chỉnh sửa trước khi lưu vào hồ sơ.
       </p>
 
       <div *ngIf="fields().length === 0" class="empty-fields">
@@ -53,7 +72,9 @@
         <div
           class="confirm-field"
           *ngFor="let field of fields()"
-          [class.no-value]="!draftData()[field.key] && draftData()[field.key] !== false"
+          [class.no-value]="
+            !draftData()[field.key] && draftData()[field.key] !== false
+          "
         >
           <label class="form-label">{{ field.label }}</label>
 
@@ -75,7 +96,9 @@
                 [disabled]="!canEdit"
               >
                 <option value="">-- Chọn --</option>
-                <option *ngFor="let opt of field.options" [ngValue]="opt.value">{{ opt.label }}</option>
+                <option *ngFor="let opt of field.options" [ngValue]="opt.value">
+                  {{ opt.label }}
+                </option>
               </select>
               <label *ngSwitchCase="'checkbox'" class="checkbox-row">
                 <input
@@ -110,23 +133,52 @@
           </ng-container>
 
           <ng-template #readOnlyText>
-            <div class="readonly-value-text" style="font-size: 0.95rem; color: #1e293b; padding: 6px 0; font-weight: 500; min-height: 24px; word-break: break-all;">
+            <div
+              class="readonly-value-text"
+              style="
+                font-size: 0.95rem;
+                color: #1e293b;
+                padding: 6px 0;
+                font-weight: 500;
+                min-height: 24px;
+                word-break: break-all;
+              "
+            >
               <!-- Checkbox -->
               <ng-container *ngIf="field.type === 'checkbox'">
-                <i class="pi" [ngClass]="draftData()[field.key] ? 'pi-check-square' : 'pi-stop'" style="font-size: 1.1rem; vertical-align: middle; margin-right: 6px; color: #16a34a;"></i>
-                <span>{{ (draftData()[field.key] ? 'Có' : 'Không') }}</span>
+                <i
+                  class="pi"
+                  [ngClass]="
+                    draftData()[field.key] ? 'pi-check-square' : 'pi-stop'
+                  "
+                  style="
+                    font-size: 1.1rem;
+                    vertical-align: middle;
+                    margin-right: 6px;
+                    color: #16a34a;
+                  "
+                ></i>
+                <span>{{ draftData()[field.key] ? 'Có' : 'Không' }}</span>
               </ng-container>
               <!-- Select / Dropdown -->
               <ng-container *ngIf="field.type === 'select'">
                 {{ getSelectLabel(field, draftData()[field.key]) || '' }}
               </ng-container>
               <!-- Other types: text, date, textarea, number -->
-              <ng-container *ngIf="field.type !== 'checkbox' && field.type !== 'select'">
+              <ng-container
+                *ngIf="field.type !== 'checkbox' && field.type !== 'select'"
+              >
                 <ng-container *ngIf="field.type === 'date'">
                   {{ formatDateValue(draftData()[field.key]) || '' }}
                 </ng-container>
                 <ng-container *ngIf="field.type !== 'date'">
-                  {{ draftData()[field.key] !== null && draftData()[field.key] !== undefined && draftData()[field.key] !== '' ? draftData()[field.key] : '' }}
+                  {{
+                    draftData()[field.key] !== null &&
+                    draftData()[field.key] !== undefined &&
+                    draftData()[field.key] !== ''
+                      ? draftData()[field.key]
+                      : ''
+                  }}
                 </ng-container>
               </ng-container>
             </div>
@@ -137,7 +189,13 @@
   </div>
 
   <ng-template #footer>
-    <p-button [label]="canEdit ? 'Hủy' : 'Đóng'" severity="secondary" size="small" (onClick)="close()" [disabled]="saving()"></p-button>
+    <p-button
+      [label]="canEdit ? 'Hủy' : 'Đóng'"
+      severity="secondary"
+      size="small"
+      (onClick)="close()"
+      [disabled]="saving()"
+    ></p-button>
     <p-button
       *ngIf="canEdit"
       label="Lưu vào hồ sơ"

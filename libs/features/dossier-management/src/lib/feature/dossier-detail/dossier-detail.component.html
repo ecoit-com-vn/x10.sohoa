@@ -1,79 +1,158 @@
 <p-toast></p-toast>
 <div class="dossier-detail-view-container animate-fade-in" *ngIf="dossier()">
-  <div class="edit-actions" style="margin-left: auto; display: flex; gap: 8px;">
+  <div class="edit-actions" style="margin-left: auto; display: flex; gap: 8px">
     <button (click)="onCancel()" class="btn-back btn-small">
       <i class="pi pi-arrow-left"></i> Quay lại danh sách
     </button>
-    <button *ngIf="canEditDossier()" (click)="onEdit()" class="btn-save btn-small">
+    <button
+      *ngIf="canEditDossier()"
+      (click)="onEdit()"
+      class="btn-save btn-small"
+    >
       <i class="pi pi-pencil"></i> Sửa hồ sơ
     </button>
-    <button *ngIf="showCompleteInputButton()" (click)="onCompleteInput()" class="btn-green btn-small"
-      [disabled]="submitting()">
+    <button
+      *ngIf="showCompleteInputButton()"
+      (click)="onCompleteInput()"
+      class="btn-green btn-small"
+      [disabled]="submitting()"
+    >
       <i class="pi pi-check" *ngIf="!submitting()"></i>
       <i class="pi pi-spin pi-spinner" *ngIf="submitting()"></i>
       Hoàn thành nhập liệu
     </button>
-    <button *ngIf="showSubmitForApprovalButton()" (click)="openSubmitWorkflowDialog()" class="btn-save btn-small"
-      [disabled]="submitting()">
+    <button
+      *ngIf="showSubmitForApprovalButton()"
+      (click)="openSubmitWorkflowDialog()"
+      class="btn-save btn-small"
+      [disabled]="submitting()"
+    >
       <i class="pi pi-send" *ngIf="!submitting()"></i>
       <i class="pi pi-spin pi-spinner" *ngIf="submitting()"></i>
       Gửi duyệt
     </button>
-    <button *ngIf="showPublishButton()" (click)="requestPublishAction('publish')" class="btn-green btn-small"
-      [disabled]="publishActionSubmitting()">
+    <button
+      *ngIf="showPublishButton()"
+      (click)="requestPublishAction('publish')"
+      class="btn-green btn-small"
+      [disabled]="publishActionSubmitting()"
+    >
       <i class="pi pi-cloud-upload"></i> Xuất bản
     </button>
-    <button *ngIf="showUnpublishButton()" (click)="requestPublishAction('unpublish')" class="btn-cancel btn-small"
-      [disabled]="publishActionSubmitting()">
+    <button
+      *ngIf="showUnpublishButton()"
+      (click)="requestPublishAction('unpublish')"
+      class="btn-cancel btn-small"
+      [disabled]="publishActionSubmitting()"
+    >
       <i class="pi pi-ban"></i> Hủy xuất bản
     </button>
-    <button *ngIf="showRepublishButton()" (click)="requestPublishAction('republish')" class="btn-green btn-small"
-      [disabled]="publishActionSubmitting()">
+    <button
+      *ngIf="showRepublishButton()"
+      (click)="requestPublishAction('republish')"
+      class="btn-green btn-small"
+      [disabled]="publishActionSubmitting()"
+    >
       <i class="pi pi-refresh"></i> Tái xuất bản
     </button>
-    <ng-container *ngIf="detailDynamicButtons().length > 0 && isUserAuthorizedForDetailAction">
-      <button *ngFor="let btn of detailDynamicButtons()" class="btn-small" [class.btn-cancel]="isRejectLabel(btn.label)"
+    <ng-container
+      *ngIf="
+        detailDynamicButtons().length > 0 && isUserAuthorizedForDetailAction
+      "
+    >
+      <button
+        *ngFor="let btn of detailDynamicButtons()"
+        class="btn-small"
+        [class.btn-cancel]="isRejectLabel(btn.label)"
         [class.btn-save]="isApproveLabel(btn.label)"
-        [class.btn-green]="!isRejectLabel(btn.label) && !isApproveLabel(btn.label)" (click)="openActionDialog(btn)">
-        <i class="pi" [class.pi-check]="!isRejectLabel(btn.label)" [class.pi-times]="isRejectLabel(btn.label)"
-          style="margin-right: 4px;"></i>
+        [class.btn-green]="
+          !isRejectLabel(btn.label) && !isApproveLabel(btn.label)
+        "
+        (click)="openActionDialog(btn)"
+      >
+        <i
+          class="pi"
+          [class.pi-check]="!isRejectLabel(btn.label)"
+          [class.pi-times]="isRejectLabel(btn.label)"
+          style="margin-right: 4px"
+        ></i>
         {{ btn.label }}
       </button>
     </ng-container>
   </div>
   <div class="wf-card pt-0">
     <div class="tab-bar">
-      <button type="button" class="tab-item" [class.tab-active]="activeTab() === 'info'"
-        (click)="activeTab.set('info')">
+      <button
+        type="button"
+        class="tab-item"
+        [class.tab-active]="activeTab() === 'info'"
+        (click)="activeTab.set('info')"
+      >
         <i class="pi pi-info-circle"></i>
         Dữ liệu Hồ sơ
       </button>
-      <button type="button" class="tab-item" [class.tab-active]="activeTab() === 'documents'"
-        (click)="activeTab.set('documents')">
+      <button
+        type="button"
+        class="tab-item"
+        [class.tab-active]="activeTab() === 'documents'"
+        (click)="activeTab.set('documents')"
+      >
         <i class="pi pi-paperclip"></i>
         Tài liệu đính kèm
       </button>
-      <button type="button" *ngIf="isDetailTabVisible('versions')" class="tab-item"
-        [class.tab-active]="activeTab() === 'versions'" (click)="activeTab.set('versions')">
+      <button
+        type="button"
+        *ngIf="isDetailTabVisible('versions')"
+        class="tab-item"
+        [class.tab-active]="activeTab() === 'versions'"
+        (click)="activeTab.set('versions')"
+      >
         <i class="pi pi-history"></i>
         Lịch sử phiên bản
       </button>
-      <button type="button" *ngIf="isDetailTabVisible('workflow')" class="detail-tab-item"
-        [class.tab-active]="activeTab() === 'workflow'" (click)="activeTab.set('workflow')">
+      <button
+        type="button"
+        *ngIf="isDetailTabVisible('workflow')"
+        class="detail-tab-item"
+        [class.tab-active]="activeTab() === 'workflow'"
+        (click)="activeTab.set('workflow')"
+      >
         <i class="pi pi-sitemap"></i>
         Quy trình & Lịch sử
       </button>
     </div>
 
     <div class="tab-content">
-      <div *ngIf="activeTab() === 'info'" class="tab-pane-container animate-fade-in">
-        <div *ngIf="loading() && !dossier()"
-          style="display: flex; align-items: center; gap: 8px; color: #6b7280; padding: 24px; justify-content: center;">
-          <i class="pi pi-spin pi-spinner" style="font-size: 1.5rem;"></i> Đang tải thông tin hồ sơ...
+      <div
+        *ngIf="activeTab() === 'info'"
+        class="tab-pane-container animate-fade-in"
+      >
+        <div
+          *ngIf="loading() && !dossier()"
+          style="
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #6b7280;
+            padding: 24px;
+            justify-content: center;
+          "
+        >
+          <i class="pi pi-spin pi-spinner" style="font-size: 1.5rem"></i> Đang
+          tải thông tin hồ sơ...
         </div>
 
-        <div *ngIf="loadingType() && dossier()"
-          style="display: flex; align-items: center; gap: 8px; color: #6b7280; padding: 0 0 12px 0; font-size: 0.83rem;">
+        <div
+          *ngIf="loadingType() && dossier()"
+          style="
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #6b7280;
+            padding: 0 0 12px 0;
+            font-size: 0.83rem;
+          "
+        >
           <i class="pi pi-spin pi-spinner"></i> Đang tải biểu mẫu...
         </div>
 
@@ -82,25 +161,41 @@
             <div class="info-column">
               <div class="info-text-row">
                 <span class="info-text-label">Nhóm hồ sơ:</span>
-                <span class="info-text-value">{{ viewMeta()?.dossierGroupName || '—' }}</span>
+                <span class="info-text-value">{{
+                  viewMeta()?.dossierGroupName || '—'
+                }}</span>
               </div>
               <div class="info-text-row">
                 <span class="info-text-label">Trạm / Đường dây:</span>
                 <span class="info-text-value">
                   {{ viewMeta()?.infrastructureName || '—' }}
-                  <span *ngIf="viewMeta()?.infrastructureCode" class="text-muted" style="font-size: 0.85rem;"> ({{
-                    viewMeta()?.infrastructureCode }})</span>
+                  <span
+                    *ngIf="viewMeta()?.infrastructureCode"
+                    class="text-muted"
+                    style="font-size: 0.85rem"
+                  >
+                    ({{ viewMeta()?.infrastructureCode }})</span
+                  >
                 </span>
               </div>
               <div class="info-text-row">
                 <span class="info-text-label">Hộp lưu trữ:</span>
-                <span class="info-text-value">{{ viewMeta()?.storageLabel || '—' }}</span>
+                <span class="info-text-value">{{
+                  viewMeta()?.storageLabel || '—'
+                }}</span>
               </div>
 
-              <ng-container *ngFor="let field of leftDynamicFields(); trackBy: trackByFieldKey">
+              <ng-container
+                *ngFor="
+                  let field of leftDynamicFields();
+                  trackBy: trackByFieldKey
+                "
+              >
                 <div class="info-text-row">
                   <span class="info-text-label">{{ field.label }}:</span>
-                  <span class="info-text-value">{{ getFieldValueText(field) }}</span>
+                  <span class="info-text-value">{{
+                    getFieldValueText(field)
+                  }}</span>
                 </div>
               </ng-container>
             </div>
@@ -108,35 +203,71 @@
             <div class="info-column">
               <div class="info-text-row">
                 <span class="info-text-label">Loại hồ sơ:</span>
-                <span class="info-text-value">{{ dossierMeta()?.dossierTypeName || '—' }}</span>
+                <span class="info-text-value">{{
+                  dossierMeta()?.dossierTypeName || '—'
+                }}</span>
               </div>
 
-              <ng-container *ngFor="let field of rightDynamicFields(); trackBy: trackByFieldKey">
+              <ng-container
+                *ngFor="
+                  let field of rightDynamicFields();
+                  trackBy: trackByFieldKey
+                "
+              >
                 <div class="info-text-row">
                   <span class="info-text-label">{{ field.label }}:</span>
-                  <span class="info-text-value">{{ getFieldValueText(field) }}</span>
+                  <span class="info-text-value">{{
+                    getFieldValueText(field)
+                  }}</span>
                 </div>
               </ng-container>
 
               <div class="info-text-row">
                 <span class="info-text-label">Trạng thái:</span>
                 <span>
-                  {{ getStatusText(dossierMeta()?.statusId, dossierMeta()?.statusName) }}
+                  {{
+                    getStatusText(
+                      dossierMeta()?.statusId,
+                      dossierMeta()?.statusName
+                    )
+                  }}
                 </span>
               </div>
             </div>
           </div>
 
-          <div *ngIf="dynamicFields().length === 0"
-            style="padding: 24px; text-align: center; color: #9ca3af; background: #f8fafc; border-radius: 8px; border: 1px dashed #e2e8f0; font-size: 0.85rem; margin-top: 16px;">
+          <div
+            *ngIf="dynamicFields().length === 0"
+            style="
+              padding: 24px;
+              text-align: center;
+              color: #9ca3af;
+              background: #f8fafc;
+              border-radius: 8px;
+              border: 1px dashed #e2e8f0;
+              font-size: 0.85rem;
+              margin-top: 16px;
+            "
+          >
             Loại hồ sơ này chưa được cấu hình mẫu dữ liệu động.
           </div>
 
-          <div class="equipment-section" style="margin-top: 24px;" *ngIf="viewMeta()?.isEquipmentDossier || equipments().length > 0">
-            <div class="section-subtitle-header" style="margin-right: 0;">
+          <div
+            class="equipment-section"
+            style="margin-top: 24px"
+            *ngIf="viewMeta()?.isEquipmentDossier || equipments().length > 0"
+          >
+            <div class="section-subtitle-header" style="margin-right: 0">
               <i class="pi pi-sliders-h"></i> Thiết bị liên quan
             </div>
-            <div class="wf-table-wrap" style="margin-top: 12px; border: 1px solid #cbd5e1; box-shadow: none;">
+            <div
+              class="wf-table-wrap"
+              style="
+                margin-top: 12px;
+                border: 1px solid #cbd5e1;
+                box-shadow: none;
+              "
+            >
               <table class="wf-table">
                 <thead>
                   <tr>
@@ -148,15 +279,26 @@
                 </thead>
                 <tbody>
                   <tr *ngIf="equipments().length === 0">
-                    <td colspan="4" class="empty-row" style="padding: 32px 0;">
-                      <i class="pi pi-info-circle" style="margin-right: 6px;"></i>
+                    <td colspan="4" class="empty-row" style="padding: 32px 0">
+                      <i
+                        class="pi pi-info-circle"
+                        style="margin-right: 6px"
+                      ></i>
                       <span>Chưa có thiết bị nào được gắn vào hồ sơ.</span>
                     </td>
                   </tr>
                   <tr *ngFor="let eq of equipments(); let i = index">
                     <td class="col-stt text-muted">{{ i + 1 }}</td>
-                    <td>{{ eq.equipmentCode || eq.EquipmentCode || eq.code || '—' }}</td>
-                    <td>{{ eq.equipmentName || eq.EquipmentName || eq.name || '—' }}</td>
+                    <td>
+                      {{
+                        eq.equipmentCode || eq.EquipmentCode || eq.code || '—'
+                      }}
+                    </td>
+                    <td>
+                      {{
+                        eq.equipmentName || eq.EquipmentName || eq.name || '—'
+                      }}
+                    </td>
                     <td>{{ eq.serialNumber || eq.SerialNumber || '—' }}</td>
                   </tr>
                 </tbody>
@@ -167,88 +309,196 @@
       </div>
 
       <div *ngIf="activeTab() === 'documents'">
-        <app-dossier-documents-tab [dossierId]="dossierId" [canEdit]="canEditDossier()" [canUpload]="menuScope === 'publisher'" [menuScope]="menuScope"
+        <app-dossier-documents-tab
+          [dossierId]="dossierId"
+          [canEdit]="canEditDossier()"
+          [canUpload]="menuScope === 'publisher'"
+          [menuScope]="menuScope"
           [showVersionHistory]="menuScope !== 'creator'"
-          [kindId]="dossierKindId()" [hasFormTemplate]="!!dossierMeta()?.formId" [formId]="dossierMeta()?.formId ?? null"
-          (formDataSaved)="loadDetail()"></app-dossier-documents-tab>
+          [kindId]="dossierKindId()"
+          [hasFormTemplate]="!!dossierMeta()?.formId"
+          [formId]="dossierMeta()?.formId ?? null"
+          (formDataSaved)="loadDetail()"
+        ></app-dossier-documents-tab>
       </div>
-
 
       <div *ngIf="activeTab() === 'versions'">
         <app-dossier-versions-tab [dossierId]="dossierId" />
       </div>
 
       <div *ngIf="activeTab() === 'workflow'">
-        <app-dossier-workflow-tab [dossierId]="dossierId" [refreshToken]="workflowRefreshToken()"
-          canvasId="bpmn-canvas-dossier-view" />
+        <app-dossier-workflow-tab
+          [dossierId]="dossierId"
+          [refreshToken]="workflowRefreshToken()"
+          canvasId="bpmn-canvas-dossier-view"
+        />
       </div>
     </div>
   </div>
 </div>
 
-<p-dialog [visible]="showActionDialog()" (visibleChange)="$event ? null : showActionDialog.set(false)"
-  [header]="pendingActionBtn()?.label || 'Xác nhận'" [modal]="true" [style]="{ width: '460px' }"
-  styleClass="evn-dialog-custom" [closable]="!detailActionSubmitting()">
-  <div style="display: flex; flex-direction: column; gap: 16px; padding: 4px 0 8px;">
-    <div class="form-group" *ngIf="pendingActionBtn()?.requiresUser && !isRejectLabel(pendingActionBtn()?.label)">
+<p-dialog
+  [visible]="showActionDialog()"
+  (visibleChange)="$event ? null : showActionDialog.set(false)"
+  [header]="pendingActionBtn()?.label || 'Xác nhận'"
+  [modal]="true"
+  [style]="{ width: '460px' }"
+  styleClass="evn-dialog-custom"
+  [closable]="!detailActionSubmitting()"
+>
+  <div
+    style="display: flex; flex-direction: column; gap: 16px; padding: 4px 0 8px"
+  >
+    <div
+      class="form-group"
+      *ngIf="
+        pendingActionBtn()?.requiresUser &&
+        !isRejectLabel(pendingActionBtn()?.label)
+      "
+    >
       <label class="form-label">
         <span class="required">*</span> Người xử lý bước tiếp theo
       </label>
-      <select class="wf-select w-full" [ngModel]="selectedNextUserId()"
+      <select
+        class="wf-select w-full"
+        [ngModel]="selectedNextUserId()"
         (ngModelChange)="selectedNextUserId.set($event)"
-        [disabled]="loadingEligibleNextUsers()">
+        [disabled]="loadingEligibleNextUsers()"
+      >
         <option value="" disabled selected>-- Chọn người xử lý --</option>
-        <option *ngFor="let u of filteredNextUsers()" [value]="u.id || u.Id || u.userId || u.username">
+        <option
+          *ngFor="let u of filteredNextUsers()"
+          [value]="u.id || u.Id || u.userId || u.username"
+        >
           {{ u.fullName }} ({{ u.username }})
         </option>
       </select>
-      <div class="field-hint" *ngIf="pendingActionBtn()?.staticAssigneeId">Bước này có cấu hình người xử lý cụ thể — có thể chọn trong danh sách bên dưới.</div>
-      <div class="field-hint" *ngIf="loadingEligibleNextUsers()">Đang tải danh sách người đủ điều kiện...</div>
+      <div class="field-hint" *ngIf="pendingActionBtn()?.staticAssigneeId">
+        Bước này có cấu hình người xử lý cụ thể — có thể chọn trong danh sách
+        bên dưới.
+      </div>
+      <div class="field-hint" *ngIf="loadingEligibleNextUsers()">
+        Đang tải danh sách người đủ điều kiện...
+      </div>
     </div>
     <div class="form-group">
-      <label class="form-label">Ý kiến xử lý <span style="color: #94a3b8; font-weight: 400;">(tuỳ chọn)</span></label>
-      <textarea class="wf-textarea w-full" rows="3" [ngModel]="detailActionComment()"
+      <label class="form-label"
+        >Ý kiến xử lý
+        <span style="color: #94a3b8; font-weight: 400">(tuỳ chọn)</span></label
+      >
+      <textarea
+        class="wf-textarea w-full"
+        rows="3"
+        [ngModel]="detailActionComment()"
         (ngModelChange)="detailActionComment.set($event)"
-        [placeholder]="isRejectLabel(pendingActionBtn()?.label) ? 'Nhập lý do từ chối / trả lại...' : 'Nhập ý kiến xử lý (nếu có)...'">
+        [placeholder]="
+          isRejectLabel(pendingActionBtn()?.label)
+            ? 'Nhập lý do từ chối / trả lại...'
+            : 'Nhập ý kiến xử lý (nếu có)...'
+        "
+      >
       </textarea>
     </div>
   </div>
   <ng-template #footer>
-    <button class="btn-cancel btn-small"
+    <button
+      class="btn-cancel btn-small"
       (click)="showActionDialog.set(false)"
-      [disabled]="detailActionSubmitting()">
+      [disabled]="detailActionSubmitting()"
+    >
       <i class="pi pi-times"></i> Hủy
     </button>
-    <button class="btn-small"
-      [class.btn-save]="isRejectLabel(pendingActionBtn()?.label) || isApproveLabel(pendingActionBtn()?.label)"
-      [class.btn-green]="!isRejectLabel(pendingActionBtn()?.label) && !isApproveLabel(pendingActionBtn()?.label)"
-      (click)="confirmAction()" [disabled]="detailActionSubmitting()">
+    <button
+      class="btn-small"
+      [class.btn-save]="
+        isRejectLabel(pendingActionBtn()?.label) ||
+        isApproveLabel(pendingActionBtn()?.label)
+      "
+      [class.btn-green]="
+        !isRejectLabel(pendingActionBtn()?.label) &&
+        !isApproveLabel(pendingActionBtn()?.label)
+      "
+      (click)="confirmAction()"
+      [disabled]="detailActionSubmitting()"
+    >
       <i class="pi pi-spin pi-spinner" *ngIf="detailActionSubmitting()"></i>
-      <i class="pi pi-check" *ngIf="!detailActionSubmitting() && !isRejectLabel(pendingActionBtn()?.label)"></i>
-      <i class="pi pi-times" *ngIf="!detailActionSubmitting() && isRejectLabel(pendingActionBtn()?.label)"></i>
+      <i
+        class="pi pi-check"
+        *ngIf="
+          !detailActionSubmitting() && !isRejectLabel(pendingActionBtn()?.label)
+        "
+      ></i>
+      <i
+        class="pi pi-times"
+        *ngIf="
+          !detailActionSubmitting() && isRejectLabel(pendingActionBtn()?.label)
+        "
+      ></i>
       {{ pendingActionBtn()?.label }}
     </button>
   </ng-template>
 </p-dialog>
 
-<p-dialog [visible]="showCompleteInputConfirm()" (visibleChange)="$event ? null : showCompleteInputConfirm.set(false)"
-  header="Xác nhận hoàn thành" [modal]="true" [style]="{ width: '420px' }" styleClass="evn-dialog-custom"
-  [closable]="!submitting()">
-  <div style="display: flex; align-items: flex-start; gap: 12px; padding: 8px 0 16px;">
-    <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #3b82f6;"></i>
+<p-dialog
+  [visible]="showCompleteInputConfirm()"
+  (visibleChange)="$event ? null : showCompleteInputConfirm.set(false)"
+  header="Xác nhận hoàn thành"
+  [modal]="true"
+  [style]="{ width: '420px' }"
+  styleClass="evn-dialog-custom"
+  [closable]="!submitting()"
+>
+  <div
+    style="
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 8px 0 16px;
+    "
+  >
+    <i
+      class="pi pi-exclamation-triangle"
+      style="font-size: 1.8rem; color: #3b82f6"
+    ></i>
     <div>
-      <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">Bạn có chắc chắn muốn hoàn thành nhập liệu?</p>
-      <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
-        Hồ sơ <b style="color: #1e293b;">{{ dossier()?.title || dossier()?.name || viewMeta()?.infrastructureName || dossier()?.dossierTypeName || 'này' }}</b> sẽ được chuyển sang trạng thái "Hoàn thành".
+      <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b">
+        Bạn có chắc chắn muốn hoàn thành nhập liệu?
+      </p>
+      <p style="margin: 0; color: #64748b; font-size: 0.875rem">
+        Hồ sơ
+        <b style="color: #1e293b">{{
+          dossier()?.title ||
+            dossier()?.name ||
+            viewMeta()?.infrastructureName ||
+            dossier()?.dossierTypeName ||
+            'này'
+        }}</b>
+        sẽ được chuyển sang trạng thái "Hoàn thành".
       </p>
     </div>
   </div>
   <ng-template #footer>
-    <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
-      <button (click)="showCompleteInputConfirm.set(false)" class="btn-cancel btn-small" [disabled]="submitting()">
+    <div
+      style="
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        border-top: 1px solid #f1f5f9;
+        padding-top: 12px;
+      "
+    >
+      <button
+        (click)="showCompleteInputConfirm.set(false)"
+        class="btn-cancel btn-small"
+        [disabled]="submitting()"
+      >
         <i class="pi pi-times"></i> Hủy
       </button>
-      <button (click)="confirmCompleteInput()" class="btn-save btn-small" [disabled]="submitting()">
+      <button
+        (click)="confirmCompleteInput()"
+        class="btn-save btn-small"
+        [disabled]="submitting()"
+      >
         <i class="pi pi-spin pi-spinner" *ngIf="submitting()"></i>
         <i class="pi pi-check" *ngIf="!submitting()"></i>
         Xác nhận
@@ -257,25 +507,64 @@
   </ng-template>
 </p-dialog>
 
-<p-dialog [visible]="showPublishActionConfirm()" (visibleChange)="$event ? null : cancelPublishAction()"
-  [header]="publishActionHeader()" [modal]="true" [style]="{ width: '420px' }" styleClass="evn-dialog-custom"
-  [closable]="!publishActionSubmitting()">
-  <div style="display: flex; align-items: flex-start; gap: 12px; padding: 8px 0 16px;">
-    <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #3b82f6;"></i>
+<p-dialog
+  [visible]="showPublishActionConfirm()"
+  (visibleChange)="$event ? null : cancelPublishAction()"
+  [header]="publishActionHeader()"
+  [modal]="true"
+  [style]="{ width: '420px' }"
+  styleClass="evn-dialog-custom"
+  [closable]="!publishActionSubmitting()"
+>
+  <div
+    style="
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 8px 0 16px;
+    "
+  >
+    <i
+      class="pi pi-exclamation-triangle"
+      style="font-size: 1.8rem; color: #3b82f6"
+    ></i>
     <div>
-      <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">{{ publishActionTitle() }}</p>
-      <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
-        Hồ sơ <b style="color: #1e293b;">{{ viewMeta()?.infrastructureName || '—' }}</b> sẽ được thay đổi trạng thái xuất bản.
+      <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b">
+        {{ publishActionTitle() }}
+      </p>
+      <p style="margin: 0; color: #64748b; font-size: 0.875rem">
+        Hồ sơ
+        <b style="color: #1e293b">{{
+          viewMeta()?.infrastructureName || '—'
+        }}</b>
+        sẽ được thay đổi trạng thái xuất bản.
       </p>
     </div>
   </div>
   <ng-template #footer>
-    <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
-      <button class="btn-cancel btn-small" (click)="cancelPublishAction()" [disabled]="publishActionSubmitting()">
+    <div
+      style="
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        border-top: 1px solid #f1f5f9;
+        padding-top: 12px;
+      "
+    >
+      <button
+        class="btn-cancel btn-small"
+        (click)="cancelPublishAction()"
+        [disabled]="publishActionSubmitting()"
+      >
         <i class="pi pi-times"></i> Hủy
       </button>
-      <button class="btn-save btn-small" (click)="confirmPublishAction()" [disabled]="publishActionSubmitting()"
-        [style.background-color]="publishActionButtonColor()" [style.border-color]="publishActionButtonColor()">
+      <button
+        class="btn-save btn-small"
+        (click)="confirmPublishAction()"
+        [disabled]="publishActionSubmitting()"
+        [style.background-color]="publishActionButtonColor()"
+        [style.border-color]="publishActionButtonColor()"
+      >
         <i class="pi pi-spin pi-spinner" *ngIf="publishActionSubmitting()"></i>
         <i class="pi pi-check" *ngIf="!publishActionSubmitting()"></i>
         Xác nhận
@@ -284,46 +573,97 @@
   </ng-template>
 </p-dialog>
 
-<p-dialog [visible]="showSubmitConfirm()" (visibleChange)="$event ? null : showSubmitConfirm.set(false)"
-  header="Gửi duyệt hồ sơ" [modal]="true" [style]="{ width: '450px' }" styleClass="evn-dialog-custom"
-  [closable]="!submitting()">
-  <div style="display: flex; flex-direction: column; gap: 16px; padding: 8px 0 16px;">
-    <div style="display: flex; align-items: flex-start; gap: 12px;">
-      <i class="pi pi-send" style="font-size: 1.8rem; color: #1d4ed8;"></i>
+<p-dialog
+  [visible]="showSubmitConfirm()"
+  (visibleChange)="$event ? null : showSubmitConfirm.set(false)"
+  header="Gửi duyệt hồ sơ"
+  [modal]="true"
+  [style]="{ width: '450px' }"
+  styleClass="evn-dialog-custom"
+  [closable]="!submitting()"
+>
+  <div
+    style="
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding: 8px 0 16px;
+    "
+  >
+    <div style="display: flex; align-items: flex-start; gap: 12px">
+      <i class="pi pi-send" style="font-size: 1.8rem; color: #1d4ed8"></i>
       <div>
-        <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">Xác nhận gửi duyệt hồ sơ lên cấp trên</p>
-        <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
-          Hồ sơ sẽ đi vào quy trình phê duyệt bước: 
-          <b style="color: #1e293b;">
-            {{ nextStepInfo()?.stepName || 'Phê duyệt' }}
-          </b>.
+        <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b">
+          Xác nhận gửi duyệt hồ sơ lên cấp trên
+        </p>
+        <p style="margin: 0; color: #64748b; font-size: 0.875rem">
+          Hồ sơ sẽ đi vào quy trình phê duyệt bước:
+          <b style="color: #1e293b">
+            {{ nextStepInfo()?.stepName || 'Phê duyệt' }} </b
+          >.
         </p>
       </div>
     </div>
 
     <!-- Chọn người xử lý tiếp theo nếu được yêu cầu -->
     <div *ngIf="nextStepInfo()?.requiresNextAssignee" class="form-group">
-      <label class="form-label required">Người duyệt tiếp theo ({{ nextStepInfo()?.stepName }})</label>
-      <select class="wf-select" [value]="selectedNextUser()" (change)="onNextUserChange($event)"
-        [disabled]="loadingEligibleSubmitUsers()">
+      <label class="form-label required"
+        >Người duyệt tiếp theo ({{ nextStepInfo()?.stepName }})</label
+      >
+      <select
+        class="wf-select"
+        [value]="selectedNextUser()"
+        (change)="onNextUserChange($event)"
+        [disabled]="loadingEligibleSubmitUsers()"
+      >
         <option value="">-- Chọn người phê duyệt --</option>
-        <option *ngFor="let u of filteredSubmitNextUsers()" [value]="u.id || u.Id || u.userId || u.username">
+        <option
+          *ngFor="let u of filteredSubmitNextUsers()"
+          [value]="u.id || u.Id || u.userId || u.username"
+        >
           {{ u.fullName || u.FullName || u.name || u.username }}
         </option>
       </select>
-      <div class="field-hint" *ngIf="nextStepInfo()?.staticAssigneeId">Bước này có cấu hình người xử lý cụ thể — có thể chọn trong danh sách bên dưới.</div>
-      <div class="field-hint" *ngIf="loadingEligibleSubmitUsers()">Đang tải danh sách người đủ điều kiện...</div>
-      <div class="field-hint" *ngIf="!loadingEligibleSubmitUsers() && filteredSubmitNextUsers().length === 0">
+      <div class="field-hint" *ngIf="nextStepInfo()?.staticAssigneeId">
+        Bước này có cấu hình người xử lý cụ thể — có thể chọn trong danh sách
+        bên dưới.
+      </div>
+      <div class="field-hint" *ngIf="loadingEligibleSubmitUsers()">
+        Đang tải danh sách người đủ điều kiện...
+      </div>
+      <div
+        class="field-hint"
+        *ngIf="
+          !loadingEligibleSubmitUsers() &&
+          filteredSubmitNextUsers().length === 0
+        "
+      >
         Không có người dùng nào đủ điều kiện xử lý bước này.
       </div>
     </div>
   </div>
   <ng-template #footer>
-    <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
-      <button class="btn-cancel btn-small" (click)="showSubmitConfirm.set(false)" [disabled]="submitting()">
+    <div
+      style="
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        border-top: 1px solid #f1f5f9;
+        padding-top: 12px;
+      "
+    >
+      <button
+        class="btn-cancel btn-small"
+        (click)="showSubmitConfirm.set(false)"
+        [disabled]="submitting()"
+      >
         <i class="pi pi-times"></i> Hủy
       </button>
-      <button class="btn-save btn-small" (click)="onConfirmSubmitAndMove()" [disabled]="submitting()">
+      <button
+        class="btn-save btn-small"
+        (click)="onConfirmSubmitAndMove()"
+        [disabled]="submitting()"
+      >
         <i class="pi pi-spin pi-spinner" *ngIf="submitting()"></i>
         <i class="pi pi-check" *ngIf="!submitting()"></i>
         Xác nhận gửi

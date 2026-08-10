@@ -2,7 +2,9 @@
 
 <div class="wf-page dossier-report-page equipment-type-report">
   <div class="list-toolbar standard-page-toolbar breadcrumb-container">
-    <wf-breadcrumb [suffix]="'Báo cáo thống kê hồ sơ nhập liệu theo loại thiết bị'"></wf-breadcrumb>
+    <wf-breadcrumb
+      [suffix]="'Báo cáo thống kê hồ sơ nhập liệu theo loại thiết bị'"
+    ></wf-breadcrumb>
   </div>
 
   <div class="standard-search-card filter-card">
@@ -69,8 +71,16 @@
       </div>
 
       <div class="standard-search-actions filter-actions">
-        <button type="button" class="btn-tim" (click)="onFilter()" [disabled]="loading()">
-          <i class="pi pi-search"></i> Tìm kiếm
+        <button type="button" class="btn-outlined" (click)="onResetSearch()">
+          <i class="pi pi-refresh"></i> Làm mới
+        </button>
+        <button
+          type="button"
+          class="btn-save"
+          (click)="onFilter()"
+          [disabled]="loading()"
+        >
+          <i class="pi pi-check"></i> Áp dụng
         </button>
         <button
           *ngIf="activeTab() === 'list'"
@@ -114,11 +124,20 @@
     <div *ngIf="!loading()" class="stats-section">
       <div class="card-box chart-box chart-box-full">
         <div class="card-header flex-header">
-          <h3 class="card-title">Biểu đồ thống kê số lượng Hồ sơ, Tài liệu, Trang tài liệu theo từng loại thiết bị</h3>
+          <h3 class="card-title">
+            Biểu đồ thống kê số lượng Hồ sơ, Tài liệu, Trang tài liệu theo từng
+            loại thiết bị
+          </h3>
           <div class="top-legend">
-            <span class="legend-dot-item"><span class="dot bg-blue"></span> Hồ sơ</span>
-            <span class="legend-dot-item"><span class="dot bg-green"></span> Tài liệu</span>
-            <span class="legend-dot-item"><span class="dot bg-orange"></span> Trang tài liệu</span>
+            <span class="legend-dot-item"
+              ><span class="dot bg-blue"></span> Hồ sơ</span
+            >
+            <span class="legend-dot-item"
+              ><span class="dot bg-green"></span> Tài liệu</span
+            >
+            <span class="legend-dot-item"
+              ><span class="dot bg-orange"></span> Trang tài liệu</span
+            >
           </div>
         </div>
 
@@ -148,9 +167,9 @@
             <div class="hbar-chart-panel">
               <div class="hbar-x-ticks">
                 <span>0</span>
-                <span>{{ maxChartValue() * 0.25 | number:'1.0-0' }}</span>
-                <span>{{ maxChartValue() * 0.5 | number:'1.0-0' }}</span>
-                <span>{{ maxChartValue() * 0.75 | number:'1.0-0' }}</span>
+                <span>{{ maxChartValue() * 0.25 | number: '1.0-0' }}</span>
+                <span>{{ maxChartValue() * 0.5 | number: '1.0-0' }}</span>
+                <span>{{ maxChartValue() * 0.75 | number: '1.0-0' }}</span>
                 <span>{{ maxChartValue() }}</span>
               </div>
 
@@ -173,17 +192,27 @@
                       <div
                         class="hbar-bar bg-blue"
                         [style.width.%]="getBarWidthPercent(stat.dossierCount)"
-                        [pTooltip]="getTypeLabel(stat) + ' — Hồ sơ: ' + stat.dossierCount"
+                        [pTooltip]="
+                          getTypeLabel(stat) + ' — Hồ sơ: ' + stat.dossierCount
+                        "
                       ></div>
                       <div
                         class="hbar-bar bg-green"
                         [style.width.%]="getBarWidthPercent(stat.documentCount)"
-                        [pTooltip]="getTypeLabel(stat) + ' — Tài liệu: ' + stat.documentCount"
+                        [pTooltip]="
+                          getTypeLabel(stat) +
+                          ' — Tài liệu: ' +
+                          stat.documentCount
+                        "
                       ></div>
                       <div
                         class="hbar-bar bg-orange"
                         [style.width.%]="getBarWidthPercent(stat.pageCount)"
-                        [pTooltip]="getTypeLabel(stat) + ' — Trang tài liệu: ' + stat.pageCount"
+                        [pTooltip]="
+                          getTypeLabel(stat) +
+                          ' — Trang tài liệu: ' +
+                          stat.pageCount
+                        "
                       ></div>
                     </div>
                   </div>
