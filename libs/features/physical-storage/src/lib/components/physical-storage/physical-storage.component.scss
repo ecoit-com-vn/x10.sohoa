@@ -292,3 +292,22 @@
       padding-top: 16px;
       border-top: 1px solid #e2e8f0;
     }
+.storage-table tbody td {
+  color: #111827;
+}
+
+.storage-table tbody td.col-stt,
+.storage-table tbody td.col-hd {
+  color: #111827;
+}
+
+.storage-code-link {
+  color: #2563eb;
+  cursor: pointer;
+  font-weight: 400;
+  text-decoration: none;
+}
+
+.storage-code-link:hover {
+  color: #1d4ed8;
+}
