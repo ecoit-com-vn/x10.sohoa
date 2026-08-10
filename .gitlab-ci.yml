@@ -5,6 +5,7 @@ workflow:
 stages:
   - build
   - deploy
+  - backup
 
 default:
   tags:
@@ -36,3 +37,16 @@ frontend-deploy:
     - 'sed -i "s|image:\s*$REGISTRY/$CI_PROJECT_PATH:latest|image: $REGISTRY/$CI_PROJECT_PATH:$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA|g" deploy/k8s-deploy.yaml'
     - kubectl apply -f deploy/k8s-deploy.yaml
     - kubectl rollout status deployment/sohoa-frontend -n x10 --timeout=150s
+
+frontend-backup-github:
+  stage: backup
+  image: alpine/git:latest
+  needs:
+    - job: frontend-deploy
+      artifacts: false
+  script:
+    - git clone "$CI_REPOSITORY_URL" repo-mirror
+    - cd repo-mirror
+    - git checkout "$CI_COMMIT_SHA"
+    - git remote add github "https://x-access-token:${GITHUB_BACKUP_TOKEN}@github.com/ecoit-com-vn/x10.sohoa.git"
+    - git push github "HEAD:refs/heads/frontend-${CI_COMMIT_REF_SLUG}" --force
