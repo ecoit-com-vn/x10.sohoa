@@ -1,10 +1,14 @@
 <div class="wf-page">
   <p-toast></p-toast>
 
-  <wf-breadcrumb
-    [viewMode]="currentCatalogView()"
-    [customItems]="catalogBreadcrumbItems"
-    (listClick)="currentCatalogView.set('list')" />
+  <div class="list-toolbar standard-page-toolbar">
+    <div class="toolbar-left">
+      <wf-breadcrumb
+        [viewMode]="currentCatalogView()"
+        [customItems]="catalogBreadcrumbItems"
+        (listClick)="currentCatalogView.set('list')" />
+    </div>
+  </div>
 
   <div class="split-container">
     <!-- LEFT PANEL: Catalog Types (Width: 33%) -->
