@@ -10,6 +10,7 @@
     (onBlur)="onTouched(); onBlur($event)"
     (onInput)="onInput($event)"
     [dateFormat]="dateFormat"
+    [placeholder]="placeholder"
     [firstDayOfWeek]="1"
     [formControl]="control"
     [keepInvalid]="true"
@@ -23,8 +24,7 @@
     [timeOnly]="false"
     [view]="view"
     [showTime]="showTime"
-    [readonlyInput]="true"
-    [showClear]="!!control.value"
+    [showClear]="showClear && !!control.value"
     icon="pi pi-calendar"
     appendTo="body"
   >

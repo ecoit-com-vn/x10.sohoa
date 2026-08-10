@@ -41,34 +41,38 @@
 
         <div class="standard-search-field lookup-filters__field">
           <label class="form-label">Từ ngày</label>
-          <p-datepicker class="lookup-date-picker"
-            [ngModel]="selectedFromDate()"
-            (ngModelChange)="selectedFromDate.set($event)"
+          <eco-input-date
+            [showLabel]="false"
+            label="Từ ngày"
+            view="date"
             dateFormat="dd/mm/yy"
             placeholder="dd/MM/yyyy"
-            [showIcon]="true"
-            [readonlyInput]="false"
-            [showOnFocus]="false"
-            [showButtonBar]="true"
+            [border]="true"
+            [disabled]="false"
+            [readonly]="false"
+            [showClear]="true"
             [maxDate]="selectedToDate() ?? undefined"
-            inputStyleClass="lookup-date-input"
-            appendTo="self" />
+            [ngModel]="selectedFromDate()"
+            (ngModelChange)="selectedFromDate.set($event)"
+          ></eco-input-date>
         </div>
 
         <div class="standard-search-field lookup-filters__field">
           <label class="form-label">Đến ngày</label>
-          <p-datepicker class="lookup-date-picker"
-            [ngModel]="selectedToDate()"
-            (ngModelChange)="selectedToDate.set($event)"
+          <eco-input-date
+            [showLabel]="false"
+            label="Đến ngày"
+            view="date"
             dateFormat="dd/mm/yy"
             placeholder="dd/MM/yyyy"
-            [showIcon]="true"
-            [readonlyInput]="false"
-            [showOnFocus]="false"
-            [showButtonBar]="true"
+            [border]="true"
+            [disabled]="false"
+            [readonly]="false"
+            [showClear]="true"
             [minDate]="selectedFromDate() ?? undefined"
-            inputStyleClass="lookup-date-input"
-            appendTo="self" />
+            [ngModel]="selectedToDate()"
+            (ngModelChange)="selectedToDate.set($event)"
+          ></eco-input-date>
         </div>
 
         <div class="standard-search-actions">
