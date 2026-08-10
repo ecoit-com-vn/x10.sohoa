@@ -34,10 +34,15 @@ public sealed class AuditLogRetentionSettingsClient : IAuditLogRetentionSettings
 
             if (!response.IsSuccessStatusCode)
             {
+                var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
                 _logger.LogError(
-                    "Không thể đọc tham số {ParamKey} từ IdentityService. StatusCode: {StatusCode}",
+                    "Không thể đọc tham số {ParamKey} từ IdentityService. " +
+                    "BaseAddress: {BaseAddress}; StatusCode: {StatusCode}; ReasonPhrase: {ReasonPhrase}; ResponseBody: {ResponseBody}",
                     AuditLogRetentionDaysKey,
-                    response.StatusCode);
+                    client.BaseAddress,
+                    (int)response.StatusCode,
+                    response.ReasonPhrase,
+                    responseBody);
                 return null;
             }
 
