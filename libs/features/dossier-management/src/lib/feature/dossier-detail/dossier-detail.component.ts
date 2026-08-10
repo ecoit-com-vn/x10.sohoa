@@ -175,17 +175,20 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
   viewMeta = computed(() => {
     const d = this.dossier();
     if (!d) return null;
+    const shelfId = pickFirst(d.shelfId, d.ShelfId);
     const shelfName = pickFirst(d.shelfName, d.ShelfName) as string | undefined;
     const shelfCode = pickFirst(d.shelfCode, d.ShelfCode) as string | undefined;
+    const floorId = pickFirst(d.floorId, d.FloorId);
     const floorName = pickFirst(d.floorName, d.FloorName) as string | undefined;
     const floorCode = pickFirst(d.floorCode, d.FloorCode) as string | undefined;
     const boxName = pickFirst(d.boxName, d.BoxName) as string | undefined;
     const boxCode = pickFirst(d.boxCode, d.BoxCode) as string | undefined;
     const boxId = pickFirst(d.boxId, d.BoxId);
 
-    const shelf = shelfName || shelfCode;
-    const floor = floorName || floorCode;
-    const box = boxName || boxCode;
+    // Fallback theo ID khi thiếu Name/Code — đồng bộ với refreshStorageSelectionLabel() bên form sửa.
+    const shelf = shelfName || shelfCode || (shelfId ? `Kệ #${shelfId}` : '');
+    const floor = floorName || floorCode || (floorId ? `Tầng #${floorId}` : '');
+    const box = boxName || boxCode || (boxId ? `Hộp #${boxId}` : '');
     const storageLabel = boxId
       ? [shelf, floor, box].filter(Boolean).join(' / ') || `Hộp #${boxId}`
       : '';

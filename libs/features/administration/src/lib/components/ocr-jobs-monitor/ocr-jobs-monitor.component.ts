@@ -169,6 +169,7 @@ export class OcrJobsMonitorComponent implements OnInit, OnDestroy {
     this.onSearch();
   }
 
+  
   onPageChange(newPage: number): void {
     this.page.set(newPage);
     this.loadTrigger.next();
