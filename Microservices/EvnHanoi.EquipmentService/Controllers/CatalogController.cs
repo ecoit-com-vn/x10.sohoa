@@ -125,6 +125,27 @@ public class CatalogController : ControllerBase
         long? effectiveUnitId = catalogType?.Code == "MUC_LUC" && IsAdmin()
             ? unitId
             : unitId ?? GetUnitIdFromClaims();
+        if (catalogType?.Code == "MUC_LUC")
+        {
+            var hierarchyPage = await _catalogRepository.GetMucLucHierarchyPagedAsync(
+                page,
+                pageSize,
+                catalogType.Id,
+                keyword,
+                status,
+                effectiveUnitId,
+                includeAllUnits: IsAdmin() && !effectiveUnitId.HasValue);
+            return Ok(new
+            {
+                items = hierarchyPage.Items,
+                totalCount = hierarchyPage.TotalCount,
+                totalItemCount = hierarchyPage.TotalItemCount,
+                page,
+                pageSize,
+                paginationMode = "root-branches"
+            });
+        }
+
         var (items, totalCount) = await _catalogRepository.GetPagedAsync(
             page, pageSize, catalogTypeId, keyword, status, effectiveUnitId,
             strictUnitFilter: isUnitScoped && effectiveUnitId.HasValue,
