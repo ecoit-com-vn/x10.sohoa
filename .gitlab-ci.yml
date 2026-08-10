@@ -6,6 +6,7 @@ stages:
   - test
   - build
   - deploy
+  - backup
 
 variables:
   REGISTRY: "harbor.ecoit.vn"
@@ -68,3 +69,16 @@ backend-deploy:
       for service in identityservice equipmentservice digitizationservice notificationservice syncservice workflowservice reportservice apigateway; do
         kubectl rollout restart deployment/${service} -n x10
       done
+
+backend-backup-github:
+  stage: backup
+  image: alpine/git:latest
+  needs:
+    - job: backend-deploy
+      artifacts: false
+  script:
+    - git clone "$CI_REPOSITORY_URL" repo-mirror
+    - cd repo-mirror
+    - git checkout "$CI_COMMIT_SHA"
+    - git remote add github "https://x-access-token:${GITHUB_BACKUP_TOKEN}@github.com/ecoit-com-vn/x10.sohoa.git"
+    - git push github "HEAD:refs/heads/backend-${CI_COMMIT_REF_SLUG}" --force
