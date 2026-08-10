@@ -6,7 +6,6 @@ import { DomSanitizer } from '@angular/platform-browser';
 import { ToastModule } from 'primeng/toast';
 import { SelectModule } from 'primeng/select';
 import { DialogModule } from 'primeng/dialog';
-import { PaginatorModule } from 'primeng/paginator';
 import { MessageService } from 'primeng/api';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AuthService, APP_CONFIG } from '@sohoa.frontend/shared/core';
@@ -20,7 +19,7 @@ import { LookupTrackingService } from '../../data-access/lookup-tracking.service
 @Component({
   selector: 'app-substation-search',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule, SelectModule, DialogModule, PaginatorModule, WfBreadcrumbComponent, EcoPaginatorComponent],
+  imports: [CommonModule, FormsModule, ToastModule, SelectModule, DialogModule, WfBreadcrumbComponent, EcoPaginatorComponent],
   providers: [MessageService],
   templateUrl: './substation-search.component.html',
   styleUrl: './substation-search.component.scss'
@@ -457,6 +456,17 @@ export class SubstationSearchComponent implements OnInit {
 
   // Xem chi tiết thiết bị chỉ đọc qua Dialog
   onViewEquipment(equipment: any) {
+    const substationId = this.currentItem()?.id ?? this.route.snapshot.paramMap.get('id');
+    if (!substationId || !equipment?.id) return;
+
+    this.router.navigate([
+      '/search/substation',
+      substationId,
+      'equipment',
+      equipment.id
+    ]);
+    return;
+
     this.http.get<any>(`${this.config.apiGatewayUrl}/api/catalog/substation-search/equipments/${equipment.id}`).subscribe({
       next: (res) => {
         this.selectedEquipment.set(res);

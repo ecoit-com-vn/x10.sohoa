@@ -1165,99 +1165,51 @@
                 <td class="col-hd">
                   <div class="action-buttons-group">
                     <div class="dropdown-actions-container">
-                      <button
-                        type="button"
-                        class="act-btn act-more"
-                        (click)="toggleEquipmentMenu(eq, $event)"
-                        title="Thao tác khác"
-                      >
+                      <button type="button" class="act-btn act-more" title="Thao tác khác"
+                        (click)="toggleEquipmentMenu(eq, $event)">
                         <i class="pi pi-ellipsis-h"></i>
                       </button>
-                      <div
+
+                      <div *ngIf="activeEquipmentMenu() === eq.id"
                         class="dropdown-actions-menu animate-fade-in"
-                        [class.dropdown-upwards]="
-                          i >= equipmentItems().length - 2
-                        "
-                        *ngIf="activeEquipmentMenu() === eq.id"
-                        (click)="$event.stopPropagation()"
-                      >
-                        <!-- Xem chi tiết -->
-                        <button
-                          type="button"
-                          class="dropdown-item-btn"
-                          (click)="
-                            onViewEquipment(eq); activeEquipmentMenu.set(null)
-                          "
-                        >
+                        [class.dropdown-upwards]="i >= equipmentItems().length - 2"
+                        (click)="$event.stopPropagation()">
+                        <button type="button" class="dropdown-item-btn"
+                          (click)="onViewEquipment(eq); activeEquipmentMenu.set(null)">
                           <i class="pi pi-eye color-blue"></i>
                           <span>Xem chi tiết</span>
                         </button>
 
-                        <!-- Chỉnh sửa -->
-                        <button
-                          type="button"
-                          class="dropdown-item-btn"
-                          (click)="
-                            onEditEquipment(eq); activeEquipmentMenu.set(null)
-                          "
-                        >
+                        <button type="button" class="dropdown-item-btn"
+                          (click)="onEditEquipment(eq); activeEquipmentMenu.set(null)">
                           <i class="pi pi-pencil color-teal"></i>
                           <span>Chỉnh sửa</span>
                         </button>
 
-                        <!-- Chuyển thiết bị -->
-                        <button
-                          type="button"
-                          class="dropdown-item-btn"
-                          *ngIf="canManage() && canShowTransferEquipment(eq)"
-                          (click)="
-                            openTransferDialog(eq);
-                            activeEquipmentMenu.set(null)
-                          "
-                        >
+                        <button *ngIf="canManage() && canShowTransferEquipment(eq)"
+                          type="button" class="dropdown-item-btn"
+                          (click)="openTransferDialog(eq); activeEquipmentMenu.set(null)">
                           <i class="pi pi-send color-blue"></i>
                           <span>Chuyển thiết bị</span>
                         </button>
 
-                        <!-- Chuyển hồ sơ -->
-                        <button
-                          type="button"
-                          class="dropdown-item-btn"
-                          *ngIf="canManage() && canShowTransferDossier(eq)"
-                          (click)="
-                            onTransferDossier(eq); activeEquipmentMenu.set(null)
-                          "
-                        >
+                        <button *ngIf="canManage() && canShowTransferDossier(eq)"
+                          type="button" class="dropdown-item-btn"
+                          (click)="onTransferDossier(eq); activeEquipmentMenu.set(null)">
                           <i class="pi pi-folder-open color-blue"></i>
                           <span>Chuyển hồ sơ</span>
                         </button>
 
-                        <!-- Khóa / Mở khóa -->
-                        <button
-                          type="button"
-                          class="dropdown-item-btn"
-                          (click)="
-                            onToggleEquipmentStatus(eq);
-                            activeEquipmentMenu.set(null)
-                          "
-                        >
-                          <i
-                            class="pi"
-                            [ngClass]="
-                              eq.isActive === 1 || eq.isActive === true
-                                ? 'pi-lock color-red'
-                                : 'pi-lock-open color-green'
-                            "
-                          ></i>
-                          <span>{{
-                            eq.isActive === 1 || eq.isActive === true
-                              ? 'Khóa thiết bị'
-                              : 'Mở khóa'
-                          }}</span>
+                        <button type="button" class="dropdown-item-btn"
+                          (click)="onToggleEquipmentStatus(eq); activeEquipmentMenu.set(null)">
+                          <i class="pi"
+                            [ngClass]="eq.isActive === 1 || eq.isActive === true ? 'pi-lock color-red' : 'pi-lock-open color-green'"></i>
+                          <span>{{ eq.isActive === 1 || eq.isActive === true ? 'Khóa thiết bị' : 'Mở khóa' }}</span>
                         </button>
                       </div>
                     </div>
-                  </td>
+                  </div>
+                </td>
                 </tr>
                 <tr *ngIf="equipmentItems().length === 0">
                   <td colspan="7" class="empty-row" style="text-align: center; padding: 32px; color: #64748b;">
@@ -1350,60 +1302,6 @@
             (onPageChange)="onAttachmentPaginatorChange($event)">
           </app-eco-paginator>
         </section>
-
-        <div
-          *ngIf="selectedAttachmentDocuments().length > 0"
-          class="attachment-pagination"
-        >
-          <span
-            >Hiển thị {{ pagedAttachmentDocuments().length }} trên tổng số
-            {{ selectedAttachmentDocuments().length }} bản ghi</span
-          >
-          <div class="attachment-pagination-controls">
-            <button
-              type="button"
-              (click)="
-                changeAttachmentDocumentPage(attachmentDocumentPage() - 1)
-              "
-              [disabled]="attachmentDocumentPage() === 1"
-            >
-              <i class="pi pi-angle-left"></i>
-            </button>
-            <button
-              type="button"
-              *ngFor="
-                let page of getVisibleDocumentPages(
-                  attachmentDocumentPage(),
-                  attachmentDocumentTotalPages()
-                )
-              "
-              [class.active]="page === attachmentDocumentPage()"
-              (click)="changeAttachmentDocumentPage(page)"
-            >
-              {{ page }}
-            </button>
-            <button
-              type="button"
-              (click)="
-                changeAttachmentDocumentPage(attachmentDocumentPage() + 1)
-              "
-              [disabled]="
-                attachmentDocumentPage() === attachmentDocumentTotalPages()
-              "
-            >
-              <i class="pi pi-angle-right"></i>
-            </button>
-            <select
-              [ngModel]="attachmentDocumentPageSize()"
-              (change)="onAttachmentDocumentPageSizeChange($event)"
-            >
-              <option [value]="10">10</option>
-              <option [value]="20">20</option>
-              <option [value]="50">50</option>
-            </select>
-          </div>
-        </div>
-      </section>
 
       <aside class="attachment-tree-pane">
         <div class="attachment-tree-title">

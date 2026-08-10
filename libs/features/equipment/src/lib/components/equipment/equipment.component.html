@@ -806,7 +806,7 @@
                 class="pi pi-file"
                 style="color: #2563eb; margin-right: 6px"
               ></i>
-              Hồ sơ thông tin thiết bị
+              {{ searchReadOnly() ? 'Thông tin thiết bị' : 'Hồ sơ thông tin thiết bị' }}
             </span>
             <div style="display: flex; gap: 8px" *ngIf="canEdit()">
               <button
