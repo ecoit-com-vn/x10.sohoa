@@ -1257,6 +1257,7 @@
                         </button>
                       </div>
                     </div>
+                  </div>
                   </td>
                 </tr>
                 <tr *ngIf="equipmentItems().length === 0">
@@ -1350,60 +1351,6 @@
             (onPageChange)="onAttachmentPaginatorChange($event)">
           </app-eco-paginator>
         </section>
-
-        <div
-          *ngIf="selectedAttachmentDocuments().length > 0"
-          class="attachment-pagination"
-        >
-          <span
-            >Hiển thị {{ pagedAttachmentDocuments().length }} trên tổng số
-            {{ selectedAttachmentDocuments().length }} bản ghi</span
-          >
-          <div class="attachment-pagination-controls">
-            <button
-              type="button"
-              (click)="
-                changeAttachmentDocumentPage(attachmentDocumentPage() - 1)
-              "
-              [disabled]="attachmentDocumentPage() === 1"
-            >
-              <i class="pi pi-angle-left"></i>
-            </button>
-            <button
-              type="button"
-              *ngFor="
-                let page of getVisibleDocumentPages(
-                  attachmentDocumentPage(),
-                  attachmentDocumentTotalPages()
-                )
-              "
-              [class.active]="page === attachmentDocumentPage()"
-              (click)="changeAttachmentDocumentPage(page)"
-            >
-              {{ page }}
-            </button>
-            <button
-              type="button"
-              (click)="
-                changeAttachmentDocumentPage(attachmentDocumentPage() + 1)
-              "
-              [disabled]="
-                attachmentDocumentPage() === attachmentDocumentTotalPages()
-              "
-            >
-              <i class="pi pi-angle-right"></i>
-            </button>
-            <select
-              [ngModel]="attachmentDocumentPageSize()"
-              (change)="onAttachmentDocumentPageSizeChange($event)"
-            >
-              <option [value]="10">10</option>
-              <option [value]="20">20</option>
-              <option [value]="50">50</option>
-            </select>
-          </div>
-        </div>
-      </section>
 
       <aside class="attachment-tree-pane">
         <div class="attachment-tree-title">

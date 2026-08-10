@@ -2,7 +2,7 @@ import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
-import { forkJoin, of } from 'rxjs';
+import { forkJoin, Observable, of } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 import { environment } from '@env/environment';
 import { AuditLogService } from '@sohoa.frontend/shared/core';
@@ -300,13 +300,10 @@ export class DashboardComponent implements OnInit {
 
     // Lượt tải tài liệu — suy ra từ nhật ký thao tác hệ thống (audit log). Lưu ý: một số API tải file
     // cho phép truy cập ẩn danh (one-time token) nên không được audit, số này có thể thấp hơn thực tế.
-    this.http
-      .get<any>(`${environment.apiGatewayUrl}/api/v1/audit-logs`, {
-        params: { keyword: 'download', page: '1', pageSize: '1' }
-      })
+    this.getDashboardDownloadCount()
       .subscribe({
-        next: (res) => {
-          this.downloadCount = res?.totalCount ?? res?.TotalCount ?? 0;
+        next: (totalCount) => {
+          this.downloadCount = totalCount;
           this.cdr.markForCheck();
         },
         error: (err) => {
@@ -349,14 +346,7 @@ export class DashboardComponent implements OnInit {
     });
 
     const fetchDownloadCount = (from: Date, to: Date) =>
-      this.http
-        .get<any>(`${environment.apiGatewayUrl}/api/v1/audit-logs`, {
-          params: { keyword: 'download', page: '1', pageSize: '1', fromDate: from.toISOString(), toDate: to.toISOString() }
-        })
-        .pipe(
-          map((res) => res?.totalCount ?? res?.TotalCount ?? 0),
-          catchError(() => of(0))
-        );
+      this.getDashboardDownloadCount(from, to).pipe(catchError(() => of(0)));
 
     forkJoin([
       fetchDownloadCount(startOfThisMonth, endOfToday),
@@ -365,6 +355,16 @@ export class DashboardComponent implements OnInit {
       this.downloadTrend = this.computeTrend(current, previous);
       this.cdr.markForCheck();
     });
+  }
+
+  private getDashboardDownloadCount(fromDate?: Date, toDate?: Date): Observable<number> {
+    const params: Record<string, string> = {};
+    if (fromDate) params['fromDate'] = fromDate.toISOString();
+    if (toDate) params['toDate'] = toDate.toISOString();
+
+    return this.http
+      .get<any>(`${environment.apiGatewayUrl}/api/v1/audit-logs/dashboard/download-count`, { params })
+      .pipe(map((res) => res?.totalCount ?? res?.TotalCount ?? 0));
   }
 
   private loadRecentActivities() {
