@@ -72,7 +72,9 @@ backend-deploy:
 
 backend-backup-github:
   stage: backup
-  image: alpine/git:latest
+  image:
+    name: alpine/git:latest
+    entrypoint: [""]
   needs:
     - job: backend-deploy
       artifacts: false
