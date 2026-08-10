@@ -239,14 +239,15 @@ public class FileStorageService : IFileStorageService
             var bucket = ResolveBucket(bucketName);
             var memStream = new MemoryStream();
 
+            // KHÔNG ghim versionId khi đọc: mỗi DocumentVersion đã có object key riêng (xem
+            // BuildDocumentObjectKey/BuildDossierObjectKey — key luôn chứa Guid.NewGuid()), nên đọc
+            // "bản mới nhất tại key" là đúng ngữ nghĩa và không mất lịch sử version nào. Trước đây
+            // ghim theo DOCUMENT_VERSIONS.MINIO_VERSION_ID (chụp lúc upload) khiến file sau khi
+            // OcrWorker ghi đè PDF 2 lớp lên cùng key vẫn trả về bản gốc trước OCR vĩnh viễn —
+            // đúng triệu chứng "PDF tải về không có lớp text". versionId chỉ còn dùng để log.
             var getArgs = new GetObjectArgs()
                 .WithBucket(bucket)
                 .WithObject(filePath);
-
-            if (!string.IsNullOrEmpty(versionId))
-            {
-                getArgs = getArgs.WithVersionId(versionId);
-            }
 
             getArgs = getArgs.WithCallbackStream(stream =>
             {

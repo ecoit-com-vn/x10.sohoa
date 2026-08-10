@@ -7,7 +7,6 @@ using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using System.Text.Json.Serialization;
 using PdfDocument = PdfSharpCore.Pdf.PdfDocument;
-using PdfPage = PdfSharpCore.Pdf.PdfPage;
 using System;
 using System.Text;
 using System.Text.Json;
@@ -25,7 +24,6 @@ using EvnHanoi.DigitizationService.Services;
 using EvnHanoi.DigitizationService.Helpers;
 using EvnHanoi.Infrastructure.Messaging;
 using PdfSharpCore.Pdf;
-using PdfSharpCore.Drawing;
 
 namespace EvnHanoi.DigitizationService.Workers
 {
@@ -125,6 +123,36 @@ namespace EvnHanoi.DigitizationService.Workers
                             var minioService = scope.ServiceProvider.GetRequiredService<IMinioStorageService>();
                             var httpClientFactory = scope.ServiceProvider.GetRequiredService<IHttpClientFactory>();
                             var publisher = scope.ServiceProvider.GetRequiredService<IMessagePublisher>();
+                            var pdfBuilder = scope.ServiceProvider.GetRequiredService<ISearchablePdfBuilder>();
+
+                            // Bàn giao sang ExtractionWorker — dùng chung cho luồng bình thường và
+                            // luồng bỏ qua khi phát hiện file đã là PDF 2 lớp (idempotency, xem dưới).
+                            async Task PublishExtractionAndAckAsync(string extractionFilePath)
+                            {
+                                var extractionTask = new ExtractionTaskMessage
+                                {
+                                    FileId = taskMsg.FileId,
+                                    FilePath = extractionFilePath,
+                                    BucketName = taskMsg.BucketName,
+                                    ExtractPrompt = taskMsg.ExtractPrompt,
+                                    Form = taskMsg.Form,
+                                    FormSchemaJson = taskMsg.FormSchemaJson,
+                                    EquipmentId = taskMsg.EquipmentId
+                                };
+                                // Tín hiệu bàn giao sang ExtractionWorker — mất là job "xong OCR nhưng
+                                // không bao giờ vào Extraction" âm thầm, nên thử lại có backoff trước
+                                // khi chấp nhận thất bại.
+                                var handoffOk = await publisher.TryPublishMessageAsync(
+                                    extractionTask, "digitization.topic", "extraction.process.task",
+                                    maxAttempts: 3, initialDelay: TimeSpan.FromSeconds(2));
+                                if (!handoffOk)
+                                {
+                                    throw new InvalidOperationException(
+                                        $"Không thể publish extraction.process.task cho file {taskMsg.FileId} sau 3 lần thử.");
+                                }
+
+                                await _channel!.BasicAckAsync(ea.DeliveryTag, false);
+                            }
 
                             if (taskMsg.ProcessOption == "ExtractOnly")
                             {
@@ -156,6 +184,19 @@ namespace EvnHanoi.DigitizationService.Workers
                             await fileStream.CopyToAsync(msPdf, stoppingToken);
                             byte[] pdfBytes = msPdf.ToArray();
 
+                            // Idempotency: nếu file đã được OcrWorker dựng PDF 2 lớp từ trước (marker
+                            // /EvnOcrVersion trong Info) mà message này vẫn tới (retry, requeue thủ
+                            // công...), KHÔNG OCR/vẽ lại — job trước đã ghi đè lên bản gốc trên MinIO,
+                            // dựng lại lần nữa sẽ vẽ đè lớp text thứ hai lên lớp đã có.
+                            if (pdfBuilder.IsAlreadySearchable(pdfBytes))
+                            {
+                                _logger.LogWarning(
+                                    "File {FilePath} đã có marker PDF 2 lớp — bỏ qua OCR, chuyển thẳng sang Extraction.",
+                                    taskMsg.FilePath);
+                                await PublishExtractionAndAckAsync(taskMsg.FilePath);
+                                return;
+                            }
+
                             int pageCount = PDFtoImage.Conversion.GetPageCount(pdfBytes);
                             _logger.LogInformation("PDF có {PageCount} trang. Bắt đầu xử lý từng trang.", pageCount);
 
@@ -171,8 +212,7 @@ namespace EvnHanoi.DigitizationService.Workers
 
                             // Tạo PDF 2 lớp output
                             using var outPdfDoc = new PdfDocument();
-                            // Brush gần trong suốt để text ẩn nhưng vẫn searchable
-                            XBrush transparentBrush = new XSolidBrush(XColor.FromArgb(1, 0, 0, 0));
+                            int totalBoxesDrawn = 0;
 
                             for (int i = 0; i < pageCount; i++)
                             {
@@ -187,8 +227,13 @@ namespace EvnHanoi.DigitizationService.Workers
 
                                 if (pageImageBytes.Length == 0)
                                 {
-                                    _logger.LogWarning("Render trang {Page} ra JPEG rỗng — bỏ qua gọi OCR server.", i + 1);
+                                    // Không có ảnh thì không thể vẽ trang PDF 2 lớp — throw để job
+                                    // vào retry/DLQ thay vì âm thầm bỏ qua rồi vẫn ghi đè bản gốc.
+                                    throw new InvalidOperationException(
+                                        $"Render trang {i + 1}/{pageCount} ra JPEG rỗng — không thể tạo PDF 2 lớp cho file {taskMsg.FileId}.");
                                 }
+
+                                var (imgWidthPx, imgHeightPx) = pdfBuilder.GetImagePixelSize(pageImageBytes);
 
                                 List<TextBoxResponse> ocrResults = new();
                                 var sw = Stopwatch.StartNew();
@@ -236,7 +281,7 @@ namespace EvnHanoi.DigitizationService.Workers
                                         var rawText = pdfDocument.GetPage(i + 1).Text?.Trim();
                                         if (!string.IsNullOrEmpty(rawText))
                                         {
-                                            ocrResults.Add(OcrPageContentHelper.CreateFullPageBox(rawText));
+                                            ocrResults.Add(OcrPageContentHelper.CreateFullPageBox(rawText, imgWidthPx, imgHeightPx));
                                             _logger.LogInformation(
                                                 "Trang {Page}: dùng PdfPig fallback ({CharCount} ký tự).",
                                                 i + 1, rawText.Length);
@@ -253,42 +298,10 @@ namespace EvnHanoi.DigitizationService.Workers
                                     _logger.LogWarning(ex, "Lỗi khi gọi ocr_vl_server cho trang {Page}.", i + 1);
                                 }
 
-                                // 4. Tạo trang PDF 2 lớp: ảnh gốc + text ẩn (ĐÃ SỬA CHÍNH TẢ)
-                                PdfPage newPage = outPdfDoc.AddPage();
-                                using XGraphics gfx = XGraphics.FromPdfPage(newPage);
-
-                                using var memStreamImg = new MemoryStream(pageImageBytes);
-                                using XImage xImage = XImage.FromStream(() => memStreamImg);
-
-                                // Quy đổi pixel → point (72pt = 1 inch; 200 DPI → scale = 72/200)
-                                double scale = 72.0 / 200.0;
-                                double imgWidthPx  = xImage.PixelWidth;
-                                double imgHeightPx = xImage.PixelHeight;
-                                newPage.Width  = imgWidthPx  * scale;
-                                newPage.Height = imgHeightPx * scale;
-                                gfx.DrawImage(xImage, 0, 0, newPage.Width, newPage.Height);
-
-                                // Vẽ text ẩn (invisible text layer) — sử dụng text đã sửa chính tả
-                                foreach (var boxData in ocrResults)
-                                {
-                                    if (boxData.Box == null || boxData.Box.Count != 4) continue;
-                                    if (string.IsNullOrWhiteSpace(boxData.Text)) continue;
-
-                                    double x0 = boxData.Box[0] * scale;
-                                    double y0 = boxData.Box[1] * scale;
-                                    double x1 = boxData.Box[2] * scale;
-                                    double y1 = boxData.Box[3] * scale;
-
-                                    double w = Math.Max(x1 - x0, 10 * scale);
-                                    double h = Math.Max(y1 - y0, 6 * scale);
-
-                                    // Font size tương ứng với chiều cao box (0.75 * h)
-                                    double fontSize = Math.Max(4, h * 0.75);
-                                    XFont font = new XFont("Open Sans", fontSize, XFontStyle.Regular);
-
-                                    XRect rect = new XRect(x0, y0, w, h);
-                                    gfx.DrawString(boxData.Text, font, transparentBrush, rect, XStringFormats.TopLeft);
-                                }
+                                // 4. Tạo trang PDF 2 lớp: text ẩn (vẽ trước) + ảnh gốc (phủ lên sau) —
+                                // xem SearchablePdfBuilder.AddPage cho lý do vẽ theo thứ tự này và vì
+                                // sao tài nguyên ảnh không được dispose ngay trong vòng lặp này.
+                                totalBoxesDrawn += pdfBuilder.AddPage(outPdfDoc, pageImageBytes, ocrResults);
 
                                 // 4b. Sinh file JSON gốc cho page
                                 string baseFilePath = taskMsg.FilePath;
@@ -319,6 +332,17 @@ namespace EvnHanoi.DigitizationService.Workers
                                 await publisher.TryPublishMessageAsync(progressMsg, "digitization.topic", "ocr.process.progress");
                             }
 
+                            // Chốt chặn: nếu KHÔNG vẽ được bất kỳ text nào trên toàn tài liệu (OCR
+                            // server rỗng + PdfPig fallback cũng rỗng ở mọi trang), không được ghi đè
+                            // bản gốc trên MinIO bằng một PDF "2 lớp" nhưng thực chất không có lớp
+                            // text nào — throw để job vào retry/DLQ, giữ nguyên bản gốc.
+                            if (totalBoxesDrawn == 0)
+                            {
+                                throw new InvalidOperationException(
+                                    $"Không vẽ được text trên bất kỳ trang nào trong {pageCount} trang — huỷ tạo PDF 2 lớp để không ghi đè mất bản gốc trên MinIO (FileId={taskMsg.FileId}).");
+                            }
+                            pdfBuilder.MarkAsSearchable(outPdfDoc);
+
                             // 5. Upload PDF 2 lớp lên MinIO (ghi đè file gốc)
                             string outFileName = taskMsg.FilePath;
                             using var finalPdfStream = new MemoryStream();
@@ -329,28 +353,7 @@ namespace EvnHanoi.DigitizationService.Workers
                             await minioService.UploadFileAsync(taskMsg.BucketName, outFileName, finalPdfStream, "application/pdf");
 
                             // 6. Publish ExtractionTaskMessage → ExtractionWorker
-                            var extractionTask = new ExtractionTaskMessage
-                            {
-                                FileId = taskMsg.FileId,
-                                FilePath = outFileName,
-                                BucketName = taskMsg.BucketName,
-                                ExtractPrompt = taskMsg.ExtractPrompt,
-                                Form = taskMsg.Form,
-                                FormSchemaJson = taskMsg.FormSchemaJson,
-                                EquipmentId = taskMsg.EquipmentId
-                            };
-                            // Tín hiệu bàn giao sang ExtractionWorker — mất là job "xong OCR nhưng không bao
-                            // giờ vào Extraction" âm thầm, nên thử lại có backoff trước khi chấp nhận thất bại.
-                            var handoffOk = await publisher.TryPublishMessageAsync(
-                                extractionTask, "digitization.topic", "extraction.process.task",
-                                maxAttempts: 3, initialDelay: TimeSpan.FromSeconds(2));
-                            if (!handoffOk)
-                            {
-                                throw new InvalidOperationException(
-                                    $"Không thể publish extraction.process.task cho file {taskMsg.FileId} sau 3 lần thử.");
-                            }
-
-                            await _channel.BasicAckAsync(ea.DeliveryTag, false);
+                            await PublishExtractionAndAckAsync(outFileName);
                         }
                         else
                         {
