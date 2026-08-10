@@ -12,18 +12,27 @@
 
   <div class="wf-card pt-0">
     <div class="tab-bar">
-      <button class="tab-item" [class.tab-active]="activeDetailTab() === 'info'"
-        (click)="activeDetailTab.set('info')">
+      <button
+        class="tab-item"
+        [class.tab-active]="activeDetailTab() === 'info'"
+        (click)="activeDetailTab.set('info')"
+      >
         <i class="pi pi-clock"></i>
         Thông tin chung
       </button>
-      <button class="tab-item" [class.tab-active]="activeDetailTab() === 'documents'"
-        (click)="activeDetailTab.set('documents')">
+      <button
+        class="tab-item"
+        [class.tab-active]="activeDetailTab() === 'documents'"
+        (click)="activeDetailTab.set('documents')"
+      >
         <i class="pi pi-paperclip"></i>
         Tài liệu đính kèm ({{ dossierDocuments().length }})
       </button>
-      <button class="tab-item" [class.tab-active]="activeDetailTab() === 'related'"
-        (click)="activeDetailTab.set('related')">
+      <button
+        class="tab-item"
+        [class.tab-active]="activeDetailTab() === 'related'"
+        (click)="activeDetailTab.set('related')"
+      >
         <i class="pi pi-file"></i>
         Hồ sơ liên quan ({{ totalRelatedDossiers() }})
       </button>
@@ -31,30 +40,48 @@
 
     <div class="tab-content">
       <div *ngIf="activeDetailTab() === 'info'" class="tab-pane-container">
-        <div *ngIf="loadingForm()"
-          style="display: flex; align-items: center; gap: 8px; color: #6b7280; padding: 24px; justify-content: center;">
-          <i class="pi pi-spin pi-spinner" style="font-size: 1.5rem;"></i> Đang tải thông tin hồ sơ...
+        <div
+          *ngIf="loadingForm()"
+          style="
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #6b7280;
+            padding: 24px;
+            justify-content: center;
+          "
+        >
+          <i class="pi pi-spin pi-spinner" style="font-size: 1.5rem"></i> Đang
+          tải thông tin hồ sơ...
         </div>
 
         <div *ngIf="!loadingForm()" class="info-two-column-layout">
           <div class="info-column">
             <div class="info-text-row">
               <span class="info-text-label">Loại lưới điện:</span>
-              <span class="info-text-value">{{ getGridTypeName(dossier().gridTypeId) }}</span>
+              <span class="info-text-value">{{
+                getGridTypeName(dossier().gridTypeId)
+              }}</span>
             </div>
             <div class="info-text-row">
               <span class="info-text-label">Trạm / Đường dây:</span>
-              <span class="info-text-value">{{ dossier().infrastructureName || '-' }}</span>
+              <span class="info-text-value">{{
+                dossier().infrastructureName || '-'
+              }}</span>
             </div>
             <div class="info-text-row">
               <span class="info-text-label">Loại hồ sơ:</span>
-              <span class="info-text-value">{{ dossier().dossierTypeName }}</span>
+              <span class="info-text-value">{{
+                dossier().dossierTypeName
+              }}</span>
             </div>
 
             <ng-container *ngFor="let field of leftDynamicFields()">
               <div class="info-text-row">
                 <span class="info-text-label">{{ field.label }}:</span>
-                <span class="info-text-value">{{ getFieldValueText(field) }}</span>
+                <span class="info-text-value">{{
+                  getFieldValueText(field)
+                }}</span>
               </div>
             </ng-container>
           </div>
@@ -62,13 +89,20 @@
             <ng-container *ngFor="let field of rightDynamicFields()">
               <div class="info-text-row">
                 <span class="info-text-label">{{ field.label }}:</span>
-                <span class="info-text-value">{{ getFieldValueText(field) }}</span>
+                <span class="info-text-value">{{
+                  getFieldValueText(field)
+                }}</span>
               </div>
             </ng-container>
             <div class="info-text-row">
               <span class="info-text-label">Trạng thái:</span>
               <span>
-                {{ getStatusText(dossierMeta()?.statusId, dossierMeta()?.statusName) }}
+                {{
+                  getStatusText(
+                    dossierMeta()?.statusId,
+                    dossierMeta()?.statusName
+                  )
+                }}
               </span>
             </div>
           </div>
@@ -78,7 +112,10 @@
           <i class="pi pi-link"></i> Thiết bị liên quan
         </div>
 
-        <div class="wf-table-wrap" style="border: 1px solid #cbd5e1; box-shadow: none;">
+        <div
+          class="wf-table-wrap"
+          style="border: 1px solid #cbd5e1; box-shadow: none"
+        >
           <table class="wf-table">
             <thead>
               <tr>
@@ -91,22 +128,31 @@
             </thead>
             <tbody>
               <tr *ngIf="loadingEquipments()">
-                <td colspan="5" class="empty-row" style="padding: 32px 0;">
+                <td colspan="5" class="empty-row" style="padding: 32px 0">
                   <i class="pi pi-spin pi-spinner mr-2"></i>
                   <span>Đang tải danh sách thiết bị liên quan...</span>
                 </td>
               </tr>
-              <tr *ngFor="let eq of paginatedEquipments(); let i = index" [hidden]="loadingEquipments()">
-                <td class="col-stt text-muted">{{ equipmentFirst() + i + 1 }}</td>
+              <tr
+                *ngFor="let eq of paginatedEquipments(); let i = index"
+                [hidden]="loadingEquipments()"
+              >
+                <td class="col-stt text-muted">
+                  {{ equipmentFirst() + i + 1 }}
+                </td>
                 <td>
-                  <b class="wf-name-link">{{ eq.equipmentCode || eq.code || '-' }}</b>
+                  <b class="wf-name-link">{{
+                    eq.equipmentCode || eq.code || '-'
+                  }}</b>
                 </td>
                 <td>{{ eq.equipmentName || eq.name || '-' }}</td>
                 <td>{{ eq.equipmentTypeName || eq.typeName || '-' }}</td>
                 <td>{{ eq.serialNumber || eq.serial || '-' }}</td>
               </tr>
-              <tr *ngIf="!loadingEquipments() && relatedEquipments().length === 0">
-                <td colspan="5" class="empty-row" style="padding: 32px 0;">
+              <tr
+                *ngIf="!loadingEquipments() && relatedEquipments().length === 0"
+              >
+                <td colspan="5" class="empty-row" style="padding: 32px 0">
                   <i class="pi pi-info-circle mr-2"></i>
                   <span>Không có thiết bị liên quan.</span>
                 </td>
@@ -115,19 +161,31 @@
           </table>
         </div>
 
-        <div class="table-footer-paginator" *ngIf="relatedEquipments().length > 0"
-          style="padding: 12px 24px; margin: 0 24px;">
-          <span class="record-count" style="color: #64748b;">
-            Hiển thị <b>{{ paginatedEquipments().length }}</b> trên tổng số <b>{{ relatedEquipments().length }}</b>
+        <div
+          class="table-footer-paginator"
+          *ngIf="relatedEquipments().length > 0"
+          style="padding: 12px 24px; margin: 0 24px"
+        >
+          <span class="record-count" style="color: #64748b">
+            Hiển thị <b>{{ paginatedEquipments().length }}</b> trên tổng số
+            <b>{{ relatedEquipments().length }}</b>
             bản ghi
           </span>
-          <app-eco-paginator [first]="equipmentFirst()" [rows]="equipmentRows()" [totalRecords]="relatedEquipments().length"
-            [rowsPerPageOptions]="[5, 10, 20, 50]" (onPageChange)="onEquipmentPageChange($event)">
+          <app-eco-paginator
+            [first]="equipmentFirst()"
+            [rows]="equipmentRows()"
+            [totalRecords]="relatedEquipments().length"
+            [rowsPerPageOptions]="[10, 20, 50]"
+            (onPageChange)="onEquipmentPageChange($event)"
+          >
           </app-eco-paginator>
         </div>
       </div>
 
-      <div *ngIf="activeDetailTab() === 'documents'" class="tab-pane-container animate-fade-in">
+      <div
+        *ngIf="activeDetailTab() === 'documents'"
+        class="tab-pane-container animate-fade-in"
+      >
         <div class="wf-table-wrap">
           <table class="wf-table">
             <thead>
@@ -146,23 +204,47 @@
                   <div>Đang tải tài liệu...</div>
                 </td>
               </tr>
-              <tr *ngFor="let doc of dossierDocuments(); let i = index" [hidden]="loadingDossierDocuments()">
+              <tr
+                *ngFor="let doc of dossierDocuments(); let i = index"
+                [hidden]="loadingDossierDocuments()"
+              >
                 <td class="col-stt text-muted">{{ i + 1 }}</td>
                 <td>
-                  <span class="wf-name-link" (click)="onViewDocumentDetail(doc)">{{ doc.name }}</span>
+                  <span
+                    class="wf-name-link"
+                    (click)="onViewDocumentDetail(doc)"
+                    >{{ doc.name }}</span
+                  >
                 </td>
                 <td>{{ doc.documentTypeName || doc.mimeType || '-' }}</td>
                 <td class="col-size">{{ formatSize(doc.sizeInBytes) }}</td>
-                <td class="col-action" style="display: flex; gap: 4px; justify-content: center; align-items: center;">
-                  <button class="action-icon-btn" title="Xem chi tiết" (click)="onViewDocumentDetail(doc)">
+                <td
+                  class="col-action"
+                  style="
+                    display: flex;
+                    gap: 4px;
+                    justify-content: center;
+                    align-items: center;
+                  "
+                >
+                  <button
+                    class="action-icon-btn"
+                    title="Xem chi tiết"
+                    (click)="onViewDocumentDetail(doc)"
+                  >
                     <i class="pi pi-eye"></i>
                   </button>
-                  <button class="action-icon-btn" title="Tải xuống" (click)="downloadDocument(doc)">
-                    <i class="pi pi-download"></i>
+                  <button class="action-icon-btn" title="Tải xuống" [disabled]="isDocumentDownloading(doc)"
+                    (click)="downloadDocument(doc)">
+                    <i class="pi" [ngClass]="isDocumentDownloading(doc) ? 'pi-spin pi-spinner' : 'pi-download'"></i>
                   </button>
                 </td>
               </tr>
-              <tr *ngIf="!loadingDossierDocuments() && dossierDocuments().length === 0">
+              <tr
+                *ngIf="
+                  !loadingDossierDocuments() && dossierDocuments().length === 0
+                "
+              >
                 <td colspan="5" class="empty-row">
                   <i class="pi pi-info-circle"></i>
                   <div>Không có tài liệu đính kèm.</div>
@@ -173,28 +255,50 @@
         </div>
       </div>
 
-      <div *ngIf="activeDetailTab() === 'related'" class="tab-pane-container animate-fade-in">
+      <div
+        *ngIf="activeDetailTab() === 'related'"
+        class="tab-pane-container animate-fade-in"
+      >
         <div class="filters-card">
           <div class="filter-item">
             <span class="filter-label">Từ khóa</span>
-            <input type="text" class="wf-input" placeholder="Nhập từ khóa tìm kiếm" [(ngModel)]="filterKeyword"
-              (ngModelChange)="onRelatedFilterChange()">
+            <input
+              type="text"
+              class="wf-input"
+              placeholder="Nhập từ khóa tìm kiếm"
+              [(ngModel)]="filterKeyword"
+              (ngModelChange)="onRelatedFilterChange()"
+            />
           </div>
 
           <div class="filter-item">
             <span class="filter-label">Thiết bị</span>
-            <select class="wf-select" [(ngModel)]="filterEquipmentId" (ngModelChange)="onRelatedFilterChange()">
+            <select
+              class="wf-select"
+              [(ngModel)]="filterEquipmentId"
+              (ngModelChange)="onRelatedFilterChange()"
+            >
               <option value="">-- Chọn thiết bị --</option>
-              <option *ngFor="let eq of relatedEquipments()" [value]="eq.id || eq.equipmentId">{{ eq.name ||
-                eq.equipmentName }}</option>
+              <option
+                *ngFor="let eq of relatedEquipments()"
+                [value]="eq.id || eq.equipmentId"
+              >
+                {{ eq.name || eq.equipmentName }}
+              </option>
             </select>
           </div>
 
           <div class="filter-item">
             <span class="filter-label">Loại hồ sơ</span>
-            <select class="wf-select" [(ngModel)]="filterDossierTypeId" (ngModelChange)="onRelatedFilterChange()">
+            <select
+              class="wf-select"
+              [(ngModel)]="filterDossierTypeId"
+              (ngModelChange)="onRelatedFilterChange()"
+            >
               <option value="">-- Chọn loại hồ sơ --</option>
-              <option *ngFor="let dt of dossierTypes()" [value]="dt.id">{{ dt.name }}</option>
+              <option *ngFor="let dt of dossierTypes()" [value]="dt.id">
+                {{ dt.name }}
+              </option>
             </select>
           </div>
         </div>
@@ -214,16 +318,23 @@
             </thead>
             <tbody>
               <tr *ngIf="loadingRelated()">
-                <td colspan="7" class="empty-row" style="padding: 48px 0;">
+                <td colspan="7" class="empty-row" style="padding: 48px 0">
                   <i class="pi pi-spin pi-spinner"></i>
                   <div>Đang tải hồ sơ liên quan...</div>
                 </td>
               </tr>
-              <tr *ngFor="let rel of paginatedRelatedDossiers(); let i = index" [hidden]="loadingRelated()">
+              <tr
+                *ngFor="let rel of paginatedRelatedDossiers(); let i = index"
+                [hidden]="loadingRelated()"
+              >
                 <td class="col-stt text-muted">{{ relatedFirst() + i + 1 }}</td>
                 <td>
                   <span class="wf-name-link" (click)="openRelatedDetail(rel)">
-                    {{ rel.catalogData?.['ma_ho_so'] || rel.code || 'HS-' + rel.id.substring(0, 8) }}
+                    {{
+                      rel.catalogData?.['ma_ho_so'] ||
+                        rel.code ||
+                        'HS-' + rel.id.substring(0, 8)
+                    }}
                   </span>
                 </td>
                 <td>{{ rel.dossierSetName || rel.label || '-' }}</td>
@@ -231,13 +342,17 @@
                 <td>{{ rel.dossierTypeName || '-' }}</td>
                 <td>{{ rel.documentCount || 0 }}</td>
                 <td class="col-action">
-                  <button class="action-icon-btn" title="Xem chi tiết" (click)="openRelatedDetail(rel)">
+                  <button
+                    class="action-icon-btn"
+                    title="Xem chi tiết"
+                    (click)="openRelatedDetail(rel)"
+                  >
                     <i class="pi pi-eye"></i>
                   </button>
                 </td>
               </tr>
               <tr *ngIf="!loadingRelated() && relatedDossiers().length === 0">
-                <td colspan="7" class="empty-row" style="padding: 48px 0;">
+                <td colspan="7" class="empty-row" style="padding: 48px 0">
                   <i class="pi pi-info-circle"></i>
                   <div>Không có hồ sơ liên quan.</div>
                 </td>
@@ -246,22 +361,41 @@
           </table>
         </div>
 
-        <div class="table-footer-paginator" *ngIf="relatedDossiers().length > 0" style="padding: 12px 24px;">
-          <span class="record-count" style="color: #64748b;">
-            Hiển thị <b>{{ paginatedRelatedDossiers().length }}</b> trên tổng số <b>{{ relatedDossiers().length }}</b>
+        <div
+          class="table-footer-paginator"
+          *ngIf="relatedDossiers().length > 0"
+          style="padding: 12px 24px"
+        >
+          <span class="record-count" style="color: #64748b">
+            Hiển thị <b>{{ paginatedRelatedDossiers().length }}</b> trên tổng số
+            <b>{{ relatedDossiers().length }}</b>
             bản ghi
           </span>
-          <app-eco-paginator [first]="relatedFirst()" [rows]="relatedRows()" [totalRecords]="relatedDossiers().length"
-            [rowsPerPageOptions]="[5, 10, 20, 50]" (onPageChange)="onRelatedPageChange($event)">
+          <app-eco-paginator
+            [first]="relatedFirst()"
+            [rows]="relatedRows()"
+            [totalRecords]="relatedDossiers().length"
+            [rowsPerPageOptions]="[5, 10, 20, 50]"
+            (onPageChange)="onRelatedPageChange($event)"
+          >
           </app-eco-paginator>
         </div>
       </div>
     </div>
   </div>
 
-  <app-dossier-document-edit-dialog *ngIf="viewTarget()?.latestVersionId as versionId" [dossierId]="dossierId()"
-    [versionId]="versionId" [documentName]="viewTarget()?.name ?? ''" [mimeType]="viewTarget()?.mimeType ?? null"
-    [documentTypeId]="viewTarget()?.documentTypeId ?? null" [formId]="dossier()?.formId" [canEdit]="false"
-    [lookupMode]="false" [visible]="showViewDocument()"
-    (visibleChange)="showViewDocument.set($event)"></app-dossier-document-edit-dialog>
+  <app-dossier-document-edit-dialog
+    *ngIf="viewTarget()?.latestVersionId as versionId"
+    [dossierId]="dossierId()"
+    [versionId]="versionId"
+    [documentName]="viewTarget()?.name ?? ''"
+    [mimeType]="viewTarget()?.mimeType ?? null"
+    [documentTypeId]="viewTarget()?.documentTypeId ?? null"
+    [formId]="dossier()?.formId"
+    [canEdit]="false"
+    [lookupMode]="false"
+    [warehouseSearchMode]="true"
+    [visible]="showViewDocument()"
+    (visibleChange)="showViewDocument.set($event)"
+  ></app-dossier-document-edit-dialog>
 </div>

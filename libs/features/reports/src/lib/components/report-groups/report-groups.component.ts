@@ -171,12 +171,24 @@ export class ReportGroupsComponent implements OnInit {
     this.currentPage.set(Math.floor(first / rows) + 1);
   }
 
+  onKeywordChange(value: string) {
+    this.searchKeyword.set(value);
+    this.currentPage.set(1);
+  }
+
+  onStatusChange(value: string) {
+    this.filterStatus.set(value);
+    this.currentPage.set(1);
+  }
+
   onResetSearch() {
     this.searchKeyword.set('');
     this.filterStatus.set('ALL');
+    this.currentPage.set(1);
     this.loadOrganizationUnits();
   }
   onSearch() {
+    this.currentPage.set(1);
     this.loadGroups();
   }
 

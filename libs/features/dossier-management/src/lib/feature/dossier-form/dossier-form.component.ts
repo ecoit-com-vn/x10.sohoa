@@ -5,6 +5,7 @@ import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
 import { DialogModule } from 'primeng/dialog';
 import { SelectModule } from 'primeng/select';
+import { MultiSelectModule } from 'primeng/multiselect';
 import { DossierManagementService } from '../../data-access/dossier-management.service';
 import { DossierPublishService } from '../../data-access/dossier-publish.service';
 import { DossierDocumentsTabComponent } from '../dossier-documents/dossier-documents-tab.component';
@@ -39,7 +40,7 @@ import { normalizeDossierKindId } from '../../utils/dossier-permission.util';
 @Component({
   selector: 'app-dossier-form',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule, DialogModule, SelectModule, DossierDocumentsTabComponent, DossierVersionsTabComponent, DossierWorkflowTabComponent, DatePickerModule],
+  imports: [CommonModule, FormsModule, ToastModule, DialogModule, SelectModule, MultiSelectModule, DossierDocumentsTabComponent, DossierVersionsTabComponent, DossierWorkflowTabComponent, DatePickerModule],
   template: `
     <div class="wf-card" style="position: relative;">
       <!-- Header -->
@@ -131,9 +132,9 @@ import { normalizeDossierKindId } from '../../utils/dossier-permission.util';
 
           <div class="form-group" style="flex: 1 1 240px; min-width: 220px;">
             <label class="form-label">Trạm / Đường dây</label>
-            <p-select
-              [options]="formInfrastructureOptions()"
-              [ngModel]="dossier.infrastructureIds?.[0] ?? null"
+            <p-multiSelect
+              [options]="formInfrastructures()"
+              [ngModel]="dossier.infrastructureIds"
               (ngModelChange)="onInfrastructureChange($event)"
               optionLabel="name"
               optionValue="id"
@@ -141,7 +142,10 @@ import { normalizeDossierKindId } from '../../utils/dossier-permission.util';
               filterBy="name,code"
               filterPlaceholder="Tìm tên trạm/đường dây..."
               [showClear]="true"
-              placeholder="-- Tất cả trạm/đường dây --"
+              display="comma"
+              [maxSelectedLabels]="2"
+              selectedItemsLabel="{0} trạm/đường dây đã chọn"
+              placeholder="-- Chọn trạm/đường dây --"
               appendTo="body"
               styleClass="w-full lookup-search-select"
               [style]="{'width':'100%'}">
@@ -149,7 +153,7 @@ import { normalizeDossierKindId } from '../../utils/dossier-permission.util';
                 <span>{{ item.name }}</span>
                 <small *ngIf="item.code" class="lookup-option-code">({{ item.code }})</small>
               </ng-template>
-            </p-select>
+            </p-multiSelect>
           </div>
 
           <div class="form-group" style="flex: 1 1 240px; min-width: 220px;">
@@ -900,11 +904,6 @@ export class DossierFormComponent implements OnInit {
     });
   });
 
-  formInfrastructureOptions = computed(() => [
-    { id: null, name: '-- Tất cả trạm/đường dây --', code: null },
-    ...this.formInfrastructures(),
-  ]);
-
   // Lookups
   dossierTypes = signal<any[]>([]);
   dossierGroups = signal<any[]>([]);
@@ -1069,8 +1068,11 @@ export class DossierFormComponent implements OnInit {
   loadInfrastructures() {
     this.service.getInfrastructureLookup().subscribe(res => {
       const items = (res || []).map((inf: any) => this.enrichInfrastructureOption(inf));
-      const selectedId = this.dossier.infrastructureId;
-      if (selectedId && !items.some((inf: any) => (inf.id ?? inf.Id) === selectedId)) {
+      const selectedIds = this.dossier.infrastructureIds?.length
+        ? this.dossier.infrastructureIds
+        : (this.dossier.infrastructureId ? [this.dossier.infrastructureId] : []);
+      for (const selectedId of selectedIds) {
+        if (!selectedId || items.some((inf: any) => (inf.id ?? inf.Id) === selectedId)) continue;
         const existing = this.infrastructures().find((inf) => (inf.id ?? inf.Id) === selectedId);
         if (existing) {
           items.push(this.enrichInfrastructureOption(existing));
@@ -1094,31 +1096,36 @@ export class DossierFormComponent implements OnInit {
     };
   }
 
-  /** Giữ option trạm/đường dây hiện tại khi sửa hồ sơ (tránh mất giá trị đã lưu). */
-  private ensureInfrastructureOption(detail: Record<string, unknown>) {
-    const infraId = (detail['infrastructureId'] ?? detail['InfrastructureId']) as string | null | undefined;
-    if (!infraId) return;
+  /** Giữ lại các option trạm/đường dây hiện tại khi sửa hồ sơ (tránh mất giá trị đã lưu nếu hạ tầng đã inactive/xoá). */
+  private ensureInfrastructureOptions(infraIds: string[], detail: Record<string, unknown>) {
+    if (!infraIds?.length) return;
 
-    const exists = this.infrastructures().some(
-      (inf) => (inf.id ?? inf.Id) === infraId
+    const missingIds = infraIds.filter(
+      (infraId) => infraId && !this.infrastructures().some((inf) => (inf.id ?? inf.Id) === infraId)
     );
-    if (exists) return;
+    if (!missingIds.length) return;
 
     const group = this.selectedDossierGroup();
     const fallbackInfraType = group
       ? Number(group.infraTypeId ?? group.InfraTypeId)
       : Number(detail['infraTypeId'] ?? detail['InfraTypeId'] ?? 0) || null;
 
-    this.infrastructures.update((list) => [
-      ...list,
+    // Backend chỉ trả tên/mã của hạ tầng đầu tiên (infrastructureName/infrastructureCode) — các hạ
+    // tầng còn lại trong mảng (nếu chưa nằm trong lookup) tạm hiển thị theo id.
+    const primaryInfraId = infraIds[0];
+    const newOptions = missingIds.map((infraId) =>
       this.enrichInfrastructureOption({
         id: infraId,
-        name: (detail['infrastructureName'] ?? detail['InfrastructureName'] ?? infraId) as string,
-        code: detail['infrastructureCode'] ?? detail['InfrastructureCode'],
+        name: infraId === primaryInfraId
+          ? ((detail['infrastructureName'] ?? detail['InfrastructureName'] ?? infraId) as string)
+          : infraId,
+        code: infraId === primaryInfraId ? (detail['infrastructureCode'] ?? detail['InfrastructureCode']) : null,
         gridTypeId: detail['gridTypeId'] ?? detail['GridTypeId'],
         infraTypeId: fallbackInfraType,
-      }),
-    ]);
+      })
+    );
+
+    this.infrastructures.update((list) => [...list, ...newOptions]);
   }
 
   loadDossierDetail(id: string) {
@@ -1209,7 +1216,7 @@ export class DossierFormComponent implements OnInit {
           if (typeId) {
             this.loadFormForType(typeId, formDataJson, formId);
           }
-          this.ensureInfrastructureOption(res);
+          this.ensureInfrastructureOptions(infraIds, res);
         }
         this.loading.set(false);
       },

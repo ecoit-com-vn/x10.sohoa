@@ -1,5 +1,8 @@
 .sub-view-container {
   padding: 5px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background-color: #fff;
 }
 
 .animate-fade-in {
@@ -29,7 +32,8 @@
 }
 
 .form-group-row {
-  margin-bottom: 5px;
+  margin-top: 5px;
+  padding: 0px 10px !important;
 }
 
 .field-error {
@@ -59,7 +63,9 @@
   background: #fff;
   font-size: 0.875rem;
   color: #94a3b8;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
   user-select: none;
 }
 
@@ -67,7 +73,7 @@
   color: #374151;
 }
 
-.org-tree-picker .org-tree-trigger:hover, 
+.org-tree-picker .org-tree-trigger:hover,
 .org-tree-picker .org-tree-trigger.open {
   border-color: #3b82f6;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
@@ -80,7 +86,7 @@
   flex: 1;
 }
 
-.org-tree-picker .org-tree-trigger .pi-chevron-down, 
+.org-tree-picker .org-tree-trigger .pi-chevron-down,
 .org-tree-picker .org-tree-trigger .pi-chevron-up {
   font-size: 0.75rem;
   color: #6b7280;
@@ -216,7 +222,9 @@
   background: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 6px;
-  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06);
   min-width: 150px;
   padding: 4px 0;
   margin-top: 4px;
@@ -239,4 +247,33 @@
 
 .more-actions-dropdown .dropdown-item:hover {
   background-color: #f1f5f9;
+}
+.equipment-documents-card {
+  padding: 16px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+.equipment-detail-card {
+  padding: 16px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+.legacy-equipment-pagination {
+  display: none !important;
+}
+
+.equipment-list-paginator {
+  width: 100%;
+  margin-top: 6px;
+  padding: 0 4px;
+}
+
+.equipment-list-paginator > app-eco-paginator {
+  width: 100%;
 }

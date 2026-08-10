@@ -1,5 +1,5 @@
 import { Component, OnInit, signal, computed, inject, effect, HostListener } from '@angular/core';
-import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
+import { EcoPaginatorComponent, WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer } from '@angular/platform-browser';
@@ -20,7 +20,7 @@ import { LookupTrackingService } from '../../data-access/lookup-tracking.service
 @Component({
   selector: 'app-transmission-line-search',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule, SelectModule, DialogModule, PaginatorModule, WfBreadcrumbComponent],
+  imports: [CommonModule, FormsModule, ToastModule, SelectModule, DialogModule, PaginatorModule, WfBreadcrumbComponent, EcoPaginatorComponent],
   providers: [MessageService],
   templateUrl: './transmission-line-search.component.html',
   styleUrl: './transmission-line-search.component.scss'

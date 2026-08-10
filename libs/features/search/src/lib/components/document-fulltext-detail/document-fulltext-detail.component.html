@@ -15,14 +15,29 @@
               <span>Đang tải bản xem trước...</span>
             </div>
             <ng-container *ngIf="previewUrl() && !previewLoading()">
-              <iframe *ngIf="isPdf()" class="doc-ft-preview-frame" [src]="previewSrc()"
-                title="Xem trước tài liệu"></iframe>
-              <img *ngIf="isImage()" class="doc-ft-preview-image" [src]="previewSrc()"
-                [alt]="detail()?.documentName || ''" />
-              <iframe *ngIf="!isPdf() && !isImage()" class="doc-ft-preview-frame" [src]="previewSrc()"
-                title="Xem trước tài liệu"></iframe>
+              <iframe
+                *ngIf="isPdf()"
+                class="doc-ft-preview-frame"
+                [src]="previewSrc()"
+                title="Xem trước tài liệu"
+              ></iframe>
+              <img
+                *ngIf="isImage()"
+                class="doc-ft-preview-image"
+                [src]="previewSrc()"
+                [alt]="detail()?.documentName || ''"
+              />
+              <iframe
+                *ngIf="!isPdf() && !isImage()"
+                class="doc-ft-preview-frame"
+                [src]="previewSrc()"
+                title="Xem trước tài liệu"
+              ></iframe>
             </ng-container>
-            <div *ngIf="!previewUrl() && !previewLoading()" class="doc-ft-preview-state">
+            <div
+              *ngIf="!previewUrl() && !previewLoading()"
+              class="doc-ft-preview-state"
+            >
               <i class="pi pi-file-pdf"></i>
               <span>Không có bản xem trước cho tài liệu này.</span>
             </div>
@@ -35,219 +50,380 @@
               <i class="pi pi-info-circle"></i>
               <span>Thông tin tài liệu</span>
             </div>
-            <button type="button" class="btn-cancel btn-small" (click)="onBack()">
+            <button
+              type="button"
+              class="btn-cancel btn-small"
+              (click)="onBack()"
+            >
               <i class="pi pi-times"></i> Đóng
             </button>
           </div>
           <div class="doc-ft-panel-body">
             <div class="doc-ft-field-row">
               <span class="doc-ft-field-label">Tên tài liệu:</span>
-              <span class="doc-ft-field-value doc-ft-field-value--strong">{{ detail()?.documentName || '—' }}</span>
+              <span class="doc-ft-field-value doc-ft-field-value--strong">{{
+                detail()?.documentName || '—'
+              }}</span>
             </div>
             <div class="doc-ft-field-row" *ngIf="detail()?.documentTypeName">
               <span class="doc-ft-field-label">Loại tài liệu:</span>
-              <span class="doc-ft-field-value">{{ detail()?.documentTypeName }}</span>
+              <span class="doc-ft-field-value">{{
+                detail()?.documentTypeName
+              }}</span>
             </div>
             <div class="doc-ft-field-row" *ngIf="detail()?.dossierTitle">
               <span class="doc-ft-field-label">Hồ sơ:</span>
-              <span class="doc-ft-field-value">{{ detail()?.dossierTitle }}</span>
+              <span class="doc-ft-field-value">{{
+                detail()?.dossierTitle
+              }}</span>
             </div>
             <div class="doc-ft-field-row" *ngIf="detail()?.infrastructureName">
               <span class="doc-ft-field-label">Trạm / Đường dây:</span>
-              <span class="doc-ft-field-value">{{ detail()?.infrastructureName }}</span>
+              <span class="doc-ft-field-value">{{
+                detail()?.infrastructureName
+              }}</span>
             </div>
             <div class="doc-ft-field-row" *ngIf="detail()?.extractionSummary">
               <span class="doc-ft-field-label">Trích yếu nội dung:</span>
-              <span class="doc-ft-field-value doc-ft-field-value--multiline">{{ detail()?.extractionSummary }}</span>
+              <span class="doc-ft-field-value doc-ft-field-value--multiline">{{
+                detail()?.extractionSummary
+              }}</span>
             </div>
 
             <div *ngIf="loadingTemplate()" class="doc-ft-inline-loading">
               <i class="pi pi-spin pi-spinner"></i> Đang tải trường dữ liệu...
             </div>
 
-            <div class="doc-ft-field-row" [class.doc-ft-field-row--top]="field.type === 'textarea'"
-              *ngFor="let field of documentFields(); trackBy: trackByFieldKey">
+            <div
+              class="doc-ft-field-row"
+              [class.doc-ft-field-row--top]="field.type === 'textarea'"
+              *ngFor="let field of documentFields(); trackBy: trackByFieldKey"
+            >
               <span class="doc-ft-field-label">{{ field.label }}:</span>
-              <span class="doc-ft-field-value" [class.doc-ft-field-value--multiline]="field.type === 'textarea'">{{
-                formatFieldDisplayValue(field, documentFormData[field.key]) }}</span>
+              <span
+                class="doc-ft-field-value"
+                [class.doc-ft-field-value--multiline]="
+                  field.type === 'textarea'
+                "
+                >{{
+                  formatFieldDisplayValue(field, documentFormData[field.key])
+                }}</span
+              >
             </div>
           </div>
         </aside>
       </div>
 
-      <section class="doc-ft-dossier-section" *ngIf="dossier() || loadingDossier()">
+      <section
+        class="doc-ft-dossier-section"
+        *ngIf="dossier() || loadingDossier()"
+      >
         <div class="doc-ft-panel doc-ft-dossier-panel">
-        <div class="doc-ft-panel-header doc-ft-panel-header--title-only">
-          <div class="doc-ft-panel-header-main">
-            <i class="pi pi-folder"></i>
-            <span>Thông tin hồ sơ</span>
-          </div>
-        </div>
-
-        <div class="tab-bar doc-ft-tabs">
-          <button type="button" class="tab-item" [class.tab-active]="dossierTab() === 'info'"
-            (click)="selectDossierTab('info')">
-            <i class="pi pi-info-circle"></i> Thông tin chung
-          </button>
-          <button type="button" class="tab-item" [class.tab-active]="dossierTab() === 'documents'"
-            (click)="selectDossierTab('documents')" [disabled]="!dossierId()">
-            <i class="pi pi-paperclip"></i> Tài liệu đính kèm
-          </button>
-          <button type="button" class="tab-item" [class.tab-active]="dossierTab() === 'related'"
-            (click)="selectDossierTab('related')" [disabled]="!dossierId()">
-            <i class="pi pi-copy"></i> Hồ sơ liên quan
-          </button>
-        </div>
-
-        <div class="doc-ft-tab-content">
-          <div *ngIf="loadingDossier()" class="doc-ft-inline-loading">
-            <i class="pi pi-spin pi-spinner"></i> Đang tải hồ sơ...
+          <div class="doc-ft-panel-header doc-ft-panel-header--title-only">
+            <div class="doc-ft-panel-header-main">
+              <i class="pi pi-folder"></i>
+              <span>Thông tin hồ sơ</span>
+            </div>
           </div>
 
-          <ng-container *ngIf="!loadingDossier() && dossier() && dossierTab() === 'info'">
-            <div class="doc-ft-dossier-grid">
-              <div class="doc-ft-dossier-col">
-                <div class="doc-ft-field-row">
-                  <span class="doc-ft-field-label">Loại lưới điện:</span>
-                  <span class="doc-ft-field-value">{{ dossierValue('gridTypeName') }}</span>
-                </div>
-                <div class="doc-ft-field-row">
-                  <span class="doc-ft-field-label">Trạm / Đường dây:</span>
-                  <span class="doc-ft-field-value">
-                    {{ dossierValue('infrastructureName') }}
-                    <span *ngIf="dossierValue('infrastructureCode') !== '—'" class="text-muted">
-                      ({{ dossierValue('infrastructureCode') }})
-                    </span>
-                  </span>
-                </div>
-                <div class="doc-ft-field-row">
-                  <span class="doc-ft-field-label">Loại hồ sơ:</span>
-                  <span class="doc-ft-field-value">{{ dossierValue('dossierTypeName') }}</span>
-                </div>
-                <div class="doc-ft-field-row">
-                  <span class="doc-ft-field-label">Tiêu đề hồ sơ:</span>
-                  <span class="doc-ft-field-value">{{ detail()?.dossierTitle || dossierValue('dossierTypeName')
-                    }}</span>
-                </div>
-                <ng-container *ngFor="let field of dossierFieldsLeft(); trackBy: trackByFieldKey">
-                  <div class="doc-ft-field-row" [class.doc-ft-field-row--top]="field.type === 'textarea'">
-                    <span class="doc-ft-field-label">{{ field.label }}:</span>
-                    <span class="doc-ft-field-value" [class.doc-ft-field-value--multiline]="field.type === 'textarea'">
-                      {{ formatFieldDisplayValue(field, dossierFormData[field.key]) }}
-                    </span>
-                  </div>
-                </ng-container>
-              </div>
+          <div class="tab-bar doc-ft-tabs">
+            <button
+              type="button"
+              class="tab-item"
+              [class.tab-active]="dossierTab() === 'info'"
+              (click)="selectDossierTab('info')"
+            >
+              <i class="pi pi-info-circle"></i> Thông tin chung
+            </button>
+            <button
+              type="button"
+              class="tab-item"
+              [class.tab-active]="dossierTab() === 'documents'"
+              (click)="selectDossierTab('documents')"
+              [disabled]="!dossierId()"
+            >
+              <i class="pi pi-paperclip"></i> Tài liệu đính kèm
+            </button>
+            <button
+              type="button"
+              class="tab-item"
+              [class.tab-active]="dossierTab() === 'related'"
+              (click)="selectDossierTab('related')"
+              [disabled]="!dossierId()"
+            >
+              <i class="pi pi-copy"></i> Hồ sơ liên quan
+            </button>
+          </div>
 
-              <div class="doc-ft-dossier-col">
-                <div class="doc-ft-field-row">
-                  <span class="doc-ft-field-label">Bộ hồ sơ:</span>
-                  <span class="doc-ft-field-value">{{ dossierValue('dossierSetName') }}</span>
-                </div>
-                <div class="doc-ft-field-row">
-                  <span class="doc-ft-field-label">Trạng thái:</span>
-                  <span class="doc-ft-field-value">{{ dossierValue('statusName') || dossierValue('publishStatusName')
-                    }}</span>
-                </div>
-                <div class="doc-ft-field-row">
-                  <span class="doc-ft-field-label">Ngày tạo:</span>
-                  <span class="doc-ft-field-value">{{ formatDate(dossierValue('createdDate', false)) }}</span>
-                </div>
-                <div class="doc-ft-field-row">
-                  <span class="doc-ft-field-label">Người tạo:</span>
-                  <span class="doc-ft-field-value">{{ dossierCreatorName() }}</span>
-                </div>
-                <ng-container *ngFor="let field of dossierFieldsRight(); trackBy: trackByFieldKey">
-                  <div class="doc-ft-field-row" [class.doc-ft-field-row--top]="field.type === 'textarea'">
-                    <span class="doc-ft-field-label">{{ field.label }}:</span>
-                    <span class="doc-ft-field-value" [class.doc-ft-field-value--multiline]="field.type === 'textarea'">
-                      {{ formatFieldDisplayValue(field, dossierFormData[field.key]) }}
-                    </span>
-                  </div>
-                </ng-container>
-              </div>
+          <div class="doc-ft-tab-content">
+            <div *ngIf="loadingDossier()" class="doc-ft-inline-loading">
+              <i class="pi pi-spin pi-spinner"></i> Đang tải hồ sơ...
             </div>
 
-            <div class="doc-ft-equipment-section">
-              <h3 class="doc-ft-equipment-title">
-                <i class="pi pi-link"></i> Thiết bị liên quan
-              </h3>
-              <div *ngIf="equipments().length === 0" class="doc-ft-equipment-empty">
-                <i class="pi pi-inbox"></i>
-                <span>Chưa có thiết bị nào được gắn vào hồ sơ.</span>
+            <ng-container
+              *ngIf="!loadingDossier() && dossier() && dossierTab() === 'info'"
+            >
+              <div class="doc-ft-dossier-grid">
+                <div class="doc-ft-dossier-col">
+                  <div class="doc-ft-field-row">
+                    <span class="doc-ft-field-label">Loại lưới điện:</span>
+                    <span class="doc-ft-field-value">{{
+                      dossierValue('gridTypeName')
+                    }}</span>
+                  </div>
+                  <div class="doc-ft-field-row">
+                    <span class="doc-ft-field-label">Trạm / Đường dây:</span>
+                    <span class="doc-ft-field-value">
+                      {{ dossierValue('infrastructureName') }}
+                      <span
+                        *ngIf="dossierValue('infrastructureCode') !== '—'"
+                        class="text-muted"
+                      >
+                        ({{ dossierValue('infrastructureCode') }})
+                      </span>
+                    </span>
+                  </div>
+                  <div class="doc-ft-field-row">
+                    <span class="doc-ft-field-label">Loại hồ sơ:</span>
+                    <span class="doc-ft-field-value">{{
+                      dossierValue('dossierTypeName')
+                    }}</span>
+                  </div>
+                  <div class="doc-ft-field-row">
+                    <span class="doc-ft-field-label">Tiêu đề hồ sơ:</span>
+                    <span class="doc-ft-field-value">{{
+                      detail()?.dossierTitle || dossierValue('dossierTypeName')
+                    }}</span>
+                  </div>
+                  <ng-container
+                    *ngFor="
+                      let field of dossierFieldsLeft();
+                      trackBy: trackByFieldKey
+                    "
+                  >
+                    <div
+                      class="doc-ft-field-row"
+                      [class.doc-ft-field-row--top]="field.type === 'textarea'"
+                    >
+                      <span class="doc-ft-field-label">{{ field.label }}:</span>
+                      <span
+                        class="doc-ft-field-value"
+                        [class.doc-ft-field-value--multiline]="
+                          field.type === 'textarea'
+                        "
+                      >
+                        {{
+                          formatFieldDisplayValue(
+                            field,
+                            dossierFormData[field.key]
+                          )
+                        }}
+                      </span>
+                    </div>
+                  </ng-container>
+                </div>
+
+                <div class="doc-ft-dossier-col">
+                  <div class="doc-ft-field-row">
+                    <span class="doc-ft-field-label">Bộ hồ sơ:</span>
+                    <span class="doc-ft-field-value">{{
+                      dossierValue('dossierSetName')
+                    }}</span>
+                  </div>
+                  <div class="doc-ft-field-row">
+                    <span class="doc-ft-field-label">Trạng thái:</span>
+                    <span class="doc-ft-field-value">{{
+                      dossierValue('statusName') ||
+                        dossierValue('publishStatusName')
+                    }}</span>
+                  </div>
+                  <div class="doc-ft-field-row">
+                    <span class="doc-ft-field-label">Ngày tạo:</span>
+                    <span class="doc-ft-field-value">{{
+                      formatDate(dossierValue('createdDate', false))
+                    }}</span>
+                  </div>
+                  <div class="doc-ft-field-row">
+                    <span class="doc-ft-field-label">Người tạo:</span>
+                    <span class="doc-ft-field-value">{{
+                      dossierCreatorName()
+                    }}</span>
+                  </div>
+                  <ng-container
+                    *ngFor="
+                      let field of dossierFieldsRight();
+                      trackBy: trackByFieldKey
+                    "
+                  >
+                    <div
+                      class="doc-ft-field-row"
+                      [class.doc-ft-field-row--top]="field.type === 'textarea'"
+                    >
+                      <span class="doc-ft-field-label">{{ field.label }}:</span>
+                      <span
+                        class="doc-ft-field-value"
+                        [class.doc-ft-field-value--multiline]="
+                          field.type === 'textarea'
+                        "
+                      >
+                        {{
+                          formatFieldDisplayValue(
+                            field,
+                            dossierFormData[field.key]
+                          )
+                        }}
+                      </span>
+                    </div>
+                  </ng-container>
+                </div>
               </div>
-              <div *ngIf="equipments().length > 0" class="wf-table-wrap">
+
+              <div class="doc-ft-equipment-section">
+                <h3 class="doc-ft-equipment-title">
+                  <i class="pi pi-link"></i> Thiết bị liên quan
+                </h3>
+                <div
+                  *ngIf="equipments().length === 0"
+                  class="doc-ft-equipment-empty"
+                >
+                  <i class="pi pi-inbox"></i>
+                  <span>Chưa có thiết bị nào được gắn vào hồ sơ.</span>
+                </div>
+                <div *ngIf="equipments().length > 0" class="wf-table-wrap">
+                  <table class="wf-table">
+                    <thead>
+                      <tr>
+                        <th class="col-stt">STT</th>
+                        <th>Mã TB</th>
+                        <th>Tên TB</th>
+                        <th>Số serial</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr *ngFor="let eq of equipments(); let i = index">
+                        <td class="col-stt text-muted">{{ i + 1 }}</td>
+                        <td>
+                          {{
+                            equipmentField(
+                              eq,
+                              'equipmentCode',
+                              'EquipmentCode',
+                              'code'
+                            )
+                          }}
+                        </td>
+                        <td>
+                          {{
+                            equipmentField(
+                              eq,
+                              'equipmentName',
+                              'EquipmentName',
+                              'name'
+                            )
+                          }}
+                        </td>
+                        <td>
+                          {{
+                            equipmentField(eq, 'serialNumber', 'SerialNumber')
+                          }}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </ng-container>
+
+            <div *ngIf="dossierTab() === 'documents' && dossierId()">
+              <app-dossier-lookup-documents-tab
+                [dossierId]="dossierId()!"
+                apiMode="fulltext"
+                [returnKeyword]="returnKeyword()"
+                [currentVersionId]="versionId()"
+              />
+            </div>
+
+            <div *ngIf="dossierTab() === 'related'">
+              <div *ngIf="loadingRelated()" class="doc-ft-inline-loading">
+                <i class="pi pi-spin pi-spinner"></i> Đang tải hồ sơ liên
+                quan...
+              </div>
+              <div
+                *ngIf="!loadingRelated() && relatedDossiers().length === 0"
+                class="doc-ft-related-empty"
+              >
+                <i class="pi pi-copy"></i>
+                <span
+                  >Không có hồ sơ liên quan (cùng trạm/đường dây) đã xuất
+                  bản.</span
+                >
+              </div>
+              <div
+                *ngIf="!loadingRelated() && relatedDossiers().length > 0"
+                class="wf-table-wrap"
+              >
                 <table class="wf-table">
                   <thead>
                     <tr>
                       <th class="col-stt">STT</th>
-                      <th>Mã TB</th>
-                      <th>Tên TB</th>
-                      <th>Số serial</th>
+                      <th>Mã hồ sơ</th>
+                      <th>Loại hồ sơ</th>
+                      <th>Trạm / Đường dây</th>
+                      <th>Số lượng tài liệu</th>
+                      <th class="col-action">Thao tác</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr *ngFor="let eq of equipments(); let i = index">
+                    <tr *ngFor="let rel of relatedDossiers(); let i = index">
                       <td class="col-stt text-muted">{{ i + 1 }}</td>
-                      <td>{{ equipmentField(eq, 'equipmentCode', 'EquipmentCode', 'code') }}</td>
-                      <td>{{ equipmentField(eq, 'equipmentName', 'EquipmentName', 'name') }}</td>
-                      <td>{{ equipmentField(eq, 'serialNumber', 'SerialNumber') }}</td>
+                      <td>
+                        <a
+                          class="wf-name-link"
+                          [routerLink]="[
+                            '/search/dossier/detail',
+                            rel['id'] || rel['Id'],
+                          ]"
+                          target="_blank"
+                        >
+                          {{ relatedDossierCode(rel) }}
+                        </a>
+                      </td>
+                      <td>
+                        {{
+                          rel['dossierTypeName'] ||
+                            rel['DossierTypeName'] ||
+                            '—'
+                        }}
+                      </td>
+                      <td>
+                        {{
+                          rel['infrastructureName'] ||
+                            rel['InfrastructureName'] ||
+                            '—'
+                        }}
+                      </td>
+                      <td>
+                        {{ rel['documentCount'] ?? rel['DocumentCount'] ?? 0 }}
+                      </td>
+                      <td class="col-action">
+                        <a
+                          class="action-icon-btn"
+                          title="Xem hồ sơ"
+                          [routerLink]="[
+                            '/search/dossier/detail',
+                            rel['id'] || rel['Id'],
+                          ]"
+                          target="_blank"
+                        >
+                          <i class="pi pi-eye"></i>
+                        </a>
+                      </td>
                     </tr>
                   </tbody>
                 </table>
               </div>
             </div>
-          </ng-container>
-
-          <div *ngIf="dossierTab() === 'documents' && dossierId()">
-            <app-dossier-lookup-documents-tab [dossierId]="dossierId()!" apiMode="fulltext"
-              [returnKeyword]="returnKeyword()" [currentVersionId]="versionId()" />
           </div>
-
-          <div *ngIf="dossierTab() === 'related'">
-            <div *ngIf="loadingRelated()" class="doc-ft-inline-loading">
-              <i class="pi pi-spin pi-spinner"></i> Đang tải hồ sơ liên quan...
-            </div>
-            <div *ngIf="!loadingRelated() && relatedDossiers().length === 0" class="doc-ft-related-empty">
-              <i class="pi pi-copy"></i>
-              <span>Không có hồ sơ liên quan (cùng trạm/đường dây) đã xuất bản.</span>
-            </div>
-            <div *ngIf="!loadingRelated() && relatedDossiers().length > 0" class="wf-table-wrap">
-              <table class="wf-table">
-                <thead>
-                  <tr>
-                    <th class="col-stt">STT</th>
-                    <th>Mã hồ sơ</th>
-                    <th>Loại hồ sơ</th>
-                    <th>Trạm / Đường dây</th>
-                    <th>Số lượng tài liệu</th>
-                    <th class="col-action">Thao tác</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr *ngFor="let rel of relatedDossiers(); let i = index">
-                    <td class="col-stt text-muted">{{ i + 1 }}</td>
-                    <td>
-                      <a class="wf-name-link" [routerLink]="['/search/dossier/detail', rel['id'] || rel['Id']]"
-                        target="_blank">
-                        {{ relatedDossierCode(rel) }}
-                      </a>
-                    </td>
-                    <td>{{ rel['dossierTypeName'] || rel['DossierTypeName'] || '—' }}</td>
-                    <td>{{ rel['infrastructureName'] || rel['InfrastructureName'] || '—' }}</td>
-                    <td>{{ rel['documentCount'] ?? rel['DocumentCount'] ?? 0 }}</td>
-                    <td class="col-action">
-                      <a class="action-icon-btn" title="Xem hồ sơ"
-                        [routerLink]="['/search/dossier/detail', rel['id'] || rel['Id']]" target="_blank">
-                        <i class="pi pi-eye"></i>
-                      </a>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
         </div>
       </section>
     </ng-container>

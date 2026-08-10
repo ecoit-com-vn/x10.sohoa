@@ -15,11 +15,6 @@
     </div>
   </div>
 
-  <div class="form-template-banner" *ngIf="!factoryAcceptanceOnly() && formTemplateName() as templateName">
-    <i class="pi pi-table"></i>
-    <span>Biểu mẫu bóc tách:</span>
-    <b>{{ templateName }}</b>
-  </div>
   <div class="form-template-banner form-template-banner--warn" *ngIf="!factoryAcceptanceOnly() && formTemplateMissing()">
     <i class="pi pi-exclamation-triangle"></i>
     <span>Loại thiết bị chưa gắn biểu mẫu thông số (TEMPLATE) — không thể OCR/bóc tách.</span>
@@ -37,8 +32,8 @@
           <th class="col-stt">STT</th>
           <th>Tên tài liệu</th>
           <th>Loại tài liệu</th>
-          <th class="col-digitization" style="width: 130px;">OCR</th>
-          <th class="col-digitization" style="width: 130px;">Bóc tách</th>
+          <th *ngIf="!hideDigitizationColumns()" class="col-digitization" style="width: 130px;">OCR</th>
+          <th *ngIf="!hideDigitizationColumns()" class="col-digitization" style="width: 130px;">Bóc tách</th>
           <th class="col-hd col-actions-sticky">
             <div class="col-actions-sticky-panel col-actions-sticky-panel--head">Thao tác</div>
           </th>
@@ -46,7 +41,7 @@
       </thead>
       <tbody>
         <tr *ngIf="loading()">
-          <td colspan="6" class="empty-row">
+          <td [attr.colspan]="hideDigitizationColumns() ? 4 : 6" class="empty-row">
             <i class="pi pi-spin pi-spinner"></i>
             <div>Đang tải danh sách tài liệu...</div>
           </td>
@@ -68,7 +63,7 @@
             </div>
           </td>
           <td>{{ doc.documentTypeName || '—' }}</td>
-          <td class="col-digitization">
+          <td *ngIf="!hideDigitizationColumns()" class="col-digitization">
             <ng-container *ngIf="getOcrProgress(doc) as ocr; else noOcr">
               <div class="digitization-progress-cell">
                 <i
@@ -98,7 +93,7 @@
               <span class="text-muted">—</span>
             </ng-template>
           </td>
-          <td class="col-digitization">
+          <td *ngIf="!hideDigitizationColumns()" class="col-digitization">
             <ng-container *ngIf="shouldShowExtractionProgress(doc); else noExtraction">
               <div class="digitization-progress-cell">
                 <i
@@ -143,7 +138,7 @@
           </td>
         </tr>
         <tr *ngIf="!loading() && documents().length === 0">
-          <td colspan="6" class="empty-row">
+          <td [attr.colspan]="hideDigitizationColumns() ? 4 : 6" class="empty-row">
             <i class="pi pi-inbox"></i>
             <div>Không tìm thấy tài liệu lý lịch thiết bị kỹ thuật nào.</div>
           </td>
@@ -160,7 +155,8 @@
       [first]="(page() - 1) * pageSize()"
       [rows]="pageSize()"
       [totalRecords]="totalDocuments()"
-      [rowsPerPageOptions]="[5, 10, 20, 50]"
+      [rowsPerPageOptions]="[10, 20, 50]"
+      recordLabel="tài liệu"
       (onPageChange)="onDocumentPageChange($event)"
     ></app-eco-paginator>
   </div>

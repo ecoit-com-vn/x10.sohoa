@@ -177,7 +177,7 @@ export class ReportDossierByMonthComponent implements OnInit, AfterViewInit {
         const list = months || [];
         this.flatMonths.set(list);
         this.applyDefaultMonthFilter(list);
-        this.loadStatsData();
+        this.onFilter();
       },
       error: (err) => {
         console.error('Lỗi tải danh sách tháng:', err);
@@ -188,7 +188,7 @@ export class ReportDossierByMonthComponent implements OnInit, AfterViewInit {
           label: `Tháng ${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`
         }]);
         this.applyDefaultMonthFilter(this.flatMonths());
-        this.loadStatsData();
+        this.onFilter();
       }
     });
   }
@@ -207,6 +207,7 @@ export class ReportDossierByMonthComponent implements OnInit, AfterViewInit {
 
   onReportMonthChange(date: Date | null): void {
     this.reportMonthDate.set(date);
+    this.onFilter();
   }
 
   private applyDefaultUnitFilter(): void {
@@ -246,6 +247,24 @@ export class ReportDossierByMonthComponent implements OnInit, AfterViewInit {
     this.loadStatsData();
   }
 
+  onUnitChange(unitId: number | null): void {
+    this.selectedUnitId.set(unitId);
+    this.onFilter();
+  }
+
+  onObjectTypeChange(objectType: number | null): void {
+    this.selectedObjectType.set(objectType);
+    this.onFilter();
+  }
+
+  onResetFilters(): void {
+    this.selectedUnitId.set(null);
+    this.applyDefaultUnitFilter();
+    this.selectedObjectType.set(0);
+    this.applyDefaultMonthFilter(this.flatMonths());
+    this.onFilter();
+  }
+
   switchTab(tab: MainTabMode): void {
     this.activeTab.set(tab);
     queueMicrotask(() => {
@@ -281,13 +300,6 @@ export class ReportDossierByMonthComponent implements OnInit, AfterViewInit {
         },
         error: (err) => console.error('Lỗi tải dữ liệu thống kê:', err)
       });
-
-    queueMicrotask(() => {
-      this.stationGrid?.reload();
-      if (this.activeTab() === 'list') {
-        this.dossierList?.reload();
-      }
-    });
   }
 
   exportExcel(): void {

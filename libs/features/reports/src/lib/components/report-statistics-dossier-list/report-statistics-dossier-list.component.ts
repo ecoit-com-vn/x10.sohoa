@@ -10,6 +10,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { TableModule } from 'primeng/table';
+import { EcoPaginatorComponent } from '@sohoa.frontend/shared/layout';
 import { BhsCatalogColumn } from '@sohoa.frontend/features/dossier-management';
 import { ReportStatisticsDossierListConfig } from '../../data-access/report-statistics.config';
 import {
@@ -21,7 +22,7 @@ import { finalize } from 'rxjs';
 @Component({
   selector: 'app-report-statistics-dossier-list',
   standalone: true,
-  imports: [CommonModule, TableModule],
+  imports: [CommonModule, TableModule, EcoPaginatorComponent],
   templateUrl: './report-statistics-dossier-list.component.html',
   styleUrl: './report-statistics-dossier-list.component.scss'
 })
@@ -37,6 +38,8 @@ export class ReportStatisticsDossierListComponent implements OnInit {
   active = input(false);
   /** Tăng khi bấm Tìm kiếm */
   filterVersion = input(0);
+  /** Chỉ bật tại màn cần đồng bộ với paginator dùng chung của hệ thống. */
+  useSystemPaginator = input(false);
 
   bhsColumns = signal<BhsCatalogColumn[]>([]);
   items = signal<ReportStatisticsDossierListItem[]>([]);
@@ -94,8 +97,8 @@ export class ReportStatisticsDossierListComponent implements OnInit {
   openDetail(item: ReportStatisticsDossierListItem): void {
     if (!item.dossierId) return;
     const url = this.router.serializeUrl(
-      this.router.createUrlTree(['/search/dossier/detail', item.dossierId])
-    ); 
+      this.router.createUrlTree(['/search/dossier/detail', item.dossierId], { queryParams: { from: 'report' } })
+    );
     window.open(`/#${url}`, '_blank');
   }
 

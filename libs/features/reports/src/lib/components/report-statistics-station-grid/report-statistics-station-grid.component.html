@@ -10,7 +10,7 @@
     <p-table
       [value]="items()"
       [lazy]="true"
-      [paginator]="true"
+      [paginator]="!useSystemPaginator()"
       [rows]="pageSize()"
       [totalRecords]="totalCount()"
       [first]="(page() - 1) * pageSize()"
@@ -61,4 +61,13 @@
       </ng-template>
     </p-table>
   </div>
+
+  <app-eco-paginator
+    *ngIf="useSystemPaginator() && totalCount() > 0 && !loading()"
+    [currentPage]="page()"
+    [pageSize]="pageSize()"
+    [totalRecords]="totalCount()"
+    [rowsPerPageOptions]="[10, 20, 50]"
+    (onPageChange)="onPageChange($event)"
+  ></app-eco-paginator>
 </div>

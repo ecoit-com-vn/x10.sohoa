@@ -165,6 +165,7 @@ export class UserProfileComponent implements OnInit, OnDestroy {
       const resized = await this.resizeAvatar(file);
       this.selectedAvatarFile.set(resized);
       this.setPreviewUrl(URL.createObjectURL(resized));
+      this.uploadSelectedAvatar();
     } catch {
       this.avatarError.set('Không thể xử lý ảnh đã chọn.');
     }

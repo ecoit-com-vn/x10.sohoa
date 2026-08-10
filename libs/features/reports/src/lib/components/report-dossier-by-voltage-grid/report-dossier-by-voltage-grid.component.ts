@@ -183,13 +183,13 @@ export class ReportDossierByVoltageGridComponent implements OnInit, AfterViewIni
         const currentYear = new Date().getFullYear();
         const defaultYear = availableYears.includes(currentYear) ? currentYear : availableYears[0];
         this.selectedYear.set(defaultYear);
-        this.loadStatsData();
+        this.onFilter();
       },
       error: (err) => {
         console.error('Lỗi tải danh sách năm:', err);
         this.years.set([new Date().getFullYear()]);
         this.selectedYear.set(new Date().getFullYear());
-        this.loadStatsData();
+        this.onFilter();
       }
     });
   }
@@ -231,6 +231,41 @@ export class ReportDossierByVoltageGridComponent implements OnInit, AfterViewIni
     this.loadStatsData();
   }
 
+  onUnitChange(unitId: number | null): void {
+    this.selectedUnitId.set(unitId);
+    this.onFilter();
+  }
+
+  onObjectTypeChange(objectType: number | null): void {
+    this.selectedObjectType.set(objectType);
+    this.onFilter();
+  }
+
+  onGridTypeChange(gridTypeId: number | null): void {
+    this.selectedGridTypeId.set(gridTypeId);
+    this.onFilter();
+  }
+
+  onYearChange(year: number): void {
+    this.selectedYear.set(year);
+    this.onFilter();
+  }
+
+  onResetFilters(): void {
+    this.selectedUnitId.set(null);
+    this.applyDefaultUnitFilter();
+    this.selectedObjectType.set(0);
+    this.selectedGridTypeId.set(0);
+
+    const availableYears = this.years();
+    const currentYear = new Date().getFullYear();
+    this.selectedYear.set(
+      availableYears.includes(currentYear) ? currentYear : (availableYears[0] ?? currentYear)
+    );
+
+    this.onFilter();
+  }
+
   switchTab(tab: MainTabMode): void {
     this.activeTab.set(tab);
     queueMicrotask(() => {
@@ -266,13 +301,6 @@ export class ReportDossierByVoltageGridComponent implements OnInit, AfterViewIni
         },
         error: (err) => console.error('Lỗi tải dữ liệu thống kê:', err)
       });
-
-    queueMicrotask(() => {
-      this.stationGrid?.reload();
-      if (this.activeTab() === 'list') {
-        this.dossierList?.reload();
-      }
-    });
   }
 
   exportExcel(): void {

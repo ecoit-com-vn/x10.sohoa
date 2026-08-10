@@ -50,7 +50,6 @@ function tabLabel(tab: PublishTab): string {
             class="wf-search-input"
             placeholder="Tìm theo mã hồ sơ, tiêu đề hồ sơ..."
             [(ngModel)]="searchKeyword"
-            (keyup.enter)="onSearch()"
           />
           </div>
           <div class="search-form-item">

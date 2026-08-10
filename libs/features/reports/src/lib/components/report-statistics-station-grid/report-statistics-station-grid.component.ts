@@ -9,6 +9,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TableModule } from 'primeng/table';
+import { EcoPaginatorComponent } from '@sohoa.frontend/shared/layout';
 import { BhsCatalogColumn } from '@sohoa.frontend/features/dossier-management';
 import { ReportStatisticsStationGridConfig } from '../../data-access/report-statistics.config';
 import {
@@ -23,7 +24,7 @@ const DEFAULT_STATION_GRID_LABELS = ['Mã trạm/đường dây', 'Tên trạm/�
 @Component({
   selector: 'app-report-statistics-station-grid',
   standalone: true,
-  imports: [CommonModule, TableModule],
+  imports: [CommonModule, TableModule, EcoPaginatorComponent],
   templateUrl: './report-statistics-station-grid.component.html',
   styleUrl: './report-statistics-station-grid.component.scss'
 })
@@ -34,6 +35,8 @@ export class ReportStatisticsStationGridComponent implements OnInit {
   filter = input<Record<string, string | number | string[] | null | undefined>>({});
   active = input(false);
   filterVersion = input(0);
+  /** Chỉ bật tại màn cần đồng bộ với paginator dùng chung của hệ thống. */
+  useSystemPaginator = input(false);
   /** Tiêu đề lưới */
   gridTitle = input('Lưới hồ sơ theo trạm/đường dây');
   /** Hiển thị cột Lưới điện */

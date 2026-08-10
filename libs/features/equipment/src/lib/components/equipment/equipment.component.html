@@ -2,65 +2,181 @@
   <p-toast></p-toast>
   <div class="list-toolbar standard-page-toolbar">
     <div class="toolbar-left">
-      <wf-breadcrumb  />
+      <wf-breadcrumb *ngIf="!searchReadOnly(); else searchReadOnlyBreadcrumb" />
+      <ng-template #searchReadOnlyBreadcrumb>
+        <wf-breadcrumb [customItems]="searchBreadcrumbItems()" />
+      </ng-template>
     </div>
     <div class="toolbar-right">
+      <button class="btn-back btn-small" (click)="goBack()" *ngIf="currentView() === 'edit'">
+        <i class="pi pi-arrow-left"></i> Quay lại danh sách
+      </button>
       <button class="btn-green" (click)="onAddNew()" *ngIf="canCreate() && currentView() === 'list'">
         <i class="pi pi-plus"></i> Thêm mới
+      </button>
+      <button
+        *ngIf="currentView() === 'add'"
+        class="btn-cancel btn-small"
+        (click)="goBack()"
+        [disabled]="isSaving()"
+        style="
+          background-color: #f1f5f9;
+          border-color: #cbd5e1;
+          color: #334155;
+          font-weight: 600;
+          height: 34px;
+        "
+      >
+        <i class="pi pi-arrow-left"></i> Quay lại
+      </button>
+      <button
+        *ngIf="currentView() === 'add'"
+        class="btn-save btn-small"
+        (click)="onSaveItem()"
+        [disabled]="isSaving()"
+        style="
+          background-color: #2563eb;
+          border-color: #2563eb;
+          color: #ffffff;
+          font-weight: 600;
+          height: 34px;
+        "
+      >
+        <i
+          class="pi pi-spin pi-spinner"
+          *ngIf="isSaving()"
+          style="margin-right: 4px"
+        ></i>
+        <i
+          class="pi pi-check"
+          *ngIf="!isSaving()"
+          style="margin-right: 4px"
+        ></i>
+        Lưu lại
       </button>
     </div>
   </div>
   <div>
-
     <!-- ==================== VIEW 1: MÀN HÌNH DANH SÁCH ==================== -->
     <div *ngIf="currentView() === 'list'" class="animate-fade-in">
-
       <!-- Toolbar Tìm kiếm & Thao tác -->
       <div class="standard-search-card">
         <div class="standard-search-grid">
           <!-- Cột 1: Từ khóa -->
-          <div class="form-group standard-search-field" style="margin: 0;">
-            <label class="form-label" style="font-weight: 600; margin-bottom: 6px; display: block; color: #374151;">Từ
-              khóa</label>
-            <input type="text" class="wf-input w-full"
-              style="height: 38px; background-color: #ffffff !important; border-radius: 6px;"
-              placeholder="Nhập từ khóa tìm kiếm" [ngModel]="searchKeyword()"
-              (ngModelChange)="searchKeyword.set($event); onSearch()" (keyup.enter)="onSearch()" />
+          <div class="form-group standard-search-field" style="margin: 0">
+            <label
+              class="form-label"
+              style="
+                font-weight: 600;
+                margin-bottom: 6px;
+                display: block;
+                color: #374151;
+              "
+              >Từ khóa</label
+            >
+            <input
+              type="text"
+              class="wf-input w-full"
+              style="
+                height: 38px;
+                background-color: #ffffff !important;
+                border-radius: 6px;
+              "
+              placeholder="Nhập từ khóa tìm kiếm"
+              [ngModel]="searchKeyword()"
+              (ngModelChange)="searchKeyword.set($event); onSearch()"
+              (keyup.enter)="onSearch()"
+            />
           </div>
 
           <!-- Cột 2: Trạm / đường dây -->
-          <div class="form-group standard-search-field" style="margin: 0;">
-            <label class="form-label" style="font-weight: 600; margin-bottom: 6px; display: block; color: #374151;">Trạm
-              / đường dây</label>
-            <select class="wf-input w-full"
-              style="height: 38px; padding: 0 10px; border-radius: 6px; background-color: #ffffff !important; color: #374151 !important;"
-              [ngModel]="searchInfrastructureId()" (ngModelChange)="searchInfrastructureId.set($event); onSearch()"
-              (focus)="loadSearchInfrastructuresOnDemand()">
+          <div class="form-group standard-search-field" style="margin: 0">
+            <label
+              class="form-label"
+              style="
+                font-weight: 600;
+                margin-bottom: 6px;
+                display: block;
+                color: #374151;
+              "
+              >Trạm / đường dây</label
+            >
+            <select
+              class="wf-input w-full"
+              style="
+                height: 38px;
+                padding: 0 10px;
+                border-radius: 6px;
+                background-color: #ffffff !important;
+                color: #374151 !important;
+              "
+              [ngModel]="searchInfrastructureId()"
+              (ngModelChange)="searchInfrastructureId.set($event); onSearch()"
+              (focus)="loadSearchInfrastructuresOnDemand()"
+            >
               <option value="">-- Chọn trạm/đường dây --</option>
-              <option *ngFor="let inf of infrastructures()" [value]="inf.id">{{ inf.name }}</option>
+              <option *ngFor="let inf of infrastructures()" [value]="inf.id">
+                {{ inf.name }}
+              </option>
             </select>
           </div>
 
           <!-- Cột 3: Loại thiết bị -->
-          <div class="form-group standard-search-field" style="margin: 0;">
-            <label class="form-label" style="font-weight: 600; margin-bottom: 6px; display: block; color: #374151;">Loại
-              thiết bị</label>
-            <select class="wf-input w-full"
-              style="height: 38px; padding: 0 10px; border-radius: 6px; background-color: #ffffff !important; color: #374151 !important;"
-              [ngModel]="searchEquipmentTypeId()" (ngModelChange)="searchEquipmentTypeId.set($event); onSearch()"
-              (focus)="loadEquipmentTypesOnDemand()">
+          <div class="form-group standard-search-field" style="margin: 0">
+            <label
+              class="form-label"
+              style="
+                font-weight: 600;
+                margin-bottom: 6px;
+                display: block;
+                color: #374151;
+              "
+              >Loại thiết bị</label
+            >
+            <select
+              class="wf-input w-full"
+              style="
+                height: 38px;
+                padding: 0 10px;
+                border-radius: 6px;
+                background-color: #ffffff !important;
+                color: #374151 !important;
+              "
+              [ngModel]="searchEquipmentTypeId()"
+              (ngModelChange)="searchEquipmentTypeId.set($event); onSearch()"
+              (focus)="loadEquipmentTypesOnDemand()"
+            >
               <option value="">-- Chọn loại thiết bị --</option>
-              <option *ngFor="let et of equipmentTypes()" [value]="et.id">{{ et.name }}</option>
+              <option *ngFor="let et of equipmentTypes()" [value]="et.id">
+                {{ et.name }}
+              </option>
             </select>
           </div>
 
           <!-- Cột 4: Trạng thái -->
-          <div class="form-group standard-search-field" style="margin: 0;">
-            <label class="form-label"
-              style="font-weight: 600; margin-bottom: 6px; display: block; color: #374151;">Trạng thái</label>
-            <select class="wf-input w-full"
-              style="height: 38px; padding: 0 10px; border-radius: 6px; background-color: #ffffff !important; color: #374151 !important;"
-              [ngModel]="searchStatus()" (ngModelChange)="searchStatus.set($event); onSearch()">
+          <div class="form-group standard-search-field" style="margin: 0">
+            <label
+              class="form-label"
+              style="
+                font-weight: 600;
+                margin-bottom: 6px;
+                display: block;
+                color: #374151;
+              "
+              >Trạng thái</label
+            >
+            <select
+              class="wf-input w-full"
+              style="
+                height: 38px;
+                padding: 0 10px;
+                border-radius: 6px;
+                background-color: #ffffff !important;
+                color: #374151 !important;
+              "
+              [ngModel]="searchStatus()"
+              (ngModelChange)="searchStatus.set($event); onSearch()"
+            >
               <option value="">-- Chọn trạng thái --</option>
               <option value="1">Hoạt động</option>
               <option value="0">Ngừng hoạt động</option>
@@ -148,193 +264,471 @@
         styleClass="row-action-menu"></p-menu>
 
       <!-- Phân trang -->
-      <div class="table-footer" *ngIf="items().length > 0">
-        <span class="record-count">Tổng số: <b>{{ totalCount() }}</b> bản ghi.</span>
-        <div class="pagination">
-          <button class="page-btn" (click)="prevPage()" [disabled]="currentPage() === 1">
-            <i class="pi pi-chevron-left"></i>
-          </button>
-          <span class="page-current">Trang {{ currentPage() }} / {{ totalPages() || 1 }}</span>
-          <button class="page-btn" (click)="nextPage()" [disabled]="currentPage() >= totalPages()">
-            <i class="pi pi-chevron-right"></i>
-          </button>
-          <span
-            style="margin-left: 10px; display: inline-flex; align-items: center; gap: 5px; font-size: 0.8rem; color: #6b7280;">
-            Đi tới trang:
-            <input type="number" class="page-jump-input" [value]="currentPage()"
-              (change)="goToPage($any($event.target).value)"
-              style="width: 50px; height: 28px; text-align: center; border: 1px solid #e5e7eb; border-radius: 4px; padding: 0 4px;"
-              [min]="1" [max]="totalPages() || 1" />
-          </span>
-          <select class="page-size-sel" [ngModel]="pageSize()" (change)="onPageSizeChange($event)">
-            <option [value]="10">10 / trang</option>
-            <option [value]="20">20 / trang</option>
-            <option [value]="50">50 / trang</option>
-          </select>
-        </div>
+      <div class="table-footer-paginator equipment-list-paginator" *ngIf="items().length > 0">
+        <app-eco-paginator
+          [first]="(currentPage() - 1) * pageSize()"
+          [rows]="pageSize()"
+          [totalRecords]="totalCount()"
+          [rowsPerPageOptions]="[10, 20, 50]"
+          recordLabel="thiết bị"
+          (onPageChange)="onEquipmentListPaginatorChange($event)">
+        </app-eco-paginator>
       </div>
       </div>
     </div>
 
     <!-- ==================== VIEW 2: MÀN HÌNH THÊM MỚI (SUB-VIEW KHÔNG POPUP) ==================== -->
-    <div *ngIf="currentView() === 'add'" class="animate-fade-in sub-view-container">
-      <div class="sub-view-header" style="display: flex; justify-content: space-between; align-items: center;">
-        <h3 style="color: #002D72; margin: 0; font-size: 1.25rem; font-weight: 700;">
-          Thêm mới Thiết bị kỹ thuật
-        </h3>
-        <div style="display: flex; gap: 8px;">
-          <button class="btn-cancel btn-small" (click)="goBack()" [disabled]="isSaving()"
-            style="background-color: #f1f5f9; border-color: #cbd5e1; color: #334155; font-weight: 600; height: 34px;">
-            <i class="pi pi-arrow-left"></i> Quay lại
-          </button>
-          <button class="btn-save btn-small" (click)="onSaveItem()" [disabled]="isSaving()"
-            style="background-color: #2563eb; border-color: #2563eb; color: #ffffff; font-weight: 600; height: 34px;">
-            <i class="pi pi-spin pi-spinner" *ngIf="isSaving()" style="margin-right: 4px;"></i>
-            <i class="pi pi-check" *ngIf="!isSaving()" style="margin-right: 4px;"></i>
-            Lưu lại
-          </button>
-        </div>
-      </div>
-
+    <div
+      *ngIf="currentView() === 'add'"
+      class="animate-fade-in sub-view-container"
+    >
       <!-- Form chi tiết thêm mới -->
-      <div class="grid-form-layout"
-        style="display: flex; flex-direction: column; gap: 18px; width: 100%;">
-
-        <div class="form-group-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+      <div
+        class="grid-form-layout"
+        style="
+          display: flex;
+          flex-direction: column;
+          gap: 18px;
+          width: 100%;
+          margin-top: 10px;
+        "
+      >
+        <div
+          class="form-group-row"
+          style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px"
+        >
           <!-- Đơn vị quản lý (Tree Picker) -->
           <div class="form-group">
-            <label class="form-label" style="font-weight: 600; margin-bottom: 6px; display: block; color: #374151;">Đơn
-              vị quản lý <span class="required" style="color: #ef4444;">*</span></label>
+            <label
+              class="form-label"
+              style="
+                font-weight: 600;
+                margin-bottom: 6px;
+                display: block;
+                color: #374151;
+              "
+              >Đơn vị quản lý
+              <span class="required" style="color: #ef4444">*</span></label
+            >
 
             <div class="org-tree-picker" [class.disabled]="isSaving()">
-              <div class="org-tree-trigger" (click)="toggleFormOrgTree($event)"
-                [class.has-value]="currentItem().unitId" [class.open]="formOrgTreeOpen()">
+              <div
+                class="org-tree-trigger"
+                (click)="toggleFormOrgTree($event)"
+                [class.has-value]="currentItem().unitId"
+                [class.open]="formOrgTreeOpen()"
+              >
                 <span class="org-tree-selected-label">
-                  <i class="pi pi-building" style="margin-right: 6px; color: #6b7280;"></i>
-                  {{ getUnitLabel(currentItem().unitId) || '-- Chọn đơn vị quản lý --' }}
+                  <i
+                    class="pi pi-building"
+                    style="margin-right: 6px; color: #6b7280"
+                  ></i>
+                  {{
+                    getUnitLabel(currentItem().unitId) ||
+                      '-- Chọn đơn vị quản lý --'
+                  }}
                 </span>
-                <i class="pi" [class.pi-chevron-down]="!formOrgTreeOpen()" [class.pi-chevron-up]="formOrgTreeOpen()"></i>
+                <i
+                  class="pi"
+                  [class.pi-chevron-down]="!formOrgTreeOpen()"
+                  [class.pi-chevron-up]="formOrgTreeOpen()"
+                ></i>
               </div>
-              <div class="org-tree-dropdown" *ngIf="formOrgTreeOpen()" (click)="$event.stopPropagation()">
+              <div
+                class="org-tree-dropdown"
+                *ngIf="formOrgTreeOpen()"
+                (click)="$event.stopPropagation()"
+              >
                 <div class="org-tree-search">
                   <i class="pi pi-search"></i>
-                  <input type="text" placeholder="Tìm kiếm đơn vị..." [ngModel]="formOrgSearchKeyword()"
-                    (ngModelChange)="formOrgSearchKeyword.set($event)" />
+                  <input
+                    type="text"
+                    placeholder="Tìm kiếm đơn vị..."
+                    [ngModel]="formOrgSearchKeyword()"
+                    (ngModelChange)="formOrgSearchKeyword.set($event)"
+                  />
                 </div>
                 <ng-container *ngFor="let node of formOrgUnitTree()">
-                  <ng-container *ngTemplateOutlet="formOrgTreeNode; context: { $implicit: node, depth: 0 }"></ng-container>
+                  <ng-container
+                    *ngTemplateOutlet="
+                      formOrgTreeNode;
+                      context: { $implicit: node, depth: 0 }
+                    "
+                  ></ng-container>
                 </ng-container>
-                <div *ngIf="formOrgUnitTree().length === 0" class="org-tree-empty">Không có đơn vị phù hợp.</div>
+                <div
+                  *ngIf="formOrgUnitTree().length === 0"
+                  class="org-tree-empty"
+                >
+                  Không có đơn vị phù hợp.
+                </div>
               </div>
             </div>
 
-            <span class="field-error" *ngIf="unitError()"
-              style="color: #ef4444; font-size: 0.8rem; margin-top: 4px; display: block;">{{ unitError() }}</span>
+            <span
+              class="field-error"
+              *ngIf="unitError()"
+              style="
+                color: #ef4444;
+                font-size: 0.8rem;
+                margin-top: 4px;
+                display: block;
+              "
+              >{{ unitError() }}</span
+            >
           </div>
 
           <!-- Loại lưới điện -->
           <div class="form-group">
-            <label class="form-label" style="font-weight: 600; margin-bottom: 6px; display: block; color: #374151;">Loại
-              lưới điện <span class="required" style="color: #ef4444;">*</span></label>
-            <p-select [options]="gridTypes()" [ngModel]="currentItem().gridTypeId"
-              (ngModelChange)="onGridTypeChange($event)" optionLabel="name" optionValue="id"
-              placeholder="-- Chọn loại lưới điện --" [disabled]="isSaving()"
-              [style]="{'width':'100%', 'height':'38px', 'line-height':'24px', 'border':'1px solid #cbd5e1', 'border-radius':'6px', 'background-color':'#ffffff', 'color':'#374151'}">
+            <label
+              class="form-label"
+              style="
+                font-weight: 600;
+                margin-bottom: 6px;
+                display: block;
+                color: #374151;
+              "
+              >Loại lưới điện
+              <span class="required" style="color: #ef4444">*</span></label
+            >
+            <p-select
+              [options]="gridTypes()"
+              [ngModel]="currentItem().gridTypeId"
+              (ngModelChange)="onGridTypeChange($event)"
+              optionLabel="name"
+              optionValue="id"
+              placeholder="-- Chọn loại lưới điện --"
+              [disabled]="isSaving()"
+              [style]="{
+                width: '100%',
+                height: '38px',
+                'line-height': '24px',
+                border: '1px solid #cbd5e1',
+                'border-radius': '6px',
+                'background-color': '#ffffff',
+                color: '#374151',
+              }"
+            >
             </p-select>
-            <span class="field-error" *ngIf="gridTypeError()"
-              style="color: #ef4444; font-size: 0.8rem; margin-top: 4px; display: block;">{{ gridTypeError() }}</span>
+            <span
+              class="field-error"
+              *ngIf="gridTypeError()"
+              style="
+                color: #ef4444;
+                font-size: 0.8rem;
+                margin-top: 4px;
+                display: block;
+              "
+              >{{ gridTypeError() }}</span
+            >
           </div>
         </div>
 
-        <div class="form-group-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+        <div
+          class="form-group-row"
+          style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px"
+        >
           <!-- Trạm / Đường dây (Cascade) -->
           <div class="form-group">
-            <label class="form-label" style="font-weight: 600; margin-bottom: 6px; display: block; color: #374151;">Trạm
-              / Đường dây <span class="required" style="color: #ef4444;">*</span></label>
-            <p-select [options]="formInfrastructures()" [(ngModel)]="currentItem().infrastructureId"
-              (ngModelChange)="onFieldChange('infrastructureId')" optionLabel="name" optionValue="id"
-              [placeholder]="currentItem().unitId ? '-- Chọn Trạm / Đường dây --' : '-- Vui lòng chọn Đơn vị quản lý --'"
-              [disabled]="!currentItem().unitId || isSaving()" [filter]="true"
-              [style]="{'width':'100%', 'height':'38px', 'line-height':'24px', 'border':'1px solid #cbd5e1', 'border-radius':'6px', 'background-color':'#ffffff', 'color':'#374151'}">
+            <label
+              class="form-label"
+              style="
+                font-weight: 600;
+                margin-bottom: 6px;
+                display: block;
+                color: #374151;
+              "
+              >Trạm / Đường dây
+              <span class="required" style="color: #ef4444">*</span></label
+            >
+            <p-select
+              [options]="formInfrastructures()"
+              [(ngModel)]="currentItem().infrastructureId"
+              (ngModelChange)="onFieldChange('infrastructureId')"
+              optionLabel="name"
+              optionValue="id"
+              [placeholder]="
+                currentItem().unitId
+                  ? '-- Chọn Trạm / Đường dây --'
+                  : '-- Vui lòng chọn Đơn vị quản lý --'
+              "
+              [disabled]="!currentItem().unitId || isSaving()"
+              [filter]="true"
+              [style]="{
+                width: '100%',
+                height: '38px',
+                'line-height': '24px',
+                border: '1px solid #cbd5e1',
+                'border-radius': '6px',
+                'background-color': '#ffffff',
+                color: '#374151',
+              }"
+            >
             </p-select>
-            <span class="field-error" *ngIf="infrastructureError()"
-              style="color: #ef4444; font-size: 0.8rem; margin-top: 4px; display: block;">{{ infrastructureError()
-              }}</span>
+            <span
+              class="field-error"
+              *ngIf="infrastructureError()"
+              style="
+                color: #ef4444;
+                font-size: 0.8rem;
+                margin-top: 4px;
+                display: block;
+              "
+              >{{ infrastructureError() }}</span
+            >
           </div>
 
           <!-- Loại thiết bị (Cascade) -->
           <div class="form-group">
-            <label class="form-label" style="font-weight: 600; margin-bottom: 6px; display: block; color: #374151;">Loại
-              thiết bị <span class="required" style="color: #ef4444;">*</span></label>
+            <label
+              class="form-label"
+              style="
+                font-weight: 600;
+                margin-bottom: 6px;
+                display: block;
+                color: #374151;
+              "
+              >Loại thiết bị
+              <span class="required" style="color: #ef4444">*</span></label
+            >
             <ng-container [ngSwitch]="equipmentTypeSelectKey()">
-              <p-select *ngSwitchDefault [options]="formEquipmentTypes()" [ngModel]="currentItem().equipmentTypeId"
-                (ngModelChange)="onEquipmentTypeChange($event)" optionLabel="name" optionValue="id"
-                [placeholder]="currentItem().gridTypeId ? '-- Chọn loại thiết bị --' : '-- Vui lòng chọn Loại lưới điện --'"
-                [disabled]="!currentItem().gridTypeId || isSaving()" [filter]="true"
-                [style]="{'width':'100%', 'height':'38px', 'line-height':'24px', 'border':'1px solid #cbd5e1', 'border-radius':'6px', 'background-color':'#ffffff', 'color':'#374151'}">
+              <p-select
+                *ngSwitchDefault
+                [options]="formEquipmentTypes()"
+                [ngModel]="currentItem().equipmentTypeId"
+                (ngModelChange)="onEquipmentTypeChange($event)"
+                optionLabel="name"
+                optionValue="id"
+                [placeholder]="
+                  currentItem().gridTypeId
+                    ? '-- Chọn loại thiết bị --'
+                    : '-- Vui lòng chọn Loại lưới điện --'
+                "
+                [disabled]="!currentItem().gridTypeId || isSaving()"
+                [filter]="true"
+                [style]="{
+                  width: '100%',
+                  height: '38px',
+                  'line-height': '24px',
+                  border: '1px solid #cbd5e1',
+                  'border-radius': '6px',
+                  'background-color': '#ffffff',
+                  color: '#374151',
+                }"
+              >
               </p-select>
             </ng-container>
-            <span class="field-error" *ngIf="equipmentTypeError()"
-              style="color: #ef4444; font-size: 0.8rem; margin-top: 4px; display: block;">{{ equipmentTypeError()
-              }}</span>
+            <span
+              class="field-error"
+              *ngIf="equipmentTypeError()"
+              style="
+                color: #ef4444;
+                font-size: 0.8rem;
+                margin-top: 4px;
+                display: block;
+              "
+              >{{ equipmentTypeError() }}</span
+            >
           </div>
         </div>
 
-        <div class="form-group-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+        <div
+          class="form-group-row"
+          style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px"
+        >
           <!-- Mã thiết bị -->
           <div class="form-group">
-            <label class="form-label" style="font-weight: 600; margin-bottom: 6px; display: block; color: #374151;">Mã
-              thiết bị <span class="required" style="color: #ef4444;">*</span></label>
-            <input type="text" class="wf-input w-full" [(ngModel)]="currentItem().code"
-              (ngModelChange)="onFieldChange('code')" placeholder="Nhập mã thiết bị..." [disabled]="isSaving()"
-              style="background-color: #ffffff !important; color: #374151 !important; border-radius: 6px; height: 38px;" />
-            <span class="field-error" *ngIf="codeError()"
-              style="color: #ef4444; font-size: 0.8rem; margin-top: 4px; display: block;">{{ codeError() }}</span>
+            <label
+              class="form-label"
+              style="
+                font-weight: 600;
+                margin-bottom: 6px;
+                display: block;
+                color: #374151;
+              "
+              >Mã thiết bị
+              <span class="required" style="color: #ef4444">*</span></label
+            >
+            <input
+              type="text"
+              class="wf-input w-full"
+              [(ngModel)]="currentItem().code"
+              (ngModelChange)="onFieldChange('code')"
+              placeholder="Nhập mã thiết bị..."
+              [disabled]="isSaving()"
+              style="
+                background-color: #ffffff !important;
+                color: #374151 !important;
+                border-radius: 6px;
+                height: 38px;
+              "
+            />
+            <span
+              class="field-error"
+              *ngIf="codeError()"
+              style="
+                color: #ef4444;
+                font-size: 0.8rem;
+                margin-top: 4px;
+                display: block;
+              "
+              >{{ codeError() }}</span
+            >
           </div>
 
           <!-- Tên thiết bị -->
           <div class="form-group">
-            <label class="form-label" style="font-weight: 600; margin-bottom: 6px; display: block; color: #374151;">Tên
-              thiết bị <span class="required" style="color: #ef4444;">*</span></label>
-            <input type="text" class="wf-input w-full" [(ngModel)]="currentItem().name"
-              (ngModelChange)="onFieldChange('name')" placeholder="Nhập tên thiết bị..." [disabled]="isSaving()"
-              style="background-color: #ffffff !important; color: #374151 !important; border-radius: 6px; height: 38px;" />
-            <span class="field-error" *ngIf="nameError()"
-              style="color: #ef4444; font-size: 0.8rem; margin-top: 4px; display: block;">{{ nameError() }}</span>
+            <label
+              class="form-label"
+              style="
+                font-weight: 600;
+                margin-bottom: 6px;
+                display: block;
+                color: #374151;
+              "
+              >Tên thiết bị
+              <span class="required" style="color: #ef4444">*</span></label
+            >
+            <input
+              type="text"
+              class="wf-input w-full"
+              [(ngModel)]="currentItem().name"
+              (ngModelChange)="onFieldChange('name')"
+              placeholder="Nhập tên thiết bị..."
+              [disabled]="isSaving()"
+              style="
+                background-color: #ffffff !important;
+                color: #374151 !important;
+                border-radius: 6px;
+                height: 38px;
+              "
+            />
+            <span
+              class="field-error"
+              *ngIf="nameError()"
+              style="
+                color: #ef4444;
+                font-size: 0.8rem;
+                margin-top: 4px;
+                display: block;
+              "
+              >{{ nameError() }}</span
+            >
           </div>
         </div>
 
-        <div class="form-group-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+        <div
+          class="form-group-row"
+          style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px"
+        >
           <!-- Năm sản xuất -->
           <div class="form-group">
-            <label class="form-label" style="font-weight: 600; margin-bottom: 6px; display: block; color: #374151;">Năm
-              sản xuất</label>
-            <input type="number" class="wf-input w-full" [(ngModel)]="currentItem().manufactureYear"
-              (ngModelChange)="onFieldChange('manufactureYear')" min="1900" [max]="currentYear" maxlength="4"
-              placeholder="Nhập năm sản xuất..." [disabled]="isSaving()"
-              style="background-color: #ffffff !important; color: #374151 !important; border-radius: 6px; height: 38px;" />
-            <span class="field-error" *ngIf="manufactureYearError()"
-              style="color: #ef4444; font-size: 0.8rem; margin-top: 4px; display: block;">{{ manufactureYearError()
-              }}</span>
+            <label
+              class="form-label"
+              style="
+                font-weight: 600;
+                margin-bottom: 6px;
+                display: block;
+                color: #374151;
+              "
+              >Năm sản xuất</label
+            >
+            <input
+              type="number"
+              class="wf-input w-full"
+              [(ngModel)]="currentItem().manufactureYear"
+              (ngModelChange)="onFieldChange('manufactureYear')"
+              min="1900"
+              [max]="currentYear"
+              maxlength="4"
+              placeholder="Nhập năm sản xuất..."
+              [disabled]="isSaving()"
+              style="
+                background-color: #ffffff !important;
+                color: #374151 !important;
+                border-radius: 6px;
+                height: 38px;
+              "
+            />
+            <span
+              class="field-error"
+              *ngIf="manufactureYearError()"
+              style="
+                color: #ef4444;
+                font-size: 0.8rem;
+                margin-top: 4px;
+                display: block;
+              "
+              >{{ manufactureYearError() }}</span
+            >
           </div>
 
           <!-- Tình trạng -->
           <div class="form-group">
-            <label class="form-label" style="font-weight: 600; margin-bottom: 6px; display: block; color: #374151;">Tình
-              trạng</label>
-            <p-select [options]="equipmentStatuses()" [(ngModel)]="currentItem().equipmentStatusId" optionLabel="name"
-              optionValue="id" placeholder="-- Chọn tình trạng thiết bị --" [disabled]="isSaving()"
-              [style]="{'width':'100%', 'height':'38px', 'line-height':'24px', 'border':'1px solid #cbd5e1', 'border-radius':'6px', 'background-color':'#ffffff', 'color':'#374151'}">
+            <label
+              class="form-label"
+              style="
+                font-weight: 600;
+                margin-bottom: 6px;
+                display: block;
+                color: #374151;
+              "
+              >Tình trạng</label
+            >
+            <p-select
+              [options]="equipmentStatuses()"
+              [(ngModel)]="currentItem().equipmentStatusId"
+              optionLabel="name"
+              optionValue="id"
+              placeholder="-- Chọn tình trạng thiết bị --"
+              [disabled]="isSaving()"
+              [style]="{
+                width: '100%',
+                height: '38px',
+                'line-height': '24px',
+                border: '1px solid #cbd5e1',
+                'border-radius': '6px',
+                'background-color': '#ffffff',
+                color: '#374151',
+              }"
+            >
             </p-select>
           </div>
         </div>
 
         <!-- Trạng thái -->
-        <div class="form-group" style="display: flex; flex-direction: column; gap: 8px; width: 50%;">
-          <label class="form-label" style="font-weight: 600; margin-bottom: 0; display: block; color: #374151;">Trạng
-            thái</label>
-          <div style="display: flex; align-items: center; height: 38px; padding-top: 2px;">
-            <p-toggleswitch [(ngModel)]="currentItem().isActive" [disabled]="isSaving()"></p-toggleswitch>
+        <div
+          class="form-group"
+          style="
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            width: 50%;
+            padding: 10px;
+          "
+        >
+          <label
+            class="form-label"
+            style="
+              font-weight: 600;
+              margin-bottom: 0;
+              display: block;
+              color: #374151;
+            "
+            >Trạng thái</label
+          >
+          <div
+            style="
+              display: flex;
+              align-items: center;
+              height: 38px;
+              padding-top: 2px;
+            "
+          >
+            <p-toggleswitch
+              [(ngModel)]="currentItem().isActive"
+              [disabled]="isSaving()"
+            ></p-toggleswitch>
           </div>
         </div>
       </div>
@@ -343,16 +737,33 @@
     <!-- ==================== VIEW 3: MÀN HÌNH CHI TIẾT 2 TAB (EDIT MODE) ==================== -->
     <div *ngIf="currentView() === 'edit'" class="animate-fade-in sub-view-container">
 
+      <div class="equipment-detail-card">
+
       <!-- Tab Bar EVN -->
-      <div class="tab-bar" style="margin-bottom: 20px;">
-        <div class="tab-item" [class.tab-active]="activeTab() === 'info'" (click)="activeTab.set('info')">
-          <i class="pi pi-info-circle" style="margin-right: 4px;"></i> Thông tin thiết bị
+      <div class="tab-bar" style="margin-bottom: 20px">
+        <div
+          class="tab-item"
+          [class.tab-active]="activeTab() === 'info'"
+          (click)="activeTab.set('info')"
+        >
+          <i class="pi pi-info-circle" style="margin-right: 4px"></i> Thông tin
+          thiết bị
         </div>
-        <div class="tab-item" [class.tab-active]="activeTab() === 'profileDocs'" (click)="activeTab.set('profileDocs')">
-          <i class="pi pi-paperclip" style="margin-right: 4px;"></i> Tài liệu đính kèm
+        <div
+          class="tab-item"
+          [class.tab-active]="activeTab() === 'profileDocs'"
+          (click)="activeTab.set('profileDocs')"
+        >
+          <i class="pi pi-paperclip" style="margin-right: 4px"></i> Tài liệu
+          đính kèm
         </div>
-        <div class="tab-item" [class.tab-active]="activeTab() === 'related'" (click)="activeTab.set('related')">
-          <i class="pi pi-folder-open" style="margin-right: 4px;"></i> Hồ sơ liên quan
+        <div
+          class="tab-item"
+          [class.tab-active]="activeTab() === 'related'"
+          (click)="activeTab.set('related')"
+        >
+          <i class="pi pi-folder-open" style="margin-right: 4px"></i> Hồ sơ liên
+          quan
         </div>
       </div>
 
@@ -360,264 +771,749 @@
 
       <!-- ==================== TAB: THÔNG TIN THIẾT BỊ ==================== -->
       <div *ngIf="activeTab() === 'info'" class="tab-content animate-fade-in">
-
         <!-- Chế độ Xem (General Info View Doc) -->
-        <div *ngIf="!isEditingGeneral()" class="docs-style-view"
-          style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); margin-bottom: 25px;">
-
+        <div
+          *ngIf="!isEditingGeneral()"
+          class="docs-style-view"
+          style="
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 24px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            margin-bottom: 25px;
+          "
+        >
           <div
-            style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed #cbd5e1; padding-bottom: 12px; margin-bottom: 20px;">
-            <span style="font-size: 0.95rem; font-weight: 700; color: #0f172a; text-transform: uppercase;">
-              <i class="pi pi-file" style="color: #2563eb; margin-right: 6px;"></i> Hồ sơ thông tin thiết bị
+            style="
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              border-bottom: 1px dashed #cbd5e1;
+              padding-bottom: 12px;
+              margin-bottom: 20px;
+            "
+          >
+            <span
+              style="
+                font-size: 0.95rem;
+                font-weight: 700;
+                color: #0f172a;
+                text-transform: uppercase;
+              "
+            >
+              <i
+                class="pi pi-file"
+                style="color: #2563eb; margin-right: 6px"
+              ></i>
+              Hồ sơ thông tin thiết bị
             </span>
-            <div style="display: flex; gap: 8px;" *ngIf="canEdit()">
-              <button class="btn-outlined btn-small" (click)="isEditingGeneral.set(true)">
+            <div style="display: flex; gap: 8px" *ngIf="canEdit()">
+              <button
+                class="btn-outlined btn-small"
+                (click)="isEditingGeneral.set(true)"
+              >
                 <i class="pi pi-pencil"></i> Sửa thông tin chung
               </button>
             </div>
           </div>
 
           <!-- View theo kiểu docs (Highlight mã thiết bị và trạng thái hoạt động, các trường khác hiển thị bình thường) -->
-          <div class="docs-fields-list" style="display: flex; flex-direction: column; gap: 14px;">
+          <div
+            class="docs-fields-list"
+            style="display: flex; flex-direction: column; gap: 14px"
+          >
             <!-- Mã thiết bị (Highlight) -->
-            <div style="display: flex; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px;">
-              <span style="width: 200px; color: #64748b; font-weight: 600;">Mã thiết bị:</span>
+            <div
+              style="
+                display: flex;
+                align-items: center;
+                border-bottom: 1px solid #f1f5f9;
+                padding-bottom: 8px;
+              "
+            >
+              <span style="width: 200px; color: #64748b; font-weight: 600"
+                >Mã thiết bị:</span
+              >
               <span
-                style="font-weight: 700; color: #1e3a8a; background: #eff6ff; padding: 3px 8px; border-radius: 4px; font-family: monospace;">
+                style="
+                  font-weight: 700;
+                  color: #1e3a8a;
+                  background: #eff6ff;
+                  padding: 3px 8px;
+                  border-radius: 4px;
+                  font-family: monospace;
+                "
+              >
                 {{ currentItem().code }}
               </span>
             </div>
 
             <!-- Tên thiết bị -->
-            <div style="display: flex; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px;">
-              <span style="width: 200px; color: #64748b; font-weight: 600;">Tên thiết bị:</span>
-              <span style="color: #334155;">{{ currentItem().name }}</span>
+            <div
+              style="
+                display: flex;
+                align-items: center;
+                border-bottom: 1px solid #f1f5f9;
+                padding-bottom: 8px;
+              "
+            >
+              <span style="width: 200px; color: #64748b; font-weight: 600"
+                >Tên thiết bị:</span
+              >
+              <span style="color: #334155">{{ currentItem().name }}</span>
             </div>
 
             <!-- Loại thiết bị -->
-            <div style="display: flex; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px;">
-              <span style="width: 200px; color: #64748b; font-weight: 600;">Loại thiết bị:</span>
-              <span style="color: #4f46e5; font-weight: 600;">{{ currentItem().equipmentTypeName }}</span>
+            <div
+              style="
+                display: flex;
+                align-items: center;
+                border-bottom: 1px solid #f1f5f9;
+                padding-bottom: 8px;
+              "
+            >
+              <span style="width: 200px; color: #64748b; font-weight: 600"
+                >Loại thiết bị:</span
+              >
+              <span style="color: #4f46e5; font-weight: 600">{{
+                currentItem().equipmentTypeName
+              }}</span>
             </div>
 
             <!-- Lưới điện -->
-            <div style="display: flex; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px;">
-              <span style="width: 200px; color: #64748b; font-weight: 600;">Thuộc Lưới điện:</span>
-              <span style="color: #334155;">{{ currentItem().gridTypeName || '---' }}</span>
+            <div
+              style="
+                display: flex;
+                align-items: center;
+                border-bottom: 1px solid #f1f5f9;
+                padding-bottom: 8px;
+              "
+            >
+              <span style="width: 200px; color: #64748b; font-weight: 600"
+                >Thuộc Lưới điện:</span
+              >
+              <span style="color: #334155">{{
+                currentItem().gridTypeName || '---'
+              }}</span>
             </div>
 
             <!-- Trạm / Đường dây -->
-            <div style="display: flex; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px;">
-              <span style="width: 200px; color: #64748b; font-weight: 600;">Trạm / Đường dây:</span>
-              <span style="color: #334155;">{{ currentItem().infrastructureName || '---' }}</span>
+            <div
+              style="
+                display: flex;
+                align-items: center;
+                border-bottom: 1px solid #f1f5f9;
+                padding-bottom: 8px;
+              "
+            >
+              <span style="width: 200px; color: #64748b; font-weight: 600"
+                >Trạm / Đường dây:</span
+              >
+              <span style="color: #334155">{{
+                currentItem().infrastructureName || '---'
+              }}</span>
             </div>
 
             <!-- Đơn vị quản lý -->
-            <div style="display: flex; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px;">
-              <span style="width: 200px; color: #64748b; font-weight: 600;">Đơn vị quản lý:</span>
-              <span style="color: #334155;">
+            <div
+              style="
+                display: flex;
+                align-items: center;
+                border-bottom: 1px solid #f1f5f9;
+                padding-bottom: 8px;
+              "
+            >
+              <span style="width: 200px; color: #64748b; font-weight: 600"
+                >Đơn vị quản lý:</span
+              >
+              <span style="color: #334155">
                 {{ currentItem().unitName }}
               </span>
             </div>
 
             <!-- Năm sản xuất -->
-            <div style="display: flex; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px;"
-              *ngIf="currentItem().manufactureYear">
-              <span style="width: 200px; color: #64748b; font-weight: 600;">Năm sản xuất:</span>
-              <span style="color: #334155;">{{ currentItem().manufactureYear }}</span>
+            <div
+              style="
+                display: flex;
+                align-items: center;
+                border-bottom: 1px solid #f1f5f9;
+                padding-bottom: 8px;
+              "
+              *ngIf="currentItem().manufactureYear"
+            >
+              <span style="width: 200px; color: #64748b; font-weight: 600"
+                >Năm sản xuất:</span
+              >
+              <span style="color: #334155">{{
+                currentItem().manufactureYear
+              }}</span>
             </div>
 
             <!-- Tình trạng -->
-            <div style="display: flex; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px;"
-              *ngIf="currentItem().equipmentStatusName">
-              <span style="width: 200px; color: #64748b; font-weight: 600;">Tình trạng:</span>
-              <span style="color: #334155;">{{ currentItem().equipmentStatusName }}</span>
+            <div
+              style="
+                display: flex;
+                align-items: center;
+                border-bottom: 1px solid #f1f5f9;
+                padding-bottom: 8px;
+              "
+              *ngIf="currentItem().equipmentStatusName"
+            >
+              <span style="width: 200px; color: #64748b; font-weight: 600"
+                >Tình trạng:</span
+              >
+              <span style="color: #334155">{{
+                currentItem().equipmentStatusName
+              }}</span>
             </div>
 
             <!-- Trạng thái hoạt động (Highlight) -->
-            <div style="display: flex; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px;">
-              <span style="width: 200px; color: #64748b; font-weight: 600;">Trạng thái hoạt động:</span>
-              <span class="status-pill" [ngClass]="currentItem().isActive ? 'status-active' : 'status-inactive'">
+            <div
+              style="
+                display: flex;
+                align-items: center;
+                border-bottom: 1px solid #f1f5f9;
+                padding-bottom: 8px;
+              "
+            >
+              <span style="width: 200px; color: #64748b; font-weight: 600"
+                >Trạng thái hoạt động:</span
+              >
+              <span
+                class="status-pill"
+                [ngClass]="
+                  currentItem().isActive ? 'status-active' : 'status-inactive'
+                "
+              >
                 {{ currentItem().isActive ? 'Đang hoạt động' : 'Bị khóa' }}
               </span>
             </div>
 
             <!-- Người tạo -->
-            <div style="display: flex; align-items: center; padding-bottom: 8px;" *ngIf="currentItem().creator">
-              <span style="width: 200px; color: #64748b; font-weight: 600;">Người tạo bản ghi:</span>
-              <span class="text-muted" style="font-size: 0.9rem;">
-                {{ currentItem().creator.name }} ({{ currentItem().creator.username }})
+            <div
+              style="display: flex; align-items: center; padding-bottom: 8px"
+              *ngIf="currentItem().creator"
+            >
+              <span style="width: 200px; color: #64748b; font-weight: 600"
+                >Người tạo bản ghi:</span
+              >
+              <span class="text-muted" style="font-size: 0.9rem">
+                {{ currentItem().creator.name }} ({{
+                  currentItem().creator.username
+                }})
               </span>
             </div>
           </div>
         </div>
 
         <!-- Chế độ sửa Thông tin chung (Edit General Form) -->
-        <div *ngIf="isEditingGeneral()" class="animate-fade-in"
-          style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 24px; margin-bottom: 25px;">
-          <div style="border-bottom: 1px dashed #cbd5e1; padding-bottom: 12px; margin-bottom: 20px;">
-            <span style="font-size: 0.95rem; font-weight: 700; color: #002D72;">
-              <i class="pi pi-pencil" style="margin-right: 6px;"></i> Chỉnh sửa thông tin chung
+        <div
+          *ngIf="isEditingGeneral()"
+          class="animate-fade-in"
+          style="
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            padding: 24px;
+            margin-bottom: 25px;
+          "
+        >
+          <div
+            style="
+              border-bottom: 1px dashed #cbd5e1;
+              padding-bottom: 12px;
+              margin-bottom: 20px;
+            "
+          >
+            <span style="font-size: 0.95rem; font-weight: 700; color: #002d72">
+              <i class="pi pi-pencil" style="margin-right: 6px"></i> Chỉnh sửa
+              thông tin chung
             </span>
           </div>
 
-          <div class="grid-form-layout" style="display: flex; flex-direction: column; gap: 18px; width: 100%;">
-            <div class="form-group-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+          <div
+            class="grid-form-layout"
+            style="
+              display: flex;
+              flex-direction: column;
+              gap: 18px;
+              width: 100%;
+            "
+          >
+            <div
+              class="form-group-row"
+              style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px"
+            >
               <!-- Đơn vị quản lý (Tree Picker) -->
               <div class="form-group">
-                <label class="form-label"
-                  style="font-weight: 600; margin-bottom: 6px; display: block; color: #374151;">Đơn vị quản lý <span
-                    class="required" style="color: #ef4444;">*</span></label>
+                <label
+                  class="form-label"
+                  style="
+                    font-weight: 600;
+                    margin-bottom: 6px;
+                    display: block;
+                    color: #374151;
+                  "
+                  >Đơn vị quản lý
+                  <span class="required" style="color: #ef4444">*</span></label
+                >
 
                 <div class="org-tree-picker" [class.disabled]="isSaving()">
-                  <div class="org-tree-trigger" (click)="toggleFormOrgTree($event)"
-                    [class.has-value]="currentItem().unitId" [class.open]="formOrgTreeOpen()">
+                  <div
+                    class="org-tree-trigger"
+                    (click)="toggleFormOrgTree($event)"
+                    [class.has-value]="currentItem().unitId"
+                    [class.open]="formOrgTreeOpen()"
+                  >
                     <span class="org-tree-selected-label">
-                      <i class="pi pi-building" style="margin-right: 6px; color: #6b7280;"></i>
-                      {{ getUnitLabel(currentItem().unitId) || '-- Chọn đơn vị quản lý --' }}
+                      <i
+                        class="pi pi-building"
+                        style="margin-right: 6px; color: #6b7280"
+                      ></i>
+                      {{
+                        getUnitLabel(currentItem().unitId) ||
+                          '-- Chọn đơn vị quản lý --'
+                      }}
                     </span>
-                    <i class="pi" [class.pi-chevron-down]="!formOrgTreeOpen()" [class.pi-chevron-up]="formOrgTreeOpen()"></i>
+                    <i
+                      class="pi"
+                      [class.pi-chevron-down]="!formOrgTreeOpen()"
+                      [class.pi-chevron-up]="formOrgTreeOpen()"
+                    ></i>
                   </div>
-                  <div class="org-tree-dropdown" *ngIf="formOrgTreeOpen()" (click)="$event.stopPropagation()">
+                  <div
+                    class="org-tree-dropdown"
+                    *ngIf="formOrgTreeOpen()"
+                    (click)="$event.stopPropagation()"
+                  >
                     <div class="org-tree-search">
                       <i class="pi pi-search"></i>
-                      <input type="text" placeholder="Tìm kiếm đơn vị..." [ngModel]="formOrgSearchKeyword()"
-                        (ngModelChange)="formOrgSearchKeyword.set($event)" />
+                      <input
+                        type="text"
+                        placeholder="Tìm kiếm đơn vị..."
+                        [ngModel]="formOrgSearchKeyword()"
+                        (ngModelChange)="formOrgSearchKeyword.set($event)"
+                      />
                     </div>
                     <ng-container *ngFor="let node of formOrgUnitTree()">
-                      <ng-container *ngTemplateOutlet="formOrgTreeNode; context: { $implicit: node, depth: 0 }"></ng-container>
+                      <ng-container
+                        *ngTemplateOutlet="
+                          formOrgTreeNode;
+                          context: { $implicit: node, depth: 0 }
+                        "
+                      ></ng-container>
                     </ng-container>
-                    <div *ngIf="formOrgUnitTree().length === 0" class="org-tree-empty">Không có đơn vị phù hợp.</div>
+                    <div
+                      *ngIf="formOrgUnitTree().length === 0"
+                      class="org-tree-empty"
+                    >
+                      Không có đơn vị phù hợp.
+                    </div>
                   </div>
                 </div>
 
-                <span class="field-error" *ngIf="unitError()"
-                  style="color: #ef4444; font-size: 0.8rem; margin-top: 4px; display: block;">{{ unitError() }}</span>
+                <span
+                  class="field-error"
+                  *ngIf="unitError()"
+                  style="
+                    color: #ef4444;
+                    font-size: 0.8rem;
+                    margin-top: 4px;
+                    display: block;
+                  "
+                  >{{ unitError() }}</span
+                >
               </div>
 
               <!-- Loại lưới điện -->
               <div class="form-group">
-                <label class="form-label"
-                  style="font-weight: 600; margin-bottom: 6px; display: block; color: #374151;">Loại lưới điện <span
-                    class="required" style="color: #ef4444;">*</span></label>
-                <p-select [options]="gridTypes()" [ngModel]="currentItem().gridTypeId"
-                  (ngModelChange)="onGridTypeChange($event)" optionLabel="name" optionValue="id"
-                  placeholder="-- Chọn loại lưới điện --" [disabled]="isSaving()"
-                  [style]="{'width':'100%', 'height':'38px', 'line-height':'24px', 'border':'1px solid #cbd5e1', 'border-radius':'6px', 'background-color':'#ffffff', 'color':'#374151'}">
+                <label
+                  class="form-label"
+                  style="
+                    font-weight: 600;
+                    margin-bottom: 6px;
+                    display: block;
+                    color: #374151;
+                  "
+                  >Loại lưới điện
+                  <span class="required" style="color: #ef4444">*</span></label
+                >
+                <p-select
+                  [options]="gridTypes()"
+                  [ngModel]="currentItem().gridTypeId"
+                  (ngModelChange)="onGridTypeChange($event)"
+                  optionLabel="name"
+                  optionValue="id"
+                  placeholder="-- Chọn loại lưới điện --"
+                  [disabled]="isSaving()"
+                  [style]="{
+                    width: '100%',
+                    height: '38px',
+                    'line-height': '24px',
+                    border: '1px solid #cbd5e1',
+                    'border-radius': '6px',
+                    'background-color': '#ffffff',
+                    color: '#374151',
+                  }"
+                >
                 </p-select>
-                <span class="field-error" *ngIf="gridTypeError()"
-                  style="color: #ef4444; font-size: 0.8rem; margin-top: 4px; display: block;">{{ gridTypeError()
-                  }}</span>
+                <span
+                  class="field-error"
+                  *ngIf="gridTypeError()"
+                  style="
+                    color: #ef4444;
+                    font-size: 0.8rem;
+                    margin-top: 4px;
+                    display: block;
+                  "
+                  >{{ gridTypeError() }}</span
+                >
               </div>
             </div>
 
-            <div class="form-group-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <div
+              class="form-group-row"
+              style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px"
+            >
               <!-- Trạm / Đường dây (Cascade) -->
               <div class="form-group">
-                <label class="form-label"
-                  style="font-weight: 600; margin-bottom: 6px; display: block; color: #374151;">Trạm / Đường dây <span
-                    class="required" style="color: #ef4444;">*</span></label>
-                <p-select [options]="formInfrastructures()" [(ngModel)]="currentItem().infrastructureId"
-                  (ngModelChange)="onFieldChange('infrastructureId')" optionLabel="name" optionValue="id"
-                  [placeholder]="currentItem().unitId ? '-- Chọn Trạm / Đường dây --' : '-- Vui lòng chọn Đơn vị quản lý --'"
-                  [disabled]="!currentItem().unitId || isSaving()" [filter]="true"
-                  [style]="{'width':'100%', 'height':'38px', 'line-height':'24px', 'border':'1px solid #cbd5e1', 'border-radius':'6px', 'background-color':'#ffffff', 'color':'#374151'}">
+                <label
+                  class="form-label"
+                  style="
+                    font-weight: 600;
+                    margin-bottom: 6px;
+                    display: block;
+                    color: #374151;
+                  "
+                  >Trạm / Đường dây
+                  <span class="required" style="color: #ef4444">*</span></label
+                >
+                <p-select
+                  [options]="formInfrastructures()"
+                  [(ngModel)]="currentItem().infrastructureId"
+                  (ngModelChange)="onFieldChange('infrastructureId')"
+                  optionLabel="name"
+                  optionValue="id"
+                  [placeholder]="
+                    currentItem().unitId
+                      ? '-- Chọn Trạm / Đường dây --'
+                      : '-- Vui lòng chọn Đơn vị quản lý --'
+                  "
+                  [disabled]="!currentItem().unitId || isSaving()"
+                  [filter]="true"
+                  [style]="{
+                    width: '100%',
+                    height: '38px',
+                    'line-height': '24px',
+                    border: '1px solid #cbd5e1',
+                    'border-radius': '6px',
+                    'background-color': '#ffffff',
+                    color: '#374151',
+                  }"
+                >
                 </p-select>
-                <span class="field-error" *ngIf="infrastructureError()"
-                  style="color: #ef4444; font-size: 0.8rem; margin-top: 4px; display: block;">{{ infrastructureError()
-                  }}</span>
+                <span
+                  class="field-error"
+                  *ngIf="infrastructureError()"
+                  style="
+                    color: #ef4444;
+                    font-size: 0.8rem;
+                    margin-top: 4px;
+                    display: block;
+                  "
+                  >{{ infrastructureError() }}</span
+                >
               </div>
 
               <!-- Loại thiết bị (Cascade) -->
               <div class="form-group">
-                <label class="form-label"
-                  style="font-weight: 600; margin-bottom: 6px; display: block; color: #374151;">Loại thiết bị <span
-                    class="required" style="color: #ef4444;">*</span></label>
+                <label
+                  class="form-label"
+                  style="
+                    font-weight: 600;
+                    margin-bottom: 6px;
+                    display: block;
+                    color: #374151;
+                  "
+                  >Loại thiết bị
+                  <span class="required" style="color: #ef4444">*</span></label
+                >
                 <ng-container [ngSwitch]="equipmentTypeSelectKey()">
-                  <p-select *ngSwitchDefault [options]="formEquipmentTypes()" [ngModel]="currentItem().equipmentTypeId"
-                    (ngModelChange)="onEquipmentTypeChange($event)" optionLabel="name" optionValue="id"
-                    [placeholder]="currentItem().gridTypeId ? '-- Chọn loại thiết bị --' : '-- Vui lòng chọn Loại lưới điện --'"
-                    [disabled]="!currentItem().gridTypeId || isSaving()" [filter]="true"
-                    [style]="{'width':'100%', 'height':'38px', 'line-height':'24px', 'border':'1px solid #cbd5e1', 'border-radius':'6px', 'background-color':'#ffffff', 'color':'#374151'}">
+                  <p-select
+                    *ngSwitchDefault
+                    [options]="formEquipmentTypes()"
+                    [ngModel]="currentItem().equipmentTypeId"
+                    (ngModelChange)="onEquipmentTypeChange($event)"
+                    optionLabel="name"
+                    optionValue="id"
+                    [placeholder]="
+                      currentItem().gridTypeId
+                        ? '-- Chọn loại thiết bị --'
+                        : '-- Vui lòng chọn Loại lưới điện --'
+                    "
+                    [disabled]="!currentItem().gridTypeId || isSaving()"
+                    [filter]="true"
+                    [style]="{
+                      width: '100%',
+                      height: '38px',
+                      'line-height': '24px',
+                      border: '1px solid #cbd5e1',
+                      'border-radius': '6px',
+                      'background-color': '#ffffff',
+                      color: '#374151',
+                    }"
+                  >
                   </p-select>
                 </ng-container>
-                <span class="field-error" *ngIf="equipmentTypeError()"
-                  style="color: #ef4444; font-size: 0.8rem; margin-top: 4px; display: block;">{{ equipmentTypeError()
-                  }}</span>
+                <span
+                  class="field-error"
+                  *ngIf="equipmentTypeError()"
+                  style="
+                    color: #ef4444;
+                    font-size: 0.8rem;
+                    margin-top: 4px;
+                    display: block;
+                  "
+                  >{{ equipmentTypeError() }}</span
+                >
               </div>
             </div>
 
-            <div class="form-group-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <div
+              class="form-group-row"
+              style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px"
+            >
               <!-- Mã thiết bị -->
               <div class="form-group">
-                <label class="form-label"
-                  style="font-weight: 600; margin-bottom: 6px; display: block; color: #374151;">Mã thiết bị <span
-                    class="required" style="color: #ef4444;">*</span></label>
-                <input type="text" class="wf-input w-full" [(ngModel)]="currentItem().code"
-                  (ngModelChange)="onFieldChange('code')" placeholder="Nhập mã thiết bị..." disabled
-                  style="background-color: #f1f5f9 !important; color: #64748b !important; cursor: not-allowed; border-radius: 6px; height: 38px;" />
-                <span class="field-error" *ngIf="codeError()"
-                  style="color: #ef4444; font-size: 0.8rem; margin-top: 4px; display: block;">{{ codeError() }}</span>
+                <label
+                  class="form-label"
+                  style="
+                    font-weight: 600;
+                    margin-bottom: 6px;
+                    display: block;
+                    color: #374151;
+                  "
+                  >Mã thiết bị
+                  <span class="required" style="color: #ef4444">*</span></label
+                >
+                <input
+                  type="text"
+                  class="wf-input w-full"
+                  [(ngModel)]="currentItem().code"
+                  (ngModelChange)="onFieldChange('code')"
+                  placeholder="Nhập mã thiết bị..."
+                  disabled
+                  style="
+                    background-color: #f1f5f9 !important;
+                    color: #64748b !important;
+                    cursor: not-allowed;
+                    border-radius: 6px;
+                    height: 38px;
+                  "
+                />
+                <span
+                  class="field-error"
+                  *ngIf="codeError()"
+                  style="
+                    color: #ef4444;
+                    font-size: 0.8rem;
+                    margin-top: 4px;
+                    display: block;
+                  "
+                  >{{ codeError() }}</span
+                >
               </div>
 
               <!-- Tên thiết bị -->
               <div class="form-group">
-                <label class="form-label"
-                  style="font-weight: 600; margin-bottom: 6px; display: block; color: #374151;">Tên thiết bị <span
-                    class="required" style="color: #ef4444;">*</span></label>
-                <input type="text" class="wf-input w-full" [(ngModel)]="currentItem().name"
-                  (ngModelChange)="onFieldChange('name')" placeholder="Nhập tên thiết bị..." [disabled]="isSaving()"
-                  style="background-color: #ffffff !important; color: #374151 !important; border-radius: 6px; height: 38px;" />
-                <span class="field-error" *ngIf="nameError()"
-                  style="color: #ef4444; font-size: 0.8rem; margin-top: 4px; display: block;">{{ nameError() }}</span>
+                <label
+                  class="form-label"
+                  style="
+                    font-weight: 600;
+                    margin-bottom: 6px;
+                    display: block;
+                    color: #374151;
+                  "
+                  >Tên thiết bị
+                  <span class="required" style="color: #ef4444">*</span></label
+                >
+                <input
+                  type="text"
+                  class="wf-input w-full"
+                  [(ngModel)]="currentItem().name"
+                  (ngModelChange)="onFieldChange('name')"
+                  placeholder="Nhập tên thiết bị..."
+                  [disabled]="isSaving()"
+                  style="
+                    background-color: #ffffff !important;
+                    color: #374151 !important;
+                    border-radius: 6px;
+                    height: 38px;
+                  "
+                />
+                <span
+                  class="field-error"
+                  *ngIf="nameError()"
+                  style="
+                    color: #ef4444;
+                    font-size: 0.8rem;
+                    margin-top: 4px;
+                    display: block;
+                  "
+                  >{{ nameError() }}</span
+                >
               </div>
             </div>
 
-            <div class="form-group-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <div
+              class="form-group-row"
+              style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px"
+            >
               <!-- Năm sản xuất -->
               <div class="form-group">
-                <label class="form-label"
-                  style="font-weight: 600; margin-bottom: 6px; display: block; color: #374151;">Năm sản xuất</label>
-                <input type="number" class="wf-input w-full" [(ngModel)]="currentItem().manufactureYear"
-                  (ngModelChange)="onFieldChange('manufactureYear')" min="1900" [max]="currentYear" maxlength="4"
-                  placeholder="Nhập năm sản xuất..." [disabled]="isSaving()"
-                  style="background-color: #ffffff !important; color: #374151 !important; border-radius: 6px; height: 38px;" />
-                <span class="field-error" *ngIf="manufactureYearError()"
-                  style="color: #ef4444; font-size: 0.8rem; margin-top: 4px; display: block;">{{ manufactureYearError()
-                  }}</span>
+                <label
+                  class="form-label"
+                  style="
+                    font-weight: 600;
+                    margin-bottom: 6px;
+                    display: block;
+                    color: #374151;
+                  "
+                  >Năm sản xuất</label
+                >
+                <input
+                  type="number"
+                  class="wf-input w-full"
+                  [(ngModel)]="currentItem().manufactureYear"
+                  (ngModelChange)="onFieldChange('manufactureYear')"
+                  min="1900"
+                  [max]="currentYear"
+                  maxlength="4"
+                  placeholder="Nhập năm sản xuất..."
+                  [disabled]="isSaving()"
+                  style="
+                    background-color: #ffffff !important;
+                    color: #374151 !important;
+                    border-radius: 6px;
+                    height: 38px;
+                  "
+                />
+                <span
+                  class="field-error"
+                  *ngIf="manufactureYearError()"
+                  style="
+                    color: #ef4444;
+                    font-size: 0.8rem;
+                    margin-top: 4px;
+                    display: block;
+                  "
+                  >{{ manufactureYearError() }}</span
+                >
               </div>
 
               <!-- Tình trạng -->
               <div class="form-group">
-                <label class="form-label"
-                  style="font-weight: 600; margin-bottom: 6px; display: block; color: #374151;">Tình trạng</label>
-                <p-select [options]="equipmentStatuses()" [(ngModel)]="currentItem().equipmentStatusId"
-                  optionLabel="name" optionValue="id" placeholder="-- Chọn tình trạng thiết bị --"
+                <label
+                  class="form-label"
+                  style="
+                    font-weight: 600;
+                    margin-bottom: 6px;
+                    display: block;
+                    color: #374151;
+                  "
+                  >Tình trạng</label
+                >
+                <p-select
+                  [options]="equipmentStatuses()"
+                  [(ngModel)]="currentItem().equipmentStatusId"
+                  optionLabel="name"
+                  optionValue="id"
+                  placeholder="-- Chọn tình trạng thiết bị --"
                   [disabled]="isSaving()"
-                  [style]="{'width':'100%', 'height':'38px', 'line-height':'24px', 'border':'1px solid #cbd5e1', 'border-radius':'6px', 'background-color':'#ffffff', 'color':'#374151'}">
+                  [style]="{
+                    width: '100%',
+                    height: '38px',
+                    'line-height': '24px',
+                    border: '1px solid #cbd5e1',
+                    'border-radius': '6px',
+                    'background-color': '#ffffff',
+                    color: '#374151',
+                  }"
+                >
                 </p-select>
               </div>
             </div>
 
             <!-- Trạng thái -->
-            <div class="form-group" style="display: flex; flex-direction: column; gap: 8px; width: 50%;">
-              <label class="form-label"
-                style="font-weight: 600; margin-bottom: 0; display: block; color: #374151;">Trạng thái</label>
-              <div style="display: flex; align-items: center; height: 38px; padding-top: 2px;">
-                <p-toggleswitch [(ngModel)]="currentItem().isActive" [disabled]="isSaving()"></p-toggleswitch>
+            <div
+              class="form-group"
+              style="
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                width: 50%;
+              "
+            >
+              <label
+                class="form-label"
+                style="
+                  font-weight: 600;
+                  margin-bottom: 0;
+                  display: block;
+                  color: #374151;
+                "
+                >Trạng thái</label
+              >
+              <div
+                style="
+                  display: flex;
+                  align-items: center;
+                  height: 38px;
+                  padding-top: 2px;
+                "
+              >
+                <p-toggleswitch
+                  [(ngModel)]="currentItem().isActive"
+                  [disabled]="isSaving()"
+                ></p-toggleswitch>
               </div>
             </div>
 
             <!-- Edit General Actions -->
             <div
-              style="margin-top: 20px; padding-top: 16px; border-top: 1px solid #e2e8f0; display: flex; gap: 10px; justify-content: flex-end;">
-              <button class="btn-cancel btn-small" (click)="isEditingGeneral.set(false)" [disabled]="isSaving()">
+              style="
+                margin-top: 20px;
+                padding-top: 16px;
+                border-top: 1px solid #e2e8f0;
+                display: flex;
+                gap: 10px;
+                justify-content: flex-end;
+              "
+            >
+              <button
+                class="btn-cancel btn-small"
+                (click)="isEditingGeneral.set(false)"
+                [disabled]="isSaving()"
+              >
                 Quay lại xem
               </button>
-              <button class="btn-save btn-small" (click)="onSaveItem()" [disabled]="isSaving()"
-                style="background-color: #4790e9; border-color: #4790e9;">
-                <i class="pi pi-spin pi-spinner" *ngIf="isSaving()" style="margin-right: 4px;"></i>
-                <i class="pi pi-save" *ngIf="!isSaving()" style="margin-right: 4px;"></i>
+              <button
+                class="btn-save btn-small"
+                (click)="onSaveItem()"
+                [disabled]="isSaving()"
+                style="background-color: #4790e9; border-color: #4790e9"
+              >
+                <i
+                  class="pi pi-spin pi-spinner"
+                  *ngIf="isSaving()"
+                  style="margin-right: 4px"
+                ></i>
+                <i
+                  class="pi pi-save"
+                  *ngIf="!isSaving()"
+                  style="margin-right: 4px"
+                ></i>
                 Lưu thông tin chung
               </button>
             </div>
@@ -627,131 +1523,335 @@
         <!-- Khối 2: Cấu hình / Xem Thông số kỹ thuật EAV (id specs-section) -->
         <div id="specs-section">
           <!-- Chế độ Xem thông số kỹ thuật -->
-          <div *ngIf="!isEditingFormValues()" class="docs-style-view"
-            style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); margin-bottom: 25px;">
+          <div
+            *ngIf="!isEditingFormValues()"
+            class="docs-style-view"
+            style="
+              background: #ffffff;
+              border: 1px solid #e2e8f0;
+              border-radius: 8px;
+              padding: 24px;
+              box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+              margin-bottom: 25px;
+            "
+          >
             <div
-              style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed #cbd5e1; padding-bottom: 12px; margin-bottom: 20px;">
-              <span style="font-size: 0.95rem; font-weight: 700; color: #002D72; text-transform: uppercase;">
-                <i class="pi pi-sliders-h" style="color: #2563eb; margin-right: 6px;"></i> Thông số kỹ thuật chi tiết
+              style="
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                border-bottom: 1px dashed #cbd5e1;
+                padding-bottom: 12px;
+                margin-bottom: 20px;
+              "
+            >
+              <span
+                style="
+                  font-size: 0.95rem;
+                  font-weight: 700;
+                  color: #002d72;
+                  text-transform: uppercase;
+                "
+              >
+                <i
+                  class="pi pi-sliders-h"
+                  style="color: #2563eb; margin-right: 6px"
+                ></i>
+                Thông số kỹ thuật chi tiết
               </span>
-              <button class="btn-outlined btn-small" (click)="onEditSpecs(currentItem())"
-                *ngIf="canEdit() && eavTemplate()">
+              <button
+                class="btn-outlined btn-small"
+                (click)="onEditSpecs(currentItem())"
+                *ngIf="canEdit() && eavTemplate()"
+              >
                 <i class="pi pi-cog"></i> Cấu hình / Thay đổi thông số
               </button>
             </div>
 
             <!-- Loader -->
-            <div *ngIf="isLoadingTemplate()" style="text-align: center; padding: 30px 0;">
-              <i class="pi pi-spin pi-spinner" style="font-size: 1.8rem; color: #002D72; margin-bottom: 10px;"></i>
+            <div
+              *ngIf="isLoadingTemplate()"
+              style="text-align: center; padding: 30px 0"
+            >
+              <i
+                class="pi pi-spin pi-spinner"
+                style="font-size: 1.8rem; color: #002d72; margin-bottom: 10px"
+              ></i>
               <div>Đang tải biểu mẫu thông số...</div>
             </div>
 
             <!-- Empty template -->
-            <div *ngIf="!isLoadingTemplate() && !eavTemplate()" class="org-tree-empty"
-              style="text-align: center; padding: 30px 0;">
-              <i class="pi pi-exclamation-circle" style="font-size: 2.2rem; color: #94a3b8; margin-bottom: 10px;"></i>
-              <div style="font-weight: 600; color: #64748b; font-size: 1rem;">Chưa có biểu mẫu thông số được gán cho
-                loại thiết bị này.</div>
-              <p style="margin: 5px 0 0 0; font-size: 0.85rem; color: #94a3b8;">Vui lòng quản lý form mẫu EAV liên kết
-                với EquipmentType trước.</p>
+            <div
+              *ngIf="!isLoadingTemplate() && !eavTemplate()"
+              class="org-tree-empty"
+              style="text-align: center; padding: 30px 0"
+            >
+              <i
+                class="pi pi-exclamation-circle"
+                style="font-size: 2.2rem; color: #94a3b8; margin-bottom: 10px"
+              ></i>
+              <div style="font-weight: 600; color: #64748b; font-size: 1rem">
+                Chưa có biểu mẫu thông số được gán cho loại thiết bị này.
+              </div>
+              <p style="margin: 5px 0 0 0; font-size: 0.85rem; color: #94a3b8">
+                Vui lòng quản lý form mẫu EAV liên kết với EquipmentType trước.
+              </p>
             </div>
 
             <!-- Render data kiểu docs (không phân cột, text căn trái, số căn phải, in đậm thường) -->
-            <div *ngIf="!isLoadingTemplate() && eavTemplate()"
-              style="display: flex; flex-direction: column; gap: 14px;">
+            <div
+              *ngIf="!isLoadingTemplate() && eavTemplate()"
+              style="display: flex; flex-direction: column; gap: 14px"
+            >
               <ng-container *ngFor="let field of eavFields()">
-                <div *ngIf="hasValue(field)"
-                  style="display: flex; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px;">
-                  <span style="width: 220px; color: #64748b; font-weight: 600;">
+                <div
+                  *ngIf="hasValue(field)"
+                  style="
+                    display: flex;
+                    align-items: center;
+                    border-bottom: 1px solid #f1f5f9;
+                    padding-bottom: 8px;
+                  "
+                >
+                  <span style="width: 220px; color: #64748b; font-weight: 600">
                     {{ field.label }}:
                   </span>
-                  <span [style.text-align]="isNumberField(field) ? 'right' : 'left'"
+                  <span
+                    [style.text-align]="isNumberField(field) ? 'right' : 'left'"
                     [style.margin-left]="isNumberField(field) ? 'auto' : '0'"
-                    [style.font-family]="isNumberField(field) ? 'monospace' : 'inherit'"
-                    style="font-size: 0.95rem; font-weight: 700; color: #334155;">
+                    [style.font-family]="
+                      isNumberField(field) ? 'monospace' : 'inherit'
+                    "
+                    style="font-size: 0.95rem; font-weight: 700; color: #334155"
+                  >
                     {{ getFormattedValue(field) }}
                   </span>
                 </div>
               </ng-container>
 
-              <div *ngIf="eavFields().length > 0 && (formValuesObj() | json) === '{}'" class="org-tree-empty"
-                style="text-align: center; padding: 20px 0;">
-                <i class="pi pi-info-circle" style="font-size: 1.8rem; color: #94a3b8; margin-bottom: 8px;"></i>
-                <div style="color: #64748b; font-weight: 600;">Chưa cấu hình thông số kỹ thuật cho thiết bị.</div>
+              <div
+                *ngIf="
+                  eavFields().length > 0 && (formValuesObj() | json) === '{}'
+                "
+                class="org-tree-empty"
+                style="text-align: center; padding: 20px 0"
+              >
+                <i
+                  class="pi pi-info-circle"
+                  style="font-size: 1.8rem; color: #94a3b8; margin-bottom: 8px"
+                ></i>
+                <div style="color: #64748b; font-weight: 600">
+                  Chưa cấu hình thông số kỹ thuật cho thiết bị.
+                </div>
               </div>
 
-              <div *ngIf="eavFields().length === 0" class="org-tree-empty" style="text-align: center; padding: 20px 0;">
-                <i class="pi pi-inbox" style="font-size: 1.8rem; color: #94a3b8; margin-bottom: 8px;"></i>
-                <div style="color: #64748b;">Biểu mẫu rỗng, chưa có trường thuộc tính nào được định nghĩa.</div>
+              <div
+                *ngIf="eavFields().length === 0"
+                class="org-tree-empty"
+                style="text-align: center; padding: 20px 0"
+              >
+                <i
+                  class="pi pi-inbox"
+                  style="font-size: 1.8rem; color: #94a3b8; margin-bottom: 8px"
+                ></i>
+                <div style="color: #64748b">
+                  Biểu mẫu rỗng, chưa có trường thuộc tính nào được định nghĩa.
+                </div>
               </div>
             </div>
           </div>
 
           <!-- Chế độ Chỉnh sửa thông số kỹ thuật (Form EAV động) -->
-          <div *ngIf="isEditingFormValues()" class="docs-style-view"
-            style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); margin-bottom: 25px;">
+          <div
+            *ngIf="isEditingFormValues()"
+            class="docs-style-view"
+            style="
+              background: #ffffff;
+              border: 1px solid #cbd5e1;
+              border-radius: 8px;
+              padding: 24px;
+              box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+              margin-bottom: 25px;
+            "
+          >
             <div
-              style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed #cbd5e1; padding-bottom: 12px; margin-bottom: 20px;">
-              <div style="border-left: 4px solid #FF6B00; padding-left: 10px;">
-                <h4 style="color: #002D72; margin: 0; font-weight: 700; font-size: 1.05rem;">
+              style="
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                border-bottom: 1px dashed #cbd5e1;
+                padding-bottom: 12px;
+                margin-bottom: 20px;
+              "
+            >
+              <div style="border-left: 4px solid #ff6b00; padding-left: 10px">
+                <h4
+                  style="
+                    color: #002d72;
+                    margin: 0;
+                    font-weight: 700;
+                    font-size: 1.05rem;
+                  "
+                >
                   Cấu hình thông số kỹ thuật
                 </h4>
-                <span style="font-size: 0.8rem; color: #64748b;">Biểu mẫu: {{ eavTemplate()?.name }}</span>
+                <span style="font-size: 0.8rem; color: #64748b"
+                  >Biểu mẫu: {{ eavTemplate()?.name }}</span
+                >
               </div>
 
               <!-- Nút hành động đưa lên lề trên phải -->
-              <div style="display: flex; gap: 8px;">
-                <button class="btn-cancel btn-small" (click)="onCancelConfigureParams()"
-                  [disabled]="isSavingFormValues()">
+              <div style="display: flex; gap: 8px">
+                <button
+                  class="btn-cancel btn-small"
+                  (click)="onCancelConfigureParams()"
+                  [disabled]="isSavingFormValues()"
+                >
                   Hủy bỏ
                 </button>
-                <button class="btn-save btn-small" (click)="onSaveFormValues()" [disabled]="isSavingFormValues()"
-                  style="background-color: #4790e9; border-color: #4790e9;">
-                  <i class="pi pi-spin pi-spinner" *ngIf="isSavingFormValues()" style="margin-right: 4px;"></i>
-                  <i class="pi pi-save" *ngIf="!isSavingFormValues()" style="margin-right: 4px;"></i>
+                <button
+                  class="btn-save btn-small"
+                  (click)="onSaveFormValues()"
+                  [disabled]="isSavingFormValues()"
+                  style="background-color: #4790e9; border-color: #4790e9"
+                >
+                  <i
+                    class="pi pi-spin pi-spinner"
+                    *ngIf="isSavingFormValues()"
+                    style="margin-right: 4px"
+                  ></i>
+                  <i
+                    class="pi pi-save"
+                    *ngIf="!isSavingFormValues()"
+                    style="margin-right: 4px"
+                  ></i>
                   Lưu thông số
                 </button>
               </div>
             </div>
 
             <!-- Loop render EAV form schema -->
-            <div class="eav-form-layout" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; width: 100%;">
-              <div *ngFor="let field of eavFields(); trackBy: trackEavField" class="form-group"
-                [style.grid-column]="field.width === 100 ? 'span 2' : 'span 1'">
-                <label class="form-label" style="font-weight: 600; margin-bottom: 5px; display: block; color: #374151;">
-                  {{ field.label }} <span class="required" *ngIf="field.required" style="color: #ef4444;">*</span>
+            <div
+              class="eav-form-layout"
+              style="
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 16px;
+                width: 100%;
+              "
+            >
+              <div
+                *ngFor="let field of eavFields(); trackBy: trackEavField"
+                class="form-group"
+                [style.grid-column]="field.width === 100 ? 'span 2' : 'span 1'"
+              >
+                <label
+                  class="form-label"
+                  style="
+                    font-weight: 600;
+                    margin-bottom: 5px;
+                    display: block;
+                    color: #374151;
+                  "
+                >
+                  {{ field.label }}
+                  <span
+                    class="required"
+                    *ngIf="field.required"
+                    style="color: #ef4444"
+                    >*</span
+                  >
                 </label>
 
                 <ng-container [ngSwitch]="field.type">
-                  <input *ngSwitchCase="'text'" type="text" class="wf-input w-full" [id]="'eav-' + field.id"
-                    [name]="getEavFieldKey(field)" [ngModel]="getEavFieldValue(field)"
-                    (ngModelChange)="setEavFieldValue(field, $event)" [disabled]="isSavingFormValues()" />
-                  <input *ngSwitchCase="'number'" type="number" class="wf-input w-full" [id]="'eav-' + field.id"
-                    [name]="getEavFieldKey(field)" [ngModel]="getEavFieldValue(field)"
-                    (ngModelChange)="setEavFieldValue(field, $event)" [disabled]="isSavingFormValues()"
-                    style="text-align: right;" />
-                  <p-datepicker *ngSwitchCase="'date'" [id]="'eav-' + field.id"
-                    [name]="getEavFieldKey(field)" [ngModel]="getEavFieldValue(field)"
-                    (ngModelChange)="setEavFieldValue(field, $event)" [disabled]="isSavingFormValues()"
-                    dateFormat="dd/mm/yy" [showIcon]="true" icon="pi pi-calendar" appendTo="body"
-                    styleClass="w-full" [style]="{'width':'100%'}" placeholder="dd/mm/yyyy">
+                  <input
+                    *ngSwitchCase="'text'"
+                    type="text"
+                    class="wf-input w-full"
+                    [id]="'eav-' + field.id"
+                    [name]="getEavFieldKey(field)"
+                    [ngModel]="getEavFieldValue(field)"
+                    (ngModelChange)="setEavFieldValue(field, $event)"
+                    [disabled]="isSavingFormValues()"
+                  />
+                  <input
+                    *ngSwitchCase="'number'"
+                    type="number"
+                    class="wf-input w-full"
+                    [id]="'eav-' + field.id"
+                    [name]="getEavFieldKey(field)"
+                    [ngModel]="getEavFieldValue(field)"
+                    (ngModelChange)="setEavFieldValue(field, $event)"
+                    [disabled]="isSavingFormValues()"
+                    style="text-align: right"
+                  />
+                  <p-datepicker
+                    *ngSwitchCase="'date'"
+                    [id]="'eav-' + field.id"
+                    [name]="getEavFieldKey(field)"
+                    [ngModel]="getEavFieldValue(field)"
+                    (ngModelChange)="setEavFieldValue(field, $event)"
+                    [disabled]="isSavingFormValues()"
+                    dateFormat="dd/mm/yy"
+                    [showIcon]="true"
+                    icon="pi pi-calendar"
+                    appendTo="body"
+                    styleClass="w-full"
+                    [style]="{ width: '100%' }"
+                    placeholder="dd/mm/yyyy"
+                  >
                   </p-datepicker>
-                  <textarea *ngSwitchCase="'textarea'" class="wf-textarea w-full" rows="3" [id]="'eav-' + field.id"
-                    [name]="getEavFieldKey(field)" [ngModel]="getEavFieldValue(field)"
-                    (ngModelChange)="setEavFieldValue(field, $event)" [disabled]="isSavingFormValues()"></textarea>
-                  <select *ngSwitchCase="'dropdown'" class="wf-input w-full" [id]="'eav-' + field.id"
-                    [name]="getEavFieldKey(field)" [ngModel]="getEavFieldValue(field)"
-                    (ngModelChange)="setEavFieldValue(field, $event)" [disabled]="isSavingFormValues()">
+                  <textarea
+                    *ngSwitchCase="'textarea'"
+                    class="wf-textarea w-full"
+                    rows="3"
+                    [id]="'eav-' + field.id"
+                    [name]="getEavFieldKey(field)"
+                    [ngModel]="getEavFieldValue(field)"
+                    (ngModelChange)="setEavFieldValue(field, $event)"
+                    [disabled]="isSavingFormValues()"
+                  ></textarea>
+                  <select
+                    *ngSwitchCase="'dropdown'"
+                    class="wf-input w-full"
+                    [id]="'eav-' + field.id"
+                    [name]="getEavFieldKey(field)"
+                    [ngModel]="getEavFieldValue(field)"
+                    (ngModelChange)="setEavFieldValue(field, $event)"
+                    [disabled]="isSavingFormValues()"
+                  >
                     <option value="">-- Chọn {{ field.label }} --</option>
-                    <option *ngFor="let opt of field.options" [value]="opt">{{ opt }}</option>
+                    <option *ngFor="let opt of field.options" [value]="opt">
+                      {{ opt }}
+                    </option>
                   </select>
-                  <div *ngSwitchCase="'checkbox'"
-                    style="display: flex; align-items: center; gap: 8px; padding-top: 8px;">
-                    <input type="checkbox" [id]="'eav-' + field.id" [name]="getEavFieldKey(field)"
-                      [ngModel]="getEavFieldValue(field)" (ngModelChange)="setEavFieldValue(field, $event)"
-                      [disabled]="isSavingFormValues()" style="scale: 1.1;" />
-                    <label [for]="'eav-' + field.id" style="font-size: 0.9rem; cursor: pointer; user-select: none;">{{
-                      field.placeholder || 'Kích hoạt' }}</label>
+                  <div
+                    *ngSwitchCase="'checkbox'"
+                    style="
+                      display: flex;
+                      align-items: center;
+                      gap: 8px;
+                      padding-top: 8px;
+                    "
+                  >
+                    <input
+                      type="checkbox"
+                      [id]="'eav-' + field.id"
+                      [name]="getEavFieldKey(field)"
+                      [ngModel]="getEavFieldValue(field)"
+                      (ngModelChange)="setEavFieldValue(field, $event)"
+                      [disabled]="isSavingFormValues()"
+                      style="scale: 1.1"
+                    />
+                    <label
+                      [for]="'eav-' + field.id"
+                      style="
+                        font-size: 0.9rem;
+                        cursor: pointer;
+                        user-select: none;
+                      "
+                      >{{ field.placeholder || 'Kích hoạt' }}</label
+                    >
                   </div>
                 </ng-container>
               </div>
@@ -761,32 +1861,67 @@
       </div>
 
       <!-- ==================== TAB: TÀI LIỆU ĐÍNH KÈM (profile docs) ==================== -->
-      <div *ngIf="activeTab() === 'profileDocs'" class="tab-content animate-fade-in">
+      <div
+        *ngIf="activeTab() === 'profileDocs'"
+        class="tab-content animate-fade-in"
+      >
         <app-equipment-documents
           *ngIf="currentItem().id as profileEquipmentId"
           [equipmentId]="profileEquipmentId"
-          [canEdit]="canEdit()"
+          [canEdit]="canEdit() && !searchReadOnly()"
+          [hideDigitizationColumns]="searchReadOnly()"
           (documentProcessed)="reloadDetail(profileEquipmentId)"
         ></app-equipment-documents>
       </div>
 
       <!-- ==================== TAB: HỒ SƠ LIÊN QUAN (ORACLE BHS LIST) ==================== -->
-      <div *ngIf="activeTab() === 'related'" class="tab-content animate-fade-in">
-
+      <div
+        *ngIf="activeTab() === 'related'"
+        class="tab-content animate-fade-in"
+      >
         <!-- Bảng danh sách hồ sơ (STT -> các trường theo BHS -> loại hồ sơ -> người tạo -> ngày tạo -> trạng thái) -->
-        <div class="wf-table-wrap"
-          style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-
-          <div style="border-bottom: 1px dashed #cbd5e1; padding-bottom: 10px; margin-bottom: 15px;">
-            <span style="font-size: 0.95rem; font-weight: 700; color: #002D72; text-transform: uppercase;">
-              <i class="pi pi-folder-open" style="color: #FF6B00; margin-right: 6px;"></i> Danh mục Hồ sơ lưu trữ liên
-              quan
+        <div
+          class="wf-table-wrap"
+          style="
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+          "
+        >
+          <div
+            style="
+              border-bottom: 1px dashed #cbd5e1;
+              padding-bottom: 10px;
+              margin-bottom: 15px;
+            "
+          >
+            <span
+              style="
+                font-size: 0.95rem;
+                font-weight: 700;
+                color: #002d72;
+                text-transform: uppercase;
+              "
+            >
+              <i
+                class="pi pi-folder-open"
+                style="color: #ff6b00; margin-right: 6px"
+              ></i>
+              Danh mục Hồ sơ lưu trữ liên quan
             </span>
           </div>
 
           <!-- Loader -->
-          <div *ngIf="isLoadingDossiers()" style="text-align: center; padding: 40px 0;">
-            <i class="pi pi-spin pi-spinner" style="font-size: 2rem; color: #002D72; margin-bottom: 10px;"></i>
+          <div
+            *ngIf="isLoadingDossiers()"
+            style="text-align: center; padding: 40px 0"
+          >
+            <i
+              class="pi pi-spin pi-spinner"
+              style="font-size: 2rem; color: #002d72; margin-bottom: 10px"
+            ></i>
             <div>Đang truy vấn dữ liệu hồ sơ từ hệ thống Oracle...</div>
           </div>
 
@@ -804,37 +1939,69 @@
               </thead>
               <tbody>
                 <tr *ngFor="let item of dossierItems(); let i = index">
-                  <td class="col-stt text-muted">{{ (dossierPage() - 1) * dossierPageSize() + i + 1 }}</td>
+                  <td class="col-stt text-muted">
+                    {{ (dossierPage() - 1) * dossierPageSize() + i + 1 }}
+                  </td>
 
                   <!-- Render giá trị Catalog BHS động, gắn link hồ sơ ở cột BHS đầu tiên -->
-                  <td *ngFor="let col of dossierColumns(); let firstCol = first">
+                  <td
+                    *ngFor="let col of dossierColumns(); let firstCol = first"
+                  >
                     <span *ngIf="firstCol; else normalVal">
-                      <b class="wf-name-link" style="color: #0284c7; cursor: pointer; text-decoration: underline;"
-                        (click)="viewDossierDetail(item)" [title]="'Xem chi tiết hồ sơ trong tab mới'">
-                        {{ item.catalogData ? (item.catalogData[col.key] || '---') : '---' }}
+                      <b
+                        class="wf-name-link"
+                        style="
+                          color: #0284c7;
+                          cursor: pointer;
+                          text-decoration: underline;
+                        "
+                        (click)="viewDossierDetail(item)"
+                        [title]="'Xem chi tiết hồ sơ trong tab mới'"
+                      >
+                        {{
+                          item.catalogData
+                            ? item.catalogData[col.key] || '---'
+                            : '---'
+                        }}
                       </b>
                     </span>
                     <ng-template #normalVal>
-                      {{ item.catalogData ? (item.catalogData[col.key] || '---') : '---' }}
+                      {{
+                        item.catalogData
+                          ? item.catalogData[col.key] || '---'
+                          : '---'
+                      }}
                     </ng-template>
                   </td>
 
                   <td>{{ item.dossierTypeName }}</td>
                   <td>{{ item.creatorName || 'System' }}</td>
-                  <td>{{ item.createdDate | date:'dd/MM/yyyy HH:mm' }}</td>
+                  <td>{{ item.createdDate | date: 'dd/MM/yyyy HH:mm' }}</td>
                 </tr>
                 <tr *ngIf="dossierItems().length === 0">
-                  <td [attr.colspan]="4 + dossierColumns().length" class="empty-row">
+                  <td
+                    [attr.colspan]="4 + dossierColumns().length"
+                    class="empty-row"
+                  >
                     <i class="pi pi-inbox"></i>
-                    <div>Không tìm thấy hồ sơ nào liên kết với thiết bị này.</div>
+                    <div>
+                      Không tìm thấy hồ sơ nào liên kết với thiết bị này.
+                    </div>
                   </td>
                 </tr>
               </tbody>
             </table>
 
             <!-- Phân trang hồ sơ BHS -->
-            <div class="table-footer-paginator" *ngIf="dossierTotalCount() > 0" style="margin-top: 15px;">
-              <span class="record-count">Tổng số: <b>{{ dossierTotalCount() }}</b> hồ sơ liên quan.</span>
+            <div
+              class="table-footer-paginator"
+              *ngIf="dossierTotalCount() > 0"
+              style="margin-top: 15px"
+            >
+              <span class="record-count"
+                >Tổng số: <b>{{ dossierTotalCount() }}</b> hồ sơ liên
+                quan.</span
+              >
               <app-eco-paginator
                 [first]="(dossierPage() - 1) * dossierPageSize()"
                 [rows]="dossierPageSize()"
@@ -844,80 +2011,219 @@
               ></app-eco-paginator>
             </div>
           </div>
-
         </div>
       </div>
+      </div>
     </div>
-
   </div>
 
   <!-- Dialog Chuyển thiết bị -->
-  <p-dialog [visible]="showTransferDialog()" (visibleChange)="$event ? null : closeTransferDialog()"
-    header="Chuyển thiết bị" [modal]="true" [style]="{ width: '560px', height: '550px' }" styleClass="evn-dialog-custom"
-    [closable]="!transferLoading()">
-    <div style="padding: 8px 0 16px; display: flex; flex-direction: column; gap: 16px;">
+  <p-dialog
+    [visible]="showTransferDialog()"
+    (visibleChange)="$event ? null : closeTransferDialog()"
+    header="Chuyển thiết bị"
+    [modal]="true"
+    [style]="{ width: '560px', height: '550px' }"
+    styleClass="evn-dialog-custom"
+    [closable]="!transferLoading()"
+  >
+    <div
+      style="
+        padding: 8px 0 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      "
+    >
       <div class="form-group">
-        <label class="form-label" style="font-weight: 600; margin-bottom: 6px; display: block; color: #374151;">
-          Đơn vị quản lý <span class="required" style="color: #ef4444;">*</span>
+        <label
+          class="form-label"
+          style="
+            font-weight: 600;
+            margin-bottom: 6px;
+            display: block;
+            color: #374151;
+          "
+        >
+          Đơn vị quản lý <span class="required" style="color: #ef4444">*</span>
         </label>
         <div class="org-tree-picker" [class.disabled]="transferLoading()">
-          <div class="org-tree-trigger" (click)="toggleTransferOrgTree($event)"
-            [class.has-value]="transferForm().unitId" [class.open]="transferOrgTreeOpen()">
+          <div
+            class="org-tree-trigger"
+            (click)="toggleTransferOrgTree($event)"
+            [class.has-value]="transferForm().unitId"
+            [class.open]="transferOrgTreeOpen()"
+          >
             <span class="org-tree-selected-label">
-              <i class="pi pi-building" style="margin-right: 6px; color: #6b7280;"></i>
-              {{ getTransferUnitLabel(transferForm().unitId) || '-- Chọn đơn vị quản lý --' }}
+              <i
+                class="pi pi-building"
+                style="margin-right: 6px; color: #6b7280"
+              ></i>
+              {{
+                getTransferUnitLabel(transferForm().unitId) ||
+                  '-- Chọn đơn vị quản lý --'
+              }}
             </span>
-            <i class="pi" [class.pi-chevron-down]="!transferOrgTreeOpen()" [class.pi-chevron-up]="transferOrgTreeOpen()"></i>
+            <i
+              class="pi"
+              [class.pi-chevron-down]="!transferOrgTreeOpen()"
+              [class.pi-chevron-up]="transferOrgTreeOpen()"
+            ></i>
           </div>
-          <div class="org-tree-dropdown" *ngIf="transferOrgTreeOpen()" (click)="$event.stopPropagation()">
+          <div
+            class="org-tree-dropdown"
+            *ngIf="transferOrgTreeOpen()"
+            (click)="$event.stopPropagation()"
+          >
             <div class="org-tree-search">
               <i class="pi pi-search"></i>
-              <input type="text" placeholder="Tìm kiếm đơn vị..." [ngModel]="transferOrgSearchKeyword()"
-                (ngModelChange)="transferOrgSearchKeyword.set($event)" />
+              <input
+                type="text"
+                placeholder="Tìm kiếm đơn vị..."
+                [ngModel]="transferOrgSearchKeyword()"
+                (ngModelChange)="transferOrgSearchKeyword.set($event)"
+              />
             </div>
             <ng-container *ngFor="let node of transferOrgUnitTree()">
-              <ng-container *ngTemplateOutlet="transferOrgTreeNode; context: { $implicit: node, depth: 0 }"></ng-container>
+              <ng-container
+                *ngTemplateOutlet="
+                  transferOrgTreeNode;
+                  context: { $implicit: node, depth: 0 }
+                "
+              ></ng-container>
             </ng-container>
-            <div *ngIf="transferOrgUnitTree().length === 0" class="org-tree-empty">Không có đơn vị phù hợp.</div>
+            <div
+              *ngIf="transferOrgUnitTree().length === 0"
+              class="org-tree-empty"
+            >
+              Không có đơn vị phù hợp.
+            </div>
           </div>
         </div>
-        <span class="field-error" *ngIf="transferUnitError()"
-          style="color: #ef4444; font-size: 0.8rem; margin-top: 4px; display: block;">{{ transferUnitError() }}</span>
+        <span
+          class="field-error"
+          *ngIf="transferUnitError()"
+          style="
+            color: #ef4444;
+            font-size: 0.8rem;
+            margin-top: 4px;
+            display: block;
+          "
+          >{{ transferUnitError() }}</span
+        >
       </div>
 
       <div class="form-group">
-        <label class="form-label" style="font-weight: 600; margin-bottom: 6px; display: block; color: #374151;">
-          Trạm/Đường dây <span class="required" style="color: #ef4444;">*</span>
+        <label
+          class="form-label"
+          style="
+            font-weight: 600;
+            margin-bottom: 6px;
+            display: block;
+            color: #374151;
+          "
+        >
+          Trạm/Đường dây <span class="required" style="color: #ef4444">*</span>
         </label>
-        <p-select [options]="transferInfrastructures()" [ngModel]="transferForm().infrastructureId"
-          (ngModelChange)="onTransferInfrastructureChange($event)" optionLabel="name" optionValue="id"
-          [placeholder]="transferForm().unitId ? '-- Chọn Trạm/Đường dây --' : '-- Vui lòng chọn Đơn vị quản lý --'"
-          [disabled]="!transferForm().unitId || transferLoading()" [filter]="true"
-          [style]="{'width':'100%', 'height':'38px', 'line-height':'24px', 'border':'1px solid #cbd5e1', 'border-radius':'6px', 'background-color':'#ffffff', 'color':'#374151'}">
+        <p-select
+          [options]="transferInfrastructures()"
+          [ngModel]="transferForm().infrastructureId"
+          (ngModelChange)="onTransferInfrastructureChange($event)"
+          optionLabel="name"
+          optionValue="id"
+          [placeholder]="
+            transferForm().unitId
+              ? '-- Chọn Trạm/Đường dây --'
+              : '-- Vui lòng chọn Đơn vị quản lý --'
+          "
+          [disabled]="!transferForm().unitId || transferLoading()"
+          [filter]="true"
+          [style]="{
+            width: '100%',
+            height: '38px',
+            'line-height': '24px',
+            border: '1px solid #cbd5e1',
+            'border-radius': '6px',
+            'background-color': '#ffffff',
+            color: '#374151',
+          }"
+        >
         </p-select>
-        <span class="field-error" *ngIf="transferInfrastructureError()"
-          style="color: #ef4444; font-size: 0.8rem; margin-top: 4px; display: block;">{{ transferInfrastructureError() }}</span>
+        <span
+          class="field-error"
+          *ngIf="transferInfrastructureError()"
+          style="
+            color: #ef4444;
+            font-size: 0.8rem;
+            margin-top: 4px;
+            display: block;
+          "
+          >{{ transferInfrastructureError() }}</span
+        >
       </div>
 
       <div class="form-group">
-        <label class="form-label" style="font-weight: 600; margin-bottom: 6px; display: block; color: #374151;">
+        <label
+          class="form-label"
+          style="
+            font-weight: 600;
+            margin-bottom: 6px;
+            display: block;
+            color: #374151;
+          "
+        >
           Ghi chú
         </label>
-        <textarea class="wf-input w-full" rows="5" placeholder="Nhập ghi chú..."
+        <textarea
+          class="wf-input w-full"
+          rows="5"
+          placeholder="Nhập ghi chú..."
           [ngModel]="transferForm().note"
           (ngModelChange)="onTransferNoteChange($event)"
           [disabled]="transferLoading()"
-          style="min-height: 96px; resize: vertical; padding: 10px 12px; background-color: #ffffff !important; color: #374151 !important; border-radius: 6px;"></textarea>
+          style="
+            min-height: 96px;
+            resize: vertical;
+            padding: 10px 12px;
+            background-color: #ffffff !important;
+            color: #374151 !important;
+            border-radius: 6px;
+          "
+        ></textarea>
       </div>
     </div>
     <ng-template #footer>
-      <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
-        <button class="btn-cancel btn-small" (click)="closeTransferDialog()" [disabled]="transferLoading()">
+      <div
+        style="
+          display: flex;
+          justify-content: flex-end;
+          gap: 8px;
+          border-top: 1px solid #f1f5f9;
+          padding-top: 12px;
+        "
+      >
+        <button
+          class="btn-cancel btn-small"
+          (click)="closeTransferDialog()"
+          [disabled]="transferLoading()"
+        >
           <i class="pi pi-times"></i> Hủy
         </button>
-        <button class="btn-save btn-small" (click)="confirmTransferEquipment()" [disabled]="transferLoading()">
-          <i class="pi pi-spin pi-spinner" *ngIf="transferLoading()" style="margin-right: 4px;"></i>
-          <i class="pi pi-check" *ngIf="!transferLoading()" style="margin-right: 4px;"></i>
+        <button
+          class="btn-save btn-small"
+          (click)="confirmTransferEquipment()"
+          [disabled]="transferLoading()"
+        >
+          <i
+            class="pi pi-spin pi-spinner"
+            *ngIf="transferLoading()"
+            style="margin-right: 4px"
+          ></i>
+          <i
+            class="pi pi-check"
+            *ngIf="!transferLoading()"
+            style="margin-right: 4px"
+          ></i>
           Chuyển TBA
         </button>
       </div>
@@ -925,33 +2231,91 @@
   </p-dialog>
 
   <ng-template #formOrgTreeNode let-node let-depth="depth">
-    <div class="org-tree-node" [class.selected]="currentItem().unitId == node.id" [style.padding-left.px]="8 + depth * 16">
-      <button type="button" class="org-tree-expand-btn" *ngIf="node.children && node.children.length > 0"
-        (click)="toggleFormUnitNode(node.id, $event)">
-        <i class="pi" [class.pi-chevron-right]="!isFormNodeExpanded(node.id)" [class.pi-chevron-down]="isFormNodeExpanded(node.id)"></i>
+    <div
+      class="org-tree-node"
+      [class.selected]="currentItem().unitId == node.id"
+      [style.padding-left.px]="8 + depth * 16"
+    >
+      <button
+        type="button"
+        class="org-tree-expand-btn"
+        *ngIf="node.children && node.children.length > 0"
+        (click)="toggleFormUnitNode(node.id, $event)"
+      >
+        <i
+          class="pi"
+          [class.pi-chevron-right]="!isFormNodeExpanded(node.id)"
+          [class.pi-chevron-down]="isFormNodeExpanded(node.id)"
+        ></i>
       </button>
-      <span class="org-tree-node-spacer" *ngIf="!node.children || node.children.length === 0"></span>
-      <span class="org-tree-node-label" (click)="selectFormOrgUnit(node.id)">{{ node.name }}</span>
+      <span
+        class="org-tree-node-spacer"
+        *ngIf="!node.children || node.children.length === 0"
+      ></span>
+      <span class="org-tree-node-label" (click)="selectFormOrgUnit(node.id)">{{
+        node.name
+      }}</span>
     </div>
-    <div *ngIf="(formOrgSearchKeyword() || isFormNodeExpanded(node.id)) && node.children && node.children.length > 0">
+    <div
+      *ngIf="
+        (formOrgSearchKeyword() || isFormNodeExpanded(node.id)) &&
+        node.children &&
+        node.children.length > 0
+      "
+    >
       <ng-container *ngFor="let child of node.children">
-        <ng-container *ngTemplateOutlet="formOrgTreeNode; context: { $implicit: child, depth: depth + 1 }"></ng-container>
+        <ng-container
+          *ngTemplateOutlet="
+            formOrgTreeNode;
+            context: { $implicit: child, depth: depth + 1 }
+          "
+        ></ng-container>
       </ng-container>
     </div>
   </ng-template>
 
   <ng-template #transferOrgTreeNode let-node let-depth="depth">
-    <div class="org-tree-node" [class.selected]="transferForm().unitId == node.id" [style.padding-left.px]="8 + depth * 16">
-      <button type="button" class="org-tree-expand-btn" *ngIf="node.children && node.children.length > 0"
-        (click)="toggleTransferUnitNode(node.id, $event)">
-        <i class="pi" [class.pi-chevron-right]="!isTransferNodeExpanded(node.id)" [class.pi-chevron-down]="isTransferNodeExpanded(node.id)"></i>
+    <div
+      class="org-tree-node"
+      [class.selected]="transferForm().unitId == node.id"
+      [style.padding-left.px]="8 + depth * 16"
+    >
+      <button
+        type="button"
+        class="org-tree-expand-btn"
+        *ngIf="node.children && node.children.length > 0"
+        (click)="toggleTransferUnitNode(node.id, $event)"
+      >
+        <i
+          class="pi"
+          [class.pi-chevron-right]="!isTransferNodeExpanded(node.id)"
+          [class.pi-chevron-down]="isTransferNodeExpanded(node.id)"
+        ></i>
       </button>
-      <span class="org-tree-node-spacer" *ngIf="!node.children || node.children.length === 0"></span>
-      <span class="org-tree-node-label" (click)="selectTransferOrgUnit(node.id)">{{ node.name }}</span>
+      <span
+        class="org-tree-node-spacer"
+        *ngIf="!node.children || node.children.length === 0"
+      ></span>
+      <span
+        class="org-tree-node-label"
+        (click)="selectTransferOrgUnit(node.id)"
+        >{{ node.name }}</span
+      >
     </div>
-    <div *ngIf="(transferOrgSearchKeyword() || isTransferNodeExpanded(node.id)) && node.children && node.children.length > 0">
+    <div
+      *ngIf="
+        (transferOrgSearchKeyword() || isTransferNodeExpanded(node.id)) &&
+        node.children &&
+        node.children.length > 0
+      "
+    >
       <ng-container *ngFor="let child of node.children">
-        <ng-container *ngTemplateOutlet="transferOrgTreeNode; context: { $implicit: child, depth: depth + 1 }"></ng-container>
+        <ng-container
+          *ngTemplateOutlet="
+            transferOrgTreeNode;
+            context: { $implicit: child, depth: depth + 1 }
+          "
+        ></ng-container>
       </ng-container>
     </div>
   </ng-template>
@@ -968,26 +2332,72 @@
   />
 
   <!-- Dialog Xác nhận Chuyển hồ sơ -->
-  <p-dialog [visible]="showTransferDossierConfirm()" (visibleChange)="$event ? null : onCancelTransferDossier()"
-    header="Xác nhận chuyển hồ sơ" [modal]="true" [style]="{ width: '460px' }" styleClass="evn-dialog-custom"
-    [closable]="!transferDossierLoading()">
-    <div style="display: flex; align-items: flex-start; gap: 12px; padding: 8px 0 16px;">
-      <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #f59e0b;"></i>
+  <p-dialog
+    [visible]="showTransferDossierConfirm()"
+    (visibleChange)="$event ? null : onCancelTransferDossier()"
+    header="Xác nhận chuyển hồ sơ"
+    [modal]="true"
+    [style]="{ width: '460px' }"
+    styleClass="evn-dialog-custom"
+    [closable]="!transferDossierLoading()"
+  >
+    <div
+      style="
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 8px 0 16px;
+      "
+    >
+      <i
+        class="pi pi-exclamation-triangle"
+        style="font-size: 1.8rem; color: #f59e0b"
+      ></i>
       <div>
-        <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">Bạn có chắc chắn muốn chuyển hồ sơ?</p>
-        <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
-          Hồ sơ của thiết bị <b style="color: #1e293b;">{{ transferDossierTarget()?.name || transferDossierTarget()?.code }}</b> sẽ được chuyển theo thiết bị đã chọn.
+        <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b">
+          Bạn có chắc chắn muốn chuyển hồ sơ?
+        </p>
+        <p style="margin: 0; color: #64748b; font-size: 0.875rem">
+          Hồ sơ của thiết bị
+          <b style="color: #1e293b">{{
+            transferDossierTarget()?.name || transferDossierTarget()?.code
+          }}</b>
+          sẽ được chuyển theo thiết bị đã chọn.
         </p>
       </div>
     </div>
     <ng-template #footer>
-      <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
-        <button class="btn-cancel btn-small" (click)="onCancelTransferDossier()" [disabled]="transferDossierLoading()">
+      <div
+        style="
+          display: flex;
+          justify-content: flex-end;
+          gap: 8px;
+          border-top: 1px solid #f1f5f9;
+          padding-top: 12px;
+        "
+      >
+        <button
+          class="btn-cancel btn-small"
+          (click)="onCancelTransferDossier()"
+          [disabled]="transferDossierLoading()"
+        >
           <i class="pi pi-times"></i> Hủy
         </button>
-        <button class="btn-save btn-small" (click)="onConfirmTransferDossier()" [disabled]="transferDossierLoading()">
-          <i class="pi pi-spin pi-spinner" *ngIf="transferDossierLoading()" style="margin-right: 4px;"></i>
-          <i class="pi pi-check" *ngIf="!transferDossierLoading()" style="margin-right: 4px;"></i>
+        <button
+          class="btn-save btn-small"
+          (click)="onConfirmTransferDossier()"
+          [disabled]="transferDossierLoading()"
+        >
+          <i
+            class="pi pi-spin pi-spinner"
+            *ngIf="transferDossierLoading()"
+            style="margin-right: 4px"
+          ></i>
+          <i
+            class="pi pi-check"
+            *ngIf="!transferDossierLoading()"
+            style="margin-right: 4px"
+          ></i>
           Xác nhận chuyển
         </button>
       </div>
@@ -995,39 +2405,123 @@
   </p-dialog>
 
   <!-- Dialog Xác nhận Khóa/Mở khóa -->
-  <p-dialog 
-    [visible]="showLockUnlockConfirm()" 
-    (visibleChange)="showLockUnlockConfirm.set($event)" 
-    [header]="(lockUnlockTarget()?.isActive === 1 || lockUnlockTarget()?.isActive === true) ? 'Xác nhận khóa thiết bị' : 'Xác nhận mở khóa thiết bị'" 
-    [modal]="true" 
-    [style]="{ width: '420px' }" 
+  <p-dialog
+    [visible]="showLockUnlockConfirm()"
+    (visibleChange)="showLockUnlockConfirm.set($event)"
+    [header]="
+      lockUnlockTarget()?.isActive === 1 ||
+      lockUnlockTarget()?.isActive === true
+        ? 'Xác nhận khóa thiết bị'
+        : 'Xác nhận mở khóa thiết bị'
+    "
+    [modal]="true"
+    [style]="{ width: '420px' }"
     styleClass="evn-dialog-custom"
-    [closable]="!lockUnlockLoading()">
-    <div style="padding: 8px 0 16px 0; display: flex; flex-direction: column; gap: 12px;">
-      <div style="display: flex; align-items: flex-start; gap: 12px;">
-        <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #f59e0b; margin-top: 2px; flex-shrink: 0;"></i>
+    [closable]="!lockUnlockLoading()"
+  >
+    <div
+      style="
+        padding: 8px 0 16px 0;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      "
+    >
+      <div style="display: flex; align-items: flex-start; gap: 12px">
+        <i
+          class="pi pi-exclamation-triangle"
+          style="
+            font-size: 1.8rem;
+            color: #f59e0b;
+            margin-top: 2px;
+            flex-shrink: 0;
+          "
+        ></i>
         <div>
-          <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b; font-size: 0.95rem;">
-            {{ (lockUnlockTarget()?.isActive === 1 || lockUnlockTarget()?.isActive === true) ? 'Bạn có chắc muốn khóa thiết bị này?' : 'Bạn có chắc muốn mở khóa thiết bị này?' }}
+          <p
+            style="
+              margin: 0 0 6px 0;
+              font-weight: 600;
+              color: #1e293b;
+              font-size: 0.95rem;
+            "
+          >
+            {{
+              lockUnlockTarget()?.isActive === 1 ||
+              lockUnlockTarget()?.isActive === true
+                ? 'Bạn có chắc muốn khóa thiết bị này?'
+                : 'Bạn có chắc muốn mở khóa thiết bị này?'
+            }}
           </p>
-          <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
-            Thiết bị <b style="color: #1e293b;">{{ lockUnlockTarget()?.name }}</b> sẽ được 
-            {{ (lockUnlockTarget()?.isActive === 1 || lockUnlockTarget()?.isActive === true) ? 'khóa và ngừng hoạt động' : 'mở khóa và hoạt động trở lại' }}.
+          <p style="margin: 0; color: #64748b; font-size: 0.875rem">
+            Thiết bị
+            <b style="color: #1e293b">{{ lockUnlockTarget()?.name }}</b> sẽ được
+            {{
+              lockUnlockTarget()?.isActive === 1 ||
+              lockUnlockTarget()?.isActive === true
+                ? 'khóa và ngừng hoạt động'
+                : 'mở khóa và hoạt động trở lại'
+            }}.
           </p>
         </div>
       </div>
     </div>
     <ng-template #footer>
-      <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
-        <button class="btn-cancel btn-small" (click)="onCancelLockUnlock()" [disabled]="lockUnlockLoading()">
+      <div
+        style="
+          display: flex;
+          justify-content: flex-end;
+          gap: 8px;
+          border-top: 1px solid #f1f5f9;
+          padding-top: 12px;
+        "
+      >
+        <button
+          class="btn-cancel btn-small"
+          (click)="onCancelLockUnlock()"
+          [disabled]="lockUnlockLoading()"
+        >
           <i class="pi pi-times"></i> Hủy
         </button>
-        <button class="btn-save btn-small" (click)="onConfirmLockUnlock()" [disabled]="lockUnlockLoading()"
-          [style.background-color]="(lockUnlockTarget()?.isActive === 1 || lockUnlockTarget()?.isActive === true) ? '#dc2626' : '#16a34a'"
-          [style.border-color]="(lockUnlockTarget()?.isActive === 1 || lockUnlockTarget()?.isActive === true) ? '#dc2626' : '#16a34a'">
-          <i class="pi pi-spin pi-spinner" *ngIf="lockUnlockLoading()" style="margin-right: 4px;"></i>
-          <i class="pi" [ngClass]="(lockUnlockTarget()?.isActive === 1 || lockUnlockTarget()?.isActive === true) ? 'pi-lock' : 'pi-lock-open'" *ngIf="!lockUnlockLoading()" style="margin-right: 4px;"></i>
-          {{ (lockUnlockTarget()?.isActive === 1 || lockUnlockTarget()?.isActive === true) ? 'Khóa' : 'Mở khóa' }}
+        <button
+          class="btn-save btn-small"
+          (click)="onConfirmLockUnlock()"
+          [disabled]="lockUnlockLoading()"
+          [style.background-color]="
+            lockUnlockTarget()?.isActive === 1 ||
+            lockUnlockTarget()?.isActive === true
+              ? '#dc2626'
+              : '#16a34a'
+          "
+          [style.border-color]="
+            lockUnlockTarget()?.isActive === 1 ||
+            lockUnlockTarget()?.isActive === true
+              ? '#dc2626'
+              : '#16a34a'
+          "
+        >
+          <i
+            class="pi pi-spin pi-spinner"
+            *ngIf="lockUnlockLoading()"
+            style="margin-right: 4px"
+          ></i>
+          <i
+            class="pi"
+            [ngClass]="
+              lockUnlockTarget()?.isActive === 1 ||
+              lockUnlockTarget()?.isActive === true
+                ? 'pi-lock'
+                : 'pi-lock-open'
+            "
+            *ngIf="!lockUnlockLoading()"
+            style="margin-right: 4px"
+          ></i>
+          {{
+            lockUnlockTarget()?.isActive === 1 ||
+            lockUnlockTarget()?.isActive === true
+              ? 'Khóa'
+              : 'Mở khóa'
+          }}
         </button>
       </div>
     </ng-template>

@@ -183,7 +183,11 @@ export function getExtractionBarPercent(doc: DossierDocumentItem): number | null
 export function shouldShowExtractionProgress(doc: DossierDocumentItem): boolean {
   if (isExtractionComplete(doc) || isExtractionFailed(doc)) return true;
   const ocr = doc.ocrProgress;
-  if (!ocr) return !!doc.extractionResult;
+  if (!ocr) {
+    // "Manual" = dữ liệu vừa lưu tay (không qua worker OCR/bóc tách) — không phải tiến trình đang
+    // chạy, nên giữ nguyên cột như khi chưa có kết quả bóc tách nào, tránh hiện nhầm thanh 0%.
+    return !!doc.extractionResult && doc.extractionResult.status !== 'Manual';
+  }
   return isOcrComplete(ocr);
 }
 

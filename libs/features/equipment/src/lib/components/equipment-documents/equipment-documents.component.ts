@@ -118,6 +118,8 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
   /** Id thiết bị — bắt buộc; parent chỉ mount khi đã có id. */
   equipmentId = input.required<string>();
   canEdit = input(false);
+  /** Ẩn trạng thái xử lý OCR/bóc tách tại màn chỉ xem thuộc phân hệ Tra cứu. */
+  hideDigitizationColumns = input(false);
   factoryAcceptanceOnly = input(false);
   externalAccess = input(false);
   factoryProfileAccess = input(false);
@@ -213,7 +215,7 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
             this.pageSize(),
             this.searchKeyword()
           )
-        : this.equipmentService.getPublishedProfileDocuments(
+        : this.equipmentService.getProfileDocuments(
             equipmentId,
             this.page(),
             this.pageSize(),
@@ -232,7 +234,8 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
               ? res?.documents || []
               : res?.items || []
           );
-          this.totalDocuments.set(res?.totalCount || 0);
+          const total = res?.totalCount ?? res?.total ?? res?.count ?? res?.totalRecords;
+          this.totalDocuments.set(Number(total ?? this.documents().length) || 0);
         },
         error: (err) => {
           this.messageService.add({
