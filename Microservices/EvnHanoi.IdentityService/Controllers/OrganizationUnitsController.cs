@@ -75,7 +75,9 @@ public class OrganizationUnitsController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        var result = await _unitRepository.GetAllAsync();
+        // Trả danh sách theo thứ tự cây: sắp xếp SortOrder trong từng nhóm
+        // đơn vị cùng cha, đồng thời luôn giữ cha đứng trước các đơn vị con.
+        var result = await _unitRepository.GetOrganizationUnitsHierarchicalAsync(null);
         return Ok(result);
     }
 

@@ -264,7 +264,8 @@ public class EavFormTemplateRepository : IEavFormTemplateRepository
             v.Version,
             t.IsActive,
             t.CreatedAt,
-            us.FullName AS CreatedBy,
+            t.CreatedBy AS CreatedBy,
+            COALESCE(creatorById.FullName, creatorByUserName.FullName, t.CreatedBy) AS CreatorFullName,
             t.Status,
             t.IsDeleted,
             gt.Name AS {nameof(EavFormTemplate.GridTypeName)},
@@ -289,8 +290,12 @@ public class EavFormTemplateRepository : IEavFormTemplateRepository
         LEFT JOIN CATALOG_TYPE hmad
             ON hmad.Code = 'HMAD'
            AND hmad.IsDeleted = 0
-        LEFT JOIN APP_USER us
-            ON us.UserName = t.CreatedBy
+        LEFT JOIN APP_USER creatorById
+            ON creatorById.Id = t.CreatedBy
+           AND creatorById.IsDeleted = 0
+        LEFT JOIN APP_USER creatorByUserName
+            ON UPPER(TRIM(creatorByUserName.UserName)) = UPPER(TRIM(t.CreatedBy))
+           AND creatorByUserName.IsDeleted = 0
         LEFT JOIN Catalog cat
             ON cat.CatalogTypeId = hmad.Id
            AND cat.IsDeleted = 0
