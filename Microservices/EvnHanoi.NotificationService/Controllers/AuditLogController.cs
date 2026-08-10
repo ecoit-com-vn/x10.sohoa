@@ -44,6 +44,32 @@ namespace EvnHanoi.NotificationService.Controllers
             }
         }
 
+        [HttpGet("dashboard/download-count")]
+        [Authorize]
+        public async Task<IActionResult> GetDashboardDownloadCount(
+            [FromQuery] DateTime? fromDate = null,
+            [FromQuery] DateTime? toDate = null)
+        {
+            var authHeader = Request.Headers["Authorization"].ToString();
+            if (!await _auditLogService.CheckPermissionAsync(authHeader, User, "VIEW_DASHBOARD"))
+                return StatusCode(403, new { message = "Không có quyền truy cập Dashboard." });
+
+            try
+            {
+                var (total, _) = await _auditLogService.GetAuditLogsAsync(
+                    page: 1,
+                    pageSize: 1,
+                    keyword: "download",
+                    fromDate: fromDate,
+                    toDate: toDate);
+                return Ok(new { totalCount = total });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ex.Message);
+            }
+        }
+
         [HttpGet("lookups")]
         [Authorize]
         public IActionResult GetLookups([FromQuery] string? logGroup = null)
