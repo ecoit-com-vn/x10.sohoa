@@ -15,11 +15,6 @@
     </div>
   </div>
 
-  <div class="form-template-banner" *ngIf="!factoryAcceptanceOnly() && formTemplateName() as templateName">
-    <i class="pi pi-table"></i>
-    <span>Biểu mẫu bóc tách:</span>
-    <b>{{ templateName }}</b>
-  </div>
   <div class="form-template-banner form-template-banner--warn" *ngIf="!factoryAcceptanceOnly() && formTemplateMissing()">
     <i class="pi pi-exclamation-triangle"></i>
     <span>Loại thiết bị chưa gắn biểu mẫu thông số (TEMPLATE) — không thể OCR/bóc tách.</span>
@@ -160,7 +155,8 @@
       [first]="(page() - 1) * pageSize()"
       [rows]="pageSize()"
       [totalRecords]="totalDocuments()"
-      [rowsPerPageOptions]="[5, 10, 20, 50]"
+      [rowsPerPageOptions]="[10, 20, 50]"
+      recordLabel="tài liệu"
       (onPageChange)="onDocumentPageChange($event)"
     ></app-eco-paginator>
   </div>

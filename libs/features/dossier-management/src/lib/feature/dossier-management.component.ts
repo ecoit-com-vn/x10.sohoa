@@ -81,6 +81,49 @@ import { DossierMenuScope } from '../utils/dossier-status.util';
               <i class="pi pi-save"></i> Lưu lại
             </button>
           </ng-container>
+          <ng-container *ngIf="currentView() === 'detail' && dossierDetail() as detail">
+            <button type="button" (click)="detail.onCancel()" class="btn-back btn-small">
+              <i class="pi pi-arrow-left"></i> Quay lại danh sách
+            </button>
+            <button *ngIf="detail.canEditDossier()" type="button" (click)="detail.onEdit()" class="btn-save btn-small">
+              <i class="pi pi-pencil"></i> Sửa hồ sơ
+            </button>
+            <button *ngIf="detail.showCompleteInputButton()" type="button" (click)="detail.onCompleteInput()"
+              class="btn-green btn-small" [disabled]="detail.submitting()">
+              <i class="pi pi-check" *ngIf="!detail.submitting()"></i>
+              <i class="pi pi-spin pi-spinner" *ngIf="detail.submitting()"></i>
+              Hoàn thành nhập liệu
+            </button>
+            <button *ngIf="detail.showSubmitForApprovalButton()" type="button"
+              (click)="detail.openSubmitWorkflowDialog()" class="btn-save btn-small" [disabled]="detail.submitting()">
+              <i class="pi pi-send" *ngIf="!detail.submitting()"></i>
+              <i class="pi pi-spin pi-spinner" *ngIf="detail.submitting()"></i>
+              Gửi duyệt
+            </button>
+            <button *ngIf="detail.showPublishButton()" type="button" (click)="detail.requestPublishAction('publish')"
+              class="btn-green btn-small" [disabled]="detail.publishActionSubmitting()">
+              <i class="pi pi-cloud-upload"></i> Xuất bản
+            </button>
+            <button *ngIf="detail.showUnpublishButton()" type="button" (click)="detail.requestPublishAction('unpublish')"
+              class="btn-cancel btn-small" [disabled]="detail.publishActionSubmitting()">
+              <i class="pi pi-ban"></i> Hủy xuất bản
+            </button>
+            <button *ngIf="detail.showRepublishButton()" type="button" (click)="detail.requestPublishAction('republish')"
+              class="btn-green btn-small" [disabled]="detail.publishActionSubmitting()">
+              <i class="pi pi-refresh"></i> Tái xuất bản
+            </button>
+            <ng-container *ngIf="detail.detailDynamicButtons().length > 0 && detail.isUserAuthorizedForDetailAction">
+              <button *ngFor="let btn of detail.detailDynamicButtons()" type="button" class="btn-small"
+                [class.btn-cancel]="detail.isRejectLabel(btn.label)"
+                [class.btn-save]="detail.isApproveLabel(btn.label)"
+                [class.btn-green]="!detail.isRejectLabel(btn.label) && !detail.isApproveLabel(btn.label)"
+                (click)="detail.openActionDialog(btn)">
+                <i class="pi" [class.pi-check]="!detail.isRejectLabel(btn.label)"
+                  [class.pi-times]="detail.isRejectLabel(btn.label)" style="margin-right: 4px;"></i>
+                {{ btn.label }}
+              </button>
+            </ng-container>
+          </ng-container>
           <ng-container *ngIf="showHeaderImportActions()">
             <input type="file" #fileInput style="display: none;" (change)="onFileSelected($event)" accept=".xlsx" />
             <button type="button" class="btn-outlined" style="padding: 0 14px;" (click)="onExportTemplate()">
@@ -150,6 +193,7 @@ export class DossierManagementComponent implements OnInit {
 
   private dossierList = viewChild(DossierListComponent);
   dossierForm = viewChild(DossierFormComponent);
+  dossierDetail = viewChild(DossierDetailComponent);
 
   private router = inject(Router);
 
