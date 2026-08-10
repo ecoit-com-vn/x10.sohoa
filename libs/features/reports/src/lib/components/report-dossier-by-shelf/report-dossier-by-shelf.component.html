@@ -2,7 +2,9 @@
 
 <div class="wf-page dossier-report-page shelf-report">
   <div class="list-toolbar standard-page-toolbar breadcrumb-container">
-    <wf-breadcrumb [suffix]="'Báo cáo thống kê hồ sơ theo kệ lưu trữ'"></wf-breadcrumb>
+    <wf-breadcrumb
+      [suffix]="'Báo cáo thống kê hồ sơ theo kệ lưu trữ'"
+    ></wf-breadcrumb>
   </div>
 
   <div class="standard-search-card filter-card">
@@ -44,20 +46,32 @@
 
       <div class="standard-search-field filter-col">
         <label class="filter-label">Năm báo cáo</label>
-        <p-select
-          [options]="yearOptions()"
-          [ngModel]="selectedYear()"
-          (ngModelChange)="selectedYear.set($event)"
-          optionLabel="label"
-          optionValue="value"
+        <p-datepicker
+          [ngModel]="selectedYearDate()"
+          (ngModelChange)="onYearChange($event)"
+          view="year"
+          dateFormat="yy"
           placeholder="Chọn"
           styleClass="w-full wf-select-custom"
-        ></p-select>
+        ></p-datepicker>
       </div>
 
       <div class="standard-search-actions filter-actions">
-        <button type="button" class="btn-tim" (click)="onFilter()" [disabled]="loading()">
-          <i class="pi pi-search"></i> Tìm kiếm
+        <button
+          type="button"
+          class="btn-outlined"
+          (click)="onResetSearch()"
+          [disabled]="loading()"
+        >
+          <i class="pi pi-refresh"></i> Làm mới
+        </button>
+        <button
+          type="button"
+          class="btn-tim"
+          (click)="onFilter()"
+          [disabled]="loading()"
+        >
+          <i class="pi pi-check"></i> Áp dụng
         </button>
         <button
           *ngIf="activeTab() === 'list'"
@@ -101,11 +115,20 @@
     <div *ngIf="!loading()" class="stats-section">
       <div class="card-box chart-box chart-box-full">
         <div class="card-header flex-header">
-          <h3 class="card-title">Biểu đồ thống kê số lượng Hồ sơ, Tài liệu, Trang tài liệu theo từng kệ lưu trữ</h3>
+          <h3 class="card-title">
+            Biểu đồ thống kê số lượng Hồ sơ, Tài liệu, Trang tài liệu theo từng
+            kệ lưu trữ
+          </h3>
           <div class="top-legend">
-            <span class="legend-dot-item"><span class="dot bg-blue"></span> Hồ sơ</span>
-            <span class="legend-dot-item"><span class="dot bg-green"></span> Tài liệu</span>
-            <span class="legend-dot-item"><span class="dot bg-orange"></span> Trang tài liệu</span>
+            <span class="legend-dot-item"
+              ><span class="dot bg-blue"></span> Hồ sơ</span
+            >
+            <span class="legend-dot-item"
+              ><span class="dot bg-green"></span> Tài liệu</span
+            >
+            <span class="legend-dot-item"
+              ><span class="dot bg-orange"></span> Trang tài liệu</span
+            >
           </div>
         </div>
 
@@ -135,9 +158,9 @@
             <div class="hbar-chart-panel">
               <div class="hbar-x-ticks">
                 <span>0</span>
-                <span>{{ maxChartValue() * 0.25 | number:'1.0-0' }}</span>
-                <span>{{ maxChartValue() * 0.5 | number:'1.0-0' }}</span>
-                <span>{{ maxChartValue() * 0.75 | number:'1.0-0' }}</span>
+                <span>{{ maxChartValue() * 0.25 | number: '1.0-0' }}</span>
+                <span>{{ maxChartValue() * 0.5 | number: '1.0-0' }}</span>
+                <span>{{ maxChartValue() * 0.75 | number: '1.0-0' }}</span>
                 <span>{{ maxChartValue() }}</span>
               </div>
 
@@ -160,17 +183,27 @@
                       <div
                         class="hbar-bar bg-blue"
                         [style.width.%]="getBarWidthPercent(stat.dossierCount)"
-                        [pTooltip]="getShelfLabel(stat) + ' — Hồ sơ: ' + stat.dossierCount"
+                        [pTooltip]="
+                          getShelfLabel(stat) + ' — Hồ sơ: ' + stat.dossierCount
+                        "
                       ></div>
                       <div
                         class="hbar-bar bg-green"
                         [style.width.%]="getBarWidthPercent(stat.documentCount)"
-                        [pTooltip]="getShelfLabel(stat) + ' — Tài liệu: ' + stat.documentCount"
+                        [pTooltip]="
+                          getShelfLabel(stat) +
+                          ' — Tài liệu: ' +
+                          stat.documentCount
+                        "
                       ></div>
                       <div
                         class="hbar-bar bg-orange"
                         [style.width.%]="getBarWidthPercent(stat.pageCount)"
-                        [pTooltip]="getShelfLabel(stat) + ' — Trang tài liệu: ' + stat.pageCount"
+                        [pTooltip]="
+                          getShelfLabel(stat) +
+                          ' — Trang tài liệu: ' +
+                          stat.pageCount
+                        "
                       ></div>
                     </div>
                   </div>

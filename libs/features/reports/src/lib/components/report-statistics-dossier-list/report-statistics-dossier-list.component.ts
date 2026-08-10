@@ -38,9 +38,6 @@ export class ReportStatisticsDossierListComponent implements OnInit {
   active = input(false);
   /** Tăng khi bấm Tìm kiếm */
   filterVersion = input(0);
-  /** Chỉ bật tại màn cần đồng bộ với paginator dùng chung của hệ thống. */
-  useSystemPaginator = input(false);
-
   bhsColumns = signal<BhsCatalogColumn[]>([]);
   items = signal<ReportStatisticsDossierListItem[]>([]);
   loading = signal(false);
@@ -72,12 +69,6 @@ export class ReportStatisticsDossierListComponent implements OnInit {
       next: (cols) => this.bhsColumns.set(cols || []),
       error: (err) => console.error('Lỗi tải cột BHS:', err)
     });
-  }
-
-  onPageChange(event: { first: number; rows: number }): void {
-    const newPage = Math.floor(event.first / event.rows) + 1;
-    this.page.set(newPage);
-    this.pageSize.set(event.rows);
   }
 
   resetPagination(): void {

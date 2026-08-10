@@ -12,6 +12,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { MessageService } from 'primeng/api';
+import { DatePickerModule } from 'primeng/datepicker';
 import { ToastModule } from 'primeng/toast';
 import { SelectModule } from 'primeng/select';
 import { MultiSelectModule } from 'primeng/multiselect';
@@ -62,6 +63,7 @@ interface ShelfOption {
     ToastModule,
     SelectModule,
     MultiSelectModule,
+    DatePickerModule,
     TooltipModule,
     WfBreadcrumbComponent,
     EcoInputTreeSelectComponent,
@@ -122,6 +124,10 @@ export class ReportDossierByShelfComponent implements OnInit, AfterViewInit {
   selectedUnitId = signal<number | null>(null);
   selectedShelfIds = signal<string[]>([]);
   selectedYear = signal<number>(new Date().getFullYear());
+  selectedYearDate = computed(() => {
+    const year = this.selectedYear();
+    return year ? new Date(year, 0, 1) : null;
+  });
 
   activeTab = signal<MainTabMode>('stats');
   loading = signal<boolean>(false);
@@ -234,6 +240,20 @@ export class ReportDossierByShelfComponent implements OnInit, AfterViewInit {
     this.loadStatsData();
   }
 
+  onYearChange(date: Date | null): void {
+    this.selectedYear.set(date ? date.getFullYear() : new Date().getFullYear());
+  }
+
+  onResetSearch(): void {
+    this.selectedUnitId.set(null);
+    this.applyDefaultUnitFilter();
+    this.selectedShelfIds.set([]);
+    this.loadShelfOptions(); 
+    const currentYear = new Date().getFullYear();
+    const years = this.years();
+    this.selectedYear.set(years.includes(currentYear) ? currentYear : years[0] ?? currentYear);
+    this.onFilter();
+  }
   switchTab(tab: MainTabMode): void {
     this.activeTab.set(tab);
     queueMicrotask(() => {

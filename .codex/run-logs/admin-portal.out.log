@@ -1,0 +1,593 @@
+
+[2m> [22m[2mnx run[22m admin-portal:serve:development --port=4201
+
+[33m>[39m Building...
+[32m√[39m Building...
+[37m[35mBrowser bundles[37m     
+[1mInitial chunk files[22m [2m | [22m[1mNames[22m                             [2m | [22m [1mRaw size[22m
+[32mstyles.css[37m          [2m | [22m[2mstyles[22m                            [2m | [22m[36m615.55 kB[37m[2m | [22m
+[32mchunk-CXD5N3CV.js[37m   [2m | [22m[2m-[22m                                 [2m | [22m [36m67.49 kB[37m[2m | [22m
+[32mmain.js[37m             [2m | [22m[2mmain[22m                              [2m | [22m  [36m8.86 kB[37m[2m | [22m
+[32mchunk-653SOEEV.js[37m   [2m | [22m[2m-[22m                                 [2m | [22m  [36m1.51 kB[37m[2m | [22m
+[32mchunk-TMYFXFOK.js[37m   [2m | [22m[2m-[22m                                 [2m | [22m[36m445 bytes[37m[2m | [22m
+[1m [22m                   [2m | [22m[1mInitial total[22m                     [2m | [22m[1m693.86 kB[22m
+[1mLazy chunk files[22m    [2m | [22m[1mNames[22m                             [2m | [22m [1mRaw size[22m
+[32mchunk-JCWQHQXW.js[37m   [2m | [22m[2mindex[22m                             [2m | [22m  [36m1.10 MB[37m[2m | [22m
+[32mchunk-VJHPYI36.js[37m   [2m | [22m[2m-[22m                                 [2m | [22m[36m966.80 kB[37m[2m | [22m
+[32mchunk-5VX7DFBW.js[37m   [2m | [22m[2mdossier-management-component[22m      [2m | [22m[36m728.09 kB[37m[2m | [22m
+[32mchunk-QJY6FXIB.js[37m   [2m | [22m[2m-[22m                                 [2m | [22m[36m440.14 kB[37m[2m | [22m
+[32mchunk-X7MPP3SH.js[37m   [2m | [22m[2minfrastructure-component[22m          [2m | [22m[36m361.67 kB[37m[2m | [22m
+[32mchunk-VLVIMJE3.js[37m   [2m | [22m[2m-[22m                                 [2m | [22m[36m241.94 kB[37m[2m | [22m
+[32mchunk-GY4HDJWU.js[37m   [2m | [22m[2mtransmission-line-search-component[22m[2m | [22m[36m213.36 kB[37m[2m | [22m
+[32mchunk-PFB4ZN3T.js[37m   [2m | [22m[2msubstation-search-component[39m[37m[22m       [2m | [22m[36m212.06 kB[37m[2m | [22m
+[32mchunk-EFLGY7P2.js[37m   [2m | [22m[2m-[22m                                 [2m | [22m[36m200.35 kB[37m[2m | [22m
+[32mchunk-RCVSRZDV.js[37m   [2m | [22m[2mdossier-type-component[22m            [2m | [22m[36m173.72 kB[37m[2m | [22m
+[32mchunk-6FGY7QF2.js[37m   [2m | [22m[2mindex[22m                             [2m | [22m[36m166.92 kB[37m[2m | [22m
+[32mchunk-LGLX2JZC.js[37m   [2m | [22m[2m-[22m                                 [2m | [22m[36m161.24 kB[37m[2m | [22m
+[32mchunk-657XSR7R.js[37m   [2m | [22m[2m-[22m                                 [2m | [22m[36m134.81 kB[37m[2m | [22m
+[32mchunk-7VGMWHDQ.js[37m   [2m | [22m[2mindex[22m                             [2m | [22m[36m127.72 kB[37m[2m | [22m
+[32mchunk-C42N7Q64.js[37m   [2m | [22m[2mform-approval-component[22m           [2m | [22m[36m124.70 kB[37m[2m | [22m
+[2m...and 99 more lazy chunks files. Use "--verbose" to show all the files.[22m
+[35mServer bundles[37m      
+[1mInitial chunk files[22m [2m | [22m[1mNames[22m                             [2m | [22m [1mRaw size[22m
+[32mchunk-POLVOBHG.mjs[37m  [2m | [22m[2m-[22m                                 [2m | [22m [36m67.53 kB[37m[2m | [22m
+[32mmain.server.mjs[37m     [2m | [22m[2mmain.server[22m                       [2m | [22m [36m10.20 kB[37m[2m | [22m
+[32mserver.mjs[37m          [2m | [22m[2mserver[22m                            [2m | [22m  [36m1.93 kB[37m[2m | [22m
+[32mchunk-S5NAN44N.mjs[37m  [2m | [22m[2m-[22m                                 [2m | [22m  [36m1.55 kB[37m[2m | [22m
+[32mchunk-36INT3JX.mjs[37m  [2m | [22m[2m-[22m                                 [2m | [22m[36m480 bytes[37m[2m | [22m
+[32mpolyfills.server.mjs[37m[2m | [22m[2mpolyfills.server[22m                  [2m | [22m[36m268 bytes[37m[2m | [22m
+[1mLazy chunk files[22m    [2m | [39m[37m[22m[1mNames[22m                             [2m | [22m [1mRaw size[22m
+[32mchunk-37VEXXD6.mjs[37m  [2m | [22m[2mindex[22m                             [2m | [22m  [36m1.10 MB[37m[2m | [22m
+[32mchunk-P7MQNLXK.mjs[37m  [2m | [22m[2m-[22m                                 [2m | [22m[36m966.84 kB[37m[2m | [22m
+[32mchunk-YKZEDQXO.mjs[37m  [2m | [22m[2mdossier-management-component[22m      [2m | [22m[36m728.14 kB[37m[2m | [22m
+[32mchunk-53INKBWU.mjs[37m  [2m | [22m[2m-[22m                                 [2m | [22m[36m440.18 kB[37m[2m | [22m
+[32mchunk-BFDFP4HK.mjs[37m  [2m | [22m[2minfrastructure-component[22m          [2m | [22m[36m361.72 kB[37m[2m | [22m
+[32mchunk-BW3T675F.mjs[37m  [2m | [22m[2m-[22m                                 [2m | [22m[36m241.98 kB[37m[2m | [22m
+[32mchunk-2AFMQCVH.mjs[37m  [2m | [22m[2mtransmission-line-search-component[22m[2m | [22m[36m213.42 kB[37m[2m | [22m
+[32mchunk-24PRHALL.mjs[37m  [2m | [22m[2msubstation-search-component[22m       [2m | [22m[36m212.11 kB[37m[2m | [22m
+[32mchunk-IEMC47EB.mjs[37m  [2m | [22m[2m-[22m                                 [2m | [22m[36m200.38 kB[37m[2m | [22m
+[32mchunk-IDDAA4TF.mjs[37m  [2m | [22m[2mdossier-type-component[22m            [2m | [22m[36m173.76 kB[37m[2m | [22m
+[32mchunk-PRAZ4AAA.mjs[37m  [2m | [22m[2mindex[22m                             [2m | [22m[36m166.96 kB[37m[2m | [22m
+[32mchunk-NHXI6EFW.mjs[37m  [2m | [22m[2m-[22m                                 [2m | [22m[36m161.28 kB[37m[2m | [22m
+[32mchunk-NHCVXL7T.mjs[37m  [2m | [22m[2m-[22m                                 [2m | [22m[36m134.85 kB[37m[2m | [22m
+[32mchunk-2Q6BTBUM.mjs[37m  [2m | [22m[2mindex[22m                             [2m | [22m[36m127.76 kB[37m[2m | [22m
+[32mchunk-GUBMOYWA.mjs[37m  [2m | [22m[2mform-approval-component[22m           [2m | [22m[36m124.74 kB[37m[39m[37m[2m | [22m
+[2m...and 99 more lazy chunks files. Use "--verbose" to show all the files.[22m
+Application bundle generation complete. [39.596 seconds] - 2026-08-01T09:28:08.349Z
+[39m
+[1m[33m[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mNG8113: DeleteConfirmDialogComponent is not used within the template of AuditLogComponent[0m [1m[35m[plugin angular-compiler][0m
+    libs/features/administration/src/lib/components/audit-log/audit-log.component.ts:48:4:
+[37m      48 │     [32mDeleteConfirmDialogComponent[37m
+         ╵     [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mNG8113: WfBreadcrumbComponent is not used within the template of WorkflowBuilderComponent[0m [1m[35m[plugin angular-compiler][0m
+    libs/features/workflow/src/lib/feature/workflow-builder/workflow-builder.component.ts:44:78:
+[37m      44 │ ...le, ToastModule, DialogModule, MenuModule, [32mWfBreadcrumbComponent[37m],
+         ╵                                               [32m~~~~~~~~~~~~~~~~~~~~~[0m
+[39m[22m
+[37mWatch mode enabled. Watching for file changes...[39m
+[37mNOTE: Raw file sizes do not reflect development server per-request transformations.[39m
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m4201[22m/[39m
+[33m>[39m Changes detected. Rebuilding...
+[32m√[39m Changes detected. Rebuilding...
+[37m[35mBrowser bundles[37m    
+[1mInitial chunk files[22m[2m | [22m[1mNames[22m                                  [2m | [22m [1mRaw size[22m
+[32mmain.js[37m            [2m | [22m[2mmain[22m                                   [2m | [22m  [36m8.86 kB[37m[2m | [22m
+[1mLazy chunk files[22m   [2m | [22m[1mNames[22m                                  [2m | [22m [1mRaw size[22m
+[32mchunk-2OEN2JJO.js[37m  [2m | [22m[2m-[22m                                      [2m | [22m[36m966.80 kB[37m[2m | [22m
+[32mchunk-X4V4WCNK.js[37m  [2m | [22m[2mdossier-management-component[22m           [2m | [22m[36m728.09 kB[37m[2m | [22m
+[32mchunk-HBLR2YVY.js[37m  [2m | [22m[2minfrastructure-component[22m               [2m | [22m[36m361.67 kB[37m[2m | [22m
+[32mchunk-MXVDWETK.js[37m  [2m | [22m[2mtransmission-line-search-component[22m     [2m | [22m[36m213.36 kB[37m[2m | [22m
+[32mchunk-G45WZ2ZI.js[37m  [2m | [22m[2msubstation-search-component[22m            [2m | [22m[36m212.06 kB[37m[2m | [22m
+[32mchunk-2Y6SPGKK.js[37m  [2m | [22m[2mdossier-search-component[22m               [2m | [22m[36m119.71 kB[37m[2m | [22m
+[32mchunk-J3NLSY2H.js[37m  [2m | [22m[2mdossier-lookup-detail-component[22m        [2m | [22m [36m93.35 kB[37m[2m | [22m
+[32mchunk-T4HMIXE5.js[37m  [2m | [22m[2mdossier-detail-component[22m               [2m | [22m [36m82.79 kB[37m[2m | [22m
+[32mchunk-IGCCKF3G.js[37m  [2m | [22m[2mdocument-fulltext-detail-component[22m     [2m | [22m [36m75.15 kB[37m[2m | [22m
+[32mchunk-SBRJB6X4.js[37m  [2m | [22m[2minfrastructure-dossier-detail-component[22m[2m | [22m [36m32.61 kB[37m[2m | [22m
+[32mchunk-Y7HG5ROM.js[37m  [2m | [22m[2mreport-dossier-detail-component[22m        [2m | [22m [36m31.68 kB[37m[2m | [22m
+[32mchunk-AKIW2YN5.js[37m  [2m | [22m[2mindex[22m                                  [2m | [22m [36m29.65 kB[37m[2m | [22m
+[[39m[37m32mchunk-ASI3LFYD.js[37m  [2m | [22m[2m-[22m                                      [2m | [22m [36m28.65 kB[37m[2m | [22m
+[32mchunk-UCKMUGD7.js[37m  [2m | [22m[2mindex[22m                                  [2m | [22m  [36m8.37 kB[37m[2m | [22m
+[32mchunk-X4GN4A3S.js[37m  [2m | [22m[2m-[22m                                      [2m | [22m  [36m4.03 kB[37m[2m | [22m
+[2m...and 5 more lazy chunks files. Use "--verbose" to show all the files.[22m
+[35mServer bundles[37m     
+[1mInitial chunk files[22m[2m | [22m[1mNames[22m                                  [2m | [22m [1mRaw size[22m
+[32mmain.server.mjs[37m    [2m | [22m[2mmain.server[22m                            [2m | [22m [36m10.20 kB[37m[2m | [22m
+[1mLazy chunk files[22m   [2m | [22m[1mNames[22m                                  [2m | [22m [1mRaw size[22m
+[32mchunk-Y4VLDCAL.mjs[37m [2m | [22m[2m-[22m                                      [2m | [22m[36m966.84 kB[37m[2m | [22m
+[32mchunk-KXZVB5FN.mjs[37m [2m | [22m[2mdossier-management-component[22m           [2m | [22m[36m728.14 kB[37m[2m | [22m
+[32mchunk-VDP4SR2Y.mjs[37m [2m | [22m[2minfrastructure-component[22m               [2m | [22m[36m361.72 kB[37m[2m | [22m
+[32mchunk-GQHTE2E4.mjs[37m [2m | [22m[2mtransmission-line-search-component[22m     [2m | [22m[36m213.42 kB[37m[2m | [22m
+[32mchunk-WJX3OPD3.mjs[37m [2m | [22m[2msubstation-search-component[22m            [2m | [22m[36m212.11 kB[37m[2m | [22m
+[32mchunk-TG3GRMX2.mjs[37m [2m | [22m[2mdossier-search-component[22m               [2m | [22m[36m119.77 kB[37m[2m | [22m
+[32mchunk-RRO4E3UM.mjs[37m [2m | [22m[2mdossier-lookup-detail-component[22m        [2m | [22m [36m93.40 kB[37m[2m | [22m
+[32mchunk-FMDLIAAW.mjs[37m [2m | [22m[2mdossier-detail-component[22m               [2m | [22m [36m82.85 kB[37m[2m | [22m
+[32mchunk-CT5DLJ5W.mjs[37m [2m | [22m[2mdocument-[39m
+[37mfulltext-detail-component[22m     [2m | [22m [36m75.21 kB[37m[2m | [22m
+[32mchunk-6LC5ZK26.mjs[37m [2m | [22m[2minfrastructure-dossier-detail-component[22m[2m | [22m [36m32.66 kB[37m[2m | [22m
+[32mchunk-ZPJ3EGN3.mjs[37m [2m | [22m[2mreport-dossier-detail-component[22m        [2m | [22m [36m31.74 kB[37m[2m | [22m
+[32mchunk-6XIJPMEE.mjs[37m [2m | [22m[2mindex[22m                                  [2m | [22m [36m29.70 kB[37m[2m | [22m
+[32mchunk-FKSMDKXE.mjs[37m [2m | [22m[2m-[22m                                      [2m | [22m [36m28.69 kB[37m[2m | [22m
+[32mchunk-CSLMODNH.mjs[37m [2m | [22m[2mindex[22m                                  [2m | [22m  [36m8.42 kB[37m[2m | [22m
+[32mchunk-6M7O64YH.mjs[37m [2m | [22m[2m-[22m                                      [2m | [22m  [36m4.06 kB[37m[2m | [22m
+[2m...and 5 more lazy chunks files. Use "--verbose" to show all the files.[22m
+Application bundle generation complete. [49.888 seconds] - 2026-08-01T09:33:01.109Z
+[39m
+[1m[33m[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mNG8113: DeleteConfirmDialogComponent is not used within the template of AuditLogComponent[0m [1m[35m[plugin angular-compiler][0m
+    libs/features/administration/src/lib/components/audit-log/audit-log.component.ts:48:4:
+[37m      48 │     [32mDeleteConfirmDialogComponent[37m
+         ╵     [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mNG8113: WfBreadcrumbComponent is not used within the template of WorkflowBuilderComponent[0m [1m[35m[plugin angular-compiler][0m
+    libs/features/workflow/src/lib/feature/workflow-builder/workflow-builder.component.ts:44:78:
+[37m      44 │ ...le, ToastModule, DialogModule, MenuModule, [32mWfBreadcrumbComponent[37m],
+         ╵                                               [32m~~~~~~~~~~~~~~~~~~~~~[0m
+[39m[22m
+[37mPage reload sent to client(s).[39m
+[33m>[39m Changes detected. Rebuilding...
+[32m√[39m Changes detected. Rebuilding...
+[37m[35mBrowser bundles[37m    
+[1mInitial chunk files[22m[2m | [22m[1mNames[22m                             [2m | [22m [1mRaw size[22m
+[32mstyles.css[37m         [2m | [22m[2mstyles[22m                            [2m | [22m[36m615.53 kB[37m[2m | [22m
+[32mmain.js[37m            [2m | [22m[2mmain[22m                              [2m | [22m  [36m8.86 kB[37m[2m | [22m
+[1mLazy chunk files[22m   [2m | [22m[1mNames[22m                             [2m | [22m [1mRaw size[22m
+[32mchunk-4PHYYM67.js[37m  [2m | [22m[2mindex[22m                             [2m | [22m  [36m1.10 MB[37m[2m | [22m
+[32mchunk-GRSEU2SW.js[37m  [2m | [22m[2m-[22m                                 [2m | [22m[36m966.80 kB[37m[2m | [22m
+[32mchunk-YNRCN3Q4.js[37m  [2m | [22m[2mdossier-management-component[22m      [2m | [22m[36m728.09 kB[37m[2m | [22m
+[32mchunk-4TPTPAQL.js[37m  [2m | [22m[2m-[22m                                 [2m | [22m[36m440.21 kB[37m[2m | [22m
+[32mchunk-Z636PLTX.js[37m  [2m | [22m[2minfrastructure-component[22m          [2m | [22m[36m361.67 kB[37m[2m | [22m
+[32mchunk-4IHG2SHO.js[37m  [2m | [22m[2m-[22m                                 [2m | [22m[36m241.94 kB[37m[2m | [22m
+[32mchunk-A24DI5DD.js[37m  [2m | [22m[2mtransmission-line-search-component[22m[2m | [22m[36m213.36 kB[37m[2m | [22m
+[32mchunk-7P4OTW6Q.js[37m  [2m | [22m[2msubstation-search-component[22m       [2m | [22m[36m212.06 kB[37m[2m | [22m
+[32mchunk-T7K3OSZB.js[37m  [2m | [22m[2m-[22m                                 [2m | [22m[36m200.35 kB[37m[2m | [22m
+[32mchunk-6CMS2PQJ.js[37m  [2m | [22m[2mdossier-type-component[22m            [2m | [22m[36m173.72 kB[37m[2m | [22m
+[32mchunk-UTWSB6YK.js[37m  [2m | [22m[2mindex[22m                             [2m | [22m[36m166.92 kB[37m[2m | [22m
+[32mchunk-XNYHHNT2.js[37m  [2m | [22m[2m-[22m                          [39m
+[37m       [2m | [22m[36m161.24 kB[37m[2m | [22m
+[32mchunk-EXIEPLR4.js[37m  [2m | [22m[2m-[22m                                 [2m | [22m[36m134.81 kB[37m[2m | [22m
+[32mchunk-I72N3WIF.js[37m  [2m | [22m[2mindex[22m                             [2m | [22m[36m127.72 kB[37m[2m | [22m
+[32mchunk-HEBMFITY.js[37m  [2m | [22m[2mform-approval-component[22m           [2m | [22m[36m124.70 kB[37m[2m | [22m
+[2m...and 81 more lazy chunks files. Use "--verbose" to show all the files.[22m
+[35mServer bundles[37m     
+[1mInitial chunk files[22m[2m | [22m[1mNames[22m                             [2m | [22m [1mRaw size[22m
+[32mmain.server.mjs[37m    [2m | [22m[2mmain.server[22m                       [2m | [22m [36m10.20 kB[37m[2m | [22m
+[1mLazy chunk files[22m   [2m | [22m[1mNames[22m                             [2m | [22m [1mRaw size[22m
+[32mchunk-ZQB727SU.mjs[37m [2m | [22m[2mindex[22m                             [2m | [22m  [36m1.10 MB[37m[2m | [22m
+[32mchunk-HZTI2FQA.mjs[37m [2m | [22m[2m-[22m                                 [2m | [22m[36m966.84 kB[37m[2m | [22m
+[32mchunk-NAYECBS7.mjs[37m [2m | [22m[2mdossier-management-component[22m      [2m | [22m[36m728.14 kB[37m[2m | [22m
+[32mchunk-XD6TLYSF.mjs[37m [2m | [22m[2m-[22m                                 [2m | [22m[36m440.24 kB[37m[2m | [22m
+[32mchunk-23F4TEQC.mjs[37m [2m | [22m[2minfrastructure-component[22m          [2m | [22m[36m361.72 kB[37m[2m | [22m
+[32mchunk-3LUWV2LT.mjs[37m [2m | [22m[2m-[22m                                 [2m | [22m[36m241.98 kB[37m[2m | [22m
+[32mchunk-3DJATRFS.mjs[37m [2m | [22m[2mtransmission-line-search-component[22m[2m | [22m[36m213.42 kB[37m[2m | [22m
+[32mchunk-RCZMLVNP.mjs[37m [2m | [22m[2msubstation-search-component[22m       [2m | [22m[36m212.11 kB[37m[2m | [22m
+[32mchunk-E3J66UFI.mjs[37m [2m | [22m[2m-[22m                   [39m[37m              [2m | [22m[36m200.38 kB[37m[2m | [22m
+[32mchunk-OALL3V7Z.mjs[37m [2m | [22m[2mdossier-type-component[22m            [2m | [22m[36m173.76 kB[37m[2m | [22m
+[32mchunk-KL62BIOZ.mjs[37m [2m | [22m[2mindex[22m                             [2m | [22m[36m166.96 kB[37m[2m | [22m
+[32mchunk-Q5BZ5XU5.mjs[37m [2m | [22m[2m-[22m                                 [2m | [22m[36m161.28 kB[37m[2m | [22m
+[32mchunk-HCDZXGIQ.mjs[37m [2m | [22m[2m-[22m                                 [2m | [22m[36m134.85 kB[37m[2m | [22m
+[32mchunk-6ZLUNK2T.mjs[37m [2m | [22m[2mindex[22m                             [2m | [22m[36m127.76 kB[37m[2m | [22m
+[32mchunk-GK3JIUQM.mjs[37m [2m | [22m[2mform-approval-component[22m           [2m | [22m[36m124.74 kB[37m[2m | [22m
+[2m...and 81 more lazy chunks files. Use "--verbose" to show all the files.[22m
+Application bundle generation complete. [11.400 seconds] - 2026-08-01T09:33:20.676Z
+[39m
+[1m[33m[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mNG8113: DeleteConfirmDialogComponent is not used within the template of AuditLogComponent[0m [1m[35m[plugin angular-compiler][0m
+    libs/features/administration/src/lib/components/audit-log/audit-log.component.ts:48:4:
+[37m      48 │     [32mDeleteConfirmDialogComponent[37m
+         ╵     [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mNG8113: WfBreadcrumbComponent is not used within the template of WorkflowBuilderComponent[0m [1m[35m[plugin angular-compiler][0m
+    libs/features/workflow/src/lib/feature/workflow-builder/workflow-builder.component.ts:44:78:
+[37m      44 │ ...le, ToastModule, DialogModule, MenuModule, [32mWfBreadcrumbComponent[37m],
+         ╵                                               [32m~~~~~~~~~~~~~~~~~~~~~[0m
+[39m[22m
+[37mPage reload sent to client(s).[39m
+[33m>[39m Changes detected. Rebuilding...
+[32m√[39m Changes detected. Rebuilding...
+[37m[35mBrowser bundles[37m    
+[1mInitial chunk files[22m[2m | [22m[1mNames[22m                                  [2m | [22m [1mRaw size[22m
+[32mmain.js[37m            [2m | [22m[2mmain[22m                                   [2m | [22m  [36m8.86 kB[37m[2m | [22m
+[1mLazy chunk files[22m   [2m | [22m[1mNames[22m                                  [2m | [22m [1mRaw size[22m
+[32mchunk-7PPLFNRQ.js[37m  [2m | [22m[2m-[22m                                      [2m | [22m[36m966.47 kB[37m[2m | [22m
+[32mchunk-BJKUOZ74.js[37m  [2m | [22m[2mdossier-management-component[22m           [2m | [22m[36m728.09 kB[37m[2m | [22m
+[32mchunk-7DVWFOM6.js[37m  [2m | [22m[2minfrastructure-component[22m               [2m | [22m[36m361.67 kB[37m[2m | [22m
+[32mchunk-ZBVIX54O.js[37m  [2m | [22m[2mtransmission-line-search-component[22m     [2m | [22m[36m213.36 kB[37m[2m | [22m
+[32mchunk-V2Y3UKUG.js[37m  [2m | [22m[2msubstation-search-component[22m            [2m | [22m[36m212.06 kB[37m[2m | [22m
+[32mchunk-SHFVO5ZI.js[37m  [2m | [22m[2mdossier-search-component[22m               [2m | [22m[36m119.71 kB[37m[2m | [22m
+[32mchunk-N3P4WFU2.js[37m  [2m | [22m[2mdossier-lookup-detail-component[22m        [2m | [22m [36m93.35 kB[37m[2m | [22m
+[32mchunk-AWBS5VE2.js[37m  [2m | [22m[2mdossier-detail-component[22m               [2m | [22m [36m82.79 kB[37m[2m | [22m
+[32mchunk-KNQQD6AA.js[37m  [2m | [22m[2mdocument-fulltext-detail-component[22m     [2m | [22m [36m75.15 kB[37m[2m | [22m
+[32mchunk-PUZGGTIK.js[37m  [2m | [22m[2minfrastructure-dossier-detail-component[22m[2m | [22m [36m32.61 kB[37m[2m | [22m
+[32mchunk-32KLHFWV.js[37m  [2m | [22m[2mreport-dossier-detail-component[22m        [2m | [22m [36m31.68 kB[37m[2m | [22m
+[32mchunk-3OJ4YHZ4.js[37m  [2m | [22m[2mindex[22m                                  [2m | [22m [36m29.65 kB[37m[2m | [22m
+[[39m
+[37m32mchunk-3BO2JS3Y.js[37m  [2m | [22m[2m-[22m                                      [2m | [22m [36m28.65 kB[37m[2m | [22m
+[32mchunk-CTCKC4O7.js[37m  [2m | [22m[2mindex[22m                                  [2m | [22m  [36m8.37 kB[37m[2m | [22m
+[32mchunk-4YUQAEM4.js[37m  [2m | [22m[2m-[22m                                      [2m | [22m  [36m4.03 kB[37m[2m | [22m
+[2m...and 5 more lazy chunks files. Use "--verbose" to show all the files.[22m
+[35mServer bundles[37m     
+[1mInitial chunk files[22m[2m | [22m[1mNames[22m                                  [2m | [22m [1mRaw size[22m
+[32mmain.server.mjs[37m    [2m | [22m[2mmain.server[22m                            [2m | [22m [36m10.20 kB[37m[2m | [22m
+[1mLazy chunk files[22m   [2m | [22m[1mNames[22m                                  [2m | [22m [1mRaw size[22m
+[32mchunk-DGP2WLUD.mjs[37m [2m | [22m[2m-[22m                                      [2m | [22m[36m966.51 kB[37m[2m | [22m
+[32mchunk-VYMHLYIR.mjs[37m [2m | [22m[2mdossier-management-component[22m           [2m | [22m[36m728.14 kB[37m[2m | [22m
+[32mchunk-EA267F7M.mjs[37m [2m | [22m[2minfrastructure-component[22m               [2m | [22m[36m361.72 kB[37m[2m | [22m
+[32mchunk-6IKPFGNI.mjs[37m [2m | [22m[2mtransmission-line-search-component[22m     [2m | [22m[36m213.42 kB[37m[2m | [22m
+[32mchunk-YFTRDI4K.mjs[37m [2m | [22m[2msubstation-search-component[22m            [2m | [22m[36m212.11 kB[37m[2m | [22m
+[32mchunk-TZMESIXL.mjs[37m [2m | [22m[2mdossier-search-component[22m               [2m | [22m[36m119.77 kB[37m[2m | [22m
+[32mchunk-4SLRLDLB.mjs[37m [2m | [22m[2mdossier-lookup-detail-component[22m        [2m | [22m [36m93.40 kB[37m[2m | [22m
+[32mchunk-SSIURSMK.mjs[37m [2m | [22m[2mdossier-detail-component[22m               [2m | [22m [36m82.85 kB[37m[2m | [22m
+[32mchunk-LSGHALXY.mjs[37m [2m | [22m[2mdocument-[39m[37mfulltext-detail-component[22m     [2m | [22m [36m75.21 kB[37m[2m | [22m
+[32mchunk-527GUO64.mjs[37m [2m | [22m[2minfrastructure-dossier-detail-component[22m[2m | [22m [36m32.66 kB[37m[2m | [22m
+[32mchunk-XCS43AZX.mjs[37m [2m | [22m[2mreport-dossier-detail-component[22m        [2m | [22m [36m31.74 kB[37m[2m | [22m
+[32mchunk-3TVZI7OE.mjs[37m [2m | [22m[2mindex[22m                                  [2m | [22m [36m29.70 kB[37m[2m | [22m
+[32mchunk-6QD5IVLI.mjs[37m [2m | [22m[2m-[22m                                      [2m | [22m [36m28.69 kB[37m[2m | [22m
+[32mchunk-YNS6KAXV.mjs[37m [2m | [22m[2mindex[22m                                  [2m | [22m  [36m8.42 kB[37m[2m | [22m
+[32mchunk-ZHLW6RBA.mjs[37m [2m | [22m[2m-[22m                                      [2m | [22m  [36m4.06 kB[37m[2m | [22m
+[2m...and 5 more lazy chunks files. Use "--verbose" to show all the files.[22m
+Application bundle generation complete. [8.364 seconds] - 2026-08-01T09:40:06.569Z
+[39m
+[1m[33m[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mNG8113: DeleteConfirmDialogComponent is not used within the template of AuditLogComponent[0m [1m[35m[plugin angular-compiler][0m
+    libs/features/administration/src/lib/components/audit-log/audit-log.component.ts:48:4:
+[37m      48 │     [32mDeleteConfirmDialogComponent[37m
+         ╵     [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mNG8113: WfBreadcrumbComponent is not used within the template of WorkflowBuilderComponent[0m [1m[35m[plugin angular-compiler][0m
+    libs/features/workflow/src/lib/feature/workflow-builder/workflow-builder.component.ts:44:78:
+[37m      44 │ ...le, ToastModule, DialogModule, MenuModule, [32mWfBreadcrumbComponent[37m],
+         ╵                                               [32m~~~~~~~~~~~~~~~~~~~~~[0m
+[39m[22m
+[37mComponent update sent to client(s).[39m
+[33m>[39m Changes detected. Rebuilding...
+[32m√[39m Changes detected. Rebuilding...
+[37m[35mBrowser bundles[37m    
+[1mInitial chunk files[22m[2m | [22m[1mNames[22m                                  [2m | [22m [1mRaw size[22m
+[32mmain.js[37m            [2m | [22m[2mmain[22m                                   [2m | [22m  [36m8.86 kB[37m[2m | [22m
+[1mLazy chunk files[22m   [2m | [22m[1mNames[22m                                  [2m | [22m [1mRaw size[22m
+[32mchunk-R376Y65E.js[37m  [2m | [22m[2m-[22m                                      [2m | [22m[36m968.84 kB[37m[2m | [22m
+[32mchunk-S2SSNV7V.js[37m  [2m | [22m[2mdossier-management-component[22m           [2m | [22m[36m728.09 kB[37m[2m | [22m
+[32mchunk-EP2BRYXH.js[37m  [2m | [22m[2minfrastructure-component[22m               [2m | [22m[36m361.67 kB[37m[2m | [22m
+[32mchunk-AQTDFBTG.js[37m  [2m | [22m[2mtransmission-line-search-component[22m     [2m | [22m[36m213.36 kB[37m[2m | [22m
+[32mchunk-WONM3EDC.js[37m  [2m | [22m[2msubstation-search-component[22m            [2m | [22m[36m212.06 kB[37m[2m | [22m
+[32mchunk-NM2IZGWX.js[37m  [2m | [22m[2mdossier-search-component[22m               [2m | [22m[36m119.71 kB[37m[2m | [22m
+[32mchunk-JRJNGQNH.js[37m  [2m | [22m[2mdossier-lookup-detail-component[22m        [2m | [22m [36m93.35 kB[37m[2m | [22m
+[32mchunk-CMQP5Y5G.js[37m  [2m | [22m[2mdossier-detail-component[22m               [2m | [22m [36m82.79 kB[37m[2m | [22m
+[32mchunk-CH4ISRIS.js[37m  [2m | [22m[2mdocument-fulltext-detail-component[22m     [2m | [22m [36m75.15 kB[37m[2m | [22m
+[32mchunk-VNL2AS5K.js[37m  [2m | [22m[2minfrastructure-dossier-detail-component[22m[2m | [22m [36m32.61 kB[37m[2m | [22m
+[32mchunk-B4VCGBI3.js[37m  [2m | [22m[2mreport-dossier-detail-component[22m        [2m | [22m [36m31.68 kB[37m[2m | [22m
+[32mchunk-YTIXVQRX.js[37m  [2m | [22m[2mindex[22m                                  [2m | [22m [36m29.65 kB[37m[2m | [22m
+[[39m[37m32mchunk-PHKLI4OM.js[37m  [2m | [22m[2m-[22m                                      [2m | [22m [36m28.65 kB[37m[2m | [22m
+[32mchunk-LYRJY4EO.js[37m  [2m | [22m[2mindex[22m                                  [2m | [22m  [36m8.37 kB[37m[2m | [22m
+[32mchunk-IGUD5IJX.js[37m  [2m | [22m[2m-[22m                                      [2m | [22m  [36m4.03 kB[37m[2m | [22m
+[2m...and 5 more lazy chunks files. Use "--verbose" to show all the files.[22m
+[35mServer bundles[37m     
+[1mInitial chunk files[22m[2m | [22m[1mNames[22m                                  [2m | [22m [1mRaw size[22m
+[32mmain.server.mjs[37m    [2m | [22m[2mmain.server[22m                            [2m | [22m [36m10.20 kB[37m[2m | [22m
+[1mLazy chunk files[22m   [2m | [22m[1mNames[22m                                  [2m | [22m [1mRaw size[22m
+[32mchunk-YV3XSYKL.mjs[37m [2m | [22m[2m-[22m                                      [2m | [22m[36m968.88 kB[37m[2m | [22m
+[32mchunk-J3ZZX7H3.mjs[37m [2m | [22m[2mdossier-management-component[22m           [2m | [22m[36m728.14 kB[37m[2m | [22m
+[32mchunk-L23B6LSR.mjs[37m [2m | [22m[2minfrastructure-component[22m               [2m | [22m[36m361.72 kB[37m[2m | [22m
+[32mchunk-PD7BQA7Z.mjs[37m [2m | [22m[2mtransmission-line-search-component[22m     [2m | [22m[36m213.42 kB[37m[2m | [22m
+[32mchunk-VC6KNERI.mjs[37m [2m | [22m[2msubstation-search-component[22m            [2m | [22m[36m212.11 kB[37m[2m | [22m
+[32mchunk-O5DW37QD.mjs[37m [2m | [22m[2mdossier-search-component[22m               [2m | [22m[36m119.77 kB[37m[2m | [22m
+[32mchunk-WYZQRCTL.mjs[37m [2m | [22m[2mdossier-lookup-detail-component[22m        [2m | [22m [36m93.40 kB[37m[2m | [22m
+[32mchunk-AT2R3X2Z.mjs[37m [2m | [22m[2mdossier-detail-component[22m               [2m | [22m [36m82.85 kB[37m[2m | [22m
+[32mchunk-SMMQ7BZB.mjs[37m [2m | [22m[2mdocument-[39m[37mfulltext-detail-component[22m     [2m | [22m [36m75.21 kB[37m[2m | [22m
+[32mchunk-2GY224SF.mjs[37m [2m | [22m[2minfrastructure-dossier-detail-component[22m[2m | [22m [36m32.66 kB[37m[2m | [22m
+[32mchunk-P27LEZCX.mjs[37m [2m | [22m[2mreport-dossier-detail-component[22m        [2m | [22m [36m31.74 kB[37m[2m | [22m
+[32mchunk-GNVRRW5S.mjs[37m [2m | [22m[2mindex[22m                                  [2m | [22m [36m29.70 kB[37m[2m | [22m
+[32mchunk-WM5WIIIY.mjs[37m [2m | [22m[2m-[22m                                      [2m | [22m [36m28.69 kB[37m[2m | [22m
+[32mchunk-YOXHEOST.mjs[37m [2m | [22m[2mindex[22m                                  [2m | [22m  [36m8.42 kB[37m[2m | [22m
+[32mchunk-EIQGCVJX.mjs[37m [2m | [22m[2m-[22m                                      [2m | [22m  [36m4.06 kB[37m[2m | [22m
+[2m...and 5 more lazy chunks files. Use "--verbose" to show all the files.[22m
+Application bundle generation complete. [5.771 seconds] - 2026-08-01T09:40:12.392Z
+[39m
+[1m[33m[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mNG8113: DeleteConfirmDialogComponent is not used within the template of AuditLogComponent[0m [1m[35m[plugin angular-compiler][0m
+    libs/features/administration/src/lib/components/audit-log/audit-log.component.ts:48:4:
+[37m      48 │     [32mDeleteConfirmDialogComponent[37m
+         ╵     [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mNG8113: WfBreadcrumbComponent is not used within the template of WorkflowBuilderComponent[0m [1m[35m[plugin angular-compiler][0m
+    libs/features/workflow/src/lib/feature/workflow-builder/workflow-builder.component.ts:44:78:
+[37m      44 │ ...le, ToastModule, DialogModule, MenuModule, [32mWfBreadcrumbComponent[37m],
+         ╵                                               [32m~~~~~~~~~~~~~~~~~~~~~[0m
+[39m[22m
+[37mComponent update sent to client(s).[39m
+[33m>[39m Changes detected. Rebuilding...
+[32m√[39m Changes detected. Rebuilding...
+[37m[35mBrowser bundles[37m    
+[1mInitial chunk files[22m[2m | [22m[1mNames[22m                                  [2m | [22m [1mRaw size[22m
+[32mmain.js[37m            [2m | [22m[2mmain[22m                                   [2m | [22m  [36m8.86 kB[37m[2m | [22m
+[1mLazy chunk files[22m   [2m | [22m[1mNames[22m                                  [2m | [22m [1mRaw size[22m
+[32mchunk-HI7QNIEX.js[37m  [2m | [22m[2m-[22m                                      [2m | [22m[36m969.08 kB[37m[2m | [22m
+[32mchunk-HMPI5JCJ.js[37m  [2m | [22m[2mdossier-management-component[22m           [2m | [22m[36m728.09 kB[37m[2m | [22m
+[32mchunk-UF4YGF2O.js[37m  [2m | [22m[2minfrastructure-component[22m               [2m | [22m[36m361.67 kB[37m[2m | [22m
+[32mchunk-YJSK4ET2.js[37m  [2m | [22m[2mtransmission-line-search-component[22m     [2m | [22m[36m213.36 kB[37m[2m | [22m
+[32mchunk-EQBSJ3DT.js[37m  [2m | [22m[2msubstation-search-component[22m            [2m | [22m[36m212.06 kB[37m[2m | [22m
+[32mchunk-J5E5W7GV.js[37m  [2m | [22m[2mdossier-search-component[22m               [2m | [22m[36m119.71 kB[37m[2m | [22m
+[32mchunk-3E6IK3ZE.js[37m  [2m | [22m[2mdossier-lookup-detail-component[22m        [2m | [22m [36m93.35 kB[37m[2m | [22m
+[32mchunk-CS4PWL6A.js[37m  [2m | [22m[2mdossier-detail-component[22m               [2m | [22m [36m82.79 kB[37m[2m | [22m
+[32mchunk-PCFCIB52.js[37m  [2m | [22m[2mdocument-fulltext-detail-component[22m     [2m | [22m [36m75.15 kB[37m[2m | [22m
+[32mchunk-XNXNOBRJ.js[37m  [2m | [22m[2minfrastructure-dossier-detail-component[22m[2m | [22m [36m32.61 kB[37m[2m | [22m
+[32mchunk-5C2NSHCI.js[37m  [2m | [22m[2mreport-dossier-detail-component[22m        [2m | [22m [36m31.68 kB[37m[2m | [22m
+[32mchunk-YNEZHVE5.js[37m  [2m | [22m[2mindex[22m                                  [2m | [22m [36m29.65 kB[37m[2m | [22m
+[[39m[37m32mchunk-E224GDR5.js[37m  [2m | [22m[2m-[22m                                      [2m | [22m [36m28.65 kB[37m[2m | [22m
+[32mchunk-4CTV4TJL.js[37m  [2m | [22m[2mindex[22m                                  [2m | [22m  [36m8.37 kB[37m[2m | [22m
+[32mchunk-RIXOM5YX.js[37m  [2m | [22m[2m-[22m                                      [2m | [22m  [36m4.03 kB[37m[2m | [22m
+[2m...and 5 more lazy chunks files. Use "--verbose" to show all the files.[22m
+[35mServer bundles[37m     
+[1mInitial chunk files[22m[2m | [22m[1mNames[22m                                  [2m | [22m [1mRaw size[22m
+[32mmain.server.mjs[37m    [2m | [22m[2mmain.server[22m                            [2m | [22m [36m10.20 kB[37m[2m | [22m
+[1mLazy chunk files[22m   [2m | [22m[1mNames[22m                                  [2m | [22m [1mRaw size[22m
+[32mchunk-VZRWGG2J.mjs[37m [2m | [22m[2m-[22m                                      [2m | [22m[36m969.12 kB[37m[2m | [22m
+[32mchunk-LBYJ7N6W.mjs[37m [2m | [22m[2mdossier-management-component[22m           [2m | [22m[36m728.14 kB[37m[2m | [22m
+[32mchunk-LS6ATW3O.mjs[37m [2m | [22m[2minfrastructure-component[22m               [2m | [22m[36m361.72 kB[37m[2m | [22m
+[32mchunk-SC66OT6S.mjs[37m [2m | [22m[2mtransmission-line-search-component[22m     [2m | [22m[36m213.42 kB[37m[2m | [22m
+[32mchunk-VXOTFPFJ.mjs[37m [2m | [22m[2msubstation-search-component[22m            [2m | [22m[36m212.11 kB[37m[2m | [22m
+[32mchunk-6ZA4OUYC.mjs[37m [2m | [22m[2mdossier-search-component[22m               [2m | [22m[36m119.77 kB[37m[2m | [22m
+[32mchunk-4C375XRU.mjs[37m [2m | [22m[2mdossier-lookup-detail-component[22m        [2m | [22m [36m93.40 kB[37m[2m | [22m
+[32mchunk-4OJUN72A.mjs[37m [2m | [22m[2mdossier-detail-component[22m               [2m | [22m [36m82.85 kB[37m[2m | [22m
+[32mchunk-TRQ4ABIK.mjs[37m [2m | [22m[2mdocument-[39m[37mfulltext-detail-component[22m     [2m | [22m [36m75.21 kB[37m[2m | [22m
+[32mchunk-ZOJFTYQK.mjs[37m [2m | [22m[2minfrastructure-dossier-detail-component[22m[2m | [22m [36m32.66 kB[37m[2m | [22m
+[32mchunk-VKOOFF2L.mjs[37m [2m | [22m[2mreport-dossier-detail-component[22m        [2m | [22m [36m31.74 kB[37m[2m | [22m
+[32mchunk-CGHBYXM5.mjs[37m [2m | [22m[2mindex[22m                                  [2m | [22m [36m29.70 kB[37m[2m | [22m
+[32mchunk-ZSSC7DQ5.mjs[37m [2m | [22m[2m-[22m                                      [2m | [22m [36m28.69 kB[37m[2m | [22m
+[32mchunk-N5IDI3QY.mjs[37m [2m | [22m[2mindex[22m                                  [2m | [22m  [36m8.42 kB[37m[2m | [22m
+[32mchunk-ZLQYACS2.mjs[37m [2m | [22m[2m-[22m                                      [2m | [22m  [36m4.06 kB[37m[2m | [22m
+[2m...and 5 more lazy chunks files. Use "--verbose" to show all the files.[22m
+Application bundle generation complete. [5.371 seconds] - 2026-08-01T09:46:17.027Z
+[39m
+[1m[33m[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mNG8113: DeleteConfirmDialogComponent is not used within the template of AuditLogComponent[0m [1m[35m[plugin angular-compiler][0m
+    libs/features/administration/src/lib/components/audit-log/audit-log.component.ts:48:4:
+[37m      48 │     [32mDeleteConfirmDialogComponent[37m
+         ╵     [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mNG8113: WfBreadcrumbComponent is not used within the template of WorkflowBuilderComponent[0m [1m[35m[plugin angular-compiler][0m
+    libs/features/workflow/src/lib/feature/workflow-builder/workflow-builder.component.ts:44:78:
+[37m      44 │ ...le, ToastModule, DialogModule, MenuModule, [32mWfBreadcrumbComponent[37m],
+         ╵                                               [32m~~~~~~~~~~~~~~~~~~~~~[0m
+[39m[22m
+[37mComponent update sent to client(s).[39m
+[33m>[39m Changes detected. Rebuilding...
+[32m√[39m Changes detected. Rebuilding...
+[37m[35mBrowser bundles[37m    
+[1mInitial chunk files[22m[2m | [22m[1mNames[22m                                  [2m | [22m [1mRaw size[22m
+[32mmain.js[37m            [2m | [22m[2mmain[22m                                   [2m | [22m  [36m8.86 kB[37m[2m | [22m
+[1mLazy chunk files[22m   [2m | [22m[1mNames[22m                                  [2m | [22m [1mRaw size[22m
+[32mchunk-XHPCJNFJ.js[37m  [2m | [22m[2m-[22m                                      [2m | [22m[36m969.65 kB[37m[2m | [22m
+[32mchunk-3CFN25MC.js[37m  [2m | [22m[2mdossier-management-component[22m           [2m | [22m[36m728.09 kB[37m[2m | [22m
+[32mchunk-MZRNUWJ6.js[37m  [2m | [22m[2minfrastructure-component[22m               [2m | [22m[36m361.67 kB[37m[2m | [22m
+[32mchunk-3QLBKHLV.js[37m  [2m | [22m[2mtransmission-line-search-component[22m     [2m | [22m[36m213.36 kB[37m[2m | [22m
+[32mchunk-BLLSAD3V.js[37m  [2m | [22m[2msubstation-search-component[22m            [2m | [22m[36m212.06 kB[37m[2m | [22m
+[32mchunk-WXKVEXID.js[37m  [2m | [22m[2mdossier-search-component[22m               [2m | [22m[36m119.71 kB[37m[2m | [22m
+[32mchunk-3Y6UON7A.js[37m  [2m | [22m[2mdossier-lookup-detail-component[22m        [2m | [22m [36m93.35 kB[37m[2m | [22m
+[32mchunk-4CPEQW4S.js[37m  [2m | [22m[2mdossier-detail-component[22m               [2m | [22m [36m82.79 kB[37m[2m | [22m
+[32mchunk-IODEBSVW.js[37m  [2m | [22m[2mdocument-fulltext-detail-component[22m     [2m | [22m [36m75.15 kB[37m[2m | [22m
+[32mchunk-RWPMDKHI.js[37m  [2m | [22m[2minfrastructure-dossier-detail-component[22m[2m | [22m [36m32.61 kB[37m[2m | [22m
+[32mchunk-3EQPQV6C.js[37m  [2m | [22m[2mreport-dossier-detail-component[22m        [2m | [22m [36m31.68 kB[37m[2m | [22m
+[32mchunk-NYRD7LEE.js[37m  [2m | [22m[2mindex[22m                                  [2m | [22m [36m29.65 kB[37m[2m | [22m
+[[39m
+[37m32mchunk-A3DHXDAQ.js[37m  [2m | [22m[2m-[22m                                      [2m | [22m [36m28.65 kB[37m[2m | [22m
+[32mchunk-2X75CTQ4.js[37m  [2m | [22m[2mindex[22m                                  [2m | [22m  [36m8.37 kB[37m[2m | [22m
+[32mchunk-TNM6QB5R.js[37m  [2m | [22m[2m-[22m                                      [2m | [22m  [36m4.03 kB[37m[2m | [22m
+[2m...and 5 more lazy chunks files. Use "--verbose" to show all the files.[22m
+[35mServer bundles[37m     
+[1mInitial chunk files[22m[2m | [22m[1mNames[22m                                  [2m | [22m [1mRaw size[22m
+[32mmain.server.mjs[37m    [2m | [22m[2mmain.server[22m                            [2m | [22m [36m10.20 kB[37m[2m | [22m
+[1mLazy chunk files[22m   [2m | [22m[1mNames[22m                                  [2m | [22m [1mRaw size[22m
+[32mchunk-6D6WNAWQ.mjs[37m [2m | [22m[2m-[22m                                      [2m | [22m[36m969.69 kB[37m[2m | [22m
+[32mchunk-WXMAVACS.mjs[37m [2m | [22m[2mdossier-management-component[22m           [2m | [22m[36m728.14 kB[37m[2m | [22m
+[32mchunk-JVWQ4Y76.mjs[37m [2m | [22m[2minfrastructure-component[22m               [2m | [22m[36m361.72 kB[37m[2m | [22m
+[32mchunk-Y5TP3LEP.mjs[37m [2m | [22m[2mtransmission-line-search-component[22m     [2m | [22m[36m213.42 kB[37m[2m | [22m
+[32mchunk-DVXYZ3L4.mjs[37m [2m | [22m[2msubstation-search-component[22m            [2m | [22m[36m212.11 kB[37m[2m | [22m
+[32mchunk-KKCZHW3B.mjs[37m [2m | [22m[2mdossier-search-component[22m               [2m | [22m[36m119.77 kB[37m[2m | [22m
+[32mchunk-IZOH7I4V.mjs[37m [2m | [22m[2mdossier-lookup-detail-component[22m        [2m | [22m [36m93.40 kB[37m[2m | [22m
+[32mchunk-ZK7GRPXL.mjs[37m [2m | [22m[2mdossier-detail-component[22m               [2m | [22m [36m82.85 kB[37m[2m | [22m
+[32mchunk-EW7O5V5Z.mjs[37m [2m | [22m[2mdocument-[39m[37mfulltext-detail-component[22m     [2m | [22m [36m75.21 kB[37m[2m | [22m
+[32mchunk-C2LQJI4Q.mjs[37m [2m | [22m[2minfrastructure-dossier-detail-component[22m[2m | [22m [36m32.66 kB[37m[2m | [22m
+[32mchunk-7WIBUN2X.mjs[37m [2m | [22m[2mreport-dossier-detail-component[22m        [2m | [22m [36m31.74 kB[37m[2m | [22m
+[32mchunk-ISAYL3VL.mjs[37m [2m | [22m[2mindex[22m                                  [2m | [22m [36m29.70 kB[37m[2m | [22m
+[32mchunk-S65X3QD5.mjs[37m [2m | [22m[2m-[22m                                      [2m | [22m [36m28.69 kB[37m[2m | [22m
+[32mchunk-FCCSETGB.mjs[37m [2m | [22m[2mindex[22m                                  [2m | [22m  [36m8.42 kB[37m[2m | [22m
+[32mchunk-UG747ZQE.mjs[37m [2m | [22m[2m-[22m                                      [2m | [22m  [36m4.06 kB[37m[2m | [22m
+[2m...and 5 more lazy chunks files. Use "--verbose" to show all the files.[22m
+Application bundle generation complete. [5.507 seconds] - 2026-08-01T09:46:22.593Z
+[39m
+[1m[33m[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mNG8113: DeleteConfirmDialogComponent is not used within the template of AuditLogComponent[0m [1m[35m[plugin angular-compiler][0m
+    libs/features/administration/src/lib/components/audit-log/audit-log.component.ts:48:4:
+[37m      48 │     [32mDeleteConfirmDialogComponent[37m
+         ╵     [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mNG8113: WfBreadcrumbComponent is not used within the template of WorkflowBuilderComponent[0m [1m[35m[plugin angular-compiler][0m
+    libs/features/workflow/src/lib/feature/workflow-builder/workflow-builder.component.ts:44:78:
+[37m      44 │ ...le, ToastModule, DialogModule, MenuModule, [32mWfBreadcrumbComponent[37m],
+         ╵                                               [32m~~~~~~~~~~~~~~~~~~~~~[0m
+[39m[22m
+[37mComponent update sent to client(s).[39m
+[33m>[39m Changes detected. Rebuilding...
+[32m√[39m Changes detected. Rebuilding...
+[37m[35mBrowser bundles[37m    
+[1mInitial chunk files[22m[2m | [22m[1mNames[22m                                  [2m | [22m [1mRaw size[22m
+[32mmain.js[37m            [2m | [22m[2mmain[22m                                   [2m | [22m  [36m8.86 kB[37m[2m | [22m
+[1mLazy chunk files[22m   [2m | [22m[1mNames[22m                                  [2m | [22m [1mRaw size[22m
+[32mchunk-GZ5JRAUJ.js[37m  [2m | [22m[2m-[22m                                      [2m | [22m[36m969.70 kB[37m[2m | [22m
+[32mchunk-UKLETUJ7.js[37m  [2m | [22m[2mdossier-management-component[22m           [2m | [22m[36m728.09 kB[37m[2m | [22m
+[32mchunk-EDBAFMNJ.js[37m  [2m | [22m[2minfrastructure-component[22m               [2m | [22m[36m361.67 kB[37m[2m | [22m
+[32mchunk-5TGZTPXO.js[37m  [2m | [22m[2mtransmission-line-search-component[22m     [2m | [22m[36m213.36 kB[37m[2m | [22m
+[32mchunk-G2ECV5PQ.js[37m  [2m | [22m[2msubstation-search-component[22m            [2m | [22m[36m212.06 kB[37m[2m | [22m
+[32mchunk-YSQPW4OM.js[37m  [2m | [22m[2mdossier-search-component[22m               [2m | [22m[36m119.71 kB[37m[2m | [22m
+[32mchunk-PCPOXM3N.js[37m  [2m | [22m[2mdossier-lookup-detail-component[22m        [2m | [22m [36m93.35 kB[37m[2m | [22m
+[32mchunk-2HW3LFQO.js[37m  [2m | [22m[2mdossier-detail-component[22m               [2m | [22m [36m82.79 kB[37m[2m | [22m
+[32mchunk-YAJKNMEH.js[37m  [2m | [22m[2mdocument-fulltext-detail-component[22m     [2m | [22m [36m75.15 kB[37m[2m | [22m
+[32mchunk-OC6NUPPE.js[37m  [2m | [22m[2minfrastructure-dossier-detail-component[22m[2m | [22m [36m32.61 kB[37m[2m | [22m
+[32mchunk-HIJU6QXQ.js[37m  [2m | [22m[2mreport-dossier-detail-component[22m        [2m | [22m [36m31.68 kB[37m[2m | [22m
+[32mchunk-TCKY7Y7C.js[37m  [2m | [22m[2mindex[22m                                  [2m | [22m [36m29.65 kB[37m[2m | [22m
+[[39m[37m32mchunk-TW2ADY7O.js[37m  [2m | [22m[2m-[22m                                      [2m | [22m [36m28.65 kB[37m[2m | [22m
+[32mchunk-HPBDFN2Y.js[37m  [2m | [22m[2mindex[22m                                  [2m | [22m  [36m8.37 kB[37m[2m | [22m
+[32mchunk-KHO4LX3C.js[37m  [2m | [22m[2m-[22m                                      [2m | [22m  [36m4.03 kB[37m[2m | [22m
+[2m...and 5 more lazy chunks files. Use "--verbose" to show all the files.[22m
+[35mServer bundles[37m     
+[1mInitial chunk files[22m[2m | [22m[1mNames[22m                                  [2m | [22m [1mRaw size[22m
+[32mmain.server.mjs[37m    [2m | [22m[2mmain.server[22m                            [2m | [22m [36m10.20 kB[37m[2m | [22m
+[1mLazy chunk files[22m   [2m | [22m[1mNames[22m                                  [2m | [22m [1mRaw size[22m
+[32mchunk-ALBPP5LM.mjs[37m [2m | [22m[2m-[22m                                      [2m | [22m[36m969.74 kB[37m[2m | [22m
+[32mchunk-3HHVSI5J.mjs[37m [2m | [22m[2mdossier-management-component[22m           [2m | [22m[36m728.14 kB[37m[2m | [22m
+[32mchunk-T6W6NF6V.mjs[37m [2m | [22m[2minfrastructure-component[22m               [2m | [22m[36m361.72 kB[37m[2m | [22m
+[32mchunk-QK7XFDCQ.mjs[37m [2m | [22m[2mtransmission-line-search-component[22m     [2m | [22m[36m213.42 kB[37m[2m | [22m
+[32mchunk-AQCMG24J.mjs[37m [2m | [22m[2msubstation-search-component[22m            [2m | [22m[36m212.11 kB[37m[2m | [22m
+[32mchunk-HVZXDI35.mjs[37m [2m | [22m[2mdossier-search-component[22m               [2m | [22m[36m119.77 kB[37m[2m | [22m
+[32mchunk-P7ERTXCA.mjs[37m [2m | [22m[2mdossier-lookup-detail-component[22m        [2m | [22m [36m93.40 kB[37m[2m | [22m
+[32mchunk-XBDR34LG.mjs[37m [2m | [22m[2mdossier-detail-component[22m               [2m | [22m [36m82.85 kB[37m[2m | [22m
+[32mchunk-2EGO6G5Q.mjs[37m [2m | [22m[2mdocument-[39m[37mfulltext-detail-component[22m     [2m | [22m [36m75.21 kB[37m[2m | [22m
+[32mchunk-4LJT6KWD.mjs[37m [2m | [22m[2minfrastructure-dossier-detail-component[22m[2m | [22m [36m32.66 kB[37m[2m | [22m
+[32mchunk-ZHMZVEPP.mjs[37m [2m | [22m[2mreport-dossier-detail-component[22m        [2m | [22m [36m31.74 kB[37m[2m | [22m
+[32mchunk-4N73DK3J.mjs[37m [2m | [22m[2mindex[22m                                  [2m | [22m [36m29.70 kB[37m[2m | [22m
+[32mchunk-L5TS3CRO.mjs[37m [2m | [22m[2m-[22m                                      [2m | [22m [36m28.69 kB[37m[2m | [22m
+[32mchunk-UQLTANDO.mjs[37m [2m | [22m[2mindex[22m                                  [2m | [22m  [36m8.42 kB[37m[2m | [22m
+[32mchunk-KFMCLBX5.mjs[37m [2m | [22m[2m-[22m                                      [2m | [22m  [36m4.06 kB[37m[2m | [22m
+[2m...and 5 more lazy chunks files. Use "--verbose" to show all the files.[22m
+Application bundle generation complete. [2.984 seconds] - 2026-08-01T09:50:39.872Z
+[39m
+[1m[33m[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mNG8113: DeleteConfirmDialogComponent is not used within the template of AuditLogComponent[0m [1m[35m[plugin angular-compiler][0m
+    libs/features/administration/src/lib/components/audit-log/audit-log.component.ts:48:4:
+[37m      48 │     [32mDeleteConfirmDialogComponent[37m
+         ╵     [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mNG8113: WfBreadcrumbComponent is not used within the template of WorkflowBuilderComponent[0m [1m[35m[plugin angular-compiler][0m
+    libs/features/workflow/src/lib/feature/workflow-builder/workflow-builder.component.ts:44:78:
+[37m      44 │ ...le, ToastModule, DialogModule, MenuModule, [32mWfBreadcrumbComponent[37m],
+         ╵                                               [32m~~~~~~~~~~~~~~~~~~~~~[0m
+[39m[22m
+[37mComponent update sent to client(s).[39m
+[33m>[39m Changes detected. Rebuilding...
+[32m√[39m Changes detected. Rebuilding...
+[37m[35mBrowser bundles[37m    
+[1mInitial chunk files[22m[2m | [22m[1mNames[22m                                  [2m | [22m [1mRaw size[22m
+[32mmain.js[37m            [2m | [22m[2mmain[22m                                   [2m | [22m  [36m8.86 kB[37m[2m | [22m
+[1mLazy chunk files[22m   [2m | [22m[1mNames[22m                                  [2m | [22m [1mRaw size[22m
+[32mchunk-OHGOIPWO.js[37m  [2m | [22m[2m-[22m                                      [2m | [22m[36m969.70 kB[37m[2m | [22m
+[32mchunk-IEM3X7MZ.js[37m  [2m | [22m[2mdossier-management-component[22m           [2m | [22m[36m728.09 kB[37m[2m | [22m
+[32mchunk-2AK3JFDH.js[37m  [2m | [22m[2minfrastructure-component[22m               [2m | [22m[36m361.67 kB[37m[2m | [22m
+[32mchunk-ENR27O56.js[37m  [2m | [22m[2mtransmission-line-search-component[22m     [2m | [22m[36m213.36 kB[37m[2m | [22m
+[32mchunk-YAL6JAAO.js[37m  [2m | [22m[2msubstation-search-component[22m            [2m | [22m[36m212.06 kB[37m[2m | [22m
+[32mchunk-ZHWTJCSU.js[37m  [2m | [22m[2mdossier-search-component[22m               [2m | [22m[36m119.71 kB[37m[2m | [22m
+[32mchunk-RSTVRXJG.js[37m  [2m | [22m[2mdossier-lookup-detail-component[22m        [2m | [22m [36m93.35 kB[37m[2m | [22m
+[32mchunk-CMERU7XU.js[37m  [2m | [22m[2mdossier-detail-component[22m               [2m | [22m [36m82.79 kB[37m[2m | [22m
+[32mchunk-PYPOJBOA.js[37m  [2m | [22m[2mdocument-fulltext-detail-component[22m     [2m | [22m [36m75.15 kB[37m[2m | [22m
+[32mchunk-UOWJIYNO.js[37m  [2m | [22m[2minfrastructure-dossier-detail-component[22m[2m | [22m [36m32.61 kB[37m[2m | [22m
+[32mchunk-ZNIRGMCP.js[37m  [2m | [22m[2mreport-dossier-detail-component[22m        [2m | [22m [36m31.68 kB[37m[2m | [22m
+[32mchunk-VBJTEQBG.js[37m  [2m | [22m[2mindex[22m                                  [2m | [22m [36m29.65 kB[37m[2m | [22m
+[[39m[37m32mchunk-ZAQE4N7M.js[37m  [2m | [22m[2m-[22m                                      [2m | [22m [36m28.65 kB[37m[2m | [22m
+[32mchunk-K4SQCS3Y.js[37m  [2m | [22m[2mindex[22m                                  [2m | [22m  [36m8.37 kB[37m[2m | [22m
+[32mchunk-MR7AAVPT.js[37m  [2m | [22m[2m-[22m                                      [2m | [22m  [36m4.03 kB[37m[2m | [22m
+[2m...and 5 more lazy chunks files. Use "--verbose" to show all the files.[22m
+[35mServer bundles[37m     
+[1mInitial chunk files[22m[2m | [22m[1mNames[22m                                  [2m | [22m [1mRaw size[22m
+[32mmain.server.mjs[37m    [2m | [22m[2mmain.server[22m                            [2m | [22m [36m10.20 kB[37m[2m | [22m
+[1mLazy chunk files[22m   [2m | [22m[1mNames[22m                                  [2m | [22m [1mRaw size[22m
+[32mchunk-4GDYONWR.mjs[37m [2m | [22m[2m-[22m                                      [2m | [22m[36m969.74 kB[37m[2m | [22m
+[32mchunk-P3Y33ALP.mjs[37m [2m | [22m[2mdossier-management-component[22m           [2m | [22m[36m728.14 kB[37m[2m | [22m
+[32mchunk-BSFIS2XM.mjs[37m [2m | [22m[2minfrastructure-component[22m               [2m | [22m[36m361.72 kB[37m[2m | [22m
+[32mchunk-QMMM4GAG.mjs[37m [2m | [22m[2mtransmission-line-search-component[22m     [2m | [22m[36m213.42 kB[37m[2m | [22m
+[32mchunk-F2ZIGRRI.mjs[37m [2m | [22m[2msubstation-search-component[22m            [2m | [22m[36m212.11 kB[37m[2m | [22m
+[32mchunk-YB6U5DFR.mjs[37m [2m | [22m[2mdossier-search-component[22m               [2m | [22m[36m119.77 kB[37m[2m | [22m
+[32mchunk-6U2FPRQY.mjs[37m [2m | [22m[2mdossier-lookup-detail-component[22m        [2m | [22m [36m93.40 kB[37m[2m | [22m
+[32mchunk-ONPQRO6R.mjs[37m [2m | [22m[2mdossier-detail-component[22m               [2m | [22m [36m82.85 kB[37m[2m | [22m
+[32mchunk-7ZVKEM5M.mjs[37m [2m | [22m[2mdocument-[39m[37mfulltext-detail-component[22m     [2m | [22m [36m75.21 kB[37m[2m | [22m
+[32mchunk-SFWQXP3O.mjs[37m [2m | [22m[2minfrastructure-dossier-detail-component[22m[2m | [22m [36m32.66 kB[37m[2m | [22m
+[32mchunk-E7G5PDBF.mjs[37m [2m | [22m[2mreport-dossier-detail-component[22m        [2m | [22m [36m31.74 kB[37m[2m | [22m
+[32mchunk-COYJ454P.mjs[37m [2m | [22m[2mindex[22m                                  [2m | [22m [36m29.70 kB[37m[2m | [22m
+[32mchunk-B453GTRR.mjs[37m [2m | [22m[2m-[22m                                      [2m | [22m [36m28.69 kB[37m[2m | [22m
+[32mchunk-HO5OVOUX.mjs[37m [2m | [22m[2mindex[22m                                  [2m | [22m  [36m8.42 kB[37m[2m | [22m
+[32mchunk-4TCTY2XY.mjs[37m [2m | [22m[2m-[22m                                      [2m | [22m  [36m4.06 kB[37m[2m | [22m
+[2m...and 5 more lazy chunks files. Use "--verbose" to show all the files.[22m
+Application bundle generation complete. [3.691 seconds] - 2026-08-01T09:54:48.517Z
+[39m
+[1m[33m[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mNG8113: DeleteConfirmDialogComponent is not used within the template of AuditLogComponent[0m [1m[35m[plugin angular-compiler][0m
+    libs/features/administration/src/lib/components/audit-log/audit-log.component.ts:48:4:
+[37m      48 │     [32mDeleteConfirmDialogComponent[37m
+         ╵     [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mNG8113: WfBreadcrumbComponent is not used within the template of WorkflowBuilderComponent[0m [1m[35m[plugin angular-compiler][0m
+    libs/features/workflow/src/lib/feature/workflow-builder/workflow-builder.component.ts:44:78:
+[37m      44 │ ...le, ToastModule, DialogModule, MenuModule, [32mWfBreadcrumbComponent[37m],
+         ╵                                               [32m~~~~~~~~~~~~~~~~~~~~~[0m
+[39m[22m
+[37mComponent update sent to client(s).[39m
+[33m>[39m Changes detected. Rebuilding...
+[32m√[39m Changes detected. Rebuilding...
+[37m
+No output file changes.
+Application bundle generation complete. [5.195 seconds] - 2026-08-01T09:54:53.766Z
+[39m
+[1m[33m[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mNG8113: DeleteConfirmDialogComponent is not used within the template of AuditLogComponent[0m [1m[35m[plugin angular-compiler][0m
+    libs/features/administration/src/lib/components/audit-log/audit-log.component.ts:48:4:
+[37m      48 │     [32mDeleteConfirmDialogComponent[37m
+         ╵     [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mNG8113: WfBreadcrumbComponent is not used within the template of WorkflowBuilderComponent[0m [1m[35m[plugin angular-compiler][0m
+    libs/features/workflow/src/lib/feature/workflow-builder/workflow-builder.component.ts:44:78:
+[37m      44 │ ...le, ToastModule, DialogModule, MenuModule, [32mWfBreadcrumbComponent[37m],
+         ╵                                               [32m~~~~~~~~~~~~~~~~~~~~~[0m
+[39m[22m
+[37mComponent update sent to client(s).[39m
+[33m>[39m Changes detected. Rebuilding...
+[32m√[39m Changes detected. Rebuilding...
+[37m[35mBrowser bundles[37m    
+[1mInitial chunk files[22m[2m | [22m[1mNames[22m                                  [2m | [22m [1mRaw size[22m
+[32mmain.js[37m            [2m | [22m[2mmain[22m                                   [2m | [22m  [36m8.86 kB[37m[2m | [22m
+[1mLazy chunk files[22m   [2m | [22m[1mNames[22m                                  [2m | [22m [1mRaw size[22m
+[32mchunk-OLOKMEBG.js[37m  [2m | [22m[2m-[22m                                      [2m | [22m[36m969.71 kB[37m[2m | [22m
+[32mchunk-2NVFHGOL.js[37m  [2m | [22m[2mdossier-management-component[22m           [2m | [22m[36m728.09 kB[37m[2m | [22m
+[32mchunk-HJAZILTJ.js[37m  [2m | [22m[2minfrastructure-component[22m               [2m | [22m[36m361.67 kB[37m[2m | [22m
+[32mchunk-GS3HJULB.js[37m  [2m | [22m[2mtransmission-line-search-component[22m     [2m | [22m[36m213.36 kB[37m[2m | [22m
+[32mchunk-A22YG66X.js[37m  [2m | [22m[2msubstation-search-component[22m            [2m | [22m[36m212.06 kB[37m[2m | [22m
+[32mchunk-XZJXQQWC.js[37m  [2m | [22m[2mdossier-search-component[22m               [2m | [22m[36m119.71 kB[37m[2m | [22m
+[32mchunk-3XCZOKZX.js[37m  [2m | [22m[2mdossier-lookup-detail-component[22m        [2m | [22m [36m93.35 kB[37m[2m | [22m
+[32mchunk-XKZNKS6J.js[37m  [2m | [22m[2mdossier-detail-component[22m               [2m | [22m [36m82.79 kB[37m[2m | [22m
+[32mchunk-SYJBSQGZ.js[37m  [2m | [22m[2mdocument-fulltext-detail-component[22m     [2m | [22m [36m75.15 kB[37m[2m | [22m
+[32mchunk-PPBCCVWW.js[37m  [2m | [22m[2minfrastructure-dossier-detail-component[22m[2m | [22m [36m32.61 kB[37m[2m | [22m
+[32mchunk-BHKYLR7D.js[37m  [2m | [22m[2mreport-dossier-detail-component[22m        [2m | [22m [36m31.68 kB[37m[2m | [22m
+[32mchunk-YZW7SQF5.js[37m  [2m | [22m[2mindex[22m                                  [2m | [22m [36m29.65 kB[37m[2m | [22m
+[[39m[37m32mchunk-ON4A2E7A.js[37m  [2m | [22m[2m-[22m                                      [2m | [22m [36m28.65 kB[37m[2m | [22m
+[32mchunk-IY72M5NV.js[37m  [2m | [22m[2mindex[22m                                  [2m | [22m  [36m8.37 kB[37m[2m | [22m
+[32mchunk-AZUY6JDT.js[37m  [2m | [22m[2m-[22m                                      [2m | [22m  [36m4.03 kB[37m[2m | [22m
+[2m...and 5 more lazy chunks files. Use "--verbose" to show all the files.[22m
+[35mServer bundles[37m     
+[1mInitial chunk files[22m[2m | [22m[1mNames[22m                                  [2m | [22m [1mRaw size[22m
+[32mmain.server.mjs[37m    [2m | [22m[2mmain.server[22m                            [2m | [22m [36m10.20 kB[37m[2m | [22m
+[1mLazy chunk files[22m   [2m | [22m[1mNames[22m                                  [2m | [22m [1mRaw size[22m
+[32mchunk-NVVXUXDQ.mjs[37m [2m | [22m[2m-[22m                                      [2m | [22m[36m969.75 kB[37m[2m | [22m
+[32mchunk-2HKICY4K.mjs[37m [2m | [22m[2mdossier-management-component[22m           [2m | [22m[36m728.14 kB[37m[2m | [22m
+[32mchunk-22QMK6A2.mjs[37m [2m | [22m[2minfrastructure-component[22m               [2m | [22m[36m361.72 kB[37m[2m | [22m
+[32mchunk-6OPX4PFX.mjs[37m [2m | [22m[2mtransmission-line-search-component[22m     [2m | [22m[36m213.42 kB[37m[2m | [22m
+[32mchunk-3H3XP33E.mjs[37m [2m | [22m[2msubstation-search-component[22m            [2m | [22m[36m212.11 kB[37m[2m | [22m
+[32mchunk-ZUHPORJX.mjs[37m [2m | [22m[2mdossier-search-component[22m               [2m | [22m[36m119.77 kB[37m[2m | [22m
+[32mchunk-4NTERZJY.mjs[37m [2m | [22m[2mdossier-lookup-detail-component[22m        [2m | [22m [36m93.40 kB[37m[2m | [22m
+[32mchunk-XD7T4NFL.mjs[37m [2m | [22m[2mdossier-detail-component[22m               [2m | [22m [36m82.85 kB[37m[2m | [22m
+[32mchunk-Q7F4WA2K.mjs[37m [2m | [22m[2mdocument-[39m
+[37mfulltext-detail-component[22m     [2m | [22m [36m75.21 kB[37m[2m | [22m
+[32mchunk-QY3VWUXV.mjs[37m [2m | [22m[2minfrastructure-dossier-detail-component[22m[2m | [22m [36m32.66 kB[37m[2m | [22m
+[32mchunk-5PTDEE7B.mjs[37m [2m | [22m[2mreport-dossier-detail-component[22m        [2m | [22m [36m31.74 kB[37m[2m | [22m
+[32mchunk-EI4FX4CC.mjs[37m [2m | [22m[2mindex[22m                                  [2m | [22m [36m29.70 kB[37m[2m | [22m
+[32mchunk-7X6DLZRA.mjs[37m [2m | [22m[2m-[22m                                      [2m | [22m [36m28.69 kB[37m[2m | [22m
+[32mchunk-2FX7AUIZ.mjs[37m [2m | [22m[2mindex[22m                                  [2m | [22m  [36m8.42 kB[37m[2m | [22m
+[32mchunk-TDARTUBI.mjs[37m [2m | [22m[2m-[22m                                      [2m | [22m  [36m4.06 kB[37m[2m | [22m
+[2m...and 5 more lazy chunks files. Use "--verbose" to show all the files.[22m
+Application bundle generation complete. [3.217 seconds] - 2026-08-01T09:56:30.202Z
+[39m
+[1m[33m[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mNG8113: DeleteConfirmDialogComponent is not used within the template of AuditLogComponent[0m [1m[35m[plugin angular-compiler][0m
+    libs/features/administration/src/lib/components/audit-log/audit-log.component.ts:48:4:
+[37m      48 │     [32mDeleteConfirmDialogComponent[37m
+         ╵     [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mNG8113: WfBreadcrumbComponent is not used within the template of WorkflowBuilderComponent[0m [1m[35m[plugin angular-compiler][0m
+    libs/features/workflow/src/lib/feature/workflow-builder/workflow-builder.component.ts:44:78:
+[37m      44 │ ...le, ToastModule, DialogModule, MenuModule, [32mWfBreadcrumbComponent[37m],
+         ╵                                               [32m~~~~~~~~~~~~~~~~~~~~~[0m
+[39m[22m
+[37mComponent update sent to client(s).[39m
+[33m>[39m Changes detected. Rebuilding...
+[32m√[39m Changes detected. Rebuilding...
+[37m
+No output file changes.
+Application bundle generation complete. [3.260 seconds] - 2026-08-01T10:25:17.122Z
+[39m
+[1m[33m[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mNG8113: DeleteConfirmDialogComponent is not used within the template of AuditLogComponent[0m [1m[35m[plugin angular-compiler][0m
+    libs/features/administration/src/lib/components/audit-log/audit-log.component.ts:48:4:
+[37m      48 │     [32mDeleteConfirmDialogComponent[37m
+         ╵     [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mNG8113: WfBreadcrumbComponent is not used within the template of WorkflowBuilderComponent[0m [1m[35m[plugin angular-compiler][0m
+    libs/features/workflow/src/lib/feature/workflow-builder/workflow-builder.component.ts:44:78:
+[37m      44 │ ...le, ToastModule, DialogModule, MenuModule, [32mWfBreadcrumbComponent[37m],
+         ╵                                               [32m~~~~~~~~~~~~~~~~~~~~~[0m
+[39m[22m
+[37mComponent update sent to client(s).[39m
